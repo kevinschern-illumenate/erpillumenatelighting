@@ -3,6 +3,7 @@ import 'fake-indexeddb/auto';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import catalogPayload from '../../packages/core-schemas/fixtures/catalog/payload.json';
 import { App } from './App';
 import { DesignApiError, type DesignApi } from './design/api';
 import { openDrafts, type DraftStore } from './design/drafts';
@@ -113,6 +114,34 @@ describe('designer shell', () => {
     });
     expect(el.querySelector('[data-testid="save-state"]')?.textContent).toBe('Saved · 15:42');
     expect(el.textContent).toContain('Revision A');
+  });
+
+  it('asks the server to re-check the saved design and says when it disagrees', async () => {
+    const verifyDesign = vi.fn().mockResolvedValue({
+      ok: false,
+      mismatches: [{ code: 'PSU_OVERLOAD', entityRef: 'PS-1', client: false, server: true }],
+      summary: { loading: [], runs: {}, messages: [], review: [] },
+    });
+    const api = apiFor(openFixture({ catalog_hash: 'f'.repeat(64) }), {
+      getCatalog: vi.fn().mockResolvedValue(catalogPayload),
+      verifyDesign,
+    });
+    await render(api);
+    await click(button('Accept and continue'));
+    // Let the checks run on the opened design.
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 250)));
+    await click(button('Save'));
+    for (let i = 0; i < 3; i += 1) await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    // Nothing is on a supply yet, so only the dealer data and the D4 triggers are in the subset.
+    expect(verifyDesign).toHaveBeenCalledWith('SYSD-2026-00002', {
+      loading: [],
+      runs: {},
+      messages: ['DATA_BY_DEALER|line:e1other'],
+      review: expect.any(Array),
+    });
+    expect(el.querySelector('[data-testid="verify-banner"]')?.textContent).toContain(
+      "ilLumenate's server check disagrees with one result",
+    );
   });
 
   it('shows readiness and the check panel counts, and collapses the panel', async () => {

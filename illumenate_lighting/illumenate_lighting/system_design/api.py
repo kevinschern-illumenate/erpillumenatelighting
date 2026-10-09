@@ -166,6 +166,14 @@ def create_revision(design=None, note=None):
 	return designs.create_revision(design, note)
 
 
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def verify_design(design=None, client=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.verify_design(design, parse_json(client, "client") if client not in (None, "") else None)
+
+
 # --- Reconcile and copy forward (WP-2.5, H6) -----------------------------------------------------
 
 

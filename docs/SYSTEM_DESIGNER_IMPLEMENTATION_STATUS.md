@@ -481,3 +481,35 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - Run-length checks already listed by the Runs step are not repeated from the engine.
   - Dimmer minimum load, LED maximum and neutral checks have codes reserved but wait on dimmer data in
     the catalog; they are not reported yet.
+
+## WP-3.6 — Python verification mirror
+
+- Golden fixtures: `tools/system_designer/fixtures/golden/`, 14 cases. Each is `<name>.input.json`
+  (design, catalog subset, wires, VD limits) and `<name>.expected.json` (engine runs, all messages,
+  build hash and the `verify` subset). `packages/engine/test/golden.test.ts` builds the cases and
+  checks the engine against them; `UPDATE_GOLDEN=1` rebuilds both files.
+  - Cases: cove-24v-single, cove-too-long, class2-over, vd-over-target, tape-undervoltage, in-wall,
+    third-party-mixed, voltage-mismatch, pixel-tape, two-output-supply, kitchen-zones, load-over-1500,
+    load-at-1500, incomplete-product.
+- Engine: `packages/engine/src/verify.ts` (`verifySubset`) and `reviewTriggers` in `power.ts` (the
+  D4 triggers from the design, which `reviewHints` now uses).
+- Python: `system_design/verify.py` re-computes the §18.2 subset: supply and output loading against
+  ratings and the operating target, Class 2 output load, tape run length, voltage drop and wire
+  selection on single-channel Class 2 DC runs (Chapter 9 Table 8), the in-wall CL2/CL3 rule, voltage
+  match, dealer data (D8) and the D4 triggers. `compare` lists each disagreement with both values.
+  - The NEC tables are copied to `system_design/code_tables/` by `npm run schema:export`; CI fails when
+    the copies are stale.
+- Endpoint: `verify_design(design, client?)` (POST) re-checks a saved design against its catalog
+  snapshot and stores the outcome in the new `verification_json` field on `ilL-System-Design`.
+  Returns `{ok, mismatches:[{code, entityRef, client, server}], summary}`.
+- App: after each save the designer sends its own subset; a disagreement shows a banner and stays on
+  the design for the reviewer. A failed verify call never blocks the dealer.
+- Tests: `golden.test.ts`; `tests/portal_unit/test_system_design_parity.py` (all golden cases, dealer
+  items, code tables, compare, targets); installed `test_designs.test_verify_design_on_the_server`;
+  jsdom save-and-verify in `App.test.tsx`.
+- Discrepancies and choices:
+  - The plan's `riser-example`, `phase-dimmer-min-load`, `dmx-tw-rgbw` and allocator cases wait on
+    their features (riser import, dimmer data, DMX patching in the designer, WP-5 allocator).
+  - Protocol match is enforced when runs are put in zones (WP-3.4); the engine's control-link
+    `PROTOCOL_MISMATCH` joins the mirror when the designer draws control links.
+  - Multichannel and line-voltage wire sizing stay with the engine; their loading is still verified.

@@ -184,6 +184,28 @@ class TestDesigns(IntegrationTestCase):
 		self.assertTrue(saved["success"], saved)
 		self.assertTrue(api.reconcile_design(design=data["name"])["data"]["in_sync"])
 
+	def test_verify_design_on_the_server(self):
+		data = self.save()["data"]
+		alone = api.verify_design(design=data["name"])
+		self.assertTrue(alone["success"], alone)
+		self.assertEqual((alone["data"]["ok"], alone["data"]["mismatches"]), (True, []))
+		summary = alone["data"]["summary"]
+		self.assertEqual(set(summary), {"loading", "runs", "messages", "review"})
+		agreed = api.verify_design(design=data["name"], client=json.dumps(summary))["data"]
+		self.assertTrue(agreed["ok"])
+		disputed = api.verify_design(
+			design=data["name"], client=json.dumps({**summary, "messages": ["PSU_OVERLOAD|PS-9"]})
+		)["data"]
+		self.assertFalse(disputed["ok"])
+		self.assertIn(
+			{"code": "PSU_OVERLOAD", "entityRef": "PS-9", "client": True, "server": False},
+			disputed["mismatches"],
+		)
+		stored = json.loads(frappe.db.get_value("ilL-System-Design", data["name"], "verification_json"))
+		self.assertEqual((stored["ok"], stored["compared"]), (False, True))
+		self.assertEqual(api.verify_design(design="nope")["code"], "NOT_FOUND")
+		self.assertEqual(api.verify_design(design=data["name"], client="[1")["code"], "INVALID")
+
 	def test_copy_forward_to_the_next_version(self):
 		data = self.save()["data"]
 		next_name = self.schedule.create_new_version(version_notes="ZZ designer copy test")

@@ -46,7 +46,8 @@
   "build_hash",
   "design_json",
   "line_fingerprint_json",
-  "result_summary_json"
+  "result_summary_json",
+  "verification_json"
  ],
  "fields": [
   {
@@ -317,11 +318,18 @@
    "fieldtype": "Long Text",
    "label": "Result Summary",
    "read_only": 1
+  },
+  {
+   "description": "The server's re-check of the gating subset (verify_design) and any disagreement with the designer.",
+   "fieldname": "verification_json",
+   "fieldtype": "Long Text",
+   "label": "Verification JSON",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-09 18:00:00.000000",
+ "modified": "2026-10-09 20:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-System-Design",

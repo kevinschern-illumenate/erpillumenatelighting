@@ -1,0 +1,443 @@
+{
+ "description": "Dealer-entered line-voltage fixtures on a panel circuit beside ilLumenate tape on a supply.",
+ "design": {
+  "schemaVersion": 1,
+  "engineVersion": "riser-1.2.0",
+  "catalogSnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schedule": {
+   "name": "SCH-FIXTURE",
+   "version": 2
+  },
+  "site": {
+   "spaces": [
+    {
+     "id": "space-kitchen",
+     "name": "Kitchen",
+     "level": "",
+     "type": "other",
+     "archetype": "none",
+     "env": "dry-concealed"
+    },
+    {
+     "id": "space-living-room",
+     "name": "Living Room",
+     "level": "",
+     "type": "other",
+     "archetype": "none",
+     "env": "dry-concealed"
+    },
+    {
+     "id": "space-hall",
+     "name": "Hall",
+     "level": "",
+     "type": "other",
+     "archetype": "none",
+     "env": "dry-concealed"
+    },
+    {
+     "id": "unassigned",
+     "name": "Project",
+     "level": "",
+     "type": "other",
+     "archetype": "none",
+     "env": "dry-concealed"
+    }
+   ],
+   "cabinets": [
+    {
+     "id": "cab-1",
+     "tag": "C-1",
+     "name": "Kitchen cabinet",
+     "spaceId": "space-kitchen",
+     "locationRating": "Dry",
+     "env": "dry-concealed",
+     "envChoice": "dry-concealed",
+     "accessNote": "",
+     "feedLengthFt": 10,
+     "feedLengthProvenance": "estimate"
+    }
+   ],
+   "floorPlans": []
+  },
+  "runs": [
+   {
+    "key": "a1linear:1:1",
+    "lineKey": "a1linear",
+    "lineId": "A1",
+    "buildIndex": 1,
+    "runIndex": 1,
+    "source": {
+     "kind": "configured",
+     "doctype": "ilL-Configured-Fixture",
+     "name": "ILL-CF-LINEAR",
+     "configHash": "hash-linear"
+    },
+    "catalogId": "tape:TEST-TAPE-24:4.4:50",
+    "lengthFt": 6,
+    "watts": 26.4,
+    "feedMethod": "end",
+    "spaceId": "space-kitchen",
+    "env": "dry-concealed",
+    "homeRunLengthFt": 10,
+    "homeRunProvenance": "estimate",
+    "assignment": {
+     "equipmentId": "PS-1",
+     "port": "OUT1"
+    }
+   },
+   {
+    "key": "e1other:1:1",
+    "lineKey": "e1other",
+    "lineId": "E1",
+    "buildIndex": 1,
+    "runIndex": 1,
+    "groupId": "grp-e1other",
+    "source": {
+     "kind": "third-party"
+    },
+    "catalogId": "tp:e1other",
+    "watts": 12,
+    "feedMethod": "end",
+    "spaceId": "space-hall",
+    "env": "dry-concealed",
+    "homeRunLengthFt": 10,
+    "homeRunProvenance": "estimate",
+    "assignment": {
+     "equipmentId": "src-1",
+     "port": "LINE"
+    }
+   },
+   {
+    "key": "e1other:2:1",
+    "lineKey": "e1other",
+    "lineId": "E1",
+    "buildIndex": 2,
+    "runIndex": 1,
+    "groupId": "grp-e1other",
+    "source": {
+     "kind": "third-party"
+    },
+    "catalogId": "tp:e1other",
+    "watts": 12,
+    "feedMethod": "end",
+    "spaceId": "space-hall",
+    "env": "dry-concealed",
+    "homeRunLengthFt": 10,
+    "homeRunProvenance": "estimate",
+    "assignment": {
+     "equipmentId": "src-1",
+     "port": "LINE"
+    }
+   }
+  ],
+  "zones": [],
+  "project": {
+   "schemaVersion": 1,
+   "id": "00000000-0000-4000-8000-000000000001",
+   "meta": {
+    "name": "Fixture house",
+    "number": "",
+    "client": "",
+    "siteAddress": "",
+    "designer": "",
+    "checker": "",
+    "date": "2026-10-09",
+    "brand": "illumenate",
+    "sheetPrefix": "L-",
+    "stamp": "PRELIMINARY"
+   },
+   "settings": {
+    "necEdition": "2023",
+    "terminationTempC": 75,
+    "vdTargetLineVoltagePct": 3,
+    "vdTargetLowVoltagePct": 3,
+    "vdTargetLandscapePct": 5,
+    "vdMethod": "lumped-at-end",
+    "acVdMethod": "dc-resistance",
+    "psuDeratePct": 80,
+    "continuousLoadFactor": 1.25,
+    "breakerLoadLimitPct": 80,
+    "tapeLengthMarginPct": 0,
+    "minAwgLineVoltage": "12",
+    "dmxMaxUnitLoads": 32,
+    "dmxMaxLengthFt": 1000,
+    "spiMaxDataFt": 15,
+    "units": "ft",
+    "drawingFont": "Arimo",
+    "showSchedules": true,
+    "sheet": {
+     "size": "ARCH_D",
+     "flow": "LR"
+    },
+    "wireWastePct": 10,
+    "dmxAutoPatchRoundTo": 1,
+    "wireLabelTemplate": "{tag} · {wireLabel} · {lengthFt} ft · VD {vdPct}%",
+    "parallelConductorPolicy": "manual-review-required"
+   },
+   "sources": [
+    {
+     "id": "src-1",
+     "tag": "CKT-1",
+     "panel": "LP-1",
+     "circuit": "1",
+     "voltage": 120,
+     "phase": "1PH",
+     "breakerA": 20,
+     "poles": 1
+    }
+   ],
+   "equipment": [
+    {
+     "id": "PS-1",
+     "tag": "PS-1",
+     "catalogId": "drv:TEST-PSU-96",
+     "category": "psu",
+     "qty": 1,
+     "location": "Kitchen cabinet",
+     "enclosure": "cab-1",
+     "fedFrom": {
+      "ref": "unassigned"
+     },
+     "feedLengthFt": 10,
+     "env": "dry-concealed"
+    }
+   ],
+   "loads": [],
+   "controlLinks": [],
+   "wireOverrides": {},
+   "layoutOverrides": {},
+   "generalNotes": [
+    "Install and commission equipment in accordance with the approved product documentation, project specifications and adopted code. Verify listings and installation conditions before procurement.",
+    "Field-verify circuit voltage, source identity, enclosure locations, access and actual one-way cable lengths before installation. Coordinate discrepancies with the designer.",
+    "Maintain required separation, barriers and wiring methods between power-limited circuits and branch circuits. Cable voltage rating alone does not authorize mixed routing.",
+    "Verify conductor material, gauge, insulation, environmental rating, ampacity and terminal capacity for every run. Account for applicable ambient and grouping adjustments.",
+    "Do not parallel power-supply outputs or field conductors unless the listed equipment instructions and applicable rules permit the arrangement. Provide approved distribution and overcurrent protection as required.",
+    "Route wired DMX as a daisy chain or through a listed opto-splitter. Terminate the final receiver of each physical segment as required by the receiving equipment instructions. Verify shield and common connections.",
+    "Observe the tape manufacturer maximum run, feed arrangement, cut interval, polarity and thermal mounting requirements. Coordinate extra feeds and accessible power supplies where required.",
+    "Apply the project PSU operating-load target of 80% unless a reviewed project setting specifies otherwise. This company target is separate from the listed supply rating and circuit sizing rules.",
+    "Treat DALI bus insulation and routing in accordance with the actual devices and adopted code; do not assume a DALI pair is SELV or may share a raceway solely because its nominal signal voltage is low.",
+    "Coordinate controller protocols, addressing, universes, data link lengths and termination during commissioning. Verify operation of all channels at the maximum permitted operating load.",
+    "Single-ended SPI data runs above the project limit require a compatible differential link or revised controller location. Size pixel power separately from the data connection.",
+    "Seal, protect and support outdoor and direct-burial cable systems using products listed for the actual location. Verify cable, splice and enclosure ratings as a complete installation."
+   ],
+   "keyNotes": [],
+   "revisions": [],
+   "wireTagMap": {},
+   "scratchNote": ""
+  },
+  "views": {
+   "saved3d": []
+  },
+  "overrides": []
+ },
+ "products": [
+  {
+   "id": "drv:TEST-PSU-96",
+   "sku": "TEST-PSU-96",
+   "brand": "ilLumenate",
+   "model": "Test 96 W supply",
+   "category": "psu",
+   "description": "Test 96 W supply",
+   "erpItemCode": "TEST-PSU-96",
+   "isExample": false,
+   "specs": {
+    "kind": "psu",
+    "inputType": "AC",
+    "inputPhase": "1PH",
+    "inputVMin": 100,
+    "inputVMax": 277,
+    "outputType": "CV",
+    "outputV": 24,
+    "ratedW": 96,
+    "outputs": [
+     {
+      "name": "OUT1",
+      "maxW": 96,
+      "class2": true
+     }
+    ],
+    "efficiency": 0.9,
+    "powerFactor": 0.95,
+    "maxInputA": 1.2,
+    "maxInputAAtV": 120,
+    "inrushA": 30,
+    "maxUnitsPer20ABreaker": 8,
+    "dimming": [
+     "0-10V"
+    ],
+    "terminalMinAwg": "18",
+    "terminalMaxAwg": "12",
+    "listings": [
+     "Class 2",
+     "UL 8750"
+    ],
+    "usableLoadFactor": 0.8
+   },
+   "source": {
+    "kind": "manufacturer",
+    "reference": "ERPNext ilL-Spec-Driver TEST-PSU-96"
+   },
+   "sourceData": {
+    "doctype": "ilL-Spec-Driver",
+    "name": "TEST-PSU-96"
+   },
+   "localOverrides": [],
+   "rank": 2
+  },
+  {
+   "id": "tape:TEST-TAPE-24:4.4:50",
+   "sku": "TEST-TAPE-24 4.4 W/ft 50 mm cut",
+   "brand": "ilLumenate",
+   "model": "Test tape 24 V",
+   "category": "tape",
+   "description": "Test tape 24 V",
+   "erpItemCode": "TEST-TAPE-24",
+   "isExample": false,
+   "specs": {
+    "kind": "tape",
+    "voltage": 24,
+    "drive": "CV",
+    "wPerFtMax": 4.4,
+    "powerBasis": "all-channel-max",
+    "channels": 1,
+    "channelMap": [
+     "CH1"
+    ],
+    "maxSimultaneousPct": 100,
+    "maxRunFtSingleFeed": 16,
+    "maxRunFtDoubleFeed": 32,
+    "freeCutting": false,
+    "cutIntervalIn": 1.9685,
+    "minOperatingV": 20,
+    "reelLengthFt": 16.4042
+   },
+   "source": {
+    "kind": "manufacturer",
+    "reference": "ERPNext ilL-Spec-LED Tape TEST-TAPE-24"
+   },
+   "sourceData": {
+    "doctype": "ilL-Spec-LED Tape",
+    "name": "TEST-TAPE-24"
+   },
+   "localOverrides": []
+  },
+  {
+   "id": "tp:e1other",
+   "sku": "tp:e1other",
+   "brand": "Other Co",
+   "model": "DL-4",
+   "category": "fixture",
+   "description": "Other Co DL-4 (Data by dealer)",
+   "isExample": false,
+   "specs": {
+    "kind": "fixture",
+    "voltageClass": "line",
+    "inputV": 120,
+    "watts": 12,
+    "dimming": [
+     "phase-forward"
+    ],
+    "integralDriver": true
+   },
+   "source": {
+    "kind": "user-supplied",
+    "reference": "Data by dealer"
+   },
+   "localOverrides": []
+  }
+ ],
+ "wires": [
+  {
+   "id": "wire:TEST-WIRE-18-2",
+   "name": "18/2 CL3R test cable",
+   "manufacturerRefs": [],
+   "manufacturerRefChecks": [],
+   "category": "class2-power",
+   "applications": [
+    "class2-dc",
+    "lv-branch"
+   ],
+   "conductors": [
+    {
+     "count": 2,
+     "awg": "18",
+     "material": "Cu",
+     "stranding": "stranded",
+     "role": "power",
+     "colors": [
+      "Red",
+      "Black"
+     ]
+    }
+   ],
+   "listing": "CL3R",
+   "ratedV": 300,
+   "tempRatingC": 75,
+   "plenum": false,
+   "riser": true,
+   "wet": false,
+   "directBurial": false,
+   "sunlightResistant": false,
+   "shielded": false,
+   "odIn": 0.21,
+   "riserLabel": "18/2 CL3R",
+   "isExample": false,
+   "verify": true,
+   "source": {
+    "kind": "manufacturer",
+    "reference": "Test datasheet rev A"
+   },
+   "notes": "",
+   "ampacityBasis": "402.5-fallback",
+   "erpItemCode": "TEST-WIRE-18-2",
+   "salesUom": "spool",
+   "spoolLengthFt": 500
+  },
+  {
+   "id": "wire:TEST-WIRE-DMX",
+   "name": "DMX test cable",
+   "manufacturerRefs": [],
+   "manufacturerRefChecks": [],
+   "category": "data",
+   "applications": [
+    "dmx"
+   ],
+   "conductors": [
+    {
+     "count": 4,
+     "awg": "24",
+     "material": "Cu",
+     "stranding": "stranded",
+     "role": "data-pair",
+     "resistanceOhmPerKft": 25.7
+    }
+   ],
+   "listing": "CMR",
+   "ratedV": 300,
+   "tempRatingC": 60,
+   "plenum": false,
+   "riser": true,
+   "wet": false,
+   "directBurial": false,
+   "sunlightResistant": false,
+   "shielded": true,
+   "impedanceOhm": 120,
+   "riserLabel": "DMX 2PR",
+   "isExample": false,
+   "verify": false,
+   "source": {
+    "kind": "manufacturer",
+    "reference": "Test datasheet rev B"
+   },
+   "notes": "",
+   "ampacityBasis": "not-applicable",
+   "erpItemCode": "TEST-WIRE-DMX",
+   "salesUom": "foot"
+  }
+ ],
+ "limits": {
+  "vdTargetLowVoltagePct": 3,
+  "vdTargetLineVoltagePct": 3,
+  "vdTargetLandscapePct": 5
+ }
+}

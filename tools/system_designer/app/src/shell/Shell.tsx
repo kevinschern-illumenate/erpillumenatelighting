@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { PRODUCT_NAME } from '../product';
-import type { DesignApi } from '../design/api';
+import type { DesignApi, VerifyResult } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { saveDesign, type DesignStore, type SaveStatus } from '../design/store';
 import { CheckPanel } from './CheckPanel';
@@ -15,6 +15,7 @@ import { CheckStep } from './CheckStep';
 import { useCatalog } from '../design/catalog';
 import { useDesignCheck } from '../design/engine';
 import { vdLimits } from '@ill/engine/designCheck';
+import { verifySubset } from '@ill/engine/verify';
 import { STEPS, type Mode, type StepId } from './steps';
 
 const EDITABLE_STATUSES = new Set(['Draft', 'Changes Requested']);
@@ -86,8 +87,25 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
   const readOnly = readOnlyReason(open, meta?.status);
   const review = reviewChip(open, meta?.status);
   const canSave = !readOnly && dirty && saveStatus !== 'saving';
+  const [verification, setVerification] = useState<VerifyResult | null>(null);
+  const latestCheck = useRef(engine);
+  useEffect(() => {
+    latestCheck.current = engine;
+  }, [engine]);
+  // Save, then ask the server to re-check the gating subset of what was saved (plan §18.2).
+  const saveAndVerify = useCallback(async () => {
+    const saving = store.getState().design;
+    const result = await saveDesign(store, api, drafts);
+    const check = latestCheck.current;
+    if (!result || !saving || check.state !== 'ready' || check.design !== saving) return;
+    try {
+      setVerification(await api.verifyDesign(result.name, verifySubset(saving, check.check)));
+    } catch {
+      // The server check is advisory for the dealer; reviewers see it on the design.
+    }
+  }, [store, api, drafts]);
   const save = () => {
-    if (canSave) void saveDesign(store, api, drafts);
+    if (canSave) void saveAndVerify();
   };
 
   useEffect(() => {
@@ -96,7 +114,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
       const key = event.key.toLowerCase();
       if (key === 's') {
         event.preventDefault();
-        if (!readOnly && store.getState().dirty) void saveDesign(store, api, drafts);
+        if (!readOnly && store.getState().dirty) void saveAndVerify();
       }
       // Leave undo inside text fields to the browser.
       const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
@@ -107,7 +125,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [store, api, drafts, readOnly]);
+  }, [store, readOnly, saveAndVerify]);
 
   const index = STEPS.findIndex((item) => item.id === step);
   const current = STEPS[index]!;
@@ -170,6 +188,13 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
       {readOnly ? (
         <p className="ill-sd__banner" role="note">
           {readOnly}
+        </p>
+      ) : null}
+      {verification && !verification.ok ? (
+        <p className="ill-sd__banner" role="note" data-testid="verify-banner">
+          ilLumenate's server check disagrees with{' '}
+          {verification.mismatches.length === 1 ? 'one result' : `${verification.mismatches.length} results`} in this
+          design. Your reviewer will see the difference; contact your ilLumenate representative if it persists.
         </p>
       ) : null}
       {restoredDraft ? (

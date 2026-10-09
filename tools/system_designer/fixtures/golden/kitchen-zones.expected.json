@@ -1,0 +1,47 @@
+{
+ "buildHash": "8e39a450a08e7c2d58b43a0b5ce1886e12f279c7ecc9aefdca8daaf6b75530a0",
+ "runs": {
+  "power:load:a1linear:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.72875,
+   "endV": 23.8251
+  }
+ },
+ "messages": [
+  "warning|SUPPLY_NO_ACCESS|cab-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:1",
+  "warning|UNRESOLVED_REF|PS-1",
+  "warning|PSU_ABOVE_DERATE|PS-1",
+  "warning|RUN_UNASSIGNED|space-kitchen",
+  "warning|RUN_UNASSIGNED|space-living-room",
+  "info|REVIEW_REQUIRED|project"
+ ],
+ "verify": {
+  "loading": [
+   {
+    "entityId": "PS-1",
+    "port": "OUT1",
+    "wattsW": 26.4
+   },
+   {
+    "entityId": "PS-1",
+    "port": "OUT2",
+    "wattsW": 0
+   }
+  ],
+  "runs": {
+   "power:load:a1linear:1:1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.729
+   }
+  },
+  "messages": [
+   "PSU_ABOVE_DERATE|PS-1"
+  ],
+  "review": [
+   "DMX",
+   "PHASE_DIMMING"
+  ]
+ }
+}

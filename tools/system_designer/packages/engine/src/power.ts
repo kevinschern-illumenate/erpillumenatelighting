@@ -3,6 +3,7 @@ import type { Protocol } from '@ill/core-schemas/common';
 import type { Cabinet, Design, Run, Zone } from '@ill/core-schemas/design';
 import type { Builds, Line } from '@ill/core-schemas/open-design';
 import type { Equipment } from '@ill/core-schemas/project';
+import { DMX_PROTOCOLS, PHASE_PROTOCOLS } from '@ill/data/protocols';
 import { round } from './messages';
 import { buildFor, runLabel } from './runs';
 
@@ -428,14 +429,33 @@ export function setRunZone(design: Design, context: PowerContext, runKeys: reado
   }
 }
 
+/** The D4 thresholds (H8.5): Settings `review_gate_watts`, `review_gate_dmx`, `review_gate_phase_dimming`. */
+export interface ReviewGate {
+  watts: number;
+  dmx: boolean;
+  phaseDimming: boolean;
+}
+export const DEFAULT_REVIEW_GATE: ReviewGate = { watts: 1500, dmx: true, phaseDimming: true };
+export type ReviewTrigger = 'LOAD_OVER_THRESHOLD' | 'DMX' | 'PHASE_DIMMING';
+
+/** D4 triggers from the design: zone methods in use and the connected load. Mirrored in `gate.py`. */
+export function reviewTriggers(design: Design, gate: ReviewGate = DEFAULT_REVIEW_GATE): ReviewTrigger[] {
+  const triggers: ReviewTrigger[] = [];
+  const used = new Set(design.runs.map((run) => run.zoneId).filter(Boolean));
+  const methods = design.zones.filter((zone) => used.has(zone.id)).map((zone) => zone.method);
+  if (sum(design.runs.map((run) => run.watts)) > gate.watts) triggers.push('LOAD_OVER_THRESHOLD');
+  if (gate.dmx && methods.some((method) => DMX_PROTOCOLS.has(method))) triggers.push('DMX');
+  if (gate.phaseDimming && methods.some((method) => PHASE_PROTOCOLS.has(method))) triggers.push('PHASE_DIMMING');
+  return triggers;
+}
+
 /** D4 hints the dealer sees before the server decides (§10.5): DMX or phase-cut zones, or over 1.5 kW. */
 export function reviewHints(design: Design): string[] {
+  const triggers = reviewTriggers(design);
   const hints: string[] = [];
-  const used = new Set(design.runs.map((run) => run.zoneId).filter(Boolean));
-  const methods = new Set(design.zones.filter((zone) => used.has(zone.id)).map((zone) => zone.method));
-  if (methods.has('DMX512') || methods.has('CRMX-wireless')) hints.push('DMX control');
-  if (methods.has('phase-forward') || methods.has('phase-reverse')) hints.push('Phase-cut dimming');
-  const total = sum(design.runs.map((run) => run.watts));
-  if (total > 1500) hints.push(`${round(total / 1000, 2)} kW connected load`);
+  if (triggers.includes('DMX')) hints.push('DMX control');
+  if (triggers.includes('PHASE_DIMMING')) hints.push('Phase-cut dimming');
+  if (triggers.includes('LOAD_OVER_THRESHOLD'))
+    hints.push(`${round(sum(design.runs.map((run) => run.watts)) / 1000, 2)} kW connected load`);
   return hints;
 }

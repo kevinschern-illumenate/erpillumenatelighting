@@ -1,0 +1,47 @@
+{
+ "buildHash": "4208bf1b59e96ae956556731fc808af676bbfb7b6bd32a2c8710567318a64ca1",
+ "runs": {
+  "power:load:a1linear:1:1:feed1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 1.8218750000000001,
+   "endV": 23.56275
+  },
+  "power:load:a1linear:1:1:feed2": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 1.8218750000000001,
+   "endV": 23.56275
+  }
+ },
+ "messages": [
+  "warning|SUPPLY_NO_ACCESS|cab-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:1",
+  "warning|UNRESOLVED_REF|PS-1",
+  "warning|PSU_ABOVE_DERATE|PS-1"
+ ],
+ "verify": {
+  "loading": [
+   {
+    "entityId": "PS-1",
+    "port": "OUT1",
+    "wattsW": 88
+   }
+  ],
+  "runs": {
+   "power:load:a1linear:1:1:feed1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 1.822
+   },
+   "power:load:a1linear:1:1:feed2": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 1.822
+   }
+  },
+  "messages": [
+   "PSU_ABOVE_DERATE|PS-1"
+  ],
+  "review": []
+ }
+}

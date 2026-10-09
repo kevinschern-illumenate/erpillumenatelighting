@@ -1,3 +1,4 @@
+import type { VerifySubset } from '@ill/engine/verify';
 import type { Design } from '@ill/core-schemas/design';
 import type { ReconcileDiff } from '@ill/engine/reconcile';
 
@@ -34,6 +35,12 @@ export interface SaveResult {
 }
 
 /** One row of ``eligible_supplies``: ids and the opaque D6 rank, never a price. */
+export interface VerifyResult {
+  ok: boolean;
+  mismatches: { code: string; entityRef: string; client: unknown; server: unknown }[];
+  summary: VerifySubset;
+}
+
 export interface EligibleSupply {
   catalog_id: string;
   item_code: string | null;
@@ -117,6 +124,10 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         run_keys: JSON.stringify(args.runKeys),
         location_rating: args.locationRating,
       });
+    },
+    /** The server's re-check of the saved design's gating subset (plan §18.2). */
+    verifyDesign(design: string, client: VerifySubset) {
+      return post<VerifyResult>('verify_design', { design, client: JSON.stringify(client) });
     },
     reconcileDesign(design: string) {
       return call<ReconcileDiff>('reconcile_design', { method: 'GET' }, new URLSearchParams({ design }));

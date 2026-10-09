@@ -57,8 +57,8 @@ jobs:
           npm run typecheck --prefix tools/system_designer
           npm run build --prefix tools/system_designer
           npm run schema:export --prefix tools/system_designer
-          git status --porcelain --untracked-files=all illumenate_lighting/public/system_designer | (! grep .)
-          git diff --exit-code illumenate_lighting/public/system_designer
+          git status --porcelain --untracked-files=all illumenate_lighting/public/system_designer illumenate_lighting/illumenate_lighting/system_design/code_tables | (! grep .)
+          git diff --exit-code illumenate_lighting/public/system_designer illumenate_lighting/illumenate_lighting/system_design/code_tables
       - name: Catalog Builder browser workflow
         run: |
           npm ci --prefix tests/portal_e2e

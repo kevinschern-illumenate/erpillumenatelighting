@@ -12,7 +12,14 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, now_datetime
 
-from illumenate_lighting.illumenate_lighting.system_design import access, catalog, expansion, gate, reconcile
+from illumenate_lighting.illumenate_lighting.system_design import (
+	access,
+	catalog,
+	expansion,
+	gate,
+	reconcile,
+	verify,
+)
 from illumenate_lighting.illumenate_lighting.system_design.design_schema import (
 	build_hash,
 	canonical_json,
@@ -31,6 +38,7 @@ __all__ = [
 	"reconcile_design",
 	"save_design",
 	"validate_design_json",
+	"verify_design",
 ]
 
 DESIGN_DOCTYPE = "ilL-System-Design"
@@ -467,6 +475,46 @@ def reconcile_design(design):
 	schedule_doc = access.require_read(record.fixture_schedule)
 	lines, builds, _readiness = expansion.expand_schedule(schedule_doc, {})
 	return reconcile_for(record, lines, builds)
+
+
+def verify_design(design, client=None):
+	"""Re-check a saved design's gating subset on the server (H6 ``verify_design``, plan §18.2).
+
+	``client`` is the designer's own subset (``verifySubset``); without it the server answer is returned
+	with no comparison. The outcome is stored on the design for its reviewer.
+	"""
+	record = access.require_design(design)
+	require_designer()
+	schedule_doc = access.require_read(record.fixture_schedule)
+	if client is not None and not isinstance(client, dict):
+		raise DesignError("INVALID", _("client must be the designer's check subset"))
+	payload = catalog.get_snapshot(record.catalog_snapshot)
+	if payload is None:
+		raise DesignError("NOT_FOUND", _("Catalog snapshot not found"))
+	values = settings()
+	lines, _builds, _readiness = expansion.expand_schedule(schedule_doc, {})
+	server = verify.subset(
+		stored_design(record),
+		[*payload["items"], *verify.dealer_items(lines)],
+		payload.get("wires") or [],
+		verify.vd_limits(values),
+		gate={
+			"watts": values.review_gate_watts,
+			"dmx": bool(values.review_gate_dmx),
+			"phase_dimming": bool(values.review_gate_phase_dimming),
+		},
+	)
+	mismatches = verify.compare(client, server) if client is not None else []
+	outcome = {
+		"ok": not mismatches,
+		"build_hash": record.build_hash,
+		"verified_on": str(now_datetime()),
+		"compared": client is not None,
+		"mismatches": mismatches,
+		"summary": server,
+	}
+	record.db_set("verification_json", canonical_json(outcome), update_modified=False)
+	return {"ok": outcome["ok"], "mismatches": mismatches, "summary": server}
 
 
 def _schedule_root(schedule_doc):
