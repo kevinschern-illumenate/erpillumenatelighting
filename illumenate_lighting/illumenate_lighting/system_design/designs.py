@@ -104,8 +104,31 @@ def open_design(schedule, design=None):
 		"readiness": readiness,
 		"review_requirement": gate.review_requirement(lines, builds, values),
 		"permissions": permissions(doc),
-		"settings": {key: values[key] for key in CLIENT_SETTINGS},
+		"settings": client_settings(values),
+		"newer_version": newer_version(doc) if doc.get("is_locked") else None,
 	}
+
+
+def client_settings(values):
+	"""Settings the browser needs; the terms are sent as plain text (the client renders no HTML)."""
+	result = {key: values[key] for key in CLIENT_SETTINGS}
+	result["terms_text"] = frappe.utils.strip_html(result.get("terms_text") or "").strip()
+	return result
+
+
+def newer_version(schedule_doc):
+	"""The newest version of a locked schedule, ``{name, version}``, when it is not this one."""
+	root = _schedule_root(schedule_doc)
+	rows = frappe.get_all(
+		"ilL-Project-Fixture-Schedule",
+		filters={"version_parent": root},
+		fields=["name", "version"],
+		order_by="version desc",
+		limit=1,
+	)
+	if not rows or rows[0].name == schedule_doc.name:
+		return None
+	return {"name": rows[0].name, "version": rows[0].version or 0}
 
 
 def find_schedules(query, limit=FIND_LIMIT):
@@ -174,6 +197,7 @@ def design_meta(record):
 		"modified": str(record.modified),
 		"schedule_version": record.schedule_version,
 		"is_current": bool(record.is_current),
+		"terms_accepted": bool(record.get("terms_accepted_by")),
 	}
 
 
@@ -318,11 +342,14 @@ def _locked_for_edit(record, expected_modified):
 		)
 
 
-def save_design(schedule, design_json, design_name=None, expected_modified=None, reconciled=False):
+def save_design(
+	schedule, design_json, design_name=None, expected_modified=None, reconciled=False, terms_accepted=False
+):
 	"""Create or update the current design of a schedule version (H6 ``save_design``).
 
 	When the schedule changed since the last save, the client must apply the H8.4 diff and say so
 	with ``reconciled``; otherwise the save is a ``CONFLICT`` and the stored fingerprints stay put.
+	A revision is saved only once someone accepted the terms on it (``terms_accepted``, H9).
 	"""
 	schedule_doc = access.require_edit(schedule)
 	require_designer()
@@ -359,6 +386,7 @@ def save_design(schedule, design_json, design_name=None, expected_modified=None,
 				"is_current": 1,
 			}
 		)
+	_accept_terms(record, terms_accepted)
 	summary = _apply(record, design, schedule_doc, lines, builds, values)
 	record.flags.ignore_permissions = True
 	if record.is_new():
@@ -376,6 +404,16 @@ def save_design(schedule, design_json, design_name=None, expected_modified=None,
 
 def _truthy(value):
 	return value in (True, 1, "1", "true", "True")
+
+
+def _accept_terms(record, terms_accepted):
+	"""Record the first acceptance of the terms on this revision (``terms_accepted_by/on``)."""
+	if record.get("terms_accepted_by"):
+		return
+	if not _truthy(terms_accepted):
+		raise DesignError("INVALID", _("Accept the System Designer terms before saving"))
+	record.terms_accepted_by = frappe.session.user
+	record.terms_accepted_on = now_datetime()
 
 
 REVISION_RESET = (

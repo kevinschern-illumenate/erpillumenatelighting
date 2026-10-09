@@ -49,6 +49,9 @@ class TestOpenDesign(IntegrationTestCase):
 		self.assertFalse(data["review_requirement"]["required"])
 		self.assertTrue(data["permissions"]["can_edit"])
 		self.assertIsNone(data["design"])
+		self.assertIsNone(data["newer_version"])
+		self.assertNotIn("<", data["settings"]["terms_text"])
+		self.assertIn("licensed electrician", data["settings"]["terms_text"])
 		self.assertEqual(api.open_design(schedule="NOPE-404")["code"], "NOT_FOUND")
 
 	def test_find_schedules_and_review_requirement(self):

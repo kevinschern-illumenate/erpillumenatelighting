@@ -22,6 +22,7 @@ const meta: DesignMeta = {
   modified: '2026-10-09 12:00:00.000001',
   schedule_version: fixture.schedule.version,
   is_current: true,
+  terms_accepted: true,
 };
 
 let drafts: DraftStore;
@@ -255,5 +256,34 @@ describe('reconcile before saving', () => {
     const store = createDesignStore();
     store.getState().setReconcile({ ...diff, added: [], in_sync: true });
     expect(store.getState().reconcile).toBeNull();
+  });
+});
+
+describe('terms', () => {
+  it('blocks the first save until the terms are accepted, then sends the acceptance', async () => {
+    const store = createDesignStore();
+    await loadDesign(store, drafts, 'SCH-FIXTURE', { design: fixture, meta: null });
+    expect(store.getState()).toMatchObject({ dirty: true, termsAccepted: false });
+    const save = vi.fn<DesignApi['saveDesign']>().mockResolvedValue({
+      name: 'SYSD-2026-00009',
+      revision: 'A',
+      modified: '2026-10-09 15:00:00.000000',
+      build_hash: 'd'.repeat(64),
+      summary: {},
+    });
+    expect(await saveDesign(store, apiStub(save), drafts)).toBeNull();
+    expect(save).not.toHaveBeenCalled();
+    store.getState().acceptTerms();
+    await saveDesign(store, apiStub(save), drafts);
+    expect(save.mock.calls[0]?.[0]).toMatchObject({ termsAccepted: true, designName: undefined });
+    expect(store.getState().meta).toMatchObject({ name: 'SYSD-2026-00009', terms_accepted: true });
+  });
+
+  it('reads an earlier acceptance from the saved revision', () => {
+    const store = createDesignStore();
+    store.getState().load('SCH-FIXTURE', fixture, { ...meta, terms_accepted: false });
+    expect(store.getState().termsAccepted).toBe(false);
+    store.getState().load('SCH-FIXTURE', fixture, meta);
+    expect(store.getState().termsAccepted).toBe(true);
   });
 });

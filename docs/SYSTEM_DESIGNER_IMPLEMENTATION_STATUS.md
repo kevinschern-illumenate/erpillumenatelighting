@@ -24,6 +24,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-2.4 | `ilL-System-Design`, save and revisions | Done (UI wiring in Phase 3) |
 | WP-2.5 | Reconcile and copy-forward | Done (dialog UI in Phase 3) |
 | WP-2.6 | Riser 1.3.0 ERP edition | Draft PR riser-diagram-generator#1; tag `v1.3.0` after merge |
+| WP-3.1 | Guided shell, stepper, terms | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -329,3 +330,32 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - The catalog test fixture is a copy of `fixtures/catalog/payload.json`. Update it there when the
     contract changes.
   - Tagging waits for the merge so the tag points at `main`.
+
+## WP-3.1 — Guided shell, stepper, terms
+
+- The designer now opens the schedule (`open_design`), starts a design from its lines when none is saved
+  (`app/src/shell/open.ts`, `newDesign`: spaces and runs from `expandRuns`, VD targets, waste and NEC
+  edition from Settings), and restores a matching browser draft.
+- Shell (H9):
+  - The header has the product name (D2), schedule and version, revision, status and review chips, save
+    state ("Saved · 12:04"), Save (also Ctrl+S), the Guided/Engineering toggle and help.
+  - Guided mode shows a stepper (Start, Spaces, Runs, Power, Check, Views, Finish) with Back and Continue.
+    Engineering mode shows the same screens as tabs.
+  - A collapsible check panel shows severity counts with icons.
+- Start: readiness counts, the D4 review banner with its reasons, a banner to apply schedule changes
+  (`applyReconcile`, undoable, then the save sends `reconciled`), and the locked-version banner.
+  "Design on version N" copies the design forward (`copy_design_to_version`) and opens it; without a
+  newer version it links to the schedule page.
+- Terms: a modal on first open of a revision the user can edit. `save_design` refuses a revision that
+  nobody accepted (`INVALID`) and stamps `terms_accepted_by/on` from the first save that sends
+  `terms_accepted`. `design_meta.terms_accepted` tells the client.
+- Discrepancies and choices:
+  - Terms acceptance is per revision, recorded with the save, because a design record does not exist
+    until the first save. A new revision asks again (its terms fields are reset).
+  - `terms_text` is a Text Editor field; `open_design` sends it as plain text because the designer renders
+    no HTML (plan 15.6).
+  - The check panel starts from the readiness gaps; engine checks join it in WP-3.5.
+  - Steps after Start show their purpose until their work packages land.
+  - The Engineering toggle is shown to everyone for now; WP-3.8 limits it.
+  - `crypto.randomUUID` needs a secure context, so the bundle smoke test runs on an HTTPS origin, as the
+    portal does.

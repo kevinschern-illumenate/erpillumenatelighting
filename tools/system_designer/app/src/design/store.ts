@@ -21,6 +21,8 @@ export interface DesignState {
   reconcile: ReconcileDiff | null;
   /** The diff was applied; the next save tells the server so. */
   reconciled: boolean;
+  /** The terms were accepted on this revision, earlier or in this session (H9). */
+  termsAccepted: boolean;
   load(schedule: string, design: Design, meta: DesignMeta | null): void;
   edit(recipe: (design: Mutable<Design>) => void): void;
   markSaved(meta: Pick<DesignMeta, 'name' | 'revision' | 'modified'>): void;
@@ -28,6 +30,7 @@ export interface DesignState {
   setReconcile(diff: ReconcileDiff | null): void;
   /** Replace the design with the reconciled one (undoable) and mark the diff handled. */
   acceptReconcile(design: Design): void;
+  acceptTerms(): void;
 }
 
 /**
@@ -46,6 +49,7 @@ export function createDesignStore() {
         saveMessage: null,
         reconcile: null,
         reconciled: false,
+        termsAccepted: false,
         load: (schedule, design, meta) =>
           set({
             schedule,
@@ -56,6 +60,7 @@ export function createDesignStore() {
             saveMessage: null,
             reconcile: null,
             reconciled: false,
+            termsAccepted: meta?.terms_accepted ?? false,
           }),
         edit: (recipe) =>
           set((state) => {
@@ -74,11 +79,13 @@ export function createDesignStore() {
               is_current: true,
               ...state.meta,
               ...saved,
+              terms_accepted: true,
             },
           })),
         setSaveStatus: (saveStatus, saveMessage = null) => set({ saveStatus, saveMessage }),
         setReconcile: (diff) => set({ reconcile: diff && !diff.in_sync ? diff : null }),
         acceptReconcile: (design) => set({ design, reconcile: null, reconciled: true, dirty: true }),
+        acceptTerms: () => set({ termsAccepted: true }),
       }),
       {
         limit: UNDO_LIMIT,
@@ -102,7 +109,8 @@ export async function loadDesign(
   const sameBase =
     draft && draft.designName === (saved.meta?.name ?? null) && draft.baseModified === (saved.meta?.modified ?? null);
   store.getState().load(schedule, sameBase ? draft.design : saved.design, saved.meta);
-  if (sameBase) store.setState({ dirty: true });
+  // A restored draft, or a design never saved, has changes to save.
+  if (sameBase || !saved.meta) store.setState({ dirty: true });
   store.temporal.getState().clear();
   return { restoredDraft: Boolean(sameBase) };
 }
@@ -122,8 +130,12 @@ export function persistDrafts(store: DesignStore, drafts: DraftStore) {
 
 /** Save to the server; on success the browser draft is dropped, on conflict it is kept. */
 export async function saveDesign(store: DesignStore, api: DesignApi, drafts: DraftStore) {
-  const { schedule, design, meta, reconcile, reconciled } = store.getState();
+  const { schedule, design, meta, reconcile, reconciled, termsAccepted } = store.getState();
   if (!schedule || !design) return null;
+  if (!termsAccepted) {
+    store.getState().setSaveStatus('error', 'Accept the terms before saving');
+    return null;
+  }
   if (reconcile) {
     store.getState().setSaveStatus('conflict', 'Review the schedule changes before saving');
     return null;
@@ -136,6 +148,7 @@ export async function saveDesign(store: DesignStore, api: DesignApi, drafts: Dra
       designName: meta?.name,
       expectedModified: meta?.modified,
       reconciled,
+      termsAccepted,
     });
     // Edits made while the request was in flight stay unsaved.
     const changedMeanwhile = store.getState().design !== design;

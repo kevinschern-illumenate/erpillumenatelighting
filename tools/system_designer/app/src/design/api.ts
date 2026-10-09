@@ -21,6 +21,8 @@ export interface DesignMeta {
   modified: string;
   schedule_version: number;
   is_current: boolean;
+  /** Someone accepted the terms on this revision; a save before that must send ``termsAccepted``. */
+  terms_accepted: boolean;
 }
 
 export interface SaveResult {
@@ -86,6 +88,8 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
       expectedModified?: string;
       /** The H8.4 diff shown on open was applied; required when the schedule changed. */
       reconciled?: boolean;
+      /** The user accepted the terms in this session (H9 terms modal). */
+      termsAccepted?: boolean;
     }) {
       return post<SaveResult>('save_design', {
         schedule: args.schedule,
@@ -93,6 +97,7 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         design_name: args.designName,
         expected_modified: args.expectedModified,
         reconciled: args.reconciled ? '1' : undefined,
+        terms_accepted: args.termsAccepted ? '1' : undefined,
       });
     },
     reconcileDesign(design: string) {

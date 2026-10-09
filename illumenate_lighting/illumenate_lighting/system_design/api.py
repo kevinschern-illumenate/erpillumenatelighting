@@ -131,10 +131,19 @@ def review_requirement(schedule=None):
 
 @frappe.whitelist(methods=["POST"])
 @endpoint
-def save_design(schedule=None, design_json=None, design_name=None, expected_modified=None, reconciled=None):
+def save_design(
+	schedule=None,
+	design_json=None,
+	design_name=None,
+	expected_modified=None,
+	reconciled=None,
+	terms_accepted=None,
+):
 	from illumenate_lighting.illumenate_lighting.system_design import designs
 
-	return designs.save_design(schedule, design_json, design_name, expected_modified, reconciled)
+	return designs.save_design(
+		schedule, design_json, design_name, expected_modified, reconciled, terms_accepted
+	)
 
 
 @frappe.whitelist(methods=["POST"])

@@ -59,6 +59,7 @@ class TestDesigns(IntegrationTestCase):
 		self.design["catalogSnapshotHash"] = catalog.current_snapshot_hash()
 
 	def save(self, **kwargs):
+		kwargs.setdefault("terms_accepted", 1)
 		return api.save_design(schedule=self.schedule.name, design_json=json.dumps(self.design), **kwargs)
 
 	def test_save_update_conflict_and_revision(self):
@@ -71,6 +72,7 @@ class TestDesigns(IntegrationTestCase):
 		self.assertEqual(
 			(record.status, record.is_current, record.ill_project), ("Draft", 1, self.schedule.ill_project)
 		)
+		self.assertEqual(record.terms_accepted_by, "Administrator")
 
 		self.assertEqual(self.save()["code"], "CONFLICT")
 		updated = self.save(design_name=data["name"], expected_modified=data["modified"])
@@ -89,7 +91,14 @@ class TestDesigns(IntegrationTestCase):
 		self.assertEqual(revision["data"]["revision"], "B")
 		self.assertEqual(frappe.db.get_value("ilL-System-Design", data["name"], "is_current"), 0)
 		self.assertEqual(api.create_revision(design=data["name"])["code"], "CONFLICT")
-		self.assertEqual(api.open_design(schedule=self.schedule.name)["data"]["design_meta"]["revision"], "B")
+		meta = api.open_design(schedule=self.schedule.name)["data"]["design_meta"]
+		self.assertEqual((meta["revision"], meta["terms_accepted"]), ("B", False))
+		unaccepted = self.save(
+			design_name=revision["data"]["name"],
+			expected_modified=meta["modified"],
+			terms_accepted=0,
+		)
+		self.assertEqual(unaccepted["code"], "INVALID")
 		self.assertEqual(api.open_design(schedule="NOPE-404", design=data["name"])["code"], "NOT_FOUND")
 
 	def test_review_status_and_locked_schedule(self):
@@ -163,6 +172,10 @@ class TestDesigns(IntegrationTestCase):
 		self.assertEqual(json.loads(record.design_json)["schedule"]["name"], next_name)
 		opened = api.open_design(schedule=next_name)["data"]
 		self.assertEqual(opened["design_meta"]["name"], record.name)
+		self.assertIsNone(opened["newer_version"])
+		locked = api.open_design(schedule=self.schedule.name)["data"]
+		self.assertTrue(locked["schedule"]["is_locked"])
+		self.assertEqual(locked["newer_version"]["name"], next_name)
 		self.assertTrue(opened["reconcile"]["in_sync"])
 		self.assertEqual(
 			api.copy_design_to_version(design=data["name"], target_schedule=next_name)["code"], "CONFLICT"

@@ -204,8 +204,10 @@ class Saving(unittest.TestCase):
 		record = FakeDesign()
 		self.frappe.new_doc = MagicMock(return_value=record)
 		with patch.object(self.module, "current_design", return_value=None):
-			result = self.module.save_design("SCH-FIXTURE", json.dumps(DESIGN))
+			result = self.module.save_design("SCH-FIXTURE", json.dumps(DESIGN), terms_accepted="1")
 		self.assertEqual(record.saved, ["insert"])
+		self.assertEqual(record.terms_accepted_by, "buyer@example.com")
+		self.assertTrue(record.terms_accepted_on)
 		self.assertEqual((record.revision, record.status, record.is_current), ("A", "Draft", 1))
 		self.assertEqual((record.fixture_schedule, record.schedule_version), ("SCH-FIXTURE", 2))
 		self.assertEqual(record.title, "Kitchen design")
@@ -241,6 +243,7 @@ class Saving(unittest.TestCase):
 			schedule_version=2,
 			design_json=json.dumps(DESIGN),
 			line_fingerprint_json=json.dumps(stored),
+			terms_accepted_by="dealer@example.com",
 		)
 
 	def test_update_checks_owner_schedule_and_timestamp(self):
@@ -264,6 +267,20 @@ class Saving(unittest.TestCase):
 			self.module.save_design("SCH-FIXTURE", DESIGN, record.name, str(MODIFIED), reconciled="1")
 		self.assertEqual(record.saved, ["save"])
 		self.assertEqual(json.loads(record.line_fingerprint_json)[LINES[0]["key"]]["qty"], LINES[0]["qty"])
+
+	def test_terms_must_be_accepted_once_per_revision(self):
+		record = FakeDesign()
+		self.frappe.new_doc = MagicMock(return_value=record)
+		with patch.object(self.module, "current_design", return_value=None):
+			with self.assertRaises(self.module.DesignError) as caught:
+				self.module.save_design("SCH-FIXTURE", DESIGN)
+		self.assertEqual(caught.exception.code, "INVALID")
+		self.assertEqual(record.saved, [])
+		saved = self.saved_record()
+		self.frappe.db.get_value.return_value = MODIFIED
+		with patch.object(self.module.access, "require_design", return_value=saved):
+			self.module.save_design("SCH-FIXTURE", DESIGN, saved.name, str(MODIFIED))
+		self.assertEqual(saved.terms_accepted_by, "dealer@example.com")
 
 	def test_schedule_mismatches(self):
 		other = copy.deepcopy(DESIGN)
