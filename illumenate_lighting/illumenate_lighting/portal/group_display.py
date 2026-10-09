@@ -5,28 +5,77 @@ import frappe
 from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import description, snapshot
 
 
-def details(name):
+def run_labels(line):
+	"""Dealer run labels saved with a schedule line's request, keyed by member key."""
+	import json
+
+	from illumenate_lighting.illumenate_lighting.api.group_contract import member_presentation
+
+	try:
+		raw = json.loads(line.get("ill_configurator_request") or "{}")
+		request = (raw.get("selections") or {}).get("group_request")
+		if isinstance(request, str):
+			request = json.loads(request)
+		return {row["member_key"]: row["label"] for row in member_presentation(request)} if request else {}
+	except (ValueError, TypeError, KeyError, AttributeError, StopIteration):
+		return {}  # Labels are presentation only; the pinned build still renders without them.
+
+
+def _member(index, member, label):
+	from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import feet_inches
+
+	geometry, value = member["geometry"], member["build"]
+	circuits = member.get("circuits", [])
+	row = {
+		"key": member["member_key"],
+		"label": label or f"Run {index}",
+		"geometry": geometry,
+		"segments": (value.get("computed") or value).get("segments", []),
+		"cables": value.get("cables", []),
+		"panels": value.get("panels_needed"),
+		"feed_groups": value.get("groups", []),
+		"circuits": circuits,
+		"watts": round(sum(c.get("watts") or 0 for c in circuits), 2),
+	}
+	if "segments" in geometry:
+		segments = geometry["segments"]
+		first = segments[0]
+		leader = first.get("start_leader_cable_length_mm")
+		if leader is None:
+			leader = float(first.get("start_lead_length_inches") or 0) * 25.4
+		row.update(
+			length_mm=sum(s["requested_length_mm"] for s in segments),
+			length=feet_inches(sum(s["requested_length_mm"] for s in segments)),
+			pieces=[feet_inches(s["requested_length_mm"]) for s in segments],
+			leader=feet_inches(leader) if leader else None,
+		)
+	else:
+		row["area"] = f"{geometry['coverage_width_ft']:g} x {geometry['coverage_height_ft']:g} ft"
+	return row
+
+
+def details(name, labels=None):
+	from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import feet_inches, run_noun
+
 	build = snapshot(frappe.get_doc("ilL-Configured-Group", name))
 	request = build["request"]
+	labels = labels or {}
+	members = [
+		_member(index, member, labels.get(member["member_key"]))
+		for index, member in enumerate(build["members"], 1)
+	]
+	total = sum(m.get("length_mm") or 0 for m in members)
 	return {
 		"family": request["family"],
 		"template": request["template"],
 		"description": description(build),
 		"total_watts": build["total_watts"],
 		"include_power_supply": request["power"]["include_power_supply"],
+		"separate_supply_line": bool(request["power"].get("separate_supply_line")),
 		"power_plan": build["power_plan"],
-		"members": [
-			{
-				"key": member["member_key"],
-				"geometry": member["geometry"],
-				"segments": (member["build"].get("computed") or member["build"]).get("segments", []),
-				"cables": member["build"].get("cables", []),
-				"panels": member["build"].get("panels_needed"),
-				"feed_groups": member["build"].get("groups", []),
-				"circuits": member.get("circuits", []),
-			}
-			for member in build["members"]
-		],
+		"run_noun": run_noun(request["family"], len(members)),
+		"total_length": feet_inches(total) if total else None,
+		"members": members,
 	}
 
 

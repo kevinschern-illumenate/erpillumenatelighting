@@ -1227,7 +1227,7 @@ body.reorder-no-select {
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 												{% if line.get('configured_group') %}
-<a href="/portal/configure?category={{ line.get('product_type') | urlencode }}&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info">{{ _('Edit Group') }}</a>
+<a href="/portal/configure?category={{ line.get('product_type') | urlencode }}&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit the runs in this multi-run group') }}"><i class="fa fa-edit"></i> {{ _('Edit Group') }}</a>
 {% elif line.get('configured_fixture') %}
 												<!-- Edit existing linear fixture configuration -->
 												<a href="/portal/configure?category=Linear%20Fixture&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">

@@ -1,23 +1,45 @@
 {% set group = line.get('group_details', {}) %}
-<div class="fixture-details">
-  <strong>{{ group.get('family') }} — {{ group.get('members', []) | length }} {{ _('independent members') }}</strong>
-  <div>{{ group.get('template') }}</div>
-  <div>{{ group.get('total_watts') }} W · {{ _('Power supplies included') if group.get('include_power_supply') else _('External power required') }}</div>
-  <details class="mt-2">
-    <summary>{{ _('Member dimensions, cable cuts and feeds') }}</summary>
-    {% for member in group.get('members', []) %}
-      <div class="mt-2"><strong>{{ member.key }}</strong>
+{% set members = group.get('members', []) %}
+<div class="fixture-details ill-group-summary">
+  <strong class="text-primary">
+    <span class="badge badge-info mr-1" title="{{ _('Several independent runs ordered as one line') }}">{{ _('Multi-run') }}</span>
+    {{ group.get('family') }} · {{ members | length }} {{ _(group.get('run_noun') or 'runs') }}
+  </strong>
+  <div class="small text-muted"><i class="fa fa-tag"></i> SPEC: <strong>{{ group.get('template') }}</strong></div>
+  <div class="small">
+    {% if group.get('total_length') %}{{ group.get('total_length') }} {{ _('total') }} · {% endif %}{{ group.get('total_watts') }} W ·
+    {% if group.get('separate_supply_line') %}{{ _('Power supplies on the line below') }}
+    {% elif group.get('include_power_supply') %}{{ _('Power supplies included') }}
+    {% else %}{{ _('Power supplies not included') }}{% endif %}
+  </div>
+  <ul class="list-unstyled small mb-0 mt-1 ill-group-summary-runs">
+    {% for member in members %}
+    <li>
+      <strong>{{ member.label }}</strong>:
+      {% if member.get('length') %}
+        {{ member.length }}{% if member.pieces | length > 1 %} ({{ member.pieces | join(' + ') }}){% endif %}{% if member.get('leader') %} · {{ member.leader }} {{ _('leader') }}{% endif %}
+      {% else %}
+        {{ member.get('area') }}{% if member.panels %} · {{ member.panels }} {{ _('panels') }}{% endif %}
+      {% endif %}
+      {% if member.watts %} · {{ member.watts }} W{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <details class="mt-1 small">
+    <summary>{{ _('Cable cuts, feeds and power allocation') }}</summary>
+    {% for member in members %}
+      <div class="mt-2"><strong>{{ member.label }}</strong>
         {% if member.geometry.get('segments') %}
-          {% for segment in member.geometry.segments %}<div>{{ _('Segment') }} {{ loop.index }}: {{ segment.requested_length_mm }} mm · {{ segment.end_type }}</div>{% endfor %}
-        {% else %}
-          <div>{{ member.geometry.coverage_width_ft }} × {{ member.geometry.coverage_height_ft }} ft · {{ member.panels }} {{ _('panels') }}</div>
+          {% for segment in member.geometry.segments %}<div>{{ _('Segment') }} {{ loop.index }}: {{ segment.requested_length_mm | round(1) }} mm · {{ segment.end_type }}</div>{% endfor %}
         {% endif %}
         {% for cable in member.cables %}<div>{{ cable.get('role', 'Cable') }}: {{ cable.get('length_mm') }} mm · {{ cable.get('item_code') }}</div>{% endfor %}
         {% for feed in member.feed_groups %}<div>{{ _('Feed') }} {{ feed.group_number }}: {{ feed.sheet_count }} {{ _('panels') }}, {{ feed.group_watts }} W</div>{% endfor %}
       </div>
     {% endfor %}
+    {% set labels = {} %}
+    {% for member in members %}{% if labels.update({member.key: member.label}) %}{% endif %}{% endfor %}
     {% for allocation in group.get('power_plan', {}).get('allocations', []) %}
-      <div class="small mt-1">{{ allocation.run_key }} → {{ allocation.item_code }} · {{ _('Supply') }} {{ allocation.supply }}, {{ _('output') }} {{ allocation.output }} · {{ allocation.watts }} W</div>
+      <div class="mt-1">{{ labels.get(allocation.run_key.split(':')[0], allocation.run_key) }} ({{ _('circuit') }} {{ allocation.run_key.split(':')[-1] }}) → {{ allocation.item_code }} · {{ _('supply') }} {{ allocation.supply }}, {{ _('output') }} {{ allocation.output }} · {{ allocation.watts }} W</div>
     {% endfor %}
   </details>
 </div>

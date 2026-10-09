@@ -250,8 +250,8 @@ def get_context(context):
 		}
 
 		if line.get("configured_group"):
-			from illumenate_lighting.illumenate_lighting.portal.group_display import details
-			line_dict["group_details"] = details(line.configured_group)
+			from illumenate_lighting.illumenate_lighting.portal.group_display import details, run_labels
+			line_dict["group_details"] = details(line.configured_group, run_labels(line))
 
 		# For ilLumenate fixtures, fetch enriched details from configured fixture
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:

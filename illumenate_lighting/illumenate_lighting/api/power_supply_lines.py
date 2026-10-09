@@ -11,6 +11,10 @@ Linear, tape and neon geometry does not depend on the supplies, so those builds
 are made as externally powered products. A Sheet's feeds are sized by its
 drivers, so a Sheet keeps its full power plan and is only marked
 ``power_supply_separate``: the supplies stay out of its BOM and price.
+
+A multi-run group keeps its power plan for every family and is marked
+``separate_supply_line``: the supplies stay out of its BOM and price, while its
+description and traveler still say which supply output feeds which run.
 """
 
 import copy
@@ -65,14 +69,10 @@ def split_power(family, payload):
 		power = request.get("power") or {}
 		if not parse_bool(power.get("include_power_supply"), default=True):
 			return payload, []
-		if family == SHEET:
-			# Sheet members size their feeds by the drivers: keep the plan, move the supplies.
-			build = {**request, "power": {**power, "separate_supply_line": True}}
-			return {**payload, "group_request": build}, _plan_drivers(calculate(build)["build"]["power_plan"])
-		# Plan the group's shared supplies once, then build the group without them.
-		drivers = _plan_drivers(calculate(request)["build"]["power_plan"])
-		build = {**request, "power": {**power, "include_power_supply": False}}
-		return {**payload, "group_request": build}, drivers
+		# Plan the group's shared supplies once; keep the plan (Sheet feeds are sized by it and
+		# every traveler shows the run-to-output allocation) but move the supplies to their lines.
+		build = {**request, "power": {**power, "separate_supply_line": True}}
+		return {**payload, "group_request": build}, _plan_drivers(calculate(build)["build"]["power_plan"])
 
 	if not parse_bool(payload.get("include_power_supply"), default=True):
 		return payload, []

@@ -220,6 +220,7 @@ function ill_render_schedule_preview(data) {
 	const s = data.summary || {};
 	const rows = [
 		[__('Configured Fixtures'), s.fixtures || 0],
+		[__('Multi-run Groups'), s.groups || 0],
 		[__('LED Tape / Neon'), s.tape_neon || 0],
 		[__('Extrusion Kits'), s.kits || 0],
 		[__('LED Sheets'), s.sheets || 0],
@@ -248,6 +249,7 @@ function ill_show_schedule_import_result(frm, result) {
 
 	const parts = [];
 	if (result.fixtures) parts.push(__('{0} configured fixture(s)', [result.fixtures]));
+	if (result.groups) parts.push(__('{0} multi-run group(s)', [result.groups]));
 	if (result.tape_neon) parts.push(__('{0} tape/neon line(s)', [result.tape_neon]));
 	if (result.kits) parts.push(__('{0} extrusion kit(s)', [result.kits]));
 	if (result.sheets) parts.push(__('{0} LED sheet(s)', [result.sheets]));

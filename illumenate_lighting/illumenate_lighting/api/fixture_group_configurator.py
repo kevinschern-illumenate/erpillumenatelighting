@@ -114,6 +114,44 @@ def _preview_member(request, geometry):
 	}
 
 
+def _length(value):
+	return round(finite_number(value or 0, minimum=0), 3)
+
+
+def run_summary(member_key, label, geometry, build, circuits):
+	"""Dealer-facing figures for one run; presentation only, never part of the build identity."""
+	summary = {
+		"member_key": member_key,
+		"label": label,
+		"circuits": len(circuits),
+		"watts": round(sum(c["watts"] for c in circuits), 2),
+	}
+	if "segments" not in geometry:
+		summary.update(
+			coverage_width_ft=geometry.get("coverage_width_ft"),
+			coverage_height_ft=geometry.get("coverage_height_ft"),
+			panels=build.get("panels_needed"),
+		)
+		return summary
+	segments = geometry["segments"]
+	first = segments[0]
+	leader = first.get("start_leader_cable_length_mm")
+	if leader is None:
+		leader = finite_number(first.get("start_lead_length_inches") or 0, minimum=0) * 25.4
+	computed = build.get("computed") or {}
+	made = computed.get("manufacturable_overall_length_mm") or computed.get("total_manufacturable_length_mm")
+	if not made:
+		made = sum(row.get("manufacturable_length_mm") or 0 for row in computed.get("segments") or [])
+	summary.update(
+		segments=len(segments),
+		jumpers=sum(1 for row in segments if row.get("end_type") == "Jumper"),
+		requested_length_mm=_length(sum(row["requested_length_mm"] for row in segments)),
+		leader_length_mm=_length(leader),
+		manufactured_length_mm=_length(made) if made else None,
+	)
+	return summary
+
+
 def calculate(request):
 	from illumenate_lighting.illumenate_lighting.api.driver_catalog import candidates
 	from illumenate_lighting.illumenate_lighting.api.tape_neon_build import item_row
@@ -130,21 +168,32 @@ def calculate(request):
 		raise ValueError("This group template is unavailable")
 	if family in TAPE_NEON_CATEGORIES and template_doc.product_category != family:
 		raise ValueError("Group template does not match its family")
-	members, circuits, components, breakdown = [], [], [], []
+	labels = {row["member_key"]: row["label"] for row in presentation}
+	order = {row["member_key"]: position for position, row in enumerate(presentation)}
+	include = request["power"]["include_power_supply"]
+	members, circuits, components, breakdown, runs = [], [], [], [], []
 	compatibility = None
 	for index, geometry in enumerate(request["members"], 1):
-		member = _preview_member(request, geometry)
+		key = f"M{index}"
+		try:
+			member = _preview_member(request, geometry)
+		except (ValueError, frappe.ValidationError) as exc:
+			# Name the run the dealer has to fix rather than an internal member key.
+			raise ValueError(f"{labels.get(key, key)}: {exc}") from exc
 		electrical = (member["voltage"], member["output_protocol"])
 		if compatibility is not None and electrical != compatibility:
-			raise ValueError("Group members require the same voltage and output protocol")
+			raise ValueError("All runs in a group need the same input voltage and control protocol")
 		compatibility = electrical
-		key = f"M{index}"
 		member_circuits = [
 			{**c, "run_key": key + ":" + c["run_key"], "member": key} for c in member["circuits"]
 		]
 		circuits.extend(member_circuits)
-		if len(circuits) > MAX_CIRCUITS:
-			raise ValueError("This group exceeds 12 independent circuits; engineering review is required")
+		# The supply search is bounded; externally powered groups only report their circuits.
+		if include and len(circuits) > MAX_CIRCUITS:
+			raise ValueError(
+				f"Included power supplies can be planned for up to {MAX_CIRCUITS} circuits; this group needs "
+				"more. Split it into two lines, exclude power, or ask engineering to review it."
+			)
 		member_components = member["build"]["components"]
 		if any(row.get("role") == "power" for row in member_components):
 			raise ValueError("Member previews must exclude individual power supplies")
@@ -159,9 +208,15 @@ def calculate(request):
 			}
 		)
 		breakdown.append(
-			{"member": key, "qty": 1, "unit_msrp": member["unit_msrp"], "extended_msrp": member["unit_msrp"]}
+			{
+				"member": key,
+				"label": labels.get(key, key),
+				"qty": 1,
+				"unit_msrp": member["unit_msrp"],
+				"extended_msrp": member["unit_msrp"],
+			}
 		)
-	include = request["power"]["include_power_supply"]
+		runs.append(run_summary(key, labels.get(key, key), geometry, member["build"], member_circuits))
 	drivers, revisions = (
 		candidates(
 			TEMPLATE_TYPES[family], template, *compatibility, request["power"]["dimming_protocol_code"]
@@ -201,6 +256,8 @@ def calculate(request):
 		"is_valid": True,
 		"build": build,
 		"presentation": presentation,
+		# Runs in the order the dealer entered them.
+		"runs": sorted(runs, key=lambda row: order[row["member_key"]]),
 		"input_hash": fingerprint(request),
 		"config_hash": fingerprint(build),
 		"build_snapshot_json": canonical_json(build),
@@ -221,6 +278,10 @@ def preview(request):
 	require_catalog_access()
 	if not fixture_groups_enabled():
 		frappe.throw("Independent fixture groups are not enabled for this site", frappe.PermissionError)
-	result = calculate(request)
+	try:
+		result = calculate(request)
+	except ValueError as exc:
+		# A dealer input problem: report it next to the runs instead of as a server error.
+		return {"success": False, "is_valid": False, "error": str(exc)}
 	result["pricing"].update(get_tier_price_for_customer(result["pricing"]["msrp_unit"]))
 	return result

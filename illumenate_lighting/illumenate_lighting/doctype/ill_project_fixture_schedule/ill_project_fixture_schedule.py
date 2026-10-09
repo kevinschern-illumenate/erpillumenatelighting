@@ -535,6 +535,7 @@ class ilLProjectFixtureSchedule(Document):
 		"""
 		summary = {
 			"fixtures": 0,
+			"groups": 0,
 			"tape_neon": 0,
 			"kits": 0,
 			"sheets": 0,
@@ -548,7 +549,7 @@ class ilLProjectFixtureSchedule(Document):
 			if mt == "ILLUMENATE":
 				pt = line.product_type
 				if line.get("configured_group"):
-					summary["groups"] = summary.get("groups", 0) + 1
+					summary["groups"] += 1
 				elif pt in TAPE_NEON_CATEGORIES:
 					if line.variant_selections or line.get("configured_tape_neon"):
 						summary["tape_neon"] += 1
@@ -652,12 +653,20 @@ class ilLProjectFixtureSchedule(Document):
 			mt = line.manufacturer_type
 
 			if mt == "ILLUMENATE" and line.get("configured_group"):
-				from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import ensure_artifacts
+				from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import (
+					description,
+					ensure_artifacts,
+					snapshot,
+				)
 				from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
 					_apply_artifact_to_row,
 				)
+				from illumenate_lighting.illumenate_lighting.portal.group_display import run_labels
+
 				group = frappe.get_doc("ilL-Configured-Group", line.configured_group)
 				artifact = ensure_artifacts(group)
+				# The quote row names the dealer's runs; the shared Item keeps its neutral description.
+				artifact["description"] = description(snapshot(group), run_labels(line))
 				line_rows_before = len(target_doc.items)
 				_apply_artifact_to_row(target_doc, target_doc.append("items", {}), artifact, line.qty or 1, None)
 				self._stamp_group_fields(target_doc, line_rows_before, line)

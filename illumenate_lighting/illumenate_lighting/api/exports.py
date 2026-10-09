@@ -424,8 +424,8 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 
 		if line.manufacturer_type == "ILLUMENATE" and line.get("configured_group"):
 			from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import current_estimate
-			from illumenate_lighting.illumenate_lighting.portal.group_display import details
-			group = details(line.configured_group)
+			from illumenate_lighting.illumenate_lighting.portal.group_display import details, run_labels
+			group = details(line.configured_group, run_labels(line))
 			line_data.update({"is_group": True, "group_details": group, "template_code": group["template"],
 				"config_summary": group["description"], "build_description": group["description"],
 				"total_watts": group["total_watts"], "runs_count": len(group["power_plan"]["requirements"]),

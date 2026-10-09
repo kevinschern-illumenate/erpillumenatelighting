@@ -1,6 +1,7 @@
 """Group intent/identity, real power allocation, cut preservation and pinned materials."""
 
 import copy
+import sys
 import types
 import unittest
 from unittest.mock import MagicMock, patch
@@ -245,3 +246,128 @@ class GroupCalculation(unittest.TestCase):
 				),
 				{"computed": {"length": 4}, "cables": [{"qty": 2}]},
 			)
+
+
+class GroupPresentation(unittest.TestCase):
+	def engine(self):
+		catalog = types.SimpleNamespace(candidates=lambda *args: ([], {}))
+		items = types.SimpleNamespace(item_row=lambda item, qty, role: {"item_code": item, "qty": qty})
+		prices = types.SimpleNamespace(selling_amount=lambda item, qty: 0)
+		return load_service(
+			ROOT + ".api.fixture_group_configurator",
+			{
+				ROOT + ".api.driver_catalog": catalog,
+				ROOT + ".api.tape_neon_build": items,
+				ROOT + ".api.tape_neon_pricing": prices,
+			},
+		)
+
+	def test_runs_are_summarized_in_dealer_order_with_their_labels(self):
+		with self.engine() as (engine, frappe):
+			frappe.get_doc.return_value = Record(is_active=1)
+			with patch.object(engine, "_preview_member", side_effect=GroupCalculation.preview.__get__(self)):
+				r = request()
+				r["power"]["include_power_supply"] = False
+				runs = engine.calculate(r)["runs"]
+		self.assertEqual([row["label"] for row in runs], ["Long", "Short", "Longest"])
+		self.assertEqual([round(row["requested_length_mm"]) for row in runs], [6096, 1524, 7620])
+		self.assertEqual([round(row["leader_length_mm"], 1) for row in runs], [1828.8, 914.4, 609.6])
+		self.assertEqual({row["segments"] for row in runs}, {1})
+		self.assertEqual([row["watts"] for row in runs], [40, 10, 50])
+
+	def test_a_failing_run_is_named_and_preview_reports_it_without_a_server_error(self):
+		def preview(_request, geometry):
+			raise ValueError("Length exceeds the maximum")
+
+		with self.engine() as (engine, frappe):
+			frappe.get_doc.return_value = Record(is_active=1)
+			frappe.conf["ill_portal_fixture_groups"] = True
+			with patch.object(engine, "_preview_member", side_effect=preview):
+				with self.assertRaisesRegex(ValueError, "^Short: Length exceeds"):
+					engine.calculate(request())
+				extras = {
+					ROOT + ".api.pricing_utils": types.SimpleNamespace(get_tier_price_for_customer=dict),
+					ROOT + ".portal.access": types.SimpleNamespace(require_catalog_access=lambda: None),
+				}
+				with patch.dict(sys.modules, extras):
+					result = engine.preview(request())
+		self.assertFalse(result["success"])
+		self.assertIn("Short: Length exceeds", result["error"])
+
+	def test_only_included_power_limits_the_number_of_circuits(self):
+		def preview(_request, geometry):
+			return {
+				**GroupCalculation.preview(self, _request, geometry),
+				"circuits": [{"run_key": str(i), "watts": 5} for i in range(1, 6)],
+			}
+
+		with self.engine() as (engine, frappe):
+			frappe.get_doc.return_value = Record(is_active=1)
+			with patch.object(engine, "_preview_member", side_effect=preview):
+				with self.assertRaisesRegex(ValueError, "up to 12 circuits"):
+					engine.calculate(request())
+				r = request()
+				r["power"]["include_power_supply"] = False
+				plan = engine.calculate(r)["build"]["power_plan"]
+		self.assertEqual((plan["status"], len(plan["requirements"])), ("excluded", 15))
+
+	def test_descriptions_read_as_runs_and_use_saved_labels(self):
+		build = {
+			"request": {
+				"family": "Linear Fixture",
+				"power": {"include_power_supply": True, "separate_supply_line": True},
+			},
+			"members": [
+				{
+					"member_key": "M1",
+					"geometry": {
+						"segments": [
+							{"requested_length_mm": 6096, "start_leader_cable_length_mm": 1828.8},
+							{"requested_length_mm": 914.4},
+						]
+					},
+				},
+				{"member_key": "M2", "geometry": {"segments": [{"requested_length_mm": 1524}]}},
+			],
+		}
+		with load_service(ROOT + ".api.fixture_group_bom") as (module, _):
+			self.assertEqual(
+				module.description(build).split("\n"),
+				[
+					"Linear Fixture multi-run group: 2 independent runs, 28' total",
+					"Run 1: 23' (20' + 3' jumpered), 6' leader",
+					"Run 2: 5'",
+					"Power supplies ordered on their own line",
+				],
+			)
+			self.assertIn("North cove: 5'", module.description(build, {"M2": "North cove"}))
+			self.assertEqual(module.feet_inches(6248.4), "20' 6\"")
+			sheet = {
+				"request": {"family": "LED Sheet", "power": {"include_power_supply": False}},
+				"members": [
+					{"member_key": "M1", "geometry": {"coverage_width_ft": 2, "coverage_height_ft": 4}}
+				],
+			}
+			self.assertEqual(
+				module.description(sheet).split("\n"),
+				[
+					"LED Sheet multi-run group: 1 independent area",
+					"Area 1: 2 x 4 ft",
+					"Power supplies not included (external power required)",
+				],
+			)
+
+	def test_schedule_lines_recover_run_labels_from_their_saved_request(self):
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json
+
+		adapter = types.SimpleNamespace(snapshot=MagicMock(), description=lambda *_: "Group")
+		with load_service(ROOT + ".portal.group_display", {ROOT + ".api.fixture_group_bom": adapter}) as (
+			module,
+			_,
+		):
+			line = {"ill_configurator_request": canonical_json({"selections": {"group_request": request()}})}
+			labels = module.run_labels(line)
+			self.assertEqual(sorted(labels.values()), ["Long", "Longest", "Short"])
+			self.assertEqual(labels[next(k for k, v in labels.items() if v == "Short")], "Short")
+			self.assertEqual(module.run_labels({"ill_configurator_request": "not json"}), {})
+			self.assertEqual(module.run_labels({}), {})
