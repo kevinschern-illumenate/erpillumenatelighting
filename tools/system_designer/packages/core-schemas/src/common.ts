@@ -55,6 +55,7 @@ export const EnvironmentSchema = z.enum([
   'direct-burial',
   'outdoor-exposed',
 ]);
+export type Environment = z.infer<typeof EnvironmentSchema>;
 export const RunTypeSchema = z.enum([
   'lv-branch',
   'lv-fixture-whip',
@@ -91,11 +92,7 @@ export const EquipmentCategorySchema = z.enum([
   'enclosure',
   'distribution-block',
 ]);
-export const CatalogCategorySchema = z.enum([
-  ...EquipmentCategorySchema.options,
-  'tape',
-  'fixture',
-]);
+export const CatalogCategorySchema = z.enum([...EquipmentCategorySchema.options, 'tape', 'fixture']);
 export const SheetSizeSchema = z.enum(['ANSI_B', 'ARCH_C', 'ARCH_D', 'ANSI_D']);
 export const EditionSchema = z.enum(['2020', '2023', '2026']);
 export const PortRefSchema = z.object({ ref: IdSchema, port: IdSchema.optional() }).strict();
@@ -117,8 +114,7 @@ export function uniqueList<T extends z.ZodType>(schema: T, key: (value: z.output
     const seen = new Set<string>();
     items.forEach((item, index) => {
       const value = key(item);
-      if (seen.has(value))
-        ctx.addIssue({ code: 'custom', path: [index], message: `Duplicate key: ${value}` });
+      if (seen.has(value)) ctx.addIssue({ code: 'custom', path: [index], message: `Duplicate key: ${value}` });
       seen.add(value);
     });
   });

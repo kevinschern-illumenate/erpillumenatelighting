@@ -99,6 +99,20 @@
          "direct-burial",
          "outdoor-exposed"
         ]
+       },
+       "envChoice": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "in-wall",
+         "plenum",
+         "riser",
+         "raceway",
+         "damp",
+         "wet",
+         "outdoor-exposed",
+         "direct-burial"
+        ]
        }
       },
       "required": [
@@ -154,6 +168,20 @@
          "wet",
          "direct-burial",
          "outdoor-exposed"
+        ]
+       },
+       "envChoice": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "in-wall",
+         "plenum",
+         "riser",
+         "raceway",
+         "damp",
+         "wet",
+         "outdoor-exposed",
+         "direct-burial"
         ]
        },
        "accessNote": {
@@ -338,6 +366,20 @@
        "wet",
        "direct-burial",
        "outdoor-exposed"
+      ]
+     },
+     "envChoice": {
+      "type": "string",
+      "enum": [
+       "dry-concealed",
+       "in-wall",
+       "plenum",
+       "riser",
+       "raceway",
+       "damp",
+       "wet",
+       "outdoor-exposed",
+       "direct-burial"
       ]
      },
      "homeRunLengthFt": {

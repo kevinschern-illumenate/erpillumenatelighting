@@ -5,6 +5,7 @@ import type { DesignApi } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { saveDesign, type DesignStore, type SaveStatus } from '../design/store';
 import { CheckPanel } from './CheckPanel';
+import { SpacesStep } from './SpacesStep';
 import { StartStep } from './StartStep';
 import { TermsDialog } from './TermsDialog';
 import type { Check, OpenDesign } from './open';
@@ -55,6 +56,8 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
   const saveStatus = useStore(store, (s) => s.saveStatus);
   const saveMessage = useStore(store, (s) => s.saveMessage);
   const termsAccepted = useStore(store, (s) => s.termsAccepted);
+  const canUndo = useStore(store.temporal, (s) => s.pastStates.length > 0);
+  const canRedo = useStore(store.temporal, (s) => s.futureStates.length > 0);
   const [step, setStep] = useState<StepId>('start');
   const [mode, setMode] = useState<Mode>('guided');
   const [checksOpen, setChecksOpen] = useState(true);
@@ -67,10 +70,18 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') {
         event.preventDefault();
         if (!readOnly && store.getState().dirty) void saveDesign(store, api, drafts);
       }
+      // Leave undo inside text fields to the browser.
+      const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+      if (readOnly || typing || (key !== 'z' && key !== 'y')) return;
+      event.preventDefault();
+      if (key === 'y' || event.shiftKey) store.temporal.getState().redo();
+      else store.temporal.getState().undo();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -99,6 +110,22 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
           <span className="ill-sd__save-state" role="status" data-testid="save-state">
             {saveLabel(saveStatus, dirty, meta?.modified, saveMessage)}
           </span>
+          <button
+            type="button"
+            className="ill-sd__button ill-sd__button--quiet"
+            disabled={Boolean(readOnly) || !canUndo}
+            onClick={() => store.temporal.getState().undo()}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="ill-sd__button ill-sd__button--quiet"
+            disabled={Boolean(readOnly) || !canRedo}
+            onClick={() => store.temporal.getState().redo()}
+          >
+            Redo
+          </button>
           <button type="button" className="ill-sd__button" disabled={!canSave} onClick={save}>
             Save
           </button>
@@ -148,6 +175,8 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
         <main className="ill-sd__main">
           {step === 'start' ? (
             <StartStep open={open} store={store} api={api} readOnly={Boolean(readOnly)} navigate={navigate} />
+          ) : step === 'spaces' ? (
+            <SpacesStep open={open} store={store} readOnly={Boolean(readOnly)} />
           ) : (
             <section aria-labelledby="ill-sd-step-title">
               <h2 id="ill-sd-step-title">{current.label}</h2>

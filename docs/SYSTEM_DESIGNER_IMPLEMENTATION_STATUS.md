@@ -25,6 +25,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-2.5 | Reconcile and copy-forward | Done (dialog UI in Phase 3) |
 | WP-2.6 | Riser 1.3.0 ERP edition | Draft PR riser-diagram-generator#1; tag `v1.3.0` after merge |
 | WP-3.1 | Guided shell, stepper, terms | Done |
+| WP-3.2 | Spaces, cabinets, distances | Done (cabinet → run cascade with WP-3.4) |
 
 ## WP-0.1 — Portal access audit
 
@@ -359,3 +360,30 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - The Engineering toggle is shown to everyone for now; WP-3.8 limits it.
   - `crypto.randomUUID` needs a secure context, so the bundle smoke test runs on an HTTPS origin, as the
     portal does.
+
+## WP-3.2 — Spaces, cabinets, distances
+
+- `packages/engine/src/site.ts` holds the site edits; the app runs each inside one undoable store edit:
+  - Rename and merge spaces.
+  - Add, edit and remove cabinets. A cabinet holding equipment cannot be removed.
+  - Add, edit and remove panel circuits (riser sources), and link a cabinet to one.
+  - Set home-run and cabinet-feed lengths.
+- Distances: the quick picks (same space, adjacent space, other level) come from Settings, with the plan's
+  10 / 25 / 40 ft as fallbacks. A quick pick is an `estimate`; a typed length is `entered`.
+- Environments: `packages/data/src/environments.ts` is the Appendix B.2 table.
+  - Space, cabinet and run gained an optional `envChoice` that keeps the dealer's pick (in-wall, damp);
+    `env` stays the engine value. This is an additive field in schema version 1.
+  - A space's change cascades to the cabinets and runs that still follow it. Ones set separately, or
+    taken from an ERP environment rating, keep theirs. A cabinet's location rating follows its
+    environment and can be changed.
+- The Spaces screen shows space cards (name, level, environment, merge), cabinet cards (tag, name,
+  environment, rating, access note, circuit, feed length) and the runs in each space. Third-party runs
+  carry the "Data by dealer" chip (D8). Bulk "set all home runs" picks apply per space. Panel circuits
+  are listed at the end.
+- The header gained Undo and Redo (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z outside text fields).
+- Discrepancies and choices:
+  - A line without a location now lands in a space named "Project" (H9), not "Unassigned".
+  - Cabinet → run environment cascade needs supply assignments, so it comes with the Power board
+    (WP-3.4).
+  - The in-wall listing rule is recorded (`needsInWallListing`) and applied in wire selection
+    (WP-3.5).

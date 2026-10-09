@@ -32,7 +32,7 @@ export function spaceIdFor(location: string): string {
   return slug ? `space-${slug}` : UNASSIGNED_SPACE;
 }
 
-/** One space per distinct line location, in schedule order; lines without one share "Unassigned". */
+/** One space per distinct line location, in schedule order; lines without one share one "Project" space (H9). */
 export function spacesFromLines(lines: Line[]): Space[] {
   const spaces = new Map<string, Space>();
   for (const line of lines) {
@@ -41,7 +41,7 @@ export function spacesFromLines(lines: Line[]): Space[] {
     if (!spaces.has(id))
       spaces.set(id, {
         id,
-        name: line.location.trim() || 'Unassigned',
+        name: line.location.trim() || 'Project',
         level: '',
         type: 'other',
         archetype: 'none',
@@ -103,8 +103,7 @@ export function expandRuns(lines: Line[], builds: Builds, options: ExpandOptions
       continue;
     }
     const usable = build.runs.filter((run) => run.watts > 0);
-    if (usable.length < build.runs.length)
-      skipped.push({ key: line.key, reason: 'Runs without watts were left out' });
+    if (usable.length < build.runs.length) skipped.push({ key: line.key, reason: 'Runs without watts were left out' });
     for (let copy = 1; copy <= line.qty; copy += 1)
       for (const run of usable) {
         const designRun: Run = {

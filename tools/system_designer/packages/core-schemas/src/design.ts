@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import {
-  CountSchema,
-  EnvironmentSchema,
-  IdSchema,
-  NonnegativeSchema,
-  PositiveSchema,
-} from './common';
+import { CountSchema, EnvironmentSchema, IdSchema, NonnegativeSchema, PositiveSchema } from './common';
 import { ProjectSchema } from './project';
 
 /**
@@ -20,6 +14,22 @@ export const DESIGN_SCHEMA_VERSION = 1;
 export const RunKeySchema = z.string().regex(/^[^:]+:\d+:\d+$/); // {line_key}:{build}:{run}
 export const LengthProvenanceSchema = z.enum(['estimate', 'entered', 'measured', 'erp']);
 export const EnvSchema = EnvironmentSchema;
+/**
+ * The site environment as the dealer picked it (plan §8, Appendix B.2). `env` keeps the engine value;
+ * this keeps the distinctions the engine enum folds away (in-wall, damp).
+ */
+export const EnvChoiceSchema = z.enum([
+  'dry-concealed',
+  'in-wall',
+  'plenum',
+  'riser',
+  'raceway',
+  'damp',
+  'wet',
+  'outdoor-exposed',
+  'direct-burial',
+]);
+export type EnvChoice = z.infer<typeof EnvChoiceSchema>;
 
 export const SpaceSchema = z
   .object({
@@ -45,6 +55,7 @@ export const SpaceSchema = z
       .enum(['cove', 'under-cabinet', 'toe-kick', 'shelving', 'niche', 'ceiling-reveal', 'stair', 'none'])
       .default('none'),
     env: EnvSchema.default('dry-concealed'),
+    envChoice: EnvChoiceSchema.optional(),
   })
   .strict();
 export type Space = z.infer<typeof SpaceSchema>;
@@ -57,6 +68,7 @@ export const CabinetSchema = z
     spaceId: IdSchema,
     locationRating: z.enum(['Dry', 'Damp', 'Wet']),
     env: EnvSchema,
+    envChoice: EnvChoiceSchema.optional(),
     accessNote: z.string().max(300).default(''),
     sourceId: IdSchema.optional(),
     feedLengthFt: NonnegativeSchema.default(0),
@@ -102,6 +114,7 @@ export const RunSchema = z
     feeds: CountSchema.optional(),
     spaceId: IdSchema,
     env: EnvSchema,
+    envChoice: EnvChoiceSchema.optional(),
     homeRunLengthFt: NonnegativeSchema,
     homeRunProvenance: LengthProvenanceSchema,
     assignment: z.object({ equipmentId: IdSchema, port: IdSchema }).strict().optional(),

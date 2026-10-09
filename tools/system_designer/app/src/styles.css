@@ -331,3 +331,85 @@
 		gap: 4px;
 	}
 }
+.ill-sd__fieldset {
+	border: 0;
+	margin: 0;
+	padding: 0;
+	min-width: 0;
+}
+.ill-sd__card {
+	border: 1px solid var(--ill-border);
+	border-radius: 14px;
+	padding: 12px 16px;
+	margin-bottom: 16px;
+}
+.ill-sd__card h3 {
+	font-size: 1rem;
+	margin: 12px 0 6px;
+}
+.ill-sd__row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+.ill-sd input,
+.ill-sd select {
+	font: inherit;
+	border: 1px solid var(--ill-border);
+	border-radius: 8px;
+	padding: 4px 8px;
+	background: var(--ill-surface);
+	color: inherit;
+}
+.ill-sd__name {
+	font-weight: 600;
+	min-width: 200px;
+}
+.ill-sd__tag {
+	width: 80px;
+	font-weight: 600;
+}
+.ill-sd__feet {
+	width: 80px;
+}
+.ill-sd__cabinet {
+	background: var(--ill-surface-2);
+	border-radius: 10px;
+	padding: 8px 10px;
+	margin-bottom: 8px;
+}
+.ill-sd__runs {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.ill-sd__runs li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 0;
+	border-bottom: 1px solid var(--ill-border);
+}
+.ill-sd__run-label {
+	font-weight: 600;
+	min-width: 80px;
+}
+.ill-sd__distance {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+.ill-sd__pick {
+	border: 1px solid var(--ill-border);
+	border-radius: 999px;
+	background: transparent;
+	padding: 2px 10px;
+	font: inherit;
+	font-size: 0.85rem;
+	color: var(--ill-secondary-600);
+	cursor: pointer;
+}
