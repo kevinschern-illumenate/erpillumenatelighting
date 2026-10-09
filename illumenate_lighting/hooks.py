@@ -537,3 +537,11 @@ for _finder_doctype in _finder_fact_doctypes:
 		_finder_hooks = doc_events.setdefault(_finder_doctype, {})
 		_finder_old = _finder_hooks.get(_finder_event, [])
 		_finder_hooks[_finder_event] = ([_finder_old] if isinstance(_finder_old, str) else list(_finder_old)) + ["illumenate_lighting.illumenate_lighting.portal.product_finder.facts.invalidate"]
+
+# System Designer catalog snapshot (WP-2.1): any change to a mapped record drops the current hash.
+_design_catalog_doctypes = ['Item', 'Item Price', 'ilL-Spec-LED Tape', 'ilL-Rel-Tape Offering', 'ilL-Spec-Driver', 'ilL-Rel-Driver-Eligibility', 'ilL-Spec-Controller', 'ilL-Spec-Wire', 'ilL-Attribute-Output Voltage', 'ilL-Attribute-Dimming Protocol', 'ilL-Attribute-Certification']
+for _design_doctype in _design_catalog_doctypes:
+	for _design_event in ("on_update", "on_trash"):
+		_design_hooks = doc_events.setdefault(_design_doctype, {})
+		_design_old = _design_hooks.get(_design_event, [])
+		_design_hooks[_design_event] = ([_design_old] if isinstance(_design_old, str) else list(_design_old)) + ["illumenate_lighting.illumenate_lighting.system_design.catalog.invalidate"]

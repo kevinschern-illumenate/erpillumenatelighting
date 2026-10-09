@@ -65,3 +65,29 @@ def endpoint(function):
 			return fail("INTERNAL", _("Something went wrong. Please try again or contact ilLumenate."))
 
 	return wrapper
+
+
+# --- Catalog (WP-2.1, H6) ------------------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def get_catalog(hash=None):
+	"""The catalog snapshot ``hash`` names (immutable, so clients cache it by hash)."""
+	from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
+	from illumenate_lighting.illumenate_lighting.system_design import catalog
+
+	if frappe.session.user == "Guest" or not can_view_catalog():
+		raise DesignError("FORBIDDEN", _("The catalog is available to dealers and ilLumenate staff"))
+	return catalog.catalog_response(hash or catalog.current_snapshot_hash())
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def get_catalog_for_desktop():
+	"""The current snapshot for the riser desktop app (D1): an engineering user's API token."""
+	from illumenate_lighting.illumenate_lighting.system_design import catalog
+	from illumenate_lighting.illumenate_lighting.system_design.access import require_capability
+
+	require_capability("engineering")
+	return catalog.catalog_response(catalog.current_snapshot_hash())

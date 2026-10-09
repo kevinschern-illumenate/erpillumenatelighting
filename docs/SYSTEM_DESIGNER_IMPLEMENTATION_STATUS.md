@@ -19,6 +19,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-1.6 | Schedule line third-party fields and write-back markers | Done (see `system_design` link note) |
 | WP-1.7 | Design readiness report | Done |
 | WP-2.2 | Schema package and JSON Schema export | Done |
+| WP-2.1 | Design Catalog adapter and snapshots | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -161,6 +162,13 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - Every controller needs at least one mapped protocol and at least one port row.
   - Sensors are reported as "not modelled", not as incomplete.
   - A multichannel tape with no channel limits is a note, not incomplete (names default to CH1…).
+- WP-2.1 added the checks the engine schema enforces, so a "ready" record always parses: tape minimum
+  voltage, double-feed vs single-feed run, simultaneous % vs channels, channel limit count and names;
+  driver input range, DC with 3PH, terminal order, rated-current voltage, compliance range; controller
+  input voltage and terminal size, decoder phase output by supply type, port rows, converter protocols
+  and ports; wire listing, riser label, source, conductors, 22/24 AWG resistance, direct burial needs wet,
+  building wire on 310.16, and no "wireless" cable. Decoders no longer need port rows (the engine's
+  decoder has none).
 
 ## WP-2.2 — Design schema, JSON Schema and build hash
 
@@ -179,3 +187,39 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     catalog itself. Only assigned runs become loads (a riser load needs `fedFrom`).
   - Rounding is JavaScript's `Math.round(x * 1000) / 1000` in both languages (Python's `round` is
     banker's rounding and would break parity).
+
+## WP-2.1 — Design Catalog adapter
+
+- `system_design/catalog.py` maps the records `readiness.load_*` loads (bulk queries, no N+1) into riser
+  `CatalogItem` / `WireType` shapes (Appendix A). A record that fails a readiness rule becomes an
+  `incomplete` item with the same ERP fieldnames in `missingFields`, so the report and the designer agree.
+- Ids: `tape:{spec}:{W/ft}:{cut mm | free}` (one per W/ft and cut group of active offerings),
+  `drv:{spec}`, `ctl:{spec}`, `wire:{item}`. Units per H7.3, rounded to 4 decimals.
+- D6: `rank` is a dense rank over (eligibility priority desc, driver cost asc, item code asc) for ready
+  supplies. Cost is read only for that ordering; `build_payload` refuses any payload carrying a forbidden
+  key, and both test suites walk the payload for them.
+- `ilL-Design-Catalog-Snapshot` stores each payload once, gzip + base64, named by its SHA-256 (read:
+  System Manager, ilL Engineering, ilL Applications Engineer). Cache keys `ill:design_catalog:<hash>`
+  (24 h) and `ill:design_catalog:current`; `doc_events` on the mapped doctypes (and Item, Item Price)
+  call `catalog.invalidate`, and the next read rebuilds lazily.
+- Endpoints in `system_design/api.py`: `get_catalog(hash?)` (`can_view_catalog`; `NOT_FOUND` for an
+  unknown hash) and `get_catalog_for_desktop()` (engineering capability, for WP-2.6).
+- Parity: `packages/core-schemas/fixtures/catalog/erp-records.json` (TEST records) builds the committed
+  `payload.json`; Python checks the mapping still produces it and Vitest parses it with
+  `CatalogItemSchema`, `ProductLibrarySchema` and `WireLibrarySchema`.
+- Schema additions (optional, so the riser's own data still parses): `CatalogItem.rank`,
+  `usableLoadFactor` on supplies and drivers, and `erpItemCode`, `salesUom`, `spoolLengthFt` on `WireType`.
+- Discrepancies and choices:
+  - Phase dimmers stay out of the snapshot: the engine has no `phase-dimmer` category yet. The readiness
+    report still checks their data and says so in a note.
+  - Wires that are not ready (including no selling Item Price, D7) are left out of `wires`; there is no
+    incomplete wire shape in the engine.
+  - A controller with no standby power counts 0 W, with a readiness note.
+  - Tape specs have no active flag, so a tape is in the catalog when its Item is enabled and it has an
+    active offering. Drivers need an enabled sales Item; wires an enabled sales Item.
+  - A tape spec split into several groups gets a distinct `sku` per group (the library requires unique
+    SKUs); `erpItemCode` stays the tape Item.
+  - Empty Float fields read as 0 in Frappe, so wire rules now treat 0 as "not entered" and only refuse
+    negative resistance, ampacity, impedance and diameter.
+  - Snapshots built while serving a GET request are committed explicitly (Frappe does not commit GETs).
+  - `ENGINE_CONTRACT_VERSION = "catalog-1"`, `CODE_TABLES_VERSION = "nec-2023-1"` until WP-3 owns them.

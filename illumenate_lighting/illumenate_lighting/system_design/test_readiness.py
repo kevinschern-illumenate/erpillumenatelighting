@@ -16,7 +16,9 @@ class TestDesignReadiness(IntegrationTestCase):
 		self.assertEqual(data["volume_days"], readiness.VOLUME_DAYS)
 		for row in data["rows"]:
 			self.assertIn(row["product_type"], readiness.PRODUCT_TYPES)
-			self.assertIn(row["status"], (readiness.STATUS_READY, readiness.STATUS_INCOMPLETE, "not modelled"))
+			self.assertIn(
+				row["status"], (readiness.STATUS_READY, readiness.STATUS_INCOMPLETE, "not modelled")
+			)
 			self.assertIsInstance(row["volume"], int)
 			self.assertNotIn("cost", row)
 		counts = readiness.volumes()

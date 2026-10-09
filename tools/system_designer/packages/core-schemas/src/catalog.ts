@@ -44,6 +44,8 @@ const PowerShape = {
   terminalMinAwg: AwgSchema,
   terminalMaxAwg: AwgSchema,
   listings: z.array(IdSchema),
+  // ERP derate (A.2): the share of ratedW the designer may load.
+  usableLoadFactor: PositiveSchema.max(1).optional(),
 };
 const PsuObject = z.object({ kind: z.literal('psu'), ...PowerShape }).strict();
 const DriverObject = z.object({ kind: z.literal('driver'), ...PowerShape }).strict();
@@ -353,6 +355,8 @@ export const CatalogItemSchema = z
     source: ProvenanceSchema.optional(),
     sourceData: z.record(z.string(), z.json()).optional(),
     localOverrides: z.array(IdSchema).default([]),
+    // D6: supply preference order from the ERP catalog; reveals order, never cost.
+    rank: CountSchema.optional(),
   })
   .strict()
   .superRefine((item, ctx) => {

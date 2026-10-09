@@ -1205,6 +1205,11 @@
              "minLength": 1,
              "maxLength": 160
             }
+           },
+           "usableLoadFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
            }
           },
           "required": [
@@ -1405,6 +1410,11 @@
              "minLength": 1,
              "maxLength": 160
             }
+           },
+           "usableLoadFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
            }
           },
           "required": [

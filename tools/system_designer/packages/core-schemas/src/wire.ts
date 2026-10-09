@@ -83,6 +83,10 @@ export const WireTypeSchema = z
     ]),
     ampacityTempLimitC: z.union([z.literal(60), z.literal(75), z.literal(90)]).optional(),
     resistanceReferenceTempC: z.number().finite().optional(),
+    // ERP catalog (A.6, D7): the Item the designer writes back and how it is sold.
+    erpItemCode: IdSchema.optional(),
+    salesUom: z.enum(['foot', 'spool']).optional(),
+    spoolLengthFt: PositiveSchema.optional(),
   })
   .strict()
   .superRefine((wire, ctx) => {

@@ -150,8 +150,9 @@ def conductor_problems(rows):
 		if colors and len(colors) != count:
 			problems.append(f"Conductor row {index}: list one color per conductor ({count})")
 		for field in ("resistance_ohm_per_kft", "ampacity_a"):
-			if row.get(field) not in (None, "") and float(row[field]) <= 0:
-				problems.append(f"Conductor row {index}: {field} must be positive when set")
+			# Frappe stores an empty Float as 0, so 0 means "not entered".
+			if row.get(field) not in (None, "") and float(row[field]) < 0:
+				problems.append(f"Conductor row {index}: {field} cannot be negative")
 	return problems
 
 
@@ -186,6 +187,8 @@ def spec_problems(values):
 		problems.append("Unknown run types: " + ", ".join(unknown))
 	elif not applications:
 		problems.append("List at least one run type in Applications")
+	elif "wireless" in applications:
+		problems.append("Wireless is a link, not a cable; remove it from Applications")
 	if str(values.get("temp_rating_c") or "") not in TEMP_RATINGS:
 		problems.append("Temperature rating must be 60, 75, 90 or 105")
 	if values.get("ampacity_basis") and values["ampacity_basis"] not in AMPACITY_BASES:
@@ -198,8 +201,8 @@ def spec_problems(values):
 	if float(values.get("rated_v") or 0) < 0:
 		problems.append("Rated voltage cannot be negative")
 	for field in ("impedance_ohm", "resistance_ohm_per_kft", "ampacity_a", "od_in"):
-		if values.get(field) not in (None, "") and float(values[field]) <= 0:
-			problems.append(f"{field} must be positive when set")
+		if values.get(field) not in (None, "") and float(values[field]) < 0:
+			problems.append(f"{field} cannot be negative")
 	if re.search(r"\bexample\b", str(values.get("source_reference") or ""), re.IGNORECASE):
 		problems.append("Source reference names EXAMPLE data; import only reviewed manufacturer data")
 	return problems

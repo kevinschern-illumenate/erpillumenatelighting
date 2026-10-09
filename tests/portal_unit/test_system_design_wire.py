@@ -82,6 +82,11 @@ class WireRules(unittest.TestCase):
 		self.assertIn("even", problems[0])
 		self.assertIn("one color per conductor", problems[1])
 		self.assertEqual(self.wire.conductor_problems([{"count": 2, "role": "Data Pair"}]), [])
+		# Frappe stores an empty Float as 0: zero is "not entered", a negative is wrong.
+		rows = [{"count": 2, "role": "Power", "resistance_ohm_per_kft": 0, "ampacity_a": -1}]
+		self.assertEqual(
+			self.wire.conductor_problems(rows), ["Conductor row 1: ampacity_a cannot be negative"]
+		)
 
 	def test_per_spool_requires_spool_length(self):
 		self.assertIn(
@@ -101,6 +106,9 @@ class WireRules(unittest.TestCase):
 		)
 		self.assertIn("Unknown run types: nope", self.spec(applications="dmx,nope"))
 		self.assertIn("List at least one run type in Applications", self.spec(applications=" "))
+		self.assertIn(
+			"Wireless is a link, not a cable; remove it from Applications", self.spec(applications="wireless")
+		)
 		self.assertEqual(self.wire.category_label("building-wire"), "Building Wire")
 		self.assertEqual(self.wire.category_label("Flex Cord"), "Flex Cord")
 		self.assertIsNone(self.wire.category_label("rope"))

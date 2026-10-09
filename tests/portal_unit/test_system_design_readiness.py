@@ -45,6 +45,10 @@ DECODER = {
 	"item": "DEC-4",
 	"controller_type": "DMX Decoder",
 	"input_voltage_type": "VDC",
+	"input_voltage_min": 12,
+	"input_voltage_max": 24,
+	"terminal_max_awg": "14",
+	"output_dimming": "None",
 	"channels": 4,
 	"max_a_per_channel": 5,
 	"max_load_amps": 20,
@@ -69,7 +73,7 @@ class Rules(unittest.TestCase):
 	def driver(self, protocols=("0-10V",), **changes):
 		return self.module.driver_issues({**DRIVER, **changes}, VOLTS, ENGINE, list(protocols))
 
-	def controller(self, inputs=("DMX",), outputs=(), ports=1, **changes):
+	def controller(self, inputs=("DMX",), outputs=(), ports=(), **changes):
 		return self.module.controller_issues(
 			{**DECODER, **changes}, ENGINE, list(inputs), list(outputs), ports
 		)
@@ -125,9 +129,18 @@ class Rules(unittest.TestCase):
 		self.assertEqual(self.controller(outputs=("Mystery",))["missing"], ["output_protocols"])
 
 	def test_decoder_rules(self):
-		result = self.controller(max_load_watts=None, dmx_footprint=0, ports=0)
-		self.assertEqual(result["missing"], ["max_load_watts", "dmx_footprint", "ports"])
+		result = self.controller(max_load_watts=None, dmx_footprint=0)
+		self.assertEqual(result["missing"], ["max_load_watts", "dmx_footprint"])
 		self.assertEqual(self.controller(input_voltage_type="VAC")["missing"], ["output_dimming"])
+		self.assertEqual(
+			self.controller(input_voltage_type="VAC", output_dimming="0-10V")["missing"], ["output_dimming"]
+		)
+		self.assertEqual(self.controller(output_dimming="Phase Forward")["missing"], ["output_dimming"])
+		self.assertEqual(self.controller(inputs=(), outputs=("0-10V",))["missing"], ["input_protocols"])
+		self.assertEqual(
+			self.controller(input_voltage_min=48, terminal_max_awg=None)["missing"],
+			["input_voltage_max", "terminal_max_awg"],
+		)
 		self.assertEqual(
 			self.controller(input_voltage_type="VAC", output_dimming="Phase Forward")["missing"], []
 		)
@@ -138,13 +151,108 @@ class Rules(unittest.TestCase):
 		self.assertEqual(category("Wall Dimmer", "0-10V"), "0-10v-dimmer")
 		self.assertIsNone(category("Wall Dimmer", "None"))
 		self.assertEqual(category("Gateway"), "sacn-gateway")
-		dimmer = {"item": "DIM", "controller_type": "Wall Dimmer", "output_dimming": "Phase Forward"}
-		result = self.module.controller_issues(dimmer, ENGINE, ["0-10V"], [], 1)
+		dimmer = {
+			"item": "DIM",
+			"controller_type": "Wall Dimmer",
+			"output_dimming": "Phase Forward",
+			"input_voltage_type": "VAC",
+			"input_voltage_min": 120,
+			"input_voltage_max": 120,
+			"terminal_max_awg": "12",
+		}
+		port = [{"port_name": "Load", "direction": "Out", "protocol": "0-10V"}]
+		result = self.module.controller_issues(dimmer, ENGINE, ["0-10V"], [], port)
 		self.assertEqual(result["missing"], ["min_load_w", "led_max_w", "max_supplies"])
-		result = self.module.controller_issues({**dimmer, "output_dimming": None}, ENGINE, ["0-10V"], [], 1)
+		self.assertIn("not in the designer catalog", result["notes"][0])
+		result = self.module.controller_issues(
+			{**dimmer, "output_dimming": None}, ENGINE, ["0-10V"], [], port
+		)
 		self.assertEqual(result["missing"], ["output_dimming"])
-		sensor = self.module.controller_issues({"item": "S", "controller_type": "Sensor"}, ENGINE, [], [], 0)
+		sensor = self.module.controller_issues({"item": "S", "controller_type": "Sensor"}, ENGINE, [], [], [])
 		self.assertEqual((sensor["status"], sensor["missing"]), ("not modelled", []))
+
+	def test_tape_consistency_rules(self):
+		self.assertEqual(self.tape(min_operating_voltage_v=25)["missing"], ["min_operating_voltage_v"])
+		self.assertEqual(self.tape(max_run_double_feed_ft=10)["missing"], ["max_run_double_feed_ft"])
+		self.assertEqual(self.tape(max_simultaneous_pct=150)["missing"], ["max_simultaneous_pct"])
+		limits = [{"channel_name": "R", "max_w_per_ft": 2}, {"channel_name": "G", "max_w_per_ft": 2}]
+		self.assertEqual(self.tape(channels=3, channel_limits=limits)["missing"], ["channel_limits"])
+		rgb = [*limits, {"channel_name": "B", "max_w_per_ft": 2}]
+		self.assertEqual(self.tape(channels=3, channel_limits=rgb)["missing"], [])
+		dup = [*limits, {"channel_name": "G", "max_w_per_ft": 2}]
+		self.assertEqual(self.tape(channels=3, channel_limits=dup)["missing"], ["channel_limits"])
+		limited = {"channels": 3, "power_basis": "Max Operating", "max_simultaneous_pct": 200}
+		self.assertEqual(self.tape(**limited)["missing"], ["channel_limits"])
+		self.assertEqual(self.tape(channel_limits=rgb, **limited)["missing"], [])
+
+	def test_driver_consistency_rules(self):
+		self.assertEqual(self.driver(input_voltage_min=300)["missing"], ["input_voltage_max"])
+		self.assertEqual(self.driver(input_voltage_type="VDC", input_phase="3PH")["missing"], ["input_phase"])
+		self.assertEqual(self.driver(terminal_min_awg="10")["missing"], ["terminal_max_awg"])
+		self.assertEqual(self.driver(max_input_a=1.2)["missing"], ["max_input_a_at_v"])
+		self.assertEqual(self.driver(max_input_a=1.2, max_input_a_at_v=480)["missing"], ["max_input_a_at_v"])
+		self.assertEqual(self.driver(max_input_a=1.2, max_input_a_at_v=120)["missing"], [])
+		cc = {"output_type": "Constant Current", "output_current_ma": 700, "compliance_v_min": 40}
+		self.assertEqual(self.driver(compliance_v_max=20, **cc)["missing"], ["compliance_v_max"])
+
+	def test_controller_ports_and_converters(self):
+		base = {
+			"item": "CTL",
+			"controller_type": "DMX to 0-10V Converter",
+			"input_voltage_type": "VDC",
+			"input_voltage_min": 12,
+			"input_voltage_max": 24,
+			"terminal_max_awg": "16",
+			"dmx_footprint": 4,
+			"unit_load": 1,
+			"standby_power_watts": 1,
+		}
+		ports = [
+			{"port_name": "DMX In", "direction": "In", "protocol": "DMX"},
+			{"port_name": "Out 1", "direction": "Out", "protocol": "0-10V", "max_devices": 10},
+		]
+		check = self.module.controller_issues
+		self.assertEqual(check(base, ENGINE, ["DMX"], ["0-10V"], ports)["missing"], [])
+		self.assertEqual(check(base, ENGINE, ["DMX"], ["0-10V"], [])["missing"], ["ports"])
+		result = check(base, ENGINE, ["0-10V"], ["DMX"], ports)
+		self.assertEqual(result["missing"], ["input_protocols", "output_protocols"])
+		bad = [{**ports[0], "max_devices": 2}, {**ports[1], "protocol": "Mystery"}]
+		result = check(base, ENGINE, ["DMX"], ["0-10V"], bad)
+		self.assertEqual(result["missing"], ["ports"])
+		self.assertIn("unmapped protocol: Mystery", result["notes"])
+		keypad = {**base, "controller_type": "Scene Controller", "standby_power_watts": None}
+		result = check(keypad, ENGINE, ["DMX"], [], ports[:1])
+		self.assertEqual(result["missing"], [])
+		self.assertIn("0 W", result["notes"][0])
+
+	def test_wire_cable_rules(self):
+		spec = {
+			"item": "W1",
+			"is_verified": 1,
+			"wire_name": "18/2",
+			"listing": "CL3R",
+			"riser_label": "18/2 CL3R",
+			"source_reference": "Datasheet rev A",
+			"applications": "class2-dc",
+			"category": "Class 2 Power",
+			"temp_rating_c": "75",
+			"rated_v": 300,
+		}
+		rows = [{"count": 2, "awg": "18"}]
+		check = self.module.wire_issues
+		self.assertEqual(check(spec, True, rows)["missing"], [])
+		self.assertEqual(check({**spec, "listing": ""}, True, rows)["missing"], ["listing"])
+		self.assertEqual(check(spec, True, [])["missing"], ["conductors"])
+		self.assertEqual(
+			check(spec, True, [{"count": 2, "awg": "22"}])["missing"], ["resistance_ohm_per_kft"]
+		)
+		self.assertEqual(
+			check({**spec, "resistance_ohm_per_kft": 16}, True, [{"count": 2, "awg": "22"}])["missing"], []
+		)
+		self.assertEqual(check({**spec, "direct_burial": 1}, True, rows)["missing"], ["wet"])
+		self.assertEqual(check({**spec, "applications": "wireless"}, True, rows)["missing"], ["applications"])
+		building = {**spec, "category": "Building Wire", "ampacity_basis": "Manufacturer"}
+		self.assertEqual(check(building, True, rows)["missing"], ["ampacity_basis"])
 
 	def test_wire_needs_a_selling_price(self):
 		result = self.module.wire_issues({"item": "W1", "is_verified": 1}, has_price=False)
