@@ -57,6 +57,95 @@ class OrderApproval(unittest.TestCase):
 				with self.assertRaisesRegex(ValueError, "acknowledge"):
 					module.before_submit(order)
 
+	def desk_submit_pair(self, module):
+		"""The same order as the database loads it and as a Desk submit sends it."""
+
+		def build(qty, rate, description, terms, po_no):
+			order = types.SimpleNamespace(**self.order(), terms=terms, po_no=po_no, grand_total=rate * qty)
+			order.items = [
+				Record(
+					name="ROW1",
+					item_code="FIX-1",
+					qty=qty,
+					rate=rate,
+					amount=rate * qty,
+					description=description,
+				)
+			]
+			order.get = lambda field: getattr(order, field, None)
+			return order
+
+		stored = build(10.0, 25.5, "<p>Linear fixture</p>", "<p>Net 30</p>", None)
+		submitted = build(
+			10,
+			25.5,
+			'<div class="ql-editor read-mode"><p>Linear fixture</p></div>',
+			'<div class="ql-editor read-mode"><p>Net 30</p></div>',
+			"",
+		)
+		return stored, submitted
+
+	def acknowledged_request(self, module, order):
+		class Doc(Record):
+			__setattr__ = dict.__setitem__
+
+			def append(self, table, row):
+				self[table].append(row)
+
+		request = Doc(
+			state="UNDER_REVIEW",
+			intake_json="{}",
+			request_snapshot=json.dumps(module.snapshot(order)),
+			decisions=[],
+		)
+		module._record_acknowledgment(request, order, "buyer@example.com", "ACKNOWLEDGED")
+		return request
+
+	def test_desk_submit_keeps_the_buyer_acknowledgment(self):
+		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, _frappe):
+			stored, submitted = self.desk_submit_pair(module)
+			request = self.acknowledged_request(module, stored)
+			self.assertNotEqual(fingerprint(module.snapshot(stored)), fingerprint(module.snapshot(submitted)))
+			with (
+				patch.object(module, "_staff"),
+				patch.object(module, "_load", return_value=(submitted, request)),
+			):
+				module.before_submit(submitted)
+
+	def test_legacy_acknowledgment_survives_desk_submit(self):
+		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, _frappe):
+			stored, submitted = self.desk_submit_pair(module)
+			# Recorded before normalization: the raw hash of the saved order.
+			request = Record(
+				state="UNDER_REVIEW",
+				intake_json="{}",
+				acknowledged_by="buyer@example.com",
+				acknowledged_hash=fingerprint(module.snapshot(stored)),
+				request_snapshot=json.dumps(module.snapshot(stored)),
+			)
+			self.assertTrue(module._acknowledged(request, stored))
+			with (
+				patch.object(module, "_staff"),
+				patch.object(module, "_load", return_value=(stored, request)),
+			):
+				module.before_submit(submitted)
+				submitted.customer_address = "OTHER"
+				with self.assertRaisesRegex(ValueError, "acknowledge"):
+					module.before_submit(submitted)
+
+	def test_rejected_submit_names_what_changed(self):
+		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, _frappe):
+			stored, submitted = self.desk_submit_pair(module)
+			request = self.acknowledged_request(module, stored)
+			submitted.items[0]["rate"] = 30
+			submitted.grand_total = 300
+			with (
+				patch.object(module, "_staff"),
+				patch.object(module, "_load", return_value=(submitted, request)),
+				self.assertRaisesRegex(ValueError, "grand total; row 1 rate"),
+			):
+				module.before_submit(submitted)
+
 	def test_role_without_erp_submit_permission_cannot_approve(self):
 		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, frappe):
 			frappe.get_roles.return_value = [module.APPROVER_ROLE]
