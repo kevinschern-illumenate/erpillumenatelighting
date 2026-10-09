@@ -21,7 +21,14 @@ class ilLOrderIntake(Document):
 				frappe.throw("Original order intake is immutable")
 		if old.state == "APPROVED" and any(
 			not same(self.get(field), old.get(field))
-			for field in ("state", "approved_snapshot", "approved_by", "approved_on", "acknowledged_hash")
+			for field in (
+				"state",
+				"approved_snapshot",
+				"approved_by",
+				"approved_on",
+				"acknowledged_hash",
+				"acknowledged_snapshot",
+			)
 		):
 			frappe.throw("Approved acknowledgment is immutable")
 		for field in (

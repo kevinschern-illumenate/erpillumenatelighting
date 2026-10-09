@@ -33,6 +33,7 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
+		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
 			utils=SimpleNamespace(
