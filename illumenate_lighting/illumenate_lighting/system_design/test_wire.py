@@ -32,6 +32,15 @@ def row(code, mode="Per Foot", spool=""):
 
 
 class TestFieldWire(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		# A bare test site has no Item Group tree until ERPNext setup runs; wire Items need the root.
+		if not frappe.db.exists("Item Group", "All Item Groups"):
+			frappe.get_doc(
+				{"doctype": "Item Group", "item_group_name": "All Item Groups", "is_group": 1}
+			).insert(ignore_permissions=True)
+
 	def test_masters_are_idempotent(self):
 		wire_import.ensure_wire_masters()
 		wire_import.ensure_wire_masters()
