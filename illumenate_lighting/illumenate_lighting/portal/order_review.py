@@ -341,6 +341,7 @@ def on_submit(order, method=None):
 
 	create(request)
 	request.save(ignore_permissions=True)
+	_post_decision(request, "Order approved. Your order acknowledgment is ready to download from this page.")
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_order_review
 
 	notify_order_review(order, request)
@@ -387,12 +388,23 @@ def review(order_name, action, note=None, expected_modified=None):
 		},
 	)
 	request.save(ignore_permissions=True)
+	_post_decision(request, request.customer_message)
 	if action == "REJECT":
 		mark_issue(order, request.customer_message)
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_order_review
 
 	notify_order_review(order, request)
 	return {"success": True, "state": request.state, "sales_order": order.name}
+
+
+def _post_decision(request, note):
+	"""Put a decision note in the order's conversation, next to the replies.
+
+	The caller sends the order-review email, so the post does not notify again.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.conversations import post
+
+	post(request, note, key=f"{request.state}:{len(request.decisions or [])}", notify=False)
 
 
 def mark_issue(order, note):
@@ -430,6 +442,7 @@ def withdraw(order_name, revision_hash, note):
 		},
 	)
 	request.save(ignore_permissions=True)
+	_post_decision(request, note)
 	mark_issue(order, note.strip())
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_order_review
 

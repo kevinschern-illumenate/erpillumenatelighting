@@ -20,7 +20,6 @@
   {% if offer.snapshot.terms %}<details class="my-3"><summary>{{ _("Terms") }}</summary><div>{{ ill_sanitize_html(offer.snapshot.terms) | safe }}</div></details>{% endif %}
   {% if offer.unavailable_reason %}<p class="alert alert-warning">{{ offer.unavailable_reason | e }}</p>{% endif %}
   {% if offer.sales_order %}<a class="btn btn-primary" href="/portal/orders/{{ offer.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
-  {% if offer.response_note %}<p>{{ _("Your response") }}: {{ offer.response_note | e }}</p>{% endif %}
   {% if offer.can_respond %}
   <form id="offer-response" class="card mt-4"><div class="card-body">
     <h2 class="h5">{{ _("Respond to this offer") }}</h2>
@@ -34,6 +33,15 @@
     <button type="button" class="btn btn-outline-secondary" data-response="REQUEST_REVISION">{{ _("Request revision") }}</button>
     <button type="button" class="btn btn-outline-secondary" data-response="DECLINE">{{ _("Decline") }}</button>
   </div></form>
+  {% endif %}
+  {% if offer.quote_request and not offer.sales_order %}
+  <section class="card my-4 p-3" id="quote-conversation" aria-labelledby="quote-conversation-heading">
+    <h2 class="h5" id="quote-conversation-heading">{{ _("Conversation with ilLumenate") }}</h2>
+    <p class="text-muted small">{{ _("Questions about this quote, revision requests and your responses, oldest first.") }}</p>
+    <div data-portal-conversation data-parent-type="ilL-Quote-Request" data-parent-name="{{ offer.quote_request | e }}"></div>
+  </section>
+  {% elif offer.sales_order %}
+  <p class="mt-3">{{ _("Continue the conversation on the order request.") }}</p>
   {% endif %}
 </main>
 {% endblock %}

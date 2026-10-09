@@ -146,6 +146,17 @@ class OrderApproval(unittest.TestCase):
 			):
 				module.before_submit(submitted)
 
+	def test_review_decision_is_posted_in_the_order_conversation(self):
+		conversations = types.ModuleType(ROOT + ".portal.conversations")
+		conversations.post = MagicMock()
+		deps = {**self.dependencies(), conversations.__name__: conversations}
+		with load_service(ROOT + ".portal.order_review", deps) as (module, _frappe):
+			request = Record(state="CHANGES_PROPOSED", decisions=[Record(), Record()])
+			module._post_decision(request, "Revised the driver to 96W")
+			conversations.post.assert_called_once_with(
+				request, "Revised the driver to 96W", key="CHANGES_PROPOSED:2", notify=False
+			)
+
 	def test_role_without_erp_submit_permission_cannot_approve(self):
 		with load_service(ROOT + ".portal.order_review", self.dependencies()) as (module, frappe):
 			frappe.get_roles.return_value = [module.APPROVER_ROLE]

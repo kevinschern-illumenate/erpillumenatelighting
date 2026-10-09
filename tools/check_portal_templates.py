@@ -55,6 +55,7 @@ offer = {
 	"snapshot_hash": "a" * 64,
 	"pdf_url": "/private/files/offer.pdf",
 	"sales_order": None,
+	"quote_request": "QR-00001",
 	"response_note": None,
 	"unavailable_reason": None,
 	"can_respond": True,
@@ -83,6 +84,7 @@ rendered = detail.render(offer=offer)
 assert '<form id="offer-response"' in rendered
 assert "&lt;img" in rendered and "<img src=x" not in rendered
 assert "<script>unsafe()" not in rendered
+assert 'data-parent-type="ilL-Quote-Request" data-parent-name="QR-00001"' in rendered
 offer["can_respond"] = False
 assert '<form id="offer-response"' not in detail.render(offer=offer)
 listing = environment.get_template("templates/pages/quotes.html")

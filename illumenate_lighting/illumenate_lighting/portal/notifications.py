@@ -79,9 +79,11 @@ def notify_order_review(order, request):
 	label = labels.get(request.state)
 	if not label:
 		return
+	message = request.get("customer_message") if request.state != "APPROVED" else None
+	note = f'<p style="white-space: pre-wrap">{frappe.utils.escape_html(message)}</p>' if message else ""
 	for user in order_recipients(order):
 		notify_user(user, "notify_orders", f"{label}: {order.name}",
-			f"<p>{label}.</p>" + _portal_link(f"/portal/orders/{order.name}", _("Review order")),
+			f"<p>{label}.</p>" + note + _portal_link(f"/portal/orders/{order.name}", _("Review order")),
 			reference_doctype="Sales Order", reference_name=order.name,
 			event_key=f"{request.name}:{request.state}:{request.modified}")
 
