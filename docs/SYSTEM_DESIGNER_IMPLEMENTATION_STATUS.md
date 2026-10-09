@@ -11,6 +11,10 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-0.4 | Commit the visualizer as a reference asset | Done |
 | WP-0.5 | Applications Engineer role, capability and Settings | Done |
 | WP-0.6 | Python package skeleton and error contract | Done |
+| WP-1.1 | Tape, voltage and protocol design fields | Done |
+| WP-1.2 | Driver design fields | Done |
+| WP-1.3 | Controller types, design fields and ports | Done |
+| WP-1.4 | Wire spec and Items | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -78,3 +82,33 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
 ## WP-0.4 — Visualizer reference
 
 `tools/system_designer/reference/led-tape-system-visualizer.html` is the supplied file, unchanged.
+
+## WP-1.1 to WP-1.3 — Catalog design fields
+
+- New fields sit in a "System Designer" section on `ilL-Spec-LED Tape`, `ilL-Spec-Driver` and
+  `ilL-Spec-Controller`, plus `nominal_voltage_v` on Output Voltage and `engine_protocol` on Dimming
+  Protocol. New child doctypes: `ilL-Child-Tape-Channel`, `ilL-Child-Controller-Port`.
+- `patches/system_designer_tape_fields.py` fills only empty values: voltage from the attribute's text,
+  engine protocol from the attribute's `protocol`/label (`system_design/protocols.py`, kept in step with
+  `@ill/data/protocols.json` by a parity test), tape single-feed run from `voltage_drop_max_run_length_ft`,
+  channels from the LED package's spectrum.
+- The Catalog Builder's schema snapshot and bundle are regenerated whenever spec doctypes change.
+
+## WP-1.4 — Wire spec and Items (D7)
+
+- `ilL-Spec-Wire` (named by `item`, perms mirror `ilL-Spec-Driver`) and `ilL-Child-Wire-Conductor`.
+  Rules live in `system_design/wire.py`: the Item must be sellable, enabled and not a template; Per Foot
+  wire needs stock UOM Foot, Per Spool wire needs a spool length and a non-length UOM; applications must be
+  engine run types; data pairs need an even count.
+- `patches/create_field_wire_item_group.py` creates Item Group "Field Wire" and UOMs Foot and Spool when
+  missing.
+- Desk import: the "Import Field Wire CSV" button on the `ilL-Spec-Wire` list checks the file first and
+  imports only when every row is valid (`system_design/wire_import.import_field_wire`, catalog staff).
+  Start from `tools/seed_imports/field_wire_TEMPLATE.csv`. Conductors are written
+  `2x18 Cu stranded power (red/black); 1x18 Cu stranded ground`.
+- The riser's EXAMPLE `wires.seed.json` is not imported, and rows whose source reference says "example"
+  are refused.
+- Pricing: wire Items are ordinary sales Items, so staff add Item Price rows as for any other Item. The
+  import never writes prices (D6).
+- Discrepancy: the plan says "UOM Foot or a spool UOM" without naming the spool UOM; the import uses a
+  whole-number UOM named `Spool`, and the spool's length lives on the spec.

@@ -1,0 +1,92 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-09 13:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "count",
+  "awg",
+  "material",
+  "stranding",
+  "role",
+  "colors",
+  "resistance_ohm_per_kft",
+  "ampacity_a"
+ ],
+ "fields": [
+  {
+   "fieldname": "count",
+   "fieldtype": "Int",
+   "label": "Count",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "awg",
+   "fieldtype": "Select",
+   "label": "AWG",
+   "options": "24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "material",
+   "fieldtype": "Select",
+   "label": "Material",
+   "default": "Cu",
+   "options": "Cu\nAl",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stranding",
+   "fieldtype": "Select",
+   "label": "Stranding",
+   "default": "Stranded",
+   "options": "Solid\nStranded",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "role",
+   "fieldtype": "Select",
+   "label": "Role",
+   "default": "Power",
+   "options": "Power\nGround\nSignal\nData Pair\nChannel",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "colors",
+   "fieldtype": "Small Text",
+   "label": "Colors",
+   "description": "Comma list, one per conductor."
+  },
+  {
+   "fieldname": "resistance_ohm_per_kft",
+   "fieldtype": "Float",
+   "label": "Resistance (Ω/1000 ft)"
+  },
+  {
+   "fieldname": "ampacity_a",
+   "fieldtype": "Float",
+   "label": "Ampacity (A)"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-09 13:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Wire-Conductor",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

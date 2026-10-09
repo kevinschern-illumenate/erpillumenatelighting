@@ -2736,6 +2736,65 @@
         }
       ]
     },
+    "ilL-Child-Wire-Conductor": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "count",
+          "label": "Count",
+          "fieldtype": "Int",
+          "reqd": 1
+        },
+        {
+          "fieldname": "awg",
+          "label": "AWG",
+          "fieldtype": "Select",
+          "options": "24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0",
+          "reqd": 1
+        },
+        {
+          "fieldname": "material",
+          "label": "Material",
+          "fieldtype": "Select",
+          "options": "Cu\nAl",
+          "reqd": 1,
+          "default": "Cu"
+        },
+        {
+          "fieldname": "stranding",
+          "label": "Stranding",
+          "fieldtype": "Select",
+          "options": "Solid\nStranded",
+          "reqd": 1,
+          "default": "Stranded"
+        },
+        {
+          "fieldname": "role",
+          "label": "Role",
+          "fieldtype": "Select",
+          "options": "Power\nGround\nSignal\nData Pair\nChannel",
+          "reqd": 1,
+          "default": "Power"
+        },
+        {
+          "fieldname": "colors",
+          "label": "Colors",
+          "fieldtype": "Small Text",
+          "description": "Comma list, one per conductor."
+        },
+        {
+          "fieldname": "resistance_ohm_per_kft",
+          "label": "Resistance (Ω/1000 ft)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "ampacity_a",
+          "label": "Ampacity (A)",
+          "fieldtype": "Float"
+        }
+      ]
+    },
     "ilL-Child-Wireless-Protocol": {
       "autoname": "",
       "istable": 1,
@@ -5434,6 +5493,172 @@
           "fieldtype": "Check",
           "default": "0",
           "description": "Block output if this engineering value is missing; zero is a valid value."
+        }
+      ]
+    },
+    "ilL-Spec-Wire": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1,
+          "description": "The sellable Item dealers are quoted for this wire (D7)."
+        },
+        {
+          "fieldname": "wire_name",
+          "label": "Wire Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "e.g. \"18/2 CL3R\""
+        },
+        {
+          "fieldname": "category",
+          "label": "Category",
+          "fieldtype": "Select",
+          "options": "Class 2 Power\nBuilding Wire\nCable Assembly\nData\nControl\nLandscape\nFlex Cord",
+          "reqd": 1
+        },
+        {
+          "fieldname": "applications",
+          "label": "Applications",
+          "fieldtype": "Small Text",
+          "reqd": 1,
+          "description": "Comma list of engine run types: lv-branch, lv-fixture-whip, class2-dc, class2-dc-multichannel, landscape-ac, dmx, ethernet, spi-data, 0-10v, dali, lutron-qs, lutron-ecosystem, wireless."
+        },
+        {
+          "fieldname": "riser_label",
+          "label": "Riser Label",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Printed on riser drawings."
+        },
+        {
+          "fieldname": "is_verified",
+          "label": "Engineering Verified",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "source_reference",
+          "label": "Source",
+          "fieldtype": "Small Text",
+          "reqd": 1,
+          "description": "Datasheet or standard the ratings come from."
+        },
+        {
+          "fieldname": "conductors",
+          "label": "Conductors",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Wire-Conductor",
+          "reqd": 1
+        },
+        {
+          "fieldname": "listing",
+          "label": "Listing",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "CL2, CL3, CL2P, CL3R, CMP, NM-B, UF-B…"
+        },
+        {
+          "fieldname": "rated_v",
+          "label": "Rated Voltage (V)",
+          "fieldtype": "Float",
+          "reqd": 1
+        },
+        {
+          "fieldname": "temp_rating_c",
+          "label": "Temperature Rating (°C)",
+          "fieldtype": "Select",
+          "options": "60\n75\n90\n105",
+          "reqd": 1,
+          "default": "75"
+        },
+        {
+          "fieldname": "plenum",
+          "label": "Plenum",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "riser",
+          "label": "Riser",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "wet",
+          "label": "Wet Location",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "direct_burial",
+          "label": "Direct Burial",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "sunlight_resistant",
+          "label": "Sunlight Resistant",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "shielded",
+          "label": "Shielded",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "impedance_ohm",
+          "label": "Impedance (Ω)",
+          "fieldtype": "Float",
+          "description": "Data cables."
+        },
+        {
+          "fieldname": "resistance_ohm_per_kft",
+          "label": "Resistance (Ω/1000 ft)",
+          "fieldtype": "Float",
+          "description": "Overrides NEC Table 8."
+        },
+        {
+          "fieldname": "ampacity_a",
+          "label": "Ampacity (A)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "ampacity_basis",
+          "label": "Ampacity Basis",
+          "fieldtype": "Select",
+          "options": "\n310.16\n402.5 fallback\nManufacturer"
+        },
+        {
+          "fieldname": "od_in",
+          "label": "Outside Diameter (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "sales_uom_mode",
+          "label": "Sold",
+          "fieldtype": "Select",
+          "options": "Per Foot\nPer Spool",
+          "reqd": 1,
+          "default": "Per Foot"
+        },
+        {
+          "fieldname": "spool_length_ft",
+          "label": "Spool Length (ft)",
+          "fieldtype": "Float"
         }
       ]
     },
