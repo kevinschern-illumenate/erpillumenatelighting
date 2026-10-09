@@ -141,10 +141,15 @@ def detail(name):
 	doc = frappe.get_doc(REQUEST_DOCTYPE, name)
 	if not has_permission(doc):
 		frappe.throw("Quote request unavailable", frappe.PermissionError)
+	status_label, status_class = REQUEST_LABELS.get(doc.state, (doc.state, "secondary"))
+	schedule_name = frappe.db.get_value("ilL-Project-Fixture-Schedule", doc.schedule, "schedule_name")
 	return {
 		"name": doc.name,
 		"schedule": doc.schedule,
+		"schedule_name": schedule_name or doc.schedule,
 		"state": doc.state,
+		"status_label": status_label,
+		"status_class": status_class,
 		"requested_by": doc.requested_by,
 		"due_date": doc.due_date,
 		"snapshot": json.loads(doc.request_snapshot),

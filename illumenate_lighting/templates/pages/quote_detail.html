@@ -1,48 +1,115 @@
 {% extends "templates/web.html" %}
+{% block title %}{{ offer.name }}{% endblock %}
 {% block page_content %}
 {% include "templates/includes/portal_navigation.html" %}
-<main class="container py-4" id="offer-detail" data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}">
-  <a href="/portal/quotes">{{ _("Back to quotes") }}</a>
-  <h1 class="mt-3">{{ offer.name | e }}</h1>
-  <p>{{ offer.quotation | e }} · {{ offer.state | e }} · {{ _("Valid until") }}: {{ offer.valid_until or _("As stated in quotation terms") }}</p>
-  {% if offer.pdf_url %}<a class="btn btn-outline-primary mb-3" href="{{ offer.pdf_url | e }}">{{ _("Download issued quotation") }}</a>{% endif %}
-  <div class="table-responsive"><table class="table">
-    <thead><tr><th>{{ _("Item") }}</th><th>{{ _("Quantity") }}</th><th>{{ _("Rate") }}</th><th>{{ _("Amount") }}</th></tr></thead>
-    <tbody>{% for line in offer.snapshot["items"] %}<tr>
-      <td>{% if line.ill_fixture_type %}<strong>{{ line.ill_fixture_type | e }}</strong><br>{% endif %}{{ line.item_name | e }}<br><small>{{ line.item_code | e }}{% if line.additional_notes %} · {{ line.additional_notes | e }}{% endif %}</small></td>
-      <td>{{ line.qty }} {{ line.uom | e }}</td><td>{{ frappe.format_value(line.rate, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</td>
-      <td>{{ frappe.format_value(line.amount, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</td>
-    </tr>{% endfor %}</tbody>
-  </table></div>
-  {% for tax in offer.snapshot.taxes %}<p>{{ tax.description | e }}: {{ frappe.format_value(tax.tax_amount, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</p>{% endfor %}
-  <p class="h4">{{ _("Total") }}: {{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":offer.snapshot.currency}) }}</p>
-  {% if offer.snapshot.exclusions %}<h2 class="h5 mt-3">{{ _("Excluded from this offer") }}</h2><ul>{% for line in offer.snapshot.exclusions %}<li>{{ line.designation | e }}: {{ line.reason | e }}</li>{% endfor %}</ul>{% endif %}
-  {% if offer.snapshot.terms %}<details class="my-3"><summary>{{ _("Terms") }}</summary><div>{{ ill_sanitize_html(offer.snapshot.terms) | safe }}</div></details>{% endif %}
-  {% if offer.unavailable_reason %}<p class="alert alert-warning">{{ offer.unavailable_reason | e }}</p>{% endif %}
-  {% if offer.sales_order %}<a class="btn btn-primary" href="/portal/orders/{{ offer.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
-  {% if offer.can_respond %}
-  <form id="offer-response" class="card mt-4"><div class="card-body">
-    <h2 class="h5">{{ _("Respond to this offer") }}</h2>
-    <p>{{ _("Acceptance creates an order request for staff review. Manufacturing starts only after the required approvals.") }}</p>
-    <label for="offer-po">{{ _("PO number (optional)") }}</label><input id="offer-po" class="form-control mb-3" maxlength="140">
-    <label for="offer-date">{{ _("Requested delivery date") }}</label><input id="offer-date" type="date" class="form-control mb-3">
-    <label for="offer-note">{{ _("Note for Sales") }}</label><textarea id="offer-note" class="form-control mb-3" maxlength="4000"></textarea>
-    <label class="d-block mb-3"><input type="checkbox" id="offer-ack"> {{ _("I have reviewed this quotation, its exclusions, and its terms.") }}</label>
-    <div id="offer-response-status" role="status" aria-live="polite"></div>
-    <button type="button" class="btn btn-primary" data-response="ACCEPT">{{ _("Accept and request order") }}</button>
-    <button type="button" class="btn btn-outline-secondary" data-response="REQUEST_REVISION">{{ _("Request revision") }}</button>
-    <button type="button" class="btn btn-outline-secondary" data-response="DECLINE">{{ _("Decline") }}</button>
-  </div></form>
-  {% endif %}
-  {% if offer.quote_request and not offer.sales_order %}
-  <section class="card my-4 p-3" id="quote-conversation" aria-labelledby="quote-conversation-heading">
-    <h2 class="h5" id="quote-conversation-heading">{{ _("Conversation with ilLumenate") }}</h2>
-    <p class="text-muted small">{{ _("Questions about this quote, revision requests and your responses, oldest first.") }}</p>
-    <div data-portal-conversation data-parent-type="ilL-Quote-Request" data-parent-name="{{ offer.quote_request | e }}"></div>
-  </section>
-  {% elif offer.sales_order %}
-  <p class="mt-3">{{ _("Continue the conversation on the order request.") }}</p>
-  {% endif %}
+{% set currency = offer.snapshot.currency %}
+<main class="container ill-commerce" id="offer-detail" data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}">
+  <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Back to quotes") }}</a>
+  <header class="ill-hero">
+    <div class="ill-hero__top">
+      <div>
+        <p class="ill-hero__eyebrow">{{ _("Quote") }}</p>
+        <h1>{{ offer.name | e }}</h1>
+        <p class="ill-hero__lead">{{ _("Quotation") }} {{ offer.quotation | e }}</p>
+      </div>
+      <div class="ill-hero__actions">
+        <span class="ill-status ill-status--{{ offer.status_class | default('secondary', true) | e }}">{{ _(offer.status_label | default(offer.state, true)) | e }}</span>
+        {% if offer.pdf_url %}<a class="btn btn-outline-light btn-sm" href="{{ offer.pdf_url | e }}"><i class="fa fa-download" aria-hidden="true"></i> {{ _("Download issued quotation") }}</a>{% endif %}
+      </div>
+    </div>
+    <dl class="ill-hero__facts">
+      <div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":currency}) }}</dd></div>
+      <div><dt>{{ _("Valid until") }}</dt><dd>{{ frappe.utils.format_date(offer.valid_until) if offer.valid_until else _("As stated in quotation terms") }}</dd></div>
+      <div><dt>{{ _("Lines") }}</dt><dd>{{ offer.snapshot["items"] | length }}</dd></div>
+      {% if offer.sales_order %}<div><dt>{{ _("Order request") }}</dt><dd><a href="/portal/orders/{{ offer.sales_order | urlencode }}">{{ offer.sales_order | e }}</a></dd></div>{% endif %}
+    </dl>
+  </header>
+
+  <div class="ill-layout">
+    <div class="ill-layout__main">
+      {% if offer.can_respond %}
+      <div class="ill-next ill-next--buyer" role="status">
+        <span class="ill-next__icon"><i class="fa fa-hand-o-right" aria-hidden="true"></i></span>
+        <div><p class="ill-next__label">{{ _("Next step") }}</p><p class="ill-next__text">{{ _("Review the lines, exclusions and terms, then accept this quote or ask for a revision.") }}</p></div>
+      </div>
+      {% elif offer.unavailable_reason %}
+      <div class="ill-next ill-next--alert" role="alert">
+        <span class="ill-next__icon"><i class="fa fa-exclamation" aria-hidden="true"></i></span>
+        <div><p class="ill-next__label">{{ _("This quote can't be accepted") }}</p><p class="ill-next__text">{{ offer.unavailable_reason | e }}</p></div>
+      </div>
+      {% endif %}
+
+      <section class="ill-panel ill-panel--flush" aria-labelledby="quote-lines-heading">
+        <div class="ill-panel__head"><h2 id="quote-lines-heading">{{ _("Quoted lines") }}</h2><span class="ill-count">{{ offer.snapshot["items"] | length }} {{ _("line(s)") }}</span></div>
+        <div class="ill-panel__body table-responsive">
+          <table class="ill-lines">
+            <thead><tr><th scope="col">{{ _("Item") }}</th><th scope="col" class="num">{{ _("Quantity") }}</th><th scope="col" class="num">{{ _("Rate") }}</th><th scope="col" class="num">{{ _("Amount") }}</th></tr></thead>
+            <tbody>{% for line in offer.snapshot["items"] %}<tr>
+              <td>{% if line.ill_fixture_type %}<span class="ill-lines__tag">{{ line.ill_fixture_type | e }}</span><br>{% endif %}<span class="ill-lines__name">{{ line.item_name | e }}</span><div class="ill-lines__meta">{{ line.item_code | e }}{% if line.additional_notes %} · {{ line.additional_notes | e }}{% endif %}</div></td>
+              <td class="num" data-label="{{ _('Quantity') }}">{{ line.qty }} {{ line.uom | e }}</td>
+              <td class="num" data-label="{{ _('Rate') }}">{{ frappe.format_value(line.rate, {"fieldtype":"Currency", "options":currency}) }}</td>
+              <td class="num" data-label="{{ _('Amount') }}">{{ frappe.format_value(line.amount, {"fieldtype":"Currency", "options":currency}) }}</td>
+            </tr>{% endfor %}</tbody>
+          </table>
+        </div>
+        {% if offer.snapshot.terms %}<details class="ill-disclosure"><summary>{{ _("Terms") }}</summary><div>{{ ill_sanitize_html(offer.snapshot.terms) | safe }}</div></details>{% endif %}
+      </section>
+
+      {% if offer.snapshot.exclusions %}
+      <section class="ill-panel" aria-labelledby="exclusions-heading">
+        <div class="ill-panel__head"><h2 id="exclusions-heading">{{ _("Excluded from this offer") }}</h2></div>
+        <div class="ill-panel__body"><dl class="ill-facts ill-facts--stack">{% for line in offer.snapshot.exclusions %}<div><dt>{{ line.designation | e }}</dt><dd>{{ line.reason | e }}</dd></div>{% endfor %}</dl></div>
+      </section>
+      {% endif %}
+
+      {% if offer.quote_request and not offer.sales_order %}
+      <section class="ill-panel" id="quote-conversation" aria-labelledby="quote-conversation-heading">
+        <div class="ill-panel__head"><h2 id="quote-conversation-heading">{{ _("Conversation with ilLumenate") }}</h2><p>{{ _("Questions about this quote, revision requests and your responses, oldest first.") }}</p></div>
+        <div class="ill-panel__body"><div data-portal-conversation data-parent-type="ilL-Quote-Request" data-parent-name="{{ offer.quote_request | e }}"></div></div>
+      </section>
+      {% endif %}
+    </div>
+
+    <aside class="ill-layout__aside" aria-label="{{ _('Quote summary') }}">
+      <section class="ill-panel" aria-labelledby="quote-summary-heading">
+        <div class="ill-panel__head"><h2 id="quote-summary-heading">{{ _("Summary") }}</h2></div>
+        <div class="ill-panel__body">
+          <table class="ill-totals">
+            {% for tax in offer.snapshot.taxes %}<tr><td>{{ tax.description | e }}</td><td>{{ frappe.format_value(tax.tax_amount, {"fieldtype":"Currency", "options":currency}) }}</td></tr>{% endfor %}
+            <tr class="ill-totals__grand"><td>{{ _("Total") }}</td><td>{{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":currency}) }}</td></tr>
+          </table>
+        </div>
+      </section>
+
+      {% if offer.can_respond %}
+      <form id="offer-response" class="ill-panel ill-panel--highlight ill-respond">
+        <div class="ill-panel__head"><h2>{{ _("Respond to this offer") }}</h2><p>{{ _("Acceptance creates an order request for staff review. Manufacturing starts only after the required approvals.") }}</p></div>
+        <div class="ill-panel__body">
+          <div class="form-group"><label for="offer-po">{{ _("PO number (optional)") }}</label><input id="offer-po" class="form-control" maxlength="140"></div>
+          <div class="form-group"><label for="offer-date">{{ _("Requested delivery date") }}</label><input id="offer-date" type="date" class="form-control"></div>
+          <div class="form-group"><label for="offer-note">{{ _("Note for Sales") }}</label><textarea id="offer-note" class="form-control" rows="3" maxlength="4000"></textarea><small class="form-text">{{ _("Required when you request a revision or decline.") }}</small></div>
+          <label class="ill-respond__check form-group"><input type="checkbox" id="offer-ack"> <span>{{ _("I have reviewed this quotation, its exclusions, and its terms.") }}</span></label>
+          <div id="offer-response-status" role="status" aria-live="polite"></div>
+          <div class="ill-respond__buttons">
+            <button type="button" class="btn btn-accent" data-response="ACCEPT">{{ _("Accept and request order") }}</button>
+            <button type="button" class="btn btn-outline-primary" data-response="REQUEST_REVISION">{{ _("Request revision") }}</button>
+            <button type="button" class="btn btn-link text-danger" data-response="DECLINE">{{ _("Decline") }}</button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+
+      {% if offer.sales_order %}
+      <section class="ill-panel" aria-labelledby="quote-order-heading">
+        <div class="ill-panel__head"><h2 id="quote-order-heading">{{ _("Order request") }}</h2></div>
+        <div class="ill-panel__body">
+          <p>{{ _("Continue the conversation on the order request.") }}</p>
+          <a class="btn btn-primary btn-block" href="/portal/orders/{{ offer.sales_order | urlencode }}">{{ _("View order request") }}</a>
+        </div>
+      </section>
+      {% endif %}
+    </aside>
+  </div>
 </main>
 {% endblock %}
 {% block script %}

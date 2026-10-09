@@ -6,303 +6,91 @@ View and track sales orders with production and shipment status
 
 {% block title %}{{ _("My Orders") }}{% endblock %}
 
-{% block style %}
-<style>
-.portal-page {
-	padding: 2rem 0;
-}
-.page-header {
-	margin-bottom: 2rem;
-}
-.order-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	margin-bottom: 1rem;
-	overflow: hidden;
-	transition: all 0.2s ease;
-}
-.order-card:hover {
-	box-shadow: var(--ill-shadow-elevated);
-}
-.order-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 1.25rem 1.5rem;
-	border-bottom: 1px solid var(--ill-gray-200);
-	background: var(--ill-surface-soft);
-}
-.order-id {
-	font-size: 1.1rem;
-	font-weight: 600;
-	color: var(--ill-ink);
-	text-decoration: none;
-}
-.order-id:hover {
-	color: var(--ill-blue-600);
-}
-.order-body {
-	padding: 1.25rem 1.5rem;
-}
-.order-details {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-	gap: 1rem;
-}
-.detail-item {
-	display: flex;
-	flex-direction: column;
-}
-.detail-label {
-	font-size: 0.75rem;
-	text-transform: uppercase;
-	color: var(--ill-gray-500);
-	margin-bottom: 0.25rem;
-}
-.detail-value {
-	font-weight: 500;
-	color: var(--ill-ink);
-}
-.order-progress {
-	padding: 1rem 1.5rem;
-	background: var(--ill-surface-soft);
-	border-top: 1px solid var(--ill-gray-200);
-}
-.progress-steps {
-	display: flex;
-	justify-content: space-between;
-	position: relative;
-}
-.progress-steps::before {
-	content: '';
-	position: absolute;
-	top: 15px;
-	left: 0;
-	right: 0;
-	height: 2px;
-	background: var(--ill-gray-300);
-	z-index: 0;
-}
-.progress-step {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	position: relative;
-	z-index: 1;
-	flex: 1;
-}
-.step-icon {
-	width: 32px;
-	height: 32px;
-	border-radius: 50%;
-	background: var(--ill-gray-300);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--ill-gray-500);
-	font-size: 0.8rem;
-	margin-bottom: 0.5rem;
-}
-.step-icon.completed {
-	background: var(--ill-green);
-	color: white;
-}
-.step-icon.active {
-	background: var(--ill-blue-600);
-	color: white;
-	animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-	0%, 100% { box-shadow: 0 0 0 0 rgba(0, 88, 140, 0.4); }
-	50% { box-shadow: 0 0 0 8px rgba(0, 88, 140, 0); }
-}
-.step-label {
-	font-size: 0.7rem;
-	color: var(--ill-text-secondary);
-	text-align: center;
-}
-.filter-bar {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	padding: 1rem 1.5rem;
-	margin-bottom: 1.5rem;
-	box-shadow: var(--ill-shadow-card);
-}
-.filter-tabs {
-	display: flex;
-	gap: 0.5rem;
-	flex-wrap: wrap;
-}
-.filter-tab {
-	padding: 0.5rem 1rem;
-	border-radius: var(--ill-radius-pill);
-	border: 1px solid var(--ill-gray-300);
-	background: white;
-	color: var(--ill-text-secondary);
-	font-size: 0.875rem;
-	cursor: pointer;
-	transition: all 0.2s;
-}
-.filter-tab:hover {
-	border-color: var(--ill-blue-600);
-	color: var(--ill-blue-600);
-}
-.filter-tab.active {
-	background: var(--ill-blue-600);
-	border-color: var(--ill-blue-600);
-	color: white;
-}
-.empty-state {
-	text-align: center;
-	padding: 4rem 2rem;
-	background: white;
-	border-radius: var(--ill-radius-lg);
-}
-.empty-state i {
-	font-size: 4rem;
-	color: var(--ill-gray-400);
-	margin-bottom: 1rem;
-}
-.empty-state h4 {
-	color: var(--ill-text-secondary);
-	margin-bottom: 0.5rem;
-}
-.empty-state p {
-	color: var(--ill-gray-500);
-}
-.empty-state .btn {
-	padding: 0.5rem 1.25rem;
-	font-size: 0.9rem;
-}
-</style>
-{% endblock %}
-
 {% block page_content %}
 {% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
-	<!-- Breadcrumb -->
-	<nav aria-label="breadcrumb" class="mb-3">
-		<ol class="breadcrumb">
-			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
-			<li class="breadcrumb-item active">{{ _("Orders") }}</li>
-		</ol>
-	</nav>
-
-	<!-- Page Header -->
-	<div class="page-header d-flex justify-content-between align-items-center">
-		<div>
-			<h1>{{ _("My Orders") }}</h1>
-			<p class="text-muted mb-0">{{ _("Track your orders and shipments") }}</p>
-		</div>
-		<a href="/portal/projects" class="btn btn-primary">
-			<i class="fa fa-plus"></i> {{ _("Start New Order") }}
-		</a>
-	</div>
-
-	<form method="get" class="filter-bar">
-        <label for="order-search">{{ _("Order, PO or customer") }}</label>
-        <input id="order-search" class="form-control" type="search" name="search" value="{{ search | default('', true) | e }}" maxlength="140">
-        <label for="order-status">{{ _("Status") }}</label>
-        <select id="order-status" name="status" class="form-control">
-        {% for key, label in [('all','All orders'),('action','Needs your action'),('requests','Order requests'),('active','Approved / in progress'),('shipping','Partially shipped'),('fulfilled','Fulfilled'),('cancelled','Cancelled')] %}
-        <option value="{{ key }}" {% if filter == key %}selected{% endif %}>{{ _(label) }}</option>
-        {% endfor %}</select><button class="btn btn-primary mt-2" type="submit">{{ _("Find orders") }}</button>
-    </form>
-	<!-- Orders List -->
-	<div id="ordersList">
-		{% if orders %}
-		{% for order in orders %}
-		<div class="order-card" data-status="{{ order.portal_status }}">
-			<div class="order-header">
-				<a href="/portal/orders/{{ order.name }}" class="order-id">
-					<i class="fa fa-file-text-o"></i> {{ order.name }}
-				</a>
-				<span>
-				{% if order.needs_action %}<span class="badge badge-warning mr-1">{{ _("Needs your action") }}</span>{% endif %}
-				<span class="badge badge-{{ order.portal_status_class }}" title="{{ order.erp_status }}">
-					{{ order.portal_status_label }}
-				</span>
-				</span>
+{% set search = search | default('', true) %}
+{% set filter = filter | default('all', true) %}
+<main class="container ill-commerce">
+	<header class="ill-hero">
+		<div class="ill-hero__top">
+			<div>
+				<p class="ill-hero__eyebrow">{{ _("Dealer portal") }}</p>
+				<h1>{{ _("My Orders") }}</h1>
+				<p class="ill-hero__lead">{{ _("Track order requests, production and shipments, and see where ilLumenate needs something from you.") }}</p>
 			</div>
-			<div class="order-body">
-				<div class="order-details">
-					<div class="detail-item">
-						<span class="detail-label">{{ _("Order Date") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(order.transaction_date) }}</span>
-					</div>
-					<div class="detail-item">
-						<span class="detail-label">{{ _("Confirmed delivery") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(order.ill_confirmed_delivery_date) if order.ill_confirmed_delivery_date else _("Not confirmed") }}</span>
-					</div>
-					<div class="detail-item">
-						<span class="detail-label">{{ _("Items") }}</span>
-						<span class="detail-value">{{ order.total_qty | int }} {{ _("items") }}</span>
-					</div>
-					<div class="detail-item">
-						<span class="detail-label">{{ _("Total") }}</span>
-						<span class="detail-value">{{ frappe.format_value(order.grand_total, {"fieldtype": "Currency", "currency": order.currency}) }}</span>
-					</div>
-					{% if order.po_no %}
-					<div class="detail-item">
-						<span class="detail-label">{{ _("PO Number") }}</span>
-						<span class="detail-value">{{ order.po_no }}</span>
-					</div>
-					{% endif %}
-				</div>
-			</div>
-			<div class="order-progress">
-				<div class="progress-steps">
-					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if order.docstatus == 1 else '' }}">
-							<i class="fa fa-check"></i>
-						</div>
-						<span class="step-label">{{ _("Approved") if order.docstatus == 1 else _("Requested") }}</span>
-					</div>
-					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if order.production_complete else '' }} {{ 'active' if order.production_started and not order.production_complete else '' }}">
-							<i class="fa fa-cogs"></i>
-						</div>
-						<span class="step-label">{{ _("In Production") }}</span>
-					</div>
-					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if (order.per_delivered or 0) >= 100 else '' }} {{ 'active' if 0 < (order.per_delivered or 0) < 100 else '' }}">
-							<i class="fa fa-truck"></i>
-						</div>
-						<span class="step-label">{{ _("Shipped") }}</span>
-					</div>
-					<div class="progress-step">
-						<div class="step-icon {{ 'completed' if order.portal_status == 'completed' else '' }}">
-							<i class="fa fa-check-circle"></i>
-						</div>
-						<span class="step-label">{{ _("Completed") }}</span>
-					</div>
-				</div>
+			<div class="ill-hero__actions">
+				<a href="/portal/projects" class="btn btn-accent"><i class="fa fa-plus" aria-hidden="true"></i> {{ _("Start New Order") }}</a>
 			</div>
 		</div>
-		{% endfor %}
-		{% else %}
-		<div class="empty-state">
-			<i class="fa fa-shopping-cart"></i>
-			{% if search or filter != 'all' %}
-			<h4>{{ _("No orders match") }}</h4>
-			<p>{{ _("Try another search or status.") }} <a href="/portal/orders">{{ _("Show all orders") }}</a></p>
-			{% else %}
-			<h4>{{ _("No orders yet") }}</h4>
-			<p>{{ _("When you place orders, they will appear here for tracking.") }}</p>
+	</header>
+
+	<form method="get" class="ill-toolbar" role="search">
+		<div class="ill-toolbar__field">
+			<label for="order-search">{{ _("Order, PO or customer") }}</label>
+			<div class="ill-search">
+				<i class="fa fa-search" aria-hidden="true"></i>
+				<input id="order-search" class="form-control" type="search" name="search" value="{{ search | e }}" maxlength="140" placeholder="{{ _('Search orders') }}">
+			</div>
+		</div>
+		<div class="ill-toolbar__field ill-toolbar__field--narrow">
+			<label for="order-status">{{ _("Status") }}</label>
+			<select id="order-status" name="status" class="form-control">
+			{% for key, label in [('all','All orders'),('action','Needs your action'),('requests','Order requests'),('active','Approved / in progress'),('shipping','Partially shipped'),('fulfilled','Fulfilled'),('cancelled','Cancelled')] %}
+				<option value="{{ key }}" {% if filter == key %}selected{% endif %}>{{ _(label) }}</option>
+			{% endfor %}
+			</select>
+		</div>
+		<button class="btn btn-primary" type="submit">{{ _("Find orders") }}</button>
+		{% if search or filter != 'all' %}<a class="btn btn-link" href="/portal/orders">{{ _("Clear") }}</a>{% endif %}
+	</form>
+
+	<div class="ill-records" id="ordersList">
+	{% for order in orders %}
+		{% set delivered = order.per_delivered or 0 %}
+		<article class="ill-record{% if order.needs_action %} ill-record--action{% endif %}" data-status="{{ order.portal_status | e }}">
+			<div class="ill-record__main">
+				<a href="/portal/orders/{{ order.name | urlencode }}" class="ill-record__title">{{ order.name | e }}</a>
+				<p class="ill-record__sub">{{ _("Placed") }} {{ frappe.utils.format_date(order.transaction_date) }}{% if order.po_no %} · {{ _("PO") }} {{ order.po_no | e }}{% endif %}</p>
+			</div>
+			<dl class="ill-record__facts">
+				<div><dt>{{ _("Confirmed delivery") }}</dt><dd>{{ frappe.utils.format_date(order.ill_confirmed_delivery_date) if order.ill_confirmed_delivery_date else _("Not confirmed") }}</dd></div>
+				<div><dt>{{ _("Items") }}</dt><dd>{{ order.total_qty | int }}</dd></div>
+				<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(order.grand_total, {"fieldtype": "Currency", "currency": order.currency}) }}</dd></div>
+			</dl>
+			<div class="ill-record__end">
+				{% if order.needs_action %}<span class="ill-status ill-status--warning ill-status--action">{{ _("Needs your action") }}</span>{% endif %}
+				<span class="ill-status ill-status--{{ order.portal_status_class | default('secondary', true) | e }}" title="{{ order.erp_status | e }}">{{ order.portal_status_label | e }}</span>
+			</div>
+			{% if order.portal_status not in ['cancelled', 'issue'] %}
+			<ol class="ill-track" aria-label="{{ _('Order progress') }}">
+				<li class="{{ 'is-done' if order.docstatus == 1 else 'is-active' }}">{{ _("Approved") if order.docstatus == 1 else _("Requested") }}</li>
+				<li class="{{ 'is-done' if order.production_complete else ('is-active' if order.production_started else '') }}">{{ _("In Production") }}</li>
+				<li class="{{ 'is-done' if delivered >= 100 else ('is-active' if delivered > 0 else '') }}">{{ _("Shipped") }}</li>
+				<li class="{{ 'is-done' if order.portal_status == 'completed' else '' }}">{{ _("Completed") }}</li>
+			</ol>
 			{% endif %}
-			<a href="/portal/projects" class="btn btn-primary btn-sm mt-3">
-				<i class="fa fa-plus"></i> {{ _("Start a Project") }}
-			</a>
+		</article>
+	{% else %}
+		<div class="ill-empty">
+			<i class="fa fa-shopping-cart" aria-hidden="true"></i>
+			{% if search or filter != 'all' %}
+			<h3>{{ _("No orders match") }}</h3>
+			<p>{{ _("Try another search or status.") }}</p>
+			<a class="btn btn-outline-primary btn-sm" href="/portal/orders">{{ _("Show all orders") }}</a>
+			{% else %}
+			<h3>{{ _("No orders yet") }}</h3>
+			<p>{{ _("When you place orders, they will appear here for tracking.") }}</p>
+			<a href="/portal/projects" class="btn btn-primary btn-sm"><i class="fa fa-plus" aria-hidden="true"></i> {{ _("Start a Project") }}</a>
+			{% endif %}
 		</div>
-		{% endif %}
+	{% endfor %}
 	</div>
-    <nav aria-label="{{ _('Order pages') }}" class="d-flex justify-content-between">
-    {% if page > 1 %}<a href="?page={{ page - 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}">{{ _("Newer orders") }}</a>{% endif %}
-    <span>{{ _("Page") }} {{ page }}</span>
-    {% if has_more %}<a href="?page={{ page + 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}">{{ _("Older orders") }}</a>{% endif %}
-    </nav>
-</div>
+	{% if page > 1 or has_more %}
+	<nav class="ill-pager" aria-label="{{ _('Order pages') }}">
+		{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Newer orders") }}</a>{% else %}<span></span>{% endif %}
+		<span>{{ _("Page") }} {{ page }}</span>
+		{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}">{{ _("Older orders") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% else %}<span></span>{% endif %}
+	</nav>
+	{% endif %}
+</main>
 {% endblock %}

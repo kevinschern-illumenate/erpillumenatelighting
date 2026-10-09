@@ -1,0 +1,611 @@
+// Orders and quotes pages of the dealer portal (/portal/orders, /portal/quotes
+// and their detail pages), built on the ilLumenate Design System tokens that
+// portal.css defines: a brand-gradient page header, pill status chips, 20px
+// cards with soft navy shadows, Manrope headings over Poppins body copy.
+//
+// Everything is scoped to .ill-commerce so other portal pages keep their look.
+
+.ill-commerce {
+	--c-ink: var(--ill-navy-600, #172E48);
+	--c-muted: var(--ill-text-secondary, #5D6D7F);
+	--c-line: var(--ill-navy-100, #E8EAED);
+	--c-soft: var(--ill-surface-soft, #F6F8FA);
+	--c-brand: var(--ill-blue-600, #00588C);
+	--c-gold: var(--ill-gold-500, #FDC757);
+	--c-radius: var(--ill-radius-panel, 20px);
+	--c-radius-sm: var(--ill-radius-control, 10px);
+	--c-shadow: var(--ill-shadow-card, 0 1px 2px rgba(12, 23, 36, 0.06), 0 4px 12px rgba(12, 23, 36, 0.06));
+	--c-shadow-lift: var(--ill-shadow-elevated, 0 8px 24px rgba(12, 23, 36, 0.12), 0 2px 6px rgba(12, 23, 36, 0.08));
+	--c-display: var(--ill-font-display, 'Manrope', sans-serif);
+
+	padding-top: 1.5rem;
+	padding-bottom: 4rem;
+	color: var(--c-ink);
+
+	h1, h2, h3 { font-family: var(--c-display); font-weight: 600; color: inherit; }
+}
+
+.ill-back {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin-bottom: 1rem;
+	color: var(--c-muted);
+	font-size: 0.875rem;
+	font-weight: 500;
+	&:hover { color: var(--c-brand); text-decoration: none; }
+}
+
+// Page header: brand gradient band with title, summary facts and actions.
+.ill-hero {
+	position: relative;
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+	padding: 1.75rem 2rem;
+	border-radius: var(--c-radius);
+	background: var(--ill-brand-gradient, linear-gradient(117deg, #172E48 0%, #00588C 100%));
+	color: #fff;
+	box-shadow: var(--c-shadow);
+
+	&__top {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		align-items: flex-start;
+		justify-content: space-between;
+	}
+	&__eyebrow {
+		margin: 0 0 0.35rem;
+		color: var(--ill-gold-300, #FED889);
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+	h1 {
+		margin: 0;
+		color: #fff;
+		font-size: clamp(1.6rem, 3vw, 1.9rem);
+		letter-spacing: -0.01em;
+		overflow-wrap: anywhere;
+	}
+	&__lead {
+		margin: 0.35rem 0 0;
+		color: rgba(255, 255, 255, 0.82);
+		font-weight: 300;
+	}
+	&__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		align-items: center;
+	}
+	&__facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 1rem 1.5rem;
+		margin: 1.5rem 0 0;
+		padding-top: 1.25rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.18);
+		dt {
+			margin-bottom: 0.2rem;
+			color: rgba(255, 255, 255, 0.7);
+			font-size: 0.75rem;
+			font-weight: 500;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+		dd { margin: 0; color: #fff; font-weight: 500; overflow-wrap: anywhere; }
+		small { display: block; color: rgba(255, 255, 255, 0.7); font-weight: 300; }
+	}
+	a:not(.btn) { color: #fff; text-decoration: underline; }
+	.ill-status { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+}
+
+.ill-commerce .ill-hero .btn-link { color: #fff; }
+
+// Gold call-to-action, the design system's accent button.
+.ill-commerce .btn-accent {
+	background: var(--c-gold);
+	border-color: var(--c-gold);
+	color: var(--c-ink);
+	font-weight: 500;
+	&:hover, &:focus { background: var(--ill-gold-600, #E4B34E); border-color: var(--ill-gold-600, #E4B34E); color: var(--c-ink); }
+}
+// Doubled class outranks the portal brand skin's scoped button colours.
+.ill-commerce .ill-hero .btn-outline-light {
+	border-color: rgba(255, 255, 255, 0.6);
+	color: #fff;
+	&:hover, &:focus { background: #fff; color: var(--c-ink); }
+}
+
+// Status chips (design system Badge). Modifiers take the Bootstrap context
+// names the portal services already return.
+.ill-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.25rem 0.75rem;
+	border-radius: 999px;
+	background: var(--ill-navy-100, #E8EAED);
+	color: var(--c-ink);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.4;
+	white-space: nowrap;
+	&--info, &--primary { background: var(--ill-blue-100, #E6EEF4); color: var(--ill-blue-800, #003E62); }
+	&--warning { background: var(--ill-gold-200, #FEE9BC); color: var(--ill-gold-ink, #7A5500); }
+	&--success { background: var(--ill-green-100, #E7F5E8); color: var(--ill-green, #006833); }
+	&--danger { background: var(--ill-red-100, #FBE7E5); color: var(--ill-red-ink, #A8261C); }
+	&--action::before {
+		content: '';
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: currentColor;
+	}
+}
+
+// Search and filter bar.
+.ill-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: flex-end;
+	margin-bottom: 1.25rem;
+	padding: 1rem 1.25rem;
+	border: 1px solid var(--c-line);
+	border-radius: var(--c-radius);
+	background: #fff;
+	box-shadow: var(--c-shadow);
+
+	&__field { flex: 1 1 220px; margin: 0; }
+	&__field--narrow { flex: 0 1 220px; }
+	label {
+		display: block;
+		margin-bottom: 0.3rem;
+		color: var(--c-muted);
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+	.btn { flex: 0 0 auto; }
+}
+.ill-search {
+	position: relative;
+	.fa {
+		position: absolute;
+		top: 50%;
+		left: 0.85rem;
+		transform: translateY(-50%);
+		color: var(--ill-navy-200, #A2ABB6);
+		pointer-events: none;
+	}
+	.form-control { padding-left: 2.3rem; }
+}
+
+// Segmented filter links (design system Tabs, pill style).
+.ill-segments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	margin: 0 0 1rem;
+	padding: 0.25rem;
+	border-radius: 999px;
+	background: var(--c-soft);
+	width: fit-content;
+	max-width: 100%;
+	a {
+		padding: 0.4rem 1rem;
+		border-radius: 999px;
+		color: var(--c-muted);
+		font-size: 0.875rem;
+		font-weight: 500;
+		text-decoration: none;
+		transition: background-color 0.15s ease, color 0.15s ease;
+		&:hover { color: var(--c-brand); }
+		&[aria-current="page"] { background: #fff; color: var(--c-ink); box-shadow: var(--ill-shadow-sm, 0 1px 2px rgba(12, 23, 36, 0.06)); }
+	}
+}
+
+// Section heading above a list.
+.ill-section-head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	align-items: baseline;
+	justify-content: space-between;
+	margin: 2.5rem 0 1rem;
+	h2 { margin: 0; font-size: 1.35rem; }
+	p { margin: 0; color: var(--c-muted); font-size: 0.9rem; }
+	&:first-child { margin-top: 0; }
+}
+.ill-count { color: var(--c-muted); font-size: 0.875rem; }
+
+// List rows: one card per order, quote or request, the whole card clickable.
+.ill-records { display: flex; flex-direction: column; gap: 0.75rem; }
+.ill-record {
+	position: relative;
+	display: grid;
+	grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) auto;
+	gap: 1rem 1.5rem;
+	align-items: center;
+	padding: 1.1rem 1.5rem;
+	border: 1px solid var(--c-line);
+	border-radius: var(--c-radius);
+	background: #fff;
+	box-shadow: var(--c-shadow);
+	transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+
+	&:hover, &:focus-within { border-color: var(--ill-blue-200, #99BCD1); box-shadow: var(--c-shadow-lift); }
+	&--action { border-left: 4px solid var(--c-gold); padding-left: calc(1.5rem - 3px); }
+	&--compact { grid-template-columns: minmax(0, 1fr) auto; }
+
+	&__title {
+		display: block;
+		color: var(--c-ink);
+		font-family: var(--c-display);
+		font-size: 1.05rem;
+		font-weight: 600;
+		overflow-wrap: anywhere;
+		// The title link covers the card so the whole row opens the record.
+		&::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+		&:hover { color: var(--c-brand); text-decoration: none; }
+	}
+	&__sub { margin: 0.15rem 0 0; color: var(--c-muted); font-size: 0.85rem; overflow-wrap: anywhere; }
+	&__facts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+		gap: 0.75rem 1rem;
+		margin: 0;
+		dt { color: var(--c-muted); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+		dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+	}
+	&__end {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		align-items: flex-end;
+		.fa-angle-right { color: var(--ill-navy-200, #A2ABB6); font-size: 1.25rem; }
+	}
+	// Secondary links inside a row sit above the card-wide title link.
+	a:not(.ill-record__title) { position: relative; z-index: 1; }
+}
+
+// Compact four-stage tracker on order rows.
+.ill-track {
+	grid-column: 1 / -1;
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 0.5rem;
+	margin: 0.25rem 0 0;
+	padding: 0;
+	list-style: none;
+	li {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		color: var(--c-muted);
+		font-size: 0.75rem;
+		&::before { content: ''; height: 4px; border-radius: 999px; background: var(--c-line); }
+		&.is-done { color: var(--c-ink); &::before { background: var(--ill-green, #006833); } }
+		&.is-active { color: var(--c-brand); font-weight: 500; &::before { background: var(--c-brand); } }
+	}
+}
+
+// Detail page layout: content column and a summary column.
+.ill-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 340px;
+	gap: 1.5rem;
+	align-items: start;
+	&__aside { display: flex; flex-direction: column; gap: 1.5rem; }
+	&__main { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+}
+
+.ill-panel {
+	border: 1px solid var(--c-line);
+	border-radius: var(--c-radius);
+	background: #fff;
+	box-shadow: var(--c-shadow);
+	&__head {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1.1rem 1.5rem;
+		border-bottom: 1px solid var(--c-line);
+		h2 { margin: 0; font-size: 1.1rem; }
+		p { flex-basis: 100%; margin: 0; color: var(--c-muted); font-size: 0.85rem; }
+	}
+	&__body { padding: 1.25rem 1.5rem; }
+	&__body > :last-child { margin-bottom: 0; }
+	&--flush &__body { padding: 0; }
+	&--highlight { border-color: var(--ill-gold-300, #FED889); box-shadow: 0 0 0 3px var(--ill-gold-100, #FFF9EE), var(--c-shadow); }
+}
+
+// Label / value pairs.
+.ill-facts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 1rem 1.5rem;
+	margin: 0;
+	dt { margin-bottom: 0.2rem; color: var(--c-muted); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+	dd { margin: 0; overflow-wrap: anywhere; }
+	&--stack { grid-template-columns: 1fr; }
+}
+
+// Line items.
+.ill-lines {
+	width: 100%;
+	margin: 0;
+	border-collapse: collapse;
+	th {
+		padding: 0.75rem 1.5rem;
+		border-bottom: 1px solid var(--c-line);
+		background: var(--c-soft);
+		color: var(--c-muted);
+		font-size: 0.7rem;
+		font-weight: 500;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+	td { padding: 1rem 1.5rem; border-bottom: 1px solid var(--c-line); vertical-align: top; }
+	tbody tr:last-child td { border-bottom: 0; }
+	.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+	&__name { font-weight: 500; }
+	&__meta { color: var(--c-muted); font-size: 0.8rem; }
+	&__tag {
+		display: inline-block;
+		margin-bottom: 0.25rem;
+		padding: 0.05rem 0.5rem;
+		border-radius: 6px;
+		background: var(--ill-blue-100, #E6EEF4);
+		color: var(--ill-blue-800, #003E62);
+		font-size: 0.7rem;
+		font-weight: 500;
+		letter-spacing: 0.04em;
+	}
+}
+
+// Totals block.
+.ill-totals {
+	width: 100%;
+	margin: 0;
+	font-variant-numeric: tabular-nums;
+	td { padding: 0.35rem 0; }
+	td:last-child { text-align: right; }
+	.ill-totals__grand td {
+		padding-top: 0.75rem;
+		border-top: 1px solid var(--c-line);
+		font-family: var(--c-display);
+		font-size: 1.15rem;
+		font-weight: 600;
+	}
+}
+
+// "Next step" call-out.
+.ill-next {
+	display: flex;
+	gap: 1rem;
+	align-items: flex-start;
+	padding: 1.1rem 1.25rem;
+	border: 1px solid var(--ill-blue-200, #99BCD1);
+	border-radius: var(--c-radius);
+	background: var(--ill-blue-100, #E6EEF4);
+	&__icon {
+		flex: 0 0 2.25rem;
+		height: 2.25rem;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--c-brand);
+		color: #fff;
+	}
+	&__label { margin: 0; color: var(--c-muted); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+	&__text { margin: 0.1rem 0 0; font-weight: 500; }
+	&--buyer {
+		border-color: var(--ill-gold-300, #FED889);
+		background: var(--ill-gold-100, #FFF9EE);
+		.ill-next__icon { background: var(--c-gold); color: var(--c-ink); }
+	}
+	&--alert {
+		border-color: rgba(214, 59, 47, 0.3);
+		background: var(--ill-red-100, #FBE7E5);
+		.ill-next__icon { background: var(--ill-red, #D63B2F); }
+	}
+}
+
+// Full progress timeline on the order page.
+.ill-timeline {
+	display: grid;
+	grid-auto-columns: minmax(0, 1fr);
+	grid-auto-flow: column;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	li {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0 0.25rem;
+		text-align: center;
+		&::before {
+			content: '';
+			position: absolute;
+			top: 17px;
+			left: calc(-50% + 22px);
+			right: calc(50% + 22px);
+			height: 2px;
+			background: var(--c-line);
+		}
+		&:first-child::before { display: none; }
+		&.is-done::before, &.is-active::before { background: var(--ill-green, #006833); }
+	}
+	&__dot {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--c-soft);
+		border: 1px solid var(--c-line);
+		color: var(--ill-navy-200, #A2ABB6);
+		font-size: 0.85rem;
+	}
+	.is-done &__dot { background: var(--ill-green, #006833); border-color: var(--ill-green, #006833); color: #fff; }
+	.is-active &__dot { background: var(--c-brand); border-color: var(--c-brand); color: #fff; box-shadow: 0 0 0 4px var(--ill-blue-100, #E6EEF4); }
+	&__title { font-size: 0.85rem; font-weight: 500; }
+	&__date { color: var(--c-muted); font-size: 0.75rem; }
+}
+
+// Delivery / progress meter.
+.ill-meter {
+	height: 8px;
+	border-radius: 999px;
+	background: var(--c-line);
+	overflow: hidden;
+	span { display: block; height: 100%; border-radius: inherit; background: var(--ill-green, #006833); }
+}
+
+// Shipment / invoice / document rows inside a panel.
+.ill-rows {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	> li {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		justify-content: space-between;
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--c-line);
+		&:last-child { border-bottom: 0; }
+	}
+	&__title { margin: 0 0 0.15rem; font-weight: 600; }
+	&__meta { color: var(--c-muted); font-size: 0.85rem; }
+	&__end { text-align: right; }
+}
+
+// Action links in the summary column.
+.ill-action-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	a, button {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		width: 100%;
+		padding: 0.6rem 0.75rem;
+		border: 0;
+		border-radius: var(--c-radius-sm);
+		background: transparent;
+		color: var(--c-ink);
+		font-size: 0.9rem;
+		text-align: left;
+		text-decoration: none;
+		transition: background-color 0.15s ease, color 0.15s ease;
+		&:hover { background: var(--c-soft); color: var(--c-brand); }
+		.fa { width: 1.1rem; color: var(--c-brand); text-align: center; }
+	}
+	.is-danger, .is-danger .fa { color: var(--ill-red-ink, #A8261C); }
+}
+
+// Revision comparison and long text.
+.ill-prewrap { white-space: pre-wrap; }
+.ill-compare {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 1rem;
+	> div { padding: 1rem; border-radius: var(--c-radius-sm); background: var(--c-soft); }
+	h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+}
+.ill-disclosure {
+	border-top: 1px solid var(--c-line);
+	summary {
+		padding: 1rem 1.5rem;
+		color: var(--c-brand);
+		font-weight: 500;
+		cursor: pointer;
+	}
+	> div { padding: 0 1.5rem 1.25rem; }
+}
+
+// Empty and no-match states.
+.ill-empty {
+	padding: 3rem 1.5rem;
+	border: 1px dashed var(--ill-navy-200, #A2ABB6);
+	border-radius: var(--c-radius);
+	background: var(--c-soft);
+	text-align: center;
+	.fa { margin-bottom: 0.75rem; color: var(--ill-navy-200, #A2ABB6); font-size: 2.25rem; }
+	h3 { margin: 0 0 0.35rem; font-size: 1.15rem; }
+	p { margin: 0 auto; max-width: 32rem; color: var(--c-muted); }
+	.btn { margin-top: 1rem; }
+	&--quiet { padding: 1.5rem; }
+}
+
+.ill-pager {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 1.25rem;
+	color: var(--c-muted);
+	font-size: 0.875rem;
+	&:empty { display: none; }
+}
+
+// Respond form on a quote.
+.ill-respond {
+	label { font-size: 0.85rem; }
+	.ill-respond__check { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 400; }
+	.ill-respond__buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+	[role="status"]:not(:empty) { margin-bottom: 0.75rem; font-size: 0.85rem; font-weight: 500; }
+}
+
+@media (max-width: 991.98px) {
+	.ill-layout { grid-template-columns: minmax(0, 1fr); }
+	.ill-record { grid-template-columns: minmax(0, 1fr) auto; }
+	.ill-record__facts { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-width: 575.98px) {
+	.ill-hero { padding: 1.4rem 1.25rem; }
+	.ill-hero__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.ill-record { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; padding: 1rem 1.1rem; }
+	.ill-record--action { padding-left: calc(1.1rem - 3px); }
+	.ill-record__main { grid-row: 1; }
+	.ill-record__end { grid-row: 2; flex-direction: row; flex-wrap: wrap; align-items: center; .fa-angle-right { display: none; } }
+	.ill-record__facts { grid-row: 3; }
+	// Line tables become stacked cards: the item cell spans the row and the
+	// numbers sit underneath with their column names.
+	.ill-panel__body.table-responsive { overflow-x: visible; }
+	.ill-lines thead { display: none; }
+	.ill-lines tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; padding: 1rem; border-bottom: 1px solid var(--c-line); }
+	.ill-lines tbody tr:last-child { border-bottom: 0; }
+	.ill-lines td { padding: 0; border: 0; }
+	.ill-lines td:first-child { grid-column: 1 / -1; }
+	.ill-lines td[data-label] { text-align: left; }
+	.ill-lines td[data-label]::before { content: attr(data-label); display: block; color: var(--c-muted); font-size: 0.7rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+	.ill-timeline { grid-auto-flow: row; gap: 0.75rem; }
+	.ill-timeline li { flex-direction: row; text-align: left; }
+	.ill-timeline li::before { display: none; }
+	.ill-toolbar .btn { width: 100%; }
+}
+@media print {
+	.ill-hero { background: none; color: var(--c-ink); box-shadow: none; border: 1px solid var(--c-line); }
+	.ill-hero h1, .ill-hero dd { color: var(--c-ink); }
+	.ill-toolbar, .ill-layout__aside .ill-action-list { display: none; }
+}
