@@ -275,6 +275,7 @@ describe('Finish step reviewer mode', () => {
     expect(store.getState().meta?.status).toBe('Approved');
     expect(el.querySelector('[data-testid="review-status"]')!.textContent).toContain('approved by ae@example.com');
     expect(el.querySelector('[data-testid="reviewer-panel"]')).toBeNull();
+    expect(el.querySelector('[data-testid="review-notice"]')!.textContent).toBe('Revision A is approved.');
   });
 
   it('sends a requested change with its note', async () => {

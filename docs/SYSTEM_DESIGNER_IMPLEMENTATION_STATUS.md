@@ -34,6 +34,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-4.3 | Reviewer mode: comments, overrides, decisions | Done |
 | WP-4.4 | D4 review gate before ordering | Done (flag off by default) |
 | WP-4.5 | Schedule and project page integration | Done |
+| WP-4.6 | End-to-end commerce test | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -741,3 +742,17 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   the user.
 - Tests: `tests/portal_unit/test_system_design_portal_pages.py`, installed
   `test_designs.test_schedule_and_project_pages`, `tools/check_portal_templates.py`.
+
+## WP-4.6 — End-to-end commerce test
+
+- `tools/system_designer/tests/e2e/commerce.spec.ts` (Playwright, committed bundle, in-memory fake of
+  the H6 endpoints): a dealer assigns a run, saves, keeps the riser and requests review; an
+  Applications Engineer opens the design, keeps the riser and approves; the dealer sees ordering
+  allowed and writes the design's supply back to the schedule.
+- Installed `test_designs.test_reviewed_design_lets_the_schedule_be_ordered` runs the same loop on
+  Frappe: with the gate on the schedule cannot be ordered, review is requested and approved, and
+  `can_request_schedule_order` then allows it.
+- Found and fixed: the review card lost the reviewer's confirmation when the panel closed after a
+  decision; the outcome now shows on the card.
+- The designer's Playwright suite is run locally (`npm run test:e2e` with
+  `SYSTEM_DESIGNER_CHROMIUM` set); CI runs the unit, type and bundle checks.

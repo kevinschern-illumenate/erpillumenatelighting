@@ -149,7 +149,9 @@ export function ReviewCard({
           ilLumenate asked for changes. Make them, save, and send the design back for review.
         </p>
       ) : null}
-      {reviewing && meta ? <ReviewerPanel store={store} engine={engine} api={api} design={meta.name} /> : null}
+      {reviewing && meta ? (
+        <ReviewerPanel store={store} engine={engine} api={api} design={meta.name} onDecided={setNotice} />
+      ) : null}
       {canRevise ? (
         <button
           type="button"
@@ -215,11 +217,14 @@ function ReviewerPanel({
   engine,
   api,
   design,
+  onDecided,
 }: {
   store: DesignStore;
   engine: CheckState;
   api: DesignApi;
   design: string;
+  /** The panel closes once the revision leaves review, so the card shows the outcome. */
+  onDecided(message: string): void;
 }) {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
@@ -252,13 +257,13 @@ function ReviewerPanel({
     setError('');
     try {
       const result = await api.reviewDecide(design, decision, note.trim());
-      store.setState({ meta: result.design_meta });
-      setNotice(
+      onDecided(
         decision === 'Approved'
           ? `Revision ${result.design_meta.revision} is approved.`
           : 'Changes requested. The dealer can edit the design again.',
       );
       setNote('');
+      store.setState({ meta: result.design_meta });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The decision could not be recorded');
     } finally {

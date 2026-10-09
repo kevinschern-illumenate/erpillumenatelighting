@@ -576,3 +576,37 @@ class TestDesigns(IntegrationTestCase):
 			frappe._dict(name=self.schedule.name, schedule_name="ZZ", version=self.schedule.version or 0)
 		]
 		self.assertEqual([row["name"] for row in portal_pages.project_designs(schedules)], [data["name"]])
+
+	def test_reviewed_design_lets_the_schedule_be_ordered(self):
+		"""WP-4.6 on the server: save, request review, approve, then the D4 gate allows ordering."""
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+			can_request_schedule_order,
+		)
+
+		settings = "ilL-System-Designer-Settings"
+		frappe.db.set_single_value(settings, "review_gate_enabled", 1)
+		frappe.db.set_single_value(settings, "review_gate_watts", 10)
+		engineer = applications_engineer()
+		data = self.save()["data"]
+		with patch.dict(frappe.conf, {gate.SITE_FLAG: 1}):
+			self.assertFalse(can_request_schedule_order(self.schedule)[0])
+			requested = api.request_review(design=data["name"], error_count=0)["data"]
+			frappe.db.set_value(
+				"ilL-Document-Request",
+				requested["request"],
+				{"technical_reviewer": engineer, "assigned_to": engineer},
+			)
+			pdf = blank_pdf()
+			deliverables.upload_deliverable(
+				data["name"],
+				"Riser PDF",
+				"Tabloid",
+				hashlib.sha256(pdf).hexdigest(),
+				content=pdf,
+				filename="r.pdf",
+			)
+			frappe.set_user(engineer)
+			self.assertTrue(api.review_decide(design=data["name"], decision="Approved")["success"])
+			frappe.set_user("Administrator")
+			self.schedule.reload()
+			self.assertEqual(can_request_schedule_order(self.schedule), (True, ""))
