@@ -47,7 +47,8 @@ class ilLDocumentRequest(Document):
 		if self.get("technical_reviewer") and (not old or old.get("technical_reviewer") != self.technical_reviewer):
 			if self.technical_reviewer == "Guest" or not frappe.db.get_value("User", self.technical_reviewer, "enabled"):
 				frappe.throw(_("Choose an enabled technical reviewer."))
-			if self.project:
+			# Request staff (engineering, or Applications Engineers on design reviews) read every project.
+			if self.project and not _is_request_staff(self, self.technical_reviewer):
 				from illumenate_lighting.illumenate_lighting.portal.access import can_read_project
 				if not can_read_project(frappe.get_doc("ilL-Project", self.project), self.technical_reviewer):
 					frappe.throw(_("The technical reviewer needs current project access."))
@@ -348,10 +349,16 @@ def _get_user_customer(user):
 	return None
 
 
+SYSTEM_DESIGN_REVIEW = "System Design Review"
+
+
 def _is_request_staff(doc, user):
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
 	if allowed("engineering", user):
+		return True
+	# Applications Engineers (D3) handle System Designer review requests like drawing staff.
+	if doc and doc.get("request_type") == SYSTEM_DESIGN_REVIEW and allowed("design_review", user):
 		return True
 	return bool(doc and doc.assigned_to == user and frappe.db.get_value("User", user, "enabled") and frappe.db.get_value("User", user, "user_type") == "System User")
 
@@ -378,6 +385,8 @@ def get_permission_query_conditions(user=None):
 	scope = f"(({' OR '.join(owners)}) AND {table}.hide_from_portal = 0 AND (COALESCE({table}.project, '') = '' OR {table}.project IN (SELECT name FROM `tabilL-Project` WHERE {project})))"
 	if frappe.db.get_value("User", user, "user_type") == "System User":
 		scope = f"({scope} OR {table}.assigned_to = {actor})"
+	if allowed("design_review", user):
+		scope = f"({scope} OR {table}.request_type = {frappe.db.escape(SYSTEM_DESIGN_REVIEW)})"
 	return scope
 
 

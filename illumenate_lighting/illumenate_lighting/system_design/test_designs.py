@@ -401,3 +401,42 @@ class TestDesigns(IntegrationTestCase):
 				)
 			self.assertEqual(failed["code"], "INTERNAL")
 			rollback.assert_called_once()
+
+	def test_request_review(self):
+		from illumenate_lighting.patches import add_system_design_review_request_type
+
+		add_system_design_review_request_type.execute()
+		engineer = "zz-apps-engineer@example.com"
+		if not frappe.db.exists("User", engineer):
+			frappe.get_doc(
+				{
+					"doctype": "User",
+					"email": engineer,
+					"first_name": "ZZ Engineer",
+					"user_type": "System User",
+					"send_welcome_email": 0,
+					"roles": [{"role": "ilL Applications Engineer"}],
+				}
+			).insert(ignore_permissions=True)
+		frappe.db.set_single_value("ilL-System-Designer-Settings", "reviewer_assignment", "Round Robin")
+		data = self.save()["data"]
+		self.assertEqual(api.request_review(design=data["name"], error_count=2)["code"], "INVALID")
+		requested = api.request_review(
+			design=data["name"], priority="High", note="Pantry first", error_count=0
+		)
+		self.assertTrue(requested["success"], requested)
+		request = frappe.get_doc("ilL-Document-Request", requested["data"]["request"])
+		self.assertEqual(
+			(request.request_type, request.status, request.reference_name, request.fixture_schedule),
+			("System Design Review", "Submitted", data["name"], self.schedule.name),
+		)
+		self.assertIn("ilL Applications Engineer", frappe.get_roles(request.technical_reviewer))
+		self.assertEqual(request.assigned_to, request.technical_reviewer)
+		self.assertTrue(request.sla_deadline)
+		record = frappe.get_doc("ilL-System-Design", data["name"])
+		self.assertEqual((record.status, record.review_request), ("In Review", request.name))
+		self.assertEqual(requested["data"]["design_meta"]["status"], "In Review")
+		self.assertEqual(api.request_review(design=data["name"])["code"], "CONFLICT")
+		frappe.set_user(engineer)
+		self.assertTrue(api.open_design(schedule=self.schedule.name)["success"])
+		self.assertTrue(frappe.has_permission("ilL-Document-Request", "read", doc=request))

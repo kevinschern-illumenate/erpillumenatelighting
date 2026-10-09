@@ -30,6 +30,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-3.4 | Power board | Done (auto-plan in WP-4.x; dimmer devices with WP-3.5 checks) |
 | WP-3.5 – WP-3.9 | Checks, verification, riser export, engineering mode, pilot telemetry | Done |
 | WP-4.1 | Write-back to the schedule | Done |
+| WP-4.2 | Review request type and flow | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -636,3 +637,31 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     other footage, but could add the same wire lines by hand anyway.
   - `writeback_preview` also accepts POST (the footage would make a long query string).
   - Write-back lines from an earlier revision count as the design's own and move to the current one.
+
+## WP-4.2 — Review request type and flow
+
+- Patch `add_system_design_review_request_type` seeds the H4.2 `ilL-Request-Type` (post model sync;
+  an existing record is left as staff edited it).
+- `system_design/review.py request_review(design, priority, due_date?, note?, error_count, warning_count)`
+  and the Finish step's review card. The revision must be current, Draft or Changes Requested, saved,
+  and free of errors: the browser sends its open error and warning counts (overrides excluded), and the
+  server re-runs its gating subset and refuses PSU_OVERLOAD, VOLTAGE_MISMATCH or TAPE_UNDERVOLTAGE
+  without an Applications Engineer override.
+- The request links the project, schedule and design (`reference_doctype` = ilL-System-Design), is
+  owned by the schedule's customer and starts Submitted, so the SLA, assignment, task and notification
+  run as for any request. Changes Requested → sending again reuses the revision's request.
+- Reviewer: Settings `reviewer_assignment` "Round Robin" picks the next enabled System User with
+  `ilL Applications Engineer` after the last one assigned (name order); "Manual" leaves it to Desk.
+- Access (the WP-0.1 open point): on System Design Review requests, `design_review` counts as request
+  staff (`_is_request_staff`), Applications Engineers list them, and a reviewer needs no project
+  collaboration. Design staff read the schedules behind designs (`system_design/access.require_read`).
+- `drawing_impact.request_build_hash` returns the design's `build_hash` for requests that reference a
+  design, so published reviews fingerprint the saved design build (WP-4.3).
+- The generic portal request form no longer offers "System Design Review"; only the designer files it.
+- Tests: `tests/portal_unit/test_system_design_review.py`, installed `test_designs.test_request_review`,
+  `FinishStep.test.tsx`.
+- Discrepancies and choices:
+  - The plan requires "0 errors"; full checks run in the browser, so the server trusts the reported
+    count and enforces only the errors it can recompute.
+  - Inserting the request skips the portal request validation once (a dealer may not link a schedule
+    or name a reviewer); the Draft → Submitted save then runs it as usual.

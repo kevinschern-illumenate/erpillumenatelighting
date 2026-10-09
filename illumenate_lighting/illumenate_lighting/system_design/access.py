@@ -32,7 +32,8 @@ def require_read(schedule):
 
 	_require_login()
 	doc = _load_schedule(schedule)
-	if not can_read_schedule(doc):
+	# Design staff review and support every dealer's designs, so they read the schedules behind them.
+	if not can_read_schedule(doc) and not _is_design_staff():
 		raise DesignError("NOT_FOUND", _("Schedule not found"))
 	return doc
 

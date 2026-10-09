@@ -242,6 +242,7 @@ def design_meta(record):
 		"schedule_version": record.schedule_version,
 		"is_current": bool(record.is_current),
 		"terms_accepted": bool(record.get("terms_accepted_by")),
+		"review_request": record.get("review_request") or None,
 		# The Applications Engineer who approved this revision checks the riser (plan §12.1).
 		"approved_by": frappe.utils.get_fullname(record.approved_by)
 		if record.status == "Approved" and record.get("approved_by")

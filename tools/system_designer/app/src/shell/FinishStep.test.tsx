@@ -157,3 +157,48 @@ describe('Finish step write-back', () => {
     expect(el.textContent).toContain('Save your changes first.');
   });
 });
+
+describe('Finish step review request', () => {
+  it('sends the saved revision with its counts and shows who reviews it', async () => {
+    const ready = engine as Extract<CheckState, { state: 'ready' }>;
+    engine = { ...ready, check: { ...ready.check, messages: [] } };
+    api.requestReview = vi.fn().mockResolvedValue({
+      request: 'ILL-REQ-1',
+      reviewer: 'Ada Engineer',
+      design_meta: { ...META, status: 'In Review', review_request: 'ILL-REQ-1' },
+    });
+    await render();
+    const card = el.querySelector('[data-testid="review-card"]')!;
+    expect(card.querySelector('[data-testid="review-requirement"]')!.textContent).toContain('optional');
+    const send = button(/Request review/);
+    expect(send.disabled).toBe(false);
+    await act(async () => {
+      const select = card.querySelector('select')!;
+      select.value = 'High';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await click(send);
+    expect(api.requestReview).toHaveBeenCalledWith(
+      expect.objectContaining({ design: 'SYSD-1', priority: 'High', errorCount: 0 }),
+    );
+    expect(store.getState().meta?.status).toBe('In Review');
+    expect(el.querySelector('[data-testid="review-notice"]')!.textContent).toBe(
+      'Review requested. Ada Engineer will review revision A.',
+    );
+    expect(button(/Request review/)).toBeUndefined();
+    expect(el.querySelector('[data-testid="review-status"]')!.textContent).toContain('is with ilLumenate');
+  });
+
+  it('blocks the request while the design has errors', async () => {
+    engine = {
+      ...(engine as Extract<CheckState, { state: 'ready' }>),
+      check: {
+        ...(engine as Extract<CheckState, { state: 'ready' }>).check,
+        messages: [{ code: 'PSU_OVERLOAD', severity: 'error', entityRef: 'PS-1', text: 'Overloaded' }],
+      },
+    };
+    await render();
+    expect(button(/Request review/).disabled).toBe(true);
+    expect(el.textContent).toContain('Fix the error on the Check step first.');
+  });
+});

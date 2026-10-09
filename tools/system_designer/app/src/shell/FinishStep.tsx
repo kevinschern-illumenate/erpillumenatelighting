@@ -5,6 +5,7 @@ import type { DesignApi, WritebackPreview } from '../design/api';
 import type { CheckState } from '../design/engine';
 import type { DesignStore } from '../design/store';
 import type { OpenDesign } from './open';
+import { ReviewCard } from './ReviewCard';
 
 /** Engine wire footage (waste included) by catalog wire id: what the server turns into wire lines (D7). */
 export function wireFeet(bom: readonly BomItem[]): Record<string, number> {
@@ -255,6 +256,7 @@ export function FinishStep({
           </p>
         ) : null}
       </div>
+      <ReviewCard open={open} store={store} engine={engine} api={api} />
     </section>
   );
 }

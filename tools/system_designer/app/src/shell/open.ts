@@ -38,6 +38,7 @@ export const OpenDesignSchema = z.object({
       is_current: z.boolean(),
       terms_accepted: z.boolean().default(false),
       approved_by: z.string().nullish(),
+      review_request: z.string().nullish(),
     })
     .nullable(),
   reconcile: z.custom<ReconcileDiff>((value) => value === null || typeof value === 'object').nullable(),

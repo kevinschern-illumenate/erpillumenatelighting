@@ -229,3 +229,16 @@ def writeback_apply(design=None, accepted_keys=None, wire_feet=None, build_hash=
 	from illumenate_lighting.illumenate_lighting.system_design import writeback
 
 	return writeback.apply(design, accepted_keys or "[]", wire_feet, build_hash)
+
+
+# --- Review (WP-4.2, WP-4.3, H6) -----------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def request_review(
+	design=None, priority=None, due_date=None, note=None, error_count=None, warning_count=None
+):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.request_review(design, priority, due_date, note, error_count, warning_count)

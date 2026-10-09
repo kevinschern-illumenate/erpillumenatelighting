@@ -26,6 +26,8 @@ export interface DesignMeta {
   terms_accepted: boolean;
   /** The Applications Engineer who approved this revision, when it is approved. */
   approved_by?: string | null;
+  /** The System Design Review request for this revision, once one was filed. */
+  review_request?: string | null;
 }
 
 export const DELIVERABLE_KINDS = ['Riser PDF', 'Riser DXF ZIP', 'Riser SVG'] as const;
@@ -227,6 +229,24 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         design,
         accepted_keys: JSON.stringify(acceptedKeys),
         wire_feet: JSON.stringify(wireFeet),
+      });
+    },
+    /** File the System Design Review request for the saved revision (WP-4.2). */
+    requestReview(args: {
+      design: string;
+      priority: 'Normal' | 'High' | 'Rush';
+      dueDate?: string;
+      note?: string;
+      errorCount: number;
+      warningCount: number;
+    }) {
+      return post<{ request: string; reviewer: string | null; design_meta: DesignMeta }>('request_review', {
+        design: args.design,
+        priority: args.priority,
+        due_date: args.dueDate || undefined,
+        note: args.note || undefined,
+        error_count: String(args.errorCount),
+        warning_count: String(args.warningCount),
       });
     },
     reconcileDesign(design: string) {
