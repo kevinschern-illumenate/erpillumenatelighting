@@ -1,0 +1,2699 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "type": "object",
+ "properties": {
+  "schemaVersion": {
+   "type": "number",
+   "const": 1
+  },
+  "engineVersion": {
+   "type": "string"
+  },
+  "catalogSnapshotHash": {
+   "type": "string",
+   "pattern": "^[0-9a-f]{64}$"
+  },
+  "schedule": {
+   "type": "object",
+   "properties": {
+    "name": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 160
+    },
+    "version": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 9007199254740991
+    }
+   },
+   "required": [
+    "name",
+    "version"
+   ],
+   "additionalProperties": false
+  },
+  "site": {
+   "type": "object",
+   "properties": {
+    "spaces": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+       },
+       "level": {
+        "default": "",
+        "type": "string",
+        "maxLength": 60
+       },
+       "type": {
+        "default": "other",
+        "type": "string",
+        "enum": [
+         "kitchen",
+         "living",
+         "dining",
+         "bedroom",
+         "bath",
+         "hall",
+         "stair",
+         "exterior",
+         "mechanical",
+         "closet",
+         "other"
+        ]
+       },
+       "archetype": {
+        "default": "none",
+        "type": "string",
+        "enum": [
+         "cove",
+         "under-cabinet",
+         "toe-kick",
+         "shelving",
+         "niche",
+         "ceiling-reveal",
+         "stair",
+         "none"
+        ]
+       },
+       "env": {
+        "default": "dry-concealed",
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "plenum",
+         "riser",
+         "raceway",
+         "wet",
+         "direct-burial",
+         "outdoor-exposed"
+        ]
+       },
+       "envChoice": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "in-wall",
+         "plenum",
+         "riser",
+         "raceway",
+         "damp",
+         "wet",
+         "outdoor-exposed",
+         "direct-burial"
+        ]
+       }
+      },
+      "required": [
+       "id",
+       "name",
+       "level",
+       "type",
+       "archetype",
+       "env"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "cabinets": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "tag": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "name": {
+        "type": "string",
+        "maxLength": 120
+       },
+       "spaceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "locationRating": {
+        "type": "string",
+        "enum": [
+         "Dry",
+         "Damp",
+         "Wet"
+        ]
+       },
+       "env": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "plenum",
+         "riser",
+         "raceway",
+         "wet",
+         "direct-burial",
+         "outdoor-exposed"
+        ]
+       },
+       "envChoice": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "in-wall",
+         "plenum",
+         "riser",
+         "raceway",
+         "damp",
+         "wet",
+         "outdoor-exposed",
+         "direct-burial"
+        ]
+       },
+       "accessNote": {
+        "default": "",
+        "type": "string",
+        "maxLength": 300
+       },
+       "sourceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "feedLengthFt": {
+        "default": 0,
+        "type": "number",
+        "minimum": 0
+       },
+       "feedLengthProvenance": {
+        "default": "estimate",
+        "type": "string",
+        "enum": [
+         "estimate",
+         "entered",
+         "measured",
+         "erp"
+        ]
+       }
+      },
+      "required": [
+       "id",
+       "tag",
+       "name",
+       "spaceId",
+       "locationRating",
+       "env",
+       "accessNote",
+       "feedLengthFt",
+       "feedLengthProvenance"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "floorPlans": {
+     "default": [],
+     "type": "array",
+     "items": {}
+    }
+   },
+   "required": [
+    "spaces",
+    "cabinets",
+    "floorPlans"
+   ],
+   "additionalProperties": false
+  },
+  "runs": {
+   "maxItems": 1000,
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string",
+      "pattern": "^[^:]+:\\d+:\\d+$"
+     },
+     "lineKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "lineId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "buildIndex": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+     },
+     "runIndex": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+     },
+     "groupId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "source": {
+      "oneOf": [
+       {
+        "type": "object",
+        "properties": {
+         "kind": {
+          "type": "string",
+          "const": "configured"
+         },
+         "doctype": {
+          "type": "string",
+          "enum": [
+           "ilL-Configured-Fixture",
+           "ilL-Configured-Tape-Neon",
+           "ilL-Configured-LED-Sheet",
+           "ilL-Configured-Group"
+          ]
+         },
+         "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         },
+         "configHash": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         }
+        },
+        "required": [
+         "kind",
+         "doctype",
+         "name",
+         "configHash"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "object",
+        "properties": {
+         "kind": {
+          "type": "string",
+          "const": "third-party"
+         }
+        },
+        "required": [
+         "kind"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "catalogId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "lengthFt": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "watts": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "feedMethod": {
+      "type": "string",
+      "enum": [
+       "end",
+       "double-end",
+       "center",
+       "multi-feed"
+      ]
+     },
+     "feeds": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+     },
+     "spaceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "env": {
+      "type": "string",
+      "enum": [
+       "dry-concealed",
+       "plenum",
+       "riser",
+       "raceway",
+       "wet",
+       "direct-burial",
+       "outdoor-exposed"
+      ]
+     },
+     "envChoice": {
+      "type": "string",
+      "enum": [
+       "dry-concealed",
+       "in-wall",
+       "plenum",
+       "riser",
+       "raceway",
+       "damp",
+       "wet",
+       "outdoor-exposed",
+       "direct-burial"
+      ]
+     },
+     "homeRunLengthFt": {
+      "type": "number",
+      "minimum": 0
+     },
+     "homeRunProvenance": {
+      "type": "string",
+      "enum": [
+       "estimate",
+       "entered",
+       "measured",
+       "erp"
+      ]
+     },
+     "assignment": {
+      "type": "object",
+      "properties": {
+       "equipmentId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "port": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       }
+      },
+      "required": [
+       "equipmentId",
+       "port"
+      ],
+      "additionalProperties": false
+     },
+     "zoneId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     }
+    },
+    "required": [
+     "key",
+     "lineKey",
+     "lineId",
+     "buildIndex",
+     "runIndex",
+     "source",
+     "catalogId",
+     "watts",
+     "feedMethod",
+     "spaceId",
+     "env",
+     "homeRunLengthFt",
+     "homeRunProvenance"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "zones": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 120
+     },
+     "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+     },
+     "method": {
+      "type": "string",
+      "enum": [
+       "phase-forward",
+       "phase-reverse",
+       "0-10V",
+       "DALI-2",
+       "DMX512",
+       "Lutron-QS",
+       "Lutron-EcoSystem",
+       "CRMX-wireless",
+       "none"
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "color",
+     "method"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "project": {
+   "type": "object",
+   "properties": {
+    "schemaVersion": {
+     "type": "number",
+     "const": 1
+    },
+    "id": {
+     "type": "string",
+     "format": "uuid",
+     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "meta": {
+     "type": "object",
+     "properties": {
+      "name": {
+       "type": "string",
+       "maxLength": 160
+      },
+      "number": {
+       "type": "string",
+       "maxLength": 80
+      },
+      "client": {
+       "type": "string",
+       "maxLength": 160
+      },
+      "siteAddress": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "designer": {
+       "type": "string",
+       "maxLength": 100
+      },
+      "checker": {
+       "type": "string",
+       "maxLength": 100
+      },
+      "date": {
+       "type": "string",
+       "format": "date",
+       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+      },
+      "brand": {
+       "type": "string",
+       "enum": [
+        "206",
+        "illumenate"
+       ]
+      },
+      "sheetPrefix": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 12
+      },
+      "stamp": {
+       "type": "string",
+       "enum": [
+        "NONE",
+        "FOR REFERENCE",
+        "NOT FOR CONSTRUCTION",
+        "PRELIMINARY",
+        "REVIEWED BY ILLUMENATE"
+       ]
+      }
+     },
+     "required": [
+      "name",
+      "number",
+      "client",
+      "siteAddress",
+      "designer",
+      "checker",
+      "date",
+      "brand",
+      "sheetPrefix",
+      "stamp"
+     ],
+     "additionalProperties": false
+    },
+    "settings": {
+     "type": "object",
+     "properties": {
+      "necEdition": {
+       "default": "2023",
+       "type": "string",
+       "enum": [
+        "2020",
+        "2023",
+        "2026"
+       ]
+      },
+      "terminationTempC": {
+       "default": 75,
+       "anyOf": [
+        {
+         "type": "number",
+         "const": 60
+        },
+        {
+         "type": "number",
+         "const": 75
+        },
+        {
+         "type": "number",
+         "const": 90
+        }
+       ]
+      },
+      "vdTargetLineVoltagePct": {
+       "default": 3,
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 100
+      },
+      "vdTargetLowVoltagePct": {
+       "default": 3,
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 100
+      },
+      "vdTargetLandscapePct": {
+       "default": 5,
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 100
+      },
+      "vdMethod": {
+       "default": "lumped-at-end",
+       "type": "string",
+       "enum": [
+        "lumped-at-end",
+        "distributed"
+       ]
+      },
+      "acVdMethod": {
+       "default": "dc-resistance",
+       "type": "string",
+       "enum": [
+        "dc-resistance",
+        "effective-z"
+       ]
+      },
+      "psuDeratePct": {
+       "default": 80,
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 100
+      },
+      "continuousLoadFactor": {
+       "default": 1.25,
+       "type": "number",
+       "minimum": 1
+      },
+      "breakerLoadLimitPct": {
+       "default": 80,
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 100
+      },
+      "tapeLengthMarginPct": {
+       "default": 0,
+       "type": "number",
+       "minimum": 0,
+       "maximum": 100
+      },
+      "minAwgLineVoltage": {
+       "default": "12",
+       "type": "string",
+       "enum": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "6",
+        "8",
+        "10",
+        "12",
+        "14",
+        "16",
+        "18",
+        "20",
+        "22",
+        "24",
+        "1/0",
+        "2/0",
+        "3/0",
+        "4/0"
+       ]
+      },
+      "dmxMaxUnitLoads": {
+       "default": 32,
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "dmxMaxLengthFt": {
+       "default": 1000,
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "spiMaxDataFt": {
+       "default": 15,
+       "type": "number",
+       "exclusiveMinimum": 0
+      },
+      "units": {
+       "default": "ft",
+       "type": "string",
+       "enum": [
+        "ft",
+        "m"
+       ]
+      },
+      "drawingFont": {
+       "default": "Arimo",
+       "type": "string",
+       "enum": [
+        "Arimo",
+        "RobotoCondensed"
+       ]
+      },
+      "showSchedules": {
+       "default": true,
+       "type": "boolean"
+      },
+      "sheet": {
+       "default": {
+        "size": "ARCH_D",
+        "flow": "LR"
+       },
+       "type": "object",
+       "properties": {
+        "size": {
+         "default": "ARCH_D",
+         "type": "string",
+         "enum": [
+          "ANSI_A",
+          "ANSI_B",
+          "ARCH_C",
+          "ARCH_D",
+          "ANSI_D"
+         ]
+        },
+        "flow": {
+         "default": "LR",
+         "type": "string",
+         "enum": [
+          "LR",
+          "TB"
+         ]
+        }
+       },
+       "required": [
+        "size",
+        "flow"
+       ],
+       "additionalProperties": false
+      },
+      "wireWastePct": {
+       "default": 10,
+       "type": "number",
+       "minimum": 0,
+       "maximum": 100
+      },
+      "dmxAutoPatchRoundTo": {
+       "default": 1,
+       "type": "integer",
+       "exclusiveMinimum": 0,
+       "maximum": 512
+      },
+      "wireLabelTemplate": {
+       "default": "{tag} · {wireLabel} · {lengthFt} ft · VD {vdPct}%",
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 300
+      },
+      "parallelConductorPolicy": {
+       "default": "manual-review-required",
+       "type": "string",
+       "enum": [
+        "manual-review-required"
+       ]
+      }
+     },
+     "required": [
+      "necEdition",
+      "terminationTempC",
+      "vdTargetLineVoltagePct",
+      "vdTargetLowVoltagePct",
+      "vdTargetLandscapePct",
+      "vdMethod",
+      "acVdMethod",
+      "psuDeratePct",
+      "continuousLoadFactor",
+      "breakerLoadLimitPct",
+      "tapeLengthMarginPct",
+      "minAwgLineVoltage",
+      "dmxMaxUnitLoads",
+      "dmxMaxLengthFt",
+      "spiMaxDataFt",
+      "units",
+      "drawingFont",
+      "showSchedules",
+      "sheet",
+      "wireWastePct",
+      "dmxAutoPatchRoundTo",
+      "wireLabelTemplate",
+      "parallelConductorPolicy"
+     ],
+     "additionalProperties": false
+    },
+    "sources": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "tag": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "panel": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "circuit": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "voltage": {
+        "anyOf": [
+         {
+          "type": "number",
+          "const": 120
+         },
+         {
+          "type": "number",
+          "const": 208
+         },
+         {
+          "type": "number",
+          "const": 240
+         },
+         {
+          "type": "number",
+          "const": 277
+         },
+         {
+          "type": "number",
+          "const": 347
+         },
+         {
+          "type": "number",
+          "const": 480
+         }
+        ]
+       },
+       "phase": {
+        "type": "string",
+        "enum": [
+         "1PH",
+         "3PH"
+        ]
+       },
+       "breakerA": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "poles": {
+        "anyOf": [
+         {
+          "type": "number",
+          "const": 1
+         },
+         {
+          "type": "number",
+          "const": 2
+         },
+         {
+          "type": "number",
+          "const": 3
+         }
+        ]
+       },
+       "switching": {
+        "type": "string",
+        "enum": [
+         "none",
+         "relay",
+         "phase-forward",
+         "phase-reverse",
+         "0-10V",
+         "lutron-module"
+        ]
+       },
+       "notes": {
+        "type": "string",
+        "maxLength": 4000
+       }
+      },
+      "required": [
+       "id",
+       "tag",
+       "panel",
+       "circuit",
+       "voltage",
+       "phase",
+       "breakerA",
+       "poles"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "equipment": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "tag": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "catalogId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "category": {
+        "type": "string",
+        "enum": [
+         "psu",
+         "driver",
+         "dmx-decoder",
+         "dmx-controller",
+         "dmx-0-10v-converter",
+         "wireless-tx",
+         "wireless-rx",
+         "pixel-controller",
+         "opto-splitter",
+         "sacn-gateway",
+         "network-switch",
+         "lutron-module",
+         "0-10v-dimmer",
+         "keypad",
+         "relay",
+         "junction-box",
+         "enclosure",
+         "distribution-block"
+        ]
+       },
+       "qty": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+       },
+       "location": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+       },
+       "enclosure": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "fedFrom": {
+        "type": "object",
+        "properties": {
+         "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         },
+         "port": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         }
+        },
+        "required": [
+         "ref"
+        ],
+        "additionalProperties": false
+       },
+       "feedLengthFt": {
+        "type": "number",
+        "minimum": 0
+       },
+       "controlFrom": {
+        "type": "object",
+        "properties": {
+         "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         },
+         "port": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         }
+        },
+        "required": [
+         "ref"
+        ],
+        "additionalProperties": false
+       },
+       "controlLengthFt": {
+        "type": "number",
+        "minimum": 0
+       },
+       "chainOrder": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+       },
+       "dmx": {
+        "type": "object",
+        "properties": {
+         "universe": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 63999
+         },
+         "startAddress": {
+          "anyOf": [
+           {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 512
+           },
+           {
+            "type": "string",
+            "const": "auto"
+           }
+          ]
+         },
+         "terminatorPresent": {
+          "type": "boolean"
+         }
+        },
+        "required": [
+         "universe",
+         "startAddress"
+        ],
+        "additionalProperties": false
+       },
+       "env": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "plenum",
+         "riser",
+         "raceway",
+         "wet",
+         "direct-burial",
+         "outdoor-exposed"
+        ]
+       },
+       "specOverrides": {
+        "oneOf": [
+         {
+          "type": "object",
+          "properties": {
+           "kind": {
+            "type": "string",
+            "const": "psu"
+           },
+           "inputType": {
+            "type": "string",
+            "enum": [
+             "AC",
+             "DC"
+            ]
+           },
+           "inputPhase": {
+            "type": "string",
+            "enum": [
+             "1PH",
+             "3PH"
+            ]
+           },
+           "inputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "inputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputType": {
+            "type": "string",
+            "enum": [
+             "CV",
+             "CC"
+            ]
+           },
+           "outputCurrent": {
+            "type": "string",
+            "enum": [
+             "AC",
+             "DC"
+            ]
+           },
+           "outputV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputmA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "ratedW": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputs": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "name": {
+               "type": "string",
+               "minLength": 1,
+               "maxLength": 160
+              },
+              "maxW": {
+               "type": "number",
+               "exclusiveMinimum": 0
+              },
+              "class2": {
+               "type": "boolean"
+              }
+             },
+             "required": [
+              "name",
+              "maxW",
+              "class2"
+             ],
+             "additionalProperties": false
+            }
+           },
+           "efficiency": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           },
+           "powerFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           },
+           "maxInputA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxInputAAtV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "inrushA": {
+            "type": "number",
+            "minimum": 0
+           },
+           "maxUnitsPer20ABreaker": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+           },
+           "dimming": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "enum": [
+              "none",
+              "phase-forward",
+              "phase-reverse",
+              "0-10V",
+              "1-10V",
+              "DALI-2",
+              "DMX512",
+              "RDM",
+              "sACN",
+              "Art-Net",
+              "CRMX-wireless",
+              "Lutron-QS",
+              "Lutron-EcoSystem",
+              "PWM",
+              "SPI"
+             ]
+            }
+           },
+           "terminalMinAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "terminalMaxAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "listings": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "minLength": 1,
+             "maxLength": 160
+            }
+           },
+           "usableLoadFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           }
+          },
+          "required": [
+           "kind"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "kind": {
+            "type": "string",
+            "const": "driver"
+           },
+           "inputType": {
+            "type": "string",
+            "enum": [
+             "AC",
+             "DC"
+            ]
+           },
+           "inputPhase": {
+            "type": "string",
+            "enum": [
+             "1PH",
+             "3PH"
+            ]
+           },
+           "inputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "inputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputType": {
+            "type": "string",
+            "enum": [
+             "CV",
+             "CC"
+            ]
+           },
+           "outputCurrent": {
+            "type": "string",
+            "enum": [
+             "AC",
+             "DC"
+            ]
+           },
+           "outputV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputmA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "ratedW": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputs": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "name": {
+               "type": "string",
+               "minLength": 1,
+               "maxLength": 160
+              },
+              "maxW": {
+               "type": "number",
+               "exclusiveMinimum": 0
+              },
+              "class2": {
+               "type": "boolean"
+              }
+             },
+             "required": [
+              "name",
+              "maxW",
+              "class2"
+             ],
+             "additionalProperties": false
+            }
+           },
+           "efficiency": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           },
+           "powerFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           },
+           "maxInputA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxInputAAtV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "inrushA": {
+            "type": "number",
+            "minimum": 0
+           },
+           "maxUnitsPer20ABreaker": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+           },
+           "dimming": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "enum": [
+              "none",
+              "phase-forward",
+              "phase-reverse",
+              "0-10V",
+              "1-10V",
+              "DALI-2",
+              "DMX512",
+              "RDM",
+              "sACN",
+              "Art-Net",
+              "CRMX-wireless",
+              "Lutron-QS",
+              "Lutron-EcoSystem",
+              "PWM",
+              "SPI"
+             ]
+            }
+           },
+           "terminalMinAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "terminalMaxAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "listings": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "minLength": 1,
+             "maxLength": 160
+            }
+           },
+           "usableLoadFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           }
+          },
+          "required": [
+           "kind"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "kind": {
+            "type": "string",
+            "const": "decoder"
+           },
+           "dmxThru": {
+            "default": true,
+            "type": "boolean"
+           },
+           "powerType": {
+            "default": "DC",
+            "type": "string",
+            "enum": [
+             "DC",
+             "AC"
+            ]
+           },
+           "inputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "inputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "channels": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 512
+           },
+           "maxAPerChannel": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxATotal": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxWPerChannel": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxWTotal": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "outputDimming": {
+            "type": "string",
+            "enum": [
+             "phase-forward",
+             "phase-reverse"
+            ]
+           },
+           "dmxFootprint": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 512
+           },
+           "protocolIn": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+             "type": "string",
+             "enum": [
+              "none",
+              "phase-forward",
+              "phase-reverse",
+              "0-10V",
+              "1-10V",
+              "DALI-2",
+              "DMX512",
+              "RDM",
+              "sACN",
+              "Art-Net",
+              "CRMX-wireless",
+              "Lutron-QS",
+              "Lutron-EcoSystem",
+              "PWM",
+              "SPI"
+             ]
+            }
+           },
+           "protocolOut": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "enum": [
+              "none",
+              "phase-forward",
+              "phase-reverse",
+              "0-10V",
+              "1-10V",
+              "DALI-2",
+              "DMX512",
+              "RDM",
+              "sACN",
+              "Art-Net",
+              "CRMX-wireless",
+              "Lutron-QS",
+              "Lutron-EcoSystem",
+              "PWM",
+              "SPI"
+             ]
+            }
+           },
+           "terminalMinAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "terminalMaxAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "unitLoad": {
+            "default": 1,
+            "type": "number",
+            "exclusiveMinimum": 0
+           }
+          },
+          "required": [
+           "kind"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "kind": {
+            "type": "string",
+            "const": "controller"
+           },
+           "inputType": {
+            "type": "string",
+            "enum": [
+             "AC",
+             "DC",
+             "AC/DC"
+            ]
+           },
+           "inputPhase": {
+            "type": "string",
+            "enum": [
+             "1PH",
+             "3PH"
+            ]
+           },
+           "inputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "inputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "acInputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "acInputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "dcInputVMin": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "dcInputVMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "ownPowerW": {
+            "type": "number",
+            "minimum": 0
+           },
+           "powerFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           },
+           "maxInputA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxInputAAtV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxInputAType": {
+            "type": "string",
+            "enum": [
+             "AC",
+             "DC"
+            ]
+           },
+           "protocolIn": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "enum": [
+              "none",
+              "phase-forward",
+              "phase-reverse",
+              "0-10V",
+              "1-10V",
+              "DALI-2",
+              "DMX512",
+              "RDM",
+              "sACN",
+              "Art-Net",
+              "CRMX-wireless",
+              "Lutron-QS",
+              "Lutron-EcoSystem",
+              "PWM",
+              "SPI"
+             ]
+            }
+           },
+           "protocolOut": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "enum": [
+              "none",
+              "phase-forward",
+              "phase-reverse",
+              "0-10V",
+              "1-10V",
+              "DALI-2",
+              "DMX512",
+              "RDM",
+              "sACN",
+              "Art-Net",
+              "CRMX-wireless",
+              "Lutron-QS",
+              "Lutron-EcoSystem",
+              "PWM",
+              "SPI"
+             ]
+            }
+           },
+           "ports": {
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "name": {
+               "type": "string",
+               "minLength": 1,
+               "maxLength": 160
+              },
+              "direction": {
+               "type": "string",
+               "enum": [
+                "in",
+                "out",
+                "bidirectional"
+               ]
+              },
+              "protocol": {
+               "type": "string",
+               "enum": [
+                "none",
+                "phase-forward",
+                "phase-reverse",
+                "0-10V",
+                "1-10V",
+                "DALI-2",
+                "DMX512",
+                "RDM",
+                "sACN",
+                "Art-Net",
+                "CRMX-wireless",
+                "Lutron-QS",
+                "Lutron-EcoSystem",
+                "PWM",
+                "SPI"
+               ]
+              },
+              "maxDevices": {
+               "type": "integer",
+               "exclusiveMinimum": 0,
+               "maximum": 9007199254740991
+              }
+             },
+             "required": [
+              "name",
+              "direction",
+              "protocol"
+             ],
+             "additionalProperties": false
+            }
+           },
+           "dmxFootprint": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 512
+           },
+           "unitLoad": {
+            "type": "number",
+            "minimum": 0
+           },
+           "maxUniverses": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+           },
+           "maxPixels": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+           },
+           "maxDataLengthFt": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxBusDevices": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+           },
+           "startsNewSegment": {
+            "default": false,
+            "type": "boolean"
+           },
+           "terminalMinAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "terminalMaxAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           }
+          },
+          "required": [
+           "kind"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "kind": {
+            "type": "string",
+            "const": "tape"
+           },
+           "voltage": {
+            "anyOf": [
+             {
+              "type": "number",
+              "const": 12
+             },
+             {
+              "type": "number",
+              "const": 24
+             },
+             {
+              "type": "number",
+              "const": 48
+             }
+            ]
+           },
+           "drive": {
+            "type": "string",
+            "enum": [
+             "CV",
+             "CV-CC-IC"
+            ]
+           },
+           "wPerFtMax": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "powerBasis": {
+            "type": "string",
+            "enum": [
+             "all-channel-max",
+             "max-operating"
+            ]
+           },
+           "channelWPerFtMax": {
+            "type": "array",
+            "items": {
+             "type": "number",
+             "exclusiveMinimum": 0
+            }
+           },
+           "channels": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 512
+           },
+           "channelMap": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+             "type": "string",
+             "minLength": 1,
+             "maxLength": 160
+            }
+           },
+           "maxSimultaneousPct": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxRunFtSingleFeed": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxRunFtDoubleFeed": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "freeCutting": {
+            "type": "boolean"
+           },
+           "cutIntervalIn": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "minOperatingV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "reelLengthFt": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "pixel": {
+            "type": "object",
+            "properties": {
+             "protocol": {
+              "type": "string",
+              "enum": [
+               "WS2811",
+               "WS2815",
+               "SK6812",
+               "SPI-other"
+              ]
+             },
+             "pixelsPerFt": {
+              "type": "number",
+              "exclusiveMinimum": 0
+             },
+             "ampsPerPixelMax": {
+              "type": "number",
+              "exclusiveMinimum": 0
+             }
+            },
+            "required": [
+             "protocol",
+             "pixelsPerFt",
+             "ampsPerPixelMax"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "required": [
+           "kind"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "kind": {
+            "type": "string",
+            "const": "fixture"
+           },
+           "voltageClass": {
+            "type": "string",
+            "enum": [
+             "line",
+             "low"
+            ]
+           },
+           "inputV": {
+            "anyOf": [
+             {
+              "type": "number",
+              "exclusiveMinimum": 0
+             },
+             {
+              "type": "array",
+              "prefixItems": [
+               {
+                "type": "number",
+                "exclusiveMinimum": 0
+               },
+               {
+                "type": "number",
+                "exclusiveMinimum": 0
+               }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+             }
+            ]
+           },
+           "watts": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "inputType": {
+            "type": "string",
+            "enum": [
+             "AC",
+             "DC"
+            ]
+           },
+           "inputPhase": {
+            "type": "string",
+            "enum": [
+             "1PH",
+             "3PH"
+            ]
+           },
+           "powerFactor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+           },
+           "maxInputA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "maxInputAAtV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "drive": {
+            "type": "string",
+            "enum": [
+             "CV",
+             "CC"
+            ]
+           },
+           "mA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "dimming": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "enum": [
+              "none",
+              "phase-forward",
+              "phase-reverse",
+              "0-10V",
+              "1-10V",
+              "DALI-2",
+              "DMX512",
+              "RDM",
+              "sACN",
+              "Art-Net",
+              "CRMX-wireless",
+              "Lutron-QS",
+              "Lutron-EcoSystem",
+              "PWM",
+              "SPI"
+             ]
+            }
+           },
+           "integralDriver": {
+            "type": "boolean"
+           }
+          },
+          "required": [
+           "kind"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "kind": {
+            "type": "string",
+            "const": "accessory"
+           },
+           "function": {
+            "type": "string",
+            "enum": [
+             "junction",
+             "enclosure",
+             "distribution",
+             "termination",
+             "other"
+            ]
+           },
+           "ratedV": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "ratedA": {
+            "type": "number",
+            "exclusiveMinimum": 0
+           },
+           "ports": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "minLength": 1,
+             "maxLength": 160
+            }
+           },
+           "listings": {
+            "type": "array",
+            "items": {
+             "type": "string",
+             "minLength": 1,
+             "maxLength": 160
+            }
+           },
+           "notes": {
+            "type": "string",
+            "maxLength": 4000
+           },
+           "terminalMinAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           },
+           "terminalMaxAwg": {
+            "type": "string",
+            "enum": [
+             "1",
+             "2",
+             "3",
+             "4",
+             "6",
+             "8",
+             "10",
+             "12",
+             "14",
+             "16",
+             "18",
+             "20",
+             "22",
+             "24",
+             "1/0",
+             "2/0",
+             "3/0",
+             "4/0"
+            ]
+           }
+          },
+          "required": [
+           "kind"
+          ],
+          "additionalProperties": false
+         }
+        ]
+       },
+       "notes": {
+        "type": "string",
+        "maxLength": 4000
+       }
+      },
+      "required": [
+       "id",
+       "tag",
+       "catalogId",
+       "category",
+       "qty",
+       "location",
+       "fedFrom",
+       "feedLengthFt",
+       "env"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "loads": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "typeTag": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "zone": {
+        "type": "string",
+        "maxLength": 300
+       },
+       "enclosure": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "catalogId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "qty": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+       },
+       "lengthFt": {
+        "type": "number",
+        "exclusiveMinimum": 0
+       },
+       "fedFrom": {
+        "type": "object",
+        "properties": {
+         "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         },
+         "port": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         }
+        },
+        "required": [
+         "ref"
+        ],
+        "additionalProperties": false
+       },
+       "homeRunLengthFt": {
+        "type": "number",
+        "minimum": 0
+       },
+       "interFixtureLengthFt": {
+        "type": "number",
+        "minimum": 0
+       },
+       "feedMethod": {
+        "type": "string",
+        "enum": [
+         "end",
+         "double-end",
+         "center",
+         "multi-feed"
+        ]
+       },
+       "feeds": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+       },
+       "env": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "plenum",
+         "riser",
+         "raceway",
+         "wet",
+         "direct-burial",
+         "outdoor-exposed"
+        ]
+       },
+       "notes": {
+        "type": "string",
+        "maxLength": 4000
+       }
+      },
+      "required": [
+       "id",
+       "typeTag",
+       "zone",
+       "catalogId",
+       "fedFrom",
+       "homeRunLengthFt",
+       "feedMethod",
+       "env"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "controlLinks": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "from": {
+        "type": "object",
+        "properties": {
+         "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         },
+         "port": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         }
+        },
+        "required": [
+         "ref"
+        ],
+        "additionalProperties": false
+       },
+       "to": {
+        "type": "object",
+        "properties": {
+         "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         },
+         "port": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+         }
+        },
+        "required": [
+         "ref"
+        ],
+        "additionalProperties": false
+       },
+       "protocol": {
+        "type": "string",
+        "enum": [
+         "none",
+         "phase-forward",
+         "phase-reverse",
+         "0-10V",
+         "1-10V",
+         "DALI-2",
+         "DMX512",
+         "RDM",
+         "sACN",
+         "Art-Net",
+         "CRMX-wireless",
+         "Lutron-QS",
+         "Lutron-EcoSystem",
+         "PWM",
+         "SPI"
+        ]
+       },
+       "lengthFt": {
+        "type": "number",
+        "minimum": 0
+       },
+       "env": {
+        "type": "string",
+        "enum": [
+         "dry-concealed",
+         "plenum",
+         "riser",
+         "raceway",
+         "wet",
+         "direct-burial",
+         "outdoor-exposed"
+        ]
+       },
+       "universe": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 63999
+       },
+       "notes": {
+        "type": "string",
+        "maxLength": 4000
+       }
+      },
+      "required": [
+       "id",
+       "from",
+       "to",
+       "protocol",
+       "lengthFt",
+       "env"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "wireOverrides": {
+     "type": "object",
+     "propertyNames": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "additionalProperties": {
+      "type": "object",
+      "properties": {
+       "wireTypeId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "parallelSets": {
+        "default": 1,
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+       },
+       "parallelCommonConductors": {
+        "default": 1,
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "maximum": 9007199254740991
+       },
+       "note": {
+        "type": "string",
+        "maxLength": 4000
+       }
+      },
+      "required": [
+       "wireTypeId",
+       "parallelSets",
+       "parallelCommonConductors"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "layoutOverrides": {
+     "type": "object",
+     "propertyNames": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "additionalProperties": {
+      "type": "object",
+      "properties": {
+       "x": {
+        "type": "number"
+       },
+       "y": {
+        "type": "number"
+       },
+       "pinned": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "x",
+       "y",
+       "pinned"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "generalNotes": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "maxLength": 4000
+     }
+    },
+    "keyNotes": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "text": {
+        "type": "string",
+        "maxLength": 4000
+       }
+      },
+      "required": [
+       "id",
+       "text"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "revisions": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "rev": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "date": {
+        "type": "string",
+        "format": "date",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+       },
+       "description": {
+        "type": "string",
+        "maxLength": 4000
+       },
+       "by": {
+        "type": "string",
+        "maxLength": 100
+       }
+      },
+      "required": [
+       "rev",
+       "date",
+       "description",
+       "by"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "wireTagMap": {
+     "type": "object",
+     "propertyNames": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "additionalProperties": {
+      "type": "string",
+      "pattern": "^W-\\d{2,}$"
+     }
+    },
+    "scratchNote": {
+     "type": "string",
+     "maxLength": 4000
+    }
+   },
+   "required": [
+    "schemaVersion",
+    "id",
+    "meta",
+    "settings",
+    "sources",
+    "equipment",
+    "loads",
+    "controlLinks",
+    "wireOverrides",
+    "layoutOverrides",
+    "generalNotes",
+    "keyNotes",
+    "revisions",
+    "wireTagMap",
+    "scratchNote"
+   ],
+   "additionalProperties": false
+  },
+  "views": {
+   "default": {
+    "saved3d": []
+   },
+   "type": "object",
+   "properties": {
+    "saved3d": {
+     "default": [],
+     "type": "array",
+     "items": {}
+    },
+    "presentation": {},
+    "riser": {}
+   },
+   "required": [
+    "saved3d"
+   ],
+   "additionalProperties": false
+  },
+  "overrides": {
+   "default": [],
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "entityRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "acknowledge",
+       "staff-override"
+      ]
+     },
+     "reason": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1000
+     },
+     "by": {
+      "type": "string"
+     },
+     "at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+     }
+    },
+    "required": [
+     "code",
+     "entityRef",
+     "kind",
+     "reason",
+     "by",
+     "at"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "schemaVersion",
+  "engineVersion",
+  "catalogSnapshotHash",
+  "schedule",
+  "site",
+  "runs",
+  "zones",
+  "project",
+  "views",
+  "overrides"
+ ],
+ "additionalProperties": false
+}

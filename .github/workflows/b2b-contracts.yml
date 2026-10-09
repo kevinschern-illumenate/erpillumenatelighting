@@ -21,7 +21,7 @@ jobs:
           node-version: '22'
       - name: Install local test dependencies
         run: |
-          python -m pip install ruff PyYAML Jinja2 Pillow pypdf reportlab pypdfium2
+          python -m pip install ruff PyYAML Jinja2 Pillow pypdf reportlab pypdfium2 jsonschema
           npm ci --prefix tests/portal_ui
           npm ci --prefix tests/portal_e2e
       - name: Python service and generator contracts
@@ -49,6 +49,16 @@ jobs:
           npm run test:render --prefix tools/yaml_builder_ui
           npm run build:erp --prefix tools/yaml_builder_ui
           git diff --exit-code illumenate_lighting/public/catalog_builder
+      - name: System Designer bundle is fresh
+        run: |
+          npm ci --prefix tools/system_designer
+          npm run lint --prefix tools/system_designer
+          npm test --prefix tools/system_designer
+          npm run typecheck --prefix tools/system_designer
+          npm run build --prefix tools/system_designer
+          npm run schema:export --prefix tools/system_designer
+          git status --porcelain --untracked-files=all illumenate_lighting/public/system_designer illumenate_lighting/illumenate_lighting/system_design/code_tables | (! grep .)
+          git diff --exit-code illumenate_lighting/public/system_designer illumenate_lighting/illumenate_lighting/system_design/code_tables
       - name: Catalog Builder browser workflow
         run: |
           npm ci --prefix tests/portal_e2e

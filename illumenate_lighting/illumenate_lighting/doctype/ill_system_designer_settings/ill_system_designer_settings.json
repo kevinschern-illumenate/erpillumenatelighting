@@ -1,0 +1,273 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-09 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_rollout",
+  "enabled",
+  "column_break_rollout",
+  "pilot_customers",
+  "section_engineering",
+  "vd_target_class2_pct",
+  "vd_target_line_pct",
+  "vd_target_landscape_pct",
+  "column_break_engineering",
+  "nec_edition",
+  "wire_waste_pct",
+  "max_watts_per_run_fallback",
+  "section_review",
+  "review_gate_enabled",
+  "review_gate_watts",
+  "column_break_review",
+  "review_gate_dmx",
+  "review_gate_phase_dimming",
+  "reviewer_assignment",
+  "section_sharing",
+  "share_default_days",
+  "column_break_sharing",
+  "share_max_days",
+  "section_site",
+  "group_threshold_qty",
+  "plan_route_slack_pct",
+  "column_break_site",
+  "default_distance_same_space_ft",
+  "default_distance_adjacent_ft",
+  "default_distance_other_level_ft",
+  "section_terms",
+  "terms_text"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_rollout",
+   "fieldtype": "Section Break",
+   "label": "Rollout"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enable For All Dealers",
+   "default": "0",
+   "description": "Shows \"Design system\" to every dealer who can read a schedule. Leave off during the pilot."
+  },
+  {
+   "fieldname": "column_break_rollout",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pilot_customers",
+   "fieldtype": "Table MultiSelect",
+   "label": "Pilot Customers",
+   "options": "ilL-Child-Designer-Pilot-Customer",
+   "description": "Dealers at these companies can use the designer while it is not enabled for everyone."
+  },
+  {
+   "fieldname": "section_engineering",
+   "fieldtype": "Section Break",
+   "label": "Engineering Targets"
+  },
+  {
+   "fieldname": "vd_target_class2_pct",
+   "fieldtype": "Float",
+   "label": "Voltage Drop Target, Class 2 (%)",
+   "default": "3.0",
+   "reqd": 1,
+   "description": "Default target for low-voltage Class 2 home runs (D5). Projects may tighten it; loosening needs an Applications Engineer override."
+  },
+  {
+   "fieldname": "vd_target_line_pct",
+   "fieldtype": "Float",
+   "label": "Voltage Drop Target, Line Voltage (%)",
+   "default": "3.0",
+   "reqd": 1
+  },
+  {
+   "fieldname": "vd_target_landscape_pct",
+   "fieldtype": "Float",
+   "label": "Voltage Drop Target, Landscape (%)",
+   "default": "5.0",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_engineering",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "nec_edition",
+   "fieldtype": "Select",
+   "label": "NEC Edition",
+   "default": "2023",
+   "options": "2020\n2023\n2026",
+   "reqd": 1
+  },
+  {
+   "fieldname": "wire_waste_pct",
+   "fieldtype": "Float",
+   "label": "Wire Waste (%)",
+   "default": "10",
+   "description": "Added to every wire takeoff before it is written to the schedule (D7)."
+  },
+  {
+   "fieldname": "max_watts_per_run_fallback",
+   "fieldtype": "Float",
+   "label": "Maximum Watts Per Run (Fallback)",
+   "default": "85",
+   "description": "Used only when a tape spec has no maximum run length."
+  },
+  {
+   "fieldname": "section_review",
+   "fieldtype": "Section Break",
+   "label": "Review Before Ordering"
+  },
+  {
+   "fieldname": "review_gate_enabled",
+   "fieldtype": "Check",
+   "label": "Require Review Before Sales Order",
+   "default": "0",
+   "description": "Also needs the site flag ill_system_design_review_gate (D4)."
+  },
+  {
+   "fieldname": "review_gate_watts",
+   "fieldtype": "Float",
+   "label": "Review Above Connected Load (W)",
+   "default": "1500"
+  },
+  {
+   "fieldname": "column_break_review",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "review_gate_dmx",
+   "fieldtype": "Check",
+   "label": "Review DMX Designs",
+   "default": "1"
+  },
+  {
+   "fieldname": "review_gate_phase_dimming",
+   "fieldtype": "Check",
+   "label": "Review Phase-cut Dimming",
+   "default": "1"
+  },
+  {
+   "fieldname": "reviewer_assignment",
+   "fieldtype": "Select",
+   "label": "Reviewer Assignment",
+   "default": "Round Robin",
+   "options": "Manual\nRound Robin"
+  },
+  {
+   "fieldname": "section_sharing",
+   "fieldtype": "Section Break",
+   "label": "Share Links"
+  },
+  {
+   "fieldname": "share_default_days",
+   "fieldtype": "Int",
+   "label": "Default Expiry (Days)",
+   "default": "90"
+  },
+  {
+   "fieldname": "column_break_sharing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "share_max_days",
+   "fieldtype": "Int",
+   "label": "Maximum Expiry (Days)",
+   "default": "90",
+   "description": "Renewing a link extends it to today plus this many days (D10)."
+  },
+  {
+   "fieldname": "section_site",
+   "fieldtype": "Section Break",
+   "label": "Site Defaults"
+  },
+  {
+   "fieldname": "group_threshold_qty",
+   "fieldtype": "Int",
+   "label": "Group Identical Builds From Quantity",
+   "default": "6"
+  },
+  {
+   "fieldname": "plan_route_slack_pct",
+   "fieldtype": "Float",
+   "label": "Plan Route Slack (%)",
+   "default": "15"
+  },
+  {
+   "fieldname": "column_break_site",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_distance_same_space_ft",
+   "fieldtype": "Float",
+   "label": "Distance, Same Space (ft)",
+   "default": "10"
+  },
+  {
+   "fieldname": "default_distance_adjacent_ft",
+   "fieldtype": "Float",
+   "label": "Distance, Adjacent Space (ft)",
+   "default": "25"
+  },
+  {
+   "fieldname": "default_distance_other_level_ft",
+   "fieldtype": "Float",
+   "label": "Distance, Other Level (ft)",
+   "default": "40"
+  },
+  {
+   "fieldname": "section_terms",
+   "fieldtype": "Section Break",
+   "label": "Terms"
+  },
+  {
+   "fieldname": "terms_text",
+   "fieldtype": "Text Editor",
+   "label": "Terms Shown On First Open",
+   "default": "Design aid. Verify against product documentation and local code. Line-voltage work by a licensed electrician."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-System-Designer-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1,
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "share": 1,
+   "delete": 1
+  },
+  {
+   "read": 1,
+   "role": "ilL Applications Engineer",
+   "write": 1,
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "read": 1,
+   "role": "ilL Engineering"
+  },
+  {
+   "read": 1,
+   "role": "ilL Sales Review"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

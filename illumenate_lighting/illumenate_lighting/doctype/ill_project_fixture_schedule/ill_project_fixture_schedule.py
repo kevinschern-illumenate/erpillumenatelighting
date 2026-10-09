@@ -1520,6 +1520,13 @@ def can_request_schedule_order(doc, user=None):
 			"Only dealers can convert a schedule to an order. Please contact your dealer."
 		)
 
+	# D4: an ilLumenate review of the system design before ordering (off unless the site flag is on).
+	from illumenate_lighting.illumenate_lighting.system_design.gate import order_block
+
+	blocked = order_block(doc)
+	if blocked:
+		return False, blocked
+
 	return True, ""
 
 

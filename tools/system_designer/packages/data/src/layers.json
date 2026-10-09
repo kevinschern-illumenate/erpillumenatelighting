@@ -1,0 +1,185 @@
+{
+  "layers": [
+    {
+      "name": "E-ANNO-TTLB",
+      "description": "Border and title block",
+      "linetype": "Continuous",
+      "lineweightMm": 0.5,
+      "color": "#202A30",
+      "aciColor": 7,
+      "export": true
+    },
+    {
+      "name": "E-ANNO-TEXT",
+      "description": "General text and notes",
+      "linetype": "Continuous",
+      "lineweightMm": 0.18,
+      "color": "#202A30",
+      "aciColor": 7,
+      "export": true
+    },
+    {
+      "name": "E-ANNO-SCHD",
+      "description": "Schedules",
+      "linetype": "Continuous",
+      "lineweightMm": 0.18,
+      "color": "#202A30",
+      "aciColor": 7,
+      "export": true
+    },
+    {
+      "name": "E-ANNO-TAGS",
+      "description": "Device and wire tags",
+      "linetype": "Continuous",
+      "lineweightMm": 0.18,
+      "color": "#263D48",
+      "aciColor": 7,
+      "export": true
+    },
+    {
+      "name": "E-POWR-EQPM",
+      "description": "Power equipment",
+      "linetype": "Continuous",
+      "lineweightMm": 0.35,
+      "color": "#263D48",
+      "aciColor": 7,
+      "export": true
+    },
+    {
+      "name": "E-LITE-CTRL-EQPM",
+      "description": "Control equipment",
+      "linetype": "Continuous",
+      "lineweightMm": 0.35,
+      "color": "#344D55",
+      "aciColor": 7,
+      "export": true
+    },
+    {
+      "name": "E-LITE-FIXT",
+      "description": "Lighting loads",
+      "linetype": "Continuous",
+      "lineweightMm": 0.35,
+      "color": "#304E46",
+      "aciColor": 7,
+      "export": true
+    },
+    {
+      "name": "E-POWR-WIRE-LV",
+      "description": "Line-voltage conductors",
+      "linetype": "Continuous",
+      "lineweightMm": 0.35,
+      "color": "#704B3A",
+      "aciColor": 30,
+      "export": true
+    },
+    {
+      "name": "E-LITE-WIRE-CL2",
+      "description": "Class 2 power",
+      "linetype": "Continuous",
+      "lineweightMm": 0.25,
+      "color": "#355E4D",
+      "aciColor": 94,
+      "export": true
+    },
+    {
+      "name": "E-LITE-CTRL-DMX",
+      "description": "DMX and Ethernet",
+      "linetype": "DASHED",
+      "lineweightMm": 0.18,
+      "color": "#315D76",
+      "aciColor": 150,
+      "export": true
+    },
+    {
+      "name": "E-LITE-CTRL-SIGL",
+      "description": "0–10 V and DALI",
+      "linetype": "DASHDOT",
+      "lineweightMm": 0.18,
+      "color": "#655375",
+      "aciColor": 200,
+      "export": true
+    },
+    {
+      "name": "E-LITE-CTRL-LUTR",
+      "description": "Lutron links",
+      "linetype": "PHANTOM",
+      "lineweightMm": 0.18,
+      "color": "#596D38",
+      "aciColor": 84,
+      "export": true
+    },
+    {
+      "name": "E-LITE-CTRL-SPI",
+      "description": "Pixel data",
+      "linetype": "HIDDEN",
+      "lineweightMm": 0.18,
+      "color": "#716039",
+      "aciColor": 44,
+      "export": true
+    },
+    {
+      "name": "E-LITE-CTRL-WRLS",
+      "description": "Wireless",
+      "linetype": "DOT",
+      "lineweightMm": 0.18,
+      "color": "#694D60",
+      "aciColor": 210,
+      "export": true
+    },
+    {
+      "name": "E-ANNO-ENCL",
+      "description": "Location and enclosure",
+      "linetype": "DASHED2",
+      "lineweightMm": 0.18,
+      "color": "#62696B",
+      "aciColor": 8,
+      "export": true
+    },
+    {
+      "name": "E-ANNO-QAFL",
+      "description": "Preview-only QA flags",
+      "linetype": "Continuous",
+      "lineweightMm": 0.18,
+      "color": "#B13526",
+      "aciColor": 1,
+      "export": false
+    }
+  ],
+  "linetypes": [
+    {
+      "name": "Continuous",
+      "patternIn": [],
+      "description": "Continuous in paper inches"
+    },
+    {
+      "name": "DASHED",
+      "patternIn": [0.125, -0.0625],
+      "description": "DASHED in paper inches"
+    },
+    {
+      "name": "DASHED2",
+      "patternIn": [0.0625, -0.03125],
+      "description": "DASHED2 in paper inches"
+    },
+    {
+      "name": "DASHDOT",
+      "patternIn": [0.125, -0.03125, 0, -0.03125],
+      "description": "DASHDOT in paper inches"
+    },
+    {
+      "name": "PHANTOM",
+      "patternIn": [0.25, -0.03125, 0.0625, -0.03125, 0.0625, -0.03125],
+      "description": "PHANTOM in paper inches"
+    },
+    {
+      "name": "HIDDEN",
+      "patternIn": [0.0625, -0.0625],
+      "description": "HIDDEN in paper inches"
+    },
+    {
+      "name": "DOT",
+      "patternIn": [0, -0.0625],
+      "description": "DOT in paper inches"
+    }
+  ]
+}

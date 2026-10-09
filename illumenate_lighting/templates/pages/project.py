@@ -100,6 +100,10 @@ def get_context(context):
 
 	context.project = project
 	context.schedules = schedules
+	# System designs of these schedules (WP-4.5); None hides the Designs tab.
+	from illumenate_lighting.illumenate_lighting.system_design.portal_pages import project_designs
+
+	context.system_designs = project_designs(schedules)
 	context.can_edit = can_edit
 	context.schedule_status_class = schedule_status_class
 	context.schedule_status_label = schedule_status_label

@@ -100,7 +100,9 @@ website_route_rules = [
 	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
 	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
 
-	# Schedules
+	# Schedules (the designer route must precede the schedule route)
+	{"from_route": "/portal/schedules/<schedule>/design", "to_route": "system_design"},
+	{"from_route": "/portal/design", "to_route": "system_design"},
 	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
 
 	# Configurator
@@ -249,6 +251,7 @@ permission_query_conditions = {
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.get_permission_query_conditions",
+	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.get_permission_query_conditions",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_query_conditions",
 }
 
@@ -269,6 +272,7 @@ has_permission = {
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.has_permission",
+	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.has_permission",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_has_permission",
 }
 
@@ -535,3 +539,11 @@ for _finder_doctype in _finder_fact_doctypes:
 		_finder_hooks = doc_events.setdefault(_finder_doctype, {})
 		_finder_old = _finder_hooks.get(_finder_event, [])
 		_finder_hooks[_finder_event] = ([_finder_old] if isinstance(_finder_old, str) else list(_finder_old)) + ["illumenate_lighting.illumenate_lighting.portal.product_finder.facts.invalidate"]
+
+# System Designer catalog snapshot (WP-2.1): any change to a mapped record drops the current hash.
+_design_catalog_doctypes = ['Item', 'Item Price', 'ilL-Spec-LED Tape', 'ilL-Rel-Tape Offering', 'ilL-Spec-Driver', 'ilL-Rel-Driver-Eligibility', 'ilL-Spec-Controller', 'ilL-Spec-Wire', 'ilL-Attribute-Output Voltage', 'ilL-Attribute-Dimming Protocol', 'ilL-Attribute-Certification']
+for _design_doctype in _design_catalog_doctypes:
+	for _design_event in ("on_update", "on_trash"):
+		_design_hooks = doc_events.setdefault(_design_doctype, {})
+		_design_old = _design_hooks.get(_design_event, [])
+		_design_hooks[_design_event] = ([_design_old] if isinstance(_design_old, str) else list(_design_old)) + ["illumenate_lighting.illumenate_lighting.system_design.catalog.invalidate"]

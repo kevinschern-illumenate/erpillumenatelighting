@@ -1,0 +1,39 @@
+{
+ "buildHash": "1df023f8e13620d201bf67229095e998053983b0a03b1f4a0659bac0e08aa9fa",
+ "runs": {
+  "power:load:e1other:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.33125,
+   "endV": 23.9205
+  }
+ },
+ "messages": [
+  "error|DRIVE_MISMATCH|load:e1other:1:1",
+  "error|VOLTAGE_MISMATCH|load:e1other:1:1",
+  "warning|SUPPLY_NO_ACCESS|cab-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:e1other:1:1",
+  "warning|UNRESOLVED_REF|PS-1",
+  "info|DATA_BY_DEALER|line:e1other"
+ ],
+ "verify": {
+  "loading": [
+   {
+    "entityId": "PS-1",
+    "port": "OUT1",
+    "wattsW": 12
+   }
+  ],
+  "runs": {
+   "power:load:e1other:1:1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.331
+   }
+  },
+  "messages": [
+   "DATA_BY_DEALER|line:e1other",
+   "VOLTAGE_MISMATCH|load:e1other:1:1"
+  ],
+  "review": []
+ }
+}

@@ -1,0 +1,283 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:item",
+ "creation": "2026-10-09 13:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "item",
+  "wire_name",
+  "category",
+  "applications",
+  "column_break_identity",
+  "riser_label",
+  "is_verified",
+  "is_active",
+  "source_reference",
+  "conductors_section",
+  "conductors",
+  "ratings_section",
+  "listing",
+  "rated_v",
+  "temp_rating_c",
+  "plenum",
+  "riser",
+  "wet",
+  "column_break_ratings",
+  "direct_burial",
+  "sunlight_resistant",
+  "shielded",
+  "impedance_ohm",
+  "resistance_ohm_per_kft",
+  "ampacity_a",
+  "ampacity_basis",
+  "od_in",
+  "sales_section",
+  "sales_uom_mode",
+  "column_break_sales",
+  "spool_length_ft"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "reqd": 1,
+   "unique": 1,
+   "description": "The sellable Item dealers are quoted for this wire (D7)."
+  },
+  {
+   "fieldname": "wire_name",
+   "fieldtype": "Data",
+   "label": "Wire Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "e.g. \"18/2 CL3R\""
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Category",
+   "options": "Class 2 Power\nBuilding Wire\nCable Assembly\nData\nControl\nLandscape\nFlex Cord",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "applications",
+   "fieldtype": "Small Text",
+   "label": "Applications",
+   "reqd": 1,
+   "description": "Comma list of engine run types: lv-branch, lv-fixture-whip, class2-dc, class2-dc-multichannel, landscape-ac, dmx, ethernet, spi-data, 0-10v, dali, lutron-qs, lutron-ecosystem, wireless."
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "riser_label",
+   "fieldtype": "Data",
+   "label": "Riser Label",
+   "reqd": 1,
+   "description": "Printed on riser drawings."
+  },
+  {
+   "fieldname": "is_verified",
+   "fieldtype": "Check",
+   "label": "Engineering Verified",
+   "default": "0",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "default": "1",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Small Text",
+   "label": "Source",
+   "reqd": 1,
+   "description": "Datasheet or standard the ratings come from."
+  },
+  {
+   "fieldname": "conductors_section",
+   "fieldtype": "Section Break",
+   "label": "Conductors"
+  },
+  {
+   "fieldname": "conductors",
+   "fieldtype": "Table",
+   "label": "Conductors",
+   "options": "ilL-Child-Wire-Conductor",
+   "reqd": 1
+  },
+  {
+   "fieldname": "ratings_section",
+   "fieldtype": "Section Break",
+   "label": "Ratings"
+  },
+  {
+   "fieldname": "listing",
+   "fieldtype": "Data",
+   "label": "Listing",
+   "reqd": 1,
+   "description": "CL2, CL3, CL2P, CL3R, CMP, NM-B, UF-B…"
+  },
+  {
+   "fieldname": "rated_v",
+   "fieldtype": "Float",
+   "label": "Rated Voltage (V)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "temp_rating_c",
+   "fieldtype": "Select",
+   "label": "Temperature Rating (°C)",
+   "default": "75",
+   "options": "60\n75\n90\n105",
+   "reqd": 1
+  },
+  {
+   "fieldname": "plenum",
+   "fieldtype": "Check",
+   "label": "Plenum",
+   "default": "0"
+  },
+  {
+   "fieldname": "riser",
+   "fieldtype": "Check",
+   "label": "Riser",
+   "default": "0"
+  },
+  {
+   "fieldname": "wet",
+   "fieldtype": "Check",
+   "label": "Wet Location",
+   "default": "0"
+  },
+  {
+   "fieldname": "column_break_ratings",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "direct_burial",
+   "fieldtype": "Check",
+   "label": "Direct Burial",
+   "default": "0"
+  },
+  {
+   "fieldname": "sunlight_resistant",
+   "fieldtype": "Check",
+   "label": "Sunlight Resistant",
+   "default": "0"
+  },
+  {
+   "fieldname": "shielded",
+   "fieldtype": "Check",
+   "label": "Shielded",
+   "default": "0"
+  },
+  {
+   "fieldname": "impedance_ohm",
+   "fieldtype": "Float",
+   "label": "Impedance (Ω)",
+   "description": "Data cables."
+  },
+  {
+   "fieldname": "resistance_ohm_per_kft",
+   "fieldtype": "Float",
+   "label": "Resistance (Ω/1000 ft)",
+   "description": "Overrides NEC Table 8."
+  },
+  {
+   "fieldname": "ampacity_a",
+   "fieldtype": "Float",
+   "label": "Ampacity (A)"
+  },
+  {
+   "fieldname": "ampacity_basis",
+   "fieldtype": "Select",
+   "label": "Ampacity Basis",
+   "options": "\n310.16\n402.5 fallback\nManufacturer"
+  },
+  {
+   "fieldname": "od_in",
+   "fieldtype": "Float",
+   "label": "Outside Diameter (in)"
+  },
+  {
+   "fieldname": "sales_section",
+   "fieldtype": "Section Break",
+   "label": "Sales"
+  },
+  {
+   "fieldname": "sales_uom_mode",
+   "fieldtype": "Select",
+   "label": "Sold",
+   "default": "Per Foot",
+   "options": "Per Foot\nPer Spool",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_sales",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "spool_length_ft",
+   "fieldtype": "Float",
+   "label": "Spool Length (ft)",
+   "depends_on": "eval:doc.sales_uom_mode=='Per Spool'",
+   "mandatory_depends_on": "eval:doc.sales_uom_mode=='Per Spool'"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-09 13:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-Wire",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "search_fields": "wire_name,listing",
+ "title_field": "wire_name",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

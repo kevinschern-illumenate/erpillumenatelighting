@@ -41,6 +41,10 @@
   "webflow_section",
   "webflow_product",
   "default_profile_spec",
+  "system_designer_section",
+  "diagram_icon",
+  "column_break_system_designer",
+  "scene_archetypes",
   "web_listing_tab",
   "web_identity_section",
   "web_listed",
@@ -295,6 +299,28 @@
    "options": "ilL-Spec-Profile"
   },
   {
+   "fieldname": "system_designer_section",
+   "fieldtype": "Section Break",
+   "label": "System Designer",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "diagram_icon",
+   "fieldtype": "Attach",
+   "label": "Diagram Icon",
+   "description": "SVG symbol drawn on risers and system diagrams."
+  },
+  {
+   "fieldname": "column_break_system_designer",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scene_archetypes",
+   "fieldtype": "Small Text",
+   "label": "Scene Archetypes",
+   "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
+  },
+  {
    "fieldname": "web_listing_tab",
    "fieldtype": "Tab Break",
    "label": "Web Listing",
@@ -531,7 +557,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-09 14:55:35.000000",
+ "modified": "2026-10-09 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Fixture-Template",

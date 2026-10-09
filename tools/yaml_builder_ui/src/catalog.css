@@ -101,6 +101,8 @@
 .catalog-app .catalog-bar-title h2, .catalog-app .catalog-bar-title p { margin: 0; }
 .catalog-app .catalog-readiness-toggle, .catalog-app .catalog-types-toggle { display: inline-flex; gap: 6px; align-items: center; }
 .catalog-app .catalog-readiness-toggle[aria-expanded="true"], .catalog-app .catalog-types-toggle[aria-expanded="true"] { background: #ebe0cb; border-color: #b8a07b; }
+.catalog-app .catalog-design-readiness { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border: 1px solid #d6c7ad; border-radius: 6px; color: inherit; text-decoration: none; }
+.catalog-app .catalog-design-readiness:hover, .catalog-app .catalog-design-readiness:focus-visible { background: #ebe0cb; }
 .catalog-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 1; vertical-align: middle; }
 .catalog-badge.is-error { background: #c0503c; color: white; }
 .catalog-badge.is-warn { background: #e8b04a; color: #3b2a0c; }

@@ -1,0 +1,185 @@
+{
+  "id": "ansi-a",
+  "sheetSize": "ANSI_A",
+  "widthIn": 11,
+  "heightIn": 8.5,
+  "coordinateSystem": "paper-inches-lower-left",
+  "marginIn": 0.5,
+  "border": {
+    "x": 0.5,
+    "y": 0.5,
+    "width": 10.0,
+    "height": 7.5
+  },
+  "drawingArea": {
+    "x": 0.75,
+    "y": 1.75,
+    "width": 7.25,
+    "height": 6.0
+  },
+  "titleBlock": {
+    "x": 8.25,
+    "y": 0.5,
+    "width": 2.25,
+    "height": 7.5
+  },
+  "fields": [
+    {
+      "name": "brandLogo",
+      "label": "brandLogo",
+      "region": {
+        "x": 8.37,
+        "y": 7.26,
+        "width": 2.01,
+        "height": 0.7
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "project",
+      "label": "project",
+      "region": {
+        "x": 8.37,
+        "y": 6.75,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "number",
+      "label": "number",
+      "region": {
+        "x": 8.37,
+        "y": 6.24,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "client",
+      "label": "client",
+      "region": {
+        "x": 8.37,
+        "y": 5.73,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "address",
+      "label": "address",
+      "region": {
+        "x": 8.37,
+        "y": 5.22,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "sheetTitle",
+      "label": "sheetTitle",
+      "region": {
+        "x": 8.37,
+        "y": 4.25,
+        "width": 2.01,
+        "height": 0.9
+      },
+      "textHeightIn": 0.25
+    },
+    {
+      "name": "sheetNumber",
+      "label": "sheetNumber",
+      "region": {
+        "x": 8.37,
+        "y": 3.63,
+        "width": 2.01,
+        "height": 0.55
+      },
+      "textHeightIn": 0.125
+    },
+    {
+      "name": "date",
+      "label": "date",
+      "region": {
+        "x": 8.37,
+        "y": 3.12,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "scale",
+      "label": "scale",
+      "region": {
+        "x": 8.37,
+        "y": 2.61,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375,
+      "defaultValue": "NOT TO SCALE"
+    },
+    {
+      "name": "drawnBy",
+      "label": "drawnBy",
+      "region": {
+        "x": 8.37,
+        "y": 2.1,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "checkedBy",
+      "label": "checkedBy",
+      "region": {
+        "x": 8.37,
+        "y": 1.59,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "revisions",
+      "label": "revisions",
+      "region": {
+        "x": 8.37,
+        "y": 1.08,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    },
+    {
+      "name": "stamp",
+      "label": "stamp",
+      "region": {
+        "x": 8.37,
+        "y": 0.57,
+        "width": 2.01,
+        "height": 0.44
+      },
+      "textHeightIn": 0.09375
+    }
+  ],
+  "referenceSquare": {
+    "x": 0.5,
+    "y": 0.5,
+    "width": 1,
+    "height": 1
+  },
+  "logoStatus": "provided-vector",
+  "textStandards": {
+    "body": 0.09375,
+    "tags": 0.125,
+    "sectionTitle": 0.1875,
+    "sheetTitle": 0.25
+  }
+}

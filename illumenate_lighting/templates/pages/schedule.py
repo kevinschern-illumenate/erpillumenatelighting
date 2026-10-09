@@ -9,6 +9,7 @@ from illumenate_lighting.illumenate_lighting.portal.status import (
 	schedule_status_description,
 	schedule_status_label,
 )
+from illumenate_lighting.illumenate_lighting.system_design.dealer_data import dimming_choices
 
 no_cache = 1
 
@@ -62,10 +63,16 @@ def get_context(context):
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
 		can_convert_schedule_to_order,
 	)
-	can_create_order = can_convert_schedule_to_order(schedule, frappe.session.user)[0]
+	can_create_order, order_denial = can_convert_schedule_to_order(schedule, frappe.session.user)
 	# The button opens portal order intake, which also requires a Dealer of the
 	# ordering company; explain instead of offering a button that will be refused.
 	order_block_reason = None
+	if not can_create_order and (is_dealer or is_internal):
+		# D4: say when only the system design review stands in the way (never set with the gate off).
+		from illumenate_lighting.illumenate_lighting.system_design.gate import order_block
+
+		if order_block(schedule) == order_denial:
+			order_block_reason = order_denial
 	if can_create_order:
 		from illumenate_lighting.illumenate_lighting.portal.offers import commercial_customer
 		from illumenate_lighting.illumenate_lighting.portal.order_intake import buyer_denial
@@ -243,6 +250,14 @@ def get_context(context):
 			"input_voltage": line.input_voltage,
 			"other_finish": line.other_finish,
 			"spec_sheet": line.spec_sheet,
+			# Dealer-entered design data (System Designer D8)
+			"watts_each": line.get("watts_each"),
+			"input_voltage_v": line.get("input_voltage_v"),
+			"voltage_class": line.get("voltage_class"),
+			"third_party_drive": line.get("third_party_drive"),
+			"third_party_ma": line.get("third_party_ma"),
+			"third_party_dimming": line.get("third_party_dimming"),
+			"design_line_role": line.get("design_line_role"),
 			"cf_details": {},
 			# Included power supplies are their own lines under the fixture line.
 			"power_supply_for_line": line.get("power_supply_for_line"),
@@ -394,6 +409,7 @@ def get_context(context):
 	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
 	context.can_edit = can_edit
+	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
 	context.can_issue_packet = can_edit or allowed("engineering")
@@ -402,6 +418,10 @@ def get_context(context):
 	context.is_internal = is_internal
 	context.can_create_order = can_create_order
 	context.order_block_reason = order_block_reason
+	# System Designer entry, current design and D4 review state (WP-4.5); None hides them.
+	from illumenate_lighting.illumenate_lighting.system_design.portal_pages import schedule_card
+
+	context.system_design = schedule_card(schedule)
 	context.can_show_dealer_pricing = can_show_dealer_pricing
 	context.dealer_customer_group = dealer_customer_group
 	context.total_qty = total_qty

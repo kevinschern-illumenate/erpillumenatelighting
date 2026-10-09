@@ -45,6 +45,14 @@
   "input_voltage",
   "other_finish",
   "spec_sheet",
+  "dealer_design_data_section",
+  "watts_each",
+  "input_voltage_v",
+  "voltage_class",
+  "column_break_dealer_design_data",
+  "third_party_drive",
+  "third_party_ma",
+  "third_party_dimming",
   "spec_documents_section",
   "fixture_template_override",
   "column_break_spec_line",
@@ -55,7 +63,12 @@
   "verification_status",
   "verification_reasons",
   "verification_request",
-  "finder_session"
+  "finder_session",
+  "system_design_section",
+  "design_line_role",
+  "column_break_system_design",
+  "design_line_key",
+  "system_design"
  ],
  "fields": [
   {
@@ -323,6 +336,56 @@
    "label": "Spec Sheet"
   },
   {
+   "fieldname": "dealer_design_data_section",
+   "fieldtype": "Section Break",
+   "label": "Design Data (Data by dealer)",
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'",
+   "description": "Entered by the dealer for the System Designer and labelled \"Data by dealer\" on every output."
+  },
+  {
+   "fieldname": "watts_each",
+   "fieldtype": "Float",
+   "label": "Watts Each",
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'"
+  },
+  {
+   "fieldname": "input_voltage_v",
+   "fieldtype": "Float",
+   "label": "Input Voltage (V)",
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'"
+  },
+  {
+   "fieldname": "voltage_class",
+   "fieldtype": "Select",
+   "label": "Voltage Class",
+   "options": "\nLow Voltage\nLine Voltage",
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'"
+  },
+  {
+   "fieldname": "column_break_dealer_design_data",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "third_party_drive",
+   "fieldtype": "Select",
+   "label": "Drive",
+   "options": "\nCV\nCC\nIntegral Driver",
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'"
+  },
+  {
+   "fieldname": "third_party_ma",
+   "fieldtype": "Float",
+   "label": "Drive Current (mA)",
+   "depends_on": "eval:doc.manufacturer_type=='OTHER' && doc.third_party_drive=='CC'"
+  },
+  {
+   "fieldname": "third_party_dimming",
+   "fieldtype": "Link",
+   "label": "Dimming Protocol (design)",
+   "options": "ilL-Attribute-Dimming Protocol",
+   "depends_on": "eval:doc.manufacturer_type=='OTHER'"
+  },
+  {
    "collapsible": 1,
    "depends_on": "eval:doc.manufacturer_type=='ILLUMENATE' || doc.manufacturer_type=='OTHER'",
    "fieldname": "spec_documents_section",
@@ -404,13 +467,46 @@
    "label": "Finder Session",
    "options": "ilL-Configurator-Session",
    "read_only": 1
+  },
+  {
+   "fieldname": "system_design_section",
+   "fieldtype": "Section Break",
+   "label": "System Design",
+   "collapsible": 1,
+   "depends_on": "eval:doc.design_line_key"
+  },
+  {
+   "fieldname": "design_line_role",
+   "fieldtype": "Select",
+   "label": "Design Line Role",
+   "options": "\nSupply\nController\nWire\nAccessory",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_system_design",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "design_line_key",
+   "fieldtype": "Data",
+   "label": "Design Line Key",
+   "read_only": 1,
+   "description": "Stable key the System Designer uses to update this line."
+  },
+  {
+   "fieldname": "system_design",
+   "fieldtype": "Link",
+   "label": "System Design",
+   "options": "ilL-System-Design",
+   "read_only": 1,
+   "description": "The design that wrote this line."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-05 12:00:00.000000",
+ "modified": "2026-10-09 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Fixture-Schedule-Line",

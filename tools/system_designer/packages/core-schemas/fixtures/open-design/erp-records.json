@@ -1,0 +1,243 @@
+{
+ "context": {
+  "offerings": {
+   "TEST-TAPE-24-3000K-STD": {
+    "name": "TEST-TAPE-24-3000K-STD",
+    "tape_spec": "TEST-TAPE-24",
+    "watts_per_ft_override": 0,
+    "cut_increment_mm_override": 0
+   },
+   "TEST-TAPE-24-3000K-HO": {
+    "name": "TEST-TAPE-24-3000K-HO",
+    "tape_spec": "TEST-TAPE-24",
+    "watts_per_ft_override": 6.2,
+    "cut_increment_mm_override": 100
+   }
+  },
+  "tapes": {
+   "TEST-TAPE-24": {
+    "name": "TEST-TAPE-24",
+    "watts_per_foot": 4.4,
+    "cut_increment_mm": 50,
+    "is_free_cutting": 0
+   }
+  },
+  "environment_labels": {
+   "Dry": [
+    "Dry",
+    "D"
+   ],
+   "Damp": [
+    "Damp",
+    "DA"
+   ],
+   "Wet": [
+    "Wet",
+    "W"
+   ],
+   "Mystery": [
+    "Mystery",
+    "M"
+   ]
+  },
+  "feed_types": {
+   "Soldered-End": "Start",
+   "Center Feed": "Middle"
+  },
+  "engine": {
+   "0-10V": "0-10V",
+   "DMX512": "DMX512",
+   "TRIAC": "phase-forward"
+  }
+ },
+ "catalog_kinds": {
+  "tape:TEST-TAPE-24:4.4:50": "tape",
+  "tape:TEST-TAPE-24:6.2:100": "tape"
+ },
+ "settings": {
+  "review_gate_watts": 1500,
+  "review_gate_dmx": 1,
+  "review_gate_phase_dimming": 1
+ },
+ "lines": [
+  {
+   "line_key": "a1linear",
+   "line_id": "A1",
+   "qty": 2,
+   "location": "Kitchen",
+   "manufacturer_type": "ILLUMENATE",
+   "product_type": "Linear Fixture",
+   "configured_fixture": "ILL-CF-LINEAR"
+  },
+  {
+   "line_key": "b1tape",
+   "line_id": "B1",
+   "qty": 1,
+   "location": "Kitchen",
+   "manufacturer_type": "ILLUMENATE",
+   "product_type": "LED Tape",
+   "configured_tape_neon": "ILL-CTN-00001"
+  },
+  {
+   "line_key": "c1sheet",
+   "line_id": "C1",
+   "qty": 1,
+   "location": "Living Room",
+   "manufacturer_type": "ILLUMENATE",
+   "product_type": "LED Sheet",
+   "configured_led_sheet": "ILL-CLS-00001"
+  },
+  {
+   "line_key": "d1group",
+   "line_id": "D1",
+   "qty": 1,
+   "location": "Living Room",
+   "manufacturer_type": "ILLUMENATE",
+   "product_type": "LED Tape",
+   "configured_group": "ILL-CG-00001"
+  },
+  {
+   "line_key": "e1other",
+   "line_id": "E1",
+   "qty": 6,
+   "location": "Hall",
+   "manufacturer_type": "OTHER",
+   "watts_each": 12,
+   "input_voltage_v": 120,
+   "voltage_class": "Line Voltage",
+   "third_party_drive": "Integral Driver",
+   "third_party_dimming": "TRIAC",
+   "manufacturer_name": "Other Co",
+   "fixture_model_number": "DL-4"
+  },
+  {
+   "line_key": "f1other",
+   "line_id": "F1",
+   "qty": 1,
+   "location": "Hall",
+   "manufacturer_type": "OTHER"
+  },
+  {
+   "line_key": "",
+   "line_id": "G1",
+   "qty": 1,
+   "location": "",
+   "manufacturer_type": "ILLUMENATE",
+   "product_type": "Linear Fixture",
+   "configured_fixture": "ILL-CF-WET"
+  },
+  {
+   "line_key": "h1acc",
+   "line_id": "H1",
+   "qty": 2,
+   "location": "Kitchen",
+   "manufacturer_type": "ACCESSORY",
+   "accessory_item": "TEST-PSU-96",
+   "power_supply_for_line": "a1linear"
+  },
+  {
+   "line_key": "i1new",
+   "line_id": "I1",
+   "qty": 1,
+   "location": "Kitchen",
+   "manufacturer_type": "ILLUMENATE",
+   "product_type": "Linear Fixture"
+  },
+  {
+   "line_key": "j1wire",
+   "line_id": "WIRE1",
+   "qty": 3,
+   "location": "Field wire",
+   "manufacturer_type": "ACCESSORY",
+   "accessory_item": "TEST-WIRE-18-2",
+   "design_line_role": "Wire",
+   "design_line_key": "wire:TEST-WIRE-18-2"
+  }
+ ],
+ "docs": [
+  {
+   "doctype": "ilL-Configured-Fixture",
+   "name": "ILL-CF-LINEAR",
+   "config_hash": "hash-linear",
+   "tape_offering": "TEST-TAPE-24-3000K-STD",
+   "environment_rating": "Dry",
+   "power_feed_type": "Soldered-End",
+   "feed_direction_end": "",
+   "max_run_ft_effective": 16,
+   "total_watts": 52.8,
+   "runs": [
+    {
+     "run_index": 2,
+     "run_len_mm": 1828.8,
+     "run_watts": 26.4
+    },
+    {
+     "run_index": 1,
+     "run_len_mm": 1828.8,
+     "run_watts": 26.4
+    }
+   ],
+   "power_plan_json": "{\"allocations\":[{\"supply\":1,\"item_code\":\"TEST-PSU-96\",\"output\":1,\"run_key\":\"1\",\"watts\":26.4},{\"supply\":1,\"item_code\":\"TEST-PSU-96\",\"output\":2,\"run_key\":\"2\",\"watts\":26.4}],\"drivers\":[{\"driver_item\":\"TEST-PSU-96\",\"qty\":1}]}"
+  },
+  {
+   "doctype": "ilL-Configured-Fixture",
+   "name": "ILL-CF-WET",
+   "config_hash": "hash-wet",
+   "tape_offering": "TEST-TAPE-24-3000K-HO",
+   "environment_rating": "Damp",
+   "power_feed_type": "Center Feed",
+   "max_run_ft_effective": 10,
+   "total_watts": 31,
+   "runs": [
+    {
+     "run_index": 1,
+     "run_len_mm": 1524,
+     "run_watts": 31
+    }
+   ],
+   "power_plan_json": "{}"
+  },
+  {
+   "doctype": "ilL-Configured-Tape-Neon",
+   "name": "ILL-CTN-00001",
+   "config_hash": "hash-tape",
+   "tape_offering": "TEST-TAPE-24-3000K-STD",
+   "environment_rating": "Wet",
+   "total_watts": 64.9,
+   "build_snapshot_json": "{\"dimming_protocol_code\": \"DMX512\", \"computed\": {\"max_run_ft_effective\": 16, \"segments\": [{\"segment_index\": 1, \"end_type\": \"Jumper\", \"runs\": [{\"run_index\": 1, \"run_len_mm\": 1000, \"run_watts\": 14.4}]}, {\"segment_index\": 2, \"end_type\": \"Endcap\", \"runs\": [{\"run_index\": 1, \"run_len_mm\": 500, \"run_watts\": 7.2}, {\"run_index\": 2, \"run_len_mm\": 3000, \"run_watts\": 43.3}]}]}, \"resolved_items\": {\"tape_offering\": \"TEST-TAPE-24-3000K-STD\"}}",
+   "power_plan_json": "{}"
+  },
+  {
+   "doctype": "ilL-Configured-LED-Sheet",
+   "name": "ILL-CLS-00001",
+   "config_hash": "hash-sheet",
+   "sheet_spec": "TEST-SHEET",
+   "selected_environment_rating": "Dry",
+   "total_system_watts": 90,
+   "groups": [
+    {
+     "group_number": 2,
+     "sheet_count": 2,
+     "group_watts": 40,
+     "supply_number": 1,
+     "output_number": 2,
+     "compatible_driver": "TEST-PSU-96"
+    },
+    {
+     "group_number": 1,
+     "sheet_count": 3,
+     "group_watts": 50,
+     "supply_number": 1,
+     "output_number": 1,
+     "compatible_driver": "TEST-PSU-96"
+    }
+   ]
+  },
+  {
+   "doctype": "ilL-Configured-Group",
+   "name": "ILL-CG-00001",
+   "config_hash": "hash-group",
+   "build_snapshot_json": "{\"total_watts\": 39.6, \"request\": {\"shared\": {\"environment_rating\": \"Mystery\"}, \"power\": {\"dimming_protocol_code\": \"0-10V\"}}, \"members\": [{\"member_key\": \"M1\", \"circuits\": [{\"run_key\": \"M1:1\", \"watts\": 13.2}], \"build\": {\"computed\": {\"runs\": [{\"run_index\": 1, \"run_len_mm\": 914.4, \"run_watts\": 13.2}]}, \"resolved_items\": {\"tape_offering\": \"TEST-TAPE-24-3000K-STD\"}}}, {\"member_key\": \"M2\", \"circuits\": [{\"run_key\": \"M2:1\", \"watts\": 26.4}], \"build\": {\"computed\": {\"runs\": [{\"run_index\": 1, \"run_len_mm\": 1828.8, \"run_watts\": 26.4}]}, \"resolved_items\": {\"tape_offering\": \"TEST-TAPE-24-3000K-STD\"}}}], \"power_plan\": {\"allocations\": [{\"supply\": 1, \"item_code\": \"TEST-PSU-60\", \"output\": 1, \"run_key\": \"M1:1\", \"watts\": 13.2}, {\"supply\": 1, \"item_code\": \"TEST-PSU-60\", \"output\": 2, \"run_key\": \"M2:1\", \"watts\": 26.4}]}}"
+  }
+ ]
+}

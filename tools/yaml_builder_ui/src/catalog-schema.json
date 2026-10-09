@@ -543,6 +543,13 @@
           "default": "0"
         },
         {
+          "fieldname": "engine_protocol",
+          "label": "System Designer Protocol",
+          "fieldtype": "Select",
+          "options": "\nnone\nphase-forward\nphase-reverse\n0-10V\n1-10V\nDALI-2\nDMX512\nRDM\nsACN\nArt-Net\nCRMX-wireless\nLutron-QS\nLutron-EcoSystem\nPWM\nSPI",
+          "description": "How the System Designer treats this protocol. Blank means products using it are not design-ready."
+        },
+        {
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
@@ -1135,6 +1142,12 @@
           "label": "Voltage Code",
           "fieldtype": "Data",
           "reqd": 1
+        },
+        {
+          "fieldname": "nominal_voltage_v",
+          "label": "Nominal Voltage (V)",
+          "fieldtype": "Float",
+          "description": "Numeric voltage the System Designer calculates with. Filled from the label on migrate; check it."
         }
       ]
     },
@@ -1480,6 +1493,37 @@
           "fieldname": "msrp_adder",
           "label": "MSRP Adder",
           "fieldtype": "Currency"
+        }
+      ]
+    },
+    "ilL-Child-Controller-Port": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "port_name",
+          "label": "Port",
+          "fieldtype": "Data",
+          "reqd": 1
+        },
+        {
+          "fieldname": "direction",
+          "label": "Direction",
+          "fieldtype": "Select",
+          "options": "In\nOut\nBidirectional",
+          "reqd": 1
+        },
+        {
+          "fieldname": "protocol",
+          "label": "Protocol",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Dimming Protocol",
+          "reqd": 1
+        },
+        {
+          "fieldname": "max_devices",
+          "label": "Max Devices",
+          "fieldtype": "Int"
         }
       ]
     },
@@ -2003,6 +2047,25 @@
           "label": "Certification",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Certification",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Tape-Channel": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "channel_name",
+          "label": "Channel",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "W, C, R, G, B…"
+        },
+        {
+          "fieldname": "max_w_per_ft",
+          "label": "Max W/ft",
+          "fieldtype": "Float",
           "reqd": 1
         }
       ]
@@ -2670,6 +2733,65 @@
           "label": "Sync Error Message",
           "fieldtype": "Small Text",
           "read_only": 1
+        }
+      ]
+    },
+    "ilL-Child-Wire-Conductor": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "count",
+          "label": "Count",
+          "fieldtype": "Int",
+          "reqd": 1
+        },
+        {
+          "fieldname": "awg",
+          "label": "AWG",
+          "fieldtype": "Select",
+          "options": "24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0",
+          "reqd": 1
+        },
+        {
+          "fieldname": "material",
+          "label": "Material",
+          "fieldtype": "Select",
+          "options": "Cu\nAl",
+          "reqd": 1,
+          "default": "Cu"
+        },
+        {
+          "fieldname": "stranding",
+          "label": "Stranding",
+          "fieldtype": "Select",
+          "options": "Solid\nStranded",
+          "reqd": 1,
+          "default": "Stranded"
+        },
+        {
+          "fieldname": "role",
+          "label": "Role",
+          "fieldtype": "Select",
+          "options": "Power\nGround\nSignal\nData Pair\nChannel",
+          "reqd": 1,
+          "default": "Power"
+        },
+        {
+          "fieldname": "colors",
+          "label": "Colors",
+          "fieldtype": "Small Text",
+          "description": "Comma list, one per conductor."
+        },
+        {
+          "fieldname": "resistance_ohm_per_kft",
+          "label": "Resistance (Ω/1000 ft)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "ampacity_a",
+          "label": "Ampacity (A)",
+          "fieldtype": "Float"
         }
       ]
     },
@@ -3776,6 +3898,18 @@
           "description": "Used to pull dimensions for Webflow export"
         },
         {
+          "fieldname": "diagram_icon",
+          "label": "Diagram Icon",
+          "fieldtype": "Attach",
+          "description": "SVG symbol drawn on risers and system diagrams."
+        },
+        {
+          "fieldname": "scene_archetypes",
+          "label": "Scene Archetypes",
+          "fieldtype": "Small Text",
+          "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
+        },
+        {
           "fieldname": "web_listed",
           "label": "Listed on Web",
           "fieldtype": "Check",
@@ -4162,6 +4296,18 @@
           "fieldname": "warranty",
           "label": "Warranty",
           "fieldtype": "Data"
+        },
+        {
+          "fieldname": "diagram_icon",
+          "label": "Diagram Icon",
+          "fieldtype": "Attach",
+          "description": "SVG symbol drawn on risers and system diagrams."
+        },
+        {
+          "fieldname": "scene_archetypes",
+          "label": "Scene Archetypes",
+          "fieldtype": "Small Text",
+          "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         },
         {
           "fieldname": "web_listed",
@@ -5060,6 +5206,33 @@
           "fieldname": "qty_rule_value",
           "label": "QTY Rule Value",
           "fieldtype": "Float"
+        },
+        {
+          "fieldname": "cross_section_file",
+          "label": "Cross-Section File",
+          "fieldtype": "Attach",
+          "description": "DXF with closed polylines on layers BODY, LENS and CLIP, or a JSON file in the cross_section_json format."
+        },
+        {
+          "fieldname": "clip_spacing_max_in",
+          "label": "Max Clip Spacing (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "clip_end_offset_in",
+          "label": "Clip End Offset (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "screw_spec",
+          "label": "Screw Spec",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "cross_section_json",
+          "label": "Cross-Section Outlines",
+          "fieldtype": "Long Text",
+          "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
         }
       ]
     },
@@ -5083,7 +5256,7 @@
           "fieldname": "controller_type",
           "label": "Controller Type",
           "fieldtype": "Select",
-          "options": "DMX Controller\nWireless Receiver\nWall Dimmer\nScene Controller\nSensor\nGateway\nRepeater",
+          "options": "DMX Controller\nWireless Receiver\nWall Dimmer\nScene Controller\nSensor\nGateway\nRepeater\nDMX Decoder\nDMX to 0-10V Converter\nPixel Controller\nWireless Transmitter\nRelay\nLutron Module",
           "reqd": 1
         },
         {
@@ -5195,6 +5368,102 @@
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
+        },
+        {
+          "fieldname": "max_a_per_channel",
+          "label": "Max Amps Per Channel",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_w_per_channel",
+          "label": "Max Watts Per Channel",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "output_dimming",
+          "label": "Output Dimming",
+          "fieldtype": "Select",
+          "options": "None\nPhase Forward\nPhase Reverse\n0-10V",
+          "default": "None"
+        },
+        {
+          "fieldname": "min_load_w",
+          "label": "Min Load (W)",
+          "fieldtype": "Float",
+          "description": "Phase dimmers."
+        },
+        {
+          "fieldname": "led_max_w",
+          "label": "LED Max Load (W)",
+          "fieldtype": "Float",
+          "description": "Phase dimmers."
+        },
+        {
+          "fieldname": "max_supplies",
+          "label": "Max Supplies",
+          "fieldtype": "Int",
+          "description": "Phase dimmers: how many power supplies one dimmer may drive."
+        },
+        {
+          "fieldname": "neutral_required",
+          "label": "Neutral Required",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "dmx_footprint",
+          "label": "DMX Footprint (Channels)",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "unit_load",
+          "label": "DMX Unit Load",
+          "fieldtype": "Float",
+          "default": "1"
+        },
+        {
+          "fieldname": "dmx_thru",
+          "label": "DMX Thru",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "max_universes",
+          "label": "Max Universes",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_pixels",
+          "label": "Max Pixels",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_bus_devices",
+          "label": "Max Bus Devices",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_data_length_ft",
+          "label": "Max Data Length (ft)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "terminal_min_awg",
+          "label": "Terminal Min AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0"
+        },
+        {
+          "fieldname": "terminal_max_awg",
+          "label": "Terminal Max AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0"
+        },
+        {
+          "fieldname": "ports",
+          "label": "Ports",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Controller-Port"
         }
       ]
     },
@@ -5337,6 +5606,92 @@
           "label": "Independent Power Outputs",
           "fieldtype": "Int",
           "description": "Number of separately loadable feed outputs. Required when Outputs exceeds one; exclude color/control channels. Must not exceed physical Outputs."
+        },
+        {
+          "fieldname": "input_phase",
+          "label": "Input Phase",
+          "fieldtype": "Select",
+          "options": "1PH\n3PH",
+          "default": "1PH"
+        },
+        {
+          "fieldname": "class2_outputs",
+          "label": "Class 2 Outputs",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "efficiency",
+          "label": "Efficiency (0-1)",
+          "fieldtype": "Float",
+          "description": "Full-load efficiency, e.g. 0.9."
+        },
+        {
+          "fieldname": "power_factor",
+          "label": "Power Factor (0-1)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "output_current_ma",
+          "label": "Output Current (mA)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "compliance_v_min",
+          "label": "Compliance Voltage Min (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "compliance_v_max",
+          "label": "Compliance Voltage Max (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_input_a",
+          "label": "Max Input Current (A)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_input_a_at_v",
+          "label": "Max Input Current Measured At (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "inrush_a",
+          "label": "Inrush Current (A)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "max_units_per_20a_breaker",
+          "label": "Max Units Per 20 A Breaker",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "terminal_min_awg",
+          "label": "Terminal Min AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0",
+          "description": "Smallest wire the output terminals accept."
+        },
+        {
+          "fieldname": "terminal_max_awg",
+          "label": "Terminal Max AWG",
+          "fieldtype": "Select",
+          "options": "\n24\n22\n20\n18\n16\n14\n12\n10\n8\n6\n4\n3\n2\n1\n1/0\n2/0\n3/0\n4/0",
+          "description": "Largest wire the output terminals accept."
+        },
+        {
+          "fieldname": "mounting",
+          "label": "Mounting",
+          "fieldtype": "Select",
+          "options": "\nDIN Rail\nScrew\nPlug-in\nJunction Box"
+        },
+        {
+          "fieldname": "location_rating",
+          "label": "Location Rating",
+          "fieldtype": "Select",
+          "options": "Dry\nDamp\nWet",
+          "default": "Dry"
         }
       ]
     },
@@ -5453,6 +5808,92 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Tape-Dimming-Protocol",
           "description": "Dimming protocols supported by this tape"
+        },
+        {
+          "fieldname": "drive_type",
+          "label": "Drive Type",
+          "fieldtype": "Select",
+          "options": "CV\nCV with CC IC",
+          "default": "CV"
+        },
+        {
+          "fieldname": "channels",
+          "label": "Channels",
+          "fieldtype": "Int",
+          "default": "1",
+          "description": "Independent color channels. Filled from the LED package on migrate."
+        },
+        {
+          "fieldname": "power_basis",
+          "label": "Power Basis",
+          "fieldtype": "Select",
+          "options": "All Channel Max\nMax Operating",
+          "default": "All Channel Max"
+        },
+        {
+          "fieldname": "max_simultaneous_pct",
+          "label": "Max Simultaneous Output (%)",
+          "fieldtype": "Float",
+          "description": "Defaults to 100 × channels."
+        },
+        {
+          "fieldname": "max_run_single_feed_ft",
+          "label": "Max Run, Single Feed (ft)",
+          "fieldtype": "Float",
+          "description": "Filled from Voltage Drop Max Run Length on migrate."
+        },
+        {
+          "fieldname": "max_run_double_feed_ft",
+          "label": "Max Run, Double Feed (ft)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "min_operating_voltage_v",
+          "label": "Min Operating Voltage (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "reel_length_m",
+          "label": "Reel Length (m)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "pixel_protocol",
+          "label": "Pixel Protocol",
+          "fieldtype": "Select",
+          "options": "None\nWS2811\nWS2815\nSK6812\nSPI Other",
+          "default": "None"
+        },
+        {
+          "fieldname": "pixels_per_m",
+          "label": "Pixels Per Metre",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "amps_per_pixel_max",
+          "label": "Max Amps Per Pixel",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "tape_width_mm",
+          "label": "Tape Width (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "leds_per_cut_segment",
+          "label": "LEDs Per Cut Segment",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_case_temp_c",
+          "label": "Max Case Temperature (°C)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "channel_limits",
+          "label": "Channel Limits",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Tape-Channel"
         }
       ]
     },
@@ -5648,6 +6089,17 @@
           "label": "Supported Environment Ratings",
           "fieldtype": "Table",
           "options": "ilL-Child-Lens Environments"
+        },
+        {
+          "fieldname": "transmission_pct",
+          "label": "Transmission (%)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "diffusion_class",
+          "label": "Diffusion Class",
+          "fieldtype": "Select",
+          "options": "\nClear\nFrosted\nOpal"
         }
       ]
     },
@@ -5749,6 +6201,24 @@
           "label": "Lens Interface",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Lens Interface Type"
+        },
+        {
+          "fieldname": "cross_section_file",
+          "label": "Cross-Section File",
+          "fieldtype": "Attach",
+          "description": "DXF with closed polylines on layers BODY, LENS and CLIP, or a JSON file in the cross_section_json format."
+        },
+        {
+          "fieldname": "max_w_per_ft",
+          "label": "Max Tape Load (W/ft)",
+          "fieldtype": "Float",
+          "description": "Thermal limit for tape in this channel."
+        },
+        {
+          "fieldname": "cross_section_json",
+          "label": "Cross-Section Outlines",
+          "fieldtype": "Long Text",
+          "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
         }
       ]
     },
@@ -5850,6 +6320,172 @@
           "fieldtype": "Check",
           "default": "0",
           "description": "Block output if this engineering value is missing; zero is a valid value."
+        }
+      ]
+    },
+    "ilL-Spec-Wire": {
+      "autoname": "field:item",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "item",
+          "label": "Item",
+          "fieldtype": "Link",
+          "options": "Item",
+          "reqd": 1,
+          "description": "The sellable Item dealers are quoted for this wire (D7)."
+        },
+        {
+          "fieldname": "wire_name",
+          "label": "Wire Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "e.g. \"18/2 CL3R\""
+        },
+        {
+          "fieldname": "category",
+          "label": "Category",
+          "fieldtype": "Select",
+          "options": "Class 2 Power\nBuilding Wire\nCable Assembly\nData\nControl\nLandscape\nFlex Cord",
+          "reqd": 1
+        },
+        {
+          "fieldname": "applications",
+          "label": "Applications",
+          "fieldtype": "Small Text",
+          "reqd": 1,
+          "description": "Comma list of engine run types: lv-branch, lv-fixture-whip, class2-dc, class2-dc-multichannel, landscape-ac, dmx, ethernet, spi-data, 0-10v, dali, lutron-qs, lutron-ecosystem, wireless."
+        },
+        {
+          "fieldname": "riser_label",
+          "label": "Riser Label",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Printed on riser drawings."
+        },
+        {
+          "fieldname": "is_verified",
+          "label": "Engineering Verified",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "source_reference",
+          "label": "Source",
+          "fieldtype": "Small Text",
+          "reqd": 1,
+          "description": "Datasheet or standard the ratings come from."
+        },
+        {
+          "fieldname": "conductors",
+          "label": "Conductors",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Wire-Conductor",
+          "reqd": 1
+        },
+        {
+          "fieldname": "listing",
+          "label": "Listing",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "CL2, CL3, CL2P, CL3R, CMP, NM-B, UF-B…"
+        },
+        {
+          "fieldname": "rated_v",
+          "label": "Rated Voltage (V)",
+          "fieldtype": "Float",
+          "reqd": 1
+        },
+        {
+          "fieldname": "temp_rating_c",
+          "label": "Temperature Rating (°C)",
+          "fieldtype": "Select",
+          "options": "60\n75\n90\n105",
+          "reqd": 1,
+          "default": "75"
+        },
+        {
+          "fieldname": "plenum",
+          "label": "Plenum",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "riser",
+          "label": "Riser",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "wet",
+          "label": "Wet Location",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "direct_burial",
+          "label": "Direct Burial",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "sunlight_resistant",
+          "label": "Sunlight Resistant",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "shielded",
+          "label": "Shielded",
+          "fieldtype": "Check",
+          "default": "0"
+        },
+        {
+          "fieldname": "impedance_ohm",
+          "label": "Impedance (Ω)",
+          "fieldtype": "Float",
+          "description": "Data cables."
+        },
+        {
+          "fieldname": "resistance_ohm_per_kft",
+          "label": "Resistance (Ω/1000 ft)",
+          "fieldtype": "Float",
+          "description": "Overrides NEC Table 8."
+        },
+        {
+          "fieldname": "ampacity_a",
+          "label": "Ampacity (A)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "ampacity_basis",
+          "label": "Ampacity Basis",
+          "fieldtype": "Select",
+          "options": "\n310.16\n402.5 fallback\nManufacturer"
+        },
+        {
+          "fieldname": "od_in",
+          "label": "Outside Diameter (in)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "sales_uom_mode",
+          "label": "Sold",
+          "fieldtype": "Select",
+          "options": "Per Foot\nPer Spool",
+          "reqd": 1,
+          "default": "Per Foot"
+        },
+        {
+          "fieldname": "spool_length_ft",
+          "label": "Spool Length (ft)",
+          "fieldtype": "Float"
         }
       ]
     },
@@ -6044,6 +6680,18 @@
           "options": "ilL-Webflow-Product",
           "description": "Backlink to the Webflow product that references this template (for gallery images)",
           "read_only": 1
+        },
+        {
+          "fieldname": "diagram_icon",
+          "label": "Diagram Icon",
+          "fieldtype": "Attach",
+          "description": "SVG symbol drawn on risers and system diagrams."
+        },
+        {
+          "fieldname": "scene_archetypes",
+          "label": "Scene Archetypes",
+          "fieldtype": "Small Text",
+          "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         },
         {
           "fieldname": "web_listed",

@@ -1,0 +1,26 @@
+{
+ "add_total_row": 0,
+ "columns": [],
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "is_standard": "Yes",
+ "module": "ilLumenate Lighting",
+ "name": "System Designer Pilot",
+ "prepared_report": 0,
+ "ref_doctype": "ilL-System-Design",
+ "report_name": "System Designer Pilot",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "ilL Engineering"
+  },
+  {
+   "role": "ilL Applications Engineer"
+  }
+ ]
+}

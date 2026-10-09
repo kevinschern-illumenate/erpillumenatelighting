@@ -1142,6 +1142,14 @@ body.reorder-no-select {
 								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge" title="{{ schedule_status_description(schedule.status) }}">
 									{{ schedule_status_label(schedule.status) }}
 								</span>
+								{% if system_design and system_design.design %}
+								<a href="{{ system_design.url }}" class="badge badge-{{ system_design.design.tone }} ml-1" id="systemDesignBadge" title="{{ _('Open the system design') }}">
+									<i class="fa fa-sitemap"></i> {{ _("Design rev {0}: {1}").format(system_design.design.revision, _(system_design.design.status)) }}
+								</a>
+								{% endif %}
+								{% if system_design and system_design.review %}
+								<span class="badge badge-{{ system_design.review.tone }} ml-1" id="systemDesignReview">{{ system_design.review.label }}</span>
+								{% endif %}
 								{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY', 'QUOTED'] %}
 								<div class="dropdown d-inline-block ml-2">
 									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -1176,6 +1184,11 @@ body.reorder-no-select {
 							<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
 								<i class="fa fa-plus"></i> {{ _("Add Line") }}
 							</button>
+							{% endif %}
+							{% if system_design and (system_design.design or (can_edit and not schedule.is_locked)) %}
+							<a class="btn btn-outline-primary" id="designSystemButton" href="{{ system_design.url }}">
+								<i class="fa fa-sitemap"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
+							</a>
 							{% endif %}
 							{% if can_edit and not schedule.is_locked %}
 							<button class="btn btn-outline-primary" onclick="createNewVersion()">
@@ -1676,6 +1689,14 @@ body.reorder-no-select {
 												{% endif %}
 												{% if line.get('other_finish') %}
 												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ line.get('other_finish') }}</strong></span>
+												{% endif %}
+												{% if line.get('watts_each') or line.get('input_voltage_v') or line.get('third_party_drive') or line.get('third_party_dimming') %}
+												<span class="badge badge-warning mr-1" style="font-weight:normal;" title="{{ _('Entered by the dealer; not verified by ilLumenate') }}">{{ _("Data by dealer") }}:
+													{% if line.get('watts_each') %}<strong>{{ line.get('watts_each') | round(1) }} W</strong>{% endif %}
+													{% if line.get('input_voltage_v') %}<strong>{{ line.get('input_voltage_v') | int }} V</strong>{% endif %}
+													{% if line.get('third_party_drive') %}<strong>{{ line.get('third_party_drive') }}{% if line.get('third_party_drive') == 'CC' and line.get('third_party_ma') %} {{ line.get('third_party_ma') | int }} mA{% endif %}</strong>{% endif %}
+													{% if line.get('third_party_dimming') %}<strong>{{ line.get('third_party_dimming') }}</strong>{% endif %}
+												</span>
 												{% endif %}
 											</div>
 											{% if line.get('spec_sheet') %}
@@ -2294,6 +2315,68 @@ body.reorder-no-select {
 								</div>
 							</div>
 						</div>
+						<div class="border rounded p-2 mb-3 dealer-design-data">
+							<div class="d-flex justify-content-between align-items-baseline">
+								<strong class="small">{{ _("System design data") }}</strong>
+								<span class="badge badge-warning">{{ _("Data by dealer") }}</span>
+							</div>
+							<small class="text-muted d-block mb-2">{{ _("Optional. The System Designer uses these values to size power for this fixture and labels them as dealer data on every drawing.") }}</small>
+							<div class="row">
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Watts Each") }}</label>
+										<input type="number" class="form-control" name="watts_each" min="0" max="2000" step="any">
+									</div>
+								</div>
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Input Voltage (V)") }}</label>
+										<select class="form-control" name="input_voltage_v">
+											<option value="">{{ _("Not set") }}</option>
+											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts }}">{{ volts }} V</option>{% endfor %}
+										</select>
+									</div>
+								</div>
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Voltage Class") }}</label>
+										<select class="form-control" name="voltage_class">
+											<option value="">{{ _("From voltage") }}</option>
+											<option value="Low Voltage">{{ _("Low Voltage") }}</option>
+											<option value="Line Voltage">{{ _("Line Voltage") }}</option>
+										</select>
+									</div>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Drive") }}</label>
+										<select class="form-control dealer-drive" name="third_party_drive">
+											<option value="">{{ _("Not set") }}</option>
+											<option value="CV">{{ _("Constant voltage (CV)") }}</option>
+											<option value="CC">{{ _("Constant current (CC)") }}</option>
+											<option value="Integral Driver">{{ _("Integral driver") }}</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-md-4 dealer-ma">
+									<div class="form-group">
+										<label>{{ _("Drive Current (mA)") }}</label>
+										<input type="number" class="form-control" name="third_party_ma" min="0" step="any">
+									</div>
+								</div>
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Dimming") }}</label>
+										<select class="form-control" name="third_party_dimming">
+											<option value="">{{ _("Not set") }}</option>
+											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol }}">{{ protocol }}</option>{% endfor %}
+										</select>
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<div class="form-group">
@@ -2423,6 +2506,68 @@ body.reorder-no-select {
 									<div id="edit_spec_sheet_current" class="mb-2"></div>
 									<input type="file" class="form-control-file" name="edit_spec_sheet_file" id="edit_spec_sheet_file">
 									<small class="text-muted">{{ _("Upload a new spec sheet to replace existing") }}</small>
+								</div>
+							</div>
+						</div>
+						<div class="border rounded p-2 mb-3 dealer-design-data">
+							<div class="d-flex justify-content-between align-items-baseline">
+								<strong class="small">{{ _("System design data") }}</strong>
+								<span class="badge badge-warning">{{ _("Data by dealer") }}</span>
+							</div>
+							<small class="text-muted d-block mb-2">{{ _("Optional. The System Designer uses these values to size power for this fixture and labels them as dealer data on every drawing.") }}</small>
+							<div class="row">
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Watts Each") }}</label>
+										<input type="number" class="form-control" name="edit_watts_each" id="edit_watts_each" min="0" max="2000" step="any">
+									</div>
+								</div>
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Input Voltage (V)") }}</label>
+										<select class="form-control" name="edit_input_voltage_v" id="edit_input_voltage_v">
+											<option value="">{{ _("Not set") }}</option>
+											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts }}">{{ volts }} V</option>{% endfor %}
+										</select>
+									</div>
+								</div>
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Voltage Class") }}</label>
+										<select class="form-control" name="edit_voltage_class" id="edit_voltage_class">
+											<option value="">{{ _("From voltage") }}</option>
+											<option value="Low Voltage">{{ _("Low Voltage") }}</option>
+											<option value="Line Voltage">{{ _("Line Voltage") }}</option>
+										</select>
+									</div>
+								</div>
+							</div>
+							<div class="row">
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Drive") }}</label>
+										<select class="form-control dealer-drive" name="edit_third_party_drive" id="edit_third_party_drive">
+											<option value="">{{ _("Not set") }}</option>
+											<option value="CV">{{ _("Constant voltage (CV)") }}</option>
+											<option value="CC">{{ _("Constant current (CC)") }}</option>
+											<option value="Integral Driver">{{ _("Integral driver") }}</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-md-4 dealer-ma">
+									<div class="form-group">
+										<label>{{ _("Drive Current (mA)") }}</label>
+										<input type="number" class="form-control" name="edit_third_party_ma" id="edit_third_party_ma" min="0" step="any">
+									</div>
+								</div>
+								<div class="col-md-4">
+									<div class="form-group">
+										<label>{{ _("Dimming") }}</label>
+										<select class="form-control" name="edit_third_party_dimming" id="edit_third_party_dimming">
+											<option value="">{{ _("Not set") }}</option>
+											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol }}">{{ protocol }}</option>{% endfor %}
+										</select>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -3604,6 +3749,9 @@ function addLine() {
 		data.dimming_protocol = form.find('[name="dimming_protocol"]').val();
 		data.input_voltage = form.find('[name="input_voltage"]').val();
 		data.other_finish = form.find('[name="other_finish"]').val();
+		DEALER_DATA_FIELDS.forEach(function(field) {
+			data[field] = form.find('[name="' + field + '"]').val();
+		});
 	}
 
 	// Handle file upload if present
@@ -3689,6 +3837,13 @@ function duplicateLine(line_idx) {
 
 // Line data for editing
 var lineData = {{ lines_json | tojson if lines_json else '[]' }};
+// Dealer-entered design data on third-party lines (System Designer D8).
+var DEALER_DATA_FIELDS = ['watts_each', 'input_voltage_v', 'voltage_class', 'third_party_drive', 'third_party_ma', 'third_party_dimming'];
+function toggleDealerCurrent($drive) {
+	$drive.closest('.dealer-design-data').find('.dealer-ma').toggle($drive.val() === 'CC');
+}
+$(document).on('change', '.dealer-drive', function() { toggleDealerCurrent($(this)); });
+$(function() { $('.dealer-drive').each(function() { toggleDealerCurrent($(this)); }); });
 
 function editLine(line_idx) {
 	var line = lineData[line_idx];
@@ -3721,6 +3876,12 @@ function editLine(line_idx) {
 		$('#edit_dimming_protocol').val(line.dimming_protocol || '');
 		$('#edit_input_voltage').val(line.input_voltage || '');
 		$('#edit_other_finish').val(line.other_finish || '');
+		DEALER_DATA_FIELDS.forEach(function(field) {
+			var value = line[field];
+			if (field === 'input_voltage_v' && value) value = String(parseInt(value, 10));
+			$('#edit_' + field).val(value === null || value === undefined ? '' : value);
+		});
+		toggleDealerCurrent($('#edit_third_party_drive'));
 
 		// Show current spec sheet if exists
 		if (line.spec_sheet) {
@@ -3761,6 +3922,9 @@ function saveEditLine() {
 		line_data.dimming_protocol = $('#edit_dimming_protocol').val();
 		line_data.input_voltage = $('#edit_input_voltage').val();
 		line_data.other_finish = $('#edit_other_finish').val();
+		DEALER_DATA_FIELDS.forEach(function(field) {
+			line_data[field] = $('#edit_' + field).val();
+		});
 
 		// Handle file upload if present
 		var fileInput = document.getElementById('edit_spec_sheet_file');

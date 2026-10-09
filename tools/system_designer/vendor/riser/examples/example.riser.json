@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "id": "754a81d7-e181-4a10-87d7-f90386adf152",
+  "meta": {
+    "name": "EXAMPLE · Gallery lighting riser",
+    "number": "EX-001",
+    "client": "Example design review",
+    "siteAddress": "",
+    "designer": "EXAMPLE",
+    "checker": "",
+    "date": "2026-09-24",
+    "brand": "illumenate",
+    "sheetPrefix": "L-",
+    "stamp": "NOT FOR CONSTRUCTION"
+  },
+  "settings": {
+    "necEdition": "2023",
+    "terminationTempC": 75,
+    "vdTargetLineVoltagePct": 3,
+    "vdTargetLowVoltagePct": 3,
+    "vdTargetLandscapePct": 5,
+    "vdMethod": "lumped-at-end",
+    "acVdMethod": "dc-resistance",
+    "psuDeratePct": 80,
+    "continuousLoadFactor": 1.25,
+    "breakerLoadLimitPct": 80,
+    "tapeLengthMarginPct": 0,
+    "minAwgLineVoltage": "12",
+    "dmxMaxUnitLoads": 32,
+    "dmxMaxLengthFt": 1000,
+    "spiMaxDataFt": 15,
+    "units": "ft",
+    "drawingFont": "Arimo",
+    "sheet": {
+      "size": "ARCH_D",
+      "flow": "LR"
+    },
+    "wireWastePct": 10,
+    "dmxAutoPatchRoundTo": 1,
+    "wireLabelTemplate": "{tag} · {wireLabel} · {lengthFt} ft · VD {vdPct}%",
+    "parallelConductorPolicy": "manual-review-required"
+  },
+  "sources": [
+    {
+      "id": "src-1",
+      "tag": "LP-1/12",
+      "panel": "LP-1",
+      "circuit": "12",
+      "voltage": 120,
+      "phase": "1PH",
+      "breakerA": 20,
+      "poles": 1,
+      "switching": "none"
+    },
+    {
+      "id": "src-2",
+      "tag": "LP-1/14",
+      "panel": "LP-1",
+      "circuit": "14",
+      "voltage": 120,
+      "phase": "1PH",
+      "breakerA": 20,
+      "poles": 1,
+      "switching": "none"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "ps-1",
+      "tag": "PS-1",
+      "catalogId": "psu-24v-96w",
+      "category": "psu",
+      "qty": 1,
+      "location": "Cabinet A",
+      "enclosure": "Cabinet A",
+      "fedFrom": {
+        "ref": "LP-1/12"
+      },
+      "feedLengthFt": 35,
+      "env": "raceway"
+    },
+    {
+      "id": "ps-2",
+      "tag": "PS-2",
+      "catalogId": "psu-24v-96w",
+      "category": "psu",
+      "qty": 1,
+      "location": "Cabinet A",
+      "enclosure": "Cabinet A",
+      "fedFrom": {
+        "ref": "LP-1/12"
+      },
+      "feedLengthFt": 4,
+      "env": "raceway"
+    },
+    {
+      "id": "ps-3",
+      "tag": "PS-3",
+      "catalogId": "psu-24v-96w",
+      "category": "psu",
+      "qty": 1,
+      "location": "Cabinet B",
+      "enclosure": "Cabinet B",
+      "fedFrom": {
+        "ref": "LP-1/14"
+      },
+      "feedLengthFt": 28,
+      "env": "raceway"
+    },
+    {
+      "id": "dec-1",
+      "tag": "DEC-1",
+      "catalogId": "decoder-4ch",
+      "category": "dmx-decoder",
+      "qty": 1,
+      "location": "Cabinet A",
+      "enclosure": "Cabinet A",
+      "fedFrom": {
+        "ref": "PS-1",
+        "port": "OUT1"
+      },
+      "feedLengthFt": 4,
+      "controlFrom": {
+        "ref": "CON-1",
+        "port": "DATA-OUT"
+      },
+      "controlLengthFt": 50,
+      "chainOrder": 1,
+      "dmx": {
+        "universe": 1,
+        "startAddress": "auto",
+        "terminatorPresent": false
+      },
+      "env": "riser"
+    },
+    {
+      "id": "dec-2",
+      "tag": "DEC-2",
+      "catalogId": "decoder-4ch",
+      "category": "dmx-decoder",
+      "qty": 1,
+      "location": "Cabinet A",
+      "enclosure": "Cabinet A",
+      "fedFrom": {
+        "ref": "PS-2",
+        "port": "OUT1"
+      },
+      "feedLengthFt": 4,
+      "controlFrom": {
+        "ref": "DEC-1"
+      },
+      "controlLengthFt": 5,
+      "chainOrder": 2,
+      "dmx": {
+        "universe": 1,
+        "startAddress": "auto",
+        "terminatorPresent": true
+      },
+      "env": "riser"
+    },
+    {
+      "id": "con-1",
+      "tag": "CON-1",
+      "catalogId": "dmx-controller",
+      "category": "dmx-controller",
+      "qty": 1,
+      "location": "Control desk",
+      "enclosure": "Control desk",
+      "fedFrom": {
+        "ref": "PS-3",
+        "port": "OUT1"
+      },
+      "feedLengthFt": 20,
+      "env": "riser"
+    }
+  ],
+  "loads": [
+    {
+      "id": "load-1",
+      "typeTag": "T1",
+      "zone": "Gallery cove",
+      "catalogId": "tape-rgbw",
+      "lengthFt": 12,
+      "fedFrom": {
+        "ref": "DEC-1",
+        "port": "CH1-4"
+      },
+      "homeRunLengthFt": 20,
+      "feedMethod": "end",
+      "env": "riser"
+    },
+    {
+      "id": "load-2",
+      "typeTag": "T2",
+      "zone": "West wall",
+      "catalogId": "tape-tw",
+      "lengthFt": 10,
+      "fedFrom": {
+        "ref": "DEC-2",
+        "port": "CH1-2"
+      },
+      "homeRunLengthFt": 20,
+      "feedMethod": "end",
+      "env": "riser"
+    },
+    {
+      "id": "load-3",
+      "typeTag": "T3",
+      "zone": "Entry",
+      "catalogId": "tape-white",
+      "lengthFt": 8,
+      "fedFrom": {
+        "ref": "PS-3",
+        "port": "OUT1"
+      },
+      "homeRunLengthFt": 20,
+      "feedMethod": "end",
+      "env": "riser"
+    },
+    {
+      "id": "load-4",
+      "typeTag": "T3",
+      "zone": "Reception",
+      "catalogId": "tape-white",
+      "lengthFt": 8,
+      "fedFrom": {
+        "ref": "PS-3",
+        "port": "OUT1"
+      },
+      "homeRunLengthFt": 20,
+      "feedMethod": "end",
+      "env": "riser"
+    },
+    {
+      "id": "load-5",
+      "typeTag": "D1",
+      "zone": "Gallery",
+      "catalogId": "downlight-line",
+      "qty": 4,
+      "fedFrom": {
+        "ref": "LP-1/12"
+      },
+      "homeRunLengthFt": 30,
+      "interFixtureLengthFt": 6,
+      "feedMethod": "end",
+      "env": "raceway"
+    },
+    {
+      "id": "load-6",
+      "typeTag": "D1",
+      "zone": "Entry",
+      "catalogId": "downlight-line",
+      "qty": 2,
+      "fedFrom": {
+        "ref": "LP-1/14"
+      },
+      "homeRunLengthFt": 25,
+      "interFixtureLengthFt": 5,
+      "feedMethod": "end",
+      "env": "raceway"
+    }
+  ],
+  "controlLinks": [],
+  "wireOverrides": {},
+  "layoutOverrides": {},
+  "generalNotes": [
+    "Install and commission equipment in accordance with the approved product documentation, project specifications and adopted code. Verify listings and installation conditions before procurement.",
+    "Field-verify circuit voltage, source identity, enclosure locations, access and actual one-way cable lengths before installation. Coordinate discrepancies with the designer.",
+    "Maintain required separation, barriers and wiring methods between power-limited circuits and branch circuits. Cable voltage rating alone does not authorize mixed routing.",
+    "Verify conductor material, gauge, insulation, environmental rating, ampacity and terminal capacity for every run. Account for applicable ambient and grouping adjustments.",
+    "Do not parallel power-supply outputs or field conductors unless the listed equipment instructions and applicable rules permit the arrangement. Provide approved distribution and overcurrent protection as required.",
+    "Route wired DMX as a daisy chain or through a listed opto-splitter. Terminate the final receiver of each physical segment as required by the receiving equipment instructions. Verify shield and common connections.",
+    "Observe the tape manufacturer maximum run, feed arrangement, cut interval, polarity and thermal mounting requirements. Coordinate extra feeds and accessible power supplies where required.",
+    "Apply the project PSU operating-load target of 80% unless a reviewed project setting specifies otherwise. This company target is separate from the listed supply rating and circuit sizing rules.",
+    "Treat DALI bus insulation and routing in accordance with the actual devices and adopted code; do not assume a DALI pair is SELV or may share a raceway solely because its nominal signal voltage is low.",
+    "Coordinate controller protocols, addressing, universes, data link lengths and termination during commissioning. Verify operation of all channels at the maximum permitted operating load.",
+    "Single-ended SPI data runs above the project limit require a compatible differential link or revised controller location. Size pixel power separately from the data connection.",
+    "Seal, protect and support outdoor and direct-burial cable systems using products listed for the actual location. Verify cable, splice and enclosure ratings as a complete installation."
+  ],
+  "keyNotes": [],
+  "revisions": [],
+  "wireTagMap": {
+    "control:dec-1": "W-01",
+    "control:dec-2": "W-02",
+    "power:load-1": "W-03",
+    "power:load-2": "W-04",
+    "power:load-5": "W-05",
+    "power:ps-1": "W-06",
+    "power:load-6": "W-07",
+    "power:ps-3": "W-08",
+    "power:dec-1": "W-09",
+    "power:ps-2": "W-10",
+    "power:dec-2": "W-11",
+    "power:con-1": "W-12",
+    "power:load-3": "W-13",
+    "power:load-4": "W-14"
+  },
+  "scratchNote": ""
+}

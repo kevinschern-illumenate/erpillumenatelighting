@@ -1,0 +1,544 @@
+{
+  "code_tables_version": "nec-2023-1",
+  "engine_contract_version": "catalog-1",
+  "items": [
+    {
+      "brand": "ilLumenate",
+      "category": "dmx-0-10v-converter",
+      "description": "Test DMX to 0-10V converter",
+      "erpItemCode": "TEST-CONV-4",
+      "id": "ctl:TEST-CONV-4",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test DMX to 0-10V converter",
+      "sku": "TEST-CONV-4",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-Controller TEST-CONV-4"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-Controller",
+        "name": "TEST-CONV-4"
+      },
+      "specs": {
+        "dmxFootprint": 4,
+        "inputType": "DC",
+        "inputVMax": 24,
+        "inputVMin": 12,
+        "kind": "controller",
+        "ownPowerW": 1.5,
+        "ports": [
+          {
+            "direction": "in",
+            "name": "DMX In",
+            "protocol": "DMX512"
+          },
+          {
+            "direction": "out",
+            "maxDevices": 10,
+            "name": "Out 1",
+            "protocol": "0-10V"
+          }
+        ],
+        "protocolIn": [
+          "DMX512"
+        ],
+        "protocolOut": [
+          "0-10V"
+        ],
+        "terminalMaxAwg": "16",
+        "terminalMinAwg": "22",
+        "unitLoad": 1
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "dmx-decoder",
+      "description": "Test 4-channel decoder",
+      "erpItemCode": "TEST-DEC-4",
+      "id": "ctl:TEST-DEC-4",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test 4-channel decoder",
+      "sku": "TEST-DEC-4",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-Controller TEST-DEC-4"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-Controller",
+        "name": "TEST-DEC-4"
+      },
+      "specs": {
+        "channels": 4,
+        "dmxFootprint": 4,
+        "dmxThru": true,
+        "inputVMax": 24,
+        "inputVMin": 12,
+        "kind": "decoder",
+        "maxAPerChannel": 5,
+        "maxATotal": 20,
+        "maxWPerChannel": 120,
+        "maxWTotal": 480,
+        "powerType": "DC",
+        "protocolIn": [
+          "DMX512"
+        ],
+        "terminalMaxAwg": "14",
+        "unitLoad": 1
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "driver",
+      "description": "Test 700 mA driver",
+      "erpItemCode": "TEST-CC-700",
+      "id": "drv:TEST-CC-700",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test 700 mA driver",
+      "rank": 3,
+      "sku": "TEST-CC-700",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-Driver TEST-CC-700"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-Driver",
+        "name": "TEST-CC-700"
+      },
+      "specs": {
+        "dimming": [
+          "0-10V"
+        ],
+        "efficiency": 0.87,
+        "inputPhase": "1PH",
+        "inputType": "AC",
+        "inputVMax": 277,
+        "inputVMin": 120,
+        "kind": "driver",
+        "listings": [],
+        "outputType": "CC",
+        "outputVMax": 54,
+        "outputVMin": 20,
+        "outputmA": 700,
+        "outputs": [
+          {
+            "class2": true,
+            "maxW": 38,
+            "name": "OUT1"
+          }
+        ],
+        "powerFactor": 0.95,
+        "ratedW": 38,
+        "terminalMaxAwg": "14",
+        "terminalMinAwg": "18",
+        "usableLoadFactor": 1
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "psu",
+      "description": "Test 60 W supply",
+      "erpItemCode": "TEST-PSU-60",
+      "id": "drv:TEST-PSU-60",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test 60 W supply",
+      "rank": 1,
+      "sku": "TEST-PSU-60",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-Driver TEST-PSU-60"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-Driver",
+        "name": "TEST-PSU-60"
+      },
+      "specs": {
+        "dimming": [
+          "phase-forward"
+        ],
+        "efficiency": 0.88,
+        "inputPhase": "1PH",
+        "inputType": "AC",
+        "inputVMax": 277,
+        "inputVMin": 100,
+        "kind": "psu",
+        "listings": [],
+        "outputType": "CV",
+        "outputV": 24,
+        "outputs": [
+          {
+            "class2": false,
+            "maxW": 30,
+            "name": "OUT1"
+          },
+          {
+            "class2": false,
+            "maxW": 30,
+            "name": "OUT2"
+          }
+        ],
+        "powerFactor": 0.9,
+        "ratedW": 60,
+        "terminalMaxAwg": "14",
+        "terminalMinAwg": "18",
+        "usableLoadFactor": 0.8
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "psu",
+      "description": "Test 96 W supply",
+      "erpItemCode": "TEST-PSU-96",
+      "id": "drv:TEST-PSU-96",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test 96 W supply",
+      "rank": 2,
+      "sku": "TEST-PSU-96",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-Driver TEST-PSU-96"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-Driver",
+        "name": "TEST-PSU-96"
+      },
+      "specs": {
+        "dimming": [
+          "0-10V"
+        ],
+        "efficiency": 0.9,
+        "inputPhase": "1PH",
+        "inputType": "AC",
+        "inputVMax": 277,
+        "inputVMin": 100,
+        "inrushA": 30,
+        "kind": "psu",
+        "listings": [
+          "Class 2",
+          "UL 8750"
+        ],
+        "maxInputA": 1.2,
+        "maxInputAAtV": 120,
+        "maxUnitsPer20ABreaker": 8,
+        "outputType": "CV",
+        "outputV": 24,
+        "outputs": [
+          {
+            "class2": true,
+            "maxW": 96,
+            "name": "OUT1"
+          }
+        ],
+        "powerFactor": 0.95,
+        "ratedW": 96,
+        "terminalMaxAwg": "12",
+        "terminalMinAwg": "18",
+        "usableLoadFactor": 0.8
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "psu",
+      "description": "Test supply without data",
+      "erpItemCode": "TEST-PSU-BAD",
+      "id": "drv:TEST-PSU-BAD",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test supply without data",
+      "sku": "TEST-PSU-BAD",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-Driver TEST-PSU-BAD"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-Driver",
+        "name": "TEST-PSU-BAD"
+      },
+      "specs": {
+        "available": {
+          "dimming": [],
+          "inputPhase": "1PH",
+          "inputType": "AC",
+          "inputVMax": 277,
+          "inputVMin": 100,
+          "listings": [],
+          "outputType": "CV",
+          "outputV": 24,
+          "powerFactor": 0.9,
+          "ratedW": 100,
+          "terminalMaxAwg": "12",
+          "terminalMinAwg": "18",
+          "usableLoadFactor": 0.8
+        },
+        "intendedKind": "psu",
+        "kind": "incomplete",
+        "missingFields": [
+          "max_wattage_per_output",
+          "efficiency",
+          "input_protocols"
+        ],
+        "notes": [
+          "unmapped protocol: Mystery"
+        ]
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "tape",
+      "description": "Test line-voltage tape",
+      "erpItemCode": "TEST-TAPE-120",
+      "id": "tape:TEST-TAPE-120:3:1000",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test line-voltage tape",
+      "sku": "TEST-TAPE-120",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-LED Tape TEST-TAPE-120"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-LED Tape",
+        "name": "TEST-TAPE-120"
+      },
+      "specs": {
+        "available": {
+          "channelMap": [
+            "CH1"
+          ],
+          "channels": 1,
+          "cutIntervalIn": 39.3701,
+          "drive": "CV",
+          "freeCutting": false,
+          "maxRunFtDoubleFeed": 150,
+          "maxRunFtSingleFeed": 100,
+          "maxSimultaneousPct": 100,
+          "minOperatingV": 100,
+          "powerBasis": "all-channel-max",
+          "wPerFtMax": 3
+        },
+        "intendedKind": "tape",
+        "kind": "incomplete",
+        "missingFields": [
+          "input_voltage"
+        ],
+        "notes": [
+          "120 V tape is not 12, 24 or 48 V"
+        ]
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "tape",
+      "description": "Test tape 24 V",
+      "erpItemCode": "TEST-TAPE-24",
+      "id": "tape:TEST-TAPE-24:4.4:50",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test tape 24 V",
+      "sku": "TEST-TAPE-24 4.4 W/ft 50 mm cut",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-LED Tape TEST-TAPE-24"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-LED Tape",
+        "name": "TEST-TAPE-24"
+      },
+      "specs": {
+        "channelMap": [
+          "CH1"
+        ],
+        "channels": 1,
+        "cutIntervalIn": 1.9685,
+        "drive": "CV",
+        "freeCutting": false,
+        "kind": "tape",
+        "maxRunFtDoubleFeed": 32,
+        "maxRunFtSingleFeed": 16,
+        "maxSimultaneousPct": 100,
+        "minOperatingV": 20,
+        "powerBasis": "all-channel-max",
+        "reelLengthFt": 16.4042,
+        "voltage": 24,
+        "wPerFtMax": 4.4
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "tape",
+      "description": "Test tape 24 V",
+      "erpItemCode": "TEST-TAPE-24",
+      "id": "tape:TEST-TAPE-24:6.2:100",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test tape 24 V",
+      "sku": "TEST-TAPE-24 6.2 W/ft 100 mm cut",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-LED Tape TEST-TAPE-24"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-LED Tape",
+        "name": "TEST-TAPE-24"
+      },
+      "specs": {
+        "channelMap": [
+          "CH1"
+        ],
+        "channels": 1,
+        "cutIntervalIn": 3.937,
+        "drive": "CV",
+        "freeCutting": false,
+        "kind": "tape",
+        "maxRunFtDoubleFeed": 32,
+        "maxRunFtSingleFeed": 16,
+        "maxSimultaneousPct": 100,
+        "minOperatingV": 20,
+        "powerBasis": "all-channel-max",
+        "reelLengthFt": 16.4042,
+        "voltage": 24,
+        "wPerFtMax": 6.2
+      }
+    },
+    {
+      "brand": "ilLumenate",
+      "category": "tape",
+      "description": "Test RGB tape 24 V",
+      "erpItemCode": "TEST-TAPE-RGB",
+      "id": "tape:TEST-TAPE-RGB:6:free",
+      "isExample": false,
+      "localOverrides": [],
+      "model": "Test RGB tape 24 V",
+      "sku": "TEST-TAPE-RGB",
+      "source": {
+        "kind": "manufacturer",
+        "reference": "ERPNext ilL-Spec-LED Tape TEST-TAPE-RGB"
+      },
+      "sourceData": {
+        "doctype": "ilL-Spec-LED Tape",
+        "name": "TEST-TAPE-RGB"
+      },
+      "specs": {
+        "channelMap": [
+          "R",
+          "G",
+          "B"
+        ],
+        "channelWPerFtMax": [
+          2,
+          2,
+          2
+        ],
+        "channels": 3,
+        "drive": "CV-CC-IC",
+        "freeCutting": true,
+        "kind": "tape",
+        "maxRunFtDoubleFeed": 20,
+        "maxRunFtSingleFeed": 10,
+        "maxSimultaneousPct": 200,
+        "minOperatingV": 21.5,
+        "pixel": {
+          "ampsPerPixelMax": 0.012,
+          "pixelsPerFt": 18.288,
+          "protocol": "WS2811"
+        },
+        "powerBasis": "max-operating",
+        "voltage": 24,
+        "wPerFtMax": 6
+      }
+    }
+  ],
+  "wires": [
+    {
+      "ampacityBasis": "402.5-fallback",
+      "applications": [
+        "class2-dc",
+        "lv-branch"
+      ],
+      "category": "class2-power",
+      "conductors": [
+        {
+          "awg": "18",
+          "colors": [
+            "Red",
+            "Black"
+          ],
+          "count": 2,
+          "material": "Cu",
+          "role": "power",
+          "stranding": "stranded"
+        }
+      ],
+      "directBurial": false,
+      "erpItemCode": "TEST-WIRE-18-2",
+      "id": "wire:TEST-WIRE-18-2",
+      "isExample": false,
+      "listing": "CL3R",
+      "manufacturerRefChecks": [],
+      "manufacturerRefs": [],
+      "name": "18/2 CL3R test cable",
+      "notes": "",
+      "odIn": 0.21,
+      "plenum": false,
+      "ratedV": 300,
+      "riser": true,
+      "riserLabel": "18/2 CL3R",
+      "salesUom": "spool",
+      "shielded": false,
+      "source": {
+        "kind": "manufacturer",
+        "reference": "Test datasheet rev A"
+      },
+      "spoolLengthFt": 500,
+      "sunlightResistant": false,
+      "tempRatingC": 75,
+      "verify": true,
+      "wet": false
+    },
+    {
+      "ampacityBasis": "not-applicable",
+      "applications": [
+        "dmx"
+      ],
+      "category": "data",
+      "conductors": [
+        {
+          "awg": "24",
+          "count": 4,
+          "material": "Cu",
+          "resistanceOhmPerKft": 25.7,
+          "role": "data-pair",
+          "stranding": "stranded"
+        }
+      ],
+      "directBurial": false,
+      "erpItemCode": "TEST-WIRE-DMX",
+      "id": "wire:TEST-WIRE-DMX",
+      "impedanceOhm": 120,
+      "isExample": false,
+      "listing": "CMR",
+      "manufacturerRefChecks": [],
+      "manufacturerRefs": [],
+      "name": "DMX test cable",
+      "notes": "",
+      "plenum": false,
+      "ratedV": 300,
+      "riser": true,
+      "riserLabel": "DMX 2PR",
+      "salesUom": "foot",
+      "shielded": true,
+      "source": {
+        "kind": "manufacturer",
+        "reference": "Test datasheet rev B"
+      },
+      "sunlightResistant": false,
+      "tempRatingC": 60,
+      "verify": false,
+      "wet": false
+    }
+  ]
+}

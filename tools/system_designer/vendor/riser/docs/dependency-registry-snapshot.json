@@ -1,0 +1,227 @@
+[
+  {
+    "package": "react",
+    "installed": "19.3.0",
+    "latest": "19.3.0",
+    "latestPublished": "2026-09-09T17:21:30.071Z",
+    "registryModified": "2026-09-23T16:29:47.413Z",
+    "repository": "git+https://github.com/react/react.git",
+    "deprecated": null
+  },
+  {
+    "package": "react-dom",
+    "installed": "19.3.0",
+    "latest": "19.3.0",
+    "latestPublished": "2026-09-09T17:17:39.744Z",
+    "registryModified": "2026-09-23T16:30:34.355Z",
+    "repository": "git+https://github.com/react/react.git",
+    "deprecated": null
+  },
+  {
+    "package": "typescript",
+    "installed": "5.9.3",
+    "latest": "7.0.2",
+    "latestPublished": "2026-07-08T15:55:18.431Z",
+    "registryModified": "2026-09-24T08:17:28.676Z",
+    "repository": "git+https://github.com/microsoft/TypeScript.git",
+    "deprecated": null
+  },
+  {
+    "package": "vite",
+    "installed": "8.3.1",
+    "latest": "8.3.1",
+    "latestPublished": "2026-09-24T12:26:19.94Z",
+    "registryModified": "2026-09-24T12:26:20.325Z",
+    "repository": "git+https://github.com/vitejs/vite.git",
+    "deprecated": null
+  },
+  {
+    "package": "@vitejs/plugin-react",
+    "installed": "6.1.1",
+    "latest": "6.1.1",
+    "latestPublished": "2026-08-28T03:30:56.619Z",
+    "registryModified": "2026-08-28T03:30:57.056Z",
+    "repository": "git+https://github.com/vitejs/vite-plugin-react.git",
+    "deprecated": null
+  },
+  {
+    "package": "tailwindcss",
+    "installed": "4.3.3",
+    "latest": "4.3.3",
+    "latestPublished": "2026-07-16T12:03:35.267Z",
+    "registryModified": "2026-09-08T13:59:34.879Z",
+    "repository": "https://github.com/tailwindlabs/tailwindcss.git",
+    "deprecated": null
+  },
+  {
+    "package": "shadcn",
+    "installed": null,
+    "latest": "4.21.0",
+    "latestPublished": "2026-09-04T05:34:07.022Z",
+    "registryModified": "2026-09-04T05:34:07.315Z",
+    "repository": "git+https://github.com/shadcn-ui/ui.git",
+    "deprecated": null
+  },
+  {
+    "package": "@radix-ui/react-select",
+    "installed": "2.3.7",
+    "latest": "2.3.7",
+    "latestPublished": "2026-07-24T23:51:36.611Z",
+    "registryModified": "2026-07-31T15:54:31.165Z",
+    "repository": "git+https://github.com/radix-ui/primitives.git",
+    "deprecated": null
+  },
+  {
+    "package": "zustand",
+    "installed": "5.0.15",
+    "latest": "5.0.15",
+    "latestPublished": "2026-08-13T00:39:55.466Z",
+    "registryModified": "2026-08-13T00:39:55.791Z",
+    "repository": "git+https://github.com/pmndrs/zustand.git",
+    "deprecated": null
+  },
+  {
+    "package": "immer",
+    "installed": "11.1.18",
+    "latest": "11.1.18",
+    "latestPublished": "2026-08-19T07:25:22.934Z",
+    "registryModified": "2026-08-19T07:25:23.329Z",
+    "repository": "git+https://github.com/immerjs/immer.git",
+    "deprecated": null
+  },
+  {
+    "package": "zundo",
+    "installed": "2.3.0",
+    "latest": "2.3.0",
+    "latestPublished": "2024-11-17T16:35:11.372Z",
+    "registryModified": "2024-11-17T16:35:11.558Z",
+    "repository": "git+https://github.com/charkour/zundo.git",
+    "deprecated": null
+  },
+  {
+    "package": "ag-grid-community",
+    "installed": null,
+    "latest": "36.2.0",
+    "latestPublished": "2026-09-16T08:00:00.051Z",
+    "registryModified": "2026-09-16T08:00:00.628Z",
+    "repository": "git+https://github.com/ag-grid/ag-grid.git",
+    "deprecated": null
+  },
+  {
+    "package": "zod",
+    "installed": "4.6.5",
+    "latest": "4.6.5",
+    "latestPublished": "2026-09-13T23:25:14.644Z",
+    "registryModified": "2026-09-13T23:25:14.95Z",
+    "repository": "git+https://github.com/colinhacks/zod.git",
+    "deprecated": null
+  },
+  {
+    "package": "elkjs",
+    "installed": null,
+    "latest": "0.12.0",
+    "latestPublished": "2026-07-17T08:07:54.693Z",
+    "registryModified": "2026-07-17T08:07:55.021Z",
+    "repository": "git+https://github.com/kieler/elkjs.git",
+    "deprecated": null
+  },
+  {
+    "package": "pdf-lib",
+    "installed": null,
+    "latest": "1.17.1",
+    "latestPublished": "2021-11-06T22:29:49.065Z",
+    "registryModified": "2022-05-12T18:02:10.238Z",
+    "repository": "git+https://github.com/Hopding/pdf-lib.git",
+    "deprecated": null
+  },
+  {
+    "package": "@pdf-lib/fontkit",
+    "installed": null,
+    "latest": "1.1.1",
+    "latestPublished": "2020-11-28T16:24:28.244Z",
+    "registryModified": "2022-04-06T13:40:23.574Z",
+    "repository": "git://github.com/Hopding/fontkit.git",
+    "deprecated": null
+  },
+  {
+    "package": "@tarikjabiri/dxf",
+    "installed": null,
+    "latest": "2.9.0",
+    "latestPublished": "2026-09-15T23:04:35.516Z",
+    "registryModified": "2026-09-15T23:04:35.838Z",
+    "repository": "git+https://github.com/dxfjs/writer.git",
+    "deprecated": null
+  },
+  {
+    "package": "dexie",
+    "installed": "4.4.6",
+    "latest": "4.4.6",
+    "latestPublished": "2026-09-10T13:26:36.936Z",
+    "registryModified": "2026-09-10T13:43:27.465Z",
+    "repository": "git+https://github.com/dexie/Dexie.js.git",
+    "deprecated": null
+  },
+  {
+    "package": "papaparse",
+    "installed": null,
+    "latest": "5.7.0",
+    "latestPublished": "2026-08-24T14:28:22.981Z",
+    "registryModified": "2026-08-24T14:28:23.144Z",
+    "repository": "git+https://github.com/mholt/PapaParse.git",
+    "deprecated": null
+  },
+  {
+    "package": "jszip",
+    "installed": null,
+    "latest": "3.10.2",
+    "latestPublished": "2026-09-08T22:31:16.671Z",
+    "registryModified": "2026-09-08T22:31:16.842Z",
+    "repository": "git+https://github.com/Stuk/jszip.git",
+    "deprecated": null
+  },
+  {
+    "package": "vitest",
+    "installed": "5.0.1",
+    "latest": "5.0.1",
+    "latestPublished": "2026-09-15T08:49:35.83Z",
+    "registryModified": "2026-09-15T08:49:36.105Z",
+    "repository": "git+https://github.com/vitest-dev/vitest.git",
+    "deprecated": null
+  },
+  {
+    "package": "@playwright/test",
+    "installed": "1.63.0",
+    "latest": "1.63.0",
+    "latestPublished": "2026-09-04T22:44:00.304Z",
+    "registryModified": "2026-09-24T05:24:34.786Z",
+    "repository": "git+https://github.com/microsoft/playwright.git",
+    "deprecated": null
+  },
+  {
+    "package": "dxf-parser",
+    "installed": null,
+    "latest": "1.1.2",
+    "latestPublished": "2021-11-12T02:23:02.713Z",
+    "registryModified": "2022-06-16T02:22:48.601Z",
+    "repository": "git+https://github.com/gdsestimating/dxf-parser.git",
+    "deprecated": null
+  },
+  {
+    "package": "eslint",
+    "installed": "10.11.0",
+    "latest": "10.11.0",
+    "latestPublished": "2026-09-18T20:15:36.485Z",
+    "registryModified": "2026-09-18T20:15:36.646Z",
+    "repository": "git+https://github.com/eslint/eslint.git",
+    "deprecated": null
+  },
+  {
+    "package": "@cantoo/pdf-lib",
+    "installed": null,
+    "latest": "2.11.1",
+    "latestPublished": "2026-09-15T11:39:27.933Z",
+    "registryModified": "2026-09-15T11:39:28.107Z",
+    "repository": "git+https://github.com/cantoo-scribe/pdf-lib.git",
+    "deprecated": null
+  }
+]
