@@ -21,7 +21,7 @@ jobs:
           node-version: '22'
       - name: Install local test dependencies
         run: |
-          python -m pip install ruff PyYAML Jinja2 Pillow pypdf reportlab pypdfium2
+          python -m pip install ruff PyYAML Jinja2 Pillow pypdf reportlab pypdfium2 jsonschema
           npm ci --prefix tests/portal_ui
           npm ci --prefix tests/portal_e2e
       - name: Python service and generator contracts

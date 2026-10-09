@@ -18,6 +18,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-1.5 | Visual fields and SH01 seed | Done |
 | WP-1.6 | Schedule line third-party fields and write-back markers | Done (see `system_design` link note) |
 | WP-1.7 | Design readiness report | Done |
+| WP-2.2 | Schema package and JSON Schema export | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -160,3 +161,21 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - Every controller needs at least one mapped protocol and at least one port row.
   - Sensors are reported as "not modelled", not as incomplete.
   - A multichannel tape with no channel limits is a note, not incomplete (names default to CH1…).
+
+## WP-2.2 — Design schema, JSON Schema and build hash
+
+- `@ill/core-schemas/design` is the H5 `DesignSchema` (version 1) with its cross-reference rules
+  (unique run keys; runs and cabinets in known spaces). `@ill/engine/derive` has `deriveLoads`.
+- `npm run schema:export` (also run by `npm run build`, since Vite empties the output folder) writes
+  `public/system_designer/schema/design.schema.json`. CI's bundle-freshness step covers it.
+- `system_design/design_schema.py`: `validate_design_json` (JSON Schema via `jsonschema`, then the same
+  cross-reference rules, then the Settings VD ceiling unless a `VD_TARGET_LOOSENED` staff override exists)
+  and `build_hash`. `jsonschema` is now a declared app dependency.
+- Both languages test against `packages/core-schemas/fixtures/designs` (valid, invalid, hashes, rounding).
+- Discrepancies:
+  - The zone colour pattern is `^#[0-9a-fA-F]{6}$` instead of `/…/i`, because JSON Schema patterns
+    have no flags and the server would otherwise reject upper-case colours.
+  - `deriveLoads(design)` takes no catalog: loads carry `catalogId` and the engine reads watts from the
+    catalog itself. Only assigned runs become loads (a riser load needs `fedFrom`).
+  - Rounding is JavaScript's `Math.round(x * 1000) / 1000` in both languages (Python's `round` is
+    banker's rounding and would break parity).

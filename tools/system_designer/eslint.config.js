@@ -27,6 +27,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     // Engine purity (plan H1 rule 4): no React, DOM, storage or network in the pure packages.
     files: ['packages/{core-schemas,data,engine,drawing,serializers}/src/**/*.ts'],
     ignores: ['**/*.test.ts'],

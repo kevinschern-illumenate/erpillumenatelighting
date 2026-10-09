@@ -11,13 +11,13 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run schema:export",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test:e2e": "playwright test",
-    "schema:export": "node -e \"console.log('schema:export arrives with WP-2.2')\""
+    "schema:export": "node scripts/export-schema.mjs"
   },
   "dependencies": {
     "@cantoo/fontkit": "2.0.12",
