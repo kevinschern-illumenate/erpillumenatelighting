@@ -160,14 +160,14 @@ def plan_listing(listing, template, doctype, web_listed=None):
 	return values, tables, notes
 
 
-def _child_doctype(doctype, field):
-	return frappe.get_meta(doctype).get_field(field).options
+# Template table field -> child doctype; taken from the definition rather than cached meta.
+CHILD_DOCTYPES = {RENAMED.get(field, field): child for field, child in TABLES.items()}
 
 
 def _write(doctype, name, values, tables):
 	frappe.db.set_value(doctype, name, values, update_modified=False)
 	for field, rows in tables.items():
-		child = _child_doctype(doctype, field)
+		child = CHILD_DOCTYPES[field]
 		for idx, row in enumerate(rows, 1):
 			frappe.get_doc(
 				{
@@ -227,6 +227,22 @@ def _migrate_one(listing, doctype, name, dry_run, web_listed=None):
 	return row
 
 
+def _migrate_one_safely(listing, doctype, name, dry_run):
+	"""Migrate one listing; a failure is reported and undone instead of stopping the run."""
+	savepoint = "web_listing_migration"
+	frappe.db.savepoint(savepoint)
+	try:
+		return _migrate_one(listing, doctype, name, dry_run)
+	except Exception as error:
+		frappe.db.rollback(save_point=savepoint)
+		return {
+			"listing": listing["name"],
+			"template": f"{doctype} {name}",
+			"action": "failed",
+			"notes": [f"{type(error).__name__}: {error}", frappe.get_traceback()],
+		}
+
+
 def _listing(name):
 	return json.loads(frappe.as_json(frappe.get_doc(PRODUCT, name).as_dict()))
 
@@ -256,7 +272,7 @@ def migrate(dry_run=1):
 				}
 			)
 			continue
-		report.append(_migrate_one(listings[0], doctype, template, dry_run))
+		report.append(_migrate_one_safely(listings[0], doctype, template, dry_run))
 	return {
 		"listings": report,
 		"left_on_webflow_product": unlinked,
