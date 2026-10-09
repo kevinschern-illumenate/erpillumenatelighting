@@ -28,7 +28,36 @@
   "spec_sheet",
   "certifications",
   "warranty",
-  "notes"
+  "notes",
+  "web_listing_tab",
+  "web_identity_section",
+  "web_listed",
+  "web_slug",
+  "web_title",
+  "web_identity_column",
+  "web_category",
+  "portal_item",
+  "web_content_section",
+  "short_description",
+  "sublabel",
+  "product_badge",
+  "web_content_column",
+  "features",
+  "warranty_years",
+  "web_media_section",
+  "featured_image",
+  "dimensions_image",
+  "web_media_column",
+  "series_family_image",
+  "gallery_images",
+  "documents",
+  "web_configurator_section",
+  "is_configurable",
+  "configurator_intro_text",
+  "configurator_options",
+  "web_publishing_section",
+  "target_brands",
+  "attribute_links"
  ],
  "fields": [
   {
@@ -157,12 +186,172 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "web_listing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Web Listing",
+   "hidden": 1
+  },
+  {
+   "fieldname": "web_identity_section",
+   "fieldtype": "Section Break",
+   "label": "Web Identity"
+  },
+  {
+   "fieldname": "web_listed",
+   "fieldtype": "Check",
+   "label": "Listed on Web",
+   "default": "0",
+   "description": "Publish this template as a product page. Leave unticked while it is being reworked."
+  },
+  {
+   "fieldname": "web_slug",
+   "fieldtype": "Data",
+   "label": "Web Slug",
+   "search_index": 1,
+   "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
+  },
+  {
+   "fieldname": "web_title",
+   "fieldtype": "Data",
+   "label": "Web Title"
+  },
+  {
+   "fieldname": "web_identity_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "web_category",
+   "fieldtype": "Link",
+   "label": "Web Category",
+   "options": "ilL-Webflow-Category"
+  },
+  {
+   "fieldname": "portal_item",
+   "fieldtype": "Link",
+   "label": "Portal Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "web_content_section",
+   "fieldtype": "Section Break",
+   "label": "Web Content"
+  },
+  {
+   "fieldname": "short_description",
+   "fieldtype": "Small Text",
+   "label": "Short Description"
+  },
+  {
+   "fieldname": "sublabel",
+   "fieldtype": "Data",
+   "label": "Sublabel"
+  },
+  {
+   "fieldname": "product_badge",
+   "fieldtype": "Select",
+   "label": "Product Badge",
+   "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+  },
+  {
+   "fieldname": "web_content_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "features",
+   "fieldtype": "JSON",
+   "label": "Features"
+  },
+  {
+   "fieldname": "warranty_years",
+   "fieldtype": "Int",
+   "label": "Warranty (Years)"
+  },
+  {
+   "fieldname": "web_media_section",
+   "fieldtype": "Section Break",
+   "label": "Web Media"
+  },
+  {
+   "fieldname": "featured_image",
+   "fieldtype": "Attach Image",
+   "label": "Featured Image"
+  },
+  {
+   "fieldname": "dimensions_image",
+   "fieldtype": "Attach Image",
+   "label": "Dimensions Image"
+  },
+  {
+   "fieldname": "web_media_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "series_family_image",
+   "fieldtype": "Attach Image",
+   "label": "Series Family Image"
+  },
+  {
+   "fieldname": "gallery_images",
+   "fieldtype": "Table",
+   "label": "Gallery Images",
+   "options": "ilL-Child-Webflow-Gallery-Image"
+  },
+  {
+   "fieldname": "documents",
+   "fieldtype": "Table",
+   "label": "Documents",
+   "options": "ilL-Child-Webflow-Document"
+  },
+  {
+   "fieldname": "web_configurator_section",
+   "fieldtype": "Section Break",
+   "label": "Web Configurator"
+  },
+  {
+   "fieldname": "is_configurable",
+   "fieldtype": "Check",
+   "label": "Is Configurable",
+   "default": "0"
+  },
+  {
+   "fieldname": "configurator_intro_text",
+   "fieldtype": "Small Text",
+   "label": "Configurator Intro Text",
+   "depends_on": "eval:doc.is_configurable"
+  },
+  {
+   "fieldname": "configurator_options",
+   "fieldtype": "Table",
+   "label": "Configurator Options",
+   "options": "ilL-Child-Webflow-Configurator-Option",
+   "depends_on": "eval:doc.is_configurable"
+  },
+  {
+   "fieldname": "web_publishing_section",
+   "fieldtype": "Section Break",
+   "label": "Web Publishing"
+  },
+  {
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brands",
+   "options": "ilL-Child-Webflow-Brand-Target"
+  },
+  {
+   "fieldname": "attribute_links",
+   "fieldtype": "Table",
+   "label": "Attribute Links",
+   "options": "ilL-Child-Webflow-Attribute-Link",
+   "read_only": 1,
+   "description": "Filled from this template on save."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-07-28 10:00:00.000000",
+ "modified": "2026-10-09 13:47:34.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Driver-Template",

@@ -8,6 +8,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	TAPE_NEON_CATEGORIES,
 	spec_categories_for,
 )
+from illumenate_lighting.illumenate_lighting.web_listing import validate_web_listing
 
 
 class ilLTapeNeonTemplate(Document):
@@ -19,6 +20,7 @@ class ilLTapeNeonTemplate(Document):
 	"""
 
 	def validate(self):
+		validate_web_listing(self)
 		self._validate_product_category()
 		self._validate_allowed_specs()
 

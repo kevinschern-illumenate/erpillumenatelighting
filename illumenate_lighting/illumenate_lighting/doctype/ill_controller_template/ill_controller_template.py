@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from illumenate_lighting.illumenate_lighting.doctype.ill_driver_template.ill_driver_template import (
 	_normalise_axis_value,
 )
+from illumenate_lighting.illumenate_lighting.web_listing import validate_web_listing
 
 #: Configurator axes on ilL-Child-Controller-Template-Variant, keyed by the
 #: ``option_type`` used in ilL-Child-Controller-Allowed-Option.
@@ -26,6 +27,7 @@ CONTROLLER_SCALAR_OPTION_TYPES = ("Channels", "Zones", "Wireless Protocol")
 
 class ilLControllerTemplate(Document):
 	def validate(self):
+		validate_web_listing(self)
 		self._validate_single_default()
 		self._validate_unique_variant_axes()
 		self._validate_allowed_options()
