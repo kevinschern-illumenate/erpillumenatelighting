@@ -60,6 +60,7 @@ illumenate_lighting.patches.add_work_order_qc_fields
 illumenate_lighting.patches.backfill_commercial_conversations
 illumenate_lighting.patches.merge_webflow_product_into_templates
 illumenate_lighting.patches.merge_webflow_product_into_templates #2026-10-09 web certifications
+illumenate_lighting.patches.merge_webflow_product_into_templates #2026-10-09 retry tables-only top-ups
 illumenate_lighting.patches.system_designer_tape_fields
 illumenate_lighting.patches.create_field_wire_item_group
 illumenate_lighting.patches.seed_sh01_cross_section
