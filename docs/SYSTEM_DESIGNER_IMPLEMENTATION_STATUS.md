@@ -28,6 +28,8 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-3.2 | Spaces, cabinets, distances | Done |
 | WP-3.3 | Runs screen | Done |
 | WP-3.4 | Power board | Done (auto-plan in WP-4.x; dimmer devices with WP-3.5 checks) |
+| WP-3.5 – WP-3.9 | Checks, verification, riser export, engineering mode, pilot telemetry | Done |
+| WP-4.1 | Write-back to the schedule | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -604,3 +606,33 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
 - Discrepancies and choices:
   - An undo that removes a problem's cause also counts as a fixed check.
   - The key adds a short nonce after the timestamp so two events in the same microsecond stay unique.
+
+## WP-4.1 — Write-back
+
+- `system_design/writeback.py`, endpoints `writeback_preview` and `writeback_apply`, Finish step
+  (`app/src/shell/FinishStep.tsx`).
+- Desired lines: equipment of the saved design, by catalog snapshot item → Item code and role (psu and
+  driver → Supply; decoder and controller → Controller; accessory → Accessory), summed per Item, with the
+  cabinet names as location; wire by the engine's BOM footage (waste included), whole feet or whole
+  spools (D7). Example, tape, fixture and unknown products are listed as "blocked" and never written.
+- Lines are ACCESSORY lines keyed `design_line_key = "<role>:<item>"` with `system_design` and
+  `design_line_role`; line ids `PS1`, `CTRL1`, `WIRE1`, `ACC1`, skipping ids in use. Lines without
+  `design_line_role` are never touched. Item checks reuse `api/portal.py orderable_item_problem`, now
+  shared with `add_schedule_line`.
+- Consolidation: configurator supply lines (`power_supply_for_line`) of lines with a run assigned in the
+  design are offered as `replace:<owner line_key>` and removed with `power_supply_lines.clear_power_lines`.
+- Apply writes only accepted keys in one transaction (rolled back on any error), then stores the
+  schedule's new fingerprints on the design without changing its `modified`, so the open editor still
+  saves. Preview and apply refuse (`CONFLICT`) a design that is not current or not in step with its
+  schedule.
+- Price delta: `Standard Selling` Item Prices of the changes, only for users with `Can View Pricing`;
+  Items without a price are named, never guessed.
+- Tests: `tests/portal_unit/test_system_design_writeback.py` (rounding, re-apply idempotence,
+  consolidation, price delta), installed `test_designs.test_write_back_supplies_and_wire` (apply,
+  idempotent preview, rollback), `FinishStep.test.tsx`.
+- Discrepancies and choices:
+  - Wire selection for every run type runs in the browser, so the client sends `wire_feet`; the server
+    checks each wire is a catalog wire with an Item and the footage is a sane number. A dealer could send
+    other footage, but could add the same wire lines by hand anyway.
+  - `writeback_preview` also accepts POST (the footage would make a long query string).
+  - Write-back lines from an earlier revision count as the design's own and move to the current one.

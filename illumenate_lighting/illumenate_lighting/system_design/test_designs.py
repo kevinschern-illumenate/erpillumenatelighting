@@ -6,11 +6,18 @@
 import hashlib
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import frappe
 from frappe.tests import IntegrationTestCase
 
-from illumenate_lighting.illumenate_lighting.system_design import access, api, catalog, deliverables
+from illumenate_lighting.illumenate_lighting.system_design import (
+	access,
+	api,
+	catalog,
+	deliverables,
+	writeback,
+)
 
 FIXTURE = (
 	Path(__file__).resolve().parents[3]
@@ -309,3 +316,88 @@ class TestDesigns(IntegrationTestCase):
 		self.assertEqual(
 			api.copy_design_to_version(design=data["name"], target_schedule=other.name)["code"], "INVALID"
 		)
+
+	def test_write_back_supplies_and_wire(self):
+		data = self.save()["data"]
+		for code in ("ZZ-WB-PSU", "ZZ-WB-WIRE"):
+			if not frappe.db.exists("Item", code):
+				frappe.get_doc(
+					{"doctype": "Item", "item_code": code, "item_name": code, "item_group": "All Item Groups"}
+				).insert(ignore_permissions=True)
+		stored = json.loads(frappe.db.get_value("ilL-System-Design", data["name"], "design_json"))
+		stored["project"]["equipment"] = [
+			{"id": "PS-1", "tag": "PS-1", "catalogId": "drv:ZZ-WB-PSU", "qty": 2, "enclosure": "cab-1"}
+		]
+		frappe.db.set_value("ilL-System-Design", data["name"], "design_json", json.dumps(stored))
+		snapshot = {
+			"items": [
+				{
+					"id": "drv:ZZ-WB-PSU",
+					"erpItemCode": "ZZ-WB-PSU",
+					"isExample": False,
+					"specs": {"kind": "psu"},
+				}
+			],
+			"wires": [
+				{
+					"id": "wire:ZZ-WB-WIRE",
+					"erpItemCode": "ZZ-WB-WIRE",
+					"isExample": False,
+					"salesUom": "spool",
+					"spoolLengthFt": 250,
+				}
+			],
+		}
+		feet = json.dumps({"wire:ZZ-WB-WIRE": 260})
+		with patch.object(catalog, "get_snapshot", return_value=snapshot):
+			preview = api.writeback_preview(design=data["name"], wire_feet=feet)
+			self.assertTrue(preview["success"], preview)
+			added = {row["key"]: row["qty"] for row in preview["data"]["add"]}
+			self.assertEqual(added, {"Supply:ZZ-WB-PSU": 2, "Wire:ZZ-WB-WIRE": 2})
+			self.assertIn("price_delta", preview["data"])
+			stale = api.writeback_apply(design=data["name"], accepted_keys='["Supply:OTHER"]', wire_feet=feet)
+			self.assertEqual(stale["code"], "CONFLICT")
+			applied = api.writeback_apply(
+				design=data["name"], accepted_keys=json.dumps(list(added)), wire_feet=feet
+			)
+			self.assertTrue(applied["success"], applied)
+			self.assertEqual(applied["data"]["added"], 2)
+			self.schedule.reload()
+			rows = {
+				line.design_line_key: (line.line_id, line.qty, line.location, line.system_design)
+				for line in self.schedule.lines
+				if line.design_line_role
+			}
+			self.assertEqual(
+				rows,
+				{
+					"Supply:ZZ-WB-PSU": ("PS1", 2, "Pantry", data["name"]),
+					"Wire:ZZ-WB-WIRE": ("WIRE1", 2, "Field wire", data["name"]),
+				},
+			)
+			again = api.writeback_preview(design=data["name"], wire_feet=feet)["data"]
+			self.assertEqual(writeback.change_keys(again), set())
+			self.assertTrue(api.reconcile_design(design=data["name"])["data"]["in_sync"])
+			fewer = api.writeback_preview(design=data["name"])["data"]
+			self.assertEqual([row["key"] for row in fewer["remove"]], ["Wire:ZZ-WB-WIRE"])
+			stored["project"]["equipment"][0]["qty"] = 3
+			frappe.db.set_value("ilL-System-Design", data["name"], "design_json", json.dumps(stored))
+			moved = api.writeback_preview(design=data["name"], wire_feet=feet)["data"]
+			self.assertEqual(
+				[(row["key"], row["from_qty"], row["qty"]) for row in moved["update"]],
+				[("Supply:ZZ-WB-PSU", 2, 3)],
+			)
+			self.schedule.reload()
+			self.schedule.lines = [
+				line for line in self.schedule.lines if line.design_line_key != "Wire:ZZ-WB-WIRE"
+			]
+			self.schedule.save(ignore_permissions=True)
+			with (
+				patch.object(writeback, "_add_line", side_effect=RuntimeError("boom")),
+				patch.object(frappe.db, "rollback") as rollback,
+			):
+				failed = api.writeback_apply(
+					design=data["name"], accepted_keys='["Wire:ZZ-WB-WIRE"]', wire_feet=feet
+				)
+			self.assertEqual(failed["code"], "INTERNAL")
+			rollback.assert_called_once()

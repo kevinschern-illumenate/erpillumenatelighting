@@ -1440,6 +1440,19 @@ def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> 
 	return {"templates": result}
 
 
+def orderable_item_problem(item_code, is_sales_staff=False):
+	"""Why ``item_code`` cannot go on a schedule line, or ``None`` (also used by System Designer write-back).
+
+	Disabled Items are refused for everyone; staff may still add non-sales Items and templates.
+	"""
+	item = frappe.db.get_value("Item", item_code, ["name", "disabled", "is_sales_item", "has_variants"], as_dict=True)
+	if not item or item.disabled:
+		return _("This Item is not active")
+	if not is_sales_staff and (not item.is_sales_item or item.has_variants):
+		return _("This Item cannot be ordered")
+	return None
+
+
 @frappe.whitelist()
 def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	"""
@@ -1486,11 +1499,8 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	is_sales_staff = allowed("sales")
 	if not isinstance(line_data, dict):
 		return {"success": False, "error": "Line data must be an object"}
-	if line_data.get("accessory_item"):
-		item = frappe.db.get_value("Item", line_data["accessory_item"], ["name", "disabled", "is_sales_item", "has_variants"], as_dict=True)
-		# Disabled Items are refused for everyone; staff may still add non-sales Items.
-		if not item or item.disabled or (not is_sales_staff and (not item.is_sales_item or item.has_variants)):
-			return {"success": False, "error": "Choose an active orderable Item"}
+	if line_data.get("accessory_item") and orderable_item_problem(line_data["accessory_item"], is_sales_staff):
+		return {"success": False, "error": "Choose an active orderable Item"}
 	# Add the line
 	try:
 		line = schedule.append("lines", {})

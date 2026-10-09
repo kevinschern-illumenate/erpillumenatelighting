@@ -66,6 +66,47 @@ export interface EligibleSupply {
   location_rating: 'Dry' | 'Damp' | 'Wet';
 }
 
+/** One change ``writeback_preview`` proposes; ``key`` is the ``design_line_key`` (H8.6). */
+export interface WritebackLine {
+  key: string;
+  role?: 'Supply' | 'Controller' | 'Wire' | 'Accessory';
+  item_code: string;
+  item_name?: string;
+  qty: number;
+  from_qty?: number;
+  location?: string;
+  line_id?: string | null;
+  unit?: 'ft' | 'spool';
+  tags?: string[];
+}
+
+/** The configurator's own supplies for a build the design now powers (consolidation, plan §14.6). */
+export interface WritebackReplace {
+  key: string;
+  for_line: string;
+  line_id: string | null;
+  lines: { item_code: string; item_name?: string; qty: number }[];
+}
+
+export interface WritebackPreview {
+  add: WritebackLine[];
+  update: WritebackLine[];
+  remove: WritebackLine[];
+  replaces_configurator_lines: WritebackReplace[];
+  blocked: { ref: string; reason: string }[];
+  error_count: number;
+  can_apply: boolean;
+  /** Selling prices only, and only for users with Can View Pricing. */
+  price_delta?: { amount: number; price_list: string; unpriced: string[] };
+}
+
+export interface WritebackResult {
+  added: number;
+  updated: number;
+  removed: number;
+  replaced: number;
+}
+
 export interface ApiOptions {
   /** e.g. /api/method/illumenate_lighting.illumenate_lighting.system_design.api */
   apiBase: string;
@@ -175,6 +216,17 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         event: args.event,
         design: args.design,
         details: args.details ? JSON.stringify(args.details) : undefined,
+      });
+    },
+    /** What adding the saved design to its schedule would change (H8.6). */
+    writebackPreview(design: string, wireFeet: Record<string, number>) {
+      return post<WritebackPreview>('writeback_preview', { design, wire_feet: JSON.stringify(wireFeet) });
+    },
+    writebackApply(design: string, acceptedKeys: string[], wireFeet: Record<string, number>) {
+      return post<WritebackResult>('writeback_apply', {
+        design,
+        accepted_keys: JSON.stringify(acceptedKeys),
+        wire_feet: JSON.stringify(wireFeet),
       });
     },
     reconcileDesign(design: string) {

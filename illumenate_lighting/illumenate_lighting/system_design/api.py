@@ -209,3 +209,23 @@ def copy_design_to_version(design=None, target_schedule=None):
 	from illumenate_lighting.illumenate_lighting.system_design import designs
 
 	return designs.copy_design_to_version(design, target_schedule)
+
+
+# --- Write-back (WP-4.1, H6, H8.6) -----------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET", "POST"])
+@endpoint
+def writeback_preview(design=None, wire_feet=None, build_hash=None):
+	"""What adding the design to its schedule would change; ``price_delta`` only with ``Can View Pricing``."""
+	from illumenate_lighting.illumenate_lighting.system_design import writeback
+
+	return writeback.preview(design, wire_feet, build_hash)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def writeback_apply(design=None, accepted_keys=None, wire_feet=None, build_hash=None):
+	from illumenate_lighting.illumenate_lighting.system_design import writeback
+
+	return writeback.apply(design, accepted_keys or "[]", wire_feet, build_hash)
