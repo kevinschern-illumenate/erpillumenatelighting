@@ -543,6 +543,13 @@
           "default": "0"
         },
         {
+          "fieldname": "engine_protocol",
+          "label": "System Designer Protocol",
+          "fieldtype": "Select",
+          "options": "\nnone\nphase-forward\nphase-reverse\n0-10V\n1-10V\nDALI-2\nDMX512\nRDM\nsACN\nArt-Net\nCRMX-wireless\nLutron-QS\nLutron-EcoSystem\nPWM\nSPI",
+          "description": "How the System Designer treats this protocol. Blank means products using it are not design-ready."
+        },
+        {
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
@@ -1135,6 +1142,12 @@
           "label": "Voltage Code",
           "fieldtype": "Data",
           "reqd": 1
+        },
+        {
+          "fieldname": "nominal_voltage_v",
+          "label": "Nominal Voltage (V)",
+          "fieldtype": "Float",
+          "description": "Numeric voltage the System Designer calculates with. Filled from the label on migrate; check it."
         }
       ]
     },
@@ -2003,6 +2016,25 @@
           "label": "Certification",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Certification",
+          "reqd": 1
+        }
+      ]
+    },
+    "ilL-Child-Tape-Channel": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "channel_name",
+          "label": "Channel",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "W, C, R, G, B…"
+        },
+        {
+          "fieldname": "max_w_per_ft",
+          "label": "Max W/ft",
+          "fieldtype": "Float",
           "reqd": 1
         }
       ]
@@ -4706,6 +4738,92 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Tape-Dimming-Protocol",
           "description": "Dimming protocols supported by this tape"
+        },
+        {
+          "fieldname": "drive_type",
+          "label": "Drive Type",
+          "fieldtype": "Select",
+          "options": "CV\nCV with CC IC",
+          "default": "CV"
+        },
+        {
+          "fieldname": "channels",
+          "label": "Channels",
+          "fieldtype": "Int",
+          "default": "1",
+          "description": "Independent color channels. Filled from the LED package on migrate."
+        },
+        {
+          "fieldname": "power_basis",
+          "label": "Power Basis",
+          "fieldtype": "Select",
+          "options": "All Channel Max\nMax Operating",
+          "default": "All Channel Max"
+        },
+        {
+          "fieldname": "max_simultaneous_pct",
+          "label": "Max Simultaneous Output (%)",
+          "fieldtype": "Float",
+          "description": "Defaults to 100 × channels."
+        },
+        {
+          "fieldname": "max_run_single_feed_ft",
+          "label": "Max Run, Single Feed (ft)",
+          "fieldtype": "Float",
+          "description": "Filled from Voltage Drop Max Run Length on migrate."
+        },
+        {
+          "fieldname": "max_run_double_feed_ft",
+          "label": "Max Run, Double Feed (ft)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "min_operating_voltage_v",
+          "label": "Min Operating Voltage (V)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "reel_length_m",
+          "label": "Reel Length (m)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "pixel_protocol",
+          "label": "Pixel Protocol",
+          "fieldtype": "Select",
+          "options": "None\nWS2811\nWS2815\nSK6812\nSPI Other",
+          "default": "None"
+        },
+        {
+          "fieldname": "pixels_per_m",
+          "label": "Pixels Per Metre",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "amps_per_pixel_max",
+          "label": "Max Amps Per Pixel",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "tape_width_mm",
+          "label": "Tape Width (mm)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "leds_per_cut_segment",
+          "label": "LEDs Per Cut Segment",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "max_case_temp_c",
+          "label": "Max Case Temperature (°C)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "channel_limits",
+          "label": "Channel Limits",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Tape-Channel"
         }
       ]
     },
