@@ -23,6 +23,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-2.3 | Open design: schedule lines, builds, readiness, review requirement | Done (gate approval in WP-4.4) |
 | WP-2.4 | `ilL-System-Design`, save and revisions | Done (UI wiring in Phase 3) |
 | WP-2.5 | Reconcile and copy-forward | Done (dialog UI in Phase 3) |
+| WP-2.6 | Riser 1.3.0 ERP edition | Draft PR riser-diagram-generator#1; tag `v1.3.0` after merge |
 
 ## WP-0.1 — Portal access audit
 
@@ -312,3 +313,19 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   - Copying is limited to versions of the same schedule; the plan does not say whether other schedules
     in the project qualify.
   - The reconcile dialog itself is part of the Phase 3 designer UI; the data it shows is ready.
+
+## WP-2.6 — Riser 1.3.0 "ERP edition"
+
+- In `riser-diagram-generator` (draft PR #1): the loopback proxy's `GET /api/erp/catalog` calls
+  `get_catalog_for_desktop` with the staff API key from `.env`. Libraries → **ilLumenate catalog**
+  replaces ERPNext Sync. The Item pull, the demo records and the `custom_riser_*` mapping are removed.
+- Catalog products are read-only, with no local overrides. Duplicate makes a local variant. Products that
+  leave the catalog stay, read-only, so existing projects open.
+- README and user guide carry the deprecation notice pointing to the System Designer.
+- Discrepancies and choices:
+  - The riser schema gained the optional `usableLoadFactor` (it is strict, and the catalog sends it). The
+    riser engine uses it only to tighten the operating-target warning.
+  - The planner `rank` (D6) is stripped on load.
+  - The catalog test fixture is a copy of `fixtures/catalog/payload.json`. Update it there when the
+    contract changes.
+  - Tagging waits for the merge so the tag points at `main`.
