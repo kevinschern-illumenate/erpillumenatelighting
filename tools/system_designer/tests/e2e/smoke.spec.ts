@@ -100,3 +100,21 @@ test('runs are dragged onto a supply output on the power board', async ({ page }
   await page.getByTestId('pool-a1linear:2:1').dragTo(page.getByTestId('output-PS-1-OUT1'));
   await expect(page.getByRole('alert')).toHaveText('PS-1/OUT1 would carry 79.2 W of its 76.8 W usable');
 });
+
+test('the Check step runs the engine in a worker and sizes an assigned run', async ({ page }) => {
+  await serve(page);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(`${ORIGIN}/portal/schedules/SCH-0001/design`);
+  await page.getByRole('button', { name: 'Accept and continue' }).click();
+  await page.getByRole('button', { name: 'Spaces' }).click();
+  await page.getByTestId('space-space-kitchen').getByRole('button', { name: 'Add cabinet' }).click();
+  await page.getByRole('button', { name: 'Power' }).click();
+  await page.getByTestId('board-C-1').getByRole('button', { name: 'Add supply' }).click();
+  await page.getByRole('button', { name: 'Add Test 96 W supply' }).click();
+  await page.getByTestId('pool-a1linear:1:1').dragTo(page.getByTestId('output-PS-1-OUT1'));
+  await page.getByRole('navigation').getByRole('button', { name: 'Check' }).click();
+  await expect(page.getByTestId('result-a1linear:1:1')).toContainText('18/2 CL3R');
+  await expect(page.getByTestId('check-UNRESOLVED_REF-PS-1')).toContainText('PS-1 is not on a panel circuit yet.');
+  expect(errors).toEqual([]);
+});

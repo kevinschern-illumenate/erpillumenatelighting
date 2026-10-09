@@ -221,6 +221,7 @@ export function removeCircuit(design: Design, sourceId: string) {
   const refs = new Set([sourceId, source?.tag]);
   for (const item of design.project.equipment) if (refs.has(item.fedFrom.ref)) item.fedFrom = { ref: 'unassigned' };
   design.project.sources = design.project.sources.filter((item) => item.id !== sourceId);
+  for (const run of design.runs) if (run.assignment?.equipmentId === sourceId) delete run.assignment;
   for (const cabinet of design.site.cabinets) if (cabinet.sourceId === sourceId) delete cabinet.sourceId;
 }
 

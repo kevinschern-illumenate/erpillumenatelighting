@@ -165,6 +165,38 @@ export function assignRuns(
   for (const run of design.runs) if (keys.has(run.key)) run.assignment = { equipmentId, port };
 }
 
+/** The port name for a line-voltage fixture on a panel circuit. */
+export const LINE_PORT = 'LINE';
+
+/** Why these runs cannot go on this panel circuit, or null when they can (line-voltage fixtures, D8). */
+export function circuitProblem(
+  design: Design,
+  context: PowerContext,
+  runKeys: readonly string[],
+  sourceId: string,
+): string | null {
+  const source = design.project.sources.find((item) => item.id === sourceId);
+  if (!source) return 'That circuit is no longer in the design';
+  const keys = new Set(runKeys);
+  const runs = design.runs.filter((run) => keys.has(run.key));
+  if (!runs.length) return 'Choose runs to assign';
+  for (const run of runs) {
+    const needs = runElectrical(run, context);
+    if (!needs.lineVoltage) return `${runLabel(run)} is low voltage; put it on a supply output`;
+    if (needs.voltage !== null && needs.voltage !== source.voltage)
+      return `${runLabel(run)} needs ${needs.voltage} V; ${source.tag} is ${source.voltage} V`;
+  }
+  return null;
+}
+
+/** Feed line-voltage fixtures straight from a panel circuit; throws the refusal reason. */
+export function assignToCircuit(design: Design, context: PowerContext, runKeys: readonly string[], sourceId: string) {
+  const problem = circuitProblem(design, context, runKeys, sourceId);
+  if (problem) throw new Error(problem);
+  const keys = new Set(runKeys);
+  for (const run of design.runs) if (keys.has(run.key)) run.assignment = { equipmentId: sourceId, port: LINE_PORT };
+}
+
 export function unassignRuns(design: Design, runKeys: readonly string[]) {
   const keys = new Set(runKeys);
   for (const run of design.runs) if (keys.has(run.key)) delete run.assignment;

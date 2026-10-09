@@ -7,6 +7,8 @@ import {
   addZone,
   assignmentProblem,
   assignRuns,
+  assignToCircuit,
+  circuitProblem,
   capacity,
   fitSorted,
   FROM_CONFIGURATOR,
@@ -17,6 +19,7 @@ import {
   removeSupply,
   removeZone,
   reviewHints,
+  runElectrical,
   setRunZone,
   setSupplyCircuit,
   unassignRuns,
@@ -28,7 +31,7 @@ import {
 import { runRows, type RunRow } from '@ill/engine/runs';
 import { addCabinet, distanceDefaults } from '@ill/engine/site';
 import { DesignApiError, type DesignApi } from '../design/api';
-import { loadCatalog, type DesignCatalog } from '../design/catalog';
+import type { CatalogState } from '../design/catalog';
 import type { DesignStore } from '../design/store';
 import { CommitInput } from './fields';
 import type { OpenDesign } from './open';
@@ -36,9 +39,6 @@ import type { OpenDesign } from './open';
 const DRAG_TYPE = 'application/x-ill-runs';
 const watts = (value: number) => `${Number(value.toFixed(1))} W`;
 const total = (runs: readonly Run[]) => runs.reduce((sum, run) => sum + run.watts, 0);
-
-type CatalogState =
-  { state: 'loading' } | { state: 'error'; message: string } | { state: 'ready'; catalog: DesignCatalog };
 
 /**
  * The power board (plan §10.1–10.2, §10.5): unassigned runs on the left, cabinets with their supplies and
@@ -49,34 +49,19 @@ export function PowerStep({
   open,
   store,
   api,
+  catalog,
   readOnly,
 }: {
   open: OpenDesign;
   store: DesignStore;
   api: DesignApi;
+  catalog: CatalogState;
   readOnly: boolean;
 }) {
   const design = useStore(store, (s) => s.design);
-  const [catalog, setCatalog] = useState<CatalogState>({ state: 'loading' });
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState('');
   const [picking, setPicking] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadCatalog(api, open.catalog_hash).then(
-      (value) => !cancelled && setCatalog({ state: 'ready', catalog: value }),
-      (problem: unknown) =>
-        !cancelled &&
-        setCatalog({
-          state: 'error',
-          message: problem instanceof DesignApiError ? problem.message : 'The ilLumenate catalog could not be loaded.',
-        }),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [api, open.catalog_hash]);
 
   const context = useMemo<PowerContext | null>(
     () =>
@@ -314,6 +299,75 @@ export function PowerStep({
               ))}
             </div>
           </div>
+
+          {design.runs.some((run) => runElectrical(run, context).lineVoltage) ? (
+            <article className="ill-sd__card" data-testid="line-circuits">
+              <h3>Line-voltage fixtures</h3>
+              <p className="ill-sd__muted">
+                Line-voltage fixtures are fed straight from a panel circuit. Add circuits on the Spaces step.
+              </p>
+              {design.project.sources.map((source) => {
+                const runs = design.runs.filter((run) => run.assignment?.equipmentId === source.id);
+                const problem = keys.length ? circuitProblem(design, context, keys, source.id) : null;
+                return (
+                  <div
+                    key={source.id}
+                    className="ill-sd__output"
+                    data-testid={`circuit-${source.tag}`}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const dropped = dropKeys(event);
+                      if (dropped.length) change((draft) => assignToCircuit(draft, context, dropped, source.id));
+                    }}
+                  >
+                    <div className="ill-sd__row">
+                      <strong>{source.tag}</strong>
+                      <span className="ill-sd__muted">
+                        {source.panel}/{source.circuit} · {source.voltage} V · {source.breakerA} A ·{' '}
+                        {watts(total(runs))}
+                      </span>
+                      <button
+                        type="button"
+                        className="ill-sd__pick"
+                        disabled={!keys.length}
+                        onClick={() =>
+                          change((draft) => assignToCircuit(draft, context, keys, source.id)) && setSelected(new Set())
+                        }
+                      >
+                        Assign here
+                      </button>
+                    </div>
+                    {problem ? <p className="ill-sd__muted ill-sd__refusal">{problem}</p> : null}
+                    {runs.length ? (
+                      <ul className="ill-sd__assigned">
+                        {runRows(runs).map((row) => (
+                          <li key={row.id}>
+                            {row.label} · {watts(total(row.runs))}
+                            <button
+                              type="button"
+                              className="ill-sd__pick"
+                              aria-label={`Unassign ${row.label}`}
+                              onClick={() =>
+                                change((draft) =>
+                                  unassignRuns(
+                                    draft,
+                                    row.runs.map((run) => run.key),
+                                  ),
+                                )
+                              }
+                            >
+                              ×
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </article>
+          ) : null}
 
           <Zones
             zones={design.zones}

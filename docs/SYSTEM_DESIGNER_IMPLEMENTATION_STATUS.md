@@ -448,3 +448,36 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     phase-cut device limits come with the checks in WP-3.5.
   - Run environments stay as set on the Spaces and Runs steps; the cabinet cascade applies to the
     supplies inside the cabinet.
+
+## WP-3.5 — Engine integration and checks UI
+
+- Engine: `packages/engine/src/designCheck.ts`.
+  - `checkDesign` runs the riser engine on the design's derived loads, then adds the run-level checks
+    and the designer's Appendix C checks. It is pure and runs in a Web Worker
+    (`app/src/workers/engine.worker.ts`), re-running a short pause after each edit; stale answers are dropped.
+  - Voltage-drop targets (D5) come from Settings. A project may tighten them. Only an Applications
+    Engineer loosens one, with a reason, recorded as a `VD_TARGET_LOOSENED` staff override; a saved looser
+    value without that override is ignored.
+  - In-wall runs are sized only from CL2 or CL3 listed cable (CL2, CL2R, CL2P, CL3, CL3R, CL3P).
+  - Wire selection uses the catalog's wire types. "Use a heavier wire" pins the next heavier passing size
+    as a wire override; "Back to automatic" removes the pin.
+  - Third-party lines (D8) become `tp:{key}` fixture items marked "Data by dealer". Line-voltage
+    third-party fixtures are fed from a panel circuit on the Power step.
+  - Designer checks added: run not on a supply or circuit (one per space), supply not on a circuit yet,
+    cabinet with no access note, data by dealer (one per line), schedule changed since the design was
+    built, ilLumenate review required, and a note when a target was loosened.
+  - Acknowledgements (§11.5): dealers accept warnings with a reason; errors need an Applications
+    Engineer override. Accepted checks show as notes with the reason and can be withdrawn.
+- App: the Check step shows the targets, every check with its fix (heavier wire in place, or the step
+  where it is fixed), accept and withdraw, sized home runs (wire, length, current, voltage drop against
+  the target, end voltage) and pinned wires. The checks panel follows the same results on every step.
+- Server: `open_design` returns the signed-in `user`, recorded on acknowledgements and overrides.
+- Bundle: the engine worker is a separate committed asset under `public/system_designer/assets/`.
+- Tests: engine `designCheck.test.ts`; jsdom `CheckStep.test.tsx` and the line-voltage case in
+  `PowerStep.test.tsx`; Playwright runs the checks in a real worker in `tests/e2e/smoke.spec.ts`.
+- Discrepancies and choices:
+  - The NEC code tables ship in the bundle on their own (`@ill/data/codeTables`) so the EXAMPLE seed
+    products never reach the browser.
+  - Run-length checks already listed by the Runs step are not repeated from the engine.
+  - Dimmer minimum load, LED maximum and neutral checks have codes reserved but wait on dimmer data in
+    the catalog; they are not reported yet.

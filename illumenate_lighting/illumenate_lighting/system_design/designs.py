@@ -106,6 +106,7 @@ def open_design(schedule, design=None):
 		"permissions": permissions(doc),
 		"settings": client_settings(values),
 		"newer_version": newer_version(doc) if doc.get("is_locked") else None,
+		"user": frappe.session.user,
 	}
 
 

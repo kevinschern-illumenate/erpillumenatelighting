@@ -6,7 +6,7 @@ import catalogPayload from '../../../packages/core-schemas/fixtures/catalog/payl
 import type { DesignApi, EligibleSupply } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { createDesignStore, type DesignStore } from '../design/store';
-import { addCabinet, distanceDefaults } from '@ill/engine/site';
+import { addCabinet, addCircuit, distanceDefaults } from '@ill/engine/site';
 import { openFixture } from './fixture';
 import { newDesign } from './open';
 import { Shell } from './Shell';
@@ -155,6 +155,23 @@ describe('Power step', () => {
     expect(byTest('review-hints')?.textContent).toContain('Phase-cut dimming');
     await click(button('Remove', byTest('zone-zone-1')!));
     expect(run('b1tape:1:1').zoneId).toBeUndefined();
+  });
+
+  it('feeds line-voltage fixtures from a panel circuit', async () => {
+    store.getState().edit((draft) => {
+      addCircuit(draft);
+    });
+    await flush();
+    const circuit = byTest('circuit-CKT-1')!;
+    await click(field('Select A1-1.1'));
+    expect(circuit.textContent).toContain('A1-1.1 is low voltage; put it on a supply output');
+    await click(field('Select A1-1.1'));
+    await click(field('Select E1-1.1 … E1-6.1 (6 runs)'));
+    await click(button('Assign here', byTest('circuit-CKT-1')!));
+    expect(run('e1other:1:1').assignment).toEqual({ equipmentId: design().project.sources[0]!.id, port: 'LINE' });
+    expect(byTest('circuit-CKT-1')?.textContent).toContain('E1-1.1 … E1-6.1 (6 runs) · 72 W');
+    await click(field('Unassign E1-1.1 … E1-6.1 (6 runs)'));
+    expect(run('e1other:1:1').assignment).toBeUndefined();
   });
 
   it('says when the catalog cannot be loaded', async () => {

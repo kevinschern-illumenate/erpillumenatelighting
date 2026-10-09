@@ -10,7 +10,11 @@ import { RunsStep } from './RunsStep';
 import { SpacesStep } from './SpacesStep';
 import { StartStep } from './StartStep';
 import { TermsDialog } from './TermsDialog';
-import { runCheckItems, type Check, type OpenDesign } from './open';
+import { engineCheckItems, runCheckItems, type Check, type OpenDesign } from './open';
+import { CheckStep } from './CheckStep';
+import { useCatalog } from '../design/catalog';
+import { useDesignCheck } from '../design/engine';
+import { vdLimits } from '@ill/engine/designCheck';
 import { STEPS, type Mode, type StepId } from './steps';
 
 const EDITABLE_STATUSES = new Set(['Draft', 'Changes Requested']);
@@ -64,10 +68,21 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
   const [step, setStep] = useState<StepId>('start');
   const [mode, setMode] = useState<Mode>('guided');
   const [checksOpen, setChecksOpen] = useState(true);
-  const allChecks = useMemo(
-    () => (design ? [...checks, ...runCheckItems(design, open.builds)] : checks),
-    [checks, design, open.builds],
-  );
+  const reconcile = useStore(store, (s) => s.reconcile);
+  const reconciled = useStore(store, (s) => s.reconciled);
+  const catalog = useCatalog(api, open.catalog_hash);
+  const limits = useMemo(() => vdLimits(open.settings), [open.settings]);
+  const engine = useDesignCheck(design, catalog.state === 'ready' ? catalog.catalog : null, open.lines, limits, {
+    reviewRequired: open.review_requirement.required,
+    outOfSync: Boolean(reconcile && !reconcile.in_sync && !reconciled),
+  });
+  const allChecks = useMemo(() => {
+    if (!design) return checks;
+    const runItems = runCheckItems(design, open.builds);
+    const runChecked = new Set(runItems.map((item) => item.id.split(':').slice(1).join(':')));
+    const engineItems = engine.state === 'ready' ? engineCheckItems(engine.check.messages, design, runChecked) : [];
+    return [...checks, ...runItems, ...engineItems];
+  }, [checks, design, open.builds, engine]);
   const readOnly = readOnlyReason(open, meta?.status);
   const review = reviewChip(open, meta?.status);
   const canSave = !readOnly && dirty && saveStatus !== 'saving';
@@ -187,7 +202,17 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
           ) : step === 'runs' ? (
             <RunsStep open={open} store={store} readOnly={Boolean(readOnly)} />
           ) : step === 'power' ? (
-            <PowerStep open={open} store={store} api={api} readOnly={Boolean(readOnly)} />
+            <PowerStep open={open} store={store} api={api} catalog={catalog} readOnly={Boolean(readOnly)} />
+          ) : step === 'check' ? (
+            <CheckStep
+              open={open}
+              store={store}
+              engine={engine}
+              catalog={catalog}
+              limits={limits}
+              readOnly={Boolean(readOnly)}
+              goTo={setStep}
+            />
           ) : (
             <section aria-labelledby="ill-sd-step-title">
               <h2 id="ill-sd-step-title">{current.label}</h2>

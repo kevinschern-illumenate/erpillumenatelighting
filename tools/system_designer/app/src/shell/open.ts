@@ -6,6 +6,7 @@ import { ProjectSettingsSchema } from '@ill/core-schemas/project';
 import { createDraft } from '@ill/core-schemas/workspace';
 import { expandRuns, type ExpandOptions, type Skipped } from '@ill/engine/expand';
 import type { ReconcileDiff } from '@ill/engine/reconcile';
+import type { DesignMessage } from '@ill/engine/designCheck';
 import { runChecks, runLabel } from '@ill/engine/runs';
 import type { DesignMeta } from '../design/api';
 
@@ -55,6 +56,8 @@ export const OpenDesignSchema = z.object({
   permissions: z.object({ can_edit: z.boolean(), can_review: z.boolean(), can_view_pricing: z.boolean() }),
   settings: z.record(z.string(), z.unknown()),
   newer_version: z.object({ name: z.string(), version: z.number() }).nullish(),
+  /** The signed-in user, recorded on acknowledgements and overrides. */
+  user: z.string().nullish(),
 });
 export type OpenDesign = z.infer<typeof OpenDesignSchema>;
 
@@ -152,6 +155,46 @@ export function runCheckItems(design: Design, builds: OpenDesign['builds']): Che
       detail: item.text,
     };
   });
+}
+
+/** A readable name for a check's subject: a run, supply, cabinet, space, line or the design. */
+export function entityLabel(design: Design, ref: string): string {
+  if (ref === 'project') return 'Design';
+  if (ref.startsWith('load:')) {
+    const run = design.runs.find((item) => `load:${item.key}` === ref);
+    return run ? `Run ${runLabel(run)}` : ref;
+  }
+  if (ref.startsWith('line:')) {
+    const run = design.runs.find((item) => `line:${item.lineKey}` === ref);
+    return run ? `Line ${run.lineId}` : ref;
+  }
+  const equipment = design.project.equipment.find((item) => item.id === ref);
+  if (equipment) return equipment.tag;
+  const cabinet = design.site.cabinets.find((item) => item.id === ref);
+  if (cabinet) return `Cabinet ${cabinet.tag}`;
+  const space = design.site.spaces.find((item) => item.id === ref);
+  if (space) return space.name;
+  const source = design.project.sources.find((item) => item.id === ref);
+  return source ? `Circuit ${source.tag}` : ref;
+}
+
+/** Engine and designer checks as panel checks. Acknowledged ones drop to notes; run-length repeats are skipped. */
+export function engineCheckItems(messages: readonly DesignMessage[], design: Design, runChecked: ReadonlySet<string>) {
+  const checks: Check[] = [];
+  for (const item of messages) {
+    if (
+      (item.code === 'TAPE_RUN_TOO_LONG' || item.code === 'MAX_LENGTH_HINT') &&
+      runChecked.has(item.entityRef.replace(/^load:/, ''))
+    )
+      continue;
+    checks.push({
+      id: `${item.code}:${item.entityRef}:${item.text}`,
+      severity: item.override ? 'info' : item.severity,
+      title: entityLabel(design, item.entityRef),
+      detail: item.override ? `${item.text} Accepted: ${item.override.reason}` : item.text,
+    });
+  }
+  return checks;
 }
 
 export function severityCounts(checks: Check[]): Record<Severity, number> {
