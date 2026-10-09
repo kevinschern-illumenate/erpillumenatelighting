@@ -423,6 +423,7 @@ def detail(offer_name):
 		except frappe.ValidationError as exc:
 			can_respond, reason = False, str(exc)
 	file_url = frappe.db.get_value("File", offer.pdf_file, "file_url") if offer.pdf_file else None
+	status_label, status_class = offer_status(offer.state, offer.valid_until, nowdate())
 	return {
 		"name": offer.name,
 		"quotation": offer.quotation,
@@ -437,6 +438,8 @@ def detail(offer_name):
 		"response_note": offer.response_note,
 		"can_respond": can_respond,
 		"unavailable_reason": reason,
+		"status_label": status_label,
+		"status_class": status_class,
 	}
 
 
@@ -493,6 +496,23 @@ def list_offers(after=None, limit=20, status="all", search=None):
 	return {"offers": offers, "next_cursor": rows[limit - 1].name if len(rows) > limit else None}
 
 
+OFFER_LABELS = {
+	"ISSUED": ("Awaiting your response", "warning"),
+	"ACCEPTED": ("Accepted", "success"),
+	"DECLINED": ("Declined", "secondary"),
+	"REVISION_REQUESTED": ("Revision requested", "info"),
+	"SUPERSEDED": ("Replaced by a newer quote", "secondary"),
+	"CANCELLED": ("Cancelled", "secondary"),
+}
+
+
+def offer_status(state, valid_until, today):
+	"""Buyer-facing label and badge class; an issued offer past its validity date is expired."""
+	if state == "ISSUED" and valid_until and str(valid_until) < str(today):
+		return "Expired", "danger"
+	return OFFER_LABELS.get(state, (state, "secondary"))
+
+
 def _describe(offers, today):
 	"""Add the project, schedule, total and a buyer-facing status to each listed offer."""
 	if not offers:
@@ -523,21 +543,10 @@ def _describe(offers, today):
 		if project_names
 		else {}
 	)
-	labels = {
-		"ISSUED": ("Awaiting your response", "warning"),
-		"ACCEPTED": ("Accepted", "success"),
-		"DECLINED": ("Declined", "secondary"),
-		"REVISION_REQUESTED": ("Revision requested", "info"),
-		"SUPERSEDED": ("Replaced by a newer quote", "secondary"),
-		"CANCELLED": ("Cancelled", "secondary"),
-	}
 	for offer in offers:
 		quotation = quotations.get(offer.quotation) or {}
 		schedule = schedules.get(offer.schedule) or {}
-		expired = offer.state == "ISSUED" and offer.valid_until and str(offer.valid_until) < str(today)
-		offer.status_label, offer.status_class = (
-			("Expired", "danger") if expired else labels.get(offer.state, (offer.state, "secondary"))
-		)
+		offer.status_label, offer.status_class = offer_status(offer.state, offer.valid_until, today)
 		offer.grand_total, offer.currency = quotation.get("grand_total"), quotation.get("currency")
 		offer.schedule_name = schedule.get("schedule_name") or offer.schedule
 		offer.project_name = projects.get(schedule.get("ill_project"))

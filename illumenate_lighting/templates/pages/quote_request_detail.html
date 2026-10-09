@@ -1,22 +1,87 @@
 {% extends "templates/web.html" %}
+{% block title %}{{ request.name }}{% endblock %}
 {% block page_content %}
 {% include "templates/includes/portal_navigation.html" %}
-<main class="container py-4">
-  <a href="/portal/quotes">{{ _("Quotes and requests") }}</a>
-  <h1>{{ request.name | e }}</h1>
-  <p>{{ request.state | e }} · {{ _("Requested by") }} {{ request.requested_by | e }}</p>
-  <p>{{ _("Requested timing") }}: {{ request.snapshot.requested_date or _("Not specified") }}. {{ _("Staff review due") }}: {{ request.due_date or _("Not assigned") }}</p>
-  <p>{{ request.snapshot.contact | default('', true) | e }}</p>
-  <p style="white-space:pre-wrap">{{ request.snapshot.notes | e }}</p>
-  {% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
-  {% if awaiting %}<p class="alert alert-warning">{{ awaiting | length }} lines awaiting verification</p>{% endif %}
-  <p>{{ _("This is the submitted scope. Sales issues a separate quotation with commercial terms. OTHER manufacturer lines remain specification-only.") }}</p>
-  <div class="table-responsive"><table class="table"><thead><tr><th>{{ _("Designation") }}</th><th>{{ _("Quantity") }}</th><th>{{ _("Manufacturer") }}</th><th>{{ _("Location / notes") }}</th></tr></thead><tbody>
-  {% for line in request.snapshot.lines %}<tr><td>{{ line.line_id | e }}</td><td>{{ line.qty }}</td><td>{{ line.manufacturer_name or line.manufacturer_type }}</td><td>{{ line.location | default('', true) | e }}<br>{{ line.notes | default('', true) | e }}</td></tr>{% endfor %}
-  </tbody></table></div>
-  {% for file in request.files %}<a class="d-block" href="{{ file.file_url | e }}">{{ file.file_name | e }}</a>{% endfor %}
-  <a class="btn btn-outline-secondary my-3" href="/portal/schedules/{{ request.schedule | urlencode }}">{{ _("Current schedule") }}</a>
-  <h2 class="h5 mt-4">{{ _("Conversation with ilLumenate") }}</h2>
-  <div data-portal-conversation data-parent-type="ilL-Quote-Request" data-parent-name="{{ request.name | e }}"></div>
+{% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
+<main class="container ill-commerce">
+  <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Quotes and requests") }}</a>
+  <header class="ill-hero">
+    <div class="ill-hero__top">
+      <div>
+        <p class="ill-hero__eyebrow">{{ _("Quote request") }}</p>
+        <h1>{{ request.name | e }}</h1>
+        <p class="ill-hero__lead">{{ request.schedule_name | default(request.schedule, true) | e }}</p>
+      </div>
+      <div class="ill-hero__actions">
+        <span class="ill-status ill-status--{{ request.status_class | default('secondary', true) | e }}">{{ _(request.status_label | default(request.state, true)) | e }}</span>
+        <a class="btn btn-outline-light btn-sm" href="/portal/schedules/{{ request.schedule | urlencode }}">{{ _("Current schedule") }}</a>
+      </div>
+    </div>
+    <dl class="ill-hero__facts">
+      <div><dt>{{ _("Requested by") }}</dt><dd>{{ request.requested_by | e }}</dd></div>
+      <div><dt>{{ _("Requested timing") }}</dt><dd>{{ request.snapshot.requested_date or _("Not specified") }}</dd></div>
+      <div><dt>{{ _("Staff review due") }}</dt><dd>{{ frappe.utils.format_date(request.due_date) if request.due_date else _("Not assigned") }}</dd></div>
+      <div><dt>{{ _("Lines") }}</dt><dd>{{ request.snapshot.lines | length }}</dd></div>
+    </dl>
+  </header>
+
+  <div class="ill-layout">
+    <div class="ill-layout__main">
+      {% if request.state == 'INFORMATION_NEEDED' %}
+      <div class="ill-next ill-next--buyer" role="status">
+        <span class="ill-next__icon"><i class="fa fa-comment-o" aria-hidden="true"></i></span>
+        <div><p class="ill-next__label">{{ _("Next step") }}</p><p class="ill-next__text">{{ _("ilLumenate needs more information. Reply in the conversation below.") }}</p></div>
+      </div>
+      {% endif %}
+      {% if awaiting %}
+      <div class="ill-next" role="status">
+        <span class="ill-next__icon"><i class="fa fa-hourglass-half" aria-hidden="true"></i></span>
+        <div><p class="ill-next__label">{{ _("Verification") }}</p><p class="ill-next__text">{{ awaiting | length }} {{ _("lines awaiting verification") }}</p></div>
+      </div>
+      {% endif %}
+
+      <section class="ill-panel" id="request-conversation" aria-labelledby="request-conversation-heading">
+        <div class="ill-panel__head"><h2 id="request-conversation-heading">{{ _("Conversation with ilLumenate") }}</h2><p>{{ _("Questions about this request and your replies, oldest first.") }}</p></div>
+        <div class="ill-panel__body"><div data-portal-conversation data-parent-type="ilL-Quote-Request" data-parent-name="{{ request.name | e }}"></div></div>
+      </section>
+
+      <section class="ill-panel ill-panel--flush" aria-labelledby="request-lines-heading">
+        <div class="ill-panel__head"><h2 id="request-lines-heading">{{ _("Submitted scope") }}</h2><p>{{ _("This is the submitted scope. Sales issues a separate quotation with commercial terms. OTHER manufacturer lines remain specification-only.") }}</p></div>
+        <div class="ill-panel__body table-responsive">
+          <table class="ill-lines">
+            <thead><tr><th scope="col">{{ _("Designation") }}</th><th scope="col" class="num">{{ _("Quantity") }}</th><th scope="col">{{ _("Manufacturer") }}</th><th scope="col">{{ _("Location / notes") }}</th></tr></thead>
+            <tbody>
+            {% for line in request.snapshot.lines %}<tr>
+              <td><span class="ill-lines__name">{{ line.line_id | e }}</span></td>
+              <td class="num" data-label="{{ _('Quantity') }}">{{ line.qty }}</td>
+              <td data-label="{{ _('Manufacturer') }}">{{ (line.manufacturer_name or line.manufacturer_type) | e }}</td>
+              <td data-label="{{ _('Location / notes') }}">{{ line.location | default('', true) | e }}{% if line.notes %}<div class="ill-lines__meta">{{ line.notes | e }}</div>{% endif %}</td>
+            </tr>{% else %}<tr><td colspan="4" class="ill-lines__meta">{{ _("No lines were submitted.") }}</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <aside class="ill-layout__aside" aria-label="{{ _('Request details') }}">
+      <section class="ill-panel" aria-labelledby="request-notes-heading">
+        <div class="ill-panel__head"><h2 id="request-notes-heading">{{ _("Your request") }}</h2></div>
+        <div class="ill-panel__body">
+          <dl class="ill-facts ill-facts--stack">
+            <div><dt>{{ _("Contact") }}</dt><dd>{{ request.snapshot.contact | default('', true) | e or _("Not provided") }}</dd></div>
+            <div><dt>{{ _("Notes") }}</dt><dd class="ill-prewrap">{{ request.snapshot.notes | default('', true) | e or _("None") }}</dd></div>
+          </dl>
+        </div>
+      </section>
+      {% if request.files %}
+      <section class="ill-panel" aria-labelledby="request-files-heading">
+        <div class="ill-panel__head"><h2 id="request-files-heading">{{ _("Files") }}</h2></div>
+        <div class="ill-panel__body">
+          <ul class="ill-action-list">{% for file in request.files %}<li><a href="{{ file.file_url | e }}"><i class="fa fa-paperclip" aria-hidden="true"></i> {{ file.file_name | e }}</a></li>{% endfor %}</ul>
+        </div>
+      </section>
+      {% endif %}
+    </aside>
+  </div>
 </main>
 {% endblock %}
