@@ -768,6 +768,9 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   engineering schedules with a "FIXTURE SCHEDULE & ORDERING" page. That page has a colour key, the
   dealer's schedule lines (type, product, part number, quantity, location), power supplies and
   controls, wire to order (gauge, conductors, estimated length) and notes. It has no prices.
+- Client cards keep the voltages in and out (a supply fed off the drawing shows its datasheet input
+  range, e.g. `100-277 V AC IN`), the port names (AC IN, OUT1, DC IN, DMX IN) and a `CONTROL:` line
+  naming the protocols on the card's control wiring. Watts, loading and DMX addresses stay on the riser.
 - Wire callouts on the client diagram are "LV Wire · 18 AWG · 2 conductors", with the gauge taken from
   the wire the engine chose. Line voltage is marked "by electrician".
 - A configured fixture shows its own part number, not its tape's. `open_design` builds now carry

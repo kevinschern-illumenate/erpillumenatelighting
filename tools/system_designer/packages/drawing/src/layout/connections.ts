@@ -527,8 +527,7 @@ export function drawConnections(
         if (terminal.inlineMarker && terminal.side === 'W')
           p.x = terminal.point.x - textWidth(terminal.name) - 0.42;
         if (terminal.side === 'S') p.y = terminal.point.y - 0.19;
-        // Terminal names are installer detail; the client diagram leaves them out.
-        if (!wires.client) terminalLabels.push(p);
+        terminalLabels.push(p);
       } else {
         const marker = terminal.marker!;
         sheet.prims.push(

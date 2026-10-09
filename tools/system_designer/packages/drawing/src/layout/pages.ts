@@ -25,6 +25,7 @@ import { modelLabel } from '../labels';
 import type { DrawingOptions } from '../options';
 import { clientSymbol, productFamily } from '../client';
 import type { DrawnRuns } from '../wires';
+import { controlName } from './continuations';
 
 export const layerForRun = (run: RunResult): LayerName =>
   run.type.startsWith('lv-')
@@ -411,10 +412,27 @@ export async function layoutProject(
                 ? node.entity.zone
                 : '',
         };
-        // The client diagram leaves out the electrical figures; the riser carries them.
-        if (client)
-          for (const tag of ['VIN', 'VOUT', 'WATTS', 'LOAD_PCT', 'DMX_ADDR'] as const)
-            attrs[tag] = '';
+        // The client diagram keeps the voltages in and out and names the control protocols on a
+        // card in place of DMX addresses; wattage and loading stay on the riser.
+        if (client) {
+          attrs.WATTS = '';
+          attrs.LOAD_PCT = '';
+          // A supply fed off this drawing still says what it takes in, from its datasheet range.
+          if (!attrs.VIN && (item?.specs.kind === 'psu' || item?.specs.kind === 'driver')) {
+            const { inputVMin: low, inputVMax: high, inputType } = item.specs;
+            attrs.VIN = `${low === high ? low : `${low}-${high}`} V ${inputType} IN`;
+          }
+          const protocols = [
+            ...new Set(
+              result.runs
+                .filter(
+                  (r) => (r.from.id === n.id || r.to.id === n.id) && !powerTypes.includes(r.type),
+                )
+                .map(controlName),
+            ),
+          ];
+          attrs.DMX_ADDR = protocols.length ? `CONTROL: ${protocols.join(', ')}` : '';
+        }
         sheet.prims.push({
           kind: 'block',
           layer: n.symbol.prims[0]!.layer,

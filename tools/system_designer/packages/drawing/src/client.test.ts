@@ -7,6 +7,9 @@ import { checkDesign } from '@ill/engine/designCheck';
 import { riserProject, type RiserMeta } from '@ill/engine/riser';
 import { serializePdf } from '@ill/serializers/pdf/pdf';
 import { serializeSvg } from '@ill/serializers/svg';
+import { demoProject } from '@ill/data/demo';
+import { seedLibrary } from '@ill/data/library';
+import { calculate } from '@ill/engine/calculate';
 import { buildDrawing } from './build';
 import { PRODUCT_COLORS, WIRE_COLORS } from './client';
 import { flattenSheet, type Drawing } from './model';
@@ -109,6 +112,37 @@ describe('client diagram', () => {
     // The dealer's own product goes by its model, never the designer's id.
     expect(texts(drawing).join('\n')).not.toContain('tp:');
     expect(drawing.sheets.every((sheet) => sheet.colored)).toBe(true);
+  });
+
+  it('keeps the voltages, ports and control protocols on the cards, but not watts or DMX addresses', async () => {
+    const project = demoProject(),
+      library = seedLibrary();
+    const drawing = await buildDrawing(project, library, calculate(project, library), {
+      style: 'client',
+    });
+    const blocks = drawing.sheets.flatMap((sheet) =>
+      sheet.prims.flatMap((p) => (p.kind === 'block' && p.entityId ? [p] : [])),
+    );
+    const card = (id: string) => blocks.find((block) => block.entityId === id)!.attributes;
+    expect(card('ps-1')).toMatchObject({
+      VIN: '120 V IN',
+      VOUT: '24 V OUT',
+      WATTS: '',
+      LOAD_PCT: '',
+    });
+    expect(card('dec-1').DMX_ADDR).toBe('CONTROL: DMX512');
+    const all = texts(drawing).join('\n');
+    for (const port of ['AC IN', 'DC IN', 'DMX IN']) expect(all).toContain(port);
+    expect(all).not.toMatch(/DMX U\d/);
+  });
+
+  it('shows a supply fed off the drawing with its datasheet input range', async () => {
+    const { drawing, result } = await draw('third-party-mixed', options);
+    const supply = drawing.sheets
+      .flatMap((sheet) => sheet.prims)
+      .find((p) => p.kind === 'block' && p.entityId === 'PS-1');
+    expect(result.runs.some((run) => run.to.id === 'PS-1')).toBe(false);
+    expect(supply?.kind === 'block' && supply.attributes.VIN).toMatch(/^\d+(-\d+)? V AC IN$/);
   });
 
   it('colours products and wires, and leaves the riser monochrome', async () => {
