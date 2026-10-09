@@ -54,7 +54,7 @@ class PlanListing(unittest.TestCase):
 		)
 		self.assertEqual(tables["gallery_images"], [{"image": "/files/a.jpg", "alt_text": "A"}])
 		self.assertEqual(tables["compatible_products"][0]["related_product"], "ill-drv-01")
-		self.assertEqual(tables["certifications"], [{"certification": "ETL"}, {"certification": "UL"}])
+		self.assertEqual(tables["web_certifications"], [{"certification": "UL"}, {"certification": "ETL"}])
 		self.assertEqual(notes, [])
 
 	def test_never_overwrites_a_template_value(self):
@@ -77,8 +77,10 @@ class PlanListing(unittest.TestCase):
 			TAPE,
 		)
 		self.assertNotIn("warranty_years", values)
+		self.assertIn("warranty_years kept as 3; listing has 5", notes)
+		# The template's own certifications are untouched; the web list goes to its own table.
 		self.assertNotIn("certifications", tables)
-		self.assertIn("certifications kept; listing also has ETL", notes)
+		self.assertEqual(len(tables["web_certifications"]), 2)
 
 	def test_fields_the_template_type_lacks_are_reported(self):
 		values, _tables, notes = call("plan_listing", listing(), template(), DRIVER)

@@ -4,7 +4,7 @@ Run from the repository root after editing ``web_listing_schema.py``:
 
     python tools/stamp_web_listing_fields.py
 
-Idempotent: fields it added before are replaced in place, and a doctype's
+Idempotent: everything from the Web Listing tab on is replaced, and a doctype's
 ``modified`` stamp only moves when its fields actually change, so ``bench migrate``
 reloads exactly the doctypes that changed.
 """
@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	TAB,
 	TEMPLATE_DOCTYPES,
 	fields_for,
 )
@@ -30,7 +31,11 @@ def stamp(doctype, module, now):
 	data = json.loads(path.read_text(encoding="utf-8"))
 	added = fields_for(doctype)
 	names = {field["fieldname"] for field in added}
-	fields = [field for field in data["fields"] if field["fieldname"] not in names] + [
+	# The Web Listing tab is always last, so everything from it on is replaced wholesale;
+	# fields dropped from the definition disappear with it.
+	existing = data["fields"]
+	tab = next((i for i, field in enumerate(existing) if field["fieldname"] == TAB), len(existing))
+	fields = [field for field in existing[:tab] if field["fieldname"] not in names] + [
 		dict(field) for field in added
 	]
 	if fields == data["fields"]:

@@ -68,13 +68,20 @@ def template(**values):
 	return doc
 
 
+class Row(dict):
+	__getattr__ = dict.get
+
+
 class SlugValidation(unittest.TestCase):
-	def validate(self, doc, owners=None, linked=None):
+	def validate(self, doc, owners=None, linked=None, product=None):
+		"""``product`` is the exact name of the Webflow Product the slug finds, if any."""
 		owners = owners or {}
 		with load_service(ROOT + ".web_listing") as (module, frappe):
 
-			def get_value(doctype, filters, fieldname):
+			def get_value(doctype, filters, fieldname, as_dict=False):
 				if doctype == "ilL-Webflow-Product":
+					if as_dict:
+						return Row(name=product, fixture_template=linked) if product else None
 					return linked
 				return owners.get(doctype)
 
@@ -84,6 +91,14 @@ class SlugValidation(unittest.TestCase):
 
 	def test_slug_is_normalised(self):
 		self.assertEqual(self.validate(template(web_slug="  ILL-EL01-SW ")).web_slug, "ill-el01-sw")
+
+	def test_capitals_of_its_own_webflow_product_are_kept(self):
+		doc = template(name="NON-SCM-SW", web_slug="non-scX-sw")
+		self.assertEqual(self.validate(doc, linked="NON-SCM-SW", product="non-scX-sw").web_slug, "non-scX-sw")
+
+	def test_capitals_are_lowercased_when_the_product_is_not_its_own(self):
+		doc = template(name="NON-SCM-SW", web_slug="non-scX-sw")
+		self.assertEqual(self.validate(doc, linked=None, product="non-scX-sw").web_slug, "non-scx-sw")
 
 	def test_blank_slug_is_stored_as_null(self):
 		self.assertIsNone(self.validate(template(web_slug="  ")).web_slug)

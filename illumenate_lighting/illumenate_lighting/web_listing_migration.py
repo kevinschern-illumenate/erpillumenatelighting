@@ -33,7 +33,7 @@ PUBLICATION_DOCTYPES = ("ilL-Product-Publication", "ilL-Publish-Job", "ilL-Produ
 LINK_FIELDS = {field: doctype for doctype, field in WEBFLOW_PRODUCT_LINKS.items()}
 
 # Webflow Product field -> template field, where the names differ.
-RENAMED = {"product_category": "web_category"}
+RENAMED = {"product_category": "web_category", "certifications": "web_certifications"}
 SCALARS = (
 	"product_category",
 	"portal_item",
@@ -65,6 +65,7 @@ TABLES = {
 	"configurator_options": "ilL-Child-Webflow-Configurator-Option",
 	"attribute_links": "ilL-Child-Webflow-Attribute-Link",
 	"compatible_products": "ilL-Child-Webflow-Compatibility",
+	"certifications": "ilL-Child-Webflow-Certification-Link",
 }
 ROW_META = {
 	"name",
@@ -140,25 +141,18 @@ def plan_listing(listing, template, doctype, web_listed=None):
 		elif not _same(value, current):
 			notes.append(f"{target} kept as {current!r}; listing has {value!r}")
 
-	for field in TABLES:
-		rows = _rows(listing.get(field))
+	for source in TABLES:
+		target = RENAMED.get(source, source)
+		rows = _rows(listing.get(source))
 		if not rows:
 			continue
-		if field not in added:
-			notes.append(f"{field} not carried: {doctype} has no such table")
-		elif template.get(field):
-			notes.append(f"{field} kept: template already has {len(template[field])} rows")
+		if target not in added:
+			notes.append(f"{source} not carried: {doctype} has no such table")
+		elif template.get(target):
+			if _rows(template[target]) != rows:
+				notes.append(f"{target} kept: template already has {len(template[target])} rows")
 		else:
-			tables[field] = rows
-
-	certifications = {row.get("certification") for row in listing.get("certifications") or []}
-	certifications.discard(None)
-	if "certifications" in preexisting:
-		missing = certifications - {row.get("certification") for row in template.get("certifications") or []}
-		if missing:
-			notes.append(f"certifications kept; listing also has {', '.join(sorted(missing))}")
-	elif certifications and not template.get("certifications"):
-		tables["certifications"] = [{"certification": name} for name in sorted(certifications)]
+			tables[target] = rows
 
 	backlink = template.get("webflow_product")
 	if backlink and backlink != listing["name"]:
@@ -166,14 +160,14 @@ def plan_listing(listing, template, doctype, web_listed=None):
 	return values, tables, notes
 
 
-def _child_doctype(doctype, field):
-	return frappe.get_meta(doctype).get_field(field).options
+# Template table field -> child doctype; taken from the definition rather than cached meta.
+CHILD_DOCTYPES = {RENAMED.get(field, field): child for field, child in TABLES.items()}
 
 
 def _write(doctype, name, values, tables):
 	frappe.db.set_value(doctype, name, values, update_modified=False)
 	for field, rows in tables.items():
-		child = _child_doctype(doctype, field)
+		child = CHILD_DOCTYPES[field]
 		for idx, row in enumerate(rows, 1):
 			frappe.get_doc(
 				{
@@ -203,9 +197,8 @@ def _migrate_one(listing, doctype, name, dry_run, web_listed=None):
 	if not frappe.db.exists(doctype, name):
 		return {**row, "action": "skipped", "notes": ["template does not exist"]}
 	template = frappe.get_doc(doctype, name).as_dict()
-	if template.get("web_slug") == listing["name"]:
-		return {**row, "action": "already migrated", "notes": []}
-	if template.get("web_slug"):
+	migrated = template.get("web_slug") == listing["name"]
+	if template.get("web_slug") and not migrated:
 		return {
 			**row,
 			"action": "skipped",
@@ -215,15 +208,39 @@ def _migrate_one(listing, doctype, name, dry_run, web_listed=None):
 	if owner:
 		return {**row, "action": "skipped", "notes": [f"slug already used by {owner}"]}
 	values, tables, notes = plan_listing(listing, template, doctype, web_listed)
+	if migrated:
+		# A re-run only fills what is still empty; Listed on Web may have been changed by hand.
+		values = {key: value for key, value in values.items() if key not in ("web_slug", "web_listed")}
+		if not values and not tables:
+			return {**row, "action": "already migrated", "notes": notes}
+		action = "would top up" if dry_run else "topped up"
+	else:
+		action = "would migrate" if dry_run else "migrated"
 	if not dry_run:
 		_write(doctype, name, values, tables)
 	row.update(
-		action="would migrate" if dry_run else "migrated",
+		action=action,
 		fields=sorted(values),
 		tables={field: len(rows) for field, rows in tables.items()},
 		notes=notes,
 	)
 	return row
+
+
+def _migrate_one_safely(listing, doctype, name, dry_run):
+	"""Migrate one listing; a failure is reported and undone instead of stopping the run."""
+	savepoint = "web_listing_migration"
+	frappe.db.savepoint(savepoint)
+	try:
+		return _migrate_one(listing, doctype, name, dry_run)
+	except Exception as error:
+		frappe.db.rollback(save_point=savepoint)
+		return {
+			"listing": listing["name"],
+			"template": f"{doctype} {name}",
+			"action": "failed",
+			"notes": [f"{type(error).__name__}: {error}", frappe.get_traceback()],
+		}
 
 
 def _listing(name):
@@ -255,7 +272,7 @@ def migrate(dry_run=1):
 				}
 			)
 			continue
-		report.append(_migrate_one(listings[0], doctype, template, dry_run))
+		report.append(_migrate_one_safely(listings[0], doctype, template, dry_run))
 	return {
 		"listings": report,
 		"left_on_webflow_product": unlinked,
@@ -356,9 +373,10 @@ def parity_differences(listing, template, doctype):
 		target = RENAMED.get(source, source)
 		if target in added and not _same(listing.get(source), template.get(target)):
 			differences.append(target)
-	for field in TABLES:
-		if field in added and _rows(listing.get(field)) != _rows(template.get(field)):
-			differences.append(field)
+	for source in TABLES:
+		target = RENAMED.get(source, source)
+		if target in added and _rows(listing.get(source)) != _rows(template.get(target)):
+			differences.append(target)
 	title = template.get("web_title") or template.get("template_name")
 	if listing.get("product_name") and listing["product_name"] != title:
 		differences.append("web_title")

@@ -76,6 +76,7 @@
   "series_family_image",
   "gallery_images",
   "documents",
+  "web_certifications",
   "web_configurator_section",
   "is_configurable",
   "configurator_intro_text",
@@ -499,6 +500,13 @@
    "fieldtype": "Table",
    "label": "Documents",
    "options": "ilL-Child-Webflow-Document"
+  },
+  {
+   "fieldname": "web_certifications",
+   "fieldtype": "Table",
+   "label": "Web Certifications and Ratings",
+   "options": "ilL-Child-Webflow-Certification-Link",
+   "description": "Shown on the product page. Separate from the template's own Certifications."
   },
   {
    "fieldname": "web_configurator_section",

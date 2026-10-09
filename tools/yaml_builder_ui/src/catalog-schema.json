@@ -3093,6 +3093,13 @@
           "options": "ilL-Child-Webflow-Document"
         },
         {
+          "fieldname": "web_certifications",
+          "label": "Web Certifications and Ratings",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Certification-Link",
+          "description": "Shown on the product page. Separate from the template's own Certifications."
+        },
+        {
           "fieldname": "is_configurable",
           "label": "Is Configurable",
           "fieldtype": "Check",
@@ -3416,6 +3423,13 @@
           "options": "ilL-Child-Webflow-Document"
         },
         {
+          "fieldname": "web_certifications",
+          "label": "Web Certifications and Ratings",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Certification-Link",
+          "description": "Shown on the product page. Separate from the template's own Certifications."
+        },
+        {
           "fieldname": "is_configurable",
           "label": "Is Configurable",
           "fieldtype": "Check",
@@ -3656,10 +3670,11 @@
           "options": "ilL-Child-Webflow-Document"
         },
         {
-          "fieldname": "certifications",
-          "label": "Certifications",
+          "fieldname": "web_certifications",
+          "label": "Web Certifications and Ratings",
           "fieldtype": "Table",
-          "options": "ilL-Child-Spec-Certification"
+          "options": "ilL-Child-Webflow-Certification-Link",
+          "description": "Shown on the product page. Separate from the template's own Certifications."
         },
         {
           "fieldname": "is_configurable",
@@ -3978,10 +3993,11 @@
           "options": "ilL-Child-Webflow-Document"
         },
         {
-          "fieldname": "certifications",
-          "label": "Certifications",
+          "fieldname": "web_certifications",
+          "label": "Web Certifications and Ratings",
           "fieldtype": "Table",
-          "options": "ilL-Child-Spec-Certification"
+          "options": "ilL-Child-Webflow-Certification-Link",
+          "description": "Shown on the product page. Separate from the template's own Certifications."
         },
         {
           "fieldname": "is_configurable",
@@ -4375,6 +4391,13 @@
           "label": "Documents",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "web_certifications",
+          "label": "Web Certifications and Ratings",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Certification-Link",
+          "description": "Shown on the product page. Separate from the template's own Certifications."
         },
         {
           "fieldname": "is_configurable",
@@ -6747,6 +6770,13 @@
           "label": "Documents",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "web_certifications",
+          "label": "Web Certifications and Ratings",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Certification-Link",
+          "description": "Shown on the product page. Separate from the template's own Certifications."
         },
         {
           "fieldname": "is_configurable",
