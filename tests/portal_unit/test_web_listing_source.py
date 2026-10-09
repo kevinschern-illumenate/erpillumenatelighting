@@ -81,6 +81,12 @@ class Reading(unittest.TestCase):
 		self.assertEqual(view.get("short_description"), "Template copy")
 		self.assertEqual(view.gallery_images[0].image, "/files/new.jpg")
 
+	def test_an_equal_empty_value_keeps_the_webflow_product_form(self):
+		view = listing(product(product_badge=""), product_badge=None, configurator_intro_text="")
+		self.assertEqual(view.product_badge, "")
+		self.assertIsNone(view.configurator_intro_text)
+		self.assertEqual(view.overlay({"product_badge": ""}), {"product_badge": ""})
+
 	def test_identity_and_computed_tables_stay_on_the_webflow_product(self):
 		view = listing(product())
 		self.assertEqual(view.product_type, "Linear Fixture")
