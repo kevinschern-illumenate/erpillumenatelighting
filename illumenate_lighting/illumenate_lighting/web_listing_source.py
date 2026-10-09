@@ -72,7 +72,15 @@ class Listing:
 
 	def get(self, key, default=None):
 		if key in self.fields:
-			return self.template.get(self.fields[key])
+			value = self.template.get(self.fields[key])
+			if key not in TABLES:
+				# Equal values can differ in form (a blank Select is "" on one doctype and
+				# None on the other); keep the Webflow Product's form so payloads, and the
+				# approvals hashed from them, do not change.
+				current = self.source.get(key)
+				if _same(value, current):
+					return current
+			return value
 		if key == "product_name" and self.template:
 			return title(self.template)
 		return self.source.get(key, default)
