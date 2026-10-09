@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ilLumenate System Designer (dev)</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import './src/main.tsx';
+      window.IllSystemDesigner.mount(document.getElementById('root'), {
+        schedule: new URLSearchParams(location.search).get('schedule'),
+        csrfToken: '',
+        apiBase: '/api/method/illumenate_lighting.illumenate_lighting.system_design.api',
+      });
+    </script>
+  </body>
+</html>

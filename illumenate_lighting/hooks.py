@@ -99,7 +99,9 @@ website_route_rules = [
 	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
 	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
 
-	# Schedules
+	# Schedules (the designer route must precede the schedule route)
+	{"from_route": "/portal/schedules/<schedule>/design", "to_route": "system_design"},
+	{"from_route": "/portal/design", "to_route": "system_design"},
 	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
 
 	# Configurator

@@ -1,0 +1,29 @@
+/* Brand tokens from the LED Tape System Visualizer (plan H9). Full theme arrives with WP-3.1. */
+.ill-sd {
+  --ill-primary-600: #172e48;
+  --ill-secondary-600: #00588c;
+  --ill-accent-500: #fdc757;
+  --ill-surface: #ffffff;
+  --ill-muted: #5d6d7f;
+  font-family: Poppins, system-ui, sans-serif;
+  color: var(--ill-primary-600);
+  background: var(--ill-surface);
+  border-radius: 16px;
+  padding: 24px;
+  margin: 16px 0;
+  box-shadow: 0 1px 3px rgb(15 30 45 / 0.12);
+}
+.ill-sd__title {
+  font-family: Manrope, Poppins, system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+.ill-sd__subtitle {
+  margin: 4px 0 0;
+  color: var(--ill-muted);
+}
+.ill-sd__body {
+  margin-top: 16px;
+  line-height: 1.5;
+}

@@ -33,6 +33,7 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
+		"ill_sanitize_html": lambda value: html.escape(value),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
 			utils=SimpleNamespace(
@@ -308,6 +309,19 @@ nothing = configurator.render(
 )
 assert "nothing was pre-filled" in nothing and "5000K" in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
+designer_template = environment.get_template("templates/pages/system_design.html")
+designer = designer_template.render(
+	assets="/assets/illumenate_lighting/system_designer/designer",
+	asset_version=7,
+	schedule_name="SCH </script><b>",
+	mount_options={"schedule": "SCH </script><b>", "csrfToken": "csrf", "apiBase": "/api/method/x"},
+)
+assert 'import "/assets/illumenate_lighting/system_designer/designer.js?v=7";' in designer
+assert "IllSystemDesigner.mount" in designer and "</script><b>" not in designer
+assert "/portal/schedules/SCH%20%3C/script%3E%3Cb%3E" in designer
+assert "Back to schedule" not in designer_template.render(
+	assets="a", asset_version=0, schedule_name=None, mount_options={"schedule": None}
+)
 assert 'ill-finder.js' in finder
 parser.feed(finder)
 catalog_builder = environment.get_template("templates/pages/catalog_builder.html").render(
