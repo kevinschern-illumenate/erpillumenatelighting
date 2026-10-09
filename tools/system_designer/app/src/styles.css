@@ -644,6 +644,55 @@
 	background: #fff;
 }
 
+/* Comment pins sit on the sheet image at fractions of its size (WP-4.3). */
+.ill-sd__riser-wrap {
+	position: relative;
+	margin-top: 12px;
+}
+.ill-sd__riser-wrap .ill-sd__riser {
+	margin-top: 0;
+}
+.ill-sd__riser-wrap--pinning {
+	cursor: crosshair;
+}
+.ill-sd__pin {
+	position: absolute;
+	transform: translate(-50%, -50%);
+	min-width: 22px;
+	height: 22px;
+	padding: 0 4px;
+	border-radius: 11px;
+	background: var(--ill-primary-600);
+	color: #fff;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 22px;
+	text-align: center;
+	pointer-events: none;
+}
+.ill-sd__pin--resolved {
+	background: var(--ill-muted);
+}
+.ill-sd__pin--pending {
+	background: var(--ill-accent-500);
+	color: var(--ill-primary-600);
+}
+.ill-sd__comments {
+	margin: 0 0 12px;
+	padding-left: 0;
+	list-style: none;
+}
+.ill-sd__comments li {
+	padding: 8px 0;
+	border-bottom: 1px solid var(--ill-border);
+}
+.ill-sd__comments p {
+	margin: 0 0 4px;
+}
+.ill-sd__comment--resolved p:first-child {
+	color: var(--ill-muted);
+}
+
 .ill-sd__grid {
 	width: 100%;
 	min-width: 0;

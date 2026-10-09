@@ -180,3 +180,59 @@ describe('Views step', () => {
     expect(stamps.map((option) => option.value)).toContain('REVIEWED BY ILLUMENATE');
   });
 });
+
+describe('Views step review', () => {
+  it('lets an Applications Engineer keep the riser and pin a comment on a sheet', async () => {
+    const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:riser');
+    const revoked = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+    store.setState({ meta: { ...META, status: 'In Review' } });
+    api.listComments = vi.fn().mockResolvedValue([]);
+    api.addComment = vi.fn().mockImplementation(async (args: { body: string; view: string; anchor: object }) => ({
+      comment_id: 'c1',
+      view: args.view,
+      anchor: args.anchor,
+      body: args.body,
+      author: 'ae@example.com',
+      author_name: 'Ada Engineer',
+      created_on: '2026-10-09 12:00:00',
+      resolved: false,
+      resolved_by: null,
+    }));
+    await render(
+      openFixture({
+        catalog_hash: 'd'.repeat(64),
+        user: 'ae@example.com',
+        permissions: { can_edit: false, can_review: true, can_view_pricing: false, can_engineer: true },
+      }),
+    );
+    await click(button('Draw riser'));
+    await click(button('Download PDF'));
+    expect(api.uploadDeliverable).toHaveBeenCalledWith(expect.objectContaining({ design: 'SYSD-1' }));
+    for (let i = 0; i < 100 && !byTest('riser-sheet'); i += 1)
+      await act(async () => {
+        await new Promise((done) => setTimeout(done, 10));
+      });
+    const sheet = byTest('riser-sheet')!;
+    const number = sheet.querySelector('img')!.alt.replace('Riser sheet ', '');
+    sheet.getBoundingClientRect = () => ({ left: 10, top: 20, width: 400, height: 200 }) as DOMRect;
+    await act(async () => el.querySelector<HTMLInputElement>('[data-testid="riser-preview"] input')!.click());
+    await act(async () => sheet.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 110, clientY: 120 })));
+    const thread = byTest('comments-Riser')!;
+    expect(thread.textContent).toContain(`Comment on the pin on sheet ${number}`);
+    await act(async () => {
+      const box = thread.querySelector('textarea')!;
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(box, 'Label this run');
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await click(button('Add comment'));
+    expect(api.addComment).toHaveBeenCalledWith({
+      design: 'SYSD-1',
+      body: 'Label this run',
+      view: 'Riser',
+      anchor: { sheet: number, x: 0.25, y: 0.5 },
+    });
+    expect([...el.querySelectorAll('[data-testid="comment-pin"]')].map((pin) => pin.textContent)).toEqual(['1']);
+    created.mockRestore();
+    revoked.mockRestore();
+  });
+});

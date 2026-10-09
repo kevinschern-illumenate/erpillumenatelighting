@@ -12,11 +12,12 @@ import {
   type RiserStamp,
 } from '@ill/engine/riser';
 import type { FontBytes } from '@ill/serializers/pdf/fonts';
-import { track, type Deliverable, type DeliverableKind, type DesignApi } from '../design/api';
+import { track, type CommentAnchor, type Deliverable, type DeliverableKind, type DesignApi } from '../design/api';
 import type { CheckState } from '../design/engine';
 import { createDrawingRunner, logoDataUrl, sha256Hex, type DrawingInput } from '../design/drawing';
 import type { DesignStore } from '../design/store';
 import { loadFontBytes } from '../lib/fonts';
+import { CommentThread, pinAt, SheetPins, useComments } from './Comments';
 import { FeedbackPrompt } from './FeedbackPrompt';
 import type { OpenDesign } from './open';
 
@@ -75,6 +76,9 @@ export function ViewsStep({
   const [notice, setNotice] = useState('');
   const [stored, setStored] = useState<Deliverable[]>(open.deliverables);
   const [exported, setExported] = useState(false);
+  const [pinning, setPinning] = useState(false);
+  const [pin, setPin] = useState<CommentAnchor | null>(null);
+  const comments = useComments(api, meta?.name);
   const runner = useRef<ReturnType<typeof createDrawingRunner> | null>(null);
   const deps = useMemo<ViewsDeps>(
     () => ({
@@ -129,7 +133,10 @@ export function ViewsStep({
   if (!design) return null;
   const incomplete =
     engine.state === 'ready' && engine.check.result.messages.some((item) => item.code === 'INCOMPLETE_SPEC');
-  const canStore = Boolean(meta?.name) && !dirty && open.permissions.can_edit;
+  // Applications Engineers keep the riser they review on the design, too (WP-4.3).
+  const canStore = Boolean(meta?.name) && !dirty && (open.permissions.can_edit || open.permissions.can_review);
+  const canComment = Boolean(meta?.name) && (open.permissions.can_edit || open.permissions.can_review);
+  const shownSheet = drawing?.sheets[page]?.number ?? '';
   const base = `ilLumenate-System-Designer_${safe(open.schedule.name)}_rev${meta?.revision ?? 'draft'}_${safe(sheetLabel(sheet))}`;
 
   async function draw() {
@@ -318,10 +325,35 @@ export function ViewsStep({
               ))}
             </ul>
           ) : null}
+          {canComment ? (
+            <label className="ill-sd__pick">
+              <input type="checkbox" checked={pinning} onChange={(event) => setPinning(event.target.checked)} />
+              <span>Pin a comment: click the drawing where it applies</span>
+            </label>
+          ) : null}
           {previewUrl ? (
-            <img className="ill-sd__riser" src={previewUrl} alt={`Riser sheet ${drawing.sheets[page]!.number}`} />
+            <div
+              className={`ill-sd__riser-wrap${pinning ? ' ill-sd__riser-wrap--pinning' : ''}`}
+              data-testid="riser-sheet"
+              onClick={(event) => {
+                if (pinning) setPin(pinAt(event, shownSheet));
+              }}
+            >
+              <img className="ill-sd__riser" src={previewUrl} alt={`Riser sheet ${shownSheet}`} />
+              <SheetPins comments={comments.comments} view="Riser" sheet={shownSheet} pending={pin} />
+            </div>
           ) : null}
         </div>
+      ) : null}
+      {meta?.name ? (
+        <CommentThread
+          comments={comments}
+          view="Riser"
+          canComment={canComment}
+          anchor={pin}
+          onClearAnchor={() => setPin(null)}
+          title="Comments on the riser"
+        />
       ) : null}
       {exported ? (
         <FeedbackPrompt

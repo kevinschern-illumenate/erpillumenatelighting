@@ -5,6 +5,7 @@ import type { DesignApi, WritebackPreview } from '../design/api';
 import type { CheckState } from '../design/engine';
 import type { DesignStore } from '../design/store';
 import type { OpenDesign } from './open';
+import { CommentThread, useComments } from './Comments';
 import { ReviewCard } from './ReviewCard';
 
 /** Engine wire footage (waste included) by catalog wire id: what the server turns into wire lines (D7). */
@@ -57,11 +58,13 @@ export function FinishStep({
   store,
   engine,
   api,
+  navigate,
 }: {
   open: OpenDesign;
   store: DesignStore;
   engine: CheckState;
   api: DesignApi;
+  navigate?: (url: string) => void;
 }) {
   const design = useStore(store, (s) => s.design);
   const meta = useStore(store, (s) => s.meta);
@@ -71,6 +74,7 @@ export function FinishStep({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const comments = useComments(api, meta?.name);
 
   if (!design) return null;
   const ready = engine.state === 'ready' && engine.design === design;
@@ -256,7 +260,15 @@ export function FinishStep({
           </p>
         ) : null}
       </div>
-      <ReviewCard open={open} store={store} engine={engine} api={api} />
+      <ReviewCard open={open} store={store} engine={engine} api={api} navigate={navigate} />
+      {meta ? (
+        <CommentThread
+          comments={comments}
+          view="General"
+          canComment={open.permissions.can_edit || open.permissions.can_review}
+          title="Review comments"
+        />
+      ) : null}
     </section>
   );
 }

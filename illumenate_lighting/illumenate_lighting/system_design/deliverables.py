@@ -119,9 +119,13 @@ def list_deliverables(record):
 
 def upload_deliverable(design, kind, variant=None, sha256=None, build_hash=None, content=None, filename=None):
 	"""Store a generated file on a design (H6). ``content`` defaults to the request's ``file`` part."""
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
 	record = access.require_design(design)
 	# A deliverable leaves the schedule as it is, so a locked (ordered) version can still export.
-	access.require_edit(record.fixture_schedule, allow_locked=True)
+	# Applications Engineers keep the drawings they review (WP-4.3).
+	if not allowed("design_review"):
+		access.require_edit(record.fixture_schedule, allow_locked=True)
 	if kind not in KINDS:
 		_invalid(_("Unknown deliverable kind"))
 	variant = str(variant or "").strip()
@@ -144,7 +148,12 @@ def upload_deliverable(design, kind, variant=None, sha256=None, build_hash=None,
 	if digest != sha256:
 		_invalid(_("The file changed in transit; try again"))
 	for row in record.get("deliverables") or []:
-		if row.kind == kind and (row.variant or "") == variant and row.file_sha256 == digest:
+		if (
+			row.kind == kind
+			and (row.variant or "") == variant
+			and row.file_sha256 == digest
+			and row.build_hash == record.build_hash
+		):
 			url = frappe.db.get_value("File", {"file_url": row.file}, "file_url") or row.file
 			return {"file_url": url, "row": _row(row), "mime_type": mime}
 	file = frappe.get_doc(

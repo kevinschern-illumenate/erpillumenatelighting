@@ -54,5 +54,43 @@ class ServerErrors(unittest.TestCase):
 					module.count(bad, "error_count")
 
 
+class Comments(unittest.TestCase):
+	def test_pins_are_fractions_of_a_sheet_or_an_entity(self):
+		with load_service(REVIEW) as (module, _frappe):
+			self.assertIsNone(module.clean_anchor(None))
+			self.assertEqual(
+				module.clean_anchor({"sheet": "E-1", "x": 0.25, "y": 0.123456, "extra": "dropped"}),
+				'{"sheet":"E-1","x":0.25,"y":0.1235}',
+			)
+			self.assertEqual(module.clean_anchor('{"entityRef": "PS-1"}'), '{"entityRef":"PS-1"}')
+			for bad in ({"x": 1.5, "y": 0}, {"x": 0.5}, {"x": True, "y": 0}, "[1]", "nope"):
+				with self.assertRaises(module.DesignError, msg=bad):
+					module.clean_anchor(bad)
+
+
+class Overrides(unittest.TestCase):
+	def test_an_override_replaces_the_earlier_one_for_the_same_check(self):
+		with load_service(REVIEW) as (module, _frappe):
+			earlier = [
+				{"code": "PSU_OVERLOAD", "entityRef": "PS-1", "kind": "acknowledge", "reason": "old"},
+				{"code": "VD_OVER_TARGET", "entityRef": "load:a", "kind": "acknowledge", "reason": "keep"},
+			]
+			result = module.add_override(earlier, "PSU_OVERLOAD", "PS-1", " Field verified ", "ae@x.com", "T")
+			self.assertEqual([item["code"] for item in result], ["VD_OVER_TARGET", "PSU_OVERLOAD"])
+			self.assertEqual(
+				result[-1],
+				{
+					"code": "PSU_OVERLOAD",
+					"entityRef": "PS-1",
+					"kind": "staff-override",
+					"reason": "Field verified",
+					"by": "ae@x.com",
+					"at": "T",
+				},
+			)
+			with self.assertRaises(module.DesignError):
+				module.add_override([], "PSU_OVERLOAD", "PS-1", "no", "ae@x.com", "T")
+
+
 if __name__ == "__main__":
 	unittest.main()

@@ -242,3 +242,43 @@ def request_review(
 	from illumenate_lighting.illumenate_lighting.system_design import review
 
 	return review.request_review(design, priority, due_date, note, error_count, warning_count)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def review_decide(design=None, decision=None, note=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.review_decide(design, decision, note)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def override_check(design=None, code=None, entity_ref=None, reason=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.override_check(design, code, entity_ref, reason)
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def list_comments(design=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.list_comments(design)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def add_comment(design=None, body=None, view=None, anchor=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.add_comment(design, body, view, anchor)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def resolve_comment(design=None, comment_id=None, resolved=1):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.resolve_comment(design, comment_id, resolved)

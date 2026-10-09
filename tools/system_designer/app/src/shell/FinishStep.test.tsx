@@ -202,3 +202,142 @@ describe('Finish step review request', () => {
     expect(el.textContent).toContain('Fix the error on the Check step first.');
   });
 });
+
+describe('Finish step reviewer mode', () => {
+  const reviewer = openFixture({
+    catalog_hash: 'd'.repeat(64),
+    permissions: { can_edit: false, can_review: true, can_view_pricing: false, can_engineer: true },
+  });
+  const inReview = { ...META, status: 'In Review', review_request: 'ILL-REQ-1' };
+  async function renderAs(value = reviewer, navigate?: (url: string) => void) {
+    root = createRoot(el);
+    await act(async () =>
+      root.render(<FinishStep open={value} store={store} engine={engine} api={api} navigate={navigate} />),
+    );
+  }
+  const withMessages = (messages: Extract<CheckState, { state: 'ready' }>['check']['messages']) => {
+    const ready = engine as Extract<CheckState, { state: 'ready' }>;
+    engine = { ...ready, check: { ...ready.check, messages } };
+  };
+  async function type(node: HTMLInputElement | HTMLTextAreaElement, value: string) {
+    await act(async () => {
+      const proto = node instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(node, value);
+      node.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  it('overrides an open error with a reason before approval is possible', async () => {
+    store.setState({ meta: inReview });
+    withMessages([{ code: 'PSU_OVERLOAD', severity: 'error', entityRef: 'PS-1', text: 'Overloaded' }]);
+    const override = {
+      code: 'PSU_OVERLOAD',
+      entityRef: 'PS-1',
+      kind: 'staff-override' as const,
+      reason: 'Load is intermittent',
+      by: 'ae@example.com',
+      at: '2026-10-09T12:00:00.000Z',
+    };
+    api.overrideCheck = vi.fn().mockResolvedValue({
+      overrides: [override],
+      build_hash: 'e'.repeat(64),
+      design_meta: { ...inReview, modified: '2026-10-09 12:05:00' },
+    });
+    await renderAs();
+    expect(button(/^Approve$/).disabled).toBe(true);
+    expect(button(/Request review/)).toBeUndefined();
+    const reason = el.querySelector<HTMLInputElement>('input[aria-label="Override reason for PSU_OVERLOAD on PS-1"]')!;
+    await type(reason, 'Load is intermittent');
+    await click(button(/^Override$/));
+    expect(api.overrideCheck).toHaveBeenCalledWith({
+      design: 'SYSD-1',
+      code: 'PSU_OVERLOAD',
+      entityRef: 'PS-1',
+      reason: 'Load is intermittent',
+    });
+    expect(store.getState().design!.overrides).toEqual([override]);
+    expect(store.getState().dirty).toBe(false);
+    expect(store.getState().meta!.modified).toBe('2026-10-09 12:05:00');
+  });
+
+  it('asks for a note before requesting changes and records an approval', async () => {
+    store.setState({ meta: inReview });
+    withMessages([]);
+    api.reviewDecide = vi.fn().mockImplementation(async (_design: string, decision: string) => ({
+      review: 'REV-1',
+      status: decision,
+      design_meta: { ...inReview, status: decision, approved_by: 'ae@example.com' },
+    }));
+    await renderAs();
+    expect(button(/Request changes/).disabled).toBe(true);
+    await click(button(/^Approve$/));
+    expect(api.reviewDecide).toHaveBeenCalledWith('SYSD-1', 'Approved', '');
+    expect(store.getState().meta?.status).toBe('Approved');
+    expect(el.querySelector('[data-testid="review-status"]')!.textContent).toContain('approved by ae@example.com');
+    expect(el.querySelector('[data-testid="reviewer-panel"]')).toBeNull();
+  });
+
+  it('sends a requested change with its note', async () => {
+    store.setState({ meta: inReview });
+    withMessages([]);
+    api.reviewDecide = vi.fn().mockResolvedValue({
+      review: 'REV-1',
+      status: 'Changes Requested',
+      design_meta: { ...inReview, status: 'Changes Requested' },
+    });
+    await renderAs();
+    await type(el.querySelector<HTMLTextAreaElement>('textarea[aria-label="Review note"]')!, 'Split PS-1');
+    await click(button(/Request changes/));
+    expect(api.reviewDecide).toHaveBeenCalledWith('SYSD-1', 'Changes Requested', 'Split PS-1');
+    expect(store.getState().meta?.status).toBe('Changes Requested');
+  });
+
+  it('starts the next revision of an approved design and opens it', async () => {
+    store.setState({ meta: { ...META, status: 'Approved' } });
+    api.createRevision = vi.fn().mockResolvedValue({ name: 'SYSD-2', revision: 'B' });
+    const navigate = vi.fn();
+    await renderAs(open, navigate);
+    await click(button(/Start the next revision/));
+    expect(api.createRevision).toHaveBeenCalledWith('SYSD-1', 'Started after revision A was approved');
+    expect(navigate).toHaveBeenCalledWith('/portal/schedules/SCH-TEST/design');
+  });
+
+  it('lists the review comments and adds one', async () => {
+    api.listComments = vi.fn().mockResolvedValue([
+      {
+        comment_id: 'c1',
+        view: 'General',
+        anchor: null,
+        body: 'Check the garage run',
+        author: 'ae@example.com',
+        author_name: 'Ada Engineer',
+        created_on: '2026-10-09 12:00:00',
+        resolved: false,
+        resolved_by: null,
+      },
+    ]);
+    api.addComment = vi.fn().mockImplementation(async (args: { body: string; view: string }) => ({
+      comment_id: 'c2',
+      view: args.view,
+      anchor: null,
+      body: args.body,
+      author: 'dealer@example.com',
+      author_name: 'Dee Dealer',
+      created_on: '2026-10-09 12:10:00',
+      resolved: false,
+      resolved_by: null,
+    }));
+    await renderAs(open);
+    const thread = () => el.querySelector('[data-testid="comments-General"]')!;
+    expect(thread().textContent).toContain('Check the garage run');
+    await type(thread().querySelector('textarea')!, 'Done, moved it to PS-2');
+    await click(button(/Add comment/));
+    expect(api.addComment).toHaveBeenCalledWith({
+      design: 'SYSD-1',
+      body: 'Done, moved it to PS-2',
+      view: 'General',
+      anchor: undefined,
+    });
+    expect(thread().querySelectorAll('li')).toHaveLength(2);
+  });
+});

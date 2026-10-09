@@ -73,6 +73,38 @@ def designer_customer():
 	return name
 
 
+def applications_engineer():
+	"""A reviewer (D3) and the System Design Review request type, which test sites skip patches for."""
+	from illumenate_lighting.patches import add_system_design_review_request_type
+
+	add_system_design_review_request_type.execute()
+	engineer = "zz-apps-engineer@example.com"
+	if not frappe.db.exists("User", engineer):
+		frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": engineer,
+				"first_name": "ZZ Engineer",
+				"user_type": "System User",
+				"send_welcome_email": 0,
+				"roles": [{"role": "ilL Applications Engineer"}],
+			}
+		).insert(ignore_permissions=True)
+	return engineer
+
+
+def blank_pdf():
+	import io
+
+	from pypdf import PdfWriter
+
+	writer = PdfWriter()
+	writer.add_blank_page(width=792, height=612)
+	buffer = io.BytesIO()
+	writer.write(buffer)
+	return buffer.getvalue()
+
+
 class TestDesigns(IntegrationTestCase):
 	def setUp(self):
 		frappe.set_user("Administrator")
@@ -403,21 +435,7 @@ class TestDesigns(IntegrationTestCase):
 			rollback.assert_called_once()
 
 	def test_request_review(self):
-		from illumenate_lighting.patches import add_system_design_review_request_type
-
-		add_system_design_review_request_type.execute()
-		engineer = "zz-apps-engineer@example.com"
-		if not frappe.db.exists("User", engineer):
-			frappe.get_doc(
-				{
-					"doctype": "User",
-					"email": engineer,
-					"first_name": "ZZ Engineer",
-					"user_type": "System User",
-					"send_welcome_email": 0,
-					"roles": [{"role": "ilL Applications Engineer"}],
-				}
-			).insert(ignore_permissions=True)
+		engineer = applications_engineer()
 		frappe.db.set_single_value("ilL-System-Designer-Settings", "reviewer_assignment", "Round Robin")
 		data = self.save()["data"]
 		self.assertEqual(api.request_review(design=data["name"], error_count=2)["code"], "INVALID")
@@ -440,3 +458,56 @@ class TestDesigns(IntegrationTestCase):
 		frappe.set_user(engineer)
 		self.assertTrue(api.open_design(schedule=self.schedule.name)["success"])
 		self.assertTrue(frappe.has_permission("ilL-Document-Request", "read", doc=request))
+
+	def test_review_comments_override_and_decision(self):
+		engineer = applications_engineer()
+		data = self.save()["data"]
+		requested = api.request_review(design=data["name"], error_count=0)
+		self.assertTrue(requested["success"], requested)
+		request_name = requested["data"]["request"]
+		frappe.db.set_value(
+			"ilL-Document-Request", request_name, {"technical_reviewer": engineer, "assigned_to": engineer}
+		)
+		pdf = blank_pdf()
+
+		def keep_riser():
+			stored = deliverables.upload_deliverable(
+				data["name"],
+				"Riser PDF",
+				"Tabloid",
+				hashlib.sha256(pdf).hexdigest(),
+				content=pdf,
+				filename="r.pdf",
+			)
+			return stored["row"]
+
+		keep_riser()
+		self.assertEqual(api.review_decide(design=data["name"], decision="Approved")["code"], "FORBIDDEN")
+		frappe.set_user(engineer)
+		pin = json.dumps({"sheet": "E-1", "x": 0.5, "y": 0.25})
+		comment = api.add_comment(design=data["name"], body="Check PS-1", view="Riser", anchor=pin)
+		self.assertTrue(comment["success"], comment)
+		listed = api.list_comments(design=data["name"])["data"]
+		self.assertEqual([(row["body"], row["anchor"]["sheet"]) for row in listed], [("Check PS-1", "E-1")])
+		resolved = api.resolve_comment(design=data["name"], comment_id=listed[0]["comment_id"])["data"]
+		self.assertTrue(resolved["resolved"])
+		self.assertEqual(
+			api.review_decide(design=data["name"], decision="Changes Requested")["code"], "INVALID"
+		)
+		overridden = api.override_check(
+			design=data["name"], code="PSU_OVERLOAD", entity_ref="PS-1", reason="Field verified"
+		)
+		self.assertTrue(overridden["success"], overridden)
+		self.assertNotEqual(overridden["data"]["build_hash"], data["build_hash"])
+		# The kept PDF was drawn before the override, so the reviewer keeps a new one.
+		self.assertEqual(api.review_decide(design=data["name"], decision="Approved")["code"], "INVALID")
+		keep_riser()
+		decided = api.review_decide(design=data["name"], decision="Approved", note="Looks good")
+		self.assertTrue(decided["success"], decided)
+		record = frappe.get_doc("ilL-System-Design", data["name"])
+		self.assertEqual((record.status, record.approved_by), ("Approved", engineer))
+		review = frappe.get_doc("ilL-Drawing-Review", record.approved_review)
+		self.assertEqual((review.decision, review.build_hash), ("APPROVED", record.build_hash))
+		self.assertEqual(frappe.db.get_value("ilL-Document-Request", request_name, "status"), "Completed")
+		self.assertEqual(decided["data"]["design_meta"]["status"], "Approved")
+		self.assertEqual(api.review_decide(design=data["name"], decision="Approved")["code"], "CONFLICT")

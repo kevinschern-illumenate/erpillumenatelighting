@@ -31,6 +31,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-3.5 – WP-3.9 | Checks, verification, riser export, engineering mode, pilot telemetry | Done |
 | WP-4.1 | Write-back to the schedule | Done |
 | WP-4.2 | Review request type and flow | Done |
+| WP-4.3 | Reviewer mode: comments, overrides, decisions | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -665,3 +666,32 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     count and enforces only the errors it can recompute.
   - Inserting the request skips the portal request validation once (a dealer may not link a schedule
     or name a reviewer); the Draft → Submitted save then runs it as usual.
+
+## WP-4.3 — Reviewer mode
+
+- `system_design/review.py`:
+  - Comments: `list_comments`, `add_comment(design, body, view, anchor?)`, `resolve_comment`. Anchors are
+    `{sheet, x, y}` fractions of the sheet and/or `{entityRef}`. Applications Engineers and people who
+    can edit the schedule comment; comment rows are inserted without saving the design, so an open
+    editor's `expected_modified` still holds.
+  - `override_check(design, code, entity_ref, reason)`: the reviewer accepts one error on a design in
+    review. The override is written into `design_json` (kind `staff-override`) and the build hash is
+    recomputed, so the riser must be drawn and kept again before deciding.
+  - `review_decide(design, "Approved" | "Changes Requested", note)`: only the request's
+    `technical_reviewer`; asking for changes needs a note. The newest Riser PDF kept on the current
+    build is published on the request as a "System design riser" deliverable, then the decision goes
+    through `portal/drawing_review.decide` with the current revision token. Approval sets
+    `approved_review/by/on`; the request becomes Completed (approved) or Waiting on Customer.
+- `deliverables.upload_deliverable`: Applications Engineers keep files on designs they review; a
+  re-upload of the same bytes is new when the build hash changed.
+- Browser: the Finish step's review card shows the reviewer panel (overrides with a reason, note,
+  Approve / Request changes; Approve waits until no error is open), a "Start the next revision" action
+  on an approved revision, and the general comment thread. The Views step keeps the riser for
+  reviewers and pins comments on a sheet (click the preview with "Pin a comment" ticked).
+- Tests: `tests/portal_unit/test_system_design_review.py` (anchors, overrides), installed
+  `test_designs.test_review_comments_override_and_decision`, `FinishStep.test.tsx`, `ViewsStep.test.tsx`.
+- Choices:
+  - Overrides are done on the server while the design is In Review (read-only in the editor), rather
+    than as editor changes saved by the reviewer.
+  - Pins store sheet fractions, so they stay put when the sheet is redrawn at another size but may
+    drift if a later revision changes the layout; the comment text still applies.

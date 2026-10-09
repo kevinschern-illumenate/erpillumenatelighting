@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useStore } from 'zustand';
-import type { DesignApi } from '../design/api';
+import type { Design } from '@ill/core-schemas/design';
+import type { DesignApi, ReviewDecision } from '../design/api';
 import type { CheckState } from '../design/engine';
 import type { DesignStore } from '../design/store';
 import type { OpenDesign } from './open';
+import { designUrl } from './StartStep';
 
 const PRIORITIES = ['Normal', 'High', 'Rush'] as const;
 
@@ -17,17 +19,25 @@ export function openIssues(engine: CheckState) {
   };
 }
 
-/** Request an ilLumenate review of the saved revision (plan §14.2, WP-4.2). */
+/** The errors still open on the design, which an Applications Engineer approves past only with an override. */
+export function openErrors(engine: CheckState) {
+  if (engine.state !== 'ready') return [];
+  return engine.check.messages.filter((item) => item.severity === 'error' && !item.override);
+}
+
+/** Request an ilLumenate review of the saved revision (plan §14.2, WP-4.2); reviewers decide on it here (WP-4.3). */
 export function ReviewCard({
   open,
   store,
   engine,
   api,
+  navigate = (url: string) => window.location.assign(url),
 }: {
   open: OpenDesign;
   store: DesignStore;
   engine: CheckState;
   api: DesignApi;
+  navigate?: (url: string) => void;
 }) {
   const design = useStore(store, (s) => s.design);
   const meta = useStore(store, (s) => s.meta);
@@ -42,6 +52,8 @@ export function ReviewCard({
   const issues = engine.state === 'ready' && engine.design === design ? openIssues(engine) : null;
   const requirement = open.review_requirement;
   const status = meta?.status;
+  const reviewing = open.permissions.can_review && status === 'In Review' && Boolean(meta?.is_current);
+  const canRevise = open.permissions.can_edit && !open.schedule.is_locked && status === 'Approved' && meta?.is_current;
   const canRequest =
     open.permissions.can_edit && !open.schedule.is_locked && (status === 'Draft' || status === 'Changes Requested');
   const blocker = !meta
@@ -81,6 +93,19 @@ export function ReviewCard({
     }
   }
 
+  async function startRevision() {
+    if (!meta) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.createRevision(meta.name, `Started after revision ${meta.revision} was approved`);
+      navigate(designUrl(open.schedule.name));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The next revision could not be started');
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="ill-sd__card" data-testid="review-card">
       <h3>ilLumenate review</h3>
@@ -102,6 +127,17 @@ export function ReviewCard({
         <p className="ill-sd__callout ill-sd__callout--warn" data-testid="review-status">
           ilLumenate asked for changes. Make them, save, and send the design back for review.
         </p>
+      ) : null}
+      {reviewing && meta ? <ReviewerPanel store={store} engine={engine} api={api} design={meta.name} /> : null}
+      {canRevise ? (
+        <button
+          type="button"
+          className="ill-sd__button ill-sd__button--quiet"
+          disabled={busy}
+          onClick={() => void startRevision()}
+        >
+          Start the next revision
+        </button>
       ) : null}
       {canRequest ? (
         <>
@@ -145,6 +181,146 @@ export function ReviewCard({
       ) : null}
       {notice ? (
         <p className="ill-sd__muted" role="status" data-testid="review-notice">
+          {notice}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Reviewer mode (plan §11.5, WP-4.3): override errors with a reason, then approve or ask for changes. */
+function ReviewerPanel({
+  store,
+  engine,
+  api,
+  design,
+}: {
+  store: DesignStore;
+  engine: CheckState;
+  api: DesignApi;
+  design: string;
+}) {
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const errors = openErrors(engine);
+  const key = (item: { code: string; entityRef: string }) => `${item.code}:${item.entityRef}`;
+
+  async function override(code: string, entityRef: string) {
+    const reason = (reasons[`${code}:${entityRef}`] ?? '').trim();
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.overrideCheck({ design, code, entityRef, reason });
+      const current = store.getState().design;
+      // The server stored the override and a new build hash; the open design takes both without becoming dirty.
+      if (current) store.setState({ design: { ...current, overrides: result.overrides } as Design });
+      store.setState({ meta: result.design_meta, dirty: false });
+      setNotice(`Overrode ${code} on ${entityRef}. Draw and keep the riser again before you decide.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The check could not be overridden');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function decide(decision: ReviewDecision) {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.reviewDecide(design, decision, note.trim());
+      store.setState({ meta: result.design_meta });
+      setNotice(
+        decision === 'Approved'
+          ? `Revision ${result.design_meta.revision} is approved.`
+          : 'Changes requested. The dealer can edit the design again.',
+      );
+      setNote('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The decision could not be recorded');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div data-testid="reviewer-panel">
+      <h4>Your review</h4>
+      <p className="ill-sd__muted">
+        Approving publishes the riser PDF kept on this revision to the review request, so draw it on the Views step and
+        download the PDF first.
+      </p>
+      {errors.length ? (
+        <ul className="ill-sd__check-list" data-testid="reviewer-errors">
+          {errors.map((item) => (
+            <li key={key(item)} className="ill-sd__check ill-sd__check--error">
+              <div>
+                <p>
+                  <strong>{item.entityRef}</strong>: {item.text}
+                </p>
+                <div className="ill-sd__row">
+                  <input
+                    aria-label={`Override reason for ${item.code} on ${item.entityRef}`}
+                    placeholder="Why this is acceptable"
+                    value={reasons[key(item)] ?? ''}
+                    onChange={(event) => setReasons((current) => ({ ...current, [key(item)]: event.target.value }))}
+                  />
+                  <button
+                    type="button"
+                    className="ill-sd__button ill-sd__button--quiet"
+                    disabled={busy || (reasons[key(item)] ?? '').trim().length < 3}
+                    onClick={() => void override(item.code, item.entityRef)}
+                  >
+                    Override
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <label className="ill-sd__pick">
+        <span>Note to the dealer (needed when you ask for changes)</span>
+        <textarea
+          aria-label="Review note"
+          value={note}
+          maxLength={2000}
+          onChange={(event) => setNote(event.target.value)}
+        />
+      </label>
+      {errors.length ? (
+        <p className="ill-sd__muted" role="status">
+          Override or send back {errors.length === 1 ? 'the open error' : `the ${errors.length} open errors`} before you
+          approve.
+        </p>
+      ) : null}
+      <div className="ill-sd__row">
+        <button
+          type="button"
+          className="ill-sd__button"
+          disabled={busy || errors.length > 0 || engine.state !== 'ready'}
+          onClick={() => void decide('Approved')}
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          className="ill-sd__button ill-sd__button--quiet"
+          disabled={busy || !note.trim()}
+          onClick={() => void decide('Changes Requested')}
+        >
+          Request changes
+        </button>
+      </div>
+      {error ? (
+        <p className="ill-sd__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p className="ill-sd__muted" role="status" data-testid="reviewer-notice">
           {notice}
         </p>
       ) : null}

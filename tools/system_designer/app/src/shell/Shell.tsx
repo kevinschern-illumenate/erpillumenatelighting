@@ -300,7 +300,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
           ) : step === 'views' ? (
             <ViewsStep open={open} store={store} engine={engine} api={api} />
           ) : step === 'finish' ? (
-            <FinishStep open={open} store={store} engine={engine} api={api} />
+            <FinishStep open={open} store={store} engine={engine} api={api} navigate={navigate} />
           ) : (
             <section aria-labelledby="ill-sd-step-title">
               <h2 id="ill-sd-step-title">{current.label}</h2>

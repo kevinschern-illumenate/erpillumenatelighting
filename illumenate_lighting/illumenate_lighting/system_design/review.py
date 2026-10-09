@@ -254,3 +254,280 @@ def _resubmit(request, note):
 		request.add_comment("Comment", note)
 	if request.status == "Waiting on Customer":
 		frappe.db.set_value(REQUEST_DOCTYPE, request.name, "status", "In Progress")
+
+
+# --- Comments (WP-4.3) --------------------------------------------------------------------------
+
+COMMENT_DOCTYPE = "ilL-Child-Design-Comment"
+COMMENT_VIEWS = ("Riser", "Presentation", "Plan", "3D", "Run", "Supply", "General")
+MAX_COMMENT = 2000
+MAX_ANCHOR = 500
+
+
+def clean_anchor(value):
+	"""A comment pin: ``{sheet, x, y}`` (fractions of the sheet) and/or ``{entityRef}``; ``None`` for none."""
+	if value in (None, "", {}):
+		return None
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except ValueError:
+			raise DesignError("INVALID", _("anchor must be valid JSON"))
+	if not isinstance(value, dict):
+		raise DesignError("INVALID", _("anchor must be an object"))
+	anchor = {}
+	for key in ("sheet", "entityRef"):
+		if value.get(key) is not None:
+			anchor[key] = str(value[key]).strip()[:80]
+	for key in ("x", "y"):
+		if value.get(key) is not None:
+			number = value[key]
+			if isinstance(number, bool) or not isinstance(number, (int, float)) or not 0 <= number <= 1:
+				raise DesignError("INVALID", _("A pin must sit on the sheet"))
+			anchor[key] = round(float(number), 4)
+	if ("x" in anchor) != ("y" in anchor):
+		raise DesignError("INVALID", _("A pin needs both x and y"))
+	text = json.dumps(anchor, sort_keys=True, separators=(",", ":"))
+	if len(text) > MAX_ANCHOR:
+		raise DesignError("INVALID", _("anchor is too long"))
+	return text if anchor else None
+
+
+def _comment_row(row):
+	return {
+		"comment_id": row.comment_id,
+		"view": row.view,
+		"anchor": json.loads(row.anchor_json) if row.anchor_json else None,
+		"body": row.body,
+		"author": row.author,
+		"author_name": frappe.utils.get_fullname(row.author) if row.author else None,
+		"created_on": str(row.created_on),
+		"resolved": bool(row.resolved),
+		"resolved_by": row.resolved_by,
+	}
+
+
+def _may_comment(record):
+	"""Applications Engineers and people who can edit the schedule talk on a design."""
+	from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule
+	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+
+	if allowed("design_review"):
+		return True
+	schedule_doc = frappe.get_doc(access.SCHEDULE_DOCTYPE, record.fixture_schedule)
+	return bool(can_edit_schedule(schedule_doc))
+
+
+def list_comments(design):
+	record = access.require_design(design)
+	return [_comment_row(row) for row in sorted(record.get("comments") or [], key=lambda row: row.idx)]
+
+
+def add_comment(design, body=None, view=None, anchor=None):
+	record = access.require_design(design)
+	if not _may_comment(record):
+		raise DesignError("FORBIDDEN", _("You can view this design but not comment on it"))
+	body = str(body or "").strip()
+	if not body or len(body) > MAX_COMMENT:
+		raise DesignError("INVALID", _("Write a comment of up to 2000 characters"))
+	view = view or "General"
+	if view not in COMMENT_VIEWS:
+		raise DesignError("INVALID", _("Unknown view"))
+	import secrets
+
+	row = frappe.get_doc(
+		{
+			"doctype": COMMENT_DOCTYPE,
+			"parent": record.name,
+			"parenttype": DESIGN_DOCTYPE,
+			"parentfield": "comments",
+			"idx": len(record.get("comments") or []) + 1,
+			"comment_id": secrets.token_hex(6),
+			"view": view,
+			"anchor_json": clean_anchor(anchor),
+			"body": body,
+			"author": frappe.session.user,
+			"created_on": now_datetime(),
+		}
+	)
+	# Comments leave the design as it is, so an open editor can still save.
+	row.db_insert()
+	return _comment_row(row)
+
+
+def resolve_comment(design, comment_id=None, resolved=1):
+	record = access.require_design(design)
+	if not _may_comment(record):
+		raise DesignError("FORBIDDEN", _("You can view this design but not comment on it"))
+	row = next((row for row in record.get("comments") or [] if row.comment_id == comment_id), None)
+	if row is None:
+		raise DesignError("NOT_FOUND", _("Comment not found"))
+	done = str(resolved) not in ("0", "false", "False", "")
+	frappe.db.set_value(
+		COMMENT_DOCTYPE,
+		row.name,
+		{
+			"resolved": int(done),
+			"resolved_by": frappe.session.user if done else None,
+			"resolved_on": now_datetime() if done else None,
+		},
+		update_modified=False,
+	)
+	row.update({"resolved": int(done), "resolved_by": frappe.session.user if done else None})
+	return _comment_row(row)
+
+
+# --- Reviewer mode: overrides and decisions (WP-4.3) ---------------------------------------------
+
+DECISIONS = {"Approved": "APPROVED", "Changes Requested": "CHANGES_REQUESTED"}
+DELIVERABLE_TYPE = "System design riser"
+
+
+def _in_review(design):
+	access.require_reviewer()
+	record = access.require_design(design)
+	frappe.db.get_value(DESIGN_DOCTYPE, record.name, "name", for_update=True)
+	record.reload()
+	if record.status != "In Review" or not record.is_current:
+		raise DesignError("CONFLICT", _("This revision is not waiting for review"))
+	return record
+
+
+def add_override(overrides, code, entity_ref, reason, by, at):
+	"""Pure: ``overrides`` with an Applications Engineer override of one error (replacing any earlier one)."""
+	reason = str(reason or "").strip()
+	if len(reason) < 3:
+		raise DesignError("INVALID", _("Give a reason for the override"))
+	if not code or not entity_ref:
+		raise DesignError("INVALID", _("Choose the check to override"))
+	kept = [
+		item
+		for item in overrides or []
+		if not (item.get("code") == code and item.get("entityRef") == entity_ref)
+	]
+	kept.append(
+		{
+			"code": str(code)[:140],
+			"entityRef": str(entity_ref)[:140],
+			"kind": "staff-override",
+			"reason": reason[:1000],
+			"by": by,
+			"at": at,
+		}
+	)
+	return kept
+
+
+def override_check(design, code=None, entity_ref=None, reason=None):
+	"""An Applications Engineer accepts an error on a design in review (plan §11.5)."""
+	from illumenate_lighting.illumenate_lighting.system_design.design_schema import build_hash, canonical_json
+
+	record = _in_review(design)
+	stored = json.loads(record.design_json or "{}")
+	at = now_datetime().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+	stored["overrides"] = add_override(
+		stored.get("overrides"), code, entity_ref, reason, frappe.session.user, at
+	)
+	record.db_set({"design_json": canonical_json(stored), "build_hash": build_hash(stored)})
+	from illumenate_lighting.illumenate_lighting.system_design.designs import design_meta
+
+	record.reload()
+	return {
+		"overrides": stored["overrides"],
+		"build_hash": record.build_hash,
+		"design_meta": design_meta(record),
+	}
+
+
+def _riser_pdf(record):
+	"""The newest riser PDF kept on this design build, as ``(row, bytes)``."""
+	rows = [
+		row
+		for row in record.get("deliverables") or []
+		if row.kind == "Riser PDF" and row.build_hash == record.build_hash
+	]
+	if not rows:
+		raise DesignError(
+			"INVALID", _("Draw the riser on the Views step and keep its PDF on this revision first")
+		)
+	row = max(rows, key=lambda item: (str(item.created_on or ""), item.idx))
+	name = frappe.db.get_value("File", {"file_url": row.file, "is_private": 1}, "name")
+	if not name:
+		raise DesignError("INVALID", _("The riser PDF is missing; export it again"))
+	return row, frappe.get_doc("File", name).get_content()
+
+
+def _publish(request, record, row, content):
+	"""Publish the riser PDF on the request so ``drawing_review`` fingerprints this design build."""
+	import hashlib
+
+	digest = hashlib.sha256(content).hexdigest()
+	published = [item for item in request.deliverables or [] if item.is_published_to_portal]
+	for item in published:
+		if item.published_file_sha256 == digest and item.published_build_hash == record.build_hash:
+			return
+	file = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": row.file.rsplit("/", 1)[-1],
+			"content": content,
+			"is_private": 1,
+			"attached_to_doctype": REQUEST_DOCTYPE,
+			"attached_to_name": request.name,
+		}
+	)
+	file.flags.ignore_permissions = True
+	file.insert()
+	request.append(
+		"deliverables",
+		{
+			"deliverable_type": DELIVERABLE_TYPE,
+			"file": file.file_url,
+			"version": f"{record.revision}.{len(published) + 1}",
+			"notes": _("Riser of system design {0}, revision {1}").format(record.name, record.revision),
+			"is_published_to_portal": 1,
+		},
+	)
+	request.save(ignore_permissions=True)
+	request.reload()
+
+
+def review_decide(design, decision=None, note=None):
+	"""H6 ``review_decide``: the assigned reviewer approves the revision or asks for changes."""
+	from illumenate_lighting.illumenate_lighting.portal import drawing_review
+	from illumenate_lighting.illumenate_lighting.system_design.designs import design_meta
+
+	if decision not in DECISIONS:
+		raise DesignError("INVALID", _("Choose Approved or Changes Requested"))
+	note = str(note or "").strip()[:MAX_NOTE]
+	if decision == "Changes Requested" and not note:
+		raise DesignError("INVALID", _("Describe the changes you need"))
+	record = _in_review(design)
+	if not record.review_request or not frappe.db.exists(REQUEST_DOCTYPE, record.review_request):
+		raise DesignError("CONFLICT", _("This revision has no review request"))
+	request = frappe.get_doc(REQUEST_DOCTYPE, record.review_request)
+	if request.get("technical_reviewer") != frappe.session.user:
+		raise DesignError("FORBIDDEN", _("Only the assigned reviewer can decide on this design"))
+	row, content = _riser_pdf(record)
+	_publish(request, record, row, content)
+	current = drawing_review.detail(request)
+	if not current or not current.get("available"):
+		raise DesignError("CONFLICT", (current or {}).get("message") or _("The riser could not be published"))
+	outcome = drawing_review.decide(request.name, current["revision_token"], DECISIONS[decision], note)
+	approved = decision == "Approved"
+	record.db_set(
+		{
+			"status": decision,
+			"approved_review": outcome["review"] if approved else None,
+			"approved_by": frappe.session.user if approved else None,
+			"approved_on": now_datetime() if approved else None,
+		}
+	)
+	request.reload()
+	request.status = "Completed" if approved else "Waiting on Customer"
+	if note:
+		request.add_comment("Comment", note)
+	request.save(ignore_permissions=True)
+	telemetry.record("review_decided", record.fixture_schedule, record.name, {"decision": decision})
+	record.reload()
+	return {"review": outcome["review"], "status": decision, "design_meta": design_meta(record)}

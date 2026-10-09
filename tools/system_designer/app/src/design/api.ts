@@ -109,6 +109,32 @@ export interface WritebackResult {
   replaced: number;
 }
 
+/** A pin on a drawing: a fraction of the sheet, an entity, or both (WP-4.3). */
+export interface CommentAnchor {
+  sheet?: string;
+  entityRef?: string;
+  x?: number;
+  y?: number;
+}
+
+export const COMMENT_VIEWS = ['Riser', 'Presentation', 'Plan', '3D', 'Run', 'Supply', 'General'] as const;
+export type CommentView = (typeof COMMENT_VIEWS)[number];
+
+/** One comment on a design (``list_comments``). */
+export interface DesignComment {
+  comment_id: string;
+  view: CommentView;
+  anchor: CommentAnchor | null;
+  body: string;
+  author: string;
+  author_name: string | null;
+  created_on: string;
+  resolved: boolean;
+  resolved_by: string | null;
+}
+
+export type ReviewDecision = 'Approved' | 'Changes Requested';
+
 export interface ApiOptions {
   /** e.g. /api/method/illumenate_lighting.illumenate_lighting.system_design.api */
   apiBase: string;
@@ -247,6 +273,41 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
         note: args.note || undefined,
         error_count: String(args.errorCount),
         warning_count: String(args.warningCount),
+      });
+    },
+    /** The assigned Applications Engineer approves the revision or asks for changes (WP-4.3). */
+    reviewDecide(design: string, decision: ReviewDecision, note?: string) {
+      return post<{ review: string; status: ReviewDecision; design_meta: DesignMeta }>('review_decide', {
+        design,
+        decision,
+        note: note || undefined,
+      });
+    },
+    /** An Applications Engineer accepts one error on a design in review; the build hash changes. */
+    overrideCheck(args: { design: string; code: string; entityRef: string; reason: string }) {
+      return post<{ overrides: Design['overrides']; build_hash: string; design_meta: DesignMeta }>('override_check', {
+        design: args.design,
+        code: args.code,
+        entity_ref: args.entityRef,
+        reason: args.reason,
+      });
+    },
+    listComments(design: string) {
+      return call<DesignComment[]>('list_comments', { method: 'GET' }, new URLSearchParams({ design }));
+    },
+    addComment(args: { design: string; body: string; view?: CommentView; anchor?: CommentAnchor }) {
+      return post<DesignComment>('add_comment', {
+        design: args.design,
+        body: args.body,
+        view: args.view,
+        anchor: args.anchor ? JSON.stringify(args.anchor) : undefined,
+      });
+    },
+    resolveComment(design: string, commentId: string, resolved = true) {
+      return post<DesignComment>('resolve_comment', {
+        design,
+        comment_id: commentId,
+        resolved: resolved ? '1' : '0',
       });
     },
     reconcileDesign(design: string) {
