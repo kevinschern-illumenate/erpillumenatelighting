@@ -6,6 +6,7 @@ import { ProjectSettingsSchema } from '@ill/core-schemas/project';
 import { createDraft } from '@ill/core-schemas/workspace';
 import { expandRuns, type ExpandOptions, type Skipped } from '@ill/engine/expand';
 import type { ReconcileDiff } from '@ill/engine/reconcile';
+import { runChecks, runLabel } from '@ill/engine/runs';
 import type { DesignMeta } from '../design/api';
 
 /** Written into every saved design so a later engine can tell which one produced it. */
@@ -138,6 +139,19 @@ export function openingChecks(open: OpenDesign, skipped: Skipped[] = []): Check[
         detail: item.reason,
       });
   return checks;
+}
+
+/** Run-level engine checks (plan §9.3) as panel checks; they follow every edit. */
+export function runCheckItems(design: Design, builds: OpenDesign['builds']): Check[] {
+  return runChecks(design, builds).map((item) => {
+    const run = design.runs.find((candidate) => candidate.key === item.entityRef);
+    return {
+      id: `${item.code}:${item.entityRef}`,
+      severity: item.severity,
+      title: run ? `Run ${runLabel(run)}` : item.entityRef,
+      detail: item.text,
+    };
+  });
 }
 
 export function severityCounts(checks: Check[]): Record<Severity, number> {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from 'zustand';
-import type { Design, Run } from '@ill/core-schemas/design';
+import type { Design } from '@ill/core-schemas/design';
 import { choiceOf } from '@ill/data/environments';
 import {
   addCabinet,
@@ -19,24 +19,13 @@ import {
   setSpaceEnvironment,
   updateCabinet,
   updateCircuit,
-  type DistancePick,
 } from '@ill/engine/site';
+import { runLabel } from '@ill/engine/runs';
 import type { DesignStore } from '../design/store';
-import { CommitInput, EnvironmentSelect, parseFeet } from './fields';
+import { CommitInput, Distance, EnvironmentSelect, parseFeet, PICKS, PROVENANCE } from './fields';
 import type { OpenDesign } from './open';
 
-const PICKS = Object.keys(DISTANCE_LABELS) as DistancePick[];
 const VOLTAGES = [120, 208, 240, 277, 347, 480] as const;
-const PROVENANCE: Record<Run['homeRunProvenance'], string> = {
-  estimate: 'estimate',
-  entered: 'entered',
-  measured: 'measured',
-  erp: 'from ERP',
-};
-
-/** "F3-1.2": line, copy and run (plan §9.1). */
-export const runLabel = (run: Pick<Run, 'lineId' | 'buildIndex' | 'runIndex'>) =>
-  `${run.lineId}-${run.buildIndex}.${run.runIndex}`;
 
 export function SpacesStep({ open, store, readOnly }: { open: OpenDesign; store: DesignStore; readOnly: boolean }) {
   const design = useStore(store, (s) => s.design);
@@ -338,46 +327,5 @@ export function SpacesStep({ open, store, readOnly }: { open: OpenDesign; store:
         </article>
       </fieldset>
     </section>
-  );
-}
-
-function Distance({
-  label,
-  value,
-  provenance,
-  onType,
-  onPick,
-}: {
-  label: string;
-  value: number;
-  provenance: string;
-  onType(text: string): void;
-  onPick(pick: DistancePick): void;
-}) {
-  return (
-    <span className="ill-sd__distance">
-      <CommitInput
-        label={label}
-        type="number"
-        min={0}
-        step="any"
-        value={value}
-        onCommit={onType}
-        className="ill-sd__feet"
-      />
-      ft <span className="ill-sd__muted">({provenance})</span>
-      <select
-        aria-label={`${label} quick pick`}
-        value=""
-        onChange={(event) => event.target.value && onPick(event.target.value as DistancePick)}
-      >
-        <option value="">Quick pick…</option>
-        {PICKS.map((pick) => (
-          <option key={pick} value={pick}>
-            {DISTANCE_LABELS[pick]}
-          </option>
-        ))}
-      </select>
-    </span>
   );
 }

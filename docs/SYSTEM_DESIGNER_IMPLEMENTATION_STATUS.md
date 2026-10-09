@@ -26,6 +26,7 @@ Each entry records what landed, where, and any place the code disagreed with the
 | WP-2.6 | Riser 1.3.0 ERP edition | Draft PR riser-diagram-generator#1; tag `v1.3.0` after merge |
 | WP-3.1 | Guided shell, stepper, terms | Done |
 | WP-3.2 | Spaces, cabinets, distances | Done (cabinet → run cascade with WP-3.4) |
+| WP-3.3 | Runs screen | Done |
 
 ## WP-0.1 — Portal access audit
 
@@ -387,3 +388,27 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     (WP-3.4).
   - The in-wall listing rule is recorded (`needsInWallListing`) and applied in wire selection
     (WP-3.5).
+
+## WP-3.3 — Runs screen
+
+- `packages/engine/src/runs.ts` holds run labels, product type, feed positions, grouping and the
+  run-level checks. The app shows the checks on each row, in the strip preview and in the check panel,
+  and recomputes them on every edit.
+- Checks (§9.3, Appendix C codes):
+  - `TAPE_RUN_TOO_LONG` (error) when a run is longer than its build's `maxRunFtEffective`.
+  - `MAX_LENGTH_HINT` (info) above 90% of that length.
+  - `INVALID_SPEC` (warning) when a double-end run lists other than 2 feeds, or a multi-feed run has no
+    feed count.
+  - Jumper-connected tape runs already arrive as one run from the ERP expansion (`connected_runs`), so
+    each run is one circuit and needs no separate check.
+- The Runs screen is a table: run, type, space, length, watts, feed, environment, home run with
+  provenance, supply and status. It filters by space.
+  - Select runs to move them to a space, set their environment or home run (typed or quick pick)
+    together. Each bulk edit is one undo step.
+  - Identical copies fold into one group row (threshold from Settings). Groups can be expanded, split,
+    and rebuilt from runs of one schedule line. Runs on different supplies cannot be grouped.
+  - Choosing a run shows its strip to scale against the build maximum, with its feed points.
+- Discrepancies and choices:
+  - Lengths, watts and feeds stay read-only (they come from the configured build), so "split" means
+    splitting a group. A run that is too long is fixed in the configurator, which the check says.
+  - Run labels moved from the Spaces screen into the engine package.

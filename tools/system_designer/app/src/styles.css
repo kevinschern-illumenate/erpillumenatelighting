@@ -413,3 +413,97 @@
 	color: var(--ill-secondary-600);
 	cursor: pointer;
 }
+.ill-sd__bulk {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	margin-bottom: 8px;
+	border-radius: 10px;
+	background: var(--ill-surface-2);
+}
+.ill-sd__table-wrap {
+	overflow-x: auto;
+}
+.ill-sd__table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9rem;
+}
+.ill-sd__table th,
+.ill-sd__table td {
+	text-align: left;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--ill-border);
+	white-space: nowrap;
+	vertical-align: middle;
+}
+.ill-sd__table thead th {
+	color: var(--ill-muted);
+	font-weight: 600;
+}
+.ill-sd__nested th {
+	padding-left: 28px;
+}
+.ill-sd__focused {
+	background: var(--ill-surface-2);
+}
+.ill-sd__link {
+	border: 0;
+	background: none;
+	padding: 0;
+	font: inherit;
+	font-weight: 600;
+	color: var(--ill-secondary-600);
+	cursor: pointer;
+	text-decoration: underline;
+}
+.ill-sd__group-actions {
+	display: inline-flex;
+	gap: 4px;
+	margin-left: 8px;
+}
+.ill-sd__status {
+	display: inline-block;
+	max-width: 280px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.ill-sd__status--error {
+	color: var(--ill-error);
+}
+.ill-sd__status--warning {
+	color: var(--ill-accent-800);
+}
+.ill-sd__status--info,
+.ill-sd__status--ok {
+	color: var(--ill-muted);
+}
+.ill-sd__strip {
+	margin: 16px 0 0;
+}
+.ill-sd__strip svg {
+	width: 100%;
+	max-width: 640px;
+	height: auto;
+}
+.ill-sd__strip text {
+	font-size: 11px;
+	fill: var(--ill-muted);
+}
+.ill-sd__strip-bar {
+	fill: var(--ill-accent-500);
+	stroke: var(--ill-accent-800);
+}
+.ill-sd__strip-bar--over {
+	fill: #f6c8c4;
+	stroke: var(--ill-error);
+}
+.ill-sd__strip-max {
+	stroke: var(--ill-primary-600);
+	stroke-dasharray: 4 3;
+}
+.ill-sd__strip-feed {
+	fill: var(--ill-secondary-600);
+}

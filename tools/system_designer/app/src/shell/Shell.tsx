@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 import { PRODUCT_NAME } from '../product';
 import type { DesignApi } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { saveDesign, type DesignStore, type SaveStatus } from '../design/store';
 import { CheckPanel } from './CheckPanel';
+import { RunsStep } from './RunsStep';
 import { SpacesStep } from './SpacesStep';
 import { StartStep } from './StartStep';
 import { TermsDialog } from './TermsDialog';
-import type { Check, OpenDesign } from './open';
+import { runCheckItems, type Check, type OpenDesign } from './open';
 import { STEPS, type Mode, type StepId } from './steps';
 
 const EDITABLE_STATUSES = new Set(['Draft', 'Changes Requested']);
@@ -52,6 +53,7 @@ export function saveLabel(status: SaveStatus, dirty: boolean, modified: string |
 
 export function Shell({ open, store, api, drafts, checks, restoredDraft = false, navigate }: ShellProps) {
   const meta = useStore(store, (s) => s.meta);
+  const design = useStore(store, (s) => s.design);
   const dirty = useStore(store, (s) => s.dirty);
   const saveStatus = useStore(store, (s) => s.saveStatus);
   const saveMessage = useStore(store, (s) => s.saveMessage);
@@ -61,6 +63,10 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
   const [step, setStep] = useState<StepId>('start');
   const [mode, setMode] = useState<Mode>('guided');
   const [checksOpen, setChecksOpen] = useState(true);
+  const allChecks = useMemo(
+    () => (design ? [...checks, ...runCheckItems(design, open.builds)] : checks),
+    [checks, design, open.builds],
+  );
   const readOnly = readOnlyReason(open, meta?.status);
   const review = reviewChip(open, meta?.status);
   const canSave = !readOnly && dirty && saveStatus !== 'saving';
@@ -177,6 +183,8 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
             <StartStep open={open} store={store} api={api} readOnly={Boolean(readOnly)} navigate={navigate} />
           ) : step === 'spaces' ? (
             <SpacesStep open={open} store={store} readOnly={Boolean(readOnly)} />
+          ) : step === 'runs' ? (
+            <RunsStep open={open} store={store} readOnly={Boolean(readOnly)} />
           ) : (
             <section aria-labelledby="ill-sd-step-title">
               <h2 id="ill-sd-step-title">{current.label}</h2>
@@ -205,7 +213,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
             </div>
           ) : null}
         </main>
-        <CheckPanel checks={checks} open={checksOpen} onToggle={() => setChecksOpen((value) => !value)} />
+        <CheckPanel checks={allChecks} open={checksOpen} onToggle={() => setChecksOpen((value) => !value)} />
       </div>
       {!readOnly && !termsAccepted ? (
         <TermsDialog
