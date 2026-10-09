@@ -89,10 +89,11 @@ SHARED_FIELDS = [
 		"options": "ilL-Child-Webflow-Document",
 	},
 	{
-		"fieldname": "certifications",
+		"fieldname": "web_certifications",
 		"fieldtype": "Table",
-		"label": "Certifications",
-		"options": "ilL-Child-Spec-Certification",
+		"label": "Web Certifications and Ratings",
+		"options": "ilL-Child-Webflow-Certification-Link",
+		"description": "Shown on the product page. Separate from the template's own Certifications.",
 	},
 	_section("web_configurator_section", "Web Configurator"),
 	{"fieldname": "is_configurable", "fieldtype": "Check", "label": "Is Configurable", "default": "0"},
@@ -189,11 +190,11 @@ TYPE_FIELDS = {
 # their original place and meaning.
 PREEXISTING = {
 	"ilL-Fixture-Template": set(),
-	"ilL-Tape-Neon-Template": {"certifications", "warranty_years"},
-	"ilL-Controller-Template": {"certifications"},
-	"ilL-Driver-Template": {"certifications"},
+	"ilL-Tape-Neon-Template": {"warranty_years"},
+	"ilL-Controller-Template": set(),
+	"ilL-Driver-Template": set(),
 	"ilL-Extrusion-Kit-Template": set(),
-	"ilL-LED-Sheet-Template": {"certifications"},
+	"ilL-LED-Sheet-Template": set(),
 }
 
 
