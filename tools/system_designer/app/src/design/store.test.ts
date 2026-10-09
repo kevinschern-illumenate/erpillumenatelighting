@@ -225,3 +225,35 @@ describe('api client', () => {
     });
   });
 });
+
+describe('reconcile before saving', () => {
+  const diff = { added: [{ key: 'n1', lineId: 'N1' }], removed: [], changed: [], qty: [], in_sync: false };
+
+  it('blocks a save until the diff is accepted, then sends reconciled once', async () => {
+    const store = createDesignStore();
+    await loadDesign(store, drafts, 'SCH-FIXTURE', { design: fixture, meta });
+    store.getState().setReconcile(diff);
+    const save = vi.fn<DesignApi['saveDesign']>().mockResolvedValue({
+      name: meta.name,
+      revision: 'A',
+      modified: '2026-10-09 12:10:00.000000',
+      build_hash: 'e'.repeat(64),
+      summary: {},
+    });
+    expect(await saveDesign(store, apiStub(save), drafts)).toBeNull();
+    expect(save).not.toHaveBeenCalled();
+    expect(store.getState().saveStatus).toBe('conflict');
+
+    store.getState().acceptReconcile({ ...fixture, engineVersion: 'riser-reconciled' });
+    expect(store.temporal.getState().pastStates).toHaveLength(1);
+    await saveDesign(store, apiStub(save), drafts);
+    expect(save.mock.calls[0]?.[0]).toMatchObject({ reconciled: true });
+    expect(store.getState().reconciled).toBe(false);
+  });
+
+  it('ignores a diff that is already in sync', () => {
+    const store = createDesignStore();
+    store.getState().setReconcile({ ...diff, added: [], in_sync: true });
+    expect(store.getState().reconcile).toBeNull();
+  });
+});

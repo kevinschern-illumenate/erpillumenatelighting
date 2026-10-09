@@ -131,10 +131,10 @@ def review_requirement(schedule=None):
 
 @frappe.whitelist(methods=["POST"])
 @endpoint
-def save_design(schedule=None, design_json=None, design_name=None, expected_modified=None):
+def save_design(schedule=None, design_json=None, design_name=None, expected_modified=None, reconciled=None):
 	from illumenate_lighting.illumenate_lighting.system_design import designs
 
-	return designs.save_design(schedule, design_json, design_name, expected_modified)
+	return designs.save_design(schedule, design_json, design_name, expected_modified, reconciled)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -143,3 +143,22 @@ def create_revision(design=None, note=None):
 	from illumenate_lighting.illumenate_lighting.system_design import designs
 
 	return designs.create_revision(design, note)
+
+
+# --- Reconcile and copy forward (WP-2.5, H6) -----------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def reconcile_design(design=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.reconcile_design(design)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def copy_design_to_version(design=None, target_schedule=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.copy_design_to_version(design, target_schedule)

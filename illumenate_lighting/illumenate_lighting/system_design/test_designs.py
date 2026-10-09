@@ -126,3 +126,54 @@ class TestDesigns(IntegrationTestCase):
 			)
 		finally:
 			frappe.set_user("Administrator")
+
+	def test_reconcile_after_a_schedule_change(self):
+		data = self.save()["data"]
+		self.assertTrue(api.open_design(schedule=self.schedule.name)["data"]["reconcile"]["in_sync"])
+		self.schedule.reload()
+		self.schedule.append(
+			"lines",
+			{
+				"line_id": "TP2",
+				"qty": 1,
+				"location": "Hall",
+				"manufacturer_type": "OTHER",
+				"watts_each": 8,
+				"input_voltage_v": 120,
+				"voltage_class": "Line Voltage",
+			},
+		)
+		self.schedule.save(ignore_permissions=True)
+		diff = api.reconcile_design(design=data["name"])["data"]
+		self.assertEqual([item["lineId"] for item in diff["added"]], ["TP2"])
+		self.assertEqual(api.open_design(schedule=self.schedule.name)["data"]["reconcile"], diff)
+		blocked = self.save(design_name=data["name"], expected_modified=data["modified"])
+		self.assertEqual(blocked["code"], "CONFLICT")
+		saved = self.save(design_name=data["name"], expected_modified=data["modified"], reconciled=1)
+		self.assertTrue(saved["success"], saved)
+		self.assertTrue(api.reconcile_design(design=data["name"])["data"]["in_sync"])
+
+	def test_copy_forward_to_the_next_version(self):
+		data = self.save()["data"]
+		next_name = self.schedule.create_new_version(version_notes="ZZ designer copy test")
+		copied = api.copy_design_to_version(design=data["name"], target_schedule=next_name)
+		self.assertTrue(copied["success"], copied)
+		record = frappe.get_doc("ilL-System-Design", copied["data"]["name"])
+		self.assertEqual((record.fixture_schedule, record.revision_parent), (next_name, data["name"]))
+		self.assertEqual(json.loads(record.design_json)["schedule"]["name"], next_name)
+		opened = api.open_design(schedule=next_name)["data"]
+		self.assertEqual(opened["design_meta"]["name"], record.name)
+		self.assertTrue(opened["reconcile"]["in_sync"])
+		self.assertEqual(
+			api.copy_design_to_version(design=data["name"], target_schedule=next_name)["code"], "CONFLICT"
+		)
+		other = frappe.get_doc(
+			{
+				"doctype": "ilL-Project-Fixture-Schedule",
+				"schedule_name": "ZZ Other",
+				"ill_project": self.schedule.ill_project,
+			}
+		).insert(ignore_permissions=True)
+		self.assertEqual(
+			api.copy_design_to_version(design=data["name"], target_schedule=other.name)["code"], "INVALID"
+		)

@@ -230,15 +230,40 @@ class Saving(unittest.TestCase):
 				self.module.save_design("SCH-FIXTURE", DESIGN)
 		self.assertEqual(caught.exception.code, "CONFLICT")
 
-	def test_update_checks_owner_schedule_and_timestamp(self):
-		record = FakeDesign(
-			name="SYSD-2026-00001", is_current=1, status="Draft", revision="A", schedule_version=2
+	def saved_record(self, lines=LINES):
+		with load_service(RECONCILE) as (reconcile, _frappe):
+			stored = reconcile.fingerprints(lines, BUILDS)
+		return FakeDesign(
+			name="SYSD-2026-00001",
+			is_current=1,
+			status="Draft",
+			revision="A",
+			schedule_version=2,
+			design_json=json.dumps(DESIGN),
+			line_fingerprint_json=json.dumps(stored),
 		)
+
+	def test_update_checks_owner_schedule_and_timestamp(self):
+		record = self.saved_record()
 		self.frappe.db.get_value.return_value = MODIFIED
 		with patch.object(self.module.access, "require_design", return_value=record) as require:
 			self.module.save_design("SCH-FIXTURE", DESIGN, "SYSD-2026-00001", str(MODIFIED))
 		require.assert_called_once_with("SYSD-2026-00001", "SCH-FIXTURE")
 		self.assertEqual(record.saved, ["save"])
+
+	def test_changed_schedule_needs_a_reconciled_save(self):
+		earlier = copy.deepcopy(LINES)
+		earlier[0]["qty"] = 1
+		record = self.saved_record(earlier)
+		self.frappe.db.get_value.return_value = MODIFIED
+		with patch.object(self.module.access, "require_design", return_value=record):
+			with self.assertRaises(self.module.DesignError) as caught:
+				self.module.save_design("SCH-FIXTURE", DESIGN, record.name, str(MODIFIED))
+			self.assertEqual(caught.exception.code, "CONFLICT")
+			self.assertEqual(record.saved, [])
+			self.module.save_design("SCH-FIXTURE", DESIGN, record.name, str(MODIFIED), reconciled="1")
+		self.assertEqual(record.saved, ["save"])
+		self.assertEqual(json.loads(record.line_fingerprint_json)[LINES[0]["key"]]["qty"], LINES[0]["qty"])
 
 	def test_schedule_mismatches(self):
 		other = copy.deepcopy(DESIGN)

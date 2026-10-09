@@ -24,9 +24,11 @@ from illumenate_lighting.illumenate_lighting.system_design.settings import is_en
 __all__ = [
 	"build_hash",
 	"canonical_json",
+	"copy_design_to_version",
 	"create_revision",
 	"find_schedules",
 	"open_design",
+	"reconcile_design",
 	"save_design",
 	"validate_design_json",
 ]
@@ -95,8 +97,9 @@ def open_design(schedule, design=None):
 		},
 		"lines": lines,
 		"builds": builds,
-		"design": json.loads(record.design_json) if record else None,
+		"design": stored_design(record) if record else None,
 		"design_meta": design_meta(record) if record else None,
+		"reconcile": reconcile_for(record, lines, builds) if record else None,
 		"catalog_hash": snapshot_hash,
 		"readiness": readiness,
 		"review_requirement": gate.review_requirement(lines, builds, values),
@@ -172,6 +175,16 @@ def design_meta(record):
 		"schedule_version": record.schedule_version,
 		"is_current": bool(record.is_current),
 	}
+
+
+def stored_design(record):
+	return json.loads(record.design_json)
+
+
+def reconcile_for(record, lines, builds):
+	"""H8.4 diff between a saved design and its schedule as it is now."""
+	stored = json.loads(record.line_fingerprint_json or "{}")
+	return reconcile.diff(stored, lines, builds, stored_design(record).get("runs") or [])
 
 
 def current_design(schedule_doc):
@@ -305,8 +318,12 @@ def _locked_for_edit(record, expected_modified):
 		)
 
 
-def save_design(schedule, design_json, design_name=None, expected_modified=None):
-	"""Create or update the current design of a schedule version (H6 ``save_design``)."""
+def save_design(schedule, design_json, design_name=None, expected_modified=None, reconciled=False):
+	"""Create or update the current design of a schedule version (H6 ``save_design``).
+
+	When the schedule changed since the last save, the client must apply the H8.4 diff and say so
+	with ``reconciled``; otherwise the save is a ``CONFLICT`` and the stored fingerprints stay put.
+	"""
 	schedule_doc = access.require_edit(schedule)
 	require_designer()
 	design = parse_design(design_json)
@@ -318,6 +335,10 @@ def save_design(schedule, design_json, design_name=None, expected_modified=None)
 		_locked_for_edit(record, expected_modified)
 		if record.schedule_version != (schedule_doc.get("version") or 0):
 			raise DesignError("CONFLICT", _("This design is for an earlier schedule version"))
+		if not _truthy(reconciled) and not reconcile_for(record, lines, builds)["in_sync"]:
+			raise DesignError(
+				"CONFLICT", _("The schedule changed since this design was saved; review the changes first")
+			)
 	else:
 		existing = current_design(schedule_doc)
 		if existing:
@@ -351,6 +372,10 @@ def save_design(schedule, design_json, design_name=None, expected_modified=None)
 		"build_hash": record.build_hash,
 		"summary": summary,
 	}
+
+
+def _truthy(value):
+	return value in (True, 1, "1", "true", "True")
 
 
 REVISION_RESET = (
@@ -391,3 +416,77 @@ def create_revision(design, note=None):
 	if text:
 		revision.add_comment("Comment", text[:1000])
 	return {"name": revision.name, "revision": revision.revision}
+
+
+# --- Reconcile and copy forward (WP-2.5, H6, H8.4) ------------------------------------------------
+
+
+def reconcile_design(design):
+	"""The H8.4 diff for a saved design against its schedule now."""
+	record = access.require_design(design)
+	require_designer()
+	schedule_doc = access.require_read(record.fixture_schedule)
+	lines, builds, _readiness = expansion.expand_schedule(schedule_doc, {})
+	return reconcile_for(record, lines, builds)
+
+
+def _schedule_root(schedule_doc):
+	return schedule_doc.get("version_parent") or schedule_doc.name
+
+
+def copy_design_to_version(design, target_schedule):
+	"""Start a design on another version of the same schedule (H6 ``copy_design_to_version``).
+
+	The copy keeps the source's line fingerprints, so opening it shows the H8.4 diff to apply.
+	"""
+	record = access.require_design(design)
+	source_schedule = access.require_read(record.fixture_schedule)
+	target = access.require_edit(target_schedule)
+	require_designer()
+	if target.name == source_schedule.name:
+		raise DesignError("INVALID", _("Choose a different version of this schedule"))
+	if _schedule_root(target) != _schedule_root(source_schedule):
+		raise DesignError("INVALID", _("A design can only be copied to another version of the same schedule"))
+	existing = current_design(target)
+	if existing:
+		raise DesignError(
+			"CONFLICT",
+			_("That schedule version already has a design ({0}); open it instead").format(existing.name),
+		)
+	body = stored_design(record)
+	body["schedule"] = {"name": target.name, "version": target.get("version") or 0}
+	copy = frappe.new_doc(DESIGN_DOCTYPE)
+	copy.update(
+		{
+			"title": _("{0} design").format(target.get("schedule_name") or target.name),
+			"fixture_schedule": target.name,
+			"schedule_version": target.get("version") or 0,
+			"ill_project": target.get("ill_project"),
+			"customer": target.get("customer"),
+			"status": "Draft",
+			"revision": "A",
+			"revision_parent": record.name,
+			"is_current": 1,
+			"design_json": canonical_json(body),
+			"design_schema_version": record.design_schema_version,
+			"engine_version": record.engine_version,
+			"catalog_snapshot": record.catalog_snapshot,
+			"build_hash": build_hash(body),
+			"line_fingerprint_json": record.line_fingerprint_json,
+			"result_summary_json": record.result_summary_json,
+			**{field: record.get(field) for field in COPIED_FLAGS},
+		}
+	)
+	copy.flags.ignore_permissions = True
+	copy.insert()
+	return {"name": copy.name}
+
+
+COPIED_FLAGS = (
+	"total_connected_w",
+	"uses_dmx",
+	"uses_phase_dimming",
+	"has_dealer_data",
+	"review_required",
+	"review_required_reasons",
+)

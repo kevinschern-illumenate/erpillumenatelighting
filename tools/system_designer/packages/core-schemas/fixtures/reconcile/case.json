@@ -1,0 +1,490 @@
+{
+  "after": {
+    "builds": {
+      "ilL-Configured-Fixture": {
+        "ILL-CF-LINEAR": {
+          "allocations": [
+            {
+              "itemCode": "TEST-PSU-96",
+              "output": 1,
+              "runKey": "1",
+              "supply": 1
+            },
+            {
+              "itemCode": "TEST-PSU-96",
+              "output": 2,
+              "runKey": "2",
+              "supply": 1
+            }
+          ],
+          "catalogId": "tape:TEST-TAPE-24:4.4:50",
+          "configHash": "hash-linear",
+          "doctype": "ilL-Configured-Fixture",
+          "environment": "dry-concealed",
+          "environmentRating": "Dry",
+          "family": "linear",
+          "issues": [],
+          "maxRunFtEffective": 16.0,
+          "name": "ILL-CF-LINEAR",
+          "offering": "TEST-TAPE-24-3000K-STD",
+          "runs": [
+            {
+              "feedMethod": "end",
+              "lengthFt": 6.0,
+              "runIndex": 1,
+              "watts": 26.4
+            },
+            {
+              "feedMethod": "end",
+              "lengthFt": 6.0,
+              "runIndex": 2,
+              "watts": 26.4
+            }
+          ],
+          "totalWatts": 52.8
+        },
+        "ILL-CF-WET": {
+          "allocations": [],
+          "catalogId": "tape:TEST-TAPE-24:6.2:100",
+          "configHash": "hash-wet",
+          "doctype": "ilL-Configured-Fixture",
+          "environment": "wet",
+          "environmentRating": "Damp",
+          "family": "linear",
+          "issues": [],
+          "maxRunFtEffective": 10.0,
+          "name": "ILL-CF-WET",
+          "offering": "TEST-TAPE-24-3000K-HO",
+          "runs": [
+            {
+              "feedMethod": "center",
+              "lengthFt": 5.0,
+              "runIndex": 1,
+              "watts": 31.0
+            }
+          ],
+          "totalWatts": 31.0
+        }
+      },
+      "ilL-Configured-Group": {
+        "ILL-CG-00001": {
+          "allocations": [
+            {
+              "itemCode": "TEST-PSU-60",
+              "output": 1,
+              "runKey": "1",
+              "supply": 1
+            },
+            {
+              "itemCode": "TEST-PSU-60",
+              "output": 2,
+              "runKey": "2",
+              "supply": 1
+            }
+          ],
+          "catalogId": "tape:TEST-TAPE-24:4.4:50",
+          "configHash": "hash-group",
+          "doctype": "ilL-Configured-Group",
+          "environment": null,
+          "environmentRating": "Mystery",
+          "family": "group",
+          "issues": [],
+          "maxRunFtEffective": null,
+          "name": "ILL-CG-00001",
+          "offering": "TEST-TAPE-24-3000K-STD",
+          "protocols": [
+            "0-10V"
+          ],
+          "runs": [
+            {
+              "feedMethod": "end",
+              "lengthFt": 3.0,
+              "runIndex": 1,
+              "watts": 13.2
+            },
+            {
+              "feedMethod": "end",
+              "lengthFt": 6.0,
+              "runIndex": 2,
+              "watts": 26.4
+            }
+          ],
+          "totalWatts": 39.6
+        }
+      },
+      "ilL-Configured-LED-Sheet": {
+        "ILL-CLS-00001": {
+          "allocations": [
+            {
+              "itemCode": "TEST-PSU-96",
+              "output": 1,
+              "runKey": "1",
+              "supply": 1
+            },
+            {
+              "itemCode": "TEST-PSU-96",
+              "output": 2,
+              "runKey": "2",
+              "supply": 1
+            }
+          ],
+          "catalogId": "sheet:TEST-SHEET",
+          "configHash": "hash-sheet",
+          "doctype": "ilL-Configured-LED-Sheet",
+          "environment": "dry-concealed",
+          "environmentRating": "Dry",
+          "family": "sheet",
+          "issues": [],
+          "maxRunFtEffective": null,
+          "name": "ILL-CLS-00001",
+          "offering": null,
+          "runs": [
+            {
+              "feedMethod": "end",
+              "lengthFt": null,
+              "runIndex": 1,
+              "watts": 50.0
+            },
+            {
+              "feedMethod": "end",
+              "lengthFt": null,
+              "runIndex": 2,
+              "watts": 40.0
+            }
+          ],
+          "totalWatts": 90.0
+        }
+      },
+      "ilL-Configured-Tape-Neon": {
+        "ILL-CTN-00001": {
+          "allocations": [],
+          "catalogId": "tape:TEST-TAPE-24:4.4:50",
+          "configHash": "changed-config",
+          "doctype": "ilL-Configured-Tape-Neon",
+          "environment": "wet",
+          "environmentRating": "Wet",
+          "family": "tape",
+          "issues": [],
+          "maxRunFtEffective": 16.0,
+          "name": "ILL-CTN-00001",
+          "offering": "TEST-TAPE-24-3000K-STD",
+          "protocols": [
+            "DMX512"
+          ],
+          "runs": [
+            {
+              "feedMethod": "end",
+              "lengthFt": 4.9213,
+              "runIndex": 1,
+              "watts": 21.6
+            },
+            {
+              "feedMethod": "end",
+              "lengthFt": 9.8425,
+              "runIndex": 2,
+              "watts": 43.3
+            }
+          ],
+          "totalWatts": 64.9
+        }
+      }
+    },
+    "lines": [
+      {
+        "accessoryItem": null,
+        "configured": {
+          "doctype": "ilL-Configured-Fixture",
+          "name": "ILL-CF-LINEAR"
+        },
+        "designLineRole": null,
+        "idx": 1,
+        "key": "a1linear",
+        "kind": "configured",
+        "lineId": "A1",
+        "lineKey": "a1linear",
+        "location": "Moved",
+        "powerSupplyForLine": null,
+        "productType": "Linear Fixture",
+        "qty": 3,
+        "thirdParty": null
+      },
+      {
+        "accessoryItem": null,
+        "configured": {
+          "doctype": "ilL-Configured-Tape-Neon",
+          "name": "ILL-CTN-00001"
+        },
+        "designLineRole": null,
+        "idx": 2,
+        "key": "b1tape",
+        "kind": "configured",
+        "lineId": "B1",
+        "lineKey": "b1tape",
+        "location": "Kitchen",
+        "powerSupplyForLine": null,
+        "productType": "LED Tape",
+        "qty": 1,
+        "thirdParty": null
+      },
+      {
+        "accessoryItem": null,
+        "configured": {
+          "doctype": "ilL-Configured-LED-Sheet",
+          "name": "ILL-CLS-00001"
+        },
+        "designLineRole": null,
+        "idx": 3,
+        "key": "c1sheet",
+        "kind": "configured",
+        "lineId": "C1",
+        "lineKey": "c1sheet",
+        "location": "Living Room",
+        "powerSupplyForLine": null,
+        "productType": "LED Sheet",
+        "qty": 1,
+        "thirdParty": null
+      },
+      {
+        "accessoryItem": null,
+        "configured": null,
+        "designLineRole": null,
+        "idx": 5,
+        "key": "e1other",
+        "kind": "third-party",
+        "lineId": "E1",
+        "lineKey": "e1other",
+        "location": "Hall",
+        "powerSupplyForLine": null,
+        "productType": null,
+        "qty": 6,
+        "thirdParty": {
+          "dimming": "phase-forward",
+          "dimmingName": "TRIAC",
+          "drive": "Integral Driver",
+          "inputVoltageV": 120.0,
+          "mA": null,
+          "manufacturer": "Other Co",
+          "model": "DL-4",
+          "voltageClass": "Line Voltage",
+          "wattsEach": 14.5
+        }
+      },
+      {
+        "accessoryItem": null,
+        "configured": null,
+        "designLineRole": null,
+        "idx": 6,
+        "key": "f1other",
+        "kind": "third-party",
+        "lineId": "F1",
+        "lineKey": "f1other",
+        "location": "Hall",
+        "powerSupplyForLine": null,
+        "productType": null,
+        "qty": 1,
+        "thirdParty": {
+          "dimming": null,
+          "dimmingName": null,
+          "drive": null,
+          "inputVoltageV": null,
+          "mA": null,
+          "manufacturer": null,
+          "model": null,
+          "voltageClass": null,
+          "wattsEach": null
+        }
+      },
+      {
+        "accessoryItem": null,
+        "configured": {
+          "doctype": "ilL-Configured-Fixture",
+          "name": "ILL-CF-WET"
+        },
+        "designLineRole": null,
+        "idx": 7,
+        "key": "G1-7",
+        "kind": "configured",
+        "lineId": "G1",
+        "lineKey": null,
+        "location": "",
+        "powerSupplyForLine": null,
+        "productType": "Linear Fixture",
+        "qty": 1,
+        "thirdParty": null
+      },
+      {
+        "accessoryItem": "TEST-PSU-96",
+        "configured": null,
+        "designLineRole": null,
+        "idx": 8,
+        "key": "h1acc",
+        "kind": "accessory",
+        "lineId": "H1",
+        "lineKey": "h1acc",
+        "location": "Kitchen",
+        "powerSupplyForLine": "a1linear",
+        "productType": null,
+        "qty": 2,
+        "thirdParty": null
+      },
+      {
+        "accessoryItem": null,
+        "configured": null,
+        "designLineRole": null,
+        "idx": 9,
+        "key": "i1new",
+        "kind": "unconfigured",
+        "lineId": "I1",
+        "lineKey": "i1new",
+        "location": "Kitchen",
+        "powerSupplyForLine": null,
+        "productType": "Linear Fixture",
+        "qty": 1,
+        "thirdParty": null
+      },
+      {
+        "accessoryItem": "TEST-WIRE-18-2",
+        "configured": null,
+        "designLineRole": "Wire",
+        "idx": 10,
+        "key": "j1wire",
+        "kind": "writeback",
+        "lineId": "WIRE1",
+        "lineKey": "j1wire",
+        "location": "Field wire",
+        "powerSupplyForLine": null,
+        "productType": null,
+        "qty": 9,
+        "thirdParty": null
+      },
+      {
+        "accessoryItem": null,
+        "configured": null,
+        "designLineRole": null,
+        "idx": 11,
+        "key": "n1new",
+        "kind": "third-party",
+        "lineId": "N1",
+        "lineKey": "n1new",
+        "location": "Hall",
+        "powerSupplyForLine": null,
+        "productType": null,
+        "qty": 2,
+        "thirdParty": {
+          "dimming": "phase-forward",
+          "dimmingName": "TRIAC",
+          "drive": "Integral Driver",
+          "inputVoltageV": 120.0,
+          "mA": null,
+          "manufacturer": "Other Co",
+          "model": "DL-4",
+          "voltageClass": "Line Voltage",
+          "wattsEach": 10
+        }
+      }
+    ]
+  },
+  "design_runs": [
+    {
+      "assignment": {
+        "equipmentId": "PS-01",
+        "port": "OUT 1"
+      },
+      "key": "d1group:1:1",
+      "lineKey": "d1group"
+    },
+    {
+      "key": "d1group:1:2",
+      "lineKey": "d1group"
+    },
+    {
+      "assignment": {
+        "equipmentId": "PS-02",
+        "port": "OUT 1"
+      },
+      "key": "a1linear:1:1",
+      "lineKey": "a1linear"
+    }
+  ],
+  "diff": {
+    "added": [
+      {
+        "key": "n1new",
+        "lineId": "N1"
+      }
+    ],
+    "changed": [
+      {
+        "key": "b1tape",
+        "lineId": "B1"
+      },
+      {
+        "key": "e1other",
+        "lineId": "E1"
+      }
+    ],
+    "in_sync": false,
+    "qty": [
+      {
+        "from": 2,
+        "key": "a1linear",
+        "lineId": "A1",
+        "to": 3
+      }
+    ],
+    "removed": [
+      {
+        "assignments": [
+          {
+            "equipmentId": "PS-01",
+            "port": "OUT 1",
+            "runKey": "d1group:1:1"
+          }
+        ],
+        "key": "d1group",
+        "runs": [
+          "d1group:1:1",
+          "d1group:1:2"
+        ]
+      }
+    ]
+  },
+  "stored": {
+    "G1-7": {
+      "fingerprint": "c6c49d4c60f0a1c651bcff47d272a9e9cddda42c49157044a3ed7337f0af3c09",
+      "qty": 1
+    },
+    "a1linear": {
+      "fingerprint": "2ec85cad747353d19eea0450a58d7b611d14452eef600a5afd40418f03739dd4",
+      "qty": 2
+    },
+    "b1tape": {
+      "fingerprint": "f5fc603e4a6a50f0d0c95997a481b474fd38aabeec0f41998f374fb9a047fb2a",
+      "qty": 1
+    },
+    "c1sheet": {
+      "fingerprint": "0e7f0a9d2d6c1d6c036267f80751957140788978e643c9f77799d8a3cc76734c",
+      "qty": 1
+    },
+    "d1group": {
+      "fingerprint": "b245b203eee150da759d4e609e1a811434d8b15e85d0278d0ce08025db8fe9d7",
+      "qty": 1
+    },
+    "e1other": {
+      "fingerprint": "c1dcc972f3f2986ef38ade4d38766ba1edb1bddb8246df035cb2d5caa7eb0de6",
+      "qty": 6
+    },
+    "f1other": {
+      "fingerprint": "ee4468dcf5896fc7b139376848b52ed3334c4bcb508b4fb01b6cc1fd519153c8",
+      "qty": 1
+    },
+    "h1acc": {
+      "fingerprint": "342c8730cb6e6506edda69c88f9a8d8af30d3be99fe4e1876f321b1afd27d3c2",
+      "qty": 2
+    },
+    "i1new": {
+      "fingerprint": "019e25092e1262475cd8131aece88835506f1d8b268622e68d6177d836be58dd",
+      "qty": 1
+    }
+  }
+}

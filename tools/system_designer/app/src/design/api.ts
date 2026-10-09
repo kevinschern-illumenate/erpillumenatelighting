@@ -1,4 +1,5 @@
 import type { Design } from '@ill/core-schemas/design';
+import type { ReconcileDiff } from '@ill/engine/reconcile';
 
 /** The H6 error codes every System Designer endpoint can return. */
 export type DesignErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'INVALID' | 'CONFLICT' | 'LOCKED' | 'GATE' | 'INTERNAL';
@@ -78,13 +79,27 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
       if (design) query.set('design', design);
       return call<T>('open_design', { method: 'GET' }, query);
     },
-    saveDesign(args: { schedule: string; design: Design; designName?: string; expectedModified?: string }) {
+    saveDesign(args: {
+      schedule: string;
+      design: Design;
+      designName?: string;
+      expectedModified?: string;
+      /** The H8.4 diff shown on open was applied; required when the schedule changed. */
+      reconciled?: boolean;
+    }) {
       return post<SaveResult>('save_design', {
         schedule: args.schedule,
         design_json: JSON.stringify(args.design),
         design_name: args.designName,
         expected_modified: args.expectedModified,
+        reconciled: args.reconciled ? '1' : undefined,
       });
+    },
+    reconcileDesign(design: string) {
+      return call<ReconcileDiff>('reconcile_design', { method: 'GET' }, new URLSearchParams({ design }));
+    },
+    copyDesignToVersion(design: string, targetSchedule: string) {
+      return post<{ name: string }>('copy_design_to_version', { design, target_schedule: targetSchedule });
     },
     createRevision(design: string, note?: string) {
       return post<{ name: string; revision: string }>('create_revision', {

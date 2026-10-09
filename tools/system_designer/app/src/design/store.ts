@@ -2,6 +2,7 @@ import { produce, type Draft as Mutable } from 'immer';
 import { temporal } from 'zundo';
 import { createStore } from 'zustand/vanilla';
 import type { Design } from '@ill/core-schemas/design';
+import type { ReconcileDiff } from '@ill/engine/reconcile';
 import { DesignApiError, type DesignApi, type DesignMeta } from './api';
 import type { DraftStore } from './drafts';
 
@@ -16,10 +17,17 @@ export interface DesignState {
   dirty: boolean;
   saveStatus: SaveStatus;
   saveMessage: string | null;
+  /** Schedule changes since the last save (H8.4), waiting for the reconcile dialog. */
+  reconcile: ReconcileDiff | null;
+  /** The diff was applied; the next save tells the server so. */
+  reconciled: boolean;
   load(schedule: string, design: Design, meta: DesignMeta | null): void;
   edit(recipe: (design: Mutable<Design>) => void): void;
   markSaved(meta: Pick<DesignMeta, 'name' | 'revision' | 'modified'>): void;
   setSaveStatus(status: SaveStatus, message?: string | null): void;
+  setReconcile(diff: ReconcileDiff | null): void;
+  /** Replace the design with the reconciled one (undoable) and mark the diff handled. */
+  acceptReconcile(design: Design): void;
 }
 
 /**
@@ -36,6 +44,8 @@ export function createDesignStore() {
         dirty: false,
         saveStatus: 'idle',
         saveMessage: null,
+        reconcile: null,
+        reconciled: false,
         load: (schedule, design, meta) =>
           set({
             schedule,
@@ -44,6 +54,8 @@ export function createDesignStore() {
             dirty: false,
             saveStatus: 'idle',
             saveMessage: null,
+            reconcile: null,
+            reconciled: false,
           }),
         edit: (recipe) =>
           set((state) => {
@@ -53,6 +65,7 @@ export function createDesignStore() {
         markSaved: (saved) =>
           set((state) => ({
             dirty: false,
+            reconciled: false,
             saveStatus: 'saved',
             saveMessage: null,
             meta: {
@@ -64,6 +77,8 @@ export function createDesignStore() {
             },
           })),
         setSaveStatus: (saveStatus, saveMessage = null) => set({ saveStatus, saveMessage }),
+        setReconcile: (diff) => set({ reconcile: diff && !diff.in_sync ? diff : null }),
+        acceptReconcile: (design) => set({ design, reconcile: null, reconciled: true, dirty: true }),
       }),
       {
         limit: UNDO_LIMIT,
@@ -107,8 +122,12 @@ export function persistDrafts(store: DesignStore, drafts: DraftStore) {
 
 /** Save to the server; on success the browser draft is dropped, on conflict it is kept. */
 export async function saveDesign(store: DesignStore, api: DesignApi, drafts: DraftStore) {
-  const { schedule, design, meta } = store.getState();
+  const { schedule, design, meta, reconcile, reconciled } = store.getState();
   if (!schedule || !design) return null;
+  if (reconcile) {
+    store.getState().setSaveStatus('conflict', 'Review the schedule changes before saving');
+    return null;
+  }
   store.getState().setSaveStatus('saving');
   try {
     const result = await api.saveDesign({
@@ -116,6 +135,7 @@ export async function saveDesign(store: DesignStore, api: DesignApi, drafts: Dra
       design,
       designName: meta?.name,
       expectedModified: meta?.modified,
+      reconciled,
     });
     // Edits made while the request was in flight stay unsaved.
     const changedMeanwhile = store.getState().design !== design;
