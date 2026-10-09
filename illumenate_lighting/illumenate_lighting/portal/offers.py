@@ -116,6 +116,7 @@ def before_submit(quotation, method=None):
 
 	gate(schedule, "issue_quote")
 
+
 def on_submit(quotation, method=None):
 	if not quotation.get("ill_quote_request"):
 		return
@@ -370,12 +371,26 @@ def respond(offer_name, action, expected_hash, note=None, po_no=None, requested_
 	offer.response_note = (note or "").strip()
 	_save(offer)
 	request.save(ignore_permissions=True)
+	_post_response(offer, request, action)
 	return {
 		"offer": offer.name,
 		"state": offer.state,
 		"sales_order": offer.sales_order,
 		"already_existed": False,
 	}
+
+
+def _post_response(offer, request, action):
+	"""Put the buyer's note where Sales replies: the order once accepted, else the quote request."""
+	from illumenate_lighting.illumenate_lighting.portal.conversations import post
+
+	labels = {"ACCEPT": "Accepted", "DECLINE": "Declined", "REQUEST_REVISION": "Requested a revision of"}
+	note = offer.response_note
+	if action != "ACCEPT":
+		post(request, f"{labels[action]} offer {offer.name}: {note}", key=f"offer:{offer.name}")
+	elif note:
+		intake = frappe.get_doc("ilL-Order-Intake", {"sales_order": offer.sales_order})
+		post(intake, f"Accepted offer {offer.name}: {note}", key=f"offer:{offer.name}")
 
 
 @frappe.whitelist()
@@ -418,6 +433,7 @@ def detail(offer_name):
 		"snapshot": data,
 		"pdf_url": file_url,
 		"sales_order": offer.sales_order,
+		"quote_request": offer.quote_request,
 		"response_note": offer.response_note,
 		"can_respond": can_respond,
 		"unavailable_reason": reason,

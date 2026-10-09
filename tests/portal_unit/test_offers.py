@@ -147,6 +147,29 @@ class IssuedOfferGuards(unittest.TestCase):
 			self.assertTrue(result["already_existed"])
 			current.assert_not_called()
 
+	def test_buyer_response_note_joins_the_conversation_sales_reads(self):
+		conversations = types.ModuleType(ROOT + ".portal.conversations")
+		conversations.post = MagicMock()
+		deps = {**self.dependencies(), conversations.__name__: conversations}
+		with load_service(ROOT + ".portal.offers", deps) as (module, frappe):
+			request = Record(doctype="ilL-Quote-Request", name="QR1")
+			offer = Record(name="OFFER1", response_note="Lower the lens cost", sales_order=None)
+			module._post_response(offer, request, "REQUEST_REVISION")
+			conversations.post.assert_called_once_with(
+				request, "Requested a revision of offer OFFER1: Lower the lens cost", key="offer:OFFER1"
+			)
+			intake = Record(doctype="ilL-Order-Intake", name="INTAKE1")
+			frappe.get_doc.return_value = intake
+			offer.update(sales_order="SO1", response_note="Ship to site B")
+			module._post_response(offer, request, "ACCEPT")
+			conversations.post.assert_called_with(
+				intake, "Accepted offer OFFER1: Ship to site B", key="offer:OFFER1"
+			)
+			conversations.post.reset_mock()
+			offer.update(response_note="")
+			module._post_response(offer, request, "ACCEPT")
+			conversations.post.assert_not_called()
+
 	def test_acceptance_with_changed_client_hash_is_rejected(self):
 		with load_service(ROOT + ".portal.offers", self.dependencies()) as (module, _frappe):
 			with (

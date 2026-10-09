@@ -99,8 +99,12 @@ def list_messages(parent_type, parent_name, page=1, page_size=20):
 		limit_start=(page - 1) * page_size,
 		limit_page_length=page_size,
 	)
+	people = _people({row.actor for row in rows})
 	for row in rows:
 		row["files"] = list_files(MESSAGE, row.name)
+		person = people.get(row.actor) or {}
+		row["actor_name"] = person.get("full_name") or row.actor
+		row["from_staff"] = person.get("user_type") == "System User"
 	return {
 		"messages": rows,
 		"total": frappe.db.count(MESSAGE, filters),
@@ -111,6 +115,53 @@ def list_messages(parent_type, parent_name, page=1, page_size=20):
 		"can_reply": _open(doc),
 		"next_action_by": doc.get("ill_next_action_by") or "Staff",
 	}
+
+
+def _people(users):
+	"""Display names, and whether each author writes for ilLumenate or the buyer."""
+	if not users:
+		return {}
+	return {
+		row.name: row
+		for row in frappe.get_all(
+			"User", filters={"name": ["in", list(users)]}, fields=["name", "full_name", "user_type"]
+		)
+	}
+
+
+def post(doc, body, *, key, actor=None, action="DECISION", notify=True):
+	"""Record a decision note in the parent's customer-visible conversation.
+
+	Review decisions, withdrawals and offer responses used to live in their own
+	fields, apart from the replies. Posting them here keeps one conversation
+	per request. ``key`` makes a retried decision post once.
+	"""
+	body = (body or "").strip()
+	if not body:
+		return None
+	actor = actor or frappe.session.user
+	request_key = fingerprint({"parent": [doc.doctype, doc.name], "decision": key})
+	existing = frappe.db.get_value(MESSAGE, {"request_key": request_key}, "name")
+	if existing:
+		return existing
+	message = frappe.get_doc(
+		{
+			"doctype": MESSAGE,
+			"reference_type": doc.doctype,
+			"reference_name": doc.name,
+			"actor": actor,
+			"body": body[:20000],
+			"visibility": "Customer",
+			"action": action,
+			"request_key": request_key,
+			"request_hash": fingerprint({"body": body, "action": action}),
+		}
+	)
+	message.flags.conversation_service_write = True
+	message.insert(ignore_permissions=True)
+	if notify:
+		_notify(doc, message, is_staff(doc, actor))
+	return message.name
 
 
 def _open(doc):

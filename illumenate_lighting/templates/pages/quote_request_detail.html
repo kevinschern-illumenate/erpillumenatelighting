@@ -16,7 +16,7 @@
   </tbody></table></div>
   {% for file in request.files %}<a class="d-block" href="{{ file.file_url | e }}">{{ file.file_name | e }}</a>{% endfor %}
   <a class="btn btn-outline-secondary my-3" href="/portal/schedules/{{ request.schedule | urlencode }}">{{ _("Current schedule") }}</a>
-  <h2>{{ _("Clarifications") }}</h2>
+  <h2 class="h5 mt-4">{{ _("Conversation with ilLumenate") }}</h2>
   <div data-portal-conversation data-parent-type="ilL-Quote-Request" data-parent-name="{{ request.name | e }}"></div>
 </main>
 {% endblock %}
