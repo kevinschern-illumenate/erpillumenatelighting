@@ -47,7 +47,7 @@
 
     <div class="ill-records">
     {% for offer in offers %}
-      <article class="ill-record{% if offer.status_class == 'warning' %} ill-record--action{% endif %}">
+      <article class="ill-record">
         <div class="ill-record__main">
           <a class="ill-record__title" href="/portal/quotes/{{ offer.name | urlencode }}">{{ offer.name | e }}</a>
           <p class="ill-record__sub">{% if offer.project_name %}{{ offer.project_name | e }} · {% endif %}{{ offer.schedule_name | default(offer.schedule, true) | e }}</p>
@@ -101,7 +101,7 @@
     </nav>
     <div class="ill-records">
     {% for request in requests %}
-      <article class="ill-record ill-record--compact{% if request.status_class == 'warning' %} ill-record--action{% endif %}">
+      <article class="ill-record ill-record--compact">
         <div class="ill-record__main">
           <a class="ill-record__title" href="/portal/quote-requests/{{ request.name | urlencode }}">{{ request.name | e }}</a>
           <p class="ill-record__sub">{{ request.schedule_name | default(request.schedule, true) | e }}{% if request.creation | default(none) %} · {{ _("Sent") }} {{ frappe.utils.format_date(request.creation) }}{% endif %}</p>

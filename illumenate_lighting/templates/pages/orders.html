@@ -47,7 +47,7 @@ View and track sales orders with production and shipment status
 	<div class="ill-records" id="ordersList">
 	{% for order in orders %}
 		{% set delivered = order.per_delivered or 0 %}
-		<article class="ill-record{% if order.needs_action %} ill-record--action{% endif %}" data-status="{{ order.portal_status | e }}">
+		<article class="ill-record" data-status="{{ order.portal_status | e }}">
 			<div class="ill-record__main">
 				<a href="/portal/orders/{{ order.name | urlencode }}" class="ill-record__title">{{ order.name | e }}</a>
 				<p class="ill-record__sub">{{ _("Placed") }} {{ frappe.utils.format_date(order.transaction_date) }}{% if order.po_no %} · {{ _("PO") }} {{ order.po_no | e }}{% endif %}</p>
