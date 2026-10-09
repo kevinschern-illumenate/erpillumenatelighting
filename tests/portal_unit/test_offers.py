@@ -170,6 +170,54 @@ class IssuedOfferGuards(unittest.TestCase):
 			module._post_response(offer, request, "ACCEPT")
 			conversations.post.assert_not_called()
 
+	def test_offer_list_filters_and_describes_each_quote(self):
+		with load_service(ROOT + ".portal.offers", self.dependencies()) as (module, frappe):
+			frappe.has_permission.return_value = False
+			module.get_actor.return_value.update(is_dealer=True, customer="DEALER-A")
+			rows = [
+				Record(
+					name="OFFER2",
+					quotation="Q2",
+					customer="DEALER-A",
+					schedule="S1",
+					state="ISSUED",
+					valid_until="2026-01-01",
+				),
+				Record(
+					name="OFFER1",
+					quotation="Q1",
+					customer="DEALER-A",
+					schedule="S1",
+					state="ACCEPTED",
+					valid_until=None,
+				),
+			]
+
+			def get_all(doctype, **kwargs):
+				return {
+					module.DOCTYPE: rows,
+					"Quotation": [Record(name="Q2", grand_total=500.0, currency="USD")],
+					module.SCHEDULE: [Record(name="S1", schedule_name="Level 1", ill_project="P1")],
+					"ilL-Project": [("P1", "Lobby")],
+				}[doctype]
+
+			frappe.get_all.side_effect = get_all
+			with (
+				patch.object(module, "can_read", return_value=True),
+				patch.object(module, "nowdate", return_value="2026-10-09"),
+			):
+				listed = module.list_offers(status="expired", search="Q2")["offers"]
+				offer_call = next(c for c in frappe.get_all.call_args_list if c.args[0] == module.DOCTYPE)
+				self.assertEqual(offer_call.kwargs["filters"]["valid_until"], ["<", "2026-10-09"])
+				self.assertEqual(offer_call.kwargs["filters"]["customer"], "DEALER-A")
+				self.assertIn("quotation", offer_call.kwargs["or_filters"])
+				self.assertEqual(
+					[(o.status_label, o.grand_total, o.project_name, o.schedule_name) for o in listed],
+					[("Expired", 500.0, "Lobby", "Level 1"), ("Accepted", None, "Lobby", "Level 1")],
+				)
+				with self.assertRaises(ValueError):
+					module.list_offers(status="everything")
+
 	def test_acceptance_with_changed_client_hash_is_rejected(self):
 		with load_service(ROOT + ".portal.offers", self.dependencies()) as (module, _frappe):
 			with (

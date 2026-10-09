@@ -115,6 +115,11 @@ def revision(order):
 	return _normalize(snapshot(order))
 
 
+def revision_hashes(order):
+	"""Every hash an acknowledgment of this order could hold, current and pre-normalization."""
+	return (fingerprint(revision(order)), fingerprint(snapshot(order)))
+
+
 def _acknowledged(request, order, stored=None):
 	"""Whether the buyer's acknowledgment covers the order as it stands.
 
@@ -255,7 +260,11 @@ def _load(order_name):
 	return order, frappe.get_doc(DOCTYPE, name)
 
 
-def record_buyer_po_edit(order, previous_hash, user):
+def record_buyer_po_edit(order, previous_hashes, user):
+	"""Carry the buyer's acknowledgment across their own PO number edit.
+
+	``previous_hashes`` are the order's ``revision_hashes`` before the edit.
+	"""
 	actor = get_actor(user)
 	if not actor.is_company_dealer_for(order.customer):
 		return
@@ -265,7 +274,7 @@ def record_buyer_po_edit(order, previous_hash, user):
 	request = frappe.get_doc(DOCTYPE, name)
 	if request.state in ("REJECTED", "WITHDRAWN", "APPROVED"):
 		frappe.throw("This order request is no longer editable")
-	if request.acknowledged_hash and request.acknowledged_hash == previous_hash:
+	if request.acknowledged_hash and request.acknowledged_hash in previous_hashes:
 		_record_acknowledgment(request, order, actor.user, "PO_UPDATED")
 		request.save(ignore_permissions=True)
 
@@ -491,9 +500,14 @@ def detail(order_name):
 		return None
 	request = frappe.get_doc(DOCTYPE, name)
 	current = snapshot(order)
+	acknowledged = _acknowledged(request, order)
+	step = next_step(order, request, acknowledged)
 	return {
 		"name": name,
 		"state": request.state,
+		"next_step": step,
+		"acknowledged": acknowledged,
+		"acknowledged_on": request.acknowledged_on if acknowledged else None,
 		"message": request.customer_message,
 		"revision_hash": fingerprint(current),
 		"original": json.loads(request.request_snapshot),
@@ -503,7 +517,7 @@ def detail(order_name):
 		and request.state in ("CHANGES_PROPOSED", "SUBMITTED", "UNDER_REVIEW")
 		and bool(request.get("intake_json"))
 		and bool(order.get("ill_confirmed_delivery_date"))
-		and not _acknowledged(request, order)
+		and not acknowledged
 		and get_actor().is_dealer,
 		"needs_intake": not order.docstatus and not request.get("intake_json"),
 		"acknowledgment_available": bool(request.get("acknowledgment_file")),
@@ -514,6 +528,63 @@ def detail(order_name):
 		and get_actor().is_dealer,
 		"can_replace": request.state in ("REJECTED", "WITHDRAWN") and get_actor().is_dealer,
 	}
+
+
+def next_step(order, request, acknowledged):
+	"""Who acts next on an order request and what they do, in the buyer's words.
+
+	``buyer`` is True when the dealer has something to do; the order list's
+	"Needs your action" filter and the detail page banner both read it.
+	"""
+	if order.docstatus == 1 or request.state == "APPROVED":
+		return {"buyer": False, "text": "Approved. ilLumenate has confirmed this order."}
+	if order.docstatus == 2:
+		return {"buyer": False, "text": "This order was cancelled."}
+	if request.state == "WITHDRAWN":
+		return {
+			"buyer": False,
+			"text": "You withdrew this request. Prepare a replacement draft to order again.",
+		}
+	if request.state == "REJECTED":
+		return {
+			"buyer": True,
+			"text": "ilLumenate could not approve this request. Read their message and prepare a replacement draft.",
+		}
+	if not request.get("intake_json"):
+		return {
+			"buyer": True,
+			"text": "Complete the PO, addresses and contact so ilLumenate can review this request.",
+		}
+	if request.state == "INFORMATION_NEEDED":
+		return {"buyer": True, "text": "ilLumenate needs more information. Reply in the conversation below."}
+	if not order.get("ill_confirmed_delivery_date"):
+		return {
+			"buyer": False,
+			"text": "ilLumenate is reviewing your request and will confirm a delivery date.",
+		}
+	if not acknowledged:
+		return {
+			"buyer": True,
+			"text": "Review the current prices, addresses and confirmed delivery date, then acknowledge this revision.",
+		}
+	return {"buyer": False, "text": "You acknowledged this revision. ilLumenate will approve the order next."}
+
+
+def buyer_actions(order_names):
+	"""The draft orders among ``order_names`` that are waiting on the buyer."""
+	waiting = set()
+	if not order_names:
+		return waiting
+	for intake in frappe.get_all(
+		DOCTYPE, filters={"sales_order": ["in", list(order_names)]}, fields=["name", "sales_order"]
+	):
+		order = frappe.get_doc("Sales Order", intake.sales_order)
+		if order.docstatus:
+			continue
+		request = frappe.get_doc(DOCTYPE, intake.name)
+		if next_step(order, request, _acknowledged(request, order))["buyer"]:
+			waiting.add(order.name)
+	return waiting
 
 
 def validate_order(order, method=None):
