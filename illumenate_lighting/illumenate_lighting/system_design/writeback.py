@@ -8,7 +8,8 @@ The design's equipment and wire become ACCESSORY lines on its schedule, keyed
 A preview lists what would be added, changed and removed; applying writes only the changes the user
 accepted, in one transaction. Lines without ``design_line_role`` are never touched, except the
 configurator's own supply lines for builds the design now powers, which are removed after the user
-confirms (consolidation, plan §14.6). Prices appear only for users with ``Can View Pricing``, and only
+confirms (consolidation, plan §14.6). Supplies the design took from the schedule (``scheduleLine``) are
+already lines, so they are never added again, and a fixture whose supply lines the design uses keeps them. Prices appear only for users with ``Can View Pricing``, and only
 as selling prices; costs never leave the server (D6).
 
 Equipment comes from the saved design and the catalog snapshot it was built against. Wire footage
@@ -107,6 +108,8 @@ def desired_lines(design, snapshot, wire_feet):
 	cabinets = {cabinet["id"]: cabinet for cabinet in (design.get("site") or {}).get("cabinets") or []}
 	desired, blocked = {}, []
 	for entity in (design.get("project") or {}).get("equipment") or []:
+		if entity.get("scheduleLine"):
+			continue  # Already a line on the schedule.
 		item = items.get(entity.get("catalogId"))
 		role = _role(item) if item else None
 		code = (item or {}).get("erpItemCode")
@@ -166,6 +169,18 @@ def powered_owner_keys(runs, lines):
 			if line and line.get("lineKey"):
 				owners.add(line["lineKey"])
 	return owners
+
+
+def schedule_supply_owners(design, lines):
+	"""Raw ``line_key`` of every fixture whose own supply lines the design uses as its supplies."""
+	used = {
+		entity.get("scheduleLine")
+		for entity in (design.get("project") or {}).get("equipment") or []
+		if entity.get("scheduleLine")
+	}
+	return {
+		line["powerSupplyForLine"] for line in lines if line["key"] in used and line.get("powerSupplyForLine")
+	}
 
 
 def plan_changes(desired, owned, configurator_lines, owners):
@@ -322,7 +337,7 @@ def _context(design, build_hash=None, wire_feet=None, edit=False):
 		)
 	snapshot = catalog.get_snapshot(record.catalog_snapshot) or {"items": [], "wires": []}
 	desired, blocked = desired_lines(design_doc, snapshot, parse_wire_feet(wire_feet))
-	owners = powered_owner_keys(design_doc.get("runs"), lines)
+	owners = powered_owner_keys(design_doc.get("runs"), lines) - schedule_supply_owners(design_doc, lines)
 	plan = plan_changes(desired, _owned(schedule_doc), _configurator_lines(schedule_doc), owners)
 	return record, schedule_doc, plan, blocked
 

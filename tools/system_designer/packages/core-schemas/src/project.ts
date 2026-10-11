@@ -123,6 +123,8 @@ export const EquipmentSchema = z
     env: EnvironmentSchema,
     specOverrides: CatalogSpecOverridesSchema.optional(),
     notes: TextSchema.optional(),
+    /** The fixture-schedule line (open-design `Line.key`) this supply already is; write-back leaves it alone. */
+    scheduleLine: IdSchema.optional(),
   })
   .strict()
   .superRefine((eq, ctx) => {

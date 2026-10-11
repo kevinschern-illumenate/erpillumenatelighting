@@ -77,6 +77,21 @@ class DesiredLines(unittest.TestCase):
 			self.assertEqual(desired["Wire:W14"]["unit"], "spool")
 			self.assertEqual(desired["Supply:PS-96"]["tags"], ["PS-1", "PS-2"])
 
+	def test_supplies_already_on_the_schedule_are_not_added_again(self):
+		with load_service(WRITEBACK) as (module, _frappe):
+			desired, blocked = module.desired_lines(
+				design(
+					{**supply("PS-1"), "scheduleLine": "h1acc"},
+					{**supply("PS-2"), "scheduleLine": "h1acc"},
+					supply("PS-3"),
+				),
+				SNAPSHOT,
+				{},
+			)
+			self.assertEqual(blocked, [])
+			self.assertEqual({key: row["qty"] for key, row in desired.items()}, {"Supply:PS-96": 1})
+			self.assertEqual(desired["Supply:PS-96"]["tags"], ["PS-3"])
+
 	def test_spool_rounding_is_whole_spools_and_exact_lengths_do_not_round_up(self):
 		with load_service(WRITEBACK) as (module, _frappe):
 			spool = {"salesUom": "spool", "spoolLengthFt": 250}
@@ -169,6 +184,23 @@ class PlanChanges(unittest.TestCase):
 				{"lineKey": "k-b", "assignment": None},
 			]
 			self.assertEqual(module.powered_owner_keys(runs, lines), {"owner-a"})
+
+	def test_fixtures_whose_supply_lines_the_design_uses_keep_them(self):
+		with load_service(WRITEBACK) as (module, _frappe):
+			lines = [
+				{"key": "k-a", "lineKey": "owner-a"},
+				{"key": "k-b", "lineKey": "owner-b"},
+				{"key": "ps-a", "lineKey": "ps-a", "powerSupplyForLine": "owner-a"},
+				{"key": "ps-b", "lineKey": "ps-b", "powerSupplyForLine": "owner-b"},
+				{"key": "ps-own", "lineKey": "ps-own", "powerSupplyForLine": None},
+			]
+			used = design(
+				{**supply("PS-1"), "scheduleLine": "ps-a"},
+				{**supply("PS-2"), "scheduleLine": "ps-own"},
+				supply("PS-3"),
+			)
+			self.assertEqual(module.schedule_supply_owners(used, lines), {"owner-a"})
+			self.assertEqual(module.schedule_supply_owners(design(supply("PS-3")), lines), set())
 
 	def test_price_delta_counts_removed_configurator_supplies(self):
 		with load_service(WRITEBACK) as (module, _frappe):
