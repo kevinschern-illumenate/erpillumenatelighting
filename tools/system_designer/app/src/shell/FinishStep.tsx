@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from 'zustand';
 import type { BomItem } from '@ill/engine/model';
-import type { DesignApi, WritebackPreview } from '../design/api';
+import type { DesignApi, WritebackLine, WritebackPreview } from '../design/api';
 import type { CheckState } from '../design/engine';
 import type { DesignStore } from '../design/store';
 import type { OpenDesign } from './open';
@@ -17,19 +17,22 @@ export function wireFeet(bom: readonly BomItem[]): Record<string, number> {
 
 /** Every change in a preview as one row: what it does, to which Item, how many and where. */
 export function changeRows(preview: WritebackPreview) {
+  const unit = (row: WritebackLine) => (row.unit === 'spool' ? ' spools' : row.unit === 'ft' ? ' ft' : '');
+  const listed = (row: WritebackLine) =>
+    row.on_schedule ? ` (plus ${row.on_schedule}${unit(row)} already on the schedule)` : '';
   return [
     ...preview.add.map((row) => ({
       key: row.key,
       action: 'Add',
       item: row.item_name ?? row.item_code,
-      qty: `${row.qty}${row.unit === 'spool' ? ' spools' : row.unit === 'ft' ? ' ft' : ''}`,
+      qty: `${row.qty}${unit(row)}${listed(row)}`,
       location: row.location ?? '',
     })),
     ...preview.update.map((row) => ({
       key: row.key,
       action: 'Change',
       item: row.item_name ?? row.item_code,
-      qty: `${row.from_qty} → ${row.qty}`,
+      qty: `${row.from_qty} → ${row.qty}${listed(row)}`,
       location: row.location ?? '',
     })),
     ...preview.remove.map((row) => ({

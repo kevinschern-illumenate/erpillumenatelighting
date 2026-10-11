@@ -15,6 +15,7 @@
   "warning|PSU_ABOVE_DERATE|PS-1",
   "warning|RUN_UNASSIGNED|space-kitchen",
   "warning|RUN_UNASSIGNED|space-living-room",
+  "warning|ZONE_NO_CONTROL|zone-2",
   "info|REVIEW_REQUIRED|project"
  ],
  "verify": {

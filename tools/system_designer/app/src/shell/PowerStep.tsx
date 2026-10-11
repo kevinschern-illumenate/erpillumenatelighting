@@ -3,6 +3,26 @@ import { useStore } from 'zustand';
 import type { Cabinet, Design, Run, Zone } from '@ill/core-schemas/design';
 import type { Equipment } from '@ill/core-schemas/project';
 import {
+  addControl,
+  autoPowerControls,
+  controlChoices,
+  controlFeedOptions,
+  controlInputOptions,
+  controlLabel,
+  controlSpecs,
+  moveControl,
+  removeControl,
+  scheduleControlDrift,
+  scheduleControlLines,
+  scheduleIncompleteLines,
+  setControlFeed,
+  setControlInput,
+  setDmx,
+  setZoneControl,
+  syncScheduleControls,
+  zoneControlOptions,
+} from '@ill/engine/controls';
+import {
   addSupply,
   addZone,
   assignmentProblem,
@@ -11,6 +31,9 @@ import {
   autoAssignRuns,
   circuitProblem,
   capacity,
+  channelRange,
+  decoderPortFor,
+  feedOf,
   fitSorted,
   FROM_CONFIGURATOR,
   FROM_SCHEDULE,
@@ -46,6 +69,15 @@ const DRAG_TYPE = 'application/x-ill-runs';
 const watts = (value: number) => `${Number(value.toFixed(1))} W`;
 const total = (runs: readonly Run[]) => runs.reduce((sum, run) => sum + run.watts, 0);
 
+/** Start a design from the schedule's own supplies and controls: place them, power the controls, fill the outputs. */
+function fromSchedule(design: Design, context: PowerContext, defaults: ReturnType<typeof distanceDefaults>) {
+  const cabinetFor = (spaceId: string) => addCabinet(design, spaceId, defaults);
+  syncScheduleSupplies(design, context, cabinetFor);
+  syncScheduleControls(design, context, cabinetFor);
+  autoPowerControls(design, context);
+  autoAssignRuns(design, context);
+}
+
 /**
  * The power board (plan §10.1–10.2, §10.5): unassigned runs on the left, cabinets with their supplies and
  * outputs on the right. Drag runs onto an output, or select them and use "Assign here" from the keyboard.
@@ -54,6 +86,10 @@ const total = (runs: readonly Run[]) => runs.reduce((sum, run) => sum + run.watt
  * The power supplies already on the fixture schedule come first: a design with no supplies starts from
  * them, with every run they can carry assigned. When they cannot carry every run the board says how much
  * is left; a supply added here becomes a schedule line when the design is added to the schedule.
+ *
+ * Controls work the same way: the schedule's controllers and decoders come in first, powered from their
+ * cabinet's circuit or a supply output beside them. Decoder channels take runs like supply outputs, and
+ * each zone names the control output that dims it, which is what the riser's control wiring follows.
  */
 export function PowerStep({
   open,
@@ -86,11 +122,14 @@ export function PowerStep({
     const current = store.getState().design;
     if (!current) return;
     started.current = true;
-    if (current.project.equipment.length || !scheduleSupplyLines(context).length) return;
+    if (
+      current.project.equipment.length ||
+      (!scheduleSupplyLines(context).length && !scheduleControlLines(context).length)
+    )
+      return;
     store.getState().edit((draft) => {
       const value = draft as Design;
-      syncScheduleSupplies(value, context, (spaceId) => addCabinet(value, spaceId, defaults));
-      autoAssignRuns(value, context);
+      fromSchedule(value, context, defaults);
     });
   }, [context, readOnly, store, defaults]);
   if (!design) return null;
@@ -110,6 +149,15 @@ export function PowerStep({
   const assign = (runKeys: string[], equipmentId: string, port: string) => {
     if (!context || !runKeys.length) return;
     if (change((draft) => assignRuns(draft, context, runKeys, equipmentId, port))) setSelected(new Set());
+  };
+  const assignToDecoder = (runKeys: string[], decoderId: string) => {
+    if (!context || !runKeys.length) return;
+    if (
+      change((draft) =>
+        assignRuns(draft, context, runKeys, decoderId, decoderPortFor(draft, context, runKeys, decoderId)),
+      )
+    )
+      setSelected(new Set());
   };
   const toggle = (row: RunRow, on: boolean) =>
     setSelected((current) => {
@@ -202,6 +250,14 @@ export function PowerStep({
             onSync={() =>
               change((draft) => {
                 syncScheduleSupplies(draft, context, (spaceId) => addCabinet(draft, spaceId, defaults));
+                autoPowerControls(draft, context);
+                autoAssignRuns(draft, context);
+              })
+            }
+            onSyncControls={() =>
+              change((draft) => {
+                syncScheduleControls(draft, context, (spaceId) => addCabinet(draft, spaceId, defaults));
+                autoPowerControls(draft, context);
                 autoAssignRuns(draft, context);
               })
             }
@@ -298,7 +354,7 @@ export function PowerStep({
                   </h3>
                   <CabinetLoad design={design} cabinet={cabinet} context={context} />
                   {design.project.equipment
-                    .filter((supply) => supply.enclosure === cabinet.id)
+                    .filter((supply) => supply.enclosure === cabinet.id && powerSpecs(context.catalog.get(supply.catalogId)))
                     .map((supply) => (
                       <SupplyCard
                         key={supply.id}
@@ -313,6 +369,23 @@ export function PowerStep({
                         onRemove={() => change((draft) => removeSupply(draft, supply.id))}
                         onCircuit={(sourceId) => change((draft) => setSupplyCircuit(draft, supply.id, sourceId))}
                         onMove={(cabinetId) => change((draft) => moveSupply(draft, supply.id, cabinetId))}
+                      />
+                    ))}
+                  {design.project.equipment
+                    .filter(
+                      (item) => item.enclosure === cabinet.id && !powerSpecs(context.catalog.get(item.catalogId)),
+                    )
+                    .map((control) => (
+                      <ControlCard
+                        key={control.id}
+                        design={design}
+                        control={control}
+                        context={context}
+                        selectedKeys={keys}
+                        zones={zones}
+                        change={change}
+                        onAssign={(runKeys) => assignToDecoder(runKeys, control.id)}
+                        onDropKeys={dropKeys}
                       />
                     ))}
                   {picking === cabinet.id ? (
@@ -338,6 +411,18 @@ export function PowerStep({
                       Add supply
                     </button>
                   )}
+                  <ControlPicker
+                    cabinet={cabinet}
+                    context={context}
+                    onPick={(catalogId) =>
+                      change((draft) => {
+                        const id = addControl(draft, context, cabinet.id, catalogId);
+                        // Power it beside the supplies when one fits, as the schedule's own controls are.
+                        if (draft.project.equipment.find((item) => item.id === id)?.fedFrom.ref === 'unassigned')
+                          autoPowerControls(draft, context);
+                      })
+                    }
+                  />
                 </article>
               ))}
             </div>
@@ -413,10 +498,11 @@ export function PowerStep({
           ) : null}
 
           <Zones
-            zones={design.zones}
-            runs={design.runs}
+            design={design}
+            context={context}
             onAdd={(method) => change((draft) => void addZone(draft, method))}
-            onUpdate={(zoneId, changes) => change((draft) => updateZone(draft, zoneId, changes))}
+            onUpdate={(zoneId, changes) => change((draft) => updateZone(draft, zoneId, changes, context))}
+            onControl={(zoneId, value) => change((draft) => setZoneControl(draft, context, zoneId, value))}
             onRemove={(zoneId) => change((draft) => removeZone(draft, zoneId))}
           />
         </fieldset>
@@ -433,17 +519,40 @@ function ScheduleSupplies({
   design,
   context,
   onSync,
+  onSyncControls,
 }: {
   design: Design;
   context: PowerContext;
   onSync(): void;
+  onSyncControls(): void;
 }) {
   const lines = scheduleSupplyLines(context);
   const drift = scheduleSupplyDrift(design, context);
+  const controls = scheduleControlDrift(design, context);
+  const incomplete = scheduleIncompleteLines(context);
   const short = powerShortfall(design, context);
   const onSchedule = lines.reduce((count, entry) => count + entry.line.qty, 0);
   return (
     <>
+      {controls.missing || controls.extra ? (
+        <div className="ill-sd__banner" role="note" data-testid="schedule-controls-drift">
+          <span>
+            {controls.missing
+              ? `The fixture schedule lists ${controls.missing} ${controls.missing === 1 ? 'control' : 'controls'} not in this design yet.`
+              : 'The controls on the fixture schedule changed.'}
+          </span>{' '}
+          <button type="button" className="ill-sd__button ill-sd__button--quiet" onClick={onSyncControls}>
+            Use the schedule’s controls
+          </button>
+        </div>
+      ) : null}
+      {incomplete.length ? (
+        <p className="ill-sd__banner" role="note" data-testid="schedule-incomplete">
+          {incomplete.length === 1 ? 'Line' : 'Lines'} {incomplete.map((line) => line.lineId).join(', ')}{' '}
+          {incomplete.length === 1 ? 'stays' : 'stay'} on the schedule but cannot be placed here: ilLumenate is still
+          completing {incomplete.length === 1 ? 'its' : 'their'} product data.
+        </p>
+      ) : null}
       {drift.missing || drift.extra ? (
         <div className="ill-sd__banner" role="note" data-testid="schedule-supplies-drift">
           <span>
@@ -509,19 +618,26 @@ function LoadBar({ load, usable, label }: { load: number; usable: number; label:
 }
 
 function CabinetLoad({ design, cabinet, context }: { design: Design; cabinet: Cabinet; context: PowerContext }) {
-  const supplies = design.project.equipment.filter((supply) => supply.enclosure === cabinet.id);
-  if (!supplies.length) return <p className="ill-sd__muted">No supplies yet.</p>;
+  const inside = design.project.equipment.filter((item) => item.enclosure === cabinet.id);
+  const supplies = inside.filter((item) => powerSpecs(context.catalog.get(item.catalogId)));
+  const controls = inside.length - supplies.length;
+  if (!inside.length) return <p className="ill-sd__muted">No supplies yet.</p>;
   let load = 0;
   let heat = 0;
   for (const supply of supplies) {
-    const supplyLoad = [...outputLoads(design, supply.id).values()].reduce((sum, value) => sum + value, 0);
-    const specs = powerSpecs(context.catalog.get(supply.catalogId));
+    const supplyLoad = [...outputLoads(design, supply.id, new Set(), context.catalog).values()].reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    const specs = powerSpecs(context.catalog.get(supply.catalogId))!;
     load += supplyLoad;
-    if (specs) heat += supplyLoad * (1 / specs.efficiency - 1);
+    heat += supplyLoad * (1 / specs.efficiency - 1);
   }
   return (
     <p className="ill-sd__muted" data-testid={`cabinet-load-${cabinet.tag}`}>
-      {supplies.length} {supplies.length === 1 ? 'supply' : 'supplies'} · {watts(load)} load · about {watts(heat)} heat
+      {supplies.length} {supplies.length === 1 ? 'supply' : 'supplies'}
+      {controls ? ` · ${controls} ${controls === 1 ? 'control' : 'controls'}` : ''} · {watts(load)} load · about{' '}
+      {watts(heat)} heat
     </p>
   );
 }
@@ -554,13 +670,14 @@ function SupplyCard({
   const [over, setOver] = useState<string | null>(null);
   const item = context.catalog.get(supply.catalogId);
   const specs = powerSpecs(item);
-  const loads = outputLoads(design, supply.id);
+  const loads = outputLoads(design, supply.id, new Set(), context.catalog);
   const supplyLoad = [...loads.values()].reduce((sum, value) => sum + value, 0);
   const limits = specs ? capacity(specs, design.project.settings.psuDeratePct) : null;
   const sourceRef = design.project.sources.some((source) => source.id === supply.fedFrom.ref) ? supply.fedFrom.ref : '';
   const scheduleLine = supply.scheduleLine
     ? (context.lines.find((line) => line.key === supply.scheduleLine) ?? { lineId: null })
     : null;
+  const devices = design.project.equipment.filter((device) => feedOf(design, device)?.supply.id === supply.id);
   return (
     <div className="ill-sd__supply" data-testid={`supply-${supply.tag}`}>
       <div className="ill-sd__row">
@@ -621,6 +738,15 @@ function SupplyCard({
                   </button>
                 </div>
                 {problem ? <p className="ill-sd__muted ill-sd__refusal">{problem}</p> : null}
+                {devices.filter((device) => device.fedFrom.port === output.name).length ? (
+                  <p className="ill-sd__muted" data-testid={`powers-${supply.tag}-${output.name}`}>
+                    Powers{' '}
+                    {devices
+                      .filter((device) => device.fedFrom.port === output.name)
+                      .map((device) => device.tag)
+                      .join(', ')}
+                  </p>
+                ) : null}
                 {runs.length ? (
                   <ul className="ill-sd__assigned">
                     {runRows(runs).map((row) => (
@@ -795,47 +921,351 @@ function SupplyPicker({
   );
 }
 
-function Zones({
+/** Add a catalog control (controller, decoder, converter, dimmer) to a cabinet. */
+function ControlPicker({
+  cabinet,
+  context,
+  onPick,
+}: {
+  cabinet: Cabinet;
+  context: PowerContext;
+  onPick(catalogId: string): void;
+}) {
+  const choices = controlChoices(context);
+  if (!choices.length) return null;
+  return (
+    <select
+      aria-label={`Add a control to ${cabinet.tag}`}
+      value=""
+      onChange={(event) => event.target.value && onPick(event.target.value)}
+    >
+      <option value="">Add a control…</option>
+      {choices.map((item) => (
+        <option key={item.id} value={item.id}>
+          {controlLabel(item)} · {item.model}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/**
+ * A control in a cabinet: its power, its control input, the zones it dims, its DMX address and, for a
+ * decoder, the runs on its channels (drag runs onto it, or select them and use "Assign here").
+ */
+function ControlCard({
+  design,
+  control,
+  context,
+  selectedKeys,
   zones,
-  runs,
+  change,
+  onAssign,
+  onDropKeys,
+}: {
+  design: Design;
+  control: Equipment;
+  context: PowerContext;
+  selectedKeys: string[];
+  zones: Map<string, Zone>;
+  change(recipe: (draft: Design) => void): boolean;
+  onAssign(runKeys: string[]): void;
+  onDropKeys(event: DragEvent): string[];
+}) {
+  const [over, setOver] = useState(false);
+  const item = context.catalog.get(control.catalogId);
+  const specs = controlSpecs(item);
+  const scheduleLine = control.scheduleLine
+    ? (context.lines.find((line) => line.key === control.scheduleLine) ?? { lineId: null })
+    : null;
+  const feeds = specs ? controlFeedOptions(design, context, control.id) : [];
+  const feedValue = control.fedFrom.port ? `${control.fedFrom.ref}::${control.fedFrom.port}` : control.fedFrom.ref;
+  const inputs = specs ? controlInputOptions(design, context, control.id) : [];
+  const inputValue = control.controlFrom
+    ? `${control.controlFrom.ref}${control.controlFrom.port ? `::${control.controlFrom.port}` : ''}`
+    : '';
+  const dims = design.zones.filter((zone) => zone.control?.equipmentId === control.id);
+  const decoder = specs?.kind === 'decoder' ? specs : null;
+  const runs = design.runs.filter((run) => run.assignment?.equipmentId === control.id);
+  const byPort = new Map<string, Run[]>();
+  for (const run of runs) byPort.set(run.assignment!.port, [...(byPort.get(run.assignment!.port) ?? []), run]);
+  const used = new Set<number>();
+  for (const port of byPort.keys()) {
+    const range = channelRange(port);
+    if (range) for (let channel = range[0]; channel <= range[1]; channel += 1) used.add(channel);
+  }
+  const free = decoder
+    ? Array.from({ length: decoder.channels }, (_, index) => index + 1).filter((channel) => !used.has(channel))
+    : [];
+  let problem: string | null = null;
+  if (decoder && selectedKeys.length)
+    try {
+      problem = assignmentProblem(
+        design,
+        context,
+        selectedKeys,
+        control.id,
+        decoderPortFor(design, context, selectedKeys, control.id),
+      );
+    } catch (refusal) {
+      problem = refusal instanceof Error ? refusal.message : String(refusal);
+    }
+  const others = design.site.cabinets.filter((cabinet) => cabinet.id !== control.enclosure);
+  const number = (text: string) => (text.trim() === '' ? NaN : Number(text));
+
+  return (
+    <div
+      className={over ? 'ill-sd__supply ill-sd__output--over' : 'ill-sd__supply'}
+      data-testid={`control-${control.tag}`}
+      onDragOver={
+        decoder
+          ? (event) => {
+              event.preventDefault();
+              setOver(true);
+            }
+          : undefined
+      }
+      onDragLeave={decoder ? () => setOver(false) : undefined}
+      onDrop={
+        decoder
+          ? (event) => {
+              event.preventDefault();
+              setOver(false);
+              const dropped = onDropKeys(event);
+              if (dropped.length) onAssign(dropped);
+            }
+          : undefined
+      }
+    >
+      <div className="ill-sd__row">
+        <strong>{control.tag}</strong>
+        <span>{item?.model ?? control.catalogId}</span>
+        <span className="ill-sd__chip">{controlLabel(item)}</span>
+        {scheduleLine ? (
+          <span className="ill-sd__chip ill-sd__chip--ok">
+            {FROM_SCHEDULE}
+            {scheduleLine.lineId ? ` · line ${scheduleLine.lineId}` : ''}
+          </span>
+        ) : null}
+      </div>
+      {!specs ? <p className="ill-sd__error">This product has incomplete catalog data; it cannot be wired yet.</p> : null}
+      {specs ? (
+        <div className="ill-sd__row">
+          <select
+            aria-label={`${control.tag} power`}
+            value={feeds.some((option) => option.value === feedValue) ? feedValue : ''}
+            onChange={(event) => change((draft) => setControlFeed(draft, context, control.id, event.target.value || undefined))}
+          >
+            <option value="">Not powered yet</option>
+            {feeds.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {inputs.length || inputValue ? (
+            <select
+              aria-label={`${control.tag} control input`}
+              value={inputValue}
+              onChange={(event) =>
+                change((draft) => setControlInput(draft, context, control.id, event.target.value || undefined))
+              }
+            >
+              <option value="">No control input</option>
+              {inputs.map((option) => (
+                <option key={option.value} value={option.value}>
+                  Control from {option.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+      ) : null}
+      {!feeds.length && specs ? (
+        <p className="ill-sd__muted">
+          {decoder || specs.kind === 'controller' && specs.inputType === 'DC'
+            ? 'Add a supply to this cabinet to power it.'
+            : 'Put this cabinet on a circuit to power it.'}
+        </p>
+      ) : null}
+      {dims.length ? (
+        <p className="ill-sd__muted" data-testid={`dims-${control.tag}`}>
+          Dims {dims.map((zone) => `${zone.name} (${zone.control!.port})`).join(', ')}
+        </p>
+      ) : null}
+      {control.dmx ? (
+        <div className="ill-sd__row" role="group" aria-label={`${control.tag} DMX address`}>
+          <span className="ill-sd__muted">DMX</span>
+          <CommitInput
+            label={`${control.tag} universe`}
+            type="number"
+            min={1}
+            value={control.dmx.universe}
+            onCommit={(text) => change((draft) => setDmx(draft, control.id, { universe: number(text) }))}
+          />
+          <CommitInput
+            label={`${control.tag} start address`}
+            value={control.dmx.startAddress}
+            onCommit={(text) =>
+              change((draft) =>
+                setDmx(draft, control.id, {
+                  startAddress: text.trim().toLowerCase() === 'auto' || !text.trim() ? 'auto' : number(text),
+                }),
+              )
+            }
+          />
+          <label>
+            <input
+              type="checkbox"
+              checked={control.dmx.terminatorPresent === true}
+              onChange={(event) =>
+                change((draft) => setDmx(draft, control.id, { terminatorPresent: event.target.checked }))
+              }
+            />{' '}
+            End-of-line terminator
+          </label>
+        </div>
+      ) : null}
+      {decoder ? (
+        <div className="ill-sd__output" data-testid={`channels-${control.tag}`}>
+          <div className="ill-sd__row">
+            <span>
+              {decoder.channels} channels · {free.length ? `free ${free.map((channel) => `CH${channel}`).join(', ')}` : 'all in use'}
+            </span>
+            {feedOf(design, control) ? null : <span className="ill-sd__muted">Power it to carry runs</span>}
+            <button
+              type="button"
+              className="ill-sd__pick"
+              disabled={!selectedKeys.length}
+              onClick={() => onAssign(selectedKeys)}
+            >
+              Assign here
+            </button>
+          </div>
+          {problem ? <p className="ill-sd__muted ill-sd__refusal">{problem}</p> : null}
+          {byPort.size ? (
+            <ul className="ill-sd__assigned">
+              {[...byPort].map(([port, onPort]) =>
+                runRows(onPort).map((row) => (
+                  <li key={`${port}-${row.id}`}>
+                    <ZoneDot zone={row.runs[0]!.zoneId ? zones.get(row.runs[0]!.zoneId) : undefined} />
+                    {port} · {row.label} · {watts(total(row.runs))}
+                    <button
+                      type="button"
+                      className="ill-sd__pick"
+                      aria-label={`Unassign ${row.label}`}
+                      onClick={() =>
+                        change((draft) =>
+                          unassignRuns(
+                            draft,
+                            row.runs.map((run) => run.key),
+                          ),
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </li>
+                )),
+              )}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="ill-sd__row">
+        {others.length ? (
+          <select
+            aria-label={`Move ${control.tag} to`}
+            value=""
+            onChange={(event) => event.target.value && change((draft) => moveControl(draft, control.id, event.target.value))}
+          >
+            <option value="">Move to…</option>
+            {others.map((cabinet) => (
+              <option key={cabinet.id} value={cabinet.id}>
+                {cabinet.tag} · {cabinet.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {scheduleLine ? (
+          <span className="ill-sd__muted">Change its quantity on the fixture schedule.</span>
+        ) : (
+          <button
+            type="button"
+            className="ill-sd__button ill-sd__button--quiet"
+            onClick={() => change((draft) => removeControl(draft, control.id))}
+          >
+            Remove {control.tag}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Zones({
+  design,
+  context,
   onAdd,
   onUpdate,
+  onControl,
   onRemove,
 }: {
-  zones: Zone[];
-  runs: Run[];
+  design: Design;
+  context: PowerContext;
   onAdd(method: Zone['method']): void;
   onUpdate(zoneId: string, changes: Partial<Pick<Zone, 'name' | 'method'>>): void;
+  onControl(zoneId: string, value: string | undefined): void;
   onRemove(zoneId: string): void;
 }) {
+  const { zones, runs } = design;
   return (
     <article className="ill-sd__card" data-testid="zones">
       <h3>Control zones</h3>
       <p className="ill-sd__muted">
         Runs in a zone dim together. Phase-cut and 0-10V zones need supplies that accept that dimming; each output feeds
-        one zone.
+        one zone. DMX zones dim through decoder channels. Choose the control output that dims each zone; the riser
+        draws its control wiring from that.
       </p>
-      {zones.map((zone) => (
-        <div key={zone.id} className="ill-sd__row" data-testid={`zone-${zone.id}`}>
-          <ZoneDot zone={zone} />
-          <CommitInput label={`${zone.name} name`} value={zone.name} onCommit={(name) => onUpdate(zone.id, { name })} />
-          <select
-            aria-label={`${zone.name} method`}
-            value={zone.method}
-            onChange={(event) => onUpdate(zone.id, { method: event.target.value as Zone['method'] })}
-          >
-            {ZONE_METHODS.map((method) => (
-              <option key={method.id} value={method.id}>
-                {method.label}
-              </option>
-            ))}
-          </select>
-          <span className="ill-sd__muted">{runs.filter((run) => run.zoneId === zone.id).length} runs</span>
-          <button type="button" className="ill-sd__button ill-sd__button--quiet" onClick={() => onRemove(zone.id)}>
-            Remove
-          </button>
-        </div>
-      ))}
+      {zones.map((zone) => {
+        const options = zoneControlOptions(design, context, zone);
+        const value = zone.control ? `${zone.control.equipmentId}::${zone.control.port}` : '';
+        return (
+          <div key={zone.id} className="ill-sd__row" data-testid={`zone-${zone.id}`}>
+            <ZoneDot zone={zone} />
+            <CommitInput label={`${zone.name} name`} value={zone.name} onCommit={(name) => onUpdate(zone.id, { name })} />
+            <select
+              aria-label={`${zone.name} method`}
+              value={zone.method}
+              onChange={(event) => onUpdate(zone.id, { method: event.target.value as Zone['method'] })}
+            >
+              {ZONE_METHODS.map((method) => (
+                <option key={method.id} value={method.id}>
+                  {method.label}
+                </option>
+              ))}
+            </select>
+            {options.length || value ? (
+              <select
+                aria-label={`${zone.name} control`}
+                value={value}
+                onChange={(event) => onControl(zone.id, event.target.value || undefined)}
+              >
+                <option value="">No control yet</option>
+                {options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    Dimmed by {option.label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <span className="ill-sd__muted">{runs.filter((run) => run.zoneId === zone.id).length} runs</span>
+            <button type="button" className="ill-sd__button ill-sd__button--quiet" onClick={() => onRemove(zone.id)}>
+              Remove
+            </button>
+          </div>
+        );
+      })}
       <select
         aria-label="Add zone"
         value=""

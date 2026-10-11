@@ -86,6 +86,8 @@ export interface WritebackLine {
   line_id?: string | null;
   unit?: 'ft' | 'spool';
   tags?: string[];
+  /** Wire the dealer already listed on the schedule, counted toward the design's need. */
+  on_schedule?: number;
 }
 
 /** The configurator's own supplies for a build the design now powers (consolidation, plan §14.6). */

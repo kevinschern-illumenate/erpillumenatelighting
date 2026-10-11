@@ -792,3 +792,35 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
   the riser PDF and SVG stay monochrome.
 - Tests: `packages/drawing/src/client.test.ts`, `app/src/shell/ViewsStep.test.tsx`, and
   `tests/portal_unit/test_system_design_expansion.py` and `test_system_design_deliverables.py`.
+
+## Controls on the Power board
+
+- Controls (`ctl:{spec}` catalog items: controllers, dimmers, DMX controllers and interfaces, decoders)
+  are placed in cabinets next to supplies (`packages/engine/src/controls.ts`). Tags are `DEC-n` for
+  decoders and `CTL-n` for everything else.
+- Schedule first, as for supplies: every accessory line whose Item is a catalog control becomes one
+  control per unit, tied by `scheduleLine` and marked "On the schedule". Opening the Power step on a
+  schedule with supply or control lines places them, powers the controls and auto-assigns runs. A banner
+  offers "Use the schedule's controls" when the lines change, and a note lists schedule lines the board
+  cannot place (phase dimmers and sensors are not in the catalog). Write-back never re-adds them, and
+  dealer wire lines are subtracted from the wire the design adds.
+- Power: AC controls take a cabinet circuit; DC controls and decoders take a constant-voltage output of a
+  supply in the same cabinet. An output dimmed by a zone cannot also power a device, and a device's
+  watts count against the output and the supply (80% rule).
+- Decoders carry runs on their channels. Refusals name the reason: AC decoder, no power, voltage,
+  channel width, zone method not DMX, overlapping channels, two zones on one decoder, per-channel or
+  total amps over the limit, or the upstream supply output.
+- Zones: a zone picks the control port that dims it ("Dimmed by …"); changing the zone's method drops a
+  control with the wrong protocol and revalidates every output carrying the zone's runs.
+- Control links are derived: DMX daisy-chains controller port → decoder DATA IN → next decoder; other
+  protocols run as a star to the zone's supplies. Patch cords inside a cabinet are 3 ft; links between
+  cabinets are a 25 ft estimate. Engineering links win.
+- Checks: `ZONE_NO_CONTROL` and `DMX_RUN_NO_DECODER` (warnings), `CONTROL_UNUSED` (info), and an unfed
+  control is a warning that points to the Power step.
+- Python mirror: `verify.py` follows the fedFrom tree, so decoders and controller own power count in
+  supply loading, and runs on decoders are checked as Class 2 DC. Golden fixture `dmx-decoder`.
+- Also fixed: putting line-voltage runs in a zone, the cabinet cascade overwriting DC control feeds, and
+  removing a supply leaving runs, devices, zone controls and control links pointing at it.
+- Limits: AC decoders are not placed on the board; DMX universes are entered by the dealer (default 1).
+- Tests: engine `controls.test.ts`, `golden.test.ts`; jsdom `PowerStep.test.tsx`; Python
+  `test_system_design_writeback.py`, `test_system_design_parity.py`.

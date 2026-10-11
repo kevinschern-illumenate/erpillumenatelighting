@@ -382,7 +382,11 @@ def _items_by_id(products):
 
 
 def _calculate(design, products, wires, tables, targets, overrides):
-	"""The subset of ``calculate``: loading rows, Class 2 DC run results and gating messages."""
+	"""The subset of ``calculate``: loading rows, Class 2 DC run results and gating messages.
+
+	Power flows down ``fedFrom``: a supply output can feed runs and devices (a DMX decoder carrying its
+	own runs, a DC controller drawing its standby power), so loading and voltage follow the same tree.
+	"""
 	settings = {**SETTING_DEFAULTS, **design["project"]["settings"], **targets}
 	items = _items_by_id(products)
 	equipment = design["project"]["equipment"]
@@ -402,25 +406,94 @@ def _calculate(design, products, wires, tables, targets, overrides):
 	if any(spec and spec["kind"] == "incomplete" for spec in [*spec_of.values(), *load_specs.values()]):
 		return empty
 	source_by_id = {s["id"]: s for s in sources}
+	fed_by = {entity["id"]: entity["fedFrom"] for entity in [*equipment, *loads]}
+	equipment_by_id = {e["id"]: e for e in equipment}
+	load_by_id = {load["id"]: load for load in loads}
 
-	def output_voltage(node_id):
+	def parent_of(node_id):
+		feed = fed_by.get(node_id)
+		return (aliases.get(feed["ref"]), feed.get("port")) if feed else (None, None)
+
+	children = {}
+	for node_id in fed_by:
+		parent, port = parent_of(node_id)
+		if parent:
+			children.setdefault(parent, []).append((node_id, port))
+
+	def output_voltage(node_id, seen=frozenset()):
+		if node_id in seen:
+			return 0
 		if node_id in source_by_id:
 			return source_by_id[node_id].get("voltage") or 0
 		spec = spec_of.get(node_id)
 		if spec and spec["kind"] in ("psu", "driver"):
 			return (spec.get("outputV") if spec["outputType"] == "CV" else spec.get("outputVMax")) or 0
-		return 0
+		parent, _port = parent_of(node_id)
+		return output_voltage(parent, seen | {node_id}) if parent else 0
+
+	def current_type(node_id, seen=frozenset()):
+		if node_id in seen:
+			return None
+		if node_id in source_by_id:
+			return "AC"
+		spec = spec_of.get(node_id)
+		if spec and spec["kind"] in ("psu", "driver"):
+			return spec.get("outputCurrent") or "DC"
+		if spec and spec["kind"] == "decoder":
+			return spec.get("powerType")
+		parent, _port = parent_of(node_id)
+		return current_type(parent, seen | {node_id}) if parent else None
+
+	demands = {}
+
+	def demand(node_id, stack=frozenset()):
+		"""``demand``: ``(watts, amps, channel amps)`` of a load, or of a device and all it feeds."""
+		if node_id in demands:
+			return demands[node_id]
+		if node_id in stack:
+			return 0, 0, []
+		parent, _port = parent_of(node_id)
+		voltage = output_voltage(parent) if parent else output_voltage(node_id)
+		if node_id in load_by_id:
+			result = _demand(load_by_id[node_id], load_specs[node_id], voltage, settings)
+		else:
+			below = [demand(child, stack | {node_id}) for child, _port in children.get(node_id, [])]
+			watts = sum(row[0] for row in below)
+			amps = sum(row[1] for row in below)
+			spec = spec_of.get(node_id)
+			qty = (equipment_by_id.get(node_id) or {}).get("qty") or 1
+			if spec and spec["kind"] in ("psu", "driver"):
+				watts = watts / spec["efficiency"]
+			elif spec and spec["kind"] == "controller":
+				supply = current_type(parent) if parent else None
+				own = (spec.get("ownPowerW") or 0) * qty
+				factor = 1
+				if supply == "AC":
+					factor = (spec.get("powerFactor") or 1) * (
+						math.sqrt(3) if spec.get("inputPhase") == "3PH" else 1
+					)
+				watts += own
+				amps += own / (voltage * factor) if voltage > 0 else 0
+				if (
+					spec.get("maxInputA") is not None
+					and spec.get("maxInputAAtV") == voltage
+					and (spec.get("inputType") != "AC/DC" or spec.get("maxInputAType") == supply)
+				):
+					amps = max(amps, spec["maxInputA"] * qty)
+			result = (watts, amps, [])
+		demands[node_id] = result
+		return result
 
 	messages = []
 	fed = []  # (load, parent id, port, watts, amps, channels)
 	for load in loads:
-		parent = aliases.get(load["fedFrom"]["ref"])
+		parent, port = parent_of(load["id"])
 		if not parent:
 			continue
 		spec = load_specs[load["id"]]
 		voltage = output_voltage(parent)
-		watts, amps, channels = _demand(load, spec, voltage, settings)
-		fed.append((load, parent, load["fedFrom"].get("port"), watts, amps, channels))
+		watts, amps, channels = demand(load["id"])
+		fed.append((load, parent, port, watts, amps, channels))
 		if spec and spec["kind"] == "tape" and voltage != spec["voltage"]:
 			messages.append(("VOLTAGE_MISMATCH", load["id"]))
 		if spec and spec["kind"] == "fixture" and spec.get("drive") != "CC":
@@ -435,13 +508,13 @@ def _calculate(design, products, wires, tables, targets, overrides):
 		spec = spec_of.get(item["id"])
 		if not spec or spec["kind"] not in ("psu", "driver"):
 			continue
-		children = [row for row in fed if row[1] == item["id"]]
-		if sum(row[3] for row in children) > spec["ratedW"]:
+		below = [(child, port, demand(child)[0]) for child, port in children.get(item["id"], [])]
+		if sum(row[2] for row in below) > spec["ratedW"]:
 			messages.append(("PSU_OVERLOAD", item["id"]))
 		first = spec["outputs"][0] if spec["outputs"] else None
 		for output in spec["outputs"]:
 			watts = sum(
-				row[3] for row in children if row[2] == output["name"] or (not row[2] and output is first)
+				row[2] for row in below if row[1] == output["name"] or (not row[1] and output is first)
 			)
 			loading.append({"entityId": item["id"], "port": output["name"], "wattsW": watts})
 			percent = (watts / output["maxW"]) * 100
@@ -451,6 +524,21 @@ def _calculate(design, products, wires, tables, targets, overrides):
 				messages.append(("PSU_ABOVE_DERATE", item["id"]))
 			if output.get("class2") and watts > 100:
 				messages.append(("CLASS2_OVER_100VA", item["id"]))
+
+	def verified(parent, channels):
+		"""Only single-channel Class 2 DC runs are mirrored."""
+		parent_spec = spec_of.get(parent)
+		voltage = output_voltage(parent)
+		low = bool(parent_spec and parent_spec["kind"] in ("psu", "driver")) or voltage <= 60
+		return low and current_type(parent) != "AC" and len(channels) <= 1
+
+	def size(run_id, run):
+		result, wire_messages = _select(
+			run, wires, tables, settings, settings["vdTargetLowVoltagePct"], overrides.get(run_id)
+		)
+		result["entityRef"] = run["entityRef"]
+		runs[run_id] = result
+		messages.extend(wire_messages)
 
 	runs = {}
 	for load, parent, _port, _watts, amps, channels in fed:
@@ -466,13 +554,8 @@ def _calculate(design, products, wires, tables, targets, overrides):
 			)
 			if (load.get("lengthFt") or 0) > limit:
 				messages.append(("TAPE_RUN_TOO_LONG", load["id"]))
-		parent_spec = spec_of.get(parent)
-		voltage = output_voltage(parent)
-		low = bool(parent_spec and parent_spec["kind"] in ("psu", "driver")) or voltage <= 60
-		# A supply's output is DC unless it says AC; panel circuits are AC.
-		dc = bool(parent_spec) and parent_spec.get("outputCurrent", "DC") == "DC"
-		if not (low and dc and len(channels) <= 1):
-			continue  # Only single-channel Class 2 DC runs are mirrored.
+		if not verified(parent, channels):
+			continue
 		cc = bool(spec and spec["kind"] == "fixture" and spec.get("drive") == "CC")
 		feeds = 1
 		if not cc and load["feedMethod"] == "double-end":
@@ -481,23 +564,43 @@ def _calculate(design, products, wires, tables, targets, overrides):
 			feeds = load.get("feeds") or 1
 		edge_id = f"power:{load['id']}"
 		for index in range(feeds):
-			run_id = f"{edge_id}:feed{index + 1}" if feeds > 1 else edge_id
-			run = {
-				"type": VERIFIED_RUN_TYPE,
-				"entityRef": load["id"],
-				"lengthFt": load["homeRunLengthFt"],
-				"currentA": amps / feeds,
-				"channels": [a / feeds for a in channels],
-				"voltageV": voltage,
-				"env": load["env"],
-				"minOperatingV": spec.get("minOperatingV") if spec and spec["kind"] == "tape" else None,
-			}
-			result, wire_messages = _select(
-				run, wires, tables, settings, settings["vdTargetLowVoltagePct"], overrides.get(run_id)
+			size(
+				f"{edge_id}:feed{index + 1}" if feeds > 1 else edge_id,
+				{
+					"type": VERIFIED_RUN_TYPE,
+					"entityRef": load["id"],
+					"lengthFt": load["homeRunLengthFt"],
+					"currentA": amps / feeds,
+					"channels": [a / feeds for a in channels],
+					"voltageV": output_voltage(parent),
+					"env": load["env"],
+					"minOperatingV": spec.get("minOperatingV") if spec and spec["kind"] == "tape" else None,
+				},
 			)
-			result["entityRef"] = load["id"]
-			runs[run_id] = result
-			messages += wire_messages
+	# Devices powered from a supply output: the feed, and a jumper per extra unit.
+	for item in equipment:
+		parent, _port = parent_of(item["id"])
+		if not parent or parent in source_by_id:
+			continue
+		_watts, amps, channels = demand(item["id"])
+		if not verified(parent, channels):
+			continue
+		qty = item.get("qty") or 1
+		edge_id = f"power:{item['id']}"
+		for index in range(qty):
+			size(
+				f"{edge_id}:jumper{index + 1}" if index else edge_id,
+				{
+					"type": VERIFIED_RUN_TYPE,
+					"entityRef": item["id"],
+					"lengthFt": item.get("feedLengthFt") or 0,
+					"currentA": amps * (qty - index) / qty,
+					"channels": [],
+					"voltageV": output_voltage(parent),
+					"env": item["env"],
+					"minOperatingV": None,
+				},
+			)
 	return {"loading": loading, "runs": runs, "messages": messages}
 
 

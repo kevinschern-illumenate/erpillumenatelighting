@@ -139,6 +139,8 @@ export const ZoneSchema = z
       'CRMX-wireless',
       'none',
     ]),
+    /** The control output that dims this zone: a controller port sending the zone's protocol. */
+    control: z.object({ equipmentId: IdSchema, port: IdSchema }).strict().optional(),
   })
   .strict();
 export type Zone = z.infer<typeof ZoneSchema>;
