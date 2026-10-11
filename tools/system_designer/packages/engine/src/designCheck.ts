@@ -6,6 +6,7 @@ import type { Project, ValidationMessage } from '@ill/core-schemas/project';
 import type { CodeTable } from '@ill/core-schemas/reference-data';
 import type { WireType } from '@ill/core-schemas/wire';
 import { calculate } from './calculate';
+import { controlChecks, isControl, withDerivedControlLinks } from './controls';
 import { DATA_BY_DEALER_NOTE, dealerItems, loadIdFor, withDerivedLoads } from './derive';
 import { message, round, uniqueMessages } from './messages';
 import type { EngineResult, RunResult } from './model';
@@ -151,8 +152,8 @@ export interface DesignCheck {
 
 const SEVERITY = { error: 0, warning: 1, info: 2 } as const;
 
-function projectFor(design: Design, targets: VdLimits): Project {
-  const project = withDerivedLoads(design).project;
+function projectFor(design: Design, targets: VdLimits, catalog: ReadonlyMap<string, CatalogItem>): Project {
+  const project = withDerivedControlLinks(withDerivedLoads(design), catalog).project;
   return { ...project, settings: { ...project.settings, ...targets } };
 }
 
@@ -166,7 +167,8 @@ export function checkDesign(input: CheckInput): DesignCheck {
     wires: [...input.wires],
     codeTables: [...input.codeTables],
   };
-  let project = projectFor(design, targets);
+  const catalog = new Map(library.products.map((item) => [item.id, item]));
+  let project = projectFor(design, targets, catalog);
   let result = calculate(project, library);
 
   // In-wall runs need CL2/CL3-listed cable (Appendix B.2): pick the lightest listed wire that passes.
@@ -231,18 +233,26 @@ export function checkDesign(input: CheckInput): DesignCheck {
         `Line ${lineId}: watts, voltage and dimming were entered by the dealer.`,
       ),
     );
-  // A supply not yet on a panel circuit is a planning gap, not a broken reference.
+  // A supply not yet on a panel circuit, or a control not powered yet, is a planning gap, not a broken reference.
   const unfed = new Map(
-    design.project.equipment.filter((item) => item.fedFrom.ref === 'unassigned').map((item) => [item.id, item.tag]),
+    design.project.equipment
+      .filter((item) => item.fedFrom.ref === 'unassigned')
+      .map((item) => [
+        item.id,
+        isControl(item, catalog)
+          ? `${item.tag} has no power yet. Feed it from a circuit or a supply output on the Power step.`
+          : `${item.tag} is not on a panel circuit yet.`,
+      ]),
   );
   result = {
     ...result,
     messages: result.messages.map((item) =>
       item.code === 'UNRESOLVED_REF' && unfed.has(item.entityRef)
-        ? { ...item, severity: 'warning', text: `${unfed.get(item.entityRef)} is not on a panel circuit yet.` }
+        ? { ...item, severity: 'warning', text: unfed.get(item.entityRef)! }
         : item,
     ),
   };
+  extra.push(...controlChecks(design, catalog));
   const used = new Set(design.project.equipment.map((item) => item.enclosure));
   for (const cabinet of design.site.cabinets)
     if (used.has(cabinet.id) && !cabinet.accessNote.trim())

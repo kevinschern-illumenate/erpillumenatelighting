@@ -8,9 +8,11 @@ The design's equipment and wire become ACCESSORY lines on its schedule, keyed
 A preview lists what would be added, changed and removed; applying writes only the changes the user
 accepted, in one transaction. Lines without ``design_line_role`` are never touched, except the
 configurator's own supply lines for builds the design now powers, which are removed after the user
-confirms (consolidation, plan §14.6). Supplies the design took from the schedule (``scheduleLine``) are
-already lines, so they are never added again, and a fixture whose supply lines the design uses keeps them. Prices appear only for users with ``Can View Pricing``, and only
-as selling prices; costs never leave the server (D6).
+confirms (consolidation, plan §14.6). Supplies and controls the design took from the schedule
+(``scheduleLine``) are already lines, so they are never added again, and a fixture whose supply lines the
+design uses keeps them. Wire the dealer already put on the schedule counts toward the design's wire, so
+only the shortfall is added. Prices appear only for users with ``Can View Pricing``, and only as selling
+prices; costs never leave the server (D6).
 
 Equipment comes from the saved design and the catalog snapshot it was built against. Wire footage
 comes from the designer's engine (wire selection for every run type lives in the browser); the server
@@ -159,6 +161,33 @@ def desired_lines(design, snapshot, wire_feet):
 	return {key: row for key, row in desired.items() if row["qty"] > 0}, blocked
 
 
+def schedule_item_qty(schedule_doc):
+	"""``{item code: qty}`` of the schedule's own accessory lines (not design write-back lines)."""
+	qty = {}
+	for line in schedule_doc.lines:
+		code = line.get("accessory_item")
+		if code and not line.get("design_line_role"):
+			qty[code] = qty.get(code, 0) + max(int(line.get("qty") or 0), 0)
+	return qty
+
+
+def less_schedule_wire(desired, on_schedule):
+	"""Wire the dealer already has on the schedule counts toward the design's wire (no double listing).
+
+	Pure. ``on_schedule`` is :func:`schedule_item_qty`; a wire row keeps only what is still missing and
+	records how much the schedule already holds. Supplies and controls are matched line by line instead
+	(``scheduleLine`` on the design's equipment).
+	"""
+	result = {}
+	for key, row in desired.items():
+		have = on_schedule.get(row["item_code"], 0) if row["role"] == "Wire" else 0
+		if have:
+			row = {**row, "qty": max(row["qty"] - have, 0), "on_schedule": have}
+		if row["qty"] > 0:
+			result[key] = row
+	return result
+
+
 def powered_owner_keys(runs, lines):
 	"""Raw ``line_key`` of every schedule line with a run the design assigns to its own equipment."""
 	by_key = {line["key"]: line for line in lines}
@@ -192,7 +221,11 @@ def plan_changes(desired, owned, configurator_lines, owners):
 	add, update, remove = [], [], []
 	for key, row in sorted(desired.items()):
 		current = owned.get(key)
-		entry = {k: row[k] for k in ("key", "role", "item_code", "qty", "location", "tags") if k in row}
+		entry = {
+			k: row[k]
+			for k in ("key", "role", "item_code", "qty", "location", "tags", "on_schedule")
+			if k in row
+		}
 		if "unit" in row:
 			entry["unit"] = row["unit"]
 		if current is None:
@@ -337,6 +370,7 @@ def _context(design, build_hash=None, wire_feet=None, edit=False):
 		)
 	snapshot = catalog.get_snapshot(record.catalog_snapshot) or {"items": [], "wires": []}
 	desired, blocked = desired_lines(design_doc, snapshot, parse_wire_feet(wire_feet))
+	desired = less_schedule_wire(desired, schedule_item_qty(schedule_doc))
 	owners = powered_owner_keys(design_doc.get("runs"), lines) - schedule_supply_owners(design_doc, lines)
 	plan = plan_changes(desired, _owned(schedule_doc), _configurator_lines(schedule_doc), owners)
 	return record, schedule_doc, plan, blocked

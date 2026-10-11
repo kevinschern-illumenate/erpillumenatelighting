@@ -115,7 +115,7 @@ describe('site model', () => {
       feedLengthFt: 0,
       env: 'dry-concealed',
     });
-    expect(() => removeCabinet(value, a)).toThrow('Move the supply out of this cabinet first');
+    expect(() => removeCabinet(value, a)).toThrow('Move the supply or control out of this cabinet first');
     removeCabinet(value, b);
     expect(value.site.cabinets.map((item) => item.id)).toEqual([a]);
   });

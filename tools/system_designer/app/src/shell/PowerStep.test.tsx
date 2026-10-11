@@ -7,6 +7,8 @@ import type { DesignApi, EligibleSupply } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { createDesignStore, type DesignStore } from '../design/store';
 import { addCabinet, addCircuit, distanceDefaults } from '@ill/engine/site';
+import { CatalogItemSchema } from '@ill/core-schemas/catalog';
+import { addSupply, catalogMap, type PowerContext } from '@ill/engine/power';
 import { openFixture } from './fixture';
 import { newDesign, type OpenDesign } from './open';
 import { Shell } from './Shell';
@@ -79,6 +81,11 @@ async function choose(label: string, value: string) {
   });
 }
 const design = () => store.getState().design!;
+const ctx = (): PowerContext => ({
+  catalog: catalogMap(catalogPayload.items.map((item) => CatalogItemSchema.parse(item))),
+  lines: open.lines,
+  builds: open.builds,
+});
 const run = (key: string) => design().runs.find((item) => item.key === key)!;
 
 describe('Power step', () => {
@@ -231,6 +238,77 @@ describe('Power step', () => {
     await click(button('Use the schedule’s supplies'));
     expect(design().project.equipment.filter((item) => item.scheduleLine === 'h1acc')).toHaveLength(3);
     expect(byTest('schedule-supplies-drift')).toBeNull();
+  });
+
+  it('brings the schedule’s controls in, powers them beside the supplies and lists what they carry', async () => {
+    act(() => root.unmount());
+    const h1 = withScheduleSupplies.lines.find((line) => line.key === 'h1acc')!;
+    const withControls = {
+      ...withScheduleSupplies,
+      lines: [
+        ...withScheduleSupplies.lines,
+        { ...h1, key: 'k1dec', lineKey: 'k1dec', lineId: 'K1', idx: 11, qty: 1, accessoryItem: 'TEST-DEC-4', powerSupplyForLine: null },
+        { ...h1, key: 'l1conv', lineKey: 'l1conv', lineId: 'L1', idx: 12, qty: 1, accessoryItem: 'TEST-CONV-4', powerSupplyForLine: null },
+      ],
+    };
+    store = createDesignStore();
+    store.getState().load('SCH-TEST', newDesign(withControls).design, null);
+    store.getState().acceptTerms();
+    await render(withControls);
+    expect(design().project.equipment.map((item) => [item.tag, item.scheduleLine, item.fedFrom])).toEqual([
+      ['PS-1', 'h1acc', { ref: 'unassigned' }],
+      ['PS-2', 'h1acc', { ref: 'unassigned' }],
+      ['DEC-1', 'k1dec', { ref: 'PS-1', port: 'OUT1' }],
+      ['CTL-1', 'l1conv', { ref: 'PS-1', port: 'OUT1' }],
+    ]);
+    expect(byTest('control-DEC-1')?.textContent).toContain('On the schedule · line K1');
+    expect(byTest('control-DEC-1')?.textContent).toContain('DMX decoder');
+    expect(button('Remove DEC-1')).toBeUndefined();
+    expect(byTest('powers-PS-1-OUT1')?.textContent).toBe('Powers DEC-1, CTL-1');
+    expect(byTest('cabinet-load-C-1')?.textContent).toContain('2 supplies · 2 controls');
+
+    // A DMX zone's run goes on a decoder channel.
+    await choose('Add zone', 'DMX512');
+    await click(field('Unassign B1-1.1'));
+    await click(field('Select B1-1.1'));
+    await choose('Selected zone', 'zone-1');
+    await click(button('Assign here', byTest('channels-DEC-1')!));
+    expect(run('b1tape:1:1').assignment).toEqual({ equipmentId: 'DEC-1', port: 'CH1' });
+    expect(byTest('channels-DEC-1')?.textContent).toContain('free CH2, CH3, CH4');
+    expect(byTest('channels-DEC-1')?.textContent).toContain('CH1 · B1-1.1 · 21.6 W');
+
+    // A 0-10V zone is dimmed by the converter's output; the converter takes DMX in.
+    await choose('Zone 1 method', '0-10V');
+    expect(el.querySelector('[role="alert"]')?.textContent).toBe('Zone 1 dims by 0-10V; DEC-1 dims by DMX');
+    await choose('Add zone', '0-10V');
+    await choose('Zone 2 control', 'CTL-1::Out 1');
+    expect(design().zones[1]?.control).toEqual({ equipmentId: 'CTL-1', port: 'Out 1' });
+    expect(byTest('dims-CTL-1')?.textContent).toBe('Dims Zone 2 (Out 1)');
+    await choose('DEC-1 power', '');
+    expect(design().project.equipment[2]?.fedFrom).toEqual({ ref: 'unassigned' });
+  });
+
+  it('adds a control from the catalog and edits its DMX address', async () => {
+    store.getState().edit((draft) => {
+      addSupply(draft, ctx(), 'cab-1', 'drv:TEST-PSU-96');
+    });
+    await flush();
+    await choose('Add a control to C-1', 'ctl:TEST-DEC-4');
+    expect(design().project.equipment[1]).toMatchObject({
+      tag: 'DEC-1',
+      fedFrom: { ref: 'PS-1', port: 'OUT1' },
+      dmx: { universe: 1, startAddress: 'auto' },
+    });
+    const start = field<HTMLInputElement>('DEC-1 start address');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(start, '9');
+      start.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => start.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+    expect(design().project.equipment[1]?.dmx?.startAddress).toBe(9);
+    await click(field('Select A1-1.1'));
+    await click(button('Remove DEC-1'));
+    expect(design().project.equipment.map((item) => item.tag)).toEqual(['PS-1']);
   });
 
   it('says when the catalog cannot be loaded', async () => {

@@ -92,6 +92,57 @@ class DesiredLines(unittest.TestCase):
 			self.assertEqual({key: row["qty"] for key, row in desired.items()}, {"Supply:PS-96": 1})
 			self.assertEqual(desired["Supply:PS-96"]["tags"], ["PS-3"])
 
+	def test_controls_already_on_the_schedule_are_not_added_again(self):
+		with load_service(WRITEBACK) as (module, _frappe):
+			desired, blocked = module.desired_lines(
+				design(
+					{**supply("DEC-1", "ctl:DMX-4"), "scheduleLine": "k1dec"},
+					{**supply("DEC-2", "ctl:DMX-4"), "scheduleLine": "k1dec"},
+					supply("DEC-3", "ctl:DMX-4"),
+				),
+				SNAPSHOT,
+				{},
+			)
+			self.assertEqual(blocked, [])
+			self.assertEqual(
+				{key: row["tags"] for key, row in desired.items()}, {"Controller:DMX-4": ["DEC-3"]}
+			)
+
+	def test_wire_the_dealer_listed_counts_toward_the_design_wire(self):
+		with load_service(WRITEBACK) as (module, _frappe):
+			desired, _blocked = module.desired_lines(
+				design(supply("PS-1")), SNAPSHOT, {"wire:W18": 120.2, "wire:W14": 501}
+			)
+			# 121 ft wanted, 100 ft already listed by the dealer; 3 spools wanted and 3 listed.
+			result = module.less_schedule_wire(desired, {"W18": 100, "W14": 3, "PS-96": 4})
+			self.assertEqual(
+				{key: (row["qty"], row.get("on_schedule")) for key, row in result.items()},
+				{"Supply:PS-96": (1, None), "Wire:W18": (21, 100)},
+			)
+			plan = module.plan_changes(result, {"Wire:W14": {"qty": 3, "location": "Field wire"}}, [], set())
+			self.assertEqual([row["key"] for row in plan["remove"]], ["Wire:W14"])
+			self.assertEqual(plan["add"][1]["on_schedule"], 100)
+
+	def test_schedule_item_qty_skips_design_lines(self):
+		with load_service(WRITEBACK) as (module, _frappe):
+
+			class Line(dict):
+				get = dict.get
+
+			doc = type(
+				"Doc",
+				(),
+				{
+					"lines": [
+						Line(accessory_item="W18", qty=60),
+						Line(accessory_item="W18", qty=40),
+						Line(accessory_item="W18", qty=500, design_line_role="Wire"),
+						Line(accessory_item=None, qty=3),
+					]
+				},
+			)
+			self.assertEqual(module.schedule_item_qty(doc), {"W18": 100})
+
 	def test_spool_rounding_is_whole_spools_and_exact_lengths_do_not_round_up(self):
 		with load_service(WRITEBACK) as (module, _frappe):
 			spool = {"salesUom": "spool", "spoolLengthFt": 250}

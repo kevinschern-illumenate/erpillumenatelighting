@@ -470,6 +470,26 @@
        "CRMX-wireless",
        "none"
       ]
+     },
+     "control": {
+      "type": "object",
+      "properties": {
+       "equipmentId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       },
+       "port": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+       }
+      },
+      "required": [
+       "equipmentId",
+       "port"
+      ],
+      "additionalProperties": false
      }
     },
     "required": [

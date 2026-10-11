@@ -123,7 +123,7 @@ export const EquipmentSchema = z
     env: EnvironmentSchema,
     specOverrides: CatalogSpecOverridesSchema.optional(),
     notes: TextSchema.optional(),
-    /** The fixture-schedule line (open-design `Line.key`) this supply already is; write-back leaves it alone. */
+    /** The fixture-schedule line (open-design `Line.key`) this supply or control already is; write-back leaves it alone. */
     scheduleLine: IdSchema.optional(),
   })
   .strict()
@@ -321,6 +321,9 @@ export const ValidationMessageSchema = z
       'DATA_BY_DEALER',
       'REVIEW_REQUIRED',
       'RUN_UNASSIGNED',
+      'ZONE_NO_CONTROL',
+      'DMX_RUN_NO_DECODER',
+      'CONTROL_UNUSED',
     ]),
     severity: z.enum(['error', 'warning', 'info']),
     entityRef: IdSchema,

@@ -159,7 +159,10 @@ export function updateCabinet(
 /** Remove a cabinet that holds no equipment yet. */
 export function removeCabinet(design: Design, cabinetId: string) {
   const inside = design.project.equipment.filter((item) => item.enclosure === cabinetId).length;
-  if (inside) throw new Error(`Move the ${inside === 1 ? 'supply' : `${inside} supplies`} out of this cabinet first`);
+  if (inside)
+    throw new Error(
+      `Move the ${inside === 1 ? 'supply or control' : `${inside} supplies and controls`} out of this cabinet first`,
+    );
   design.site.cabinets = design.site.cabinets.filter((item) => item.id !== cabinetId);
 }
 
@@ -225,15 +228,22 @@ export function removeCircuit(design: Design, sourceId: string) {
   for (const cabinet of design.site.cabinets) if (cabinet.sourceId === sourceId) delete cabinet.sourceId;
 }
 
-/** Supplies in a cabinet follow its environment, circuit and feed length (WP-3.2 cascade). */
+/**
+ * Equipment in a cabinet follows its environment and location; supplies, and controls already on a panel
+ * circuit, follow its circuit and feed length too (WP-3.2 cascade). A control powered from a supply output
+ * keeps that feed, and one not fed yet is fed on the Power step (it may need DC).
+ */
 export function syncCabinetSupplies(design: Design, cabinetId: string) {
   const cabinet = design.site.cabinets.find((item) => item.id === cabinetId);
   if (!cabinet) return;
-  for (const supply of design.project.equipment)
-    if (supply.enclosure === cabinetId) {
-      supply.env = cabinet.env;
-      supply.location = cabinet.name || cabinet.tag;
-      supply.feedLengthFt = cabinet.feedLengthFt;
-      if (cabinet.sourceId) supply.fedFrom = { ref: cabinet.sourceId };
+  const circuits = new Set(design.project.sources.flatMap((source) => [source.id, source.tag]));
+  for (const item of design.project.equipment)
+    if (item.enclosure === cabinetId) {
+      item.env = cabinet.env;
+      item.location = cabinet.name || cabinet.tag;
+      const supply = item.category === 'psu' || item.category === 'driver';
+      if (!supply && !(circuits.has(item.fedFrom.ref) && !item.fedFrom.port)) continue;
+      item.feedLengthFt = cabinet.feedLengthFt;
+      if (cabinet.sourceId) item.fedFrom = { ref: cabinet.sourceId };
     }
 }

@@ -85,13 +85,52 @@ export function runElectrical(run: Run, context: PowerContext): RunElectrical {
   };
 }
 
-/** Watts on each output of a supply. Runs on an unknown port count against the first output. */
-export function outputLoads(design: Design, equipmentId: string, ignore: ReadonlySet<string> = new Set()) {
-  const loads = new Map<string, number>();
+/** True when `device` takes its power from `supply` (by id or tag). */
+const feedsFrom = (device: Equipment, supply: Equipment) =>
+  device.id !== supply.id && (device.fedFrom.ref === supply.id || device.fedFrom.ref === supply.tag);
+
+/** Watts a device fed from a supply output draws: the runs on it, plus a controller's own power. */
+export function deviceWatts(
+  design: Design,
+  device: Equipment,
+  ignore: ReadonlySet<string> = new Set(),
+  catalog?: ReadonlyMap<string, CatalogItem>,
+): number {
+  let watts = 0;
   for (const run of design.runs)
-    if (run.assignment?.equipmentId === equipmentId && !ignore.has(run.key))
-      loads.set(run.assignment.port, (loads.get(run.assignment.port) ?? 0) + run.watts);
+    if (run.assignment?.equipmentId === device.id && !ignore.has(run.key)) watts += run.watts;
+  const specs = catalog?.get(device.catalogId)?.specs;
+  if (specs?.kind === 'controller') watts += specs.ownPowerW * device.qty;
+  return watts;
+}
+
+/**
+ * Watts on each output of a supply: its runs, and the devices it powers (a decoder carries its runs).
+ * Runs on an unknown port count against the first output. Pass the catalog to count controllers' own power.
+ */
+export function outputLoads(
+  design: Design,
+  equipmentId: string,
+  ignore: ReadonlySet<string> = new Set(),
+  catalog?: ReadonlyMap<string, CatalogItem>,
+) {
+  const loads = new Map<string, number>();
+  const add = (port: string, watts: number) => loads.set(port, (loads.get(port) ?? 0) + watts);
+  for (const run of design.runs)
+    if (run.assignment?.equipmentId === equipmentId && !ignore.has(run.key)) add(run.assignment.port, run.watts);
+  const supply = design.project.equipment.find((item) => item.id === equipmentId);
+  if (supply)
+    for (const device of design.project.equipment)
+      if (feedsFrom(device, supply) && device.fedFrom.port)
+        add(device.fedFrom.port, deviceWatts(design, device, ignore, catalog));
   return loads;
+}
+
+/** The supply output a device is powered from, or null when it is on a circuit or not fed yet. */
+export function feedOf(design: Design, device: Equipment): { supply: Equipment; port: string } | null {
+  if (!device.fedFrom.port) return null;
+  const supply = design.project.equipment.find((item) => feedsFrom(device, item));
+  return supply ? { supply, port: device.fedFrom.port } : null;
 }
 
 const sum = (values: Iterable<number>) => [...values].reduce((total, value) => total + value, 0);
@@ -102,7 +141,140 @@ function equipmentOf(design: Design, equipmentId: string) {
   return found;
 }
 
-/** Why these runs cannot go on this output, or null when they can. */
+/** Zone methods a DMX decoder dims by; its runs sit in such a zone or in none. */
+export const DECODER_METHODS: ReadonlySet<Zone['method']> = new Set(['DMX512', 'CRMX-wireless']);
+
+type DecoderSpecs = Extract<CatalogItem['specs'], { kind: 'decoder' }>;
+
+export function decoderSpecs(item: CatalogItem | undefined): DecoderSpecs | null {
+  return item?.specs.kind === 'decoder' ? item.specs : null;
+}
+
+/** Channels a run takes on a decoder: its tape's channel count, else one. */
+export function runChannels(run: Run, context: PowerContext): number {
+  const specs = context.catalog.get(run.catalogId)?.specs;
+  return specs?.kind === 'tape' ? specs.channels : 1;
+}
+
+/** A decoder output: `CH3`, or `CH1-3` for a three-channel run (the engine's port names). */
+export const decoderPort = (start: number, width: number) =>
+  width > 1 ? `CH${start}-${start + width - 1}` : `CH${start}`;
+
+/** `[first, last]` channel of a decoder port, or null when the name is not a channel. */
+export function channelRange(port: string): [number, number] | null {
+  const match = port.match(/^CH(\d+)(?:-(\d+))?$/);
+  if (!match) return null;
+  const first = Number(match[1]);
+  const last = match[2] ? Number(match[2]) : first;
+  return first >= 1 && last >= first ? [first, last] : null;
+}
+
+/** The first decoder output of `width` channels no other run uses, or null when the decoder is full. */
+export function freeDecoderPort(
+  design: Design,
+  context: PowerContext,
+  decoderId: string,
+  width: number,
+  ignore: ReadonlySet<string> = new Set(),
+): string | null {
+  const decoder = design.project.equipment.find((item) => item.id === decoderId);
+  const specs = decoder ? decoderSpecs(context.catalog.get(decoder.catalogId)) : null;
+  if (!specs || width < 1) return null;
+  const used = new Set<number>();
+  for (const run of design.runs) {
+    if (run.assignment?.equipmentId !== decoderId || ignore.has(run.key)) continue;
+    const range = channelRange(run.assignment.port);
+    if (range) for (let channel = range[0]; channel <= range[1]; channel += 1) used.add(channel);
+  }
+  for (let start = 1; start + width - 1 <= specs.channels; start += 1)
+    if (Array.from({ length: width }, (_, index) => start + index).every((channel) => !used.has(channel)))
+      return decoderPort(start, width);
+  return null;
+}
+
+/** Why `addingW` more on a supply output would overload it or the supply, or null when it fits. */
+function feedCapacityProblem(
+  design: Design,
+  context: PowerContext,
+  supply: Equipment,
+  port: string,
+  ignore: ReadonlySet<string>,
+  addingW: number,
+): string | null {
+  const specs = powerSpecs(context.catalog.get(supply.catalogId));
+  if (!specs) return `${supply.tag} has incomplete catalog data, so it cannot be loaded yet`;
+  const limits = capacity(specs, design.project.settings.psuDeratePct);
+  const output = limits.outputs.find((item) => item.name === port);
+  if (!output) return `${supply.tag} has no output ${port}`;
+  const loads = outputLoads(design, supply.id, ignore, context.catalog);
+  const onOutput = (loads.get(port) ?? 0) + addingW;
+  if (onOutput > output.usableW)
+    return `${supply.tag}/${port} would carry ${round(onOutput, 1)} W of its ${output.usableW} W usable`;
+  const total = sum(loads.values()) + addingW;
+  if (total > limits.usableW) return `${supply.tag} would carry ${round(total, 1)} W of its ${limits.usableW} W usable`;
+  return null;
+}
+
+/** Devices (decoders, controllers) powered from one supply output. */
+const devicesOn = (design: Design, supply: Equipment, port: string) =>
+  design.project.equipment.filter((device) => feedsFrom(device, supply) && device.fedFrom.port === port);
+
+/** Why these runs cannot go on this decoder output (plan §10.1): power, voltage, channels, zone, current. */
+function decoderProblem(
+  design: Design,
+  context: PowerContext,
+  runs: readonly Run[],
+  keys: ReadonlySet<string>,
+  decoder: Equipment,
+  specs: DecoderSpecs,
+  port: string,
+): string | null {
+  const tag = decoder.tag;
+  if (specs.powerType === 'AC') return `${tag} has a line-voltage output; put line-voltage fixtures on a panel circuit`;
+  const feed = feedOf(design, decoder);
+  const feedSpecs = feed ? powerSpecs(context.catalog.get(feed.supply.catalogId)) : null;
+  if (!feed || !feedSpecs?.outputV) return `Power ${tag} from a supply output first`;
+  const volts = feedSpecs.outputV;
+  const range = channelRange(port);
+  if (!range || range[1] > specs.channels) return `${tag} has no output ${port}`;
+  const width = range[1] - range[0] + 1;
+  const zones = new Map(design.zones.map((zone) => [zone.id, zone]));
+  for (const run of runs) {
+    const label = runLabel(run);
+    const needs = runElectrical(run, context);
+    if (needs.lineVoltage) return `${label} is line voltage; feed it from a panel circuit, not a decoder`;
+    if (needs.voltage !== null && needs.voltage !== volts)
+      return `${label} needs ${needs.voltage} V; ${tag} is powered at ${volts} V from ${feed.supply.tag}`;
+    const channels = runChannels(run, context);
+    if (channels !== width)
+      return `${label} needs ${channels} ${channels === 1 ? 'channel' : 'channels'}; ${port} has ${width}`;
+    const zone = run.zoneId ? zones.get(run.zoneId) : undefined;
+    if (zone && !DECODER_METHODS.has(zone.method)) return `${zone.name} dims by ${zone.method}; ${tag} dims by DMX`;
+  }
+  const others = design.runs.filter((run) => !keys.has(run.key) && run.assignment?.equipmentId === decoder.id);
+  for (const other of others) {
+    const used = channelRange(other.assignment!.port);
+    if (used && other.assignment!.port !== port && used[0] <= range[1] && range[0] <= used[1])
+      return `${tag}/${port} overlaps ${other.assignment!.port}, which ${runLabel(other)} uses`;
+  }
+  if (new Set([...others, ...runs].map((run) => run.zoneId ?? '')).size > 1)
+    return `${tag} would feed more than one zone; give each zone its own decoder`;
+  const portW = sum([...others.filter((run) => run.assignment!.port === port), ...runs].map((run) => run.watts));
+  const channelA = portW / volts / width;
+  if (channelA > specs.maxAPerChannel)
+    return `${tag}/${port} would draw ${round(channelA, 2)} A per channel of its ${specs.maxAPerChannel} A`;
+  if (specs.maxWPerChannel !== undefined && portW / width > specs.maxWPerChannel)
+    return `${tag}/${port} would carry ${round(portW / width, 1)} W per channel of its ${specs.maxWPerChannel} W`;
+  const adding = sum(runs.map((run) => run.watts));
+  const totalW = sum(others.map((run) => run.watts)) + adding;
+  if (totalW / volts > specs.maxATotal)
+    return `${tag} would draw ${round(totalW / volts, 2)} A of its ${specs.maxATotal} A total`;
+  if (specs.maxWTotal !== undefined && totalW > specs.maxWTotal)
+    return `${tag} would carry ${round(totalW, 1)} W of its ${specs.maxWTotal} W total`;
+  return feedCapacityProblem(design, context, feed.supply, feed.port, keys, adding);
+}
+
+/** Why these runs cannot go on this output (a supply output or a decoder channel), or null when they can. */
 export function assignmentProblem(
   design: Design,
   context: PowerContext,
@@ -115,6 +287,8 @@ export function assignmentProblem(
   if (!runs.length) return 'Choose runs to assign';
   const supply = design.project.equipment.find((item) => item.id === equipmentId);
   if (!supply) return 'That supply is no longer in the design';
+  const decoder = decoderSpecs(context.catalog.get(supply.catalogId));
+  if (decoder) return decoderProblem(design, context, runs, keys, supply, decoder, port);
   const specs = powerSpecs(context.catalog.get(supply.catalogId));
   if (!specs) return `${supply.tag} has incomplete catalog data, so it cannot be loaded yet`;
   const limits = capacity(specs, design.project.settings.psuDeratePct);
@@ -133,8 +307,11 @@ export function assignmentProblem(
     if (dimmed.length && !dimmed.some((protocol) => specs.dimming.includes(protocol)))
       return `${label} dims by ${dimmed.join(' or ')}; ${supply.tag} accepts ${specs.dimming.join(', ') || 'no dimming'}`;
     const zone = run.zoneId ? zones.get(run.zoneId) : undefined;
-    if (zone && SUPPLY_DIMMED.has(zone.method) && !specs.dimming.includes(zone.method))
-      return `${zone.name} dims by ${zone.method}; ${supply.tag} does not accept it`;
+    if (zone && SUPPLY_DIMMED.has(zone.method)) {
+      if (!specs.dimming.includes(zone.method)) return `${zone.name} dims by ${zone.method}; ${supply.tag} does not accept it`;
+      const device = devicesOn(design, supply, port)[0];
+      if (device) return `${supply.tag}/${port} powers ${device.tag}; a dimmed zone needs an output of its own`;
+    }
   }
 
   const sharing = design.runs.filter(
@@ -143,14 +320,7 @@ export function assignmentProblem(
   const zoneIds = new Set([...sharing, ...runs].map((run) => run.zoneId ?? ''));
   if (zoneIds.size > 1) return `${supply.tag}/${port} would feed more than one zone; give each zone its own output`;
 
-  const loads = outputLoads(design, equipmentId, keys);
-  const adding = sum(runs.map((run) => run.watts));
-  const onOutput = (loads.get(port) ?? 0) + adding;
-  if (onOutput > output.usableW)
-    return `${supply.tag}/${port} would carry ${round(onOutput, 1)} W of its ${output.usableW} W usable`;
-  const total = sum(loads.values()) + adding;
-  if (total > limits.usableW) return `${supply.tag} would carry ${round(total, 1)} W of its ${limits.usableW} W usable`;
-  return null;
+  return feedCapacityProblem(design, context, supply, port, keys, sum(runs.map((run) => run.watts)));
 }
 
 /** Put runs on a supply output; throws the refusal reason. */
@@ -165,6 +335,20 @@ export function assignRuns(
   if (problem) throw new Error(problem);
   const keys = new Set(runKeys);
   for (const run of design.runs) if (keys.has(run.key)) run.assignment = { equipmentId, port };
+}
+
+/**
+ * The decoder output for these runs: the first free channels as wide as their tape (runs put on a decoder
+ * together share one output and dim together). Throws when the runs differ in width or the decoder is full.
+ */
+export function decoderPortFor(design: Design, context: PowerContext, runKeys: readonly string[], decoderId: string) {
+  const keys = new Set(runKeys);
+  const widths = new Set(design.runs.filter((run) => keys.has(run.key)).map((run) => runChannels(run, context)));
+  if (widths.size > 1) throw new Error('Select runs with the same number of channels to share a decoder output');
+  const decoder = equipmentOf(design, decoderId);
+  const port = freeDecoderPort(design, context, decoderId, [...widths][0] ?? 1, keys);
+  if (!port) throw new Error(`${decoder.tag} has no free channels for these runs`);
+  return port;
 }
 
 /** The port name for a line-voltage fixture on a panel circuit. */
@@ -249,14 +433,33 @@ export function addSupply(
   return supply.id;
 }
 
-/** Remove a supply; its runs go back to unassigned. */
+/**
+ * Remove a supply or control. Its runs go back to unassigned, devices it powered lose their feed, and
+ * zones, control inputs and control links that named it let go of it.
+ */
 export function removeSupply(design: Design, equipmentId: string) {
-  equipmentOf(design, equipmentId);
+  const removed = equipmentOf(design, equipmentId);
+  const refs = new Set([removed.id, removed.tag]);
   for (const run of design.runs) if (run.assignment?.equipmentId === equipmentId) delete run.assignment;
+  for (const device of design.project.equipment) {
+    if (device.id === equipmentId) continue;
+    if (refs.has(device.fedFrom.ref)) device.fedFrom = { ref: 'unassigned' };
+    if (device.controlFrom && refs.has(device.controlFrom.ref)) {
+      delete device.controlFrom;
+      delete device.controlLengthFt;
+    }
+  }
+  for (const zone of design.zones) if (zone.control?.equipmentId === equipmentId) delete zone.control;
+  design.project.controlLinks = design.project.controlLinks.filter(
+    (link) => !refs.has(link.from.ref) && !refs.has(link.to.ref),
+  );
   design.project.equipment = design.project.equipment.filter((item) => item.id !== equipmentId);
 }
 
-/** Move a supply to another cabinet; it takes that cabinet's environment, circuit and feed length. */
+/**
+ * Move a supply to another cabinet; it takes that cabinet's environment, circuit and feed length. Devices
+ * it powered stay in their cabinet and lose that feed (power is patched within a cabinet).
+ */
 export function moveSupply(design: Design, equipmentId: string, cabinetId: string) {
   const supply = equipmentOf(design, equipmentId);
   const cabinet = cabinetOf(design, cabinetId);
@@ -265,6 +468,8 @@ export function moveSupply(design: Design, equipmentId: string, cabinetId: strin
   supply.env = cabinet.env;
   supply.feedLengthFt = cabinet.feedLengthFt;
   supply.fedFrom = { ref: cabinet.sourceId ?? 'unassigned' };
+  for (const device of design.project.equipment)
+    if (feedsFrom(device, supply) && device.enclosure !== cabinet.id) device.fedFrom = { ref: 'unassigned' };
 }
 
 /** Feed a supply from a panel circuit (riser source). */
@@ -368,17 +573,19 @@ export interface ScheduleSupplyLine {
   line: Line;
   catalogId: string;
 }
+/** A schedule line that is a catalog product the design places as equipment (a supply or a control). */
+export type ScheduleEquipmentLine = ScheduleSupplyLine;
+type ItemTest = (item: CatalogItem | undefined) => boolean;
 
 /**
- * The power supplies the dealer already has on the fixture schedule: accessory lines (their own, or the
- * configurator's lines under a fixture) whose Item is a catalog supply. Design write-back lines are the
- * design's own output and are not read back.
+ * Accessory lines (the dealer's own, or the configurator's lines under a fixture) whose Item is a catalog
+ * product `accept` takes. Design write-back lines are the design's own output and are not read back.
  */
-export function scheduleSupplyLines(context: PowerContext): ScheduleSupplyLine[] {
+export function scheduleItemLines(context: PowerContext, accept: ItemTest): ScheduleEquipmentLine[] {
   const byErpCode = new Map<string, string>();
   for (const item of context.catalog.values())
-    if (item.erpItemCode && powerSpecs(item) && !item.isExample) byErpCode.set(item.erpItemCode, item.id);
-  const found: ScheduleSupplyLine[] = [];
+    if (item.erpItemCode && accept(item) && !item.isExample) byErpCode.set(item.erpItemCode, item.id);
+  const found: ScheduleEquipmentLine[] = [];
   for (const line of context.lines) {
     if (line.kind !== 'accessory' || line.designLineRole || !line.accessoryItem || line.qty <= 0) continue;
     const catalogId = byErpCode.get(line.accessoryItem);
@@ -387,18 +594,29 @@ export function scheduleSupplyLines(context: PowerContext): ScheduleSupplyLine[]
   return found;
 }
 
+const isSupplyItem: ItemTest = (item) => Boolean(powerSpecs(item));
+
+/** The power supplies the dealer already has on the fixture schedule. */
+export function scheduleSupplyLines(context: PowerContext): ScheduleSupplyLine[] {
+  return scheduleItemLines(context, isSupplyItem);
+}
+
 /**
- * How far the design's schedule supplies are from the schedule: units with no supply in the design yet,
- * and supplies whose line is gone, changed Item or has fewer units now.
+ * How far the design's schedule equipment of one kind is from the schedule: units with no equipment in
+ * the design yet, and equipment whose line is gone, changed Item or has fewer units now.
  */
-export function scheduleSupplyDrift(design: Design, context: PowerContext): { missing: number; extra: number } {
-  const wanted = new Map(scheduleSupplyLines(context).map((entry) => [entry.line.key, entry]));
+export function scheduleItemDrift(
+  design: Design,
+  context: PowerContext,
+  accept: ItemTest,
+): { missing: number; extra: number } {
+  const wanted = new Map(scheduleItemLines(context, accept).map((entry) => [entry.line.key, entry]));
   const placed = new Map<string, number>();
   let extra = 0;
-  for (const supply of design.project.equipment) {
-    if (supply.scheduleLine === undefined) continue;
-    if (wanted.get(supply.scheduleLine)?.catalogId === supply.catalogId)
-      placed.set(supply.scheduleLine, (placed.get(supply.scheduleLine) ?? 0) + 1);
+  for (const item of design.project.equipment) {
+    if (item.scheduleLine === undefined || !accept(context.catalog.get(item.catalogId))) continue;
+    if (wanted.get(item.scheduleLine)?.catalogId === item.catalogId)
+      placed.set(item.scheduleLine, (placed.get(item.scheduleLine) ?? 0) + 1);
     else extra += 1;
   }
   let missing = 0;
@@ -410,8 +628,12 @@ export function scheduleSupplyDrift(design: Design, context: PowerContext): { mi
   return { missing, extra };
 }
 
-/** The space a schedule supply belongs in: its fixture's space, else its own location, else the first one. */
-function scheduleSupplySpace(design: Design, context: PowerContext, line: Line): string | undefined {
+export function scheduleSupplyDrift(design: Design, context: PowerContext): { missing: number; extra: number } {
+  return scheduleItemDrift(design, context, isSupplyItem);
+}
+
+/** The space a schedule line's equipment belongs in: its fixture's space, else its own location, else the first one. */
+function scheduleLineSpace(design: Design, context: PowerContext, line: Line): string | undefined {
   if (line.powerSupplyForLine) {
     const owner = context.lines.find((item) => item.lineKey === line.powerSupplyForLine);
     const run = owner ? design.runs.find((item) => item.lineKey === owner.key) : undefined;
@@ -423,27 +645,32 @@ function scheduleSupplySpace(design: Design, context: PowerContext, line: Line):
 }
 
 /**
- * Bring the schedule's own supply lines into the design (plan §10.2): one supply per unit of each line's
- * quantity, tied to the line by `scheduleLine`, so write-back never adds them a second time. Supplies
- * whose line left the schedule, or more than the line's quantity, are removed (idle ones first) and their
- * runs go back to unassigned. A new supply goes in the cabinet its line's other supplies use, else a
- * cabinet in its space (added when the space has none). Returns what changed.
+ * Bring the schedule's own lines of one kind into the design (plan §10.2): one piece of equipment per unit
+ * of each line's quantity, tied to the line by `scheduleLine`, so write-back never adds it a second time.
+ * Equipment whose line left the schedule, or more than the line's quantity, is removed (idle first) and its
+ * runs go back to unassigned. New equipment goes in the cabinet its line's other units use, else a cabinet
+ * in its space (added when the space has none). `add` places one unit and returns its id.
  */
-export function syncScheduleSupplies(
+export function syncScheduleItems(
   design: Design,
   context: PowerContext,
+  accept: ItemTest,
   addCabinetFor: (spaceId: string) => string,
+  add: (cabinetId: string, catalogId: string) => string,
 ): { added: number; removed: number } {
-  const wanted = scheduleSupplyLines(context);
+  const wanted = scheduleItemLines(context, accept);
   const byLine = new Map(wanted.map((entry) => [entry.line.key, entry]));
   let added = 0;
   let removed = 0;
-  const busy = (id: string) => design.runs.some((run) => run.assignment?.equipmentId === id);
-  for (const supply of [...design.project.equipment]) {
-    if (supply.scheduleLine === undefined) continue;
-    const entry = byLine.get(supply.scheduleLine);
-    if (!entry || entry.catalogId !== supply.catalogId) {
-      removeSupply(design, supply.id);
+  const busy = (item: Equipment) =>
+    design.runs.some((run) => run.assignment?.equipmentId === item.id) ||
+    design.project.equipment.some((device) => feedsFrom(device, item)) ||
+    design.zones.some((zone) => zone.control?.equipmentId === item.id);
+  const ours = (item: Equipment) => item.scheduleLine !== undefined && accept(context.catalog.get(item.catalogId));
+  for (const item of design.project.equipment.filter(ours)) {
+    const entry = byLine.get(item.scheduleLine!);
+    if (!entry || entry.catalogId !== item.catalogId) {
+      removeSupply(design, item.id);
       removed += 1;
     }
   }
@@ -452,21 +679,21 @@ export function syncScheduleSupplies(
     if (placed.length > line.qty) {
       const extra = [...placed]
         .reverse()
-        .sort((a, b) => Number(busy(a.id)) - Number(busy(b.id)))
+        .sort((a, b) => Number(busy(a)) - Number(busy(b)))
         .slice(0, placed.length - line.qty);
-      for (const supply of extra) removeSupply(design, supply.id);
+      for (const item of extra) removeSupply(design, item.id);
       removed += extra.length;
       continue;
     }
     if (placed.length === line.qty) continue;
     let cabinetId = placed.find((item) => item.enclosure)?.enclosure;
     if (!cabinetId) {
-      const spaceId = scheduleSupplySpace(design, context, line);
+      const spaceId = scheduleLineSpace(design, context, line);
       if (!spaceId) continue;
       cabinetId = design.site.cabinets.find((cabinet) => cabinet.spaceId === spaceId)?.id ?? addCabinetFor(spaceId);
     }
     for (let count = placed.length; count < line.qty; count += 1) {
-      const id = addSupply(design, context, cabinetId, catalogId, FROM_SCHEDULE);
+      const id = add(cabinetId, catalogId);
       equipmentOf(design, id).scheduleLine = line.key;
       added += 1;
     }
@@ -474,9 +701,20 @@ export function syncScheduleSupplies(
   return { added, removed };
 }
 
+/** Bring the schedule's own supply lines into the design (see `syncScheduleItems`). */
+export function syncScheduleSupplies(
+  design: Design,
+  context: PowerContext,
+  addCabinetFor: (spaceId: string) => string,
+): { added: number; removed: number } {
+  return syncScheduleItems(design, context, isSupplyItem, addCabinetFor, (cabinetId, catalogId) =>
+    addSupply(design, context, cabinetId, catalogId, FROM_SCHEDULE),
+  );
+}
+
 /**
  * Put every unassigned low-voltage run on a supply already in the design (schedule supplies first), and
- * return how many were placed. A fixture's runs go first where the configurator's power plan put them
+ * return how many were placed. Runs in a DMX zone try a powered decoder's free channels first. A fixture's runs go first where the configurator's power plan put them
  * on that fixture's own supply lines; then runs fill outputs, those with supply lines of their own first
  * and largest first, preferring the fixture's own supplies, then supplies in the run's space. Every placement passes `assignmentProblem`, so loads, zones,
  * voltage and dimming stay within limits; runs nothing can carry stay unassigned.
@@ -495,6 +733,10 @@ export function autoAssignRuns(design: Design, context: PowerContext): number {
     design.project.equipment.filter((supply) => powerSpecs(context.catalog.get(supply.catalogId)));
   const open = () =>
     design.runs.filter((run) => !run.assignment && !runElectrical(run, context).lineVoltage);
+  const zones = new Map(design.zones.map((zone) => [zone.id, zone]));
+  const dmxRun = (run: Run) => DECODER_METHODS.has(zones.get(run.zoneId ?? '')?.method ?? 'none');
+  const decoders = () =>
+    design.project.equipment.filter((item) => decoderSpecs(context.catalog.get(item.catalogId))?.powerType === 'DC');
   const tryAssign = (run: Run, supply: Equipment, port: string) => {
     if (assignmentProblem(design, context, [run.key], supply.id, port)) return false;
     run.assignment = { equipmentId: supply.id, port };
@@ -506,7 +748,7 @@ export function autoAssignRuns(design: Design, context: PowerContext): number {
   const taken = new Map<string, string>();
   for (const run of open()) {
     const owned = ownedBy(run);
-    if (!owned.length) continue;
+    if (!owned.length || dmxRun(run)) continue;
     const allocation = buildFor(run, context.builds)?.allocations.find((item) => item.runKey === String(run.runIndex));
     if (!allocation?.itemCode || allocation.supply === null || allocation.output === null) continue;
     const key = `${run.lineKey}:${run.buildIndex}:${allocation.supply}:${allocation.itemCode}`;
@@ -542,6 +784,20 @@ export function autoAssignRuns(design: Design, context: PowerContext): number {
           : supply.scheduleLine
             ? 2
             : 3;
+    // Runs in a DMX zone go on a decoder channel first.
+    if (dmxRun(run)) {
+      const placed = decoders()
+        .map((decoder, index) => ({ decoder, index }))
+        .sort((a, b) => rank(a.decoder) - rank(b.decoder) || a.index - b.index)
+        .some(({ decoder }) => {
+          const port = freeDecoderPort(design, context, decoder.id, runChannels(run, context), new Set([run.key]));
+          return port !== null && tryAssign(run, decoder, port);
+        });
+      if (placed) {
+        assigned += 1;
+        continue;
+      }
+    }
     const candidates = supplies()
       .map((supply, index) => ({ supply, index }))
       .sort((a, b) => rank(a.supply) - rank(b.supply) || a.index - b.index);
@@ -575,7 +831,26 @@ export function addZone(design: Design, method: Zone['method'], name?: string): 
   return zone.id;
 }
 
-export function updateZone(design: Design, zoneId: string, changes: Partial<Pick<Zone, 'name' | 'method'>>) {
+/** The control protocol each zone method needs from its control output; phase-cut and switched zones have none. */
+export const ZONE_CONTROL_PROTOCOL: Readonly<Partial<Record<Zone['method'], Protocol>>> = {
+  DMX512: 'DMX512',
+  'CRMX-wireless': 'DMX512', // A wireless receiver's DMX output feeds the decoders.
+  '0-10V': '0-10V',
+  'DALI-2': 'DALI-2',
+  'Lutron-QS': 'Lutron-QS',
+  'Lutron-EcoSystem': 'Lutron-EcoSystem',
+};
+
+/**
+ * Rename a zone or change its dimming method. A new method must suit every supply and decoder already
+ * carrying the zone's runs (checked when `context` is given), and a control sending another protocol is let go.
+ */
+export function updateZone(
+  design: Design,
+  zoneId: string,
+  changes: Partial<Pick<Zone, 'name' | 'method'>>,
+  context?: PowerContext,
+) {
   const zone = design.zones.find((item) => item.id === zoneId);
   if (!zone) throw new Error(`Unknown zone: ${zoneId}`);
   if (changes.name !== undefined) {
@@ -583,7 +858,32 @@ export function updateZone(design: Design, zoneId: string, changes: Partial<Pick
     if (!name) throw new Error('Enter a zone name');
     zone.name = name.slice(0, 120);
   }
-  if (changes.method) zone.method = changes.method;
+  if (!changes.method || changes.method === zone.method) return;
+  const before = zone.method;
+  zone.method = changes.method;
+  if (context) {
+    const outputs = new Map<string, Run[]>();
+    for (const run of design.runs)
+      if (run.zoneId === zoneId && run.assignment && design.project.equipment.some((item) => item.id === run.assignment!.equipmentId)) {
+        const key = `${run.assignment.equipmentId}\u0000${run.assignment.port}`;
+        outputs.set(key, [...(outputs.get(key) ?? []), run]);
+      }
+    for (const [key, runs] of outputs) {
+      const [equipmentId, port] = key.split('\u0000') as [string, string];
+      const problem = assignmentProblem(
+        design,
+        context,
+        runs.map((run) => run.key),
+        equipmentId,
+        port,
+      );
+      if (problem) {
+        zone.method = before;
+        throw new Error(problem);
+      }
+    }
+  }
+  if (zone.control && ZONE_CONTROL_PROTOCOL[before] !== ZONE_CONTROL_PROTOCOL[zone.method]) delete zone.control;
 }
 
 export function removeZone(design: Design, zoneId: string) {
@@ -605,9 +905,11 @@ export function setRunZone(design: Design, context: PowerContext, runKeys: reado
     else delete run.zoneId;
   };
   for (const run of before.keys()) apply(run, zoneId);
+  // Panel circuits (line-voltage fixtures) have no output rules; supplies and decoders do.
+  const equipment = new Set(design.project.equipment.map((item) => item.id));
   const outputs = new Set(
     design.runs
-      .filter((run) => keys.has(run.key) && run.assignment)
+      .filter((run) => keys.has(run.key) && run.assignment && equipment.has(run.assignment.equipmentId))
       .map((run) => `${run.assignment!.equipmentId}\u0000${run.assignment!.port}`),
   );
   for (const output of outputs) {

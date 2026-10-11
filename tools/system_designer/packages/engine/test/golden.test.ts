@@ -9,6 +9,7 @@ import { codeTables } from '@ill/data/codeTables';
 import { checkDesign, vdLimits, type VdLimits } from '../src/designCheck';
 import { dealerItems } from '../src/derive';
 import { expandRuns } from '../src/expand';
+import { addControl, setControlFeed } from '../src/controls';
 import { addSupply, catalogMap } from '../src/power';
 import { addCabinet, addCircuit, distanceDefaults } from '../src/site';
 import { verifySubset } from '../src/verify';
@@ -188,6 +189,22 @@ const CASES: Record<string, { description: string; build(): Design; wires?: Wire
       feed(value, 'd1group:1:1', id, 'OUT1');
       feed(value, 'b1tape:1:1', id, 'OUT2');
       feed(value, 'a1linear:1:1', id, 'OUT2');
+      return value;
+    },
+  },
+  'dmx-decoder': {
+    description:
+      'One supply output feeds a run directly, a DMX decoder carrying a run on CH1 (over a 12 ft home run), and a DMX to 0-10V converter drawing its standby power.',
+    build() {
+      const value = design(['a1linear:1:1', 'a1linear:1:2'], { 'a1linear:1:1': { homeRunLengthFt: 12 } });
+      const psu = supply(value, 'drv:TEST-PSU-96');
+      const cabinet = value.site.cabinets[0]!.id;
+      const decoder = addControl(value, context, cabinet, 'ctl:TEST-DEC-4');
+      setControlFeed(value, context, decoder, `${psu}::OUT1`);
+      const converter = addControl(value, context, cabinet, 'ctl:TEST-CONV-4');
+      setControlFeed(value, context, converter, `${psu}::OUT1`);
+      feed(value, 'a1linear:1:1', decoder, 'CH1');
+      feed(value, 'a1linear:1:2', psu, 'OUT1');
       return value;
     },
   },
