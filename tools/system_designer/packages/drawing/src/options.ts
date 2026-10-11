@@ -34,4 +34,51 @@ export interface DrawingOptions {
   loads?: Record<string, ClientLoad>;
   /** Client style: the schedule lines the dealer made. */
   fixtureSchedule?: ClientFixtureRow[];
+  /** What the dealer chose to leave off the sheets; everything is shown when omitted. */
+  view?: DrawingView;
 }
+
+/**
+ * Sheet content a dealer can hide, as on the standalone riser's Drawing page. Each flag is shown
+ * unless it is `false`; hiding a detail leaves the layout as it is, so the drawing does not move.
+ */
+export interface DrawingView {
+  /** Cable callouts on the wires (tag, cable, length, voltage drop). */
+  wireLabels?: boolean;
+  /** DMX addresses on the riser; the control protocols on a client card. */
+  dmx?: boolean;
+  /** Volts in and out, watts and loading on a card. */
+  ratings?: boolean;
+  /** The model or part number on a card. */
+  models?: boolean;
+  /** The length and location under a tape run. */
+  lengths?: boolean;
+  /** Schedule, legend and key sections to leave off, by title (`RISER_SECTIONS`, `CLIENT_SECTIONS`). */
+  hide?: string[];
+}
+
+/** The sections of the riser's schedule pages, in the order they are drawn. */
+export const RISER_SECTIONS = [
+  'EQUIPMENT SCHEDULE',
+  'LOAD SCHEDULE',
+  'WIRE SCHEDULE',
+  'CONTINUATION INDEX',
+  'LOADING / CAPACITY',
+  'DMX PATCH',
+  'BILL OF MATERIALS',
+  'GENERAL NOTES',
+  'KEY NOTES',
+  'REVISIONS',
+  'PROJECT RECORD',
+  'SYMBOL LEGEND',
+  'LINE LEGEND',
+] as const;
+
+/** The sections of the client diagram's schedule page, in the order they are drawn. */
+export const CLIENT_SECTIONS = [
+  'COLOR KEY',
+  'FIXTURE SCHEDULE',
+  'POWER SUPPLIES AND CONTROLS',
+  'WIRE',
+  'NOTES',
+] as const;

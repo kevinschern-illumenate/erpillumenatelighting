@@ -211,6 +211,57 @@ describe('Views step', () => {
     );
     expect(byTest('deliverables')?.textContent).toContain('Presentation PDF · Tabloid');
   });
+
+  it('hides details and schedules, redraws the shown drawing, and remembers the choice', async () => {
+    const draw = vi.fn(deps.draw);
+    deps.draw = draw;
+    await render();
+    const option = (label: string) =>
+      [...el.querySelectorAll<HTMLLabelElement>('[data-testid="view-options"] label')].find(
+        (node) => node.textContent?.trim() === label,
+      );
+    const toggle = (label: string) => option(label)!.querySelector('input')!;
+    await click(button('Draw riser'));
+    expect(draw.mock.calls[0]![0].options!.view).toEqual({});
+    await click(toggle('Wire labels'));
+    await click(toggle('Bill of materials'));
+    // The drawing on screen follows each change without pressing Draw again.
+    const last = () => draw.mock.calls.at(-1)![0];
+    expect(last().options!.view).toEqual({ wireLabels: false, hide: ['BILL OF MATERIALS'] });
+    expect(byTest('riser-preview')).not.toBeNull();
+    await click(toggle('Schedules, legends and notes'));
+    expect(last().project.settings.showSchedules).toBe(false);
+    expect(option('Bill of materials')).toBeUndefined();
+    const flow = el.querySelector<HTMLSelectElement>('[data-testid="view-options"] select')!;
+    await act(async () => {
+      flow.value = 'TB';
+      flow.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await click(toggle('Wire labels'));
+    expect(last().project.settings.sheet.flow).toBe('TB');
+    expect(JSON.parse(localStorage.getItem('ill-sd:views')!).riser).toEqual({
+      layout: { schedules: false, flow: 'TB' },
+      view: { wireLabels: true, hide: ['BILL OF MATERIALS'] },
+    });
+    // The client diagram keeps its own choices; turning its page off hides every section on it.
+    const style = el.querySelector<HTMLSelectElement>('[data-testid="riser-options"] select')!;
+    await act(async () => {
+      style.value = 'client';
+      style.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(toggle('Fixture schedule page').checked).toBe(true);
+    await click(toggle('Fixture schedule page'));
+    await click(button('Draw client diagram'));
+    expect(last().options!.view!.hide).toEqual([
+      'COLOR KEY',
+      'FIXTURE SCHEDULE',
+      'POWER SUPPLIES AND CONTROLS',
+      'WIRE',
+      'NOTES',
+    ]);
+    const titles = [...el.querySelectorAll('[data-testid="riser-preview"] option')].map((node) => node.textContent);
+    expect(titles.some((title) => title?.includes('FIXTURE SCHEDULE & ORDERING'))).toBe(false);
+  });
 });
 
 describe('Views step review', () => {

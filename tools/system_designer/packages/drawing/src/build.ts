@@ -5,6 +5,7 @@ import { DrawingSchema, type Drawing } from './model';
 import { layoutProject } from './layout/pages';
 import { composeSheets } from './sheet/compose';
 import type { DrawingOptions } from './options';
+import { applyView } from './view';
 import { drawnRuns } from './wires';
 
 export async function buildDrawing(
@@ -26,6 +27,7 @@ export async function buildDrawing(
       : project;
   const diagrams = await layoutProject(laidOut, library, drawn, options);
   const sheets = composeSheets(diagrams, project, library, result, options, drawn.members);
+  applyView(sheets, options.view);
   sheets.forEach((sheet) => {
     sheet.fontFamily = project.settings.drawingFont;
   });

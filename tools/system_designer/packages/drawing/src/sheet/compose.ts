@@ -253,6 +253,14 @@ export function composeSheets(
 ): Sheet[] {
   const sheets = [...diagrams];
   const client = options.style === 'client';
+  // Sections the dealer left off (Views step); a page they would leave empty is not added.
+  const hidden = new Set(options.view?.hide ?? []);
+  const finish = () => {
+    for (let i = sheets.length - 1; i >= 0; i--)
+      if (!diagrams.includes(sheets[i]!) && !sheets[i]!.prims.length) sheets.splice(i, 1);
+    sheets.forEach((s) => frameSheet(s, project, sheets.length, options));
+    return sheets;
+  };
   if (!project.settings.showSchedules && !client) {
     sheets.forEach((sheet) => frameSheet(sheet, project, sheets.length, options));
     return sheets;
@@ -494,9 +502,9 @@ export function composeSheets(
     );
     y -= 0.4;
   }
-  if (client) colorKey(diagrams, result);
+  if (client && !hidden.has('COLOR KEY')) colorKey(diagrams, result);
   for (const table of tables) {
-    if (!table.rows.length) continue;
+    if (!table.rows.length || hidden.has(table.title)) continue;
     need(1.3);
     title(table.title);
     const sum = table.weights.reduce((a, b) => a + b, 0);
@@ -548,10 +556,7 @@ export function composeSheets(
     for (const values of table.rows) row(values);
     y -= 0.45;
   }
-  if (client) {
-    sheets.forEach((s) => frameSheet(s, project, sheets.length, options));
-    return sheets;
-  }
+  if (client) return finish();
   /** Swatches for every product and wire family the diagrams use, each with its name. */
   function colorKey(drawn: Sheet[], runs: EngineResult) {
     const families = new Set(
@@ -621,7 +626,7 @@ export function composeSheets(
         .map((p) => [p.symbolId, s.blocks.find((b) => b.id === p.symbolId)!] as const),
     ),
   );
-  if (used.size) {
+  if (used.size && !hidden.has('SYMBOL LEGEND')) {
     need(3);
     title('SYMBOL LEGEND');
     const list = [...used.values()];
@@ -646,6 +651,7 @@ export function composeSheets(
       y -= height + 0.35;
     }
   }
+  if (hidden.has('LINE LEGEND')) return finish();
   title('LINE LEGEND');
   const layers = new Set(diagrams.flatMap((s) => flattenSheet(s).map((p) => p.layer)));
   for (const layer of seedLayers.layers.filter(
@@ -678,6 +684,5 @@ export function composeSheets(
       y - 0.49,
     ),
   );
-  sheets.forEach((s) => frameSheet(s, project, sheets.length, options));
-  return sheets;
+  return finish();
 }

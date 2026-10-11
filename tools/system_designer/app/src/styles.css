@@ -733,3 +733,19 @@
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 	gap: 12px;
 }
+.ill-sd__toggles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	margin: 8px 0;
+}
+.ill-sd__toggles > legend {
+	font-weight: 600;
+	margin-bottom: 4px;
+	padding: 0;
+}
+.ill-sd__toggles label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
