@@ -14,6 +14,8 @@ import json
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.web_listing_migration import _migrate_one_safely
+
 PRODUCT = "ilL-Webflow-Product"
 KIT = "ilL-Extrusion-Kit-Template"
 
@@ -58,7 +60,6 @@ def plan_kit_template(listing, profile=None, lens=None):
 		"template_name": listing.get("product_name") or code,
 		"is_active": 0,
 		"series": listing.get("series"),
-		"web_slug": listing["name"],
 		"notes": f"Generated from Webflow Product {listing['name']}.",
 	}
 
@@ -147,7 +148,8 @@ def generate_kit_templates(dry_run=1, link=0):
 		# Only link templates made here; a same-named template may be one being rebuilt.
 		if link and row["action"] == "created":
 			frappe.db.set_value(PRODUCT, name, "kit_template", code)
-			frappe.db.set_value(KIT, code, "webflow_product", name, update_modified=False)
-			row["action"] += "; listing linked"
+			# Sets the template's backlink and moves the listing's product data onto it.
+			migrated = _migrate_one_safely({**listing, "kit_template": code}, KIT, code, dry_run=0)
+			row["action"] += f"; listing linked; product data {migrated['action']}"
 		report.append(row)
 	return report

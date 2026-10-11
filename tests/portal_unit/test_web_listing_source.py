@@ -1,4 +1,4 @@
-"""Readers take a migrated listing's web content from its template (Webflow Product merge, step 4)."""
+"""Product data is read from templates; marketing content from the Webflow Product."""
 
 import unittest
 from unittest.mock import MagicMock
@@ -41,10 +41,11 @@ def product(**values):
 			"product_type": "Linear Fixture",
 			"is_active": 1,
 			"fixture_template": "ILL-EL01-SW",
-			"product_category": "linear",
-			"short_description": "Old copy",
-			"gallery_images": [{"image": "/files/old.jpg"}],
-			"attribute_links": [{"attribute_name": "3000K"}],
+			"short_description": "Listing copy",
+			"min_length_mm": 300,
+			"product_badge": "",
+			"feed_lengths": [{"code": "06"}],
+			"gallery_images": [{"image": "/files/a.jpg"}],
 			**values,
 		}
 	)
@@ -53,14 +54,13 @@ def product(**values):
 def template(**values):
 	return Doc(
 		**{
+			"doctype": FIXTURE,
 			"name": "ILL-EL01-SW",
 			"template_name": "Elevate SW",
-			"web_slug": "ill-el01-sw",
-			"web_title": "Elevate [SW]",
-			"web_category": "linear",
-			"short_description": "Template copy",
-			"gallery_images": [{"image": "/files/new.jpg"}],
-			"attribute_links": [],
+			"webflow_product": "ill-el01-sw",
+			"min_length_mm": 600,
+			"beam_angle": None,
+			"feed_lengths": [{"code": "08"}],
 			**values,
 		}
 	)
@@ -68,130 +68,130 @@ def template(**values):
 
 def listing(source, migrated=True, **template_values):
 	with load_service(ROOT + ".web_listing_source") as (module, frappe):
-		module.listing_for = MagicMock(
-			return_value=(FIXTURE, "ILL-EL01-SW") if migrated else (PRODUCT, source.name)
-		)
+		module.template_for = MagicMock(return_value=(FIXTURE, "ILL-EL01-SW") if migrated else (None, None))
 		frappe.get_doc.return_value = template(**template_values)
 		return module.Listing(source)
 
 
 class Reading(unittest.TestCase):
-	def test_migrated_listing_reads_web_content_from_the_template(self):
+	def test_product_data_comes_from_the_template(self):
 		view = listing(product())
-		self.assertEqual(view.get("short_description"), "Template copy")
-		self.assertEqual(view.gallery_images[0].image, "/files/new.jpg")
+		self.assertEqual(view.min_length_mm, 600)
+		self.assertEqual(view.feed_lengths[0].code, "08")
 
-	def test_an_equal_empty_value_keeps_the_webflow_product_form(self):
-		view = listing(product(product_badge=""), product_badge=None, configurator_intro_text="")
-		self.assertEqual(view.product_badge, "")
-		self.assertIsNone(view.configurator_intro_text)
-		self.assertEqual(view.overlay({"product_badge": ""}), {"product_badge": ""})
-
-	def test_identity_and_computed_tables_stay_on_the_webflow_product(self):
+	def test_marketing_content_and_identity_stay_on_the_webflow_product(self):
 		view = listing(product())
-		self.assertEqual(view.product_type, "Linear Fixture")
-		self.assertEqual(view.fixture_template, "ILL-EL01-SW")
-		self.assertEqual(view.attribute_links[0].attribute_name, "3000K")
+		self.assertEqual(view.short_description, "Listing copy")
+		self.assertEqual(view.product_name, "Elevate [SW]")
+		self.assertEqual(view.gallery_images[0].image, "/files/a.jpg")
 		self.assertEqual(view.source.name, "ill-el01-sw")
 
-	def test_title_falls_back_to_the_template_name(self):
-		self.assertEqual(listing(product(), web_title=None).product_name, "Elevate SW")
+	def test_an_equal_empty_value_keeps_the_webflow_product_form(self):
+		view = listing(product(beam_angle=0))
+		self.assertEqual(view.beam_angle, 0)
 
 	def test_unmigrated_listing_reads_the_webflow_product(self):
 		view = listing(product(), migrated=False)
-		self.assertEqual(view.short_description, "Old copy")
-		self.assertEqual(view.as_dict()["gallery_images"], [{"image": "/files/old.jpg"}])
+		self.assertEqual(view.min_length_mm, 300)
+		self.assertEqual(view.as_dict()["feed_lengths"], [{"code": "06"}])
 
 	def test_legacy_read_switch_sends_readers_back_to_the_webflow_product(self):
 		with load_service(ROOT + ".web_listing_source") as (module, frappe):
-			module.listing_for = MagicMock(return_value=(FIXTURE, "ILL-EL01-SW"))
+			module.template_for = MagicMock(return_value=(FIXTURE, "ILL-EL01-SW"))
 			frappe.conf["web_listing_legacy_read"] = 1
 			view = module.Listing(product())
 		self.assertIsNone(view.template)
-		self.assertEqual(view.short_description, "Old copy")
+		self.assertEqual(view.min_length_mm, 300)
 
-	def test_overlay_replaces_only_the_fields_present(self):
+	def test_overlay_replaces_only_product_data(self):
 		data = listing(product()).overlay(
-			{"name": "ill-el01-sw", "product_name": "x", "short_description": "x"}
+			{"name": "ill-el01-sw", "min_length_mm": 1, "short_description": "x"}
 		)
-		self.assertEqual(
-			data,
-			{"name": "ill-el01-sw", "product_name": "Elevate [SW]", "short_description": "Template copy"},
-		)
+		self.assertEqual(data, {"name": "ill-el01-sw", "min_length_mm": 600, "short_description": "x"})
 
 	def test_as_dict_carries_template_tables(self):
-		data = listing(product()).as_dict()
-		self.assertEqual(data["gallery_images"], [{"image": "/files/new.jpg"}])
-		self.assertEqual(data["product_category"], "linear")
+		self.assertEqual(listing(product()).as_dict()["feed_lengths"], [{"code": "08"}])
 
 
-def mirror(source, **template_values):
+def sync(saved, current_listing, linked=True):
 	with load_service(ROOT + ".web_listing_source") as (module, frappe):
-		module.listing_for = MagicMock(return_value=(FIXTURE, "ILL-EL01-SW"))
-		frappe.get_doc.side_effect = lambda value, *args: (
-			template(**template_values) if isinstance(value, str) else MagicMock()
-		)
-		changed = module.mirror_to_template(source)
-		return changed, frappe
+		module.template_for = MagicMock(return_value=(FIXTURE, "ILL-EL01-SW") if linked else (None, None))
+		module._listing = MagicMock(return_value=current_listing)
+		events = MagicMock()
+		module_events = MagicMock(on_product_update=events)
+		with unittest.mock.patch.dict(
+			"sys.modules",
+			{"illumenate_lighting.illumenate_lighting.api.webflow_sync_events": module_events},
+		):
+			changed = module.sync_to_listing(saved)
+		return changed, frappe, events
 
 
-class Mirroring(unittest.TestCase):
-	def test_an_edit_reaches_a_template_that_still_matched(self):
-		before = product(short_description="Template copy")
-		changed, frappe = mirror(product(before=before, short_description="New copy"))
-		self.assertEqual(changed, ["short_description"])
+class SyncingToTheListing(unittest.TestCase):
+	def test_a_template_edit_reaches_its_webflow_product(self):
+		current = {"min_length_mm": 300, "feed_lengths": [{"code": "08"}]}
+		changed, frappe, events = sync(template(), current)
+		self.assertEqual(changed, ["min_length_mm"])
 		frappe.db.set_value.assert_called_once_with(
-			FIXTURE, "ILL-EL01-SW", {"short_description": "New copy"}, update_modified=False
+			PRODUCT, "ill-el01-sw", {"min_length_mm": 600}, update_modified=False
+		)
+		events.assert_called_once()
+
+	def test_a_changed_table_is_replaced(self):
+		current = {"min_length_mm": 600, "feed_lengths": [{"code": "06"}]}
+		changed, frappe, _events = sync(template(), current)
+		self.assertEqual(changed, ["feed_lengths"])
+		frappe.db.delete.assert_called_once_with(
+			"ilL-Child-Webflow-Feed-Length",
+			{"parent": "ill-el01-sw", "parenttype": PRODUCT, "parentfield": "feed_lengths"},
 		)
 
-	def test_a_value_kept_on_the_template_is_not_overwritten(self):
-		before = product(short_description="Something else")
-		changed, frappe = mirror(product(before=before, short_description="New copy"))
+	def test_nothing_changes_when_already_in_step(self):
+		current = {"min_length_mm": 600, "beam_angle": 0, "feed_lengths": [{"code": "08"}]}
+		changed, frappe, events = sync(template(), current)
+		self.assertEqual(changed, [])
+		frappe.db.set_value.assert_not_called()
+		events.assert_not_called()
+
+	def test_a_template_that_does_not_hold_the_listing_is_ignored(self):
+		changed, frappe, _events = sync(template(), {}, linked=False)
 		self.assertEqual(changed, [])
 		frappe.db.set_value.assert_not_called()
 
-	def test_a_new_compatibility_row_is_mirrored(self):
-		rows = [{"related_product": "ill-sh02-sw", "relationship_type": "Alternative To"}]
-		added = [*rows, {"related_product": "ill-sh03-tw", "relationship_type": "Alternative To"}]
-		before = product(compatible_products=rows)
-		changed, frappe = mirror(product(before=before, compatible_products=added), compatible_products=rows)
-		self.assertEqual(changed, ["compatible_products"])
-		frappe.db.delete.assert_called_once_with(
-			"ilL-Child-Webflow-Compatibility",
-			{"parent": "ILL-EL01-SW", "parenttype": FIXTURE, "parentfield": "compatible_products"},
-		)
-		self.assertEqual(frappe.get_doc.call_count, 3)  # the template, then two rows
 
-	def test_a_renamed_product_updates_the_web_title(self):
-		before = product()
-		changed, frappe = mirror(product(before=before, product_name="Elevate SW"))
-		self.assertEqual(changed, ["web_title"])
-		frappe.db.set_value.assert_called_once_with(
-			FIXTURE, "ILL-EL01-SW", {"web_title": None}, update_modified=False
-		)
+class TopUp(unittest.TestCase):
+	def run_top_up(self, saved):
+		with load_service(ROOT + ".web_listing_source") as (module, _frappe):
+			module._migrate_one_safely = MagicMock(return_value={"action": "migrated"})
+			return module.top_up_template(saved), module._migrate_one_safely
 
-	def test_a_new_product_is_left_alone(self):
-		changed, frappe = mirror(product(before=None, short_description="New copy"))
-		self.assertEqual(changed, [])
-		frappe.get_doc.assert_not_called()
+	def test_a_newly_linked_template_gets_the_listing_data(self):
+		row, migrate = self.run_top_up(product(before=product(fixture_template=None)))
+		self.assertEqual(row, {"action": "migrated"})
+		self.assertEqual(migrate.call_args[0][1:3], (FIXTURE, "ILL-EL01-SW"))
+
+	def test_an_unchanged_link_is_left_alone(self):
+		row, migrate = self.run_top_up(product(before=product()))
+		self.assertIsNone(row)
+		migrate.assert_not_called()
 
 
 class PayloadParity(unittest.TestCase):
 	def test_reports_keys_that_differ_between_the_two_reads(self):
 		with load_service(ROOT + ".web_listing_source") as (module, frappe):
 			frappe.only_for = MagicMock()
-			module.listing_for = MagicMock(side_effect=[(FIXTURE, "A"), (PRODUCT, "ill-b")])
+			module.template_for = MagicMock(side_effect=[(FIXTURE, "A"), (None, None)])
 			frappe.get_all.side_effect = [["ill-a", "ill-b"], ["illumenate"]]
 			module._export = MagicMock(
 				side_effect=lambda name, brand: (
-					{"short_description": "Old", "name": name}
+					{"min_length_mm": 300, "name": name}
 					if getattr(frappe.flags, "web_listing_legacy_read", None)
-					else {"short_description": "New", "name": name}
+					else {"min_length_mm": 600, "name": name}
 				)
 			)
 			report = module.payload_parity()
 		self.assertEqual(
-			report, [{"listing": "ill-a", "brand": "illumenate", "differences": ["short_description"]}]
+			report, [{"listing": "ill-a", "brand": "illumenate", "differences": ["min_length_mm"]}]
 		)
 
 
