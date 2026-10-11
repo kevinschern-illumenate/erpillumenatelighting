@@ -2,12 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Project } from '@ill/core-schemas/project';
 import type { Drawing } from '@ill/drawing/model';
-import type { DrawingOptions, DrawingStyle } from '@ill/drawing/options';
+import {
+  CLIENT_SECTIONS,
+  RISER_SECTIONS,
+  type DrawingOptions,
+  type DrawingStyle,
+  type DrawingView,
+} from '@ill/drawing/options';
 import {
   allowedStamps,
   DEFAULT_STAMP,
   RISER_SHEETS,
   riserProject,
+  type RiserLayout,
   type RiserSheet,
   type RiserStamp,
 } from '@ill/engine/riser';
@@ -42,6 +49,87 @@ const STYLES: { style: DrawingStyle; label: string; noun: string }[] = [
   { style: 'riser', label: 'Riser diagram (installer)', noun: 'riser' },
   { style: 'client', label: 'Client diagram (homeowner)', noun: 'client diagram' },
 ];
+
+/** What a dealer chose to show on one drawing style; carried over from the standalone riser. */
+export interface ViewChoice {
+  layout: RiserLayout;
+  view: DrawingView;
+}
+
+const NO_CHOICE: ViewChoice = { layout: {}, view: {} };
+const VIEWS_KEY = 'ill-sd:views';
+
+/** The dealer's last choices, kept in this browser; nothing breaks when storage is unavailable. */
+function loadViews(): Record<DrawingStyle, ViewChoice> {
+  const fresh = { riser: NO_CHOICE, client: NO_CHOICE };
+  try {
+    const saved = JSON.parse(localStorage.getItem(VIEWS_KEY) ?? 'null') as Partial<
+      Record<DrawingStyle, Partial<ViewChoice>>
+    > | null;
+    if (!saved || typeof saved !== 'object') return fresh;
+    const read = (choice?: Partial<ViewChoice>): ViewChoice => ({
+      layout: choice?.layout && typeof choice.layout === 'object' ? choice.layout : {},
+      view: choice?.view && typeof choice.view === 'object' ? choice.view : {},
+    });
+    return { riser: read(saved.riser), client: read(saved.client) };
+  } catch {
+    return fresh;
+  }
+}
+
+function saveViews(views: Record<DrawingStyle, ViewChoice>) {
+  try {
+    localStorage.setItem(VIEWS_KEY, JSON.stringify(views));
+  } catch {
+    // Private windows and blocked storage only lose the remembered choice.
+  }
+}
+
+/** Card details a dealer can hide, per style: the client card names protocols, not DMX addresses. */
+const DETAILS: Record<DrawingStyle, { key: Exclude<keyof DrawingView, 'hide'>; label: string }[]> = {
+  riser: [
+    { key: 'wireLabels', label: 'Wire labels' },
+    { key: 'dmx', label: 'DMX addresses' },
+    { key: 'ratings', label: 'Volts, watts and loading' },
+    { key: 'models', label: 'Model numbers' },
+    { key: 'lengths', label: 'Tape lengths and locations' },
+  ],
+  client: [
+    { key: 'wireLabels', label: 'Wire labels' },
+    { key: 'dmx', label: 'Control protocols' },
+    { key: 'ratings', label: 'Voltages' },
+    { key: 'models', label: 'Part numbers' },
+    { key: 'lengths', label: 'Tape lengths and locations' },
+  ],
+};
+
+const SECTION_LABELS: Record<string, string> = {
+  'EQUIPMENT SCHEDULE': 'Equipment schedule',
+  'LOAD SCHEDULE': 'Load schedule',
+  'WIRE SCHEDULE': 'Wire schedule',
+  'CONTINUATION INDEX': 'Continuation index',
+  'LOADING / CAPACITY': 'Loading and capacity',
+  'DMX PATCH': 'DMX patch',
+  'BILL OF MATERIALS': 'Bill of materials',
+  'GENERAL NOTES': 'General notes',
+  'KEY NOTES': 'Key notes',
+  REVISIONS: 'Revisions',
+  'PROJECT RECORD': 'Project record',
+  'SYMBOL LEGEND': 'Symbol legend',
+  'LINE LEGEND': 'Line legend',
+  'COLOR KEY': 'Color key',
+  'FIXTURE SCHEDULE': 'Fixture schedule',
+  'POWER SUPPLIES AND CONTROLS': 'Power supplies and controls',
+  WIRE: 'Wire',
+  NOTES: 'Notes',
+};
+const SECTIONS: Record<DrawingStyle, readonly string[]> = { riser: RISER_SECTIONS, client: CLIENT_SECTIONS };
+
+/** The drawing options a choice makes: the client page leaves every section off when it is turned off. */
+function viewFor(style: DrawingStyle, choice: ViewChoice): DrawingView {
+  if (style === 'client' && choice.layout.schedules === false) return { ...choice.view, hide: [...CLIENT_SECTIONS] };
+  return choice.view;
+}
 
 export interface ViewsDeps {
   draw(input: DrawingInput): Promise<Drawing>;
@@ -85,7 +173,15 @@ export function ViewsStep({
   const [sheet, setSheet] = useState<RiserSheet>('ANSI_B');
   const [stamp, setStamp] = useState<RiserStamp>(DEFAULT_STAMP);
   const [style, setStyle] = useState<DrawingStyle>('riser');
-  const [drawn, setDrawn] = useState<{ drawing: Drawing; project: Project; style: DrawingStyle } | null>(null);
+  const [views, setViews] = useState(loadViews);
+  const [flags, setFlags] = useState(false);
+  const [drawn, setDrawn] = useState<{
+    drawing: Drawing;
+    project: Project;
+    style: DrawingStyle;
+    view: string;
+    design: unknown;
+  } | null>(null);
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -124,29 +220,45 @@ export function ViewsStep({
       stamp,
       sheet,
       approved,
+      // The client diagram's schedule page is a section list, not the riser's schedules setting.
+      layout: { ...views[style].layout, ...(style === 'client' ? { schedules: undefined, units: undefined } : {}) },
     });
-  }, [ready, engine, block, open, meta, stamp, sheet, approved]);
-  // A drawing made for another design, sheet, stamp or style is not what the buttons would export.
-  const drawing = drawn && drawn.project === project && drawn.style === style ? drawn.drawing : null;
+  }, [ready, engine, block, open, meta, stamp, sheet, approved, views, style]);
+  const choice = views[style];
+  const view = viewFor(style, choice);
+  const viewKey = JSON.stringify(view);
+  // A drawing made for another design, sheet, stamp, style or view is not what the buttons would export.
+  const drawing =
+    drawn && drawn.project === project && drawn.style === style && drawn.view === viewKey ? drawn.drawing : null;
   const noun = STYLES.find((item) => item.style === style)!.noun;
-  const view = style === 'client' ? 'Presentation' : 'Riser';
+  const commentView = style === 'client' ? 'Presentation' : 'Riser';
   const current = drawing?.sheets[page];
-  const [preview, setPreview] = useState<{ sheet: unknown; url: string } | null>(null);
+  const [preview, setPreview] = useState<{ sheet: unknown; url: string; flags: boolean } | null>(null);
   useEffect(() => {
     if (!current || typeof URL.createObjectURL !== 'function') return;
     let url: string | null = null;
     let cancelled = false;
     void import('@ill/serializers/svg').then(({ serializeSvg }) => {
       if (cancelled) return;
-      url = URL.createObjectURL(new Blob([serializeSvg(current)], { type: 'image/svg+xml' }));
-      setPreview({ sheet: current, url });
+      // Check flags are a preview aid, as in the standalone riser: exports never carry them.
+      url = URL.createObjectURL(new Blob([serializeSvg(current, { qa: flags })], { type: 'image/svg+xml' }));
+      setPreview({ sheet: current, url, flags });
     });
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [current]);
-  const previewUrl = preview && current && preview.sheet === current ? preview.url : null;
+  }, [current, flags]);
+  const previewUrl = preview && current && preview.sheet === current && preview.flags === flags ? preview.url : null;
+  // Once a drawing is up, a changed sheet, stamp or view redraws it; a changed design still waits for Draw again.
+  const redraw = useRef<() => Promise<void>>(async () => undefined);
+  useEffect(() => {
+    redraw.current = draw;
+  });
+  const stale = Boolean(drawn && !drawing && drawn.style === style && drawn.design === design && project);
+  useEffect(() => {
+    if (stale && !busy && !error) void redraw.current();
+  }, [stale, busy, error, project, viewKey]);
 
   if (!design) return null;
   const incomplete =
@@ -167,9 +279,10 @@ export function ViewsStep({
       const options: DrawingOptions = {
         ...(logo ? { dealerLogo: logo } : {}),
         ...(style === 'client' ? clientOptions(open.lines, open.builds, design!, project) : {}),
+        view,
       };
       const made = await deps.draw({ project, library: engine.check.library, result: engine.check.result, options });
-      setDrawn({ drawing: made, project, style });
+      setDrawn({ drawing: made, project, style, view: viewKey, design });
       setPage(0);
       if (block?.dealer_logo && !logo) setNotice(`Your logo could not be read, so the ${noun} shows only ours.`);
     } catch (e) {
@@ -178,6 +291,20 @@ export function ViewsStep({
       setBusy('');
     }
   }
+
+
+  function choose(change: (current: ViewChoice) => ViewChoice) {
+    setViews((all) => {
+      const next = { ...all, [style]: change(all[style]) };
+      saveViews(next);
+      return next;
+    });
+    setError('');
+  }
+  const shown = (key: Exclude<keyof DrawingView, 'hide'>) => choice.view[key] !== false;
+  const sectionShown = (title: string) => !choice.view.hide?.includes(title);
+  const settings = engine.state === 'ready' ? engine.check.project.settings : null;
+  const schedulesOn = choice.layout.schedules ?? (style === 'client' || (settings?.showSchedules ?? true));
 
   async function exportAs(format: Format) {
     if (!drawing || !project) return;
@@ -314,6 +441,108 @@ export function ViewsStep({
           </p>
         ) : null}
       </div>
+      <div className="ill-sd__card" data-testid="view-options">
+        <h3>Show on the {noun}</h3>
+        <div className="ill-sd__row">
+          <label className="ill-sd__pick">
+            <span>Power flow</span>
+            <select
+              value={choice.layout.flow ?? settings?.sheet.flow ?? 'LR'}
+              onChange={(event) =>
+                choose((c) => ({ ...c, layout: { ...c.layout, flow: event.target.value as 'LR' | 'TB' } }))
+              }
+            >
+              <option value="LR">Left to right</option>
+              <option value="TB">Top to bottom</option>
+            </select>
+          </label>
+          {style === 'riser' ? (
+            <label className="ill-sd__pick">
+              <span>Units</span>
+              <select
+                value={choice.layout.units ?? settings?.units ?? 'ft'}
+                onChange={(event) =>
+                  choose((c) => ({ ...c, layout: { ...c.layout, units: event.target.value as 'ft' | 'm' } }))
+                }
+              >
+                <option value="ft">Feet</option>
+                <option value="m">Metres</option>
+              </select>
+            </label>
+          ) : null}
+          <label className="ill-sd__pick">
+            <span>Font</span>
+            <select
+              value={choice.layout.font ?? settings?.drawingFont ?? 'Arimo'}
+              onChange={(event) =>
+                choose((c) => ({
+                  ...c,
+                  layout: { ...c.layout, font: event.target.value as 'Arimo' | 'RobotoCondensed' },
+                }))
+              }
+            >
+              <option value="Arimo">Arimo (Arial widths)</option>
+              <option value="RobotoCondensed">Roboto Condensed (narrow)</option>
+            </select>
+          </label>
+        </div>
+        <fieldset className="ill-sd__fieldset ill-sd__toggles">
+          <legend>On the diagram</legend>
+          {DETAILS[style].map((item) => (
+            <label key={item.key}>
+              <input
+                type="checkbox"
+                checked={shown(item.key)}
+                onChange={(event) =>
+                  choose((c) => ({ ...c, view: { ...c.view, [item.key]: event.target.checked } }))
+                }
+              />
+              <span>{item.label}</span>
+            </label>
+          ))}
+          <label>
+            <input type="checkbox" checked={flags} onChange={(event) => setFlags(event.target.checked)} />
+            <span>Check flags (preview only)</span>
+          </label>
+        </fieldset>
+        <fieldset className="ill-sd__fieldset ill-sd__toggles">
+          <legend>
+            <label>
+              <input
+                type="checkbox"
+                checked={schedulesOn}
+                onChange={(event) =>
+                  choose((c) => ({ ...c, layout: { ...c.layout, schedules: event.target.checked } }))
+                }
+              />
+              <span>{style === 'client' ? 'Fixture schedule page' : 'Schedules, legends and notes'}</span>
+            </label>
+          </legend>
+          {schedulesOn
+            ? SECTIONS[style].map((title) => (
+                <label key={title}>
+                  <input
+                    type="checkbox"
+                    checked={sectionShown(title)}
+                    onChange={(event) =>
+                      choose((c) => {
+                        const hide = (c.view.hide ?? []).filter((item) => item !== title);
+                        return { ...c, view: { ...c.view, hide: event.target.checked ? hide : [...hide, title] } };
+                      })
+                    }
+                  />
+                  <span>{SECTION_LABELS[title] ?? title}</span>
+                </label>
+              ))
+            : null}
+        </fieldset>
+        <p className="ill-sd__muted">
+          {style === 'riser' && !schedulesOn
+            ? 'Without schedules the diagrams use the whole sheet. '
+            : ''}
+          Downloads match the preview.
+        </p>
+      </div>
       {busy ? (
         <p className="ill-sd__muted" role="status">
           {busy}
@@ -382,7 +611,7 @@ export function ViewsStep({
                 src={previewUrl}
                 alt={`${style === 'client' ? 'Client diagram' : 'Riser'} sheet ${shownSheet}`}
               />
-              <SheetPins comments={comments.comments} view={view} sheet={shownSheet} pending={pin} />
+              <SheetPins comments={comments.comments} view={commentView} sheet={shownSheet} pending={pin} />
             </div>
           ) : null}
         </div>
@@ -390,7 +619,7 @@ export function ViewsStep({
       {meta?.name ? (
         <CommentThread
           comments={comments}
-          view={view}
+          view={commentView}
           canComment={canComment}
           anchor={pin}
           onClearAnchor={() => setPin(null)}

@@ -46,6 +46,18 @@ export interface RiserMeta {
   stamp: RiserStamp;
   sheet: RiserSheet;
   approved: boolean;
+  /** How the sheets are drawn (Views step); the project's own settings when omitted. */
+  layout?: RiserLayout;
+}
+
+/** Drawing settings a dealer picks on the Views step, as on the standalone riser's Drawing page. */
+export interface RiserLayout {
+  /** Power flows left to right (`LR`) or top to bottom (`TB`). */
+  flow?: 'LR' | 'TB';
+  /** Schedules, legends and notes on the riser; off gives the diagrams their paper. */
+  schedules?: boolean;
+  units?: 'ft' | 'm';
+  font?: 'Arimo' | 'RobotoCondensed';
 }
 
 const cut = (value: string, max: number) => value.trim().slice(0, max);
@@ -83,7 +95,13 @@ export function riserProject(check: DesignCheck, meta: RiserMeta): Project {
       date: meta.date,
       stamp,
     },
-    settings: { ...project.settings, sheet: { ...project.settings.sheet, size: meta.sheet } },
+    settings: {
+      ...project.settings,
+      sheet: { ...project.settings.sheet, size: meta.sheet, flow: meta.layout?.flow ?? project.settings.sheet.flow },
+      showSchedules: meta.layout?.schedules ?? project.settings.showSchedules,
+      units: meta.layout?.units ?? project.settings.units,
+      drawingFont: meta.layout?.font ?? project.settings.drawingFont,
+    },
     generalNotes: notes,
     revisions,
   };
