@@ -8,7 +8,7 @@ import type { DraftStore } from '../design/drafts';
 import { createDesignStore, type DesignStore } from '../design/store';
 import { addCabinet, addCircuit, distanceDefaults } from '@ill/engine/site';
 import { openFixture } from './fixture';
-import { newDesign } from './open';
+import { newDesign, type OpenDesign } from './open';
 import { Shell } from './Shell';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -16,7 +16,9 @@ import { Shell } from './Shell';
 let root: Root;
 let el: HTMLDivElement;
 let store: DesignStore;
-const open = openFixture({ catalog_hash: 'a'.repeat(64) });
+const withScheduleSupplies = openFixture({ catalog_hash: 'a'.repeat(64) });
+// Most tests start from a schedule with no power supply lines of its own (H1 is A1's supply line).
+const open = { ...withScheduleSupplies, lines: withScheduleSupplies.lines.filter((line) => line.key !== 'h1acc') };
 const drafts = { get: vi.fn(), put: vi.fn(), remove: vi.fn(), close: vi.fn() } as unknown as DraftStore;
 const eligible: EligibleSupply[] = [
   { catalog_id: 'drv:TEST-PSU-96', item_code: 'TEST-PSU-96', rank: 2, location_rating: 'Dry' },
@@ -30,7 +32,7 @@ async function flush() {
   });
 }
 
-async function render(value = open) {
+async function render(value: OpenDesign = open) {
   root = createRoot(el);
   await act(async () => root.render(<Shell open={value} store={store} api={api} drafts={drafts} checks={[]} />));
   await click(step('Power'));
@@ -172,6 +174,63 @@ describe('Power step', () => {
     expect(byTest('circuit-CKT-1')?.textContent).toContain('E1-1.1 … E1-6.1 (6 runs) · 72 W');
     await click(field('Unassign E1-1.1 … E1-6.1 (6 runs)'));
     expect(run('e1other:1:1').assignment).toBeUndefined();
+  });
+
+  it('starts from the supplies on the schedule, assigns runs to them and warns what is left', async () => {
+    act(() => root.unmount());
+    store = createDesignStore();
+    store.getState().load('SCH-TEST', newDesign(withScheduleSupplies).design, null);
+    store.getState().acceptTerms();
+    await render(withScheduleSupplies);
+    // H1 lists two 96 W supplies for A1: both come in, in A1's space, with A1's runs on them.
+    expect(design().project.equipment.map((item) => [item.tag, item.scheduleLine])).toEqual([
+      ['PS-1', 'h1acc'],
+      ['PS-2', 'h1acc'],
+    ]);
+    expect(byTest('supply-PS-1')?.textContent).toContain('On the schedule · line H1');
+    expect(button('Remove PS-1')).toBeUndefined();
+    expect(button('Start from configurator supplies')).toBeUndefined();
+    expect(run('a1linear:1:1').assignment).toEqual({ equipmentId: 'PS-1', port: 'OUT1' });
+    expect(run('a1linear:2:1').assignment).toEqual({ equipmentId: 'PS-2', port: 'OUT1' });
+    expect(byTest('schedule-supplies-drift')).toBeNull();
+    expect(byTest('power-shortfall')?.textContent).toMatch(
+      /runs need .* more power\. The 2 supplies on the fixture schedule cannot carry them\./,
+    );
+    // One undo takes the whole start back.
+    await click(button('Undo'));
+    expect(design().project.equipment).toEqual([]);
+    await click(button('Redo'));
+    expect(design().project.equipment).toHaveLength(2);
+
+    // A supply added here is the design's own, so write-back adds it to the schedule.
+    await click(field('Select C1-1.1'));
+    await click(button('Add supply', byTest('board-C-1')!));
+    await flush();
+    await click(button('Add Test 96 W supply'));
+    expect(design().project.equipment[2]).toMatchObject({ tag: 'PS-3', catalogId: 'drv:TEST-PSU-96' });
+    expect(design().project.equipment[2]?.scheduleLine).toBeUndefined();
+    await click(button('Auto-assign runs'));
+    expect(run('c1sheet:1:1').assignment?.equipmentId).toBe('PS-3');
+  });
+
+  it('offers the schedule’s supplies again when the schedule lists more', async () => {
+    act(() => root.unmount());
+    store = createDesignStore();
+    store.getState().load('SCH-TEST', newDesign(withScheduleSupplies).design, null);
+    store.getState().acceptTerms();
+    await render(withScheduleSupplies);
+    act(() => root.unmount());
+    const more = {
+      ...withScheduleSupplies,
+      lines: withScheduleSupplies.lines.map((line) => (line.key === 'h1acc' ? { ...line, qty: 3 } : line)),
+    };
+    await render(more);
+    expect(byTest('schedule-supplies-drift')?.textContent).toContain(
+      'The fixture schedule lists 1 power supply not in this design yet.',
+    );
+    await click(button('Use the schedule’s supplies'));
+    expect(design().project.equipment.filter((item) => item.scheduleLine === 'h1acc')).toHaveLength(3);
+    expect(byTest('schedule-supplies-drift')).toBeNull();
   });
 
   it('says when the catalog cannot be loaded', async () => {
