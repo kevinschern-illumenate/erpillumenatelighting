@@ -8,14 +8,17 @@ import {
   addSupply,
   addZone,
   assignmentProblem,
+  autoAssignRuns,
   assignRuns,
   capacity,
   catalogMap,
   fitSorted,
   FROM_CONFIGURATOR,
+  FROM_SCHEDULE,
   moveSupply,
   outputLoads,
   placeConfiguratorSupplies,
+  powerShortfall,
   powerSpecs,
   removeSupply,
   removeZone,
@@ -23,6 +26,9 @@ import {
   runElectrical,
   setRunZone,
   setSupplyCircuit,
+  scheduleSupplyDrift,
+  scheduleSupplyLines,
+  syncScheduleSupplies,
   unassignRuns,
   type PowerContext,
 } from './power';
@@ -142,6 +148,66 @@ describe('power board', () => {
     });
     expect(value.runs.find((run) => run.key === 'a1linear:1:2')?.assignment).toBeUndefined();
     expect(placeConfiguratorSupplies(value, context, () => 'unused')).toBe(0);
+    valid(value);
+  });
+
+  it('reads the supplies the dealer put on the schedule, not the design write-back lines', () => {
+    expect(scheduleSupplyLines(context).map((entry) => [entry.line.key, entry.catalogId])).toEqual([
+      ['h1acc', 'drv:TEST-PSU-96'],
+    ]);
+    expect(scheduleSupplyDrift(design(), context)).toEqual({ missing: 2, extra: 0 });
+  });
+
+  it('places one supply per schedule unit, once, in its fixture’s space', () => {
+    const value = design();
+    const cabinetFor = (spaceId: string) => addCabinet(value, spaceId, defaults);
+    expect(syncScheduleSupplies(value, context, cabinetFor)).toEqual({ added: 2, removed: 0 });
+    expect(value.project.equipment.map((item) => [item.tag, item.catalogId, item.scheduleLine, item.notes])).toEqual([
+      ['PS-1', 'drv:TEST-PSU-96', 'h1acc', FROM_SCHEDULE],
+      ['PS-2', 'drv:TEST-PSU-96', 'h1acc', FROM_SCHEDULE],
+    ]);
+    expect(value.site.cabinets.map((cabinet) => cabinet.spaceId)).toEqual([kitchen]);
+    expect(scheduleSupplyDrift(value, context)).toEqual({ missing: 0, extra: 0 });
+    expect(syncScheduleSupplies(value, context, cabinetFor)).toEqual({ added: 0, removed: 0 });
+    valid(value);
+  });
+
+  it('follows the schedule: fewer units drop idle supplies first, a removed line drops them all', () => {
+    const value = design();
+    const cabinetFor = (spaceId: string) => addCabinet(value, spaceId, defaults);
+    syncScheduleSupplies(value, context, cabinetFor);
+    assignRuns(value, context, ['a1linear:1:1'], 'PS-2', 'OUT1');
+    const fewer = { ...context, lines: lines.map((line) => (line.key === 'h1acc' ? { ...line, qty: 1 } : line)) };
+    expect(scheduleSupplyDrift(value, fewer)).toEqual({ missing: 0, extra: 1 });
+    expect(syncScheduleSupplies(value, fewer, cabinetFor)).toEqual({ added: 0, removed: 1 });
+    expect(value.project.equipment.map((item) => item.id)).toEqual(['PS-2']);
+    const gone = { ...context, lines: lines.filter((line) => line.key !== 'h1acc') };
+    expect(syncScheduleSupplies(value, gone, cabinetFor)).toEqual({ added: 0, removed: 1 });
+    expect(value.project.equipment).toEqual([]);
+    expect(value.runs.some((run) => run.assignment)).toBe(false);
+    valid(value);
+  });
+
+  it('assigns runs to the schedule supplies first and reports what is left without power', () => {
+    const value = design();
+    syncScheduleSupplies(value, context, (spaceId) => addCabinet(value, spaceId, defaults));
+    const assigned = autoAssignRuns(value, context);
+    const on = (key: string) => value.runs.find((run) => run.key === key)?.assignment;
+    // The configurator put A1 copy 1 on its first supply and copy 2 on its second.
+    expect(on('a1linear:1:1')).toEqual({ equipmentId: 'PS-1', port: 'OUT1' });
+    expect(on('a1linear:2:1')).toEqual({ equipmentId: 'PS-2', port: 'OUT1' });
+    expect(on('a1linear:1:2')?.equipmentId).toBe('PS-1');
+    expect(on('a1linear:2:2')?.equipmentId).toBe('PS-2');
+    for (const supply of value.project.equipment) {
+      const keys = value.runs.filter((run) => run.assignment?.equipmentId === supply.id).map((run) => run.key);
+      expect(assignmentProblem(value, context, keys, supply.id, 'OUT1')).toBeNull();
+    }
+    const short = powerShortfall(value, context);
+    expect(assigned + short.runs.length).toBe(value.runs.filter((run) => !runElectrical(run, context).lineVoltage).length);
+    expect(short.runs.length).toBeGreaterThan(0);
+    expect(short.watts).toBe(Number(short.runs.reduce((sum, run) => sum + run.watts, 0).toFixed(1)));
+    // Nothing more fits, so a second pass changes nothing.
+    expect(autoAssignRuns(value, context)).toBe(0);
     valid(value);
   });
 

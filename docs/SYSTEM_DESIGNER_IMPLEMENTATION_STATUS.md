@@ -441,6 +441,16 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
     then rank. Never by price.
   - "Start from configurator supplies" places one supply per build copy and allocation, marked "From
     configurator", in a cabinet in the run's space (added when the space has none).
+  - Supplies already on the fixture schedule come first. Every accessory line whose Item is a catalog supply
+    (the dealer's own lines and the configurator's lines under a fixture) becomes one supply per unit,
+    tied to its line by `scheduleLine` and marked "On the schedule". A design with no supplies starts from
+    them, with runs auto-assigned (the configurator's allocation on a fixture's own supply lines first,
+    then first fit, largest run first). "Auto-assign runs" repeats the fill; a banner offers "Use the
+    schedule's supplies" when the schedule's supply lines change, and another says how many runs and
+    watts still need power. Schedule supplies are changed on the schedule, not removed on the board.
+    "Start from configurator supplies" shows only when the schedule has no supply lines.
+  - Write-back skips supplies with `scheduleLine` (they are already lines) and keeps a fixture's
+    configurator supply lines when the design uses them; only supplies added in the designer are added.
   - Zones carry a dimming method. Runs in a zone must be on supplies that accept a supply-dimmed method.
     DMX or phase-cut zones, or more than 1.5 kW, show the D4 review note on the board.
 - App: the Power step. Unassigned runs by space on the left; cabinets with supply cards, load bars (80%

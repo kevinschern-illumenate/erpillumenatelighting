@@ -5,6 +5,7 @@ import type { Builds, Line } from '@ill/core-schemas/open-design';
 import type { Equipment } from '@ill/core-schemas/project';
 import { DMX_PROTOCOLS, PHASE_PROTOCOLS } from '@ill/data/protocols';
 import { round } from './messages';
+import { spaceIdFor } from './expand';
 import { buildFor, runLabel } from './runs';
 
 /**
@@ -359,6 +360,205 @@ export function placeConfiguratorSupplies(
     run.assignment = { equipmentId: supplyId, port };
   }
   return added;
+}
+
+export const FROM_SCHEDULE = 'On the schedule';
+
+export interface ScheduleSupplyLine {
+  line: Line;
+  catalogId: string;
+}
+
+/**
+ * The power supplies the dealer already has on the fixture schedule: accessory lines (their own, or the
+ * configurator's lines under a fixture) whose Item is a catalog supply. Design write-back lines are the
+ * design's own output and are not read back.
+ */
+export function scheduleSupplyLines(context: PowerContext): ScheduleSupplyLine[] {
+  const byErpCode = new Map<string, string>();
+  for (const item of context.catalog.values())
+    if (item.erpItemCode && powerSpecs(item) && !item.isExample) byErpCode.set(item.erpItemCode, item.id);
+  const found: ScheduleSupplyLine[] = [];
+  for (const line of context.lines) {
+    if (line.kind !== 'accessory' || line.designLineRole || !line.accessoryItem || line.qty <= 0) continue;
+    const catalogId = byErpCode.get(line.accessoryItem);
+    if (catalogId) found.push({ line, catalogId });
+  }
+  return found;
+}
+
+/**
+ * How far the design's schedule supplies are from the schedule: units with no supply in the design yet,
+ * and supplies whose line is gone, changed Item or has fewer units now.
+ */
+export function scheduleSupplyDrift(design: Design, context: PowerContext): { missing: number; extra: number } {
+  const wanted = new Map(scheduleSupplyLines(context).map((entry) => [entry.line.key, entry]));
+  const placed = new Map<string, number>();
+  let extra = 0;
+  for (const supply of design.project.equipment) {
+    if (supply.scheduleLine === undefined) continue;
+    if (wanted.get(supply.scheduleLine)?.catalogId === supply.catalogId)
+      placed.set(supply.scheduleLine, (placed.get(supply.scheduleLine) ?? 0) + 1);
+    else extra += 1;
+  }
+  let missing = 0;
+  for (const { line } of wanted.values()) {
+    const count = placed.get(line.key) ?? 0;
+    missing += Math.max(line.qty - count, 0);
+    extra += Math.max(count - line.qty, 0);
+  }
+  return { missing, extra };
+}
+
+/** The space a schedule supply belongs in: its fixture's space, else its own location, else the first one. */
+function scheduleSupplySpace(design: Design, context: PowerContext, line: Line): string | undefined {
+  if (line.powerSupplyForLine) {
+    const owner = context.lines.find((item) => item.lineKey === line.powerSupplyForLine);
+    const run = owner ? design.runs.find((item) => item.lineKey === owner.key) : undefined;
+    if (run) return run.spaceId;
+  }
+  const own = spaceIdFor(line.location);
+  if (design.site.spaces.some((space) => space.id === own)) return own;
+  return design.site.spaces[0]?.id;
+}
+
+/**
+ * Bring the schedule's own supply lines into the design (plan §10.2): one supply per unit of each line's
+ * quantity, tied to the line by `scheduleLine`, so write-back never adds them a second time. Supplies
+ * whose line left the schedule, or more than the line's quantity, are removed (idle ones first) and their
+ * runs go back to unassigned. A new supply goes in the cabinet its line's other supplies use, else a
+ * cabinet in its space (added when the space has none). Returns what changed.
+ */
+export function syncScheduleSupplies(
+  design: Design,
+  context: PowerContext,
+  addCabinetFor: (spaceId: string) => string,
+): { added: number; removed: number } {
+  const wanted = scheduleSupplyLines(context);
+  const byLine = new Map(wanted.map((entry) => [entry.line.key, entry]));
+  let added = 0;
+  let removed = 0;
+  const busy = (id: string) => design.runs.some((run) => run.assignment?.equipmentId === id);
+  for (const supply of [...design.project.equipment]) {
+    if (supply.scheduleLine === undefined) continue;
+    const entry = byLine.get(supply.scheduleLine);
+    if (!entry || entry.catalogId !== supply.catalogId) {
+      removeSupply(design, supply.id);
+      removed += 1;
+    }
+  }
+  for (const { line, catalogId } of wanted) {
+    const placed = design.project.equipment.filter((item) => item.scheduleLine === line.key);
+    if (placed.length > line.qty) {
+      const extra = [...placed]
+        .reverse()
+        .sort((a, b) => Number(busy(a.id)) - Number(busy(b.id)))
+        .slice(0, placed.length - line.qty);
+      for (const supply of extra) removeSupply(design, supply.id);
+      removed += extra.length;
+      continue;
+    }
+    if (placed.length === line.qty) continue;
+    let cabinetId = placed.find((item) => item.enclosure)?.enclosure;
+    if (!cabinetId) {
+      const spaceId = scheduleSupplySpace(design, context, line);
+      if (!spaceId) continue;
+      cabinetId = design.site.cabinets.find((cabinet) => cabinet.spaceId === spaceId)?.id ?? addCabinetFor(spaceId);
+    }
+    for (let count = placed.length; count < line.qty; count += 1) {
+      const id = addSupply(design, context, cabinetId, catalogId, FROM_SCHEDULE);
+      equipmentOf(design, id).scheduleLine = line.key;
+      added += 1;
+    }
+  }
+  return { added, removed };
+}
+
+/**
+ * Put every unassigned low-voltage run on a supply already in the design (schedule supplies first), and
+ * return how many were placed. A fixture's runs go first where the configurator's power plan put them
+ * on that fixture's own supply lines; then runs fill outputs, those with supply lines of their own first
+ * and largest first, preferring the fixture's own supplies, then supplies in the run's space. Every placement passes `assignmentProblem`, so loads, zones,
+ * voltage and dimming stay within limits; runs nothing can carry stay unassigned.
+ */
+export function autoAssignRuns(design: Design, context: PowerContext): number {
+  const lineByKey = new Map(context.lines.map((line) => [line.key, line]));
+  const supplyLine = (supply: Equipment) => (supply.scheduleLine ? lineByKey.get(supply.scheduleLine) : undefined);
+  const ownedBy = (run: Run) => {
+    const lineKey = lineByKey.get(run.lineKey)?.lineKey;
+    return lineKey
+      ? design.project.equipment.filter((supply) => supplyLine(supply)?.powerSupplyForLine === lineKey)
+      : [];
+  };
+  const cabinetSpace = new Map(design.site.cabinets.map((cabinet) => [cabinet.id, cabinet.spaceId]));
+  const supplies = () =>
+    design.project.equipment.filter((supply) => powerSpecs(context.catalog.get(supply.catalogId)));
+  const open = () =>
+    design.runs.filter((run) => !run.assignment && !runElectrical(run, context).lineVoltage);
+  const tryAssign = (run: Run, supply: Equipment, port: string) => {
+    if (assignmentProblem(design, context, [run.key], supply.id, port)) return false;
+    run.assignment = { equipmentId: supply.id, port };
+    return true;
+  };
+  let assigned = 0;
+
+  // The configurator's own allocation, on that fixture's supply lines.
+  const taken = new Map<string, string>();
+  for (const run of open()) {
+    const owned = ownedBy(run);
+    if (!owned.length) continue;
+    const allocation = buildFor(run, context.builds)?.allocations.find((item) => item.runKey === String(run.runIndex));
+    if (!allocation?.itemCode || allocation.supply === null || allocation.output === null) continue;
+    const key = `${run.lineKey}:${run.buildIndex}:${allocation.supply}:${allocation.itemCode}`;
+    let supplyId = taken.get(key);
+    if (!supplyId) {
+      const used = new Set(taken.values());
+      supplyId = owned.find(
+        (supply) => !used.has(supply.id) && context.catalog.get(supply.catalogId)?.erpItemCode === allocation.itemCode,
+      )?.id;
+      if (!supplyId) continue;
+      taken.set(key, supplyId);
+    }
+    const supply = equipmentOf(design, supplyId);
+    const port = powerSpecs(context.catalog.get(supply.catalogId))?.outputs[allocation.output - 1]?.name;
+    if (port && tryAssign(run, supply, port)) assigned += 1;
+  }
+
+  // First fit: runs with supplies of their own first (so others never crowd them out), largest first.
+  const runs = open()
+    .map((run) => ({ run, owned: new Set(ownedBy(run).map((supply) => supply.id)) }))
+    .sort(
+      (a, b) =>
+        Number(b.owned.size > 0) - Number(a.owned.size > 0) ||
+        b.run.watts - a.run.watts ||
+        a.run.key.localeCompare(b.run.key),
+    );
+  for (const { run, owned } of runs) {
+    const rank = (supply: Equipment) =>
+      owned.has(supply.id)
+        ? 0
+        : (supply.enclosure && cabinetSpace.get(supply.enclosure)) === run.spaceId
+          ? 1
+          : supply.scheduleLine
+            ? 2
+            : 3;
+    const candidates = supplies()
+      .map((supply, index) => ({ supply, index }))
+      .sort((a, b) => rank(a.supply) - rank(b.supply) || a.index - b.index);
+    placing: for (const { supply } of candidates)
+      for (const output of powerSpecs(context.catalog.get(supply.catalogId))!.outputs)
+        if (tryAssign(run, supply, output.name)) {
+          assigned += 1;
+          break placing;
+        }
+  }
+  return assigned;
+}
+
+/** Low-voltage runs no supply carries yet, and their load: what more supplies must cover. */
+export function powerShortfall(design: Design, context: PowerContext): { runs: Run[]; watts: number } {
+  const runs = design.runs.filter((run) => !run.assignment && !runElectrical(run, context).lineVoltage);
+  return { runs, watts: round(sum(runs.map((run) => run.watts)), 1) };
 }
 
 /** A new control zone. Returns its id. */

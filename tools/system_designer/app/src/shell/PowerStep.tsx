@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useStore } from 'zustand';
 import type { Cabinet, Design, Run, Zone } from '@ill/core-schemas/design';
 import type { Equipment } from '@ill/core-schemas/project';
@@ -8,20 +8,26 @@ import {
   assignmentProblem,
   assignRuns,
   assignToCircuit,
+  autoAssignRuns,
   circuitProblem,
   capacity,
   fitSorted,
   FROM_CONFIGURATOR,
+  FROM_SCHEDULE,
   moveSupply,
   outputLoads,
   placeConfiguratorSupplies,
+  powerShortfall,
   powerSpecs,
   removeSupply,
   removeZone,
   reviewHints,
   runElectrical,
+  scheduleSupplyDrift,
+  scheduleSupplyLines,
   setRunZone,
   setSupplyCircuit,
+  syncScheduleSupplies,
   unassignRuns,
   updateZone,
   ZONE_METHODS,
@@ -44,6 +50,10 @@ const total = (runs: readonly Run[]) => runs.reduce((sum, run) => sum + run.watt
  * The power board (plan §10.1–10.2, §10.5): unassigned runs on the left, cabinets with their supplies and
  * outputs on the right. Drag runs onto an output, or select them and use "Assign here" from the keyboard.
  * A refused assignment says why. Supplies are picked by fit from the eligible list; no prices (D6).
+ *
+ * The power supplies already on the fixture schedule come first: a design with no supplies starts from
+ * them, with every run they can carry assigned. When they cannot carry every run the board says how much
+ * is left; a supply added here becomes a schedule line when the design is added to the schedule.
  */
 export function PowerStep({
   open,
@@ -68,6 +78,21 @@ export function PowerStep({
       catalog.state === 'ready' ? { catalog: catalog.catalog.byId, lines: open.lines, builds: open.builds } : null,
     [catalog, open.lines, open.builds],
   );
+  const defaults = useMemo(() => distanceDefaults(open.settings), [open.settings]);
+  const started = useRef(false);
+  useEffect(() => {
+    // A design with no supplies starts from the schedule's own, once, as one undoable edit.
+    if (started.current || !context || readOnly) return;
+    const current = store.getState().design;
+    if (!current) return;
+    started.current = true;
+    if (current.project.equipment.length || !scheduleSupplyLines(context).length) return;
+    store.getState().edit((draft) => {
+      const value = draft as Design;
+      syncScheduleSupplies(value, context, (spaceId) => addCabinet(value, spaceId, defaults));
+      autoAssignRuns(value, context);
+    });
+  }, [context, readOnly, store, defaults]);
   if (!design) return null;
 
   const change = (recipe: (draft: Design) => void) => {
@@ -114,7 +139,6 @@ export function PowerStep({
   const unassigned = design.runs.filter((run) => !run.assignment);
   const hints = reviewHints(design);
   const zones = new Map(design.zones.map((zone) => [zone.id, zone]));
-  const defaults = distanceDefaults(open.settings);
   const hasAllocations = Object.values(open.builds).some((byName) =>
     Object.values(byName).some((build) => build.allocations.length),
   );
@@ -148,7 +172,7 @@ export function PowerStep({
             <span data-testid="assigned-count">
               {design.runs.length - unassigned.length} of {design.runs.length} runs assigned
             </span>
-            {hasAllocations && !design.project.equipment.length ? (
+            {hasAllocations && !design.project.equipment.length && !scheduleSupplyLines(context).length ? (
               <button
                 type="button"
                 className="ill-sd__button ill-sd__button--quiet"
@@ -162,7 +186,26 @@ export function PowerStep({
                 Start from configurator supplies
               </button>
             ) : null}
+            {unassigned.length && design.project.equipment.length ? (
+              <button
+                type="button"
+                className="ill-sd__button ill-sd__button--quiet"
+                onClick={() => change((draft) => void autoAssignRuns(draft, context))}
+              >
+                Auto-assign runs
+              </button>
+            ) : null}
           </div>
+          <ScheduleSupplies
+            design={design}
+            context={context}
+            onSync={() =>
+              change((draft) => {
+                syncScheduleSupplies(draft, context, (spaceId) => addCabinet(draft, spaceId, defaults));
+                autoAssignRuns(draft, context);
+              })
+            }
+          />
 
           {keys.length ? (
             <div className="ill-sd__bulk" role="group" aria-label="Selected runs">
@@ -382,6 +425,51 @@ export function PowerStep({
   );
 }
 
+/**
+ * The schedule's own supplies: offers to bring them in when the design and the schedule differ, and
+ * warns when the supplies cannot carry every low-voltage run.
+ */
+function ScheduleSupplies({
+  design,
+  context,
+  onSync,
+}: {
+  design: Design;
+  context: PowerContext;
+  onSync(): void;
+}) {
+  const lines = scheduleSupplyLines(context);
+  const drift = scheduleSupplyDrift(design, context);
+  const short = powerShortfall(design, context);
+  const onSchedule = lines.reduce((count, entry) => count + entry.line.qty, 0);
+  return (
+    <>
+      {drift.missing || drift.extra ? (
+        <div className="ill-sd__banner" role="note" data-testid="schedule-supplies-drift">
+          <span>
+            {drift.missing
+              ? `The fixture schedule lists ${drift.missing} power ${drift.missing === 1 ? 'supply' : 'supplies'} not in this design yet.`
+              : 'The power supplies on the fixture schedule changed.'}
+          </span>{' '}
+          <button type="button" className="ill-sd__button ill-sd__button--quiet" onClick={onSync}>
+            Use the schedule’s supplies
+          </button>
+        </div>
+      ) : null}
+      {short.runs.length && design.project.equipment.length ? (
+        <p className="ill-sd__banner" role="alert" data-testid="power-shortfall">
+          {short.runs.length} {short.runs.length === 1 ? 'run needs' : 'runs need'} {watts(short.watts)} more power.{' '}
+          {onSchedule
+            ? `The ${onSchedule} ${onSchedule === 1 ? 'supply' : 'supplies'} on the fixture schedule cannot carry ${short.runs.length === 1 ? 'it' : 'them'}. `
+            : ''}
+          Add a supply to a cabinet below; it is added to the schedule’s power supplies when you add the design to
+          the schedule.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 function pickerRuns(selectedRuns: Run[], unassigned: Run[], cabinet: Cabinet): Run[] {
   if (selectedRuns.length) return selectedRuns;
   const here = unassigned.filter((run) => run.spaceId === cabinet.spaceId);
@@ -470,6 +558,9 @@ function SupplyCard({
   const supplyLoad = [...loads.values()].reduce((sum, value) => sum + value, 0);
   const limits = specs ? capacity(specs, design.project.settings.psuDeratePct) : null;
   const sourceRef = design.project.sources.some((source) => source.id === supply.fedFrom.ref) ? supply.fedFrom.ref : '';
+  const scheduleLine = supply.scheduleLine
+    ? (context.lines.find((line) => line.key === supply.scheduleLine) ?? { lineId: null })
+    : null;
   return (
     <div className="ill-sd__supply" data-testid={`supply-${supply.tag}`}>
       <div className="ill-sd__row">
@@ -477,6 +568,12 @@ function SupplyCard({
         <span>{item?.model ?? supply.catalogId}</span>
         {specs?.outputV ? <span className="ill-sd__muted">{specs.outputV} V</span> : null}
         {supply.notes === FROM_CONFIGURATOR ? <span className="ill-sd__chip">From configurator</span> : null}
+        {scheduleLine ? (
+          <span className="ill-sd__chip ill-sd__chip--ok">
+            {FROM_SCHEDULE}
+            {scheduleLine.lineId ? ` · line ${scheduleLine.lineId}` : ''}
+          </span>
+        ) : null}
         {limits ? <LoadBar load={supplyLoad} usable={limits.usableW} label={`${supply.tag} load`} /> : null}
       </div>
       {!limits ? (
@@ -576,9 +673,13 @@ function SupplyCard({
               ))}
           </select>
         ) : null}
-        <button type="button" className="ill-sd__button ill-sd__button--quiet" onClick={onRemove}>
-          Remove {supply.tag}
-        </button>
+        {scheduleLine ? (
+          <span className="ill-sd__muted">Change its quantity on the fixture schedule.</span>
+        ) : (
+          <button type="button" className="ill-sd__button ill-sd__button--quiet" onClick={onRemove}>
+            Remove {supply.tag}
+          </button>
+        )}
       </div>
     </div>
   );

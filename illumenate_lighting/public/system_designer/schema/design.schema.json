@@ -2219,6 +2219,11 @@
        "notes": {
         "type": "string",
         "maxLength": 4000
+       },
+       "scheduleLine": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
        }
       },
       "required": [
