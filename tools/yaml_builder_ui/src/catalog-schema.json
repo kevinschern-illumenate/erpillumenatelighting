@@ -2938,6 +2938,7 @@
           "label": "Product Status",
           "fieldtype": "Select",
           "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
           "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
@@ -3155,6 +3156,7 @@
           "label": "Product Status",
           "fieldtype": "Select",
           "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
           "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
@@ -3271,6 +3273,7 @@
           "label": "Product Status",
           "fieldtype": "Select",
           "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
           "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
@@ -3451,6 +3454,7 @@
           "label": "Product Status",
           "fieldtype": "Select",
           "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
           "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
@@ -3760,6 +3764,7 @@
           "label": "Product Status",
           "fieldtype": "Select",
           "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
           "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
@@ -5962,6 +5967,7 @@
           "label": "Product Status",
           "fieldtype": "Select",
           "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
           "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {

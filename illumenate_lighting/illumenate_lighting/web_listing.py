@@ -13,12 +13,15 @@ def apply_product_status(doc):
 
 	A status that is set wins. Code that only sets ``is_active`` (imports, the kit
 	generator) still works: the status follows it, keeping Discontinued and Archived when
-	the template stays inactive.
+	the template stays inactive. A new template saved with ``is_active`` off and the
+	default Active status is inactive: the status there is only the field default.
 	"""
 	status = getattr(doc, "product_status", None)
 	before = doc.get_doc_before_save() if hasattr(doc, "get_doc_before_save") else None
 	status_changed = not before or before.get("product_status") != status
 	active_changed = not before or bool(before.get("is_active")) != bool(getattr(doc, "is_active", 0))
+	if not before and status == "Active" and not getattr(doc, "is_active", 0):
+		status = None
 	if not status or (active_changed and not status_changed):
 		if getattr(doc, "is_active", 0):
 			status = status if status in ACTIVE_STATUSES else "Active"

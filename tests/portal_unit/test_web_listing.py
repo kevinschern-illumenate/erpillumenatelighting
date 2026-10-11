@@ -107,6 +107,10 @@ class ProductStatus(unittest.TestCase):
 		self.assertEqual(apply(Doc(is_active=1)), ("Active", 1))
 		self.assertEqual(apply(Doc(is_active=0)), ("Draft", 0))
 
+	def test_a_new_inactive_template_is_not_made_active_by_the_status_default(self):
+		self.assertEqual(apply(Doc(product_status="Active", is_active=0)), ("Draft", 0))
+		self.assertEqual(apply(Doc(product_status="Active", is_active=1)), ("Active", 1))
+
 	def test_a_chosen_status_sets_is_active(self):
 		before = {"product_status": "Active", "is_active": 1}
 		self.assertEqual(apply(Doc(before, product_status="ERPNext Only", is_active=1)), ("ERPNext Only", 1))

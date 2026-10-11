@@ -39,6 +39,7 @@ STATUS_FIELD = {
 	"fieldtype": "Select",
 	"label": "Product Status",
 	"options": "\n".join(STATUSES),
+	"default": "Active",
 	"in_list_view": 1,
 	"in_standard_filter": 1,
 	"description": (
