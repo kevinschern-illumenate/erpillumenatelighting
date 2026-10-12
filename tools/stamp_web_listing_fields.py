@@ -1,10 +1,11 @@
-"""Write the shared Web Listing fields into the six product template doctypes.
+"""Write the shared Product Data fields and Product Status into the six template doctypes.
 
 Run from the repository root after editing ``web_listing_schema.py``:
 
     python tools/stamp_web_listing_fields.py
 
-Idempotent: everything from the Web Listing tab on is replaced, and a doctype's
+Idempotent: everything from the Product Data tab on is replaced, Product Status sits right
+after is_active (which becomes read only), and a doctype's
 ``modified`` stamp only moves when its fields actually change, so ``bench migrate``
 reloads exactly the doctypes that changed.
 """
@@ -18,6 +19,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	IS_ACTIVE_OVERRIDES,
+	STATUS_AFTER,
+	STATUS_FIELD,
 	TAB,
 	TEMPLATE_DOCTYPES,
 	fields_for,
@@ -31,13 +35,20 @@ def stamp(doctype, module, now):
 	data = json.loads(path.read_text(encoding="utf-8"))
 	added = fields_for(doctype)
 	names = {field["fieldname"] for field in added}
-	# The Web Listing tab is always last, so everything from it on is replaced wholesale;
+	# The Product Data tab is always last, so everything from it on is replaced wholesale;
 	# fields dropped from the definition disappear with it.
 	existing = data["fields"]
 	tab = next((i for i, field in enumerate(existing) if field["fieldname"] == TAB), len(existing))
-	fields = [field for field in existing[:tab] if field["fieldname"] not in names] + [
-		dict(field) for field in added
-	]
+	names.add(STATUS_FIELD["fieldname"])
+	fields = []
+	for field in existing[:tab]:
+		if field["fieldname"] in names:
+			continue
+		if field["fieldname"] == STATUS_AFTER:
+			fields += [{**field, **IS_ACTIVE_OVERRIDES}, dict(STATUS_FIELD)]
+		else:
+			fields.append(field)
+	fields += [dict(field) for field in added]
 	if fields == data["fields"]:
 		return False
 	data["fields"] = fields

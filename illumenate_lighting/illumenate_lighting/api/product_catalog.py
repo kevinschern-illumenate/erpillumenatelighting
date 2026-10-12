@@ -161,7 +161,9 @@ def _scope(filters: dict, search: str, exclude: str | None = None, restrict_name
     Attribute filters AND across attribute types and OR within one type. Search covers
     marketing names and ERP model/template identifiers as well as series.
     """
-    conditions = ["`tabilL-Webflow-Product`.is_active = 1"]
+    from illumenate_lighting.illumenate_lighting.portal_listing import portal_condition
+
+    conditions = [portal_condition()]
     params: dict = {}
     joins = ""
     if restrict_names is not None:
@@ -351,7 +353,9 @@ def get_catalog_product_detail(product_slug: str, finder=None) -> dict:
         "ilL-Webflow-Product", {"product_slug": product_slug}
     )
 
-    if not product.is_active:
+    from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
+
+    if not on_portal(product):
         return {"success": False, "error": _("Product not found")}
 
     certifications = []

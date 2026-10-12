@@ -1,4 +1,4 @@
-"""Webflow Product content copied onto templates (Webflow Product merge, step 3)."""
+"""Product data copied from Webflow Products onto their templates (Webflow Product merge)."""
 
 import unittest
 
@@ -20,15 +20,13 @@ def listing(**values):
 		"product_name": "Elevate [SW]",
 		"is_active": 1,
 		"fixture_template": "ILL-EL01-SW",
-		"product_category": "linear",
 		"short_description": "Surface linear",
-		"features": '["Dimmable"]',
 		"min_length_mm": 300,
-		"gallery_images": [
-			{"name": "row1", "parent": "ill-el01-sw", "idx": 1, "image": "/files/a.jpg", "alt_text": "A"}
+		"beam_angle": 120,
+		"feed_lengths": [
+			{"name": "row1", "parent": "ill-el01-sw", "idx": 1, "step": 9, "label": "6 ft", "code": "06"}
 		],
-		"compatible_products": [{"related_product": "ill-drv-01", "relationship_type": "Works With"}],
-		"certifications": [{"certification": "UL"}, {"certification": "ETL"}],
+		"gallery_images": [{"image": "/files/a.jpg"}],
 		**values,
 	}
 
@@ -38,70 +36,57 @@ def template(**values):
 
 
 class PlanListing(unittest.TestCase):
-	def test_copies_listing_into_empty_web_fields(self):
+	def test_copies_product_data_and_sets_the_backlink(self):
 		values, tables, notes = call("plan_listing", listing(), template(), FIXTURE)
-		self.assertEqual(
-			values,
-			{
-				"web_slug": "ill-el01-sw",
-				"web_listed": 1,
-				"web_title": "Elevate [SW]",
-				"web_category": "linear",
-				"short_description": "Surface linear",
-				"features": '["Dimmable"]',
-				"min_length_mm": 300,
-			},
-		)
-		self.assertEqual(tables["gallery_images"], [{"image": "/files/a.jpg", "alt_text": "A"}])
-		self.assertEqual(tables["compatible_products"][0]["related_product"], "ill-drv-01")
-		self.assertEqual(tables["web_certifications"], [{"certification": "UL"}, {"certification": "ETL"}])
+		self.assertEqual(values, {"webflow_product": "ill-el01-sw", "min_length_mm": 300, "beam_angle": 120})
+		self.assertEqual(tables, {"feed_lengths": [{"step": 9, "label": "6 ft", "code": "06"}]})
 		self.assertEqual(notes, [])
+
+	def test_marketing_content_stays_on_the_webflow_product(self):
+		values, tables, _notes = call("plan_listing", listing(), template(), FIXTURE)
+		self.assertNotIn("short_description", values)
+		self.assertNotIn("gallery_images", tables)
 
 	def test_never_overwrites_a_template_value(self):
 		values, tables, notes = call(
 			"plan_listing",
 			listing(),
-			template(short_description="Kept", gallery_images=[{"image": "/files/b.jpg"}]),
+			template(min_length_mm=200, feed_lengths=[{"step": 9, "label": "8 ft", "code": "08"}]),
 			FIXTURE,
 		)
-		self.assertNotIn("short_description", values)
-		self.assertNotIn("gallery_images", tables)
-		self.assertTrue(any(note.startswith("short_description kept") for note in notes))
-		self.assertTrue(any(note.startswith("gallery_images kept") for note in notes))
+		self.assertNotIn("min_length_mm", values)
+		self.assertNotIn("feed_lengths", tables)
+		self.assertIn("min_length_mm kept as 200; listing has 300", notes)
+		self.assertTrue(any(note.startswith("feed_lengths kept") for note in notes))
 
 	def test_preexisting_fields_are_left_alone(self):
-		values, tables, notes = call(
+		values, _tables, notes = call(
 			"plan_listing",
 			listing(fixture_template=None, tape_neon_template="NEON-UCH", warranty_years=5),
-			template(warranty_years=3, certifications=[{"certification": "UL"}]),
+			template(warranty_years=3),
 			TAPE,
 		)
 		self.assertNotIn("warranty_years", values)
 		self.assertIn("warranty_years kept as 3; listing has 5", notes)
-		# The template's own certifications are untouched; the web list goes to its own table.
-		self.assertNotIn("certifications", tables)
-		self.assertEqual(len(tables["web_certifications"]), 2)
 
 	def test_fields_the_template_type_lacks_are_reported(self):
 		values, _tables, notes = call("plan_listing", listing(), template(), DRIVER)
 		self.assertNotIn("min_length_mm", values)
 		self.assertIn("min_length_mm not carried: ilL-Driver-Template has no such field", notes)
 
-	def test_web_listed_can_be_forced_off(self):
-		values, _tables, _notes = call("plan_listing", listing(), template(), FIXTURE, web_listed=0)
-		self.assertEqual(values["web_listed"], 0)
-
-	def test_title_matching_the_template_is_not_copied(self):
-		values, _tables, _notes = call(
-			"plan_listing", listing(product_name="Elevate SW"), template(), FIXTURE
-		)
-		self.assertNotIn("web_title", values)
-
 	def test_backlink_to_another_listing_is_reported(self):
-		_values, _tables, notes = call(
+		values, _tables, notes = call(
 			"plan_listing", listing(), template(webflow_product="ill-el01-fs"), FIXTURE
 		)
+		self.assertNotIn("webflow_product", values)
 		self.assertIn("template's Webflow Product backlink points at ill-el01-fs", notes)
+
+
+class Carried(unittest.TestCase):
+	def test_each_template_type_holds_its_own_product_data(self):
+		self.assertEqual(call("carried", DRIVER), ["warranty_years"])
+		self.assertIn("feed_lengths", call("carried", FIXTURE))
+		self.assertIn("warranty_years", call("carried", TAPE))  # its own, older field
 
 
 class Parity(unittest.TestCase):
@@ -113,9 +98,9 @@ class Parity(unittest.TestCase):
 
 	def test_kept_template_value_is_a_difference(self):
 		source = listing()
-		values, tables, _notes = call("plan_listing", source, template(short_description="Kept"), FIXTURE)
-		migrated = {**template(short_description="Kept"), **values, **tables}
-		self.assertEqual(call("parity_differences", source, migrated, FIXTURE), ["short_description"])
+		values, tables, _notes = call("plan_listing", source, template(min_length_mm=200), FIXTURE)
+		migrated = {**template(min_length_mm=200), **values, **tables}
+		self.assertEqual(call("parity_differences", source, migrated, FIXTURE), ["min_length_mm"])
 
 
 class TemplateLink(unittest.TestCase):
@@ -125,16 +110,21 @@ class TemplateLink(unittest.TestCase):
 		)
 		self.assertEqual(call("template_link", {"fixture_template": None}), (None, None))
 
+	def test_a_template_holds_the_data_once_its_backlink_points_back(self):
+		with load_service(ROOT + ".web_listing_migration") as (module, frappe):
+			frappe.db.get_value.side_effect = [{"fixture_template": "ILL-EL01-SW"}, "ill-el01-sw"]
+			self.assertEqual(module.template_for("ill-el01-sw"), (FIXTURE, "ILL-EL01-SW"))
+			frappe.db.get_value.side_effect = [{"fixture_template": "ILL-EL01-SW"}, None]
+			self.assertEqual(module.template_for("ill-el01-sw"), (None, None))
+
 
 class Write(unittest.TestCase):
 	def test_tables_only_top_up_skips_the_scalar_update(self):
 		with load_service(ROOT + ".web_listing_migration") as (module, frappe):
-			module._write(FIXTURE, "ILL-EL01-SW", {}, {"web_certifications": [{"certification": "UL"}]})
+			module._write(FIXTURE, "ILL-EL01-SW", {}, {"feed_lengths": [{"code": "06"}]})
 			frappe.db.set_value.assert_not_called()
 			frappe.get_doc.assert_called_once()
-			self.assertEqual(
-				frappe.get_doc.call_args[0][0]["doctype"], "ilL-Child-Webflow-Certification-Link"
-			)
+			self.assertEqual(frappe.get_doc.call_args[0][0]["doctype"], "ilL-Child-Webflow-Feed-Length")
 
 
 if __name__ == "__main__":

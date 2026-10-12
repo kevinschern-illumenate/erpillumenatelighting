@@ -14,11 +14,13 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 )
 from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule, require_catalog_access
 from illumenate_lighting.illumenate_lighting.portal.configuration import RECEIPT, schedule_context
+from illumenate_lighting.illumenate_lighting.portal_listing import on_portal, portal_product
 
 
 def choices(product, *, get_document=None, get_item=None):
+	status_of = None if get_document is None else (lambda doctype, name: get_document(doctype, name).get("product_status"))
 	get_document = get_document or frappe.get_doc
-	if not product.is_active:
+	if not on_portal(product, status_of=status_of):
 		return []
 	candidates = []
 	if product.get("portal_item"):
@@ -71,10 +73,10 @@ def choices(product, *, get_document=None, get_item=None):
 
 
 def _product(slug):
-	name = frappe.db.get_value("ilL-Webflow-Product", {"product_slug": slug, "is_active": 1}, "name")
-	if not name:
+	product = portal_product({"product_slug": slug})
+	if not product:
 		frappe.throw("Product unavailable")
-	return frappe.get_doc("ilL-Webflow-Product", name)
+	return product
 
 
 @frappe.whitelist()
