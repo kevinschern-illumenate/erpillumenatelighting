@@ -3,19 +3,34 @@
 from collections import Counter
 
 
-def production_coverage(lines, work_orders):
+def production_coverage(lines, work_orders, bundles=None):
+	"""``bundles`` maps a group bundle line to its manufactured run Items and their count per
+	group; such a line counts a group as built only when every one of its runs is."""
 	lines = list(lines)
+	bundles = bundles or {}
 	by_name = {line["name"]: line for line in lines}
 	counts = Counter(line.get("item_code") for line in lines)
 	by_item = {line.get("item_code"): line["name"] for line in lines if counts[line.get("item_code")] == 1}
 	planned, produced, unmapped = {}, {}, []
+	runs = {}
 	for work in work_orders:
 		key = work.get("sales_order_item") or by_item.get(work.get("production_item"))
 		if key not in by_name:
 			unmapped.append(work.get("name"))
 			continue
+		if key in bundles:
+			totals = runs.setdefault(key, {}).setdefault(work.get("production_item"), [0, 0])
+			totals[0] += float(work.get("qty") or 0)
+			totals[1] += float(work.get("produced_qty") or 0)
+			continue
 		planned[key] = planned.get(key, 0) + float(work.get("qty") or 0)
 		produced[key] = produced.get(key, 0) + float(work.get("produced_qty") or 0)
+	for key, per_group in bundles.items():
+		if key not in runs:
+			continue
+		totals = runs[key]
+		planned[key] = min(totals.get(item, [0, 0])[0] / qty for item, qty in per_group.items())
+		produced[key] = min(totals.get(item, [0, 0])[1] / qty for item, qty in per_group.items())
 	required, rows = [], []
 	for line in lines:
 		key = line["name"]

@@ -26,7 +26,9 @@ def _part_number(line):
 	if line.manufacturer_type == "ACCESSORY":
 		return line.get("accessory_item")
 	if line.get("configured_group"):
-		return frappe.db.get_value("ilL-Configured-Group", line.configured_group, "template")
+		return line.get("group_part_number") or frappe.db.get_value(
+			"ilL-Configured-Group", line.configured_group, "template"
+		)
 	for field, doctype, column in (
 		("configured_fixture", "ilL-Configured-Fixture", "display_part_number"),
 		("configured_tape_neon", "ilL-Configured-Tape-Neon", "part_number"),

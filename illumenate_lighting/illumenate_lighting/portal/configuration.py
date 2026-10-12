@@ -277,7 +277,8 @@ def save(
 		"line_key": line.get("line_key") or line.name,
 		"line_idx": schedule.lines.index(line),
 		"modified": str(schedule.modified),
-		"item_code": artifact["item_code"],
+		# A group line answers with its readable group part number, assigned on save.
+		"item_code": line.get("group_part_number") or artifact["item_code"],
 		"bom": artifact.get("bom"),
 		"already_existed": False,
 	}
