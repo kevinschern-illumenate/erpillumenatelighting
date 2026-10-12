@@ -107,7 +107,11 @@ def execute():
 				"print_format_type": "Jinja",
 				"html": Path(
 					frappe.get_app_path(
-						"illumenate_lighting", "templates", "print_formats", "delivery_note.html"
+						"illumenate_lighting",
+						"illumenate_lighting",
+						"print_format",
+						"ill_delivery_note",
+						"ill_delivery_note.html",
 					)
 				).read_text(encoding="utf-8"),
 			}

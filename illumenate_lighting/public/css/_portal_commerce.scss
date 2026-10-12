@@ -980,3 +980,24 @@
 		display: none;
 	}
 }
+
+// Revision line comparison inside the order review panel.
+.ill-commerce .ill-subhead {
+	margin: 0 0 0.5rem;
+	font-size: 0.95rem;
+}
+.ill-lines--compact {
+	border: 1px solid var(--c-line);
+	border-radius: var(--c-radius-sm);
+	th,
+	td {
+		padding: 0.6rem 0.75rem;
+	}
+	tr.is-removed td {
+		color: var(--c-muted);
+		text-decoration: line-through;
+	}
+	tr.is-removed td:last-child {
+		text-decoration: none;
+	}
+}
