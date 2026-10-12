@@ -56,3 +56,35 @@ test('thread reads oldest first and separates ilLumenate updates from buyer repl
   assert.match(a.textContent, /Waiting on ilLumenate/);
   dom.window.close();
 });
+
+test('earlier messages are added above the loaded ones and stay after a reply', async () => {
+  const all = Array.from({length: 25}, (_, i) => ({name: 'M' + String(i).padStart(2, '0'), actor: 'buyer@x.com', from_staff: false,
+    creation: `2026-10-01 10:${String(i).padStart(2, '0')}:00`, visibility: 'Customer', action: 'REPLY', body: 'Message ' + i, files: []}));
+  const {dom, w, a} = setup();
+  const newestFirst = () => [...all].reverse();
+  w.frappe.call = async ({args}) => ({message: {messages: newestFirst().slice((args.page - 1) * 20, args.page * 20), status: 'Open',
+    next_action_by: 'Staff', is_staff: false, can_reply: true, total: all.length, page: args.page, page_size: 20}});
+  w.PortalConversation(a); await tick();
+  const nav = a.querySelector('.ill-thread__paging');
+  assert.equal(a.querySelectorAll('article').length, 20);
+  assert.equal(nav.hidden, false);
+  nav.querySelector('button').click(); await tick();
+  const bodies = [...a.querySelectorAll('.ill-thread__body')].map(node => node.textContent);
+  assert.equal(bodies.length, 25);
+  assert.equal(bodies[0], 'Message 0');
+  assert.equal(bodies[24], 'Message 24');
+  assert.equal(nav.hidden, true);
+  all.push({name: 'M25', actor: 'buyer@x.com', from_staff: false, creation: '2026-10-01 11:00:00', visibility: 'Customer', action: 'REPLY', body: 'Message 25', files: []});
+  a.querySelector('textarea').value = 'Message 25';
+  a.querySelector('form').dispatchEvent(new w.Event('submit', {cancelable: true})); await tick(); await tick();
+  assert.equal(a.querySelectorAll('article').length, 26);
+  dom.window.close();
+});
+
+test('the paging bar stays hidden when every message fits', async () => {
+  const {dom, w, a} = setup([{name: 'M1', actor: 'a', creation: '2026-10-01 10:00:00', visibility: 'Customer', body: 'Hi', files: []}]);
+  w.PortalConversation(a); await tick();
+  assert.equal(a.querySelector('.ill-thread__paging').hidden, true);
+  assert.ok(w.document.getElementById('ill-thread-style').textContent.includes('[hidden]{display:none!important}'));
+  dom.window.close();
+});

@@ -453,6 +453,11 @@ def withdraw(order_name, revision_hash, note):
 	request.save(ignore_permissions=True)
 	_post_decision(request, note)
 	mark_issue(order, note.strip())
+	# Staff work from the Sales Order in Desk, so the withdrawal belongs on its timeline too.
+	order.add_comment(
+		"Info",
+		f"The buyer withdrew this order request from the portal ({request.name}). Reason: {note.strip()}",
+	)
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_order_review
 
 	notify_order_review(order, request)
@@ -491,6 +496,43 @@ def acknowledge(order_name, revision_hash):
 	return {"success": True, "state": request.state}
 
 
+LINE_COMPARE_FIELDS = ("item_code", "qty", "uom", "rate", "amount", "description", "ill_fixture_type")
+
+
+def line_changes(original, current):
+	"""The current lines, each marked added, changed or unchanged against the
+	original request, followed by the lines staff removed.
+
+	Rows match by their Sales Order Item name, which survives staff edits.
+	"""
+
+	def public(row):
+		return {
+			key: row.get(key)
+			for key in ("item_code", "qty", "uom", "rate", "amount", "ill_fixture_type", "ill_section_label")
+		}
+
+	before = {row.get("name"): row for row in original.get("items") or []}
+	lines = []
+	for row in current.get("items") or []:
+		old = before.pop(row.get("name"), None)
+		changed = (
+			[
+				key
+				for key in LINE_COMPARE_FIELDS
+				if _normalize(old.get(key), key) != _normalize(row.get(key), key)
+			]
+			if old
+			else []
+		)
+		status = "added" if old is None else ("changed" if changed else "unchanged")
+		lines.append(
+			{**public(row), "status": status, "changed": changed, "was": public(old) if old else None}
+		)
+	lines.extend({**public(row), "status": "removed", "changed": [], "was": None} for row in before.values())
+	return lines
+
+
 def detail(order_name):
 	order = load_accessible_sales_order(order_name)
 	if not order:
@@ -500,6 +542,8 @@ def detail(order_name):
 		return None
 	request = frappe.get_doc(DOCTYPE, name)
 	current = snapshot(order)
+	original = json.loads(request.request_snapshot)
+	lines = line_changes(original, current)
 	acknowledged = _acknowledged(request, order)
 	step = next_step(order, request, acknowledged)
 	return {
@@ -510,8 +554,10 @@ def detail(order_name):
 		"acknowledged_on": request.acknowledged_on if acknowledged else None,
 		"message": request.customer_message,
 		"revision_hash": fingerprint(current),
-		"original": json.loads(request.request_snapshot),
+		"original": original,
 		"current": current,
+		"lines": lines,
+		"lines_changed": any(line["status"] != "unchanged" for line in lines),
 		"approved_on": request.approved_on,
 		"can_acknowledge": not order.docstatus
 		and request.state in ("CHANGES_PROPOSED", "SUBMITTED", "UNDER_REVIEW")
@@ -627,3 +673,83 @@ def validate_order(order, method=None):
 	else:
 		order.ill_delivery_confirmed_by = None
 		order.ill_delivery_confirmed_on = None
+
+
+STATE_LABELS = {
+	"SUBMITTED": "Submitted by the buyer",
+	"UNDER_REVIEW": "Under review",
+	"INFORMATION_NEEDED": "Waiting on the buyer for information",
+	"CHANGES_PROPOSED": "Changes proposed to the buyer",
+	"APPROVED": "Approved",
+	"REJECTED": "Rejected",
+	"WITHDRAWN": "Withdrawn by the buyer",
+}
+
+
+@frappe.whitelist()
+def desk_status(order_name):
+	"""What a staff member needs to know about an order's portal request, for the Desk form.
+
+	Says whether the buyer acknowledged the order as it stands now, what moved
+	since they did, and whether the buyer withdrew the request.
+	"""
+	order = frappe.get_doc("Sales Order", order_name)
+	order.check_permission("read")
+	name = frappe.db.get_value(DOCTYPE, {"sales_order": order_name}, "name")
+	if not name:
+		return None
+	request = frappe.get_doc(DOCTYPE, name)
+	acknowledged = _acknowledged(request, order)
+	last = (request.decisions or [None])[-1]
+	return {
+		"name": request.name,
+		"state": request.state,
+		"state_label": STATE_LABELS.get(request.state, request.state),
+		"open": not order.docstatus and request.state not in ("APPROVED", "REJECTED", "WITHDRAWN"),
+		"has_intake": bool(request.get("intake_json")),
+		"confirmed_date": order.get("ill_confirmed_delivery_date"),
+		"acknowledged": acknowledged,
+		"acknowledged_by": request.acknowledged_by,
+		"acknowledged_on": request.acknowledged_on,
+		"changed": [] if acknowledged else _changed_since_acknowledgment(request, order),
+		"last_action": last.action if last else None,
+		"last_actor": last.actor if last else None,
+		"last_on": last.recorded_on if last else None,
+		"last_note": last.note if last else None,
+		"open_changes": frappe.get_all(
+			"ilL-Order-Change",
+			filters={"sales_order": order_name, "state": ["not in", ("COMPLETED", "REJECTED")]},
+			fields=["name", "request_type", "state"],
+			order_by="creation asc",
+		),
+	}
+
+
+def on_trash(order, method=None):
+	"""Let staff delete a draft order whose portal request is closed.
+
+	A withdrawn or rejected request keeps its history and conversation; only
+	its links to the deleted draft are cleared, so Frappe's link check passes.
+	An open request must be decided first, so the buyer is never left waiting
+	on an order that no longer exists.
+	"""
+	if order.docstatus != 0:
+		return
+	request = frappe.db.get_value(DOCTYPE, {"sales_order": order.name}, ["name", "state"], as_dict=True)
+	if not request:
+		return
+	if request.state not in ("WITHDRAWN", "REJECTED"):
+		frappe.throw(
+			f"The buyer's order request {request.name} is still open. Reject it with "
+			"Review order request (the buyer is told why), or ask the buyer to withdraw it, "
+			"before deleting this order."
+		)
+	frappe.db.set_value(DOCTYPE, request.name, "sales_order", None, update_modified=False)
+	# Offers, drawing requests and the buyer's replacement request keep their
+	# schedule links; only the link to the deleted draft goes.
+	for doctype in ("ilL-Quote-Offer", "ilL-Document-Request", "ilL-Order-Change"):
+		for name in frappe.get_all(doctype, filters={"sales_order": order.name}, pluck="name"):
+			frappe.db.set_value(doctype, name, "sales_order", None, update_modified=False)
+	frappe.get_doc(DOCTYPE, request.name).add_comment(
+		"Info", f"Draft Sales Order {order.name} was deleted after this request was {request.state.lower()}."
+	)

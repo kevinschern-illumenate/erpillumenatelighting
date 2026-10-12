@@ -205,6 +205,12 @@ intake_view = View(
 	can_withdraw=True,
 	original=View(items=[], grand_total=90, currency="USD", terms="Original terms"),
 	current=View(grand_total=100, currency="USD", terms="Current terms"),
+	lines=[
+		View(item_code="ITEM", qty=3, uom="Nos", rate=50, amount=150, status="changed", changed=["qty", "amount"], was=View(qty=2, rate=50)),
+		View(item_code="NEW", qty=1, uom="Nos", rate=10, amount=10, status="added", changed=[], was=None),
+		View(item_code="OLD", qty=1, uom="Nos", rate=5, amount=5, status="removed", changed=[], was=None),
+	],
+	lines_changed=True,
 	revision_hash="revision",
 	next_step=View(buyer=True, text="Acknowledge <this> revision"),
 )
@@ -384,15 +390,31 @@ print(
 	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts"
 )
 
-shipment = SimpleNamespace(
+class PrintDoc(SimpleNamespace):
+	"""A Frappe Document as print formats see it: every field exists, empty or not."""
+
+	def __getattr__(self, key):
+		return None
+
+	def get(self, key, default=None):
+		return getattr(self, key, default)
+
+	def get_formatted(self, key):
+		return str(getattr(self, key))
+
+
+shipment = PrintDoc(
 	name="DN-QA",
 	posting_date="2026-09-25",
 	is_return=0,
 	docstatus=1,
 	customer_name="Test buyer",
 	shipping_address="1 Test Way",
+	vehicle_no="1Z999",
+	total_qty=2,
 	items=[
-		SimpleNamespace(
+		PrintDoc(
+			idx=1,
 			ill_section_label="Lobby",
 			ill_fixture_type="L1",
 			item_name="Group",
@@ -405,12 +427,13 @@ shipment = SimpleNamespace(
 		)
 	],
 )
-delivery_print = environment.get_template("templates/print_formats/delivery_note.html").render(doc=shipment)
+delivery_print = environment.get_template("illumenate_lighting/print_format/ill_delivery_note/ill_delivery_note.html").render(doc=shipment)
 assert delivery_print.count("Install &lt;left&gt;") == 1
 assert (
 	delivery_print.index("L1")
 	< delivery_print.index("Three independent members")
 	< delivery_print.index("Install &lt;left&gt;")
 )
-assert "Lobby" in delivery_print and "SO-QA" in delivery_print
+assert "Lobby" in delivery_print and "SO-QA" in delivery_print and "1Z999" in delivery_print
+assert "Rate" not in delivery_print
 print("Rendered unpriced Delivery Note with designation, room and escaped notes")

@@ -204,16 +204,21 @@ def review_context(name):
 	if not order:
 		frappe.throw("Order unavailable", frappe.PermissionError)
 	_staff(order)
+	from illumenate_lighting.illumenate_lighting.portal.order_review import line_changes
+
 	current, original = snapshot(order), json.loads(doc.original_snapshot)
 	return {
 		"expected_modified": str(doc.modified),
 		"revision_hash": fingerprint(current),
 		"order_docstatus": order.docstatus,
+		"request_type": doc.request_type,
+		"note": doc.note,
 		"changes": {
 			key: {"before": original.get(key), "after": current.get(key)}
 			for key in current
-			if original.get(key) != current.get(key)
+			if key != "items" and original.get(key) != current.get(key)
 		},
+		"lines": [line for line in line_changes(original, current) if line["status"] != "unchanged"],
 	}
 
 
@@ -291,7 +296,7 @@ def decide(name, action, note, expected_modified, revision_hash, result_sales_or
 		doc.requested_by,
 		"notify_orders",
 		f"Order request {doc.name}: {doc.state}",
-		f'<p><a href="/portal/orders/{frappe.utils.escape_html(order.name)}">Review the order request outcome</a>.</p>',
+		f'<p><a href="{frappe.utils.get_url()}/portal/orders/{frappe.utils.escape_html(order.name)}">Review the order request outcome</a>.</p>',
 		reference_doctype=DOCTYPE,
 		reference_name=doc.name,
 		event_key=f"{doc.name}:{doc.modified}",

@@ -30,7 +30,7 @@ DELIVERY_TRACKING_FIELD = "vehicle_no"
 DOWNLOADABLE_DOCTYPES = {
 	"Sales Order": {"print_format": "ilL Sales Order", "label": "Order"},
 	"Sales Invoice": {"print_format": "ilL Sales Invoice", "label": "Invoice"},
-	"Delivery Note": {"print_format": None, "label": "Packing Slip"},
+	"Delivery Note": {"print_format": "ilL Delivery Note", "label": "Packing Slip"},
 }
 
 PO_NUMBER_MAX_LENGTH = 140
@@ -552,7 +552,19 @@ def get_order_document_pdf(doctype, name, user=None):
 	previous = frappe.flags.ignore_print_permissions
 	frappe.flags.ignore_print_permissions = True
 	try:
-		pdf = frappe.get_print(doctype, name, print_format=print_format, as_pdf=True, doc=doc)
+		try:
+			pdf = frappe.get_print(doctype, name, print_format=print_format, as_pdf=True, doc=doc)
+		except frappe.PrintFormatError:
+			# A site's own default format can be broken (for example one that
+			# assigns to ``_`` and then calls ``_()``). The dealer still needs
+			# the document, so fall back to Frappe's standard layout.
+			frappe.clear_last_message()
+			frappe.log_error(
+				f"Portal {doctype} print fell back to Standard",
+				reference_doctype=doctype,
+				reference_name=name,
+			)
+			pdf = frappe.get_print(doctype, name, print_format="Standard", as_pdf=True, doc=doc)
 	finally:
 		frappe.flags.ignore_print_permissions = previous
 

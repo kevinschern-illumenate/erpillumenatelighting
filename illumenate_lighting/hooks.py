@@ -317,7 +317,10 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_submit",
 		],
 		"on_cancel": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_cancel",
-		"on_trash": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_trash",
+		"on_trash": [
+			"illumenate_lighting.illumenate_lighting.portal.order_review.on_trash",
+			"illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_trash",
+		],
 	},
 	"Delivery Note": {
 		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",
