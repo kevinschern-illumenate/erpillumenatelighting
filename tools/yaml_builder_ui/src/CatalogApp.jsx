@@ -352,7 +352,9 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     setCatalog(result.catalog, { label: 'Clone family' });
     setRun({ phase: 'idle' });
     if (result.root && schema.doctypes[result.root.doctype]) chooseDoctype(result.root.doctype);
-    setMessage([`Added ${plural(result.added, 'record')} cloned from ${result.root.name}${result.newRoot ? ` as ${result.newRoot}` : ''}.`,
+    setMessage([result.asIs
+      ? `Imported ${plural(result.added, 'record')} from ${result.root.name} as-is. They keep their ERPNext names, so Check reports them as existing until you rename them with Find & replace (Ctrl+H).`
+      : `Added ${plural(result.added, 'record')} cloned from ${result.root.name}${result.newRoot ? ` as ${result.newRoot}` : ''}.`,
       result.skipped.length ? `Skipped ${plural(result.skipped.length, 'record')} already in the draft: ${result.skipped.slice(0, 5).map(item => item.name).join(', ')}${result.skipped.length > 5 ? '…' : ''}.` : '',
       result.cleared.length ? `Cleared the Webflow product link on ${result.cleared.map(item => item.name).join(', ')} to avoid a circular import; set it in ERPNext after importing.` : '',
       'Review the copies, then Undo if anything looks wrong.'].filter(Boolean).join(' '));

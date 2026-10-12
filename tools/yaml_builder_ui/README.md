@@ -176,10 +176,19 @@ Attributes those records link to. In the editor:
 ### Clone an existing family
 
 **Clone existing family** (beside **Load example**) copies a family that is already in
-ERPNext into the draft under new names. Pick a template (or a Webflow Product), then add
-rename rules such as `CA01` → `CA03`. Rules apply in order to every name. Unless
-**Match case exactly** is on, lowercase and uppercase matches keep their case, so
-`ill-ca01-sw` becomes `ill-ca03-sw`.
+ERPNext into the draft. Pick a template (or a Webflow Product), then choose how to copy it:
+
+- **Import as-is** (the default) copies the template and every record associated with
+  it under their current ERPNext names: specs, Items and variants, maps, offerings,
+  submittal mappings, Webflow products and, unless you untick it, the attribute records
+  the family uses. Item Group, UOM, Brand, Item Attribute, Item Price and Webflow
+  Category stay linked. Nothing is renamed, so every copy is a finding (its name already
+  exists in ERPNext) until you rename it. Use **Find & replace** in the draft to do that;
+  renamed records keep their links. Up to 500 records are copied.
+- **Find and replace while copying** gives the copies new names as they are copied.
+  Add rename rules such as `CA01` → `CA03`. Rules apply in order to every name. Unless
+  **Match case exactly** is on, lowercase and uppercase matches keep their case, so
+  `ill-ca01-sw` becomes `ill-ca03-sw`. The rest of this section describes this mode.
 
 - **What is copied:** every record whose name the rules change. That covers the
   template, its specs and Items, and the records that belong to them: endcap,

@@ -276,6 +276,14 @@ class TestMigrationAssets(IntegrationTestCase):
 		# validation and Workspace.validate(), not just foreign-key checks.
 		workspace.save(ignore_permissions=True)
 
+	def test_workspace_merge_places_new_sections_where_they_ship(self):
+		site = {"content": json.dumps([{"id": "a"}, {"id": "site"}, {"id": "b"}])}
+		shipped = {"content": json.dumps([{"id": "a"}, {"id": "new1"}, {"id": "new2"}, {"id": "b"}])}
+		merged = portal_workspace.merge_workspace(site, shipped)
+		self.assertEqual(
+			[block["id"] for block in json.loads(merged["content"])], ["a", "new1", "new2", "site", "b"]
+		)
+
 	def test_legacy_pending_backups_pass_a_real_workspace_save(self):
 		if not frappe.get_meta("Workspace").has_field("type"):
 			self.skipTest("Workspace.type is a v16 field")

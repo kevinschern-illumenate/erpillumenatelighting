@@ -87,8 +87,12 @@ For the release gates, local rehearsal evidence, and staging record, see the
 
 The editor exposes all shipped product `ilL-Attribute-*`, `ilL-Spec-*`, `ilL-Rel-*`,
 product templates and submittal mappings, plus Webflow Product/Category and every
-child table reachable from those records. This currently comprises 65 parent
-DocTypes and 37 child DocTypes, including the standard master-data subset below.
+child table reachable from those records. This currently comprises 66 parent
+DocTypes and 40 child DocTypes, including the standard master-data subset below.
+Recent additions include the Controller Type and Mounting Type attributes, Driver and
+Controller submittal mappings, controller ports, tape channels, and Field Wire specs
+(`ilL-Spec-Wire` with its conductor rows). Field Wire specs are authorable in any
+catalog; the committed Vercel reference snapshot has none yet until the next export.
 
 Standard ERPNext master support includes Item (variant attributes and supplier
 parts), Item Attribute/values, Item Group, UOM, Brand, and Item Price. Each Supplier

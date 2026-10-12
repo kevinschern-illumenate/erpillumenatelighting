@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import schema from './catalog-schema.json';
 import { emptyCatalog, referenceSummary } from './catalog-model.js';
-import { cloneFamily, discoverFamily, rootTypes, ruleRenamer } from './clone-model.js';
+import { AS_IS_LIMIT, cloneFamily, DEFAULT_LIMIT, discoverFamily, rootTypes, ruleRenamer } from './clone-model.js';
 
 const SHOWN = 400;
 const FETCHES = 4;
@@ -9,9 +9,11 @@ const shortName = name => name.replace(/^ilL-/, '');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const key = (doctype, name) => JSON.stringify([doctype, name]);
 const MODE_LABELS = { copy: 'Copy as new', link: 'Keep original', existing: 'Use existing' };
+const AS_IS_LABELS = { ...MODE_LABELS, copy: 'Copy as-is' };
 
 /**
- * Copy an existing ERPNext family into the draft under new names. In ERPNext, records to
+ * Copy an existing ERPNext family into the draft, either under new names from rename rules
+ * or as-is under its current names, for the author to rename afterwards with Find & replace. In ERPNext, records to
  * copy are fetched in full (`api.record`) so their child rows come along; on Vercel the
  * exported reference already holds them.
  */
@@ -22,6 +24,8 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
   const [rootType, setRootType] = useState(() => (types.includes(product.template) ? product.template : types[0]) || '');
   const [query, setQuery] = useState('');
   const [root, setRoot] = useState(null);
+  const [method, setMethod] = useState('as-is');
+  const [withAttributes, setWithAttributes] = useState(true);
   const [rules, setRules] = useState([{ find: '', replace: '' }]);
   const [matchCase, setMatchCase] = useState(false);
   const [modes, setModes] = useState(() => new Map());
@@ -38,10 +42,12 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
     ? (doctype, name) => fetched.get(key(doctype, name))
     : (doctype, name) => reference?.doctypes?.[doctype]?.records?.[name], [api, fetched, reference]);
   const rename = useMemo(() => ruleRenamer(rules, { matchCase }), [rules, matchCase]);
-  const renameText = renameInside ? rename : null;
+  const asIs = method === 'as-is';
+  const renameText = renameInside && !asIs ? rename : null;
   const discovery = useMemo(() => root && reference
-    ? discoverFamily({ root, reference, schema, full, modes, rename, renameText })
-    : { nodes: [], needed: [], truncated: false }, [root, reference, full, modes, rename, renameText]);
+    ? discoverFamily({ root, reference, schema, full, modes, rename, renameText, asIs, withAttributes, limit: asIs ? AS_IS_LIMIT : DEFAULT_LIMIT })
+    : { nodes: [], needed: [], truncated: false }, [root, reference, full, modes, rename, renameText, asIs, withAttributes]);
+  const labels = asIs ? AS_IS_LABELS : MODE_LABELS;
   const waiting = discovery.needed.filter(node => !failed.has(key(node.doctype, node.name)));
   // Fetch records to copy a few at a time; each arrival can reveal more links to follow.
   useEffect(() => {
@@ -79,13 +85,13 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
   const apply = () => {
     const result = cloneFamily(replaceDraft ? { ...emptyCatalog(catalog.product_type), series_name: catalog.series_name } : catalog, schema, discovery, full, { renameText });
     onClose();
-    onApply({ ...result, root, newRoot: rootNode?.newName });
+    onApply({ ...result, root, newRoot: rootNode?.newName, asIs });
   };
 
   return <dialog ref={dialog} className="catalog-modal catalog-modal-wide catalog-clone" aria-labelledby={title} onCancel={onClose}>
     <h2 id={title}>Clone an existing family</h2>
-    <p>Pick a family in ERPNext and give it new names. Every record whose name the rules change is copied, along with the maps,
-      offerings and submittal mappings that belong to it. Records whose names stay the same are linked, not copied.</p>
+    <p>Pick a family in ERPNext, then import it as-is or give it new names while copying. Either way the maps, offerings and
+      submittal mappings that belong to it come along.</p>
     {!reference ? <p className="catalog-run-errors">Existing ERPNext records have not loaded yet.</p> : <>
       <section className="catalog-clone-step" aria-label="Family to copy">
         <h3>1. Family to copy</h3>
@@ -101,8 +107,19 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
         </div>
         {candidates.length > 60 && <p>Showing 60 of {candidates.length}. Refine the search to see more.</p>}
       </section>
-      {root && <section className="catalog-clone-step" aria-label="Rename rules">
-        <h3>2. Rename rules for {root.name}</h3>
+      {root && <section className="catalog-clone-step" aria-label="How to copy">
+        <h3>2. How to copy {root.name}</h3>
+        <div className="catalog-clone-methods" role="radiogroup" aria-label="How to copy">
+          <label><input type="radio" name="clone-method" checked={asIs} onChange={() => { setMethod('as-is'); setModes(new Map()); }} />
+            <span><strong>Import as-is</strong><small>Copy the family and every associated record under their current ERPNext names.
+              Rename them afterwards with Find &amp; replace; until then Check reports each name as already existing.</small></span></label>
+          <label><input type="radio" name="clone-method" checked={!asIs} onChange={() => { setMethod('rename'); setModes(new Map()); }} />
+            <span><strong>Find and replace while copying</strong><small>Rename rules give the copies new names now. Records whose names
+              stay the same are linked to the originals instead of copied.</small></span></label>
+        </div>
+        {asIs ? <label className="catalog-clone-option"><input type="checkbox" checked={withAttributes} onChange={e => { setWithAttributes(e.target.checked); setModes(new Map()); }} />
+          Include attribute records the family uses (series, finishes, CCTs and other ilL-Attribute records)</label>
+        : <>
         <p>Each rule replaces text in every name, in order: <code>CA01</code> → <code>CA03</code> turns <code>ILL-CA01-SW</code> into <code>ILL-CA03-SW</code>.
           {!matchCase && ' Lowercase and uppercase matches keep their case (ill-ca01-sw → ill-ca03-sw).'}</p>
         {rules.map((rule, i) => <div className="catalog-clone-rule" key={i}>
@@ -115,13 +132,15 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
         <label className="catalog-clone-option"><input type="checkbox" checked={matchCase} onChange={e => setMatchCase(e.target.checked)} /> Match case exactly</label>
         <label className="catalog-clone-option"><input type="checkbox" checked={renameInside} onChange={e => setRenameInside(e.target.checked)} />
           Also apply the rules to text inside the copies, such as profile family codes and product names</label>
+        </>}
       </section>}
       {root && <section className="catalog-clone-step" aria-label="Review">
         <h3>3. Review</h3>
         <p role="status">{rootNode?.mode === 'link' ? <span className="catalog-replace-conflict">{rootNode.reason}.</span>
+          : asIs ? `${plural(counts.copy, 'record')} to copy as-is · ${plural(counts.link, 'link')} to shared or kept records`
           : `${plural(counts.copy, 'record')} to copy · ${plural(counts.link, 'link')} to existing records${counts.existing ? ` · ${counts.existing} new ${counts.existing === 1 ? 'name already exists' : 'names already exist'} in ERPNext and will be linked` : ''}`}
           {waiting.length > 0 && <span className="catalog-progress"><span className="catalog-spinner" aria-hidden="true" /> Loading {plural(waiting.length, 'record')} from ERPNext…</span>}</p>
-        {discovery.truncated && <p className="catalog-replace-conflict">Stopped at {copies.length} records to copy. Narrow the rename rules, or keep some records as originals.</p>}
+        {discovery.truncated && <p className="catalog-replace-conflict">Stopped at {copies.length} records to copy. {asIs ? 'Keep some records as originals' : 'Narrow the rename rules, or keep some records as originals'}.</p>}
         {broken.length > 0 && <p className="catalog-run-errors">{plural(broken.length, 'record')} could not be loaded: {broken.slice(0, 5).map(node => `${shortName(node.doctype)} ${node.name} (${failed.get(key(node.doctype, node.name))})`).join('; ')}. Keep them as originals to continue.</p>}
         {otherProduct && <p className="catalog-replace-conflict">This {shortName(root.doctype)} belongs to another product family than the {product.label} draft. Switch the product first to keep its draft separate.</p>}
         <div className="catalog-segmented" role="group" aria-label="Show">
@@ -134,10 +153,10 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
           <tbody>{listed.slice(0, SHOWN).map(node => <tr key={key(node.doctype, node.name)}>
             <td>{node.modes.length > 1
               ? <select aria-label={`Action for ${shortName(node.doctype)} ${node.name}`} value={node.mode} onChange={e => setMode(node, e.target.value)}>
-                {node.modes.map(mode => <option key={mode} value={mode}>{mode === 'existing' ? `Use existing ${node.newName}` : MODE_LABELS[mode]}</option>)}</select>
-              : MODE_LABELS[node.mode]}</td>
+                {node.modes.map(mode => <option key={mode} value={mode}>{mode === 'existing' ? `Use existing ${node.newName}` : labels[mode]}</option>)}</select>
+              : labels[node.mode]}</td>
             <td><small>{shortName(node.doctype)}</small><br />{node.name}</td>
-            <td>{node.mode === 'link' ? <small>—</small> : <ins>{node.newName}</ins>}</td>
+            <td>{node.mode === 'link' ? <small>—</small> : asIs ? <small>Same name</small> : <ins>{node.newName}</ins>}</td>
             <td><small>{node.reason}{node.via === 'owned' ? ` · belongs to ${node.owner}` : node.via === 'link' ? ` · linked from ${node.owner}` : ''}</small></td>
           </tr>)}</tbody>
         </table></div>

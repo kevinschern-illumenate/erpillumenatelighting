@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"ill_dashboard_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Dashboard</b></span>\",\"col\":12}},{\"id\":\"ill_b2b_ill_publish_job\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Publication Jobs\",\"col\":3}},{\"id\":\"ill_b2b_ill_product_publication\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Product Publication\",\"col\":3}},{\"id\":\"ill_b2b_ill_controller_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Controller Template\",\"col\":3}},{\"id\":\"ill_b2b_ill_driver_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Driver Template\",\"col\":3}},{\"id\":\"ill_b2b_ill_configured_led_sheet\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured LED Sheet\",\"col\":3}},{\"id\":\"ill_b2b_ill_led_sheet_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"LED Sheet Template\",\"col\":3}},{\"id\":\"ill_b2b_ill_portal_operations\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Portal Operations\",\"col\":3}},{\"id\":\"ill_nc_open_quotations\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Quotations\",\"col\":4}},{\"id\":\"ill_nc_open_sales_orders\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Sales Orders\",\"col\":4}},{\"id\":\"ill_nc_sales_invoiced_mtd\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales Invoiced MTD\",\"col\":4}},{\"id\":\"ill_nc_ar_outstanding\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"AR Outstanding\",\"col\":4}},{\"id\":\"ill_nc_open_purchase_orders\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Purchase Orders\",\"col\":4}},{\"id\":\"ill_nc_ap_outstanding\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"AP Outstanding\",\"col\":4}},{\"id\":\"ill_spacer_dashboard\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_reports_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>ilLumenate Reports</b></span>\",\"col\":12}},{\"id\":\"ill_card_ill_reports\",\"type\":\"card\",\"data\":{\"card_name\":\"ilLumenate Reports\",\"col\":4}},{\"id\":\"ill_card_product_finder\",\"type\":\"card\",\"data\":{\"card_name\":\"Product Finder\",\"col\":4}},{\"id\":\"ill_spacer_reports\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_shortcuts_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"ill_catalog_builder\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Catalog Builder\",\"col\":3}},{\"id\":\"ill_sc_fixture_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Fixture Template\",\"col\":3}},{\"id\":\"ill_sc_configured_fixture\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured Fixture\",\"col\":3}},{\"id\":\"ill_sc_tape_neon_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tape Neon Template\",\"col\":3}},{\"id\":\"ill_sc_configured_tape_neon\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured Tape Neon\",\"col\":3}},{\"id\":\"ill_sc_extrusion_kit_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Extrusion Kit Template\",\"col\":3}},{\"id\":\"ill_sc_project\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"ill_sc_document_request\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Document Request\",\"col\":3}},{\"id\":\"ill_sc_export_job\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Export Job\",\"col\":3}},{\"id\":\"ill_workflow_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>New Product Setup Guide</b></span>\",\"col\":12}},{\"id\":\"ill_card_workflow_fixture\",\"type\":\"card\",\"data\":{\"card_name\":\"Linear Fixture Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_tape_neon\",\"type\":\"card\",\"data\":{\"card_name\":\"LED Tape / Neon Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_led_sheet\",\"type\":\"card\",\"data\":{\"card_name\":\"LED Sheet Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_kit\",\"type\":\"card\",\"data\":{\"card_name\":\"Extrusion Kit Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_controller\",\"type\":\"card\",\"data\":{\"card_name\":\"Controller Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_accessory\",\"type\":\"card\",\"data\":{\"card_name\":\"Accessory Setup\",\"col\":4}},{\"id\":\"ill_spacer_1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_masters_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"ill_card_attributes\",\"type\":\"card\",\"data\":{\"card_name\":\"Attributes\",\"col\":4}},{\"id\":\"ill_card_specs\",\"type\":\"card\",\"data\":{\"card_name\":\"Specifications\",\"col\":4}},{\"id\":\"ill_card_projects\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects & Scheduling\",\"col\":4}},{\"id\":\"ill_card_doc_requests\",\"type\":\"card\",\"data\":{\"card_name\":\"Document Requests\",\"col\":4}},{\"id\":\"ill_card_relationships\",\"type\":\"card\",\"data\":{\"card_name\":\"Relationships & Mappings\",\"col\":4}},{\"id\":\"ill_card_webflow\",\"type\":\"card\",\"data\":{\"card_name\":\"Webflow Integration\",\"col\":4}},{\"id\":\"ill_card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings & Utilities\",\"col\":4}},{\"id\":\"ill_b2b_item_literature\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item Literature\",\"col\":3}},{\"id\":\"ill_catalog_imports\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Catalog Imports\",\"col\":3}}]",
+ "content": "[{\"id\":\"ill_dashboard_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Dashboard</b></span>\",\"col\":12}},{\"id\":\"ill_b2b_ill_publish_job\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Publication Jobs\",\"col\":3}},{\"id\":\"ill_b2b_ill_product_publication\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Product Publication\",\"col\":3}},{\"id\":\"ill_b2b_ill_controller_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Controller Template\",\"col\":3}},{\"id\":\"ill_b2b_ill_driver_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Driver Template\",\"col\":3}},{\"id\":\"ill_b2b_ill_configured_led_sheet\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured LED Sheet\",\"col\":3}},{\"id\":\"ill_b2b_ill_led_sheet_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"LED Sheet Template\",\"col\":3}},{\"id\":\"ill_b2b_ill_portal_operations\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Portal Operations\",\"col\":3}},{\"id\":\"ill_nc_open_quotations\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Quotations\",\"col\":4}},{\"id\":\"ill_nc_open_sales_orders\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Sales Orders\",\"col\":4}},{\"id\":\"ill_nc_sales_invoiced_mtd\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Sales Invoiced MTD\",\"col\":4}},{\"id\":\"ill_nc_ar_outstanding\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"AR Outstanding\",\"col\":4}},{\"id\":\"ill_nc_open_purchase_orders\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Open Purchase Orders\",\"col\":4}},{\"id\":\"ill_nc_ap_outstanding\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"AP Outstanding\",\"col\":4}},{\"id\":\"ill_spacer_dashboard\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_portal_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Dealer Portal</b></span>\",\"col\":12}},{\"id\":\"ill_sc_quote_request\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quote Requests\",\"col\":3}},{\"id\":\"ill_sc_quote_offer\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quote Offers\",\"col\":3}},{\"id\":\"ill_sc_order_intake\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Order Intake\",\"col\":3}},{\"id\":\"ill_sc_order_change\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Order Changes\",\"col\":3}},{\"id\":\"ill_sc_portal_message\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Portal Messages\",\"col\":3}},{\"id\":\"ill_card_portal_quotes_orders\",\"type\":\"card\",\"data\":{\"card_name\":\"Dealer Quotes & Orders\",\"col\":4}},{\"id\":\"ill_card_portal_accounts\",\"type\":\"card\",\"data\":{\"card_name\":\"Dealer Accounts & Notifications\",\"col\":4}},{\"id\":\"ill_card_configurator_activity\",\"type\":\"card\",\"data\":{\"card_name\":\"Configurator Activity\",\"col\":4}},{\"id\":\"ill_spacer_portal\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_catalog_systems_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Catalog, Design &amp; Accounting</b></span>\",\"col\":12}},{\"id\":\"ill_card_driver_controller\",\"type\":\"card\",\"data\":{\"card_name\":\"Driver & Controller Catalog\",\"col\":4}},{\"id\":\"ill_card_catalog_publishing\",\"type\":\"card\",\"data\":{\"card_name\":\"Catalog Publishing\",\"col\":4}},{\"id\":\"ill_card_system_designer\",\"type\":\"card\",\"data\":{\"card_name\":\"System Designer\",\"col\":4}},{\"id\":\"ill_card_accounting_campaigns\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounting & Campaigns\",\"col\":4}},{\"id\":\"ill_reports_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>ilLumenate Reports</b></span>\",\"col\":12}},{\"id\":\"ill_card_ill_reports\",\"type\":\"card\",\"data\":{\"card_name\":\"ilLumenate Reports\",\"col\":4}},{\"id\":\"ill_card_product_finder\",\"type\":\"card\",\"data\":{\"card_name\":\"Product Finder\",\"col\":4}},{\"id\":\"ill_spacer_reports\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_shortcuts_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"ill_catalog_builder\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Catalog Builder\",\"col\":3}},{\"id\":\"ill_sc_fixture_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Fixture Template\",\"col\":3}},{\"id\":\"ill_sc_configured_fixture\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured Fixture\",\"col\":3}},{\"id\":\"ill_sc_tape_neon_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Tape Neon Template\",\"col\":3}},{\"id\":\"ill_sc_configured_tape_neon\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Configured Tape Neon\",\"col\":3}},{\"id\":\"ill_sc_extrusion_kit_template\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Extrusion Kit Template\",\"col\":3}},{\"id\":\"ill_sc_project\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Project\",\"col\":3}},{\"id\":\"ill_sc_document_request\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Document Request\",\"col\":3}},{\"id\":\"ill_sc_export_job\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Export Job\",\"col\":3}},{\"id\":\"ill_workflow_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>New Product Setup Guide</b></span>\",\"col\":12}},{\"id\":\"ill_card_workflow_fixture\",\"type\":\"card\",\"data\":{\"card_name\":\"Linear Fixture Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_tape_neon\",\"type\":\"card\",\"data\":{\"card_name\":\"LED Tape / Neon Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_led_sheet\",\"type\":\"card\",\"data\":{\"card_name\":\"LED Sheet Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_kit\",\"type\":\"card\",\"data\":{\"card_name\":\"Extrusion Kit Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_controller\",\"type\":\"card\",\"data\":{\"card_name\":\"Controller Setup\",\"col\":4}},{\"id\":\"ill_card_workflow_accessory\",\"type\":\"card\",\"data\":{\"card_name\":\"Accessory Setup\",\"col\":4}},{\"id\":\"ill_spacer_1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ill_masters_header\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"ill_card_attributes\",\"type\":\"card\",\"data\":{\"card_name\":\"Attributes\",\"col\":4}},{\"id\":\"ill_card_specs\",\"type\":\"card\",\"data\":{\"card_name\":\"Specifications\",\"col\":4}},{\"id\":\"ill_card_projects\",\"type\":\"card\",\"data\":{\"card_name\":\"Projects & Scheduling\",\"col\":4}},{\"id\":\"ill_card_doc_requests\",\"type\":\"card\",\"data\":{\"card_name\":\"Document Requests\",\"col\":4}},{\"id\":\"ill_card_relationships\",\"type\":\"card\",\"data\":{\"card_name\":\"Relationships & Mappings\",\"col\":4}},{\"id\":\"ill_card_webflow\",\"type\":\"card\",\"data\":{\"card_name\":\"Webflow Integration\",\"col\":4}},{\"id\":\"ill_card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings & Utilities\",\"col\":4}},{\"id\":\"ill_b2b_item_literature\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Item Literature\",\"col\":3}},{\"id\":\"ill_catalog_imports\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Catalog Imports\",\"col\":3}}]",
  "creation": "2026-02-23 03:46:12.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -1881,9 +1881,483 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Dealer Quotes & Orders",
+   "link_count": 8,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quote Requests",
+   "link_count": 0,
+   "link_to": "ilL-Quote-Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quote Offers",
+   "link_count": 0,
+   "link_to": "ilL-Quote-Offer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Order Intake",
+   "link_count": 0,
+   "link_to": "ilL-Order-Intake",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Order Changes",
+   "link_count": 0,
+   "link_to": "ilL-Order-Change",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portal Messages",
+   "link_count": 0,
+   "link_to": "ilL-Portal-Message",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Drawing Reviews",
+   "link_count": 0,
+   "link_to": "ilL-Drawing-Review",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Line Documents",
+   "link_count": 0,
+   "link_to": "ilL-Line-Document",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portal Uploads",
+   "link_count": 0,
+   "link_to": "ilL-Portal-Upload",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Dealer Accounts & Notifications",
+   "link_count": 5,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portal Operations Console",
+   "link_count": 0,
+   "link_to": "ill-portal-operations",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Account Requests",
+   "link_count": 0,
+   "link_to": "ilL-Account-Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portal Invitations",
+   "link_count": 0,
+   "link_to": "ilL-Portal-Invitation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portal Events",
+   "link_count": 0,
+   "link_to": "ilL-Portal-Event",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Portal Deliveries",
+   "link_count": 0,
+   "link_to": "ilL-Portal-Delivery",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configurator Activity",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configurator Sessions",
+   "link_count": 0,
+   "link_to": "ilL-Configurator-Session",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configured Groups",
+   "link_count": 0,
+   "link_to": "ilL-Configured-Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration Receipts",
+   "link_count": 0,
+   "link_to": "ilL-Configuration-Receipt",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Product Verification Requests",
+   "link_count": 0,
+   "link_to": "ilL-Product-Verification-Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Driver & Controller Catalog",
+   "link_count": 7,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Driver Templates",
+   "link_count": 0,
+   "link_to": "ilL-Driver-Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Driver Submittal Mappings",
+   "link_count": 0,
+   "link_to": "ilL-Driver-Submittal-Mapping",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Controller Templates",
+   "link_count": 0,
+   "link_to": "ilL-Controller-Template",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Controller Submittal Mappings",
+   "link_count": 0,
+   "link_to": "ilL-Controller-Submittal-Mapping",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Controller Types",
+   "link_count": 0,
+   "link_to": "ilL-Attribute-Controller Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mounting Types",
+   "link_count": 0,
+   "link_to": "ilL-Attribute-Mounting Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Field Wire Specs",
+   "link_count": 0,
+   "link_to": "ilL-Spec-Wire",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Catalog Publishing",
+   "link_count": 5,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Design Readiness",
+   "link_count": 0,
+   "link_to": "design-readiness",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Product Publications",
+   "link_count": 0,
+   "link_to": "ilL-Product-Publication",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Publish Jobs",
+   "link_count": 0,
+   "link_to": "ilL-Publish-Job",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item Literature Records",
+   "link_count": 0,
+   "link_to": "ilL-Item-Literature",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Catalog Import Runs",
+   "link_count": 0,
+   "link_to": "ilL-Catalog-Import",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "System Designer",
+   "link_count": 4,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "System Designs",
+   "link_count": 0,
+   "link_to": "ilL-System-Design",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Design Catalog Snapshots",
+   "link_count": 0,
+   "link_to": "ilL-Design-Catalog-Snapshot",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "System Designer Settings",
+   "link_count": 0,
+   "link_to": "ilL-System-Designer-Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "System Designer Pilot",
+   "link_count": 0,
+   "link_to": "System Designer Pilot",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Accounting & Campaigns",
+   "link_count": 5,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "QuickBooks Settings",
+   "link_count": 0,
+   "link_to": "ilL-QBO-Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "QuickBooks Sync Log",
+   "link_count": 0,
+   "link_to": "ilL-QBO-Sync-Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Sales Partner Invoice Report",
+   "link_count": 0,
+   "link_to": "Sales Partner Invoice Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Email Campaign Activity Summary",
+   "link_count": 0,
+   "link_to": "Email Campaign Activity Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Email Campaign Benchmark Settings",
+   "link_count": 0,
+   "link_to": "Email Campaign Benchmark Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-10-05 00:00:00.000000",
+ "modified": "2026-10-12 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilLumenate Lighting",
@@ -2013,11 +2487,11 @@
    "type": "DocType"
   },
   {
-   "type": "DocType",
-   "link_to": "ilL-Item-Literature",
-   "label": "Item Literature",
    "color": "Blue",
-   "doc_view": "List"
+   "doc_view": "List",
+   "label": "Item Literature",
+   "link_to": "ilL-Item-Literature",
+   "type": "DocType"
   },
   {
    "label": "Catalog Builder",
@@ -2027,6 +2501,31 @@
   {
    "label": "Catalog Imports",
    "link_to": "ilL-Catalog-Import",
+   "type": "DocType"
+  },
+  {
+   "label": "Quote Requests",
+   "link_to": "ilL-Quote-Request",
+   "type": "DocType"
+  },
+  {
+   "label": "Quote Offers",
+   "link_to": "ilL-Quote-Offer",
+   "type": "DocType"
+  },
+  {
+   "label": "Order Intake",
+   "link_to": "ilL-Order-Intake",
+   "type": "DocType"
+  },
+  {
+   "label": "Order Changes",
+   "link_to": "ilL-Order-Change",
+   "type": "DocType"
+  },
+  {
+   "label": "Portal Messages",
+   "link_to": "ilL-Portal-Message",
    "type": "DocType"
   }
  ],

@@ -233,6 +233,12 @@
 .catalog-clone-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-bottom: 8px; }
 .catalog-app .catalog-clone-rule button { margin: 0; }
 .catalog-app .catalog-clone-option { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.catalog-clone-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.catalog-app .catalog-clone-methods label { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border: 1px solid #e0dace; border-radius: 6px; cursor: pointer; }
+.catalog-app .catalog-clone-methods label:has(input:checked) { background: #f6f1e7; border-color: #b8a07b; }
+.catalog-app .catalog-clone-methods input { width: auto; flex: none; margin: 3px 0 0; }
+.catalog-clone-methods span { display: grid; gap: 4px; }
+.catalog-clone-methods small { font-size: 12px; }
 .catalog-app .catalog-clone-review { max-height: 340px; margin: 10px 0; }
 .catalog-app .catalog-clone-review select { min-width: 150px; }
 .catalog-app .catalog-clone-step .catalog-segmented button { margin: 0 6px 0 0; }
