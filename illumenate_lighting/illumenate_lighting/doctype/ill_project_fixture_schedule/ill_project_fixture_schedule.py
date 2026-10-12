@@ -656,7 +656,9 @@ class ilLProjectFixtureSchedule(Document):
 			mt = line.manufacturer_type
 
 			if mt == "ILLUMENATE" and line.get("configured_group"):
-				from illumenate_lighting.illumenate_lighting.api.fixture_group_order import ensure_order_bundle
+				from illumenate_lighting.illumenate_lighting.api.fixture_group_order import (
+					ensure_order_bundle,
+				)
 				from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
 					_apply_artifact_to_row,
 				)
