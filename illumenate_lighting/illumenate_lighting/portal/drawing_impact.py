@@ -85,6 +85,13 @@ def order_matches_schedule(order, schedule):
 			):
 				if line.get(field):
 					build = frappe.get_doc(doctype, line.get(field))
+					if (
+						field == "configured_group"
+						and row.item_code == line.get("group_part_number")
+						and not row.get("ill_bom")
+						and frappe.db.get_value("Item", row.item_code, "ill_configured_group") == build.name
+					):
+						continue  # The line's group bundle: its runs carry their own pinned builds.
 					if row.item_code != build.get("configured_item") or row.get("ill_bom") != build.get(
 						"bom"
 					):

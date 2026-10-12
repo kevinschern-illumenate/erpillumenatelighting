@@ -5,6 +5,7 @@
     <span class="badge badge-info mr-1" title="{{ _('Several independent runs ordered as one line') }}">{{ _('Multi-run') }}</span>
     {{ group.get('family') }} · {{ members | length }} {{ _(group.get('run_noun') or 'runs') }}
   </strong>
+  {% if line.get('group_part_number') %}<div class="small"><strong>{{ line.get('group_part_number') }}</strong></div>{% endif %}
   <div class="small text-muted"><i class="fa fa-tag"></i> SPEC: <strong>{{ group.get('template') }}</strong></div>
   <div class="small">
     {% if group.get('total_length') %}{{ group.get('total_length') }} {{ _('total') }} · {% endif %}{{ group.get('total_watts') }} W ·

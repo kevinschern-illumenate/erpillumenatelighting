@@ -76,9 +76,78 @@ def traveler(build):
 	return "<br>".join(html.escape(str(p)) for p in parts)
 
 
+def _create_for_bundle(order, row, members):
+	"""One Work Order per run of a group bundle line, each from that run's own pinned build."""
+	from illumenate_lighting.illumenate_lighting.api.fixture_group_order import (
+		MEMBER_SOURCES,
+		member_snapshot,
+	)
+
+	qty = finite_number(row.qty, minimum=1, field="complete build quantity")
+	if not qty.is_integer() or float(row.get("conversion_factor") or 1) != 1:
+		raise ValueError("Configured builds require whole quantities in their stock UOM")
+	if not members:
+		raise ValueError("This group bundle has no configured runs to build; engineering review is required")
+	existing = frappe.get_all(
+		"Work Order",
+		filters={"sales_order": order.name, "sales_order_item": row.name, "docstatus": ["<", 2]},
+		fields=["name", "production_item", "bom_no", "qty", "status"],
+	)
+	expected_boms = {doc.configured_item: doc.bom for _doctype, doc, _per in members}
+	if any(
+		w.production_item not in expected_boms
+		or w.bom_no != expected_boms[w.production_item]
+		or w.status == "Stopped"
+		for w in existing
+	):
+		raise ValueError(
+			"Existing production differs or is stopped; Manufacturing must reconcile this order line"
+		)
+	meta = frappe.get_meta("Work Order")
+	created, names = False, [w.name for w in existing]
+	for doctype, doc, per_group in members:
+		build = member_snapshot(doctype, doc)
+		assert_bom(doc.configured_item, build["components"], frappe.get_doc("BOM", doc.bom))
+		planned = sum(float(w.qty) for w in existing if w.production_item == doc.configured_item)
+		remaining = qty * per_group - planned
+		if remaining < 0:
+			raise ValueError("Planned production exceeds this order line; Manufacturing must reconcile demand")
+		if remaining == 0:
+			continue
+		data = {
+			"doctype": "Work Order",
+			"company": order.company,
+			"production_item": doc.configured_item,
+			"bom_no": doc.bom,
+			"qty": remaining,
+			"use_multi_level_bom": 0,
+			"sales_order": order.name,
+			"sales_order_item": row.name,
+			"remarks": traveler(build),
+		}
+		# Optional links: ERPNext's bundle field and this app's build references.
+		optional = {
+			"product_bundle_item": row.item_code,
+			"ill_configured_group": row.get("ill_configured_group"),
+			next(field for name, _m, field in MEMBER_SOURCES if name == doctype): doc.name,
+		}
+		data.update({field: value for field, value in optional.items() if meta.has_field(field)})
+		work = frappe.get_doc(data)
+		work.insert(ignore_permissions=True)
+		names.append(work.name)
+		created = True
+	return {"success": True, "created": {"work_order": created}, "work_orders": names, "messages": []}
+
+
 @atomic_build
 def create_for_line(order, row):
 	"""Caller holds the Sales Order lock. Existing draft demand also counts as covered."""
+	if row.get("ill_configured_group"):
+		from illumenate_lighting.illumenate_lighting.api.fixture_group_order import bundle_members
+
+		members = bundle_members(row.item_code)
+		if members is not None:
+			return _create_for_bundle(order, row, members)
 	pinned = pinned_build(row)
 	if pinned is None:
 		return None

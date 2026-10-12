@@ -210,6 +210,7 @@ def get_context(context):
 			"manufacturer_type": line.manufacturer_type,
 			"notes": line.notes,
 			"configured_group": line.get("configured_group"),
+			"group_part_number": line.get("group_part_number"),
 			"configured_fixture": line.configured_fixture,
 			"ill_item_code": line.ill_item_code,
 			"manufacturable_length_mm": line.manufacturable_length_mm,
