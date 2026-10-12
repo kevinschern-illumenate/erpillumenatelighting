@@ -16,8 +16,9 @@ Request and track custom drawings and technical documentation
 }
 .request-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	margin-bottom: 1rem;
 	overflow: hidden;
 }
@@ -26,11 +27,11 @@ Request and track custom drawings and technical documentation
 	justify-content: space-between;
 	align-items: center;
 	padding: 1rem 1.5rem;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--ill-gray-200);
 }
 .request-title {
 	font-weight: 600;
-	color: #333;
+	color: var(--ill-ink);
 }
 .request-body {
 	padding: 1.25rem 1.5rem;
@@ -40,29 +41,30 @@ Request and track custom drawings and technical documentation
 	gap: 2rem;
 	flex-wrap: wrap;
 	font-size: 0.9rem;
-	color: #666;
+	color: var(--ill-text-secondary);
 }
 .request-meta i {
 	margin-right: 0.5rem;
-	color: #999;
+	color: var(--ill-gray-500);
 }
 .request-footer {
 	padding: 1rem 1.5rem;
-	background: #fafbfc;
-	border-top: 1px solid #f0f0f0;
+	background: var(--ill-surface-soft);
+	border-top: 1px solid var(--ill-gray-200);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 }
 .form-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	overflow: hidden;
 }
 .form-card-header {
 	padding: 1.5rem;
-	background: linear-gradient(135deg, #f57c00 0%, #ff9800 100%);
+	background: var(--ill-brand-gradient);
 	color: white;
 }
 .form-card-header h5 {
@@ -80,24 +82,25 @@ Request and track custom drawings and technical documentation
 }
 .drawing-type-option {
 	padding: 1rem;
-	border: 2px solid #e0e0e0;
-	border-radius: 8px;
+	border: 1.5px solid var(--ill-gray-300);
+	border-radius: var(--ill-radius-lg);
 	text-align: center;
 	cursor: pointer;
-	transition: all 0.2s;
+	transition: border-color var(--ill-transition), background var(--ill-transition), box-shadow var(--ill-transition);
 }
 .drawing-type-option:hover {
-	border-color: #f57c00;
+	border-color: var(--ill-blue-600);
 }
 .drawing-type-option.selected {
-	border-color: #f57c00;
-	background: #fff3e0;
+	border-color: var(--ill-blue-600);
+	background: var(--ill-blue-100);
+	box-shadow: 0 0 0 3px var(--ill-blue-100);
 }
 .drawing-type-option i {
 	font-size: 1.5rem;
 	display: block;
 	margin-bottom: 0.5rem;
-	color: #f57c00;
+	color: var(--ill-blue-600);
 }
 .drawing-type-option span {
 	font-size: 0.85rem;
@@ -113,32 +116,32 @@ Request and track custom drawings and technical documentation
 	content: '';
 	flex: 1;
 	height: 1px;
-	background: #e0e0e0;
+	background: var(--ill-gray-300);
 }
 .section-divider span {
 	padding: 0 1rem;
-	color: #888;
+	color: var(--ill-gray-500);
 	font-size: 0.9rem;
 }
 .status-badge {
 	padding: 0.25rem 0.75rem;
-	border-radius: 20px;
+	border-radius: var(--ill-radius-pill);
 	font-size: 0.8rem;
 	font-weight: 500;
 }
-.status-badge.pending { background: #fff3e0; color: #ef6c00; }
-.status-badge.in-progress { background: #e3f2fd; color: #1565c2; }
-.status-badge.completed { background: #e8f5e9; color: #2e7d32; }
-.status-badge.cancelled { background: #ffebee; color: #c62828; }
+.status-badge.pending { background: var(--ill-gold-100); color: var(--ill-gold-ink); }
+.status-badge.in-progress { background: var(--ill-blue-100); color: var(--ill-blue-800); }
+.status-badge.completed { background: var(--ill-green-100); color: var(--ill-green); }
+.status-badge.cancelled { background: var(--ill-red-100); color: var(--ill-red-ink); }
 .empty-state {
 	text-align: center;
 	padding: 3rem 2rem;
-	background: #fafbfc;
-	border-radius: 8px;
+	background: var(--ill-surface-soft);
+	border-radius: var(--ill-radius-md);
 }
 .empty-state i {
 	font-size: 3rem;
-	color: #ccc;
+	color: var(--ill-gray-400);
 	margin-bottom: 1rem;
 }
 .tab-content {
@@ -237,7 +240,7 @@ Request and track custom drawings and technical documentation
 						</div>
 
 						<hr>
-						<button type="submit" class="btn btn-warning btn-block">
+						<button type="submit" class="btn btn-primary btn-block">
 							<i class="fa fa-paper-plane"></i> {{ _("Submit Request") }}
 						</button>
 					</form>

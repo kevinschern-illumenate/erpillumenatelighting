@@ -1,0 +1,23 @@
+{
+  "id": "nec-2023-table9-cu-pvc",
+  "kind": "effective-z",
+  "material": "Cu",
+  "units": "ohm/kft",
+  "comment": "Effective-Z is unavailable until verified Table 9 rows and the matching raceway are supplied. Never substitute Table 8 while labelling the result effective-Z.",
+  "source": {
+    "standard": "NFPA 70",
+    "edition": "2023",
+    "table": "Chapter 9 Table 9",
+    "reference": "NFPA 70 (NEC), 2023 edition, Chapter 9 Table 9. Values were not supplied and are intentionally absent.",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+    "verification": "user-supplied-unverified",
+    "supportingUrls": [],
+    "checkedOn": "2026-09-24"
+  },
+  "referenceTempC": 75,
+  "frequencyHz": 60,
+  "powerFactor": 0.85,
+  "raceway": "PVC",
+  "status": "unavailable",
+  "rows": []
+}

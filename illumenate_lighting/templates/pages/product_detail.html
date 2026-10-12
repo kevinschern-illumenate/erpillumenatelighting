@@ -28,9 +28,10 @@ Full product detail with an "Add to a Fixture Schedule" panel
 }
 .product-gallery-main {
 	width: 100%;
-	border-radius: 10px;
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
 	overflow: hidden;
-	background: var(--ill-gray-100, #f5f5f5);
+	background: var(--ill-gray-100, #EEF1F4);
 	margin-bottom: 0.5rem;
 }
 .product-gallery-main img {
@@ -46,14 +47,14 @@ Full product detail with an "Add to a Fixture Schedule" panel
 .gallery-thumb {
 	width: 60px;
 	height: 60px;
-	border-radius: 6px;
+	border-radius: var(--ill-radius-sm);
 	overflow: hidden;
 	cursor: pointer;
 	border: 2px solid transparent;
 	flex-shrink: 0;
 }
 .gallery-thumb.active {
-	border-color: var(--ill-primary, #1976d2);
+	border-color: var(--ill-primary, #00588C);
 }
 .gallery-thumb img {
 	width: 100%;
@@ -64,8 +65,10 @@ Full product detail with an "Add to a Fixture Schedule" panel
 	flex: 1;
 }
 .product-hero-info h2 {
-	font-size: 1.5rem;
-	font-weight: 700;
+	font-family: var(--ill-font-display);
+	font-size: 1.75rem;
+	font-weight: 600;
+	letter-spacing: -0.02em;
 	margin-bottom: 0.5rem;
 }
 .product-hero-badges {
@@ -77,11 +80,11 @@ Full product detail with an "Add to a Fixture Schedule" panel
 .product-hero-badges .badge {
 	font-size: 0.75rem;
 	padding: 0.2rem 0.6rem;
-	border-radius: 2rem;
+	border-radius: var(--ill-radius-pill);
 }
 .product-hero-desc {
 	font-size: 0.95rem;
-	color: var(--ill-gray-700, #616161);
+	color: var(--ill-gray-700, #5D6D7F);
 	margin-bottom: 1rem;
 	line-height: 1.6;
 }
@@ -93,21 +96,21 @@ Full product detail with an "Add to a Fixture Schedule" panel
 
 /* ── Specs / Docs / Certs tabs ─────────────────────── */
 .product-tabs .nav-tabs {
-	border-bottom: 2px solid var(--ill-gray-200, #eee);
+	border-bottom: 1px solid var(--ill-gray-200, #E8EAED);
 	margin-bottom: 1.5rem;
 }
 .product-tabs .nav-link {
 	font-size: 0.85rem;
-	font-weight: 600;
-	color: var(--ill-gray-600, #757575);
+	font-weight: 500;
+	color: var(--ill-gray-600, #5D6D7F);
 	border: none;
 	padding: 0.5rem 1rem;
 	border-bottom: 2px solid transparent;
-	margin-bottom: -2px;
+	margin-bottom: -1px;
 }
 .product-tabs .nav-link.active {
-	color: var(--ill-primary, #1976d2);
-	border-bottom-color: var(--ill-primary, #1976d2);
+	color: var(--ill-primary, #00588C);
+	border-bottom-color: var(--ill-primary, #00588C);
 }
 .spec-table {
 	width: 100%;
@@ -115,12 +118,12 @@ Full product detail with an "Add to a Fixture Schedule" panel
 }
 .spec-table td {
 	padding: 0.4rem 0.75rem;
-	border-bottom: 1px solid var(--ill-gray-100, #f5f5f5);
+	border-bottom: 1px solid var(--ill-gray-100, #EEF1F4);
 }
 .spec-table td:first-child {
 	font-weight: 600;
 	width: 40%;
-	color: var(--ill-gray-700, #616161);
+	color: var(--ill-gray-700, #5D6D7F);
 }
 .doc-list a {
 	display: flex;
@@ -128,15 +131,15 @@ Full product detail with an "Add to a Fixture Schedule" panel
 	gap: 0.5rem;
 	padding: 0.4rem 0;
 	font-size: 0.88rem;
-	color: var(--ill-primary, #1976d2);
+	color: var(--ill-primary, #00588C);
 }
 .cert-badge {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.3rem;
 	padding: 0.3rem 0.7rem;
-	border-radius: 2rem;
-	background: var(--ill-gray-100, #f5f5f5);
+	border-radius: var(--ill-radius-pill);
+	background: var(--ill-gray-100, #EEF1F4);
 	font-size: 0.82rem;
 	margin: 0.2rem;
 }
@@ -144,19 +147,21 @@ Full product detail with an "Add to a Fixture Schedule" panel
 /* ── Add to Fixture Schedule ───────────────────────── */
 .product-action {
 	background: #fff;
-	border-radius: 10px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	padding: 1.25rem;
 	margin-top: 1.5rem;
 }
 .product-action h5 {
+	font-family: var(--ill-font-display);
 	font-weight: 600;
 	margin-bottom: 0.75rem;
 }
 .product-action label {
 	font-size: 0.8rem;
-	font-weight: 600;
-	color: var(--ill-gray-600, #757575);
+	font-weight: 500;
+	color: var(--ill-gray-600, #5D6D7F);
 	margin-bottom: 0.25rem;
 }
 

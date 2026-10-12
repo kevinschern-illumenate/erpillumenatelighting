@@ -1,0 +1,66 @@
+{
+  "dxf": {
+    "entities": {
+      "MTEXT": 98,
+      "TEXT": 365,
+      "LINE": 630,
+      "HATCH": 52,
+      "LWPOLYLINE": 38,
+      "CIRCLE": 29,
+      "ARC": 4,
+      "INSERT": 22,
+      "ATTRIB": 176,
+      "LAYER": 16
+    },
+    "oneInchSquares": 2,
+    "textHeights": [
+      0.09375,
+      0.1875,
+      0.25,
+      0.32
+    ],
+    "entityLayers": [
+      "E-ANNO-ENCL",
+      "E-ANNO-SCHD",
+      "E-ANNO-TAGS",
+      "E-ANNO-TEXT",
+      "E-ANNO-TTLB",
+      "E-LITE-CTRL-DMX",
+      "E-LITE-CTRL-EQPM",
+      "E-LITE-FIXT",
+      "E-LITE-WIRE-CL2",
+      "E-POWR-EQPM",
+      "E-POWR-WIRE-LV"
+    ]
+  },
+  "pdf": {
+    "entities": {
+      "MTEXT": 167,
+      "LWPOLYLINE": 61,
+      "CIRCLE": 28,
+      "SPLINE": 128,
+      "SOLID": 5,
+      "HATCH": 18,
+      "LAYER": 10
+    },
+    "oneInchSquares": 1,
+    "textHeights": [
+      0.0975426,
+      0.0981122,
+      0.130816,
+      0.261632,
+      0.334889
+    ],
+    "entityLayers": [
+      "PDF_E-ANNO-ENCL",
+      "PDF_E-ANNO-TTLB",
+      "PDF_E-LITE-CTRL-DMX",
+      "PDF_E-LITE-CTRL-EQPM",
+      "PDF_E-LITE-FIXT",
+      "PDF_E-LITE-WIRE-CL2",
+      "PDF_E-POWR-EQPM",
+      "PDF_E-POWR-WIRE-LV",
+      "PDF_Text"
+    ]
+  }
+}

@@ -11,6 +11,8 @@ const LINKS = new Set(['Link', 'Dynamic Link']);
 const TABLES = new Set(['Table', 'Table MultiSelect']);
 const TEXT = new Set(['Data', 'Small Text', 'Text', 'Long Text', 'Text Editor']);
 export const DEFAULT_LIMIT = 300;
+/** An as-is import copies the whole family, so it may fill a full import (500 records). */
+export const AS_IS_LIMIT = 500;
 const key = (doctype, name) => JSON.stringify([doctype, name]);
 const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
@@ -18,6 +20,11 @@ const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.
 export function copyable(doctype, schema) {
   const meta = schema.doctypes[doctype];
   return Boolean(meta) && !meta.istable && !doctype.startsWith('ilL-Attribute-') && !MASTERS.has(doctype);
+}
+
+/** In an as-is import, attribute records can be copied too; other shared masters stay linked. */
+function copyableAsIs(doctype, schema, withAttributes) {
+  return copyable(doctype, schema) || (withAttributes && doctype.startsWith('ilL-Attribute-') && Boolean(schema.doctypes[doctype]));
 }
 
 /** DocTypes a family can start from: every product template, and Webflow Product. */
@@ -91,8 +98,11 @@ export function ruleRenamer(rules, { matchCase = false } = {}) {
  * format names built from text predict the copy's name.
  * Returns { nodes: [{ doctype, name, newName, mode, modes, reason, via, owner }], needed, truncated }:
  * `needed` lists copied records still to fetch, so their child-table links can be followed.
+ * `asIs` copies every record of the family under its original name instead (no rename rules),
+ * including attribute records when `withAttributes`; the copies collide with ERPNext until
+ * the author renames them in the draft.
  */
-export function discoverFamily({ root, reference, schema, full = () => undefined, rename = name => name, renameText = null, modes = new Map(), limit = DEFAULT_LIMIT }) {
+export function discoverFamily({ root, reference, schema, full = () => undefined, rename = name => name, renameText = null, modes = new Map(), limit = DEFAULT_LIMIT, asIs = false, withAttributes = true }) {
   const index = ownerIndex(reference, schema);
   const content = (doctype, name) => full(doctype, name) ?? reference?.doctypes?.[doctype]?.records?.[name];
   const exists = (doctype, name) => full(doctype, name) !== undefined || inReference(reference, doctype, name);
@@ -107,9 +117,13 @@ export function discoverFamily({ root, reference, schema, full = () => undefined
     resolving.add(id);
     let result;
     const isRoot = doctype === root.doctype && name === root.name;
-    if (!copyable(doctype, schema)) result = { newName: name, mode: 'link', modes: ['link'], reason: 'Shared master record' };
-    else if (!exists(doctype, name)) result = { newName: name, mode: 'link', modes: ['link'], reason: 'Not found in ERPNext' };
-    else {
+    if (!(asIs ? copyableAsIs(doctype, schema, withAttributes) : copyable(doctype, schema))) {
+      result = { newName: name, mode: 'link', modes: ['link'], reason: 'Shared master record' };
+    } else if (!exists(doctype, name)) result = { newName: name, mode: 'link', modes: ['link'], reason: 'Not found in ERPNext' };
+    else if (asIs) {
+      const mode = modes.get(id) === 'link' ? 'link' : 'copy';
+      result = { newName: name, mode, modes: ['copy', 'link'], reason: isRoot ? 'Family root' : 'Imported as-is' };
+    } else {
       const record = content(doctype, name) || {};
       const naming = namingField(doctype, schema);
       const fields = new Map((schema.doctypes[doctype]?.fields || []).map(field => [field.fieldname, field]));

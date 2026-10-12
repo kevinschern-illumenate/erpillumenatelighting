@@ -1,0 +1,33 @@
+{
+ "buildHash": "f478f1dff157e22c87e8ff69684a62bde7d081dc183413ffaab9e10ef87943ab",
+ "runs": {
+  "power:load:a1linear:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 1.16865,
+   "endV": 23.719524
+  }
+ },
+ "messages": [
+  "warning|SUPPLY_NO_ACCESS|cab-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:1",
+  "warning|UNRESOLVED_REF|PS-1"
+ ],
+ "verify": {
+  "loading": [
+   {
+    "entityId": "PS-1",
+    "port": "OUT1",
+    "wattsW": 42.336
+   }
+  ],
+  "runs": {
+   "power:load:a1linear:1:1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 1.169
+   }
+  },
+  "messages": [],
+  "review": []
+ }
+}

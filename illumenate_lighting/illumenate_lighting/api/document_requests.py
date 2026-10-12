@@ -25,6 +25,10 @@ REQUEST_TABLE = "`tabilL-Document-Request`"
 VALID_PRIORITIES = ("Normal", "High", "Rush")
 
 
+# Created only by the System Designer's "Request review", which links the design and its reviewer.
+DESIGNER_ONLY_TYPES = ("System Design Review",)
+
+
 def _not_found() -> dict:
 	# Guessed ids must not reveal whether a request exists.
 	return {"success": False, "error": "Request not found"}
@@ -62,7 +66,7 @@ def resolve_active_request_type(request_type: str):
 
 	Portal input never creates request-type masters.
 	"""
-	if not request_type:
+	if not request_type or request_type in DESIGNER_ONLY_TYPES:
 		return None
 	return frappe.db.get_value(
 		"ilL-Request-Type", {"name": request_type, "is_active": 1}, "name"
@@ -174,7 +178,7 @@ def get_request_types() -> dict:
 	"""
 	request_types = frappe.get_all(
 		"ilL-Request-Type",
-		filters={"is_active": 1},
+		filters={"is_active": 1, "name": ["not in", DESIGNER_ONLY_TYPES]},
 		fields=[
 			"name",
 			"type_name",

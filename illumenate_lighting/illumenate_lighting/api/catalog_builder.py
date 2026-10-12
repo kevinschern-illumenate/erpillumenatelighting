@@ -133,6 +133,15 @@ def import_catalog(catalog=None, expected_hash=None):
 
 
 @frappe.whitelist(methods=["GET"])
+def design_readiness():
+	"""Incomplete-record counts for the System Designer badge (WP-1.7)."""
+	require("catalog")
+	from illumenate_lighting.illumenate_lighting.system_design.readiness import catalog_summary
+
+	return catalog_summary()
+
+
+@frappe.whitelist(methods=["GET"])
 def history(limit=20):
 	require("catalog")
 	limit = max(1, min(frappe.utils.cint(limit), 100))

@@ -17,6 +17,7 @@ from illumenate_lighting.illumenate_lighting.api.product_readiness import conten
 from illumenate_lighting.illumenate_lighting.api.publication_contract import callback_disposition, retry_at
 from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand, resolve_brand
 from illumenate_lighting.illumenate_lighting.portal.staff import require, require_catalog_reader
+from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 PRODUCT = "ilL-Webflow-Product"
 STATE = "ilL-Product-Publication"
@@ -67,6 +68,7 @@ def _targeted(doc, brand):
 
 
 def _refresh(doc, state, config):
+	doc = Listing(doc)
 	active = bool(doc.is_active and config["is_active"] and _targeted(doc, state.brand))
 	readiness = evaluate(doc, "cms")
 	brand_projection = {

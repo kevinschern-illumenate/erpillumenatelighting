@@ -157,6 +157,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const [selection, setSelection] = useState(null);
   const [drawer, setDrawer] = useState(false);
   const [readinessOpen, setReadinessOpen] = useState(false);
+  const [designReadiness, setDesignReadiness] = useState(null);
   const drawerRef = useRef(null);
   const drawerToggle = useRef(null);
   const readinessRef = useRef(null);
@@ -221,6 +222,13 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     try { localStorage.setItem(STORAGE, JSON.stringify(workspace)); }
     catch { setMessage('Browser storage is full or unavailable. Download YAML to save your work.'); }
   }, [workspace]);
+  useEffect(() => {
+    // System Designer readiness is a count of live ERP records; it only exists inside ERPNext.
+    if (mode !== 'erp' || !api?.designReadiness) return;
+    let current = true;
+    api.designReadiness().then(summary => { if (current) setDesignReadiness(summary); }).catch(() => {});
+    return () => { current = false; };
+  }, [api, mode]);
   useEffect(() => {
     if (mode === 'erp') return;
     try { localStorage.setItem(PENDING, JSON.stringify(pending)); } catch { /* Pending additions are a convenience. */ }
@@ -344,7 +352,9 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     setCatalog(result.catalog, { label: 'Clone family' });
     setRun({ phase: 'idle' });
     if (result.root && schema.doctypes[result.root.doctype]) chooseDoctype(result.root.doctype);
-    setMessage([`Added ${plural(result.added, 'record')} cloned from ${result.root.name}${result.newRoot ? ` as ${result.newRoot}` : ''}.`,
+    setMessage([result.asIs
+      ? `Imported ${plural(result.added, 'record')} from ${result.root.name} as-is. They keep their ERPNext names, so Check reports them as existing until you rename them with Find & replace (Ctrl+H).`
+      : `Added ${plural(result.added, 'record')} cloned from ${result.root.name}${result.newRoot ? ` as ${result.newRoot}` : ''}.`,
       result.skipped.length ? `Skipped ${plural(result.skipped.length, 'record')} already in the draft: ${result.skipped.slice(0, 5).map(item => item.name).join(', ')}${result.skipped.length > 5 ? '…' : ''}.` : '',
       result.cleared.length ? `Cleared the Webflow product link on ${result.cleared.map(item => item.name).join(', ')} to avoid a circular import; set it in ERPNext after importing.` : '',
       'Review the copies, then Undo if anything looks wrong.'].filter(Boolean).join(' '));
@@ -509,6 +519,12 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
             {!issues.length && !unconfirmed.length && !referenceError && <Badge tone="ok" label="Ready">✓</Badge>}
             <span aria-hidden="true"> ▾</span>
           </button>
+          {designReadiness && <a className="catalog-design-readiness" href="/app/design-readiness" title="Catalog records the System Designer cannot use yet">
+            Design readiness
+            {designReadiness.incomplete > 0
+              ? <Badge tone="warn" label={`${designReadiness.incomplete} of ${designReadiness.total} records incomplete for the System Designer`}>{designReadiness.incomplete}</Badge>
+              : <Badge tone="ok" label="Every record is ready for the System Designer">✓</Badge>}
+          </a>}
           <div className="catalog-review" id="catalog-readiness" ref={readinessRef} role="region" aria-label="Import readiness details" hidden={!readinessOpen}>
             <div className="catalog-review-head"><strong>Import readiness</strong><button onClick={() => setReadinessOpen(false)}>Close</button></div>
             {issues.length > 0 ? <section className="catalog-findings" aria-label="Checks to resolve">

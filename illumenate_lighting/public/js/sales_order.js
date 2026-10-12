@@ -11,6 +11,11 @@ frappe.ui.form.on('Sales Order', {
 			if (response.message?.name) frappe.set_route('Form', 'ilL-Order-Intake', response.message.name);
 			else frappe.msgprint(__('Start order review to reconcile a missing intake, then ask the buyer to complete the request.'));
 		}, __('Portal request'));
+		frm.add_custom_button(__('Conversation with buyer'), async () => {
+			const response = await frappe.db.get_value('ilL-Order-Intake', {sales_order: frm.doc.name}, 'name');
+			if (response.message?.name) window.illumenate_portal_conversation('ilL-Order-Intake', response.message.name);
+			else frappe.msgprint(__('This order has no portal request yet, so there is no buyer conversation.'));
+		}, __('Portal request'));
 		frm.add_custom_button(__('Confirm delivery date'), () => {
 			frappe.prompt({fieldname: 'date', fieldtype: 'Date', label: __('Confirmed delivery date'), reqd: 1}, async values => {
 				await frm.set_value('ill_confirmed_delivery_date', values.date);
@@ -22,7 +27,7 @@ frappe.ui.form.on('Sales Order', {
 			const actions = {'Start review': 'REVIEW', 'Request information': 'REQUEST_INFORMATION', 'Propose changes': 'PROPOSE_CHANGES', 'Reject request': 'REJECT'};
 			frappe.prompt([
 				{fieldname: 'action', fieldtype: 'Select', label: __('Action'), options: Object.keys(actions).join('\n'), reqd: 1},
-				{fieldname: 'note', fieldtype: 'Small Text', label: __('Message to buyer')}
+				{fieldname: 'note', fieldtype: 'Small Text', label: __('Message to buyer'), description: __('Posted in the buyer\'s portal conversation for this order.')}
 			], async values => {
 				if (frm.is_dirty()) await frm.save();
 				await frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.order_review.review',

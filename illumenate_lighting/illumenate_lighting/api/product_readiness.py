@@ -17,6 +17,8 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 )
 from illumenate_lighting.illumenate_lighting.api.product_projection import project_product, safe_document_url
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_DOCTYPES, added_fieldnames
+from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 
 def require_catalog_reader():
@@ -75,6 +77,16 @@ VOLATILE = {
 }
 
 
+def unpublished_fields(doctype):
+	"""Template Web Listing fields, kept out of dependency hashes.
+
+	The export reads them into the publication payload, which is hashed already, so
+	leaving them out of the template's record hash keeps approvals from resetting when
+	listings move onto templates.
+	"""
+	return added_fieldnames(doctype) if doctype in TEMPLATE_DOCTYPES else ()
+
+
 def content_record(value):
 	if isinstance(value, dict):
 		return {key: content_record(item) for key, item in value.items() if key not in VOLATILE}
@@ -102,6 +114,8 @@ def dependency_manifest(root):
 			)
 			return
 		data = json.loads(frappe.as_json(doc.as_dict()))
+		for fieldname in unpublished_fields(doc.doctype):
+			data.pop(fieldname, None)
 		records.append({"doctype": doc.doctype, "name": doc.name, "hash": fingerprint(content_record(data))})
 		if doc.get("disabled") or (doc.meta.has_field("is_active") and not doc.get("is_active")):
 			issues.append(
@@ -126,7 +140,11 @@ def dependency_manifest(root):
 	def walk(row, meta, depth):
 		for field in meta.fields:
 			link_type = row.get(field.options) if field.fieldtype == "Dynamic Link" else field.options
-			if field.fieldname in SKIP_LINKS or not row.get(field.fieldname):
+			if (
+				field.fieldname in SKIP_LINKS
+				or field.fieldname in unpublished_fields(meta.name)
+				or not row.get(field.fieldname)
+			):
 				continue
 			if field.fieldtype == "Table":
 				for child in row.get(field.fieldname):
@@ -216,8 +234,10 @@ def evaluate(product, channel="cms"):
 		raise ValueError("Unknown product channel")
 	if isinstance(product, str):
 		product = frappe.get_doc("ilL-Webflow-Product", product)
+	if not isinstance(product, Listing):
+		product = Listing(product)
 	projection = project_product(product.as_dict())
-	dependencies, issues = dependency_manifest(product)
+	dependencies, issues = dependency_manifest(product.source)
 
 	def issue(record, field, message):
 		issues.append({"record": record, "field": field, "message": message})

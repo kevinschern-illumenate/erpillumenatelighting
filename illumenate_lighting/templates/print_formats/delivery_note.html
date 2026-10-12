@@ -11,7 +11,7 @@
   <h1>{{ _('Return delivery note') if doc.is_return else _('Delivery note') }}</h1>
   <p>{{ doc.name | e }} · {{ doc.posting_date | e }}{% if doc.docstatus == 0 %} · {{ _('Draft') }}{% elif doc.docstatus == 2 %} · {{ _('Cancelled') }}{% endif %}</p>
   <p><strong>{{ doc.customer_name | e }}</strong></p>
-  {% if doc.shipping_address %}<div>{{ frappe.utils.sanitize_html(doc.shipping_address) | safe }}</div>{% endif %}
+  {% if doc.shipping_address %}<div>{{ ill_sanitize_html(doc.shipping_address) | safe }}</div>{% endif %}
   <table>
     <thead><tr><th>{{ _('Item / designation') }}</th><th>{{ _('Delivered quantity') }}</th><th>{{ _('Unit') }}</th><th>{{ _('Sales order') }}</th></tr></thead>
     <tbody>
@@ -24,7 +24,7 @@
         <tr>
           <td>{% if row.ill_fixture_type %}<strong>{{ row.ill_fixture_type | e }}</strong><br>{% endif %}
             {{ row.item_name | e }}<br><small>{{ row.item_code | e }}</small>
-            {% if row.description %}<div>{{ frappe.utils.sanitize_html(row.description) | safe }}</div>{% endif %}
+            {% if row.description %}<div>{{ ill_sanitize_html(row.description) | safe }}</div>{% endif %}
             {% if row.additional_notes %}<div class="notes">{{ row.additional_notes | e }}</div>{% endif %}
           </td>
           <td>{{ row.qty }}</td><td>{{ row.uom | e }}</td><td>{{ (row.against_sales_order or '') | e }}</td>

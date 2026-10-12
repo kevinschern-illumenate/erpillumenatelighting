@@ -81,7 +81,8 @@ def member_presentation(raw, normalized=None):
 		result.append(
 			{
 				"member_key": f"M{index}",
-				"label": str(member.get("label") or f"M{index}")[:100],
+				# Unlabelled runs are named by their position on the dealer's screen.
+				"label": str(member.get("label") or f"Run {len(result) + 1}")[:100],
 				"member_id": member.get("member_id"),
 			}
 		)

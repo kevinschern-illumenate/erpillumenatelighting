@@ -264,14 +264,17 @@
 	Base.prototype.restoreSegment = function ($card, segment, family) {
 		var values = {}, type = segment.end_type || 'Endcap';
 		if (family === 'linear') {
+			// Shown in inches, the form's default unit; the length field holds the value in its unit.
+			var mm = segment.requested_length_mm;
 			values = Object.assign({}, segment, {
-				length_unit: 'mm', requested_length_mm: segment.requested_length_mm,
+				length_unit: 'in', requested_length_mm: mm == null || mm === '' ? '' : Math.round(Number(mm) / 25.4 * 10000) / 10000,
 				start_leader_cable_length_in: Number(segment.start_leader_cable_length_mm || 0) / 25.4,
 				end_jumper_cable_length_in: Number(segment.end_jumper_cable_length_mm || 0) / 25.4
 			});
-			$card.data('prevUnit', 'mm');
+			$card.data('prevUnit', 'in');
+			$card.find('[name="length_unit"]').data('lastUnit', 'in');
 			$card.find('.feet-inches-row').hide();
-			$card.find('[name="requested_length_mm"]').show();
+			$card.find('[name="requested_length_mm"]').show().closest('.form-group').show();
 		} else {
 			Object.keys(segment).forEach(function (key) {
 				var name = family === 'tape' && key.startsWith('tape_') ? key : family + '_' + key;

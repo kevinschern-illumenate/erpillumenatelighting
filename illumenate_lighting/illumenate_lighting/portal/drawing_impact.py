@@ -34,6 +34,9 @@ def build_hash(doc):
 
 
 def request_build_hash(request):
+	# A System Designer review approves one saved design build, not the schedule's physical lines.
+	if request.get("reference_doctype") == "ilL-System-Design" and request.get("reference_name"):
+		return frappe.db.get_value("ilL-System-Design", request.reference_name, "build_hash") or fingerprint(None)
 	if request.get("sales_order"):
 		return build_hash(frappe.get_doc("Sales Order", request.sales_order))
 	if request.get("fixture_schedule"):

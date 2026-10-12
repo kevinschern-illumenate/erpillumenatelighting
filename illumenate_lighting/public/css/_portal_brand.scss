@@ -1,0 +1,547 @@
+// ilLumenate brand skin for the dealer portal.
+//
+// Restyles the stock Bootstrap 4 pieces the portal pages are built from
+// (buttons, cards, forms, tables, badges, alerts, tabs, modals, breadcrumbs)
+// with the ilLumenate Design System: navy #172E48, blue #00588C and gold
+// #FDC757, Manrope headings over Poppins body copy, pill buttons, 10px fields,
+// soft navy-tinted shadows. Visual only: no layout, sizing or display rules
+// that scripts rely on.
+//
+// Scoped to portal routes through the <body data-path> Frappe renders, so Desk,
+// the login page and the Catalog Builder keep their own look.
+
+$portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
+
+// Base typography and links carry no extra specificity, so a page's own rule
+// (a white heading on the dashboard hero, an inherited link colour) still wins.
+:where(#{$portal-scope}) {
+	h1, h2, h3, h4, h5, h6,
+	.h1, .h2, .h3, .h4, .h5, .h6 {
+		font-family: var(--ill-font-display);
+		font-weight: 600;
+		letter-spacing: -0.01em;
+	}
+	h1, .h1 { letter-spacing: -0.02em; }
+	.modal-title, .card-title { font-family: var(--ill-font-display); }
+	strong, b, .font-weight-bold { font-weight: 600; }
+	.lead { font-weight: 300; color: var(--ill-text-secondary); }
+	a { color: var(--ill-blue-600); }
+	a:hover { color: var(--ill-blue-700); }
+	hr { border-top-color: var(--ill-navy-100); }
+	code, kbd, pre, samp { font-family: var(--ill-font-mono); }
+	code { color: var(--ill-blue-700); }
+	::selection { background: var(--ill-blue-100); color: var(--ill-ink); }
+	label, .col-form-label { color: var(--ill-ink); font-weight: 500; }
+}
+
+#{$portal-scope} {
+	font-family: var(--ill-font-body);
+	color: var(--ill-ink);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+
+	// ── Utility colours ────────────────────────────────────────
+	.text-muted { color: var(--ill-text-secondary) !important; }
+	.text-primary, .text-info { color: var(--ill-blue-600) !important; }
+	.text-success { color: var(--ill-green) !important; }
+	.text-warning { color: var(--ill-gold-700) !important; }
+	.text-danger { color: var(--ill-red) !important; }
+	.text-dark { color: var(--ill-ink) !important; }
+	.text-secondary { color: var(--ill-text-secondary) !important; }
+	a.text-primary:hover, a.text-primary:focus { color: var(--ill-blue-700) !important; }
+	.bg-primary { background-color: var(--ill-blue-600) !important; }
+	.bg-info { background-color: var(--ill-blue-400) !important; }
+	.bg-success { background-color: var(--ill-green) !important; }
+	.bg-warning { background-color: var(--ill-gold-500) !important; }
+	.bg-danger { background-color: var(--ill-red) !important; }
+	.bg-dark { background-color: var(--ill-navy-600) !important; }
+	.bg-secondary { background-color: var(--ill-navy-400) !important; }
+	.bg-light { background-color: var(--ill-surface-soft) !important; }
+	.border, .border-top, .border-bottom, .border-left, .border-right { border-color: var(--ill-navy-100) !important; }
+	.border-primary { border-color: var(--ill-blue-600) !important; }
+	.border-success { border-color: var(--ill-green) !important; }
+	.border-warning { border-color: var(--ill-gold-500) !important; }
+	.border-danger { border-color: var(--ill-red) !important; }
+
+	// ── Navbar (Frappe website header) ─────────────────────────
+	.navbar {
+		font-family: var(--ill-font-body);
+		border-bottom: 1px solid var(--ill-navy-100);
+	}
+	.navbar .nav-link {
+		color: var(--ill-text-secondary);
+		font-weight: 500;
+		transition: color var(--ill-transition);
+	}
+	.navbar .nav-link:hover,
+	.navbar .nav-link:focus,
+	.navbar .nav-item.active .nav-link { color: var(--ill-blue-600); }
+	.navbar .dropdown-item { color: var(--ill-ink); }
+
+	// ── Buttons (Design System: pill, Poppins Medium) ──────────
+	.btn {
+		font-family: var(--ill-font-body);
+		font-weight: 500;
+		border-radius: var(--ill-radius-pill);
+		border-width: 1.5px;
+		transition: color var(--ill-transition), background-color var(--ill-transition),
+			border-color var(--ill-transition), box-shadow var(--ill-transition), filter var(--ill-transition);
+	}
+	.btn:not(.btn-sm):not(.btn-lg):not(.btn-block):not(.btn-link) { padding-left: 1.1rem; padding-right: 1.1rem; }
+	.btn:focus, .btn.focus { box-shadow: 0 0 0 3px var(--ill-blue-100); }
+	.btn:not(:disabled):not(.disabled):active { transform: scale(0.98); }
+	.btn.disabled, .btn:disabled { opacity: 0.45; }
+
+	// Solid variants
+	.btn-primary, .btn-info {
+		background-color: var(--ill-blue-600);
+		border-color: var(--ill-blue-600);
+		color: #fff;
+	}
+	.btn-primary:hover, .btn-info:hover,
+	.btn-primary:not(:disabled):not(.disabled):active, .btn-info:not(:disabled):not(.disabled):active,
+	.btn-primary:not(:disabled):not(.disabled).active, .btn-info:not(:disabled):not(.disabled).active,
+	.show > .btn-primary.dropdown-toggle, .show > .btn-info.dropdown-toggle {
+		background-color: var(--ill-blue-700);
+		border-color: var(--ill-blue-700);
+		color: #fff;
+	}
+	.btn-primary.disabled, .btn-primary:disabled, .btn-info.disabled, .btn-info:disabled {
+		background-color: var(--ill-blue-600);
+		border-color: var(--ill-blue-600);
+		color: #fff;
+	}
+	.btn-success, .btn-dark {
+		background-color: var(--ill-navy-600);
+		border-color: var(--ill-navy-600);
+		color: #fff;
+	}
+	.btn-success:hover, .btn-dark:hover,
+	.btn-success:not(:disabled):not(.disabled):active, .btn-dark:not(:disabled):not(.disabled):active,
+	.btn-success:not(:disabled):not(.disabled).active, .btn-dark:not(:disabled):not(.disabled).active,
+	.show > .btn-success.dropdown-toggle, .show > .btn-dark.dropdown-toggle {
+		background-color: var(--ill-navy-800);
+		border-color: var(--ill-navy-800);
+		color: #fff;
+	}
+	.btn-success.disabled, .btn-success:disabled, .btn-dark.disabled, .btn-dark:disabled {
+		background-color: var(--ill-navy-600);
+		border-color: var(--ill-navy-600);
+		color: #fff;
+	}
+	.btn-warning {
+		background-color: var(--ill-gold-500);
+		border-color: var(--ill-gold-500);
+		color: var(--ill-navy-600);
+	}
+	.btn-warning:hover,
+	.btn-warning:not(:disabled):not(.disabled):active,
+	.btn-warning:not(:disabled):not(.disabled).active,
+	.show > .btn-warning.dropdown-toggle {
+		background-color: var(--ill-gold-600);
+		border-color: var(--ill-gold-600);
+		color: var(--ill-navy-600);
+	}
+	.btn-warning.disabled, .btn-warning:disabled {
+		background-color: var(--ill-gold-500);
+		border-color: var(--ill-gold-500);
+		color: var(--ill-navy-600);
+	}
+	.btn-danger {
+		background-color: var(--ill-red);
+		border-color: var(--ill-red);
+		color: #fff;
+	}
+	.btn-danger:hover,
+	.btn-danger:not(:disabled):not(.disabled):active,
+	.btn-danger:not(:disabled):not(.disabled).active {
+		background-color: var(--ill-red-ink);
+		border-color: var(--ill-red-ink);
+		color: #fff;
+	}
+	.btn-danger.disabled, .btn-danger:disabled {
+		background-color: var(--ill-red);
+		border-color: var(--ill-red);
+		color: #fff;
+	}
+	// Design System "secondary": transparent with a strong outline
+	.btn-secondary, .btn-light, .btn-default {
+		background-color: #fff;
+		border-color: var(--ill-navy-200);
+		color: var(--ill-navy-600);
+	}
+	.btn-secondary:hover, .btn-light:hover, .btn-default:hover,
+	.btn-secondary:not(:disabled):not(.disabled):active, .btn-light:not(:disabled):not(.disabled):active,
+	.btn-secondary:not(:disabled):not(.disabled).active, .btn-light:not(:disabled):not(.disabled).active,
+	.show > .btn-secondary.dropdown-toggle, .show > .btn-light.dropdown-toggle {
+		background-color: #fff;
+		border-color: var(--ill-blue-600);
+		color: var(--ill-blue-600);
+	}
+	.btn-secondary.disabled, .btn-secondary:disabled, .btn-light.disabled, .btn-light:disabled {
+		background-color: #fff;
+		border-color: var(--ill-navy-200);
+		color: var(--ill-navy-600);
+	}
+
+	// Outline variants
+	.btn-outline-primary, .btn-outline-info, .btn-outline-success {
+		border-color: var(--ill-blue-200);
+		color: var(--ill-blue-600);
+		background-color: transparent;
+	}
+	.btn-outline-primary:hover, .btn-outline-info:hover, .btn-outline-success:hover,
+	.btn-outline-primary:not(:disabled):not(.disabled):active, .btn-outline-info:not(:disabled):not(.disabled):active, .btn-outline-success:not(:disabled):not(.disabled):active,
+	.btn-outline-primary:not(:disabled):not(.disabled).active, .btn-outline-info:not(:disabled):not(.disabled).active, .btn-outline-success:not(:disabled):not(.disabled).active,
+	.show > .btn-outline-primary.dropdown-toggle {
+		background-color: var(--ill-blue-100);
+		border-color: var(--ill-blue-600);
+		color: var(--ill-blue-700);
+	}
+	.btn-outline-primary.disabled, .btn-outline-primary:disabled,
+	.btn-outline-info.disabled, .btn-outline-info:disabled,
+	.btn-outline-success.disabled, .btn-outline-success:disabled { color: var(--ill-blue-600); background-color: transparent; }
+	.btn-outline-secondary, .btn-outline-dark, .btn-outline-light {
+		border-color: var(--ill-navy-200);
+		color: var(--ill-navy-600);
+		background-color: transparent;
+	}
+	.btn-outline-secondary:hover, .btn-outline-dark:hover, .btn-outline-light:hover,
+	.btn-outline-secondary:not(:disabled):not(.disabled):active, .btn-outline-dark:not(:disabled):not(.disabled):active,
+	.btn-outline-secondary:not(:disabled):not(.disabled).active, .btn-outline-dark:not(:disabled):not(.disabled).active,
+	.show > .btn-outline-secondary.dropdown-toggle {
+		background-color: transparent;
+		border-color: var(--ill-blue-600);
+		color: var(--ill-blue-600);
+	}
+	.btn-outline-secondary.disabled, .btn-outline-secondary:disabled { color: var(--ill-navy-400); background-color: transparent; }
+	.btn-outline-warning {
+		border-color: var(--ill-gold-500);
+		color: var(--ill-gold-ink);
+		background-color: transparent;
+	}
+	.btn-outline-warning:hover,
+	.btn-outline-warning:not(:disabled):not(.disabled):active,
+	.btn-outline-warning:not(:disabled):not(.disabled).active {
+		background-color: var(--ill-gold-100);
+		border-color: var(--ill-gold-600);
+		color: var(--ill-gold-ink);
+	}
+	.btn-outline-danger {
+		border-color: rgba(214, 59, 47, 0.45);
+		color: var(--ill-red);
+		background-color: transparent;
+	}
+	.btn-outline-danger:hover,
+	.btn-outline-danger:not(:disabled):not(.disabled):active,
+	.btn-outline-danger:not(:disabled):not(.disabled).active {
+		background-color: var(--ill-red-100);
+		border-color: var(--ill-red);
+		color: var(--ill-red-ink);
+	}
+	.btn-link { color: var(--ill-blue-600); font-weight: 500; }
+	.btn-link:hover { color: var(--ill-blue-700); }
+
+	// Joined button groups read as one control: 10px outer corners (Bootstrap
+	// still squares the inner ones) and stock padding.
+	.btn-group > .btn, .btn-group-vertical > .btn { border-radius: var(--ill-radius-control); }
+	.btn-group > .btn:not(.btn-sm):not(.btn-lg):not(.btn-block):not(.btn-link) { padding-left: 0.85rem; padding-right: 0.85rem; }
+
+	// Square-ish buttons inside joined groups keep Bootstrap's inner corners;
+	// an input group's trailing button matches the 10px field it is joined to.
+	.input-group > .input-group-append > .btn,
+	.input-group > .input-group-prepend > .btn { border-radius: var(--ill-radius-control); }
+	.input-group > .input-group-append > .btn { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+	.input-group > .input-group-prepend > .btn { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+	.input-group > .input-group-append > .btn,
+	.input-group > .input-group-prepend > .btn { padding-left: 0.75rem; padding-right: 0.75rem; }
+
+	// ── Forms ──────────────────────────────────────────────────
+	.form-control, .custom-select, .custom-file-label {
+		border: 1.5px solid var(--ill-gray-300);
+		border-radius: var(--ill-radius-control);
+		color: var(--ill-ink);
+		font-family: var(--ill-font-body);
+		transition: border-color var(--ill-transition), box-shadow var(--ill-transition);
+	}
+	.form-control::placeholder { color: var(--ill-navy-200); }
+	.form-control:focus, .custom-select:focus {
+		border-color: var(--ill-blue-600);
+		box-shadow: 0 0 0 3px var(--ill-blue-100);
+		color: var(--ill-ink);
+	}
+	.form-control:disabled, .form-control[readonly], .custom-select:disabled {
+		background-color: var(--ill-surface-soft);
+		color: var(--ill-text-secondary);
+	}
+	.form-control.is-invalid, .was-validated .form-control:invalid { border-color: var(--ill-red); }
+	.form-control.is-valid, .was-validated .form-control:valid { border-color: var(--ill-green); }
+	.invalid-feedback { color: var(--ill-red); }
+	.valid-feedback { color: var(--ill-green); }
+	.form-text { color: var(--ill-text-secondary); }
+	input[type="file"]::file-selector-button {
+		margin-right: 10px;
+		padding: 5px 14px;
+		border: 1.5px solid var(--ill-navy-200);
+		border-radius: var(--ill-radius-pill);
+		background: #fff;
+		color: var(--ill-navy-600);
+		font-family: var(--ill-font-body);
+		font-weight: 500;
+		cursor: pointer;
+		transition: border-color var(--ill-transition), color var(--ill-transition);
+	}
+	input[type="file"]:hover::file-selector-button { border-color: var(--ill-blue-600); color: var(--ill-blue-600); }
+	.input-group-text {
+		border: 1.5px solid var(--ill-gray-300);
+		border-radius: var(--ill-radius-control);
+		background-color: var(--ill-surface-soft);
+		color: var(--ill-text-secondary);
+	}
+	input[type="checkbox"], input[type="radio"], input[type="range"], progress { accent-color: var(--ill-blue-600); }
+	.custom-control-input:checked ~ .custom-control-label::before {
+		background-color: var(--ill-blue-600);
+		border-color: var(--ill-blue-600);
+	}
+	.custom-control-input:focus ~ .custom-control-label::before { box-shadow: 0 0 0 3px var(--ill-blue-100); }
+
+	// ── Cards ──────────────────────────────────────────────────
+	.card {
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-card);
+		box-shadow: var(--ill-shadow-card);
+	}
+	.card > .card-header:first-child { border-radius: calc(var(--ill-radius-card) - 1px) calc(var(--ill-radius-card) - 1px) 0 0; }
+	.card > .card-footer:last-child { border-radius: 0 0 calc(var(--ill-radius-card) - 1px) calc(var(--ill-radius-card) - 1px); }
+	.card-header {
+		background-color: #fff;
+		border-bottom: 1px solid var(--ill-navy-100);
+		color: var(--ill-ink);
+	}
+	.card-header h1, .card-header h2, .card-header h3,
+	.card-header h4, .card-header h5, .card-header h6 { font-family: var(--ill-font-display); font-weight: 600; }
+	.card-header .fa { color: var(--ill-blue-600); }
+	.card-footer {
+		background-color: var(--ill-surface-soft);
+		border-top: 1px solid var(--ill-navy-100);
+	}
+	.card.border-primary { box-shadow: 0 0 0 3px var(--ill-blue-100), var(--ill-shadow-card); }
+	// Whole-card links (product type chooser, Product Finder shortcut)
+	a.card {
+		color: var(--ill-ink);
+		text-decoration: none;
+		transition: border-color var(--ill-transition), box-shadow var(--ill-transition), transform var(--ill-transition);
+	}
+	a.card:hover, a.card:focus-visible {
+		border-color: var(--ill-blue-200);
+		box-shadow: var(--ill-shadow-elevated);
+		color: var(--ill-ink);
+		text-decoration: none;
+		transform: translateY(-2px);
+	}
+	a.card img { border-radius: var(--ill-radius-control); }
+	a.card .h4, a.card h2 { color: var(--ill-ink); }
+	.card .card .card { box-shadow: none; }
+	.card-header.bg-primary, .card-header.bg-info, .card-header.bg-success, .card-header.bg-dark {
+		border-bottom-color: transparent;
+		color: #fff;
+	}
+	.card-header.bg-primary *, .card-header.bg-info *, .card-header.bg-success *, .card-header.bg-dark * { color: inherit; }
+	.card-header.bg-light { border-bottom-color: var(--ill-navy-100); }
+	.card-header.bg-warning { color: var(--ill-navy-600); }
+
+	// ── Tables ─────────────────────────────────────────────────
+	.table { color: var(--ill-ink); }
+	.table thead th {
+		border-bottom: 1px solid var(--ill-navy-100);
+		border-top: none;
+		background-color: var(--ill-surface-soft);
+		color: var(--ill-text-secondary);
+		font-size: 0.72rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		vertical-align: middle;
+	}
+	.table td, .table th { border-top-color: var(--ill-gray-100); }
+	.table .thead-light th { background-color: var(--ill-surface-soft); color: var(--ill-text-secondary); border-color: var(--ill-navy-100); }
+	.table .thead-dark th { background-color: var(--ill-navy-600); border-color: var(--ill-navy-600); color: #fff; }
+	.table-bordered, .table-bordered td, .table-bordered th { border-color: var(--ill-navy-100); }
+	.table-striped tbody tr:nth-of-type(odd) { background-color: var(--ill-surface-soft); }
+	.table-hover tbody tr:hover { background-color: var(--ill-blue-100); color: var(--ill-ink); }
+	.table-active, .table-active > td, .table-active > th { background-color: var(--ill-blue-100); }
+	.table-primary, .table-primary > td, .table-primary > th,
+	.table-info, .table-info > td, .table-info > th { background-color: var(--ill-blue-100); }
+	.table-success, .table-success > td, .table-success > th { background-color: var(--ill-green-100); }
+	.table-warning, .table-warning > td, .table-warning > th { background-color: var(--ill-gold-100); }
+	.table-danger, .table-danger > td, .table-danger > th { background-color: var(--ill-red-100); }
+	.table-light, .table-light > td, .table-light > th { background-color: var(--ill-surface-soft); }
+	.table-responsive { border-radius: var(--ill-radius-control); }
+
+	// ── Badges (Design System: pill, Poppins Medium) ───────────
+	.badge {
+		padding: 0.3em 0.75em;
+		border-radius: var(--ill-radius-pill);
+		font-family: var(--ill-font-body);
+		font-weight: 500;
+		letter-spacing: 0.01em;
+	}
+	.badge-primary, .badge-info { background-color: var(--ill-blue-100); color: var(--ill-blue-800); }
+	.badge-secondary, .badge-light { background-color: var(--ill-navy-100); color: var(--ill-navy-600); }
+	.badge-success { background-color: var(--ill-green-100); color: var(--ill-green); }
+	.badge-warning { background-color: var(--ill-gold-200); color: var(--ill-gold-ink); }
+	.badge-danger { background-color: var(--ill-red-100); color: var(--ill-red-ink); }
+	.badge-dark { background-color: var(--ill-navy-600); color: #fff; }
+	a.badge-primary:hover, a.badge-info:hover { background-color: var(--ill-blue-200); color: var(--ill-blue-900); }
+	a.badge-secondary:hover, a.badge-light:hover { background-color: var(--ill-navy-200); color: var(--ill-navy-600); }
+
+	// ── Alerts ─────────────────────────────────────────────────
+	.alert {
+		border-radius: var(--ill-radius-lg);
+		border-width: 1px;
+		color: var(--ill-ink);
+	}
+	.alert-primary, .alert-info { background-color: var(--ill-blue-100); border-color: var(--ill-blue-200); }
+	.alert-primary .fa, .alert-info .fa { color: var(--ill-blue-600); }
+	.alert-success { background-color: var(--ill-green-100); border-color: rgba(0, 104, 51, 0.22); }
+	.alert-success .fa { color: var(--ill-green); }
+	.alert-warning { background-color: var(--ill-gold-100); border-color: var(--ill-gold-300); }
+	.alert-warning .fa { color: var(--ill-gold-700); }
+	.alert-danger { background-color: var(--ill-red-100); border-color: rgba(214, 59, 47, 0.3); }
+	.alert-danger .fa { color: var(--ill-red); }
+	.alert-secondary { background-color: var(--ill-surface-soft); border-color: var(--ill-navy-100); }
+	.alert-light { background-color: #fff; border-color: var(--ill-navy-100); }
+	.alert-dark { background-color: var(--ill-navy-600); border-color: var(--ill-navy-600); color: #fff; }
+	.alert-link { color: var(--ill-blue-700); font-weight: 600; }
+	.alert-heading { font-family: var(--ill-font-display); color: inherit; }
+
+	// ── Breadcrumbs ────────────────────────────────────────────
+	.breadcrumb {
+		padding: 0;
+		background-color: transparent;
+		border-radius: 0;
+		font-size: 0.875rem;
+	}
+	.breadcrumb-item a { color: var(--ill-text-secondary); }
+	.breadcrumb-item a:hover { color: var(--ill-blue-600); text-decoration: none; }
+	.breadcrumb-item.active { color: var(--ill-ink); font-weight: 500; }
+	.breadcrumb-item + .breadcrumb-item::before { color: var(--ill-navy-200); }
+
+	// ── Tabs and pills (Design System Tabs: blue underline) ────
+	.nav-tabs { border-bottom: 1px solid var(--ill-navy-100); }
+	.nav-tabs .nav-link {
+		border: none;
+		border-bottom: 2px solid transparent;
+		border-radius: 0;
+		color: var(--ill-text-secondary);
+		font-weight: 500;
+		transition: color var(--ill-transition), border-color var(--ill-transition);
+	}
+	.nav-tabs .nav-link:hover, .nav-tabs .nav-link:focus { color: var(--ill-blue-600); border-color: transparent; }
+	.nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+		background-color: transparent;
+		border-bottom-color: var(--ill-blue-600);
+		color: var(--ill-blue-600);
+	}
+	.nav-tabs .nav-link .fa { color: inherit; }
+	.nav-pills .nav-link { border-radius: var(--ill-radius-pill); color: var(--ill-text-secondary); font-weight: 500; }
+	.nav-pills .nav-link:hover { color: var(--ill-blue-600); }
+	.nav-pills .nav-link.active, .nav-pills .show > .nav-link { background-color: var(--ill-blue-600); color: #fff; }
+
+	// ── Lists, dropdowns, pagination, progress ─────────────────
+	.list-group-item { border-color: var(--ill-navy-100); color: var(--ill-ink); }
+	.list-group-item:first-child { border-top-left-radius: var(--ill-radius-lg); border-top-right-radius: var(--ill-radius-lg); }
+	.list-group-item:last-child { border-bottom-left-radius: var(--ill-radius-lg); border-bottom-right-radius: var(--ill-radius-lg); }
+	.list-group-flush > .list-group-item { border-radius: 0; }
+	.list-group-item-action:hover, .list-group-item-action:focus { background-color: var(--ill-surface-soft); color: var(--ill-ink); }
+	.list-group-item.active { background-color: var(--ill-blue-600); border-color: var(--ill-blue-600); color: #fff; }
+	.dropdown-menu {
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-lg);
+		box-shadow: var(--ill-shadow-elevated);
+		font-family: var(--ill-font-body);
+	}
+	.dropdown-item { color: var(--ill-ink); }
+	.dropdown-item:hover, .dropdown-item:focus { background-color: var(--ill-blue-100); color: var(--ill-blue-700); }
+	.dropdown-item.active, .dropdown-item:active { background-color: var(--ill-blue-600); color: #fff; }
+	.page-link { color: var(--ill-blue-600); border-color: var(--ill-navy-100); }
+	.page-link:hover { color: var(--ill-blue-700); background-color: var(--ill-blue-100); border-color: var(--ill-navy-100); }
+	.page-link:focus { box-shadow: 0 0 0 3px var(--ill-blue-100); }
+	.page-item.active .page-link { background-color: var(--ill-blue-600); border-color: var(--ill-blue-600); color: #fff; }
+	.page-item.disabled .page-link { color: var(--ill-navy-200); }
+	.page-item:first-child .page-link { border-top-left-radius: var(--ill-radius-pill); border-bottom-left-radius: var(--ill-radius-pill); }
+	.page-item:last-child .page-link { border-top-right-radius: var(--ill-radius-pill); border-bottom-right-radius: var(--ill-radius-pill); }
+	.progress { background-color: var(--ill-navy-100); border-radius: var(--ill-radius-pill); }
+	.progress-bar { background-color: var(--ill-blue-600); }
+	.progress-bar.bg-success { background-color: var(--ill-green) !important; }
+	.progress-bar.bg-warning { background-color: var(--ill-gold-500) !important; }
+	.spinner-border, .fa-spinner { color: var(--ill-blue-600); }
+	.btn .fa-spinner { color: inherit; }
+
+	// ── Modals (Design System Dialog) ──────────────────────────
+	.modal-backdrop { background-color: var(--ill-navy-900); }
+	.modal-backdrop.show { opacity: 0.5; }
+	.modal-content {
+		border: none;
+		border-radius: var(--ill-radius-panel);
+		box-shadow: var(--ill-shadow-elevated);
+		font-family: var(--ill-font-body);
+		color: var(--ill-ink);
+	}
+	.modal-header {
+		padding: 1.25rem 1.5rem 1rem;
+		border-bottom: 1px solid var(--ill-navy-100);
+	}
+	.modal-header .modal-title {
+		font-family: var(--ill-font-display);
+		font-weight: 600;
+		font-size: 1.25rem;
+		color: var(--ill-ink);
+	}
+	.modal-header .close {
+		color: var(--ill-text-secondary);
+		text-shadow: none;
+		opacity: 1;
+		transition: color var(--ill-transition);
+	}
+	.modal-header .close:hover { color: var(--ill-blue-600); }
+	.modal-body { padding: 1.25rem 1.5rem; }
+	.modal-footer {
+		padding: 1rem 1.5rem 1.25rem;
+		border-top: 1px solid var(--ill-navy-100);
+	}
+
+	// ── Popovers and tooltips ──────────────────────────────────
+	.popover {
+		border-color: var(--ill-navy-100);
+		border-radius: var(--ill-radius-lg);
+		box-shadow: var(--ill-shadow-elevated);
+		font-family: var(--ill-font-body);
+	}
+	.popover-header { font-family: var(--ill-font-display); background-color: var(--ill-surface-soft); }
+	.tooltip-inner { background-color: var(--ill-navy-600); border-radius: var(--ill-radius-sm); font-family: var(--ill-font-body); }
+
+	// ── Portal toast (IlluminatePortal.showToast) ──────────────
+	.portal-toast {
+		position: fixed;
+		right: 24px;
+		bottom: 24px;
+		z-index: 1080;
+		max-width: 360px;
+		padding: 12px 18px;
+		border-radius: var(--ill-radius-lg);
+		background: var(--ill-navy-600);
+		box-shadow: var(--ill-shadow-elevated);
+		color: #fff;
+		font-family: var(--ill-font-body);
+		font-size: 14px;
+		opacity: 0;
+		transform: translateY(8px);
+		transition: opacity var(--ill-transition-normal), transform var(--ill-transition-normal);
+	}
+	.portal-toast.show { opacity: 1; transform: translateY(0); }
+	.portal-toast .toast-content { display: flex; align-items: center; gap: 10px; }
+	.portal-toast-success .fa { color: #7fd29b; }
+	.portal-toast-error .fa { color: #ff9b92; }
+	.portal-toast-info .fa { color: var(--ill-gold-500); }
+}

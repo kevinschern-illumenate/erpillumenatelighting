@@ -1,0 +1,182 @@
+{
+  "context": {
+    "voltages": {"24VDC": 24, "12VDC": 12, "120VAC": 120},
+    "engine": {"0-10V": "0-10V", "DMX512": "DMX512", "TRIAC": "phase-forward", "Mystery": null}
+  },
+  "items": {
+    "TEST-TAPE-24": {"name": "TEST-TAPE-24", "item_name": "Test tape 24 V"},
+    "TEST-TAPE-RGB": {"name": "TEST-TAPE-RGB", "item_name": "Test RGB tape 24 V"},
+    "TEST-TAPE-120": {"name": "TEST-TAPE-120", "item_name": "Test line-voltage tape"},
+    "TEST-PSU-96": {"name": "TEST-PSU-96", "item_name": "Test 96 W supply"},
+    "TEST-PSU-60": {"name": "TEST-PSU-60", "item_name": "Test 60 W supply"},
+    "TEST-CC-700": {"name": "TEST-CC-700", "item_name": "Test 700 mA driver"},
+    "TEST-PSU-BAD": {"name": "TEST-PSU-BAD", "item_name": "Test supply without data"},
+    "TEST-DEC-4": {"name": "TEST-DEC-4", "item_name": "Test 4-channel decoder"},
+    "TEST-CONV-4": {"name": "TEST-CONV-4", "item_name": "Test DMX to 0-10V converter"},
+    "TEST-DIM": {"name": "TEST-DIM", "item_name": "Test phase dimmer"},
+    "TEST-SENSOR": {"name": "TEST-SENSOR", "item_name": "Test sensor"}
+  },
+  "tapes": [
+    {
+      "name": "TEST-TAPE-24", "item": "TEST-TAPE-24", "input_voltage": "24VDC", "drive_type": "CV",
+      "power_basis": "All Channel Max", "watts_per_foot": 4.4, "max_simultaneous_pct": 100,
+      "max_run_single_feed_ft": 16, "voltage_drop_max_run_length_ft": 12, "max_run_double_feed_ft": 32,
+      "min_operating_voltage_v": 20, "channels": 1, "is_free_cutting": 0, "cut_increment_mm": 50,
+      "reel_length_m": 5, "pixel_protocol": "None", "pixels_per_m": null, "amps_per_pixel_max": null,
+      "channel_limits": []
+    },
+    {
+      "name": "TEST-TAPE-RGB", "item": "TEST-TAPE-RGB", "input_voltage": "24VDC", "drive_type": "CV with CC IC",
+      "power_basis": "Max Operating", "watts_per_foot": 6, "max_simultaneous_pct": 200,
+      "max_run_single_feed_ft": 0, "voltage_drop_max_run_length_ft": 10, "max_run_double_feed_ft": 20,
+      "min_operating_voltage_v": 21.5, "channels": 3, "is_free_cutting": 1, "cut_increment_mm": 0,
+      "reel_length_m": 0, "pixel_protocol": "WS2811", "pixels_per_m": 60, "amps_per_pixel_max": 0.012,
+      "channel_limits": [
+        {"channel_name": "R", "max_w_per_ft": 2},
+        {"channel_name": "G", "max_w_per_ft": 2},
+        {"channel_name": "B", "max_w_per_ft": 2}
+      ]
+    },
+    {
+      "name": "TEST-TAPE-120", "item": "TEST-TAPE-120", "input_voltage": "120VAC", "drive_type": "CV",
+      "power_basis": "All Channel Max", "watts_per_foot": 3, "max_simultaneous_pct": 100,
+      "max_run_single_feed_ft": 100, "voltage_drop_max_run_length_ft": 0, "max_run_double_feed_ft": 150,
+      "min_operating_voltage_v": 100, "channels": 1, "is_free_cutting": 0, "cut_increment_mm": 1000,
+      "reel_length_m": 0, "pixel_protocol": "None", "pixels_per_m": null, "amps_per_pixel_max": null,
+      "channel_limits": []
+    }
+  ],
+  "offerings": {
+    "TEST-TAPE-24": [
+      {"name": "TEST-TAPE-24-2700K-STD", "watts_per_ft_override": 0, "cut_increment_mm_override": 0},
+      {"name": "TEST-TAPE-24-3000K-STD", "watts_per_ft_override": 0, "cut_increment_mm_override": 0},
+      {"name": "TEST-TAPE-24-3000K-HO", "watts_per_ft_override": 6.2, "cut_increment_mm_override": 100}
+    ],
+    "TEST-TAPE-RGB": [{"name": "TEST-TAPE-RGB-RGB-STD", "watts_per_ft_override": 0, "cut_increment_mm_override": 0}],
+    "TEST-TAPE-120": [{"name": "TEST-TAPE-120-3000K-STD", "watts_per_ft_override": 0, "cut_increment_mm_override": 0}]
+  },
+  "drivers": [
+    {
+      "name": "TEST-PSU-96", "item": "TEST-PSU-96", "input_voltage_type": "VAC", "input_voltage_min": 100,
+      "input_voltage_max": 277, "input_phase": "1PH", "output_type": "Constant Voltage", "voltage_output": "24VDC",
+      "output_current_ma": 0, "compliance_v_min": 0, "compliance_v_max": 0, "max_wattage": 96,
+      "max_wattage_per_output": 96, "independent_outputs_count": 1, "class2_outputs": 1, "efficiency": 0.9,
+      "power_factor": 0.95, "usable_load_factor": 0.8, "max_input_a": 1.2, "max_input_a_at_v": 120,
+      "inrush_a": 30, "max_units_per_20a_breaker": 8, "terminal_min_awg": "18", "terminal_max_awg": "12",
+      "input_protocols": ["0-10V"], "certifications": ["UL 8750", "Class 2"]
+    },
+    {
+      "name": "TEST-PSU-60", "item": "TEST-PSU-60", "input_voltage_type": "VAC", "input_voltage_min": 100,
+      "input_voltage_max": 277, "input_phase": "1PH", "output_type": "Constant Voltage", "voltage_output": "24VDC",
+      "output_current_ma": 0, "compliance_v_min": 0, "compliance_v_max": 0, "max_wattage": 60,
+      "max_wattage_per_output": 30, "independent_outputs_count": 2, "class2_outputs": 0, "efficiency": 0.88,
+      "power_factor": 0.9, "usable_load_factor": 0.8, "max_input_a": 0, "max_input_a_at_v": 0,
+      "inrush_a": 0, "max_units_per_20a_breaker": 0, "terminal_min_awg": "18", "terminal_max_awg": "14",
+      "input_protocols": ["TRIAC", "TRIAC"], "certifications": []
+    },
+    {
+      "name": "TEST-CC-700", "item": "TEST-CC-700", "input_voltage_type": "VAC", "input_voltage_min": 120,
+      "input_voltage_max": 277, "input_phase": "1PH", "output_type": "Constant Current", "voltage_output": null,
+      "output_current_ma": 700, "compliance_v_min": 20, "compliance_v_max": 54, "max_wattage": 38,
+      "max_wattage_per_output": 38, "independent_outputs_count": 1, "class2_outputs": 1, "efficiency": 0.87,
+      "power_factor": 0.95, "usable_load_factor": 1, "max_input_a": 0, "max_input_a_at_v": 0,
+      "inrush_a": 0, "max_units_per_20a_breaker": 0, "terminal_min_awg": "18", "terminal_max_awg": "14",
+      "input_protocols": ["0-10V"], "certifications": []
+    },
+    {
+      "name": "TEST-PSU-BAD", "item": "TEST-PSU-BAD", "input_voltage_type": "VAC", "input_voltage_min": 100,
+      "input_voltage_max": 277, "input_phase": "1PH", "output_type": "Constant Voltage", "voltage_output": "24VDC",
+      "output_current_ma": 0, "compliance_v_min": 0, "compliance_v_max": 0, "max_wattage": 100,
+      "max_wattage_per_output": 0, "independent_outputs_count": 1, "class2_outputs": 1, "efficiency": 0,
+      "power_factor": 0.9, "usable_load_factor": 0.8, "max_input_a": 0, "max_input_a_at_v": 0,
+      "inrush_a": 0, "max_units_per_20a_breaker": 0, "terminal_min_awg": "18", "terminal_max_awg": "12",
+      "input_protocols": ["Mystery"], "certifications": []
+    }
+  ],
+  "priorities": {"TEST-PSU-96": 10, "TEST-PSU-60": 10, "TEST-CC-700": 5},
+  "costs": {"TEST-PSU-96": 41.5, "TEST-PSU-60": 22, "TEST-CC-700": 18, "TEST-PSU-BAD": 1},
+  "controllers": [
+    {
+      "name": "TEST-DEC-4", "item": "TEST-DEC-4", "label": "Test decoder", "controller_type": "DMX Decoder",
+      "output_dimming": "None", "input_voltage_type": "VDC", "input_voltage_min": 12, "input_voltage_max": 24,
+      "standby_power_watts": 0.5, "channels": 4, "max_a_per_channel": 5, "max_load_amps": 20,
+      "max_w_per_channel": 120, "max_load_watts": 480, "dmx_footprint": 4, "unit_load": 1, "dmx_thru": 1,
+      "max_universes": 0, "max_pixels": 0, "max_bus_devices": 0, "max_data_length_ft": 0, "min_load_w": 0,
+      "led_max_w": 0, "max_supplies": 0, "terminal_min_awg": "", "terminal_max_awg": "14",
+      "input_protocols": ["DMX512"], "output_protocols": [], "ports": []
+    },
+    {
+      "name": "TEST-CONV-4", "item": "TEST-CONV-4", "label": "Test converter",
+      "controller_type": "DMX to 0-10V Converter", "output_dimming": "None", "input_voltage_type": "VDC",
+      "input_voltage_min": 12, "input_voltage_max": 24, "standby_power_watts": 1.5, "channels": 4,
+      "max_a_per_channel": 0, "max_load_amps": 0, "max_w_per_channel": 0, "max_load_watts": 0,
+      "dmx_footprint": 4, "unit_load": 1, "dmx_thru": 1, "max_universes": 0, "max_pixels": 0,
+      "max_bus_devices": 0, "max_data_length_ft": 0, "min_load_w": 0, "led_max_w": 0, "max_supplies": 0,
+      "terminal_min_awg": "22", "terminal_max_awg": "16",
+      "input_protocols": ["DMX512"], "output_protocols": ["0-10V"],
+      "ports": [
+        {"port_name": "DMX In", "direction": "In", "protocol": "DMX512", "max_devices": 0},
+        {"port_name": "Out 1", "direction": "Out", "protocol": "0-10V", "max_devices": 10}
+      ]
+    },
+    {
+      "name": "TEST-DIM", "item": "TEST-DIM", "label": "Test dimmer", "controller_type": "Wall Dimmer",
+      "output_dimming": "Phase Forward", "input_voltage_type": "VAC", "input_voltage_min": 120,
+      "input_voltage_max": 120, "standby_power_watts": 0, "channels": 1, "max_a_per_channel": 0,
+      "max_load_amps": 0, "max_w_per_channel": 0, "max_load_watts": 0, "dmx_footprint": 0, "unit_load": 0,
+      "dmx_thru": 0, "max_universes": 0, "max_pixels": 0, "max_bus_devices": 0, "max_data_length_ft": 0,
+      "min_load_w": 10, "led_max_w": 150, "max_supplies": 4, "terminal_min_awg": "", "terminal_max_awg": "12",
+      "input_protocols": ["TRIAC"], "output_protocols": [],
+      "ports": [{"port_name": "Load", "direction": "Out", "protocol": "TRIAC", "max_devices": 0}]
+    },
+    {
+      "name": "TEST-SENSOR", "item": "TEST-SENSOR", "label": "Test sensor", "controller_type": "Sensor",
+      "output_dimming": "None", "input_voltage_type": "VDC", "input_voltage_min": 12, "input_voltage_max": 24,
+      "standby_power_watts": 0, "channels": 0, "max_a_per_channel": 0, "max_load_amps": 0,
+      "max_w_per_channel": 0, "max_load_watts": 0, "dmx_footprint": 0, "unit_load": 0, "dmx_thru": 0,
+      "max_universes": 0, "max_pixels": 0, "max_bus_devices": 0, "max_data_length_ft": 0, "min_load_w": 0,
+      "led_max_w": 0, "max_supplies": 0, "terminal_min_awg": "", "terminal_max_awg": "",
+      "input_protocols": [], "output_protocols": [], "ports": []
+    }
+  ],
+  "wires": [
+    {
+      "name": "TEST-WIRE-18-2", "item": "TEST-WIRE-18-2", "wire_name": "18/2 CL3R test cable",
+      "label": "18/2 CL3R test cable", "category": "Class 2 Power", "applications": "class2-dc, lv-branch",
+      "riser_label": "18/2 CL3R", "is_verified": 0, "source_reference": "Test datasheet rev A",
+      "listing": "CL3R", "rated_v": 300, "temp_rating_c": "75", "plenum": 0, "riser": 1, "wet": 0,
+      "direct_burial": 0, "sunlight_resistant": 0, "shielded": 0, "impedance_ohm": 0,
+      "resistance_ohm_per_kft": 0, "ampacity_a": 0, "ampacity_basis": "402.5 fallback", "od_in": 0.21,
+      "sales_uom_mode": "Per Spool", "spool_length_ft": 500, "has_price": true,
+      "conductors": [
+        {"count": 2, "awg": "18", "material": "Cu", "stranding": "Stranded", "role": "Power",
+         "colors": "Red, Black", "resistance_ohm_per_kft": 0, "ampacity_a": 0}
+      ]
+    },
+    {
+      "name": "TEST-WIRE-DMX", "item": "TEST-WIRE-DMX", "wire_name": "DMX test cable", "label": "DMX test cable",
+      "category": "Data", "applications": "dmx", "riser_label": "DMX 2PR", "is_verified": 1,
+      "source_reference": "Test datasheet rev B", "listing": "CMR", "rated_v": 300, "temp_rating_c": "60",
+      "plenum": 0, "riser": 1, "wet": 0, "direct_burial": 0, "sunlight_resistant": 0, "shielded": 1,
+      "impedance_ohm": 120, "resistance_ohm_per_kft": 0, "ampacity_a": 0, "ampacity_basis": "", "od_in": 0,
+      "sales_uom_mode": "Per Foot", "spool_length_ft": 0, "has_price": true,
+      "conductors": [
+        {"count": 4, "awg": "24", "material": "Cu", "stranding": "Stranded", "role": "Data Pair",
+         "colors": "", "resistance_ohm_per_kft": 25.7, "ampacity_a": 0}
+      ]
+    },
+    {
+      "name": "TEST-WIRE-UNPRICED", "item": "TEST-WIRE-UNPRICED", "wire_name": "Unpriced test cable",
+      "label": "Unpriced test cable", "category": "Class 2 Power", "applications": "class2-dc",
+      "riser_label": "16/2", "is_verified": 1, "source_reference": "Test datasheet rev C", "listing": "CL2",
+      "rated_v": 150, "temp_rating_c": "60", "plenum": 0, "riser": 0, "wet": 0, "direct_burial": 0,
+      "sunlight_resistant": 0, "shielded": 0, "impedance_ohm": 0, "resistance_ohm_per_kft": 0,
+      "ampacity_a": 0, "ampacity_basis": "", "od_in": 0, "sales_uom_mode": "Per Foot", "spool_length_ft": 0,
+      "has_price": false,
+      "conductors": [
+        {"count": 2, "awg": "16", "material": "Cu", "stranding": "Stranded", "role": "Power",
+         "colors": "", "resistance_ohm_per_kft": 0, "ampacity_a": 0}
+      ]
+    }
+  ]
+}

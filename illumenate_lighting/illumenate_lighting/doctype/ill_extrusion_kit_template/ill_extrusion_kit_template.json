@@ -10,6 +10,7 @@
   "template_code",
   "template_name",
   "is_active",
+  "product_status",
   "column_break_details",
   "series",
   "default_profile_family",
@@ -31,7 +32,23 @@
   "allowed_options",
   "pricing_section",
   "base_price_msrp",
-  "column_break_pricing"
+  "column_break_pricing",
+  "web_listing_tab",
+  "product_data_section",
+  "warranty_years",
+  "web_lengths_section",
+  "min_length_mm",
+  "max_length_mm",
+  "length_increment_mm",
+  "web_spec_sheet_section",
+  "beam_angle",
+  "l70_life_hours",
+  "web_spec_sheet_column",
+  "operating_temp_min_c",
+  "operating_temp_max_c",
+  "fixture_weight_per_foot_grams",
+  "web_kit_components_section",
+  "kit_components"
  ],
  "fields": [
   {
@@ -59,7 +76,19 @@
    "fieldname": "is_active",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Is Active"
+   "label": "Is Active",
+   "read_only": 1,
+   "description": "Set from Product Status."
+  },
+  {
+   "fieldname": "product_status",
+   "fieldtype": "Select",
+   "label": "Product Status",
+   "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
   },
   {
    "fieldname": "column_break_details",
@@ -194,12 +223,92 @@
   {
    "fieldname": "column_break_pricing",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "web_listing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Product Data"
+  },
+  {
+   "fieldname": "product_data_section",
+   "fieldtype": "Section Break",
+   "label": "Product Data"
+  },
+  {
+   "fieldname": "warranty_years",
+   "fieldtype": "Int",
+   "label": "Warranty (Years)"
+  },
+  {
+   "fieldname": "web_lengths_section",
+   "fieldtype": "Section Break",
+   "label": "Lengths"
+  },
+  {
+   "fieldname": "min_length_mm",
+   "fieldtype": "Int",
+   "label": "Min Length (mm)"
+  },
+  {
+   "fieldname": "max_length_mm",
+   "fieldtype": "Int",
+   "label": "Max Length (mm)"
+  },
+  {
+   "fieldname": "length_increment_mm",
+   "fieldtype": "Int",
+   "label": "Length Increment (mm)"
+  },
+  {
+   "fieldname": "web_spec_sheet_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Sheet Data"
+  },
+  {
+   "fieldname": "beam_angle",
+   "fieldtype": "Float",
+   "label": "Beam Angle"
+  },
+  {
+   "fieldname": "l70_life_hours",
+   "fieldtype": "Int",
+   "label": "L70 Life (Hours)"
+  },
+  {
+   "fieldname": "web_spec_sheet_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operating_temp_min_c",
+   "fieldtype": "Int",
+   "label": "Operating Temp Min (C)"
+  },
+  {
+   "fieldname": "operating_temp_max_c",
+   "fieldtype": "Int",
+   "label": "Operating Temp Max (C)"
+  },
+  {
+   "fieldname": "fixture_weight_per_foot_grams",
+   "fieldtype": "Float",
+   "label": "Fixture Weight per Foot (g)"
+  },
+  {
+   "fieldname": "web_kit_components_section",
+   "fieldtype": "Section Break",
+   "label": "Kit Components"
+  },
+  {
+   "fieldname": "kit_components",
+   "fieldtype": "Table",
+   "label": "Kit Components",
+   "options": "ilL-Child-Webflow-Kit-Component"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-02 12:00:00.000000",
+ "modified": "2026-10-11 22:47:13.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",

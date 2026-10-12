@@ -25,22 +25,63 @@ def snapshot(doc):
 	return build
 
 
-def description(build):
-	parts = [f"{build['request']['family']} group: {len(build['members'])} independent members"]
-	for member in build["members"]:
-		geometry = member["geometry"]
-		if "segments" in geometry:
-			dimensions = " + ".join(f"{s['requested_length_mm'] / 304.8:g} ft" for s in geometry["segments"])
-		else:
-			dimensions = f"{geometry['coverage_width_ft']:g} x {geometry['coverage_height_ft']:g} ft area"
-		parts.append(member["member_key"] + ": " + dimensions)
-	power = build["request"]["power"]
+def feet_inches(mm):
+	"""Builder-friendly length, e.g. 20' 6\"; whole feet drop the inches."""
+	inches = round(float(mm) / 25.4, 1)
+	feet, rest = divmod(inches, 12)
+	rest = round(rest, 1)
+	if rest >= 12:
+		feet, rest = feet + 1, 0
+	text = f"{int(feet)}'" if feet else ""
+	if rest or not feet:
+		text += (" " if text else "") + f'{rest:g}"'
+	return text
+
+
+def run_noun(family, count=1):
+	"""Sheet groups hold coverage areas; every other family holds runs."""
+	noun = "area" if family == "LED Sheet" else "run"
+	return noun if count == 1 else noun + "s"
+
+
+def run_line(index, geometry, label=None):
+	if "segments" not in geometry:
+		return f"{label or f'Area {index}'}: {geometry['coverage_width_ft']:g} x {geometry['coverage_height_ft']:g} ft"
+	segments = geometry["segments"]
+	total = sum(s["requested_length_mm"] for s in segments)
+	text = f"{label or f'Run {index}'}: {feet_inches(total)}"
+	if len(segments) > 1:
+		text += " (" + " + ".join(feet_inches(s["requested_length_mm"]) for s in segments) + " jumpered)"
+	first = segments[0]
+	leader = first.get("start_leader_cable_length_mm")
+	if leader is None:
+		leader = float(first.get("start_lead_length_inches") or 0) * 25.4
+	if leader:
+		text += f", {feet_inches(leader)} leader"
+	return text
+
+
+def description(build, labels=None):
+	"""Readable line text; ``labels`` (member key -> dealer label) name the runs when known."""
+	labels = labels or {}
+	members = build["members"]
+	request = build["request"]
+	lengths = [sum(s["requested_length_mm"] for s in m["geometry"].get("segments", [])) for m in members]
+	title = f"{request['family']} multi-run group: {len(members)} independent {run_noun(request['family'], len(members))}"
+	if any(lengths):
+		title += f", {feet_inches(sum(lengths))} total"
+	parts = [title]
+	parts.extend(
+		run_line(index, member["geometry"], labels.get(member["member_key"]))
+		for index, member in enumerate(members, 1)
+	)
+	power = request["power"]
 	parts.append(
-		"Power supplies on their own line"
+		"Power supplies ordered on their own line"
 		if power.get("separate_supply_line")
 		else "Power supplies included"
 		if power["include_power_supply"]
-		else "External power required"
+		else "Power supplies not included (external power required)"
 	)
 	return "\n".join(parts)
 
@@ -101,7 +142,7 @@ def ensure_artifacts(doc, msrp=None):
 			{
 				"doctype": "Item",
 				"item_code": code,
-				"item_name": f"{doc.family} group ({len(build['members'])} members)",
+				"item_name": f"{doc.family} multi-run group ({len(build['members'])} {run_noun(doc.family, len(build['members']))})",
 				"item_group": "Configured Fixture Groups",
 				"stock_uom": DEFAULT_UOM,
 				"is_stock_item": 1,

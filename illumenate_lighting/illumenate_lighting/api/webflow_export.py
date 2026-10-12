@@ -38,6 +38,7 @@ from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
 from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
     compute_profile_dimensions,
 )
+from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 # Base URL for converting relative file paths to absolute URLs (legacy default;
 # per-brand overrides come from ilL-Webflow-Brand.erpnext_base_url).
@@ -327,6 +328,13 @@ def get_webflow_products(
         start=offset,
         order_by="modified desc"
     )
+
+    # A migrated listing's web content is read from its template (merge plan, step 4).
+    listings = {}
+    for product in products:
+        listing = Listing(frappe.get_doc("ilL-Webflow-Product", product["name"]))
+        listing.overlay(product)
+        listings[product["name"]] = listing
     
     if include_child_tables:
         # Build reverse mapping: attribute doctype -> code_field (once, outside loop)
@@ -336,7 +344,7 @@ def get_webflow_products(
 
         # Expand child tables for each product
         for product in products:
-            doc = frappe.get_doc("ilL-Webflow-Product", product["name"])
+            doc = listings[product["name"]]
 
             # Override sync fields with per-brand row when present.
             per_brand_row = _get_brand_sync_row(
@@ -387,7 +395,7 @@ def get_webflow_products(
                 product["specifications"].append(spec_data)
             
             # Enrich specifications with data from linked doctypes
-            _enrich_specifications_from_linked_doctypes(product, doc)
+            _enrich_specifications_from_linked_doctypes(product, doc.source)
             
             product["certifications"] = [
                 {

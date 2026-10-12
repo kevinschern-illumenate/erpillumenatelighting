@@ -1,6 +1,8 @@
+import json
 import types
 import unittest
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from test_configuration_save import Doc
@@ -116,3 +118,53 @@ class Conversations(unittest.TestCase):
 				module.reply(**args(file_ids=["FILE1"]))
 			frappe.db.rollback.assert_called_once()
 			notify.assert_not_called()
+
+	def test_message_schema_accepts_every_conversation_parent(self):
+		path = (
+			Path(__file__).parents[2]
+			/ "illumenate_lighting/illumenate_lighting/doctype/ill_portal_message/ill_portal_message.json"
+		)
+		field = next(f for f in json.loads(path.read_text())["fields"] if f["fieldname"] == "reference_type")
+		with service() as (module, *_):
+			self.assertEqual(set(field["options"].split("\n")), set(module.PARENTS))
+
+	def test_decision_note_joins_the_customer_conversation_once(self):
+		with service() as (module, _frappe, _files, doc, stored, _staff, notify):
+			doc.doctype, doc.name = "ilL-Order-Intake", "INTAKE1"
+			self.assertIsNone(module.post(doc, "  ", key="UNDER_REVIEW:1"))
+			module.post(
+				doc, "Please confirm the mounting height", key="INFORMATION_NEEDED:1", actor="sales@x.com"
+			)
+			module.post(
+				doc, "Please confirm the mounting height", key="INFORMATION_NEEDED:1", actor="sales@x.com"
+			)
+			(message,) = stored.values()
+			self.assertEqual(
+				(message.visibility, message.action, message.actor, message.reference_name),
+				("Customer", "DECISION", "sales@x.com", "INTAKE1"),
+			)
+			notify.assert_called_once()
+			module.post(doc, "Approved", key="APPROVED:1", notify=False)
+			self.assertEqual(len(stored), 2)
+			notify.assert_called_once()
+
+	def test_messages_name_their_authors_and_side(self):
+		with service() as (module, frappe, _files, _doc, _stored, staff, _notify):
+			staff.return_value = False
+			messages = [
+				Record(
+					name="M2", actor="sales@x.com", body="Approved", visibility="Customer", action="DECISION"
+				),
+				Record(name="M1", actor="buyer@x.com", body="Thanks", visibility="Customer", action="REPLY"),
+			]
+			users = [
+				Record(name="sales@x.com", full_name="Sam Sales", user_type="System User"),
+				Record(name="buyer@x.com", full_name="Bea Buyer", user_type="Website User"),
+			]
+			frappe.get_all.side_effect = lambda doctype, **kwargs: users if doctype == "User" else messages
+			frappe.db.count.return_value = 2
+			rows = module.list_messages("Issue", "ISSUE1")["messages"]
+			self.assertEqual(
+				[(row.actor_name, row.from_staff) for row in rows],
+				[("Sam Sales", True), ("Bea Buyer", False)],
+			)

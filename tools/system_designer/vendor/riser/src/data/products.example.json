@@ -1,0 +1,854 @@
+[
+  {
+    "id": "psu-24v-96w",
+    "sku": "EX-PSU-24V-96W",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 24 V 96 W CV power supply",
+    "category": "psu",
+    "description": "EXAMPLE – replace with real data. 24 V 96 W CV power supply. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "psu",
+      "inputType": "AC",
+      "inputVMin": 120,
+      "inputVMax": 277,
+      "outputType": "CV",
+      "outputV": 24,
+      "ratedW": 96,
+      "outputs": [
+        {
+          "name": "OUT1",
+          "maxW": 96,
+          "class2": true
+        }
+      ],
+      "efficiency": 0.9,
+      "powerFactor": 0.95,
+      "dimming": ["0-10V"],
+      "terminalMinAwg": "18",
+      "terminalMaxAwg": "12",
+      "listings": []
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "driver-350ma",
+    "sku": "EX-DRIVER-350MA",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 350 mA constant-current driver",
+    "category": "driver",
+    "description": "EXAMPLE – replace with real data. 350 mA constant-current driver. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "inputType": "AC",
+      "inputVMin": 120,
+      "inputVMax": 277,
+      "outputType": "CC",
+      "ratedW": 15,
+      "outputs": [
+        {
+          "name": "OUT1",
+          "maxW": 15,
+          "class2": true
+        }
+      ],
+      "efficiency": 0.9,
+      "powerFactor": 0.95,
+      "dimming": ["0-10V"],
+      "terminalMinAwg": "18",
+      "terminalMaxAwg": "12",
+      "listings": [],
+      "kind": "driver",
+      "outputmA": 350,
+      "outputVMin": 18,
+      "outputVMax": 42
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "decoder-4ch",
+    "sku": "EX-DECODER-4CH",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 4-channel DMX decoder",
+    "category": "dmx-decoder",
+    "description": "EXAMPLE – replace with real data. 4-channel DMX decoder. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "decoder",
+      "inputVMin": 12,
+      "inputVMax": 48,
+      "channels": 4,
+      "maxAPerChannel": 5,
+      "maxATotal": 12,
+      "dmxFootprint": 4,
+      "protocolIn": ["DMX512", "RDM"],
+      "protocolOut": ["PWM", "DMX512", "RDM"],
+      "terminalMaxAwg": "12",
+      "unitLoad": 1
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "dmx-controller",
+    "sku": "EX-DMX-CONTROLLER",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE dmx controller",
+    "category": "dmx-controller",
+    "description": "EXAMPLE – replace with real data. dmx controller. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["none"],
+      "protocolOut": ["DMX512"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "none"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "DMX512"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 1000
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "wireless-tx",
+    "sku": "EX-WIRELESS-TX",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE wireless tx",
+    "category": "wireless-tx",
+    "description": "EXAMPLE – replace with real data. wireless tx. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["DMX512"],
+      "protocolOut": ["CRMX-wireless"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "DMX512"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "CRMX-wireless"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 100
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "wireless-rx",
+    "sku": "EX-WIRELESS-RX",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE wireless rx",
+    "category": "wireless-rx",
+    "description": "EXAMPLE – replace with real data. wireless rx. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["CRMX-wireless"],
+      "protocolOut": ["DMX512"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "CRMX-wireless"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "DMX512"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": true,
+      "maxDataLengthFt": 1000
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "pixel-controller",
+    "sku": "EX-PIXEL-CONTROLLER",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE pixel controller",
+    "category": "pixel-controller",
+    "description": "EXAMPLE – replace with real data. pixel controller. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["sACN"],
+      "protocolOut": ["SPI"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "sACN"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "SPI"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 15,
+      "maxPixels": 600
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "opto-splitter",
+    "sku": "EX-OPTO-SPLITTER",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE opto splitter",
+    "category": "opto-splitter",
+    "description": "EXAMPLE – replace with real data. opto splitter. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["DMX512"],
+      "protocolOut": ["DMX512"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "DMX512"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "DMX512"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": true,
+      "maxDataLengthFt": 1000
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "sacn-gateway",
+    "sku": "EX-SACN-GATEWAY",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE sacn gateway",
+    "category": "sacn-gateway",
+    "description": "EXAMPLE – replace with real data. sacn gateway. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["sACN", "Art-Net"],
+      "protocolOut": ["DMX512"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "sACN"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "DMX512"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": true,
+      "maxDataLengthFt": 1000
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "network-switch",
+    "sku": "EX-NETWORK-SWITCH",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE network switch",
+    "category": "network-switch",
+    "description": "EXAMPLE – replace with real data. network switch. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["sACN", "Art-Net"],
+      "protocolOut": ["sACN", "Art-Net"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "sACN"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "sACN"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 100
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "lutron-module",
+    "sku": "EX-LUTRON-MODULE",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE lutron module",
+    "category": "lutron-module",
+    "description": "EXAMPLE – replace with real data. lutron module. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["Lutron-QS"],
+      "protocolOut": ["Lutron-EcoSystem"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "Lutron-QS"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "Lutron-EcoSystem"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 100
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "0-10v-dimmer",
+    "sku": "EX-0-10V-DIMMER",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 0 10v dimmer",
+    "category": "0-10v-dimmer",
+    "description": "EXAMPLE – replace with real data. 0 10v dimmer. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["none"],
+      "protocolOut": ["0-10V"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "none"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "0-10V"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 100
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "keypad",
+    "sku": "EX-KEYPAD",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE keypad",
+    "category": "keypad",
+    "description": "EXAMPLE – replace with real data. keypad. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["none"],
+      "protocolOut": ["Lutron-QS"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "none"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "Lutron-QS"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 100
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "relay",
+    "sku": "EX-RELAY",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE relay",
+    "category": "relay",
+    "description": "EXAMPLE – replace with real data. relay. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "DC",
+      "inputVMin": 24,
+      "inputVMax": 24,
+      "ownPowerW": 5,
+      "protocolIn": ["0-10V"],
+      "protocolOut": ["none"],
+      "ports": [
+        {
+          "name": "DATA-IN",
+          "direction": "in",
+          "protocol": "0-10V"
+        },
+        {
+          "name": "DATA-OUT",
+          "direction": "out",
+          "protocol": "none"
+        }
+      ],
+      "terminalMaxAwg": "16",
+      "startsNewSegment": false,
+      "maxDataLengthFt": 100
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "tape-white",
+    "sku": "EX-TAPE-WHITE",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 24 V white tape",
+    "category": "tape",
+    "description": "EXAMPLE – replace with real data. 24 V white tape. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "tape",
+      "voltage": 24,
+      "drive": "CV",
+      "wPerFtMax": 4.4,
+      "powerBasis": "max-operating",
+      "channelWPerFtMax": [4.4],
+      "channels": 1,
+      "channelMap": ["W"],
+      "maxSimultaneousPct": 100,
+      "maxRunFtSingleFeed": 32,
+      "maxRunFtDoubleFeed": 64,
+      "cutIntervalIn": 4,
+      "minOperatingV": 21.5,
+      "reelLengthFt": 16.4
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "tape-tw",
+    "sku": "EX-TAPE-TW",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 24 V tunable-white tape",
+    "category": "tape",
+    "description": "EXAMPLE – replace with real data. 24 V tunable-white tape. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "tape",
+      "voltage": 24,
+      "drive": "CV",
+      "wPerFtMax": 4.4,
+      "powerBasis": "max-operating",
+      "channelWPerFtMax": [4.4, 4.4],
+      "channels": 2,
+      "channelMap": ["WW", "CW"],
+      "maxSimultaneousPct": 100,
+      "maxRunFtSingleFeed": 32,
+      "maxRunFtDoubleFeed": 64,
+      "cutIntervalIn": 4,
+      "minOperatingV": 21.5,
+      "reelLengthFt": 16.4
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "tape-rgbw",
+    "sku": "EX-TAPE-RGBW",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 24 V rgbw tape",
+    "category": "tape",
+    "description": "EXAMPLE – replace with real data. 24 V rgbw tape. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "tape",
+      "voltage": 24,
+      "drive": "CV",
+      "wPerFtMax": 4.4,
+      "powerBasis": "max-operating",
+      "channelWPerFtMax": [1.1, 1.1, 1.1, 1.1],
+      "channels": 4,
+      "channelMap": ["R", "G", "B", "W"],
+      "maxSimultaneousPct": 400,
+      "maxRunFtSingleFeed": 32,
+      "maxRunFtDoubleFeed": 64,
+      "cutIntervalIn": 4,
+      "minOperatingV": 21.5,
+      "reelLengthFt": 16.4
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "tape-cc-ic",
+    "sku": "EX-TAPE-CC-IC",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 24 V cc-ic tape",
+    "category": "tape",
+    "description": "EXAMPLE – replace with real data. 24 V cc-ic tape. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "tape",
+      "voltage": 24,
+      "drive": "CV-CC-IC",
+      "wPerFtMax": 4.4,
+      "powerBasis": "max-operating",
+      "channelWPerFtMax": [4.4],
+      "channels": 1,
+      "channelMap": ["W"],
+      "maxSimultaneousPct": 100,
+      "maxRunFtSingleFeed": 32,
+      "maxRunFtDoubleFeed": 64,
+      "cutIntervalIn": 4,
+      "minOperatingV": 21.5,
+      "reelLengthFt": 16.4
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "tape-pixel",
+    "sku": "EX-TAPE-PIXEL",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE 24 V pixel tape",
+    "category": "tape",
+    "description": "EXAMPLE – replace with real data. 24 V pixel tape. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "tape",
+      "voltage": 24,
+      "drive": "CV",
+      "wPerFtMax": 4.32,
+      "powerBasis": "max-operating",
+      "channelWPerFtMax": [1.4400000000000002, 1.4400000000000002, 1.4400000000000002],
+      "channels": 3,
+      "channelMap": ["R", "G", "B"],
+      "maxSimultaneousPct": 300,
+      "maxRunFtSingleFeed": 32,
+      "maxRunFtDoubleFeed": 64,
+      "cutIntervalIn": 4,
+      "minOperatingV": 21.5,
+      "reelLengthFt": 16.4,
+      "pixel": {
+        "protocol": "SPI-other",
+        "pixelsPerFt": 3,
+        "ampsPerPixelMax": 0.06
+      }
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "downlight-line",
+    "sku": "EX-DOWNLIGHT-LINE",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE line-voltage downlight",
+    "category": "fixture",
+    "description": "EXAMPLE – replace with real data. line-voltage downlight. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "fixture",
+      "voltageClass": "line",
+      "inputV": [120, 277],
+      "watts": 15,
+      "dimming": ["0-10V"],
+      "integralDriver": true
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "downlight-cc",
+    "sku": "EX-DOWNLIGHT-CC",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE low-voltage CC downlight",
+    "category": "fixture",
+    "description": "EXAMPLE – replace with real data. low-voltage CC downlight. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "fixture",
+      "voltageClass": "low",
+      "inputV": [18, 36],
+      "watts": 9,
+      "drive": "CC",
+      "mA": 350,
+      "dimming": ["none"],
+      "integralDriver": false
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "junction-box",
+    "sku": "EX-JUNCTION-BOX",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE junction box",
+    "category": "junction-box",
+    "description": "EXAMPLE – replace with real data. junction box. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "accessory",
+      "function": "junction",
+      "ports": ["IN", "OUT"],
+      "listings": [],
+      "ratedV": 600,
+      "ratedA": 20,
+      "terminalMinAwg": "18",
+      "terminalMaxAwg": "10"
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "enclosure",
+    "sku": "EX-ENCLOSURE",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE enclosure",
+    "category": "enclosure",
+    "description": "EXAMPLE – replace with real data. enclosure. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "accessory",
+      "function": "enclosure",
+      "ports": ["IN", "OUT"],
+      "listings": [],
+      "ratedV": 600,
+      "ratedA": 20,
+      "terminalMinAwg": "18",
+      "terminalMaxAwg": "10"
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "dmx-0-10v-converter",
+    "sku": "EX-DMX-010-CONVERTER",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE DMX to 0-10 V converter",
+    "category": "dmx-0-10v-converter",
+    "description": "EXAMPLE – replace with real data. Two independent 0-10 V control outputs with a separate AC/DC electronics supply. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "controller",
+      "inputType": "AC/DC",
+      "inputVMin": 12,
+      "inputVMax": 24,
+      "ownPowerW": 2,
+      "powerFactor": 0.9,
+      "protocolIn": ["DMX512"],
+      "protocolOut": ["0-10V", "DMX512"],
+      "ports": [
+        { "name": "DMX-IN", "direction": "in", "protocol": "DMX512" },
+        { "name": "DMX-THRU", "direction": "out", "protocol": "DMX512" },
+        { "name": "DIM1", "direction": "out", "protocol": "0-10V", "maxDevices": 10 },
+        { "name": "DIM2", "direction": "out", "protocol": "0-10V", "maxDevices": 10 }
+      ],
+      "dmxFootprint": 2,
+      "unitLoad": 1,
+      "startsNewSegment": false,
+      "terminalMaxAwg": "12"
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic converter for application testing; not manufacturer product data.",
+      "note": "Replace all ratings, port names and capacities with verified product specifications."
+    },
+    "localOverrides": []
+  },
+  {
+    "id": "distribution-block",
+    "sku": "EX-DISTRIBUTION-BLOCK",
+    "brand": "EXAMPLE",
+    "model": "EXAMPLE distribution block",
+    "category": "distribution-block",
+    "description": "EXAMPLE – replace with real data. distribution block. Synthetic ratings for testing only.",
+    "isExample": true,
+    "specs": {
+      "kind": "accessory",
+      "function": "distribution",
+      "ports": ["IN", "OUT"],
+      "listings": [],
+      "ratedV": 600,
+      "ratedA": 20,
+      "terminalMinAwg": "18",
+      "terminalMaxAwg": "10"
+    },
+    "source": {
+      "kind": "example",
+      "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+      "note": "Replace all ratings and suitability flags with verified product specifications."
+    },
+    "localOverrides": []
+  }
+]

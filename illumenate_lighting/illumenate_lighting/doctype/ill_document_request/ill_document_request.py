@@ -6,6 +6,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_to_date, now_datetime
 
+from illumenate_lighting.illumenate_lighting.stored_values import same
+
 
 class ilLDocumentRequest(Document):
 	def before_insert(self):
@@ -45,7 +47,8 @@ class ilLDocumentRequest(Document):
 		if self.get("technical_reviewer") and (not old or old.get("technical_reviewer") != self.technical_reviewer):
 			if self.technical_reviewer == "Guest" or not frappe.db.get_value("User", self.technical_reviewer, "enabled"):
 				frappe.throw(_("Choose an enabled technical reviewer."))
-			if self.project:
+			# Request staff (engineering, or Applications Engineers on design reviews) read every project.
+			if self.project and not _is_request_staff(self, self.technical_reviewer):
 				from illumenate_lighting.illumenate_lighting.portal.access import can_read_project
 				if not can_read_project(frappe.get_doc("ilL-Project", self.project), self.technical_reviewer):
 					frappe.throw(_("The technical reviewer needs current project access."))
@@ -74,7 +77,7 @@ class ilLDocumentRequest(Document):
 			published = {row.name: row for row in old.deliverables or [] if row.is_published_to_portal}
 			current = {row.name: row for row in self.deliverables or []}
 			for name, row in published.items():
-				if name not in current or any(row.get(key) != current[name].get(key) for key in ("file", "version", "notes", "is_published_to_portal", "published_on", "published_by", "published_build_hash", "published_file_sha256")):
+				if name not in current or any(not same(row.get(key), current[name].get(key)) for key in ("file", "version", "notes", "is_published_to_portal", "published_on", "published_by", "published_build_hash", "published_file_sha256")):
 					frappe.throw(_("Published deliverables are immutable. Add a new revision."))
 			if not _is_request_staff(old, frappe.session.user):
 				for field in ("deliverables", "assigned_to", "owner_customer", "requester_customer", "requester_user", "hide_from_portal", "project", "sales_order", "fixture_schedule", "technical_reviewer", "required_for_manufacturing", "ill_observed_build_hash", "ill_review_state", "ill_impact_task", "ill_next_action_by", "task_link", "sla_deadline", "completed_on"):
@@ -86,13 +89,16 @@ class ilLDocumentRequest(Document):
 			if previous and previous.file == row.file and previous.is_published_to_portal == row.is_published_to_portal:
 				continue
 			if row.file:
-				from illumenate_lighting.illumenate_lighting.portal.file_validation import validate_content
+				from illumenate_lighting.illumenate_lighting.portal.file_validation import (
+					stored_bytes,
+					validate_content,
+				)
 
 				name = frappe.db.get_value("File", {"file_url": row.file, "is_private": 1, "attached_to_doctype": self.doctype, "attached_to_name": self.name}, "name")
 				if not name:
 					frappe.throw(_("Deliverables must be private files attached to this saved request."))
 				file = frappe.get_doc("File", name)
-				validate_content(file.file_name, file.get_content())
+				validate_content(file.file_name, stored_bytes(file))
 			if row.is_published_to_portal and (not row.file or not row.version):
 				frappe.throw(_("Published drawings require a file and an explicit revision."))
 			if row.is_published_to_portal and (not previous or not previous.is_published_to_portal):
@@ -102,7 +108,7 @@ class ilLDocumentRequest(Document):
 
 				row.published_on, row.published_by = now_datetime(), frappe.session.user
 				row.published_build_hash = request_build_hash(self)
-				row.published_file_sha256 = sha256(file.get_content()).hexdigest()
+				row.published_file_sha256 = sha256(stored_bytes(file)).hexdigest()
 		versions = [row.version for row in self.deliverables or [] if row.is_published_to_portal and row.version]
 		if len(versions) != len(set(versions)):
 			frappe.throw(_("Each published drawing must have a unique revision."))
@@ -346,10 +352,16 @@ def _get_user_customer(user):
 	return None
 
 
+SYSTEM_DESIGN_REVIEW = "System Design Review"
+
+
 def _is_request_staff(doc, user):
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
 	if allowed("engineering", user):
+		return True
+	# Applications Engineers (D3) handle System Designer review requests like drawing staff.
+	if doc and doc.get("request_type") == SYSTEM_DESIGN_REVIEW and allowed("design_review", user):
 		return True
 	return bool(doc and doc.assigned_to == user and frappe.db.get_value("User", user, "enabled") and frappe.db.get_value("User", user, "user_type") == "System User")
 
@@ -376,6 +388,8 @@ def get_permission_query_conditions(user=None):
 	scope = f"(({' OR '.join(owners)}) AND {table}.hide_from_portal = 0 AND (COALESCE({table}.project, '') = '' OR {table}.project IN (SELECT name FROM `tabilL-Project` WHERE {project})))"
 	if frappe.db.get_value("User", user, "user_type") == "System User":
 		scope = f"({scope} OR {table}.assigned_to = {actor})"
+	if allowed("design_review", user):
+		scope = f"({scope} OR {table}.request_type = {frappe.db.escape(SYSTEM_DESIGN_REVIEW)})"
 	return scope
 
 

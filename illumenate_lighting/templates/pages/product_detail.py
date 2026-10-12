@@ -14,6 +14,7 @@ from frappe import _
 
 from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+from illumenate_lighting.illumenate_lighting.portal_listing import portal_product
 
 no_cache = 1
 
@@ -34,13 +35,10 @@ def get_context(context):
 
     product_slug = frappe.form_dict.get("slug", "")
 
-    # Validate product exists
-    if not product_slug or not frappe.db.exists(
-        "ilL-Webflow-Product", {"product_slug": product_slug, "is_active": 1}
-    ):
+    # Validate the product exists and the portal shows it
+    product = portal_product({"product_slug": product_slug}) if product_slug else None
+    if not product:
         frappe.throw(_("Product not found"), frappe.DoesNotExistError)
-
-    product = frappe.get_doc("ilL-Webflow-Product", {"product_slug": product_slug})
 
     context.product_slug = product_slug
     context.product_name = product.product_name

@@ -1,6 +1,8 @@
 """Durable commercial intake and a shared native Sales Order approval guard."""
 
+import html
 import json
+import re
 
 import frappe
 from frappe.utils import now
@@ -9,6 +11,7 @@ from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_b
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 from illumenate_lighting.illumenate_lighting.portal.access import get_actor
 from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
+from illumenate_lighting.illumenate_lighting.stored_values import same
 
 DOCTYPE = "ilL-Order-Intake"
 APPROVER_ROLE = "ilL Order Approver"
@@ -73,6 +76,104 @@ def snapshot(order):
 	)
 
 
+# Rich-text fields that Desk's editor re-wraps (for example in a
+# ``ql-editor`` div) without changing what the buyer reads.
+HTML_FIELDS = frozenset(("terms", "address_display", "shipping_address", "contact_display", "description"))
+
+
+def _html_text(value):
+	value = re.sub(r"<br\s*/?>|</(?:p|div|li|tr)>", "\n", value, flags=re.IGNORECASE)
+	return html.unescape(re.sub(r"<[^>]+>", " ", value))
+
+
+def _normalize(value, key=None):
+	"""Make a snapshot compare by meaning, not by how it reached Python.
+
+	A Desk submit sends the client's copy of the order: whole numbers arrive as
+	ints where the database gives floats, empty fields arrive as "", and the
+	rich-text editor re-wraps HTML. None of that changes what the buyer
+	acknowledged, so it must not change the revision they acknowledged.
+	"""
+	if isinstance(value, dict):
+		return {k: _normalize(v, k) for k, v in value.items()}
+	if isinstance(value, list):
+		return [_normalize(v) for v in value]
+	if isinstance(value, bool) or value is None:
+		return value
+	if isinstance(value, int | float):
+		return round(float(value), 6) + 0.0
+	if isinstance(value, str):
+		if key in HTML_FIELDS:
+			value = _html_text(value)
+		value = " ".join(value.split())
+		return value or None
+	return value
+
+
+def revision(order):
+	"""The buyer-facing revision of an order, normalized for acknowledgment."""
+	return _normalize(snapshot(order))
+
+
+def revision_hashes(order):
+	"""Every hash an acknowledgment of this order could hold, current and pre-normalization."""
+	return (fingerprint(revision(order)), fingerprint(snapshot(order)))
+
+
+def _acknowledged(request, order, stored=None):
+	"""Whether the buyer's acknowledgment covers the order as it stands.
+
+	Acknowledgments recorded before normalization hold the raw snapshot hash of
+	the saved order. They still count when ``stored`` (the saved order, at
+	submit) matches that hash and means the same as the order being submitted.
+	"""
+	if not request.get("acknowledged_hash"):
+		return False
+	current = revision(order)
+	if request.acknowledged_hash == fingerprint(current):
+		return True
+	stored = stored or order
+	return request.acknowledged_hash == fingerprint(snapshot(stored)) and revision(stored) == current
+
+
+def _changed_since_acknowledgment(request, order):
+	"""Name what moved since the buyer acknowledged, so staff know what to fix."""
+	if not request.get("acknowledged_snapshot"):
+		return []
+	before, after = json.loads(request.acknowledged_snapshot), revision(order)
+	changed = [
+		key.replace("_", " ")
+		for key in sorted(set(before) | set(after))
+		if key != "items" and before.get(key) != after.get(key)
+	]
+	old_rows = {row.get("name"): row for row in before.get("items") or []}
+	new_rows = {row.get("name"): row for row in after.get("items") or []}
+	for position, (name, row) in enumerate(new_rows.items(), start=1):
+		old = old_rows.get(name)
+		if old is None:
+			changed.append(f"row {position} added")
+			continue
+		fields = [
+			key.replace("_", " ") for key in sorted(set(old) | set(row)) if old.get(key) != row.get(key)
+		]
+		if fields:
+			changed.append(f"row {position} {', '.join(fields)}")
+	if set(old_rows) - set(new_rows):
+		changed.append("rows removed")
+	return changed
+
+
+def _record_acknowledgment(request, order, user, action):
+	current = revision(order)
+	request.acknowledged_hash = fingerprint(current)
+	request.acknowledged_snapshot = canonical_json(current)
+	request.acknowledged_by, request.acknowledged_on = user, now()
+	request.append(
+		"decisions",
+		{"action": action, "actor": user, "recorded_on": now(), "revision_hash": request.acknowledged_hash},
+	)
+
+
 def _staff(order, *, approve=False):
 	user = frappe.session.user
 	roles = set(frappe.get_roles(user))
@@ -110,6 +211,7 @@ def capture(order, requested_by=None):
 			"request_snapshot": canonical_json(data),
 			"request_hash": fingerprint(data),
 			"acknowledged_hash": None,
+			"acknowledged_snapshot": None,
 			"acknowledged_by": None,
 			"acknowledged_on": None,
 		}
@@ -158,7 +260,11 @@ def _load(order_name):
 	return order, frappe.get_doc(DOCTYPE, name)
 
 
-def record_buyer_po_edit(order, previous_hash, user):
+def record_buyer_po_edit(order, previous_hashes, user):
+	"""Carry the buyer's acknowledgment across their own PO number edit.
+
+	``previous_hashes`` are the order's ``revision_hashes`` before the edit.
+	"""
 	actor = get_actor(user)
 	if not actor.is_company_dealer_for(order.customer):
 		return
@@ -168,17 +274,8 @@ def record_buyer_po_edit(order, previous_hash, user):
 	request = frappe.get_doc(DOCTYPE, name)
 	if request.state in ("REJECTED", "WITHDRAWN", "APPROVED"):
 		frappe.throw("This order request is no longer editable")
-	if request.acknowledged_hash == previous_hash:
-		current = fingerprint(snapshot(order))
-		request.acknowledged_hash, request.acknowledged_by, request.acknowledged_on = (
-			current,
-			actor.user,
-			now(),
-		)
-		request.append(
-			"decisions",
-			{"action": "PO_UPDATED", "actor": actor.user, "recorded_on": now(), "revision_hash": current},
-		)
+	if request.acknowledged_hash and request.acknowledged_hash in previous_hashes:
+		_record_acknowledgment(request, order, actor.user, "PO_UPDATED")
 		request.save(ignore_permissions=True)
 
 
@@ -186,7 +283,7 @@ def before_submit(order, method=None):
 	if not _portal_governed(order):
 		return
 	_staff(order, approve=True)
-	_, request = _load(order.name)
+	stored, request = _load(order.name)
 	if not request.get("intake_json"):
 		frappe.throw("Complete the buyer's PO, address and receiving intake before approval")
 	if not order.get("ill_confirmed_delivery_date") or not order.get("ill_delivery_confirmed_by"):
@@ -203,11 +300,14 @@ def before_submit(order, method=None):
 		if not order.get(field):
 			frappe.throw("Billing, shipping and purchasing-contact context is required")
 		require_owned(frappe.get_doc(doctype, order.get(field)), order.customer)
-	current_hash = fingerprint(snapshot(order))
 	if request.state not in ("SUBMITTED", "UNDER_REVIEW", "CHANGES_PROPOSED"):
 		frappe.throw("Resolve the order intake before approval")
-	if current_hash != request.acknowledged_hash:
-		frappe.throw("The buyer must acknowledge the current order revision before approval")
+	if not _acknowledged(request, order, stored):
+		changed = _changed_since_acknowledgment(request, order)
+		frappe.throw(
+			"The buyer must acknowledge the current order revision before approval"
+			+ (f". Changed since the buyer acknowledged: {'; '.join(changed)}" if changed else "")
+		)
 	if not request.acknowledged_by or not get_actor(request.acknowledged_by).is_company_dealer_for(
 		order.customer
 	):
@@ -250,6 +350,7 @@ def on_submit(order, method=None):
 
 	create(request)
 	request.save(ignore_permissions=True)
+	_post_decision(request, "Order approved. Your order acknowledgment is ready to download from this page.")
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_order_review
 
 	notify_order_review(order, request)
@@ -296,12 +397,23 @@ def review(order_name, action, note=None, expected_modified=None):
 		},
 	)
 	request.save(ignore_permissions=True)
+	_post_decision(request, request.customer_message)
 	if action == "REJECT":
 		mark_issue(order, request.customer_message)
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_order_review
 
 	notify_order_review(order, request)
 	return {"success": True, "state": request.state, "sales_order": order.name}
+
+
+def _post_decision(request, note):
+	"""Put a decision note in the order's conversation, next to the replies.
+
+	The caller sends the order-review email, so the post does not notify again.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.conversations import post
+
+	post(request, note, key=f"{request.state}:{len(request.decisions or [])}", notify=False)
 
 
 def mark_issue(order, note):
@@ -339,6 +451,7 @@ def withdraw(order_name, revision_hash, note):
 		},
 	)
 	request.save(ignore_permissions=True)
+	_post_decision(request, note)
 	mark_issue(order, note.strip())
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_order_review
 
@@ -357,8 +470,8 @@ def acknowledge(order_name, revision_hash):
 	if (
 		not order.docstatus
 		and request.state == "UNDER_REVIEW"
-		and request.acknowledged_hash == revision_hash
 		and fingerprint(snapshot(order)) == revision_hash
+		and _acknowledged(request, order)
 	):
 		return {"success": True, "state": request.state, "already_existed": True}
 	if (
@@ -372,11 +485,7 @@ def acknowledge(order_name, revision_hash):
 	current = fingerprint(snapshot(order))
 	if revision_hash != current:
 		frappe.throw("The order changed. Reload and review the current revision.")
-	request.acknowledged_hash, request.acknowledged_by, request.acknowledged_on = current, actor.user, now()
-	request.append(
-		"decisions",
-		{"action": "ACKNOWLEDGED", "actor": actor.user, "recorded_on": now(), "revision_hash": current},
-	)
+	_record_acknowledgment(request, order, actor.user, "ACKNOWLEDGED")
 	request.state = "UNDER_REVIEW"
 	request.save(ignore_permissions=True)
 	return {"success": True, "state": request.state}
@@ -391,9 +500,14 @@ def detail(order_name):
 		return None
 	request = frappe.get_doc(DOCTYPE, name)
 	current = snapshot(order)
+	acknowledged = _acknowledged(request, order)
+	step = next_step(order, request, acknowledged)
 	return {
 		"name": name,
 		"state": request.state,
+		"next_step": step,
+		"acknowledged": acknowledged,
+		"acknowledged_on": request.acknowledged_on if acknowledged else None,
 		"message": request.customer_message,
 		"revision_hash": fingerprint(current),
 		"original": json.loads(request.request_snapshot),
@@ -403,7 +517,7 @@ def detail(order_name):
 		and request.state in ("CHANGES_PROPOSED", "SUBMITTED", "UNDER_REVIEW")
 		and bool(request.get("intake_json"))
 		and bool(order.get("ill_confirmed_delivery_date"))
-		and request.acknowledged_hash != fingerprint(current)
+		and not acknowledged
 		and get_actor().is_dealer,
 		"needs_intake": not order.docstatus and not request.get("intake_json"),
 		"acknowledgment_available": bool(request.get("acknowledgment_file")),
@@ -414,6 +528,63 @@ def detail(order_name):
 		and get_actor().is_dealer,
 		"can_replace": request.state in ("REJECTED", "WITHDRAWN") and get_actor().is_dealer,
 	}
+
+
+def next_step(order, request, acknowledged):
+	"""Who acts next on an order request and what they do, in the buyer's words.
+
+	``buyer`` is True when the dealer has something to do; the order list's
+	"Needs your action" filter and the detail page banner both read it.
+	"""
+	if order.docstatus == 1 or request.state == "APPROVED":
+		return {"buyer": False, "text": "Approved. ilLumenate has confirmed this order."}
+	if order.docstatus == 2:
+		return {"buyer": False, "text": "This order was cancelled."}
+	if request.state == "WITHDRAWN":
+		return {
+			"buyer": False,
+			"text": "You withdrew this request. Prepare a replacement draft to order again.",
+		}
+	if request.state == "REJECTED":
+		return {
+			"buyer": True,
+			"text": "ilLumenate could not approve this request. Read their message and prepare a replacement draft.",
+		}
+	if not request.get("intake_json"):
+		return {
+			"buyer": True,
+			"text": "Complete the PO, addresses and contact so ilLumenate can review this request.",
+		}
+	if request.state == "INFORMATION_NEEDED":
+		return {"buyer": True, "text": "ilLumenate needs more information. Reply in the conversation below."}
+	if not order.get("ill_confirmed_delivery_date"):
+		return {
+			"buyer": False,
+			"text": "ilLumenate is reviewing your request and will confirm a delivery date.",
+		}
+	if not acknowledged:
+		return {
+			"buyer": True,
+			"text": "Review the current prices, addresses and confirmed delivery date, then acknowledge this revision.",
+		}
+	return {"buyer": False, "text": "You acknowledged this revision. ilLumenate will approve the order next."}
+
+
+def buyer_actions(order_names):
+	"""The draft orders among ``order_names`` that are waiting on the buyer."""
+	waiting = set()
+	if not order_names:
+		return waiting
+	for intake in frappe.get_all(
+		DOCTYPE, filters={"sales_order": ["in", list(order_names)]}, fields=["name", "sales_order"]
+	):
+		order = frappe.get_doc("Sales Order", intake.sales_order)
+		if order.docstatus:
+			continue
+		request = frappe.get_doc(DOCTYPE, intake.name)
+		if next_step(order, request, _acknowledged(request, order))["buyer"]:
+			waiting.add(order.name)
+	return waiting
 
 
 def validate_order(order, method=None):
@@ -432,8 +603,8 @@ def validate_order(order, method=None):
 		# that order. The amendment gets a fresh intake and buyer acknowledgment.
 		order.ill_quote_offer = None
 		order.ill_confirmed_delivery_date = None
-	changed = order.get("ill_confirmed_delivery_date") != (
-		old.get("ill_confirmed_delivery_date") if old else None
+	changed = not same(
+		order.get("ill_confirmed_delivery_date"), old.get("ill_confirmed_delivery_date") if old else None
 	)
 	if changed:
 		if governed:

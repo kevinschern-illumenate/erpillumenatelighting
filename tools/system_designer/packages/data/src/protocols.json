@@ -1,0 +1,42 @@
+{
+  "_comment": "Appendix B.1. Mirrored by system_design/protocols.py; tests on both sides keep them identical.",
+  "engineProtocols": [
+    "none",
+    "phase-forward",
+    "phase-reverse",
+    "0-10V",
+    "1-10V",
+    "DALI-2",
+    "DMX512",
+    "RDM",
+    "sACN",
+    "Art-Net",
+    "CRMX-wireless",
+    "Lutron-QS",
+    "Lutron-EcoSystem",
+    "PWM",
+    "SPI"
+  ],
+  "attributeProtocols": {
+    "0-10V": "0-10V",
+    "TRIAC": "phase-forward",
+    "MLV": "phase-forward",
+    "ELV": "phase-reverse",
+    "DALI": "DALI-2",
+    "DMX512": "DMX512",
+    "DMX/RDM": "DMX512",
+    "SPI": "SPI",
+    "PWM": "PWM"
+  },
+  "phaseProtocols": [
+    "phase-forward",
+    "phase-reverse"
+  ],
+  "dmxProtocols": [
+    "Art-Net",
+    "CRMX-wireless",
+    "DMX512",
+    "RDM",
+    "sACN"
+  ]
+}

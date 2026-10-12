@@ -39,7 +39,7 @@ class Facts(unittest.TestCase):
 				)
 				for i in range(copies)
 			)
-			tables.setdefault(doctype, []).append(Record(name=name, is_active=1))
+			tables.setdefault(doctype, []).append(Record(name=name, is_active=1, product_status="Active"))
 			tables.setdefault(child, []).extend(
 				[
 					Record(

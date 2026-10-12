@@ -1,22 +1,125 @@
 {% extends "templates/web.html" %}
+{% block title %}{{ _("My Quotes") }}{% endblock %}
 {% block page_content %}
 {% include "templates/includes/portal_navigation.html" %}
-<main class="container py-4">
-  <a href="/portal">{{ _("Back to portal") }}</a>
-  <h1 class="mt-3">{{ _("My Quotes") }}</h1>
-  <h2 class="h4">{{ _("Quote and engineering requests") }}</h2>
-  {% for request in requests %}<p><a href="/portal/quote-requests/{{ request.name | urlencode }}">{{ request.name | e }}</a> · {{ request.state | e }} · {{ request.schedule | e }}</p>{% else %}<p>{{ _("No requests on this page.") }}</p>{% endfor %}
-  {% if requests_page > 1 %}<a class="btn btn-outline-secondary" href="?requests_page={{ requests_page - 1 }}">{{ _("Newer requests") }}</a>{% endif %}
-  {% if more_requests %}<a class="btn btn-outline-secondary" href="?requests_page={{ requests_page + 1 }}">{{ _("Older requests") }}</a>{% endif %}
-  <h2 class="h4 mt-4">{{ _("Issued offers") }}</h2>
-  <p>{{ _("Issued quotations for your company. A quote request becomes an offer after Sales prepares and issues its terms.") }}</p>
-  {% for offer in offers %}
-  <article class="card mb-3"><div class="card-body">
-    <h2 class="h5"><a href="/portal/quotes/{{ offer.name | e }}">{{ offer.name | e }}</a></h2>
-    <p>{{ offer.quotation | e }} · {{ offer.state | e }}</p>
-    <p class="mb-0">{{ _("Valid until") }}: {{ offer.valid_until or _("As stated in quotation terms") }}</p>
-  </div></article>
-  {% else %}<p class="alert alert-info">{{ _("No issued quotations are available to this account.") }}</p>{% endfor %}
-  {% if next_cursor %}<a class="btn btn-outline-primary" href="/portal/quotes?after={{ next_cursor | e }}">{{ _("Older quotes") }}</a>{% endif %}
+{% set status = status | default('all', true) %}
+{% set search = search | default('', true) %}
+{% set request_status = request_status | default('open', true) %}
+<main class="container ill-commerce">
+  <header class="ill-hero">
+    <div class="ill-hero__top">
+      <div>
+        <p class="ill-hero__eyebrow">{{ _("Dealer portal") }}</p>
+        <h1>{{ _("My Quotes") }}</h1>
+        <p class="ill-hero__lead">{{ _("Review quotes ilLumenate has issued, accept them as orders, and follow your open quote requests.") }}</p>
+      </div>
+      <div class="ill-hero__actions">
+        <a class="btn btn-accent" href="/portal/projects"><i class="fa fa-plus" aria-hidden="true"></i> {{ _("Request a quote") }}</a>
+      </div>
+    </div>
+  </header>
+
+  <section aria-labelledby="offers-heading">
+    <div class="ill-section-head">
+      <h2 id="offers-heading">{{ _("Issued quotes") }}</h2>
+      <p>{{ _("Open a quote to review its lines and terms, then accept it or request a revision.") }}</p>
+    </div>
+    <form method="get" class="ill-toolbar" role="search">
+      <div class="ill-toolbar__field">
+        <label for="quote-search">{{ _("Quote, quotation or schedule") }}</label>
+        <div class="ill-search">
+          <i class="fa fa-search" aria-hidden="true"></i>
+          <input id="quote-search" class="form-control" type="search" name="search" value="{{ search | e }}" maxlength="140" placeholder="{{ _('Search quotes') }}">
+        </div>
+      </div>
+      <div class="ill-toolbar__field ill-toolbar__field--narrow">
+        <label for="quote-status">{{ _("Status") }}</label>
+        <select id="quote-status" name="status" class="form-control">
+        {% for key, label in [('all','All quotes'),('open','Awaiting your response'),('revision','Revision requested'),('accepted','Accepted'),('declined','Declined'),('expired','Expired')] %}
+          <option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ _(label) }}</option>
+        {% endfor %}
+        </select>
+      </div>
+      <input type="hidden" name="requests" value="{{ request_status | e }}">
+      <button class="btn btn-primary" type="submit">{{ _("Find quotes") }}</button>
+      {% if search or status != 'all' %}<a class="btn btn-link" href="/portal/quotes?requests={{ request_status | urlencode }}">{{ _("Clear") }}</a>{% endif %}
+    </form>
+
+    <div class="ill-records">
+    {% for offer in offers %}
+      <article class="ill-record">
+        <div class="ill-record__main">
+          <a class="ill-record__title" href="/portal/quotes/{{ offer.name | urlencode }}">{{ offer.name | e }}</a>
+          <p class="ill-record__sub">{% if offer.project_name %}{{ offer.project_name | e }} · {% endif %}{{ offer.schedule_name | default(offer.schedule, true) | e }}</p>
+        </div>
+        <dl class="ill-record__facts">
+          <div><dt>{{ _("Quotation") }}</dt><dd>{{ offer.quotation | e }}</dd></div>
+          {% if offer.grand_total is defined and offer.grand_total is not none %}<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(offer.grand_total, {"fieldtype": "Currency", "options": offer.currency}) }}</dd></div>{% endif %}
+          <div><dt>{{ _("Valid until") }}</dt><dd>{{ frappe.utils.format_date(offer.valid_until) if offer.valid_until else _("Per quotation terms") }}</dd></div>
+          {% if offer.sales_order %}<div><dt>{{ _("Order") }}</dt><dd><a href="/portal/orders/{{ offer.sales_order | urlencode }}">{{ offer.sales_order | e }}</a></dd></div>{% endif %}
+        </dl>
+        <div class="ill-record__end">
+          <span class="ill-status ill-status--{{ offer.status_class | default('secondary', true) | e }}">{{ _(offer.status_label | default(offer.state, true)) | e }}</span>
+          <i class="fa fa-angle-right" aria-hidden="true"></i>
+        </div>
+      </article>
+    {% else %}
+      {% if search or status != 'all' %}
+      <div class="ill-empty">
+        <i class="fa fa-search" aria-hidden="true"></i>
+        <h3>{{ _("No quotes match this search.") }}</h3>
+        <p>{{ _("Try another search term or status.") }}</p>
+        <a class="btn btn-outline-primary btn-sm" href="/portal/quotes">{{ _("Show all quotes") }}</a>
+      </div>
+      {% else %}
+      <div class="ill-empty">
+        <i class="fa fa-file-text-o" aria-hidden="true"></i>
+        <h3>{{ _("No issued quotations are available to this account.") }}</h3>
+        <p>{{ _("Send a quote request from a fixture schedule and the quote will appear here once Sales issues it.") }}</p>
+        <a class="btn btn-primary btn-sm" href="/portal/projects">{{ _("Go to projects") }}</a>
+      </div>
+      {% endif %}
+    {% endfor %}
+    </div>
+    {% if next_cursor %}
+    <nav class="ill-pager" aria-label="{{ _('Quote pages') }}">
+      <span></span>
+      <a class="btn btn-outline-primary btn-sm" href="/portal/quotes?after={{ next_cursor | urlencode }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}&amp;requests={{ request_status | urlencode }}">{{ _("Older quotes") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>
+    </nav>
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="requests-heading">
+    <div class="ill-section-head">
+      <h2 id="requests-heading">{{ _("Quote and engineering requests") }}</h2>
+      <p>{{ _("Requests you've sent from a schedule. Sales replies in each request's conversation and issues a quote when it's ready.") }}</p>
+    </div>
+    <nav class="ill-segments" aria-label="{{ _('Request status') }}">
+    {% for key, label in [('open','Open'),('action','Needs your reply'),('closed','Quoted or closed'),('all','All')] %}
+      <a {% if request_status == key %}aria-current="page"{% endif %} href="?requests={{ key }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _(label) }}</a>
+    {% endfor %}
+    </nav>
+    <div class="ill-records">
+    {% for request in requests %}
+      <article class="ill-record ill-record--compact">
+        <div class="ill-record__main">
+          <a class="ill-record__title" href="/portal/quote-requests/{{ request.name | urlencode }}">{{ request.name | e }}</a>
+          <p class="ill-record__sub">{{ request.schedule_name | default(request.schedule, true) | e }}{% if request.creation | default(none) %} · {{ _("Sent") }} {{ frappe.utils.format_date(request.creation) }}{% endif %}</p>
+        </div>
+        <div class="ill-record__end">
+          <span class="ill-status ill-status--{{ request.status_class | default('secondary', true) | e }}">{{ _(request.status_label | default(request.state, true)) | e }}</span>
+        </div>
+      </article>
+    {% else %}
+      <div class="ill-empty ill-empty--quiet"><p>{{ _("No requests here.") }}</p></div>
+    {% endfor %}
+    </div>
+    {% if requests_page > 1 or more_requests %}
+    <nav class="ill-pager" aria-label="{{ _('Request pages') }}">
+      {% if requests_page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?requests={{ request_status | urlencode }}&amp;requests_page={{ requests_page - 1 }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Newer requests") }}</a>{% else %}<span></span>{% endif %}
+      {% if more_requests %}<a class="btn btn-outline-secondary btn-sm" href="?requests={{ request_status | urlencode }}&amp;requests_page={{ requests_page + 1 }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _("Older requests") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% endif %}
+    </nav>
+    {% endif %}
+  </section>
 </main>
 {% endblock %}

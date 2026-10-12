@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "fields": {
+    "item_code": "sku",
+    "brand": "brand",
+    "item_name": "model",
+    "description": "description",
+    "custom_riser_category": "category",
+    "custom_riser_is_example": "isExample",
+    "custom_riser_specs": "specs"
+  }
+}

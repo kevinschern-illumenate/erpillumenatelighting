@@ -1,0 +1,216 @@
+{
+ "schemaVersion": 1,
+ "engineVersion": "riser-1.2.0",
+ "catalogSnapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "schedule": {
+  "name": "SCH-FIXTURE",
+  "version": 2
+ },
+ "site": {
+  "spaces": [
+   {
+    "id": "sp-kitchen",
+    "name": "Kitchen",
+    "level": "Main",
+    "type": "kitchen",
+    "archetype": "under-cabinet",
+    "env": "dry-concealed"
+   },
+   {
+    "id": "sp-patio",
+    "name": "Patio café",
+    "level": "",
+    "type": "exterior",
+    "archetype": "none",
+    "env": "wet"
+   }
+  ],
+  "cabinets": [
+   {
+    "id": "cab-1",
+    "tag": "PC-1",
+    "name": "Pantry",
+    "spaceId": "sp-kitchen",
+    "locationRating": "Dry",
+    "env": "dry-concealed",
+    "accessNote": "Above the pantry door",
+    "feedLengthFt": 12.5,
+    "feedLengthProvenance": "entered"
+   }
+  ],
+  "floorPlans": []
+ },
+ "runs": [
+  {
+   "key": "LK-1:1:1",
+   "lineKey": "LK-1",
+   "lineId": "A1",
+   "buildIndex": 1,
+   "runIndex": 1,
+   "source": {
+    "kind": "configured",
+    "doctype": "ilL-Configured-Tape-Neon",
+    "name": "CTN-0001",
+    "configHash": "cfg-1"
+   },
+   "catalogId": "tape:TAPE-24:4.4:50",
+   "lengthFt": 12.34567,
+   "watts": 54.32109,
+   "feedMethod": "end",
+   "spaceId": "sp-kitchen",
+   "env": "dry-concealed",
+   "homeRunLengthFt": 8.0004,
+   "homeRunProvenance": "estimate",
+   "assignment": {
+    "equipmentId": "PS-1",
+    "port": "OUT1"
+   },
+   "zoneId": "z-1",
+   "colour": "red"
+  },
+  {
+   "key": "LK-1:2:1",
+   "lineKey": "LK-1",
+   "lineId": "A1",
+   "buildIndex": 2,
+   "runIndex": 1,
+   "groupId": "g-1",
+   "source": {
+    "kind": "configured",
+    "doctype": "ilL-Configured-Tape-Neon",
+    "name": "CTN-0001",
+    "configHash": "cfg-1"
+   },
+   "catalogId": "tape:TAPE-24:4.4:50",
+   "lengthFt": 6,
+   "watts": 26.4,
+   "feedMethod": "multi-feed",
+   "feeds": 3,
+   "spaceId": "sp-kitchen",
+   "env": "dry-concealed",
+   "homeRunLengthFt": 0,
+   "homeRunProvenance": "measured"
+  },
+  {
+   "key": "TP-9:1:1",
+   "lineKey": "TP-9",
+   "lineId": "X2",
+   "buildIndex": 1,
+   "runIndex": 1,
+   "source": {
+    "kind": "third-party"
+   },
+   "catalogId": "tp:TP-9",
+   "watts": 12,
+   "feedMethod": "end",
+   "spaceId": "sp-patio",
+   "env": "wet",
+   "homeRunLengthFt": 25,
+   "homeRunProvenance": "entered",
+   "assignment": {
+    "equipmentId": "PS-2",
+    "port": "OUT1"
+   }
+  }
+ ],
+ "zones": [
+  {
+   "id": "z-1",
+   "name": "Kitchen accent",
+   "color": "#1A7F64",
+   "method": "0-10V"
+  }
+ ],
+ "project": {
+  "schemaVersion": 1,
+  "id": "00000000-0000-4000-8000-000000000001",
+  "meta": {
+   "name": "Fixture house",
+   "number": "",
+   "client": "",
+   "siteAddress": "",
+   "designer": "",
+   "checker": "",
+   "date": "2026-10-09",
+   "brand": "illumenate",
+   "sheetPrefix": "L-",
+   "stamp": "PRELIMINARY"
+  },
+  "settings": {
+   "necEdition": "2023",
+   "terminationTempC": 75,
+   "vdTargetLineVoltagePct": 3,
+   "vdTargetLowVoltagePct": 3,
+   "vdTargetLandscapePct": 5,
+   "vdMethod": "lumped-at-end",
+   "acVdMethod": "dc-resistance",
+   "psuDeratePct": 80,
+   "continuousLoadFactor": 1.25,
+   "breakerLoadLimitPct": 80,
+   "tapeLengthMarginPct": 0,
+   "minAwgLineVoltage": "12",
+   "dmxMaxUnitLoads": 32,
+   "dmxMaxLengthFt": 1000,
+   "spiMaxDataFt": 15,
+   "units": "ft",
+   "drawingFont": "Arimo",
+   "showSchedules": true,
+   "sheet": {
+    "size": "ARCH_D",
+    "flow": "LR"
+   },
+   "wireWastePct": 10,
+   "dmxAutoPatchRoundTo": 1,
+   "wireLabelTemplate": "{tag} · {wireLabel} · {lengthFt} ft · VD {vdPct}%",
+   "parallelConductorPolicy": "manual-review-required"
+  },
+  "sources": [],
+  "equipment": [],
+  "loads": [],
+  "controlLinks": [],
+  "wireOverrides": {},
+  "layoutOverrides": {},
+  "generalNotes": [
+   "Install and commission equipment in accordance with the approved product documentation, project specifications and adopted code. Verify listings and installation conditions before procurement.",
+   "Field-verify circuit voltage, source identity, enclosure locations, access and actual one-way cable lengths before installation. Coordinate discrepancies with the designer.",
+   "Maintain required separation, barriers and wiring methods between power-limited circuits and branch circuits. Cable voltage rating alone does not authorize mixed routing.",
+   "Verify conductor material, gauge, insulation, environmental rating, ampacity and terminal capacity for every run. Account for applicable ambient and grouping adjustments.",
+   "Do not parallel power-supply outputs or field conductors unless the listed equipment instructions and applicable rules permit the arrangement. Provide approved distribution and overcurrent protection as required.",
+   "Route wired DMX as a daisy chain or through a listed opto-splitter. Terminate the final receiver of each physical segment as required by the receiving equipment instructions. Verify shield and common connections.",
+   "Observe the tape manufacturer maximum run, feed arrangement, cut interval, polarity and thermal mounting requirements. Coordinate extra feeds and accessible power supplies where required.",
+   "Apply the project PSU operating-load target of 80% unless a reviewed project setting specifies otherwise. This company target is separate from the listed supply rating and circuit sizing rules.",
+   "Treat DALI bus insulation and routing in accordance with the actual devices and adopted code; do not assume a DALI pair is SELV or may share a raceway solely because its nominal signal voltage is low.",
+   "Coordinate controller protocols, addressing, universes, data link lengths and termination during commissioning. Verify operation of all channels at the maximum permitted operating load.",
+   "Single-ended SPI data runs above the project limit require a compatible differential link or revised controller location. Size pixel power separately from the data connection.",
+   "Seal, protect and support outdoor and direct-burial cable systems using products listed for the actual location. Verify cable, splice and enclosure ratings as a complete installation."
+  ],
+  "keyNotes": [],
+  "revisions": [],
+  "wireTagMap": {},
+  "scratchNote": ""
+ },
+ "views": {
+  "saved3d": [
+   {
+    "camera": [
+     1,
+     2,
+     3
+    ]
+   }
+  ],
+  "presentation": {
+   "theme": "light"
+  }
+ },
+ "overrides": [
+  {
+   "code": "VD_HIGH",
+   "entityRef": "LK-1:1:1",
+   "kind": "acknowledge",
+   "reason": "Owner accepts",
+   "by": "dealer@example.com",
+   "at": "2026-10-09T12:00:00Z"
+  }
+ ]
+}

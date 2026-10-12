@@ -11,6 +11,7 @@
   "template_code",
   "template_name",
   "is_active",
+  "product_status",
   "column_break_identity",
   "series",
   "sku_series_code",
@@ -28,7 +29,10 @@
   "spec_sheet",
   "certifications",
   "warranty",
-  "notes"
+  "notes",
+  "web_listing_tab",
+  "product_data_section",
+  "warranty_years"
  ],
  "fields": [
   {
@@ -55,7 +59,19 @@
    "default": "1",
    "fieldname": "is_active",
    "fieldtype": "Check",
-   "label": "Is Active"
+   "label": "Is Active",
+   "read_only": 1,
+   "description": "Set from Product Status."
+  },
+  {
+   "fieldname": "product_status",
+   "fieldtype": "Select",
+   "label": "Product Status",
+   "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
   },
   {
    "fieldname": "column_break_identity",
@@ -157,12 +173,27 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "web_listing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Product Data"
+  },
+  {
+   "fieldname": "product_data_section",
+   "fieldtype": "Section Break",
+   "label": "Product Data"
+  },
+  {
+   "fieldname": "warranty_years",
+   "fieldtype": "Int",
+   "label": "Warranty (Years)"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-07-28 10:00:00.000000",
+ "modified": "2026-10-11 22:47:13.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",

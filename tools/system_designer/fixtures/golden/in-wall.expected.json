@@ -1,0 +1,64 @@
+{
+ "buildHash": "b4a7e048d174f0929e4f48d35accc7fbb6cd6cb7f8fb369914f6a89754fb5fc0",
+ "runs": {
+  "power:load:a1linear:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-CM-18",
+   "vdPct": 0.72875,
+   "endV": 23.8251
+  },
+  "power:load:a1linear:1:2": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.72875,
+   "endV": 23.8251
+  },
+  "power:load:a1linear:2:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-CM-18",
+   "vdPct": 0.72875,
+   "endV": 23.8251
+  }
+ },
+ "messages": [
+  "error|NO_VALID_WIRE|load:a1linear:2:1",
+  "warning|SUPPLY_NO_ACCESS|cab-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:2",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:2:1",
+  "warning|UNRESOLVED_REF|PS-1",
+  "warning|UNRESOLVED_REF|PS-2"
+ ],
+ "verify": {
+  "loading": [
+   {
+    "entityId": "PS-1",
+    "port": "OUT1",
+    "wattsW": 52.8
+   },
+   {
+    "entityId": "PS-2",
+    "port": "OUT1",
+    "wattsW": 26.4
+   }
+  ],
+  "runs": {
+   "power:load:a1linear:1:1": {
+    "wireTypeId": "wire:TEST-CM-18",
+    "vdPct": 0.729
+   },
+   "power:load:a1linear:1:2": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.729
+   },
+   "power:load:a1linear:2:1": {
+    "wireTypeId": "wire:TEST-CM-18",
+    "vdPct": 0.729
+   }
+  },
+  "messages": [
+   "NO_VALID_WIRE|load:a1linear:2:1"
+  ],
+  "review": []
+ }
+}

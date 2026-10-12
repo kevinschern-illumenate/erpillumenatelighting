@@ -52,7 +52,8 @@ web_include_js = ["illumenate_web.bundle.js"]
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": "public/js/quote_request.js", "Sales Order": "public/js/sales_order.js", "Quotation": "public/js/quotation.js",
+doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js"],
+    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
     "ilL-Webflow-Product": "public/js/product_publication.js", "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 doctype_js.update({name: "public/js/authoring_readiness.js" for name in (
@@ -99,7 +100,9 @@ website_route_rules = [
 	{"from_route": "/portal/projects/<project>/collaborators", "to_route": "collaborators"},
 	{"from_route": "/portal/projects/<project>/schedules/new", "to_route": "schedule"},
 
-	# Schedules
+	# Schedules (the designer route must precede the schedule route)
+	{"from_route": "/portal/schedules/<schedule>/design", "to_route": "system_design"},
+	{"from_route": "/portal/design", "to_route": "system_design"},
 	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
 
 	# Configurator
@@ -167,7 +170,7 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html"],
 }
 
 # Installation
@@ -185,26 +188,14 @@ after_migrate = "illumenate_lighting.portal_workspace.after_migrate"
 # `bench migrate` imports that directory and overwrites matching records. Keep each
 # entry filtered to records this app owns: an unfiltered Custom Field entry would
 # ship ERPNext, HRMS and CRM fields and overwrite them on every site.
+#
+# List only configuration the app controls and staff should not edit. Data the team
+# maintains (request types, attribute lists, Webflow categories, LED sheet specs and
+# templates, drivers, Items, job titles) must stay out: once exported, every migrate
+# would reset it and discard their edits. Seed such data with an insert-if-missing patch.
 fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Dealer"]]]},
 	{"dt": "Workflow", "filters": [["name", "in", ["ILL Document Request Workflow"]]]},
-	{"dt": "ILL Request Type"},
-	# Webflow integration fixtures (Phase 1)
-	{"dt": "ilL-Attribute-Certification"},
-	{"dt": "ilL-Webflow-Category"},
-	# Webflow configurator fixtures (Phase 2)
-	{"dt": "ilL-Attribute-Feed-Direction"},
-	# LED Sheet seed data (Snowfield; Analog RGBW intentionally excluded pending series code)
-	{"dt": "ilL-Spec-Driver", "filters": [["item", "in", ["LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]]},
-	{"dt": "ilL-Rel-Driver-Eligibility", "filters": [["template_type", "=", "ilL-LED-Sheet-Template"]]},
-	{"dt": "ilL-Spec-LED-Sheet"},
-	{"dt": "ilL-LED-Sheet-Template"},
-	{
-		"dt": "Item",
-		"filters": [["item_code", "in", ["LED-SNF-JUMPER", "LED-SNF-LEADER", "LED-SNF-DRIVER-60W", "LED-SNF-DRIVER-300W"]]],
-	},
-	# Job Title Master for CRM Lead integration
-	{"dt": "ilL-Job-Title-Master", "filters": [["is_active", "=", 1]]},
 	# Custom fields this app owns. Most are created by patches instead.
 	{"dt": "Custom Field", "filters": [["module", "=", "ilLumenate Lighting"]]},
 	# Workspace for sidebar navigation
@@ -260,6 +251,7 @@ permission_query_conditions = {
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.get_permission_query_conditions",
+	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.get_permission_query_conditions",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_query_conditions",
 }
 
@@ -280,6 +272,7 @@ has_permission = {
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.has_permission",
+	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.has_permission",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_has_permission",
 }
 
@@ -546,3 +539,18 @@ for _finder_doctype in _finder_fact_doctypes:
 		_finder_hooks = doc_events.setdefault(_finder_doctype, {})
 		_finder_old = _finder_hooks.get(_finder_event, [])
 		_finder_hooks[_finder_event] = ([_finder_old] if isinstance(_finder_old, str) else list(_finder_old)) + ["illumenate_lighting.illumenate_lighting.portal.product_finder.facts.invalidate"]
+
+# System Designer catalog snapshot (WP-2.1): any change to a mapped record drops the current hash.
+_design_catalog_doctypes = ['Item', 'Item Price', 'ilL-Spec-LED Tape', 'ilL-Rel-Tape Offering', 'ilL-Spec-Driver', 'ilL-Rel-Driver-Eligibility', 'ilL-Spec-Controller', 'ilL-Spec-Wire', 'ilL-Attribute-Output Voltage', 'ilL-Attribute-Dimming Protocol', 'ilL-Attribute-Certification']
+for _design_doctype in _design_catalog_doctypes:
+	for _design_event in ("on_update", "on_trash"):
+		_design_hooks = doc_events.setdefault(_design_doctype, {})
+		_design_old = _design_hooks.get(_design_event, [])
+		_design_hooks[_design_event] = ([_design_old] if isinstance(_design_old, str) else list(_design_old)) + ["illumenate_lighting.illumenate_lighting.system_design.catalog.invalidate"]
+
+# Product data lives on the templates; copy it onto the linked Webflow Product for the
+# readers that still read it there.
+for _template_doctype in ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-Controller-Template", "ilL-Driver-Template", "ilL-Extrusion-Kit-Template", "ilL-LED-Sheet-Template"):
+	_template_hooks = doc_events.setdefault(_template_doctype, {})
+	_template_old = _template_hooks.get("on_update", [])
+	_template_hooks["on_update"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.web_listing_source.sync_to_listing"]

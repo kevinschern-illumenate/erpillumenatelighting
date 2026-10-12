@@ -9,6 +9,7 @@
   "template_code",
   "template_name",
   "is_active",
+  "product_status",
   "series",
   "sku_series_code",
   "webflow_product",
@@ -30,7 +31,20 @@
   "spec_submittal_template",
   "spec_sheet",
   "certifications",
-  "warranty"
+  "warranty",
+  "system_designer_section",
+  "diagram_icon",
+  "column_break_system_designer",
+  "scene_archetypes",
+  "web_listing_tab",
+  "product_data_section",
+  "warranty_years",
+  "web_spec_sheet_section",
+  "beam_angle",
+  "l70_life_hours",
+  "web_spec_sheet_column",
+  "operating_temp_min_c",
+  "operating_temp_max_c"
  ],
  "fields": [
   {
@@ -53,7 +67,19 @@
    "fieldname": "is_active",
    "fieldtype": "Check",
    "label": "Is Active",
-   "default": "1"
+   "default": "1",
+   "read_only": 1,
+   "description": "Set from Product Status."
+  },
+  {
+   "fieldname": "product_status",
+   "fieldtype": "Select",
+   "label": "Product Status",
+   "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
   },
   {
    "fieldname": "series",
@@ -175,12 +201,78 @@
    "fieldname": "warranty",
    "fieldtype": "Data",
    "label": "Warranty"
+  },
+  {
+   "fieldname": "system_designer_section",
+   "fieldtype": "Section Break",
+   "label": "System Designer",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "diagram_icon",
+   "fieldtype": "Attach",
+   "label": "Diagram Icon",
+   "description": "SVG symbol drawn on risers and system diagrams."
+  },
+  {
+   "fieldname": "column_break_system_designer",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scene_archetypes",
+   "fieldtype": "Small Text",
+   "label": "Scene Archetypes",
+   "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
+  },
+  {
+   "fieldname": "web_listing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Product Data"
+  },
+  {
+   "fieldname": "product_data_section",
+   "fieldtype": "Section Break",
+   "label": "Product Data"
+  },
+  {
+   "fieldname": "warranty_years",
+   "fieldtype": "Int",
+   "label": "Warranty (Years)"
+  },
+  {
+   "fieldname": "web_spec_sheet_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Sheet Data"
+  },
+  {
+   "fieldname": "beam_angle",
+   "fieldtype": "Float",
+   "label": "Beam Angle"
+  },
+  {
+   "fieldname": "l70_life_hours",
+   "fieldtype": "Int",
+   "label": "L70 Life (Hours)"
+  },
+  {
+   "fieldname": "web_spec_sheet_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operating_temp_min_c",
+   "fieldtype": "Int",
+   "label": "Operating Temp Min (C)"
+  },
+  {
+   "fieldname": "operating_temp_max_c",
+   "fieldtype": "Int",
+   "label": "Operating Temp Max (C)"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-06-30 00:00:00.000000",
+ "modified": "2026-10-11 22:47:13.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-LED-Sheet-Template",

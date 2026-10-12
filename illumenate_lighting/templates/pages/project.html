@@ -378,6 +378,13 @@ Also handles new project creation when is_new is True
 				<i class="fa fa-list"></i> {{ _("Fixture Schedules") }}
 			</a>
 		</li>
+		{% if system_designs is defined and system_designs is not none %}
+		<li class="nav-item">
+			<a class="nav-link" id="designs-tab" data-toggle="tab" href="#designs" role="tab">
+				<i class="fa fa-sitemap"></i> {{ _("Designs") }}
+			</a>
+		</li>
+		{% endif %}
 		<li class="nav-item">
 			<a class="nav-link" id="files-tab" data-toggle="tab" href="#files" role="tab">
 				<i class="fa fa-file"></i> {{ _("Files") }}
@@ -443,6 +450,33 @@ Also handles new project creation when is_new is True
 			</div>
 			{% endif %}
 		</div>
+
+		{% if system_designs is defined and system_designs is not none %}
+		<!-- Designs Tab (System Designer, WP-4.5) -->
+		<div class="tab-pane fade" id="designs" role="tabpanel">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h4>{{ _("System Designs") }}</h4>
+			</div>
+			{% if system_designs %}
+			<div class="list-group" id="projectDesigns">
+				{% for design in system_designs %}
+				<a href="{{ design.url }}" class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center">
+					<div>
+						<h5 class="mb-1">{{ design.title or design.schedule_name }}</h5>
+						<small class="text-muted">{{ design.schedule_name }} · {{ _("Revision {0}").format(design.revision) }}</small>
+					</div>
+					<span class="badge badge-{{ design.tone }}">{{ _(design.status) }}</span>
+				</a>
+				{% endfor %}
+			</div>
+			{% else %}
+			<div class="text-center py-5">
+				<i class="fa fa-sitemap fa-3x text-muted mb-3"></i>
+				<p class="text-muted">{{ _("No system designs yet. Open a schedule and choose Design System to start one.") }}</p>
+			</div>
+			{% endif %}
+		</div>
+		{% endif %}
 
 		<!-- Files Tab -->
 		<div class="tab-pane fade" id="files" role="tabpanel">

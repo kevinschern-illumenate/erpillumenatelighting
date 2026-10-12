@@ -17,7 +17,7 @@ const reference = { source: 'live', doctypes: { [doctype]: { source: 'live', rec
 const json = (route, message) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ message }) });
 async function open() {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-  const state = { calls: [], check: route => json(route, passed), import_catalog: route => json(route, imported), reference: route => json(route, reference), history: route => json(route, []) };
+  const state = { calls: [], check: route => json(route, passed), import_catalog: route => json(route, imported), reference: route => json(route, reference), history: route => json(route, []), design_readiness: route => json(route, { incomplete: 0, total: 1 }) };
   await context.addInitScript(draft => localStorage.setItem('illumenate-product-catalog-v2', JSON.stringify({ active: 'extrusion-kit', drafts: { 'extrusion-kit': draft } })), catalog);
   await context.route('http://catalog.test/**', async route => {
     const url = new URL(route.request().url());

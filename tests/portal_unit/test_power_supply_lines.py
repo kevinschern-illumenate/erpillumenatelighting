@@ -112,16 +112,19 @@ class SplitPower(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "No compatible supply allocation"):
 				lines.split_power("Linear Fixture", {"include_power_supply": True})
 
-	def test_group_power_is_planned_once_then_excluded_from_the_group_build(self):
+	def test_group_power_is_planned_once_and_its_supplies_move_to_their_own_lines(self):
 		request = {"family": "LED Tape", "power": {"include_power_supply": True}}
 		calculate = MagicMock(return_value={"build": {"power_plan": SELECTED}})
 		extras = {ROOT + ".api.fixture_group_configurator": types.SimpleNamespace(calculate=calculate)}
 		with service(extras) as (lines, _):
 			build, drivers = lines.split_power("LED Tape", {"group_request": request})
 			self.assertEqual(drivers, [{"driver_item": "PS-100", "qty": 2}])
-			self.assertFalse(build["group_request"]["power"]["include_power_supply"])
-			self.assertTrue(request["power"]["include_power_supply"])
-			self.assertTrue(calculate.call_args.args[0]["power"]["include_power_supply"])
+			# The group keeps its plan (and so a distinct identity from external power) without the supplies.
+			self.assertEqual(
+				build["group_request"]["power"], {"include_power_supply": True, "separate_supply_line": True}
+			)
+			self.assertNotIn("separate_supply_line", request["power"])
+			self.assertEqual(calculate.call_args.args[0], build["group_request"])
 			excluded = {"group_request": {"family": "LED Tape", "power": {"include_power_supply": "false"}}}
 			self.assertEqual(lines.split_power("LED Tape", excluded), (excluded, []))
 			self.assertEqual(calculate.call_count, 1)

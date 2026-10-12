@@ -281,6 +281,10 @@ def decide(name, action, note, expected_modified, revision_hash, result_sales_or
 	)
 	doc.flags.order_change_service = True
 	doc.save(ignore_permissions=True)
+	from illumenate_lighting.illumenate_lighting.portal.conversations import post
+
+	# The outcome email below links here, so the post does not notify again.
+	post(doc, doc.staff_note, key=f"{doc.state}:{doc.decided_on}", notify=False)
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
 	notify_user(

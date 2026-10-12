@@ -11,6 +11,15 @@ MAX_PDF_PAGES = 500
 MAX_IMAGE_PIXELS = 40_000_000
 
 
+def stored_bytes(file):
+	"""The exact bytes of a Frappe ``File``; ``get_content`` decodes what it can to text."""
+	content = file.get_content()
+	if isinstance(content, str):
+		with open(file.get_full_path(), "rb") as handle:
+			content = handle.read()
+	return content
+
+
 def validate_content(filename, content):
 	if not isinstance(content, bytes) or not content or len(content) > MAX_FILE_BYTES:
 		raise ValueError("File must contain between 1 byte and 20 MiB")

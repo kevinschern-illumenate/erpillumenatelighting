@@ -1,0 +1,28 @@
+{
+  "id": "nec-2023-table402-5-cu",
+  "kind": "fixture-wire",
+  "material": "Cu",
+  "units": "A",
+  "comment": "User must verify all values against the adopted NEC edition, installation conditions, conductor listing, and terminal ratings. This seed is not an independent code certification.",
+  "source": {
+    "standard": "NFPA 70",
+    "edition": "2023",
+    "table": "Table 402.5",
+    "reference": "NFPA 70 (NEC), 2023 edition, Table 402.5; supplied implementation plan §4.1.",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+    "verification": "user-supplied-unverified",
+    "supportingUrls": [],
+    "checkedOn": "2026-09-24"
+  },
+  "applicationNote": "6 A for #18 and 8 A for #16 are the user-requested conservative fallback for Class 2 cable with no manufacturer ampacity. Table 402.5 governs fixture wire; this fallback does not confer a listing or replace the cable manufacturer rating.",
+  "rows": [
+    {
+      "awg": "18",
+      "ampacityA": 6
+    },
+    {
+      "awg": "16",
+      "ampacityA": 8
+    }
+  ]
+}

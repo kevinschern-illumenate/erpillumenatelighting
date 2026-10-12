@@ -41,3 +41,18 @@ test('failed reply preserves draft and retries same message key', async () => {
   assert.equal(text.value,'');
   dom.window.close();
 });
+
+test('thread reads oldest first and separates ilLumenate updates from buyer replies', async () => {
+  const {dom,w,a} = setup([
+    {actor:'sales@x.com', actor_name:'Sam Sales', from_staff:true, creation:'2026-10-09 12:00:00', visibility:'Customer', action:'DECISION', body:'Revised driver', files:[]},
+    {actor:'buyer@x.com', actor_name:'Bea Buyer', from_staff:false, creation:'2026-10-08 09:00:00', visibility:'Customer', action:'REPLY', body:'Can you check the driver?', files:[]},
+  ]);
+  w.PortalConversation(a); await tick();
+  const cards = [...a.querySelectorAll('article')];
+  assert.deepEqual(cards.map(card => card.querySelector('.ill-thread__body').textContent), ['Can you check the driver?', 'Revised driver']);
+  assert.ok(cards[0].classList.contains('ill-thread__msg--mine'));
+  assert.ok(cards[1].classList.contains('ill-thread__msg--theirs') && cards[1].classList.contains('ill-thread__msg--decision'));
+  assert.match(cards[1].textContent, /Sam Sales/);
+  assert.match(a.textContent, /Waiting on ilLumenate/);
+  dom.window.close();
+});

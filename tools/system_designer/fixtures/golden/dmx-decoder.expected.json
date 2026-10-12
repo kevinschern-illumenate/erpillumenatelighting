@@ -1,0 +1,69 @@
+{
+ "buildHash": "c96124c7e0affb823f943ac3550544dd5b9d972915c42c915d35202db1ed56e7",
+ "runs": {
+  "power:load:a1linear:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.8745,
+   "endV": 23.79012
+  },
+  "power:load:a1linear:1:2": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.72875,
+   "endV": 23.8251
+  },
+  "power:CTL-1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.012421875,
+   "endV": 23.99701875
+  },
+  "power:DEC-1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.218625,
+   "endV": 23.94753
+  }
+ },
+ "messages": [
+  "warning|SUPPLY_NO_ACCESS|cab-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|CTL-1",
+  "warning|DMX_TOPOLOGY|CTL-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|DEC-1",
+  "warning|DMX_TOPOLOGY|DEC-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:2",
+  "warning|UNRESOLVED_REF|PS-1",
+  "info|CONTROL_UNUSED|CTL-1"
+ ],
+ "verify": {
+  "loading": [
+   {
+    "entityId": "PS-1",
+    "port": "OUT1",
+    "wattsW": 54.3
+   }
+  ],
+  "runs": {
+   "power:load:a1linear:1:1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.875
+   },
+   "power:load:a1linear:1:2": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.729
+   },
+   "power:CTL-1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.012
+   },
+   "power:DEC-1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.219
+   }
+  },
+  "messages": [],
+  "review": []
+ }
+}

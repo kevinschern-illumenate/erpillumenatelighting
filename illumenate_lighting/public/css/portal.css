@@ -1,4 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Poppins:wght@400;500;600&display=swap');
+/* ilLumenate brand webfonts (Brand Guidelines 2025): Manrope for headings,
+   Poppins for body copy. Poppins 400/600 come from Google Fonts for the
+   regular/semibold weights the portal UI also uses. */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+@font-face {
+	font-family: 'Manrope';
+	src: url('/assets/illumenate_lighting/fonts/Manrope-Variable.ttf') format('truetype');
+	font-weight: 200 800;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Poppins';
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Light.ttf') format('truetype');
+	font-weight: 300;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Poppins';
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Medium.ttf') format('truetype');
+	font-weight: 500;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Poppins';
+	src: url('/assets/illumenate_lighting/fonts/Poppins-MediumItalic.ttf') format('truetype');
+	font-weight: 500;
+	font-style: italic;
+	font-display: swap;
+}
 
 /**
  * ilLumenate Lighting Portal Styles
@@ -9,32 +41,68 @@
    CSS Custom Properties (Design Tokens)
    ============================================ */
 :root {
-	/* Brand Colors */
-	--ill-primary: #1976d2;
-	--ill-primary-dark: #1565c2;
-	--ill-primary-light: #42a5f5;
+	/* Brand palette (ilLumenate Design System) */
+	--ill-navy-900: #0C1724;
+	--ill-navy-800: #12253A;
+	--ill-navy-600: #172E48;
+	--ill-navy-400: #5D6D7F;
+	--ill-navy-200: #A2ABB6;
+	--ill-navy-100: #E8EAED;
+	--ill-blue-900: #003554;
+	--ill-blue-800: #003E62;
+	--ill-blue-700: #004670;
+	--ill-blue-600: #00588C;
+	--ill-blue-400: #4D8AAF;
+	--ill-blue-200: #99BCD1;
+	--ill-blue-100: #E6EEF4;
+	--ill-gold-800: #B18B3D;
+	--ill-gold-700: #CA9F46;
+	--ill-gold-600: #E4B34E;
+	--ill-gold-500: #FDC757;
+	--ill-gold-300: #FED889;
+	--ill-gold-200: #FEE9BC;
+	--ill-gold-100: #FFF9EE;
+	--ill-gold-ink: #7A5500;
+	--ill-red: #D63B2F;
+	--ill-red-ink: #A8261C;
+	--ill-red-100: #FBE7E5;
+	--ill-green: #006833;
+	--ill-green-100: #E7F5E8;
+	--ill-brand-gradient: linear-gradient(117deg, #172E48 0%, #00588C 100%);
+	--ill-surface-soft: #F6F8FA;
+	--ill-text-secondary: #5D6D7F;
+	--ill-shadow-card: 0 1px 2px rgba(12, 23, 36, 0.06), 0 4px 12px rgba(12, 23, 36, 0.06);
+	--ill-shadow-elevated: 0 8px 24px rgba(12, 23, 36, 0.12), 0 2px 6px rgba(12, 23, 36, 0.08);
+	--ill-radius-control: 10px;
+	--ill-radius-card: 16px;
+	--ill-radius-panel: 20px;
 
-	--ill-success: #4caf50;
-	--ill-success-dark: #388e3c;
-	--ill-warning: #ff9800;
-	--ill-warning-dark: #f57c00;
-	--ill-danger: #f44336;
-	--ill-danger-dark: #d32f2f;
+	/* Brand Colors (legacy names, mapped onto the brand palette) */
+	--ill-primary: #00588C;
+	--ill-primary-dark: #004670;
+	--ill-primary-light: #4D8AAF;
 
-	/* Neutral Colors */
-	--ill-gray-50: #fafafa;
-	--ill-gray-100: #f5f5f5;
-	--ill-gray-200: #eeeeee;
-	--ill-gray-300: #e0e0e0;
-	--ill-gray-400: #bdbdbd;
-	--ill-gray-500: #9e9e9e;
-	--ill-gray-600: #757575;
-	--ill-gray-700: #616161;
-	--ill-gray-800: #424242;
-	--ill-gray-900: #212121;
+	--ill-success: #006833;
+	--ill-success-dark: #004d26;
+	--ill-warning: #CA9F46;
+	--ill-warning-dark: #B18B3D;
+	--ill-danger: #D63B2F;
+	--ill-danger-dark: #A8261C;
+
+	/* Neutral Colors (cool, navy-tinted greys) */
+	--ill-gray-50: #F6F8FA;
+	--ill-gray-100: #EEF1F4;
+	--ill-gray-200: #E8EAED;
+	--ill-gray-300: #DCE2E8;
+	--ill-gray-400: #A2ABB6;
+	--ill-gray-500: #8B97A4;
+	--ill-gray-600: #5D6D7F;
+	--ill-gray-700: #4A5A6C;
+	--ill-gray-800: #2A3B50;
+	--ill-gray-900: #172E48;
 
 	/* Typography */
-	--ill-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+	--ill-font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	--ill-font-size-xs: 0.75rem;
 	--ill-font-size-sm: 0.875rem;
 	--ill-font-size-base: 1rem;
@@ -55,17 +123,17 @@
 	--ill-space-12: 3rem;
 
 	/* Border Radius */
-	--ill-radius-sm: 4px;
-	--ill-radius-md: 8px;
+	--ill-radius-sm: 6px;
+	--ill-radius-md: 10px;
 	--ill-radius-lg: 12px;
 	--ill-radius-xl: 16px;
 	--ill-radius-full: 9999px;
 
-	/* Shadows */
-	--ill-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-	--ill-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-	--ill-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
-	--ill-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.16);
+	/* Shadows (navy-tinted, soft and shallow) */
+	--ill-shadow-sm: 0 1px 2px rgba(12, 23, 36, 0.06);
+	--ill-shadow-md: 0 1px 2px rgba(12, 23, 36, 0.06), 0 4px 12px rgba(12, 23, 36, 0.06);
+	--ill-shadow-lg: 0 4px 16px rgba(12, 23, 36, 0.10);
+	--ill-shadow-xl: 0 8px 24px rgba(12, 23, 36, 0.12), 0 2px 6px rgba(12, 23, 36, 0.08);
 
 	/* Transitions */
 	--ill-transition-fast: 0.15s ease;
@@ -108,7 +176,7 @@
    ============================================ */
 .portal-page {
 	font-family: var(--ill-font-family);
-	color: var(--ill-gray-900);
+	color: var(--ill-ink);
 	padding: var(--ill-space-8) 0;
 	min-height: 100vh;
 	background: white;
@@ -185,7 +253,7 @@
 
 .portal-nav-link.active {
 	color: var(--ill-primary);
-	background: #e3f2fd;
+	background: var(--ill-blue-100);
 }
 
 /* Improve mobile/tablet navbar toggler visibility */
@@ -205,8 +273,9 @@
    ============================================ */
 .portal-card {
 	background: white;
-	border-radius: var(--ill-radius-lg);
-	box-shadow: var(--ill-shadow-md);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	transition: var(--ill-transition-normal);
 	overflow: hidden;
 }
@@ -222,7 +291,9 @@
 
 .portal-card-header h5 {
 	margin: 0;
+	font-family: var(--ill-font-display);
 	font-weight: 600;
+	color: var(--ill-ink);
 }
 
 .portal-card-body {
@@ -242,23 +313,24 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--ill-space-2);
-	padding: var(--ill-space-1) var(--ill-space-3);
+	padding: 3px 10px;
 	border-radius: var(--ill-radius-full);
+	font-family: var(--ill-font-body);
 	font-size: var(--ill-font-size-xs);
-	font-weight: 600;
+	font-weight: 500;
 	text-transform: uppercase;
-	letter-spacing: 0.025em;
+	letter-spacing: 0.04em;
 }
 
-.status-badge.draft { background: var(--ill-gray-200); color: var(--ill-gray-700); }
-.status-badge.active { background: #e8f5e9; color: #2e7d32; }
-.status-badge.ready { background: #e3f2fd; color: #1565c2; }
-.status-badge.quoted { background: #fff3e0; color: #ef6c00; }
-.status-badge.ordered { background: #e8f5e9; color: #2e7d32; }
-.status-badge.pending { background: #fff3e0; color: #ef6c00; }
-.status-badge.in-progress { background: #e3f2fd; color: #1565c2; }
-.status-badge.completed { background: #e8f5e9; color: #2e7d32; }
-.status-badge.cancelled { background: #ffebee; color: #c62828; }
+.status-badge.draft { background: var(--ill-navy-100); color: var(--ill-navy-600); }
+.status-badge.active { background: var(--ill-blue-100); color: var(--ill-blue-800); }
+.status-badge.ready { background: var(--ill-blue-100); color: var(--ill-blue-800); }
+.status-badge.quoted { background: var(--ill-gold-200); color: var(--ill-gold-ink); }
+.status-badge.ordered { background: var(--ill-green-100); color: var(--ill-green); }
+.status-badge.pending { background: var(--ill-gold-200); color: var(--ill-gold-ink); }
+.status-badge.in-progress { background: var(--ill-blue-100); color: var(--ill-blue-800); }
+.status-badge.completed { background: var(--ill-green-100); color: var(--ill-green); }
+.status-badge.cancelled { background: var(--ill-red-100); color: var(--ill-red-ink); }
 
 /* ============================================
    Portal Buttons
@@ -267,43 +339,45 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--ill-space-2);
-	padding: var(--ill-space-2) var(--ill-space-4);
-	border-radius: var(--ill-radius-md);
+	padding: var(--ill-space-2) var(--ill-space-5);
+	border-radius: var(--ill-radius-full);
+	font-family: var(--ill-font-body);
 	font-weight: 500;
-	transition: var(--ill-transition-fast);
+	transition: filter var(--ill-transition-fast), background var(--ill-transition-fast), border-color var(--ill-transition-fast), color var(--ill-transition-fast);
 	border: none;
 	cursor: pointer;
 }
 
 .btn-portal-primary {
-	background: var(--ill-primary);
+	background: var(--ill-blue-600);
 	color: white;
 }
 
 .btn-portal-primary:hover {
-	background: var(--ill-primary-dark);
+	background: var(--ill-blue-700);
 	color: white;
 }
 
 .btn-portal-success {
-	background: var(--ill-success);
+	background: var(--ill-navy-600);
 	color: white;
 }
 
 .btn-portal-success:hover {
-	background: var(--ill-success-dark);
+	background: var(--ill-navy-800);
 	color: white;
 }
 
 .btn-portal-outline {
 	background: transparent;
-	border: 1px solid var(--ill-gray-300);
-	color: var(--ill-gray-700);
+	border: 1.5px solid var(--ill-navy-200);
+	color: var(--ill-navy-600);
 }
 
 .btn-portal-outline:hover {
-	background: var(--ill-gray-100);
-	color: var(--ill-gray-900);
+	background: transparent;
+	border-color: var(--ill-blue-600);
+	color: var(--ill-blue-600);
 }
 
 /* ============================================
@@ -312,8 +386,9 @@
 .portal-form-control {
 	width: 100%;
 	padding: var(--ill-space-3) var(--ill-space-4);
-	border: 1px solid var(--ill-gray-300);
-	border-radius: var(--ill-radius-md);
+	border: 1.5px solid var(--ill-gray-300);
+	border-radius: var(--ill-radius-control);
+	color: var(--ill-ink);
 	font-size: var(--ill-font-size-base);
 	transition: var(--ill-transition-fast);
 }
@@ -321,7 +396,7 @@
 .portal-form-control:focus {
 	outline: none;
 	border-color: var(--ill-primary);
-	box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+	box-shadow: 0 0 0 3px var(--ill-blue-100);
 }
 
 .portal-form-label {
@@ -346,9 +421,10 @@
 .portal-table th {
 	padding: var(--ill-space-3) var(--ill-space-4);
 	background: var(--ill-gray-50);
-	font-weight: 600;
+	font-weight: 500;
 	font-size: var(--ill-font-size-xs);
 	text-transform: uppercase;
+	letter-spacing: 0.05em;
 	color: var(--ill-gray-600);
 	border-bottom: 1px solid var(--ill-gray-200);
 	text-align: left;
@@ -377,18 +453,20 @@
 
 .portal-empty-state-icon {
 	font-size: 3rem;
-	color: var(--ill-gray-400);
+	color: var(--ill-blue-200);
 	margin-bottom: var(--ill-space-4);
 }
 
 .portal-empty-state-title {
+	font-family: var(--ill-font-display);
+	font-weight: 600;
 	font-size: var(--ill-font-size-xl);
-	color: var(--ill-gray-700);
+	color: var(--ill-ink);
 	margin-bottom: var(--ill-space-2);
 }
 
 .portal-empty-state-text {
-	color: var(--ill-gray-500);
+	color: var(--ill-text-secondary);
 	margin-bottom: var(--ill-space-6);
 }
 
@@ -515,8 +593,8 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
-	padding: 9px 18px;
-	border-radius: var(--ill-radius);
+	padding: 9px 20px;
+	border-radius: var(--ill-radius-pill);
 	font-family: var(--ill-font-body);
 	font-size: 14px;
 	font-weight: 500;
@@ -526,7 +604,7 @@
 	border: 1.5px solid transparent;
 }
 .ill-btn-primary { background: var(--ill-accent); color: #fff; }
-.ill-btn-primary:hover { opacity: 0.9; color: #fff; text-decoration: none; }
+.ill-btn-primary:hover { opacity: 1; background: var(--ill-blue-700); color: #fff; text-decoration: none; }
 .ill-btn-secondary { background: var(--ill-paper); color: var(--ill-ink); border-color: var(--ill-border-str); }
 .ill-btn-secondary:hover { border-color: var(--ill-accent); color: var(--ill-ink); text-decoration: none; }
 .ill-btn-ghost { background: transparent; color: var(--ill-muted); border-color: var(--ill-border); }
@@ -534,9 +612,9 @@
 
 .ill-card {
 	background: var(--ill-paper);
-	border: 1px solid var(--ill-border);
-	border-radius: var(--ill-radius-lg);
-	box-shadow: var(--ill-shadow);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	padding: 20px 24px;
 }
 
@@ -546,14 +624,14 @@
 	padding: 2px 10px;
 	border-radius: var(--ill-radius-pill);
 	font-size: 11px;
-	font-weight: 600;
+	font-weight: 500;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 }
-.ill-badge-draft { background: var(--ill-bg); color: var(--ill-muted); }
+.ill-badge-draft { background: var(--ill-navy-100); color: var(--ill-navy-600); }
 .ill-badge-active { background: var(--ill-accent-bg); color: var(--ill-accent); }
-.ill-badge-quoted { background: var(--ill-gold-bg); color: #7a5500; }
-.ill-badge-ordered { background: var(--ill-success-bg); color: var(--ill-success); }
+.ill-badge-quoted { background: var(--ill-gold-200); color: var(--ill-gold-ink); }
+.ill-badge-ordered { background: var(--ill-green-100); color: var(--ill-success); }
 
 .ill-access-gate {
 	min-height: 70vh;
@@ -565,8 +643,8 @@
 .ill-access-gate-card {
 	background: var(--ill-paper);
 	border: 1px solid var(--ill-border);
-	border-radius: var(--ill-radius-xl);
-	box-shadow: var(--ill-shadow-lg);
+	border-radius: var(--ill-radius-panel);
+	box-shadow: var(--ill-shadow-elevated);
 	padding: 48px 40px;
 	max-width: 480px;
 	width: 100%;
@@ -580,21 +658,40 @@
 .ill-access-gate-title {
 	font-family: var(--ill-font-display);
 	font-size: 22px;
-	font-weight: 700;
+	font-weight: 600;
 	color: var(--ill-ink);
 	margin: 0;
 }
 .ill-access-gate-body {
 	font-size: 14px;
-	color: var(--ill-muted);
+	color: var(--ill-text-secondary);
 	line-height: 1.6;
 	margin: 0;
 }
 
 /* Shared portal navigation and keyboard/mobile interaction rules. */
-.ill-portal-navigation { display:flex; flex-wrap:wrap; gap:.4rem 1rem; max-width:1140px; margin:1rem auto; padding:.5rem 1rem; border-bottom:1px solid var(--ill-gray-300); }
-.ill-portal-navigation a { padding:.45rem .2rem; color:var(--ill-ink); }
-.ill-portal-navigation a[aria-current="page"] { font-weight:700; border-bottom:2px solid var(--ill-primary); }
+.ill-portal-navigation {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0 4px;
+	max-width: 1140px;
+	margin: 1rem auto 0;
+	padding: 0 15px;
+	border-bottom: 1px solid var(--ill-navy-100);
+	font-family: var(--ill-font-body);
+}
+.ill-portal-navigation a {
+	margin-bottom: -1px;
+	padding: 12px 16px;
+	border-bottom: 2px solid transparent;
+	color: var(--ill-text-secondary);
+	font-size: 15px;
+	font-weight: 500;
+	text-decoration: none;
+	transition: color var(--ill-transition), border-color var(--ill-transition);
+}
+.ill-portal-navigation a:hover { color: var(--ill-blue-600); text-decoration: none; }
+.ill-portal-navigation a[aria-current="page"] { color: var(--ill-blue-600); font-weight: 500; border-bottom-color: var(--ill-blue-600); }
 .portal-page :focus-visible, .ill-portal-navigation :focus-visible, .modal :focus-visible { outline:3px solid var(--ill-primary); outline-offset:3px; }
 .portal-page .btn { white-space:normal; }
 .portal-page [role="alert"], .portal-page [role="status"] { overflow-wrap:anywhere; }

@@ -16,8 +16,9 @@ User profile, notifications, and account preferences
 }
 .settings-nav {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	overflow: hidden;
 }
 .settings-nav-item {
@@ -25,8 +26,8 @@ User profile, notifications, and account preferences
 	align-items: center;
 	gap: 0.75rem;
 	padding: 1rem 1.25rem;
-	border-bottom: 1px solid #f0f0f0;
-	color: #333;
+	border-bottom: 1px solid var(--ill-gray-200);
+	color: var(--ill-ink);
 	text-decoration: none;
 	transition: all 0.2s;
 }
@@ -34,33 +35,34 @@ User profile, notifications, and account preferences
 	border-bottom: none;
 }
 .settings-nav-item:hover {
-	background: #fafafa;
-	color: #333;
+	background: var(--ill-surface-soft);
+	color: var(--ill-ink);
 	text-decoration: none;
 }
 .settings-nav-item.active {
-	background: #e3f2fd;
-	color: #1976d2;
-	border-left: 3px solid #1976d2;
+	background: var(--ill-blue-100);
+	color: var(--ill-blue-600);
+	border-left: 3px solid var(--ill-blue-600);
 }
 .settings-nav-item i {
 	width: 20px;
 	text-align: center;
-	color: #888;
+	color: var(--ill-gray-500);
 }
 .settings-nav-item.active i {
-	color: #1976d2;
+	color: var(--ill-blue-600);
 }
 .settings-card {
 	background: white;
-	border-radius: 12px;
-	box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+	border: 1px solid var(--ill-navy-100);
+	border-radius: var(--ill-radius-card);
+	box-shadow: var(--ill-shadow-card);
 	overflow: hidden;
 }
 .settings-card-header {
 	padding: 1.25rem 1.5rem;
-	border-bottom: 1px solid #f0f0f0;
-	background: #fafbfc;
+	border-bottom: 1px solid var(--ill-gray-200);
+	background: var(--ill-surface-soft);
 }
 .settings-card-header h5 {
 	margin: 0;
@@ -73,12 +75,12 @@ User profile, notifications, and account preferences
 	width: 100px;
 	height: 100px;
 	border-radius: 50%;
-	background: #e0e0e0;
+	background: var(--ill-gray-300);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 2.5rem;
-	color: #888;
+	color: var(--ill-gray-500);
 	margin-bottom: 1rem;
 }
 .profile-avatar img {
@@ -92,9 +94,9 @@ User profile, notifications, and account preferences
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.5rem 1rem;
-	background: #e3f2fd;
-	border-radius: 20px;
-	color: #1976d2;
+	background: var(--ill-blue-100);
+	border-radius: var(--ill-radius-pill);
+	color: var(--ill-blue-600);
 	font-weight: 500;
 }
 .notification-item {
@@ -102,7 +104,7 @@ User profile, notifications, and account preferences
 	justify-content: space-between;
 	align-items: center;
 	padding: 1rem 0;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--ill-gray-200);
 }
 .notification-item:last-child {
 	border-bottom: none;
@@ -111,7 +113,7 @@ User profile, notifications, and account preferences
 	margin-bottom: 0.25rem;
 }
 .notification-info p {
-	color: #666;
+	color: var(--ill-text-secondary);
 	font-size: 0.85rem;
 	margin: 0;
 }
@@ -132,8 +134,8 @@ User profile, notifications, and account preferences
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: #ccc;
-	border-radius: 26px;
+	background: var(--ill-gray-400);
+	border-radius: var(--ill-radius-pill);
 	transition: 0.3s;
 }
 .toggle-slider:before {
@@ -148,7 +150,7 @@ User profile, notifications, and account preferences
 	transition: 0.3s;
 }
 .toggle-switch input:checked + .toggle-slider {
-	background: #1976d2;
+	background: var(--ill-blue-600);
 }
 .toggle-switch input:checked + .toggle-slider:before {
 	transform: translateX(24px);
@@ -158,26 +160,26 @@ User profile, notifications, and account preferences
 	justify-content: space-between;
 	align-items: center;
 	padding: 1rem;
-	background: #fafafa;
-	border-radius: 8px;
+	background: var(--ill-surface-soft);
+	border-radius: var(--ill-radius-md);
 	margin-bottom: 0.75rem;
 }
 .security-item h6 {
 	margin-bottom: 0.25rem;
 }
 .security-item p {
-	color: #666;
+	color: var(--ill-text-secondary);
 	font-size: 0.85rem;
 	margin: 0;
 }
 .danger-zone {
-	border: 1px solid #ffcdd2;
-	border-radius: 8px;
+	border: 1px solid var(--ill-red-100);
+	border-radius: var(--ill-radius-md);
 	padding: 1.5rem;
-	background: #fff8f8;
+	background: var(--ill-red-100);
 }
 .danger-zone h6 {
-	color: #c62828;
+	color: var(--ill-red-ink);
 }
 </style>
 {% endblock %}

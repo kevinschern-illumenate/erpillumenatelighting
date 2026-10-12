@@ -1,0 +1,68 @@
+"""Write the shared Product Data fields and Product Status into the six template doctypes.
+
+Run from the repository root after editing ``web_listing_schema.py``:
+
+    python tools/stamp_web_listing_fields.py
+
+Idempotent: everything from the Product Data tab on is replaced, Product Status sits right
+after is_active (which becomes read only), and a doctype's
+``modified`` stamp only moves when its fields actually change, so ``bench migrate``
+reloads exactly the doctypes that changed.
+"""
+
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	IS_ACTIVE_OVERRIDES,
+	STATUS_AFTER,
+	STATUS_FIELD,
+	TAB,
+	TEMPLATE_DOCTYPES,
+	fields_for,
+)
+
+DOCTYPE_DIR = ROOT / "illumenate_lighting" / "illumenate_lighting" / "doctype"
+
+
+def stamp(doctype, module, now):
+	path = DOCTYPE_DIR / module / f"{module}.json"
+	data = json.loads(path.read_text(encoding="utf-8"))
+	added = fields_for(doctype)
+	names = {field["fieldname"] for field in added}
+	# The Product Data tab is always last, so everything from it on is replaced wholesale;
+	# fields dropped from the definition disappear with it.
+	existing = data["fields"]
+	tab = next((i for i, field in enumerate(existing) if field["fieldname"] == TAB), len(existing))
+	names.add(STATUS_FIELD["fieldname"])
+	fields = []
+	for field in existing[:tab]:
+		if field["fieldname"] in names:
+			continue
+		if field["fieldname"] == STATUS_AFTER:
+			fields += [{**field, **IS_ACTIVE_OVERRIDES}, dict(STATUS_FIELD)]
+		else:
+			fields.append(field)
+	fields += [dict(field) for field in added]
+	if fields == data["fields"]:
+		return False
+	data["fields"] = fields
+	data["field_order"] = [field["fieldname"] for field in fields]
+	data["modified"] = now
+	path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+	return True
+
+
+def main():
+	now = datetime.now().strftime("%Y-%m-%d %H:%M:%S.000000")
+	for doctype, module in TEMPLATE_DOCTYPES.items():
+		print(f"{doctype}: {'updated' if stamp(doctype, module, now) else 'unchanged'}")
+
+
+if __name__ == "__main__":
+	main()

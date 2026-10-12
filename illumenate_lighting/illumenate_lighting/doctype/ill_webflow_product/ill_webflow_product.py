@@ -217,6 +217,16 @@ class ilLWebflowProduct(Document):
 		self._update_led_sheet_template_backlink()
 		self._update_driver_template_backlink()
 		self._update_controller_template_backlink()
+		self._top_up_template()
+
+	def _top_up_template(self):
+		"""Move product data onto a template when this listing is first linked to it."""
+		from illumenate_lighting.illumenate_lighting.web_listing_source import top_up_template
+
+		row = top_up_template(self)
+		if row and row["action"] == "failed":
+			# Never block a save; parity_report shows a template that is missing data.
+			frappe.log_error(title=f"Product data top-up failed for {self.name}", message=row["notes"][-1])
 
 	def handle_deletions(self):
 		"""Handle removal of bi-directional compatibility links upon row deletion."""

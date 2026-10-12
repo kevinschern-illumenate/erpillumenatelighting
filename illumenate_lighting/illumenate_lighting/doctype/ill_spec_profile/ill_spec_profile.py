@@ -1,7 +1,10 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
+import frappe
 from frappe.model.document import Document
+
+from illumenate_lighting.illumenate_lighting.system_design.geometry import cross_section_problems
 
 MM_PER_INCH = 25.4
 
@@ -39,6 +42,11 @@ def compute_profile_dimensions(width_mm, height_mm):
 
 
 class ilLSpecProfile(Document):
+	def validate(self):
+		problems = cross_section_problems(self.get("cross_section_json"))
+		if problems:
+			frappe.throw("<br>".join(problems))
+
 	def before_save(self):
 		"""Calculate combined dimensions before saving."""
 		self._calculate_dimensions()

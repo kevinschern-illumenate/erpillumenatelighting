@@ -591,8 +591,14 @@ def build_configured_line(
 
 	# ── 3. Item / BOM / Item Price ──────────────────────────────────
 	if group_artifact:
+		from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import description, snapshot
+		from illumenate_lighting.illumenate_lighting.portal.group_display import run_labels
+
 		artifact = group_artifact
 		configured_doc = frappe.get_doc("ilL-Configured-Group", artifact["configured_group"])
+		# The document row names the dealer's runs; the shared Item keeps its neutral description.
+		labels = run_labels({"ill_configurator_request": canonical_json({"selections": selections})})
+		artifact["description"] = description(snapshot(configured_doc), labels)
 	elif product_type == PRODUCT_TYPE_FIXTURE:
 		configured_name = validation.get("configured_fixture_id")
 		if not configured_name:

@@ -40,6 +40,8 @@ repos:
             (?x)^(
                 illumenate_lighting/public/dist/.*|
                 illumenate_lighting/public/catalog_builder/.*|
+                illumenate_lighting/public/system_designer/.*|
+                tools/system_designer/.*|
                 .*node_modules.*|
                 .*boilerplate.*|
                 illumenate_lighting/templates/includes/.*|
@@ -58,6 +60,8 @@ repos:
             (?x)^(
                 illumenate_lighting/public/dist/.*|
                 illumenate_lighting/public/catalog_builder/.*|
+                illumenate_lighting/public/system_designer/.*|
+                tools/system_designer/.*|
                 cypress/.*|
                 .*node_modules.*|
                 .*boilerplate.*|

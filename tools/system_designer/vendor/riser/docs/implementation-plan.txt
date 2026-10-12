@@ -1,0 +1,327 @@
+Riser Diagram Generator: Implementation Plan
+0. Instructions for the implementing agent
+You are building a local, browser-based tool (React + Vite, served on localhost). It turns tabular system data into professional lighting-system riser diagrams, with exports to vector PDF and native DXF. The user is an experienced lighting/LED engineer at an architectural LED manufacturer. Do not simplify the domain logic.
+Working rules:
+	1. Build in the phases below. Stop after each phase with a summary and a demo path so the user can review.
+	2. Keep the calc engine pure. src/engine/ is pure TypeScript with no React imports and full unit-test coverage. The UI, the renderer, and both exporters consume engine output; they never recompute electrical values.
+	3. Use one drawing model for all outputs. Everything drawn is first produced as a device-independent geometry model in real paper inches. SVG preview, PDF, and DXF are three serializers of that same model. Never draw directly to the DOM or to PDF.
+	4. Never invent product data. Seed product libraries with clearly marked EXAMPLE items only. Code tables (NEC resistance, ampacity) live in src/data/ as JSON, with a source field citing table and edition. They must be user-editable.
+	5. Use strict TypeScript and Zod everywhere. Zod schemas are the source of truth for data shape and validation. Infer TS types from them.
+	6. Verify dependencies before committing to them. Check that each library listed below is maintained and does what's claimed. If one doesn't, propose an alternative before substituting.
+1. Tech stack
+Concern	Choice	Notes
+App	React 18+, TypeScript (strict), Vite	Static app; no backend in v1
+UI kit	Tailwind + shadcn/ui (Radix)	Dense, professional UI; dark and light modes
+State	Zustand + immer + zundo	Undo/redo across all edits
+Data grids	AG Grid Community (MIT)	Excel-style paste, dropdown and autocomplete cell editors, row validation styling
+Schemas	Zod	Project, library, and import validation
+Layout	elkjs (ELK layered), run in a Web Worker	Orthogonal routing, ports, partitions
+PDF	pdf-lib + @pdf-lib/fontkit	Custom OCG (layer) helper required, see §9
+DXF	@tarikjabiri/dxf (verify) or a custom writer	Needs LAYER lineweights, LTYPE, STYLE (TTF), BLOCK/ATTDEF/INSERT/ATTRIB, LWPOLYLINE, TEXT, MTEXT
+Storage	Dexie (IndexedDB) for libraries and autosave; File System Access API for .riser.json project files	Fall back to download/upload on non-Chromium browsers
+CSV	PapaParse	Column-mapping import UI
+Zip	JSZip	Multi-sheet DXF export
+Tests	Vitest (engine, serializers), Playwright (UI smoke), dxf-parser for DXF round-trip checks	
+2. Repository structure
+src/  app/                 # routes, layout shell  features/    project/           # project info form, settings    tables/            # Sources, Equipment, Loads, Control Links grids    library/           # product + wire library managers, CSV import    review/            # calculations & QA panel, wire review table    drawing/           # preview canvas, sheet tabs, node nudge    export/            # export dialog  engine/              # PURE: graph build, calcs, wire selection, validation, BOM    graph.ts    loads.ts    voltageDrop.ts    wireSelect.ts    dmx.ts    validate.ts    bom.ts  drawing/             # PURE: drawing model, symbols, layout, sheet composition    model.ts           # primitives    symbols/           # symbol definitions (one file per symbol)    layout/            # ELK graph build, control-bus router, pagination    sheet/             # title block, schedules, legend, notes composers  serializers/    svg.ts    pdf/ (pdf.ts, ocg.ts, fonts.ts)    dxf/ (dxf.ts, blocks.ts, linetypes.ts)  data/    nec/table8_conductor_resistance.json    nec/table310_16_ampacity.json    nec/table402_5_fixture_wire.json    wires.seed.json    products.example.json    layers.json    titleblocks/ (ansi-b.json, arch-d.json)  schemas/             # Zod schemas  workers/layout.worker.ts
+3. Data model (Zod → TS)
+3.1 Project
+Project {  schemaVersion: number  meta: { name, number, client, siteAddress, designer, checker, date,          brand: 'illumenate' | '206', sheetPrefix: string /* e.g. "LR-" */,          stamp: 'NONE'|'FOR REFERENCE'|'NOT FOR CONSTRUCTION'|'PRELIMINARY' }  settings: ProjectSettings  sources: Source[]  equipment: Equipment[]  loads: Load[]  controlLinks: ControlLink[]          // explicit data links not implied by equipment.controlFrom  wireOverrides: Record<RunId, { wireTypeId: string; parallelSets?: number; note?: string }>  layoutOverrides: Record<NodeId, { x: number; y: number; pinned: boolean }>  generalNotes: string[]  keyNotes: { id: string; text: string }[]  revisions: { rev: string; date: string; description: string; by: string }[]}
+ProjectSettings {  necEdition: '2020'|'2023'|'2026'            // default '2023'  terminationTempC: 60|75|90                  // default 75  vdTargetLineVoltagePct: number              // default 3  vdTargetLowVoltagePct: number               // default 3  vdTargetLandscapePct: number                // default 5  vdMethod: 'lumped-at-end'|'distributed'     // default lumped (conservative)  acVdMethod: 'dc-resistance'|'effective-z'   // effective-z uses NEC Ch.9 Table 9 at PF 0.85  psuDeratePct: number                        // default 80  continuousLoadFactor: number                // default 1.25  breakerLoadLimitPct: number                 // default 80  tapeLengthMarginPct: number                 // default 0  minAwgLineVoltage: AWG                      // default '12'  dmxMaxUnitLoads: number                     // default 32  dmxMaxLengthFt: number                      // default 1000  spiMaxDataFt: number                        // default 15 (single-ended)  units: 'ft'|'m'  sheet: { size: 'ANSI_B'|'ARCH_C'|'ARCH_D'|'ANSI_D'; flow: 'LR'|'TB' }  wireWastePct: number                        // for BOM, default 10}
+3.2 Table entities
+Environment = 'dry-concealed'|'plenum'|'riser'|'raceway'|'wet'|'direct-burial'|'outdoor-exposed'
+Source {                // panels & branch circuits  id, tag /* "LP-1/12" */, panel, circuit, voltage: 120|208|240|277|347|480,  phase: '1PH'|'3PH', breakerA: number, poles: 1|2|3,  switching?: 'none'|'relay'|'phase-forward'|'phase-reverse'|'0-10V'|'lutron-module',  notes?}
+Equipment {             // PSUs, drivers, decoders, controllers, gateways, keypads, j-boxes, enclosures  id, tag /* "PS-1" */, catalogId, category: EquipmentCategory, qty: number /* identical units */,  location: string /* "Mech 101", "Ceiling access panel - Kitchen" */,  enclosure?: string /* groups equipment into a dashed enclosure box */,  fedFrom: PortRef /* Source.id or upstream Equipment port */, feedLengthFt: number,  controlFrom?: PortRef, controlLengthFt?: number, chainOrder?: number,  dmx?: { universe: number; startAddress: number | 'auto' },  env: Environment, specOverrides?: Partial<CatalogSpecs>, notes?}
+Load {                  // tape runs and fixtures  id, typeTag /* "T1", "A2" */, zone: string, catalogId,  qty?: number /* fixtures */, lengthFt?: number /* tape */,  fedFrom: PortRef /* e.g. { ref: "PS-1", port: "OUT2" } or { ref: "DEC-1", port: "CH1-4" } */,  homeRunLengthFt: number, interFixtureLengthFt?: number,  feedMethod: 'end'|'double-end'|'center'|'multi-feed', feeds?: number,  env: Environment, notes?}
+ControlLink { id, from: PortRef, to: PortRef, protocol: Protocol, lengthFt, env, universe?, notes? }
+PortRef { ref: string /* tag or id */, port?: string }
+Tag-based referencing is intentional. The grids let the user type or pick tags (PS-1, LP-1/12), and the engine resolves them to IDs. Unresolved tags are validation errors.
+3.3 Catalog (product library)
+CatalogItem {  id, sku, brand, model, category, description, datasheetUrl?, erpItemCode?, isExample: boolean,  specs: PsuSpecs | DriverSpecs | DecoderSpecs | ControllerSpecs | TapeSpecs | FixtureSpecs | AccessorySpecs}
+PsuSpecs {  inputType: 'AC'|'DC', inputVMin, inputVMax, outputType: 'CV'|'CC',  outputV?, outputmA?, ratedW,  outputs: { name: string; maxW: number; class2: boolean }[],  efficiency: number, powerFactor: number, maxInputA?: number /* from datasheet at lowest input V */,  inrushA?: number, maxUnitsPer20ABreaker?: number,  dimming: Protocol[], terminalMinAwg: AWG, terminalMaxAwg: AWG, listings: string[]}
+DecoderSpecs {  inputVMin, inputVMax, channels, maxAPerChannel, maxATotal,  dmxFootprint: number, protocolIn: Protocol[], protocolOut?: Protocol[],  terminalMaxAwg: AWG, unitLoad: number /* default 1 */}
+TapeSpecs {  voltage: 12|24|48, drive: 'CV'|'CV-CC-IC',  wPerFtMax: number /* all channels at max allowed */,  channels: number, channelMap: string[] /* ['W'] | ['WW','CW'] | ['R','G','B','W'] */,  maxSimultaneousPct: number /* e.g. 100 for constant-lumen TW, 400 for RGBW */,  maxRunFtSingleFeed, maxRunFtDoubleFeed, cutIntervalIn, minOperatingV,  pixel?: { protocol: 'WS2811'|'WS2815'|'SK6812'|'SPI-other'; pixelsPerFt: number; ampsPerPixelMax: number }}
+FixtureSpecs {  voltageClass: 'line'|'low', inputV: number | [min, max], watts,  drive?: 'CV'|'CC', mA?, dimming: Protocol[], integralDriver: boolean}
+Protocol = 'none'|'phase-forward'|'phase-reverse'|'0-10V'|'1-10V'|'DALI-2'|'DMX512'|'RDM'         |'sACN'|'Art-Net'|'CRMX-wireless'|'Lutron-QS'|'Lutron-EcoSystem'|'PWM'|'SPI'
+3.4 Wire library
+WireType {  id, name, manufacturerRefs: string[], category: 'building-wire'|'cable-assembly'|'class2-power'    |'data'|'control'|'landscape'|'flex-cord',  applications: RunType[],  conductors: { count: number; awg: AWG; material: 'Cu'|'Al'; stranding: 'solid'|'stranded';                role: 'power'|'ground'|'signal'|'data-pair'|'channel'; colors?: string[] }[],  listing: string /* THHN/THWN-2, NM-B, MC, CL2R, CL3P, CMP, PLTC, UF-B, SOOW, ... */,  ratedV, tempRatingC, plenum: boolean, riser: boolean, wet: boolean, directBurial: boolean,  sunlightResistant: boolean, shielded: boolean, impedanceOhm?: number,  resistanceOhmPerKft?: number /* overrides AWG table, required for 22/24 AWG */,  ampacityA?: number /* for non-building-wire; building wire uses 310.16 */,  odIn?: number, riserLabel: string /* short label printed on diagram, e.g. "2C #12 CL3R" */}
+RunType = 'lv-branch'|'lv-fixture-whip'|'class2-dc'|'class2-dc-multichannel'|'landscape-ac'        |'dmx'|'ethernet'|'spi-data'|'0-10v'|'dali'|'lutron-qs'|'lutron-ecosystem'|'wireless'
+4. Seed data (ship with app)
+4.1 NEC tables (src/data/nec/)
+Table 8 values are uncoated copper DC resistance at 75°C, in Ω/kft (solid / stranded):
+AWG	Solid	Stranded
+#18	7.77	7.95
+#16	4.89	4.99
+#14	3.07	3.14
+#12	1.93	1.98
+#10	1.21	1.24
+#8	0.764	0.778
+Stranded only for larger sizes: #6 0.491, #4 0.308, #2 0.194, #1/0 0.122.
+Table 310.16 copper ampacity:
+AWG	60°C	75°C	90°C
+#14	15	20	25
+#12	20	25	30
+#10	30	35	40
+#8	40	50	55
+#6	55	65	75
+Apply the 240.4(D) small-conductor OCPD limits: #14 → 15 A, #12 → 20 A, #10 → 30 A. Use Table 402.5 for #18 (6 A) and #16 (8 A) as the conservative default ampacity for Class 2 power cable when the library entry has none.
+Data-gauge resistances (#22, #24) come from the wire entry's resistanceOhmPerKft. Include a comment in the JSON that the user must verify all values against the adopted code edition.
+4.2 Wire library seed (wires.seed.json)
+Seed at least these entries. Flag every manufacturer part number verify: true.
+	• Line voltage: THHN/THWN-2 #14, #12, #10, #8, #6 stranded Cu (raceway). NM-B 14/2, 12/2, 10/2, 14/3, 12/3. MC 12/2, 12/3, 10/2. MC with integral 16/2 purple/gray 0-10V pair (12/2 + 16/2). UF-B 12/2 and 10/2. SOOW/SJOOW 14/3 and 16/3.
+	• Class 2 DC power: 18/2, 16/2, 14/2, 12/2 in CL3R and CL3P versions. 18/3 and 16/3 for tunable white/dim-to-warm (V+, WW, CW). 18/5 and 16/5 for RGBW (V+, R, G, B, W). 18/6 for RGB+CCT.
+	• Landscape: 12/2, 10/2, 8/2 low-voltage direct-burial (NEC 411 systems).
+	• DMX: 1-pair 24 AWG 120 Ω shielded RS-485 (e.g., Belden 9841) and its plenum equivalent. 2-pair 24 AWG 120 Ω (e.g., Belden 9729). Cat5e/Cat6 U/UTP CMR and CMP for DMX-over-Cat (ANSI E1.27-2) and sACN/Art-Net.
+	• 0-10V: 18/2 and 16/2 CL3R/CL3P, purple (+) / gray (−).
+	• DALI: 2C #16 and #18, 600 V-rated. Add a note that the DALI bus carries basic insulation only and is commonly pulled with mains; verify per product.
+	• Lutron QS: Lutron QS cable (e.g., GRX-CBL-346S, and GRX-PCBL-346S for plenum): 2 × #18 power plus a #22 twisted shielded data pair.
+	• Lutron EcoSystem: 2C #18 (wire per the Lutron wiring guide; line-voltage-rated when run with power).
+	• SPI pixel data: 18/3 (data, ground, spare). Add a note that runs longer than spiMaxDataFt require a differential transmitter/receiver.
+	• Wireless: a wireless pseudo-type (no cable) for CRMX links.
+4.3 Example products
+Include one EXAMPLE item per category (PSU, driver, DMX decoder, DMX controller, wireless TX/RX, pixel controller, opto-splitter, sACN gateway, Lutron module, 0-10V dimmer, keypad, 24 V single-color tape, 24 V TW tape, 24 V RGBW tape, 24 V CC-IC tape, pixel tape, line-voltage downlight, low-voltage CC downlight). Label every one with "EXAMPLE – replace with real data".
+5. UI specification
+App shell with a left nav: Project · Tables · Review · Drawing · Export · Libraries.
+Project: meta form, settings form (all ProjectSettings with inline help), revisions table, general notes editor, key notes editor.
+Tables: four tabbed AG Grids: Sources · Equipment · Loads · Control Links.
+	• Catalog columns use an autocomplete picker (search SKU/model/description). Picking an item shows read-only spec columns (W, V, channels) pulled from the catalog.
+	• fedFrom and controlFrom columns are dropdowns limited to valid upstream tags and ports. For example, a tape load can only pick CV outputs or decoder channels whose voltage matches.
+	• Support multi-row paste from Excel, fill-down, row duplication with auto-increment of tags (PS-1 → PS-2), and bulk edit.
+	• Every row shows a status dot (green / amber / red) linked to its validation messages. Hovering lists the issues.
+	• A bottom drawer shows a live mini-preview of the diagram (debounced ~400 ms, layout in a worker).
+Review:
+	• Derived Runs table: every run the engine derived, with type, from → to, length, current, voltage, conductors required, recommended wire, VD V/%, end voltage, ampacity check, terminal check, and status. An override column shows a wire picker filtered to compatible types plus a "parallel sets" count. Overrides persist to wireOverrides and show an "overridden" badge.
+	• Max-length helper: for any run, a popover table of max length per candidate gauge at the target VD.
+	• Loading summary: per PSU output (W, %), per decoder channel (A, %), per circuit (A, % of breaker, PSU count vs. inrush limit).
+	• DMX patch: universes, addresses, footprints, unit-load counts, chain lengths, and an "Auto-patch" button.
+	• Issues list: errors, warnings, and info, each clickable to jump to the source row.
+Drawing:
+	• SVG preview of each sheet in tabs, with pan/zoom.
+	• Nodes can be dragged. A dragged node becomes pinned, and connectors re-route. "Reset layout" clears pins.
+	• Toggles: show QA flags overlay (never exported), show wire tags, show DMX addresses, flow direction LR/TB.
+Export: PDF (all sheets), DXF (zip of one DXF per sheet, or all sheets tiled in one DXF), CSV schedules (equipment, loads, wire, BOM), and project JSON.
+Libraries: product and wire library grids with CRUD, CSV import/export with a column-mapping step, Zod validation per row, a dry-run preview, and upsert by SKU. Leave a placeholder tab for "ERPNext Sync" (Phase 11).
+6. Engine specification (src/engine/)
+6.1 Graph build
+Resolve tags into a directed power graph (Source → Equipment → … → Load) and a control graph (ControlLinks plus Equipment.controlFrom). Detect cycles, orphans, and unresolved refs.
+Equipment in the same location fed from the same circuit shares one home run. Each additional unit adds a short jumper segment, set by Equipment.feedLengthFt on subsequent units, typically 3–6 ft.
+6.2 Load math
+	• Tape W: wPerFtMax × lengthFt × (1 + tapeLengthMarginPct).
+	• Per-channel current: (W_total / channels) / V, unless maxSimultaneousPct < channels × 100. In that case, PSU load uses W_total × maxSimultaneousPct / (channels × 100), and each channel conductor is still sized for its own max.
+	• Pixel tape: pixels × ampsPerPixelMax.
+	• Fixtures: watts × qty.
+	• PSU output load: Σ connected loads. Error if > 100% of outputs[i].maxW; warn if > psuDeratePct. Warn if a Class 2 output exceeds 100 VA.
+	• Decoder: per-channel A vs. maxAPerChannel, and total vs. maxATotal. The decoder's power source is the upstream PSU, so decoder load passes through to that PSU.
+	• PSU input current: use maxInputA at the circuit voltage if provided. Otherwise use (connected W / efficiency) / (V × PF). Continuous-load check: Σ input A × continuousLoadFactor ≤ breakerA, plus a warning at breakerLoadLimitPct. Warn when PSU count per breaker exceeds maxUnitsPer20ABreaker (inrush).
+6.3 Voltage drop
+	• Single-phase / DC: VD = 2 × L × I × R / 1000. Three-phase: √3 × L × I × R / 1000. Use R from the wire entry, falling back to Table 8 by AWG and stranding. If acVdMethod = 'effective-z', use Table 9 effective Z at PF 0.85.
+	• Multichannel DC (TW, RGBW): the common V+ conductor carries the sum of the channel currents; each channel return carries its own. Worst-case VD = L × R × (I_common + I_channel_max) / 1000. Support common-conductor doubling as an override: parallel V+ conductors halve R_common.
+	• Distributed loads (daisy-chained fixtures, landscape): lumped-at-end uses the full length. distributed uses segment-by-segment summation with interFixtureLengthFt.
+	• Tape end-of-run check: V_at_tape = V_out − VD_feed must be ≥ minOperatingV (error), and the feed-wire VD % must be ≤ target (warning). Tape length must be ≤ maxRunFtSingleFeed for end feeds (or maxRunFtDoubleFeed for double-end/center). Otherwise, warn and suggest the minimum number of feeds, and let the user accept the suggestion, which converts the load to multi-feed with N derived feed runs.
+6.4 Wire selection algorithm (wireSelect.ts)
+For each derived run:
+	1. Candidates = wires whose applications include the run type, whose conductor count and roles satisfy what's required (e.g., RGBW = 1 power + 4 channel), and whose environment flags satisfy the run's env. Plenum requires plenum; wet requires wet; direct burial requires directBurial; riser accepts riser or plenum.
+	2. Remove failures: 
+		○ ampacity (310.16 at terminationTempC for building wire; ampacityA otherwise) < I × continuousLoadFactor;
+		○ AWG < minAwgLineVoltage on line-voltage runs;
+		○ OCPD rating > the 240.4(D) limit for that conductor;
+		○ VD % > target.
+	3. Rank: smallest AWG first, then lowest cost if costPerFt exists, then library order.
+	4. Terminal check: if the pick's AWG > terminalMaxAwg of either endpoint device, keep it but add warning TERMINAL_OVERSIZE. The message suggests a splice/distribution block with a pigtail, parallel sets, or moving the PSU closer, and quotes the max length for the largest terminal-compatible gauge.
+	5. No survivor: error NO_VALID_WIRE, showing the max length achievable with the largest candidate.
+	6. Output: RunResult { runId, tag: 'W-##', type, from, to, lengthFt, currentA, voltageV, wireTypeId, parallelSets, vdV, vdPct, endV, checks: {...}, messages[] }.
+Data runs (DMX, Ethernet, 0-10V, QS, DALI, SPI) skip VD. They check length and topology instead: DMX ≤ dmxMaxLengthFt and ≤ dmxMaxUnitLoads per segment, else suggest an opto-splitter; Ethernet ≤ 328 ft; SPI ≤ spiMaxDataFt; QS/DALI/0-10V limits come from device specs when present.
+Run tags W-## are assigned deterministically: sorted by source → downstream order, stable across edits where possible. Store a tag map so tags don't reshuffle on minor edits.
+6.5 DMX
+	• Patch validation: startAddress + footprint − 1 ≤ 512; no overlaps within a universe.
+	• Auto-patch assigns addresses sequentially by chainOrder, with an optional "start each decoder on a round number" setting.
+	• The last device in each wired DMX segment gets a terminator. Warn if the user has flagged it absent.
+	• A wireless RX starts a new physical segment.
+6.6 Validation codes
+Every message has a stable code, severity, entityRef, and human text. Minimum set:
+	• Errors: UNRESOLVED_REF, CYCLE, VOLTAGE_MISMATCH, DRIVE_MISMATCH (CV tape on a CC driver and vice versa), PROTOCOL_MISMATCH, INPUT_V_OUT_OF_RANGE, PSU_OVERLOAD, CHANNEL_OVERCURRENT, BREAKER_OVERLOAD, TAPE_UNDERVOLTAGE, NO_VALID_WIRE, DMX_ADDRESS_OVERLAP, DMX_ADDRESS_OVERFLOW.
+	• Warnings: PSU_ABOVE_DERATE, CLASS2_OVER_100VA, VD_OVER_TARGET (when overridden), TAPE_RUN_TOO_LONG, TERMINAL_OVERSIZE, DMX_UNIT_LOADS, DMX_LENGTH, DMX_NO_TERMINATOR, SPI_DATA_LENGTH, INRUSH_LIMIT, PHASE_DIMMER_COMPAT_UNKNOWN, EXAMPLE_PRODUCT_IN_USE.
+	• Info: MAX_LENGTH_HINT, SUGGEST_SPLIT_FEED.
+6.7 BOM
+Aggregate equipment and loads by SKU. Tape by feet, and optionally by reel count if the catalog has a reelLengthFt field. Wire by type as Σ run lengths × parallel sets × conductor sets × (1 + wireWastePct). Output to CSV and the on-sheet schedule.
+7. Drawing model and symbols (src/drawing/)
+7.1 Primitives
+All coordinates are in paper inches, origin at the sheet's lower-left:
+Prim = Line | Polyline(closed?) | Rect | Circle | Arc | Text | Hatch(solid only)common: { layer: LayerName; lineweightMm?; linetype?; color? }   // default ByLayerText: { x, y, value, heightIn, font: 'main'|'bold', rotation: 0|90, hAlign, vAlign }BlockRef: { symbolId, x, y, rotation, scale:1, attributes: Record<string,string> }Sheet: { size, prims: (Prim|BlockRef)[], blocks: SymbolDef[] }
+7.2 Layers (layers.json)
+Use NCS-style names.
+Layer	Content	Linetype	Weight
+E-ANNO-TTLB	Border, title block	Continuous	0.50
+E-ANNO-TEXT	General text, notes	Continuous	0.18
+E-ANNO-SCHD	Schedule tables	Continuous	0.18
+E-ANNO-TAGS	Equipment/load tags, wire tags	Continuous	0.18
+E-POWR-EQPM	Panels, PSUs, drivers, j-boxes	Continuous	0.35
+E-LITE-CTRL-EQPM	Decoders, controllers, gateways, keypads	Continuous	0.35
+E-LITE-FIXT	Tape runs, fixtures	Continuous	0.35
+E-POWR-WIRE-LV	Line-voltage conductors	Continuous	0.35
+E-LITE-WIRE-CL2	Class 2 DC power	Continuous	0.25
+E-LITE-CTRL-DMX	DMX / Ethernet	DASHED	0.18
+E-LITE-CTRL-SIGL	0-10V, DALI	DASHDOT	0.18
+E-LITE-CTRL-LUTR	Lutron QS/EcoSystem	PHANTOM	0.18
+E-LITE-CTRL-SPI	Pixel data	HIDDEN	0.18
+E-LITE-CTRL-WRLS	Wireless links	DOT	0.18
+E-ANNO-ENCL	Enclosure/location boxes	DASHED2	0.18
+E-ANNO-QAFL	QA flags (preview only, never exported)	n/a	n/a
+Colors should be muted and print-legible in color. Every layer must also read clearly in monochrome, since line types and weights carry the meaning.
+7.3 Text standards
+Use	Height
+Body, schedules	3/32"
+Tags	1/8"
+Section titles	3/16"
+Sheet title	1/4"
+Never scale text below 3/32". Layout happens at true plotted size (§8), so text is never scaled.
+7.4 Symbols (symbols/*.ts)
+Each symbol is a SymbolDef { id, widthIn, heightIn, prims, ports: {name, side: 'W'|'E'|'N'|'S', offset}[], attributes: {tag, default, visible, x, y, height}[] }. Required symbols:
+	• Panel/circuit (panel box with circuit rows as ports)
+	• PSU (AC→DC glyph; input W, outputs E; data N)
+	• CC driver
+	• DMX decoder (data in N, data out S or N-thru; channels E)
+	• DMX controller/console
+	• sACN/Art-Net gateway
+	• Network switch
+	• Wireless TX and RX (antenna glyph)
+	• Opto-splitter
+	• DMX terminator
+	• Pixel controller
+	• Lutron processor/module
+	• Keypad
+	• 0-10V dimmer
+	• Relay
+	• Junction box
+	• Splice/distribution block
+	• LED tape run (heavy line with channel-count hash marks and a length label)
+	• Linear fixture
+	• Downlight
+	• Landscape fixture
+	• Off-sheet connector (hexagon with sheet/ref)
+	• North-style legend swatches for each line type
+Attributes carried: TAG, MODEL, VIN, VOUT, WATTS, LOAD_PCT, DMX_ADDR, LOCATION. These become DXF ATTRIBs.
+8. Layout engine (src/drawing/layout/)
+	1. Power tree via ELK layered (worker), direction: RIGHT (or DOWN for TB): 
+		○ elk.edgeRouting: ORTHOGONAL, elk.portConstraints: FIXED_SIDE, elk.partitioning.activate: true.
+		○ Partitions fix the columns: 0 Sources, 1 line-voltage switching (relays/dimmers), 2 PSUs/drivers, 3 decoders/pixel controllers, 4 loads.
+		○ Spacing is tuned in inches so tags never collide: node-node ≥ 0.375", edge-edge ≥ 0.125".
+		○ Node sizes = symbol size + attribute text block.
+		○ Identical loads on the same output collapse to one node labelled "(×4)" or with total feet.
+	2. Control bus (custom post-pass router): 
+		○ Reserve a band above the power tree (left of it for TB flow).
+		○ Place control sources (console, gateway, Lutron processor, keypads, wireless TX) in the band.
+		○ Route each DMX/QS/0-10V chain as a horizontal bus track with orthogonal drops to each device's N port, in chainOrder. Draw in/out as a loop-through, not a star.
+		○ Stack multiple universes/links on offset tracks (0.125"), each labelled at its left end ("DMX U1", "QS LINK 1").
+		○ Place the terminator symbol at the chain end. Wireless links are drawn with the WRLS linetype and no bus.
+	3. Enclosures: equipment sharing enclosure gets a dashed bounding box with a label. Implement it as ELK compound nodes if partitions still behave; otherwise place enclosure members adjacently via ELK position hints and draw the box post-layout. Test both; choose the more robust.
+	4. Pinned nodes: honor layoutOverrides by fixing those positions. Re-route affected edges with ELK interactive mode. If results are poor, integrate libavoid-js for orthogonal connector routing around pinned nodes (Phase 7 stretch).
+	5. Pagination: lay out at true plotted size. If the result exceeds the sheet's drawing area, split by panel, then by circuit, then by PSU group. Cross-sheet edges become off-sheet connector pairs ("TO LR-2 / A").
+	6. Labels: place each wire tag on the longest horizontal segment of its edge, avoiding overlaps via a simple greedy collision pass. Callout format: W-07 · 2C #12 CL3R · 38' · VD 2.4%, with the text template configurable in settings.
+9. Sheet composition (src/drawing/sheet/)
+	• Title blocks are JSON templates (titleblocks/*.json) defining the border, the title block region (right vertical strip on ARCH D and ANSI B), and named fields: brand logo, project, number, client, address, sheet title, sheet number, date, scale ("NOT TO SCALE"), drawn/checked, revision table, and stamp.
+	• Logos are supplied as SVG, converted to vector prims (SVG path → polylines/arcs via a path-flattening utility). They are not rasters, so they survive the DXF export.
+	• On-sheet content: Legend (symbols and line types actually used), Equipment Schedule, Load Schedule, Wire Schedule (tag, type, from/to, length, current, VD%, qty ft), General Notes, Key Notes.
+	• If schedules don't fit beside the diagram, they move to a dedicated schedule sheet.
+	• Tables are drawn as lines and text, not images.
+	• Sheet numbering: {sheetPrefix}{n}, e.g., LR-1, LR-2.
+10. Exporters
+10.1 SVG (preview)
+Direct mapping of prims. Layers become <g data-layer>. Lineweights map mm to px at the zoom level. The QA overlay renders only here.
+10.2 PDF (serializers/pdf/) with AutoCAD PDFIMPORT compatibility
+Page and fonts:
+	• Page size in points (1 in = 72 pt). Geometry is written at 1:1 so that AutoCAD PDFIMPORT at scale 1 in an inch-unit drawing yields true paper inches.
+	• Embed a TrueType font with fontkit, not subset, so the font name stays clean for AutoCAD mapping. Make the font configurable. Default is an OFL metric-compatible Arial alternative (e.g., Arimo) plus a narrow/condensed option.
+Text:
+	• Each string is written as a single text show operation.
+	• No character spacing, no kerning adjustments, no per-glyph positioning.
+	• Rotation only 0°/90°.
+	• Result: strings import as single TEXT objects, not exploded glyphs.
+Geometry:
+	• Plain stroked paths only; closed paths for rectangles.
+	• No clipping paths, transparency, gradients, shading, or patterns.
+	• Solid fills only where needed.
+	• Dashed linetypes use PDF dash arrays matching the DXF LTYPE definitions, so AutoCAD's "infer linetypes from dashed segments" option can reconstruct them.
+	• Line widths equal the layer lineweight in points.
+Layers via Optional Content Groups (build a helper ocg.ts on pdf-lib's low-level API):
+	1. Create one OCG dict per layer used (/Type /OCG /Name (E-POWR-WIRE-LV)).
+	2. Add /OCProperties << /OCGs [...] /D << /Order [...] /ON [...] >> >> to the catalog.
+	3. Add /Properties << /OC0 ref ... >> to each page's resources.
+	4. Wrap each layer's content in /OC /OCn BDC … EMC using pushOperators.
+Result: PDFIMPORT with "Use PDF layers" recreates the layer structure, and the PDF viewer layer panel shows the same names.
+Metadata: title, author, subject (project number), and creator ("ilLumenate Riser Generator vX").
+Acceptance test (manual, documented in docs/cad-import-test.md):
+	1. In AutoCAD, run PDFIMPORT with: vector geometry on, TrueType text on, "Use PDF layers" on, join line/arc segments on, apply lineweight on, infer linetypes on.
+	2. Confirm layers match, text is TEXT objects with correct content and height, lines are lines/polylines, and a known 1.000" reference square in the border measures 1.000".
+10.3 DXF (serializers/dxf/)
+Format:
+	• Target R2000 (AC1015) or newer.
+	• Header $INSUNITS = 1 (inches), $MEASUREMENT = 0, $LTSCALE = 1.
+	• One DXF per sheet (zipped), plus an optional single-file mode with sheets tiled left to right at 2" gaps.
+Tables:
+	• LAYER: name, ACI color, linetype, lineweight per layers.json.
+	• LTYPE: DASHED, DASHED2, DASHDOT, PHANTOM, HIDDEN, DOT, defined in inches at plot scale.
+	• STYLE: the "MAIN" and "BOLD" text styles reference a TTF by file name. Use arial.ttf / arialbd.ttf in the DXF because they're present on any AutoCAD workstation; referencing is not embedding.
+Blocks and entities:
+	• Each symbol becomes a BLOCK with ATTDEFs. Placements become INSERT + ATTRIB with values. This lets AutoCAD users run Data Extraction on the riser to regenerate schedules.
+	• Single-line text uses TEXT with proper alignment points. Notes paragraphs use MTEXT.
+	• Polylines use LWPOLYLINE. Solid fills use HATCH SOLID.
+Validation:
+	• Vitest round-trip: parse with dxf-parser and assert layer set, entity counts, block/attribute presence, and a reference square at 1.000".
+	• Manual: open in AutoCAD and in the free ODA viewer.
+11. Persistence and import
+	• Autosave: the project goes to IndexedDB every change (debounced), with a "recent projects" list. Save/Open uses .riser.json via the File System Access API. Keep a schemaVersion and a migration chain from day one.
+	• Libraries: stored in IndexedDB and exported/imported as CSV or JSON.
+	• CSV templates: downloadable per category.
+	• CSV import flow: upload → auto-map columns by header (fuzzy) → user adjusts mapping → Zod validation with per-row errors → preview diff (new / updated / unchanged by SKU) → commit.
+	• Field names: align catalog CSV column names with the user's existing ERPNext item import builder fields (the user will supply the field list), so one export feeds both systems.
+12. ERPNext sync (Phase 11; design for it now)
+	• Transport: add an optional tiny local proxy (Hono or Express, npm run proxy) because browser-to-Frappe calls will hit CORS. During dev, the Vite server.proxy can serve the same purpose.
+	• Auth: token header Authorization: token <api_key>:<api_secret>, stored in a local .env, never in project files.
+	• Pull: GET /api/resource/Item with fields and filters (by item group), paginated with limit_start/limit_page_length.
+	• Mapping: a JSON mapping file maps ERPNext standard and custom fields to CatalogItem.specs.
+	• Sync rules: upsert by erpItemCode. Local overrides are flagged and preserved. Show a sync report (added / updated / conflicts).
+	• Direction: pull-only in v1 of this phase. Keep push (e.g., create a Quotation from the BOM) as a future hook.
+13. Phases and acceptance criteria
+#	Phase	Done when
+0	Scaffold: Vite/TS/Tailwind/shadcn, routing, Zustand + undo, Dexie, lint/format, Vitest, CI script	App runs; undo/redo works on a dummy form
+1	Schemas + seed data (NEC JSON, wire library, example products, layers, title block templates)	All seed files validate against Zod; unit tests load them
+2	Library managers + CSV import/export	User can import a 50-row PSU CSV with mapping and errors shown per row
+3	Tables UI (four grids, tag pickers, paste, fill-down, status dots)	A full demo project (2 circuits, 3 PSUs, 2 decoders, DMX console, 6 loads incl. RGBW and TW tape) can be entered without touching JSON
+4	Engine: graph, loads, VD, wire selection, DMX, validation, BOM	Test cases in §14 pass; Review screen shows derived runs, overrides, issues
+5	Drawing model + symbol library + SVG serializer	Symbol gallery page renders every symbol with ports and attributes
+6	Layout (ELK worker, control bus router, enclosures, pagination, label placement)	Demo project lays out with no overlapping text or crossing tags; 40-load project paginates correctly
+7	Sheet composition (title block, schedules, legend, notes) + drag/pin	Output looks like a finished CD sheet; pins persist and re-route
+8	PDF exporter with OCG layers	§10.2 acceptance test passes in AutoCAD
+9	DXF exporter with blocks/attributes	§10.3 round-trip test passes; opens clean in AutoCAD
+10	Polish: keyboard shortcuts, print styles, error boundaries, performance (200 loads < 2 s layout), docs	User guide in docs/
+11	ERPNext sync via local proxy	Pull of tagged item groups populates library with conflict report
+14. Required engine test cases
+	1. Single-channel 24 V run: 100 W on 24 V (4.17 A), 50 ft feed. 
+		○ #14 stranded → VD 1.31 V (5.45%), fails 3%.
+		○ #12 → 0.83 V (3.44%), fails.
+		○ #10 → 0.52 V (2.15%), passes.
+		○ If the PSU terminalMaxAwg = 12, expect a TERMINAL_OVERSIZE warning quoting #12 max length ≈ 43.6 ft at 3%.
+	2. RGBW 24 V tape: 20 ft at 4.4 W/ft total (88 W, 3.67 A common, 0.92 A per channel), 30 ft of 18/5. Verify the common-conductor VD formula, and that the doubled-common override reduces VD.
+	3. TW tape: maxSimultaneousPct = 100. PSU load equals rated W, not 2×; per-channel conductors are still sized for full channel current.
+	4. PSU overload: 96 W output at 90 W load → PSU_ABOVE_DERATE (at 80%), no error. At 100 W → PSU_OVERLOAD.
+	5. Breaker: 20 A 120 V circuit with 12 PSUs at 1.4 A max input → 16.8 A × 1.25 = 21 A → BREAKER_OVERLOAD.
+	6. DMX: 34 decoders on one wired segment → DMX_UNIT_LOADS. Address 510 with footprint 4 → DMX_ADDRESS_OVERFLOW.
+	7. CC-IC tape: minOperatingV = 21.5. A 24 V feed with 2.8 V drop passes the undervoltage check (21.2 V fails; confirm the boundary) while still flagging VD % over target.
+	8. Tape length: 40 ft run with maxRunFtSingleFeed = 32 → TAPE_RUN_TOO_LONG plus SUGGEST_SPLIT_FEED with feeds = 2.
+	9. Plenum environment excludes non-plenum candidates. Direct burial selects only direct-burial types.
+	10. Determinism: the same project produces identical W-tags and identical PDF/DXF bytes, excluding timestamps.
+15. Inputs Kevin must supply before or during Phase 1
+	• ilLumenate and 206 Lighting logos as SVG, plus brand colors and preferred title block field list.
+		○ Attached
+	• Sheet numbering convention and default sheet size.
+		○ "L-#" and 36x24
+	• Standard general notes text (installation, Class 2 separation, DMX termination, etc.).
+		○ Generate standard ones for these types of installations
+	• Seed product data: CSV exports or datasheets for your PSUs, decoders, tape SKUs, and fixtures, plus the field list from the ERPNext import builder so column names align.
+		○ Attached is an excel
+	• Company wiring standards that override code minimums (e.g., minimum #12 on LV home runs, preferred cable brands, max PSU loading %).
+		○ Max PSU loading % (80%)
+		○ Other standard ones for these types of installations
+	• Preferred CAD font if you have a house standard.
+		○ No preference

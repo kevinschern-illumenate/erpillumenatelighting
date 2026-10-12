@@ -33,6 +33,7 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
+		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
 			utils=SimpleNamespace(
@@ -54,6 +55,13 @@ offer = {
 	"snapshot_hash": "a" * 64,
 	"pdf_url": "/private/files/offer.pdf",
 	"sales_order": None,
+	"quote_request": "QR-00001",
+	"project_name": "Lobby <b>",
+	"schedule_name": "Level 1",
+	"status_label": "Awaiting your response",
+	"status_class": "warning",
+	"grand_total": 240.0,
+	"currency": "USD",
 	"response_note": None,
 	"unavailable_reason": None,
 	"can_respond": True,
@@ -82,6 +90,9 @@ rendered = detail.render(offer=offer)
 assert '<form id="offer-response"' in rendered
 assert "&lt;img" in rendered and "<img src=x" not in rendered
 assert "<script>unsafe()" not in rendered
+assert 'data-parent-type="ilL-Quote-Request" data-parent-name="QR-00001"' in rendered
+assert 'ill-status--warning">Awaiting your response' in rendered and "Next step" in rendered
+assert 'href="/portal/quotes" aria-current="page"' in detail.render(offer=offer, path="portal/quotes/OFFER-00001")
 offer["can_respond"] = False
 assert '<form id="offer-response"' not in detail.render(offer=offer)
 listing = environment.get_template("templates/pages/quotes.html")
@@ -90,6 +101,20 @@ assert "OFFER-00001" in listing.render(
 )
 assert "No issued quotations" in listing.render(
 	offers=[], next_cursor=None, requests=[], requests_page=1, more_requests=False
+)
+filtered = listing.render(
+	offers=[offer],
+	next_cursor="OFFER-00001",
+	requests=[dict(name="QR-1", schedule="S1", schedule_name="Level 1", state="INFORMATION_NEEDED", status_label="Needs your reply", status_class="warning")],
+	requests_page=1,
+	more_requests=False,
+	status="open",
+	search="lobby",
+	request_status="action",
+)
+assert "Lobby &lt;b&gt;" in filtered and "Needs your reply" in filtered and "status=open&amp;search=lobby" in filtered
+assert "No quotes match" in listing.render(
+	offers=[], next_cursor=None, requests=[], requests_page=1, more_requests=False, status="open", search="", request_status="open"
 )
 
 from html.parser import HTMLParser
@@ -181,6 +206,7 @@ intake_view = View(
 	original=View(items=[], grand_total=90, currency="USD", terms="Original terms"),
 	current=View(grand_total=100, currency="USD", terms="Current terms"),
 	revision_hash="revision",
+	next_step=View(buyer=True, text="Acknowledge <this> revision"),
 )
 order_html = environment.get_template("templates/pages/order_detail.html").render(
 	order=order_view,
@@ -229,23 +255,28 @@ order_html = environment.get_template("templates/pages/order_detail.html").rende
 )
 assert "&lt;script&gt;" in order_html and "<script>bad()" not in order_html
 assert "Not confirmed" in order_html and "Outstanding" in order_html and "ROW1" in order_html
+assert "Next step" in order_html and "Acknowledge &lt;this&gt; revision" in order_html
 parser.feed(order_html)
 orders_html = environment.get_template("templates/pages/orders.html").render(
 	orders=[order_view], page=2, has_more=True, search="PO1", filter="shipping"
 )
 assert "Newer orders" in orders_html and "Older orders" in orders_html
+assert 'class="ill-record"' in orders_html and "No orders match" not in orders_html
 quote_request_html = environment.get_template("templates/pages/quote_request_detail.html").render(
 	request=View(
 		name="QR1",
 		schedule="S1",
 		requested_by="buyer",
-		state="REQUESTED",
+		state="INFORMATION_NEEDED",
+		status_label="Needs your reply",
+		status_class="warning",
 		due_date=None,
 		files=[],
 		snapshot=View(requested_date=None, contact="Buyer", notes="Need <script>bad()</script>", lines=[]),
 	)
 )
 assert "<script>bad()" not in quote_request_html
+assert "Needs your reply" in quote_request_html and "ilLumenate needs more information" in quote_request_html
 
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
@@ -308,6 +339,19 @@ nothing = configurator.render(
 )
 assert "nothing was pre-filled" in nothing and "5000K" in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
+designer_template = environment.get_template("templates/pages/system_design.html")
+designer = designer_template.render(
+	assets="/assets/illumenate_lighting/system_designer/designer",
+	asset_version=7,
+	schedule_name="SCH </script><b>",
+	mount_options={"schedule": "SCH </script><b>", "csrfToken": "csrf", "apiBase": "/api/method/x"},
+)
+assert 'import "/assets/illumenate_lighting/system_designer/designer.js?v=7";' in designer
+assert "IllSystemDesigner.mount" in designer and "</script><b>" not in designer
+assert "/portal/schedules/SCH%20%3C/script%3E%3Cb%3E" in designer
+assert "Back to schedule" not in designer_template.render(
+	assets="a", asset_version=0, schedule_name=None, mount_options={"schedule": None}
+)
 assert 'ill-finder.js' in finder
 parser.feed(finder)
 catalog_builder = environment.get_template("templates/pages/catalog_builder.html").render(

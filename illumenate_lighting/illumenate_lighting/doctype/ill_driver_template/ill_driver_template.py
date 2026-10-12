@@ -4,6 +4,8 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting.web_listing import apply_product_status
+
 #: Configurator axes on ilL-Child-Driver-Template-Variant, keyed by the
 #: ``option_type`` used in ilL-Child-Driver-Allowed-Option.
 DRIVER_VARIANT_AXES = {
@@ -16,6 +18,7 @@ DRIVER_VARIANT_AXES = {
 
 class ilLDriverTemplate(Document):
 	def validate(self):
+		apply_product_status(self)
 		self._validate_single_default()
 		self._validate_unique_variant_axes()
 		self._validate_allowed_options()

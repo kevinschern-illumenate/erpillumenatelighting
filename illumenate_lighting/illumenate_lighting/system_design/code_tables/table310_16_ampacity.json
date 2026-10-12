@@ -1,0 +1,56 @@
+{
+  "id": "nec-2023-table310-16-cu",
+  "kind": "ampacity",
+  "material": "Cu",
+  "units": "A",
+  "comment": "User must verify all values against the adopted NEC edition, installation conditions, conductor listing, and terminal ratings. This seed is not an independent code certification.",
+  "source": {
+    "standard": "NFPA 70",
+    "edition": "2023",
+    "table": "Table 310.16 / 240.4(D)",
+    "reference": "NFPA 70 (NEC), 2023 edition, Table 310.16 / 240.4(D); supplied implementation plan §4.1.",
+    "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+    "verification": "user-supplied-unverified",
+    "supportingUrls": [
+      "https://www.southwire.com/wire-cable/building-wire/thhn-thwn-copper-silicone-free/p/SPEC10003"
+    ],
+    "checkedOn": "2026-09-24"
+  },
+  "ambientTempC": 30,
+  "maxCurrentCarryingConductors": 3,
+  "rows": [
+    {
+      "awg": "14",
+      "at60C": 15,
+      "at75C": 20,
+      "at90C": 25,
+      "smallConductorOcpdLimitA": 15
+    },
+    {
+      "awg": "12",
+      "at60C": 20,
+      "at75C": 25,
+      "at90C": 30,
+      "smallConductorOcpdLimitA": 20
+    },
+    {
+      "awg": "10",
+      "at60C": 30,
+      "at75C": 35,
+      "at90C": 40,
+      "smallConductorOcpdLimitA": 30
+    },
+    {
+      "awg": "8",
+      "at60C": 40,
+      "at75C": 50,
+      "at90C": 55
+    },
+    {
+      "awg": "6",
+      "at60C": 55,
+      "at75C": 65,
+      "at90C": 75
+    }
+  ]
+}

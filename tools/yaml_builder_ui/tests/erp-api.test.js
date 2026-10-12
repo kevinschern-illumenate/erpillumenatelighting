@@ -23,7 +23,8 @@ test('all endpoints use same-origin credentials, encoded queries, and exact CSRF
   await api.check(catalog);
   await api.importCatalog(catalog, 'checked-hash');
   await api.history();
-  assert.deepEqual(calls.map(call => new URL(call.url, 'https://test').pathname.split('.').at(-1)), ['reference', 'reference', 'record', 'check', 'import_catalog', 'history']);
+  await api.designReadiness();
+  assert.deepEqual(calls.map(call => new URL(call.url, 'https://test').pathname.split('.').at(-1)), ['reference', 'reference', 'record', 'check', 'import_catalog', 'history', 'design_readiness']);
   assert.ok(calls[1].url.endsWith('?refresh=1'));
   const query = new URL(calls[2].url, 'https://test').searchParams;
   assert.equal(query.get('doctype'), 'ilL-Rel-Profile Lens');

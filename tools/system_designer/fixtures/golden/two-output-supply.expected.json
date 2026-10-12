@@ -1,0 +1,65 @@
+{
+ "buildHash": "27a110a1e396946453ef8161e3035a6699145db921f53f0ed29db97aa7ba73ef",
+ "runs": {
+  "power:load:a1linear:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.72875,
+   "endV": 23.8251
+  },
+  "power:load:b1tape:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": null,
+   "vdPct": null,
+   "endV": null
+  },
+  "power:load:d1group:1:1": {
+   "type": "class2-dc",
+   "wireTypeId": "wire:TEST-WIRE-18-2",
+   "vdPct": 0.364375,
+   "endV": 23.91255
+  }
+ },
+ "messages": [
+  "error|NO_VALID_WIRE|load:b1tape:1:1",
+  "error|PSU_OVERLOAD|PS-1",
+  "error|PSU_OVERLOAD|PS-1",
+  "warning|SUPPLY_NO_ACCESS|cab-1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:a1linear:1:1",
+  "warning|WIRE_REQUIRES_VERIFICATION|load:d1group:1:1",
+  "warning|UNRESOLVED_REF|PS-1"
+ ],
+ "verify": {
+  "loading": [
+   {
+    "entityId": "PS-1",
+    "port": "OUT1",
+    "wattsW": 13.2
+   },
+   {
+    "entityId": "PS-1",
+    "port": "OUT2",
+    "wattsW": 48.054
+   }
+  ],
+  "runs": {
+   "power:load:a1linear:1:1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.729
+   },
+   "power:load:b1tape:1:1": {
+    "wireTypeId": null,
+    "vdPct": null
+   },
+   "power:load:d1group:1:1": {
+    "wireTypeId": "wire:TEST-WIRE-18-2",
+    "vdPct": 0.364
+   }
+  },
+  "messages": [
+   "NO_VALID_WIRE|load:b1tape:1:1",
+   "PSU_OVERLOAD|PS-1"
+  ],
+  "review": []
+ }
+}

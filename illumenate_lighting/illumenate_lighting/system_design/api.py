@@ -1,0 +1,287 @@
+# Copyright (c) 2026, ilLumenate Lighting and contributors
+# For license information, please see license.txt
+
+"""Whitelisted System Designer endpoints (plan H6).
+
+Every endpoint returns ``{"success": True, "data": ...}`` or
+``{"success": False, "error": str, "code": str}``. Endpoints are thin: they check access through
+:mod:`.access` and delegate to service modules. Wrap each in :func:`endpoint` so intentional failures
+become contract errors and anything unexpected is logged and returned as a generic ``INTERNAL``.
+"""
+
+import functools
+import json
+
+import frappe
+from frappe import _
+
+from illumenate_lighting.illumenate_lighting.system_design.errors import CODES, DesignError
+
+
+def respond(data=None):
+	return {"success": True, "data": data}
+
+
+def fail(code, message):
+	if code not in CODES:
+		raise ValueError(f"Unknown System Designer error code: {code}")
+	return {"success": False, "error": str(message), "code": code}
+
+
+def parse_json(value, name="payload"):
+	"""Accept a dict/list or its JSON string (the ``api/portal.py`` body pattern)."""
+	if isinstance(value, (dict, list)):
+		return value
+	try:
+		return json.loads(value)
+	except (TypeError, ValueError):
+		raise DesignError("INVALID", _("{0} must be valid JSON").format(name))
+
+
+def endpoint(function):
+	"""Turn a service function into a contract-shaped endpoint body."""
+
+	@functools.wraps(function)
+	def wrapper(*args, **kwargs):
+		try:
+			return respond(function(*args, **kwargs))
+		except DesignError as e:
+			return fail(e.code, e.message)
+		except frappe.PermissionError:
+			return fail("FORBIDDEN", _("You do not have access to this design"))
+		except frappe.DoesNotExistError:
+			return fail("NOT_FOUND", _("Not found"))
+		except frappe.ValidationError as e:
+			# frappe.throw() messages are written for users; show them as-is.
+			return fail("INVALID", str(e))
+		except Exception as e:
+			try:
+				frappe.log_error(
+					title=f"System Designer: {function.__name__}"[:140],
+					message=frappe.get_traceback() or str(e),
+				)
+			except Exception:
+				pass
+			return fail("INTERNAL", _("Something went wrong. Please try again or contact ilLumenate."))
+
+	return wrapper
+
+
+# --- Catalog (WP-2.1, H6) ------------------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def get_catalog(hash=None):
+	"""The catalog snapshot ``hash`` names (immutable, so clients cache it by hash)."""
+	from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
+	from illumenate_lighting.illumenate_lighting.system_design import catalog
+
+	if frappe.session.user == "Guest" or not can_view_catalog():
+		raise DesignError("FORBIDDEN", _("The catalog is available to dealers and ilLumenate staff"))
+	return catalog.catalog_response(hash or catalog.current_snapshot_hash())
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def get_catalog_for_desktop():
+	"""The current snapshot for the riser desktop app (D1): an engineering user's API token."""
+	from illumenate_lighting.illumenate_lighting.system_design import catalog
+	from illumenate_lighting.illumenate_lighting.system_design.access import require_capability
+
+	require_capability("engineering")
+	return catalog.catalog_response(catalog.current_snapshot_hash())
+
+
+# --- Opening a schedule (WP-2.3, H6) -------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def open_design(schedule=None, design=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.open_design(schedule, design)
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def find_schedules(query=None, limit=20):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.find_schedules(query, limit)
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def review_requirement(schedule=None):
+	from illumenate_lighting.illumenate_lighting.system_design import access, gate
+	from illumenate_lighting.illumenate_lighting.system_design.settings import settings
+
+	return gate.schedule_requirement(access.require_read(schedule), settings())
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def override_review_gate(schedule=None, reason=None):
+	from illumenate_lighting.illumenate_lighting.system_design import gate
+
+	return gate.override_review_gate(schedule, reason)
+
+
+# --- Power board (WP-3.4, H6) --------------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def eligible_supplies(schedule=None, run_keys=None, location_rating=None):
+	"""Catalog supplies that can feed ``run_keys``: ids, item codes and opaque ``rank`` only (D6)."""
+	from illumenate_lighting.illumenate_lighting.system_design import supplies
+
+	return supplies.eligible_supplies(schedule, run_keys, location_rating)
+
+
+# --- Saving and revisions (WP-2.4, H6) -----------------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def save_design(
+	schedule=None,
+	design_json=None,
+	design_name=None,
+	expected_modified=None,
+	reconciled=None,
+	terms_accepted=None,
+):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.save_design(
+		schedule, design_json, design_name, expected_modified, reconciled, terms_accepted
+	)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def create_revision(design=None, note=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.create_revision(design, note)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def verify_design(design=None, client=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.verify_design(design, parse_json(client, "client") if client not in (None, "") else None)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def upload_deliverable(design=None, kind=None, variant=None, sha256=None, build_hash=None):
+	"""Store a generated drawing on a design (WP-3.7); the file is the multipart ``file`` part."""
+	from illumenate_lighting.illumenate_lighting.system_design import deliverables
+
+	return deliverables.upload_deliverable(design, kind, variant, sha256, build_hash)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def log_event(schedule=None, event=None, design=None, details=None):
+	"""Pilot telemetry the browser reports (WP-3.9): riser downloads, fixed checks, feedback."""
+	from illumenate_lighting.illumenate_lighting.system_design import telemetry
+
+	return telemetry.log_event(schedule, event, design, details)
+
+
+# --- Reconcile and copy forward (WP-2.5, H6) -----------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def reconcile_design(design=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.reconcile_design(design)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def copy_design_to_version(design=None, target_schedule=None):
+	from illumenate_lighting.illumenate_lighting.system_design import designs
+
+	return designs.copy_design_to_version(design, target_schedule)
+
+
+# --- Write-back (WP-4.1, H6, H8.6) -----------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["GET", "POST"])
+@endpoint
+def writeback_preview(design=None, wire_feet=None, build_hash=None):
+	"""What adding the design to its schedule would change; ``price_delta`` only with ``Can View Pricing``."""
+	from illumenate_lighting.illumenate_lighting.system_design import writeback
+
+	return writeback.preview(design, wire_feet, build_hash)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def writeback_apply(design=None, accepted_keys=None, wire_feet=None, build_hash=None):
+	from illumenate_lighting.illumenate_lighting.system_design import writeback
+
+	return writeback.apply(design, accepted_keys or "[]", wire_feet, build_hash)
+
+
+# --- Review (WP-4.2, WP-4.3, H6) -----------------------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def request_review(
+	design=None, priority=None, due_date=None, note=None, error_count=None, warning_count=None
+):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.request_review(design, priority, due_date, note, error_count, warning_count)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def review_decide(design=None, decision=None, note=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.review_decide(design, decision, note)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def override_check(design=None, code=None, entity_ref=None, reason=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.override_check(design, code, entity_ref, reason)
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def list_comments(design=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.list_comments(design)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def add_comment(design=None, body=None, view=None, anchor=None):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.add_comment(design, body, view, anchor)
+
+
+@frappe.whitelist(methods=["POST"])
+@endpoint
+def resolve_comment(design=None, comment_id=None, resolved=1):
+	from illumenate_lighting.illumenate_lighting.system_design import review
+
+	return review.resolve_comment(design, comment_id, resolved)

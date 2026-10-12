@@ -17,3 +17,14 @@ def ill_finder_enabled() -> bool:
 	from illumenate_lighting.illumenate_lighting.portal.product_finder.content import SETTINGS
 
 	return ill_can_view_catalog() and bool(frappe.db.get_single_value(SETTINGS, "portal_enabled"))
+
+
+def ill_sanitize_html(html) -> str:
+	"""Sanitize stored rich text for ``| safe`` output.
+
+	Frappe's template sandbox only exposes whitelisted data helpers under
+	``frappe.utils``; ``sanitize_html`` is not one of them and renders as None.
+	"""
+	from frappe.utils.html_utils import sanitize_html
+
+	return sanitize_html(html or "")

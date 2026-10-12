@@ -8,6 +8,8 @@
  "field_order": [
   "state",
   "product",
+  "listing_doctype",
+  "listing_name",
   "product_title",
   "family",
   "finder_session",
@@ -41,6 +43,21 @@
    "label": "Product",
    "options": "ilL-Webflow-Product",
    "reqd": 1
+  },
+  {
+   "fieldname": "listing_doctype",
+   "fieldtype": "Link",
+   "label": "Listing DocType",
+   "options": "DocType",
+   "read_only": 1,
+   "description": "Template (or Webflow Product) that holds this listing's web content."
+  },
+  {
+   "fieldname": "listing_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Listing",
+   "options": "listing_doctype",
+   "read_only": 1
   },
   {
    "fieldname": "product_title",
@@ -135,7 +152,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-01 12:00:00.000000",
+ "modified": "2026-10-09 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Product-Verification-Request",

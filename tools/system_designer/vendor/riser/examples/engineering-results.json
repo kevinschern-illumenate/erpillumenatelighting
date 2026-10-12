@@ -1,0 +1,3218 @@
+{
+  "runs": [
+    {
+      "runId": "control:dec-1",
+      "type": "dmx",
+      "from": {
+        "id": "con-1",
+        "tag": "CON-1",
+        "port": "DATA-OUT"
+      },
+      "to": {
+        "id": "dec-1",
+        "tag": "DEC-1"
+      },
+      "entityRef": "dec-1",
+      "lengthFt": 50,
+      "currentA": 0,
+      "voltageV": 0,
+      "wattsW": 0,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [],
+      "required": {
+        "power": 0,
+        "ground": 0,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 2
+      },
+      "maxDataLengthFt": 1000,
+      "tag": "W-01",
+      "wireTypeId": "dmx-24-1p-plenum",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": null,
+      "vdPct": null,
+      "endV": null,
+      "ampacityA": null,
+      "checks": {
+        "ampacity": null,
+        "terminal": true,
+        "voltageDrop": null
+      },
+      "candidates": [
+        {
+          "wireTypeId": "dmx-24-1p-plenum",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat5e-cmr",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat5e-cmp",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat6-cmr",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat6-cmp",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "dec-1",
+          "text": "W-01: verify 24 AWG 1-pair 120 Ω plenum ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "control:dec-2",
+      "type": "dmx",
+      "from": {
+        "id": "dec-1",
+        "tag": "DEC-1"
+      },
+      "to": {
+        "id": "dec-2",
+        "tag": "DEC-2"
+      },
+      "entityRef": "dec-2",
+      "lengthFt": 5,
+      "currentA": 0,
+      "voltageV": 0,
+      "wattsW": 0,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [],
+      "required": {
+        "power": 0,
+        "ground": 0,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 2
+      },
+      "tag": "W-02",
+      "wireTypeId": "dmx-24-1p-plenum",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": null,
+      "vdPct": null,
+      "endV": null,
+      "ampacityA": null,
+      "checks": {
+        "ampacity": null,
+        "terminal": true,
+        "voltageDrop": null
+      },
+      "candidates": [
+        {
+          "wireTypeId": "dmx-24-1p-plenum",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat5e-cmr",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat5e-cmp",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat6-cmr",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cat6-cmp",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": null,
+          "vdV": null,
+          "vdPct": null,
+          "endV": null,
+          "maxLengthFt": null,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "dec-2",
+          "text": "W-02: verify 24 AWG 1-pair 120 Ω plenum ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:load-1",
+      "type": "class2-dc-multichannel",
+      "from": {
+        "id": "dec-1",
+        "tag": "DEC-1",
+        "port": "CH1-4"
+      },
+      "to": {
+        "id": "load-1",
+        "tag": "T1"
+      },
+      "entityRef": "load-1",
+      "lengthFt": 20,
+      "currentA": 2.2,
+      "voltageV": 24,
+      "wattsW": 52.800000000000004,
+      "channelCurrentsA": [
+        0.55,
+        0.55,
+        0.55,
+        0.55
+      ],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [
+        "12"
+      ],
+      "minOperatingV": 21.5,
+      "required": {
+        "power": 1,
+        "ground": 0,
+        "channel": 4,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-03",
+      "wireTypeId": "cl3-18-5-r",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.43725,
+      "vdPct": 1.8218750000000001,
+      "endV": 23.56275,
+      "ampacityA": 6,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "cl3-18-5-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.43725,
+          "vdPct": 1.8218750000000001,
+          "endV": 23.56275,
+          "maxLengthFt": 32.93310463121784,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-5-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.27445,
+          "vdPct": 1.143541666666667,
+          "endV": 23.72555,
+          "maxLengthFt": 52.46857351065768,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-6-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.43725,
+          "vdPct": 1.8218750000000001,
+          "endV": 23.56275,
+          "maxLengthFt": 32.93310463121784,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-5-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.43725,
+          "vdPct": 1.8218750000000001,
+          "endV": 23.56275,
+          "maxLengthFt": 32.93310463121784,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-5-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.27445,
+          "vdPct": 1.143541666666667,
+          "endV": 23.72555,
+          "maxLengthFt": 52.46857351065768,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-6-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.43725,
+          "vdPct": 1.8218750000000001,
+          "endV": 23.56275,
+          "maxLengthFt": 32.93310463121784,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "load-1",
+          "text": "W-03: verify 18/5 CL3R ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:load-2",
+      "type": "class2-dc-multichannel",
+      "from": {
+        "id": "dec-2",
+        "tag": "DEC-2",
+        "port": "CH1-2"
+      },
+      "to": {
+        "id": "load-2",
+        "tag": "T2"
+      },
+      "entityRef": "load-2",
+      "lengthFt": 20,
+      "currentA": 1.8333333333333333,
+      "voltageV": 24,
+      "wattsW": 44,
+      "channelCurrentsA": [
+        1.8333333333333333,
+        1.8333333333333333
+      ],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [
+        "12"
+      ],
+      "minOperatingV": 21.5,
+      "required": {
+        "power": 1,
+        "ground": 0,
+        "channel": 2,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-04",
+      "wireTypeId": "cl3-18-3-r",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.583,
+      "vdPct": 2.4291666666666667,
+      "endV": 23.417,
+      "ampacityA": 6,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "cl3-18-3-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.583,
+          "vdPct": 2.4291666666666667,
+          "endV": 23.417,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-3-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.36593333333333333,
+          "vdPct": 1.5247222222222223,
+          "endV": 23.634066666666666,
+          "maxLengthFt": 39.35143013299326,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-5-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.583,
+          "vdPct": 2.4291666666666667,
+          "endV": 23.417,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-5-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.36593333333333333,
+          "vdPct": 1.5247222222222223,
+          "endV": 23.634066666666666,
+          "maxLengthFt": 39.35143013299326,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-6-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.583,
+          "vdPct": 2.4291666666666667,
+          "endV": 23.417,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-3-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.583,
+          "vdPct": 2.4291666666666667,
+          "endV": 23.417,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-3-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.36593333333333333,
+          "vdPct": 1.5247222222222223,
+          "endV": 23.634066666666666,
+          "maxLengthFt": 39.35143013299326,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-5-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.583,
+          "vdPct": 2.4291666666666667,
+          "endV": 23.417,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-5-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.36593333333333333,
+          "vdPct": 1.5247222222222223,
+          "endV": 23.634066666666666,
+          "maxLengthFt": 39.35143013299326,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-18-6-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.583,
+          "vdPct": 2.4291666666666667,
+          "endV": 23.417,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "load-2",
+          "text": "W-04: verify 18/3 CL3R ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:load-5",
+      "type": "lv-branch",
+      "from": {
+        "id": "src-1",
+        "tag": "LP-1/12"
+      },
+      "to": {
+        "id": "load-5",
+        "tag": "D1"
+      },
+      "entityRef": "load-5",
+      "lengthFt": 48,
+      "currentA": 0.5,
+      "voltageV": 120,
+      "wattsW": 60,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "raceway",
+      "breakerA": 20,
+      "terminalMaxAwg": [],
+      "required": {
+        "power": 2,
+        "ground": 1,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "distributed": {
+        "qty": 4,
+        "homeRunFt": 30,
+        "interFixtureFt": 6
+      },
+      "tag": "W-05",
+      "wireTypeId": "thhn-12",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.09503999999999999,
+      "vdPct": 0.07919999999999998,
+      "endV": 119.90496,
+      "ampacityA": 25,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "thhn-14",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 20,
+          "vdV": 0.15072,
+          "vdPct": 0.1256,
+          "endV": 119.84928,
+          "maxLengthFt": 1146.4968152866243,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-12",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.09503999999999999,
+          "vdPct": 0.07919999999999998,
+          "endV": 119.90496,
+          "maxLengthFt": 1818.1818181818182,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-10",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.059519999999999997,
+          "vdPct": 0.049600000000000005,
+          "endV": 119.94048,
+          "maxLengthFt": 2903.225806451613,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-8",
+          "awg": "8",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 50,
+          "vdV": 0.037344,
+          "vdPct": 0.031120000000000002,
+          "endV": 119.962656,
+          "maxLengthFt": 4627.249357326478,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-6",
+          "awg": "6",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 65,
+          "vdV": 0.023568,
+          "vdPct": 0.019639999999999998,
+          "endV": 119.976432,
+          "maxLengthFt": 7331.975560081466,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-14-2",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.14736,
+          "vdPct": 0.12279999999999999,
+          "endV": 119.85264,
+          "maxLengthFt": 1172.638436482085,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.09264,
+          "vdPct": 0.0772,
+          "endV": 119.90736,
+          "maxLengthFt": 1865.2849740932645,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.05808,
+          "vdPct": 0.0484,
+          "endV": 119.94192,
+          "maxLengthFt": 2975.2066115702482,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-14-3",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.14736,
+          "vdPct": 0.12279999999999999,
+          "endV": 119.85264,
+          "maxLengthFt": 1172.638436482085,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.09264,
+          "vdPct": 0.0772,
+          "endV": 119.90736,
+          "maxLengthFt": 1865.2849740932645,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.09264,
+          "vdPct": 0.0772,
+          "endV": 119.90736,
+          "maxLengthFt": 1865.2849740932645,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.09264,
+          "vdPct": 0.0772,
+          "endV": 119.90736,
+          "maxLengthFt": 1865.2849740932645,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.05808,
+          "vdPct": 0.0484,
+          "endV": 119.94192,
+          "maxLengthFt": 2975.2066115702482,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "uf-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.09264,
+          "vdPct": 0.0772,
+          "endV": 119.90736,
+          "maxLengthFt": 1865.2849740932645,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "uf-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.05808,
+          "vdPct": 0.0484,
+          "endV": 119.94192,
+          "maxLengthFt": 2975.2066115702482,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-2-16-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.09503999999999999,
+          "vdPct": 0.07919999999999998,
+          "endV": 119.90496,
+          "maxLengthFt": 1818.1818181818182,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "load-5",
+          "text": "W-05: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:ps-1",
+      "type": "lv-branch",
+      "from": {
+        "id": "src-1",
+        "tag": "LP-1/12"
+      },
+      "to": {
+        "id": "ps-1",
+        "tag": "PS-1"
+      },
+      "entityRef": "ps-1",
+      "lengthFt": 35,
+      "currentA": 0.9434697855750488,
+      "voltageV": 120,
+      "wattsW": 107.55555555555556,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "raceway",
+      "breakerA": 20,
+      "terminalMaxAwg": [
+        "12"
+      ],
+      "required": {
+        "power": 2,
+        "ground": 1,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-06",
+      "wireTypeId": "thhn-12",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.13076491228070178,
+      "vdPct": 0.10897076023391815,
+      "endV": 119.8692350877193,
+      "ampacityA": 25,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "thhn-14",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 20,
+          "vdV": 0.2073746588693957,
+          "vdPct": 0.17281221572449643,
+          "endV": 119.7926253411306,
+          "maxLengthFt": 607.5959362004527,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-12",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.13076491228070178,
+          "vdPct": 0.10897076023391815,
+          "endV": 119.8692350877193,
+          "maxLengthFt": 963.5612321562734,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-10",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.08189317738791424,
+          "vdPct": 0.06824431448992853,
+          "endV": 119.91810682261209,
+          "maxLengthFt": 1538.5897094108238,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "thhn-8",
+          "awg": "8",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 50,
+          "vdV": 0.05138136452241716,
+          "vdPct": 0.04281780376868097,
+          "endV": 119.94861863547759,
+          "maxLengthFt": 2452.2509507319037,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "thhn-6",
+          "awg": "6",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 65,
+          "vdV": 0.032427056530214424,
+          "vdPct": 0.02702254710851202,
+          "endV": 119.96757294346979,
+          "maxLengthFt": 3885.64407264648,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "nm-b-14-2",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.202751656920078,
+          "vdPct": 0.168959714100065,
+          "endV": 119.79724834307993,
+          "maxLengthFt": 621.449915201766,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.12746276803118908,
+          "vdPct": 0.10621897335932425,
+          "endV": 119.8725372319688,
+          "maxLengthFt": 988.5239583779386,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.07991189083820663,
+          "vdPct": 0.0665932423651722,
+          "endV": 119.9200881091618,
+          "maxLengthFt": 1576.7365617102657,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "nm-b-14-3",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.202751656920078,
+          "vdPct": 0.168959714100065,
+          "endV": 119.79724834307993,
+          "maxLengthFt": 621.449915201766,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.12746276803118908,
+          "vdPct": 0.10621897335932425,
+          "endV": 119.8725372319688,
+          "maxLengthFt": 988.5239583779386,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.12746276803118908,
+          "vdPct": 0.10621897335932425,
+          "endV": 119.8725372319688,
+          "maxLengthFt": 988.5239583779386,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.12746276803118908,
+          "vdPct": 0.10621897335932425,
+          "endV": 119.8725372319688,
+          "maxLengthFt": 988.5239583779386,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.07991189083820663,
+          "vdPct": 0.0665932423651722,
+          "endV": 119.9200881091618,
+          "maxLengthFt": 1576.7365617102657,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "uf-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.12746276803118908,
+          "vdPct": 0.10621897335932425,
+          "endV": 119.8725372319688,
+          "maxLengthFt": 988.5239583779386,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "uf-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.07991189083820663,
+          "vdPct": 0.0665932423651722,
+          "endV": 119.9200881091618,
+          "maxLengthFt": 1576.7365617102657,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "mc-12-2-16-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.13076491228070178,
+          "vdPct": 0.10897076023391815,
+          "endV": 119.8692350877193,
+          "maxLengthFt": 963.5612321562734,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "ps-1",
+          "text": "W-06: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:load-6",
+      "type": "lv-branch",
+      "from": {
+        "id": "src-2",
+        "tag": "LP-1/14"
+      },
+      "to": {
+        "id": "load-6",
+        "tag": "D1"
+      },
+      "entityRef": "load-6",
+      "lengthFt": 30,
+      "currentA": 0.25,
+      "voltageV": 120,
+      "wattsW": 30,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "raceway",
+      "breakerA": 20,
+      "terminalMaxAwg": [],
+      "required": {
+        "power": 2,
+        "ground": 1,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "distributed": {
+        "qty": 2,
+        "homeRunFt": 25,
+        "interFixtureFt": 5
+      },
+      "tag": "W-07",
+      "wireTypeId": "thhn-12",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.0297,
+      "vdPct": 0.02475,
+      "endV": 119.9703,
+      "ampacityA": 25,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "thhn-14",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 20,
+          "vdV": 0.0471,
+          "vdPct": 0.03925,
+          "endV": 119.9529,
+          "maxLengthFt": 2292.9936305732485,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-12",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.0297,
+          "vdPct": 0.02475,
+          "endV": 119.9703,
+          "maxLengthFt": 3636.3636363636365,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-10",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.018600000000000002,
+          "vdPct": 0.015500000000000003,
+          "endV": 119.9814,
+          "maxLengthFt": 5806.451612903226,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-8",
+          "awg": "8",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 50,
+          "vdV": 0.01167,
+          "vdPct": 0.009725,
+          "endV": 119.98833,
+          "maxLengthFt": 9254.498714652957,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-6",
+          "awg": "6",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 65,
+          "vdV": 0.007365,
+          "vdPct": 0.0061375,
+          "endV": 119.992635,
+          "maxLengthFt": 14663.951120162932,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-14-2",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.046049999999999994,
+          "vdPct": 0.03837499999999999,
+          "endV": 119.95395,
+          "maxLengthFt": 2345.27687296417,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.02895,
+          "vdPct": 0.024125,
+          "endV": 119.97105,
+          "maxLengthFt": 3730.569948186529,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.01815,
+          "vdPct": 0.015125,
+          "endV": 119.98185,
+          "maxLengthFt": 5950.4132231404965,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-14-3",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.046049999999999994,
+          "vdPct": 0.03837499999999999,
+          "endV": 119.95395,
+          "maxLengthFt": 2345.27687296417,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.02895,
+          "vdPct": 0.024125,
+          "endV": 119.97105,
+          "maxLengthFt": 3730.569948186529,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.02895,
+          "vdPct": 0.024125,
+          "endV": 119.97105,
+          "maxLengthFt": 3730.569948186529,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.02895,
+          "vdPct": 0.024125,
+          "endV": 119.97105,
+          "maxLengthFt": 3730.569948186529,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.01815,
+          "vdPct": 0.015125,
+          "endV": 119.98185,
+          "maxLengthFt": 5950.4132231404965,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "uf-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.02895,
+          "vdPct": 0.024125,
+          "endV": 119.97105,
+          "maxLengthFt": 3730.569948186529,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "uf-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.01815,
+          "vdPct": 0.015125,
+          "endV": 119.98185,
+          "maxLengthFt": 5950.4132231404965,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-2-16-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.0297,
+          "vdPct": 0.02475,
+          "endV": 119.9703,
+          "maxLengthFt": 3636.3636363636365,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "load-6",
+          "text": "W-07: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:ps-3",
+      "type": "lv-branch",
+      "from": {
+        "id": "src-2",
+        "tag": "LP-1/14"
+      },
+      "to": {
+        "id": "ps-3",
+        "tag": "PS-3"
+      },
+      "entityRef": "ps-3",
+      "lengthFt": 28,
+      "currentA": 0.7348927875243665,
+      "voltageV": 120,
+      "wattsW": 83.77777777777779,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "raceway",
+      "breakerA": 20,
+      "terminalMaxAwg": [
+        "12"
+      ],
+      "required": {
+        "power": 2,
+        "ground": 1,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-08",
+      "wireTypeId": "thhn-12",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.08148491228070176,
+      "vdPct": 0.06790409356725147,
+      "endV": 119.9185150877193,
+      "ampacityA": 25,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "thhn-14",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 20,
+          "vdV": 0.12922354775828462,
+          "vdPct": 0.10768628979857052,
+          "endV": 119.87077645224171,
+          "maxLengthFt": 780.0435891804221,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-12",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.08148491228070176,
+          "vdPct": 0.06790409356725147,
+          "endV": 119.9185150877193,
+          "maxLengthFt": 1237.0388232457199,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-10",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.05103095516569201,
+          "vdPct": 0.042525795971410006,
+          "endV": 119.94896904483431,
+          "maxLengthFt": 1975.27166937623,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "thhn-8",
+          "awg": "8",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 50,
+          "vdV": 0.0320178089668616,
+          "vdPct": 0.02668150747238467,
+          "endV": 119.96798219103314,
+          "maxLengthFt": 3148.247904918413,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "thhn-6",
+          "awg": "6",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 65,
+          "vdV": 0.020206612085769984,
+          "vdPct": 0.01683884340480832,
+          "endV": 119.97979338791423,
+          "maxLengthFt": 4988.466130400255,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "nm-b-14-2",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.1263427680311891,
+          "vdPct": 0.10528564002599092,
+          "endV": 119.8736572319688,
+          "maxLengthFt": 797.8295993571743,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.07942721247563354,
+          "vdPct": 0.06618934372969461,
+          "endV": 119.92057278752436,
+          "maxLengthFt": 1269.08646115364,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.04979633528265108,
+          "vdPct": 0.0414969460688759,
+          "endV": 119.95020366471735,
+          "maxLengthFt": 2024.2453471293597,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "nm-b-14-3",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.1263427680311891,
+          "vdPct": 0.10528564002599092,
+          "endV": 119.8736572319688,
+          "maxLengthFt": 797.8295993571743,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.07942721247563354,
+          "vdPct": 0.06618934372969461,
+          "endV": 119.92057278752436,
+          "maxLengthFt": 1269.08646115364,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.07942721247563354,
+          "vdPct": 0.06618934372969461,
+          "endV": 119.92057278752436,
+          "maxLengthFt": 1269.08646115364,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.07942721247563354,
+          "vdPct": 0.06618934372969461,
+          "endV": 119.92057278752436,
+          "maxLengthFt": 1269.08646115364,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.04979633528265108,
+          "vdPct": 0.0414969460688759,
+          "endV": 119.95020366471735,
+          "maxLengthFt": 2024.2453471293597,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "uf-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.07942721247563354,
+          "vdPct": 0.06618934372969461,
+          "endV": 119.92057278752436,
+          "maxLengthFt": 1269.08646115364,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "uf-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.04979633528265108,
+          "vdPct": 0.0414969460688759,
+          "endV": 119.95020366471735,
+          "maxLengthFt": 2024.2453471293597,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "mc-12-2-16-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.08148491228070176,
+          "vdPct": 0.06790409356725147,
+          "endV": 119.9185150877193,
+          "maxLengthFt": 1237.0388232457199,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "ps-3",
+          "text": "W-08: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:dec-1",
+      "type": "class2-dc",
+      "from": {
+        "id": "ps-1",
+        "tag": "PS-1",
+        "port": "OUT1"
+      },
+      "to": {
+        "id": "dec-1",
+        "tag": "DEC-1"
+      },
+      "entityRef": "dec-1",
+      "lengthFt": 4,
+      "currentA": 2.2,
+      "voltageV": 24,
+      "wattsW": 52.800000000000004,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [
+        "12",
+        "12"
+      ],
+      "required": {
+        "power": 2,
+        "ground": 0,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-09",
+      "wireTypeId": "cl3-18-2-r",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.13992000000000002,
+      "vdPct": 0.5830000000000001,
+      "endV": 23.86008,
+      "ampacityA": 6,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "cl3-18-2-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.13992000000000002,
+          "vdPct": 0.5830000000000001,
+          "endV": 23.86008,
+          "maxLengthFt": 20.583190394511146,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.08782400000000001,
+          "vdPct": 0.3659333333333334,
+          "endV": 23.912176,
+          "maxLengthFt": 32.79285844416104,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-r",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.05526400000000001,
+          "vdPct": 0.23026666666666668,
+          "endV": 23.944736,
+          "maxLengthFt": 52.113491603937454,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-r",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.034848,
+          "vdPct": 0.1452,
+          "endV": 23.965152,
+          "maxLengthFt": 82.64462809917356,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-r",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.021824000000000003,
+          "vdPct": 0.09093333333333335,
+          "endV": 23.978176,
+          "maxLengthFt": 131.9648093841642,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-18-2-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.13992000000000002,
+          "vdPct": 0.5830000000000001,
+          "endV": 23.86008,
+          "maxLengthFt": 20.583190394511146,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.08782400000000001,
+          "vdPct": 0.3659333333333334,
+          "endV": 23.912176,
+          "maxLengthFt": 32.79285844416104,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-p",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.05526400000000001,
+          "vdPct": 0.23026666666666668,
+          "endV": 23.944736,
+          "maxLengthFt": 52.113491603937454,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-p",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.034848,
+          "vdPct": 0.1452,
+          "endV": 23.965152,
+          "maxLengthFt": 82.64462809917356,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-p",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.021824000000000003,
+          "vdPct": 0.09093333333333335,
+          "endV": 23.978176,
+          "maxLengthFt": 131.9648093841642,
+          "terminalOk": false
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "dec-1",
+          "text": "W-09: verify 18/2 CL3R ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:ps-2",
+      "type": "lv-branch",
+      "from": {
+        "id": "ps-1",
+        "tag": "PS-1",
+        "port": "AC-THRU"
+      },
+      "to": {
+        "id": "ps-2",
+        "tag": "PS-2"
+      },
+      "entityRef": "ps-2",
+      "lengthFt": 4,
+      "currentA": 0.42884990253411304,
+      "voltageV": 120,
+      "wattsW": 48.888888888888886,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "raceway",
+      "breakerA": 20,
+      "terminalMaxAwg": [
+        "12"
+      ],
+      "required": {
+        "power": 2,
+        "ground": 1,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-10",
+      "wireTypeId": "thhn-12",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.006792982456140351,
+      "vdPct": 0.0056608187134502925,
+      "endV": 119.99320701754385,
+      "ampacityA": 25,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "thhn-14",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 20,
+          "vdV": 0.01077270955165692,
+          "vdPct": 0.0089772579597141,
+          "endV": 119.98922729044834,
+          "maxLengthFt": 1336.711059640996,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-12",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.006792982456140351,
+          "vdPct": 0.0056608187134502925,
+          "endV": 119.99320701754385,
+          "maxLengthFt": 2119.8347107438017,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "thhn-10",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.004254191033138401,
+          "vdPct": 0.0035451591942820006,
+          "endV": 119.99574580896686,
+          "maxLengthFt": 3384.897360703813,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "thhn-8",
+          "awg": "8",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 50,
+          "vdV": 0.00266916179337232,
+          "vdPct": 0.0022243014944769335,
+          "endV": 119.99733083820662,
+          "maxLengthFt": 5394.952091610189,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "thhn-6",
+          "awg": "6",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 65,
+          "vdV": 0.0016845224171539962,
+          "vdPct": 0.0014037686809616635,
+          "endV": 119.99831547758285,
+          "maxLengthFt": 8548.416959822254,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "nm-b-14-2",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.010532553606237815,
+          "vdPct": 0.008777128005198179,
+          "endV": 119.98946744639376,
+          "maxLengthFt": 1367.1898134438854,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.006621442495126705,
+          "vdPct": 0.005517868745938921,
+          "endV": 119.99337855750487,
+          "maxLengthFt": 2174.752708431465,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.004151267056530214,
+          "vdPct": 0.0034593892137751783,
+          "endV": 119.99584873294347,
+          "maxLengthFt": 3468.820435762585,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "nm-b-14-3",
+          "awg": "14",
+          "eligible": false,
+          "reasons": [
+            "Below line-voltage minimum #12",
+            "Breaker exceeds #14 small-conductor OCPD limit 15 A"
+          ],
+          "ampacityA": 15,
+          "vdV": 0.010532553606237815,
+          "vdPct": 0.008777128005198179,
+          "endV": 119.98946744639376,
+          "maxLengthFt": 1367.1898134438854,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "nm-b-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.006621442495126705,
+          "vdPct": 0.005517868745938921,
+          "endV": 119.99337855750487,
+          "maxLengthFt": 2174.752708431465,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.006621442495126705,
+          "vdPct": 0.005517868745938921,
+          "endV": 119.99337855750487,
+          "maxLengthFt": 2174.752708431465,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-12-3",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.006621442495126705,
+          "vdPct": 0.005517868745938921,
+          "endV": 119.99337855750487,
+          "maxLengthFt": 2174.752708431465,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "mc-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 35,
+          "vdV": 0.004151267056530214,
+          "vdPct": 0.0034593892137751783,
+          "endV": 119.99584873294347,
+          "maxLengthFt": 3468.820435762585,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "uf-b-12-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.006621442495126705,
+          "vdPct": 0.005517868745938921,
+          "endV": 119.99337855750487,
+          "maxLengthFt": 2174.752708431465,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "uf-b-10-2",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.004151267056530214,
+          "vdPct": 0.0034593892137751783,
+          "endV": 119.99584873294347,
+          "maxLengthFt": 3468.820435762585,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "mc-12-2-16-2",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 25,
+          "vdV": 0.006792982456140351,
+          "vdPct": 0.0056608187134502925,
+          "endV": 119.99320701754385,
+          "maxLengthFt": 2119.8347107438017,
+          "terminalOk": true
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "ps-2",
+          "text": "W-10: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:dec-2",
+      "type": "class2-dc",
+      "from": {
+        "id": "ps-2",
+        "tag": "PS-2",
+        "port": "OUT1"
+      },
+      "to": {
+        "id": "dec-2",
+        "tag": "DEC-2"
+      },
+      "entityRef": "dec-2",
+      "lengthFt": 4,
+      "currentA": 1.8333333333333333,
+      "voltageV": 24,
+      "wattsW": 44,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [
+        "12",
+        "12"
+      ],
+      "required": {
+        "power": 2,
+        "ground": 0,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-11",
+      "wireTypeId": "cl3-18-2-r",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.1166,
+      "vdPct": 0.48583333333333334,
+      "endV": 23.8834,
+      "ampacityA": 6,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "cl3-18-2-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.1166,
+          "vdPct": 0.48583333333333334,
+          "endV": 23.8834,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.07318666666666666,
+          "vdPct": 0.30494444444444446,
+          "endV": 23.92681333333333,
+          "maxLengthFt": 39.35143013299326,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-r",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.046053333333333335,
+          "vdPct": 0.19188888888888891,
+          "endV": 23.953946666666667,
+          "maxLengthFt": 62.53618992472495,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-r",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.02904,
+          "vdPct": 0.121,
+          "endV": 23.97096,
+          "maxLengthFt": 99.17355371900827,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-r",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.018186666666666667,
+          "vdPct": 0.07577777777777778,
+          "endV": 23.981813333333335,
+          "maxLengthFt": 158.35777126099705,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-18-2-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.1166,
+          "vdPct": 0.48583333333333334,
+          "endV": 23.8834,
+          "maxLengthFt": 24.69982847341338,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.07318666666666666,
+          "vdPct": 0.30494444444444446,
+          "endV": 23.92681333333333,
+          "maxLengthFt": 39.35143013299326,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-p",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.046053333333333335,
+          "vdPct": 0.19188888888888891,
+          "endV": 23.953946666666667,
+          "maxLengthFt": 62.53618992472495,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-p",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.02904,
+          "vdPct": 0.121,
+          "endV": 23.97096,
+          "maxLengthFt": 99.17355371900827,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-p",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.018186666666666667,
+          "vdPct": 0.07577777777777778,
+          "endV": 23.981813333333335,
+          "maxLengthFt": 158.35777126099705,
+          "terminalOk": false
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "dec-2",
+          "text": "W-11: verify 18/2 CL3R ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:con-1",
+      "type": "class2-dc",
+      "from": {
+        "id": "ps-3",
+        "tag": "PS-3",
+        "port": "OUT1"
+      },
+      "to": {
+        "id": "con-1",
+        "tag": "CON-1"
+      },
+      "entityRef": "con-1",
+      "lengthFt": 20,
+      "currentA": 0.20833333333333334,
+      "voltageV": 24,
+      "wattsW": 5,
+      "channelCurrentsA": [],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [
+        "12",
+        "16"
+      ],
+      "required": {
+        "power": 2,
+        "ground": 0,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-12",
+      "wireTypeId": "cl3-18-2-r",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.06625,
+      "vdPct": 0.2760416666666667,
+      "endV": 23.93375,
+      "ampacityA": 6,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "cl3-18-2-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.06625,
+          "vdPct": 0.2760416666666667,
+          "endV": 23.93375,
+          "maxLengthFt": 217.35849056603774,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.04158333333333333,
+          "vdPct": 0.17326388888888888,
+          "endV": 23.95841666666667,
+          "maxLengthFt": 346.2925851703406,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-r",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.026166666666666668,
+          "vdPct": 0.10902777777777779,
+          "endV": 23.973833333333335,
+          "maxLengthFt": 550.3184713375796,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-12-2-r",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.0165,
+          "vdPct": 0.06875,
+          "endV": 23.9835,
+          "maxLengthFt": 872.7272727272726,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-10-2-r",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.010333333333333333,
+          "vdPct": 0.043055555555555555,
+          "endV": 23.98966666666667,
+          "maxLengthFt": 1393.5483870967741,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-18-2-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.06625,
+          "vdPct": 0.2760416666666667,
+          "endV": 23.93375,
+          "maxLengthFt": 217.35849056603774,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.04158333333333333,
+          "vdPct": 0.17326388888888888,
+          "endV": 23.95841666666667,
+          "maxLengthFt": 346.2925851703406,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-p",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.026166666666666668,
+          "vdPct": 0.10902777777777779,
+          "endV": 23.973833333333335,
+          "maxLengthFt": 550.3184713375796,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-12-2-p",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.0165,
+          "vdPct": 0.06875,
+          "endV": 23.9835,
+          "maxLengthFt": 872.7272727272726,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-10-2-p",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.010333333333333333,
+          "vdPct": 0.043055555555555555,
+          "endV": 23.98966666666667,
+          "maxLengthFt": 1393.5483870967741,
+          "terminalOk": false
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "con-1",
+          "text": "W-12: verify 18/2 CL3R ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:load-3",
+      "type": "class2-dc",
+      "from": {
+        "id": "ps-3",
+        "tag": "PS-3",
+        "port": "OUT1"
+      },
+      "to": {
+        "id": "load-3",
+        "tag": "T3"
+      },
+      "entityRef": "load-3",
+      "lengthFt": 20,
+      "currentA": 1.4666666666666668,
+      "voltageV": 24,
+      "wattsW": 35.2,
+      "channelCurrentsA": [
+        1.4666666666666668
+      ],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [
+        "12"
+      ],
+      "minOperatingV": 21.5,
+      "required": {
+        "power": 2,
+        "ground": 0,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-13",
+      "wireTypeId": "cl3-18-2-r",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.46640000000000004,
+      "vdPct": 1.9433333333333334,
+      "endV": 23.5336,
+      "ampacityA": 6,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "cl3-18-2-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.46640000000000004,
+          "vdPct": 1.9433333333333334,
+          "endV": 23.5336,
+          "maxLengthFt": 30.874785591766717,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.2927466666666667,
+          "vdPct": 1.2197777777777778,
+          "endV": 23.707253333333334,
+          "maxLengthFt": 49.18928766624156,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-r",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.18421333333333337,
+          "vdPct": 0.7675555555555557,
+          "endV": 23.815786666666668,
+          "maxLengthFt": 78.17023740590618,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-r",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.11616000000000001,
+          "vdPct": 0.48400000000000004,
+          "endV": 23.88384,
+          "maxLengthFt": 123.96694214876031,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-r",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.07274666666666667,
+          "vdPct": 0.3031111111111111,
+          "endV": 23.927253333333333,
+          "maxLengthFt": 197.94721407624633,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-18-2-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.46640000000000004,
+          "vdPct": 1.9433333333333334,
+          "endV": 23.5336,
+          "maxLengthFt": 30.874785591766717,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.2927466666666667,
+          "vdPct": 1.2197777777777778,
+          "endV": 23.707253333333334,
+          "maxLengthFt": 49.18928766624156,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-p",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.18421333333333337,
+          "vdPct": 0.7675555555555557,
+          "endV": 23.815786666666668,
+          "maxLengthFt": 78.17023740590618,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-p",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.11616000000000001,
+          "vdPct": 0.48400000000000004,
+          "endV": 23.88384,
+          "maxLengthFt": 123.96694214876031,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-p",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.07274666666666667,
+          "vdPct": 0.3031111111111111,
+          "endV": 23.927253333333333,
+          "maxLengthFt": 197.94721407624633,
+          "terminalOk": false
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "load-3",
+          "text": "W-13: verify 18/2 CL3R ratings, listings and installation conditions before use."
+        }
+      ]
+    },
+    {
+      "runId": "power:load-4",
+      "type": "class2-dc",
+      "from": {
+        "id": "ps-3",
+        "tag": "PS-3",
+        "port": "OUT1"
+      },
+      "to": {
+        "id": "load-4",
+        "tag": "T3"
+      },
+      "entityRef": "load-4",
+      "lengthFt": 20,
+      "currentA": 1.4666666666666668,
+      "voltageV": 24,
+      "wattsW": 35.2,
+      "channelCurrentsA": [
+        1.4666666666666668
+      ],
+      "phase": "1PH",
+      "env": "riser",
+      "terminalMaxAwg": [
+        "12"
+      ],
+      "minOperatingV": 21.5,
+      "required": {
+        "power": 2,
+        "ground": 0,
+        "channel": 0,
+        "signal": 0,
+        "dataPair": 0
+      },
+      "tag": "W-14",
+      "wireTypeId": "cl3-18-2-r",
+      "parallelSets": 1,
+      "parallelCommonConductors": 1,
+      "overridden": false,
+      "vdV": 0.46640000000000004,
+      "vdPct": 1.9433333333333334,
+      "endV": 23.5336,
+      "ampacityA": 6,
+      "checks": {
+        "ampacity": true,
+        "terminal": true,
+        "voltageDrop": true
+      },
+      "candidates": [
+        {
+          "wireTypeId": "cl3-18-2-r",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.46640000000000004,
+          "vdPct": 1.9433333333333334,
+          "endV": 23.5336,
+          "maxLengthFt": 30.874785591766717,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-r",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.2927466666666667,
+          "vdPct": 1.2197777777777778,
+          "endV": 23.707253333333334,
+          "maxLengthFt": 49.18928766624156,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-r",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.18421333333333337,
+          "vdPct": 0.7675555555555557,
+          "endV": 23.815786666666668,
+          "maxLengthFt": 78.17023740590618,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-r",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.11616000000000001,
+          "vdPct": 0.48400000000000004,
+          "endV": 23.88384,
+          "maxLengthFt": 123.96694214876031,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-r",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.07274666666666667,
+          "vdPct": 0.3031111111111111,
+          "endV": 23.927253333333333,
+          "maxLengthFt": 197.94721407624633,
+          "terminalOk": false
+        },
+        {
+          "wireTypeId": "cl3-18-2-p",
+          "awg": "18",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 6,
+          "vdV": 0.46640000000000004,
+          "vdPct": 1.9433333333333334,
+          "endV": 23.5336,
+          "maxLengthFt": 30.874785591766717,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-16-2-p",
+          "awg": "16",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 8,
+          "vdV": 0.2927466666666667,
+          "vdPct": 1.2197777777777778,
+          "endV": 23.707253333333334,
+          "maxLengthFt": 49.18928766624156,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-14-2-p",
+          "awg": "14",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 15,
+          "vdV": 0.18421333333333337,
+          "vdPct": 0.7675555555555557,
+          "endV": 23.815786666666668,
+          "maxLengthFt": 78.17023740590618,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-12-2-p",
+          "awg": "12",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 20,
+          "vdV": 0.11616000000000001,
+          "vdPct": 0.48400000000000004,
+          "endV": 23.88384,
+          "maxLengthFt": 123.96694214876031,
+          "terminalOk": true
+        },
+        {
+          "wireTypeId": "cl3-10-2-p",
+          "awg": "10",
+          "eligible": true,
+          "reasons": [],
+          "ampacityA": 30,
+          "vdV": 0.07274666666666667,
+          "vdPct": 0.3031111111111111,
+          "endV": 23.927253333333333,
+          "maxLengthFt": 197.94721407624633,
+          "terminalOk": false
+        }
+      ],
+      "messages": [
+        {
+          "code": "WIRE_REQUIRES_VERIFICATION",
+          "severity": "warning",
+          "entityRef": "load-4",
+          "text": "W-14: verify 18/2 CL3R ratings, listings and installation conditions before use."
+        }
+      ]
+    }
+  ],
+  "loading": [
+    {
+      "entityId": "ps-1",
+      "tag": "PS-1",
+      "kind": "psu",
+      "port": "OUT1",
+      "wattsW": 52.800000000000004,
+      "currentA": 2.2,
+      "capacity": 96,
+      "percent": 55.00000000000001,
+      "units": "W",
+      "count": 1
+    },
+    {
+      "entityId": "ps-2",
+      "tag": "PS-2",
+      "kind": "psu",
+      "port": "OUT1",
+      "wattsW": 44,
+      "currentA": 1.8333333333333333,
+      "capacity": 96,
+      "percent": 45.83333333333333,
+      "units": "W",
+      "count": 1
+    },
+    {
+      "entityId": "ps-3",
+      "tag": "PS-3",
+      "kind": "psu",
+      "port": "OUT1",
+      "wattsW": 75.4,
+      "currentA": 3.141666666666667,
+      "capacity": 96,
+      "percent": 78.54166666666667,
+      "units": "W",
+      "count": 1
+    },
+    {
+      "entityId": "dec-1",
+      "tag": "DEC-1",
+      "kind": "decoder",
+      "port": "CH1",
+      "wattsW": 13.200000000000001,
+      "currentA": 0.55,
+      "capacity": 5,
+      "percent": 11.000000000000002,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "dec-1",
+      "tag": "DEC-1",
+      "kind": "decoder",
+      "port": "CH2",
+      "wattsW": 13.200000000000001,
+      "currentA": 0.55,
+      "capacity": 5,
+      "percent": 11.000000000000002,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "dec-1",
+      "tag": "DEC-1",
+      "kind": "decoder",
+      "port": "CH3",
+      "wattsW": 13.200000000000001,
+      "currentA": 0.55,
+      "capacity": 5,
+      "percent": 11.000000000000002,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "dec-1",
+      "tag": "DEC-1",
+      "kind": "decoder",
+      "port": "CH4",
+      "wattsW": 13.200000000000001,
+      "currentA": 0.55,
+      "capacity": 5,
+      "percent": 11.000000000000002,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "dec-2",
+      "tag": "DEC-2",
+      "kind": "decoder",
+      "port": "CH1",
+      "wattsW": 44,
+      "currentA": 1.8333333333333333,
+      "capacity": 5,
+      "percent": 36.666666666666664,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "dec-2",
+      "tag": "DEC-2",
+      "kind": "decoder",
+      "port": "CH2",
+      "wattsW": 44,
+      "currentA": 1.8333333333333333,
+      "capacity": 5,
+      "percent": 36.666666666666664,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "dec-2",
+      "tag": "DEC-2",
+      "kind": "decoder",
+      "port": "CH3",
+      "wattsW": 0,
+      "currentA": 0,
+      "capacity": 5,
+      "percent": 0,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "dec-2",
+      "tag": "DEC-2",
+      "kind": "decoder",
+      "port": "CH4",
+      "wattsW": 0,
+      "currentA": 0,
+      "capacity": 5,
+      "percent": 0,
+      "units": "A",
+      "count": 1
+    },
+    {
+      "entityId": "src-1",
+      "tag": "LP-1/12",
+      "kind": "circuit",
+      "port": "12",
+      "wattsW": 167.55555555555554,
+      "currentA": 1.443469785575049,
+      "capacity": 20,
+      "percent": 7.2173489278752445,
+      "units": "A",
+      "count": 2
+    },
+    {
+      "entityId": "src-2",
+      "tag": "LP-1/14",
+      "kind": "circuit",
+      "port": "14",
+      "wattsW": 113.77777777777779,
+      "currentA": 0.9848927875243665,
+      "capacity": 20,
+      "percent": 4.924463937621833,
+      "units": "A",
+      "count": 1
+    }
+  ],
+  "patch": [
+    {
+      "entityId": "dec-1",
+      "tag": "DEC-1",
+      "universe": 1,
+      "startAddress": 1,
+      "footprint": 4,
+      "endAddress": 4,
+      "auto": true
+    },
+    {
+      "entityId": "dec-2",
+      "tag": "DEC-2",
+      "universe": 1,
+      "startAddress": 5,
+      "footprint": 4,
+      "endAddress": 8,
+      "auto": true
+    }
+  ],
+  "segments": [
+    {
+      "id": "con-1:BUS",
+      "root": "con-1",
+      "members": [
+        "dec-1",
+        "dec-2"
+      ],
+      "lengthFt": 55,
+      "unitLoads": 2,
+      "ends": [
+        "dec-2"
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "ps-1",
+      "text": "EX-PSU-24V-96W: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "ps-2",
+      "text": "EX-PSU-24V-96W: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "ps-3",
+      "text": "EX-PSU-24V-96W: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "dec-1",
+      "text": "EX-DECODER-4CH: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "dec-2",
+      "text": "EX-DECODER-4CH: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "con-1",
+      "text": "EX-DMX-CONTROLLER: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "load-1",
+      "text": "EX-TAPE-RGBW: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "load-2",
+      "text": "EX-TAPE-TW: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "load-3",
+      "text": "EX-TAPE-WHITE: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "load-4",
+      "text": "EX-TAPE-WHITE: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "load-5",
+      "text": "EX-DOWNLIGHT-LINE: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "EXAMPLE_PRODUCT_IN_USE",
+      "severity": "warning",
+      "entityRef": "load-6",
+      "text": "EX-DOWNLIGHT-LINE: EXAMPLE – replace with real data."
+    },
+    {
+      "code": "INPUT_CURRENT_ESTIMATED",
+      "severity": "warning",
+      "entityRef": "ps-1",
+      "text": "Input current calculated from connected load, efficiency and power factor at 120 V; no matching manufacturer maximum-current rating is available."
+    },
+    {
+      "code": "INPUT_CURRENT_ESTIMATED",
+      "severity": "warning",
+      "entityRef": "ps-2",
+      "text": "Input current calculated from connected load, efficiency and power factor at 120 V; no matching manufacturer maximum-current rating is available."
+    },
+    {
+      "code": "INPUT_CURRENT_ESTIMATED",
+      "severity": "warning",
+      "entityRef": "ps-3",
+      "text": "Input current calculated from connected load, efficiency and power factor at 120 V; no matching manufacturer maximum-current rating is available."
+    },
+    {
+      "code": "INPUT_CURRENT_ESTIMATED",
+      "severity": "warning",
+      "entityRef": "load-5",
+      "text": "AC input current uses a unity-power-factor estimate. Supply manufacturer maximum input current at this voltage or a verified power factor before final conductor sizing."
+    },
+    {
+      "code": "INPUT_CURRENT_ESTIMATED",
+      "severity": "warning",
+      "entityRef": "load-6",
+      "text": "AC input current uses a unity-power-factor estimate. Supply manufacturer maximum input current at this voltage or a verified power factor before final conductor sizing."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "dec-1",
+      "text": "W-01: verify 24 AWG 1-pair 120 Ω plenum ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "dec-2",
+      "text": "W-02: verify 24 AWG 1-pair 120 Ω plenum ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "load-1",
+      "text": "W-03: verify 18/5 CL3R ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "load-2",
+      "text": "W-04: verify 18/3 CL3R ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "load-5",
+      "text": "W-05: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "ps-1",
+      "text": "W-06: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "load-6",
+      "text": "W-07: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "ps-3",
+      "text": "W-08: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "dec-1",
+      "text": "W-09: verify 18/2 CL3R ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "ps-2",
+      "text": "W-10: verify 2 × #12 + G THHN/THWN-2 ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "dec-2",
+      "text": "W-11: verify 18/2 CL3R ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "con-1",
+      "text": "W-12: verify 18/2 CL3R ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "load-3",
+      "text": "W-13: verify 18/2 CL3R ratings, listings and installation conditions before use."
+    },
+    {
+      "code": "WIRE_REQUIRES_VERIFICATION",
+      "severity": "warning",
+      "entityRef": "load-4",
+      "text": "W-14: verify 18/2 CL3R ratings, listings and installation conditions before use."
+    }
+  ],
+  "bom": [
+    {
+      "key": "accessory:terminator",
+      "sku": "VERIFY-DMX-TERMINATOR",
+      "description": "DMX end-of-segment terminator — verify equipment requirements",
+      "quantity": 1,
+      "unit": "ea",
+      "isExample": true
+    },
+    {
+      "key": "product:EX-DECODER-4CH",
+      "sku": "EX-DECODER-4CH",
+      "description": "EXAMPLE 4-channel DMX decoder",
+      "quantity": 2,
+      "unit": "ea",
+      "isExample": true
+    },
+    {
+      "key": "product:EX-DMX-CONTROLLER",
+      "sku": "EX-DMX-CONTROLLER",
+      "description": "EXAMPLE dmx controller",
+      "quantity": 1,
+      "unit": "ea",
+      "isExample": true
+    },
+    {
+      "key": "product:EX-DOWNLIGHT-LINE",
+      "sku": "EX-DOWNLIGHT-LINE",
+      "description": "EXAMPLE line-voltage downlight",
+      "quantity": 6,
+      "unit": "ea",
+      "isExample": true
+    },
+    {
+      "key": "product:EX-PSU-24V-96W",
+      "sku": "EX-PSU-24V-96W",
+      "description": "EXAMPLE 24 V 96 W CV power supply",
+      "quantity": 3,
+      "unit": "ea",
+      "isExample": true
+    },
+    {
+      "key": "product:EX-TAPE-RGBW",
+      "sku": "EX-TAPE-RGBW",
+      "description": "EXAMPLE 24 V rgbw tape",
+      "quantity": 12,
+      "unit": "ft",
+      "reels": 1,
+      "isExample": true
+    },
+    {
+      "key": "product:EX-TAPE-TW",
+      "sku": "EX-TAPE-TW",
+      "description": "EXAMPLE 24 V tunable-white tape",
+      "quantity": 10,
+      "unit": "ft",
+      "reels": 1,
+      "isExample": true
+    },
+    {
+      "key": "product:EX-TAPE-WHITE",
+      "sku": "EX-TAPE-WHITE",
+      "description": "EXAMPLE 24 V white tape",
+      "quantity": 16,
+      "unit": "ft",
+      "reels": 1,
+      "isExample": true
+    },
+    {
+      "key": "wire:cl3-18-2-r",
+      "sku": "cl3-18-2-r",
+      "description": "18/2 CL3R",
+      "quantity": 74.8,
+      "unit": "ft",
+      "isExample": true
+    },
+    {
+      "key": "wire:cl3-18-3-r",
+      "sku": "cl3-18-3-r",
+      "description": "18/3 CL3R",
+      "quantity": 22,
+      "unit": "ft",
+      "isExample": true
+    },
+    {
+      "key": "wire:cl3-18-5-r",
+      "sku": "cl3-18-5-r",
+      "description": "18/5 CL3R",
+      "quantity": 22,
+      "unit": "ft",
+      "isExample": true
+    },
+    {
+      "key": "wire:dmx-24-1p-plenum",
+      "sku": "dmx-24-1p-plenum",
+      "description": "24 AWG 1-pair 120 Ω plenum",
+      "quantity": 60.5,
+      "unit": "ft",
+      "isExample": true
+    },
+    {
+      "key": "wire:thhn-12",
+      "sku": "thhn-12",
+      "description": "2 × #12 + G THHN/THWN-2 (individual conductor feet)",
+      "quantity": 478.5,
+      "unit": "ft",
+      "isExample": true
+    }
+  ],
+  "wireTagMap": {
+    "control:dec-1": "W-01",
+    "control:dec-2": "W-02",
+    "power:load-1": "W-03",
+    "power:load-2": "W-04",
+    "power:load-5": "W-05",
+    "power:ps-1": "W-06",
+    "power:load-6": "W-07",
+    "power:ps-3": "W-08",
+    "power:dec-1": "W-09",
+    "power:ps-2": "W-10",
+    "power:dec-2": "W-11",
+    "power:con-1": "W-12",
+    "power:load-3": "W-13",
+    "power:load-4": "W-14"
+  },
+  "loadWatts": {
+    "load-1": 52.800000000000004,
+    "load-2": 44,
+    "load-3": 35.2,
+    "load-4": 35.2,
+    "load-5": 60,
+    "load-6": 30
+  },
+  "splits": []
+}

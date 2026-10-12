@@ -1,0 +1,3873 @@
+{
+  "schemaVersion": 1,
+  "products": [
+    {
+      "id": "psu-24v-96w",
+      "sku": "EX-PSU-24V-96W",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 24 V 96 W CV power supply",
+      "category": "psu",
+      "description": "EXAMPLE – replace with real data. 24 V 96 W CV power supply. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "psu",
+        "inputType": "AC",
+        "inputVMin": 120,
+        "inputVMax": 277,
+        "outputType": "CV",
+        "outputV": 24,
+        "ratedW": 96,
+        "outputs": [
+          {
+            "name": "OUT1",
+            "maxW": 96,
+            "class2": true
+          }
+        ],
+        "efficiency": 0.9,
+        "powerFactor": 0.95,
+        "dimming": [
+          "0-10V"
+        ],
+        "terminalMinAwg": "18",
+        "terminalMaxAwg": "12",
+        "listings": []
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "driver-350ma",
+      "sku": "EX-DRIVER-350MA",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 350 mA constant-current driver",
+      "category": "driver",
+      "description": "EXAMPLE – replace with real data. 350 mA constant-current driver. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "driver",
+        "inputType": "AC",
+        "inputVMin": 120,
+        "inputVMax": 277,
+        "outputType": "CC",
+        "outputmA": 350,
+        "outputVMin": 18,
+        "outputVMax": 42,
+        "ratedW": 15,
+        "outputs": [
+          {
+            "name": "OUT1",
+            "maxW": 15,
+            "class2": true
+          }
+        ],
+        "efficiency": 0.9,
+        "powerFactor": 0.95,
+        "dimming": [
+          "0-10V"
+        ],
+        "terminalMinAwg": "18",
+        "terminalMaxAwg": "12",
+        "listings": []
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "decoder-4ch",
+      "sku": "EX-DECODER-4CH",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 4-channel DMX decoder",
+      "category": "dmx-decoder",
+      "description": "EXAMPLE – replace with real data. 4-channel DMX decoder. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "decoder",
+        "inputVMin": 12,
+        "inputVMax": 48,
+        "channels": 4,
+        "maxAPerChannel": 5,
+        "maxATotal": 12,
+        "dmxFootprint": 4,
+        "protocolIn": [
+          "DMX512",
+          "RDM"
+        ],
+        "protocolOut": [
+          "PWM",
+          "DMX512",
+          "RDM"
+        ],
+        "terminalMaxAwg": "12",
+        "unitLoad": 1
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "dmx-controller",
+      "sku": "EX-DMX-CONTROLLER",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE dmx controller",
+      "category": "dmx-controller",
+      "description": "EXAMPLE – replace with real data. dmx controller. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "none"
+        ],
+        "protocolOut": [
+          "DMX512"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "none"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "DMX512"
+          }
+        ],
+        "maxDataLengthFt": 1000,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "wireless-tx",
+      "sku": "EX-WIRELESS-TX",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE wireless tx",
+      "category": "wireless-tx",
+      "description": "EXAMPLE – replace with real data. wireless tx. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "DMX512"
+        ],
+        "protocolOut": [
+          "CRMX-wireless"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "DMX512"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "CRMX-wireless"
+          }
+        ],
+        "maxDataLengthFt": 100,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "wireless-rx",
+      "sku": "EX-WIRELESS-RX",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE wireless rx",
+      "category": "wireless-rx",
+      "description": "EXAMPLE – replace with real data. wireless rx. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "CRMX-wireless"
+        ],
+        "protocolOut": [
+          "DMX512"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "CRMX-wireless"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "DMX512"
+          }
+        ],
+        "maxDataLengthFt": 1000,
+        "startsNewSegment": true,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "pixel-controller",
+      "sku": "EX-PIXEL-CONTROLLER",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE pixel controller",
+      "category": "pixel-controller",
+      "description": "EXAMPLE – replace with real data. pixel controller. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "sACN"
+        ],
+        "protocolOut": [
+          "SPI"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "sACN"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "SPI"
+          }
+        ],
+        "maxPixels": 600,
+        "maxDataLengthFt": 15,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "opto-splitter",
+      "sku": "EX-OPTO-SPLITTER",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE opto splitter",
+      "category": "opto-splitter",
+      "description": "EXAMPLE – replace with real data. opto splitter. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "DMX512"
+        ],
+        "protocolOut": [
+          "DMX512"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "DMX512"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "DMX512"
+          }
+        ],
+        "maxDataLengthFt": 1000,
+        "startsNewSegment": true,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "sacn-gateway",
+      "sku": "EX-SACN-GATEWAY",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE sacn gateway",
+      "category": "sacn-gateway",
+      "description": "EXAMPLE – replace with real data. sacn gateway. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "sACN",
+          "Art-Net"
+        ],
+        "protocolOut": [
+          "DMX512"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "sACN"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "DMX512"
+          }
+        ],
+        "maxDataLengthFt": 1000,
+        "startsNewSegment": true,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "network-switch",
+      "sku": "EX-NETWORK-SWITCH",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE network switch",
+      "category": "network-switch",
+      "description": "EXAMPLE – replace with real data. network switch. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "sACN",
+          "Art-Net"
+        ],
+        "protocolOut": [
+          "sACN",
+          "Art-Net"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "sACN"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "sACN"
+          }
+        ],
+        "maxDataLengthFt": 100,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "lutron-module",
+      "sku": "EX-LUTRON-MODULE",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE lutron module",
+      "category": "lutron-module",
+      "description": "EXAMPLE – replace with real data. lutron module. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "Lutron-QS"
+        ],
+        "protocolOut": [
+          "Lutron-EcoSystem"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "Lutron-QS"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "Lutron-EcoSystem"
+          }
+        ],
+        "maxDataLengthFt": 100,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "0-10v-dimmer",
+      "sku": "EX-0-10V-DIMMER",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 0 10v dimmer",
+      "category": "0-10v-dimmer",
+      "description": "EXAMPLE – replace with real data. 0 10v dimmer. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "none"
+        ],
+        "protocolOut": [
+          "0-10V"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "none"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "0-10V"
+          }
+        ],
+        "maxDataLengthFt": 100,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "keypad",
+      "sku": "EX-KEYPAD",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE keypad",
+      "category": "keypad",
+      "description": "EXAMPLE – replace with real data. keypad. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "none"
+        ],
+        "protocolOut": [
+          "Lutron-QS"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "none"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "Lutron-QS"
+          }
+        ],
+        "maxDataLengthFt": 100,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "relay",
+      "sku": "EX-RELAY",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE relay",
+      "category": "relay",
+      "description": "EXAMPLE – replace with real data. relay. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "controller",
+        "inputType": "DC",
+        "inputVMin": 24,
+        "inputVMax": 24,
+        "ownPowerW": 5,
+        "protocolIn": [
+          "0-10V"
+        ],
+        "protocolOut": [
+          "none"
+        ],
+        "ports": [
+          {
+            "name": "DATA-IN",
+            "direction": "in",
+            "protocol": "0-10V"
+          },
+          {
+            "name": "DATA-OUT",
+            "direction": "out",
+            "protocol": "none"
+          }
+        ],
+        "maxDataLengthFt": 100,
+        "startsNewSegment": false,
+        "terminalMaxAwg": "16"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "tape-white",
+      "sku": "EX-TAPE-WHITE",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 24 V white tape",
+      "category": "tape",
+      "description": "EXAMPLE – replace with real data. 24 V white tape. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "tape",
+        "voltage": 24,
+        "drive": "CV",
+        "wPerFtMax": 4.4,
+        "powerBasis": "max-operating",
+        "channelWPerFtMax": [
+          4.4
+        ],
+        "channels": 1,
+        "channelMap": [
+          "W"
+        ],
+        "maxSimultaneousPct": 100,
+        "maxRunFtSingleFeed": 32,
+        "maxRunFtDoubleFeed": 64,
+        "cutIntervalIn": 4,
+        "minOperatingV": 21.5,
+        "reelLengthFt": 16.4
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "tape-tw",
+      "sku": "EX-TAPE-TW",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 24 V tunable-white tape",
+      "category": "tape",
+      "description": "EXAMPLE – replace with real data. 24 V tunable-white tape. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "tape",
+        "voltage": 24,
+        "drive": "CV",
+        "wPerFtMax": 4.4,
+        "powerBasis": "max-operating",
+        "channelWPerFtMax": [
+          4.4,
+          4.4
+        ],
+        "channels": 2,
+        "channelMap": [
+          "WW",
+          "CW"
+        ],
+        "maxSimultaneousPct": 100,
+        "maxRunFtSingleFeed": 32,
+        "maxRunFtDoubleFeed": 64,
+        "cutIntervalIn": 4,
+        "minOperatingV": 21.5,
+        "reelLengthFt": 16.4
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "tape-rgbw",
+      "sku": "EX-TAPE-RGBW",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 24 V rgbw tape",
+      "category": "tape",
+      "description": "EXAMPLE – replace with real data. 24 V rgbw tape. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "tape",
+        "voltage": 24,
+        "drive": "CV",
+        "wPerFtMax": 4.4,
+        "powerBasis": "max-operating",
+        "channelWPerFtMax": [
+          1.1,
+          1.1,
+          1.1,
+          1.1
+        ],
+        "channels": 4,
+        "channelMap": [
+          "R",
+          "G",
+          "B",
+          "W"
+        ],
+        "maxSimultaneousPct": 400,
+        "maxRunFtSingleFeed": 32,
+        "maxRunFtDoubleFeed": 64,
+        "cutIntervalIn": 4,
+        "minOperatingV": 21.5,
+        "reelLengthFt": 16.4
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "tape-cc-ic",
+      "sku": "EX-TAPE-CC-IC",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 24 V cc-ic tape",
+      "category": "tape",
+      "description": "EXAMPLE – replace with real data. 24 V cc-ic tape. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "tape",
+        "voltage": 24,
+        "drive": "CV-CC-IC",
+        "wPerFtMax": 4.4,
+        "powerBasis": "max-operating",
+        "channelWPerFtMax": [
+          4.4
+        ],
+        "channels": 1,
+        "channelMap": [
+          "W"
+        ],
+        "maxSimultaneousPct": 100,
+        "maxRunFtSingleFeed": 32,
+        "maxRunFtDoubleFeed": 64,
+        "cutIntervalIn": 4,
+        "minOperatingV": 21.5,
+        "reelLengthFt": 16.4
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "tape-pixel",
+      "sku": "EX-TAPE-PIXEL",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE 24 V pixel tape",
+      "category": "tape",
+      "description": "EXAMPLE – replace with real data. 24 V pixel tape. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "tape",
+        "voltage": 24,
+        "drive": "CV",
+        "wPerFtMax": 4.32,
+        "powerBasis": "max-operating",
+        "channelWPerFtMax": [
+          1.4400000000000002,
+          1.4400000000000002,
+          1.4400000000000002
+        ],
+        "channels": 3,
+        "channelMap": [
+          "R",
+          "G",
+          "B"
+        ],
+        "maxSimultaneousPct": 300,
+        "maxRunFtSingleFeed": 32,
+        "maxRunFtDoubleFeed": 64,
+        "cutIntervalIn": 4,
+        "minOperatingV": 21.5,
+        "reelLengthFt": 16.4,
+        "pixel": {
+          "protocol": "SPI-other",
+          "pixelsPerFt": 3,
+          "ampsPerPixelMax": 0.06
+        }
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "downlight-line",
+      "sku": "EX-DOWNLIGHT-LINE",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE line-voltage downlight",
+      "category": "fixture",
+      "description": "EXAMPLE – replace with real data. line-voltage downlight. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "fixture",
+        "voltageClass": "line",
+        "inputV": [
+          120,
+          277
+        ],
+        "watts": 15,
+        "dimming": [
+          "0-10V"
+        ],
+        "integralDriver": true
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "downlight-cc",
+      "sku": "EX-DOWNLIGHT-CC",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE low-voltage CC downlight",
+      "category": "fixture",
+      "description": "EXAMPLE – replace with real data. low-voltage CC downlight. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "fixture",
+        "voltageClass": "low",
+        "inputV": [
+          18,
+          36
+        ],
+        "watts": 9,
+        "drive": "CC",
+        "mA": 350,
+        "dimming": [
+          "none"
+        ],
+        "integralDriver": false
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "junction-box",
+      "sku": "EX-JUNCTION-BOX",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE junction box",
+      "category": "junction-box",
+      "description": "EXAMPLE – replace with real data. junction box. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "accessory",
+        "function": "junction",
+        "ratedV": 600,
+        "ratedA": 20,
+        "ports": [
+          "IN",
+          "OUT"
+        ],
+        "listings": [],
+        "terminalMinAwg": "18",
+        "terminalMaxAwg": "10"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "enclosure",
+      "sku": "EX-ENCLOSURE",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE enclosure",
+      "category": "enclosure",
+      "description": "EXAMPLE – replace with real data. enclosure. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "accessory",
+        "function": "enclosure",
+        "ratedV": 600,
+        "ratedA": 20,
+        "ports": [
+          "IN",
+          "OUT"
+        ],
+        "listings": [],
+        "terminalMinAwg": "18",
+        "terminalMaxAwg": "10"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "distribution-block",
+      "sku": "EX-DISTRIBUTION-BLOCK",
+      "brand": "EXAMPLE",
+      "model": "EXAMPLE distribution block",
+      "category": "distribution-block",
+      "description": "EXAMPLE – replace with real data. distribution block. Synthetic ratings for testing only.",
+      "isExample": true,
+      "specs": {
+        "kind": "accessory",
+        "function": "distribution",
+        "ratedV": 600,
+        "ratedA": 20,
+        "ports": [
+          "IN",
+          "OUT"
+        ],
+        "listings": [],
+        "terminalMinAwg": "18",
+        "terminalMaxAwg": "10"
+      },
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "localOverrides": []
+    }
+  ],
+  "wires": [
+    {
+      "id": "thhn-14",
+      "name": "THHN/THWN-2 #14 raceway set",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "building-wire",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "THHN/THWN-2",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "2 × #14 + G THHN/THWN-2",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE raceway set of two current-carrying conductors and one EGC. Purchased as individual conductor-feet. Reconfigure for phase/poles and size grounding conductors for the actual OCPD; raceway suitability is separate from cable ratings.",
+      "ampacityBasis": "310.16"
+    },
+    {
+      "id": "thhn-12",
+      "name": "THHN/THWN-2 #12 raceway set",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "building-wire",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "THHN/THWN-2",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "2 × #12 + G THHN/THWN-2",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE raceway set of two current-carrying conductors and one EGC. Purchased as individual conductor-feet. Reconfigure for phase/poles and size grounding conductors for the actual OCPD; raceway suitability is separate from cable ratings.",
+      "ampacityBasis": "310.16"
+    },
+    {
+      "id": "thhn-10",
+      "name": "THHN/THWN-2 #10 raceway set",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "building-wire",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "THHN/THWN-2",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "2 × #10 + G THHN/THWN-2",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE raceway set of two current-carrying conductors and one EGC. Purchased as individual conductor-feet. Reconfigure for phase/poles and size grounding conductors for the actual OCPD; raceway suitability is separate from cable ratings.",
+      "ampacityBasis": "310.16"
+    },
+    {
+      "id": "thhn-8",
+      "name": "THHN/THWN-2 #8 raceway set",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "building-wire",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "8",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "8",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "THHN/THWN-2",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "2 × #8 + G THHN/THWN-2",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE raceway set of two current-carrying conductors and one EGC. Purchased as individual conductor-feet. Reconfigure for phase/poles and size grounding conductors for the actual OCPD; raceway suitability is separate from cable ratings.",
+      "ampacityBasis": "310.16"
+    },
+    {
+      "id": "thhn-6",
+      "name": "THHN/THWN-2 #6 raceway set",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "building-wire",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "6",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "6",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "THHN/THWN-2",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "2 × #6 + G THHN/THWN-2",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE raceway set of two current-carrying conductors and one EGC. Purchased as individual conductor-feet. Reconfigure for phase/poles and size grounding conductors for the actual OCPD; raceway suitability is separate from cable ratings.",
+      "ampacityBasis": "310.16"
+    },
+    {
+      "id": "nm-b-14-2",
+      "name": "NM-B 14/2 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "NM-B",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "NM-B 14/2 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 60
+    },
+    {
+      "id": "nm-b-12-2",
+      "name": "NM-B 12/2 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "NM-B",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "NM-B 12/2 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 60
+    },
+    {
+      "id": "nm-b-10-2",
+      "name": "NM-B 10/2 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "NM-B",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "NM-B 10/2 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 60
+    },
+    {
+      "id": "nm-b-14-3",
+      "name": "NM-B 14/3 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 3,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "NM-B",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "NM-B 14/3 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 60
+    },
+    {
+      "id": "nm-b-12-3",
+      "name": "NM-B 12/3 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 3,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "NM-B",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "NM-B 12/3 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 60
+    },
+    {
+      "id": "mc-12-2",
+      "name": "MC 12/2 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "MC",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "MC 12/2 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 75
+    },
+    {
+      "id": "mc-12-3",
+      "name": "MC 12/3 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 3,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "MC",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "MC 12/3 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 75
+    },
+    {
+      "id": "mc-10-2",
+      "name": "MC 10/2 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "MC",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "MC 10/2 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 75
+    },
+    {
+      "id": "uf-b-12-2",
+      "name": "UF-B 12/2 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "UF-B",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": true,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "UF-B 12/2 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 60
+    },
+    {
+      "id": "uf-b-10-2",
+      "name": "UF-B 10/2 + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "ground"
+        }
+      ],
+      "listing": "UF-B",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": true,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "UF-B 10/2 + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 60
+    },
+    {
+      "id": "mc-12-2-16-2",
+      "name": "MC 12/2 + 16/2 control + G",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "cable-assembly",
+      "applications": [
+        "lv-branch",
+        "0-10v"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        },
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal",
+          "colors": [
+            "purple",
+            "gray"
+          ]
+        }
+      ],
+      "listing": "MC",
+      "ratedV": 600,
+      "tempRatingC": 90,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "MC 12/2 + 16/2 control + G",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE mixed cable; verify listed segregation and current identification rules for the control pair. Purple/gray requested in the plan; gray is a legacy identification and must be reviewed before a new specification.",
+      "ampacityBasis": "310.16",
+      "ampacityTempLimitC": 75
+    },
+    {
+      "id": "soow-14-3",
+      "name": "SOOW 14/3",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "flex-cord",
+      "applications": [
+        "lv-fixture-whip"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "SOOW",
+      "ratedV": 600,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 15,
+      "riserLabel": "SOOW 14/3",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE flexible-cord rating only. Not a substitute for permanent building wiring. Verify manufacturer, use, protection and termination.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "soow-16-3",
+      "name": "SOOW 16/3",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "flex-cord",
+      "applications": [
+        "lv-fixture-whip"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "SOOW",
+      "ratedV": 600,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 10,
+      "riserLabel": "SOOW 16/3",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE flexible-cord rating only. Not a substitute for permanent building wiring. Verify manufacturer, use, protection and termination.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "sjoow-14-3",
+      "name": "SJOOW 14/3",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "flex-cord",
+      "applications": [
+        "lv-fixture-whip"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "SJOOW",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 15,
+      "riserLabel": "SJOOW 14/3",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE flexible-cord rating only. Not a substitute for permanent building wiring. Verify manufacturer, use, protection and termination.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "sjoow-16-3",
+      "name": "SJOOW 16/3",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "flex-cord",
+      "applications": [
+        "lv-fixture-whip"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        },
+        {
+          "count": 1,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground"
+        }
+      ],
+      "listing": "SJOOW",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 10,
+      "riserLabel": "SJOOW 16/3",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE flexible-cord rating only. Not a substitute for permanent building wiring. Verify manufacturer, use, protection and termination.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "cl3-18-2-r",
+      "name": "18/2 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/2 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-16-2-r",
+      "name": "16/2 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 8,
+      "riserLabel": "16/2 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-14-2-r",
+      "name": "14/2 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 15,
+      "riserLabel": "14/2 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "cl3-12-2-r",
+      "name": "12/2 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 20,
+      "riserLabel": "12/2 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "cl3-10-2-r",
+      "name": "10/2 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 30,
+      "riserLabel": "10/2 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "cl3-18-3-r",
+      "name": "18/3 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "WW",
+            "CW"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/3 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-16-3-r",
+      "name": "16/3 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "WW",
+            "CW"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 8,
+      "riserLabel": "16/3 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-18-5-r",
+      "name": "18/5 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 4,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "R",
+            "G",
+            "B",
+            "W"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/5 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-16-5-r",
+      "name": "16/5 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 4,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "R",
+            "G",
+            "B",
+            "W"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 8,
+      "riserLabel": "16/5 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-18-6-r",
+      "name": "18/6 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 5,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "R",
+            "G",
+            "B",
+            "WW",
+            "CW"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/6 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-18-2-p",
+      "name": "18/2 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/2 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-16-2-p",
+      "name": "16/2 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 8,
+      "riserLabel": "16/2 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-14-2-p",
+      "name": "14/2 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "14",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 15,
+      "riserLabel": "14/2 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "cl3-12-2-p",
+      "name": "12/2 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 20,
+      "riserLabel": "12/2 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "cl3-10-2-p",
+      "name": "10/2 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 30,
+      "riserLabel": "10/2 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "cl3-18-3-p",
+      "name": "18/3 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "WW",
+            "CW"
+          ]
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/3 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-16-3-p",
+      "name": "16/3 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "WW",
+            "CW"
+          ]
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 8,
+      "riserLabel": "16/3 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-18-5-p",
+      "name": "18/5 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 4,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "R",
+            "G",
+            "B",
+            "W"
+          ]
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/5 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-16-5-p",
+      "name": "16/5 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 4,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "R",
+            "G",
+            "B",
+            "W"
+          ]
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 8,
+      "riserLabel": "16/5 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "cl3-18-6-p",
+      "name": "18/6 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "class2-power",
+      "applications": [
+        "class2-dc-multichannel"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "V+"
+          ]
+        },
+        {
+          "count": 5,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "channel",
+          "colors": [
+            "R",
+            "G",
+            "B",
+            "WW",
+            "CW"
+          ]
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 6,
+      "riserLabel": "18/6 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE wire template. Verify ratings, listing, installation suitability and current capacity before specifying.",
+      "ampacityBasis": "402.5-fallback"
+    },
+    {
+      "id": "landscape-12-2",
+      "name": "12/2 landscape direct burial",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "landscape",
+      "applications": [
+        "landscape-ac",
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "12",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "LV landscape cable",
+      "ratedV": 150,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": true,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 20,
+      "riserLabel": "12/2 landscape direct burial",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE NEC 411 system cable template; verify listed system and manufacturer ampacity. Direct-burial is not a generic approval for mains use.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "landscape-10-2",
+      "name": "10/2 landscape direct burial",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "landscape",
+      "applications": [
+        "landscape-ac",
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "10",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "LV landscape cable",
+      "ratedV": 150,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": true,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 30,
+      "riserLabel": "10/2 landscape direct burial",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE NEC 411 system cable template; verify listed system and manufacturer ampacity. Direct-burial is not a generic approval for mains use.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "landscape-8-2",
+      "name": "8/2 landscape direct burial",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "landscape",
+      "applications": [
+        "landscape-ac",
+        "class2-dc"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "8",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power"
+        }
+      ],
+      "listing": "LV landscape cable",
+      "ratedV": 150,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": true,
+      "directBurial": true,
+      "sunlightResistant": false,
+      "shielded": false,
+      "ampacityA": 40,
+      "riserLabel": "8/2 landscape direct burial",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE NEC 411 system cable template; verify listed system and manufacturer ampacity. Direct-burial is not a generic approval for mains use.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "dmx-24-1p",
+      "name": "24 AWG 1-pair 120 Ω shielded",
+      "manufacturerRefs": [
+        "Belden 9841"
+      ],
+      "manufacturerRefChecks": [
+        {
+          "reference": "Belden 9841",
+          "verify": true,
+          "sourceUrl": "https://catalog.belden.com/techdata/EN/9841_techdata.pdf"
+        }
+      ],
+      "category": "data",
+      "applications": [
+        "dmx"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "24",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "data-pair"
+        }
+      ],
+      "listing": "CM",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": true,
+      "impedanceOhm": 120,
+      "resistanceOhmPerKft": 24,
+      "riserLabel": "24 AWG 1-pair 120 Ω shielded",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE template referencing Belden 9841 for verification. Its datasheet lists 120 Ω and 24 Ω/kft. CM alone does not establish riser or plenum rating. Verify exact suffix and temperature/listing before use.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "dmx-24-1p-plenum",
+      "name": "24 AWG 1-pair 120 Ω plenum",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "dmx"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "24",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "data-pair"
+        }
+      ],
+      "listing": "CMP",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": true,
+      "impedanceOhm": 120,
+      "resistanceOhmPerKft": 24,
+      "riserLabel": "24 AWG 1-pair 120 Ω plenum",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE plenum counterpart; 24 Ω/kft is illustrative, not a verified specification of a named plenum part.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "dmx-24-2p",
+      "name": "24 AWG 2-pair 120 Ω shielded",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "dmx"
+      ],
+      "conductors": [
+        {
+          "count": 4,
+          "awg": "24",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "data-pair"
+        }
+      ],
+      "listing": "CM",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": true,
+      "impedanceOhm": 120,
+      "resistanceOhmPerKft": 24,
+      "riserLabel": "24 AWG 2-pair 120 Ω shielded",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE generic two-pair 120 Ω cable. Belden 9729 is NOT a 120 Ω equivalent: current datasheet states 100 Ω and 28.8 Ω/kft. No manufacturer equivalent asserted.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "cat5e-cmr",
+      "name": "Cat5e U/UTP CMR (24 AWG example)",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "dmx",
+        "ethernet"
+      ],
+      "conductors": [
+        {
+          "count": 8,
+          "awg": "24",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "data-pair"
+        }
+      ],
+      "listing": "CMR",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "impedanceOhm": 100,
+      "resistanceOhmPerKft": 28.6,
+      "riserLabel": "Cat5e U/UTP CMR (24 AWG example)",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE 24 AWG construction and illustrative resistance. Confirm actual Cat cable gauge/resistance and ANSI E1.27-2 wiring for DMX-over-Cat. Category rating does not imply 120 Ω impedance.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "cat5e-cmp",
+      "name": "Cat5e U/UTP CMP (24 AWG example)",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "dmx",
+        "ethernet"
+      ],
+      "conductors": [
+        {
+          "count": 8,
+          "awg": "24",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "data-pair"
+        }
+      ],
+      "listing": "CMP",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "impedanceOhm": 100,
+      "resistanceOhmPerKft": 28.6,
+      "riserLabel": "Cat5e U/UTP CMP (24 AWG example)",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE 24 AWG construction and illustrative resistance. Confirm actual Cat cable gauge/resistance and ANSI E1.27-2 wiring for DMX-over-Cat. Category rating does not imply 120 Ω impedance.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "cat6-cmr",
+      "name": "Cat6 U/UTP CMR (24 AWG example)",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "dmx",
+        "ethernet"
+      ],
+      "conductors": [
+        {
+          "count": 8,
+          "awg": "24",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "data-pair"
+        }
+      ],
+      "listing": "CMR",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "impedanceOhm": 100,
+      "resistanceOhmPerKft": 28.6,
+      "riserLabel": "Cat6 U/UTP CMR (24 AWG example)",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE 24 AWG construction and illustrative resistance. Confirm actual Cat cable gauge/resistance and ANSI E1.27-2 wiring for DMX-over-Cat. Category rating does not imply 120 Ω impedance.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "cat6-cmp",
+      "name": "Cat6 U/UTP CMP (24 AWG example)",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "dmx",
+        "ethernet"
+      ],
+      "conductors": [
+        {
+          "count": 8,
+          "awg": "24",
+          "material": "Cu",
+          "stranding": "solid",
+          "role": "data-pair"
+        }
+      ],
+      "listing": "CMP",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "impedanceOhm": 100,
+      "resistanceOhmPerKft": 28.6,
+      "riserLabel": "Cat6 U/UTP CMP (24 AWG example)",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE 24 AWG construction and illustrative resistance. Confirm actual Cat cable gauge/resistance and ANSI E1.27-2 wiring for DMX-over-Cat. Category rating does not imply 120 Ω impedance.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "control-010-18-cl3r",
+      "name": "0–10 V 18/2 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "control",
+      "applications": [
+        "0-10v"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal",
+          "colors": [
+            "purple",
+            "gray"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "0–10 V 18/2 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE purple (+)/gray (−) per request. Confirm adopted conductor-identification rules; do not assume legacy gray identification is permitted in a new installation.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "control-010-16-cl3r",
+      "name": "0–10 V 16/2 CL3R",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "control",
+      "applications": [
+        "0-10v"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal",
+          "colors": [
+            "purple",
+            "gray"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "0–10 V 16/2 CL3R",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE purple (+)/gray (−) per request. Confirm adopted conductor-identification rules; do not assume legacy gray identification is permitted in a new installation.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "control-010-18-cl3p",
+      "name": "0–10 V 18/2 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "control",
+      "applications": [
+        "0-10v"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal",
+          "colors": [
+            "purple",
+            "gray"
+          ]
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "0–10 V 18/2 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE purple (+)/gray (−) per request. Confirm adopted conductor-identification rules; do not assume legacy gray identification is permitted in a new installation.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "control-010-16-cl3p",
+      "name": "0–10 V 16/2 CL3P",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "control",
+      "applications": [
+        "0-10v"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal",
+          "colors": [
+            "purple",
+            "gray"
+          ]
+        }
+      ],
+      "listing": "CL3P",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "0–10 V 16/2 CL3P",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE purple (+)/gray (−) per request. Confirm adopted conductor-identification rules; do not assume legacy gray identification is permitted in a new installation.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "dali-16-2",
+      "name": "DALI 2C #16 600 V",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "control",
+      "applications": [
+        "dali"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "16",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal"
+        }
+      ],
+      "listing": "600 V control wire",
+      "ratedV": 600,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "DALI 2C #16 600 V",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE DALI bus template. DALI commonly has basic insulation from mains; treat routing/segregation and insulation per product and adopted code. A 600 V label alone does not authorize co-routing.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "dali-18-2",
+      "name": "DALI 2C #18 600 V",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "control",
+      "applications": [
+        "dali"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal"
+        }
+      ],
+      "listing": "600 V control wire",
+      "ratedV": 600,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "DALI 2C #18 600 V",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE DALI bus template. DALI commonly has basic insulation from mains; treat routing/segregation and insulation per product and adopted code. A 600 V label alone does not authorize co-routing.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "lutron-qs-grx-cbl-346s",
+      "name": "Lutron QS pattern GRX-CBL-346S",
+      "manufacturerRefs": [
+        "GRX-CBL-346S"
+      ],
+      "manufacturerRefChecks": [
+        {
+          "reference": "GRX-CBL-346S",
+          "verify": true,
+          "sourceUrl": "https://assets.lutron.com/a/documents/cables_nonplenum.pdf"
+        }
+      ],
+      "category": "control",
+      "applications": [
+        "lutron-qs"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "black",
+            "red"
+          ]
+        },
+        {
+          "count": 2,
+          "awg": "22",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "data-pair",
+          "resistanceOhmPerKft": 18
+        }
+      ],
+      "listing": "QS control cable",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": true,
+      "ampacityA": 6,
+      "riserLabel": "Lutron QS pattern GRX-CBL-346S",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE mixed-gauge QS pattern. 18 Ω/kft for the #22 pair is an illustrative placeholder, NOT a Lutron specification. Verify all ratings and device-specific link length; the stated 18/22 construction does not establish maximum system length.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "lutron-qs-grx-pcbl-346s",
+      "name": "Lutron QS pattern GRX-PCBL-346S",
+      "manufacturerRefs": [
+        "GRX-PCBL-346S"
+      ],
+      "manufacturerRefChecks": [
+        {
+          "reference": "GRX-PCBL-346S",
+          "verify": true,
+          "sourceUrl": "https://assets.lutron.com/a/documents/cables_nonplenum.pdf"
+        }
+      ],
+      "category": "control",
+      "applications": [
+        "lutron-qs"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "power",
+          "colors": [
+            "black",
+            "red"
+          ]
+        },
+        {
+          "count": 2,
+          "awg": "22",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "data-pair",
+          "resistanceOhmPerKft": 18
+        }
+      ],
+      "listing": "plenum QS cable",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": true,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": true,
+      "ampacityA": 6,
+      "riserLabel": "Lutron QS pattern GRX-PCBL-346S",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE mixed-gauge QS pattern. 18 Ω/kft for the #22 pair is an illustrative placeholder, NOT a Lutron specification. Verify all ratings and device-specific link length; the stated 18/22 construction does not establish maximum system length.",
+      "ampacityBasis": "example"
+    },
+    {
+      "id": "lutron-ecosystem-18-2",
+      "name": "EcoSystem 2C #18 600 V",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "control",
+      "applications": [
+        "lutron-ecosystem"
+      ],
+      "conductors": [
+        {
+          "count": 2,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal"
+        }
+      ],
+      "listing": "600 V control wire",
+      "ratedV": 600,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "EcoSystem 2C #18 600 V",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE EcoSystem pattern. Wire per the current Lutron device guide; use required mains-rated insulation when routed with power, subject to permitted wiring methods.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "spi-18-3",
+      "name": "SPI 18/3 data / ground / spare",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "spi-data"
+      ],
+      "conductors": [
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal",
+          "colors": [
+            "data"
+          ]
+        },
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "ground",
+          "colors": [
+            "common"
+          ]
+        },
+        {
+          "count": 1,
+          "awg": "18",
+          "material": "Cu",
+          "stranding": "stranded",
+          "role": "signal",
+          "colors": [
+            "spare"
+          ]
+        }
+      ],
+      "listing": "CL3R",
+      "ratedV": 300,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": true,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "SPI 18/3 data / ground / spare",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "EXAMPLE signal-only connection. Runs exceeding spiMaxDataFt need a compatible differential transmitter/receiver or relocation. Pixel power needs separate derived power runs.",
+      "ampacityBasis": "not-applicable"
+    },
+    {
+      "id": "wireless-crmx",
+      "name": "CRMX wireless — no cable",
+      "manufacturerRefs": [],
+      "manufacturerRefChecks": [],
+      "category": "data",
+      "applications": [
+        "wireless"
+      ],
+      "conductors": [],
+      "listing": "Not applicable",
+      "ratedV": 0,
+      "tempRatingC": 75,
+      "plenum": false,
+      "riser": false,
+      "wet": false,
+      "directBurial": false,
+      "sunlightResistant": false,
+      "shielded": false,
+      "riserLabel": "CRMX wireless — no cable",
+      "isExample": true,
+      "verify": true,
+      "source": {
+        "kind": "example",
+        "reference": "Synthetic example for the riser implementation plan; not manufacturer product data.",
+        "note": "Replace all ratings and suitability flags with verified product specifications."
+      },
+      "notes": "Wireless pseudo-type. No physical cable, ampacity or conductor resistance; radio range depends on product and installation.",
+      "ampacityBasis": "not-applicable"
+    }
+  ],
+  "codeTables": [
+    {
+      "id": "nec-2023-table8-cu",
+      "source": {
+        "standard": "NFPA 70",
+        "edition": "2023",
+        "table": "Chapter 9 Table 8",
+        "reference": "NFPA 70 (NEC), 2023 edition, Chapter 9 Table 8; supplied implementation plan §4.1.",
+        "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+        "verification": "user-supplied-unverified",
+        "supportingUrls": [],
+        "checkedOn": "2026-09-24"
+      },
+      "comment": "User must verify all values against the adopted NEC edition, installation conditions, conductor listing, and terminal ratings. This seed is not an independent code certification.",
+      "material": "Cu",
+      "kind": "resistance",
+      "units": "ohm/kft",
+      "referenceTempC": 75,
+      "coating": "uncoated",
+      "rows": [
+        {
+          "awg": "18",
+          "solid": 7.77,
+          "stranded": 7.95
+        },
+        {
+          "awg": "16",
+          "solid": 4.89,
+          "stranded": 4.99
+        },
+        {
+          "awg": "14",
+          "solid": 3.07,
+          "stranded": 3.14
+        },
+        {
+          "awg": "12",
+          "solid": 1.93,
+          "stranded": 1.98
+        },
+        {
+          "awg": "10",
+          "solid": 1.21,
+          "stranded": 1.24
+        },
+        {
+          "awg": "8",
+          "solid": 0.764,
+          "stranded": 0.778
+        },
+        {
+          "awg": "6",
+          "stranded": 0.491
+        },
+        {
+          "awg": "4",
+          "stranded": 0.308
+        },
+        {
+          "awg": "2",
+          "stranded": 0.194
+        },
+        {
+          "awg": "1/0",
+          "stranded": 0.122
+        }
+      ]
+    },
+    {
+      "id": "nec-2023-table310-16-cu",
+      "source": {
+        "standard": "NFPA 70",
+        "edition": "2023",
+        "table": "Table 310.16 / 240.4(D)",
+        "reference": "NFPA 70 (NEC), 2023 edition, Table 310.16 / 240.4(D); supplied implementation plan §4.1.",
+        "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+        "verification": "user-supplied-unverified",
+        "supportingUrls": [
+          "https://www.southwire.com/wire-cable/building-wire/thhn-thwn-copper-silicone-free/p/SPEC10003"
+        ],
+        "checkedOn": "2026-09-24"
+      },
+      "comment": "User must verify all values against the adopted NEC edition, installation conditions, conductor listing, and terminal ratings. This seed is not an independent code certification.",
+      "material": "Cu",
+      "kind": "ampacity",
+      "units": "A",
+      "ambientTempC": 30,
+      "maxCurrentCarryingConductors": 3,
+      "rows": [
+        {
+          "awg": "14",
+          "at60C": 15,
+          "at75C": 20,
+          "at90C": 25,
+          "smallConductorOcpdLimitA": 15
+        },
+        {
+          "awg": "12",
+          "at60C": 20,
+          "at75C": 25,
+          "at90C": 30,
+          "smallConductorOcpdLimitA": 20
+        },
+        {
+          "awg": "10",
+          "at60C": 30,
+          "at75C": 35,
+          "at90C": 40,
+          "smallConductorOcpdLimitA": 30
+        },
+        {
+          "awg": "8",
+          "at60C": 40,
+          "at75C": 50,
+          "at90C": 55
+        },
+        {
+          "awg": "6",
+          "at60C": 55,
+          "at75C": 65,
+          "at90C": 75
+        }
+      ]
+    },
+    {
+      "id": "nec-2023-table402-5-cu",
+      "source": {
+        "standard": "NFPA 70",
+        "edition": "2023",
+        "table": "Table 402.5",
+        "reference": "NFPA 70 (NEC), 2023 edition, Table 402.5; supplied implementation plan §4.1.",
+        "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+        "verification": "user-supplied-unverified",
+        "supportingUrls": [],
+        "checkedOn": "2026-09-24"
+      },
+      "comment": "User must verify all values against the adopted NEC edition, installation conditions, conductor listing, and terminal ratings. This seed is not an independent code certification.",
+      "material": "Cu",
+      "kind": "fixture-wire",
+      "units": "A",
+      "applicationNote": "6 A for #18 and 8 A for #16 are the user-requested conservative fallback for Class 2 cable with no manufacturer ampacity. Table 402.5 governs fixture wire; this fallback does not confer a listing or replace the cable manufacturer rating.",
+      "rows": [
+        {
+          "awg": "18",
+          "ampacityA": 6
+        },
+        {
+          "awg": "16",
+          "ampacityA": 8
+        }
+      ]
+    },
+    {
+      "id": "nec-2023-table9-cu-pvc",
+      "source": {
+        "standard": "NFPA 70",
+        "edition": "2023",
+        "table": "Chapter 9 Table 9",
+        "reference": "NFPA 70 (NEC), 2023 edition, Chapter 9 Table 9. Values were not supplied and are intentionally absent.",
+        "url": "https://www.nfpa.org/codes-and-standards/nfpa-70-standard-development/70",
+        "verification": "user-supplied-unverified",
+        "supportingUrls": [],
+        "checkedOn": "2026-09-24"
+      },
+      "comment": "Effective-Z is unavailable until verified Table 9 rows and the matching raceway are supplied. Never substitute Table 8 while labelling the result effective-Z.",
+      "material": "Cu",
+      "kind": "effective-z",
+      "units": "ohm/kft",
+      "referenceTempC": 75,
+      "frequencyHz": 60,
+      "powerFactor": 0.85,
+      "raceway": "PVC",
+      "status": "unavailable",
+      "rows": []
+    }
+  ]
+}

@@ -11,7 +11,7 @@ function setup(html = '') {
   const w = dom.window;
   const requests = [];
   w.$ = w.jQuery = jquery(w);
-  w.__ = value => value;
+  w.__ = (value, args) => args ? value.replace(/\{(\d+)\}/g, (_, i) => args[i]) : value;
   w.frappe = { call: args => requests.push(args), msgprint() {}, show_alert() {} };
   for (const file of ['shared_configurator', 'fixture_group_editor', 'fixture_steps', 'tape_neon_steps', 'led_sheet_steps', 'coordinator']) {
     w.eval(fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/public/js/configurator', file + '.js'), 'utf8'));
@@ -559,6 +559,108 @@ test('LED Sheet options select the panel spec; buyers are not asked for it', () 
   inst.$('#sheetEnvironment').val('Indoor').trigger('change');
   assert.equal(inst.$('#sheetSpecMatch').text(), 'LED-SNF-SW-I-10W-SHEET');
   assert.equal(inst.exportRequest().selections.spec, null, 'the server derives the spec');
+  inst.destroy();
+  dom.window.close();
+});
+
+test('multi-run group sits beside the run controls and drives a tape coordinator end to end', async () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Tape-coordinator.html'), 'utf8');
+  const { dom, $, api, requests } = setup(html);
+  const inst = new api.Coordinator($('#portal-configurator'), { product_category: 'LED Tape', is_tape: true, is_tape_neon: true, has_templates: false, groups_enabled: true, selected_template: 'TAPE-T' });
+  inst.init();
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const group = inst.groupEditor;
+  const length = () => inst.$('#tapeSegmentsList [name="tape_length_value"]').first();
+  const summaries = () => group.$list.find('.ill-run-summary').map((_, node) => $(node).text()).get();
+  // The run list precedes the length controls; group actions replace the single-run ones.
+  assert.equal(group.$panel.next().attr('data-ill-original-id'), 'tapeModeToggleCard');
+  assert.equal(group.$actions.next().attr('data-ill-original-id'), 'tnActionButtons');
+  assert.equal(group.$actions.is(':visible') || group.$actions.css('display') === 'none', true);
+  group.$toggle[0].click();
+  assert.equal(inst.$root.hasClass('ill-group-active'), true);
+  assert.equal(inst.$('#tnCalculateBtn').hasClass('ill-single-action'), true);
+  length().val('120').trigger('input');
+  assert.deepEqual(summaries(), ["10' · 1' leader"]);
+  // A new run keeps the feed settings but starts without a length, so calculation names it.
+  group.add();
+  assert.equal(length().val(), '');
+  const before = requests.length;
+  group.calculate();
+  assert.equal(requests.length, before, 'an incomplete run is not sent');
+  assert.match(group.$status.text(), /Run 2/);
+  length().val('60').trigger('input');
+  group.$list.find('.ill-run-label').eq(1).val('North wall').trigger('input');
+  group.duplicate(0);
+  assert.deepEqual(summaries(), ["10' · 1' leader", "5' · 1' leader", "10' · 1' leader"]);
+  assert.deepEqual(Array.from(group.members, m => m.label), ['Run 1', 'North wall', 'Run 1 (copy)']);
+  group.select(0);
+  assert.equal(length().val(), '120');
+  group.calculate();
+  const call = requests.at(-1);
+  assert.match(call.method, /fixture_group_configurator.preview$/);
+  const sent = JSON.parse(call.args.request);
+  assert.equal(sent.template, 'TAPE-T');
+  assert.equal(sent.power.separate_supply_line, true);
+  assert.deepEqual(sent.members.map(m => m.input.segments[0].tape_length_value), [120, 60, 120]);
+  const presentation = sent.members.map((m, i) => ({member_key: 'M' + (i + 1), label: m.label}));
+  call.callback({message: {success: true, presentation,
+    runs: presentation.map(p => ({...p, requested_length_mm: 3048, manufactured_length_mm: 3048, segments: 1, circuits: 1, watts: 20})),
+    build: {members: sent.members, total_watts: 60, voltage: '24V', output_protocol: 'PWM', power_plan: {status: 'selected',
+      drivers: [{driver_item: 'PS-96', qty: 1}], requirements: [{}, {}, {}], allocations: [{run_key: 'M2:1', supply: 1, item_code: 'PS-96', output: 2, watts: 20}]}},
+    pricing: {breakdown: [{member: 'M3', extended_msrp: 300}, {member: 'M1', extended_msrp: 300}, {member: 'M2', extended_msrp: 150}], msrp_unit: 750, tier_unit: 600}}});
+  assert.equal(group.$save.prop('disabled'), false);
+  assert.match(group.$result.text(), /North wall, circuit 1 → supply 1 \(PS-96\), output 2/);
+  assert.match(group.$result.text(), /\$600\.00/);
+  // Renaming a run is presentation only: the calculation stays valid and shows the new name.
+  group.$list.find('.ill-run-label').eq(0).val('South wall').trigger('input');
+  assert.equal(group.$save.prop('disabled'), false);
+  assert.match(group.$result.text(), /South wall/);
+  inst.$('#scheduleSelect').append($('<option>').val('S1')).val('S1');
+  inst.$('#lineSelect').append($('<option>').val('__new__')).val('__new__');
+  inst.setScheduleSnapshot({ modified: 'r1', lines: [] });
+  group.save();
+  const save = requests.at(-1);
+  assert.match(save.method, /portal.configuration.save$/);
+  const saved = JSON.parse(save.args.selections).group_request;
+  assert.deepEqual(saved.members.map(m => m.label), ['South wall', 'North wall', 'Run 1 (copy)']);
+  // Editing a length afterwards requires a new calculation.
+  length().val('130').trigger('input');
+  assert.equal(group.$save.prop('disabled'), true);
+  group.$single[0].click();
+  assert.equal(inst.$root.hasClass('ill-group-active'), false);
+  assert.equal(inst.exportRequest().selections.group_request, undefined);
+  inst.destroy();
+  assert.equal($('.ill-group-editor, .ill-group-actions, .ill-group-result').length, 0);
+  dom.window.close();
+});
+
+test('group run summaries read every family length format', () => {
+  const { dom, api } = setup('');
+  const { feetInches, summarize } = api.GroupEditor;
+  assert.equal(feetInches(6248.4), "20' 6\"");
+  assert.equal(feetInches(3657.6), "12'");
+  assert.equal(feetInches(25.4), '1"');
+  assert.equal(summarize({segments: [{requested_length_mm: 6096, start_leader_cable_length_mm: 1828.8}]}, 'Linear Fixture').text, "20' · 6' leader");
+  assert.equal(summarize({segments: [{tape_length_unit: 'ft_in', tape_length_feet: 5, tape_length_inches: 6}]}, 'LED Tape').text, "5' 6\"");
+  assert.equal(summarize({segments: [{fixture_length_unit: 'ft', fixture_length_value: 3, end_type: 'Jumper'}, {fixture_length_unit: 'in', fixture_length_value: 24}]}, 'LED Neon').text, "5' · 2 jumpered segments");
+  assert.equal(summarize({segments: [{requested_length_mm: ''}]}, 'Linear Fixture').empty, true);
+  assert.equal(summarize({coverage_width_value: 600, coverage_width_unit: 'mm', coverage_height_ft: 4}, 'LED Sheet').empty, false);
+  assert.equal(summarize({coverage_width_value: '', coverage_height_ft: 4}, 'LED Sheet').empty, true);
+  dom.window.close();
+});
+
+test('restoring a linear run shows inches and keeps its millimetre length', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/Linear-Fixture-coordinator.html'), 'utf8');
+  const { dom, $, api } = setup(html);
+  const inst = new api.Coordinator($('#portal-configurator'), { product_category: 'Linear Fixture', has_templates: false });
+  inst.init();
+  inst.restoreGeometry({segments: [{requested_length_mm: 1000, start_leader_cable_length_mm: 304.8, end_type: 'Endcap'}]});
+  const card = inst.$('.segment-card').first();
+  assert.equal(card.find('[name="length_unit"]').val(), 'in');
+  assert.equal(inst.exportRequest().selections.segments[0].requested_length_mm, 1000);
+  // A later unit change converts from inches, not from a stale unit.
+  card.find('[name="length_unit"]').val('mm').trigger('change');
+  assert.equal(Math.round(Number(card.find('[name="requested_length_mm"]').val())), 1000);
   inst.destroy();
   dom.window.close();
 });

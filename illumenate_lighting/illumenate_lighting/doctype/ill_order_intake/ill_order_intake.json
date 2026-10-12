@@ -13,6 +13,7 @@
     "request_snapshot",
     "request_hash",
     "acknowledged_hash",
+    "acknowledged_snapshot",
     "acknowledged_by",
     "acknowledged_on",
     "approved_by",
@@ -92,6 +93,12 @@
       "fieldname": "acknowledged_hash",
       "fieldtype": "Data",
       "label": "Acknowledged Hash",
+      "read_only": 1
+    },
+    {
+      "fieldname": "acknowledged_snapshot",
+      "fieldtype": "Long Text",
+      "label": "Acknowledged Snapshot",
       "read_only": 1
     },
     {

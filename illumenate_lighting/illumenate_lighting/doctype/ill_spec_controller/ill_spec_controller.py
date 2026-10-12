@@ -19,7 +19,21 @@ class ilLSpecController(Document):
 		channels: DF.Int
 		compatible_drivers: DF.Table[ilLChildCompatibleDriver]
 		controller_name: DF.Data | None
-		controller_type: DF.Literal["DMX Controller", "Wireless Receiver", "Wall Dimmer", "Scene Controller", "Sensor", "Gateway", "Repeater"]
+		controller_type: DF.Literal[
+			"DMX Controller",
+			"Wireless Receiver",
+			"Wall Dimmer",
+			"Scene Controller",
+			"Sensor",
+			"Gateway",
+			"Repeater",
+			"DMX Decoder",
+			"DMX to 0-10V Converter",
+			"Pixel Controller",
+			"Wireless Transmitter",
+			"Relay",
+			"Lutron Module",
+		]
 		depth_mm: DF.Float
 		height_mm: DF.Float
 		input_protocols: DF.Table[ilLChildControllerProtocol]

@@ -1,5 +1,6 @@
 import types
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from test_services import ROOT, Record, load_service
@@ -102,3 +103,21 @@ class Outbox(unittest.TestCase):
 		with load_service(ROOT + ".portal.outbox") as (module, frappe):
 			self.assertTrue(module.before_send(Record(reference_doctype="Quotation")))
 			frappe.get_doc.assert_not_called()
+
+	def test_record_fingerprints_datetime_modified_revision(self):
+		with load_service(ROOT + ".portal.outbox") as (module, frappe):
+			frappe.db.get_value.return_value = datetime(2026, 10, 8, 9, 30, 0, 123456)
+			frappe.db.exists.return_value = False
+			with patch.object(module, "eligibility", return_value=("PENDING", "Ready")):
+				self.assertTrue(
+					module.record(
+						"buyer@example.com",
+						"notify_orders",
+						"Action needed",
+						"Open portal",
+						"ilL-Project-Fixture-Schedule",
+						"SCH-1",
+					)
+				)
+			event = frappe.get_doc.call_args_list[0].args[0]
+			self.assertEqual(len(event["event_key"]), 64)
