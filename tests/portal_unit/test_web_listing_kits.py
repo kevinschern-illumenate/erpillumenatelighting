@@ -45,7 +45,6 @@ class KitTemplatePlan(unittest.TestCase):
 		values, notes = plan(LISTING, PROFILE, LENS)
 		self.assertEqual(values["template_code"], "KIT-CA01")
 		self.assertEqual(values["template_name"], "Castle [SF] Extrusion Kit")
-		self.assertEqual(values["web_slug"], "kit-ca01")
 		self.assertEqual(values["is_active"], 0)
 		self.assertEqual(values["default_profile_spec"], "CH-CA01-BK")
 		self.assertEqual(values["default_profile_family"], "CA01")

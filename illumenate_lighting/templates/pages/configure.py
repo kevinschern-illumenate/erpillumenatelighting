@@ -248,7 +248,14 @@ def get_context(context):
 	context.family_products = []
 	context.show_stock_qty = True  # This page is restricted to catalog dealers and internal users.
 	if product_category in ("Driver", "Controller"):
-		context.family_products = frappe.get_all("ilL-Webflow-Product", filters={"product_type": product_category, "is_active": 1, "is_configurable": 1}, fields=["product_name", "product_slug", product_category.lower() + "_template"], order_by="product_name asc")
+		from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
+		from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
+
+		context.family_products = [
+			row
+			for row in frappe.get_all("ilL-Webflow-Product", filters={"product_type": product_category, "is_configurable": 1}, fields=["product_name", "product_slug", "is_active", *LINK_FIELDS], order_by="product_name asc")
+			if on_portal(row)
+		]
 		if not context.product_slug and template_code:
 			context.product_slug = next((p.product_slug for p in context.family_products if p.get(product_category.lower() + "_template") == template_code), "")
 	context.no_cache = 1

@@ -8,6 +8,8 @@ import frappe
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
 from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_DOCTYPES, TEMPLATE_FIELDS
 from illumenate_lighting.illumenate_lighting.portal.product_finder.facets import FACETS
+from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
+from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
 
 PRODUCT = "ilL-Webflow-Product"
 TEMPLATES = {
@@ -117,12 +119,16 @@ def build_facts():
 	from illumenate_lighting.illumenate_lighting.api.product_catalog import _project
 	from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
 
-	products = frappe.get_all(PRODUCT, filters={"is_active": 1}, fields=["*"])
+	tables = {}
+	for doctype in sorted({*SPECS, *ATTRIBUTES, *(v[0] for v in TEMPLATES.values()), *LINK_FIELDS.values()}):
+		tables[doctype] = {r.name: r for r in frappe.get_all(doctype, fields=["*"])}
+	products = [
+		row
+		for row in frappe.get_all(PRODUCT, fields=["*"])
+		if on_portal(row, status_of=lambda doctype, name: (tables[doctype].get(name) or {}).get("product_status"))
+	]
 	if not products:
 		return []
-	tables = {}
-	for doctype in sorted({*SPECS, *ATTRIBUTES, *(v[0] for v in TEMPLATES.values())}):
-		tables[doctype] = {r.name: r for r in frappe.get_all(doctype, fields=["*"])}
 	parents = [r.name for r in products] + [name for rows in tables.values() for name in rows]
 	children = defaultdict(lambda: defaultdict(list))
 	child_types = {c for v in TEMPLATES.values() for c in v[2:] if c} | {

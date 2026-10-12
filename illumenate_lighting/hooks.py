@@ -547,3 +547,10 @@ for _design_doctype in _design_catalog_doctypes:
 		_design_hooks = doc_events.setdefault(_design_doctype, {})
 		_design_old = _design_hooks.get(_design_event, [])
 		_design_hooks[_design_event] = ([_design_old] if isinstance(_design_old, str) else list(_design_old)) + ["illumenate_lighting.illumenate_lighting.system_design.catalog.invalidate"]
+
+# Product data lives on the templates; copy it onto the linked Webflow Product for the
+# readers that still read it there.
+for _template_doctype in ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-Controller-Template", "ilL-Driver-Template", "ilL-Extrusion-Kit-Template", "ilL-LED-Sheet-Template"):
+	_template_hooks = doc_events.setdefault(_template_doctype, {})
+	_template_old = _template_hooks.get("on_update", [])
+	_template_hooks["on_update"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.web_listing_source.sync_to_listing"]

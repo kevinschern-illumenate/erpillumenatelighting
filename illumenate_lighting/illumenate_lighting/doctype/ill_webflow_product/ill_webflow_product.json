@@ -254,22 +254,25 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Minimum configurable length in mm",
+   "description": "Minimum configurable length in mm Edited on the linked template once one is set.",
    "fieldname": "min_length_mm",
    "fieldtype": "Int",
-   "label": "Min Length (mm)"
+   "label": "Min Length (mm)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
-   "description": "Maximum configurable length in mm",
+   "description": "Maximum configurable length in mm Edited on the linked template once one is set.",
    "fieldname": "max_length_mm",
    "fieldtype": "Int",
-   "label": "Max Length (mm)"
+   "label": "Max Length (mm)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
-   "description": "Step size for length selector in mm",
+   "description": "Step size for length selector in mm Edited on the linked template once one is set.",
    "fieldname": "length_increment_mm",
    "fieldtype": "Int",
-   "label": "Length Increment (mm)"
+   "label": "Length Increment (mm)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
    "default": "1",
@@ -287,11 +290,12 @@
    "options": "ilL-Child-Webflow-Configurator-Option"
   },
   {
-   "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext.",
+   "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext. Edited on the linked template once one is set.",
    "fieldname": "feed_lengths",
    "fieldtype": "Table",
    "label": "Feed Lengths (Webflow Configurator)",
-   "options": "ilL-Child-Webflow-Feed-Length"
+   "options": "ilL-Child-Webflow-Feed-Length",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
    "collapsible": 1,
@@ -301,11 +305,12 @@
    "label": "Kit Components"
   },
   {
-   "description": "Components included in this extrusion kit",
+   "description": "Components included in this extrusion kit Edited on the linked template once one is set.",
    "fieldname": "kit_components",
    "fieldtype": "Table",
    "label": "Kit Components",
-   "options": "ilL-Child-Webflow-Kit-Component"
+   "options": "ilL-Child-Webflow-Kit-Component",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
    "fieldname": "marketing_section",
@@ -438,7 +443,7 @@
   {
    "collapsible": 1,
    "depends_on": "eval:in_list(['Fixture Template','LED Tape','COB Tape','LED Neon','LED Sheet','Extrusion Kit'], doc.product_type)",
-   "description": "Data not captured elsewhere \u2014 fill in for spec sheet export",
+   "description": "Data not captured elsewhere — fill in for spec sheet export",
    "fieldname": "spec_sheet_data_section",
    "fieldtype": "Section Break",
    "label": "Spec Sheet Data"
@@ -446,17 +451,23 @@
   {
    "fieldname": "beam_angle",
    "fieldtype": "Float",
-   "label": "Beam Angle (\u00b0)"
+   "label": "Beam Angle (°)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
+   "description": "Edited on the linked template once one is set."
   },
   {
    "fieldname": "operating_temp_min_c",
    "fieldtype": "Int",
-   "label": "Min Operating Temp (\u00b0C)"
+   "label": "Min Operating Temp (°C)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
+   "description": "Edited on the linked template once one is set."
   },
   {
    "fieldname": "operating_temp_max_c",
    "fieldtype": "Int",
-   "label": "Max Operating Temp (\u00b0C)"
+   "label": "Max Operating Temp (°C)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
+   "description": "Edited on the linked template once one is set."
   },
   {
    "fieldname": "column_break_spec_sheet",
@@ -465,17 +476,23 @@
   {
    "fieldname": "l70_life_hours",
    "fieldtype": "Int",
-   "label": "L70 Life (hours)"
+   "label": "L70 Life (hours)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
+   "description": "Edited on the linked template once one is set."
   },
   {
    "fieldname": "warranty_years",
    "fieldtype": "Int",
-   "label": "Warranty (years)"
+   "label": "Warranty (years)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
+   "description": "Edited on the linked template once one is set."
   },
   {
    "fieldname": "fixture_weight_per_foot_grams",
    "fieldtype": "Float",
-   "label": "Fixture Weight per Foot (g)"
+   "label": "Fixture Weight per Foot (g)",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
+   "description": "Edited on the linked template once one is set."
   },
   {
    "collapsible": 1,
@@ -567,7 +584,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-05 12:00:00.000000",
+ "modified": "2026-10-11 22:38:13.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

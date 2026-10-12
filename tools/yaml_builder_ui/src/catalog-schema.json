@@ -2929,7 +2929,17 @@
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
-          "default": "1"
+          "default": "1",
+          "description": "Set from Product Status.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "product_status",
+          "label": "Product Status",
+          "fieldtype": "Select",
+          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
+          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3010,131 +3020,9 @@
           "fieldtype": "Small Text"
         },
         {
-          "fieldname": "web_listed",
-          "label": "Listed on Web",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
-        },
-        {
-          "fieldname": "web_slug",
-          "label": "Web Slug",
-          "fieldtype": "Data",
-          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
-        },
-        {
-          "fieldname": "web_title",
-          "label": "Web Title",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "web_category",
-          "label": "Web Category",
-          "fieldtype": "Link",
-          "options": "ilL-Webflow-Category"
-        },
-        {
-          "fieldname": "portal_item",
-          "label": "Portal Item",
-          "fieldtype": "Link",
-          "options": "Item"
-        },
-        {
-          "fieldname": "short_description",
-          "label": "Short Description",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "product_badge",
-          "label": "Product Badge",
-          "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-        },
-        {
-          "fieldname": "features",
-          "label": "Features",
-          "fieldtype": "JSON"
-        },
-        {
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
-        },
-        {
-          "fieldname": "featured_image",
-          "label": "Featured Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "series_family_image",
-          "label": "Series Family Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "gallery_images",
-          "label": "Gallery Images",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Gallery-Image"
-        },
-        {
-          "fieldname": "documents",
-          "label": "Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
-        },
-        {
-          "fieldname": "web_certifications",
-          "label": "Web Certifications and Ratings",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Certification-Link",
-          "description": "Shown on the product page. Separate from the template's own Certifications."
-        },
-        {
-          "fieldname": "is_configurable",
-          "label": "Is Configurable",
-          "fieldtype": "Check",
-          "default": "0"
-        },
-        {
-          "fieldname": "configurator_intro_text",
-          "label": "Configurator Intro Text",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "configurator_options",
-          "label": "Configurator Options",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option"
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brands",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target"
-        },
-        {
-          "fieldname": "compatible_products",
-          "label": "Compatible Products",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Compatibility"
-        },
-        {
-          "fieldname": "attribute_links",
-          "label": "Attribute Links",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Attribute-Link",
-          "description": "Filled from this template on save.",
-          "read_only": 1
         }
       ]
     },
@@ -3259,7 +3147,17 @@
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
-          "default": "1"
+          "default": "1",
+          "description": "Set from Product Status.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "product_status",
+          "label": "Product Status",
+          "fieldtype": "Select",
+          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
+          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3340,131 +3238,9 @@
           "fieldtype": "Small Text"
         },
         {
-          "fieldname": "web_listed",
-          "label": "Listed on Web",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
-        },
-        {
-          "fieldname": "web_slug",
-          "label": "Web Slug",
-          "fieldtype": "Data",
-          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
-        },
-        {
-          "fieldname": "web_title",
-          "label": "Web Title",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "web_category",
-          "label": "Web Category",
-          "fieldtype": "Link",
-          "options": "ilL-Webflow-Category"
-        },
-        {
-          "fieldname": "portal_item",
-          "label": "Portal Item",
-          "fieldtype": "Link",
-          "options": "Item"
-        },
-        {
-          "fieldname": "short_description",
-          "label": "Short Description",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "product_badge",
-          "label": "Product Badge",
-          "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-        },
-        {
-          "fieldname": "features",
-          "label": "Features",
-          "fieldtype": "JSON"
-        },
-        {
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
-        },
-        {
-          "fieldname": "featured_image",
-          "label": "Featured Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "series_family_image",
-          "label": "Series Family Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "gallery_images",
-          "label": "Gallery Images",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Gallery-Image"
-        },
-        {
-          "fieldname": "documents",
-          "label": "Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
-        },
-        {
-          "fieldname": "web_certifications",
-          "label": "Web Certifications and Ratings",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Certification-Link",
-          "description": "Shown on the product page. Separate from the template's own Certifications."
-        },
-        {
-          "fieldname": "is_configurable",
-          "label": "Is Configurable",
-          "fieldtype": "Check",
-          "default": "0"
-        },
-        {
-          "fieldname": "configurator_intro_text",
-          "label": "Configurator Intro Text",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "configurator_options",
-          "label": "Configurator Options",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option"
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brands",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target"
-        },
-        {
-          "fieldname": "compatible_products",
-          "label": "Compatible Products",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Compatibility"
-        },
-        {
-          "fieldname": "attribute_links",
-          "label": "Attribute Links",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Attribute-Link",
-          "description": "Filled from this template on save.",
-          "read_only": 1
         }
       ]
     },
@@ -3488,7 +3264,17 @@
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
-          "default": "1"
+          "default": "1",
+          "description": "Set from Product Status.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "product_status",
+          "label": "Product Status",
+          "fieldtype": "Select",
+          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
+          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3587,131 +3373,9 @@
           "description": "Base kit MSRP price before option adders"
         },
         {
-          "fieldname": "web_listed",
-          "label": "Listed on Web",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
-        },
-        {
-          "fieldname": "web_slug",
-          "label": "Web Slug",
-          "fieldtype": "Data",
-          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
-        },
-        {
-          "fieldname": "web_title",
-          "label": "Web Title",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "web_category",
-          "label": "Web Category",
-          "fieldtype": "Link",
-          "options": "ilL-Webflow-Category"
-        },
-        {
-          "fieldname": "portal_item",
-          "label": "Portal Item",
-          "fieldtype": "Link",
-          "options": "Item"
-        },
-        {
-          "fieldname": "short_description",
-          "label": "Short Description",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "product_badge",
-          "label": "Product Badge",
-          "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-        },
-        {
-          "fieldname": "features",
-          "label": "Features",
-          "fieldtype": "JSON"
-        },
-        {
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
-        },
-        {
-          "fieldname": "featured_image",
-          "label": "Featured Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "series_family_image",
-          "label": "Series Family Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "gallery_images",
-          "label": "Gallery Images",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Gallery-Image"
-        },
-        {
-          "fieldname": "documents",
-          "label": "Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
-        },
-        {
-          "fieldname": "web_certifications",
-          "label": "Web Certifications and Ratings",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Certification-Link",
-          "description": "Shown on the product page. Separate from the template's own Certifications."
-        },
-        {
-          "fieldname": "is_configurable",
-          "label": "Is Configurable",
-          "fieldtype": "Check",
-          "default": "0"
-        },
-        {
-          "fieldname": "configurator_intro_text",
-          "label": "Configurator Intro Text",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "configurator_options",
-          "label": "Configurator Options",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option"
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brands",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target"
-        },
-        {
-          "fieldname": "compatible_products",
-          "label": "Compatible Products",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Compatibility"
-        },
-        {
-          "fieldname": "attribute_links",
-          "label": "Attribute Links",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Attribute-Link",
-          "description": "Filled from this template on save.",
-          "read_only": 1
         },
         {
           "fieldname": "min_length_mm",
@@ -3781,7 +3445,17 @@
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
-          "default": "1"
+          "default": "1",
+          "description": "Set from Product Status.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "product_status",
+          "label": "Product Status",
+          "fieldtype": "Select",
+          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
+          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3910,131 +3584,9 @@
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         },
         {
-          "fieldname": "web_listed",
-          "label": "Listed on Web",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
-        },
-        {
-          "fieldname": "web_slug",
-          "label": "Web Slug",
-          "fieldtype": "Data",
-          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
-        },
-        {
-          "fieldname": "web_title",
-          "label": "Web Title",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "web_category",
-          "label": "Web Category",
-          "fieldtype": "Link",
-          "options": "ilL-Webflow-Category"
-        },
-        {
-          "fieldname": "portal_item",
-          "label": "Portal Item",
-          "fieldtype": "Link",
-          "options": "Item"
-        },
-        {
-          "fieldname": "short_description",
-          "label": "Short Description",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "product_badge",
-          "label": "Product Badge",
-          "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-        },
-        {
-          "fieldname": "features",
-          "label": "Features",
-          "fieldtype": "JSON"
-        },
-        {
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
-        },
-        {
-          "fieldname": "featured_image",
-          "label": "Featured Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "series_family_image",
-          "label": "Series Family Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "gallery_images",
-          "label": "Gallery Images",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Gallery-Image"
-        },
-        {
-          "fieldname": "documents",
-          "label": "Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
-        },
-        {
-          "fieldname": "web_certifications",
-          "label": "Web Certifications and Ratings",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Certification-Link",
-          "description": "Shown on the product page. Separate from the template's own Certifications."
-        },
-        {
-          "fieldname": "is_configurable",
-          "label": "Is Configurable",
-          "fieldtype": "Check",
-          "default": "0"
-        },
-        {
-          "fieldname": "configurator_intro_text",
-          "label": "Configurator Intro Text",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "configurator_options",
-          "label": "Configurator Options",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option"
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brands",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target"
-        },
-        {
-          "fieldname": "compatible_products",
-          "label": "Compatible Products",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Compatibility"
-        },
-        {
-          "fieldname": "attribute_links",
-          "label": "Attribute Links",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Attribute-Link",
-          "description": "Filled from this template on save.",
-          "read_only": 1
         },
         {
           "fieldname": "min_length_mm",
@@ -4203,7 +3755,17 @@
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
-          "default": "1"
+          "default": "1",
+          "description": "Set from Product Status.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "product_status",
+          "label": "Product Status",
+          "fieldtype": "Select",
+          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
+          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -4310,131 +3872,9 @@
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         },
         {
-          "fieldname": "web_listed",
-          "label": "Listed on Web",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
-        },
-        {
-          "fieldname": "web_slug",
-          "label": "Web Slug",
-          "fieldtype": "Data",
-          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
-        },
-        {
-          "fieldname": "web_title",
-          "label": "Web Title",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "web_category",
-          "label": "Web Category",
-          "fieldtype": "Link",
-          "options": "ilL-Webflow-Category"
-        },
-        {
-          "fieldname": "portal_item",
-          "label": "Portal Item",
-          "fieldtype": "Link",
-          "options": "Item"
-        },
-        {
-          "fieldname": "short_description",
-          "label": "Short Description",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "product_badge",
-          "label": "Product Badge",
-          "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-        },
-        {
-          "fieldname": "features",
-          "label": "Features",
-          "fieldtype": "JSON"
-        },
-        {
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
-        },
-        {
-          "fieldname": "featured_image",
-          "label": "Featured Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "series_family_image",
-          "label": "Series Family Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "gallery_images",
-          "label": "Gallery Images",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Gallery-Image"
-        },
-        {
-          "fieldname": "documents",
-          "label": "Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
-        },
-        {
-          "fieldname": "web_certifications",
-          "label": "Web Certifications and Ratings",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Certification-Link",
-          "description": "Shown on the product page. Separate from the template's own Certifications."
-        },
-        {
-          "fieldname": "is_configurable",
-          "label": "Is Configurable",
-          "fieldtype": "Check",
-          "default": "0"
-        },
-        {
-          "fieldname": "configurator_intro_text",
-          "label": "Configurator Intro Text",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "configurator_options",
-          "label": "Configurator Options",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option"
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brands",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target"
-        },
-        {
-          "fieldname": "compatible_products",
-          "label": "Compatible Products",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Compatibility"
-        },
-        {
-          "fieldname": "attribute_links",
-          "label": "Attribute Links",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Attribute-Link",
-          "description": "Filled from this template on save.",
-          "read_only": 1
         },
         {
           "fieldname": "beam_angle",
@@ -6518,7 +5958,17 @@
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
-          "default": "1"
+          "default": "1",
+          "description": "Set from Product Status.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "product_status",
+          "label": "Product Status",
+          "fieldtype": "Select",
+          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
+          "default": "Active",
+          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -6692,128 +6142,6 @@
           "label": "Scene Archetypes",
           "fieldtype": "Small Text",
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
-        },
-        {
-          "fieldname": "web_listed",
-          "label": "Listed on Web",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Publish this template as a product page. Leave unticked while it is being reworked."
-        },
-        {
-          "fieldname": "web_slug",
-          "label": "Web Slug",
-          "fieldtype": "Data",
-          "description": "Unique across all product templates. Matches the Webflow item's erp-sync-id."
-        },
-        {
-          "fieldname": "web_title",
-          "label": "Web Title",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "web_category",
-          "label": "Web Category",
-          "fieldtype": "Link",
-          "options": "ilL-Webflow-Category"
-        },
-        {
-          "fieldname": "portal_item",
-          "label": "Portal Item",
-          "fieldtype": "Link",
-          "options": "Item"
-        },
-        {
-          "fieldname": "short_description",
-          "label": "Short Description",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "product_badge",
-          "label": "Product Badge",
-          "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-        },
-        {
-          "fieldname": "features",
-          "label": "Features",
-          "fieldtype": "JSON"
-        },
-        {
-          "fieldname": "featured_image",
-          "label": "Featured Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "series_family_image",
-          "label": "Series Family Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "gallery_images",
-          "label": "Gallery Images",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Gallery-Image"
-        },
-        {
-          "fieldname": "documents",
-          "label": "Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
-        },
-        {
-          "fieldname": "web_certifications",
-          "label": "Web Certifications and Ratings",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Certification-Link",
-          "description": "Shown on the product page. Separate from the template's own Certifications."
-        },
-        {
-          "fieldname": "is_configurable",
-          "label": "Is Configurable",
-          "fieldtype": "Check",
-          "default": "0"
-        },
-        {
-          "fieldname": "configurator_intro_text",
-          "label": "Configurator Intro Text",
-          "fieldtype": "Small Text"
-        },
-        {
-          "fieldname": "configurator_options",
-          "label": "Configurator Options",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option"
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brands",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target"
-        },
-        {
-          "fieldname": "compatible_products",
-          "label": "Compatible Products",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Compatibility"
-        },
-        {
-          "fieldname": "attribute_links",
-          "label": "Attribute Links",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Attribute-Link",
-          "description": "Filled from this template on save.",
-          "read_only": 1
         },
         {
           "fieldname": "min_length_mm",
@@ -7079,19 +6407,19 @@
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
           "fieldtype": "Int",
-          "description": "Minimum configurable length in mm"
+          "description": "Minimum configurable length in mm Edited on the linked template once one is set."
         },
         {
           "fieldname": "max_length_mm",
           "label": "Max Length (mm)",
           "fieldtype": "Int",
-          "description": "Maximum configurable length in mm"
+          "description": "Maximum configurable length in mm Edited on the linked template once one is set."
         },
         {
           "fieldname": "length_increment_mm",
           "label": "Length Increment (mm)",
           "fieldtype": "Int",
-          "description": "Step size for length selector in mm"
+          "description": "Step size for length selector in mm Edited on the linked template once one is set."
         },
         {
           "fieldname": "auto_populate_configurator_options",
@@ -7112,14 +6440,14 @@
           "label": "Feed Lengths (Webflow Configurator)",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Feed-Length",
-          "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext."
+          "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext. Edited on the linked template once one is set."
         },
         {
           "fieldname": "kit_components",
           "label": "Kit Components",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Kit-Component",
-          "description": "Components included in this extrusion kit"
+          "description": "Components included in this extrusion kit Edited on the linked template once one is set."
         },
         {
           "fieldname": "short_description",
@@ -7219,32 +6547,38 @@
         {
           "fieldname": "beam_angle",
           "label": "Beam Angle (°)",
-          "fieldtype": "Float"
+          "fieldtype": "Float",
+          "description": "Edited on the linked template once one is set."
         },
         {
           "fieldname": "operating_temp_min_c",
           "label": "Min Operating Temp (°C)",
-          "fieldtype": "Int"
+          "fieldtype": "Int",
+          "description": "Edited on the linked template once one is set."
         },
         {
           "fieldname": "operating_temp_max_c",
           "label": "Max Operating Temp (°C)",
-          "fieldtype": "Int"
+          "fieldtype": "Int",
+          "description": "Edited on the linked template once one is set."
         },
         {
           "fieldname": "l70_life_hours",
           "label": "L70 Life (hours)",
-          "fieldtype": "Int"
+          "fieldtype": "Int",
+          "description": "Edited on the linked template once one is set."
         },
         {
           "fieldname": "warranty_years",
           "label": "Warranty (years)",
-          "fieldtype": "Int"
+          "fieldtype": "Int",
+          "description": "Edited on the linked template once one is set."
         },
         {
           "fieldname": "fixture_weight_per_foot_grams",
           "label": "Fixture Weight per Foot (g)",
-          "fieldtype": "Float"
+          "fieldtype": "Float",
+          "description": "Edited on the linked template once one is set."
         },
         {
           "fieldname": "target_brands",
