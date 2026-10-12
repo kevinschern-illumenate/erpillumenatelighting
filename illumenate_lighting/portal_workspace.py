@@ -40,10 +40,16 @@ def merge_workspace(site, shipped):
 				row.pop(metadata, None)
 	blocks = json.loads(site.get("content") or "[]")
 	seen = {block.get("id") for block in blocks}
+	# A new shipped block goes after the shipped block before it, so a new section lands
+	# where it ships instead of at the bottom; without a placed predecessor it is appended.
+	anchor = None
 	for block in json.loads(shipped.get("content") or "[]"):
 		if block.get("id") not in seen:
-			blocks.append(block)
+			ids = [existing.get("id") for existing in blocks]
+			position = ids.index(anchor) + 1 if anchor in ids else len(blocks)
+			blocks.insert(position, block)
 			seen.add(block.get("id"))
+		anchor = block.get("id")
 	result["content"] = json.dumps(blocks)
 	return result
 

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { catalogIssues, emptyCatalog, recordName, unresolvedLinks } from '../src/catalog-model.js';
 import { cloneFamily, copyable, discoverFamily, ownerIndex, rootTypes, ruleRenamer } from '../src/clone-model.js';
+import { renameRecords } from '../src/rename-model.js';
 
 const schema = JSON.parse(readFileSync(new URL('../src/catalog-schema.json', import.meta.url)));
 const examples = JSON.parse(readFileSync(new URL('../src/catalog-examples.json', import.meta.url)));
@@ -218,4 +219,40 @@ test('the copy limit stops discovery and says so', () => {
   const discovery = discoverFamily({ root, reference, schema, full: () => undefined, rename: ruleRenamer([{ find: 'DEMO', replace: 'CAST' }]), limit: 3 });
   assert.equal(discovery.truncated, true);
   assert.equal(discovery.needed.length, 3);
+});
+
+test('an as-is import copies the whole family under its ERPNext names, attributes included', () => {
+  const reference = exported();
+  const discovery = discoverFamily({ root, reference, schema, full: fromExport(reference), asIs: true });
+  const copies = byMode(discovery, 'copy');
+  for (const expected of ['ilL-Fixture-Template DEMO-FIXTURE', 'Item DEMO-TAPE', 'ilL-Spec-LED Tape DEMO-TAPE',
+    'ilL-Rel-Tape Offering DEMO-TAPE-3000K-Standard', 'ilL-Spec-Profile CH-DEMO-WH', 'ilL-Spec-Driver EXISTING-96W-DRIVER',
+    'ilL-Attribute-Finish White']) assert.ok(copies.includes(expected), expected);
+  assert.ok(discovery.nodes.filter(node => node.mode === 'copy').every(node => node.newName === node.name));
+  // Shared ERPNext masters stay links, and another family's records are never pulled in.
+  assert.ok(discovery.nodes.filter(node => ['UOM', 'Item Group'].includes(node.doctype)).every(node => node.mode === 'link'));
+  assert.ok(!discovery.nodes.some(node => node.name.startsWith('OTHER-FIXTURE')));
+
+  const next = cloneFamily(emptyCatalog('fixture'), schema, discovery, fromExport(reference)).catalog;
+  assert.equal(next.records['ilL-Fixture-Template'][0].template_code, 'DEMO-FIXTURE');
+  assert.equal(next.records['ilL-Fixture-Template'][0].allowed_tape_offerings[0].tape_offering, 'DEMO-TAPE-3000K-Standard');
+  // Every copy collides with ERPNext until renamed; that is expected and reported.
+  assert.ok(catalogIssues(next, schema, reference).some(issue => issue.includes('DEMO-FIXTURE already exists in ERPNext')));
+
+  // Renaming afterwards (Find & replace) carries the links along.
+  const renamed = renameRecords(next, schema, [{ doctype: 'ilL-Fixture-Template', from: 'DEMO-FIXTURE', to: 'CAST-FIXTURE' }]).catalog;
+  assert.ok(renamed.records['ilL-Rel-Endcap-Map'].every(row => row.fixture_template === 'CAST-FIXTURE'));
+});
+
+test('an as-is import can leave attributes linked and keep chosen records as originals', () => {
+  const reference = exported();
+  const modes = new Map([[JSON.stringify(['Item', 'DEMO-TAPE']), 'link']]);
+  const discovery = discoverFamily({ root, reference, schema, full: fromExport(reference), asIs: true, withAttributes: false, modes });
+  assert.ok(discovery.nodes.filter(node => node.doctype.startsWith('ilL-Attribute-')).every(node => node.mode === 'link'));
+  const tape = discovery.nodes.find(node => node.doctype === 'Item' && node.name === 'DEMO-TAPE');
+  assert.deepEqual([tape.mode, tape.modes], ['link', ['copy', 'link']]);
+  const next = cloneFamily(emptyCatalog('fixture'), schema, discovery, fromExport(reference)).catalog;
+  assert.ok(!next.records.Item.some(row => row.item_code === 'DEMO-TAPE'));
+  assert.equal(next.records['ilL-Attribute-Finish'], undefined);
+  assert.equal(next.records['ilL-Fixture-Template'][0].template_code, 'DEMO-FIXTURE');
 });
