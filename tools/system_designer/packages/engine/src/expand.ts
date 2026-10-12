@@ -1,5 +1,6 @@
 import type { Run, Space } from '@ill/core-schemas/design';
 import type { Builds, Line } from '@ill/core-schemas/open-design';
+import { labelRuns } from './labels';
 
 export interface ExpandOptions {
   /** Lines with at least this quantity get one `groupId`, so the Runs list can fold them (H8.1). */
@@ -127,5 +128,5 @@ export function expandRuns(lines: Line[], builds: Builds, options: ExpandOptions
         runs.push(designRun);
       }
   }
-  return { spaces, runs, skipped };
+  return { spaces, runs: labelRuns(runs, lines, builds), skipped };
 }

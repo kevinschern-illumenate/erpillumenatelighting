@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runLabel } from '@ill/engine/runs';
 import type { DesignApi } from '../design/api';
 import type { DraftStore } from '../design/drafts';
 import { createDesignStore, type DesignStore } from '../design/store';
@@ -83,7 +84,7 @@ describe('Spaces step', () => {
 
   it('sets home runs from quick picks and typed lengths with their provenance', async () => {
     const run = design().runs[0]!;
-    const label = `${run.lineId}-${run.buildIndex}.${run.runIndex} home run`;
+    const label = `${runLabel(run)} home run`;
     await choose(`${label} quick pick`, 'other-level');
     expect(design().runs[0]).toMatchObject({ homeRunLengthFt: 45, homeRunProvenance: 'estimate' });
     expect(field<HTMLInputElement>(label).value).toBe('45');

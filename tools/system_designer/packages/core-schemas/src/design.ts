@@ -105,6 +105,8 @@ export const RunSchema = z
     lineId: IdSchema,
     buildIndex: CountSchema,
     runIndex: CountSchema,
+    /** What the dealer sees: the schedule part number plus .1, .2… (`@ill/engine/labels`); derived, not edited. */
+    label: z.string().trim().min(1).max(200).optional(),
     groupId: IdSchema.optional(),
     source: RunSourceSchema,
     catalogId: IdSchema, // tape item id, or tp:{line_key} for third-party

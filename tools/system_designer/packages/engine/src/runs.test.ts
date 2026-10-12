@@ -22,7 +22,7 @@ const find = (value: Design, key: string) => value.runs.find((run) => run.key ==
 describe('run editor', () => {
   it('labels runs and names their product family', () => {
     const value = design();
-    expect(runLabel(find(value, 'a1linear:2:1'))).toBe('A1-2.1');
+    expect(runLabel(find(value, 'a1linear:2:1'))).toBe('TEST-FX-LINEAR-30K-12FT.3');
     expect(runType(find(value, 'a1linear:2:1'), builds)).toBe('Linear fixture');
     expect(runType(find(value, 'c1sheet:1:1'), builds)).toBe('LED sheet');
     expect(runType(find(value, 'e1other:1:1'), builds)).toBe('Third-party');
@@ -49,11 +49,11 @@ describe('run editor', () => {
       ['TAPE_RUN_TOO_LONG', 'error', 'b1tape:1:2'],
     ]);
     expect(checks[2]?.text).toBe(
-      'B1-1.2 is 20 ft; this build allows 16 ft from its feed. Feed it from both ends or split it in the configurator.',
+      'TEST-TN-24-30K-WET.2 is 20 ft; this build allows 16 ft from its feed. Feed it from both ends or split it in the configurator.',
     );
     run.feedMethod = 'double-end';
     run.feeds = 3;
-    expect(runChecks(value, builds)[0]?.text).toBe('A1-1.1 is fed from both ends but lists 3.');
+    expect(runChecks(value, builds)[0]?.text).toBe('TEST-FX-LINEAR-30K-12FT.1 is fed from both ends but lists 3.');
   });
 
   it('folds groups into one row, splits and regroups them', () => {
@@ -61,7 +61,7 @@ describe('run editor', () => {
     const rows = runRows(value.runs);
     const hall = rows.find((row) => row.groupId === 'grp-e1other')!;
     expect(hall.runs).toHaveLength(6);
-    expect(hall.label).toBe('E1-1.1 … E1-6.1 (6 runs)');
+    expect(hall.label).toBe('DL-4.1–6 (6 runs)');
     expect(rows.filter((row) => !row.groupId)).toHaveLength(value.runs.length - 6);
 
     splitGroup(value, 'grp-e1other');

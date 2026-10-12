@@ -132,7 +132,7 @@ describe('design checks', () => {
     const value = design();
     const circuit = addCircuit(value);
     expect(circuitProblem(value, context, ['a1linear:1:2'], circuit)).toBe(
-      'A1-1.2 is low voltage; put it on a supply output',
+      'TEST-FX-LINEAR-30K-12FT.2 is low voltage; put it on a supply output',
     );
     assignToCircuit(value, context, ['e1other:1:1'], circuit);
     expect(value.runs.find((run) => run.key === 'e1other:1:1')?.assignment).toEqual({

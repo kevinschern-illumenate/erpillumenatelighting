@@ -110,6 +110,16 @@ describe('browser drafts', () => {
     });
     expect(result.restoredDraft).toBe(false);
     expect(newer.getState().design?.engineVersion).toBe(fixture.engineVersion);
+
+    // Derived fields (run labels) refresh on load without an edit to save or undo.
+    const relabeled = createDesignStore();
+    await loadDesign(relabeled, drafts, 'SCH-FIXTURE', { design: fixture, meta: { ...meta, modified: 'x' } }, (d) => ({
+      ...d,
+      runs: d.runs.map((run) => ({ ...run, label: 'PN.1' })),
+    }));
+    expect(relabeled.getState().design?.runs.every((run) => run.label === 'PN.1')).toBe(true);
+    expect(relabeled.getState().dirty).toBe(false);
+    expect(relabeled.temporal.getState().pastStates).toHaveLength(0);
   });
 });
 

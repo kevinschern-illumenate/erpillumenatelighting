@@ -12,9 +12,19 @@ import { message, round } from './messages';
 /** Share of the effective maximum at which a run gets a length hint. */
 export const MAX_LENGTH_HINT_SHARE = 0.9;
 
-/** "F3-1.2": line, copy and run (plan §9.1). */
-export const runLabel = (run: Pick<Run, 'lineId' | 'buildIndex' | 'runIndex'>) =>
-  `${run.lineId}-${run.buildIndex}.${run.runIndex}`;
+/** The schedule part number and run ("ILL-LN-…-930.2", `labels.ts`), else line, copy and run ("F3-1.2", plan §9.1). */
+export const runLabel = (run: Pick<Run, 'lineId' | 'buildIndex' | 'runIndex'> & { label?: string }) =>
+  run.label ?? `${run.lineId}-${run.buildIndex}.${run.runIndex}`;
+
+/** "PN.1–4" when a folded group's runs share one part number, else "first … last". */
+function spanLabel(first: Run, last: Run): string {
+  const a = runLabel(first);
+  const b = runLabel(last);
+  const cut = a.lastIndexOf('.');
+  if (first.label && last.label && cut > 0 && b.lastIndexOf('.') === cut && a.slice(0, cut) === b.slice(0, cut))
+    return `${a}–${b.slice(cut + 1)}`;
+  return `${a} … ${b}`;
+}
 
 export function buildFor(run: Run, builds: Builds): Build | undefined {
   return run.source.kind === 'configured' ? builds[run.source.doctype]?.[run.source.name] : undefined;
@@ -151,7 +161,7 @@ export function runRows(runs: readonly Run[]): RunRow[] {
     const first = row.runs[0]!;
     const last = row.runs[row.runs.length - 1]!;
     row.label =
-      row.runs.length === 1 ? runLabel(first) : `${runLabel(first)} … ${runLabel(last)} (${row.runs.length} runs)`;
+      row.runs.length === 1 ? runLabel(first) : `${spanLabel(first, last)} (${row.runs.length} runs)`;
   }
   return rows;
 }

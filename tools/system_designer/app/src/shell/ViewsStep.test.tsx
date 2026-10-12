@@ -194,10 +194,10 @@ describe('Views step', () => {
     expect(options.style).toBe('client');
     // The configured fixture's own part number, not its tape's.
     expect(options.loads?.['load:a1linear:1:1']).toEqual({ type: 'linear', partNumber: 'TEST-FX-LINEAR-30K-12FT' });
-    // The dealer's lines, without the ones the designer wrote back; a build with no part number shows none.
+    // The dealer's lines, without the ones the designer wrote back; a multi-run group lists its members'.
     const schedule = options.fixtureSchedule!;
     expect(schedule.map((row) => row.type)).toEqual(['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1', 'I1']);
-    expect(schedule.find((row) => row.type === 'D1')?.partNumber).toBe('—');
+    expect(schedule.find((row) => row.type === 'D1')?.partNumber).toBe('TEST-TN-24-30K-3FT, TEST-TN-24-30K-6FT');
     expect(schedule.find((row) => row.type === 'I1')?.partNumber).toBe('Not configured yet');
     const titles = [...el.querySelectorAll('[data-testid="riser-preview"] option')].map((node) => node.textContent);
     expect(titles.some((title) => title?.includes('FIXTURE SCHEDULE & ORDERING'))).toBe(true);
