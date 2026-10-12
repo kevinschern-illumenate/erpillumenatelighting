@@ -12,14 +12,15 @@
 .ill-thread__msg{max-width:88%;padding:.75rem 1rem;border:1px solid var(--t-line);border-radius:14px;background:#fff}
 .ill-thread__msg--mine{align-self:flex-end;background:var(--ill-blue-100,#E6EEF4);border-color:var(--ill-blue-200,#99BCD1)}
 .ill-thread__msg--theirs{align-self:flex-start;background:var(--t-soft)}
-.ill-thread__msg--decision{border-left:4px solid var(--ill-gold-500,#FDC757)}
+.ill-thread [hidden]{display:none!important}
+.ill-thread__msg--decision{border-color:var(--ill-gold-300,#FEDD9A)}
 .ill-thread__msg--internal{border-style:dashed}
 .ill-thread__meta{display:flex;flex-wrap:wrap;gap:.4rem;align-items:baseline;font-size:.8rem;color:var(--t-muted);margin-bottom:.35rem}
 .ill-thread__author{font-weight:600;color:var(--ill-navy-600,#172E48)}
 .ill-thread__tag{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--t-brand)}
 .ill-thread__body{white-space:pre-wrap;margin:0;word-break:break-word}
 .ill-thread__files a{display:block;font-size:.875rem;margin-top:.35rem}
-.ill-thread__paging{display:flex;justify-content:center;gap:.75rem;align-items:center;margin:.75rem 0;font-size:.8rem;color:var(--t-muted)}
+.ill-thread__paging{display:flex;justify-content:center;gap:.75rem;align-items:center;margin:0 0 .75rem;font-size:.8rem;color:var(--t-muted)}
 .ill-thread__form{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--t-line)}
 .ill-thread__result{font-size:.875rem;color:var(--t-muted);margin:.5rem 0 0}`;
 	const STATES = {SUBMITTED: 'Submitted', UNDER_REVIEW: 'Under review', INFORMATION_NEEDED: 'Information needed',
@@ -50,9 +51,8 @@
 		const result = element('p', '', 'ill-thread__result'); result.setAttribute('role', 'status');
 		const list = element('div', undefined, 'ill-thread__list'); list.setAttribute('aria-live', 'polite');
 		const paging = element('nav', undefined, 'ill-thread__paging'); paging.setAttribute('aria-label', __('Conversation pages'));
-		const older = element('button', __('Earlier messages'), 'btn btn-sm btn-outline-secondary'); older.type = 'button';
-		const newer = element('button', __('Later messages'), 'btn btn-sm btn-outline-secondary'); newer.type = 'button';
-		const count = element('span'); paging.append(older, count, newer);
+		const older = element('button', __('Show earlier messages'), 'btn btn-sm btn-outline-secondary'); older.type = 'button';
+		const count = element('span'); paging.append(older, count); paging.hidden = true;
 		const form = element('form', undefined, 'ill-thread__form');
 		const label = element('label', __('Your message')); label.htmlFor = uid;
 		const body = element('textarea', undefined, 'form-control'); body.id = uid; body.rows = 3; body.required = true; body.maxLength = 20000;
@@ -69,7 +69,10 @@
 		const submit = element('button', __('Send message'), 'btn btn-primary mt-3'); submit.type = 'submit';
 		form.append(label, body, fileLabel, files, staffFields, submit, result);
 		root.append(status, paging, list, form);
-		let page = 1, serial = 0, sending = false, retryBody, retryKey;
+		// Every message loaded so far, by name. Pages are merged, never swapped,
+		// so earlier messages stay on screen after a reply and nothing is lost when
+		// a new message shifts the newest-first pages.
+		let loaded = new Map(), pages = 0, serial = 0, sending = false, retryBody, retryKey;
 		const context = { parent_type: root.dataset.parentType, parent_name: root.dataset.parentName };
 		const commercial = ['ilL-Quote-Request', 'ilL-Order-Intake', 'ilL-Order-Change', 'ilL-Product-Verification-Request'].includes(context.parent_type);
 		if (commercial) [...action.options].filter(option => ['RESOLVE', 'REOPEN'].includes(option.value)).forEach(option => option.remove());
@@ -101,8 +104,9 @@
 			if (attachments.childElementCount) card.append(attachments);
 			return card;
 		}
-		async function load() {
+		async function load(page = 1) {
 			const token = ++serial;
+			older.disabled = true;
 			try {
 				const response = await frappe.call({method: api + 'list_messages', args: {...context, page}});
 				if (token !== serial || !root.isConnected) return;
@@ -111,18 +115,23 @@
 				const waiting = waitingOn(data);
 				if (waiting) status.append(element('span', waiting, 'ill-thread__pill ill-thread__pill--wait'));
 				staffFields.hidden = !data.is_staff; form.hidden = !(data.can_reply || (!commercial && data.is_staff));
-				list.replaceChildren();
-				if (!data.messages.length) list.append(element('p', __('No messages yet. Questions and updates about this request appear here.'), 'ill-thread__empty'));
-				// The API pages newest first; read each page top to bottom, oldest first.
-				[...data.messages].reverse().forEach(message => list.append(renderMessage(message, data.is_staff)));
-				const pages = Math.max(1, Math.ceil(data.total / data.page_size));
-				paging.hidden = pages <= 1;
-				count.textContent = __('Page {0} of {1}', [pages - data.page + 1, pages]);
-				newer.disabled = page <= 1; older.disabled = page * data.page_size >= data.total;
-			} catch (error) { if (token === serial) result.textContent = __('Could not load this conversation. Reload to check your access.'); }
+				data.messages.forEach(message => loaded.set(message.name || [message.creation, message.actor, message.body].join('|'), message));
+				pages = Math.max(pages, page);
+				// The API pages newest first; the conversation reads oldest first.
+				const ordered = [...loaded.values()].sort((a, b) => String(a.creation).localeCompare(String(b.creation)) || String(a.name).localeCompare(String(b.name)));
+				list.replaceChildren(...ordered.map(message => renderMessage(message, data.is_staff)));
+				if (!ordered.length) list.append(element('p', __('No messages yet. Questions and updates about this request appear here.'), 'ill-thread__empty'));
+				const remaining = Math.max(0, data.total - loaded.size);
+				paging.hidden = !remaining;
+				count.textContent = remaining ? __('{0} earlier message(s)', [remaining]) : '';
+			} catch (error) {
+				if (token !== serial) return;
+				const problem = __('Could not load this conversation. Reload to check your access.');
+				if (loaded.size) result.textContent = problem; else list.replaceChildren(element('p', problem, 'ill-thread__empty'));
+			}
+			finally { if (token === serial) older.disabled = false; }
 		}
-		newer.addEventListener('click', () => { page--; load(); });
-		older.addEventListener('click', () => { page++; load(); });
+		older.addEventListener('click', () => load(pages + 1));
 		visibility.addEventListener('change', () => { if (visibility.value === 'Internal') action.value = 'REPLY'; action.disabled = visibility.value === 'Internal'; });
 		form.addEventListener('submit', async event => {
 			event.preventDefault(); if (sending) return;
@@ -136,11 +145,11 @@
 				await PortalUploads.call(api + 'reply', {...payload, idempotency_key: retryKey});
 				if (body.value.trim() === draft.body) body.value = '';
 				files.value = ''; files._uploadedFiles = new Map(); retryBody = null; retryKey = null;
-				page = 1; result.textContent = __('Message sent.'); await load();
+				result.textContent = __('Message sent.'); await load();
 			} catch (error) { result.textContent = error.message || __('Message not sent. Your draft is preserved.'); }
 			finally { sending = false; submit.disabled = false; }
 		});
-		root._conversation = {refresh: load}; load(); return root._conversation;
+		root._conversation = {refresh: () => load()}; load(); return root._conversation;
 	};
 	function mount() { document.querySelectorAll('[data-portal-conversation]').forEach(root => window.PortalConversation(root)); }
 	if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, {once: true}); else mount();

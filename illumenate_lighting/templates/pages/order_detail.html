@@ -82,20 +82,40 @@ One order or order request: review, progress, items, shipments, invoices and the
 					<div class="ill-compare mb-3">
 						<div>
 							<h3>{{ _("Original request") }}</h3>
-							<p class="mb-2">{{ _("Original total") }}: <strong>{{ intake.original.grand_total }} {{ intake.original.currency | e }}</strong></p>
-							<details><summary>{{ _("Original lines and terms") }}</summary>
-							<div class="table-responsive"><table class="table table-sm mt-2">
-								<thead><tr><th>{{ _("Item") }}</th><th>{{ _("Quantity") }}</th><th>{{ _("Rate") }}</th><th>{{ _("Amount") }}</th></tr></thead>
-								<tbody>{% for line in intake.original['items'] %}<tr><td>{{ line.item_code | e }}</td><td>{{ line.qty }}</td><td>{{ line.rate }}</td><td>{{ line.amount }}</td></tr>{% endfor %}</tbody>
-							</table></div>
-							<div class="ill-prewrap small">{{ (intake.original.terms or '') | e }}</div></details>
+							<p class="mb-0">{{ _("Original total") }}: <strong>{{ frappe.format_value(intake.original.grand_total, money) }}</strong></p>
 						</div>
 						<div>
 							<h3>{{ _("Current revision") }}</h3>
-							<p class="mb-2">{{ _("Current total") }}: <strong>{{ intake.current.grand_total }} {{ intake.current.currency | e }}</strong></p>
-							<details><summary>{{ _("Current terms") }}</summary><div class="ill-prewrap small mt-2">{{ (intake.current.terms or '') | e }}</div></details>
+							<p class="mb-0">{{ _("Current total") }}: <strong>{{ frappe.format_value(intake.current.grand_total, money) }}</strong></p>
 						</div>
 					</div>
+					<h3 class="ill-subhead">{{ _("Current items") }}{% if not intake.lines_changed %} <span class="ill-status">{{ _("Same as your request") }}</span>{% endif %}</h3>
+					<div class="table-responsive mb-3">
+						<table class="ill-lines ill-lines--compact">
+							<thead><tr><th>{{ _("Item") }}</th><th class="num">{{ _("Quantity") }}</th><th class="num">{{ _("Rate") }}</th><th class="num">{{ _("Amount") }}</th><th>{{ _("Change") }}</th></tr></thead>
+							<tbody>
+							{% for line in intake.lines %}
+							<tr{% if line.status == 'removed' %} class="is-removed"{% endif %}>
+								<td>{% if line.ill_fixture_type %}<span class="ill-lines__tag">{{ _("Type") }} {{ line.ill_fixture_type | e }}</span><br>{% endif %}<span class="ill-lines__name">{{ line.item_code | e }}</span>{% if line.ill_section_label %}<div class="ill-lines__meta">{{ line.ill_section_label | e }}</div>{% endif %}</td>
+								<td class="num">{{ "%g" | format(line.qty or 0) }} {{ (line.uom or '') | e }}{% if line.was and 'qty' in line.changed %}<div class="ill-lines__meta">{{ _("was {0}").format("%g" | format(line.was.qty or 0)) }}</div>{% endif %}</td>
+								<td class="num">{{ frappe.format_value(line.rate, money) }}{% if line.was and 'rate' in line.changed %}<div class="ill-lines__meta">{{ _("was {0}").format(frappe.format_value(line.was.rate, money)) }}</div>{% endif %}</td>
+								<td class="num">{{ frappe.format_value(line.amount, money) }}</td>
+								<td>{% if line.status == 'added' %}<span class="ill-status ill-status--info">{{ _("Added") }}</span>{% elif line.status == 'removed' %}<span class="ill-status ill-status--danger">{{ _("Removed") }}</span>{% elif line.status == 'changed' %}<span class="ill-status ill-status--warning">{{ _("Changed") }}</span>{% else %}<span class="ill-lines__meta">{{ _("No change") }}</span>{% endif %}</td>
+							</tr>
+							{% else %}
+							<tr><td colspan="5" class="ill-lines__meta">{{ _("This revision has no items.") }}</td></tr>
+							{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% if intake.original.terms or intake.current.terms %}
+					<details class="mb-3"><summary>{{ _("Terms") }}{% if (intake.original.terms or '') != (intake.current.terms or '') %} <span class="ill-status ill-status--warning">{{ _("Changed") }}</span>{% endif %}</summary>
+						<div class="ill-compare mt-2">
+							<div><h3>{{ _("Original terms") }}</h3><div class="ill-prewrap small">{{ ill_sanitize_html(intake.original.terms or '-') | safe }}</div></div>
+							<div><h3>{{ _("Current terms") }}</h3><div class="ill-prewrap small">{{ ill_sanitize_html(intake.current.terms or '-') | safe }}</div></div>
+						</div>
+					</details>
+					{% endif %}
 					<dl class="ill-facts mb-3">{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<div><dt>{{ _(label) }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ ill_sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ intake.current.get(key) or '-' }}{% endif %}</dd></div>{% endfor %}</dl>
 					<button class="btn btn-accent" type="button" id="acknowledge-order" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Acknowledge current revision") }}</button>
 					<p class="mt-2 mb-0" id="acknowledge-result" role="status"></p>

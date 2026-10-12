@@ -2,22 +2,55 @@
 // Adds button to generate manufacturing artifacts from configured fixtures
 // Adds "Section / Room" grouping support (parity with Quotation)
 
+const ILL_REQUEST_COLORS = {WITHDRAWN: 'red', REJECTED: 'red', INFORMATION_NEEDED: 'orange', APPROVED: 'green'};
+
+// The portal request's state belongs on the order itself: whether the buyer
+// acknowledged this revision (and what moved since), or withdrew it.
+async function ill_show_portal_request(frm) {
+	const response = await frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.order_review.desk_status', args: {order_name: frm.doc.name}});
+	const data = response.message;
+	if (!data) return null;
+	const esc = frappe.utils.escape_html;
+	const when = value => value ? frappe.datetime.str_to_user(value) : '';
+	let text = `<strong>${__('Portal request')}:</strong> ${esc(__(data.state_label))}`;
+	let color = ILL_REQUEST_COLORS[data.state] || 'blue';
+	if (data.state === 'WITHDRAWN' || data.state === 'REJECTED') {
+		const who = data.state === 'WITHDRAWN' ? __('The buyer withdrew this request') : __('This request was rejected');
+		text = `<strong>${who}</strong>${data.last_on ? ' ' + __('on {0}', [esc(when(data.last_on))]) : ''}.`;
+		if (data.last_note) text += ` ${__('Reason')}: ${esc(data.last_note)}`;
+		if (!frm.doc.docstatus) text += `<br>${__('This draft can be deleted. The request and its conversation are kept.')}`;
+	} else if (data.open) {
+		if (!data.has_intake) text += ` · ${__('Waiting on the buyer to complete the PO, addresses and contact.')}`;
+		else if (!data.confirmed_date) text += ` · ${__('Confirm a delivery date next.')}`;
+		else if (data.acknowledged) { text += ` · ${__('The buyer acknowledged this revision on {0}. Ready to submit.', [esc(when(data.acknowledged_on))])}`; color = 'green'; }
+		else {
+			color = 'orange';
+			text += ` · ${__('Waiting on the buyer to acknowledge this revision.')}`;
+			if (data.changed.length) text += `<br>${__('Changed since the buyer last acknowledged')}: ${esc(data.changed.join('; '))}`;
+		}
+	}
+	if (data.open_changes?.length) {
+		color = 'orange';
+		text += '<br>' + __('Buyer requests waiting on staff') + ': ' + data.open_changes.map(change =>
+			`<a href="/app/ill-order-change/${encodeURIComponent(change.name)}">${esc(__(change.request_type))} (${esc(change.name)})</a>`).join(', ');
+	}
+	frm.dashboard.set_headline_alert(`<div>${text}</div>`, color);
+	return data;
+}
+
 frappe.ui.form.on('Sales Order', {
-	refresh(frm) {
-		if (frm.is_new() || frm.doc.docstatus !== 0 || !frm.doc.ill_fixture_schedule) return;
+	async refresh(frm) {
+		if (frm.is_new() || !frm.doc.ill_fixture_schedule) return;
 		if (!['System Manager', 'ilL Sales Review', 'ilL Order Approver'].some(role => frappe.user_roles.includes(role))) return;
-		frm.add_custom_button(__('Intake, files and conversation'), async () => {
-			const response = await frappe.db.get_value('ilL-Order-Intake', {sales_order: frm.doc.name}, 'name');
-			if (response.message?.name) frappe.set_route('Form', 'ilL-Order-Intake', response.message.name);
-			else frappe.msgprint(__('Start order review to reconcile a missing intake, then ask the buyer to complete the request.'));
-		}, __('Portal request'));
-		frm.add_custom_button(__('Conversation with buyer'), async () => {
-			const response = await frappe.db.get_value('ilL-Order-Intake', {sales_order: frm.doc.name}, 'name');
-			if (response.message?.name) window.illumenate_portal_conversation('ilL-Order-Intake', response.message.name);
-			else frappe.msgprint(__('This order has no portal request yet, so there is no buyer conversation.'));
-		}, __('Portal request'));
+		const request = await ill_show_portal_request(frm);
+		if (request) {
+			frm.add_custom_button(__('Intake, files and conversation'), () => frappe.set_route('Form', 'ilL-Order-Intake', request.name), __('Portal request'));
+			frm.add_custom_button(__('Conversation with buyer'), () => window.illumenate_portal_conversation('ilL-Order-Intake', request.name), __('Portal request'));
+		}
+		// Without a request yet, Review order request starts one.
+		if (frm.doc.docstatus !== 0 || (request && !request.open)) return;
 		frm.add_custom_button(__('Confirm delivery date'), () => {
-			frappe.prompt({fieldname: 'date', fieldtype: 'Date', label: __('Confirmed delivery date'), reqd: 1}, async values => {
+			frappe.prompt({fieldname: 'date', fieldtype: 'Date', label: __('Confirmed delivery date'), reqd: 1, default: frm.doc.ill_confirmed_delivery_date}, async values => {
 				await frm.set_value('ill_confirmed_delivery_date', values.date);
 				await frm.save();
 				frappe.msgprint(__('The delivery promise is saved. Ask the buyer to review and acknowledge the current order revision before approval.'));
