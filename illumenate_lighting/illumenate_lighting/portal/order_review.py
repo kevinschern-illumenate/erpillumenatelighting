@@ -330,6 +330,21 @@ def before_submit(order, method=None):
 			or row.get("ill_configured_tape_neon")
 			or row.get("ill_configured_led_sheet")
 		):
+			if row.get("ill_configured_group"):
+				from illumenate_lighting.illumenate_lighting.api.fixture_group_order import bundle_members
+
+				members = bundle_members(row.item_code)
+				if members is not None:
+					# A group bundle is never built itself; each of its runs needs its own BOM.
+					if not members or any(
+						not doc.bom
+						or not frappe.db.exists(
+							"BOM", {"name": doc.bom, "item": doc.configured_item, "docstatus": 1, "is_active": 1}
+						)
+						for _doctype, doc, _qty in members
+					):
+						frappe.throw(f"Row {row.idx}: every run in the group needs an active submitted BOM")
+					continue
 			bom = row.get("ill_bom") or row.get("bom_no")
 			if not bom or not frappe.db.exists(
 				"BOM", {"name": bom, "item": row.item_code, "docstatus": 1, "is_active": 1}

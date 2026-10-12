@@ -93,7 +93,7 @@
         "maxRunFtEffective": null,
         "name": "ILL-CG-00001",
         "offering": "TEST-TAPE-24-3000K-STD",
-        "partNumber": null,
+        "partNumber": "TEST-TN-24-30K-3FT, TEST-TN-24-30K-6FT",
         "protocols": [
           "0-10V"
         ],
@@ -101,12 +101,14 @@
           {
             "feedMethod": "end",
             "lengthFt": 3.0,
+            "partNumber": "TEST-TN-24-30K-3FT",
             "runIndex": 1,
             "watts": 13.2
           },
           {
             "feedMethod": "end",
             "lengthFt": 6.0,
+            "partNumber": "TEST-TN-24-30K-6FT",
             "runIndex": 2,
             "watts": 26.4
           }

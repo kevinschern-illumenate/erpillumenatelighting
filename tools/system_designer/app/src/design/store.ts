@@ -104,11 +104,13 @@ export async function loadDesign(
   drafts: DraftStore,
   schedule: string,
   saved: { design: Design; meta: DesignMeta | null },
+  /** Refreshes derived fields (run labels) on whichever copy loads, without counting as an edit. */
+  refresh: (design: Design) => Design = (design) => design,
 ) {
   const draft = await drafts.get(schedule);
   const sameBase =
     draft && draft.designName === (saved.meta?.name ?? null) && draft.baseModified === (saved.meta?.modified ?? null);
-  store.getState().load(schedule, sameBase ? draft.design : saved.design, saved.meta);
+  store.getState().load(schedule, refresh(sameBase ? draft.design : saved.design), saved.meta);
   // A restored draft, or a design never saved, has changes to save.
   if (sameBase || !saved.meta) store.setState({ dirty: true });
   store.temporal.getState().clear();

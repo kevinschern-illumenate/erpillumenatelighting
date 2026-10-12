@@ -144,6 +144,9 @@ class ilLProjectFixtureSchedule(Document):
 					frappe.throw(_("Group family and pinned Item/BOM must be complete"))
 				if not finite_number(line.qty, minimum=1, field="group quantity").is_integer():
 					frappe.throw(_("Group quantity must be a positive whole number"))
+		from illumenate_lighting.illumenate_lighting.api.group_part_number import assign
+
+		assign(self)
 		from illumenate_lighting.illumenate_lighting.api.power_supply_lines import reconcile
 
 		# Included power supplies sit under their fixture line and follow its
@@ -653,20 +656,19 @@ class ilLProjectFixtureSchedule(Document):
 			mt = line.manufacturer_type
 
 			if mt == "ILLUMENATE" and line.get("configured_group"):
-				from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import (
-					description,
-					ensure_artifacts,
-					snapshot,
+				from illumenate_lighting.illumenate_lighting.api.fixture_group_order import (
+					ensure_order_bundle,
 				)
 				from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
 					_apply_artifact_to_row,
 				)
-				from illumenate_lighting.illumenate_lighting.portal.group_display import run_labels
 
-				group = frappe.get_doc("ilL-Configured-Group", line.configured_group)
-				artifact = ensure_artifacts(group)
-				# The quote row names the dealer's runs; the shared Item keeps its neutral description.
-				artifact["description"] = description(snapshot(group), run_labels(line))
+				# Each run becomes its own configured build (stock Item, BOM, MSRP); the
+				# row orders the line's group part number, a Product Bundle of those runs.
+				try:
+					artifact = ensure_order_bundle(self, line, target_doc)
+				except ValueError as exc:
+					frappe.throw(_("Line {0}: {1}").format(line_label, str(exc)))
 				line_rows_before = len(target_doc.items)
 				_apply_artifact_to_row(target_doc, target_doc.append("items", {}), artifact, line.qty or 1, None)
 				self._stamp_group_fields(target_doc, line_rows_before, line)

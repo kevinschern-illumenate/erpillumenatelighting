@@ -58,6 +58,8 @@ export const BuildRunSchema = z
     watts: NonnegativeSchema,
     feedMethod: FeedMethodSchema,
     feeds: z.number().int().positive().optional(),
+    /** A multi-run group member's own part number, when it differs per run. */
+    partNumber: z.string().nullable().optional(),
   })
   .strict();
 

@@ -91,7 +91,7 @@ const run = (key: string) => design().runs.find((item) => item.key === key)!;
 describe('Power step', () => {
   it('picks a supply by fit from the eligible list, with no prices', async () => {
     expect(el.querySelector('main h2')?.textContent).toBe('Power');
-    await click(field('Select A1-1.1'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
     await click(button('Add supply', byTest('board-C-1')!));
     await flush();
     expect(api.eligibleSupplies).toHaveBeenCalledWith({
@@ -128,20 +128,20 @@ describe('Power step', () => {
       });
     });
     await flush();
-    await click(field('Select A1-1.1'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
     const output = byTest('output-PS-1-OUT1')!;
     expect(output.textContent).toContain('PS-1/OUT1 would carry 26.4 W of its 24 W usable');
     await click(button('Assign here', output));
     expect(el.querySelector('[role="alert"]')?.textContent).toBe('PS-1/OUT1 would carry 26.4 W of its 24 W usable');
     expect(run('a1linear:1:1').assignment).toBeUndefined();
 
-    await click(field('Select A1-1.1'));
-    await click(field('Select B1-1.1'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
+    await click(field('Select TEST-TN-24-30K-WET.1'));
     await click(button('Assign here', byTest('output-PS-1-OUT2')!));
     expect(run('b1tape:1:1').assignment).toEqual({ equipmentId: 'PS-1', port: 'OUT2' });
     expect(byTest('assigned-count')?.textContent).toContain('1 of');
-    expect(byTest('output-PS-1-OUT2')?.textContent).toContain('B1-1.1 · 21.6 W');
-    await click(field('Unassign B1-1.1'));
+    expect(byTest('output-PS-1-OUT2')?.textContent).toContain('TEST-TN-24-30K-WET.1 · 21.6 W');
+    await click(field('Unassign TEST-TN-24-30K-WET.1'));
     expect(run('b1tape:1:1').assignment).toBeUndefined();
     await click(button('Undo'));
     expect(run('b1tape:1:1').assignment).toEqual({ equipmentId: 'PS-1', port: 'OUT2' });
@@ -158,7 +158,7 @@ describe('Power step', () => {
   it('adds zones, puts runs in them and shows the review hint for phase-cut', async () => {
     await choose('Add zone', 'phase-forward');
     expect(design().zones).toMatchObject([{ id: 'zone-1', name: 'Zone 1', method: 'phase-forward' }]);
-    await click(field('Select B1-1.1'));
+    await click(field('Select TEST-TN-24-30K-WET.1'));
     await choose('Selected zone', 'zone-1');
     expect(run('b1tape:1:1').zoneId).toBe('zone-1');
     expect(byTest('review-hints')?.textContent).toContain('Phase-cut dimming');
@@ -172,14 +172,14 @@ describe('Power step', () => {
     });
     await flush();
     const circuit = byTest('circuit-CKT-1')!;
-    await click(field('Select A1-1.1'));
-    expect(circuit.textContent).toContain('A1-1.1 is low voltage; put it on a supply output');
-    await click(field('Select A1-1.1'));
-    await click(field('Select E1-1.1 … E1-6.1 (6 runs)'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
+    expect(circuit.textContent).toContain('TEST-FX-LINEAR-30K-12FT.1 is low voltage; put it on a supply output');
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
+    await click(field('Select DL-4.1–6 (6 runs)'));
     await click(button('Assign here', byTest('circuit-CKT-1')!));
     expect(run('e1other:1:1').assignment).toEqual({ equipmentId: design().project.sources[0]!.id, port: 'LINE' });
-    expect(byTest('circuit-CKT-1')?.textContent).toContain('E1-1.1 … E1-6.1 (6 runs) · 72 W');
-    await click(field('Unassign E1-1.1 … E1-6.1 (6 runs)'));
+    expect(byTest('circuit-CKT-1')?.textContent).toContain('DL-4.1–6 (6 runs) · 72 W');
+    await click(field('Unassign DL-4.1–6 (6 runs)'));
     expect(run('e1other:1:1').assignment).toBeUndefined();
   });
 
@@ -210,7 +210,7 @@ describe('Power step', () => {
     expect(design().project.equipment).toHaveLength(2);
 
     // A supply added here is the design's own, so write-back adds it to the schedule.
-    await click(field('Select C1-1.1'));
+    await click(field('Select TEST-SHEET-30K-6PC.1'));
     await click(button('Add supply', byTest('board-C-1')!));
     await flush();
     await click(button('Add Test 96 W supply'));
@@ -269,13 +269,13 @@ describe('Power step', () => {
 
     // A DMX zone's run goes on a decoder channel.
     await choose('Add zone', 'DMX512');
-    await click(field('Unassign B1-1.1'));
-    await click(field('Select B1-1.1'));
+    await click(field('Unassign TEST-TN-24-30K-WET.1'));
+    await click(field('Select TEST-TN-24-30K-WET.1'));
     await choose('Selected zone', 'zone-1');
     await click(button('Assign here', byTest('channels-DEC-1')!));
     expect(run('b1tape:1:1').assignment).toEqual({ equipmentId: 'DEC-1', port: 'CH1' });
     expect(byTest('channels-DEC-1')?.textContent).toContain('free CH2, CH3, CH4');
-    expect(byTest('channels-DEC-1')?.textContent).toContain('CH1 · B1-1.1 · 21.6 W');
+    expect(byTest('channels-DEC-1')?.textContent).toContain('CH1 · TEST-TN-24-30K-WET.1 · 21.6 W');
 
     // A 0-10V zone is dimmed by the converter's output; the converter takes DMX in.
     await choose('Zone 1 method', '0-10V');
@@ -306,7 +306,7 @@ describe('Power step', () => {
     });
     await act(async () => start.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
     expect(design().project.equipment[1]?.dmx?.startAddress).toBe(9);
-    await click(field('Select A1-1.1'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
     await click(button('Remove DEC-1'));
     expect(design().project.equipment.map((item) => item.tag)).toEqual(['PS-1']);
   });

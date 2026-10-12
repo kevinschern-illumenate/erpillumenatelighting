@@ -147,7 +147,7 @@ def _allocations(plan):
 	return rows
 
 
-def _run(index, length_mm, watts, method, feeds=None):
+def _run(index, length_mm, watts, method, feeds=None, part_number=None):
 	run = {
 		"runIndex": int(index),
 		"lengthFt": round(float(length_mm) / units.MM_PER_FT, units.PAYLOAD_DECIMALS) if length_mm else None,
@@ -156,7 +156,19 @@ def _run(index, length_mm, watts, method, feeds=None):
 	}
 	if feeds:
 		run["feeds"] = feeds
+	if part_number:
+		run["partNumber"] = part_number
 	return run
+
+
+def _member_offering(member):
+	"""A group member's tape offering: tape/neon builds resolve it, linear builds keep it as an input."""
+	build = member.get("build") or {}
+	return (
+		(build.get("resolved_items") or {}).get("tape_offering")
+		or (build.get("inputs") or {}).get("tape_offering_id")
+		or (member.get("pricing_inputs") or {}).get("tape_offering")
+	)
 
 
 def _tape_id(offering_name, context):
@@ -182,15 +194,18 @@ def _build(doc, family, runs, context, **extra):
 	issues = list(extra.pop("issues", []))
 	if not runs:
 		issues.append(_("No electrical runs are recorded on this build; reconfigure it"))
+	part_number = extra.pop("partNumber", None)
 	return {
 		"doctype": doc["doctype"],
 		"name": doc["name"],
 		"family": family,
 		"configHash": doc.get("config_hash") or None,
-		# What the client diagram shows: the configured product's own part number, not its tape's.
-		"partNumber": doc.get("display_part_number")
+		# What the fixture schedule and client diagram show: the configured product's own part number,
+		# not its tape's. Run labels in the designer add .1, .2… to it.
+		"partNumber": part_number
+		or doc.get("display_part_number")
 		or doc.get("part_number")
-		or doc.get("configured_item")
+		or (doc.get("configured_item") if family != "group" else None)
 		or None,
 		"runs": runs,
 		"issues": issues,
@@ -294,15 +309,19 @@ def group_build(doc, context):
 		snapshot = json.loads(doc.get("build_snapshot_json") or "{}")
 	except ValueError:
 		snapshot = {}
-	runs, offerings, keys = [], [], {}
+	runs, offerings, keys, part_numbers = [], [], {}, []
 	for member in snapshot.get("members") or []:
 		build = member.get("build") or {}
 		member_runs = (build.get("computed") or {}).get("runs") or []
+		# Each member is its own product on the schedule; its runs carry its part number.
+		part_number = str(build.get("part_number") or "").strip() or None
+		if part_number and part_number not in part_numbers:
+			part_numbers.append(part_number)
 		for position, circuit in enumerate(member.get("circuits") or []):
 			length = member_runs[position].get("run_len_mm") if position < len(member_runs) else None
-			runs.append(_run(len(runs) + 1, length, circuit.get("watts"), "end"))
+			runs.append(_run(len(runs) + 1, length, circuit.get("watts"), "end", part_number=part_number))
 			keys[str(circuit.get("run_key"))] = len(runs)
-		offering = (build.get("resolved_items") or {}).get("tape_offering")
+		offering = _member_offering(member)
 		if offering:
 			offerings.append(offering)
 	request = snapshot.get("request") or {}
@@ -317,6 +336,8 @@ def group_build(doc, context):
 		"group",
 		runs,
 		context,
+		# The group's own Item code is ILL-GRP-<hash>; dealers know it by its members' part numbers.
+		partNumber=", ".join(part_numbers) or None,
 		protocols=_protocols([(request.get("power") or {}).get("dimming_protocol_code")], context),
 		catalogId=ids.pop() if len(ids) == 1 else None,
 		environmentRating=rating or None,
@@ -423,11 +444,10 @@ def _offering_names(docs):
 				snapshot = json.loads(doc.get("build_snapshot_json") or "{}")
 			except ValueError:
 				continue
-			builds = [snapshot] + [m.get("build") or {} for m in snapshot.get("members") or []]
-			for build in builds:
-				offering = (build.get("resolved_items") or {}).get("tape_offering")
-				if offering:
-					names.add(offering)
+			offering = (snapshot.get("resolved_items") or {}).get("tape_offering")
+			if offering:
+				names.add(offering)
+			names.update(filter(None, map(_member_offering, snapshot.get("members") or [])))
 	return names
 
 

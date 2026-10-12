@@ -1,6 +1,7 @@
 import type { Design } from '@ill/core-schemas/design';
 import type { Builds, Line } from '@ill/core-schemas/open-design';
 import type { Project } from '@ill/core-schemas/project';
+import { runPartNumber } from '@ill/engine/labels';
 import type { ClientFixtureRow, ClientLoad, ClientProductType, DrawingOptions } from '@ill/drawing/options';
 
 /** The client diagram's family for a schedule line: what the dealer picked, else what was configured. */
@@ -45,12 +46,14 @@ export function clientOptions(
 ): DrawingOptions {
   const byKey = new Map(lines.map((line) => [line.key, line]));
   // Load ids are `load:<run key>` (engine `loadIdFor`).
-  const lineOf = new Map(design.runs.map((run) => [`load:${run.key}`, byKey.get(run.lineKey)]));
+  const runOf = new Map(design.runs.map((run) => [`load:${run.key}`, run]));
   const loads: Record<string, ClientLoad> = {};
   for (const load of project.loads) {
-    const line = lineOf.get(load.id);
-    if (!line) continue;
-    const partNumber = linePartNumber(line, builds);
+    const run = runOf.get(load.id);
+    const line = run && byKey.get(run.lineKey);
+    if (!run || !line) continue;
+    // A multi-run group member carries its own part number.
+    const partNumber = runPartNumber(run, byKey, builds) ?? linePartNumber(line, builds);
     loads[load.id] = { type: lineFamily(line, builds), ...(partNumber ? { partNumber } : {}) };
   }
   const fixtureSchedule: ClientFixtureRow[] = lines

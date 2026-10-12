@@ -78,7 +78,7 @@ describe('Runs step', () => {
     expect(linear.textContent).toContain('26.4 W');
     expect(linear.textContent).toContain('Not assigned');
     const group = row('grp-e1other')!;
-    expect(group.textContent).toContain('E1-1.1 … E1-6.1 (6 runs)');
+    expect(group.textContent).toContain('DL-4.1–6 (6 runs)');
     expect(group.textContent).toContain('Data by dealer');
     expect(group.textContent).toContain('0 of 6 assigned');
     expect(row('e1other:2:1')).toBeNull();
@@ -90,19 +90,19 @@ describe('Runs step', () => {
     });
     await act(async () => undefined);
     expect(row('b1tape:1:2')?.textContent).toContain('this build allows 16 ft');
-    expect(el.querySelector('[aria-label="Checks"]')?.textContent).toContain('Run B1-1.2');
-    await click(button('B1-1.2'));
+    expect(el.querySelector('[aria-label="Checks"]')?.textContent).toContain('Run TEST-TN-24-30K-WET.2');
+    await click(button('TEST-TN-24-30K-WET.2'));
     const preview = el.querySelector('[data-testid="strip-preview"]')!;
     expect(preview.textContent).toContain('20 ft · 43.3 W · End feed · max 16 ft');
     expect(preview.querySelector('.ill-sd__strip-bar--over')).not.toBeNull();
     expect(preview.querySelectorAll('[data-testid="strip-feed"]')).toHaveLength(1);
-    await click(button('A1-1.1'));
-    expect(el.querySelector('[data-testid="strip-preview"]')?.textContent).toContain('A1-1.1');
+    await click(button('TEST-FX-LINEAR-30K-12FT.1'));
+    expect(el.querySelector('[data-testid="strip-preview"]')?.textContent).toContain('TEST-FX-LINEAR-30K-12FT.1');
   });
 
   it('bulk edits the selected runs as one undo step', async () => {
-    await click(field('Select A1-1.1'));
-    await click(field('Select A1-2.1'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.3'));
     expect(el.querySelector('[aria-label="Selected runs"]')?.textContent).toContain('2 runs selected');
     await choose('Selected environment', 'plenum');
     await choose('Move selected to space', 'space-hall');
@@ -125,16 +125,16 @@ describe('Runs step', () => {
     expect(row('e1other:2:1')).not.toBeNull();
     await click(button('Split', row('grp-e1other')!));
     expect(design().runs.some((run) => run.groupId)).toBe(false);
-    expect(row('e1other:2:1')?.textContent).toContain('E1-2.1');
+    expect(row('e1other:2:1')?.textContent).toContain('DL-4.2');
 
-    await click(field('Select E1-1.1'));
-    await click(field('Select E1-2.1'));
+    await click(field('Select DL-4.1'));
+    await click(field('Select DL-4.2'));
     await click(button('Group'));
     expect(design().runs.filter((run) => run.groupId === 'grp-e1other')).toHaveLength(2);
     expect(el.querySelector('[aria-label="Selected runs"]')).toBeNull();
 
-    await click(field('Select E1-3.1'));
-    await click(field('Select A1-1.1'));
+    await click(field('Select DL-4.3'));
+    await click(field('Select TEST-FX-LINEAR-30K-12FT.1'));
     await click(button('Group'));
     expect(el.querySelector('[role="alert"]')?.textContent).toBe('Only runs of one schedule line can be grouped');
   });

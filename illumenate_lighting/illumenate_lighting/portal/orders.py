@@ -163,9 +163,10 @@ def _invoices_for(order_name):
 
 
 def _production_summary(work_orders, order_lines=()):
+	from illumenate_lighting.illumenate_lighting.api.fixture_group_order import bundle_units
 	from illumenate_lighting.illumenate_lighting.portal.production import production_coverage
 
-	coverage = production_coverage(order_lines, work_orders)
+	coverage = production_coverage(order_lines, work_orders, bundle_units(order_lines))
 	total = sum(flt(w.get("qty")) for w in work_orders)
 	produced = sum(flt(w.get("produced_qty")) for w in work_orders)
 	started = [w.get("actual_start_date") for w in work_orders]
@@ -319,9 +320,11 @@ def get_order_read_model(order_name, user=None):
 
 	actor = get_actor(user)
 	work_orders = _work_orders_for([order.name]).get(order.name, [])
+	from illumenate_lighting.illumenate_lighting.api.fixture_group_order import bundle_units
 	from illumenate_lighting.illumenate_lighting.portal.production import production_coverage
 
-	coverage = production_coverage([row.as_dict() for row in order.items], work_orders)
+	order_lines = [row.as_dict() for row in order.items]
+	coverage = production_coverage(order_lines, work_orders, bundle_units(order_lines))
 	produced_by_item = {row["line"]: row["produced_qty"] for row in coverage["lines"]}
 	coverage_by_line = {row["line"]: row for row in coverage["lines"]}
 

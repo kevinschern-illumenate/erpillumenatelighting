@@ -2,6 +2,7 @@ import type { Design, Run, Space } from '@ill/core-schemas/design';
 import { roundNumber, sha256Hex } from '@ill/core-schemas/hash';
 import type { Builds, Line } from '@ill/core-schemas/open-design';
 import { expandRuns, type ExpandOptions } from './expand';
+import { labelRuns } from './labels';
 
 /**
  * Saved design versus the schedule now (plan H8.4), mirroring `system_design/reconcile.py`.
@@ -157,7 +158,7 @@ export function applyReconcile(
     design: {
       ...design,
       site: { ...design.site, spaces: [...design.site.spaces, ...newSpaces] },
-      runs: [...kept, ...merged],
+      runs: labelRuns([...kept, ...merged], lines, builds),
     },
     droppedRuns: dropped.map((run) => run.key),
     droppedAssignments: dropped.flatMap((run) => (run.assignment ? [{ runKey: run.key, ...run.assignment }] : [])),

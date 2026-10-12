@@ -21,6 +21,7 @@
   "led_sheet_template",
   "column_break_illumenate",
   "configured_group",
+  "group_part_number",
   "configured_fixture",
   "configured_tape_neon",
   "configured_led_sheet",
@@ -441,6 +442,15 @@
    "options": "ilL-Configured-Group"
   },
   {
+   "depends_on": "eval:doc.configured_group",
+   "description": "Template, project, fixture type and location plus a unique four-letter code. Ordered as a product bundle of the group's runs.",
+   "fieldname": "group_part_number",
+   "fieldtype": "Data",
+   "label": "Group Part Number",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
    "fieldname": "verification_status",
    "fieldtype": "Select",
    "label": "Verification Status",
@@ -506,7 +516,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-09 18:00:00.000000",
+ "modified": "2026-10-12 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Fixture-Schedule-Line",

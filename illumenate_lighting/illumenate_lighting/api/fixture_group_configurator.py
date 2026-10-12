@@ -32,8 +32,13 @@ def engineering(value):
 	return value
 
 
-def _preview_member(request, geometry):
-	from illumenate_lighting.illumenate_lighting.api.configured_product_builder import _dispatch_calculate
+def member_payload(request, geometry, *, standalone=False):
+	"""Engine payload for one run of a normalized group request.
+
+	``standalone`` prepares the run to be saved as its own configured build: a
+	Sheet keeps feeds sized by the group's supplies but leaves the supplies out of
+	its materials, because the group supplies them once.
+	"""
 	from illumenate_lighting.illumenate_lighting.portal.configuration import normalized_payload
 
 	family, template = request["family"], request["template"]
@@ -44,9 +49,18 @@ def _preview_member(request, geometry):
 		selection["template"] = template
 		# Derive Sheet feed size from the filtered eligible drivers when group power is included.
 		selection["include_power_supply"] = request["power"]["include_power_supply"]
-	payload = normalized_payload(
+		if standalone and selection["include_power_supply"]:
+			selection["power_supply_separate"] = True
+	return normalized_payload(
 		family, selection, product_slug=template, template=template, segments=geometry.get("segments")
 	)
+
+
+def _preview_member(request, geometry):
+	from illumenate_lighting.illumenate_lighting.api.configured_product_builder import _dispatch_calculate
+
+	family, template = request["family"], request["template"]
+	payload = member_payload(request, geometry)
 	result = _dispatch_calculate(
 		family,
 		payload,
