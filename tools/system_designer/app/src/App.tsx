@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { labelRuns } from '@ill/engine/labels';
 import { createDesignApi, DesignApiError, type DesignApi } from './design/api';
 import { openDrafts, type DraftStore } from './design/drafts';
 import { createDesignStore, loadDesign, persistDrafts, type DesignStore } from './design/store';
@@ -52,7 +53,10 @@ export function App({ options, services = {} }: { options: MountOptions; service
         const open = OpenDesignSchema.parse(await api.openDesign(schedule));
         const { design, meta, skipped } = startingDesign(open);
         const store = createDesignStore();
-        const { restoredDraft } = await loadDesign(store, drafts, open.schedule.name, { design, meta });
+        const { restoredDraft } = await loadDesign(store, drafts, open.schedule.name, { design, meta }, (loaded) => ({
+          ...loaded,
+          runs: labelRuns(loaded.runs, open.lines, open.builds),
+        }));
         store.getState().setReconcile(open.reconcile);
         if (cancelled) return;
         stop = persistDrafts(store, drafts);

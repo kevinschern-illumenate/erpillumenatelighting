@@ -98,7 +98,34 @@ class Expansion(unittest.TestCase):
 		self.assertEqual(self.builds["ILL-CF-LINEAR"]["partNumber"], "TEST-FX-LINEAR-30K-12FT")
 		self.assertEqual(self.builds["ILL-CF-WET"]["partNumber"], "TEST-CFG-ITEM-WET")
 		self.assertEqual(self.builds["ILL-CTN-00001"]["partNumber"], "TEST-TN-24-30K-WET")
-		self.assertIsNone(self.builds["ILL-CG-00001"]["partNumber"])
+		# A multi-run group is known by its members' part numbers, never its ILL-GRP-<hash> Item code.
+		group = self.builds["ILL-CG-00001"]
+		self.assertEqual(group["partNumber"], "TEST-TN-24-30K-3FT, TEST-TN-24-30K-6FT")
+		self.assertEqual(
+			[r["partNumber"] for r in group["runs"]], ["TEST-TN-24-30K-3FT", "TEST-TN-24-30K-6FT"]
+		)
+		self.assertNotIn("partNumber", self.builds["ILL-CF-LINEAR"]["runs"][0])
+
+	def test_group_without_member_part_numbers_hides_its_item_code(self):
+		doc = copy.deepcopy(next(d for d in RECORDS["docs"] if d["name"] == "ILL-CG-00001"))
+		snapshot = json.loads(doc["build_snapshot_json"])
+		for member in snapshot["members"]:
+			member["build"].pop("part_number", None)
+		doc["build_snapshot_json"] = json.dumps(snapshot)
+		build = self.module.group_build(doc, RECORDS["context"])
+		self.assertIsNone(build["partNumber"])
+
+	def test_linear_group_members_find_their_tape_offering(self):
+		doc = copy.deepcopy(next(d for d in RECORDS["docs"] if d["name"] == "ILL-CG-00001"))
+		snapshot = json.loads(doc["build_snapshot_json"])
+		for member in snapshot["members"]:
+			member["build"].pop("resolved_items")
+			member["build"]["inputs"] = {"tape_offering_id": "TEST-TAPE-24-3000K-STD"}
+		doc["build_snapshot_json"] = json.dumps(snapshot)
+		self.assertEqual(self.module._offering_names([doc]), {"TEST-TAPE-24-3000K-STD"})
+		build = self.module.group_build(doc, RECORDS["context"])
+		self.assertEqual(build["catalogId"], "tape:TEST-TAPE-24:4.4:50")
+		self.assertEqual(build["offering"], "TEST-TAPE-24-3000K-STD")
 
 	def test_jumpered_tape_runs_are_connected(self):
 		build = self.builds["ILL-CTN-00001"]

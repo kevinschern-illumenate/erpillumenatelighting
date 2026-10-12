@@ -94,7 +94,7 @@ describe('Check step', () => {
     await render();
     expect(el.querySelector('main h2')?.textContent).toBe('Check');
     const row = byTest('result-a1linear:1:1')!;
-    expect(row.textContent).toContain('A1-1.1');
+    expect(row.textContent).toContain('TEST-FX-LINEAR-30K-12FT.1');
     expect(row.textContent).toContain('18/2 CL3R');
     expect(row.textContent).toContain('15 ft');
     expect(row.textContent).toContain('1.09% of 3%');
@@ -173,7 +173,7 @@ describe('Check step', () => {
     });
     await render();
     expect(byTest('result-a1linear:1:1')?.textContent).toContain('(pinned)');
-    expect(byTest('pinned-wires')?.textContent).toContain('A1-1.1: 18/2 CL3R');
+    expect(byTest('pinned-wires')?.textContent).toContain('TEST-FX-LINEAR-30K-12FT.1: 18/2 CL3R');
     await click(button('Back to automatic'));
     expect(design().project.wireOverrides).toEqual({});
     expect(byTest('pinned-wires')).toBeNull();

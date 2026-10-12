@@ -520,6 +520,8 @@
 	}
 }
 .ill-sd__pool {
+	/* Grid items default to their content's width; let long part numbers wrap inside the box instead. */
+	min-width: 0;
 	border: 1px solid var(--ill-border);
 	border-radius: 14px;
 	padding: 8px 12px;
@@ -554,6 +556,17 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+	min-width: 0;
+}
+.ill-sd__run-pool strong,
+.ill-sd__assigned li,
+.ill-sd__run-label {
+	overflow-wrap: anywhere;
+}
+.ill-sd__run-pool label > :not(strong),
+.ill-sd__run-pool li > .ill-sd__muted {
+	flex-shrink: 0;
+	white-space: nowrap;
 }
 .ill-sd__supply {
 	background: var(--ill-surface-2);
@@ -574,6 +587,7 @@
 }
 .ill-sd__assigned li {
 	display: inline-flex;
+	max-width: 100%;
 	align-items: center;
 	gap: 4px;
 	margin: 2px 8px 2px 0;
@@ -748,4 +762,9 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+}
+/* Run labels are schedule part numbers: break them rather than widen the table. */
+.ill-sd__runs-step tbody th .ill-sd__link {
+	overflow-wrap: anywhere;
+	text-align: left;
 }

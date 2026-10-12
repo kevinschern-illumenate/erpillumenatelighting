@@ -280,15 +280,15 @@ describe('decoder channels', () => {
     const psu = addSupply(value, context, cabinet, 'drv:TEST-PSU-96');
     setControlFeed(value, context, decoder, `${psu}::OUT1`);
 
-    expect(problem(['e1other:1:1'], 'CH1')).toBe('E1-1.1 is line voltage; feed it from a panel circuit, not a decoder');
+    expect(problem(['e1other:1:1'], 'CH1')).toBe('DL-4.1 is line voltage; feed it from a panel circuit, not a decoder');
     expect(problem(['a1linear:1:1'], 'CH5')).toBe('DEC-1 has no output CH5');
     rgb(value, 'b1tape:1:1');
-    expect(problem(['b1tape:1:1'], 'CH1')).toBe('B1-1.1 needs 3 channels; CH1 has 1');
+    expect(problem(['b1tape:1:1'], 'CH1')).toBe('TEST-TN-24-30K-WET.1 needs 3 channels; CH1 has 1');
     expect(freeDecoderPort(value, context, decoder, 3)).toBe('CH1-3');
     assignRuns(value, context, ['b1tape:1:1'], decoder, 'CH1-3');
     expect(freeDecoderPort(value, context, decoder, 3)).toBeNull();
     expect(freeDecoderPort(value, context, decoder, 1)).toBe('CH4');
-    expect(problem(['a1linear:1:1'], 'CH2')).toBe('DEC-1/CH2 overlaps CH1-3, which B1-1.1 uses');
+    expect(problem(['a1linear:1:1'], 'CH2')).toBe('DEC-1/CH2 overlaps CH1-3, which TEST-TN-24-30K-WET.1 uses');
     expect(decoderPortFor(value, context, ['a1linear:1:1'], decoder)).toBe('CH4');
     expect(() => decoderPortFor(value, context, ['a1linear:1:1', 'b1tape:1:1'], decoder)).toThrow(
       'Select runs with the same number of channels',

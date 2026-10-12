@@ -88,9 +88,9 @@ describe('power board', () => {
 
     expect(problem(['a1linear:1:1'], psu60, 'OUT1')).toBe('PS-1/OUT1 would carry 26.4 W of its 24 W usable');
     expect(problem(['e1other:1:1'], psu96, 'OUT1')).toBe(
-      'E1-1.1 is line voltage; feed it from a panel circuit, not a supply',
+      'DL-4.1 is line voltage; feed it from a panel circuit, not a supply',
     );
-    expect(problem(['d1group:1:1'], psu60, 'OUT1')).toBe('D1-1.1 dims by 0-10V; PS-1 accepts phase-forward');
+    expect(problem(['d1group:1:1'], psu60, 'OUT1')).toBe('TEST-TN-24-30K-3FT.1 dims by 0-10V; PS-1 accepts phase-forward');
     expect(problem(['a1linear:1:1'], psu60, 'OUT9')).toBe('PS-1 has no output OUT9');
 
     assignRuns(value, context, ['a1linear:1:1', 'a1linear:1:2'], psu96, 'OUT1');
