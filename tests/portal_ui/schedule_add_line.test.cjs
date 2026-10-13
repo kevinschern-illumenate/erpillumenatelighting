@@ -75,3 +75,27 @@ test('Extrusion Kits groups pick a kit template and hand off to the kit configur
   const handoff = SCHEDULE.slice(SCHEDULE.indexOf('function configureKitFromAddModal('));
   assert.match(handoff.slice(0, 300), /startConfigurationDraft\('Extrusion Kit', template\)/);
 });
+
+test('Power Supplies groups pick a power supply template and hand off to the power supply configurator', () => {
+  const start = SCHEDULE.indexOf('function isPowerSupplyOption(');
+  const end = SCHEDULE.indexOf('// Load power supply (driver) templates from the server');
+  assert.ok(start > 0 && end > start, 'power supply option helper is present');
+  const dom = new JSDOM('<body></body>', { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.$ = w.jQuery = jquery(w);
+  w.eval(SCHEDULE.slice(start, end) + '; window.isPowerSupplyOption = isPowerSupplyOption;');
+  const $ = w.$;
+  assert.equal(w.isPowerSupplyOption($('<option data-is-power-supply-type="1">PSUs</option>')), true);
+  assert.equal(w.isPowerSupplyOption($('<option data-is-power-supply-type="0">Power Supplies</option>')), false);
+  assert.equal(w.isPowerSupplyOption($('<option>    └─ Power Supplies</option>')), true);
+  assert.equal(w.isPowerSupplyOption($('<option>Drivers</option>')), true);
+  assert.equal(w.isPowerSupplyOption($('<option>Profiles</option>')), false);
+  dom.window.close();
+  assert.match(SCHEDULE, /data-is-power-supply-type="' \+ \(pt\.is_power_supply_type \? '1' : '0'\) \+ '"/);
+  const add = SCHEDULE.slice(SCHEDULE.indexOf('} else if (isPowerSupplyType) {\n\t\t\t// Power supply path'));
+  assert.match(add.slice(0, 800), /data\.manufacturer_type = 'ACCESSORY';[\s\S]*data\.driver_template = driverTemplate;/);
+  const handoff = SCHEDULE.slice(SCHEDULE.indexOf('function configureDriverFromAddModal('));
+  assert.match(handoff.slice(0, 300), /startConfigurationDraft\('Driver', template\)/);
+  // Schedule lines link to the power supply configurator: Configure until configured, then Edit Config.
+  assert.match(SCHEDULE, /href="\/portal\/configure\?category=Driver&amp;schedule=\{\{ schedule\.name \| urlencode \}\}&amp;line_key=/);
+});

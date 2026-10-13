@@ -25,7 +25,10 @@ def _part_number(line):
 	if line.manufacturer_type == "OTHER":
 		return line.get("fixture_model_number")
 	if line.manufacturer_type == "ACCESSORY":
-		return line.get("accessory_item")
+		from illumenate_lighting.illumenate_lighting.portal.driver_configuration import driver_configuration
+
+		driver = driver_configuration(line)
+		return (driver or {}).get("part_number") or line.get("accessory_item")
 	if line.get("configured_group"):
 		return line.get("group_part_number") or frappe.db.get_value(
 			"ilL-Configured-Group", line.configured_group, "template"
@@ -40,6 +43,36 @@ def _part_number(line):
 	if line.get("kit_template"):
 		return line.get("ill_item_code") or line.kit_template
 	return None
+
+
+def _driver_submittal(line, entry, warnings):
+	"""Fill a configured power supply line's submittal into ``entry``; False leaves it to Item literature."""
+	from illumenate_lighting.illumenate_lighting.api import spec_submittal as pdf
+	from illumenate_lighting.illumenate_lighting.portal.driver_configuration import driver_configuration
+
+	if not driver_configuration(line):
+		return False
+	line_warnings = []
+	try:
+		result = pdf.generate_filled_driver_line_submittal(
+			line.driver_template, warnings=line_warnings, schedule_line=line.name
+		)
+	except (ValueError, frappe.ValidationError) as error:
+		result = {"success": False, "message": str(error)}
+	warnings.extend(line_warnings)
+	if not result.get("success"):
+		warnings.append(
+			f"Line {line.line_id}: power supply submittal unavailable ({result.get('message')}); using its Item literature"
+		)
+		return False
+	entry.update(
+		build={"doctype": "ilL-Driver-Template", "name": line.driver_template},
+		spec_document_url=result.get("file_url"),
+		has_submittal=True,
+		source_kind="filled_submittal",
+		provenance=result.get("provenance"),
+	)
+	return True
 
 
 # Where each configured build's template, and so its spec sheet, lives.
@@ -60,7 +93,7 @@ _GROUP_TEMPLATES = {
 def _template_spec_sheet(build):
 	"""The (template doctype, template, spec sheet URL) backing a configured build."""
 	doctype, name = build["doctype"], build["name"]
-	if doctype == "ilL-Extrusion-Kit-Template":
+	if doctype in ("ilL-Extrusion-Kit-Template", "ilL-Driver-Template"):
 		template_doctype, template = doctype, name
 	elif doctype == "ilL-Configured-Group":
 		group = frappe.db.get_value(doctype, name, ["family", "template"], as_dict=True) or {}
@@ -164,6 +197,9 @@ def gather(schedule, warnings, pinned=None):
 					break
 		elif line.manufacturer_type == "OTHER":
 			entry.update(spec_document_url=line.spec_sheet, source_kind="uploaded_literature")
+		elif line.manufacturer_type == "ACCESSORY" and _driver_submittal(line, entry, warnings):
+			# A configured power supply gets its template's filled submittal.
+			pass
 		elif line.manufacturer_type == "ACCESSORY":
 			registry = frappe.db.get_value(
 				"ilL-Item-Literature",
@@ -338,11 +374,14 @@ def generate(
 					configured.set(field, configured.template)
 				if build["doctype"] == "ilL-Extrusion-Kit-Template":
 					configured.set("kit_template", configured.name)
+				if build["doctype"] == "ilL-Driver-Template":
+					configured.set("driver_template", configured.name)
 				for field, doctype in (
 					("fixture_template", "ilL-Fixture-Template"),
 					("tape_neon_template", "ilL-Tape-Neon-Template"),
 					("sheet_template", "ilL-LED-Sheet-Template"),
 					("kit_template", "ilL-Extrusion-Kit-Template"),
+					("driver_template", "ilL-Driver-Template"),
 				):
 					if configured.get(field):
 						url = frappe.db.get_value(doctype, configured.get(field), "spec_sheet")

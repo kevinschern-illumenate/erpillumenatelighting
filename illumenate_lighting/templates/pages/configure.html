@@ -45,7 +45,20 @@ Allows users to configure fixtures using segment-based configuration
 	</nav>
 	{% include "templates/includes/configurator_kit_form.html" %}
 </div>
-{% elif product_category in ('Driver', 'Controller') %}
+{% elif product_category == 'Driver' %}
+<div id="familyConfigurator" class="ill-configurator ill-configurator-driver container portal-page">
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			{% if schedule %}
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			{% endif %}
+			<li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+		</ol>
+	</nav>
+	{% include "templates/includes/configurator_driver_form.html" %}
+</div>
+{% elif product_category == 'Controller' %}
 <div id="familyConfigurator" class="ill-configurator container py-4"><h1>{{ title }}</h1>
 {% include "templates/includes/configurator_driver_controller_form.html" %}
 </div>
@@ -176,7 +189,7 @@ Allows users to configure fixtures using segment-based configuration
 <script>
 {% if show_type_chooser | default(false) %}
 {% elif product_category in ('Driver','Controller','Extrusion Kit') %}
-$(function(){var context={kind:{{ product_category | tojson }},product_slug:{{ product_slug | default('') | tojson }},selected_template:{{ selected_template | default(none) | tojson }},schedule_name:{{ schedule_name | default('') | tojson }},project_name:{{ project_name | default('') | tojson }},line_idx:{{ line_idx | default(none) | tojson }},line_key:{{ line_key | default(none) | tojson }},expected_modified:{{ expected_modified | default(none) | tojson }},initial_request:{{ initial_request | default(none) | tojson }},finder:{{ finder | default(none) | tojson }},show_pricing:{{ show_pricing | default(false) | tojson }},show_stock_qty:{{ show_stock_qty | default(false) | tojson }},can_save:{{ can_save | default(false) | tojson }}};var Class=context.kind==='Extrusion Kit'?IllConfigurator.Kit:IllConfigurator.DriverController;new Class(document.getElementById('familyConfigurator'),context).init();});
+$(function(){var context={kind:{{ product_category | tojson }},product_slug:{{ product_slug | default('') | tojson }},selected_template:{{ selected_template | default(none) | tojson }},schedule_name:{{ schedule_name | default('') | tojson }},project_name:{{ project_name | default('') | tojson }},line_idx:{{ line_idx | default(none) | tojson }},line_key:{{ line_key | default(none) | tojson }},expected_modified:{{ expected_modified | default(none) | tojson }},initial_request:{{ initial_request | default(none) | tojson }},finder:{{ finder | default(none) | tojson }},show_pricing:{{ show_pricing | default(false) | tojson }},show_stock_qty:{{ show_stock_qty | default(false) | tojson }},can_save:{{ can_save | default(false) | tojson }}};var Class=context.kind==='Extrusion Kit'?IllConfigurator.Kit:context.kind==='Driver'?IllConfigurator.Driver:IllConfigurator.DriverController;new Class(document.getElementById('familyConfigurator'),context).init();});
 {% elif is_led_sheet %}
 {# LED Sheet: IllConfigurator.LedSheet (led_sheet_steps.js, bundled) mounted on the
    configurator_led_sheet_form.html include. Template data is embedded by the include. #}

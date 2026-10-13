@@ -1,0 +1,57 @@
+/* ── Power supply configurator (IllConfigurator.Driver) ──
+ * Same section chrome as the LED Sheet, Linear Fixture and Extrusion Kit configurators. */
+.ill-configurator-driver .config-section h4 {
+	font-size: 1rem;
+	font-weight: 600;
+	margin-bottom: 0.75rem;
+	color: var(--ill-ink, #172e48);
+}
+.ill-configurator-driver .config-section h4 .ill-config-step-num { margin-right: 10px; vertical-align: middle; }
+.ill-configurator-driver .ill-driver-summary-card { top: 1rem; }
+.ill-configurator-driver .ill-driver-template { margin-top: 12px; font-size: 13px; color: var(--ill-ink, #172e48); }
+.ill-configurator-driver .ill-driver-facts,
+.ill-configurator-driver .ill-driver-specs {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 4px 16px;
+	margin: 0 0 12px;
+	padding: 10px 12px;
+	background: var(--ill-accent-bg, #e6f0f7);
+	border-radius: var(--ill-radius, 8px);
+	font-size: 13px;
+}
+.ill-configurator-driver .ill-driver-facts dt,
+.ill-configurator-driver .ill-driver-specs dt { font-weight: 500; color: var(--ill-muted, #7f8080); }
+.ill-configurator-driver .ill-driver-facts dd,
+.ill-configurator-driver .ill-driver-specs dd { margin: 0; color: var(--ill-ink, #172e48); }
+.ill-configurator-driver .ill-driver-part { margin-bottom: 8px; }
+.ill-configurator-driver .ill-driver-part small {
+	display: block;
+	color: var(--ill-muted, #7f8080);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	font-size: 11px;
+}
+.ill-configurator-driver .ill-driver-part code {
+	display: block;
+	margin-top: 2px;
+	font-family: var(--ill-font-mono, monospace);
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--ill-ink, #172e48);
+	word-break: break-all;
+}
+.ill-configurator-driver .ill-driver-item { font-size: 13px; color: var(--ill-ink, #172e48); margin-bottom: 10px; }
+.ill-configurator-driver .ill-driver-price {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	padding: 8px 0;
+	margin-bottom: 12px;
+	border-top: 1px solid var(--ill-border, #dce2e8);
+	border-bottom: 1px solid var(--ill-border, #dce2e8);
+}
+.ill-configurator-driver .ill-driver-price span { color: var(--ill-muted, #7f8080); font-size: 13px; }
+.ill-configurator-driver .ill-driver-stock { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.ill-configurator-driver .ill-driver-stock.is-in-stock { color: var(--ill-success, #006833); }
+.ill-configurator-driver .ill-driver-stock.is-short { color: var(--ill-danger, #d63b2f); }
