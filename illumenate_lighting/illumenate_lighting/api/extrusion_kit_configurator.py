@@ -118,7 +118,7 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
     templates = frappe.get_all(
         "ilL-Extrusion-Kit-Template",
         filters={"is_active": 1},
-        fields=["name", "template_code", "template_name", "series",
+        fields=["name", "template_code", "template_name", "series", "image",
                 "profile_stock_length_mm", "lens_stock_length_mm",
                 "solid_endcap_qty", "feed_through_endcap_qty",
                 "mounting_accessory_qty"],
@@ -189,6 +189,7 @@ def _build_init_response(template) -> dict:
             "default_lens_spec": template.default_lens_spec,
             "spec_sheet": template.spec_sheet,
             "spec_sheet_data": kit_spec_sheet_data(template),
+            "image": kit_template_image(template),
         },
         "options": options,
         "defaults": defaults,
@@ -207,6 +208,18 @@ KIT_SPEC_SHEET_FIELDS = (
     ("max_length_mm", "Max length", " mm"),
     ("warranty_years", "Warranty", " years"),
 )
+
+
+def kit_template_image(template):
+    """The kit's picture: the template's own image, else its Webflow product's first image."""
+    if template.get("image"):
+        return template.image
+    if not template.get("webflow_product"):
+        return None
+    from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+
+    gallery = _fetch_webflow_gallery([template.webflow_product]).get(template.webflow_product) or []
+    return gallery[0]["image"] if gallery else None
 
 
 def kit_spec_sheet_data(template) -> list:

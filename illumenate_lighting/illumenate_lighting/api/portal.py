@@ -1482,7 +1482,7 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 		"ilL-Extrusion-Kit-Template",
 		filters={"is_active": 1},
 		fields=[
-			"name", "template_code", "template_name", "webflow_product", "profile_stock_length_mm",
+			"name", "template_code", "template_name", "image", "webflow_product", "profile_stock_length_mm",
 			"lens_stock_length_mm", "solid_endcap_qty", "feed_through_endcap_qty", "mounting_accessory_qty",
 		],
 		order_by="template_name asc",
@@ -1505,6 +1505,11 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 	result = []
 	for t in templates:
 		gallery = gallery_by_product.get(t.webflow_product, []) if t.webflow_product else []
+		if t.image:
+			# The template's own image leads; the Webflow gallery follows.
+			gallery = [{"image": t.image, "alt_text": t.template_name or ""}] + [
+				g for g in gallery if g.get("image") != t.image
+			]
 		result.append({
 			"name": t.name,
 			"template_code": t.template_code,
