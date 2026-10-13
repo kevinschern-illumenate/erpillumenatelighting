@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),{setup}=require('./family_helpers.cjs');
 const INIT={success:true,template:{code:'DRV-A',name:'Slim Driver',series_code:'SLM',warranty:'5 years',base_price_msrp:80,spec_sheet:'/files/drv.pdf'},steps:[{name:'wattage',label:'Wattage'},{name:'voltage_output',label:'Output Voltage'}],options:{wattage:[{value:60,label:'60 W'},{value:96,label:'96 W'}],voltage_output:[{value:'24V DC',label:'24V'}]}};
-const VALID={success:true,template_code:'DRV-A',template_name:'Slim Driver',part_number:'ILL-SLM-96-24',variant:{item:'DRV-96-24',item_name:'96W 24V driver',variant_name:'row1'},specs:[{label:'Max wattage',value:'96 W'}],pricing:{total_msrp:120},stock:{in_stock:true,qty_available:7}};
+const VALID={success:true,template_code:'DRV-A',template_name:'Slim Driver',part_number:'ILL-SLM-96-24',variant:{item:'DRV-96-24',item_name:'96W 24V driver',variant_name:'row1',spec_name:'DRV-96-24'},specs:[{label:'Max wattage',value:'96 W'}],pricing:{total_msrp:120},stock:{in_stock:true,qty_available:7}};
 
 test('power supply picks its template on cards and lays out numbered pill sections',()=>{
  const {dom,requests,instance}=setup('Driver');
@@ -15,7 +15,8 @@ test('power supply picks its template on cards and lays out numbered pill sectio
  const validate=requests.at(-1);assert.match(validate.method,/validate_driver_configuration$/);assert.equal(validate.args.template,'DRV-A');
  validate.callback({message:VALID});
  const summary=instance.$('#familySummary').text();
- for(const text of ['ILL-SLM-96-24','Slim Driver · 96W 24V driver','$120.00','Max wattage','96 W','In stock'])assert.ok(summary.includes(text),text);
+ assert.equal(instance.$('.ill-driver-part code').text(),'DRV-96-24','the compatible spec ID, not a built part number');assert.match(instance.$('.ill-driver-part small').text(),/Spec ID/);
+ for(const text of ['Slim Driver · 96W 24V driver','$120.00','Max wattage','96 W','In stock'])assert.ok(summary.includes(text),text);
  assert.equal(instance.$('#driverValidationStatus').text(),'Valid');
  dom.window.close();
 });
@@ -51,4 +52,18 @@ test('power supply without a template waits for a card and refuses a save withou
   instance.template='DRV-A';instance.load();init.callback({message:{success:false,error:'gone'}});assert.notEqual(instance.$('#driverValidationStatus').text(),'Invalid','the previous template\'s response is ignored');assert.equal(instance.result,null);
   dom.window.close();
  });
+});
+
+test('power supply enables Add to Schedule, takes the chosen line\'s fixture type, location and quantity, and says why it cannot save yet',()=>{
+ const {dom,requests,instance}=setup('Driver');
+ let value='__new__',target=false;const lines=[{idx:2,line_key:'K2',line_id:'PS4',location:'Electrical room',qty:6,notes:'Remote'}];
+ instance.scheduleTarget={hasTarget:()=>target,canSave:true,lineValue:()=>value,scheduleName:()=>'S',lineAt:i=>lines.find(l=>l.idx===i)||null};
+ instance.updateSave();assert.equal(instance.$('#driverSaveHint').prop('hidden'),false);
+ requests.at(-1).callback({message:INIT});requests.at(-1).callback({message:VALID});
+ assert.match(instance.$('#driverSaveHint').text(),/Schedule Target/);assert.equal(instance.$('#familySave').prop('disabled'),true);
+ target=true;value='2';instance.fillFromLine();instance.updateSave();
+ assert.equal(instance.$('#familyLineId').val(),'PS4');assert.equal(instance.$('#familyLocation').val(),'Electrical room');assert.equal(instance.$('#familyQty').val(),'6');assert.equal(instance.$('#familyNotes').val(),'Remote');
+ assert.equal(instance.saving,undefined,'never saved yet');assert.equal(instance.$('#familySave').prop('disabled'),false,'a valid power supply on a chosen line can be added');assert.equal(instance.$('#driverSaveHint').prop('hidden'),true);
+ instance.$('#familyQty').val(8);instance.fillFromLine();assert.equal(instance.$('#familyQty').val(),'8','the same line does not overwrite edits');
+ dom.window.close();
 });

@@ -52,6 +52,41 @@ class SheetBundles(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "one panel at full wattage"):
 				engine.feed_limit(81, [self.candidate()])
 
+	def test_catalog_supplies_stand_in_when_no_approved_driver_carries_a_panel(self):
+		with load_service(ROOT + ".api.led_sheet_bundle") as (engine, _):
+			small = self.candidate(
+				item_code="SMALL", max_wattage=60, max_wattage_per_output=60, outputs_count=1
+			)
+			big = self.candidate(
+				item_code="BIG", max_wattage=300, max_wattage_per_output=300, outputs_count=1
+			)
+			revisions = {"SMALL": {"name": "SMALL"}, "BIG": {"name": "BIG"}}
+			spec = Record(input_voltage="24V")
+			catalog = types.SimpleNamespace(
+				candidates=lambda *args: ([small], revisions),
+				catalog_candidates=lambda *args: ([small, big], revisions),
+			)
+			with patch.dict("sys.modules", {ROOT + ".api.driver_catalog": catalog}):
+				with patch(ROOT + ".api.driver_catalog", catalog, create=True):
+					drivers, pinned = engine._drivers("Snowfield", spec, 100)
+				self.assertEqual([d["item_code"] for d in drivers], ["BIG"])
+				self.assertEqual(list(pinned), ["BIG"])
+				catalog.catalog_candidates = lambda *args: ([small], revisions)
+				with patch(ROOT + ".api.driver_catalog", catalog, create=True):
+					with self.assertRaisesRegex(ValueError, "add one to the driver catalog"):
+						engine._drivers("Snowfield", spec, 100)
+
+	def test_large_coverage_spreads_feeds_across_many_supplies(self):
+		with load_service(ROOT + ".api.led_sheet_bundle") as (engine, frappe):
+			template, spec, drivers = self.setup_engine(engine, frappe)
+			with drivers:
+				result = engine.resolve({**self.result(), "panels_needed": 100}, template, spec)
+			self.assertEqual(result["total_groups"], 25)  # 4 panels per 80 W output.
+			self.assertEqual(result["power_supplies"], [{"driver_item": "PS", "qty": 13}])
+			supplies = {(a["supply"], a["output"]) for a in result["power_plan"]["allocations"]}
+			self.assertEqual(len(supplies), 25)
+			self.assertEqual(max(supply for supply, _ in supplies), 13)
+
 	def test_power_count_is_supplies_not_outputs(self):
 		with load_service(ROOT + ".api.led_sheet_bundle") as (engine, frappe):
 			template, spec, drivers = self.setup_engine(engine, frappe)

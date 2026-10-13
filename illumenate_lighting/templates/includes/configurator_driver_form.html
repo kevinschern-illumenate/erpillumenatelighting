@@ -59,7 +59,8 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 			</div>
 		</div>
 
-		<div class="d-flex justify-content-end ill-fixture-actions mb-3">
+		<div class="d-flex justify-content-end align-items-center ill-fixture-actions mb-3">
+			<small id="driverSaveHint" class="text-muted mr-3" aria-live="polite" hidden></small>
 			<button id="familySave" type="button" class="btn btn-success" disabled><i class="fa fa-plus"></i> {{ _("Add to Schedule") }}</button>
 		</div>
 	</div>
@@ -74,7 +75,7 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 				<div id="familySummary" aria-live="polite">
 					<div class="text-center text-muted py-3 ill-driver-placeholder">
 						<i class="fa fa-bolt fa-2x mb-2" aria-hidden="true"></i>
-						<p class="mb-0">{{ _("Choose a power supply and its options to see the part number, specifications and pricing.") }}</p>
+						<p class="mb-0">{{ _("Choose a power supply and its options to see its spec ID, specifications and pricing.") }}</p>
 					</div>
 				</div>
 			</div>
