@@ -793,9 +793,24 @@ def _create_or_get_configured_tape_neon_item(
 	return result
 
 
+def tape_neon_template_name(template) -> str | None:
+	"""Display name of an ilL-Tape-Neon-Template (its template_name, else its code)."""
+	if not template:
+		return None
+	return frappe.db.get_value("ilL-Tape-Neon-Template", template, "template_name") or template
+
+
 def _generate_tape_neon_item_name(configured_tape_neon) -> str:
-	"""Generate a friendly item name for a configured tape/neon product."""
-	parts = [configured_tape_neon.product_category or "LED Tape"]
+	"""Generate a friendly item name for a configured tape/neon product.
+
+	Leads with the tape/neon template's name so different products and runs
+	are easy to tell apart; falls back to the product category.
+	"""
+	parts = [
+		tape_neon_template_name(configured_tape_neon.tape_neon_template)
+		or configured_tape_neon.product_category
+		or "LED Tape"
+	]
 
 	if configured_tape_neon.cct:
 		parts.append(configured_tape_neon.cct)
