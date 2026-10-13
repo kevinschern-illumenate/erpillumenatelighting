@@ -966,8 +966,6 @@ def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
 		finish=selections.get("finish", ""),
 		lens_appearance=selections.get("lens_appearance", ""),
 		mounting_method=selections.get("mounting_method", ""),
-		endcap_style=selections.get("endcap_style", ""),
-		endcap_color=selections.get("endcap_color", ""),
 	)
 
 	if stock_result.get("availability") == "unknown":

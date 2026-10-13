@@ -317,22 +317,6 @@ function _show_kit_configurator_dialog(frm, cdt, cdn, init_data) {
 				reqd: 1,
 			},
 			{
-				fieldname: "endcap_style",
-				fieldtype: "Select",
-				label: __("Endcap Style"),
-				options: make_options(options.endcap_style),
-				default: defaults.endcap_style || "",
-				reqd: 1,
-			},
-			{
-				fieldname: "endcap_color",
-				fieldtype: "Select",
-				label: __("Endcap Color"),
-				options: make_options(options.endcap_color),
-				default: defaults.endcap_color || "",
-				reqd: 1,
-			},
-			{
 				fieldtype: "Section Break",
 				label: __("Resolved Components"),
 			},
@@ -421,7 +405,7 @@ function _show_kit_configurator_dialog(frm, cdt, cdn, init_data) {
 	});
 
 	// ── Cascading logic: update available options on selection change ──
-	const cascade_fields = ["finish", "endcap_style", "mounting_method"];
+	const cascade_fields = ["finish", "mounting_method"];
 	cascade_fields.forEach((field) => {
 		d.fields_dict[field].df.onchange = function () {
 			const vals = d.get_values(true);
@@ -430,7 +414,7 @@ function _show_kit_configurator_dialog(frm, cdt, cdn, init_data) {
 	});
 
 	// ── Preview: update resolved components on any change ──
-	const all_fields = ["finish", "lens_appearance", "mounting_method", "endcap_style", "endcap_color"];
+	const all_fields = ["finish", "lens_appearance", "mounting_method"];
 	all_fields.forEach((field) => {
 		const existing_onchange = d.fields_dict[field].df.onchange;
 		d.fields_dict[field].df.onchange = function () {
@@ -453,28 +437,11 @@ function _refresh_kit_cascading(dialog, kit_template_name, current_values) {
 			finish: current_values.finish || null,
 			lens_appearance: current_values.lens_appearance || null,
 			mounting_method: current_values.mounting_method || null,
-			endcap_style: current_values.endcap_style || null,
 		},
 		async: true,
 		callback: function (r) {
 			if (!r.message || !r.message.success) return;
 			const data = r.message;
-
-			// Update available endcap colors if endcap_style was changed
-			if (data.available_endcap_colors) {
-				const endcap_color_field = dialog.fields_dict.endcap_color;
-				const color_options = [""].concat(
-					data.available_endcap_colors.map((c) => c.value)
-				);
-				endcap_color_field.df.options = color_options;
-				endcap_color_field.refresh();
-
-				// Reset color if current selection is not in new options
-				const current_color = dialog.get_value("endcap_color");
-				if (current_color && !color_options.includes(current_color)) {
-					dialog.set_value("endcap_color", "");
-				}
-			}
 
 			// Update lens appearances if finish was changed
 			if (data.available_lens_appearances) {
@@ -513,8 +480,7 @@ function _refresh_kit_cascading(dialog, kit_template_name, current_values) {
  */
 function _update_kit_preview(dialog, kit) {
 	const vals = dialog.get_values(true);
-	const has_all = vals.finish && vals.lens_appearance && vals.mounting_method &&
-		vals.endcap_style && vals.endcap_color;
+	const has_all = vals.finish && vals.lens_appearance && vals.mounting_method;
 
 	let html = "";
 	if (!has_all) {
@@ -527,8 +493,7 @@ function _update_kit_preview(dialog, kit) {
 					<tr><td><strong>${__("Finish")}</strong></td><td>${vals.finish}</td></tr>
 					<tr><td><strong>${__("Lens")}</strong></td><td>${vals.lens_appearance}</td></tr>
 					<tr><td><strong>${__("Mounting")}</strong></td><td>${vals.mounting_method}</td></tr>
-					<tr><td><strong>${__("Endcap Style")}</strong></td><td>${vals.endcap_style}</td></tr>
-					<tr><td><strong>${__("Endcap Color")}</strong></td><td>${vals.endcap_color}</td></tr>
+					<tr><td><strong>${__("Endcaps")}</strong></td><td>${__("Color matched to the finish")}</td></tr>
 					<tr><td colspan="2"><hr style="margin:4px 0;"></td></tr>
 					<tr><td>${__("Profile")}</td><td>${kit.profile_stock_length_mm}mm ×1</td></tr>
 					<tr><td>${__("Lens")}</td><td>${kit.lens_stock_length_mm}mm ×1</td></tr>
