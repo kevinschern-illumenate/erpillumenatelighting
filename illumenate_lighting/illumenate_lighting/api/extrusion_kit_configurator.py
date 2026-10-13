@@ -12,10 +12,12 @@ Extrusion Kit products — bundles consisting of:
   - 2 × solid endcaps
   - 2 × feed-through endcaps
 
-Users select attribute values (Finish, Lens Appearance, Mounting Method,
-Endcap Style, Endcap Color) through the fixture schedule UI.  The engine
-resolves each selection to specific Items via the relationship/mapping
-doctypes and pulls linked spec information for every component.
+Users select attribute values (Finish, Lens Appearance, Mounting Method)
+through the fixture schedule UI.  The endcaps are not a choice: their color
+follows the finish through ilL-Rel-Finish Endcap Color, and the kit ships the
+solid and feed-through endcaps mapped to that color.  The engine resolves
+each selection to specific Items via the relationship/mapping doctypes and
+pulls linked spec information for every component.
 
 Flow:
   1. get_kit_configurator_init()  → returns available options for a kit template
@@ -41,8 +43,6 @@ KIT_SELECTION_KEYS = (
     "finish",
     "lens_appearance",
     "mounting_method",
-    "endcap_style",
-    "endcap_color",
 )
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -100,7 +100,7 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
 
     Returns everything the front-end needs to render the step-by-step UI:
       - Kit templates (if no template specified)
-      - Allowed finishes, lens appearances, mounting methods, endcap styles/colors
+      - Allowed finishes, lens appearances, mounting methods
       - Kit composition details (profile length, lens length, quantities)
       - Default selections (if any)
     """
@@ -142,8 +142,6 @@ def _build_init_response(template) -> dict:
         "Finish": ("finish", "ilL-Attribute-Finish", ["name", "code"]),
         "Lens Appearance": ("lens_appearance", "ilL-Attribute-Lens Appearance", ["name", "code"]),
         "Mounting Method": ("mounting_method", "ilL-Attribute-Mounting Method", ["name", "code"]),
-        "Endcap Style": ("endcap_style", "ilL-Attribute-Endcap Style", ["name", "code"]),
-        "Endcap Color": ("endcap_color", "ilL-Attribute-Endcap Color", ["name", "code"]),
     }
 
     for opt_type, (field_name, doctype, fields) in option_types.items():
@@ -246,14 +244,13 @@ def get_kit_cascading_options(
     finish: str = None,
     lens_appearance: str = None,
     mounting_method: str = None,
-    endcap_style: str = None,
+    endcap_style: str = None,  # ignored: endcaps follow the finish
 ) -> dict:
     """
     Return filtered options based on prior selections.
 
     Cascading logic:
       - Finish → filters which lens appearances have compatible profile/lens combos
-      - Endcap Style → filters which endcap colors are available
       - Mounting Method → validates mounting map exists
 
     This allows the UI to disable/hide options that won't lead to a valid configuration.
@@ -302,32 +299,6 @@ def get_kit_cascading_options(
                     })
         result["available_lens_appearances"] = available_lenses
 
-    # ── If endcap style is selected, show which colors are available ──
-    if endcap_style:
-        endcap_maps = frappe.get_all(
-            "ilL-Rel-Kit-Endcap-Map",
-            filters={
-                "kit_template": kit_template_name,
-                "endcap_style": endcap_style,
-                "is_active": 1,
-            },
-            fields=["endcap_color", "endcap_item"],
-        )
-        available_colors = []
-        colors = {em.endcap_color for em in enabled_rows(endcap_maps, "endcap_item") if em.endcap_color}
-        for color in sorted(colors):
-            data = frappe.db.get_value(
-                "ilL-Attribute-Endcap Color", color,
-                ["name", "code"], as_dict=True,
-            )
-            if data:
-                available_colors.append({
-                    "value": data.name,
-                    "label": data.name,
-                    "code": data.get("code", ""),
-                })
-        result["available_endcap_colors"] = sorted(available_colors, key=lambda x: x["label"])
-
     # ── If mounting method is selected, validate map exists ──
     if mounting_method:
         mounting_maps = frappe.get_all(
@@ -364,8 +335,10 @@ def validate_kit_configuration(selections: str) -> dict:
       - finish             (str) – selected finish attribute
       - lens_appearance    (str) – selected lens appearance attribute
       - mounting_method    (str) – selected mounting method attribute
-      - endcap_style       (str) – selected endcap style attribute
-      - endcap_color       (str) – selected endcap color attribute
+
+    Endcaps are not selected: any endcap_style / endcap_color passed in is
+    replaced by what the finish resolves to (see _resolve_kit_endcaps), and the
+    returned ``selections`` carry those resolved values.
 
     Returns:
       - is_valid           (bool)
@@ -384,8 +357,7 @@ def validate_kit_configuration(selections: str) -> dict:
     messages = []
 
     # ── Validate required fields ──────────────────────────────────────
-    required = ["kit_template", "finish", "lens_appearance", "mounting_method",
-                "endcap_style", "endcap_color"]
+    required = ["kit_template", "finish", "lens_appearance", "mounting_method"]
     missing = [f for f in required if not sel.get(f)]
     if missing:
         return {
@@ -408,8 +380,6 @@ def validate_kit_configuration(selections: str) -> dict:
         "Finish": sel["finish"],
         "Lens Appearance": sel["lens_appearance"],
         "Mounting Method": sel["mounting_method"],
-        "Endcap Style": sel["endcap_style"],
-        "Endcap Color": sel["endcap_color"],
     }
 
     for opt_type, selected_value in validation_checks.items():
@@ -439,33 +409,17 @@ def validate_kit_configuration(selections: str) -> dict:
             "error": f"No lens mapping found for kit '{kit_template_name}' with lens '{sel['lens_appearance']}'",
         }
 
-    # ── Resolve Endcaps (Solid + Feed-Through) ────────────────────────
-    solid_endcap = _resolve_kit_endcap(
-        kit_template_name, sel["endcap_style"], sel["endcap_color"], "Solid"
-    )
-    feed_through_endcap = _resolve_kit_endcap(
-        kit_template_name, sel["endcap_style"], sel["endcap_color"], "Feed-Through"
-    )
-
-    if not solid_endcap:
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": (
-                f"No solid endcap mapping found for kit '{kit_template_name}' "
-                f"with style '{sel['endcap_style']}' and color '{sel['endcap_color']}'"
-            ),
-        }
-
-    if not feed_through_endcap:
-        return {
-            "success": False,
-            "is_valid": False,
-            "error": (
-                f"No feed-through endcap mapping found for kit '{kit_template_name}' "
-                f"with style '{sel['endcap_style']}' and color '{sel['endcap_color']}'"
-            ),
-        }
+    # ── Resolve Endcaps (Solid + Feed-Through) from the finish ─────────
+    endcaps = _resolve_kit_endcaps(kit_template_name, sel["finish"])
+    if endcaps.get("error"):
+        return {"success": False, "is_valid": False, "error": endcaps["error"]}
+    solid_endcap = endcaps["solid"]
+    feed_through_endcap = endcaps["feed_through"]
+    sel = {
+        **sel,
+        "endcap_style": solid_endcap.endcap_style,
+        "endcap_color": endcaps["color"],
+    }
 
     # ── Resolve Mounting ──────────────────────────────────────────────
     mounting_map = _resolve_kit_mounting(kit_template_name, sel["mounting_method"])
@@ -549,8 +503,6 @@ def validate_kit_configuration(selections: str) -> dict:
             finish=sel["finish"],
             lens_appearance=sel["lens_appearance"],
             mounting_method=sel["mounting_method"],
-            endcap_style=sel["endcap_style"],
-            endcap_color=sel["endcap_color"],
         )
         if stock_result.get("success"):
             components = stock_result.get("components", [])
@@ -866,8 +818,8 @@ def get_kit_component_stock(
 	finish: str,
 	lens_appearance: str,
 	mounting_method: str,
-	endcap_style: str,
-	endcap_color: str,
+	endcap_style: str | None = None,
+	endcap_color: str | None = None,
 ) -> dict:
 	"""
 	Resolve extrusion kit component items and return per-component stock levels.
@@ -881,8 +833,7 @@ def get_kit_component_stock(
 		finish: Selected finish attribute value
 		lens_appearance: Selected lens appearance attribute value
 		mounting_method: Selected mounting method attribute value
-		endcap_style: Selected endcap style attribute value
-		endcap_color: Selected endcap color attribute value
+		endcap_style, endcap_color: ignored; the endcaps follow the finish
 
 	Returns:
 		dict: {
@@ -913,8 +864,9 @@ def get_kit_component_stock(
 	# ── Resolve all 5 components via existing map helpers ─────────────
 	profile_map = _resolve_kit_profile(kit_template, finish)
 	lens_map = _resolve_kit_lens(kit_template, lens_appearance)
-	solid_endcap = _resolve_kit_endcap(kit_template, endcap_style, endcap_color, "Solid")
-	feed_through_endcap = _resolve_kit_endcap(kit_template, endcap_style, endcap_color, "Feed-Through")
+	endcaps = _resolve_kit_endcaps(kit_template, finish)
+	solid_endcap = endcaps.get("solid")
+	feed_through_endcap = endcaps.get("feed_through")
 	mounting_map = _resolve_kit_mounting(kit_template, mounting_method)
 
 	# Build component list: (label, item_code, qty_per_kit)
@@ -1063,27 +1015,63 @@ def _resolve_kit_lens(kit_template_name: str, lens_appearance: str) -> Optional[
     return maps[0] if maps else None
 
 
+def _endcap_color_for_finish(finish: str) -> str | None:
+    """The endcap color ilL-Rel-Finish Endcap Color maps to *finish* (default row first)."""
+    if not finish:
+        return None
+    return frappe.db.get_value(
+        "ilL-Rel-Finish Endcap Color",
+        {"finish": finish, "is_active": 1},
+        "endcap_color",
+        order_by="is_default DESC, modified DESC",
+    )
+
+
 def _resolve_kit_endcap(
     kit_template_name: str,
-    endcap_style: str,
     endcap_color: str,
     endcap_type: str,
 ) -> Optional[Any]:
-    """Resolve an endcap Item via ilL-Rel-Kit-Endcap-Map."""
+    """Resolve the kit's endcap Item of one type in one color via ilL-Rel-Kit-Endcap-Map."""
     maps = frappe.get_all(
         "ilL-Rel-Kit-Endcap-Map",
         filters={
             "kit_template": kit_template_name,
-            "endcap_style": endcap_style,
             "endcap_color": endcap_color,
             "endcap_type": endcap_type,
             "is_active": 1,
         },
-        fields=["name", "endcap_spec", "endcap_item"],
-        limit=1,
+        fields=["name", "endcap_style", "endcap_spec", "endcap_item"],
+        order_by="name asc",
     )
     maps = enabled_rows(maps, "endcap_item")
     return maps[0] if maps else None
+
+
+def _resolve_kit_endcaps(kit_template_name: str, finish: str) -> dict:
+    """Pick a kit's endcaps from its finish; the user never chooses them.
+
+    The color comes from ilL-Rel-Finish Endcap Color, then the kit takes the
+    solid and the feed-through endcap mapped to that color for this template
+    (each in the quantity the template sets). Returns ``color``, ``solid`` and
+    ``feed_through``, or ``error`` naming the missing mapping.
+    """
+    color = _endcap_color_for_finish(finish)
+    if not color:
+        return {"error": f"No endcap color is mapped to finish '{finish}' (ilL-Rel-Finish Endcap Color)"}
+    result = {"color": color}
+    for key, endcap_type in (("solid", "Solid"), ("feed_through", "Feed-Through")):
+        row = _resolve_kit_endcap(kit_template_name, color, endcap_type)
+        if not row:
+            return {
+                **result,
+                "error": (
+                    f"No {endcap_type.lower()} endcap mapping found for kit "
+                    f"'{kit_template_name}' in color '{color}'"
+                ),
+            }
+        result[key] = row
+    return result
 
 
 def _resolve_kit_mounting(kit_template_name: str, mounting_method: str) -> Optional[Any]:
