@@ -14,6 +14,7 @@
   "product_status",
   "column_break_identity",
   "series",
+  "product_category",
   "sku_series_code",
   "webflow_product",
   "pricing_section",
@@ -82,6 +83,14 @@
    "fieldtype": "Link",
    "label": "Series",
    "options": "ilL-Attribute-Series"
+  },
+  {
+   "description": "Marketing product category (Webflow taxonomy) this template belongs to",
+   "fieldname": "product_category",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Product Category",
+   "options": "ilL-Webflow-Category"
   },
   {
    "description": "Short series code used as the part-number prefix.",
@@ -193,7 +202,7 @@
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-11 22:47:13.000000",
+ "modified": "2026-10-13 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",
