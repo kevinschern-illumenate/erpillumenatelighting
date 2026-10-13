@@ -107,6 +107,7 @@ class GroupOrderBundle(unittest.TestCase):
 			snapshot=lambda _doc: build,
 			current_estimate=lambda _doc: 1234.5,
 			description=lambda _build, _labels=None: "Linear Fixture multi-run group",
+			group_item_prefix=lambda _group: "Shelf Light",
 			run_noun=lambda _family, count=1: "runs",
 		)
 		generator = types.SimpleNamespace(
@@ -141,6 +142,7 @@ class GroupOrderBundle(unittest.TestCase):
 				artifact = module.ensure_order_bundle(Record(), line, target)
 			item, bundle = inserted
 			self.assertEqual(item["item_code"], "ILL-SH01-SW-SMITH-A1-LOBBY-ABCD")
+			self.assertEqual(item["item_name"], "Shelf Light multi-run group (3 runs)")
 			self.assertEqual(item["is_stock_item"], 0)
 			self.assertEqual(item["brand"], "ilLumenate Lighting")
 			self.assertEqual(item["ill_configured_group"], "HASH")
