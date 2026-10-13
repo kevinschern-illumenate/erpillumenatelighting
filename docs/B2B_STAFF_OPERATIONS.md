@@ -98,6 +98,32 @@ When a Frappe CRM Deal is marked **Won**, ERPNext creates the Customer, its Cont
 
 Accounting then sets the customer up. **New customers to set up** in Portal Operations lists enabled Customers that came from a Deal and have no **Default Payment Terms Template** yet. Set the payment terms (and credit limit, tax and price list as needed) and the Customer leaves the queue. The queue stays hidden until step 1 has added the CRM Deal link. If a won Deal has no Customer, check the Error Log: the integration records failures there instead of stopping the Deal update.
 
+## Fixture schedule lines
+
+**Add Fixture Line** on a portal schedule (and the Desk **Configure & Add Fixture**) starts every product family the same way: pick the category, pick its template on the card picker, then either **Add** the line to configure later or configure it now. Lines added for later show **Configure**; configured lines show **Edit Config** and reopen in their configurator.
+
+| Category | Template | Configurator | Notes |
+|---|---|---|---|
+| Linear fixtures | ilL-Fixture-Template | `/portal/configure` | Unchanged |
+| LED Tape, COB Tape, LED Neon | ilL-Tape-Neon-Template | `category=LED Tape` / `LED Neon` | Configured Item names start with the template name |
+| LED Sheet | ilL-LED-Sheet-Template | `category=LED Sheet` | When no approved supply fits (or it was retired), any active constant-voltage catalog supply at the sheet's voltage that can carry a panel is used, with as many supplies as the coverage needs |
+| Extrusion Kits | ilL-Extrusion-Kit-Template | `category=Extrusion Kit` | Endcap style and color are not choices: the finish picks the endcap color (ilL-Rel-Finish Endcap Color) and the kit takes that color's solid and feed-through endcaps in the template's quantities (2 and 2 by default) |
+| Power Supplies / Drivers | ilL-Driver-Template | `category=Driver` | The part number is the ilL-Spec-Driver ID. Choosing an existing line fills in its fixture type, location, quantity and notes |
+
+A power supply line added from its template but not yet configured blocks the schedule from going **Ready**, like any other unconfigured line. Schedule and Sales Order lines for kits, power supplies and tape/neon lead with the template name.
+
+The retired `PS-UNIV-24V-100W-IP66` driver spec is removed by a one-time patch on deploy. Pinned LED Sheet builds keep their driver Item and snapshot, so existing orders and receipts are unaffected; any reference the patch does not recognise is logged and the spec is left in place.
+
+## Spec submittal packets
+
+Schedule packets fill each line's spec submittal from the template's submittal mappings: fixtures, tape/neon and LED sheets as before, extrusion kits from **ilL-Kit-Submittal-Mapping** (template, resolved profile/lens/accessory specs, selected options and the schedule line) and power supplies from the driver template's **ilL-Driver-Submittal-Mapping** for the exact variant (which can also read the schedule, project and line).
+
+A packet no longer fails on one bad line:
+
+- A template with no usable spec submittal uses its spec sheet instead. A template with neither is left out.
+- Missing or unmapped PDF fields are left blank.
+- Each of these is a warning, kept on the packet manifest and shown when the packet finishes. Read the warnings before sending the packet and fix the template or mapping in Desk.
+
 ## Catalog Builder operations
 
 Open [Catalog Builder](https://illumenatelighting.v.frappe.cloud/catalog-builder) or the
@@ -125,6 +151,14 @@ production; match the exact User account and record the assignment in the
    [publication runbook](B2B_PUBLICATION_RUNBOOK.md). Import does not publish.
 6. **Start a new draft** after success; importing the same names again reports
    duplicates. Upload attachments manually and reference existing site file URLs.
+
+Extrusion kits are authored end to end in the builder: the kit draft lists its
+maps, Kit Submittal Mappings and specs after the template, **Generate rows** has
+kit profile, lens, endcap and mounting map presets plus a preset that copies
+another template's submittal mappings, and a configurable Extrusion Kit product
+must name its kit template. The kit template has its own **Image**, which leads
+the portal kit cards. ilL-Spec-Driver has a **Channel Code** beside Form Code, and
+Dimming Protocol offers TOUCH, APP, BLE, WIFI, ARTNET and SACN.
 
 If an import response is lost, inspect **Recent checks and imports** and refresh
 the live reference before trying again. Records may already have been committed;

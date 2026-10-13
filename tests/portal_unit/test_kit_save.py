@@ -12,8 +12,6 @@ SELECTIONS = {
 	"finish": "Black",
 	"lens_appearance": "Frosted",
 	"mounting_method": "Clip",
-	"endcap_style": "Flat",
-	"endcap_color": "Black",
 }
 SERVER_RESULT = {
 	"success": True,
@@ -23,7 +21,7 @@ SERVER_RESULT = {
 	"kit_composition": {"profile": {"item": "PROFILE-BK", "qty": 1}, "mounting": {"item": "CLIP", "qty": 6}},
 	"spec_data": {},
 	"resolved_items": {"profile_item": "PROFILE-BK"},
-	"selections": SELECTIONS,
+	"selections": {**SELECTIONS, "endcap_style": "Flat", "endcap_color": "Black"},
 	"kit_template": {"name": "KIT-1"},
 }
 
@@ -54,7 +52,7 @@ class KitSave(unittest.TestCase):
 			"part_number": "FREE-KIT",
 			"kit_composition": {"profile": {"item": "SOMETHING-ELSE", "qty": 0}},
 			"pricing": {"total_price_msrp": 0},
-			"selections": {**SELECTIONS, "unexpected": "dropped"},
+			"selections": {**SELECTIONS, "unexpected": "dropped", "endcap_color": "Red"},
 		}
 		result, validate, line, schedule = self.run_save(configuration_result=json.dumps(forged))
 		self.assertTrue(result["success"])
@@ -64,6 +62,8 @@ class KitSave(unittest.TestCase):
 		self.assertEqual(stored["kit_composition"], SERVER_RESULT["kit_composition"])
 		self.assertEqual(stored["pricing"], {"total_price_msrp": 70.0})
 		self.assertNotIn("unexpected", stored["selections"])
+		# Endcaps are never the caller's choice; the stored ones are the server's.
+		self.assertEqual(stored["selections"]["endcap_color"], "Black")
 		schedule.save.assert_called_once()
 
 	def test_explicit_selections_take_precedence(self):
@@ -100,6 +100,38 @@ class KitValidation(unittest.TestCase):
 			result = service.validate_kit_configuration(SELECTIONS)
 		self.assertEqual(result["is_valid"], False)
 		self.assertEqual(result["error"], "Kit template is not active")
+
+	def run_endcaps(self, color, maps):
+		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
+			frappe.db.get_value.return_value = color
+			frappe.get_all.side_effect = lambda doctype, filters, **kw: [
+				Record(m) for m in maps if m["endcap_type"] == filters["endcap_type"] and m["endcap_color"] == filters["endcap_color"]
+			]
+			with patch.object(service, "enabled_rows", side_effect=lambda rows, field: rows):
+				result = service._resolve_kit_endcaps("KIT-1", "Black Anodized")
+			finish_lookup = frappe.db.get_value.call_args
+		return result, finish_lookup
+
+	def test_endcaps_follow_the_finish_color(self):
+		maps = [
+			{"endcap_type": "Solid", "endcap_color": "Black", "endcap_style": "Flat", "endcap_item": "EC-S-BK"},
+			{"endcap_type": "Feed-Through", "endcap_color": "Black", "endcap_style": "Flat FT", "endcap_item": "EC-F-BK"},
+			{"endcap_type": "Solid", "endcap_color": "White", "endcap_style": "Flat", "endcap_item": "EC-S-WH"},
+		]
+		result, finish_lookup = self.run_endcaps("Black", maps)
+		self.assertEqual(finish_lookup.args[0], "ilL-Rel-Finish Endcap Color")
+		self.assertEqual(finish_lookup.args[1], {"finish": "Black Anodized", "is_active": 1})
+		self.assertEqual(result["color"], "Black")
+		self.assertEqual(result["solid"].endcap_item, "EC-S-BK")
+		self.assertEqual(result["feed_through"].endcap_item, "EC-F-BK")
+		self.assertNotIn("error", result)
+
+	def test_missing_finish_color_or_endcap_type_is_an_error(self):
+		result, _ = self.run_endcaps(None, [])
+		self.assertIn("No endcap color is mapped to finish 'Black Anodized'", result["error"])
+		solid_only = [{"endcap_type": "Solid", "endcap_color": "Black", "endcap_style": "Flat", "endcap_item": "EC-S-BK"}]
+		result, _ = self.run_endcaps("Black", solid_only)
+		self.assertIn("No feed-through endcap mapping", result["error"])
 
 
 if __name__ == "__main__":

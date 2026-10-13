@@ -2948,6 +2948,13 @@
           "options": "ilL-Attribute-Series"
         },
         {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "Marketing product category (Webflow taxonomy) this template belongs to"
+        },
+        {
           "fieldname": "sku_series_code",
           "label": "SKU Series Code",
           "fieldtype": "Data",
@@ -3166,6 +3173,13 @@
           "options": "ilL-Attribute-Series"
         },
         {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "Marketing product category (Webflow taxonomy) this template belongs to"
+        },
+        {
           "fieldname": "sku_series_code",
           "label": "SKU Series Code",
           "fieldtype": "Data",
@@ -3281,6 +3295,13 @@
           "label": "Series",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Series"
+        },
+        {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "Marketing product category (Webflow taxonomy) this template belongs to"
         },
         {
           "fieldname": "default_profile_family",
@@ -3475,6 +3496,13 @@
           "fieldtype": "Link",
           "options": "ilL-Attribute-Series",
           "description": "Product series for filtering (e.g., 'SH01', 'SL02')"
+        },
+        {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "Marketing product category (Webflow taxonomy) this template belongs to"
         },
         {
           "fieldname": "default_profile_family",
@@ -3893,6 +3921,13 @@
           "label": "Series",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Series"
+        },
+        {
+          "fieldname": "product_category",
+          "label": "Product Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "Marketing product category (Webflow taxonomy) this template belongs to"
         },
         {
           "fieldname": "sku_series_code",

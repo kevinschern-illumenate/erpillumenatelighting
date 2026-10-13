@@ -13,6 +13,7 @@
   "product_status",
   "column_break_details",
   "series",
+  "product_category",
   "default_profile_family",
   "image",
   "notes",
@@ -102,6 +103,14 @@
    "in_standard_filter": 1,
    "label": "Series",
    "options": "ilL-Attribute-Series"
+  },
+  {
+   "description": "Marketing product category (Webflow taxonomy) this template belongs to",
+   "fieldname": "product_category",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Product Category",
+   "options": "ilL-Webflow-Category"
   },
   {
    "fieldname": "default_profile_family",
@@ -322,7 +331,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-13 14:10:00.000000",
+ "modified": "2026-10-13 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",
