@@ -27,6 +27,7 @@ No user receives these roles automatically, and only System Manager is treated a
 3. List Dealer users the portal cannot place in exactly one company (`unresolved`: fix their Contact → Customer links), and Dealer users who would lose Desk the next time their User record is saved (`desk_access_at_risk`):
    `bench --site <site> execute illumenate_lighting.illumenate_lighting.portal.role_audit.dealers`
 4. Run step 1 again and confirm `uncovered` is empty, or that a System Manager intentionally covers the rest.
+5. For Frappe HR, run `role_audit.hr` and follow [HR setup](HR_SETUP.md); only the HR lead should appear under `hr_role_holders`.
 
 | Work they did before | Assign | What it restores |
 |---|---|---|
