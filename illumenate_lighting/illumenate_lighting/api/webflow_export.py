@@ -316,7 +316,8 @@ def get_webflow_products(
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
             "driver_template", "controller_template",
-            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "accessory_spec",
+            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
+            "accessory_spec",
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
@@ -1101,6 +1102,7 @@ def preview_specifications(webflow_product: str) -> dict:
         "tape_spec": doc.get("tape_spec"),
         "tape_neon_template": doc.get("tape_neon_template"),
         "led_sheet_template": doc.get("led_sheet_template"),
+        "kit_template": doc.get("kit_template"),
         "profile_spec": doc.get("profile_spec"),
         "specifications": [],
     }
@@ -1179,6 +1181,15 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
         additional_specs.extend(
             _enrich_profile_specs(product, existing_labels)
         )
+    elif product_type == "Extrusion Kit" and product.get("kit_template"):
+        # A kit linked by template describes itself with the template's default profile.
+        default_profile = frappe.db.get_value(
+            "ilL-Extrusion-Kit-Template", product["kit_template"], "default_profile_spec"
+        )
+        if default_profile:
+            additional_specs.extend(
+                _enrich_profile_specs({**product, "profile_spec": default_profile}, existing_labels)
+            )
     else:
         # No enrichment branch matched. If this product_type is expected to
         # derive its specs from a source link but that link is missing, warn
@@ -1192,7 +1203,7 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
             "LED Neon": ["tape_neon_template"],
             "LED Sheet": ["led_sheet_template"],
             "Component": ["profile_spec"],
-            "Extrusion Kit": ["profile_spec"],
+            "Extrusion Kit": ["kit_template", "profile_spec"],
         }.get(product_type)
         if (
             product_type

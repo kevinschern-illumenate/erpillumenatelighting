@@ -27,6 +27,17 @@ WEBFLOW_PRODUCT_LINKS = {
 	"ilL-LED-Sheet-Template": "led_sheet_template",
 }
 
+# The Webflow Product types each template link applies to. The link field is shown
+# only for these types, and is cleared when a product moves to another type.
+WEBFLOW_PRODUCT_LINK_TYPES = {
+	"fixture_template": ("Fixture Template",),
+	"tape_neon_template": ("LED Tape", "COB Tape", "LED Neon"),
+	"controller_template": ("Controller",),
+	"driver_template": ("Driver",),
+	"kit_template": ("Extrusion Kit",),
+	"led_sheet_template": ("LED Sheet",),
+}
+
 # Fieldname kept from the first release so restamping replaces the old tab in place.
 TAB = "web_listing_tab"
 
