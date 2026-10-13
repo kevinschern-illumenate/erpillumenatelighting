@@ -15,6 +15,7 @@ DOCUMENT_LABELS = {
 	"approved_literature": "Product literature",
 	"approved_item_literature": "Product literature",
 	"uploaded_literature": "Spec sheet",
+	"template_spec_sheet": "Spec sheet",
 	"selected_line_document": "Attached document",
 }
 
@@ -39,6 +40,37 @@ def _part_number(line):
 	if line.get("kit_template"):
 		return line.get("ill_item_code") or line.kit_template
 	return None
+
+
+# Where each configured build's template, and so its spec sheet, lives.
+_TEMPLATE_FIELDS = {
+	"ilL-Configured-Fixture": ("fixture_template", "ilL-Fixture-Template"),
+	"ilL-Configured-Tape-Neon": ("tape_neon_template", "ilL-Tape-Neon-Template"),
+	"ilL-Configured-LED-Sheet": ("sheet_template", "ilL-LED-Sheet-Template"),
+}
+_GROUP_TEMPLATES = {
+	"Linear Fixture": "ilL-Fixture-Template",
+	"LED Tape": "ilL-Tape-Neon-Template",
+	"COB Tape": "ilL-Tape-Neon-Template",
+	"LED Neon": "ilL-Tape-Neon-Template",
+	"LED Sheet": "ilL-LED-Sheet-Template",
+}
+
+
+def _template_spec_sheet(build):
+	"""The (template doctype, template, spec sheet URL) backing a configured build."""
+	doctype, name = build["doctype"], build["name"]
+	if doctype == "ilL-Extrusion-Kit-Template":
+		template_doctype, template = doctype, name
+	elif doctype == "ilL-Configured-Group":
+		group = frappe.db.get_value(doctype, name, ["family", "template"], as_dict=True) or {}
+		template_doctype, template = _GROUP_TEMPLATES.get(group.get("family")), group.get("template")
+	else:
+		field, template_doctype = _TEMPLATE_FIELDS[doctype]
+		template = frappe.db.get_value(doctype, name, field)
+	if not (template_doctype and template):
+		return template_doctype, template, None
+	return template_doctype, template, frappe.db.get_value(template_doctype, template, "spec_sheet")
 
 
 def gather(schedule, warnings, pinned=None):
@@ -77,7 +109,8 @@ def gather(schedule, warnings, pinned=None):
 				build=prior.get("build"),
 				provenance=prior.get("provenance"),
 				expected_sha256=prior.get("sha256"),
-				has_submittal=prior.get("source_kind") == "filled_submittal",
+				has_submittal=prior.get("source_kind") in ("filled_submittal", "template_spec_sheet"),
+				warnings=prior.get("warnings"),
 			)
 		elif line.manufacturer_type == "ILLUMENATE":
 			entry["render_error"] = "The line has no configured build; configure it before exporting"
@@ -91,19 +124,43 @@ def gather(schedule, warnings, pinned=None):
 					except (ValueError, frappe.ValidationError) as error:
 						result = {"success": False, "message": str(error)}
 					warnings.extend(line_warnings)
+					notes = [note for note in line_warnings if not note.startswith("[DEBUG]")]
+					label = line.line_id or f"Row {line.idx}"
+					entry.pop("render_error")
 					if result.get("success"):
-						entry.pop("render_error")
 						entry.update(
 							spec_document_url=result.get("file_url"),
 							has_submittal=True,
 							source_kind="filled_submittal",
 							provenance=result.get("provenance"),
+							warnings=[f"Line {label}: {note}" for note in dict.fromkeys(notes)],
+						)
+						break
+					# A template without a usable spec submittal falls back to its spec sheet, and a
+					# template with neither is left out with a warning instead of stopping the packet.
+					failure = result.get("message") or "The spec submittal could not be generated"
+					reason = "; ".join(dict.fromkeys([failure, *notes]))
+					template_doctype, template, spec_sheet = _template_spec_sheet(entry["build"])
+					if spec_sheet:
+						warning = f"Line {label}: used the {template} spec sheet because the spec submittal could not be generated ({reason})"
+						entry.update(
+							spec_document_url=spec_sheet,
+							source_kind="template_spec_sheet",
+							filled_required=False,
+							provenance={
+								"template_type": template_doctype,
+								"template": template,
+								"source_url": spec_sheet,
+							},
 						)
 					else:
-						reasons = [result.get("message") or f"Could not render line {line.line_id}"]
-						reasons += [note for note in line_warnings if not note.startswith("[DEBUG]")]
-						entry["render_error"] = "; ".join(dict.fromkeys(reasons))
-						warnings.append(entry["render_error"])
+						warning = f"Line {label}: left out because {template or 'its template'} has no spec submittal or spec sheet ({reason})"
+						entry.update(
+							required=False,
+							exclusion_reason="No spec submittal or spec sheet available",
+						)
+					entry["warnings"] = [warning]
+					warnings.append(warning)
 					break
 		elif line.manufacturer_type == "OTHER":
 			entry.update(spec_document_url=line.spec_sheet, source_kind="uploaded_literature")
@@ -157,6 +214,7 @@ def gather(schedule, warnings, pinned=None):
 					"expected_sha256": document.sha256,
 					"filled_required": False,
 					"required": True,
+					"warnings": None,
 				}
 			)
 	for entry in lines:
@@ -169,7 +227,11 @@ def gather(schedule, warnings, pinned=None):
 	return lines
 
 
-def _incomplete_watermark(content, get_pdf):
+# The omissions banner marks the packet's opening pages; product documents stay unmarked.
+WATERMARK_PAGES = 2
+
+
+def _incomplete_watermark(content, get_pdf, pages=WATERMARK_PAGES):
 	from pypdf import PdfReader, PdfWriter, Transformation
 
 	overlay = PdfReader(
@@ -180,15 +242,16 @@ def _incomplete_watermark(content, get_pdf):
 		)
 	).pages[0]
 	writer = PdfWriter()
-	for page in PdfReader(io.BytesIO(content)).pages:
-		page.merge_transformed_page(
-			overlay,
-			Transformation().scale(
-				float(page.mediabox.width) / float(overlay.mediabox.width),
-				float(page.mediabox.height) / float(overlay.mediabox.height),
-			),
-		)
-		writer.add_page(page)
+	for number, source in enumerate(PdfReader(io.BytesIO(content)).pages):
+		page = writer.add_page(source)
+		if number < pages:
+			page.merge_transformed_page(
+				overlay,
+				Transformation().scale(
+					float(page.mediabox.width) / float(overlay.mediabox.width),
+					float(page.mediabox.height) / float(overlay.mediabox.height),
+				),
+			)
 	stream = io.BytesIO()
 	writer.write(stream)
 	return stream.getvalue()
@@ -254,12 +317,14 @@ def generate(
 							"source_kind": "approved_literature",
 							"expected_sha256": prior_literature["sha256"],
 							"filled_required": False,
+							"warnings": None,
 							"provenance": prior_literature.get("provenance"),
 						}
 					)
 					continue
 				build = entry.get("build")
-				if not build:
+				# A line that already fell back to its spec sheet would only repeat it.
+				if not build or entry.get("source_kind") == "template_spec_sheet":
 					continue
 				configured = frappe.get_doc(build["doctype"], build["name"])
 				if build["doctype"] == "ilL-Configured-Group":
@@ -296,6 +361,7 @@ def generate(
 									"expected_sha256": None,
 									"filled_required": False,
 									"has_submittal": True,
+									"warnings": None,
 								}
 							)
 						break

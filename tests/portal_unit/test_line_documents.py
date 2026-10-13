@@ -51,16 +51,19 @@ class LineDocuments(unittest.TestCase):
 					module.attach("S", "L", ["F"], "F", "now")
 			frappe.db.set_value.assert_not_called()
 
-	def test_required_mappings_fail_before_prefix_hides_missing_value(self):
+	def test_missing_required_value_warns_without_a_stray_prefix(self):
 		mapping = {
 			"pdf_field_name": "Length",
 			"source_doctype": "Build",
 			"source_field": "length",
 			"required_value": 1,
 		}
-		with self.assertRaisesRegex(ValueError, "Required engineering"):
-			set_value({}, mapping, None, "Length: ")
 		values, warnings = {}, []
+		# A missing required value warns and leaves the field blank instead of stopping the packet.
+		set_value(values, mapping, None, "Length: ", warnings)
+		self.assertEqual(values, {"Length": ""})
+		self.assertIn("Required value is missing: Build.length", warnings.pop())
+		values.clear()
 		set_value(values, mapping, 0, "0 mm", warnings)
 		self.assertEqual(values["Length"], "0 mm")
 		# Authoring mistakes warn instead of blocking the submittal; preflight still reports them.

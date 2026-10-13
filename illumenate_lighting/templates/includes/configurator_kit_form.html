@@ -1,1 +1,76 @@
-{% include "templates/includes/configurator_driver_controller_form.html" %}
+{#
+Extrusion Kit configurator markup (IllConfigurator.Kit, kit_steps.js).
+
+Laid out like the LED Sheet and Linear Fixture configurators: a Schedule Target card,
+numbered option sections on the left and a sticky Summary & Results card on the right.
+The host element must carry `.ill-configurator.ill-configurator-kit`.
+#}
+<div class="card mb-3" id="scheduleContextCard">
+	<div class="card-header d-flex justify-content-between align-items-center">
+		<h6 class="mb-0"><i class="fa fa-folder-open"></i> {{ _("Schedule Target") }}</h6>
+		<small class="text-muted">{{ _("Select a project and line to save this configuration") }}</small>
+	</div>
+	<div class="card-body">
+		<div class="row">
+			<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold" for="projectSelect">{{ _("Project") }}</label><select class="form-control" id="projectSelect"><option value="">{{ _("Select Project...") }}</option></select></div></div>
+			<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold" for="scheduleSelect">{{ _("Fixture Schedule") }}</label><select class="form-control" id="scheduleSelect" disabled><option value="">{{ _("Select Schedule...") }}</option></select></div></div>
+			<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold" for="lineSelect">{{ _("Fixture Type") }}</label><select class="form-control" id="lineSelect" disabled><option value="">{{ _("Select Line...") }}</option><option value="__new__">{{ _("+ New Line") }}</option></select></div></div>
+		</div>
+		<div id="linePreview" class="alert alert-warning mt-2" style="display: none;">
+			<strong><i class="fa fa-exclamation-triangle"></i> {{ _("Existing Line Data") }}</strong>
+			<p class="mb-0 mt-1 small" id="linePreviewText"></p>
+		</div>
+	</div>
+</div>
+
+<div class="row">
+	<div class="col-lg-7">
+		<div class="card mb-3">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h5 class="mb-0">{{ _("Extrusion Kit Configuration") }}</h5>
+				<span class="badge badge-info" id="kitProgressBadge">0%</span>
+			</div>
+			<div class="card-body">
+				<div class="config-section" id="kitTemplateSection">
+					<h4><span class="ill-config-step-num">1</span>{{ _("Kit Template") }}</h4>
+					<div id="kitTemplatePicker"></div>
+					<select id="kitTemplateSelect" class="form-control" aria-label="{{ _('Kit template') }}" hidden><option value="">{{ _("Choose a kit template…") }}</option></select>
+					<div id="kitTemplateInfo" class="ill-kit-template" hidden></div>
+				</div>
+
+				<div id="familySteps"></div>
+
+				<div class="config-section" id="kitLineSection">
+					<h4><span class="ill-config-step-num" id="kitLineStepNum">7</span>{{ _("Schedule Line Details") }}</h4>
+					<div class="row">
+						<div class="col-md-5"><div class="form-group"><label class="small font-weight-bold" for="familyLineId">{{ _("Fixture Type") }} <span class="text-danger">*</span></label><input id="familyLineId" class="form-control" maxlength="140" required placeholder="{{ _('e.g., K1') }}"></div></div>
+						<div class="col-md-4"><div class="form-group"><label class="small font-weight-bold" for="familyLocation">{{ _("Location") }}</label><input id="familyLocation" class="form-control" maxlength="140"></div></div>
+						<div class="col-md-3"><div class="form-group"><label class="small font-weight-bold" for="familyQty">{{ _("Quantity") }}</label><input id="familyQty" class="form-control" type="number" min="1" step="1" value="1"></div></div>
+					</div>
+					<div class="form-group mb-0"><label class="small font-weight-bold" for="familyNotes">{{ _("Notes") }}</label><textarea id="familyNotes" class="form-control" rows="2" maxlength="4000"></textarea></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="d-flex justify-content-end ill-fixture-actions mb-3">
+			<button id="familySave" type="button" class="btn btn-success" disabled><i class="fa fa-plus"></i> {{ _("Add to Schedule") }}</button>
+		</div>
+	</div>
+
+	<div class="col-lg-5">
+		<div class="card sticky-top ill-kit-summary-card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h5 class="mb-0">{{ _("Summary & Results") }}</h5>
+				<span id="kitValidationStatus" class="badge badge-secondary">{{ _("Incomplete") }}</span>
+			</div>
+			<div class="card-body">
+				<div id="familySummary" aria-live="polite">
+					<div class="text-center text-muted py-3 ill-kit-placeholder">
+						<i class="fa fa-cubes fa-2x mb-2"></i>
+						<p class="mb-0">{{ _("Choose a kit template and its options to see the part number, components and pricing.") }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
