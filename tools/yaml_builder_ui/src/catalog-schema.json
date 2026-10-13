@@ -3288,6 +3288,12 @@
           "fieldtype": "Data"
         },
         {
+          "fieldname": "image",
+          "label": "Image",
+          "fieldtype": "Attach Image",
+          "description": "Product image shown on the Add Fixture Line picker and the kit configurator. Falls back to the Webflow product gallery when empty."
+        },
+        {
           "fieldname": "notes",
           "label": "Notes",
           "fieldtype": "Small Text"
@@ -3345,6 +3351,12 @@
           "fieldtype": "Link",
           "options": "ilL-Spec-Lens",
           "description": "Default lens spec for this kit family"
+        },
+        {
+          "fieldname": "spec_submittal_template",
+          "label": "Spec Submittal Template",
+          "fieldtype": "Attach",
+          "description": "Fillable PDF used to generate configured kit spec submittals. Map its fields with Kit Submittal Mappings."
         },
         {
           "fieldname": "spec_sheet",
@@ -3633,6 +3645,115 @@
           "fieldname": "fixture_weight_per_foot_grams",
           "label": "Fixture Weight per Foot (g)",
           "fieldtype": "Float"
+        }
+      ]
+    },
+    "ilL-Kit-Submittal-Mapping": {
+      "autoname": "format:{kit_template}-{pdf_field_name}",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "kit_template",
+          "label": "Extrusion Kit Template",
+          "fieldtype": "Link",
+          "options": "ilL-Extrusion-Kit-Template",
+          "reqd": 1
+        },
+        {
+          "fieldname": "pdf_field_name",
+          "label": "PDF Field Name",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The name of the form field in the fillable PDF template"
+        },
+        {
+          "fieldname": "source_doctype",
+          "label": "Source DocType",
+          "fieldtype": "Select",
+          "options": "ilL-Extrusion-Kit-Template\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Accessory\nilL-Attribute-Finish\nilL-Attribute-Lens Appearance\nilL-Attribute-Mounting Method\nilL-Attribute-Endcap Style\nilL-Attribute-Endcap Color\nilL-Attribute-Series\nilL-Webflow-Product\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "reqd": 1,
+          "description": "The record to pull the value from. Specs and attributes are the ones the configured kit resolved to."
+        },
+        {
+          "fieldname": "kit_component",
+          "label": "Kit Component",
+          "fieldtype": "Select",
+          "options": "Mounting\nSolid Endcap\nFeed-Through Endcap",
+          "default": "Mounting",
+          "description": "Which kit accessory spec to read: the mounting accessory or one of the endcaps"
+        },
+        {
+          "fieldname": "source_field",
+          "label": "Source Field",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "The field name on the source doctype. Click the 'Show Available Fields' button to see options."
+        },
+        {
+          "fieldname": "prefix",
+          "label": "Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the value"
+        },
+        {
+          "fieldname": "suffix",
+          "label": "Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the value"
+        },
+        {
+          "fieldname": "transformation",
+          "label": "Transformation",
+          "fieldtype": "Select",
+          "options": "\nNone\nMM_TO_INCHES\nMM_TO_FEET\nUPPERCASE\nLOWERCASE\nROUND_2_DECIMALS\nDATE_FORMAT",
+          "description": "Optional transformation to apply to the source value before filling"
+        },
+        {
+          "fieldname": "logic",
+          "label": "Logic",
+          "fieldtype": "Select",
+          "options": "\nNone\n0.00_TO_BLANK",
+          "description": "Optional post-transformation modifier applied to the result. 0.00_TO_BLANK: if the transformed value is \"0.00\" (or numerically zero), output blank instead."
+        },
+        {
+          "fieldname": "webflow_field",
+          "label": "Webflow Field",
+          "fieldtype": "Select",
+          "options": "\nproject_name\nfixture_type\nproject_location\npart_number",
+          "description": "Optional Webflow parameter to use as the source value when generating from a Webflow request. Overrides Source DocType / Source Field when the value is provided."
+        },
+        {
+          "fieldname": "webflow_skip_transformation",
+          "label": "Skip Transformation on Webflow Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "When the Webflow value is used, skip the Transformation above. Enable this when the Webflow value is already in its final unit/format and should not be transformed."
+        },
+        {
+          "fieldname": "webflow_prefix_suffix",
+          "label": "Webflow Prefix/Suffix",
+          "fieldtype": "Select",
+          "options": "\nKeep\nOverride\nNone",
+          "description": "How to handle prefix/suffix when the Webflow override is active. Keep = use normal prefix/suffix, Override = use custom webflow prefix/suffix, None = skip prefix/suffix entirely."
+        },
+        {
+          "fieldname": "webflow_prefix",
+          "label": "Webflow Prefix",
+          "fieldtype": "Data",
+          "description": "Text to prepend before the Webflow override value"
+        },
+        {
+          "fieldname": "webflow_suffix",
+          "label": "Webflow Suffix",
+          "fieldtype": "Data",
+          "description": "Text to append after the Webflow override value"
+        },
+        {
+          "fieldname": "required_value",
+          "label": "Required Value",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Block output if this engineering value is missing; zero is a valid value."
         }
       ]
     },

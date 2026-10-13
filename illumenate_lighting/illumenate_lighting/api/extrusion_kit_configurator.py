@@ -118,7 +118,7 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
     templates = frappe.get_all(
         "ilL-Extrusion-Kit-Template",
         filters={"is_active": 1},
-        fields=["name", "template_code", "template_name", "series",
+        fields=["name", "template_code", "template_name", "series", "image",
                 "profile_stock_length_mm", "lens_stock_length_mm",
                 "solid_endcap_qty", "feed_through_endcap_qty",
                 "mounting_accessory_qty"],
@@ -188,10 +188,52 @@ def _build_init_response(template) -> dict:
             "default_profile_spec": template.default_profile_spec,
             "default_lens_spec": template.default_lens_spec,
             "spec_sheet": template.spec_sheet,
+            "spec_sheet_data": kit_spec_sheet_data(template),
+            "image": kit_template_image(template),
         },
         "options": options,
         "defaults": defaults,
     }
+
+
+# Spec sheet fields of ilL-Extrusion-Kit-Template shown in the configurator and
+# available to kit submittal mappings, in display order.
+KIT_SPEC_SHEET_FIELDS = (
+    ("beam_angle", "Beam angle", "°"),
+    ("l70_life_hours", "L70 life", " hours"),
+    ("operating_temp_min_c", "Operating temp min", " °C"),
+    ("operating_temp_max_c", "Operating temp max", " °C"),
+    ("fixture_weight_per_foot_grams", "Weight per foot", " g"),
+    ("min_length_mm", "Min length", " mm"),
+    ("max_length_mm", "Max length", " mm"),
+    ("warranty_years", "Warranty", " years"),
+)
+
+
+def kit_template_image(template):
+    """The kit's picture: the template's own image, else its Webflow product's first image."""
+    if template.get("image"):
+        return template.image
+    if not template.get("webflow_product"):
+        return None
+    from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+
+    gallery = _fetch_webflow_gallery([template.webflow_product]).get(template.webflow_product) or []
+    return gallery[0]["image"] if gallery else None
+
+
+def kit_spec_sheet_data(template) -> list:
+    """The template's filled spec sheet fields as [{field, label, value}] for display."""
+    rows = []
+    for field, label, unit in KIT_SPEC_SHEET_FIELDS:
+        value = template.get(field)
+        # Unset numbers read as 0; a minimum temperature of 0 counts once a maximum is given.
+        if not value and not (field == "operating_temp_min_c" and value == 0 and template.get("operating_temp_max_c")):
+            continue
+        number = flt(value)
+        shown = int(number) if number.is_integer() else number
+        rows.append({"field": field, "label": label, "value": f"{shown}{unit}"})
+    return rows
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -556,6 +598,7 @@ def validate_kit_configuration(selections: str) -> dict:
             "mounting_accessory_qty": template.mounting_accessory_qty,
             "base_price_msrp": template.base_price_msrp,
             "spec_sheet": template.spec_sheet,
+            "spec_sheet_data": kit_spec_sheet_data(template),
         },
     }
     result["pricing"] = _compute_kit_pricing(kit_composition)
@@ -757,8 +800,10 @@ def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) 
         if comp.get("length_mm"):
             length_info = f" – {comp['length_mm']}mm"
 
+        # Lead with the kit template's name, like configured tape/neon items do.
+        kit_name = kit_template.get("template_name") or kit_template.get("name") or "Extrusion Kit"
         so_item.description = (
-            f"{part_number} – {comp_label}{length_info}\n{build_desc}"
+            f"{kit_name} {part_number} – {comp_label}{length_info}\n{build_desc}"
         )
         items_added += 1
 
@@ -1218,8 +1263,9 @@ def _build_kit_part_number(sel: dict, template) -> str:
 def _build_kit_description(sel, template, profile_map, lens_map,
                            solid_endcap, feed_through_endcap, mounting_map) -> str:
     """Build a human-readable description for the Extrusion Kit configuration."""
+    # Lead with the template's name, like configured tape/neon items do.
     lines = []
-    lines.append(f"Extrusion Kit: {template.template_name}")
+    lines.append(f"{template.template_name or template.name} Extrusion Kit")
     lines.append(f"Finish: {sel.get('finish', '-')}")
     lines.append(f"Lens: {sel.get('lens_appearance', '-')}")
     lines.append(f"Mounting: {sel.get('mounting_method', '-')}")

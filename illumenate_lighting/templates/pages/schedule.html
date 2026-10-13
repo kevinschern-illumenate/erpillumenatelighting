@@ -682,7 +682,7 @@ body.reorder-no-select {
 .ill-linear-selected .ill-linear-thumb { background: var(--ill-paper, #fff); }
 .ill-linear-selected .ill-linear-code { background: var(--ill-paper, #fff); }
 
-/* Tape/Neon, LED Sheet and Item pickers in the Add Line modal. They use the
+/* Tape/Neon, LED Sheet, Extrusion Kit and Item pickers in the Add Line modal. They use the
  * shared IllConfigurator card picker, whose own CSS only applies inside
  * .ill-configurator, so they get the same family-card look as the Linear picker. */
 #addLineModal .ill-template-picker {
@@ -1407,7 +1407,7 @@ body.reorder-no-select {
 											</div>
 											{% endif %}
 										</div>
-										{% elif line.get('product_type') == 'Extrusion Kit' and line.get('kit_template') %}
+										{% elif line.get('product_type') == 'Extrusion Kit' and line.get('kit_template') and line.get('kit_selections') %}
 										{% set kit_sel = line.get('kit_selections', {}) %}
 										<div class="fixture-details">
 											<!-- Part Number -->
@@ -1417,7 +1417,7 @@ body.reorder-no-select {
 											<span class="badge badge-info ml-1">Extrusion Kit</span>
 											<!-- Kit Template reference -->
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template') }}</strong>
+												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template_name') or line.get('kit_template') }}</strong>
 											</div>
 											<!-- Kit attributes as badges -->
 											<div class="small text-muted mt-1">
@@ -1829,6 +1829,16 @@ body.reorder-no-select {
 											<div class="small text-warning mt-1">
 												<i class="fa fa-exclamation-triangle"></i> {{ _("Not fully configured - click Configure to complete setup") }}
 											</div>
+											{% elif line.get('kit_template') %}
+											<!-- Unconfigured Extrusion Kit line -->
+											<strong>{{ line.get('kit_template_name') or line.get('kit_template') }}</strong>
+											<span class="badge badge-info ml-1">{{ _('Extrusion Kit') }}</span>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template') }}</strong>
+											</div>
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to choose finish, lens, mounting and endcaps") }}
+											</div>
 											{% elif line.get('fixture_template_name') or line.get('fixture_template') %}
 											<!-- Unconfigured Linear Fixture line -->
 											<strong>{{ line.get('fixture_template_name') or line.get('fixture_template') }}</strong>
@@ -1901,6 +1911,11 @@ body.reorder-no-select {
 												<!-- Unconfigured LED Sheet - configure link -->
 												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
+												</a>
+												{% elif line.get('kit_template') %}
+												<!-- Extrusion Kit - edit or configure in the kit configurator -->
+												<a href="/portal/configure?category=Extrusion%20Kit&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('kit_template') | urlencode }}" class="btn btn-sm {{ 'btn-info' if line.get('kit_selections') else 'btn-primary' }}" title="{{ _('Edit Configuration') if line.get('kit_selections') else _('Configure') }}">
+													{% if line.get('kit_selections') %}<i class="fa fa-edit"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog"></i> {{ _('Configure') }}{% endif %}
 												</a>
 												{% elif line.get('tape_neon_template') %}
 												{% set tn_category = line.get('product_type') or 'LED Tape' %}
@@ -2122,6 +2137,14 @@ body.reorder-no-select {
 								<option value="">{{ _("Select LED Sheet Template...") }}</option>
 							</select>
 						</div>
+						<!-- Extrusion Kit Template picker (shown when Extrusion Kits selected) -->
+						<div class="form-group kit-template-group add-line-picker-group" style="display: none;">
+							<label>{{ _("Extrusion Kit") }}</label>
+							<div id="add_kit_template_cards"></div>
+							<select class="form-control" name="kit_template" id="add_kit_template">
+								<option value="">{{ _("Select Extrusion Kit...") }}</option>
+							</select>
+						</div>
 						<!-- Item picker (shown for every other product category) -->
 						<div class="form-group item-selection-group add-line-picker-group" style="display: none;">
 							<label>{{ _("Item") }}</label>
@@ -2209,6 +2232,17 @@ body.reorder-no-select {
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureLedSheetFromAddBtn" onclick="configureLedSheetFromAddModal()">
 								<i class="fa fa-cog"></i> {{ _("Configure LED Sheet Now") }}
+							</button>
+						</div>
+
+						<!-- Extrusion Kit configure section (shown for Extrusion Kits) -->
+						<div class="kit-configure-section" style="display: none;">
+							<div class="alert alert-info">
+								<i class="fa fa-info-circle"></i>
+								{{ _("You can add this Extrusion Kit unconfigured and choose its finish, lens, mounting and endcaps later, or click below to configure now.") }}
+							</div>
+							<button type="button" class="btn btn-primary btn-block" id="configureKitFromAddBtn" onclick="configureKitFromAddModal()">
+								<i class="fa fa-cog"></i> {{ _("Configure Extrusion Kit Now") }}
 							</button>
 						</div>
 
@@ -2769,11 +2803,13 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('.fixture-template-group').hide();
 	$('.tape-neon-template-group').hide();
 	$('.led-sheet-template-group').hide();
+	$('.kit-template-group').hide();
 	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
 	$('.led-sheet-configure-section').hide();
+	$('.kit-configure-section').hide();
 	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
@@ -2783,6 +2819,7 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('#add_fixture_template').html('<option value="">{{ _("Select Fixture Template...") }}</option>');
 	$('#add_tape_neon_template').html('<option value="">{{ _("Select Product Series...") }}</option>');
 	$('#add_led_sheet_template').html('<option value="">{{ _("Select LED Sheet Template...") }}</option>');
+	$('#add_kit_template').html('<option value="">{{ _("Select Extrusion Kit...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
 	// Reset configure button text to default
 	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
@@ -2818,16 +2855,19 @@ $('#add_product_type').on('change', function() {
 	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
 	var rawIsLedSheetType = $selected.data('is-led-sheet-type');
 	var isLedSheetType = rawIsLedSheetType === 1 || rawIsLedSheetType === '1' || rawIsLedSheetType === true || rawIsLedSheetType === 'true';
+	var isKitType = isExtrusionKitOption($selected);
 	
 	// Hide all conditional sections first
 	$('.fixture-template-group').hide();
 	$('.tape-neon-template-group').hide();
 	$('.led-sheet-template-group').hide();
+	$('.kit-template-group').hide();
 	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
 	$('.led-sheet-configure-section').hide();
+	$('.kit-configure-section').hide();
 	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
@@ -2859,6 +2899,11 @@ $('#add_product_type').on('change', function() {
 		$('.led-sheet-template-group').show();
 		$('.led-sheet-configure-section').show();
 		loadLedSheetTemplates(productType);
+	} else if (isKitType) {
+		// Extrusion Kits — pick a kit template, then configure it like tape/neon
+		$('.kit-template-group').show();
+		$('.kit-configure-section').show();
+		loadExtrusionKitTemplates();
 	} else {
 		// For all other product types, show item selection dropdown
 		$('.item-selection-group').show();
@@ -3149,6 +3194,45 @@ function loadLedSheetTemplates(productType) {
 	});
 }
 
+// Extrusion Kits groups pick an ilL-Extrusion-Kit-Template; the server flags them,
+// older payloads fall back to the group's label.
+function isExtrusionKitOption($option) {
+	var flag = $option.data('is-extrusion-kit-type');
+	if (flag !== undefined) return [1, '1', true, 'true'].includes(flag);
+	return ($option.text() || '').replace(/[└─]/g, '').trim().toLowerCase().indexOf('extrusion kit') === 0;
+}
+
+// Load Extrusion Kit templates from the server
+function loadExtrusionKitTemplates() {
+	var $select = $('#add_kit_template');
+	$select.html('<option value="">{{ _("Loading...") }}</option>');
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_extrusion_kit_templates_for_schedule',
+		callback: function(r) {
+			$select.html('<option value="">{{ _("Select Extrusion Kit...") }}</option>');
+			((r.message && r.message.templates) || []).forEach(function(template) {
+				$('<option>').val(template.name)
+					.text(template.template_name + (template.template_code ? ' (' + template.template_code + ')' : ''))
+					.attr('data-name', template.template_name)
+					.attr('data-image', template.image || '')
+					.attr('data-gallery', JSON.stringify(template.gallery || []))
+					.attr('data-description', template.description || '')
+					.appendTo($select);
+			});
+			IllConfigurator.renderTemplateCards({ $select: $select, $container: $('#add_kit_template_cards'), labels: { search: __('Search products...'), empty: __('No products match your search.'), count: addLinePickerCount } });
+		},
+		error: function() {
+			$select.html('<option value="">{{ _("Error loading kits") }}</option>');
+		}
+	});
+}
+
+$('#add_kit_template').on('change', function() {
+	var gallery = [];
+	try { gallery = JSON.parse($(this).find('option:selected').attr('data-gallery') || '[]'); } catch (_) {}
+	initAddLineGallery(gallery);
+});
+
 // Handle tape/neon template selection to show product image gallery and template info
 $('#add_tape_neon_template').on('change', function() {
 	var $selected = $(this).find('option:selected');
@@ -3325,7 +3409,7 @@ function loadProductCategories() {
 						indent = '        └─ ';
 					}
 					// Store is_fixture_type, is_tape_neon_type, tape_neon_category, is_led_sheet_type as data attributes
-					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-tape-neon-category="' + (pt.tape_neon_category || '') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-tape-neon-category="' + (pt.tape_neon_category || '') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-is-extrusion-kit-type="' + (pt.is_extrusion_kit_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
@@ -3639,6 +3723,7 @@ function addLine() {
 	var isTapeNeonType = rawIsTapeNeonType === 1 || rawIsTapeNeonType === '1' || rawIsTapeNeonType === true || rawIsTapeNeonType === 'true';
 	var rawIsLedSheetType = $productTypeSelected.data('is-led-sheet-type');
 	var isLedSheetType = rawIsLedSheetType === 1 || rawIsLedSheetType === '1' || rawIsLedSheetType === true || rawIsLedSheetType === 'true';
+	var isKitType = isExtrusionKitOption($productTypeSelected);
 	
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
@@ -3683,6 +3768,20 @@ function addLine() {
 			}
 			data.product_type = 'LED Sheet';
 			data.led_sheet_template = ledSheetTemplate;
+			data.configuration_status = 'Pending';
+		} else if (isKitType) {
+			// Extrusion Kit path - uses the kit template and the kit configurator
+			var kitTemplate = form.find('[name="kit_template"]').val();
+			if (!kitTemplate) {
+				frappe.msgprint({
+					title: '{{ _("Selection Required") }}',
+					indicator: 'orange',
+					message: '{{ _("Please select an Extrusion Kit before adding the line.") }}'
+				});
+				return;
+			}
+			data.product_type = 'Extrusion Kit';
+			data.kit_template = kitTemplate;
 			data.configuration_status = 'Pending';
 		} else if (productType) {
 			// Other product types - uses item selection (potentially with variants)
@@ -3811,6 +3910,11 @@ function configureFromAddModal() {
 	if (!template) { frappe.msgprint(__('Select a product before configuring.')); return; }
 	var category = fixture ? 'Linear Fixture' : tapeNeonCategoryOf(option);
 	startConfigurationDraft(category, form.find(selector + ' option:selected').data('template-code') || template);
+}
+function configureKitFromAddModal() {
+	var template = $('#addLineForm [name="kit_template"]').val();
+	if (!template) { frappe.msgprint(__('Select an Extrusion Kit.')); return; }
+	startConfigurationDraft('Extrusion Kit', template);
 }
 function configureLedSheetFromAddModal() {
 	var template = $('#addLineForm [name="led_sheet_template"]').val();

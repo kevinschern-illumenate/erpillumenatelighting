@@ -923,6 +923,17 @@
    "type": "Link"
   },
   {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "15. Kit Submittal Mapping",
+   "link_count": 0,
+   "link_to": "ilL-Kit-Submittal-Mapping",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
    "hidden": 0,
    "is_query_report": 0,
    "label": "Controller Setup",

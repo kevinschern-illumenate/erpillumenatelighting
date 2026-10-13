@@ -2183,3 +2183,276 @@ def generate_filled_controller_submittal(
 	return _generate_filled_variant_submittal(
 		"Controller", controller_template_name, variant_name, warnings, webflow_overrides, is_private
 	)
+
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# EXTRUSION KIT SUBMITTAL SUPPORT
+# ═══════════════════════════════════════════════════════════════════════
+#
+# A configured kit has no configured record of its own: the schedule line
+# keeps the validated selections and the specs they resolved to (in
+# ``variant_selections``, written by extrusion_kit_configurator._write_kit_line).
+# The submittal is filled from that build, the ilL-Extrusion-Kit-Template
+# (including its spec sheet data) and the schedule context, using the
+# template's ilL-Kit-Submittal-Mapping rows.
+
+KIT_ACCESSORY_SPECS = {
+	"Mounting": "mounting_spec",
+	"Solid Endcap": "solid_endcap_spec",
+	"Feed-Through Endcap": "feed_through_endcap_spec",
+}
+KIT_ATTRIBUTE_SOURCES = {
+	"ilL-Attribute-Finish": "finish",
+	"ilL-Attribute-Lens Appearance": "lens_appearance",
+	"ilL-Attribute-Mounting Method": "mounting_method",
+	"ilL-Attribute-Endcap Style": "endcap_style",
+	"ilL-Attribute-Endcap Color": "endcap_color",
+}
+
+
+def kit_configuration(line) -> dict | None:
+	"""The validated kit build stored on a configured schedule line, or None."""
+	raw = line.get("variant_selections")
+	if line.get("product_type") != "Extrusion Kit" or not line.get("kit_template") or not raw:
+		return None
+	try:
+		data = json.loads(raw) if isinstance(raw, str) else raw
+	except (json.JSONDecodeError, TypeError):
+		return None
+	return data if isinstance(data, dict) and data.get("selections") else None
+
+
+def _gather_kit_field_mappings(kit_template_name: str) -> list[dict]:
+	"""Get all submittal field mappings for an extrusion kit template."""
+	fields = (
+		"required_value pdf_field_name source_doctype source_field kit_component transformation logic "
+		"prefix suffix webflow_field webflow_skip_transformation webflow_prefix_suffix webflow_prefix "
+		"webflow_suffix"
+	).split()
+	return frappe.get_all(
+		"ilL-Kit-Submittal-Mapping",
+		filters={"kit_template": kit_template_name},
+		fields=fields,
+	)
+
+
+def _kit_source_record(source_doctype, kit_component, template, config, context, load):
+	"""The record a kit mapping row reads: the template, a resolved spec or attribute, or the schedule."""
+	resolved = config.get("resolved_items") or {}
+	selections = config.get("selections") or {}
+	schedule, project, schedule_line, webflow_product = context
+	if source_doctype == "ilL-Extrusion-Kit-Template":
+		return template
+	if source_doctype == "ilL-Spec-Profile":
+		return load(
+			source_doctype,
+			resolved.get("profile_spec") or template.get("default_profile_spec"),
+		)
+	if source_doctype == "ilL-Spec-Lens":
+		return load(
+			source_doctype,
+			resolved.get("lens_spec") or template.get("default_lens_spec"),
+		)
+	if source_doctype == "ilL-Spec-Accessory":
+		return load(
+			source_doctype,
+			resolved.get(KIT_ACCESSORY_SPECS.get(kit_component or "Mounting")),
+		)
+	if source_doctype in KIT_ATTRIBUTE_SOURCES:
+		return load(source_doctype, selections.get(KIT_ATTRIBUTE_SOURCES[source_doctype]))
+	if source_doctype == "ilL-Attribute-Series":
+		return load(source_doctype, template.get("series"))
+	return {
+		"ilL-Webflow-Product": webflow_product,
+		"ilL-Project-Fixture-Schedule": schedule,
+		"ilL-Project": project,
+		"ilL-Child-Fixture-Schedule-Line": schedule_line,
+	}.get(source_doctype)
+
+
+def generate_filled_kit_submittal(
+	kit_template_name: str,
+	warnings: list | None = None,
+	webflow_overrides: dict | None = None,
+	schedule_line: str | None = None,
+	*,
+	_schedule_context=None,
+) -> dict:
+	"""
+	Generate a filled spec submittal PDF for a configured Extrusion Kit line.
+
+	.. note::
+	        This is an internal helper and is intentionally **not** whitelisted.
+	        The schedule line is authorized through its schedule before any value is read.
+
+	Args:
+	        kit_template_name: Name of the ilL-Extrusion-Kit-Template on the line
+	        warnings: Optional list that debug/warning messages are appended to
+	        webflow_overrides: Optional dict of webflow parameter values that take
+	                priority over the mapped source field
+	        schedule_line: Name of the configured ilL-Child-Fixture-Schedule-Line
+
+	Returns:
+	        dict: {success, file_url, provenance, message, warnings}
+	"""
+	if warnings is None:
+		warnings = []
+	try:
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
+			fingerprint,
+		)
+		from illumenate_lighting.illumenate_lighting.api.exports import (
+			_save_file_ignore_permissions,
+		)
+
+		schedule, project, line = _schedule_context or _explicit_schedule_context(
+			"kit_template", kit_template_name, schedule_line
+		)
+		config = kit_configuration(line) if line else None
+		if not config:
+			return {
+				"success": False,
+				"message": _("Configure this extrusion kit before exporting"),
+				"warnings": warnings,
+			}
+
+		template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template_name)
+		pdf_template = template.get("spec_submittal_template") or template.spec_sheet
+		if not pdf_template:
+			msg = f"Extrusion kit template '{kit_template_name}' has no spec submittal template or spec sheet attached"
+			return {"success": False, "message": _(msg), "warnings": warnings}
+		mappings = _gather_kit_field_mappings(kit_template_name)
+		if not mappings:
+			msg = f"No field mappings defined for extrusion kit template '{kit_template_name}'"
+			return {"success": False, "message": _(msg), "warnings": warnings}
+
+		webflow_product = (
+			frappe.get_doc("ilL-Webflow-Product", template.webflow_product)
+			if template.get("webflow_product")
+			and frappe.db.exists("ilL-Webflow-Product", template.webflow_product)
+			else _get_linked_webflow_product("kit_template", kit_template_name, warnings)
+		)
+		# A mapping keyed to the "part_number" parameter gets the configured kit's part number.
+		overrides = {"part_number": config.get("part_number") or line.get("ill_item_code")}
+		if isinstance(webflow_overrides, dict):
+			overrides.update(webflow_overrides)
+		overrides = {key: value for key, value in overrides.items() if value not in (None, "")}
+
+		records = {}
+
+		def load(doctype, name):
+			if not name:
+				return None
+			if (doctype, name) not in records:
+				records[(doctype, name)] = (
+					frappe.get_doc(doctype, name) if frappe.db.exists(doctype, name) else None
+				)
+			return records[(doctype, name)]
+
+		context = (schedule, project, line, webflow_product)
+		field_values = {}
+		for mapping in mappings:
+			webflow_key = mapping.get("webflow_field")
+			webflow_active = bool(webflow_key and webflow_key in overrides)
+			if webflow_active:
+				value = overrides[webflow_key]
+			else:
+				value = None
+				source_doctype, source_field = (
+					mapping.get("source_doctype"),
+					mapping.get("source_field"),
+				)
+				if not _commercial_source_blocked(source_doctype, source_field):
+					record = _kit_source_record(
+						source_doctype,
+						mapping.get("kit_component"),
+						template,
+						config,
+						context,
+						load,
+					)
+					if record is None:
+						_debug(
+							f"generate_filled_kit_submittal: no {source_doctype} for this kit",
+							warnings,
+						)
+					else:
+						value = record.get(source_field)
+
+			if webflow_active and mapping.get("webflow_skip_transformation"):
+				transformed = "" if value is None else str(value)
+			else:
+				transformed = _apply_transformation(value, mapping.get("transformation"))
+			transformed = _apply_logic(transformed, mapping.get("logic"))
+
+			prefix, suffix = mapping.get("prefix"), mapping.get("suffix")
+			if webflow_active:
+				ps_mode = mapping.get("webflow_prefix_suffix") or "Keep"
+				if ps_mode == "Override":
+					prefix, suffix = (
+						mapping.get("webflow_prefix"),
+						mapping.get("webflow_suffix"),
+					)
+				elif ps_mode == "None":
+					prefix = suffix = None
+			_set_mapped_value(
+				field_values,
+				mapping,
+				value,
+				_apply_prefix_suffix(transformed, prefix, suffix),
+				warnings,
+			)
+
+		mapping_snapshot = json.loads(frappe.as_json(mappings))
+		provenance = {
+			"mapping_snapshot": mapping_snapshot,
+			"mapping_hash": fingerprint(mapping_snapshot),
+			"values_hash": fingerprint(field_values),
+			"template": {"doctype": template.doctype, "name": template.name},
+			"build": {
+				"part_number": config.get("part_number"),
+				"selections": config.get("selections"),
+			},
+		}
+		filled_pdf = _fill_pdf_form_fields(
+			pdf_template, field_values, warnings=warnings, provenance=provenance
+		)
+		if not filled_pdf:
+			return {
+				"success": False,
+				"message": _("Failed to fill PDF form fields"),
+				"warnings": warnings,
+			}
+
+		part_number = str(config.get("part_number") or kit_template_name).replace("/", "-")
+		filename = f"Spec_Submittal_{part_number}_{nowdate()}.pdf"
+		packet_job = frappe.flags.get("ill_packet_job")
+		file_doc = _save_file_ignore_permissions(
+			filename,
+			filled_pdf,
+			"ilL-Export-Job" if packet_job else "ilL-Extrusion-Kit-Template",
+			packet_job or kit_template_name,
+			is_private=1,
+		)
+		return {
+			"success": True,
+			"file_url": file_doc.file_url,
+			"provenance": provenance,
+			"message": _("Spec submittal generated successfully"),
+			"warnings": warnings,
+		}
+	except (ValueError, frappe.ValidationError, frappe.PermissionError):
+		raise
+	except Exception as e:
+		frappe.log_error(
+			f"Error generating filled kit submittal: {type(e).__name__}: {e}\n{traceback.format_exc()}",
+			"Extrusion Kit Spec Submittal Generation Error",
+		)
+		return {
+			"success": False,
+			"message": _("Error generating extrusion kit spec submittal: {0}: {1}").format(
+				type(e).__name__, str(e)
+			),
+			"warnings": warnings,
+		}
