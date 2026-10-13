@@ -44,6 +44,7 @@
   "sku_control_code",
   "sku_wattage_output_code",
   "sku_form_code",
+  "sku_channel_code",
   "control_section",
   "input_protocols",
   "dimensions_section",
@@ -173,6 +174,12 @@
    "fieldname": "sku_form_code",
    "fieldtype": "Data",
    "label": "Form Code"
+  },
+  {
+   "description": "Short code representing the driver output channel configuration",
+   "fieldname": "sku_channel_code",
+   "fieldtype": "Data",
+   "label": "Channel Code"
   },
   {
    "fieldname": "control_section",
@@ -336,7 +343,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-09 13:30:00.000000",
+ "modified": "2026-10-13 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Spec-Driver",

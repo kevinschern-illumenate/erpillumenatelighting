@@ -170,7 +170,44 @@ def example_catalog(product_type):
 				feed_through_endcap_qty=1,
 				mounting_accessory_qty=4,
 				base_price_msrp=35,
-				allowed_options=options,
+				allowed_options=[
+					*options,
+					{"option_type": "Endcap Style", "endcap_style": "Feed Through", "is_active": 1},
+					{"option_type": "Endcap Color", "endcap_color": "White", "is_default": 1, "is_active": 1},
+				],
+				# Spec sheet values shown on the kit configurator and its spec submittal.
+				warranty_years=5,
+				min_length_mm=100,
+				max_length_mm=2000,
+				length_increment_mm=1,
+				beam_angle=120,
+				l70_life_hours=50000,
+				operating_temp_min_c=-20,
+				operating_temp_max_c=45,
+				fixture_weight_per_foot_grams=150,
+				kit_components=[
+					{
+						"component_type": "Profile",
+						"component_item": profile,
+						"component_spec_doctype": "ilL-Spec-Profile",
+						"component_spec_name": profile,
+						"quantity": 1,
+					},
+					{
+						"component_type": "Lens",
+						"component_item": lens,
+						"component_spec_doctype": "ilL-Spec-Lens",
+						"component_spec_name": lens,
+						"quantity": 1,
+					},
+					{
+						"component_type": "Mounting Kit",
+						"component_item": mount,
+						"component_spec_doctype": "ilL-Spec-Accessory",
+						"component_spec_name": mount,
+						"quantity": 4,
+					},
+				],
 			)
 			add(
 				"ilL-Rel-Kit-Profile-Map",
@@ -193,15 +230,43 @@ def example_catalog(product_type):
 				accessory_item=mount,
 				accessory_spec=mount,
 			)
-			for suffix, kind in (("NO", "Solid"), ("HO", "Feed-Through")):
+			for suffix, style, kind in (("NO", "Solid", "Solid"), ("HO", "Feed Through", "Feed-Through")):
 				add(
 					"ilL-Rel-Kit-Endcap-Map",
 					kit_template=code,
-					endcap_style="Solid",
+					endcap_style=style,
 					endcap_color="White",
 					endcap_type=kind,
 					endcap_item=f"EC-DEMO-WH-{suffix}",
 					endcap_spec=f"EC-DEMO-WH-{suffix}",
+				)
+			# Spec submittal fields. Attach the fillable PDF as spec_submittal_template in
+			# ERPNext; each row fills one of its form fields from the configured kit.
+			for field, source, source_field, extra in (
+				(
+					"part_number",
+					"ilL-Extrusion-Kit-Template",
+					"template_code",
+					{"webflow_field": "part_number"},
+				),
+				("project_name", "ilL-Project", "project_name", {"webflow_field": "project_name"}),
+				("finish", "ilL-Attribute-Finish", "finish_name", {}),
+				(
+					"profile_width",
+					"ilL-Spec-Profile",
+					"width_mm",
+					{"transformation": "MM_TO_INCHES", "suffix": '"'},
+				),
+				("lens", "ilL-Attribute-Lens Appearance", "label", {}),
+				("mounting", "ilL-Spec-Accessory", "mounting_method", {"kit_component": "Mounting"}),
+			):
+				add(
+					"ilL-Kit-Submittal-Mapping",
+					kit_template=code,
+					pdf_field_name=field,
+					source_doctype=source,
+					source_field=source_field,
+					**extra,
 				)
 	elif product_type in {"tape", "neon"}:
 		add(
@@ -366,6 +431,7 @@ def example_catalog(product_type):
 		"led-sheet": "LED Sheet",
 		"driver": "Driver",
 		"controller": "Controller",
+		"extrusion-kit": "Extrusion Kit",
 	}
 	product_fields = {
 		"fixture": "fixture_template",
@@ -374,9 +440,8 @@ def example_catalog(product_type):
 		"led-sheet": "led_sheet_template",
 		"driver": "driver_template",
 		"controller": "controller_template",
+		"extrusion-kit": "kit_template",
 	}
-	# Extrusion kits use their dedicated portal configurator. Webflow's current
-	# product schema has component tables but no extrusion kit template link.
 	if product_type in product_types:
 		add(
 			"ilL-Webflow-Product",

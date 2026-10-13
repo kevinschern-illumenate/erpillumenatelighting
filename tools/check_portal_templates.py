@@ -312,6 +312,10 @@ for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Shee
 		product_slug="",
 		show_stock_qty=True,
 		finder="TOKEN",
+		driver_templates=[
+			View(name="DRV-A", template_name="Slim <Driver>", image="/files/drv.jpg", gallery_json='[{"image": "/files/drv.jpg"}]', description="Class 2"),
+			View(name="DRV-B", template_name="Wet Driver", image=None, gallery_json="[]", description=""),
+		],
 	)
 	for mode in ["coordinator", "wizard"] if category == "Linear Fixture" else ["coordinator"]:
 		context["configurator_mode"] = mode

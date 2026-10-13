@@ -24,6 +24,7 @@ def get_context(context):
 	    configured exactly like LED Tape
 	  - LED Neon – uses ilL-Tape-Neon-Template (product_category='LED Neon')
 	  - LED Sheet / LED Sheets – uses ilL-LED-Sheet-Template
+	  - Driver (power supplies) - uses ilL-Driver-Template
 	"""
 	if frappe.session.user == "Guest":
 		current_url = frappe.utils.get_url(frappe.request.path)
@@ -247,7 +248,15 @@ def get_context(context):
 	context.quiz_prefill = quiz_prefill
 	context.family_products = []
 	context.show_stock_qty = True  # This page is restricted to catalog dealers and internal users.
-	if product_category in ("Driver", "Controller"):
+	if product_category == "Driver":
+		# Power supplies are configured from their ilL-Driver-Template; product links resolve to it.
+		if not template_code and context.product_slug:
+			template_code = frappe.db.get_value(
+				"ilL-Webflow-Product", {"product_slug": context.product_slug, "product_type": "Driver"}, "driver_template"
+			)
+			context.selected_template = template_code
+		context.driver_templates = _get_driver_templates()
+	elif product_category == "Controller":
 		from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
 		from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
 
@@ -342,6 +351,39 @@ def _get_tape_neon_templates(product_category):
 		t.image = gallery[0]["image"] if gallery else t.image
 		t.gallery_json = json.dumps(gallery) if gallery else "[]"
 
+	return templates
+
+
+def _get_driver_templates():
+	"""Active ilL-Driver-Template records with Webflow imagery for the power supply picker."""
+	templates = frappe.get_all(
+		"ilL-Driver-Template",
+		filters={"is_active": 1},
+		fields=["name", "template_code", "template_name", "webflow_product"],
+		order_by="template_name asc",
+		ignore_permissions=True,
+	)
+	gallery_by_product = _fetch_webflow_gallery([t.webflow_product for t in templates if t.webflow_product])
+	descriptions = (
+		dict(
+			frappe.get_all(
+				"ilL-Webflow-Product",
+				filters={"name": ["in", [t.webflow_product for t in templates if t.webflow_product]]},
+				fields=["name", "short_description"],
+				as_list=True,
+				ignore_permissions=True,
+			)
+		)
+		if any(t.webflow_product for t in templates)
+		else {}
+	)
+	for t in templates:
+		gallery = gallery_by_product.get(t.webflow_product, []) if t.webflow_product else []
+		t.template_code = t.template_code or t.name
+		t.template_name = t.template_name or t.name
+		t.image = gallery[0]["image"] if gallery else None
+		t.gallery_json = json.dumps(gallery)
+		t.description = descriptions.get(t.webflow_product) or ""
 	return templates
 
 

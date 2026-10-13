@@ -2,13 +2,17 @@
 
 
 def set_value(values, mapping, raw, rendered, warnings=None):
-	"""Record one mapped value. Only a missing required engineering value blocks filling;
-	authoring problems are reported as warnings so the submittal still generates."""
+	"""Record one mapped value. Missing values and authoring problems are reported as
+	warnings so the submittal still generates."""
 	field = mapping.get("pdf_field_name")
 	if mapping.get("required_value") and (raw is None or str(raw).strip() == ""):
-		raise ValueError(
-			f"Required engineering value is missing: {mapping.get('source_doctype')}.{mapping.get('source_field')} for {field}"
-		)
+		if warnings is not None:
+			warnings.append(
+				f"Required value is missing: {mapping.get('source_doctype')}.{mapping.get('source_field')}; "
+				f"PDF field {field or '(unnamed)'} was left blank"
+			)
+		# A prefix or suffix alone would read as a real value.
+		rendered = ""
 	if not field:
 		if warnings is not None:
 			warnings.append(

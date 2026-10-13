@@ -11,10 +11,27 @@ from test_services import ROOT, Record, load_service
 from illumenate_lighting.illumenate_lighting.portal.packet_manifest import assemble_manifest
 
 
-def pdf_bytes(pages=1, password=None):
+def pdf_bytes(pages=1, password=None, text=None):
 	writer = PdfWriter()
 	for _ in range(pages):
-		writer.add_blank_page(width=612, height=792)
+		page = writer.add_blank_page(width=612, height=792)
+		if text:
+			# A minimal text stream so the overlay is detectable on the merged page.
+			from pypdf.generic import ContentStream, DictionaryObject, NameObject
+
+			font = DictionaryObject(
+				{
+					NameObject("/Type"): NameObject("/Font"),
+					NameObject("/Subtype"): NameObject("/Type1"),
+					NameObject("/BaseFont"): NameObject("/Helvetica"),
+				}
+			)
+			page[NameObject("/Resources")] = DictionaryObject(
+				{NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+			)
+			stream = ContentStream(None, writer)
+			stream.set_data(f"BT /F1 18 Tf 72 720 Td ({text}) Tj ET".encode())
+			page[NameObject("/Contents")] = writer._add_object(stream)
 	if password:
 		writer.encrypt(password)
 	stream = io.BytesIO()
@@ -133,6 +150,15 @@ class PacketManifest(unittest.TestCase):
 			assemble_manifest([line("one"), line("one")], lambda _: (pdf_bytes(), "source.pdf"))
 
 
+class IncompleteWatermark(unittest.TestCase):
+	def test_banner_marks_only_the_opening_pages(self):
+		with load_service(ROOT + ".portal.packets", {}) as (module, _frappe):
+			marked = module._incomplete_watermark(pdf_bytes(5), lambda _html: pdf_bytes(1, text="BANNER"))
+		pages = PdfReader(io.BytesIO(marked)).pages
+		self.assertEqual(len(pages), 5)
+		self.assertEqual(["BANNER" in page.extract_text() for page in pages], [True, True, False, False, False])
+
+
 class PacketGather(unittest.TestCase):
 	kit_renderer = MagicMock(return_value={"success": True, "file_url": "/private/files/kit.pdf"})
 
@@ -162,31 +188,94 @@ class PacketGather(unittest.TestCase):
 			warnings = []
 			return module.gather(Record(name="S1", lines=list(rows)), warnings), warnings
 
-	def test_each_line_keeps_the_reason_its_submittal_failed(self):
+	@staticmethod
+	def templates(spec_sheets):
+		"""Fixture CF1 belongs to template T1; spec_sheets maps template -> spec sheet URL."""
+
+		def get_value(doctype, name, field, **_kwargs):
+			if (doctype, field) == ("ilL-Configured-Fixture", "fixture_template"):
+				return "T1"
+			if field == "spec_sheet":
+				return spec_sheets.get(name)
+			return None
+
+		return get_value
+
+	def test_template_without_a_usable_submittal_falls_back_to_its_spec_sheet(self):
 		row = dict(idx=1, line_id=None, qty=1, location=None, notes=None, manufacturer_type="ILLUMENATE")
 		lines, warnings = self.gather(
 			Record(row, name="R1", line_key="K1", configured_fixture="CF1"),
-			Record(row, name="R2", line_key="K2", idx=2),
+			get_value=self.templates({"T1": "/files/t1-spec-sheet.pdf"}),
 		)
-		self.assertEqual(
-			lines[0]["render_error"],
-			"Failed to fill PDF form fields; PDF filling blocked: none of the 2 mapped field(s) exist in the PDF template /files/t.pdf.",
+		self.assertEqual(lines[0]["spec_document_url"], "/files/t1-spec-sheet.pdf")
+		self.assertEqual(lines[0]["source_kind"], "template_spec_sheet")
+		self.assertNotIn("render_error", lines[0])
+		self.assertIn("Line Row 1: used the T1 spec sheet", lines[0]["warnings"][0])
+		self.assertIn("none of the 2 mapped field(s) exist", lines[0]["warnings"][0])
+		self.assertIn(lines[0]["warnings"][0], warnings)
+		manifest, parts, errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "sheet.pdf"))
+		self.assertEqual(errors, [])
+		self.assertEqual(len(parts), 1)
+		self.assertEqual(manifest[0]["status"], "included")
+		self.assertEqual(manifest[0]["warnings"], lines[0]["warnings"])
+
+	def test_template_without_any_document_warns_and_leaves_the_line_out(self):
+		row = dict(idx=1, line_id=None, qty=1, location=None, notes=None, manufacturer_type="ILLUMENATE")
+		lines, warnings = self.gather(
+			Record(row, name="R1", line_key="K1", configured_fixture="CF1"),
+			Record(row, name="R2", line_key="K2", idx=2, manufacturer_type="OTHER", spec_sheet="/files/o.pdf"),
+			get_value=self.templates({}),
 		)
-		self.assertIn(lines[0]["render_error"], warnings)
-		self.assertIn("no configured build", lines[1]["render_error"])
+		self.assertFalse(lines[0]["required"])
+		self.assertIn("T1 has no spec submittal or spec sheet", lines[0]["warnings"][0])
+		self.assertIn(lines[0]["warnings"][0], warnings)
+		manifest, parts, errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "other.pdf"))
+		self.assertEqual(errors, [])
+		self.assertEqual(len(parts), 1)
+		self.assertEqual(manifest[0]["status"], "excluded")
+		self.assertEqual(manifest[0]["reason"], "No spec submittal or spec sheet available")
+
+	def test_unconfigured_line_still_reports_why(self):
+		row = dict(idx=2, line_id=None, qty=1, location=None, notes=None, manufacturer_type="ILLUMENATE")
+		lines, _warnings = self.gather(Record(row, name="R2", line_key="K2"))
+		self.assertIn("no configured build", lines[0]["render_error"])
 		_manifest, _parts, errors = assemble_manifest(lines, lambda _: self.fail("No source should load"))
 		self.assertIn(
-			"Line Row 1 (K1): The filled submittal could not be generated: Failed to fill", errors[0]
+			"Line Row 2 (K2): The filled submittal could not be generated: The line has no", errors[0]
 		)
-		self.assertIn(
-			"Line Row 2 (K2): The filled submittal could not be generated: The line has no", errors[1]
+
+	def test_unconfigured_kit_falls_back_to_its_spec_sheet(self):
+		row = dict(idx=1, line_id="K", qty=4, location=None, notes=None, manufacturer_type="ILLUMENATE")
+		self.kit_renderer = MagicMock(
+			return_value={"success": False, "message": "Configure this extrusion kit before exporting"}
+		)
+		lines, _warnings = self.gather(
+			Record(row, name="R1", line_key="K1", kit_template="KIT-A"),
+			get_value=self.templates({"KIT-A": "/files/kit-a.pdf"}),
+		)
+		self.assertEqual(lines[0]["spec_document_url"], "/files/kit-a.pdf")
+		self.assertEqual(lines[0]["provenance"]["template_type"], "ilL-Extrusion-Kit-Template")
+		self.assertIn("Line K: used the KIT-A spec sheet", lines[0]["warnings"][0])
+
+	def test_filled_submittal_carries_its_mapping_warnings(self):
+		row = dict(idx=1, line_id="K", qty=4, location=None, notes=None, manufacturer_type="ILLUMENATE")
+
+		def renderer(name, warnings=None, schedule_line=None):
+			warnings += ["[DEBUG] noise", "2 PDF field(s) have no mapping and will be left blank: ['A', 'B']"]
+			return {"success": True, "file_url": "/private/files/kit.pdf"}
+
+		self.kit_renderer = renderer
+		lines, _warnings = self.gather(Record(row, name="R1", line_key="K1", kit_template="KIT-A"))
+		self.assertEqual(lines[0]["source_kind"], "filled_submittal")
+		self.assertEqual(
+			lines[0]["warnings"], ["Line K: 2 PDF field(s) have no mapping and will be left blank: ['A', 'B']"]
 		)
 
 	def test_linear_line_carries_display_part_number_not_hash_name(self):
 		row = dict(idx=1, line_id="A", qty=1, location=None, notes=None, manufacturer_type="ILLUMENATE")
 		calls = []
 
-		def get_value(doctype, name, field):
+		def get_value(doctype, name, field, **_kwargs):
 			calls.append((doctype, name, field))
 			return "ILL-SL-SW-I-30-HO-FR-SM-WH-48"
 
@@ -196,7 +285,7 @@ class PacketGather(unittest.TestCase):
 			get_value=get_value,
 		)
 		self.assertEqual([entry["part_number"] for entry in lines], ["ILL-SL-SW-I-30-HO-FR-SM-WH-48", "ACM-200"])
-		self.assertEqual(calls, [("ilL-Configured-Fixture", "ILL-CF-" + "a" * 64, "display_part_number")])
+		self.assertEqual(calls[0], ("ilL-Configured-Fixture", "ILL-CF-" + "a" * 64, "display_part_number"))
 		manifest, _parts, _errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "source.pdf"))
 		self.assertEqual(manifest[0]["part_number"], "ILL-SL-SW-I-30-HO-FR-SM-WH-48")
 

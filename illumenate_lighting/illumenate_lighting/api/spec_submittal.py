@@ -2091,8 +2091,14 @@ def _generate_filled_variant_submittal(
 
 		suffix_code = (variant.get("variant_code") or variant.name or "").replace("/", "-")
 		filename = f"Spec_Submittal_{template_name}_{suffix_code}_{nowdate()}.pdf"
+		# Packet renders belong to their export job, like every other packet source.
+		packet_job = frappe.flags.get("ill_packet_job")
 		file_doc = _save_file_ignore_permissions(
-			filename, filled_pdf, cfg["template_doctype"], template_name, is_private=is_private
+			filename,
+			filled_pdf,
+			"ilL-Export-Job" if packet_job else cfg["template_doctype"],
+			packet_job or template_name,
+			is_private=1 if packet_job else is_private,
 		)
 
 		_debug(
@@ -2152,6 +2158,58 @@ def generate_filled_driver_submittal(
 	return _generate_filled_variant_submittal(
 		"Driver", driver_template_name, variant_name, warnings, webflow_overrides, is_private
 	)
+
+
+def generate_filled_driver_line_submittal(
+	driver_template_name: str,
+	warnings: list | None = None,
+	schedule_line: str | None = None,
+	*,
+	_schedule_context=None,
+) -> dict:
+	"""
+	Generate a filled spec submittal PDF for a configured power supply schedule line.
+
+	The line keeps the validated configuration (see portal.driver_configuration), so the
+	submittal is filled from the exact variant chosen, and the schedule supplies the
+	"project_name", "fixture_type", "project_location" and "part_number" values that
+	mappings with a Webflow Field read.
+
+	.. note::
+		This is an internal helper and is intentionally **not** whitelisted.
+		The schedule line is authorized through its schedule before any value is read.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.driver_configuration import driver_configuration
+
+	if warnings is None:
+		warnings = []
+	_schedule, project, line = _schedule_context or _explicit_schedule_context(
+		"driver_template", driver_template_name, schedule_line
+	)
+	config = driver_configuration(line) if line else None
+	if not config:
+		return {
+			"success": False,
+			"message": _("Configure this power supply before exporting"),
+			"warnings": warnings,
+		}
+	overrides = {
+		"project_name": project.get("project_name") if project else None,
+		"fixture_type": line.get("line_id"),
+		"project_location": line.get("location") or (project.get("location") if project else None),
+		"part_number": config.get("part_number"),
+	}
+	overrides = {key: value for key, value in overrides.items() if value not in (None, "")}
+	result = _generate_filled_variant_submittal(
+		"Driver", driver_template_name, config.get("variant_name"), warnings, overrides, is_private=1
+	)
+	if result.get("success"):
+		result.setdefault("provenance", {})["build"] = {
+			"part_number": config.get("part_number"),
+			"selections": config.get("selections"),
+			"item": config.get("item_code"),
+		}
+	return result
 
 
 def generate_filled_controller_submittal(

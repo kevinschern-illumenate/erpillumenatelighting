@@ -1353,10 +1353,20 @@ body.reorder-no-select {
 									<td class="col-fixture-details">
 										{% if line.get('manufacturer_type') == 'ACCESSORY' and line.get('accessory_item') %}
 										<div class="fixture-details">
+											{% if line.get('driver_template') %}
+											<!-- Configured power supply: template name first, then its part number -->
+											<strong class="text-success">{{ line.get('driver_template_name') }}</strong>
+											<span class="badge badge-info ml-1">{{ _('Power Supply') }}</span>
+											<div class="small text-muted">
+												<i class="fa fa-tag"></i> {{ _('Part') }}: <strong>{{ line.get('driver_part_number') or line.get('accessory_item') }}</strong>
+												{% if line.get('driver_part_number') and line.get('driver_part_number') != line.get('accessory_item') %}<span class="ml-1">({{ line.get('accessory_item') }})</span>{% endif %}
+											</div>
+											{% else %}
 											<strong class="text-success">{{ line.get('accessory_item_name') or line.get('accessory_item') }}</strong>
 											<div class="small text-muted">
 												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('accessory_item') }}</strong>
 											</div>
+											{% endif %}
 											{% if line.get('variant_selections') %}
 											<div class="small text-muted mt-1">
 												{% for attr_name, attr_val in line.get('variant_selections').items() %}
@@ -1493,6 +1503,15 @@ body.reorder-no-select {
 												</table>
 											</details>
 											{% endif %}
+										</div>
+										{% elif line.get('manufacturer_type') == 'ACCESSORY' and line.get('driver_template') %}
+										<!-- Unconfigured power supply line -->
+										<div class="fixture-details">
+											<strong>{{ line.get('driver_template_name') or line.get('driver_template') }}</strong>
+											<span class="badge badge-info ml-1">{{ _('Power Supply') }}</span>
+											<div class="small text-warning mt-1">
+												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to choose wattage, output voltage and dimming") }}
+											</div>
 										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_group') %}
 {% include 'illumenate_lighting/templates/includes/group_summary.html' %}
@@ -1928,6 +1947,11 @@ body.reorder-no-select {
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
 												{% endif %}
+											{% elif line.get('manufacturer_type') == 'ACCESSORY' and line.get('driver_template') %}
+												<!-- Power supply - edit or configure in the power supply configurator -->
+												<a href="/portal/configure?category=Driver&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('driver_template') | urlencode }}" class="btn btn-sm {{ 'btn-info' if line.get('accessory_item') else 'btn-primary' }}" title="{{ _('Edit Configuration') if line.get('accessory_item') else _('Configure') }}">
+													{% if line.get('accessory_item') %}<i class="fa fa-edit"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog"></i> {{ _('Configure') }}{% endif %}
+												</a>
 											{% endif %}
 											<button type="button" class="btn btn-sm btn-outline-secondary line-documents" data-schedule="{{ schedule.name }}" data-line="{{ line.get('line_key') or line.get('name') }}">{{ _('Specifications') }}</button>
 <button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit Line Details') }}">
@@ -2145,6 +2169,14 @@ body.reorder-no-select {
 								<option value="">{{ _("Select Extrusion Kit...") }}</option>
 							</select>
 						</div>
+						<!-- Power Supply Template picker (shown when Power Supplies selected) -->
+						<div class="form-group driver-template-group add-line-picker-group" style="display: none;">
+							<label>{{ _("Power Supply") }}</label>
+							<div id="add_driver_template_cards"></div>
+							<select class="form-control" name="driver_template" id="add_driver_template">
+								<option value="">{{ _("Select Power Supply...") }}</option>
+							</select>
+						</div>
 						<!-- Item picker (shown for every other product category) -->
 						<div class="form-group item-selection-group add-line-picker-group" style="display: none;">
 							<label>{{ _("Item") }}</label>
@@ -2243,6 +2275,17 @@ body.reorder-no-select {
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureKitFromAddBtn" onclick="configureKitFromAddModal()">
 								<i class="fa fa-cog"></i> {{ _("Configure Extrusion Kit Now") }}
+							</button>
+						</div>
+
+						<!-- Power Supply configure section (shown for Power Supplies) -->
+						<div class="driver-configure-section" style="display: none;">
+							<div class="alert alert-info">
+								<i class="fa fa-info-circle"></i>
+								{{ _("You can add this power supply unconfigured and choose its wattage, output voltage and dimming later, or click below to configure now.") }}
+							</div>
+							<button type="button" class="btn btn-primary btn-block" id="configureDriverFromAddBtn" onclick="configureDriverFromAddModal()">
+								<i class="fa fa-cog"></i> {{ _("Configure Power Supply Now") }}
 							</button>
 						</div>
 
@@ -2804,12 +2847,14 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('.tape-neon-template-group').hide();
 	$('.led-sheet-template-group').hide();
 	$('.kit-template-group').hide();
+	$('.driver-template-group').hide();
 	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
 	$('.led-sheet-configure-section').hide();
 	$('.kit-configure-section').hide();
+	$('.driver-configure-section').hide();
 	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
@@ -2820,6 +2865,7 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('#add_tape_neon_template').html('<option value="">{{ _("Select Product Series...") }}</option>');
 	$('#add_led_sheet_template').html('<option value="">{{ _("Select LED Sheet Template...") }}</option>');
 	$('#add_kit_template').html('<option value="">{{ _("Select Extrusion Kit...") }}</option>');
+	$('#add_driver_template').html('<option value="">{{ _("Select Power Supply...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
 	// Reset configure button text to default
 	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
@@ -2856,18 +2902,21 @@ $('#add_product_type').on('change', function() {
 	var rawIsLedSheetType = $selected.data('is-led-sheet-type');
 	var isLedSheetType = rawIsLedSheetType === 1 || rawIsLedSheetType === '1' || rawIsLedSheetType === true || rawIsLedSheetType === 'true';
 	var isKitType = isExtrusionKitOption($selected);
+	var isPowerSupplyType = isPowerSupplyOption($selected);
 	
 	// Hide all conditional sections first
 	$('.fixture-template-group').hide();
 	$('.tape-neon-template-group').hide();
 	$('.led-sheet-template-group').hide();
 	$('.kit-template-group').hide();
+	$('.driver-template-group').hide();
 	$('.tape-neon-template-info').hide();
 	$('.item-selection-group').hide();
 	$('.selected-item-details').hide();
 	$('.fixture-configure-section').hide();
 	$('.led-sheet-configure-section').hide();
 	$('.kit-configure-section').hide();
+	$('.driver-configure-section').hide();
 	$('#addLineUnconfiguredWarning').hide();
 	$('.item-configure-section').hide();
 	$('.item-direct-section').hide();
@@ -2904,6 +2953,11 @@ $('#add_product_type').on('change', function() {
 		$('.kit-template-group').show();
 		$('.kit-configure-section').show();
 		loadExtrusionKitTemplates();
+	} else if (isPowerSupplyType) {
+		// Power Supplies — pick a power supply template, then configure it like kits
+		$('.driver-template-group').show();
+		$('.driver-configure-section').show();
+		loadDriverTemplates();
 	} else {
 		// For all other product types, show item selection dropdown
 		$('.item-selection-group').show();
@@ -3233,6 +3287,46 @@ $('#add_kit_template').on('change', function() {
 	initAddLineGallery(gallery);
 });
 
+// Power Supplies groups pick an ilL-Driver-Template; the server flags them,
+// older payloads fall back to the group's label.
+function isPowerSupplyOption($option) {
+	var flag = $option.data('is-power-supply-type');
+	if (flag !== undefined) return [1, '1', true, 'true'].includes(flag);
+	var label = ($option.text() || '').replace(/[└─]/g, '').trim().toLowerCase();
+	return label.indexOf('power suppl') === 0 || label.indexOf('driver') === 0;
+}
+
+// Load power supply (driver) templates from the server
+function loadDriverTemplates() {
+	var $select = $('#add_driver_template');
+	$select.html('<option value="">{{ _("Loading...") }}</option>');
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_driver_templates_for_schedule',
+		callback: function(r) {
+			$select.html('<option value="">{{ _("Select Power Supply...") }}</option>');
+			((r.message && r.message.templates) || []).forEach(function(template) {
+				$('<option>').val(template.name)
+					.text(template.template_name + (template.template_code && template.template_code !== template.template_name ? ' (' + template.template_code + ')' : ''))
+					.attr('data-name', template.template_name)
+					.attr('data-image', template.image || '')
+					.attr('data-gallery', JSON.stringify(template.gallery || []))
+					.attr('data-description', template.description || '')
+					.appendTo($select);
+			});
+			IllConfigurator.renderTemplateCards({ $select: $select, $container: $('#add_driver_template_cards'), labels: { search: __('Search products...'), empty: __('No products match your search.'), count: addLinePickerCount } });
+		},
+		error: function() {
+			$select.html('<option value="">{{ _("Error loading power supplies") }}</option>');
+		}
+	});
+}
+
+$('#add_driver_template').on('change', function() {
+	var gallery = [];
+	try { gallery = JSON.parse($(this).find('option:selected').attr('data-gallery') || '[]'); } catch (_) {}
+	initAddLineGallery(gallery);
+});
+
 // Handle tape/neon template selection to show product image gallery and template info
 $('#add_tape_neon_template').on('change', function() {
 	var $selected = $(this).find('option:selected');
@@ -3409,7 +3503,7 @@ function loadProductCategories() {
 						indent = '        └─ ';
 					}
 					// Store is_fixture_type, is_tape_neon_type, tape_neon_category, is_led_sheet_type as data attributes
-					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-tape-neon-category="' + (pt.tape_neon_category || '') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-is-extrusion-kit-type="' + (pt.is_extrusion_kit_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
+					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-tape-neon-category="' + (pt.tape_neon_category || '') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-is-extrusion-kit-type="' + (pt.is_extrusion_kit_type ? '1' : '0') + '" data-is-power-supply-type="' + (pt.is_power_supply_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
@@ -3724,6 +3818,7 @@ function addLine() {
 	var rawIsLedSheetType = $productTypeSelected.data('is-led-sheet-type');
 	var isLedSheetType = rawIsLedSheetType === 1 || rawIsLedSheetType === '1' || rawIsLedSheetType === true || rawIsLedSheetType === 'true';
 	var isKitType = isExtrusionKitOption($productTypeSelected);
+	var isPowerSupplyType = isPowerSupplyOption($productTypeSelected);
 	
 	var data = {
 		line_id: form.find('[name="line_id"]').val(),
@@ -3783,6 +3878,20 @@ function addLine() {
 			data.product_type = 'Extrusion Kit';
 			data.kit_template = kitTemplate;
 			data.configuration_status = 'Pending';
+		} else if (isPowerSupplyType) {
+			// Power supply path - uses the power supply template and the power supply configurator
+			var driverTemplate = form.find('[name="driver_template"]').val();
+			if (!driverTemplate) {
+				frappe.msgprint({
+					title: '{{ _("Selection Required") }}',
+					indicator: 'orange',
+					message: '{{ _("Please select a power supply before adding the line.") }}'
+				});
+				return;
+			}
+			data.manufacturer_type = 'ACCESSORY';
+			data.accessory_product_type = productType;
+			data.driver_template = driverTemplate;
 		} else if (productType) {
 			// Other product types - uses item selection (potentially with variants)
 			var selectedItem = form.find('[name="selected_item"]').val();
@@ -3910,6 +4019,11 @@ function configureFromAddModal() {
 	if (!template) { frappe.msgprint(__('Select a product before configuring.')); return; }
 	var category = fixture ? 'Linear Fixture' : tapeNeonCategoryOf(option);
 	startConfigurationDraft(category, form.find(selector + ' option:selected').data('template-code') || template);
+}
+function configureDriverFromAddModal() {
+	var template = $('#addLineForm [name="driver_template"]').val();
+	if (!template) { frappe.msgprint(__('Select a power supply.')); return; }
+	startConfigurationDraft('Driver', template);
 }
 function configureKitFromAddModal() {
 	var template = $('#addLineForm [name="kit_template"]').val();
@@ -4134,10 +4248,17 @@ function watchPacket(job, attempt) {
     frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.packet_jobs.status', args: {job_name: job}, callback: function (r) {
         var value = r.message || {};
         loadExportHistory();
+        var warnings = (value.warnings || []).length
+            ? '<p>' + __('Generated with these warnings:') + '</p><ul>' + value.warnings.map(function (w) { return '<li>' + frappe.utils.escape_html(w) + '</li>'; }).join('') + '</ul>'
+            : '';
         if (value.status === 'COMPLETE') {
-            frappe.show_alert({message: __('Packet complete. Download it from export history.'), indicator: 'green'});
+            if (warnings) {
+                frappe.msgprint({title: __('Packet complete with warnings'), message: '<p>' + __('Download it from export history.') + '</p>' + warnings, indicator: 'orange'});
+            } else {
+                frappe.show_alert({message: __('Packet complete. Download it from export history.'), indicator: 'green'});
+            }
         } else if (value.status === 'FAILED' || value.status === 'INCOMPLETE') {
-            frappe.msgprint({title: __('Packet incomplete'), message: frappe.utils.escape_html(value.error || __('Review the failed attempt and retry.')), indicator: 'red'});
+            frappe.msgprint({title: __('Packet incomplete'), message: '<p>' + frappe.utils.escape_html(value.error || __('Review the failed attempt and retry.')) + '</p>' + warnings, indicator: 'red'});
         } else if (attempt < 30) {
             window.setTimeout(function () { watchPacket(job, attempt + 1); }, 3000);
         }

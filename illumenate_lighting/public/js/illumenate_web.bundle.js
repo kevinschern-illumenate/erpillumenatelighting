@@ -18,3 +18,4 @@ import "./configurator/coordinator.js";
 import "./product_finder_portal.js";
 import "./configurator/driver_controller_steps.js";
 import "./configurator/kit_steps.js";
+import "./configurator/driver_steps.js";

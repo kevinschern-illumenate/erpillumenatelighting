@@ -9,7 +9,7 @@ FIELDS = {
 	"ilL-Rel-Tape Offering": "tape_spec cct cri sdcm led_package output_level watts_per_ft_override cut_increment_mm_override",
 	"ilL-Spec-Profile": "item family variant_code series width_mm height_mm dimensions weight_per_meter_grams stock_length_mm max_assembled_length_mm is_cuttable supports_joiners joiner_system lens_interface",
 	"ilL-Spec-Lens": "lens_appearance series stock_type stock_length_mm continuous_max_length_mm item family",
-	"ilL-Spec-Driver": "item input_voltage input_voltage_min input_voltage_max input_voltage_type voltage_output outputs_count output_type output_protocol max_wattage max_wattage_per_output usable_load_factor sku_control_code sku_wattage_output_code sku_form_code width_mm height_mm depth_mm weight_grams independent_outputs_count",
+	"ilL-Spec-Driver": "item input_voltage input_voltage_min input_voltage_max input_voltage_type voltage_output outputs_count output_type output_protocol max_wattage max_wattage_per_output usable_load_factor sku_control_code sku_wattage_output_code sku_form_code sku_channel_code width_mm height_mm depth_mm weight_grams independent_outputs_count",
 }
 
 

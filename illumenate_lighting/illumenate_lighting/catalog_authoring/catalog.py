@@ -28,6 +28,7 @@ WEBFLOW_TEMPLATES = {
 	"LED Sheet": ("led_sheet_template", "ilL-LED-Sheet-Template"),
 	"Driver": ("driver_template", "ilL-Driver-Template"),
 	"Controller": ("controller_template", "ilL-Controller-Template"),
+	"Extrusion Kit": ("kit_template", "ilL-Extrusion-Kit-Template"),
 }
 AXES = {
 	"ilL-Driver-Template": {

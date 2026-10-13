@@ -180,6 +180,9 @@ class ilLProjectFixtureSchedule(Document):
 				elif not line.configured_fixture:
 					line_id = line.line_id or f"Row {line.idx}"
 					unconfigured_lines.append(line_id)
+			elif line.manufacturer_type == "ACCESSORY" and line.get("driver_template") and not line.accessory_item:
+				# A power supply added from its template is configured in the power supply configurator.
+				unconfigured_lines.append(line.line_id or f"Row {line.idx}")
 
 		if unconfigured_lines:
 			frappe.throw(
@@ -965,6 +968,19 @@ class ilLProjectFixtureSchedule(Document):
 				row.conversion_factor = 1
 				if line.accessory_item_name:
 					row.description = line.accessory_item_name
+				from illumenate_lighting.illumenate_lighting.portal.driver_configuration import (
+					driver_configuration,
+					line_description,
+				)
+
+				driver = driver_configuration(line)
+				if driver:
+					# A configured power supply leads with its template name, like kits and tape/neon.
+					row.description = line_description(
+						driver.get("template_name") or line.driver_template,
+						driver.get("part_number"),
+						frappe.db.get_value("Item", line.accessory_item, "item_name"),
+					)
 				if line.get("power_supply_for_line"):
 					# An included power supply split out of the fixture line above.
 					owner = next(
