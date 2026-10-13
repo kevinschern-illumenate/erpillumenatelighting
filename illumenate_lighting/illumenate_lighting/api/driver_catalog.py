@@ -57,6 +57,23 @@ def candidates(template_type, template, voltage, output_protocol=None, input_pro
 		},
 		fields=["driver_spec", "priority"],
 	)
+	return _collect(rows, voltage, output_protocol, input_protocol)
+
+
+def catalog_candidates(voltage, output_protocol=None, input_protocol=None):
+	"""Every active constant-voltage supply at this voltage, for templates with no approved match."""
+	if not voltage:
+		raise ValueError("A light-engine voltage is required for supply selection")
+	rows = frappe.get_all(
+		"ilL-Spec-Driver",
+		filters={"voltage_output": voltage, "output_type": "Constant Voltage"},
+		fields=["name as driver_spec"],
+		order_by="name asc",
+	)
+	return _collect(rows, voltage, output_protocol, input_protocol, skip_ambiguous=True)
+
+
+def _collect(rows, voltage, output_protocol, input_protocol, skip_ambiguous=False):
 	result, revisions = [], {}
 	for row in rows:
 		driver = frappe.get_doc("ilL-Spec-Driver", row.driver_spec)
@@ -70,8 +87,15 @@ def candidates(template_type, template, voltage, output_protocol=None, input_pro
 		if not driver.item or frappe.db.get_value("Item", driver.item, "disabled"):
 			continue
 		if driver.item in revisions:
+			if skip_ambiguous:
+				continue
 			raise ValueError("Each eligible driver Item must resolve to one electrical specification")
-		outputs = independent_outputs(driver)
+		try:
+			outputs = independent_outputs(driver)
+		except ValueError:
+			if skip_ambiguous:
+				continue
+			raise
 		revisions[driver.item] = {
 			key: driver.get(key)
 			for key in (
@@ -90,7 +114,7 @@ def candidates(template_type, template, voltage, output_protocol=None, input_pro
 			{
 				"item_code": driver.item,
 				"outputs_count": outputs,
-				"priority": row.priority or 0,
+				"priority": row.get("priority") or 0,
 				"cost": driver.cost or 0,
 				**{
 					key: driver.get(key)
