@@ -3048,9 +3048,9 @@
           "fieldname": "source_doctype",
           "label": "Source DocType",
           "fieldtype": "Select",
-          "options": "ilL-Driver-Template\nilL-Child-Driver-Template-Variant\nilL-Spec-Driver\nilL-Webflow-Product",
+          "options": "ilL-Driver-Template\nilL-Child-Driver-Template-Variant\nilL-Spec-Driver\nilL-Webflow-Product\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
           "reqd": 1,
-          "description": "The DocType to pull the source value from"
+          "description": "The record to pull the value from. Schedule, project and line sources are filled when the power supply is exported from a project schedule."
         },
         {
           "fieldname": "source_field",
