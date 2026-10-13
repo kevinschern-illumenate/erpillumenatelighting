@@ -129,7 +129,11 @@ QUEUES = {
 		"Materials to order",
 		"operations",
 		"Material Request",
-		{"docstatus": 1, "material_request_type": "Purchase", "status": ["in", ["Pending", "Partially Ordered"]]},
+		{
+			"docstatus": 1,
+			"material_request_type": "Purchase",
+			"status": ["in", ["Pending", "Partially Ordered"]],
+		},
 		["name", "transaction_date", "schedule_date", "status", "per_ordered", "modified"],
 		None,
 		"schedule_date",

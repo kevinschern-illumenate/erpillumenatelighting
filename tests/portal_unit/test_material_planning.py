@@ -66,7 +66,9 @@ class ProductionPlanBoms(unittest.TestCase):
 
 class PlannedWorkOrders(unittest.TestCase):
 	def work_order(self, **values):
-		base = dict(production_plan="PP-1", sales_order="SO-1", sales_order_item="SOI-1", production_item="FIX-1")
+		base = dict(
+			production_plan="PP-1", sales_order="SO-1", sales_order_item="SOI-1", production_item="FIX-1"
+		)
 		return Record(**{**base, **values})
 
 	def test_plan_cannot_duplicate_order_work_order(self):

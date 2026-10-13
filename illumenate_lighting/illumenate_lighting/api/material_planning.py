@@ -37,7 +37,9 @@ def bom_mismatches(sales_order):
 			continue
 		default = default_bom(row.item_code)
 		if default and default != pinned:
-			mismatches.append({"idx": row.idx, "item_code": row.item_code, "pinned": pinned, "default": default})
+			mismatches.append(
+				{"idx": row.idx, "item_code": row.item_code, "pinned": pinned, "default": default}
+			)
 	return mismatches
 
 
@@ -50,13 +52,19 @@ def validate_material_request(doc, method=None):
 	if doc.get("material_request_type") != "Purchase":
 		return
 	orders = sorted(
-		{row.sales_order for row in doc.get("items") or [] if row.get("sales_order") and not row.get("production_plan")}
+		{
+			row.sales_order
+			for row in doc.get("items") or []
+			if row.get("sales_order") and not row.get("production_plan")
+		}
 	)
 	for order in orders:
 		mismatches = bom_mismatches(order)
 		if mismatches:
 			lines = ", ".join(
-				_("row {0} ({1}: default {2}, pinned {3})").format(m["idx"], m["item_code"], m["default"], m["pinned"])
+				_("row {0} ({1}: default {2}, pinned {3})").format(
+					m["idx"], m["item_code"], m["default"], m["pinned"]
+				)
 				for m in mismatches
 			)
 			frappe.throw(
