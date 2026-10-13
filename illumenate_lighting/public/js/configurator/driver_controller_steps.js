@@ -42,7 +42,8 @@
   };
   DriverController.prototype.renderSummary=function(data){var box=this.$('#familySummary').empty();if(!data.success){box.text(data.error||'Choose a valid configuration.');return;}box.append($('<strong>').text(data.part_number));if(data.variant)box.append($('<p>').text((data.variant.variant_code||'')+' · '+(data.variant.item||'')));if(this.context.show_pricing&&data.pricing)box.append($('<p>').text('MSRP: '+(data.pricing.total_msrp??data.pricing.total_price_msrp??data.pricing.msrp??'')));};
   DriverController.prototype._updateButtons=function(){this.result=null;this.updateSave();if(!this.loading&&this.steps.length)this.validate();};
-  DriverController.prototype.updateSave=function(){this.$('#familySave').prop('disabled',!this.result||!this.scheduleTarget||!this.scheduleTarget.hasTarget()||!this.scheduleTarget.canSave||this.saving);};
+  // Coerced: prop('disabled', undefined) would only read the property and leave the button disabled.
+  DriverController.prototype.updateSave=function(){this.$('#familySave').prop('disabled',!this.result||!this.scheduleTarget||!this.scheduleTarget.hasTarget()||!this.scheduleTarget.canSave||!!this.saving);};
   DriverController.prototype.metadata=function(){return {line_id:this.$('#familyLineId').val(),location:this.$('#familyLocation').val(),qty:Number(this.$('#familyQty').val()),notes:this.$('#familyNotes').val()};};
   DriverController.prototype.save=function(){
     if(!this.result||this.saving)return;

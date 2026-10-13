@@ -247,6 +247,38 @@ class DriverTemplates(unittest.TestCase):
 			)
 
 
+class DriverValidation(unittest.TestCase):
+	def test_power_supply_resolves_to_its_spec_id_and_the_spec_item(self):
+		deps = {
+			ROOT + ".doctype.ill_controller_template.ill_controller_template": types.SimpleNamespace(
+				CONTROLLER_VARIANT_AXES={}
+			),
+			ROOT + ".doctype.ill_driver_template.ill_driver_template": types.SimpleNamespace(
+				DRIVER_VARIANT_AXES={}, _normalise_axis_value=str
+			),
+		}
+		with load_service(ROOT + ".api.driver_controller_configurator", deps) as (service, frappe):
+			template = Record(name="DRV-A", template_name="Slim Driver")
+			variant = Record(name="row1", driver_spec="DRV-96-24", item=None, variant_code="")
+			service._resolve_template = MagicMock(return_value=(template, None))
+			service._active_steps = MagicMock(return_value=[{"name": "wattage", "label": "Wattage"}])
+			service._matching_variants = MagicMock(return_value=[variant])
+			service._calculate_pricing = MagicMock(return_value={})
+			service._build_part_number = MagicMock(return_value="ILL-SLM-96")
+			service._spec_summary = MagicMock(return_value=[])
+			service._stock = MagicMock(return_value=None)
+			frappe.db.get_value.side_effect = lambda doctype, name, field, *a, **k: {
+				("ilL-Spec-Driver", "item"): "DRV-96-24",
+				("Item", "item_name"): "96W driver",
+			}.get((doctype, field))
+			result = service._validate_configuration("Driver", None, '{"wattage": "96"}', "DRV-A")
+			self.assertEqual(result["part_number"], "DRV-96-24")
+			self.assertEqual(result["variant"]["item"], "DRV-96-24", "a blank fetched Item falls back to the spec's")
+			self.assertEqual(result["variant"]["item_name"], "96W driver")
+			service._stock.assert_called_once_with("DRV-96-24")
+			service._build_part_number.assert_not_called()
+
+
 class DriverPackets(unittest.TestCase):
 	def test_configured_power_supply_gets_its_filled_submittal_and_falls_back_to_literature(self):
 		stored = json.dumps(
