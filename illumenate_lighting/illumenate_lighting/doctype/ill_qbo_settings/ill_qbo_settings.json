@@ -11,8 +11,13 @@
         "webhook_secret",
         "posting_sb",
         "paid_to_account",
+        "paid_from_account",
         "column_break_posting",
         "mode_of_payment",
+        "bills_sb",
+        "bill_webhook_url",
+        "column_break_bills",
+        "bills_from_date",
         "help_sb",
         "endpoint_help"
     ],
@@ -27,7 +32,7 @@
             "fieldname": "sync_enabled",
             "fieldtype": "Check",
             "label": "Sync Enabled",
-            "description": "When unchecked, inbound QBO payment events are logged as Skipped-NoOp and no Payment Entries are created or cancelled."
+            "description": "When unchecked, inbound QBO payment and bill payment events are logged as Skipped-NoOp and no Payment Entries are created or cancelled."
         },
         {
             "fieldname": "column_break_general",
@@ -49,7 +54,14 @@
             "fieldtype": "Link",
             "label": "Paid To Account",
             "options": "Account",
-            "description": "Bank/Cash account that QBO-originated payments post to."
+            "description": "Bank/Cash account that QBO customer payments post to."
+        },
+        {
+            "fieldname": "paid_from_account",
+            "fieldtype": "Link",
+            "label": "Paid From Account",
+            "options": "Account",
+            "description": "Bank account that bill payments made in QuickBooks are paid from. Bill payments fail until this is set."
         },
         {
             "fieldname": "column_break_posting",
@@ -62,6 +74,28 @@
             "options": "Mode of Payment"
         },
         {
+            "fieldname": "bills_sb",
+            "fieldtype": "Section Break",
+            "label": "Supplier Bills (ERPNext → QuickBooks Online)"
+        },
+        {
+            "fieldname": "bill_webhook_url",
+            "fieldtype": "Data",
+            "options": "URL",
+            "label": "Bill Webhook URL",
+            "description": "n8n webhook that creates the QuickBooks Bill for a submitted Purchase Invoice and deletes it on cancel. Leave blank to send no bills."
+        },
+        {
+            "fieldname": "column_break_bills",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "bills_from_date",
+            "fieldtype": "Date",
+            "label": "Send Bills Posted On or After",
+            "description": "Purchase Invoices posted before this date are never sent, so bills already entered in QuickBooks are not duplicated. Leave blank to send no bills."
+        },
+        {
             "fieldname": "help_sb",
             "fieldtype": "Section Break",
             "label": "Endpoint"
@@ -70,13 +104,13 @@
             "fieldname": "endpoint_help",
             "fieldtype": "HTML",
             "label": "Endpoint Help",
-            "options": "<p>n8n posts normalized QBO Payment events to:<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event</code></p><p>Every inbound event is recorded in <b>ilL-QBO-Sync-Log</b>. Starter n8n workflow: <code>n8n_workflows/quickbooks_payment_sync.json</code>.</p>"
+            "options": "<p>n8n posts normalized QBO events to:<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event</code> (customer payments)<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_bill_payment_event</code> (bill payments)<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_bills.receive_bill_link</code> (Bill id write-back)</p><p>Every inbound payment event is recorded in <b>ilL-QBO-Sync-Log</b>. n8n workflows: <code>n8n_workflows/quickbooks_payment_sync.json</code> and <code>n8n_workflows/purchase_invoice_qbo_bill.json</code>.</p>"
         }
     ],
     "index_web_pages_for_search": 1,
     "issingle": 1,
     "links": [],
-    "modified": "2026-09-17 10:00:00.000000",
+    "modified": "2026-10-13 12:00:00.000000",
     "modified_by": "Administrator",
     "module": "ilLumenate Lighting",
     "name": "ilL-QBO-Settings",

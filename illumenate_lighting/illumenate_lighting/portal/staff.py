@@ -13,6 +13,8 @@ CAPABILITIES = {
 	"design_review": {"ilL Applications Engineer"},
 	"support": {"ilL Support"},
 	"operations": {"ilL Operations"},
+	# The shared sales@ mailbox: whoever answers customers, on any team.
+	"inbox": {"ilL Sales Review", "ilL Order Approver", "ilL Support", "ilL Catalog Publisher"},
 }
 
 

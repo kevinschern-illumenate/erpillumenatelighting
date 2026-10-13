@@ -1,5 +1,5 @@
 {
-  "name": "QuickBooks Payment → ERPNext Payment Entry",
+  "name": "QuickBooks Payments and Bill Payments → ERPNext Payment Entry",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,7 @@
       "typeVersion": 2,
       "position": [0, 0],
       "webhookId": "quickbooks-payment-events",
-      "notes": "Register this node's PRODUCTION URL in the Intuit Developer Dashboard → Webhooks, subscribed to the Payment entity only. Intuit requires a 2xx within ~3s, so we respond immediately and process afterwards."
+      "notes": "Register this node's PRODUCTION URL in the Intuit Developer Dashboard → Webhooks, subscribed to the Payment and BillPayment entities (Intuit allows one webhook URL per app, so both go through this workflow). Intuit requires a 2xx within ~3s, so we respond immediately and process afterwards."
     },
     {
       "parameters": {
@@ -30,7 +30,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Flatten eventNotifications[].dataChangeEvent.entities[] and keep Payment entities only.\nconst out = [];\nfor (const item of $input.all()) {\n  const notifications = item.json.eventNotifications || [];\n  for (const n of notifications) {\n    const entities = (n.dataChangeEvent && n.dataChangeEvent.entities) || [];\n    for (const e of entities) {\n      if (e.name !== 'Payment') continue;\n      out.push({\n        json: {\n          realmId: n.realmId,\n          id: String(e.id),\n          operation: e.operation, // Create | Update | Delete | Merge | Void\n          lastUpdated: e.lastUpdated,\n          deletedId: e.deletedId ? String(e.deletedId) : null, // Merge only: the id folded into `id`\n        },\n      });\n    }\n  }\n}\nreturn out;"
+        "jsCode": "// Flatten eventNotifications[].dataChangeEvent.entities[] and keep Payment and BillPayment entities.\nconst ENTITIES = ['Payment', 'BillPayment'];\nconst out = [];\nfor (const item of $input.all()) {\n  const notifications = item.json.eventNotifications || [];\n  for (const n of notifications) {\n    const entities = (n.dataChangeEvent && n.dataChangeEvent.entities) || [];\n    for (const e of entities) {\n      if (!ENTITIES.includes(e.name)) continue;\n      out.push({\n        json: {\n          entity: e.name, // Payment -> customer payment, BillPayment -> supplier bill payment\n          realmId: n.realmId,\n          id: String(e.id),\n          operation: e.operation, // Create | Update | Delete | Merge | Void\n          lastUpdated: e.lastUpdated,\n          deletedId: e.deletedId ? String(e.deletedId) : null, // Merge only: the id folded into `id`\n        },\n      });\n    }\n  }\n}\nreturn out;"
       },
       "id": "split-payment-entities",
       "name": "Split Payment Entities",
@@ -78,7 +78,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Deleted entities can't be fetched from QBO; forward the id only.\nreturn $input.all().map(item => ({\n  json: {\n    qbo_payment_id: item.json.id,\n    event_type: 'Delete',\n    deleted: true,\n    realm_id: item.json.realmId,\n    last_updated: item.json.lastUpdated,\n  },\n}));"
+        "jsCode": "// Deleted entities can't be fetched from QBO; forward the id only.\nreturn $input.all().map(item => ({\n  json: {\n    entity: item.json.entity,\n    qbo_payment_id: item.json.id,\n    event_type: 'Delete',\n    deleted: true,\n    realm_id: item.json.realmId,\n    last_updated: item.json.lastUpdated,\n  },\n}));"
       },
       "id": "build-delete-payload",
       "name": "Build Delete Payload",
@@ -89,7 +89,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $json.realmId }}/payment/{{ $json.id }}?minorversion=70",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $json.realmId }}/{{ $json.entity === 'BillPayment' ? 'billpayment' : 'payment' }}/{{ $json.id }}?minorversion=70",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "quickBooksOAuth2Api",
         "sendHeaders": true,
@@ -119,7 +119,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Normalize the QBO Payment object into the ERPNext payload (runs once per item;\n// paired-item lookup gives us the originating webhook entity).\nconst payment = $input.item.json.Payment || $input.item.json;\nconst source = $('Split Payment Entities').item.json;\n\nconst invoiceIds = [];\nfor (const line of payment.Line || []) {\n  for (const lt of line.LinkedTxn || []) {\n    if (lt.TxnType === 'Invoice' && lt.TxnId) invoiceIds.push(String(lt.TxnId));\n  }\n}\n\nlet eventType = source.operation || 'Update';\nif (eventType === 'Void') eventType = 'Delete';\n\nreturn {\n  json: {\n    qbo_payment_id: String(payment.Id),\n    event_type: eventType,\n    amount: Number(payment.TotalAmt || 0),\n    txn_date: payment.TxnDate || null,\n    qbo_invoice_id: invoiceIds[0] || null,\n    qbo_invoice_ids: invoiceIds,\n    customer_qbo_id: payment.CustomerRef ? String(payment.CustomerRef.value) : null,\n    merged_from_id: source.deletedId || null,\n    deleted: false,\n    realm_id: source.realmId || null,\n    last_updated: source.lastUpdated || (payment.MetaData && payment.MetaData.LastUpdatedTime) || null,\n  },\n};"
+        "jsCode": "// Normalize a QBO Payment or BillPayment into the ERPNext payload (runs once per item;\n// paired-item lookup gives us the originating webhook entity).\nconst source = $('Split Payment Entities').item.json;\nconst isBill = source.entity === 'BillPayment';\nconst payment = (isBill ? $input.item.json.BillPayment : $input.item.json.Payment) || $input.item.json;\nconst linkedType = isBill ? 'Bill' : 'Invoice';\nconst idKey = isBill ? 'qbo_bill_id' : 'qbo_invoice_id';\n\n// One allocation per payment line that is applied to exactly one invoice (or bill).\n// A line linked to several documents has no per-document amount, so allocations are\n// left out and ERPNext logs the payment for manual review instead of guessing a split.\nconst ids = [];\nlet allocations = [];\nfor (const line of payment.Line || []) {\n  const linked = (line.LinkedTxn || []).filter(lt => lt.TxnType === linkedType && lt.TxnId);\n  for (const lt of linked) ids.push(String(lt.TxnId));\n  if (linked.length === 1 && allocations !== null) {\n    allocations.push({ [idKey]: String(linked[0].TxnId), amount: Number(line.Amount || 0) });\n  } else if (linked.length > 1) {\n    allocations = null;\n  }\n}\n\nlet eventType = source.operation || 'Update';\nif (eventType === 'Void') eventType = 'Delete';\n\nconst body = {\n  entity: source.entity,\n  qbo_payment_id: String(payment.Id),\n  event_type: eventType,\n  amount: Number(payment.TotalAmt || 0),\n  txn_date: payment.TxnDate || null,\n  merged_from_id: source.deletedId || null,\n  deleted: false,\n  realm_id: source.realmId || null,\n  last_updated: source.lastUpdated || (payment.MetaData && payment.MetaData.LastUpdatedTime) || null,\n};\nif (allocations && allocations.length) body.allocations = allocations;\nif (isBill) {\n  body.qbo_bill_id = ids[0] || null;\n  body.qbo_bill_ids = ids;\n  body.vendor_qbo_id = payment.VendorRef ? String(payment.VendorRef.value) : null;\n} else {\n  body.qbo_invoice_id = ids[0] || null;\n  body.qbo_invoice_ids = ids;\n  body.customer_qbo_id = payment.CustomerRef ? String(payment.CustomerRef.value) : null;\n}\nreturn { json: body };"
       },
       "id": "build-payment-payload",
       "name": "Build Payment Payload",
@@ -129,7 +129,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Sign the exact JSON string that will be sent. ERPNext recomputes\n// HMAC-SHA256(raw_body, qbo_webhook_secret) and compares hex digests.\nconst crypto = require('crypto');\nconst secret = $vars.QBO_WEBHOOK_SECRET; // same value as ilL-QBO-Settings.webhook_secret\nif (!secret) throw new Error('QBO_WEBHOOK_SECRET is not configured');\n\nreturn $input.all().map(item => {\n  const body = JSON.stringify(item.json);\n  const signature = crypto.createHmac('sha256', secret).update(body, 'utf8').digest('hex');\n  return { json: { body, signature, qbo_payment_id: item.json.qbo_payment_id, event_type: item.json.event_type } };\n});"
+        "jsCode": "// Sign the exact JSON string that will be sent. ERPNext recomputes\n// HMAC-SHA256(raw_body, qbo_webhook_secret) and compares hex digests.\nconst crypto = require('crypto');\nconst secret = $vars.QBO_WEBHOOK_SECRET; // same value as ilL-QBO-Settings.webhook_secret\nif (!secret) throw new Error('QBO_WEBHOOK_SECRET is not configured');\n\nreturn $input.all().map(item => {\n  const body = JSON.stringify(item.json);\n  const signature = crypto.createHmac('sha256', secret).update(body, 'utf8').digest('hex');\n  return {\n    json: {\n      body,\n      signature,\n      entity: item.json.entity,\n      qbo_payment_id: item.json.qbo_payment_id,\n      event_type: item.json.event_type,\n    },\n  };\n});"
       },
       "id": "sign-request",
       "name": "Sign Request (HMAC)",
@@ -140,7 +140,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event",
+        "url": "=https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.{{ $json.entity === 'BillPayment' ? 'receive_bill_payment_event' : 'receive_payment_event' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -213,7 +213,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Shape an alert message. Replace the downstream NoOp with a Slack / Email node.\nreturn $input.all().map(item => {\n  const r = item.json.message || item.json;\n  return {\n    json: {\n      subject: `QBO → ERPNext payment sync failed: ${r.error || 'unknown'}`,\n      text: [\n        `Error: ${r.error || 'unknown'}`,\n        `Detail: ${r.message || ''}`,\n        `Sync log: ${r.log || 'n/a'} (open ilL-QBO-Sync-Log in ERPNext)`,\n        `Payload: ${$('Sign Request (HMAC)').item.json.body}`,\n      ].join('\\n'),\n      raw: item.json,\n    },\n  };\n});"
+        "jsCode": "// Shape an alert message. Replace the downstream NoOp with a Slack / Email node.\nreturn $input.all().map(item => {\n  const r = item.json.message || item.json;\n  return {\n    json: {\n      subject: `QBO → ERPNext ${$('Sign Request (HMAC)').item.json.entity || 'Payment'} sync failed: ${r.error || 'unknown'}`,\n      text: [\n        `Error: ${r.error || 'unknown'}`,\n        `Detail: ${r.message || ''}`,\n        `Sync log: ${r.log || 'n/a'} (open ilL-QBO-Sync-Log in ERPNext)`,\n        `Payload: ${$('Sign Request (HMAC)').item.json.body}`,\n      ].join('\\n'),\n      raw: item.json,\n    },\n  };\n});"
       },
       "id": "build-alert",
       "name": "Build Alert",

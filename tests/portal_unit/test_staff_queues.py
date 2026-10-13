@@ -36,6 +36,8 @@ class StaffQueues(unittest.TestCase):
 	def test_missing_native_permission_is_unavailable_not_zero(self):
 		with load_service(ROOT + ".portal.queues", self.dependencies()) as (module, frappe):
 			frappe.has_permission.return_value = False
+			frappe.get_meta = MagicMock()
+			frappe.get_attr = MagicMock(return_value=lambda: {})
 			result = module.summary()
 			self.assertTrue(result["queues"])
 			self.assertTrue(all(not row["available"] and "total" not in row for row in result["queues"]))

@@ -125,5 +125,99 @@ class DealerAudit(unittest.TestCase):
 			self.assertEqual(module.dealers(), {"unresolved": [], "desk_access_at_risk": []})
 
 
+HR_USERS = [
+	Record(name="lead@example.com", full_name="HR lead"),
+	Record(name="ryan@example.com", full_name="Ryan"),
+	Record(name="web@example.com", full_name="Web"),
+	Record(name="sm@example.com", full_name="Admin"),
+]
+HR_EMPLOYEES = [
+	Record(
+		name="EMP-1",
+		employee_name="HR lead",
+		user_id="lead@example.com",
+		create_user_permission=1,
+		company="ilL",
+		leave_approver="owner@example.com",
+		expense_approver="owner@example.com",
+	),
+	Record(
+		name="EMP-2",
+		employee_name="Ryan",
+		user_id="ryan@example.com",
+		create_user_permission=0,
+		company="ilL",
+		department="Operations",
+		leave_approver="lead@example.com",
+	),
+	Record(name="EMP-3", employee_name="Contractor", user_id=None, create_user_permission=1, company="ilL"),
+]
+HR_ROLES_HELD = {
+	"lead@example.com": {"HR Manager", "Employee"},
+	"ryan@example.com": {"Employee", "HR User"},
+	"web@example.com": {"Employee"},
+	"sm@example.com": {"System Manager"},
+}
+
+
+class HrReport(unittest.TestCase):
+	def run_report(self):
+		def get_all(doctype, filters=None, fields=None, pluck=None, **kwargs):
+			if doctype == "User":
+				return HR_USERS
+			if doctype == "Employee":
+				return HR_EMPLOYEES
+			if doctype == "Has Role":
+				return [
+					Record(parent=user, role=role)
+					for user in filters["parent"][1]
+					for role in sorted(HR_ROLES_HELD.get(user, ()))
+				]
+			if doctype == "Leave Policy Assignment":
+				return ["EMP-1"]
+			raise AssertionError(doctype)
+
+		with load_service(ROOT + ".portal.role_audit", {ROOT + ".portal.staff": _staff_module()}) as (
+			module,
+			frappe,
+		):
+			frappe.only_for = MagicMock()
+			frappe.get_installed_apps = MagicMock(return_value=["frappe", "erpnext", "hrms"])
+			frappe.get_all = MagicMock(side_effect=get_all)
+			frappe.db.get_value.return_value = None
+			result = module.hr()
+			frappe.only_for.assert_called_once_with("System Manager")
+			return result
+
+	def test_gaps_and_hr_access_beyond_the_lead_are_listed(self):
+		result = self.run_report()
+		self.assertEqual(
+			[row["user"] for row in result["users_without_employee"]], ["web@example.com", "sm@example.com"]
+		)
+		self.assertEqual([row["employee"] for row in result["employees_without_user"]], ["EMP-3"])
+		self.assertEqual([row["employee"] for row in result["employees_without_user_permission"]], ["EMP-2"])
+		self.assertEqual(
+			[row["employee"] for row in result["employees_without_leave_policy"]], ["EMP-2", "EMP-3"]
+		)
+		approvers = {row["employee"]: row["missing"] for row in result["employees_without_approvers"]}
+		self.assertEqual(
+			approvers, {"EMP-2": ["expense_approver"], "EMP-3": ["leave_approver", "expense_approver"]}
+		)
+		self.assertEqual(result["companies_without_holiday_list"], ["ilL"])
+		holders = {row["user"]: row["roles"] for row in result["hr_role_holders"]}
+		self.assertEqual(holders, {"lead@example.com": ["HR Manager"], "ryan@example.com": ["HR User"]})
+		self.assertEqual(result["system_managers"], ["sm@example.com"])
+
+	def test_without_hrms_only_says_so(self):
+		with load_service(ROOT + ".portal.role_audit", {ROOT + ".portal.staff": _staff_module()}) as (
+			module,
+			frappe,
+		):
+			frappe.only_for = MagicMock()
+			frappe.get_installed_apps = MagicMock(return_value=["frappe", "erpnext"])
+			self.assertEqual(module.hr(), {"hrms_installed": False})
+			frappe.get_all.assert_not_called()
+
+
 if __name__ == "__main__":
 	unittest.main()
