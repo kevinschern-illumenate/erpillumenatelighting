@@ -302,6 +302,10 @@ doc_events = {
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
 	},
 	"Production Plan": {"validate": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_production_plan"},
+	"Purchase Invoice": {
+		"on_submit": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_submit",
+		"on_cancel": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_cancel",
+	},
 	"Material Request": {"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_material_request"},
 	"Quotation": {
 		# Only a submitted Quotation linked to an intake creates a portal offer.
@@ -451,7 +455,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
 
 # Testing
 # -------

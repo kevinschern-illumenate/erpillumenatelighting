@@ -3,7 +3,8 @@
 **Status:** ERPNext side implemented (2026-09-17) — see §6 for what remains (n8n + Intuit configuration).
 **Hosting note:** ERPNext runs on Frappe Cloud with no SSH/bench access. Everything below deploys via git push → Frappe Cloud deploy (runs `bench migrate`, which syncs the new doctypes and runs the patch). The webhook secret is entered in the **ilL-QBO-Settings** Single doctype (Password field) instead of `bench set-config`; a `qbo_webhook_secret` site-config key is still honored if set through the Frappe Cloud dashboard.
 **Scope:** Add QBO Payment → ERPNext Payment Entry sync (with void/edit handling) on top of the existing one-way ERPNext → QBO push (Customers + Sales Invoices, triggered on ERPNext submit via n8n).
-**Out of scope (explicitly deferred):** ERPNext-originated Payment Entry → QBO push, partial/multi-invoice payment allocation, multi-currency, multi-company.
+**Out of scope (explicitly deferred):** ERPNext-originated Payment Entry → QBO push, multi-currency, multi-company.
+**Update (2026-10-13):** one QBO Payment can now settle several invoices (`allocations`), and supplier bills and bill payments sync too. See [QBO_PAYABLES_SYNC.md](QBO_PAYABLES_SYNC.md).
 
 ---
 
@@ -230,7 +231,7 @@ Steps:
 
 ### Endpoint contract (as implemented)
 
-`POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event` with header `X-QBO-Signature: <hex HMAC-SHA256 of raw body>`.
+`POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event` with header `X-QBO-Signature: <hex HMAC-SHA256 of raw body>`. Bill payments use `receive_bill_payment_event` with the same contract ([QBO_PAYABLES_SYNC.md](QBO_PAYABLES_SYNC.md)).
 
 | Outcome | HTTP | `success` | `error` | Log status |
 |---|---|---|---|---|
@@ -238,10 +239,11 @@ Steps:
 | Malformed body | 400 | false | `invalid_json` / `missing_payment_id` / `invalid_event_type` | none |
 | Sync disabled in settings | 200 | false | `sync_disabled` | Skipped-NoOp |
 | Invoice not found / not submitted | 200 | false | `invoice_not_matched` / `invoice_not_submitted` | Failed |
-| Payment linked to 0 or 2+ invoices | 200 | false | `invoice_not_linked` / `multiple_invoices_linked` | Failed |
+| Payment linked to no invoice, or to 2+ invoices without `allocations` | 200 | false | `invoice_not_linked` / `multiple_invoices_linked` | Failed |
+| Bad `allocations`, allocations above the payment, or invoices of two customers | 400 / 200 | false | `invalid_allocation` / `allocation_exceeds_payment` / `mixed_parties` | none / Failed |
 | New payment | 200 | true | — (`action: created`) | Created |
 | Redelivered, unchanged | 200 | true | — (`action: skipped`) | Skipped-Duplicate |
-| Changed amount/date/invoice | 200 | true | — (`action: recreated`, `superseded_payment_entry`) | Superseded |
+| Changed amount/date/allocation | 200 | true | — (`action: recreated`, `superseded_payment_entry`) | Superseded |
 | Delete/Void with PE | 200 | true | — (`action: cancelled`) | Cancelled |
 | Delete/Void without PE | 200 | true | — (`action: skipped`) | Skipped-NoOp |
 | Unexpected exception | 500 | false | `processing_failed` | Failed |
@@ -252,6 +254,6 @@ Every response except 401/400 includes `log` (the `ilL-QBO-Sync-Log` name).
 
 ## 7. Open items still worth deciding before/while building
 
-- **Multiple invoices per QBO Payment**: QBO natively allows one Payment to cover multiple invoices (`Line[]` array with multiple `LinkedTxn`). MVP assumes 1:1; if a merchant ever applies a payment to 2+ invoices in QBO, the current design will only pick up the first matched `LinkedTxn` — worth deciding whether to hard-fail (safer) or split across multiple `references` rows on one Payment Entry (moderate effort, deferred per your answer but flagging so it's not a silent gap).
+- **Multiple invoices per QBO Payment**: done (2026-10-13). n8n sends one `allocations` row per payment line, and ERPNext writes one Payment Entry reference per invoice. A line linked to several invoices, or a payment that also applies a credit memo, still fails for manual review.
 - **Unallocated/overpayments**: QBO permits payments with no linked invoice (on-account credit). Decide whether to create an unallocated Payment Entry (`party` only, no `references`) or reject/alert — not addressed above since it wasn't in scope, but will occur eventually.
 - **Bank account reconciliation timing**: since `paid_to` posts directly to the trust account, confirm this doesn't double-count if you also separately reconcile bank deposits via ERPNext's Bank Reconciliation tool against QBO-originated deposits.

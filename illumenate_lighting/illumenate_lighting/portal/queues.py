@@ -164,6 +164,15 @@ QUEUES = {
 		None,
 		None,
 	),
+	"bills": (
+		"Bills not in QuickBooks",
+		"accounts",
+		"Purchase Invoice",
+		{"docstatus": 1, "is_return": 0, "custom_qbo_id": ["is", "not set"]},
+		["name", "supplier", "bill_no", "posting_date", "grand_total", "modified"],
+		None,
+		None,
+	),
 }
 
 # Due fields holding a date (not a datetime) compare against today's date.
@@ -175,6 +184,9 @@ ASSIGN_FIELD = "_assign"
 # Queues that read a field another app adds; they stay hidden until it exists.
 # Customer.crm_deal comes with ERPNext's Frappe CRM synchronization.
 REQUIRED_FIELDS = {"new_customers": ("Customer", "crm_deal")}
+
+# Queues whose filters depend on site settings. Each returns extra filters, or None to hide the queue.
+DYNAMIC_FILTERS = {"bills": "illumenate_lighting.illumenate_lighting.api.qbo_bills.queue_filters"}
 
 # Queues whose document names are hashes or codes search a readable field instead.
 SEARCH_FIELDS = {"inbox": "subject", "new_customers": "customer_name"}
@@ -198,7 +210,15 @@ def _queue_allowed(queue, capability):
 		doctype, fieldname = REQUIRED_FIELDS[queue]
 		if not frappe.get_meta(doctype).has_field(fieldname):
 			return False
+	if _dynamic_filters(queue) is None:
+		return False
 	return allowed(capability)
+
+
+def _dynamic_filters(queue):
+	if queue not in DYNAMIC_FILTERS:
+		return {}
+	return frappe.get_attr(DYNAMIC_FILTERS[queue])()
 
 
 def query(queue, view="all", search=None):
@@ -208,6 +228,7 @@ def query(queue, view="all", search=None):
 	if not _queue_allowed(queue, capability) or not frappe.has_permission(doctype, "read"):
 		frappe.throw("This staff queue is unavailable for your role", frappe.PermissionError)
 	filters = deepcopy(filters)
+	filters.update(_dynamic_filters(queue))
 	if view not in _views(owner, due):
 		frappe.throw("This queue does not support that view")
 	if view == "mine" and owner == ASSIGN_FIELD:

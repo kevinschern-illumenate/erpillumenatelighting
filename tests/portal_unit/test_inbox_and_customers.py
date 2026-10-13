@@ -62,11 +62,25 @@ class NewCustomers(unittest.TestCase):
 			frappe.get_meta = MagicMock()
 			frappe.get_meta.return_value.has_field.return_value = False
 			frappe.get_list = MagicMock(return_value=[Record(total=0)])
+			frappe.get_attr = MagicMock(return_value=lambda: None)
 			keys = [row["key"] for row in module.summary()["queues"]]
 			self.assertIn("accounts", keys)
 			self.assertNotIn("new_customers", keys)
+			self.assertNotIn("bills", keys)
 			with self.assertRaises(PermissionError):
 				module.query("new_customers")
+
+
+class UnsentBills(unittest.TestCase):
+	def test_submitted_bills_without_a_quickbooks_id_from_the_cutover_date(self):
+		with load_service(ROOT + ".portal.queues", dependencies("accounts")) as (module, frappe):
+			frappe.get_attr = MagicMock(return_value=lambda: {"posting_date": [">=", "2026-11-01"]})
+			_label, doctype, filters, _fields = module.query("bills")
+			self.assertEqual(doctype, "Purchase Invoice")
+			self.assertEqual(filters["custom_qbo_id"], ["is", "not set"])
+			self.assertEqual(filters["is_return"], 0)
+			self.assertEqual(filters["posting_date"], [">=", "2026-11-01"])
+			self.assertNotIn("posting_date", module.QUEUES["bills"][3])
 
 
 if __name__ == "__main__":
