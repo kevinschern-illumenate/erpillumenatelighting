@@ -38,6 +38,17 @@ def feet_inches(mm):
 	return text
 
 
+def group_item_prefix(group):
+	"""Tape/neon groups lead with their template's name; other families with the family."""
+	if group.template_type == "ilL-Tape-Neon-Template":
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+			tape_neon_template_name,
+		)
+
+		return tape_neon_template_name(group.template) or group.family
+	return group.family
+
+
 def run_noun(family, count=1):
 	"""Sheet groups hold coverage areas; every other family holds runs."""
 	noun = "area" if family == "LED Sheet" else "run"
@@ -142,7 +153,7 @@ def ensure_artifacts(doc, msrp=None):
 			{
 				"doctype": "Item",
 				"item_code": code,
-				"item_name": f"{doc.family} multi-run group ({len(build['members'])} {run_noun(doc.family, len(build['members']))})",
+				"item_name": f"{group_item_prefix(doc)} multi-run group ({len(build['members'])} {run_noun(doc.family, len(build['members']))})",
 				"item_group": "Configured Fixture Groups",
 				"stock_uom": DEFAULT_UOM,
 				"is_stock_item": 1,

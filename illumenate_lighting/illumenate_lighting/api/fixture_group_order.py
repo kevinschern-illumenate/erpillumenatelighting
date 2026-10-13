@@ -127,6 +127,7 @@ def ensure_order_bundle(schedule, line, target_doc=None):
 	from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import (
 		current_estimate,
 		description,
+		group_item_prefix,
 		run_noun,
 		snapshot,
 	)
@@ -158,7 +159,7 @@ def ensure_order_bundle(schedule, line, target_doc=None):
 			{
 				"doctype": "Item",
 				"item_code": code,
-				"item_name": f"{group.family} multi-run group ({count} {run_noun(group.family, count)})",
+				"item_name": f"{group_item_prefix(group)} multi-run group ({count} {run_noun(group.family, count)})",
 				"item_group": ITEM_GROUP,
 				"stock_uom": DEFAULT_UOM,
 				"is_stock_item": 0,
