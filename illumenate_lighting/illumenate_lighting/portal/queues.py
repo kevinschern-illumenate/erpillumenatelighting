@@ -6,6 +6,7 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.portal.conversations import _pagination
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+from illumenate_lighting.illumenate_lighting.portal.status import SALES_EMAIL
 
 # (label, capability, DocType, base filters, projected fields, owner, due date)
 QUEUES = {
@@ -138,10 +139,54 @@ QUEUES = {
 		None,
 		"schedule_date",
 	),
+	"inbox": (
+		"Sales inbox",
+		"inbox",
+		"Communication",
+		{
+			"communication_type": "Communication",
+			"communication_medium": "Email",
+			"sent_or_received": "Received",
+			"status": "Open",
+			"reference_doctype": ["is", "not set"],
+			"recipients": ["like", "%" + SALES_EMAIL + "%"],
+		},
+		["name", "subject", "sender", "communication_date", "_assign", "modified"],
+		"_assign",
+		None,
+	),
+	"new_customers": (
+		"New customers to set up",
+		"accounts",
+		"Customer",
+		{"disabled": 0, "crm_deal": ["is", "set"], "payment_terms": ["is", "not set"]},
+		["name", "customer_name", "crm_deal", "customer_group", "creation", "modified"],
+		None,
+		None,
+	),
 }
 
 # Due fields holding a date (not a datetime) compare against today's date.
 DATE_DUE_FIELDS = ("due_date", "schedule_date")
+
+# Desk assignment (a JSON list of users) can only answer "mine".
+ASSIGN_FIELD = "_assign"
+
+# Queues that read a field another app adds; they stay hidden until it exists.
+# Customer.crm_deal comes with ERPNext's Frappe CRM synchronization.
+REQUIRED_FIELDS = {"new_customers": ("Customer", "crm_deal")}
+
+# Queues whose document names are hashes or codes search a readable field instead.
+SEARCH_FIELDS = {"inbox": "subject", "new_customers": "customer_name"}
+
+
+def _views(owner, due):
+	views = ["all"]
+	if owner == ASSIGN_FIELD:
+		views.append("mine")
+	elif owner:
+		views += ["mine", "unassigned"]
+	return views + (["overdue"] if due else [])
 
 
 def _queue_allowed(queue, capability):
@@ -149,6 +194,10 @@ def _queue_allowed(queue, capability):
 		from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import staff
 
 		return staff()
+	if queue in REQUIRED_FIELDS:
+		doctype, fieldname = REQUIRED_FIELDS[queue]
+		if not frappe.get_meta(doctype).has_field(fieldname):
+			return False
 	return allowed(capability)
 
 
@@ -159,16 +208,18 @@ def query(queue, view="all", search=None):
 	if not _queue_allowed(queue, capability) or not frappe.has_permission(doctype, "read"):
 		frappe.throw("This staff queue is unavailable for your role", frappe.PermissionError)
 	filters = deepcopy(filters)
-	if view == "mine" and owner:
-		filters[owner] = frappe.session.user
-	elif view == "unassigned" and owner:
-		filters[owner] = ["is", "not set"]
-	elif view == "overdue" and due:
-		filters[due] = ["<", frappe.utils.nowdate() if due in DATE_DUE_FIELDS else frappe.utils.now()]
-	elif view != "all":
+	if view not in _views(owner, due):
 		frappe.throw("This queue does not support that view")
+	if view == "mine" and owner == ASSIGN_FIELD:
+		filters[owner] = ["like", '%"' + frappe.session.user + '"%']
+	elif view == "mine":
+		filters[owner] = frappe.session.user
+	elif view == "unassigned":
+		filters[owner] = ["is", "not set"]
+	elif view == "overdue":
+		filters[due] = ["<", frappe.utils.nowdate() if due in DATE_DUE_FIELDS else frappe.utils.now()]
 	if search:
-		filters["name"] = ["like", "%" + str(search)[:100] + "%"]
+		filters[SEARCH_FIELDS.get(queue, "name")] = ["like", "%" + str(search)[:100] + "%"]
 	return label, doctype, filters, fields
 
 
@@ -215,7 +266,7 @@ def summary():
 		entry = {
 			"key": key,
 			"label": label,
-			"views": ["all"] + (["mine", "unassigned"] if owner else []) + (["overdue"] if due else []),
+			"views": _views(owner, due),
 		}
 		try:
 			_, doctype, filters, _ = query(key)

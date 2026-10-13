@@ -13,6 +13,8 @@ Open **ilLumenate Lighting → Portal Operations** (`/app/ill-portal-operations`
 | ilL Product Finder Manager | Maintain Finder questions, glossary, mappings and Settings; preview draft content and review product verification requests. |
 | ilL Catalog Publisher | Catalog Builder Check/Import, product/template/specification/compatibility/mapping authoring, catalog Items and pricing, and approved Item literature. Run Engineering preflight on templates and Channel preflight on products, then approve/stage and explicitly publish the inspected revision. |
 
+Sales Review, Order Approver, Support and Catalog Publisher share the **Sales inbox** queue (see [Shared sales inbox](#shared-sales-inbox)). Support, Sales Review and Order Approver also see **New customers to set up** (see [Won deals become customers](#won-deals-become-customers)).
+
 Engineering also receives master authoring and Item-literature permissions. Catalog Publishers receive catalog Item and Item Price authoring permissions through the catalog permission migration. Other staff still need their corresponding native ERP roles for those tasks; stock/manufacturing execution and accounting require native ERP job permissions. The Operations role by itself supplies a drawing-hold view; it does not grant Work Order submission. See the [authoring field register](B2B_AUTHORING_FIELD_REGISTER.md) for setup/import order and public Sheet markup.
 
 ## Role assignment checklist
@@ -68,6 +70,32 @@ Buy for orders with native ERPNext tools. On a submitted Sales Order use **Creat
 - A Production Plan row for a Sales Order line uses the BOM that line pinned, not the Item default.
 - **Request for Raw Materials** explodes each Item's default BOM, so it is refused when a line pins a different BOM. Use a Production Plan for that order, or have Engineering reconcile the default.
 - A Production Plan cannot create a Work Order for an order line that already has one. Sales Order submit creates draft Work Orders for configured builds, and ERPNext counts only submitted Work Orders as covering an order, so plans are for materials only.
+
+## Shared sales inbox
+
+Customers write to one address, sales@illumenate.lighting, and the team answers from ERPNext so every reply stays on the record. **Sales inbox** in Portal Operations lists received mail to that address that is still open and not filed against a document; **Mine** shows what is assigned to you.
+
+Setup (System Manager, once):
+
+1. **Email Account** → New: email `sales@illumenate.lighting`, the mailbox password or app password, **Enable Incoming** and **Enable Outgoing**. Leave **Append To** empty so new mail lands in the inbox queue rather than creating documents automatically. Leave **Default Outgoing** off unless sales@ should also send portal notifications.
+2. For each person who answers customers, open their **User → Settings → Email** and add the Sales email account. ERPNext shows a person only the mail of accounts listed there.
+3. **Assignment Rule** → New: Document Type `Communication`, Rule `Round Robin` (or `Load Balancing`), Users = the people from step 2, Assign Condition `sent_or_received == "Received" and "sales@illumenate.lighting" in (recipients or "")`, Close Condition `status != "Open"`. Each new email then gets an owner, who sees it under **Mine** and in their ToDo list.
+
+Working the inbox:
+
+- Open the email from the queue and use **Reply**. Replies go out from sales@ and are kept on the same thread.
+- File it with **Relink** to the Customer, CRM Lead or Deal, Quotation or Sales Order it is about. Filed mail leaves the queue and shows on that document's timeline.
+- Mail that needs no action (spam, newsletters) is closed from the email's form, which also closes its assignment.
+- Hand an email to someone else with **Assign To** on the email; do not forward it outside ERPNext.
+
+## Won deals become customers
+
+When a Frappe CRM Deal is marked **Won**, ERPNext creates the Customer, its Contacts (matched by email or mobile) and links both ways: the Customer's **CRM Deal** and the Deal's **ERPNext Customer**. A Customer with the same name is reused, not duplicated. This is native Frappe CRM and ERPNext behavior; it only needs switching on (System Manager, once):
+
+1. ERPNext **CRM Settings** → tick **Enable Frappe CRM Data Synchronization**. This also adds the **CRM Deal** link to Customer.
+2. In Frappe CRM, **Settings → ERPNext**: **Enabled**, **Create customer on status change**, Deal status `Won`.
+
+Accounting then sets the customer up. **New customers to set up** in Portal Operations lists enabled Customers that came from a Deal and have no **Default Payment Terms Template** yet. Set the payment terms (and credit limit, tax and price list as needed) and the Customer leaves the queue. The queue stays hidden until step 1 has added the CRM Deal link. If a won Deal has no Customer, check the Error Log: the integration records failures there instead of stopping the Deal update.
 
 ## Catalog Builder operations
 
