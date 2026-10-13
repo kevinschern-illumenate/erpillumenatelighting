@@ -7,7 +7,7 @@
   Driver.prototype=Object.create(IC.DriverController.prototype);Driver.prototype.constructor=Driver;
   Driver.prototype.init=function(){
     var self=this;
-    this.scheduleTarget=IC.bindScheduleContext({instance:this,context:this.context,onChange:function(){self.updateSave();}});
+    this.scheduleTarget=IC.bindScheduleContext({instance:this,context:this.context,onChange:function(){self.fillFromLine();self.updateSave();}});
     var draft=this.context.draft||{};
     this.$('#familyLineId').val(draft.line_id||'');this.$('#familyLocation').val(draft.location||'');this.$('#familyQty').val(draft.qty||1);this.$('#familyNotes').val(draft.notes||'');
     this.$('#familySave').on('click',function(){self.save();});
@@ -42,8 +42,24 @@
   };
   Driver.prototype.validate=function(){
     var self=this,revision=this.revision;
-    if(!this.template||!this.steps.length||!this.steps.every(function(step){return self.selections[step.name]!=null&&self.selections[step.name]!=='';})){this.setStatus('Incomplete','secondary');if(this.template&&this.steps.length)this.renderPlaceholder(__('Choose an option for every step to see the part number.'));return;}
+    if(!this.template||!this.steps.length||!this.steps.every(function(step){return self.selections[step.name]!=null&&self.selections[step.name]!=='';})){this.setStatus('Incomplete','secondary');if(this.template&&this.steps.length)this.renderPlaceholder(__('Choose an option for every step to see the compatible spec ID.'));return;}
     this.request({method:API+'validate_driver_configuration',args:{template:this.template,selections:JSON.stringify(this.selections)},callback:function(r){if(revision!==self.revision)return;var data=r.message||{};self.result=data.success&&data.variant&&data.variant.item?data:null;self.renderResult(data);self.updateSave();}});
+  };
+  // Choosing an existing schedule line brings its fixture type, location, quantity and notes along.
+  Driver.prototype.fillFromLine=function(){
+    var target=this.scheduleTarget,value=target&&target.lineValue();if(value===this.filledLine)return;this.filledLine=value;
+    var line=value&&value!=='__new__'&&target.lineAt?target.lineAt(parseInt(value,10)):null;if(!line)return;
+    this.$('#familyLineId').val(line.line_id||'');this.$('#familyLocation').val(line.location||'');this.$('#familyQty').val(line.qty||1);this.$('#familyNotes').val(line.notes||'');
+  };
+  // Say what is still missing next to a disabled Add to Schedule button.
+  Driver.prototype.updateSave=function(){
+    IC.DriverController.prototype.updateSave.call(this);
+    var target=this.scheduleTarget,hint='';
+    if(this.saving)hint='';
+    else if(!this.result)hint=this.template?__('Choose an option for every step.'):__('Choose a power supply.');
+    else if(!target||!target.hasTarget())hint=__('Choose a project, fixture schedule and line under Schedule Target.');
+    else if(!target.canSave)hint=__('You can view this schedule but not change it.');
+    this.$('#driverSaveHint').text(hint).prop('hidden',!hint);
   };
   Driver.prototype._updateButtons=function(){this.result=null;this.updateSave();if(!this.loading&&this.steps.length)this.validate();};
   Driver.prototype.save=function(){
@@ -73,7 +89,7 @@
   };
   Driver.prototype.choose=function(name,value){this.selections[name]=value;this.changed(name);};
   Driver.prototype.setStatus=function(label,tone){this.$('#driverValidationStatus').attr('class','badge badge-'+tone).text(__(label));};
-  Driver.prototype.renderPlaceholder=function(text){this.$('#familySummary').empty().append($('<div class="text-center text-muted py-3 ill-driver-placeholder">').append($('<i class="fa fa-bolt fa-2x mb-2" aria-hidden="true">'),$('<p class="mb-0">').text(text||__('Choose a power supply and its options to see the part number, specifications and pricing.'))));};
+  Driver.prototype.renderPlaceholder=function(text){this.$('#familySummary').empty().append($('<div class="text-center text-muted py-3 ill-driver-placeholder">').append($('<i class="fa fa-bolt fa-2x mb-2" aria-hidden="true">'),$('<p class="mb-0">').text(text||__('Choose a power supply and its options to see its spec ID, specifications and pricing.'))));};
   Driver.prototype.renderError=function(text){this.setStatus('Invalid','danger');this.$('#familySummary').empty().append($('<div class="alert alert-danger mb-0">').text(text));};
   // Template header: series, warranty and the spec sheet link.
   Driver.prototype.renderTemplateInfo=function(t){
@@ -92,7 +108,7 @@
     if(!data.success){this.renderError(data.error||__('Choose a valid configuration.'));return;}
     if(!data.variant||!data.variant.item){this.renderError(__('This configuration has no orderable item. Contact us to order it.'));return;}
     this.setStatus('Valid','success');
-    box.append($('<div class="ill-driver-part">').append($('<small>').text(__('Part number')),$('<code>').text(data.part_number)));
+    box.append($('<div class="ill-driver-part">').append($('<small>').text(__('Spec ID')),$('<code>').text(data.variant.spec_name||data.part_number)));
     box.append($('<p class="ill-driver-item">').text((data.template_name?data.template_name+' · ':'')+(data.variant.item_name||data.variant.item)));
     var pricing=data.pricing||{};
     if(this.context.show_pricing&&pricing.total_msrp!=null)box.append($('<div class="ill-driver-price">').append($('<span>').text(__('MSRP each')),$('<strong>').text('$'+Number(pricing.total_msrp).toFixed(2))));

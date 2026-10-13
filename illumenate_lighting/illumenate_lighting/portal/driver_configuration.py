@@ -175,7 +175,9 @@ def save(
 			value = str(metadata[field] or "").strip()
 			if len(value) > (4000 if field == "notes" else 140):
 				frappe.throw("Line metadata is too long")
-			line.set(field, value)
+			# A blank fixture type keeps the one the line already has.
+			if value or field != "line_id":
+				line.set(field, value)
 	if not line.line_id:
 		frappe.throw("Enter a fixture type")
 	quantity = finite_number(metadata.get("qty", line.qty or 1), minimum=1, field="quantity")

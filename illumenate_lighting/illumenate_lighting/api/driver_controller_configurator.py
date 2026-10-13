@@ -281,7 +281,14 @@ def _validate_configuration(
 
     variant = matches[0]
     spec_name = variant.get(cfg["spec_field"])
+    # The variant's Item is a fetched snapshot that can be blank or stale; the spec is the source.
+    item = (spec_name and frappe.db.get_value(cfg["spec_doctype"], spec_name, "item")) or variant.get("item")
     pricing = _calculate_pricing(template, active_steps, selections_dict, variant)
+    # Power supplies are ordered by their spec ID, not a template-built part number.
+    part_number = (
+        spec_name if kind == "Driver" and spec_name
+        else _build_part_number(template, active_steps, selections_dict, variant)
+    )
 
     return {
         "success": True,
@@ -289,20 +296,20 @@ def _validate_configuration(
         "template_code": template.name,
         "template_name": template.template_name or template.name,
         "selections": selections_dict,
-        "part_number": _build_part_number(template, active_steps, selections_dict, variant),
+        "part_number": part_number,
         "variant": {
             "spec_doctype": cfg["spec_doctype"],
             "spec_name": spec_name,
             # Child row name — lets the spec-sheet pipeline reload the exact
             # variant even when two variants share the same spec document.
             "variant_name": variant.get("name"),
-            "item": variant.get("item"),
+            "item": item,
             "variant_code": variant.get("variant_code") or "",
-            "item_name": frappe.db.get_value("Item", variant.get("item"), "item_name") if variant.get("item") else "",
+            "item_name": frappe.db.get_value("Item", item, "item_name") if item else "",
         },
         "specs": _spec_summary(cfg["spec_doctype"], spec_name, variant),
         "pricing": pricing,
-        "stock": _stock(variant.get("item")),
+        "stock": _stock(item),
     }
 
 
