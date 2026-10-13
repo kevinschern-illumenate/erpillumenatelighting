@@ -2905,7 +2905,7 @@
           "label": "Required Value",
           "fieldtype": "Check",
           "default": "0",
-          "description": "Block output if this engineering value is missing; zero is a valid value."
+          "description": "Warn when this engineering value is missing and leave the field blank; zero is a valid value."
         }
       ]
     },
@@ -3123,7 +3123,7 @@
           "label": "Required Value",
           "fieldtype": "Check",
           "default": "0",
-          "description": "Block output if this engineering value is missing; zero is a valid value."
+          "description": "Warn when this engineering value is missing and leave the field blank; zero is a valid value."
         }
       ]
     },
@@ -3753,7 +3753,7 @@
           "label": "Required Value",
           "fieldtype": "Check",
           "default": "0",
-          "description": "Block output if this engineering value is missing; zero is a valid value."
+          "description": "Warn when this engineering value is missing and leave the field blank; zero is a valid value."
         }
       ]
     },
@@ -3854,7 +3854,7 @@
           "label": "Required Value",
           "fieldtype": "Check",
           "default": "0",
-          "description": "Block output if this engineering value is missing; zero is a valid value."
+          "description": "Warn when this engineering value is missing and leave the field blank; zero is a valid value."
         }
       ]
     },
@@ -4116,7 +4116,7 @@
           "label": "Required Value",
           "fieldtype": "Check",
           "default": "0",
-          "description": "Block output if this engineering value is missing; zero is a valid value."
+          "description": "Warn when this engineering value is missing and leave the field blank; zero is a valid value."
         }
       ]
     },
@@ -5880,7 +5880,7 @@
           "label": "Required Value",
           "fieldtype": "Check",
           "default": "0",
-          "description": "Block output if this engineering value is missing; zero is a valid value."
+          "description": "Warn when this engineering value is missing and leave the field blank; zero is a valid value."
         }
       ]
     },
