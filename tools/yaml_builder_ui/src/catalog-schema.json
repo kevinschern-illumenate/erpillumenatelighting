@@ -521,7 +521,7 @@
           "fieldname": "protocol",
           "label": "Protocol",
           "fieldtype": "Select",
-          "options": "0-10V\nTRIAC\nELV\nMLV\nDALI\nDMX512\nDMX/RDM\nSPI\nPWM",
+          "options": "0-10V\nTRIAC\nELV\nMLV\nDALI\nDMX512\nDMX/RDM\nSPI\nPWM\nTOUCH\nAPP\nBLE\nWIFI\nARTNET\nSACN",
           "reqd": 1
         },
         {
