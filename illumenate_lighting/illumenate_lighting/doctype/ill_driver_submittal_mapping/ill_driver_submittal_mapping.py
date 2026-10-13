@@ -10,6 +10,9 @@ ALLOWED_SOURCE_DOCTYPES = [
 	"ilL-Child-Driver-Template-Variant",
 	"ilL-Spec-Driver",
 	"ilL-Webflow-Product",
+	"ilL-Project-Fixture-Schedule",
+	"ilL-Project",
+	"ilL-Child-Fixture-Schedule-Line",
 ]
 
 

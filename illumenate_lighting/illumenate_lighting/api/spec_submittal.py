@@ -1900,16 +1900,25 @@ def _get_variant_source_value(
 	spec: Any = None,
 	webflow_product: Any = None,
 	warnings: list | None = None,
+	schedule_context: tuple | None = None,
 ) -> Any:
-	"""Resolve one mapping row against the driver/controller doctype chain."""
+	"""Resolve one mapping row against the driver/controller doctype chain.
+
+	``schedule_context`` is the (schedule, project, line) the build is exported
+	from; without it the schedule, project and line sources resolve to nothing.
+	"""
 	if _commercial_source_blocked(source_doctype, source_field):
 		return None
 	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
+	schedule, project, schedule_line = schedule_context or (None, None, None)
 	lookup = {
 		cfg["template_doctype"]: template,
 		cfg["variant_doctype"]: variant,
 		cfg["spec_doctype"]: spec,
 		"ilL-Webflow-Product": webflow_product,
+		"ilL-Project-Fixture-Schedule": schedule,
+		"ilL-Project": project,
+		"ilL-Child-Fixture-Schedule-Line": schedule_line,
 	}
 	doc = lookup.get(source_doctype)
 	if doc is None:
@@ -1989,6 +1998,7 @@ def _generate_filled_variant_submittal(
 	warnings: list | None = None,
 	webflow_overrides: dict | None = None,
 	is_private: int = 1,
+	schedule_context: tuple | None = None,
 ) -> dict:
 	"""Shared implementation behind the driver and controller submittal generators."""
 	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
@@ -2060,6 +2070,7 @@ def _generate_filled_variant_submittal(
 					spec=spec,
 					webflow_product=webflow_product,
 					warnings=warnings,
+					schedule_context=schedule_context,
 				)
 
 			if webflow_active and mapping.get("webflow_skip_transformation"):
@@ -2173,7 +2184,8 @@ def generate_filled_driver_line_submittal(
 	The line keeps the validated configuration (see portal.driver_configuration), so the
 	submittal is filled from the exact variant chosen, and the schedule supplies the
 	"project_name", "fixture_type", "project_location" and "part_number" values that
-	mappings with a Webflow Field read.
+	mappings with a Webflow Field read. Mappings sourced from the schedule, its project
+	or the line itself read those records directly.
 
 	.. note::
 		This is an internal helper and is intentionally **not** whitelisted.
@@ -2183,7 +2195,7 @@ def generate_filled_driver_line_submittal(
 
 	if warnings is None:
 		warnings = []
-	_schedule, project, line = _schedule_context or _explicit_schedule_context(
+	schedule, project, line = _schedule_context or _explicit_schedule_context(
 		"driver_template", driver_template_name, schedule_line
 	)
 	config = driver_configuration(line) if line else None
@@ -2201,7 +2213,13 @@ def generate_filled_driver_line_submittal(
 	}
 	overrides = {key: value for key, value in overrides.items() if value not in (None, "")}
 	result = _generate_filled_variant_submittal(
-		"Driver", driver_template_name, config.get("variant_name"), warnings, overrides, is_private=1
+		"Driver",
+		driver_template_name,
+		config.get("variant_name"),
+		warnings,
+		overrides,
+		is_private=1,
+		schedule_context=(schedule, project, line),
 	)
 	if result.get("success"):
 		result.setdefault("provenance", {})["build"] = {
