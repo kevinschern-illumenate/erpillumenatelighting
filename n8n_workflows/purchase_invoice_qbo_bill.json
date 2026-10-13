@@ -1,0 +1,700 @@
+{
+  "name": "ERPNext Purchase Invoice → QuickBooks Bill",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "erpnext-purchase-invoice-bills",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "erpnext-bill-webhook",
+      "name": "ERPNext Bill Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "erpnext-purchase-invoice-bills",
+      "notes": "Put this node's PRODUCTION URL in ilL-QBO-Settings → Bill Webhook URL. ERPNext posts a signed event when a Purchase Invoice is submitted or cancelled, and resends unlinked invoices hourly."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ERPNext signs the raw body: X-QBO-Signature = hex HMAC-SHA256 with the shared secret.\nconst crypto = require('crypto');\nconst secret = $vars.QBO_WEBHOOK_SECRET; // same value as ilL-QBO-Settings.webhook_secret\nif (!secret) throw new Error('QBO_WEBHOOK_SECRET is not configured');\n\nconst item = $input.first();\nconst rawBody = item.binary && item.binary.data\n  ? Buffer.from(item.binary.data.data, 'base64')\n  : Buffer.from(JSON.stringify(item.json.body || {}), 'utf8');\nconst headers = item.json.headers || {};\nconst provided = String(headers['x-qbo-signature'] || headers['X-QBO-Signature'] || '').toLowerCase();\nconst expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\n\nconst a = Buffer.from(provided);\nconst b = Buffer.from(expected);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  throw new Error('Invalid X-QBO-Signature — dropping event');\n}\nreturn [{ json: JSON.parse(rawBody.toString('utf8')) }];"
+      },
+      "id": "verify-erpnext-signature",
+      "name": "Verify ERPNext Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "is-cancel",
+              "leftValue": "={{ $json.event }}",
+              "rightValue": "Cancel",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-cancel",
+      "name": "Is Cancel?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $vars.QBO_REALM_ID }}/query?query={{ encodeURIComponent(\"select Id, SyncToken from Bill where DocNumber = '\" + String($json.purchase_invoice).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\") }}&minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "find-bill",
+      "name": "Find Bill",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        150
+      ],
+      "notes": "The Bill's DocNumber is the Purchase Invoice name, so a resend finds the Bill it already created. Set n8n variable QBO_REALM_ID to the company id. For a sandbox company use https://sandbox-quickbooks.api.intuit.com."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $vars.QBO_REALM_ID }}/query?query={{ encodeURIComponent($('Verify ERPNext Signature').item.json.vendor_qbo_id ? \"select Id from Vendor where Id = '\" + String($('Verify ERPNext Signature').item.json.vendor_qbo_id).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\" : \"select Id from Vendor where DisplayName = '\" + String($('Verify ERPNext Signature').item.json.supplier_name).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\") }}&minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "find-vendor",
+      "name": "Find Vendor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Decide what still has to happen in QuickBooks for this Purchase Invoice.\nconst pi = $('Verify ERPNext Signature').item.json;\nconst bill = (($('Find Bill').item.json.QueryResponse || {}).Bill || [])[0];\nconst vendor = (($input.item.json.QueryResponse || {}).Vendor || [])[0];\nreturn {\n  json: {\n    ...pi,\n    existing_bill_id: bill ? String(bill.Id) : null,\n    vendor_id: vendor ? String(vendor.Id) : null,\n  },\n};"
+      },
+      "id": "plan-bill",
+      "name": "Plan Bill",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "vendor-found",
+              "leftValue": "={{ $json.vendor_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "vendor-found",
+      "name": "Vendor Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $vars.QBO_REALM_ID }}/vendor?minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ DisplayName: $json.supplier_name, CompanyName: $json.supplier_name }) }}"
+      },
+      "id": "create-vendor",
+      "name": "Create Vendor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1750,
+        300
+      ],
+      "notes": "A supplier not yet in QuickBooks becomes a Vendor with the same display name. Its id is written back to the ERPNext Supplier."
+    },
+    {
+      "parameters": {
+        "jsCode": "return { json: { ...$('Plan Bill').item.json, vendor_id: String($input.item.json.Vendor.Id) } };"
+      },
+      "id": "take-new-vendor",
+      "name": "Take New Vendor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "bill-exists",
+              "leftValue": "={{ $json.existing_bill_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bill-exists",
+      "name": "Bill Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2250,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// QuickBooks Bill from the ERPNext lines. Expense account ids are n8n variables:\n// QBO_BILL_EXPENSE_ACCOUNT_ID for item lines, QBO_BILL_ADJUSTMENT_ACCOUNT_ID (optional)\n// for taxes, charges and rounding, so the Bill total equals the Purchase Invoice total.\nconst pi = $input.item.json;\nconst expense = $vars.QBO_BILL_EXPENSE_ACCOUNT_ID;\nif (!expense) throw new Error('QBO_BILL_EXPENSE_ACCOUNT_ID is not configured');\nconst adjustmentAccount = $vars.QBO_BILL_ADJUSTMENT_ACCOUNT_ID || expense;\n\nconst line = (amount, description, account) => ({\n  DetailType: 'AccountBasedExpenseLineDetail',\n  Amount: Math.round(amount * 100) / 100,\n  Description: String(description).slice(0, 4000),\n  AccountBasedExpenseLineDetail: { AccountRef: { value: String(account) } },\n});\nconst lines = (pi.lines || [])\n  .filter(l => Number(l.amount) !== 0)\n  .map(l => line(Number(l.amount), `${l.item_code}: ${l.description} × ${l.qty}`, expense));\nif (Number(pi.adjustment) !== 0) lines.push(line(Number(pi.adjustment), 'Taxes, charges and rounding', adjustmentAccount));\nif (!lines.length) throw new Error(`Purchase Invoice ${pi.purchase_invoice} has no amounts to bill`);\nif (lines.some(l => l.Amount < 0)) throw new Error(`Purchase Invoice ${pi.purchase_invoice} has a negative line; enter this bill in QuickBooks by hand`);\n\nconst bill = {\n  VendorRef: { value: pi.vendor_id },\n  TxnDate: pi.posting_date,\n  DocNumber: pi.purchase_invoice,\n  PrivateNote: `ERPNext ${pi.purchase_invoice}${pi.bill_no ? `; supplier invoice ${pi.bill_no}` : ''}`,\n  Line: lines,\n};\nif (pi.due_date) bill.DueDate = pi.due_date;\nreturn { json: { bill, plan: pi } };"
+      },
+      "id": "build-bill",
+      "name": "Build Bill",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $vars.QBO_REALM_ID }}/bill?minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.bill) }}"
+      },
+      "id": "create-bill",
+      "name": "Create Bill",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2750,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const plan = $('Build Bill').item.json.plan;\nreturn {\n  json: { purchase_invoice: plan.purchase_invoice, qbo_bill_id: String($input.item.json.Bill.Id), vendor_qbo_id: plan.vendor_id },\n};"
+      },
+      "id": "link-created",
+      "name": "Link Created Bill",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const plan = $input.item.json;\nreturn {\n  json: { purchase_invoice: plan.purchase_invoice, qbo_bill_id: plan.existing_bill_id, vendor_qbo_id: plan.vendor_id },\n};"
+      },
+      "id": "link-existing",
+      "name": "Link Existing Bill",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sign the exact JSON string sent to ERPNext.\nconst crypto = require('crypto');\nconst secret = $vars.QBO_WEBHOOK_SECRET;\nif (!secret) throw new Error('QBO_WEBHOOK_SECRET is not configured');\nreturn $input.all().map(item => {\n  const body = JSON.stringify(item.json);\n  const signature = crypto.createHmac('sha256', secret).update(body, 'utf8').digest('hex');\n  return { json: { body, signature, purchase_invoice: item.json.purchase_invoice } };\n});"
+      },
+      "id": "sign-link",
+      "name": "Sign Link (HMAC)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3250,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://illumenatelighting.v.frappe.cloud/api/method/illumenate_lighting.illumenate_lighting.api.qbo_bills.receive_bill_link",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-QBO-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "post-link",
+      "name": "Write Ids to ERPNext",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3500,
+        150
+      ],
+      "notes": "Guest + HMAC endpoint; fails on non-2xx, which an n8n error workflow can alert on. Until this succeeds the invoice stays in Portal Operations → Bills not in QuickBooks and ERPNext resends it hourly."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $vars.QBO_REALM_ID }}/query?query={{ encodeURIComponent($json.qbo_bill_id ? \"select Id, SyncToken from Bill where Id = '\" + String($json.qbo_bill_id).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\" : \"select Id, SyncToken from Bill where DocNumber = '\" + String($json.purchase_invoice).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"\\\\'\") + \"'\") }}&minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "find-bill-to-delete",
+      "name": "Find Bill to Delete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        -200
+      ],
+      "notes": "QuickBooks refuses to delete a Bill that has payments applied; the failed execution is the signal to sort it out in QuickBooks."
+    },
+    {
+      "parameters": {
+        "jsCode": "const bill = (($input.item.json.QueryResponse || {}).Bill || [])[0];\nif (!bill) return []; // never reached QuickBooks: nothing to delete\nreturn { json: { Id: String(bill.Id), SyncToken: String(bill.SyncToken) } };"
+      },
+      "id": "plan-delete",
+      "name": "Plan Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $vars.QBO_REALM_ID }}/bill?operation=delete&minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ Id: $json.Id, SyncToken: $json.SyncToken }) }}"
+      },
+      "id": "delete-bill",
+      "name": "Delete Bill",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1250,
+        -200
+      ]
+    }
+  ],
+  "connections": {
+    "ERPNext Bill Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify ERPNext Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify ERPNext Signature": {
+      "main": [
+        [
+          {
+            "node": "Is Cancel?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Cancel?": {
+      "main": [
+        [
+          {
+            "node": "Find Bill to Delete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Bill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Bill to Delete": {
+      "main": [
+        [
+          {
+            "node": "Plan Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Bill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Bill": {
+      "main": [
+        [
+          {
+            "node": "Find Vendor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Vendor": {
+      "main": [
+        [
+          {
+            "node": "Plan Bill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Bill": {
+      "main": [
+        [
+          {
+            "node": "Vendor Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vendor Found?": {
+      "main": [
+        [
+          {
+            "node": "Bill Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Vendor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Vendor": {
+      "main": [
+        [
+          {
+            "node": "Take New Vendor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Take New Vendor": {
+      "main": [
+        [
+          {
+            "node": "Bill Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bill Exists?": {
+      "main": [
+        [
+          {
+            "node": "Link Existing Bill",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Bill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Bill": {
+      "main": [
+        [
+          {
+            "node": "Create Bill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Bill": {
+      "main": [
+        [
+          {
+            "node": "Link Created Bill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link Existing Bill": {
+      "main": [
+        [
+          {
+            "node": "Sign Link (HMAC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link Created Bill": {
+      "main": [
+        [
+          {
+            "node": "Sign Link (HMAC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Link (HMAC)": {
+      "main": [
+        [
+          {
+            "node": "Write Ids to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "quickbooks"
+    },
+    {
+      "name": "erpnext"
+    }
+  ]
+}
