@@ -48,6 +48,7 @@ def assemble_manifest(lines, load_source, *, filled=True, cover_pages=0):
 			"build": line.get("build"),
 			"provenance": line.get("provenance"),
 			"required": line.get("required", True),
+			"warnings": line.get("warnings") or [],
 			"status": "pending",
 		}
 		manifest.append(entry)

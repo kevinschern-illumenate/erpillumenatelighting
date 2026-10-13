@@ -4134,10 +4134,17 @@ function watchPacket(job, attempt) {
     frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.packet_jobs.status', args: {job_name: job}, callback: function (r) {
         var value = r.message || {};
         loadExportHistory();
+        var warnings = (value.warnings || []).length
+            ? '<p>' + __('Generated with these warnings:') + '</p><ul>' + value.warnings.map(function (w) { return '<li>' + frappe.utils.escape_html(w) + '</li>'; }).join('') + '</ul>'
+            : '';
         if (value.status === 'COMPLETE') {
-            frappe.show_alert({message: __('Packet complete. Download it from export history.'), indicator: 'green'});
+            if (warnings) {
+                frappe.msgprint({title: __('Packet complete with warnings'), message: '<p>' + __('Download it from export history.') + '</p>' + warnings, indicator: 'orange'});
+            } else {
+                frappe.show_alert({message: __('Packet complete. Download it from export history.'), indicator: 'green'});
+            }
         } else if (value.status === 'FAILED' || value.status === 'INCOMPLETE') {
-            frappe.msgprint({title: __('Packet incomplete'), message: frappe.utils.escape_html(value.error || __('Review the failed attempt and retry.')), indicator: 'red'});
+            frappe.msgprint({title: __('Packet incomplete'), message: '<p>' + frappe.utils.escape_html(value.error || __('Review the failed attempt and retry.')) + '</p>' + warnings, indicator: 'red'});
         } else if (attempt < 30) {
             window.setTimeout(function () { watchPacket(job, attempt + 1); }, 3000);
         }

@@ -182,7 +182,7 @@
       "fieldname": "required_value",
       "fieldtype": "Check",
       "label": "Required Value",
-      "description": "Block output if this engineering value is missing; zero is a valid value.",
+      "description": "Warn when this engineering value is missing and leave the field blank; zero is a valid value.",
       "default": "0"
     }
   ],
