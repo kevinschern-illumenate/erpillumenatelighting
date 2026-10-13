@@ -135,14 +135,11 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 
 	product_type(frm) {
 		// Clear source references when product type changes
-		frm.set_value("fixture_template", null);
-		frm.set_value("driver_spec", null);
-		frm.set_value("controller_spec", null);
-		frm.set_value("profile_spec", null);
-		frm.set_value("lens_spec", null);
-		frm.set_value("tape_spec", null);
-		frm.set_value("tape_neon_template", null);
-		frm.set_value("accessory_spec", null);
+		[...Object.keys(TEMPLATE_LINKS), ...SPEC_LINKS].forEach((fieldname) => {
+			if (frm.doc[fieldname]) {
+				frm.set_value(fieldname, null);
+			}
+		});
 
 		// Set appropriate category based on product type
 		const category_map = {
@@ -225,19 +222,64 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 	},
 
 	fixture_template(frm) {
-		// When fixture template is selected, enable configurator by default
-		if (frm.doc.fixture_template) {
-			frm.set_value("is_configurable", 1);
-		}
+		on_template_change(frm, "fixture_template");
 	},
-
 	tape_neon_template(frm) {
-		// When tape/neon template is selected, enable configurator by default
-		if (frm.doc.tape_neon_template) {
-			frm.set_value("is_configurable", 1);
-		}
-	}
+		on_template_change(frm, "tape_neon_template");
+	},
+	led_sheet_template(frm) {
+		on_template_change(frm, "led_sheet_template");
+	},
+	kit_template(frm) {
+		on_template_change(frm, "kit_template");
+	},
+	driver_template(frm) {
+		on_template_change(frm, "driver_template");
+	},
+	controller_template(frm) {
+		on_template_change(frm, "controller_template");
+	},
 });
+
+// Template link field -> template doctype. Mirrors WEBFLOW_PRODUCT_LINKS in
+// web_listing_schema.py; each one is shown only for its product type.
+const TEMPLATE_LINKS = {
+	fixture_template: "ilL-Fixture-Template",
+	tape_neon_template: "ilL-Tape-Neon-Template",
+	led_sheet_template: "ilL-LED-Sheet-Template",
+	kit_template: "ilL-Extrusion-Kit-Template",
+	driver_template: "ilL-Driver-Template",
+	controller_template: "ilL-Controller-Template",
+};
+
+const SPEC_LINKS = [
+	"driver_spec",
+	"controller_spec",
+	"profile_spec",
+	"lens_spec",
+	"tape_spec",
+	"accessory_spec",
+];
+
+function on_template_change(frm, fieldname) {
+	// A template drives the configurator, so enable it, and carry the
+	// template's category and series onto the product when it has them.
+	if (!frm.doc[fieldname]) {
+		return;
+	}
+	frm.set_value("is_configurable", 1);
+	frappe.db
+		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["product_category", "series"])
+		.then((r) => {
+			const template = (r && r.message) || {};
+			if (template.product_category) {
+				frm.set_value("product_category", template.product_category);
+			}
+			if (template.series && !frm.doc.series) {
+				frm.set_value("series", template.series);
+			}
+		});
+}
 
 // Re-sync modified timestamp after gallery image uploads in child table
 frappe.ui.form.on("ilL-Child-Webflow-Gallery-Image", {

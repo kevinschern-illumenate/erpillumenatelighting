@@ -6486,7 +6486,8 @@
           "fieldname": "fixture_template",
           "label": "Fixture Template",
           "fieldtype": "Link",
-          "options": "ilL-Fixture-Template"
+          "options": "ilL-Fixture-Template",
+          "description": "Linear fixture family that drives the Webflow configurator."
         },
         {
           "fieldname": "driver_spec",
@@ -6538,13 +6539,22 @@
           "fieldname": "tape_neon_template",
           "label": "Tape / Neon Template",
           "fieldtype": "Link",
-          "options": "ilL-Tape-Neon-Template"
+          "options": "ilL-Tape-Neon-Template",
+          "description": "LED tape or neon family that drives the Webflow configurator."
         },
         {
           "fieldname": "led_sheet_template",
           "label": "LED Sheet Template",
           "fieldtype": "Link",
-          "options": "ilL-LED-Sheet-Template"
+          "options": "ilL-LED-Sheet-Template",
+          "description": "LED sheet family that drives the Webflow configurator."
+        },
+        {
+          "fieldname": "kit_template",
+          "label": "Extrusion Kit Template",
+          "fieldtype": "Link",
+          "options": "ilL-Extrusion-Kit-Template",
+          "description": "Extrusion kit family that drives the Webflow configurator (finishes, lenses, endcaps, mounting)."
         },
         {
           "fieldname": "accessory_spec",
@@ -6797,12 +6807,6 @@
           "fieldtype": "Link",
           "options": "Item",
           "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator."
-        },
-        {
-          "fieldname": "kit_template",
-          "label": "Kit Template",
-          "fieldtype": "Link",
-          "options": "ilL-Extrusion-Kit-Template"
         }
       ]
     }
