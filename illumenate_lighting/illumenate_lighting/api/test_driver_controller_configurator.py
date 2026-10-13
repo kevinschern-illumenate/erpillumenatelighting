@@ -452,3 +452,32 @@ class TestDriverControllerConfigurator(FrappeTestCase):
 		self.assertTrue(result["success"])
 		self.assertEqual(result["file_url"], "/files/dcc-static-spec-sheet.pdf")
 		self.assertEqual(result["part_number"], "ILL-PSU-60-24")
+
+	def test_driver_mapping_reads_schedule_project_and_line(self):
+		from illumenate_lighting.illumenate_lighting.api.spec_submittal import (
+			_get_variant_source_value,
+		)
+
+		schedule = frappe._dict(schedule_name="Level 2")
+		project = frappe._dict(project_name="Harbor Lofts")
+		line = frappe._dict(location="Corridor")
+		context = (schedule, project, line)
+
+		self.assertEqual(
+			_get_variant_source_value("Driver", "ilL-Project", "project_name", schedule_context=context),
+			"Harbor Lofts",
+		)
+		self.assertEqual(
+			_get_variant_source_value(
+				"Driver", "ilL-Project-Fixture-Schedule", "schedule_name", schedule_context=context
+			),
+			"Level 2",
+		)
+		self.assertEqual(
+			_get_variant_source_value(
+				"Driver", "ilL-Child-Fixture-Schedule-Line", "location", schedule_context=context
+			),
+			"Corridor",
+		)
+		# Outside a schedule (a Webflow spec sheet download) these sources stay blank.
+		self.assertIsNone(_get_variant_source_value("Driver", "ilL-Project", "project_name"))
