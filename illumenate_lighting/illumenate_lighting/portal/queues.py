@@ -125,7 +125,19 @@ QUEUES = {
 		"assigned_to",
 		"sla_deadline",
 	),
+	"materials": (
+		"Materials to order",
+		"operations",
+		"Material Request",
+		{"docstatus": 1, "material_request_type": "Purchase", "status": ["in", ["Pending", "Partially Ordered"]]},
+		["name", "transaction_date", "schedule_date", "status", "per_ordered", "modified"],
+		None,
+		"schedule_date",
+	),
 }
+
+# Due fields holding a date (not a datetime) compare against today's date.
+DATE_DUE_FIELDS = ("due_date", "schedule_date")
 
 
 def _queue_allowed(queue, capability):
@@ -148,7 +160,7 @@ def query(queue, view="all", search=None):
 	elif view == "unassigned" and owner:
 		filters[owner] = ["is", "not set"]
 	elif view == "overdue" and due:
-		filters[due] = ["<", frappe.utils.nowdate() if due == "due_date" else frappe.utils.now()]
+		filters[due] = ["<", frappe.utils.nowdate() if due in DATE_DUE_FIELDS else frappe.utils.now()]
 	elif view != "all":
 		frappe.throw("This queue does not support that view")
 	if search:

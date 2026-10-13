@@ -297,7 +297,12 @@ override_doctype_class = {
 doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
 	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans"]},
-	"Work Order": {"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit"},
+	"Work Order": {
+		"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.guard_planned_work_order",
+		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
+	},
+	"Production Plan": {"validate": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_production_plan"},
+	"Material Request": {"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_material_request"},
 	"Quotation": {
 		# Only a submitted Quotation linked to an intake creates a portal offer.
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.offers.before_submit",

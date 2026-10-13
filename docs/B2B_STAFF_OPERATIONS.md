@@ -8,7 +8,7 @@ Open **ilLumenate Lighting → Portal Operations** (`/app/ill-portal-operations`
 | ilL Order Approver | Review the current buyer acknowledgment and pinned build/BOM, then submit the Sales Order. Drawing review is a separate manufacturing gate. |
 | ilL Engineering | Drawing requests, unassigned/overdue work, reapproval tasks and incomplete technical exports. Open a request and use **Portal conversation** to ask for information or leave a staff-only note. Publish a new private deliverable with an explicit revision. Only the named reviewer records approval. |
 | ilL Support | Issue response queue. Open **Portal conversation**, read the request, reply, request information, resolve with an explanation, or reopen. Returns remain requests; this flow does not issue credits. |
-| ilL Operations | Read manufacturing drawing holds. Obtain a current technical approval before submitting the Work Order; this queue never releases work automatically. |
+| ilL Operations | Read manufacturing drawing holds. Obtain a current technical approval before submitting the Work Order; this queue never releases work automatically. **Materials to order** lists submitted purchase Material Requests not yet fully ordered (also needs native Material Request read, e.g. Purchase User). |
 | ilL Integration | Publication and email failures. Inspect publication job errors before retrying. For email, distinguish failed queue creation from an existing Email Queue attempt. Never create a replacement email when delivery is uncertain. |
 | ilL Product Finder Manager | Maintain Finder questions, glossary, mappings and Settings; preview draft content and review product verification requests. |
 | ilL Catalog Publisher | Catalog Builder Check/Import, product/template/specification/compatibility/mapping authoring, catalog Items and pricing, and approved Item literature. Run Engineering preflight on templates and Channel preflight on products, then approve/stage and explicitly publish the inspected revision. |
@@ -60,6 +60,14 @@ Workspace upgrades back up the existing record under the site's `private/ill-wor
 Local service/DOM tests cover predicates, forbidden states, retry behavior and merge preservation. Actual ordinary-role Desk walkthroughs, asset loading, scheduler execution and fresh/upgraded Cloud migrations remain deployment acceptance tasks.
 
 Use [Cloud acceptance](B2B_CLOUD_ACCEPTANCE.md) for fixture secrets, historical checksums, concurrent-session tests, the mandatory role walkthrough matrix, legacy private-copy rehearsal, restore and rollout. Department leads must record named ownership and absence coverage there before release.
+
+## Material planning
+
+Buy for orders with native ERPNext tools. On a submitted Sales Order use **Create → Request for Raw Materials**, or plan several orders at once with a Production Plan (**Get Sales Orders → Get Raw Materials for Purchase**), then create Purchase Orders from the Material Request. Three guards keep these tools on the order's pinned builds ([`material_planning.py`](../illumenate_lighting/illumenate_lighting/api/material_planning.py)):
+
+- A Production Plan row for a Sales Order line uses the BOM that line pinned, not the Item default.
+- **Request for Raw Materials** explodes each Item's default BOM, so it is refused when a line pins a different BOM. Use a Production Plan for that order, or have Engineering reconcile the default.
+- A Production Plan cannot create a Work Order for an order line that already has one. Sales Order submit creates draft Work Orders for configured builds, and ERPNext counts only submitted Work Orders as covering an order, so plans are for materials only.
 
 ## Catalog Builder operations
 
