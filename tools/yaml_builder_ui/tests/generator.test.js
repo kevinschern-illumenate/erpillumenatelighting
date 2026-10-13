@@ -104,8 +104,11 @@ test('the endcap map preset fills the missing endcap rows for the allowed option
 
 test('presets exist for the common maps and Items, and only for the chosen DocType', () => {
   const catalog = fixtureDraft();
-  assert.deepEqual(presetsFor('Item', catalog, reference, schema).map(item => item.id), ['profile-items', 'lens-items', 'endcap-items']);
-  assert.deepEqual(presetsFor('ilL-Spec-Profile', catalog, reference, schema), []);
+  assert.deepEqual(presetsFor('Item', catalog, reference, schema).map(item => item.id), ['profile-items', 'lens-items', 'endcap-items', 'mounting-items']);
+  assert.deepEqual(presetsFor('ilL-Spec-Accessory', catalog, reference, schema).map(item => item.id), ['endcap-specs', 'mounting-specs']);
+  assert.deepEqual(presetsFor('UOM', catalog, reference, schema), []);
+  // Kit maps only come from kit templates.
+  assert.deepEqual(presetsFor('ilL-Rel-Kit-Profile-Map', catalog, reference, schema), []);
   const mounting = presetsFor('ilL-Rel-Mounting-Accessory-Map', catalog, reference, schema)[0];
   assert.deepEqual(generateRows(mounting.recipe, context(catalog)).map(row => row.status), ['draft']);
   const leader = presetsFor('ilL-Rel-Leader-Cable-Map', catalog, reference, schema)[0];
@@ -129,4 +132,71 @@ test('recipes save in the draft, survive YAML, and never reach validation', () =
   assert.equal(withRecipe(replaced, 'Item', 'Parts', null).builder, undefined);
   assert.deepEqual(savedRecipes({ records: {}, builder: { recipes: 'broken' } }), []);
   assert.throws(() => parseCatalog(stringify({ ...catalog, builder: ['x'] }), parse, schema), /builder/);
+});
+
+/** The extrusion kit example allowing a black finish, black endcaps and a second mounting method. */
+function kitDraft() {
+  const catalog = structuredClone(examples['extrusion-kit']);
+  catalog.records['ilL-Extrusion-Kit-Template'][0].allowed_options.push({ option_type: 'Finish', finish: 'Black', is_active: 1 },
+    { option_type: 'Endcap Color', endcap_color: 'BK', is_active: 1 });
+  return catalog;
+}
+const kitReference = { ...reference, doctypes: { ...reference.doctypes,
+  'ilL-Attribute-Lens Appearance': { source: 'export', records: { Frosted: { code: 'WH-FR' } } },
+  'ilL-Attribute-Endcap Color': { source: 'export', records: { White: { code: 'WH' }, BK: { code: 'BK' } } },
+  'ilL-Kit-Submittal-Mapping': { source: 'live', records: {
+    'KIT-RA01-part_number': { kit_template: 'KIT-RA01', pdf_field_name: 'part_number', source_doctype: 'ilL-Extrusion-Kit-Template', source_field: 'template_code', webflow_field: 'part_number' },
+    'KIT-RA01-width': { kit_template: 'KIT-RA01', pdf_field_name: 'width', source_doctype: 'ilL-Spec-Profile', source_field: 'width_mm', transformation: 'MM_TO_INCHES', required_value: 1 },
+  } },
+} };
+const kitPreset = (doctype, id, catalog) => presetsFor(doctype, catalog, kitReference, schema).find(item => item.id === id);
+
+test('kit map presets reproduce the example kit and add rows for newly allowed options', () => {
+  const catalog = kitDraft();
+  const kitContext = { catalog, reference: kitReference, schema };
+  const run = (doctype, id) => generateRows(kitPreset(doctype, id, catalog).recipe, kitContext);
+  assert.deepEqual(run('ilL-Rel-Kit-Profile-Map', 'kit-profile-map').map(row => [row.name, row.status, row.row.profile_spec]), [
+    ['DEMO-EXTRUSION-KIT-White', 'draft', 'CH-DEMO-WH'], ['DEMO-EXTRUSION-KIT-Black', 'new', 'CH-DEMO-BK']]);
+  assert.deepEqual(run('ilL-Rel-Kit-Lens-Map', 'kit-lens-map').map(row => [row.name, row.status]), [['DEMO-EXTRUSION-KIT-Frosted', 'draft']]);
+  assert.deepEqual(run('ilL-Rel-Kit-Mounting-Map', 'kit-mounting-map').map(row => [row.name, row.status, row.row.accessory_item]), [
+    ['DEMO-EXTRUSION-KIT-Mounting Clip', 'draft', 'ACC-DEMO-MC']]);
+  // Endcap colors come straight from the kit's allowed options, and the type follows the style.
+  const endcaps = run('ilL-Rel-Kit-Endcap-Map', 'kit-endcap-map');
+  assert.deepEqual(endcaps.map(row => [row.name, row.status, row.row.endcap_item]), [
+    ['DEMO-EXTRUSION-KIT-Solid-White-Solid', 'draft', 'EC-DEMO-WH-NO'], ['DEMO-EXTRUSION-KIT-Solid-BK-Solid', 'new', 'EC-DEMO-BK-NO'],
+    ['DEMO-EXTRUSION-KIT-Feed Through-White-Feed-Through', 'draft', 'EC-DEMO-WH-HO'], ['DEMO-EXTRUSION-KIT-Feed Through-BK-Feed-Through', 'new', 'EC-DEMO-BK-HO']]);
+  assert.deepEqual(endcaps[3].row, { kit_template: 'DEMO-EXTRUSION-KIT', endcap_style: 'Feed Through', endcap_color: 'BK', endcap_type: 'Feed-Through',
+    endcap_item: 'EC-DEMO-BK-HO', endcap_spec: 'EC-DEMO-BK-HO', is_active: 1 });
+  // The Item and spec presets name the same parts, so generating them resolves every new map link.
+  const items = run('Item', 'endcap-items');
+  assert.deepEqual(items.filter(row => row.status === 'new').map(row => row.name), ['EC-DEMO-BK-NO', 'EC-DEMO-BK-HO']);
+  const specs = run('ilL-Spec-Accessory', 'endcap-specs').filter(row => row.status === 'new');
+  assert.deepEqual(specs.map(row => [row.name, row.row.type, row.row.profile_family, row.row.endcap_style]),
+    [['EC-DEMO-BK-NO', 'Endcap', 'DEMO', 'Solid'], ['EC-DEMO-BK-HO', 'Endcap', 'DEMO', 'Feed Through']]);
+  const profiles = run('ilL-Spec-Profile', 'profile-specs');
+  assert.deepEqual(profiles.map(row => [row.name, row.status, row.row.stock_length_mm, row.row.family]), [
+    ['CH-DEMO-WH', 'draft', 2000, 'DEMO'], ['CH-DEMO-BK', 'new', 2000, 'DEMO']]);
+  const add = (records, doctype, rows) => ({ ...records, [doctype]: [...(records[doctype] || []), ...rows.filter(row => row.status === 'new').map(row => row.row)] });
+  let records = add(catalog.records, 'ilL-Rel-Kit-Endcap-Map', endcaps);
+  records = add(records, 'ilL-Rel-Kit-Profile-Map', run('ilL-Rel-Kit-Profile-Map', 'kit-profile-map'));
+  records = add(records, 'Item', [...items, ...run('Item', 'profile-items')].map(row => ({ ...row, row: { ...row.row, item_group: 'Products' } })));
+  records = add(records, 'ilL-Spec-Accessory', specs);
+  records = add(records, 'ilL-Spec-Profile', profiles);
+  const external = { ...catalog.external_links, 'ilL-Attribute-Finish': [...catalog.external_links['ilL-Attribute-Finish'], 'Black'],
+    'ilL-Attribute-Endcap Color': [...catalog.external_links['ilL-Attribute-Endcap Color'], 'BK'] };
+  assert.deepEqual(catalogIssues({ ...catalog, records, external_links: external }, schema, kitReference), []);
+});
+
+test("submittal mappings copy another template's rows onto the draft's templates", () => {
+  const catalog = kitDraft();
+  const preset = kitPreset('ilL-Kit-Submittal-Mapping', 'copy-mappings', catalog);
+  assert.deepEqual(preset.recipe.axes.map(axis => [axis.token, axis.values]), [['template', ['DEMO-EXTRUSION-KIT']], ['source', []]]);
+  const recipe = { ...preset.recipe, axes: [preset.recipe.axes[0], { ...preset.recipe.axes[1], values: ['KIT-RA01-part_number', 'KIT-RA01-width'] }] };
+  const rows = generateRows(recipe, { catalog, reference: kitReference, schema });
+  assert.deepEqual(rows.map(row => [row.name, row.status]), [['DEMO-EXTRUSION-KIT-part_number', 'draft'], ['DEMO-EXTRUSION-KIT-width', 'new']]);
+  assert.deepEqual(rows[1].row, { kit_template: 'DEMO-EXTRUSION-KIT', pdf_field_name: 'width', source_doctype: 'ilL-Spec-Profile', source_field: 'width_mm',
+    transformation: 'MM_TO_INCHES', required_value: 1 });
+  // Fixture templates get the same preset for their own mapping DocType.
+  assert.ok(presetsFor('ilL-Spec-Submittal-Mapping', fixtureDraft(), reference, schema).some(item => item.id === 'copy-mappings'));
+  assert.equal(presetsFor('ilL-Spec-Submittal-Mapping', catalog, reference, schema).length, 0);
 });

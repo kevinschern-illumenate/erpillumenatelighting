@@ -148,7 +148,8 @@ const draftNames = (doctype, catalog, schema) => (catalog.records[doctype] || []
 
 /**
  * Starting recipes for a DocType, filled from the draft: its templates, their allowed
- * options, and its LED Tape specs. Returns [{ id, label, description, recipe }].
+ * options, and its LED Tape specs. Items, specs and kit maps share one part-code scheme, so
+ * generating each of them for the same options links up. Returns [{ id, label, description, recipe }].
  */
 export function presetsFor(doctype, catalog, reference, schema) {
   const product = schema.products[catalog.product_type];
@@ -160,6 +161,16 @@ export function presetsFor(doctype, catalog, reference, schema) {
   // Endcap colors come from the finishes the templates allow, through Finish Endcap Color records.
   const pairs = { token: 'pair', doctype: 'ilL-Rel-Finish Endcap Color', values: availableNames('ilL-Rel-Finish Endcap Color', catalog, reference, schema)
     .filter(name => finishes.includes(findRecord('ilL-Rel-Finish Endcap Color', name, catalog, reference, schema)?.finish)) };
+  // Extrusion kits allow endcap colors directly; fixtures reach them through their finishes.
+  const kit = template === 'ilL-Extrusion-Kit-Template';
+  const colors = kit ? option('color', 'Endcap Color') : pairs;
+  const colorCode = kit ? '{color.code}' : '{pair.endcap_color.code}';
+  const colorName = kit ? '{color}' : '{pair.endcap_color}';
+  const family = '{template.default_profile_family}';
+  const profileCode = `CH-${family}-{finish.code}`;
+  const lensCode = `LNS-${family}-{lens.code}`;
+  const endcapCode = `EC-${family}-${colorCode}-{style.code}`;
+  const mountCode = `ACC-${family}-{method.code}`;
   const presets = [];
   const add = (id, forType, label, description, axes, fields) => {
     if (forType === doctype && schema.doctypes[doctype]) presets.push({ id, label, description, recipe: { doctype, axes, fields } });
@@ -189,18 +200,70 @@ export function presetsFor(doctype, catalog, reference, schema) {
   add('profile-items', 'Item', 'Profile Items by finish',
     "One Item per template and allowed finish, coded from the template's profile family.",
     [templates, option('finish', 'Finish')],
-    { item_code: 'CH-{template.default_profile_family}-{finish.code}', item_name: '{template.template_name} profile, {finish}', stock_uom: 'Nos',
+    { item_code: profileCode, item_name: '{template.template_name} profile, {finish}', stock_uom: 'Nos',
       is_stock_item: '1', is_sales_item: '1', is_purchase_item: '1' });
   add('lens-items', 'Item', 'Lens Items by appearance',
     'One Item per template and allowed lens appearance.',
     [templates, option('lens', 'Lens Appearance')],
-    { item_code: 'LNS-{template.default_profile_family}-{lens.code}', item_name: '{template.template_name} lens, {lens}', stock_uom: 'Nos',
+    { item_code: lensCode, item_name: '{template.template_name} lens, {lens}', stock_uom: 'Nos',
       is_stock_item: '1', is_sales_item: '1', is_purchase_item: '1' });
   add('endcap-items', 'Item', 'Endcap Items by color and style',
-    'One Item per template, endcap color of an allowed finish, and allowed endcap style.',
-    [templates, pairs, option('style', 'Endcap Style')],
-    { item_code: 'EC-{template.default_profile_family}-{pair.endcap_color.code}-{style.code}', item_name: '{template.template_name} endcap, {pair.endcap_color} {style}',
+    kit ? 'One Item per template, allowed endcap color, and allowed endcap style.'
+      : 'One Item per template, endcap color of an allowed finish, and allowed endcap style.',
+    [templates, colors, option('style', 'Endcap Style')],
+    { item_code: endcapCode, item_name: `{template.template_name} endcap, ${colorName} {style}`,
       stock_uom: 'Nos', is_stock_item: '1', is_sales_item: '1', is_purchase_item: '1' });
+  add('mounting-items', 'Item', 'Mounting Items by method',
+    'One Item per template and allowed mounting method.',
+    [templates, option('method', 'Mounting Method')],
+    { item_code: mountCode, item_name: '{template.template_name} mounting, {method}', stock_uom: 'Nos',
+      is_stock_item: '1', is_sales_item: '1', is_purchase_item: '1' });
+  // Specs are named by their Item, so they use the same codes as the Item presets.
+  add('profile-specs', 'ilL-Spec-Profile', 'Profile specs by finish',
+    'One profile spec per template and allowed finish, for the profile Items. Fill in the dimensions.',
+    [templates, option('finish', 'Finish')],
+    { item: profileCode, family, series: '{template.series}', is_active: '1',
+      stock_length_mm: kit ? '{template.profile_stock_length_mm}' : '{template.default_profile_stock_len_mm}' });
+  add('lens-specs', 'ilL-Spec-Lens', 'Lens specs by appearance',
+    'One lens spec per template and allowed lens appearance, for the lens Items.',
+    [templates, option('lens', 'Lens Appearance')],
+    { item: lensCode, lens_appearance: '{lens}', family, series: '{template.series}', stock_type: 'Stick',
+      ...(kit ? { stock_length_mm: '{template.lens_stock_length_mm}' } : {}) });
+  add('endcap-specs', 'ilL-Spec-Accessory', 'Endcap specs by color and style',
+    'One endcap accessory spec per template, endcap color and allowed endcap style, for the endcap Items.',
+    [templates, colors, option('style', 'Endcap Style')],
+    { item: endcapCode, type: 'Endcap', profile_family: family, endcap_style: '{style}' });
+  add('mounting-specs', 'ilL-Spec-Accessory', 'Mounting specs by method',
+    'One mounting accessory spec per template and allowed mounting method, for the mounting Items.',
+    [templates, option('method', 'Mounting Method')],
+    { item: mountCode, type: 'Mounting', profile_family: family, mounting_method: '{method}' });
+  if (kit) add('kit-profile-map', 'ilL-Rel-Kit-Profile-Map', 'Kit profile map from allowed finishes',
+    'One row per kit and allowed finish, using the profile coded from the finish.',
+    [templates, option('finish', 'Finish')],
+    { kit_template: '{template}', finish: '{finish}', profile_spec: profileCode, profile_item: profileCode, is_active: '1' });
+  if (kit) add('kit-lens-map', 'ilL-Rel-Kit-Lens-Map', 'Kit lens map from allowed lens appearances',
+    'One row per kit and allowed lens appearance, using the lens coded from the appearance.',
+    [templates, option('lens', 'Lens Appearance')],
+    { kit_template: '{template}', lens_appearance: '{lens}', lens_spec: lensCode, lens_item: lensCode, is_active: '1' });
+  if (kit) add('kit-endcap-map', 'ilL-Rel-Kit-Endcap-Map', 'Kit endcap map from allowed styles and colors',
+    'One row per kit, allowed endcap style and allowed endcap color. The endcap type follows the style (Solid or Feed Through).',
+    [templates, option('style', 'Endcap Style'), colors],
+    { kit_template: '{template}', endcap_style: '{style}', endcap_color: colorName, endcap_type: '{style}',
+      endcap_item: endcapCode, endcap_spec: endcapCode, is_active: '1' });
+  if (kit) add('kit-mounting-map', 'ilL-Rel-Kit-Mounting-Map', 'Kit mounting map from allowed mounting methods',
+    'One row per kit and allowed mounting method.',
+    [templates, option('method', 'Mounting Method')],
+    { kit_template: '{template}', mounting_method: '{method}', accessory_item: mountCode, accessory_spec: mountCode, is_active: '1' });
+  // Templates of one product line usually share a submittal PDF, so copy another template's mappings.
+  const mappingLink = doctype.endsWith('-Submittal-Mapping') && template
+    && schema.doctypes[doctype]?.fields.find(field => field.fieldtype === 'Link' && field.options === template);
+  if (mappingLink) {
+    const fields = Object.fromEntries(patternColumns(doctype, schema).filter(column => column.key !== mappingLink.fieldname)
+      .map(column => [column.key, `{source.${column.key}}`]));
+    add('copy-mappings', doctype, 'Copy mappings from another template',
+      "One row per template and chosen mapping. Search the source template's name, then Choose shown.",
+      [templates, { token: 'source', doctype, values: [] }], { [mappingLink.fieldname]: '{template}', ...fields });
+  }
   return presets;
 }
 

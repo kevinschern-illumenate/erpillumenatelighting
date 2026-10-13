@@ -46,6 +46,8 @@ test('pasted text becomes the field type, keeping bad values for validation', ()
   assert.deepEqual(coerceCell(column('Check'), 'Yes'), { ok: true, value: 1 });
   assert.deepEqual(coerceCell(column('Check'), 'FALSE'), { ok: true, value: 0 });
   assert.deepEqual(coerceCell(column('Select', { options: 'Constant Voltage\nConstant Current' }), 'constant voltage'), { ok: true, value: 'Constant Voltage' });
+  assert.deepEqual(coerceCell(column('Select', { options: 'Solid\nFeed-Through' }), 'Feed Through'), { ok: true, value: 'Feed-Through' });
+  assert.deepEqual(coerceCell(column('Select', { options: '<5\n>5' }), '= 5'), { ok: true, value: '= 5' });
   assert.deepEqual(coerceCell(column('Data'), '  SKU-1 '), { ok: true, value: 'SKU-1' });
   assert.deepEqual(coerceCell(column('Data'), ''), { ok: true, value: '' });
   assert.deepEqual(coerceCell(column('Table'), '[{"a":1}]'), { ok: true, value: [{ a: 1 }] });
