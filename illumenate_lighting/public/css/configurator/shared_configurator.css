@@ -309,13 +309,15 @@ select.ill-template-select-driven { display: none !important; }
 
 /* ── LED Sheet configurator (IllConfigurator.LedSheet) ──
  * Mirrors the Guided Wizard section chrome so all categories look the same. */
-.ill-configurator-sheet .config-section h4 {
+.ill-configurator-sheet .config-section h4,
+.ill-configurator-kit .config-section h4 {
 	font-size: 1rem;
 	font-weight: 600;
 	margin-bottom: 0.75rem;
 	color: var(--ill-ink, #172e48);
 }
-.ill-configurator-sheet .config-section h4 .ill-config-step-num { margin-right: 10px; vertical-align: middle; }
+.ill-configurator-sheet .config-section h4 .ill-config-step-num,
+.ill-configurator-kit .config-section h4 .ill-config-step-num { margin-right: 10px; vertical-align: middle; }
 .ill-configurator-sheet .length-input-group { display: flex; gap: 0.5rem; }
 .ill-configurator-sheet .length-input-group input { flex: 2; }
 .ill-configurator-sheet .length-input-group select { flex: 1; }
@@ -712,3 +714,57 @@ select.ill-template-select-driven { display: none !important; }
 .ill-configurator .bulk-reel-pill:hover {
 	background-color: #e9ecef;
 }
+
+/* ── Extrusion Kit configurator (IllConfigurator.Kit) ──
+ * Same section chrome as the LED Sheet and Linear Fixture configurators. */
+.ill-configurator-kit .ill-kit-summary-card { top: 1rem; }
+.ill-configurator-kit .ill-kit-template { margin-top: 12px; font-size: 13px; color: var(--ill-ink, #172e48); }
+.ill-configurator-kit .ill-kit-template-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.ill-configurator-kit .ill-kit-template-head img {
+	width: 96px;
+	height: 72px;
+	object-fit: cover;
+	border-radius: var(--ill-radius, 8px);
+	border: 1px solid var(--ill-border, #dce2e8);
+}
+.ill-configurator-kit .ill-kit-template-name { font-family: var(--ill-font-display); font-size: 16px; font-weight: 600; }
+.ill-configurator-kit .ill-kit-template-code { font-family: var(--ill-font-mono, monospace); font-size: 12px; color: var(--ill-muted, #7f8080); }
+.ill-configurator-kit .ill-kit-ships { margin-bottom: 10px; }
+.ill-configurator-kit .ill-kit-specs {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 4px 16px;
+	margin: 0 0 12px;
+	padding: 10px 12px;
+	background: var(--ill-accent-bg, #e6f0f7);
+	border-radius: var(--ill-radius, 8px);
+}
+.ill-configurator-kit .ill-kit-specs dt { font-weight: 500; color: var(--ill-muted, #7f8080); }
+.ill-configurator-kit .ill-kit-specs dd { margin: 0; }
+.ill-configurator-kit .ill-kit-part { margin-bottom: 12px; }
+.ill-configurator-kit .ill-kit-part small { display: block; color: var(--ill-muted, #7f8080); text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+.ill-configurator-kit .ill-kit-part code {
+	display: block;
+	margin-top: 2px;
+	font-family: var(--ill-font-mono, monospace);
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--ill-ink, #172e48);
+	word-break: break-all;
+}
+.ill-configurator-kit .ill-kit-price {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	padding: 8px 0;
+	margin-bottom: 8px;
+	border-top: 1px solid var(--ill-border, #dce2e8);
+	border-bottom: 1px solid var(--ill-border, #dce2e8);
+}
+.ill-configurator-kit .ill-kit-price span { color: var(--ill-muted, #7f8080); font-size: 13px; }
+.ill-configurator-kit .ill-kit-components th { font-weight: 600; border-top: 0; }
+.ill-configurator-kit .ill-kit-components td,
+.ill-configurator-kit .ill-kit-components th { border-color: var(--ill-border, #dce2e8); }
+.ill-configurator-kit .ill-kit-stock { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.ill-configurator-kit .ill-kit-stock.is-in-stock { color: var(--ill-success, #006833); }
+.ill-configurator-kit .ill-kit-stock.is-short { color: var(--ill-danger, #d63b2f); }

@@ -158,6 +158,7 @@ def status(job_name):
 	_access(job.schedule)
 	if job.export_type not in TYPES:
 		raise ValueError("This is not a packet job")
+	manifest = json.loads(job.manifest_json or "[]")
 	return {
 		"success": True,
 		"export_job": job.name,
@@ -165,7 +166,8 @@ def status(job_name):
 		"progress": job.progress or 0,
 		"message": job.progress_message,
 		"error": job.error_log if job.status in ("FAILED", "INCOMPLETE") else None,
-		"manifest": json.loads(job.manifest_json or "[]"),
+		"manifest": manifest,
+		"warnings": list(dict.fromkeys(w for entry in manifest for w in entry.get("warnings") or [])),
 		"file_url": job.output_file if job.status in ("COMPLETE", "INCOMPLETE") else None,
 	}
 

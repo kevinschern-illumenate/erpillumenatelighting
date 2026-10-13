@@ -12,7 +12,7 @@ import { recordCounts } from './erp-api.js';
 import {
   blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
   referenceSummary, withReferenceLinks, unconfirmedLinks, isComplete,
-  catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, catalogKey,
+  catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, catalogKey, familyTypes,
 } from './catalog-model.js';
 import { issueIndex, findingGroups } from './grid-model.js';
 import { renameRecords, applyReplace } from './rename-model.js';
@@ -267,7 +267,8 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const fromErp = Object.values(resolved.external_links).reduce((sum, names) => sum + names.length, 0)
     - Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0);
   const total = Object.values(catalog.records).reduce((sum, rows) => sum + rows.length, 0);
-  const orderedTypes = [...new Set(['Item', product.spec, product.template, 'ilL-Webflow-Product', ...Object.keys(catalog.records), ...parentTypes])]
+  const orderedTypes = [...new Set(['Item', product.spec, product.template, 'ilL-Webflow-Product', ...familyTypes(product, schema),
+    ...Object.keys(catalog.records), ...parentTypes])]
     .filter(name => name.toLowerCase().includes(search.toLowerCase()));
   const rows = catalog.records[selected] || [];
   const filename = `${(catalog.series_name || workspace.active).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-catalog.yaml`;

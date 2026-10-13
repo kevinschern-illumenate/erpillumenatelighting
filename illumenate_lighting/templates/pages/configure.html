@@ -32,7 +32,20 @@ Allows users to configure fixtures using segment-based configuration
 		</span>
 	</div>
 	{% endif %}
-{% if product_category == 'Driver' %}
+{% if product_category == 'Extrusion Kit' %}
+<div id="familyConfigurator" class="ill-configurator ill-configurator-kit container portal-page">
+	<nav aria-label="breadcrumb" class="mb-4">
+		<ol class="breadcrumb">
+			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
+			{% if schedule %}
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			{% endif %}
+			<li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+		</ol>
+	</nav>
+	{% include "templates/includes/configurator_kit_form.html" %}
+</div>
+{% elif product_category == 'Driver' %}
 <div id="familyConfigurator" class="ill-configurator ill-configurator-driver container portal-page">
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -45,9 +58,9 @@ Allows users to configure fixtures using segment-based configuration
 	</nav>
 	{% include "templates/includes/configurator_driver_form.html" %}
 </div>
-{% elif product_category in ('Controller', 'Extrusion Kit') %}
+{% elif product_category == 'Controller' %}
 <div id="familyConfigurator" class="ill-configurator container py-4"><h1>{{ title }}</h1>
-{% if product_category == 'Extrusion Kit' %}{% include "templates/includes/configurator_kit_form.html" %}{% else %}{% include "templates/includes/configurator_driver_controller_form.html" %}{% endif %}
+{% include "templates/includes/configurator_driver_controller_form.html" %}
 </div>
 {% else %}
 <div id="portal-configurator">

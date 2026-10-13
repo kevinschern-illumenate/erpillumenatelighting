@@ -256,3 +256,46 @@ test('an as-is import can leave attributes linked and keep chosen records as ori
   assert.equal(next.records['ilL-Attribute-Finish'], undefined);
   assert.equal(next.records['ilL-Fixture-Template'][0].template_code, 'DEMO-FIXTURE');
 });
+
+/** An ERPNext export holding the extrusion kit example, its Webflow backlink set as ERPNext sets it. */
+function exportedKit() {
+  const records = structuredClone(examples['extrusion-kit'].records);
+  records['ilL-Extrusion-Kit-Template'][0].webflow_product = 'example-extrusion-kit';
+  const doctypes = {};
+  for (const [doctype, rows] of Object.entries(records)) {
+    doctypes[doctype] = { source: 'export', records: Object.fromEntries(rows.map(row => [recordName(doctype, row, schema), structuredClone(row)])) };
+  }
+  for (const [doctype, names] of Object.entries(examples['extrusion-kit'].external_links)) {
+    doctypes[doctype] ||= { source: 'export', records: {} };
+    names.forEach(name => { doctypes[doctype].records[name] ||= {}; });
+  }
+  return { source: 'export', exported_on: '2026-10-13', doctypes };
+}
+
+test('a kit clone carries its maps, submittal mappings, specs and Webflow product under new names', () => {
+  const reference = exportedKit();
+  const kitRoot = { doctype: 'ilL-Extrusion-Kit-Template', name: 'DEMO-EXTRUSION-KIT' };
+  const rename = ruleRenamer([{ find: 'DEMO', replace: 'RA04' }, { find: 'example-extrusion-kit', replace: 'rainier-ra04-kit' }]);
+  const discovery = discoverFamily({ root: kitRoot, reference, schema, full: fromExport(reference), rename, renameText: rename });
+  const copied = discovery.nodes.filter(node => node.mode === 'copy');
+  const counts = copied.reduce((total, node) => ({ ...total, [node.doctype]: (total[node.doctype] || 0) + 1 }), {});
+  assert.deepEqual(counts, { 'ilL-Extrusion-Kit-Template': 1, 'ilL-Spec-Profile': 1, 'ilL-Spec-Lens': 1, 'ilL-Webflow-Product': 1, Item: 5,
+    'ilL-Spec-Accessory': 3, 'ilL-Rel-Kit-Profile-Map': 1, 'ilL-Rel-Kit-Lens-Map': 1, 'ilL-Rel-Kit-Mounting-Map': 1, 'ilL-Rel-Kit-Endcap-Map': 2,
+    'ilL-Kit-Submittal-Mapping': 6, 'ilL-Rel-Profile Lens': 1 });
+
+  const result = cloneFamily(emptyCatalog('extrusion-kit'), schema, discovery, fromExport(reference), { renameText: rename });
+  const next = result.catalog;
+  const [kit] = next.records['ilL-Extrusion-Kit-Template'];
+  assert.equal(kit.template_code, 'RA04-EXTRUSION-KIT');
+  assert.equal(kit.default_profile_family, 'RA04');
+  assert.deepEqual(kit.kit_components.map(row => row.component_spec_name), ['CH-RA04-WH', 'LNS-RA04-WH-FR', 'ACC-RA04-MC']);
+  // The copied product links back to the copied kit; the kit's reverse link is cleared, and ERPNext sets it on import.
+  assert.equal(kit.webflow_product, undefined);
+  assert.deepEqual(result.cleared, [{ doctype: 'ilL-Extrusion-Kit-Template', name: 'RA04-EXTRUSION-KIT', product: 'rainier-ra04-kit' }]);
+  assert.equal(next.records['ilL-Webflow-Product'][0].kit_template, 'RA04-EXTRUSION-KIT');
+  assert.deepEqual(next.records['ilL-Kit-Submittal-Mapping'].map(row => recordName('ilL-Kit-Submittal-Mapping', row, schema)).sort(),
+    ['RA04-EXTRUSION-KIT-finish', 'RA04-EXTRUSION-KIT-lens', 'RA04-EXTRUSION-KIT-mounting', 'RA04-EXTRUSION-KIT-part_number',
+      'RA04-EXTRUSION-KIT-profile_width', 'RA04-EXTRUSION-KIT-project_name']);
+  assert.deepEqual(next.records['ilL-Rel-Kit-Endcap-Map'].map(row => [row.endcap_item, row.endcap_spec]), [['EC-RA04-WH-NO', 'EC-RA04-WH-NO'], ['EC-RA04-WH-HO', 'EC-RA04-WH-HO']]);
+  assert.deepEqual(catalogIssues(next, schema, reference), []);
+});
