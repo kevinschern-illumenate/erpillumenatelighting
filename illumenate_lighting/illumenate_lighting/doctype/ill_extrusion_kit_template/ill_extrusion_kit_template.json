@@ -14,6 +14,7 @@
   "column_break_details",
   "series",
   "default_profile_family",
+  "image",
   "notes",
   "kit_composition_section",
   "profile_stock_length_mm",
@@ -26,6 +27,7 @@
   "default_profile_spec",
   "default_lens_spec",
   "column_break_spec_links",
+  "spec_submittal_template",
   "spec_sheet",
   "webflow_product",
   "allowed_options_section",
@@ -107,6 +109,12 @@
    "label": "Default Profile Family"
   },
   {
+   "description": "Product image shown on the Add Fixture Line picker and the kit configurator. Falls back to the Webflow product gallery when empty.",
+   "fieldname": "image",
+   "fieldtype": "Attach Image",
+   "label": "Image"
+  },
+  {
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
@@ -182,6 +190,12 @@
   {
    "fieldname": "column_break_spec_links",
    "fieldtype": "Column Break"
+  },
+  {
+   "description": "Fillable PDF used to generate configured kit spec submittals. Map its fields with Kit Submittal Mappings.",
+   "fieldname": "spec_submittal_template",
+   "fieldtype": "Attach",
+   "label": "Spec Submittal Template"
   },
   {
    "fieldname": "spec_sheet",
@@ -308,7 +322,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-11 22:47:13.000000",
+ "modified": "2026-10-13 14:10:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",

@@ -368,6 +368,7 @@ def _pdf_preflight(template, dependencies, issue):
 			"ilL-LED-Sheet-Template": ("ilL-LED-Sheet-Submittal-Mapping", "led_sheet_template"),
 			"ilL-Driver-Template": ("ilL-Driver-Submittal-Mapping", "driver_template"),
 			"ilL-Controller-Template": ("ilL-Controller-Submittal-Mapping", "controller_template"),
+			"ilL-Extrusion-Kit-Template": ("ilL-Kit-Submittal-Mapping", "kit_template"),
 		}
 		doctype, field = registry[template.doctype]
 		mappings = frappe.get_all(doctype, filters={field: template.name}, fields=["*"])

@@ -36,6 +36,8 @@ def _part_number(line):
 	):
 		if line.get(field):
 			return frappe.db.get_value(doctype, line.get(field), column) or line.get(field)
+	if line.get("kit_template"):
+		return line.get("ill_item_code") or line.kit_template
 	return None
 
 
@@ -48,6 +50,8 @@ def gather(schedule, warnings, pinned=None):
 		("configured_fixture", "ilL-Configured-Fixture", pdf.generate_filled_submittal),
 		("configured_tape_neon", "ilL-Configured-Tape-Neon", pdf.generate_filled_neon_submittal),
 		("configured_led_sheet", "ilL-Configured-LED-Sheet", pdf.generate_filled_sheet_submittal),
+		# A configured kit's build lives on the line itself; its template supplies the submittal.
+		("kit_template", "ilL-Extrusion-Kit-Template", pdf.generate_filled_kit_submittal),
 	)
 	lines = []
 	for line in schedule.lines:
@@ -267,10 +271,13 @@ def generate(
 						"LED Sheet": "sheet_template",
 					}[configured.family]
 					configured.set(field, configured.template)
+				if build["doctype"] == "ilL-Extrusion-Kit-Template":
+					configured.set("kit_template", configured.name)
 				for field, doctype in (
 					("fixture_template", "ilL-Fixture-Template"),
 					("tape_neon_template", "ilL-Tape-Neon-Template"),
 					("sheet_template", "ilL-LED-Sheet-Template"),
+					("kit_template", "ilL-Extrusion-Kit-Template"),
 				):
 					if configured.get(field):
 						url = frappe.db.get_value(doctype, configured.get(field), "spec_sheet")

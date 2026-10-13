@@ -43,6 +43,7 @@ def authoring_permissions(names):
 			"ilL-Neon-Submittal-Mapping",
 			"ilL-LED-Sheet-Submittal-Mapping",
 			"ilL-Driver-Submittal-Mapping",
+			"ilL-Kit-Submittal-Mapping",
 			"ilL-Controller-Submittal-Mapping",
 			"ilL-Item-Literature",
 		}

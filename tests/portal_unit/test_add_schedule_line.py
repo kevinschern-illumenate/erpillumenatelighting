@@ -52,3 +52,20 @@ class AddLine(unittest.TestCase):
 			manufacturer_type="ACCESSORY",
 		)
 		self.assertTrue(result["success"], result)
+
+	def test_extrusion_kit_line_keeps_its_template_for_the_kit_configurator(self):
+		for product_type in ("Extrusion Kits", "Extrusion Kit"):
+			result, line, schedule = self.run_add(
+				staff=True, item=1, product_type=product_type, kit_template="KIT-A"
+			)
+			self.assertTrue(result["success"], result)
+			self.assertEqual(line.product_type, "Extrusion Kit")
+			self.assertEqual(line.kit_template, "KIT-A")
+			self.assertEqual(line.configuration_status, "Pending")
+			schedule.save.assert_called_once()
+
+	def test_extrusion_kit_line_needs_an_active_template(self):
+		for changes in ({"kit_template": "GONE"}, {"product_type": "Extrusion Kits"}):
+			result, _, schedule = self.run_add(item=None, **changes)
+			self.assertFalse(result["success"])
+			schedule.save.assert_not_called()
