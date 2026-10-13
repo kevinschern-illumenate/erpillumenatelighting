@@ -64,6 +64,29 @@ class AddLine(unittest.TestCase):
 			self.assertEqual(line.configuration_status, "Pending")
 			schedule.save.assert_called_once()
 
+	def test_power_supply_line_keeps_its_template_for_the_power_supply_configurator(self):
+		for group in ("Power Supplies", "Drivers"):
+			result, line, schedule = self.run_add(
+				staff=True,
+				item=Record(disabled=0, is_sales_item=1, has_variants=0),
+				manufacturer_type="ACCESSORY",
+				accessory_product_type=group,
+				driver_template="DRV-A",
+				accessory_item="PICKED-ITEM",
+			)
+			self.assertTrue(result["success"], result)
+			self.assertEqual(line.driver_template, "DRV-A")
+			self.assertEqual(line.configuration_status, "Pending")
+			self.assertNotIn("accessory_item", line, "the configurator resolves the Item")
+			schedule.save.assert_called_once()
+
+	def test_power_supply_line_needs_an_active_template(self):
+		for changes in ({"driver_template": "GONE"}, {"accessory_product_type": "Power Supplies"}):
+			result, _, schedule = self.run_add(item=None, manufacturer_type="ACCESSORY", **changes)
+			self.assertFalse(result["success"])
+			self.assertEqual(result["error"], "Choose an active power supply")
+			schedule.save.assert_not_called()
+
 	def test_extrusion_kit_line_needs_an_active_template(self):
 		for changes in ({"kit_template": "GONE"}, {"product_type": "Extrusion Kits"}):
 			result, _, schedule = self.run_add(item=None, **changes)

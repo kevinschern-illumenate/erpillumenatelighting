@@ -1,0 +1,83 @@
+{#
+Power supply configurator markup (IllConfigurator.Driver, driver_steps.js).
+
+Laid out like the LED Sheet, Linear Fixture and Extrusion Kit configurators: a Schedule
+Target card, numbered option sections on the left and a sticky Summary & Results card on
+the right. Templates are ilL-Driver-Template records; options come from the chosen
+template and resolve to exactly one ilL-Spec-Driver variant.
+The host element must carry `.ill-configurator.ill-configurator-driver`.
+#}
+<div class="card mb-3" id="scheduleContextCard">
+	<div class="card-header d-flex justify-content-between align-items-center">
+		<h6 class="mb-0"><i class="fa fa-folder-open"></i> {{ _("Schedule Target") }}</h6>
+		<small class="text-muted">{{ _("Select a project and line to save this configuration") }}</small>
+	</div>
+	<div class="card-body">
+		<div class="row">
+			<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold" for="projectSelect">{{ _("Project") }}</label><select class="form-control" id="projectSelect"><option value="">{{ _("Select Project...") }}</option></select></div></div>
+			<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold" for="scheduleSelect">{{ _("Fixture Schedule") }}</label><select class="form-control" id="scheduleSelect" disabled><option value="">{{ _("Select Schedule...") }}</option></select></div></div>
+			<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold" for="lineSelect">{{ _("Fixture Type") }}</label><select class="form-control" id="lineSelect" disabled><option value="">{{ _("Select Line...") }}</option><option value="__new__">{{ _("+ New Line") }}</option></select></div></div>
+		</div>
+		<div id="linePreview" class="alert alert-warning mt-2" style="display: none;">
+			<strong><i class="fa fa-exclamation-triangle"></i> {{ _("Existing Line Data") }}</strong>
+			<p class="mb-0 mt-1 small" id="linePreviewText"></p>
+		</div>
+	</div>
+</div>
+
+<div class="row">
+	<div class="col-lg-7">
+		<div class="card mb-3">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h5 class="mb-0">{{ _("Power Supply Configuration") }}</h5>
+				<span class="badge badge-info" id="driverProgressBadge">0%</span>
+			</div>
+			<div class="card-body">
+				<div class="config-section" id="driverTemplateSection">
+					<h4><span class="ill-config-step-num">1</span>{{ _("Power Supply") }}</h4>
+					<div id="driverTemplatePicker"></div>
+					<select id="driverTemplateSelect" class="form-control" aria-label="{{ _('Power supply') }}">
+						<option value="">{{ _("Choose a power supply…") }}</option>
+						{% for t in driver_templates | default([]) %}
+						<option value="{{ t.name }}" data-name="{{ t.template_name }}" data-image="{{ t.image or '' }}" data-gallery="{{ t.gallery_json or '[]' }}" data-description="{{ t.description or '' }}"{% if t.name == selected_template %} selected{% endif %}>{{ t.template_name }}</option>
+						{% endfor %}
+					</select>
+					<div id="driverTemplateInfo" class="ill-driver-template" hidden></div>
+				</div>
+
+				<div id="familySteps"></div>
+
+				<div class="config-section" id="driverLineSection">
+					<h4><span class="ill-config-step-num" id="driverLineStepNum">2</span>{{ _("Schedule Line Details") }}</h4>
+					<div class="row">
+						<div class="col-md-5"><div class="form-group"><label class="small font-weight-bold" for="familyLineId">{{ _("Fixture Type") }} <span class="text-danger">*</span></label><input id="familyLineId" class="form-control" maxlength="140" required placeholder="{{ _('e.g., PS1') }}"></div></div>
+						<div class="col-md-4"><div class="form-group"><label class="small font-weight-bold" for="familyLocation">{{ _("Location") }}</label><input id="familyLocation" class="form-control" maxlength="140"></div></div>
+						<div class="col-md-3"><div class="form-group"><label class="small font-weight-bold" for="familyQty">{{ _("Quantity") }}</label><input id="familyQty" class="form-control" type="number" min="1" step="1" value="1"></div></div>
+					</div>
+					<div class="form-group mb-0"><label class="small font-weight-bold" for="familyNotes">{{ _("Notes") }}</label><textarea id="familyNotes" class="form-control" rows="2" maxlength="4000"></textarea></div>
+				</div>
+			</div>
+		</div>
+
+		<div class="d-flex justify-content-end ill-fixture-actions mb-3">
+			<button id="familySave" type="button" class="btn btn-success" disabled><i class="fa fa-plus"></i> {{ _("Add to Schedule") }}</button>
+		</div>
+	</div>
+
+	<div class="col-lg-5">
+		<div class="card sticky-top ill-driver-summary-card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h5 class="mb-0">{{ _("Summary & Results") }}</h5>
+				<span id="driverValidationStatus" class="badge badge-secondary">{{ _("Incomplete") }}</span>
+			</div>
+			<div class="card-body">
+				<div id="familySummary" aria-live="polite">
+					<div class="text-center text-muted py-3 ill-driver-placeholder">
+						<i class="fa fa-bolt fa-2x mb-2" aria-hidden="true"></i>
+						<p class="mb-0">{{ _("Choose a power supply and its options to see the part number, specifications and pricing.") }}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>

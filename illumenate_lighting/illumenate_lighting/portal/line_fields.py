@@ -23,6 +23,7 @@ LINE_PRODUCT_FIELDS = (
 	"accessory_product_type",
 	"variant_selections",
 	"kit_template",
+	"driver_template",
 	"manufacturer_name",
 	"fixture_model_number",
 	"trim_info",

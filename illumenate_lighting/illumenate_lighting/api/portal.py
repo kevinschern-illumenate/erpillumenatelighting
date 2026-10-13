@@ -651,6 +651,14 @@ def is_extrusion_kit_group(name):
 	return (name or "").strip().lower().startswith("extrusion kit")
 
 
+def is_power_supply_group(name):
+	"""Whether an Item Group's add-line flow picks an ilL-Driver-Template instead of an Item.
+
+	"Power Supplies" and "Drivers" groups (and groups named after them) configure a power supply.
+	"""
+	return (name or "").strip().lower().startswith(("power suppl", "driver"))
+
+
 @frappe.whitelist()
 def get_product_types(include_subgroups: bool = True) -> dict:
 	"""
@@ -728,6 +736,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					or tape_neon_category_for_group(child.item_group_name),
 					"is_led_sheet_type": is_led_sheet_group(child.name) or is_led_sheet_group(child.item_group_name),
 					"is_extrusion_kit_type": is_extrusion_kit_group(child.name) or is_extrusion_kit_group(child.item_group_name),
+					"is_power_supply_type": is_power_supply_group(child.name) or is_power_supply_group(child.item_group_name),
 				})
 
 				# If include_subgroups, fetch sub-groups
@@ -754,6 +763,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 							or tape_neon_category_for_group(sub.item_group_name),
 							"is_led_sheet_type": is_led_sheet_group(sub.name) or is_led_sheet_group(sub.item_group_name),
 							"is_extrusion_kit_type": is_extrusion_kit_group(sub.name) or is_extrusion_kit_group(sub.item_group_name),
+							"is_power_supply_type": is_power_supply_group(sub.name) or is_power_supply_group(sub.item_group_name),
 						})
 
 						# Grandchild groups (level 2)
@@ -779,6 +789,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 								or tape_neon_category_for_group(grandchild.item_group_name),
 								"is_led_sheet_type": is_led_sheet_group(grandchild.name) or is_led_sheet_group(grandchild.item_group_name),
 								"is_extrusion_kit_type": is_extrusion_kit_group(grandchild.name) or is_extrusion_kit_group(grandchild.item_group_name),
+								"is_power_supply_type": is_power_supply_group(grandchild.name) or is_power_supply_group(grandchild.item_group_name),
 							})
 
 			return items
@@ -840,6 +851,9 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 				"LED Sheets",
 				"Extrusion Kit",
 				"Extrusion Kits",
+				"Power Supplies",
+				"Power Supply",
+				"Drivers",
 			]
 			for group_name in fallback_names:
 				if frappe.db.exists("Item Group", group_name):
@@ -857,6 +871,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 						"tape_neon_category": tape_neon_category_for_group(group_name),
 						"is_led_sheet_type": is_led_sheet_group(group_name),
 						"is_extrusion_kit_type": is_extrusion_kit_group(group_name),
+						"is_power_supply_type": is_power_supply_group(group_name),
 					})
 
 		if not result:
@@ -1521,6 +1536,32 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 	return {"templates": result}
 
 
+@frappe.whitelist()
+def get_driver_templates_for_schedule() -> dict:
+	"""
+	Active ilL-Driver-Template records for the schedule add-line modal's power supply picker.
+
+	Returns:
+		dict: {"templates": [{"name", "template_name", "template_code", "description",
+			"image", "gallery"}]}
+	"""
+	from illumenate_lighting.templates.pages.configure import _get_driver_templates
+
+	return {
+		"templates": [
+			{
+				"name": t.name,
+				"template_code": t.template_code,
+				"template_name": t.template_name,
+				"description": t.description,
+				"image": t.image,
+				"gallery": json.loads(t.gallery_json or "[]"),
+			}
+			for t in _get_driver_templates()
+		]
+	}
+
+
 def orderable_item_problem(item_code, is_sales_staff=False):
 	"""Why ``item_code`` cannot go on a schedule line, or ``None`` (also used by System Designer write-back).
 
@@ -1615,7 +1656,19 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 					line_data.get("configuration_status", "Pending") if is_sales_staff else "Pending"
 				)
 
-		if line.manufacturer_type == "ACCESSORY":
+		if line.manufacturer_type == "ACCESSORY" and (
+			line_data.get("driver_template") or is_power_supply_group(line_data.get("accessory_product_type"))
+		):
+			# Power supply lines pick an ilL-Driver-Template and are configured later in the
+			# power supply configurator, which resolves the ilL-Spec-Driver Item.
+			line.driver_template = line_data.get("driver_template")
+			if not line.driver_template or not frappe.db.get_value(
+				"ilL-Driver-Template", line.driver_template, "is_active"
+			):
+				return {"success": False, "error": _("Choose an active power supply")}
+			line.accessory_product_type = line_data.get("accessory_product_type")
+			line.configuration_status = "Pending"
+		elif line.manufacturer_type == "ACCESSORY":
 			line.accessory_product_type = line_data.get("accessory_product_type")
 			line.accessory_item = line_data.get("accessory_item")
 			line.accessory_item_name = line_data.get("accessory_item_name")

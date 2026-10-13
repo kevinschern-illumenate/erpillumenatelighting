@@ -18,6 +18,10 @@ Endpoints (all guest-accessible, mirroring webflow_configurator.py):
 - get_driver_configurator_init / get_controller_configurator_init
 - get_driver_cascading_options / get_controller_cascading_options
 - validate_driver_configuration / validate_controller_configuration
+
+Each endpoint takes the Webflow ``product_slug`` or, for the portal power
+supply configurator that schedules ilL-Driver-Template lines, the template
+itself as ``template``.
 """
 
 import json
@@ -85,9 +89,9 @@ _KINDS = {
 # =============================================================================
 
 @frappe.whitelist(allow_guest=True)
-def get_driver_configurator_init(product_slug: str) -> dict:
-    """Initialise the Driver configurator for a Webflow product slug."""
-    return _get_configurator_init("Driver", product_slug)
+def get_driver_configurator_init(product_slug: str | None = None, template: str | None = None) -> dict:
+    """Initialise the Driver configurator for a Webflow product slug or an ilL-Driver-Template."""
+    return _get_configurator_init("Driver", product_slug, template)
 
 
 @frappe.whitelist(allow_guest=True)
@@ -98,12 +102,13 @@ def get_controller_configurator_init(product_slug: str) -> dict:
 
 @frappe.whitelist(allow_guest=True)
 def get_driver_cascading_options(
-    product_slug: str,
-    step_name: str,
-    selections: str,
+    product_slug: str | None = None,
+    step_name: str | None = None,
+    selections: str | None = None,
+    template: str | None = None,
 ) -> dict:
     """Narrow the remaining Driver options to those still reachable."""
-    return _get_cascading_options("Driver", product_slug, step_name, selections)
+    return _get_cascading_options("Driver", product_slug, step_name, selections, template)
 
 
 @frappe.whitelist(allow_guest=True)
@@ -117,9 +122,11 @@ def get_controller_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
-def validate_driver_configuration(product_slug: str, selections: str) -> dict:
+def validate_driver_configuration(
+    product_slug: str | None = None, selections: str | None = None, template: str | None = None
+) -> dict:
     """Resolve a Driver selection set to exactly one template variant."""
-    return _validate_configuration("Driver", product_slug, selections)
+    return _validate_configuration("Driver", product_slug, selections, template)
 
 
 @frappe.whitelist(allow_guest=True)
@@ -132,13 +139,11 @@ def validate_controller_configuration(product_slug: str, selections: str) -> dic
 # SHARED IMPLEMENTATION
 # =============================================================================
 
-def _get_configurator_init(kind: str, product_slug: str) -> dict:
+def _get_configurator_init(kind: str, product_slug: str | None, template_name: str | None = None) -> dict:
     cfg = _KINDS[kind]
-    product = _get_configurable_product(kind, product_slug)
-    if not product:
+    template, product = _resolve_template(kind, product_slug, template_name)
+    if not template:
         return {"success": False, "error": _("Product not found or not configurable")}
-
-    template = frappe.get_doc(cfg["template_doctype"], product.get(cfg["product_field"]))
 
     steps = []
     options = {}
@@ -164,8 +169,8 @@ def _get_configurator_init(kind: str, product_slug: str) -> dict:
     return {
         "success": True,
         "product": {
-            "slug": product.product_slug,
-            "name": product.product_name,
+            "slug": product.product_slug if product else "",
+            "name": product.product_name if product else template.template_name or template.name,
             "product_type": kind,
             "template_code": template.name,
         },
@@ -174,6 +179,11 @@ def _get_configurator_init(kind: str, product_slug: str) -> dict:
             "name": template.template_name,
             "series_code": template.sku_series_code or "",
             "base_price_msrp": template.base_price_msrp or 0,
+            "image": template_image(template),
+            "spec_sheet": template.get("spec_sheet") or "",
+            "warranty": template.get("warranty") or (
+                _("{0} years").format(template.warranty_years) if template.get("warranty_years") else ""
+            ),
         },
         "steps": steps,
         "options": options,
@@ -182,18 +192,18 @@ def _get_configurator_init(kind: str, product_slug: str) -> dict:
     }
 
 
-def _get_cascading_options(kind: str, product_slug: str, step_name: str, selections: str) -> dict:
+def _get_cascading_options(
+    kind: str, product_slug: str | None, step_name: str, selections: str, template_name: str | None = None
+) -> dict:
     cfg = _KINDS[kind]
     try:
         selections_dict = _coerce_selections(selections)
     except ValueError:
         return {"success": False, "error": _("Invalid selections JSON")}
 
-    product = _get_configurable_product(kind, product_slug)
-    if not product:
+    template, _product = _resolve_template(kind, product_slug, template_name)
+    if not template:
         return {"success": False, "error": _("Product not found or not configurable")}
-
-    template = frappe.get_doc(cfg["template_doctype"], product.get(cfg["product_field"]))
     active_steps = _active_steps(cfg, template)
 
     # Variants still reachable given everything selected so far.
@@ -230,18 +240,18 @@ def _get_cascading_options(kind: str, product_slug: str, step_name: str, selecti
     }
 
 
-def _validate_configuration(kind: str, product_slug: str, selections: str) -> dict:
+def _validate_configuration(
+    kind: str, product_slug: str | None, selections: str, template_name: str | None = None
+) -> dict:
     cfg = _KINDS[kind]
     try:
         selections_dict = _coerce_selections(selections)
     except ValueError:
         return {"success": False, "error": _("Invalid selections JSON")}
 
-    product = _get_configurable_product(kind, product_slug)
-    if not product:
+    template, product = _resolve_template(kind, product_slug, template_name)
+    if not template:
         return {"success": False, "error": _("Product not found or not configurable")}
-
-    template = frappe.get_doc(cfg["template_doctype"], product.get(cfg["product_field"]))
     active_steps = _active_steps(cfg, template)
 
     missing = [s["label"] for s in active_steps if not selections_dict.get(s["name"])]
@@ -275,8 +285,9 @@ def _validate_configuration(kind: str, product_slug: str, selections: str) -> di
 
     return {
         "success": True,
-        "product_slug": product.product_slug,
+        "product_slug": product.product_slug if product else "",
         "template_code": template.name,
+        "template_name": template.template_name or template.name,
         "selections": selections_dict,
         "part_number": _build_part_number(template, active_steps, selections_dict, variant),
         "variant": {
@@ -287,14 +298,94 @@ def _validate_configuration(kind: str, product_slug: str, selections: str) -> di
             "variant_name": variant.get("name"),
             "item": variant.get("item"),
             "variant_code": variant.get("variant_code") or "",
+            "item_name": frappe.db.get_value("Item", variant.get("item"), "item_name") if variant.get("item") else "",
         },
+        "specs": _spec_summary(cfg["spec_doctype"], spec_name, variant),
         "pricing": pricing,
+        "stock": _stock(variant.get("item")),
     }
 
 
 # =============================================================================
 # HELPERS
 # =============================================================================
+
+def _resolve_template(kind: str, product_slug: str | None = None, template_name: str | None = None):
+    """The template a request configures and its Webflow product (None when addressed by template)."""
+    cfg = _KINDS[kind]
+    if template_name:
+        if not frappe.db.get_value(cfg["template_doctype"], template_name, "is_active"):
+            return None, None
+        return frappe.get_doc(cfg["template_doctype"], template_name), None
+    product = _get_configurable_product(kind, product_slug)
+    if not product:
+        return None, None
+    return frappe.get_doc(cfg["template_doctype"], product.get(cfg["product_field"])), product
+
+
+def template_image(template) -> str | None:
+    """A template's picture: its Webflow product's first gallery image."""
+    if not template.get("webflow_product"):
+        return None
+    from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+
+    gallery = _fetch_webflow_gallery([template.webflow_product]).get(template.webflow_product) or []
+    return gallery[0]["image"] if gallery else None
+
+
+#: ilL-Spec-Driver fields shown with a configured power supply, in display order.
+DRIVER_SPEC_SUMMARY = (
+    ("max_wattage", "Max wattage", " W"),
+    ("voltage_output", "Output voltage", ""),
+    ("output_type", "Output type", ""),
+    ("outputs_count", "Outputs", ""),
+    ("input_voltage", "Input voltage", ""),
+    ("location_rating", "Location rating", ""),
+    ("mounting", "Mounting", ""),
+)
+
+
+def _stock(item_code: str | None) -> dict | None:
+    """Portal stock for the resolved Item; signed-in users only, like the other configurators."""
+    if not item_code or frappe.session.user == "Guest":
+        return None
+    from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+        StockScopeUnavailable,
+        _bulk_stock_query,
+    )
+
+    try:
+        available = _bulk_stock_query([item_code]).get(item_code, 0.0)
+    except StockScopeUnavailable:
+        return {"availability": "unknown"}
+    return {"in_stock": available >= 1, "qty_available": int(available) if float(available).is_integer() else available}
+
+
+def _spec_summary(spec_doctype: str, spec_name: str | None, variant) -> list[dict]:
+    """The resolved spec's headline values as [{label, value}] for the summary card."""
+    if spec_doctype != "ilL-Spec-Driver" or not spec_name:
+        return []
+    spec = frappe.db.get_value(
+        spec_doctype,
+        spec_name,
+        [field for field, _label, _unit in DRIVER_SPEC_SUMMARY if field != "input_voltage"]
+        + ["input_voltage", "input_voltage_min", "input_voltage_max", "input_voltage_type"],
+        as_dict=True,
+    )
+    if not spec:
+        return []
+    if not spec.input_voltage and spec.input_voltage_min and spec.input_voltage_max:
+        spec.input_voltage = f"{spec.input_voltage_min}-{spec.input_voltage_max} {spec.input_voltage_type or ''}".strip()
+    rows = []
+    for field, label, unit in DRIVER_SPEC_SUMMARY:
+        value = spec.get(field)
+        if value in (None, "", 0):
+            continue
+        if isinstance(value, float) and value.is_integer():
+            value = int(value)
+        rows.append({"label": _(label), "value": f"{value}{unit}"})
+    return rows
+
 
 def _get_configurable_product(kind: str, product_slug: str):
     """Return the configurable ilL-Webflow-Product for a slug, or None."""

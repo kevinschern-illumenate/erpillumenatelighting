@@ -222,6 +222,7 @@ def get_context(context):
 			"verification_request": line.get("verification_request"),
 			"finder_session": line.get("finder_session"),
 			"kit_template": getattr(line, "kit_template", None),
+			"driver_template": line.get("driver_template"),
 			"fixture_template": line.fixture_template,
 			"fixture_template_name": None,  # Will be populated below
 			# Tape/Neon fields
@@ -334,6 +335,26 @@ def get_context(context):
 					line_dict["variant_selections"] = _json.loads(variant_selections_raw)
 				except (ValueError, TypeError):
 					line_dict["variant_selections"] = {}
+				if not isinstance(line_dict["variant_selections"], dict):
+					line_dict["variant_selections"] = {}
+				# Configured catalog products store {selections, ...}; show only the choices.
+				if isinstance(line_dict["variant_selections"].get("selections"), dict):
+					line_dict["variant_selections"] = line_dict["variant_selections"]["selections"]
+
+		# Power supply lines name their template and, once configured, its part number and options.
+		if line.manufacturer_type == "ACCESSORY" and line.get("driver_template"):
+			from illumenate_lighting.illumenate_lighting.portal.driver_configuration import (
+				driver_configuration,
+				selection_labels,
+			)
+
+			driver = driver_configuration(line) or {}
+			line_dict["driver_template_name"] = (
+				frappe.db.get_value("ilL-Driver-Template", line.driver_template, "template_name")
+				or line.driver_template
+			)
+			line_dict["driver_part_number"] = driver.get("part_number")
+			line_dict["variant_selections"] = selection_labels(driver.get("selections") or {})
 
 		# Parse variant_selections for Extrusion Kit lines to extract display selections
 		if getattr(line, "product_type", None) == "Extrusion Kit":

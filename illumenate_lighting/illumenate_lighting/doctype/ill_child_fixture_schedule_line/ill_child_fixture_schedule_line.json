@@ -29,6 +29,7 @@
   "manufacturable_length_mm",
   "accessory_section",
   "accessory_product_type",
+  "driver_template",
   "accessory_item",
   "accessory_item_name",
   "power_supply_for_line",
@@ -224,6 +225,15 @@
    "fieldtype": "Link",
    "label": "Product Category",
    "options": "Item Group"
+  },
+  {
+   "depends_on": "eval:doc.manufacturer_type=='ACCESSORY' && doc.driver_template",
+   "description": "Power supply template configured in the portal power supply configurator",
+   "fieldname": "driver_template",
+   "fieldtype": "Link",
+   "label": "Power Supply Template",
+   "options": "ilL-Driver-Template",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.manufacturer_type=='ACCESSORY' && doc.accessory_product_type",
@@ -516,7 +526,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-12 12:00:00.000000",
+ "modified": "2026-10-13 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Fixture-Schedule-Line",
