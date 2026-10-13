@@ -81,13 +81,13 @@ For the release gates, local rehearsal evidence, and staging record, see the
 | Linear fixture | Profile, lens, accessory, LED tape specs; Fixture Template | Tape offerings/options, part-number builder, profile/lens compatibility, mounting/endcap maps, finish/endcap colors, leader cables, driver eligibility |
 | LED tape / neon | LED Tape spec; Tape Neon Template | Tape offerings, allowed specs/options, feed positions, production interval, bending limits, free cutting, leader cables, mounting accessories, drivers |
 | LED sheet | LED Sheet spec; LED Sheet Template | Dimensions/cut intervals, full-panel watts, input protocol, allowed specs/options, leader/jumper Items, driver eligibility |
-| Extrusion kit | Profile, lens, accessory specs; Extrusion Kit Template | Allowed options, component quantities, kit profile/lens/endcap/mounting maps |
+| Extrusion kit | Profile, lens, accessory specs; Extrusion Kit Template | Allowed options, component quantities, spec sheet fields, kit components, kit profile/lens/endcap/mounting maps, kit submittal mappings |
 | Driver | Driver spec; Driver Template | Physical/independent outputs, load factor, per-output watts, protocols, variants, option codes, pricing, certifications |
 | Controller | Controller spec; Controller Template | Channels/zones, electrical limits, input/output/wireless protocols, compatible drivers, variants, options |
 
 The editor exposes all shipped product `ilL-Attribute-*`, `ilL-Spec-*`, `ilL-Rel-*`,
 product templates and submittal mappings, plus Webflow Product/Category and every
-child table reachable from those records. This currently comprises 66 parent
+child table reachable from those records. This currently comprises 67 parent
 DocTypes and 40 child DocTypes, including the standard master-data subset below.
 Recent additions include the Controller Type and Mounting Type attributes, Driver and
 Controller submittal mappings, controller ports, tape channels, and Field Wire specs
@@ -103,9 +103,10 @@ Supplier, Price List, Currency and site integration records can be referenced
 through explicit external links. Standard metadata is an explicit ERPNext v15
 subset; custom product metadata is derived from the checked-in JSON.
 
-Extrusion kits have a dedicated ERP kit configurator. The current Webflow Product
-DocType has kit component rows but **no kit-template Link field**; the builder does
-not invent one. Its kit example generates the dedicated template and all four maps.
+Extrusion kits have a dedicated ERP kit configurator. Their example generates the
+template (with spec sheet fields and kit components), all four kit maps, Kit
+Submittal Mappings, and a Webflow Product of type Extrusion Kit linked through
+`kit_template`. Attach the image, spec submittal PDF and spec sheet in ERPNext.
 
 ## YAML structure
 

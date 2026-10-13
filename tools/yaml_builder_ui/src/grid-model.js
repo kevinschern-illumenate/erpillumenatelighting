@@ -136,8 +136,13 @@ export function coerceCell(column, text) {
   }
   if (column.fieldtype === 'Select') {
     const choices = String(column.options || '').split('\n').filter(Boolean);
+    // "Feed Through" also picks "Feed-Through" when no other choice reads the same without
+    // spacing, punctuation and case.
+    const loose = text => text.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const similar = loose(value) ? choices.filter(choice => loose(choice) === loose(value)) : [];
     return { ok: true, value: choices.find(choice => choice === value)
-      ?? choices.find(choice => choice.toLowerCase() === value.toLowerCase()) ?? value };
+      ?? choices.find(choice => choice.toLowerCase() === value.toLowerCase())
+      ?? (similar.length === 1 ? similar[0] : value) };
   }
   if (LONG_TEXT_TYPES.has(column.fieldtype)) return { ok: true, value: raw };
   return { ok: true, value };

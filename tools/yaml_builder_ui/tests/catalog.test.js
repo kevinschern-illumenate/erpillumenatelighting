@@ -5,7 +5,7 @@ import { parse, stringify } from 'yaml';
 import {
   blankRecord, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
   inReference, referenceSummary, withReferenceLinks, unconfirmedLinks, isComplete,
-  catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin,
+  catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, familyTypes,
 } from '../src/catalog-model.js';
 
 const schema = JSON.parse(readFileSync(new URL('../src/catalog-schema.json', import.meta.url)));
@@ -115,4 +115,12 @@ test('live lists confirm existing records and flag declared names they do not co
   for (const source of ['live', 'export']) assert.equal(isComplete({ source }), true);
   for (const source of ['linked', 'catalog', undefined]) assert.equal(isComplete({ source }), false);
   assert.equal(isComplete(undefined), false);
+});
+
+test("a family's maps, submittal mappings and specs list right after its template", () => {
+  assert.deepEqual(familyTypes(schema.products['extrusion-kit'], schema), ['ilL-Kit-Submittal-Mapping', 'ilL-Rel-Kit-Endcap-Map',
+    'ilL-Rel-Kit-Lens-Map', 'ilL-Rel-Kit-Mounting-Map', 'ilL-Rel-Kit-Profile-Map', 'ilL-Webflow-Product',
+    'ilL-Spec-Accessory', 'ilL-Spec-Lens', 'ilL-Spec-Profile']);
+  assert.ok(familyTypes(schema.products.fixture, schema).includes('ilL-Spec-Submittal-Mapping'));
+  assert.deepEqual(familyTypes({ template: 'Missing' }, schema), []);
 });

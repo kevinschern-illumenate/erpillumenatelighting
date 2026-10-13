@@ -192,7 +192,7 @@ ERPNext into the draft. Pick a template (or a Webflow Product), then choose how 
 
 - **What is copied:** every record whose name the rules change. That covers the
   template, its specs and Items, and the records that belong to them: endcap,
-  mounting and kit maps, driver eligibility, tape offerings, leader cable maps,
+  mounting and kit maps, kit submittal mappings, driver eligibility, tape offerings, leader cable maps,
   profile-lens maps, submittal mappings and Webflow products. Records that belong to
   another template are never pulled in, even when they share an Item.
 - **What is linked:** records whose names stay the same. A copy can't keep its name,
@@ -230,15 +230,45 @@ combination of chosen values, so maps and Item sets don't need typing row by row
   tokens is the same for every row, and empty fields keep their defaults.
 - **Presets** start from the draft: endcap maps from allowed styles and finish colors,
   mounting maps from allowed mounting methods, driver eligibility, leader cable maps,
-  tape offerings, and profile, lens and endcap Items coded from the template's
-  profile family. Run a preset after adding an option to a template, and only the
-  missing rows are new.
+  tape offerings, and profile, lens, endcap and mounting Items and specs coded from
+  the template's profile family. Run a preset after adding an option to a template,
+  and only the missing rows are new.
+- **Submittal mappings** have a **Copy mappings from another template** preset: search
+  the source template's name on the source axis, **Choose shown**, and every chosen
+  mapping is copied onto each template in the draft.
 - **Preview** marks each row as new, already in the draft, existing in ERPNext, or
   repeating an earlier row; only new rows are added. Uncheck any you don't want. Rows
   with empty token values are flagged. Up to 2000 combinations.
 - **Save recipe** keeps the axes and patterns in the draft under `builder.recipes`, so
   **Save draft** and **Open YAML** carry them. Recipes are never imported and don't
   require a new Check. Undo removes generated rows.
+
+### Extrusion kits
+
+Choose **Extrusion kits** to author `ilL-Extrusion-Kit-Template` records for the kit
+configurator. The kit's maps, Kit Submittal Mappings and its profile, lens and
+accessory specs are listed right after the template. **Load example** shows a complete
+kit. A new kit needs:
+
+- **The template**: part quantities, default profile and lens specs, allowed finishes,
+  lens appearances, mounting methods, endcap styles and endcap colors, and the spec
+  sheet fields on the Web Listing tab (warranty, lengths, beam angle, L70,
+  temperatures, weight) and kit components.
+- **Files**: upload the image, the fillable spec submittal PDF and the spec sheet in
+  ERPNext first, then paste each `/files/...` URL into `image`,
+  `spec_submittal_template` and `spec_sheet`.
+- **Maps**: the profile map by finish, lens map by lens appearance, endcap map by
+  style and color, and mounting map by method. Generate rows has a preset for each,
+  plus matching Item and spec presets, all using the template's profile family code
+  (`CH-`, `LNS-`, `EC-`, `ACC-`). The endcap type follows the endcap style.
+- **Kit Submittal Mappings**: one row per PDF form field. Copy them from a kit that
+  uses the same PDF with **Copy mappings from another template**, or clone the kit.
+- **Webflow Product** (optional): product type **Extrusion Kit** with `kit_template`
+  set. ERPNext sets the kit's `webflow_product` link when the product is imported.
+
+To start from an existing kit, use **Clone existing family** on its template. A clone
+copies the kit with its maps, Kit Submittal Mappings, specs, Items and Webflow product;
+a rule such as `RA01` → `RA04` renames the parts, codes and the profile family.
 
 ### Add a new catalog to the reference (Vercel and CLI)
 

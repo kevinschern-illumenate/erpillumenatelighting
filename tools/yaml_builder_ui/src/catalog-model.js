@@ -19,6 +19,27 @@ export function blankRecord(doctype, schema) {
   return row;
 }
 
+/**
+ * DocTypes a product family is built from, after its template: records that link to the
+ * template (maps, submittal mappings, Webflow products), then the specs those and the
+ * template link to. For extrusion kits: the four kit maps, Kit Submittal Mapping, and the
+ * profile, lens and accessory specs.
+ */
+export function familyTypes(product, schema) {
+  const template = product?.template;
+  if (!schema.doctypes[template]) return [];
+  const linked = (doctype, target) => schema.doctypes[doctype].fields.some(field => field.fieldtype === 'Link' && field.options === target);
+  const owned = Object.keys(schema.doctypes).filter(name => name !== template && !schema.doctypes[name].istable && linked(name, template)).sort();
+  const specs = new Set();
+  // A Webflow product links every kind of spec, so it says nothing about this family's.
+  for (const doctype of [template, ...owned.filter(name => name !== 'ilL-Webflow-Product')]) {
+    for (const field of schema.doctypes[doctype].fields) {
+      if (field.fieldtype === 'Link' && field.options.startsWith('ilL-Spec-') && schema.doctypes[field.options]) specs.add(field.options);
+    }
+  }
+  return [...owned, ...[...specs].sort()];
+}
+
 export function emptyCatalog(productType = 'fixture') {
   return { schema_version: 2, product_type: productType, series_name: '', records: {}, external_links: {} };
 }

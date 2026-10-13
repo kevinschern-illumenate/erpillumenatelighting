@@ -960,6 +960,49 @@
               "endcap_style": "Solid",
               "is_default": 1,
               "is_active": 1
+            },
+            {
+              "option_type": "Endcap Style",
+              "endcap_style": "Feed Through",
+              "is_active": 1
+            },
+            {
+              "option_type": "Endcap Color",
+              "endcap_color": "White",
+              "is_default": 1,
+              "is_active": 1
+            }
+          ],
+          "warranty_years": 5,
+          "min_length_mm": 100,
+          "max_length_mm": 2000,
+          "length_increment_mm": 1,
+          "beam_angle": 120,
+          "l70_life_hours": 50000,
+          "operating_temp_min_c": -20,
+          "operating_temp_max_c": 45,
+          "fixture_weight_per_foot_grams": 150,
+          "kit_components": [
+            {
+              "component_type": "Profile",
+              "component_item": "CH-DEMO-WH",
+              "component_spec_doctype": "ilL-Spec-Profile",
+              "component_spec_name": "CH-DEMO-WH",
+              "quantity": 1
+            },
+            {
+              "component_type": "Lens",
+              "component_item": "LNS-DEMO-WH-FR",
+              "component_spec_doctype": "ilL-Spec-Lens",
+              "component_spec_name": "LNS-DEMO-WH-FR",
+              "quantity": 1
+            },
+            {
+              "component_type": "Mounting Kit",
+              "component_item": "ACC-DEMO-MC",
+              "component_spec_doctype": "ilL-Spec-Accessory",
+              "component_spec_name": "ACC-DEMO-MC",
+              "quantity": 4
             }
           ]
         }
@@ -999,11 +1042,65 @@
         },
         {
           "kit_template": "DEMO-EXTRUSION-KIT",
-          "endcap_style": "Solid",
+          "endcap_style": "Feed Through",
           "endcap_color": "White",
           "endcap_type": "Feed-Through",
           "endcap_item": "EC-DEMO-WH-HO",
           "endcap_spec": "EC-DEMO-WH-HO"
+        }
+      ],
+      "ilL-Kit-Submittal-Mapping": [
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "pdf_field_name": "part_number",
+          "source_doctype": "ilL-Extrusion-Kit-Template",
+          "source_field": "template_code",
+          "webflow_field": "part_number"
+        },
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "pdf_field_name": "project_name",
+          "source_doctype": "ilL-Project",
+          "source_field": "project_name",
+          "webflow_field": "project_name"
+        },
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "pdf_field_name": "finish",
+          "source_doctype": "ilL-Attribute-Finish",
+          "source_field": "finish_name"
+        },
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "pdf_field_name": "profile_width",
+          "source_doctype": "ilL-Spec-Profile",
+          "source_field": "width_mm",
+          "transformation": "MM_TO_INCHES",
+          "suffix": "\""
+        },
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "pdf_field_name": "lens",
+          "source_doctype": "ilL-Attribute-Lens Appearance",
+          "source_field": "label"
+        },
+        {
+          "kit_template": "DEMO-EXTRUSION-KIT",
+          "pdf_field_name": "mounting",
+          "source_doctype": "ilL-Spec-Accessory",
+          "source_field": "mounting_method",
+          "kit_component": "Mounting"
+        }
+      ],
+      "ilL-Webflow-Product": [
+        {
+          "product_name": "Example Extrusion kits",
+          "product_slug": "example-extrusion-kit",
+          "product_type": "Extrusion Kit",
+          "is_configurable": 1,
+          "is_active": 1,
+          "series": "Example Series",
+          "kit_template": "DEMO-EXTRUSION-KIT"
         }
       ]
     },
