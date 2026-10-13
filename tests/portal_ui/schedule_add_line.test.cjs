@@ -54,3 +54,24 @@ test('series loading, the configure button and the configurator hand-off all use
   assert.match(SCHEDULE, /data-tape-neon-category="' \+ \(pt\.tape_neon_category \|\| ''\) \+ '"/);
   assert.doesNotMatch(SCHEDULE, /includes\('neon'\) \? 'LED Neon' : 'LED Tape'/);
 });
+
+test('Extrusion Kits groups pick a kit template and hand off to the kit configurator', () => {
+  const start = SCHEDULE.indexOf('function isExtrusionKitOption(');
+  const end = SCHEDULE.indexOf('// Load Extrusion Kit templates from the server');
+  assert.ok(start > 0 && end > start, 'kit option helper is present');
+  const dom = new JSDOM('<body></body>', { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.$ = w.jQuery = jquery(w);
+  w.eval(SCHEDULE.slice(start, end) + '; window.isExtrusionKitOption = isExtrusionKitOption;');
+  const $ = w.$;
+  assert.equal(w.isExtrusionKitOption($('<option data-is-extrusion-kit-type="1">Kits</option>')), true);
+  assert.equal(w.isExtrusionKitOption($('<option data-is-extrusion-kit-type="0">Extrusion Kits</option>')), false);
+  assert.equal(w.isExtrusionKitOption($('<option>    └─ Extrusion Kits</option>')), true);
+  assert.equal(w.isExtrusionKitOption($('<option>Profiles</option>')), false);
+  dom.window.close();
+  assert.match(SCHEDULE, /data-is-extrusion-kit-type="' \+ \(pt\.is_extrusion_kit_type \? '1' : '0'\) \+ '"/);
+  const add = SCHEDULE.slice(SCHEDULE.indexOf('} else if (isKitType) {\n\t\t\t// Extrusion Kit path'));
+  assert.match(add.slice(0, 700), /data\.kit_template = kitTemplate;/);
+  const handoff = SCHEDULE.slice(SCHEDULE.indexOf('function configureKitFromAddModal('));
+  assert.match(handoff.slice(0, 300), /startConfigurationDraft\('Extrusion Kit', template\)/);
+});

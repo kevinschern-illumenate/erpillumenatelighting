@@ -134,6 +134,8 @@ class PacketManifest(unittest.TestCase):
 
 
 class PacketGather(unittest.TestCase):
+	kit_renderer = MagicMock(return_value={"success": True, "file_url": "/private/files/kit.pdf"})
+
 	def gather(self, *rows, get_value=None):
 		def unfillable(name, warnings=None, schedule_line=None):
 			warnings.append(
@@ -150,6 +152,7 @@ class PacketGather(unittest.TestCase):
 			generate_filled_submittal=unfillable,
 			generate_filled_neon_submittal=MagicMock(),
 			generate_filled_sheet_submittal=MagicMock(),
+			generate_filled_kit_submittal=self.kit_renderer,
 		)
 		stubs[ROOT + ".portal.build_documents"].generate_group = MagicMock()
 		stubs[ROOT + ".portal.line_documents"].active = lambda schedule, line: []
@@ -196,6 +199,27 @@ class PacketGather(unittest.TestCase):
 		self.assertEqual(calls, [("ilL-Configured-Fixture", "ILL-CF-" + "a" * 64, "display_part_number")])
 		manifest, _parts, _errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "source.pdf"))
 		self.assertEqual(manifest[0]["part_number"], "ILL-SL-SW-I-30-HO-FR-SM-WH-48")
+
+	def test_configured_kit_line_fills_its_template_submittal_with_the_kit_part_number(self):
+		row = dict(idx=1, line_id="K", qty=4, location=None, notes=None, manufacturer_type="ILLUMENATE")
+		self.kit_renderer = MagicMock(return_value={"success": True, "file_url": "/private/files/kit.pdf"})
+		lines, _warnings = self.gather(
+			Record(
+				row,
+				name="R1",
+				line_key="K1",
+				product_type="Extrusion Kit",
+				kit_template="KIT-A",
+				ill_item_code="ILL-KIT-A-WH",
+			)
+		)
+		self.kit_renderer.assert_called_once()
+		self.assertEqual(self.kit_renderer.call_args.args, ("KIT-A",))
+		self.assertEqual(self.kit_renderer.call_args.kwargs["schedule_line"], "R1")
+		self.assertEqual(lines[0]["part_number"], "ILL-KIT-A-WH")
+		self.assertEqual(lines[0]["build"], {"doctype": "ilL-Extrusion-Kit-Template", "name": "KIT-A"})
+		self.assertEqual(lines[0]["spec_document_url"], "/private/files/kit.pdf")
+		self.assertTrue(lines[0]["has_submittal"])
 
 
 if __name__ == "__main__":

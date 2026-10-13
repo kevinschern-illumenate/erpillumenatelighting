@@ -338,6 +338,12 @@ def get_context(context):
 		# Parse variant_selections for Extrusion Kit lines to extract display selections
 		if getattr(line, "product_type", None) == "Extrusion Kit":
 			import json as _json
+
+			if line_dict["kit_template"]:
+				line_dict["kit_template_name"] = (
+					frappe.db.get_value("ilL-Extrusion-Kit-Template", line_dict["kit_template"], "template_name")
+					or line_dict["kit_template"]
+				)
 			vs_raw = getattr(line, "variant_selections", None)
 			if vs_raw:
 				try:

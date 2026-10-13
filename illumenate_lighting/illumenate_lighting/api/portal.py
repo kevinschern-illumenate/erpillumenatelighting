@@ -646,6 +646,11 @@ def tape_neon_category_for_group(name):
 	return None
 
 
+def is_extrusion_kit_group(name):
+	"""Whether an Item Group's add-line flow picks an ilL-Extrusion-Kit-Template instead of an Item."""
+	return (name or "").strip().lower().startswith("extrusion kit")
+
+
 @frappe.whitelist()
 def get_product_types(include_subgroups: bool = True) -> dict:
 	"""
@@ -722,6 +727,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 					"tape_neon_category": tape_neon_category_for_group(child.name)
 					or tape_neon_category_for_group(child.item_group_name),
 					"is_led_sheet_type": is_led_sheet_group(child.name) or is_led_sheet_group(child.item_group_name),
+					"is_extrusion_kit_type": is_extrusion_kit_group(child.name) or is_extrusion_kit_group(child.item_group_name),
 				})
 
 				# If include_subgroups, fetch sub-groups
@@ -747,6 +753,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 							"tape_neon_category": tape_neon_category_for_group(sub.name)
 							or tape_neon_category_for_group(sub.item_group_name),
 							"is_led_sheet_type": is_led_sheet_group(sub.name) or is_led_sheet_group(sub.item_group_name),
+							"is_extrusion_kit_type": is_extrusion_kit_group(sub.name) or is_extrusion_kit_group(sub.item_group_name),
 						})
 
 						# Grandchild groups (level 2)
@@ -771,6 +778,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 								"tape_neon_category": tape_neon_category_for_group(grandchild.name)
 								or tape_neon_category_for_group(grandchild.item_group_name),
 								"is_led_sheet_type": is_led_sheet_group(grandchild.name) or is_led_sheet_group(grandchild.item_group_name),
+								"is_extrusion_kit_type": is_extrusion_kit_group(grandchild.name) or is_extrusion_kit_group(grandchild.item_group_name),
 							})
 
 			return items
@@ -830,6 +838,8 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 				"LED Neon",
 				"LED Sheet",
 				"LED Sheets",
+				"Extrusion Kit",
+				"Extrusion Kits",
 			]
 			for group_name in fallback_names:
 				if frappe.db.exists("Item Group", group_name):
@@ -846,6 +856,7 @@ def get_product_types(include_subgroups: bool = True) -> dict:
 						"is_tape_neon_type": is_tape_neon_group(group_name),
 						"tape_neon_category": tape_neon_category_for_group(group_name),
 						"is_led_sheet_type": is_led_sheet_group(group_name),
+						"is_extrusion_kit_type": is_extrusion_kit_group(group_name),
 					})
 
 		if not result:
@@ -1440,6 +1451,71 @@ def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> 
 	return {"templates": result}
 
 
+def kit_composition_summary(template) -> str:
+	"""One line naming what an Extrusion Kit template ships, e.g. "2000 mm profile, 2000 mm lens, ..."."""
+	parts = []
+	if template.get("profile_stock_length_mm"):
+		parts.append(_("{0} mm profile").format(template.profile_stock_length_mm))
+	if template.get("lens_stock_length_mm"):
+		parts.append(_("{0} mm lens").format(template.lens_stock_length_mm))
+	if template.get("mounting_accessory_qty"):
+		parts.append(_("{0} mounting accessories").format(template.mounting_accessory_qty))
+	if template.get("solid_endcap_qty"):
+		parts.append(_("{0} solid endcaps").format(template.solid_endcap_qty))
+	if template.get("feed_through_endcap_qty"):
+		parts.append(_("{0} feed-through endcaps").format(template.feed_through_endcap_qty))
+	return ", ".join(parts)
+
+
+@frappe.whitelist()
+def get_extrusion_kit_templates_for_schedule() -> dict:
+	"""
+	Active ilL-Extrusion-Kit-Template records for the schedule add-line modal.
+
+	Returns:
+		dict: {"templates": [{"name", "template_name", "template_code", "description",
+			"image", "gallery"}]}
+	"""
+	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+
+	templates = frappe.get_all(
+		"ilL-Extrusion-Kit-Template",
+		filters={"is_active": 1},
+		fields=[
+			"name", "template_code", "template_name", "webflow_product", "profile_stock_length_mm",
+			"lens_stock_length_mm", "solid_endcap_qty", "feed_through_endcap_qty", "mounting_accessory_qty",
+		],
+		order_by="template_name asc",
+	)
+	products = [t.webflow_product for t in templates if t.webflow_product]
+	gallery_by_product = _fetch_webflow_gallery(products)
+	descriptions = (
+		dict(
+			frappe.get_all(
+				"ilL-Webflow-Product",
+				filters={"name": ["in", products]},
+				fields=["name", "short_description"],
+				as_list=True,
+				ignore_permissions=True,
+			)
+		)
+		if products
+		else {}
+	)
+	result = []
+	for t in templates:
+		gallery = gallery_by_product.get(t.webflow_product, []) if t.webflow_product else []
+		result.append({
+			"name": t.name,
+			"template_code": t.template_code,
+			"template_name": t.template_name or t.name,
+			"description": descriptions.get(t.webflow_product) or kit_composition_summary(t),
+			"image": gallery[0]["image"] if gallery else None,
+			"gallery": gallery,
+		})
+	return {"templates": result}
+
+
 def orderable_item_problem(item_code, is_sales_staff=False):
 	"""Why ``item_code`` cannot go on a schedule line, or ``None`` (also used by System Designer write-back).
 
@@ -1520,7 +1596,19 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 				if category in TAPE_NEON_CATEGORIES:
 					line.product_type = category
 			line.led_sheet_template = line_data.get("led_sheet_template")
-			line.configuration_status = line_data.get("configuration_status", "Pending") if is_sales_staff else "Pending"
+			line.kit_template = line_data.get("kit_template")
+			if line.kit_template or is_extrusion_kit_group(line.product_type):
+				# Kit lines are always configured later through the kit configurator.
+				if not line.kit_template or not frappe.db.get_value(
+					"ilL-Extrusion-Kit-Template", line.kit_template, "is_active"
+				):
+					return {"success": False, "error": _("Choose an active Extrusion Kit")}
+				line.product_type = "Extrusion Kit"
+				line.configuration_status = "Pending"
+			else:
+				line.configuration_status = (
+					line_data.get("configuration_status", "Pending") if is_sales_staff else "Pending"
+				)
 
 		if line.manufacturer_type == "ACCESSORY":
 			line.accessory_product_type = line_data.get("accessory_product_type")
