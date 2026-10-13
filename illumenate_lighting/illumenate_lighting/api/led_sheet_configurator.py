@@ -304,11 +304,14 @@ def _calculate_sheet(
     total_coverage_sqft = width * height
     watts_per_panel = flt(spec_doc.total_sheet_watts) or flt(spec_doc.watts_per_sqft) * sheet_area
     total_system_watts = panels_needed * watts_per_panel
-    physical = led_sheet_bundle.resolve({
-        "panels_needed": panels_needed, "watts_per_panel": watts_per_panel,
-        "include_power_supply": include_ps, "dimming_protocol_code": dimming_protocol_code,
-        **({"power_supply_separate": True} if separate_ps else {}),
-    }, template_doc, spec_doc)
+    try:
+        physical = led_sheet_bundle.resolve({
+            "panels_needed": panels_needed, "watts_per_panel": watts_per_panel,
+            "include_power_supply": include_ps, "dimming_protocol_code": dimming_protocol_code,
+            **({"power_supply_separate": True} if separate_ps else {}),
+        }, template_doc, spec_doc)
+    except ValueError as exc:
+        frappe.throw(_(str(exc)))
     groups = physical["groups"]
 
     leader_qty = leader_cable_qty(len(groups))

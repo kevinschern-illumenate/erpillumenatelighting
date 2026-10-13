@@ -13,7 +13,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	is_count_uom,
 	parse_bool,
 )
-from illumenate_lighting.illumenate_lighting.api.power_planner import plan_power
+from illumenate_lighting.illumenate_lighting.api.power_planner import MAX_CANDIDATES, MAX_CIRCUITS, plan_power
 
 ENGINE_VERSION = "led-sheet-2"
 
@@ -38,12 +38,64 @@ def electrical_groups(panels, watts_per_panel, max_panels_per_feed):
 	]
 
 
-def _drivers(template, spec, protocol=None):
-	from illumenate_lighting.illumenate_lighting.api.driver_catalog import candidates
+def _panels_per_output(driver, watts):
+	"""Panels one output of this driver carries at full wattage, or None when its data is unusable."""
+	try:
+		factor = finite_number(driver["usable_load_factor"], minimum=0)
+		outputs = finite_number(driver["outputs_count"], minimum=1)
+		total = finite_number(driver["max_wattage"], minimum=0)
+		per_output = finite_number(driver["max_wattage_per_output"], minimum=0)
+	except (KeyError, TypeError, ValueError):
+		return None
+	if not 0 < factor <= 1 or not outputs.is_integer():
+		return None
+	return math.floor((min(total, per_output) * factor + 1e-9) / watts)
 
-	return candidates(
-		"ilL-LED-Sheet-Template", template, spec.input_voltage, spec.get("input_protocol"), protocol
+
+def _drivers(template, spec, watts_per_panel, protocol=None):
+	"""Approved drivers that can carry a panel; else any catalog driver at the sheet's voltage that can.
+
+	A template whose approved supplies were retired, or are all too small for one panel,
+	still builds: the planner then spreads the feeds across as many catalog supplies as it needs.
+	"""
+	from illumenate_lighting.illumenate_lighting.api import driver_catalog
+
+	watts = finite_number(watts_per_panel, minimum=0, field="full panel watts")
+	if watts <= 0:
+		raise ValueError("Full panel wattage must be positive")
+	args = (spec.input_voltage, spec.get("input_protocol"), protocol)
+	for found, revisions in (
+		driver_catalog.candidates("ilL-LED-Sheet-Template", template, *args),
+		driver_catalog.catalog_candidates(*args),
+	):
+		usable = [d for d in found if (_panels_per_output(d, watts) or 0) >= 1]
+		if usable:
+			# The planner's search is bounded; keep the cheapest supplies when the catalog is large.
+			usable = sorted(usable, key=lambda d: (d.get("cost") or 0, d["item_code"]))[:MAX_CANDIDATES]
+			return usable, {d["item_code"]: revisions[d["item_code"]] for d in usable}
+	raise ValueError(
+		f"No active {spec.input_voltage} constant-voltage power supply can carry one "
+		f"{watts:g} W panel; add one to the driver catalog"
 	)
+
+
+def plan_feeds(circuits, candidates, include_power=True):
+	"""Plan any number of feeds by planning bounded batches and numbering their supplies in sequence."""
+	if not include_power or len(circuits) <= MAX_CIRCUITS:
+		return plan_power(circuits, candidates, include_power=include_power)
+	quantities, allocations = {}, []
+	for start in range(0, len(circuits), MAX_CIRCUITS):
+		part = plan_power(circuits[start : start + MAX_CIRCUITS], candidates)
+		offset = max((a["supply"] for a in allocations), default=0)
+		allocations.extend({**a, "supply": a["supply"] + offset} for a in part["allocations"])
+		for row in part["drivers"]:
+			quantities[row["driver_item"]] = quantities.get(row["driver_item"], 0) + row["qty"]
+	return {
+		"status": "selected",
+		"drivers": [{"driver_item": item, "qty": qty} for item, qty in sorted(quantities.items())],
+		"allocations": allocations,
+		"requirements": circuits,
+	}
 
 
 def feed_limit(watts_per_panel, candidates, maximum=None):
@@ -51,15 +103,9 @@ def feed_limit(watts_per_panel, candidates, maximum=None):
 	watts = finite_number(watts_per_panel, minimum=0, field="full panel watts")
 	if watts <= 0:
 		raise ValueError("Full panel wattage must be positive")
-	capacities = []
-	for driver in candidates:
-		factor = finite_number(driver["usable_load_factor"], minimum=0)
-		outputs = finite_number(driver["outputs_count"], minimum=1)
-		if not 0 < factor <= 1 or not outputs.is_integer():
-			raise ValueError("Driver load factor or output count is invalid")
-		total = finite_number(driver["max_wattage"], minimum=0)
-		per_output = finite_number(driver["max_wattage_per_output"], minimum=0)
-		capacities.append(math.floor((min(total, per_output) * factor + 1e-9) / watts))
+	capacities = [_panels_per_output(driver, watts) for driver in candidates]
+	if None in capacities:
+		raise ValueError("Driver load factor or output count is invalid")
 	limit = max(capacities, default=0)
 	if maximum not in (None, "", 0, "0"):
 		approved = finite_number(maximum, minimum=1, field="maximum panels per feed")
@@ -101,10 +147,12 @@ def resolve(result, template, spec):
 			raise ValueError("Maximum panels per feed must be an integer")
 		candidates, revisions = [], {}
 	else:
-		candidates, revisions = _drivers(template.name, spec, result.get("dimming_protocol_code"))
+		candidates, revisions = _drivers(
+			template.name, spec, result["watts_per_panel"], result.get("dimming_protocol_code")
+		)
 		limit = feed_limit(result["watts_per_panel"], candidates, maximum)
 	groups = electrical_groups(result["panels_needed"], result["watts_per_panel"], limit)
-	plan = plan_power(
+	plan = plan_feeds(
 		[{"run_key": str(g["group_number"]), "watts": g["group_watts"]} for g in groups],
 		candidates,
 		include_power=include,
