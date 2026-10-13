@@ -15,6 +15,10 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
 	compute_profile_dimensions,
 )
+from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	WEBFLOW_PRODUCT_LINK_TYPES,
+	WEBFLOW_PRODUCT_LINKS,
+)
 
 
 def _resolve_attribute_code_field(doctype: str) -> str | None:
@@ -126,9 +130,11 @@ class ilLWebflowProduct(Document):
 		is_active: DF.Check
 		is_configurable: DF.Check
 		kit_components: DF.Table[ilLChildWebflowKitComponent]
+		kit_template: DF.Link | None
 		l70_life_hours: DF.Int
 		last_synced_at: DF.Datetime | None
 		length_increment_mm: DF.Int
+		led_sheet_template: DF.Link | None
 		lens_spec: DF.Link | None
 		max_length_mm: DF.Int
 		min_length_mm: DF.Int
@@ -138,7 +144,8 @@ class ilLWebflowProduct(Document):
 		product_category: DF.Link | None
 		product_name: DF.Data
 		product_slug: DF.Data
-		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "COB Tape", "LED Neon", "Component", "Accessory"]
+		portal_item: DF.Link | None
+		product_type: DF.Literal["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "COB Tape", "LED Neon", "Component", "Accessory", "LED Sheet"]
 		profile_spec: DF.Link | None
 		series_family_image: DF.AttachImage | None
 		short_description: DF.SmallText | None
@@ -152,6 +159,22 @@ class ilLWebflowProduct(Document):
 		webflow_collection_slug: DF.Data | None
 		webflow_item_id: DF.Data | None
 	# end: auto-generated types
+
+	def validate(self):
+		self._clear_template_links_for_other_types()
+
+	def _clear_template_links_for_other_types(self):
+		"""Drop template links left over from a previous product type.
+
+		Only runs when the type changes, so existing products keep whatever they
+		link today. Without this a stale link would keep claiming its template's
+		Webflow Product backlink.
+		"""
+		if self.is_new() or not self.has_value_changed("product_type"):
+			return
+		for fieldname, product_types in WEBFLOW_PRODUCT_LINK_TYPES.items():
+			if self.get(fieldname) and self.product_type not in product_types:
+				self.set(fieldname, None)
 
 	def before_save(self):
 		"""Calculate specifications, attribute links, and configurator options before saving."""
@@ -212,11 +235,8 @@ class ilLWebflowProduct(Document):
 			self.handle_deletions()
 			self.sync_compatible_products()
 
-		self._update_fixture_template_backlink()
-		self._update_tape_neon_template_backlink()
-		self._update_led_sheet_template_backlink()
-		self._update_driver_template_backlink()
-		self._update_controller_template_backlink()
+		for template_doctype, fieldname in WEBFLOW_PRODUCT_LINKS.items():
+			self._update_template_backlink(template_doctype, fieldname)
 		self._top_up_template()
 
 	def _top_up_template(self):
@@ -304,131 +324,16 @@ class ilLWebflowProduct(Document):
 
 	def on_trash(self):
 		"""Clear webflow_product backlink on linked templates before deletion."""
-		if self.fixture_template:
-			frappe.db.set_value(
-				"ilL-Fixture-Template",
-				self.fixture_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-		if self.tape_neon_template:
-			frappe.db.set_value(
-				"ilL-Tape-Neon-Template",
-				self.tape_neon_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-		if self.led_sheet_template:
-			frappe.db.set_value(
-				"ilL-LED-Sheet-Template",
-				self.led_sheet_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-		if self.driver_template:
-			frappe.db.set_value(
-				"ilL-Driver-Template",
-				self.driver_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-		if self.controller_template:
-			frappe.db.set_value(
-				"ilL-Controller-Template",
-				self.controller_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-
-	def _update_fixture_template_backlink(self):
-		"""Set the webflow_product backlink on the linked fixture template.
-
-		Also clears the backlink on the previously linked fixture template
-		if the fixture_template field was changed.
-		"""
-		old_template = self.get_doc_before_save()
-		old_fixture = old_template.fixture_template if old_template else None
-
-		# Clear backlink on old fixture template if it changed
-		if old_fixture and old_fixture != self.fixture_template:
-			frappe.db.set_value(
-				"ilL-Fixture-Template",
-				old_fixture,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-
-		# Set backlink on new fixture template
-		if self.fixture_template:
-			frappe.db.set_value(
-				"ilL-Fixture-Template",
-				self.fixture_template,
-				"webflow_product",
-				self.name,
-				update_modified=False,
-			)
-
-	def _update_tape_neon_template_backlink(self):
-		"""Set the webflow_product backlink on the linked tape/neon template.
-
-		Also clears the backlink on the previously linked tape/neon template
-		if the tape_neon_template field was changed.
-		"""
-		old_doc = self.get_doc_before_save()
-		old_tnt = old_doc.tape_neon_template if old_doc else None
-
-		# Clear backlink on old tape/neon template if it changed
-		if old_tnt and old_tnt != self.tape_neon_template:
-			frappe.db.set_value(
-				"ilL-Tape-Neon-Template",
-				old_tnt,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-
-		# Set backlink on new tape/neon template
-		if self.tape_neon_template:
-			frappe.db.set_value(
-				"ilL-Tape-Neon-Template",
-				self.tape_neon_template,
-				"webflow_product",
-				self.name,
-				update_modified=False,
-			)
-
-	def _update_led_sheet_template_backlink(self):
-		old_doc = self.get_doc_before_save()
-		old_template = old_doc.led_sheet_template if old_doc else None
-		if old_template and old_template != self.led_sheet_template:
-			frappe.db.set_value(
-				"ilL-LED-Sheet-Template",
-				old_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-		if self.led_sheet_template:
-			frappe.db.set_value(
-				"ilL-LED-Sheet-Template",
-				self.led_sheet_template,
-				"webflow_product",
-				self.name,
-				update_modified=False,
-			)
-
-	def _update_driver_template_backlink(self):
-		self._update_template_backlink("ilL-Driver-Template", "driver_template")
-
-	def _update_controller_template_backlink(self):
-		self._update_template_backlink("ilL-Controller-Template", "controller_template")
-		self._update_template_backlink("ilL-Extrusion-Kit-Template", "kit_template")
+		for template_doctype, fieldname in WEBFLOW_PRODUCT_LINKS.items():
+			template = self.get(fieldname)
+			if template and frappe.db.get_value(template_doctype, template, "webflow_product") == self.name:
+				frappe.db.set_value(
+					template_doctype,
+					template,
+					"webflow_product",
+					None,
+					update_modified=False,
+				)
 
 	def _update_template_backlink(self, template_doctype: str, fieldname: str):
 		"""Point the template's webflow_product backlink at this product.
@@ -715,17 +620,36 @@ class ilLWebflowProduct(Document):
 						"display_order": display_order,
 					})
 
+	def _resolve_kit_specs(self) -> tuple[str | None, str | None]:
+		"""Profile and lens specs to describe an extrusion kit with.
+
+		Explicit profile_spec/lens_spec links win; otherwise the linked kit
+		template's default profile and lens fill in.
+		"""
+		profile_spec, lens_spec = self.profile_spec, self.lens_spec
+		if self.kit_template and not (profile_spec and lens_spec):
+			defaults = frappe.db.get_value(
+				"ilL-Extrusion-Kit-Template",
+				self.kit_template,
+				["default_profile_spec", "default_lens_spec"],
+				as_dict=True,
+			) or {}
+			profile_spec = profile_spec or defaults.get("default_profile_spec")
+			lens_spec = lens_spec or defaults.get("default_lens_spec")
+		return profile_spec, lens_spec
+
 	def _populate_extrusion_kit_attributes(self, attribute_links):
 		"""Extract attributes from extrusion kit profile spec, lens spec, and kit components."""
 		display_order = 0
-		
+		profile_spec, lens_spec = self._resolve_kit_specs()
+
 		# Extract attributes from profile_spec if present
-		if self.profile_spec:
+		if profile_spec:
 			try:
-				profile = frappe.get_doc("ilL-Spec-Profile", self.profile_spec)
+				profile = frappe.get_doc("ilL-Spec-Profile", profile_spec)
 			except frappe.DoesNotExistError:
 				frappe.log_error(
-					message=f"Profile spec {self.profile_spec} not found for extrusion kit {self.name}",
+					message=f"Profile spec {profile_spec} not found for extrusion kit {self.name}",
 					title="Extrusion Kit Profile Spec Not Found"
 				)
 				profile = None
@@ -777,12 +701,12 @@ class ilLWebflowProduct(Document):
 					})
 		
 		# Extract attributes from lens_spec if present
-		if self.lens_spec:
+		if lens_spec:
 			try:
-				lens = frappe.get_doc("ilL-Spec-Lens", self.lens_spec)
+				lens = frappe.get_doc("ilL-Spec-Lens", lens_spec)
 			except frappe.DoesNotExistError:
 				frappe.log_error(
-					message=f"Lens spec {self.lens_spec} not found for extrusion kit {self.name}",
+					message=f"Lens spec {lens_spec} not found for extrusion kit {self.name}",
 					title="Extrusion Kit Lens Spec Not Found"
 				)
 				lens = None

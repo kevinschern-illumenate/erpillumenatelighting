@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:product_slug",
  "creation": "2026-01-21 10:00:00.000000",
@@ -26,6 +27,7 @@
   "tape_spec",
   "tape_neon_template",
   "led_sheet_template",
+  "kit_template",
   "accessory_spec",
   "portal_item",
   "configurator_section",
@@ -78,8 +80,7 @@
   "column_break_sync",
   "last_synced_at",
   "sync_status",
-  "sync_error_message",
-  "kit_template"
+  "sync_error_message"
  ],
  "fields": [
   {
@@ -139,12 +140,14 @@
    "label": "Is Active"
   },
   {
+   "description": "Link the template (or single spec) this product page describes. Only the link for the selected Product Type is shown.",
    "fieldname": "source_reference_section",
    "fieldtype": "Section Break",
    "label": "Source Reference"
   },
   {
    "depends_on": "eval:doc.product_type=='Fixture Template'",
+   "description": "Linear fixture family that drives the Webflow configurator.",
    "fieldname": "fixture_template",
    "fieldtype": "Link",
    "label": "Fixture Template",
@@ -210,6 +213,7 @@
   },
   {
    "depends_on": "eval:in_list(['LED Tape','COB Tape','LED Neon'], doc.product_type)",
+   "description": "LED tape or neon family that drives the Webflow configurator.",
    "fieldname": "tape_neon_template",
    "fieldtype": "Link",
    "label": "Tape / Neon Template",
@@ -217,10 +221,19 @@
   },
   {
    "depends_on": "eval:doc.product_type=='LED Sheet'",
+   "description": "LED sheet family that drives the Webflow configurator.",
    "fieldname": "led_sheet_template",
    "fieldtype": "Link",
    "label": "LED Sheet Template",
    "options": "ilL-LED-Sheet-Template"
+  },
+  {
+   "depends_on": "eval:doc.product_type=='Extrusion Kit'",
+   "description": "Extrusion kit family that drives the Webflow configurator (finishes, lenses, endcaps, mounting).",
+   "fieldname": "kit_template",
+   "fieldtype": "Link",
+   "label": "Extrusion Kit Template",
+   "options": "ilL-Extrusion-Kit-Template"
   },
   {
    "depends_on": "eval:doc.product_type=='Accessory'",
@@ -449,50 +462,50 @@
    "label": "Spec Sheet Data"
   },
   {
+   "description": "Edited on the linked template once one is set.",
    "fieldname": "beam_angle",
    "fieldtype": "Float",
    "label": "Beam Angle (°)",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
-   "description": "Edited on the linked template once one is set."
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
+   "description": "Edited on the linked template once one is set.",
    "fieldname": "operating_temp_min_c",
    "fieldtype": "Int",
    "label": "Min Operating Temp (°C)",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
-   "description": "Edited on the linked template once one is set."
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
+   "description": "Edited on the linked template once one is set.",
    "fieldname": "operating_temp_max_c",
    "fieldtype": "Int",
    "label": "Max Operating Temp (°C)",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
-   "description": "Edited on the linked template once one is set."
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
    "fieldname": "column_break_spec_sheet",
    "fieldtype": "Column Break"
   },
   {
+   "description": "Edited on the linked template once one is set.",
    "fieldname": "l70_life_hours",
    "fieldtype": "Int",
    "label": "L70 Life (hours)",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
-   "description": "Edited on the linked template once one is set."
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
+   "description": "Edited on the linked template once one is set.",
    "fieldname": "warranty_years",
    "fieldtype": "Int",
    "label": "Warranty (years)",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
-   "description": "Edited on the linked template once one is set."
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
+   "description": "Edited on the linked template once one is set.",
    "fieldname": "fixture_weight_per_foot_grams",
    "fieldtype": "Float",
    "label": "Fixture Weight per Foot (g)",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
-   "description": "Edited on the linked template once one is set."
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
    "collapsible": 1,
@@ -568,23 +581,16 @@
    "read_only": 1
   },
   {
+   "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator.",
    "fieldname": "portal_item",
    "fieldtype": "Link",
-   "options": "Item",
    "label": "Approved Standard Sales Item",
-   "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator."
-  },
-  {
-   "fieldname": "kit_template",
-   "fieldtype": "Link",
-   "label": "Kit Template",
-   "options": "ilL-Extrusion-Kit-Template",
-   "depends_on": "eval:doc.product_type=='Extrusion Kit'"
+   "options": "Item"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-11 22:38:13.000000",
+ "modified": "2026-10-13 18:30:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",
@@ -604,17 +610,16 @@
    "write": 1
   },
   {
-   "role": "ilL Catalog Publisher",
-   "read": 1,
-   "write": 1,
    "create": 1,
+   "export": 1,
+   "read": 1,
    "report": 1,
-   "export": 1
+   "role": "ilL Catalog Publisher",
+   "write": 1
   }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1,
- "allow_import": 1
+ "track_changes": 1
 }
