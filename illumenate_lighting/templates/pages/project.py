@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe import _
 
 from illumenate_lighting.illumenate_lighting.portal.status import schedule_status_label
 from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
@@ -83,7 +84,7 @@ def get_context(context):
 			contact_details["project_manager"] = {
 				"first_name": contact.first_name,
 				"last_name": contact.last_name,
-				"company_name": contact.company_name
+				"company_name": contact.company_name,
 			}
 		except Exception:
 			contact_details["project_manager"] = None
@@ -105,6 +106,7 @@ def get_context(context):
 	from illumenate_lighting.illumenate_lighting.api.portal import (
 		get_allowed_customers_for_project,
 	)
+
 	allowed_result = get_allowed_customers_for_project()
 
 	context.project = project
@@ -134,6 +136,10 @@ def get_context(context):
 	context.customer_role_details = customer_role_details  # Pre-loaded customer details
 	context.allowed_customers = allowed_result.get("allowed_customers", [])
 	context.user_customer = allowed_result.get("user_customer")
+	# FLOW-8: the end client and owner company by name, read-only on the page.
+	context.customer_label = _customer_label(project.customer, context.allowed_customers)
+	context.owner_company_label = _customer_label(project.get("owner_customer"))
+	context.can_create_parties = _can_create_parties()
 
 	# Get list of territories for new customer creation modal
 	context.territories = frappe.get_all("Territory", pluck="name", order_by="name")
@@ -155,6 +161,10 @@ def _get_new_project_context(context):
 	from illumenate_lighting.illumenate_lighting.api.portal import (
 		get_allowed_customers_for_project,
 	)
+	from illumenate_lighting.illumenate_lighting.portal.project_owner import (
+		can_set_owner_company,
+		dealer_companies,
+	)
 
 	# Get allowed customers for the dropdown
 	allowed_result = get_allowed_customers_for_project()
@@ -162,10 +172,37 @@ def _get_new_project_context(context):
 	context.is_new = True
 	context.user_customer = allowed_result.get("user_customer")
 	context.allowed_customers = allowed_result.get("allowed_customers", [])
-	context.title = "Create Project"
+	context.title = _("Create Project")
 	context.no_cache = 1
+	# REL-5: sales staff name the dealer company that owns the project; dealers own theirs.
+	context.can_set_owner_company = can_set_owner_company()
+	context.dealer_companies = dealer_companies() if context.can_set_owner_company else []
+	# FLOW-5: without a company there is nothing to create a project for yet.
+	context.needs_company = not context.can_set_owner_company and not context.user_customer
+	context.owner_company_label = _customer_label(context.user_customer, context.allowed_customers)
+	context.can_create_parties = _can_create_parties()
 
 	# Get list of territories for new customer creation
-	context.territories = frappe.get_all("Territory", pluck="name", order_by="name")
+	context.territories = (
+		[] if context.needs_company else frappe.get_all("Territory", pluck="name", order_by="name")
+	)
 
 	return context
+
+
+def _customer_label(customer, options=()):
+	if not customer:
+		return None
+	label = next((option["label"] for option in options if option["value"] == customer), None)
+	return label or frappe.db.get_value("Customer", customer, "customer_name") or customer
+
+
+def _can_create_parties():
+	"""create_customer and create_contact accept dealers and internal users only."""
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
+		_is_dealer_user,
+		_is_internal_user,
+	)
+
+	user = frappe.session.user
+	return bool(_is_dealer_user(user) or _is_internal_user(user))

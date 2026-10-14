@@ -668,6 +668,106 @@ project_versions = project_page.render(
 )
 assert "Main &lt;x&gt;" in project_versions
 (render_dir / "project-versions.html").write_text(project_versions, encoding="utf8")
+# FLOW-8 / REL-5 / FLOW-5: the create form for a dealer, for sales staff and for a user without a company,
+# and the edit modal; all share one set of fields and one pair of party/contact modals.
+project_new_base = dict(
+	is_new=True,
+	project=None,
+	needs_company=False,
+	can_set_owner_company=False,
+	dealer_companies=[],
+	allowed_customers=[
+		{"value": "ACME", "label": "Acme <Lighting>"},
+		{"value": "CLIENT", "label": "Client Co"},
+	],
+	user_customer="ACME",
+	owner_company_label="Acme <Lighting>",
+	can_create_parties=True,
+	territories=["West <Coast>"],
+)
+project_new_variants = {
+	"project-new-dealer": {},
+	"project-new-staff": dict(
+		can_set_owner_company=True,
+		dealer_companies=[{"value": "ACME", "label": "Acme <Lighting>"}],
+		user_customer=None,
+		owner_company_label=None,
+	),
+	"project-new-no-company": dict(
+		needs_company=True,
+		allowed_customers=[],
+		user_customer=None,
+		owner_company_label=None,
+		can_create_parties=False,
+	),
+}
+for name, variant in project_new_variants.items():
+	project_new = project_page.render(**{**project_new_base, **variant})
+	escaped = "<Lighting>" not in project_new and "West &lt;Coast&gt;" in project_new
+	assert escaped or name.endswith("no-company")
+	parser.feed(project_new)
+	(render_dir / f"{name}.html").write_text(project_new, encoding="utf8")
+project_edit = project_page.render(
+	project=View(
+		name="P-1",
+		project_name="Lobby <b>",
+		customer="CLIENT",
+		owner_customer="ACME",
+		architect="CLIENT",
+		project_manager="CONT-1",
+		location="Main St <1>",
+		is_private=0,
+		status="ACTIVE",
+	),
+	schedules=[],
+	schedule_families=[],
+	can_edit=True,
+	customer_label="Client <Co>",
+	owner_company_label="Acme <Lighting>",
+	contact_details={"project_manager": View(first_name="Pat", last_name="<Lee>")},
+	customer_role_details={"architect": View(customer_name="Client <Co>")},
+	allowed_customers=project_new_base["allowed_customers"],
+	can_create_parties=True,
+	territories=[],
+	schedule_status_class=lambda status: "info",
+	schedule_status_label=lambda status: status.title(),
+	project_status_class=lambda status: "success",
+	project_status_label=lambda status: (status or "").title(),
+)
+assert "Client &lt;Co&gt;" in project_edit and "Pat &lt;Lee&gt;" in project_edit
+assert "<Lee>" not in project_edit
+parser.feed(project_edit)
+(render_dir / "project-edit.html").write_text(project_edit, encoding="utf8")
+dealer_access = environment.get_template("templates/pages/request_dealer_access.html")
+dealer_access_variants = {
+	"guest": dict(
+		signed_in=False, state="apply", is_guest=True, prefill={}, application=None, claim_token="CLAIM"
+	),
+	"signed-in": dict(
+		signed_in=True,
+		state="apply",
+		is_guest=False,
+		prefill={"company": "Studio <x>", "full_name": 'Dana "D"', "email": "dana@studio.test", "phone": ""},
+		application=None,
+		claim_token=None,
+	),
+	"pending": dict(
+		signed_in=True,
+		state="pending",
+		is_guest=False,
+		prefill={},
+		application=View(name="AR-<1>", state="Information needed"),
+		claim_token=None,
+	),
+	"approved": dict(
+		signed_in=True, state="approved", is_guest=False, prefill={}, application=None, claim_token=None
+	),
+}
+for name, variant in dealer_access_variants.items():
+	dealer_access_html = dealer_access.render(**variant)
+	assert "<x>" not in dealer_access_html and "AR-<1>" not in dealer_access_html
+	parser.feed(dealer_access_html)
+	(render_dir / f"dealer-access-{name}.html").write_text(dealer_access_html, encoding="utf8")
 for name, signed_in_as in (("guest", None), ("signed-in", "Invitee@Studio.test")):
 	accept_html = accept_page.render(signed_in_as=signed_in_as, signup_enabled=True)
 	(render_dir / f"accept-invitation-{name}.html").write_text(accept_html, encoding="utf8")

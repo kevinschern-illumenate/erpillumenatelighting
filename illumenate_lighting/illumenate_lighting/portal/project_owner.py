@@ -51,3 +51,24 @@ def validate_owner_company(customer):
 			)
 		)
 	return customer
+
+
+def dealer_companies():
+	"""Customers that qualify as a project's owner company, as select options.
+
+	The same test as :func:`has_dealer_contact`, for every Customer in one query.
+	"""
+	rows = frappe.db.sql(
+		"""
+		SELECT DISTINCT customer.name, customer.customer_name
+		FROM `tabCustomer` customer
+		JOIN `tabDynamic Link` link ON link.link_doctype = 'Customer' AND link.link_name = customer.name
+			AND link.parenttype = 'Contact'
+		JOIN `tabContact` contact ON contact.name = link.parent
+		JOIN `tabUser` user ON user.name = contact.user AND user.enabled = 1
+		JOIN `tabHas Role` role ON role.parent = user.name AND role.parenttype = 'User' AND role.role = 'Dealer'
+		ORDER BY customer.customer_name, customer.name
+		""",
+		as_dict=True,
+	)
+	return [{"value": row.name, "label": row.customer_name or row.name} for row in rows]

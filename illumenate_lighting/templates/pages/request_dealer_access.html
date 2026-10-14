@@ -1,24 +1,133 @@
-{% extends "templates/web.html" %}
-{% block page_content %}
-<div class="ill-access-gate">
-  <div class="ill-access-gate-card">
-    <div class="ill-access-gate-icon">🔒</div>
-    {% if claim_token | default(none) %}<p>Your quiz answers are saved. Return to the <a href="/portal/product-finder">Product Finder</a> after dealer access is approved.</p>{% endif %}
-    <h1 class="ill-access-gate-title">Dealer Access Required</h1>
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ _("Dealer access") }}{% endblock %}
+{% block portal_scope %}ill-page--dealer-access{% endblock %}
+{# Visitors who are not signed in have no portal to navigate. #}
+{% block portal_navigation %}{% if signed_in %}{{ super() }}{% endif %}{% endblock %}
+{% block portal_page_class %}py-4{% endblock %}
+{% block portal_content %}
+<section class="ill-access-gate">
+  <div class="ill-access-gate-card ill-dealer-access">
+    <svg class="ill-dealer-access__icon" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M3 10.5 12 4l9 6.5"></path>
+      <path d="M5 9.5V20h14V9.5"></path>
+      <path d="M9.5 20v-5.5h5V20"></path>
+    </svg>
+    {% if claim_token %}<p class="ill-dealer-access__note">{{ _("Your Product Finder answers are saved. You can pick up where you left off once dealer access is approved.") }}</p>{% endif %}
+
+    {% if state == "approved" %}
+    <h1 class="ill-access-gate-title">{{ _("You already have dealer access") }}</h1>
+    <p class="ill-access-gate-body">{{ _("Your account can use the catalog, configurators and projects.") }}</p>
+    <a href="/portal" class="ill-btn ill-btn-primary">{{ _("Open the portal") }}</a>
+
+    {% elif state == "pending" %}
+    <h1 class="ill-access-gate-title">{{ _("Your application is in review") }}</h1>
+    <p class="ill-access-gate-body" id="dealerApplicationPending">{{ _("We received your dealer application {0} and will email you when it has been reviewed.").format(application.name) | e }}</p>
+    {% if application.state == "Information needed" %}
+    <p class="ill-access-gate-body">{{ _("We need a little more information first. Reply from your account page.") }}</p>
+    <a href="/portal/account" class="ill-btn ill-btn-primary">{{ _("Reply on your account page") }}</a>
+    {% endif %}
+
+    {% else %}
+    <h1 class="ill-access-gate-title">{{ _("Apply for dealer access") }}</h1>
     <p class="ill-access-gate-body">
-      The ilLumenate configurator is available to authorized dealers only.
-      If you're a designer or specifier interested in becoming an ilLumenate
-      dealer, we'd love to hear from you.
+      {{ _("The ilLumenate catalog, configurators and project tools are available to authorized dealers. Designers, specifiers and distributors interested in becoming a dealer can apply here.") }}
     </p>
-    <a href="/portal/account#companyManagement" class="ill-btn ill-btn-primary">
-      Request Dealer Access
-    </a>
-    <a href="https://illumenate.lighting" class="ill-btn ill-btn-ghost">Back to ilLumenate.lighting</a>
+    {% if is_guest %}
+    <p class="ill-access-gate-body">{{ _("Already a dealer?") }} <a href="/login?redirect-to=/portal/request-dealer-access" id="dealerSignIn">{{ _("Sign in") }}</a></p>
+    {% endif %}
+    <form id="dealerApplicationForm" class="ill-dealer-access__form" novalidate>
+      <div class="form-group">
+        <label for="dealerCompany">{{ _("Company") }} <span class="text-danger" aria-hidden="true">*</span></label>
+        <input type="text" class="form-control" id="dealerCompany" name="company" maxlength="140" required autocomplete="organization" value="{{ prefill.get('company', '') | e }}">
+      </div>
+      <div class="form-group">
+        <label for="dealerName">{{ _("Your name") }} <span class="text-danger" aria-hidden="true">*</span></label>
+        <input type="text" class="form-control" id="dealerName" name="full_name" maxlength="140" required autocomplete="name" value="{{ prefill.get('full_name', '') | e }}">
+      </div>
+      <div class="ill-dealer-access__row">
+        <div class="form-group">
+          <label for="dealerEmail">{{ _("Email") }} <span class="text-danger" aria-hidden="true">*</span></label>
+          <input type="email" class="form-control" id="dealerEmail" name="email" maxlength="140" required autocomplete="email" value="{{ prefill.get('email', '') | e }}">
+        </div>
+        <div class="form-group">
+          <label for="dealerPhone">{{ _("Phone") }}</label>
+          <input type="tel" class="form-control" id="dealerPhone" name="phone" maxlength="40" autocomplete="tel" value="{{ prefill.get('phone', '') | e }}">
+        </div>
+      </div>
+      <div class="ill-dealer-access__row">
+        <div class="form-group">
+          <label for="dealerWebsite">{{ _("Website") }}</label>
+          <input type="url" class="form-control" id="dealerWebsite" name="website" maxlength="240" autocomplete="url" placeholder="https://">
+        </div>
+        <div class="form-group">
+          <label for="dealerTerritory">{{ _("Territory") }}</label>
+          <input type="text" class="form-control" id="dealerTerritory" name="territory" maxlength="140" placeholder="{{ _('Region or market you cover') }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="dealerMessage">{{ _("Message") }}</label>
+        <textarea class="form-control" id="dealerMessage" name="message" rows="3" maxlength="4000" placeholder="{{ _('Tell us about your business and the projects you work on') }}"></textarea>
+      </div>
+      {# Honeypot: hidden from people and assistive technology; bots that fill it are ignored. #}
+      <div class="ill-dealer-access__trap" aria-hidden="true">
+        <label for="dealerFax">{{ _("Fax number") }}</label>
+        <input type="text" id="dealerFax" name="fax_number" tabindex="-1" autocomplete="off">
+      </div>
+      <div id="dealerApplicationError" class="alert alert-danger" role="alert" hidden></div>
+      <button type="submit" class="ill-btn ill-btn-primary" id="dealerApplicationSubmit">{{ _("Send application") }}</button>
+    </form>
+    <div id="dealerApplicationDone" class="ill-dealer-access__done" role="status" tabindex="-1" hidden>
+      <h2 class="ill-access-gate-title">{{ _("Thanks, we have your application") }}</h2>
+      <p class="ill-access-gate-body" id="dealerApplicationDoneText"></p>
+    </div>
+    {% endif %}
+    <a href="https://illumenate.lighting" class="ill-btn ill-btn-ghost">{{ _("Back to ilLumenate.lighting") }}</a>
   </div>
-</div>
+</section>
 {% endblock %}
 
 {% block script %}<script>
 const finderClaim = {{ claim_token | default(none) | tojson }};
 if (finderClaim) { try { localStorage.setItem('ill-finder-claim', finderClaim); } catch {} }
+
+(function () {
+  var form = document.getElementById('dealerApplicationForm');
+  if (!form) return;
+  var text = {
+    required: {{ _("This field is required.") | tojson }},
+    email: {{ _("Enter a valid email address.") | tojson }},
+    website: {{ _("Enter the full address, starting with https://") | tojson }},
+    done: {{ _("Our team will review it and email you at {0}.") | tojson }}
+  };
+  var FIELDS = ['company', 'full_name', 'email', 'phone', 'website', 'territory', 'message', 'fax_number'];
+  var errorBox = document.getElementById('dealerApplicationError');
+  var done = document.getElementById('dealerApplicationDone');
+
+  function format(template, value) {
+    return template.replace('{0}', value);
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var values = {};
+    FIELDS.forEach(function (name) { values[name] = (form.elements[name].value || '').trim(); });
+    var errors = {};
+    ['company', 'full_name', 'email'].forEach(function (name) { if (!values[name]) errors[name] = text.required; });
+    if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) errors.email = text.email;
+    if (values.website && !/^https?:\/\/\S+$/i.test(values.website)) errors.website = text.website;
+    errorBox.hidden = true;
+    if (PortalUI.fieldErrors(form, errors)) return;
+    PortalUI.call('illumenate_lighting.illumenate_lighting.portal.dealer_applications.apply', values, {
+      busy: document.getElementById('dealerApplicationSubmit')
+    }).then(function () {
+      form.hidden = true;
+      document.getElementById('dealerApplicationDoneText').textContent = format(text.done, values.email);
+      done.hidden = false;
+      done.focus();
+    }).catch(function (error) {
+      errorBox.textContent = error.message;
+      errorBox.hidden = false;
+    });
+  });
+})();
 </script>{% endblock %}
