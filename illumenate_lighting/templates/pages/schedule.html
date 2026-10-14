@@ -1158,20 +1158,14 @@ body.reorder-no-select {
 									<div class="dropdown-menu" aria-labelledby="statusDropdown">
 										{% if schedule.status != 'DRAFT' %}
 										<a class="dropdown-item" href="#" onclick="changeStatus('DRAFT'); return false;">
-											<i class="fa fa-pencil text-warning"></i> {{ _("DRAFT") }}
+											<i class="fa fa-pencil text-warning"></i> {{ schedule_status_label('DRAFT') }}
 											<small class="text-muted d-block">{{ _("Continue editing") }}</small>
 										</a>
 										{% endif %}
 										{% if schedule.status != 'READY' %}
 										<a class="dropdown-item" href="#" onclick="changeStatus('READY'); return false;">
-											<i class="fa fa-check-circle text-info"></i> {{ _("READY") }}
+											<i class="fa fa-check-circle text-info"></i> {{ schedule_status_label('READY') }}
 											<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
-										</a>
-										{% endif %}
-										{% if (is_dealer or is_internal) and schedule.status != 'QUOTED' %}
-										<a class="dropdown-item" href="#" onclick="changeStatus('QUOTED'); return false;">
-											<i class="fa fa-file-text text-primary"></i> {{ _("QUOTED") }}
-											<small class="text-muted d-block">{{ _("Quote provided") }}</small>
 										</a>
 										{% endif %}
 									</div>
@@ -4204,13 +4198,23 @@ document.addEventListener('click', function(event) {
 	if (action) action(parseInt(button.dataset.lineIndex, 10));
 });
 
+var statusLabels = {{ status_labels | tojson }};
+// An issued quote is tied to this exact revision; leaving QUOTED replaces it.
+var openOffer = {{ open_offer | tojson }};
+
+function statusChangeMessage(new_status) {
+	var message = __('Change schedule status to {0}?', [frappe.utils.escape_html(statusLabels[new_status] || new_status)]);
+	if (openOffer && {{ schedule.status | tojson }} === 'QUOTED') {
+		var offer = frappe.utils.escape_html(openOffer.name);
+		message = openOffer.valid_until
+			? __('Quote {0} (valid until {1}) will no longer be acceptable. Continue?', [offer, frappe.utils.escape_html(openOffer.valid_until)])
+			: __('Quote {0} will no longer be acceptable. Continue?', [offer]);
+	}
+	return message;
+}
+
 function changeStatus(new_status) {
-	var statusLabels = {
-		'DRAFT': 'Draft',
-		'READY': 'Ready',
-		'QUOTED': 'Quoted'
-	};
-	frappe.confirm('Change schedule status to ' + statusLabels[new_status] + '?', function() {
+	frappe.confirm(statusChangeMessage(new_status), function() {
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_status',
 			args: {
@@ -4220,7 +4224,7 @@ function changeStatus(new_status) {
 			callback: function(r) {
 				if (r.message && r.message.success) {
 					frappe.show_alert({
-						message: 'Status updated to ' + (statusLabels[r.message.new_status] || new_status),
+						message: __('Status updated to {0}', [statusLabels[r.message.new_status] || new_status]),
 						indicator: 'green'
 					});
 					if (r.message.auto_versioned && r.message.new_schedule_name) {

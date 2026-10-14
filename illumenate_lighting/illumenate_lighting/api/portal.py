@@ -2694,7 +2694,7 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 
 	Args:
 		schedule_name: Name of the schedule
-		new_status: New status to set (DRAFT, READY, QUOTED)
+		new_status: New status to set (DRAFT or READY)
 
 	Returns:
 		dict: {"success": True/False, "new_status": str,

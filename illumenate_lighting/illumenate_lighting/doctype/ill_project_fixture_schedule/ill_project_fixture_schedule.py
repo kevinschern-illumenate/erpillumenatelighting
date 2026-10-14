@@ -47,7 +47,8 @@ CONVERTIBLE_STATUSES = ("READY", "QUOTED")
 EDITABLE_STATUSES = ("DRAFT", "READY")
 
 # Statuses a portal user may request directly; the rest are system-driven.
-PORTAL_SETTABLE_STATUSES = ("DRAFT", "READY", "QUOTED")
+# QUOTED is set only by issuing an offer (portal/offers.py), never by hand.
+PORTAL_SETTABLE_STATUSES = ("DRAFT", "READY")
 
 # Statuses that must have every ilLumenate line fully configured.
 CONFIGURED_REQUIRED_STATUSES = ("READY", "QUOTED", "ORDER_REQUESTED", "ORDERED")
@@ -1606,7 +1607,7 @@ def transition_schedule_status(schedule, new_status, user=None):
 	if not user:
 		user = frappe.session.user
 
-	if new_status not in PORTAL_SETTABLE_STATUSES:
+	if new_status not in SCHEDULE_STATUSES:
 		frappe.throw(
 			_("Invalid status. Must be one of: {0}").format(", ".join(PORTAL_SETTABLE_STATUSES))
 		)
@@ -1620,7 +1621,9 @@ def transition_schedule_status(schedule, new_status, user=None):
 	if new_status == current_status:
 		return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
 
-	if new_status not in allowed_portal_transitions(current_status, user):
+	if new_status not in PORTAL_SETTABLE_STATUSES or new_status not in allowed_portal_transitions(
+		current_status, user
+	):
 		frappe.throw(
 			_("Cannot change status from {0} to {1}").format(current_status, new_status)
 		)
@@ -1631,6 +1634,7 @@ def transition_schedule_status(schedule, new_status, user=None):
 		new_name = schedule.create_new_version(
 			version_notes=_("Auto-versioned: leaving QUOTED to continue editing")
 		)
+		_supersede_open_offers(schedule, new_name, user)
 		if new_status != "DRAFT":
 			frappe.get_doc(schedule.doctype, new_name).db_set("status", new_status)
 		return {"new_status": new_status, "new_schedule_name": new_name, "auto_versioned": True}
@@ -1639,13 +1643,27 @@ def transition_schedule_status(schedule, new_status, user=None):
 	# configured before READY) runs instead of being bypassed with db_set.
 	schedule.status = new_status
 	schedule.save(ignore_permissions=True)
-	if new_status == "QUOTED":
-		from illumenate_lighting.illumenate_lighting.portal.notifications import (
-			notify_schedule_status,
-		)
-
-		notify_schedule_status(schedule, "QUOTED")
 	return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
+
+
+def _supersede_open_offers(schedule, new_schedule_name, user):
+	"""Leaving QUOTED locks the quoted revision, so its issued offers can no longer
+	be accepted. Mark them SUPERSEDED (the quotes list then says so) and tell Sales
+	on the quote request."""
+	for name in frappe.get_all(
+		"ilL-Quote-Offer", filters={"schedule": schedule.name, "state": "ISSUED"}, pluck="name"
+	):
+		offer = frappe.get_doc("ilL-Quote-Offer", name)
+		offer.state = "SUPERSEDED"
+		offer.flags.offer_write = True
+		offer.save(ignore_permissions=True)
+		if offer.quote_request:
+			frappe.get_doc("ilL-Quote-Request", offer.quote_request).add_comment(
+				"Comment",
+				_("{0} moved schedule {1} out of Quoted (now {2}); offer {3} was superseded.").format(
+					user, schedule.name, new_schedule_name, offer.name
+				),
+			)
 
 
 # ---------------------------------------------------------------------------

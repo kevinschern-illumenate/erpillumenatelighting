@@ -466,6 +466,8 @@ def get_context(context):
 	context.schedule_status_class = schedule_status_class
 	context.schedule_status_label = schedule_status_label
 	context.schedule_status_description = schedule_status_description
+	context.status_labels = {status: schedule_status_label(status) for status in ("DRAFT", "READY", "QUOTED")}
+	context.open_offer = _open_offer(schedule.name)
 	context.title = schedule.schedule_name
 	context.no_cache = 1
 
@@ -999,3 +1001,21 @@ def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
 		items.append(entry)
 
 	return {"all_in_stock": all_in_stock, "items": items}
+
+
+def _open_offer(schedule_name):
+	"""The issued quote a status change away from QUOTED would supersede, if any."""
+	offer = frappe.get_all(
+		"ilL-Quote-Offer",
+		filters={"schedule": schedule_name, "state": "ISSUED"},
+		fields=["name", "valid_until"],
+		order_by="creation desc",
+		limit=1,
+	)
+	if not offer:
+		return None
+	valid_until = offer[0].valid_until
+	return {
+		"name": offer[0].name,
+		"valid_until": frappe.utils.format_date(valid_until) if valid_until else None,
+	}
