@@ -543,10 +543,14 @@ drawings_page = environment.get_template("templates/pages/drawings.html").render
 	completed_requests=[],
 	all_requests=[],
 	pending_count=0,
+	page=2,
+	has_more=True,
 	drawing_type_icon=lambda value: "file",
 )
 assert "Shop &lt;Drawing&gt;" in drawings_page and "Lobby &lt;Refit&gt;" in drawings_page
 assert 'data-value="shop_drawing"' not in drawings_page, "request types come from Desk"
+assert 'href="?page=1#all"' in drawings_page and 'href="?page=3#all"' in drawings_page, "REL-8 pager"
+assert 'id="requestProjectSearch"' in drawings_page
 parser.feed(drawings_page)
 (render_dir / "drawings.html").write_text(drawings_page, encoding="utf8")
 overview = environment.get_template("templates/pages/portal.html")
