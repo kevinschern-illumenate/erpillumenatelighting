@@ -471,6 +471,21 @@ def get_context(context):
 	context.sales_email = SALES_EMAIL
 	context.status_labels = {status: schedule_status_label(status) for status in ("DRAFT", "READY", "QUOTED")}
 	context.open_offer = _open_offer(schedule.name)
+	# FLOW-2: progress stepper, commercial thread and the one primary next step.
+	from illumenate_lighting.illumenate_lighting.portal import schedule_commercial
+
+	commercial = schedule_commercial.thread(schedule)
+	unconfigured = schedule_commercial.unconfigured_lines(lines)
+	context.commercial = commercial
+	context.progress_steps = schedule_commercial.progress(schedule.status, commercial)
+	context.unconfigured_lines = unconfigured
+	context.next_step = schedule_commercial.next_step(
+		schedule,
+		commercial,
+		can_edit=can_edit,
+		can_create_order=can_create_order and is_dealer,
+		unconfigured=[label for label, _key in unconfigured],
+	)
 	context.title = schedule.schedule_name
 	context.no_cache = 1
 

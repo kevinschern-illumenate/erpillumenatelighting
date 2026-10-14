@@ -11,7 +11,14 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / ".tools/b2b-test-python"))
 
-from jinja2 import ChoiceLoader, DictLoader, Environment, FileSystemLoader, StrictUndefined
+from jinja2 import (
+	ChainableUndefined,
+	ChoiceLoader,
+	DictLoader,
+	Environment,
+	FileSystemLoader,
+	StrictUndefined,
+)
 
 environment = Environment(
 	loader=ChoiceLoader(
@@ -442,6 +449,65 @@ for name, actions in (("overview", overview_actions), ("overview-empty", [])):
 	assert 'aria-current="page">Overview' in overview_html
 	parser.feed(overview_html)
 	(render_dir / f"{name}.html").write_text(overview_html, encoding="utf8")
+# The schedule page has a large context; render its FLOW-2 header with lenient undefineds.
+schedule_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/schedule.html")
+schedule_base = {
+	"project": View(name="P-1", project_name="Proj"),
+	"lines": [],
+	"lines_json": [],
+	"can_edit": True,
+	"schedule_status_class": lambda status: "info",
+	"schedule_status_label": lambda status: status.title(),
+	"schedule_status_description": lambda status: status,
+	"status_labels": {},
+	"open_offer": None,
+	"system_design": None,
+	"design_dimming_protocols": [],
+}
+steps = ["build", "ready", "quote_requested", "quoted", "order_requested", "ordered"]
+schedule_variants = {
+	"schedule-ready": dict(
+		schedule=View(name="S-1", schedule_name="Lobby", status="READY", version=1, modified="2026-10-14", is_locked=0),
+		progress_steps=[
+			{"key": key, "label": key, "state": ("done" if i < 1 else "current" if i == 1 else "upcoming"), "problem": False}
+			for i, key in enumerate(steps)
+		],
+		commercial=View(
+			requests=[
+				View(
+					name="QR-1",
+					link="/portal/quote-requests/QR-1",
+					status_class="info",
+					status_label="Received",
+					assigned_name="Sam <S>",
+					last_message="Can you confirm <b>finish</b>?",
+				)
+			],
+			offers=[],
+			order=None,
+		),
+		next_step={"primary": {"label": "Request quote", "action": "quote"}, "secondary": {"label": "Order directly", "action": "order"}},
+		unconfigured_lines=[],
+	),
+	"schedule-draft": dict(
+		schedule=View(name="S-1", schedule_name="Lobby", status="DRAFT", version=1, modified="2026-10-14", is_locked=0),
+		progress_steps=[
+			{"key": key, "label": key, "state": "current" if i == 0 else "upcoming", "problem": False}
+			for i, key in enumerate(steps)
+		],
+		commercial=View(requests=[], offers=[], order=None),
+		next_step={
+			"primary": {"label": "Mark ready", "action": "ready", "disabled_reason": "Configure these lines first: A1, Row 2"},
+			"secondary": None,
+		},
+		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
+	),
+}
+for name, variant in schedule_variants.items():
+	schedule_html = schedule_page.render(**schedule_base, **variant)
+	assert "Sam &lt;S&gt;" in schedule_html or name != "schedule-ready"
+	assert 'onclick="requestQuote()"' not in schedule_html and 'onclick="createSalesOrder()"' not in schedule_html
+	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 for name, signed_in_as in (("guest", None), ("signed-in", "Invitee@Studio.test")):
 	accept_html = accept_page.render(signed_in_as=signed_in_as, signup_enabled=True)
 	(render_dir / f"accept-invitation-{name}.html").write_text(accept_html, encoding="utf8")

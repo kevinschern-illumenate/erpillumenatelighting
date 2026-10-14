@@ -9,6 +9,14 @@ Also handles new schedule creation when is_new is True
 
 {% block style %}
 <style>
+.ill-schedule-steps { display: flex; list-style: none; padding: 0; margin: 0 0 1.5rem; gap: .25rem; overflow-x: auto; counter-reset: step; }
+.ill-schedule-steps li { flex: 1 0 auto; padding: .5rem .75rem; border-radius: var(--ill-radius-pill, 999px); background: var(--ill-gray-100, #f1f3f5); color: var(--ill-gray-500, #6b7280); font-size: .85rem; white-space: nowrap; text-align: center; }
+.ill-schedule-steps li::before { counter-increment: step; content: counter(step) ". "; }
+.ill-schedule-steps li.is-done { background: var(--ill-blue-100, #e6f1f8); color: var(--ill-blue-800, #00466f); }
+.ill-schedule-steps li.is-current { background: var(--ill-blue-600, #00588C); color: #fff; font-weight: 600; }
+.ill-schedule-steps li.has-problem { background: var(--ill-red, #C0392B); }
+.ill-schedule-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+.ill-commercial-message { overflow-wrap: anywhere; color: var(--ill-text-secondary, #4b5563); }
 .action-buttons {
 	display: flex;
 	flex-wrap: wrap;
@@ -1097,6 +1105,20 @@ body.reorder-no-select {
 	</div>
 	{% else %}
 
+	<!-- Progress (FLOW-2) -->
+	<ol class="ill-schedule-steps" id="scheduleSteps" aria-label="{{ _('Schedule progress') }}">
+		{% for step in progress_steps %}
+		<li class="is-{{ step.state }}{% if step.problem %} has-problem{% endif %}" data-step="{{ step.key }}"{% if step.state == 'current' %} aria-current="step"{% endif %}>{{ step.label }}</li>
+		{% endfor %}
+	</ol>
+
+	{% if unconfigured_lines and schedule.status == 'DRAFT' %}
+	<div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap" role="status" id="unconfiguredBanner">
+		<span>{{ _("Unconfigured lines: {0}").format(unconfigured_lines | length) }}</span>
+		<a href="#line-{{ unconfigured_lines[0][1] | e }}">{{ _("Go to the first one") }}</a>
+	</div>
+	{% endif %}
+
 	<!-- Schedule Header -->
 	<div class="row mb-4">
 		<div class="col-12">
@@ -1150,32 +1172,11 @@ body.reorder-no-select {
 								{% if system_design and system_design.review %}
 								<span class="badge badge-{{ system_design.review.tone }} ml-1" id="systemDesignReview">{{ system_design.review.label }}</span>
 								{% endif %}
-								{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY', 'QUOTED'] %}
-								<div class="dropdown d-inline-block ml-2">
-									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="statusDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-										<i class="fa fa-exchange"></i> {{ _("Change Status") }}
-									</button>
-									<div class="dropdown-menu" aria-labelledby="statusDropdown">
-										{% if schedule.status != 'DRAFT' %}
-										<a class="dropdown-item" href="#" onclick="changeStatus('DRAFT'); return false;">
-											<i class="fa fa-pencil text-warning"></i> {{ schedule_status_label('DRAFT') }}
-											<small class="text-muted d-block">{{ _("Continue editing") }}</small>
-										</a>
-										{% endif %}
-										{% if schedule.status != 'READY' %}
-										<a class="dropdown-item" href="#" onclick="changeStatus('READY'); return false;">
-											<i class="fa fa-check-circle text-info"></i> {{ schedule_status_label('READY') }}
-											<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
-										</a>
-										{% endif %}
-									</div>
-								</div>
-								{% endif %}
 							</div>
 						</div>
-						<div class="btn-group">
+						<div class="ill-schedule-actions" id="scheduleActions">
 							{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
-							<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
+							<button class="btn btn-outline-primary" data-toggle="modal" data-target="#addLineModal">
 								<i class="fa fa-plus"></i> {{ _("Add Line") }}
 							</button>
 							{% endif %}
@@ -1184,23 +1185,49 @@ body.reorder-no-select {
 								<i class="fa fa-sitemap"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
 							</a>
 							{% endif %}
+							{% set step = next_step.secondary %}
+							{% if step %}
+							<button class="btn btn-outline-primary" type="button" id="nextStepSecondary" data-next-action="{{ step.action | e }}">{{ step.label | e }}</button>
+							{% endif %}
+							{% set step = next_step.primary %}
+							{% if step and step.href %}
+							<a class="btn btn-primary" id="nextStepPrimary" href="{{ step.href | e }}">{{ step.label | e }}</a>
+							{% elif step %}
+							<button class="btn btn-primary" type="button" id="nextStepPrimary" data-next-action="{{ step.action | e }}"{% if step.disabled_reason %} disabled aria-describedby="nextStepReason"{% endif %}>{{ step.label | e }}</button>
+							{% endif %}
 							{% if can_edit and not schedule.is_locked %}
-							<button class="btn btn-outline-primary" onclick="createNewVersion()">
-								<i class="fa fa-code-fork"></i> {{ _("Create New Version") }}
-							</button>
-							{% endif %}
-							{% if can_edit and not schedule.is_locked and schedule.status == 'READY' %}
-							<button class="btn btn-success" onclick="requestQuote()">
-								<i class="fa fa-paper-plane"></i> {{ _("Request Quote") }}
-							</button>
-							{% endif %}
-							{% if can_create_order %}
-							<button class="btn btn-success" onclick="createSalesOrder()">
-								<i class="fa fa-shopping-cart"></i> {{ _("Convert to Sales Order") }}
-							</button>
+							<div class="dropdown d-inline-block">
+								<button class="btn btn-outline-secondary" type="button" id="scheduleMoreMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="{{ _('More schedule actions') }}">
+									<i class="fa fa-ellipsis-h" aria-hidden="true"></i>
+								</button>
+								<div class="dropdown-menu dropdown-menu-right" aria-labelledby="scheduleMoreMenu">
+									<a class="dropdown-item" href="#" data-schedule-menu="version">
+										<i class="fa fa-code-fork"></i> {{ _("Create New Version") }}
+									</a>
+									{% if schedule.status in ['DRAFT', 'READY', 'QUOTED'] %}
+									<div class="dropdown-divider"></div>
+									<h6 class="dropdown-header">{{ _("Change Status") }}</h6>
+									{% if schedule.status != 'DRAFT' %}
+									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="DRAFT">
+										<i class="fa fa-pencil text-warning"></i> {{ schedule_status_label('DRAFT') }}
+										<small class="text-muted d-block">{{ _("Continue editing") }}</small>
+									</a>
+									{% endif %}
+									{% if schedule.status != 'READY' %}
+									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="READY">
+										<i class="fa fa-check-circle text-info"></i> {{ schedule_status_label('READY') }}
+										<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
+									</a>
+									{% endif %}
+									{% endif %}
+								</div>
+							</div>
 							{% endif %}
 						</div>
 					</div>
+					{% if next_step.primary and next_step.primary.disabled_reason %}
+					<p class="text-muted small text-right mt-2 mb-0" id="nextStepReason">{{ next_step.primary.disabled_reason | e }}</p>
+					{% endif %}
 					{% if order_block_reason %}
 					<p class="text-muted small text-right mt-2 mb-0" id="orderBlockReason">{{ order_block_reason }}</p>
 					{% endif %}
@@ -1216,6 +1243,51 @@ body.reorder-no-select {
 			</div>
 		</div>
 	</div>
+
+	{% if commercial.requests or commercial.offers or commercial.order %}
+	<!-- Commercial thread (FLOW-2) -->
+	<section class="card mb-4" id="commercialPanel" aria-labelledby="commercialHeading">
+		<div class="card-header"><h2 class="h6 mb-0" id="commercialHeading">{{ _("Commercial") }}</h2></div>
+		<div class="card-body">
+			<div class="row">
+				<div class="col-md-4 mb-3 mb-md-0" id="commercialRequests">
+					<h3 class="h6 text-muted">{{ _("Quote requests") }}</h3>
+					{% for request in commercial.requests %}
+					<div class="mb-2">
+						<a href="{{ request.link | e }}">{{ request.name | e }}</a>
+						<span class="badge badge-{{ request.status_class | e }}">{{ request.status_label | e }}</span>
+						<div class="small text-muted">{% if request.assigned_name %}{{ _("With {0}").format(request.assigned_name) | e }}{% else %}{{ _("Not assigned yet") }}{% endif %}</div>
+						{% if request.last_message %}<div class="small ill-commercial-message">{{ request.last_message | e }}</div>{% endif %}
+					</div>
+					{% else %}
+					<p class="small text-muted mb-0">{{ _("No quote requested yet.") }}</p>
+					{% endfor %}
+				</div>
+				<div class="col-md-4 mb-3 mb-md-0" id="commercialOffers">
+					<h3 class="h6 text-muted">{{ _("Quotes") }}</h3>
+					{% for offer in commercial.offers %}
+					<div class="mb-2">
+						<a href="{{ offer.link | e }}">{{ offer.name | e }}</a>
+						<span class="badge badge-{{ offer.status_class | e }}">{{ offer.status_label | e }}</span>
+						{% if offer.valid_until %}<div class="small text-muted">{{ _("Valid until {0}").format(frappe.utils.format_date(offer.valid_until)) | e }}</div>{% endif %}
+					</div>
+					{% else %}
+					<p class="small text-muted mb-0">{{ _("No quote issued yet.") }}</p>
+					{% endfor %}
+				</div>
+				<div class="col-md-4" id="commercialOrder">
+					<h3 class="h6 text-muted">{{ _("Order") }}</h3>
+					{% if commercial.order %}
+					<a href="{{ commercial.order.link | e }}">{{ commercial.order.name | e }}</a>
+					<span class="badge badge-{{ commercial.order.status_class | e }}">{{ commercial.order.status_label | e }}</span>
+					{% else %}
+					<p class="small text-muted mb-0">{{ _("Not ordered yet.") }}</p>
+					{% endif %}
+				</div>
+			</div>
+		</div>
+	</section>
+	{% endif %}
 
 	<!-- Summary Panel -->
 	<div class="row mb-4">
@@ -1321,7 +1393,7 @@ body.reorder-no-select {
 							</thead>
 							<tbody>
 								{% for line in lines %}
-								<tr data-line-idx="{{ loop.index0 }}" data-line-key="{{ line.get('line_key') or line.get('name') or '' }}">
+								<tr id="line-{{ line.get('line_key') or line.get('name') or loop.index0 }}" data-line-idx="{{ loop.index0 }}" data-line-key="{{ line.get('line_key') or line.get('name') or '' }}">
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 									<td class="col-drag-handle">
 										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder') }}" aria-label="{{ _('Drag to reorder') }}">
@@ -4255,6 +4327,21 @@ function requestQuote() {
 function createSalesOrder() {
     PortalOrderIntake.open({schedule_name: schedule_name}).catch(function (error) { frappe.msgprint(frappe.utils.escape_html(error.message)); });
 }
+
+// FLOW-2: the header's next-step buttons and the overflow menu.
+var scheduleActions = {ready: function () { changeStatus('READY'); }, quote: requestQuote, order: createSalesOrder};
+document.addEventListener('click', function (event) {
+    var next = event.target.closest('[data-next-action]');
+    if (next && !next.disabled && scheduleActions[next.dataset.nextAction]) {
+        scheduleActions[next.dataset.nextAction]();
+        return;
+    }
+    var item = event.target.closest('[data-schedule-menu]');
+    if (!item) return;
+    event.preventDefault();
+    if (item.dataset.scheduleMenu === 'version') createNewVersion();
+    if (item.dataset.scheduleMenu === 'status') changeStatus(item.dataset.status);
+});
 
 // Export functionality
 function watchPacket(job, attempt) {
