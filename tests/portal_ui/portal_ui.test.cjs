@@ -127,3 +127,15 @@ test('failed shows the message as an alert and Retry runs the loader again', () 
   assert.equal(retried, 1);
   assert.equal(w.document.querySelector('.alert-danger'), null);
 });
+
+test('toasts shown through frappe.show_alert are also announced in a polite status region', async () => {
+  const { w, alerts } = setup(() => {});
+  w.PortalUI.toast('Saved <ok>', 'green');
+  assert.equal(alerts.length, 1);
+  const region = w.document.querySelector('.ill-announcer');
+  assert.equal(region.getAttribute('role'), 'status');
+  assert.equal(region.getAttribute('aria-live'), 'polite');
+  await new Promise(resolve => w.setTimeout(resolve, 80));
+  assert.equal(region.textContent, 'Saved <ok>');
+  assert.equal(region.querySelector('ok'), null);
+});

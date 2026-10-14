@@ -104,7 +104,7 @@ function formatPerFoot(amount) {
 function renderGallery(images) {
 	var $g = $('#productGallery');
 	if (!images.length) {
-		$g.html('<div style="width:100%;height:300px;background:var(--ill-gray-100);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ill-gray-400);font-size:3rem"><i class="fa fa-image"></i></div>');
+		$g.html('<div style="width:100%;height:300px;background:var(--ill-gray-100);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ill-gray-400);font-size:3rem"><i class="fa fa-image" aria-hidden="true"></i></div>');
 		return;
 	}
 
@@ -145,7 +145,7 @@ function renderDocs(docs) {
 	docs.forEach(function(d) {
 		if (!d.file_url) return;
 		var icon = d.document_type === 'PDF' ? 'fa-file-pdf-o' : 'fa-file-o';
-		html += '<a href="' + _escHtml(d.file_url) + '" target="_blank" rel="noopener"><i class="fa ' + icon + '"></i> ' + _escHtml(d.document_name) + '</a>';
+		html += '<a href="' + _escHtml(d.file_url) + '" target="_blank" rel="noopener"><i class="fa ' + icon + '" aria-hidden="true"></i> ' + _escHtml(d.document_name) + '</a>';
 	});
 	html += '</div>';
 	$('#tabDocs').html(html);
@@ -155,7 +155,7 @@ function renderCerts(certs) {
 	if (!certs.length) { $('#tabCerts').html('<p class="text-muted">No certifications listed.</p>'); return; }
 	var html = '';
 	certs.forEach(function(c) {
-		html += '<span class="cert-badge"><i class="fa fa-certificate"></i> ' + _escHtml(c.certification_name || c.certification_body) + '</span>';
+		html += '<span class="cert-badge"><i class="fa fa-certificate" aria-hidden="true"></i> ' + _escHtml(c.certification_name || c.certification_body) + '</span>';
 	});
 	$('#tabCerts').html(html);
 }

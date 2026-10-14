@@ -34,24 +34,24 @@ Also handles new schedule creation when is_new is True
 					<form id="createScheduleForm">
 						<input type="hidden" name="ill_project" value="{{ project.name | e }}">
 						<div class="form-group">
-							<label>{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
-							<input type="text" class="form-control" name="schedule_name" required placeholder="{{ _('e.g., Area A - Linear Fixtures') }}">
+							<label for="newScheduleName">{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
+							<input id="newScheduleName" type="text" class="form-control" name="schedule_name" required placeholder="{{ _('e.g., Area A - Linear Fixtures') }}">
 						</div>
 						<div class="form-group">
-							<label>{{ _("Project") }}</label>
-							<input type="text" class="form-control" value="{{ project.project_name | e }}" readonly>
+							<label for="newScheduleProject">{{ _("Project") }}</label>
+							<input id="newScheduleProject" type="text" class="form-control" value="{{ project.project_name | e }}" readonly>
 						</div>
 						<div class="form-group">
-							<label>{{ _("Notes") }}</label>
-							<textarea class="form-control" name="notes" rows="3" placeholder="{{ _('Optional notes about this schedule') }}"></textarea>
+							<label for="newScheduleNotes">{{ _("Notes") }}</label>
+							<textarea id="newScheduleNotes" class="form-control" name="notes" rows="3" placeholder="{{ _('Optional notes about this schedule') }}"></textarea>
 						</div>
 						<hr>
 						<div class="d-flex justify-content-between">
 							<a href="/portal/projects/{{ project.name | e }}" class="btn btn-secondary">
-								<i class="fa fa-arrow-left"></i> {{ _("Cancel") }}
+								<i class="fa fa-arrow-left" aria-hidden="true"></i> {{ _("Cancel") }}
 							</a>
 							<button type="submit" class="btn btn-primary">
-								<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
+								<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Create Schedule") }}
 							</button>
 						</div>
 					</form>
@@ -86,7 +86,7 @@ Also handles new schedule creation when is_new is True
 								{{ schedule.schedule_name | e }}
 								<span class="badge badge-secondary ml-2" style="font-size: 0.5em; vertical-align: middle;">v{{ (schedule.version or 1) | e }}</span>
 								{% if schedule.is_locked %}
-								<span class="badge badge-dark ml-1" style="font-size: 0.5em; vertical-align: middle;"><i class="fa fa-lock"></i> {{ _("Locked") }}</span>
+								<span class="badge badge-dark ml-1" style="font-size: 0.5em; vertical-align: middle;"><i class="fa fa-lock" aria-hidden="true"></i> {{ _("Locked") }}</span>
 								{% endif %}
 							</h1>
 							<p class="text-muted mb-2">
@@ -94,24 +94,24 @@ Also handles new schedule creation when is_new is True
 							</p>
 							{% if schedule.is_locked %}
 							<div class="alert alert-warning mb-2" role="alert">
-								<i class="fa fa-lock"></i>
+								<i class="fa fa-lock" aria-hidden="true"></i>
 								{{ _("This is Version {0} (locked). You can view and export but not modify. Create a new version to make changes.").format(schedule.version or 1) | e }}
 							</div>
 							{% endif %}
 							{% if schedule.status == 'ISSUE' %}
 							<div class="alert alert-danger mb-2" role="alert">
-								<i class="fa fa-exclamation-triangle"></i>
+								<i class="fa fa-exclamation-triangle" aria-hidden="true"></i>
 								{{ (schedule.status_note or _("We were unable to complete this order request. Please reach out to {0} for more information if we have not already been in contact with you.").format(sales_email)) | e }}
 							</div>
 							{% elif schedule.status == 'ORDER_REQUESTED' %}
 							<div class="alert alert-info mb-2" role="alert">
-								<i class="fa fa-clock-o"></i>
+								<i class="fa fa-clock-o" aria-hidden="true"></i>
 								{{ _("Your order request has been submitted and is awaiting approval by ilLumenate.") }}
 								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
 							</div>
 							{% elif schedule.status == 'ORDERED' and schedule.sales_order %}
 							<div class="alert alert-success mb-2" role="alert">
-								<i class="fa fa-check-circle"></i>
+								<i class="fa fa-check-circle" aria-hidden="true"></i>
 								{{ _("This schedule has been ordered.") }}
 								<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order") }}</a>
 							</div>
@@ -122,7 +122,7 @@ Also handles new schedule creation when is_new is True
 								</span>
 								{% if system_design and system_design.design %}
 								<a href="{{ system_design.url | e }}" class="badge badge-{{ system_design.design.tone | e }} ml-1" id="systemDesignBadge" title="{{ _('Open the system design') }}">
-									<i class="fa fa-sitemap"></i> {{ _("Design rev {0}: {1}").format(system_design.design.revision, _(system_design.design.status)) | e }}
+									<i class="fa fa-sitemap" aria-hidden="true"></i> {{ _("Design rev {0}: {1}").format(system_design.design.revision, _(system_design.design.status)) | e }}
 								</a>
 								{% endif %}
 								{% if system_design and system_design.review %}
@@ -133,12 +133,12 @@ Also handles new schedule creation when is_new is True
 						<div class="ill-schedule-actions" id="scheduleActions">
 							{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 							<button class="btn btn-outline-primary" data-toggle="modal" data-target="#addLineModal">
-								<i class="fa fa-plus"></i> {{ _("Add Line") }}
+								<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Line") }}
 							</button>
 							{% endif %}
 							{% if system_design and (system_design.design or (can_edit and not schedule.is_locked)) %}
 							<a class="btn btn-outline-primary" id="designSystemButton" href="{{ system_design.url | e }}">
-								<i class="fa fa-sitemap"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
+								<i class="fa fa-sitemap" aria-hidden="true"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
 							</a>
 							{% endif %}
 							{% set step = next_step.secondary %}
@@ -158,20 +158,20 @@ Also handles new schedule creation when is_new is True
 								</button>
 								<div class="dropdown-menu dropdown-menu-right" aria-labelledby="scheduleMoreMenu">
 									<a class="dropdown-item" href="#" data-schedule-menu="version">
-										<i class="fa fa-code-fork"></i> {{ _("Create New Version") }}
+										<i class="fa fa-code-fork" aria-hidden="true"></i> {{ _("Create New Version") }}
 									</a>
 									{% if schedule.status in ['DRAFT', 'READY', 'QUOTED'] %}
 									<div class="dropdown-divider"></div>
 									<h6 class="dropdown-header">{{ _("Change Status") }}</h6>
 									{% if schedule.status != 'DRAFT' %}
 									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="DRAFT">
-										<i class="fa fa-pencil text-warning"></i> {{ schedule_status_label('DRAFT') | e }}
+										<i class="fa fa-pencil text-warning" aria-hidden="true"></i> {{ schedule_status_label('DRAFT') | e }}
 										<small class="text-muted d-block">{{ _("Continue editing") }}</small>
 									</a>
 									{% endif %}
 									{% if schedule.status != 'READY' %}
 									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="READY">
-										<i class="fa fa-check-circle text-info"></i> {{ schedule_status_label('READY') | e }}
+										<i class="fa fa-check-circle text-info" aria-hidden="true"></i> {{ schedule_status_label('READY') | e }}
 										<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
 									</a>
 									{% endif %}
@@ -190,7 +190,7 @@ Also handles new schedule creation when is_new is True
 					{% if can_show_dealer_pricing and can_view_pricing %}
 					<div class="mt-2" id="dealerPricingToggleRow">
 						<button id="dealerPricingBtn" class="btn btn-sm btn-outline-warning" onclick="toggleDealerPricing()">
-							<i class="fa fa-tag"></i> {{ _("Show Dealer Pricing") }}
+							<i class="fa fa-tag" aria-hidden="true"></i> {{ _("Show Dealer Pricing") }}
 						</button>
 						<span id="dealerPricingModeLabel" class="ml-2 text-muted small" style="display:none;"></span>
 					</div>
@@ -290,11 +290,11 @@ Also handles new schedule creation when is_new is True
 				<span class="badge badge-secondary mr-2">{{ _("Stock availability unavailable") }}{% if stock_lines_unknown < stock_lines_total %} ({{ stock_lines_unknown | e }} / {{ stock_lines_total | e }}){% endif %}</span>
 				<small class="text-muted">{{ _("You can continue working on this schedule. Contact us to confirm availability.") }}</small>
 				{% elif stock_lines_in_stock == stock_lines_total %}
-				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1"></i>{{ _("All Parts Available Now") }}</span>
+				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1" aria-hidden="true"></i>{{ _("All Parts Available Now") }}</span>
 				{% elif stock_lines_in_stock > 0 %}
-				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock | e }} / {{ stock_lines_total | e }} {{ _("lines fully available now") }}</span>
+				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1" aria-hidden="true"></i>{{ stock_lines_in_stock | e }} / {{ stock_lines_total | e }} {{ _("lines fully available now") }}</span>
 				{% else %}
-				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1"></i>{{ _("No lines fully available now") }}</span>
+				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1" aria-hidden="true"></i>{{ _("No lines fully available now") }}</span>
 				{% endif %}
 				{% if stock_scope and not stock_lines_unknown %}
 				<small class="text-muted">
@@ -353,7 +353,7 @@ Also handles new schedule creation when is_new is True
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 									<td class="col-drag-handle">
 										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder') }}" aria-label="{{ _('Drag to reorder') }}">
-											<i class="fa fa-arrows"></i>
+											<i class="fa fa-arrows" aria-hidden="true"></i>
 										</button>
 									</td>
 									{% endif %}
@@ -380,13 +380,13 @@ Also handles new schedule creation when is_new is True
 											<strong class="text-success">{{ line.get('driver_template_name') | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('Power Supply') }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> {{ _('Part') }}: <strong>{{ (line.get('driver_part_number') or line.get('accessory_item')) | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> {{ _('Part') }}: <strong>{{ (line.get('driver_part_number') or line.get('accessory_item')) | e }}</strong>
 												{% if line.get('driver_part_number') and line.get('driver_part_number') != line.get('accessory_item') %}<span class="ml-1">({{ line.get('accessory_item') | e }})</span>{% endif %}
 											</div>
 											{% else %}
 											<strong class="text-success">{{ (line.get('accessory_item_name') or line.get('accessory_item')) | e }}</strong>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('accessory_item') | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> SPEC: <strong>{{ line.get('accessory_item') | e }}</strong>
 											</div>
 											{% endif %}
 											{% if line.get('variant_selections') %}
@@ -398,7 +398,7 @@ Also handles new schedule creation when is_new is True
 											{% endif %}
 											{% if line.get('accessory_product_type') %}
 											<div class="small text-muted">
-												<i class="fa fa-folder"></i> {{ line.get('accessory_product_type') | e }}
+												<i class="fa fa-folder" aria-hidden="true"></i> {{ line.get('accessory_product_type') | e }}
 											</div>
 											{% endif %}
 											<!-- Stock indicator for accessory -->
@@ -408,22 +408,22 @@ Also handles new schedule creation when is_new is True
 												{% if sa.get('availability') == 'unknown' %}
 												<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
 												{% elif sa.get('all_in_stock') %}
-												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("In Stock") }}</span>
 												{% elif sa.get('items', []) | length > 0 %}
 												<details class="stock-breakdown">
 													<summary>
 														<span class="text-danger">
-															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
-															<i class="fa fa-caret-right stock-toggle-arrow"></i>
+															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }}
+															<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 														</span>
 													</summary>
 													<div class="stock-breakdown-list">
 														{% for it in sa.get('items', []) %}
 														<div class="stock-item-row">
 															{% if it.is_sufficient %}
-															<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+															<i class="fa fa-check-circle text-success" style="font-size:0.75em;" aria-hidden="true"></i>
 															{% else %}
-															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;" aria-hidden="true"></i>
 															{% endif %}
 															<span class="stock-item-code">{{ it.item_code | e }}</span>
 															{% if it.qty_available is defined %}
@@ -434,7 +434,7 @@ Also handles new schedule creation when is_new is True
 													</div>
 												</details>
 												{% else %}
-												<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}</span>
+												<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }}</span>
 												{% endif %}
 											</div>
 											{% endif %}
@@ -449,7 +449,7 @@ Also handles new schedule creation when is_new is True
 											<span class="badge badge-info ml-1">Extrusion Kit</span>
 											<!-- Kit Template reference -->
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Kit: <strong>{{ (line.get('kit_template_name') or line.get('kit_template')) | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> Kit: <strong>{{ (line.get('kit_template_name') or line.get('kit_template')) | e }}</strong>
 											</div>
 											<!-- Kit attributes as badges -->
 											<div class="small text-muted mt-1">
@@ -479,13 +479,13 @@ Also handles new schedule creation when is_new is True
 													{% if sa.get('availability') == 'unknown' %}
 													<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
 													{% elif sa.get('all_in_stock') %}
-													<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("All In Stock") }} ({{ total_count | e }}/{{ total_count | e }})</span>
+													<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("All In Stock") }} ({{ total_count | e }}/{{ total_count | e }})</span>
 													{% elif in_count > 0 %}
-													<span class="text-warning"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})</span>
+													<span class="text-warning"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})</span>
 													{% else %}
-													<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }} (0/{{ total_count | e }})</span>
+													<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }} (0/{{ total_count | e }})</span>
 													{% endif %}
-													<i class="fa fa-caret-right stock-toggle-arrow"></i>
+													<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 												</summary>
 												<table class="table table-sm table-borderless mb-0 small kit-stock-table">
 													<thead>
@@ -504,9 +504,9 @@ Also handles new schedule creation when is_new is True
 														<tr>
 															<td style="padding:2px 4px;">
 																{% if it.is_sufficient %}
-																<i class="fa fa-check-circle text-success" style="font-size:0.8em;"></i>
+																<i class="fa fa-check-circle text-success" style="font-size:0.8em;" aria-hidden="true"></i>
 																{% else %}
-																<i class="fa fa-times-circle text-danger" style="font-size:0.8em;"></i>
+																<i class="fa fa-times-circle text-danger" style="font-size:0.8em;" aria-hidden="true"></i>
 																{% endif %}
 															</td>
 															<td style="padding:2px 4px;">{{ (it.component_type or '') | e }}</td>
@@ -532,7 +532,7 @@ Also handles new schedule creation when is_new is True
 											<strong>{{ (line.get('driver_template_name') or line.get('driver_template')) | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('Power Supply') }}</span>
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to choose wattage, output voltage and dimming") }}
+												<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Not configured - click Configure to choose wattage, output voltage and dimming") }}
 											</div>
 										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' and line.get('configured_group') %}
@@ -550,12 +550,12 @@ Also handles new schedule creation when is_new is True
 											<!-- SPEC reference -->
 											{% if cf_details.get('fixture_template_code') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ cf_details.get('fixture_template_code') | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> SPEC: <strong>{{ cf_details.get('fixture_template_code') | e }}</strong>
 											</div>
 											{% endif %}
 											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
 											<div class="small text-info mt-1 build-description">
-												<i class="fa fa-link"></i> 
+												<i class="fa fa-link" aria-hidden="true"></i> 
 												<em>{{ cf_details.get('user_segment_count', 0) | e }} segment(s) with jumper cables</em>
 												<button type="button" class="btn btn-xs btn-link p-0 ml-1" 
 														data-toggle="popover" 
@@ -564,7 +564,7 @@ Also handles new schedule creation when is_new is True
 														data-trigger="focus"
 														title="{{ _('Build Details') }}"
 														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description_display', '') | e | replace('\n', '<br>' | safe) | forceescape }}</pre>">
-													<i class="fa fa-info-circle"></i>
+													<i class="fa fa-info-circle" aria-hidden="true"></i>
 												</button>
 											</div>
 											{% endif %}
@@ -609,18 +609,18 @@ Also handles new schedule creation when is_new is True
 											<!-- Driver sub-line -->
 											{% if line.get('has_power_supply_lines') %}
 											<div class="driver-sub-line">
-												<div class="small text-muted"><i class="fa fa-bolt mr-1"></i>{{ _("Power supply on its own line below") }}</div>
+												<div class="small text-muted"><i class="fa fa-bolt mr-1" aria-hidden="true"></i>{{ _("Power supply on its own line below") }}</div>
 											</div>
 											{% elif cf_details.get('include_power_supply') == 0 %}
 											<div class="driver-sub-line">
 												<div class="small">
-													<span class="badge badge-warning" style="font-weight:normal;"><i class="fa fa-exclamation-circle mr-1"></i>{{ _("Power Supply Not Included") }}</span>
+													<span class="badge badge-warning" style="font-weight:normal;"><i class="fa fa-exclamation-circle mr-1" aria-hidden="true"></i>{{ _("Power Supply Not Included") }}</span>
 												</div>
 											</div>
 											{% elif cf_details.get('power_supply') %}
 											<div class="driver-sub-line">
 												<div class="small text-muted">
-													<i class="fa fa-bolt"></i> Driver: <strong>{{ cf_details.get('power_supply') | e }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') | e }} units){% endif %}</strong>
+													<i class="fa fa-bolt" aria-hidden="true"></i> Driver: <strong>{{ cf_details.get('power_supply') | e }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') | e }} units){% endif %}</strong>
 													{% if cf_details.get('driver_input_voltage') %}
 													<span class="ml-2">Input: <strong>{{ cf_details.get('driver_input_voltage') | e }}</strong></span>
 													{% endif %}
@@ -630,7 +630,7 @@ Also handles new schedule creation when is_new is True
 											<!-- Show message if no details available -->
 											{% if not cf_details.get('cct') and not cf_details.get('cri') and not cf_details.get('finish') and not cf_details.get('manufacturable_length_inches') %}
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> Details pending - reconfigure to complete
+												<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> Details pending - reconfigure to complete
 											</div>
 											{% endif %}
 										</div>
@@ -641,7 +641,7 @@ Also handles new schedule creation when is_new is True
 											{% if sa.get('availability') == 'unknown' %}
 											<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
 											{% elif sa.get('all_in_stock') %}
-											<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("In Stock") }}</span>
+											<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("In Stock") }}</span>
 											{% else %}
 											{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
 											{% set total_count = sa.get('items', []) | length %}
@@ -649,17 +649,17 @@ Also handles new schedule creation when is_new is True
 											<details class="stock-breakdown">
 												<summary>
 													<span class="text-warning">
-														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})
-														<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})
+														<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 													</span>
 												</summary>
 												<div class="stock-breakdown-list">
 													{% for it in sa.get('items', []) %}
 													<div class="stock-item-row">
 														{% if it.is_sufficient %}
-														<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+														<i class="fa fa-check-circle text-success" style="font-size:0.75em;" aria-hidden="true"></i>
 														{% else %}
-														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;" aria-hidden="true"></i>
 														{% endif %}
 														<span class="stock-item-type">{{ (it.component_type or '') | e }}</span>
 														<span class="stock-item-code">{{ it.item_code | e }}</span>
@@ -674,17 +674,17 @@ Also handles new schedule creation when is_new is True
 											<details class="stock-breakdown">
 												<summary>
 													<span class="text-danger">
-														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }}
-														<i class="fa fa-caret-right stock-toggle-arrow"></i>
+														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }}
+														<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 													</span>
 												</summary>
 												<div class="stock-breakdown-list">
 													{% for it in sa.get('items', []) %}
 													<div class="stock-item-row">
 														{% if it.is_sufficient %}
-														<i class="fa fa-check-circle text-success" style="font-size:0.75em;"></i>
+														<i class="fa fa-check-circle text-success" style="font-size:0.75em;" aria-hidden="true"></i>
 														{% else %}
-														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
+														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;" aria-hidden="true"></i>
 														{% endif %}
 														<span class="stock-item-type">{{ (it.component_type or '') | e }}</span>
 														<span class="stock-item-code">{{ it.item_code | e }}</span>
@@ -706,7 +706,7 @@ Also handles new schedule creation when is_new is True
 											{% endif %}
 											{% if line.get('fixture_model_number') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_model_number') | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> SPEC: <strong>{{ line.get('fixture_model_number') | e }}</strong>
 											</div>
 											{% endif %}
 											<div class="small text-muted mt-1">
@@ -743,7 +743,7 @@ Also handles new schedule creation when is_new is True
 											{% if line.get('spec_sheet') %}
 											<div class="small mt-1">
 												<a href="{{ line.get('spec_sheet') | e }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ _('Download Spec Sheet') }}">
-													<i class="fa fa-file-pdf-o"></i> {{ _("Spec Sheet") }}
+													<i class="fa fa-file-pdf-o" aria-hidden="true"></i> {{ _("Spec Sheet") }}
 												</a>
 											</div>
 											{% endif %}
@@ -760,7 +760,7 @@ Also handles new schedule creation when is_new is True
 											<!-- Template reference -->
 											{% if line.get('tape_neon_template_name') or line.get('tape_neon_template') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Series: <strong>{{ (line.get('tape_neon_template_name') or line.get('tape_neon_template')) | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> Series: <strong>{{ (line.get('tape_neon_template_name') or line.get('tape_neon_template')) | e }}</strong>
 											</div>
 											{% endif %}
 											<!-- Tape/Neon attributes as badges -->
@@ -804,7 +804,7 @@ Also handles new schedule creation when is_new is True
 											<span class="badge badge-info ml-1">{{ _('LED Sheet') }}</span>
 											{% if line.get('led_sheet_template_name') or line.get('led_sheet_template') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Template: <strong>{{ (line.get('led_sheet_template_name') or line.get('led_sheet_template')) | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> Template: <strong>{{ (line.get('led_sheet_template_name') or line.get('led_sheet_template')) | e }}</strong>
 											</div>
 											{% endif %}
 											<div class="small text-muted mt-1">
@@ -850,17 +850,17 @@ Also handles new schedule creation when is_new is True
 											<strong>{{ (line.get('led_sheet_template_name') or line.get('led_sheet_template')) | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('LED Sheet') }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Template: <strong>{{ line.get('led_sheet_template') | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> Template: <strong>{{ line.get('led_sheet_template') | e }}</strong>
 											</div>
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+												<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Not configured - click Configure to complete") }}
 											</div>
 											{% elif line.get('tape_neon_template') %}
 											<!-- Unconfigured Tape/Neon line -->
 											<strong>{{ (line.get('tape_neon_template_name') or line.get('tape_neon_template')) | e }}</strong>
 											<span class="badge badge-info ml-1">{{ (line.get('product_type') or 'Tape/Neon') | e }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Series: <strong>{{ (line.get('tape_neon_template_code') or line.get('tape_neon_template')) | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> Series: <strong>{{ (line.get('tape_neon_template_code') or line.get('tape_neon_template')) | e }}</strong>
 											</div>
 											{% if line.get('tape_neon_template_description') %}
 											<div class="small text-muted mt-1">
@@ -868,34 +868,34 @@ Also handles new schedule creation when is_new is True
 											</div>
 											{% endif %}
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> {{ _("Not fully configured - click Configure to complete setup") }}
+												<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Not fully configured - click Configure to complete setup") }}
 											</div>
 											{% elif line.get('kit_template') %}
 											<!-- Unconfigured Extrusion Kit line -->
 											<strong>{{ (line.get('kit_template_name') or line.get('kit_template')) | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('Extrusion Kit') }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template') | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> Kit: <strong>{{ line.get('kit_template') | e }}</strong>
 											</div>
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to choose finish, lens, mounting and endcaps") }}
+												<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Not configured - click Configure to choose finish, lens, mounting and endcaps") }}
 											</div>
 											{% elif line.get('fixture_template_name') or line.get('fixture_template') %}
 											<!-- Unconfigured Linear Fixture line -->
 											<strong>{{ (line.get('fixture_template_name') or line.get('fixture_template')) | e }}</strong>
 											{% if line.get('fixture_template') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_template') | e }}</strong>
+												<i class="fa fa-tag" aria-hidden="true"></i> SPEC: <strong>{{ line.get('fixture_template') | e }}</strong>
 											</div>
 											{% endif %}
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+												<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Not configured - click Configure to complete") }}
 											</div>
 											{% elif line.get('product_type') %}
 											<!-- Product type set but no template selected -->
 											<span class="text-muted">{{ line.get('product_type') | e }}</span>
 											<div class="small text-warning mt-1">
-												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
+												<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Not configured - click Configure to complete") }}
 											</div>
 											{% else %}
 											<span class="text-muted">-</span>
@@ -932,58 +932,58 @@ Also handles new schedule creation when is_new is True
 										<div class="action-buttons">
 											{% if line.get('manufacturer_type') == 'ILLUMENATE' %}
 												{% if line.get('configured_group') %}
-<a href="/portal/configure?category={{ line.get('product_type') | urlencode }}&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit the runs in this multi-run group') }}"><i class="fa fa-edit"></i> {{ _('Edit Group') }}</a>
+<a href="/portal/configure?category={{ line.get('product_type') | urlencode }}&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit the runs in this multi-run group') }}"><i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Group') }}</a>
 {% elif line.get('configured_fixture') %}
 												<!-- Edit existing linear fixture configuration -->
 												<a href="/portal/configure?category=Linear%20Fixture&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
-													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+													<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('configured_tape_neon') %}
 												<!-- Configured tape/neon - edit link -->
 												<a href="/portal/configure?category={{ (line.get('product_type') or 'LED Tape') | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
-													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+													<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('configured_led_sheet') %}
 												<!-- Configured LED Sheet - edit link -->
 												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
-													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
+													<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('led_sheet_template') %}
 												<!-- Unconfigured LED Sheet - configure link -->
 												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
-													<i class="fa fa-cog"></i> {{ _('Configure') }}
+													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% elif line.get('kit_template') %}
 												<!-- Extrusion Kit - edit or configure in the kit configurator -->
 												<a href="/portal/configure?category=Extrusion%20Kit&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('kit_template') | urlencode }}" class="btn btn-sm {{ ('btn-info' if line.get('kit_selections') else 'btn-primary') | e }}" title="{{ (_('Edit Configuration') if line.get('kit_selections') else _('Configure')) | e }}">
-													{% if line.get('kit_selections') %}<i class="fa fa-edit"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog"></i> {{ _('Configure') }}{% endif %}
+													{% if line.get('kit_selections') %}<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}{% endif %}
 												</a>
 												{% elif line.get('tape_neon_template') %}
 												{% set tn_category = line.get('product_type') or 'LED Tape' %}
 												<a href="/portal/configure?category={{ tn_category | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
-													<i class="fa fa-cog"></i> {{ _('Configure') }}
+													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% else %}
 												<!-- Unconfigured linear fixture or no template - configure link -->
 												<a href="/portal/configure?schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
-													<i class="fa fa-cog"></i> {{ _('Configure') }}
+													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% endif %}
 											{% elif line.get('manufacturer_type') == 'ACCESSORY' and line.get('driver_template') %}
 												<!-- Power supply - edit or configure in the power supply configurator -->
 												<a href="/portal/configure?category=Driver&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('driver_template') | urlencode }}" class="btn btn-sm {{ ('btn-info' if line.get('accessory_item') else 'btn-primary') | e }}" title="{{ (_('Edit Configuration') if line.get('accessory_item') else _('Configure')) | e }}">
-													{% if line.get('accessory_item') %}<i class="fa fa-edit"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog"></i> {{ _('Configure') }}{% endif %}
+													{% if line.get('accessory_item') %}<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}{% endif %}
 												</a>
 											{% endif %}
 											<button type="button" class="btn btn-sm btn-outline-secondary line-documents" data-schedule="{{ schedule.name | e }}" data-line="{{ (line.get('line_key') or line.get('name')) | e }}">{{ _('Specifications') }}</button>
 <button class="btn btn-sm btn-secondary" type="button" data-line-action="editLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Edit Line Details') }}">
-												<i class="fa fa-pencil"></i> {{ _('Edit') }}
+												<i class="fa fa-pencil" aria-hidden="true"></i> {{ _('Edit') }}
 											</button>
 												<button class="btn btn-sm btn-outline-secondary" type="button" data-line-action="duplicateLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Duplicate') }}">
-													<i class="fa fa-copy"></i> {{ _('Duplicate') }}
+													<i class="fa fa-copy" aria-hidden="true"></i> {{ _('Duplicate') }}
 												</button>
 												<button class="btn btn-sm btn-outline-danger" type="button" data-line-action="deleteLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Delete') }}">
-													<i class="fa fa-trash"></i> {{ _('Delete') }}
+													<i class="fa fa-trash" aria-hidden="true"></i> {{ _('Delete') }}
 											</button>
 										</div>
 									</td>
@@ -1014,17 +1014,17 @@ Also handles new schedule creation when is_new is True
 					{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 					<div class="card-footer">
 						<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
-							<i class="fa fa-plus"></i> {{ _("Add Line") }}
+							<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Line") }}
 						</button>
 					</div>
 					{% endif %}
 					{% else %}
 					<div class="text-center py-5">
-						<i class="fa fa-list fa-3x text-muted mb-3"></i>
+						<i class="fa fa-list fa-3x text-muted mb-3" aria-hidden="true"></i>
 						<p class="text-muted">{{ _("No fixture lines yet. Add a line to get started.") }}</p>
 						{% if can_edit %}
 						<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
-							<i class="fa fa-plus"></i> {{ _("Add Line") }}
+							<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Line") }}
 						</button>
 						{% endif %}
 					</div>
@@ -1058,27 +1058,27 @@ Also handles new schedule creation when is_new is True
 					<h5 class="mb-0">{{ _("Exports") }}</h5>
 					<div class="export-buttons">
 						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', false)">
-							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (No Pricing)") }}
+							<i class="fa fa-file-pdf-o" aria-hidden="true"></i> {{ _("PDF (No Pricing)") }}
 						</button>
 						{% if can_view_pricing %}
 						<button class="btn btn-sm btn-outline-primary" onclick="generateExport('pdf', true)">
-							<i class="fa fa-file-pdf-o"></i> {{ _("PDF (With Pricing)") }}
+							<i class="fa fa-file-pdf-o" aria-hidden="true"></i> {{ _("PDF (With Pricing)") }}
 						</button>
 						{% endif %}
 						<button class="btn btn-sm btn-outline-secondary" onclick="generateExport('csv', false)">
-							<i class="fa fa-file-excel-o"></i> {{ _("CSV (No Pricing)") }}
+							<i class="fa fa-file-excel-o" aria-hidden="true"></i> {{ _("CSV (No Pricing)") }}
 						</button>
 						{% if can_view_pricing %}
 						<button class="btn btn-sm btn-outline-secondary" onclick="generateExport('csv', true)">
-							<i class="fa fa-file-excel-o"></i> {{ _("CSV (With Pricing)") }}
+							<i class="fa fa-file-excel-o" aria-hidden="true"></i> {{ _("CSV (With Pricing)") }}
 						</button>
 						{% endif %}
 						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL')">
-							<i class="fa fa-book"></i> {{ _("Spec Submittal") }}
+							<i class="fa fa-book" aria-hidden="true"></i> {{ _("Spec Submittal") }}
 						</button>
 <button class="btn btn-sm btn-outline-warning" onclick="generateSpecSubmittal('SPEC_SUBMITTAL', true)">Incomplete draft (allow omissions)</button>
 						<button class="btn btn-sm btn-outline-info" onclick="generateSpecSubmittal('SPEC_SUBMITTAL_FULL')">
-							<i class="fa fa-files-o"></i> {{ _("Spec Submittal (Full)") }}
+							<i class="fa fa-files-o" aria-hidden="true"></i> {{ _("Spec Submittal (Full)") }}
 						</button>
 					</div>
 				</div>
@@ -1096,7 +1096,7 @@ Also handles new schedule creation when is_new is True
 	<div class="col-12">
 		<div class="card">
 			<div class="card-header d-flex justify-content-between align-items-center">
-				<h6 class="mb-0"><i class="fa fa-history"></i> {{ _("Version History") }}</h6>
+				<h6 class="mb-0"><i class="fa fa-history" aria-hidden="true"></i> {{ _("Version History") }}</h6>
 			</div>
 			<div class="card-body" id="versionHistory" aria-busy="true" aria-live="polite">
 				<span class="sr-only">{{ _("Loading version history…") }}</span>
@@ -1107,13 +1107,13 @@ Also handles new schedule creation when is_new is True
 </div>
 
 <!-- Add Line Modal -->
-<div class="modal fade" id="addLineModal" tabindex="-1" role="dialog">
+<div class="modal fade" id="addLineModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="addLineModalTitle">
 	<div class="modal-dialog modal-lg" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Add Fixture Line") }}</h5>
-				<button type="button" class="close" data-dismiss="modal">
-					<span>&times;</span>
+				<h5 class="modal-title" id="addLineModalTitle">{{ _("Add Fixture Line") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>
 			<div class="modal-body">
@@ -1121,20 +1121,20 @@ Also handles new schedule creation when is_new is True
 					<div class="row">
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Fixture Type") }}</label>
-								<input type="text" class="form-control" name="line_id" placeholder="A, B, C...">
+								<label for="add_line_id">{{ _("Fixture Type") }}</label>
+								<input id="add_line_id" type="text" class="form-control" name="line_id" placeholder="A, B, C...">
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Quantity") }}</label>
-								<input type="number" class="form-control" name="qty" value="1" min="1">
+								<label for="add_qty">{{ _("Quantity") }}</label>
+								<input id="add_qty" type="number" class="form-control" name="qty" value="1" min="1">
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Manufacturer Type") }}</label>
-								<select class="form-control" name="manufacturer_type">
+								<label for="add_manufacturer_type">{{ _("Manufacturer Type") }}</label>
+								<select id="add_manufacturer_type" class="form-control" name="manufacturer_type">
 									<option value="ILLUMENATE">ilLumenate Lighting</option>
 									<option value="OTHER">Other Manufacturer</option>
 								</select>
@@ -1142,8 +1142,8 @@ Also handles new schedule creation when is_new is True
 						</div>
 					</div>
 					<div class="form-group">
-						<label>{{ _("Location") }}</label>
-						<input type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
+						<label for="add_location">{{ _("Location") }}</label>
+						<input id="add_location" type="text" class="form-control" name="location" placeholder="e.g., Kitchen, Office...">
 					</div>
 
 					<!-- ilLumenate Lighting Section (Combined Fixtures + Components) -->
@@ -1153,7 +1153,7 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Product Category") }}</label>
+									<label for="add_product_type">{{ _("Product Category") }}</label>
 									<select class="form-control" name="product_type" id="add_product_type">
 										<option value="">{{ _("Select Product Category...") }}</option>
 									</select>
@@ -1165,7 +1165,7 @@ Also handles new schedule creation when is_new is True
 						     Fixture picker below; each hidden select stays the form value. -->
 						<!-- Tape/Neon Template picker (shown when LED Tape, COB Tape or LED Neon selected) -->
 						<div class="form-group tape-neon-template-group add-line-picker-group" style="display: none;">
-							<label>{{ _("Product Series") }}</label>
+							<label for="add_tape_neon_template">{{ _("Product Series") }}</label>
 							<div id="add_tape_neon_template_cards"></div>
 							<select class="form-control" name="tape_neon_template" id="add_tape_neon_template">
 								<option value="">{{ _("Select Product Series...") }}</option>
@@ -1173,7 +1173,7 @@ Also handles new schedule creation when is_new is True
 						</div>
 						<!-- LED Sheet Template picker (shown when LED Sheet selected) -->
 						<div class="form-group led-sheet-template-group add-line-picker-group" style="display: none;">
-							<label>{{ _("LED Sheet Template") }}</label>
+							<label for="add_led_sheet_template">{{ _("LED Sheet Template") }}</label>
 							<div id="add_led_sheet_template_cards"></div>
 							<select class="form-control" name="led_sheet_template" id="add_led_sheet_template">
 								<option value="">{{ _("Select LED Sheet Template...") }}</option>
@@ -1181,7 +1181,7 @@ Also handles new schedule creation when is_new is True
 						</div>
 						<!-- Extrusion Kit Template picker (shown when Extrusion Kits selected) -->
 						<div class="form-group kit-template-group add-line-picker-group" style="display: none;">
-							<label>{{ _("Extrusion Kit") }}</label>
+							<label for="add_kit_template">{{ _("Extrusion Kit") }}</label>
 							<div id="add_kit_template_cards"></div>
 							<select class="form-control" name="kit_template" id="add_kit_template">
 								<option value="">{{ _("Select Extrusion Kit...") }}</option>
@@ -1189,7 +1189,7 @@ Also handles new schedule creation when is_new is True
 						</div>
 						<!-- Power Supply Template picker (shown when Power Supplies selected) -->
 						<div class="form-group driver-template-group add-line-picker-group" style="display: none;">
-							<label>{{ _("Power Supply") }}</label>
+							<label for="add_driver_template">{{ _("Power Supply") }}</label>
 							<div id="add_driver_template_cards"></div>
 							<select class="form-control" name="driver_template" id="add_driver_template">
 								<option value="">{{ _("Select Power Supply...") }}</option>
@@ -1197,7 +1197,7 @@ Also handles new schedule creation when is_new is True
 						</div>
 						<!-- Item picker (shown for every other product category) -->
 						<div class="form-group item-selection-group add-line-picker-group" style="display: none;">
-							<label>{{ _("Item") }}</label>
+							<label for="add_selected_item">{{ _("Item") }}</label>
 							<div id="add_selected_item_cards"></div>
 							<select class="form-control" name="selected_item" id="add_selected_item">
 								<option value="">{{ _("Select Item...") }}</option>
@@ -1207,7 +1207,7 @@ Also handles new schedule creation when is_new is True
 						<!-- Fixture Template picker (shown when Linear Fixture selected); full width so
 						     the series families have room. The hidden select stays the form value. -->
 						<div class="form-group fixture-template-group add-line-picker-group" style="display: none;">
-							<label>{{ _("Fixture Template") }}</label>
+							<label for="add_fixture_template">{{ _("Fixture Template") }}</label>
 							<div id="add_fixture_template_cards"></div>
 							<select class="form-control" name="fixture_template" id="add_fixture_template">
 								<option value="">{{ _("Select Fixture Template...") }}</option>
@@ -1217,9 +1217,9 @@ Also handles new schedule creation when is_new is True
 						<!-- Product image gallery (shared for fixture templates and items) -->
 						<div class="add-line-gallery-wrapper" id="add_product_gallery_container" style="display: none;">
 							<div class="add-line-gallery-viewport" id="addLineGalleryViewport">
-								<button type="button" class="gallery-nav prev" id="addLineGalleryPrev" title="Previous image">&lsaquo;</button>
+								<button type="button" class="gallery-nav prev" id="addLineGalleryPrev" title="Previous image" aria-label="{{ _('Previous image') }}">&lsaquo;</button>
 								<img id="addLineGalleryImage" src="" alt="{{ _('Product Preview') }}">
-								<button type="button" class="gallery-nav next" id="addLineGalleryNext" title="Next image">&rsaquo;</button>
+								<button type="button" class="gallery-nav next" id="addLineGalleryNext" title="Next image" aria-label="{{ _('Next image') }}">&rsaquo;</button>
 								<span class="add-line-gallery-counter" id="addLineGalleryCounter"></span>
 							</div>
 							<div class="add-line-gallery-zoom-bar">
@@ -1262,65 +1262,65 @@ Also handles new schedule creation when is_new is True
 						<!-- Fixture configure section (shown for Linear Fixtures, LED Tape, COB Tape, LED Neon) -->
 						<div class="fixture-configure-section" style="display: none;">
 							<div class="alert alert-info" id="addLineConfigureInfo">
-								<i class="fa fa-info-circle"></i> 
+								<i class="fa fa-info-circle" aria-hidden="true"></i> 
 								{{ _("You can add this to the schedule unconfigured and configure it later, or click the button below to configure now.") }}
 							</div>
 							<div class="alert alert-warning" id="addLineUnconfiguredWarning" style="display: none;">
-								<i class="fa fa-exclamation-triangle"></i> 
+								<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> 
 								{{ _("This line will be added without full configuration. You can configure it from the schedule page later.") }}
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureFromAddBtn" onclick="configureFromAddModal()">
-								<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}
+								<i class="fa fa-cog" aria-hidden="true"></i> {{ _("Configure Fixture Now") }}
 							</button>
 						</div>
 
 						<!-- LED Sheet configure section (shown for LED Sheet) -->
 						<div class="led-sheet-configure-section" style="display: none;">
 							<div class="alert alert-info">
-								<i class="fa fa-info-circle"></i>
+								<i class="fa fa-info-circle" aria-hidden="true"></i>
 								{{ _("You can add this LED Sheet unconfigured and configure it later, or click below to configure now.") }}
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureLedSheetFromAddBtn" onclick="configureLedSheetFromAddModal()">
-								<i class="fa fa-cog"></i> {{ _("Configure LED Sheet Now") }}
+								<i class="fa fa-cog" aria-hidden="true"></i> {{ _("Configure LED Sheet Now") }}
 							</button>
 						</div>
 
 						<!-- Extrusion Kit configure section (shown for Extrusion Kits) -->
 						<div class="kit-configure-section" style="display: none;">
 							<div class="alert alert-info">
-								<i class="fa fa-info-circle"></i>
+								<i class="fa fa-info-circle" aria-hidden="true"></i>
 								{{ _("You can add this Extrusion Kit unconfigured and choose its finish, lens, mounting and endcaps later, or click below to configure now.") }}
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureKitFromAddBtn" onclick="configureKitFromAddModal()">
-								<i class="fa fa-cog"></i> {{ _("Configure Extrusion Kit Now") }}
+								<i class="fa fa-cog" aria-hidden="true"></i> {{ _("Configure Extrusion Kit Now") }}
 							</button>
 						</div>
 
 						<!-- Power Supply configure section (shown for Power Supplies) -->
 						<div class="driver-configure-section" style="display: none;">
 							<div class="alert alert-info">
-								<i class="fa fa-info-circle"></i>
+								<i class="fa fa-info-circle" aria-hidden="true"></i>
 								{{ _("You can add this power supply unconfigured and choose its wattage, output voltage and dimming later, or click below to configure now.") }}
 							</div>
 							<button type="button" class="btn btn-primary btn-block" id="configureDriverFromAddBtn" onclick="configureDriverFromAddModal()">
-								<i class="fa fa-cog"></i> {{ _("Configure Power Supply Now") }}
+								<i class="fa fa-cog" aria-hidden="true"></i> {{ _("Configure Power Supply Now") }}
 							</button>
 						</div>
 
 						<!-- Item with variants configure section -->
 						<div class="item-configure-section" style="display: none;">
 							<div class="alert alert-info">
-								<i class="fa fa-cog"></i> 
+								<i class="fa fa-cog" aria-hidden="true"></i> 
 								{{ _("This item has configurable options. Click Configure to select the specific variant.") }}
 							</div>
 							<button type="button" class="btn btn-success btn-block" id="configureItemBtn" onclick="openItemVariantModal()">
-								<i class="fa fa-cog"></i> {{ _("Configure Options") }}
+								<i class="fa fa-cog" aria-hidden="true"></i> {{ _("Configure Options") }}
 							</button>
 							<!-- Hidden field to store selected variant -->
 							<input type="hidden" name="selected_variant" id="add_selected_variant">
 							<div class="selected-variant-display" style="display: none; margin-top: 10px;">
 								<div class="alert alert-success">
-									<i class="fa fa-check-circle"></i> 
+									<i class="fa fa-check-circle" aria-hidden="true"></i> 
 									<strong>{{ _("Selected:") }}</strong> <span id="selected_variant_name"></span>
 								</div>
 							</div>
@@ -1329,7 +1329,7 @@ Also handles new schedule creation when is_new is True
 						<!-- No configure needed (direct item add) -->
 						<div class="item-direct-section" style="display: none;">
 							<div class="alert alert-success">
-								<i class="fa fa-check-circle"></i> 
+								<i class="fa fa-check-circle" aria-hidden="true"></i> 
 								{{ _("This item will be added directly to your schedule.") }}
 							</div>
 						</div>
@@ -1342,69 +1342,69 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
-									<input type="text" class="form-control" name="manufacturer_name">
+									<label for="add_manufacturer_name">{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
+									<input id="add_manufacturer_name" type="text" class="form-control" name="manufacturer_name">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Fixture Model Number") }}</label>
-									<input type="text" class="form-control" name="fixture_model_number">
-								</div>
-							</div>
-						</div>
-						<div class="row">
-							<div class="col-md-6">
-								<div class="form-group">
-									<label>{{ _("Trim Information") }}</label>
-									<input type="text" class="form-control" name="trim_info">
-								</div>
-							</div>
-							<div class="col-md-6">
-								<div class="form-group">
-									<label>{{ _("Housing Model Number") }}</label>
-									<input type="text" class="form-control" name="housing_model_number">
+									<label for="add_fixture_model_number">{{ _("Fixture Model Number") }}</label>
+									<input id="add_fixture_model_number" type="text" class="form-control" name="fixture_model_number">
 								</div>
 							</div>
 						</div>
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Driver Model Number") }}</label>
-									<input type="text" class="form-control" name="driver_model_number">
+									<label for="add_trim_info">{{ _("Trim Information") }}</label>
+									<input id="add_trim_info" type="text" class="form-control" name="trim_info">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Lamp Information") }}</label>
-									<input type="text" class="form-control" name="lamp_info">
-								</div>
-							</div>
-						</div>
-						<div class="row">
-							<div class="col-md-6">
-								<div class="form-group">
-									<label>{{ _("Dimming Protocol") }}</label>
-									<input type="text" class="form-control" name="dimming_protocol" placeholder="e.g., 0-10V, DALI, Triac...">
-								</div>
-							</div>
-							<div class="col-md-6">
-								<div class="form-group">
-									<label>{{ _("Input Voltage") }}</label>
-									<input type="text" class="form-control" name="input_voltage" placeholder="e.g., 120V, 277V...">
+									<label for="add_housing_model_number">{{ _("Housing Model Number") }}</label>
+									<input id="add_housing_model_number" type="text" class="form-control" name="housing_model_number">
 								</div>
 							</div>
 						</div>
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Finish") }}</label>
-									<input type="text" class="form-control" name="other_finish">
+									<label for="add_driver_model_number">{{ _("Driver Model Number") }}</label>
+									<input id="add_driver_model_number" type="text" class="form-control" name="driver_model_number">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Spec Sheet") }}</label>
+									<label for="add_lamp_info">{{ _("Lamp Information") }}</label>
+									<input id="add_lamp_info" type="text" class="form-control" name="lamp_info">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label for="add_dimming_protocol">{{ _("Dimming Protocol") }}</label>
+									<input id="add_dimming_protocol" type="text" class="form-control" name="dimming_protocol" placeholder="e.g., 0-10V, DALI, Triac...">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label for="add_input_voltage">{{ _("Input Voltage") }}</label>
+									<input id="add_input_voltage" type="text" class="form-control" name="input_voltage" placeholder="e.g., 120V, 277V...">
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-6">
+								<div class="form-group">
+									<label for="add_other_finish">{{ _("Finish") }}</label>
+									<input id="add_other_finish" type="text" class="form-control" name="other_finish">
+								</div>
+							</div>
+							<div class="col-md-6">
+								<div class="form-group">
+									<label for="add_spec_sheet_file">{{ _("Spec Sheet") }}</label>
 									<input type="file" class="form-control-file" name="spec_sheet_file" id="add_spec_sheet_file">
 									<small class="text-muted">{{ _("Upload a spec sheet PDF or image") }}</small>
 								</div>
@@ -1419,14 +1419,14 @@ Also handles new schedule creation when is_new is True
 							<div class="row">
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Watts Each") }}</label>
-										<input type="number" class="form-control" name="watts_each" min="0" max="2000" step="any">
+										<label for="add_watts_each">{{ _("Watts Each") }}</label>
+										<input id="add_watts_each" type="number" class="form-control" name="watts_each" min="0" max="2000" step="any">
 									</div>
 								</div>
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Input Voltage (V)") }}</label>
-										<select class="form-control" name="input_voltage_v">
+										<label for="add_input_voltage_v">{{ _("Input Voltage (V)") }}</label>
+										<select id="add_input_voltage_v" class="form-control" name="input_voltage_v">
 											<option value="">{{ _("Not set") }}</option>
 											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts | e }}">{{ volts | e }} V</option>{% endfor %}
 										</select>
@@ -1434,8 +1434,8 @@ Also handles new schedule creation when is_new is True
 								</div>
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Voltage Class") }}</label>
-										<select class="form-control" name="voltage_class">
+										<label for="add_voltage_class">{{ _("Voltage Class") }}</label>
+										<select id="add_voltage_class" class="form-control" name="voltage_class">
 											<option value="">{{ _("From voltage") }}</option>
 											<option value="Low Voltage">{{ _("Low Voltage") }}</option>
 											<option value="Line Voltage">{{ _("Line Voltage") }}</option>
@@ -1446,8 +1446,8 @@ Also handles new schedule creation when is_new is True
 							<div class="row">
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Drive") }}</label>
-										<select class="form-control dealer-drive" name="third_party_drive">
+										<label for="add_third_party_drive">{{ _("Drive") }}</label>
+										<select id="add_third_party_drive" class="form-control dealer-drive" name="third_party_drive">
 											<option value="">{{ _("Not set") }}</option>
 											<option value="CV">{{ _("Constant voltage (CV)") }}</option>
 											<option value="CC">{{ _("Constant current (CC)") }}</option>
@@ -1457,14 +1457,14 @@ Also handles new schedule creation when is_new is True
 								</div>
 								<div class="col-md-4 dealer-ma">
 									<div class="form-group">
-										<label>{{ _("Drive Current (mA)") }}</label>
-										<input type="number" class="form-control" name="third_party_ma" min="0" step="any">
+										<label for="add_third_party_ma">{{ _("Drive Current (mA)") }}</label>
+										<input id="add_third_party_ma" type="number" class="form-control" name="third_party_ma" min="0" step="any">
 									</div>
 								</div>
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Dimming") }}</label>
-										<select class="form-control" name="third_party_dimming">
+										<label for="add_third_party_dimming">{{ _("Dimming") }}</label>
+										<select id="add_third_party_dimming" class="form-control" name="third_party_dimming">
 											<option value="">{{ _("Not set") }}</option>
 											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol | e }}">{{ protocol | e }}</option>{% endfor %}
 										</select>
@@ -1475,15 +1475,15 @@ Also handles new schedule creation when is_new is True
 					</div>
 
 					<div class="form-group">
-						<label>{{ _("Notes") }}</label>
-						<textarea class="form-control" name="notes" rows="2"></textarea>
+						<label for="add_notes">{{ _("Notes") }}</label>
+						<textarea id="add_notes" class="form-control" name="notes" rows="2"></textarea>
 					</div>
 				</form>
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
 				<button type="button" class="btn btn-primary" id="addLineBtn" onclick="addLine()">
-					<i class="fa fa-plus"></i> {{ _("Add Line") }}
+					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Line") }}
 				</button>
 			</div>
 		</div>
@@ -1491,13 +1491,13 @@ Also handles new schedule creation when is_new is True
 </div>
 
 <!-- Edit Line Modal -->
-<div class="modal fade" id="editLineModal" tabindex="-1" role="dialog">
+<div class="modal fade" id="editLineModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="editLineModalTitle">
 	<div class="modal-dialog modal-lg" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Edit Fixture Line") }}</h5>
-				<button type="button" class="close" data-dismiss="modal">
-					<span>&times;</span>
+				<h5 class="modal-title" id="editLineModalTitle">{{ _("Edit Fixture Line") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>
 			<div class="modal-body">
@@ -1506,25 +1506,25 @@ Also handles new schedule creation when is_new is True
 					<div class="row">
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Fixture Type") }}</label>
+								<label for="edit_line_id">{{ _("Fixture Type") }}</label>
 								<input type="text" class="form-control" name="edit_line_id" id="edit_line_id" placeholder="A, B, C...">
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Quantity") }}</label>
+								<label for="edit_qty">{{ _("Quantity") }}</label>
 								<input type="number" class="form-control" name="edit_qty" id="edit_qty" value="1" min="1">
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group">
-								<label>{{ _("Manufacturer Type") }}</label>
+								<label for="edit_manufacturer_type">{{ _("Manufacturer Type") }}</label>
 								<input type="text" class="form-control" id="edit_manufacturer_type" readonly>
 							</div>
 						</div>
 					</div>
 					<div class="form-group">
-						<label>{{ _("Location") }}</label>
+						<label for="edit_location">{{ _("Location") }}</label>
 						<input type="text" class="form-control" name="edit_location" id="edit_location" placeholder="e.g., Kitchen, Office...">
 					</div>
 
@@ -1535,13 +1535,13 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
+									<label for="edit_manufacturer_name">{{ _("Manufacturer Name") }} <span class="text-danger">*</span></label>
 									<input type="text" class="form-control" name="edit_manufacturer_name" id="edit_manufacturer_name">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Fixture Model Number") }}</label>
+									<label for="edit_fixture_model_number">{{ _("Fixture Model Number") }}</label>
 									<input type="text" class="form-control" name="edit_fixture_model_number" id="edit_fixture_model_number">
 								</div>
 							</div>
@@ -1549,13 +1549,13 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Trim Information") }}</label>
+									<label for="edit_trim_info">{{ _("Trim Information") }}</label>
 									<input type="text" class="form-control" name="edit_trim_info" id="edit_trim_info">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Housing Model Number") }}</label>
+									<label for="edit_housing_model_number">{{ _("Housing Model Number") }}</label>
 									<input type="text" class="form-control" name="edit_housing_model_number" id="edit_housing_model_number">
 								</div>
 							</div>
@@ -1563,13 +1563,13 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Driver Model Number") }}</label>
+									<label for="edit_driver_model_number">{{ _("Driver Model Number") }}</label>
 									<input type="text" class="form-control" name="edit_driver_model_number" id="edit_driver_model_number">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Lamp Information") }}</label>
+									<label for="edit_lamp_info">{{ _("Lamp Information") }}</label>
 									<input type="text" class="form-control" name="edit_lamp_info" id="edit_lamp_info">
 								</div>
 							</div>
@@ -1577,13 +1577,13 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Dimming Protocol") }}</label>
+									<label for="edit_dimming_protocol">{{ _("Dimming Protocol") }}</label>
 									<input type="text" class="form-control" name="edit_dimming_protocol" id="edit_dimming_protocol">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Input Voltage") }}</label>
+									<label for="edit_input_voltage">{{ _("Input Voltage") }}</label>
 									<input type="text" class="form-control" name="edit_input_voltage" id="edit_input_voltage">
 								</div>
 							</div>
@@ -1591,13 +1591,13 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Finish") }}</label>
+									<label for="edit_other_finish">{{ _("Finish") }}</label>
 									<input type="text" class="form-control" name="edit_other_finish" id="edit_other_finish">
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Spec Sheet") }}</label>
+									<label for="edit_spec_sheet_file">{{ _("Spec Sheet") }}</label>
 									<div id="edit_spec_sheet_current" class="mb-2"></div>
 									<input type="file" class="form-control-file" name="edit_spec_sheet_file" id="edit_spec_sheet_file">
 									<small class="text-muted">{{ _("Upload a new spec sheet to replace existing") }}</small>
@@ -1613,13 +1613,13 @@ Also handles new schedule creation when is_new is True
 							<div class="row">
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Watts Each") }}</label>
+										<label for="edit_watts_each">{{ _("Watts Each") }}</label>
 										<input type="number" class="form-control" name="edit_watts_each" id="edit_watts_each" min="0" max="2000" step="any">
 									</div>
 								</div>
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Input Voltage (V)") }}</label>
+										<label for="edit_input_voltage_v">{{ _("Input Voltage (V)") }}</label>
 										<select class="form-control" name="edit_input_voltage_v" id="edit_input_voltage_v">
 											<option value="">{{ _("Not set") }}</option>
 											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts | e }}">{{ volts | e }} V</option>{% endfor %}
@@ -1628,7 +1628,7 @@ Also handles new schedule creation when is_new is True
 								</div>
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Voltage Class") }}</label>
+										<label for="edit_voltage_class">{{ _("Voltage Class") }}</label>
 										<select class="form-control" name="edit_voltage_class" id="edit_voltage_class">
 											<option value="">{{ _("From voltage") }}</option>
 											<option value="Low Voltage">{{ _("Low Voltage") }}</option>
@@ -1640,7 +1640,7 @@ Also handles new schedule creation when is_new is True
 							<div class="row">
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Drive") }}</label>
+										<label for="edit_third_party_drive">{{ _("Drive") }}</label>
 										<select class="form-control dealer-drive" name="edit_third_party_drive" id="edit_third_party_drive">
 											<option value="">{{ _("Not set") }}</option>
 											<option value="CV">{{ _("Constant voltage (CV)") }}</option>
@@ -1651,13 +1651,13 @@ Also handles new schedule creation when is_new is True
 								</div>
 								<div class="col-md-4 dealer-ma">
 									<div class="form-group">
-										<label>{{ _("Drive Current (mA)") }}</label>
+										<label for="edit_third_party_ma">{{ _("Drive Current (mA)") }}</label>
 										<input type="number" class="form-control" name="edit_third_party_ma" id="edit_third_party_ma" min="0" step="any">
 									</div>
 								</div>
 								<div class="col-md-4">
 									<div class="form-group">
-										<label>{{ _("Dimming") }}</label>
+										<label for="edit_third_party_dimming">{{ _("Dimming") }}</label>
 										<select class="form-control" name="edit_third_party_dimming" id="edit_third_party_dimming">
 											<option value="">{{ _("Not set") }}</option>
 											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol | e }}">{{ protocol | e }}</option>{% endfor %}
@@ -1675,24 +1675,24 @@ Also handles new schedule creation when is_new is True
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Product Category") }}</label>
+									<label for="edit_accessory_product_type">{{ _("Product Category") }}</label>
 									<input type="text" class="form-control" id="edit_accessory_product_type" readonly>
 								</div>
 							</div>
 							<div class="col-md-6">
 								<div class="form-group">
-									<label>{{ _("Item") }}</label>
+									<label for="edit_accessory_item">{{ _("Item") }}</label>
 									<input type="text" class="form-control" id="edit_accessory_item" readonly>
 								</div>
 							</div>
 						</div>
 						<div class="alert alert-info">
-							<i class="fa fa-info-circle"></i> {{ _("To change the item, delete this line and add a new one.") }}
+							<i class="fa fa-info-circle" aria-hidden="true"></i> {{ _("To change the item, delete this line and add a new one.") }}
 						</div>
 					</div>
 
 					<div class="form-group">
-						<label>{{ _("Notes") }}</label>
+						<label for="edit_notes">{{ _("Notes") }}</label>
 						<textarea class="form-control" name="edit_notes" id="edit_notes" rows="2"></textarea>
 					</div>
 				</form>
@@ -1700,7 +1700,7 @@ Also handles new schedule creation when is_new is True
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
 				<button type="button" class="btn btn-primary" onclick="saveEditLine()">
-					<i class="fa fa-save"></i> {{ _("Save Changes") }}
+					<i class="fa fa-save" aria-hidden="true"></i> {{ _("Save Changes") }}
 				</button>
 			</div>
 		</div>
@@ -1708,18 +1708,18 @@ Also handles new schedule creation when is_new is True
 </div>
 
 <!-- Item Variant Configuration Modal -->
-<div class="modal fade" id="itemVariantModal" tabindex="-1" role="dialog">
+<div class="modal fade" id="itemVariantModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="itemVariantModalTitle">
 	<div class="modal-dialog modal-lg" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Configure Item Options") }}</h5>
-				<button type="button" class="close" data-dismiss="modal">
-					<span>&times;</span>
+				<h5 class="modal-title" id="itemVariantModalTitle">{{ _("Configure Item Options") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>
 			<div class="modal-body">
-				<div class="variant-config-loading text-center" style="display: none;">
-					<i class="fa fa-spinner fa-spin fa-2x"></i>
+				<div class="variant-config-loading text-center" role="status" style="display: none;">
+					<i class="fa fa-spinner fa-spin fa-2x" aria-hidden="true"></i>
 					<p class="mt-2">{{ _("Loading options...") }}</p>
 				</div>
 				<div class="variant-config-content">
@@ -1732,11 +1732,11 @@ Also handles new schedule creation when is_new is True
 					</div>
 					<div class="variant-match-status" style="display: none; margin-top: 15px;">
 						<div class="alert alert-success variant-found" style="display: none;">
-							<i class="fa fa-check-circle"></i> 
+							<i class="fa fa-check-circle" aria-hidden="true"></i> 
 							<strong>{{ _("Matched:") }}</strong> <span id="matched_variant_name"></span>
 						</div>
 						<div class="alert alert-warning variant-not-found" style="display: none;">
-							<i class="fa fa-exclamation-triangle"></i> 
+							<i class="fa fa-exclamation-triangle" aria-hidden="true"></i> 
 							{{ _("No matching variant found for the selected options. Please try a different combination.") }}
 						</div>
 					</div>
@@ -1745,7 +1745,7 @@ Also handles new schedule creation when is_new is True
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
 				<button type="button" class="btn btn-primary" id="confirmVariantBtn" onclick="confirmVariantSelection()" disabled>
-					<i class="fa fa-check"></i> {{ _("Confirm Selection") }}
+					<i class="fa fa-check" aria-hidden="true"></i> {{ _("Confirm Selection") }}
 				</button>
 			</div>
 		</div>
@@ -1754,25 +1754,25 @@ Also handles new schedule creation when is_new is True
 
 <!-- Create New Version Modal -->
 {% if can_edit and not schedule.is_locked %}
-<div class="modal fade" id="createVersionModal" tabindex="-1" role="dialog">
+<div class="modal fade" id="createVersionModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="createVersionModalTitle">
 	<div class="modal-dialog" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Create New Version") }}</h5>
-				<button type="button" class="close" data-dismiss="modal">
-					<span>&times;</span>
+				<h5 class="modal-title" id="createVersionModalTitle">{{ _("Create New Version") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>
 			<div class="modal-body">
 				<div class="form-group">
-					<label>{{ _("Version Notes (Optional)") }}</label>
+					<label for="versionNotes">{{ _("Version Notes (Optional)") }}</label>
 					<textarea class="form-control" id="versionNotes" rows="3" placeholder="{{ _('Describe what changed or why a new version is being created.') }}"></textarea>
 				</div>
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
 				<button type="button" class="btn btn-primary" id="confirmCreateVersionBtn" onclick="confirmCreateVersion()">
-					<i class="fa fa-code-fork"></i> {{ _("Create") }}
+					<i class="fa fa-code-fork" aria-hidden="true"></i> {{ _("Create") }}
 				</button>
 			</div>
 		</div>
@@ -1799,7 +1799,7 @@ $('#createScheduleForm').on('submit', function(e) {
 		return;
 	}
 
-	submitBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+	submitBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Creating...');
 
 	var data = {
 		schedule_name: form.find('[name="schedule_name"]').val(),
@@ -1827,11 +1827,11 @@ $('#createScheduleForm').on('submit', function(e) {
 					indicator: 'red',
 					message: r.message.error || 'Error creating schedule'
 				});
-				submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Schedule');
+				submitBtn.prop('disabled', false).html('<i class="fa fa-plus" aria-hidden="true"></i> Create Schedule');
 			}
 		},
 		error: function() {
-			submitBtn.prop('disabled', false).html('<i class="fa fa-plus"></i> Create Schedule');
+			submitBtn.prop('disabled', false).html('<i class="fa fa-plus" aria-hidden="true"></i> Create Schedule');
 		}
 	});
 });
@@ -1899,7 +1899,7 @@ $('#addLineModal').on('show.bs.modal', function() {
 	$('#add_driver_template').html('<option value="">{{ _("Select Power Supply...") }}</option>');
 	$('#add_selected_item').html('<option value="">{{ _("Select Item...") }}</option>');
 	// Reset configure button text to default
-	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
+	$('#configureFromAddBtn').html('<i class="fa fa-cog" aria-hidden="true"></i> {{ _("Configure Fixture Now") }}');
 	$('#add_selected_variant').val('');
 	// Load product categories
 	loadProductCategories();
@@ -1956,7 +1956,7 @@ $('#add_product_type').on('change', function() {
 	$('#add_product_gallery_container').hide();
 	resetAddLineGallery();
 	// Reset configure button text to default
-	$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> {{ _("Configure Fixture Now") }}');
+	$('#configureFromAddBtn').html('<i class="fa fa-cog" aria-hidden="true"></i> {{ _("Configure Fixture Now") }}');
 	
 	if (!productType) {
 		return;
@@ -1973,7 +1973,7 @@ $('#add_product_type').on('change', function() {
 		$('.fixture-configure-section').show();
 		loadTapeNeonTemplates(productType);
 		// Update configure button text for the tape/neon category
-		$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> ' + configureTapeNeonLabel(tapeNeonCategoryOf($selected)));
+		$('#configureFromAddBtn').html('<i class="fa fa-cog" aria-hidden="true"></i> ' + configureTapeNeonLabel(tapeNeonCategoryOf($selected)));
 	} else if (isLedSheetType) {
 		// LED Sheet — show LED Sheet template dropdown + configure section
 		$('.led-sheet-template-group').show();
@@ -2073,7 +2073,7 @@ function renderLinearFixturePicker($select, $container, templates) {
 	function media(f) {
 		return f.image
 			? '<img src="' + esc(f.image) + '" alt="' + esc(f.name) + '" loading="lazy">'
-			: '<span class="ill-linear-placeholder" aria-hidden="true"><i class="fa fa-lightbulb-o"></i></span>';
+			: '<span class="ill-linear-placeholder" aria-hidden="true"><i class="fa fa-lightbulb-o" aria-hidden="true"></i></span>';
 	}
 	function optionCount(f) {
 		return f.templates.length === 1 ? __('1 option') : __('{0} options', [f.templates.length]);
@@ -2098,9 +2098,9 @@ function renderLinearFixturePicker($select, $container, templates) {
 				+ '<span class="ill-linear-family-name">' + esc(f.name) + '</span>'
 				+ '<span class="ill-linear-family-meta">'
 				+ '<span class="ill-linear-code">' + esc(f.series) + '</span>'
-				+ '<span class="ill-linear-family-count">' + esc(optionCount(f)) + ' <i class="fa fa-angle-right"></i></span>'
+				+ '<span class="ill-linear-family-count">' + esc(optionCount(f)) + ' <i class="fa fa-angle-right" aria-hidden="true"></i></span>'
 				+ '</span></span></button>';
-		}).join('') : '<div class="ill-linear-empty"><i class="fa fa-search"></i>' + esc(__('No fixtures match your search.')) + '</div>');
+		}).join('') : '<div class="ill-linear-empty"><i class="fa fa-search" aria-hidden="true"></i>' + esc(__('No fixtures match your search.')) + '</div>');
 	}
 
 	function renderSeries() {
@@ -2136,11 +2136,11 @@ function renderLinearFixturePicker($select, $container, templates) {
 			$selected.html(
 				'<span class="ill-linear-thumb">' + media(f) + '</span>'
 				+ '<span class="ill-linear-head-text">'
-				+ '<span class="ill-linear-eyebrow"><i class="fa fa-check-circle"></i> ' + esc(__('Selected fixture')) + '</span>'
+				+ '<span class="ill-linear-eyebrow"><i class="fa fa-check-circle" aria-hidden="true"></i> ' + esc(__('Selected fixture')) + '</span>'
 				+ '<span class="ill-linear-head-name">' + esc(t.template_name) + '</span>'
 				+ '<span class="ill-linear-code">' + esc(t.template_code) + '</span>'
 				+ '</span>'
-				+ '<button type="button" class="ill-linear-btn ill-linear-change"><i class="fa fa-pencil"></i> ' + esc(__('Change')) + '</button>'
+				+ '<button type="button" class="ill-linear-btn ill-linear-change"><i class="fa fa-pencil" aria-hidden="true"></i> ' + esc(__('Change')) + '</button>'
 			).show();
 			$families.hide();
 			$series.hide();
@@ -2170,7 +2170,7 @@ function renderLinearFixturePicker($select, $container, templates) {
 		+ '<div class="ill-linear-series" style="display:none;">'
 		+ '<div class="ill-linear-panel-head">'
 		+ '<div class="ill-linear-series-head"></div>'
-		+ '<button type="button" class="ill-linear-btn ill-linear-back"><i class="fa fa-th-large"></i> ' + esc(__('All fixtures')) + '</button>'
+		+ '<button type="button" class="ill-linear-btn ill-linear-back"><i class="fa fa-th-large" aria-hidden="true"></i> ' + esc(__('All fixtures')) + '</button>'
 		+ '</div>'
 		+ '<div class="ill-linear-options"></div>'
 		+ '</div>'
@@ -2198,7 +2198,7 @@ function renderLinearFixturePicker($select, $container, templates) {
 	if (!$container.data('illLinearImageFallback')) {
 		// Image errors don't bubble, so listen in the capture phase (once per container)
 		$container[0].addEventListener('error', function(event) {
-			if (event.target.tagName === 'IMG') $(event.target).replaceWith('<span class="ill-linear-placeholder"><i class="fa fa-lightbulb-o"></i></span>');
+			if (event.target.tagName === 'IMG') $(event.target).replaceWith('<span class="ill-linear-placeholder"><i class="fa fa-lightbulb-o" aria-hidden="true"></i></span>');
 		}, true);
 		$container.data('illLinearImageFallback', true);
 	}
@@ -2379,7 +2379,7 @@ $('#add_tape_neon_template').on('change', function() {
 			$('#tape_neon_info_desc').hide();
 		}
 		// Update configure button text based on category
-		$('#configureFromAddBtn').html('<i class="fa fa-cog"></i> ' + configureTapeNeonLabel(category));
+		$('#configureFromAddBtn').html('<i class="fa fa-cog" aria-hidden="true"></i> ' + configureTapeNeonLabel(category));
 	} else {
 		$('.tape-neon-template-info').hide();
 	}
@@ -2677,8 +2677,8 @@ function openItemVariantModal() {
 				var html = '';
 				r.message.attributes.forEach(function(attr, index) {
 					html += '<div class="form-group">';
-					html += '<label>' + PortalUI.escape(attr.attribute) + '</label>';
-					html += '<select class="form-control variant-attribute-select" data-attribute="' + PortalUI.escape(attr.attribute) + '">';
+					html += '<label for="variant_attr_' + index + '">' + PortalUI.escape(attr.attribute) + '</label>';
+					html += '<select id="variant_attr_' + index + '" class="form-control variant-attribute-select" data-attribute="' + PortalUI.escape(attr.attribute) + '">';
 					html += '<option value="">{{ _("Select") }} ' + PortalUI.escape(attr.attribute) + '...</option>';
 					attr.values.forEach(function(val) {
 						if (val.is_numeric) {
@@ -3133,7 +3133,7 @@ function editLine(line_idx) {
 		if (line.spec_sheet) {
 			$('#edit_spec_sheet_current').html(
 				'<a href="' + PortalUI.escape(line.spec_sheet) + '" target="_blank" class="btn btn-sm btn-outline-secondary">' +
-				'<i class="fa fa-file-pdf-o"></i> Current Spec Sheet</a>'
+				'<i class="fa fa-file-pdf-o" aria-hidden="true"></i> Current Spec Sheet</a>'
 			);
 		} else {
 			$('#edit_spec_sheet_current').html('<span class="text-muted">No spec sheet uploaded</span>');
@@ -3473,16 +3473,16 @@ function renderExportHistory(exports) {
 			var dlUrl = '/api/method/illumenate_lighting.illumenate_lighting.api.exports.serve_export_file'
 				+ '?export_job_id=' + encodeURIComponent(exp.name);
 			html += '<a href="' + dlUrl + '" target="_blank" class="btn btn-sm btn-outline-primary">';
-			html += '<i class="fa fa-download"></i> Download</a>';
+			html += '<i class="fa fa-download" aria-hidden="true"></i> Download</a>';
             if (exp.export_type.indexOf('SPEC_SUBMITTAL') === 0 && exp.status === 'COMPLETE') {
                 if (exp.issued_on) html += ' <span>Issued ' + frappe.utils.escape_html(exp.issued_on) + '</span>';
                 else if ({{ can_issue_packet | default(false) | tojson }}) html += ' <button class="btn btn-sm btn-outline-primary packet-issue" data-job="' + frappe.utils.escape_html(exp.name) + '">Issue packet</button>';
             }
 		} else if (exp.status === 'FAILED') {
-			html += '<span class="text-danger"><i class="fa fa-times"></i> Failed</span>';
+			html += '<span class="text-danger"><i class="fa fa-times" aria-hidden="true"></i> Failed</span>';
             if (exp.export_type.indexOf('SPEC_SUBMITTAL') === 0) html += ' <button class="btn btn-sm btn-outline-primary packet-retry" data-job="' + frappe.utils.escape_html(exp.name) + '">Retry</button>';
 		} else {
-			html += '<span class="text-muted"><i class="fa fa-clock-o"></i> Pending</span>';
+			html += '<span class="text-muted"><i class="fa fa-clock-o" aria-hidden="true"></i> Pending</span>';
 		}
         if (exp.status === 'INCOMPLETE' && exp.export_type.indexOf('SPEC_SUBMITTAL') === 0) html += ' <button class="btn btn-sm btn-outline-primary packet-retry" data-job="' + frappe.utils.escape_html(exp.name) + '">Retry draft</button>';
 		if (exp.error_log) html += '<details><summary>Omissions / errors</summary><pre style="white-space:pre-wrap">' + frappe.utils.escape_html(exp.error_log) + '</pre></details>';
@@ -3777,7 +3777,7 @@ function renderVersionHistory(versions, current) {
 		var statusLabel = statusLabels[v.status] || v.status;
 		html += '<tr' + (isCurrent ? ' class="table-active"' : '') + '>';
 		html += '<td><strong>v' + (v.version || 1) + '</strong>';
-		if (v.is_locked) html += ' <i class="fa fa-lock text-muted" title="Locked"></i>';
+		if (v.is_locked) html += ' <i class="fa fa-lock text-muted" role="img" title="' + frappe.utils.escape_html(__('Locked')) + '" aria-label="' + frappe.utils.escape_html(__('Locked')) + '"></i>';
 		if (isCurrent) html += ' <span class="badge badge-primary ml-1">current</span>';
 		html += '</td>';
 		html += '<td><span class="badge badge-' + statusClass + '">' + frappe.utils.escape_html(statusLabel) + '</span></td>';
@@ -3801,7 +3801,7 @@ function createNewVersion() {
 
 function confirmCreateVersion() {
 	var btn = $('#confirmCreateVersionBtn');
-	btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Creating...');
+	btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Creating...');
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_version',
 		args: {
@@ -3814,12 +3814,12 @@ function confirmCreateVersion() {
 				frappe.show_alert({message: 'New version created!', indicator: 'green'});
 				window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
 			} else {
-				btn.prop('disabled', false).html('<i class="fa fa-code-fork"></i> Create');
+				btn.prop('disabled', false).html('<i class="fa fa-code-fork" aria-hidden="true"></i> Create');
 				frappe.msgprint(r.message ? r.message.error : 'Error creating version');
 			}
 		},
 		error: function() {
-			btn.prop('disabled', false).html('<i class="fa fa-code-fork"></i> Create');
+			btn.prop('disabled', false).html('<i class="fa fa-code-fork" aria-hidden="true"></i> Create');
 		}
 	});
 }
@@ -3845,7 +3845,7 @@ function toggleDealerPricing() {
 function fetchDealerPricing() {
 	var btn = document.getElementById('dealerPricingBtn');
 	btn.disabled = true;
-	btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ' + __('Loading...');
+	btn.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> ' + __('Loading...');
 
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_dealer_pricing',
@@ -3861,14 +3861,14 @@ function fetchDealerPricing() {
 					'no_customer_group': __('No customer group is configured for your account. Contact your administrator.')
 				};
 				frappe.msgprint(messages[r.message.error] || (__('Could not load dealer pricing: ') + r.message.error));
-				btn.innerHTML = '<i class="fa fa-tag"></i> ' + __('Show Dealer Pricing');
+				btn.innerHTML = '<i class="fa fa-tag" aria-hidden="true"></i> ' + __('Show Dealer Pricing');
 			} else {
-				btn.innerHTML = '<i class="fa fa-tag"></i> ' + __('Show Dealer Pricing');
+				btn.innerHTML = '<i class="fa fa-tag" aria-hidden="true"></i> ' + __('Show Dealer Pricing');
 			}
 		},
 		error: function() {
 			btn.disabled = false;
-			btn.innerHTML = '<i class="fa fa-tag"></i> ' + __('Show Dealer Pricing');
+			btn.innerHTML = '<i class="fa fa-tag" aria-hidden="true"></i> ' + __('Show Dealer Pricing');
 		}
 	});
 }
@@ -3932,7 +3932,7 @@ function applyDealerPricing(data) {
 	btn.classList.remove('btn-outline-warning');
 	btn.classList.add('btn-warning');
 	var groupLabel = data.customer_group || dealerCustomerGroup || '';
-	btn.innerHTML = '<i class="fa fa-tag"></i> ' + __('Showing Dealer Pricing') +
+	btn.innerHTML = '<i class="fa fa-tag" aria-hidden="true"></i> ' + __('Showing Dealer Pricing') +
 		(groupLabel ? ' (' + _escapeHtml(groupLabel) + ')' : '');
 
 	var label = document.getElementById('dealerPricingModeLabel');
@@ -3976,7 +3976,7 @@ function restoreMsrpPricing() {
 	var btn = document.getElementById('dealerPricingBtn');
 	btn.classList.remove('btn-warning');
 	btn.classList.add('btn-outline-warning');
-	btn.innerHTML = '<i class="fa fa-tag"></i> ' + __('Show Dealer Pricing');
+	btn.innerHTML = '<i class="fa fa-tag" aria-hidden="true"></i> ' + __('Show Dealer Pricing');
 
 	var label = document.getElementById('dealerPricingModeLabel');
 	if (label) {

@@ -28,7 +28,7 @@ Request and track custom drawings and technical documentation
 		<div class="col-lg-5 mb-4">
 			<div class="form-card">
 				<div class="form-card-header">
-					<h5><i class="fa fa-pencil-square-o"></i> {{ _("Request New Drawing") }}</h5>
+					<h5><i class="fa fa-pencil-square-o" aria-hidden="true"></i> {{ _("Request New Drawing") }}</h5>
 				</div>
 				<div class="form-card-body">
 					<form id="drawingRequestForm">
@@ -95,14 +95,14 @@ Request and track custom drawings and technical documentation
 						{% endif %}
 
 						<div class="form-group">
-							<label>{{ _("Attachments") }}</label>
-							<input type="file" class="form-control-file" name="attachments" multiple>
+							<label for="requestAttachments">{{ _("Attachments") }}</label>
+							<input id="requestAttachments" type="file" class="form-control-file" name="attachments" multiple>
 							<small class="form-text text-muted">{{ _("Upload reference files, markups, or existing drawings") }}</small>
 						</div>
 
 						<hr>
 						<button type="submit" class="btn btn-primary btn-block"{% if not request_types %} disabled{% endif %}>
-							<i class="fa fa-paper-plane"></i> {{ _("Submit Request") }}
+							<i class="fa fa-paper-plane" aria-hidden="true"></i> {{ _("Submit Request") }}
 						</button>
 					</form>
 				</div>
@@ -134,7 +134,7 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}"></i>
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}" aria-hidden="true"></i>
 								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
 							<span class="status-badge {{ req.status | lower | replace(' ', '-') | e }}">
@@ -144,11 +144,11 @@ Request and track custom drawings and technical documentation
 						<div class="request-body">
 							<p class="mb-2">{{ req.description | striptags | truncate(150) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
+								<span><i class="fa fa-folder" aria-hidden="true"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
+								<span><i class="fa fa-calendar" aria-hidden="true"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
 								{% if req.priority != "normal" %}
 								<span class="text-{{ ('danger' if req.priority == 'rush' else 'warning') | e }}">
-									<i class="fa fa-flag"></i> {{ req.priority | title | e }}
+									<i class="fa fa-flag" aria-hidden="true"></i> {{ req.priority | title | e }}
 								</span>
 								{% endif %}
 							</div>
@@ -177,7 +177,7 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}"></i>
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}" aria-hidden="true"></i>
 								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
 							<span class="status-badge completed">{{ _("Completed") }}</span>
@@ -185,8 +185,8 @@ Request and track custom drawings and technical documentation
 						<div class="request-body">
 							<p class="mb-2">{{ req.description | striptags | truncate(150) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.completed_date or req.modified) | e }}</span>
+								<span><i class="fa fa-folder" aria-hidden="true"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
+								<span><i class="fa fa-calendar" aria-hidden="true"></i> {{ frappe.utils.format_date(req.completed_date or req.modified) | e }}</span>
 							</div>
 						</div>
 						<div class="request-footer">
@@ -194,7 +194,7 @@ Request and track custom drawings and technical documentation
 							<div>
 								{% if req.has_attachments %}
 								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-success">
-									<i class="fa fa-download"></i> {{ _("Download") }}
+									<i class="fa fa-download" aria-hidden="true"></i> {{ _("Download") }}
 								</a>
 								{% endif %}
 								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">
@@ -220,7 +220,7 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}"></i>
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}" aria-hidden="true"></i>
 								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
 							<span class="status-badge {{ req.status | lower | replace(' ', '-') | e }}">
@@ -230,8 +230,8 @@ Request and track custom drawings and technical documentation
 						<div class="request-body">
 							<p class="mb-2">{{ req.description | striptags | truncate(100) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ (req.project_name or "-") | e }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
+								<span><i class="fa fa-folder" aria-hidden="true"></i> {{ (req.project_name or "-") | e }}</span>
+								<span><i class="fa fa-calendar" aria-hidden="true"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
 							</div>
 						</div>
 						<div class="request-footer">

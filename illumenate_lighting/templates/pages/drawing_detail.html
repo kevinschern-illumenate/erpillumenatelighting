@@ -20,7 +20,7 @@ Detailed view of a single document request
 
 	{% if not request %}
 	<div class="text-center py-5">
-		<i class="fa fa-exclamation-circle fa-3x text-muted mb-3"></i>
+		<i class="fa fa-exclamation-circle fa-3x text-muted mb-3" aria-hidden="true"></i>
 		<h4>{{ _("Request not found") }}</h4>
 		<p class="text-muted">{{ _("The drawing request you're looking for doesn't exist or you don't have permission to view it.") }}</p>
 		<a href="/portal/drawings" class="btn btn-primary mt-3">{{ _("Back to Drawings") }}</a>
@@ -35,7 +35,7 @@ Detailed view of a single document request
 					<div class="d-flex justify-content-between align-items-start">
 						<div>
 							<h1>
-								<i class="fa fa-{{ drawing_type_icon(request.request_type) | e }}"></i>
+								<i class="fa fa-{{ drawing_type_icon(request.request_type) | e }}" aria-hidden="true"></i>
 								{{ request.name | e }}
 							</h1>
 							<p class="mb-0 opacity-75">
@@ -76,9 +76,9 @@ Detailed view of a single document request
 						<span class="detail-label">{{ _("Priority") }}</span>
 						<span class="priority-badge {{ request.priority | lower | e }}">
 							{% if request.priority == 'Rush' %}
-							<i class="fa fa-exclamation-circle"></i>
+							<i class="fa fa-exclamation-circle" aria-hidden="true"></i>
 							{% elif request.priority == 'High' %}
-							<i class="fa fa-flag"></i>
+							<i class="fa fa-flag" aria-hidden="true"></i>
 							{% endif %}
 							{{ request.priority | e }}
 						</span>
@@ -89,7 +89,7 @@ Detailed view of a single document request
 			<!-- Description -->
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-file-text-o"></i> {{ _("Description") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-file-text-o" aria-hidden="true"></i> {{ _("Description") }}</h5>
 				</div>
 				<div class="content-body">
 					<div class="description-content">
@@ -102,7 +102,7 @@ Detailed view of a single document request
 			{% if custom_fields %}
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-list-alt"></i> {{ _("Additional Details") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-list-alt" aria-hidden="true"></i> {{ _("Additional Details") }}</h5>
 				</div>
 				<div class="content-body">
 					{% for field in custom_fields %}
@@ -137,14 +137,14 @@ Detailed view of a single document request
 			{% if deliverables %}
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-download"></i> {{ _("Deliverables") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-download" aria-hidden="true"></i> {{ _("Deliverables") }}</h5>
 					<span class="badge badge-success">{{ deliverables | length }} {{ _("file(s)") }}</span>
 				</div>
 				{% for deliverable in deliverables %}
 				<div class="deliverable-item">
 					<div class="deliverable-info">
 						<div class="deliverable-icon">
-							<i class="fa fa-file-pdf-o"></i>
+							<i class="fa fa-file-pdf-o" aria-hidden="true"></i>
 						</div>
 						<div>
 							<div class="font-weight-medium">{{ (deliverable.filename or _("File")) | e }}</div>
@@ -159,7 +159,7 @@ Detailed view of a single document request
 						</div>
 					</div>
 					<a href="{{ deliverable.file | e }}" class="btn btn-sm btn-success" target="_blank" download>
-						<i class="fa fa-download"></i> {{ _("Download") }}
+						<i class="fa fa-download" aria-hidden="true"></i> {{ _("Download") }}
 					</a>
 				</div>
 				{% endfor %}
@@ -170,17 +170,17 @@ Detailed view of a single document request
 			{% if attachments %}
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-paperclip"></i> {{ _("Attachments") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-paperclip" aria-hidden="true"></i> {{ _("Attachments") }}</h5>
 				</div>
 				<div class="content-body">
 					{% for attachment in attachments %}
 					<div class="attachment-item">
 						<div class="attachment-name">
-							<i class="fa fa-file-o text-muted"></i>
+							<i class="fa fa-file-o text-muted" aria-hidden="true"></i>
 							<span>{{ attachment.file_name | e }}</span>
 						</div>
-						<a href="{{ attachment.file_url | e }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-							<i class="fa fa-external-link"></i>
+						<a href="{{ attachment.file_url | e }}" class="btn btn-sm btn-outline-secondary" target="_blank" aria-label="{{ _('Open attachment in a new tab') }}">
+							<i class="fa fa-external-link" aria-hidden="true"></i>
 						</a>
 					</div>
 					{% endfor %}
@@ -193,7 +193,7 @@ Detailed view of a single document request
 		<div class="col-lg-4">
 			<!-- Status Timeline -->
 			<div class="sidebar-card">
-				<h5><i class="fa fa-clock-o"></i> {{ _("Status Timeline") }}</h5>
+				<h5><i class="fa fa-clock-o" aria-hidden="true"></i> {{ _("Status Timeline") }}</h5>
 				<div class="timeline-section">
 					<div class="timeline-item">
 						<div class="timeline-dot active"></div>
@@ -232,23 +232,23 @@ Detailed view of a single document request
 
 			<!-- Quick Actions -->
 			<div class="sidebar-card">
-				<h5><i class="fa fa-bolt"></i> {{ _("Quick Actions") }}</h5>
+				<h5><i class="fa fa-bolt" aria-hidden="true"></i> {{ _("Quick Actions") }}</h5>
 				<a href="/portal/drawings" class="action-btn">
-					<i class="fa fa-arrow-left"></i>
+					<i class="fa fa-arrow-left" aria-hidden="true"></i>
 					<span>{{ _("Back to Requests") }}</span>
 				</a>
 				{% if deliverables %}
 				<a href="{{ deliverables[0].file | e }}" class="action-btn" target="_blank" download>
-					<i class="fa fa-download"></i>
+					<i class="fa fa-download" aria-hidden="true"></i>
 					<span>{{ _("Download Latest") }}</span>
 				</a>
 				{% endif %}
 				<a href="/portal/drawings" class="action-btn">
-					<i class="fa fa-plus"></i>
+					<i class="fa fa-plus" aria-hidden="true"></i>
 					<span>{{ _("New Request") }}</span>
 				</a>
 				<a href="/portal/support" class="action-btn">
-					<i class="fa fa-question-circle"></i>
+					<i class="fa fa-question-circle" aria-hidden="true"></i>
 					<span>{{ _("Get Support") }}</span>
 				</a>
 			</div>

@@ -44,7 +44,8 @@ $portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
 	.text-muted { color: var(--ill-text-secondary) !important; }
 	.text-primary, .text-info { color: var(--ill-blue-600) !important; }
 	.text-success { color: var(--ill-green) !important; }
-	.text-warning { color: var(--ill-gold-700) !important; }
+	// UI-7: gold-700 on white is 2.45:1; the gold ink token is 6.72:1 (WCAG AA for body text).
+	.text-warning { color: var(--ill-gold-ink) !important; }
 	.text-danger { color: var(--ill-red) !important; }
 	.text-dark { color: var(--ill-ink) !important; }
 	.text-secondary { color: var(--ill-text-secondary) !important; }
@@ -544,4 +545,32 @@ $portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
 	.portal-toast-success .fa { color: #7fd29b; }
 	.portal-toast-error .fa { color: #ff9b92; }
 	.portal-toast-info .fa { color: var(--ill-gold-500); }
+}
+
+// ── Reduced motion (UI-7) ──────────────────────────────────
+// Visitors who ask the OS for less motion get no hover lifts or zooms, and transitions and
+// animations finish at once. Transforms that position things or show state (centring, chevron
+// rotation, gallery zoom) are left alone; only their animation is cut.
+@media (prefers-reduced-motion: reduce) {
+	#{$portal-scope}, .ill-page {
+		&, *, *::before, *::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
+		a.card:hover, a.card:focus-visible,
+		.portal-card:hover,
+		.contact-card:hover,
+		.product-card:hover,
+		.resource-card:hover,
+		.ill-linear-family:hover,
+		.ill-linear-family:hover .ill-linear-family-media img,
+		.ill-linear-family:hover .ill-linear-family-count .fa,
+		.ill-template-card:hover,
+		.ill-template-card:hover .ill-template-card-media img,
+		.btn:not(:disabled):not(.disabled):active {
+			transform: none !important;
+		}
+	}
 }

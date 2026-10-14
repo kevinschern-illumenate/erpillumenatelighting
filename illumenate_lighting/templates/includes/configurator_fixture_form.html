@@ -52,7 +52,7 @@ Context:
 						<div class="config-section" id="seriesSection">
 							<h4><span class="ill-config-step-num">1</span>{{ _("Fixture Template") }}</h4>
 							<div id="fixtureTemplatePicker"></div>
-							<select class="form-control mt-2" name="fixture_template_code" id="fixtureTemplateSelect">
+							<select aria-label="{{ _('Fixture Template') }}" class="form-control mt-2" name="fixture_template_code" id="fixtureTemplateSelect">
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
 								<option value="{{ template.template_code | e }}"
@@ -72,28 +72,28 @@ Context:
 							<div class="config-section" id="ledPackageSection">
 								<h4><span class="ill-config-step-num">2</span>{{ _("LED Package") }}</h4>
 								<div class="pill-selector" data-field="led_package_code"></div>
-								<select class="form-control select-fallback" name="led_package_code"></select>
+								<select aria-label="{{ _('LED Package') }}" class="form-control select-fallback" name="led_package_code"></select>
 							</div>
 
 							<!-- Section 3: Environment (Dry/Wet) -->
 							<div class="config-section" id="environmentSection">
 								<h4><span class="ill-config-step-num">3</span>{{ _("Environment Rating (Dry/Wet)") }}</h4>
 								<div class="pill-selector" data-field="environment_rating_code"></div>
-								<select class="form-control select-fallback" name="environment_rating_code"></select>
+								<select aria-label="{{ _('Environment Rating (Dry/Wet)') }}" class="form-control select-fallback" name="environment_rating_code"></select>
 							</div>
 
 							<!-- Section 4: CCT -->
 							<div class="config-section" id="cctSection">
 								<h4><span class="ill-config-step-num">4</span>{{ _("Color Temperature (CCT)") }}</h4>
 								<div class="pill-selector" data-field="cct_code"></div>
-								<select class="form-control select-fallback" name="cct_code"></select>
+								<select aria-label="{{ _('Color Temperature (CCT)') }}" class="form-control select-fallback" name="cct_code"></select>
 							</div>
 
 							<!-- Section 5: Lens -->
 							<div class="config-section" id="lensSection">
 								<h4><span class="ill-config-step-num">5</span>{{ _("Lens Appearance") }}</h4>
 								<div class="pill-selector" data-field="lens_appearance_code"></div>
-								<select class="form-control select-fallback" name="lens_appearance_code"></select>
+								<select aria-label="{{ _('Lens Appearance') }}" class="form-control select-fallback" name="lens_appearance_code"></select>
 							</div>
 
 							<!-- Section 6: Delivered Output (computed from tape × lens transmission) -->
@@ -101,7 +101,7 @@ Context:
 								<h4><span class="ill-config-step-num">6</span>{{ _("Fixture Output") }}</h4>
 								<p class="text-muted small mb-2" id="outputHint">{{ _("Select LED package, environment, CCT and lens to see available output levels.") }}</p>
 								<div class="pill-selector" data-field="delivered_output_value"></div>
-								<select class="form-control select-fallback" name="delivered_output_value"></select>
+								<select class="form-control select-fallback" name="delivered_output_value" aria-label="{{ _('Fixture Output') }}"></select>
 								<small class="text-muted d-block mt-1" id="outputHelpText"></small>
 							</div>
 
@@ -109,16 +109,16 @@ Context:
 							<div class="config-section" id="mountingSection">
 								<h4><span class="ill-config-step-num">7</span>{{ _("Mounting Method") }}</h4>
 								<div class="pill-selector" data-field="mounting_method_code"></div>
-								<select class="form-control select-fallback" name="mounting_method_code"></select>
+								<select aria-label="{{ _('Mounting Method') }}" class="form-control select-fallback" name="mounting_method_code"></select>
 							</div>
 
 							<!-- Section 8: Finish (endcap colour auto-resolves) -->
 							<div class="config-section" id="finishSection">
 								<h4><span class="ill-config-step-num">8</span>{{ _("Finish") }}</h4>
 								<div class="pill-selector" data-field="finish_code"></div>
-								<select class="form-control select-fallback" name="finish_code"></select>
+								<select aria-label="{{ _('Finish') }}" class="form-control select-fallback" name="finish_code"></select>
 								<div class="endcap-color-info text-muted small mt-2" id="endcapColorDisplay" style="display: none;">
-									<i class="fa fa-info-circle"></i> <span id="endcapColorLabel"></span>
+									<i class="fa fa-info-circle" aria-hidden="true"></i> <span id="endcapColorLabel"></span>
 								</div>
 							</div>
 
@@ -133,7 +133,7 @@ Context:
 								</p>
 								<div id="segmentsList"></div>
 								<div id="addSegmentHint" class="text-center py-2 text-muted small" style="display: none;">
-									<i class="fa fa-arrow-up"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
+									<i class="fa fa-arrow-up" aria-hidden="true"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
 								</div>
 							</div>
 
@@ -155,13 +155,13 @@ Context:
 									</label>
 								</div>
 								<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
-									<input type="number" name="override_max_run_ft" id="overrideMaxRunInput"
+									<input type="number" name="override_max_run_ft" id="overrideMaxRunInput" aria-label="{{ _('Custom max run (ft)') }}"
 										   class="form-control" min="0.5" step="0.5"
 										   placeholder="{{ _('Custom max run (ft)') }}">
 									<span class="input-group-text">ft</span>
 								</div>
 								<div class="alert alert-warning mt-2 py-2" id="overrideMaxRunWarning" style="display: none;">
-									<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
+									<i class="fa fa-exclamation-triangle mr-2" aria-hidden="true"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
 								</div>
 							</div>
 						</div>
@@ -177,15 +177,15 @@ Context:
 		<!-- Action Buttons -->
 		<div class="d-flex justify-content-between flex-wrap ill-fixture-actions" id="actionButtons" style="display: none;">
 			<button type="button" class="btn btn-outline-secondary" data-action="reset">
-				<i class="fa fa-refresh"></i> {{ _("Reset") }}
+				<i class="fa fa-refresh" aria-hidden="true"></i> {{ _("Reset") }}
 			</button>
 			<div>
 				<button type="button" class="btn btn-primary mr-2" id="validateBtn" data-action="validate" disabled>
-					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+					<i class="fa fa-calculator" aria-hidden="true"></i> {{ _("Calculate & Validate") }}
 				</button>
 				{% if can_save is not defined or can_save %}
 				<button type="button" class="btn btn-success" id="addToScheduleBtn" data-action="add-to-schedule" disabled>
-					<i class="fa fa-plus"></i> {{ _("Add to Schedule") }}
+					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add to Schedule") }}
 				</button>
 				{% endif %}
 			</div>
@@ -197,13 +197,13 @@ Context:
 		<div class="card sticky-top" style="top: 1rem;">
 			<div class="card-header d-flex justify-content-between align-items-center">
 				<h5 class="mb-0">{{ _("Summary & Results") }}</h5>
-				<span id="validationStatus" class="badge badge-secondary">{{ _("Incomplete") }}</span>
+				<span id="validationStatus" class="badge badge-secondary" role="status">{{ _("Incomplete") }}</span>
 			</div>
 			<div class="card-body">
 				<!-- Selection summary -->
 				<div id="configSummary">
 					<div class="text-center text-muted py-3" id="summaryPlaceholder">
-						<i class="fa fa-list fa-2x mb-2"></i>
+						<i class="fa fa-list fa-2x mb-2" aria-hidden="true"></i>
 						<p class="mb-0">{{ _("Select options to see summary") }}</p>
 					</div>
 					<ul class="list-group list-group-flush small" id="summaryList" style="display: none;"></ul>
@@ -213,7 +213,7 @@ Context:
 				<div id="validationMessages" class="mt-3" style="display: none;">
 					<hr>
 					<h6>{{ _("Messages") }}</h6>
-					<div id="messagesList"></div>
+					<div id="messagesList" aria-live="polite"></div>
 				</div>
 
 				<!-- Engine results -->
@@ -223,14 +223,14 @@ Context:
 						<h6>{{ _("Part Number & Description") }}</h6>
 						<div class="d-flex align-items-center mb-1">
 							<code id="partNumberValue" class="mr-2" style="font-size: 0.95rem; word-break: break-all;">-</code>
-							<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" data-action="copy-part-number" title="{{ _('Copy part number') }}"><i class="fa fa-copy"></i></button>
+							<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" data-action="copy-part-number" title="{{ _('Copy part number') }}" aria-label="{{ _('Copy part number') }}"><i class="fa fa-copy" aria-hidden="true"></i></button>
 						</div>
 						<div class="d-flex align-items-start mb-2">
 							<span id="partDescriptionValue" class="mr-2 small" style="white-space: pre-wrap;">-</span>
-							<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" data-action="copy-description" title="{{ _('Copy description') }}"><i class="fa fa-copy"></i></button>
+							<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" data-action="copy-description" title="{{ _('Copy description') }}" aria-label="{{ _('Copy description') }}"><i class="fa fa-copy" aria-hidden="true"></i></button>
 						</div>
 						<button type="button" class="btn btn-outline-primary btn-sm btn-block mb-2" data-action="copy-both">
-							<i class="fa fa-clipboard"></i> {{ _("Copy Part Number + Description") }}
+							<i class="fa fa-clipboard" aria-hidden="true"></i> {{ _("Copy Part Number + Description") }}
 						</button>
 						<hr>
 					</div>
@@ -304,8 +304,8 @@ Context:
 	<div class="segment-card" data-segment-index="">
 		<div class="d-flex justify-content-between align-items-center mb-2">
 			<strong>{{ _("Segment") }} <span class="segment-number"></span></strong>
-			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" data-action="remove-segment" style="display: none;" title="{{ _('Remove segment') }}">
-				<i class="fa fa-trash"></i>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" data-action="remove-segment" style="display: none;" title="{{ _('Remove segment') }}" aria-label="{{ _('Remove segment') }}">
+				<i class="fa fa-trash" aria-hidden="true"></i>
 			</button>
 		</div>
 
@@ -318,26 +318,26 @@ Context:
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
 							<div class="pill-selector pill-selector-sm" data-field="start_feed_direction"></div>
-							<select class="form-control form-control-sm select-fallback" name="start_feed_direction"></select>
+							<select aria-label="{{ _('Feed Direction') }}" class="form-control form-control-sm select-fallback" name="start_feed_direction"></select>
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
 							<div class="pill-selector pill-selector-sm" data-field="start_power_feed_type"></div>
-							<select class="form-control form-control-sm select-fallback" name="start_power_feed_type"></select>
+							<select aria-label="{{ _('Power Feed Type') }}" class="form-control form-control-sm select-fallback" name="start_power_feed_type"></select>
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Leader Cable Length (in)") }}</label>
-							<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
+							<input aria-label="{{ _('Leader Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
 						</div>
 					</div>
 				</div>
 			</div>
 			<div class="inherited-start segment-inherited" style="display: none;">
-				<i class="fa fa-link"></i> <span class="inherited-text">{{ _("Continues from the prior segment's jumper") }}</span>
+				<i class="fa fa-link" aria-hidden="true"></i> <span class="inherited-text">{{ _("Continues from the prior segment's jumper") }}</span>
 			</div>
 		</div>
 
@@ -345,8 +345,8 @@ Context:
 		<div class="segment-length mb-3">
 			<label class="small font-weight-bold d-block mb-1">{{ _("Requested Length") }} <span class="text-danger">*</span></label>
 			<div class="length-input-group">
-				<input type="number" class="form-control" name="requested_length_mm" min="0.1" step="0.1" placeholder="e.g., 48">
-				<select class="form-control" name="length_unit">
+				<input aria-label="{{ _('Requested Length') }}" type="number" class="form-control" name="requested_length_mm" min="0.1" step="0.1" placeholder="e.g., 48">
+				<select class="form-control" name="length_unit" aria-label="{{ _('Length unit') }}">
 					<option value="in" selected>{{ _("inches") }}</option>
 					<option value="ft_in">{{ _("feet + inches") }}</option>
 					<option value="mm">mm</option>
@@ -355,11 +355,11 @@ Context:
 			<div class="row feet-inches-row mt-2" style="display: none;">
 				<div class="col-6">
 					<label class="small">{{ _("Feet") }}</label>
-					<input type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
+					<input aria-label="{{ _('Feet') }}" type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
 				</div>
 				<div class="col-6">
 					<label class="small">{{ _("Inches") }}</label>
-					<input type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
+					<input aria-label="{{ _('Inches') }}" type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
 				</div>
 			</div>
 		</div>
@@ -369,15 +369,15 @@ Context:
 			<label class="small font-weight-bold d-block mb-1">{{ _("Segment End") }}</label>
 			<div class="end-type-toggle mb-2">
 				<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-end-type="Endcap">
-					<i class="fa fa-stop-circle"></i> {{ _("Endcap (Cap Fixture)") }}
+					<i class="fa fa-stop-circle" aria-hidden="true"></i> {{ _("Endcap (Cap Fixture)") }}
 				</button>
 				<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-end-type="Jumper">
-					<i class="fa fa-link"></i> {{ _("Jumper (Continue to Next)") }}
+					<i class="fa fa-link" aria-hidden="true"></i> {{ _("Jumper (Continue to Next)") }}
 				</button>
 			</div>
 			<input type="hidden" name="end_type" value="Endcap">
 			<div class="endcap-fields" style="display: none;">
-				<div class="small text-muted"><i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with a solid endcap") }}</div>
+				<div class="small text-muted"><i class="fa fa-info-circle" aria-hidden="true"></i> {{ _("Fixture will be capped with a solid endcap") }}</div>
 			</div>
 			<div class="jumper-fields" style="display: none;">
 				<div class="row">
@@ -385,20 +385,20 @@ Context:
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Feed Direction") }}</label>
 							<div class="pill-selector pill-selector-sm" data-field="end_feed_direction"></div>
-							<select class="form-control form-control-sm select-fallback" name="end_feed_direction"></select>
+							<select aria-label="{{ _('Feed Direction') }}" class="form-control form-control-sm select-fallback" name="end_feed_direction"></select>
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
 							<div class="pill-selector pill-selector-sm" data-field="end_power_feed_type"></div>
-							<select class="form-control form-control-sm select-fallback" name="end_power_feed_type"></select>
+							<select aria-label="{{ _('Power Feed Type') }}" class="form-control form-control-sm select-fallback" name="end_power_feed_type"></select>
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
-							<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
+							<input aria-label="{{ _('Jumper Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
 						</div>
 					</div>
 				</div>

@@ -28,16 +28,16 @@ User profile, notifications, and account preferences
 		<div class="col-lg-3 mb-4">
 			<div class="settings-nav">
 				<a href="#profile" class="settings-nav-item active" data-section="profile">
-					<i class="fa fa-user"></i> {{ _("Profile") }}
+					<i class="fa fa-user" aria-hidden="true"></i> {{ _("Profile") }}
 				</a>
 				<a href="#company" class="settings-nav-item" data-section="company">
-					<i class="fa fa-building"></i> {{ _("Company") }}
+					<i class="fa fa-building" aria-hidden="true"></i> {{ _("Company") }}
 				</a>
 				<a href="#notifications" class="settings-nav-item" data-section="notifications">
-					<i class="fa fa-bell"></i> {{ _("Notifications") }}
+					<i class="fa fa-bell" aria-hidden="true"></i> {{ _("Notifications") }}
 				</a>
 				<a href="#security" class="settings-nav-item" data-section="security">
-					<i class="fa fa-lock"></i> {{ _("Security") }}
+					<i class="fa fa-lock" aria-hidden="true"></i> {{ _("Security") }}
 				</a>
 			</div>
 		</div>
@@ -51,7 +51,7 @@ User profile, notifications, and account preferences
 			<!-- Profile Section -->
 			<div class="settings-card mb-4" id="profile">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-user"></i> {{ _("Profile Information") }}</h5>
+					<h5><i class="fa fa-user" aria-hidden="true"></i> {{ _("Profile Information") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					<div class="row">
@@ -60,7 +60,7 @@ User profile, notifications, and account preferences
 								{% if user_profile.user_image %}
 								<img src="{{ user_profile.user_image | e }}" alt="Profile">
 								{% else %}
-								<i class="fa fa-user"></i>
+								<i class="fa fa-user" aria-hidden="true"></i>
 								{% endif %}
 							</div>
 						</div>
@@ -94,7 +94,7 @@ User profile, notifications, and account preferences
 									<input type="text" class="form-control" id="account_job_title" name="job_title" value="{{ (user_profile.job_title or '') | e }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
 								</div>
 								<button type="submit" class="btn btn-primary">
-									<i class="fa fa-save"></i> {{ _("Save Changes") }}
+									<i class="fa fa-save" aria-hidden="true"></i> {{ _("Save Changes") }}
 								</button>
 							</form>
 						</div>
@@ -105,13 +105,13 @@ User profile, notifications, and account preferences
 			<!-- Company Section -->
 			<div class="settings-card mb-4" id="company">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-building"></i> {{ _("Company Information") }}</h5>
+					<h5><i class="fa fa-building" aria-hidden="true"></i> {{ _("Company Information") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					{% if customer %}
 					<div class="mb-4">
 						<span class="company-badge">
-							<i class="fa fa-building"></i>
+							<i class="fa fa-building" aria-hidden="true"></i>
 							{{ customer.customer_name | e }}
 						</span>
 					</div>
@@ -127,16 +127,16 @@ User profile, notifications, and account preferences
 					</div>
 					<hr>
 					<p class="text-muted mb-0">
-						<i class="fa fa-info-circle"></i> 
+						<i class="fa fa-info-circle" aria-hidden="true"></i> 
 						{{ _("To update company information, please contact your account manager or support.") }}
 					</p>
 					{% else %}
 					<div class="text-center py-4">
-						<i class="fa fa-building fa-3x text-muted mb-3"></i>
+						<i class="fa fa-building fa-3x text-muted mb-3" aria-hidden="true"></i>
 						<h5>{{ _("No company linked") }}</h5>
 						<p class="text-muted">{{ _("Your account is not linked to a company yet.") }}</p>
 						<button class="btn btn-primary" data-toggle="modal" data-target="#createCompanyModal">
-							<i class="fa fa-plus"></i> {{ _("Request Company Access") }}
+							<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Request Company Access") }}
 						</button>
 					</div>
 					{% endif %}
@@ -146,7 +146,7 @@ User profile, notifications, and account preferences
 			<!-- Notifications Section -->
 			<div class="settings-card mb-4" id="notifications">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-bell"></i> {{ _("Notification Preferences") }}</h5>
+					<h5><i class="fa fa-bell" aria-hidden="true"></i> {{ _("Notification Preferences") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					<div class="notification-item">
@@ -201,7 +201,7 @@ User profile, notifications, and account preferences
 					</div>
 					<hr>
 					<button class="btn btn-primary" onclick="saveNotificationPrefs()">
-						<i class="fa fa-save"></i> {{ _("Save Preferences") }}
+						<i class="fa fa-save" aria-hidden="true"></i> {{ _("Save Preferences") }}
 					</button>
 				</div>
 			</div>
@@ -209,7 +209,7 @@ User profile, notifications, and account preferences
 			<!-- Security Section -->
 			<div class="settings-card mb-4" id="security">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-lock"></i> {{ _("Security") }}</h5>
+					<h5><i class="fa fa-lock" aria-hidden="true"></i> {{ _("Security") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					<div class="security-item">
@@ -241,24 +241,24 @@ User profile, notifications, and account preferences
 {% block portal_after %}
 
 <!-- Create Company Modal -->
-<div class="modal fade" id="createCompanyModal" tabindex="-1">
+<div class="modal fade" id="createCompanyModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="createCompanyModalTitle">
 	<div class="modal-dialog">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Request Company Access") }}</h5>
-				<button type="button" class="close" data-dismiss="modal">
-					<span>&times;</span>
+				<h5 class="modal-title" id="createCompanyModalTitle">{{ _("Request Company Access") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>
 			<div class="modal-body">
 				<form id="createCompanyForm">
 					<div class="form-group">
-						<label>{{ _("Company Name") }} <span class="text-danger">*</span></label>
-						<input type="text" class="form-control" name="customer_name" required>
+						<label for="createCompanyName">{{ _("Company Name") }} <span class="text-danger">*</span></label>
+						<input id="createCompanyName" type="text" class="form-control" name="customer_name" required>
 					</div>
 					<div class="form-group">
-						<label>{{ _("Company Type") }}</label>
-						<select class="form-control" name="customer_type">
+						<label for="createCompanyType">{{ _("Company Type") }}</label>
+						<select id="createCompanyType" class="form-control" name="customer_type">
 							<option value="Company">{{ _("Company") }}</option>
 							<option value="Individual">{{ _("Individual") }}</option>
 						</select>
@@ -349,7 +349,7 @@ function saveNotificationPrefs() {
 
 function changePassword() {
 	if (!document.getElementById('portalPasswordModal')) {
-		const modal = $('<div class="modal fade" id="portalPasswordModal" tabindex="-1" role="dialog" aria-labelledby="portalPasswordTitle"><div class="modal-dialog"><form class="modal-content"><div class="modal-header"><h5 id="portalPasswordTitle"></h5><button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button></div><div class="modal-body"><div class="alert alert-danger" role="alert" hidden></div></div><div class="modal-footer"><button type="submit" class="btn btn-primary"></button></div></form></div></div>');
+		const modal = $('<div class="modal fade" id="portalPasswordModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="portalPasswordTitle"><div class="modal-dialog"><form class="modal-content"><div class="modal-header"><h5 id="portalPasswordTitle"></h5><button type="button" class="close" data-dismiss="modal" aria-label="' + __('Close') + '"><span aria-hidden="true">&times;</span></button></div><div class="modal-body"><div class="alert alert-danger" role="alert" hidden></div></div><div class="modal-footer"><button type="submit" class="btn btn-primary"></button></div></form></div></div>');
 		modal.find('h5').text(__('Change Password'));
 		modal.find('[type="submit"]').text(__('Update Password'));
 		[['old_password', __('Current Password'), 'current-password'], ['new_password', __('New Password'), 'new-password'], ['confirm_password', __('Confirm New Password'), 'new-password']].forEach(([name, label, autocomplete]) => {

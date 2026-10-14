@@ -46,7 +46,7 @@
 				const loadingText = this.dataset.loadingText || 'Loading...';
 				
 				this.disabled = true;
-				this.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ' + loadingText;
+				this.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> ' + loadingText;
 				
 				this.dataset.originalText = originalText;
 			});
@@ -86,9 +86,10 @@
 		
 		const toast = document.createElement('div');
 		toast.className = 'portal-toast portal-toast-' + type;
+		toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
 		toast.innerHTML = `
 			<div class="toast-content">
-				<i class="fa ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+				<i class="fa ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}" aria-hidden="true"></i>
 				<span>${message}</span>
 			</div>
 		`;

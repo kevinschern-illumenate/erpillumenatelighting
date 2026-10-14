@@ -27,8 +27,8 @@ Publicly available specification sheets from Webflow products
 	<!-- Search Box -->
 	<div class="search-box">
 		<div class="search-wrapper">
-			<i class="fa fa-search"></i>
-			<input type="text" class="form-control" id="resourceSearch" placeholder="{{ _('Search spec sheets...') }}">
+			<i class="fa fa-search" aria-hidden="true"></i>
+			<input type="text" class="form-control" id="resourceSearch" placeholder="{{ _('Search spec sheets...') }}" aria-label="{{ _('Search spec sheets') }}">
 		</div>
 	</div>
 
@@ -37,7 +37,7 @@ Publicly available specification sheets from Webflow products
 		{% for sheet in spec_sheets %}
 		<a href="{{ sheet.url | e }}" target="_blank" class="resource-card" data-product="{{ sheet.product_name | e }}">
 			<div class="resource-icon">
-				<i class="fa fa-file-pdf-o"></i>
+				<i class="fa fa-file-pdf-o" aria-hidden="true"></i>
 			</div>
 			<div class="resource-info">
 				<div class="resource-title">{{ sheet.title | e }}</div>

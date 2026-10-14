@@ -9,7 +9,7 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 #}
 <div class="card mb-3" id="scheduleContextCard">
 	<div class="card-header d-flex justify-content-between align-items-center">
-		<h6 class="mb-0"><i class="fa fa-folder-open"></i> {{ _("Schedule Target") }}</h6>
+		<h6 class="mb-0"><i class="fa fa-folder-open" aria-hidden="true"></i> {{ _("Schedule Target") }}</h6>
 		<small class="text-muted">{{ _("Select a project and line to save this configuration") }}</small>
 	</div>
 	<div class="card-body">
@@ -19,7 +19,7 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 			<div class="col-md-4"><div class="form-group mb-2"><label class="small font-weight-bold" for="lineSelect">{{ _("Fixture Type") }}</label><select class="form-control" id="lineSelect" disabled><option value="">{{ _("Select Line...") }}</option><option value="__new__">{{ _("+ New Line") }}</option></select></div></div>
 		</div>
 		<div id="linePreview" class="alert alert-warning mt-2" style="display: none;">
-			<strong><i class="fa fa-exclamation-triangle"></i> {{ _("Existing Line Data") }}</strong>
+			<strong><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Existing Line Data") }}</strong>
 			<p class="mb-0 mt-1 small" id="linePreviewText"></p>
 		</div>
 	</div>
@@ -61,7 +61,7 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 
 		<div class="d-flex justify-content-end align-items-center ill-fixture-actions mb-3">
 			<small id="driverSaveHint" class="text-muted mr-3" aria-live="polite" hidden></small>
-			<button id="familySave" type="button" class="btn btn-success" disabled><i class="fa fa-plus"></i> {{ _("Add to Schedule") }}</button>
+			<button id="familySave" type="button" class="btn btn-success" disabled><i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add to Schedule") }}</button>
 		</div>
 	</div>
 
@@ -69,7 +69,7 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 		<div class="card sticky-top ill-driver-summary-card">
 			<div class="card-header d-flex justify-content-between align-items-center">
 				<h5 class="mb-0">{{ _("Summary & Results") }}</h5>
-				<span id="driverValidationStatus" class="badge badge-secondary">{{ _("Incomplete") }}</span>
+				<span id="driverValidationStatus" class="badge badge-secondary" role="status">{{ _("Incomplete") }}</span>
 			</div>
 			<div class="card-body">
 				<div id="familySummary" aria-live="polite">

@@ -25,7 +25,8 @@ Help center, FAQ, and support ticket submission
 		<h2>{{ _("How can we help you?") }}</h2>
 		<p>{{ _("Search our knowledge base or contact our support team") }}</p>
 		<div class="search-box">
-			<input type="text" class="form-control" id="faqSearch" placeholder="{{ _('Search for answers...') }}">
+			<input type="search" class="form-control" id="faqSearch" placeholder="{{ _('Search for answers...') }}" aria-label="{{ _('Search for answers') }}" aria-describedby="faqSearchStatus">
+			<p id="faqSearchStatus" class="sr-only" role="status" aria-live="polite"></p>
 		</div>
 	</div>
 
@@ -33,7 +34,7 @@ Help center, FAQ, and support ticket submission
 	<div class="contact-cards">
 		<div class="contact-card">
 			<div class="contact-card-icon email">
-				<i class="fa fa-envelope"></i>
+				<i class="fa fa-envelope" aria-hidden="true"></i>
 			</div>
 			<h5>{{ _("Email Support") }}</h5>
 			<p>{{ _("Contact our support team by email") }}</p>
@@ -43,7 +44,7 @@ Help center, FAQ, and support ticket submission
 		</div>
 		<div class="contact-card">
 			<div class="contact-card-icon phone">
-				<i class="fa fa-phone"></i>
+				<i class="fa fa-phone" aria-hidden="true"></i>
 			</div>
 			<h5>{{ _("Phone Support") }}</h5>
 			<p>{{ _("Mon-Fri, 7am-4pm PST") }}</p>
@@ -53,7 +54,7 @@ Help center, FAQ, and support ticket submission
 		</div>
 		<div class="contact-card">
 			<div class="contact-card-icon ticket">
-				<i class="fa fa-ticket"></i>
+				<i class="fa fa-ticket" aria-hidden="true"></i>
 			</div>
 			<h5>{{ _("Submit Ticket") }}</h5>
 			<p>{{ _("Track your support requests") }}</p>
@@ -70,12 +71,12 @@ Help center, FAQ, and support ticket submission
 
 			<!-- Ordering FAQs -->
 			<div class="faq-category">
-				<h5 class="faq-category-title"><i class="fa fa-shopping-cart"></i> {{ _("Ordering & Quotes") }}</h5>
+				<h5 class="faq-category-title"><i class="fa fa-shopping-cart" aria-hidden="true"></i> {{ _("Ordering & Quotes") }}</h5>
 				
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("How do I get a quote for custom fixtures?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("You can create a fixture schedule in your project and submit it for a quote. Our team will review and provide pricing within 2 business days. For complex projects, we recommend scheduling a consultation.") }}
@@ -85,7 +86,7 @@ Help center, FAQ, and support ticket submission
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("What are the standard lead times?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("Standard lead times are 4-6 weeks for most products. Quick-ship options are available for select configurations with 2-week lead times. Custom finishes and special orders may require additional time.") }}
@@ -95,7 +96,7 @@ Help center, FAQ, and support ticket submission
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("Do you offer sample fixtures?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("Yes! We offer sample fixtures for qualifying projects. Contact your sales representative or submit a sample request through the portal. Samples are typically available within 1-2 weeks.") }}
@@ -105,12 +106,12 @@ Help center, FAQ, and support ticket submission
 
 			<!-- Technical FAQs -->
 			<div class="faq-category">
-				<h5 class="faq-category-title"><i class="fa fa-cogs"></i> {{ _("Technical Questions") }}</h5>
+				<h5 class="faq-category-title"><i class="fa fa-cogs" aria-hidden="true"></i> {{ _("Technical Questions") }}</h5>
 				
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("What dimming protocols do you support?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("We support 0-10V, DALI, DMX, and Lutron EcoSystem. Driver selection in the configurator will show compatible dimming options for each fixture.") }}
@@ -120,7 +121,7 @@ Help center, FAQ, and support ticket submission
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("Can fixtures be joined at angles?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("Yes, our joiner system supports 90°, 120°, 135°, and custom angles. Corner and T-joints are also available. Contact us for specialized geometric configurations.") }}
@@ -130,7 +131,7 @@ Help center, FAQ, and support ticket submission
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("What IP ratings are available?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("Standard indoor fixtures are IP20. We offer IP44 for damp locations and IP65/IP67 for wet locations and outdoor use. Check the environment rating options in the configurator.") }}
@@ -140,12 +141,12 @@ Help center, FAQ, and support ticket submission
 
 			<!-- Shipping FAQs -->
 			<div class="faq-category">
-				<h5 class="faq-category-title"><i class="fa fa-truck"></i> {{ _("Shipping & Delivery") }}</h5>
+				<h5 class="faq-category-title"><i class="fa fa-truck" aria-hidden="true"></i> {{ _("Shipping & Delivery") }}</h5>
 				
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("How are fixtures packaged for shipping?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("Fixtures are carefully packaged in custom foam inserts and reinforced boxes. Long linear fixtures are shipped in protective tubes. All packages are insured against damage.") }}
@@ -155,7 +156,7 @@ Help center, FAQ, and support ticket submission
 				<div class="faq-item">
 					<div class="faq-question">
 						{{ _("Do you ship internationally?") }}
-						<i class="fa fa-chevron-down"></i>
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
 					</div>
 					<div class="faq-answer">
 						{{ _("Yes, we ship to most countries. International orders may have different lead times and shipping costs. Contact us for a shipping quote to your location.") }}
@@ -168,13 +169,13 @@ Help center, FAQ, and support ticket submission
 		<div class="col-lg-5">
 			<div class="ticket-form-card" id="ticketForm">
 				<div class="ticket-form-header">
-					<h5 class="mb-0"><i class="fa fa-ticket"></i> {{ _("Submit a Support Request") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-ticket" aria-hidden="true"></i> {{ _("Submit a Support Request") }}</h5>
 				</div>
 				<div class="ticket-form-body">
 					<form id="supportTicketForm">
 						<div class="form-group">
-							<label>{{ _("Category") }} <span class="text-danger">*</span></label>
-							<select class="form-control" name="category" required>
+							<label for="supportCategory">{{ _("Category") }} <span class="text-danger">*</span></label>
+							<select id="supportCategory" class="form-control" name="category" required>
 								<option value="">{{ _("Select category...") }}</option>
 								<option value="order">{{ _("Order Status / Shipping") }}</option>
 								<option value="technical">{{ _("Technical Support") }}</option>
@@ -185,13 +186,13 @@ Help center, FAQ, and support ticket submission
 						</div>
 
 						<div class="form-group">
-							<label>{{ _("Subject") }} <span class="text-danger">*</span></label>
-							<input type="text" class="form-control" name="subject" required placeholder="{{ _('Brief description of your issue') }}">
+							<label for="supportSubject">{{ _("Subject") }} <span class="text-danger">*</span></label>
+							<input id="supportSubject" type="text" class="form-control" name="subject" required placeholder="{{ _('Brief description of your issue') }}">
 						</div>
 
 						<div class="form-group">
-							<label>{{ _("Related Order") }}</label>
-							<select class="form-control" name="order">
+							<label for="supportOrder">{{ _("Related Order") }}</label>
+							<select id="supportOrder" class="form-control" name="order">
 								<option value="">{{ _("Select order (optional)...") }}</option>
 								{% for order in recent_orders %}
 								<option value="{{ order.name | e }}">{{ order.name | e }} - {{ frappe.utils.format_date(order.transaction_date) | e }}</option>
@@ -212,18 +213,18 @@ Help center, FAQ, and support ticket submission
 						{% endif %}
 
 						<div class="form-group">
-							<label>{{ _("Description") }} <span class="text-danger">*</span></label>
-							<textarea class="form-control" name="description" rows="5" required placeholder="{{ _('Please describe your issue in detail...') }}"></textarea>
+							<label for="supportDescription">{{ _("Description") }} <span class="text-danger">*</span></label>
+							<textarea id="supportDescription" class="form-control" name="description" rows="5" required placeholder="{{ _('Please describe your issue in detail...') }}"></textarea>
 						</div>
 
 						<div class="form-group">
-							<label>{{ _("Attachments") }}</label>
-							<input type="file" class="form-control-file" name="attachments" multiple>
+							<label for="supportAttachments">{{ _("Attachments") }}</label>
+							<input id="supportAttachments" type="file" class="form-control-file" name="attachments" multiple>
 							<small class="form-text text-muted">{{ _("Upload photos, documents, or other files") }}</small>
 						</div>
 
 						<button type="submit" class="btn btn-primary btn-block">
-							<i class="fa fa-paper-plane"></i> {{ _("Submit Request") }}
+							<i class="fa fa-paper-plane" aria-hidden="true"></i> {{ _("Submit Request") }}
 						</button>
 					</form>
 				</div>
@@ -271,19 +272,23 @@ document.addEventListener('DOMContentLoaded', function() {
 	const faqSearch = document.getElementById('faqSearch');
 	const faqItems = document.querySelectorAll('.faq-item');
 
+	const faqStatus = document.getElementById('faqSearchStatus');
 	faqSearch.addEventListener('input', function() {
 		const query = this.value.toLowerCase();
+		let shown = 0;
 
 		faqItems.forEach(item => {
 			const question = item.querySelector('.faq-question').textContent.toLowerCase();
 			const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
 			const match = question.includes(query) || answer.includes(query);
 			item.style.display = match ? 'block' : 'none';
+			if (match) shown += 1;
 
 			if (match && query.length > 2) {
 				item.classList.add('open');
 			}
 		});
+		faqStatus.textContent = query ? __('{0} matching answers', [shown]) : '';
 	});
 
 	// Support ticket form

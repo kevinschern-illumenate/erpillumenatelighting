@@ -6,7 +6,7 @@
     {{ group.get('family') | e }} · {{ members | length }} {{ _(group.get('run_noun') or 'runs') | e }}
   </strong>
   {% if line.get('group_part_number') %}<div class="small"><strong>{{ line.get('group_part_number') | e }}</strong></div>{% endif %}
-  <div class="small text-muted"><i class="fa fa-tag"></i> SPEC: <strong>{{ group.get('template') | e }}</strong></div>
+  <div class="small text-muted"><i class="fa fa-tag" aria-hidden="true"></i> SPEC: <strong>{{ group.get('template') | e }}</strong></div>
   <div class="small">
     {% if group.get('total_length') %}{{ group.get('total_length') | e }} {{ _('total') }} · {% endif %}{{ group.get('total_watts') | e }} W ·
     {% if group.get('separate_supply_line') %}{{ _('Power supplies on the line below') }}

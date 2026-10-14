@@ -123,7 +123,7 @@ Also handles new project creation when is_new is True
 
 {% macro party_modals() %}
 	<!-- New company or person (end client or project team), shared by create and edit -->
-	<div class="modal fade" id="partyModal" tabindex="-1" role="dialog" aria-labelledby="partyModalTitle">
+	<div class="modal fade" id="partyModal" tabindex="-1" role="dialog" aria-labelledby="partyModalTitle" aria-modal="true">
 		<div class="modal-dialog" role="document">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -166,7 +166,7 @@ Also handles new project creation when is_new is True
 	</div>
 
 	<!-- New contact (project manager), shared by create and edit -->
-	<div class="modal fade" id="contactModal" tabindex="-1" role="dialog" aria-labelledby="contactModalTitle">
+	<div class="modal fade" id="contactModal" tabindex="-1" role="dialog" aria-labelledby="contactModalTitle" aria-modal="true">
 		<div class="modal-dialog" role="document">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -219,7 +219,7 @@ Also handles new project creation when is_new is True
 								<span class="js-schedule-name">{{ schedule.schedule_name | e }}</span>
 								<span class="badge badge-secondary" style="font-size: 0.7em;">v{{ (schedule.version or 1) | e }}</span>
 								{% if schedule.is_locked %}
-								<span class="badge badge-dark" style="font-size: 0.7em;"><i class="fa fa-lock"></i></span>
+								<span class="badge badge-dark" style="font-size: 0.7em;"><i class="fa fa-lock" aria-hidden="true"></i></span>
 								{% endif %}
 							</h5>
 							<small class="text-muted">
@@ -232,11 +232,11 @@ Also handles new project creation when is_new is True
 							{{ schedule_status_label(schedule.status) | e }}
 						</span>
 						{% if can_edit %}
-						<button type="button" class="btn btn-sm btn-outline-secondary mr-1 js-rename-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Rename') }}">
-							<i class="fa fa-pencil"></i>
+						<button type="button" class="btn btn-sm btn-outline-secondary mr-1 js-rename-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Rename') }}" aria-label="{{ _('Rename schedule') }}">
+							<i class="fa fa-pencil" aria-hidden="true"></i>
 						</button>
-						<button type="button" class="btn btn-sm btn-outline-danger js-delete-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
-							<i class="fa fa-trash"></i>
+						<button type="button" class="btn btn-sm btn-outline-danger js-delete-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Delete') }}" aria-label="{{ _('Delete schedule') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
+							<i class="fa fa-trash" aria-hidden="true"></i>
 						</button>
 						{% endif %}
 					</div>
@@ -313,7 +313,7 @@ Also handles new project creation when is_new is True
 								<strong>{{ _("End client") }}:</strong> {{ (customer_label or project.customer) | e }}
 								{% if project.is_private %}
 								<span class="badge badge-secondary ml-2">
-									<i class="fa fa-lock"></i> {{ _("Private") }}
+									<i class="fa fa-lock" aria-hidden="true"></i> {{ _("Private") }}
 								</span>
 								{% endif %}
 							</p>
@@ -324,18 +324,18 @@ Also handles new project creation when is_new is True
 						{% if can_edit %}
 						<div class="btn-group">
 							<button type="button" class="btn btn-outline-primary js-edit-project">
-								<i class="fa fa-pencil"></i> {{ _("Edit") }}
+								<i class="fa fa-pencil" aria-hidden="true"></i> {{ _("Edit") }}
 							</button>
 							<a href="/portal/projects/{{ project.name | e }}/collaborators" class="btn btn-outline-secondary">
-								<i class="fa fa-users"></i> {{ _("Collaborators") }}
+								<i class="fa fa-users" aria-hidden="true"></i> {{ _("Collaborators") }}
 							</a>
 							{% if project.status != 'ARCHIVED' %}
 							<button class="btn btn-outline-warning" onclick="confirmArchiveProject()">
-								<i class="fa fa-archive"></i> {{ _("Archive") }}
+								<i class="fa fa-archive" aria-hidden="true"></i> {{ _("Archive") }}
 							</button>
 							{% else %}
 							<button class="btn btn-outline-success" onclick="confirmUnarchiveProject()">
-								<i class="fa fa-undo"></i> {{ _("Unarchive") }}
+								<i class="fa fa-undo" aria-hidden="true"></i> {{ _("Unarchive") }}
 							</button>
 							{% endif %}
 						</div>
@@ -405,19 +405,19 @@ Also handles new project creation when is_new is True
 	<ul class="nav nav-tabs mb-4" role="tablist">
 		<li class="nav-item">
 			<a class="nav-link active" id="schedules-tab" data-toggle="tab" href="#schedules" role="tab">
-				<i class="fa fa-list"></i> {{ _("Fixture Schedules") }}
+				<i class="fa fa-list" aria-hidden="true"></i> {{ _("Fixture Schedules") }}
 			</a>
 		</li>
 		{% if system_designs is defined and system_designs is not none %}
 		<li class="nav-item">
 			<a class="nav-link" id="designs-tab" data-toggle="tab" href="#designs" role="tab">
-				<i class="fa fa-sitemap"></i> {{ _("Designs") }}
+				<i class="fa fa-sitemap" aria-hidden="true"></i> {{ _("Designs") }}
 			</a>
 		</li>
 		{% endif %}
 		<li class="nav-item">
 			<a class="nav-link" id="files-tab" data-toggle="tab" href="#files" role="tab">
-				<i class="fa fa-file"></i> {{ _("Files") }}
+				<i class="fa fa-file" aria-hidden="true"></i> {{ _("Files") }}
 			</a>
 		</li>
 	</ul>
@@ -429,7 +429,7 @@ Also handles new project creation when is_new is True
 				<h4>{{ _("Fixture Schedules") }}</h4>
 				{% if can_edit %}
 				<a href="/portal/projects/{{ project.name | e }}/schedules/new" class="btn btn-primary">
-					<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
+					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Create Schedule") }}
 				</a>
 				{% endif %}
 			</div>
@@ -452,11 +452,11 @@ Also handles new project creation when is_new is True
 			</div>
 			{% else %}
 			<div class="text-center py-5">
-				<i class="fa fa-clipboard fa-3x text-muted mb-3"></i>
+				<i class="fa fa-clipboard fa-3x text-muted mb-3" aria-hidden="true"></i>
 				<p class="text-muted">{{ _("No schedules found. Create a schedule to start configuring fixtures.") }}</p>
 				{% if can_edit %}
 				<a href="/portal/projects/{{ project.name | e }}/schedules/new" class="btn btn-primary">
-					<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
+					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Create Schedule") }}
 				</a>
 				{% endif %}
 			</div>
@@ -483,7 +483,7 @@ Also handles new project creation when is_new is True
 			</div>
 			{% else %}
 			<div class="text-center py-5">
-				<i class="fa fa-sitemap fa-3x text-muted mb-3"></i>
+				<i class="fa fa-sitemap fa-3x text-muted mb-3" aria-hidden="true"></i>
 				<p class="text-muted">{{ _("No system designs yet. Open a schedule and choose Design System to start one.") }}</p>
 			</div>
 			{% endif %}
@@ -496,8 +496,8 @@ Also handles new project creation when is_new is True
 				<h4>{{ _("Exported Documents") }}</h4>
 			</div>
 			<div id="projectFilesContainer">
-				<div class="text-center py-3">
-					<i class="fa fa-spinner fa-spin"></i> {{ _("Loading exported documents...") }}
+				<div class="text-center py-3" role="status">
+					<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> {{ _("Loading exported documents...") }}
 				</div>
 			</div>
 		</div>
@@ -506,7 +506,7 @@ Also handles new project creation when is_new is True
 
 	{% if can_edit %}
 	<!-- Edit Project Modal -->
-	<div class="modal fade" id="editProjectModal" tabindex="-1" role="dialog" aria-labelledby="editProjectModalTitle">
+	<div class="modal fade" id="editProjectModal" tabindex="-1" role="dialog" aria-labelledby="editProjectModalTitle" aria-modal="true">
 		<div class="modal-dialog modal-lg" role="document">
 			<div class="modal-content">
 				<div class="modal-header">
@@ -534,20 +534,20 @@ Also handles new project creation when is_new is True
 	{% endif %}
 
 	<!-- Rename Schedule Modal -->
-	<div class="modal fade" id="renameScheduleModal" tabindex="-1" role="dialog">
+	<div class="modal fade" id="renameScheduleModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="renameScheduleModalTitle">
 		<div class="modal-dialog" role="document">
 			<div class="modal-content">
 				<div class="modal-header">
-					<h5 class="modal-title">{{ _("Rename Schedule") }}</h5>
-					<button type="button" class="close" data-dismiss="modal">
-						<span>&times;</span>
+					<h5 class="modal-title" id="renameScheduleModalTitle">{{ _("Rename Schedule") }}</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+						<span aria-hidden="true">&times;</span>
 					</button>
 				</div>
 				<div class="modal-body">
 					<form id="renameScheduleForm">
 						<input type="hidden" id="renameScheduleId">
 						<div class="form-group">
-							<label>{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
+							<label for="renameScheduleName">{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
 							<input type="text" class="form-control" id="renameScheduleName" name="new_schedule_name" required>
 						</div>
 					</form>
@@ -555,7 +555,7 @@ Also handles new project creation when is_new is True
 				<div class="modal-footer">
 					<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
 					<button type="button" class="btn btn-primary" onclick="renameSchedule()">
-						<i class="fa fa-check"></i> {{ _("Rename") }}
+						<i class="fa fa-check" aria-hidden="true"></i> {{ _("Rename") }}
 					</button>
 				</div>
 			</div>
@@ -799,7 +799,7 @@ function loadProjectFiles() {
             } else {
                 $('#projectFilesContainer').html(
                     '<div class="text-center text-muted py-3">' +
-                    '<i class="fa fa-exclamation-circle"></i> ' +
+                    '<i class="fa fa-exclamation-circle" aria-hidden="true"></i> ' +
                     (r.message && r.message.error ? r.message.error : 'Error loading files') +
                     '</div>'
                 );
@@ -812,7 +812,7 @@ function renderProjectFiles(files) {
     if (!files || files.length === 0) {
         $('#projectFilesContainer').html(
             '<div class="text-center text-muted py-5">' +
-            '<i class="fa fa-folder-open fa-3x mb-3 d-block"></i>' +
+            '<i class="fa fa-folder-open fa-3x mb-3 d-block" aria-hidden="true"></i>' +
             'No exported documents yet. Export documents from your fixture schedules to see them here.' +
             '</div>'
         );
@@ -848,7 +848,7 @@ function renderProjectFiles(files) {
         html += '<td>';
         if (file.output_file) {
             html += '<a href="' + PortalUI.escape(file.output_file) + '" target="_blank" class="btn btn-sm btn-outline-primary">';
-            html += '<i class="fa fa-download"></i> Download</a>';
+            html += '<i class="fa fa-download" aria-hidden="true"></i> Download</a>';
         } else {
             html += '<span class="text-muted">-</span>';
         }

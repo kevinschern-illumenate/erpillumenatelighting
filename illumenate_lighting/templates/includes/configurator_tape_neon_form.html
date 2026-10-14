@@ -29,7 +29,7 @@ Context:
 					{% if templates %}
 					<div class="config-step" id="stepTemplate">
 						<div class="option-group">
-							<label class="option-label">{{ _("Template") }} <span class="text-danger">*</span></label>
+							<label for="tapeNeonTemplateSelect" class="option-label">{{ _("Template") }} <span class="text-danger">*</span></label>
 							<div id="tapeNeonTemplatePicker"></div>
 							<select class="form-control" id="tapeNeonTemplateSelect">
 								<option value="">{{ _("Select Template...") }}</option>
@@ -45,7 +45,7 @@ Context:
 					{% if not is_neon %}
 					<div class="config-step" id="stepEnvironment">
 						<div class="option-group">
-							<label class="option-label">{{ _("Environment Rating") }}</label>
+							<label for="selEnvironment" class="option-label">{{ _("Environment Rating") }}</label>
 							<div class="pill-selector" id="pillEnvironment"></div>
 							<select class="form-control select-fallback" id="selEnvironment">
 								<option value="">{{ _("Select...") }}</option>
@@ -57,7 +57,7 @@ Context:
 					<!-- STEP 2: CCT -->
 					<div class="config-step{% if not is_neon %} disabled-step{% endif %}" id="stepCCT">
 						<div class="option-group">
-							<label class="option-label">{{ _("CCT (Correlated Color Temperature)") }} <span class="text-danger">*</span></label>
+							<label for="selCCT" class="option-label">{{ _("CCT (Correlated Color Temperature)") }} <span class="text-danger">*</span></label>
 							<div class="pill-selector" id="pillCCT"></div>
 							<select class="form-control select-fallback" id="selCCT">
 								<option value="">{{ _("Select...") }}</option>
@@ -68,7 +68,7 @@ Context:
 					<!-- STEP 3: Output -->
 					<div class="config-step disabled-step" id="stepOutput">
 						<div class="option-group">
-							<label class="option-label">{{ _("Output Level") }} <span class="text-danger">*</span></label>
+							<label for="selOutput" class="option-label">{{ _("Output Level") }} <span class="text-danger">*</span></label>
 							<div class="pill-selector" id="pillOutput"></div>
 							<select class="form-control select-fallback" id="selOutput">
 								<option value="">{{ _("Select...") }}</option>
@@ -80,7 +80,7 @@ Context:
 					<!-- NEON: Finish step (mounting moved to post-config accessory) -->
 					<div class="config-step disabled-step" id="stepFinish">
 						<div class="option-group">
-							<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+							<label for="selFinish" class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
 							<div class="pill-selector" id="pillFinish"></div>
 							<select class="form-control select-fallback" id="selFinish">
 								<option value="">{{ _("Select...") }}</option>
@@ -97,20 +97,20 @@ Context:
 
 						<!-- Feed Direction (always End Feed for tape) -->
 						<div class="option-group">
-							<label class="option-label">{{ _("Feed Direction") }}</label>
-							<input type="text" class="form-control" value="End Feed" disabled>
+							<label for="tapeFeedDirection" class="option-label">{{ _("Feed Direction") }}</label>
+							<input id="tapeFeedDirection" type="text" class="form-control" value="End Feed" disabled>
 							<input type="hidden" id="feedDirection" value="End Feed">
 						</div>
 
 						<!-- Lead Length (inches) -->
 						<div class="option-group">
-							<label class="option-label">{{ _("Lead Length (inches)") }} <span class="text-danger">*</span></label>
+							<label for="leadLengthInches" class="option-label">{{ _("Lead Length (inches)") }} <span class="text-danger">*</span></label>
 							<input type="number" class="form-control" id="leadLengthInches" min="0" step="0.25" placeholder="e.g. 12">
 						</div>
 
 						<!-- Tape Length -->
 						<div class="option-group">
-							<label class="option-label">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
+							<label for="tapeLengthValue" class="option-label">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
 
 							<!-- Unit selector tabs -->
 							<ul class="nav nav-pills mb-2 length-unit-tabs" id="tapeLengthUnitTabs">
@@ -134,10 +134,10 @@ Context:
 							<div id="tapeLengthFtIn" style="display: none;">
 								<div class="row">
 									<div class="col-6">
-										<input type="number" class="form-control" id="tapeLengthFeet" min="0" step="1" placeholder="Feet">
+										<input type="number" class="form-control" id="tapeLengthFeet" min="0" step="1" placeholder="Feet" aria-label="{{ _('Tape length, feet') }}">
 									</div>
 									<div class="col-6">
-										<input type="number" class="form-control" id="tapeLengthInches" min="0" step="0.125" placeholder="Inches">
+										<input type="number" class="form-control" id="tapeLengthInches" min="0" step="0.125" placeholder="Inches" aria-label="{{ _('Tape length, inches') }}">
 									</div>
 								</div>
 							</div>
@@ -157,7 +157,7 @@ Context:
 						<div id="neonSegmentContainer"></div>
 
 						<button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnAddNeonSegment">
-							<i class="fa fa-plus"></i> {{ _("Add Segment") }}
+							<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Segment") }}
 						</button>
 					</div>
 					{% endif %}
@@ -177,7 +177,7 @@ Context:
 						<label for="overrideMaxRunInput">{{ _("Maximum run length (ft)") }}</label>
 						<input type="number" id="overrideMaxRunInput" name="override_max_run_ft" class="form-control mb-3" min="0.5" step="0.5">
 						<button type="button" class="btn btn-primary btn-block" id="btnCalculate" disabled>
-							<i class="fa fa-calculator"></i> {{ _("Calculate") }}
+							<i class="fa fa-calculator" aria-hidden="true"></i> {{ _("Calculate") }}
 						</button>
 					</div>
 				</form>
@@ -189,7 +189,7 @@ Context:
 	<div class="col-lg-5">
 		<div class="card mb-3" id="resultsCard" style="display: none;">
 			<div class="card-header bg-success text-white">
-				<h5 class="mb-0"><i class="fa fa-check-circle"></i> {{ _("Configuration Result") }}</h5>
+				<h5 class="mb-0"><i class="fa fa-check-circle" aria-hidden="true"></i> {{ _("Configuration Result") }}</h5>
 			</div>
 			<div class="card-body">
 				<!-- Part Number -->
@@ -239,7 +239,7 @@ Context:
 				</div>
 
 				<!-- Messages / Warnings -->
-				<div id="resultMessages" class="mt-2"></div>
+				<div id="resultMessages" class="mt-2" aria-live="polite"></div>
 
 				<!-- Run Breakdown (when split into multiple runs) -->
 				<div id="resultRunBreakdown" class="mt-2" style="display: none;">
@@ -262,7 +262,7 @@ Context:
 					</div>
 					<div id="mountingAccessoryQtyRow" class="mt-2" style="display: none;">
 						<div class="form-inline">
-							<label class="mr-2">{{ _("Qty:") }}</label>
+							<label for="mountingAccessoryQty" class="mr-2">{{ _("Qty:") }}</label>
 							<input type="number" class="form-control form-control-sm" id="mountingAccessoryQty"
 								   min="0" value="0" style="width: 80px;">
 							<span class="ml-2" id="mountingAccessoryPriceCalc"></span>
@@ -273,7 +273,7 @@ Context:
 				<!-- Save to Schedule -->
 				<hr>
 				<button type="button" class="btn btn-success btn-block" id="btnSaveToSchedule">
-					<i class="fa fa-save"></i> {{ _("Save to Schedule") }}
+					<i class="fa fa-save" aria-hidden="true"></i> {{ _("Save to Schedule") }}
 				</button>
 			</div>
 		</div>
@@ -281,10 +281,10 @@ Context:
 		<!-- Validation Errors -->
 		<div class="card mb-3" id="errorsCard" style="display: none;">
 			<div class="card-header bg-danger text-white">
-				<h5 class="mb-0"><i class="fa fa-exclamation-triangle"></i> {{ _("Validation Error") }}</h5>
+				<h5 class="mb-0"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ _("Validation Error") }}</h5>
 			</div>
 			<div class="card-body">
-				<p id="errorMessage"></p>
+				<p id="errorMessage" role="alert"></p>
 			</div>
 		</div>
 	</div>

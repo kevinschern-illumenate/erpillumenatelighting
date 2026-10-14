@@ -18,7 +18,7 @@ Browse ilL-Webflow-Product records with attribute filtering
 			<p class="text-muted mb-0" id="catalogResultCount" aria-live="polite"></p>
 		</div>
 		<a href="/portal" class="btn btn-outline-secondary btn-sm">
-			<i class="fa fa-arrow-left"></i> {{ _("Portal") }}
+			<i class="fa fa-arrow-left" aria-hidden="true"></i> {{ _("Portal") }}
 		</a>
 	</div>
 
@@ -27,8 +27,8 @@ Browse ilL-Webflow-Product records with attribute filtering
 		<aside class="filter-sidebar" id="filterSidebar">
 			<div class="d-flex justify-content-between align-items-center mb-3 d-md-none">
 				<strong>{{ _("Filters") }}</strong>
-				<button class="btn btn-sm btn-link" onclick="toggleMobileFilters()">
-					<i class="fa fa-times"></i>
+				<button class="btn btn-sm btn-link" onclick="toggleMobileFilters()" aria-label="{{ _('Close filters') }}">
+					<i class="fa fa-times" aria-hidden="true"></i>
 				</button>
 			</div>
 			<h6>{{ _("Product Type") }}</h6>
@@ -46,12 +46,12 @@ Browse ilL-Webflow-Product records with attribute filtering
 		<div class="catalog-main" style="flex:1;min-width:0">
 			<!-- Mobile filter toggle -->
 			<button class="btn btn-outline-secondary btn-sm d-md-none mb-3" onclick="toggleMobileFilters()">
-				<i class="fa fa-filter"></i> {{ _("Filters") }}
+				<i class="fa fa-filter" aria-hidden="true"></i> {{ _("Filters") }}
 			</button>
 
 			<!-- Search -->
 			<div class="catalog-search">
-				<i class="fa fa-search"></i>
+				<i class="fa fa-search" aria-hidden="true"></i>
 				<label for="catalogSearch" class="sr-only">{{ _("Search name, model or series") }}</label>
 				<input type="search" id="catalogSearch" placeholder="{{ _('Search products…') }}">
 			</div>
@@ -64,7 +64,7 @@ Browse ilL-Webflow-Product records with attribute filtering
 
 			<!-- Empty state -->
 			<div class="catalog-empty" id="catalogEmpty" style="display:none">
-				<i class="fa fa-cube"></i>
+				<i class="fa fa-cube" aria-hidden="true"></i>
 				<p>{{ _("No products match your filters.") }}</p>
 			</div>
 

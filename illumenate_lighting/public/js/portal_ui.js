@@ -83,9 +83,25 @@
 	}
 
 	let toastRegion;
+	let announcer;
+	// Frappe's alert container is not a live region, so screen readers hear the same text from a
+	// visually hidden status region (UI-7). The region exists before its text changes so it is announced.
+	function announce(message) {
+		if (!announcer || !announcer.isConnected) {
+			announcer = document.createElement('div');
+			announcer.className = 'sr-only ill-announcer';
+			announcer.setAttribute('role', 'status');
+			announcer.setAttribute('aria-live', 'polite');
+			document.body.append(announcer);
+		}
+		announcer.textContent = '';
+		setTimeout(() => { announcer.textContent = String(message); }, 50);
+	}
+
 	function toast(message, tone) {
 		if (frappe.show_alert) {
 			frappe.show_alert({message: escape(message), indicator: tone || 'green'});
+			announce(message);
 			return;
 		}
 		if (!toastRegion || !toastRegion.isConnected) {
@@ -243,5 +259,5 @@
 		return box;
 	}
 
-	window.PortalUI = {call, toast, confirm, escape, fieldErrors, serverMessage, skeleton, empty, failed};
+	window.PortalUI = {call, toast, announce, confirm, escape, fieldErrors, serverMessage, skeleton, empty, failed};
 })();

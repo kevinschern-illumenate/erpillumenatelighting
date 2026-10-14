@@ -157,6 +157,41 @@ assert unescaped_outputs("x", "{{ doc.notes | safe }}{{ a or b | e }}") == [
 	"x:1: {{ doc.notes | safe }}",
 	"x:1: {{ a or b | e }}",
 ]
+# UI-7: every <label> names its control: for="<id>", a wrapped control, or an id that aria-labelledby
+# points at (a caption for a group such as pills). Pill labels are clickable choices, not captions, and
+# labels inside a <template> are cloned per segment, so ids would repeat; their controls carry aria-label.
+LABEL = re.compile(r"<label\b([^>]*)>(.*?)</label>", re.DOTALL)
+LABEL_CONTROL = re.compile(r"<(?:input|select|textarea)\b")
+TEMPLATE_BLOCK = re.compile(r"<template\b.*?</template>", re.DOTALL)
+label_violations = []
+
+
+def unlabelled_labels(name, source):
+	templates = [(block.start(), block.end()) for block in TEMPLATE_BLOCK.finditer(source)]
+	labelledby = set(" ".join(re.findall(r"""aria-labelledby=["']([^"']+)""", source)).split())
+	found = []
+	for label in LABEL.finditer(source):
+		attrs = label.group(1)
+		label_id = re.search(r"""\bid=["']([^"']+)""", attrs)
+		if (
+			re.search(r"\bfor=", attrs)
+			or LABEL_CONTROL.search(label.group(2))
+			or (label_id and label_id.group(1) in labelledby)
+			or "pill-option" in attrs
+			or any(start <= label.start() < end for start, end in templates)
+		):
+			continue
+		found.append(f"{name}:{source.count(chr(10), 0, label.start()) + 1}: <label{attrs}>")
+	return found
+
+
+assert unlabelled_labels("x", "<label>Name</label><input name='n'>") == ["x:1: <label>"]
+assert not unlabelled_labels(
+	"x",
+	'<label for="n">Name</label><label><input type="checkbox"> Yes</label>'
+	'<label id="t">Type</label><div role="radiogroup" aria-labelledby="t"></div>'
+	"<template><label>Start</label></template>",
+)
 unescaped = []
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	source = path.read_text(encoding="utf8")
@@ -164,6 +199,8 @@ for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	parsed += 1
 	if path.parent.name in ("pages", "includes", "print"):
 		unescaped += unescaped_outputs(path.relative_to(ROOT / "illumenate_lighting"), source)
+	if path.parent.name in ("pages", "includes"):
+		label_violations += unlabelled_labels(path.relative_to(ROOT), source)
 	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
 	if path.parent.name == "pages":
 		style_violations += page_style_violations(path.relative_to(ROOT), source)
@@ -176,6 +213,11 @@ if unescaped:
 	sys.exit(
 		"Escape template outputs with | e (| tojson in scripts), or list them in "
 		"tools/portal_raw_outputs.txt with why they are safe (SEC-2):\n  " + "\n  ".join(unescaped)
+	)
+if label_violations:
+	sys.exit(
+		'Point each <label> at its control with for="<id>" (add the id), or wrap the control (UI-7):\n  '
+		+ "\n  ".join(label_violations)
 	)
 if handler_violations:
 	sys.exit(
