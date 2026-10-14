@@ -421,6 +421,27 @@ assert "Shop &lt;Drawing&gt;" in drawings_page and "Lobby &lt;Refit&gt;" in draw
 assert 'data-value="shop_drawing"' not in drawings_page, "request types come from Desk"
 parser.feed(drawings_page)
 (render_dir / "drawings.html").write_text(drawings_page, encoding="utf8")
+overview = environment.get_template("templates/pages/portal.html")
+overview_context = {
+	"greeting": "Good morning",
+	"user_name": "Dana <D>",
+	"customer_name": "Acme & Co",
+	"recent_projects": [View(name="P-1", project_name="Lobby <Refit>", customer="Acme", status="ACTIVE")],
+	"recent_orders": [],
+	"finder_banner": None,
+	"path": "portal",
+}
+overview_actions = [
+	{"kind": "offer", "title": "Respond to quote <Q-1>", "context": "Lobby <Refit>", "due_label": "Expires in 3 days", "link": "/portal/quotes/Q-1", "tone": "warning"},
+	{"kind": "schedule", "title": "Configure 2 lines in Main", "context": None, "due_label": None, "link": "/portal/schedules/S-1", "tone": "info"},
+]
+for name, actions in (("overview", overview_actions), ("overview-empty", [])):
+	overview_html = overview.render(action_items=actions, **overview_context)
+	assert not actions or "Respond to quote &lt;Q-1&gt;" in overview_html, "action text is escaped"
+	assert ("all caught up" in overview_html) == (not actions)
+	assert 'aria-current="page">Overview' in overview_html
+	parser.feed(overview_html)
+	(render_dir / f"{name}.html").write_text(overview_html, encoding="utf8")
 for name, signed_in_as in (("guest", None), ("signed-in", "Invitee@Studio.test")):
 	accept_html = accept_page.render(signed_in_as=signed_in_as, signup_enabled=True)
 	(render_dir / f"accept-invitation-{name}.html").write_text(accept_html, encoding="utf8")

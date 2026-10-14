@@ -60,6 +60,22 @@ ISSUE_STATUS_NOTE = (
 )
 
 
+def is_unconfigured(line):
+	"""True for an ilLumenate line (or templated power supply) still waiting for its configuration."""
+	if line.manufacturer_type == "ILLUMENATE":
+		if line.get("configured_group"):
+			return False
+		# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
+		if line.product_type in (*TAPE_NEON_CATEGORIES, "Extrusion Kit"):
+			return not line.get("variant_selections") and not line.get("configured_tape_neon")
+		# LED Sheet lines are configured when a configured LED Sheet record exists
+		if line.product_type == "LED Sheet":
+			return not line.get("configured_led_sheet")
+		return not line.get("configured_fixture")
+	# A power supply added from its template is configured in the power supply configurator.
+	return line.manufacturer_type == "ACCESSORY" and bool(line.get("driver_template")) and not line.get("accessory_item")
+
+
 def _validate_tape_neon_mode(mode):
 	"""Normalise and validate a tape/neon representation mode."""
 	mode = (mode or TAPE_NEON_MODE_CONFIGURED).strip()
@@ -163,27 +179,7 @@ class ilLProjectFixtureSchedule(Document):
 		if self.status not in CONFIGURED_REQUIRED_STATUSES:
 			return
 
-		unconfigured_lines = []
-		for line in self.lines:
-			if line.manufacturer_type == "ILLUMENATE":
-				if line.get("configured_group"):
-					continue
-				# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
-				if line.product_type in (*TAPE_NEON_CATEGORIES, "Extrusion Kit"):
-					if not line.variant_selections and not line.get("configured_tape_neon"):
-						line_id = line.line_id or f"Row {line.idx}"
-						unconfigured_lines.append(line_id)
-				# LED Sheet lines are configured when a configured LED Sheet record exists
-				elif line.product_type == "LED Sheet":
-					if not line.configured_led_sheet:
-						line_id = line.line_id or f"Row {line.idx}"
-						unconfigured_lines.append(line_id)
-				elif not line.configured_fixture:
-					line_id = line.line_id or f"Row {line.idx}"
-					unconfigured_lines.append(line_id)
-			elif line.manufacturer_type == "ACCESSORY" and line.get("driver_template") and not line.accessory_item:
-				# A power supply added from its template is configured in the power supply configurator.
-				unconfigured_lines.append(line.line_id or f"Row {line.idx}")
+		unconfigured_lines = [line.line_id or f"Row {line.idx}" for line in self.lines if is_unconfigured(line)]
 
 		if unconfigured_lines:
 			frappe.throw(

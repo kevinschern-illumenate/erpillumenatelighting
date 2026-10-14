@@ -1,471 +1,132 @@
 {#
-Portal Landing Page - Main Dashboard
-Central hub for portal users to access all features
+Portal overview (FLOW-1): what needs the user's attention, recent activity and quick actions.
 #}
 {% extends "templates/portal_base.html" %}
 
-{% block portal_title %}{{ _("Portal") }}{% endblock %}
+{% block portal_title %}{{ _("Overview") }}{% endblock %}
 
 {% block style %}
 <style>
-.portal-dashboard {
-	padding: 2rem 0;
+.portal-dashboard .ill-attention { list-style: none; padding: 0; margin: 0 0 2rem; }
+.portal-dashboard .ill-attention li { margin-bottom: .5rem; }
+.portal-dashboard .ill-attention a {
+	display: flex; align-items: center; gap: 1rem; padding: .875rem 1rem;
+	background: var(--ill-surface, #fff); border: 1px solid var(--ill-navy-100);
+	border-left: 4px solid var(--ill-blue-600); border-radius: var(--ill-radius-card);
+	color: var(--ill-ink); text-decoration: none;
 }
-.portal-hero {
-	background: 
-		radial-gradient(50% 50% at 50% 50%, rgba(32, 196, 232, 0.20) 0%, rgba(76, 201, 240, 0.05) 100%),
-		linear-gradient(117deg, #172E48 0%, #00588C 100%);
-	background-blend-mode: overlay, normal;
-	color: white;
-	padding: 3rem 2.5rem;
-	border-radius: var(--ill-radius-panel);
-	box-shadow: var(--ill-shadow-card);
-	margin-bottom: 2rem;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 2rem;
-}
-.portal-hero-text {
-	flex: 1;
-}
-.portal-hero-logo {
-	flex-shrink: 0;
-}
-.portal-hero-logo img {
-	display: block;
-	height: 96px;
-	width: auto;
-	opacity: 0.95;
-	filter: brightness(0) invert(1);
-}
-.portal-hero h1 {
-	font-family: var(--ill-font-display);
-	font-size: 2.5rem;
-	font-weight: 600;
-	letter-spacing: -0.02em;
-	margin-bottom: 0.5rem;
-    color: white;
-}
-.portal-hero .subtitle {
-	font-size: 1.1rem;
-	font-weight: 300;
-	opacity: 0.85;
-	margin-bottom: 0;
-}
-@media (max-width: 576px) {
-	.portal-hero {
-		flex-direction: column;
-		text-align: center;
-	}
-	.portal-hero-logo img {
-		height: 64px;
-	}
-}
-.portal-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	transition: transform var(--ill-transition-normal), box-shadow var(--ill-transition-normal), border-color var(--ill-transition-normal);
-	height: 100%;
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-}
-.portal-card:hover {
-	transform: translateY(-3px);
-	border-color: var(--ill-blue-200);
-	box-shadow: var(--ill-shadow-elevated);
-}
-.portal-card-header {
-	padding: 1.5rem;
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-	border-bottom: 1px solid var(--ill-gray-200);
-}
-.portal-card-icon {
-	width: 48px;
-	height: 48px;
-	border-radius: 14px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-.portal-card-icon img {
-	width: 28px;
-	height: 28px;
-}
-/* One brand tint for every section icon (Design System: single accent per screen) */
-.portal-card-icon.projects,
-.portal-card-icon.orders,
-.portal-card-icon.drawings,
-.portal-card-icon.resources,
-.portal-card-icon.support,
-.portal-card-icon.account { background: var(--ill-blue-100); color: var(--ill-blue-600); }
-.portal-card-icon .fa { font-size: 22px; }
-.portal-card-header h5 { font-family: var(--ill-font-display); font-weight: 600; }
-.portal-card-body {
-	padding: 1.5rem;
-	flex: 1;
-}
-.portal-card-body p {
-	color: var(--ill-text-secondary);
-	margin-bottom: 1rem;
-}
-.portal-card-footer {
-	padding: 1rem 1.5rem;
-	background: var(--ill-surface-soft);
-	border-top: 1px solid var(--ill-gray-200);
-}
-.stat-badge {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 3px 10px;
-	border-radius: var(--ill-radius-pill);
-	font-size: 0.8rem;
-	font-weight: 500;
-}
-.stat-badge.active { background: var(--ill-green-100); color: var(--ill-green); }
-.stat-badge.pending { background: var(--ill-gold-200); color: var(--ill-gold-ink); }
-.stat-badge.new { background: var(--ill-blue-100); color: var(--ill-blue-800); }
-.quick-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-.quick-actions .btn-sm {
-	font-size: 0.8rem;
-	padding: 0.375rem 0.75rem;
-}
-.recent-list {
-	list-style: none;
-	padding: 0;
-	margin: 0;
-}
-.recent-list li {
-	padding: 0.75rem 0;
-	border-bottom: 1px solid var(--ill-gray-200);
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-.recent-list li:last-child {
-	border-bottom: none;
-}
-.recent-list .item-name {
-	font-weight: 500;
-	color: var(--ill-ink);
-}
-.recent-list .item-meta {
-	font-size: 0.8rem;
-	color: var(--ill-gray-500);
-}
-.section-title {
-	font-family: var(--ill-font-display);
-	font-size: 1.25rem;
-	font-weight: 600;
-	margin-bottom: 1.5rem;
-	color: var(--ill-ink);
+.portal-dashboard .ill-attention a:hover, .portal-dashboard .ill-attention a:focus-visible { border-color: var(--ill-blue-200); box-shadow: var(--ill-shadow-card); }
+.portal-dashboard .ill-attention [data-tone="warning"] a { border-left-color: var(--ill-gold, #B7791F); }
+.portal-dashboard .ill-attention [data-tone="danger"] a { border-left-color: var(--ill-red, #C0392B); }
+.portal-dashboard .ill-attention__text { flex: 1; min-width: 0; }
+.portal-dashboard .ill-attention__title { display: block; font-weight: 600; }
+.portal-dashboard .ill-attention__context { display: block; font-size: .85rem; color: var(--ill-text-secondary); overflow-wrap: anywhere; }
+.portal-dashboard .ill-attention__due { flex-shrink: 0; font-size: .85rem; white-space: nowrap; }
+.portal-dashboard .ill-quick { display: flex; flex-wrap: wrap; gap: .5rem; }
+.recent-list { list-style: none; padding: 0; margin: 0; }
+.recent-list li { padding: .75rem 0; border-bottom: 1px solid var(--ill-gray-200); display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.recent-list li:last-child { border-bottom: none; }
+.recent-list .item-name { font-weight: 500; color: var(--ill-ink); }
+.recent-list .item-meta { font-size: .8rem; color: var(--ill-gray-500); }
+@media (max-width: 575px) {
+	.portal-dashboard .ill-attention a { flex-wrap: wrap; }
 }
 </style>
 {% endblock %}
 
-{% block portal_page_class %}portal-dashboard{% endblock %}
+{% block portal_page_class %}ill-commerce portal-dashboard{% endblock %}
+{% block portal_header %}
+	<header class="ill-hero">
+		<div class="ill-hero__top">
+			<div>
+				<p class="ill-hero__eyebrow">{{ customer_name or _("Dealer portal") }}</p>
+				<h1>{{ greeting }}{% if user_name %}, {{ user_name }}{% endif %}</h1>
+			</div>
+			<div class="ill-hero__actions ill-quick">
+				<a href="/portal/projects/new" class="btn btn-accent"><i class="fa fa-plus" aria-hidden="true"></i> {{ _("New project") }}</a>
+				<a href="/portal/configure" class="btn btn-outline-light">{{ _("Configure product") }}</a>
+				<a href="/portal/drawings" class="btn btn-outline-light">{{ _("Request drawing") }}</a>
+			</div>
+		</div>
+	</header>
+{% endblock %}
 {% block portal_content %}
-	<!-- Hero Section -->
-	<div class="portal-hero">
-		<div class="portal-hero-text">
-			<h1>{{ _("Welcome back") }}{% if user_name %}, {{ user_name }}{% endif %}</h1>
-			<p class="subtitle">{{ _("Your ilLumenate Lighting portal dashboard") }}</p>
-		</div>
-		<div class="portal-hero-logo">
-			<img src="/assets/illumenate_lighting/images/logo-white.svg" alt="ilLumenate Lighting">
-		</div>
-	</div>
-
-	<!-- Main Feature Cards -->
-	{% include "templates/includes/product_finder_banner.html" %}
-	<div class="row mb-4">
-		<!-- Projects Card -->
-		<div class="col-md-6 col-lg-4 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<div class="portal-card-icon projects">
-						<img src="/assets/illumenate_lighting/icons/projects.svg" alt="Projects">
-					</div>
-					<div>
-						<h5 class="mb-0">{{ _("Projects") }}</h5>
-						<small class="text-muted">{{ _("Fixture schedules & configurations") }}</small>
-					</div>
-				</div>
-				<div class="portal-card-body">
-					<p>{{ _("Create and manage lighting projects. Build fixture schedules and configure custom lighting solutions.") }}</p>
-					<div class="d-flex gap-2">
-						{% if stats.active_projects > 0 %}
-						<span class="stat-badge active">
-							<i class="fa fa-check-circle"></i> {{ stats.active_projects }} {{ _("Active") }}
-						</span>
-						{% endif %}
-						{% if stats.total_schedules > 0 %}
-						<span class="stat-badge new">
-							<i class="fa fa-list"></i> {{ stats.total_schedules }} {{ _("Schedules") }}
-						</span>
-						{% endif %}
-					</div>
-				</div>
-				<div class="portal-card-footer">
-					<div class="quick-actions">
-						<a href="/portal/projects" class="btn btn-primary btn-sm">
-							<i class="fa fa-folder"></i> {{ _("View Projects") }}
-						</a>
-						<a href="/portal/projects/new" class="btn btn-outline-primary btn-sm">
-							<i class="fa fa-plus"></i> {{ _("New Project") }}
-						</a>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Sales Orders Card -->
-		<div class="col-md-6 col-lg-4 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<div class="portal-card-icon orders">
-						<img src="/assets/illumenate_lighting/icons/salesorders.svg" alt="Sales Orders">
-					</div>
-					<div>
-						<h5 class="mb-0">{{ _("Sales Orders") }}</h5>
-						<small class="text-muted">{{ _("Track orders & shipments") }}</small>
-					</div>
-				</div>
-				<div class="portal-card-body">
-					<p>{{ _("View your sales orders, track production status, and monitor shipment progress.") }}</p>
-					<div class="d-flex gap-2 flex-wrap">
-						{% if stats.order_requests > 0 %}
-						<span class="stat-badge pending">
-							<i class="fa fa-hourglass-half"></i> {{ stats.order_requests }} {{ _("Awaiting Approval") }}
-						</span>
-						{% endif %}
-						{% if stats.pending_orders > 0 %}
-						<span class="stat-badge pending">
-							<i class="fa fa-clock-o"></i> {{ stats.pending_orders }} {{ _("In Progress") }}
-						</span>
-						{% endif %}
-						{% if stats.ready_orders > 0 %}
-						<span class="stat-badge active">
-							<i class="fa fa-truck"></i> {{ stats.ready_orders }} {{ _("Shipped") }}
-						</span>
-						{% endif %}
-					</div>
-				</div>
-				<div class="portal-card-footer">
-					<div class="quick-actions">
-						<a href="/portal/quotes" class="btn btn-outline-primary btn-sm">{{ _("View Quotes") }}</a>
-						<a href="/portal/orders" class="btn btn-primary btn-sm">
-							<i class="fa fa-list-alt"></i> {{ _("View Orders") }}
-						</a>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Drawings & Resources Card -->
-		<div class="col-md-6 col-lg-4 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<div class="portal-card-icon drawings">
-						<img src="/assets/illumenate_lighting/icons/drawings.svg" alt="Drawings">
-					</div>
-					<div>
-						<h5 class="mb-0">{{ _("Drawings & Docs") }}</h5>
-						<small class="text-muted">{{ _("Technical drawings & specs") }}</small>
-					</div>
-				</div>
-				<div class="portal-card-body">
-					<p>{{ _("Request custom drawings, download spec sheets, and access technical documentation.") }}</p>
-					<div class="d-flex gap-2 flex-wrap">
-						{% if stats.pending_drawings > 0 %}
-						<span class="stat-badge pending">
-							<i class="fa fa-hourglass-half"></i> {{ stats.pending_drawings }} {{ _("Pending") }}
-						</span>
-						{% endif %}
-						{% if stats.ready_drawings > 0 %}
-						<span class="stat-badge active">
-							<i class="fa fa-check"></i> {{ stats.ready_drawings }} {{ _("Ready") }}
-						</span>
-						{% endif %}
-					</div>
-				</div>
-				<div class="portal-card-footer">
-					<div class="quick-actions">
-						<a href="/portal/drawings" class="btn btn-primary btn-sm">
-							<i class="fa fa-pencil-square-o"></i> {{ _("Request Drawing") }}
-						</a>
-						<a href="/portal/resources" class="btn btn-outline-primary btn-sm">
-							<i class="fa fa-book"></i> {{ _("Resources") }}
-						</a>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		{% if can_view_catalog %}
-		<!-- Product Catalog Card (Dealers & staff) -->
-		<div class="col-md-6 col-lg-4 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<div class="portal-card-icon drawings">
-						<i class="fa fa-th-large fa-2x"></i>
-					</div>
-					<div>
-						<h5 class="mb-0">{{ _("Product Catalog") }}</h5>
-						<small class="text-muted">{{ _("Browse fixtures, tape, kits and components") }}</small>
-					</div>
-				</div>
-				<div class="portal-card-body">
-					<p>{{ _("Filter the ilLumenate catalog by attribute, review MSRP and configure products directly.") }}</p>
-				</div>
-				<div class="portal-card-footer">
-					<div class="quick-actions">
-						<a href="/portal/products" class="btn btn-outline-primary btn-sm">
-							<i class="fa fa-th-large"></i> {{ _("Browse Catalog") }}
-						</a>
-					</div>
-				</div>
-			</div>
+	<section aria-labelledby="attention-heading">
+		<h2 id="attention-heading" class="ill-subhead">{{ _("Needs your attention") }}{% if action_items %} <span class="ill-count">{{ action_items | length }}</span>{% endif %}</h2>
+		{% if action_items %}
+		<ul class="ill-attention" id="actionCenter">
+			{% for action in action_items %}
+			<li data-kind="{{ action.kind | e }}" data-tone="{{ action.tone | e }}">
+				<a href="{{ action.link | e }}">
+					<span class="ill-attention__text">
+						<span class="ill-attention__title">{{ action.title | e }}</span>
+						{% if action.context %}<span class="ill-attention__context">{{ action.context | e }}</span>{% endif %}
+					</span>
+					{% if action.due_label %}<span class="ill-attention__due ill-status ill-status--{{ action.tone | e }}">{{ action.due_label | e }}</span>{% endif %}
+				</a>
+			</li>
+			{% endfor %}
+		</ul>
+		{% else %}
+		<div class="ill-empty" id="actionCenterEmpty">
+			<i class="fa fa-check-circle" aria-hidden="true"></i>
+			<p>{{ _("You're all caught up.") }}</p>
+			<p class="text-muted">{{ _("Quotes to answer, orders to confirm and drawings to approve will show up here.") }}</p>
 		</div>
 		{% endif %}
-	</div>
+	</section>
 
-	<!-- Secondary Row -->
-	<div class="row mb-4">
-		<!-- Support Card -->
-		<div class="col-md-6 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<div class="portal-card-icon support">
-						<img src="/assets/illumenate_lighting/icons/support.svg" alt="Support">
-					</div>
-					<div>
-						<h5 class="mb-0">{{ _("Support") }}</h5>
-						<small class="text-muted">{{ _("Help & inquiries") }}</small>
-					</div>
-				</div>
-				<div class="portal-card-body">
-					<p>{{ _("Need assistance? Submit a support request or browse our FAQ and troubleshooting guides.") }}</p>
-				</div>
-				<div class="portal-card-footer">
-					<div class="quick-actions">
-						<a href="/portal/support" class="btn btn-primary btn-sm">
-							<i class="fa fa-ticket"></i> {{ _("Submit Request") }}
-						</a>
-						<a href="/portal/support/faq" class="btn btn-outline-primary btn-sm">
-							<i class="fa fa-question-circle"></i> {{ _("FAQ") }}
-						</a>
-					</div>
-				</div>
-			</div>
-		</div>
+	{% include "templates/includes/product_finder_banner.html" %}
 
-		<!-- Account Card -->
-		<div class="col-md-6 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<div class="portal-card-icon account">
-						<img src="/assets/illumenate_lighting/icons/account.svg" alt="Account">
+	<section aria-labelledby="recent-heading">
+		<h2 id="recent-heading" class="ill-subhead">{{ _("Recent activity") }}</h2>
+		<div class="row">
+			<div class="col-md-6 mb-4">
+				<div class="ill-panel">
+					<div class="ill-section-head">
+						<h3 class="h6 mb-0">{{ _("Projects") }}</h3>
+						<a href="/portal/projects">{{ _("All projects") }}</a>
 					</div>
-					<div>
-						<h5 class="mb-0">{{ _("My Account") }}</h5>
-						<small class="text-muted">{{ _("Profile & preferences") }}</small>
-					</div>
-				</div>
-				<div class="portal-card-body">
-					<p>{{ _("Manage your profile, notification preferences, and account settings.") }}</p>
-					<div class="d-flex gap-2">
-						<span class="stat-badge new">
-							<i class="fa fa-building"></i> {{ customer_name or _("No company linked") }}
-						</span>
-					</div>
-				</div>
-				<div class="portal-card-footer">
-					<div class="quick-actions">
-						<a href="/portal/account" class="btn btn-primary btn-sm">
-							<i class="fa fa-cog"></i> {{ _("Settings") }}
-						</a>
-						<a href="/portal/account#notifications" class="btn btn-outline-primary btn-sm">
-							<i class="fa fa-bell"></i> {{ _("Notifications") }}
-						</a>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<!-- Recent Activity Section -->
-	<div class="row">
-		<!-- Recent Projects -->
-		<div class="col-md-6 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<h5 class="mb-0">{{ _("Recent Projects") }}</h5>
-				</div>
-				<div class="portal-card-body">
 					{% if recent_projects %}
 					<ul class="recent-list">
 						{% for project in recent_projects[:5] %}
 						<li>
 							<div>
-								<a href="/portal/projects/{{ project.name }}" class="item-name">{{ project.project_name }}</a>
-								<div class="item-meta">{{ project.customer }}</div>
+								<a href="/portal/projects/{{ project.name | urlencode }}" class="item-name">{{ project.project_name | e }}</a>
+								<div class="item-meta">{{ project.customer | e }}</div>
 							</div>
-							<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else 'secondary' }}">
-								{{ project.status }}
-							</span>
+							<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else 'secondary' }}">{{ project.status | e }}</span>
 						</li>
 						{% endfor %}
 					</ul>
 					{% else %}
-					<p class="text-muted text-center py-3">
-						<i class="fa fa-folder-open-o fa-2x mb-2"></i><br>
-						{{ _("No projects yet. Create your first project to get started!") }}
-					</p>
+					<p class="text-muted py-3 mb-0">{{ _("No projects yet.") }} <a href="/portal/projects/new">{{ _("Create your first project") }}</a></p>
 					{% endif %}
 				</div>
 			</div>
-		</div>
-
-		<!-- Recent Orders -->
-		<div class="col-md-6 mb-4">
-			<div class="portal-card">
-				<div class="portal-card-header">
-					<h5 class="mb-0">{{ _("Recent Orders") }}</h5>
-				</div>
-				<div class="portal-card-body">
+			<div class="col-md-6 mb-4">
+				<div class="ill-panel">
+					<div class="ill-section-head">
+						<h3 class="h6 mb-0">{{ _("Orders") }}</h3>
+						<a href="/portal/orders">{{ _("All orders") }}</a>
+					</div>
 					{% if recent_orders %}
 					<ul class="recent-list">
 						{% for order in recent_orders[:5] %}
 						<li>
 							<div>
-								<a href="/portal/orders/{{ order.name }}" class="item-name">{{ order.name }}</a>
+								<a href="/portal/orders/{{ order.name | urlencode }}" class="item-name">{{ order.name | e }}</a>
 								<div class="item-meta">{{ frappe.utils.format_date(order.transaction_date) }}</div>
 							</div>
-							<span class="badge badge-{{ order.portal_status_class }}" title="{{ order.erp_status }}">
-								{{ order.portal_status_label }}
-							</span>
+							<span class="ill-status ill-status--{{ order.portal_status_class | default('secondary', true) | e }}" title="{{ order.erp_status | e }}">{{ order.portal_status_label | e }}</span>
 						</li>
 						{% endfor %}
 					</ul>
 					{% else %}
-					<p class="text-muted text-center py-3">
-						<i class="fa fa-shopping-cart fa-2x mb-2"></i><br>
-						{{ _("No orders yet.") }}
-					</p>
+					<p class="text-muted py-3 mb-0">{{ _("No orders yet.") }}</p>
 					{% endif %}
 				</div>
 			</div>
 		</div>
-	</div>
+	</section>
 {% endblock %}
