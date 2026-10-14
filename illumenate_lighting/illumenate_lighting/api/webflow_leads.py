@@ -39,6 +39,19 @@ import json
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
+
+# Generic text for callers; the traceback goes to the Error Log.
+LEAD_ERROR = "The lead could not be created. The error has been logged."
+
+
+def _require_integration_user():
+    """Leads come from n8n, which authenticates with an ERPNext API key
+    (``Authorization: token key:secret``). Reject guests and website users."""
+    user = frappe.session.user
+    if user == "Guest" or frappe.db.get_value("User", user, "user_type") != "System User":
+        frappe.local.response["http_status_code"] = 401
+        raise frappe.AuthenticationError(_("An integration API key is required"))
 
 
 def _submitted_datetime(value):
@@ -55,9 +68,44 @@ def _submitted_datetime(value):
     return convert_utc_to_system_timezone(parsed).replace(tzinfo=None)
 
 
-@frappe.whitelist(allow_guest=True, methods=["POST"])
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=30, seconds=60)
 def create_lead_from_webflow(
     first_name: str,
+    last_name: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    company_name: Optional[str] = None,
+    job_title: Optional[str] = None,
+    website: Optional[str] = None,
+    source: Optional[str] = "Webflow",
+    campaign_id: Optional[str] = None,
+    utm_source: Optional[str] = None,
+    utm_medium: Optional[str] = None,
+    utm_campaign: Optional[str] = None,
+    form_name: Optional[str] = None,
+    form_data: Optional[str] = None,
+    webflow_form_id: Optional[str] = None,
+    webflow_submission_id: Optional[str] = None,
+    submitted_at: Optional[str] = None,
+    contact_form_subject: Optional[str] = None,
+    contact_form_message: Optional[str] = None,
+    contact_form_file_url: Optional[str] = None,
+    project_name: Optional[str] = None,
+    products_interested: Optional[str] = None,
+    brand: Optional[str] = None,
+) -> dict:
+    """Create a CRM Lead from Webflow form submission data (see :func:`_create_lead`).
+
+    Called by n8n with an ERPNext API key; rate limited per IP.
+    """
+    arguments = dict(locals())
+    _require_integration_user()
+    return _create_lead(**arguments)
+
+
+def _create_lead(
+    first_name: str | None = None,
     last_name: Optional[str] = None,
     email: Optional[str] = None,
     phone: Optional[str] = None,
@@ -237,27 +285,28 @@ def create_lead_from_webflow(
             "duplicate": False,
         }
         
-    except frappe.exceptions.DuplicateEntryError as e:
+    except frappe.exceptions.DuplicateEntryError:
         frappe.db.rollback()
         return {
             "success": False,
-            "error": f"Duplicate entry: {str(e)}",
+            "error": "Duplicate entry",
             "lead_name": None,
         }
-    except Exception as e:
+    except Exception:
         frappe.db.rollback()
         frappe.log_error(
             title="Webflow Lead Creation Error",
-            message=f"Error creating lead from Webflow: {str(e)}\n\nData: {json.dumps(locals(), default=str)}"
+            message=f"{frappe.get_traceback()}\n\nData: {json.dumps(locals(), default=str)}",
         )
         return {
             "success": False,
-            "error": str(e),
+            "error": LEAD_ERROR,
             "lead_name": None,
         }
 
 
-@frappe.whitelist(allow_guest=True, methods=["POST"])
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=30, seconds=60)
 def create_lead_from_webflow_webhook(data: Optional[str] = None) -> dict:
     """
     Alternative endpoint that accepts a JSON payload directly.
@@ -270,6 +319,7 @@ def create_lead_from_webflow_webhook(data: Optional[str] = None) -> dict:
     Returns:
         dict: Same as create_lead_from_webflow
     """
+    _require_integration_user()
     try:
         # Get data from request body if not passed as parameter
         if not data:
@@ -292,22 +342,22 @@ def create_lead_from_webflow_webhook(data: Optional[str] = None) -> dict:
         mapped_data = _map_webflow_fields(lead_info)
         
         # Call the main creation function
-        return create_lead_from_webflow(**mapped_data)
+        return _create_lead(**mapped_data)
         
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         return {
             "success": False,
-            "error": f"Invalid JSON: {str(e)}",
+            "error": "Invalid JSON",
             "lead_name": None,
         }
-    except Exception as e:
+    except Exception:
         frappe.log_error(
             title="Webflow Webhook Lead Error",
-            message=f"Error processing webhook: {str(e)}"
+            message=frappe.get_traceback(),
         )
         return {
             "success": False,
-            "error": str(e),
+            "error": LEAD_ERROR,
             "lead_name": None,
         }
 
