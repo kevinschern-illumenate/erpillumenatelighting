@@ -34,6 +34,11 @@ def get_context(context):
 	is_internal = _is_internal_user(frappe.session.user)
 	customer = _get_user_customer(frappe.session.user)
 
+	# Request types configured on Desk drive the form (DESK-7).
+	from illumenate_lighting.illumenate_lighting.api.document_requests import portal_request_types
+
+	context.request_types = portal_request_types()
+
 	# Get user's projects for the dropdown (permission-filtered)
 	context.projects = frappe.get_list(
 		"ilL-Project",

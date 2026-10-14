@@ -378,6 +378,49 @@ collaborators_page = environment.get_template("templates/pages/collaborators.htm
 assert "<b>" not in collaborators_page and "update_project_collaborators" not in collaborators_page
 parser.feed(collaborators_page)
 (render_dir / "collaborators.html").write_text(collaborators_page, encoding="utf8")
+drawing_types = [
+	View(
+		name="Shop Drawing",
+		label="Shop <Drawing>",
+		icon="fa-wrench",
+		description="Fabrication detail",
+		show_project_field=1,
+		show_fixture_field=1,
+		show_priority_field=1,
+		show_due_date_field=0,
+		default_priority="Normal",
+		fields=[],
+	),
+	View(
+		name="Photometric Layout",
+		label="Photometric Layout",
+		icon="fa-lightbulb-o",
+		description="Point-by-point layout",
+		show_project_field=0,
+		show_fixture_field=0,
+		show_priority_field=0,
+		show_due_date_field=1,
+		default_priority=None,
+		fields=[
+			View(field_key="ceiling_height", label="Ceiling height", fieldtype="Float", mandatory=1, help_text="In feet"),
+			View(field_key="target", label="Target", fieldtype="Select", options="Office\nRetail", mandatory=0),
+			View(field_key="dimmed", label="Dimmed", fieldtype="Check", mandatory=1),
+		],
+	),
+]
+drawings_page = environment.get_template("templates/pages/drawings.html").render(
+	request_types=drawing_types,
+	projects=[View(name="P-1", project_name="Lobby <Refit>")],
+	pending_requests=[],
+	completed_requests=[],
+	all_requests=[],
+	pending_count=0,
+	drawing_type_icon=lambda value: "file",
+)
+assert "Shop &lt;Drawing&gt;" in drawings_page and "Lobby &lt;Refit&gt;" in drawings_page
+assert 'data-value="shop_drawing"' not in drawings_page, "request types come from Desk"
+parser.feed(drawings_page)
+(render_dir / "drawings.html").write_text(drawings_page, encoding="utf8")
 for name, signed_in_as in (("guest", None), ("signed-in", "Invitee@Studio.test")):
 	accept_html = accept_page.render(signed_in_as=signed_in_as, signup_enabled=True)
 	(render_dir / f"accept-invitation-{name}.html").write_text(accept_html, encoding="utf8")
