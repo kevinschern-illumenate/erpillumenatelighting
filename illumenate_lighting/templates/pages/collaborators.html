@@ -94,8 +94,7 @@ Manage collaborators for a project
 			{% endif %}
 		</div>
 		<div class="card-body">
-			{% if collaborators %}
-			<div class="table-responsive">
+			<div class="table-responsive"{% if not collaborators %} hidden{% endif %} id="collaboratorsTable">
 				<table class="table table-hover mb-0">
 					<thead>
 						<tr>
@@ -110,16 +109,16 @@ Manage collaborators for a project
 					</thead>
 					<tbody id="collaboratorsList">
 						{% for collab in collaborators %}
-						<tr data-user="{{ collab.user }}">
+						<tr data-user="{{ collab.user | e }}" class="{{ '' if collab.is_active else 'text-muted' }}">
 							<td>
 								<div>
-									<strong>{{ collab.full_name }}</strong>
-									<br><small class="text-muted">{{ collab.email }}</small>
+									<strong>{{ collab.full_name | e }}</strong>
+									<br><small class="text-muted">{{ collab.email | e }}</small>
 								</div>
 							</td>
 							<td>
 								{% if can_manage %}
-								<select class="form-control form-control-sm access-level-select" data-user="{{ collab.user }}" style="width: auto;">
+								<select class="form-control form-control-sm access-level-select" data-user="{{ collab.user | e }}" style="width: auto;">
 									<option value="VIEW" {% if collab.access_level == "VIEW" %}selected{% endif %}>{{ _("View Only") }}</option>
 									<option value="EDIT" {% if collab.access_level == "EDIT" %}selected{% endif %}>{{ _("Can Edit") }}</option>
 								</select>
@@ -131,9 +130,9 @@ Manage collaborators for a project
 							</td>
 							<td>
 								{% if collab.is_active %}
-								<span class="badge badge-success">{{ _("Active") }}</span>
+								<span class="badge badge-success collaborator-status">{{ _("Active") }}</span>
 								{% else %}
-								<span class="badge badge-secondary">{{ _("Inactive") }}</span>
+								<span class="badge badge-secondary collaborator-status">{{ _("Inactive") }}</span>
 								{% endif %}
 							</td>
 							<td>
@@ -141,7 +140,7 @@ Manage collaborators for a project
 							</td>
 							{% if can_manage %}
 							<td class="text-right">
-								<button type="button" class="btn btn-danger btn-sm remove-collaborator" data-user="{{ collab.user }}" title="{{ _('Remove') }}">
+								<button type="button" class="btn btn-danger btn-sm remove-collaborator" data-user="{{ collab.user | e }}" title="{{ _('Remove') }}"{% if not collab.is_active %} hidden{% endif %}>
 									<i class="fa fa-trash"></i>
 								</button>
 							</td>
@@ -151,8 +150,8 @@ Manage collaborators for a project
 					</tbody>
 				</table>
 			</div>
-			{% else %}
-			<div class="text-center py-4">
+			{% if not collaborators %}
+			<div class="text-center py-4" id="noCollaborators">
 				<i class="fa fa-users fa-3x text-muted mb-3"></i>
 				<p class="text-muted">{{ _("No collaborators added yet.") }}</p>
 				{% if can_manage %}
@@ -184,7 +183,7 @@ Manage collaborators for a project
 						<select class="form-control" name="user" id="newCollaboratorUser" required>
 							<option value="">{{ _("Choose a user...") }}</option>
 							{% for user in available_users %}
-							<option value="{{ user.value }}">{{ user.label }}</option>
+							<option value="{{ user.value | e }}">{{ user.label | e }}</option>
 							{% endfor %}
 						</select>
 						{% if not available_users %}
@@ -202,7 +201,7 @@ Manage collaborators for a project
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
-				<button type="button" class="btn btn-primary" onclick="addCollaborator()" {% if not available_users %}disabled{% endif %}>
+				<button type="button" class="btn btn-primary" id="addCollaboratorButton" {% if not available_users %}disabled{% endif %}>
 					<i class="fa fa-plus"></i> {{ _("Add") }}
 				</button>
 			</div>
@@ -214,9 +213,79 @@ Manage collaborators for a project
 
 {% block script %}
 <script>
-var projectName = "{{ project.name }}";
+var projectName = {{ project.name | tojson }};
+var projectModified = {{ (project.modified | string) | tojson }};
 
 {% if can_manage %}
+var collaboratorText = {
+	view: {{ _("View Only") | tojson }},
+	edit: {{ _("Can Edit") | tojson }},
+	active: {{ _("Active") | tojson }},
+	inactive: {{ _("Inactive") | tojson }},
+	remove: {{ _("Remove") | tojson }},
+	updated: {{ _("Access updated") | tojson }},
+	added: {{ _("Collaborator added") | tojson }},
+	removed: {{ _("Collaborator removed") | tojson }},
+	confirmRemove: {{ _("Remove {0} from this project?") | tojson }},
+	chooseUser: {{ _("Please select a user") | tojson }}
+};
+
+function collaboratorCall(method, args, done, failed) {
+	args.project = projectName;
+	args.expected_modified = projectModified;
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.portal.collaborators.' + method,
+		args: args,
+		callback: function(r) {
+			if (r.message && r.message.success) {
+				projectModified = r.message.modified;
+				done(r.message.collaborator);
+			} else if (failed) {
+				failed();
+			}
+		},
+		error: function() {
+			if (failed) failed();
+		}
+	});
+}
+
+function collaboratorRow(user) {
+	return $('#collaboratorsList tr').filter(function() { return $(this).attr('data-user') === user; });
+}
+
+function showCollaboratorState(row, collaborator) {
+	row.toggleClass('text-muted', !collaborator.is_active);
+	row.find('.access-level-select').val(collaborator.access_level).data('current', collaborator.access_level);
+	row.find('.collaborator-status')
+		.toggleClass('badge-success', !!collaborator.is_active)
+		.toggleClass('badge-secondary', !collaborator.is_active)
+		.text(collaborator.is_active ? collaboratorText.active : collaboratorText.inactive);
+	row.find('.remove-collaborator').prop('hidden', !collaborator.is_active);
+}
+
+function buildCollaboratorRow(user, fullName, email) {
+	var row = $('<tr>').attr('data-user', user);
+	var who = $('<div>').append($('<strong>').text(fullName)).append('<br>').append($('<small class="text-muted">').text(email));
+	var select = $('<select class="form-control form-control-sm access-level-select" style="width: auto;">').attr('data-user', user)
+		.append($('<option value="VIEW">').text(collaboratorText.view))
+		.append($('<option value="EDIT">').text(collaboratorText.edit));
+	row.append($('<td>').append(who))
+		.append($('<td>').append(select))
+		.append($('<td>').append($('<span class="badge collaborator-status">')))
+		.append($('<td>').append($('<small>').text(frappe.datetime ? frappe.datetime.str_to_user(frappe.datetime.nowdate()) : '-')))
+		.append($('<td class="text-right">').append(
+			$('<button type="button" class="btn btn-danger btn-sm remove-collaborator"><i class="fa fa-trash"></i></button>')
+				.attr('data-user', user).attr('title', collaboratorText.remove)
+		));
+	$('#collaboratorsList').append(row);
+	$('#collaboratorsTable').prop('hidden', false);
+	$('#noCollaborators').remove();
+	return row;
+}
+
+$('.access-level-select').each(function() { $(this).data('current', $(this).val()); });
+
 // Toggle privacy setting
 $('#privacyToggle').on('change', function() {
 	var isPrivate = $(this).is(':checked') ? 1 : 0;
@@ -242,7 +311,7 @@ $('#privacyToggle').on('change', function() {
 				frappe.msgprint({
 					title: 'Error',
 					indicator: 'red',
-					message: r.message.error || 'Error updating privacy setting'
+					message: (r.message && r.message.error) || 'Error updating privacy setting'
 				});
 				// Revert toggle
 				$('#privacyToggle').prop('checked', !isPrivate);
@@ -251,98 +320,58 @@ $('#privacyToggle').on('change', function() {
 	});
 });
 
-// Handle access level change
-$('.access-level-select').on('change', function() {
-	saveCollaborators();
+// Change one collaborator's access level in place
+$(document).on('change', '.access-level-select', function() {
+	var select = $(this);
+	var user = select.attr('data-user');
+	var row = collaboratorRow(user);
+	collaboratorCall('set_access_level', {user: user, level: select.val()}, function(collaborator) {
+		showCollaboratorState(row, collaborator);
+		frappe.show_alert({message: collaboratorText.updated, indicator: 'green'});
+	}, function() {
+		select.val(select.data('current'));
+	});
 });
 
-// Remove collaborator
-$('.remove-collaborator').on('click', function() {
-	var user = $(this).data('user');
-	
-	if (confirm('Are you sure you want to remove this collaborator?')) {
-		$('tr[data-user="' + user + '"]').remove();
-		saveCollaborators();
-	}
-});
-
-// Add collaborator
-function addCollaborator() {
-	var user = $('#newCollaboratorUser').val();
-	var accessLevel = $('#newCollaboratorAccess').val();
-	
-	if (!user) {
-		frappe.msgprint({
-			title: 'Error',
-			indicator: 'red',
-			message: 'Please select a user'
-		});
+// Deactivate one collaborator; the row stays with its history
+$(document).on('click', '.remove-collaborator', function() {
+	var user = $(this).attr('data-user');
+	var row = collaboratorRow(user);
+	var label = row.find('strong').first().text() || user;
+	if (!confirm(collaboratorText.confirmRemove.replace('{0}', label))) {
 		return;
 	}
-	
-	// Get current collaborators and add new one
-	var collaborators = getCurrentCollaborators();
-	collaborators.push({
-		user: user,
-		access_level: accessLevel,
-		is_active: 1
+	collaboratorCall('deactivate', {user: user}, function(collaborator) {
+		showCollaboratorState(row, collaborator);
+		frappe.show_alert({message: collaboratorText.removed, indicator: 'green'});
 	});
-	
-	saveCollaborators(collaborators, function() {
-		$('#addCollaboratorModal').modal('hide');
-		window.location.reload();
-	});
-}
+});
 
-// Get current collaborators from the table
-function getCurrentCollaborators() {
-	var collaborators = [];
-	$('#collaboratorsList tr').each(function() {
-		var user = $(this).data('user');
-		var accessLevel = $(this).find('.access-level-select').val();
-		if (user) {
-			collaborators.push({
-				user: user,
-				access_level: accessLevel,
-				is_active: 1
-			});
-		}
-	});
-	return collaborators;
-}
-
-// Save collaborators
-function saveCollaborators(collaborators, callback) {
-	if (!collaborators) {
-		collaborators = getCurrentCollaborators();
+// Add one same-company collaborator
+$('#addCollaboratorButton').on('click', function() {
+	var picker = $('#newCollaboratorUser');
+	var user = picker.val();
+	var accessLevel = $('#newCollaboratorAccess').val();
+	if (!user) {
+		frappe.msgprint({title: 'Error', indicator: 'red', message: collaboratorText.chooseUser});
+		return;
 	}
-	
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_project_collaborators',
-		args: {
-			project_name: projectName,
-			collaborators: collaborators
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.msgprint({
-					title: 'Success',
-					indicator: 'green',
-					message: 'Collaborators updated'
-				});
-				if (callback) {
-					callback();
-				}
-			} else {
-				frappe.msgprint({
-					title: 'Error',
-					indicator: 'red',
-					message: r.message.error || 'Error updating collaborators'
-				});
-			}
+	var option = picker.find('option').filter(function() { return this.value === user; });
+	var label = option.text();
+	collaboratorCall('set_access_level', {user: user, level: accessLevel}, function(collaborator) {
+		var row = collaboratorRow(user);
+		if (!row.length) {
+			var match = /^(.*) \((.*)\)$/.exec(label);
+			row = buildCollaboratorRow(user, match ? match[1] : label, match ? match[2] : user);
 		}
+		showCollaboratorState(row, collaborator);
+		option.remove();
+		picker.val('');
+		$('#addCollaboratorButton').prop('disabled', picker.find('option').length < 2);
+		$('#addCollaboratorModal').modal('hide');
+		frappe.show_alert({message: collaboratorText.added, indicator: 'green'});
 	});
-}
+});
 {% endif %}
 </script>
 {% endblock %}

@@ -328,6 +328,45 @@ hostile_projects = environment.get_template("templates/pages/ill_projects.html")
 assert "alert(2);//&lt;b&gt;" in hostile_projects and "onclick" not in hostile_projects
 parser.feed(hostile_projects)
 (render_dir / "projects-hostile.html").write_text(hostile_projects, encoding="utf8")
+collaborators_page = environment.get_template("templates/pages/collaborators.html").render(
+	frappe=SimpleNamespace(
+		get_doc=lambda doctype, name: View(full_name="Olivia Owner"),
+		utils=SimpleNamespace(format_date=lambda value: str(value)),
+	),
+	project=View(
+		name="P-1",
+		project_name="Lobby <refit>",
+		customer="Acme",
+		owner="owner@acme.test",
+		is_private=1,
+		modified="2026-10-14 01:00:00",
+	),
+	collaborators=[
+		View(
+			user="architect@studio.test",
+			full_name='Ada "<b>"',
+			email="architect@studio.test",
+			access_level="VIEW",
+			is_active=1,
+			added_on="2026-09-01",
+		),
+		View(
+			user="former@studio.test",
+			full_name="Former",
+			email="former@studio.test",
+			access_level="EDIT",
+			is_active=0,
+			added_on=None,
+		),
+	],
+	available_users=[
+		View(value="teammate@acme.test", label="Tess Mate (teammate@acme.test)"),
+	],
+	can_manage=True,
+)
+assert "<b>" not in collaborators_page and "update_project_collaborators" not in collaborators_page
+parser.feed(collaborators_page)
+(render_dir / "collaborators.html").write_text(collaborators_page, encoding="utf8")
 configurator = environment.get_template("templates/pages/configure.html")
 for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Driver", "Controller", "Extrusion Kit"):
 	context = dict(

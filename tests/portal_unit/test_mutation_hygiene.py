@@ -60,7 +60,9 @@ class PostOnly(unittest.TestCase):
 class HandledErrorsRollBack(unittest.TestCase):
 	def run_update(self, method):
 		deps = {
-			ROOT + ".portal.access": types.SimpleNamespace(can_manage_project_collaborators=lambda *a: True)
+			ROOT + ".portal.access": types.SimpleNamespace(
+				can_manage_project_collaborators=lambda *a: True, get_actor=MagicMock()
+			)
 		}
 		with load_service(ROOT + ".api.portal", deps) as (api, frappe):
 			order = []
@@ -69,12 +71,13 @@ class HandledErrorsRollBack(unittest.TestCase):
 			frappe.log_error = MagicMock(side_effect=lambda **kw: order.append("log"))
 			frappe.get_traceback = lambda: "Traceback"
 			frappe.db.exists.return_value = True
-			project = Record(collaborators=[], save=MagicMock())
+			existing = Record(user="designer@x.test", access_level="VIEW", is_active=1)
+			project = Record(collaborators=[existing], save=MagicMock())
 			project.append = lambda field, row: project.collaborators.append(Record(row))
 			project.add_comment = MagicMock(side_effect=RuntimeError("comment table locked"))
 			frappe.get_doc.return_value = project
 			result = api.update_project_collaborators(
-				"P-1", [{"user": "designer@x.test", "access_level": "VIEW", "is_active": 1}]
+				"P-1", [{"user": "designer@x.test", "access_level": "EDIT", "is_active": 1}]
 			)
 			return result, order, frappe, project
 

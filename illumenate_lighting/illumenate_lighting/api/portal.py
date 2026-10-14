@@ -2564,7 +2564,11 @@ def delete_schedule(schedule_name: str) -> dict:
 @frappe.whitelist(methods=["POST"])
 def update_project_collaborators(project_name: str, collaborators: Union[str, list]) -> dict:
 	"""
-	Update collaborators for a project.
+	Deprecated: use portal/collaborators.py set_access_level, deactivate and invite.
+
+	Applies a submitted list one row at a time. Every listed user must already
+	collaborate or belong to the project's company; anyone missing from the list
+	is deactivated, never deleted, so history survives.
 
 	Args:
 		project_name: Name of the project
@@ -2573,6 +2577,8 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 	Returns:
 		dict: {"success": True/False, "error": "message if error"}
 	"""
+	from illumenate_lighting.illumenate_lighting.portal import collaborators as service
+
 	if not frappe.db.exists("ilL-Project", project_name):
 		return {"success": False, "error": "Project not found"}
 
@@ -2598,17 +2604,20 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 
 	try:
 		previous = {c.user: c.access_level for c in project.collaborators or [] if c.is_active}
-
-		# Clear existing collaborators
-		project.collaborators = []
-
-		# Add new collaborators
+		submitted = {}
 		for collab in collaborators:
-			project.append("collaborators", {
-				"user": collab.get("user"),
-				"access_level": collab.get("access_level", "VIEW"),
-				"is_active": collab.get("is_active", 1),
-			})
+			submitted[collab.get("user")] = collab
+		try:
+			for user, collab in submitted.items():
+				if int(collab.get("is_active", 1) or 0):
+					service.apply_level(project, user, collab.get("access_level", "VIEW"))
+				else:
+					service.apply_deactivate(project, user)
+		except frappe.PermissionError as e:
+			return {"success": False, "error": str(e), "error_code": "permission_denied"}
+		for user in previous:
+			if user not in submitted:
+				service.apply_deactivate(project, user)
 
 		project.save(ignore_permissions=True)
 
