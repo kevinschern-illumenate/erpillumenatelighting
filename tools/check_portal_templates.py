@@ -317,25 +317,42 @@ assert "Needs your reply" in quote_request_html and "ilLumenate needs more infor
 
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
-hostile_projects = environment.get_template("templates/pages/ill_projects.html").render(
-	projects=[
+projects_page = environment.get_template("templates/pages/ill_projects.html")
+
+
+def project_rows(can_edit):
+	return [
 		View(
 			name=name,
 			project_name=label,
 			customer="Buyer",
-			is_private=0,
+			company_name="Acme <Lighting>",
+			is_private=private,
 			status=status,
-			modified="2026-10-01",
+			schedule_count=count,
+			last_activity="2026-10-01",
+			next_step={"label": step, "tone": "warning"},
+			can_edit=can_edit,
 		)
-		for name, label, status in (
-			("P-1');alert(1);//", "x');alert(2);//<b>", "ACTIVE"),
-			('P-2";alert(3);//', 'y");alert(4);//', "ARCHIVED"),
+		for name, label, status, private, count, step in (
+			("P-1');alert(1);//", "x');alert(2);//<b>", "ACTIVE", 0, 2, "Quote ready"),
+			('P-2";alert(3);//', 'y");alert(4);//', "ARCHIVED", 1, 0, "Add a schedule"),
 		)
 	]
+
+
+hostile_projects = projects_page.render(
+	projects=project_rows(True), page=1, has_more=False, status_filter="all", sort="recent", search=""
 )
 assert "alert(2);//&lt;b&gt;" in hostile_projects and "onclick" not in hostile_projects
+assert "Acme &lt;Lighting&gt;" in hostile_projects
 parser.feed(hostile_projects)
 (render_dir / "projects-hostile.html").write_text(hostile_projects, encoding="utf8")
+readonly_projects = projects_page.render(
+	projects=project_rows(False), page=2, has_more=True, status_filter="active", sort="name", search="x&y"
+)
+parser.feed(readonly_projects)
+(render_dir / "projects-readonly.html").write_text(readonly_projects, encoding="utf8")
 collaborators_page = environment.get_template("templates/pages/collaborators.html").render(
 	frappe=SimpleNamespace(
 		get_doc=lambda doctype, name: View(full_name="Olivia Owner"),
@@ -508,6 +525,35 @@ for name, variant in schedule_variants.items():
 	assert "Sam &lt;S&gt;" in schedule_html or name != "schedule-ready"
 	assert 'onclick="requestQuote()"' not in schedule_html and 'onclick="createSalesOrder()"' not in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
+# FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
+project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
+
+
+def schedule_version(name, version, parent=None):
+	return View(
+		name=name,
+		schedule_name="Main <x>",
+		status="DRAFT",
+		version=version,
+		is_locked=int(version < 3 and parent is not None or name == "S-1"),
+		version_parent=parent,
+		lines_count=3,
+	)
+
+
+project_versions = project_page.render(
+	project=View(name="P-1", project_name="Lobby"),
+	schedules=[1],
+	schedule_families=[
+		View(latest=schedule_version("S-3", 3, "S-1"), earlier=[schedule_version("S-2", 2, "S-1"), schedule_version("S-1", 1)]),
+		View(latest=schedule_version("S-9", 1), earlier=[]),
+	],
+	can_edit=True,
+	schedule_status_class=lambda status: "info",
+	schedule_status_label=lambda status: status.title(),
+)
+assert "Main &lt;x&gt;" in project_versions
+(render_dir / "project-versions.html").write_text(project_versions, encoding="utf8")
 for name, signed_in_as in (("guest", None), ("signed-in", "Invitee@Studio.test")):
 	accept_html = accept_page.render(signed_in_as=signed_in_as, signup_enabled=True)
 	(render_dir / f"accept-invitation-{name}.html").write_text(accept_html, encoding="utf8")

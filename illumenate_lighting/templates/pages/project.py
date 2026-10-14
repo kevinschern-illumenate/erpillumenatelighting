@@ -109,6 +109,10 @@ def get_context(context):
 
 	context.project = project
 	context.schedules = schedules
+	# FLOW-9: the latest version of each schedule, earlier versions folded under it.
+	from illumenate_lighting.illumenate_lighting.portal.project_list import version_families
+
+	context.schedule_families = version_families(schedules)
 	# System designs of these schedules (WP-4.5); None hides the Designs tab.
 	from illumenate_lighting.illumenate_lighting.system_design.portal_pages import project_designs
 

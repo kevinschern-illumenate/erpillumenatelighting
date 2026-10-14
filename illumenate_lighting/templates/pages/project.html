@@ -7,6 +7,37 @@ Also handles new project creation when is_new is True
 
 {% block portal_title %}{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name }}{% endif %}{% endblock %}
 
+{% macro schedule_row(schedule) %}
+				<div class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center js-schedule-row{% if schedule.is_locked %} bg-light{% endif %}" data-schedule="{{ schedule.name | e }}">
+					<a href="/portal/schedules/{{ schedule.name | urlencode }}" class="text-decoration-none text-reset flex-grow-1">
+						<div>
+							<h5 class="mb-1">
+								<span class="js-schedule-name">{{ schedule.schedule_name | e }}</span>
+								<span class="badge badge-secondary" style="font-size: 0.7em;">v{{ schedule.version or 1 }}</span>
+								{% if schedule.is_locked %}
+								<span class="badge badge-dark" style="font-size: 0.7em;"><i class="fa fa-lock"></i></span>
+								{% endif %}
+							</h5>
+							<small class="text-muted">
+								{{ schedule.lines_count or 0 }} {{ _("line(s)") }}
+							</small>
+						</div>
+					</a>
+					<div class="d-flex align-items-center ml-3">
+						<span class="badge badge-{{ schedule_status_class(schedule.status) }} mr-2">
+							{{ schedule_status_label(schedule.status) }}
+						</span>
+						{% if can_edit %}
+						<button type="button" class="btn btn-sm btn-outline-secondary mr-1 js-rename-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Rename') }}">
+							<i class="fa fa-pencil"></i>
+						</button>
+						<button type="button" class="btn btn-sm btn-outline-danger js-delete-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
+							<i class="fa fa-trash"></i>
+						</button>
+						{% endif %}
+					</div>
+				</div>
+{% endmacro %}
 {% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
@@ -403,38 +434,20 @@ Also handles new project creation when is_new is True
 				{% endif %}
 			</div>
 
-			{% if schedules %}
-			<div class="list-group">
-				{% for schedule in schedules %}
-				<div class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center js-schedule-row{% if schedule.is_locked %} bg-light{% endif %}" data-schedule="{{ schedule.name | e }}">
-					<a href="/portal/schedules/{{ schedule.name | urlencode }}" class="text-decoration-none text-reset flex-grow-1">
-						<div>
-							<h5 class="mb-1">
-								<span class="js-schedule-name">{{ schedule.schedule_name | e }}</span>
-								<span class="badge badge-secondary" style="font-size: 0.7em;">v{{ schedule.version or 1 }}</span>
-								{% if schedule.is_locked %}
-								<span class="badge badge-dark" style="font-size: 0.7em;"><i class="fa fa-lock"></i></span>
-								{% endif %}
-							</h5>
-							<small class="text-muted">
-								{{ schedule.lines_count or 0 }} {{ _("line(s)") }}
-							</small>
-						</div>
-					</a>
-					<div class="d-flex align-items-center ml-3">
-						<span class="badge badge-{{ schedule_status_class(schedule.status) }} mr-2">
-							{{ schedule_status_label(schedule.status) }}
-						</span>
-						{% if can_edit %}
-						<button type="button" class="btn btn-sm btn-outline-secondary mr-1 js-rename-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Rename') }}">
-							<i class="fa fa-pencil"></i>
-						</button>
-						<button type="button" class="btn btn-sm btn-outline-danger js-delete-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
-							<i class="fa fa-trash"></i>
-						</button>
-						{% endif %}
+			{% if schedule_families %}
+			<div class="list-group" id="scheduleFamilies">
+				{% for group in schedule_families %}
+				{{ schedule_row(group.latest) }}
+				{% if group.earlier %}
+				<details class="list-group-item ill-versions js-earlier-versions">
+					<summary class="small text-muted">{{ _("v{0} · {1} earlier versions").format(group.latest.version or 1, group.earlier | length) if group.earlier | length > 1 else _("v{0} · 1 earlier version").format(group.latest.version or 1) }}</summary>
+					<div class="list-group mt-2">
+						{% for schedule in group.earlier %}
+						{{ schedule_row(schedule) }}
+						{% endfor %}
 					</div>
-				</div>
+				</details>
+				{% endif %}
 				{% endfor %}
 			</div>
 			{% else %}
