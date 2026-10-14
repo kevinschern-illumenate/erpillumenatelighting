@@ -39,7 +39,7 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 					<select id="driverTemplateSelect" class="form-control" aria-label="{{ _('Power supply') }}">
 						<option value="">{{ _("Choose a power supply…") }}</option>
 						{% for t in driver_templates | default([]) %}
-						<option value="{{ t.name }}" data-name="{{ t.template_name }}" data-image="{{ t.image or '' }}" data-gallery="{{ t.gallery_json or '[]' }}" data-description="{{ t.description or '' }}"{% if t.name == selected_template %} selected{% endif %}>{{ t.template_name }}</option>
+						<option value="{{ t.name | e }}" data-name="{{ t.template_name | e }}" data-image="{{ (t.image or '') | e }}" data-gallery="{{ (t.gallery_json or '[]') | e }}" data-description="{{ (t.description or '') | e }}"{% if t.name == selected_template %} selected{% endif %}>{{ t.template_name | e }}</option>
 						{% endfor %}
 					</select>
 					<div id="driverTemplateInfo" class="ill-driver-template" hidden></div>

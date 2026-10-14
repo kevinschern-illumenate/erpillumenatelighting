@@ -33,7 +33,7 @@ Displays all projects accessible to the current user
 			<label for="project-status">{{ _("Show") }}</label>
 			<select id="project-status" name="status" class="form-control">
 				{% for value, label in [('active', _('Active')), ('archived', _('Archived')), ('all', _('All'))] %}
-				<option value="{{ value }}"{% if status_filter == value %} selected{% endif %}>{{ label }}</option>
+				<option value="{{ value | e }}"{% if status_filter == value %} selected{% endif %}>{{ label | e }}</option>
 				{% endfor %}
 			</select>
 		</div>
@@ -41,7 +41,7 @@ Displays all projects accessible to the current user
 			<label for="project-sort">{{ _("Sort by") }}</label>
 			<select id="project-sort" name="sort" class="form-control">
 				{% for value, label in [('recent', _('Recent activity')), ('name', _('Name'))] %}
-				<option value="{{ value }}"{% if sort == value %} selected{% endif %}>{{ label }}</option>
+				<option value="{{ value | e }}"{% if sort == value %} selected{% endif %}>{{ label | e }}</option>
 				{% endfor %}
 			</select>
 		</div>
@@ -61,8 +61,8 @@ Displays all projects accessible to the current user
 				</p>
 			</div>
 			<dl class="ill-record__facts">
-				<div><dt>{{ _("Schedules") }}</dt><dd class="js-schedule-count">{{ project.schedule_count }}</dd></div>
-				<div><dt>{{ _("Last activity") }}</dt><dd>{{ frappe.utils.format_date(project.last_activity) }}</dd></div>
+				<div><dt>{{ _("Schedules") }}</dt><dd class="js-schedule-count">{{ project.schedule_count | e }}</dd></div>
+				<div><dt>{{ _("Last activity") }}</dt><dd>{{ frappe.utils.format_date(project.last_activity) | e }}</dd></div>
 			</dl>
 			<div class="ill-record__end">
 				<span class="ill-status ill-status--{{ project.next_step.tone | e }} js-next-step">{{ project.next_step.label | e }}</span>
@@ -94,7 +94,7 @@ Displays all projects accessible to the current user
 	<nav class="ill-pager" aria-label="{{ _('Project pages') }}">
 		{% set query = "&amp;search=" ~ (search | urlencode) ~ "&amp;status=" ~ (status_filter | urlencode) ~ "&amp;sort=" ~ (sort | urlencode) %}
 		{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}{{ query | safe }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Previous") }}</a>{% else %}<span></span>{% endif %}
-		<span>{{ _("Page") }} {{ page }}</span>
+		<span>{{ _("Page") }} {{ page | e }}</span>
 		{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}{{ query | safe }}">{{ _("Next") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% else %}<span></span>{% endif %}
 	</nav>
 	{% endif %}

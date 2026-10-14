@@ -35,13 +35,13 @@ Publicly available specification sheets from Webflow products
 	<!-- Spec Sheets Grid -->
 	<div class="resource-grid">
 		{% for sheet in spec_sheets %}
-		<a href="{{ sheet.url }}" target="_blank" class="resource-card" data-product="{{ sheet.product_name }}">
+		<a href="{{ sheet.url | e }}" target="_blank" class="resource-card" data-product="{{ sheet.product_name | e }}">
 			<div class="resource-icon">
 				<i class="fa fa-file-pdf-o"></i>
 			</div>
 			<div class="resource-info">
-				<div class="resource-title">{{ sheet.title }}</div>
-				<div class="resource-desc">{{ sheet.product_name }}{% if sheet.description %} — {{ sheet.description }}{% endif %}</div>
+				<div class="resource-title">{{ sheet.title | e }}</div>
+				<div class="resource-desc">{{ sheet.product_name | e }}{% if sheet.description %} — {{ sheet.description | e }}{% endif %}</div>
 				<div class="resource-meta">PDF • {{ _("Spec Sheet") }}</div>
 			</div>
 		</a>

@@ -51,7 +51,7 @@ test('series loading, the configure button and the configurator hand-off all use
   assert.match(loader.slice(0, 400), /var productCategory = tapeNeonCategoryOf\(/);
   const handoff = SCHEDULE.slice(SCHEDULE.indexOf('function configureFromAddModal('));
   assert.match(handoff.slice(0, 800), /: tapeNeonCategoryOf\(option\);/);
-  assert.match(SCHEDULE, /data-tape-neon-category="' \+ \(pt\.tape_neon_category \|\| ''\) \+ '"/);
+  assert.match(SCHEDULE, /data-tape-neon-category="' \+ PortalUI\.escape\(pt\.tape_neon_category \|\| ''\) \+ '"/);
   assert.doesNotMatch(SCHEDULE, /includes\('neon'\) \? 'LED Neon' : 'LED Tape'/);
 });
 

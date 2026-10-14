@@ -35,7 +35,7 @@
         <label for="quote-status">{{ _("Status") }}</label>
         <select id="quote-status" name="status" class="form-control">
         {% for key, label in [('all','All quotes'),('open','Awaiting your response'),('revision','Revision requested'),('accepted','Accepted'),('declined','Declined'),('expired','Expired')] %}
-          <option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ _(label) }}</option>
+          <option value="{{ key | e }}" {% if status == key %}selected{% endif %}>{{ _(label) | e }}</option>
         {% endfor %}
         </select>
       </div>
@@ -53,8 +53,8 @@
         </div>
         <dl class="ill-record__facts">
           <div><dt>{{ _("Quotation") }}</dt><dd>{{ offer.quotation | e }}</dd></div>
-          {% if offer.grand_total is defined and offer.grand_total is not none %}<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(offer.grand_total, {"fieldtype": "Currency", "options": offer.currency}) }}</dd></div>{% endif %}
-          <div><dt>{{ _("Valid until") }}</dt><dd>{{ frappe.utils.format_date(offer.valid_until) if offer.valid_until else _("Per quotation terms") }}</dd></div>
+          {% if offer.grand_total is defined and offer.grand_total is not none %}<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(offer.grand_total, {"fieldtype": "Currency", "options": offer.currency}) | e }}</dd></div>{% endif %}
+          <div><dt>{{ _("Valid until") }}</dt><dd>{{ (frappe.utils.format_date(offer.valid_until) if offer.valid_until else _("Per quotation terms")) | e }}</dd></div>
           {% if offer.sales_order %}<div><dt>{{ _("Order") }}</dt><dd><a href="/portal/orders/{{ offer.sales_order | urlencode }}">{{ offer.sales_order | e }}</a></dd></div>{% endif %}
         </dl>
         <div class="ill-record__end">
@@ -95,7 +95,7 @@
     </div>
     <nav class="ill-segments" aria-label="{{ _('Request status') }}">
     {% for key, label in [('open','Open'),('action','Needs your reply'),('closed','Quoted or closed'),('all','All')] %}
-      <a {% if request_status == key %}aria-current="page"{% endif %} href="?requests={{ key }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _(label) }}</a>
+      <a {% if request_status == key %}aria-current="page"{% endif %} href="?requests={{ key | e }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _(label) | e }}</a>
     {% endfor %}
     </nav>
     <div class="ill-records">
@@ -103,7 +103,7 @@
       <article class="ill-record ill-record--compact">
         <div class="ill-record__main">
           <a class="ill-record__title" href="/portal/quote-requests/{{ request.name | urlencode }}">{{ request.name | e }}</a>
-          <p class="ill-record__sub">{{ request.schedule_name | default(request.schedule, true) | e }}{% if request.creation | default(none) %} · {{ _("Sent") }} {{ frappe.utils.format_date(request.creation) }}{% endif %}</p>
+          <p class="ill-record__sub">{{ request.schedule_name | default(request.schedule, true) | e }}{% if request.creation | default(none) %} · {{ _("Sent") }} {{ frappe.utils.format_date(request.creation) | e }}{% endif %}</p>
         </div>
         <div class="ill-record__end">
           <span class="ill-status ill-status--{{ request.status_class | default('secondary', true) | e }}">{{ _(request.status_label | default(request.state, true)) | e }}</span>

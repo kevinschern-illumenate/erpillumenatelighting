@@ -38,7 +38,7 @@ Request and track custom drawings and technical documentation
 						<div class="drawing-type-selector" role="radiogroup" aria-labelledby="requestTypeLabel">
 							{% for request_type in request_types %}
 							<button type="button" class="drawing-type-option{% if loop.first %} selected{% endif %}" role="radio"
-								aria-checked="{{ 'true' if loop.first else 'false' }}" data-value="{{ request_type.name | e }}"
+								aria-checked="{{ ('true' if loop.first else 'false') | e }}" data-value="{{ request_type.name | e }}"
 								title="{{ (request_type.description or '') | e }}">
 								<i class="fa {{ (request_type.icon or 'fa-file-o') | e }}" aria-hidden="true"></i>
 								<span>{{ request_type.label | e }}</span>
@@ -114,7 +114,7 @@ Request and track custom drawings and technical documentation
 				<li class="nav-item">
 					<a class="nav-link active" data-toggle="tab" href="#pending">
 						{{ _("Pending") }} 
-						{% if pending_count > 0 %}<span class="badge badge-warning">{{ pending_count }}</span>{% endif %}
+						{% if pending_count > 0 %}<span class="badge badge-warning">{{ pending_count | e }}</span>{% endif %}
 					</a>
 				</li>
 				<li class="nav-item">
@@ -133,28 +133,28 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) }}"></i>
-								{{ req.drawing_type_display or req.drawing_type }}
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}"></i>
+								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
-							<span class="status-badge {{ req.status | lower | replace(' ', '-') }}">
-								{{ _(req.status) }}
+							<span class="status-badge {{ req.status | lower | replace(' ', '-') | e }}">
+								{{ _(req.status) | e }}
 							</span>
 						</div>
 						<div class="request-body">
-							<p class="mb-2">{{ req.description | truncate(150) }}</p>
+							<p class="mb-2">{{ req.description | striptags | truncate(150) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ req.project_name or req.custom_reference or "-" }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) }}</span>
+								<span><i class="fa fa-folder"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
+								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
 								{% if req.priority != "normal" %}
-								<span class="text-{{ 'danger' if req.priority == 'rush' else 'warning' }}">
-									<i class="fa fa-flag"></i> {{ req.priority | title }}
+								<span class="text-{{ ('danger' if req.priority == 'rush' else 'warning') | e }}">
+									<i class="fa fa-flag"></i> {{ req.priority | title | e }}
 								</span>
 								{% endif %}
 							</div>
 						</div>
 						<div class="request-footer">
-							<small class="text-muted">{{ _("Request") }} #{{ req.name }}</small>
-							<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-outline-primary">
+							<small class="text-muted">{{ _("Request") }} #{{ req.name | e }}</small>
+							<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">
 								{{ _("View Details") }}
 							</a>
 						</div>
@@ -176,27 +176,27 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) }}"></i>
-								{{ req.drawing_type_display or req.drawing_type }}
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}"></i>
+								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
 							<span class="status-badge completed">{{ _("Completed") }}</span>
 						</div>
 						<div class="request-body">
-							<p class="mb-2">{{ req.description | truncate(150) }}</p>
+							<p class="mb-2">{{ req.description | striptags | truncate(150) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ req.project_name or req.custom_reference or "-" }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.completed_date or req.modified) }}</span>
+								<span><i class="fa fa-folder"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
+								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.completed_date or req.modified) | e }}</span>
 							</div>
 						</div>
 						<div class="request-footer">
-							<small class="text-muted">{{ _("Request") }} #{{ req.name }}</small>
+							<small class="text-muted">{{ _("Request") }} #{{ req.name | e }}</small>
 							<div>
 								{% if req.has_attachments %}
-								<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-success">
+								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-success">
 									<i class="fa fa-download"></i> {{ _("Download") }}
 								</a>
 								{% endif %}
-								<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-outline-primary">
+								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">
 									{{ _("View") }}
 								</a>
 							</div>
@@ -219,23 +219,23 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) }}"></i>
-								{{ req.drawing_type_display or req.drawing_type }}
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}"></i>
+								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
-							<span class="status-badge {{ req.status | lower | replace(' ', '-') }}">
-								{{ _(req.status) }}
+							<span class="status-badge {{ req.status | lower | replace(' ', '-') | e }}">
+								{{ _(req.status) | e }}
 							</span>
 						</div>
 						<div class="request-body">
-							<p class="mb-2">{{ req.description | truncate(100) }}</p>
+							<p class="mb-2">{{ req.description | striptags | truncate(100) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ req.project_name or "-" }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) }}</span>
+								<span><i class="fa fa-folder"></i> {{ (req.project_name or "-") | e }}</span>
+								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
 							</div>
 						</div>
 						<div class="request-footer">
-							<small class="text-muted">#{{ req.name }}</small>
-							<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-outline-primary">{{ _("View") }}</a>
+							<small class="text-muted">#{{ req.name | e }}</small>
+							<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">{{ _("View") }}</a>
 						</div>
 					</div>
 					{% endfor %}

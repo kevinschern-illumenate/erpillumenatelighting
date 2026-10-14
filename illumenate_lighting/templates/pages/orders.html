@@ -35,7 +35,7 @@ View and track sales orders with production and shipment status
 			<label for="order-status">{{ _("Status") }}</label>
 			<select id="order-status" name="status" class="form-control">
 			{% for key, label in [('all','All orders'),('action','Needs your action'),('requests','Order requests'),('active','Approved / in progress'),('shipping','Partially shipped'),('fulfilled','Fulfilled'),('cancelled','Cancelled')] %}
-				<option value="{{ key }}" {% if filter == key %}selected{% endif %}>{{ _(label) }}</option>
+				<option value="{{ key | e }}" {% if filter == key %}selected{% endif %}>{{ _(label) | e }}</option>
 			{% endfor %}
 			</select>
 		</div>
@@ -49,12 +49,12 @@ View and track sales orders with production and shipment status
 		<article class="ill-record" data-status="{{ order.portal_status | e }}">
 			<div class="ill-record__main">
 				<a href="/portal/orders/{{ order.name | urlencode }}" class="ill-record__title">{{ order.name | e }}</a>
-				<p class="ill-record__sub">{{ _("Placed") }} {{ frappe.utils.format_date(order.transaction_date) }}{% if order.po_no %} · {{ _("PO") }} {{ order.po_no | e }}{% endif %}</p>
+				<p class="ill-record__sub">{{ _("Placed") }} {{ frappe.utils.format_date(order.transaction_date) | e }}{% if order.po_no %} · {{ _("PO") }} {{ order.po_no | e }}{% endif %}</p>
 			</div>
 			<dl class="ill-record__facts">
-				<div><dt>{{ _("Confirmed delivery") }}</dt><dd>{{ frappe.utils.format_date(order.ill_confirmed_delivery_date) if order.ill_confirmed_delivery_date else _("Not confirmed") }}</dd></div>
+				<div><dt>{{ _("Confirmed delivery") }}</dt><dd>{{ (frappe.utils.format_date(order.ill_confirmed_delivery_date) if order.ill_confirmed_delivery_date else _("Not confirmed")) | e }}</dd></div>
 				<div><dt>{{ _("Items") }}</dt><dd>{{ order.total_qty | int }}</dd></div>
-				<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(order.grand_total, {"fieldtype": "Currency", "currency": order.currency}) }}</dd></div>
+				<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(order.grand_total, {"fieldtype": "Currency", "currency": order.currency}) | e }}</dd></div>
 			</dl>
 			<div class="ill-record__end">
 				{% if order.needs_action %}<span class="ill-status ill-status--warning ill-status--action">{{ _("Needs your action") }}</span>{% endif %}
@@ -62,10 +62,10 @@ View and track sales orders with production and shipment status
 			</div>
 			{% if order.portal_status not in ['cancelled', 'issue'] %}
 			<ol class="ill-track" aria-label="{{ _('Order progress') }}">
-				<li class="{{ 'is-done' if order.docstatus == 1 else 'is-active' }}">{{ _("Approved") if order.docstatus == 1 else _("Requested") }}</li>
-				<li class="{{ 'is-done' if order.production_complete else ('is-active' if order.production_started else '') }}">{{ _("In Production") }}</li>
-				<li class="{{ 'is-done' if delivered >= 100 else ('is-active' if delivered > 0 else '') }}">{{ _("Shipped") }}</li>
-				<li class="{{ 'is-done' if order.portal_status == 'completed' else '' }}">{{ _("Completed") }}</li>
+				<li class="{{ ('is-done' if order.docstatus == 1 else 'is-active') | e }}">{{ (_("Approved") if order.docstatus == 1 else _("Requested")) | e }}</li>
+				<li class="{{ ('is-done' if order.production_complete else ('is-active' if order.production_started else '')) | e }}">{{ _("In Production") }}</li>
+				<li class="{{ ('is-done' if delivered >= 100 else ('is-active' if delivered > 0 else '')) | e }}">{{ _("Shipped") }}</li>
+				<li class="{{ ('is-done' if order.portal_status == 'completed' else '') | e }}">{{ _("Completed") }}</li>
 			</ol>
 			{% endif %}
 		</article>
@@ -87,7 +87,7 @@ View and track sales orders with production and shipment status
 	{% if page > 1 or has_more %}
 	<nav class="ill-pager" aria-label="{{ _('Order pages') }}">
 		{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Newer orders") }}</a>{% else %}<span></span>{% endif %}
-		<span>{{ _("Page") }} {{ page }}</span>
+		<span>{{ _("Page") }} {{ page | e }}</span>
 		{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}">{{ _("Older orders") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% else %}<span></span>{% endif %}
 	</nav>
 	{% endif %}

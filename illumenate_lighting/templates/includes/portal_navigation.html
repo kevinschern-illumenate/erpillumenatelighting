@@ -14,6 +14,6 @@
 ] %}
 <nav class="ill-portal-navigation" aria-label="{{ _('Portal navigation') }}">
     {% for href, label, sections, shown in nav_items if shown %}
-    <a href="{{ href }}"{% if section in sections %} aria-current="page"{% endif %}>{{ _(label) }}</a>
+    <a href="{{ href | e }}"{% if section in sections %} aria-current="page"{% endif %}>{{ _(label) | e }}</a>
     {% endfor %}
 </nav>

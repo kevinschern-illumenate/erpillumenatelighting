@@ -50,8 +50,8 @@
 		<select class="form-control" name="fixture_template_code" required>
 			<option value="">{{ _("Select Template...") }}</option>
 			{% for template in templates %}
-			<option value="{{ template.template_code }}" data-name="{{ template.template_name }}" data-image="{{ template.image or '' }}" data-gallery='{{ template.gallery_json }}' data-description="{{ template.description or '' }}" {% if template.template_code == selected_template %}selected{% endif %}>
-				{{ template.template_name }} ({{ template.template_code }})
+			<option value="{{ template.template_code | e }}" data-name="{{ template.template_name | e }}" data-image="{{ (template.image or '') | e }}" data-gallery='{{ template.gallery_json | e }}' data-description="{{ (template.description or '') | e }}" {% if template.template_code == selected_template %}selected{% endif %}>
+				{{ template.template_name | e }} ({{ template.template_code | e }})
 			</option>
 			{% endfor %}
 		</select>

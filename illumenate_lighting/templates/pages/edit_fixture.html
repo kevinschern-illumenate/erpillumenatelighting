@@ -14,7 +14,7 @@ Allows users to modify an existing configured fixture from a schedule line
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ _("Edit Fixture") }}</li>
 		</ol>
@@ -31,13 +31,13 @@ Allows users to modify an existing configured fixture from a schedule line
 	<div class="current-fixture-info">
 		<div class="row">
 			<div class="col-md-6">
-				<strong>{{ _("Current Part Number:") }}</strong> {{ fixture_details.part_number or 'N/A' }}
+				<strong>{{ _("Current Part Number:") }}</strong> {{ (fixture_details.part_number or 'N/A') | e }}
 			</div>
 			<div class="col-md-3">
-				<strong>{{ _("Length:") }}</strong> {{ fixture_details.manufacturable_length_in }}" ({{ fixture_details.manufacturable_length_mm }} mm)
+				<strong>{{ _("Length:") }}</strong> {{ fixture_details.manufacturable_length_in | e }}" ({{ fixture_details.manufacturable_length_mm | e }} mm)
 			</div>
 			<div class="col-md-3">
-				<strong>{{ _("Segments:") }}</strong> {{ fixture_details.user_segment_count }}
+				<strong>{{ _("Segments:") }}</strong> {{ fixture_details.user_segment_count | e }}
 			</div>
 		</div>
 	</div>
@@ -57,8 +57,8 @@ Allows users to modify an existing configured fixture from a schedule line
 							<select class="form-control" name="fixture_template_code" required>
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
-								<option value="{{ template.template_code }}" {% if template.template_code == fixture_config.fixture_template_code %}selected{% endif %}>
-									{{ template.template_name }} ({{ template.template_code }})
+								<option value="{{ template.template_code | e }}" {% if template.template_code == fixture_config.fixture_template_code %}selected{% endif %}>
+									{{ template.template_name | e }} ({{ template.template_code | e }})
 								</option>
 								{% endfor %}
 							</select>
@@ -163,7 +163,7 @@ Allows users to modify an existing configured fixture from a schedule line
 				</button>
 				{% if can_save %}
 				<div>
-					<a href="/portal/schedules/{{ schedule.name }}" class="btn btn-secondary mr-2">
+					<a href="/portal/schedules/{{ schedule.name | e }}" class="btn btn-secondary mr-2">
 						<i class="fa fa-times"></i> {{ _("Cancel") }}
 					</a>
 					<button type="button" class="btn btn-success" id="saveBtn" onclick="updateFixture()" disabled>
@@ -452,9 +452,9 @@ Allows users to modify an existing configured fixture from a schedule line
 
 {% block script %}
 <script>
-var schedule_name = "{{ schedule.name if schedule else '' }}";
-var line_idx = {{ line_idx if line_idx is not none else 'null' }};
-var configured_fixture_id = "{{ configured_fixture_id }}";
+var schedule_name = {{ (schedule.name if schedule else '') | tojson }};
+var line_idx = {{ line_idx | default(none) | tojson }};
+var configured_fixture_id = {{ (configured_fixture_id or "") | tojson }};
 var currentResult = null;
 var templateOptions = null;
 var segmentCount = 0;
@@ -732,7 +732,7 @@ function populateOptions(options, prePopulate) {
 				pillContainer.append(pill);
 				
 				// Add to fallback select
-				selectFallback.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+				selectFallback.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 			});
 			
 			// Pre-select if we have existing config
@@ -876,7 +876,7 @@ function populatePillSelector(fieldName, options, preSelectValue) {
 			pillContainer.append(pill);
 			
 			// Add to fallback select
-			selectFallback.append('<option value="' + opt.value + '">' + label + '</option>');
+			selectFallback.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(label) + '</option>');
 		});
 		
 		// Pre-select if value provided
@@ -935,7 +935,7 @@ function populateSegmentPowerFeedOptions(segmentCard) {
 		var select = segmentCard.find('[name="' + fieldName + '"]');
 		select.empty().append('<option value="">Select...</option>');
 		templateOptions.power_feed_type.forEach(function(opt) {
-			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			select.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 		});
 	});
 }
@@ -1333,7 +1333,7 @@ function displayResults(result) {
 		var messagesList = $('#messagesList').empty();
 		result.messages.forEach(function(msg) {
 			var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
-			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + msg.text + '</div>');
+			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + PortalUI.escape(msg.text) + '</div>');
 		});
 	} else {
 		$('#messagesPanel').hide();
@@ -1379,8 +1379,8 @@ function displayResults(result) {
 				var lengthIn = run.run_len_in || (run.run_len_mm / MM_PER_INCH).toFixed(1);
 				var lengthFt = (run.run_len_mm / MM_PER_FOOT).toFixed(2);
 				runsHtml += '<tr>';
-				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
-				runsHtml += '<td class="text-center">' + run.segment_index + '</td>';
+				runsHtml += '<td class="text-center">' + PortalUI.escape(run.run_index) + '</td>';
+				runsHtml += '<td class="text-center">' + PortalUI.escape(run.segment_index) + '</td>';
 				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
 				runsHtml += '<td class="text-right">' + run.run_watts.toFixed(1) + ' W</td>';
 				runsHtml += '</tr>';
@@ -1400,12 +1400,12 @@ function displayResults(result) {
 		if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
 			var driverHtml = '<table class="table table-sm">';
 			dp.drivers.forEach(function(d) {
-				driverHtml += '<tr><td>' + d.item_code + '</td><td>×' + d.qty + '</td></tr>';
+				driverHtml += '<tr><td>' + PortalUI.escape(d.item_code) + '</td><td>×' + PortalUI.escape(d.qty) + '</td></tr>';
 			});
 			driverHtml += '</table>';
 			$('#driverPlan').html(driverHtml);
 		} else {
-			$('#driverPlan').html('<span class="text-muted">' + dp.status + '</span>');
+			$('#driverPlan').html('<span class="text-muted">' + PortalUI.escape(dp.status) + '</span>');
 		}
 	}
 	
@@ -1442,7 +1442,7 @@ function displayResults(result) {
 		if (result.pricing.adder_breakdown && result.pricing.adder_breakdown.length > 0) {
 			var breakdownHtml = '<details><summary class="text-muted">Fixture Price Breakdown</summary><table class="table table-sm mt-2">';
 			result.pricing.adder_breakdown.forEach(function(adder) {
-				breakdownHtml += '<tr><td>' + adder.component + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
+				breakdownHtml += '<tr><td>' + PortalUI.escape(adder.component) + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
 			});
 			breakdownHtml += '</table></details>';
 			$('#adderBreakdown').html(breakdownHtml);

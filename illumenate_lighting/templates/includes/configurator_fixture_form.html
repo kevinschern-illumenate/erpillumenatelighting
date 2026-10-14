@@ -55,16 +55,16 @@ Context:
 							<select class="form-control mt-2" name="fixture_template_code" id="fixtureTemplateSelect">
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
-								<option value="{{ template.template_code }}"
-										data-name="{{ template.template_name }}"
-										data-image="{{ template.image or '' }}"
-										data-gallery='{{ template.gallery_json or "[]" }}'
+								<option value="{{ template.template_code | e }}"
+										data-name="{{ template.template_name | e }}"
+										data-image="{{ (template.image or '') | e }}"
+										data-gallery='{{ (template.gallery_json or "[]") | e }}'
 										{% if template.template_code == selected_template %}selected{% endif %}>
-									{{ template.template_name }} ({{ template.template_code }})
+									{{ template.template_name | e }} ({{ template.template_code | e }})
 								</option>
 								{% endfor %}
 							</select>
-							<input type="hidden" name="product_slug" value="{{ product_slug or '' }}">
+							<input type="hidden" name="product_slug" value="{{ (product_slug or '') | e }}">
 						</div>
 
 						<div id="templateOptions" style="display: none;">

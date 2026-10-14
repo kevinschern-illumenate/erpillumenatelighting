@@ -11,7 +11,7 @@ Portal Multi-Segment Configurator Page
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
             {% if schedule %}
-            <li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+            <li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
             {% endif %}
             <li class="breadcrumb-item active">{{ _("Configure Multi-Segment Fixture") }}</li>
         </ol>
@@ -30,7 +30,7 @@ Portal Multi-Segment Configurator Page
                                     <select class="form-control" name="fixture_template_code" required>
                                         <option value="">{{ _("Select Template...") }}</option>
                                         {% for template in templates %}
-                                        <option value="{{ template.template_code }}">{{ template.template_name }}</option>
+                                        <option value="{{ template.template_code | e }}">{{ template.template_name | e }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -151,8 +151,8 @@ Portal Multi-Segment Configurator Page
 
 {% block script %}
 <script>
-var schedule_name = "{{ schedule.name if schedule else '' }}";
-var line_idx = {{ line_idx if line_idx is not none else 'null' }};
+var schedule_name = {{ (schedule.name if schedule else '') | tojson }};
+var line_idx = {{ line_idx | default(none) | tojson }};
 var currentResult = null;
 var templateOptions = null;
 var segmentCount = 0;
@@ -194,19 +194,19 @@ function populateBaseOptions(options) {
         select.empty().append('<option value="">Select...</option>');
         if (options[field]) {
             options[field].forEach(function(opt) {
-                select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+                select.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
             });
         }
     });
     var tapeSelect = $("select[name='tape_offering_id']");
     tapeSelect.empty().append('<option value="">Select...</option>');
     if (options.tape_offerings) {
-        options.tape_offerings.forEach(function(opt) { tapeSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>'); });
+        options.tape_offerings.forEach(function(opt) { tapeSelect.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>'); });
     }
     var colorSelect = $("select[name='endcap_color_code']");
     colorSelect.empty().append('<option value="">Select...</option>');
     if (options.endcap_colors) {
-        options.endcap_colors.forEach(function(opt) { colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>'); });
+        options.endcap_colors.forEach(function(opt) { colorSelect.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>'); });
     }
 }
 
@@ -269,7 +269,7 @@ function populateSegmentEndcapStyles(segmentCard) {
         var select = segmentCard.find('[name="' + pos + '_endcap_style"]');
         select.empty().append('<option value="">Select...</option>');
         templateOptions.endcap_style.forEach(function(opt) {
-            select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+            select.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
         });
     });
 }
@@ -287,7 +287,7 @@ function populateSegmentFeedDirections(segmentCard) {
         var select = segmentCard.find('[name="' + fieldName + '"]');
         select.empty().append('<option value="">Select...</option>');
         feedDirs.forEach(function(opt) {
-            select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+            select.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
         });
     });
 }
@@ -388,7 +388,7 @@ function displayResults(result) {
         var messagesList = $("#messagesList").empty();
         result.messages.forEach(function(msg) {
             var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
-            messagesList.append('<div class="alert alert-' + alertClass + ' py-1 mb-1 small">' + msg.text + '</div>');
+            messagesList.append('<div class="alert alert-' + alertClass + ' py-1 mb-1 small">' + PortalUI.escape(msg.text) + '</div>');
         });
     } else { $("#messagesPanel").hide(); }
     if (result.computed) {

@@ -194,7 +194,7 @@ Help center, FAQ, and support ticket submission
 							<select class="form-control" name="order">
 								<option value="">{{ _("Select order (optional)...") }}</option>
 								{% for order in recent_orders %}
-								<option value="{{ order.name }}">{{ order.name }} - {{ frappe.utils.format_date(order.transaction_date) }}</option>
+								<option value="{{ order.name | e }}">{{ order.name | e }} - {{ frappe.utils.format_date(order.transaction_date) | e }}</option>
 								{% endfor %}
 							</select>
 						</div>
@@ -232,17 +232,17 @@ Help center, FAQ, and support ticket submission
 			<!-- Recent Tickets -->
 			{% if tickets %}
 			<div class="ticket-list">
-				<h5>{{ _("Your Support Requests") }} ({{ ticket_page.total }})</h5>
+				<h5>{{ _("Your Support Requests") }} ({{ ticket_page.total | e }})</h5>
 				{% for ticket in tickets %}
 				<div class="ticket-item">
 					<div class="ticket-info">
 						<h6><a href="/portal/support/{{ ticket.name | urlencode }}">{{ ticket.subject | e }}</a></h6>
 						<div class="ticket-meta">
-							#{{ ticket.name }} • {{ frappe.utils.format_date(ticket.creation) }}
+							#{{ ticket.name | e }} • {{ frappe.utils.format_date(ticket.creation) | e }}
 						</div>
 					</div>
-					<span class="status-badge {{ ticket.status | lower | replace(' ', '-') }}">
-						{{ _(ticket.status) }}
+					<span class="status-badge {{ ticket.status | lower | replace(' ', '-') | e }}">
+						{{ _(ticket.status) | e }}
 					</span>
 				</div>
 				{% endfor %}

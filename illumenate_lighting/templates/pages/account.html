@@ -58,7 +58,7 @@ User profile, notifications, and account preferences
 						<div class="col-md-3 text-center mb-4">
 							<div class="profile-avatar mx-auto">
 								{% if user_profile.user_image %}
-								<img src="{{ user_profile.user_image }}" alt="Profile">
+								<img src="{{ user_profile.user_image | e }}" alt="Profile">
 								{% else %}
 								<i class="fa fa-user"></i>
 								{% endif %}
@@ -70,28 +70,28 @@ User profile, notifications, and account preferences
 									<div class="col-md-6">
 										<div class="form-group">
 											<label for="account_first_name">{{ _("First Name") }}</label>
-											<input type="text" class="form-control" id="account_first_name" name="first_name" value="{{ user_profile.first_name or '' }}">
+											<input type="text" class="form-control" id="account_first_name" name="first_name" value="{{ (user_profile.first_name or '') | e }}">
 										</div>
 									</div>
 									<div class="col-md-6">
 										<div class="form-group">
 											<label for="account_last_name">{{ _("Last Name") }}</label>
-											<input type="text" class="form-control" id="account_last_name" name="last_name" value="{{ user_profile.last_name or '' }}">
+											<input type="text" class="form-control" id="account_last_name" name="last_name" value="{{ (user_profile.last_name or '') | e }}">
 										</div>
 									</div>
 								</div>
 								<div class="form-group">
 									<label for="account_email">{{ _("Email") }}</label>
-									<input id="account_email" type="email" class="form-control" value="{{ user_profile.email or '' }}" readonly>
+									<input id="account_email" type="email" class="form-control" value="{{ (user_profile.email or '') | e }}" readonly>
 									<small class="form-text text-muted">{{ _("Contact support to change your email address") }}</small>
 								</div>
 								<div class="form-group">
 									<label for="account_phone">{{ _("Phone") }}</label>
-									<input type="tel" class="form-control" id="account_phone" name="phone" value="{{ user_profile.phone or '' }}">
+									<input type="tel" class="form-control" id="account_phone" name="phone" value="{{ (user_profile.phone or '') | e }}">
 								</div>
 								<div class="form-group">
 									<label for="account_job_title">{{ _("Job Title") }}</label>
-									<input type="text" class="form-control" id="account_job_title" name="job_title" value="{{ user_profile.job_title or '' }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
+									<input type="text" class="form-control" id="account_job_title" name="job_title" value="{{ (user_profile.job_title or '') | e }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
 								</div>
 								<button type="submit" class="btn btn-primary">
 									<i class="fa fa-save"></i> {{ _("Save Changes") }}
@@ -112,17 +112,17 @@ User profile, notifications, and account preferences
 					<div class="mb-4">
 						<span class="company-badge">
 							<i class="fa fa-building"></i>
-							{{ customer.customer_name }}
+							{{ customer.customer_name | e }}
 						</span>
 					</div>
 					<div class="row">
 						<div class="col-md-6">
-							<p class="mb-2"><strong>{{ _("Company Type") }}:</strong> {{ customer.customer_type or "-" }}</p>
-							<p class="mb-2"><strong>{{ _("Territory") }}:</strong> {{ customer.territory or "-" }}</p>
+							<p class="mb-2"><strong>{{ _("Company Type") }}:</strong> {{ (customer.customer_type or "-") | e }}</p>
+							<p class="mb-2"><strong>{{ _("Territory") }}:</strong> {{ (customer.territory or "-") | e }}</p>
 						</div>
 						<div class="col-md-6">
-							<p class="mb-2"><strong>{{ _("Customer Group") }}:</strong> {{ customer.customer_group or "-" }}</p>
-							<p class="mb-2"><strong>{{ _("Currency") }}:</strong> {{ customer.default_currency or "USD" }}</p>
+							<p class="mb-2"><strong>{{ _("Customer Group") }}:</strong> {{ (customer.customer_group or "-") | e }}</p>
+							<p class="mb-2"><strong>{{ _("Currency") }}:</strong> {{ (customer.default_currency or "USD") | e }}</p>
 						</div>
 					</div>
 					<hr>
@@ -155,7 +155,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when your order status changes") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Orders notifications" name="notify_orders" {{ 'checked' if portal_settings.notify_orders else '' }}>
+							<input type="checkbox" aria-label="Orders notifications" name="notify_orders" {{ ('checked' if portal_settings.notify_orders else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -165,7 +165,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive notifications when quotes are ready") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Quotes notifications" name="notify_quotes" {{ 'checked' if portal_settings.notify_quotes else '' }}>
+							<input type="checkbox" aria-label="Quotes notifications" name="notify_quotes" {{ ('checked' if portal_settings.notify_quotes else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -175,7 +175,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when drawings are completed") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Drawings notifications" name="notify_drawings" {{ 'checked' if portal_settings.notify_drawings else '' }}>
+							<input type="checkbox" aria-label="Drawings notifications" name="notify_drawings" {{ ('checked' if portal_settings.notify_drawings else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -185,7 +185,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive shipping updates and tracking info") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Shipping notifications" name="notify_shipping" {{ 'checked' if portal_settings.notify_shipping else '' }}>
+							<input type="checkbox" aria-label="Shipping notifications" name="notify_shipping" {{ ('checked' if portal_settings.notify_shipping else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -195,7 +195,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Product updates, promotions, and industry news") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Marketing notifications" name="notify_marketing" {{ 'checked' if portal_settings.notify_marketing else '' }}>
+							<input type="checkbox" aria-label="Marketing notifications" name="notify_marketing" {{ ('checked' if portal_settings.notify_marketing else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>

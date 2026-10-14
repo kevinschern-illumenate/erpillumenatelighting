@@ -36,13 +36,13 @@ Context:
 						<select class="form-control mt-2" id="sheetTemplate" name="sheet_template">
 							<option value="">{{ _("Select Template...") }}</option>
 							{% for t in templates %}
-							<option value="{{ t.name }}"
-									data-name="{{ t.template_name or t.name }}"
-									data-image="{{ t.image or '' }}"
-									data-gallery='{{ t.gallery_json or "[]" }}'
-									data-description="{{ t.description or '' }}"
+							<option value="{{ t.name | e }}"
+									data-name="{{ (t.template_name or t.name) | e }}"
+									data-image="{{ (t.image or '') | e }}"
+									data-gallery='{{ (t.gallery_json or "[]") | e }}'
+									data-description="{{ (t.description or '') | e }}"
 									{% if t.name == selected_template %}selected{% endif %}>
-								{{ t.template_name or t.name }} ({{ t.template_code or t.name }})
+								{{ (t.template_name or t.name) | e }} ({{ (t.template_code or t.name) | e }})
 							</option>
 							{% endfor %}
 						</select>

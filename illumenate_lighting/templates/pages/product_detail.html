@@ -5,7 +5,7 @@ Full product detail with an "Add to a Fixture Schedule" panel
 {% extends "templates/portal_base.html" %}
 {% block portal_scope %}ill-page--product-detail{% endblock %}
 
-{% block portal_title %}{{ product_name or _("Product Detail") }}{% endblock %}
+{% block portal_title %}{{ (product_name or _("Product Detail")) | e }}{% endblock %}
 
 
 {% block portal_main_attrs %}style="padding:2rem 0"{% endblock %}
@@ -14,7 +14,7 @@ Full product detail with an "Add to a Fixture Schedule" panel
 	<nav class="breadcrumb-nav" aria-label="breadcrumb">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/products">{{ _("Products") }}</a></li>
-			<li class="breadcrumb-item active" aria-current="page">{{ product_name }}</li>
+			<li class="breadcrumb-item active" aria-current="page">{{ product_name | e }}</li>
 		</ol>
 	</nav>
 

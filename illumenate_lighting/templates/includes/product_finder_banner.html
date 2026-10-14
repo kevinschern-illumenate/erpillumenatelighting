@@ -1,10 +1,10 @@
 {% if finder_banner | default(none) %}
 <aside id="productFinderBanner" class="card mb-4" aria-label="Product Finder">
   <div class="card-body d-flex flex-wrap align-items-center" style="gap:1.5rem">
-    {% if finder_banner.image %}<img src="{{ finder_banner.image }}" alt="" style="width:180px;max-width:100%;border-radius:8px">{% endif %}
-    <div style="flex:1;min-width:220px"><h2>{{ finder_banner.headline }}</h2><p>{{ finder_banner.text }}</p>
-      {% if finder_banner.resume %}<a class="btn btn-primary" href="{{ finder_banner.resume.url }}">Resume ({{ finder_banner.resume.percent }}% done)</a>
-      {% else %}<a class="btn btn-primary" href="/portal/product-finder">{{ finder_banner.cta }}</a>{% endif %}
+    {% if finder_banner.image %}<img src="{{ finder_banner.image | e }}" alt="" style="width:180px;max-width:100%;border-radius:8px">{% endif %}
+    <div style="flex:1;min-width:220px"><h2>{{ finder_banner.headline | e }}</h2><p>{{ finder_banner.text | e }}</p>
+      {% if finder_banner.resume %}<a class="btn btn-primary" href="{{ finder_banner.resume.url | e }}">Resume ({{ finder_banner.resume.percent | e }}% done)</a>
+      {% else %}<a class="btn btn-primary" href="/portal/product-finder">{{ finder_banner.cta | e }}</a>{% endif %}
       <a class="btn btn-link" href="/portal/products">Browse catalog</a>
     </div><button type="button" class="btn btn-sm btn-light" data-finder-dismiss aria-label="Dismiss">×</button>
   </div>

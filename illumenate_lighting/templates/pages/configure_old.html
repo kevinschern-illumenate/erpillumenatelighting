@@ -13,7 +13,7 @@ Allows users to configure fixtures using the Rules Engine
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ _("Configure Fixture") }}</li>
 		</ol>
@@ -34,8 +34,8 @@ Allows users to configure fixtures using the Rules Engine
 							<select class="form-control" name="fixture_template_code" required>
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
-								<option value="{{ template.template_code }}" {% if template.template_code == selected_template %}selected{% endif %}>
-									{{ template.template_name }} ({{ template.template_code }})
+								<option value="{{ template.template_code | e }}" {% if template.template_code == selected_template %}selected{% endif %}>
+									{{ template.template_name | e }} ({{ template.template_code | e }})
 								</option>
 								{% endfor %}
 							</select>
@@ -255,8 +255,8 @@ Allows users to configure fixtures using the Rules Engine
 
 {% block script %}
 <script>
-var schedule_name = "{{ schedule.name if schedule else '' }}";
-var line_idx = {{ line_idx if line_idx is not none else 'null' }};
+var schedule_name = {{ (schedule.name if schedule else '') | tojson }};
+var line_idx = {{ line_idx | default(none) | tojson }};
 var currentResult = null;
 var MM_PER_INCH = 25.4;
 
@@ -308,7 +308,7 @@ function populateOptions(options) {
 
 		if (options[field]) {
 			options[field].forEach(function(opt) {
-				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+				select.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 			});
 		}
 	});
@@ -320,7 +320,7 @@ function populateOptions(options) {
 		select.empty().append('<option value="">Select...</option>');
 		if (options.endcap_style) {
 			options.endcap_style.forEach(function(opt) {
-				select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+				select.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 			});
 		}
 	});
@@ -330,7 +330,7 @@ function populateOptions(options) {
 	tapeSelect.empty().append('<option value="">Select...</option>');
 	if (options.tape_offerings) {
 		options.tape_offerings.forEach(function(opt) {
-			tapeSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			tapeSelect.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 		});
 	}
 
@@ -339,7 +339,7 @@ function populateOptions(options) {
 	colorSelect.empty().append('<option value="">Select...</option>');
 	if (options.endcap_colors) {
 		options.endcap_colors.forEach(function(opt) {
-			colorSelect.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			colorSelect.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 		});
 	}
 }
@@ -399,7 +399,7 @@ function displayResults(result) {
 		var messagesList = $('#messagesList').empty();
 		result.messages.forEach(function(msg) {
 			var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
-			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + msg.text + '</div>');
+			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + PortalUI.escape(msg.text) + '</div>');
 		});
 	} else {
 		$('#messagesPanel').hide();
@@ -428,12 +428,12 @@ function displayResults(result) {
 		if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
 			var driverHtml = '<table class="table table-sm">';
 			dp.drivers.forEach(function(d) {
-				driverHtml += '<tr><td>' + d.item_code + '</td><td>×' + d.qty + '</td></tr>';
+				driverHtml += '<tr><td>' + PortalUI.escape(d.item_code) + '</td><td>×' + PortalUI.escape(d.qty) + '</td></tr>';
 			});
 			driverHtml += '</table>';
 			$('#driverPlan').html(driverHtml);
 		} else {
-			$('#driverPlan').html('<span class="text-muted">' + dp.status + '</span>');
+			$('#driverPlan').html('<span class="text-muted">' + PortalUI.escape(dp.status) + '</span>');
 		}
 	}
 
@@ -470,7 +470,7 @@ function displayResults(result) {
 		if (result.pricing.adder_breakdown && result.pricing.adder_breakdown.length > 0) {
 			var breakdownHtml = '<details><summary class="text-muted">Fixture Price Breakdown</summary><table class="table table-sm mt-2">';
 			result.pricing.adder_breakdown.forEach(function(adder) {
-				breakdownHtml += '<tr><td>' + adder.component + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
+				breakdownHtml += '<tr><td>' + PortalUI.escape(adder.component) + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
 			});
 			breakdownHtml += '</table></details>';
 			$('#adderBreakdown').html(breakdownHtml);
@@ -511,7 +511,7 @@ function saveToSchedule() {
 // Load template options if pre-selected
 {% if selected_template %}
 $(document).ready(function() {
-	loadTemplateOptions("{{ selected_template }}");
+	loadTemplateOptions({{ (selected_template or "") | tojson }});
 	$('#templateOptions').show();
 });
 {% endif %}

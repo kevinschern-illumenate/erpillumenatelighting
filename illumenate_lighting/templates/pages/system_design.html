@@ -3,7 +3,7 @@
 {% block portal_shell_class %}ill-portal-shell--bare{% endblock %}
 {% block portal_page_class %}{% endblock %}
 {% block portal_content %}
-<link rel="stylesheet" href="{{ assets }}.css?v={{ asset_version }}">
+<link rel="stylesheet" href="{{ assets | e }}.css?v={{ asset_version | e }}">
 {% if schedule_name %}
 <nav class="ill-sd-breadcrumb" aria-label="Breadcrumb"><a href="/portal/schedules/{{ schedule_name | urlencode }}">{{ _("Back to schedule") }}</a></nav>
 {% endif %}

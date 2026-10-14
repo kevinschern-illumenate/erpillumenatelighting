@@ -20,7 +20,7 @@ Context:
 	<div class="col-lg-7">
 		<div class="card mb-3">
 			<div class="card-header">
-				<h5 class="mb-0">{{ title }}</h5>
+				<h5 class="mb-0">{{ title | e }}</h5>
 			</div>
 			<div class="card-body">
 				<form id="tapeConfigForm">
@@ -34,7 +34,7 @@ Context:
 							<select class="form-control" id="tapeNeonTemplateSelect">
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for t in templates %}
-								<option value="{{ t.template_code }}" data-name="{{ t.template_name or t.template_code }}" data-image="{{ t.image or '' }}" data-gallery='{{ t.gallery_json or "[]" }}' data-description="{{ t.description or '' }}">{{ t.template_name or t.template_code }} ({{ t.template_code }})</option>
+								<option value="{{ t.template_code | e }}" data-name="{{ (t.template_name or t.template_code) | e }}" data-image="{{ (t.image or '') | e }}" data-gallery='{{ (t.gallery_json or "[]") | e }}' data-description="{{ (t.description or '') | e }}">{{ (t.template_name or t.template_code) | e }} ({{ t.template_code | e }})</option>
 								{% endfor %}
 							</select>
 						</div>

@@ -237,7 +237,10 @@ def get_context(context):
 	context.product_slug = frappe.form_dict.get("product_slug", "")
 	context.show_pricing = show_pricing
 	context.title = title_map.get(product_category, "Configure Fixture")
-	context.quiz_handoff_json = frappe.as_json(quiz_handoff)
+	# Escaped for a <script> block: <, > and & only occur inside JSON strings.
+	context.quiz_handoff_json = (
+		frappe.as_json(quiz_handoff).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+	)
 	context.has_quiz_handoff = bool(quiz_handoff or context.finder)
 	context.quiz_prefill = quiz_prefill
 	context.family_products = []

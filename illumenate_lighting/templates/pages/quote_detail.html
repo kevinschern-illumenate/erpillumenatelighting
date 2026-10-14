@@ -1,5 +1,5 @@
 {% extends "templates/portal_base.html" %}
-{% block portal_title %}{{ offer.name }}{% endblock %}
+{% block portal_title %}{{ offer.name | e }}{% endblock %}
 {% block portal_page_class %}ill-commerce{% endblock %}
 {% block portal_main_attrs %}id="offer-detail" data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}"{% endblock %}
 {% block portal_content %}{% set currency = offer.snapshot.currency %}
@@ -17,8 +17,8 @@
       </div>
     </div>
     <dl class="ill-hero__facts">
-      <div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":currency}) }}</dd></div>
-      <div><dt>{{ _("Valid until") }}</dt><dd>{{ frappe.utils.format_date(offer.valid_until) if offer.valid_until else _("As stated in quotation terms") }}</dd></div>
+      <div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":currency}) | e }}</dd></div>
+      <div><dt>{{ _("Valid until") }}</dt><dd>{{ (frappe.utils.format_date(offer.valid_until) if offer.valid_until else _("As stated in quotation terms")) | e }}</dd></div>
       <div><dt>{{ _("Lines") }}</dt><dd>{{ offer.snapshot["items"] | length }}</dd></div>
       {% if offer.sales_order %}<div><dt>{{ _("Order request") }}</dt><dd><a href="/portal/orders/{{ offer.sales_order | urlencode }}">{{ offer.sales_order | e }}</a></dd></div>{% endif %}
     </dl>
@@ -45,9 +45,9 @@
             <thead><tr><th scope="col">{{ _("Item") }}</th><th scope="col" class="num">{{ _("Quantity") }}</th><th scope="col" class="num">{{ _("Rate") }}</th><th scope="col" class="num">{{ _("Amount") }}</th></tr></thead>
             <tbody>{% for line in offer.snapshot["items"] %}<tr>
               <td>{% if line.ill_fixture_type %}<span class="ill-lines__tag">{{ line.ill_fixture_type | e }}</span><br>{% endif %}<span class="ill-lines__name">{{ line.item_name | e }}</span><div class="ill-lines__meta">{{ line.item_code | e }}{% if line.additional_notes %} · {{ line.additional_notes | e }}{% endif %}</div></td>
-              <td class="num" data-label="{{ _('Quantity') }}">{{ line.qty }} {{ line.uom | e }}</td>
-              <td class="num" data-label="{{ _('Rate') }}">{{ frappe.format_value(line.rate, {"fieldtype":"Currency", "options":currency}) }}</td>
-              <td class="num" data-label="{{ _('Amount') }}">{{ frappe.format_value(line.amount, {"fieldtype":"Currency", "options":currency}) }}</td>
+              <td class="num" data-label="{{ _('Quantity') }}">{{ line.qty | e }} {{ line.uom | e }}</td>
+              <td class="num" data-label="{{ _('Rate') }}">{{ frappe.format_value(line.rate, {"fieldtype":"Currency", "options":currency}) | e }}</td>
+              <td class="num" data-label="{{ _('Amount') }}">{{ frappe.format_value(line.amount, {"fieldtype":"Currency", "options":currency}) | e }}</td>
             </tr>{% endfor %}</tbody>
           </table>
         </div>
@@ -74,8 +74,8 @@
         <div class="ill-panel__head"><h2 id="quote-summary-heading">{{ _("Summary") }}</h2></div>
         <div class="ill-panel__body">
           <table class="ill-totals">
-            {% for tax in offer.snapshot.taxes %}<tr><td>{{ tax.description | e }}</td><td>{{ frappe.format_value(tax.tax_amount, {"fieldtype":"Currency", "options":currency}) }}</td></tr>{% endfor %}
-            <tr class="ill-totals__grand"><td>{{ _("Total") }}</td><td>{{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":currency}) }}</td></tr>
+            {% for tax in offer.snapshot.taxes %}<tr><td>{{ tax.description | e }}</td><td>{{ frappe.format_value(tax.tax_amount, {"fieldtype":"Currency", "options":currency}) | e }}</td></tr>{% endfor %}
+            <tr class="ill-totals__grand"><td>{{ _("Total") }}</td><td>{{ frappe.format_value(offer.snapshot.grand_total, {"fieldtype":"Currency", "options":currency}) | e }}</td></tr>
           </table>
         </div>
       </section>

@@ -18,6 +18,7 @@ from jinja2 import (
 	Environment,
 	FileSystemLoader,
 	StrictUndefined,
+	nodes,
 )
 
 environment = Environment(
@@ -89,10 +90,79 @@ assert page_style_violations("x", "<style>" + "a{}\n" * 21 + "</style>")
 assert not page_style_violations("x", "<style>a{}\nb{}</style>")
 assert page_style_violations("x", '<div style="color:#fff">')
 assert not page_style_violations("x", '<a href="#addLineModal">')
+# SEC-2: every template output is escaped (| e), JSON-encoded (| tojson), a number, a translation of a
+# literal, a macro or sanitized HTML, or listed in tools/portal_raw_outputs.txt with why it is safe.
+OUTPUT = re.compile(r"\{\{-?(.*?)-?\}\}", re.DOTALL)
+MACRO = re.compile(r"\{%-?\s*macro\s+(\w+)")
+ESCAPING_FILTERS = {"e", "escape", "forceescape", "tojson", "urlencode", "int", "float", "round", "length", "count", "abs"}
+RAW_ALLOWLIST_FILE = ROOT / "tools/portal_raw_outputs.txt"
+RAW_ALLOWLIST = {
+	tuple(part.strip() for part in line.split("#", 1)[0].split(":", 1))
+	for line in RAW_ALLOWLIST_FILE.read_text(encoding="utf8").splitlines()
+	if line.split("#", 1)[0].strip()
+}
+
+
+def _constant(expr):
+	if isinstance(expr, nodes.Const):
+		return True
+	if isinstance(expr, nodes.CondExpr):
+		return _constant(expr.expr1) and (expr.expr2 is None or _constant(expr.expr2))
+	return isinstance(expr, (nodes.Add, nodes.Sub, nodes.Mul, nodes.Div, nodes.FloorDiv, nodes.Mod, nodes.Compare))
+
+
+def _escaped(expr, macros):
+	if _constant(expr):
+		return True
+	if isinstance(expr, nodes.Filter):
+		if expr.name in ESCAPING_FILTERS:
+			return True
+		inner = expr.node
+		return (
+			expr.name == "safe"
+			and isinstance(inner, nodes.Call)
+			and isinstance(inner.node, nodes.Name)
+			and inner.node.name == "ill_sanitize_html"
+		)
+	if isinstance(expr, nodes.Call) and isinstance(expr.node, nodes.Name):
+		name = expr.node.name
+		if name in macros or name == "super":
+			return True
+		return name in ("_", "__") and all(isinstance(arg, nodes.Const) for arg in expr.args)
+	return False
+
+
+def unescaped_outputs(name, source):
+	macros = set(MACRO.findall(source))
+	found = []
+	for match in OUTPUT.finditer(source):
+		expression = match.group(1).strip()
+		tree = environment.parse("{{ " + expression + " }}").body[0].nodes[0]
+		if not _escaped(tree, macros) and (str(name), expression) not in RAW_ALLOWLIST:
+			found.append(f"{name}:{source.count(chr(10), 0, match.start()) + 1}: {{{{ {expression} }}}}")
+	return found
+
+
+assert unescaped_outputs("x", "<p>{{ doc.name }}</p><i>{{ _(doc.status) }}</i>") == [
+	"x:1: {{ doc.name }}",
+	"x:1: {{ _(doc.status) }}",
+]
+assert not unescaped_outputs(
+	"x",
+	"{% macro row(d) %}{% endmacro %}{{ doc.name | e }}{{ (a or b) | e }}{{ x | tojson }}{{ _('Hi') }}"
+	"{{ row(doc) }}{{ page - 1 }}{{ 'a' if ok else 'b' }}{{ ill_sanitize_html(doc.notes) | safe }}",
+)
+assert unescaped_outputs("x", "{{ doc.notes | safe }}{{ a or b | e }}") == [
+	"x:1: {{ doc.notes | safe }}",
+	"x:1: {{ a or b | e }}",
+]
+unescaped = []
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	source = path.read_text(encoding="utf8")
 	environment.parse(source)
 	parsed += 1
+	if path.parent.name in ("pages", "includes"):
+		unescaped += unescaped_outputs(path.relative_to(ROOT / "illumenate_lighting"), source)
 	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
 	if path.parent.name == "pages" and path.name not in PRINT_DOCUMENTS:
 		style_violations += page_style_violations(path.relative_to(ROOT), source)
@@ -100,6 +170,11 @@ if style_violations:
 	sys.exit(
 		"Page styles belong in public/css/pages/_<page>.scss and colours in --ill-* tokens (UI-2):\n  "
 		+ "\n  ".join(style_violations)
+	)
+if unescaped:
+	sys.exit(
+		"Escape template outputs with | e (| tojson in scripts), or list them in "
+		"tools/portal_raw_outputs.txt with why they are safe (SEC-2):\n  " + "\n  ".join(unescaped)
 	)
 if handler_violations:
 	sys.exit(

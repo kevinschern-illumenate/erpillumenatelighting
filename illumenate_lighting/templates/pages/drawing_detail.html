@@ -5,7 +5,7 @@ Detailed view of a single document request
 {% extends "templates/portal_base.html" %}
 {% block portal_scope %}ill-page--drawing-detail{% endblock %}
 
-{% block portal_title %}{{ request.name if request else _("Request") }}{% endblock %}
+{% block portal_title %}{{ (request.name if request else _("Request")) | e }}{% endblock %}
 
 
 {% block portal_content %}
@@ -14,7 +14,7 @@ Detailed view of a single document request
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
 			<li class="breadcrumb-item"><a href="/portal/drawings">{{ _("Drawings") }}</a></li>
-			<li class="breadcrumb-item active">{{ request.name if request else _("Request") }}</li>
+			<li class="breadcrumb-item active">{{ (request.name if request else _("Request")) | e }}</li>
 		</ol>
 	</nav>
 
@@ -35,52 +35,52 @@ Detailed view of a single document request
 					<div class="d-flex justify-content-between align-items-start">
 						<div>
 							<h1>
-								<i class="fa fa-{{ drawing_type_icon(request.request_type) }}"></i>
-								{{ request.name }}
+								<i class="fa fa-{{ drawing_type_icon(request.request_type) | e }}"></i>
+								{{ request.name | e }}
 							</h1>
 							<p class="mb-0 opacity-75">
-								{{ request_type_info.label or request.request_type or _("Document Request") }}
+								{{ (request_type_info.label or request.request_type or _("Document Request")) | e }}
 							</p>
 						</div>
-						<span class="status-badge {{ status_class }}">
-							{{ _(request.status) }}
+						<span class="status-badge {{ status_class | e }}">
+							{{ _(request.status) | e }}
 						</span>
 					</div>
 				</div>
 				<div class="request-header-details">
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Created") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(request.creation) }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(request.creation) | e }}</span>
 					</div>
 					{% if request.requested_due_date %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Requested Due Date") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(request.requested_due_date) }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(request.requested_due_date) | e }}</span>
 					</div>
 					{% endif %}
 					{% if project_info %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Project") }}</span>
 						<span class="detail-value">
-							<a href="/portal/projects/{{ project_info.name }}">{{ project_info.project_name }}</a>
+							<a href="/portal/projects/{{ project_info.name | e }}">{{ project_info.project_name | e }}</a>
 						</span>
 					</div>
 					{% endif %}
 					{% if request.fixture_or_product_text %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Fixture/Product") }}</span>
-						<span class="detail-value">{{ request.fixture_or_product_text }}</span>
+						<span class="detail-value">{{ request.fixture_or_product_text | e }}</span>
 					</div>
 					{% endif %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Priority") }}</span>
-						<span class="priority-badge {{ request.priority | lower }}">
+						<span class="priority-badge {{ request.priority | lower | e }}">
 							{% if request.priority == 'Rush' %}
 							<i class="fa fa-exclamation-circle"></i>
 							{% elif request.priority == 'High' %}
 							<i class="fa fa-flag"></i>
 							{% endif %}
-							{{ request.priority }}
+							{{ request.priority | e }}
 						</span>
 					</div>
 				</div>
@@ -93,7 +93,7 @@ Detailed view of a single document request
 				</div>
 				<div class="content-body">
 					<div class="description-content">
-						{{ request.description | safe }}
+						{{ ill_sanitize_html(request.description) | safe }}
 					</div>
 				</div>
 			</div>
@@ -107,8 +107,8 @@ Detailed view of a single document request
 				<div class="content-body">
 					{% for field in custom_fields %}
 					<div class="custom-field-row">
-						<span class="text-muted">{{ field.label }}</span>
-						<span class="font-weight-medium">{{ field.value or "-" }}</span>
+						<span class="text-muted">{{ field.label | e }}</span>
+						<span class="font-weight-medium">{{ (field.value or "-") | e }}</span>
 					</div>
 					{% endfor %}
 				</div>
@@ -120,7 +120,7 @@ Detailed view of a single document request
 			<section class="card p-3 mb-4" aria-labelledby="drawing-review-heading">
 				<h2 class="h5" id="drawing-review-heading">{{ _("Technical review") }} · {{ drawing_review.version | e }}</h2>
 				{% if drawing_review.decision %}
-				<p>{{ drawing_review.decision.decision.replace('_', ' ').title() | e }} · {{ frappe.utils.format_datetime(drawing_review.decision.reviewed_on) }}</p>
+				<p>{{ drawing_review.decision.decision.replace('_', ' ').title() | e }} · {{ frappe.utils.format_datetime(drawing_review.decision.reviewed_on) | e }}</p>
 				<p style="white-space: pre-wrap">{{ (drawing_review.decision.note or '') | e }}</p>
 				{% elif drawing_review.can_review %}
 				<p>{{ _("Review the published drawing below. Your decision applies to this drawing revision and its associated build.") }}</p>
@@ -147,18 +147,18 @@ Detailed view of a single document request
 							<i class="fa fa-file-pdf-o"></i>
 						</div>
 						<div>
-							<div class="font-weight-medium">{{ deliverable.filename or _("File") }}</div>
+							<div class="font-weight-medium">{{ (deliverable.filename or _("File")) | e }}</div>
 							<div class="deliverable-meta">
-								{% if deliverable.deliverable_type %}{{ deliverable.deliverable_type }} • {% endif %}
-								{% if deliverable.version %}v{{ deliverable.version }} • {% endif %}
-								{{ frappe.utils.format_date(deliverable.published_on) if deliverable.published_on else "" }}
+								{% if deliverable.deliverable_type %}{{ deliverable.deliverable_type | e }} • {% endif %}
+								{% if deliverable.version %}v{{ deliverable.version | e }} • {% endif %}
+								{{ (frappe.utils.format_date(deliverable.published_on) if deliverable.published_on else "") | e }}
 							</div>
 							{% if deliverable.notes %}
-							<div class="text-muted small mt-1">{{ deliverable.notes }}</div>
+							<div class="text-muted small mt-1">{{ deliverable.notes | e }}</div>
 							{% endif %}
 						</div>
 					</div>
-					<a href="{{ deliverable.file }}" class="btn btn-sm btn-success" target="_blank" download>
+					<a href="{{ deliverable.file | e }}" class="btn btn-sm btn-success" target="_blank" download>
 						<i class="fa fa-download"></i> {{ _("Download") }}
 					</a>
 				</div>
@@ -177,9 +177,9 @@ Detailed view of a single document request
 					<div class="attachment-item">
 						<div class="attachment-name">
 							<i class="fa fa-file-o text-muted"></i>
-							<span>{{ attachment.file_name }}</span>
+							<span>{{ attachment.file_name | e }}</span>
 						</div>
-						<a href="{{ attachment.file_url }}" class="btn btn-sm btn-outline-secondary" target="_blank">
+						<a href="{{ attachment.file_url | e }}" class="btn btn-sm btn-outline-secondary" target="_blank">
 							<i class="fa fa-external-link"></i>
 						</a>
 					</div>
@@ -199,7 +199,7 @@ Detailed view of a single document request
 						<div class="timeline-dot active"></div>
 						<div class="timeline-content">
 							<div class="timeline-label">{{ _("Created") }}</div>
-							<div class="timeline-date">{{ frappe.utils.format_datetime(request.creation) }}</div>
+							<div class="timeline-date">{{ frappe.utils.format_datetime(request.creation) | e }}</div>
 						</div>
 					</div>
 					{% if request.status in ["Submitted", "In Progress", "Waiting on Customer", "Completed", "Closed"] %}
@@ -223,7 +223,7 @@ Detailed view of a single document request
 						<div class="timeline-dot active"></div>
 						<div class="timeline-content">
 							<div class="timeline-label">{{ _("Completed") }}</div>
-							<div class="timeline-date">{{ frappe.utils.format_datetime(request.completed_on) }}</div>
+							<div class="timeline-date">{{ frappe.utils.format_datetime(request.completed_on) | e }}</div>
 						</div>
 					</div>
 					{% endif %}
@@ -238,7 +238,7 @@ Detailed view of a single document request
 					<span>{{ _("Back to Requests") }}</span>
 				</a>
 				{% if deliverables %}
-				<a href="{{ deliverables[0].file }}" class="action-btn" target="_blank" download>
+				<a href="{{ deliverables[0].file | e }}" class="action-btn" target="_blank" download>
 					<i class="fa fa-download"></i>
 					<span>{{ _("Download Latest") }}</span>
 				</a>
@@ -259,20 +259,20 @@ Detailed view of a single document request
 				<table class="w-100">
 					<tr>
 						<td class="py-2 text-muted">{{ _("Request ID") }}</td>
-						<td class="text-right py-2"><code>{{ request.name }}</code></td>
+						<td class="text-right py-2"><code>{{ request.name | e }}</code></td>
 					</tr>
 					<tr>
 						<td class="py-2 text-muted">{{ _("Type") }}</td>
-						<td class="text-right py-2">{{ request_type_info.label or request.request_type or "-" }}</td>
+						<td class="text-right py-2">{{ (request_type_info.label or request.request_type or "-") | e }}</td>
 					</tr>
 					<tr>
 						<td class="py-2 text-muted">{{ _("Status") }}</td>
-						<td class="text-right py-2">{{ _(request.status) }}</td>
+						<td class="text-right py-2">{{ _(request.status) | e }}</td>
 					</tr>
 					{% if request.sla_deadline %}
 					<tr>
 						<td class="py-2 text-muted">{{ _("SLA Deadline") }}</td>
-						<td class="text-right py-2">{{ frappe.utils.format_datetime(request.sla_deadline) }}</td>
+						<td class="text-right py-2">{{ frappe.utils.format_datetime(request.sla_deadline) | e }}</td>
 					</tr>
 					{% endif %}
 				</table>

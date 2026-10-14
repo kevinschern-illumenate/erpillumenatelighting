@@ -12,8 +12,8 @@ Portal overview (FLOW-1): what needs the user's attention, recent activity and q
 	<header class="ill-hero">
 		<div class="ill-hero__top">
 			<div>
-				<p class="ill-hero__eyebrow">{{ customer_name or _("Dealer portal") }}</p>
-				<h1>{{ greeting }}{% if user_name %}, {{ user_name }}{% endif %}</h1>
+				<p class="ill-hero__eyebrow">{{ (customer_name or _("Dealer portal")) | e }}</p>
+				<h1>{{ greeting | e }}{% if user_name %}, {{ user_name | e }}{% endif %}</h1>
 			</div>
 			<div class="ill-hero__actions ill-quick">
 				<a href="/portal/projects/new" class="btn btn-accent"><i class="fa fa-plus" aria-hidden="true"></i> {{ _("New project") }}</a>
@@ -68,7 +68,7 @@ Portal overview (FLOW-1): what needs the user's attention, recent activity and q
 								<a href="/portal/projects/{{ project.name | urlencode }}" class="item-name">{{ project.project_name | e }}</a>
 								<div class="item-meta">{{ project.customer | e }}</div>
 							</div>
-							<span class="ill-status ill-status--{{ project_status_class(project.status) }}">{{ project_status_label(project.status) }}</span>
+							<span class="ill-status ill-status--{{ project_status_class(project.status) | e }}">{{ project_status_label(project.status) | e }}</span>
 						</li>
 						{% endfor %}
 					</ul>
@@ -89,7 +89,7 @@ Portal overview (FLOW-1): what needs the user's attention, recent activity and q
 						<li>
 							<div>
 								<a href="/portal/orders/{{ order.name | urlencode }}" class="item-name">{{ order.name | e }}</a>
-								<div class="item-meta">{{ frappe.utils.format_date(order.transaction_date) }}</div>
+								<div class="item-meta">{{ frappe.utils.format_date(order.transaction_date) | e }}</div>
 							</div>
 							<span class="ill-status ill-status--{{ order.portal_status_class | default('secondary', true) | e }}" title="{{ order.erp_status | e }}">{{ order.portal_status_label | e }}</span>
 						</li>

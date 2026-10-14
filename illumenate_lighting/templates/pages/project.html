@@ -5,7 +5,7 @@ Also handles new project creation when is_new is True
 #}
 {% extends "templates/portal_base.html" %}
 
-{% block portal_title %}{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name }}{% endif %}{% endblock %}
+{% block portal_title %}{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name | e }}{% endif %}{% endblock %}
 
 {% macro schedule_row(schedule) %}
 				<div class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center js-schedule-row{% if schedule.is_locked %} bg-light{% endif %}" data-schedule="{{ schedule.name | e }}">
@@ -13,19 +13,19 @@ Also handles new project creation when is_new is True
 						<div>
 							<h5 class="mb-1">
 								<span class="js-schedule-name">{{ schedule.schedule_name | e }}</span>
-								<span class="badge badge-secondary" style="font-size: 0.7em;">v{{ schedule.version or 1 }}</span>
+								<span class="badge badge-secondary" style="font-size: 0.7em;">v{{ (schedule.version or 1) | e }}</span>
 								{% if schedule.is_locked %}
 								<span class="badge badge-dark" style="font-size: 0.7em;"><i class="fa fa-lock"></i></span>
 								{% endif %}
 							</h5>
 							<small class="text-muted">
-								{{ schedule.lines_count or 0 }} {{ _("line(s)") }}
+								{{ (schedule.lines_count or 0) | e }} {{ _("line(s)") }}
 							</small>
 						</div>
 					</a>
 					<div class="d-flex align-items-center ml-3">
-						<span class="badge badge-{{ schedule_status_class(schedule.status) }} mr-2">
-							{{ schedule_status_label(schedule.status) }}
+						<span class="badge badge-{{ schedule_status_class(schedule.status) | e }} mr-2">
+							{{ schedule_status_label(schedule.status) | e }}
 						</span>
 						{% if can_edit %}
 						<button type="button" class="btn btn-sm btn-outline-secondary mr-1 js-rename-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Rename') }}">
@@ -43,7 +43,7 @@ Also handles new project creation when is_new is True
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name }}{% endif %}</li>
+			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name | e }}{% endif %}</li>
 		</ol>
 	</nav>
 
@@ -67,7 +67,7 @@ Also handles new project creation when is_new is True
 								<select class="form-control" name="customer" id="customerSelect" required>
 									<option value="">{{ _("Select a customer...") }}</option>
 									{% for cust in allowed_customers %}
-									<option value="{{ cust.value }}" {% if cust.value == user_customer %}selected{% endif %}>{{ cust.label }}</option>
+									<option value="{{ cust.value | e }}" {% if cust.value == user_customer %}selected{% endif %}>{{ cust.label | e }}</option>
 									{% endfor %}
 								</select>
 								<div class="input-group-append">
@@ -124,7 +124,7 @@ Also handles new project creation when is_new is True
 										<select class="form-control customer-role-select" name="architect" id="architectSelect">
 											<option value="">{{ _("Select...") }}</option>
 											{% for cust in allowed_customers %}
-											<option value="{{ cust.value }}">{{ cust.label }}</option>
+											<option value="{{ cust.value | e }}">{{ cust.label | e }}</option>
 											{% endfor %}
 										</select>
 										<div class="input-group-append">
@@ -142,7 +142,7 @@ Also handles new project creation when is_new is True
 										<select class="form-control customer-role-select" name="lighting_designer" id="lightingDesignerSelect">
 											<option value="">{{ _("Select...") }}</option>
 											{% for cust in allowed_customers %}
-											<option value="{{ cust.value }}">{{ cust.label }}</option>
+											<option value="{{ cust.value | e }}">{{ cust.label | e }}</option>
 											{% endfor %}
 										</select>
 										<div class="input-group-append">
@@ -160,7 +160,7 @@ Also handles new project creation when is_new is True
 										<select class="form-control customer-role-select" name="general_contractor" id="generalContractorSelect">
 											<option value="">{{ _("Select...") }}</option>
 											{% for cust in allowed_customers %}
-											<option value="{{ cust.value }}">{{ cust.label }}</option>
+											<option value="{{ cust.value | e }}">{{ cust.label | e }}</option>
 											{% endfor %}
 										</select>
 										<div class="input-group-append">
@@ -226,7 +226,7 @@ Also handles new project creation when is_new is True
 							<select class="form-control" name="territory" id="newCustomerTerritory">
 								<option value="">{{ _("Default") }}</option>
 								{% for territory in territories %}
-								<option value="{{ territory }}">{{ territory }}</option>
+								<option value="{{ territory | e }}">{{ territory | e }}</option>
 								{% endfor %}
 							</select>
 							<small class="form-text text-muted">{{ _("Optional - geographic region for this customer") }}</small>
@@ -308,17 +308,17 @@ Also handles new project creation when is_new is True
 				<div class="card-body">
 					<div class="d-flex justify-content-between align-items-start">
 						<div>
-							<h1 class="mb-2">{{ project.project_name }}</h1>
+							<h1 class="mb-2">{{ project.project_name | e }}</h1>
 							<p class="text-muted mb-2">
-								<strong>{{ _("Customer") }}:</strong> {{ project.customer }}
+								<strong>{{ _("Customer") }}:</strong> {{ project.customer | e }}
 								{% if project.is_private %}
 								<span class="badge badge-secondary ml-2">
 									<i class="fa fa-lock"></i> {{ _("Private") }}
 								</span>
 								{% endif %}
 							</p>
-							<span class="badge badge-{{ project_status_class(project.status) }}">
-								{{ project_status_label(project.status) }}
+							<span class="badge badge-{{ project_status_class(project.status) | e }}">
+								{{ project_status_label(project.status) | e }}
 							</span>
 						</div>
 						{% if can_edit %}
@@ -326,7 +326,7 @@ Also handles new project creation when is_new is True
 							<button class="btn btn-outline-primary" onclick="openEditProjectModal()">
 								<i class="fa fa-pencil"></i> {{ _("Edit") }}
 							</button>
-							<a href="/portal/projects/{{ project.name }}/collaborators" class="btn btn-outline-secondary">
+							<a href="/portal/projects/{{ project.name | e }}/collaborators" class="btn btn-outline-secondary">
 								<i class="fa fa-users"></i> {{ _("Collaborators") }}
 							</a>
 							{% if project.status != 'ARCHIVED' %}
@@ -344,7 +344,7 @@ Also handles new project creation when is_new is True
 					{% if project.description %}
 					<hr>
 					<div class="project-description">
-						{{ project.description | safe }}
+						{{ ill_sanitize_html(project.description) | safe }}
 					</div>
 					{% endif %}
 					
@@ -355,21 +355,21 @@ Also handles new project creation when is_new is True
 							<h6 class="text-muted mb-3">{{ _("Project Details") }}</h6>
 							{% if project.estimated_start_date %}
 							<p class="mb-2">
-								<strong>{{ _("Estimated Start Date") }}:</strong> {{ frappe.utils.formatdate(project.estimated_start_date) }}
+								<strong>{{ _("Estimated Start Date") }}:</strong> {{ frappe.utils.formatdate(project.estimated_start_date) | e }}
 							</p>
 							{% endif %}
 							{% if project.location %}
 							<p class="mb-2">
 								<strong>{{ _("Location") }}:</strong><br>
-								{{ project.location }}
+								{{ project.location | e }}
 							</p>
 							{% endif %}
 							{% if project.project_manager and contact_details.get('project_manager') %}
 							<p class="mb-2">
 								<strong>{{ _("Project Manager") }}:</strong> 
 								{% set pm = contact_details.project_manager %}
-								{{ pm.first_name }} {% if pm.last_name %}{{ pm.last_name }}{% endif %}
-								{% if pm.company_name %}<small class="text-muted">({{ pm.company_name }})</small>{% endif %}
+								{{ pm.first_name | e }} {% if pm.last_name %}{{ pm.last_name | e }}{% endif %}
+								{% if pm.company_name %}<small class="text-muted">({{ pm.company_name | e }})</small>{% endif %}
 							</p>
 							{% endif %}
 						</div>
@@ -378,19 +378,19 @@ Also handles new project creation when is_new is True
 							{% if project.architect and customer_role_details.get('architect') %}
 							<p class="mb-2">
 								<strong>{{ _("Architect") }}:</strong> 
-								{{ customer_role_details.architect.customer_name }}
+								{{ customer_role_details.architect.customer_name | e }}
 							</p>
 							{% endif %}
 							{% if project.lighting_designer and customer_role_details.get('lighting_designer') %}
 							<p class="mb-2">
 								<strong>{{ _("Lighting Designer") }}:</strong> 
-								{{ customer_role_details.lighting_designer.customer_name }}
+								{{ customer_role_details.lighting_designer.customer_name | e }}
 							</p>
 							{% endif %}
 							{% if project.general_contractor and customer_role_details.get('general_contractor') %}
 							<p class="mb-2">
 								<strong>{{ _("General Contractor") }}:</strong> 
-								{{ customer_role_details.general_contractor.customer_name }}
+								{{ customer_role_details.general_contractor.customer_name | e }}
 							</p>
 							{% endif %}
 						</div>
@@ -428,7 +428,7 @@ Also handles new project creation when is_new is True
 			<div class="d-flex justify-content-between align-items-center mb-3">
 				<h4>{{ _("Fixture Schedules") }}</h4>
 				{% if can_edit %}
-				<a href="/portal/projects/{{ project.name }}/schedules/new" class="btn btn-primary">
+				<a href="/portal/projects/{{ project.name | e }}/schedules/new" class="btn btn-primary">
 					<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
 				</a>
 				{% endif %}
@@ -440,7 +440,7 @@ Also handles new project creation when is_new is True
 				{{ schedule_row(group.latest) }}
 				{% if group.earlier %}
 				<details class="list-group-item ill-versions js-earlier-versions">
-					<summary class="small text-muted">{{ _("v{0} · {1} earlier versions").format(group.latest.version or 1, group.earlier | length) if group.earlier | length > 1 else _("v{0} · 1 earlier version").format(group.latest.version or 1) }}</summary>
+					<summary class="small text-muted">{{ (_("v{0} · {1} earlier versions").format(group.latest.version or 1, group.earlier | length) if group.earlier | length > 1 else _("v{0} · 1 earlier version").format(group.latest.version or 1)) | e }}</summary>
 					<div class="list-group mt-2">
 						{% for schedule in group.earlier %}
 						{{ schedule_row(schedule) }}
@@ -455,7 +455,7 @@ Also handles new project creation when is_new is True
 				<i class="fa fa-clipboard fa-3x text-muted mb-3"></i>
 				<p class="text-muted">{{ _("No schedules found. Create a schedule to start configuring fixtures.") }}</p>
 				{% if can_edit %}
-				<a href="/portal/projects/{{ project.name }}/schedules/new" class="btn btn-primary">
+				<a href="/portal/projects/{{ project.name | e }}/schedules/new" class="btn btn-primary">
 					<i class="fa fa-plus"></i> {{ _("Create Schedule") }}
 				</a>
 				{% endif %}
@@ -472,12 +472,12 @@ Also handles new project creation when is_new is True
 			{% if system_designs %}
 			<div class="list-group" id="projectDesigns">
 				{% for design in system_designs %}
-				<a href="{{ design.url }}" class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center">
+				<a href="{{ design.url | e }}" class="list-group-item list-group-item-action d-flex w-100 justify-content-between align-items-center">
 					<div>
-						<h5 class="mb-1">{{ design.title or design.schedule_name }}</h5>
-						<small class="text-muted">{{ design.schedule_name }} · {{ _("Revision {0}").format(design.revision) }}</small>
+						<h5 class="mb-1">{{ (design.title or design.schedule_name) | e }}</h5>
+						<small class="text-muted">{{ design.schedule_name | e }} · {{ _("Revision {0}").format(design.revision) | e }}</small>
 					</div>
-					<span class="badge badge-{{ design.tone }}">{{ _(design.status) }}</span>
+					<span class="badge badge-{{ design.tone | e }}">{{ _(design.status) | e }}</span>
 				</a>
 				{% endfor %}
 			</div>
@@ -521,12 +521,12 @@ Also handles new project creation when is_new is True
 						</div>
 						<div class="form-group">
 							<label>{{ _("Customer") }}</label>
-							<input type="text" class="form-control" value="{{ project.customer }}" disabled>
+							<input type="text" class="form-control" value="{{ project.customer | e }}" disabled>
 							<small class="form-text text-muted">{{ _("Customer cannot be changed after project creation") }}</small>
 						</div>
 						<div class="form-group">
 							<label>{{ _("Description") }}</label>
-							<textarea class="form-control" name="description" rows="3">{{ project.description or '' }}</textarea>
+							<textarea class="form-control" name="description" rows="3">{{ (project.description or '') | e }}</textarea>
 						</div>
 
 						<hr>
@@ -535,7 +535,7 @@ Also handles new project creation when is_new is True
 							<div class="col-md-6">
 								<div class="form-group">
 									<label>{{ _("Estimated Start Date") }}</label>
-									<input type="date" class="form-control" name="estimated_start_date" value="{{ project.estimated_start_date or '' }}">
+									<input type="date" class="form-control" name="estimated_start_date" value="{{ (project.estimated_start_date or '') | e }}">
 								</div>
 							</div>
 							<div class="col-md-6">
@@ -556,7 +556,7 @@ Also handles new project creation when is_new is True
 						</div>
 						<div class="form-group">
 							<label>{{ _("Location") }}</label>
-							<textarea class="form-control" name="location" rows="2" placeholder="{{ _('Project address or location details') }}">{{ project.location or '' }}</textarea>
+							<textarea class="form-control" name="location" rows="2" placeholder="{{ _('Project address or location details') }}">{{ (project.location or '') | e }}</textarea>
 						</div>
 
 						<hr>
@@ -569,7 +569,7 @@ Also handles new project creation when is_new is True
 										<select class="form-control edit-customer-role-select" name="architect" id="editArchitectSelect">
 											<option value="">{{ _("Select...") }}</option>
 											{% for cust in allowed_customers %}
-											<option value="{{ cust.value }}" {% if project.architect == cust.value %}selected{% endif %}>{{ cust.label }}</option>
+											<option value="{{ cust.value | e }}" {% if project.architect == cust.value %}selected{% endif %}>{{ cust.label | e }}</option>
 											{% endfor %}
 										</select>
 										<div class="input-group-append">
@@ -587,7 +587,7 @@ Also handles new project creation when is_new is True
 										<select class="form-control edit-customer-role-select" name="lighting_designer" id="editLightingDesignerSelect">
 											<option value="">{{ _("Select...") }}</option>
 											{% for cust in allowed_customers %}
-											<option value="{{ cust.value }}" {% if project.lighting_designer == cust.value %}selected{% endif %}>{{ cust.label }}</option>
+											<option value="{{ cust.value | e }}" {% if project.lighting_designer == cust.value %}selected{% endif %}>{{ cust.label | e }}</option>
 											{% endfor %}
 										</select>
 										<div class="input-group-append">
@@ -605,7 +605,7 @@ Also handles new project creation when is_new is True
 										<select class="form-control edit-customer-role-select" name="general_contractor" id="editGeneralContractorSelect">
 											<option value="">{{ _("Select...") }}</option>
 											{% for cust in allowed_customers %}
-											<option value="{{ cust.value }}" {% if project.general_contractor == cust.value %}selected{% endif %}>{{ cust.label }}</option>
+											<option value="{{ cust.value | e }}" {% if project.general_contractor == cust.value %}selected{% endif %}>{{ cust.label | e }}</option>
 											{% endfor %}
 										</select>
 										<div class="input-group-append">
@@ -669,7 +669,7 @@ Also handles new project creation when is_new is True
 							<select class="form-control" name="territory" id="editNewCustomerTerritory">
 								<option value="">{{ _("Default") }}</option>
 								{% for territory in territories %}
-								<option value="{{ territory }}">{{ territory }}</option>
+								<option value="{{ territory | e }}">{{ territory | e }}</option>
 								{% endfor %}
 							</select>
 							<small class="form-text text-muted">{{ _("Optional - geographic region for this customer") }}</small>
@@ -1053,7 +1053,7 @@ function loadEditContacts(callback) {
             if (r.message && r.message.success) {
                 var contacts = r.message.contacts || [];
 
-                var currentPM = '{{ project.project_manager or "" }}';
+                var currentPM = {{ (project.project_manager or "") | tojson }};
 
                 // Only populate edit-contact-select (project_manager)
                 $('.edit-contact-select').each(function() {
@@ -1391,12 +1391,12 @@ function renderProjectFiles(files) {
 
         html += '<tr>';
         html += '<td>' + typeLabel + '</td>';
-        html += '<td><a href="/portal/schedules/' + file.schedule + '">' + file.schedule_display_name + '</a></td>';
+        html += '<td><a href="/portal/schedules/' + encodeURIComponent(file.schedule) + '">' + PortalUI.escape(file.schedule_display_name) + '</a></td>';
         html += '<td>' + (file.requested_by_name || '-') + '</td>';
         html += '<td>' + createdOn + '</td>';
         html += '<td>';
         if (file.output_file) {
-            html += '<a href="' + file.output_file + '" target="_blank" class="btn btn-sm btn-outline-primary">';
+            html += '<a href="' + PortalUI.escape(file.output_file) + '" target="_blank" class="btn btn-sm btn-outline-primary">';
             html += '<i class="fa fa-download"></i> Download</a>';
         } else {
             html += '<span class="text-muted">-</span>';

@@ -4,14 +4,14 @@ Manage collaborators for a project
 #}
 {% extends "templates/portal_base.html" %}
 
-{% block portal_title %}{{ _("Collaborators · {0}").format(project.project_name) }}{% endblock %}
+{% block portal_title %}{{ _("Collaborators · {0}").format(project.project_name) | e }}{% endblock %}
 
 {% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name }}">{{ project.project_name }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | e }}">{{ project.project_name | e }}</a></li>
 			<li class="breadcrumb-item active" aria-current="page">{{ _("Collaborators") }}</li>
 		</ol>
 	</nav>
@@ -24,7 +24,7 @@ Manage collaborators for a project
 				{{ _("Control who can view and edit this project") }}
 			</p>
 		</div>
-		<a href="/portal/projects/{{ project.name }}" class="btn btn-secondary">
+		<a href="/portal/projects/{{ project.name | e }}" class="btn btn-secondary">
 			<i class="fa fa-arrow-left"></i> {{ _("Back to Project") }}
 		</a>
 	</div>
@@ -63,8 +63,8 @@ Manage collaborators for a project
 					<i class="fa fa-user fa-2x text-muted"></i>
 				</div>
 				<div>
-					<h6 class="mb-0">{{ frappe.get_doc("User", project.owner).full_name or project.owner }}</h6>
-					<small class="text-muted">{{ project.owner }}</small>
+					<h6 class="mb-0">{{ (frappe.get_doc("User", project.owner).full_name or project.owner) | e }}</h6>
+					<small class="text-muted">{{ project.owner | e }}</small>
 					<span class="badge badge-primary ml-2">{{ _("Owner") }}</span>
 				</div>
 			</div>
@@ -105,7 +105,7 @@ Manage collaborators for a project
 					</thead>
 					<tbody id="collaboratorsList">
 						{% for collab in collaborators %}
-						<tr data-user="{{ collab.user | e }}" class="{{ '' if collab.is_active else 'text-muted' }}">
+						<tr data-user="{{ collab.user | e }}" class="{{ ('' if collab.is_active else 'text-muted') | e }}">
 							<td>
 								<div>
 									<strong>{{ collab.full_name | e }}</strong>
@@ -119,8 +119,8 @@ Manage collaborators for a project
 									<option value="EDIT" {% if collab.access_level == "EDIT" %}selected{% endif %}>{{ _("Can Edit") }}</option>
 								</select>
 								{% else %}
-								<span class="badge badge-{{ 'success' if collab.access_level == 'EDIT' else 'secondary' }}">
-									{{ _("Can Edit") if collab.access_level == "EDIT" else _("View Only") }}
+								<span class="badge badge-{{ ('success' if collab.access_level == 'EDIT' else 'secondary') | e }}">
+									{{ (_("Can Edit") if collab.access_level == "EDIT" else _("View Only")) | e }}
 								</span>
 								{% endif %}
 							</td>
@@ -132,7 +132,7 @@ Manage collaborators for a project
 								{% endif %}
 							</td>
 							<td>
-								<small>{{ frappe.utils.format_date(collab.added_on) if collab.added_on else "-" }}</small>
+								<small>{{ (frappe.utils.format_date(collab.added_on) if collab.added_on else "-") | e }}</small>
 							</td>
 							{% if can_manage %}
 							<td class="text-right">
@@ -183,7 +183,7 @@ Manage collaborators for a project
 								<strong>{{ ((invite.first_name or "") ~ " " ~ (invite.last_name or "")) | trim | e }}</strong>
 								<br><small class="text-muted">{{ invite.email | e }}</small>
 							</td>
-							<td>{{ _("Can Edit") if invite.access_level == "EDIT" else _("View Only") }}</td>
+							<td>{{ (_("Can Edit") if invite.access_level == "EDIT" else _("View Only")) | e }}</td>
 							<td class="invitation-expires"><small>{{ invite.expires_label | e }}</small></td>
 							<td class="text-right">
 								<button type="button" class="btn btn-outline-secondary btn-sm resend-invitation">{{ _("Resend") }}</button>

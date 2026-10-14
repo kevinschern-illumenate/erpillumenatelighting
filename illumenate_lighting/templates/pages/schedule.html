@@ -6,7 +6,7 @@ Also handles new schedule creation when is_new is True
 {% extends "templates/portal_base.html" %}
 {% block portal_scope %}ill-page--schedule{% endblock %}
 
-{% block portal_title %}{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}{% endblock %}
+{% block portal_title %}{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name | e }}{% endif %}{% endblock %}
 
 
 {% block portal_content %}
@@ -17,8 +17,8 @@ Also handles new schedule creation when is_new is True
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name }}">{{ project.project_name }}</a></li>
-			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}</li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | e }}">{{ project.project_name | e }}</a></li>
+			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name | e }}{% endif %}</li>
 		</ol>
 	</nav>
 
@@ -32,14 +32,14 @@ Also handles new schedule creation when is_new is True
 				</div>
 				<div class="card-body">
 					<form id="createScheduleForm">
-						<input type="hidden" name="ill_project" value="{{ project.name }}">
+						<input type="hidden" name="ill_project" value="{{ project.name | e }}">
 						<div class="form-group">
 							<label>{{ _("Schedule Name") }} <span class="text-danger">*</span></label>
 							<input type="text" class="form-control" name="schedule_name" required placeholder="{{ _('e.g., Area A - Linear Fixtures') }}">
 						</div>
 						<div class="form-group">
 							<label>{{ _("Project") }}</label>
-							<input type="text" class="form-control" value="{{ project.project_name }}" readonly>
+							<input type="text" class="form-control" value="{{ project.project_name | e }}" readonly>
 						</div>
 						<div class="form-group">
 							<label>{{ _("Notes") }}</label>
@@ -47,7 +47,7 @@ Also handles new schedule creation when is_new is True
 						</div>
 						<hr>
 						<div class="d-flex justify-content-between">
-							<a href="/portal/projects/{{ project.name }}" class="btn btn-secondary">
+							<a href="/portal/projects/{{ project.name | e }}" class="btn btn-secondary">
 								<i class="fa fa-arrow-left"></i> {{ _("Cancel") }}
 							</a>
 							<button type="submit" class="btn btn-primary">
@@ -64,13 +64,13 @@ Also handles new schedule creation when is_new is True
 	<!-- Progress (FLOW-2) -->
 	<ol class="ill-schedule-steps" id="scheduleSteps" aria-label="{{ _('Schedule progress') }}">
 		{% for step in progress_steps %}
-		<li class="is-{{ step.state }}{% if step.problem %} has-problem{% endif %}" data-step="{{ step.key }}"{% if step.state == 'current' %} aria-current="step"{% endif %}>{{ step.label }}</li>
+		<li class="is-{{ step.state | e }}{% if step.problem %} has-problem{% endif %}" data-step="{{ step.key | e }}"{% if step.state == 'current' %} aria-current="step"{% endif %}>{{ step.label | e }}</li>
 		{% endfor %}
 	</ol>
 
 	{% if unconfigured_lines and schedule.status == 'DRAFT' %}
 	<div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap" role="status" id="unconfiguredBanner">
-		<span>{{ _("Unconfigured lines: {0}").format(unconfigured_lines | length) }}</span>
+		<span>{{ _("Unconfigured lines: {0}").format(unconfigured_lines | length) | e }}</span>
 		<a href="#line-{{ unconfigured_lines[0][1] | e }}">{{ _("Go to the first one") }}</a>
 	</div>
 	{% endif %}
@@ -83,50 +83,50 @@ Also handles new schedule creation when is_new is True
 					<div class="d-flex justify-content-between align-items-start">
 						<div>
 							<h1 class="mb-2">
-								{{ schedule.schedule_name }}
-								<span class="badge badge-secondary ml-2" style="font-size: 0.5em; vertical-align: middle;">v{{ schedule.version or 1 }}</span>
+								{{ schedule.schedule_name | e }}
+								<span class="badge badge-secondary ml-2" style="font-size: 0.5em; vertical-align: middle;">v{{ (schedule.version or 1) | e }}</span>
 								{% if schedule.is_locked %}
 								<span class="badge badge-dark ml-1" style="font-size: 0.5em; vertical-align: middle;"><i class="fa fa-lock"></i> {{ _("Locked") }}</span>
 								{% endif %}
 							</h1>
 							<p class="text-muted mb-2">
-								<strong>{{ _("Project") }}:</strong> {{ project.project_name }}
+								<strong>{{ _("Project") }}:</strong> {{ project.project_name | e }}
 							</p>
 							{% if schedule.is_locked %}
 							<div class="alert alert-warning mb-2" role="alert">
 								<i class="fa fa-lock"></i>
-								{{ _("This is Version {0} (locked). You can view and export but not modify. Create a new version to make changes.").format(schedule.version or 1) }}
+								{{ _("This is Version {0} (locked). You can view and export but not modify. Create a new version to make changes.").format(schedule.version or 1) | e }}
 							</div>
 							{% endif %}
 							{% if schedule.status == 'ISSUE' %}
 							<div class="alert alert-danger mb-2" role="alert">
 								<i class="fa fa-exclamation-triangle"></i>
-								{{ schedule.status_note or _("We were unable to complete this order request. Please reach out to {0} for more information if we have not already been in contact with you.").format(sales_email) }}
+								{{ (schedule.status_note or _("We were unable to complete this order request. Please reach out to {0} for more information if we have not already been in contact with you.").format(sales_email)) | e }}
 							</div>
 							{% elif schedule.status == 'ORDER_REQUESTED' %}
 							<div class="alert alert-info mb-2" role="alert">
 								<i class="fa fa-clock-o"></i>
 								{{ _("Your order request has been submitted and is awaiting approval by ilLumenate.") }}
-								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order }}">{{ _("View order request") }}</a>{% endif %}
+								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
 							</div>
 							{% elif schedule.status == 'ORDERED' and schedule.sales_order %}
 							<div class="alert alert-success mb-2" role="alert">
 								<i class="fa fa-check-circle"></i>
 								{{ _("This schedule has been ordered.") }}
-								<a href="/portal/orders/{{ schedule.sales_order }}">{{ _("View order") }}</a>
+								<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order") }}</a>
 							</div>
 							{% endif %}
 							<div class="d-flex align-items-center gap-2">
-								<span class="badge badge-{{ schedule_status_class(schedule.status) }}" id="statusBadge" title="{{ schedule_status_description(schedule.status) }}">
-									{{ schedule_status_label(schedule.status) }}
+								<span class="badge badge-{{ schedule_status_class(schedule.status) | e }}" id="statusBadge" title="{{ schedule_status_description(schedule.status) | e }}">
+									{{ schedule_status_label(schedule.status) | e }}
 								</span>
 								{% if system_design and system_design.design %}
-								<a href="{{ system_design.url }}" class="badge badge-{{ system_design.design.tone }} ml-1" id="systemDesignBadge" title="{{ _('Open the system design') }}">
-									<i class="fa fa-sitemap"></i> {{ _("Design rev {0}: {1}").format(system_design.design.revision, _(system_design.design.status)) }}
+								<a href="{{ system_design.url | e }}" class="badge badge-{{ system_design.design.tone | e }} ml-1" id="systemDesignBadge" title="{{ _('Open the system design') }}">
+									<i class="fa fa-sitemap"></i> {{ _("Design rev {0}: {1}").format(system_design.design.revision, _(system_design.design.status)) | e }}
 								</a>
 								{% endif %}
 								{% if system_design and system_design.review %}
-								<span class="badge badge-{{ system_design.review.tone }} ml-1" id="systemDesignReview">{{ system_design.review.label }}</span>
+								<span class="badge badge-{{ system_design.review.tone | e }} ml-1" id="systemDesignReview">{{ system_design.review.label | e }}</span>
 								{% endif %}
 							</div>
 						</div>
@@ -137,7 +137,7 @@ Also handles new schedule creation when is_new is True
 							</button>
 							{% endif %}
 							{% if system_design and (system_design.design or (can_edit and not schedule.is_locked)) %}
-							<a class="btn btn-outline-primary" id="designSystemButton" href="{{ system_design.url }}">
+							<a class="btn btn-outline-primary" id="designSystemButton" href="{{ system_design.url | e }}">
 								<i class="fa fa-sitemap"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
 							</a>
 							{% endif %}
@@ -165,13 +165,13 @@ Also handles new schedule creation when is_new is True
 									<h6 class="dropdown-header">{{ _("Change Status") }}</h6>
 									{% if schedule.status != 'DRAFT' %}
 									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="DRAFT">
-										<i class="fa fa-pencil text-warning"></i> {{ schedule_status_label('DRAFT') }}
+										<i class="fa fa-pencil text-warning"></i> {{ schedule_status_label('DRAFT') | e }}
 										<small class="text-muted d-block">{{ _("Continue editing") }}</small>
 									</a>
 									{% endif %}
 									{% if schedule.status != 'READY' %}
 									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="READY">
-										<i class="fa fa-check-circle text-info"></i> {{ schedule_status_label('READY') }}
+										<i class="fa fa-check-circle text-info"></i> {{ schedule_status_label('READY') | e }}
 										<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
 									</a>
 									{% endif %}
@@ -185,7 +185,7 @@ Also handles new schedule creation when is_new is True
 					<p class="text-muted small text-right mt-2 mb-0" id="nextStepReason">{{ next_step.primary.disabled_reason | e }}</p>
 					{% endif %}
 					{% if order_block_reason %}
-					<p class="text-muted small text-right mt-2 mb-0" id="orderBlockReason">{{ order_block_reason }}</p>
+					<p class="text-muted small text-right mt-2 mb-0" id="orderBlockReason">{{ order_block_reason | e }}</p>
 					{% endif %}
 					{% if can_show_dealer_pricing and can_view_pricing %}
 					<div class="mt-2" id="dealerPricingToggleRow">
@@ -258,7 +258,7 @@ Also handles new schedule creation when is_new is True
 		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
 			<div class="card text-center h-100">
 				<div class="card-body d-flex flex-column justify-content-center align-items-center">
-					<h3 class="mb-0">{{ total_qty }}</h3>
+					<h3 class="mb-0">{{ total_qty | e }}</h3>
 					<small class="text-muted">{{ _("Total Qty") }}</small>
 				</div>
 			</div>
@@ -266,7 +266,7 @@ Also handles new schedule creation when is_new is True
 		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
 			<div class="card text-center h-100">
 				<div class="card-body d-flex flex-column justify-content-center align-items-center">
-					<h3 class="mb-0">{{ illumenate_count }}</h3>
+					<h3 class="mb-0">{{ illumenate_count | e }}</h3>
 					<small class="text-muted">{{ _("ilLumenate Fixtures") }}</small>
 				</div>
 			</div>
@@ -274,7 +274,7 @@ Also handles new schedule creation when is_new is True
 		<div class="col-md-3 col-sm-6 mb-3 mb-md-0">
 			<div class="card text-center h-100">
 				<div class="card-body d-flex flex-column justify-content-center align-items-center">
-					<h3 class="mb-0">{{ other_count }}</h3>
+					<h3 class="mb-0">{{ other_count | e }}</h3>
 					<small class="text-muted">{{ _("Other Fixtures") }}</small>
 				</div>
 			</div>
@@ -287,20 +287,20 @@ Also handles new schedule creation when is_new is True
 		<div class="col-12">
 			<div class="d-flex align-items-center flex-wrap">
 				{% if stock_lines_unknown %}
-				<span class="badge badge-secondary mr-2">{{ _("Stock availability unavailable") }}{% if stock_lines_unknown < stock_lines_total %} ({{ stock_lines_unknown }} / {{ stock_lines_total }}){% endif %}</span>
+				<span class="badge badge-secondary mr-2">{{ _("Stock availability unavailable") }}{% if stock_lines_unknown < stock_lines_total %} ({{ stock_lines_unknown | e }} / {{ stock_lines_total | e }}){% endif %}</span>
 				<small class="text-muted">{{ _("You can continue working on this schedule. Contact us to confirm availability.") }}</small>
 				{% elif stock_lines_in_stock == stock_lines_total %}
 				<span class="badge badge-success mr-2"><i class="fa fa-check-circle mr-1"></i>{{ _("All Parts Available Now") }}</span>
 				{% elif stock_lines_in_stock > 0 %}
-				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock }} / {{ stock_lines_total }} {{ _("lines fully available now") }}</span>
+				<span class="badge badge-warning mr-2"><i class="fa fa-exclamation-circle mr-1"></i>{{ stock_lines_in_stock | e }} / {{ stock_lines_total | e }} {{ _("lines fully available now") }}</span>
 				{% else %}
 				<span class="badge badge-danger mr-2"><i class="fa fa-times-circle mr-1"></i>{{ _("No lines fully available now") }}</span>
 				{% endif %}
 				{% if stock_scope and not stock_lines_unknown %}
 				<small class="text-muted">
 					{{ _("Based on the full schedule quantities; on hand minus reserved") }}
-					{% if stock_scope.warehouse_scoped %}{{ _("in") }} {{ stock_scope.warehouse_scope | join(", ") }}{% endif %}
-					{{ _("as of") }} {{ frappe.utils.format_datetime(stock_scope.as_of) }}.
+					{% if stock_scope.warehouse_scoped %}{{ _("in") }} {{ stock_scope.warehouse_scope | join(", ") | e }}{% endif %}
+					{{ _("as of") }} {{ frappe.utils.format_datetime(stock_scope.as_of) | e }}.
 					{{ _("Stock is only reserved once an order is approved.") }}
 				</small>
 				{% endif %}
@@ -309,7 +309,7 @@ Also handles new schedule creation when is_new is True
 			<div class="small text-muted mt-1">
 				{{ _("Short across the schedule:") }}
 				{% for s in stock_shortages %}
-				<span class="badge badge-light border mr-1">{{ s.item_code }}{% if s.shortage is defined %} &minus;{{ s.shortage | round(2) }}{% endif %}</span>
+				<span class="badge badge-light border mr-1">{{ s.item_code | e }}{% if s.shortage is defined %} &minus;{{ s.shortage | round(2) }}{% endif %}</span>
 				{% endfor %}
 			</div>
 			{% endif %}
@@ -349,7 +349,7 @@ Also handles new schedule creation when is_new is True
 							</thead>
 							<tbody>
 								{% for line in lines %}
-								<tr id="line-{{ line.get('line_key') or line.get('name') or loop.index0 }}" data-line-idx="{{ loop.index0 }}" data-line-key="{{ line.get('line_key') or line.get('name') or '' }}">
+								<tr id="line-{{ (line.get('line_key') or line.get('name') or loop.index0) | e }}" data-line-idx="{{ loop.index0 | e }}" data-line-key="{{ (line.get('line_key') or line.get('name') or '') | e }}">
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 									<td class="col-drag-handle">
 										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder') }}" aria-label="{{ _('Drag to reorder') }}">
@@ -357,7 +357,7 @@ Also handles new schedule creation when is_new is True
 										</button>
 									</td>
 									{% endif %}
-									<td class="col-line-id" data-label="{{ _('Line') }}">{{ line.get('line_id') or line.get('idx') }}</td>
+									<td class="col-line-id" data-label="{{ _('Line') }}">{{ (line.get('line_id') or line.get('idx')) | e }}</td>
 									<td class="col-type" data-label="{{ _('Type') }}">
                     {% if line.get('verification_status') == 'Pending' %}<a class="badge badge-warning" href="/portal/product-verification/{{ line.get('verification_request') | urlencode }}">Verification pending</a>
                     {% elif line.get('verification_status') == 'Verified' %}<span class="badge badge-success">Verified by ilLumenate</span>
@@ -370,35 +370,35 @@ Also handles new schedule creation when is_new is True
 										<span class="badge badge-secondary">Other</span>
 										{% endif %}
 									</td>
-									<td class="text-center col-qty" data-label="{{ _('Qty') }}">{{ line.get('qty') }}</td>
-									<td class="col-location" data-label="{{ _('Location') }}">{{ line.get('location') or '-' }}</td>
+									<td class="text-center col-qty" data-label="{{ _('Qty') }}">{{ line.get('qty') | e }}</td>
+									<td class="col-location" data-label="{{ _('Location') }}">{{ (line.get('location') or '-') | e }}</td>
 									<td class="col-fixture-details">
 										{% if line.get('manufacturer_type') == 'ACCESSORY' and line.get('accessory_item') %}
 										<div class="fixture-details">
 											{% if line.get('driver_template') %}
 											<!-- Configured power supply: template name first, then its part number -->
-											<strong class="text-success">{{ line.get('driver_template_name') }}</strong>
+											<strong class="text-success">{{ line.get('driver_template_name') | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('Power Supply') }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> {{ _('Part') }}: <strong>{{ line.get('driver_part_number') or line.get('accessory_item') }}</strong>
-												{% if line.get('driver_part_number') and line.get('driver_part_number') != line.get('accessory_item') %}<span class="ml-1">({{ line.get('accessory_item') }})</span>{% endif %}
+												<i class="fa fa-tag"></i> {{ _('Part') }}: <strong>{{ (line.get('driver_part_number') or line.get('accessory_item')) | e }}</strong>
+												{% if line.get('driver_part_number') and line.get('driver_part_number') != line.get('accessory_item') %}<span class="ml-1">({{ line.get('accessory_item') | e }})</span>{% endif %}
 											</div>
 											{% else %}
-											<strong class="text-success">{{ line.get('accessory_item_name') or line.get('accessory_item') }}</strong>
+											<strong class="text-success">{{ (line.get('accessory_item_name') or line.get('accessory_item')) | e }}</strong>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('accessory_item') }}</strong>
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('accessory_item') | e }}</strong>
 											</div>
 											{% endif %}
 											{% if line.get('variant_selections') %}
 											<div class="small text-muted mt-1">
 												{% for attr_name, attr_val in line.get('variant_selections').items() %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">{{ attr_name }}: <strong>{{ attr_val }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">{{ attr_name | e }}: <strong>{{ attr_val | e }}</strong></span>
 												{% endfor %}
 											</div>
 											{% endif %}
 											{% if line.get('accessory_product_type') %}
 											<div class="small text-muted">
-												<i class="fa fa-folder"></i> {{ line.get('accessory_product_type') }}
+												<i class="fa fa-folder"></i> {{ line.get('accessory_product_type') | e }}
 											</div>
 											{% endif %}
 											<!-- Stock indicator for accessory -->
@@ -425,9 +425,9 @@ Also handles new schedule creation when is_new is True
 															{% else %}
 															<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
 															{% endif %}
-															<span class="stock-item-code">{{ it.item_code }}</span>
+															<span class="stock-item-code">{{ it.item_code | e }}</span>
 															{% if it.qty_available is defined %}
-															<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+															<span class="stock-item-qty">{{ it.qty_available | e }} / {{ it.qty_required | e }} avail</span>
 															{% endif %}
 														</div>
 														{% endfor %}
@@ -444,29 +444,29 @@ Also handles new schedule creation when is_new is True
 										<div class="fixture-details">
 											<!-- Part Number -->
 											<strong class="text-primary">
-												{{ line.get('kit_part_number') or line.get('ill_item_code') or 'Extrusion Kit' }}
+												{{ (line.get('kit_part_number') or line.get('ill_item_code') or 'Extrusion Kit') | e }}
 											</strong>
 											<span class="badge badge-info ml-1">Extrusion Kit</span>
 											<!-- Kit Template reference -->
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template_name') or line.get('kit_template') }}</strong>
+												<i class="fa fa-tag"></i> Kit: <strong>{{ (line.get('kit_template_name') or line.get('kit_template')) | e }}</strong>
 											</div>
 											<!-- Kit attributes as badges -->
 											<div class="small text-muted mt-1">
 												{% if kit_sel.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ kit_sel.get('finish') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ kit_sel.get('finish') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('lens_appearance') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ kit_sel.get('lens_appearance') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ kit_sel.get('lens_appearance') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('mounting_method') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ kit_sel.get('mounting_method') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ kit_sel.get('mounting_method') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('endcap_style') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap: <strong>{{ kit_sel.get('endcap_style') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap: <strong>{{ kit_sel.get('endcap_style') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('endcap_color') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap Color: <strong>{{ kit_sel.get('endcap_color') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap Color: <strong>{{ kit_sel.get('endcap_color') | e }}</strong></span>
 												{% endif %}
 											</div>
 											<!-- Kit Component Stock Breakdown -->
@@ -479,11 +479,11 @@ Also handles new schedule creation when is_new is True
 													{% if sa.get('availability') == 'unknown' %}
 													<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
 													{% elif sa.get('all_in_stock') %}
-													<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("All In Stock") }} ({{ total_count }}/{{ total_count }})</span>
+													<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("All In Stock") }} ({{ total_count | e }}/{{ total_count | e }})</span>
 													{% elif in_count > 0 %}
-													<span class="text-warning"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})</span>
+													<span class="text-warning"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})</span>
 													{% else %}
-													<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }} (0/{{ total_count }})</span>
+													<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Not In Stock") }} (0/{{ total_count | e }})</span>
 													{% endif %}
 													<i class="fa fa-caret-right stock-toggle-arrow"></i>
 												</summary>
@@ -509,14 +509,14 @@ Also handles new schedule creation when is_new is True
 																<i class="fa fa-times-circle text-danger" style="font-size:0.8em;"></i>
 																{% endif %}
 															</td>
-															<td style="padding:2px 4px;">{{ it.component_type or '' }}</td>
+															<td style="padding:2px 4px;">{{ (it.component_type or '') | e }}</td>
 															<td style="padding:2px 4px;">
-																<span class="text-muted">{{ it.item_name or it.item_code or '—' }}</span>
+																<span class="text-muted">{{ (it.item_name or it.item_code or '—') | e }}</span>
 															</td>
 															{% if it.qty_required is defined %}
-															<td class="text-center" style="padding:2px 4px;">{{ it.qty_required }}</td>
+															<td class="text-center" style="padding:2px 4px;">{{ it.qty_required | e }}</td>
 															<td class="text-center" style="padding:2px 4px;">
-																<span class="{{ 'text-success' if it.qty_available >= it.qty_required else 'text-danger font-weight-bold' }}">{{ it.qty_available }}</span>
+																<span class="{{ ('text-success' if it.qty_available >= it.qty_required else 'text-danger font-weight-bold') | e }}">{{ it.qty_available | e }}</span>
 															</td>
 															{% endif %}
 														</tr>
@@ -529,7 +529,7 @@ Also handles new schedule creation when is_new is True
 										{% elif line.get('manufacturer_type') == 'ACCESSORY' and line.get('driver_template') %}
 										<!-- Unconfigured power supply line -->
 										<div class="fixture-details">
-											<strong>{{ line.get('driver_template_name') or line.get('driver_template') }}</strong>
+											<strong>{{ (line.get('driver_template_name') or line.get('driver_template')) | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('Power Supply') }}</span>
 											<div class="small text-warning mt-1">
 												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to choose wattage, output voltage and dimming") }}
@@ -542,7 +542,7 @@ Also handles new schedule creation when is_new is True
 										<div class="fixture-details">
 											<!-- Part Number -->
 											<strong class="text-primary">
-												{{ cf_details.get('part_number') or line.get('ill_item_code') or 'Configured' }}
+												{{ (cf_details.get('part_number') or line.get('ill_item_code') or 'Configured') | e }}
 												{% if cf_details.get('is_multi_segment') %}
 													<span class="badge badge-info ml-1" title="{{ _('Multi-segment fixture with jumper cables') }}">J</span>
 												{% endif %}
@@ -550,20 +550,20 @@ Also handles new schedule creation when is_new is True
 											<!-- SPEC reference -->
 											{% if cf_details.get('fixture_template_code') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ cf_details.get('fixture_template_code') }}</strong>
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ cf_details.get('fixture_template_code') | e }}</strong>
 											</div>
 											{% endif %}
 											{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
 											<div class="small text-info mt-1 build-description">
 												<i class="fa fa-link"></i> 
-												<em>{{ cf_details.get('user_segment_count', 0) }} segment(s) with jumper cables</em>
+												<em>{{ cf_details.get('user_segment_count', 0) | e }} segment(s) with jumper cables</em>
 												<button type="button" class="btn btn-xs btn-link p-0 ml-1" 
 														data-toggle="popover" 
 														data-placement="bottom" 
 														data-html="true"
 														data-trigger="focus"
 														title="{{ _('Build Details') }}"
-														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description_display', '') | replace('\"', '&quot;') | replace('\n', '<br>') }}</pre>">
+														data-content="<pre class='mb-0 small'>{{ cf_details.get('build_description_display', '') | e | replace('\n', '<br>' | safe) | forceescape }}</pre>">
 													<i class="fa fa-info-circle"></i>
 												</button>
 											</div>
@@ -571,39 +571,39 @@ Also handles new schedule creation when is_new is True
 											<!-- Fixture attributes as badges -->
 											<div class="small text-muted mt-1">
 												{% if cf_details.get('environment_rating') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cf_details.get('environment_rating') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cf_details.get('environment_rating') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('cct') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cf_details.get('cct') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cf_details.get('cct') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('cri') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CRI: <strong>{{ cf_details.get('cri') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CRI: <strong>{{ cf_details.get('cri') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('estimated_delivered_output') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cf_details.get('estimated_delivered_output') }} lm/ft</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cf_details.get('estimated_delivered_output') | e }} lm/ft</strong></span>
 												{% endif %}
 												{% if cf_details.get('lens_appearance') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ cf_details.get('lens_appearance') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ cf_details.get('lens_appearance') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('mounting_method') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cf_details.get('mounting_method') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cf_details.get('mounting_method') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cf_details.get('finish') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cf_details.get('finish') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('manufacturable_length_inches') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ cf_details.get('manufacturable_length_inches') }}"{% if cf_details.get('is_multi_segment') %} ({{ cf_details.get('user_segment_count', 0) }} segments){% endif %}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ cf_details.get('manufacturable_length_inches') | e }}"{% if cf_details.get('is_multi_segment') %} ({{ cf_details.get('user_segment_count', 0) | e }} segments){% endif %}</strong></span>
 												{% endif %}
 												{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Build: <strong>{{ cf_details.get('build_description_display') | replace('\n', '; ') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Build: <strong>{{ cf_details.get('build_description_display') | replace('\n', '; ') | e }}</strong></span>
 												{% elif cf_details.get('power_feed_type') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ cf_details.get('power_feed_type') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ cf_details.get('power_feed_type') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('fixture_input_voltage') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Input Voltage: <strong>{{ cf_details.get('fixture_input_voltage') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Input Voltage: <strong>{{ cf_details.get('fixture_input_voltage') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('total_watts') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cf_details.get('total_watts') }}W</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cf_details.get('total_watts') | e }}W</strong></span>
 												{% endif %}
 											</div>
 											<!-- Driver sub-line -->
@@ -620,9 +620,9 @@ Also handles new schedule creation when is_new is True
 											{% elif cf_details.get('power_supply') %}
 											<div class="driver-sub-line">
 												<div class="small text-muted">
-													<i class="fa fa-bolt"></i> Driver: <strong>{{ cf_details.get('power_supply') }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') }} units){% endif %}</strong>
+													<i class="fa fa-bolt"></i> Driver: <strong>{{ cf_details.get('power_supply') | e }}{% if cf_details.get('power_supply_qty') and cf_details.get('power_supply_qty') > 1 %} ({{ cf_details.get('power_supply_qty') | e }} units){% endif %}</strong>
 													{% if cf_details.get('driver_input_voltage') %}
-													<span class="ml-2">Input: <strong>{{ cf_details.get('driver_input_voltage') }}</strong></span>
+													<span class="ml-2">Input: <strong>{{ cf_details.get('driver_input_voltage') | e }}</strong></span>
 													{% endif %}
 												</div>
 											</div>
@@ -649,7 +649,7 @@ Also handles new schedule creation when is_new is True
 											<details class="stock-breakdown">
 												<summary>
 													<span class="text-warning">
-														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count }}/{{ total_count }})
+														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})
 														<i class="fa fa-caret-right stock-toggle-arrow"></i>
 													</span>
 												</summary>
@@ -661,10 +661,10 @@ Also handles new schedule creation when is_new is True
 														{% else %}
 														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
 														{% endif %}
-														<span class="stock-item-type">{{ it.component_type or '' }}</span>
-														<span class="stock-item-code">{{ it.item_code }}</span>
+														<span class="stock-item-type">{{ (it.component_type or '') | e }}</span>
+														<span class="stock-item-code">{{ it.item_code | e }}</span>
 														{% if it.qty_available is defined %}
-														<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+														<span class="stock-item-qty">{{ it.qty_available | e }} / {{ it.qty_required | e }} avail</span>
 														{% endif %}
 													</div>
 													{% endfor %}
@@ -686,10 +686,10 @@ Also handles new schedule creation when is_new is True
 														{% else %}
 														<i class="fa fa-times-circle text-danger" style="font-size:0.75em;"></i>
 														{% endif %}
-														<span class="stock-item-type">{{ it.component_type or '' }}</span>
-														<span class="stock-item-code">{{ it.item_code }}</span>
+														<span class="stock-item-type">{{ (it.component_type or '') | e }}</span>
+														<span class="stock-item-code">{{ it.item_code | e }}</span>
 														{% if it.qty_available is defined %}
-														<span class="stock-item-qty">{{ it.qty_available }} / {{ it.qty_required }} avail</span>
+														<span class="stock-item-qty">{{ it.qty_available | e }} / {{ it.qty_required | e }} avail</span>
 														{% endif %}
 													</div>
 													{% endfor %}
@@ -702,47 +702,47 @@ Also handles new schedule creation when is_new is True
 										{% elif line.get('manufacturer_type') == 'OTHER' %}
 										<div class="fixture-details">
 											{% if line.get('manufacturer_name') %}
-											<strong>{{ line.get('manufacturer_name') }}</strong>
+											<strong>{{ line.get('manufacturer_name') | e }}</strong>
 											{% endif %}
 											{% if line.get('fixture_model_number') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_model_number') }}</strong>
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_model_number') | e }}</strong>
 											</div>
 											{% endif %}
 											<div class="small text-muted mt-1">
 												{% if line.get('trim_info') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Trim: <strong>{{ line.get('trim_info') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Trim: <strong>{{ line.get('trim_info') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('housing_model_number') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Housing: <strong>{{ line.get('housing_model_number') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Housing: <strong>{{ line.get('housing_model_number') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('driver_model_number') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Driver: <strong>{{ line.get('driver_model_number') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Driver: <strong>{{ line.get('driver_model_number') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('lamp_info') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Lamp: <strong>{{ line.get('lamp_info') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Lamp: <strong>{{ line.get('lamp_info') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('dimming_protocol') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Dimming: <strong>{{ line.get('dimming_protocol') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Dimming: <strong>{{ line.get('dimming_protocol') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('input_voltage') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Voltage: <strong>{{ line.get('input_voltage') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Voltage: <strong>{{ line.get('input_voltage') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('other_finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ line.get('other_finish') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ line.get('other_finish') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('watts_each') or line.get('input_voltage_v') or line.get('third_party_drive') or line.get('third_party_dimming') %}
 												<span class="badge badge-warning mr-1" style="font-weight:normal;" title="{{ _('Entered by the dealer; not verified by ilLumenate') }}">{{ _("Data by dealer") }}:
 													{% if line.get('watts_each') %}<strong>{{ line.get('watts_each') | round(1) }} W</strong>{% endif %}
 													{% if line.get('input_voltage_v') %}<strong>{{ line.get('input_voltage_v') | int }} V</strong>{% endif %}
-													{% if line.get('third_party_drive') %}<strong>{{ line.get('third_party_drive') }}{% if line.get('third_party_drive') == 'CC' and line.get('third_party_ma') %} {{ line.get('third_party_ma') | int }} mA{% endif %}</strong>{% endif %}
-													{% if line.get('third_party_dimming') %}<strong>{{ line.get('third_party_dimming') }}</strong>{% endif %}
+													{% if line.get('third_party_drive') %}<strong>{{ line.get('third_party_drive') | e }}{% if line.get('third_party_drive') == 'CC' and line.get('third_party_ma') %} {{ line.get('third_party_ma') | int }} mA{% endif %}</strong>{% endif %}
+													{% if line.get('third_party_dimming') %}<strong>{{ line.get('third_party_dimming') | e }}</strong>{% endif %}
 												</span>
 												{% endif %}
 											</div>
 											{% if line.get('spec_sheet') %}
 											<div class="small mt-1">
-												<a href="{{ line.get('spec_sheet') }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ _('Download Spec Sheet') }}">
+												<a href="{{ line.get('spec_sheet') | e }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ _('Download Spec Sheet') }}">
 													<i class="fa fa-file-pdf-o"></i> {{ _("Spec Sheet") }}
 												</a>
 											</div>
@@ -753,44 +753,44 @@ Also handles new schedule creation when is_new is True
 										<div class="fixture-details">
 											<!-- Part Number -->
 											<strong class="text-primary">
-												{{ ctn_details.get('part_number') or 'Configured' }}
+												{{ (ctn_details.get('part_number') or 'Configured') | e }}
 											</strong>
 											<!-- Product Category badge -->
-											<span class="badge badge-info ml-1">{{ ctn_details.get('product_category') or line.get('product_type') or 'Tape/Neon' }}</span>
+											<span class="badge badge-info ml-1">{{ (ctn_details.get('product_category') or line.get('product_type') or 'Tape/Neon') | e }}</span>
 											<!-- Template reference -->
 											{% if line.get('tape_neon_template_name') or line.get('tape_neon_template') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
+												<i class="fa fa-tag"></i> Series: <strong>{{ (line.get('tape_neon_template_name') or line.get('tape_neon_template')) | e }}</strong>
 											</div>
 											{% endif %}
 											<!-- Tape/Neon attributes as badges -->
 											<div class="small text-muted mt-1">
 												{% if ctn_details.get('environment_rating') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ ctn_details.get('environment_rating') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ ctn_details.get('environment_rating') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('cct') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ ctn_details.get('cct') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ ctn_details.get('cct') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('output_level') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ ctn_details.get('output_level') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ ctn_details.get('output_level') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('mounting_method') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ ctn_details.get('mounting_method') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ ctn_details.get('mounting_method') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ ctn_details.get('finish') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ ctn_details.get('finish') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('pcb_mounting') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">PCB: <strong>{{ ctn_details.get('pcb_mounting') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">PCB: <strong>{{ ctn_details.get('pcb_mounting') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('feed_type') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ ctn_details.get('feed_type') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ ctn_details.get('feed_type') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('manufacturable_length_inches') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ ctn_details.get('manufacturable_length_inches') }}"</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ ctn_details.get('manufacturable_length_inches') | e }}"</strong></span>
 												{% endif %}
 												{% if ctn_details.get('total_watts') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ ctn_details.get('total_watts') }}W</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ ctn_details.get('total_watts') | e }}W</strong></span>
 												{% endif %}
 											</div>
 										</div>
@@ -799,72 +799,72 @@ Also handles new schedule creation when is_new is True
 										<div class="fixture-details">
 											<!-- Part Number -->
 											<strong class="text-primary">
-												{{ cls_details.get('part_number') or 'Configured' }}
+												{{ (cls_details.get('part_number') or 'Configured') | e }}
 											</strong>
 											<span class="badge badge-info ml-1">{{ _('LED Sheet') }}</span>
 											{% if line.get('led_sheet_template_name') or line.get('led_sheet_template') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Template: <strong>{{ line.get('led_sheet_template_name') or line.get('led_sheet_template') }}</strong>
+												<i class="fa fa-tag"></i> Template: <strong>{{ (line.get('led_sheet_template_name') or line.get('led_sheet_template')) | e }}</strong>
 											</div>
 											{% endif %}
 											<div class="small text-muted mt-1">
 												{% if cls_details.get('sheet_spec') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Spec: <strong>{{ cls_details.get('sheet_spec') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Spec: <strong>{{ cls_details.get('sheet_spec') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('cct') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cls_details.get('cct') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cls_details.get('cct') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('output_level') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cls_details.get('output_level') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cls_details.get('output_level') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('environment_rating') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cls_details.get('environment_rating') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cls_details.get('environment_rating') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('mounting') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cls_details.get('mounting') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cls_details.get('mounting') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cls_details.get('finish') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cls_details.get('finish') | e }}</strong></span>
 												{% endif %}
 											</div>
 											<div class="small text-muted mt-1">
 												{% if cls_details.get('coverage_width_ft') and cls_details.get('coverage_height_ft') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Requested: <strong>{{ cls_details.get('coverage_width_ft') }}ft &times; {{ cls_details.get('coverage_height_ft') }}ft</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Requested: <strong>{{ cls_details.get('coverage_width_ft') | e }}ft &times; {{ cls_details.get('coverage_height_ft') | e }}ft</strong></span>
 												{% endif %}
 												{% if cls_details.get('total_panels') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Panels: <strong>{{ cls_details.get('total_panels') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Panels: <strong>{{ cls_details.get('total_panels') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('total_groups') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Groups: <strong>{{ cls_details.get('total_groups') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Groups: <strong>{{ cls_details.get('total_groups') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('total_system_watts') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cls_details.get('total_system_watts') }}W</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cls_details.get('total_system_watts') | e }}W</strong></span>
 												{% endif %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power Supplies: <strong>{{ _('Own line below') if line.get('has_power_supply_lines') else ('Yes' if cls_details.get('include_power_supply') else 'No') }}</strong></span>
+												<span class="badge badge-light mr-1" style="font-weight:normal;">Power Supplies: <strong>{{ (_('Own line below') if line.get('has_power_supply_lines') else ('Yes' if cls_details.get('include_power_supply') else 'No')) | e }}</strong></span>
 											</div>
 										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}
 										<div class="fixture-details">
 											{% if line.get('led_sheet_template') %}
 											<!-- Unconfigured LED Sheet line -->
-											<strong>{{ line.get('led_sheet_template_name') or line.get('led_sheet_template') }}</strong>
+											<strong>{{ (line.get('led_sheet_template_name') or line.get('led_sheet_template')) | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('LED Sheet') }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Template: <strong>{{ line.get('led_sheet_template') }}</strong>
+												<i class="fa fa-tag"></i> Template: <strong>{{ line.get('led_sheet_template') | e }}</strong>
 											</div>
 											<div class="small text-warning mt-1">
 												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
 											</div>
 											{% elif line.get('tape_neon_template') %}
 											<!-- Unconfigured Tape/Neon line -->
-											<strong>{{ line.get('tape_neon_template_name') or line.get('tape_neon_template') }}</strong>
-											<span class="badge badge-info ml-1">{{ line.get('product_type') or 'Tape/Neon' }}</span>
+											<strong>{{ (line.get('tape_neon_template_name') or line.get('tape_neon_template')) | e }}</strong>
+											<span class="badge badge-info ml-1">{{ (line.get('product_type') or 'Tape/Neon') | e }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Series: <strong>{{ line.get('tape_neon_template_code') or line.get('tape_neon_template') }}</strong>
+												<i class="fa fa-tag"></i> Series: <strong>{{ (line.get('tape_neon_template_code') or line.get('tape_neon_template')) | e }}</strong>
 											</div>
 											{% if line.get('tape_neon_template_description') %}
 											<div class="small text-muted mt-1">
-												{{ line.get('tape_neon_template_description') }}
+												{{ line.get('tape_neon_template_description') | e }}
 											</div>
 											{% endif %}
 											<div class="small text-warning mt-1">
@@ -872,20 +872,20 @@ Also handles new schedule creation when is_new is True
 											</div>
 											{% elif line.get('kit_template') %}
 											<!-- Unconfigured Extrusion Kit line -->
-											<strong>{{ line.get('kit_template_name') or line.get('kit_template') }}</strong>
+											<strong>{{ (line.get('kit_template_name') or line.get('kit_template')) | e }}</strong>
 											<span class="badge badge-info ml-1">{{ _('Extrusion Kit') }}</span>
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template') }}</strong>
+												<i class="fa fa-tag"></i> Kit: <strong>{{ line.get('kit_template') | e }}</strong>
 											</div>
 											<div class="small text-warning mt-1">
 												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to choose finish, lens, mounting and endcaps") }}
 											</div>
 											{% elif line.get('fixture_template_name') or line.get('fixture_template') %}
 											<!-- Unconfigured Linear Fixture line -->
-											<strong>{{ line.get('fixture_template_name') or line.get('fixture_template') }}</strong>
+											<strong>{{ (line.get('fixture_template_name') or line.get('fixture_template')) | e }}</strong>
 											{% if line.get('fixture_template') %}
 											<div class="small text-muted">
-												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_template') }}</strong>
+												<i class="fa fa-tag"></i> SPEC: <strong>{{ line.get('fixture_template') | e }}</strong>
 											</div>
 											{% endif %}
 											<div class="small text-warning mt-1">
@@ -893,7 +893,7 @@ Also handles new schedule creation when is_new is True
 											</div>
 											{% elif line.get('product_type') %}
 											<!-- Product type set but no template selected -->
-											<span class="text-muted">{{ line.get('product_type') }}</span>
+											<span class="text-muted">{{ line.get('product_type') | e }}</span>
 											<div class="small text-warning mt-1">
 												<i class="fa fa-exclamation-triangle"></i> {{ _("Not configured - click Configure to complete") }}
 											</div>
@@ -906,21 +906,21 @@ Also handles new schedule creation when is_new is True
 										{% endif %}
 									</td>
 									{% if can_view_pricing %}
-									<td class="text-right col-pricing dealer-pricing-cell" data-label="{{ _('Unit Price') }}" data-line-idx="{{ line.get('idx') }}" data-price-type="unit">
+									<td class="text-right col-pricing dealer-pricing-cell" data-label="{{ _('Unit Price') }}" data-line-idx="{{ line.get('idx') | e }}" data-price-type="unit">
 										{% if line.get('unit_price') %}
-										<div><span class="dealer-price-value" data-msrp-value="{{ '%.2f' | format(line.get('unit_price')) }}">${{ "%.2f" | format(line.get('unit_price')) }}</span></div>
+										<div><span class="dealer-price-value" data-msrp-value="{{ '%.2f' | format(line.get('unit_price')) | e }}">${{ "%.2f" | format(line.get('unit_price')) | e }}</span></div>
 										{% if line.get('driver_unit_price') %}
-										<div class="pricing-sub-line text-muted"><span class="dealer-price-driver" data-msrp-value="{{ '%.2f' | format(line.get('driver_unit_price')) }}">${{ "%.2f" | format(line.get('driver_unit_price')) }}</span></div>
+										<div class="pricing-sub-line text-muted"><span class="dealer-price-driver" data-msrp-value="{{ '%.2f' | format(line.get('driver_unit_price')) | e }}">${{ "%.2f" | format(line.get('driver_unit_price')) | e }}</span></div>
 										{% endif %}
 										{% else %}
 										<span class="text-muted">-</span>
 										{% endif %}
 									</td>
-									<td class="text-right col-pricing dealer-pricing-cell" data-label="{{ _('Line Total') }}" data-line-idx="{{ line.get('idx') }}" data-price-type="total">
+									<td class="text-right col-pricing dealer-pricing-cell" data-label="{{ _('Line Total') }}" data-line-idx="{{ line.get('idx') | e }}" data-price-type="total">
 										{% if line.get('line_total') %}
-										<div><span class="dealer-price-value" data-msrp-value="{{ '%.2f' | format(line.get('line_total')) }}">${{ "%.2f" | format(line.get('line_total')) }}</span></div>
+										<div><span class="dealer-price-value" data-msrp-value="{{ '%.2f' | format(line.get('line_total')) | e }}">${{ "%.2f" | format(line.get('line_total')) | e }}</span></div>
 										{% if line.get('driver_line_total') %}
-										<div class="pricing-sub-line text-muted"><span class="dealer-price-driver" data-msrp-value="{{ '%.2f' | format(line.get('driver_line_total')) }}">${{ "%.2f" | format(line.get('driver_line_total')) }}</span></div>
+										<div class="pricing-sub-line text-muted"><span class="dealer-price-driver" data-msrp-value="{{ '%.2f' | format(line.get('driver_line_total')) | e }}">${{ "%.2f" | format(line.get('driver_line_total')) | e }}</span></div>
 										{% endif %}
 										{% else %}
 										<span class="text-muted">-</span>
@@ -940,49 +940,49 @@ Also handles new schedule creation when is_new is True
 												</a>
 												{% elif line.get('configured_tape_neon') %}
 												<!-- Configured tape/neon - edit link -->
-												<a href="/portal/configure?category={{ line.get('product_type') or 'LED Tape' }}&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category={{ (line.get('product_type') or 'LED Tape') | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('configured_led_sheet') %}
 												<!-- Configured LED Sheet - edit link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('led_sheet_template') %}
 												<!-- Unconfigured LED Sheet - configure link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('led_sheet_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
 												{% elif line.get('kit_template') %}
 												<!-- Extrusion Kit - edit or configure in the kit configurator -->
-												<a href="/portal/configure?category=Extrusion%20Kit&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('kit_template') | urlencode }}" class="btn btn-sm {{ 'btn-info' if line.get('kit_selections') else 'btn-primary' }}" title="{{ _('Edit Configuration') if line.get('kit_selections') else _('Configure') }}">
+												<a href="/portal/configure?category=Extrusion%20Kit&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('kit_template') | urlencode }}" class="btn btn-sm {{ ('btn-info' if line.get('kit_selections') else 'btn-primary') | e }}" title="{{ (_('Edit Configuration') if line.get('kit_selections') else _('Configure')) | e }}">
 													{% if line.get('kit_selections') %}<i class="fa fa-edit"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog"></i> {{ _('Configure') }}{% endif %}
 												</a>
 												{% elif line.get('tape_neon_template') %}
 												{% set tn_category = line.get('product_type') or 'LED Tape' %}
-												<a href="/portal/configure?category={{ tn_category }}&schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ line.get('tape_neon_template_code') or line.get('tape_neon_template') or '' }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category={{ tn_category | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
 												{% else %}
 												<!-- Unconfigured linear fixture or no template - configure link -->
-												<a href="/portal/configure?schedule={{ schedule.name }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog"></i> {{ _('Configure') }}
 												</a>
 												{% endif %}
 											{% elif line.get('manufacturer_type') == 'ACCESSORY' and line.get('driver_template') %}
 												<!-- Power supply - edit or configure in the power supply configurator -->
-												<a href="/portal/configure?category=Driver&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('driver_template') | urlencode }}" class="btn btn-sm {{ 'btn-info' if line.get('accessory_item') else 'btn-primary' }}" title="{{ _('Edit Configuration') if line.get('accessory_item') else _('Configure') }}">
+												<a href="/portal/configure?category=Driver&amp;schedule={{ schedule.name | urlencode }}&amp;line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&amp;template={{ line.get('driver_template') | urlencode }}" class="btn btn-sm {{ ('btn-info' if line.get('accessory_item') else 'btn-primary') | e }}" title="{{ (_('Edit Configuration') if line.get('accessory_item') else _('Configure')) | e }}">
 													{% if line.get('accessory_item') %}<i class="fa fa-edit"></i> {{ _('Edit Config') }}{% else %}<i class="fa fa-cog"></i> {{ _('Configure') }}{% endif %}
 												</a>
 											{% endif %}
-											<button type="button" class="btn btn-sm btn-outline-secondary line-documents" data-schedule="{{ schedule.name }}" data-line="{{ line.get('line_key') or line.get('name') }}">{{ _('Specifications') }}</button>
-<button class="btn btn-sm btn-secondary" type="button" data-line-action="editLine" data-line-index="{{ loop.index0 }}" title="{{ _('Edit Line Details') }}">
+											<button type="button" class="btn btn-sm btn-outline-secondary line-documents" data-schedule="{{ schedule.name | e }}" data-line="{{ (line.get('line_key') or line.get('name')) | e }}">{{ _('Specifications') }}</button>
+<button class="btn btn-sm btn-secondary" type="button" data-line-action="editLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Edit Line Details') }}">
 												<i class="fa fa-pencil"></i> {{ _('Edit') }}
 											</button>
-												<button class="btn btn-sm btn-outline-secondary" type="button" data-line-action="duplicateLine" data-line-index="{{ loop.index0 }}" title="{{ _('Duplicate') }}">
+												<button class="btn btn-sm btn-outline-secondary" type="button" data-line-action="duplicateLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Duplicate') }}">
 													<i class="fa fa-copy"></i> {{ _('Duplicate') }}
 												</button>
-												<button class="btn btn-sm btn-outline-danger" type="button" data-line-action="deleteLine" data-line-index="{{ loop.index0 }}" title="{{ _('Delete') }}">
+												<button class="btn btn-sm btn-outline-danger" type="button" data-line-action="deleteLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Delete') }}">
 													<i class="fa fa-trash"></i> {{ _('Delete') }}
 											</button>
 										</div>
@@ -1001,7 +1001,7 @@ Also handles new schedule creation when is_new is True
 									<td></td>
 									<td></td>
 									<td class="text-right" id="scheduleTotalCell">
-										<span class="dealer-total-value" data-msrp-value="{{ '%.2f' | format(schedule_total) }}">${{ "%.2f" | format(schedule_total) }}</span>
+										<span class="dealer-total-value" data-msrp-value="{{ '%.2f' | format(schedule_total) | e }}">${{ "%.2f" | format(schedule_total) | e }}</span>
 									</td>
 									{% if can_edit %}
 									<td></td>
@@ -1043,7 +1043,7 @@ Also handles new schedule creation when is_new is True
 					<h5 class="mb-0">{{ _("Notes") }}</h5>
 				</div>
 				<div class="card-body">
-					{{ schedule.notes }}
+					{{ schedule.notes | e }}
 				</div>
 			</div>
 		</div>
@@ -1428,7 +1428,7 @@ Also handles new schedule creation when is_new is True
 										<label>{{ _("Input Voltage (V)") }}</label>
 										<select class="form-control" name="input_voltage_v">
 											<option value="">{{ _("Not set") }}</option>
-											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts }}">{{ volts }} V</option>{% endfor %}
+											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts | e }}">{{ volts | e }} V</option>{% endfor %}
 										</select>
 									</div>
 								</div>
@@ -1466,7 +1466,7 @@ Also handles new schedule creation when is_new is True
 										<label>{{ _("Dimming") }}</label>
 										<select class="form-control" name="third_party_dimming">
 											<option value="">{{ _("Not set") }}</option>
-											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol }}">{{ protocol }}</option>{% endfor %}
+											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol | e }}">{{ protocol | e }}</option>{% endfor %}
 										</select>
 									</div>
 								</div>
@@ -1622,7 +1622,7 @@ Also handles new schedule creation when is_new is True
 										<label>{{ _("Input Voltage (V)") }}</label>
 										<select class="form-control" name="edit_input_voltage_v" id="edit_input_voltage_v">
 											<option value="">{{ _("Not set") }}</option>
-											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts }}">{{ volts }} V</option>{% endfor %}
+											{% for volts in [12, 24, 48, 120, 208, 240, 277] %}<option value="{{ volts | e }}">{{ volts | e }} V</option>{% endfor %}
 										</select>
 									</div>
 								</div>
@@ -1660,7 +1660,7 @@ Also handles new schedule creation when is_new is True
 										<label>{{ _("Dimming") }}</label>
 										<select class="form-control" name="edit_third_party_dimming" id="edit_third_party_dimming">
 											<option value="">{{ _("Not set") }}</option>
-											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol }}">{{ protocol }}</option>{% endfor %}
+											{% for protocol in design_dimming_protocols or [] %}<option value="{{ protocol | e }}">{{ protocol | e }}</option>{% endfor %}
 										</select>
 									</div>
 								</div>
@@ -2009,7 +2009,8 @@ function loadFixtureTemplates(productType) {
 			var templates = (r.message && r.message.templates) || [];
 			templates.forEach(function(template) {
 				var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
-				options += '<option value="' + template.name + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\'>' + template.template_name + ' (' + template.template_code + ')</option>';
+				var h = PortalUI.escape;
+				options += '<option value="' + h(template.name) + '" data-image="' + h(template.image || '') + '" data-gallery="' + h(galleryAttr) + '">' + h(template.template_name) + ' (' + h(template.template_code) + ')</option>';
 			});
 			$('#add_fixture_template').html(options);
 			renderLinearFixturePicker($('#add_fixture_template'), $('#add_fixture_template_cards'), templates);
@@ -2242,8 +2243,8 @@ function loadTapeNeonTemplates(productType) {
 			if (r.message && r.message.templates) {
 				r.message.templates.forEach(function(template) {
 					var galleryAttr = template.gallery ? JSON.stringify(template.gallery) : '[]';
-					var safeDesc = (template.description || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-					options += '<option value="' + template.name + '" data-template-code="' + (template.template_code || '') + '" data-image="' + (template.image || '') + '" data-gallery=\'' + galleryAttr.replace(/'/g, '&#39;') + '\' data-category="' + productCategory + '" data-description="' + safeDesc + '">' + template.template_name + ' (' + template.template_code + ')</option>';
+					var h = PortalUI.escape;
+					options += '<option value="' + h(template.name) + '" data-template-code="' + h(template.template_code || '') + '" data-image="' + h(template.image || '') + '" data-gallery="' + h(galleryAttr) + '" data-category="' + h(productCategory) + '" data-description="' + h(template.description || '') + '">' + h(template.template_name) + ' (' + h(template.template_code) + ')</option>';
 				});
 			}
 			$('#add_tape_neon_template').html(options);
@@ -2266,7 +2267,7 @@ function loadLedSheetTemplates(productType) {
 			if (r.message && r.message.templates) {
 				r.message.templates.forEach(function(template) {
 					var label = template.template_name + (template.template_code ? ' (' + template.template_code + ')' : '');
-					options += '<option value="' + template.name + '">' + label + '</option>';
+					options += '<option value="' + PortalUI.escape(template.name) + '">' + PortalUI.escape(label) + '</option>';
 				});
 			}
 			$('#add_led_sheet_template').html(options);
@@ -2519,7 +2520,7 @@ function loadProductCategories() {
 				r.message.product_types.forEach(function(pt) {
 					if (pt.is_header) {
 						// Render as a disabled optgroup-style header
-						options += '<option value="" disabled class="ill-option-group">── ' + pt.label + ' ──</option>';
+						options += '<option value="" disabled class="ill-option-group">── ' + PortalUI.escape(pt.label) + ' ──</option>';
 						currentHeader = pt.label;
 						return;
 					}
@@ -2533,7 +2534,7 @@ function loadProductCategories() {
 						indent = '        └─ ';
 					}
 					// Store is_fixture_type, is_tape_neon_type, tape_neon_category, is_led_sheet_type as data attributes
-					options += '<option value="' + pt.value + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-tape-neon-category="' + (pt.tape_neon_category || '') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-is-extrusion-kit-type="' + (pt.is_extrusion_kit_type ? '1' : '0') + '" data-is-power-supply-type="' + (pt.is_power_supply_type ? '1' : '0') + '" data-root-group="' + (pt.root_group || '') + '">' + indent + pt.label + '</option>';
+					options += '<option value="' + PortalUI.escape(pt.value) + '" data-is-fixture-type="' + (pt.is_fixture_type ? '1' : '0') + '" data-is-tape-neon-type="' + (pt.is_tape_neon_type ? '1' : '0') + '" data-tape-neon-category="' + PortalUI.escape(pt.tape_neon_category || '') + '" data-is-led-sheet-type="' + (pt.is_led_sheet_type ? '1' : '0') + '" data-is-extrusion-kit-type="' + (pt.is_extrusion_kit_type ? '1' : '0') + '" data-is-power-supply-type="' + (pt.is_power_supply_type ? '1' : '0') + '" data-root-group="' + PortalUI.escape(pt.root_group || '') + '">' + indent + PortalUI.escape(pt.label) + '</option>';
 				});
 			}
 			$('#add_product_type').html(options);
@@ -2560,16 +2561,15 @@ function loadItemsForProductType(productType) {
 				r.message.items.forEach(function(item) {
 					// Strip HTML tags from description for safe use in data attribute
 					var cleanDesc = (item.description || '').replace(/<[^>]*>/g, '').substring(0, 100);
-					// Escape special characters for HTML attribute
-					var safeDesc = cleanDesc.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-					options += '<option value="' + item.item_code + '" ' +
-						'data-name="' + (item.item_name || '') + '" ' +
-						'data-desc="' + safeDesc + '" ' +
-						'data-uom="' + (item.stock_uom || 'Nos') + '" ' +
-						'data-rate="' + (item.standard_rate || 0) + '" ' +
+					var h = PortalUI.escape;
+					options += '<option value="' + h(item.item_code) + '" ' +
+						'data-name="' + h(item.item_name || '') + '" ' +
+						'data-desc="' + h(cleanDesc) + '" ' +
+						'data-uom="' + h(item.stock_uom || 'Nos') + '" ' +
+						'data-rate="' + h(item.standard_rate || 0) + '" ' +
 						'data-has-variants="' + (item.has_variants ? '1' : '0') + '" ' +
-						'data-image="' + (item.image || '') + '">' + 
-						item.item_name + ' (' + item.item_code + ')' +
+						'data-image="' + h(item.image || '') + '">' +
+						h(item.item_name) + ' (' + h(item.item_code) + ')' +
 						(item.has_variants ? ' ⚙' : '') +
 						'</option>';
 				});
@@ -2676,14 +2676,14 @@ function openItemVariantModal() {
 				var html = '';
 				r.message.attributes.forEach(function(attr, index) {
 					html += '<div class="form-group">';
-					html += '<label>' + attr.attribute + '</label>';
-					html += '<select class="form-control variant-attribute-select" data-attribute="' + attr.attribute + '">';
-					html += '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
+					html += '<label>' + PortalUI.escape(attr.attribute) + '</label>';
+					html += '<select class="form-control variant-attribute-select" data-attribute="' + PortalUI.escape(attr.attribute) + '">';
+					html += '<option value="">{{ _("Select") }} ' + PortalUI.escape(attr.attribute) + '...</option>';
 					attr.values.forEach(function(val) {
 						if (val.is_numeric) {
-							html += '<option value="' + val.value + '">' + val.value + '</option>';
+							html += '<option value="' + PortalUI.escape(val.value) + '">' + PortalUI.escape(val.value) + '</option>';
 						} else {
-							html += '<option value="' + val.value + '">' + val.value + '</option>';
+							html += '<option value="' + PortalUI.escape(val.value) + '">' + PortalUI.escape(val.value) + '</option>';
 						}
 					});
 					html += '</select>';
@@ -2773,7 +2773,7 @@ function checkVariantMatch() {
 						var opts = '<option value="">{{ _("Select") }} ' + attr.attribute + '...</option>';
 						attr.values.forEach(function(val) {
 							var selected = (val.value === currentVal) ? ' selected' : '';
-							opts += '<option value="' + val.value + '"' + selected + '>' + val.value + '</option>';
+							opts += '<option value="' + PortalUI.escape(val.value) + '"' + selected + '>' + PortalUI.escape(val.value) + '</option>';
 						});
 						$select.html(opts);
 						
@@ -3081,7 +3081,7 @@ function duplicateLine(line_idx) {
 }
 
 // Line data for editing
-var lineData = {{ lines_json | tojson if lines_json else '[]' }};
+var lineData = {{ (lines_json or []) | tojson }};
 // Dealer-entered design data on third-party lines (System Designer D8).
 var DEALER_DATA_FIELDS = ['watts_each', 'input_voltage_v', 'voltage_class', 'third_party_drive', 'third_party_ma', 'third_party_dimming'];
 function toggleDealerCurrent($drive) {
@@ -3131,7 +3131,7 @@ function editLine(line_idx) {
 		// Show current spec sheet if exists
 		if (line.spec_sheet) {
 			$('#edit_spec_sheet_current').html(
-				'<a href="' + line.spec_sheet + '" target="_blank" class="btn btn-sm btn-outline-secondary">' +
+				'<a href="' + PortalUI.escape(line.spec_sheet) + '" target="_blank" class="btn btn-sm btn-outline-secondary">' +
 				'<i class="fa fa-file-pdf-o"></i> Current Spec Sheet</a>'
 			);
 		} else {
@@ -3464,7 +3464,7 @@ function renderExportHistory(exports) {
 
 		html += '<tr>';
 		html += '<td>' + typeLabel + '</td>';
-		html += '<td><span class="badge badge-' + exportStatus.css + '">' + frappe.utils.escape_html(exportStatus.label) + '</span></td>';
+		html += '<td><span class="badge badge-' + PortalUI.escape(exportStatus.css) + '">' + frappe.utils.escape_html(exportStatus.label) + '</span></td>';
 		html += '<td>' + frappe.utils.escape_html(exp.requested_by_name || '-') + '</td>';
 		html += '<td>' + createdOn + '</td>';
 		html += '<td>';
@@ -3784,7 +3784,7 @@ function renderVersionHistory(versions, current) {
 		html += '<td>' + (v.modified ? frappe.datetime.prettyDate(v.modified) : '-') + '</td>';
 		html += '<td>';
 		if (!isCurrent) {
-			html += '<a href="/portal/schedules/' + v.name + '" class="btn btn-sm btn-outline-primary">View</a>';
+			html += '<a href="/portal/schedules/' + encodeURIComponent(v.name) + '" class="btn btn-sm btn-outline-primary">View</a>';
 		}
 		html += '</td>';
 		html += '</tr>';
@@ -3804,7 +3804,7 @@ function confirmCreateVersion() {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.create_schedule_version',
 		args: {
-			schedule_name: '{{ schedule.name }}',
+			schedule_name: {{ schedule.name | tojson }},
 			version_notes: $('#versionNotes').val() || ''
 		},
 		callback: function(r) {
