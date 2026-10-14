@@ -333,6 +333,8 @@ def invite(email, first_name, last_name="", project=None, access_level="VIEW"):
 		member = get_actor(email)
 		if not project and member.customer and member.customer != customer:
 			frappe.throw("This account is already linked to another company", frappe.PermissionError)
+	else:
+		_create_invited_user(email, first_name, last_name)
 	token = secrets.token_urlsafe(32)
 	doc = frappe.get_doc(
 		{
@@ -352,6 +354,40 @@ def invite(email, first_name, last_name="", project=None, access_level="VIEW"):
 	doc.flags.account_service = True
 	doc.insert(ignore_permissions=True)
 	return _invitation_result(doc, token, send_invitation(doc, token))
+
+
+def _create_invited_user(email, first_name, last_name=""):
+	"""D5: an invitee without an account gets a Website User, with no company or project yet.
+
+	Membership still comes only from accepting the invitation. The owner is
+	Administrator so the inviter's company does not count the account as one of
+	its users before then, and Frappe's welcome email is suppressed because the
+	invitation itself carries the set-password link.
+	"""
+	user = frappe.get_doc(
+		{
+			"doctype": "User",
+			"email": email,
+			"first_name": str(first_name).strip(),
+			"last_name": str(last_name or "").strip(),
+			"user_type": "Website User",
+			"enabled": 1,
+			"send_welcome_email": 0,
+			"owner": "Administrator",
+		}
+	)
+	user.flags.ignore_permissions = True
+	user.flags.no_welcome_mail = True
+	user.insert(ignore_permissions=True)
+	return user
+
+
+def _set_password_link(email):
+	"""A fresh set-password link while the invitee has never signed in, else None."""
+	values = frappe.db.get_value("User", email, ["user_type", "enabled", "last_login"], as_dict=True)
+	if not values or values.user_type != "Website User" or not values.enabled or values.last_login:
+		return None
+	return frappe.get_doc("User", email).reset_password(send_email=False)
 
 
 def _invitation_result(doc, token, emailed):
@@ -381,6 +417,7 @@ def send_invitation(doc, token):
 	target = invitation_target(doc)
 	url = frappe.utils.get_url(ACCEPT_PATH + "#" + token)
 	expires = frappe.utils.format_date(doc.expires_on)
+	set_password = _set_password_link(doc.email)
 	if doc.project:
 		subject = frappe._("{0} invited you to the project {1}").format(inviter, target)
 		access = frappe._("view and edit") if doc.access_level == "EDIT" else frappe._("view")
@@ -396,10 +433,28 @@ def send_invitation(doc, token):
 		(
 			f"<p>{frappe._('Hello {0},').format(escape(doc.first_name or doc.email))}</p>",
 			f"<p>{intro}</p>",
+			*(
+				(
+					"<p>"
+					+ frappe._(
+						"We created a portal account for {0}. Set your password first, then accept the invitation."
+					).format(escape(doc.email))
+					+ "</p>",
+					f'<p><a href="{escape(set_password)}">{frappe._("Set your password")}</a></p>',
+				)
+				if set_password
+				else ()
+			),
 			f'<p><a href="{url}">{frappe._("Accept the invitation")}</a></p>',
 			"<p>"
-			+ frappe._(
-				"Sign in with {0}, or create an account with that email, and the link brings you back to accept."
+			+ (
+				frappe._(
+					"If the password link has expired, use Forgot password on the sign-in page with {0}."
+				)
+				if set_password
+				else frappe._(
+					"Sign in with {0}, or create an account with that email, and the link brings you back to accept."
+				)
 			).format(escape(doc.email))
 			+ "</p>",
 			f"<p>{frappe._('This link works once and expires on {0}.').format(escape(expires))}</p>",
@@ -455,13 +510,15 @@ def invitation_preview(token):
 		return {"valid": False, "reason": "used" if doc.state == "Accepted" else "revoked"}
 	if frappe.utils.get_datetime(doc.expires_on) <= frappe.utils.now_datetime():
 		return {"valid": False, "reason": "expired"}
+	has_account = bool(frappe.db.exists("User", doc.email))
 	return {
 		"valid": True,
 		"email": doc.email,
 		"target": invitation_target(doc),
 		"kind": "project" if doc.project else "company",
 		"inviter": frappe.db.get_value("User", doc.invited_by, "full_name") or doc.invited_by,
-		"has_account": bool(frappe.db.exists("User", doc.email)),
+		"has_account": has_account,
+		"needs_password": has_account and not frappe.db.get_value("User", doc.email, "last_login"),
 		"signed_in_as": None if frappe.session.user == "Guest" else frappe.session.user,
 	}
 

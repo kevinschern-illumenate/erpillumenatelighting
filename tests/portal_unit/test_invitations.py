@@ -99,21 +99,76 @@ class AccountInvitations(unittest.TestCase):
 			},
 		)
 
-	def test_invite_emails_the_link_and_still_returns_it(self):
-		with self.service() as (module, frappe):
-			utilities(frappe)
-			frappe.session = Record(user="dealer@acme.test")
-			frappe.db.get_value.side_effect = lambda doctype, name, field=None, *a, **kw: {
+	def invite(self, module, frappe, account=None):
+		"""Invite Ada; ``account`` is the invitee's existing User values, or None for no account."""
+		utilities(frappe)
+		frappe.session = Record(user="dealer@acme.test")
+		self.inserted = []
+		self.reset = MagicMock(return_value="https://portal.test/update-password?key=K&x=<y>")
+
+		def get_value(doctype, name, field=None, *args, **kwargs):
+			if doctype == "User" and isinstance(field, list):
+				created = any(values.get("doctype") == "User" for values in self.inserted)
+				return Record(user_type="Website User", enabled=1, last_login=None) if created else account
+			return {
 				("User", "enabled"): 1,
 				("User", "full_name"): "Dana <Dealer>",
 				("ilL-Project", "project_name"): "Lobby Refit",
 			}.get((doctype, field))
-			frappe.db.exists.return_value = False
-			frappe.get_doc.side_effect = lambda values: Record(
-				values, name="INV-1", flags=Record(), insert=lambda **kw: None
+
+		def get_doc(values, name=None):
+			if values == "User":
+				return Record(
+					account or {}, name=name, user_type="Website User", enabled=1, reset_password=self.reset
+				)
+			record = Record(values, name="INV-1", flags=Record())
+			record["insert"] = lambda **kw: self.inserted.append(values)
+			return record
+
+		frappe.db.get_value.side_effect = get_value
+		frappe.db.exists.return_value = account is not None
+		frappe.get_doc.side_effect = get_doc
+		module.get_actor.return_value = Record(customer=None)
+		with patch.object(module, "_invite_authority"):
+			return module.invite("Architect@Studio.test", "Ada", project="P-1", access_level="EDIT")
+
+	def test_an_invitee_without_an_account_gets_one_and_a_set_password_link(self):
+		with self.service() as (module, frappe):
+			module.get_actor = MagicMock()
+			result = self.invite(module, frappe)
+			users = [values for values in self.inserted if values.get("doctype") == "User"]
+			self.assertEqual(len(users), 1)
+			self.assertEqual(
+				{
+					key: users[0][key]
+					for key in ("email", "user_type", "enabled", "send_welcome_email", "owner")
+				},
+				{
+					"email": "architect@studio.test",
+					"user_type": "Website User",
+					"enabled": 1,
+					"send_welcome_email": 0,
+					"owner": "Administrator",
+				},
 			)
-			with patch.object(module, "_invite_authority"):
-				result = module.invite("Architect@Studio.test", "Ada", project="P-1", access_level="EDIT")
+			self.reset.assert_called_once_with(send_email=False)
+			message = self.outbox.record_invitation.call_args.args[3]
+			self.assertIn('href="https://portal.test/update-password?key=K&x=&lt;y&gt;"', message)
+			self.assertIn("Set your password", message)
+			self.assertTrue(result["emailed"])
+
+	def test_an_invitee_who_has_signed_in_gets_no_new_account_or_password_link(self):
+		with self.service() as (module, frappe):
+			module.get_actor = MagicMock()
+			self.invite(module, frappe, Record(user_type="Website User", enabled=1, last_login="2026-10-01"))
+			self.assertFalse([values for values in self.inserted if values.get("doctype") == "User"])
+			self.reset.assert_not_called()
+			self.assertNotIn("Set your password", self.outbox.record_invitation.call_args.args[3])
+
+	def test_invite_emails_the_link_and_still_returns_it(self):
+		with self.service() as (module, frappe):
+			module.get_actor = MagicMock()
+			result = self.invite(module, frappe)
 			self.assertTrue(result["emailed"])
 			token = result["invite_url"].split("#", 1)[1]
 			name, email, subject, message, event_key = self.outbox.record_invitation.call_args.args
@@ -127,7 +182,9 @@ class AccountInvitations(unittest.TestCase):
 	def test_resend_replaces_the_link_and_extends_the_expiry(self):
 		with self.service() as (module, frappe):
 			utilities(frappe)
-			frappe.db.get_value.return_value = "Someone"
+			frappe.db.get_value.side_effect = lambda doctype, name, field=None, *a, **kw: (
+				None if isinstance(field, list) else "Someone"
+			)
 			doc = Record(
 				name="INV-1",
 				state="Pending",
@@ -199,6 +256,7 @@ class AccountInvitations(unittest.TestCase):
 					"kind": "project",
 					"inviter": "Dana",
 					"has_account": False,
+					"needs_password": False,
 					"signed_in_as": None,
 				},
 			)

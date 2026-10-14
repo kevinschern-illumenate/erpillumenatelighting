@@ -38,6 +38,7 @@ var inviteContext = {
         otherUser: {{ _("You're signed in as {0}, but this invitation is for {1}. Sign out, then sign in as {1} to accept it.") | tojson }},
         signIn: {{ _("Sign in as {0} to accept. You'll come straight back here.") | tojson }},
         signUp: {{ _("{0} doesn't have a portal account yet. Create one with that email, then accept here.") | tojson }},
+        setPassword: {{ _("We created a portal account for {0}. Set your password with the link in your invitation email, or use Forgot password on the sign-in page, then accept here.") | tojson }},
         accepted: {{ _("Invitation accepted.") | tojson }},
         open: {{ _("Open the project") | tojson }},
         openPortal: {{ _("Open the portal") | tojson }},
@@ -86,7 +87,7 @@ var inviteContext = {
                 document.getElementById('inviteOtherUserText').textContent = fill(text.otherUser, [inviteContext.signedInAs, invite.email]);
                 show('inviteOtherUser');
             } else {
-                document.getElementById('inviteSignedOutText').textContent = fill(invite.has_account ? text.signIn : text.signUp, [invite.email]);
+                document.getElementById('inviteSignedOutText').textContent = fill(invite.needs_password ? text.setPassword : (invite.has_account ? text.signIn : text.signUp), [invite.email]);
                 show('inviteSignedOut');
                 var signUp = document.getElementById('inviteSignUp');
                 if (signUp && invite.has_account) signUp.hidden = true;
