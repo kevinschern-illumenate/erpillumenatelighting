@@ -1719,13 +1719,17 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
-def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
+def delete_schedule_line(
+	schedule_name: str, line_idx: int | None = None, line_key: str | None = None, expected_modified=None
+) -> dict:
 	"""
 	Delete a line from a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		line_idx: Index of the line to delete
+		line_key: Stable key of the line to delete (preferred)
+		line_idx: Index of the line to delete (deprecated; used when no line_key)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 
 	Returns:
 		dict: {"success": True/False, "error": "message if error"}
@@ -1753,30 +1757,30 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 		return {"success": False, "error": "Cannot delete lines from a schedule in this status"}
 
 	try:
-		line_idx = int(line_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if line_idx < 0 or line_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		line_idx = line_index(schedule, line_key, line_idx)
 		# Remove the line
 		schedule.lines.pop(line_idx)
 		schedule.save()
-		return {"success": True}
+		return {"success": True, "modified": str(schedule.modified)}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error deleting line from schedule {schedule_name}")
 
 
 @frappe.whitelist(methods=["POST"])
-def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
+def duplicate_schedule_line(
+	schedule_name: str, line_idx: int | None = None, line_key: str | None = None, expected_modified=None
+) -> dict:
 	"""
 	Duplicate a line in a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		line_idx: Index of the line to duplicate
+		line_key: Stable key of the line to duplicate (preferred)
+		line_idx: Index of the line to duplicate (deprecated; used when no line_key)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 
 	Returns:
 		dict: {"success": True/False, "new_line_idx": index, "error": "message if error"}
@@ -1795,35 +1799,48 @@ def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
 
+	# Check if schedule is locked
+	if schedule.get("is_locked"):
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
 	# Validate status
 	if schedule.status not in ["DRAFT", "READY"]:
 		return {"success": False, "error": "Cannot duplicate lines in a schedule in this status"}
 
 	try:
-		line_idx = int(line_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if line_idx < 0 or line_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		line_idx = line_index(schedule, line_key, line_idx)
 		# Call the DocType method to duplicate the line
 		new_idx = schedule.duplicate_line(line_idx)
-		return {"success": True, "new_line_idx": new_idx}
+		return {
+			"success": True,
+			"new_line_idx": new_idx,
+			"new_line_key": schedule.lines[new_idx].get("line_key"),
+			"modified": str(schedule.modified),
+		}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error duplicating line on schedule {schedule_name}")
 
 
 @frappe.whitelist(methods=["POST"])
-def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
+def move_schedule_line(
+	schedule_name: str,
+	from_idx: int | None = None,
+	to_idx: int | None = None,
+	line_key: str | None = None,
+	to_line_key: str | None = None,
+	expected_modified=None,
+) -> dict:
 	"""
 	Move (reorder) a line in a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		from_idx: Current index of the line to move
-		to_idx: Target index to insert the line at
+		line_key / from_idx: The line to move (key preferred; index deprecated)
+		to_line_key / to_idx: The line whose position it takes (key preferred)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 
 	Returns:
 		dict: {"success": True/False, "to_idx": index, "error": "message if error"}
@@ -1851,32 +1868,34 @@ def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
 		return {"success": False, "error": "Cannot reorder lines in a schedule in this status"}
 
 	try:
-		from_idx = int(from_idx)
-		to_idx = int(to_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if from_idx < 0 or from_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid source line index"}
-	if to_idx < 0 or to_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid target line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		from_idx = line_index(schedule, line_key, from_idx)
+		to_idx = line_index(schedule, to_line_key, to_idx)
 		# Call the DocType method to move the line
 		new_idx = schedule.move_line(from_idx, to_idx)
-		return {"success": True, "to_idx": new_idx}
+		return {"success": True, "to_idx": new_idx, "modified": str(schedule.modified)}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error moving line on schedule {schedule_name}")
 
 
 @frappe.whitelist(methods=["POST"])
-def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str, dict]) -> dict:
+def update_schedule_line(
+	schedule_name: str,
+	line_idx: int | None = None,
+	line_data: Union[str, dict] = None,
+	line_key: str | None = None,
+	expected_modified=None,
+) -> dict:
 	"""
 	Update an existing line in a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		line_idx: Index of the line to update
+		line_key: Stable key of the line to update (preferred)
+		line_idx: Index of the line to update (deprecated; used when no line_key)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 		line_data: Dict with line fields to update (line_id, qty, location, notes, etc.)
 
 	Returns:
@@ -1910,16 +1929,13 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 			line_data = json.loads(line_data)
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid line_data format"}
+	line_data = line_data or {}
 
 	try:
-		line_idx = int(line_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if line_idx < 0 or line_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		line_idx = line_index(schedule, line_key, line_idx)
 		line = schedule.lines[line_idx]
 
 		# Update allowed fields
@@ -1976,7 +1992,7 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 				line.spec_sheet = finalize_spec(line_data["spec_sheet_file_id"], schedule.name)
 
 		schedule.save()
-		return {"success": True}
+		return {"success": True, "modified": str(schedule.modified)}
 	except Exception as e:
 		frappe.db.rollback()
 		return _safe_error(e, f"Portal: error updating line on schedule {schedule_name}")

@@ -1321,7 +1321,7 @@ body.reorder-no-select {
 							</thead>
 							<tbody>
 								{% for line in lines %}
-								<tr data-line-idx="{{ loop.index0 }}">
+								<tr data-line-idx="{{ loop.index0 }}" data-line-key="{{ line.get('line_key') or line.get('name') or '' }}">
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 									<td class="col-drag-handle">
 										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder') }}" aria-label="{{ _('Drag to reorder') }}">
@@ -2811,7 +2811,19 @@ $('#createScheduleForm').on('submit', function(e) {
 	});
 });
 {% else %}
-var schedule_name = "{{ schedule.name }}";
+var schedule_name = {{ schedule.name | tojson }};
+// Line actions name the line by its key and the revision this page shows, so a
+// change made elsewhere since loading is refused instead of hitting another line.
+var scheduleModified = {{ (schedule.modified | string) | tojson }};
+function lineRef(line_idx) {
+	var row = document.querySelector('tr[data-line-idx="' + line_idx + '"]');
+	return {
+		schedule_name: schedule_name,
+		line_idx: line_idx,
+		line_key: row ? row.getAttribute('data-line-key') : null,
+		expected_modified: scheduleModified
+	};
+}
 
 // Initialize Bootstrap popovers for build description
 $('[data-toggle="popover"]').popover();
@@ -4033,15 +4045,12 @@ function configureLedSheetFromAddModal() {
 function duplicateLine(line_idx) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.duplicate_schedule_line',
-		args: {
-			schedule_name: schedule_name,
-			line_idx: line_idx
-		},
+		args: lineRef(line_idx),
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				location.reload();
 			} else {
-				frappe.msgprint(r.message.error || 'Error duplicating line');
+				frappe.msgprint((r.message && r.message.error) || 'Error duplicating line');
 			}
 		}
 	});
@@ -4157,17 +4166,13 @@ function saveEditLine() {
 function submitEditLine(line_idx, line_data) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_line',
-		args: {
-			schedule_name: schedule_name,
-			line_idx: line_idx,
-			line_data: line_data
-		},
+		args: Object.assign(lineRef(line_idx), { line_data: line_data }),
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				$('#editLineModal').modal('hide');
 				location.reload();
 			} else {
-				frappe.msgprint(r.message.error || 'Error updating line');
+				frappe.msgprint((r.message && r.message.error) || 'Error updating line');
 			}
 		}
 	});
@@ -4177,13 +4182,12 @@ function deleteLine(line_idx) {
 	frappe.confirm('Are you sure you want to delete this line?', function() {
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.portal.delete_schedule_line',
-			args: {
-				schedule_name: schedule_name,
-				line_idx: line_idx
-			},
+			args: lineRef(line_idx),
 			callback: function(r) {
 				if (r.message && r.message.success) {
 					location.reload();
+				} else {
+					frappe.msgprint((r.message && r.message.error) || 'Error deleting line');
 				}
 			}
 		});
@@ -4499,7 +4503,10 @@ function moveScheduleLine(from_idx, to_idx) {
 		args: {
 			schedule_name: schedule_name,
 			from_idx: from_idx,
-			to_idx: to_idx
+			to_idx: to_idx,
+			line_key: lineRef(from_idx).line_key,
+			to_line_key: lineRef(to_idx).line_key,
+			expected_modified: scheduleModified
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
