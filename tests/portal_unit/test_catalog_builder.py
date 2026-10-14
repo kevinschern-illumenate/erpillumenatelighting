@@ -195,6 +195,7 @@ class CatalogBuilderReference(unittest.TestCase):
 class CatalogBuilderPage(unittest.TestCase):
 	def test_guest_redirects_to_login_with_return_path(self):
 		with catalog_service(PAGE, user="Guest") as (page, frappe):
+			frappe.local.request = SimpleNamespace(path="/catalog-builder", query_string=b"")
 			with self.assertRaises(frappe.Redirect):
 				page.get_context({})
 			self.assertEqual(frappe.local.flags.redirect_location, "/login?redirect-to=/catalog-builder")

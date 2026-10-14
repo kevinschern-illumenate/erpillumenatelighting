@@ -11,13 +11,14 @@ re-validate, and save changes back to the schedule.
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
+
 no_cache = 1
 
 
 def get_context(context):
 	"""Get context for the edit fixture portal page."""
-	if frappe.session.user == "Guest":
-		frappe.throw("Please login to edit fixtures", frappe.PermissionError)
+	require_login()
 
 	# Required parameters
 	schedule_name = frappe.form_dict.get("schedule")

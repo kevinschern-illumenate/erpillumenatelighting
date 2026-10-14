@@ -10,6 +10,8 @@ Request and track custom drawings and technical documentation.
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
+
 no_cache = 1
 
 
@@ -23,9 +25,7 @@ def _get_user_customer(user):
 
 def get_context(context):
 	"""Get context for the drawings portal page."""
-	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login"
-		raise frappe.Redirect
+	require_login()
 
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
 		_is_internal_user,

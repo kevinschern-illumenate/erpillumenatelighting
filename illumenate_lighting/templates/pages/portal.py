@@ -18,15 +18,14 @@ from illumenate_lighting.illumenate_lighting.portal.access import (
 )
 from illumenate_lighting.illumenate_lighting.portal.orders import list_orders
 from illumenate_lighting.illumenate_lighting.portal.status import order_status_class
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 
 no_cache = 1
 
 
 def get_context(context):
 	"""Get context for the portal landing page."""
-	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login"
-		raise frappe.Redirect
+	require_login()
 
 	# Get user info
 	user_doc = frappe.get_doc("User", frappe.session.user)

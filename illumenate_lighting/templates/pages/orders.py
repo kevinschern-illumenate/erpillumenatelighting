@@ -12,15 +12,14 @@ from frappe import _
 
 from illumenate_lighting.illumenate_lighting.portal.orders import search_orders
 from illumenate_lighting.illumenate_lighting.portal.status import order_status_class
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 
 no_cache = 1
 
 
 def get_context(context):
 	"""Get context for the orders list portal page."""
-	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login"
-		raise frappe.Redirect
+	require_login()
 
 	# One read model for list, detail and dashboard: customer-scoped Sales
 	# Orders with a portal status derived from Work Orders / deliveries.

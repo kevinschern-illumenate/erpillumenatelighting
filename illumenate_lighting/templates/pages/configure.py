@@ -4,12 +4,12 @@
 import json
 
 import frappe
-from frappe.utils import quote
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	TAPE_CATEGORIES,
 	TAPE_NEON_CATEGORIES,
 )
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 
 no_cache = 1
 
@@ -26,13 +26,7 @@ def get_context(context):
 	  - LED Sheet / LED Sheets – uses ilL-LED-Sheet-Template
 	  - Driver (power supplies) - uses ilL-Driver-Template
 	"""
-	if frappe.session.user == "Guest":
-		current_url = frappe.utils.get_url(frappe.request.path)
-		qs = frappe.request.query_string
-		if qs:
-			current_url += f"?{qs.decode('utf-8') if isinstance(qs, bytes) else qs}"
-		frappe.local.flags.redirect_location = f"/login?redirect-to={quote(current_url, safe='')}"
-		raise frappe.Redirect
+	require_login()
 
 	from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
 	if not can_view_catalog():

@@ -4,14 +4,14 @@
 import frappe
 
 from illumenate_lighting.illumenate_lighting.portal.status import schedule_status_label
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 
 no_cache = 1
 
 
 def get_context(context):
 	"""Get context for the project detail portal page."""
-	if frappe.session.user == "Guest":
-		frappe.throw("Please login to view projects", frappe.PermissionError)
+	require_login()
 
 	# Get project name from path
 	project_name = frappe.form_dict.get("project")

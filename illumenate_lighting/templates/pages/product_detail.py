@@ -14,6 +14,7 @@ from frappe import _
 
 from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 from illumenate_lighting.illumenate_lighting.portal_listing import portal_product
 
 no_cache = 1
@@ -21,13 +22,7 @@ no_cache = 1
 
 def get_context(context):
     """Build context for the product detail page."""
-    if frappe.session.user == "Guest":
-        current_url = frappe.utils.get_url(frappe.request.path)
-        if frappe.request.query_string:
-            query = frappe.request.query_string
-            current_url += f"?{query.decode('utf-8') if isinstance(query, bytes) else query}"
-        frappe.local.flags.redirect_location = f"/login?redirect-to={quote(current_url, safe='')}"
-        raise frappe.Redirect
+    require_login()
 
     if not can_view_catalog():
         frappe.local.flags.redirect_location = "/portal/request-dealer-access"

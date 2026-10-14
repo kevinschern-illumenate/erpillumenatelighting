@@ -9,6 +9,7 @@ from illumenate_lighting.illumenate_lighting.portal.status import (
 	schedule_status_description,
 	schedule_status_label,
 )
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 from illumenate_lighting.illumenate_lighting.system_design.dealer_data import dimming_choices
 
 no_cache = 1
@@ -16,8 +17,7 @@ no_cache = 1
 
 def get_context(context):
 	"""Get context for the schedule detail portal page."""
-	if frappe.session.user == "Guest":
-		frappe.throw("Please login to view schedules", frappe.PermissionError)
+	require_login()
 
 	# Check if this is a new schedule creation (routed from /portal/projects/<project>/schedules/new)
 	project_name = frappe.form_dict.get("project")
