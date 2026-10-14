@@ -1,5 +1,6 @@
 """FLOW-1: the overview's action items, one source at a time."""
 
+import sqlite3
 import types
 import unittest
 from datetime import date, datetime
@@ -26,12 +27,20 @@ class ActionCenter(unittest.TestCase):
 		self.can_read = MagicMock(return_value=True)
 		self.conditions = MagicMock(return_value=(["raised_by = %(user)s"], {"user": "dana@acme.test"}))
 		self.unconfigured = MagicMock(side_effect=lambda line: not line.get("configured_fixture"))
+		self.quote_conditions = MagicMock(return_value="schedule = 'S-1'")
+		self.verification_conditions = MagicMock(return_value="requested_by = 'dana@acme.test'")
 		self.actor = actor()
 		access = types.SimpleNamespace(get_actor=MagicMock(side_effect=lambda user=None: self.actor))
 		self.extras = {
 			ROOT + ".portal.access": access,
 			ROOT + ".portal.offers": types.SimpleNamespace(can_read=self.can_read),
 			ROOT + ".portal.support": types.SimpleNamespace(_conditions=self.conditions),
+			ROOT + ".portal.quotes": types.SimpleNamespace(
+				get_permission_query_conditions=self.quote_conditions
+			),
+			ROOT + ".portal.product_finder.verification": types.SimpleNamespace(
+				get_permission_query_conditions=self.verification_conditions
+			),
 			ROOT
 			+ ".doctype.ill_project_fixture_schedule.ill_project_fixture_schedule": types.SimpleNamespace(
 				is_unconfigured=self.unconfigured
@@ -48,6 +57,7 @@ class ActionCenter(unittest.TestCase):
 		frappe.get_list = MagicMock(return_value=[])
 		frappe.get_all = MagicMock(return_value=[])
 		frappe.db.sql = MagicMock(return_value=[])
+		frappe.db.escape.side_effect = lambda value: "'" + value.replace("'", "''") + "'"
 		frappe.log_error = MagicMock()
 		frappe.get_traceback = MagicMock(return_value="trace")
 		return module, frappe
@@ -127,14 +137,15 @@ class ActionCenter(unittest.TestCase):
 
 	def test_tickets_and_requests_waiting_on_the_customer(self):
 		module, frappe = self.service()
-		frappe.db.sql.return_value = [Record(name="ISS-1", subject="Flicker")]
-		frappe.get_list.side_effect = [
+		frappe.db.sql.side_effect = [
+			[Record(name="ISS-1", subject="Flicker")],
 			[Record(name="QR-1", schedule="S-1", due_date=None)],
 			[Record(name="OC-1", sales_order="SO 1", request_type="Cancellation")],
 			[Record(name="PV-1", product_title="Linear 48")],
 		]
+		frappe.get_list.side_effect = PermissionError("Native list access is staff-only")
 		items = module.waiting_on_customer(self.actor)
-		sql, params = frappe.db.sql.call_args.args
+		sql, params = frappe.db.sql.call_args_list[0].args
 		self.assertIn("raised_by = %(user)s", sql)
 		self.assertIn("ill_next_action_by = 'Customer'", sql)
 		self.assertIn("status not in ('Closed', 'Resolved')", sql)
@@ -148,8 +159,86 @@ class ActionCenter(unittest.TestCase):
 				("Answer questions on product verification PV-1", "/portal/product-verification/PV-1"),
 			],
 		)
-		for call in frappe.get_list.call_args_list:
-			self.assertEqual(call.kwargs["filters"], {"state": "INFORMATION_NEEDED"})
+		frappe.get_list.assert_not_called()
+		self.quote_conditions.assert_called_once_with(self.actor.user)
+		self.verification_conditions.assert_called_once_with(self.actor.user)
+
+	def request_database(self, frappe):
+		db = sqlite3.connect(":memory:")
+		db.row_factory = sqlite3.Row
+		self.addCleanup(db.close)
+		db.executescript("""
+			create table `tabIssue` (name, subject, raised_by, ill_next_action_by, status, modified);
+			create table `tabilL-Quote-Request` (name, schedule, state, modified);
+			create table `tabilL-Order-Change` (name, sales_order, request_type, state, modified);
+			create table `tabSales Order` (name, customer);
+			create table `tabilL-Product-Verification-Request`
+				(name, product_title, requested_by, schedule, state, modified);
+			insert into `tabilL-Quote-Request` values
+				('QR-1', 'S-1', 'INFORMATION_NEEDED', '2026-10-01'),
+				('QR-2', 'SHARED', 'INFORMATION_NEEDED', '2026-10-02'),
+				('QR-CLOSED', 'SHARED', 'CLOSED', '2026-10-03'),
+				('QR-OTHER', 'FOREIGN', 'INFORMATION_NEEDED', '2026-10-04');
+			insert into `tabSales Order` values ('SO-1', 'CUST-1'), ('SO-2', 'CUST-2');
+			insert into `tabilL-Order-Change` values
+				('OC-1', 'SO-1', 'Change', 'INFORMATION_NEEDED', '2026-10-01'),
+				('OC-OTHER', 'SO-2', 'Change', 'INFORMATION_NEEDED', '2026-10-02'),
+				('OC-CLOSED', 'SO-1', 'Cancellation', 'CLOSED', '2026-10-03');
+			insert into `tabilL-Product-Verification-Request` values
+				('PV-OWN', 'Owned', 'dana@acme.test', null, 'INFORMATION_NEEDED', '2026-10-01'),
+				('PV-SHARED', 'Shared', 'other@test', 'S-1', 'INFORMATION_NEEDED', '2026-10-02'),
+				('PV-CLOSED', 'Closed', 'other@test', 'S-1', 'VERIFIED', '2026-10-03'),
+				('PV-OTHER', 'Foreign', 'other@test', 'FOREIGN', 'INFORMATION_NEEDED', '2026-10-04');
+		""")
+		# A newer inaccessible row must not consume the visible action limit.
+		db.executemany(
+			"insert into `tabilL-Quote-Request` values (?, 'FOREIGN', 'INFORMATION_NEEDED', '2026-10-14')",
+			[(f"FOREIGN-{index}",) for index in range(15)],
+		)
+		self.quote_conditions.return_value = "schedule = 'S-1' or schedule = 'SHARED'"
+		self.verification_conditions.return_value = "requested_by = 'dana@acme.test' or schedule = 'S-1'"
+
+		def query(sql, params=None, as_dict=False):
+			rows = db.execute(sql.replace("%(user)s", ":user"), params or {}).fetchall()
+			return [Record(dict(row)) for row in rows]
+
+		frappe.db.sql.side_effect = query
+		frappe.get_list.side_effect = PermissionError("Native list access is staff-only")
+
+	def test_waiting_requests_keep_portal_scope_and_state_without_native_list_permission(self):
+		module, frappe = self.service()
+		self.request_database(frappe)
+		items = module.waiting_on_customer(self.actor)
+		self.assertEqual(
+			[item["link"] for item in items],
+			[
+				"/portal/quote-requests/QR-2",
+				"/portal/quote-requests/QR-1",
+				"/portal/orders/SO-1",
+				"/portal/product-verification/PV-SHARED",
+				"/portal/product-verification/PV-OWN",
+			],
+		)
+		frappe.get_list.assert_not_called()
+
+	def test_order_changes_require_a_dealer_for_the_orders_current_company(self):
+		module, frappe = self.service()
+		self.request_database(frappe)
+		for person, expected in (
+			(actor(customer="CUST-2"), ["/portal/orders/SO-2"]),
+			(actor(is_dealer=False), []),
+			(actor(customer=None), []),
+		):
+			with self.subTest(person=person):
+				items = module.waiting_on_customer(person)
+				self.assertEqual([item["link"] for item in items if item["kind"] == "order_change"], expected)
+
+	def test_guests_and_staff_have_no_waiting_customer_requests(self):
+		module, frappe = self.service()
+		for person in (actor(is_guest=True), actor(is_internal=True)):
+			self.assertEqual(module.waiting_on_customer(person), [])
+		frappe.db.sql.assert_not_called()
+		frappe.get_list.assert_not_called()
 
 	def test_draft_schedules_count_their_unconfigured_lines(self):
 		module, frappe = self.service()

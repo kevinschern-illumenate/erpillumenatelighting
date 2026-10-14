@@ -139,7 +139,7 @@ def unescaped_outputs(name, source):
 	for match in OUTPUT.finditer(source):
 		expression = match.group(1).strip()
 		tree = environment.parse("{{ " + expression + " }}").body[0].nodes[0]
-		if not _escaped(tree, macros) and (str(name), expression) not in RAW_ALLOWLIST:
+		if not _escaped(tree, macros) and (Path(name).as_posix(), expression) not in RAW_ALLOWLIST:
 			found.append(f"{name}:{source.count(chr(10), 0, match.start()) + 1}: {{{{ {expression} }}}}")
 	return found
 
@@ -465,6 +465,7 @@ assert "Needs your reply" in quote_request_html and "ilLumenate needs more infor
 
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
+(render_dir / "quote-detail.html").write_text(rendered, encoding="utf8")
 projects_page = environment.get_template("templates/pages/ill_projects.html")
 
 

@@ -184,10 +184,26 @@ def drawings(actor):
 	return items[:PER_SOURCE]
 
 
+def _waiting_requests(doctype, fields, condition):
+	"""Project action fields through a portal predicate, without native Desk list access."""
+	return frappe.db.sql(
+		f"""select {", ".join(fields)} from `tab{doctype}`
+		where state = 'INFORMATION_NEEDED' and ({condition or "1=1"})
+		order by modified desc limit {PER_SOURCE}""",
+		as_dict=True,
+	)
+
+
 def waiting_on_customer(actor):
 	"""Support tickets, quote requests, order changes and verifications whose next step is the customer's."""
-	if actor.is_internal:
+	if actor.is_guest or actor.is_internal:
 		return []
+	from illumenate_lighting.illumenate_lighting.portal.product_finder.verification import (
+		get_permission_query_conditions as verification_conditions,
+	)
+	from illumenate_lighting.illumenate_lighting.portal.quotes import (
+		get_permission_query_conditions as quote_conditions,
+	)
 	from illumenate_lighting.illumenate_lighting.portal.support import _conditions
 
 	conditions, params = _conditions(actor.user)
@@ -208,12 +224,10 @@ def waiting_on_customer(actor):
 		)
 		for row in tickets
 	]
-	for row in frappe.get_list(
+	for row in _waiting_requests(
 		"ilL-Quote-Request",
-		filters={"state": "INFORMATION_NEEDED"},
-		fields=["name", "schedule", "due_date"],
-		order_by="modified desc",
-		limit_page_length=PER_SOURCE,
+		["name", "schedule"],
+		quote_conditions(actor.user),
 	):
 		items.append(
 			item(
@@ -223,12 +237,18 @@ def waiting_on_customer(actor):
 				context=row.schedule,
 			)
 		)
-	for row in frappe.get_list(
+	# Order changes follow the same company/dealer scope as the portal order service.
+	order_condition = "1=0"
+	if actor.is_dealer and actor.customer:
+		order_condition = (
+			"sales_order in (select name from `tabSales Order` where customer = "
+			+ frappe.db.escape(actor.customer)
+			+ ")"
+		)
+	for row in _waiting_requests(
 		"ilL-Order-Change",
-		filters={"state": "INFORMATION_NEEDED"},
-		fields=["name", "sales_order", "request_type"],
-		order_by="modified desc",
-		limit_page_length=PER_SOURCE,
+		["name", "sales_order", "request_type"],
+		order_condition,
 	):
 		items.append(
 			item(
@@ -240,12 +260,10 @@ def waiting_on_customer(actor):
 				context=row.sales_order,
 			)
 		)
-	for row in frappe.get_list(
+	for row in _waiting_requests(
 		"ilL-Product-Verification-Request",
-		filters={"state": "INFORMATION_NEEDED"},
-		fields=["name", "product_title"],
-		order_by="modified desc",
-		limit_page_length=PER_SOURCE,
+		["name", "product_title"],
+		verification_conditions(actor.user),
 	):
 		items.append(
 			item(

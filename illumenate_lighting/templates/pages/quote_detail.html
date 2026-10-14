@@ -1,7 +1,7 @@
 {% extends "templates/portal_base.html" %}
 {% block portal_title %}{{ offer.name | e }}{% endblock %}
 {% block portal_page_class %}ill-commerce{% endblock %}
-{% block portal_main_attrs %}id="offer-detail" data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}"{% endblock %}
+{% block portal_main_attrs %}data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}"{% endblock %}
 {% block portal_content %}{% set currency = offer.snapshot.currency %}
   <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Back to quotes") }}</a>
   <header class="ill-hero">
@@ -113,7 +113,7 @@
 {% block script %}
 <script>
 frappe.ready(() => {
-  const root = document.getElementById('offer-detail');
+  const root = document.getElementById('portal-main');
   const form = document.getElementById('offer-response');
   if (!form) return;
   let pending = false;
@@ -135,10 +135,16 @@ frappe.ready(() => {
       const response = await frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.offers.respond', type: 'POST',
         args: {offer_name: root.dataset.offer, expected_hash: root.dataset.hash, action, note,
           po_no: document.getElementById('offer-po').value.trim(), requested_date: date || null}});
-      if (response.message.sales_order) window.location.href = '/portal/orders/' + encodeURIComponent(response.message.sales_order);
+      if (response?.exc || response?.exc_type) throw response;
+      const receipt = response?.message;
+      const expectedState = {ACCEPT: 'ACCEPTED', DECLINE: 'DECLINED', REQUEST_REVISION: 'REVISION_REQUESTED'}[action];
+      if (receipt?.offer !== root.dataset.offer || receipt.state !== expectedState || (action === 'ACCEPT' && !receipt.sales_order)) {
+        throw new Error(__('The server did not confirm this response.'));
+      }
+      if (receipt.sales_order) window.location.href = '/portal/orders/' + encodeURIComponent(receipt.sales_order);
       else window.location.reload();
     } catch (error) {
-      status.textContent = __('Response was not confirmed. Your entries are preserved; review the error and retry.');
+      status.textContent = (PortalUI.serverMessage(error) || error?.message || __('Response was not confirmed.')) + ' ' + __('Your entries are preserved; review the error and retry.');
       pending = false; form.querySelectorAll('button').forEach(element => { element.disabled = false; });
     }
   });
