@@ -45,9 +45,18 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 
 	Returns:
 		dict: {"success": False, "error": <message>, **extra}
+
+	Frappe commits a POST/PUT/DELETE request that returns normally, so a handled
+	error would otherwise persist whatever was written before it. Roll back
+	first, then log with ``defer_insert`` so the Error Log survives.
 	"""
+	request = getattr(frappe.local, "request", None)
+	if request is not None and getattr(request, "method", None) in ("POST", "PUT", "DELETE"):
+		frappe.db.rollback()
 	try:
-		frappe.log_error(title=log_prefix[:140], message=frappe.get_traceback() or str(e))
+		frappe.log_error(
+			title=log_prefix[:140], message=frappe.get_traceback() or str(e), defer_insert=True
+		)
 	except Exception:
 		# Never let logging failures mask the original error response.
 		pass
@@ -84,118 +93,15 @@ def _can_access_configured_record(doctype: str, name: str, line_fieldname: str) 
 
 @frappe.whitelist()
 def get_allowed_customers_for_project() -> dict:
-	"""
-	Get customers that the current user can create projects for.
-
-	Returns customers that:
-	1. System Manager: All customers
-	2. The user's own company (Customer linked via their Contact)
-	3. Customers that were created by contacts at the user's company
+	"""Customers the current user can pick on a project (see portal.allowed_customers).
 
 	Returns:
-		dict: {
-			"success": True/False,
-			"user_customer": str or None,
-			"allowed_customers": [{"value": name, "label": customer_name}]
-		}
+		dict: {"success": True, "user_customer": str or None,
+		"allowed_customers": [{"value": name, "label": customer_name}]}
 	"""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-	)
+	from illumenate_lighting.illumenate_lighting.portal.allowed_customers import allowed_customers
 
-	# System Manager can access all customers
-	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
-	if is_system_manager:
-		all_customers = frappe.get_all(
-			"Customer",
-			fields=["name", "customer_name"],
-			order_by="customer_name asc",
-		)
-		allowed_customers = [
-			{"value": c.name, "label": c.customer_name or c.name}
-			for c in all_customers
-		]
-		return {
-			"success": True,
-			"user_customer": None,
-			"allowed_customers": allowed_customers,
-		}
-
-	user_customer = _get_user_customer(frappe.session.user)
-
-	if not user_customer:
-		return {
-			"success": True,
-			"user_customer": None,
-			"allowed_customers": [],
-		}
-
-	# Get all contacts linked to the user's company (Customer)
-	company_contacts = frappe.db.sql("""
-		SELECT DISTINCT c.name as contact_name, c.user
-		FROM `tabContact` c
-		INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name
-			AND dl.parenttype = 'Contact'
-			AND dl.link_doctype = 'Customer'
-			AND dl.link_name = %(user_customer)s
-	""", {"user_customer": user_customer}, as_dict=True)
-
-	contact_names = [c.contact_name for c in company_contacts]
-
-	# Get customers that were created by users at this company
-	# A customer is considered "created by the company" if:
-	# 1. The owner is a user linked to a contact at the company, OR
-	# 2. There's a contact at the company linked to that customer
-	allowed_customer_names = set()
-	allowed_customer_names.add(user_customer)  # Always include user's own company
-
-	if contact_names:
-		# Get customers linked to contacts at the user's company
-		linked_customers = frappe.db.sql("""
-			SELECT DISTINCT dl.link_name as customer_name
-			FROM `tabDynamic Link` dl
-			WHERE dl.parenttype = 'Contact'
-				AND dl.link_doctype = 'Customer'
-				AND dl.parent IN (
-					SELECT c.name FROM `tabContact` c
-					INNER JOIN `tabDynamic Link` dl2 ON dl2.parent = c.name
-						AND dl2.parenttype = 'Contact'
-						AND dl2.link_doctype = 'Customer'
-						AND dl2.link_name = %(user_customer)s
-				)
-		""", {"user_customer": user_customer}, as_dict=True)
-
-		for row in linked_customers:
-			allowed_customer_names.add(row.customer_name)
-
-		# Also get customers created by users at this company
-		company_users = [c.user for c in company_contacts if c.user]
-		if company_users:
-			created_customers = frappe.get_all(
-				"Customer",
-				filters={"owner": ["in", company_users]},
-				pluck="name",
-			)
-			for cust in created_customers:
-				allowed_customer_names.add(cust)
-
-	# Build the response with customer details
-	allowed_customers = []
-	for cust_name in allowed_customer_names:
-		customer_name_display = frappe.db.get_value("Customer", cust_name, "customer_name")
-		allowed_customers.append({
-			"value": cust_name,
-			"label": customer_name_display or cust_name,
-		})
-
-	# Sort by label
-	allowed_customers.sort(key=lambda x: x["label"])
-
-	return {
-		"success": True,
-		"user_customer": user_customer,
-		"allowed_customers": allowed_customers,
-	}
+	return allowed_customers()
 
 
 # Whitelist of project-access WHERE clauses used by
@@ -1575,7 +1481,7 @@ def orderable_item_problem(item_code, is_sales_staff=False):
 	return None
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	"""
 	Add a new line to a fixture schedule.
@@ -1709,14 +1615,18 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		return _safe_error(e, f"Portal: error adding line to schedule {schedule_name}")
 
 
-@frappe.whitelist()
-def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
+@frappe.whitelist(methods=["POST"])
+def delete_schedule_line(
+	schedule_name: str, line_idx: int | None = None, line_key: str | None = None, expected_modified=None
+) -> dict:
 	"""
 	Delete a line from a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		line_idx: Index of the line to delete
+		line_key: Stable key of the line to delete (preferred)
+		line_idx: Index of the line to delete (deprecated; used when no line_key)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 
 	Returns:
 		dict: {"success": True/False, "error": "message if error"}
@@ -1744,30 +1654,30 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 		return {"success": False, "error": "Cannot delete lines from a schedule in this status"}
 
 	try:
-		line_idx = int(line_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if line_idx < 0 or line_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		line_idx = line_index(schedule, line_key, line_idx)
 		# Remove the line
 		schedule.lines.pop(line_idx)
 		schedule.save()
-		return {"success": True}
+		return {"success": True, "modified": str(schedule.modified)}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error deleting line from schedule {schedule_name}")
 
 
-@frappe.whitelist()
-def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
+@frappe.whitelist(methods=["POST"])
+def duplicate_schedule_line(
+	schedule_name: str, line_idx: int | None = None, line_key: str | None = None, expected_modified=None
+) -> dict:
 	"""
 	Duplicate a line in a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		line_idx: Index of the line to duplicate
+		line_key: Stable key of the line to duplicate (preferred)
+		line_idx: Index of the line to duplicate (deprecated; used when no line_key)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 
 	Returns:
 		dict: {"success": True/False, "new_line_idx": index, "error": "message if error"}
@@ -1786,35 +1696,48 @@ def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
 	if not has_permission(schedule, "write", frappe.session.user):
 		return {"success": False, "error": "You don't have permission to edit this schedule"}
 
+	# Check if schedule is locked
+	if schedule.get("is_locked"):
+		return {"success": False, "error": "This schedule version is locked. Create a new version to make changes."}
+
 	# Validate status
 	if schedule.status not in ["DRAFT", "READY"]:
 		return {"success": False, "error": "Cannot duplicate lines in a schedule in this status"}
 
 	try:
-		line_idx = int(line_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if line_idx < 0 or line_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		line_idx = line_index(schedule, line_key, line_idx)
 		# Call the DocType method to duplicate the line
 		new_idx = schedule.duplicate_line(line_idx)
-		return {"success": True, "new_line_idx": new_idx}
+		return {
+			"success": True,
+			"new_line_idx": new_idx,
+			"new_line_key": schedule.lines[new_idx].get("line_key"),
+			"modified": str(schedule.modified),
+		}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error duplicating line on schedule {schedule_name}")
 
 
-@frappe.whitelist()
-def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
+@frappe.whitelist(methods=["POST"])
+def move_schedule_line(
+	schedule_name: str,
+	from_idx: int | None = None,
+	to_idx: int | None = None,
+	line_key: str | None = None,
+	to_line_key: str | None = None,
+	expected_modified=None,
+) -> dict:
 	"""
 	Move (reorder) a line in a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		from_idx: Current index of the line to move
-		to_idx: Target index to insert the line at
+		line_key / from_idx: The line to move (key preferred; index deprecated)
+		to_line_key / to_idx: The line whose position it takes (key preferred)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 
 	Returns:
 		dict: {"success": True/False, "to_idx": index, "error": "message if error"}
@@ -1842,32 +1765,34 @@ def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
 		return {"success": False, "error": "Cannot reorder lines in a schedule in this status"}
 
 	try:
-		from_idx = int(from_idx)
-		to_idx = int(to_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if from_idx < 0 or from_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid source line index"}
-	if to_idx < 0 or to_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid target line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		from_idx = line_index(schedule, line_key, from_idx)
+		to_idx = line_index(schedule, to_line_key, to_idx)
 		# Call the DocType method to move the line
 		new_idx = schedule.move_line(from_idx, to_idx)
-		return {"success": True, "to_idx": new_idx}
+		return {"success": True, "to_idx": new_idx, "modified": str(schedule.modified)}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error moving line on schedule {schedule_name}")
 
 
-@frappe.whitelist()
-def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str, dict]) -> dict:
+@frappe.whitelist(methods=["POST"])
+def update_schedule_line(
+	schedule_name: str,
+	line_idx: int | None = None,
+	line_data: Union[str, dict] = None,
+	line_key: str | None = None,
+	expected_modified=None,
+) -> dict:
 	"""
 	Update an existing line in a fixture schedule.
 
 	Args:
 		schedule_name: Name of the schedule
-		line_idx: Index of the line to update
+		line_key: Stable key of the line to update (preferred)
+		line_idx: Index of the line to update (deprecated; used when no line_key)
+		expected_modified: The schedule's ``modified`` as loaded; a mismatch is refused
 		line_data: Dict with line fields to update (line_id, qty, location, notes, etc.)
 
 	Returns:
@@ -1901,16 +1826,13 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 			line_data = json.loads(line_data)
 		except json.JSONDecodeError:
 			return {"success": False, "error": "Invalid line_data format"}
+	line_data = line_data or {}
 
 	try:
-		line_idx = int(line_idx)
-	except (ValueError, TypeError):
-		return {"success": False, "error": "Invalid line index"}
+		from illumenate_lighting.illumenate_lighting.portal.schedule_lines import line_index, require_fresh
 
-	if line_idx < 0 or line_idx >= len(schedule.lines):
-		return {"success": False, "error": "Invalid line index"}
-
-	try:
+		require_fresh(schedule, expected_modified)
+		line_idx = line_index(schedule, line_key, line_idx)
 		line = schedule.lines[line_idx]
 
 		# Update allowed fields
@@ -1967,7 +1889,7 @@ def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str
 				line.spec_sheet = finalize_spec(line_data["spec_sheet_file_id"], schedule.name)
 
 		schedule.save()
-		return {"success": True}
+		return {"success": True, "modified": str(schedule.modified)}
 	except Exception as e:
 		frappe.db.rollback()
 		return _safe_error(e, f"Portal: error updating line on schedule {schedule_name}")
@@ -2106,7 +2028,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 		return _safe_error(e, f"Portal: error fetching configured fixture details for {configured_fixture_id}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_configured_fixture_to_schedule(
 	schedule_name: str,
 	configured_fixture_id: str,
@@ -2207,13 +2129,18 @@ def save_configured_fixture_to_schedule(
 		return _safe_error(e, f"Portal: error saving configured fixture to schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project.
 
+	The end client and project team are project parties of the owner company
+	(``end_client_party``, ``architect``, ``lighting_designer``,
+	``general_contractor``; DESK-9). ``customer`` is optional: without it the
+	project bills the owner company, or the end client's Customer once promoted.
+
 	Args:
-		project_data: Dict with project fields (project_name, customer, is_private, etc.)
+		project_data: Dict with project fields (project_name, end_client_party, is_private, etc.)
 
 	Returns:
 		dict: {"success": True/False, "project_name": name, "error": "message if error"}
@@ -2228,17 +2155,32 @@ def create_project(project_data: Union[str, dict]) -> dict:
 	if frappe.session.user == "Guest":
 		return {"success": False, "error": "Please log in to create a project"}
 
-	if not project_data.get("customer"):
-		return {"success": False, "error": "Customer is required"}
+	# Sales staff (and System Managers) can create projects for any customer, on a dealer's behalf.
+	from illumenate_lighting.illumenate_lighting.portal.project_owner import (
+		can_set_owner_company,
+		validate_owner_company,
+	)
 
-	# System Manager can create projects for any customer
-	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+	is_system_manager = can_set_owner_company()
+	owner_customer = None
+	if is_system_manager:
+		try:
+			owner_customer = validate_owner_company(project_data.get("owner_customer"))
+		except frappe.ValidationError as error:
+			return {"success": False, "error": str(error)}
 
 	# Validate the chosen customer is in the allowed list for this user
 	allowed_result = get_allowed_customers_for_project()
 	allowed_customer_names = [c["value"] for c in allowed_result.get("allowed_customers", [])]
 
 	chosen_customer = project_data.get("customer")
+	if not chosen_customer:
+		from illumenate_lighting.illumenate_lighting.portal.project_parties import project_customer
+
+		chosen_customer = project_customer(project_data, owner_customer or allowed_result.get("user_customer"))
+		if not chosen_customer:
+			return {"success": False, "error": "Customer is required"}
+		allowed_customer_names.append(chosen_customer)
 
 	# System Manager bypass: allow any valid customer. Everyone else must pick
 	# from their allowed list; never silently substitute a different company.
@@ -2253,7 +2195,9 @@ def create_project(project_data: Union[str, dict]) -> dict:
 		project.customer = chosen_customer
 		project.description = project_data.get("description")
 		project.is_private = project_data.get("is_private", 0)
-		# owner_customer is set automatically in before_insert
+		# Dealers get their own company in before_insert; staff name the dealer company.
+		if owner_customer:
+			project.owner_customer = owner_customer
 
 		# Optional fields
 		if project_data.get("estimated_start_date"):
@@ -2262,12 +2206,10 @@ def create_project(project_data: Union[str, dict]) -> dict:
 			project.location = project_data.get("location")
 		if project_data.get("project_manager"):
 			project.project_manager = project_data.get("project_manager")
-		if project_data.get("architect"):
-			project.architect = project_data.get("architect")
-		if project_data.get("lighting_designer"):
-			project.lighting_designer = project_data.get("lighting_designer")
-		if project_data.get("general_contractor"):
-			project.general_contractor = project_data.get("general_contractor")
+		# Parties are checked against the owner company in ilLProject.validate.
+		for field in ("end_client_party", "architect", "lighting_designer", "general_contractor"):
+			if project_data.get(field):
+				project.set(field, project_data.get(field))
 
 		project.insert()
 		return {"success": True, "project_name": project.name}
@@ -2275,13 +2217,14 @@ def create_project(project_data: Union[str, dict]) -> dict:
 		return _safe_error(e, "Portal: error creating project")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 	"""
 	Update an existing ilL-Project.
 
 	Allows editing of project_name, description, estimated_start_date, location,
-	project_manager, architect, lighting_designer, general_contractor, and is_private.
+	project_manager, end_client_party, architect, lighting_designer,
+	general_contractor, and is_private. The billing ``customer`` never changes here.
 
 	Args:
 		project_name: Name (ID) of the project to update
@@ -2315,6 +2258,7 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 		"estimated_start_date",
 		"location",
 		"project_manager",
+		"end_client_party",
 		"architect",
 		"lighting_designer",
 		"general_contractor",
@@ -2329,6 +2273,7 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 				if value == "" and field in (
 					"estimated_start_date",
 					"project_manager",
+					"end_client_party",
 					"architect",
 					"lighting_designer",
 					"general_contractor",
@@ -2342,7 +2287,7 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 		return _safe_error(e, f"Portal: error updating project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def archive_project(project_name: str) -> dict:
 	"""
 	Archive or unarchive an ilL-Project.
@@ -2376,7 +2321,7 @@ def archive_project(project_name: str) -> dict:
 		return _safe_error(e, f"Portal: error archiving project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def unarchive_project(project_name: str) -> dict:
 	"""
 	Restore an archived ilL-Project back to ACTIVE status.
@@ -2411,7 +2356,7 @@ def unarchive_project(project_name: str) -> dict:
 		return _safe_error(e, f"Portal: error unarchiving project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_schedule(schedule_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project-Fixture-Schedule.
@@ -2461,7 +2406,7 @@ def create_schedule(schedule_data: Union[str, dict]) -> dict:
 		return _safe_error(e, f"Portal: error creating schedule in project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def rename_schedule(schedule_name: str, new_schedule_name: str) -> dict:
 	"""
 	Rename an existing ilL-Project-Fixture-Schedule.
@@ -2499,7 +2444,7 @@ def rename_schedule(schedule_name: str, new_schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error renaming schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def delete_schedule(schedule_name: str) -> dict:
 	"""
 	Delete an existing ilL-Project-Fixture-Schedule.
@@ -2536,10 +2481,14 @@ def delete_schedule(schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error deleting schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_project_collaborators(project_name: str, collaborators: Union[str, list]) -> dict:
 	"""
-	Update collaborators for a project.
+	Deprecated: use portal/collaborators.py set_access_level, deactivate and invite.
+
+	Applies a submitted list one row at a time. Every listed user must already
+	collaborate or belong to the project's company; anyone missing from the list
+	is deactivated, never deleted, so history survives.
 
 	Args:
 		project_name: Name of the project
@@ -2548,6 +2497,8 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 	Returns:
 		dict: {"success": True/False, "error": "message if error"}
 	"""
+	from illumenate_lighting.illumenate_lighting.portal import collaborators as service
+
 	if not frappe.db.exists("ilL-Project", project_name):
 		return {"success": False, "error": "Project not found"}
 
@@ -2573,17 +2524,20 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 
 	try:
 		previous = {c.user: c.access_level for c in project.collaborators or [] if c.is_active}
-
-		# Clear existing collaborators
-		project.collaborators = []
-
-		# Add new collaborators
+		submitted = {}
 		for collab in collaborators:
-			project.append("collaborators", {
-				"user": collab.get("user"),
-				"access_level": collab.get("access_level", "VIEW"),
-				"is_active": collab.get("is_active", 1),
-			})
+			submitted[collab.get("user")] = collab
+		try:
+			for user, collab in submitted.items():
+				if int(collab.get("is_active", 1) or 0):
+					service.apply_level(project, user, collab.get("access_level", "VIEW"))
+				else:
+					service.apply_deactivate(project, user)
+		except frappe.PermissionError as e:
+			return {"success": False, "error": str(e), "error_code": "permission_denied"}
+		for user in previous:
+			if user not in submitted:
+				service.apply_deactivate(project, user)
 
 		project.save(ignore_permissions=True)
 
@@ -2602,7 +2556,7 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 		return _safe_error(e, f"Portal: error updating collaborators on project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def toggle_project_privacy(project_name: str, is_private: int) -> dict:
 	"""
 	Toggle privacy setting for a project.
@@ -2669,7 +2623,7 @@ def request_schedule_quote(schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error requesting quote for schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	"""
 	Update the status of a fixture schedule.
@@ -2685,7 +2639,7 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 
 	Args:
 		schedule_name: Name of the schedule
-		new_status: New status to set (DRAFT, READY, QUOTED)
+		new_status: New status to set (DRAFT or READY)
 
 	Returns:
 		dict: {"success": True/False, "new_status": str,
@@ -2755,7 +2709,7 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error creating sales order for schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_customer(customer_data: Union[str, dict]) -> dict:
 	"""
 	Create a new Customer from the portal.
@@ -2826,6 +2780,58 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 		return {"success": True, "customer_name": customer.name}
 	except Exception as e:
 		return _safe_error(e, "Portal: error creating customer")
+
+
+@frappe.whitelist(methods=["POST"])
+def create_party(party_data: str | dict) -> dict:
+	"""Add an end client, architect, lighting designer or contractor to the user's company (DESK-9).
+
+	Dealers add to their own company; sales staff name it (``owner_customer``).
+	A party the company already has by that name and role is returned, not
+	duplicated. Use this instead of :func:`create_customer` for project parties.
+
+	Args:
+		party_data: Dict with party_name, role, and optional owner_customer (staff),
+			contact_person, email, phone, website, address, notes.
+
+	Returns:
+		dict: {"success": True, "party": name, "label": party_name, "role": role, "existing": bool}
+	"""
+	if isinstance(party_data, str):
+		try:
+			party_data = json.loads(party_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid party_data format"}
+	if not isinstance(party_data, dict):
+		return {"success": False, "error": "Invalid party_data format"}
+
+	from illumenate_lighting.illumenate_lighting.portal import project_parties
+
+	try:
+		return {"success": True, **project_parties.create(party_data)}
+	except Exception as e:
+		return _safe_error(e, "Portal: error creating project party")
+
+
+@frappe.whitelist()
+def get_project_parties(project: str | None = None, owner_customer: str | None = None) -> dict:
+	"""Party choices for the project form's end client and team selects, by field.
+
+	Lists the user's company's parties; sales staff list the company they name
+	(or the project's). Returns {"success": True, "parties": {field: [{"value", "label"}]}}.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal import project_parties
+
+	doc = None
+	if project:
+		if not frappe.db.exists("ilL-Project", project):
+			return {"success": False, "error": "Project not found"}
+		doc = frappe.get_doc("ilL-Project", project)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import has_permission
+
+		if not has_permission(doc, "read", frappe.session.user):
+			return {"success": False, "error": "You don't have permission to view this project"}
+	return {"success": True, "parties": project_parties.picker_options(doc, owner_customer)}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -2933,7 +2939,9 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 	try:
 		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
 
-		request_body = {key: ticket_data.get(key) for key in ("subject", "description", "category", "order", "file_ids")}
+		request_body = {
+			key: ticket_data.get(key) for key in ("subject", "description", "category", "order", "project", "file_ids")
+		}
 		request_hash = fingerprint(request_body)
 		request_key = fingerprint({"actor": frappe.session.user, "key": ticket_data.get("idempotency_key") or request_hash})
 		existing = frappe.db.get_value("Issue", {"ill_portal_request_key": request_key, "raised_by": frappe.session.user}, ["name", "ill_portal_request_hash"], as_dict=True)
@@ -2946,18 +2954,31 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 
 			if not load_accessible_sales_order(ticket_data["order"]):
 				frappe.throw(_("Order unavailable"), frappe.PermissionError)
+		from illumenate_lighting.illumenate_lighting.portal.access import can_read_project, get_actor
+
+		project = ticket_data.get("project") or None
+		if project and not (
+			frappe.db.exists("ilL-Project", project) and can_read_project(frappe.get_doc("ilL-Project", project))
+		):
+			frappe.throw(_("Project unavailable"), frappe.PermissionError)
+		actor = get_actor()
 		doc = frappe.new_doc("Issue")
+		# Customer, Contact and project make portal tickets filterable on Desk and the Customer dashboard.
+		doc.customer = actor.customer
+		doc.contact = frappe.db.get_value("Contact", {"user": frappe.session.user}, "name")
+		if project and doc.meta.has_field("ill_project"):
+			doc.ill_project = project
 		doc.ill_portal_request_key = request_key
 		doc.ill_portal_request_hash = request_hash
 		doc.ill_portal_order = ticket_data.get("order")
 		doc.subject = ticket_data.get("subject")
-		doc.description = f"""
-**Category:** {ticket_data.get('category', 'Other').title()}
-**Related Order:** {ticket_data.get('order') or 'N/A'}
-
-**Description:**
-{ticket_data.get('description')}
-"""
+		# Issue.description is a Text Editor: write escaped HTML, not Markdown.
+		escape = frappe.utils.escape_html
+		doc.description = (
+			f"<p><strong>{escape(_('Category'))}:</strong> {escape(str(ticket_data.get('category') or 'Other').title())}</p>"
+			f"<p><strong>{escape(_('Related Order'))}:</strong> {escape(ticket_data.get('order') or _('N/A'))}</p>"
+			f'<p style="white-space: pre-wrap">{escape(ticket_data.get("description"))}</p>'
+		)
 		doc.raised_by = frappe.session.user
 
 		# Try to set priority if the field exists
@@ -2974,13 +2995,16 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 		from illumenate_lighting.illumenate_lighting.portal.files import finalize_files
 
 		finalize_files(ticket_data.get("file_ids") or [], "Issue", doc.name, allow_unbound=True)
+		from illumenate_lighting.illumenate_lighting.portal import staff_notifications
+
+		staff_notifications.submitted(doc)
 		return {"success": True, "ticket_name": doc.name}
 	except Exception as e:
 		frappe.db.rollback()
 		return _safe_error(e, "Portal: error creating support ticket")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_user_profile(profile_data: Union[str, dict]) -> dict:
 	"""
 	Update the current user's profile information.
@@ -3087,7 +3111,7 @@ def get_account_settings() -> dict:
 		return _safe_error(e, "Portal: error getting account settings")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 	"""
 	Save notification preferences for the current user.
@@ -3124,7 +3148,7 @@ def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 		return _safe_error(e, "Portal: error saving notification preferences")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_portal_preferences(preferences: Union[str, dict]) -> dict:
 	"""
 	Save display/locale preferences for the current user.
@@ -3217,60 +3241,6 @@ def download_order_document(doctype: str, name: str):
 
 
 @frappe.whitelist()
-def get_portal_notifications() -> dict:
-	"""
-	Get notifications and alerts for the current portal user.
-
-	Returns:
-		dict: List of notifications
-	"""
-	notifications = []
-
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-	)
-	customer = _get_user_customer(frappe.session.user)
-
-	if customer:
-		# Check for quotes ready
-		quoted_schedules = frappe.db.count(
-			"ilL-Project-Fixture-Schedule",
-			{"status": "QUOTED", "customer": customer}
-		)
-		if quoted_schedules > 0:
-			notifications.append({
-				"type": "quote",
-				"title": _("Quotes Ready"),
-				"message": _("{0} schedule(s) have quotes ready for review").format(quoted_schedules),
-				"link": "/portal/projects",
-				"icon": "fa-file-text-o",
-				"color": "success",
-			})
-
-		# Check for orders ready to ship
-		ready_orders = frappe.db.count(
-			"Sales Order",
-			{"customer": customer, "status": "To Deliver", "docstatus": 1}
-		)
-		if ready_orders > 0:
-			notifications.append({
-				"type": "shipping",
-				"title": _("Orders Ready to Ship"),
-				"message": _("{0} order(s) are ready for shipment").format(ready_orders),
-				"link": "/portal/orders",
-				"icon": "fa-truck",
-				"color": "info",
-			})
-
-	return {"success": True, "notifications": notifications}
-
-
-# =============================================================================
-# DEALER-SPECIFIC API FUNCTIONS
-# =============================================================================
-
-
-@frappe.whitelist()
 def get_user_role_info() -> dict:
 	"""
 	Get role information for the current user.
@@ -3317,45 +3287,7 @@ def invite_project_collaborator(project_name: str, email: str, first_name: str =
 		return {"success": False, "error": "You cannot invite a collaborator to this project"}
 
 
-def _send_collaborator_invite_email(project, user_email: str, access_level: str):
-	"""
-	Send an email notification to a collaborator about project access.
-
-	Args:
-		project: The ilL-Project document
-		user_email: Email of the collaborator
-		access_level: VIEW or EDIT
-	"""
-	try:
-		project_url = frappe.utils.get_url(f"/portal/projects/{project.name}")
-		access_text = "view" if access_level == "VIEW" else "view and edit"
-
-		frappe.sendmail(
-			recipients=[user_email],
-			subject=_("You've been invited to collaborate on {0}").format(project.project_name),
-			message=_("""
-<p>Hello,</p>
-
-<p>You have been invited to collaborate on the project <strong>{project_name}</strong>.</p>
-
-<p>You can now {access_text} this project. Click the link below to access it:</p>
-
-<p><a href="{project_url}">{project_url}</a></p>
-
-<p>Best regards,<br>
-ilLumenate Lighting Team</p>
-""").format(
-				project_name=project.project_name,
-				access_text=access_text,
-				project_url=project_url,
-			),
-			delayed=False,
-		)
-	except Exception as e:
-		frappe.log_error(f"Failed to send collaborator invite email: {str(e)}")
-
-
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def remove_project_collaborator(project_name: str, user_email: str) -> dict:
 	"""
 	Remove a collaborator from a project.
@@ -3455,7 +3387,7 @@ def get_company_contacts() -> dict:
 	return {"success": True, "contacts": contacts}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_contact(contact_data: Union[str, dict]) -> dict:
 	"""
 	Create a new contact for the dealer's company.
@@ -3931,7 +3863,7 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 		return _safe_error(e, f"Portal: error getting fixture configuration for {configured_fixture_id}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_configured_fixture_on_schedule(
 	schedule_name: str,
 	line_idx: int,
@@ -4037,8 +3969,8 @@ def update_configured_fixture_on_schedule(
 		return _safe_error(e, f"Portal: error updating fixture on schedule {schedule_name}")
 
 
-@frappe.whitelist()
-def create_schedule_version(schedule_name: str, version_notes: str = None) -> dict:
+@frappe.whitelist(methods=["POST"])
+def create_schedule_version(schedule_name: str, version_notes: str | None = None) -> dict:
 	"""
 	Create a new version of a fixture schedule.
 	Locks the current version and creates a duplicate with incremented version number.
@@ -4329,10 +4261,23 @@ def get_led_sheet_templates() -> dict:
 	``image`` / ``gallery_json`` follow the Linear Fixture and Tape/Neon template
 	loaders in templates/pages/configure.py: the template's own ``image`` wins,
 	otherwise the linked Webflow product gallery (then its featured image).
-	"""
-	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 
-	require_catalog_access()
+	An editor of the schedule being configured for may load them too, without
+	the MSRP fields (FLOW-6).
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import (
+		pricing_allowed,
+		require_configurator,
+		strip_prices,
+	)
+
+	require_configurator()
+	if not pricing_allowed():
+		return strip_prices(_led_sheet_templates())
+	return _led_sheet_templates()
+
+
+def _led_sheet_templates() -> dict:
 	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
 
 	templates = frappe.get_all(

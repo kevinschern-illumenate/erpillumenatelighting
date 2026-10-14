@@ -10,6 +10,8 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 			};
 		});
 
+		_show_open_offer_warning(frm);
+
 		// Add "Create User" button for dealers in the collaborators section
 		if (!frm.is_new()) {
 			frappe.call({
@@ -429,6 +431,25 @@ function _show_kit_configurator_dialog(frm, cdt, cdn, init_data) {
 /**
  * Refresh cascading options (filter dropdowns based on prior selections).
  */
+// An issued quote is tied to this exact revision: editing it (or leaving QUOTED)
+// means the dealer can no longer accept that quote.
+function _show_open_offer_warning(frm) {
+	if (frm.is_new()) return;
+	frappe.db
+		.get_value("ilL-Quote-Offer", { schedule: frm.doc.name, state: "ISSUED" }, ["name", "valid_until"])
+		.then((r) => {
+			const offer = r && r.message;
+			if (!offer || !offer.name) return;
+			frm.dashboard.set_headline_alert(
+				__("Quote {0} is open for the customer{1}. Changing this schedule will invalidate it.", [
+					frappe.utils.escape_html(offer.name),
+					offer.valid_until ? " " + __("until {0}", [frappe.datetime.str_to_user(offer.valid_until)]) : "",
+				]),
+				"orange"
+			);
+		});
+}
+
 function _refresh_kit_cascading(dialog, kit_template_name, current_values) {
 	frappe.call({
 		method: "illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator.get_kit_cascading_options",

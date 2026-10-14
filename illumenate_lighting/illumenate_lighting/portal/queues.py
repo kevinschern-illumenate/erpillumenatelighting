@@ -34,16 +34,45 @@ QUEUES = {
 		"sales",
 		"ilL-Quote-Request",
 		{"state": ["in", ["REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED"]]},
-		["name", "state", "assigned_to", "due_date", "modified"],
+		[
+			"name",
+			"customer",
+			"project",
+			"schedule",
+			"requested_by",
+			"state",
+			"assigned_to",
+			"due_date",
+			"modified",
+		],
 		"assigned_to",
 		"due_date",
+	),
+	"expiring_offers": (
+		"Offers expiring soon",
+		"sales",
+		"ilL-Quote-Offer",
+		{"state": "ISSUED"},
+		["name", "customer", "schedule", "quotation", "valid_until", "issued_by", "modified"],
+		None,
+		None,
 	),
 	"orders": (
 		"Order review",
 		"sales",
 		"ilL-Order-Intake",
 		{"state": ["in", ["SUBMITTED", "UNDER_REVIEW", "INFORMATION_NEEDED", "CHANGES_PROPOSED"]]},
-		["name", "sales_order", "state", "assigned_to", "due_date", "modified"],
+		[
+			"name",
+			"sales_order",
+			"customer",
+			"schedule",
+			"requested_by",
+			"state",
+			"assigned_to",
+			"due_date",
+			"modified",
+		],
 		"assigned_to",
 		"due_date",
 	),
@@ -186,7 +215,10 @@ ASSIGN_FIELD = "_assign"
 REQUIRED_FIELDS = {"new_customers": ("Customer", "crm_deal")}
 
 # Queues whose filters depend on site settings. Each returns extra filters, or None to hide the queue.
-DYNAMIC_FILTERS = {"bills": "illumenate_lighting.illumenate_lighting.api.qbo_bills.queue_filters"}
+DYNAMIC_FILTERS = {
+	"bills": "illumenate_lighting.illumenate_lighting.api.qbo_bills.queue_filters",
+	"expiring_offers": "illumenate_lighting.illumenate_lighting.portal.offers.expiring_queue_filters",
+}
 
 # Queues whose document names are hashes or codes search a readable field instead.
 SEARCH_FIELDS = {"inbox": "subject", "new_customers": "customer_name"}

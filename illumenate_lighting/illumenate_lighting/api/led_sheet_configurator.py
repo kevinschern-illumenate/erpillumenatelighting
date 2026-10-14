@@ -30,6 +30,7 @@ from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
     match_sheet_specs,
     normalize_dimension,
 )
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 
 OPTION_FIELD_BY_TYPE = {
     "CCT": "selected_cct",
@@ -232,6 +233,7 @@ def _resolve_dimensions(
 
 
 @frappe.whitelist()
+@price_scoped
 def validate_sheet_configuration(template, spec=None, options=None, coverage_width_ft=0,
     coverage_height_ft=0, schedule_name=None, line_idx=None, coverage_width_value=None,
     coverage_width_unit="ft", coverage_height_value=None, coverage_height_unit="ft",

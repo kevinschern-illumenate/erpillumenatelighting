@@ -1,0 +1,61 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-14 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "queue",
+  "default_assignee",
+  "fallback_role",
+  "sla_hours"
+ ],
+ "fields": [
+  {
+   "fieldname": "queue",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Queue",
+   "options": "quotes\norders\norder_changes\naccounts\nsupport",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_assignee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default Assignee",
+   "options": "User",
+   "description": "Gets every new request in this queue while enabled."
+  },
+  {
+   "fieldname": "fallback_role",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fallback Role",
+   "options": "Role",
+   "description": "With no default assignee, the enabled staff user in this role with the fewest open items gets it."
+  },
+  {
+   "fieldname": "sla_hours",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "SLA Hours",
+   "description": "Sets the due date this many hours after submission. Leave 0 for no due date."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-14 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Portal-Route",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

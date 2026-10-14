@@ -3,7 +3,7 @@
 		<div class="col-lg-7">
 			<div class="card mb-3">
 				<div class="card-header">
-					<h5 class="mb-0">{{ title }}</h5>
+					<h5 class="mb-0">{{ title | e }}</h5>
 				</div>
 				<div class="card-body">
 					{% include "illumenate_lighting/templates/includes/configurator_form.html" %}
@@ -24,7 +24,7 @@
 					<div id="segmentsList"></div>
 					
 					<div id="addSegmentHint" class="text-center py-3 text-muted" style="display: none;">
-						<i class="fa fa-arrow-up"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
+						<i class="fa fa-arrow-up" aria-hidden="true"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
 					</div>
 				</div>
 			</div>
@@ -53,17 +53,17 @@
 						</label>
 					</div>
 					<div class="input-group mt-2" id="overrideMaxRunGroup" style="display: none; max-width: 280px;">
-						<input type="number" name="override_max_run_ft" id="overrideMaxRunInput"
+						<input type="number" name="override_max_run_ft" id="overrideMaxRunInput" aria-label="{{ _('Custom max run (ft)') }}"
 							   class="form-control" min="0.5" step="0.5"
 							   placeholder="{{ _('Custom max run (ft)') }}">
 						<span class="input-group-text">ft</span>
 					</div>
 					<div class="alert alert-warning mt-2 py-2" id="overrideMaxRunWarning" style="display: none;">
-						<button type="button" class="close" aria-label="Close"
+						<button type="button" class="close" aria-label="{{ _('Close') }}"
 								data-coordinator-action="dismiss-warning">
 							<span aria-hidden="true">&times;</span>
 						</button>
-						<i class="fa fa-exclamation-triangle mr-2"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
+						<i class="fa fa-exclamation-triangle mr-2" aria-hidden="true"></i>{{ _("Warning: Overriding max run length may exceed electrical and fire code limits. Use only when instructed by a licensed engineer.") }}
 					</div>
 				</div>
 			</div>
@@ -72,10 +72,10 @@
 			{% if not is_tape_neon %}
 			<div class="d-flex justify-content-between" id="actionButtons" style="display: none;">
 				<button type="button" class="btn btn-primary" id="calculateBtn" data-coordinator-action="validateAndQuote-1" disabled>
-					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+					<i class="fa fa-calculator" aria-hidden="true"></i> {{ _("Calculate & Validate") }}
 				</button>
 				<button type="button" class="btn btn-success" id="saveBtn" data-coordinator-action="saveToSchedule-3" style="display: none;" disabled>
-					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+					<i class="fa fa-save" aria-hidden="true"></i> {{ _("Add to Schedule") }}
 				</button>
 			</div>
 
@@ -88,10 +88,10 @@
 				<span class="mr-3 small font-weight-bold text-secondary">{{ _("Order Mode:") }}</span>
 				<div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Tape order mode') }}">
 					<button type="button" class="btn btn-primary active" id="tapeModeCustomBtn" data-coordinator-action="setTapeMode-4">
-						<i class="fa fa-ruler"></i> {{ _("Custom Length") }}
+						<i class="fa fa-ruler" aria-hidden="true"></i> {{ _("Custom Length") }}
 					</button>
 					<button type="button" class="btn btn-outline-secondary" id="tapeModeReelBtn" data-coordinator-action="setTapeMode-5">
-						<i class="fa fa-circle-o"></i> {{ _("Bulk Reels") }}
+						<i class="fa fa-circle-o" aria-hidden="true"></i> {{ _("Bulk Reels") }}
 					</button>
 				</div>
 				<small class="text-muted ml-3" id="tapeModeReelHint" style="display: none;">{{ _("16.4 ft, 50 ft, or 100 ft standard reels — no pigtail") }}</small>
@@ -114,7 +114,7 @@
 			<!-- LED Tape: Bulk Reel Card (shown when Bulk Reels mode is active) -->
 			<div class="card mb-3" id="bulkReelCard" style="display: none;">
 				<div class="card-header d-flex justify-content-between align-items-center">
-					<h5 class="mb-0"><i class="fa fa-circle-o mr-2"></i>{{ _("Bulk Reel Configuration") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-circle-o mr-2" aria-hidden="true"></i>{{ _("Bulk Reel Configuration") }}</h5>
 					<span class="badge badge-info">{{ _("Standard Reel Lengths") }}</span>
 				</div>
 				<div class="card-body">
@@ -122,8 +122,8 @@
 
 					<!-- Reel Length -->
 					<div class="option-group">
-						<label class="option-label">{{ _("Reel Length") }} <span class="text-danger">*</span></label>
-						<div class="pill-selector" id="brReelLengthPills">
+						<label class="option-label" id="brReelLengthCaption">{{ _("Reel Length") }} <span class="text-danger">*</span></label>
+						<div class="pill-selector" id="brReelLengthPills" role="group" aria-labelledby="brReelLengthCaption">
 							<label class="pill-option bulk-reel-pill" id="brReel164" data-coordinator-action="selectBulkReelLength-6">
 								<span class="d-block font-weight-bold">16.4 ft</span>
 								<span class="d-block small text-muted">5 m</span>
@@ -156,10 +156,10 @@
 					<!-- Bulk Reel Action Buttons -->
 					<div class="d-flex flex-wrap" style="gap: 0.5rem;">
 						<button type="button" class="btn btn-primary" id="brCalculateBtn" data-coordinator-action="bulkReelCalculate-9" disabled>
-							<i class="fa fa-calculator"></i> {{ _("Calculate &amp; Validate") }}
+							<i class="fa fa-calculator" aria-hidden="true"></i> {{ _("Calculate &amp; Validate") }}
 						</button>
 						<button type="button" class="btn btn-success" id="brSaveBtn" data-coordinator-action="bulkReelSave-10" style="display: none;" disabled>
-							<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+							<i class="fa fa-save" aria-hidden="true"></i> {{ _("Add to Schedule") }}
 						</button>
 					</div>
 				</div>
@@ -185,10 +185,10 @@
 			<!-- Tape/Neon Action Buttons -->
 			<div class="d-flex justify-content-between" id="tnActionButtons" style="{% if is_tape_neon and not has_templates %}display: flex;{% else %}display: none;{% endif %}">
 				<button type="button" class="btn btn-primary" id="tnCalculateBtn" data-coordinator-action="tnValidateAndQuote-11" disabled>
-					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+					<i class="fa fa-calculator" aria-hidden="true"></i> {{ _("Calculate & Validate") }}
 				</button>
 				<button type="button" class="btn btn-success" id="tnSaveBtn" data-coordinator-action="tnSaveToSchedule-13" style="display: none;" disabled>
-					<i class="fa fa-save"></i> {{ _("Add to Schedule") }}
+					<i class="fa fa-save" aria-hidden="true"></i> {{ _("Add to Schedule") }}
 				</button>
 			</div>
 			{% endif %}
@@ -199,13 +199,13 @@
 			<div class="card">
 				<div class="card-header d-flex justify-content-between align-items-center">
 					<h5 class="mb-0">{{ _("Results") }}</h5>
-					<span id="validationStatus" class="badge badge-secondary">{{ _("Not Calculated") }}</span>
+					<span id="validationStatus" class="badge badge-secondary" role="status">{{ _("Not Calculated") }}</span>
 				</div>
 				<div class="card-body">
 					<!-- Messages -->
 					<div id="messagesPanel" style="display: none;">
 						<h6>{{ _("Messages") }}</h6>
-						<div id="messagesList"></div>
+						<div id="messagesList" aria-live="polite"></div>
 						<hr>
 					</div>
 
@@ -218,8 +218,8 @@
 								<td>
 									<div class="d-flex align-items-center">
 										<code id="partNumberValue" class="mr-2" style="font-size: 0.95rem;">-</code>
-										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" data-coordinator-action="copyToClipboard-14" title="Copy part number">
-											<i class="fa fa-copy"></i>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" data-coordinator-action="copyToClipboard-14" title="Copy part number" aria-label="{{ _('Copy part number') }}">
+											<i class="fa fa-copy" aria-hidden="true"></i>
 										</button>
 									</div>
 								</td>
@@ -229,15 +229,15 @@
 								<td>
 									<div class="d-flex align-items-start">
 										<span id="partDescriptionValue" class="mr-2 small" style="white-space: pre-wrap;">-</span>
-										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" data-coordinator-action="copyToClipboard-15" title="Copy description">
-											<i class="fa fa-copy"></i>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" data-coordinator-action="copyToClipboard-15" title="Copy description" aria-label="{{ _('Copy description') }}">
+											<i class="fa fa-copy" aria-hidden="true"></i>
 										</button>
 									</div>
 								</td>
 							</tr>
 						</table>
 						<button type="button" class="btn btn-outline-primary btn-sm btn-block mb-2" data-coordinator-action="copyBothToClipboard-16">
-							<i class="fa fa-clipboard"></i> {{ _("Copy Part Number + Description") }}
+							<i class="fa fa-clipboard" aria-hidden="true"></i> {{ _("Copy Part Number + Description") }}
 						</button>
 						<hr>
 					</div>
@@ -340,7 +340,7 @@
 					{% endif %}
 
 					<div id="noResults" class="text-center py-4">
-						<i class="fa fa-calculator fa-3x text-muted mb-3"></i>
+						<i class="fa fa-calculator fa-3x text-muted mb-3" aria-hidden="true"></i>
 						<p class="text-muted">{{ _("Configure segments and click 'Calculate & Validate' to see results") }}</p>
 					</div>
 				</div>
@@ -352,8 +352,8 @@
 	<div class="segment-card" data-segment-index="">
 		<div class="card-header d-flex justify-content-between align-items-center">
 			<strong>{{ _("Segment") }} <span class="segment-number"></span></strong>
-			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" data-coordinator-action="removeSegment-17" style="display: none;">
-				<i class="fa fa-trash"></i>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" data-coordinator-action="removeSegment-17" style="display: none;" aria-label="{{ _('Remove segment') }}">
+				<i class="fa fa-trash" aria-hidden="true"></i>
 			</button>
 		</div>
 		<div class="card-body">
@@ -370,26 +370,26 @@
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
-								<select class="form-control form-control-sm" name="start_feed_direction"></select>
+								<select aria-label="{{ _('Feed Direction') }}" class="form-control form-control-sm" name="start_feed_direction"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
-								<select class="form-control form-control-sm" name="start_power_feed_type"></select>
+								<select aria-label="{{ _('Power Feed Type') }}" class="form-control form-control-sm" name="start_power_feed_type"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Leader Cable Length (in)") }}</label>
-								<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Leader Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>
 				</div>
 				<!-- Subsequent segments: inherited from prior segment -->
 				<div class="inherited-start segment-inherited" style="display: none;">
-					<i class="fa fa-link"></i> <span class="inherited-text">{{ _("Inherited from prior segment") }}</span>
+					<i class="fa fa-link" aria-hidden="true"></i> <span class="inherited-text">{{ _("Inherited from prior segment") }}</span>
 				</div>
 			</div>
 
@@ -399,13 +399,13 @@
 					<div class="col-md-6">
 						<div class="form-group mb-2">
 							<label class="small font-weight-bold">{{ _("Requested Length") }} <span class="text-danger">*</span></label>
-							<input type="number" class="form-control" name="requested_length_mm" min="1" step="0.1" required placeholder="e.g., 48">
+							<input aria-label="{{ _('Requested Length') }}" type="number" class="form-control" name="requested_length_mm" min="1" step="0.1" required placeholder="e.g., 48">
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Unit") }}</label>
-							<select class="form-control" name="length_unit">
+							<select aria-label="{{ _('Unit') }}" class="form-control" name="length_unit">
 								<option value="in" selected>inches</option>
 								<option value="ft_in">feet + inches</option>
 								<option value="mm">mm</option>
@@ -418,13 +418,13 @@
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Feet") }}</label>
-							<input type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
+							<input aria-label="{{ _('Feet') }}" type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Inches") }}</label>
-							<input type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
+							<input aria-label="{{ _('Inches') }}" type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
 						</div>
 					</div>
 				</div>
@@ -439,10 +439,10 @@
 				</div>
 				<div class="end-type-toggle mb-2">
 					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Endcap" data-coordinator-action="setEndType-18">
-						<i class="fa fa-stop-circle"></i> {{ _("Endcap (Cap Fixture)") }}
+						<i class="fa fa-stop-circle" aria-hidden="true"></i> {{ _("Endcap (Cap Fixture)") }}
 					</button>
 					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Jumper" data-coordinator-action="setEndType-19">
-						<i class="fa fa-link"></i> {{ _("Jumper (Continue to Next)") }}
+						<i class="fa fa-link" aria-hidden="true"></i> {{ _("Jumper (Continue to Next)") }}
 					</button>
 				</div>
 				<input type="hidden" name="end_type" value="Endcap">
@@ -450,7 +450,7 @@
 				<!-- Endcap Fields (shown when end type is Endcap) -->
 				<div class="endcap-fields" style="display: none;">
 					<div class="small text-muted">
-						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with a solid endcap") }}
+						<i class="fa fa-info-circle" aria-hidden="true"></i> {{ _("Fixture will be capped with a solid endcap") }}
 					</div>
 				</div>
 
@@ -460,19 +460,19 @@
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Feed Direction") }}</label>
-								<select class="form-control form-control-sm" name="end_feed_direction"></select>
+								<select aria-label="{{ _('Feed Direction') }}" class="form-control form-control-sm" name="end_feed_direction"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
-								<select class="form-control form-control-sm" name="end_power_feed_type"></select>
+								<select aria-label="{{ _('Power Feed Type') }}" class="form-control form-control-sm" name="end_power_feed_type"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
-								<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Jumper Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>
@@ -488,8 +488,8 @@
 	<div class="tape-segment-card" data-segment-index="">
 		<div class="card-header d-flex justify-content-between align-items-center">
 			<strong>{{ _("Run") }} <span class="tape-segment-number"></span></strong>
-			<button type="button" class="btn btn-sm btn-outline-danger remove-tape-segment-btn" data-coordinator-action="removeTapeSegment-20" style="display: none;">
-				<i class="fa fa-trash"></i>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-tape-segment-btn" data-coordinator-action="removeTapeSegment-20" style="display: none;" aria-label="{{ _('Remove tape segment') }}">
+				<i class="fa fa-trash" aria-hidden="true"></i>
 			</button>
 		</div>
 		<div class="card-body">
@@ -501,19 +501,19 @@
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Start Feed Direction") }} <span class="text-danger">*</span></label>
-								<select class="form-control form-control-sm" name="tape_start_feed_direction"></select>
+								<select aria-label="{{ _('Start Feed Direction') }}" class="form-control form-control-sm" name="tape_start_feed_direction"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Lead Length (in)") }} <span class="text-danger">*</span></label>
-								<input type="number" class="form-control form-control-sm" name="tape_start_lead_length_inches" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Lead Length (in)') }}" type="number" class="form-control form-control-sm" name="tape_start_lead_length_inches" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>
 				</div>
 				<div class="tape-inherited-start segment-inherited" style="display: none;">
-					<i class="fa fa-link"></i> <span class="tape-inherited-text">{{ _("Inherited from prior run") }}</span>
+					<i class="fa fa-link" aria-hidden="true"></i> <span class="tape-inherited-text">{{ _("Inherited from prior run") }}</span>
 				</div>
 			</div>
 
@@ -523,13 +523,13 @@
 					<div class="col-md-5">
 						<div class="form-group mb-2">
 							<label class="small font-weight-bold">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
-							<input type="number" class="form-control" name="tape_length_value" min="0.1" step="0.1" required placeholder="e.g., 48">
+							<input aria-label="{{ _('Tape Length') }}" type="number" class="form-control" name="tape_length_value" min="0.1" step="0.1" required placeholder="e.g., 48">
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Unit") }}</label>
-							<select class="form-control" name="tape_length_unit">
+							<select aria-label="{{ _('Unit') }}" class="form-control" name="tape_length_unit">
 								<option value="in" selected>inches</option>
 								<option value="ft">feet</option>
 								<option value="ft_in">feet + inches</option>
@@ -541,13 +541,13 @@
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Feet") }}</label>
-							<input type="number" class="form-control form-control-sm" name="tape_length_feet" min="0" value="0">
+							<input aria-label="{{ _('Feet') }}" type="number" class="form-control form-control-sm" name="tape_length_feet" min="0" value="0">
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Inches") }}</label>
-							<input type="number" class="form-control form-control-sm" name="tape_length_inches" min="0" max="11.99" step="0.1" value="0">
+							<input aria-label="{{ _('Inches') }}" type="number" class="form-control form-control-sm" name="tape_length_inches" min="0" max="11.99" step="0.1" value="0">
 						</div>
 					</div>
 				</div>
@@ -558,17 +558,17 @@
 				<label class="small font-weight-bold">{{ _("Run End") }}</label>
 				<div class="end-type-toggle mb-2">
 					<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Endcap" data-coordinator-action="setTapeEndType-21">
-						<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
+						<i class="fa fa-stop-circle" aria-hidden="true"></i> {{ _("Endcap") }}
 					</button>
 					<button type="button" class="btn btn-outline-secondary btn-sm tape-end-type-btn" data-type="Jumper" data-coordinator-action="setTapeEndType-22">
-						<i class="fa fa-link"></i> {{ _("Exit Feed / Jumper") }}
+						<i class="fa fa-link" aria-hidden="true"></i> {{ _("Exit Feed / Jumper") }}
 					</button>
 				</div>
 				<input type="hidden" name="tape_end_type" value="Endcap">
 
 				<div class="tape-endcap-fields" style="display: none;">
 					<div class="small text-muted">
-						<i class="fa fa-info-circle"></i> {{ _("Run will be capped with an endcap") }}
+						<i class="fa fa-info-circle" aria-hidden="true"></i> {{ _("Run will be capped with an endcap") }}
 					</div>
 				</div>
 
@@ -577,13 +577,13 @@
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Exit Feed Direction") }}</label>
-								<select class="form-control form-control-sm" name="tape_end_feed_direction"></select>
+								<select aria-label="{{ _('Exit Feed Direction') }}" class="form-control form-control-sm" name="tape_end_feed_direction"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
-								<input type="number" class="form-control form-control-sm" name="tape_end_feed_length_inches" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Jumper Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="tape_end_feed_length_inches" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>
@@ -600,8 +600,8 @@
 	<div class="neon-segment-card" data-segment-index="">
 		<div class="card-header d-flex justify-content-between align-items-center">
 			<strong>{{ _("Segment") }} <span class="neon-segment-number"></span></strong>
-			<button type="button" class="btn btn-sm btn-outline-danger remove-neon-segment-btn" data-coordinator-action="removeNeonSegment-23" style="display: none;">
-				<i class="fa fa-trash"></i>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-neon-segment-btn" data-coordinator-action="removeNeonSegment-23" style="display: none;" aria-label="{{ _('Remove neon segment') }}">
+				<i class="fa fa-trash" aria-hidden="true"></i>
 			</button>
 		</div>
 		<div class="card-body">
@@ -610,7 +610,7 @@
 				<div class="col-md-4">
 					<div class="form-group mb-2">
 						<label class="small font-weight-bold">{{ _("IP Rating") }} <span class="text-danger">*</span></label>
-						<select class="form-control form-control-sm" name="neon_ip_rating"></select>
+						<select aria-label="{{ _('IP Rating') }}" class="form-control form-control-sm" name="neon_ip_rating"></select>
 					</div>
 				</div>
 			</div>
@@ -623,19 +623,19 @@
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Feed Direction") }} <span class="text-danger">*</span></label>
-								<select class="form-control form-control-sm" name="neon_start_feed_direction"></select>
+								<select aria-label="{{ _('Feed Direction') }}" class="form-control form-control-sm" name="neon_start_feed_direction"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Lead Length (in)") }}</label>
-								<input type="number" class="form-control form-control-sm" name="neon_start_lead_length_inches" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Lead Length (in)') }}" type="number" class="form-control form-control-sm" name="neon_start_lead_length_inches" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>
 				</div>
 				<div class="neon-inherited-start segment-inherited" style="display: none;">
-					<i class="fa fa-link"></i> <span class="neon-inherited-text">{{ _("Inherited from prior segment") }}</span>
+					<i class="fa fa-link" aria-hidden="true"></i> <span class="neon-inherited-text">{{ _("Inherited from prior segment") }}</span>
 				</div>
 			</div>
 
@@ -645,13 +645,13 @@
 					<div class="col-md-6">
 						<div class="form-group mb-2">
 							<label class="small font-weight-bold">{{ _("Fixture Length") }} <span class="text-danger">*</span></label>
-							<input type="number" class="form-control" name="neon_fixture_length_value" min="1" step="0.1" required placeholder="e.g., 48">
+							<input aria-label="{{ _('Fixture Length') }}" type="number" class="form-control" name="neon_fixture_length_value" min="1" step="0.1" required placeholder="e.g., 48">
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Unit") }}</label>
-							<select class="form-control" name="neon_fixture_length_unit">
+							<select aria-label="{{ _('Unit') }}" class="form-control" name="neon_fixture_length_unit">
 								<option value="in" selected>inches</option>
 								<option value="ft">feet</option>
 								<option value="ft_in">feet + inches</option>
@@ -663,13 +663,13 @@
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Feet") }}</label>
-							<input type="number" class="form-control form-control-sm" name="neon_fixture_length_feet" min="0" value="0">
+							<input aria-label="{{ _('Feet') }}" type="number" class="form-control form-control-sm" name="neon_fixture_length_feet" min="0" value="0">
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Inches") }}</label>
-							<input type="number" class="form-control form-control-sm" name="neon_fixture_length_inches" min="0" max="11.99" step="0.1" value="0">
+							<input aria-label="{{ _('Inches') }}" type="number" class="form-control form-control-sm" name="neon_fixture_length_inches" min="0" max="11.99" step="0.1" value="0">
 						</div>
 					</div>
 				</div>
@@ -680,17 +680,17 @@
 				<label class="small font-weight-bold">{{ _("Segment End") }}</label>
 				<div class="end-type-toggle mb-2">
 					<button type="button" class="btn btn-outline-secondary btn-sm neon-end-type-btn" data-type="Endcap" data-coordinator-action="setNeonEndType-24">
-						<i class="fa fa-stop-circle"></i> {{ _("Endcap") }}
+						<i class="fa fa-stop-circle" aria-hidden="true"></i> {{ _("Endcap") }}
 					</button>
 					<button type="button" class="btn btn-outline-secondary btn-sm neon-end-type-btn" data-type="Jumper" data-coordinator-action="setNeonEndType-25">
-						<i class="fa fa-link"></i> {{ _("Jumper (Continue)") }}
+						<i class="fa fa-link" aria-hidden="true"></i> {{ _("Jumper (Continue)") }}
 					</button>
 				</div>
 				<input type="hidden" name="neon_end_type" value="Endcap">
 
 				<div class="endcap-fields" style="display: none;">
 					<div class="small text-muted">
-						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with an endcap") }}
+						<i class="fa fa-info-circle" aria-hidden="true"></i> {{ _("Fixture will be capped with an endcap") }}
 					</div>
 				</div>
 
@@ -699,13 +699,13 @@
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Feed Direction") }}</label>
-								<select class="form-control form-control-sm" name="neon_end_feed_direction"></select>
+								<select aria-label="{{ _('Feed Direction') }}" class="form-control form-control-sm" name="neon_end_feed_direction"></select>
 							</div>
 						</div>
 						<div class="col-md-4">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
-								<input type="number" class="form-control form-control-sm" name="neon_end_feed_length_inches" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Jumper Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="neon_end_feed_length_inches" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>

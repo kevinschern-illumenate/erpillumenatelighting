@@ -1,6 +1,7 @@
 """Local Jinja rendering and embedded-JS syntax checks; no Frappe/browser claims."""
 
 import html
+import re
 import subprocess
 import sys
 import tempfile
@@ -10,14 +11,23 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / ".tools/b2b-test-python"))
 
-from jinja2 import ChoiceLoader, DictLoader, Environment, FileSystemLoader, StrictUndefined
+from jinja2 import (
+	ChainableUndefined,
+	ChoiceLoader,
+	DictLoader,
+	Environment,
+	FileSystemLoader,
+	StrictUndefined,
+	nodes,
+)
+from markupsafe import Markup
 
 environment = Environment(
 	loader=ChoiceLoader(
 		[
 			DictLoader(
 				{
-					"templates/web.html": "<!doctype html><html><body>{% block page_content %}{% endblock %}{% block script %}{% endblock %}</body></html>"
+					"templates/web.html": "<!doctype html><html><head>{% block head_include %}{% endblock %}</head><body>{% block page_content %}{% endblock %}{% block script %}{% endblock %}</body></html>"
 				}
 			),
 			FileSystemLoader(ROOT / "illumenate_lighting"),
@@ -34,6 +44,7 @@ environment.globals.update(
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
+		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
 			utils=SimpleNamespace(
@@ -42,10 +53,177 @@ environment.globals.update(
 		),
 	}
 )
+# Inline event handlers must never interpolate template values: the browser HTML-decodes the attribute
+# before running it, so `| e` cannot stop a quote in a name from breaking out of a JS string.
+INLINE_HANDLER = re.compile(r"""(?<![\w-])on[a-z]+\s*=\s*("[^"]*\{\{|'[^']*\{\{)""", re.IGNORECASE)
+
+
+def inline_handler_violations(source):
+	return [source.count("\n", 0, match.start()) + 1 for match in INLINE_HANDLER.finditer(source)]
+
+
+assert inline_handler_violations("""<button onclick="go('{{ doc.name | e }}')">""") == [1]
+assert inline_handler_violations("""<a\nonmouseover='x({{ i }})'>""") == [2]
+assert not inline_handler_violations("""<div data-content="{{ x }}" data-project="{{ doc.name | e }}">""")
+assert not inline_handler_violations("""<button onclick="go()">{{ _('Go') }}</button>""")
+
 parsed = 0
+handler_violations = []
+# UI-2: page templates keep no long <style> blocks and no hard-coded colours. Print documents
+# rendered to PDF on their own (no portal stylesheet) live in templates/print and are exempt.
+STYLE_BLOCK = re.compile(r"<style[^>]*>(.*?)</style>", re.DOTALL)
+HEX_COLOUR = re.compile(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
+style_violations = []
+
+
+def page_style_violations(name, source):
+	found = []
+	for block in STYLE_BLOCK.finditer(source):
+		lines = block.group(1).strip("\n").count("\n") + 1
+		if lines > 20:
+			found.append(f"{name}:{source.count(chr(10), 0, block.start()) + 1}: <style> block of {lines} lines")
+	for colour in HEX_COLOUR.finditer(source):
+		found.append(f"{name}:{source.count(chr(10), 0, colour.start()) + 1}: hard-coded colour {colour.group(0)}")
+	return found
+
+
+assert page_style_violations("x", "<style>" + "a{}\n" * 21 + "</style>")
+assert not page_style_violations("x", "<style>a{}\nb{}</style>")
+assert page_style_violations("x", '<div style="color:#fff">')
+assert not page_style_violations("x", '<a href="#addLineModal">')
+# SEC-2: every template output is escaped (| e), JSON-encoded (| tojson), a number, a translation of a
+# literal, a macro or sanitized HTML, or listed in tools/portal_raw_outputs.txt with why it is safe.
+OUTPUT = re.compile(r"\{\{-?(.*?)-?\}\}", re.DOTALL)
+MACRO = re.compile(r"\{%-?\s*macro\s+(\w+)")
+ESCAPING_FILTERS = {"e", "escape", "forceescape", "tojson", "urlencode", "int", "float", "round", "length", "count", "abs"}
+RAW_ALLOWLIST_FILE = ROOT / "tools/portal_raw_outputs.txt"
+RAW_ALLOWLIST = {
+	tuple(part.strip() for part in line.split("#", 1)[0].split(":", 1))
+	for line in RAW_ALLOWLIST_FILE.read_text(encoding="utf8").splitlines()
+	if line.split("#", 1)[0].strip()
+}
+
+
+def _constant(expr):
+	if isinstance(expr, nodes.Const):
+		return True
+	if isinstance(expr, nodes.CondExpr):
+		return _constant(expr.expr1) and (expr.expr2 is None or _constant(expr.expr2))
+	return isinstance(expr, (nodes.Add, nodes.Sub, nodes.Mul, nodes.Div, nodes.FloorDiv, nodes.Mod, nodes.Compare))
+
+
+def _escaped(expr, macros):
+	if _constant(expr):
+		return True
+	if isinstance(expr, nodes.Filter):
+		if expr.name in ESCAPING_FILTERS:
+			return True
+		inner = expr.node
+		return (
+			expr.name == "safe"
+			and isinstance(inner, nodes.Call)
+			and isinstance(inner.node, nodes.Name)
+			and inner.node.name == "ill_sanitize_html"
+		)
+	if isinstance(expr, nodes.Call) and isinstance(expr.node, nodes.Name):
+		name = expr.node.name
+		if name in macros or name == "super":
+			return True
+		return name in ("_", "__") and all(isinstance(arg, nodes.Const) for arg in expr.args)
+	return False
+
+
+def unescaped_outputs(name, source):
+	macros = set(MACRO.findall(source))
+	found = []
+	for match in OUTPUT.finditer(source):
+		expression = match.group(1).strip()
+		tree = environment.parse("{{ " + expression + " }}").body[0].nodes[0]
+		if not _escaped(tree, macros) and (str(name), expression) not in RAW_ALLOWLIST:
+			found.append(f"{name}:{source.count(chr(10), 0, match.start()) + 1}: {{{{ {expression} }}}}")
+	return found
+
+
+assert unescaped_outputs("x", "<p>{{ doc.name }}</p><i>{{ _(doc.status) }}</i>") == [
+	"x:1: {{ doc.name }}",
+	"x:1: {{ _(doc.status) }}",
+]
+assert not unescaped_outputs(
+	"x",
+	"{% macro row(d) %}{% endmacro %}{{ doc.name | e }}{{ (a or b) | e }}{{ x | tojson }}{{ _('Hi') }}"
+	"{{ row(doc) }}{{ page - 1 }}{{ 'a' if ok else 'b' }}{{ ill_sanitize_html(doc.notes) | safe }}",
+)
+assert unescaped_outputs("x", "{{ doc.notes | safe }}{{ a or b | e }}") == [
+	"x:1: {{ doc.notes | safe }}",
+	"x:1: {{ a or b | e }}",
+]
+# UI-7: every <label> names its control: for="<id>", a wrapped control, or an id that aria-labelledby
+# points at (a caption for a group such as pills). Pill labels are clickable choices, not captions, and
+# labels inside a <template> are cloned per segment, so ids would repeat; their controls carry aria-label.
+LABEL = re.compile(r"<label\b([^>]*)>(.*?)</label>", re.DOTALL)
+LABEL_CONTROL = re.compile(r"<(?:input|select|textarea)\b")
+TEMPLATE_BLOCK = re.compile(r"<template\b.*?</template>", re.DOTALL)
+label_violations = []
+
+
+def unlabelled_labels(name, source):
+	templates = [(block.start(), block.end()) for block in TEMPLATE_BLOCK.finditer(source)]
+	labelledby = set(" ".join(re.findall(r"""aria-labelledby=["']([^"']+)""", source)).split())
+	found = []
+	for label in LABEL.finditer(source):
+		attrs = label.group(1)
+		label_id = re.search(r"""\bid=["']([^"']+)""", attrs)
+		if (
+			re.search(r"\bfor=", attrs)
+			or LABEL_CONTROL.search(label.group(2))
+			or (label_id and label_id.group(1) in labelledby)
+			or "pill-option" in attrs
+			or any(start <= label.start() < end for start, end in templates)
+		):
+			continue
+		found.append(f"{name}:{source.count(chr(10), 0, label.start()) + 1}: <label{attrs}>")
+	return found
+
+
+assert unlabelled_labels("x", "<label>Name</label><input name='n'>") == ["x:1: <label>"]
+assert not unlabelled_labels(
+	"x",
+	'<label for="n">Name</label><label><input type="checkbox"> Yes</label>'
+	'<label id="t">Type</label><div role="radiogroup" aria-labelledby="t"></div>'
+	"<template><label>Start</label></template>",
+)
+unescaped = []
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
-	environment.parse(path.read_text(encoding="utf8"))
+	source = path.read_text(encoding="utf8")
+	environment.parse(source)
 	parsed += 1
+	if path.parent.name in ("pages", "includes", "print"):
+		unescaped += unescaped_outputs(path.relative_to(ROOT / "illumenate_lighting"), source)
+	if path.parent.name in ("pages", "includes"):
+		label_violations += unlabelled_labels(path.relative_to(ROOT), source)
+	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
+	if path.parent.name == "pages":
+		style_violations += page_style_violations(path.relative_to(ROOT), source)
+if style_violations:
+	sys.exit(
+		"Page styles belong in public/css/pages/_<page>.scss and colours in --ill-* tokens (UI-2):\n  "
+		+ "\n  ".join(style_violations)
+	)
+if unescaped:
+	sys.exit(
+		"Escape template outputs with | e (| tojson in scripts), or list them in "
+		"tools/portal_raw_outputs.txt with why they are safe (SEC-2):\n  " + "\n  ".join(unescaped)
+	)
+if label_violations:
+	sys.exit(
+		'Point each <label> at its control with for="<id>" (add the id), or wrap the control (UI-7):\n  '
+		+ "\n  ".join(label_violations)
+	)
+if handler_violations:
+	sys.exit(
+		"Inline event handlers interpolate template values (use data attributes and a delegated listener):\n  "
+		+ "\n  ".join(handler_violations)
+	)
 
 offer = {
 	"name": "OFFER-00001",
@@ -163,7 +341,8 @@ account_context["user_profile"]["user_image"] = None
 account_html = environment.get_template("templates/pages/account.html").render(**account_context)
 assert "<img src=x onerror=alert(1)>" not in account_html
 parser.feed(account_html)
-parser.feed(environment.get_template("templates/pages/accept_invitation.html").render())
+accept_page = environment.get_template("templates/pages/accept_invitation.html")
+parser.feed(accept_page.render(signed_in_as=None, signup_enabled=False))
 parser.feed(environment.get_template("templates/pages/products_catalog.html").render())
 
 
@@ -286,6 +465,387 @@ assert "Needs your reply" in quote_request_html and "ilLumenate needs more infor
 
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
+projects_page = environment.get_template("templates/pages/ill_projects.html")
+
+
+def project_rows(can_edit):
+	return [
+		View(
+			name=name,
+			project_name=label,
+			customer="Buyer",
+			company_name="Acme <Lighting>",
+			is_private=private,
+			status=status,
+			schedule_count=count,
+			last_activity="2026-10-01",
+			next_step={"label": step, "tone": "warning"},
+			can_edit=can_edit,
+		)
+		for name, label, status, private, count, step in (
+			("P-1');alert(1);//", "x');alert(2);//<b>", "ACTIVE", 0, 2, "Quote ready"),
+			('P-2";alert(3);//', 'y");alert(4);//', "ARCHIVED", 1, 0, "Add a schedule"),
+		)
+	]
+
+
+hostile_projects = projects_page.render(
+	projects=project_rows(True), page=1, has_more=False, status_filter="all", sort="recent", search=""
+)
+assert "alert(2);//&lt;b&gt;" in hostile_projects and "onclick" not in hostile_projects
+assert "Acme &lt;Lighting&gt;" in hostile_projects
+parser.feed(hostile_projects)
+(render_dir / "projects-hostile.html").write_text(hostile_projects, encoding="utf8")
+readonly_projects = projects_page.render(
+	projects=project_rows(False), page=2, has_more=True, status_filter="active", sort="name", search="x&y"
+)
+parser.feed(readonly_projects)
+(render_dir / "projects-readonly.html").write_text(readonly_projects, encoding="utf8")
+collaborators_page = environment.get_template("templates/pages/collaborators.html").render(
+	frappe=SimpleNamespace(
+		get_doc=lambda doctype, name: View(full_name="Olivia Owner"),
+		utils=SimpleNamespace(format_date=lambda value: str(value)),
+	),
+	project=View(
+		name="P-1",
+		project_name="Lobby <refit>",
+		customer="Acme",
+		owner="owner@acme.test",
+		is_private=1,
+		modified="2026-10-14 01:00:00",
+	),
+	collaborators=[
+		View(
+			user="architect@studio.test",
+			full_name='Ada "<b>"',
+			email="architect@studio.test",
+			access_level="VIEW",
+			is_active=1,
+			added_on="2026-09-01",
+		),
+		View(
+			user="former@studio.test",
+			full_name="Former",
+			email="former@studio.test",
+			access_level="EDIT",
+			is_active=0,
+			added_on=None,
+		),
+	],
+	available_users=[
+		View(value="teammate@acme.test", label="Tess Mate (teammate@acme.test)"),
+	],
+	invitations=[
+		View(
+			name="INV-1",
+			email="pending@studio.test",
+			first_name="Pat",
+			last_name="<Pending>",
+			access_level="EDIT",
+			expires_label="10-21-2026",
+		)
+	],
+	can_manage=True,
+)
+assert "<b>" not in collaborators_page and "update_project_collaborators" not in collaborators_page
+parser.feed(collaborators_page)
+(render_dir / "collaborators.html").write_text(collaborators_page, encoding="utf8")
+drawing_types = [
+	View(
+		name="Shop Drawing",
+		label="Shop <Drawing>",
+		icon="fa-wrench",
+		description="Fabrication detail",
+		show_project_field=1,
+		show_fixture_field=1,
+		show_priority_field=1,
+		show_due_date_field=0,
+		default_priority="Normal",
+		fields=[],
+	),
+	View(
+		name="Photometric Layout",
+		label="Photometric Layout",
+		icon="fa-lightbulb-o",
+		description="Point-by-point layout",
+		show_project_field=0,
+		show_fixture_field=0,
+		show_priority_field=0,
+		show_due_date_field=1,
+		default_priority=None,
+		fields=[
+			View(field_key="ceiling_height", label="Ceiling height", fieldtype="Float", mandatory=1, help_text="In feet"),
+			View(field_key="target", label="Target", fieldtype="Select", options="Office\nRetail", mandatory=0),
+			View(field_key="dimmed", label="Dimmed", fieldtype="Check", mandatory=1),
+		],
+	),
+]
+drawings_page = environment.get_template("templates/pages/drawings.html").render(
+	request_types=drawing_types,
+	projects=[View(name="P-1", project_name="Lobby <Refit>")],
+	pending_requests=[],
+	completed_requests=[],
+	all_requests=[],
+	pending_count=0,
+	page=2,
+	has_more=True,
+	drawing_type_icon=lambda value: "file",
+)
+assert "Shop &lt;Drawing&gt;" in drawings_page and "Lobby &lt;Refit&gt;" in drawings_page
+assert 'data-value="shop_drawing"' not in drawings_page, "request types come from Desk"
+assert 'href="?page=1#all"' in drawings_page and 'href="?page=3#all"' in drawings_page, "REL-8 pager"
+assert 'id="requestProjectSearch"' in drawings_page
+parser.feed(drawings_page)
+(render_dir / "drawings.html").write_text(drawings_page, encoding="utf8")
+overview = environment.get_template("templates/pages/portal.html")
+overview_context = {
+	"greeting": "Good morning",
+	"user_name": "Dana <D>",
+	"customer_name": "Acme & Co",
+	"recent_projects": [View(name="P-1", project_name="Lobby <Refit>", customer="Acme", status="ACTIVE")],
+	"recent_orders": [],
+	"finder_banner": None,
+	"path": "portal",
+	"project_status_label": lambda status: status.title(),
+	"project_status_class": lambda status: "success",
+}
+overview_actions = [
+	{"kind": "offer", "title": "Respond to quote <Q-1>", "context": "Lobby <Refit>", "due_label": "Expires in 3 days", "link": "/portal/quotes/Q-1", "tone": "warning"},
+	{"kind": "schedule", "title": "Configure 2 lines in Main", "context": None, "due_label": None, "link": "/portal/schedules/S-1", "tone": "info"},
+]
+for name, actions in (("overview", overview_actions), ("overview-empty", [])):
+	overview_html = overview.render(action_items=actions, **overview_context)
+	assert not actions or "Respond to quote &lt;Q-1&gt;" in overview_html, "action text is escaped"
+	assert ("all caught up" in overview_html) == (not actions)
+	assert 'aria-current="page">Overview' in overview_html
+	parser.feed(overview_html)
+	(render_dir / f"{name}.html").write_text(overview_html, encoding="utf8")
+# The schedule page has a large context; render its FLOW-2 header with lenient undefineds.
+schedule_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/schedule.html")
+schedule_base = {
+	"project": View(name="P-1", project_name="Proj"),
+	"lines": [],
+	"lines_json": [],
+	"can_edit": True,
+	"schedule_status_class": lambda status: "info",
+	"schedule_status_label": lambda status: status.title(),
+	"schedule_status_description": lambda status: status,
+	"status_labels": {},
+	"status_classes": {"DRAFT": "secondary"},
+	"export_statuses": {"COMPLETED": {"label": "Completed", "css": "success"}},
+	"open_offer": None,
+	"system_design": None,
+	"design_dimming_protocols": [],
+}
+steps = ["build", "ready", "quote_requested", "quoted", "order_requested", "ordered"]
+schedule_variants = {
+	"schedule-ready": dict(
+		schedule=View(name="S-1", schedule_name="Lobby", status="READY", version=1, modified="2026-10-14", is_locked=0),
+		progress_steps=[
+			{"key": key, "label": key, "state": ("done" if i < 1 else "current" if i == 1 else "upcoming"), "problem": False}
+			for i, key in enumerate(steps)
+		],
+		commercial=View(
+			requests=[
+				View(
+					name="QR-1",
+					link="/portal/quote-requests/QR-1",
+					status_class="info",
+					status_label="Received",
+					assigned_name="Sam <S>",
+					last_message="Can you confirm <b>finish</b>?",
+				)
+			],
+			offers=[],
+			order=None,
+		),
+		next_step={"primary": {"label": "Request quote", "action": "quote"}, "secondary": {"label": "Order directly", "action": "order"}},
+		unconfigured_lines=[],
+	),
+	"schedule-draft": dict(
+		schedule=View(name="S-1", schedule_name="Lobby", status="DRAFT", version=1, modified="2026-10-14", is_locked=0),
+		progress_steps=[
+			{"key": key, "label": key, "state": "current" if i == 0 else "upcoming", "problem": False}
+			for i, key in enumerate(steps)
+		],
+		commercial=View(requests=[], offers=[], order=None),
+		next_step={
+			"primary": {"label": "Mark ready", "action": "ready", "disabled_reason": "Configure these lines first: A1, Row 2"},
+			"secondary": None,
+		},
+		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
+	),
+}
+for name, variant in schedule_variants.items():
+	schedule_html = schedule_page.render(**schedule_base, **variant)
+	assert "Sam &lt;S&gt;" in schedule_html or name != "schedule-ready"
+	assert 'onclick="requestQuote()"' not in schedule_html and 'onclick="createSalesOrder()"' not in schedule_html
+	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
+# FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
+project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
+
+
+def schedule_version(name, version, parent=None):
+	return View(
+		name=name,
+		schedule_name="Main <x>",
+		status="DRAFT",
+		version=version,
+		is_locked=int((version < 3 and parent is not None) or name == "S-1"),
+		version_parent=parent,
+		lines_count=3,
+	)
+
+
+project_versions = project_page.render(
+	project=View(name="P-1", project_name="Lobby"),
+	schedules=[1],
+	schedule_families=[
+		View(latest=schedule_version("S-3", 3, "S-1"), earlier=[schedule_version("S-2", 2, "S-1"), schedule_version("S-1", 1)]),
+		View(latest=schedule_version("S-9", 1), earlier=[]),
+	],
+	can_edit=True,
+	schedule_status_class=lambda status: "info",
+	schedule_status_label=lambda status: status.title(),
+	project_status_class=lambda status: "success",
+	project_status_label=lambda status: (status or "").title(),
+)
+assert "Main &lt;x&gt;" in project_versions
+(render_dir / "project-versions.html").write_text(project_versions, encoding="utf8")
+# FLOW-8 / REL-5 / FLOW-5: the create form for a dealer, for sales staff and for a user without a company,
+# and the edit modal; all share one set of fields and one pair of party/contact modals.
+project_party_options = {
+	"end_client_party": [{"value": "PTY-1", "label": "Hotel <One>"}],
+	"architect": [{"value": "PTY-2", "label": "Studio <A>"}],
+	"lighting_designer": [],
+	"general_contractor": [],
+}
+project_new_base = dict(
+	is_new=True,
+	project=None,
+	needs_company=False,
+	can_set_owner_company=False,
+	dealer_companies=[],
+	allowed_customers=[
+		{"value": "ACME", "label": "Acme <Lighting>"},
+		{"value": "CLIENT", "label": "Client Co"},
+	],
+	user_customer="ACME",
+	owner_company_label="Acme <Lighting>",
+	can_create_parties=True,
+	# DESK-9: the end client and team pick from the dealer company's project parties.
+	party_options=project_party_options,
+)
+project_new_variants = {
+	"project-new-dealer": {},
+	"project-new-staff": dict(
+		can_set_owner_company=True,
+		dealer_companies=[{"value": "ACME", "label": "Acme <Lighting>"}],
+		user_customer=None,
+		owner_company_label=None,
+		party_options={},
+	),
+	"project-new-no-company": dict(
+		needs_company=True,
+		allowed_customers=[],
+		user_customer=None,
+		owner_company_label=None,
+		can_create_parties=False,
+		party_options={},
+	),
+}
+for name, variant in project_new_variants.items():
+	project_new = project_page.render(**{**project_new_base, **variant})
+	assert "<Lighting>" not in project_new and "<One>" not in project_new
+	assert "Hotel &lt;One&gt;" in project_new or name != "project-new-dealer"
+	parser.feed(project_new)
+	(render_dir / f"{name}.html").write_text(project_new, encoding="utf8")
+project_edit_base = dict(
+	schedules=[],
+	schedule_families=[],
+	can_edit=True,
+	owner_company_label="Acme <Lighting>",
+	contact_details={"project_manager": View(first_name="Pat", last_name="<Lee>")},
+	party_labels={"architect": "Studio <A>"},
+	party_options=project_party_options,
+	can_create_parties=True,
+	schedule_status_class=lambda status: "info",
+	schedule_status_label=lambda status: status.title(),
+	project_status_class=lambda status: "success",
+	project_status_label=lambda status: (status or "").title(),
+)
+# A legacy project whose end client is a Customer other than the owner company: read-only end client.
+project_edit = project_page.render(
+	project=View(
+		name="P-1",
+		project_name="Lobby <b>",
+		customer="CLIENT",
+		owner_customer="ACME",
+		architect="PTY-2",
+		project_manager="CONT-1",
+		location="Main St <1>",
+		is_private=0,
+		status="ACTIVE",
+	),
+	customer_label="Client <Co>",
+	end_client_editable=False,
+	**project_edit_base,
+)
+assert "Client &lt;Co&gt;" in project_edit and "Pat &lt;Lee&gt;" in project_edit
+assert "Studio &lt;A&gt;" in project_edit and "<Lee>" not in project_edit and "<A>" not in project_edit
+parser.feed(project_edit)
+(render_dir / "project-edit.html").write_text(project_edit, encoding="utf8")
+# DESK-9: a portal project bills the dealer company; its end client is a party the dealer can change.
+project_edit_party = project_page.render(
+	project=View(
+		name="P-2",
+		project_name="Hotel",
+		customer="ACME",
+		end_client_party="PTY-1",
+		owner_customer="ACME",
+		is_private=0,
+		status="ACTIVE",
+	),
+	customer_label="Hotel <One>",
+	end_client_editable=True,
+	**{**project_edit_base, "party_labels": {"end_client_party": "Hotel <One>"}},
+)
+assert "Hotel &lt;One&gt;" in project_edit_party and "<One>" not in project_edit_party
+parser.feed(project_edit_party)
+(render_dir / "project-edit-party.html").write_text(project_edit_party, encoding="utf8")
+dealer_access = environment.get_template("templates/pages/request_dealer_access.html")
+dealer_access_variants = {
+	"guest": dict(
+		signed_in=False, state="apply", is_guest=True, prefill={}, application=None, claim_token="CLAIM"
+	),
+	"signed-in": dict(
+		signed_in=True,
+		state="apply",
+		is_guest=False,
+		prefill={"company": "Studio <x>", "full_name": 'Dana "D"', "email": "dana@studio.test", "phone": ""},
+		application=None,
+		claim_token=None,
+	),
+	"pending": dict(
+		signed_in=True,
+		state="pending",
+		is_guest=False,
+		prefill={},
+		application=View(name="AR-<1>", state="Information needed"),
+		claim_token=None,
+	),
+	"approved": dict(
+		signed_in=True, state="approved", is_guest=False, prefill={}, application=None, claim_token=None
+	),
+}
+for name, variant in dealer_access_variants.items():
+	dealer_access_html = dealer_access.render(**variant)
+	assert "<x>" not in dealer_access_html and "AR-<1>" not in dealer_access_html
+	parser.feed(dealer_access_html)
+	(render_dir / f"dealer-access-{name}.html").write_text(dealer_access_html, encoding="utf8")
+for name, signed_in_as in (("guest", None), ("signed-in", "Invitee@Studio.test")):
+	accept_html = accept_page.render(signed_in_as=signed_in_as, signup_enabled=True)
+	(render_dir / f"accept-invitation-{name}.html").write_text(accept_html, encoding="utf8")
 configurator = environment.get_template("templates/pages/configure.html")
 for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Driver", "Controller", "Extrusion Kit"):
 	context = dict(
@@ -383,6 +943,53 @@ assert "Resume (50% done)" in banner and "Find &lt;light&gt;" in banner
 chooser = configurator.render(show_type_chooser=True, chooser_options=[View(value="Linear Fixture",label="Linear",featured=True,href="/portal/configure?category=Linear+Fixture&schedule=S&draft=D&finder=T"),View(value="Driver",label="Driver",featured=False,href="/portal/configure?category=Driver&schedule=S&draft=D&finder=T")])
 parser.feed(chooser)
 (render_dir / "finder-chooser.html").write_text(chooser, encoding="utf8")
+# FLOW-6: a schedule editor without catalog access configures without any price UI.
+for category, mode in (
+	("Linear Fixture", "coordinator"),
+	("Linear Fixture", "wizard"),
+	("LED Tape", "coordinator"),
+	("LED Sheet", "coordinator"),
+	("Driver", "coordinator"),
+	("Extrusion Kit", "coordinator"),
+):
+	unpriced = configurator.render(
+		**{
+			**context,
+			"product_category": category,
+			"is_led_sheet": category == "LED Sheet",
+			"is_tape_neon": category == "LED Tape",
+			"is_tape": category == "LED Tape",
+			"is_neon": False,
+			"configurator_mode": mode,
+			"show_pricing": False,
+			"show_stock_qty": False,
+			"config_schedule": "SCH </script><b>",
+			"schedule_name": "SCH </script><b>",
+			"can_save": True,
+		}
+	)
+	assert "</script><b>" not in unpriced, category
+	assert 'id="pricingResults"' not in unpriced and "Fixture Price Breakdown" not in unpriced, category
+	assert "config_schedule" in unpriced, category
+	parser.feed(unpriced)
+	unpriced_name = "unpriced-" + category.replace(" ", "-") + "-" + mode + ".html"
+	(render_dir / unpriced_name).write_text(unpriced, encoding="utf8")
+# FLOW-7: a Dealer's company ticket list names who raised each colleague's ticket.
+support_page = environment.get_template("templates/pages/ill_support.html")
+company_tickets = [
+	View(name="ISS-1", subject="Mine", status="Open", creation="2026-10-01", raised_by_name=None),
+	View(name="ISS-2", subject="Pat's <order>", status="Open", creation="2026-10-02", raised_by_name="Pat <Buyer>"),
+]
+support_html = support_page.render(
+	tickets=company_tickets,
+	ticket_page=View(total=2, page=1, page_size=20, company=True),
+	recent_orders=[],
+	recent_projects=[],
+)
+assert "Raised by Pat &lt;Buyer&gt;" in support_html and support_html.count("Raised by") == 1
+assert "Pat's <order>" not in support_html
+parser.feed(support_html)
+(render_dir / "support-company.html").write_text(support_html, encoding="utf8")
 # .tools/ is git-ignored, so a clean checkout (CI) does not have it yet.
 (ROOT / ".tools").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools") as directory:
@@ -441,3 +1048,27 @@ assert (
 assert "Lobby" in delivery_print and "SO-QA" in delivery_print and "1Z999" in delivery_print
 assert "Rate" not in delivery_print
 print("Rendered unpriced Delivery Note with designation, room and escaped notes")
+
+# UI-6: the configurator ships only to the pages that use it.
+WEB_JS = ROOT / "illumenate_lighting/public/js"
+assert "configurator/" not in (WEB_JS / "illumenate_web.bundle.js").read_text(encoding="utf8")
+for configurator_page in ("configure", "configure_tape", "schedule"):
+	source = (ROOT / f"illumenate_lighting/templates/pages/{configurator_page}.html").read_text(encoding="utf8")
+	assert 'include_script("illumenate_configurator.bundle.js")' in source, configurator_page
+configurator_bundle = (WEB_JS / "illumenate_configurator.bundle.js").read_text(encoding="utf8")
+for script in WEB_JS.glob("configurator/*.js"):
+	assert f'"./configurator/{script.name}"' in configurator_bundle, script.name
+print("Checked the configurator bundle split")
+# UI-6: fonts and icons are self-hosted woff2, with the two body weights preloaded.
+PUBLIC = ROOT / "illumenate_lighting/public"
+hooks_source = (ROOT / "illumenate_lighting/hooks.py").read_text(encoding="utf8")
+portal_css = (PUBLIC / "css/portal.css").read_text(encoding="utf8")
+assert "cdnjs" not in hooks_source and "fonts.googleapis" not in portal_css
+font_urls = re.findall(r"url\('/assets/illumenate_lighting/(fonts/[^']+)'\)", portal_css)
+assert font_urls and all(url.endswith(".woff2") and (PUBLIC / url).exists() for url in font_urls), font_urls
+for stylesheet in re.findall(r'"/assets/illumenate_lighting/(vendor/fontawesome/css/[^"]+)"', hooks_source):
+	assert (PUBLIC / stylesheet).exists(), stylesheet
+portal_shell = environment.get_template("templates/portal_base.html").render()
+for weight in ("Regular", "SemiBold"):
+	assert f'href="/assets/illumenate_lighting/fonts/Poppins-{weight}.woff2" as="font"' in portal_shell
+print("Checked self-hosted fonts and icons")

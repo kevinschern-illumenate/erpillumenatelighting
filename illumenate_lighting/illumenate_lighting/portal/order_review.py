@@ -216,6 +216,10 @@ def capture(order, requested_by=None):
 			"acknowledged_on": None,
 		}
 	).insert(ignore_permissions=True)
+	if buyer_submitted:
+		from illumenate_lighting.illumenate_lighting.portal import staff_notifications
+
+		staff_notifications.submitted(request)
 	return request.name
 
 

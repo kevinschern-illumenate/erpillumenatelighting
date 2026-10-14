@@ -11,6 +11,7 @@
                         "naming_series",
                         "project_name",
                         "customer",
+                        "end_client_party",
                         "column_break_identity",
                         "status",
                         "is_active",
@@ -56,7 +57,16 @@
                        "in_standard_filter":  1,
                        "label":  "Customer",
                        "options":  "Customer",
-                       "reqd":  1
+                       "reqd":  1,
+                       "description":  "The Customer schedules sync to and Desk quotes default to. For a portal project this is the dealer company until its end client is promoted to a Customer."
+                   },
+                   {
+                       "description":  "Who the project is for, from the owner company's project parties (DESK-9). Display only: billing follows Customer.",
+                       "fieldname":  "end_client_party",
+                       "fieldtype":  "Link",
+                       "in_standard_filter":  1,
+                       "label":  "End Client",
+                       "options":  "ilL-Project-Party"
                    },
                    {
                        "fieldname":  "column_break_identity",
@@ -128,29 +138,29 @@
                        "label":  "Project Contacts"
                    },
                    {
-                       "description":  "Architect customer for this project",
+                       "description":  "Architect from the owner company's project parties",
                        "fieldname":  "architect",
                        "fieldtype":  "Link",
                        "label":  "Architect",
-                       "options":  "Customer"
+                       "options":  "ilL-Project-Party"
                    },
                    {
-                       "description":  "Lighting designer customer for this project",
+                       "description":  "Lighting designer from the owner company's project parties",
                        "fieldname":  "lighting_designer",
                        "fieldtype":  "Link",
                        "label":  "Lighting Designer",
-                       "options":  "Customer"
+                       "options":  "ilL-Project-Party"
                    },
                    {
                        "fieldname":  "column_break_contacts",
                        "fieldtype":  "Column Break"
                    },
                    {
-                       "description":  "General contractor customer for this project",
+                       "description":  "General contractor from the owner company's project parties",
                        "fieldname":  "general_contractor",
                        "fieldtype":  "Link",
                        "label":  "General Contractor",
-                       "options":  "Customer"
+                       "options":  "ilL-Project-Party"
                    },
                    {
                        "collapsible":  1,
@@ -171,8 +181,7 @@
                        "fieldtype":  "Column Break"
                    },
                    {
-                       "depends_on":  "eval:doc.is_private",
-                       "description":  "Users who can access this private project",
+                       "description":  "People invited to this project, including architects and designers outside the owning company. Private projects are visible only to them and the owner.",
                        "fieldname":  "collaborators",
                        "fieldtype":  "Table",
                        "label":  "Collaborators",
@@ -200,7 +209,7 @@
                       "link_fieldname":  "ill_project"
                   }
               ],
-    "modified":  "2026-07-31 00:00:00.000000",
+    "modified":  "2026-10-14 18:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Project",

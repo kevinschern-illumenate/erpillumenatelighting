@@ -34,11 +34,16 @@ app_include_css = ["illumenate_desk.bundle.css"]
 app_include_js = ["illumenate_desk.bundle.js"]
 
 # include js, css files in header of web template
+# Font Awesome 6 Free, self-hosted (UI-6). The v4 shims keep the portal's `fa fa-*` class
+# names and `font-family: FontAwesome` rules working on the v6 fonts.
 web_include_css = [
-	"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
+	"/assets/illumenate_lighting/vendor/fontawesome/css/all.min.css",
+	"/assets/illumenate_lighting/vendor/fontawesome/css/v4-shims.min.css",
+	"/assets/illumenate_lighting/vendor/fontawesome/css/v4-font-face.min.css",
 	"illumenate_web.bundle.css",
 ]
-# portal + shared_configurator + fixture_steps + tape_neon_steps
+# Portal scripts; the configurator is illumenate_configurator.bundle.js, included
+# only by the configure and schedule pages (UI-6).
 web_include_js = ["illumenate_web.bundle.js"]
 
 # include custom scss in every website theme (without file extension ".scss")
@@ -56,6 +61,17 @@ doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.j
     "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
     "ilL-Webflow-Product": "public/js/product_publication.js", "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
+# Desk record -> portal page, and portal request list indicators (DESK-4, DESK-5).
+for _name in (
+    "ilL-Project", "ilL-Project-Fixture-Schedule", "ilL-Quote-Request", "ilL-Quote-Offer",
+    "ilL-Order-Intake", "ilL-Document-Request", "Issue", "Sales Order",
+):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/desk_portal_links.js"]
+doctype_list_js.update({_name: "public/js/portal_request_list.js" for _name in (
+    "ilL-Quote-Request", "ilL-Order-Intake", "ilL-Order-Change", "ilL-Document-Request",
+)})
 doctype_js.update({name: "public/js/authoring_readiness.js" for name in (
     "ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template",
     "ilL-Driver-Template", "ilL-Controller-Template",
@@ -102,6 +118,7 @@ website_route_rules = [
 
 	# Schedules (the designer route must precede the schedule route)
 	{"from_route": "/portal/schedules/<schedule>/design", "to_route": "system_design"},
+	{"from_route": "/portal/schedules/<schedule>/lines/<line_key>/edit", "to_route": "edit_fixture"},
 	{"from_route": "/portal/design", "to_route": "system_design"},
 	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
 
@@ -113,9 +130,10 @@ website_route_rules = [
 	{"from_route": "/portal/configure-neon", "to_route": "configure_tape"},
 	{"from_route": "/portal/configure-sheet", "to_route": "configure_sheet"},
 	{"from_route": "/configure-sheet", "to_route": "configure_sheet"},
+	# Former query-string address; redirects to /portal/schedules/<schedule>/lines/<line_key>/edit.
 	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
 
-	# Product Catalog (System Manager only)
+	# Product Catalog (signed-in users with catalog access, see access.can_view_catalog)
 	{"from_route": "/portal/products", "to_route": "products_catalog"},
 	{"from_route": "/portal/products/<slug>", "to_route": "product_detail"},
 
@@ -248,11 +266,15 @@ permission_query_conditions = {
 	"ilL-Quote-Request": "illumenate_lighting.illumenate_lighting.portal.quotes.get_permission_query_conditions",
 	"ilL-Export-Job": "illumenate_lighting.illumenate_lighting.doctype.ill_export_job.ill_export_job.get_permission_query_conditions",
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.get_permission_query_conditions",
+	"ilL-Project-Party": "illumenate_lighting.illumenate_lighting.portal.project_parties.query_conditions",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.get_permission_query_conditions",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.get_permission_query_conditions",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.get_permission_query_conditions",
 	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.get_permission_query_conditions",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_query_conditions",
+	"Customer": "illumenate_lighting.illumenate_lighting.portal.master_scope.customer_query_conditions",
+	"Contact": "illumenate_lighting.illumenate_lighting.portal.master_scope.contact_query_conditions",
+	"Address": "illumenate_lighting.illumenate_lighting.portal.master_scope.address_query_conditions",
 }
 
 has_permission = {
@@ -269,11 +291,15 @@ has_permission = {
 	"ilL-Portal-Upload": "illumenate_lighting.illumenate_lighting.portal.files.has_permission",
 	"ilL-Quote-Request": "illumenate_lighting.illumenate_lighting.portal.quotes.has_permission",
 	"ilL-Project": "illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project.has_permission",
+	"ilL-Project-Party": "illumenate_lighting.illumenate_lighting.portal.project_parties.has_permission",
 	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.has_permission",
 	"ilL-Document-Request": "illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request.has_permission",
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.has_permission",
 	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.has_permission",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_has_permission",
+	"Customer": "illumenate_lighting.illumenate_lighting.portal.master_scope.customer_has_permission",
+	"Contact": "illumenate_lighting.illumenate_lighting.portal.master_scope.contact_has_permission",
+	"Address": "illumenate_lighting.illumenate_lighting.portal.master_scope.address_has_permission",
 }
 
 # Website/Portal Permissions
@@ -455,7 +481,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
 
 # Testing
 # -------

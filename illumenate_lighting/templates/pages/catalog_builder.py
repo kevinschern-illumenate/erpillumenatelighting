@@ -5,6 +5,8 @@ from pathlib import Path
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
+
 no_cache = 1
 ASSETS = "/assets/illumenate_lighting/catalog_builder/catalog-builder"
 BUNDLE = Path(__file__).resolve().parents[2] / "public/catalog_builder/catalog-builder.js"
@@ -13,9 +15,7 @@ BUNDLE = Path(__file__).resolve().parents[2] / "public/catalog_builder/catalog-b
 def get_context(context):
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
-	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login?redirect-to=/catalog-builder"
-		raise frappe.Redirect
+	require_login()
 	if not allowed("catalog"):
 		frappe.throw(_("Catalog staff access is required"), frappe.PermissionError)
 	version = int(BUNDLE.stat().st_mtime) if BUNDLE.exists() else 0

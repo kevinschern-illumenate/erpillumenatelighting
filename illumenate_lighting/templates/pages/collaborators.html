@@ -2,17 +2,16 @@
 Portal Project Collaborators Page
 Manage collaborators for a project
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Collaborators") }} - {{ project.project_name }}{% endblock %}
+{% block portal_title %}{{ _("Collaborators · {0}").format(project.project_name) | e }}{% endblock %}
 
-{% block page_content %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name }}">{{ project.project_name }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | e }}">{{ project.project_name | e }}</a></li>
 			<li class="breadcrumb-item active" aria-current="page">{{ _("Collaborators") }}</li>
 		</ol>
 	</nav>
@@ -25,8 +24,8 @@ Manage collaborators for a project
 				{{ _("Control who can view and edit this project") }}
 			</p>
 		</div>
-		<a href="/portal/projects/{{ project.name }}" class="btn btn-secondary">
-			<i class="fa fa-arrow-left"></i> {{ _("Back to Project") }}
+		<a href="/portal/projects/{{ project.name | e }}" class="btn btn-secondary">
+			<i class="fa fa-arrow-left" aria-hidden="true"></i> {{ _("Back to Project") }}
 		</a>
 	</div>
 
@@ -34,21 +33,13 @@ Manage collaborators for a project
 	<div class="card mb-4">
 		<div class="card-body">
 			<div class="d-flex justify-content-between align-items-center">
-				<div>
-					<h5 class="mb-1">
-						{% if project.is_private %}
-						<i class="fa fa-lock text-warning"></i> {{ _("Private Project") }}
-						{% else %}
-						<i class="fa fa-building text-info"></i> {{ _("Company Visible") }}
-						{% endif %}
-					</h5>
-					<p class="text-muted mb-0">
-						{% if project.is_private %}
-						{{ _("Only you and listed collaborators can access this project") }}
-						{% else %}
-						{{ _("All users at") }} <strong>{{ project.customer }}</strong> {{ _("can view this project") }}
-						{% endif %}
-					</p>
+				<div id="privacyPrivate"{% if not project.is_private %} hidden{% endif %}>
+					<h5 class="mb-1"><i class="fa fa-lock text-warning" aria-hidden="true"></i> {{ _("Private Project") }}</h5>
+					<p class="text-muted mb-0">{{ _("Only you and listed collaborators can access this project") }}</p>
+				</div>
+				<div id="privacyCompany"{% if project.is_private %} hidden{% endif %}>
+					<h5 class="mb-1"><i class="fa fa-building text-info" aria-hidden="true"></i> {{ _("Company Visible") }}</h5>
+					<p class="text-muted mb-0">{{ _("All users at") }} <strong>{{ project.customer | e }}</strong> {{ _("can view this project") }}</p>
 				</div>
 				{% if can_manage %}
 				<div class="custom-control custom-switch">
@@ -64,16 +55,16 @@ Manage collaborators for a project
 	<!-- Owner Info -->
 	<div class="card mb-4">
 		<div class="card-header">
-			<h5 class="mb-0"><i class="fa fa-user-circle"></i> {{ _("Project Owner") }}</h5>
+			<h5 class="mb-0"><i class="fa fa-user-circle" aria-hidden="true"></i> {{ _("Project Owner") }}</h5>
 		</div>
 		<div class="card-body">
 			<div class="d-flex align-items-center">
 				<div class="avatar avatar-lg mr-3">
-					<i class="fa fa-user fa-2x text-muted"></i>
+					<i class="fa fa-user fa-2x text-muted" aria-hidden="true"></i>
 				</div>
 				<div>
-					<h6 class="mb-0">{{ frappe.get_doc("User", project.owner).full_name or project.owner }}</h6>
-					<small class="text-muted">{{ project.owner }}</small>
+					<h6 class="mb-0">{{ (frappe.get_doc("User", project.owner).full_name or project.owner) | e }}</h6>
+					<small class="text-muted">{{ project.owner | e }}</small>
 					<span class="badge badge-primary ml-2">{{ _("Owner") }}</span>
 				</div>
 			</div>
@@ -86,16 +77,20 @@ Manage collaborators for a project
 	<!-- Collaborators List -->
 	<div class="card mb-4">
 		<div class="card-header d-flex justify-content-between align-items-center">
-			<h5 class="mb-0"><i class="fa fa-users"></i> {{ _("Collaborators") }}</h5>
+			<h5 class="mb-0"><i class="fa fa-users" aria-hidden="true"></i> {{ _("Collaborators") }}</h5>
 			{% if can_manage %}
-			<button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCollaboratorModal">
-				<i class="fa fa-plus"></i> {{ _("Add Collaborator") }}
-			</button>
+			<div>
+				<button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#inviteModal">
+					<i class="fa fa-envelope" aria-hidden="true"></i> {{ _("Invite by email") }}
+				</button>
+				<button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCollaboratorModal">
+					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Collaborator") }}
+				</button>
+			</div>
 			{% endif %}
 		</div>
 		<div class="card-body">
-			{% if collaborators %}
-			<div class="table-responsive">
+			<div class="table-responsive"{% if not collaborators %} hidden{% endif %} id="collaboratorsTable">
 				<table class="table table-hover mb-0">
 					<thead>
 						<tr>
@@ -110,39 +105,39 @@ Manage collaborators for a project
 					</thead>
 					<tbody id="collaboratorsList">
 						{% for collab in collaborators %}
-						<tr data-user="{{ collab.user }}">
+						<tr data-user="{{ collab.user | e }}" class="{{ ('' if collab.is_active else 'text-muted') | e }}">
 							<td>
 								<div>
-									<strong>{{ collab.full_name }}</strong>
-									<br><small class="text-muted">{{ collab.email }}</small>
+									<strong>{{ collab.full_name | e }}</strong>
+									<br><small class="text-muted">{{ collab.email | e }}</small>
 								</div>
 							</td>
 							<td>
 								{% if can_manage %}
-								<select class="form-control form-control-sm access-level-select" data-user="{{ collab.user }}" style="width: auto;">
+								<select class="form-control form-control-sm access-level-select" data-user="{{ collab.user | e }}" style="width: auto;" aria-label="{{ _('Access level') }}">
 									<option value="VIEW" {% if collab.access_level == "VIEW" %}selected{% endif %}>{{ _("View Only") }}</option>
 									<option value="EDIT" {% if collab.access_level == "EDIT" %}selected{% endif %}>{{ _("Can Edit") }}</option>
 								</select>
 								{% else %}
-								<span class="badge badge-{{ 'success' if collab.access_level == 'EDIT' else 'secondary' }}">
-									{{ _("Can Edit") if collab.access_level == "EDIT" else _("View Only") }}
+								<span class="badge badge-{{ ('success' if collab.access_level == 'EDIT' else 'secondary') | e }}">
+									{{ (_("Can Edit") if collab.access_level == "EDIT" else _("View Only")) | e }}
 								</span>
 								{% endif %}
 							</td>
 							<td>
 								{% if collab.is_active %}
-								<span class="badge badge-success">{{ _("Active") }}</span>
+								<span class="badge badge-success collaborator-status">{{ _("Active") }}</span>
 								{% else %}
-								<span class="badge badge-secondary">{{ _("Inactive") }}</span>
+								<span class="badge badge-secondary collaborator-status">{{ _("Inactive") }}</span>
 								{% endif %}
 							</td>
 							<td>
-								<small>{{ frappe.utils.format_date(collab.added_on) if collab.added_on else "-" }}</small>
+								<small>{{ (frappe.utils.format_date(collab.added_on) if collab.added_on else "-") | e }}</small>
 							</td>
 							{% if can_manage %}
 							<td class="text-right">
-								<button type="button" class="btn btn-danger btn-sm remove-collaborator" data-user="{{ collab.user }}" title="{{ _('Remove') }}">
-									<i class="fa fa-trash"></i>
+								<button type="button" class="btn btn-danger btn-sm remove-collaborator" data-user="{{ collab.user | e }}" title="{{ _('Remove') }}" aria-label="{{ _('Remove collaborator') }}"{% if not collab.is_active %} hidden{% endif %}>
+									<i class="fa fa-trash" aria-hidden="true"></i>
 								</button>
 							</td>
 							{% endif %}
@@ -151,40 +146,127 @@ Manage collaborators for a project
 					</tbody>
 				</table>
 			</div>
-			{% else %}
-			<div class="text-center py-4">
-				<i class="fa fa-users fa-3x text-muted mb-3"></i>
+			{% if not collaborators %}
+			<div class="text-center py-4" id="noCollaborators">
+				<i class="fa fa-users fa-3x text-muted mb-3" aria-hidden="true"></i>
 				<p class="text-muted">{{ _("No collaborators added yet.") }}</p>
 				{% if can_manage %}
 				<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addCollaboratorModal">
-					<i class="fa fa-plus"></i> {{ _("Add Collaborator") }}
+					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Collaborator") }}
 				</button>
 				{% endif %}
 			</div>
 			{% endif %}
 		</div>
 	</div>
-</div>
+	{% if can_manage %}
+	<div class="card mb-4" id="pendingInvitations"{% if not invitations %} hidden{% endif %}>
+		<div class="card-header">
+			<h5 class="mb-0"><i class="fa fa-envelope-o" aria-hidden="true"></i> {{ _("Pending invitations") }}</h5>
+		</div>
+		<div class="card-body">
+			<p class="text-muted small">{{ _("People get access when they accept the emailed link while signed in with that address.") }}</p>
+			<div class="table-responsive">
+				<table class="table mb-0">
+					<thead>
+						<tr>
+							<th>{{ _("Email") }}</th>
+							<th>{{ _("Access Level") }}</th>
+							<th>{{ _("Expires") }}</th>
+							<th class="text-right">{{ _("Actions") }}</th>
+						</tr>
+					</thead>
+					<tbody id="invitationList">
+						{% for invite in invitations %}
+						<tr data-invitation="{{ invite.name | e }}">
+							<td>
+								<strong>{{ ((invite.first_name or "") ~ " " ~ (invite.last_name or "")) | trim | e }}</strong>
+								<br><small class="text-muted">{{ invite.email | e }}</small>
+							</td>
+							<td>{{ (_("Can Edit") if invite.access_level == "EDIT" else _("View Only")) | e }}</td>
+							<td class="invitation-expires"><small>{{ invite.expires_label | e }}</small></td>
+							<td class="text-right">
+								<button type="button" class="btn btn-outline-secondary btn-sm resend-invitation">{{ _("Resend") }}</button>
+								<button type="button" class="btn btn-outline-danger btn-sm revoke-invitation">{{ _("Revoke") }}</button>
+							</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+{% endblock %}
+{% block portal_after %}
 
-<!-- Add Collaborator Modal -->
+<!-- Invite Modal -->
 {% if can_manage %}
-<div class="modal fade" id="addCollaboratorModal" tabindex="-1" role="dialog">
+<div class="modal fade" id="inviteModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="inviteModalTitle">
 	<div class="modal-dialog" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Add Collaborator") }}</h5>
-				<button type="button" class="close" data-dismiss="modal">
-					<span>&times;</span>
+				<h5 class="modal-title" id="inviteModalTitle">{{ _("Invite by email") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<p class="text-muted small">{{ _("For architects, designers and anyone outside your company. They get an email with a one-use link.") }}</p>
+				<form id="inviteForm">
+					<div class="form-group">
+						<label for="inviteEmail">{{ _("Email") }} <span class="text-danger">*</span></label>
+						<input type="email" class="form-control" id="inviteEmail" required>
+					</div>
+					<div class="form-row">
+						<div class="form-group col">
+							<label for="inviteFirstName">{{ _("First name") }}</label>
+							<input type="text" class="form-control" id="inviteFirstName">
+						</div>
+						<div class="form-group col">
+							<label for="inviteLastName">{{ _("Last name") }}</label>
+							<input type="text" class="form-control" id="inviteLastName">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="inviteAccess">{{ _("Access Level") }}</label>
+						<select class="form-control" id="inviteAccess">
+							<option value="VIEW">{{ _("View Only") }}</option>
+							<option value="EDIT">{{ _("Can Edit") }}</option>
+						</select>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="sendInviteButton">
+					<i class="fa fa-paper-plane" aria-hidden="true"></i> {{ _("Send invitation") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
+<!-- Add Collaborator Modal -->
+{% if can_manage %}
+<div class="modal fade" id="addCollaboratorModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="addCollaboratorModalTitle">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="addCollaboratorModalTitle">{{ _("Add Collaborator") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>
 			<div class="modal-body">
 				<form id="addCollaboratorForm">
 					<div class="form-group">
-						<label>{{ _("Select User") }} <span class="text-danger">*</span></label>
+						<label for="newCollaboratorUser">{{ _("Select User") }} <span class="text-danger">*</span></label>
 						<select class="form-control" name="user" id="newCollaboratorUser" required>
 							<option value="">{{ _("Choose a user...") }}</option>
 							{% for user in available_users %}
-							<option value="{{ user.value }}">{{ user.label }}</option>
+							<option value="{{ user.value | e }}">{{ user.label | e }}</option>
 							{% endfor %}
 						</select>
 						{% if not available_users %}
@@ -192,7 +274,7 @@ Manage collaborators for a project
 						{% endif %}
 					</div>
 					<div class="form-group">
-						<label>{{ _("Access Level") }}</label>
+						<label for="newCollaboratorAccess">{{ _("Access Level") }}</label>
 						<select class="form-control" name="access_level" id="newCollaboratorAccess">
 							<option value="VIEW">{{ _("View Only") }} - {{ _("Can view but not edit") }}</option>
 							<option value="EDIT">{{ _("Can Edit") }} - {{ _("Can view and edit the project") }}</option>
@@ -202,8 +284,8 @@ Manage collaborators for a project
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
-				<button type="button" class="btn btn-primary" onclick="addCollaborator()" {% if not available_users %}disabled{% endif %}>
-					<i class="fa fa-plus"></i> {{ _("Add") }}
+				<button type="button" class="btn btn-primary" id="addCollaboratorButton" {% if not available_users %}disabled{% endif %}>
+					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add") }}
 				</button>
 			</div>
 		</div>
@@ -214,135 +296,222 @@ Manage collaborators for a project
 
 {% block script %}
 <script>
-var projectName = "{{ project.name }}";
+var projectName = {{ project.name | tojson }};
+var projectModified = {{ (project.modified | string) | tojson }};
 
 {% if can_manage %}
-// Toggle privacy setting
-$('#privacyToggle').on('change', function() {
-	var isPrivate = $(this).is(':checked') ? 1 : 0;
-	
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.toggle_project_privacy',
-		args: {
-			project_name: projectName,
-			is_private: isPrivate
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.msgprint({
-					title: 'Success',
-					indicator: 'green',
-					message: isPrivate ? 'Project is now private' : 'Project is now visible to company'
-				});
-				// Reload to update UI
-				setTimeout(function() {
-					window.location.reload();
-				}, 1000);
-			} else {
-				frappe.msgprint({
-					title: 'Error',
-					indicator: 'red',
-					message: r.message.error || 'Error updating privacy setting'
-				});
-				// Revert toggle
-				$('#privacyToggle').prop('checked', !isPrivate);
-			}
-		}
+var collaboratorText = {
+	view: {{ _("View Only") | tojson }},
+	edit: {{ _("Can Edit") | tojson }},
+	active: {{ _("Active") | tojson }},
+	inactive: {{ _("Inactive") | tojson }},
+	remove: {{ _("Remove") | tojson }},
+	removeLabel: {{ _("Remove collaborator") | tojson }},
+	accessLabel: {{ _("Access level") | tojson }},
+	updated: {{ _("Access updated") | tojson }},
+	added: {{ _("Collaborator added") | tojson }},
+	removed: {{ _("Collaborator removed") | tojson }},
+	confirmRemove: {{ _("Remove {0} from this project?") | tojson }},
+	chooseUser: {{ _("Please select a user") | tojson }},
+	nowPrivate: {{ _("Project is now private") | tojson }},
+	nowCompany: {{ _("Project is now visible to the company") | tojson }},
+	enterEmail: {{ _("Enter the email address to invite") | tojson }},
+	invited: {{ _("Invitation emailed to {0}") | tojson }},
+	resent: {{ _("A new link was emailed to {0}; the old one no longer works") | tojson }},
+	revoked: {{ _("Invitation revoked") | tojson }},
+	confirmRevoke: {{ _("Revoke the invitation for {0}?") | tojson }},
+	viewOnly: {{ _("View Only") | tojson }},
+	canEdit: {{ _("Can Edit") | tojson }},
+	resend: {{ _("Resend") | tojson }},
+	revoke: {{ _("Revoke") | tojson }}
+};
+
+var ACCOUNTS = 'illumenate_lighting.illumenate_lighting.portal.accounts.';
+
+function invitationCall(method, args, done) {
+	PortalUI.call(method, args).then(done).catch(function(error) {
+		PortalUI.toast(error.message, 'red');
 	});
-});
+}
 
-// Handle access level change
-$('.access-level-select').on('change', function() {
-	saveCollaborators();
-});
+function invitationRow(name) {
+	return $('#invitationList tr').filter(function() { return $(this).attr('data-invitation') === name; });
+}
 
-// Remove collaborator
-$('.remove-collaborator').on('click', function() {
-	var user = $(this).data('user');
-	
-	if (confirm('Are you sure you want to remove this collaborator?')) {
-		$('tr[data-user="' + user + '"]').remove();
-		saveCollaborators();
-	}
-});
+function addInvitationRow(invite, firstName, lastName, accessLevel) {
+	var row = $('<tr>').attr('data-invitation', invite.invitation);
+	row.append($('<td>')
+			.append($('<strong>').text((firstName + ' ' + lastName).trim()))
+			.append('<br>')
+			.append($('<small class="text-muted">').text(invite.email)))
+		.append($('<td>').text(accessLevel === 'EDIT' ? collaboratorText.canEdit : collaboratorText.viewOnly))
+		.append($('<td class="invitation-expires">').append($('<small>').text(invite.expires_on.slice(0, 10))))
+		.append($('<td class="text-right">')
+			.append($('<button type="button" class="btn btn-outline-secondary btn-sm resend-invitation">').text(collaboratorText.resend))
+			.append(' ')
+			.append($('<button type="button" class="btn btn-outline-danger btn-sm revoke-invitation">').text(collaboratorText.revoke)));
+	$('#invitationList').prepend(row);
+	$('#pendingInvitations').prop('hidden', false);
+}
 
-// Add collaborator
-function addCollaborator() {
-	var user = $('#newCollaboratorUser').val();
-	var accessLevel = $('#newCollaboratorAccess').val();
-	
-	if (!user) {
-		frappe.msgprint({
-			title: 'Error',
-			indicator: 'red',
-			message: 'Please select a user'
-		});
+// Invite anyone by email; access starts when they accept
+$('#sendInviteButton').on('click', function() {
+	var email = $('#inviteEmail').val().trim();
+	var firstName = $('#inviteFirstName').val().trim();
+	var lastName = $('#inviteLastName').val().trim();
+	var accessLevel = $('#inviteAccess').val();
+	if (!email) {
+		frappe.msgprint({title: 'Error', indicator: 'red', message: collaboratorText.enterEmail});
 		return;
 	}
-	
-	// Get current collaborators and add new one
-	var collaborators = getCurrentCollaborators();
-	collaborators.push({
-		user: user,
-		access_level: accessLevel,
-		is_active: 1
+	invitationCall('illumenate_lighting.illumenate_lighting.portal.collaborators.invite', {
+		project: projectName, email: email, first_name: firstName, last_name: lastName, access_level: accessLevel
+	}, function(invite) {
+		addInvitationRow(invite, firstName, lastName, accessLevel);
+		$('#inviteForm')[0].reset();
+		$('#inviteModal').modal('hide');
+		PortalUI.toast(collaboratorText.invited.replace('{0}', invite.email));
 	});
-	
-	saveCollaborators(collaborators, function() {
-		$('#addCollaboratorModal').modal('hide');
-		window.location.reload();
+});
+
+$(document).on('click', '.resend-invitation', function() {
+	var row = $(this).closest('tr');
+	invitationCall(ACCOUNTS + 'resend_invitation', {name: row.attr('data-invitation')}, function(invite) {
+		row.find('.invitation-expires small').text(invite.expires_on.slice(0, 10));
+		PortalUI.toast(collaboratorText.resent.replace('{0}', invite.email));
+	});
+});
+
+$(document).on('click', '.revoke-invitation', function() {
+	var row = $(this).closest('tr');
+	var email = row.find('small').first().text();
+	PortalUI.confirm({body: collaboratorText.confirmRevoke.replace('{0}', email), confirmLabel: collaboratorText.revoke, tone: 'danger'}).then(function(yes) {
+		if (!yes) return;
+		invitationCall(ACCOUNTS + 'revoke_invitation', {name: row.attr('data-invitation')}, function() {
+			row.remove();
+			$('#pendingInvitations').prop('hidden', !$('#invitationList tr').length);
+			PortalUI.toast(collaboratorText.revoked);
+		});
+	});
+});
+
+function collaboratorCall(method, args, done, failed) {
+	args.project = projectName;
+	args.expected_modified = projectModified;
+	PortalUI.call('illumenate_lighting.illumenate_lighting.portal.collaborators.' + method, args).then(function(result) {
+		projectModified = result.modified;
+		done(result.collaborator);
+	}).catch(function(error) {
+		PortalUI.toast(error.message, 'red');
+		if (failed) failed();
 	});
 }
 
-// Get current collaborators from the table
-function getCurrentCollaborators() {
-	var collaborators = [];
-	$('#collaboratorsList tr').each(function() {
-		var user = $(this).data('user');
-		var accessLevel = $(this).find('.access-level-select').val();
-		if (user) {
-			collaborators.push({
-				user: user,
-				access_level: accessLevel,
-				is_active: 1
-			});
-		}
-	});
-	return collaborators;
+function collaboratorRow(user) {
+	return $('#collaboratorsList tr').filter(function() { return $(this).attr('data-user') === user; });
 }
 
-// Save collaborators
-function saveCollaborators(collaborators, callback) {
-	if (!collaborators) {
-		collaborators = getCurrentCollaborators();
+function showCollaboratorState(row, collaborator) {
+	row.toggleClass('text-muted', !collaborator.is_active);
+	row.find('.access-level-select').val(collaborator.access_level).data('current', collaborator.access_level);
+	row.find('.collaborator-status')
+		.toggleClass('badge-success', !!collaborator.is_active)
+		.toggleClass('badge-secondary', !collaborator.is_active)
+		.text(collaborator.is_active ? collaboratorText.active : collaboratorText.inactive);
+	row.find('.remove-collaborator').prop('hidden', !collaborator.is_active);
+}
+
+function buildCollaboratorRow(user, fullName, email) {
+	var row = $('<tr>').attr('data-user', user);
+	var who = $('<div>').append($('<strong>').text(fullName)).append('<br>').append($('<small class="text-muted">').text(email));
+	var select = $('<select class="form-control form-control-sm access-level-select" style="width: auto;">').attr('data-user', user).attr('aria-label', collaboratorText.accessLabel)
+		.append($('<option value="VIEW">').text(collaboratorText.view))
+		.append($('<option value="EDIT">').text(collaboratorText.edit));
+	row.append($('<td>').append(who))
+		.append($('<td>').append(select))
+		.append($('<td>').append($('<span class="badge collaborator-status">')))
+		.append($('<td>').append($('<small>').text(frappe.datetime ? frappe.datetime.str_to_user(frappe.datetime.nowdate()) : '-')))
+		.append($('<td class="text-right">').append(
+			$('<button type="button" class="btn btn-danger btn-sm remove-collaborator"><i class="fa fa-trash" aria-hidden="true"></i></button>')
+				.attr('data-user', user).attr('title', collaboratorText.remove).attr('aria-label', collaboratorText.removeLabel)
+		));
+	$('#collaboratorsList').append(row);
+	$('#collaboratorsTable').prop('hidden', false);
+	$('#noCollaborators').remove();
+	return row;
+}
+
+$('.access-level-select').each(function() { $(this).data('current', $(this).val()); });
+
+// Toggle privacy setting; the card text updates in place
+$('#privacyToggle').on('change', function() {
+	var toggle = this;
+	var isPrivate = toggle.checked ? 1 : 0;
+	PortalUI.call('illumenate_lighting.illumenate_lighting.api.portal.toggle_project_privacy', {
+		project_name: projectName,
+		is_private: isPrivate
+	}, {busy: toggle}).then(function() {
+		$('#privacyPrivate').prop('hidden', !isPrivate);
+		$('#privacyCompany').prop('hidden', !!isPrivate);
+		PortalUI.toast(isPrivate ? collaboratorText.nowPrivate : collaboratorText.nowCompany);
+	}).catch(function(error) {
+		toggle.checked = !isPrivate;
+		PortalUI.toast(error.message, 'red');
+	});
+});
+
+// Change one collaborator's access level in place
+$(document).on('change', '.access-level-select', function() {
+	var select = $(this);
+	var user = select.attr('data-user');
+	var row = collaboratorRow(user);
+	collaboratorCall('set_access_level', {user: user, level: select.val()}, function(collaborator) {
+		showCollaboratorState(row, collaborator);
+		PortalUI.toast(collaboratorText.updated);
+	}, function() {
+		select.val(select.data('current'));
+	});
+});
+
+// Deactivate one collaborator; the row stays with its history
+$(document).on('click', '.remove-collaborator', function() {
+	var user = $(this).attr('data-user');
+	var row = collaboratorRow(user);
+	var label = row.find('strong').first().text() || user;
+	PortalUI.confirm({body: collaboratorText.confirmRemove.replace('{0}', label), confirmLabel: collaboratorText.remove, tone: 'danger'}).then(function(yes) {
+		if (!yes) return;
+		collaboratorCall('deactivate', {user: user}, function(collaborator) {
+			showCollaboratorState(row, collaborator);
+			PortalUI.toast(collaboratorText.removed);
+		});
+	});
+});
+
+// Add one same-company collaborator
+$('#addCollaboratorButton').on('click', function() {
+	var picker = $('#newCollaboratorUser');
+	var user = picker.val();
+	var accessLevel = $('#newCollaboratorAccess').val();
+	if (!user) {
+		frappe.msgprint({title: 'Error', indicator: 'red', message: collaboratorText.chooseUser});
+		return;
 	}
-	
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_project_collaborators',
-		args: {
-			project_name: projectName,
-			collaborators: collaborators
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.msgprint({
-					title: 'Success',
-					indicator: 'green',
-					message: 'Collaborators updated'
-				});
-				if (callback) {
-					callback();
-				}
-			} else {
-				frappe.msgprint({
-					title: 'Error',
-					indicator: 'red',
-					message: r.message.error || 'Error updating collaborators'
-				});
-			}
+	var option = picker.find('option').filter(function() { return this.value === user; });
+	var label = option.text();
+	collaboratorCall('set_access_level', {user: user, level: accessLevel}, function(collaborator) {
+		var row = collaboratorRow(user);
+		if (!row.length) {
+			var match = /^(.*) \((.*)\)$/.exec(label);
+			row = buildCollaboratorRow(user, match ? match[1] : label, match ? match[2] : user);
 		}
+		showCollaboratorState(row, collaborator);
+		option.remove();
+		picker.val('');
+		$('#addCollaboratorButton').prop('disabled', picker.find('option').length < 2);
+		$('#addCollaboratorModal').modal('hide');
+		PortalUI.toast(collaboratorText.added);
 	});
-}
+});
 {% endif %}
 </script>
 {% endblock %}

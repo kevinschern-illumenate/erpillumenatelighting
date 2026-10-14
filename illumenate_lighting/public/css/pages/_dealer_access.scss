@@ -1,0 +1,47 @@
+// request_dealer_access.html page styles (FLOW-5), scoped by the class portal_base.html sets.
+// The card itself is the shared .ill-access-gate in portal.css; this adds the application form.
+:where(.ill-page--dealer-access) {
+	.ill-dealer-access {
+		max-width: 560px;
+	}
+	.ill-dealer-access__icon {
+		color: var(--ill-primary);
+	}
+	.ill-dealer-access__note {
+		background: var(--ill-surface-soft);
+		border-radius: var(--ill-radius-md);
+		color: var(--ill-text-secondary);
+		font-size: var(--ill-font-size-sm);
+		margin: 0;
+		padding: 0.5rem 0.75rem;
+	}
+	.ill-dealer-access__form,
+	.ill-dealer-access__done {
+		text-align: left;
+		width: 100%;
+	}
+	.ill-dealer-access__form label {
+		color: var(--ill-ink);
+		font-size: var(--ill-font-size-sm);
+		font-weight: 600;
+	}
+	.ill-dealer-access__row {
+		display: grid;
+		gap: 0 1rem;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	}
+	.ill-dealer-access__done {
+		text-align: center;
+	}
+	.ill-dealer-access__done:focus {
+		outline: none;
+	}
+	// Honeypot: off-screen rather than display:none, which some bots skip.
+	.ill-dealer-access__trap {
+		height: 1px;
+		left: -10000px;
+		overflow: hidden;
+		position: absolute;
+		width: 1px;
+	}
+}

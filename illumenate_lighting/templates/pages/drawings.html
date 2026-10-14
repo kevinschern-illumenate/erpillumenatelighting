@@ -2,157 +2,13 @@
 Portal Drawings Page
 Request and track custom drawings and technical documentation
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
+{% block portal_scope %}ill-page--drawings{% endblock %}
 
-{% block title %}{{ _("Drawing Requests") }}{% endblock %}
+{% block portal_title %}{{ _("Drawing Requests") }}{% endblock %}
 
-{% block style %}
-<style>
-.portal-page {
-	padding: 2rem 0;
-}
-.page-header {
-	margin-bottom: 2rem;
-}
-.request-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	margin-bottom: 1rem;
-	overflow: hidden;
-}
-.request-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 1rem 1.5rem;
-	border-bottom: 1px solid var(--ill-gray-200);
-}
-.request-title {
-	font-weight: 600;
-	color: var(--ill-ink);
-}
-.request-body {
-	padding: 1.25rem 1.5rem;
-}
-.request-meta {
-	display: flex;
-	gap: 2rem;
-	flex-wrap: wrap;
-	font-size: 0.9rem;
-	color: var(--ill-text-secondary);
-}
-.request-meta i {
-	margin-right: 0.5rem;
-	color: var(--ill-gray-500);
-}
-.request-footer {
-	padding: 1rem 1.5rem;
-	background: var(--ill-surface-soft);
-	border-top: 1px solid var(--ill-gray-200);
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-.form-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	overflow: hidden;
-}
-.form-card-header {
-	padding: 1.5rem;
-	background: var(--ill-brand-gradient);
-	color: white;
-}
-.form-card-header h5 {
-	margin: 0;
-	font-weight: 600;
-}
-.form-card-body {
-	padding: 1.5rem;
-}
-.drawing-type-selector {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-	gap: 0.75rem;
-	margin-bottom: 1.5rem;
-}
-.drawing-type-option {
-	padding: 1rem;
-	border: 1.5px solid var(--ill-gray-300);
-	border-radius: var(--ill-radius-lg);
-	text-align: center;
-	cursor: pointer;
-	transition: border-color var(--ill-transition), background var(--ill-transition), box-shadow var(--ill-transition);
-}
-.drawing-type-option:hover {
-	border-color: var(--ill-blue-600);
-}
-.drawing-type-option.selected {
-	border-color: var(--ill-blue-600);
-	background: var(--ill-blue-100);
-	box-shadow: 0 0 0 3px var(--ill-blue-100);
-}
-.drawing-type-option i {
-	font-size: 1.5rem;
-	display: block;
-	margin-bottom: 0.5rem;
-	color: var(--ill-blue-600);
-}
-.drawing-type-option span {
-	font-size: 0.85rem;
-	font-weight: 500;
-}
-.section-divider {
-	display: flex;
-	align-items: center;
-	margin: 2rem 0;
-}
-.section-divider::before,
-.section-divider::after {
-	content: '';
-	flex: 1;
-	height: 1px;
-	background: var(--ill-gray-300);
-}
-.section-divider span {
-	padding: 0 1rem;
-	color: var(--ill-gray-500);
-	font-size: 0.9rem;
-}
-.status-badge {
-	padding: 0.25rem 0.75rem;
-	border-radius: var(--ill-radius-pill);
-	font-size: 0.8rem;
-	font-weight: 500;
-}
-.status-badge.pending { background: var(--ill-gold-100); color: var(--ill-gold-ink); }
-.status-badge.in-progress { background: var(--ill-blue-100); color: var(--ill-blue-800); }
-.status-badge.completed { background: var(--ill-green-100); color: var(--ill-green); }
-.status-badge.cancelled { background: var(--ill-red-100); color: var(--ill-red-ink); }
-.empty-state {
-	text-align: center;
-	padding: 3rem 2rem;
-	background: var(--ill-surface-soft);
-	border-radius: var(--ill-radius-md);
-}
-.empty-state i {
-	font-size: 3rem;
-	color: var(--ill-gray-400);
-	margin-bottom: 1rem;
-}
-.tab-content {
-	padding-top: 1.5rem;
-}
-</style>
-{% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -172,76 +28,81 @@ Request and track custom drawings and technical documentation
 		<div class="col-lg-5 mb-4">
 			<div class="form-card">
 				<div class="form-card-header">
-					<h5><i class="fa fa-pencil-square-o"></i> {{ _("Request New Drawing") }}</h5>
+					<h5><i class="fa fa-pencil-square-o" aria-hidden="true"></i> {{ _("Request New Drawing") }}</h5>
 				</div>
 				<div class="form-card-body">
 					<form id="drawingRequestForm">
-						<!-- Drawing Type Selection -->
-						<label class="mb-2">{{ _("Drawing Type") }}</label>
-						<div class="drawing-type-selector">
-							<div class="drawing-type-option selected" data-value="shop_drawing">
-								<i class="fa fa-wrench"></i>
-								<span>{{ _("Shop Drawing") }}</span>
-							</div>
-							<div class="drawing-type-option" data-value="spec_sheet">
-								<i class="fa fa-file-text-o"></i>
-								<span>{{ _("Spec Sheet") }}</span>
-							</div>
-							<div class="drawing-type-option" data-value="installation">
-								<i class="fa fa-puzzle-piece"></i>
-								<span>{{ _("Installation") }}</span>
-							</div>
-							<div class="drawing-type-option" data-value="ies_file">
-								<i class="fa fa-lightbulb-o"></i>
-								<span>{{ _("IES File") }}</span>
-							</div>
+						<!-- Request types come from ilL-Request-Type on Desk -->
+						{% if request_types %}
+						<label class="mb-2" id="requestTypeLabel">{{ _("Request Type") }}</label>
+						<div class="drawing-type-selector" role="radiogroup" aria-labelledby="requestTypeLabel">
+							{% for request_type in request_types %}
+							<button type="button" class="drawing-type-option{% if loop.first %} selected{% endif %}" role="radio"
+								aria-checked="{{ ('true' if loop.first else 'false') | e }}" data-value="{{ request_type.name | e }}"
+								title="{{ (request_type.description or '') | e }}">
+								<i class="fa {{ (request_type.icon or 'fa-file-o') | e }}" aria-hidden="true"></i>
+								<span>{{ request_type.label | e }}</span>
+							</button>
+							{% endfor %}
 						</div>
-						<input type="hidden" name="drawing_type" value="shop_drawing">
+						<p class="small text-muted" id="requestTypeDescription"></p>
+						<input type="hidden" name="request_type" value="{{ request_types[0].name | e }}">
 
-						<div class="form-group">
-							<label>{{ _("Project / Reference") }} <span class="text-danger">*</span></label>
-							<select class="form-control" name="project" required>
+						<div class="form-group" data-show="show_project_field">
+							<label for="requestProject">{{ _("Project / Reference") }}</label>
+							<input type="search" class="form-control form-control-sm mb-2" id="requestProjectSearch" placeholder="{{ _('Search your projects') }}" aria-label="{{ _('Search your projects') }}" aria-controls="requestProject" autocomplete="off">
+							<select class="form-control" name="project" id="requestProject">
 								<option value="">{{ _("Select project...") }}</option>
 								{% for project in projects %}
-								<option value="{{ project.name }}">{{ project.project_name }}</option>
+								<option value="{{ project.name | e }}">{{ (project.project_name or project.name) | e }}</option>
 								{% endfor %}
 								<option value="_custom">{{ _("Other (specify below)") }}</option>
 							</select>
 						</div>
 
-						<div class="form-group" id="customRefGroup" style="display: none;">
-							<label>{{ _("Custom Reference") }}</label>
-							<input type="text" class="form-control" name="custom_reference" placeholder="{{ _('Project name, quote number, etc.') }}">
+						<div class="form-group" id="customRefGroup" hidden>
+							<label for="customReference">{{ _("Custom Reference") }}</label>
+							<input type="text" class="form-control" name="custom_reference" id="customReference" placeholder="{{ _('Project name, quote number, etc.') }}">
+						</div>
+
+						<div class="form-group" data-show="show_fixture_field">
+							<label for="fixtureReference">{{ _("Fixture / Product") }}</label>
+							<input type="text" class="form-control" name="fixture_reference" id="fixtureReference" placeholder="{{ _('e.g., LS-48 Linear, Quote #12345') }}">
 						</div>
 
 						<div class="form-group">
-							<label>{{ _("Fixture / Product") }}</label>
-							<input type="text" class="form-control" name="fixture_reference" placeholder="{{ _('e.g., LS-48 Linear, Quote #12345') }}">
+							<label for="requestDescription">{{ _("Description") }} <span class="text-danger">*</span></label>
+							<textarea class="form-control" name="description" id="requestDescription" rows="4" required placeholder="{{ _('Please describe what you need. Include dimensions, mounting details, or any specific requirements.') }}"></textarea>
 						</div>
 
-						<div class="form-group">
-							<label>{{ _("Description") }} <span class="text-danger">*</span></label>
-							<textarea class="form-control" name="description" rows="4" required placeholder="{{ _('Please describe what you need. Include dimensions, mounting details, or any specific requirements.') }}"></textarea>
-						</div>
+						<div id="requestTypeFields"></div>
 
-						<div class="form-group">
-							<label>{{ _("Priority") }}</label>
-							<select class="form-control" name="priority">
-								<option value="normal">{{ _("Normal") }}</option>
-								<option value="high">{{ _("High - Needed within 2 business days") }}</option>
-								<option value="rush">{{ _("Rush - Timing subject to review") }}</option>
+						<div class="form-group" data-show="show_priority_field">
+							<label for="requestPriority">{{ _("Priority") }}</label>
+							<select class="form-control" name="priority" id="requestPriority">
+								<option value="Normal">{{ _("Normal") }}</option>
+								<option value="High">{{ _("High - Needed within 2 business days") }}</option>
+								<option value="Rush">{{ _("Rush - Timing subject to review") }}</option>
 							</select>
 						</div>
 
+						<div class="form-group" data-show="show_due_date_field">
+							<label for="requestDueDate">{{ _("Needed By") }}</label>
+							<input type="date" class="form-control" name="requested_due_date" id="requestDueDate">
+						</div>
+						{% else %}
+						<p class="text-muted">{{ _("Drawing requests are not available right now. Contact sales@illumenate.lighting.") }}</p>
+						{% endif %}
+
 						<div class="form-group">
-							<label>{{ _("Attachments") }}</label>
-							<input type="file" class="form-control-file" name="attachments" multiple>
+							<label for="requestAttachments">{{ _("Attachments") }}</label>
+							<input id="requestAttachments" type="file" class="form-control-file" name="attachments" multiple>
 							<small class="form-text text-muted">{{ _("Upload reference files, markups, or existing drawings") }}</small>
 						</div>
 
 						<hr>
-						<button type="submit" class="btn btn-primary btn-block">
-							<i class="fa fa-paper-plane"></i> {{ _("Submit Request") }}
+						<button type="submit" class="btn btn-primary btn-block"{% if not request_types %} disabled{% endif %}>
+							<i class="fa fa-paper-plane" aria-hidden="true"></i> {{ _("Submit Request") }}
 						</button>
 					</form>
 				</div>
@@ -254,7 +115,7 @@ Request and track custom drawings and technical documentation
 				<li class="nav-item">
 					<a class="nav-link active" data-toggle="tab" href="#pending">
 						{{ _("Pending") }} 
-						{% if pending_count > 0 %}<span class="badge badge-warning">{{ pending_count }}</span>{% endif %}
+						{% if pending_count > 0 %}<span class="badge badge-warning">{{ pending_count | e }}</span>{% endif %}
 					</a>
 				</li>
 				<li class="nav-item">
@@ -273,38 +134,38 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) }}"></i>
-								{{ req.drawing_type_display or req.drawing_type }}
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}" aria-hidden="true"></i>
+								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
-							<span class="status-badge {{ req.status | lower | replace(' ', '-') }}">
-								{{ req.status }}
+							<span class="status-badge {{ req.status | lower | replace(' ', '-') | e }}">
+								{{ _(req.status) | e }}
 							</span>
 						</div>
 						<div class="request-body">
-							<p class="mb-2">{{ req.description | truncate(150) }}</p>
+							<p class="mb-2">{{ req.description | striptags | truncate(150) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ req.project_name or req.custom_reference or "-" }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) }}</span>
+								<span><i class="fa fa-folder" aria-hidden="true"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
+								<span><i class="fa fa-calendar" aria-hidden="true"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
 								{% if req.priority != "normal" %}
-								<span class="text-{{ 'danger' if req.priority == 'rush' else 'warning' }}">
-									<i class="fa fa-flag"></i> {{ req.priority | title }}
+								<span class="text-{{ ('danger' if req.priority == 'rush' else 'warning') | e }}">
+									<i class="fa fa-flag" aria-hidden="true"></i> {{ req.priority | title | e }}
 								</span>
 								{% endif %}
 							</div>
 						</div>
 						<div class="request-footer">
-							<small class="text-muted">{{ _("Request") }} #{{ req.name }}</small>
-							<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-outline-primary">
+							<small class="text-muted">{{ _("Request") }} #{{ req.name | e }}</small>
+							<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">
 								{{ _("View Details") }}
 							</a>
 						</div>
 					</div>
 					{% endfor %}
 					{% else %}
-					<div class="empty-state">
-						<i class="fa fa-check-circle"></i>
-						<h5>{{ _("No pending requests") }}</h5>
-						<p class="text-muted">{{ _("All your drawing requests have been completed!") }}</p>
+					<div class="ill-empty">
+						<i class="fa fa-check-circle" aria-hidden="true"></i>
+						<h3>{{ _("No pending requests") }}</h3>
+						<p>{{ _("All your drawing requests have been completed!") }}</p>
 					</div>
 					{% endif %}
 				</div>
@@ -316,27 +177,27 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) }}"></i>
-								{{ req.drawing_type_display or req.drawing_type }}
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}" aria-hidden="true"></i>
+								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
 							<span class="status-badge completed">{{ _("Completed") }}</span>
 						</div>
 						<div class="request-body">
-							<p class="mb-2">{{ req.description | truncate(150) }}</p>
+							<p class="mb-2">{{ req.description | striptags | truncate(150) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ req.project_name or req.custom_reference or "-" }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.completed_date or req.modified) }}</span>
+								<span><i class="fa fa-folder" aria-hidden="true"></i> {{ (req.project_name or req.custom_reference or "-") | e }}</span>
+								<span><i class="fa fa-calendar" aria-hidden="true"></i> {{ frappe.utils.format_date(req.completed_date or req.modified) | e }}</span>
 							</div>
 						</div>
 						<div class="request-footer">
-							<small class="text-muted">{{ _("Request") }} #{{ req.name }}</small>
+							<small class="text-muted">{{ _("Request") }} #{{ req.name | e }}</small>
 							<div>
 								{% if req.has_attachments %}
-								<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-success">
-									<i class="fa fa-download"></i> {{ _("Download") }}
+								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-success">
+									<i class="fa fa-download" aria-hidden="true"></i> {{ _("Download") }}
 								</a>
 								{% endif %}
-								<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-outline-primary">
+								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">
 									{{ _("View") }}
 								</a>
 							</div>
@@ -344,10 +205,10 @@ Request and track custom drawings and technical documentation
 					</div>
 					{% endfor %}
 					{% else %}
-					<div class="empty-state">
-						<i class="fa fa-file-pdf-o"></i>
-						<h5>{{ _("No completed requests yet") }}</h5>
-						<p class="text-muted">{{ _("Completed drawings will appear here for download.") }}</p>
+					<div class="ill-empty">
+						<i class="fa fa-file-pdf-o" aria-hidden="true"></i>
+						<h3>{{ _("No completed requests yet") }}</h3>
+						<p>{{ _("Completed drawings will appear here for download.") }}</p>
 					</div>
 					{% endif %}
 				</div>
@@ -359,91 +220,208 @@ Request and track custom drawings and technical documentation
 					<div class="request-card">
 						<div class="request-header">
 							<span class="request-title">
-								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) }}"></i>
-								{{ req.drawing_type_display or req.drawing_type }}
+								<i class="fa fa-{{ drawing_type_icon(req.drawing_type) | e }}" aria-hidden="true"></i>
+								{{ (req.drawing_type_display or req.drawing_type) | e }}
 							</span>
-							<span class="status-badge {{ req.status | lower | replace(' ', '-') }}">
-								{{ req.status }}
+							<span class="status-badge {{ req.status | lower | replace(' ', '-') | e }}">
+								{{ _(req.status) | e }}
 							</span>
 						</div>
 						<div class="request-body">
-							<p class="mb-2">{{ req.description | truncate(100) }}</p>
+							<p class="mb-2">{{ req.description | striptags | truncate(100) | e }}</p>
 							<div class="request-meta">
-								<span><i class="fa fa-folder"></i> {{ req.project_name or "-" }}</span>
-								<span><i class="fa fa-calendar"></i> {{ frappe.utils.format_date(req.creation) }}</span>
+								<span><i class="fa fa-folder" aria-hidden="true"></i> {{ (req.project_name or "-") | e }}</span>
+								<span><i class="fa fa-calendar" aria-hidden="true"></i> {{ frappe.utils.format_date(req.creation) | e }}</span>
 							</div>
 						</div>
 						<div class="request-footer">
-							<small class="text-muted">#{{ req.name }}</small>
-							<a href="/portal/drawings/{{ req.name }}" class="btn btn-sm btn-outline-primary">{{ _("View") }}</a>
+							<small class="text-muted">#{{ req.name | e }}</small>
+							<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">{{ _("View") }}</a>
 						</div>
 					</div>
 					{% endfor %}
 					{% else %}
-					<div class="empty-state">
-						<i class="fa fa-file-o"></i>
-						<h5>{{ _("No drawing requests yet") }}</h5>
-						<p class="text-muted">{{ _("Submit your first request using the form.") }}</p>
+					<div class="ill-empty">
+						<i class="fa fa-file-o" aria-hidden="true"></i>
+						<h3>{{ _("No drawing requests yet") }}</h3>
+						<p>{{ _("Submit your first request using the form.") }}</p>
 					</div>
+					{% endif %}
+					{% if page > 1 or has_more %}
+					<nav class="ill-pager" aria-label="{{ _('All requests pages') }}">
+						{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}#all">{{ _("Previous") }}</a>{% else %}<span></span>{% endif %}
+						<span class="small text-muted">{{ _("Page {0}").format(page) | e }}</span>
+						{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}#all">{{ _("Next") }}</a>{% else %}<span></span>{% endif %}
+					</nav>
 					{% endif %}
 				</div>
 			</div>
 		</div>
 	</div>
-</div>
 {% endblock %}
 
 {% block script %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-	// Drawing type selector
-	const typeOptions = document.querySelectorAll('.drawing-type-option');
-	const typeInput = document.querySelector('input[name="drawing_type"]');
+var requestTypes = {{ request_types | tojson }};
+var requestText = {
+	required: {{ _("Please fill in: {0}") | tojson }},
+	saved: {{ _("Request saved as draft") | tojson }},
+	draft: {{ _("Draft: {0}") | tojson }},
+	received: {{ _("Request received: {0}") | tojson }},
+	choose: {{ _("Select...") | tojson }}
+};
 
-	typeOptions.forEach(option => {
-		option.addEventListener('click', function() {
-			typeOptions.forEach(o => o.classList.remove('selected'));
-			this.classList.add('selected');
-			typeInput.value = this.dataset.value;
+(function () {
+	var form = document.getElementById('drawingRequestForm');
+	if (!form || !requestTypes.length) return;
+	var typeInput = form.querySelector('input[name="request_type"]');
+	var fieldsRoot = document.getElementById('requestTypeFields');
+	var description = document.getElementById('requestDescription');
+	var projectSelect = form.querySelector('select[name="project"]');
+	var customRefGroup = document.getElementById('customRefGroup');
+
+	function current() {
+		return requestTypes.find(function (type) { return type.name === typeInput.value; }) || requestTypes[0];
+	}
+
+	function control(field) {
+		var id = 'rtf-' + field.field_key;
+		var input;
+		if (field.fieldtype === 'Select') {
+			input = document.createElement('select');
+			input.className = 'form-control';
+			var blank = document.createElement('option'); blank.value = ''; blank.textContent = requestText.choose; input.append(blank);
+			String(field.options || '').split('\n').filter(Boolean).forEach(function (value) {
+				var option = document.createElement('option'); option.value = value; option.textContent = value; input.append(option);
+			});
+		} else if (['Text', 'Small Text', 'Long Text'].indexOf(field.fieldtype) >= 0) {
+			input = document.createElement('textarea'); input.className = 'form-control'; input.rows = 3;
+		} else {
+			input = document.createElement('input');
+			input.className = field.fieldtype === 'Check' ? 'form-check-input' : 'form-control';
+			input.type = {Int: 'number', Float: 'number', Date: 'date', Check: 'checkbox'}[field.fieldtype] || 'text';
+			if (field.fieldtype === 'Float') input.step = 'any';
+		}
+		input.id = id;
+		input.dataset.fieldKey = field.field_key;
+		input.dataset.fieldtype = field.fieldtype;
+		if (field.mandatory && field.fieldtype !== 'Check') input.required = true;
+		var group = document.createElement('div');
+		group.className = field.fieldtype === 'Check' ? 'form-group form-check' : 'form-group';
+		var label = document.createElement('label');
+		label.htmlFor = id;
+		label.textContent = field.label || field.field_key;
+		if (field.fieldtype === 'Check') label.className = 'form-check-label';
+		if (input.required) {
+			var star = document.createElement('span'); star.className = 'text-danger'; star.textContent = ' *'; label.append(star);
+		}
+		if (field.fieldtype === 'Check') group.append(input, label); else group.append(label, input);
+		if (field.help_text) {
+			var help = document.createElement('small'); help.className = 'form-text text-muted'; help.textContent = field.help_text; group.append(help);
+		}
+		return group;
+	}
+
+	function render() {
+		var type = current();
+		document.getElementById('requestTypeDescription').textContent = type.description || '';
+		form.querySelectorAll('[data-show]').forEach(function (group) {
+			group.hidden = !type[group.dataset.show];
+		});
+		customRefGroup.hidden = !type.show_project_field || projectSelect.value !== '_custom';
+		var priority = form.querySelector('select[name="priority"]');
+		if (type.default_priority) priority.value = type.default_priority;
+		fieldsRoot.replaceChildren.apply(fieldsRoot, (type.fields || []).map(control));
+	}
+
+	form.querySelectorAll('.drawing-type-option').forEach(function (option) {
+		option.addEventListener('click', function () {
+			form.querySelectorAll('.drawing-type-option').forEach(function (other) {
+				other.classList.toggle('selected', other === option);
+				other.setAttribute('aria-checked', other === option ? 'true' : 'false');
+			});
+			typeInput.value = option.dataset.value;
+			delete form.dataset.requestName;
+			render();
 		});
 	});
+	projectSelect.addEventListener('change', render);
 
-	// Show/hide custom reference field
-	const projectSelect = document.querySelector('select[name="project"]');
-	const customRefGroup = document.getElementById('customRefGroup');
-
-	projectSelect.addEventListener('change', function() {
-		customRefGroup.style.display = this.value === '_custom' ? 'block' : 'none';
+	// REL-8: the picker starts with recent projects and searches the rest on the server.
+	var projectSearch = document.getElementById('requestProjectSearch');
+	var searchTimer;
+	function projectOptions(projects) {
+		var selected = projectSelect.value;
+		var first = projectSelect.options[0];
+		var custom = projectSelect.querySelector('option[value="_custom"]');
+		var options = projects.map(function (project) {
+			var option = document.createElement('option');
+			option.value = project.value;
+			option.textContent = project.label;
+			return option;
+		});
+		projectSelect.replaceChildren.apply(projectSelect, [first].concat(options, [custom]));
+		if (Array.prototype.some.call(projectSelect.options, function (option) { return option.value === selected; })) projectSelect.value = selected;
+	}
+	if (projectSearch) projectSearch.addEventListener('input', function () {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(function () {
+			PortalUI.call('illumenate_lighting.illumenate_lighting.portal.project_list.search', {query: projectSearch.value})
+				.then(function (projects) { projectOptions(projects || []); })
+				.catch(function (error) { PortalUI.toast(error.message, 'red'); });
+		}, 250);
 	});
 
-	// Form submission
-	const form = document.getElementById('drawingRequestForm');
-	form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (form.dataset.submitting) return;
-        form.dataset.submitting = '1';
-        const button = form.querySelector('[type="submit"]');
-        if (button) button.disabled = true;
-        try {
-            const data = Object.fromEntries(new FormData(form).entries());
-            delete data.attachments;
-            if (data.project === '_custom') data.project = null;
-            data.save_as_draft = true;
-            if (!form.dataset.requestName) {
-                const draft = await PortalUploads.call('illumenate_lighting.illumenate_lighting.api.portal.create_drawing_request', {request_data: JSON.stringify(data)});
-                form.dataset.requestName = draft.request_name;
-            }
-            const fileIds = await PortalUploads.uploadAll(form.querySelector('[name="attachments"]'), 'ilL-Document-Request', form.dataset.requestName);
-            await PortalUploads.call('illumenate_lighting.illumenate_lighting.api.document_requests.submit_request', {request_name: form.dataset.requestName, file_ids: JSON.stringify(fileIds)});
-            frappe.msgprint(__('Request received: {0}', [form.dataset.requestName]));
-            window.location.assign('/portal/drawings/' + encodeURIComponent(form.dataset.requestName));
-        } catch (error) {
-            frappe.msgprint({title: __('Request saved as draft'), indicator: 'red', message: frappe.utils.escape_html(error.message) + (form.dataset.requestName ? '<p>' + __('Draft: {0}', [frappe.utils.escape_html(form.dataset.requestName)]) + '</p>' : '')});
-        } finally {
-            delete form.dataset.submitting;
-            if (button) button.disabled = false;
-        }
-    });
-});
+	function customFields() {
+		var values = {};
+		fieldsRoot.querySelectorAll('[data-field-key]').forEach(function (input) {
+			values[input.dataset.fieldKey] = input.dataset.fieldtype === 'Check' ? (input.checked ? 1 : 0) : input.value;
+		});
+		return values;
+	}
+
+	function value(name) {
+		return form.querySelector('[name="' + name + '"]').value.trim();
+	}
+
+	function requestData() {
+		var type = current();
+		var data = {request_type: type.name, description: description.value.trim(), custom_fields: customFields()};
+		if (type.show_project_field && projectSelect.value && projectSelect.value !== '_custom') data.project = projectSelect.value;
+		var references = [];
+		if (type.show_fixture_field && value('fixture_reference')) references.push(value('fixture_reference'));
+		if (type.show_project_field && projectSelect.value === '_custom' && value('custom_reference')) references.push(value('custom_reference'));
+		if (references.length) data.fixture_or_product_text = references.join(' / ');
+		if (type.show_priority_field) data.priority = value('priority');
+		if (type.show_due_date_field && value('requested_due_date')) data.requested_due_date = value('requested_due_date');
+		return data;
+	}
+
+	form.addEventListener('submit', async function (e) {
+		e.preventDefault();
+		if (form.dataset.submitting) return;
+		form.dataset.submitting = '1';
+		var button = form.querySelector('[type="submit"]');
+		if (button) button.disabled = true;
+		try {
+			if (!form.dataset.requestName) {
+				var draft = await PortalUploads.call('illumenate_lighting.illumenate_lighting.api.document_requests.create_request', {request_data: JSON.stringify(requestData())});
+				form.dataset.requestName = draft.request_name;
+			}
+			var fileIds = await PortalUploads.uploadAll(form.querySelector('[name="attachments"]'), 'ilL-Document-Request', form.dataset.requestName);
+			await PortalUploads.call('illumenate_lighting.illumenate_lighting.api.document_requests.submit_request', {request_name: form.dataset.requestName, file_ids: JSON.stringify(fileIds)});
+			frappe.msgprint(requestText.received.replace('{0}', frappe.utils.escape_html(form.dataset.requestName)));
+			window.location.assign('/portal/drawings/' + encodeURIComponent(form.dataset.requestName));
+		} catch (error) {
+			var draftNote = form.dataset.requestName ? '<p>' + frappe.utils.escape_html(requestText.draft.replace('{0}', form.dataset.requestName)) + '</p>' : '';
+			frappe.msgprint({title: requestText.saved, indicator: 'red', message: frappe.utils.escape_html(error.message) + draftNote});
+		} finally {
+			delete form.dataset.submitting;
+			if (button) button.disabled = false;
+		}
+	});
+
+	render();
+})();
 </script>
 {% endblock %}

@@ -1,28 +1,131 @@
-{% extends "templates/web.html" %}
-{% block page_content %}
-<main class="container py-4" style="max-width:640px">
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ _("Accept invitation") }}{% endblock %}
+{# Invitees who are not signed in yet have no portal to navigate. #}
+{% block portal_navigation %}{% if signed_in_as %}{{ super() }}{% endif %}{% endblock %}
+{% block portal_page_class %}py-4{% endblock %}
+{% block portal_main_attrs %}style="max-width:640px"{% endblock %}
+{% block portal_content %}
   <h1>{{ _("Accept portal invitation") }}</h1>
-  <p>{{ _("Sign in with the email that received this invitation. New users can use the site's Sign Up option. Return to this link after signing in.") }}</p>
-  <p><a href="/login" target="_blank" rel="noopener">{{ _("Sign in or create an account") }}</a></p>
-  <button id="acceptInvite" type="button" class="btn btn-primary">{{ _("Accept invitation") }}</button>
+  <p id="inviteSummary" class="lead" role="status" aria-live="polite">{{ _("Checking your invitation…") }}</p>
+  <div id="inviteAccept" hidden>
+    <button id="acceptInvite" type="button" class="btn btn-primary">{{ _("Accept invitation") }}</button>
+  </div>
+  <div id="inviteOtherUser" hidden>
+    <p id="inviteOtherUserText"></p>
+    <button id="switchAccount" type="button" class="btn btn-primary">{{ _("Sign out and continue") }}</button>
+  </div>
+  <div id="inviteSignedOut" hidden>
+    <p id="inviteSignedOutText"></p>
+    <a id="inviteSignIn" class="btn btn-primary mr-2" href="/login?redirect-to=/portal/accept-invitation">{{ _("Sign in") }}</a>
+    {% if signup_enabled %}
+    <a id="inviteSignUp" class="btn btn-outline-primary" href="/login?redirect-to=/portal/accept-invitation#signup">{{ _("Create your account") }}</a>
+    {% endif %}
+  </div>
   <p id="inviteResult" class="mt-3" role="status" aria-live="polite"></p>
-</main>
 {% endblock %}
 {% block script %}
 <script>
-frappe.ready(function () {
-    const button = document.getElementById('acceptInvite'), status = document.getElementById('inviteResult');
-    const token = location.hash.slice(1);
-    button.addEventListener('click', async function () {
-        button.disabled = true;
-        try {
-            if (!token) throw new Error(__('The invitation link is incomplete. Request a new link.'));
-            await PortalUploads.call('illumenate_lighting.illumenate_lighting.portal.accounts.accept_invitation', {token});
-            history.replaceState(null, '', location.pathname);
-            status.textContent = __('Invitation accepted. Open the portal to continue.');
-            const link = document.createElement('a'); link.href = '/portal'; link.textContent = __('Open portal'); status.append(' ', link);
-        } catch (error) { status.textContent = error.message; button.disabled = false; }
+var inviteContext = {
+    signedInAs: {{ signed_in_as | tojson }},
+    text: {
+        incomplete: {{ _("The invitation link is incomplete. Ask for a new link.") | tojson }},
+        invalid: {{ _("This invitation link is not valid. Ask the person who invited you for a new one.") | tojson }},
+        used: {{ _("This invitation has already been accepted.") | tojson }},
+        revoked: {{ _("This invitation was withdrawn or replaced by a newer link. Check your email for the latest one.") | tojson }},
+        expired: {{ _("This invitation has expired. Ask the person who invited you to resend it.") | tojson }},
+        project: {{ _("{0} invited {1} to the project {2}.") | tojson }},
+        company: {{ _("{0} invited {1} to join {2}.") | tojson }},
+        otherUser: {{ _("You're signed in as {0}, but this invitation is for {1}. Sign out, then sign in as {1} to accept it.") | tojson }},
+        signIn: {{ _("Sign in as {0} to accept. You'll come straight back here.") | tojson }},
+        signUp: {{ _("{0} doesn't have a portal account yet. Create one with that email, then accept here.") | tojson }},
+        setPassword: {{ _("We created a portal account for {0}. Set your password with the link in your invitation email, or use Forgot password on the sign-in page, then accept here.") | tojson }},
+        accepted: {{ _("Invitation accepted.") | tojson }},
+        open: {{ _("Open the project") | tojson }},
+        openPortal: {{ _("Open the portal") | tojson }},
+        failed: {{ _("The invitation could not be accepted.") | tojson }}
+    }
+};
+
+(function () {
+    var TOKEN_KEY = 'ill_invite_token';
+    var text = inviteContext.text;
+    var summary = document.getElementById('inviteSummary');
+    var result = document.getElementById('inviteResult');
+    var token = location.hash.slice(1);
+    if (token === 'signup') token = '';
+    // Keep the token across the login hop without leaving it in the address bar or server logs.
+    try {
+        if (token) sessionStorage.setItem(TOKEN_KEY, token);
+        else token = sessionStorage.getItem(TOKEN_KEY) || '';
+    } catch (e) {}
+    if (location.hash) history.replaceState(null, '', location.pathname);
+
+    function fill(template, values) {
+        return template.replace(/\{(\d)\}/g, function (_, index) { return values[index]; });
+    }
+    function show(id) { document.getElementById(id).hidden = false; }
+    function forget() { try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+
+    if (!token) { summary.textContent = text.incomplete; return; }
+
+    frappe.call({
+        method: 'illumenate_lighting.illumenate_lighting.portal.accounts.invitation_preview',
+        args: {token: token},
+        type: 'POST',
+        callback: function (r) {
+            var invite = r.message || {};
+            if (!invite.valid) {
+                summary.textContent = text[invite.reason] || text.invalid;
+                forget();
+                return;
+            }
+            summary.textContent = fill(invite.kind === 'project' ? text.project : text.company, [invite.inviter, invite.email, invite.target]);
+            var me = (inviteContext.signedInAs || '').toLowerCase();
+            if (me && me === invite.email) {
+                show('inviteAccept');
+            } else if (me) {
+                document.getElementById('inviteOtherUserText').textContent = fill(text.otherUser, [inviteContext.signedInAs, invite.email]);
+                show('inviteOtherUser');
+            } else {
+                document.getElementById('inviteSignedOutText').textContent = fill(invite.needs_password ? text.setPassword : (invite.has_account ? text.signIn : text.signUp), [invite.email]);
+                show('inviteSignedOut');
+                var signUp = document.getElementById('inviteSignUp');
+                if (signUp && invite.has_account) signUp.hidden = true;
+            }
+        },
+        error: function () { summary.textContent = text.invalid; }
     });
-});
+
+    document.getElementById('switchAccount').addEventListener('click', function () {
+        frappe.call({
+            method: 'logout',
+            type: 'POST',
+            callback: function () { location.href = '/login?redirect-to=/portal/accept-invitation'; }
+        });
+    });
+
+    var button = document.getElementById('acceptInvite');
+    button.addEventListener('click', function () {
+        button.disabled = true;
+        result.textContent = '';
+        frappe.call({
+            method: 'illumenate_lighting.illumenate_lighting.portal.accounts.accept_invitation',
+            args: {token: token},
+            type: 'POST',
+            callback: function (r) {
+                var accepted = r.message || {};
+                if (!accepted.success) { result.textContent = accepted.error || text.failed; button.disabled = false; return; }
+                forget();
+                document.getElementById('inviteAccept').hidden = true;
+                result.textContent = text.accepted + ' ';
+                var link = document.createElement('a');
+                link.href = accepted.project ? '/portal/projects/' + encodeURIComponent(accepted.project) : '/portal';
+                link.textContent = accepted.project ? text.open : text.openPortal;
+                result.append(link);
+            },
+            error: function () { result.textContent = text.failed; button.disabled = false; }
+        });
+    });
+})();
 </script>
 {% endblock %}

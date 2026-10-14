@@ -36,6 +36,7 @@ from frappe import _
 from frappe.utils import flt
 
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 
 # The only values a caller supplies for a kit; everything else is resolved here.
 KIT_SELECTION_KEYS = (
@@ -91,6 +92,7 @@ def _compute_kit_pricing(kit_composition):
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@price_scoped
 def get_kit_configurator_init(kit_template_name: str = None) -> dict:
     """
     Initialise the Extrusion Kit configurator.
@@ -239,6 +241,7 @@ def kit_spec_sheet_data(template) -> list:
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@price_scoped
 def get_kit_cascading_options(
     kit_template_name: str,
     finish: str = None,
@@ -326,6 +329,7 @@ def get_kit_cascading_options(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@price_scoped
 def validate_kit_configuration(selections: str) -> dict:
     """
     Validate a complete Extrusion Kit configuration and resolve all component Items.
@@ -563,7 +567,7 @@ def validate_kit_configuration(selections: str) -> dict:
 # SAVE TO SCHEDULE
 # ═══════════════════════════════════════════════════════════════════════
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_kit_to_schedule(
     schedule_name: str,
     line_idx: int | str | None = None,

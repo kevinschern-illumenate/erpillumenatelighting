@@ -1,0 +1,28 @@
+// portal.html page styles (UI-2), scoped by the class portal_base.html sets.
+// :where() keeps each selector's specificity what it was inline.
+:where(.ill-page--portal) {
+	.portal-dashboard .ill-attention { list-style: none; padding: 0; margin: 0 0 2rem; }
+	.portal-dashboard .ill-attention li { margin-bottom: .5rem; }
+	.portal-dashboard .ill-attention a {
+		display: flex; align-items: center; gap: 1rem; padding: .875rem 1rem;
+		background: var(--ill-paper); border: 1px solid var(--ill-navy-100);
+		border-left: 4px solid var(--ill-blue-600); border-radius: var(--ill-radius-card);
+		color: var(--ill-ink); text-decoration: none;
+	}
+	.portal-dashboard .ill-attention a:hover, .portal-dashboard .ill-attention a:focus-visible { border-color: var(--ill-blue-200); box-shadow: var(--ill-shadow-card); }
+	.portal-dashboard .ill-attention [data-tone="warning"] a { border-left-color: var(--ill-gold); }
+	.portal-dashboard .ill-attention [data-tone="danger"] a { border-left-color: var(--ill-red); }
+	.portal-dashboard .ill-attention__text { flex: 1; min-width: 0; }
+	.portal-dashboard .ill-attention__title { display: block; font-weight: 600; }
+	.portal-dashboard .ill-attention__context { display: block; font-size: .85rem; color: var(--ill-text-secondary); overflow-wrap: anywhere; }
+	.portal-dashboard .ill-attention__due { flex-shrink: 0; font-size: .85rem; white-space: nowrap; }
+	.portal-dashboard .ill-quick { display: flex; flex-wrap: wrap; gap: .5rem; }
+	.recent-list { list-style: none; padding: 0; margin: 0; }
+	.recent-list li { padding: .75rem 0; border-bottom: 1px solid var(--ill-gray-200); display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+	.recent-list li:last-child { border-bottom: none; }
+	.recent-list .item-name { font-weight: 500; color: var(--ill-ink); }
+	.recent-list .item-meta { font-size: .8rem; color: var(--ill-gray-500); }
+	@media (max-width: 575px) {
+		.portal-dashboard .ill-attention a { flex-wrap: wrap; }
+	}
+}

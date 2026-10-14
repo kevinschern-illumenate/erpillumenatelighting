@@ -143,7 +143,7 @@ function renderFilterSidebar(data) {
 		$g.append(
 			'<button type="button" class="filter-group-title btn btn-link p-0" aria-expanded="true">' +
 			escapeHtml(group.label || group.attribute_type) +
-			' <i class="fa fa-chevron-down"></i></button>'
+			' <i class="fa fa-chevron-down" aria-hidden="true"></i></button>'
 		);
 		var $opts = $('<div class="filter-options">');
 		(group.options || []).forEach(function(opt) {
@@ -268,7 +268,7 @@ function renderGrid() {
 			imgHtml = '<img class="product-card-img" src="' + escapeHtml(p.featured_image) +
 				'" alt="' + escapeHtml(p.product_name) + '" loading="lazy">';
 		} else {
-			imgHtml = '<div class="product-card-img placeholder"><i class="fa fa-cube"></i></div>';
+			imgHtml = '<div class="product-card-img placeholder"><i class="fa fa-cube" aria-hidden="true"></i></div>';
 		}
 
 		var priceHtml = '';
@@ -305,7 +305,7 @@ function renderGrid() {
 		);
 	});
 
-	$grid.find('img').on('error', function () { $(this).replaceWith('<div class="product-card-img placeholder" role="img" aria-label="Image unavailable"><i class="fa fa-cube"></i></div>'); });
+	$grid.find('img').on('error', function () { $(this).replaceWith('<div class="product-card-img placeholder" role="img" aria-label="Image unavailable"><i class="fa fa-cube" aria-hidden="true"></i></div>'); });
 
 	// Navigate on card click (except the CTA link)
 	$grid.off('click', '.product-card').on('click', '.product-card', function(e) {

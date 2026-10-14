@@ -68,8 +68,10 @@
                 {% if doc.is_return and doc.return_against %}<div class="ill-info-row"><div class="ill-label">Return Against</div><div>{{ doc.return_against | e }}</div></div>{% endif %}
             </div>
             <div class="ill-col">
-                {% if doc.transporter_name %}<div class="ill-info-row"><div class="ill-label">Carrier</div><div>{{ doc.transporter_name | e }}</div></div>{% endif %}
-                {% if doc.vehicle_no %}<div class="ill-info-row"><div class="ill-label">Tracking Number</div><div>{{ doc.vehicle_no | e }}</div></div>{% endif %}
+                {% set carrier = doc.get("ill_carrier") or doc.transporter_name %}
+                {% set tracking_number = doc.get("ill_tracking_number") or doc.vehicle_no or doc.get("lr_no") %}
+                {% if carrier %}<div class="ill-info-row"><div class="ill-label">Carrier</div><div>{{ carrier | e }}</div></div>{% endif %}
+                {% if tracking_number %}<div class="ill-info-row"><div class="ill-label">Tracking Number</div><div>{{ tracking_number | e }}</div></div>{% endif %}
                 {% if doc.lr_no %}<div class="ill-info-row"><div class="ill-label">Waybill</div><div>{{ doc.lr_no | e }}</div></div>{% endif %}
             </div>
         </div>

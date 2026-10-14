@@ -122,11 +122,13 @@ def notify_schedule_status(schedule, new_status, sales_order=None):
 	elif new_status == "ISSUE":
 		preference = "notify_orders"
 		subject = _("Action needed on your order request: {0}").format(name)
+		from illumenate_lighting.illumenate_lighting.portal.status import SALES_EMAIL
+
 		body = _(
 			"<p>We were unable to complete the order request for <strong>{0}</strong>. "
-			"Please reach out to <a href=\"mailto:sales@illumenate.lighting\">sales@illumenate.lighting</a> "
+			'Please reach out to <a href="mailto:{1}">{1}</a> '
 			"for more information if we have not already been in contact with you.</p>"
-		).format(name)
+		).format(name, SALES_EMAIL)
 	else:
 		return
 
@@ -146,13 +148,18 @@ def notify_shipment(delivery_note):
 	order_names = {i.against_sales_order for i in delivery_note.items if i.against_sales_order}
 	if not order_names:
 		return
-	carrier = delivery_note.get("transporter_name")
-	tracking = delivery_note.get("vehicle_no")
+	from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import tracking
+
+	shipment = tracking(delivery_note)
+	escape = frappe.utils.escape_html
 	detail = ""
-	if carrier:
-		detail += _("<p><strong>Carrier:</strong> {0}</p>").format(frappe.utils.escape_html(carrier))
-	if tracking:
-		detail += _("<p><strong>Tracking number:</strong> {0}</p>").format(frappe.utils.escape_html(tracking))
+	if shipment["carrier"]:
+		detail += _("<p><strong>Carrier:</strong> {0}</p>").format(escape(shipment["carrier"]))
+	if shipment["number"]:
+		number = escape(shipment["number"])
+		if shipment["url"]:
+			number = f'<a href="{escape(shipment["url"])}">{number}</a>'
+		detail += _("<p><strong>Tracking number:</strong> {0}</p>").format(number)
 
 	for order_name in order_names:
 		order = frappe.get_doc("Sales Order", order_name)

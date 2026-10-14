@@ -811,8 +811,8 @@
 .ill-empty {
 	padding: 3rem 1.5rem;
 	border: 1px dashed var(--ill-navy-200, #a2abb6);
-	border-radius: var(--c-radius);
-	background: var(--c-soft);
+	border-radius: var(--c-radius, 8px);
+	background: var(--c-soft, var(--ill-surface-soft));
 	text-align: center;
 	.fa {
 		margin-bottom: 0.75rem;
@@ -826,13 +826,55 @@
 	p {
 		margin: 0 auto;
 		max-width: 32rem;
-		color: var(--c-muted);
+		color: var(--c-muted, var(--ill-text-secondary));
 	}
 	.btn {
 		margin-top: 1rem;
 	}
 	&--quiet {
 		padding: 1.5rem;
+	}
+	&--error {
+		border-color: var(--ill-red);
+		.fa {
+			color: var(--ill-red);
+		}
+	}
+}
+
+// Loading placeholder for async sections (UI-5).
+.ill-skeleton {
+	display: grid;
+	gap: 0.6rem;
+	padding: 1rem 1.25rem;
+}
+
+.ill-skeleton__line {
+	height: 0.85rem;
+	border-radius: 4px;
+	background: linear-gradient(90deg, var(--ill-surface-soft) 25%, var(--ill-border) 50%, var(--ill-surface-soft) 75%);
+	background-size: 200% 100%;
+	animation: ill-skeleton 1.4s ease-in-out infinite;
+	&:nth-child(3n + 2) {
+		width: 85%;
+	}
+	&:nth-child(3n) {
+		width: 60%;
+	}
+}
+
+@keyframes ill-skeleton {
+	from {
+		background-position: 200% 0;
+	}
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ill-skeleton__line {
+		animation: none;
 	}
 }
 

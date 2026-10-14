@@ -3,13 +3,14 @@
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
+
 no_cache = 1
 
 
 def get_context(context):
 	"""Get context for the project collaborators portal page."""
-	if frappe.session.user == "Guest":
-		frappe.throw("Please login to manage collaborators", frappe.PermissionError)
+	require_login()
 
 	# Get project name from path
 	project_name = frappe.form_dict.get("project")
@@ -59,6 +60,14 @@ def get_context(context):
 	context.collaborators = collaborators
 	context.available_users = available_users
 	context.can_manage = can_manage
+	context.invitations = []
+	if can_manage:
+		from illumenate_lighting.illumenate_lighting.portal.accounts import pending_invitations
+
+		context.invitations = [
+			{**row, "expires_label": frappe.utils.format_date(row.expires_on)}
+			for row in pending_invitations(project.name)
+		]
 	context.is_owner = is_owner
 	context.title = f"Collaborators - {project.project_name}"
 	context.no_cache = 1

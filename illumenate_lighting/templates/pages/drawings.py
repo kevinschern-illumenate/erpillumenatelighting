@@ -10,6 +10,8 @@ Request and track custom drawings and technical documentation.
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
+
 no_cache = 1
 
 
@@ -23,96 +25,39 @@ def _get_user_customer(user):
 
 def get_context(context):
 	"""Get context for the drawings portal page."""
-	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login"
-		raise frappe.Redirect
+	require_login()
 
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_is_internal_user,
-	)
+	# Request types configured on Desk drive the form (DESK-7).
+	from illumenate_lighting.illumenate_lighting.api.document_requests import portal_request_types
 
-	is_internal = _is_internal_user(frappe.session.user)
-	customer = _get_user_customer(frappe.session.user)
+	context.request_types = portal_request_types()
 
-	# Get user's projects for the dropdown (permission-filtered)
+	# Recent readable projects; the picker searches the rest (project_list.search).
 	context.projects = frappe.get_list(
 		"ilL-Project",
+		filters={"status": ["!=", "ARCHIVED"]},
 		fields=["name", "project_name"],
 		order_by="modified desc",
-		limit=50,
+		limit=20,
 	)
 
-	# Build document request filters scoped to the user's customer
-	# Internal users see all; portal users see only their own customer's requests
-	base_filter = {}
-	if not is_internal:
-		if customer:
-			base_filter["owner_customer"] = customer
-		else:
-			# No customer link — only show requests they created
-			base_filter["owner"] = frappe.session.user
+	# REL-8: every list uses the same scope as the dashboard counts (the doctype's
+	# permission predicate), so lists and counts agree and collaborators see their projects.
+	from illumenate_lighting.illumenate_lighting.api.document_requests import _scoped_request_count
+	from illumenate_lighting.illumenate_lighting.portal.drawing_list import page_number, requests
 
-	# Get drawing requests if the doctype exists
 	context.pending_requests = []
 	context.completed_requests = []
 	context.all_requests = []
 	context.pending_count = 0
+	context.page = page_number(frappe.form_dict.get("page"))
+	context.has_more = False
 
 	if frappe.db.exists("DocType", "ilL-Document-Request"):
-		# Pending requests (Submitted or In Progress status)
-		pending_filter = {**base_filter, "status": ["in", ["Submitted", "In Progress", "Waiting on Customer"]]}
-		context.pending_requests = frappe.get_all(
-			"ilL-Document-Request",
-			filters=pending_filter,
-			fields=[
-				"name",
-				"request_type",
-				"description",
-				"project",
-				"fixture_or_product_text",
-				"priority",
-				"status",
-				"creation",
-			],
-			order_by="creation desc",
-		)
-
-		context.pending_count = len(context.pending_requests)
-
-		# Completed requests
-		completed_filter = {**base_filter, "status": ["in", ["Completed", "Closed"]]}
-		context.completed_requests = frappe.get_all(
-			"ilL-Document-Request",
-			filters=completed_filter,
-			fields=[
-				"name",
-				"request_type",
-				"description",
-				"project",
-				"fixture_or_product_text",
-				"status",
-				"creation",
-				"modified",
-			],
-			order_by="modified desc",
-			limit=20,
-		)
-
-		# All requests
-		context.all_requests = frappe.get_all(
-			"ilL-Document-Request",
-			filters=base_filter,
-			fields=[
-				"name",
-				"request_type",
-				"description",
-				"project",
-				"status",
-				"creation",
-			],
-			order_by="creation desc",
-			limit=50,
-		)
+		context.pending_requests, _more = requests("pending", page_size=50)
+		context.pending_count = _scoped_request_count("pending")
+		context.completed_requests, _more = requests("completed")
+		context.all_requests, context.has_more = requests("all", page=context.page)
 
 		# Resolve project names for every list in a single query
 		all_rows = context.pending_requests + context.completed_requests + context.all_requests

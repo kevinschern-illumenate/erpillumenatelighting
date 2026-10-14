@@ -15,6 +15,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import tracking
 from illumenate_lighting.illumenate_lighting.portal.status import (
 	derive_order_portal_status,
 	order_status_class,
@@ -22,8 +23,8 @@ from illumenate_lighting.illumenate_lighting.portal.status import (
 	order_status_progress,
 )
 
-# Delivery Note fields maintained operationally for carrier / tracking
-# (product decision: vehicle_no carries the tracking number).
+# Delivery Note carrier / tracking: ill_carrier and ill_tracking_number (DESK-8), falling
+# back to transporter_name and vehicle_no for older notes (see portal.shipment_tracking).
 DELIVERY_CARRIER_FIELD = "transporter_name"
 DELIVERY_TRACKING_FIELD = "vehicle_no"
 
@@ -111,6 +112,7 @@ def _shipments_for(order_name):
 	shipments = []
 	for name in parents:
 		dn = frappe.get_doc("Delivery Note", name)
+		shipment_tracking = tracking(dn)
 		shipments.append(
 			{
 				"name": dn.name,
@@ -118,11 +120,12 @@ def _shipments_for(order_name):
 				"status": dn.status,
 				"is_return": bool(dn.get("is_return")),
 				"return_against": dn.get("return_against"),
-				"carrier": dn.get(DELIVERY_CARRIER_FIELD),
-				"tracking_number": dn.get(DELIVERY_TRACKING_FIELD),
+				"carrier": shipment_tracking["carrier"],
+				"tracking_number": shipment_tracking["number"],
+				"tracking_url": shipment_tracking["url"],
 				# Legacy keys kept for existing templates.
-				"transporter": dn.get(DELIVERY_CARRIER_FIELD),
-				"tracking_no": dn.get(DELIVERY_TRACKING_FIELD),
+				"transporter": shipment_tracking["carrier"],
+				"tracking_no": shipment_tracking["number"],
 				"items": [
 					{"line": i.get("so_detail"), "item_code": i.item_code, "item_name": i.item_name, "qty": i.qty, "uom": i.uom,
 					 "stock_qty": i.get("stock_qty") or flt(i.qty) * flt(i.get("conversion_factor") or 1)}

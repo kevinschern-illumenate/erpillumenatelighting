@@ -47,7 +47,8 @@ CONVERTIBLE_STATUSES = ("READY", "QUOTED")
 EDITABLE_STATUSES = ("DRAFT", "READY")
 
 # Statuses a portal user may request directly; the rest are system-driven.
-PORTAL_SETTABLE_STATUSES = ("DRAFT", "READY", "QUOTED")
+# QUOTED is set only by issuing an offer (portal/offers.py), never by hand.
+PORTAL_SETTABLE_STATUSES = ("DRAFT", "READY")
 
 # Statuses that must have every ilLumenate line fully configured.
 CONFIGURED_REQUIRED_STATUSES = ("READY", "QUOTED", "ORDER_REQUESTED", "ORDERED")
@@ -57,6 +58,22 @@ ISSUE_STATUS_NOTE = (
 	"sales@illumenate.lighting for more information if we have not already "
 	"been in contact with you."
 )
+
+
+def is_unconfigured(line):
+	"""True for an ilLumenate line (or templated power supply) still waiting for its configuration."""
+	if line.manufacturer_type == "ILLUMENATE":
+		if line.get("configured_group"):
+			return False
+		# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
+		if line.product_type in (*TAPE_NEON_CATEGORIES, "Extrusion Kit"):
+			return not line.get("variant_selections") and not line.get("configured_tape_neon")
+		# LED Sheet lines are configured when a configured LED Sheet record exists
+		if line.product_type == "LED Sheet":
+			return not line.get("configured_led_sheet")
+		return not line.get("configured_fixture")
+	# A power supply added from its template is configured in the power supply configurator.
+	return line.manufacturer_type == "ACCESSORY" and bool(line.get("driver_template")) and not line.get("accessory_item")
 
 
 def _validate_tape_neon_mode(mode):
@@ -162,27 +179,7 @@ class ilLProjectFixtureSchedule(Document):
 		if self.status not in CONFIGURED_REQUIRED_STATUSES:
 			return
 
-		unconfigured_lines = []
-		for line in self.lines:
-			if line.manufacturer_type == "ILLUMENATE":
-				if line.get("configured_group"):
-					continue
-				# LED Tape/Neon/Extrusion Kit lines are configured via variant_selections
-				if line.product_type in (*TAPE_NEON_CATEGORIES, "Extrusion Kit"):
-					if not line.variant_selections and not line.get("configured_tape_neon"):
-						line_id = line.line_id or f"Row {line.idx}"
-						unconfigured_lines.append(line_id)
-				# LED Sheet lines are configured when a configured LED Sheet record exists
-				elif line.product_type == "LED Sheet":
-					if not line.configured_led_sheet:
-						line_id = line.line_id or f"Row {line.idx}"
-						unconfigured_lines.append(line_id)
-				elif not line.configured_fixture:
-					line_id = line.line_id or f"Row {line.idx}"
-					unconfigured_lines.append(line_id)
-			elif line.manufacturer_type == "ACCESSORY" and line.get("driver_template") and not line.accessory_item:
-				# A power supply added from its template is configured in the power supply configurator.
-				unconfigured_lines.append(line.line_id or f"Row {line.idx}")
+		unconfigured_lines = [line.line_id or f"Row {line.idx}" for line in self.lines if is_unconfigured(line)]
 
 		if unconfigured_lines:
 			frappe.throw(
@@ -194,7 +191,7 @@ class ilLProjectFixtureSchedule(Document):
 				title=_("Unconfigured Fixtures")
 			)
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def create_new_version(self, version_notes=None):
 		"""
 		Create a new version of this fixture schedule.
@@ -268,7 +265,7 @@ class ilLProjectFixtureSchedule(Document):
 
 		return new_schedule.name
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def create_sales_order(
 		self,
 		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
@@ -312,7 +309,7 @@ class ilLProjectFixtureSchedule(Document):
 			include_other=include_other,
 		)["sales_order"]
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def create_sales_order_result(
 		self,
 		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
@@ -502,8 +499,13 @@ class ilLProjectFixtureSchedule(Document):
 			apply_header(so, intake_context["data"])
 		self._set_optional_doc_value(so, "ill_fixture_schedule", self.name)
 
-		# Store the end-client reference in remarks if different from SO customer
-		if project.customer and project.customer != so_customer:
+		# Store the end-client reference in remarks if different from SO customer.
+		# DESK-9: a portal end client is a project party, named by its party name.
+		if project.get("end_client_party"):
+			from illumenate_lighting.illumenate_lighting.portal.project_parties import label
+
+			so.remarks = _("End-Client: {0}").format(label(project.end_client_party))
+		elif project.customer and project.customer != so_customer:
 			so.remarks = _("End-Client: {0}").format(project.customer)
 
 		counts = self.append_quote_lines(
@@ -1303,14 +1305,14 @@ class ilLProjectFixtureSchedule(Document):
 
 		return True
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def request_quote(self):
 		"""Freeze an unpriced intake; only an issued Quotation means QUOTED."""
 		from illumenate_lighting.illumenate_lighting.portal.quotes import request_quote
 
 		return request_quote(self.name)
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def duplicate_line(self, line_idx):
 		"""
 		Duplicate a schedule line including its configured fixture reference.
@@ -1366,7 +1368,7 @@ class ilLProjectFixtureSchedule(Document):
 
 		return self.lines.index(new_line)
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def move_line(self, from_idx, to_idx):
 		"""
 		Move a schedule line from one position to another.
@@ -1606,7 +1608,7 @@ def transition_schedule_status(schedule, new_status, user=None):
 	if not user:
 		user = frappe.session.user
 
-	if new_status not in PORTAL_SETTABLE_STATUSES:
+	if new_status not in SCHEDULE_STATUSES:
 		frappe.throw(
 			_("Invalid status. Must be one of: {0}").format(", ".join(PORTAL_SETTABLE_STATUSES))
 		)
@@ -1620,7 +1622,9 @@ def transition_schedule_status(schedule, new_status, user=None):
 	if new_status == current_status:
 		return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
 
-	if new_status not in allowed_portal_transitions(current_status, user):
+	if new_status not in PORTAL_SETTABLE_STATUSES or new_status not in allowed_portal_transitions(
+		current_status, user
+	):
 		frappe.throw(
 			_("Cannot change status from {0} to {1}").format(current_status, new_status)
 		)
@@ -1631,6 +1635,7 @@ def transition_schedule_status(schedule, new_status, user=None):
 		new_name = schedule.create_new_version(
 			version_notes=_("Auto-versioned: leaving QUOTED to continue editing")
 		)
+		_supersede_open_offers(schedule, new_name, user)
 		if new_status != "DRAFT":
 			frappe.get_doc(schedule.doctype, new_name).db_set("status", new_status)
 		return {"new_status": new_status, "new_schedule_name": new_name, "auto_versioned": True}
@@ -1639,13 +1644,27 @@ def transition_schedule_status(schedule, new_status, user=None):
 	# configured before READY) runs instead of being bypassed with db_set.
 	schedule.status = new_status
 	schedule.save(ignore_permissions=True)
-	if new_status == "QUOTED":
-		from illumenate_lighting.illumenate_lighting.portal.notifications import (
-			notify_schedule_status,
-		)
-
-		notify_schedule_status(schedule, "QUOTED")
 	return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
+
+
+def _supersede_open_offers(schedule, new_schedule_name, user):
+	"""Leaving QUOTED locks the quoted revision, so its issued offers can no longer
+	be accepted. Mark them SUPERSEDED (the quotes list then says so) and tell Sales
+	on the quote request."""
+	for name in frappe.get_all(
+		"ilL-Quote-Offer", filters={"schedule": schedule.name, "state": "ISSUED"}, pluck="name"
+	):
+		offer = frappe.get_doc("ilL-Quote-Offer", name)
+		offer.state = "SUPERSEDED"
+		offer.flags.offer_write = True
+		offer.save(ignore_permissions=True)
+		if offer.quote_request:
+			frappe.get_doc("ilL-Quote-Request", offer.quote_request).add_comment(
+				"Comment",
+				_("{0} moved schedule {1} out of Quoted (now {2}); offer {3} was superseded.").format(
+					user, schedule.name, new_schedule_name, offer.name
+				),
+			)
 
 
 # ---------------------------------------------------------------------------

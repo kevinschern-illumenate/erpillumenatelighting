@@ -72,7 +72,7 @@ OPERATIONS_TEMPLATE = [
 ]
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def generate_manufacturing_artifacts(
 	configured_fixture_id: str,
 	qty: int = 1,
@@ -183,7 +183,7 @@ def generate_manufacturing_artifacts(
 	return response
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def generate_from_sales_order(sales_order: str, automatic=False) -> dict[str, Any]:
 	"""
 	Generate manufacturing artifacts for all configured fixtures on a Sales Order.

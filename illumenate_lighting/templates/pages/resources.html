@@ -2,113 +2,13 @@
 Portal Resources Page
 Publicly available specification sheets from Webflow products
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
+{% block portal_scope %}ill-page--resources{% endblock %}
 
-{% block title %}{{ _("Specification Sheets") }}{% endblock %}
+{% block portal_title %}{{ _("Specification Sheets") }}{% endblock %}
 
-{% block style %}
-<style>
-.portal-page {
-	padding: 2rem 0;
-}
-.page-header {
-	margin-bottom: 2rem;
-}
-.resource-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-	gap: 1rem;
-}
-.resource-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	padding: 1.25rem;
-	display: flex;
-	align-items: flex-start;
-	gap: 1rem;
-	transition: all 0.2s;
-	text-decoration: none;
-	color: inherit;
-}
-.resource-card:hover {
-	border-color: var(--ill-blue-200);
-	box-shadow: var(--ill-shadow-elevated);
-	transform: translateY(-2px);
-	text-decoration: none;
-	color: inherit;
-}
-.resource-icon {
-	width: 48px;
-	height: 48px;
-	border-radius: var(--ill-radius-md);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 1.25rem;
-	flex-shrink: 0;
-	background: var(--ill-blue-100);
-	color: var(--ill-blue-600);
-}
-.resource-info {
-	flex: 1;
-	min-width: 0;
-}
-.resource-title {
-	font-family: var(--ill-font-display);
-	font-weight: 600;
-	margin-bottom: 0.25rem;
-	color: var(--ill-ink);
-}
-.resource-desc {
-	font-size: 0.85rem;
-	color: var(--ill-text-secondary);
-	margin-bottom: 0.5rem;
-}
-.resource-meta {
-	font-size: 0.75rem;
-	color: var(--ill-gray-500);
-}
-.search-box {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	padding: 1rem 1.5rem;
-	margin-bottom: 2rem;
-	box-shadow: var(--ill-shadow-card);
-}
-.search-box .form-control {
-	font-size: 1rem;
-	padding-left: 2.5rem;
-	background: #fff;
-	border-radius: var(--ill-radius-control);
-}
-.search-wrapper {
-	position: relative;
-}
-.search-wrapper i {
-	position: absolute;
-	left: 1rem;
-	top: 50%;
-	transform: translateY(-50%);
-	color: var(--ill-gray-500);
-}
-.empty-state {
-	text-align: center;
-	padding: 4rem 2rem;
-	color: var(--ill-gray-500);
-}
-.empty-state i {
-	font-size: 3rem;
-	margin-bottom: 1rem;
-	display: block;
-}
-</style>
-{% endblock %}
 
-{% block page_content %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -127,34 +27,33 @@ Publicly available specification sheets from Webflow products
 	<!-- Search Box -->
 	<div class="search-box">
 		<div class="search-wrapper">
-			<i class="fa fa-search"></i>
-			<input type="text" class="form-control" id="resourceSearch" placeholder="{{ _('Search spec sheets...') }}">
+			<i class="fa fa-search" aria-hidden="true"></i>
+			<input type="text" class="form-control" id="resourceSearch" placeholder="{{ _('Search spec sheets...') }}" aria-label="{{ _('Search spec sheets') }}">
 		</div>
 	</div>
 
 	<!-- Spec Sheets Grid -->
 	<div class="resource-grid">
 		{% for sheet in spec_sheets %}
-		<a href="{{ sheet.url }}" target="_blank" class="resource-card" data-product="{{ sheet.product_name }}">
+		<a href="{{ sheet.url | e }}" target="_blank" class="resource-card" data-product="{{ sheet.product_name | e }}">
 			<div class="resource-icon">
-				<i class="fa fa-file-pdf-o"></i>
+				<i class="fa fa-file-pdf-o" aria-hidden="true"></i>
 			</div>
 			<div class="resource-info">
-				<div class="resource-title">{{ sheet.title }}</div>
-				<div class="resource-desc">{{ sheet.product_name }}{% if sheet.description %} — {{ sheet.description }}{% endif %}</div>
+				<div class="resource-title">{{ sheet.title | e }}</div>
+				<div class="resource-desc">{{ sheet.product_name | e }}{% if sheet.description %} — {{ sheet.description | e }}{% endif %}</div>
 				<div class="resource-meta">PDF • {{ _("Spec Sheet") }}</div>
 			</div>
 		</a>
 		{% endfor %}
 	</div>
 	{% else %}
-	<div class="empty-state">
-		<i class="fa fa-file-text-o"></i>
-		<h4>{{ _("No specification sheets available yet") }}</h4>
+	<div class="ill-empty">
+		<i class="fa fa-file-text-o" aria-hidden="true"></i>
+		<h3>{{ _("No specification sheets available yet") }}</h3>
 		<p>{{ _("Spec sheets will appear here as products are published.") }}</p>
 	</div>
 	{% endif %}
-</div>
 {% endblock %}
 
 {% block script %}

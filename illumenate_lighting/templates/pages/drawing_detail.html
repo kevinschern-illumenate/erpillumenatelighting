@@ -2,229 +2,25 @@
 Portal Drawing Detail Page
 Detailed view of a single document request
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
+{% block portal_scope %}ill-page--drawing-detail{% endblock %}
 
-{% block title %}{{ request.name if request else _("Request") }}{% endblock %}
+{% block portal_title %}{{ (request.name if request else _("Request")) | e }}{% endblock %}
 
-{% block style %}
-<style>
-.portal-page {
-	padding: 2rem 0;
-}
-.request-header-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	overflow: hidden;
-	margin-bottom: 1.5rem;
-}
-.request-header-top {
-	background: var(--ill-brand-gradient);
-	color: white;
-	padding: 2rem;
-}
-.request-header-top h1 {
-	margin: 0 0 0.5rem 0;
-}
-.request-header-details {
-	padding: 1.5rem 2rem;
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-	gap: 1.5rem;
-}
-.detail-group {
-	display: flex;
-	flex-direction: column;
-}
-.detail-label {
-	font-size: 0.75rem;
-	text-transform: uppercase;
-	color: var(--ill-gray-500);
-	margin-bottom: 0.25rem;
-}
-.detail-value {
-	font-size: 1.1rem;
-	font-weight: 500;
-	color: var(--ill-ink);
-}
-.content-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	overflow: hidden;
-	margin-bottom: 1.5rem;
-}
-.content-header {
-	padding: 1rem 1.5rem;
-	border-bottom: 1px solid var(--ill-gray-200);
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-.content-body {
-	padding: 1.5rem;
-}
-.status-badge {
-	padding: 0.35rem 1rem;
-	border-radius: var(--ill-radius-pill);
-	font-size: 0.85rem;
-	font-weight: 500;
-}
-.status-badge.secondary { background: var(--ill-gray-300); color: var(--ill-text-secondary); }
-.status-badge.warning { background: var(--ill-gold-100); color: var(--ill-gold-ink); }
-.status-badge.info { background: var(--ill-blue-100); color: var(--ill-blue-800); }
-.status-badge.success { background: var(--ill-green-100); color: var(--ill-green); }
-.status-badge.danger { background: var(--ill-red-100); color: var(--ill-red-ink); }
-.priority-badge {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 0.25rem 0.75rem;
-	border-radius: var(--ill-radius-sm);
-	font-size: 0.8rem;
-}
-.priority-badge.rush { background: var(--ill-red-100); color: var(--ill-red-ink); }
-.priority-badge.high { background: var(--ill-gold-100); color: var(--ill-gold-ink); }
-.priority-badge.normal { background: var(--ill-gray-100); color: var(--ill-text-secondary); }
-.deliverable-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 1rem;
-	border-bottom: 1px solid var(--ill-gray-200);
-}
-.deliverable-item:last-child {
-	border-bottom: none;
-}
-.deliverable-info {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-}
-.deliverable-icon {
-	width: 40px;
-	height: 40px;
-	background: var(--ill-blue-100);
-	border-radius: var(--ill-radius-md);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--ill-blue-600);
-}
-.deliverable-meta {
-	font-size: 0.85rem;
-	color: var(--ill-text-secondary);
-}
-.attachment-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0.75rem 1rem;
-	background: var(--ill-surface-soft);
-	border-radius: var(--ill-radius-md);
-	margin-bottom: 0.5rem;
-}
-.attachment-name {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-}
-.custom-field-row {
-	display: flex;
-	justify-content: space-between;
-	padding: 0.75rem 0;
-	border-bottom: 1px solid var(--ill-gray-100);
-}
-.custom-field-row:last-child {
-	border-bottom: none;
-}
-.sidebar-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	padding: 1.5rem;
-	margin-bottom: 1rem;
-}
-.sidebar-card h5 {
-	margin-bottom: 1rem;
-	font-weight: 600;
-}
-.action-btn {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	padding: 0.75rem 1rem;
-	background: var(--ill-gray-100);
-	border-radius: var(--ill-radius-md);
-	margin-bottom: 0.5rem;
-	text-decoration: none;
-	color: var(--ill-ink);
-	transition: all 0.2s;
-}
-.action-btn:hover {
-	background: var(--ill-gray-300);
-	text-decoration: none;
-	color: var(--ill-ink);
-}
-.action-btn i {
-	width: 24px;
-	text-align: center;
-	color: var(--ill-text-secondary);
-}
-.description-content {
-	line-height: 1.6;
-	color: var(--ill-ink);
-}
-.timeline-section {
-	padding: 1rem 0;
-}
-.timeline-item {
-	display: flex;
-	gap: 1rem;
-	padding: 0.5rem 0;
-}
-.timeline-dot {
-	width: 12px;
-	height: 12px;
-	background: var(--ill-gray-300);
-	border-radius: 50%;
-	margin-top: 0.25rem;
-}
-.timeline-dot.active {
-	background: var(--ill-green);
-}
-.timeline-content {
-	flex: 1;
-}
-.timeline-label {
-	font-weight: 500;
-	color: var(--ill-ink);
-}
-.timeline-date {
-	font-size: 0.85rem;
-	color: var(--ill-gray-500);
-}
-</style>
-{% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal">{{ _("Portal") }}</a></li>
 			<li class="breadcrumb-item"><a href="/portal/drawings">{{ _("Drawings") }}</a></li>
-			<li class="breadcrumb-item active">{{ request.name if request else _("Request") }}</li>
+			<li class="breadcrumb-item active">{{ (request.name if request else _("Request")) | e }}</li>
 		</ol>
 	</nav>
 
 	{% if not request %}
 	<div class="text-center py-5">
-		<i class="fa fa-exclamation-circle fa-3x text-muted mb-3"></i>
+		<i class="fa fa-exclamation-circle fa-3x text-muted mb-3" aria-hidden="true"></i>
 		<h4>{{ _("Request not found") }}</h4>
 		<p class="text-muted">{{ _("The drawing request you're looking for doesn't exist or you don't have permission to view it.") }}</p>
 		<a href="/portal/drawings" class="btn btn-primary mt-3">{{ _("Back to Drawings") }}</a>
@@ -239,52 +35,52 @@ Detailed view of a single document request
 					<div class="d-flex justify-content-between align-items-start">
 						<div>
 							<h1>
-								<i class="fa fa-{{ drawing_type_icon(request.request_type) }}"></i>
-								{{ request.name }}
+								<i class="fa fa-{{ drawing_type_icon(request.request_type) | e }}" aria-hidden="true"></i>
+								{{ request.name | e }}
 							</h1>
 							<p class="mb-0 opacity-75">
-								{{ request_type_info.label or request.request_type or _("Document Request") }}
+								{{ (request_type_info.label or request.request_type or _("Document Request")) | e }}
 							</p>
 						</div>
-						<span class="status-badge {{ status_class }}">
-							{{ request.status }}
+						<span class="status-badge {{ status_class | e }}">
+							{{ _(request.status) | e }}
 						</span>
 					</div>
 				</div>
 				<div class="request-header-details">
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Created") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(request.creation) }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(request.creation) | e }}</span>
 					</div>
 					{% if request.requested_due_date %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Requested Due Date") }}</span>
-						<span class="detail-value">{{ frappe.utils.format_date(request.requested_due_date) }}</span>
+						<span class="detail-value">{{ frappe.utils.format_date(request.requested_due_date) | e }}</span>
 					</div>
 					{% endif %}
 					{% if project_info %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Project") }}</span>
 						<span class="detail-value">
-							<a href="/portal/projects/{{ project_info.name }}">{{ project_info.project_name }}</a>
+							<a href="/portal/projects/{{ project_info.name | e }}">{{ project_info.project_name | e }}</a>
 						</span>
 					</div>
 					{% endif %}
 					{% if request.fixture_or_product_text %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Fixture/Product") }}</span>
-						<span class="detail-value">{{ request.fixture_or_product_text }}</span>
+						<span class="detail-value">{{ request.fixture_or_product_text | e }}</span>
 					</div>
 					{% endif %}
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Priority") }}</span>
-						<span class="priority-badge {{ request.priority | lower }}">
+						<span class="priority-badge {{ request.priority | lower | e }}">
 							{% if request.priority == 'Rush' %}
-							<i class="fa fa-exclamation-circle"></i>
+							<i class="fa fa-exclamation-circle" aria-hidden="true"></i>
 							{% elif request.priority == 'High' %}
-							<i class="fa fa-flag"></i>
+							<i class="fa fa-flag" aria-hidden="true"></i>
 							{% endif %}
-							{{ request.priority }}
+							{{ request.priority | e }}
 						</span>
 					</div>
 				</div>
@@ -293,11 +89,11 @@ Detailed view of a single document request
 			<!-- Description -->
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-file-text-o"></i> {{ _("Description") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-file-text-o" aria-hidden="true"></i> {{ _("Description") }}</h5>
 				</div>
 				<div class="content-body">
 					<div class="description-content">
-						{{ request.description | safe }}
+						{{ ill_sanitize_html(request.description) | safe }}
 					</div>
 				</div>
 			</div>
@@ -306,13 +102,13 @@ Detailed view of a single document request
 			{% if custom_fields %}
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-list-alt"></i> {{ _("Additional Details") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-list-alt" aria-hidden="true"></i> {{ _("Additional Details") }}</h5>
 				</div>
 				<div class="content-body">
 					{% for field in custom_fields %}
 					<div class="custom-field-row">
-						<span class="text-muted">{{ field.label }}</span>
-						<span class="font-weight-medium">{{ field.value or "-" }}</span>
+						<span class="text-muted">{{ field.label | e }}</span>
+						<span class="font-weight-medium">{{ (field.value or "-") | e }}</span>
 					</div>
 					{% endfor %}
 				</div>
@@ -324,7 +120,7 @@ Detailed view of a single document request
 			<section class="card p-3 mb-4" aria-labelledby="drawing-review-heading">
 				<h2 class="h5" id="drawing-review-heading">{{ _("Technical review") }} · {{ drawing_review.version | e }}</h2>
 				{% if drawing_review.decision %}
-				<p>{{ drawing_review.decision.decision.replace('_', ' ').title() | e }} · {{ frappe.utils.format_datetime(drawing_review.decision.reviewed_on) }}</p>
+				<p>{{ drawing_review.decision.decision.replace('_', ' ').title() | e }} · {{ frappe.utils.format_datetime(drawing_review.decision.reviewed_on) | e }}</p>
 				<p style="white-space: pre-wrap">{{ (drawing_review.decision.note or '') | e }}</p>
 				{% elif drawing_review.can_review %}
 				<p>{{ _("Review the published drawing below. Your decision applies to this drawing revision and its associated build.") }}</p>
@@ -341,29 +137,29 @@ Detailed view of a single document request
 			{% if deliverables %}
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-download"></i> {{ _("Deliverables") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-download" aria-hidden="true"></i> {{ _("Deliverables") }}</h5>
 					<span class="badge badge-success">{{ deliverables | length }} {{ _("file(s)") }}</span>
 				</div>
 				{% for deliverable in deliverables %}
 				<div class="deliverable-item">
 					<div class="deliverable-info">
 						<div class="deliverable-icon">
-							<i class="fa fa-file-pdf-o"></i>
+							<i class="fa fa-file-pdf-o" aria-hidden="true"></i>
 						</div>
 						<div>
-							<div class="font-weight-medium">{{ deliverable.filename or _("File") }}</div>
+							<div class="font-weight-medium">{{ (deliverable.filename or _("File")) | e }}</div>
 							<div class="deliverable-meta">
-								{% if deliverable.deliverable_type %}{{ deliverable.deliverable_type }} • {% endif %}
-								{% if deliverable.version %}v{{ deliverable.version }} • {% endif %}
-								{{ frappe.utils.format_date(deliverable.published_on) if deliverable.published_on else "" }}
+								{% if deliverable.deliverable_type %}{{ deliverable.deliverable_type | e }} • {% endif %}
+								{% if deliverable.version %}v{{ deliverable.version | e }} • {% endif %}
+								{{ (frappe.utils.format_date(deliverable.published_on) if deliverable.published_on else "") | e }}
 							</div>
 							{% if deliverable.notes %}
-							<div class="text-muted small mt-1">{{ deliverable.notes }}</div>
+							<div class="text-muted small mt-1">{{ deliverable.notes | e }}</div>
 							{% endif %}
 						</div>
 					</div>
-					<a href="{{ deliverable.file }}" class="btn btn-sm btn-success" target="_blank" download>
-						<i class="fa fa-download"></i> {{ _("Download") }}
+					<a href="{{ deliverable.file | e }}" class="btn btn-sm btn-success" target="_blank" download>
+						<i class="fa fa-download" aria-hidden="true"></i> {{ _("Download") }}
 					</a>
 				</div>
 				{% endfor %}
@@ -374,17 +170,17 @@ Detailed view of a single document request
 			{% if attachments %}
 			<div class="content-card">
 				<div class="content-header">
-					<h5 class="mb-0"><i class="fa fa-paperclip"></i> {{ _("Attachments") }}</h5>
+					<h5 class="mb-0"><i class="fa fa-paperclip" aria-hidden="true"></i> {{ _("Attachments") }}</h5>
 				</div>
 				<div class="content-body">
 					{% for attachment in attachments %}
 					<div class="attachment-item">
 						<div class="attachment-name">
-							<i class="fa fa-file-o text-muted"></i>
-							<span>{{ attachment.file_name }}</span>
+							<i class="fa fa-file-o text-muted" aria-hidden="true"></i>
+							<span>{{ attachment.file_name | e }}</span>
 						</div>
-						<a href="{{ attachment.file_url }}" class="btn btn-sm btn-outline-secondary" target="_blank">
-							<i class="fa fa-external-link"></i>
+						<a href="{{ attachment.file_url | e }}" class="btn btn-sm btn-outline-secondary" target="_blank" aria-label="{{ _('Open attachment in a new tab') }}">
+							<i class="fa fa-external-link" aria-hidden="true"></i>
 						</a>
 					</div>
 					{% endfor %}
@@ -397,13 +193,13 @@ Detailed view of a single document request
 		<div class="col-lg-4">
 			<!-- Status Timeline -->
 			<div class="sidebar-card">
-				<h5><i class="fa fa-clock-o"></i> {{ _("Status Timeline") }}</h5>
+				<h5><i class="fa fa-clock-o" aria-hidden="true"></i> {{ _("Status Timeline") }}</h5>
 				<div class="timeline-section">
 					<div class="timeline-item">
 						<div class="timeline-dot active"></div>
 						<div class="timeline-content">
 							<div class="timeline-label">{{ _("Created") }}</div>
-							<div class="timeline-date">{{ frappe.utils.format_datetime(request.creation) }}</div>
+							<div class="timeline-date">{{ frappe.utils.format_datetime(request.creation) | e }}</div>
 						</div>
 					</div>
 					{% if request.status in ["Submitted", "In Progress", "Waiting on Customer", "Completed", "Closed"] %}
@@ -427,7 +223,7 @@ Detailed view of a single document request
 						<div class="timeline-dot active"></div>
 						<div class="timeline-content">
 							<div class="timeline-label">{{ _("Completed") }}</div>
-							<div class="timeline-date">{{ frappe.utils.format_datetime(request.completed_on) }}</div>
+							<div class="timeline-date">{{ frappe.utils.format_datetime(request.completed_on) | e }}</div>
 						</div>
 					</div>
 					{% endif %}
@@ -436,23 +232,23 @@ Detailed view of a single document request
 
 			<!-- Quick Actions -->
 			<div class="sidebar-card">
-				<h5><i class="fa fa-bolt"></i> {{ _("Quick Actions") }}</h5>
+				<h5><i class="fa fa-bolt" aria-hidden="true"></i> {{ _("Quick Actions") }}</h5>
 				<a href="/portal/drawings" class="action-btn">
-					<i class="fa fa-arrow-left"></i>
+					<i class="fa fa-arrow-left" aria-hidden="true"></i>
 					<span>{{ _("Back to Requests") }}</span>
 				</a>
 				{% if deliverables %}
-				<a href="{{ deliverables[0].file }}" class="action-btn" target="_blank" download>
-					<i class="fa fa-download"></i>
+				<a href="{{ deliverables[0].file | e }}" class="action-btn" target="_blank" download>
+					<i class="fa fa-download" aria-hidden="true"></i>
 					<span>{{ _("Download Latest") }}</span>
 				</a>
 				{% endif %}
 				<a href="/portal/drawings" class="action-btn">
-					<i class="fa fa-plus"></i>
+					<i class="fa fa-plus" aria-hidden="true"></i>
 					<span>{{ _("New Request") }}</span>
 				</a>
 				<a href="/portal/support" class="action-btn">
-					<i class="fa fa-question-circle"></i>
+					<i class="fa fa-question-circle" aria-hidden="true"></i>
 					<span>{{ _("Get Support") }}</span>
 				</a>
 			</div>
@@ -463,20 +259,20 @@ Detailed view of a single document request
 				<table class="w-100">
 					<tr>
 						<td class="py-2 text-muted">{{ _("Request ID") }}</td>
-						<td class="text-right py-2"><code>{{ request.name }}</code></td>
+						<td class="text-right py-2"><code>{{ request.name | e }}</code></td>
 					</tr>
 					<tr>
 						<td class="py-2 text-muted">{{ _("Type") }}</td>
-						<td class="text-right py-2">{{ request_type_info.label or request.request_type or "-" }}</td>
+						<td class="text-right py-2">{{ (request_type_info.label or request.request_type or "-") | e }}</td>
 					</tr>
 					<tr>
 						<td class="py-2 text-muted">{{ _("Status") }}</td>
-						<td class="text-right py-2">{{ request.status }}</td>
+						<td class="text-right py-2">{{ _(request.status) | e }}</td>
 					</tr>
 					{% if request.sla_deadline %}
 					<tr>
 						<td class="py-2 text-muted">{{ _("SLA Deadline") }}</td>
-						<td class="text-right py-2">{{ frappe.utils.format_datetime(request.sla_deadline) }}</td>
+						<td class="text-right py-2">{{ frappe.utils.format_datetime(request.sla_deadline) | e }}</td>
 					</tr>
 					{% endif %}
 				</table>
@@ -485,7 +281,6 @@ Detailed view of a single document request
 	</div>
 	{% include "templates/includes/portal_conversation.html" %}
 	{% endif %}
-</div>
 {% endblock %}
 
 {% block script %}

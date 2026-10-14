@@ -194,6 +194,9 @@ def submit(order_name, request_type, note, revision_hash, idempotency_key, file_
 		doc.state, doc.ill_next_action_by = "COMPLETED", "Customer"
 		doc.staff_note = "New draft created. Current engineering and price review are required."
 		doc.save(ignore_permissions=True)
+	from illumenate_lighting.illumenate_lighting.portal import staff_notifications
+
+	staff_notifications.submitted(doc)
 	return {"success": True, "name": doc.name, "new_schedule": doc.get("new_schedule")}
 
 

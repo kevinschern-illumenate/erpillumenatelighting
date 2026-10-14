@@ -134,6 +134,12 @@ def create_portal_document_request(
 	if requested_due_date:
 		doc.requested_due_date = requested_due_date
 
+	if custom_fields is not None:
+		# Fields Desk marks mandatory are enforced here, not only in the browser.
+		missing = _missing_mandatory(frappe.get_doc("ilL-Request-Type", resolved_type), custom_fields)
+		if missing:
+			frappe.throw(_("Please fill in: {0}").format(", ".join(missing)))
+
 	if custom_fields:
 		request_type_doc = frappe.get_doc("ilL-Request-Type", resolved_type)
 		field_defs = {f.field_key: f for f in request_type_doc.custom_fields or []}
@@ -216,6 +222,23 @@ def get_request_types() -> dict:
 		})
 
 	return {"success": True, "request_types": result}
+
+
+def portal_request_types() -> list:
+	"""Active request types with their extra fields, for rendering the request form in one pass."""
+	types = get_request_types()["request_types"]
+	for request_type in types:
+		request_type["fields"] = get_request_type_fields(request_type["name"]).get("fields", [])
+	return types
+
+
+def _missing_mandatory(request_type_doc, custom_fields: dict) -> list:
+	missing = []
+	for field in request_type_doc.custom_fields or []:
+		value = (custom_fields or {}).get(field.field_key)
+		if field.mandatory and field.fieldtype != "Check" and (value is None or str(value).strip() == ""):
+			missing.append(field.label or field.field_key)
+	return missing
 
 
 @frappe.whitelist()

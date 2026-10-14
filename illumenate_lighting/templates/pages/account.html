@@ -2,191 +2,13 @@
 Portal Account Settings Page
 User profile, notifications, and account preferences
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
+{% block portal_scope %}ill-page--account{% endblock %}
 
-{% block title %}{{ _("Account Settings") }}{% endblock %}
+{% block portal_title %}{{ _("Account Settings") }}{% endblock %}
 
-{% block style %}
-<style>
-.portal-page {
-	padding: 2rem 0;
-}
-.page-header {
-	margin-bottom: 2rem;
-}
-.settings-nav {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	overflow: hidden;
-}
-.settings-nav-item {
-	display: flex;
-	align-items: center;
-	gap: 0.75rem;
-	padding: 1rem 1.25rem;
-	border-bottom: 1px solid var(--ill-gray-200);
-	color: var(--ill-ink);
-	text-decoration: none;
-	transition: all 0.2s;
-}
-.settings-nav-item:last-child {
-	border-bottom: none;
-}
-.settings-nav-item:hover {
-	background: var(--ill-surface-soft);
-	color: var(--ill-ink);
-	text-decoration: none;
-}
-.settings-nav-item.active {
-	background: var(--ill-blue-100);
-	color: var(--ill-blue-600);
-	border-left: 3px solid var(--ill-blue-600);
-}
-.settings-nav-item i {
-	width: 20px;
-	text-align: center;
-	color: var(--ill-gray-500);
-}
-.settings-nav-item.active i {
-	color: var(--ill-blue-600);
-}
-.settings-card {
-	background: white;
-	border: 1px solid var(--ill-navy-100);
-	border-radius: var(--ill-radius-card);
-	box-shadow: var(--ill-shadow-card);
-	overflow: hidden;
-}
-.settings-card-header {
-	padding: 1.25rem 1.5rem;
-	border-bottom: 1px solid var(--ill-gray-200);
-	background: var(--ill-surface-soft);
-}
-.settings-card-header h5 {
-	margin: 0;
-	font-weight: 600;
-}
-.settings-card-body {
-	padding: 1.5rem;
-}
-.profile-avatar {
-	width: 100px;
-	height: 100px;
-	border-radius: 50%;
-	background: var(--ill-gray-300);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 2.5rem;
-	color: var(--ill-gray-500);
-	margin-bottom: 1rem;
-}
-.profile-avatar img {
-	width: 100%;
-	height: 100%;
-	border-radius: 50%;
-	object-fit: cover;
-}
-.company-badge {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.5rem;
-	padding: 0.5rem 1rem;
-	background: var(--ill-blue-100);
-	border-radius: var(--ill-radius-pill);
-	color: var(--ill-blue-600);
-	font-weight: 500;
-}
-.notification-item {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 1rem 0;
-	border-bottom: 1px solid var(--ill-gray-200);
-}
-.notification-item:last-child {
-	border-bottom: none;
-}
-.notification-info h6 {
-	margin-bottom: 0.25rem;
-}
-.notification-info p {
-	color: var(--ill-text-secondary);
-	font-size: 0.85rem;
-	margin: 0;
-}
-.toggle-switch {
-	position: relative;
-	width: 50px;
-	height: 26px;
-}
-.toggle-switch input {
-	opacity: 0;
-	width: 0;
-	height: 0;
-}
-.toggle-slider {
-	position: absolute;
-	cursor: pointer;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: var(--ill-gray-400);
-	border-radius: var(--ill-radius-pill);
-	transition: 0.3s;
-}
-.toggle-slider:before {
-	position: absolute;
-	content: "";
-	height: 20px;
-	width: 20px;
-	left: 3px;
-	bottom: 3px;
-	background: white;
-	border-radius: 50%;
-	transition: 0.3s;
-}
-.toggle-switch input:checked + .toggle-slider {
-	background: var(--ill-blue-600);
-}
-.toggle-switch input:checked + .toggle-slider:before {
-	transform: translateX(24px);
-}
-.security-item {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 1rem;
-	background: var(--ill-surface-soft);
-	border-radius: var(--ill-radius-md);
-	margin-bottom: 0.75rem;
-}
-.security-item h6 {
-	margin-bottom: 0.25rem;
-}
-.security-item p {
-	color: var(--ill-text-secondary);
-	font-size: 0.85rem;
-	margin: 0;
-}
-.danger-zone {
-	border: 1px solid var(--ill-red-100);
-	border-radius: var(--ill-radius-md);
-	padding: 1.5rem;
-	background: var(--ill-red-100);
-}
-.danger-zone h6 {
-	color: var(--ill-red-ink);
-}
-</style>
-{% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -206,16 +28,16 @@ User profile, notifications, and account preferences
 		<div class="col-lg-3 mb-4">
 			<div class="settings-nav">
 				<a href="#profile" class="settings-nav-item active" data-section="profile">
-					<i class="fa fa-user"></i> {{ _("Profile") }}
+					<i class="fa fa-user" aria-hidden="true"></i> {{ _("Profile") }}
 				</a>
 				<a href="#company" class="settings-nav-item" data-section="company">
-					<i class="fa fa-building"></i> {{ _("Company") }}
+					<i class="fa fa-building" aria-hidden="true"></i> {{ _("Company") }}
 				</a>
 				<a href="#notifications" class="settings-nav-item" data-section="notifications">
-					<i class="fa fa-bell"></i> {{ _("Notifications") }}
+					<i class="fa fa-bell" aria-hidden="true"></i> {{ _("Notifications") }}
 				</a>
 				<a href="#security" class="settings-nav-item" data-section="security">
-					<i class="fa fa-lock"></i> {{ _("Security") }}
+					<i class="fa fa-lock" aria-hidden="true"></i> {{ _("Security") }}
 				</a>
 			</div>
 		</div>
@@ -224,21 +46,21 @@ User profile, notifications, and account preferences
 		<div class="col-lg-9">
 <section class="settings-card mb-4" id="companyManagement">
                 <div class="settings-card-header"><h2 class="h5">{{ _("Company records and requests") }}</h2></div>
-                <div class="settings-card-body" id="portalAccountRecords" aria-live="polite">{{ _("Loading account details...") }}</div>
+                <div class="settings-card-body" id="portalAccountRecords" aria-live="polite" aria-busy="true"><span class="sr-only">{{ _("Loading account details…") }}</span><div class="ill-skeleton" aria-hidden="true"><div class="ill-skeleton__line"></div><div class="ill-skeleton__line"></div><div class="ill-skeleton__line"></div></div></div>
             </section>
 			<!-- Profile Section -->
 			<div class="settings-card mb-4" id="profile">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-user"></i> {{ _("Profile Information") }}</h5>
+					<h5><i class="fa fa-user" aria-hidden="true"></i> {{ _("Profile Information") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					<div class="row">
 						<div class="col-md-3 text-center mb-4">
 							<div class="profile-avatar mx-auto">
 								{% if user_profile.user_image %}
-								<img src="{{ user_profile.user_image }}" alt="Profile">
+								<img src="{{ user_profile.user_image | e }}" alt="Profile">
 								{% else %}
-								<i class="fa fa-user"></i>
+								<i class="fa fa-user" aria-hidden="true"></i>
 								{% endif %}
 							</div>
 						</div>
@@ -248,31 +70,31 @@ User profile, notifications, and account preferences
 									<div class="col-md-6">
 										<div class="form-group">
 											<label for="account_first_name">{{ _("First Name") }}</label>
-											<input type="text" class="form-control" id="account_first_name" name="first_name" value="{{ user_profile.first_name or '' }}">
+											<input type="text" class="form-control" id="account_first_name" name="first_name" value="{{ (user_profile.first_name or '') | e }}">
 										</div>
 									</div>
 									<div class="col-md-6">
 										<div class="form-group">
 											<label for="account_last_name">{{ _("Last Name") }}</label>
-											<input type="text" class="form-control" id="account_last_name" name="last_name" value="{{ user_profile.last_name or '' }}">
+											<input type="text" class="form-control" id="account_last_name" name="last_name" value="{{ (user_profile.last_name or '') | e }}">
 										</div>
 									</div>
 								</div>
 								<div class="form-group">
 									<label for="account_email">{{ _("Email") }}</label>
-									<input id="account_email" type="email" class="form-control" value="{{ user_profile.email or '' }}" readonly>
+									<input id="account_email" type="email" class="form-control" value="{{ (user_profile.email or '') | e }}" readonly>
 									<small class="form-text text-muted">{{ _("Contact support to change your email address") }}</small>
 								</div>
 								<div class="form-group">
 									<label for="account_phone">{{ _("Phone") }}</label>
-									<input type="tel" class="form-control" id="account_phone" name="phone" value="{{ user_profile.phone or '' }}">
+									<input type="tel" class="form-control" id="account_phone" name="phone" value="{{ (user_profile.phone or '') | e }}">
 								</div>
 								<div class="form-group">
 									<label for="account_job_title">{{ _("Job Title") }}</label>
-									<input type="text" class="form-control" id="account_job_title" name="job_title" value="{{ user_profile.job_title or '' }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
+									<input type="text" class="form-control" id="account_job_title" name="job_title" value="{{ (user_profile.job_title or '') | e }}" placeholder="{{ _('e.g., Lighting Designer, Project Manager') }}">
 								</div>
 								<button type="submit" class="btn btn-primary">
-									<i class="fa fa-save"></i> {{ _("Save Changes") }}
+									<i class="fa fa-save" aria-hidden="true"></i> {{ _("Save Changes") }}
 								</button>
 							</form>
 						</div>
@@ -283,38 +105,38 @@ User profile, notifications, and account preferences
 			<!-- Company Section -->
 			<div class="settings-card mb-4" id="company">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-building"></i> {{ _("Company Information") }}</h5>
+					<h5><i class="fa fa-building" aria-hidden="true"></i> {{ _("Company Information") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					{% if customer %}
 					<div class="mb-4">
 						<span class="company-badge">
-							<i class="fa fa-building"></i>
-							{{ customer.customer_name }}
+							<i class="fa fa-building" aria-hidden="true"></i>
+							{{ customer.customer_name | e }}
 						</span>
 					</div>
 					<div class="row">
 						<div class="col-md-6">
-							<p class="mb-2"><strong>{{ _("Company Type") }}:</strong> {{ customer.customer_type or "-" }}</p>
-							<p class="mb-2"><strong>{{ _("Territory") }}:</strong> {{ customer.territory or "-" }}</p>
+							<p class="mb-2"><strong>{{ _("Company Type") }}:</strong> {{ (customer.customer_type or "-") | e }}</p>
+							<p class="mb-2"><strong>{{ _("Territory") }}:</strong> {{ (customer.territory or "-") | e }}</p>
 						</div>
 						<div class="col-md-6">
-							<p class="mb-2"><strong>{{ _("Customer Group") }}:</strong> {{ customer.customer_group or "-" }}</p>
-							<p class="mb-2"><strong>{{ _("Currency") }}:</strong> {{ customer.default_currency or "USD" }}</p>
+							<p class="mb-2"><strong>{{ _("Customer Group") }}:</strong> {{ (customer.customer_group or "-") | e }}</p>
+							<p class="mb-2"><strong>{{ _("Currency") }}:</strong> {{ (customer.default_currency or "USD") | e }}</p>
 						</div>
 					</div>
 					<hr>
 					<p class="text-muted mb-0">
-						<i class="fa fa-info-circle"></i> 
+						<i class="fa fa-info-circle" aria-hidden="true"></i> 
 						{{ _("To update company information, please contact your account manager or support.") }}
 					</p>
 					{% else %}
 					<div class="text-center py-4">
-						<i class="fa fa-building fa-3x text-muted mb-3"></i>
+						<i class="fa fa-building fa-3x text-muted mb-3" aria-hidden="true"></i>
 						<h5>{{ _("No company linked") }}</h5>
 						<p class="text-muted">{{ _("Your account is not linked to a company yet.") }}</p>
 						<button class="btn btn-primary" data-toggle="modal" data-target="#createCompanyModal">
-							<i class="fa fa-plus"></i> {{ _("Request Company Access") }}
+							<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Request Company Access") }}
 						</button>
 					</div>
 					{% endif %}
@@ -324,7 +146,7 @@ User profile, notifications, and account preferences
 			<!-- Notifications Section -->
 			<div class="settings-card mb-4" id="notifications">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-bell"></i> {{ _("Notification Preferences") }}</h5>
+					<h5><i class="fa fa-bell" aria-hidden="true"></i> {{ _("Notification Preferences") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					<div class="notification-item">
@@ -333,7 +155,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when your order status changes") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Orders notifications" name="notify_orders" {{ 'checked' if portal_settings.notify_orders else '' }}>
+							<input type="checkbox" aria-label="Orders notifications" name="notify_orders" {{ ('checked' if portal_settings.notify_orders else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -343,7 +165,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive notifications when quotes are ready") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Quotes notifications" name="notify_quotes" {{ 'checked' if portal_settings.notify_quotes else '' }}>
+							<input type="checkbox" aria-label="Quotes notifications" name="notify_quotes" {{ ('checked' if portal_settings.notify_quotes else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -353,7 +175,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Get notified when drawings are completed") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Drawings notifications" name="notify_drawings" {{ 'checked' if portal_settings.notify_drawings else '' }}>
+							<input type="checkbox" aria-label="Drawings notifications" name="notify_drawings" {{ ('checked' if portal_settings.notify_drawings else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -363,7 +185,7 @@ User profile, notifications, and account preferences
 							<p>{{ _("Receive shipping updates and tracking info") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Shipping notifications" name="notify_shipping" {{ 'checked' if portal_settings.notify_shipping else '' }}>
+							<input type="checkbox" aria-label="Shipping notifications" name="notify_shipping" {{ ('checked' if portal_settings.notify_shipping else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
@@ -373,13 +195,13 @@ User profile, notifications, and account preferences
 							<p>{{ _("Product updates, promotions, and industry news") }}</p>
 						</div>
 						<label class="toggle-switch">
-							<input type="checkbox" aria-label="Marketing notifications" name="notify_marketing" {{ 'checked' if portal_settings.notify_marketing else '' }}>
+							<input type="checkbox" aria-label="Marketing notifications" name="notify_marketing" {{ ('checked' if portal_settings.notify_marketing else '') | e }}>
 							<span class="toggle-slider"></span>
 						</label>
 					</div>
 					<hr>
 					<button class="btn btn-primary" onclick="saveNotificationPrefs()">
-						<i class="fa fa-save"></i> {{ _("Save Preferences") }}
+						<i class="fa fa-save" aria-hidden="true"></i> {{ _("Save Preferences") }}
 					</button>
 				</div>
 			</div>
@@ -387,7 +209,7 @@ User profile, notifications, and account preferences
 			<!-- Security Section -->
 			<div class="settings-card mb-4" id="security">
 				<div class="settings-card-header">
-					<h5><i class="fa fa-lock"></i> {{ _("Security") }}</h5>
+					<h5><i class="fa fa-lock" aria-hidden="true"></i> {{ _("Security") }}</h5>
 				</div>
 				<div class="settings-card-body">
 					<div class="security-item">
@@ -415,27 +237,28 @@ User profile, notifications, and account preferences
 			   offered: nothing in the portal consumes them yet (see plan §7). #}
 		</div>
 	</div>
-</div>
+{% endblock %}
+{% block portal_after %}
 
 <!-- Create Company Modal -->
-<div class="modal fade" id="createCompanyModal" tabindex="-1">
+<div class="modal fade" id="createCompanyModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="createCompanyModalTitle">
 	<div class="modal-dialog">
 		<div class="modal-content">
 			<div class="modal-header">
-				<h5 class="modal-title">{{ _("Request Company Access") }}</h5>
-				<button type="button" class="close" data-dismiss="modal">
-					<span>&times;</span>
+				<h5 class="modal-title" id="createCompanyModalTitle">{{ _("Request Company Access") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
 				</button>
 			</div>
 			<div class="modal-body">
 				<form id="createCompanyForm">
 					<div class="form-group">
-						<label>{{ _("Company Name") }} <span class="text-danger">*</span></label>
-						<input type="text" class="form-control" name="customer_name" required>
+						<label for="createCompanyName">{{ _("Company Name") }} <span class="text-danger">*</span></label>
+						<input id="createCompanyName" type="text" class="form-control" name="customer_name" required>
 					</div>
 					<div class="form-group">
-						<label>{{ _("Company Type") }}</label>
-						<select class="form-control" name="customer_type">
+						<label for="createCompanyType">{{ _("Company Type") }}</label>
+						<select id="createCompanyType" class="form-control" name="customer_type">
 							<option value="Company">{{ _("Company") }}</option>
 							<option value="Individual">{{ _("Individual") }}</option>
 						</select>
@@ -526,7 +349,7 @@ function saveNotificationPrefs() {
 
 function changePassword() {
 	if (!document.getElementById('portalPasswordModal')) {
-		const modal = $('<div class="modal fade" id="portalPasswordModal" tabindex="-1" role="dialog" aria-labelledby="portalPasswordTitle"><div class="modal-dialog"><form class="modal-content"><div class="modal-header"><h5 id="portalPasswordTitle"></h5><button type="button" class="close" data-dismiss="modal" aria-label="Close">&times;</button></div><div class="modal-body"><div class="alert alert-danger" role="alert" hidden></div></div><div class="modal-footer"><button type="submit" class="btn btn-primary"></button></div></form></div></div>');
+		const modal = $('<div class="modal fade" id="portalPasswordModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="portalPasswordTitle"><div class="modal-dialog"><form class="modal-content"><div class="modal-header"><h5 id="portalPasswordTitle"></h5><button type="button" class="close" data-dismiss="modal" aria-label="' + __('Close') + '"><span aria-hidden="true">&times;</span></button></div><div class="modal-body"><div class="alert alert-danger" role="alert" hidden></div></div><div class="modal-footer"><button type="submit" class="btn btn-primary"></button></div></form></div></div>');
 		modal.find('h5').text(__('Change Password'));
 		modal.find('[type="submit"]').text(__('Update Password'));
 		[['old_password', __('Current Password'), 'current-password'], ['new_password', __('New Password'), 'new-password'], ['confirm_password', __('Confirm New Password'), 'new-password']].forEach(([name, label, autocomplete]) => {

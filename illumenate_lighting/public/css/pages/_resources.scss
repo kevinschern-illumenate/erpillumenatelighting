@@ -1,0 +1,90 @@
+// resources.html page styles (UI-2), scoped by the class portal_base.html sets.
+// :where() keeps each selector's specificity what it was inline.
+:where(.ill-page--resources) {
+	.portal-page {
+		padding: 2rem 0;
+	}
+	.page-header {
+		margin-bottom: 2rem;
+	}
+	.resource-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 1rem;
+	}
+	.resource-card {
+		background: white;
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-card);
+		box-shadow: var(--ill-shadow-card);
+		padding: 1.25rem;
+		display: flex;
+		align-items: flex-start;
+		gap: 1rem;
+		transition: all 0.2s;
+		text-decoration: none;
+		color: inherit;
+	}
+	.resource-card:hover {
+		border-color: var(--ill-blue-200);
+		box-shadow: var(--ill-shadow-elevated);
+		transform: translateY(-2px);
+		text-decoration: none;
+		color: inherit;
+	}
+	.resource-icon {
+		width: 48px;
+		height: 48px;
+		border-radius: var(--ill-radius-md);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.25rem;
+		flex-shrink: 0;
+		background: var(--ill-blue-100);
+		color: var(--ill-blue-600);
+	}
+	.resource-info {
+		flex: 1;
+		min-width: 0;
+	}
+	.resource-title {
+		font-family: var(--ill-font-display);
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+		color: var(--ill-ink);
+	}
+	.resource-desc {
+		font-size: 0.85rem;
+		color: var(--ill-text-secondary);
+		margin-bottom: 0.5rem;
+	}
+	.resource-meta {
+		font-size: 0.75rem;
+		color: var(--ill-gray-500);
+	}
+	.search-box {
+		background: white;
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-card);
+		padding: 1rem 1.5rem;
+		margin-bottom: 2rem;
+		box-shadow: var(--ill-shadow-card);
+	}
+	.search-box .form-control {
+		font-size: 1rem;
+		padding-left: 2.5rem;
+		background: var(--ill-paper);
+		border-radius: var(--ill-radius-control);
+	}
+	.search-wrapper {
+		position: relative;
+	}
+	.search-wrapper i {
+		position: absolute;
+		left: 1rem;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--ill-gray-500);
+	}
+}

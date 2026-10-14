@@ -118,6 +118,15 @@ It also adds "Webflow" as a Lead Source if CRM Lead Source doctype exists.
    - Header Name: `Authorization`
    - Header Value: `token api_key:api_secret` (your ERPNext API credentials)
 
+   The key must belong to an enabled **System User** (a dedicated integration user is
+   best). Both lead endpoints reject unauthenticated calls and website users, so a
+   workflow without this credential creates no leads.
+
+> **Security:** `create_lead_from_webflow` and `create_lead_from_webflow_webhook` are
+> POST-only, require the API key above, and are rate limited to 30 requests per minute
+> per IP. Errors return a generic message; the traceback is in the Error Log
+> ("Webflow Lead Creation Error" / "Webflow Webhook Lead Error").
+
 ### Step 3: Get the Webhook URL
 
 1. Open the imported workflow in n8n

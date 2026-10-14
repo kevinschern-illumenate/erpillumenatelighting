@@ -20,7 +20,7 @@ from frappe.utils import now_datetime
 # PUBLIC API ENDPOINTS
 # =============================================================================
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def add_to_schedule(
     schedule_id: str,
     configuration: str,
@@ -208,7 +208,7 @@ def add_to_schedule(
     return result
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def add_from_session(
     session_id: str,
     schedule_id: str,
@@ -312,7 +312,7 @@ def get_user_schedules() -> dict:
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def create_quick_project_and_schedule(
     project_name: str,
     schedule_name: str = None,
@@ -577,7 +577,7 @@ def _create_configured_fixture_directly(
     return fixture.name
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def update_line_quantity(
     line_name: str,
     new_quantity: int
@@ -630,7 +630,7 @@ def update_line_quantity(
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def remove_line(line_name: str) -> dict:
     """
     Remove a fixture schedule line.

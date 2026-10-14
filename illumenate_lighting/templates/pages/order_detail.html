@@ -2,13 +2,12 @@
 Portal Order Detail Page
 One order or order request: review, progress, items, shipments, invoices and the conversation
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ order.name if order else _("Order") }}{% endblock %}
+{% block portal_title %}{{ (order.name if order else _("Order")) | e }}{% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<main class="container ill-commerce">
+{% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_content %}
 	<a class="ill-back" href="/portal/orders"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Back to orders") }}</a>
 
 	{% if not order %}
@@ -23,7 +22,7 @@ One order or order request: review, progress, items, shipments, invoices and the
 	<header class="ill-hero">
 		<div class="ill-hero__top">
 			<div>
-				<p class="ill-hero__eyebrow">{{ _("Order request") if order.is_request else _("Order") }}</p>
+				<p class="ill-hero__eyebrow">{{ (_("Order request") if order.is_request else _("Order")) | e }}</p>
 				<h1>{{ order.name | e }}</h1>
 				<p class="ill-hero__lead">{{ order.customer_name | e }}</p>
 			</div>
@@ -32,10 +31,10 @@ One order or order request: review, progress, items, shipments, invoices and the
 			</div>
 		</div>
 		<dl class="ill-hero__facts">
-			<div><dt>{{ _("Order Date") }}</dt><dd>{{ frappe.utils.format_date(order.transaction_date) }}</dd></div>
-			<div><dt>{{ _("Confirmed delivery") }}</dt><dd>{{ frappe.utils.format_date(order.confirmed_date) if order.confirmed_date else _("Not confirmed") }}<small>{{ _("Requested") }}: {{ order.requested_date or _("Not recorded") }}</small></dd></div>
-			<div><dt>{{ _("PO Number") }}</dt><dd><span id="poNumberValue">{{ order.po_no or "-" }}</span>{% if actions.can_set_po_number %} <button type="button" class="btn btn-link btn-sm p-0 ml-1" onclick="editPoNumber()" title="{{ _('Set your PO number before this request is approved') }}"><i class="fa fa-pencil" aria-hidden="true"></i><span class="sr-only">{{ _("Edit PO number") }}</span></button>{% endif %}</dd></div>
-			<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(order.grand_total, money) }}</dd></div>
+			<div><dt>{{ _("Order Date") }}</dt><dd>{{ frappe.utils.format_date(order.transaction_date) | e }}</dd></div>
+			<div><dt>{{ _("Confirmed delivery") }}</dt><dd>{{ (frappe.utils.format_date(order.confirmed_date) if order.confirmed_date else _("Not confirmed")) | e }}<small>{{ _("Requested") }}: {{ (order.requested_date or _("Not recorded")) | e }}</small></dd></div>
+			<div><dt>{{ _("PO Number") }}</dt><dd><span id="poNumberValue">{{ (order.po_no or "-") | e }}</span>{% if actions.can_set_po_number %} <button type="button" class="btn btn-link btn-sm p-0 ml-1" onclick="editPoNumber()" title="{{ _('Set your PO number before this request is approved') }}"><i class="fa fa-pencil" aria-hidden="true"></i><span class="sr-only">{{ _("Edit PO number") }}</span></button>{% endif %}</dd></div>
+			<div><dt>{{ _("Total") }}</dt><dd>{{ frappe.format_value(order.grand_total, money) | e }}</dd></div>
 		</dl>
 	</header>
 
@@ -43,8 +42,8 @@ One order or order request: review, progress, items, shipments, invoices and the
 		<div class="ill-layout__main">
 			{% if intake and intake.next_step %}
 			<div class="ill-next{% if intake.next_step.buyer %} ill-next--buyer{% endif %}" role="status">
-				<span class="ill-next__icon"><i class="fa {{ 'fa-hand-o-right' if intake.next_step.buyer else 'fa-hourglass-half' }}" aria-hidden="true"></i></span>
-				<div><p class="ill-next__label">{{ _("Next step") }}</p><p class="ill-next__text">{{ _(intake.next_step.text) }}</p></div>
+				<span class="ill-next__icon"><i class="fa {{ ('fa-hand-o-right' if intake.next_step.buyer else 'fa-hourglass-half') | e }}" aria-hidden="true"></i></span>
+				<div><p class="ill-next__label">{{ _("Next step") }}</p><p class="ill-next__text">{{ _(intake.next_step.text) | e }}</p></div>
 			</div>
 			{% elif order.is_request %}
 			<div class="ill-next" role="status">
@@ -67,10 +66,10 @@ One order or order request: review, progress, items, shipments, invoices and the
 				</div>
 				<div class="ill-panel__body">
 					<dl class="ill-facts mb-3">
-						<div><dt>{{ _("Requested delivery") }}</dt><dd>{{ intake.requested_date or _('Not provided') }}</dd></div>
-						<div><dt>{{ _("Staff-confirmed delivery") }}</dt><dd>{{ intake.confirmed_date or _('Awaiting staff confirmation') }}</dd></div>
+						<div><dt>{{ _("Requested delivery") }}</dt><dd>{{ (intake.requested_date or _('Not provided')) | e }}</dd></div>
+						<div><dt>{{ _("Staff-confirmed delivery") }}</dt><dd>{{ (intake.confirmed_date or _('Awaiting staff confirmation')) | e }}</dd></div>
 					</dl>
-					{% if intake.acknowledged and intake.acknowledged_on and not order.docstatus %}<p class="text-muted small"><i class="fa fa-check-circle text-success" aria-hidden="true"></i> {{ _("You acknowledged the current revision on {0}.").format(frappe.utils.format_date(intake.acknowledged_on)) }}</p>{% endif %}
+					{% if intake.acknowledged and intake.acknowledged_on and not order.docstatus %}<p class="text-muted small"><i class="fa fa-check-circle text-success" aria-hidden="true"></i> {{ _("You acknowledged the current revision on {0}.").format(frappe.utils.format_date(intake.acknowledged_on)) | e }}</p>{% endif %}
 					{% if intake.message %}<p><a href="#order-conversation">{{ _("Read the latest message from ilLumenate in the conversation below.") }}</a></p>{% endif %}
 					{% if intake.needs_intake %}
 					<p>{{ _("Complete the order's address, contact and PO intake before review can finish.") }}</p>
@@ -82,11 +81,11 @@ One order or order request: review, progress, items, shipments, invoices and the
 					<div class="ill-compare mb-3">
 						<div>
 							<h3>{{ _("Original request") }}</h3>
-							<p class="mb-0">{{ _("Original total") }}: <strong>{{ frappe.format_value(intake.original.grand_total, money) }}</strong></p>
+							<p class="mb-0">{{ _("Original total") }}: <strong>{{ frappe.format_value(intake.original.grand_total, money) | e }}</strong></p>
 						</div>
 						<div>
 							<h3>{{ _("Current revision") }}</h3>
-							<p class="mb-0">{{ _("Current total") }}: <strong>{{ frappe.format_value(intake.current.grand_total, money) }}</strong></p>
+							<p class="mb-0">{{ _("Current total") }}: <strong>{{ frappe.format_value(intake.current.grand_total, money) | e }}</strong></p>
 						</div>
 					</div>
 					<h3 class="ill-subhead">{{ _("Current items") }}{% if not intake.lines_changed %} <span class="ill-status">{{ _("Same as your request") }}</span>{% endif %}</h3>
@@ -97,9 +96,9 @@ One order or order request: review, progress, items, shipments, invoices and the
 							{% for line in intake.lines %}
 							<tr{% if line.status == 'removed' %} class="is-removed"{% endif %}>
 								<td>{% if line.ill_fixture_type %}<span class="ill-lines__tag">{{ _("Type") }} {{ line.ill_fixture_type | e }}</span><br>{% endif %}<span class="ill-lines__name">{{ line.item_code | e }}</span>{% if line.ill_section_label %}<div class="ill-lines__meta">{{ line.ill_section_label | e }}</div>{% endif %}</td>
-								<td class="num">{{ "%g" | format(line.qty or 0) }} {{ (line.uom or '') | e }}{% if line.was and 'qty' in line.changed %}<div class="ill-lines__meta">{{ _("was {0}").format("%g" | format(line.was.qty or 0)) }}</div>{% endif %}</td>
-								<td class="num">{{ frappe.format_value(line.rate, money) }}{% if line.was and 'rate' in line.changed %}<div class="ill-lines__meta">{{ _("was {0}").format(frappe.format_value(line.was.rate, money)) }}</div>{% endif %}</td>
-								<td class="num">{{ frappe.format_value(line.amount, money) }}</td>
+								<td class="num">{{ "%g" | format(line.qty or 0) | e }} {{ (line.uom or '') | e }}{% if line.was and 'qty' in line.changed %}<div class="ill-lines__meta">{{ _("was {0}").format("%g" | format(line.was.qty or 0)) | e }}</div>{% endif %}</td>
+								<td class="num">{{ frappe.format_value(line.rate, money) | e }}{% if line.was and 'rate' in line.changed %}<div class="ill-lines__meta">{{ _("was {0}").format(frappe.format_value(line.was.rate, money)) | e }}</div>{% endif %}</td>
+								<td class="num">{{ frappe.format_value(line.amount, money) | e }}</td>
 								<td>{% if line.status == 'added' %}<span class="ill-status ill-status--info">{{ _("Added") }}</span>{% elif line.status == 'removed' %}<span class="ill-status ill-status--danger">{{ _("Removed") }}</span>{% elif line.status == 'changed' %}<span class="ill-status ill-status--warning">{{ _("Changed") }}</span>{% else %}<span class="ill-lines__meta">{{ _("No change") }}</span>{% endif %}</td>
 							</tr>
 							{% else %}
@@ -116,7 +115,7 @@ One order or order request: review, progress, items, shipments, invoices and the
 						</div>
 					</details>
 					{% endif %}
-					<dl class="ill-facts mb-3">{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<div><dt>{{ _(label) }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ ill_sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ intake.current.get(key) or '-' }}{% endif %}</dd></div>{% endfor %}</dl>
+					<dl class="ill-facts mb-3">{% for key, label in [('address_display', 'Billing address'), ('shipping_address', 'Shipping address'), ('contact_display', 'Purchasing contact'), ('ill_receiving_instructions', 'Receiving instructions'), ('ill_shipping_instructions', 'Shipping instructions')] %}<div><dt>{{ _(label) | e }}</dt><dd>{% if key in ['address_display', 'shipping_address'] %}{{ ill_sanitize_html(intake.current.get(key) or '-') | safe }}{% else %}{{ (intake.current.get(key) or '-') | e }}{% endif %}</dd></div>{% endfor %}</dl>
 					<button class="btn btn-accent" type="button" id="acknowledge-order" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}">{{ _("Acknowledge current revision") }}</button>
 					<p class="mt-2 mb-0" id="acknowledge-result" role="status"></p>
 					{% endif %}
@@ -130,7 +129,7 @@ One order or order request: review, progress, items, shipments, invoices and the
 					{% if timeline %}
 					<ol class="ill-timeline">
 						{% for step in timeline %}
-						<li class="{{ 'is-done' if step.done else '' }} {{ 'is-active' if step.get('active') else '' }}">
+						<li class="{{ ('is-done' if step.done else '') | e }} {{ ('is-active' if step.get('active') else '') | e }}">
 							<span class="ill-timeline__dot">
 								{% if step.key == 'production' %}<i class="fa fa-cogs" aria-hidden="true"></i>
 								{% elif step.key == 'shipped' %}<i class="fa fa-truck" aria-hidden="true"></i>
@@ -138,14 +137,14 @@ One order or order request: review, progress, items, shipments, invoices and the
 								{% elif step.key == 'cancelled' %}<i class="fa fa-times" aria-hidden="true"></i>
 								{% else %}<i class="fa fa-check" aria-hidden="true"></i>{% endif %}
 							</span>
-							<span class="ill-timeline__title">{{ step.label }}</span>
-							<span class="ill-timeline__date">{{ frappe.utils.format_date(step.date) if step.date else "-" }}</span>
+							<span class="ill-timeline__title">{{ step.label | e }}</span>
+							<span class="ill-timeline__date">{{ (frappe.utils.format_date(step.date) if step.date else "-") | e }}</span>
 						</li>
 						{% endfor %}
 					</ol>
 					{% endif %}
 					{% if order.production and order.production.work_order_count %}
-					<p class="text-muted small mt-3 mb-0">{{ _("Production: {0} of {1} units built across {2} work order(s)").format(order.production.produced_qty | int, order.production.planned_qty | int, order.production.work_order_count) }}</p>
+					<p class="text-muted small mt-3 mb-0">{{ _("Production: {0} of {1} units built across {2} work order(s)").format(order.production.produced_qty | int, order.production.planned_qty | int, order.production.work_order_count) | e }}</p>
 					{% endif %}
 				</div>
 			</section>
@@ -158,9 +157,9 @@ One order or order request: review, progress, items, shipments, invoices and the
 			{% endif %}
 
 			{% for request in change_requests %}
-			<section class="ill-panel" aria-labelledby="change-{{ loop.index }}-heading">
+			<section class="ill-panel" aria-labelledby="change-{{ loop.index | e }}-heading">
 				<div class="ill-panel__head">
-					<h2 id="change-{{ loop.index }}-heading">{{ request.request_type | e }} {{ _("request") }} · {{ request.name | e }}</h2>
+					<h2 id="change-{{ loop.index | e }}-heading">{{ request.request_type | e }} {{ _("request") }} · {{ request.name | e }}</h2>
 					<span class="ill-status ill-status--info">{{ request.state | e }}</span>
 				</div>
 				<div class="ill-panel__body">
@@ -187,12 +186,12 @@ One order or order request: review, progress, items, shipments, invoices and the
 								<div class="ill-lines__meta">{{ item.item_code | e }}{% if item.section_room %} · {{ item.section_room | e }}{% endif %}</div>
 								{% if item.customer_note %}<div class="ill-lines__meta font-italic">{{ item.customer_note | e }}</div>{% endif %}
 								{% if order.docstatus == 1 %}
-								<div class="ill-lines__meta">{% if item.planning_path == 'manufacturing' %}{{ _("Built") }} {{ item.produced_qty }} · {% else %}{{ _("Standard Item fulfillment") }} · {% endif %}{{ _("Net delivered") }} {{ item.delivered_qty }} / {{ item.qty }} {{ item.uom }} · {{ _("Remaining") }} {{ item.open_qty }}</div>
+								<div class="ill-lines__meta">{% if item.planning_path == 'manufacturing' %}{{ _("Built") }} {{ item.produced_qty | e }} · {% else %}{{ _("Standard Item fulfillment") }} · {% endif %}{{ _("Net delivered") }} {{ item.delivered_qty | e }} / {{ item.qty | e }} {{ item.uom | e }} · {{ _("Remaining") }} {{ item.open_qty | e }}</div>
 								{% endif %}
 							</td>
-							<td class="num" data-label="{{ _('Qty') }}">{{ item.qty }}</td>
-							<td class="num" data-label="{{ _('Rate') }}">{{ frappe.format_value(item.rate, money) }}</td>
-							<td class="num" data-label="{{ _('Amount') }}">{{ frappe.format_value(item.amount, money) }}</td>
+							<td class="num" data-label="{{ _('Qty') }}">{{ item.qty | e }}</td>
+							<td class="num" data-label="{{ _('Rate') }}">{{ frappe.format_value(item.rate, money) | e }}</td>
+							<td class="num" data-label="{{ _('Amount') }}">{{ frappe.format_value(item.amount, money) | e }}</td>
 						</tr>
 						{% endfor %}
 						</tbody>
@@ -209,12 +208,12 @@ One order or order request: review, progress, items, shipments, invoices and the
 						<li>
 							<div>
 								<p class="ill-rows__title">{{ delivery.name | e }}{% if delivery.is_return %} · {{ _("Return") }}{% endif %}</p>
-								{% for line in delivery["items"] %}<div class="small">{{ line.item_name | e }} · {{ line.qty }} {{ line.uom }}{% if line.line %} · {{ line.line | e }}{% endif %}</div>{% endfor %}
-								<div class="ill-rows__meta">{{ frappe.utils.format_date(delivery.posting_date) }}{% if delivery.carrier %} · {{ delivery.carrier | e }}{% endif %}{% if delivery["items"] %} · {{ delivery["items"] | length }} {{ _("line(s)") }}{% endif %}</div>
+								{% for line in delivery["items"] %}<div class="small">{{ line.item_name | e }} · {{ line.qty | e }} {{ line.uom | e }}{% if line.line %} · {{ line.line | e }}{% endif %}</div>{% endfor %}
+								<div class="ill-rows__meta">{{ frappe.utils.format_date(delivery.posting_date) | e }}{% if delivery.carrier %} · {{ delivery.carrier | e }}{% endif %}{% if delivery["items"] %} · {{ delivery["items"] | length }} {{ _("line(s)") }}{% endif %}</div>
 							</div>
 							<div class="ill-rows__end">
-								{% if delivery.tracking_number %}<div title="{{ _('Tracking number') }}"><i class="fa fa-barcode" aria-hidden="true"></i> {{ delivery.tracking_number | e }}</div>{% else %}<div class="text-muted">{{ _("No tracking yet") }}</div>{% endif %}
-								<a class="small" href="{{ download_url }}?doctype=Delivery%20Note&name={{ delivery.name | urlencode }}"><i class="fa fa-list-alt" aria-hidden="true"></i> {{ _("Packing slip") }}</a>
+								{% if delivery.tracking_number %}<div title="{{ _('Tracking number') }}"><i class="fa fa-barcode" aria-hidden="true"></i> {% if delivery.tracking_url %}<a href="{{ delivery.tracking_url | e }}" target="_blank" rel="noopener">{{ delivery.tracking_number | e }}</a>{% else %}{{ delivery.tracking_number | e }}{% endif %}</div>{% else %}<div class="text-muted">{{ _("No tracking yet") }}</div>{% endif %}
+								<a class="small" href="{{ download_url | e }}?doctype=Delivery%20Note&name={{ delivery.name | urlencode }}"><i class="fa fa-list-alt" aria-hidden="true"></i> {{ _("Packing slip") }}</a>
 							</div>
 						</li>
 					{% endfor %}
@@ -233,14 +232,14 @@ One order or order request: review, progress, items, shipments, invoices and the
 							<div>
 								<p class="ill-rows__title">{{ invoice.name | e }}</p>
 								<div class="ill-rows__meta">
-									{{ frappe.utils.format_date(invoice.posting_date) }} · {{ invoice.status | e }} ·
-									{% if invoice.is_return %}{{ _("Credit note") }}{% elif invoice.outstanding_amount > 0 %}{{ _("Outstanding") }} {{ frappe.format_value(invoice.outstanding_amount, {"fieldtype": "Currency", "currency": invoice.currency}) }}{% else %}{{ _("Settled") }}{% endif %}
-									{% if invoice.due_date %} · {{ _("Due") }} {{ frappe.utils.format_date(invoice.due_date) }}{% endif %}
+									{{ frappe.utils.format_date(invoice.posting_date) | e }} · {{ invoice.status | e }} ·
+									{% if invoice.is_return %}{{ _("Credit note") }}{% elif invoice.outstanding_amount > 0 %}{{ _("Outstanding") }} {{ frappe.format_value(invoice.outstanding_amount, {"fieldtype": "Currency", "currency": invoice.currency}) | e }}{% else %}{{ _("Settled") }}{% endif %}
+									{% if invoice.due_date %} · {{ _("Due") }} {{ frappe.utils.format_date(invoice.due_date) | e }}{% endif %}
 								</div>
 							</div>
 							<div class="ill-rows__end">
-								<div>{{ frappe.format_value(invoice.grand_total, {"fieldtype": "Currency", "currency": invoice.currency}) }}</div>
-								<a class="small" href="{{ download_url }}?doctype=Sales%20Invoice&name={{ invoice.name | urlencode }}"><i class="fa fa-download" aria-hidden="true"></i> {{ _("Download PDF") }}</a>
+								<div>{{ frappe.format_value(invoice.grand_total, {"fieldtype": "Currency", "currency": invoice.currency}) | e }}</div>
+								<a class="small" href="{{ download_url | e }}?doctype=Sales%20Invoice&name={{ invoice.name | urlencode }}"><i class="fa fa-download" aria-hidden="true"></i> {{ _("Download PDF") }}</a>
 							</div>
 						</li>
 					{% endfor %}
@@ -255,13 +254,13 @@ One order or order request: review, progress, items, shipments, invoices and the
 				<div class="ill-panel__head"><h2 id="summary-heading">{{ _("Order Summary") }}</h2></div>
 				<div class="ill-panel__body">
 					<table class="ill-totals">
-						<tr><td>{{ _("Subtotal") }}</td><td>{{ frappe.format_value(order.total, money) }}</td></tr>
-						{% if order.discount_amount %}<tr><td>{{ _("Discount") }}</td><td class="text-success">-{{ frappe.format_value(order.discount_amount, money) }}</td></tr>{% endif %}
-						<tr><td>{{ _("Tax") }}</td><td>{{ frappe.format_value(order.total_taxes_and_charges or 0, money) }}</td></tr>
-						<tr class="ill-totals__grand"><td>{{ _("Total") }}</td><td>{{ frappe.format_value(order.grand_total, money) }}</td></tr>
+						<tr><td>{{ _("Subtotal") }}</td><td>{{ frappe.format_value(order.total, money) | e }}</td></tr>
+						{% if order.discount_amount %}<tr><td>{{ _("Discount") }}</td><td class="text-success">-{{ frappe.format_value(order.discount_amount, money) | e }}</td></tr>{% endif %}
+						<tr><td>{{ _("Tax") }}</td><td>{{ frappe.format_value(order.total_taxes_and_charges or 0, money) | e }}</td></tr>
+						<tr class="ill-totals__grand"><td>{{ _("Total") }}</td><td>{{ frappe.format_value(order.grand_total, money) | e }}</td></tr>
 					</table>
 					<p class="small text-muted mt-3 mb-1">{{ _("Delivery Status") }}: {{ order.per_delivered | int }}% {{ _("delivered") }}</p>
-					<div class="ill-meter" role="img" aria-label="{{ order.per_delivered | int }}% {{ _('delivered') }}"><span style="width: {{ [order.per_delivered or 0, 100] | min }}%"></span></div>
+					<div class="ill-meter" role="img" aria-label="{{ order.per_delivered | int }}% {{ _('delivered') }}"><span style="width: {{ [order.per_delivered or 0, 100] | min | e }}%"></span></div>
 				</div>
 			</section>
 
@@ -273,12 +272,12 @@ One order or order request: review, progress, items, shipments, invoices and the
 						{% if intake and intake.can_replace %}<li><button type="button" data-order-action="Replacement" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}"><i class="fa fa-files-o" aria-hidden="true"></i> {{ _("Prepare replacement draft") }}</button></li>{% endif %}
 						{% if actions.can_request_change %}
 						{% for action, label, icon in [('Change','Request change','fa-pencil-square-o'), ('Cancellation','Request cancellation','fa-ban'), ('Reorder','Prepare reorder draft','fa-repeat')] %}
-						<li><button type="button" data-order-action="{{ action }}" data-order="{{ order.name | e }}" data-revision="{{ order.revision_hash | e }}"><i class="fa {{ icon }}" aria-hidden="true"></i> {{ _(label) }}</button></li>
+						<li><button type="button" data-order-action="{{ action | e }}" data-order="{{ order.name | e }}" data-revision="{{ order.revision_hash | e }}"><i class="fa {{ icon | e }}" aria-hidden="true"></i> {{ _(label) | e }}</button></li>
 						{% endfor %}
 						{% endif %}
 						{% if order.docstatus == 2 and actions.can_reorder %}<li><button type="button" data-order-action="Replacement" data-order="{{ order.name | e }}" data-revision="{{ order.revision_hash | e }}"><i class="fa fa-files-o" aria-hidden="true"></i> {{ _("Prepare replacement draft") }}</button></li>{% endif %}
 						{% for download in actions.downloads %}
-						<li><a href="{{ download_url }}?doctype={{ download.doctype | urlencode }}&name={{ download.name | urlencode }}"><i class="fa fa-file-pdf-o" aria-hidden="true"></i> {{ download.label }}</a></li>
+						<li><a href="{{ download_url | e }}?doctype={{ download.doctype | urlencode }}&name={{ download.name | urlencode }}"><i class="fa fa-file-pdf-o" aria-hidden="true"></i> {{ download.label | e }}</a></li>
 						{% endfor %}
 						{% if schedule %}<li><a href="/portal/schedules/{{ schedule.name | urlencode }}"><i class="fa fa-list-ol" aria-hidden="true"></i> {{ _("Fixture Schedule") }}: {{ schedule.schedule_name | e }}</a></li>{% endif %}
 						<li><a href="/portal/drawings"><i class="fa fa-pencil-square-o" aria-hidden="true"></i> {{ _("Request Drawing") }}</a></li>
@@ -298,7 +297,6 @@ One order or order request: review, progress, items, shipments, invoices and the
 		</aside>
 	</div>
 	{% endif %}
-</main>
 {% endblock %}
 
 {% block script %}
