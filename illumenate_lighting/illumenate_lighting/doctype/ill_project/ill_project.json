@@ -171,8 +171,7 @@
                        "fieldtype":  "Column Break"
                    },
                    {
-                       "depends_on":  "eval:doc.is_private",
-                       "description":  "Users who can access this private project",
+                       "description":  "People invited to this project, including architects and designers outside the owning company. Private projects are visible only to them and the owner.",
                        "fieldname":  "collaborators",
                        "fieldtype":  "Table",
                        "label":  "Collaborators",
@@ -200,7 +199,7 @@
                       "link_fieldname":  "ill_project"
                   }
               ],
-    "modified":  "2026-07-31 00:00:00.000000",
+    "modified":  "2026-10-14 12:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Project",

@@ -36,6 +36,13 @@ def get_context(context):
 		)
 	else:
 		context.recent_orders = []
+	# get_list applies the portal's project visibility rules.
+	context.recent_projects = frappe.get_list(
+		"ilL-Project",
+		fields=["name", "project_name"],
+		order_by="modified desc",
+		limit_page_length=50,
+	)
 
 	context.ticket_page = list_tickets(page=frappe.form_dict.get("page", 1), status=frappe.form_dict.get("status"))
 	context.tickets = context.ticket_page["tickets"]

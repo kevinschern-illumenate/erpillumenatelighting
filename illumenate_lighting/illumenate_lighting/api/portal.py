@@ -2967,7 +2967,9 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 	try:
 		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
 
-		request_body = {key: ticket_data.get(key) for key in ("subject", "description", "category", "order", "file_ids")}
+		request_body = {
+			key: ticket_data.get(key) for key in ("subject", "description", "category", "order", "project", "file_ids")
+		}
 		request_hash = fingerprint(request_body)
 		request_key = fingerprint({"actor": frappe.session.user, "key": ticket_data.get("idempotency_key") or request_hash})
 		existing = frappe.db.get_value("Issue", {"ill_portal_request_key": request_key, "raised_by": frappe.session.user}, ["name", "ill_portal_request_hash"], as_dict=True)
@@ -2980,7 +2982,20 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 
 			if not load_accessible_sales_order(ticket_data["order"]):
 				frappe.throw(_("Order unavailable"), frappe.PermissionError)
+		from illumenate_lighting.illumenate_lighting.portal.access import can_read_project, get_actor
+
+		project = ticket_data.get("project") or None
+		if project and not (
+			frappe.db.exists("ilL-Project", project) and can_read_project(frappe.get_doc("ilL-Project", project))
+		):
+			frappe.throw(_("Project unavailable"), frappe.PermissionError)
+		actor = get_actor()
 		doc = frappe.new_doc("Issue")
+		# Customer, Contact and project make portal tickets filterable on Desk and the Customer dashboard.
+		doc.customer = actor.customer
+		doc.contact = frappe.db.get_value("Contact", {"user": frappe.session.user}, "name")
+		if project and doc.meta.has_field("ill_project"):
+			doc.ill_project = project
 		doc.ill_portal_request_key = request_key
 		doc.ill_portal_request_hash = request_hash
 		doc.ill_portal_order = ticket_data.get("order")

@@ -56,6 +56,17 @@ doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.j
     "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
     "ilL-Webflow-Product": "public/js/product_publication.js", "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
+# Desk record -> portal page, and portal request list indicators (DESK-4, DESK-5).
+for _name in (
+    "ilL-Project", "ilL-Project-Fixture-Schedule", "ilL-Quote-Request", "ilL-Quote-Offer",
+    "ilL-Order-Intake", "ilL-Document-Request", "Issue", "Sales Order",
+):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/desk_portal_links.js"]
+doctype_list_js.update({_name: "public/js/portal_request_list.js" for _name in (
+    "ilL-Quote-Request", "ilL-Order-Intake", "ilL-Order-Change", "ilL-Document-Request",
+)})
 doctype_js.update({name: "public/js/authoring_readiness.js" for name in (
     "ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template",
     "ilL-Driver-Template", "ilL-Controller-Template",

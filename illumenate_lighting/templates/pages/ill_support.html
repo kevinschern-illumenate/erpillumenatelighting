@@ -362,6 +362,18 @@ Help center, FAQ, and support ticket submission
 							</select>
 						</div>
 
+						{% if recent_projects %}
+						<div class="form-group">
+							<label for="supportProject">{{ _("Related Project") }}</label>
+							<select class="form-control" name="project" id="supportProject">
+								<option value="">{{ _("Select project (optional)...") }}</option>
+								{% for project in recent_projects %}
+								<option value="{{ project.name | e }}">{{ (project.project_name or project.name) | e }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						{% endif %}
+
 						<div class="form-group">
 							<label>{{ _("Description") }} <span class="text-danger">*</span></label>
 							<textarea class="form-control" name="description" rows="5" required placeholder="{{ _('Please describe your issue in detail...') }}"></textarea>

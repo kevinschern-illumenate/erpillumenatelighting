@@ -21,13 +21,5 @@ frappe.ui.form.on("ilL-Project", {
 				__("Actions")
 			);
 		}
-
-		// Show collaborators section only if private
-		frm.toggle_display("collaborators", frm.doc.is_private);
-	},
-
-	is_private: function (frm) {
-		// Toggle collaborators section visibility
-		frm.toggle_display("collaborators", frm.doc.is_private);
 	},
 });

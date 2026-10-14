@@ -114,6 +114,7 @@
 				status.replaceChildren(element('span', __(STATES[data.status] || data.status || ''), 'ill-thread__pill'));
 				const waiting = waitingOn(data);
 				if (waiting) status.append(element('span', waiting, 'ill-thread__pill ill-thread__pill--wait'));
+				if (data.is_staff && data.new_from_customer) status.append(element('span', __('{0} new customer message(s)', [data.new_from_customer]), 'ill-thread__pill ill-thread__pill--wait ill-thread__unread'));
 				staffFields.hidden = !data.is_staff; form.hidden = !(data.can_reply || (!commercial && data.is_staff));
 				data.messages.forEach(message => loaded.set(message.name || [message.creation, message.actor, message.body].join('|'), message));
 				pages = Math.max(pages, page);
