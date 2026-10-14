@@ -184,6 +184,9 @@ def _new_request(
 	)
 	doc.flags.account_service = True
 	doc.insert(ignore_permissions=True)
+	from illumenate_lighting.illumenate_lighting.portal import staff_notifications
+
+	staff_notifications.submitted(doc)
 	return {"success": True, "request": doc.name, "state": doc.state}
 
 

@@ -285,12 +285,19 @@ def reply(
 def _notify(doc, message, staff):
 	if message.visibility != "Customer":
 		return
+	from illumenate_lighting.illumenate_lighting.portal import staff_notifications
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
+	_capability, _owner, label = staff_notifications.spec_for(doc.doctype)
 	if staff:
 		recipients = [doc.get("requester_user") or doc.get("raised_by") or doc.get("requested_by")]
+		subject = frappe._("New reply on your {0} {1}").format(label, doc.name)
 	else:
-		recipients = [doc.get("assigned_to") or doc.get("ill_support_owner")]
+		owner = doc.get("assigned_to") or doc.get("ill_support_owner")
+		# The owner gets a bell and the email below; with no owner the whole team is told.
+		staff_notifications.reply(doc, message, assignee=owner)
+		recipients = [owner]
+		subject = frappe._("New reply on {0} {1} from {2}").format(label, doc.name, staff_notifications.who(doc))
 	path = "drawings" if doc.doctype == "ilL-Document-Request" else "support"
 	link_name = doc.name
 	if doc.doctype == "ilL-Quote-Request":
@@ -304,7 +311,7 @@ def _notify(doc, message, staff):
 			notify_user(
 				recipient,
 				"notify_drawings" if path == "drawings" else "notify_orders",
-				"A reply is available in your portal conversation",
+				subject,
 				f'<p><a href="{frappe.utils.get_url()}/portal/{path}/{frappe.utils.escape_html(link_name)}">Open the conversation</a> to read the reply.</p>',
 				reference_doctype=MESSAGE,
 				reference_name=message.name,

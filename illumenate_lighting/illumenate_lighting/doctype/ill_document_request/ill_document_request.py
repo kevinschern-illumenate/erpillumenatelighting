@@ -186,15 +186,18 @@ class ilLDocumentRequest(Document):
 		if request_type.default_assignee_user:
 			self.assigned_to = request_type.default_assignee_user
 		elif request_type.default_assignee_role:
-			# Get first user with this role
-			users = frappe.get_all(
-				"Has Role",
-				filters={"role": request_type.default_assignee_role, "parenttype": "User"},
-				pluck="parent",
-				limit=1,
+			# Spread work across the role by open load instead of always the first member.
+			from illumenate_lighting.illumenate_lighting.portal.staff_notifications import (
+				least_loaded,
+				staff_users,
 			)
-			if users:
-				self.assigned_to = users[0]
+
+			self.assigned_to = least_loaded(
+				"ilL-Document-Request",
+				"assigned_to",
+				staff_users({request_type.default_assignee_role}),
+				{"status": ["not in", ["Completed", "Closed", "Cancelled"]]},
+			)
 
 		if self.assigned_to:
 			if _is_request_staff(self, self.assigned_to) and frappe.db.get_value("User", self.assigned_to, "enabled"):

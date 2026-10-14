@@ -3008,6 +3008,9 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 		from illumenate_lighting.illumenate_lighting.portal.files import finalize_files
 
 		finalize_files(ticket_data.get("file_ids") or [], "Issue", doc.name, allow_unbound=True)
+		from illumenate_lighting.illumenate_lighting.portal import staff_notifications
+
+		staff_notifications.submitted(doc)
 		return {"success": True, "ticket_name": doc.name}
 	except Exception as e:
 		frappe.db.rollback()

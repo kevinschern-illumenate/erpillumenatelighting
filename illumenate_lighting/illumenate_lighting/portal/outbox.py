@@ -9,6 +9,7 @@ DELIVERY = "ilL-Portal-Delivery"
 TERMINAL = ("SUPPRESSED", "SKIPPED", "DELIVERED")
 INVITATION = "ilL-Portal-Invitation"
 INVITATION_PREFERENCE = "invitation"
+STAFF_INBOX_PREFERENCE = "staff_inbox"
 
 
 def reference_access(event, user):
@@ -85,6 +86,11 @@ def eligibility(event, recipient):
 
 	if event.preference == INVITATION_PREFERENCE and event.reference_type == INVITATION:
 		return invitation_eligibility(event, recipient)
+	if event.preference == STAFF_INBOX_PREFERENCE:
+		# The shared mailbox is not a portal account; staff see every portal record.
+		if not recipient or not frappe.utils.validate_email_address(recipient):
+			return "SKIPPED", "Shared inbox address is not set"
+		return "PENDING", "Awaiting Email Queue"
 	if (
 		not recipient
 		or recipient in ("Guest", "Administrator")
@@ -155,6 +161,18 @@ def record(user, preference, subject, message, reference_type, reference_name, e
 	revision = event_key or frappe.db.get_value(reference_type, reference_name, "modified")
 	key, event = _ensure_event(preference, subject, message, reference_type, reference_name, revision)
 	return _ensure_delivery(key, event, user, user=user)
+
+
+def record_staff_inbox(email, subject, message, reference_type, reference_name, event_key):
+	"""Queue one email to the shared staff inbox for a portal record and event."""
+	email = str(email or "").strip().lower()
+	if not email or not reference_type or not reference_name:
+		return False
+	key, event = _ensure_event(
+		STAFF_INBOX_PREFERENCE, subject, message, reference_type, reference_name, event_key
+	)
+	user = email if frappe.db.exists("User", email) else None
+	return _ensure_delivery(key, event, email, user=user, email=email)
 
 
 def record_invitation(invitation, email, subject, message, event_key):

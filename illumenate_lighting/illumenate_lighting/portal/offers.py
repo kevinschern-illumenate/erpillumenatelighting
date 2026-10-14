@@ -372,6 +372,9 @@ def respond(offer_name, action, expected_hash, note=None, po_no=None, requested_
 	_save(offer)
 	request.save(ignore_permissions=True)
 	_post_response(offer, request, action)
+	from illumenate_lighting.illumenate_lighting.portal import staff_notifications
+
+	staff_notifications.offer_response(offer, request, action)
 	return {
 		"offer": offer.name,
 		"state": offer.state,
