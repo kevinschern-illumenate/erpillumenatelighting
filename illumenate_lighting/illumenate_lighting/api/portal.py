@@ -3000,13 +3000,13 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 		doc.ill_portal_request_hash = request_hash
 		doc.ill_portal_order = ticket_data.get("order")
 		doc.subject = ticket_data.get("subject")
-		doc.description = f"""
-**Category:** {ticket_data.get('category', 'Other').title()}
-**Related Order:** {ticket_data.get('order') or 'N/A'}
-
-**Description:**
-{ticket_data.get('description')}
-"""
+		# Issue.description is a Text Editor: write escaped HTML, not Markdown.
+		escape = frappe.utils.escape_html
+		doc.description = (
+			f"<p><strong>{escape(_('Category'))}:</strong> {escape(str(ticket_data.get('category') or 'Other').title())}</p>"
+			f"<p><strong>{escape(_('Related Order'))}:</strong> {escape(ticket_data.get('order') or _('N/A'))}</p>"
+			f'<p style="white-space: pre-wrap">{escape(ticket_data.get("description"))}</p>'
+		)
 		doc.raised_by = frappe.session.user
 
 		# Try to set priority if the field exists

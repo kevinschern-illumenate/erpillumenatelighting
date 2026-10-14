@@ -1046,9 +1046,11 @@ body.reorder-no-select {
 {% endblock %}
 
 {% block page_content %}
-{% if (lines | default([]) | selectattr("verification_status", "defined") | selectattr("verification_status", "equalto", "Pending") | list) %}<div class="alert alert-warning">Some lines await product verification. You may request a quote; our team will confirm before it is issued.</div>{% endif %}
 {% include "templates/includes/portal_navigation.html" %}
 <div class="container portal-page">
+	{% if (lines | default([]) | selectattr("verification_status", "defined") | selectattr("verification_status", "equalto", "Pending") | list) %}
+	<div class="alert alert-warning" role="status">{{ _("Some lines await product verification. You may request a quote; our team will confirm before it is issued.") }}</div>
+	{% endif %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -1123,7 +1125,7 @@ body.reorder-no-select {
 							{% if schedule.status == 'ISSUE' %}
 							<div class="alert alert-danger mb-2" role="alert">
 								<i class="fa fa-exclamation-triangle"></i>
-								{{ schedule.status_note or _("We were unable to complete this order request. Please reach out to sales@illumenate.lighting for more information if we have not already been in contact with you.") }}
+								{{ schedule.status_note or _("We were unable to complete this order request. Please reach out to {0} for more information if we have not already been in contact with you.").format(sales_email) }}
 							</div>
 							{% elif schedule.status == 'ORDER_REQUESTED' %}
 							<div class="alert alert-info mb-2" role="alert">

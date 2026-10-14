@@ -1,9 +1,18 @@
 """Support Issue read model: current parent access, pagination and reply loop."""
 
+import html
+import re
+
 import frappe
 
 from illumenate_lighting.illumenate_lighting.portal.access import get_actor
 from illumenate_lighting.illumenate_lighting.portal.conversations import _pagination, is_staff
+
+
+def description_text(value):
+	"""Issue descriptions are HTML (Text Editor); show them as plain text with paragraph breaks."""
+	text = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</li>", "\n", value or "")
+	return html.unescape(re.sub(r"<[^>]+>", "", text)).strip()
 
 
 def can_read(doc, user=None):
@@ -81,6 +90,7 @@ def detail(name):
 		"subject": doc.subject,
 		"status": doc.status,
 		"description": doc.description,
+		"description_text": description_text(doc.description),
 		"creation": doc.creation,
 		"order": doc.get("ill_portal_order"),
 		"next_action_by": doc.get("ill_next_action_by") or "Staff",

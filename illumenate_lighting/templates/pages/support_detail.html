@@ -5,7 +5,7 @@
   <a href="/portal/support">{{ _("Back to support") }}</a>
   <h1 class="mt-3">{{ ticket.subject | e }}</h1>
   <p>{{ ticket.name | e }} · {{ ticket.status | e }}</p>
-  <div style="white-space:pre-wrap">{{ frappe.utils.strip_html(ticket.description or '') | e }}</div>
+  <div style="white-space:pre-wrap">{{ (ticket.description_text if ticket.description_text is defined else frappe.utils.strip_html(ticket.description or '')) | e }}</div>
   {% if ticket.order %}<p><a href="/portal/orders/{{ ticket.order | urlencode }}">{{ _("Related order") }}: {{ ticket.order | e }}</a></p>{% endif %}
   {% for file in ticket.files %}<p><a href="{{ file.file_url | e }}">{{ file.file_name | e }}</a></p>{% endfor %}
   {% include "templates/includes/portal_conversation.html" %}

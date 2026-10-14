@@ -1,5 +1,6 @@
 // Website / portal (web_include_js) bundle — content-hashed on build.
 import "./portal_call_compat.js";
+import "./portal_ui.js";
 import "./portal.js";
 import "./portal_uploads.js";
 import "./portal_dialog.js";

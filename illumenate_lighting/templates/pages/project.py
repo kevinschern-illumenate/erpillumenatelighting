@@ -59,12 +59,21 @@ def get_context(context):
 		as_dict=True,
 	)
 
-	# Add line count to each schedule
-	for schedule in schedules:
-		schedule.lines_count = frappe.db.count(
-			"ilL-Child-Fixture-Schedule-Line",
-			{"parent": schedule.name},
+	# Line counts for every schedule in one grouped query
+	counts = {}
+	if schedules:
+		counts = dict(
+			frappe.db.sql(
+				"""
+				SELECT parent, COUNT(*) FROM `tabilL-Child-Fixture-Schedule-Line`
+				WHERE parenttype = 'ilL-Project-Fixture-Schedule' AND parent IN %(names)s
+				GROUP BY parent
+				""",
+				{"names": tuple(schedule.name for schedule in schedules)},
+			)
 		)
+	for schedule in schedules:
+		schedule.lines_count = counts.get(schedule.name, 0)
 
 	# Pre-load contact details for project_manager (still a Contact field)
 	contact_details = {}

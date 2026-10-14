@@ -30,18 +30,16 @@ Displays all projects accessible to the current user
 			{% if projects %}
 			<div class="list-group" id="projectsList">
 				{% for project in projects %}
-				<div class="list-group-item list-group-item-action project-row {% if project.status == 'ARCHIVED' %}project-archived d-none{% endif %}" data-status="{{ project.status }}">
+				<div class="list-group-item list-group-item-action project-row {% if project.status == 'ARCHIVED' %}project-archived d-none{% endif %}" data-status="{{ project.status | e }}" data-project="{{ project.name | e }}">
 					<div class="d-flex w-100 justify-content-between align-items-center">
-						<a href="/portal/projects/{{ project.name }}" class="text-decoration-none text-reset flex-grow-1">
+						<a href="/portal/projects/{{ project.name | urlencode }}" class="text-decoration-none text-reset flex-grow-1">
 							<div>
 								<h5 class="mb-1 {% if project.status == 'ARCHIVED' %}text-muted{% endif %}">
-									{{ project.project_name }}
-									{% if project.status == 'ARCHIVED' %}
-									<small class="text-muted">(Archived)</small>
-									{% endif %}
+									{{ project.project_name | e }}
+									<small class="text-muted js-archived-note"{% if project.status != 'ARCHIVED' %} hidden{% endif %}>({{ _("Archived") }})</small>
 								</h5>
 								<p class="mb-1 text-muted">
-									{{ project.customer }}
+									{{ project.customer | e }}
 									{% if project.is_private %}
 									<span class="badge badge-secondary ml-2">
 										<i class="fa fa-lock"></i> Private
@@ -52,8 +50,8 @@ Displays all projects accessible to the current user
 						</a>
 						<div class="d-flex align-items-center ml-3">
 							<div class="text-right mr-2">
-								<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else ('secondary' if project.status == 'ARCHIVED' else 'warning') }}">
-									{{ project.status }}
+								<span class="badge js-project-status badge-{{ 'success' if project.status == 'ACTIVE' else ('secondary' if project.status == 'ARCHIVED' else 'warning') }}">
+									{{ project.status | e }}
 								</span>
 								<br>
 								<small class="text-muted">{{ frappe.utils.format_date(project.modified) }}</small>
@@ -127,64 +125,54 @@ document.addEventListener('click', function(event) {
 	}
 });
 
-function escapeLabel(value) {
-	return frappe.utils.escape_html(value || '');
+// Archiving moves the row between the active and archived lists in place.
+function showProjectStatus(row, archived) {
+	var button = row.querySelector('.js-archive-project, .js-unarchive-project');
+	var badge = row.querySelector('.js-project-status');
+	row.dataset.status = archived ? 'ARCHIVED' : 'ACTIVE';
+	row.classList.toggle('project-archived', archived);
+	row.classList.toggle('d-none', archived && !document.getElementById('showArchived').checked);
+	row.querySelector('h5').classList.toggle('text-muted', archived);
+	row.querySelector('.js-archived-note').hidden = !archived;
+	badge.textContent = row.dataset.status;
+	badge.classList.toggle('badge-success', !archived);
+	badge.classList.toggle('badge-secondary', archived);
+	badge.classList.remove('badge-warning');
+	button.classList.toggle('js-archive-project', !archived);
+	button.classList.toggle('js-unarchive-project', archived);
+	button.classList.toggle('btn-outline-warning', !archived);
+	button.classList.toggle('btn-outline-success', archived);
+	button.title = archived ? __('Unarchive') : __('Archive');
+	button.querySelector('i').className = archived ? 'fa fa-undo' : 'fa fa-archive';
+	updateNoActiveMessage();
+}
+
+function changeProjectStatus(projectName, displayName, archive) {
+	var row = Array.prototype.find.call(document.querySelectorAll('.project-row'), function(item) { return item.dataset.project === projectName; });
+	PortalUI.confirm({
+		title: archive ? __('Archive project') : __('Restore project'),
+		body: archive
+			? __('Archive "{0}"? It will be hidden from the active list but can be restored later.', [displayName])
+			: __('Restore "{0}" to active status?', [displayName]),
+		confirmLabel: archive ? __('Archive') : __('Restore')
+	}).then(function(yes) {
+		if (!yes) return;
+		PortalUI.call('illumenate_lighting.illumenate_lighting.api.portal.' + (archive ? 'archive_project' : 'unarchive_project'),
+			{ project_name: projectName }).then(function() {
+			if (row) showProjectStatus(row, archive);
+			PortalUI.toast(archive ? __('"{0}" archived', [displayName]) : __('"{0}" restored', [displayName]));
+		}).catch(function(error) {
+			PortalUI.toast(error.message, 'red');
+		});
+	});
 }
 
 function archiveProjectFromList(projectName, displayName) {
-	frappe.confirm(
-		'Are you sure you want to archive "' + escapeLabel(displayName) + '"? It will be hidden from the active list but can be unarchived later.',
-		function() {
-			frappe.call({
-				method: 'illumenate_lighting.illumenate_lighting.api.portal.archive_project',
-				args: { project_name: projectName },
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						frappe.msgprint({
-							title: 'Success',
-							indicator: 'green',
-							message: '"' + escapeLabel(displayName) + '" has been archived'
-						});
-						window.location.reload();
-					} else {
-						frappe.msgprint({
-							title: 'Error',
-							indicator: 'red',
-							message: r.message.error || 'Error archiving project'
-						});
-					}
-				}
-			});
-		}
-	);
+	changeProjectStatus(projectName, displayName, true);
 }
 
 function unarchiveProjectFromList(projectName, displayName) {
-	frappe.confirm(
-		'Restore "' + escapeLabel(displayName) + '" to active status?',
-		function() {
-			frappe.call({
-				method: 'illumenate_lighting.illumenate_lighting.api.portal.unarchive_project',
-				args: { project_name: projectName },
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						frappe.msgprint({
-							title: 'Success',
-							indicator: 'green',
-							message: '"' + escapeLabel(displayName) + '" has been restored'
-						});
-						window.location.reload();
-					} else {
-						frappe.msgprint({
-							title: 'Error',
-							indicator: 'red',
-							message: r.message.error || 'Error restoring project'
-						});
-					}
-				}
-			});
-		}
-	);
+	changeProjectStatus(projectName, displayName, false);
 }
 </script>
 {% endblock %}

@@ -466,6 +466,9 @@ def get_context(context):
 	context.schedule_status_class = schedule_status_class
 	context.schedule_status_label = schedule_status_label
 	context.schedule_status_description = schedule_status_description
+	from illumenate_lighting.illumenate_lighting.portal.status import SALES_EMAIL
+
+	context.sales_email = SALES_EMAIL
 	context.status_labels = {status: schedule_status_label(status) for status in ("DRAFT", "READY", "QUOTED")}
 	context.open_offer = _open_offer(schedule.name)
 	context.title = schedule.schedule_name

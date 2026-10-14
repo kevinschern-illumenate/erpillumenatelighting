@@ -34,21 +34,13 @@ Manage collaborators for a project
 	<div class="card mb-4">
 		<div class="card-body">
 			<div class="d-flex justify-content-between align-items-center">
-				<div>
-					<h5 class="mb-1">
-						{% if project.is_private %}
-						<i class="fa fa-lock text-warning"></i> {{ _("Private Project") }}
-						{% else %}
-						<i class="fa fa-building text-info"></i> {{ _("Company Visible") }}
-						{% endif %}
-					</h5>
-					<p class="text-muted mb-0">
-						{% if project.is_private %}
-						{{ _("Only you and listed collaborators can access this project") }}
-						{% else %}
-						{{ _("All users at") }} <strong>{{ project.customer }}</strong> {{ _("can view this project") }}
-						{% endif %}
-					</p>
+				<div id="privacyPrivate"{% if not project.is_private %} hidden{% endif %}>
+					<h5 class="mb-1"><i class="fa fa-lock text-warning"></i> {{ _("Private Project") }}</h5>
+					<p class="text-muted mb-0">{{ _("Only you and listed collaborators can access this project") }}</p>
+				</div>
+				<div id="privacyCompany"{% if project.is_private %} hidden{% endif %}>
+					<h5 class="mb-1"><i class="fa fa-building text-info"></i> {{ _("Company Visible") }}</h5>
+					<p class="text-muted mb-0">{{ _("All users at") }} <strong>{{ project.customer | e }}</strong> {{ _("can view this project") }}</p>
 				</div>
 				{% if can_manage %}
 				<div class="custom-control custom-switch">
@@ -319,6 +311,8 @@ var collaboratorText = {
 	removed: {{ _("Collaborator removed") | tojson }},
 	confirmRemove: {{ _("Remove {0} from this project?") | tojson }},
 	chooseUser: {{ _("Please select a user") | tojson }},
+	nowPrivate: {{ _("Project is now private") | tojson }},
+	nowCompany: {{ _("Project is now visible to the company") | tojson }},
 	enterEmail: {{ _("Enter the email address to invite") | tojson }},
 	invited: {{ _("Invitation emailed to {0}") | tojson }},
 	resent: {{ _("A new link was emailed to {0}; the old one no longer works") | tojson }},
@@ -333,13 +327,8 @@ var collaboratorText = {
 var ACCOUNTS = 'illumenate_lighting.illumenate_lighting.portal.accounts.';
 
 function invitationCall(method, args, done) {
-	frappe.call({
-		method: method,
-		args: args,
-		type: 'POST',
-		callback: function(r) {
-			if (r.message && r.message.success) done(r.message);
-		}
+	PortalUI.call(method, args).then(done).catch(function(error) {
+		PortalUI.toast(error.message, 'red');
 	});
 }
 
@@ -379,7 +368,7 @@ $('#sendInviteButton').on('click', function() {
 		addInvitationRow(invite, firstName, lastName, accessLevel);
 		$('#inviteForm')[0].reset();
 		$('#inviteModal').modal('hide');
-		frappe.show_alert({message: collaboratorText.invited.replace('{0}', invite.email), indicator: 'green'});
+		PortalUI.toast(collaboratorText.invited.replace('{0}', invite.email));
 	});
 });
 
@@ -387,40 +376,32 @@ $(document).on('click', '.resend-invitation', function() {
 	var row = $(this).closest('tr');
 	invitationCall(ACCOUNTS + 'resend_invitation', {name: row.attr('data-invitation')}, function(invite) {
 		row.find('.invitation-expires small').text(invite.expires_on.slice(0, 10));
-		frappe.show_alert({message: collaboratorText.resent.replace('{0}', invite.email), indicator: 'green'});
+		PortalUI.toast(collaboratorText.resent.replace('{0}', invite.email));
 	});
 });
 
 $(document).on('click', '.revoke-invitation', function() {
 	var row = $(this).closest('tr');
 	var email = row.find('small').first().text();
-	if (!confirm(collaboratorText.confirmRevoke.replace('{0}', email))) {
-		return;
-	}
-	invitationCall(ACCOUNTS + 'revoke_invitation', {name: row.attr('data-invitation')}, function() {
-		row.remove();
-		$('#pendingInvitations').prop('hidden', !$('#invitationList tr').length);
-		frappe.show_alert({message: collaboratorText.revoked, indicator: 'green'});
+	PortalUI.confirm({body: collaboratorText.confirmRevoke.replace('{0}', email), confirmLabel: collaboratorText.revoke, tone: 'danger'}).then(function(yes) {
+		if (!yes) return;
+		invitationCall(ACCOUNTS + 'revoke_invitation', {name: row.attr('data-invitation')}, function() {
+			row.remove();
+			$('#pendingInvitations').prop('hidden', !$('#invitationList tr').length);
+			PortalUI.toast(collaboratorText.revoked);
+		});
 	});
 });
 
 function collaboratorCall(method, args, done, failed) {
 	args.project = projectName;
 	args.expected_modified = projectModified;
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.portal.collaborators.' + method,
-		args: args,
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				projectModified = r.message.modified;
-				done(r.message.collaborator);
-			} else if (failed) {
-				failed();
-			}
-		},
-		error: function() {
-			if (failed) failed();
-		}
+	PortalUI.call('illumenate_lighting.illumenate_lighting.portal.collaborators.' + method, args).then(function(result) {
+		projectModified = result.modified;
+		done(result.collaborator);
+	}).catch(function(error) {
+		PortalUI.toast(error.message, 'red');
+		if (failed) failed();
 	});
 }
 
@@ -460,37 +441,20 @@ function buildCollaboratorRow(user, fullName, email) {
 
 $('.access-level-select').each(function() { $(this).data('current', $(this).val()); });
 
-// Toggle privacy setting
+// Toggle privacy setting; the card text updates in place
 $('#privacyToggle').on('change', function() {
-	var isPrivate = $(this).is(':checked') ? 1 : 0;
-	
-	frappe.call({
-		method: 'illumenate_lighting.illumenate_lighting.api.portal.toggle_project_privacy',
-		args: {
-			project_name: projectName,
-			is_private: isPrivate
-		},
-		callback: function(r) {
-			if (r.message && r.message.success) {
-				frappe.msgprint({
-					title: 'Success',
-					indicator: 'green',
-					message: isPrivate ? 'Project is now private' : 'Project is now visible to company'
-				});
-				// Reload to update UI
-				setTimeout(function() {
-					window.location.reload();
-				}, 1000);
-			} else {
-				frappe.msgprint({
-					title: 'Error',
-					indicator: 'red',
-					message: (r.message && r.message.error) || 'Error updating privacy setting'
-				});
-				// Revert toggle
-				$('#privacyToggle').prop('checked', !isPrivate);
-			}
-		}
+	var toggle = this;
+	var isPrivate = toggle.checked ? 1 : 0;
+	PortalUI.call('illumenate_lighting.illumenate_lighting.api.portal.toggle_project_privacy', {
+		project_name: projectName,
+		is_private: isPrivate
+	}, {busy: toggle}).then(function() {
+		$('#privacyPrivate').prop('hidden', !isPrivate);
+		$('#privacyCompany').prop('hidden', !!isPrivate);
+		PortalUI.toast(isPrivate ? collaboratorText.nowPrivate : collaboratorText.nowCompany);
+	}).catch(function(error) {
+		toggle.checked = !isPrivate;
+		PortalUI.toast(error.message, 'red');
 	});
 });
 
@@ -501,7 +465,7 @@ $(document).on('change', '.access-level-select', function() {
 	var row = collaboratorRow(user);
 	collaboratorCall('set_access_level', {user: user, level: select.val()}, function(collaborator) {
 		showCollaboratorState(row, collaborator);
-		frappe.show_alert({message: collaboratorText.updated, indicator: 'green'});
+		PortalUI.toast(collaboratorText.updated);
 	}, function() {
 		select.val(select.data('current'));
 	});
@@ -512,12 +476,12 @@ $(document).on('click', '.remove-collaborator', function() {
 	var user = $(this).attr('data-user');
 	var row = collaboratorRow(user);
 	var label = row.find('strong').first().text() || user;
-	if (!confirm(collaboratorText.confirmRemove.replace('{0}', label))) {
-		return;
-	}
-	collaboratorCall('deactivate', {user: user}, function(collaborator) {
-		showCollaboratorState(row, collaborator);
-		frappe.show_alert({message: collaboratorText.removed, indicator: 'green'});
+	PortalUI.confirm({body: collaboratorText.confirmRemove.replace('{0}', label), confirmLabel: collaboratorText.remove, tone: 'danger'}).then(function(yes) {
+		if (!yes) return;
+		collaboratorCall('deactivate', {user: user}, function(collaborator) {
+			showCollaboratorState(row, collaborator);
+			PortalUI.toast(collaboratorText.removed);
+		});
 	});
 });
 
@@ -543,7 +507,7 @@ $('#addCollaboratorButton').on('click', function() {
 		picker.val('');
 		$('#addCollaboratorButton').prop('disabled', picker.find('option').length < 2);
 		$('#addCollaboratorModal').modal('hide');
-		frappe.show_alert({message: collaboratorText.added, indicator: 'green'});
+		PortalUI.toast(collaboratorText.added);
 	});
 });
 {% endif %}

@@ -531,6 +531,9 @@ def _link_member(user, customer):
 		contact.append("email_ids", {"email_id": user.email, "is_primary": 1})
 		contact.append("links", {"link_doctype": "Customer", "link_name": customer})
 		contact.insert(ignore_permissions=True)
+	from illumenate_lighting.illumenate_lighting.portal.access import forget_actor
+
+	forget_actor(user.name)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -565,6 +568,9 @@ def disable_member(user):
 		)
 	doc.enabled = 0
 	doc.save(ignore_permissions=True)
+	from illumenate_lighting.illumenate_lighting.portal.access import forget_actor
+
+	forget_actor(user)
 	return {"success": True}
 
 
