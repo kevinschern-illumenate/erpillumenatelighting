@@ -10,6 +10,12 @@ in public/css/pages/.
 
 {% block title %}{% block portal_title %}{{ _("Portal") }}{% endblock %} · {{ _("ilLumenate Portal") }}{% endblock %}
 
+{# UI-6: the two Poppins weights body copy and buttons use, fetched before the CSS asks for them. #}
+{% block head_include %}{{ super() }}
+<link rel="preload" href="/assets/illumenate_lighting/fonts/Poppins-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/illumenate_lighting/fonts/Poppins-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+{% endblock %}
+
 {% block page_content %}
 <div class="ill-page {% block portal_scope %}{% endblock %}">
 {% block portal_navigation %}{% include "templates/includes/portal_navigation.html" %}{% endblock %}

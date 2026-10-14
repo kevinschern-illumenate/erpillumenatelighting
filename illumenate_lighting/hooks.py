@@ -34,8 +34,12 @@ app_include_css = ["illumenate_desk.bundle.css"]
 app_include_js = ["illumenate_desk.bundle.js"]
 
 # include js, css files in header of web template
+# Font Awesome 6 Free, self-hosted (UI-6). The v4 shims keep the portal's `fa fa-*` class
+# names and `font-family: FontAwesome` rules working on the v6 fonts.
 web_include_css = [
-	"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
+	"/assets/illumenate_lighting/vendor/fontawesome/css/all.min.css",
+	"/assets/illumenate_lighting/vendor/fontawesome/css/v4-shims.min.css",
+	"/assets/illumenate_lighting/vendor/fontawesome/css/v4-font-face.min.css",
 	"illumenate_web.bundle.css",
 ]
 # Portal scripts; the configurator is illumenate_configurator.bundle.js, included

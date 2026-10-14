@@ -27,7 +27,7 @@ environment = Environment(
 		[
 			DictLoader(
 				{
-					"templates/web.html": "<!doctype html><html><body>{% block page_content %}{% endblock %}{% block script %}{% endblock %}</body></html>"
+					"templates/web.html": "<!doctype html><html><head>{% block head_include %}{% endblock %}</head><body>{% block page_content %}{% endblock %}{% block script %}{% endblock %}</body></html>"
 				}
 			),
 			FileSystemLoader(ROOT / "illumenate_lighting"),
@@ -981,3 +981,16 @@ configurator_bundle = (WEB_JS / "illumenate_configurator.bundle.js").read_text(e
 for script in WEB_JS.glob("configurator/*.js"):
 	assert f'"./configurator/{script.name}"' in configurator_bundle, script.name
 print("Checked the configurator bundle split")
+# UI-6: fonts and icons are self-hosted woff2, with the two body weights preloaded.
+PUBLIC = ROOT / "illumenate_lighting/public"
+hooks_source = (ROOT / "illumenate_lighting/hooks.py").read_text(encoding="utf8")
+portal_css = (PUBLIC / "css/portal.css").read_text(encoding="utf8")
+assert "cdnjs" not in hooks_source and "fonts.googleapis" not in portal_css
+font_urls = re.findall(r"url\('/assets/illumenate_lighting/(fonts/[^']+)'\)", portal_css)
+assert font_urls and all(url.endswith(".woff2") and (PUBLIC / url).exists() for url in font_urls), font_urls
+for stylesheet in re.findall(r'"/assets/illumenate_lighting/(vendor/fontawesome/css/[^"]+)"', hooks_source):
+	assert (PUBLIC / stylesheet).exists(), stylesheet
+portal_shell = environment.get_template("templates/portal_base.html").render()
+for weight in ("Regular", "SemiBold"):
+	assert f'href="/assets/illumenate_lighting/fonts/Poppins-{weight}.woff2" as="font"' in portal_shell
+print("Checked self-hosted fonts and icons")

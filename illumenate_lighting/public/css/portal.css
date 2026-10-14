@@ -1,34 +1,47 @@
 /* ilLumenate brand webfonts (Brand Guidelines 2025): Manrope for headings,
-   Poppins for body copy. Poppins 400/600 come from Google Fonts for the
-   regular/semibold weights the portal UI also uses. */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+   Poppins for body copy. All self-hosted as woff2 (UI-6); portal_base.html
+   preloads Poppins 400 and 600, the two weights body copy and buttons use. */
 
 @font-face {
 	font-family: 'Manrope';
-	src: url('/assets/illumenate_lighting/fonts/Manrope-Variable.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Manrope-Variable.woff2') format('woff2');
 	font-weight: 200 800;
 	font-style: normal;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'Poppins';
-	src: url('/assets/illumenate_lighting/fonts/Poppins-Light.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Light.woff2') format('woff2');
 	font-weight: 300;
 	font-style: normal;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'Poppins';
-	src: url('/assets/illumenate_lighting/fonts/Poppins-Medium.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Poppins';
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Medium.woff2') format('woff2');
 	font-weight: 500;
 	font-style: normal;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'Poppins';
-	src: url('/assets/illumenate_lighting/fonts/Poppins-MediumItalic.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Poppins-MediumItalic.woff2') format('woff2');
 	font-weight: 500;
 	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Poppins';
+	src: url('/assets/illumenate_lighting/fonts/Poppins-SemiBold.woff2') format('woff2');
+	font-weight: 600;
+	font-style: normal;
 	font-display: swap;
 }
 
