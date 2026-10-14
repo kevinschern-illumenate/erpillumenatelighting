@@ -93,118 +93,15 @@ def _can_access_configured_record(doctype: str, name: str, line_fieldname: str) 
 
 @frappe.whitelist()
 def get_allowed_customers_for_project() -> dict:
-	"""
-	Get customers that the current user can create projects for.
-
-	Returns customers that:
-	1. System Manager: All customers
-	2. The user's own company (Customer linked via their Contact)
-	3. Customers that were created by contacts at the user's company
+	"""Customers the current user can pick on a project (see portal.allowed_customers).
 
 	Returns:
-		dict: {
-			"success": True/False,
-			"user_customer": str or None,
-			"allowed_customers": [{"value": name, "label": customer_name}]
-		}
+		dict: {"success": True, "user_customer": str or None,
+		"allowed_customers": [{"value": name, "label": customer_name}]}
 	"""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-	)
+	from illumenate_lighting.illumenate_lighting.portal.allowed_customers import allowed_customers
 
-	# System Manager can access all customers
-	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
-	if is_system_manager:
-		all_customers = frappe.get_all(
-			"Customer",
-			fields=["name", "customer_name"],
-			order_by="customer_name asc",
-		)
-		allowed_customers = [
-			{"value": c.name, "label": c.customer_name or c.name}
-			for c in all_customers
-		]
-		return {
-			"success": True,
-			"user_customer": None,
-			"allowed_customers": allowed_customers,
-		}
-
-	user_customer = _get_user_customer(frappe.session.user)
-
-	if not user_customer:
-		return {
-			"success": True,
-			"user_customer": None,
-			"allowed_customers": [],
-		}
-
-	# Get all contacts linked to the user's company (Customer)
-	company_contacts = frappe.db.sql("""
-		SELECT DISTINCT c.name as contact_name, c.user
-		FROM `tabContact` c
-		INNER JOIN `tabDynamic Link` dl ON dl.parent = c.name
-			AND dl.parenttype = 'Contact'
-			AND dl.link_doctype = 'Customer'
-			AND dl.link_name = %(user_customer)s
-	""", {"user_customer": user_customer}, as_dict=True)
-
-	contact_names = [c.contact_name for c in company_contacts]
-
-	# Get customers that were created by users at this company
-	# A customer is considered "created by the company" if:
-	# 1. The owner is a user linked to a contact at the company, OR
-	# 2. There's a contact at the company linked to that customer
-	allowed_customer_names = set()
-	allowed_customer_names.add(user_customer)  # Always include user's own company
-
-	if contact_names:
-		# Get customers linked to contacts at the user's company
-		linked_customers = frappe.db.sql("""
-			SELECT DISTINCT dl.link_name as customer_name
-			FROM `tabDynamic Link` dl
-			WHERE dl.parenttype = 'Contact'
-				AND dl.link_doctype = 'Customer'
-				AND dl.parent IN (
-					SELECT c.name FROM `tabContact` c
-					INNER JOIN `tabDynamic Link` dl2 ON dl2.parent = c.name
-						AND dl2.parenttype = 'Contact'
-						AND dl2.link_doctype = 'Customer'
-						AND dl2.link_name = %(user_customer)s
-				)
-		""", {"user_customer": user_customer}, as_dict=True)
-
-		for row in linked_customers:
-			allowed_customer_names.add(row.customer_name)
-
-		# Also get customers created by users at this company
-		company_users = [c.user for c in company_contacts if c.user]
-		if company_users:
-			created_customers = frappe.get_all(
-				"Customer",
-				filters={"owner": ["in", company_users]},
-				pluck="name",
-			)
-			for cust in created_customers:
-				allowed_customer_names.add(cust)
-
-	# Build the response with customer details
-	allowed_customers = []
-	for cust_name in allowed_customer_names:
-		customer_name_display = frappe.db.get_value("Customer", cust_name, "customer_name")
-		allowed_customers.append({
-			"value": cust_name,
-			"label": customer_name_display or cust_name,
-		})
-
-	# Sort by label
-	allowed_customers.sort(key=lambda x: x["label"])
-
-	return {
-		"success": True,
-		"user_customer": user_customer,
-		"allowed_customers": allowed_customers,
-	}
+	return allowed_customers()
 
 
 # Whitelist of project-access WHERE clauses used by
