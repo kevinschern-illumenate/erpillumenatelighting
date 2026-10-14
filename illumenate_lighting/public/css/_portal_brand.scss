@@ -4,13 +4,15 @@
 // (buttons, cards, forms, tables, badges, alerts, tabs, modals, breadcrumbs)
 // with the ilLumenate Design System: navy #172E48, blue #00588C and gold
 // #FDC757, Manrope headings over Poppins body copy, pill buttons, 10px fields,
-// soft navy-tinted shadows. Visual only: no layout, sizing or display rules
-// that scripts rely on.
+// soft navy-tinted shadows. Presentation only; control behaviour stays with
+// Bootstrap and the page scripts.
 //
-// Scoped to portal routes through the <body data-path> Frappe renders, so Desk,
-// the login page and the Catalog Builder keep their own look.
+// Frappe's mapped routes use template names (ill_projects, drawings, etc.) in
+// body[data-path]. Recognise the shared portal layout as well as URL paths so
+// the skin applies consistently, including to dialogs mounted under body.
+// Desk, login and the Catalog Builder do not contain .ill-page.
 
-$portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
+$portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"], :has(.ill-page))';
 
 // Base typography and links carry no extra specificity, so a page's own rule
 // (a white heading on the dashboard hero, an inherited link colour) still wins.
@@ -20,6 +22,7 @@ $portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
 		font-family: var(--ill-font-display);
 		font-weight: 600;
 		letter-spacing: -0.01em;
+		color: var(--ill-ink);
 	}
 	h1, .h1 { letter-spacing: -0.02em; }
 	.modal-title, .card-title { font-family: var(--ill-font-display); }
@@ -84,11 +87,11 @@ $portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
 		font-family: var(--ill-font-body);
 		font-weight: 500;
 		border-radius: var(--ill-radius-pill);
-		border-width: 1.5px;
+		border: 1.5px solid transparent;
 		transition: color var(--ill-transition), background-color var(--ill-transition),
 			border-color var(--ill-transition), box-shadow var(--ill-transition), filter var(--ill-transition);
 	}
-	.btn:not(.btn-sm):not(.btn-lg):not(.btn-block):not(.btn-link) { padding-left: 1.1rem; padding-right: 1.1rem; }
+	.btn:not(.btn-sm):not(.btn-lg):not(.btn-block):not(.btn-link) { padding: 0.5rem 1.1rem; }
 	.btn:focus, .btn.focus { box-shadow: 0 0 0 3px var(--ill-blue-100); }
 	.btn:not(:disabled):not(.disabled):active { transform: scale(0.98); }
 	.btn.disabled, .btn:disabled { opacity: 0.45; }
@@ -261,11 +264,21 @@ $portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
 	.form-control, .custom-select, .custom-file-label {
 		border: 1.5px solid var(--ill-gray-300);
 		border-radius: var(--ill-radius-control);
+		background-color: var(--ill-paper);
 		color: var(--ill-ink);
 		font-family: var(--ill-font-body);
 		transition: border-color var(--ill-transition), box-shadow var(--ill-transition);
 	}
-	.form-control::placeholder { color: var(--ill-navy-200); }
+	.form-control::placeholder { color: var(--ill-text-secondary); }
+	// Website fields inherit Frappe's compact Desk height. Give standard portal
+	// inputs room to breathe while preserving small/large and icon field padding.
+	:where(.ill-page) :where(input, select).form-control:where(:not(.form-control-sm):not(.form-control-lg)) {
+		height: auto;
+		min-height: 2.75rem;
+		padding-block: 0.625rem;
+		line-height: 1.5;
+	}
+	:where(.ill-page) select.form-control { appearance: auto; padding-right: 2rem; }
 	.form-control:focus, .custom-select:focus {
 		border-color: var(--ill-blue-600);
 		box-shadow: 0 0 0 3px var(--ill-blue-100);
@@ -350,6 +363,19 @@ $portal-scope: 'body:is([data-path^="portal"], [data-path="configure-sheet"])';
 	.card-header.bg-primary *, .card-header.bg-info *, .card-header.bg-success *, .card-header.bg-dark * { color: inherit; }
 	.card-header.bg-light { border-bottom-color: var(--ill-navy-100); }
 	.card-header.bg-warning { color: var(--ill-navy-600); }
+
+	// Frappe headings have their own colour, so setting white on the gradient
+	// container alone does not make its title readable.
+	.ill-page :is(.form-card-header, .request-header-top, .support-hero, .ticket-form-header) {
+		color: #fff;
+		h1, h2, h3, h4, h5, h6 { color: inherit; margin-top: 0; }
+		.fa { color: inherit; }
+	}
+	.ill-page .page-header h1 {
+		margin: 0 0 0.5rem;
+		font-size: clamp(1.6rem, 3vw, 1.9rem);
+		line-height: 1.25;
+	}
 
 	// ── Tables ─────────────────────────────────────────────────
 	.table { color: var(--ill-ink); }

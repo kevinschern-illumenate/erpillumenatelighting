@@ -2635,7 +2635,9 @@ def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	- QUOTED is set by issuance of an eligible Quotation
 	- QUOTED -> DRAFT / READY (auto-versions: the quoted state is kept as a
 	  locked snapshot and editing continues on a new version)
-	- ORDER_REQUESTED, ORDERED, ISSUE and CLOSED are system-driven
+	- ISSUE -> DRAFT / READY once the schedule has no active Sales Order
+	  (the rejected or withdrawn draft order was deleted); staff any time
+	- ORDER_REQUESTED, ORDERED, ISSUE and CLOSED are otherwise system-driven
 
 	Args:
 		schedule_name: Name of the schedule

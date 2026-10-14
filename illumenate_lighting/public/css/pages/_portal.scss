@@ -13,16 +13,20 @@
 	.portal-dashboard .ill-attention [data-tone="warning"] a { border-left-color: var(--ill-gold); }
 	.portal-dashboard .ill-attention [data-tone="danger"] a { border-left-color: var(--ill-red); }
 	.portal-dashboard .ill-attention__text { flex: 1; min-width: 0; }
-	.portal-dashboard .ill-attention__title { display: block; font-weight: 600; }
+	.portal-dashboard .ill-attention__title { display: block; font-weight: 600; overflow-wrap: anywhere; }
 	.portal-dashboard .ill-attention__context { display: block; font-size: .85rem; color: var(--ill-text-secondary); overflow-wrap: anywhere; }
 	.portal-dashboard .ill-attention__due { flex-shrink: 0; font-size: .85rem; white-space: nowrap; }
 	.portal-dashboard .ill-quick { display: flex; flex-wrap: wrap; gap: .5rem; }
 	.recent-list { list-style: none; padding: 0; margin: 0; }
-	.recent-list li { padding: .75rem 0; border-bottom: 1px solid var(--ill-gray-200); display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+	.recent-list li { padding: .875rem 1.5rem; border-bottom: 1px solid var(--ill-gray-200); display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 	.recent-list li:last-child { border-bottom: none; }
-	.recent-list .item-name { font-weight: 500; color: var(--ill-ink); }
+	.recent-list li > div { min-width: 0; }
+	.recent-list .item-name { font-weight: 500; color: var(--ill-ink); overflow-wrap: anywhere; }
 	.recent-list .item-meta { font-size: .8rem; color: var(--ill-gray-500); }
+	.recent-list .ill-status { flex-shrink: 0; }
 	@media (max-width: 575px) {
 		.portal-dashboard .ill-attention a { flex-wrap: wrap; }
+		.portal-dashboard .ill-attention__text { flex-basis: 100%; }
+		.recent-list li { flex-wrap: wrap; gap: .5rem; padding: .875rem 1.1rem; }
 	}
 }

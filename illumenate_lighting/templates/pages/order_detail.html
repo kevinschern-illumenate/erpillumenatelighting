@@ -270,6 +270,7 @@ One order or order request: review, progress, items, shipments, invoices and the
 					<ul class="ill-action-list">
 						{% if intake and intake.can_withdraw %}<li><button type="button" class="is-danger" data-order-action="Withdraw" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}"><i class="fa fa-undo" aria-hidden="true"></i> {{ _("Withdraw pending request") }}</button></li>{% endif %}
 						{% if intake and intake.can_replace %}<li><button type="button" data-order-action="Replacement" data-order="{{ order.name | e }}" data-revision="{{ intake.revision_hash | e }}"><i class="fa fa-files-o" aria-hidden="true"></i> {{ _("Prepare replacement draft") }}</button></li>{% endif %}
+						{% if intake and intake.can_delete %}<li><button type="button" class="is-danger" data-order-action="Delete" data-order="{{ order.name | e }}"><i class="fa fa-trash" aria-hidden="true"></i> {{ _("Delete order request") }}</button></li>{% endif %}
 						{% if actions.can_request_change %}
 						{% for action, label, icon in [('Change','Request change','fa-pencil-square-o'), ('Cancellation','Request cancellation','fa-ban'), ('Reorder','Prepare reorder draft','fa-repeat')] %}
 						<li><button type="button" data-order-action="{{ action | e }}" data-order="{{ order.name | e }}" data-revision="{{ order.revision_hash | e }}"><i class="fa {{ icon | e }}" aria-hidden="true"></i> {{ _(label) | e }}</button></li>

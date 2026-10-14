@@ -2,7 +2,7 @@
 // :where() keeps each selector's specificity what it was inline.
 :where(.ill-page--drawing-detail) {
 	.portal-page {
-		padding: 2rem 0;
+		padding-block: 2rem;
 	}
 	.request-header-card {
 		background: white;

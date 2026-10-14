@@ -1574,23 +1574,26 @@ def can_convert_schedule_to_order(doc, user=None):
 # ---------------------------------------------------------------------------
 
 
-def allowed_portal_transitions(current_status, user=None):
+def allowed_portal_transitions(current_status, user=None, schedule=None):
 	"""Statuses ``user`` may move a schedule to from ``current_status``.
 
 	- Anyone with write access: DRAFT <-> READY, QUOTED -> DRAFT/READY
 	- QUOTED is set only when an eligible Quotation is issued.
-	- Internal only: ISSUE -> DRAFT/READY (controlled retry)
+	- ISSUE -> DRAFT/READY: internal users always (controlled retry); anyone
+	  with write access once ``schedule`` has no active Sales Order left, i.e.
+	  after the rejected or withdrawn draft order was deleted.
 	- ORDER_REQUESTED / ORDERED / CLOSED are system-driven and not settable.
 	"""
 	if not user:
 		user = frappe.session.user
 	is_internal = _is_internal_user(user)
+	can_recover = is_internal or bool(schedule and not schedule.get_linked_sales_order())
 
 	transitions = {
 		"DRAFT": ["READY"],
 		"READY": ["DRAFT"],
 		"QUOTED": ["DRAFT", "READY"],
-		"ISSUE": ["DRAFT", "READY"] if is_internal else [],
+		"ISSUE": ["DRAFT", "READY"] if can_recover else [],
 	}
 	return transitions.get(current_status, [])
 
@@ -1623,7 +1626,7 @@ def transition_schedule_status(schedule, new_status, user=None):
 		return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
 
 	if new_status not in PORTAL_SETTABLE_STATUSES or new_status not in allowed_portal_transitions(
-		current_status, user
+		current_status, user, schedule
 	):
 		frappe.throw(
 			_("Cannot change status from {0} to {1}").format(current_status, new_status)
@@ -1643,6 +1646,8 @@ def transition_schedule_status(schedule, new_status, user=None):
 	# Save through the document so controller validation (e.g. all lines
 	# configured before READY) runs instead of being bypassed with db_set.
 	schedule.status = new_status
+	if current_status == "ISSUE":
+		schedule.status_note = None
 	schedule.save(ignore_permissions=True)
 	return {"new_status": new_status, "new_schedule_name": schedule.name, "auto_versioned": False}
 

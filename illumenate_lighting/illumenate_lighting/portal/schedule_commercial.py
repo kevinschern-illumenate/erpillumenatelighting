@@ -158,11 +158,12 @@ def progress(status, commercial):
 	]
 
 
-def next_step(schedule, commercial, *, can_edit, can_create_order, unconfigured):
+def next_step(schedule, commercial, *, can_edit, can_create_order, unconfigured, can_reopen=False):
 	"""The page's one primary action, plus an optional secondary one.
 
 	Each action is a dict with ``label`` and either ``href`` (a link) or
 	``action`` (a page function), and ``disabled_reason`` when it cannot run yet.
+	``can_reopen`` means an ISSUE schedule may go back to Draft for editing.
 	"""
 	status = schedule.status
 	locked = bool(schedule.get("is_locked"))
@@ -184,6 +185,8 @@ def next_step(schedule, commercial, *, can_edit, can_create_order, unconfigured)
 		primary = {"label": _("Review quote"), "href": open_offer.link}
 	elif status in ("ORDER_REQUESTED", "ORDERED", "ISSUE") and commercial.order:
 		primary = {"label": _("View order"), "href": commercial.order.link}
+	elif status == "ISSUE" and can_reopen:
+		primary = {"label": _("Return to draft"), "action": "draft"}
 	return {"primary": primary, "secondary": secondary}
 
 

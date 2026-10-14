@@ -190,7 +190,8 @@
 .portal-page {
 	font-family: var(--ill-font-family);
 	color: var(--ill-ink);
-	padding: var(--ill-space-8) 0;
+	/* Keep the website container's responsive horizontal gutters. */
+	padding-block: var(--ill-space-8);
 	min-height: 100vh;
 	background: white;
 }
@@ -530,7 +531,7 @@
    ============================================ */
 @media (max-width: 768px) {
 	.portal-page {
-		padding: var(--ill-space-4) 0;
+		padding-block: var(--ill-space-4);
 	}
 
 	.portal-card-body {

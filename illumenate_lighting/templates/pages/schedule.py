@@ -482,6 +482,15 @@ def get_context(context):
 
 	commercial = schedule_commercial.thread(schedule)
 	unconfigured = schedule_commercial.unconfigured_lines(lines)
+	# ISSUE is left only from here, once its order request is gone (or by staff).
+	issue_transitions = []
+	if schedule.status == "ISSUE" and can_edit and not schedule.get("is_locked"):
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+			allowed_portal_transitions,
+		)
+
+		issue_transitions = allowed_portal_transitions(schedule.status, frappe.session.user, schedule)
+	context.issue_transitions = issue_transitions
 	context.commercial = commercial
 	context.progress_steps = schedule_commercial.progress(schedule.status, commercial)
 	context.unconfigured_lines = unconfigured
@@ -491,6 +500,7 @@ def get_context(context):
 		can_edit=can_edit,
 		can_create_order=can_create_order and is_dealer,
 		unconfigured=[label for label, _key in unconfigured],
+		can_reopen="DRAFT" in issue_transitions,
 	)
 	context.title = schedule.schedule_name
 	context.no_cache = 1

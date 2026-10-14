@@ -2,7 +2,7 @@
 // :where() keeps each selector's specificity what it was inline.
 :where(.ill-page--account) {
 	.portal-page {
-		padding: 2rem 0;
+		padding-block: 2rem;
 	}
 	.page-header {
 		margin-bottom: 2rem;

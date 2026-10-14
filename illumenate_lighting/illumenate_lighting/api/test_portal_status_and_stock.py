@@ -9,6 +9,7 @@ Pure-function tests (no fixtures needed) covering:
 - qty-scaled, shared-demand stock allocation
 """
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import frappe
@@ -71,11 +72,11 @@ class TestOrderPortalStatus(FrappeTestCase):
 
 
 class TestScheduleTransitions(FrappeTestCase):
-	def _transitions(self, current, internal=False, dealer=False):
+	def _transitions(self, current, internal=False, dealer=False, schedule=None):
 		with patch.object(schedule_module, "_is_internal_user", return_value=internal), patch.object(
 			schedule_module, "_is_dealer_user", return_value=dealer
 		):
-			return schedule_module.allowed_portal_transitions(current, "someone@example.com")
+			return schedule_module.allowed_portal_transitions(current, "someone@example.com", schedule)
 
 	def test_collaborator_transitions(self):
 		self.assertEqual(self._transitions("DRAFT"), ["READY"])
@@ -89,6 +90,15 @@ class TestScheduleTransitions(FrappeTestCase):
 
 	def test_internal_can_recover_issue(self):
 		self.assertEqual(self._transitions("ISSUE", internal=True), ["DRAFT", "READY"])
+
+	def test_issue_reopens_once_its_order_request_is_deleted(self):
+		with_order = SimpleNamespace(get_linked_sales_order=lambda: "SO-0001")
+		without_order = SimpleNamespace(get_linked_sales_order=lambda: None)
+		self.assertEqual(self._transitions("ISSUE", dealer=True, schedule=with_order), [])
+		self.assertEqual(
+			self._transitions("ISSUE", dealer=True, schedule=without_order), ["DRAFT", "READY"]
+		)
+		self.assertEqual(self._transitions("ISSUE", schedule=without_order), ["DRAFT", "READY"])
 
 	def test_system_states_are_not_portal_settable(self):
 		for state in ("ORDER_REQUESTED", "ORDERED", "CLOSED"):

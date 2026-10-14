@@ -484,6 +484,28 @@ def withdraw(order_name, revision_hash, note):
 
 
 @frappe.whitelist(methods=["POST"])
+@atomic_build
+def delete_request(order_name):
+	"""Let the buyer remove a rejected or withdrawn draft order from the portal.
+
+	The request keeps its history (see ``on_trash``) and the schedule is released,
+	so the buyer can return it to Draft, edit it and request a new order.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.order_intake import _buyer
+
+	if not load_accessible_sales_order(order_name):
+		frappe.throw("Order unavailable", frappe.PermissionError)
+	order, request = _load(order_name)
+	_buyer(order.customer)
+	if order.docstatus or request.state not in ("REJECTED", "WITHDRAWN"):
+		frappe.throw("Only a rejected or withdrawn order request can be deleted")
+	schedule = order.get("ill_fixture_schedule")
+	# Dealers hold no ERP delete right; the checks above are the policy.
+	frappe.delete_doc("Sales Order", order.name, ignore_permissions=True)
+	return {"success": True, "schedule": schedule}
+
+
+@frappe.whitelist(methods=["POST"])
 def acknowledge(order_name, revision_hash):
 	actor = get_actor()
 	if not actor.is_dealer or not load_accessible_sales_order(order_name):
@@ -592,6 +614,9 @@ def detail(order_name):
 		and request.state not in ("APPROVED", "REJECTED", "WITHDRAWN")
 		and get_actor().is_dealer,
 		"can_replace": request.state in ("REJECTED", "WITHDRAWN") and get_actor().is_dealer,
+		"can_delete": not order.docstatus
+		and request.state in ("REJECTED", "WITHDRAWN")
+		and get_actor().is_company_dealer_for(order.customer),
 	}
 
 
@@ -608,12 +633,14 @@ def next_step(order, request, acknowledged):
 	if request.state == "WITHDRAWN":
 		return {
 			"buyer": False,
-			"text": "You withdrew this request. Prepare a replacement draft to order again.",
+			"text": "You withdrew this request. Delete it to edit the fixture schedule and order again, "
+			"or prepare a replacement draft.",
 		}
 	if request.state == "REJECTED":
 		return {
 			"buyer": True,
-			"text": "ilLumenate could not approve this request. Read their message and prepare a replacement draft.",
+			"text": "ilLumenate could not approve this request. Read their message, then delete this "
+			"request to edit the fixture schedule and order again, or prepare a replacement draft.",
 		}
 	if not request.get("intake_json"):
 		return {
@@ -766,9 +793,14 @@ def on_trash(order, method=None):
 	frappe.db.set_value(DOCTYPE, request.name, "sales_order", None, update_modified=False)
 	# Offers, drawing requests and the buyer's replacement request keep their
 	# schedule links; only the link to the deleted draft goes.
-	for doctype in ("ilL-Quote-Offer", "ilL-Document-Request", "ilL-Order-Change"):
-		for name in frappe.get_all(doctype, filters={"sales_order": order.name}, pluck="name"):
-			frappe.db.set_value(doctype, name, "sales_order", None, update_modified=False)
+	for doctype, field in (
+		("ilL-Quote-Offer", "sales_order"),
+		("ilL-Document-Request", "sales_order"),
+		("ilL-Order-Change", "sales_order"),
+		("ilL-Order-Change", "result_sales_order"),
+	):
+		for name in frappe.get_all(doctype, filters={field: order.name}, pluck="name"):
+			frappe.db.set_value(doctype, name, field, None, update_modified=False)
 	frappe.get_doc(DOCTYPE, request.name).add_comment(
 		"Info", f"Draft Sales Order {order.name} was deleted after this request was {request.state.lower()}."
 	)

@@ -160,7 +160,7 @@ Also handles new schedule creation when is_new is True
 									<a class="dropdown-item" href="#" data-schedule-menu="version">
 										<i class="fa fa-code-fork" aria-hidden="true"></i> {{ _("Create New Version") }}
 									</a>
-									{% if schedule.status in ['DRAFT', 'READY', 'QUOTED'] %}
+									{% if schedule.status in ['DRAFT', 'READY', 'QUOTED'] or issue_transitions %}
 									<div class="dropdown-divider"></div>
 									<h6 class="dropdown-header">{{ _("Change Status") }}</h6>
 									{% if schedule.status != 'DRAFT' %}
@@ -3286,7 +3286,7 @@ function createSalesOrder() {
 }
 
 // FLOW-2: the header's next-step buttons and the overflow menu.
-var scheduleActions = {ready: function () { changeStatus('READY'); }, quote: requestQuote, order: createSalesOrder};
+var scheduleActions = {ready: function () { changeStatus('READY'); }, draft: function () { changeStatus('DRAFT'); }, quote: requestQuote, order: createSalesOrder};
 document.addEventListener('click', function (event) {
     var next = event.target.closest('[data-next-action]');
     if (next && !next.disabled && scheduleActions[next.dataset.nextAction]) {

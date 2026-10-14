@@ -26,3 +26,6 @@ tests/portal_e2e/artifacts/
 tests/portal_e2e/playwright-report/
 tests/portal_e2e/.auth/
 tests/portal_e2e/*fixtures.local.json
+
+# repowise API keys (local)
+.repowise/.env

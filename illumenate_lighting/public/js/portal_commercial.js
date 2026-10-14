@@ -2,13 +2,14 @@
 (function () {
     'use strict';
     const api = 'illumenate_lighting.illumenate_lighting.portal.';
-    function dialog(title, fields, send, submitLabel) {
+    function dialog(title, fields, send, submitLabel, intro) {
         const previousFocus = document.activeElement;
         const modal = document.createElement('dialog');
         const form = document.createElement('form');
         const heading = document.createElement('h2'); heading.textContent = title;
         heading.id = 'commercial-' + crypto.randomUUID(); modal.setAttribute('aria-labelledby', heading.id);
         form.append(heading);
+        if (intro) { const text = document.createElement('p'); text.textContent = intro; form.append(text); }
         const inputs = {};
         for (const field of fields) {
             const label = document.createElement('label'); label.textContent = field.label;
@@ -34,7 +35,8 @@
                 const values = Object.fromEntries(Object.entries(inputs).filter(([, input]) => input.type !== 'file').map(([name, input]) => [name, input.value]));
                 values.file_ids = inputs.files ? await PortalUploads.uploadAll(inputs.files) : [];
                 const receipt = await send(values, key);
-                if (receipt.new_schedule) window.location.assign('/portal/schedules/' + encodeURIComponent(receipt.new_schedule));
+                if (receipt.redirect) window.location.assign(receipt.redirect);
+                else if (receipt.new_schedule) window.location.assign('/portal/schedules/' + encodeURIComponent(receipt.new_schedule));
                 else if (receipt.request_name) window.location.assign('/portal/quote-requests/' + encodeURIComponent(receipt.request_name));
                 else window.location.reload();
                 modal.close();
@@ -42,7 +44,7 @@
             finally { sending = false; submit.disabled = false; cancel.disabled = false; }
         };
         modal.addEventListener('cancel', event => { if (sending) event.preventDefault(); });
-        modal.showModal(); Object.values(inputs)[0]?.focus(); return modal;
+        modal.showModal(); (Object.values(inputs)[0] || cancel).focus(); return modal;
     }
     const files = {name: 'files', type: 'file', label: __('Optional PDF/JPEG/PNG attachments: up to 10 files, 20 MiB each')};
     window.PortalCommercial = {
@@ -63,11 +65,20 @@
         withdraw(order, revision) {
             return dialog(__('Withdraw pending order request'), [{name: 'note', type: 'textarea', label: __('Reason for withdrawal'), required: true}],
                 values => PortalUploads.call(api + 'order_review.withdraw', {order_name: order, revision_hash: revision, note: values.note}), __('Withdraw request'));
+        },
+        remove(order) {
+            return dialog(__('Delete order request'), [],
+                () => PortalUploads.call(api + 'order_review.delete_request', {order_name: order}).then(receipt => ({
+                    redirect: receipt.schedule ? '/portal/schedules/' + encodeURIComponent(receipt.schedule) : '/portal/orders'
+                })),
+                __('Delete request'),
+                __('This removes the order request from your orders. Its conversation is kept, and the fixture schedule is released so you can return it to Draft, make changes and request a new order.'));
         }
     };
     document.addEventListener('click', event => {
         const button = event.target.closest('[data-order-action]'); if (!button) return;
-        const method = button.dataset.orderAction === 'Withdraw' ? 'withdraw' : 'order';
+        const methods = {Withdraw: 'withdraw', Delete: 'remove'};
+        const method = methods[button.dataset.orderAction] || 'order';
         window.PortalCommercial[method](button.dataset.order, button.dataset.revision, button.dataset.orderAction);
     });
 })();

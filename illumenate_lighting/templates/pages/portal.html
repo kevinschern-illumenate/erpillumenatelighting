@@ -56,7 +56,7 @@ Portal overview (FLOW-1): what needs the user's attention, recent activity and q
 		<div class="row">
 			<div class="col-md-6 mb-4">
 				<div class="ill-panel">
-					<div class="ill-section-head">
+					<div class="ill-panel__head">
 						<h3 class="h6 mb-0">{{ _("Projects") }}</h3>
 						<a href="/portal/projects">{{ _("All projects") }}</a>
 					</div>
@@ -73,13 +73,13 @@ Portal overview (FLOW-1): what needs the user's attention, recent activity and q
 						{% endfor %}
 					</ul>
 					{% else %}
-					<p class="text-muted py-3 mb-0">{{ _("No projects yet.") }} <a href="/portal/projects/new">{{ _("Create your first project") }}</a></p>
+					<div class="ill-panel__body"><p class="text-muted mb-0">{{ _("No projects yet.") }} <a href="/portal/projects/new">{{ _("Create your first project") }}</a></p></div>
 					{% endif %}
 				</div>
 			</div>
 			<div class="col-md-6 mb-4">
 				<div class="ill-panel">
-					<div class="ill-section-head">
+					<div class="ill-panel__head">
 						<h3 class="h6 mb-0">{{ _("Orders") }}</h3>
 						<a href="/portal/orders">{{ _("All orders") }}</a>
 					</div>
@@ -96,7 +96,7 @@ Portal overview (FLOW-1): what needs the user's attention, recent activity and q
 						{% endfor %}
 					</ul>
 					{% else %}
-					<p class="text-muted py-3 mb-0">{{ _("No orders yet.") }}</p>
+					<div class="ill-panel__body"><p class="text-muted mb-0">{{ _("No orders yet.") }}</p></div>
 					{% endif %}
 				</div>
 			</div>

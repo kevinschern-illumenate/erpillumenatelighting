@@ -509,7 +509,11 @@ scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_
 # Ignore links to specified DocTypes when deleting documents
 # -----------------------------------------------------------
 
-# ignore_links_on_delete = ["Communication", "ToDo"]
+# Portal notification events are retained evidence (they refuse deletion) and
+# point at their subject by Dynamic Link, like Communication. Without this a
+# rejected or withdrawn draft Sales Order could never be deleted once its
+# decision email was queued.
+ignore_links_on_delete = ["ilL-Portal-Event"]
 
 # Request Events
 # ----------------
