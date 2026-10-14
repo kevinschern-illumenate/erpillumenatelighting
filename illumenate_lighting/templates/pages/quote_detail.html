@@ -1,9 +1,8 @@
-{% extends "templates/web.html" %}
-{% block title %}{{ offer.name }}{% endblock %}
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-{% set currency = offer.snapshot.currency %}
-<main class="container ill-commerce" id="offer-detail" data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}">
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ offer.name }}{% endblock %}
+{% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_main_attrs %}id="offer-detail" data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}"{% endblock %}
+{% block portal_content %}{% set currency = offer.snapshot.currency %}
   <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Back to quotes") }}</a>
   <header class="ill-hero">
     <div class="ill-hero__top">
@@ -110,7 +109,6 @@
       {% endif %}
     </aside>
   </div>
-</main>
 {% endblock %}
 {% block script %}
 <script>

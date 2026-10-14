@@ -1,7 +1,7 @@
-{% extends "templates/web.html" %}
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<main class="container py-4">
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ _("Support ticket") }}{% endblock %}
+{% block portal_page_class %}py-4{% endblock %}
+{% block portal_content %}
   <a href="/portal/support">{{ _("Back to support") }}</a>
   <h1 class="mt-3">{{ ticket.subject | e }}</h1>
   <p>{{ ticket.name | e }} · {{ ticket.status | e }}</p>
@@ -9,5 +9,4 @@
   {% if ticket.order %}<p><a href="/portal/orders/{{ ticket.order | urlencode }}">{{ _("Related order") }}: {{ ticket.order | e }}</a></p>{% endif %}
   {% for file in ticket.files %}<p><a href="{{ file.file_url | e }}">{{ file.file_name | e }}</a></p>{% endfor %}
   {% include "templates/includes/portal_conversation.html" %}
-</main>
 {% endblock %}

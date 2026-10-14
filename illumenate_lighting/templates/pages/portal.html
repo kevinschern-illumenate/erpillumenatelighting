@@ -2,9 +2,9 @@
 Portal Landing Page - Main Dashboard
 Central hub for portal users to access all features
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Portal") }}{% endblock %}
+{% block portal_title %}{{ _("Portal") }}{% endblock %}
 
 {% block style %}
 <style>
@@ -173,8 +173,8 @@ Central hub for portal users to access all features
 </style>
 {% endblock %}
 
-{% block page_content %}
-<div class="container portal-dashboard">
+{% block portal_page_class %}portal-dashboard{% endblock %}
+{% block portal_content %}
 	<!-- Hero Section -->
 	<div class="portal-hero">
 		<div class="portal-hero-text">
@@ -468,5 +468,4 @@ Central hub for portal users to access all features
 			</div>
 		</div>
 	</div>
-</div>
 {% endblock %}

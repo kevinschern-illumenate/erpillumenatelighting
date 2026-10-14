@@ -3,12 +3,11 @@ Portal Project Detail Page
 Displays a single project with its schedules and actions
 Also handles new project creation when is_new is True
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name }}{% endif %}{% endblock %}
+{% block portal_title %}{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name }}{% endif %}{% endblock %}
 
-{% block page_content %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -747,7 +746,6 @@ Also handles new project creation when is_new is True
 		</div>
 	</div>
 	{% endif %}
-</div>
 {% endblock %}
 
 {% block script %}

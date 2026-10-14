@@ -2,9 +2,9 @@
 Portal Drawing Detail Page
 Detailed view of a single document request
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ request.name if request else _("Request") }}{% endblock %}
+{% block portal_title %}{{ request.name if request else _("Request") }}{% endblock %}
 
 {% block style %}
 <style>
@@ -210,9 +210,7 @@ Detailed view of a single document request
 </style>
 {% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -485,7 +483,6 @@ Detailed view of a single document request
 	</div>
 	{% include "templates/includes/portal_conversation.html" %}
 	{% endif %}
-</div>
 {% endblock %}
 
 {% block script %}

@@ -2,14 +2,14 @@
 Portal Configurator Page â€“ LED Tape & LED Neon
 Allows users to configure LED tape and neon products with step-by-step selections
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block portal_title %}{{ title }}{% endblock %}
 
 {% block style %}{% endblock %}
 
-{% block page_content %}
-<div class="ill-configurator ill-configurator-tape-neon container portal-page">
+{% block portal_page_class %}ill-configurator ill-configurator-tape-neon portal-page{% endblock %}
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -328,7 +328,6 @@ Allows users to configure LED tape and neon products with step-by-step selection
 			</div>
 		</div>
 	</div>
-</div>
 {% endblock %}
 
 {% block script %}

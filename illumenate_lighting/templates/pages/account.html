@@ -2,9 +2,9 @@
 Portal Account Settings Page
 User profile, notifications, and account preferences
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Account Settings") }}{% endblock %}
+{% block portal_title %}{{ _("Account Settings") }}{% endblock %}
 
 {% block style %}
 <style>
@@ -184,9 +184,7 @@ User profile, notifications, and account preferences
 </style>
 {% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -415,7 +413,8 @@ User profile, notifications, and account preferences
 			   offered: nothing in the portal consumes them yet (see plan §7). #}
 		</div>
 	</div>
-</div>
+{% endblock %}
+{% block portal_after %}
 
 <!-- Create Company Modal -->
 <div class="modal fade" id="createCompanyModal" tabindex="-1">

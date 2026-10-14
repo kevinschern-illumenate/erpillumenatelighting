@@ -113,6 +113,7 @@ website_route_rules = [
 
 	# Schedules (the designer route must precede the schedule route)
 	{"from_route": "/portal/schedules/<schedule>/design", "to_route": "system_design"},
+	{"from_route": "/portal/schedules/<schedule>/lines/<line_key>/edit", "to_route": "edit_fixture"},
 	{"from_route": "/portal/design", "to_route": "system_design"},
 	{"from_route": "/portal/schedules/<schedule>", "to_route": "schedule"},
 
@@ -124,6 +125,7 @@ website_route_rules = [
 	{"from_route": "/portal/configure-neon", "to_route": "configure_tape"},
 	{"from_route": "/portal/configure-sheet", "to_route": "configure_sheet"},
 	{"from_route": "/configure-sheet", "to_route": "configure_sheet"},
+	# Former query-string address; redirects to /portal/schedules/<schedule>/lines/<line_key>/edit.
 	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
 
 	# Product Catalog (System Manager only)

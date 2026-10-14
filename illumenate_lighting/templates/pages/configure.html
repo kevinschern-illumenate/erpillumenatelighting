@@ -2,13 +2,15 @@
 Portal Configurator Page
 Allows users to configure fixtures using segment-based configuration
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block portal_title %}{{ title }}{% endblock %}
 
 
 
-{% block page_content %}
+{% block portal_shell_class %}ill-portal-shell--bare{% endblock %}
+{% block portal_page_class %}{% endblock %}
+{% block portal_content %}
 {% if show_type_chooser | default(false) %}
 {% include "templates/includes/product_type_chooser.html" %}
 {% else %}

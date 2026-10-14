@@ -3,9 +3,9 @@ Portal Schedule Detail Page
 Displays a fixture schedule with its lines and configurator actions
 Also handles new schedule creation when is_new is True
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}{% endblock %}
+{% block portal_title %}{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name }}{% endif %}{% endblock %}
 
 {% block style %}
 <style>
@@ -1045,9 +1045,7 @@ body.reorder-no-select {
 </style>
 {% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	{% if (lines | default([]) | selectattr("verification_status", "defined") | selectattr("verification_status", "equalto", "Pending") | list) %}
 	<div class="alert alert-warning" role="status">{{ _("Some lines await product verification. You may request a quote; our team will confirm before it is issued.") }}</div>
 	{% endif %}
@@ -2066,8 +2064,6 @@ body.reorder-no-select {
 			</div>
 		</div>
 	</div>
-</div>
-
 <!-- Version History Section -->
 <div class="row mt-4 mb-4">
 	<div class="col-12">

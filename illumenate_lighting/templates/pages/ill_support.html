@@ -2,9 +2,9 @@
 Portal Support Page
 Help center, FAQ, and support ticket submission
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Support") }}{% endblock %}
+{% block portal_title %}{{ _("Support") }}{% endblock %}
 
 {% block style %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha512-SfTiTlX6kk+qitfevl/7LibUOeJWlt9rByDn93HtCrzbKmAmz4FggJFhc1U3IsOlPeHIF0vpa/5I7sOnES03g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -172,9 +172,7 @@ Help center, FAQ, and support ticket submission
 </style>
 {% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -417,7 +415,6 @@ Help center, FAQ, and support ticket submission
 			{% endif %}
 		</div>
 	</div>
-</div>
 {% endblock %}
 
 {% block script %}

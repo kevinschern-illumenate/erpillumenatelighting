@@ -2,9 +2,9 @@
 Portal Resources Page
 Publicly available specification sheets from Webflow products
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Specification Sheets") }}{% endblock %}
+{% block portal_title %}{{ _("Specification Sheets") }}{% endblock %}
 
 {% block style %}
 <style>
@@ -107,8 +107,7 @@ Publicly available specification sheets from Webflow products
 </style>
 {% endblock %}
 
-{% block page_content %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -154,7 +153,6 @@ Publicly available specification sheets from Webflow products
 		<p>{{ _("Spec sheets will appear here as products are published.") }}</p>
 	</div>
 	{% endif %}
-</div>
 {% endblock %}
 
 {% block script %}

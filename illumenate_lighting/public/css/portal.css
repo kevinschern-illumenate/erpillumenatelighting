@@ -691,6 +691,15 @@
 	transition: color var(--ill-transition), border-color var(--ill-transition);
 }
 .ill-portal-navigation a:hover { color: var(--ill-blue-600); text-decoration: none; }
+/* Below 768px the tabs scroll sideways in one row instead of wrapping into a block. */
+@media (max-width: 767.98px) {
+	.ill-portal-navigation { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+	.ill-portal-navigation::-webkit-scrollbar { display: none; }
+	.ill-portal-navigation a { flex: 0 0 auto; padding: 12px; white-space: nowrap; }
+}
+/* One shell for every signed-in page (templates/portal_base.html). */
+.ill-portal-shell { padding-top: 1.5rem; padding-bottom: 3rem; }
+.ill-portal-shell--bare { padding-top: 0; }
 .ill-portal-navigation a[aria-current="page"] { color: var(--ill-blue-600); font-weight: 500; border-bottom-color: var(--ill-blue-600); }
 .portal-page :focus-visible, .ill-portal-navigation :focus-visible, .modal :focus-visible { outline:3px solid var(--ill-primary); outline-offset:3px; }
 .portal-page .btn { white-space:normal; }

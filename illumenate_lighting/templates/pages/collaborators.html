@@ -2,12 +2,11 @@
 Portal Project Collaborators Page
 Manage collaborators for a project
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Collaborators") }} - {{ project.project_name }}{% endblock %}
+{% block portal_title %}{{ _("Collaborators · {0}").format(project.project_name) }}{% endblock %}
 
-{% block page_content %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -198,7 +197,8 @@ Manage collaborators for a project
 		</div>
 	</div>
 	{% endif %}
-</div>
+{% endblock %}
+{% block portal_after %}
 
 <!-- Invite Modal -->
 {% if can_manage %}

@@ -1,6 +1,10 @@
-{% extends "templates/web.html" %}
-{% block page_content %}
-<main class="container py-4" style="max-width:640px">
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ _("Accept invitation") }}{% endblock %}
+{# Invitees who are not signed in yet have no portal to navigate. #}
+{% block portal_navigation %}{% if signed_in_as %}{{ super() }}{% endif %}{% endblock %}
+{% block portal_page_class %}py-4{% endblock %}
+{% block portal_main_attrs %}style="max-width:640px"{% endblock %}
+{% block portal_content %}
   <h1>{{ _("Accept portal invitation") }}</h1>
   <p id="inviteSummary" class="lead" role="status" aria-live="polite">{{ _("Checking your invitation…") }}</p>
   <div id="inviteAccept" hidden>
@@ -18,7 +22,6 @@
     {% endif %}
   </div>
   <p id="inviteResult" class="mt-3" role="status" aria-live="polite"></p>
-</main>
 {% endblock %}
 {% block script %}
 <script>

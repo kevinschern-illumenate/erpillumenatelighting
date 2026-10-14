@@ -1,9 +1,8 @@
-{% extends "templates/web.html" %}
-{% block title %}{{ request.name }}{% endblock %}
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-{% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
-<main class="container ill-commerce">
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ request.name }}{% endblock %}
+{% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_content %}{% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
+
   <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Quotes and requests") }}</a>
   <header class="ill-hero">
     <div class="ill-hero__top">
@@ -83,5 +82,4 @@
       {% endif %}
     </aside>
   </div>
-</main>
 {% endblock %}

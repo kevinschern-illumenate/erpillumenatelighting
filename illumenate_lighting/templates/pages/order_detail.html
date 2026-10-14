@@ -2,13 +2,12 @@
 Portal Order Detail Page
 One order or order request: review, progress, items, shipments, invoices and the conversation
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ order.name if order else _("Order") }}{% endblock %}
+{% block portal_title %}{{ order.name if order else _("Order") }}{% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<main class="container ill-commerce">
+{% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_content %}
 	<a class="ill-back" href="/portal/orders"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Back to orders") }}</a>
 
 	{% if not order %}
@@ -298,7 +297,6 @@ One order or order request: review, progress, items, shipments, invoices and the
 		</aside>
 	</div>
 	{% endif %}
-</main>
 {% endblock %}
 
 {% block script %}

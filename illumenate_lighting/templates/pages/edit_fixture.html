@@ -2,9 +2,9 @@
 Edit Fixture Configuration Page
 Allows users to modify an existing configured fixture from a schedule line
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Edit Fixture Configuration") }}{% endblock %}
+{% block portal_title %}{{ _("Edit Fixture Configuration") }}{% endblock %}
 
 {% block style %}
 <style>
@@ -126,8 +126,7 @@ Allows users to modify an existing configured fixture from a schedule line
 </style>
 {% endblock %}
 
-{% block page_content %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
@@ -442,7 +441,8 @@ Allows users to modify an existing configured fixture from a schedule line
 			</div>
 		</div>
 	</div>
-</div>
+{% endblock %}
+{% block portal_after %}
 
 <!-- Segment Template -->
 <template id="segmentTemplate">

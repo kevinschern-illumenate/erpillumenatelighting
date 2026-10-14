@@ -1,0 +1,20 @@
+{#
+One layout for every signed-in portal page (UI-1): the portal navigation, one
+container, and blocks for breadcrumbs, a page header, content and modals.
+Pages set portal_title (rendered as "Title · ilLumenate Portal"), put their
+markup in portal_content and anything outside the container, such as modals,
+in portal_after.
+#}
+{% extends "templates/web.html" %}
+
+{% block title %}{% block portal_title %}{{ _("Portal") }}{% endblock %} · {{ _("ilLumenate Portal") }}{% endblock %}
+
+{% block page_content %}
+{% block portal_navigation %}{% include "templates/includes/portal_navigation.html" %}{% endblock %}
+<main id="portal-main" class="{% block portal_shell_class %}container{% endblock %} ill-portal-shell {% block portal_page_class %}portal-page{% endblock %}" {% block portal_main_attrs %}{% endblock %}>
+	{% block portal_breadcrumbs %}{% endblock %}
+	{% block portal_header %}{% endblock %}
+	{% block portal_content %}{% endblock %}
+</main>
+{% block portal_after %}{% endblock %}
+{% endblock %}

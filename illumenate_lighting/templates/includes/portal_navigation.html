@@ -1,16 +1,19 @@
 {# Highlights the section of the current route, e.g. portal/quote-requests/QR-1 under Quotes. #}
 {% set section = (path | default('', true)).strip('/').split('/')[:2] | join('/') %}
+{% set nav_items = [
+    ('/portal', 'Overview', ['portal'], true),
+    ('/portal/projects', 'Projects', ['portal/projects', 'portal/schedules', 'portal/configure', 'portal/configure-tape', 'portal/configure-neon', 'portal/configure-sheet', 'portal/edit_fixture', 'portal/design'], true),
+    ('/portal/quotes', 'Quotes', ['portal/quotes', 'portal/quote-requests'], true),
+    ('/portal/orders', 'Orders', ['portal/orders'], true),
+    ('/portal/drawings', 'Drawings', ['portal/drawings'], true),
+    ('/portal/products', 'Products', ['portal/products'], ill_can_view_catalog()),
+    ('/portal/product-finder', 'Product Finder', ['portal/product-finder'], ill_finder_enabled()),
+    ('/portal/resources', 'Resources', ['portal/resources'], true),
+    ('/portal/support', 'Support', ['portal/support'], true),
+    ('/portal/account', 'Account', ['portal/account', 'portal/accept-invitation'], true),
+] %}
 <nav class="ill-portal-navigation" aria-label="{{ _('Portal navigation') }}">
-    {% for href, label, sections in [
-        ('/portal', 'Overview', ['portal']),
-        ('/portal/projects', 'Projects', ['portal/projects', 'portal/schedules']),
-        ('/portal/quotes', 'Quotes', ['portal/quotes', 'portal/quote-requests']),
-        ('/portal/orders', 'Orders', ['portal/orders']),
-    ] %}
+    {% for href, label, sections, shown in nav_items if shown %}
     <a href="{{ href }}"{% if section in sections %} aria-current="page"{% endif %}>{{ _(label) }}</a>
     {% endfor %}
-    {% if ill_can_view_catalog() %}<a href="/portal/products">{{ _("Products") }}</a>{% endif %}
-    {% if ill_finder_enabled() %}<a href="/portal/product-finder">{{ _("Product Finder") }}</a>{% endif %}
-    <a href="/portal/support">{{ _("Support") }}</a>
-    <a href="/portal/account">{{ _("Account") }}</a>
 </nav>

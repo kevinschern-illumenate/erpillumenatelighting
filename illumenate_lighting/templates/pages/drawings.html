@@ -2,9 +2,9 @@
 Portal Drawings Page
 Request and track custom drawings and technical documentation
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}{{ _("Drawing Requests") }}{% endblock %}
+{% block portal_title %}{{ _("Drawing Requests") }}{% endblock %}
 
 {% block style %}
 <style>
@@ -154,9 +154,7 @@ Request and track custom drawings and technical documentation
 </style>
 {% endblock %}
 
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-3">
 		<ol class="breadcrumb">
@@ -398,7 +396,6 @@ Request and track custom drawings and technical documentation
 			</div>
 		</div>
 	</div>
-</div>
 {% endblock %}
 
 {% block script %}

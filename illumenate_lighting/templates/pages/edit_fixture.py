@@ -11,6 +11,7 @@ re-validate, and save changes back to the schedule.
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.portal import line_routes
 from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 
 no_cache = 1
@@ -20,19 +21,18 @@ def get_context(context):
 	"""Get context for the edit fixture portal page."""
 	require_login()
 
-	# Required parameters
+	# Lines are addressed by key (/portal/schedules/<schedule>/lines/<line_key>/edit); the old
+	# /portal/edit_fixture?schedule=&line_idx=&fixture= links redirect there.
 	schedule_name = frappe.form_dict.get("schedule")
+	key = frappe.form_dict.get("line_key")
 	line_idx = frappe.form_dict.get("line_idx")
 	configured_fixture_id = frappe.form_dict.get("fixture")
 
 	if not schedule_name:
 		frappe.throw("Schedule is required", frappe.ValidationError)
 
-	if line_idx is None:
-		frappe.throw("Line index is required", frappe.ValidationError)
-
-	if not configured_fixture_id:
-		frappe.throw("Configured fixture is required", frappe.ValidationError)
+	if key is None and line_idx is None:
+		frappe.throw("Line is required", frappe.ValidationError)
 
 	# Validate schedule exists and user has permission
 	schedule = None
@@ -55,22 +55,33 @@ def get_context(context):
 	if schedule.status not in ["DRAFT", "READY"]:
 		frappe.throw("Cannot edit fixtures in a schedule with status: " + schedule.status)
 
-	# Validate line index
-	try:
-		line_idx_int = int(line_idx)
-	except (ValueError, TypeError):
-		frappe.throw("Invalid line index", frappe.ValidationError)
+	if key is not None:
+		line_idx_int, line = line_routes.find_line(schedule, key)
+		if line is None:
+			frappe.throw("Line not found", frappe.DoesNotExistError)
+	else:
+		try:
+			line_idx_int = int(line_idx)
+		except (ValueError, TypeError):
+			frappe.throw("Invalid line index", frappe.ValidationError)
 
-	if line_idx_int < 0 or line_idx_int >= len(schedule.lines):
-		frappe.throw("Line index out of range", frappe.ValidationError)
+		if line_idx_int < 0 or line_idx_int >= len(schedule.lines):
+			frappe.throw("Line index out of range", frappe.ValidationError)
+		line = schedule.lines[line_idx_int]
 
-	# Get the line and verify it's an ILLUMENATE fixture
-	line = schedule.lines[line_idx_int]
+	# Verify it's an ILLUMENATE fixture
 	if line.manufacturer_type != "ILLUMENATE":
 		frappe.throw("Can only edit ILLUMENATE fixtures", frappe.ValidationError)
 
-	if line.configured_fixture != configured_fixture_id:
+	if configured_fixture_id and line.configured_fixture != configured_fixture_id:
 		frappe.throw("Fixture ID does not match the schedule line", frappe.ValidationError)
+
+	configured_fixture_id = line.configured_fixture
+	if not configured_fixture_id:
+		frappe.throw("This line has no configured fixture to edit", frappe.ValidationError)
+
+	if key is None:
+		line_routes.redirect(line_routes.edit_url(schedule.name, line))
 
 	# Get the existing fixture configuration
 	from illumenate_lighting.illumenate_lighting.api.portal import get_configured_fixture_for_editing
