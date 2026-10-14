@@ -331,6 +331,7 @@ Allows users to configure LED tape and neon products with step-by-step selection
 {% endblock %}
 
 {% block script %}
+{{ include_script("illumenate_configurator.bundle.js") }}
 {# Phase 4: shared/tape_neon configurator modules loaded globally via hooks.web_include_js #}
 <script>
 $(function() {

@@ -2,3 +2,6 @@
 # One entry per line: <path under illumenate_lighting/>: <expression exactly as written>  # why it is safe
 templates/pages/ill_projects.html: query | safe  # built in the template from urlencoded values and literal &amp;
 templates/pages/configure.html: quiz_handoff_json | safe  # configure.py JSON-encodes it with <, > and & escaped
+templates/pages/configure.html: include_script("illumenate_configurator.bundle.js")  # Frappe builds the <script> tag for a literal bundle name (UI-6)
+templates/pages/configure_tape.html: include_script("illumenate_configurator.bundle.js")  # Frappe builds the <script> tag for a literal bundle name (UI-6)
+templates/pages/schedule.html: include_script("illumenate_configurator.bundle.js")  # Frappe builds the <script> tag for a literal bundle name (UI-6)

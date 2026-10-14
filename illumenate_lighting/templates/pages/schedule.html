@@ -1784,6 +1784,7 @@ Also handles new schedule creation when is_new is True
 {% endblock %}
 
 {% block script %}
+{{ include_script("illumenate_configurator.bundle.js") }}
 <script>
 {% if is_new %}
 // Handle create schedule form submission

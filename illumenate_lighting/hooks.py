@@ -38,7 +38,8 @@ web_include_css = [
 	"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
 	"illumenate_web.bundle.css",
 ]
-# portal + shared_configurator + fixture_steps + tape_neon_steps
+# Portal scripts; the configurator is illumenate_configurator.bundle.js, included
+# only by the configure and schedule pages (UI-6).
 web_include_js = ["illumenate_web.bundle.js"]
 
 # include custom scss in every website theme (without file extension ".scss")

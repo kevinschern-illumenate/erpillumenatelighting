@@ -20,6 +20,7 @@ from jinja2 import (
 	StrictUndefined,
 	nodes,
 )
+from markupsafe import Markup
 
 environment = Environment(
 	loader=ChoiceLoader(
@@ -43,6 +44,7 @@ environment.globals.update(
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
+		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
 			utils=SimpleNamespace(
@@ -926,3 +928,14 @@ assert (
 assert "Lobby" in delivery_print and "SO-QA" in delivery_print and "1Z999" in delivery_print
 assert "Rate" not in delivery_print
 print("Rendered unpriced Delivery Note with designation, room and escaped notes")
+
+# UI-6: the configurator ships only to the pages that use it.
+WEB_JS = ROOT / "illumenate_lighting/public/js"
+assert "configurator/" not in (WEB_JS / "illumenate_web.bundle.js").read_text(encoding="utf8")
+for configurator_page in ("configure", "configure_tape", "schedule"):
+	source = (ROOT / f"illumenate_lighting/templates/pages/{configurator_page}.html").read_text(encoding="utf8")
+	assert 'include_script("illumenate_configurator.bundle.js")' in source, configurator_page
+configurator_bundle = (WEB_JS / "illumenate_configurator.bundle.js").read_text(encoding="utf8")
+for script in WEB_JS.glob("configurator/*.js"):
+	assert f'"./configurator/{script.name}"' in configurator_bundle, script.name
+print("Checked the configurator bundle split")
