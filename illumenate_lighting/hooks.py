@@ -253,6 +253,9 @@ permission_query_conditions = {
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.get_permission_query_conditions",
 	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.get_permission_query_conditions",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_query_conditions",
+	"Customer": "illumenate_lighting.illumenate_lighting.portal.master_scope.customer_query_conditions",
+	"Contact": "illumenate_lighting.illumenate_lighting.portal.master_scope.contact_query_conditions",
+	"Address": "illumenate_lighting.illumenate_lighting.portal.master_scope.address_query_conditions",
 }
 
 has_permission = {
@@ -274,6 +277,9 @@ has_permission = {
 	"ilL-Portal-User-Settings": "illumenate_lighting.illumenate_lighting.doctype.ill_portal_user_settings.ill_portal_user_settings.has_permission",
 	"ilL-System-Design": "illumenate_lighting.illumenate_lighting.doctype.ill_system_design.ill_system_design.has_permission",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.dealer_permissions.sales_order_has_permission",
+	"Customer": "illumenate_lighting.illumenate_lighting.portal.master_scope.customer_has_permission",
+	"Contact": "illumenate_lighting.illumenate_lighting.portal.master_scope.contact_has_permission",
+	"Address": "illumenate_lighting.illumenate_lighting.portal.master_scope.address_has_permission",
 }
 
 # Website/Portal Permissions
