@@ -233,13 +233,13 @@ Help center, FAQ, and support ticket submission
 			<!-- Recent Tickets -->
 			{% if tickets %}
 			<div class="ticket-list">
-				<h5>{{ _("Your Support Requests") }} ({{ ticket_page.total | e }})</h5>
+				<h5>{{ (_("Your Company's Support Requests") if ticket_page.company else _("Your Support Requests")) | e }} ({{ ticket_page.total | e }})</h5>
 				{% for ticket in tickets %}
 				<div class="ticket-item">
 					<div class="ticket-info">
 						<h6><a href="/portal/support/{{ ticket.name | urlencode }}">{{ ticket.subject | e }}</a></h6>
 						<div class="ticket-meta">
-							#{{ ticket.name | e }} • {{ frappe.utils.format_date(ticket.creation) | e }}
+							#{{ ticket.name | e }} • {{ frappe.utils.format_date(ticket.creation) | e }}{% if ticket.raised_by_name %} • {{ _("Raised by {0}").format(ticket.raised_by_name) | e }}{% endif %}
 						</div>
 					</div>
 					<span class="status-badge {{ ticket.status | lower | replace(' ', '-') | e }}">

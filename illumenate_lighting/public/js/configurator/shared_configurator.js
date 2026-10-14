@@ -188,6 +188,11 @@
 		var token = {};
 		this._requests[key] = token;
 		var args = Object.assign({}, options);
+		// A schedule editor without catalog access configures for one schedule; every
+		// call names it so the server can authorise it (and strip prices) per request.
+		if (this.context.config_schedule) {
+			args.args = Object.assign({ config_schedule: this.context.config_schedule }, args.args || {});
+		}
 		var isCurrent = args.isCurrent;
 		delete args.isCurrent;
 		['callback', 'error', 'always'].forEach(function (event) {

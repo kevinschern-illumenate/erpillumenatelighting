@@ -28,10 +28,24 @@ def get_context(context):
 	"""
 	require_login()
 
-	from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
-	if not can_view_catalog():
-		frappe.local.flags.redirect_location = "/portal/request-dealer-access"
-		raise frappe.Redirect
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import (
+		FLAG,
+		pricing_allowed,
+		schedule_grant,
+		strip_prices,
+	)
+
+	# Dealers and staff configure anything, with pricing. Anyone else (an EDIT
+	# collaborator) may configure only for a schedule they can edit, without
+	# pricing; the configurator endpoints check the same grant (FLOW-6).
+	show_pricing = pricing_allowed()
+	if not show_pricing:
+		if not schedule_grant(frappe.form_dict.get("schedule")):
+			frappe.local.flags.redirect_location = "/portal/request-dealer-access"
+			raise frappe.Redirect
+		frappe.flags[FLAG] = frappe.form_dict.get("schedule")
+	context.config_schedule = "" if show_pricing else frappe.form_dict.get("schedule")
+	context.show_pricing = show_pricing
 
 	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
@@ -153,6 +167,11 @@ def get_context(context):
 		from illumenate_lighting.illumenate_lighting.portal.product_finder.presentation import chooser
 
 		context.chooser_options = chooser(frappe.form_dict)
+		if not show_pricing:
+			# Catalog-routed choices lead to pages a schedule editor cannot open.
+			context.chooser_options = [
+				option for option in context.chooser_options if option["href"].startswith("/portal/configure?")
+			]
 		context.title = "Choose a product type"
 		context.no_cache = 1
 		return context
@@ -193,11 +212,10 @@ def get_context(context):
 			existing_configured_sheet = get_configured_sheet_for_line(
 				schedule_name, int(line_idx)
 			).get("data")
+		if not show_pricing:
+			existing_configured_sheet = strip_prices(existing_configured_sheet)
 	elif product_category in TAPE_NEON_CATEGORIES:
 		templates = _get_tape_neon_templates(product_category)
-
-	# Determine if pricing should be shown based on user role
-	show_pricing = True
 
 	# Map category to page title
 	title_map = {
@@ -244,7 +262,8 @@ def get_context(context):
 	context.has_quiz_handoff = bool(quiz_handoff or context.finder)
 	context.quiz_prefill = quiz_prefill
 	context.family_products = []
-	context.show_stock_qty = True  # This page is restricted to catalog dealers and internal users.
+	# Stock quantities, like pricing, are for catalog dealers and internal users.
+	context.show_stock_qty = show_pricing
 	if product_category == "Driver":
 		# Power supplies are configured from their ilL-Driver-Template; product links resolve to it.
 		if not template_code and context.product_slug:

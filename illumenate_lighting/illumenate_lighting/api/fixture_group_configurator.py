@@ -17,6 +17,7 @@ from illumenate_lighting.illumenate_lighting.api.group_contract import (
 	normalize,
 )
 from illumenate_lighting.illumenate_lighting.api.power_planner import MAX_CIRCUITS, plan_power
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 
 
 def engineering(value):
@@ -284,12 +285,13 @@ def calculate(request):
 
 
 @frappe.whitelist(methods=["POST"])
+@price_scoped
 def preview(request):
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import get_tier_price_for_customer
-	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import require_configurator
 	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
-	require_catalog_access()
+	require_configurator()
 	if not fixture_groups_enabled():
 		frappe.throw("Independent fixture groups are not enabled for this site", frappe.PermissionError)
 	try:

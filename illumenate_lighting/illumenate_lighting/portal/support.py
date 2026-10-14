@@ -15,6 +15,46 @@ def description_text(value):
 	return html.unescape(re.sub(r"<[^>]+>", "", text)).strip()
 
 
+def _user_customer(user):
+	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import _get_user_customer
+
+	return _get_user_customer(user)
+
+
+def _dealer_customer(actor):
+	"""The company whose support tickets ``actor`` sees: a Dealer's own company (FLOW-7)."""
+	return actor.customer if actor.is_dealer and actor.customer and not actor.is_internal else None
+
+
+def _has_project_field():
+	return frappe.get_meta("Issue").has_field("ill_project")
+
+
+def company_members(customer):
+	"""Users whose company resolves to ``customer``, by the rule ``access.get_actor`` uses."""
+	contacts = frappe.get_all(
+		"Dynamic Link",
+		filters={"parenttype": "Contact", "link_doctype": "Customer", "link_name": customer},
+		pluck="parent",
+	)
+	if not contacts:
+		return []
+	rows = frappe.get_all("Contact", filters={"name": ["in", sorted(set(contacts))]}, fields=["user", "email_id"])
+	candidates = {row.get("user") or row.get("email_id") for row in rows} - {None, ""}
+	return sorted(user for user in candidates if _user_customer(user) == customer)
+
+
+def is_company_ticket(doc, customer):
+	"""Raised by a member of ``customer``, or about one of its orders or projects."""
+	if doc.raised_by and _user_customer(doc.raised_by) == customer:
+		return True
+	order = doc.get("ill_portal_order")
+	if order and frappe.db.get_value("Sales Order", order, "customer") == customer:
+		return True
+	project = doc.get("ill_project")
+	return bool(project and frappe.db.get_value("ilL-Project", project, "owner_customer") == customer)
+
+
 def can_read(doc, user=None):
 	user = user or frappe.session.user
 	if user == "Guest" or (user != "Administrator" and not frappe.db.get_value("User", user, "enabled")):
@@ -22,7 +62,10 @@ def can_read(doc, user=None):
 	if is_staff(doc, user):
 		return True
 	if doc.raised_by != user:
-		return False
+		# Dealers see their company's tickets; everyone else only the tickets they raised.
+		customer = _dealer_customer(get_actor(user))
+		if not customer or not is_company_ticket(doc, customer):
+			return False
 	if doc.get("ill_portal_order"):
 		from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
 
@@ -38,19 +81,39 @@ def validate_owner(doc, method=None):
 
 
 def _conditions(user):
+	"""SQL over `tabIssue` matching the tickets ``user`` sees; mirrors :func:`can_read`."""
 	actor = get_actor(user)
 	params = {"user": user}
-	conditions = ["raised_by = %(user)s"]
 	if actor.is_internal:
-		return conditions, params
-	if actor.is_dealer and actor.customer:
-		conditions.append(
-			"(coalesce(ill_portal_order, '') = '' OR ill_portal_order IN (select name from `tabSales Order` where customer=%(customer)s))"
-		)
-		params["customer"] = actor.customer
-	else:
-		conditions.append("coalesce(ill_portal_order, '') = ''")
-	return conditions, params
+		return ["raised_by = %(user)s"], params
+	customer = _dealer_customer(actor)
+	if not customer:
+		return ["raised_by = %(user)s", "coalesce(ill_portal_order, '') = ''"], params
+	company_orders = "select name from `tabSales Order` where customer=%(customer)s"
+	params["customer"] = customer
+	params["members"] = tuple(sorted({user, *company_members(customer)}))
+	scope = ["raised_by IN %(members)s", f"ill_portal_order IN ({company_orders})"]
+	if _has_project_field():
+		scope.append("ill_project IN (select name from `tabilL-Project` where owner_customer=%(customer)s)")
+	return [
+		"(" + " OR ".join(scope) + ")",
+		f"(coalesce(ill_portal_order, '') = '' OR ill_portal_order IN ({company_orders}))",
+	], params
+
+
+def _with_raisers(rows, user):
+	"""Name who raised each ticket that the viewer did not raise themselves."""
+	others = sorted({row.get("raised_by") for row in rows} - {user, None, ""})
+	names = (
+		dict(frappe.get_all("User", filters={"name": ["in", others]}, fields=["name", "full_name"], as_list=True))
+		if others
+		else {}
+	)
+	for row in rows:
+		raised_by = row.get("raised_by")
+		row["raised_by_me"] = raised_by == user
+		row["raised_by_name"] = None if raised_by == user else (names.get(raised_by) or raised_by)
+	return rows
 
 
 @frappe.whitelist()
@@ -69,11 +132,17 @@ def list_tickets(page=1, page_size=20, status=None):
 	total = frappe.db.sql(f"select count(*) from `tabIssue` where {where}", params)[0][0]
 	params.update({"offset": (page - 1) * page_size, "limit": page_size})
 	rows = frappe.db.sql(
-		f"select name, subject, status, creation, ill_next_action_by from `tabIssue` where {where} order by creation desc, name desc limit %(limit)s offset %(offset)s",
+		f"select name, subject, status, creation, ill_next_action_by, raised_by from `tabIssue` where {where} order by creation desc, name desc limit %(limit)s offset %(offset)s",
 		params,
 		as_dict=True,
 	)
-	return {"tickets": rows, "total": total, "page": page, "page_size": page_size}
+	return {
+		"tickets": _with_raisers(rows, frappe.session.user),
+		"total": total,
+		"page": page,
+		"page_size": page_size,
+		"company": bool(_dealer_customer(get_actor(frappe.session.user))),
+	}
 
 
 @frappe.whitelist()
@@ -95,4 +164,5 @@ def detail(name):
 		"order": doc.get("ill_portal_order"),
 		"next_action_by": doc.get("ill_next_action_by") or "Staff",
 		"files": list_files("Issue", name),
+		**_with_raisers([{"raised_by": doc.raised_by}], frappe.session.user)[0],
 	}

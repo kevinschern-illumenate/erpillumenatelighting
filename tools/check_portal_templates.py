@@ -943,6 +943,53 @@ assert "Resume (50% done)" in banner and "Find &lt;light&gt;" in banner
 chooser = configurator.render(show_type_chooser=True, chooser_options=[View(value="Linear Fixture",label="Linear",featured=True,href="/portal/configure?category=Linear+Fixture&schedule=S&draft=D&finder=T"),View(value="Driver",label="Driver",featured=False,href="/portal/configure?category=Driver&schedule=S&draft=D&finder=T")])
 parser.feed(chooser)
 (render_dir / "finder-chooser.html").write_text(chooser, encoding="utf8")
+# FLOW-6: a schedule editor without catalog access configures without any price UI.
+for category, mode in (
+	("Linear Fixture", "coordinator"),
+	("Linear Fixture", "wizard"),
+	("LED Tape", "coordinator"),
+	("LED Sheet", "coordinator"),
+	("Driver", "coordinator"),
+	("Extrusion Kit", "coordinator"),
+):
+	unpriced = configurator.render(
+		**{
+			**context,
+			"product_category": category,
+			"is_led_sheet": category == "LED Sheet",
+			"is_tape_neon": category == "LED Tape",
+			"is_tape": category == "LED Tape",
+			"is_neon": False,
+			"configurator_mode": mode,
+			"show_pricing": False,
+			"show_stock_qty": False,
+			"config_schedule": "SCH </script><b>",
+			"schedule_name": "SCH </script><b>",
+			"can_save": True,
+		}
+	)
+	assert "</script><b>" not in unpriced, category
+	assert 'id="pricingResults"' not in unpriced and "Fixture Price Breakdown" not in unpriced, category
+	assert "config_schedule" in unpriced, category
+	parser.feed(unpriced)
+	unpriced_name = "unpriced-" + category.replace(" ", "-") + "-" + mode + ".html"
+	(render_dir / unpriced_name).write_text(unpriced, encoding="utf8")
+# FLOW-7: a Dealer's company ticket list names who raised each colleague's ticket.
+support_page = environment.get_template("templates/pages/ill_support.html")
+company_tickets = [
+	View(name="ISS-1", subject="Mine", status="Open", creation="2026-10-01", raised_by_name=None),
+	View(name="ISS-2", subject="Pat's <order>", status="Open", creation="2026-10-02", raised_by_name="Pat <Buyer>"),
+]
+support_html = support_page.render(
+	tickets=company_tickets,
+	ticket_page=View(total=2, page=1, page_size=20, company=True),
+	recent_orders=[],
+	recent_projects=[],
+)
+assert "Raised by Pat &lt;Buyer&gt;" in support_html and support_html.count("Raised by") == 1
+assert "Pat's <order>" not in support_html
+parser.feed(support_html)
+(render_dir / "support-company.html").write_text(support_html, encoding="utf8")
 # .tools/ is git-ignored, so a clean checkout (CI) does not have it yet.
 (ROOT / ".tools").mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools") as directory:

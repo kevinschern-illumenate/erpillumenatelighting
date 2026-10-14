@@ -14,6 +14,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 )
 from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule, require_catalog_access
 from illumenate_lighting.illumenate_lighting.portal.configuration import RECEIPT, schedule_context
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import require_configurator
 from illumenate_lighting.illumenate_lighting.portal_listing import on_portal, portal_product
 
 
@@ -115,7 +116,11 @@ def _add(
 	finder=None,
 	configuration=None,
 ):
-	require_catalog_access()
+	# A configured driver/controller may be added by an editor of the schedule; catalog items may not.
+	if configuration is None:
+		require_catalog_access()
+	else:
+		require_configurator(schedule_name)
 	quantity = finite_number(quantity, minimum=1, field="quantity")
 	if not quantity.is_integer():
 		frappe.throw("Enter a whole number in the Item stock UOM")
@@ -215,7 +220,7 @@ def add_configured(product_slug, selections, schedule_name, quantity, line_id, e
 	from illumenate_lighting.illumenate_lighting.portal.configuration import object_value
 	from illumenate_lighting.illumenate_lighting.portal.rollout import require_family
 
-	require_catalog_access()
+	require_configurator(schedule_name)
 	product = _product(product_slug)
 	kind = product.product_type
 	if kind not in _KINDS:

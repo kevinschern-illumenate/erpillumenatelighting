@@ -4261,10 +4261,23 @@ def get_led_sheet_templates() -> dict:
 	``image`` / ``gallery_json`` follow the Linear Fixture and Tape/Neon template
 	loaders in templates/pages/configure.py: the template's own ``image`` wins,
 	otherwise the linked Webflow product gallery (then its featured image).
-	"""
-	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 
-	require_catalog_access()
+	An editor of the schedule being configured for may load them too, without
+	the MSRP fields (FLOW-6).
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import (
+		pricing_allowed,
+		require_configurator,
+		strip_prices,
+	)
+
+	require_configurator()
+	if not pricing_allowed():
+		return strip_prices(_led_sheet_templates())
+	return _led_sheet_templates()
+
+
+def _led_sheet_templates() -> dict:
 	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
 
 	templates = frappe.get_all(
