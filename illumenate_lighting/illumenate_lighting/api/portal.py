@@ -2256,8 +2256,19 @@ def create_project(project_data: Union[str, dict]) -> dict:
 	if not project_data.get("customer"):
 		return {"success": False, "error": "Customer is required"}
 
-	# System Manager can create projects for any customer
-	is_system_manager = "System Manager" in frappe.get_roles(frappe.session.user)
+	# Sales staff (and System Managers) can create projects for any customer, on a dealer's behalf.
+	from illumenate_lighting.illumenate_lighting.portal.project_owner import (
+		can_set_owner_company,
+		validate_owner_company,
+	)
+
+	is_system_manager = can_set_owner_company()
+	owner_customer = None
+	if is_system_manager:
+		try:
+			owner_customer = validate_owner_company(project_data.get("owner_customer"))
+		except frappe.ValidationError as error:
+			return {"success": False, "error": str(error)}
 
 	# Validate the chosen customer is in the allowed list for this user
 	allowed_result = get_allowed_customers_for_project()
@@ -2278,7 +2289,9 @@ def create_project(project_data: Union[str, dict]) -> dict:
 		project.customer = chosen_customer
 		project.description = project_data.get("description")
 		project.is_private = project_data.get("is_private", 0)
-		# owner_customer is set automatically in before_insert
+		# Dealers get their own company in before_insert; staff name the dealer company.
+		if owner_customer:
+			project.owner_customer = owner_customer
 
 		# Optional fields
 		if project_data.get("estimated_start_date"):
