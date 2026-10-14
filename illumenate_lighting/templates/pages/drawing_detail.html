@@ -43,7 +43,7 @@ Detailed view of a single document request
 							</p>
 						</div>
 						<span class="status-badge {{ status_class }}">
-							{{ request.status }}
+							{{ _(request.status) }}
 						</span>
 					</div>
 				</div>
@@ -267,7 +267,7 @@ Detailed view of a single document request
 					</tr>
 					<tr>
 						<td class="py-2 text-muted">{{ _("Status") }}</td>
-						<td class="text-right py-2">{{ request.status }}</td>
+						<td class="text-right py-2">{{ _(request.status) }}</td>
 					</tr>
 					{% if request.sla_deadline %}
 					<tr>

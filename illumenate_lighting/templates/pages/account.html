@@ -46,7 +46,7 @@ User profile, notifications, and account preferences
 		<div class="col-lg-9">
 <section class="settings-card mb-4" id="companyManagement">
                 <div class="settings-card-header"><h2 class="h5">{{ _("Company records and requests") }}</h2></div>
-                <div class="settings-card-body" id="portalAccountRecords" aria-live="polite">{{ _("Loading account details...") }}</div>
+                <div class="settings-card-body" id="portalAccountRecords" aria-live="polite" aria-busy="true"><span class="sr-only">{{ _("Loading account details…") }}</span><div class="ill-skeleton" aria-hidden="true"><div class="ill-skeleton__line"></div><div class="ill-skeleton__line"></div><div class="ill-skeleton__line"></div></div></div>
             </section>
 			<!-- Profile Section -->
 			<div class="settings-card mb-4" id="profile">

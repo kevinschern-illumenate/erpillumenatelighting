@@ -242,7 +242,7 @@ Help center, FAQ, and support ticket submission
 						</div>
 					</div>
 					<span class="status-badge {{ ticket.status | lower | replace(' ', '-') }}">
-						{{ ticket.status }}
+						{{ _(ticket.status) }}
 					</span>
 				</div>
 				{% endfor %}

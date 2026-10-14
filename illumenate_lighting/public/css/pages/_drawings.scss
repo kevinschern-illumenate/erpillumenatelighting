@@ -130,17 +130,6 @@
 	.status-badge.in-progress { background: var(--ill-blue-100); color: var(--ill-blue-800); }
 	.status-badge.completed { background: var(--ill-green-100); color: var(--ill-green); }
 	.status-badge.cancelled { background: var(--ill-red-100); color: var(--ill-red-ink); }
-	.empty-state {
-		text-align: center;
-		padding: 3rem 2rem;
-		background: var(--ill-surface-soft);
-		border-radius: var(--ill-radius-md);
-	}
-	.empty-state i {
-		font-size: 3rem;
-		color: var(--ill-gray-400);
-		margin-bottom: 1rem;
-	}
 	.tab-content {
 		padding-top: 1.5rem;
 	}

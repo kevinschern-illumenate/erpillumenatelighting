@@ -91,3 +91,39 @@ test('escape covers quotes as well as markup', () => {
   const { w } = setup(() => {});
   assert.equal(w.PortalUI.escape(`<a href="x">'</a>`), '&lt;a href=&quot;x&quot;&gt;&#39;&lt;/a&gt;');
 });
+
+// UI-5: async sections load with a skeleton, show one empty state and fail with a Retry button.
+test('skeleton marks the section busy and announces what is loading', () => {
+  const { w } = setup(() => {});
+  const box = w.document.createElement('div');
+  w.PortalUI.skeleton(box, 'Loading exports', 2);
+  assert.equal(box.getAttribute('aria-busy'), 'true');
+  assert.equal(box.querySelector('.sr-only').textContent, 'Loading exports');
+  assert.equal(box.querySelectorAll('.ill-skeleton__line').length, 2);
+  assert.equal(box.querySelector('.ill-skeleton').getAttribute('aria-hidden'), 'true');
+});
+
+test('empty renders the shared .ill-empty with text, never markup', () => {
+  const { w } = setup(() => {});
+  const box = w.document.createElement('div');
+  w.PortalUI.skeleton(box);
+  w.PortalUI.empty(box, { icon: 'download', title: 'No <b>exports</b>', text: 'Generate one.' });
+  const empty = box.querySelector('.ill-empty');
+  assert.ok(empty.classList.contains('ill-empty--quiet'));
+  assert.equal(empty.querySelector('h3').textContent, 'No <b>exports</b>');
+  assert.equal(empty.querySelector('b'), null);
+  assert.equal(box.getAttribute('aria-busy'), 'false');
+});
+
+test('failed shows the message as an alert and Retry runs the loader again', () => {
+  const { w } = setup(() => {});
+  const box = w.document.createElement('div');
+  let retried = 0;
+  w.PortalUI.failed(box, 'Server <i>down</i>', () => { retried += 1; });
+  const alert = box.querySelector('.ill-empty--error');
+  assert.equal(alert.getAttribute('role'), 'alert');
+  assert.equal(alert.querySelector('p').textContent, 'Server <i>down</i>');
+  alert.querySelector('button').click();
+  assert.equal(retried, 1);
+  assert.equal(w.document.querySelector('.alert-danger'), null);
+});

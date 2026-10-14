@@ -1083,10 +1083,9 @@ Also handles new schedule creation when is_new is True
 					</div>
 				</div>
 				<div class="card-body p-0">
-					<div id="exportHistoryContainer">
-						<div class="text-center py-3">
-							<i class="fa fa-spinner fa-spin"></i> {{ _("Loading export history...") }}
-						</div>
+					<div id="exportHistoryContainer" aria-busy="true" aria-live="polite">
+						<span class="sr-only">{{ _("Loading export history…") }}</span>
+						<div class="ill-skeleton" aria-hidden="true"><div class="ill-skeleton__line"></div><div class="ill-skeleton__line"></div><div class="ill-skeleton__line"></div></div>
 					</div>
 				</div>
 			</div>
@@ -1099,10 +1098,9 @@ Also handles new schedule creation when is_new is True
 			<div class="card-header d-flex justify-content-between align-items-center">
 				<h6 class="mb-0"><i class="fa fa-history"></i> {{ _("Version History") }}</h6>
 			</div>
-			<div class="card-body" id="versionHistory">
-				<div class="text-center py-3">
-					<i class="fa fa-spinner fa-spin"></i> {{ _("Loading version history...") }}
-				</div>
+			<div class="card-body" id="versionHistory" aria-busy="true" aria-live="polite">
+				<span class="sr-only">{{ _("Loading version history…") }}</span>
+				<div class="ill-skeleton" aria-hidden="true"><div class="ill-skeleton__line"></div><div class="ill-skeleton__line"></div></div>
 			</div>
 		</div>
 	</div>
@@ -3395,26 +3393,20 @@ function generateExport(format, priced) {
 function loadExportHistory() {
 	var $container = $('#exportHistoryContainer');
 	var completed = false;
+	var retry = function() {
+		PortalUI.skeleton($container[0], {{ _("Loading export history…") | tojson }});
+		loadExportHistory();
+	};
 	var loadingTimer = setTimeout(function() {
-		if (!completed && $container.text().indexOf('{{ _("Loading export history...") }}') !== -1) {
-			$container.html(
-				'<div class="text-center text-muted py-3">' +
-				'<i class="fa fa-exclamation-circle"></i> ' +
-				'{{ _("Export history is taking longer than expected. Please refresh or try again.") }}' +
-				'</div>'
-			);
+		if (!completed) {
+			PortalUI.failed($container[0], {{ _("Export history is taking longer than expected.") | tojson }}, retry);
 		}
 	}, 15000);
 
 	function showExportHistoryError(message) {
 		completed = true;
 		clearTimeout(loadingTimer);
-		$container.html(
-			'<div class="text-center text-muted py-3">' +
-			'<i class="fa fa-exclamation-circle"></i> ' +
-			(message || '{{ _("Error loading export history") }}') +
-			'</div>'
-		);
+		PortalUI.failed($container[0], PortalUI.serverMessage(message) || {{ _("Export history could not be loaded.") | tojson }}, retry);
 	}
 
 	frappe.call({
@@ -3428,22 +3420,22 @@ function loadExportHistory() {
 			if (r.message && r.message.success) {
 				renderExportHistory(r.message.exports || []);
 			} else {
-				showExportHistoryError((r.message && r.message.error) || '{{ _("Error loading export history") }}');
+				showExportHistoryError(r.message && r.message.error);
 			}
 		},
 		error: function(r) {
-			showExportHistoryError((r && r.message) || '{{ _("Error loading export history") }}');
+			showExportHistoryError(r);
 		}
 	});
 }
 
 function renderExportHistory(exports) {
 	if (!exports || exports.length === 0) {
-		$('#exportHistoryContainer').html(
-			'<div class="text-center text-muted py-3">' +
-			'<i class="fa fa-download"></i> No exports yet. Use the buttons above to generate exports.' +
-			'</div>'
-		);
+		PortalUI.empty(document.getElementById('exportHistoryContainer'), {
+			icon: 'download',
+			title: {{ _("No exports yet") | tojson }},
+			text: {{ _("Use the buttons above to generate exports.") | tojson }}
+		});
 		return;
 	}
 
@@ -3499,7 +3491,7 @@ function renderExportHistory(exports) {
     });
 
     html += '</tbody></table></div>';
-    $('#exportHistoryContainer').html(html);
+    $('#exportHistoryContainer').attr('aria-busy', 'false').html(html);
     $('#exportHistoryContainer .packet-issue').on('click', function () {
         frappe.call({method: 'illumenate_lighting.illumenate_lighting.portal.packet_jobs.issue', args: {job_name: this.dataset.job}, callback: loadExportHistory});
     });
@@ -3743,28 +3735,35 @@ function initLineReorder() {
 
 // ─── Version History ─────────────────────────────────────────────────────────
 function loadVersionHistory() {
+	var container = document.getElementById('versionHistory');
+	var failed = function(message) {
+		PortalUI.failed(container, PortalUI.serverMessage(message) || {{ _("Version history could not be loaded.") | tojson }}, function() {
+			PortalUI.skeleton(container, {{ _("Loading version history…") | tojson }}, 2);
+			loadVersionHistory();
+		});
+	};
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.get_schedule_version_history',
-		args: { schedule_name: '{{ schedule.name }}' },
+		args: { schedule_name: {{ schedule.name | tojson }} },
 		callback: function(r) {
 			if (r.message && r.message.success) {
+				container.setAttribute('aria-busy', 'false');
 				renderVersionHistory(r.message.versions, r.message.current);
 			} else {
-				$('#versionHistory').html(
-					'<p class="text-muted text-center mb-0">' +
-					(r.message && r.message.error ? r.message.error : 'Error loading version history') +
-					'</p>'
-				);
+				failed(r.message && r.message.error);
 			}
-		}
+		},
+		error: failed
 	});
 }
 
 function renderVersionHistory(versions, current) {
 	if (!versions || versions.length <= 1) {
-		$('#versionHistory').html(
-			'<p class="text-muted text-center mb-0">No previous versions. This is the first version of this schedule.</p>'
-		);
+		PortalUI.empty(document.getElementById('versionHistory'), {
+			icon: 'history',
+			title: {{ _("No earlier versions") | tojson }},
+			text: {{ _("This is the first version of this schedule.") | tojson }}
+		});
 		return;
 	}
 	var html = '<div class="table-responsive"><table class="table table-sm table-hover mb-0">';

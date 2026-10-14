@@ -48,9 +48,9 @@ Publicly available specification sheets from Webflow products
 		{% endfor %}
 	</div>
 	{% else %}
-	<div class="empty-state">
-		<i class="fa fa-file-text-o"></i>
-		<h4>{{ _("No specification sheets available yet") }}</h4>
+	<div class="ill-empty">
+		<i class="fa fa-file-text-o" aria-hidden="true"></i>
+		<h3>{{ _("No specification sheets available yet") }}</h3>
 		<p>{{ _("Spec sheets will appear here as products are published.") }}</p>
 	</div>
 	{% endif %}

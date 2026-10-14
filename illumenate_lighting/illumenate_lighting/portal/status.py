@@ -97,6 +97,22 @@ def export_status_map():
 	}
 
 
+VERIFICATION_STATUS_META = {
+	"REQUESTED": {"label": "Received", "css": "info"},
+	"UNDER_REVIEW": {"label": "Under review", "css": "info"},
+	"INFORMATION_NEEDED": {"label": "Needs your reply", "css": "warning"},
+	"VERIFIED": {"label": "Verified", "css": "success"},
+	"NOT_FEASIBLE": {"label": "Not feasible", "css": "danger"},
+	"CANCELLED": {"label": "Cancelled", "css": "secondary"},
+}
+
+
+def verification_status(state):
+	"""(label, badge class) for a product verification request state."""
+	meta = VERIFICATION_STATUS_META.get(state)
+	return (_(meta["label"]), meta["css"]) if meta else (state or "", "secondary")
+
+
 # --------------------------------------------------------------------------
 # Sales Order -> customer-facing order status
 # --------------------------------------------------------------------------

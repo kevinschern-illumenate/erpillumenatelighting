@@ -15,5 +15,10 @@ def get_context(context):
 	doc = frappe.get_doc(DOCTYPE, name)
 	if not can_access(doc):
 		frappe.throw("Verification request unavailable", frappe.PermissionError)
-	context.update({"title": doc.name, "verification": doc, "no_cache": 1})
+	from illumenate_lighting.illumenate_lighting.portal.status import verification_status
+
+	label, css = verification_status(doc.state)
+	context.update(
+		{"title": doc.name, "verification": doc, "status_label": label, "status_class": css, "no_cache": 1}
+	)
 	return context

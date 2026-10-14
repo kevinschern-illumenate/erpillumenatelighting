@@ -180,5 +180,68 @@
 		return !!first;
 	}
 
-	window.PortalUI = {call, toast, confirm, escape, fieldErrors, serverMessage};
+	// UI-5: async sections share one loading skeleton, one empty state and one error state with Retry.
+	function skeleton(container, label, rows) {
+		const note = document.createElement('span');
+		note.className = 'sr-only';
+		note.textContent = label || t('Loading…');
+		const box = document.createElement('div');
+		box.className = 'ill-skeleton';
+		box.setAttribute('aria-hidden', 'true');
+		for (let index = 0; index < (rows || 3); index += 1) {
+			const line = document.createElement('div');
+			line.className = 'ill-skeleton__line';
+			box.append(line);
+		}
+		container.setAttribute('aria-busy', 'true');
+		container.replaceChildren(note, box);
+	}
+
+	function state(container, className, options) {
+		const box = document.createElement('div');
+		box.className = 'ill-empty ill-empty--quiet ' + className;
+		if (options.icon) {
+			const icon = document.createElement('i');
+			icon.className = 'fa fa-' + options.icon;
+			icon.setAttribute('aria-hidden', 'true');
+			box.append(icon);
+		}
+		if (options.title) {
+			const title = document.createElement('h3');
+			title.textContent = options.title;
+			box.append(title);
+		}
+		if (options.text) {
+			const text = document.createElement('p');
+			text.textContent = options.text;
+			box.append(text);
+		}
+		container.setAttribute('aria-busy', 'false');
+		container.replaceChildren(box);
+		return box;
+	}
+
+	function empty(container, options) {
+		return state(container, 'ill-empty--none', options || {});
+	}
+
+	function failed(container, message, retry) {
+		const box = state(container, 'ill-empty--error', {
+			icon: 'exclamation-circle',
+			title: t('This section could not load'),
+			text: message || t(GENERIC),
+		});
+		box.setAttribute('role', 'alert');
+		if (retry) {
+			const button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'btn btn-sm btn-outline-primary';
+			button.textContent = t('Retry');
+			button.addEventListener('click', () => retry());
+			box.append(button);
+		}
+		return box;
+	}
+
+	window.PortalUI = {call, toast, confirm, escape, fieldErrors, serverMessage, skeleton, empty, failed};
 })();
