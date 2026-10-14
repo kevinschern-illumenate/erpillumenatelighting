@@ -144,3 +144,22 @@ def list_projects(user=None, search=None, status=None, sort=None, page=None, pag
 		"sort": sort,
 		"search": query,
 	}
+
+
+@frappe.whitelist(methods=["POST"])
+def search(query=None, limit=20):
+	"""Readable projects whose name matches ``query``, for searchable project pickers."""
+	query = str(query or "").strip()[:140]
+	or_filters = None
+	if query:
+		like = f"%{query}%"
+		or_filters = {"project_name": ["like", like], "name": ["like", like]}
+	rows = frappe.get_list(
+		PROJECT,
+		filters={"status": ["!=", "ARCHIVED"]},
+		or_filters=or_filters,
+		fields=["name", "project_name"],
+		order_by="modified desc",
+		limit_page_length=min(max(int(limit or 20), 1), 50),
+	)
+	return [{"value": row.name, "label": row.project_name or row.name} for row in rows]

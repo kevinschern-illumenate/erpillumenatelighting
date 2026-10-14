@@ -135,6 +135,21 @@ class ProjectList(unittest.TestCase):
 		self.assertEqual(second.next_step["label"], "Add a schedule")
 		self.assertFalse(second.can_edit)
 
+	def test_search_returns_readable_unarchived_matches(self):
+		module, frappe = self.service()
+		frappe.get_list.return_value = [
+			Row(name="P-1", project_name="Lobby"),
+			Row(name="P-2", project_name=None),
+		]
+		self.assertEqual(
+			module.search(" lob ", limit=500),
+			[{"value": "P-1", "label": "Lobby"}, {"value": "P-2", "label": "P-2"}],
+		)
+		kwargs = frappe.get_list.call_args.kwargs
+		self.assertEqual(kwargs["filters"], {"status": ["!=", "ARCHIVED"]})
+		self.assertEqual(kwargs["or_filters"], {"project_name": ["like", "%lob%"], "name": ["like", "%lob%"]})
+		self.assertEqual(kwargs["limit_page_length"], 50)
+
 
 if __name__ == "__main__":
 	unittest.main()

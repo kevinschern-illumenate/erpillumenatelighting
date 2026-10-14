@@ -50,6 +50,7 @@ Request and track custom drawings and technical documentation
 
 						<div class="form-group" data-show="show_project_field">
 							<label for="requestProject">{{ _("Project / Reference") }}</label>
+							<input type="search" class="form-control form-control-sm mb-2" id="requestProjectSearch" placeholder="{{ _('Search your projects') }}" aria-label="{{ _('Search your projects') }}" aria-controls="requestProject" autocomplete="off">
 							<select class="form-control" name="project" id="requestProject">
 								<option value="">{{ _("Select project...") }}</option>
 								{% for project in projects %}
@@ -246,6 +247,13 @@ Request and track custom drawings and technical documentation
 						<p>{{ _("Submit your first request using the form.") }}</p>
 					</div>
 					{% endif %}
+					{% if page > 1 or has_more %}
+					<nav class="ill-pager" aria-label="{{ _('All requests pages') }}">
+						{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}#all">{{ _("Previous") }}</a>{% else %}<span></span>{% endif %}
+						<span class="small text-muted">{{ _("Page {0}").format(page) | e }}</span>
+						{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}#all">{{ _("Next") }}</a>{% else %}<span></span>{% endif %}
+					</nav>
+					{% endif %}
 				</div>
 			</div>
 		</div>
@@ -338,6 +346,31 @@ var requestText = {
 		});
 	});
 	projectSelect.addEventListener('change', render);
+
+	// REL-8: the picker starts with recent projects and searches the rest on the server.
+	var projectSearch = document.getElementById('requestProjectSearch');
+	var searchTimer;
+	function projectOptions(projects) {
+		var selected = projectSelect.value;
+		var first = projectSelect.options[0];
+		var custom = projectSelect.querySelector('option[value="_custom"]');
+		var options = projects.map(function (project) {
+			var option = document.createElement('option');
+			option.value = project.value;
+			option.textContent = project.label;
+			return option;
+		});
+		projectSelect.replaceChildren.apply(projectSelect, [first].concat(options, [custom]));
+		if (Array.prototype.some.call(projectSelect.options, function (option) { return option.value === selected; })) projectSelect.value = selected;
+	}
+	if (projectSearch) projectSearch.addEventListener('input', function () {
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(function () {
+			PortalUI.call('illumenate_lighting.illumenate_lighting.portal.project_list.search', {query: projectSearch.value})
+				.then(function (projects) { projectOptions(projects || []); })
+				.catch(function (error) { PortalUI.toast(error.message, 'red'); });
+		}, 250);
+	});
 
 	function customFields() {
 		var values = {};
