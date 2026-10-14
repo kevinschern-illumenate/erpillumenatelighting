@@ -553,3 +553,56 @@ def _describe(offers, today):
 		offer.grand_total, offer.currency = quotation.get("grand_total"), quotation.get("currency")
 		offer.schedule_name = schedule.get("schedule_name") or offer.schedule
 		offer.project_name = projects.get(schedule.get("ill_project"))
+
+
+# DESK-10: buyers hear about an issued offer 3 days and 1 day before it expires.
+REMINDER_DAYS = (3, 1)
+
+
+def _buyers(offer):
+	requested_by = (
+		frappe.db.get_value(REQUEST, offer.quote_request, "requested_by") if offer.quote_request else None
+	)
+	candidates = {requested_by, frappe.db.get_value(SCHEDULE, offer.schedule, "owner")}
+	return sorted(user for user in candidates if user and can_read(offer, user))
+
+
+def remind_expiring():
+	"""Daily: remind buyers of ISSUED offers that expire in 3 days or 1 day (idempotent per offer and day)."""
+	from frappe import _
+
+	from illumenate_lighting.illumenate_lighting.portal.notifications import _portal_link, notify_user
+
+	today = getdate(nowdate())
+	for days in REMINDER_DAYS:
+		offers = frappe.get_all(
+			DOCTYPE,
+			filters={"state": "ISSUED", "valid_until": frappe.utils.add_days(today, days)},
+			fields=["name", "customer", "schedule", "quotation", "quote_request", "valid_until"],
+		)
+		for offer in offers:
+			subject = (
+				_("Quote {0} expires tomorrow") if days == 1 else _("Quote {0} expires in {1} days")
+			).format(offer.name, days)
+			message = _(
+				"<p>Quote <strong>{0}</strong> is valid until {1}. Accept it or ask for changes before then.</p>"
+			).format(
+				frappe.utils.escape_html(offer.name),
+				frappe.utils.escape_html(frappe.utils.format_date(offer.valid_until)),
+			) + _portal_link(f"/portal/quotes/{offer.name}", _("Review the quote"))
+			for user in _buyers(offer):
+				notify_user(
+					user,
+					"notify_quotes",
+					subject,
+					message,
+					reference_doctype=DOCTYPE,
+					reference_name=offer.name,
+					event_key=f"{offer.name}:expiring:{offer.valid_until}:{days}",
+				)
+
+
+def expiring_queue_filters():
+	"""Staff "Offers expiring soon" queue: issued offers valid for at most 3 more days."""
+	today = getdate(nowdate())
+	return {"valid_until": ["between", [today, frappe.utils.add_days(today, max(REMINDER_DAYS))]]}
