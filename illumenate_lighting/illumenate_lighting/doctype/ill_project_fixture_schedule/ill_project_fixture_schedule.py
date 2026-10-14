@@ -194,7 +194,7 @@ class ilLProjectFixtureSchedule(Document):
 				title=_("Unconfigured Fixtures")
 			)
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def create_new_version(self, version_notes=None):
 		"""
 		Create a new version of this fixture schedule.
@@ -268,7 +268,7 @@ class ilLProjectFixtureSchedule(Document):
 
 		return new_schedule.name
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def create_sales_order(
 		self,
 		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
@@ -312,7 +312,7 @@ class ilLProjectFixtureSchedule(Document):
 			include_other=include_other,
 		)["sales_order"]
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def create_sales_order_result(
 		self,
 		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
@@ -1303,14 +1303,14 @@ class ilLProjectFixtureSchedule(Document):
 
 		return True
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def request_quote(self):
 		"""Freeze an unpriced intake; only an issued Quotation means QUOTED."""
 		from illumenate_lighting.illumenate_lighting.portal.quotes import request_quote
 
 		return request_quote(self.name)
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def duplicate_line(self, line_idx):
 		"""
 		Duplicate a schedule line including its configured fixture reference.
@@ -1366,7 +1366,7 @@ class ilLProjectFixtureSchedule(Document):
 
 		return self.lines.index(new_line)
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def move_line(self, from_idx, to_idx):
 		"""
 		Move a schedule line from one position to another.

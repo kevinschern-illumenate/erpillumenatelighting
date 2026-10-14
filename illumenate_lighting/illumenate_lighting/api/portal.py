@@ -45,9 +45,18 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 
 	Returns:
 		dict: {"success": False, "error": <message>, **extra}
+
+	Frappe commits a POST/PUT/DELETE request that returns normally, so a handled
+	error would otherwise persist whatever was written before it. Roll back
+	first, then log with ``defer_insert`` so the Error Log survives.
 	"""
+	request = getattr(frappe.local, "request", None)
+	if request is not None and getattr(request, "method", None) in ("POST", "PUT", "DELETE"):
+		frappe.db.rollback()
 	try:
-		frappe.log_error(title=log_prefix[:140], message=frappe.get_traceback() or str(e))
+		frappe.log_error(
+			title=log_prefix[:140], message=frappe.get_traceback() or str(e), defer_insert=True
+		)
 	except Exception:
 		# Never let logging failures mask the original error response.
 		pass
@@ -1575,7 +1584,7 @@ def orderable_item_problem(item_code, is_sales_staff=False):
 	return None
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 	"""
 	Add a new line to a fixture schedule.
@@ -1709,7 +1718,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		return _safe_error(e, f"Portal: error adding line to schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 	"""
 	Delete a line from a fixture schedule.
@@ -1760,7 +1769,7 @@ def delete_schedule_line(schedule_name: str, line_idx: int) -> dict:
 		return _safe_error(e, f"Portal: error deleting line from schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
 	"""
 	Duplicate a line in a fixture schedule.
@@ -1806,7 +1815,7 @@ def duplicate_schedule_line(schedule_name: str, line_idx: int) -> dict:
 		return _safe_error(e, f"Portal: error duplicating line on schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
 	"""
 	Move (reorder) a line in a fixture schedule.
@@ -1860,7 +1869,7 @@ def move_schedule_line(schedule_name: str, from_idx: int, to_idx: int) -> dict:
 		return _safe_error(e, f"Portal: error moving line on schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_schedule_line(schedule_name: str, line_idx: int, line_data: Union[str, dict]) -> dict:
 	"""
 	Update an existing line in a fixture schedule.
@@ -2106,7 +2115,7 @@ def get_configured_fixture_details(configured_fixture_id: str) -> dict:
 		return _safe_error(e, f"Portal: error fetching configured fixture details for {configured_fixture_id}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_configured_fixture_to_schedule(
 	schedule_name: str,
 	configured_fixture_id: str,
@@ -2207,7 +2216,7 @@ def save_configured_fixture_to_schedule(
 		return _safe_error(e, f"Portal: error saving configured fixture to schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project.
@@ -2275,7 +2284,7 @@ def create_project(project_data: Union[str, dict]) -> dict:
 		return _safe_error(e, "Portal: error creating project")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 	"""
 	Update an existing ilL-Project.
@@ -2342,7 +2351,7 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 		return _safe_error(e, f"Portal: error updating project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def archive_project(project_name: str) -> dict:
 	"""
 	Archive or unarchive an ilL-Project.
@@ -2376,7 +2385,7 @@ def archive_project(project_name: str) -> dict:
 		return _safe_error(e, f"Portal: error archiving project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def unarchive_project(project_name: str) -> dict:
 	"""
 	Restore an archived ilL-Project back to ACTIVE status.
@@ -2411,7 +2420,7 @@ def unarchive_project(project_name: str) -> dict:
 		return _safe_error(e, f"Portal: error unarchiving project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_schedule(schedule_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project-Fixture-Schedule.
@@ -2461,7 +2470,7 @@ def create_schedule(schedule_data: Union[str, dict]) -> dict:
 		return _safe_error(e, f"Portal: error creating schedule in project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def rename_schedule(schedule_name: str, new_schedule_name: str) -> dict:
 	"""
 	Rename an existing ilL-Project-Fixture-Schedule.
@@ -2499,7 +2508,7 @@ def rename_schedule(schedule_name: str, new_schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error renaming schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def delete_schedule(schedule_name: str) -> dict:
 	"""
 	Delete an existing ilL-Project-Fixture-Schedule.
@@ -2536,7 +2545,7 @@ def delete_schedule(schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error deleting schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_project_collaborators(project_name: str, collaborators: Union[str, list]) -> dict:
 	"""
 	Update collaborators for a project.
@@ -2602,7 +2611,7 @@ def update_project_collaborators(project_name: str, collaborators: Union[str, li
 		return _safe_error(e, f"Portal: error updating collaborators on project {project_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def toggle_project_privacy(project_name: str, is_private: int) -> dict:
 	"""
 	Toggle privacy setting for a project.
@@ -2669,7 +2678,7 @@ def request_schedule_quote(schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error requesting quote for schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_schedule_status(schedule_name: str, new_status: str) -> dict:
 	"""
 	Update the status of a fixture schedule.
@@ -2755,7 +2764,7 @@ def create_schedule_sales_order(schedule_name: str) -> dict:
 		return _safe_error(e, f"Portal: error creating sales order for schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_customer(customer_data: Union[str, dict]) -> dict:
 	"""
 	Create a new Customer from the portal.
@@ -2980,7 +2989,7 @@ def create_support_ticket(ticket_data: Union[str, dict]) -> dict:
 		return _safe_error(e, "Portal: error creating support ticket")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_user_profile(profile_data: Union[str, dict]) -> dict:
 	"""
 	Update the current user's profile information.
@@ -3087,7 +3096,7 @@ def get_account_settings() -> dict:
 		return _safe_error(e, "Portal: error getting account settings")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 	"""
 	Save notification preferences for the current user.
@@ -3124,7 +3133,7 @@ def save_notification_preferences(preferences: Union[str, dict]) -> dict:
 		return _safe_error(e, "Portal: error saving notification preferences")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_portal_preferences(preferences: Union[str, dict]) -> dict:
 	"""
 	Save display/locale preferences for the current user.
@@ -3355,7 +3364,7 @@ ilLumenate Lighting Team</p>
 		frappe.log_error(f"Failed to send collaborator invite email: {str(e)}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def remove_project_collaborator(project_name: str, user_email: str) -> dict:
 	"""
 	Remove a collaborator from a project.
@@ -3455,7 +3464,7 @@ def get_company_contacts() -> dict:
 	return {"success": True, "contacts": contacts}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_contact(contact_data: Union[str, dict]) -> dict:
 	"""
 	Create a new contact for the dealer's company.
@@ -3931,7 +3940,7 @@ def get_configured_fixture_for_editing(configured_fixture_id: str) -> dict:
 		return _safe_error(e, f"Portal: error getting fixture configuration for {configured_fixture_id}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def update_configured_fixture_on_schedule(
 	schedule_name: str,
 	line_idx: int,
@@ -4037,7 +4046,7 @@ def update_configured_fixture_on_schedule(
 		return _safe_error(e, f"Portal: error updating fixture on schedule {schedule_name}")
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_schedule_version(schedule_name: str, version_notes: str = None) -> dict:
 	"""
 	Create a new version of a fixture schedule.

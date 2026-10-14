@@ -287,7 +287,7 @@ def get_line_ids(project: str, fixture_schedule: str) -> dict:
 	}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def add_fixture_to_schedule(
 	project: str,
 	fixture_schedule: str,

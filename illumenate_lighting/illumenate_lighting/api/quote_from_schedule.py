@@ -50,7 +50,7 @@ def get_schedule_summary(fixture_schedule: str) -> dict[str, Any]:
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def add_schedule_to_quotation(
 	quotation: str,
 	fixture_schedule: str,
@@ -72,7 +72,7 @@ def add_schedule_to_quotation(
 	)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def add_schedule_to_transaction(
 	parent_doctype: str,
 	parent_name: str,

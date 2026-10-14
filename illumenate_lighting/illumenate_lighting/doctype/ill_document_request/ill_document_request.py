@@ -279,7 +279,7 @@ class ilLDocumentRequest(Document):
 			reference_name=self.name,
 		)
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def submit_request(self):
 		"""Submit the request (transition from Draft to Submitted)."""
 		if self.status != "Draft":
@@ -289,7 +289,7 @@ class ilLDocumentRequest(Document):
 		self.save()
 		return {"success": True}
 
-	@frappe.whitelist()
+	@frappe.whitelist(methods=["POST"])
 	def publish_deliverable(self, deliverable_idx: int):
 		"""Publish a deliverable to make it visible on the portal."""
 		if not _is_request_staff(self, frappe.session.user):

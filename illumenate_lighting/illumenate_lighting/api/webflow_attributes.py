@@ -1030,7 +1030,7 @@ def get_all_attributes_for_sync(
     return result
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def mark_attribute_synced(
     attribute_type: str,
     doc_name: str,
@@ -1100,7 +1100,7 @@ def mark_attribute_synced(
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def mark_attribute_error(
     attribute_type: str,
     doc_name: str,
@@ -1158,7 +1158,7 @@ def mark_attribute_error(
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def trigger_attribute_sync(
     attribute_type: str = None,
     doc_names: str | list | None = None,
@@ -1368,7 +1368,7 @@ def get_attribute_type_from_doctype(doctype: str) -> str:
     return None
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def reset_all_webflow_sync_status() -> dict:
     """
     Reset all attribute webflow sync status to 'Pending' and clear webflow_item_id.
@@ -1936,7 +1936,7 @@ def get_product_attribute_references(
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist(allow_guest=False, methods=["POST"])
 def mark_filter_synced(
     product_slug: str,
     brand: str = None,

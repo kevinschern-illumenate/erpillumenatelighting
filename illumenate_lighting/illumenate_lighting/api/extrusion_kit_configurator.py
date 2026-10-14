@@ -563,7 +563,7 @@ def validate_kit_configuration(selections: str) -> dict:
 # SAVE TO SCHEDULE
 # ═══════════════════════════════════════════════════════════════════════
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def save_kit_to_schedule(
     schedule_name: str,
     line_idx: int | str | None = None,
