@@ -427,10 +427,10 @@ Also handles new project creation when is_new is True
 							{{ schedule_status_label(schedule.status) }}
 						</span>
 						{% if can_edit %}
-						<button class="btn btn-sm btn-outline-secondary mr-1" onclick="event.stopPropagation(); openRenameModal('{{ schedule.name | e }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Rename') }}">
+						<button type="button" class="btn btn-sm btn-outline-secondary mr-1 js-rename-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Rename') }}">
 							<i class="fa fa-pencil"></i>
 						</button>
-						<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); confirmDeleteSchedule('{{ schedule.name | e }}', '{{ schedule.schedule_name | e }}')" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
+						<button type="button" class="btn btn-sm btn-outline-danger js-delete-schedule" data-schedule="{{ schedule.name | e }}" data-label="{{ schedule.schedule_name | e }}" title="{{ _('Delete') }}" {% if schedule.status != 'DRAFT' %}disabled{% endif %}>
 							<i class="fa fa-trash"></i>
 						</button>
 						{% endif %}
@@ -1445,6 +1445,17 @@ function renderProjectFiles(files) {
     $('#projectFilesContainer').html(html);
 }
 
+// Names travel in data attributes, never inside inline handlers (a quote in a name would break out of the JS string).
+document.addEventListener('click', function(event) {
+    var button = event.target.closest('.js-rename-schedule, .js-delete-schedule');
+    if (!button || button.disabled) return;
+    if (button.classList.contains('js-rename-schedule')) {
+        openRenameModal(button.dataset.schedule, button.dataset.label);
+    } else {
+        confirmDeleteSchedule(button.dataset.schedule, button.dataset.label);
+    }
+});
+
 // Open rename modal with current schedule name
 function openRenameModal(scheduleName, currentName) {
     $('#renameScheduleId').val(scheduleName);
@@ -1502,7 +1513,7 @@ function renameSchedule() {
 // Confirm and delete schedule
 function confirmDeleteSchedule(scheduleName, displayName) {
     frappe.confirm(
-        'Are you sure you want to delete the schedule "' + displayName + '"? This action cannot be undone.',
+        'Are you sure you want to delete the schedule "' + frappe.utils.escape_html(displayName || '') + '"? This action cannot be undone.',
         function() {
             deleteSchedule(scheduleName);
         }

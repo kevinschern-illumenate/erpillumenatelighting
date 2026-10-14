@@ -1954,13 +1954,13 @@ body.reorder-no-select {
 												</a>
 											{% endif %}
 											<button type="button" class="btn btn-sm btn-outline-secondary line-documents" data-schedule="{{ schedule.name }}" data-line="{{ line.get('line_key') or line.get('name') }}">{{ _('Specifications') }}</button>
-<button class="btn btn-sm btn-secondary" onclick="editLine({{ loop.index0 }})" title="{{ _('Edit Line Details') }}">
+<button class="btn btn-sm btn-secondary" type="button" data-line-action="editLine" data-line-index="{{ loop.index0 }}" title="{{ _('Edit Line Details') }}">
 												<i class="fa fa-pencil"></i> {{ _('Edit') }}
 											</button>
-												<button class="btn btn-sm btn-outline-secondary" onclick="duplicateLine({{ loop.index0 }})" title="{{ _('Duplicate') }}">
+												<button class="btn btn-sm btn-outline-secondary" type="button" data-line-action="duplicateLine" data-line-index="{{ loop.index0 }}" title="{{ _('Duplicate') }}">
 													<i class="fa fa-copy"></i> {{ _('Duplicate') }}
 												</button>
-												<button class="btn btn-sm btn-outline-danger" onclick="deleteLine({{ loop.index0 }})" title="{{ _('Delete') }}">
+												<button class="btn btn-sm btn-outline-danger" type="button" data-line-action="deleteLine" data-line-index="{{ loop.index0 }}" title="{{ _('Delete') }}">
 													<i class="fa fa-trash"></i> {{ _('Delete') }}
 											</button>
 										</div>
@@ -4195,6 +4195,14 @@ function deleteLine(line_idx) {
 		});
 	});
 }
+
+// Line buttons carry their index in data attributes; one delegated listener dispatches them.
+document.addEventListener('click', function(event) {
+	var button = event.target.closest('[data-line-action]');
+	if (!button) return;
+	var action = { editLine: editLine, duplicateLine: duplicateLine, deleteLine: deleteLine }[button.dataset.lineAction];
+	if (action) action(parseInt(button.dataset.lineIndex, 10));
+});
 
 function changeStatus(new_status) {
 	var statusLabels = {

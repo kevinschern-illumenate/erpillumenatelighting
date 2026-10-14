@@ -59,11 +59,11 @@ Displays all projects accessible to the current user
 								<small class="text-muted">{{ frappe.utils.format_date(project.modified) }}</small>
 							</div>
 							{% if project.status != 'ARCHIVED' %}
-							<button class="btn btn-sm btn-outline-warning ml-1" onclick="event.preventDefault(); event.stopPropagation(); archiveProjectFromList('{{ project.name | e }}', '{{ project.project_name | e }}')" title="{{ _('Archive') }}">
+							<button type="button" class="btn btn-sm btn-outline-warning ml-1 js-archive-project" data-project="{{ project.name | e }}" data-label="{{ project.project_name | e }}" title="{{ _('Archive') }}">
 								<i class="fa fa-archive"></i>
 							</button>
 							{% else %}
-							<button class="btn btn-sm btn-outline-success ml-1" onclick="event.preventDefault(); event.stopPropagation(); unarchiveProjectFromList('{{ project.name | e }}', '{{ project.project_name | e }}')" title="{{ _('Unarchive') }}">
+							<button type="button" class="btn btn-sm btn-outline-success ml-1 js-unarchive-project" data-project="{{ project.name | e }}" data-label="{{ project.project_name | e }}" title="{{ _('Unarchive') }}">
 								<i class="fa fa-undo"></i>
 							</button>
 							{% endif %}
@@ -116,9 +116,24 @@ $(document).ready(function() {
 	updateNoActiveMessage();
 });
 
+// Names travel in data attributes, never inside inline handlers (a quote in a name would break out of the JS string).
+document.addEventListener('click', function(event) {
+	var button = event.target.closest('.js-archive-project, .js-unarchive-project');
+	if (!button) return;
+	if (button.classList.contains('js-archive-project')) {
+		archiveProjectFromList(button.dataset.project, button.dataset.label);
+	} else {
+		unarchiveProjectFromList(button.dataset.project, button.dataset.label);
+	}
+});
+
+function escapeLabel(value) {
+	return frappe.utils.escape_html(value || '');
+}
+
 function archiveProjectFromList(projectName, displayName) {
 	frappe.confirm(
-		'Are you sure you want to archive "' + displayName + '"? It will be hidden from the active list but can be unarchived later.',
+		'Are you sure you want to archive "' + escapeLabel(displayName) + '"? It will be hidden from the active list but can be unarchived later.',
 		function() {
 			frappe.call({
 				method: 'illumenate_lighting.illumenate_lighting.api.portal.archive_project',
@@ -128,7 +143,7 @@ function archiveProjectFromList(projectName, displayName) {
 						frappe.msgprint({
 							title: 'Success',
 							indicator: 'green',
-							message: '"' + displayName + '" has been archived'
+							message: '"' + escapeLabel(displayName) + '" has been archived'
 						});
 						window.location.reload();
 					} else {
@@ -146,7 +161,7 @@ function archiveProjectFromList(projectName, displayName) {
 
 function unarchiveProjectFromList(projectName, displayName) {
 	frappe.confirm(
-		'Restore "' + displayName + '" to active status?',
+		'Restore "' + escapeLabel(displayName) + '" to active status?',
 		function() {
 			frappe.call({
 				method: 'illumenate_lighting.illumenate_lighting.api.portal.unarchive_project',
@@ -156,7 +171,7 @@ function unarchiveProjectFromList(projectName, displayName) {
 						frappe.msgprint({
 							title: 'Success',
 							indicator: 'green',
-							message: '"' + displayName + '" has been restored'
+							message: '"' + escapeLabel(displayName) + '" has been restored'
 						});
 						window.location.reload();
 					} else {

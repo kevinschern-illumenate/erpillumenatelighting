@@ -1,6 +1,7 @@
 """Local Jinja rendering and embedded-JS syntax checks; no Frappe/browser claims."""
 
 import html
+import re
 import subprocess
 import sys
 import tempfile
@@ -42,10 +43,32 @@ environment.globals.update(
 		),
 	}
 )
+# Inline event handlers must never interpolate template values: the browser HTML-decodes the attribute
+# before running it, so `| e` cannot stop a quote in a name from breaking out of a JS string.
+INLINE_HANDLER = re.compile(r"""(?<![\w-])on[a-z]+\s*=\s*("[^"]*\{\{|'[^']*\{\{)""", re.IGNORECASE)
+
+
+def inline_handler_violations(source):
+	return [source.count("\n", 0, match.start()) + 1 for match in INLINE_HANDLER.finditer(source)]
+
+
+assert inline_handler_violations("""<button onclick="go('{{ doc.name | e }}')">""") == [1]
+assert inline_handler_violations("""<a\nonmouseover='x({{ i }})'>""") == [2]
+assert not inline_handler_violations("""<div data-content="{{ x }}" data-project="{{ doc.name | e }}">""")
+assert not inline_handler_violations("""<button onclick="go()">{{ _('Go') }}</button>""")
+
 parsed = 0
+handler_violations = []
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
-	environment.parse(path.read_text(encoding="utf8"))
+	source = path.read_text(encoding="utf8")
+	environment.parse(source)
 	parsed += 1
+	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
+if handler_violations:
+	sys.exit(
+		"Inline event handlers interpolate template values (use data attributes and a delegated listener):\n  "
+		+ "\n  ".join(handler_violations)
+	)
 
 offer = {
 	"name": "OFFER-00001",
@@ -286,6 +309,25 @@ assert "Needs your reply" in quote_request_html and "ilLumenate needs more infor
 
 render_dir = ROOT / "tests/portal_ui/rendered"
 render_dir.mkdir(exist_ok=True)
+hostile_projects = environment.get_template("templates/pages/ill_projects.html").render(
+	projects=[
+		View(
+			name=name,
+			project_name=label,
+			customer="Buyer",
+			is_private=0,
+			status=status,
+			modified="2026-10-01",
+		)
+		for name, label, status in (
+			("P-1');alert(1);//", "x');alert(2);//<b>", "ACTIVE"),
+			('P-2";alert(3);//', 'y");alert(4);//', "ARCHIVED"),
+		)
+	]
+)
+assert "alert(2);//&lt;b&gt;" in hostile_projects and "onclick" not in hostile_projects
+parser.feed(hostile_projects)
+(render_dir / "projects-hostile.html").write_text(hostile_projects, encoding="utf8")
 configurator = environment.get_template("templates/pages/configure.html")
 for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Driver", "Controller", "Extrusion Kit"):
 	context = dict(
