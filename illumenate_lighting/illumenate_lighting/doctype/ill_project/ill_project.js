@@ -1,7 +1,25 @@
 // Copyright (c) 2026, ilLumenate Lighting and contributors
 // For license information, please see license.txt
 
+// DESK-9: end client and team pick from the owner company's project parties, by role.
+const PROJECT_PARTY_ROLES = {
+	end_client_party: "End Client",
+	architect: "Architect",
+	lighting_designer: "Lighting Designer",
+	general_contractor: "General Contractor",
+};
+
 frappe.ui.form.on("ilL-Project", {
+	setup: function (frm) {
+		Object.entries(PROJECT_PARTY_ROLES).forEach(([fieldname, role]) => {
+			frm.set_query(fieldname, () => ({
+				filters: Object.assign(
+					{ role: role, disabled: 0 },
+					frm.doc.owner_customer ? { owner_customer: frm.doc.owner_customer } : {}
+				),
+			}));
+		});
+	},
 	refresh: function (frm) {
 		// Owner Company controls which dealer team sees the project: internal and sales users only
 		// (mirrors portal.project_owner.can_set_owner_company).

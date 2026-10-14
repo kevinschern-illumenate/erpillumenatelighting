@@ -714,6 +714,12 @@ assert "Main &lt;x&gt;" in project_versions
 (render_dir / "project-versions.html").write_text(project_versions, encoding="utf8")
 # FLOW-8 / REL-5 / FLOW-5: the create form for a dealer, for sales staff and for a user without a company,
 # and the edit modal; all share one set of fields and one pair of party/contact modals.
+project_party_options = {
+	"end_client_party": [{"value": "PTY-1", "label": "Hotel <One>"}],
+	"architect": [{"value": "PTY-2", "label": "Studio <A>"}],
+	"lighting_designer": [],
+	"general_contractor": [],
+}
 project_new_base = dict(
 	is_new=True,
 	project=None,
@@ -727,7 +733,8 @@ project_new_base = dict(
 	user_customer="ACME",
 	owner_company_label="Acme <Lighting>",
 	can_create_parties=True,
-	territories=["West <Coast>"],
+	# DESK-9: the end client and team pick from the dealer company's project parties.
+	party_options=project_party_options,
 )
 project_new_variants = {
 	"project-new-dealer": {},
@@ -736,6 +743,7 @@ project_new_variants = {
 		dealer_companies=[{"value": "ACME", "label": "Acme <Lighting>"}],
 		user_customer=None,
 		owner_company_label=None,
+		party_options={},
 	),
 	"project-new-no-company": dict(
 		needs_company=True,
@@ -743,45 +751,68 @@ project_new_variants = {
 		user_customer=None,
 		owner_company_label=None,
 		can_create_parties=False,
+		party_options={},
 	),
 }
 for name, variant in project_new_variants.items():
 	project_new = project_page.render(**{**project_new_base, **variant})
-	escaped = "<Lighting>" not in project_new and "West &lt;Coast&gt;" in project_new
-	assert escaped or name.endswith("no-company")
+	assert "<Lighting>" not in project_new and "<One>" not in project_new
+	assert "Hotel &lt;One&gt;" in project_new or name != "project-new-dealer"
 	parser.feed(project_new)
 	(render_dir / f"{name}.html").write_text(project_new, encoding="utf8")
+project_edit_base = dict(
+	schedules=[],
+	schedule_families=[],
+	can_edit=True,
+	owner_company_label="Acme <Lighting>",
+	contact_details={"project_manager": View(first_name="Pat", last_name="<Lee>")},
+	party_labels={"architect": "Studio <A>"},
+	party_options=project_party_options,
+	can_create_parties=True,
+	schedule_status_class=lambda status: "info",
+	schedule_status_label=lambda status: status.title(),
+	project_status_class=lambda status: "success",
+	project_status_label=lambda status: (status or "").title(),
+)
+# A legacy project whose end client is a Customer other than the owner company: read-only end client.
 project_edit = project_page.render(
 	project=View(
 		name="P-1",
 		project_name="Lobby <b>",
 		customer="CLIENT",
 		owner_customer="ACME",
-		architect="CLIENT",
+		architect="PTY-2",
 		project_manager="CONT-1",
 		location="Main St <1>",
 		is_private=0,
 		status="ACTIVE",
 	),
-	schedules=[],
-	schedule_families=[],
-	can_edit=True,
 	customer_label="Client <Co>",
-	owner_company_label="Acme <Lighting>",
-	contact_details={"project_manager": View(first_name="Pat", last_name="<Lee>")},
-	customer_role_details={"architect": View(customer_name="Client <Co>")},
-	allowed_customers=project_new_base["allowed_customers"],
-	can_create_parties=True,
-	territories=[],
-	schedule_status_class=lambda status: "info",
-	schedule_status_label=lambda status: status.title(),
-	project_status_class=lambda status: "success",
-	project_status_label=lambda status: (status or "").title(),
+	end_client_editable=False,
+	**project_edit_base,
 )
 assert "Client &lt;Co&gt;" in project_edit and "Pat &lt;Lee&gt;" in project_edit
-assert "<Lee>" not in project_edit
+assert "Studio &lt;A&gt;" in project_edit and "<Lee>" not in project_edit and "<A>" not in project_edit
 parser.feed(project_edit)
 (render_dir / "project-edit.html").write_text(project_edit, encoding="utf8")
+# DESK-9: a portal project bills the dealer company; its end client is a party the dealer can change.
+project_edit_party = project_page.render(
+	project=View(
+		name="P-2",
+		project_name="Hotel",
+		customer="ACME",
+		end_client_party="PTY-1",
+		owner_customer="ACME",
+		is_private=0,
+		status="ACTIVE",
+	),
+	customer_label="Hotel <One>",
+	end_client_editable=True,
+	**{**project_edit_base, "party_labels": {"end_client_party": "Hotel <One>"}},
+)
+assert "Hotel &lt;One&gt;" in project_edit_party and "<One>" not in project_edit_party
+parser.feed(project_edit_party)
+(render_dir / "project-edit-party.html").write_text(project_edit_party, encoding="utf8")
 dealer_access = environment.get_template("templates/pages/request_dealer_access.html")
 dealer_access_variants = {
 	"guest": dict(

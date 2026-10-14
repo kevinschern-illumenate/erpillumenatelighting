@@ -53,6 +53,13 @@ class ilLProject(Document):
 		"""Validate project data."""
 		self._validate_private_requires_owner_access()
 		self._validate_owner_customer_change()
+		self._validate_parties()
+
+	def _validate_parties(self):
+		"""End client and team name parties of the owner company, each in its role (DESK-9)."""
+		from illumenate_lighting.illumenate_lighting.portal.project_parties import validate_project
+
+		validate_project(self)
 
 	def _validate_owner_customer_change(self):
 		"""Only internal or sales users may reassign the Owner Company of an existing project."""

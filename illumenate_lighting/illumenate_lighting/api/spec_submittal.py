@@ -253,6 +253,22 @@ def _commercial_source_blocked(doctype, field):
 	return any(term in (field or "").lower().split("_") for term in terms) or doctype in ("Item Price", "Customer", "Quotation", "Sales Order")
 
 
+def _project_source_value(project, source_field):
+	"""A project field for a submittal: parties print their name, not their record ID (DESK-9).
+
+	``customer`` prints the end client: the end-client party when the project has
+	one (a portal project's Customer is the dealer company), else the Customer.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.project_parties import ROLE_FIELDS, label
+
+	if source_field == "customer" and project.get("end_client_party"):
+		return label(project.get("end_client_party"))
+	value = getattr(project, source_field, None)
+	if source_field in ROLE_FIELDS and value:
+		return label(value)
+	return value
+
+
 def _get_source_value(
 	source_doctype: str,
 	source_field: str,
@@ -344,7 +360,7 @@ def _get_source_value(
 			return val
 
 		if source_doctype == "ilL-Project" and project:
-			val = getattr(project, source_field, None)
+			val = _project_source_value(project, source_field)
 			_debug(
 				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
 				f"(doc={project.name})",
@@ -1001,6 +1017,8 @@ def _generate_cover_page(
 		context = {
 			"schedule": schedule,
 			"project": project,
+			# DESK-9: the end client by name (party or Customer), not the billing Customer's ID.
+			"end_client": _project_source_value(project, "customer") if project else None,
 			"fixture_lines": fixture_lines,
 			"generation_date": nowdate() if include_date else None,
 			"generation_datetime": now() if include_date else None,
@@ -1532,7 +1550,7 @@ def _get_neon_source_value(
 			return val
 
 		if source_doctype == "ilL-Project" and project:
-			val = getattr(project, source_field, None)
+			val = _project_source_value(project, source_field)
 			_debug(
 				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
 				f"(doc={project.name})",

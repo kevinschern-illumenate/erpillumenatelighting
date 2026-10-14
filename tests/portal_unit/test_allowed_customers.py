@@ -1,4 +1,7 @@
-"""REL-9: the end-client list is the user's own company, its users' Customers and readable projects'."""
+"""REL-9: the Customer list is the user's own company, its users' Customers and readable projects'.
+
+DESK-9: a project's architect, designer and contractor are project parties, so they add nothing.
+"""
 
 import types
 import unittest
@@ -43,9 +46,7 @@ class AllowedCustomers(unittest.TestCase):
 	def test_own_company_its_users_customers_and_readable_projects_in_one_lookup(self):
 		module, frappe = self.service()
 		frappe.db.sql_list.return_value = ["dana@acme.test"]
-		frappe.get_list.return_value = [
-			Record(customer="HOTEL", architect="ARCH", lighting_designer=None, general_contractor="GC"),
-		]
+		frappe.get_list.return_value = [Record(customer="HOTEL")]
 		labels = {"ACME": "Acme", "MINE": "Mine Co", "HOTEL": "Hotel", "ARCH": "Arch", "GC": "GC Ltd"}
 
 		def get_all(doctype, filters=None, fields=None, pluck=None, **kwargs):
@@ -58,9 +59,10 @@ class AllowedCustomers(unittest.TestCase):
 		result = module.allowed_customers("dana@acme.test")
 		self.assertEqual(
 			[option["value"] for option in result["allowed_customers"]],
-			["ACME", "ARCH", "GC", "HOTEL", "MINE"],
+			["ACME", "HOTEL", "MINE"],
 		)
 		self.assertEqual(frappe.get_list.call_args.kwargs["user"], "dana@acme.test")
+		self.assertEqual(frappe.get_list.call_args.kwargs["fields"], ["customer"], "team fields are parties")
 		self.assertEqual(frappe.db.get_value.call_count, 0, "no per-customer lookups")
 		sql = frappe.db.sql_list.call_args.args[0]
 		self.assertNotIn("IN (", sql, "no transitive shared-contact clause")

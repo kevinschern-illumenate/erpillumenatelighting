@@ -107,6 +107,7 @@ def list_projects(user=None, search=None, status=None, sort=None, page=None, pag
 			"name",
 			"project_name",
 			"customer",
+			"end_client_party",
 			"owner_customer",
 			"status",
 			"is_private",
@@ -129,11 +130,26 @@ def list_projects(user=None, search=None, status=None, sort=None, page=None, pag
 				as_list=True,
 			)
 		)
+		# DESK-9: a dealer's end client is a project party, shown by name.
+		parties = sorted({row.end_client_party for row in rows if row.get("end_client_party")})
+		end_clients = (
+			dict(
+				frappe.get_all(
+					"ilL-Project-Party",
+					filters={"name": ["in", parties]},
+					fields=["name", "party_name"],
+					as_list=True,
+				)
+			)
+			if parties
+			else {}
+		)
 	for row in rows:
 		latest = [group.latest for group in version_families(schedules.get(row.name, []))]
 		row.schedule_count = len(latest)
 		row.last_activity = max([row.modified, *(schedule.modified for schedule in latest)], key=str)
 		row.company_name = companies.get(row.owner_customer) or row.owner_customer
+		row.end_client = end_clients.get(row.get("end_client_party")) or row.customer
 		row.next_step = next_step(latest)
 		row.can_edit = can_edit_project(frappe.get_doc(PROJECT, row.name), user)
 	return {

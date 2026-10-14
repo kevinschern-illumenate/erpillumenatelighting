@@ -499,8 +499,13 @@ class ilLProjectFixtureSchedule(Document):
 			apply_header(so, intake_context["data"])
 		self._set_optional_doc_value(so, "ill_fixture_schedule", self.name)
 
-		# Store the end-client reference in remarks if different from SO customer
-		if project.customer and project.customer != so_customer:
+		# Store the end-client reference in remarks if different from SO customer.
+		# DESK-9: a portal end client is a project party, named by its party name.
+		if project.get("end_client_party"):
+			from illumenate_lighting.illumenate_lighting.portal.project_parties import label
+
+			so.remarks = _("End-Client: {0}").format(label(project.end_client_party))
+		elif project.customer and project.customer != so_customer:
 			so.remarks = _("End-Client: {0}").format(project.customer)
 
 		counts = self.append_quote_lines(

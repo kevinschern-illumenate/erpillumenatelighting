@@ -125,10 +125,10 @@
 			<span class="info-label">Project Name:</span>
 			<span class="info-value">{{ project.project_name | e }}</span>
 		</div>
-		{% if project.customer %}
+		{% if end_client or project.customer %}
 		<div class="info-row">
 			<span class="info-label">Customer:</span>
-			<span class="info-value">{{ project.customer | e }}</span>
+			<span class="info-value">{{ (end_client or project.customer) | e }}</span>
 		</div>
 		{% endif %}
 		{% endif %}

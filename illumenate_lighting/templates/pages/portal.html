@@ -66,7 +66,7 @@ Portal overview (FLOW-1): what needs the user's attention, recent activity and q
 						<li>
 							<div>
 								<a href="/portal/projects/{{ project.name | urlencode }}" class="item-name">{{ project.project_name | e }}</a>
-								<div class="item-meta">{{ project.customer | e }}</div>
+								<div class="item-meta">{{ (project.end_client or project.customer) | e }}</div>
 							</div>
 							<span class="ill-status ill-status--{{ project_status_class(project.status) | e }}">{{ project_status_label(project.status) | e }}</span>
 						</li>

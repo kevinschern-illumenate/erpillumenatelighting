@@ -7,20 +7,21 @@ Also handles new project creation when is_new is True
 
 {% block portal_title %}{% if is_new %}{{ _("Create Project") }}{% else %}{{ project.project_name | e }}{% endif %}{% endblock %}
 {% block portal_scope %}ill-page--project{% endblock %}
-{#- FLOW-8: create and edit share these fields and one pair of "new party" / "new contact" modals. -#}
-{% macro party_select(name, label, selected, required=false, help=none) %}
+{#- FLOW-8: create and edit share these fields and one pair of "new party" / "new contact" modals.
+    DESK-9: the end client and team are the owner company's project parties, one select per role. -#}
+{% macro party_select(name, role, label, selected, required=false, help=none) %}
 							<div class="form-group">
 								<label for="projectField-{{ name | e }}">{{ label | e }}{% if required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
 								<div class="input-group">
-									<select class="form-control js-party-select" name="{{ name | e }}" id="projectField-{{ name | e }}"{% if required %} required{% endif %}{% if help %} aria-describedby="projectField-{{ name | e }}-help"{% endif %}>
+									<select class="form-control js-party-select" name="{{ name | e }}" id="projectField-{{ name | e }}" data-role="{{ role | e }}"{% if required %} required{% endif %}{% if help %} aria-describedby="projectField-{{ name | e }}-help"{% endif %}>
 										<option value="">{{ _("Select...") }}</option>
-										{% for cust in allowed_customers %}
-										<option value="{{ cust.value | e }}"{% if cust.value == selected %} selected{% endif %}>{{ cust.label | e }}</option>
+										{% for party in (party_options or {}).get(name, []) %}
+										<option value="{{ party.value | e }}"{% if party.value == selected %} selected{% endif %}>{{ party.label | e }}</option>
 										{% endfor %}
 									</select>
 									{% if can_create_parties %}
 									<div class="input-group-append">
-										<button type="button" class="btn btn-outline-primary js-new-party" data-target-select="projectField-{{ name | e }}" title="{{ _('Add a company or person') }}" aria-label="{{ _('Add a company or person') }}">
+										<button type="button" class="btn btn-outline-primary js-new-party" data-target-select="projectField-{{ name | e }}" data-role="{{ role | e }}" title="{{ _('Add a company or person') }}" aria-label="{{ _('Add a company or person') }}">
 											<i class="fa fa-plus" aria-hidden="true"></i>
 										</button>
 									</div>
@@ -48,7 +49,9 @@ Also handles new project creation when is_new is True
 								<small class="form-text text-muted" id="projectField-owner_customer-help">{{ _("The dealer team that will see and manage this project in the portal.") }}</small>
 							</div>
 							{% endif %}
-							{{ party_select("customer", _("End client"), user_customer, required=true, help=_("Who is this project for? Choose your own company if it's internal stock or a showroom.")) }}
+							{{ party_select("end_client_party", "End Client", _("End client"), none, help=_("Who is this project for? Leave it empty for internal stock or a showroom.")) }}
+							{% elif end_client_editable %}
+							{{ party_select("end_client_party", "End Client", _("End client"), doc.get('end_client_party')) }}
 							{% else %}
 							<div class="form-group">
 								<label for="projectField-end_client">{{ _("End client") }}</label>
@@ -101,9 +104,9 @@ Also handles new project creation when is_new is True
 								<summary>{{ _("Project team (optional)") }}</summary>
 								<p class="small text-muted">{{ _("The architect, lighting designer and contractor on the job. You can add them later.") }}</p>
 								<div class="row">
-									<div class="col-md-4">{{ party_select("architect", _("Architect"), doc.get('architect')) }}</div>
-									<div class="col-md-4">{{ party_select("lighting_designer", _("Lighting designer"), doc.get('lighting_designer')) }}</div>
-									<div class="col-md-4">{{ party_select("general_contractor", _("General contractor"), doc.get('general_contractor')) }}</div>
+									<div class="col-md-4">{{ party_select("architect", "Architect", _("Architect"), doc.get('architect')) }}</div>
+									<div class="col-md-4">{{ party_select("lighting_designer", "Lighting Designer", _("Lighting designer"), doc.get('lighting_designer')) }}</div>
+									<div class="col-md-4">{{ party_select("general_contractor", "General Contractor", _("General contractor"), doc.get('general_contractor')) }}</div>
 								</div>
 							</details>
 
@@ -134,26 +137,25 @@ Also handles new project creation when is_new is True
 				</div>
 				<div class="modal-body">
 					<form id="partyForm" novalidate>
+						<input type="hidden" name="role" id="partyRole">
 						<div class="form-group">
 							<label for="partyName">{{ _("Name") }} <span class="text-danger" aria-hidden="true">*</span></label>
-							<input type="text" class="form-control" name="customer_name" id="partyName" required placeholder="{{ _('Company or individual name') }}">
+							<input type="text" class="form-control" name="party_name" id="partyName" required placeholder="{{ _('Company or individual name') }}" aria-describedby="partyName-help">
+							<small class="form-text text-muted" id="partyName-help">{{ _("Only your company's team sees this list. If the name is already on it, that entry is used.") }}</small>
 						</div>
 						<div class="form-group">
-							<label for="partyType">{{ _("Type") }}</label>
-							<select class="form-control" name="customer_type" id="partyType">
-								<option value="Company">{{ _("Company") }}</option>
-								<option value="Individual">{{ _("Individual") }}</option>
-							</select>
+							<label for="partyContactPerson">{{ _("Contact person") }}</label>
+							<input type="text" class="form-control" name="contact_person" id="partyContactPerson" placeholder="{{ _('Optional') }}">
 						</div>
-						<div class="form-group">
-							<label for="partyTerritory">{{ _("Territory") }}</label>
-							<select class="form-control" name="territory" id="partyTerritory">
-								<option value="">{{ _("Default") }}</option>
-								{% for territory in territories %}
-								<option value="{{ territory | e }}">{{ territory | e }}</option>
-								{% endfor %}
-							</select>
-							<small class="form-text text-muted">{{ _("Optional: the region this company is in") }}</small>
+						<div class="form-row">
+							<div class="form-group col-sm-6">
+								<label for="partyEmail">{{ _("Email") }}</label>
+								<input type="email" class="form-control" name="email" id="partyEmail" placeholder="{{ _('Optional') }}">
+							</div>
+							<div class="form-group col-sm-6">
+								<label for="partyPhone">{{ _("Phone") }}</label>
+								<input type="tel" class="form-control" name="phone" id="partyPhone" placeholder="{{ _('Optional') }}">
+							</div>
 						</div>
 					</form>
 				</div>
@@ -375,22 +377,22 @@ Also handles new project creation when is_new is True
 						</div>
 						<div class="col-md-6">
 							<h6 class="text-muted mb-3">{{ _("Project team") }}</h6>
-							{% if project.architect and customer_role_details.get('architect') %}
+							{% if project.architect and party_labels.get('architect') %}
 							<p class="mb-2">
-								<strong>{{ _("Architect") }}:</strong> 
-								{{ customer_role_details.architect.customer_name | e }}
+								<strong>{{ _("Architect") }}:</strong>
+								{{ party_labels.architect | e }}
 							</p>
 							{% endif %}
-							{% if project.lighting_designer and customer_role_details.get('lighting_designer') %}
+							{% if project.lighting_designer and party_labels.get('lighting_designer') %}
 							<p class="mb-2">
-								<strong>{{ _("Lighting Designer") }}:</strong> 
-								{{ customer_role_details.lighting_designer.customer_name | e }}
+								<strong>{{ _("Lighting Designer") }}:</strong>
+								{{ party_labels.lighting_designer | e }}
 							</p>
 							{% endif %}
-							{% if project.general_contractor and customer_role_details.get('general_contractor') %}
+							{% if project.general_contractor and party_labels.get('general_contractor') %}
 							<p class="mb-2">
-								<strong>{{ _("General Contractor") }}:</strong> 
-								{{ customer_role_details.general_contractor.customer_name | e }}
+								<strong>{{ _("General Contractor") }}:</strong>
+								{{ party_labels.general_contractor | e }}
 							</p>
 							{% endif %}
 						</div>
@@ -567,14 +569,17 @@ Also handles new project creation when is_new is True
 {% block script %}
 <script>
 var projectDocName = {{ (project.name if project else None) | tojson }};
+var projectOwnerCompany = {{ (project.owner_customer if project else None) | tojson }};
 // FLOW-8: one set of handlers for the create form, the edit modal and their shared party/contact modals.
 var projectText = {
 	required: {{ _("This field is required.") | tojson }},
 	added: {{ _("{0} added") | tojson }},
-	saved: {{ _("Project updated") | tojson }}
+	saved: {{ _("Project updated") | tojson }},
+	existing: {{ _("{0} is already on your list") | tojson }},
+	ownerFirst: {{ _("Choose the owner company first.") | tojson }}
 };
 var API = 'illumenate_lighting.illumenate_lighting.api.portal.';
-var projectFormFields = ['project_name', 'owner_customer', 'customer', 'description', 'estimated_start_date', 'location',
+var projectFormFields = ['project_name', 'owner_customer', 'end_client_party', 'description', 'estimated_start_date', 'location',
 	'project_manager', 'architect', 'lighting_designer', 'general_contractor'];
 var partyTarget = null;
 var contactTarget = null;
@@ -591,7 +596,7 @@ function projectFormValues(form, empty) {
 
 function projectFormErrors(form, data) {
 	var errors = {};
-	['project_name', 'owner_customer', 'customer'].forEach(function(name) {
+	['project_name', 'owner_customer'].forEach(function(name) {
 		if (form.elements[name] && !data[name]) errors[name] = projectText.required;
 	});
 	return PortalUI.fieldErrors(form, errors);
@@ -639,19 +644,40 @@ function loadContacts() {
 	return contactsLoaded;
 }
 
+// The owner company whose parties the form lists: the project's, or the one sales staff pick.
+function partyCompany() {
+	var owner = document.getElementById('projectField-owner_customer');
+	return owner ? owner.value : projectOwnerCompany;
+}
+
+function fillPartySelects(parties) {
+	document.querySelectorAll('.js-party-select').forEach(function(select) {
+		select.querySelectorAll('option:not(:first-child)').forEach(function(option) { option.remove(); });
+		(parties[select.name] || []).forEach(function(party) { appendOption(select, party.value, party.label); });
+	});
+}
+
+// DESK-9: parties belong to the owner company; dealers create for their own, staff for the one they picked.
 function createParty(button) {
 	var form = document.getElementById('partyForm');
-	var name = form.elements.customer_name.value.trim();
-	if (PortalUI.fieldErrors(form, name ? {} : {customer_name: projectText.required})) return;
-	PortalUI.call(API + 'create_customer', {
-		customer_data: {customer_name: name, customer_type: form.elements.customer_type.value, territory: form.elements.territory.value || null}
-	}, {busy: button}).then(function(message) {
-		document.querySelectorAll('.js-party-select').forEach(function(select) {
-			appendOption(select, message.customer_name, name, select === partyTarget);
-		});
+	var data = {role: form.elements.role.value};
+	['party_name', 'contact_person', 'email', 'phone'].forEach(function(name) {
+		data[name] = form.elements[name].value.trim() || null;
+	});
+	if (PortalUI.fieldErrors(form, data.party_name ? {} : {party_name: projectText.required})) return;
+	var owner = document.getElementById('projectField-owner_customer');
+	if (owner && !owner.value) {
+		PortalUI.toast(projectText.ownerFirst, 'red');
+		return;
+	}
+	data.owner_customer = partyCompany();
+	PortalUI.call(API + 'create_party', {party_data: data}, {busy: button}).then(function(message) {
+		var known = Array.prototype.some.call(partyTarget.options, function(option) { return option.value === message.party; });
+		if (known) partyTarget.value = message.party;
+		else appendOption(partyTarget, message.party, message.label, true);
 		$('#partyModal').modal('hide');
 		form.reset();
-		PortalUI.toast(__(projectText.added, [name]));
+		PortalUI.toast(__(message.existing ? projectText.existing : projectText.added, [message.label]));
 	}).catch(function(error) {
 		PortalUI.toast(error.message, 'red');
 	});
@@ -682,6 +708,7 @@ document.addEventListener('click', function(event) {
 	if (!button || button.disabled) return;
 	if (button.classList.contains('js-new-party')) {
 		partyTarget = document.getElementById(button.dataset.targetSelect);
+		document.getElementById('partyRole').value = button.dataset.role;
 		$('#partyModal').modal('show');
 	} else if (button.classList.contains('js-new-contact')) {
 		contactTarget = document.getElementById(button.dataset.targetSelect);
@@ -694,6 +721,18 @@ document.addEventListener('click', function(event) {
 		loadContacts();
 		$('#editProjectModal').modal('show');
 	}
+});
+
+// Sales staff: the party lists follow the owner company they pick.
+document.addEventListener('change', function(event) {
+	if (event.target.id !== 'projectField-owner_customer') return;
+	fillPartySelects({});
+	if (!event.target.value) return;
+	PortalUI.call(API + 'get_project_parties', {owner_customer: event.target.value}).then(function(message) {
+		fillPartySelects(message.parties || {});
+	}).catch(function(error) {
+		PortalUI.toast(error.message, 'red');
+	});
 });
 
 // The "Visible to" line follows the privacy toggle.
@@ -729,7 +768,6 @@ document.addEventListener('change', function(event) {
 	form.addEventListener('submit', function(event) {
 		event.preventDefault();
 		var data = projectFormValues(form, '');
-		delete data.customer;
 		showProjectFormError(form, '');
 		if (projectFormErrors(form, data)) return;
 		PortalUI.call(API + 'update_project', {project_name: projectDocName, project_data: data}, {

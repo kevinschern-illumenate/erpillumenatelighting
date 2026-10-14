@@ -41,6 +41,8 @@ INSERT INTO `tabDynamic Link` VALUES
 	('A Warehouse', 'Address', 'Customer', 'Dealer A'), ('B Warehouse', 'Address', 'Customer', 'Dealer B'),
 	-- A Contact row in the link table must not leak an Address of the same name.
 	('B Warehouse', 'Contact', 'Customer', 'Dealer A');
+-- Team columns link ilL-Project-Party (DESK-9). These hold the pre-migration Customer
+-- names on purpose: a project naming a party must not expose a same-named Customer.
 INSERT INTO `tabilL-Project` VALUES
 	('P-A', 'dealer@a.test', 'A End Client', 'Dealer A', NULL, NULL, 'Shared GC', 'A PM'),
 	('P-B', 'dealer-b@b.test', 'B End Client', 'Dealer B', 'B Private Architect', NULL, 'Shared GC', 'B Buyer');
@@ -84,23 +86,31 @@ class MasterScope(unittest.TestCase):
 		query = f"SELECT name FROM `tab{doctype}`" + (f" WHERE {condition}" if condition else "")
 		return {row[0] for row in self.db.execute(query)}
 
-	def test_dealer_sees_own_company_project_parties_and_own_records(self):
+	def test_dealer_sees_own_company_project_customers_and_own_records(self):
 		user = "dealer@a.test"
-		self.assertEqual(self.visible("Customer", user), {"Dealer A", "A End Client", "Shared GC"})
-		self.assertEqual(self.visible("Contact", user), {"A Buyer", "GC Contact", "A PM", "A Scratch"})
+		self.assertEqual(self.visible("Customer", user), {"Dealer A", "A End Client"})
+		self.assertEqual(self.visible("Contact", user), {"A Buyer", "A PM", "A Scratch"})
 		self.assertEqual(self.visible("Address", user), {"A Warehouse", "A Draft"})
 
 	def test_non_dealer_company_member_is_scoped_to_readable_projects(self):
 		user = "member@a.test"
-		self.assertEqual(self.visible("Customer", user), {"Dealer A", "A End Client", "Shared GC"})
-		self.assertEqual(self.visible("Contact", user), {"A Buyer", "GC Contact", "A PM"})
+		self.assertEqual(self.visible("Customer", user), {"Dealer A", "A End Client"})
+		self.assertEqual(self.visible("Contact", user), {"A Buyer", "A PM"})
 		self.assertEqual(self.visible("Address", user), {"A Warehouse"})
 
-	def test_external_collaborator_sees_only_the_invited_project_parties(self):
+	def test_external_collaborator_sees_only_the_invited_project_customer(self):
 		user = "designer@x.test"
-		self.assertEqual(self.visible("Customer", user), {"B End Client", "B Private Architect", "Shared GC"})
-		self.assertEqual(self.visible("Contact", user), {"B Buyer", "GC Contact"})
+		self.assertEqual(self.visible("Customer", user), {"B End Client"})
+		self.assertEqual(self.visible("Contact", user), {"B Buyer"})
 		self.assertEqual(self.visible("Address", user), set())
+
+	def test_team_parties_no_longer_expose_customers(self):
+		# DESK-9: the architect and contractor are dealer-scoped parties, so a project
+		# naming them reveals neither the other dealer's Customers nor their contacts.
+		for user in ("dealer@a.test", "member@a.test", "designer@x.test"):
+			with self.subTest(user=user):
+				self.assertFalse({"Shared GC", "B Private Architect"} & self.visible("Customer", user))
+				self.assertNotIn("GC Contact", self.visible("Contact", user))
 
 	def test_staff_are_unrestricted_and_guests_see_nothing(self):
 		for doctype in ("Customer", "Contact", "Address"):

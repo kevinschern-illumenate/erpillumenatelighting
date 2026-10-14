@@ -776,6 +776,12 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	if customer:
 		customer_name = customer.customer_name or customer.name
 		info_items.append(f"<span><span class='lbl'>Customer:</span> {customer_name}</span>")
+	if project and project.get("end_client_party"):
+		# DESK-9: dealers name the end client as a project party; the Customer above bills.
+		from illumenate_lighting.illumenate_lighting.portal.project_parties import label
+
+		end_client = frappe.utils.escape_html(label(project.end_client_party))
+		info_items.append(f"<span><span class='lbl'>End client:</span> {end_client}</span>")
 	info_items.append(f"<span><span class='lbl'>Date:</span> {export_date}</span>")
 	info_items.append(f"<span><span class='lbl'>Status:</span> {schedule.status}</span>")
 	version = getattr(schedule, "version", None)

@@ -38,10 +38,16 @@ def get_context(context):
 	# Get recent projects (respects permission_query_conditions)
 	context.recent_projects = frappe.get_list(
 		"ilL-Project",
-		fields=["name", "project_name", "customer", "status", "modified"],
+		fields=["name", "project_name", "customer", "end_client_party", "status", "modified"],
 		order_by="modified desc",
 		limit=5,
 	)
+	# DESK-9: show a dealer's end client (a project party) by name.
+	from illumenate_lighting.illumenate_lighting.portal.project_parties import labels
+
+	end_clients = labels(project.end_client_party for project in context.recent_projects)
+	for project in context.recent_projects:
+		project.end_client = end_clients.get(project.end_client_party) or project.customer
 
 	# Order requests are shown too, so a successful conversion is visible here.
 	context.recent_orders = orders[:5]

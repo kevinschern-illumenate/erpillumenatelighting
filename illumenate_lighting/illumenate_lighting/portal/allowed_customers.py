@@ -5,13 +5,17 @@
 
 Sales staff (and System Managers) may pick any Customer. Everyone else gets
 their own company, Customers created by users of their company, and Customers
-already used on projects they can read. A contact shared between two dealers
-no longer pulls the other dealer's Customers into the list.
+already used as the Customer of projects they can read. A contact shared
+between two dealers no longer pulls the other dealer's Customers into the list.
+
+Architects, lighting designers, contractors and portal end clients are project
+parties now (DESK-9, ``portal.project_parties``), so naming one on a project no
+longer makes a Customer pickable.
 """
 
 import frappe
 
-STAKEHOLDER_FIELDS = ("customer", "architect", "lighting_designer", "general_contractor")
+STAKEHOLDER_FIELDS = ("customer",)
 
 
 def _options(names):

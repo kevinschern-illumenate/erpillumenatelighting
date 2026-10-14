@@ -55,7 +55,7 @@ Displays all projects accessible to the current user
 			<div class="ill-record__main">
 				<a href="/portal/projects/{{ project.name | urlencode }}" class="ill-record__title"><span class="js-project-name">{{ project.project_name | e }}</span></a>
 				<p class="ill-record__sub">
-					{% if project.customer %}{{ project.customer | e }}{% endif %}
+					{% if project.end_client or project.customer %}{{ (project.end_client or project.customer) | e }}{% endif %}
 					{% if project.company_name %}<span class="badge badge-light ml-1" title="{{ _('Owner company') }}"><i class="fa fa-building-o" aria-hidden="true"></i> {{ project.company_name | e }}</span>{% endif %}
 					{% if project.is_private %}<span class="badge badge-secondary ml-1"><i class="fa fa-lock" aria-hidden="true"></i> {{ _("Private") }}</span>{% endif %}
 				</p>

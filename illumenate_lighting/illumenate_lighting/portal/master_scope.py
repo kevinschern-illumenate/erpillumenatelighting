@@ -11,9 +11,10 @@ list every company's customers, contacts and addresses.
 
 System Users (staff on Desk) stay unrestricted. A website user sees:
 
-- Customer: their own company, Customers they created, and Customers named on
-  a project they can read (end client, architect, lighting designer,
-  general contractor).
+- Customer: their own company, Customers they created, and the Customer of a
+  project they can read. Architects, lighting designers, contractors and portal
+  end clients are dealer-scoped project parties (DESK-9), not Customers, so a
+  project naming them exposes no Customer.
 - Contact / Address: rows they created, rows linked to one of those
   Customers, their own Contact, and a readable project's project manager.
 
@@ -25,12 +26,7 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.portal import access
 
-PROJECT_CUSTOMER_FIELDS = (
-	"customer",
-	"architect",
-	"lighting_designer",
-	"general_contractor",
-)
+PROJECT_CUSTOMER_FIELDS = ("customer",)
 DENY = "1=0"
 
 

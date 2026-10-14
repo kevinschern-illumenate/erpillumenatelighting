@@ -89,25 +89,8 @@ def get_context(context):
 		except Exception:
 			contact_details["project_manager"] = None
 
-	# Pre-load customer details for architect, lighting_designer, general_contractor
-	customer_role_details = {}
-	customer_role_fields = ["architect", "lighting_designer", "general_contractor"]
-	for field in customer_role_fields:
-		if project.get(field):
-			try:
-				customer_name_display = frappe.db.get_value("Customer", project.get(field), "customer_name")
-				customer_role_details[field] = {
-					"customer_name": customer_name_display or project.get(field),
-				}
-			except Exception:
-				customer_role_details[field] = None
-
-	# Get allowed customers for the customer-role dropdowns in the edit modal
-	from illumenate_lighting.illumenate_lighting.api.portal import (
-		get_allowed_customers_for_project,
-	)
-
-	allowed_result = get_allowed_customers_for_project()
+	# DESK-9: the end client and team are project parties of the owner company.
+	from illumenate_lighting.illumenate_lighting.portal import project_parties
 
 	context.project = project
 	context.schedules = schedules
@@ -133,16 +116,16 @@ def get_context(context):
 	context.no_cache = 1
 	context.frappe = frappe  # Make frappe available in template
 	context.contact_details = contact_details  # Pre-loaded contact details (project_manager)
-	context.customer_role_details = customer_role_details  # Pre-loaded customer details
-	context.allowed_customers = allowed_result.get("allowed_customers", [])
-	context.user_customer = allowed_result.get("user_customer")
-	# FLOW-8: the end client and owner company by name, read-only on the page.
-	context.customer_label = _customer_label(project.customer, context.allowed_customers)
+	context.party_labels = project_parties.project_labels(project)
+	context.party_options = project_parties.picker_options(project) if can_edit else {}
+	# FLOW-8: the end client and owner company by name. A legacy end client that is a
+	# Customer other than the owner company stays read-only; a party end client can change.
+	context.customer_label = project_parties.end_client_label(project)
+	context.end_client_editable = bool(
+		project.get("end_client_party") or project.customer == project.get("owner_customer")
+	)
 	context.owner_company_label = _customer_label(project.get("owner_customer"))
 	context.can_create_parties = _can_create_parties()
-
-	# Get list of territories for new customer creation modal
-	context.territories = frappe.get_all("Territory", pluck="name", order_by="name")
 
 	return context
 
@@ -161,6 +144,7 @@ def _get_new_project_context(context):
 	from illumenate_lighting.illumenate_lighting.api.portal import (
 		get_allowed_customers_for_project,
 	)
+	from illumenate_lighting.illumenate_lighting.portal import project_parties
 	from illumenate_lighting.illumenate_lighting.portal.project_owner import (
 		can_set_owner_company,
 		dealer_companies,
@@ -181,10 +165,9 @@ def _get_new_project_context(context):
 	context.needs_company = not context.can_set_owner_company and not context.user_customer
 	context.owner_company_label = _customer_label(context.user_customer, context.allowed_customers)
 	context.can_create_parties = _can_create_parties()
-
-	# Get list of territories for new customer creation
-	context.territories = (
-		[] if context.needs_company else frappe.get_all("Territory", pluck="name", order_by="name")
+	# DESK-9: a dealer picks from their company's parties; staff load them once they pick the owner.
+	context.party_options = (
+		{} if context.needs_company or context.can_set_owner_company else project_parties.picker_options()
 	)
 
 	return context
@@ -198,7 +181,7 @@ def _customer_label(customer, options=()):
 
 
 def _can_create_parties():
-	"""create_customer and create_contact accept dealers and internal users only."""
+	"""create_party and create_contact accept dealers and internal users only."""
 	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
 		_is_dealer_user,
 		_is_internal_user,

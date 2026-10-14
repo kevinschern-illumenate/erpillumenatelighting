@@ -2134,8 +2134,13 @@ def create_project(project_data: Union[str, dict]) -> dict:
 	"""
 	Create a new ilL-Project.
 
+	The end client and project team are project parties of the owner company
+	(``end_client_party``, ``architect``, ``lighting_designer``,
+	``general_contractor``; DESK-9). ``customer`` is optional: without it the
+	project bills the owner company, or the end client's Customer once promoted.
+
 	Args:
-		project_data: Dict with project fields (project_name, customer, is_private, etc.)
+		project_data: Dict with project fields (project_name, end_client_party, is_private, etc.)
 
 	Returns:
 		dict: {"success": True/False, "project_name": name, "error": "message if error"}
@@ -2149,9 +2154,6 @@ def create_project(project_data: Union[str, dict]) -> dict:
 
 	if frappe.session.user == "Guest":
 		return {"success": False, "error": "Please log in to create a project"}
-
-	if not project_data.get("customer"):
-		return {"success": False, "error": "Customer is required"}
 
 	# Sales staff (and System Managers) can create projects for any customer, on a dealer's behalf.
 	from illumenate_lighting.illumenate_lighting.portal.project_owner import (
@@ -2172,6 +2174,13 @@ def create_project(project_data: Union[str, dict]) -> dict:
 	allowed_customer_names = [c["value"] for c in allowed_result.get("allowed_customers", [])]
 
 	chosen_customer = project_data.get("customer")
+	if not chosen_customer:
+		from illumenate_lighting.illumenate_lighting.portal.project_parties import project_customer
+
+		chosen_customer = project_customer(project_data, owner_customer or allowed_result.get("user_customer"))
+		if not chosen_customer:
+			return {"success": False, "error": "Customer is required"}
+		allowed_customer_names.append(chosen_customer)
 
 	# System Manager bypass: allow any valid customer. Everyone else must pick
 	# from their allowed list; never silently substitute a different company.
@@ -2197,12 +2206,10 @@ def create_project(project_data: Union[str, dict]) -> dict:
 			project.location = project_data.get("location")
 		if project_data.get("project_manager"):
 			project.project_manager = project_data.get("project_manager")
-		if project_data.get("architect"):
-			project.architect = project_data.get("architect")
-		if project_data.get("lighting_designer"):
-			project.lighting_designer = project_data.get("lighting_designer")
-		if project_data.get("general_contractor"):
-			project.general_contractor = project_data.get("general_contractor")
+		# Parties are checked against the owner company in ilLProject.validate.
+		for field in ("end_client_party", "architect", "lighting_designer", "general_contractor"):
+			if project_data.get(field):
+				project.set(field, project_data.get(field))
 
 		project.insert()
 		return {"success": True, "project_name": project.name}
@@ -2216,7 +2223,8 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 	Update an existing ilL-Project.
 
 	Allows editing of project_name, description, estimated_start_date, location,
-	project_manager, architect, lighting_designer, general_contractor, and is_private.
+	project_manager, end_client_party, architect, lighting_designer,
+	general_contractor, and is_private. The billing ``customer`` never changes here.
 
 	Args:
 		project_name: Name (ID) of the project to update
@@ -2250,6 +2258,7 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 		"estimated_start_date",
 		"location",
 		"project_manager",
+		"end_client_party",
 		"architect",
 		"lighting_designer",
 		"general_contractor",
@@ -2264,6 +2273,7 @@ def update_project(project_name: str, project_data: Union[str, dict]) -> dict:
 				if value == "" and field in (
 					"estimated_start_date",
 					"project_manager",
+					"end_client_party",
 					"architect",
 					"lighting_designer",
 					"general_contractor",
@@ -2770,6 +2780,58 @@ def create_customer(customer_data: Union[str, dict]) -> dict:
 		return {"success": True, "customer_name": customer.name}
 	except Exception as e:
 		return _safe_error(e, "Portal: error creating customer")
+
+
+@frappe.whitelist(methods=["POST"])
+def create_party(party_data: str | dict) -> dict:
+	"""Add an end client, architect, lighting designer or contractor to the user's company (DESK-9).
+
+	Dealers add to their own company; sales staff name it (``owner_customer``).
+	A party the company already has by that name and role is returned, not
+	duplicated. Use this instead of :func:`create_customer` for project parties.
+
+	Args:
+		party_data: Dict with party_name, role, and optional owner_customer (staff),
+			contact_person, email, phone, website, address, notes.
+
+	Returns:
+		dict: {"success": True, "party": name, "label": party_name, "role": role, "existing": bool}
+	"""
+	if isinstance(party_data, str):
+		try:
+			party_data = json.loads(party_data)
+		except json.JSONDecodeError:
+			return {"success": False, "error": "Invalid party_data format"}
+	if not isinstance(party_data, dict):
+		return {"success": False, "error": "Invalid party_data format"}
+
+	from illumenate_lighting.illumenate_lighting.portal import project_parties
+
+	try:
+		return {"success": True, **project_parties.create(party_data)}
+	except Exception as e:
+		return _safe_error(e, "Portal: error creating project party")
+
+
+@frappe.whitelist()
+def get_project_parties(project: str | None = None, owner_customer: str | None = None) -> dict:
+	"""Party choices for the project form's end client and team selects, by field.
+
+	Lists the user's company's parties; sales staff list the company they name
+	(or the project's). Returns {"success": True, "parties": {field: [{"value", "label"}]}}.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal import project_parties
+
+	doc = None
+	if project:
+		if not frappe.db.exists("ilL-Project", project):
+			return {"success": False, "error": "Project not found"}
+		doc = frappe.get_doc("ilL-Project", project)
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import has_permission
+
+		if not has_permission(doc, "read", frappe.session.user):
+			return {"success": False, "error": "You don't have permission to view this project"}
+	return {"success": True, "parties": project_parties.picker_options(doc, owner_customer)}
 
 
 @frappe.whitelist(methods=["POST"])
