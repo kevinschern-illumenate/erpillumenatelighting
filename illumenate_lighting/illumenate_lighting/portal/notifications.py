@@ -148,13 +148,18 @@ def notify_shipment(delivery_note):
 	order_names = {i.against_sales_order for i in delivery_note.items if i.against_sales_order}
 	if not order_names:
 		return
-	carrier = delivery_note.get("transporter_name")
-	tracking = delivery_note.get("vehicle_no")
+	from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import tracking
+
+	shipment = tracking(delivery_note)
+	escape = frappe.utils.escape_html
 	detail = ""
-	if carrier:
-		detail += _("<p><strong>Carrier:</strong> {0}</p>").format(frappe.utils.escape_html(carrier))
-	if tracking:
-		detail += _("<p><strong>Tracking number:</strong> {0}</p>").format(frappe.utils.escape_html(tracking))
+	if shipment["carrier"]:
+		detail += _("<p><strong>Carrier:</strong> {0}</p>").format(escape(shipment["carrier"]))
+	if shipment["number"]:
+		number = escape(shipment["number"])
+		if shipment["url"]:
+			number = f'<a href="{escape(shipment["url"])}">{number}</a>'
+		detail += _("<p><strong>Tracking number:</strong> {0}</p>").format(number)
 
 	for order_name in order_names:
 		order = frappe.get_doc("Sales Order", order_name)

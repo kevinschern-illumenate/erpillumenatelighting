@@ -212,7 +212,7 @@ One order or order request: review, progress, items, shipments, invoices and the
 								<div class="ill-rows__meta">{{ frappe.utils.format_date(delivery.posting_date) | e }}{% if delivery.carrier %} · {{ delivery.carrier | e }}{% endif %}{% if delivery["items"] %} · {{ delivery["items"] | length }} {{ _("line(s)") }}{% endif %}</div>
 							</div>
 							<div class="ill-rows__end">
-								{% if delivery.tracking_number %}<div title="{{ _('Tracking number') }}"><i class="fa fa-barcode" aria-hidden="true"></i> {{ delivery.tracking_number | e }}</div>{% else %}<div class="text-muted">{{ _("No tracking yet") }}</div>{% endif %}
+								{% if delivery.tracking_number %}<div title="{{ _('Tracking number') }}"><i class="fa fa-barcode" aria-hidden="true"></i> {% if delivery.tracking_url %}<a href="{{ delivery.tracking_url | e }}" target="_blank" rel="noopener">{{ delivery.tracking_number | e }}</a>{% else %}{{ delivery.tracking_number | e }}{% endif %}</div>{% else %}<div class="text-muted">{{ _("No tracking yet") }}</div>{% endif %}
 								<a class="small" href="{{ download_url | e }}?doctype=Delivery%20Note&name={{ delivery.name | urlencode }}"><i class="fa fa-list-alt" aria-hidden="true"></i> {{ _("Packing slip") }}</a>
 							</div>
 						</li>
