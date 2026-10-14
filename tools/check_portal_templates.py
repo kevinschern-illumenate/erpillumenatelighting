@@ -68,8 +68,7 @@ assert not inline_handler_violations("""<button onclick="go()">{{ _('Go') }}</bu
 parsed = 0
 handler_violations = []
 # UI-2: page templates keep no long <style> blocks and no hard-coded colours. Print documents
-# rendered to PDF on their own (no portal stylesheet) are exempt.
-PRINT_DOCUMENTS = {"spec_submittal_cover.html"}
+# rendered to PDF on their own (no portal stylesheet) live in templates/print and are exempt.
 STYLE_BLOCK = re.compile(r"<style[^>]*>(.*?)</style>", re.DOTALL)
 HEX_COLOUR = re.compile(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 style_violations = []
@@ -161,10 +160,10 @@ for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	source = path.read_text(encoding="utf8")
 	environment.parse(source)
 	parsed += 1
-	if path.parent.name in ("pages", "includes"):
+	if path.parent.name in ("pages", "includes", "print"):
 		unescaped += unescaped_outputs(path.relative_to(ROOT / "illumenate_lighting"), source)
 	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
-	if path.parent.name == "pages" and path.name not in PRINT_DOCUMENTS:
+	if path.parent.name == "pages":
 		style_violations += page_style_violations(path.relative_to(ROOT), source)
 if style_violations:
 	sys.exit(

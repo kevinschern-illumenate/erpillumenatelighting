@@ -3269,60 +3269,6 @@ def download_order_document(doctype: str, name: str):
 
 
 @frappe.whitelist()
-def get_portal_notifications() -> dict:
-	"""
-	Get notifications and alerts for the current portal user.
-
-	Returns:
-		dict: List of notifications
-	"""
-	notifications = []
-
-	from illumenate_lighting.illumenate_lighting.doctype.ill_project.ill_project import (
-		_get_user_customer,
-	)
-	customer = _get_user_customer(frappe.session.user)
-
-	if customer:
-		# Check for quotes ready
-		quoted_schedules = frappe.db.count(
-			"ilL-Project-Fixture-Schedule",
-			{"status": "QUOTED", "customer": customer}
-		)
-		if quoted_schedules > 0:
-			notifications.append({
-				"type": "quote",
-				"title": _("Quotes Ready"),
-				"message": _("{0} schedule(s) have quotes ready for review").format(quoted_schedules),
-				"link": "/portal/projects",
-				"icon": "fa-file-text-o",
-				"color": "success",
-			})
-
-		# Check for orders ready to ship
-		ready_orders = frappe.db.count(
-			"Sales Order",
-			{"customer": customer, "status": "To Deliver", "docstatus": 1}
-		)
-		if ready_orders > 0:
-			notifications.append({
-				"type": "shipping",
-				"title": _("Orders Ready to Ship"),
-				"message": _("{0} order(s) are ready for shipment").format(ready_orders),
-				"link": "/portal/orders",
-				"icon": "fa-truck",
-				"color": "info",
-			})
-
-	return {"success": True, "notifications": notifications}
-
-
-# =============================================================================
-# DEALER-SPECIFIC API FUNCTIONS
-# =============================================================================
-
-
-@frappe.whitelist()
 def get_user_role_info() -> dict:
 	"""
 	Get role information for the current user.

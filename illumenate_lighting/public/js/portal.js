@@ -13,7 +13,6 @@
 	 * Initialize portal functionality
 	 */
 	IlluminatePortal.init = function() {
-		this.initNotifications();
 		this.initTooltips();
 		this.initLoadingStates();
 		this.initFormValidation();
@@ -26,54 +25,6 @@
                 .on('shown.bs.modal.illPortalFocus', '.modal', function () { const input = this.querySelector('input:not([type="hidden"]), select, textarea, button'); if (input) input.focus(); })
                 .on('hidden.bs.modal.illPortalFocus', '.modal', function () { const previous = returnFocus.get(this); if (previous && previous.isConnected) previous.focus(); });
         }
-	};
-
-	/**
-	 * Fetch and display notifications
-	 */
-	IlluminatePortal.initNotifications = function() {
-		const notificationBell = document.getElementById('portalNotifications');
-		if (!notificationBell) return;
-
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.portal.get_portal_notifications',
-			callback: function(r) {
-				if (r.message && r.message.success) {
-					const notifications = r.message.notifications || [];
-					IlluminatePortal.renderNotifications(notifications);
-				}
-			}
-		});
-	};
-
-	/**
-	 * Render notifications in the UI
-	 */
-	IlluminatePortal.renderNotifications = function(notifications) {
-		const container = document.getElementById('notificationsList');
-		if (!container) return;
-
-		if (notifications.length === 0) {
-			container.innerHTML = '<div class="text-center text-muted py-3">No new notifications</div>';
-			return;
-		}
-
-		container.replaceChildren();
-        notifications.forEach(function (n) {
-            const link = document.createElement('a'); link.className = 'notification-item';
-            link.href = typeof n.link === 'string' && n.link.startsWith('/portal') && !n.link.includes('\\') ? n.link : '/portal';
-            const content = document.createElement('div'); content.className = 'notification-content';
-            const title = document.createElement('div'); title.className = 'notification-title'; title.textContent = n.title || '';
-            const message = document.createElement('div'); message.className = 'notification-text'; message.textContent = n.message || '';
-            content.append(title, message); link.append(content); container.append(link);
-        });
-
-		// Update badge count
-		const badge = document.getElementById('notificationBadge');
-		if (badge) {
-			badge.textContent = notifications.length;
-			badge.style.display = notifications.length > 0 ? 'inline-block' : 'none';
-		}
 	};
 
 	/**

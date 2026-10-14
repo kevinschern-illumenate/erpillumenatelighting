@@ -128,7 +128,7 @@ website_route_rules = [
 	# Former query-string address; redirects to /portal/schedules/<schedule>/lines/<line_key>/edit.
 	{"from_route": "/portal/edit_fixture", "to_route": "edit_fixture"},
 
-	# Product Catalog (System Manager only)
+	# Product Catalog (signed-in users with catalog access, see access.can_view_catalog)
 	{"from_route": "/portal/products", "to_route": "products_catalog"},
 	{"from_route": "/portal/products/<slug>", "to_route": "product_detail"},
 

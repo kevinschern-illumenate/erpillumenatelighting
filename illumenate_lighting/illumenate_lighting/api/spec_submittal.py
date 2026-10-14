@@ -1009,7 +1009,7 @@ def _generate_cover_page(
 
 		# Render the cover page template
 		html_content = frappe.render_template(
-			"illumenate_lighting/templates/pages/spec_submittal_cover.html",
+			"illumenate_lighting/templates/print/spec_submittal_cover.html",
 			context,
 		)
 
