@@ -33,7 +33,7 @@ Field Mapping (Webflow → Frappe CRM Lead):
 - Products Interested → webflow_products_interested
 """
 
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from datetime import datetime
 import json
 
@@ -72,28 +72,28 @@ def _submitted_datetime(value):
 @rate_limit(limit=30, seconds=60)
 def create_lead_from_webflow(
     first_name: str,
-    last_name: Optional[str] = None,
-    email: Optional[str] = None,
-    phone: Optional[str] = None,
-    company_name: Optional[str] = None,
-    job_title: Optional[str] = None,
-    website: Optional[str] = None,
-    source: Optional[str] = "Webflow",
-    campaign_id: Optional[str] = None,
-    utm_source: Optional[str] = None,
-    utm_medium: Optional[str] = None,
-    utm_campaign: Optional[str] = None,
-    form_name: Optional[str] = None,
-    form_data: Optional[str] = None,
-    webflow_form_id: Optional[str] = None,
-    webflow_submission_id: Optional[str] = None,
-    submitted_at: Optional[str] = None,
-    contact_form_subject: Optional[str] = None,
-    contact_form_message: Optional[str] = None,
-    contact_form_file_url: Optional[str] = None,
-    project_name: Optional[str] = None,
-    products_interested: Optional[str] = None,
-    brand: Optional[str] = None,
+    last_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    company_name: str | None = None,
+    job_title: str | None = None,
+    website: str | None = None,
+    source: str | None = "Webflow",
+    campaign_id: str | None = None,
+    utm_source: str | None = None,
+    utm_medium: str | None = None,
+    utm_campaign: str | None = None,
+    form_name: str | None = None,
+    form_data: str | None = None,
+    webflow_form_id: str | None = None,
+    webflow_submission_id: str | None = None,
+    submitted_at: str | None = None,
+    contact_form_subject: str | None = None,
+    contact_form_message: str | None = None,
+    contact_form_file_url: str | None = None,
+    project_name: str | None = None,
+    products_interested: str | None = None,
+    brand: str | None = None,
 ) -> dict:
     """Create a CRM Lead from Webflow form submission data (see :func:`_create_lead`).
 
@@ -106,28 +106,28 @@ def create_lead_from_webflow(
 
 def _create_lead(
     first_name: str | None = None,
-    last_name: Optional[str] = None,
-    email: Optional[str] = None,
-    phone: Optional[str] = None,
-    company_name: Optional[str] = None,
-    job_title: Optional[str] = None,
-    website: Optional[str] = None,
-    source: Optional[str] = "Webflow",
-    campaign_id: Optional[str] = None,
-    utm_source: Optional[str] = None,
-    utm_medium: Optional[str] = None,
-    utm_campaign: Optional[str] = None,
-    form_name: Optional[str] = None,
-    form_data: Optional[str] = None,
-    webflow_form_id: Optional[str] = None,
-    webflow_submission_id: Optional[str] = None,
-    submitted_at: Optional[str] = None,
-    contact_form_subject: Optional[str] = None,
-    contact_form_message: Optional[str] = None,
-    contact_form_file_url: Optional[str] = None,
-    project_name: Optional[str] = None,
-    products_interested: Optional[str] = None,
-    brand: Optional[str] = None,
+    last_name: str | None = None,
+    email: str | None = None,
+    phone: str | None = None,
+    company_name: str | None = None,
+    job_title: str | None = None,
+    website: str | None = None,
+    source: str | None = "Webflow",
+    campaign_id: str | None = None,
+    utm_source: str | None = None,
+    utm_medium: str | None = None,
+    utm_campaign: str | None = None,
+    form_name: str | None = None,
+    form_data: str | None = None,
+    webflow_form_id: str | None = None,
+    webflow_submission_id: str | None = None,
+    submitted_at: str | None = None,
+    contact_form_subject: str | None = None,
+    contact_form_message: str | None = None,
+    contact_form_file_url: str | None = None,
+    project_name: str | None = None,
+    products_interested: str | None = None,
+    brand: str | None = None,
 ) -> dict:
     """
     Create a CRM Lead from Webflow form submission data.
@@ -307,7 +307,7 @@ def _create_lead(
 
 @frappe.whitelist(methods=["POST"])
 @rate_limit(limit=30, seconds=60)
-def create_lead_from_webflow_webhook(data: Optional[str] = None) -> dict:
+def create_lead_from_webflow_webhook(data: str | None = None) -> dict:
     """
     Alternative endpoint that accepts a JSON payload directly.
     

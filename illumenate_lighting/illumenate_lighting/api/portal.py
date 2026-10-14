@@ -4052,7 +4052,7 @@ def update_configured_fixture_on_schedule(
 
 
 @frappe.whitelist(methods=["POST"])
-def create_schedule_version(schedule_name: str, version_notes: str = None) -> dict:
+def create_schedule_version(schedule_name: str, version_notes: str | None = None) -> dict:
 	"""
 	Create a new version of a fixture schedule.
 	Locks the current version and creates a duplicate with incremented version number.
