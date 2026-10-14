@@ -52,6 +52,51 @@ def schedule_status_description(status):
 	return _(meta["description"]) if meta else ""
 
 
+def schedule_status_map():
+	"""Every schedule status with its label and badge class, for page scripts."""
+	return {
+		status: {"label": schedule_status_label(status), "css": meta["css"]}
+		for status, meta in SCHEDULE_STATUS_META.items()
+	}
+
+
+# --------------------------------------------------------------------------
+# Project statuses and export job statuses (UI-4)
+# --------------------------------------------------------------------------
+
+PROJECT_STATUS_META = {
+	"ACTIVE": {"label": "Active", "css": "success"},
+	"ON_HOLD": {"label": "On hold", "css": "warning"},
+	"COMPLETED": {"label": "Completed", "css": "info"},
+	"ARCHIVED": {"label": "Archived", "css": "secondary"},
+}
+
+
+def project_status_label(status):
+	meta = PROJECT_STATUS_META.get(status)
+	return _(meta["label"]) if meta else (status or "")
+
+
+def project_status_class(status):
+	meta = PROJECT_STATUS_META.get(status)
+	return meta["css"] if meta else "secondary"
+
+
+EXPORT_STATUS_META = {
+	"QUEUED": {"label": "Queued", "css": "warning"},
+	"RUNNING": {"label": "Generating", "css": "info"},
+	"COMPLETE": {"label": "Ready", "css": "success"},
+	"INCOMPLETE": {"label": "Ready with warnings", "css": "warning"},
+	"FAILED": {"label": "Failed", "css": "danger"},
+}
+
+
+def export_status_map():
+	return {
+		status: {"label": _(meta["label"]), "css": meta["css"]} for status, meta in EXPORT_STATUS_META.items()
+	}
+
+
 # --------------------------------------------------------------------------
 # Sales Order -> customer-facing order status
 # --------------------------------------------------------------------------
@@ -112,7 +157,9 @@ def derive_order_portal_status(
 		total = sum(float(w.get("qty") or 0) for w in work_orders)
 		produced = sum(float(w.get("produced_qty") or 0) for w in work_orders)
 		all_done = all(w.get("status") == "Completed" for w in work_orders)
-		if production_complete is True or (production_complete is None and total and (all_done or produced >= total)):
+		if production_complete is True or (
+			production_complete is None and total and (all_done or produced >= total)
+		):
 			return "production_complete"
 		if produced > 0 or any(w.get("status") == "In Process" for w in work_orders):
 			return "in_production"

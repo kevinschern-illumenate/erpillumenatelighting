@@ -120,6 +120,13 @@ def get_context(context):
 	context.can_edit = can_edit
 	context.schedule_status_class = schedule_status_class
 	context.schedule_status_label = schedule_status_label
+	from illumenate_lighting.illumenate_lighting.portal.status import (
+		project_status_class,
+		project_status_label,
+	)
+
+	context.project_status_label = project_status_label
+	context.project_status_class = project_status_class
 	context.title = project.project_name
 	context.no_cache = 1
 	context.frappe = frappe  # Make frappe available in template

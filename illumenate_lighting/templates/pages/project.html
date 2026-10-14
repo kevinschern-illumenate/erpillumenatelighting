@@ -317,8 +317,8 @@ Also handles new project creation when is_new is True
 								</span>
 								{% endif %}
 							</p>
-							<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else 'secondary' }}">
-								{{ project.status }}
+							<span class="badge badge-{{ project_status_class(project.status) }}">
+								{{ project_status_label(project.status) }}
 							</span>
 						</div>
 						{% if can_edit %}

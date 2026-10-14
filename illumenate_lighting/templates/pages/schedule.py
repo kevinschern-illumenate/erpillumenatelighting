@@ -469,7 +469,13 @@ def get_context(context):
 	from illumenate_lighting.illumenate_lighting.portal.status import SALES_EMAIL
 
 	context.sales_email = SALES_EMAIL
-	context.status_labels = {status: schedule_status_label(status) for status in ("DRAFT", "READY", "QUOTED")}
+	# One status vocabulary for page scripts (UI-4).
+	from illumenate_lighting.illumenate_lighting.portal.status import export_status_map, schedule_status_map
+
+	status_map = schedule_status_map()
+	context.status_labels = {status: meta["label"] for status, meta in status_map.items()}
+	context.status_classes = {status: meta["css"] for status, meta in status_map.items()}
+	context.export_statuses = export_status_map()
 	context.open_offer = _open_offer(schedule.name)
 	# FLOW-2: progress stepper, commercial thread and the one primary next step.
 	from illumenate_lighting.illumenate_lighting.portal import schedule_commercial

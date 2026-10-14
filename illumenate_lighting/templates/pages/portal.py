@@ -46,6 +46,13 @@ def get_context(context):
 	# Order requests are shown too, so a successful conversion is visible here.
 	context.recent_orders = orders[:5]
 	context.order_status_class = order_status_class
+	from illumenate_lighting.illumenate_lighting.portal.status import (
+		project_status_class,
+		project_status_label,
+	)
+
+	context.project_status_label = project_status_label
+	context.project_status_class = project_status_class
 	context.can_view_catalog = can_view_catalog(actor.user)
 
 	from illumenate_lighting.illumenate_lighting.portal.product_finder.presentation import banner

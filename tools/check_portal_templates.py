@@ -66,11 +66,41 @@ assert not inline_handler_violations("""<button onclick="go()">{{ _('Go') }}</bu
 
 parsed = 0
 handler_violations = []
+# UI-2: page templates keep no long <style> blocks and no hard-coded colours. Print documents
+# rendered to PDF on their own (no portal stylesheet) are exempt.
+PRINT_DOCUMENTS = {"spec_submittal_cover.html"}
+STYLE_BLOCK = re.compile(r"<style[^>]*>(.*?)</style>", re.DOTALL)
+HEX_COLOUR = re.compile(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
+style_violations = []
+
+
+def page_style_violations(name, source):
+	found = []
+	for block in STYLE_BLOCK.finditer(source):
+		lines = block.group(1).strip("\n").count("\n") + 1
+		if lines > 20:
+			found.append(f"{name}:{source.count(chr(10), 0, block.start()) + 1}: <style> block of {lines} lines")
+	for colour in HEX_COLOUR.finditer(source):
+		found.append(f"{name}:{source.count(chr(10), 0, colour.start()) + 1}: hard-coded colour {colour.group(0)}")
+	return found
+
+
+assert page_style_violations("x", "<style>" + "a{}\n" * 21 + "</style>")
+assert not page_style_violations("x", "<style>a{}\nb{}</style>")
+assert page_style_violations("x", '<div style="color:#fff">')
+assert not page_style_violations("x", '<a href="#addLineModal">')
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	source = path.read_text(encoding="utf8")
 	environment.parse(source)
 	parsed += 1
 	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
+	if path.parent.name == "pages" and path.name not in PRINT_DOCUMENTS:
+		style_violations += page_style_violations(path.relative_to(ROOT), source)
+if style_violations:
+	sys.exit(
+		"Page styles belong in public/css/pages/_<page>.scss and colours in --ill-* tokens (UI-2):\n  "
+		+ "\n  ".join(style_violations)
+	)
 if handler_violations:
 	sys.exit(
 		"Inline event handlers interpolate template values (use data attributes and a delegated listener):\n  "
@@ -454,6 +484,8 @@ overview_context = {
 	"recent_orders": [],
 	"finder_banner": None,
 	"path": "portal",
+	"project_status_label": lambda status: status.title(),
+	"project_status_class": lambda status: "success",
 }
 overview_actions = [
 	{"kind": "offer", "title": "Respond to quote <Q-1>", "context": "Lobby <Refit>", "due_label": "Expires in 3 days", "link": "/portal/quotes/Q-1", "tone": "warning"},
@@ -477,6 +509,8 @@ schedule_base = {
 	"schedule_status_label": lambda status: status.title(),
 	"schedule_status_description": lambda status: status,
 	"status_labels": {},
+	"status_classes": {"DRAFT": "secondary"},
+	"export_statuses": {"COMPLETED": {"label": "Completed", "css": "success"}},
 	"open_offer": None,
 	"system_design": None,
 	"design_dimming_protocols": [],
@@ -535,7 +569,7 @@ def schedule_version(name, version, parent=None):
 		schedule_name="Main <x>",
 		status="DRAFT",
 		version=version,
-		is_locked=int(version < 3 and parent is not None or name == "S-1"),
+		is_locked=int((version < 3 and parent is not None) or name == "S-1"),
 		version_parent=parent,
 		lines_count=3,
 	)
@@ -551,6 +585,8 @@ project_versions = project_page.render(
 	can_edit=True,
 	schedule_status_class=lambda status: "info",
 	schedule_status_label=lambda status: status.title(),
+	project_status_class=lambda status: "success",
+	project_status_label=lambda status: (status or "").title(),
 )
 assert "Main &lt;x&gt;" in project_versions
 (render_dir / "project-versions.html").write_text(project_versions, encoding="utf8")
