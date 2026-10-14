@@ -88,9 +88,14 @@ Manage collaborators for a project
 		<div class="card-header d-flex justify-content-between align-items-center">
 			<h5 class="mb-0"><i class="fa fa-users"></i> {{ _("Collaborators") }}</h5>
 			{% if can_manage %}
-			<button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCollaboratorModal">
-				<i class="fa fa-plus"></i> {{ _("Add Collaborator") }}
-			</button>
+			<div>
+				<button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#inviteModal">
+					<i class="fa fa-envelope"></i> {{ _("Invite by email") }}
+				</button>
+				<button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addCollaboratorModal">
+					<i class="fa fa-plus"></i> {{ _("Add Collaborator") }}
+				</button>
+			</div>
 			{% endif %}
 		</div>
 		<div class="card-body">
@@ -163,7 +168,93 @@ Manage collaborators for a project
 			{% endif %}
 		</div>
 	</div>
+	{% if can_manage %}
+	<div class="card mb-4" id="pendingInvitations"{% if not invitations %} hidden{% endif %}>
+		<div class="card-header">
+			<h5 class="mb-0"><i class="fa fa-envelope-o"></i> {{ _("Pending invitations") }}</h5>
+		</div>
+		<div class="card-body">
+			<p class="text-muted small">{{ _("People get access when they accept the emailed link while signed in with that address.") }}</p>
+			<div class="table-responsive">
+				<table class="table mb-0">
+					<thead>
+						<tr>
+							<th>{{ _("Email") }}</th>
+							<th>{{ _("Access Level") }}</th>
+							<th>{{ _("Expires") }}</th>
+							<th class="text-right">{{ _("Actions") }}</th>
+						</tr>
+					</thead>
+					<tbody id="invitationList">
+						{% for invite in invitations %}
+						<tr data-invitation="{{ invite.name | e }}">
+							<td>
+								<strong>{{ ((invite.first_name or "") ~ " " ~ (invite.last_name or "")) | trim | e }}</strong>
+								<br><small class="text-muted">{{ invite.email | e }}</small>
+							</td>
+							<td>{{ _("Can Edit") if invite.access_level == "EDIT" else _("View Only") }}</td>
+							<td class="invitation-expires"><small>{{ invite.expires_label | e }}</small></td>
+							<td class="text-right">
+								<button type="button" class="btn btn-outline-secondary btn-sm resend-invitation">{{ _("Resend") }}</button>
+								<button type="button" class="btn btn-outline-danger btn-sm revoke-invitation">{{ _("Revoke") }}</button>
+							</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+	{% endif %}
 </div>
+
+<!-- Invite Modal -->
+{% if can_manage %}
+<div class="modal fade" id="inviteModal" tabindex="-1" role="dialog">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">{{ _("Invite by email") }}</h5>
+				<button type="button" class="close" data-dismiss="modal">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<p class="text-muted small">{{ _("For architects, designers and anyone outside your company. They get an email with a one-use link.") }}</p>
+				<form id="inviteForm">
+					<div class="form-group">
+						<label for="inviteEmail">{{ _("Email") }} <span class="text-danger">*</span></label>
+						<input type="email" class="form-control" id="inviteEmail" required>
+					</div>
+					<div class="form-row">
+						<div class="form-group col">
+							<label for="inviteFirstName">{{ _("First name") }}</label>
+							<input type="text" class="form-control" id="inviteFirstName">
+						</div>
+						<div class="form-group col">
+							<label for="inviteLastName">{{ _("Last name") }}</label>
+							<input type="text" class="form-control" id="inviteLastName">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="inviteAccess">{{ _("Access Level") }}</label>
+						<select class="form-control" id="inviteAccess">
+							<option value="VIEW">{{ _("View Only") }}</option>
+							<option value="EDIT">{{ _("Can Edit") }}</option>
+						</select>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="sendInviteButton">
+					<i class="fa fa-paper-plane"></i> {{ _("Send invitation") }}
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 
 <!-- Add Collaborator Modal -->
 {% if can_manage %}
@@ -227,8 +318,91 @@ var collaboratorText = {
 	added: {{ _("Collaborator added") | tojson }},
 	removed: {{ _("Collaborator removed") | tojson }},
 	confirmRemove: {{ _("Remove {0} from this project?") | tojson }},
-	chooseUser: {{ _("Please select a user") | tojson }}
+	chooseUser: {{ _("Please select a user") | tojson }},
+	enterEmail: {{ _("Enter the email address to invite") | tojson }},
+	invited: {{ _("Invitation emailed to {0}") | tojson }},
+	resent: {{ _("A new link was emailed to {0}; the old one no longer works") | tojson }},
+	revoked: {{ _("Invitation revoked") | tojson }},
+	confirmRevoke: {{ _("Revoke the invitation for {0}?") | tojson }},
+	viewOnly: {{ _("View Only") | tojson }},
+	canEdit: {{ _("Can Edit") | tojson }},
+	resend: {{ _("Resend") | tojson }},
+	revoke: {{ _("Revoke") | tojson }}
 };
+
+var ACCOUNTS = 'illumenate_lighting.illumenate_lighting.portal.accounts.';
+
+function invitationCall(method, args, done) {
+	frappe.call({
+		method: method,
+		args: args,
+		type: 'POST',
+		callback: function(r) {
+			if (r.message && r.message.success) done(r.message);
+		}
+	});
+}
+
+function invitationRow(name) {
+	return $('#invitationList tr').filter(function() { return $(this).attr('data-invitation') === name; });
+}
+
+function addInvitationRow(invite, firstName, lastName, accessLevel) {
+	var row = $('<tr>').attr('data-invitation', invite.invitation);
+	row.append($('<td>')
+			.append($('<strong>').text((firstName + ' ' + lastName).trim()))
+			.append('<br>')
+			.append($('<small class="text-muted">').text(invite.email)))
+		.append($('<td>').text(accessLevel === 'EDIT' ? collaboratorText.canEdit : collaboratorText.viewOnly))
+		.append($('<td class="invitation-expires">').append($('<small>').text(invite.expires_on.slice(0, 10))))
+		.append($('<td class="text-right">')
+			.append($('<button type="button" class="btn btn-outline-secondary btn-sm resend-invitation">').text(collaboratorText.resend))
+			.append(' ')
+			.append($('<button type="button" class="btn btn-outline-danger btn-sm revoke-invitation">').text(collaboratorText.revoke)));
+	$('#invitationList').prepend(row);
+	$('#pendingInvitations').prop('hidden', false);
+}
+
+// Invite anyone by email; access starts when they accept
+$('#sendInviteButton').on('click', function() {
+	var email = $('#inviteEmail').val().trim();
+	var firstName = $('#inviteFirstName').val().trim();
+	var lastName = $('#inviteLastName').val().trim();
+	var accessLevel = $('#inviteAccess').val();
+	if (!email) {
+		frappe.msgprint({title: 'Error', indicator: 'red', message: collaboratorText.enterEmail});
+		return;
+	}
+	invitationCall('illumenate_lighting.illumenate_lighting.portal.collaborators.invite', {
+		project: projectName, email: email, first_name: firstName, last_name: lastName, access_level: accessLevel
+	}, function(invite) {
+		addInvitationRow(invite, firstName, lastName, accessLevel);
+		$('#inviteForm')[0].reset();
+		$('#inviteModal').modal('hide');
+		frappe.show_alert({message: collaboratorText.invited.replace('{0}', invite.email), indicator: 'green'});
+	});
+});
+
+$(document).on('click', '.resend-invitation', function() {
+	var row = $(this).closest('tr');
+	invitationCall(ACCOUNTS + 'resend_invitation', {name: row.attr('data-invitation')}, function(invite) {
+		row.find('.invitation-expires small').text(invite.expires_on.slice(0, 10));
+		frappe.show_alert({message: collaboratorText.resent.replace('{0}', invite.email), indicator: 'green'});
+	});
+});
+
+$(document).on('click', '.revoke-invitation', function() {
+	var row = $(this).closest('tr');
+	var email = row.find('small').first().text();
+	if (!confirm(collaboratorText.confirmRevoke.replace('{0}', email))) {
+		return;
+	}
+	invitationCall(ACCOUNTS + 'revoke_invitation', {name: row.attr('data-invitation')}, function() {
+		row.remove();
+		$('#pendingInvitations').prop('hidden', !$('#invitationList tr').length);
+		frappe.show_alert({message: collaboratorText.revoked, indicator: 'green'});
+	});
+});
 
 function collaboratorCall(method, args, done, failed) {
 	args.project = projectName;

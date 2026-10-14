@@ -60,6 +60,14 @@ def get_context(context):
 	context.collaborators = collaborators
 	context.available_users = available_users
 	context.can_manage = can_manage
+	context.invitations = []
+	if can_manage:
+		from illumenate_lighting.illumenate_lighting.portal.accounts import pending_invitations
+
+		context.invitations = [
+			{**row, "expires_label": frappe.utils.format_date(row.expires_on)}
+			for row in pending_invitations(project.name)
+		]
 	context.is_owner = is_owner
 	context.title = f"Collaborators - {project.project_name}"
 	context.no_cache = 1

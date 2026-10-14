@@ -7,6 +7,8 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import f
 EVENT = "ilL-Portal-Event"
 DELIVERY = "ilL-Portal-Delivery"
 TERMINAL = ("SUPPRESSED", "SKIPPED", "DELIVERED")
+INVITATION = "ilL-Portal-Invitation"
+INVITATION_PREFERENCE = "invitation"
 
 
 def reference_access(event, user):
@@ -56,12 +58,33 @@ def reference_access(event, user):
 	return False
 
 
+def address(delivery):
+	"""The account, or for an invitee without one, the bare email the message goes to."""
+	return delivery.recipient or delivery.get("recipient_email")
+
+
+def invitation_eligibility(event, email):
+	"""Invitations are transactional: no preference gate, but only while still usable."""
+	invite = frappe.db.get_value(
+		INVITATION, event.reference_name, ["state", "email", "expires_on"], as_dict=True
+	)
+	if not invite or invite.state != "Pending":
+		return "SKIPPED", "Invitation was used, revoked or replaced"
+	if frappe.utils.get_datetime(invite.expires_on) <= frappe.utils.now_datetime():
+		return "SKIPPED", "Invitation expired"
+	if str(email or "").strip().lower() != str(invite.email or "").lower():
+		return "SKIPPED", "Recipient is not the invited email"
+	return "PENDING", "Awaiting Email Queue"
+
+
 def eligibility(event, recipient):
 	from illumenate_lighting.illumenate_lighting.portal.notifications import (
 		PREFERENCE_DEFAULTS,
 		wants_notification,
 	)
 
+	if event.preference == INVITATION_PREFERENCE and event.reference_type == INVITATION:
+		return invitation_eligibility(event, recipient)
 	if (
 		not recipient
 		or recipient in ("Guest", "Administrator")
@@ -77,12 +100,7 @@ def eligibility(event, recipient):
 	return "PENDING", "Awaiting Email Queue"
 
 
-def record(user, preference, subject, message, reference_type, reference_name, event_key=None):
-	"""Commit intent alongside the business record, independent of email setup."""
-	if not user or not reference_type or not reference_name:
-		return False
-	# `modified` comes back as a datetime, which the canonical JSON fingerprint rejects.
-	revision = event_key or frappe.db.get_value(reference_type, reference_name, "modified")
+def _ensure_event(preference, subject, message, reference_type, reference_name, revision):
 	key = fingerprint(
 		{
 			"kind": preference,
@@ -105,16 +123,21 @@ def record(user, preference, subject, message, reference_type, reference_name, e
 	)
 	event.flags.notification_service_write = True
 	event.insert(ignore_permissions=True, ignore_if_duplicate=True)
-	delivery_key = fingerprint({"event": key, "recipient": user})
+	return key, event
+
+
+def _ensure_delivery(key, event, recipient, user=None, email=None):
+	delivery_key = fingerprint({"event": key, "recipient": recipient})
 	if frappe.db.exists(DELIVERY, delivery_key):
 		return frappe.db.get_value(DELIVERY, delivery_key, "state") not in ("SUPPRESSED", "SKIPPED")
-	state, detail = eligibility(event, user)
+	state, detail = eligibility(event, recipient)
 	delivery = frappe.get_doc(
 		{
 			"doctype": DELIVERY,
 			"delivery_key": delivery_key,
 			"event": key,
 			"recipient": user,
+			"recipient_email": email,
 			"state": state,
 			"detail": detail,
 		}
@@ -122,6 +145,26 @@ def record(user, preference, subject, message, reference_type, reference_name, e
 	delivery.flags.notification_service_write = True
 	delivery.insert(ignore_permissions=True, ignore_if_duplicate=True)
 	return state == "PENDING"
+
+
+def record(user, preference, subject, message, reference_type, reference_name, event_key=None):
+	"""Commit intent alongside the business record, independent of email setup."""
+	if not user or not reference_type or not reference_name:
+		return False
+	# `modified` comes back as a datetime, which the canonical JSON fingerprint rejects.
+	revision = event_key or frappe.db.get_value(reference_type, reference_name, "modified")
+	key, event = _ensure_event(preference, subject, message, reference_type, reference_name, revision)
+	return _ensure_delivery(key, event, user, user=user)
+
+
+def record_invitation(invitation, email, subject, message, event_key):
+	"""Queue an invitation email to an address that may not have an account yet."""
+	email = str(email or "").strip().lower()
+	if not invitation or not email:
+		return False
+	key, event = _ensure_event(INVITATION_PREFERENCE, subject, message, INVITATION, invitation, event_key)
+	user = email if frappe.db.exists("User", email) else None
+	return _ensure_delivery(key, event, email, user=user, email=email)
 
 
 def _state(delivery, state, detail, **values):
@@ -138,7 +181,7 @@ def reconcile(delivery):
 		)
 		return
 	queue = frappe.get_doc("Email Queue", delivery.email_queue)
-	recipient = next((row for row in queue.recipients if row.recipient == delivery.recipient), None)
+	recipient = next((row for row in queue.recipients if row.recipient == address(delivery)), None)
 	if recipient and recipient.status == "Sent":
 		_state(
 			delivery,
@@ -161,14 +204,14 @@ def dispatch_one(name):
 		reconcile(delivery)
 		return
 	event = frappe.get_doc(EVENT, delivery.event)
-	state, detail = eligibility(event, delivery.recipient)
+	state, detail = eligibility(event, address(delivery))
 	if state != "PENDING":
 		_state(delivery, state, detail)
 		return
 	frappe.db.savepoint("portal_email_queue")
 	try:
 		queue = frappe.sendmail(
-			recipients=[delivery.recipient],
+			recipients=[address(delivery)],
 			subject=event.subject,
 			message=event.message,
 			reference_doctype=DELIVERY,
@@ -239,7 +282,7 @@ def before_send(queue):
 	if delivery.state == "DELIVERED":
 		return False
 	event = frappe.get_doc(EVENT, delivery.event)
-	state, detail = eligibility(event, delivery.recipient)
+	state, detail = eligibility(event, address(delivery))
 	if delivery.state in ("SUPPRESSED", "SKIPPED") or state != "PENDING":
 		queue.db_set({"status": "Error", "error": "Portal notification suppressed: " + detail})
 		_state(delivery, state if state != "PENDING" else delivery.state, detail)

@@ -106,3 +106,42 @@ test('hostile names render as text', () => {
   assert.equal(row(w, 'architect@studio.test').querySelector('strong').textContent, 'Ada "<b>"');
   assert.equal(w.document.querySelectorAll('#collaboratorsList b').length, 0);
 });
+
+function invitations(options) {
+  const method = options.method.split('.').pop();
+  if (method === 'invite') {
+    return { success: true, invitation: 'INV-2', email: options.args.email, expires_on: '2026-10-21 12:00:00' };
+  }
+  if (method === 'resend_invitation') {
+    return { success: true, invitation: options.args.name, email: 'pending@studio.test', expires_on: '2026-10-28 12:00:00' };
+  }
+  return { success: true };
+}
+
+test('inviting by email adds a pending row without a reload', () => {
+  const { w, calls, alerts } = load(invitations);
+  w.document.querySelector('#inviteEmail').value = 'architect@studio.test';
+  w.document.querySelector('#inviteFirstName').value = 'Ada';
+  w.document.querySelector('#inviteAccess').value = 'EDIT';
+  w.document.querySelector('#sendInviteButton').click();
+  assert.equal(calls[0].method, 'illumenate_lighting.illumenate_lighting.portal.collaborators.invite');
+  assert.deepEqual({ ...calls[0].args }, {
+    project: 'P-1', email: 'architect@studio.test', first_name: 'Ada', last_name: '', access_level: 'EDIT',
+  });
+  const row = w.document.querySelector('#invitationList tr[data-invitation="INV-2"]');
+  assert.equal(row.querySelector('small').textContent, 'architect@studio.test');
+  assert.deepEqual(alerts, ['Invitation emailed to architect@studio.test']);
+});
+
+test('resend updates the expiry and revoke removes the row', () => {
+  const { w, calls } = load(invitations);
+  const row = () => w.document.querySelector('#invitationList tr[data-invitation="INV-1"]');
+  assert.equal(row().querySelector('strong').textContent, 'Pat <Pending>');
+  row().querySelector('.resend-invitation').click();
+  assert.deepEqual({ ...calls[0].args }, { name: 'INV-1' });
+  assert.equal(row().querySelector('.invitation-expires').textContent.trim(), '2026-10-28');
+  row().querySelector('.revoke-invitation').click();
+  assert.equal(calls[1].method.split('.').pop(), 'revoke_invitation');
+  assert.equal(row(), null);
+  assert.equal(w.document.querySelector('#pendingInvitations').hidden, true);
+});

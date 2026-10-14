@@ -5,6 +5,7 @@ import json
 import secrets
 
 import frappe
+from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
@@ -13,6 +14,8 @@ from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
 INTAKE = "ilL-Account-Request"
 INVITE = "ilL-Portal-Invitation"
+ACCEPT_PATH = "/portal/accept-invitation"
+INVITE_DAYS = 7
 ADDRESS_FIELDS = (
 	"address_title",
 	"address_type",
@@ -340,18 +343,123 @@ def invite(email, first_name, last_name="", project=None, access_level="VIEW"):
 			"invited_by": frappe.session.user,
 			"token_hash": hashlib.sha256(token.encode()).hexdigest(),
 			"state": "Pending",
-			"expires_on": frappe.utils.add_days(frappe.utils.now_datetime(), 7),
+			"expires_on": frappe.utils.add_days(frappe.utils.now_datetime(), INVITE_DAYS),
 		}
 	)
 	doc.flags.account_service = True
 	doc.insert(ignore_permissions=True)
-	# The recipient uses the site's existing signup/password flow, then accepts as this email.
+	return _invitation_result(doc, token, send_invitation(doc, token))
+
+
+def _invitation_result(doc, token, emailed):
+	# The link is also returned so the inviter can share it another way.
 	return {
 		"success": True,
 		"invitation": doc.name,
-		"invite_url": "/portal/accept-invitation#" + token,
-		"email": email,
+		"invite_url": ACCEPT_PATH + "#" + token,
+		"email": doc.email,
+		"emailed": bool(emailed),
 		"expires_on": str(doc.expires_on),
+	}
+
+
+def invitation_target(doc):
+	if doc.project:
+		return frappe.db.get_value("ilL-Project", doc.project, "project_name") or doc.project
+	return frappe.db.get_value("Customer", doc.customer, "customer_name") or doc.customer
+
+
+def send_invitation(doc, token):
+	"""Queue the one-use link through the portal outbox; nothing is sent synchronously."""
+	from illumenate_lighting.illumenate_lighting.portal.outbox import record_invitation
+
+	escape = frappe.utils.escape_html
+	inviter = frappe.db.get_value("User", doc.invited_by, "full_name") or doc.invited_by
+	target = invitation_target(doc)
+	url = frappe.utils.get_url(ACCEPT_PATH + "#" + token)
+	expires = frappe.utils.format_date(doc.expires_on)
+	if doc.project:
+		subject = frappe._("{0} invited you to the project {1}").format(inviter, target)
+		access = frappe._("view and edit") if doc.access_level == "EDIT" else frappe._("view")
+		intro = frappe._(
+			"{0} invited you to {1} the project <strong>{2}</strong> on the ilLumenate portal."
+		).format(escape(inviter), access, escape(target))
+	else:
+		subject = frappe._("{0} invited you to join {1} on the ilLumenate portal").format(inviter, target)
+		intro = frappe._("{0} invited you to join <strong>{1}</strong> on the ilLumenate portal.").format(
+			escape(inviter), escape(target)
+		)
+	message = "".join(
+		(
+			f"<p>{frappe._('Hello {0},').format(escape(doc.first_name or doc.email))}</p>",
+			f"<p>{intro}</p>",
+			f'<p><a href="{url}">{frappe._("Accept the invitation")}</a></p>',
+			"<p>"
+			+ frappe._(
+				"Sign in with {0}, or create an account with that email, and the link brings you back to accept."
+			).format(escape(doc.email))
+			+ "</p>",
+			f"<p>{frappe._('This link works once and expires on {0}.').format(escape(expires))}</p>",
+		)
+	)
+	return record_invitation(doc.name, doc.email, subject, message, doc.token_hash)
+
+
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+def resend_invitation(name):
+	"""Replace the link (the old one stops working), extend the expiry and email it again."""
+	_login()
+	frappe.db.sql("select name from `tabilL-Portal-Invitation` where name=%s for update", name)
+	doc = frappe.get_doc(INVITE, name)
+	_invite_authority(doc.customer, doc.project)
+	if doc.state != "Pending":
+		raise ValueError("Only pending invitations can be resent")
+	token = secrets.token_urlsafe(32)
+	values = {
+		"token_hash": hashlib.sha256(token.encode()).hexdigest(),
+		"expires_on": frappe.utils.add_days(frappe.utils.now_datetime(), INVITE_DAYS),
+	}
+	frappe.db.set_value(INVITE, name, values)
+	doc.update(values)
+	return _invitation_result(doc, token, send_invitation(doc, token))
+
+
+def pending_invitations(project):
+	"""Pending project invitations for the collaborators page; managers only."""
+	return frappe.get_all(
+		INVITE,
+		filters={"project": project, "state": "Pending"},
+		fields=["name", "email", "first_name", "last_name", "access_level", "expires_on", "invited_by"],
+		order_by="creation desc",
+	)
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+@rate_limit(limit=30, seconds=60)
+def invitation_preview(token):
+	"""What the accept page needs to guide the recipient; the token itself is the credential."""
+	digest = hashlib.sha256(str(token or "").encode()).hexdigest()
+	doc = frappe.db.get_value(
+		INVITE,
+		{"token_hash": digest},
+		["name", "email", "project", "customer", "invited_by", "state", "expires_on"],
+		as_dict=True,
+	)
+	if not doc:
+		return {"valid": False, "reason": "invalid"}
+	if doc.state != "Pending":
+		return {"valid": False, "reason": "used" if doc.state == "Accepted" else "revoked"}
+	if frappe.utils.get_datetime(doc.expires_on) <= frappe.utils.now_datetime():
+		return {"valid": False, "reason": "expired"}
+	return {
+		"valid": True,
+		"email": doc.email,
+		"target": invitation_target(doc),
+		"kind": "project" if doc.project else "company",
+		"inviter": frappe.db.get_value("User", doc.invited_by, "full_name") or doc.invited_by,
+		"has_account": bool(frappe.db.exists("User", doc.email)),
+		"signed_in_as": None if frappe.session.user == "Guest" else frappe.session.user,
 	}
 
 

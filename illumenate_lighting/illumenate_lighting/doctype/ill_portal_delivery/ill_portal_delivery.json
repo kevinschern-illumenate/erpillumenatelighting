@@ -8,6 +8,7 @@
   "delivery_key",
   "event",
   "recipient",
+  "recipient_email",
   "state",
   "email_queue",
   "attempts",
@@ -36,8 +37,15 @@
    "fieldtype": "Link",
    "label": "Recipient",
    "read_only": 1,
-   "options": "User",
-   "reqd": 1
+   "options": "User"
+  },
+  {
+   "fieldname": "recipient_email",
+   "fieldtype": "Data",
+   "label": "Recipient Email",
+   "options": "Email",
+   "read_only": 1,
+   "description": "Set for invitations sent to an address that has no portal account yet."
   },
   {
    "fieldname": "state",

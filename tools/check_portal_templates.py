@@ -186,7 +186,8 @@ account_context["user_profile"]["user_image"] = None
 account_html = environment.get_template("templates/pages/account.html").render(**account_context)
 assert "<img src=x onerror=alert(1)>" not in account_html
 parser.feed(account_html)
-parser.feed(environment.get_template("templates/pages/accept_invitation.html").render())
+accept_page = environment.get_template("templates/pages/accept_invitation.html")
+parser.feed(accept_page.render(signed_in_as=None, signup_enabled=False))
 parser.feed(environment.get_template("templates/pages/products_catalog.html").render())
 
 
@@ -362,11 +363,24 @@ collaborators_page = environment.get_template("templates/pages/collaborators.htm
 	available_users=[
 		View(value="teammate@acme.test", label="Tess Mate (teammate@acme.test)"),
 	],
+	invitations=[
+		View(
+			name="INV-1",
+			email="pending@studio.test",
+			first_name="Pat",
+			last_name="<Pending>",
+			access_level="EDIT",
+			expires_label="10-21-2026",
+		)
+	],
 	can_manage=True,
 )
 assert "<b>" not in collaborators_page and "update_project_collaborators" not in collaborators_page
 parser.feed(collaborators_page)
 (render_dir / "collaborators.html").write_text(collaborators_page, encoding="utf8")
+for name, signed_in_as in (("guest", None), ("signed-in", "Invitee@Studio.test")):
+	accept_html = accept_page.render(signed_in_as=signed_in_as, signup_enabled=True)
+	(render_dir / f"accept-invitation-{name}.html").write_text(accept_html, encoding="utf8")
 configurator = environment.get_template("templates/pages/configure.html")
 for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Driver", "Controller", "Extrusion Kit"):
 	context = dict(

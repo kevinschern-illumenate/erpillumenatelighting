@@ -3351,44 +3351,6 @@ def invite_project_collaborator(project_name: str, email: str, first_name: str =
 		return {"success": False, "error": "You cannot invite a collaborator to this project"}
 
 
-def _send_collaborator_invite_email(project, user_email: str, access_level: str):
-	"""
-	Send an email notification to a collaborator about project access.
-
-	Args:
-		project: The ilL-Project document
-		user_email: Email of the collaborator
-		access_level: VIEW or EDIT
-	"""
-	try:
-		project_url = frappe.utils.get_url(f"/portal/projects/{project.name}")
-		access_text = "view" if access_level == "VIEW" else "view and edit"
-
-		frappe.sendmail(
-			recipients=[user_email],
-			subject=_("You've been invited to collaborate on {0}").format(project.project_name),
-			message=_("""
-<p>Hello,</p>
-
-<p>You have been invited to collaborate on the project <strong>{project_name}</strong>.</p>
-
-<p>You can now {access_text} this project. Click the link below to access it:</p>
-
-<p><a href="{project_url}">{project_url}</a></p>
-
-<p>Best regards,<br>
-ilLumenate Lighting Team</p>
-""").format(
-				project_name=project.project_name,
-				access_text=access_text,
-				project_url=project_url,
-			),
-			delayed=False,
-		)
-	except Exception as e:
-		frappe.log_error(f"Failed to send collaborator invite email: {str(e)}")
-
-
 @frappe.whitelist(methods=["POST"])
 def remove_project_collaborator(project_name: str, user_email: str) -> dict:
 	"""
