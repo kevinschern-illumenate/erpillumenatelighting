@@ -26,12 +26,15 @@ def trigger_sync_v2(docname):
         inspection = inspect(docname, brand)
         
         if not inspection.get("readiness", {}).get("ready"):
-            # Extract the exact reasons for failure
+            # Extract the exact reasons for failure AND the specific record causing it
             issues = inspection.get("readiness", {}).get("issues", [])
-            issue_msgs = "<br>".join([f"- {i.get('message', 'Unknown issue')} ({i.get('field', 'unknown field')})" for i in issues])
+            issue_msgs = "<br>".join([
+                f"- {i.get('message', 'Unknown')} ({i.get('field', 'unknown')}) ➔ <b>Record: {i.get('record', 'Unknown')}</b>" 
+                for i in issues
+            ])
             
             frappe.msgprint(
-                msg=f"<b>Skipping {brand} due to readiness issues:</b><br>{issue_msgs}",
+                msg=f"<b>Skipping {brand} due to readiness issues:</b><br><br>{issue_msgs}",
                 title="Product Not Ready",
                 indicator="orange"
             )
