@@ -178,7 +178,7 @@ def dependency_manifest(root):
 							{
 								"doctype": "File",
 								"name": file_name,
-								"hash": hashlib.sha256(content).hexdigest(),
+								"hash": hashlib.sha256(content.encode("utf-8")).hexdigest(),
 							}
 						)
 			elif field.fieldtype in ("Link", "Dynamic Link") and (
