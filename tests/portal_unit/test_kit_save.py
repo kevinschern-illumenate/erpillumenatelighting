@@ -93,6 +93,70 @@ class KitSave(unittest.TestCase):
 
 
 class KitValidation(unittest.TestCase):
+	def test_part_number_uses_profile_family_lens_mounting_and_finish_codes(self):
+		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
+			codes = {
+				("ilL-Attribute-Lens Appearance", "White"): "WH",
+				("ilL-Attribute-Mounting Method", "Mounting Clip"): "MC",
+				("ilL-Attribute-Finish", "Anodized Silver"): "SV",
+			}
+			frappe.db.get_value.side_effect = lambda doctype, name, field: codes[(doctype, name)]
+			template = Record(default_profile_family="SH01", series="Different series", template_code="KIT-OTHER")
+			selections = dict(kit_template="KIT-OTHER", lens_appearance="White", mounting_method="Mounting Clip", finish="Anodized Silver", endcap_style="Solid", endcap_color="Grey")
+			self.assertEqual(service._build_kit_part_number(selections, template), "KIT-SH01-WH-MC-SV")
+
+	def test_missing_part_number_codes_do_not_produce_placeholder_part_numbers(self):
+		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
+			frappe.db.get_value.return_value = None
+			with self.assertRaisesRegex(ValueError, "profile family"):
+				service._build_kit_part_number(SELECTIONS, Record(name="KIT-1", default_profile_family=None))
+			with self.assertRaisesRegex(ValueError, "code"):
+				service._build_kit_part_number(SELECTIONS, Record(default_profile_family="SH01"))
+
+	def test_validation_and_schedule_writer_keep_components_and_pricing_with_the_new_code(self):
+		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
+			template = Record(
+				name="KIT-1", template_code="KIT-1", template_name="Slim Kit", is_active=1,
+				default_profile_family="SH01", profile_stock_length_mm=2000, lens_stock_length_mm=2000,
+				solid_endcap_qty=2, feed_through_endcap_qty=2, mounting_accessory_qty=6,
+				get_allowed_values=lambda kind: [],
+			)
+			frappe.db.exists.return_value = True
+			frappe.get_doc.return_value = template
+			codes = {"Anodized Silver": "SV", "White": "WH", "Mounting Clip": "MC"}
+			frappe.db.get_value.side_effect = lambda dt, name, field: 10 if dt == "Item Price" else codes.get(name)
+			profile = Record(profile_item="PROFILE-SV", profile_spec="PROFILE-SPEC")
+			lens = Record(lens_item="LENS-WH", lens_spec="LENS-SPEC")
+			solid = Record(endcap_item="SOLID-SV", endcap_spec="SOLID-SPEC", endcap_style="Solid")
+			feed = Record(endcap_item="FEED-SV", endcap_spec="FEED-SPEC")
+			mounting = Record(accessory_item="MOUNT-MC", accessory_spec="MOUNT-SPEC")
+			selections = dict(kit_template="KIT-1", finish="Anodized Silver", lens_appearance="White", mounting_method="Mounting Clip")
+			with patch.multiple(
+				service,
+				_resolve_kit_profile=MagicMock(return_value=profile),
+				_resolve_kit_lens=MagicMock(return_value=lens),
+				_resolve_kit_endcaps=MagicMock(return_value={"solid": solid, "feed_through": feed, "color": "Silver"}),
+				_resolve_kit_mounting=MagicMock(return_value=mounting),
+				_collect_spec_data=MagicMock(return_value={}),
+				get_kit_component_stock=MagicMock(return_value={"success": False}),
+			):
+				result = service.validate_kit_configuration(selections)
+				self.assertTrue(result["is_valid"])
+				line = types.SimpleNamespace()
+				service._write_kit_line(None, line, result)
+				stored = json.loads(line.variant_selections)
+				self.assertEqual(line.ill_item_code, "KIT-SH01-WH-MC-SV")
+				self.assertEqual(stored["part_number"], line.ill_item_code)
+				self.assertEqual(stored["kit_composition"], result["kit_composition"])
+				self.assertEqual(stored["pricing"], {"total_price_msrp": 120.0})
+				self.assertEqual(stored["selections"]["endcap_color"], "Silver")
+				# A setup error is a validation response the UI can display, not an exception.
+				template["default_profile_family"] = None
+				invalid = service.validate_kit_configuration(selections)
+				self.assertFalse(invalid["is_valid"])
+				self.assertIn("profile family", invalid["error"])
+			frappe.db.exists.assert_called_with("ilL-Extrusion-Kit-Template", "KIT-1")
+
 	def test_inactive_templates_cannot_be_validated(self):
 		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
 			frappe.db.exists.return_value = True
