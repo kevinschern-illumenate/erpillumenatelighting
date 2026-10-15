@@ -4,9 +4,58 @@
   function Kit(el,context){IC.DriverController.call(this,el,context);this.template=context.selected_template||(context.initial_request||{}).template;}
   Kit.prototype=Object.create(IC.DriverController.prototype);Kit.prototype.constructor=Kit;
   Kit.prototype.init=function(){var self=this;IC.DriverController.prototype.init.call(this);this.$('#familyProductSelect').hide().prev('label').hide();this.$('#kitTemplateSelect').prop('hidden',false).on('change',function(){self.template=$(this).val();self.context.initial_request=null;self.loading=true;self.delay(function(){self.load();},0);});this.load();return this;};
-  Kit.prototype.load=function(){var self=this,revision=++this.revision;this.loading=true;this.result=null;this.updateSave();this.request({method:API+'get_kit_configurator_init',args:{kit_template_name:this.template||null},callback:function(r){if(revision!==self.revision)return;var data=r.message||{};if(!data.success){self.$('#familySummary').text(data.error);return;}if(data.templates){var select=self.$('#kitTemplateSelect');select.find('option').filter(function(){return this.value;}).remove();data.templates.forEach(function(t){select.append($('<option>').val(t.name).text(t.template_name).attr('data-image',t.image||''));});if(IC.renderTemplateCards)IC.renderTemplateCards({$container:self.$('#kitTemplatePicker'),$select:select});self.renderTemplateInfo({});self.steps=[];self.renderSteps();return;}self.loading=false;self.$('#kitTemplateSelect').hide();self.renderTemplateInfo(data.kit_template||{});self.options=data.options||{};self.steps=[['finish','Finish'],['lens_appearance','Lens appearance'],['mounting_method','Mounting method']].map(function(s){return {name:s[0],label:s[1]};});self.selections=Object.assign({},data.defaults||{},(self.context.initial_request||{}).selections||{}, {kit_template:self.template});delete self.selections.endcap_style;delete self.selections.endcap_color;self.reachable={};self.renderSteps();self.changed();}});};
-  Kit.prototype.changed=function(){var self=this,revision=++this.revision;this.loading=true;this.result=null;this.updateSave();this.renderSteps();this.request({method:API+'get_kit_cascading_options',args:{kit_template_name:this.template,finish:this.selections.finish,lens_appearance:this.selections.lens_appearance,mounting_method:this.selections.mounting_method},callback:function(r){if(revision!==self.revision)return;var data=r.message||{};self.reachable={};if(data.available_lens_appearances)self.reachable.lens_appearance=data.available_lens_appearances;Object.keys(self.reachable).forEach(function(key){if(!self.reachable[key].some(function(o){return o.value===self.selections[key];}))delete self.selections[key];});self.renderSteps();self.validate();}});};
-  Kit.prototype.validate=function(){var self=this,revision=this.revision;if(!this.steps.every(function(step){return !!self.selections[step.name];})){this.setStatus('Incomplete','secondary');return;}this.request({method:API+'validate_kit_configuration',args:{selections:JSON.stringify(this.selections)},callback:function(r){if(revision!==self.revision)return;var data=r.message||{};self.result=data.is_valid?data:null;self.renderResult(data);self.updateSave();}});};
+  Kit.prototype.load=function(){
+    var self=this,revision=++this.revision;this.loading=true;this.result=null;this.updateSave();
+    this.request({method:API+'get_kit_configurator_init',args:{kit_template_name:this.template||null},callback:function(r){
+      if(revision!==self.revision)return;var data=r.message||{};
+      if(!data.success){self.fail(data.error||__('Unable to load this kit. Please try again.'));return;}
+      self.loading=false;
+      if(data.templates){
+        var select=self.$('#kitTemplateSelect');select.find('option').filter(function(){return this.value;}).remove();
+        data.templates.forEach(function(t){select.append($('<option>').val(t.name).text(t.template_name).attr('data-image',t.image||''));});
+        if(IC.renderTemplateCards)IC.renderTemplateCards({$container:self.$('#kitTemplatePicker'),$select:select});
+        self.renderTemplateInfo({});self.steps=[];self.renderSteps();self.updateSave();return;
+      }
+      self.$('#kitTemplateSelect').hide();self.renderTemplateInfo(data.kit_template||{});self.options=data.options||{};
+      self.steps=[['finish','Finish'],['lens_appearance','Lens appearance'],['mounting_method','Mounting method']].map(function(s){return {name:s[0],label:s[1]};});
+      self.selections=Object.assign({},data.defaults||{},(self.context.initial_request||{}).selections||{}, {kit_template:self.template});
+      delete self.selections.endcap_style;delete self.selections.endcap_color;self.reachable={};self.renderSteps();self.changed();
+    },error:function(){if(revision===self.revision)self.fail(__('Unable to load this kit. Please try again.'));}});
+  };
+  Kit.prototype.changed=function(){
+    var self=this,revision=++this.revision;this.loading=true;this.result=null;this.updateSave();this.renderSteps();
+    this.request({method:API+'get_kit_cascading_options',args:{kit_template_name:this.template,finish:this.selections.finish,lens_appearance:this.selections.lens_appearance,mounting_method:this.selections.mounting_method},callback:function(r){
+      if(revision!==self.revision)return;var data=r.message||{};
+      if(data.success===false){self.fail(data.error||__('Unable to check kit options. Please try again.'));return;}
+      self.reachable={};if(data.available_lens_appearances)self.reachable.lens_appearance=data.available_lens_appearances;
+      Object.keys(self.reachable).forEach(function(key){if(!self.reachable[key].some(function(o){return o.value===self.selections[key];}))delete self.selections[key];});
+      self.renderSteps();self.validate();
+    },error:function(){if(revision===self.revision)self.fail(__('Unable to check kit options. Please try again.'));}});
+  };
+  Kit.prototype.validate=function(){
+    var self=this,revision=this.revision;
+    if(!this.steps.every(function(step){return !!self.selections[step.name];})){
+      this.loading=false;this.result=null;this.setStatus('Incomplete','secondary');this.$('#familySummary').text(__('Choose an option for every step.'));this.updateSave();return;
+    }
+    this.loading=true;this.result=null;this.updateSave();
+    this.request({method:API+'validate_kit_configuration',args:{selections:JSON.stringify(this.selections)},callback:function(r){
+      if(revision!==self.revision)return;var data=r.message||{};self.loading=false;self.result=data.is_valid?data:null;self.renderResult(data);self.updateSave();
+    },error:function(){if(revision===self.revision)self.fail(__('Unable to validate this kit. Please try again.'));}});
+  };
+  Kit.prototype.fail=function(message){this.loading=false;this.result=null;this.renderResult({is_valid:false,error:message});this.updateSave();};
+  // Kit options invalidate through changed(); line metadata does not change the build.
+  Kit.prototype._updateButtons=function(){this.updateSave();};
+  Kit.prototype.updateSave=function(){
+    IC.DriverController.prototype.updateSave.call(this);
+    if(this.loading)this.$('#familySave').prop('disabled',true);
+    var target=this.scheduleTarget,message='';
+    if(this.saving)message=__('Saving to schedule…');
+    else if(this.loading)message=__('Checking kit configuration…');
+    else if(!this.result)message=__('Choose a kit template and complete its options.');
+    else if(!target||!target.hasTarget())message=__('Select a fixture schedule and line, or choose New Line.');
+    else if(!target.canSave)message=__('You cannot save to this schedule. Choose an editable schedule.');
+    this.$('#kitSaveStatus').text(message);
+  };
   Kit.prototype.save=function(){if(!this.result||this.saving)return;var selected=this.scheduleTarget.lineValue(),snapshot=this.scheduleSnapshot||{},line=(snapshot.lines||[]).find(function(l){return String(l.idx)===String(selected);});this.sendSave('illumenate_lighting.illumenate_lighting.portal.kit_configuration.save',{schedule_name:this.scheduleTarget.scheduleName(),selections:JSON.stringify(this.selections),expected_modified:snapshot.modified,line_key:line?line.line_key:null,line_idx:line?null:selected==='__new__'?null:selected,metadata:JSON.stringify(this.metadata()),finder:this.context.finder});};
   // Numbered option sections with pill choices, matching the other configurators. Small screens get a select.
   Kit.prototype.renderSteps=function(){
