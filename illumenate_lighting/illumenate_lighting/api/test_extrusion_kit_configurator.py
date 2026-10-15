@@ -98,26 +98,25 @@ class TestExtrusionKitConfigurator(FrappeTestCase):
 
     def test_part_number_format(self):
         """_build_kit_part_number produces expected format."""
+        from unittest.mock import patch
+
         from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
             _build_kit_part_number,
         )
 
         class MockTemplate:
-            series = None
-            template_code = "MOCKKIT"
+            default_profile_family = "SH01"
+            series = "Different series"
+            template_code = "KIT-OTHER"
 
         sel = {
-            "finish": "NONEXISTENT",
-            "lens_appearance": "NONEXISTENT",
-            "mounting_method": "NONEXISTENT",
-            "endcap_style": "NONEXISTENT",
-            "endcap_color": "NONEXISTENT",
+            "finish": "Anodized Silver",
+            "lens_appearance": "White",
+            "mounting_method": "Mounting Clip",
         }
-        part_number = _build_kit_part_number(sel, MockTemplate())
-        # Should start with ILL-KIT and have 8 segments
-        self.assertTrue(part_number.startswith("ILL-KIT-"))
-        parts = part_number.split("-")
-        self.assertEqual(len(parts), 8)  # ILL-KIT-SERIES-FIN-LENS-MNT-ECSTYLE-ECCOLOR
+        codes = {"Anodized Silver": "SV", "White": "WH", "Mounting Clip": "MC"}
+        with patch("frappe.db.get_value", side_effect=lambda dt, name, field: codes[name]):
+            self.assertEqual(_build_kit_part_number(sel, MockTemplate()), "KIT-SH01-WH-MC-SV")
 
     def test_get_kit_component_stock_missing_template(self):
         """get_kit_component_stock() rejects empty kit_template."""

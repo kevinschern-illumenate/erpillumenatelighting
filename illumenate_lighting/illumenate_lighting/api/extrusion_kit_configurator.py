@@ -435,7 +435,10 @@ def validate_kit_configuration(selections: str) -> dict:
                                    feed_through_endcap, mounting_map)
 
     # ── Build part number ─────────────────────────────────────────────
-    part_number = _build_kit_part_number(sel, template)
+    try:
+        part_number = _build_kit_part_number(sel, template)
+    except ValueError as exc:
+        return {"success": False, "is_valid": False, "error": str(exc)}
 
     # ── Build description ─────────────────────────────────────────────
     build_description = _build_kit_description(sel, template, profile_map, lens_map,
@@ -1209,43 +1212,29 @@ def _get_accessory_spec_data(spec_name: str) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 
 def _get_code(doctype: str, name: str, code_field: str = "code") -> str:
-    """Look up an attribute code, returning 'xx' on miss."""
-    if not name:
-        return "xx"
-    code = frappe.db.get_value(doctype, name, code_field)
-    return code or "xx"
+    """Require a real attribute code before publishing a kit part number."""
+    code = frappe.db.get_value(doctype, name, code_field) if name else None
+    if not code or not str(code).strip():
+        raise ValueError(f"No part number code is configured for {doctype}: '{name or ''}'")
+    return str(code).strip()
 
 
 def _build_kit_part_number(sel: dict, template) -> str:
     """
     Build Extrusion Kit part number from attribute codes.
 
-    Format: ILL-KIT-{SERIES}-{FINISH}-{LENS}-{MOUNT}-{ENDCAP_STYLE}-{ENDCAP_COLOR}
+    Format: KIT-{DEFAULT_PROFILE_FAMILY}-{LENS}-{MOUNT}-{FINISH}
     """
-    parts = ["ILL", "KIT"]
-
-    # Series code from template
-    if template.series:
-        parts.append(_get_code("ilL-Attribute-Series", template.series))
-    else:
-        parts.append(template.template_code[:6].upper())
-
-    # Finish
-    parts.append(_get_code("ilL-Attribute-Finish", sel.get("finish")))
-
-    # Lens appearance
-    parts.append(_get_code("ilL-Attribute-Lens Appearance", sel.get("lens_appearance")))
-
-    # Mounting method
-    parts.append(_get_code("ilL-Attribute-Mounting Method", sel.get("mounting_method")))
-
-    # Endcap style
-    parts.append(_get_code("ilL-Attribute-Endcap Style", sel.get("endcap_style")))
-
-    # Endcap color
-    parts.append(_get_code("ilL-Attribute-Endcap Color", sel.get("endcap_color")))
-
-    return "-".join(parts)
+    family = str(template.default_profile_family or "").strip()
+    if not family:
+        raise ValueError("The kit template is missing its default profile family code")
+    return "-".join([
+        "KIT",
+        family,
+        _get_code("ilL-Attribute-Lens Appearance", sel.get("lens_appearance")),
+        _get_code("ilL-Attribute-Mounting Method", sel.get("mounting_method")),
+        _get_code("ilL-Attribute-Finish", sel.get("finish")),
+    ])
 
 
 def _build_kit_description(sel, template, profile_map, lens_map,

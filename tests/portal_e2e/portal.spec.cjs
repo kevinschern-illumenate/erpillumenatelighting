@@ -206,7 +206,7 @@ for (const [family,key] of [['Driver','driver'],['Extrusion Kit','kit']])test('F
         for(const [axis,label] of Object.entries(entry.choices))await page.getByRole('radiogroup',{name:axis,exact:true}).getByRole('radio',{name:label,exact:true}).click();
         await page.locator('[data-ill-original-id="lineSelect"], #lineSelect').selectOption('__new__');
         await page.locator('[data-ill-original-id="familyLineId"], #familyLineId').fill('FINDER-'+key.toUpperCase());
-        await page.getByRole('button',{name:'Save to schedule',exact:true}).click();
+        await page.getByRole('button',{name:family==='Extrusion Kit'?'Add to Schedule':'Save to schedule',exact:true}).click();
         await expect(page).toHaveURL(/portal\/schedules\//);await expect(page.getByText('FINDER-'+key.toUpperCase(),{exact:true})).toBeVisible();
     } finally {await context.close();}
 });
