@@ -332,6 +332,14 @@ def get_webflow_products(
         order_by="modified desc"
     )
 
+	# Override top-level sync fields with the active brand's sync_targets row
+    for p in products:
+        per_brand_row = _get_brand_sync_row("ilL-Webflow-Product", p["name"], brand_code)
+        if per_brand_row:
+            p["webflow_item_id"] = per_brand_row.get("webflow_item_id")
+            p["last_synced_at"] = per_brand_row.get("last_synced_at")
+            p["sync_status"] = per_brand_row.get("sync_status") or "Never Synced"
+
     # A migrated listing's web content is read from its template (merge plan, step 4).
     listings = {}
     for product in products:
@@ -523,11 +531,6 @@ def get_webflow_products(
                     "attribute_code": attribute_code,
                     "webflow_item_id": al.webflow_item_id
                 })
-            
-            # Add category details if available (includes webflow_item_id for reference field)
-            if product.get("product_category"):
-                product["category_details"] = _get_category_details(product["product_category"])
-                product["category_webflow_item_id"] = _get_category_webflow_item_id(product["product_category"])
             
             # Add full series details if series is set
             if product.get("series"):
