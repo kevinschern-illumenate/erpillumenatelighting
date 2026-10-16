@@ -1,6 +1,8 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
+import json
+
 import frappe
 from frappe.model.document import Document
 
@@ -196,6 +198,9 @@ class ilLWebflowProduct(Document):
 		# Legacy: calculate specifications (deprecated - moving to attribute links)
 		if self.auto_calculate_specs:
 			self.calculate_specifications()
+
+		# V2 Custom Specification Sync
+		self.sync_custom_template_data()
 
 		if self.is_configurable and self.fixture_template:
 			if self.get("auto_populate_configurator_options", True):
@@ -3067,3 +3072,1034 @@ class ilLWebflowProduct(Document):
 							"is_default": getattr(opt, 'is_default', False)
 						})
 		return sorted(options, key=lambda x: x.get("display_label", ""))
+
+	def sync_custom_template_data(self):
+		"""V2 Sync: Updates ilL-Webflow-Product custom fields with data from linked templates."""
+		PRODUCT_TYPE_TEMPLATE_MAP = {
+			"LED Tape": {"link_field": "tape_neon_template", "doctype": "ilL-Tape-Neon-Template"},
+			"COB Tape": {"link_field": "tape_neon_template", "doctype": "ilL-Tape-Neon-Template"},
+			"LED Neon": {"link_field": "tape_neon_template", "doctype": "ilL-Tape-Neon-Template"},
+			"Fixture Template": {"link_field": "fixture_template", "doctype": "ilL-Fixture-Template"},
+			"Driver": {"link_field": "driver_template", "doctype": "ilL-Driver-Template"},
+			"Controller": {"link_field": "controller_template", "doctype": "ilL-Controller-Template"},
+			"LED Sheet": {"link_field": "led_sheet_template", "doctype": "ilL-LED-Sheet-Template"},
+			"Extrusion Kit": {"link_field": "custom_extrusion_kit_template", "doctype": "ilL-Extrusion-Kit-Template"},
+		}
+
+		MANAGED_LABELS = (
+			"Color Rendering (CRI)", "Output Options", "Light Color (CCT)", "Lens Options",
+			"Mounting Options", "Mounting", "Finish Options", "Finish", "Environment Ratings", 
+			"Operating Temperature", "Production Interval", "Dimensions", "Dimensions (ft)",
+			"Cut Interval", "Watts per Foot", "Watts per Square Foot", "Max Run Length",
+			"Input Voltage", "Dimming", "Max Footage per 100W Supply", "Beam Spread",
+			"Minimum Bending Diameter", "Warranty", "Power Factor", "Total Harmonic Distortion",
+			"Efficiency", "Start Up Time", "Minimum Load", "Inrush Current", "Max Input Current",
+			"Output Voltage", "Max Output Current", "Certifications"
+		)
+
+		def format_inches(mm):
+			if not mm:
+				return None
+			inches = float(mm) / 25.4
+			return f'{inches:.2f}"'
+
+		def ceil_val(num):
+			i = int(num)
+			if num > i:
+				return i + 1
+			return i
+
+		def append_spec(current_doc, group, label, value, unit="", order=50, attr_doctype="", options=None):
+			current_doc.append("custom_spec_custom", {
+				"spec_group": group,
+				"spec_label": label,
+				"spec_value": value,
+				"spec_unit": unit,
+				"is_calculated": 1,
+				"display_order": order,
+				"attribute_doctype": attr_doctype,
+				"attribute_options_json": json.dumps(options, default=str, indent=1) if options else None,
+			})
+
+		debug = {
+			"product": self.name,
+			"product_type": self.product_type,
+			"existing_labels_before": [row.spec_label for row in (self.custom_spec_custom or [])],
+			"results": {},
+		}
+
+		def record(debug_dict, label, found_count=None, values=None, appended=False, skip_reason=None):
+			debug_dict["results"][label] = {
+				"found_count": found_count,
+				"values": values or [],
+				"appended": appended,
+				"skip_reason": skip_reason,
+			}
+
+		if self.product_type not in PRODUCT_TYPE_TEMPLATE_MAP:
+			for label in MANAGED_LABELS:
+				record(debug, label, skip_reason=f"No mapping defined for product_type '{self.product_type}'")
+		else:
+			mapping = PRODUCT_TYPE_TEMPLATE_MAP[self.product_type]
+			linked_doc_name = self.get(mapping["link_field"])
+			debug["template_link_field"] = mapping["link_field"]
+			debug["template_doctype"] = mapping["doctype"]
+			debug["template_name"] = linked_doc_name
+
+			if not linked_doc_name:
+				reason = f"Field '{mapping['link_field']}' is empty on this product"
+				for label in MANAGED_LABELS:
+					record(debug, label, skip_reason=reason)
+			else:
+				template_doc = frappe.get_doc(mapping["doctype"], linked_doc_name)
+
+				# ============================================================
+				# PART 1: Core Field, Document, and Certification Sync
+				# ============================================================
+				
+				self.custom_template_status = template_doc.get("product_status")
+				self.custom_web_product_category = template_doc.get("product_category")
+				self.custom_web_series = template_doc.get("series")
+
+				# --- Documents Sync ---
+				existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
+				
+				spec_sheet_file = template_doc.get("spec_sheet")
+				spec_title = (self.product_name or "") + " Spec Sheet"
+				
+				if spec_sheet_file:
+					self.documents = [
+						d for d in (self.documents or []) 
+						if not (d.document_type == "Spec Sheet" and d.document_title == spec_title and d.document_file != spec_sheet_file)
+					]
+					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
+					
+					if spec_sheet_file in existing_docs:
+						existing_docs[spec_sheet_file].document_type = "Spec Sheet"
+						existing_docs[spec_sheet_file].document_title = spec_title
+						existing_docs[spec_sheet_file].display_order = 1
+					else:
+						self.append("documents", {
+							"document_type": "Spec Sheet",
+							"document_file": spec_sheet_file,
+							"document_title": spec_title,
+							"display_order": 1,
+						})
+						existing_docs[spec_sheet_file] = self.documents[-1]
+				else:
+					self.documents = [d for d in (self.documents or []) if not (d.document_type == "Spec Sheet" and d.document_title == spec_title)]
+					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
+
+				spec_submittal_file = template_doc.get("spec_submittal_template")
+				submittal_title = (self.product_name or "") + " Spec Submittal"
+				
+				if spec_submittal_file:
+					self.documents = [
+						d for d in (self.documents or []) 
+						if not (d.document_type == "Spec Sheet" and d.document_title == submittal_title and d.document_file != spec_submittal_file)
+					]
+					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
+					
+					if spec_submittal_file in existing_docs:
+						existing_docs[spec_submittal_file].document_type = "Spec Sheet"
+						existing_docs[spec_submittal_file].document_title = submittal_title
+						existing_docs[spec_submittal_file].display_order = 2
+					else:
+						self.append("documents", {
+							"document_type": "Spec Sheet",
+							"document_file": spec_submittal_file,
+							"document_title": submittal_title,
+							"display_order": 2,
+						})
+						existing_docs[spec_submittal_file] = self.documents[-1]
+				else:
+					self.documents = [d for d in (self.documents or []) if not (d.document_type == "Spec Sheet" and d.document_title == submittal_title)]
+					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
+
+				for d in (template_doc.get("custom_documents") or []):
+					df = d.get("document_file")
+					if df:
+						if df in existing_docs:
+							existing_docs[df].document_type = d.get("document_type")
+							existing_docs[df].document_title = d.get("document_title")
+							existing_docs[df].display_order = d.get("display_order") or 10
+						else:
+							self.append("documents", {
+								"document_type": d.get("document_type"),
+								"document_title": d.get("document_title"),
+								"document_file": df,
+								"display_order": d.get("display_order") or 10
+							})
+							existing_docs[df] = self.documents[-1]
+
+				template_certs = [
+					c_row.certification
+					for c_row in (template_doc.certifications or [])
+					if c_row.certification
+				]
+				self.certifications = []
+				for cert_name in template_certs:
+					self.append("certifications", {
+						"certification": cert_name,
+						"display_order": 0,
+					})
+
+				# ============================================================
+				# PART 2: Configurator Option Mirroring
+				# ============================================================
+				if self.product_type in ("LED Tape", "COB Tape", "LED Neon"):
+
+					LENGTH_METADATA_JSON = json.dumps([
+						{
+							"code": "",
+							"default_inches": 48,
+							"increment_inches": 0.5,
+							"label": "Length",
+							"max_inches": 120,
+							"min_inches": 12,
+							"value": "__length_metadata__",
+						}
+					], indent=1)
+
+					OPTION_LINK_MAP = {
+						"CCT": {"field": "cct", "doctype": "ilL-Attribute-CCT", "code_field": "code"},
+						"Output Level": {"field": "output_level", "doctype": "ilL-Attribute-Output Level", "code_field": "sku_code"},
+						"Lens Appearance": {"field": "lens_appearance", "doctype": "ilL-Attribute-Lens Appearance", "code_field": "code"},
+						"Environment Rating": {"field": "environment_rating", "doctype": "ilL-Attribute-Environment Rating", "code_field": "code"},
+						"IP Rating": {"field": "ip_rating", "doctype": "ilL-Attribute-IP Rating", "code_field": "code"},
+						"Feed Direction": {"field": "feed_direction", "doctype": "ilL-Attribute-Feed-Direction", "code_field": "code"},
+						"PCB Mounting": {"field": "pcb_mounting", "doctype": "ilL-Attribute-PCB Mounting", "code_field": "code"},
+						"PCB Finish": {"field": "pcb_finish", "doctype": "ilL-Attribute-PCB Finish", "code_field": "code"},
+						"Mounting Method": {"field": "mounting_method", "doctype": "ilL-Attribute-Mounting Method", "code_field": "code"},
+						"Finish": {"field": "finish", "doctype": "ilL-Attribute-Finish", "code_field": "code"},
+						"Endcap Style": {"field": "endcap_style", "doctype": "ilL-Attribute-Endcap Style", "code_field": "code"},
+					}
+
+					SPECIAL_TYPES = {"Feed Direction", "Length", "Power Feed Type"}
+
+					def build_value(code, label, is_default):
+						return {"code": code or "", "is_default": is_default or 0, "label": label, "value": label}
+
+					def build_simple_values(template_rows, mapping_entry):
+						values = []
+						for t_row in template_rows:
+							attr_name = t_row.get(mapping_entry["field"])
+							if not attr_name:
+								continue
+							code_value = frappe.db.get_value(
+								mapping_entry["doctype"], attr_name, mapping_entry["code_field"]
+							) or ""
+							disp = t_row.custom_value_label or attr_name
+							values.append({
+								"code": code_value or "",
+								"is_default": t_row.is_default or 0,
+								"label": disp,
+								"value": disp,
+							})
+						return values
+
+					options_by_type = {}
+					for t_row in (template_doc.allowed_options or []):
+						if not t_row.is_active:
+							continue
+						if t_row.option_type not in options_by_type:
+							options_by_type[t_row.option_type] = []
+						options_by_type[t_row.option_type].append(t_row)
+
+					feed_lengths_by_step = {}
+					for fl in (template_doc.feed_lengths or []):
+						if fl.step not in feed_lengths_by_step:
+							feed_lengths_by_step[fl.step] = []
+						feed_lengths_by_step[fl.step].append(fl)
+
+					existing_by_type = {}
+					for cfg_row in (self.configurator_options or []):
+						if cfg_row.option_type not in existing_by_type:
+							existing_by_type[cfg_row.option_type] = []
+						existing_by_type[cfg_row.option_type].append(cfg_row)
+
+					for cfg_row in (self.configurator_options or []):
+						label = cfg_row.option_label
+						otype = cfg_row.option_type
+
+						if otype == "Length":
+							cfg_row.allowed_values_json = LENGTH_METADATA_JSON
+							continue
+
+						if label == "Start Feed Direction" or label == "End Feed Direction":
+							is_end = label == "End Feed Direction"
+							wanted = {"Both", "End"} if is_end else {"Both", "Start"}
+							entry = OPTION_LINK_MAP["Feed Direction"]
+							values = []
+							for t_row in options_by_type.get("Feed Direction", []):
+								if (t_row.feed_position or "Both") not in wanted:
+									continue
+								attr_name = t_row.get(entry["field"])
+								if not attr_name:
+									continue
+								code_value = frappe.db.get_value(
+									entry["doctype"], attr_name, entry["code_field"]
+								) or ""
+								disp = t_row.custom_value_label or attr_name
+								values.append(build_value(code_value, disp, t_row.is_default))
+							if is_end:
+								values.append(build_value("C", "Endcap", 0))
+							cfg_row.allowed_values_json = json.dumps(values, indent=1)
+							continue
+
+						if label == "Start Feed Length" or label == "End Feed Length":
+							values = [build_value("", "Endcap", 0)]
+							for fl in sorted(feed_lengths_by_step.get(cfg_row.option_step, []),
+											 key=lambda r: (r.display_order or 0, r.idx or 0)):
+								values.append(build_value(fl.code, fl.label, 0))
+							cfg_row.allowed_values_json = json.dumps(values, indent=1)
+							continue
+
+						entry = OPTION_LINK_MAP.get(otype)
+						if entry:
+							values = build_simple_values(options_by_type.get(otype, []), entry)
+							cfg_row.allowed_values_json = json.dumps(values, indent=1)
+
+					for template_type in options_by_type.keys():
+						if template_type in SPECIAL_TYPES:
+							continue
+						if template_type in existing_by_type:
+							continue
+						entry = OPTION_LINK_MAP.get(template_type)
+						if not entry:
+							continue
+						values = build_simple_values(options_by_type.get(template_type, []), entry)
+						self.append("configurator_options", {
+							"option_type": template_type,
+							"option_label": template_type,
+							"option_step": 99,
+							"allowed_values_json": json.dumps(values, indent=1),
+						})
+
+					has_length = False
+					finish_step = None
+					max_step = 0
+					for cfg_row in (self.configurator_options or []):
+						if cfg_row.option_type == "Length":
+							has_length = True
+						if cfg_row.option_type == "Finish":
+							finish_step = cfg_row.option_step
+						if cfg_row.option_step and cfg_row.option_step > max_step:
+							max_step = cfg_row.option_step
+
+					if not has_length:
+						if finish_step:
+							length_step = finish_step + 1
+						elif max_step:
+							length_step = max_step + 1
+						else:
+							length_step = 99
+						self.append("configurator_options", {
+							"option_type": "Length",
+							"option_label": "Length",
+							"option_step": length_step,
+							"allowed_values_json": LENGTH_METADATA_JSON,
+						})
+
+				# ============================================================
+				# PART 3: Custom Spec Child Table Enrichment
+				# ============================================================
+				self.custom_spec_custom = [
+					row for row in (self.custom_spec_custom or [])
+					if row.spec_label not in MANAGED_LABELS
+				]
+				
+				if self.product_type == "Fixture Template":
+					offering_rows = template_doc.get("allowed_tape_offerings") or []
+					debug["offering_rows_checked"] = len(offering_rows)
+
+					offerings = []
+					for t_row in offering_rows:
+						offering_name = t_row.get("tape_offering")
+						if not offering_name:
+							continue
+						data = frappe.db.get_value(
+							"ilL-Rel-Tape Offering", offering_name,
+							["cri", "output_level", "cct", "tape_spec"], as_dict=True,
+						)
+						if data:
+							offerings.append(data)
+							
+					voltage_values = set()
+					for o in offerings:
+						tape_spec_name = o.get("tape_spec")
+						if not tape_spec_name:
+							continue
+						input_voltage = frappe.db.get_value("ilL-Spec-LED Tape", tape_spec_name, "input_voltage")
+						if input_voltage:
+							voltage_values.add(str(input_voltage))
+					if voltage_values:
+						append_spec(self, "Electrical", "Input Voltage", ", ".join(sorted(voltage_values)), "", 90, "ilL-Attribute-Output Voltage")
+						record(debug, "Input Voltage", len(voltage_values), sorted(voltage_values), appended=True)
+					else:
+						record(debug, "Input Voltage", 0, skip_reason="No input_voltage values resolved from allowed_tape_offerings")
+							
+					temp_values = set()
+					for o in offerings:
+						tape_spec_name = o.get("tape_spec")
+						if not tape_spec_name:
+							continue
+						op_temp = frappe.db.get_value("ilL-Spec-LED Tape", tape_spec_name, "operating_temp")
+						if op_temp:
+							temp_values.add(str(op_temp).strip())
+					if temp_values:
+						append_spec(self, "Environmental", "Operating Temperature", ", ".join(sorted(temp_values)), "", 120)
+						record(debug, "Operating Temperature", len(temp_values), sorted(temp_values), appended=True)
+					else:
+						record(debug, "Operating Temperature", 0, skip_reason="No operating_temp values resolved from allowed_tape_offerings")
+
+					cri_values = set()
+					for o in offerings:
+						if o.get("cri"):
+							cri_values.add(str(o["cri"]))
+					if cri_values:
+						append_spec(self, "Optical", "Color Rendering (CRI)", ", ".join(sorted(cri_values)), "CRI", 50)
+						record(debug, "Color Rendering (CRI)", len(cri_values), sorted(cri_values), appended=True)
+					else:
+						record(debug, "Color Rendering (CRI)", 0, skip_reason="No CRI values resolved")
+
+					seen_output = set()
+					output_pairs = []
+					for o in offerings:
+						ol_name = o.get("output_level")
+						if ol_name and ol_name not in seen_output:
+							seen_output.add(ol_name)
+							ol_data = frappe.db.get_value(
+								"ilL-Attribute-Output Level", ol_name,
+								["output_level_name", "sku_code"], as_dict=True,
+							)
+							if ol_data and ol_data.get("sku_code"):
+								output_pairs.append((ol_data["sku_code"], ol_data.get("output_level_name") or ol_name))
+					if output_pairs:
+						options = [{"attribute_type": "Output Level", "attribute_doctype": "ilL-Attribute-Output Level", "code": pair[0], "display_label": pair[1]} for pair in output_pairs]
+						append_spec(self, "Performance", "Output Options", ", ".join(pair[1] for pair in output_pairs), "lm/ft", 10, "ilL-Attribute-Output Level", options)
+						record(debug, "Output Options", len(output_pairs), [pair[1] for pair in output_pairs], appended=True)
+					else:
+						record(debug, "Output Options", 0, skip_reason="No output_level values resolved")
+
+					cct_pairs = []
+					seen_cct = set()
+					for o in offerings:
+						if o.get("cct") and o["cct"] not in seen_cct:
+							seen_cct.add(o["cct"])
+							cct_data = frappe.db.get_value("ilL-Attribute-CCT", o["cct"], ["cct_name", "code"], as_dict=True)
+							if cct_data:
+								cct_pairs.append((cct_data.get("code") or "", cct_data.get("cct_name") or o["cct"]))
+					if cct_pairs:
+						options = [{"attribute_type": "CCT", "attribute_doctype": "ilL-Attribute-CCT", "code": pair[0], "display_label": pair[1]} for pair in cct_pairs]
+						append_spec(self, "Optical", "Light Color (CCT)", ", ".join(pair[1] for pair in cct_pairs), "", 40, "ilL-Attribute-CCT", options)
+						record(debug, "Light Color (CCT)", len(cct_pairs), [pair[1] for pair in cct_pairs], appended=True)
+					else:
+						record(debug, "Light Color (CCT)", 0, skip_reason="No CCT values resolved")
+
+					wpf_values = set()
+					run_values = set()
+					for o in offerings:
+						tape_spec_name = o.get("tape_spec")
+						if not tape_spec_name:
+							continue
+						spec_data = frappe.db.get_value(
+							"ilL-Spec-LED Tape", tape_spec_name,
+							["watts_per_foot", "voltage_drop_max_run_length_ft"],
+							as_dict=True,
+						)
+						if not spec_data:
+							continue
+						if spec_data.get("watts_per_foot"):
+							wpf_values.add(float(spec_data["watts_per_foot"]))
+						if spec_data.get("voltage_drop_max_run_length_ft"):
+							run_values.add(float(spec_data["voltage_drop_max_run_length_ft"]))
+
+					if wpf_values:
+						sorted_wpf = sorted(wpf_values)
+						append_spec(self, "Electrical", "Watts per Foot", ", ".join(f"{v:g}" for v in sorted_wpf), "W/ft", 20)
+						record(debug, "Watts per Foot", len(sorted_wpf), [f"{v:g}" for v in sorted_wpf], appended=True)
+						
+						calc_footage = sorted([ceil_val(80.0 / v) for v in wpf_values if v > 0], reverse=True)
+						if calc_footage:
+							append_spec(self, "Electrical", "Max Footage per 100W Supply", ", ".join(f"{v} ft" for v in calc_footage), "", 35)
+							record(debug, "Max Footage per 100W Supply", len(calc_footage), [f"{v} ft" for v in calc_footage], appended=True)
+					else:
+						record(debug, "Watts per Foot", 0, skip_reason="No watts_per_foot values resolved")
+						record(debug, "Max Footage per 100W Supply", 0, skip_reason="No watts_per_foot values resolved for footage calculation")
+
+					if run_values:
+						sorted_run = sorted(run_values, reverse=True)
+						append_spec(self, "Electrical", "Max Run Length", ", ".join(f"{v:g} ft" for v in sorted_run), "", 30)
+						record(debug, "Max Run Length", len(sorted_run), [f"{v:g} ft" for v in sorted_run], appended=True)
+					else:
+						record(debug, "Max Run Length", 0, skip_reason="No max_run_length values resolved")
+
+					cut_increments = set()
+					for o in offerings:
+						tape_spec_name = o.get("tape_spec")
+						if not tape_spec_name:
+							continue
+						cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", tape_spec_name, "cut_increment_mm")
+						if cut_mm:
+							formatted = format_inches(cut_mm)
+							if formatted:
+								cut_increments.add(formatted)
+					if cut_increments:
+						append_spec(self, "Physical", "Production Interval", ", ".join(sorted(cut_increments)), "", 110)
+						record(debug, "Production Interval", len(cut_increments), sorted(cut_increments), appended=True)
+					else:
+						record(debug, "Production Interval", 0, skip_reason="No cut_increment_mm values resolved")
+
+					lens_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Lens Appearance" and o_row.get("lens_appearance"):
+							lens_values.add(o_row.get("lens_appearance"))
+					if lens_values:
+						append_spec(self, "Optical", "Lens Options", ", ".join(sorted(lens_values)), "", 60, "ilL-Attribute-Lens Appearance")
+						record(debug, "Lens Options", len(lens_values), sorted(lens_values), appended=True)
+					else:
+						record(debug, "Lens Options", 0, skip_reason="No active 'Lens Appearance' rows in allowed_options")
+
+					mount_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Mounting Method" and o_row.get("mounting_method"):
+							mount_values.add(o_row.get("mounting_method"))
+					if mount_values:
+						append_spec(self, "Physical", "Mounting Options", ", ".join(sorted(mount_values)), "", 70, "ilL-Attribute-Mounting Method")
+						record(debug, "Mounting Options", len(mount_values), sorted(mount_values), appended=True)
+					else:
+						record(debug, "Mounting Options", 0, skip_reason="No active 'Mounting Method' rows in allowed_options")
+
+					finish_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Finish" and o_row.get("finish"):
+							disp = frappe.db.get_value("ilL-Attribute-Finish", o_row.get("finish"), "finish_name") or o_row.get("finish")
+							finish_values.add(disp)
+					if finish_values:
+						append_spec(self, "Physical", "Finish Options", ", ".join(sorted(finish_values)), "", 80, "ilL-Attribute-Finish")
+						record(debug, "Finish Options", len(finish_values), sorted(finish_values), appended=True)
+					else:
+						record(debug, "Finish Options", 0, skip_reason="No active 'Finish' rows in allowed_options")
+
+					profile_spec_name = template_doc.get("default_profile_spec")
+					if profile_spec_name:
+						profile = frappe.db.get_value(
+							"ilL-Spec-Profile", profile_spec_name,
+							["dimensions", "width_mm", "height_mm"], as_dict=True,
+						)
+						dims = profile.get("dimensions") if profile else None
+						if not dims and profile and profile.get("width_mm") and profile.get("height_mm"):
+							w_in = format_inches(profile["width_mm"])
+							h_in = format_inches(profile["height_mm"])
+							if w_in and h_in:
+								dims = f"{w_in} ({profile['width_mm']:g}mm) x {h_in} ({profile['height_mm']:g}mm)"
+						if dims:
+							append_spec(self, "Physical", "Dimensions", dims, "", 95)
+							record(debug, "Dimensions", 1, [dims], appended=True)
+						else:
+							record(debug, "Dimensions", 0, skip_reason="Profile has no dimensions/width_mm/height_mm")
+					else:
+						record(debug, "Dimensions", 0, skip_reason="Template has no default_profile_spec")
+						
+					dimming_values = set()
+					for o in offerings:
+						tape_spec_name = o.get("tape_spec")
+						if not tape_spec_name:
+							continue
+						tape_doc = frappe.get_doc("ilL-Spec-LED Tape", tape_spec_name)
+						for row in (tape_doc.get("supported_dimming_protocols") or []):
+							protocol_name = row.get("protocol")
+							if not protocol_name:
+								continue
+							label = frappe.db.get_value("ilL-Attribute-Dimming Protocol", protocol_name, "label")
+							dimming_values.add(label or protocol_name)
+					if dimming_values:
+						append_spec(self, "Control", "Dimming", ", ".join(sorted(dimming_values)), "", 100, "ilL-Attribute-Dimming Protocol")
+						record(debug, "Dimming", len(dimming_values), sorted(dimming_values), appended=True)
+					else:
+						record(debug, "Dimming", 0, skip_reason="No dimming protocols resolved")
+				 
+				elif self.product_type in ("LED Tape", "COB Tape", "LED Neon"):
+					
+					tape_rows = template_doc.get("allowed_tape_specs") or []
+					debug["tape_rows_checked"] = len(tape_rows)
+					
+					tape_specs = []
+					for r in tape_rows:
+						ts = r.get("tape_spec")
+						if ts:
+							tape_specs.append(ts)
+
+					seen_output = set()
+					output_pairs = []
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Output Level" and o_row.get("output_level"):
+							ol_name = o_row.get("output_level")
+							if ol_name not in seen_output:
+								seen_output.add(ol_name)
+								ol_data = frappe.db.get_value(
+									"ilL-Attribute-Output Level", ol_name,
+									["output_level_name", "sku_code"], as_dict=True,
+								)
+								if ol_data and ol_data.get("sku_code"):
+									output_pairs.append((ol_data["sku_code"], ol_data.get("output_level_name") or ol_name))
+					if output_pairs:
+						options = [{"attribute_type": "Output Level", "attribute_doctype": "ilL-Attribute-Output Level", "code": pair[0], "display_label": pair[1]} for pair in output_pairs]
+						append_spec(self, "Performance", "Output Options", ", ".join(pair[1] for pair in output_pairs), "lm/ft", 10, "ilL-Attribute-Output Level", options)
+						record(debug, "Output Options", len(output_pairs), [pair[1] for pair in output_pairs], appended=True)
+					else:
+						record(debug, "Output Options", 0, skip_reason="No output_level values resolved")
+						
+					wpf_values = set()
+					run_values = set()
+					
+					for ts in tape_specs:
+						spec_data = frappe.db.get_value(
+							"ilL-Spec-LED Tape", ts,
+							["watts_per_foot", "voltage_drop_max_run_length_ft"],
+							as_dict=True,
+						)
+						if spec_data:
+							if spec_data.get("watts_per_foot"):
+								wpf_values.add(float(spec_data["watts_per_foot"]))
+							if spec_data.get("voltage_drop_max_run_length_ft"):
+								run_values.add(float(spec_data["voltage_drop_max_run_length_ft"]))
+					
+					if wpf_values:
+						sorted_wpf = sorted(wpf_values)
+						append_spec(self, "Electrical", "Watts per Foot", ", ".join(f"{v:g}" for v in sorted_wpf), "W/ft", 20)
+						record(debug, "Watts per Foot", len(sorted_wpf), [f"{v:g}" for v in sorted_wpf], appended=True)
+						
+						calc_footage = sorted([ceil_val(80.0 / v) for v in wpf_values if v > 0], reverse=True)
+						if calc_footage:
+							append_spec(self, "Electrical", "Max Footage per 100W Supply", ", ".join(f"{v} ft" for v in calc_footage), "", 40)
+							record(debug, "Max Footage per 100W Supply", len(calc_footage), [f"{v} ft" for v in calc_footage], appended=True)
+					else:
+						record(debug, "Watts per Foot", 0, skip_reason="No watts_per_foot values resolved")
+						record(debug, "Max Footage per 100W Supply", 0, skip_reason="No watts_per_foot values resolved for footage calculation")
+						
+					if run_values:
+						sorted_run = sorted(run_values, reverse=True)
+						append_spec(self, "Electrical", "Max Run Length", ", ".join(f"{v:g} ft" for v in sorted_run), "", 30)
+						record(debug, "Max Run Length", len(sorted_run), [f"{v:g} ft" for v in sorted_run], appended=True)
+					else:
+						record(debug, "Max Run Length", 0, skip_reason="No voltage_drop_max_run_length_ft values resolved")
+
+					cct_pairs = []
+					seen_cct = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "CCT" and o_row.get("cct"):
+							cct_val = o_row.get("cct")
+							if cct_val not in seen_cct:
+								seen_cct.add(cct_val)
+								cct_data = frappe.db.get_value("ilL-Attribute-CCT", cct_val, ["cct_name", "code"], as_dict=True)
+								if cct_data:
+									cct_pairs.append((cct_data.get("code") or "", cct_data.get("cct_name") or cct_val))
+					if cct_pairs:
+						options = [{"attribute_type": "CCT", "attribute_doctype": "ilL-Attribute-CCT", "code": pair[0], "display_label": pair[1]} for pair in cct_pairs]
+						append_spec(self, "Optical", "Light Color (CCT)", ", ".join(pair[1] for pair in cct_pairs), "", 50, "ilL-Attribute-CCT", options)
+						record(debug, "Light Color (CCT)", len(cct_pairs), [pair[1] for pair in cct_pairs], appended=True)
+					else:
+						record(debug, "Light Color (CCT)", 0, skip_reason="No CCT values resolved")
+
+					cri_values = set()
+					for ts in tape_specs:
+						cri = frappe.db.get_value("ilL-Spec-LED Tape", ts, "cri_typical")
+						if cri: cri_values.add(str(cri))
+					if cri_values:
+						append_spec(self, "Optical", "Color Rendering (CRI)", ", ".join(sorted(cri_values)), "CRI", 60)
+						record(debug, "Color Rendering (CRI)", len(cri_values), sorted(cri_values), appended=True)
+					else:
+						record(debug, "Color Rendering (CRI)", 0, skip_reason="No cri_typical values resolved")
+
+					beam_angle = template_doc.get("beam_angle")
+					if beam_angle:
+						try:
+							ba_int = int(float(beam_angle))
+							append_spec(self, "Optical", "Beam Spread", f"{ba_int}°", "", 70)
+							record(debug, "Beam Spread", 1, [f"{ba_int}°"], appended=True)
+						except (ValueError, TypeError):
+							record(debug, "Beam Spread", 0, skip_reason="Invalid beam_angle format")
+					else:
+						record(debug, "Beam Spread", 0, skip_reason="Template has no beam_angle")
+
+					mount_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Mounting Method" and o_row.get("mounting_method"):
+							mount_values.add(o_row.get("mounting_method"))
+					if mount_values:
+						append_spec(self, "Physical", "Mounting Options", ", ".join(sorted(mount_values)), "", 80, "ilL-Attribute-Mounting Method")
+						record(debug, "Mounting Options", len(mount_values), sorted(mount_values), appended=True)
+					else:
+						record(debug, "Mounting Options", 0, skip_reason="No Mounting Method values resolved")
+
+					finish_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Finish" and o_row.get("finish"):
+							disp = frappe.db.get_value("ilL-Attribute-Finish", o_row.get("finish"), "finish_name") or o_row.get("finish")
+							finish_values.add(disp)
+					if finish_values:
+						append_spec(self, "Physical", "Finish Options", ", ".join(sorted(finish_values)), "", 90, "ilL-Attribute-Finish")
+						record(debug, "Finish Options", len(finish_values), sorted(finish_values), appended=True)
+					else:
+						record(debug, "Finish Options", 0, skip_reason="No Finish values resolved")
+
+					voltage_values = set()
+					for ts in tape_specs:
+						iv = frappe.db.get_value("ilL-Spec-LED Tape", ts, "input_voltage")
+						if iv: voltage_values.add(str(iv))
+					if voltage_values:
+						append_spec(self, "Electrical", "Input Voltage", ", ".join(sorted(voltage_values)), "", 100, "ilL-Attribute-Output Voltage")
+						record(debug, "Input Voltage", len(voltage_values), sorted(voltage_values), appended=True)
+					else:
+						record(debug, "Input Voltage", 0, skip_reason="No input_voltage values resolved")
+
+					dimming_values = set()
+					for ts in tape_specs:
+						tape_doc = frappe.get_doc("ilL-Spec-LED Tape", ts)
+						
+						ip = tape_doc.get("input_protocol")
+						if ip:
+							label = frappe.db.get_value("ilL-Attribute-Dimming Protocol", ip, "label")
+							dimming_values.add(label or ip)
+						
+						for row in (tape_doc.get("supported_dimming_protocols") or []):
+							protocol_name = row.get("protocol")
+							if protocol_name:
+								label = frappe.db.get_value("ilL-Attribute-Dimming Protocol", protocol_name, "label")
+								dimming_values.add(label or protocol_name)
+					if dimming_values:
+						append_spec(self, "Control", "Dimming", ", ".join(sorted(dimming_values)), "", 110, "ilL-Attribute-Dimming Protocol")
+						record(debug, "Dimming", len(dimming_values), sorted(dimming_values), appended=True)
+					else:
+						record(debug, "Dimming", 0, skip_reason="No dimming protocols resolved")
+
+					dimensions = template_doc.get("spec_sheet_dimensions")
+					if dimensions:
+						append_spec(self, "Physical", "Dimensions", dimensions, "", 120)
+						record(debug, "Dimensions", 1, [dimensions], appended=True)
+					else:
+						record(debug, "Dimensions", 0, skip_reason="Template has no spec_sheet_dimensions")
+
+					side_mm = template_doc.get("minimum_side_bend_diameter_mm")
+					top_mm = template_doc.get("minimum_top_bend_diameter_mm")
+					bend_parts = []
+					
+					if side_mm:
+						side_in = float(side_mm) / 25.4
+						bend_parts.append(f'Side Bend: {side_in:.2f}" ({float(side_mm):g}mm)')
+					if top_mm:
+						top_in = float(top_mm) / 25.4
+						bend_parts.append(f'Top Bend: {top_in:.2f}" ({float(top_mm):g}mm)')
+						
+					if bend_parts:
+						val = ", ".join(bend_parts)
+						append_spec(self, "Physical", "Minimum Bending Diameter", val, "", 125)
+						record(debug, "Minimum Bending Diameter", len(bend_parts), [val], appended=True)
+					else:
+						record(debug, "Minimum Bending Diameter", 0, skip_reason="Template has no side/top bend values")
+
+					is_free_cutting = template_doc.get("is_free_cutting")
+					template_pi = template_doc.get("production_interval_mm")
+					cut_increments = set()
+					
+					def format_pi(mm_val):
+						inches = float(mm_val) / 25.4
+						return f'{inches:.2f}" ({float(mm_val):.1f}mm)'
+						
+					if is_free_cutting and not template_pi:
+						cut_increments.add("Free Cutting")
+					elif template_pi:
+						cut_increments.add(format_pi(template_pi))
+					else:
+						for ts in tape_specs:
+							cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", ts, "cut_increment_mm")
+							if is_free_cutting and not cut_mm:
+								cut_increments.add("Free Cutting")
+							elif cut_mm:
+								cut_increments.add(format_pi(cut_mm))
+					if cut_increments:
+						append_spec(self, "Physical", "Production Interval", ", ".join(sorted(cut_increments)), "", 130)
+						record(debug, "Production Interval", len(cut_increments), sorted(cut_increments), appended=True)
+					else:
+						record(debug, "Production Interval", 0, skip_reason="No cut increments resolved")
+
+					temp_values = set()
+					for ts in tape_specs:
+						op_temp = frappe.db.get_value("ilL-Spec-LED Tape", ts, "operating_temp")
+						if op_temp: temp_values.add(str(op_temp).strip())
+					if temp_values:
+						append_spec(self, "Environmental", "Operating Temperature", ", ".join(sorted(temp_values)), "", 140)
+						record(debug, "Operating Temperature", len(temp_values), sorted(temp_values), appended=True)
+					else:
+						record(debug, "Operating Temperature", 0, skip_reason="No operating_temp values resolved")
+
+					warranty = template_doc.get("warranty_years")
+					if warranty:
+						append_spec(self, "Performance", "Warranty", f"{warranty} years", "", 150)
+						record(debug, "Warranty", 1, [f"{warranty} years"], appended=True)
+					else:
+						record(debug, "Warranty", 0, skip_reason="Template has no warranty_years")
+  
+				elif self.product_type == "LED Sheet":
+					
+					sheet_rows = template_doc.get("allowed_specs") or []
+					debug["sheet_rows_checked"] = len(sheet_rows)
+					
+					sheet_specs = []
+					for r in sheet_rows:
+						s = r.get("spec")
+						if s: sheet_specs.append(s)
+						
+					seen_output = set()
+					output_pairs = []
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Output Level":
+							ol_name = o_row.get("attribute_link") or o_row.get("output_level")
+							if ol_name and ol_name not in seen_output:
+								seen_output.add(ol_name)
+								ol_data = frappe.db.get_value("ilL-Attribute-Output Level", ol_name, ["output_level_name", "sku_code"], as_dict=True)
+								if ol_data and ol_data.get("sku_code"):
+									output_pairs.append((ol_data["sku_code"], ol_data.get("output_level_name") or ol_name))
+					if output_pairs:
+						options = [{"attribute_type": "Output Level", "attribute_doctype": "ilL-Attribute-Output Level", "code": pair[0], "display_label": pair[1]} for pair in output_pairs]
+						append_spec(self, "Performance", "Output Options", ", ".join(pair[1] for pair in output_pairs), "lm/ft", 10, "ilL-Attribute-Output Level", options)
+
+					wps_values = set()
+					for s in sheet_specs:
+						wps = frappe.db.get_value("ilL-Spec-LED-Sheet", s, "watts_per_sqft")
+						if wps: wps_values.add(float(wps))
+					if wps_values:
+						sorted_wps = sorted(wps_values)
+						append_spec(self, "Electrical", "Watts per Square Foot", ", ".join(f"{v:g}" for v in sorted_wps), "W/sqft", 20)
+
+						calc_footage = sorted([ceil_val(80.0 / v) for v in wps_values if v > 0], reverse=True)
+						if calc_footage:
+							append_spec(self, "Electrical", "Max Footage per 100W Supply", ", ".join(f"{v} sqft" for v in calc_footage), "", 35)
+
+					cct_pairs = []
+					seen_cct = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "CCT":
+							cct_val = o_row.get("attribute_link") or o_row.get("cct")
+							if cct_val and cct_val not in seen_cct:
+								seen_cct.add(cct_val)
+								cct_data = frappe.db.get_value("ilL-Attribute-CCT", cct_val, ["cct_name", "code"], as_dict=True)
+								if cct_data:
+									cct_pairs.append((cct_data.get("code") or "", cct_data.get("cct_name") or cct_val))
+					if cct_pairs:
+						options = [{"attribute_type": "CCT", "attribute_doctype": "ilL-Attribute-CCT", "code": pair[0], "display_label": pair[1]} for pair in cct_pairs]
+						append_spec(self, "Optical", "Light Color (CCT)", ", ".join(pair[1] for pair in cct_pairs), "", 40, "ilL-Attribute-CCT", options)
+
+					cri_values = set()
+					for s in sheet_specs:
+						cri = frappe.db.get_value("ilL-Spec-LED-Sheet", s, "cri")
+						if cri: cri_values.add(str(cri))
+					if cri_values:
+						append_spec(self, "Optical", "Color Rendering (CRI)", ", ".join(sorted(cri_values)), "CRI", 50)
+
+					beam_angle = template_doc.get("beam_angle")
+					if beam_angle:
+						try:
+							ba_int = int(float(beam_angle))
+							append_spec(self, "Optical", "Beam Spread", f"{ba_int}°", "", 65)
+						except (ValueError, TypeError):
+							pass
+
+					mount_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Mounting Method":
+							mv = o_row.get("attribute_link") or o_row.get("mounting_method")
+							if mv: mount_values.add(mv)
+					if mount_values:
+						append_spec(self, "Physical", "Mounting", ", ".join(sorted(mount_values)), "", 70, "ilL-Attribute-Mounting Method")
+
+					finish_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Finish":
+							fv = o_row.get("attribute_link") or o_row.get("finish")
+							if fv:
+								disp = frappe.db.get_value("ilL-Attribute-Finish", fv, "finish_name") or fv
+								finish_values.add(disp)
+					if finish_values:
+						append_spec(self, "Physical", "Finish", ", ".join(sorted(finish_values)), "", 80, "ilL-Attribute-Finish")
+
+					voltage_values = set()
+					for s in sheet_specs:
+						iv = frappe.db.get_value("ilL-Spec-LED-Sheet", s, "input_voltage")
+						if iv: voltage_values.add(str(iv))
+					if voltage_values:
+						append_spec(self, "Electrical", "Input Voltage", ", ".join(sorted(voltage_values)), "", 90, "ilL-Attribute-Output Voltage")
+
+					append_spec(self, "Control", "Dimming", "TBD", "", 100)
+
+					dims_list = set()
+					for s in sheet_specs:
+						spec_data = frappe.db.get_value("ilL-Spec-LED-Sheet", s, ["sheet_width_ft", "sheet_height_ft"], as_dict=True)
+						if spec_data and spec_data.get("sheet_width_ft") and spec_data.get("sheet_height_ft"):
+							w_ft = float(spec_data["sheet_width_ft"])
+							h_ft = float(spec_data["sheet_height_ft"])
+							w_in = w_ft * 12
+							h_in = h_ft * 12
+							w_mm = w_ft * 304.8
+							h_mm = h_ft * 304.8
+							dims_list.add(f'{w_in:.2f}" ({w_mm:.1f}mm) × {h_in:.2f}" ({h_mm:.1f}mm)')
+					if dims_list:
+						append_spec(self, "Physical", "Dimensions (ft)", ", ".join(sorted(dims_list)), "", 95)
+
+					cut_list = set()
+					for s in sheet_specs:
+						spec_data = frappe.db.get_value("ilL-Spec-LED-Sheet", s, ["cut_interval_width_in", "cut_interval_height_in"], as_dict=True)
+						if spec_data and spec_data.get("cut_interval_width_in") and spec_data.get("cut_interval_height_in"):
+							w_in = float(spec_data["cut_interval_width_in"])
+							h_in = float(spec_data["cut_interval_height_in"])
+							w_mm = w_in * 25.4
+							h_mm = h_in * 25.4
+							cut_list.add(f'{w_in:.2f}" ({w_mm:.1f}mm) × {h_in:.2f}" ({h_mm:.1f}mm)')
+					if cut_list:
+						append_spec(self, "Physical", "Cut Interval", ", ".join(sorted(cut_list)), "", 105)
+
+					temp_list = set()
+					for s in sheet_specs:
+						spec_data = frappe.db.get_value("ilL-Spec-LED-Sheet", s, ["operating_temp_min_c", "operating_temp_max_c"], as_dict=True)
+						if spec_data and spec_data.get("operating_temp_min_c") not in (None, "") and spec_data.get("operating_temp_max_c") not in (None, ""):
+							min_c = float(spec_data["operating_temp_min_c"])
+							max_c = float(spec_data["operating_temp_max_c"])
+							min_f = round(min_c * 9/5 + 32)
+							max_f = round(max_c * 9/5 + 32)
+							temp_list.add(f"{min_f}°F ({int(min_c)}°C) to {max_f}°F ({int(max_c)}°C)")
+					if temp_list:
+						append_spec(self, "Environmental", "Operating Temperature", ", ".join(sorted(temp_list)), "", 120)
+
+					warranty = template_doc.get("warranty_years")
+					if warranty:
+						append_spec(self, "Performance", "Warranty", f"{warranty} years", "", 130)
+ 
+				elif self.product_type == "Driver":
+					
+					variants = frappe.get_all(
+						"ilL-Child-Driver-Template-Variant",
+						filters={
+							"parent": template_doc.name,
+							"parenttype": "ilL-Driver-Template",
+							"is_active": 1
+						},
+						fields=["driver_spec"]
+					)
+					
+					spec_names = []
+					for v in variants:
+						if v.get("driver_spec"):
+							spec_names.append(v.get("driver_spec"))
+							
+					iv_list = set()
+					pf_list = set()
+					eff_list = set()
+					dims_list = set()
+					inrush_list = set()
+					max_input_list = set()
+					out_v_list = set()
+					dimming_list = set()
+					
+					for s in spec_names:
+						d_spec = frappe.get_doc("ilL-Spec-Driver", s)
+						
+						v_min = d_spec.get("input_voltage_min")
+						v_max = d_spec.get("input_voltage_max")
+						v_type = d_spec.get("input_voltage_type")
+						if v_min and v_max and v_type:
+							iv_list.add(f"{v_min} - {v_max} {v_type}")
+							
+						pf = d_spec.get("power_factor")
+						if pf:
+							pf_list.add(str(pf))
+							
+						eff = d_spec.get("efficiency")
+						if eff:
+							eff_list.add(str(eff))
+							
+						w_mm = d_spec.get("width_mm")
+						h_mm = d_spec.get("height_mm")
+						d_mm = d_spec.get("depth_mm")
+						if w_mm and h_mm and d_mm:
+							w_in = format_inches(w_mm)
+							h_in = format_inches(h_mm)
+							d_in = format_inches(d_mm)
+							dims_list.add(f'{w_in} ({w_mm}mm) × {h_in} ({h_mm}mm) × {d_in} ({d_mm}mm)')
+							
+						inrush = d_spec.get("inrush_aA") or d_spec.get("inrush_aa") or d_spec.get("inrush_a")
+						if inrush:
+							inrush_list.add(f"{inrush}A")
+							
+						max_in = d_spec.get("max_input_aA") or d_spec.get("max_input_aa") or d_spec.get("max_input_a")
+						if max_in:
+							max_input_list.add(f"{max_in}A")
+							
+						out_v = d_spec.get("voltage_output")
+						if out_v:
+							out_v_list.add(str(out_v))
+							
+						for p in (d_spec.get("input_protocols") or []):
+							proto = p.get("protocol")
+							if proto:
+								lbl = frappe.db.get_value("ilL-Attribute-Dimming Protocol", proto, "label")
+								dimming_list.add(lbl or proto)
+								
+					if iv_list: 
+						append_spec(self, "Electrical", "Input Voltage", ", ".join(sorted(iv_list)), "", 10)
+					if pf_list: 
+						append_spec(self, "Electrical", "Power Factor", ", ".join(sorted(pf_list)), "", 20)
+						
+					append_spec(self, "Electrical", "Total Harmonic Distortion", "TBD", "", 30)
+					
+					if eff_list: 
+						append_spec(self, "Electrical", "Efficiency", ", ".join(sorted(eff_list)), "", 40)
+						
+					append_spec(self, "Electrical", "Start Up Time", "TBD", "", 50)
+					append_spec(self, "Electrical", "Minimum Load", "TBD", "", 60)
+					
+					if dims_list: 
+						append_spec(self, "Physical", "Dimensions", ", ".join(sorted(dims_list)), "", 70)
+					if inrush_list: 
+						append_spec(self, "Electrical", "Inrush Current", ", ".join(sorted(inrush_list)), "", 80)
+					if max_input_list: 
+						append_spec(self, "Electrical", "Max Input Current", ", ".join(sorted(max_input_list)), "", 90)
+					if out_v_list: 
+						append_spec(self, "Electrical", "Output Voltage", ", ".join(sorted(out_v_list)), "", 100)
+						
+					append_spec(self, "Electrical", "Max Output Current", "TBD", "", 110)
+					
+					if dimming_list: 
+						append_spec(self, "Control", "Dimming", ", ".join(sorted(dimming_list)), "", 120, "ilL-Attribute-Dimming Protocol")
+						
+					append_spec(self, "Compliance", "Certifications", "TBD", "", 130)
+					append_spec(self, "Environmental", "Operating Temperature", "TBD", "", 140)
+					
+					warranty = template_doc.get("warranty_years") or template_doc.get("warranty")
+					if warranty:
+						append_spec(self, "Performance", "Warranty", f"{warranty} years", "", 150)
+
+				else:
+					for label in MANAGED_LABELS:
+						record(debug, label, skip_reason=f"Not yet implemented for product_type '{self.product_type}'")
+
+		# --- Sort all rows by display_order ---
+		if self.custom_spec_custom:
+			# 1. Sort the list
+			self.custom_spec_custom.sort(
+				key=lambda row: int(row.get("display_order")) if row.get("display_order") not in (None, "") else 999
+			)
+			
+			# 2. Re-assign idx so ERPNext saves and renders them in the new sorted order
+			row_idx = 1
+			for row in self.custom_spec_custom:
+				row.idx = row_idx
+				row_idx += 1
+			
+		debug["existing_labels_after"] = [row.spec_label for row in (self.custom_spec_custom or [])]
+
+		frappe.log_error(
+			title=f"Combined Full Enrichment Debug: {self.name}",
+			message=json.dumps(debug, indent=2, default=str),
+		)
