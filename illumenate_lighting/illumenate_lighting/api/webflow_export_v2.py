@@ -29,8 +29,6 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 )
 from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
     ATTRIBUTE_DOCTYPES,
-    ATTRIBUTE_FILTER_FIELD_SLUGS,
-    build_product_filter_field_data,
 )
 from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
     DEFAULT_ERPNEXT_BASE_URL,
@@ -323,7 +321,7 @@ def get_webflow_products(
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
             "accessory_spec",
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
-            "configurator_intro_text", "min_length_mm", "max_length_mm",
+            "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
             "last_synced_at", "sync_status", "sync_error_message",
@@ -525,23 +523,6 @@ def get_webflow_products(
                     "attribute_code": attribute_code,
                     "webflow_item_id": al.webflow_item_id
                 })
-            
-            # "name, code | name, code" plain text for each attribute type (for Webflow plain text fields)
-            product["attribute_text_by_type"] = {}
-            for attr_type, attrs in product["attribute_links_by_type"].items():
-                pairs = []
-                for a in attrs:
-                    label = a.get("display_label") or a.get("attribute_name") or ""
-                    code = a.get("attribute_code") or ""
-                    if label:
-                        pairs.append(f"{label}, {code}" if code else label)
-                product["attribute_text_by_type"][attr_type] = " | ".join(pairs)
-            
-            # Filter fields: plain-text comma-separated attribute names
-            # These enable Webflow CMS filtering by attribute type
-            product["filter_field_data"] = build_product_filter_field_data(
-                product["attribute_links_by_type"]
-            )
             
             # Add category details if available (includes webflow_item_id for reference field)
             if product.get("product_category"):
