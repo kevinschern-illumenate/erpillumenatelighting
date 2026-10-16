@@ -586,8 +586,10 @@ def mark_webflow_synced(product_slug, webflow_item_id, webflow_collection_slug=N
         
     res = acknowledge(job, token, revision_hash, payload_hash, webflow_item_id)
     
-    # Automatically update sync_targets child table on ilL-Webflow-Product
-    _update_product_sync_target(target.product, target.brand, webflow_item_id, "Synced")
+    # If the job was superseded by a newer edit, keep it Pending so it re-syncs,
+    # but ALWAYS save the newly minted Webflow Item ID so we don't create duplicates!
+    final_status = "Pending" if res.get("state") == "SUPERSEDED" else "Synced"
+    _update_product_sync_target(target.product, target.brand, webflow_item_id, final_status)
     
     return res
 
