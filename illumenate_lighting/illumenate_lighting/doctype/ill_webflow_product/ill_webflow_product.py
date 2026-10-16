@@ -179,8 +179,7 @@ class ilLWebflowProduct(Document):
 				self.set(fieldname, None)
 	
 	def onload(self):
-    """Keep onload clean so viewing the record doesn't dirty the form."""
-    pass
+		pass
 		
 	def before_save(self):
 		"""Calculate specifications, attribute links, and configurator options before saving."""
