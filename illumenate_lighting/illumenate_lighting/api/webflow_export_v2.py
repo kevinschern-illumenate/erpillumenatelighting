@@ -604,7 +604,48 @@ def mark_webflow_synced(product_slug, webflow_item_id, webflow_collection_slug=N
         frappe.throw(_("Callback product and brand do not match the job"))
     return acknowledge(job, token, revision_hash, payload_hash, webflow_item_id)
 
+def _update_product_sync_target(product_name, brand, webflow_item_id, status="Synced"):
+    """Update or append the brand's row in the product's sync_targets table."""
+    if not frappe.db.exists("ilL-Webflow-Product", product_name):
+        return
 
+    doc = frappe.get_doc("ilL-Webflow-Product", product_name)
+    now = frappe.utils.now_datetime()
+    found = False
+
+    # 1. Update existing row if brand already exists
+    for row in (doc.get("sync_targets") or []):
+        if row.brand == brand:
+            row.webflow_item_id = webflow_item_id
+            row.sync_status = status
+            if hasattr(row, "last_synced_at"):
+                row.last_synced_at = now
+            found = True
+            break
+
+    # 2. Append new row if brand target wasn't there yet
+    if not found:
+        new_row = {
+            "brand": brand,
+            "webflow_item_id": webflow_item_id,
+            "sync_status": status,
+        }
+        if frappe.db.has_column("ilL-Child-Webflow-Sync-Target", "last_synced_at"):
+            new_row["last_synced_at"] = now
+        doc.append("sync_targets", new_row)
+
+    # 3. Update top-level legacy fields for convenience
+    doc.sync_status = status
+    doc.last_synced_at = now
+    if not doc.webflow_item_id:
+        doc.webflow_item_id = webflow_item_id
+
+    # 4. Save quietly without re-triggering webhook loops
+    doc.flags._skip_sync_status_check = True
+    doc.flags._skip_webflow_sync = True
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+	
 @frappe.whitelist(methods=["POST"])
 def mark_webflow_error(product_slug, error_message=None, brand=None,
                        job=None, token=None, revision_hash=None, payload_hash=None, error_code=None):
