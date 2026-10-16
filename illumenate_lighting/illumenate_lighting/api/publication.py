@@ -100,7 +100,7 @@ def _refresh(doc, state, config):
 		"product": None,
 	}
 	if active:
-		from illumenate_lighting.illumenate_lighting.api.webflow_export import get_webflow_products
+		from illumenate_lighting.illumenate_lighting.api.webflow_export_v2 import get_webflow_products
 
 		products = get_webflow_products(brand=state.brand, product_slug=doc.name, limit=1)["products"]
 		if not products:
