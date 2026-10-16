@@ -619,7 +619,7 @@ def _update_product_sync_target(product_name, brand, webflow_item_id, status="Sy
             "webflow_item_id": webflow_item_id,
             "sync_status": status,
         }
-        if frappe.db.has_column("ilL-Child-Webflow-Sync-Target", "last_synced_at"):
+        if frappe.db.has_column("ilL-Child-Webflow-Sync-State", "last_synced_at"):
             new_row["last_synced_at"] = now
         doc.append("sync_targets", new_row)
 
