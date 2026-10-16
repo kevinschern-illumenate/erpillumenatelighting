@@ -1,7 +1,2371 @@
+# Copyright (c) 2026, ilLumenate Lighting and contributors
+# For license information, please see license.txt
+
+"""
+Webflow Export API
+
+This module provides API endpoints for exporting product data to Webflow CMS
+via n8n automation workflows.
+
+Endpoints:
+- get_webflow_products: Retrieve products for export to Webflow
+- mark_webflow_synced: Mark a product as synced after successful Webflow push
+- get_webflow_categories: Retrieve categories for Webflow navigation
+- trigger_sync: Manually trigger a sync for specific products
+"""
+
+import json
+from urllib.parse import quote, urlsplit, urlunsplit
+
 import frappe
+from frappe import _
+
 import requests
 from illumenate_lighting.illumenate_lighting.api.publication import inspect, request, claim
 from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand, resolve_brand
+
+from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
+    format_length_inches,
+)
+from illumenate_lighting.illumenate_lighting.api.webflow_attributes import (
+    ATTRIBUTE_DOCTYPES,
+    ATTRIBUTE_FILTER_FIELD_SLUGS,
+    build_product_filter_field_data,
+)
+from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
+    DEFAULT_ERPNEXT_BASE_URL,
+    get_base_url,
+    get_default_brand,
+    include_configurator,
+    resolve_brand,
+)
+from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
+    compute_profile_dimensions,
+)
+from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
+
+# Base URL for converting relative file paths to absolute URLs (legacy default;
+# per-brand overrides come from ilL-Webflow-Brand.erpnext_base_url).
+ERPNEXT_BASE_URL = DEFAULT_ERPNEXT_BASE_URL
+
+
+def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
+    """Convert a relative URL to an absolute, percent-encoded URL for Webflow.
+
+    Spaces and other unsafe characters in the file path are percent-encoded so
+    external fetchers (e.g. Webflow) can download the asset. Without this, a
+    stored path like ``/files/My Family Hero.png`` yields a URL containing raw
+    spaces, which Webflow cannot fetch (the asset silently fails to ingest).
+
+    Encoding is idempotent: ``/`` separators and existing ``%XX`` escapes are
+    preserved, so re-running it (or the n8n encoder) does not double-encode.
+
+    Args:
+        url: The URL to convert (e.g., '/files/My Image.png').
+        brand_code: Optional brand override; defaults to the global base URL.
+    """
+    from illumenate_lighting.illumenate_lighting.api.product_projection import safe_document_url
+    if not safe_document_url(url):
+        return None
+
+    # Build the absolute URL.
+    if url.startswith('http://') or url.startswith('https://'):
+        absolute = url
+    else:
+        base = get_base_url(brand_code) if brand_code else ERPNEXT_BASE_URL
+        absolute = f"{base}{url}" if url.startswith('/') else f"{base}/{url}"
+
+    # Percent-encode the path portion only, leaving scheme/host/query/fragment
+    # untouched. ``safe="/%"`` keeps path separators and existing escapes intact.
+    parts = urlsplit(absolute)
+    safe_path = quote(parts.path, safe="/%")
+    return urlunsplit((parts.scheme, parts.netloc, safe_path, parts.query, parts.fragment))
+
+
+def _get_brand_sync_row(parent_doctype: str, parent_name: str, brand_code: str) -> dict | None:
+    """Return the per-brand sync_targets row for a parent doc, or None."""
+    rows = frappe.get_all(
+        "ilL-Child-Webflow-Sync-State",
+        filters={
+            "parenttype": parent_doctype,
+            "parent": parent_name,
+            "brand": brand_code,
+        },
+        fields=[
+            "name", "brand", "sync_status", "webflow_item_id",
+            "webflow_collection_slug", "last_synced_at", "sync_error_message",
+        ],
+        limit=1,
+    )
+    return rows[0] if rows else None
+
+
+def _is_targeted(parent_doctype: str, parent_name: str, brand_code: str) -> bool:
+    """Check whether a parent doc has the brand in target_brands and is enabled."""
+    rows = frappe.get_all(
+        "ilL-Child-Webflow-Brand-Target",
+        filters={
+            "parenttype": parent_doctype,
+            "parent": parent_name,
+            "brand": brand_code,
+            "enabled": 1,
+        },
+        limit=1,
+    )
+    return bool(rows)
+
+def _get_item_attachment_image_map(item_codes: list[str], brand_code: str | None = None) -> dict[str, str | None]:
+    """Fallback image map from File attachments for Item records."""
+    codes = [c.strip() for c in (item_codes or []) if c and str(c).strip()]
+    if not codes:
+        return {}
+
+    files = frappe.get_all(
+        "File",
+        filters={
+            "attached_to_doctype": "Item",
+            "attached_to_name": ["in", codes],
+            "is_folder": 0,
+            "is_private": 0,
+        },
+        fields=["attached_to_name", "file_url", "file_name", "creation"],
+        order_by="creation desc",
+        limit_page_length=0,
+    )
+
+    # pick first image attachment per item (most recent first due to order_by)
+    by_item = {}
+    for f in files:
+        item_code = f.get("attached_to_name")
+        if item_code in by_item:
+            continue
+        url = f.get("file_url") or ""
+        name = (f.get("file_name") or "").lower()
+        if any(url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]) or \
+           any(name.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif"]):
+            by_item[item_code] = _make_absolute_url(url, brand_code) if url else None
+
+    return by_item
+
+def _resolve_item_hero_images(item_codes: list[str], brand_code: str | None = None) -> dict[str, str | None]:
+    """Resolve item hero image URL by field first, then File attachments."""
+    codes = [c.strip() for c in (item_codes or []) if c and str(c).strip()]
+    if not codes:
+        return {}
+
+    deduped_codes = list(dict.fromkeys(codes))
+    image_by_code: dict[str, str | None] = {}
+
+    # Try common Item image fields (just 'image' for the standard Item doctype)
+    rows = frappe.get_all(
+        "Item",
+        filters={"item_code": ["in", deduped_codes]},
+        fields=["item_code", "image"],
+        limit_page_length=0,
+    )
+    for r in rows:
+        raw = r.get("image")
+        image_by_code[r["item_code"]] = _make_absolute_url(raw, brand_code) if raw else None
+
+    # Fill missing from attachments
+    missing = [c for c in deduped_codes if not image_by_code.get(c)]
+    if missing:
+        attachment_map = _get_item_attachment_image_map(missing, brand_code)
+        for c in missing:
+            if attachment_map.get(c):
+                image_by_code[c] = attachment_map[c]
+
+    return image_by_code
+
+
+def _collect_component_item_codes(kit_components) -> list[str]:
+    """Extract component_item codes from child rows."""
+    codes = []
+    for k in (kit_components or []):
+        code = (getattr(k, "component_item", None) or "").strip()
+        if code:
+            codes.append(code)
+    return codes
+
+
+@frappe.whitelist(allow_guest=False)
+def get_webflow_products(
+    product_type: str = None,
+    sync_status: str = None,
+    limit: int = 100,
+    offset: int = 0,
+    include_child_tables: bool | str | None = True,
+    brand: str = None,
+    product_slug: str = None,
+) -> dict:
+    """
+    Get Webflow products for n8n export.
+
+    Args:
+        product_type: Filter by product type (e.g., "Fixture Template", "Driver")
+        sync_status: Filter by sync status ("Pending", "Never Synced", "Error", "needs_sync")
+        limit: Maximum records to return (default: 100)
+        offset: Pagination offset (default: 0)
+        include_child_tables: Whether to include expanded child table data (default: True)
+        brand: Brand code (e.g. "illumenate", "lighting_206"). Defaults to the
+            default brand (back-compat). When supplied, products are filtered to
+            those whose ``target_brands`` table contains the brand (enabled=1)
+            OR — for back-compat — every product if no target_brands rows exist
+            yet anywhere (pre-migration). Sync-status filter is matched against
+            the per-brand sync row when available, falling back to the legacy
+            scalar.
+
+    Returns:
+        dict: {"products": [...], "total": int, "limit": int, "offset": int, "brand": str}
+    """
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+    from illumenate_lighting.illumenate_lighting.portal.staff import require_catalog_reader
+
+    require_catalog_reader()
+    limit, offset = max(1, min(int(limit), 100)), max(0, int(offset))
+    include_child_tables = parse_bool(include_child_tables, default=True)
+    # Resolve brand (defaulting to the configured default brand for back-compat).
+    brand_code = brand or get_default_brand() or "illumenate"
+    try:
+        brand_cfg = resolve_brand(brand_code, allow_inactive=True)
+    except frappe.ValidationError:
+        brand_cfg = None
+    strip_configurator = brand_cfg is not None and not brand_cfg.get(
+        "include_configurator_payload", True
+    )
+
+    filters = {"is_active": 1}
+
+    if product_type:
+        filters["product_type"] = product_type
+
+    # Determine the candidate name set from target_brands (per-brand); if no
+    # rows exist for this brand at all (pre-migration), skip the filter.
+    targeted_names: set[str] | None = None
+    if frappe.db.count(
+        "ilL-Child-Webflow-Brand-Target",
+        {"brand": brand_code, "parenttype": "ilL-Webflow-Product"},
+    ):
+        targeted = frappe.get_all(
+            "ilL-Child-Webflow-Brand-Target",
+            filters={
+                "brand": brand_code,
+                "enabled": 1,
+                "parenttype": "ilL-Webflow-Product",
+            },
+            pluck="parent",
+        )
+        targeted_names = set(targeted)
+        if not targeted_names:
+            # Brand exists but no products are targeted to it.
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = ["in", list(targeted_names)]
+
+    # Sync status filter: prefer per-brand row, fall back to legacy scalar.
+    pending_status_set = {"Pending", "Never Synced"}
+    sync_filter_set: set[str] | None = None
+    if sync_status:
+        if sync_status == "needs_sync":
+            sync_filter_set = pending_status_set
+        else:
+            sync_filter_set = {sync_status}
+
+    if sync_filter_set:
+        # Find names matching per-brand sync row OR legacy scalar.
+        per_brand_match = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={
+                "parenttype": "ilL-Webflow-Product",
+                "brand": brand_code,
+                "sync_status": ["in", list(sync_filter_set)],
+            },
+            pluck="parent",
+        ))
+        # Legacy fallback only applies when there's no per-brand row at all
+        # for that product (during the dual-write window).
+        legacy_match = set(frappe.get_all(
+            "ilL-Webflow-Product",
+            filters={"sync_status": ["in", list(sync_filter_set)]},
+            pluck="name",
+        ))
+        # Exclude any product that already has a per-brand row for this brand
+        # (per-brand row is authoritative).
+        has_per_brand_row = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={"parenttype": "ilL-Webflow-Product", "brand": brand_code},
+            pluck="parent",
+        ))
+        legacy_only = legacy_match - has_per_brand_row
+        match_names = per_brand_match | legacy_only
+
+        if targeted_names is not None:
+            match_names &= targeted_names
+
+        if not match_names:
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = ["in", list(match_names)]
+    
+    if product_slug:
+        permitted = filters.get("name")
+        if permitted and product_slug not in permitted[1]:
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = product_slug
+
+    # Get product list with basic fields
+    products = frappe.get_all(
+        "ilL-Webflow-Product",
+        filters=filters,
+        fields=[
+            "name", "product_name", "product_slug", "product_type",
+            "product_category", "series", "is_active", "is_configurable",
+            "fixture_template", "driver_spec", "controller_spec",
+            "driver_template", "controller_template",
+            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
+            "accessory_spec",
+            "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
+            "configurator_intro_text", "min_length_mm", "max_length_mm",
+            "length_increment_mm", "auto_calculate_specs",
+            "webflow_item_id", "webflow_collection_slug",
+            "last_synced_at", "sync_status", "sync_error_message",
+            "creation", "modified"
+        ],
+        limit=limit,
+        start=offset,
+        order_by="modified desc"
+    )
+
+    # A migrated listing's web content is read from its template (merge plan, step 4).
+    listings = {}
+    for product in products:
+        listing = Listing(frappe.get_doc("ilL-Webflow-Product", product["name"]))
+        listing.overlay(product)
+        listings[product["name"]] = listing
+    
+    if include_child_tables:
+        # Build reverse mapping: attribute doctype -> code_field (once, outside loop)
+        _doctype_to_code_field = {}
+        for _cfg in ATTRIBUTE_DOCTYPES.values():
+            _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field") or None
+
+        # Expand child tables for each product
+        for product in products:
+            doc = listings[product["name"]]
+
+            # --- V2 CUSTOM SPECIFICATIONS MAPPING ---
+            product["specifications"] = []
+            
+            # Use doc.source to access the raw Frappe document beneath the Listing wrapper
+            for s in getattr(doc.source, "custom_spec_custom", []):
+                spec_data = {
+                    "spec_group": getattr(s, "spec_group", ""),
+                    "spec_label": getattr(s, "spec_label", ""),
+                    "spec_value": getattr(s, "spec_value", ""),
+                    "spec_unit": getattr(s, "spec_unit", ""),
+                    "is_calculated": getattr(s, "is_calculated", 0),
+                    "display_order": getattr(s, "display_order", 0),
+                    "show_on_card": getattr(s, "show_on_card", 0),
+                    "attribute_doctype": getattr(s, "attribute_doctype", ""),
+                    "attribute_options_json": getattr(s, "attribute_options_json", ""),
+                }
+                
+                # Parse attribute_options_json into a list for the frontend
+                if getattr(s, "attribute_options_json", None):
+                    try:
+                        spec_data["attribute_options"] = json.loads(s.attribute_options_json)
+                    except (json.JSONDecodeError, TypeError):
+                        spec_data["attribute_options"] = []
+                else:
+                    spec_data["attribute_options"] = []
+                    
+                product["specifications"].append(spec_data)
+            # ----------------------------------------
+            
+            # Enrich specifications with data from linked doctypes
+            _enrich_specifications_from_linked_doctypes(product, doc.source)
+            
+            product["certifications"] = [
+                {
+                    "certification": c.certification,
+                    "display_order": c.display_order,
+                    "certification_details": _get_certification_details(c.certification)
+                }
+                for c in doc.certifications
+            ]
+            
+            product["configurator_options"] = [
+                {
+                    "option_step": o.option_step,
+                    "option_type": o.option_type,
+                    "option_label": o.option_label,
+                    "option_description": o.option_description,
+                    "is_required": o.is_required,
+                    "depends_on_step": o.depends_on_step,
+                    "allowed_values_json": o.allowed_values_json
+                }
+                for o in doc.configurator_options
+            ]
+
+            # Feed lengths offered on the Webflow part-number configurator.
+            # Exported as both a structured list and a JSON string so the
+            # Webflow developer can drop the JSON directly into a plain-text
+            # CMS field if preferred. The ``step`` field on each row matches
+            # the corresponding ``option_step`` in configurator_options so the
+            # Webflow script knows where to insert this code segment in the
+            # part-number string (e.g., step 9 = Start Feed Length,
+            # step 11 = End Feed Length on SH01). This does NOT constrain
+            # ERPNext-side configurator logic (custom jumper / leader cable
+            # lengths remain available via the full configurator).
+            _feed_length_rows = sorted(
+                getattr(doc, "feed_lengths", []) or [],
+                key=lambda r: (r.step or 0, r.display_order or 0, r.idx or 0),
+            )
+            product["feed_lengths"] = [
+                {
+                    "step": fl.step or 0,
+                    "label": (fl.label or "").strip(),
+                    "code": (fl.code or "").strip(),
+                    "display_order": fl.display_order or 0,
+                }
+                for fl in _feed_length_rows
+                if (fl.label or "").strip() or (fl.code or "").strip()
+            ]
+            product["feed_lengths_json"] = json.dumps(
+                [
+                    {
+                        "step": f["step"],
+                        "label": f["label"],
+                        "code": f["code"],
+                    }
+                    for f in product["feed_lengths"]
+                ]
+            )
+            
+            component_codes = _collect_component_item_codes(doc.kit_components)
+            component_hero_by_code = _resolve_item_hero_images(component_codes, brand_code)
+
+            product["kit_components"] = [
+                {
+                    "component_type": k.component_type,
+                    "component_item": k.component_item,
+                    "component_spec_doctype": k.component_spec_doctype,
+                    "component_spec_name": k.component_spec_name,
+                    "quantity": k.quantity,
+                    "notes": k.notes,
+                    "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
+                    "webflow_title": k.custom_webflow_title,  # <-- added
+                    "webflow_description": k.custom_webflow_description,
+                }
+                for k in doc.kit_components
+            ]
+            
+            product["gallery_images"] = [
+                {
+                    "image": _make_absolute_url(g.image, brand_code),
+                    "alt_text": g.alt_text,
+                    "caption": g.caption,
+                    "display_order": g.display_order
+                }
+                for g in doc.gallery_images
+            ]
+            
+            product["documents"] = [
+                {
+                    "document_file": _make_absolute_url(d.document_file, brand_code),
+                    "document_type": d.document_type,
+                    "document_title": d.document_title,
+                    "display_order": d.display_order
+                }
+                for d in doc.documents
+            ]
+            
+            product["compatible_products"] = [
+                {
+                    "related_product": cp.related_product,
+                    "relationship_type": cp.relationship_type,
+                    "notes": cp.notes
+                }
+                for cp in doc.compatible_products
+            ]
+            
+            # Add attribute links for Webflow filter fields
+            product["attribute_links"] = [
+                {
+                    "attribute_type": al.attribute_type,
+                    "attribute_doctype": al.attribute_doctype,
+                    "attribute_name": al.attribute_name,
+                    "display_label": al.display_label,
+                    "webflow_item_id": al.webflow_item_id,
+                    "display_order": al.display_order
+                }
+                for al in getattr(doc, 'attribute_links', [])
+            ]
+            
+            # Group attribute links by type for easier Webflow mapping
+            product["attribute_links_by_type"] = {}
+            for al in getattr(doc, 'attribute_links', []):
+                attr_type = al.attribute_type
+                if attr_type not in product["attribute_links_by_type"]:
+                    product["attribute_links_by_type"][attr_type] = []
+
+                # Look up the attribute code from the linked doctype
+                attribute_code = ""
+                if al.attribute_doctype and al.attribute_name:
+                    code_field = _doctype_to_code_field.get(al.attribute_doctype)
+                    if code_field:
+                        try:
+                            attribute_code = frappe.db.get_value(
+                                al.attribute_doctype, al.attribute_name, code_field
+                            ) or ""
+                        except Exception:
+                            attribute_code = ""
+
+                product["attribute_links_by_type"][attr_type].append({
+                    "attribute_name": al.attribute_name,
+                    "display_label": al.display_label,
+                    "attribute_code": attribute_code,
+                    "webflow_item_id": al.webflow_item_id
+                })
+            
+            # "name, code | name, code" plain text for each attribute type (for Webflow plain text fields)
+            product["attribute_text_by_type"] = {}
+            for attr_type, attrs in product["attribute_links_by_type"].items():
+                pairs = []
+                for a in attrs:
+                    label = a.get("display_label") or a.get("attribute_name") or ""
+                    code = a.get("attribute_code") or ""
+                    if label:
+                        pairs.append(f"{label}, {code}" if code else label)
+                product["attribute_text_by_type"][attr_type] = " | ".join(pairs)
+            
+            # Filter fields: plain-text comma-separated attribute names
+            # These enable Webflow CMS filtering by attribute type
+            product["filter_field_data"] = build_product_filter_field_data(
+                product["attribute_links_by_type"]
+            )
+            
+            # Add category details if available (includes webflow_item_id for reference field)
+            if product.get("product_category"):
+                product["category_details"] = _get_category_details(product["product_category"])
+                product["category_webflow_item_id"] = _get_category_webflow_item_id(product["product_category"])
+            
+            # Add full series details if series is set
+            if product.get("series"):
+                series_details = _get_series_details(product["series"])
+                product["series_webflow_item_id"] = series_details.get("webflow_item_id")
+                product["series_code"] = series_details.get("series_code")
+                product["series_display_name"] = series_details.get("display_name")
+    
+            # Add features JSON (if present, parse and re-stringify to ensure valid JSON)
+            if product.get("features"):
+                try:
+                    features_data = json.loads(product["features"]) if isinstance(product["features"], str) else product["features"]
+                    product["features_json"] = json.dumps(features_data)
+                except (json.JSONDecodeError, TypeError):
+                    product["features_json"] = "[]"
+            else:
+                product["features_json"] = "[]"
+
+    total = frappe.db.count("ilL-Webflow-Product", filters)
+
+    # Per-brand configurator stripping (defense-in-depth: enforce server-side
+    # so the configurator payload never leaks into a non-configurator brand).
+    if strip_configurator:
+        for product in products:
+            product["is_configurable"] = 0
+            product["configurator_options"] = []
+            product["kit_components"] = []
+            product["min_length_mm"] = None
+            product["max_length_mm"] = None
+            product["length_increment_mm"] = None
+            product["configurator_intro_text"] = None
+            product["feed_lengths"] = []
+            product["feed_lengths_json"] = "[]"
+
+    return {
+        "products": products,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "brand": brand_code,
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def mark_webflow_synced(product_slug, webflow_item_id, webflow_collection_slug=None, brand=None,
+                        job=None, token=None, revision_hash=None, payload_hash=None):
+    """Compatibility callback; unfenced legacy success is deliberately rejected."""
+    from illumenate_lighting.illumenate_lighting.api.publication import acknowledge
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
+    if not job or not token or not revision_hash or not payload_hash:
+        frappe.throw(_("Upgrade the product sync workflow to revision-aware publication jobs"))
+    target = frappe.db.get_value("ilL-Publish-Job", job, ["product", "brand"], as_dict=True)
+    if not target or target.product != product_slug or target.brand != (brand or get_default_brand()):
+        frappe.throw(_("Callback product and brand do not match the job"))
+    return acknowledge(job, token, revision_hash, payload_hash, webflow_item_id)
+
+
+@frappe.whitelist(methods=["POST"])
+def mark_webflow_error(product_slug, error_message=None, brand=None,
+                       job=None, token=None, revision_hash=None, payload_hash=None, error_code=None):
+    from illumenate_lighting.illumenate_lighting.api.publication import acknowledge
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
+    if not job or not token or not revision_hash or not payload_hash:
+        frappe.throw(_("Upgrade the product sync workflow to revision-aware publication jobs"))
+    target = frappe.db.get_value("ilL-Publish-Job", job, ["product", "brand"], as_dict=True)
+    if not target or target.product != product_slug or target.brand != (brand or get_default_brand()):
+        frappe.throw(_("Callback product and brand do not match the job"))
+    return acknowledge(job, token, revision_hash, payload_hash, outcome="error", error_code=error_code)
+
+
+@frappe.whitelist(allow_guest=False)
+def get_webflow_categories(
+    include_inactive: bool = False,
+    sync_status: str = None,
+    brand: str = None,
+) -> dict:
+    """Get Webflow categories for navigation and filtering, scoped by brand."""
+    brand_code = brand or get_default_brand() or "illumenate"
+
+    filters = {}
+    if not include_inactive:
+        filters["is_active"] = 1
+
+    # Per-brand target filter (only when target_brands has been backfilled).
+    if frappe.db.count(
+        "ilL-Child-Webflow-Brand-Target",
+        {"brand": brand_code, "parenttype": "ilL-Webflow-Category"},
+    ):
+        targeted = frappe.get_all(
+            "ilL-Child-Webflow-Brand-Target",
+            filters={
+                "brand": brand_code,
+                "enabled": 1,
+                "parenttype": "ilL-Webflow-Category",
+            },
+            pluck="parent",
+        )
+        if not targeted:
+            return {"categories": [], "all_categories": [], "total": 0, "brand": brand_code}
+        filters["name"] = ["in", targeted]
+
+    if sync_status:
+        statuses = ["Pending", "Never Synced"] if sync_status == "needs_sync" else [sync_status]
+        per_brand_match = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={
+                "parenttype": "ilL-Webflow-Category",
+                "brand": brand_code,
+                "sync_status": ["in", statuses],
+            },
+            pluck="parent",
+        ))
+        legacy_match = set(frappe.get_all(
+            "ilL-Webflow-Category",
+            filters={"sync_status": ["in", statuses]},
+            pluck="name",
+        ))
+        has_per_brand = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={"parenttype": "ilL-Webflow-Category", "brand": brand_code},
+            pluck="parent",
+        ))
+        match = per_brand_match | (legacy_match - has_per_brand)
+        # Intersect with the existing name filter if any.
+        if isinstance(filters.get("name"), list) and filters["name"][0] == "in":
+            match &= set(filters["name"][1])
+        if not match:
+            return {"categories": [], "all_categories": [], "total": 0, "brand": brand_code}
+        filters["name"] = ["in", list(match)]
+
+    categories = frappe.get_all(
+        "ilL-Webflow-Category",
+        filters=filters,
+        fields=[
+            "name", "category_name", "category_slug",
+            "parent_category", "display_order", "description",
+            "category_image", "is_active",
+            "webflow_item_id", "last_synced_at", "sync_status"
+        ],
+        order_by="display_order asc"
+    )
+
+    # Override sync fields with per-brand values when a row exists.
+    for cat in categories:
+        per_brand_row = _get_brand_sync_row("ilL-Webflow-Category", cat["name"], brand_code)
+        if per_brand_row:
+            cat["webflow_item_id"] = per_brand_row.get("webflow_item_id")
+            cat["last_synced_at"] = per_brand_row.get("last_synced_at")
+            cat["sync_status"] = per_brand_row.get("sync_status") or "Never Synced"
+        cat["brand"] = brand_code
+        if cat.get("category_image"):
+            cat["category_image"] = _make_absolute_url(cat["category_image"], brand_code)
+
+    # Build hierarchical structure
+    category_map = {c["name"]: c for c in categories}
+    for cat in categories:
+        cat["children"] = []
+        cat["product_count"] = frappe.db.count(
+            "ilL-Webflow-Product",
+            {"product_category": cat["name"], "is_active": 1}
+        )
+
+    for cat in categories:
+        if cat.get("parent_category") and cat["parent_category"] in category_map:
+            category_map[cat["parent_category"]]["children"].append(cat)
+
+    root_categories = [c for c in categories if not c.get("parent_category")]
+
+    return {
+        "categories": root_categories,
+        "all_categories": categories,
+        "total": len(categories),
+        "brand": brand_code,
+    }
+
+
+@frappe.whitelist(methods=["POST"])
+def mark_category_synced(
+    category_slug: str,
+    webflow_item_id: str,
+    brand: str = None,
+) -> dict:
+    """Mark a category as synced for the given brand."""
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
+    if not frappe.db.exists("ilL-Webflow-Category", category_slug):
+        frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    synced_at = frappe.utils.now()
+
+    existing = _get_brand_sync_row("ilL-Webflow-Category", category_slug, brand_code)
+    if existing:
+        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+            "webflow_item_id": webflow_item_id,
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+            "sync_error_message": None,
+        }, update_modified=True)
+    else:
+        parent = frappe.get_doc("ilL-Webflow-Category", category_slug)
+        parent.append("sync_targets", {
+            "brand": brand_code,
+            "sync_status": "Synced",
+            "webflow_item_id": webflow_item_id,
+            "last_synced_at": synced_at,
+        })
+        parent.flags._skip_webflow_sync = True
+        parent.save(ignore_permissions=True)
+
+    if brand_code == (get_default_brand() or "illumenate"):
+        frappe.db.set_value("ilL-Webflow-Category", category_slug, {
+            "webflow_item_id": webflow_item_id,
+            "last_synced_at": synced_at,
+            "sync_status": "Synced",
+        }, update_modified=True)
+
+    frappe.db.commit()
+    return {"success": True, "synced_at": synced_at, "category_slug": category_slug, "brand": brand_code}
+
+
+@frappe.whitelist(methods=["POST"])
+def mark_category_error(
+    category_slug: str,
+    error_message: str,
+    brand: str = None,
+) -> dict:
+    """Mark a category as errored for the given brand."""
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("integration")
+    if not frappe.db.exists("ilL-Webflow-Category", category_slug):
+        frappe.throw(_("Category with slug '{0}' not found").format(category_slug))
+
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    truncated = error_message[:1000] if error_message else "Unknown error"
+
+    existing = _get_brand_sync_row("ilL-Webflow-Category", category_slug, brand_code)
+    if existing:
+        frappe.db.set_value("ilL-Child-Webflow-Sync-State", existing["name"], {
+            "sync_status": "Error",
+            "sync_error_message": truncated[:500],
+        }, update_modified=True)
+    else:
+        parent = frappe.get_doc("ilL-Webflow-Category", category_slug)
+        parent.append("sync_targets", {
+            "brand": brand_code,
+            "sync_status": "Error",
+            "sync_error_message": truncated[:500],
+        })
+        parent.flags._skip_webflow_sync = True
+        parent.save(ignore_permissions=True)
+
+    if brand_code == (get_default_brand() or "illumenate"):
+        frappe.db.set_value("ilL-Webflow-Category", category_slug, "sync_status", "Error")
+
+    frappe.log_error(
+        message=truncated,
+        title=f"Webflow Category Sync Error [{brand_code}]: {category_slug}",
+    )
+    frappe.db.commit()
+    return {"success": True, "category_slug": category_slug, "brand": brand_code}
+
+
+@frappe.whitelist(methods=["POST"])
+def trigger_sync(
+    product_slugs: str | list | None = None,
+    product_type: str = None,
+    category_slugs: str | list | None = None,
+    sync_all_categories: bool | str | None = False,
+    brand: str = None,
+) -> dict:
+    """
+    Mark products and/or categories as pending sync to trigger n8n workflow.
+
+    Marks both the legacy scalar (during dual-write window) and the per-brand
+    sync row matching ``brand`` (default brand if not specified).
+    """
+    from illumenate_lighting.illumenate_lighting.api import publication
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool, string_list
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+    require("catalog")
+    # frappe.call sends arrays as JSON strings; a `list` annotation would reject them.
+    try:
+        product_slugs = string_list(product_slugs, field="product_slugs")
+        category_slugs = string_list(category_slugs, field="category_slugs")
+    except ValueError as exc:
+        frappe.throw(str(exc))
+    sync_all_categories = parse_bool(sync_all_categories)
+    for value in (product_slugs, category_slugs):
+        if value is not None and (not isinstance(value, list) or len(value) > 200):
+            frappe.throw(_("Choose at most 200 records per request"))
+    brand_code = brand or get_default_brand() or "illumenate"
+    resolve_brand(brand_code, allow_inactive=True)
+    is_default = brand_code == (get_default_brand() or "illumenate")
+
+    products_marked = 0
+    categories_marked = 0
+
+    def _mark_pending(parent_doctype: str, parent_name: str) -> None:
+        if parent_doctype == "ilL-Webflow-Product":
+            current = publication.inspect(parent_name, brand_code)
+            publication.request(parent_name, brand_code, "STAGE", current["current_hash"])
+            return
+        existing = _get_brand_sync_row(parent_doctype, parent_name, brand_code)
+        if existing:
+            frappe.db.set_value(
+                "ilL-Child-Webflow-Sync-State", existing["name"],
+                "sync_status", "Pending", update_modified=False,
+            )
+        else:
+            parent = frappe.get_doc(parent_doctype, parent_name)
+            parent.append("sync_targets", {"brand": brand_code, "sync_status": "Pending"})
+            parent.flags._skip_webflow_sync = True
+            parent.save(ignore_permissions=True)
+        if is_default:
+            frappe.db.set_value(parent_doctype, parent_name, "sync_status", "Pending")
+
+    # Handle products
+    if product_slugs:
+        for slug in product_slugs:
+            if frappe.db.exists("ilL-Webflow-Product", slug):
+                _mark_pending("ilL-Webflow-Product", slug)
+                products_marked += 1
+
+    elif product_type:
+        product_names = frappe.get_all(
+            "ilL-Webflow-Product",
+            filters={"product_type": product_type, "is_active": 1},
+            pluck="name",
+        )
+        for slug in product_names:
+            _mark_pending("ilL-Webflow-Product", slug)
+            products_marked += 1
+
+    # Handle categories
+    if category_slugs:
+        for slug in category_slugs:
+            if frappe.db.exists("ilL-Webflow-Category", slug):
+                _mark_pending("ilL-Webflow-Category", slug)
+                categories_marked += 1
+
+    elif sync_all_categories:
+        cat_names = frappe.get_all(
+            "ilL-Webflow-Category",
+            filters={"is_active": 1},
+            pluck="name",
+        )
+        for slug in cat_names:
+            _mark_pending("ilL-Webflow-Category", slug)
+            categories_marked += 1
+
+
+    return {
+        "success": True,
+        "products_marked": products_marked,
+        "categories_marked": categories_marked,
+        "brand": brand_code,
+    }
+
+
+@frappe.whitelist(allow_guest=False)
+def get_sync_statistics() -> dict:
+    """
+    Get statistics about Webflow sync status for products and categories.
+    
+    Returns:
+        dict: Counts by sync status, product type, and category stats
+    """
+    stats = {
+        "products": {
+            "by_status": {},
+            "by_type": {},
+            "total_active": 0,
+            "needs_sync": 0
+        },
+        "categories": {
+            "by_status": {},
+            "total_active": 0,
+            "needs_sync": 0
+        }
+    }
+    
+    # Product stats - Count by sync status
+    for status in ["Pending", "Synced", "Error", "Never Synced"]:
+        count = frappe.db.count(
+            "ilL-Webflow-Product",
+            {"sync_status": status, "is_active": 1}
+        )
+        stats["products"]["by_status"][status] = count
+        if status in ["Pending", "Never Synced"]:
+            stats["products"]["needs_sync"] += count
+    
+    # Product stats - Count by product type
+    for ptype in ["Fixture Template", "Driver", "Controller", "Extrusion Kit", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Component", "Accessory"]:
+        count = frappe.db.count(
+            "ilL-Webflow-Product",
+            {"product_type": ptype, "is_active": 1}
+        )
+        if count > 0:
+            stats["products"]["by_type"][ptype] = count
+    
+    stats["products"]["total_active"] = frappe.db.count(
+        "ilL-Webflow-Product",
+        {"is_active": 1}
+    )
+    
+    # Category stats - Count by sync status
+    for status in ["Pending", "Synced", "Error", "Never Synced"]:
+        count = frappe.db.count(
+            "ilL-Webflow-Category",
+            {"sync_status": status, "is_active": 1}
+        )
+        stats["categories"]["by_status"][status] = count
+        if status in ["Pending", "Never Synced"]:
+            stats["categories"]["needs_sync"] += count
+    
+    stats["categories"]["total_active"] = frappe.db.count(
+        "ilL-Webflow-Category",
+        {"is_active": 1}
+    )
+    
+    return stats
+
+
+def _get_certification_details(certification_name: str) -> dict:
+    """Helper to get certification details for export."""
+    if not certification_name:
+        return {}
+    
+    cert = frappe.db.get_value(
+        "ilL-Attribute-Certification",
+        certification_name,
+        ["certification_code", "certification_body", "description", "badge_image"],
+        as_dict=True
+    )
+    return cert or {}
+
+
+def _get_category_details(category_name: str) -> dict:
+    """Helper to get category details for export."""
+    if not category_name:
+        return {}
+    
+    cat = frappe.db.get_value(
+        "ilL-Webflow-Category",
+        category_name,
+        ["category_name", "category_slug", "description", "category_image", "webflow_item_id"],
+        as_dict=True
+    )
+    return cat or {}
+
+
+def _get_category_webflow_item_id(category_name: str) -> str:
+    """Helper to get the Webflow item ID for a category."""
+    if not category_name:
+        return None
+    
+    webflow_item_id = frappe.db.get_value(
+        "ilL-Webflow-Category",
+        category_name,
+        "webflow_item_id"
+    )
+    return webflow_item_id
+
+
+def _get_series_details(series_name: str) -> dict:
+    """Helper to get full series details for export."""
+    if not series_name:
+        return {}
+    
+    # Get series record with all relevant fields
+    series = frappe.db.get_value(
+        "ilL-Attribute-Series",
+        series_name,
+        ["series_name", "code", "short_description", "webflow_item_id"],
+        as_dict=True
+    )
+    if series:
+        return {
+            "series_code": series.get("code"),
+            "display_name": series.get("series_name"),
+            "short_description": series.get("short_description"),
+            "webflow_item_id": series.get("webflow_item_id")
+        }
+    return {}
+
+
+def _get_series_webflow_item_id(series_name: str) -> str:
+    """Helper to get the Webflow item ID for a series attribute."""
+    if not series_name:
+        return None
+    
+    # Get the webflow_item_id from webflow_attributes API
+    # Series attributes are stored in ilL-Attribute-Series doctype
+    from illumenate_lighting.illumenate_lighting.api.webflow_attributes import get_attribute_webflow_item_id
+    
+    try:
+        return get_attribute_webflow_item_id("series", series_name)
+    except Exception:
+        return None
+
+
+# ============================================================
+# Specification Enrichment from Linked Doctypes
+# ============================================================
+
+
+@frappe.whitelist(allow_guest=False)
+def preview_specifications(webflow_product: str) -> dict:
+    """Debug endpoint: run just the spec-enrichment step for one product.
+
+    Returns the fully-enriched specifications list plus any non-fatal warnings
+    raised during enrichment, without performing a Webflow sync. Use this to
+    diagnose "product syncs but the Specifications section is silently empty"
+    bugs directly from the Desk UI or Postman.
+
+    Args:
+        webflow_product: Name of the ilL-Webflow-Product record.
+
+    Returns:
+        dict: {"webflow_product", "product_type", "specifications", "warnings"}
+    """
+    doc = frappe.get_doc("ilL-Webflow-Product", webflow_product)
+
+    product = {
+        "name": doc.name,
+        "product_name": doc.product_name,
+        "product_type": doc.product_type,
+        "fixture_template": doc.get("fixture_template"),
+        "driver_spec": doc.get("driver_spec"),
+        "controller_spec": doc.get("controller_spec"),
+        "driver_template": doc.get("driver_template"),
+        "controller_template": doc.get("controller_template"),
+        "tape_spec": doc.get("tape_spec"),
+        "tape_neon_template": doc.get("tape_neon_template"),
+        "led_sheet_template": doc.get("led_sheet_template"),
+        "kit_template": doc.get("kit_template"),
+        "profile_spec": doc.get("profile_spec"),
+        "specifications": [],
+    }
+
+    for s in doc.specifications:
+        product["specifications"].append({
+            "spec_group": s.spec_group,
+            "spec_label": s.spec_label,
+            "spec_value": s.spec_value,
+            "spec_unit": s.spec_unit,
+            "is_calculated": s.is_calculated,
+            "display_order": s.display_order,
+            "show_on_card": s.show_on_card,
+            "attribute_doctype": s.attribute_doctype,
+            "attribute_options_json": s.attribute_options_json,
+        })
+
+    _enrich_specifications_from_linked_doctypes(product, doc)
+
+    return {
+        "webflow_product": doc.name,
+        "product_type": doc.product_type,
+        "specifications": product["specifications"],
+        "warnings": product.get("_spec_warnings", []),
+    }
+
+
+def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
+    """Enrich the product specifications list with data from linked doctypes.
+
+    Adds missing spec entries for: Color Rendering (CRI), Input Voltage,
+    Dimensions, Dimming, Production Interval, and Certifications & Ratings.
+
+    Any product whose product_type expects a source template/spec link but has
+    none set records a non-fatal warning (via ``_record_spec_warning``) and a
+    ``frappe.log_error`` entry instead of silently producing zero specs.
+    """
+    existing_labels = {s["spec_label"] for s in product["specifications"]}
+    additional_specs = []
+
+    product_type = product.get("product_type")
+
+    if product_type == "Fixture Template" and product.get("fixture_template"):
+        additional_specs.extend(
+            _enrich_fixture_template_specs(product, existing_labels)
+        )
+    elif product_type == "Driver" and product.get("driver_spec"):
+        additional_specs.extend(
+            _enrich_driver_specs(product, existing_labels)
+        )
+    elif product_type == "Driver" and product.get("driver_template"):
+        additional_specs.extend(
+            _enrich_driver_template_variants(product, existing_labels)
+        )
+    elif product_type == "Controller" and product.get("controller_spec"):
+        additional_specs.extend(
+            _enrich_controller_specs(product, existing_labels)
+        )
+    elif product_type == "Controller" and product.get("controller_template"):
+        additional_specs.extend(
+            _enrich_controller_template_variants(product, existing_labels)
+        )
+    elif product_type in ("LED Tape", "COB Tape", "LED Neon") and product.get("tape_neon_template"):
+        additional_specs.extend(
+            _enrich_tape_neon_template_specs(product, existing_labels, doc)
+        )
+    elif product_type == "LED Sheet" and product.get("led_sheet_template"):
+        additional_specs.extend(
+            _enrich_led_sheet_template_specs(product, existing_labels)
+        )
+    elif product_type == "LED Tape" and product.get("tape_spec"):
+        additional_specs.extend(
+            _enrich_tape_specs(product, existing_labels)
+        )
+    elif product_type in ("Component", "Extrusion Kit") and product.get("profile_spec"):
+        additional_specs.extend(
+            _enrich_profile_specs(product, existing_labels)
+        )
+    elif product_type == "Extrusion Kit" and product.get("kit_template"):
+        # A kit linked by template describes itself with the template's default profile.
+        default_profile = frappe.db.get_value(
+            "ilL-Extrusion-Kit-Template", product["kit_template"], "default_profile_spec"
+        )
+        if default_profile:
+            additional_specs.extend(
+                _enrich_profile_specs({**product, "profile_spec": default_profile}, existing_labels)
+            )
+    else:
+        # No enrichment branch matched. If this product_type is expected to
+        # derive its specs from a source link but that link is missing, warn
+        # loudly instead of silently emitting zero additional specs.
+        expected_links = {
+            "Fixture Template": ["fixture_template"],
+            "Driver": ["driver_spec", "driver_template"],
+            "Controller": ["controller_spec", "controller_template"],
+            "LED Tape": ["tape_neon_template", "tape_spec"],
+            "COB Tape": ["tape_neon_template"],
+            "LED Neon": ["tape_neon_template"],
+            "LED Sheet": ["led_sheet_template"],
+            "Component": ["profile_spec"],
+            "Extrusion Kit": ["kit_template", "profile_spec"],
+        }.get(product_type)
+        if (
+            product_type
+            and expected_links
+            and not any(product.get(field) for field in expected_links)
+        ):
+            msg = (
+                f"Webflow product '{product.get('name')}' (type '{product_type}') "
+                f"has no source link set ({' or '.join(expected_links)}); "
+                f"specifications could not be enriched from a linked template/spec."
+            )
+            _record_spec_warning(product, msg)
+            frappe.log_error(message=msg, title="Webflow Spec Enrichment Skipped")
+
+    # Certifications & Ratings (icons) — applies to all product types
+    if "Certifications & Ratings" not in existing_labels:
+        cert_spec = _build_certifications_spec(doc)
+        if cert_spec:
+            additional_specs.append(cert_spec)
+
+    product["specifications"].extend(additional_specs)
+
+
+def _record_spec_warning(product: dict, message: str) -> None:
+    """Append a non-fatal spec-enrichment warning to the product payload.
+
+    Warnings are surfaced by the ``preview_specifications`` debug endpoint so
+    silent "product syncs but a section is empty" bugs can be diagnosed without
+    a full n8n round-trip.
+    """
+    product.setdefault("_spec_warnings", []).append(message)
+
+
+
+def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Fixture Template products from linked doctypes."""
+    specs = []
+    template = frappe.get_doc("ilL-Fixture-Template", product["fixture_template"])
+
+    # ── Color Rendering (CRI) ──────────────────────────────────
+    if "Color Rendering" not in existing_labels:
+        cri_options = []
+        seen_cri = set()
+        for tape_row in template.allowed_tape_offerings or []:
+            offering_name = getattr(tape_row, "tape_offering", None)
+            if not offering_name:
+                continue
+            cri_name = frappe.db.get_value(
+                "ilL-Rel-Tape Offering", offering_name, "cri"
+            )
+            if cri_name and cri_name not in seen_cri:
+                seen_cri.add(cri_name)
+                cri_data = frappe.db.get_value(
+                    "ilL-Attribute-CRI", cri_name,
+                    ["cri_name", "minimum_ra", "code"],
+                    as_dict=True,
+                )
+                if cri_data:
+                    cri_options.append({
+                        "attribute_type": "CRI",
+                        "attribute_doctype": "ilL-Attribute-CRI",
+                        "attribute_value": cri_name,
+                        "display_label": cri_data.get("cri_name") or cri_name,
+                        "code": cri_data.get("code") or "",
+                        "minimum_ra": cri_data.get("minimum_ra") or 0,
+                    })
+        if cri_options:
+            display_values = sorted(
+                set(str(o["minimum_ra"]) for o in cri_options if o["minimum_ra"]),
+            )
+            specs.append({
+                "spec_group": "Optical",
+                "spec_label": "Color Rendering",
+                "spec_value": ", ".join(display_values) if display_values else ", ".join(o["display_label"] for o in cri_options),
+                "spec_unit": "CRI",
+                "is_calculated": 1,
+                "display_order": 85,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-CRI",
+                "attribute_options_json": frappe.as_json(cri_options),
+                "attribute_options": cri_options,
+            })
+
+    # ── Input Voltage ──────────────────────────────────────────
+    if "Input Voltage" not in existing_labels:
+        voltages = set()
+        voltage_options = []
+        for tape_row in template.allowed_tape_offerings or []:
+            offering_name = getattr(tape_row, "tape_offering", None)
+            if not offering_name:
+                continue
+            tape_spec_name = frappe.db.get_value(
+                "ilL-Rel-Tape Offering", offering_name, "tape_spec"
+            )
+            if not tape_spec_name:
+                continue
+            input_voltage = frappe.db.get_value(
+                "ilL-Spec-LED Tape", tape_spec_name, "input_voltage"
+            )
+            if input_voltage and input_voltage not in voltages:
+                voltages.add(input_voltage)
+                voltage_val = frappe.db.get_value(
+                    "ilL-Attribute-Output Voltage", input_voltage, "dc_voltage"
+                )
+                if voltage_val:
+                    voltage_options.append({
+                        "attribute_type": "Output Voltage",
+                        "attribute_doctype": "ilL-Attribute-Output Voltage",
+                        "attribute_value": input_voltage,
+                        "display_label": f"{voltage_val} VDC",
+                    })
+        if voltage_options:
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": ", ".join(o["display_label"] for o in voltage_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 90,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Output Voltage",
+                "attribute_options_json": frappe.as_json(voltage_options),
+                "attribute_options": voltage_options,
+            })
+
+    # ── Dimensions (from default profile spec) ─────────────────
+    if "Dimensions" not in existing_labels:
+        profile_spec_name = getattr(template, "default_profile_spec", None)
+        if profile_spec_name:
+            dimensions = frappe.db.get_value(
+                "ilL-Spec-Profile", profile_spec_name, "dimensions"
+            )
+            if not dimensions:
+                # Profile may not have been re-saved since dimensions field was added;
+                # compute it on the fly from width_mm / height_mm.
+                raw = frappe.db.get_value(
+                    "ilL-Spec-Profile", profile_spec_name, ["width_mm", "height_mm"]
+                )
+                if raw:
+                    width_mm, height_mm = raw
+                    dimensions = compute_profile_dimensions(width_mm, height_mm)
+            if dimensions:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Dimensions",
+                    "spec_value": dimensions,
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 95,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels:
+        protocol_options = []
+        seen_protocols = set()
+        eligible_drivers = frappe.get_all(
+            "ilL-Rel-Driver-Eligibility",
+            filters={"fixture_template": product["fixture_template"], "is_active": 1},
+            fields=["driver_spec"],
+        )
+        for elig in eligible_drivers:
+            try:
+                driver_doc = frappe.get_doc("ilL-Spec-Driver", elig.driver_spec)
+            except frappe.DoesNotExistError:
+                continue
+            for ip in getattr(driver_doc, "input_protocols", []):
+                protocol_name = getattr(ip, "protocol", None)
+                if not protocol_name or protocol_name in seen_protocols:
+                    continue
+                seen_protocols.add(protocol_name)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", protocol_name,
+                    ["label", "code"],
+                    as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": protocol_name,
+                        "display_label": proto_data.get("label") or protocol_name,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 100,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    # ── Production Interval (cut increment from linked tape, in inches) ──
+    if "Production Interval" not in existing_labels:
+        increments_mm = set()
+        for tape_row in template.allowed_tape_offerings or []:
+            offering_name = getattr(tape_row, "tape_offering", None)
+            if not offering_name:
+                continue
+            offering_data = frappe.db.get_value(
+                "ilL-Rel-Tape Offering", offering_name,
+                ["cut_increment_mm_override", "tape_spec"],
+                as_dict=True,
+            )
+            if not offering_data:
+                continue
+            cut_mm = offering_data.get("cut_increment_mm_override")
+            if not cut_mm and offering_data.get("tape_spec"):
+                cut_mm = frappe.db.get_value(
+                    "ilL-Spec-LED Tape", offering_data["tape_spec"],
+                    "cut_increment_mm",
+                )
+            if cut_mm:
+                increments_mm.add(cut_mm)
+        if increments_mm:
+            display_parts = [
+                format_length_inches(v, precision=2)
+                for v in sorted(increments_mm)
+                if format_length_inches(v, precision=2)
+            ]
+            if display_parts:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Production Interval",
+                    "spec_value": ", ".join(display_parts),
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 110,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
+    return specs
+
+
+def _enrich_driver_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Driver products from linked doctype."""
+    specs = []
+    try:
+        driver = frappe.get_doc("ilL-Spec-Driver", product["driver_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Input Voltage (from min/max if legacy field is empty) ──
+    if "Input Voltage" not in existing_labels:
+        voltage_str = ""
+        if driver.input_voltage:
+            voltage_str = driver.input_voltage
+        elif driver.input_voltage_min and driver.input_voltage_max:
+            voltage_str = f"{driver.input_voltage_min}-{driver.input_voltage_max}"
+            if driver.input_voltage_type:
+                voltage_str += f" {driver.input_voltage_type}"
+        if voltage_str:
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": voltage_str,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 15,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimensions ─────────────────────────────────────────────
+    if "Dimensions" not in existing_labels:
+        dim_parts = []
+        if driver.width_mm:
+            dim_parts.append(f"{driver.width_mm}mm W")
+        if driver.height_mm:
+            dim_parts.append(f"{driver.height_mm}mm H")
+        if driver.depth_mm:
+            dim_parts.append(f"{driver.depth_mm}mm D")
+        if dim_parts:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": " x ".join(dim_parts),
+                "spec_unit": "mm",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels and "Dimming Protocols" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        if getattr(driver, "output_protocol", None):
+            proto_data = frappe.db.get_value(
+                "ilL-Attribute-Dimming Protocol", driver.output_protocol,
+                ["label", "code"], as_dict=True,
+            )
+            if proto_data:
+                seen.add(driver.output_protocol)
+                protocol_options.append({
+                    "attribute_type": "Dimming Protocol",
+                    "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                    "attribute_value": driver.output_protocol,
+                    "display_label": proto_data.get("label") or driver.output_protocol,
+                    "code": proto_data.get("code") or "",
+                })
+        for ip in getattr(driver, "input_protocols", []):
+            pname = getattr(ip, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    return specs
+
+
+def _enrich_controller_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Controller products from linked doctype."""
+    specs = []
+    try:
+        controller = frappe.get_doc("ilL-Spec-Controller", product["controller_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Input Voltage ──────────────────────────────────────────
+    if "Input Voltage" not in existing_labels:
+        if controller.input_voltage_min and controller.input_voltage_max:
+            voltage_str = f"{controller.input_voltage_min}-{controller.input_voltage_max}"
+            if controller.input_voltage_type:
+                voltage_str += f" {controller.input_voltage_type}"
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": voltage_str,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 15,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimensions ─────────────────────────────────────────────
+    if "Dimensions" not in existing_labels:
+        dim_parts = []
+        if controller.width_mm:
+            dim_parts.append(f"{controller.width_mm}mm W")
+        if controller.height_mm:
+            dim_parts.append(f"{controller.height_mm}mm H")
+        if controller.depth_mm:
+            dim_parts.append(f"{controller.depth_mm}mm D")
+        if dim_parts:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": " x ".join(dim_parts),
+                "spec_unit": "mm",
+                "is_calculated": 1,
+                "display_order": 75,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels and "Input Protocols" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        for row in getattr(controller, "input_protocols", []):
+            pname = getattr(row, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        for row in getattr(controller, "output_protocols", []):
+            pname = getattr(row, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 65,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    return specs
+
+
+_VARIANT_TEMPLATE_ENRICHMENT = {
+    "Driver": {
+        "product_field": "driver_template",
+        "template_doctype": "ilL-Driver-Template",
+        "variant_doctype": "ilL-Child-Driver-Template-Variant",
+        "spec_field": "driver_spec",
+        "spec_product_field": "driver_spec",
+        "models_label": "Available Models",
+        "models_display_order": 10,
+    },
+    "Controller": {
+        "product_field": "controller_template",
+        "template_doctype": "ilL-Controller-Template",
+        "variant_doctype": "ilL-Child-Controller-Template-Variant",
+        "spec_field": "controller_spec",
+        "spec_product_field": "controller_spec",
+        "models_label": "Available Models",
+        "models_display_order": 10,
+    },
+}
+
+
+def _enrich_variant_template_specs(kind: str, product: dict, existing_labels: set) -> list:
+    """Add missing specs for a Driver/Controller product linked via a template.
+
+    Configurable driver/controller products point at a template holding a list
+    of pre-defined variants rather than a single spec. The default variant's
+    spec drives the normal electrical/physical enrichment, and an extra
+    "Available Models" spec lists every active variant so the Webflow product
+    card can show the range.
+    """
+    cfg = _VARIANT_TEMPLATE_ENRICHMENT[kind]
+    specs = []
+
+    # Seed the warning list up front so the shallow `scoped` copy below shares
+    # the same list object and warnings raised by the delegated enricher are
+    # not lost.
+    product.setdefault("_spec_warnings", [])
+
+    template_name = product.get(cfg["product_field"])
+    variants = frappe.get_all(
+        cfg["variant_doctype"],
+        filters={
+            "parent": template_name,
+            "parenttype": cfg["template_doctype"],
+            "is_active": 1,
+        },
+        fields=[cfg["spec_field"], "variant_code", "item"],
+        order_by="is_default desc, idx asc",
+    )
+
+    if not variants:
+        msg = (
+            f"Webflow product '{product.get('name')}' (type '{kind}') is linked to "
+            f"{cfg['template_doctype']} '{template_name}' but that template has no "
+            f"active variants; specifications could not be enriched."
+        )
+        _record_spec_warning(product, msg)
+        frappe.log_error(message=msg, title="Webflow Spec Enrichment Skipped")
+        return specs
+
+    # Base electrical/physical/control specs come from the default variant's spec.
+    default_spec = variants[0].get(cfg["spec_field"])
+    if default_spec:
+        scoped = dict(product)
+        scoped[cfg["spec_product_field"]] = default_spec
+        enricher = _enrich_driver_specs if kind == "Driver" else _enrich_controller_specs
+        specs.extend(enricher(scoped, existing_labels))
+
+    # "Available Models" — the configurable range offered on the product page.
+    if cfg["models_label"] not in existing_labels:
+        labels = [
+            (v.get("variant_code") or v.get("item") or "").strip()
+            for v in variants
+        ]
+        labels = [label for label in labels if label]
+        if labels:
+            specs.append({
+                "spec_group": "Identification",
+                "spec_label": cfg["models_label"],
+                "spec_value": ", ".join(labels),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": cfg["models_display_order"],
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    return specs
+
+
+def _enrich_driver_template_variants(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Driver products linked via driver_template."""
+    return _enrich_variant_template_specs("Driver", product, existing_labels)
+
+
+def _enrich_controller_template_variants(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Controller products linked via controller_template."""
+    return _enrich_variant_template_specs("Controller", product, existing_labels)
+
+
+
+def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for LED Sheet products linked via led_sheet_template.
+
+    Emits a non-fatal warning (via ``_record_spec_warning``) whenever the chain
+    of allowed_specs → active rows → populated ilL-Spec-LED-Sheet values is
+    broken, so an empty specifications section is never produced silently.
+    """
+    specs = []
+    try:
+        template = frappe.get_doc("ilL-LED-Sheet-Template", product["led_sheet_template"])
+    except frappe.DoesNotExistError:
+        _record_spec_warning(
+            product,
+            f"LED Sheet template '{product.get('led_sheet_template')}' does not exist "
+            f"for product '{product.get('name')}'.",
+        )
+        return specs
+
+    all_rows = template.allowed_specs or []
+    if not all_rows:
+        _record_spec_warning(
+            product,
+            f"LED Sheet template '{template.name}' has an empty allowed_specs table; "
+            f"no specifications generated for product '{product.get('name')}'.",
+        )
+        return specs
+
+    active_rows = [
+        row for row in all_rows
+        if getattr(row, "spec", None) and getattr(row, "is_active", 1)
+    ]
+    if not active_rows:
+        _record_spec_warning(
+            product,
+            f"LED Sheet template '{template.name}' has {len(all_rows)} allowed_specs "
+            f"row(s) but none are active with a valid spec link.",
+        )
+        return specs
+
+    def add(label, group, value, unit="", order=50, attr_doctype=""):
+        if value and label not in existing_labels:
+            specs.append({
+                "spec_group": group,
+                "spec_label": label,
+                "spec_value": value,
+                "spec_unit": unit,
+                "is_calculated": 1,
+                "display_order": order,
+                "show_on_card": 0,
+                "attribute_doctype": attr_doctype,
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    spec_docs = []
+    for row in active_rows:
+        if frappe.db.exists("ilL-Spec-LED-Sheet", row.spec):
+            spec_docs.append(frappe.get_doc("ilL-Spec-LED-Sheet", row.spec))
+        else:
+            _record_spec_warning(
+                product,
+                f"LED Sheet spec '{row.spec}' referenced by template "
+                f"'{template.name}' does not exist.",
+            )
+
+    wattages = sorted({str(getattr(d, "total_sheet_watts", "")) for d in spec_docs if getattr(d, "total_sheet_watts", None)})
+    lumens = sorted({str(getattr(d, "total_sheet_lumens", "")) for d in spec_docs if getattr(d, "total_sheet_lumens", None)})
+    areas = sorted({str(getattr(d, "sheet_area_sqft", "")) for d in spec_docs if getattr(d, "sheet_area_sqft", None)})
+    voltages = sorted({str(getattr(d, "input_voltage", "")) for d in spec_docs if getattr(d, "input_voltage", None)})
+    ip_ratings = sorted({str(getattr(d, "ip_rating", "")) for d in spec_docs if getattr(d, "ip_rating", None)})
+    cri_values = sorted({str(getattr(d, "cri", "")) for d in spec_docs if getattr(d, "cri", None)})
+    warranty = getattr(template, "warranty", None)
+
+    if not any([wattages, lumens, areas, voltages, ip_ratings, cri_values, warranty]):
+        _record_spec_warning(
+            product,
+            f"LED Sheet specs for template '{template.name}' produced no non-empty "
+            f"values (check total_sheet_watts / total_sheet_lumens / sheet_area_sqft / "
+            f"input_voltage / cri / ip_rating on the linked ilL-Spec-LED-Sheet docs).",
+        )
+
+    add("Sheet Wattage", "Electrical", ", ".join(wattages), "W", 30)
+    add("Sheet Lumens", "Optical", ", ".join(lumens), "lm", 40)
+    add("Sheet Area", "Physical", ", ".join(areas), "sq ft", 35)
+    add("Input Voltage", "Electrical", ", ".join(voltages), "", 25, "ilL-Attribute-Output Voltage")
+    add("Color Rendering", "Optical", ", ".join(cri_values), "CRI", 55)
+    add("IP Rating", "Certifications & Ratings", ", ".join(ip_ratings), "", 60, "ilL-Attribute-IP Rating")
+    add("Warranty", "Warranty", warranty, "", 90)
+    return specs
+
+def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=None) -> list:
+    """Add missing specs for LED Tape/Neon products linked via tape_neon_template."""
+    specs = []
+    try:
+        template = frappe.get_doc("ilL-Tape-Neon-Template", product["tape_neon_template"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Color Rendering (CRI) from allowed_tape_specs ─────────
+    if "Color Rendering" not in existing_labels and "CRI" not in existing_labels:
+        cri_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            cri_val = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "cri_typical")
+            if cri_val:
+                cri_values.add(str(cri_val))
+        if cri_values:
+            specs.append({
+                "spec_group": "Optical",
+                "spec_label": "Color Rendering",
+                "spec_value": ", ".join(sorted(cri_values)),
+                "spec_unit": "CRI",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Input Voltage from allowed_tape_specs ─────────────────
+    if "Input Voltage" not in existing_labels:
+        voltage_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            iv = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "input_voltage")
+            if iv:
+                voltage_val = frappe.db.get_value(
+                    "ilL-Attribute-Output Voltage", iv, "dc_voltage"
+                )
+                if voltage_val:
+                    voltage_values.add(f"{voltage_val} VDC")
+        if voltage_values:
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Input Voltage",
+                "spec_value": ", ".join(sorted(voltage_values)),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 25,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Output Voltage",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimming from allowed_tape_specs ───────────────────────
+    if "Dimming" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            try:
+                tape = frappe.get_doc("ilL-Spec-LED Tape", spec_row.tape_spec)
+            except frappe.DoesNotExistError:
+                continue
+            if getattr(tape, "input_protocol", None) and tape.input_protocol not in seen:
+                seen.add(tape.input_protocol)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", tape.input_protocol,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": tape.input_protocol,
+                        "display_label": proto_data.get("label") or tape.input_protocol,
+                        "code": proto_data.get("code") or "",
+                    })
+            for row in getattr(tape, "supported_dimming_protocols", []):
+                pname = getattr(row, "protocol", None)
+                if pname and pname not in seen:
+                    seen.add(pname)
+                    proto_data = frappe.db.get_value(
+                        "ilL-Attribute-Dimming Protocol", pname,
+                        ["label", "code"], as_dict=True,
+                    )
+                    if proto_data:
+                        protocol_options.append({
+                            "attribute_type": "Dimming Protocol",
+                            "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                            "attribute_value": pname,
+                            "display_label": proto_data.get("label") or pname,
+                            "code": proto_data.get("code") or "",
+                        })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 60,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    # ── Production Interval from allowed_tape_specs ───────────
+    if "Production Interval" not in existing_labels:
+        cut_increments = set()
+        # Template-level override takes precedence if provided
+        template_pi = getattr(template, "production_interval_mm", None)
+        if template_pi:
+            formatted = format_length_inches(template_pi, precision=2)
+            if formatted:
+                cut_increments.add(formatted)
+        else:
+            for spec_row in template.allowed_tape_specs or []:
+                if not spec_row.tape_spec:
+                    continue
+                cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "cut_increment_mm")
+                if cut_mm:
+                    formatted = format_length_inches(cut_mm, precision=2)
+                    if formatted:
+                        cut_increments.add(formatted)
+        if cut_increments:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Production Interval",
+                "spec_value": ", ".join(sorted(cut_increments)),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 65,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Dimensions (from template.spec_sheet_dimensions) ──────
+    if "Dimensions" not in existing_labels:
+        dimensions = getattr(template, "spec_sheet_dimensions", None)
+        if dimensions:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": dimensions,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 70,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Minimum Bend Diameter (LED Neon only) ─────────────────
+    if product.get("product_type") == "LED Neon":
+        side_bend_mm = getattr(template, "minimum_side_bend_diameter_mm", None)
+        if side_bend_mm and "Minimum Side Bend Diameter" not in existing_labels:
+            formatted = format_length_inches(side_bend_mm, precision=2)
+            if formatted:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Minimum Side Bend Diameter",
+                    "spec_value": f"{formatted} ({side_bend_mm:g}mm)",
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 75,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+        top_bend_mm = getattr(template, "minimum_top_bend_diameter_mm", None)
+        if top_bend_mm and "Minimum Top Bend Diameter" not in existing_labels:
+            formatted = format_length_inches(top_bend_mm, precision=2)
+            if formatted:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Minimum Top Bend Diameter",
+                    "spec_value": f"{formatted} ({top_bend_mm:g}mm)",
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 76,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
+    # ── Output Options (from allowed_options where option_type=Output Level) ──
+    if "Output Options" not in existing_labels:
+        output_options = []
+        seen_outputs = set()
+        for opt in template.allowed_options or []:
+            if opt.option_type != "Output Level" or not opt.is_active:
+                continue
+            ol_name = getattr(opt, "output_level", None)
+            if not ol_name or ol_name in seen_outputs:
+                continue
+            seen_outputs.add(ol_name)
+            ol_data = frappe.db.get_value(
+                "ilL-Attribute-Output Level", ol_name,
+                ["output_level_name", "value", "sku_code"],
+                as_dict=True,
+            )
+            if ol_data:
+                output_options.append({
+                    "attribute_type": "Output Level",
+                    "attribute_doctype": "ilL-Attribute-Output Level",
+                    "attribute_value": ol_name,
+                    "display_label": ol_data.get("output_level_name") or ol_name,
+                    "code": ol_data.get("sku_code") or "",
+                    "value": ol_data.get("value") or "",
+                })
+        if output_options:
+            display_values = [o["display_label"] for o in output_options]
+            specs.append({
+                "spec_group": "Performance",
+                "spec_label": "Output Options",
+                "spec_value": ", ".join(display_values),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 10,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Output Level",
+                "attribute_options_json": frappe.as_json(output_options),
+                "attribute_options": output_options,
+            })
+
+    # ── Watts per Foot (range from allowed tape specs) ────────
+    if "Watts per Foot" not in existing_labels:
+        wpf_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            wpf = frappe.db.get_value(
+                "ilL-Spec-LED Tape", spec_row.tape_spec, "watts_per_foot"
+            )
+            if wpf:
+                wpf_values.add(float(wpf))
+        if wpf_values:
+            sorted_vals = sorted(wpf_values)
+            if len(sorted_vals) == 1:
+                wpf_str = f"{sorted_vals[0]:g}"
+            else:
+                wpf_str = f"{sorted_vals[0]:g} - {sorted_vals[-1]:g}"
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Watts per Foot",
+                "spec_value": wpf_str,
+                "spec_unit": "W/ft",
+                "is_calculated": 1,
+                "display_order": 30,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Max Run Length (from allowed tape specs) ──────────────
+    if "Max Run Length" not in existing_labels:
+        run_values = set()
+        for spec_row in template.allowed_tape_specs or []:
+            if not spec_row.tape_spec:
+                continue
+            mr = frappe.db.get_value(
+                "ilL-Spec-LED Tape", spec_row.tape_spec, "voltage_drop_max_run_length_ft"
+            )
+            if mr:
+                run_values.add(float(mr))
+        if run_values:
+            sorted_vals = sorted(run_values)
+            if len(sorted_vals) == 1:
+                run_str = f"{sorted_vals[0]:g}"
+            else:
+                run_str = f"{sorted_vals[0]:g} - {sorted_vals[-1]:g}"
+            specs.append({
+                "spec_group": "Electrical",
+                "spec_label": "Max Run Length",
+                "spec_value": run_str,
+                "spec_unit": "ft",
+                "is_calculated": 1,
+                "display_order": 40,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Operating Temperature / L70 / Warranty (from product) ─
+    if doc is not None:
+        if (
+            "Operating Temperature" not in existing_labels
+            and getattr(doc, "operating_temp_min_c", None) is not None
+            and getattr(doc, "operating_temp_max_c", None) is not None
+        ):
+            c_min = doc.operating_temp_min_c
+            c_max = doc.operating_temp_max_c
+            f_min = round(c_min * 9 / 5 + 32)
+            f_max = round(c_max * 9 / 5 + 32)
+            specs.append({
+                "spec_group": "Environmental",
+                "spec_label": "Operating Temperature",
+                "spec_value": f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)",
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 80,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+        if "L70 Life" not in existing_labels and getattr(doc, "l70_life_hours", None):
+            specs.append({
+                "spec_group": "Performance",
+                "spec_label": "L70 Life",
+                "spec_value": f"{doc.l70_life_hours:,}",
+                "spec_unit": "hrs",
+                "is_calculated": 1,
+                "display_order": 82,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+        if "Warranty" not in existing_labels and getattr(doc, "warranty_years", None):
+            yrs = doc.warranty_years
+            specs.append({
+                "spec_group": "Performance",
+                "spec_label": "Warranty",
+                "spec_value": f"{yrs} year{'s' if yrs != 1 else ''}",
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 84,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    return specs
+
+
+def _enrich_tape_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for LED Tape products from linked doctype."""
+    specs = []
+    try:
+        tape = frappe.get_doc("ilL-Spec-LED Tape", product["tape_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Color Rendering (CRI) ─────────────────────────────────
+    if "Color Rendering" not in existing_labels and "CRI" not in existing_labels:
+        if tape.cri_typical:
+            specs.append({
+                "spec_group": "Optical",
+                "spec_label": "Color Rendering",
+                "spec_value": str(tape.cri_typical),
+                "spec_unit": "CRI",
+                "is_calculated": 1,
+                "display_order": 55,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    # ── Input Voltage ──────────────────────────────────────────
+    if "Input Voltage" not in existing_labels:
+        if tape.input_voltage:
+            voltage_val = frappe.db.get_value(
+                "ilL-Attribute-Output Voltage", tape.input_voltage, "dc_voltage"
+            )
+            if voltage_val:
+                specs.append({
+                    "spec_group": "Electrical",
+                    "spec_label": "Input Voltage",
+                    "spec_value": f"{voltage_val} VDC",
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 25,
+                    "show_on_card": 0,
+                    "attribute_doctype": "ilL-Attribute-Output Voltage",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
+    # ── Dimming ────────────────────────────────────────────────
+    if "Dimming" not in existing_labels:
+        protocol_options = []
+        seen = set()
+        if getattr(tape, "input_protocol", None):
+            seen.add(tape.input_protocol)
+            proto_data = frappe.db.get_value(
+                "ilL-Attribute-Dimming Protocol", tape.input_protocol,
+                ["label", "code"], as_dict=True,
+            )
+            if proto_data:
+                protocol_options.append({
+                    "attribute_type": "Dimming Protocol",
+                    "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                    "attribute_value": tape.input_protocol,
+                    "display_label": proto_data.get("label") or tape.input_protocol,
+                    "code": proto_data.get("code") or "",
+                })
+        for row in getattr(tape, "supported_dimming_protocols", []):
+            pname = getattr(row, "protocol", None)
+            if pname and pname not in seen:
+                seen.add(pname)
+                proto_data = frappe.db.get_value(
+                    "ilL-Attribute-Dimming Protocol", pname,
+                    ["label", "code"], as_dict=True,
+                )
+                if proto_data:
+                    protocol_options.append({
+                        "attribute_type": "Dimming Protocol",
+                        "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                        "attribute_value": pname,
+                        "display_label": proto_data.get("label") or pname,
+                        "code": proto_data.get("code") or "",
+                    })
+        if protocol_options:
+            specs.append({
+                "spec_group": "Control",
+                "spec_label": "Dimming",
+                "spec_value": ", ".join(o["display_label"] for o in protocol_options),
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 60,
+                "show_on_card": 0,
+                "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+                "attribute_options_json": frappe.as_json(protocol_options),
+                "attribute_options": protocol_options,
+            })
+
+    # ── Production Interval (cut increment in inches) ─────────
+    if "Production Interval" not in existing_labels:
+        if tape.cut_increment_mm:
+            formatted = format_length_inches(tape.cut_increment_mm, precision=2)
+            if formatted:
+                specs.append({
+                    "spec_group": "Physical",
+                    "spec_label": "Production Interval",
+                    "spec_value": formatted,
+                    "spec_unit": "",
+                    "is_calculated": 1,
+                    "display_order": 65,
+                    "show_on_card": 0,
+                    "attribute_doctype": "",
+                    "attribute_options_json": None,
+                    "attribute_options": [],
+                })
+
+    return specs
+
+
+def _enrich_profile_specs(product: dict, existing_labels: set) -> list:
+    """Add missing specs for Component/Extrusion Kit products from profile."""
+    specs = []
+    try:
+        profile = frappe.get_doc("ilL-Spec-Profile", product["profile_spec"])
+    except frappe.DoesNotExistError:
+        return specs
+
+    # ── Dimensions ─────────────────────────────────────────────
+    if "Dimensions" not in existing_labels:
+        dimensions = profile.dimensions or compute_profile_dimensions(profile.width_mm, profile.height_mm)
+        if dimensions:
+            specs.append({
+                "spec_group": "Physical",
+                "spec_label": "Dimensions",
+                "spec_value": dimensions,
+                "spec_unit": "",
+                "is_calculated": 1,
+                "display_order": 45,
+                "show_on_card": 0,
+                "attribute_doctype": "",
+                "attribute_options_json": None,
+                "attribute_options": [],
+            })
+
+    return specs
+
+
+def _build_certifications_spec(doc) -> dict | None:
+    """Build a Certifications & Ratings spec entry from the product's certifications."""
+    if not getattr(doc, "certifications", None):
+        return None
+
+    cert_options = []
+    for c in doc.certifications:
+        cert_name = c.certification
+        if not cert_name:
+            continue
+        details = _get_certification_details(cert_name)
+        cert_options.append({
+            "attribute_type": "Certification",
+            "attribute_doctype": "ilL-Attribute-Certification",
+            "attribute_value": cert_name,
+            "display_label": details.get("certification_code") or cert_name,
+            "certification_body": details.get("certification_body") or "",
+            "badge_image": _make_absolute_url(details.get("badge_image")) if details.get("badge_image") else "",
+        })
+
+    if not cert_options:
+        return None
+
+    return {
+        "spec_group": "Compliance",
+        "spec_label": "Certifications & Ratings",
+        "spec_value": ", ".join(o["display_label"] for o in cert_options),
+        "spec_unit": "",
+        "is_calculated": 1,
+        "display_order": 120,
+        "show_on_card": 0,
+        "attribute_doctype": "ilL-Attribute-Certification",
+        "attribute_options_json": frappe.as_json(cert_options),
+        "attribute_options": cert_options,
+    }
 
 @frappe.whitelist()
 def trigger_sync_v2(docname):
