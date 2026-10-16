@@ -9,25 +9,6 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		}
 
 		if (!frm.is_new()) {
-			// Version 2: ERPNext to Webflow Sync / Spec Gen
-			frm.add_custom_button(__('Sync to Webflow (V2)'), function() {
-    			frappe.call({
-			        method: "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.trigger_sync_v2",
-			        args: { docname: frm.doc.name },
-			        freeze: true,
-			        freeze_message: __("Queuing and dispatching publication jobs..."),
-			        callback: function(r) {
-			            if (r.message && r.message.jobs && r.message.jobs.length > 0) {
-			                frappe.show_alert({
-			                    message: __("V2 Sync Dispatched for jobs: " + r.message.jobs.join(", ")),
-			                    indicator: "green"
-			                });
-			            } else {
-			                frappe.msgprint(__("No jobs dispatched. Check readiness issues or logs."));
-			            }
-				    }
-				    });
-			}, __("Actions"));
 			
 			// Direct link to open live product on Webflow site
 			frm.add_custom_button(__("Open in Webflow"), function() {
