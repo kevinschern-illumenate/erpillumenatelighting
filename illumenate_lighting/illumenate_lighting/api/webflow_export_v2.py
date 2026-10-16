@@ -602,7 +602,13 @@ def mark_webflow_synced(product_slug, webflow_item_id, webflow_collection_slug=N
     target = frappe.db.get_value("ilL-Publish-Job", job, ["product", "brand"], as_dict=True)
     if not target or target.product != product_slug or target.brand != (brand or get_default_brand()):
         frappe.throw(_("Callback product and brand do not match the job"))
-    return acknowledge(job, token, revision_hash, payload_hash, webflow_item_id)
+        
+    res = acknowledge(job, token, revision_hash, payload_hash, webflow_item_id)
+    
+    # Automatically update sync_targets child table on ilL-Webflow-Product
+    _update_product_sync_target(target.product, target.brand, webflow_item_id, "Synced")
+    
+    return res
 
 def _update_product_sync_target(product_name, brand, webflow_item_id, status="Synced"):
     """Update or append the brand's row in the product's sync_targets table."""
