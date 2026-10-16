@@ -177,7 +177,11 @@ class ilLWebflowProduct(Document):
 		for fieldname, product_types in WEBFLOW_PRODUCT_LINK_TYPES.items():
 			if self.get(fieldname) and self.product_type not in product_types:
 				self.set(fieldname, None)
-
+	
+	def onload(self):
+		"""Refresh template data automatically when the document is opened in the UI."""
+		self.sync_custom_template_data()
+		
 	def before_save(self):
 		"""Calculate specifications, attribute links, and configurator options before saving."""
 
