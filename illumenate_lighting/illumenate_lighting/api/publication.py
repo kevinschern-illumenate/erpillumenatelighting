@@ -130,7 +130,7 @@ def _refresh(doc, state, config):
 			payload["product"]["category_webflow_item_id"] = category_id
 			payload["product"]["category_details"] = {"webflow_item_id": category_id}
 	clean_data = _strip_volatile_metadata({"payload": payload, "dependencies": readiness["dependencies"]})
-    state.current_hash = fingerprint(clean_data)
+	state.current_hash = fingerprint(clean_data)
 	state.readiness_json = canonical_json({key: readiness[key] for key in ("ready", "issues")})
 	state.dependencies_json = canonical_json(readiness["dependencies"])
 	if state.approved_hash != state.current_hash:
