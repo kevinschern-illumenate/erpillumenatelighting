@@ -1,7 +1,9 @@
 """Extrusion Kit saves keep only the caller's selections; priced and ordered data is server-derived."""
 
+import inspect
 import json
 import types
+import typing
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -156,6 +158,16 @@ class KitValidation(unittest.TestCase):
 				self.assertFalse(invalid["is_valid"])
 				self.assertIn("profile family", invalid["error"])
 			frappe.db.exists.assert_called_with("ilL-Extrusion-Kit-Template", "KIT-1")
+
+	def test_request_type_check_admits_the_dict_the_savers_pass(self):
+		# During a web request Frappe checks every call to a whitelisted function
+		# against its annotations, including the portal and Desk savers' internal
+		# call with a dict. A ``str``-only annotation failed every kit save there.
+		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, _frappe):
+			annotation = inspect.signature(service.validate_kit_configuration).parameters["selections"].annotation
+		admitted = typing.get_args(annotation) or (annotation,)
+		for value in (json.dumps(SELECTIONS), dict(SELECTIONS)):
+			self.assertIsInstance(value, admitted)
 
 	def test_inactive_templates_cannot_be_validated(self):
 		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
