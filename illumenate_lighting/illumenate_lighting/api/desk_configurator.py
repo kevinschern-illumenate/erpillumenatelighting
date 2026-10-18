@@ -924,7 +924,8 @@ def _kit_choice(selections: dict[str, Any]):
 	)
 
 	clean = {k: str(selections[k]) for k in KIT_SELECTION_KEYS if selections.get(k) not in (None, "")}
-	result = validate_kit_configuration(clean)
+	# Whitelisted and typed ``selections: str``: Frappe rejects a dict during live requests.
+	result = validate_kit_configuration(canonical_json(clean))
 	if not result.get("is_valid"):
 		return None, result.get("error") or _("The kit could not be validated."), None
 

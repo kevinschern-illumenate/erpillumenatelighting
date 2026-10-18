@@ -101,7 +101,9 @@ class DeskCatalogLines(unittest.TestCase):
 			)
 			self.assertTrue(result["success"], result)
 			kit = modules[ROOT + ".api.extrusion_kit_configurator"]
-			self.assertEqual(kit.validate_kit_configuration.call_args.args[0], {"kit_template": "KIT", "finish": "White"})
+			sent = kit.validate_kit_configuration.call_args.args[0]
+			self.assertIsInstance(sent, str)  # Whitelisted with a str annotation.
+			self.assertEqual(json.loads(sent), {"kit_template": "KIT", "finish": "White"})
 			rows = [result["row_values"], *result["accessory_rows"]]
 			self.assertEqual([(r["item_code"], r["qty"]) for r in rows], [("PROFILE", 3), ("LENS", 3), ("CLIP", 18)])
 			self.assertTrue(all(r["fixture_type"] == "K1" and r["section_label"] == "Lobby" for r in rows))
