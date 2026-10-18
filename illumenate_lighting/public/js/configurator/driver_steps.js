@@ -7,7 +7,7 @@
   Driver.prototype=Object.create(IC.DriverController.prototype);Driver.prototype.constructor=Driver;
   Driver.prototype.init=function(){
     var self=this;
-    this.scheduleTarget=IC.bindScheduleContext({instance:this,context:this.context,onChange:function(){self.fillFromLine();self.updateSave();}});
+    this.scheduleTarget=this.hostSaves()?null:IC.bindScheduleContext({instance:this,context:this.context,onChange:function(){self.fillFromLine();self.updateSave();}});
     var draft=this.context.draft||{};
     this.$('#familyLineId').val(draft.line_id||'');this.$('#familyLocation').val(draft.location||'');this.$('#familyQty').val(draft.qty||1);this.$('#familyNotes').val(draft.notes||'');
     this.$('#familySave').on('click',function(){self.save();});
@@ -57,6 +57,7 @@
     var target=this.scheduleTarget,hint='';
     if(this.saving)hint='';
     else if(!this.result)hint=this.template?__('Choose an option for every step.'):__('Choose a power supply.');
+    else if(this.targetReady())hint='';
     else if(!target||!target.hasTarget())hint=__('Choose a project, fixture schedule and line under Schedule Target.');
     else if(!target.canSave)hint=__('You can view this schedule but not change it.');
     this.$('#driverSaveHint').text(hint).prop('hidden',!hint);
@@ -64,6 +65,7 @@
   Driver.prototype._updateButtons=function(){this.result=null;this.updateSave();if(!this.loading&&this.steps.length)this.validate();};
   Driver.prototype.save=function(){
     if(!this.result||this.saving)return;
+    if(this.hostSaves()){this.context.saveHandler({product_type:'Driver',template:this.template,selections:Object.assign({},this.selections)});return;}
     var selected=this.scheduleTarget.lineValue(),snapshot=this.scheduleSnapshot||{},line=(snapshot.lines||[]).find(function(l){return String(l.idx)===String(selected);});
     var meta=this.metadata();if(!String(meta.line_id||'').trim()){frappe.msgprint(__('Enter a fixture type for this power supply.'));return;}
     this.sendSave('illumenate_lighting.illumenate_lighting.portal.driver_configuration.save',{schedule_name:this.scheduleTarget.scheduleName(),template:this.template,selections:JSON.stringify(this.selections),expected_modified:snapshot.modified,line_key:line?line.line_key:null,line_idx:line?null:selected==='__new__'?null:selected,metadata:JSON.stringify(meta),finder:this.context.finder});

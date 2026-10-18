@@ -79,6 +79,23 @@ DESK_PRODUCT_TYPES = (
 	PRODUCT_TYPE_NEON,
 	PRODUCT_TYPE_SHEET,
 )
+# Catalog families: a validated choice resolves to existing Items, so there is
+# no configured record, BOM or generated Item to build.
+PRODUCT_TYPE_KIT = "Extrusion Kit"
+PRODUCT_TYPE_DRIVER = "Driver"
+PRODUCT_TYPE_CONTROLLER = "Controller"
+CATALOG_PRODUCT_TYPES = (PRODUCT_TYPE_KIT, PRODUCT_TYPE_DRIVER, PRODUCT_TYPE_CONTROLLER)
+CATALOG_PRODUCT_TYPE_ALIASES = {
+	"extrusion kit": PRODUCT_TYPE_KIT,
+	"extrusion kits": PRODUCT_TYPE_KIT,
+	"kit": PRODUCT_TYPE_KIT,
+	"driver": PRODUCT_TYPE_DRIVER,
+	"drivers": PRODUCT_TYPE_DRIVER,
+	"power supply": PRODUCT_TYPE_DRIVER,
+	"power supplies": PRODUCT_TYPE_DRIVER,
+	"controller": PRODUCT_TYPE_CONTROLLER,
+	"controllers": PRODUCT_TYPE_CONTROLLER,
+}
 DEFAULT_SCHEDULE_NAME = "Main Schedule"
 SCHEDULE_LINE_SAVEPOINT = "ill_desk_cfg_line"
 
@@ -253,7 +270,7 @@ def get_desk_context(
 		"projects": [
 			{"value": p.name, "label": p.project_name or p.name, "customer": p.customer} for p in projects
 		],
-		"product_types": [{"value": pt, "label": _(pt)} for pt in DESK_PRODUCT_TYPES],
+		"product_types": [{"value": pt, "label": _(pt)} for pt in (*DESK_PRODUCT_TYPES, *CATALOG_PRODUCT_TYPES)],
 		"groups_enabled": fixture_groups_enabled(),
 		"can_create_project": bool(frappe.has_permission(PROJECT_DOCTYPE, "create")),
 		"can_create_schedule": bool(frappe.has_permission(SCHEDULE_DOCTYPE, "create")),
@@ -494,6 +511,7 @@ def build_configured_line(
 	idempotency_key: str | None = None,
 	line_key: str | None = None,
 	expected_modified: str | None = None,
+	template: str | None = None,
 ) -> dict[str, Any]:
 	"""Persist the configured product (+ schedule line) and return row values.
 
@@ -505,6 +523,24 @@ def build_configured_line(
 	_require_parent_doctype(parent_doctype)
 	if parent_name and not frappe.has_permission(parent_doctype, "write", parent_name):
 		frappe.throw(_("You do not have write permission on {0} {1}.").format(parent_doctype, parent_name), frappe.PermissionError)
+
+	catalog_type = CATALOG_PRODUCT_TYPE_ALIASES.get((product_type or "").strip().lower())
+	if catalog_type:
+		return _build_catalog_line(
+			parent_doctype,
+			parent_name,
+			catalog_type,
+			_coerce_dict(selections_json) or {},
+			_safe_header(_coerce_dict(header_json) or {}),
+			qty=qty,
+			fixture_type=fixture_type,
+			location=location,
+			notes=notes,
+			schedule=schedule,
+			line_idx=line_idx,
+			product_slug=product_slug,
+			template=template,
+		)
 
 	product_type = _normalize_product_type(product_type)
 	if product_type not in DESK_PRODUCT_TYPES:
@@ -725,6 +761,251 @@ def build_configured_line(
 		"next_fixture_type": _next_fixture_type(schedule_doc, used_ids),
 		"messages": (validation.get("messages") or []) + (artifact.get("messages") or []),
 	}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CATALOG FAMILIES (Extrusion Kit / Power Supply / Controller)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _build_catalog_line(
+	parent_doctype: str,
+	parent_name: str | None,
+	product_type: str,
+	selections: dict[str, Any],
+	header: dict[str, Any],
+	*,
+	qty,
+	fixture_type: str | None,
+	location: str | None,
+	notes: str | None,
+	schedule: str | None,
+	line_idx,
+	product_slug: str | None,
+	template: str | None,
+) -> dict[str, Any]:
+	"""Validate a kit / power supply / controller choice, write its schedule line
+	with the portal's own writers and return the rows the schedule → quote
+	converter would add for that line (kit components, or the one variant Item).
+	"""
+	qty = finite_number(qty, minimum=1, field="quantity")
+	if not qty.is_integer():
+		frappe.throw(_("Quantity must be a positive whole number"))
+	fixture_type = (fixture_type or "").strip() or None
+	location = (location or "").strip() or None
+	notes = (notes or "").strip() or None
+
+	schedule_doc = None
+	line_idx_int: int | None = None
+	if schedule:
+		schedule_doc, err = _load_schedule(schedule, "write")
+		if err:
+			return err
+		if not _schedule_is_editable(schedule_doc):
+			return _error(_schedule_not_editable_reason(schedule_doc), schedule_not_editable=True, schedule=schedule_doc.name)
+		if line_idx not in (None, ""):
+			line_idx_int = cint(line_idx)
+			if not (0 <= line_idx_int < len(schedule_doc.lines or [])):
+				return _error(_("Schedule line {0} does not exist on {1}.").format(line_idx, schedule_doc.name))
+	fixture_type = fixture_type or _next_fixture_type(schedule_doc, [])
+
+	try:
+		if product_type == PRODUCT_TYPE_KIT:
+			result, rows, write_line = _kit_choice(selections)
+		else:
+			result, rows, write_line = _variant_choice(product_type, selections, product_slug, template)
+	except (frappe.ValidationError, ValueError) as exc:
+		return _error(str(exc))
+	if not result:
+		return _error(rows)
+
+	request = canonical_json({
+		"schema_version": 2,
+		"family": product_type,
+		"product_slug": result.get("product_slug") or product_slug,
+		"template": result.get("template"),
+		"selections": result.get("selections") or {},
+	})
+
+	line_name = None
+	if schedule_doc is not None:
+		from illumenate_lighting.illumenate_lighting.api.power_supply_lines import clear_power_lines
+
+		frappe.db.savepoint(SCHEDULE_LINE_SAVEPOINT)
+		try:
+			line = schedule_doc.lines[line_idx_int] if line_idx_int is not None else schedule_doc.append("lines", {})
+			# An overwritten line drops the sheet accessories and supplies of its old product.
+			led_sheet_configurator.remove_sheet_accessories_for_line(schedule_doc, line)
+			clear_power_lines(schedule_doc, line)
+			write_line(schedule_doc, line)
+			line.line_id = fixture_type
+			line.location = location
+			line.qty = int(qty)
+			if notes is not None or product_type != PRODUCT_TYPE_KIT:
+				# The kit writer leaves its build description as the default note.
+				line.notes = notes or ""
+			schedule_doc.save()
+			line_name = line.name
+		except Exception as exc:  # The outer atomic build rolls the line back.
+			frappe.db.rollback(save_point=SCHEDULE_LINE_SAVEPOINT)
+			frappe.log_error(
+				title=f"Desk configurator: schedule line write failed for {schedule_doc.name}",
+				message=frappe.get_traceback(),
+			)
+			return _error(
+				_("{0} could not be saved to its schedule: {1}").format(result["part_number"], str(exc))
+			)
+
+	built = []
+	for spec in rows:
+		artifact = {
+			"product_type": None,  # Catalog Items are not configured product types on the row.
+			"item_code": spec["item_code"],
+			"description": spec.get("description"),
+			"msrp": spec.get("msrp"),
+			"template_code": result.get("template"),
+			"configuration_snapshot": {"product_category": product_type, "part_number": result["part_number"]},
+		}
+		values = _build_row_values(
+			parent_doctype,
+			parent_name,
+			header,
+			artifact,
+			flt(spec["qty_per_build"]) * qty,
+			section_label=location,
+			fixture_type=fixture_type,
+			schedule_line_id=line_name,
+			additional_notes=notes,
+		)
+		values["ill_configurator_request"] = request
+		built.append(values)
+	if not built:
+		return _error(_("{0} has no orderable Items.").format(result["part_number"]))
+
+	return {
+		"success": True,
+		"row_values": built[0],
+		"accessory_rows": built[1:],
+		"header_values": {"ill_fixture_schedule": schedule_doc.name if schedule_doc is not None else None},
+		"schedule": schedule_doc.name if schedule_doc is not None else None,
+		"schedule_line_name": line_name,
+		"fixture_type": fixture_type,
+		"location": location,
+		"product_type": product_type,
+		"item_code": result["part_number"],
+		"next_fixture_type": _next_fixture_type(schedule_doc, [fixture_type]),
+		"messages": result.get("messages") or [],
+	}
+
+
+class _RowCollector:
+	"""Stands in for a transaction so ``create_kit_so_lines`` can list a kit's rows."""
+
+	def __init__(self):
+		self.items = []
+
+	def append(self, fieldname, values):
+		row = frappe._dict(values)
+		self.items.append(row)
+		return row
+
+
+def _kit_choice(selections: dict[str, Any]):
+	"""``(result, rows, write_line)`` for an Extrusion Kit, or ``(None, error, None)``.
+
+	Rows are the kit's components in the order ``create_kit_so_lines`` adds
+	them when the schedule line is converted, with per-kit quantities.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+		KIT_SELECTION_KEYS,
+		_write_kit_line,
+		create_kit_so_lines,
+		validate_kit_configuration,
+	)
+
+	clean = {k: str(selections[k]) for k in KIT_SELECTION_KEYS if selections.get(k) not in (None, "")}
+	result = validate_kit_configuration(clean)
+	if not result.get("is_valid"):
+		return None, result.get("error") or _("The kit could not be validated."), None
+
+	holder = _RowCollector()
+	create_kit_so_lines(holder, None, result, qty_multiplier=1)
+	rows = [{"item_code": row.item_code, "qty_per_build": row.qty, "description": row.description} for row in holder.items]
+	result = {**result, "template": (result.get("kit_template") or {}).get("name")}
+	return result, rows, lambda schedule_doc, line: _write_kit_line(schedule_doc, line, result)
+
+
+def _variant_choice(product_type: str, selections: dict[str, Any], product_slug: str | None, template: str | None):
+	"""``(result, rows, write_line)`` for a power supply or controller, or ``(None, error, None)``.
+
+	Both resolve to one variant Item and are scheduled as ACCESSORY lines, the
+	same lines the portal's power supply and controller configurators write.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.driver_controller_configurator import (
+		_KINDS,
+		_validate_configuration,
+	)
+	from illumenate_lighting.illumenate_lighting.api.portal import orderable_item_problem
+	from illumenate_lighting.illumenate_lighting.portal.driver_configuration import line_description
+	from illumenate_lighting.illumenate_lighting.portal.driver_configuration import (
+		write_line as write_driver_line,
+	)
+
+	template = template or selections.get("template") or None
+	if product_type == PRODUCT_TYPE_DRIVER and not template:
+		return None, _("Choose a power supply."), None
+	if product_type == PRODUCT_TYPE_CONTROLLER and not product_slug:
+		return None, _("Choose a controller."), None
+	clean = {
+		step["name"]: selections[step["name"]]
+		for step in _KINDS[product_type]["steps"]
+		if selections.get(step["name"]) not in (None, "")
+	}
+	if product_type == PRODUCT_TYPE_DRIVER:
+		result = _validate_configuration(product_type, None, canonical_json(clean), template)
+	else:
+		result = _validate_configuration(product_type, product_slug, canonical_json(clean))
+	item = (result.get("variant") or {}).get("item")
+	if not result.get("success") or not item:
+		return None, result.get("error") or _("This configuration has no orderable Item."), None
+	problem = orderable_item_problem(item, is_sales_staff=True)
+	if problem:
+		return None, problem, None
+
+	variant = result["variant"]
+	description = line_description(
+		result.get("template_name"), result.get("part_number"), variant.get("item_name")
+	)
+	result = {**result, "template": result.get("template_code")}
+	rows = [{
+		"item_code": item,
+		"qty_per_build": 1,
+		"description": description,
+		"msrp": (result.get("pricing") or {}).get("total_msrp"),
+	}]
+
+	def write_line(schedule_doc, line):
+		if product_type == PRODUCT_TYPE_DRIVER:
+			write_driver_line(line, result)
+			return
+		from illumenate_lighting.illumenate_lighting.portal.line_fields import LINE_PRODUCT_FIELDS
+
+		for field in LINE_PRODUCT_FIELDS:
+			line.set(field, None)
+		line.manufacturer_type = "ACCESSORY"
+		line.configuration_status = "Configured"
+		line.accessory_item = item
+		line.accessory_item_name = description
+		# Same stored configuration as portal.standard_products.add_configured.
+		line.variant_selections = canonical_json({
+			"product_slug": result.get("product_slug") or product_slug,
+			"template": result.get("template_code"),
+			"selections": result.get("selections") or clean,
+			"variant_code": variant.get("variant_code"),
+			"item_code": item,
+		})
+
+	return result, rows, write_line
 
 
 def _save_led_sheet(selections: dict[str, Any]) -> dict[str, Any]:

@@ -257,19 +257,24 @@ def get_context(context):
 			context.selected_template = template_code
 		context.driver_templates = _get_driver_templates()
 	elif product_category == "Controller":
-		from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
-		from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
-
-		context.family_products = [
-			row
-			for row in frappe.get_all("ilL-Webflow-Product", filters={"product_type": product_category, "is_configurable": 1}, fields=["product_name", "product_slug", "is_active", *LINK_FIELDS], order_by="product_name asc")
-			if on_portal(row)
-		]
+		context.family_products = _controller_products()
 		if not context.product_slug and template_code:
 			context.product_slug = next((p.product_slug for p in context.family_products if p.get(product_category.lower() + "_template") == template_code), "")
 	context.no_cache = 1
 
 	return context
+
+
+def _controller_products():
+	"""Configurable controller products shown on the portal, for the product picker."""
+	from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
+	from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
+
+	return [
+		row
+		for row in frappe.get_all("ilL-Webflow-Product", filters={"product_type": "Controller", "is_configurable": 1}, fields=["product_name", "product_slug", "is_active", *LINK_FIELDS], order_by="product_name asc")
+		if on_portal(row)
+	]
 
 
 def _query_value(value):
@@ -429,10 +434,14 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 	"""Render the reusable scoped-class configurator partial for embedding
 	outside the portal page (e.g. the desk Quotation / Sales Order dialog).
 
-	The markup is wired to the IllConfigurator.Fixture / TapeNeon / LedSheet classes:
+	The markup is wired to the IllConfigurator.Fixture / TapeNeon / LedSheet / Kit /
+	Driver / DriverController classes:
 	  - Linear Fixture -> templates/includes/configurator_fixture_form.html
 	  - LED Tape / COB Tape / LED Neon -> templates/includes/configurator_tape_neon_form.html
 	  - LED Sheet -> templates/includes/configurator_led_sheet_form.html
+	  - Extrusion Kit / Driver / Controller -> configurator_kit_form.html /
+	    configurator_driver_form.html / configurator_driver_controller_form.html,
+	    rendered without their schedule target and line details
 
 	The caller mounts the returned HTML inside a host element carrying
 	`.ill-configurator.ill-configurator-fixture` (fixtures),
@@ -447,6 +456,16 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 
 	require_catalog_access()
 	product_category = _normalize_product_category(product_category)
+	if product_category in ("Extrusion Kit", "Driver", "Controller"):
+		# Embedded: the desk dialog collects the line details and owns the save.
+		context = {"embedded": True, "selected_template": selected_template, "can_save": True, "show_pricing": True}
+		if product_category == "Extrusion Kit":
+			return frappe.render_template("illumenate_lighting/templates/includes/configurator_kit_form.html", context)
+		if product_category == "Driver":
+			context["driver_templates"] = _get_driver_templates()
+			return frappe.render_template("illumenate_lighting/templates/includes/configurator_driver_form.html", context)
+		context["family_products"] = _controller_products()
+		return frappe.render_template("illumenate_lighting/templates/includes/configurator_driver_controller_form.html", context)
 	if product_category == "LED Sheet":
 		from illumenate_lighting.illumenate_lighting.api.portal import get_led_sheet_templates
 
