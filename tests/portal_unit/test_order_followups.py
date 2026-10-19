@@ -66,6 +66,7 @@ class DeleteWithdrawnDraft(unittest.TestCase):
 				("ilL-Order-Intake", "INTAKE1", "sales_order"),
 				("ilL-Quote-Offer", "OFFER1", "sales_order"),
 				("ilL-Order-Change", "CHANGE1", "sales_order"),
+				("ilL-Order-Change", "CHANGE1", "result_sales_order"),
 			},
 		)
 		frappe.get_doc.return_value.add_comment.assert_called_once()

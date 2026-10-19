@@ -25,6 +25,7 @@ import json
 import traceback
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote, unquote, urlsplit
 
 import frappe
 from frappe import _
@@ -552,6 +553,33 @@ def _gather_field_mappings(fixture_template_name: str) -> list[dict]:
 		)
 
 
+LOCAL_FILE_PREFIXES = ("/files/", "/private/files/")
+
+
+def file_url_candidates(file_url: str) -> list[str]:
+	"""File URLs an Attach value may stand for.
+
+	A link pasted into an Attach field keeps the site's address and the browser's
+	percent-encoding (https://site/files/Spec%20Sheet.pdf) while the File record
+	holds /files/Spec Sheet.pdf, so the local path is tried in both spellings.
+	"""
+	url = (file_url or "").strip()
+	parts = urlsplit(url)
+	path = parts.path if parts.scheme in ("http", "https") else url.split("?", 1)[0]
+	candidates = [url]
+	if path.startswith(LOCAL_FILE_PREFIXES):
+		for value in (path, unquote(path), quote(unquote(path))):
+			if value not in candidates:
+				candidates.append(value)
+	return candidates
+
+
+def is_external_file_url(file_url: str) -> bool:
+	"""True for an http(s) link whose path is not one of this site's files."""
+	parts = urlsplit((file_url or "").strip())
+	return parts.scheme in ("http", "https") and not parts.path.startswith(LOCAL_FILE_PREFIXES)
+
+
 def _get_file_doc_by_url(file_url: str, warnings: list | None = None):
 	"""
 	Look up a Frappe File record by file_url, handling duplicates from re-uploads.
@@ -580,7 +608,7 @@ def _get_file_doc_by_url(file_url: str, warnings: list | None = None):
 		# Sort by creation DESC so we always pick the most recently uploaded copy.
 		matches = frappe.get_all(
 			"File",
-			filters={"file_url": file_url},
+			filters={"file_url": ["in", file_url_candidates(file_url)]},
 			fields=["name"],
 			order_by="creation desc",
 			limit_page_length=1,
