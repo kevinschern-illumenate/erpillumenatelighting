@@ -2403,7 +2403,7 @@ def _build_certifications_spec(doc) -> dict | None:
         "attribute_options": cert_options,
     }
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def trigger_sync_v2(docname):
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)

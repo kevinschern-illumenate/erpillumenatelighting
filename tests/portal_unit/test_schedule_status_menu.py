@@ -52,6 +52,7 @@ class LeavingQuoted(unittest.TestCase):
 				name="S-1",
 				status="QUOTED",
 				create_new_version=MagicMock(return_value="S-1-v2"),
+				get_linked_sales_order=lambda: None,
 			)
 			outcome = module.transition_schedule_status(schedule, "DRAFT", "dealer@a.test")
 			self.assertEqual(outcome["new_schedule_name"], "S-1-v2")

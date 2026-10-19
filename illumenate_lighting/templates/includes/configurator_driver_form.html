@@ -65,7 +65,7 @@ The host element must carry `.ill-configurator.ill-configurator-driver`.
 
 		<div class="d-flex justify-content-end align-items-center ill-fixture-actions mb-3">
 			<small id="driverSaveHint" class="text-muted mr-3" aria-live="polite" hidden></small>
-			<button id="familySave" type="button" class="btn btn-success" disabled><i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add") if (embedded | default(false)) else _("Add to Schedule") }}</button>
+			<button id="familySave" type="button" class="btn btn-success" disabled><i class="fa fa-plus" aria-hidden="true"></i> {{ (_("Add") if (embedded | default(false)) else _("Add to Schedule")) | e }}</button>
 		</div>
 	</div>
 
