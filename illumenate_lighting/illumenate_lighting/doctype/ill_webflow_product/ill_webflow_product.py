@@ -3078,6 +3078,10 @@ class ilLWebflowProduct(Document):
 
 	def sync_custom_template_data(self):
 		"""V2 Sync: Updates ilL-Webflow-Product custom fields with data from linked templates."""
+		# custom_spec_custom is a site Custom Field the app does not ship; skip where it is absent.
+		if not self.meta.has_field("custom_spec_custom"):
+			return
+
 		PRODUCT_TYPE_TEMPLATE_MAP = {
 			"LED Tape": {"link_field": "tape_neon_template", "doctype": "ilL-Tape-Neon-Template"},
 			"COB Tape": {"link_field": "tape_neon_template", "doctype": "ilL-Tape-Neon-Template"},
