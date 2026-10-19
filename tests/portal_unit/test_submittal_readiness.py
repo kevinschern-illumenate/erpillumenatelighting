@@ -118,6 +118,36 @@ class Rules(unittest.TestCase):
 		self.assertEqual(lost["missing"], ["spec_submittal_template"])
 		self.assertIn("/files/gone.pdf", lost["notes"][0])
 
+	def test_pasted_links_resolve_to_the_uploaded_file(self):
+		with load_service(ROOT + ".api.spec_submittal") as (pdf, _frappe):
+			pasted = pdf.file_url_candidates("https://erp.example.com/files/Spec%20Sheet.pdf")
+			plain = pdf.file_url_candidates("/files/sheet.pdf")
+			elsewhere = pdf.file_url_candidates("https://cdn.example.com/Spec%20Sheet.pdf")
+			external = [
+				pdf.is_external_file_url(url)
+				for url in (
+					"https://cdn.example.com/a.pdf",
+					"https://erp.example.com/files/a.pdf",
+					"/files/a.pdf",
+				)
+			]
+		self.assertIn("/files/Spec Sheet.pdf", pasted)
+		self.assertIn("/files/Spec%20Sheet.pdf", pasted)
+		self.assertEqual(plain, ["/files/sheet.pdf"])
+		self.assertEqual(elsewhere, ["https://cdn.example.com/Spec%20Sheet.pdf"])
+		self.assertEqual(external, [True, False, False])
+
+	def test_a_link_to_another_site_says_to_attach_the_pdf(self):
+		with load_service(READINESS) as (module, _frappe):
+			issues = module.template_issues(
+				{"spec_submittal_template": "https://cdn.example.com/s.pdf", "spec_sheet": "/files/x.pdf"},
+				1,
+				{"/files/x.pdf"},
+			)
+		self.assertEqual(issues["missing"], ["spec_submittal_template"])
+		self.assertIn("cdn.example.com", issues["notes"][0])
+		self.assertIn("attach the PDF itself", issues["notes"][0])
+
 	def test_report_counts_missing_attachments(self):
 		with load_service(READINESS) as (module, _frappe):
 			summary = module.summarize(

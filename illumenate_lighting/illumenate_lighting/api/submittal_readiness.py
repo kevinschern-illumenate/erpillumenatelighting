@@ -15,6 +15,7 @@ prints the mappings that fail.
 """
 
 from collections import Counter
+from urllib.parse import urlsplit
 
 import frappe
 from frappe import _
@@ -88,7 +89,15 @@ def template_issues(template, mapping_count, existing_files):
 			missing.append(field)
 		elif url not in existing_files:
 			missing.append(field)
-			notes.append(_("{0} is attached but its file is missing: {1}").format(field, url))
+			host = urlsplit(url).netloc
+			if host and not urlsplit(url).path.startswith(("/files/", "/private/files/")):
+				notes.append(
+					_("{0} links to a file on {1}, not one uploaded here; attach the PDF itself: {2}").format(
+						field, host, url
+					)
+				)
+			else:
+				notes.append(_("{0} is attached but no File record matches it: {1}").format(field, url))
 	if not mapping_count:
 		missing.append("field_mappings")
 	if "spec_submittal_template" in missing and template.get("spec_sheet") in existing_files:
@@ -179,6 +188,20 @@ def _usage(line_field):
 	)
 
 
+def existing_file_urls(urls):
+	"""The attached URLs that resolve to a File record, the way the PDF generator resolves them."""
+	from illumenate_lighting.illumenate_lighting.api.spec_submittal import file_url_candidates
+
+	candidates = {url: file_url_candidates(url) for url in urls}
+	wanted = sorted({value for values in candidates.values() for value in values})
+	found = (
+		set(frappe.get_all("File", filters={"file_url": ["in", wanted]}, pluck="file_url"))
+		if wanted
+		else set()
+	)
+	return {url for url, values in candidates.items() if found.intersection(values)}
+
+
 def kind_rows(kind):
 	cfg = KINDS[kind]
 	templates = frappe.get_all(
@@ -190,11 +213,7 @@ def kind_rows(kind):
 	)
 	counts = Counter(frappe.get_all(cfg["mapping"], pluck=cfg["link"], limit_page_length=0))
 	urls = {t.get(f) for t in templates for f in ("spec_submittal_template", "spec_sheet") if t.get(f)}
-	existing = (
-		set(frappe.get_all("File", filters={"file_url": ["in", list(urls)]}, pluck="file_url"))
-		if urls
-		else set()
-	)
+	existing = existing_file_urls(urls)
 	usage = _usage(cfg["line_field"])
 	return [
 		{
