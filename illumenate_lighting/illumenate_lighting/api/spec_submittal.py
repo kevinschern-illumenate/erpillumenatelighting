@@ -260,6 +260,22 @@ def _commercial_source_blocked(doctype, field):
 	return any(term in (field or "").lower().split("_") for term in terms) or doctype in ("Item Price", "Customer", "Quotation", "Sales Order")
 
 
+def _project_source_value(project, source_field):
+	"""A project field for a submittal: parties print their name, not their record ID (DESK-9).
+
+	``customer`` prints the end client: the end-client party when the project has
+	one (a portal project's Customer is the dealer company), else the Customer.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.project_parties import ROLE_FIELDS, label
+
+	if source_field == "customer" and project.get("end_client_party"):
+		return label(project.get("end_client_party"))
+	value = getattr(project, source_field, None)
+	if source_field in ROLE_FIELDS and value:
+		return label(value)
+	return value
+
+
 def _get_source_value(
 	source_doctype: str,
 	source_field: str,
@@ -351,7 +367,7 @@ def _get_source_value(
 			return val
 
 		if source_doctype == "ilL-Project" and project:
-			val = getattr(project, source_field, None)
+			val = _project_source_value(project, source_field)
 			_debug(
 				f"_get_source_value: {source_doctype}.{source_field} → {val!r} "
 				f"(doc={project.name})",
@@ -1012,6 +1028,8 @@ def _generate_cover_page(
 		context = {
 			"schedule": schedule,
 			"project": project,
+			# DESK-9: the end client by name (party or Customer), not the billing Customer's ID.
+			"end_client": _project_source_value(project, "customer") if project else None,
 			"fixture_lines": fixture_lines,
 			"generation_date": nowdate() if include_date else None,
 			"generation_datetime": now() if include_date else None,
@@ -1020,7 +1038,7 @@ def _generate_cover_page(
 
 		# Render the cover page template
 		html_content = frappe.render_template(
-			"illumenate_lighting/templates/pages/spec_submittal_cover.html",
+			"illumenate_lighting/templates/print/spec_submittal_cover.html",
 			context,
 		)
 
@@ -1543,7 +1561,7 @@ def _get_neon_source_value(
 			return val
 
 		if source_doctype == "ilL-Project" and project:
-			val = getattr(project, source_field, None)
+			val = _project_source_value(project, source_field)
 			_debug(
 				f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} "
 				f"(doc={project.name})",
@@ -2010,6 +2028,8 @@ def _generate_filled_variant_submittal(
 	webflow_overrides: dict | None = None,
 	is_private: int = 1,
 	schedule_context: tuple | None = None,
+	*,
+	driver_item: str | None = None,
 ) -> dict:
 	"""Shared implementation behind the driver and controller submittal generators."""
 	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
@@ -2052,6 +2072,10 @@ def _generate_filled_variant_submittal(
 			return {"success": False, "message": _(msg), "warnings": warnings}
 
 		variant = _resolve_template_variant(template, variant_name)
+		if kind == "Driver" and driver_item and (
+			not variant_name or not variant or variant.name != variant_name
+		):
+			return {"success": False, "message": _("The scheduled driver variant is unavailable"), "warnings": warnings}
 		if not variant:
 			msg = f"{kind} template '{template_name}' has no active variant to generate from"
 			_debug(f"_generate_filled_variant_submittal[{kind}]: FAIL – {msg}", warnings)
@@ -2059,6 +2083,8 @@ def _generate_filled_variant_submittal(
 
 		spec_name = variant.get(cfg["spec_field"])
 		spec = frappe.get_doc(cfg["spec_doctype"], spec_name) if spec_name else None
+		if kind == "Driver" and driver_item and (not spec or spec.get("item") != driver_item):
+			return {"success": False, "message": _("The driver variant does not match the scheduled Item"), "warnings": warnings}
 
 		webflow_product = _get_linked_webflow_product(
 			cfg["product_link_field"], template_name, warnings
@@ -2182,6 +2208,71 @@ def generate_filled_driver_submittal(
 	)
 
 
+def _driver_document_source(line) -> dict | None:
+	"""Resolve driver documents without changing the line or selecting a different supply.
+
+	Configurator lines keep their template and variant. Supplies split out of a
+	fixture build keep only the Item; find its exact electrical spec and template
+	variant. An ambiguous catalog association must never use a default variant.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.driver_configuration import driver_configuration
+
+	if line.get("manufacturer_type") != "ACCESSORY" or not line.get("accessory_item"):
+		return None
+	item = line.get("accessory_item")
+	template = line.get("driver_template")
+	config = driver_configuration(line)
+	if config and config.get("variant_name"):
+		return {**config, "template": template, "item_code": item}
+	specs = frappe.get_all("ilL-Spec-Driver", filters={"item": item}, pluck="name")
+	rows = []
+	if specs:
+		filters = {
+			"parenttype": "ilL-Driver-Template",
+			"parentfield": "variants",
+			"driver_spec": ["in", specs],
+		}
+		if template:
+			filters["parent"] = template
+		rows = frappe.get_all(
+			"ilL-Child-Driver-Template-Variant",
+			filters=filters,
+			fields=[
+				"name",
+				"parent",
+				"driver_spec",
+				"wattage",
+				"voltage_output",
+				"input_protocol",
+				"output_protocol",
+			],
+			order_by="parent asc, idx asc",
+		)
+	if len(rows) == 1:
+		row = rows[0]
+		return {
+			"template": row.parent,
+			"variant_name": row.name,
+			"spec_name": row.driver_spec,
+			"item_code": item,
+			"part_number": row.driver_spec,
+			"selections": {
+				field: row.get(field)
+				for field in ("wattage", "voltage_output", "input_protocol", "output_protocol")
+			},
+		}
+	if len(rows) > 1:
+		raise ValueError(
+			f"Driver Item '{item}' matches multiple template variants; configure its power supply line to select one"
+		)
+	if template:
+		return {
+			"template": template,
+			"resolution_error": f"Driver template '{template}' has no variant for Item '{item}'",
+		}
+	return None
+
+
 def generate_filled_driver_line_submittal(
 	driver_template_name: str,
 	warnings: list | None = None,
@@ -2192,8 +2283,8 @@ def generate_filled_driver_line_submittal(
 	"""
 	Generate a filled spec submittal PDF for a configured power supply schedule line.
 
-	The line keeps the validated configuration (see portal.driver_configuration), so the
-	submittal is filled from the exact variant chosen, and the schedule supplies the
+	The line's saved configuration or resolved driver Item identifies the exact
+	template variant, and the schedule supplies the
 	"project_name", "fixture_type", "project_location" and "part_number" values that
 	mappings with a Webflow Field read. Mappings sourced from the schedule, its project
 	or the line itself read those records directly.
@@ -2202,20 +2293,30 @@ def generate_filled_driver_line_submittal(
 		This is an internal helper and is intentionally **not** whitelisted.
 		The schedule line is authorized through its schedule before any value is read.
 	"""
-	from illumenate_lighting.illumenate_lighting.portal.driver_configuration import driver_configuration
-
 	if warnings is None:
 		warnings = []
-	schedule, project, line = _schedule_context or _explicit_schedule_context(
-		"driver_template", driver_template_name, schedule_line
-	)
-	config = driver_configuration(line) if line else None
+	if _schedule_context is None:
+		# Included supplies have an Item link, but no saved driver_template. Authorize
+		# that line through its schedule before resolving any catalog documents.
+		line = (
+			frappe.get_doc("ilL-Child-Fixture-Schedule-Line", schedule_line)
+			if schedule_line and not frappe.flags.get("ill_product_download") else None
+		)
+		_schedule_context = _explicit_schedule_context(
+			"accessory_item", line.get("accessory_item") if line else None, schedule_line
+		)
+	schedule, project, line = _schedule_context
+	config = _driver_document_source(line) if line else None
 	if not config:
 		return {
 			"success": False,
 			"message": _("Configure this power supply before exporting"),
 			"warnings": warnings,
 		}
+	if config["template"] != driver_template_name:
+		frappe.throw("This line does not reference the requested driver template", frappe.PermissionError)
+	if config.get("resolution_error"):
+		return {"success": False, "message": config["resolution_error"], "warnings": warnings}
 	overrides = {
 		"project_name": project.get("project_name") if project else None,
 		"fixture_type": line.get("line_id"),
@@ -2231,6 +2332,7 @@ def generate_filled_driver_line_submittal(
 		overrides,
 		is_private=1,
 		schedule_context=(schedule, project, line),
+		driver_item=line.get("accessory_item"),
 	)
 	if result.get("success"):
 		result.setdefault("provenance", {})["build"] = {

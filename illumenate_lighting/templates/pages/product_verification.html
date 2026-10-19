@@ -1,7 +1,6 @@
-{% extends "templates/web.html" %}
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-<main class="container py-4"><h1>{{ verification.name }}</h1><h2>{{ verification.product_title }}</h2><p>{{ verification.state }}</p><p style="white-space:pre-wrap">{{ verification.resolution or '' }}</p>
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ _("Verification") }}{% endblock %}
+{% block portal_page_class %}py-4{% endblock %}
+{% block portal_content %}<h1>{{ verification.name | e }}</h1><h2>{{ verification.product_title | e }}</h2><p><span class="ill-status ill-status--{{ status_class | e }}">{{ status_label | e }}</span></p><p style="white-space:pre-wrap">{{ (verification.resolution or '') | e }}</p>
 {% if verification.schedule %}<a href="/portal/schedules/{{ verification.schedule | urlencode }}">Open schedule</a>{% endif %}
-<div data-portal-conversation data-parent-type="ilL-Product-Verification-Request" data-parent-name="{{ verification.name }}"></div></main>
-{% endblock %}
+<div data-portal-conversation data-parent-type="ilL-Product-Verification-Request" data-parent-name="{{ verification.name | e }}"></div>{% endblock %}

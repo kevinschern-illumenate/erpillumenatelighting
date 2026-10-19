@@ -1,9 +1,8 @@
-{% extends "templates/web.html" %}
-{% block title %}{{ request.name }}{% endblock %}
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
-{% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
-<main class="container ill-commerce">
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ request.name | e }}{% endblock %}
+{% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_content %}{% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
+
   <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Quotes and requests") }}</a>
   <header class="ill-hero">
     <div class="ill-hero__top">
@@ -19,8 +18,8 @@
     </div>
     <dl class="ill-hero__facts">
       <div><dt>{{ _("Requested by") }}</dt><dd>{{ request.requested_by | e }}</dd></div>
-      <div><dt>{{ _("Requested timing") }}</dt><dd>{{ request.snapshot.requested_date or _("Not specified") }}</dd></div>
-      <div><dt>{{ _("Staff review due") }}</dt><dd>{{ frappe.utils.format_date(request.due_date) if request.due_date else _("Not assigned") }}</dd></div>
+      <div><dt>{{ _("Requested timing") }}</dt><dd>{{ (request.snapshot.requested_date or _("Not specified")) | e }}</dd></div>
+      <div><dt>{{ _("Staff review due") }}</dt><dd>{{ (frappe.utils.format_date(request.due_date) if request.due_date else _("Not assigned")) | e }}</dd></div>
       <div><dt>{{ _("Lines") }}</dt><dd>{{ request.snapshot.lines | length }}</dd></div>
     </dl>
   </header>
@@ -53,7 +52,7 @@
             <tbody>
             {% for line in request.snapshot.lines %}<tr>
               <td><span class="ill-lines__name">{{ line.line_id | e }}</span></td>
-              <td class="num" data-label="{{ _('Quantity') }}">{{ line.qty }}</td>
+              <td class="num" data-label="{{ _('Quantity') }}">{{ line.qty | e }}</td>
               <td data-label="{{ _('Manufacturer') }}">{{ (line.manufacturer_name or line.manufacturer_type) | e }}</td>
               <td data-label="{{ _('Location / notes') }}">{{ line.location | default('', true) | e }}{% if line.notes %}<div class="ill-lines__meta">{{ line.notes | e }}</div>{% endif %}</td>
             </tr>{% else %}<tr><td colspan="4" class="ill-lines__meta">{{ _("No lines were submitted.") }}</td></tr>{% endfor %}
@@ -68,8 +67,8 @@
         <div class="ill-panel__head"><h2 id="request-notes-heading">{{ _("Your request") }}</h2></div>
         <div class="ill-panel__body">
           <dl class="ill-facts ill-facts--stack">
-            <div><dt>{{ _("Contact") }}</dt><dd>{{ request.snapshot.contact | default('', true) | e or _("Not provided") }}</dd></div>
-            <div><dt>{{ _("Notes") }}</dt><dd class="ill-prewrap">{{ request.snapshot.notes | default('', true) | e or _("None") }}</dd></div>
+            <div><dt>{{ _("Contact") }}</dt><dd>{{ (request.snapshot.contact | default('', true) | e or _("Not provided")) | e }}</dd></div>
+            <div><dt>{{ _("Notes") }}</dt><dd class="ill-prewrap">{{ (request.snapshot.notes | default('', true) | e or _("None")) | e }}</dd></div>
           </dl>
         </div>
       </section>
@@ -83,5 +82,4 @@
       {% endif %}
     </aside>
   </div>
-</main>
 {% endblock %}

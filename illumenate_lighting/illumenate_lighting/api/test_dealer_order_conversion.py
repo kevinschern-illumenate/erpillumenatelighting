@@ -253,6 +253,82 @@ class TestDealerOrderConversion(FrappeTestCase):
 		schedule.reload()
 		self.assertEqual(schedule.status, "ISSUE")
 
+	# ------------------------------------------------------------------
+	# deleting a rejected order request
+	# ------------------------------------------------------------------
+
+	def _rejected_request(self, suffix):
+		"""A dealer's order request that staff rejected, with its decision email queued."""
+		from illumenate_lighting.illumenate_lighting.portal import order_review
+		from illumenate_lighting.illumenate_lighting.portal.outbox import _ensure_event
+
+		schedule = self._make_schedule(suffix)
+		frappe.set_user(DEALER_USER)
+		result = portal.create_schedule_sales_order(schedule.name)
+		frappe.set_user("Administrator")
+		self.assertTrue(result.get("success"), result.get("error"))
+		order = frappe.get_doc("Sales Order", result["sales_order"])
+		order_review.review(order.name, "REJECT", "Wrong finish", expected_modified=str(order.modified))
+		# Retained notification evidence links to the order; it used to block deletion.
+		_ensure_event("notify_orders", "Rejected", "<p>Rejected</p>", "Sales Order", order.name, "test")
+		schedule.reload()
+		self.assertEqual(schedule.status, "ISSUE")
+		return schedule, order.name
+
+	def test_staff_delete_rejected_request_and_dealer_returns_schedule_to_draft(self):
+		schedule, order_name = self._rejected_request("Rejected Staff Delete")
+		intake = frappe.db.get_value("ilL-Order-Intake", {"sales_order": order_name}, "name")
+
+		# While the rejected order exists the dealer cannot reopen the schedule.
+		frappe.set_user(DEALER_USER)
+		self.assertFalse(portal.update_schedule_status(schedule.name, "DRAFT").get("success"))
+		frappe.set_user("Administrator")
+
+		# No force: Frappe's link checks run, as they do for a Desk delete.
+		frappe.delete_doc("Sales Order", order_name)
+		self.assertFalse(frappe.db.exists("Sales Order", order_name))
+		self.assertEqual(frappe.db.get_value("ilL-Order-Intake", intake, "state"), "REJECTED")
+		schedule.reload()
+		self.assertEqual(schedule.status, "ISSUE")
+		self.assertFalse(schedule.sales_order)
+
+		frappe.set_user(DEALER_USER)
+		result = portal.update_schedule_status(schedule.name, "DRAFT")
+		frappe.set_user("Administrator")
+		self.assertTrue(result.get("success"), result.get("error"))
+		schedule.reload()
+		self.assertEqual(schedule.status, "DRAFT")
+		self.assertFalse(schedule.status_note)
+
+	def test_dealer_deletes_rejected_request_from_portal(self):
+		from illumenate_lighting.illumenate_lighting.portal import order_review, orders
+
+		schedule, order_name = self._rejected_request("Rejected Dealer Delete")
+		frappe.set_user(DEALER_USER)
+		try:
+			self.assertTrue(order_review.detail(order_name)["can_delete"])
+			result = order_review.delete_request(order_name)
+			self.assertEqual(result, {"success": True, "schedule": schedule.name})
+			self.assertNotIn(order_name, [row.name for row in orders.list_orders()])
+		finally:
+			frappe.set_user("Administrator")
+		self.assertFalse(frappe.db.exists("Sales Order", order_name))
+
+	def test_dealer_cannot_delete_open_request(self):
+		from illumenate_lighting.illumenate_lighting.portal import order_review
+
+		schedule = self._make_schedule("Open Request Delete")
+		frappe.set_user(DEALER_USER)
+		try:
+			result = portal.create_schedule_sales_order(schedule.name)
+			self.assertTrue(result.get("success"), result.get("error"))
+			self.assertFalse(order_review.detail(result["sales_order"])["can_delete"])
+			with self.assertRaises(frappe.ValidationError):
+				order_review.delete_request(result["sales_order"])
+		finally:
+			frappe.set_user("Administrator")
+		self.assertTrue(frappe.db.exists("Sales Order", result["sales_order"]))
+
 	def test_dealer_without_create_permission_is_blocked_and_rolls_back(self):
 		"""No Sales Order create permission → no order and no orphan Item/BOM.
 

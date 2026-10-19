@@ -38,7 +38,7 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_driver_template.ill_dri
     DRIVER_VARIANT_AXES,
     _normalise_axis_value,
 )
-
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 
 # =============================================================================
 # CONFIGURATION CONSTANTS
@@ -89,18 +89,21 @@ _KINDS = {
 # =============================================================================
 
 @frappe.whitelist(allow_guest=True)
+@price_scoped
 def get_driver_configurator_init(product_slug: str | None = None, template: str | None = None) -> dict:
     """Initialise the Driver configurator for a Webflow product slug or an ilL-Driver-Template."""
     return _get_configurator_init("Driver", product_slug, template)
 
 
 @frappe.whitelist(allow_guest=True)
+@price_scoped
 def get_controller_configurator_init(product_slug: str) -> dict:
     """Initialise the Controller configurator for a Webflow product slug."""
     return _get_configurator_init("Controller", product_slug)
 
 
 @frappe.whitelist(allow_guest=True)
+@price_scoped
 def get_driver_cascading_options(
     product_slug: str | None = None,
     step_name: str | None = None,
@@ -112,6 +115,7 @@ def get_driver_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
+@price_scoped
 def get_controller_cascading_options(
     product_slug: str,
     step_name: str,
@@ -122,6 +126,7 @@ def get_controller_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
+@price_scoped
 def validate_driver_configuration(
     product_slug: str | None = None, selections: str | None = None, template: str | None = None
 ) -> dict:
@@ -130,6 +135,7 @@ def validate_driver_configuration(
 
 
 @frappe.whitelist(allow_guest=True)
+@price_scoped
 def validate_controller_configuration(product_slug: str, selections: str) -> dict:
     """Resolve a Controller selection set to exactly one template variant."""
     return _validate_configuration("Controller", product_slug, selections)

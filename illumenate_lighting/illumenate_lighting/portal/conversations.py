@@ -107,6 +107,7 @@ def list_messages(parent_type, parent_name, page=1, page_size=20):
 		row["from_staff"] = person.get("user_type") == "System User"
 	return {
 		"messages": rows,
+		"new_from_customer": new_from_customer(parent_type, parent_name) if staff else 0,
 		"total": frappe.db.count(MESSAGE, filters),
 		"page": page,
 		"page_size": page_size,
@@ -115,6 +116,26 @@ def list_messages(parent_type, parent_name, page=1, page_size=20):
 		"can_reply": _open(doc),
 		"next_action_by": doc.get("ill_next_action_by") or "Staff",
 	}
+
+
+def new_from_customer(parent_type, parent_name):
+	"""Customer messages since ilLumenate last wrote on this record: what staff have not answered."""
+	rows = frappe.db.sql(
+		"""
+		select count(*) from `tabilL-Portal-Message` m
+		join `tabUser` u on u.name = m.actor
+		where m.reference_type = %(type)s and m.reference_name = %(name)s
+			and m.visibility = 'Customer' and u.user_type != 'System User'
+			and m.creation > coalesce((
+				select max(s.creation) from `tabilL-Portal-Message` s
+				join `tabUser` su on su.name = s.actor
+				where s.reference_type = %(type)s and s.reference_name = %(name)s
+					and su.user_type = 'System User'
+			), '1900-01-01')
+		""",
+		{"type": parent_type, "name": parent_name},
+	)
+	return int(rows[0][0] or 0) if rows else 0
 
 
 def _people(users):
@@ -285,12 +306,21 @@ def reply(
 def _notify(doc, message, staff):
 	if message.visibility != "Customer":
 		return
+	from illumenate_lighting.illumenate_lighting.portal import staff_notifications
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
+	_capability, _owner, label = staff_notifications.spec_for(doc.doctype)
 	if staff:
 		recipients = [doc.get("requester_user") or doc.get("raised_by") or doc.get("requested_by")]
+		subject = frappe._("New reply on your {0} {1}").format(label, doc.name)
 	else:
-		recipients = [doc.get("assigned_to") or doc.get("ill_support_owner")]
+		owner = doc.get("assigned_to") or doc.get("ill_support_owner")
+		# The owner gets a bell and the email below; with no owner the whole team is told.
+		staff_notifications.reply(doc, message, assignee=owner)
+		recipients = [owner]
+		subject = frappe._("New reply on {0} {1} from {2}").format(
+			label, doc.name, staff_notifications.who(doc)
+		)
 	path = "drawings" if doc.doctype == "ilL-Document-Request" else "support"
 	link_name = doc.name
 	if doc.doctype == "ilL-Quote-Request":
@@ -304,7 +334,7 @@ def _notify(doc, message, staff):
 			notify_user(
 				recipient,
 				"notify_drawings" if path == "drawings" else "notify_orders",
-				"A reply is available in your portal conversation",
+				subject,
 				f'<p><a href="{frappe.utils.get_url()}/portal/{path}/{frappe.utils.escape_html(link_name)}">Open the conversation</a> to read the reply.</p>',
 				reference_doctype=MESSAGE,
 				reference_name=message.name,

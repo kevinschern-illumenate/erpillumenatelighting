@@ -55,6 +55,7 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     inches_to_mm,
     mm_to_inches,
 )
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 
 # ═══════════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -253,6 +254,7 @@ def _compute_template_tape_neon_pricing(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@price_scoped
 def get_tape_configurator_init(tape_spec_name: str = None) -> dict:
     """
     Initialise the LED Tape configurator.
@@ -336,6 +338,7 @@ def get_tape_configurator_init(tape_spec_name: str = None) -> dict:
 
 
 @frappe.whitelist()
+@price_scoped
 def get_tape_cascading_options(
     environment_rating: str = None,
     cct: str = None,
@@ -405,6 +408,7 @@ def get_tape_cascading_options(
 
 
 @frappe.whitelist(methods=["POST"])
+@price_scoped
 @atomic_build
 def validate_tape_configuration(
     selections: str,
@@ -894,6 +898,7 @@ def validate_tape_configuration(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@price_scoped
 def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
     """
     Initialise the LED Neon configurator.
@@ -978,6 +983,7 @@ def get_neon_configurator_init(tape_spec_name: str = None) -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
+@price_scoped
 @atomic_build
 def validate_neon_configuration(
     selections: str,
@@ -1696,6 +1702,7 @@ def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@price_scoped
 def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
     """
     Initialise the LED Tape or LED Neon configurator by deriving options
@@ -1812,6 +1819,7 @@ def get_tape_neon_spec_init(product_category: str = "LED Tape") -> dict:
 
 
 @frappe.whitelist()
+@price_scoped
 def get_tape_neon_spec_cascading(
     product_category: str = "LED Tape",
     environment_rating: str = None,
@@ -1883,6 +1891,7 @@ def get_tape_neon_spec_cascading(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@price_scoped
 def get_tape_neon_template_init(template_code: str) -> dict:
     """
     Initialise the configurator for a specific ilL-Tape-Neon-Template.
@@ -2041,6 +2050,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
 
 
 @frappe.whitelist()
+@price_scoped
 def get_tape_neon_template_cascading(
     template_code: str,
     environment_rating: str = None,
@@ -2185,6 +2195,7 @@ def get_tape_neon_template_cascading(
 
 
 @frappe.whitelist(methods=["POST"])
+@price_scoped
 @atomic_build
 def validate_tape_neon_template_config(
     template_code: str,
@@ -3927,6 +3938,7 @@ def _build_neon_description(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist(allow_guest=True)
+@price_scoped
 def get_mounting_accessories(
     template_code: str,
     product_category: str = None,

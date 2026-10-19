@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-14 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_notifications",
+  "email_staff_inbox",
+  "staff_inbox_email",
+  "section_routes",
+  "routes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_notifications",
+   "fieldtype": "Section Break",
+   "label": "Staff Notifications",
+   "description": "Dealer submissions always ring the Desk bell for the assignee, or for everyone on the team when unassigned."
+  },
+  {
+   "fieldname": "email_staff_inbox",
+   "fieldtype": "Check",
+   "label": "Also Email the Shared Inbox",
+   "default": "1"
+  },
+  {
+   "fieldname": "staff_inbox_email",
+   "fieldtype": "Data",
+   "label": "Shared Inbox Email",
+   "options": "Email",
+   "default": "sales@illumenate.lighting",
+   "depends_on": "email_staff_inbox",
+   "mandatory_depends_on": "email_staff_inbox"
+  },
+  {
+   "fieldname": "section_routes",
+   "fieldtype": "Section Break",
+   "label": "Assignment and SLA",
+   "description": "One row per queue. Queues without a row go to the team that handles them, with no due date."
+  },
+  {
+   "fieldname": "routes",
+   "fieldtype": "Table",
+   "label": "Queues",
+   "options": "ilL-Child-Portal-Route"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-14 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Portal-Routing-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "ilL Sales Review"
+  },
+  {
+   "read": 1,
+   "role": "ilL Support"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -1,34 +1,47 @@
 /* ilLumenate brand webfonts (Brand Guidelines 2025): Manrope for headings,
-   Poppins for body copy. Poppins 400/600 come from Google Fonts for the
-   regular/semibold weights the portal UI also uses. */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+   Poppins for body copy. All self-hosted as woff2 (UI-6); portal_base.html
+   preloads Poppins 400 and 600, the two weights body copy and buttons use. */
 
 @font-face {
 	font-family: 'Manrope';
-	src: url('/assets/illumenate_lighting/fonts/Manrope-Variable.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Manrope-Variable.woff2') format('woff2');
 	font-weight: 200 800;
 	font-style: normal;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'Poppins';
-	src: url('/assets/illumenate_lighting/fonts/Poppins-Light.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Light.woff2') format('woff2');
 	font-weight: 300;
 	font-style: normal;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'Poppins';
-	src: url('/assets/illumenate_lighting/fonts/Poppins-Medium.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Regular.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Poppins';
+	src: url('/assets/illumenate_lighting/fonts/Poppins-Medium.woff2') format('woff2');
 	font-weight: 500;
 	font-style: normal;
 	font-display: swap;
 }
 @font-face {
 	font-family: 'Poppins';
-	src: url('/assets/illumenate_lighting/fonts/Poppins-MediumItalic.ttf') format('truetype');
+	src: url('/assets/illumenate_lighting/fonts/Poppins-MediumItalic.woff2') format('woff2');
 	font-weight: 500;
 	font-style: italic;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Poppins';
+	src: url('/assets/illumenate_lighting/fonts/Poppins-SemiBold.woff2') format('woff2');
+	font-weight: 600;
+	font-style: normal;
 	font-display: swap;
 }
 
@@ -177,7 +190,8 @@
 .portal-page {
 	font-family: var(--ill-font-family);
 	color: var(--ill-ink);
-	padding: var(--ill-space-8) 0;
+	/* Keep the website container's responsive horizontal gutters. */
+	padding-block: var(--ill-space-8);
 	min-height: 100vh;
 	background: white;
 }
@@ -517,7 +531,7 @@
    ============================================ */
 @media (max-width: 768px) {
 	.portal-page {
-		padding: var(--ill-space-4) 0;
+		padding-block: var(--ill-space-4);
 	}
 
 	.portal-card-body {
@@ -691,6 +705,15 @@
 	transition: color var(--ill-transition), border-color var(--ill-transition);
 }
 .ill-portal-navigation a:hover { color: var(--ill-blue-600); text-decoration: none; }
+/* Below 768px the tabs scroll sideways in one row instead of wrapping into a block. */
+@media (max-width: 767.98px) {
+	.ill-portal-navigation { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+	.ill-portal-navigation::-webkit-scrollbar { display: none; }
+	.ill-portal-navigation a { flex: 0 0 auto; padding: 12px; white-space: nowrap; }
+}
+/* One shell for every signed-in page (templates/portal_base.html). */
+.ill-portal-shell { padding-top: 1.5rem; padding-bottom: 3rem; }
+.ill-portal-shell--bare { padding-top: 0; }
 .ill-portal-navigation a[aria-current="page"] { color: var(--ill-blue-600); font-weight: 500; border-bottom-color: var(--ill-blue-600); }
 .portal-page :focus-visible, .ill-portal-navigation :focus-visible, .modal :focus-visible { outline:3px solid var(--ill-primary); outline-offset:3px; }
 .portal-page .btn { white-space:normal; }

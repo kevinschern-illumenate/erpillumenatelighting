@@ -227,3 +227,21 @@ test('public Finder completion claims once and opens the dealer filtered catalog
     try {await page.goto(result.claim_url);await expect(page).toHaveURL(/portal\/products\?finder=/);await expect(page.locator('#finderBanner')).toBeVisible();}
     finally {await context.close();}
 });
+
+// UI-7: axe-core on each signed-in portal page; serious and critical WCAG 2 A/AA violations fail.
+const A11Y_PAGES=data=>['/portal','/portal/projects','/portal/schedules/'+encodeURIComponent(data.schedules.a),
+    '/portal/products','/portal/quotes','/portal/orders','/portal/drawings','/portal/resources','/portal/support',
+    '/portal/account'];
+test('portal pages have no serious accessibility violations', async ({browser})=>{
+    const {AxeBuilder}=require('@axe-core/playwright');
+    const data=fixture(), context=await actor(browser,'dealer_a'), page=await context.newPage(), found=[];
+    try {
+        for (const path of A11Y_PAGES(data)) {
+            await page.goto(path);
+            const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa']).analyze();
+            for (const violation of result.violations.filter(v=>['serious','critical'].includes(v.impact)))
+                found.push(`${path}: ${violation.id} (${violation.nodes.length}) ${violation.help}`);
+        }
+        expect(found).toEqual([]);
+    } finally {await context.close();}
+});

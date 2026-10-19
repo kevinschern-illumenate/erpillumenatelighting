@@ -37,6 +37,23 @@ The **Dealer** role is designed for external dealer/distributor users who need a
 - Access other companies' data
 - Grant Dealer role to external collaborators
 
+## Master Data Scoping
+
+The Dealer role has read permission on Customer, Contact and Address because a portal
+Sales Order refers to them, and ERPNext's REST API (`/api/resource/...`,
+`frappe.client.get_list`) honours role permissions for website users too.
+`portal/master_scope.py` narrows those reads for every **website user** (dealers,
+company members and collaborators alike) through `permission_query_conditions` and
+`has_permission` hooks:
+
+- **Customer**: the user's own company, Customers they created, and Customers named as
+  end client, architect, lighting designer or general contractor on a project they can read.
+- **Contact / Address**: rows they created, rows linked (Dynamic Link) to one of those
+  Customers, their own Contact, and the project manager Contact of a readable project.
+
+System Users (staff on Desk) are not restricted. Portal pages read these masters through
+`frappe.get_all` and whitelisted endpoints, which carry their own checks and are unaffected.
+
 ## External Collaborators
 
 Dealers can invite external users to collaborate on specific projects. These collaborators:

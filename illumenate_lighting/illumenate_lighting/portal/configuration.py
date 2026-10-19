@@ -14,6 +14,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	finite_number,
 )
 from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule, can_read_schedule
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import FLAG, price_scoped
 from illumenate_lighting.illumenate_lighting.portal.line_fields import LINE_PRODUCT_FIELDS
 
 RECEIPT = "ilL-Configuration-Receipt"
@@ -103,11 +104,12 @@ def normalized_payload(family, selections, *, product_slug=None, template=None, 
 
 
 @frappe.whitelist(methods=["POST"])
+@price_scoped
 def calculate(family, selections, product_slug=None, template=None, segments=None):
 	from illumenate_lighting.illumenate_lighting.api.configured_product_builder import _dispatch_calculate
-	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import require_configurator
 
-	require_catalog_access()
+	require_configurator()
 	family = family_for_template(family, template)
 	payload = normalized_payload(
 		family, selections, product_slug=product_slug, template=template, segments=segments
@@ -216,6 +218,8 @@ def save(
 		raise ValueError("A save request key is required")
 	selections, metadata = object_value(selections, "selections"), object_value(metadata, "metadata")
 	schedule = schedule_context(schedule_name, write=True, lock=True)
+	# The engines check configurator access again; an editor of this schedule may configure for it.
+	frappe.flags[FLAG] = schedule.name
 	request_hash = fingerprint(
 		{
 			"family": family,

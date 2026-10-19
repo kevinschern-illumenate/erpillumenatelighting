@@ -2,174 +2,167 @@
 Portal Projects List Page
 Displays all projects accessible to the current user
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
 
-{% block title %}Projects{% endblock %}
+{% block portal_title %}{{ _("Projects") }}{% endblock %}
 
-{% block page_content %}
-<div class="container portal-page">
-	<div class="row mb-4">
-		<div class="col-12">
-			<div class="d-flex justify-content-between align-items-center">
-				<h1>{{ _("My Projects") }}</h1>
-				<div class="d-flex align-items-center">
-					<div class="custom-control custom-switch mr-3">
-						<input type="checkbox" class="custom-control-input" id="showArchived">
-						<label class="custom-control-label" for="showArchived">{{ _("Show Archived") }}</label>
-					</div>
-					<a href="/portal/projects/new" class="btn btn-primary">
-						<i class="fa fa-plus"></i> {{ _("Create Project") }}
-					</a>
-				</div>
+{% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_header %}
+	<header class="ill-hero">
+		<div class="ill-hero__top">
+			<div>
+				<p class="ill-hero__eyebrow">{{ _("Dealer portal") }}</p>
+				<h1>{{ _("Projects") }}</h1>
+			</div>
+			<div class="ill-hero__actions">
+				<a href="/portal/projects/new" class="btn btn-accent"><i class="fa fa-plus" aria-hidden="true"></i> {{ _("Create Project") }}</a>
 			</div>
 		</div>
-	</div>
-
-	<div class="row">
-		<div class="col-12">
-			{% if projects %}
-			<div class="list-group" id="projectsList">
-				{% for project in projects %}
-				<div class="list-group-item list-group-item-action project-row {% if project.status == 'ARCHIVED' %}project-archived d-none{% endif %}" data-status="{{ project.status }}">
-					<div class="d-flex w-100 justify-content-between align-items-center">
-						<a href="/portal/projects/{{ project.name }}" class="text-decoration-none text-reset flex-grow-1">
-							<div>
-								<h5 class="mb-1 {% if project.status == 'ARCHIVED' %}text-muted{% endif %}">
-									{{ project.project_name }}
-									{% if project.status == 'ARCHIVED' %}
-									<small class="text-muted">(Archived)</small>
-									{% endif %}
-								</h5>
-								<p class="mb-1 text-muted">
-									{{ project.customer }}
-									{% if project.is_private %}
-									<span class="badge badge-secondary ml-2">
-										<i class="fa fa-lock"></i> Private
-									</span>
-									{% endif %}
-								</p>
-							</div>
-						</a>
-						<div class="d-flex align-items-center ml-3">
-							<div class="text-right mr-2">
-								<span class="badge badge-{{ 'success' if project.status == 'ACTIVE' else ('secondary' if project.status == 'ARCHIVED' else 'warning') }}">
-									{{ project.status }}
-								</span>
-								<br>
-								<small class="text-muted">{{ frappe.utils.format_date(project.modified) }}</small>
-							</div>
-							{% if project.status != 'ARCHIVED' %}
-							<button class="btn btn-sm btn-outline-warning ml-1" onclick="event.preventDefault(); event.stopPropagation(); archiveProjectFromList('{{ project.name | e }}', '{{ project.project_name | e }}')" title="{{ _('Archive') }}">
-								<i class="fa fa-archive"></i>
-							</button>
-							{% else %}
-							<button class="btn btn-sm btn-outline-success ml-1" onclick="event.preventDefault(); event.stopPropagation(); unarchiveProjectFromList('{{ project.name | e }}', '{{ project.project_name | e }}')" title="{{ _('Unarchive') }}">
-								<i class="fa fa-undo"></i>
-							</button>
-							{% endif %}
-						</div>
-					</div>
-				</div>
+	</header>
+{% endblock %}
+{% block portal_content %}
+	<form method="get" class="ill-toolbar" role="search" id="projectsToolbar">
+		<div class="ill-toolbar__field">
+			<label for="project-search">{{ _("Project or customer") }}</label>
+			<div class="ill-search">
+				<i class="fa fa-search" aria-hidden="true"></i>
+				<input type="search" class="form-control" id="project-search" name="search" value="{{ search | e }}" placeholder="{{ _('Search projects') }}">
+			</div>
+		</div>
+		<div class="ill-toolbar__field">
+			<label for="project-status">{{ _("Show") }}</label>
+			<select id="project-status" name="status" class="form-control">
+				{% for value, label in [('active', _('Active')), ('archived', _('Archived')), ('all', _('All'))] %}
+				<option value="{{ value | e }}"{% if status_filter == value %} selected{% endif %}>{{ label | e }}</option>
 				{% endfor %}
+			</select>
+		</div>
+		<div class="ill-toolbar__field">
+			<label for="project-sort">{{ _("Sort by") }}</label>
+			<select id="project-sort" name="sort" class="form-control">
+				{% for value, label in [('recent', _('Recent activity')), ('name', _('Name'))] %}
+				<option value="{{ value | e }}"{% if sort == value %} selected{% endif %}>{{ label | e }}</option>
+				{% endfor %}
+			</select>
+		</div>
+		<button class="btn btn-primary" type="submit">{{ _("Find projects") }}</button>
+		{% if search or status_filter != 'active' or sort != 'recent' %}<a class="btn btn-link" href="/portal/projects">{{ _("Clear") }}</a>{% endif %}
+	</form>
+
+	<div class="ill-records" id="projectsList">
+	{% for project in projects %}
+		<article class="ill-record project-row" data-status="{{ project.status | e }}" data-project="{{ project.name | e }}">
+			<div class="ill-record__main">
+				<a href="/portal/projects/{{ project.name | urlencode }}" class="ill-record__title"><span class="js-project-name">{{ project.project_name | e }}</span></a>
+				<p class="ill-record__sub">
+					{% if project.end_client or project.customer %}{{ (project.end_client or project.customer) | e }}{% endif %}
+					{% if project.company_name %}<span class="badge badge-light ml-1" title="{{ _('Owner company') }}"><i class="fa fa-building-o" aria-hidden="true"></i> {{ project.company_name | e }}</span>{% endif %}
+					{% if project.is_private %}<span class="badge badge-secondary ml-1"><i class="fa fa-lock" aria-hidden="true"></i> {{ _("Private") }}</span>{% endif %}
+				</p>
 			</div>
-			<div class="text-center py-3 text-muted d-none" id="noActiveMessage">
-				<p>{{ _("All projects are archived. Toggle 'Show Archived' to view them.") }}</p>
+			<dl class="ill-record__facts">
+				<div><dt>{{ _("Schedules") }}</dt><dd class="js-schedule-count">{{ project.schedule_count | e }}</dd></div>
+				<div><dt>{{ _("Last activity") }}</dt><dd>{{ frappe.utils.format_date(project.last_activity) | e }}</dd></div>
+			</dl>
+			<div class="ill-record__end">
+				<span class="ill-status ill-status--{{ project.next_step.tone | e }} js-next-step">{{ project.next_step.label | e }}</span>
+				<span class="ill-status ill-status--secondary js-project-status"{% if project.status != 'ARCHIVED' %} hidden{% endif %}>{{ _("Archived") }}</span>
+				{% if project.can_edit %}
+				{% if project.status != 'ARCHIVED' %}
+				<button type="button" class="btn btn-sm btn-outline-secondary js-archive-project" data-project="{{ project.name | e }}" data-label="{{ project.project_name | e }}">{{ _("Archive") }}</button>
+				{% else %}
+				<button type="button" class="btn btn-sm btn-outline-secondary js-unarchive-project" data-project="{{ project.name | e }}" data-label="{{ project.project_name | e }}">{{ _("Restore") }}</button>
+				{% endif %}
+				{% endif %}
 			</div>
+		</article>
+	{% else %}
+		<div class="ill-empty" id="projectsEmpty">
+			<i class="fa fa-folder-open" aria-hidden="true"></i>
+			{% if search or status_filter != 'active' %}
+			<p>{{ _("No projects match these filters.") }}</p>
+			<a class="btn btn-outline-primary" href="/portal/projects">{{ _("Show all active projects") }}</a>
 			{% else %}
-			<div class="text-center py-5">
-				<i class="fa fa-folder-open fa-3x text-muted mb-3"></i>
-				<p class="text-muted">{{ _("No projects found. Create your first project to get started.") }}</p>
-				<a href="/portal/projects/new" class="btn btn-primary">
-					<i class="fa fa-plus"></i> {{ _("Create Project") }}
-				</a>
-			</div>
+			<p>{{ _("No projects yet. Create your first project to get started.") }}</p>
+			<a href="/portal/projects/new" class="btn btn-primary"><i class="fa fa-plus" aria-hidden="true"></i> {{ _("Create Project") }}</a>
 			{% endif %}
 		</div>
+	{% endfor %}
 	</div>
-</div>
+
+	{% if page > 1 or has_more %}
+	<nav class="ill-pager" aria-label="{{ _('Project pages') }}">
+		{% set query = "&amp;search=" ~ (search | urlencode) ~ "&amp;status=" ~ (status_filter | urlencode) ~ "&amp;sort=" ~ (sort | urlencode) %}
+		{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}{{ query | safe }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Previous") }}</a>{% else %}<span></span>{% endif %}
+		<span>{{ _("Page") }} {{ page | e }}</span>
+		{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}{{ query | safe }}">{{ _("Next") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% else %}<span></span>{% endif %}
+	</nav>
+	{% endif %}
 {% endblock %}
 
 {% block script %}
 <script>
-// Toggle archived project visibility
-$('#showArchived').on('change', function() {
-	var showArchived = $(this).is(':checked');
-	if (showArchived) {
-		$('.project-archived').removeClass('d-none');
+var projectFilter = {{ status_filter | tojson }};
+
+// Names travel in data attributes, never inside inline handlers (a quote in a name would break out of the JS string).
+document.addEventListener('click', function(event) {
+	var button = event.target.closest('.js-archive-project, .js-unarchive-project');
+	if (!button) return;
+	if (button.classList.contains('js-archive-project')) {
+		archiveProjectFromList(button.dataset.project, button.dataset.label);
 	} else {
-		$('.project-archived').addClass('d-none');
+		unarchiveProjectFromList(button.dataset.project, button.dataset.label);
 	}
-	updateNoActiveMessage();
 });
 
-function updateNoActiveMessage() {
-	var visibleProjects = $('.project-row:not(.d-none)').length;
-	if (visibleProjects === 0) {
-		$('#noActiveMessage').removeClass('d-none');
-	} else {
-		$('#noActiveMessage').addClass('d-none');
+// Archiving updates the row in place; a row the current filter no longer shows is removed.
+function showProjectStatus(row, archived) {
+	var button = row.querySelector('.js-archive-project, .js-unarchive-project');
+	row.dataset.status = archived ? 'ARCHIVED' : 'ACTIVE';
+	row.querySelector('.js-project-status').hidden = !archived;
+	if (button) {
+		button.classList.toggle('js-archive-project', !archived);
+		button.classList.toggle('js-unarchive-project', archived);
+		button.textContent = archived ? __('Restore') : __('Archive');
+	}
+	if ((projectFilter === 'active' && archived) || (projectFilter === 'archived' && !archived)) {
+		row.remove();
+		if (!document.querySelector('.project-row')) {
+			var empty = document.createElement('div');
+			empty.className = 'ill-empty';
+			empty.id = 'projectsEmpty';
+			empty.textContent = __('No projects match these filters.');
+			document.getElementById('projectsList').append(empty);
+		}
 	}
 }
 
-// Initial check
-$(document).ready(function() {
-	updateNoActiveMessage();
-});
+function changeProjectStatus(projectName, displayName, archive) {
+	var row = Array.prototype.find.call(document.querySelectorAll('.project-row'), function(item) { return item.dataset.project === projectName; });
+	PortalUI.confirm({
+		title: archive ? __('Archive project') : __('Restore project'),
+		body: archive
+			? __('Archive "{0}"? It will be hidden from the active list but can be restored later.', [displayName])
+			: __('Restore "{0}" to active status?', [displayName]),
+		confirmLabel: archive ? __('Archive') : __('Restore')
+	}).then(function(yes) {
+		if (!yes) return;
+		PortalUI.call('illumenate_lighting.illumenate_lighting.api.portal.' + (archive ? 'archive_project' : 'unarchive_project'),
+			{ project_name: projectName }).then(function() {
+			if (row) showProjectStatus(row, archive);
+			PortalUI.toast(archive ? __('"{0}" archived', [displayName]) : __('"{0}" restored', [displayName]));
+		}).catch(function(error) {
+			PortalUI.toast(error.message, 'red');
+		});
+	});
+}
 
 function archiveProjectFromList(projectName, displayName) {
-	frappe.confirm(
-		'Are you sure you want to archive "' + displayName + '"? It will be hidden from the active list but can be unarchived later.',
-		function() {
-			frappe.call({
-				method: 'illumenate_lighting.illumenate_lighting.api.portal.archive_project',
-				args: { project_name: projectName },
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						frappe.msgprint({
-							title: 'Success',
-							indicator: 'green',
-							message: '"' + displayName + '" has been archived'
-						});
-						window.location.reload();
-					} else {
-						frappe.msgprint({
-							title: 'Error',
-							indicator: 'red',
-							message: r.message.error || 'Error archiving project'
-						});
-					}
-				}
-			});
-		}
-	);
+	changeProjectStatus(projectName, displayName, true);
 }
 
 function unarchiveProjectFromList(projectName, displayName) {
-	frappe.confirm(
-		'Restore "' + displayName + '" to active status?',
-		function() {
-			frappe.call({
-				method: 'illumenate_lighting.illumenate_lighting.api.portal.unarchive_project',
-				args: { project_name: projectName },
-				callback: function(r) {
-					if (r.message && r.message.success) {
-						frappe.msgprint({
-							title: 'Success',
-							indicator: 'green',
-							message: '"' + displayName + '" has been restored'
-						});
-						window.location.reload();
-					} else {
-						frappe.msgprint({
-							title: 'Error',
-							indicator: 'red',
-							message: r.message.error || 'Error restoring project'
-						});
-					}
-				}
-			});
-		}
-	);
+	changeProjectStatus(projectName, displayName, false);
 }
 </script>
 {% endblock %}

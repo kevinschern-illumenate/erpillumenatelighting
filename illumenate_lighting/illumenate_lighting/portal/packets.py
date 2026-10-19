@@ -46,31 +46,55 @@ def _part_number(line):
 
 
 def _driver_submittal(line, entry, warnings):
-	"""Fill a configured power supply line's submittal into ``entry``; False leaves it to Item literature."""
+	"""Use the exact driver template's submittal or spec sheet before Item literature."""
 	from illumenate_lighting.illumenate_lighting.api import spec_submittal as pdf
-	from illumenate_lighting.illumenate_lighting.portal.driver_configuration import driver_configuration
 
-	if not driver_configuration(line):
+	label = line.line_id or f"Row {line.idx}"
+	try:
+		source = pdf._driver_document_source(line)
+	except ValueError as error:
+		warning = f"Line {label}: {error}"
+		entry["warnings"] = [warning]
+		warnings.append(warning)
 		return False
+	if not source:
+		return False
+	template = source["template"]
+	entry["build"] = {"doctype": "ilL-Driver-Template", "name": template}
 	line_warnings = []
 	try:
 		result = pdf.generate_filled_driver_line_submittal(
-			line.driver_template, warnings=line_warnings, schedule_line=line.name
+			template, warnings=line_warnings, schedule_line=line.name
 		)
 	except (ValueError, frappe.ValidationError) as error:
 		result = {"success": False, "message": str(error)}
 	warnings.extend(line_warnings)
+	notes = [note for note in line_warnings if not note.startswith("[DEBUG]")]
 	if not result.get("success"):
-		warnings.append(
-			f"Line {line.line_id}: power supply submittal unavailable ({result.get('message')}); using its Item literature"
-		)
+		_, _, spec_sheet = _template_spec_sheet(entry["build"])
+		if spec_sheet:
+			reason = "; ".join(dict.fromkeys([result.get("message") or "Submittal generation failed", *notes]))
+			warning = f"Line {label}: used the {template} spec sheet because the power supply submittal could not be generated ({reason})"
+			entry.update(
+				spec_document_url=spec_sheet,
+				has_submittal=True,
+				source_kind="template_spec_sheet",
+				filled_required=False,
+				provenance={"template_type": "ilL-Driver-Template", "template": template, "source_url": spec_sheet},
+				warnings=[warning],
+			)
+			warnings.append(warning)
+			return True
+		warning = f"Line {label}: power supply submittal unavailable ({result.get('message')}); using its Item literature"
+		entry["warnings"] = [warning]
+		warnings.append(warning)
 		return False
 	entry.update(
-		build={"doctype": "ilL-Driver-Template", "name": line.driver_template},
 		spec_document_url=result.get("file_url"),
 		has_submittal=True,
 		source_kind="filled_submittal",
 		provenance=result.get("provenance"),
+		warnings=[f"Line {label}: {note}" for note in dict.fromkeys(notes)],
 	)
 	return True
 

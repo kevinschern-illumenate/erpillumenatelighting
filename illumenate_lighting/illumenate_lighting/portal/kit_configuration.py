@@ -11,13 +11,13 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	fingerprint,
 	finite_number,
 )
-from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 from illumenate_lighting.illumenate_lighting.portal.configuration import (
 	RECEIPT,
 	object_value,
 	resolve_line,
 	schedule_context,
 )
+from illumenate_lighting.illumenate_lighting.portal.configurator_access import require_configurator
 
 
 @frappe.whitelist(methods=["POST"])
@@ -41,7 +41,8 @@ def save(
 	from illumenate_lighting.illumenate_lighting.portal.product_finder import sessions, verification
 	from illumenate_lighting.illumenate_lighting.portal.rollout import require_family
 
-	require_catalog_access()
+	# Catalog users, or an editor of this schedule configuring for it (FLOW-6).
+	require_configurator(schedule_name)
 	require_family("Extrusion Kit")
 	if not isinstance(idempotency_key, str) or not 8 <= len(idempotency_key) <= 128:
 		frappe.throw("A save retry key is required")

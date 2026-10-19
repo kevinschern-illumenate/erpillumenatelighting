@@ -132,6 +132,9 @@ def request_quote(
 
 	finalize_files(files, REQUEST_DOCTYPE, request.name, allow_unbound=True)
 	schedule.add_comment("Info", _("Quote request received: {0}").format(request.name))
+	from illumenate_lighting.illumenate_lighting.portal import staff_notifications
+
+	staff_notifications.submitted(request)
 	return {"success": True, "request_name": request.name, "state": request.state, "already_existed": False}
 
 

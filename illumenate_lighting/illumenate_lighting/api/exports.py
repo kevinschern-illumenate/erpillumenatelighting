@@ -779,6 +779,12 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	if customer:
 		customer_name = customer.customer_name or customer.name
 		info_items.append(f"<span><span class='lbl'>Customer:</span> {customer_name}</span>")
+	if project and project.get("end_client_party"):
+		# DESK-9: dealers name the end client as a project party; the Customer above bills.
+		from illumenate_lighting.illumenate_lighting.portal.project_parties import label
+
+		end_client = frappe.utils.escape_html(label(project.end_client_party))
+		info_items.append(f"<span><span class='lbl'>End client:</span> {end_client}</span>")
 	info_items.append(f"<span><span class='lbl'>Date:</span> {export_date}</span>")
 	info_items.append(f"<span><span class='lbl'>Status:</span> {schedule.status}</span>")
 	version = getattr(schedule, "version", None)
@@ -1215,7 +1221,7 @@ def debug_schedule_lines(schedule_id: str) -> dict:
 	return {"schedule": schedule_id, "line_count": len(lines), "lines": lines}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 	"""
 	Generate a PDF export of a fixture schedule.
@@ -1294,7 +1300,7 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		return {"success": False, "export_job": job_name, "error": error_msg}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def generate_schedule_csv(schedule_id: str, priced: bool = False) -> dict:
 	"""
 	Generate a CSV export of a fixture schedule.

@@ -89,6 +89,10 @@ Working the inbox:
 - Mail that needs no action (spam, newsletters) is closed from the email's form, which also closes its assignment.
 - Hand an email to someone else with **Assign To** on the email; do not forward it outside ERPNext.
 
+## Shipment tracking
+
+On a Delivery Note, choose the **Carrier** (UPS, FedEx, USPS, Freight or Other) and fill in **Tracking Number**, next to Transporter Name. Both can be edited after submit. Dealers see the number on the order page and in the shipment email, with a tracking link for UPS, FedEx and USPS. Older notes that carry the number in Vehicle No or LR No still show it.
+
 ## Won deals become customers
 
 When a Frappe CRM Deal is marked **Won**, ERPNext creates the Customer, its Contacts (matched by email or mobile) and links both ways: the Customer's **CRM Deal** and the Deal's **ERPNext Customer**. A Customer with the same name is reused, not duplicated. This is native Frappe CRM and ERPNext behavior; it only needs switching on (System Manager, once):

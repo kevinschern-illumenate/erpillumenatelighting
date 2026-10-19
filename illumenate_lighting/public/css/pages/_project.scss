@@ -1,0 +1,35 @@
+// project.html page styles (FLOW-5, FLOW-8), scoped by the class portal_base.html sets.
+:where(.ill-page--project) {
+	.ill-project-team {
+		border: 1px solid var(--ill-border);
+		border-radius: var(--ill-radius-md);
+		margin: 1rem 0;
+		padding: 0.75rem 1rem 0;
+	}
+	.ill-project-team > summary {
+		color: var(--ill-ink);
+		cursor: pointer;
+		font-weight: 600;
+		margin-bottom: 0.75rem;
+	}
+	.ill-project-privacy {
+		background: var(--ill-surface-soft);
+		border-radius: var(--ill-radius-md);
+		margin-top: 1rem;
+		padding: 0.75rem 1rem;
+	}
+	.ill-project-privacy__owner {
+		color: var(--ill-ink);
+		font-size: var(--ill-font-size-sm);
+		font-weight: 600;
+		margin-top: 0.5rem;
+	}
+	.ill-project-no-company .card-body {
+		padding: 2rem;
+	}
+	.ill-project-no-company__icon {
+		color: var(--ill-primary);
+		display: block;
+		margin-bottom: 1rem;
+	}
+}

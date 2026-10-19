@@ -11,15 +11,14 @@ import frappe
 from frappe import _
 
 from illumenate_lighting.illumenate_lighting.portal.orders import get_order_read_model
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 
 no_cache = 1
 
 
 def get_context(context):
 	"""Get context for the order detail portal page."""
-	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/login"
-		raise frappe.Redirect
+	require_login()
 
 	order_name = frappe.form_dict.get("order")
 	model = get_order_read_model(order_name, frappe.session.user) if order_name else None

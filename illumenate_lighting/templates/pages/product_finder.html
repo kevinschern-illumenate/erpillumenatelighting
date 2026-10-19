@@ -1,6 +1,8 @@
-{% extends "templates/web.html" %}
-{% block page_content %}
-{% include "templates/includes/portal_navigation.html" %}
+{% extends "templates/portal_base.html" %}
+{% block portal_title %}{{ _("Product Finder") }}{% endblock %}
+{% block portal_shell_class %}ill-portal-shell--bare{% endblock %}
+{% block portal_page_class %}{% endblock %}
+{% block portal_content %}
 <link rel="stylesheet" href="/assets/illumenate_lighting/product_finder/portal/ill-finder.css">
 <div id="ill-configurator-root" data-ill-manual-mount></div>
 {% endblock %}

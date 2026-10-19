@@ -47,7 +47,7 @@
             button(controls, 'Refresh', () => refresh(container)); container.append(controls);
             function section(title, rows, render) {
                 const heading = document.createElement('h3'); heading.className = 'h5 mt-4'; heading.textContent = __(title); container.append(heading);
-                if (!rows.length) { const empty = document.createElement('p'); empty.textContent = __('No records yet.'); container.append(empty); }
+                if (!rows.length) { const empty = document.createElement('div'); PortalUI.empty(empty, {text: __('No records yet.')}); container.append(empty); }
                 rows.forEach(row => { const block = document.createElement('div'); block.className = 'border rounded p-2 mb-2'; render(block, row); container.append(block); });
             }
             function text(parent, value) { const p = document.createElement('p'); p.className = 'mb-1'; p.textContent = value || ''; parent.append(p); }
@@ -86,8 +86,13 @@
                 text(block, row.name + ': ' + row.request_type + ' - ' + row.state); text(block, row.staff_note);
                 if (row.state === 'Information needed') button(block, 'Reply', () => dialog('Requested information', [{fieldname: 'message', fieldtype: 'Small Text', label: __('Reply'), reqd: 1}], async values => { await call('reply', {name: row.name, message: values.message}); await refresh(container); }));
             });
-        } catch (error) { container.textContent = __('Account details unavailable. Reload or retry.') + ' ' + error.message; }
-        finally { container.setAttribute('aria-busy', 'false'); }
+            container.setAttribute('aria-busy', 'false');
+        } catch (error) {
+            PortalUI.failed(container, error.message || __('Account details could not be loaded.'), () => {
+                PortalUI.skeleton(container, __('Loading account details…'));
+                return refresh(container);
+            });
+        }
     }
     window.PortalAccounts = {mount: refresh};
 })();

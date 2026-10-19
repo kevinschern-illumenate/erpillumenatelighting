@@ -453,7 +453,7 @@ def ensure_project_and_schedule(
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def create_schedule_version(schedule: str) -> dict[str, Any]:
 	"""Thin wrapper over ``create_new_version`` for locked / QUOTED schedules."""
 	_require_internal_user()
@@ -1335,7 +1335,7 @@ def on_quotation_cancel(doc, method=None):
 	)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def reopen_row(parent_doctype, parent_name, row_name):
 	"""Read engineering input through the native ERP parent permission boundary."""
 	_require_internal_user()

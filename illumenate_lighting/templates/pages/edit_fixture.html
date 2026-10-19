@@ -2,138 +2,19 @@
 Edit Fixture Configuration Page
 Allows users to modify an existing configured fixture from a schedule line
 #}
-{% extends "templates/web.html" %}
+{% extends "templates/portal_base.html" %}
+{% block portal_scope %}ill-page--edit-fixture{% endblock %}
 
-{% block title %}{{ _("Edit Fixture Configuration") }}{% endblock %}
+{% block portal_title %}{{ _("Edit Fixture Configuration") }}{% endblock %}
 
-{% block style %}
-<style>
-.segment-card {
-	border: 1px solid var(--ill-gray-300);
-	border-radius: var(--ill-radius-sm);
-	margin-bottom: 0.5rem;
-}
-.segment-card .card-header {
-	background-color: var(--ill-surface-soft);
-	padding: 0.5rem 1rem;
-}
-.segment-card .card-body {
-	padding: 0.75rem 1rem;
-}
-.segment-inherited {
-	background-color: var(--ill-gray-200);
-	padding: 0.25rem 0.5rem;
-	border-radius: var(--ill-radius-sm);
-	font-size: 0.85rem;
-	color: var(--ill-text-secondary);
-}
-.segment-inherited i {
-	margin-right: 0.25rem;
-}
-.end-type-toggle {
-	display: flex;
-	gap: 0.5rem;
-}
-.end-type-toggle .btn {
-	flex: 1;
-}
-.end-type-toggle .btn.active {
-	background-color: var(--ill-blue-600);
-	color: white;
-}
-.jumper-fields, .endcap-fields {
-	padding: 0.5rem;
-	background: var(--ill-surface-soft);
-	border-radius: var(--ill-radius-sm);
-	margin-top: 0.5rem;
-}
 
-/* Pill Button Selector Styles */
-.pill-selector {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-}
-.pill-selector .pill-option {
-	display: inline-block;
-	padding: 0.375rem 0.75rem;
-	font-size: 0.875rem;
-	font-weight: 400;
-	line-height: 1.5;
-	color: var(--ill-ink);
-	background-color: #fff;
-	border: 1px solid var(--ill-gray-300);
-	border-radius: var(--ill-radius-pill);
-	cursor: pointer;
-	transition: all 0.15s ease-in-out;
-	user-select: none;
-}
-.pill-selector .pill-option:hover {
-	background-color: var(--ill-gray-200);
-	border-color: var(--ill-gray-400);
-}
-.pill-selector .pill-option.active {
-	background-color: var(--ill-blue-600);
-	border-color: var(--ill-blue-600);
-	color: #fff;
-}
-.pill-selector .pill-option.active:hover {
-	background-color: var(--ill-blue-700);
-	border-color: var(--ill-blue-700);
-}
-.pill-selector .pill-option input[type="radio"] {
-	display: none;
-}
-.option-group {
-	margin-bottom: 1rem;
-}
-.option-group label.option-label {
-	display: block;
-	margin-bottom: 0.5rem;
-	font-weight: 500;
-}
-/* Hide select when showing pills (desktop) */
-.option-group .select-fallback {
-	display: none;
-}
-/* On mobile, show select and hide pills */
-@media (max-width: 767.98px) {
-	.option-group .pill-selector {
-		display: none !important;
-	}
-	.option-group .select-fallback {
-		display: block !important;
-	}
-}
-
-/* Edit mode styling */
-.edit-mode-banner {
-	background-color: var(--ill-gold-100);
-	border: 1px solid var(--ill-gold-500);
-	border-radius: var(--ill-radius-sm);
-	padding: 0.75rem 1rem;
-	margin-bottom: 1rem;
-}
-.edit-mode-banner i {
-	margin-right: 0.5rem;
-}
-.current-fixture-info {
-	background-color: var(--ill-surface-soft);
-	border-radius: var(--ill-radius-sm);
-	padding: 1rem;
-	margin-bottom: 1rem;
-}
-</style>
-{% endblock %}
-
-{% block page_content %}
-<div class="container portal-page">
+{% block portal_content %}
 	<!-- Breadcrumb -->
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name }}">{{ schedule.schedule_name }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ _("Edit Fixture") }}</li>
 		</ol>
@@ -141,7 +22,7 @@ Allows users to modify an existing configured fixture from a schedule line
 
 	<!-- Edit Mode Banner -->
 	<div class="edit-mode-banner">
-		<i class="fa fa-pencil-square-o"></i>
+		<i class="fa fa-pencil-square-o" aria-hidden="true"></i>
 		<strong>{{ _("Edit Mode") }}</strong> - 
 		{{ _("You are editing an existing fixture configuration. Make your changes and click 'Calculate & Validate' to verify, then 'Update Fixture' to save.") }}
 	</div>
@@ -150,13 +31,13 @@ Allows users to modify an existing configured fixture from a schedule line
 	<div class="current-fixture-info">
 		<div class="row">
 			<div class="col-md-6">
-				<strong>{{ _("Current Part Number:") }}</strong> {{ fixture_details.part_number or 'N/A' }}
+				<strong>{{ _("Current Part Number:") }}</strong> {{ (fixture_details.part_number or 'N/A') | e }}
 			</div>
 			<div class="col-md-3">
-				<strong>{{ _("Length:") }}</strong> {{ fixture_details.manufacturable_length_in }}" ({{ fixture_details.manufacturable_length_mm }} mm)
+				<strong>{{ _("Length:") }}</strong> {{ fixture_details.manufacturable_length_in | e }}" ({{ fixture_details.manufacturable_length_mm | e }} mm)
 			</div>
 			<div class="col-md-3">
-				<strong>{{ _("Segments:") }}</strong> {{ fixture_details.user_segment_count }}
+				<strong>{{ _("Segments:") }}</strong> {{ fixture_details.user_segment_count | e }}
 			</div>
 		</div>
 	</div>
@@ -172,12 +53,12 @@ Allows users to modify an existing configured fixture from a schedule line
 					<form id="configuratorForm">
 						<!-- Template Selection (read-only for editing) -->
 						<div class="form-group">
-							<label>{{ _("Fixture Template") }} <span class="text-danger">*</span></label>
-							<select class="form-control" name="fixture_template_code" required>
+							<label for="ef_fixture_template_code">{{ _("Fixture Template") }} <span class="text-danger">*</span></label>
+							<select id="ef_fixture_template_code" class="form-control" name="fixture_template_code" required>
 								<option value="">{{ _("Select Template...") }}</option>
 								{% for template in templates %}
-								<option value="{{ template.template_code }}" {% if template.template_code == fixture_config.fixture_template_code %}selected{% endif %}>
-									{{ template.template_name }} ({{ template.template_code }})
+								<option value="{{ template.template_code | e }}" {% if template.template_code == fixture_config.fixture_template_code %}selected{% endif %}>
+									{{ template.template_name | e }} ({{ template.template_code | e }})
 								</option>
 								{% endfor %}
 							</select>
@@ -190,37 +71,37 @@ Allows users to modify an existing configured fixture from a schedule line
 
 							<!-- LED Package (Step 1 - from linked tapes) -->
 							<div class="option-group">
-								<label class="option-label">{{ _("LED Package") }} <span class="text-danger">*</span></label>
+								<label for="ef_led_package_code" class="option-label">{{ _("LED Package") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="led_package_code"></div>
-								<select class="form-control select-fallback" name="led_package_code" required></select>
+								<select id="ef_led_package_code" class="form-control select-fallback" name="led_package_code" required></select>
 							</div>
 
 							<!-- Environment Rating (Step 2) -->
 							<div class="option-group">
-								<label class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
+								<label for="ef_environment_rating_code" class="option-label">{{ _("Environment Rating") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="environment_rating_code"></div>
-								<select class="form-control select-fallback" name="environment_rating_code" required></select>
+								<select id="ef_environment_rating_code" class="form-control select-fallback" name="environment_rating_code" required></select>
 							</div>
 
 							<!-- CCT (Step 3 - filtered by LED Package + Environment) -->
 							<div class="option-group">
-								<label class="option-label">{{ _("Color Temperature (CCT)") }} <span class="text-danger">*</span></label>
+								<label for="ef_cct_code" class="option-label">{{ _("Color Temperature (CCT)") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="cct_code"></div>
-								<select class="form-control select-fallback" name="cct_code" required></select>
+								<select id="ef_cct_code" class="form-control select-fallback" name="cct_code" required></select>
 							</div>
 
 							<!-- Lens Appearance (Step 4) -->
 							<div class="option-group">
-								<label class="option-label">{{ _("Lens Appearance") }} <span class="text-danger">*</span></label>
+								<label for="ef_lens_appearance_code" class="option-label">{{ _("Lens Appearance") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="lens_appearance_code"></div>
-								<select class="form-control select-fallback" name="lens_appearance_code" required></select>
+								<select id="ef_lens_appearance_code" class="form-control select-fallback" name="lens_appearance_code" required></select>
 							</div>
 
 							<!-- Delivered Output (Step 5 - computed from tape × lens transmission) -->
 							<div class="option-group" id="outputGroup" style="display: none;">
-								<label class="option-label">{{ _("Fixture Output") }} <span class="text-danger">*</span></label>
+								<label for="ef_delivered_output_value" class="option-label">{{ _("Fixture Output") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="delivered_output_value"></div>
-								<select class="form-control select-fallback" name="delivered_output_value" required></select>
+								<select id="ef_delivered_output_value" class="form-control select-fallback" name="delivered_output_value" required></select>
 								<small class="text-muted" id="outputHelpText"></small>
 							</div>
 
@@ -229,23 +110,23 @@ Allows users to modify an existing configured fixture from a schedule line
 
 							<!-- Mounting Method -->
 							<div class="option-group">
-								<label class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
+								<label for="ef_mounting_method_code" class="option-label">{{ _("Mounting Method") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="mounting_method_code"></div>
-								<select class="form-control select-fallback" name="mounting_method_code" required></select>
+								<select id="ef_mounting_method_code" class="form-control select-fallback" name="mounting_method_code" required></select>
 							</div>
 
 							<!-- Finish -->
 							<div class="option-group">
-								<label class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
+								<label for="ef_finish_code" class="option-label">{{ _("Finish") }} <span class="text-danger">*</span></label>
 								<div class="pill-selector" data-field="finish_code"></div>
-								<select class="form-control select-fallback" name="finish_code" required></select>
+								<select id="ef_finish_code" class="form-control select-fallback" name="finish_code" required></select>
 							</div>
 
 							<!-- Endcap Color (auto-resolved from finish) -->
 							<div class="option-group" id="endcapColorDisplay" style="display: none;">
-								<label class="option-label">{{ _("Endcap Color") }}</label>
-								<div class="endcap-color-info text-muted small">
-									<i class="fa fa-info-circle"></i> <span id="endcapColorLabel">Auto-selected based on finish</span>
+								<label class="option-label" id="efEndcapColorCaption">{{ _("Endcap Color") }}</label>
+								<div class="endcap-color-info text-muted small" role="group" aria-labelledby="efEndcapColorCaption">
+									<i class="fa fa-info-circle" aria-hidden="true"></i> <span id="endcapColorLabel">Auto-selected based on finish</span>
 								</div>
 							</div>
 							<input type="hidden" name="endcap_color_code" value="">
@@ -270,7 +151,7 @@ Allows users to modify an existing configured fixture from a schedule line
 					<div id="segmentsList"></div>
 					
 					<div id="addSegmentHint" class="text-center py-3 text-muted" style="display: none;">
-						<i class="fa fa-arrow-up"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
+						<i class="fa fa-arrow-up" aria-hidden="true"></i> {{ _("Select Jumper on the last segment's end to add another segment") }}
 					</div>
 				</div>
 			</div>
@@ -278,15 +159,15 @@ Allows users to modify an existing configured fixture from a schedule line
 			<!-- Action Buttons -->
 			<div class="d-flex justify-content-between" id="actionButtons" style="display: none;">
 				<button type="button" class="btn btn-primary" id="calculateBtn" onclick="validateAndQuote()" disabled>
-					<i class="fa fa-calculator"></i> {{ _("Calculate & Validate") }}
+					<i class="fa fa-calculator" aria-hidden="true"></i> {{ _("Calculate & Validate") }}
 				</button>
 				{% if can_save %}
 				<div>
-					<a href="/portal/schedules/{{ schedule.name }}" class="btn btn-secondary mr-2">
-						<i class="fa fa-times"></i> {{ _("Cancel") }}
+					<a href="/portal/schedules/{{ schedule.name | e }}" class="btn btn-secondary mr-2">
+						<i class="fa fa-times" aria-hidden="true"></i> {{ _("Cancel") }}
 					</a>
 					<button type="button" class="btn btn-success" id="saveBtn" onclick="updateFixture()" disabled>
-						<i class="fa fa-save"></i> {{ _("Update Fixture") }}
+						<i class="fa fa-save" aria-hidden="true"></i> {{ _("Update Fixture") }}
 					</button>
 				</div>
 				{% endif %}
@@ -317,8 +198,8 @@ Allows users to modify an existing configured fixture from a schedule line
 								<td>
 									<div class="d-flex align-items-center">
 										<code id="partNumberValue" class="mr-2" style="font-size: 0.95rem;">-</code>
-										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" onclick="copyToClipboard('partNumberValue')" title="Copy part number">
-											<i class="fa fa-copy"></i>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" onclick="copyToClipboard('partNumberValue')" title="Copy part number" aria-label="{{ _('Copy part number') }}">
+											<i class="fa fa-copy" aria-hidden="true"></i>
 										</button>
 									</div>
 								</td>
@@ -328,15 +209,15 @@ Allows users to modify an existing configured fixture from a schedule line
 								<td>
 									<div class="d-flex align-items-start">
 										<span id="partDescriptionValue" class="mr-2 small" style="white-space: pre-wrap;">-</span>
-										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" onclick="copyToClipboard('partDescriptionValue')" title="Copy description">
-											<i class="fa fa-copy"></i>
+										<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 flex-shrink-0" onclick="copyToClipboard('partDescriptionValue')" title="Copy description" aria-label="{{ _('Copy description') }}">
+											<i class="fa fa-copy" aria-hidden="true"></i>
 										</button>
 									</div>
 								</td>
 							</tr>
 						</table>
 						<button type="button" class="btn btn-outline-primary btn-sm btn-block mb-2" onclick="copyBothToClipboard()">
-							<i class="fa fa-clipboard"></i> {{ _("Copy Part Number + Description") }}
+							<i class="fa fa-clipboard" aria-hidden="true"></i> {{ _("Copy Part Number + Description") }}
 						</button>
 						<hr>
 					</div>
@@ -435,22 +316,23 @@ Allows users to modify an existing configured fixture from a schedule line
 					{% endif %}
 
 					<div id="noResults" class="text-center py-4">
-						<i class="fa fa-calculator fa-3x text-muted mb-3"></i>
+						<i class="fa fa-calculator fa-3x text-muted mb-3" aria-hidden="true"></i>
 						<p class="text-muted">{{ _("Make your changes and click 'Calculate & Validate' to see updated results") }}</p>
 					</div>
 				</div>
 			</div>
 		</div>
 	</div>
-</div>
+{% endblock %}
+{% block portal_after %}
 
 <!-- Segment Template -->
 <template id="segmentTemplate">
 	<div class="segment-card" data-segment-index="">
 		<div class="card-header d-flex justify-content-between align-items-center">
 			<strong>{{ _("Segment") }} <span class="segment-number"></span></strong>
-			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" onclick="removeSegment(this)" style="display: none;">
-				<i class="fa fa-trash"></i>
+			<button type="button" class="btn btn-sm btn-outline-danger remove-segment-btn" onclick="removeSegment(this)" style="display: none;" aria-label="{{ _('Remove segment') }}">
+				<i class="fa fa-trash" aria-hidden="true"></i>
 			</button>
 		</div>
 		<div class="card-body">
@@ -467,20 +349,20 @@ Allows users to modify an existing configured fixture from a schedule line
 						<div class="col-md-6">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
-								<select class="form-control form-control-sm" name="start_power_feed_type"></select>
+								<select aria-label="{{ _('Power Feed Type') }}" class="form-control form-control-sm" name="start_power_feed_type"></select>
 							</div>
 						</div>
 						<div class="col-md-6">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Leader Cable Length (in)") }}</label>
-								<input type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Leader Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="start_leader_cable_length_in" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>
 				</div>
 				<!-- Subsequent segments: inherited from prior segment -->
 				<div class="inherited-start segment-inherited" style="display: none;">
-					<i class="fa fa-link"></i> <span class="inherited-text">{{ _("Inherited from prior segment") }}</span>
+					<i class="fa fa-link" aria-hidden="true"></i> <span class="inherited-text">{{ _("Inherited from prior segment") }}</span>
 				</div>
 			</div>
 
@@ -490,13 +372,13 @@ Allows users to modify an existing configured fixture from a schedule line
 					<div class="col-md-6">
 						<div class="form-group mb-2">
 							<label class="small font-weight-bold">{{ _("Requested Length") }} <span class="text-danger">*</span></label>
-							<input type="number" class="form-control" name="requested_length_mm" min="1" step="0.1" required placeholder="e.g., 48">
+							<input aria-label="{{ _('Requested Length') }}" type="number" class="form-control" name="requested_length_mm" min="1" step="0.1" required placeholder="e.g., 48">
 						</div>
 					</div>
 					<div class="col-md-6">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Unit") }}</label>
-							<select class="form-control" name="length_unit">
+							<select aria-label="{{ _('Unit') }}" class="form-control" name="length_unit">
 								<option value="in" selected>inches</option>
 								<option value="ft_in">feet + inches</option>
 								<option value="mm">mm</option>
@@ -509,13 +391,13 @@ Allows users to modify an existing configured fixture from a schedule line
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Feet") }}</label>
-							<input type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
+							<input aria-label="{{ _('Feet') }}" type="number" class="form-control form-control-sm" name="length_feet" min="0" value="0">
 						</div>
 					</div>
 					<div class="col-md-4">
 						<div class="form-group mb-2">
 							<label class="small">{{ _("Inches") }}</label>
-							<input type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
+							<input aria-label="{{ _('Inches') }}" type="number" class="form-control form-control-sm" name="length_inches" min="0" max="11.99" step="0.1" value="0">
 						</div>
 					</div>
 				</div>
@@ -530,10 +412,10 @@ Allows users to modify an existing configured fixture from a schedule line
 				</div>
 				<div class="end-type-toggle mb-2">
 					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Endcap" onclick="setEndType(this, 'Endcap')">
-						<i class="fa fa-stop-circle"></i> {{ _("Endcap (Cap Fixture)") }}
+						<i class="fa fa-stop-circle" aria-hidden="true"></i> {{ _("Endcap (Cap Fixture)") }}
 					</button>
 					<button type="button" class="btn btn-outline-secondary btn-sm end-type-btn" data-type="Jumper" onclick="setEndType(this, 'Jumper')">
-						<i class="fa fa-link"></i> {{ _("Jumper (Continue to Next)") }}
+						<i class="fa fa-link" aria-hidden="true"></i> {{ _("Jumper (Continue to Next)") }}
 					</button>
 				</div>
 				<input type="hidden" name="end_type" value="Endcap">
@@ -541,7 +423,7 @@ Allows users to modify an existing configured fixture from a schedule line
 				<!-- Endcap Fields (shown when end type is Endcap) -->
 				<div class="endcap-fields" style="display: none;">
 					<div class="small text-muted">
-						<i class="fa fa-info-circle"></i> {{ _("Fixture will be capped with a solid endcap") }}
+						<i class="fa fa-info-circle" aria-hidden="true"></i> {{ _("Fixture will be capped with a solid endcap") }}
 					</div>
 				</div>
 
@@ -551,13 +433,13 @@ Allows users to modify an existing configured fixture from a schedule line
 						<div class="col-md-6">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Power Feed Type") }} <span class="text-danger">*</span></label>
-								<select class="form-control form-control-sm" name="end_power_feed_type"></select>
+								<select aria-label="{{ _('Power Feed Type') }}" class="form-control form-control-sm" name="end_power_feed_type"></select>
 							</div>
 						</div>
 						<div class="col-md-6">
 							<div class="form-group mb-2">
 								<label class="small">{{ _("Jumper Cable Length (in)") }}</label>
-								<input type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
+								<input aria-label="{{ _('Jumper Cable Length (in)') }}" type="number" class="form-control form-control-sm" name="end_jumper_cable_length_in" value="12" min="0" step="0.5">
 							</div>
 						</div>
 					</div>
@@ -570,9 +452,9 @@ Allows users to modify an existing configured fixture from a schedule line
 
 {% block script %}
 <script>
-var schedule_name = "{{ schedule.name if schedule else '' }}";
-var line_idx = {{ line_idx if line_idx is not none else 'null' }};
-var configured_fixture_id = "{{ configured_fixture_id }}";
+var schedule_name = {{ (schedule.name if schedule else '') | tojson }};
+var line_idx = {{ line_idx | default(none) | tojson }};
+var configured_fixture_id = {{ (configured_fixture_id or "") | tojson }};
 var currentResult = null;
 var templateOptions = null;
 var segmentCount = 0;
@@ -850,7 +732,7 @@ function populateOptions(options, prePopulate) {
 				pillContainer.append(pill);
 				
 				// Add to fallback select
-				selectFallback.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+				selectFallback.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 			});
 			
 			// Pre-select if we have existing config
@@ -994,7 +876,7 @@ function populatePillSelector(fieldName, options, preSelectValue) {
 			pillContainer.append(pill);
 			
 			// Add to fallback select
-			selectFallback.append('<option value="' + opt.value + '">' + label + '</option>');
+			selectFallback.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(label) + '</option>');
 		});
 		
 		// Pre-select if value provided
@@ -1053,7 +935,7 @@ function populateSegmentPowerFeedOptions(segmentCard) {
 		var select = segmentCard.find('[name="' + fieldName + '"]');
 		select.empty().append('<option value="">Select...</option>');
 		templateOptions.power_feed_type.forEach(function(opt) {
-			select.append('<option value="' + opt.value + '">' + opt.label + '</option>');
+			select.append('<option value="' + PortalUI.escape(opt.value) + '">' + PortalUI.escape(opt.label) + '</option>');
 		});
 	});
 }
@@ -1451,7 +1333,7 @@ function displayResults(result) {
 		var messagesList = $('#messagesList').empty();
 		result.messages.forEach(function(msg) {
 			var alertClass = msg.severity === 'error' ? 'danger' : (msg.severity === 'warning' ? 'warning' : 'info');
-			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + msg.text + '</div>');
+			messagesList.append('<div class="alert alert-' + alertClass + ' py-2 mb-1">' + PortalUI.escape(msg.text) + '</div>');
 		});
 	} else {
 		$('#messagesPanel').hide();
@@ -1497,8 +1379,8 @@ function displayResults(result) {
 				var lengthIn = run.run_len_in || (run.run_len_mm / MM_PER_INCH).toFixed(1);
 				var lengthFt = (run.run_len_mm / MM_PER_FOOT).toFixed(2);
 				runsHtml += '<tr>';
-				runsHtml += '<td class="text-center">' + run.run_index + '</td>';
-				runsHtml += '<td class="text-center">' + run.segment_index + '</td>';
+				runsHtml += '<td class="text-center">' + PortalUI.escape(run.run_index) + '</td>';
+				runsHtml += '<td class="text-center">' + PortalUI.escape(run.segment_index) + '</td>';
 				runsHtml += '<td class="text-right">' + lengthIn + '" (' + lengthFt + ' ft)</td>';
 				runsHtml += '<td class="text-right">' + run.run_watts.toFixed(1) + ' W</td>';
 				runsHtml += '</tr>';
@@ -1518,12 +1400,12 @@ function displayResults(result) {
 		if (dp.status === 'selected' && dp.drivers && dp.drivers.length > 0) {
 			var driverHtml = '<table class="table table-sm">';
 			dp.drivers.forEach(function(d) {
-				driverHtml += '<tr><td>' + d.item_code + '</td><td>×' + d.qty + '</td></tr>';
+				driverHtml += '<tr><td>' + PortalUI.escape(d.item_code) + '</td><td>×' + PortalUI.escape(d.qty) + '</td></tr>';
 			});
 			driverHtml += '</table>';
 			$('#driverPlan').html(driverHtml);
 		} else {
-			$('#driverPlan').html('<span class="text-muted">' + dp.status + '</span>');
+			$('#driverPlan').html('<span class="text-muted">' + PortalUI.escape(dp.status) + '</span>');
 		}
 	}
 	
@@ -1560,7 +1442,7 @@ function displayResults(result) {
 		if (result.pricing.adder_breakdown && result.pricing.adder_breakdown.length > 0) {
 			var breakdownHtml = '<details><summary class="text-muted">Fixture Price Breakdown</summary><table class="table table-sm mt-2">';
 			result.pricing.adder_breakdown.forEach(function(adder) {
-				breakdownHtml += '<tr><td>' + adder.component + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
+				breakdownHtml += '<tr><td>' + PortalUI.escape(adder.component) + '</td><td class="text-right">$' + adder.amount.toFixed(2) + '</td></tr>';
 			});
 			breakdownHtml += '</table></details>';
 			$('#adderBreakdown').html(breakdownHtml);
@@ -1575,7 +1457,7 @@ function updateFixture() {
 	}
 	
 	// Disable button to prevent double-clicks
-	$('#saveBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Updating...');
+	$('#saveBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Updating...');
 	
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_configured_fixture_on_schedule',
@@ -1598,11 +1480,11 @@ function updateFixture() {
 				}, 1000);
 			} else {
 				frappe.msgprint(r.message.error || 'Error updating fixture configuration');
-				$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save"></i> Update Fixture');
+				$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save" aria-hidden="true"></i> Update Fixture');
 			}
 		},
 		error: function() {
-			$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save"></i> Update Fixture');
+			$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save" aria-hidden="true"></i> Update Fixture');
 		}
 	});
 }

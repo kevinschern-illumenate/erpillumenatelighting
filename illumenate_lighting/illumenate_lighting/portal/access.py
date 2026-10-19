@@ -79,7 +79,28 @@ class Actor:
 
 
 def get_actor(user=None) -> Actor:
-	return Actor(user)
+	"""The actor for ``user``, resolved once per web request.
+
+	Permission checks run in loops (one per line, file or record), and each
+	Actor costs several queries. Outside a web request (jobs, tests, the
+	console) nothing is cached, so long-lived processes never see stale roles.
+	"""
+	user = user or frappe.session.user
+	if getattr(frappe.local, "request", None) is None:
+		return Actor(user)
+	cache = getattr(frappe.local, "ill_portal_actors", None)
+	if cache is None:
+		cache = frappe.local.ill_portal_actors = {}
+	if user not in cache:
+		cache[user] = Actor(user)
+	return cache[user]
+
+
+def forget_actor(user=None) -> None:
+	"""Drop a cached actor after changing that user's company link or account state."""
+	cache = getattr(frappe.local, "ill_portal_actors", None)
+	if cache:
+		cache.pop(user or frappe.session.user, None)
 
 
 def _is_read(ptype: str) -> bool:

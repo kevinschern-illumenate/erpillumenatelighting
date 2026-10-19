@@ -303,6 +303,11 @@ class DriverPackets(unittest.TestCase):
 				{ROOT + ".portal.driver_configuration": helpers, ROOT + ".api.spec_submittal": pdf},
 			) as (service, _frappe),
 		):
+			pdf._driver_document_source = lambda row: (
+				{**helpers.driver_configuration(row), "template": row.driver_template}
+				if helpers.driver_configuration(row) else None
+			)
+			_frappe.db.get_value.return_value = None
 			entry, warnings = {}, []
 			self.assertTrue(service._driver_submittal(line, entry, warnings))
 			renderer.assert_called_once_with("DRV-A", warnings=[], schedule_line="ROW")
@@ -313,7 +318,8 @@ class DriverPackets(unittest.TestCase):
 			renderer.return_value = {"success": False, "message": "No field mappings"}
 			entry, warnings = {}, []
 			self.assertFalse(service._driver_submittal(line, entry, warnings))
-			self.assertEqual(entry, {})
+			self.assertEqual(entry["build"], {"doctype": "ilL-Driver-Template", "name": "DRV-A"})
+			self.assertEqual(entry["warnings"], [warnings[-1]])
 			self.assertIn("No field mappings", warnings[-1])
 			self.assertFalse(service._driver_submittal(Record(line, driver_template=None), {}, []))
 

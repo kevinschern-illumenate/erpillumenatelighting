@@ -469,7 +469,7 @@ def get_part_number_preview(
     }
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=True, methods=["POST"])
 def create_complex_fixture_session(
     product_slug: str,
     selections: str,

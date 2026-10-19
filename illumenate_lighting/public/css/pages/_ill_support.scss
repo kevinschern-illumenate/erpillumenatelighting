@@ -1,0 +1,164 @@
+// ill_support.html page styles (UI-2), scoped by the class portal_base.html sets.
+// :where() keeps each selector's specificity what it was inline.
+:where(.ill-page--ill-support) {
+	.portal-page {
+		padding-block: 2rem;
+	}
+	.page-header {
+		margin-bottom: 2rem;
+	}
+	.support-hero {
+		background: var(--ill-brand-gradient);
+		color: white;
+		padding: 2.5rem;
+		border-radius: var(--ill-radius-lg);
+		margin-bottom: 2rem;
+		text-align: center;
+	}
+	.support-hero h2 {
+		margin-bottom: 1rem;
+	}
+	.support-hero .search-box {
+		max-width: 500px;
+		margin: 0 auto;
+	}
+	.support-hero .form-control {
+		padding: 0.875rem 1.25rem;
+		border-radius: var(--ill-radius-pill);
+		border: none;
+		font-size: 1rem;
+	}
+	.contact-cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		gap: 1.5rem;
+		margin-bottom: 2rem;
+	}
+	.contact-card {
+		background: white;
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-card);
+		padding: 1.5rem;
+		text-align: center;
+		box-shadow: var(--ill-shadow-card);
+		transition: all 0.2s;
+	}
+	.contact-card:hover {
+		box-shadow: var(--ill-shadow-elevated);
+		transform: translateY(-2px);
+	}
+	.contact-card-icon {
+		width: 64px;
+		height: 64px;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.5rem;
+		margin: 0 auto 1rem;
+	}
+	.contact-card-icon.email,
+	.contact-card-icon.phone,
+	.contact-card-icon.chat,
+	.contact-card-icon.ticket { background: var(--ill-blue-100); color: var(--ill-blue-600); }
+	.contact-card h5 {
+		margin-bottom: 0.5rem;
+	}
+	.contact-card p {
+		color: var(--ill-text-secondary);
+		font-size: 0.9rem;
+		margin-bottom: 1rem;
+	}
+	.faq-section {
+		margin-bottom: 2rem;
+	}
+	.faq-category {
+		margin-bottom: 1.5rem;
+	}
+	.faq-category-title {
+		font-weight: 600;
+		margin-bottom: 1rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 2px solid var(--ill-gray-300);
+	}
+	.faq-item {
+		background: white;
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-card);
+		margin-bottom: 0.5rem;
+		box-shadow: var(--ill-shadow-card);
+	}
+	.faq-question {
+		padding: 1rem 1.25rem;
+		cursor: pointer;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		font-weight: 500;
+	}
+	.faq-question:hover {
+		background: var(--ill-surface-soft);
+	}
+	.faq-question i {
+		transition: transform 0.2s;
+		color: var(--ill-gray-500);
+	}
+	.faq-item.open .faq-question i {
+		transform: rotate(180deg);
+	}
+	.faq-answer {
+		display: none;
+		padding: 0 1.25rem 1rem;
+		color: var(--ill-text-secondary);
+		line-height: 1.6;
+	}
+	.faq-item.open .faq-answer {
+		display: block;
+	}
+	.ticket-form-card {
+		background: white;
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-card);
+		box-shadow: var(--ill-shadow-card);
+		overflow: hidden;
+	}
+	.ticket-form-header {
+		padding: 1.5rem;
+		background: var(--ill-brand-gradient);
+		color: white;
+	}
+	.ticket-form-body {
+		padding: 1.5rem;
+	}
+	.ticket-list {
+		margin-top: 2rem;
+	}
+	.ticket-item {
+		background: white;
+		border: 1px solid var(--ill-navy-100);
+		border-radius: var(--ill-radius-card);
+		padding: 1rem 1.25rem;
+		margin-bottom: 0.75rem;
+		box-shadow: var(--ill-shadow-card);
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	.ticket-info h6 {
+		margin-bottom: 0.25rem;
+	}
+	.ticket-meta {
+		font-size: 0.8rem;
+		color: var(--ill-gray-500);
+	}
+	.status-badge {
+		padding: 0.25rem 0.75rem;
+		border-radius: var(--ill-radius-pill);
+		font-size: 0.75rem;
+		font-weight: 500;
+	}
+	.status-badge.open { background: var(--ill-gold-100); color: var(--ill-gold-ink); }
+	.status-badge.in-progress { background: var(--ill-blue-100); color: var(--ill-blue-800); }
+	.status-badge.resolved { background: var(--ill-green-100); color: var(--ill-green); }
+	.status-badge.closed { background: var(--ill-gray-100); color: var(--ill-text-secondary); }
+}

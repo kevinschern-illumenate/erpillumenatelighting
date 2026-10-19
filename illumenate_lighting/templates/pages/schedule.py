@@ -9,6 +9,7 @@ from illumenate_lighting.illumenate_lighting.portal.status import (
 	schedule_status_description,
 	schedule_status_label,
 )
+from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 from illumenate_lighting.illumenate_lighting.system_design.dealer_data import dimming_choices
 
 no_cache = 1
@@ -16,8 +17,7 @@ no_cache = 1
 
 def get_context(context):
 	"""Get context for the schedule detail portal page."""
-	if frappe.session.user == "Guest":
-		frappe.throw("Please login to view schedules", frappe.PermissionError)
+	require_login()
 
 	# Check if this is a new schedule creation (routed from /portal/projects/<project>/schedules/new)
 	project_name = frappe.form_dict.get("project")
@@ -466,6 +466,42 @@ def get_context(context):
 	context.schedule_status_class = schedule_status_class
 	context.schedule_status_label = schedule_status_label
 	context.schedule_status_description = schedule_status_description
+	from illumenate_lighting.illumenate_lighting.portal.status import SALES_EMAIL
+
+	context.sales_email = SALES_EMAIL
+	# One status vocabulary for page scripts (UI-4).
+	from illumenate_lighting.illumenate_lighting.portal.status import export_status_map, schedule_status_map
+
+	status_map = schedule_status_map()
+	context.status_labels = {status: meta["label"] for status, meta in status_map.items()}
+	context.status_classes = {status: meta["css"] for status, meta in status_map.items()}
+	context.export_statuses = export_status_map()
+	context.open_offer = _open_offer(schedule.name)
+	# FLOW-2: progress stepper, commercial thread and the one primary next step.
+	from illumenate_lighting.illumenate_lighting.portal import schedule_commercial
+
+	commercial = schedule_commercial.thread(schedule)
+	unconfigured = schedule_commercial.unconfigured_lines(lines)
+	# ISSUE is left only from here, once its order request is gone (or by staff).
+	issue_transitions = []
+	if schedule.status == "ISSUE" and can_edit and not schedule.get("is_locked"):
+		from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule import (
+			allowed_portal_transitions,
+		)
+
+		issue_transitions = allowed_portal_transitions(schedule.status, frappe.session.user, schedule)
+	context.issue_transitions = issue_transitions
+	context.commercial = commercial
+	context.progress_steps = schedule_commercial.progress(schedule.status, commercial)
+	context.unconfigured_lines = unconfigured
+	context.next_step = schedule_commercial.next_step(
+		schedule,
+		commercial,
+		can_edit=can_edit,
+		can_create_order=can_create_order and is_dealer,
+		unconfigured=[label for label, _key in unconfigured],
+		can_reopen="DRAFT" in issue_transitions,
+	)
 	context.title = schedule.schedule_name
 	context.no_cache = 1
 
@@ -999,3 +1035,21 @@ def _compute_kit_stock_for_line(line, show_qty: bool) -> dict | None:
 		items.append(entry)
 
 	return {"all_in_stock": all_in_stock, "items": items}
+
+
+def _open_offer(schedule_name):
+	"""The issued quote a status change away from QUOTED would supersede, if any."""
+	offer = frappe.get_all(
+		"ilL-Quote-Offer",
+		filters={"schedule": schedule_name, "state": "ISSUED"},
+		fields=["name", "valid_until"],
+		order_by="creation desc",
+		limit=1,
+	)
+	if not offer:
+		return None
+	valid_until = offer[0].valid_until
+	return {
+		"name": offer[0].name,
+		"valid_until": frappe.utils.format_date(valid_until) if valid_until else None,
+	}

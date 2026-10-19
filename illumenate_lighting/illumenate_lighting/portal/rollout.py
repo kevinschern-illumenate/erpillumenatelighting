@@ -46,8 +46,9 @@ def require_family(family, *, public=False):
 
 
 def require_configuration(family):
-	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
+	"""Catalog users, or an EDIT collaborator configuring for that schedule (FLOW-6)."""
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import require_configurator
 
 	if not frappe.flags.get("ill_product_download"):
-		require_catalog_access()
+		require_configurator()
 	require_family(family)
