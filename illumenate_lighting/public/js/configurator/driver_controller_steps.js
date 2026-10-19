@@ -5,7 +5,7 @@
   DriverController.prototype=Object.create(IC.Base.prototype);DriverController.prototype.constructor=DriverController;
   DriverController.prototype.init=function(){
     var self=this;
-    this.scheduleTarget=IC.bindScheduleContext({instance:this,context:this.context,onChange:function(){self.updateSave();}});
+    this.scheduleTarget=this.hostSaves()?null:IC.bindScheduleContext({instance:this,context:this.context,onChange:function(){self.updateSave();}});
     var draft=this.context.draft||{};
     this.$('#familyLineId').val(draft.line_id||'');this.$('#familyLocation').val(draft.location||'');this.$('#familyQty').val(draft.qty||1);this.$('#familyNotes').val(draft.notes||'');
     this.$('#familySave').on('click',function(){self.save();});
@@ -43,10 +43,14 @@
   DriverController.prototype.renderSummary=function(data){var box=this.$('#familySummary').empty();if(!data.success){box.text(data.error||'Choose a valid configuration.');return;}box.append($('<strong>').text(data.part_number));if(data.variant)box.append($('<p>').text((data.variant.variant_code||'')+' · '+(data.variant.item||'')));if(this.context.show_pricing&&data.pricing)box.append($('<p>').text('MSRP: '+(data.pricing.total_msrp??data.pricing.total_price_msrp??data.pricing.msrp??'')));};
   DriverController.prototype._updateButtons=function(){this.result=null;this.updateSave();if(!this.loading&&this.steps.length)this.validate();};
   // Coerced: prop('disabled', undefined) would only read the property and leave the button disabled.
-  DriverController.prototype.updateSave=function(){this.$('#familySave').prop('disabled',!this.result||!this.scheduleTarget||!this.scheduleTarget.hasTarget()||!this.scheduleTarget.canSave||!!this.saving);};
+  DriverController.prototype.updateSave=function(){this.$('#familySave').prop('disabled',!this.result||!this.targetReady()||!!this.saving);};
+  // Embedded in the desk Quotation / Sales Order dialog, context.saveHandler owns the target and the save.
+  DriverController.prototype.hostSaves=function(){return typeof this.context.saveHandler==='function';};
+  DriverController.prototype.targetReady=function(){if(this.hostSaves())return true;var target=this.scheduleTarget;return !!target&&target.hasTarget()&&!!target.canSave;};
   DriverController.prototype.metadata=function(){return {line_id:this.$('#familyLineId').val(),location:this.$('#familyLocation').val(),qty:Number(this.$('#familyQty').val()),notes:this.$('#familyNotes').val()};};
   DriverController.prototype.save=function(){
     if(!this.result||this.saving)return;
+    if(this.hostSaves()){this.context.saveHandler({product_type:this.kind,product_slug:this.context.product_slug,selections:Object.assign({},this.selections)});return;}
     if(this.scheduleTarget.lineValue()!=='__new__'){frappe.msgprint('Choose New Line to add this driver or controller.');return;}
     var meta=this.metadata(),args={product_slug:this.context.product_slug,selections:JSON.stringify(this.selections),schedule_name:this.scheduleTarget.scheduleName(),quantity:meta.qty,line_id:meta.line_id,location:meta.location,notes:meta.notes,expected_modified:(this.scheduleSnapshot||{}).modified,finder:this.context.finder};
     this.sendSave('illumenate_lighting.illumenate_lighting.portal.standard_products.add_configured',args);
