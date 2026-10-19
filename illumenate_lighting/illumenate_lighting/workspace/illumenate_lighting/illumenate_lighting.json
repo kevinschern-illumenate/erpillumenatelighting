@@ -2193,7 +2193,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Catalog Publishing",
-   "link_count": 5,
+   "link_count": 6,
    "onboard": 0,
    "type": "Card Break"
   },
@@ -2204,6 +2204,17 @@
    "label": "Design Readiness",
    "link_count": 0,
    "link_to": "design-readiness",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Spec Submittal Readiness",
+   "link_count": 0,
+   "link_to": "submittal-readiness",
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
