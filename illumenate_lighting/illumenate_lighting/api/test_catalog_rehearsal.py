@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import frappe
+from frappe.model.base_document import get_controller
 from frappe.tests import IntegrationTestCase
 
 from illumenate_lighting.illumenate_lighting.api import catalog_builder as service
@@ -246,26 +247,23 @@ class TestCatalogRehearsal(IntegrationTestCase):
 				fixture.cleanup()
 
 	def test_final_batch_failure_leaves_no_earlier_records(self):
-		from illumenate_lighting.illumenate_lighting.doctype.ill_rel_kit_endcap_map.ill_rel_kit_endcap_map import (
-			ilLRelKitEndcapMap,
-		)
-
 		frappe.set_user("Administrator")
 		fixture = CatalogRehearsalFixture()
 		try:
 			catalog = fixture.catalog("extrusion-kit")
 			checked = fixture.run(catalog)
 			self.assertEqual(checked["status"], "Passed", checked)
+			final = checked["results"][-1]
 
 			def changed_site_validation(doc):
-				if doc.endcap_type == "Feed-Through":
-					frappe.throw("Final batch rehearsal failure")
+				frappe.throw("Final batch rehearsal failure")
 
-			with patch.object(ilLRelKitEndcapMap, "validate", changed_site_validation, create=True):
+			controller = get_controller(final["doctype"])
+			with patch.object(controller, "validate", changed_site_validation, create=True):
 				result = fixture.run(catalog, checked["catalog_hash"])
 			self.assertEqual(result["status"], "Rolled Back", result)
-			self.assertEqual(result["results"][-1]["status"], "error")
-			self.assertTrue(all(row["status"] == "created" for row in result["results"][:-1]))
+			for row in result["results"]:
+				self.assertEqual(row["status"], "error" if row["batch"] == final["batch"] else "created", row)
 			self.assertEqual(result["summary"]["created"], 0)
 			for row in checked["results"]:
 				self.assertFalse(frappe.db.exists(row["doctype"], row["name"]), row)

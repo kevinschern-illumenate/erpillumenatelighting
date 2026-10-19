@@ -1,0 +1,13 @@
+{
+ "doctype": "Page",
+ "name": "submittal-readiness",
+ "page_name": "submittal-readiness",
+ "title": "Spec Submittal Readiness",
+ "module": "ilLumenate Lighting",
+ "standard": "Yes",
+ "system_page": 0,
+ "roles": [
+  {"role": "System Manager"}, {"role": "ilL Catalog Publisher"}, {"role": "ilL Engineering"},
+  {"role": "ilL Applications Engineer"}
+ ]
+}
