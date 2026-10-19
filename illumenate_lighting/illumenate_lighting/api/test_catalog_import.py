@@ -81,6 +81,8 @@ class TestCatalogImport(IntegrationTestCase):
 						rename(field["options"], child)
 				elif field["fieldtype"] == "Link" and key in row:
 					row[key] = names.get((field["options"], row[key]), row[key])
+				elif field["fieldtype"] == "Dynamic Link" and key in row:
+					row[key] = names.get((row.get(field["options"]), row[key]), row[key])
 
 		for doctype, rows in self.catalog["records"].items():
 			for row in rows:

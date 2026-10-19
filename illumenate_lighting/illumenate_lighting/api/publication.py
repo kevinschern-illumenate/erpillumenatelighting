@@ -100,7 +100,7 @@ def _refresh(doc, state, config):
 		"product": None,
 	}
 	if active:
-		from illumenate_lighting.illumenate_lighting.api.webflow_export import get_webflow_products
+		from illumenate_lighting.illumenate_lighting.api.webflow_export_v2 import get_webflow_products
 
 		products = get_webflow_products(brand=state.brand, product_slug=doc.name, limit=1)["products"]
 		if not products:
@@ -129,7 +129,8 @@ def _refresh(doc, state, config):
 				)
 			payload["product"]["category_webflow_item_id"] = category_id
 			payload["product"]["category_details"] = {"webflow_item_id": category_id}
-	state.current_hash = fingerprint({"payload": payload, "dependencies": readiness["dependencies"]})
+	clean_data = _strip_volatile_metadata({"payload": payload, "dependencies": readiness["dependencies"]})
+	state.current_hash = fingerprint(clean_data)
 	state.readiness_json = canonical_json({key: readiness[key] for key in ("ready", "issues")})
 	state.dependencies_json = canonical_json(readiness["dependencies"])
 	if state.approved_hash != state.current_hash:
@@ -155,6 +156,16 @@ def _receipt(state):
 		)
 	}
 
+def _strip_volatile_metadata(data):
+    """Recursively strip volatile child row IDs and timestamps from dictionaries before hashing."""
+    volatile_keys = {"name", "modified", "creation", "owner", "modified_by", "idx", "docstatus"}
+    
+    if isinstance(data, dict):
+        return {k: _strip_volatile_metadata(v) for k, v in data.items() if k not in volatile_keys}
+    elif isinstance(data, list):
+        return [_strip_volatile_metadata(item) for item in data]
+    else:
+        return data
 
 @frappe.whitelist(methods=["POST"])
 def inspect(product, brand):

@@ -31,6 +31,9 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_
 
 def _save_file_ignore_permissions(fname, content, dt, dn, is_private=1):
 	"""Generated project files remain private and retain their durable parent scope."""
+	if frappe.flags.get("ill_submittal_dry_run") is not None:
+		# Readiness dry runs fill the PDF in memory and keep nothing.
+		return frappe._dict(name=None, file_url=None)
 	if frappe.flags.get("ill_product_download"):
 		from illumenate_lighting.illumenate_lighting.portal.product_downloads import save_generated
 

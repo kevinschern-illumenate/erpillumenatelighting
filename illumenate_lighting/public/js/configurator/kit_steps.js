@@ -52,11 +52,12 @@
     if(this.saving)message=__('Saving to schedule…');
     else if(this.loading)message=__('Checking kit configuration…');
     else if(!this.result)message=__('Choose a kit template and complete its options.');
+    else if(this.targetReady())message='';
     else if(!target||!target.hasTarget())message=__('Select a fixture schedule and line, or choose New Line.');
     else if(!target.canSave)message=__('You cannot save to this schedule. Choose an editable schedule.');
     this.$('#kitSaveStatus').text(message);
   };
-  Kit.prototype.save=function(){if(!this.result||this.saving)return;var selected=this.scheduleTarget.lineValue(),snapshot=this.scheduleSnapshot||{},line=(snapshot.lines||[]).find(function(l){return String(l.idx)===String(selected);});this.sendSave('illumenate_lighting.illumenate_lighting.portal.kit_configuration.save',{schedule_name:this.scheduleTarget.scheduleName(),selections:JSON.stringify(this.selections),expected_modified:snapshot.modified,line_key:line?line.line_key:null,line_idx:line?null:selected==='__new__'?null:selected,metadata:JSON.stringify(this.metadata()),finder:this.context.finder});};
+  Kit.prototype.save=function(){if(!this.result||this.saving)return;if(this.hostSaves()){this.context.saveHandler({product_type:'Extrusion Kit',template:this.template,selections:Object.assign({},this.selections)});return;}var selected=this.scheduleTarget.lineValue(),snapshot=this.scheduleSnapshot||{},line=(snapshot.lines||[]).find(function(l){return String(l.idx)===String(selected);});this.sendSave('illumenate_lighting.illumenate_lighting.portal.kit_configuration.save',{schedule_name:this.scheduleTarget.scheduleName(),selections:JSON.stringify(this.selections),expected_modified:snapshot.modified,line_key:line?line.line_key:null,line_idx:line?null:selected==='__new__'?null:selected,metadata:JSON.stringify(this.metadata()),finder:this.context.finder});};
   // Numbered option sections with pill choices, matching the other configurators. Small screens get a select.
   Kit.prototype.renderSteps=function(){
     var self=this,container=this.$('#familySteps').empty();

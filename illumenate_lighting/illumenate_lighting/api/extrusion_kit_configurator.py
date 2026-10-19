@@ -330,9 +330,14 @@ def get_kit_cascading_options(
 
 @frappe.whitelist()
 @price_scoped
-def validate_kit_configuration(selections: str) -> dict:
+def validate_kit_configuration(selections: str | dict) -> dict:
     """
     Validate a complete Extrusion Kit configuration and resolve all component Items.
+
+    ``selections`` is JSON from the browser, or a dict from the server-side
+    savers (portal and Desk). Frappe checks a whitelisted function's argument
+    types on every call made during a web request, internal calls included, so
+    the annotation must admit both or every kit save fails with a type error.
 
     Selections dict keys:
       - kit_template       (str) – kit template name

@@ -245,8 +245,15 @@ def _explicit_schedule_context(field, configured_name, line_name):
 	return schedule, project, line
 
 
+def _links_generated_file():
+	"""Interactive generation writes the new file back to the configured record; packets,
+	product downloads and readiness dry runs never do."""
+	flags = frappe.flags
+	return not (flags.get("ill_product_download") or flags.get("ill_packet_job") or flags.get("ill_submittal_dry_run") is not None)
+
+
 def _commercial_source_blocked(doctype, field):
-	if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+	if _links_generated_file():
 		return False
 	# These documents are an unpriced engineering projection.
 	terms = ("price", "cost", "rate", "margin", "discount", "msrp", "valuation", "amount", "customer", "dealer", "pricing")
@@ -759,6 +766,10 @@ def _fill_pdf_form_fields(
 
 		# Detect ALL form fields (not just text – also checkboxes, dropdowns, etc.)
 		all_fields = reader.get_fields() or {}
+		# A readiness dry run (see api.submittal_readiness) records what would be written.
+		dry_run = frappe.flags.get("ill_submittal_dry_run")
+		if isinstance(dry_run, dict):
+			dry_run.update(pdf_template=pdf_template_path, field_values=dict(field_values), pdf_fields=sorted(all_fields))
 		# Mapped fields missing from the PDF are reported below; only a template that
 		# matches none of the mapping is the wrong master and would be a blank copy.
 		if not field_values or not set(field_values) & set(all_fields):
@@ -1274,7 +1285,7 @@ def generate_filled_submittal(configured_fixture_name: str, warnings: list | Non
 		)
 
 		# Update the configured fixture with the submittal link
-		if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+		if _links_generated_file():
 			cf.spec_submittal = file_doc.file_url
 			cf.save(ignore_permissions=True)
 
@@ -1403,7 +1414,7 @@ def generate_filled_sheet_submittal(configured_sheet_name: str, warnings: list |
 			return {"success": False, "message": _("Failed to fill LED Sheet PDF form fields"), "warnings": warnings}
 		filename = f"Spec_Submittal_{configured_sheet_name}_{nowdate()}.pdf"
 		file_doc = _save_file_ignore_permissions(filename, filled_pdf, "ilL-Configured-LED-Sheet", configured_sheet_name, is_private=is_private)
-		if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+		if _links_generated_file():
 			configured.spec_submittal = file_doc.file_url
 			configured.save(ignore_permissions=True)
 		return {"success": True, "file_url": file_doc.file_url, "provenance": provenance, "message": _("Spec submittal generated successfully"), "warnings": warnings}
@@ -1830,7 +1841,7 @@ def generate_filled_neon_submittal(configured_tape_neon_name: str, warnings: lis
 		)
 
 		# Update the configured tape/neon with the submittal link
-		if not (frappe.flags.get("ill_product_download") or frappe.flags.get("ill_packet_job")):
+		if _links_generated_file():
 			ctn.spec_submittal = file_doc.file_url
 			ctn.save(ignore_permissions=True)
 

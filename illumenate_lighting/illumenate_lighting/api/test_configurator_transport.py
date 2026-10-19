@@ -57,6 +57,8 @@ KNOWN_STRICT = {
 	"api.webflow_attributes.trigger_attribute_sync": {"sync_all"},
 	"api.webflow_export.get_webflow_categories": {"include_inactive"},
 	"api.webflow_export.get_webflow_products": {"limit", "offset"},
+	"api.webflow_export_v2.get_webflow_categories": {"include_inactive"},
+	"api.webflow_export_v2.get_webflow_products": {"limit", "offset"},
 	"api.webflow_integration.get_related_products": {"limit"},
 	"api.webflow_schedule.add_to_schedule": {"quantity"},
 }

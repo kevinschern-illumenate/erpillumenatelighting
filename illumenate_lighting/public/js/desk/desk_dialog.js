@@ -2,7 +2,7 @@
  * Desk Configurator Dialog — "Configure & Add Fixture" for Quotation / Sales Order.
  *
  * Mounts the SAME scoped portal configurator classes (IllConfigurator.Fixture /
- * IllConfigurator.TapeNeon) inside a Frappe modal and wires them to a project +
+ * TapeNeon / LedSheet / Kit / Driver / DriverController) inside a Frappe modal and wires them to a project +
  * fixture-schedule so a line configured here shows up in the customer portal
  * without double entry.
  *
@@ -37,8 +37,15 @@
 		{ value: 'LED Tape',       label: __('LED Tape') },
 		{ value: 'COB Tape',       label: __('COB Tape') },
 		{ value: 'LED Neon',       label: __('LED Neon') },
-		{ value: 'LED Sheet',      label: __('LED Sheet') }
+		{ value: 'LED Sheet',      label: __('LED Sheet') },
+		{ value: 'Extrusion Kit',  label: __('Extrusion Kit') },
+		{ value: 'Driver',         label: __('Power Supply') },
+		{ value: 'Controller',     label: __('Controller') }
 	];
+
+	// Catalog families: the choice resolves to existing Items (no build).
+	var CATALOG_CLASSES = { 'Extrusion Kit': 'Kit', 'Driver': 'Driver', 'Controller': 'DriverController' };
+	var CATALOG_SCOPES = { 'Extrusion Kit': 'ill-configurator-kit', 'Driver': 'ill-configurator-driver', 'Controller': 'ill-configurator-controller' };
 
 	var STEPS = [
 		{ key: 'project',   label: __('Project & Schedule') },
@@ -134,6 +141,15 @@
 
 	function isSheet(productType) {
 		return productType === 'LED Sheet';
+	}
+
+	function isCatalog(productType) {
+		return Object.prototype.hasOwnProperty.call(CATALOG_CLASSES, productType);
+	}
+
+	function productTypeLabel(productType) {
+		var match = PRODUCT_TYPES.find(function (pt) { return pt.value === productType; });
+		return match ? match.label : productType;
 	}
 
 	function pickHeader(doc) {
@@ -771,7 +787,8 @@
 					if (line) {
 						if (self.lineIdx !== line.idx || !self.initialRequest) self.initialRequest = line.initial_request || null;
 						self.lineIdx = line.idx;
-						if (line.product_type) self.productType = line.product_type;
+						var family = line.product_type || (line.initial_request || {}).family;
+						if (family) self.productType = family;
 						$body.find('.ill-desk-type-pill').each(function () { $(this).toggleClass('active', $(this).data('value') === self.productType); });
 						c.fixture_type.set_value(line.line_id);
 						c.location.set_value(line.location || '');
@@ -816,7 +833,7 @@
 		var c = this.controls;
 		if (!this.productType) {
 			frappe.msgprint({ title: __('Select a product type'), indicator: 'orange',
-				message: __('Please choose Linear Fixture, LED Tape, COB Tape, LED Neon or LED Sheet.') });
+				message: __('Please choose the type of product to configure.') });
 			return;
 		}
 		var fixtureType = (c.fixture_type.get_value() || '').trim();
@@ -905,7 +922,7 @@
 			'<strong>' + escapeHtml(this.fixtureType) + '</strong>',
 			this.location ? escapeHtml(this.location) : '<span class="text-muted">' + __('no Section / Room') + '</span>',
 			__('Qty {0}', [this.qty]),
-			escapeHtml(this.productType)
+			escapeHtml(productTypeLabel(this.productType))
 		];
 		var target = this.schedule
 			? __('→ schedule {0}', [escapeHtml(this.scheduleName || this.schedule)])
@@ -915,6 +932,7 @@
 	};
 
 	DialogController.prototype.mountConfigurator = function (markup) {
+		if (isCatalog(this.productType)) return this.mountCatalogConfigurator(markup);
 		var fixture = isFixture(this.productType);
 		var sheet = isSheet(this.productType);
 		var scopeClass = fixture ? 'ill-configurator-fixture' : (sheet ? 'ill-configurator-sheet' : 'ill-configurator-tape-neon');
@@ -960,6 +978,34 @@
 		}
 	};
 
+	// Extrusion Kit / Power Supply / Controller: the portal's family classes; the
+	// line details come from step 2, so the markup omits its own target and fields.
+	DialogController.prototype.mountCatalogConfigurator = function (markup) {
+		var self = this;
+		var request = this.initialRequest ? JSON.parse(JSON.stringify(this.initialRequest)) : null;
+		var $host = $('<div></div>')
+			.addClass('ill-configurator ill-desk-configurator ' + CATALOG_SCOPES[this.productType])
+			.html(markup);
+		this.body$().find('.ill-desk-loading').remove();
+		this.body$().append($host);
+		try {
+			this.configurator = new root.IllConfigurator[CATALOG_CLASSES[this.productType]]($host[0], {
+				kind: this.productType,
+				initial_request: request,
+				selected_template: (request || {}).template || null,
+				product_slug: (request || {}).product_slug || '',
+				can_save: true,
+				show_pricing: true,
+				show_stock_qty: true,
+				saveHandler: function (payload) { self.onConfiguratorSave(payload); }
+			});
+			this.configurator.init();
+		} catch (e) {
+			console.error('[illumenate_lighting] Failed to mount configurator', e);
+			$host.html('<div class="alert alert-danger">' + __('Failed to initialize the configurator.') + '</div>');
+		}
+	};
+
 	DialogController.prototype.teardownConfigurator = function () {
 		if (this.configurator && typeof this.configurator.destroy === 'function') {
 			try { this.configurator.destroy(); } catch (e) { /* noop */ }
@@ -995,7 +1041,10 @@
 			expected_modified: (this.pickerData || {}).modified || null,
 			variant_origin: variantOriginFor(this.frm)
 		};
-		if (isFixture(productType)) {
+		if (isCatalog(productType)) {
+			if (payload.template) args.template = payload.template;
+			if (payload.product_slug) args.product_slug = payload.product_slug;
+		} else if (isFixture(productType)) {
 			args.product_slug = payload.product_slug || '';
 		} else if (isSheet(productType)) {
 			// selections_json already carries template / spec / options / coverage.
