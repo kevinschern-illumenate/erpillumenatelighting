@@ -55,6 +55,9 @@ class TestMigrationAssets(IntegrationTestCase):
 			"extrusion_kit_configurator.py", "webflow_configurator.py", "desk_configurator.py",
 			"configured_product_builder.py", "portal.py",
 		))
+		if "hrms" not in frappe.get_installed_apps():
+			# role_audit.py reads Frappe HR records only after checking that hrms is installed.
+			paths = [path for path in paths if path.name != "role_audit.py"]
 		columns = {}
 		for path in paths:
 			for call in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
