@@ -53,7 +53,14 @@
   };
   DriverController.prototype.sendSave=function(method,args){
     var self=this,signature=JSON.stringify(args);if(!this.saveAttempt||this.saveAttempt.signature!==signature)this.saveAttempt={signature:signature,key:root.crypto.randomUUID()};args.idempotency_key=this.saveAttempt.key;this.saving=true;this.updateSave();
-    this.request({method:method,type:'POST',args:args,callback:function(r){if(r.message&&r.message.success){if(self.context.draft_id)root.sessionStorage.removeItem('ill-line-draft:'+self.context.draft_id);root.location.href='/portal/schedules/'+encodeURIComponent(r.message.schedule_name);}else self.$('#familySummary').text((r.message||{}).error||'Save failed');},always:function(){self.saving=false;self.updateSave();}});
+    function showError(data){
+      data=data||{};var message=data.error;
+      if(!message&&data._server_messages){
+        try {message=JSON.parse(data._server_messages).map(function(entry){return (typeof entry==='string'?JSON.parse(entry):entry).message;}).filter(Boolean).join(' ');}catch(_){}
+      }
+      self.$('#familySummary').text(message||__('Unable to save to schedule. Please try again.'));
+    }
+    this.request({method:method,type:'POST',args:args,callback:function(r){if(r.message&&r.message.success){if(self.context.draft_id)root.sessionStorage.removeItem('ill-line-draft:'+self.context.draft_id);root.location.href='/portal/schedules/'+encodeURIComponent(r.message.schedule_name);}else showError(r.message||r);},error:function(xhr){showError((xhr||{}).responseJSON);},always:function(){self.saving=false;self.updateSave();}});
   };
   IC.DriverController=DriverController;
 })(window);

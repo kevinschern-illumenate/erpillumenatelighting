@@ -11,3 +11,100 @@ test('kit restores allowed choices, shows components and stock, and saves to a s
  const save=requests.at(-1);assert.match(save.method,/kit_configuration.save$/);assert.equal(save.args.line_key,'STABLE');assert.equal(save.args.finder,'T');assert.equal(JSON.parse(save.args.selections).kit_template,'KIT');assert.equal(save.args.part_number,undefined);
  dom.window.close();
 });
+
+function readyKit() {
+ const state=setup('Extrusion Kit'),{requests}=state;
+ const values={finish:'White',lens_appearance:'Frosted',mounting_method:'Clip'};
+ requests.at(-1).callback({message:{success:true,kit_template:{name:'KIT'},options:Object.fromEntries(Object.entries(values).map(([key,value])=>[key,[{value,label:value}]])),defaults:values}});
+ requests.at(-1).callback({message:{success:true,available_lens_appearances:[{value:'Frosted'}]}});
+ requests.at(-1).callback({message:{success:true,is_valid:true,part_number:'KIT-SH01-FR-MC-WH'}});
+ return state;
+}
+
+test('kit line detail edits keep the validated build and Add to Schedule sends the edited metadata',()=>{
+ const {dom,w,requests,instance}=readyKit();
+ try {
+  assert.equal(instance.loading,false);
+  const count=requests.length;
+  for(const [id,value] of Object.entries({familyLineId:'K1',familyLocation:'Lobby',familyQty:3,familyNotes:'Install above door'})) {
+   instance.$('#'+id).val(value).trigger(w.$.Event('input',{originalEvent:{}})).trigger('change');
+  }
+  assert.equal(requests.length,count);
+  assert.equal(instance.$('#familySave').prop('disabled'),false);
+  instance.$('#familySave').trigger('click');
+  const save=requests.at(-1);
+  assert.match(save.method,/kit_configuration.save$/);
+  assert.deepEqual(JSON.parse(save.args.metadata),{line_id:'K1',location:'Lobby',qty:3,notes:'Install above door'});
+  assert.equal(save.args.expected_modified,'old');
+  assert.equal(instance.$('#familySave').prop('disabled'),true);
+  assert.match(instance.$('#kitSaveStatus').text(),/Saving/);
+ } finally {dom.window.close();}
+});
+
+test('kit option changes disable save until the latest validation completes, including after editing line details',()=>{
+ const {dom,requests,instance}=readyKit();
+ try {
+  instance.choose('finish','Black');
+  assert.equal(instance.result,null);
+  assert.equal(instance.$('#familySave').prop('disabled'),true);
+  instance.$('#familyLocation').val('Lobby').trigger('input');
+  assert.equal(instance.result,null);
+  requests.at(-1).callback({message:{success:true,available_lens_appearances:[{value:'Frosted'}]}});
+  const old=requests.at(-1);
+  instance.choose('finish','White');
+  old.callback({message:{is_valid:true,part_number:'STALE'}});
+  assert.equal(instance.result,null);
+  requests.at(-1).callback({message:{success:true,available_lens_appearances:[{value:'Frosted'}]}});
+  requests.at(-1).callback({message:{is_valid:true,part_number:'KIT-SH01-FR-MC-WH'}});
+  assert.equal(instance.loading,false);
+  assert.equal(instance.$('#familySave').prop('disabled'),false);
+ } finally {dom.window.close();}
+});
+
+test('kit explains missing schedule targets and read-only schedules',()=>{
+ const {dom,instance}=readyKit();
+ try {
+  instance.scheduleTarget.hasTarget=()=>false;instance.updateSave();
+  assert.equal(instance.$('#familySave').prop('disabled'),true);
+  assert.match(instance.$('#kitSaveStatus').text(),/Select.*schedule.*line/i);
+  instance.scheduleTarget.hasTarget=()=>true;instance.scheduleTarget.canSave=false;instance.updateSave();
+  assert.equal(instance.$('#familySave').prop('disabled'),true);
+  assert.match(instance.$('#kitSaveStatus').text(),/cannot.*save|read.only/i);
+ } finally {dom.window.close();}
+});
+
+test('kit save errors are visible and retries keep the same save key',()=>{
+ const {dom,requests,instance}=readyKit();
+ try {
+  instance.$('#familySave').trigger('click');
+  const failed=requests.at(-1);
+  failed.error({responseJSON:{_server_messages:JSON.stringify([JSON.stringify({message:'The schedule changed. Reload before saving this kit.'})])}});
+  failed.always();
+  assert.match(instance.$('#familySummary').text(),/schedule changed.*Reload/);
+  assert.equal(instance.$('#familySave').prop('disabled'),false);
+  instance.$('#familySave').trigger('click');
+  assert.equal(requests.at(-1).args.idempotency_key,failed.args.idempotency_key);
+  requests.at(-1).error({});requests.at(-1).always();
+  assert.match(instance.$('#familySummary').text(),/Unable to save.*try again/i);
+ } finally {dom.window.close();}
+});
+
+test('kit failed option checks and validation clear loading and show the failure',()=>{
+ for(const stage of ['cascade','validation']) {
+  const {dom,requests,instance}=readyKit();
+  try {
+   instance.choose('finish','Black');
+   if(stage==='validation')requests.at(-1).callback({message:{success:true,available_lens_appearances:[{value:'Frosted'}]}});
+   requests.at(-1).error({});
+   assert.equal(instance.loading,false);
+   assert.equal(instance.result,null);
+   assert.equal(instance.$('#familySave').prop('disabled'),true);
+   assert.match(instance.$('#familySummary').text(),/try again/i);
+   instance.choose('finish','White');
+   requests.at(-1).callback({message:{success:true,available_lens_appearances:[{value:'Frosted'}]}});
+   requests.at(-1).callback({message:{is_valid:false,error:'No profile mapping found'}});
+   assert.equal(instance.loading,false);
+   assert.match(instance.$('#familySummary').text(),/No profile mapping/);
+  } finally {dom.window.close();}
+ }
+});
