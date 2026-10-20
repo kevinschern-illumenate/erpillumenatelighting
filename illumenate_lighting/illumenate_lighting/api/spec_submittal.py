@@ -986,6 +986,7 @@ def _merge_pdfs(pdf_list: list[bytes]) -> bytes | None:
 				# causes filled form-field values to become invisible.
 				writer.append(io.BytesIO(pdf_bytes))
 
+		_shrink_losslessly(writer)
 		output = io.BytesIO()
 		writer.write(output)
 		return output.getvalue()
@@ -996,6 +997,22 @@ def _merge_pdfs(pdf_list: list[bytes]) -> bytes | None:
 	except Exception as e:
 		frappe.log_error(f"Error merging PDFs: {str(e)}", "Spec Submittal Generation Error")
 		return None
+
+
+def _shrink_losslessly(writer) -> None:
+	"""Shrink a merged packet without touching what it shows.
+
+	Lines filled from one template repeat its fonts and images once per copy, so identical
+	objects are stored once; content streams are deflated. Nothing is resampled or re-encoded.
+	"""
+	try:
+		for page in writer.pages:
+			page.compress_content_streams()
+		# pypdf < 4 has no deduplication; the packet is still valid, only larger.
+		if hasattr(writer, "compress_identical_objects"):
+			writer.compress_identical_objects()
+	except Exception as e:
+		frappe.log_error(f"Packet compression skipped: {e}", "Spec Submittal Generation Error")
 
 
 def _get_pdf_bytes_from_url(file_url: str) -> bytes | None:

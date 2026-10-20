@@ -191,6 +191,23 @@ class CustomerPages(unittest.TestCase):
 		self.assertNotIn("DEBUG", log)
 
 
+class PacketCompression(unittest.TestCase):
+	def test_repeated_documents_are_stored_once_without_changing_pages(self):
+		stream = io.BytesIO()
+		Image.frombytes("RGB", (600, 600), bytes(range(256)) * 4218 + bytes(192)).save(stream, "PDF")
+		sheet = stream.getvalue()
+		stubs = {
+			ROOT + ".api.exports": types.SimpleNamespace(_save_file_ignore_permissions=MagicMock()),
+			ROOT + ".portal.access": types.SimpleNamespace(),
+		}
+		with load_service(ROOT + ".api.spec_submittal", stubs) as (module, _frappe):
+			merged = module._merge_pdfs([pdf_bytes(1, text="COVER"), sheet, sheet, sheet])
+		reader = PdfReader(io.BytesIO(merged))
+		self.assertEqual(len(reader.pages), 4)
+		self.assertIn("COVER", reader.pages[0].extract_text())
+		self.assertLess(len(merged), 2 * len(sheet))
+
+
 class PacketGather(unittest.TestCase):
 	kit_renderer = MagicMock(return_value={"success": True, "file_url": "/private/files/kit.pdf"})
 
