@@ -158,17 +158,23 @@ def _receipt(state):
 
 def _strip_volatile_metadata(data):
     """Recursively strip volatile child row IDs and timestamps from dictionaries before hashing."""
+    
+    # Expand the volatile keys to ignore the documents child table entirely
     volatile_keys = {
         "name", "modified", "creation", "owner", "modified_by", "idx", "docstatus",
-        "sync_status", "webflow_item_id", "last_synced_at", "sync_error_message"
+        "sync_status", "webflow_item_id", "last_synced_at", "sync_error_message",
+        "documents"  # Add this to ignore the spec sheet child table!
     }
-    
+
     if isinstance(data, dict):
-        return {k: _strip_volatile_metadata(v) for k, v in data.items() if k not in volatile_keys}
+        return {
+            k: _strip_volatile_metadata(v)
+            for k, v in data.items()
+            if k not in volatile_keys and not k.startswith("_")
+        }
     elif isinstance(data, list):
         return [_strip_volatile_metadata(item) for item in data]
-    else:
-        return data
+    return data
 
 @frappe.whitelist(methods=["POST"])
 def inspect(product, brand):
