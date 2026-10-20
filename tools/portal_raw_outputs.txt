@@ -5,3 +5,5 @@ templates/pages/configure.html: quiz_handoff_json | safe  # configure.py JSON-en
 templates/pages/configure.html: include_script("illumenate_configurator.bundle.js")  # Frappe builds the <script> tag for a literal bundle name (UI-6)
 templates/pages/configure_tape.html: include_script("illumenate_configurator.bundle.js")  # Frappe builds the <script> tag for a literal bundle name (UI-6)
 templates/pages/schedule.html: include_script("illumenate_configurator.bundle.js")  # Frappe builds the <script> tag for a literal bundle name (UI-6)
+templates/print/spec_submittal_cover.html: base_css | safe  # a constant stylesheet from portal/packet_pages.py; no user input
+templates/print/spec_submittal_cover.html: brand_header | safe  # packet_pages.brand_header escapes its only argument and inlines the bundled logo

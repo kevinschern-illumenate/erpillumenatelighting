@@ -1,7 +1,6 @@
 """Private packet preparation with source snapshots and a fail-closed manifest."""
 
 import hashlib
-import html
 import io
 import json
 
@@ -9,15 +8,7 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 from illumenate_lighting.illumenate_lighting.portal.packet_manifest import assemble_manifest
-
-DOCUMENT_LABELS = {
-	"filled_submittal": "Spec submittal",
-	"approved_literature": "Product literature",
-	"approved_item_literature": "Product literature",
-	"uploaded_literature": "Spec sheet",
-	"template_spec_sheet": "Spec sheet",
-	"selected_line_document": "Attached document",
-}
+from illumenate_lighting.illumenate_lighting.portal.packet_pages import contents_html
 
 
 def _part_number(line):
@@ -73,14 +64,20 @@ def _driver_submittal(line, entry, warnings):
 	if not result.get("success"):
 		_, _, spec_sheet = _template_spec_sheet(entry["build"])
 		if spec_sheet:
-			reason = "; ".join(dict.fromkeys([result.get("message") or "Submittal generation failed", *notes]))
+			reason = "; ".join(
+				dict.fromkeys([result.get("message") or "Submittal generation failed", *notes])
+			)
 			warning = f"Line {label}: used the {template} spec sheet because the power supply submittal could not be generated ({reason})"
 			entry.update(
 				spec_document_url=spec_sheet,
 				has_submittal=True,
 				source_kind="template_spec_sheet",
 				filled_required=False,
-				provenance={"template_type": "ilL-Driver-Template", "template": template, "source_url": spec_sheet},
+				provenance={
+					"template_type": "ilL-Driver-Template",
+					"template": template,
+					"source_url": spec_sheet,
+				},
 				warnings=[warning],
 			)
 			warnings.append(warning)
@@ -287,39 +284,20 @@ def gather(schedule, warnings, pinned=None):
 	return lines
 
 
-# The omissions banner marks the packet's opening pages; product documents stay unmarked.
-WATERMARK_PAGES = 2
+def _issue_log(manifest, errors, notes=()):
+	"""Everything that went wrong or was worked around, for staff in Desk only."""
+	warnings = [warning for entry in manifest for warning in entry.get("warnings") or []]
+	sections = []
+	for title, items in (("Errors", [*errors, *notes]), ("Warnings", warnings)):
+		items = [item for item in dict.fromkeys(items) if "[DEBUG]" not in item]
+		if items:
+			sections.append(f"{title} ({len(items)}):\n" + "\n".join(f"- {item}" for item in items))
+	return "\n\n".join(sections), len(errors) + len(notes)
 
 
-def _incomplete_watermark(content, get_pdf, pages=WATERMARK_PAGES):
-	from pypdf import PdfReader, PdfWriter, Transformation
-
-	overlay = PdfReader(
-		io.BytesIO(
-			get_pdf(
-				'<html><body><p style="font:bold 18pt Arial;color:#b00020;text-align:center">INCOMPLETE DRAFT - SEE OMISSIONS IN INDEX</p></body></html>'
-			)
-		)
-	).pages[0]
-	writer = PdfWriter()
-	for number, source in enumerate(PdfReader(io.BytesIO(content)).pages):
-		page = writer.add_page(source)
-		if number < pages:
-			page.merge_transformed_page(
-				overlay,
-				Transformation().scale(
-					float(page.mediabox.width) / float(overlay.mediabox.width),
-					float(page.mediabox.height) / float(overlay.mediabox.height),
-				),
-			)
-	stream = io.BytesIO()
-	writer.write(stream)
-	return stream.getvalue()
-
-
-def generate(
-	schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *, job_name=None, allow_partial=False
-):
+def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *, job_name=None):
+	"""A standard submittal always produces a packet: a document that cannot be included is left out
+	and every reason goes to the job's staff-only issue log. A full submittal stays fail-closed."""
 	from pypdf import PdfReader
 
 	from illumenate_lighting.illumenate_lighting.api import exports
@@ -332,7 +310,7 @@ def generate(
 	from illumenate_lighting.illumenate_lighting.portal.quotes import _snapshot
 
 	include_cover = parse_bool(include_cover, default=True)
-	allow_partial = parse_bool(allow_partial)
+	always = export_type == "SPEC_SUBMITTAL"
 	if export_type not in ("SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL"):
 		frappe.throw("Choose a supported packet type")
 	allowed, error = exports._check_schedule_access(schedule_name)
@@ -355,6 +333,7 @@ def generate(
 			}
 	previous = frappe.flags.get("ill_packet_job")
 	warnings = []
+	notes = []
 	try:
 		frappe.flags.ill_packet_job = job_name
 		lock_running(job_name)
@@ -432,7 +411,9 @@ def generate(
 			pdf._generate_cover_page(schedule_name, schedule.ill_project, lines) if include_cover else None
 		)
 		if include_cover and not cover:
-			raise ValueError("Cover generation failed")
+			if not always:
+				raise ValueError("Cover generation failed")
+			notes.append("The cover page could not be generated; the packet was issued without it")
 		cover_pages = len(PdfReader(io.BytesIO(cover)).pages) if cover else 0
 
 		def load_source(url):
@@ -470,8 +451,12 @@ def generate(
 			},
 		)
 		checkpoint(job_name, 75, "Assembling schedule and page index")
-		if errors and (not allow_partial or not parts):
+		if errors and not always:
 			lock_running(job_name)
+			issue_log, issue_count = _issue_log(manifest, errors)
+			frappe.db.set_value(
+				"ilL-Export-Job", job_name, {"issue_log": issue_log, "issue_count": issue_count}
+			)
 			exports._update_export_job_status(job_name, "FAILED", error_log="\n".join(errors))
 			return {
 				"success": False,
@@ -481,10 +466,10 @@ def generate(
 			}
 		from frappe.utils.pdf import get_pdf
 
+		schedule_data = exports._get_schedule_data(schedule_name, include_pricing=False)
+		project_title = getattr(schedule_data.get("project"), "project_name", None)
 		schedule_pdf = get_pdf(
-			exports._generate_pdf_content(
-				exports._get_schedule_data(schedule_name, include_pricing=False), include_pricing=False
-			)
+			exports._generate_pdf_content(schedule_data, include_pricing=False, submittal=True)
 		)
 		schedule_pages = len(PdfReader(io.BytesIO(schedule_pdf)).pages)
 		index_pages = 0
@@ -494,22 +479,12 @@ def generate(
 				if entry.get("page_count"):
 					entry.update(page_start=page, page_end=page + entry["page_count"] - 1)
 					page += entry["page_count"]
-			rows = "".join(
-				"<tr><td>"
-				+ html.escape(str(entry.get("designation") or ""))
-				+ "</td><td>"
-				+ html.escape(str(entry.get("part_number") or ""))
-				+ "</td><td>"
-				+ html.escape(DOCUMENT_LABELS.get(entry.get("source_kind"), ""))
-				+ "</td><td>"
-				+ html.escape(str(entry.get("page_start") or entry.get("reason") or entry["status"]))
-				+ "</td></tr>"
-				for entry in manifest
-			)
 			index_pdf = get_pdf(
-				"<html><head><style>body{font:10pt Arial} table{width:100%;border-collapse:collapse} td,th{border-bottom:1px solid #ddd;padding:8px;word-break:break-all} thead{display:table-header-group} tr{page-break-inside:avoid}</style></head><body><h1>Packet page index</h1><table><thead><tr><th>Designation</th><th>Part number</th><th>Document</th><th>First page / omission</th></tr></thead><tbody>"
-				+ rows
-				+ "</tbody></table></body></html>"
+				contents_html(
+					manifest,
+					schedule_title=schedule.get("schedule_name"),
+					project_title=project_title,
+				)
 			)
 			count = len(PdfReader(io.BytesIO(index_pdf)).pages)
 			if count == index_pages:
@@ -545,36 +520,41 @@ def generate(
 			e.get("page_count", 0) for e in manifest
 		):
 			raise ValueError("Merged packet page count does not match its manifest")
-		result_status = "INCOMPLETE" if errors else "COMPLETE"
-		if errors:
-			merged = _incomplete_watermark(merged, get_pdf)
+		# INCOMPLETE keeps the job in staff queues; the customer's copy reads like any other packet.
+		result_status = "INCOMPLETE" if errors or notes else "COMPLETE"
+		issue_log, issue_count = _issue_log(manifest, errors, notes)
 		file = exports._save_file_ignore_permissions(
-			f"{result_status}_Packet_{job_name}.pdf", merged, "ilL-Export-Job", job_name
+			f"Spec_Submittal_{job_name}.pdf", merged, "ilL-Export-Job", job_name
 		)
 		frappe.db.set_value("ilL-Export-Job", job_name, "output_sha256", hashlib.sha256(merged).hexdigest())
 		frappe.db.set_value(
 			"ilL-Export-Job",
 			job_name,
-			{"progress": 100, "progress_message": result_status},
+			{
+				"progress": 100,
+				"progress_message": "Ready",
+				"issue_log": issue_log,
+				"issue_count": issue_count,
+			},
 			update_modified=False,
 		)
-		exports._update_export_job_status(
-			job_name, result_status, output_file=file.file_url, error_log="\n".join(errors)
-		)
+		exports._update_export_job_status(job_name, result_status, output_file=file.file_url)
 		return {
 			"success": True,
 			"export_job": job_name,
 			"file_url": file.file_url,
 			"manifest": manifest,
-			"warnings": warnings + errors,
+			"warnings": warnings + errors + notes,
 			"status": result_status,
-			"message": "Incomplete draft generated" if errors else "Spec submittal packet generated",
+			"message": "Spec submittal packet generated",
 		}
 	except InterruptedPacket:
 		raise
 	except Exception as error:
 		lock_running(job_name)
 		frappe.log_error(frappe.get_traceback(), "Packet generation failed")
+		issue_log, issue_count = _issue_log([], [str(error), *warnings])
+		frappe.db.set_value("ilL-Export-Job", job_name, {"issue_log": issue_log, "issue_count": issue_count})
 		exports._update_export_job_status(job_name, "FAILED", error_log=str(error))
 		return {"success": False, "export_job": job_name, "message": str(error), "warnings": warnings}
 	finally:

@@ -14,8 +14,9 @@ Supports:
 - Other manufacturer fixtures (attached spec sheets)
 
 Export Types:
-- SPEC_SUBMITTAL: Cover page + spec submittals only (filled PDFs for configured fixtures)
-- SPEC_SUBMITTAL_FULL: Cover page + all spec sheets + spec submittals
+- SPEC_SUBMITTAL: Cover page + spec submittals only (filled PDFs for configured fixtures).
+  Always produces a packet; omissions and warnings are logged on the export job for staff.
+- SPEC_SUBMITTAL_FULL: Cover page + all spec sheets + spec submittals; fails when a document is missing
 """
 
 import hashlib
@@ -1052,6 +1053,10 @@ def _generate_cover_page(
 			project_id = project_name or schedule.ill_project
 			project = frappe.get_doc("ilL-Project", project_id)
 
+		from frappe.utils import formatdate
+
+		from illumenate_lighting.illumenate_lighting.portal.packet_pages import BASE_CSS, brand_header
+
 		# Prepare context for template
 		context = {
 			"schedule": schedule,
@@ -1059,9 +1064,13 @@ def _generate_cover_page(
 			# DESK-9: the end client by name (party or Customer), not the billing Customer's ID.
 			"end_client": _project_source_value(project, "customer") if project else None,
 			"fixture_lines": fixture_lines,
-			"generation_date": nowdate() if include_date else None,
+			# Attached documents add entries; a fixture type is one schedule line.
+			"fixture_count": len({line.get("schedule_line") or line.get("line_key") for line in fixture_lines}),
+			"generation_date": formatdate(nowdate()) if include_date else None,
 			"generation_datetime": now() if include_date else None,
 			"company_name": "ilLumenate Lighting",
+			"base_css": BASE_CSS,
+			"brand_header": brand_header("Submittal package"),
 		}
 
 		# Render the cover page template
@@ -1090,10 +1099,10 @@ def _gather_line_documents(schedule_name: str, include_all_specs: bool = False, 
 
 
 @frappe.whitelist(methods=["POST"])
-def generate_spec_submittal_packet(schedule_name: str, export_type: str = "SPEC_SUBMITTAL", include_cover: bool = True, allow_partial: bool = False) -> dict:
+def generate_spec_submittal_packet(schedule_name: str, export_type: str = "SPEC_SUBMITTAL", include_cover: bool = True) -> dict:
 	from illumenate_lighting.illumenate_lighting.portal.packet_jobs import request
 
-	return request(schedule_name, export_type, include_cover, allow_partial=allow_partial)
+	return request(schedule_name, export_type, include_cover)
 
 
 def generate_filled_submittal(configured_fixture_name: str, warnings: list | None = None, webflow_overrides: dict | None = None, is_private: int = 1, schedule_line: str | None = None, *, _configured_doc=None, _schedule_context=None) -> dict:

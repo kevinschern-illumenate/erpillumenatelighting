@@ -9,6 +9,7 @@ from pypdf import PdfReader, PdfWriter
 from test_services import ROOT, Record, load_service
 
 from illumenate_lighting.illumenate_lighting.portal.packet_manifest import assemble_manifest
+from illumenate_lighting.illumenate_lighting.portal.packet_pages import contents_html
 
 
 def pdf_bytes(pages=1, password=None, text=None):
@@ -150,13 +151,44 @@ class PacketManifest(unittest.TestCase):
 			assemble_manifest([line("one"), line("one")], lambda _: (pdf_bytes(), "source.pdf"))
 
 
-class IncompleteWatermark(unittest.TestCase):
-	def test_banner_marks_only_the_opening_pages(self):
+PAGES_MANIFEST = (
+	{
+		"designation": "A",
+		"part_number": "ILL-A",
+		"source_kind": "filled_submittal",
+		"status": "included",
+		"page_start": 4,
+	},
+	{
+		"designation": "B",
+		"part_number": "ILL-B",
+		"status": "failed",
+		"reason": "Required source document is missing",
+		"warnings": ["Line B: [DEBUG] noise", "Line B: used the T1 spec sheet"],
+	},
+	{"designation": "C", "status": "excluded", "reason": "No approved literature"},
+)
+
+
+class CustomerPages(unittest.TestCase):
+	manifest = PAGES_MANIFEST
+
+	def test_contents_lists_every_type_without_saying_why_one_is_missing(self):
+		page = contents_html(self.manifest, schedule_title="Main", project_title="Tower <1>")
+		self.assertIn(">4</td>", page)
+		self.assertIn("ILL-B", page)
+		self.assertEqual(page.count("&mdash;</td>"), 2)
+		self.assertIn("Tower &lt;1&gt;", page)
+		for reason in ("missing", "literature", "failed", "excluded", "omission"):
+			self.assertNotIn(reason, page.lower())
+
+	def test_issue_log_keeps_errors_and_warnings_for_staff(self):
 		with load_service(ROOT + ".portal.packets", {}) as (module, _frappe):
-			marked = module._incomplete_watermark(pdf_bytes(5), lambda _html: pdf_bytes(1, text="BANNER"))
-		pages = PdfReader(io.BytesIO(marked)).pages
-		self.assertEqual(len(pages), 5)
-		self.assertEqual(["BANNER" in page.extract_text() for page in pages], [True, True, False, False, False])
+			log, count = module._issue_log(self.manifest, ["Line B (b): Required source document is missing"])
+		self.assertEqual(count, 1)
+		self.assertIn("Errors (1):\n- Line B (b): Required source document is missing", log)
+		self.assertIn("Warnings (1):\n- Line B: used the T1 spec sheet", log)
+		self.assertNotIn("DEBUG", log)
 
 
 class PacketGather(unittest.TestCase):
@@ -223,7 +255,9 @@ class PacketGather(unittest.TestCase):
 		row = dict(idx=1, line_id=None, qty=1, location=None, notes=None, manufacturer_type="ILLUMENATE")
 		lines, warnings = self.gather(
 			Record(row, name="R1", line_key="K1", configured_fixture="CF1"),
-			Record(row, name="R2", line_key="K2", idx=2, manufacturer_type="OTHER", spec_sheet="/files/o.pdf"),
+			Record(
+				row, name="R2", line_key="K2", idx=2, manufacturer_type="OTHER", spec_sheet="/files/o.pdf"
+			),
 			get_value=self.templates({}),
 		)
 		self.assertFalse(lines[0]["required"])
@@ -268,7 +302,8 @@ class PacketGather(unittest.TestCase):
 		lines, _warnings = self.gather(Record(row, name="R1", line_key="K1", kit_template="KIT-A"))
 		self.assertEqual(lines[0]["source_kind"], "filled_submittal")
 		self.assertEqual(
-			lines[0]["warnings"], ["Line K: 2 PDF field(s) have no mapping and will be left blank: ['A', 'B']"]
+			lines[0]["warnings"],
+			["Line K: 2 PDF field(s) have no mapping and will be left blank: ['A', 'B']"],
 		)
 
 	def test_linear_line_carries_display_part_number_not_hash_name(self):
@@ -284,7 +319,9 @@ class PacketGather(unittest.TestCase):
 			Record(row, name="R2", line_key="K2", manufacturer_type="OTHER", fixture_model_number="ACM-200"),
 			get_value=get_value,
 		)
-		self.assertEqual([entry["part_number"] for entry in lines], ["ILL-SL-SW-I-30-HO-FR-SM-WH-48", "ACM-200"])
+		self.assertEqual(
+			[entry["part_number"] for entry in lines], ["ILL-SL-SW-I-30-HO-FR-SM-WH-48", "ACM-200"]
+		)
 		self.assertEqual(calls[0], ("ilL-Configured-Fixture", "ILL-CF-" + "a" * 64, "display_part_number"))
 		manifest, _parts, _errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "source.pdf"))
 		self.assertEqual(manifest[0]["part_number"], "ILL-SL-SW-I-30-HO-FR-SM-WH-48")
