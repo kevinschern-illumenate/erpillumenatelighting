@@ -59,6 +59,9 @@ SKIP_LINKS = {
 	"compatible_products",
 }
 VOLATILE = {
+	"name",
+	"idx",
+	"docstatus",
 	"modified",
 	"modified_by",
 	"owner",
