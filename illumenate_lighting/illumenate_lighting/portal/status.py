@@ -86,7 +86,8 @@ EXPORT_STATUS_META = {
 	"QUEUED": {"label": "Queued", "css": "warning"},
 	"RUNNING": {"label": "Generating", "css": "info"},
 	"COMPLETE": {"label": "Ready", "css": "success"},
-	"INCOMPLETE": {"label": "Ready with warnings", "css": "warning"},
+	# Issues on a finished spec submittal are for staff in Desk; customers see a ready packet.
+	"INCOMPLETE": {"label": "Ready", "css": "success"},
 	"FAILED": {"label": "Failed", "css": "danger"},
 }
 

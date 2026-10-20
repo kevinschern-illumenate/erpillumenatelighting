@@ -51,7 +51,7 @@ KNOWN_STRICT = {
 	"api.portal.get_product_types": {"include_subgroups"},
 	"api.portal.invite_project_collaborator": {"send_invite"},
 	"api.reconciliation.regenerate_artifacts": {"regenerate_bom", "regenerate_work_order"},
-	"api.spec_submittal.generate_spec_submittal_packet": {"include_cover", "allow_partial"},
+	"api.spec_submittal.generate_spec_submittal_packet": {"include_cover"},
 	"api.webflow_attributes.get_product_attribute_references": {"limit", "offset"},
 	"api.webflow_attributes.get_webflow_attributes": {"limit", "offset"},
 	"api.webflow_attributes.trigger_attribute_sync": {"sync_all"},
