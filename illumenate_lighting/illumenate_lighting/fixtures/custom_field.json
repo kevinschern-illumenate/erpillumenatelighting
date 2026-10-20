@@ -377,7 +377,8 @@
 		"fieldtype": "Data",
 		"insert_after": "customer",
 		"label": "QBO ID",
-		"read_only": 1
+		"read_only": 1,
+		"no_copy": 1
 	},
 	{
 		"doctype": "Custom Field",
@@ -386,7 +387,8 @@
 		"fieldtype": "Data",
 		"insert_after": "custom_qbo_id",
 		"label": "Synced From",
-		"read_only": 1
+		"read_only": 1,
+		"no_copy": 1
 	},
 	{
 		"doctype": "Custom Field",
@@ -395,7 +397,8 @@
 		"fieldtype": "Data",
 		"insert_after": "supplier",
 		"label": "QBO ID",
-		"read_only": 1
+		"read_only": 1,
+		"no_copy": 1
 	},
 	{
 		"doctype": "Custom Field",
@@ -404,7 +407,8 @@
 		"fieldtype": "Data",
 		"insert_after": "custom_qbo_id",
 		"label": "Synced From",
-		"read_only": 1
+		"read_only": 1,
+		"no_copy": 1
 	},
 	{
 		"doctype": "Custom Field",

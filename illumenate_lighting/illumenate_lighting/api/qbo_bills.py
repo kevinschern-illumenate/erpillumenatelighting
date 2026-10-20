@@ -226,9 +226,19 @@ def _set_qbo_id(doctype, name, qbo_id):
 	if not name or not frappe.db.exists(doctype, name):
 		raise QBOSyncError("not_found", f"{doctype} {name} does not exist")
 	current = frappe.db.get_value(doctype, name, "custom_qbo_id")
+	if current and current != qbo_id and _inherited_from_original(doctype, name, current):
+		current = None
 	if current and current != qbo_id:
 		raise QBOSyncError(
 			"qbo_id_conflict", f"{doctype} {name} is already linked to QuickBooks id {current}, not {qbo_id}"
 		)
 	if current != qbo_id:
 		frappe.db.set_value(doctype, name, "custom_qbo_id", qbo_id, update_modified=False)
+
+
+def _inherited_from_original(doctype, name, qbo_id):
+	"""True when an amended invoice still carries its cancelled original's QuickBooks id."""
+	if not frappe.get_meta(doctype).has_field("amended_from"):
+		return False
+	original = frappe.db.get_value(doctype, name, "amended_from")
+	return bool(original) and frappe.db.get_value(doctype, original, "custom_qbo_id") == qbo_id
