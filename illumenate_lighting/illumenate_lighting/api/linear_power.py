@@ -1,6 +1,35 @@
 """Linear fixture adapter for the common actual-circuit power planner."""
 
+import frappe
+
 from illumenate_lighting.illumenate_lighting.api.tape_neon_power import select_plan
+
+# Historic per-run ceiling; a run is never longer than this even when a bigger supply is eligible.
+MAX_WATTS_PER_RUN = 85.0
+
+
+def run_watt_limit(template, offering, protocol=None, ceiling=MAX_WATTS_PER_RUN):
+	"""Largest load one eligible supply output carries, so no run outgrows every output.
+
+	Runs are split by watts before a supply is chosen. Splitting at a fixed 85 W left runs
+	that no 100 W supply (80 W usable per output) could carry, so the planner refused the build.
+	"""
+	from illumenate_lighting.illumenate_lighting.api import driver_catalog
+
+	try:
+		spec = frappe.get_doc("ilL-Spec-LED Tape", offering.tape_spec)
+		found, _ = driver_catalog.candidates(
+			"ilL-Fixture-Template", template, spec.input_voltage, spec.input_protocol, protocol
+		)
+		usable = [
+			min(float(d["max_wattage"]), float(d["max_wattage_per_output"])) * float(d["usable_load_factor"])
+			for d in found
+		]
+	except (AttributeError, KeyError, TypeError, ValueError, frappe.ValidationError):
+		# Supply selection reports bad driver data itself; keep splitting by the historic ceiling.
+		return ceiling
+	usable = [watts for watts in usable if watts > 0]
+	return min(ceiling, max(usable)) if usable else ceiling
 
 
 def select(template, runs_count, total_watts, offering, protocol=None, runs=None):
