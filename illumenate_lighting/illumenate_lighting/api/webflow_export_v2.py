@@ -46,6 +46,14 @@ from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 # per-brand overrides come from ilL-Webflow-Brand.erpnext_base_url).
 ERPNEXT_BASE_URL = DEFAULT_ERPNEXT_BASE_URL
 
+def enqueue_n8n_webhook(webhook_url, job_data):
+    """Background worker to trigger n8n to prevent locking the Frappe API thread"""
+    try:
+        requests.post(webhook_url, json=job_data, timeout=300)
+    except Exception as e:
+        brand = job_data.get("brand") or "Unknown"
+        frappe.log_error(f"Failed to push {job_data.get('job')} to n8n: {str(e)}", "Webflow V2 Sync")
+        # In a background job, msgprint won't reach the UI, but we log the error
 
 def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
     """Convert a relative URL to an absolute, percent-encoded URL for Webflow.
@@ -2413,18 +2421,17 @@ def trigger_sync_v2(docname):
     dispatched_jobs = []
     
     for brand in active_brands:
-        # Resolve brand config to get the proper webhook URL (fallback to hardcoded if needed)
+        # Resolve brand config to get the proper webhook URL
         try:
             brand_config = resolve_brand(brand, allow_inactive=True)
-            # Update these lines to point explicitly to Workflow 2
             webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
         except frappe.ValidationError:
             webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
+            
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
         
         if not inspection.get("readiness", {}).get("ready"):
-            # Extract the exact reasons for failure AND the specific record causing it
             issues = inspection.get("readiness", {}).get("issues", [])
             issue_msgs = "<br>".join([
                 f"- {i.get('message', 'Unknown')} ({i.get('field', 'unknown')}) ➔ <b>Record: {i.get('record', 'Unknown')}</b>" 
@@ -2446,17 +2453,18 @@ def trigger_sync_v2(docname):
         # 4. Claim pending jobs for this brand
         claimed = claim(brand, limit=5)
         
-        # 5. Push the claimed job dictionary directly to the V2 n8n Webhook
+        # 5. Push the claimed job dictionary to the V2 n8n Webhook in the BACKGROUND
         for job_data in claimed.get("jobs", []):
-            try:
-                # Increased timeout to 300s to match V1's threshold and prevent premature UI crashes
-                requests.post(webhook_url, json=job_data, timeout=300)
-                dispatched_jobs.append(job_data["job"])
-            except Exception as e:
-                frappe.log_error(f"Failed to push {job_data['job']} to n8n: {str(e)}", "Webflow V2 Sync")
-                frappe.msgprint(f"Network error dispatching {brand} job to n8n.")
+            frappe.enqueue(
+                "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.enqueue_n8n_webhook",
+                queue="short",
+                webhook_url=webhook_url,
+                job_data=job_data
+            )
+            dispatched_jobs.append(job_data["job"])
                 
     return {"status": "success", "jobs": dispatched_jobs}
+
 
 @frappe.whitelist(methods=["POST"])
 def trigger_publish_v2(docname):
@@ -2471,10 +2479,9 @@ def trigger_publish_v2(docname):
         # Resolve brand config to get the proper webhook URL
         try:
             brand_config = resolve_brand(brand, allow_inactive=True)
-            base_url = brand_config.get("n8n_webhook_url") or "https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet"
-            webhook_url = base_url if base_url.endswith("-v2") else f"{base_url}-v2"
+            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
         except frappe.ValidationError:
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2"
+            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
 
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
@@ -2501,13 +2508,14 @@ def trigger_publish_v2(docname):
         # 4. Claim pending jobs for this brand
         claimed = claim(brand, limit=5)
         
-        # 5. Push the claimed job dictionary directly to the V2 n8n Webhook
+        # 5. Push the claimed job dictionary to the V2 n8n Webhook in the BACKGROUND
         for job_data in claimed.get("jobs", []):
-            try:
-                requests.post(webhook_url, json=job_data, timeout=300)
-                dispatched_jobs.append(job_data["job"])
-            except Exception as e:
-                frappe.log_error(f"Failed to push {job_data['job']} to n8n: {str(e)}", "Webflow V2 Sync")
-                frappe.msgprint(f"Network error dispatching {brand} job to n8n.")
+            frappe.enqueue(
+                "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.enqueue_n8n_webhook",
+                queue="short",
+                webhook_url=webhook_url,
+                job_data=job_data
+            )
+            dispatched_jobs.append(job_data["job"])
                 
     return {"status": "success", "jobs": dispatched_jobs}
