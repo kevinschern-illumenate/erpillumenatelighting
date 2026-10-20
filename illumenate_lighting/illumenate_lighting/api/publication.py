@@ -158,7 +158,10 @@ def _receipt(state):
 
 def _strip_volatile_metadata(data):
     """Recursively strip volatile child row IDs and timestamps from dictionaries before hashing."""
-    volatile_keys = {"name", "modified", "creation", "owner", "modified_by", "idx", "docstatus"}
+    volatile_keys = {
+        "name", "modified", "creation", "owner", "modified_by", "idx", "docstatus",
+        "sync_status", "webflow_item_id", "last_synced_at", "sync_error_message"
+    }
     
     if isinstance(data, dict):
         return {k: _strip_volatile_metadata(v) for k, v in data.items() if k not in volatile_keys}
