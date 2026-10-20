@@ -238,7 +238,7 @@ def _set_qbo_id(doctype, name, qbo_id):
 
 def _inherited_from_original(doctype, name, qbo_id):
 	"""True when an amended invoice still carries its cancelled original's QuickBooks id."""
-	if not frappe.get_meta(doctype).has_field("amended_from"):
+	if doctype not in ("Sales Invoice", "Purchase Invoice"):
 		return False
 	original = frappe.db.get_value(doctype, name, "amended_from")
 	return bool(original) and frappe.db.get_value(doctype, original, "custom_qbo_id") == qbo_id
