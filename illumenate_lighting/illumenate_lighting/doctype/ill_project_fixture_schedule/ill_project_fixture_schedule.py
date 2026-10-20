@@ -595,6 +595,7 @@ class ilLProjectFixtureSchedule(Document):
 		tape_neon_mode=TAPE_NEON_MODE_CONFIGURED,
 		sync_existing_boms=False,
 		require_bom=False,
+		only_lines=None,
 	):
 		"""Append this schedule's line items onto a target transaction document
 		(Quotation or Sales Order) and return a summary dict.
@@ -624,6 +625,8 @@ class ilLProjectFixtureSchedule(Document):
 			require_bom: When ``True`` a manufactured line without a usable BOM
 				aborts the whole conversion instead of being ordered unbuildable.
 				Only the Sales Order path enables this.
+			only_lines: Names of the schedule lines to convert; every line when
+				``None``. Schedule sync uses it to add just the new lines.
 
 		The schedule status is left unchanged; only ``target_doc.items`` is
 		mutated. The caller is responsible for saving ``target_doc``.
@@ -657,6 +660,8 @@ class ilLProjectFixtureSchedule(Document):
 		rows_before = len(target_doc.items)
 
 		for line in self.lines:
+			if only_lines is not None and line.get("name") not in only_lines:
+				continue
 			line_label = line.line_id or f"Row {line.idx}"
 			mt = line.manufacturer_type
 

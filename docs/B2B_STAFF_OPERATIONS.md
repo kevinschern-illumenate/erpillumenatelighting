@@ -116,6 +116,16 @@ Accounting then sets the customer up. **New customers to set up** in Portal Oper
 
 A power supply line added from its template but not yet configured blocks the schedule from going **Ready**, like any other unconfigured line. Schedule and Sales Order lines for kits, power supplies and tape/neon lead with the template name.
 
+### Quotation / Sales Order and schedule stay in sync
+
+A draft Quotation or Sales Order linked to a Fixture Schedule (its **Fixture Schedule** field) and that schedule keep the same lines while the schedule is DRAFT or READY and not locked:
+
+- **Saving the Quotation / Sales Order** updates the schedule. A stock Item row added by hand becomes an accessory line, and a configured row becomes its configured line. A line is removed once its last row is deleted. Quantity, Section / Room, Fixture Type and notes edits on a one-row line carry over, and so does a changed accessory Item. Freight, services and other non-stock rows stay on the document only. Linking an existing document to a schedule brings its rows along the same way.
+- **Saving the schedule**, in the portal or in Desk, updates every other draft Quotation / Sales Order linked to it. New lines get rows priced the same way **Get Items From → Fixture Schedule** prices them. Removed lines lose their rows, and a reconfigured line's rows are replaced. Quantity changes scale the line's rows. Rate, discount and taxes on existing rows are never changed.
+- Included power supplies follow their fixture line. Deleting a fixture row also removes its supply rows and lines.
+- Submitted, cancelled and amended documents are never touched. Neither is a schedule that is QUOTED, ordered or locked. Use **Create New Version** on the schedule to keep editing. Changing the schedule after an offer is issued still makes that offer stale, so Sales must issue an updated one.
+- If the schedule cannot take a change, the document still saves. An orange alert names the schedule, and the Error Log has the reason.
+
 The retired `PS-UNIV-24V-100W-IP66` driver spec is removed by a one-time patch on deploy. Pinned LED Sheet builds keep their driver Item and snapshot, so existing orders and receipts are unaffected; any reference the patch does not recognise is logged and the spec is left in place.
 
 ## Spec submittal packets

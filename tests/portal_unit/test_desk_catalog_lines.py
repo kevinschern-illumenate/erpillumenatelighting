@@ -115,7 +115,7 @@ class DeskCatalogLines(unittest.TestCase):
 
 	def test_power_supply_on_a_schedule_writes_the_portal_accessory_line(self):
 		with desk() as (module, frappe, *_):
-			schedule = Doc(name="S1", status="DRAFT", is_locked=0, lines=[], save=MagicMock())
+			schedule = Doc(name="S1", status="DRAFT", is_locked=0, lines=[], save=MagicMock(), flags=Doc())
 			written = {}
 			modules = families(driver_write=lambda line, result: written.update(line=line, template=result["template_code"]))
 			with patch.object(module, "_load_schedule", return_value=(schedule, None)):
@@ -152,7 +152,7 @@ class DeskCatalogLines(unittest.TestCase):
 
 	def test_controller_schedules_the_variant_item_as_a_configured_accessory(self):
 		with desk() as (module, frappe, *_):
-			schedule = Doc(name="S1", status="READY", is_locked=0, lines=[], save=MagicMock())
+			schedule = Doc(name="S1", status="READY", is_locked=0, lines=[], save=MagicMock(), flags=Doc())
 			with patch.object(module, "_load_schedule", return_value=(schedule, None)):
 				result = self.build(
 					module,

@@ -669,6 +669,8 @@ def build_configured_line(
 	})
 	line_name = None
 	line_position = None
+	power_lines: list = []
+	sheet_lines: list = []
 	if schedule_doc is not None:
 		frappe.db.savepoint(SCHEDULE_LINE_SAVEPOINT)
 		try:
@@ -689,9 +691,12 @@ def build_configured_line(
 			from illumenate_lighting.illumenate_lighting.api.power_supply_lines import set_power_lines
 
 			set_power_lines(schedule_doc, line, drivers)
+			_mark_sync_source(schedule_doc, parent_doctype, parent_name)
 			schedule_doc.save()
 			line_name = line.name
 			line_position = line.idx
+			power_lines = [l for l in schedule_doc.lines if l.get("power_supply_for_line") == line.line_key]
+			sheet_lines = _sheet_accessory_lines(schedule_doc, line)
 		except Exception as exc:  # The outer atomic build rolls back artifacts and the line together.
 			frappe.db.rollback(save_point=SCHEDULE_LINE_SAVEPOINT)
 			frappe.log_error(
@@ -728,6 +733,7 @@ def build_configured_line(
 		accessory_rows = _led_sheet_accessory_rows(
 			parent_doctype, parent_name, header, configured_doc, qty,
 			section_label=location, fixture_type=fixture_type, schedule_line_id=line_name,
+			accessory_lines=sheet_lines,
 		)
 	accessory_rows.extend(
 		_power_supply_rows(
@@ -739,6 +745,7 @@ def build_configured_line(
 			qty,
 			section_label=location,
 			fixture_type=fixture_type,
+			power_lines=power_lines,
 		)
 	)
 	return {
@@ -844,6 +851,7 @@ def _build_catalog_line(
 			if notes is not None or product_type != PRODUCT_TYPE_KIT:
 				# The kit writer leaves its build description as the default note.
 				line.notes = notes or ""
+			_mark_sync_source(schedule_doc, parent_doctype, parent_name)
 			schedule_doc.save()
 			line_name = line.name
 		except Exception as exc:  # The outer atomic build rolls the line back.
@@ -1050,14 +1058,18 @@ def _led_sheet_accessory_rows(
 	section_label: str | None,
 	fixture_type: str | None,
 	schedule_line_id: str | None,
+	accessory_lines: list | None = None,
 ) -> list[dict[str, Any]]:
 	"""Jumper / leader / power-supply rows for a configured LED Sheet bundle.
 
 	Same quantities the portal writes as ACCESSORY schedule lines
 	(``build_accessory_lines`` scaled by the bundle qty), returned as ready-to-
 	insert child rows so the quote carries the full system, not just the panels.
+	Each row names its own ACCESSORY line from ``accessory_lines`` so schedule
+	sync can match them one to one; the panel line is the fallback.
 	"""
 	rows = []
+	unclaimed = list(accessory_lines or [])
 	for spec in led_sheet_configurator._configured_sheet_accessory_specs(sheet_doc, cint(qty) or 1):
 		is_power_supply = str(spec.get("notes", "")).startswith("Power supplies")
 		artifact = {
@@ -1087,7 +1099,7 @@ def _led_sheet_accessory_rows(
 				spec["qty"],
 				section_label=section_label,
 				fixture_type=fixture_type,
-				schedule_line_id=schedule_line_id,
+				schedule_line_id=_claim_line(unclaimed, spec["item_code"]) or schedule_line_id,
 				additional_notes=spec.get("notes"),
 			)
 		)
@@ -1104,10 +1116,16 @@ def _power_supply_rows(
 	*,
 	section_label: str | None,
 	fixture_type: str | None,
+	power_lines: list | None = None,
 ) -> list[dict[str, Any]]:
-	"""Rows for the included power supplies, inserted under the fixture row."""
+	"""Rows for the included power supplies, inserted under the fixture row.
+
+	Each row names the schedule's power-supply line for the same Item (from
+	``power_lines``) so schedule sync can match them one to one.
+	"""
 	from illumenate_lighting.illumenate_lighting.api.power_supply_lines import accessory_row_specs
 
+	unclaimed = list(power_lines or [])
 	owner = (
 		artifact.get("source_name")
 		or artifact.get("configured_group")
@@ -1136,11 +1154,44 @@ def _power_supply_rows(
 				spec["qty"],
 				section_label=section_label,
 				fixture_type=fixture_type,
-				schedule_line_id=None,
+				schedule_line_id=_claim_line(unclaimed, spec["item_code"]),
 				additional_notes=_("Power supply for {0}").format(fixture_type or owner),
 			)
 		)
 	return rows
+
+
+def _claim_line(lines: list, item_code: str) -> str | None:
+	"""Pop the first schedule line in ``lines`` carrying ``item_code``; return its name."""
+	for index, line in enumerate(lines):
+		if line.get("accessory_item") == item_code:
+			return lines.pop(index).name
+	return None
+
+
+def _sheet_accessory_lines(schedule_doc, line) -> list:
+	"""The generated jumper / leader / supply ACCESSORY lines of an LED Sheet line."""
+	configured = line.get("configured_led_sheet")
+	if not configured:
+		return []
+	from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
+		generated_accessory_marker,
+		is_generated_accessory_line,
+	)
+
+	markers = [generated_accessory_marker(configured), "for LED Sheet line " + line.name]
+	return [
+		other
+		for other in schedule_doc.lines
+		if other is not line and is_generated_accessory_line(other.manufacturer_type, other.notes, markers)
+	]
+
+
+def _mark_sync_source(schedule_doc, parent_doctype: str, parent_name: str | None) -> None:
+	"""The open form inserts this line's rows itself; schedule sync updates only the other drafts."""
+	from illumenate_lighting.illumenate_lighting.api.schedule_sync import SOURCE_FLAG
+
+	schedule_doc.flags[SOURCE_FLAG] = (parent_doctype, parent_name)
 
 
 def _resolve_msrp_unit(configured_doc, validation: dict[str, Any]) -> float | None:

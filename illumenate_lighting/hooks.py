@@ -322,7 +322,9 @@ override_doctype_class = {
 
 doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
-	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans"]},
+	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans",
+		# Draft Quotations / Sales Orders linked to the schedule follow its lines.
+		"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_schedule_update"]},
 	"Work Order": {
 		"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.guard_planned_work_order",
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
@@ -334,6 +336,8 @@ doc_events = {
 	},
 	"Material Request": {"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_material_request"},
 	"Quotation": {
+		# A draft linked to a Fixture Schedule pushes its row changes onto the schedule.
+		"validate": "illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
 		# Only a submitted Quotation linked to an intake creates a portal offer.
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.offers.before_submit",
 		"on_submit": "illumenate_lighting.illumenate_lighting.portal.offers.on_submit",
@@ -341,7 +345,10 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_cancel"],
 	},
 	"Sales Order": {
-		"validate": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+		"validate": [
+			"illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+		],
 		"before_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
 		"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
 		"on_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
