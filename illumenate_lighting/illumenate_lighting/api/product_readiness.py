@@ -59,24 +59,17 @@ SKIP_LINKS = {
 	"compatible_products",
 }
 VOLATILE = {
-	"name",
-	"idx",
-	"docstatus",
-	"modified",
-	"modified_by",
-	"owner",
-	"creation",
-	"sync_targets",
-	"webflow_sync_targets",
-	"sync_status",
-	"sync_error_message",
-	"last_synced_at",
-	"webflow_item_id",
-	"webflow_collection_slug",
-	"_comments",
-	"_assign",
-	"_liked_by",
-	"_user_tags",
+    # Core Frappe
+    "modified", "creation", "owner", "modified_by", "_user_tags",
+    "_comments", "_assign", "_liked_by", "idx", "docstatus",
+    
+    # Sync Status
+    "webflow_sync_status", "sync_status", "webflow_item_id", "last_synced_at",
+    
+    # Documents and PDF Attachments
+    "documents",                  # The child table name on ilL-Webflow-Product
+    "spec_sheet",                 # Field on ilL-Tape-Neon-Template
+    "spec_submittal_template",    # Field on ilL-Tape-Neon-Template
 }
 
 
