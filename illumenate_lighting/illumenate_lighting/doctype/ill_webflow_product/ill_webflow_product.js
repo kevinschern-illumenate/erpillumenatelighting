@@ -10,10 +10,9 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		if (!frm.is_new()) {
 			let sync_btn = frm.add_custom_button(__('Sync to Webflow'), function() {
 				
-				// 1. Freeze the screen with the single, unified message
-				frappe.dom.freeze(__('Please wait. This may take a few minutes. Generating Spec Sheets, attaching files, and updating Webflow.'));
+				// STEP 1: Freeze for PDF Generation
+				frappe.dom.freeze(__('Step 1/2: Generating Spec Sheets & Attaching Files...'));
 
-				// 2. Trigger Workflow 1
 				fetch('https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
@@ -24,25 +23,54 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					})
 				})
 				.then(response => {
-					// 3. Catch server crashes instantly
-					if (!response.ok) {
-						throw new Error(`Pipeline failed with status ${response.status}. Check execution logs.`);
-					}
+					if (!response.ok) throw new Error(`Pipeline failed with status ${response.status}.`);
 					return response.json();
 				})
 				.then(data => {
-					// 4. Workflow 1's final "Respond to Webhook" node replied!
-					frappe.dom.unfreeze();
-					
-					if (data.success === false) {
-						frappe.msgprint({title: __('Sync Warning'), message: data.message || "Pipeline reported an issue.", indicator: 'orange'});
-					} else {
-						frappe.show_alert({message: __('Webflow Sync Complete!'), indicator: 'green'});
-						frm.reload_doc();
-					}
+                    if (data.success === false) {
+                        throw new Error(data.message || "Pipeline reported an issue.");
+                    }
+
+					// STEP 2: PDFs are done. Start checking the database for Workflow 2's finish!
+					frappe.dom.freeze(__('Step 2/2: Spec sheets saved. Pushing to Webflow...'));
+
+					let checkInterval = setInterval(() => {
+						// Use xcall to bypass the browser cache!
+						frappe.xcall('frappe.client.get_value', {
+							doctype: 'ilL-Webflow-Product',
+							filters: { name: frm.doc.name },
+							fieldname: 'sync_status'
+						}).then(r => {
+							if (!r) return;
+							let current_status = r.sync_status;
+							
+							if (current_status === 'Synced' || current_status === 'LIVE') {
+								clearInterval(checkInterval);
+								frappe.dom.unfreeze();
+								frappe.show_alert({message: __('Webflow Sync Complete!'), indicator: 'green'});
+								frm.reload_doc();
+							} 
+							else if (current_status === 'Error' || current_status === 'Failed') {
+								clearInterval(checkInterval);
+								frappe.dom.unfreeze();
+								frappe.msgprint({title: __('Sync Error'), message: __('Pipeline failed. Check logs.'), indicator: 'red'});
+								frm.reload_doc();
+							}
+						}).catch(err => console.error("Polling error:", err));
+					}, 3000);
+
+					// Safety timeout after 2 minutes
+					setTimeout(() => {
+						clearInterval(checkInterval);
+						if (document.querySelector('.freeze-message-container')) { 
+							frappe.dom.unfreeze();
+							frappe.msgprint(__('Sync is taking longer than usual. It is running in the background.'));
+							frm.reload_doc();
+						}
+					}, 120000);
+
 				})
 				.catch(err => {
-					// 5. Catch connection drops or thrown errors
 					frappe.dom.unfreeze();
 					frappe.msgprint({title: __('Sync Failed'), message: err.message, indicator: 'red'});
 				});
