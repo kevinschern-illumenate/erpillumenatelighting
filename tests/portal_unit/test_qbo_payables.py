@@ -371,11 +371,26 @@ class BillLink(unittest.TestCase):
 	def test_a_different_existing_id_is_a_conflict(self):
 		with load_service(ROOT + ".api.qbo_bills", qbo_sync_stub(ON)) as (module, frappe):
 			frappe.db.exists.return_value = True
-			frappe.db.get_value.return_value = "299"
+			values = {"custom_qbo_id": "299", "amended_from": None}
+			frappe.db.get_value.side_effect = lambda _doctype, _name, field: values[field]
 			with self.assertRaises(Exception) as refused:
 				module.link_bill({"purchase_invoice": "PINV-1", "qbo_bill_id": "300"})
 			self.assertEqual(refused.exception.code, "qbo_id_conflict")
 			frappe.db.set_value.assert_not_called()
+
+	def test_an_amended_invoice_replaces_the_id_it_inherited(self):
+		with load_service(ROOT + ".api.qbo_bills", qbo_sync_stub(ON)) as (module, frappe):
+			frappe.db.exists.return_value = True
+			values = {
+				("PINV-1-1", "custom_qbo_id"): "299",
+				("PINV-1-1", "amended_from"): "PINV-1",
+				("PINV-1", "custom_qbo_id"): "299",
+			}
+			frappe.db.get_value.side_effect = lambda _doctype, name, field: values.get((name, field))
+			module.link_bill({"purchase_invoice": "PINV-1-1", "qbo_bill_id": "300"})
+			frappe.db.set_value.assert_called_once_with(
+				"Purchase Invoice", "PINV-1-1", "custom_qbo_id", "300", update_modified=False
+			)
 
 
 if __name__ == "__main__":

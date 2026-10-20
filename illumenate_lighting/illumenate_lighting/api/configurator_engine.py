@@ -771,6 +771,8 @@ def validate_and_quote(
 		return response
 
 	# Step 2: Compute dimensions and manufacturing outputs
+	from illumenate_lighting.illumenate_lighting.api.linear_power import run_watt_limit
+
 	computed_result = _compute_manufacturable_outputs(
 		fixture_template_code,
 		tape_offering_id,
@@ -786,6 +788,9 @@ def validate_and_quote(
 		end_leader_len_mm=end_leader_len_mm,
 		start_leader_len_mm=start_leader_len_mm,
 		override_max_run_ft=override_max_run_ft,
+		max_watts_per_run=run_watt_limit(
+			fixture_template_code, validation_result.get("tape_offering_doc"), dimming_protocol_code
+		),
 	)
 
 	response["computed"].update(computed_result)
@@ -1544,6 +1549,8 @@ def validate_and_quote_multisegment(
 			return response
 
 	# Step 2: Compute multi-segment outputs
+	from illumenate_lighting.illumenate_lighting.api.linear_power import run_watt_limit
+
 	computed_result = _compute_multisegment_outputs(
 		fixture_template_code,
 		tape_offering_id,
@@ -1555,6 +1562,7 @@ def validate_and_quote_multisegment(
 		template_doc=template_doc,
 		tape_offering_doc=tape_offering_doc,
 		override_max_run_ft=override_max_run_ft,
+		max_watts_per_run=run_watt_limit(fixture_template_code, tape_offering_doc, dimming_protocol_code),
 	)
 
 	response["computed"].update(computed_result)
@@ -1746,6 +1754,7 @@ def _compute_multisegment_outputs(
 	template_doc=None,
 	tape_offering_doc=None,
 	override_max_run_ft: float | None = None,
+	max_watts_per_run: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable outputs for a multi-segment fixture.
@@ -1766,12 +1775,14 @@ def _compute_multisegment_outputs(
 		override_max_run_ft: Optional user-supplied max run length (ft) that
 			replaces the computed effective max run for the fixture as a
 			whole (applies across all segments/runs, not per-segment).
+		max_watts_per_run: Largest load one eligible supply output carries
+			(see linear_power.run_watt_limit); defaults to 85 W.
 
 	Returns:
 		dict: Computed values for the multi-segment fixture
 	"""
 	# Constants
-	MAX_WATTS_PER_RUN = 85.0
+	MAX_WATTS_PER_RUN = max_watts_per_run or 85.0
 	MM_PER_FOOT = 304.8
 
 	# Get template and tape docs if not passed
@@ -2928,6 +2939,7 @@ def _compute_manufacturable_outputs(
 	end_leader_len_mm: int = 0,
 	start_leader_len_mm: int = 0,
 	override_max_run_ft: float | None = None,
+	max_watts_per_run: float | None = None,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable dimensions, segments, and runs.
@@ -2935,14 +2947,15 @@ def _compute_manufacturable_outputs(
 	Implements Epic 3 computation layer:
 	- Task 3.1: Length math (locked rules)
 	- Task 3.2: Segmentation plan (profile + lens)
-	- Task 3.3: Run splitting (min of voltage-drop max length and 85W limit)
+	- Task 3.3: Run splitting (min of voltage-drop max length and the watt limit:
+	  max_watts_per_run, the largest eligible supply output, capped at 85W)
 	- Task 3.4: Assembly mode rule
 
 	Returns:
 		dict: Computed values including dimensions, segments, runs, watts, etc.
 	"""
 	# Constants
-	MAX_WATTS_PER_RUN = 85.0
+	MAX_WATTS_PER_RUN = max_watts_per_run or 85.0
 	MM_PER_FOOT = 304.8
 
 	# Get template doc if not passed
