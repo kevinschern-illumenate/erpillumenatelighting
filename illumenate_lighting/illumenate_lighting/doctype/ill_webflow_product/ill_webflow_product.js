@@ -9,32 +9,44 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		}
 
 		if (!frm.is_new()) {
-			// Version 2: ERPNext to Webflow Sync / Spec Gen
+			// Version 2: Spec Gen -> Webflow Sync Pipeline
 			// Broken out of the 'Actions' menu and styled with custom colors
 			let sync_btn = frm.add_custom_button(__('Sync to Webflow'), function() {
-    			frappe.call({
-			        method: "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.trigger_sync_v2",
-			        args: { docname: frm.doc.name },
-			        freeze: true,
-			        freeze_message: __("Queuing and dispatching publication jobs..."),
-			        callback: function(r) {
-			            if (r.message && r.message.jobs && r.message.jobs.length > 0) {
-			                frappe.show_alert({
-			                    message: __("V2 Sync Dispatched for jobs: " + r.message.jobs.join(", ")),
-			                    indicator: "green"
-			                });
-			            } else {
-			                frappe.msgprint(__("No jobs dispatched. Check readiness issues or logs."));
-			            }
-				    }
+				frappe.show_alert({message: __('Starting Spec Generation and Sync Pipeline...'), indicator: 'blue'});
+
+				// Trigger Workflow 1 (n8n Spec Sheet Generator)
+				fetch('https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						product: frm.doc.name,
+						product_slug: frm.doc.product_slug || frm.doc.name,
+						brand: 'lighting_206'
+					})
+				})
+				.then(response => {
+					if (response.ok) {
+						frappe.msgprint({
+							title: __('Pipeline Started'),
+							message: __('Spec sheet generation triggered. Webflow sync will automatically begin once the PDFs are attached.'),
+							indicator: 'green'
+						});
+					} else {
+						frappe.msgprint({title: __('Error'), message: __('Failed to reach n8n webhook.'), indicator: 'red'});
+					}
+				})
+				.catch(err => {
+					frappe.msgprint({title: __('Network Error'), message: err.message, indicator: 'red'});
 				});
 			});
 
 			sync_btn.css({
-			    'background-color': '#fdc757',
-			    'color': '#172e48',
-			    'font-weight': 'bold',
-			    'border-color': '#fdc757'
+				'background-color': '#fdc757',
+				'color': '#172e48',
+				'font-weight': 'bold',
+				'border-color': '#fdc757'
 			});
 			
 			// Direct link to open live product on Webflow site
