@@ -2416,12 +2416,10 @@ def trigger_sync_v2(docname):
         # Resolve brand config to get the proper webhook URL (fallback to hardcoded if needed)
         try:
             brand_config = resolve_brand(brand, allow_inactive=True)
-            # Assuming you append '-v2' to your standard webhook for this testing phase
-            base_url = brand_config.get("n8n_webhook_url") or "https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet"
-            webhook_url = base_url if base_url.endswith("-v2") else f"{base_url}-v2"
+            # Update these lines to point explicitly to Workflow 2
+            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
         except frappe.ValidationError:
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2"
-
+            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
         
