@@ -29,15 +29,20 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 
 					// 3. Start polling the database every 3 seconds
 					let checkInterval = setInterval(() => {
-						frappe.db.get_value('ilL-Webflow-Product', frm.doc.name, 'sync_status')
-						.then(r => {
-							let current_status = r.message.sync_status;
+						// Using xcall bypasses the local browser cache to get the live database value
+						frappe.xcall('frappe.client.get_value', {
+							doctype: 'ilL-Webflow-Product',
+							filters: { name: frm.doc.name },
+							fieldname: 'sync_status'
+						}).then(r => {
+							if (!r) return; // Safety check
+							let current_status = r.sync_status;
 							
-							if (current_status === 'Synced' || current_status === 'LIVE') {
+							if (current_status === 'Synced' || current_status === 'LIVE' || current_status === 'Staged') {
 								clearInterval(checkInterval);
 								frappe.dom.unfreeze();
 								frappe.show_alert({message: __('Webflow Sync Complete!'), indicator: 'green'});
-								frm.reload_doc(); // Refreshes the page to show the new status
+								frm.reload_doc();
 							} 
 							else if (current_status === 'Error' || current_status === 'Failed') {
 								clearInterval(checkInterval);
@@ -45,7 +50,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 								frappe.msgprint({title: __('Sync Error'), message: __('Pipeline failed. Check publication logs.'), indicator: 'red'});
 								frm.reload_doc();
 							}
-						});
+						}).catch(err => console.error("Polling error:", err));
 					}, 3000);
 
 					// 4. Safety net timeout: Auto-unfreeze after 2 minutes so they don't get stuck forever
