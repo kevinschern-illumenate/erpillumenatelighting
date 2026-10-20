@@ -3,41 +3,64 @@
 
 frappe.ui.form.on("ilL-Webflow-Product", {
 	refresh(frm) {
-		// Detect if this is a newly duplicated document and clear sync fields
 		if (is_duplicate_doc(frm)) {
 			clear_only_webflow_sync_section(frm);
 		}
 
 		if (!frm.is_new()) {
-			// Version 2: Spec Gen -> Webflow Sync Pipeline
-			// Broken out of the 'Actions' menu and styled with custom colors
 			let sync_btn = frm.add_custom_button(__('Sync to Webflow'), function() {
-				frappe.show_alert({message: __('Starting Spec Generation and Sync Pipeline...'), indicator: 'blue'});
+				
+				// 1. Freeze the screen for Phase 1
+				frappe.dom.freeze(__('Step 1/2: Generating Spec Sheets & Attaching Files...'));
 
-				// Trigger Workflow 1 (n8n Spec Sheet Generator)
 				fetch('https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2', {
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
+					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						product: frm.doc.name,
 						product_slug: frm.doc.product_slug || frm.doc.name,
 						brand: 'lighting_206'
 					})
 				})
-				.then(response => {
-					if (response.ok) {
-						frappe.msgprint({
-							title: __('Pipeline Started'),
-							message: __('Spec sheet generation triggered. Webflow sync will automatically begin once the PDFs are attached.'),
-							indicator: 'green'
+				.then(response => response.json())
+				.then(data => {
+					// 2. Workflow 1 finished! Update the freeze message for Phase 2
+					frappe.dom.freeze(__('Step 2/2: Spec sheets saved. Pushing to Webflow...'));
+
+					// 3. Start polling the database every 3 seconds
+					let checkInterval = setInterval(() => {
+						frappe.db.get_value('ilL-Webflow-Product', frm.doc.name, 'sync_status')
+						.then(r => {
+							let current_status = r.message.sync_status;
+							
+							if (current_status === 'Synced' || current_status === 'LIVE') {
+								clearInterval(checkInterval);
+								frappe.dom.unfreeze();
+								frappe.show_alert({message: __('Webflow Sync Complete!'), indicator: 'green'});
+								frm.reload_doc(); // Refreshes the page to show the new status
+							} 
+							else if (current_status === 'Error' || current_status === 'Failed') {
+								clearInterval(checkInterval);
+								frappe.dom.unfreeze();
+								frappe.msgprint({title: __('Sync Error'), message: __('Pipeline failed. Check publication logs.'), indicator: 'red'});
+								frm.reload_doc();
+							}
 						});
-					} else {
-						frappe.msgprint({title: __('Error'), message: __('Failed to reach n8n webhook.'), indicator: 'red'});
-					}
+					}, 3000);
+
+					// 4. Safety net timeout: Auto-unfreeze after 2 minutes so they don't get stuck forever
+					setTimeout(() => {
+						clearInterval(checkInterval);
+						if (document.querySelector('.freeze-message-container')) { // If still frozen
+							frappe.dom.unfreeze();
+							frappe.msgprint(__('Sync is taking longer than usual. It is running in the background.'));
+							frm.reload_doc();
+						}
+					}, 120000);
+
 				})
 				.catch(err => {
+					frappe.dom.unfreeze();
 					frappe.msgprint({title: __('Network Error'), message: err.message, indicator: 'red'});
 				});
 			});
