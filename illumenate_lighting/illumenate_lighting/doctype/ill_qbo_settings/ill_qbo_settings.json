@@ -104,7 +104,7 @@
             "fieldname": "endpoint_help",
             "fieldtype": "HTML",
             "label": "Endpoint Help",
-            "options": "<p>n8n posts normalized QBO events to:<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event</code> (customer payments)<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_bill_payment_event</code> (bill payments)<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_bills.receive_bill_link</code> (Bill id write-back)</p><p>Every inbound payment event is recorded in <b>ilL-QBO-Sync-Log</b>. n8n workflows: <code>n8n_workflows/quickbooks_payment_sync.json</code> and <code>n8n_workflows/purchase_invoice_qbo_bill.json</code>.</p>"
+            "options": "<p>n8n posts normalized QBO events to:<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_payment_event</code> (customer payments)<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_sync.receive_bill_payment_event</code> (bill payments)<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_bills.receive_bill_link</code> (Bill id write-back)<br><code>POST /api/method/illumenate_lighting.illumenate_lighting.api.qbo_invoices.receive_invoice_link</code> (Sales Invoice id write-back)</p><p>Every inbound payment event is recorded in <b>ilL-QBO-Sync-Log</b>. n8n workflows: <code>n8n_workflows/quickbooks_payment_sync.json</code> and <code>n8n_workflows/purchase_invoice_qbo_bill.json</code>.</p>"
         }
     ],
     "index_web_pages_for_search": 1,

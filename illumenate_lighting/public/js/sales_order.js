@@ -199,15 +199,15 @@ frappe.ui.form.on('Sales Order', {
 		}
 	},
 
-	// Removing a configured row never deletes its schedule line (the customer
-	// may still rely on it); just make the disconnect visible.
+	// While both are drafts, saving drops the schedule line once its last row
+	// is gone (api/schedule_sync.py); say so before the customer's view changes.
 	before_items_remove: function(frm, cdt, cdn) {
 		const row = locals[cdt] && locals[cdt][cdn];
 		if (!row || !row.ill_schedule_line_id) {
 			return;
 		}
 		frappe.show_alert({
-			message: __('Row removed. Schedule line {0} still exists on Fixture Schedule {1}.', [
+			message: __('Row removed. When none of its rows remain, saving also removes line {0} from Fixture Schedule {1} (while the schedule is still editable).', [
 				frappe.utils.escape_html(row.ill_fixture_type || row.ill_schedule_line_id),
 				frappe.utils.escape_html(frm.doc.ill_fixture_schedule || '')
 			]),
