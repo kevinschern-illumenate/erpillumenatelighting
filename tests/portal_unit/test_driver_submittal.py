@@ -4,6 +4,7 @@ import io
 import json
 import types
 import unittest
+from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 from pypdf import PdfReader, PdfWriter
@@ -248,7 +249,9 @@ class DriverSubmittal(unittest.TestCase):
 		self.assertEqual(len(parts), 2)
 		self.assertEqual([entry["quantity"] for entry in manifest], [4, 4])
 
-	def test_normal_full_and_partial_packet_requests_all_include_driver_documents(self):
+	@contextmanager
+	def packet_service(self):
+		"""packets.generate wired to the real submittal renderer; yields (packets, rendered HTML pages)."""
 		self.schedule.update(doctype="ilL-Project-Fixture-Schedule", modified="revision")
 		self.records[("ilL-Export-Job", "JOB")] = Record(name="JOB")
 		self.template["set"] = self.template.__setitem__
@@ -258,6 +261,12 @@ class DriverSubmittal(unittest.TestCase):
 		exports._update_export_job_status = MagicMock()
 		exports._get_schedule_data = MagicMock(return_value={})
 		exports._generate_pdf_content = MagicMock(return_value="<html>Schedule</html>")
+		pages = []
+
+		def get_pdf(html):
+			pages.append(html)
+			return pdf_bytes()
+
 		stubs.update(
 			{
 				ROOT + ".portal.quotes": types.SimpleNamespace(_snapshot=lambda schedule: {}),
@@ -268,7 +277,7 @@ class DriverSubmittal(unittest.TestCase):
 				),
 				ROOT + ".portal.build_documents": types.SimpleNamespace(generate_group=MagicMock()),
 				ROOT + ".portal.line_documents": types.SimpleNamespace(active=lambda *args: []),
-				"frappe.utils.pdf": types.SimpleNamespace(get_pdf=lambda html: pdf_bytes()),
+				"frappe.utils.pdf": types.SimpleNamespace(get_pdf=get_pdf),
 			}
 		)
 
@@ -303,43 +312,73 @@ class DriverSubmittal(unittest.TestCase):
 			) as (packets, _):
 				# Both services share one Frappe request and its packet-job flag in production.
 				packets.frappe = frappe
-				for standalone in (False, True):
-					if standalone:
-						self.line.update(
-							driver_template="DRV",
-							variant_selections=json.dumps(
-								{
-									"product_category": "Driver",
-									"variant_name": "row100",
-									"part_number": "SPEC-100",
-								}
-							),
-						)
-					for export_type in ("SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL"):
-						for allow_partial in (False, True):
-							with self.subTest(
-								standalone=standalone, export_type=export_type, allow_partial=allow_partial
-							):
-								result = packets.generate(
-									"S",
-									export_type,
-									include_cover=False,
-									job_name="JOB",
-									allow_partial=allow_partial,
-								)
-								self.assertTrue(result["success"], result)
-								self.assertEqual(result["status"], "COMPLETE")
-								self.assertTrue(
-									all(entry["status"] == "included" for entry in result["manifest"])
-								)
-								self.assertEqual(
-									len(result["manifest"]), 2 if export_type.endswith("FULL") else 1
-								)
-								reader = PdfReader(io.BytesIO(self.saved_content[result["file_url"]]))
-								text = "\n".join(page.extract_text() for page in reader.pages)
-								self.assertIn("100 W", text)
-								if export_type.endswith("FULL"):
-									self.assertIn("DRIVER-SHEET", text)
+				yield packets, pages
+
+	def test_standard_and_full_packet_requests_both_include_driver_documents(self):
+		with self.packet_service() as (packets, _pages):
+			for standalone in (False, True):
+				if standalone:
+					self.line.update(
+						driver_template="DRV",
+						variant_selections=json.dumps(
+							{
+								"product_category": "Driver",
+								"variant_name": "row100",
+								"part_number": "SPEC-100",
+							}
+						),
+					)
+				for export_type in ("SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL"):
+					with self.subTest(standalone=standalone, export_type=export_type):
+						result = packets.generate("S", export_type, include_cover=False, job_name="JOB")
+						self.assertTrue(result["success"], result)
+						self.assertEqual(result["status"], "COMPLETE")
+						self.assertTrue(all(entry["status"] == "included" for entry in result["manifest"]))
+						self.assertEqual(len(result["manifest"]), 2 if export_type.endswith("FULL") else 1)
+						reader = PdfReader(io.BytesIO(self.saved_content[result["file_url"]]))
+						text = "\n".join(page.extract_text() for page in reader.pages)
+						self.assertIn("100 W", text)
+						if export_type.endswith("FULL"):
+							self.assertIn("DRIVER-SHEET", text)
+
+	def test_standard_submittal_always_exports_and_logs_omissions_for_staff(self):
+		missing = Record(
+			name="OTHER-ROW",
+			line_key="OTHER-KEY",
+			line_id="X9",
+			idx=3,
+			qty=1,
+			location=None,
+			notes=None,
+			manufacturer_type="OTHER",
+			spec_sheet=None,
+			fixture_model_number="ACME-1",
+		)
+		self.schedule["lines"] = [self.line, missing]
+		job_values = {}
+
+		def set_value(doctype, name, field, value=None, **kwargs):
+			if doctype == "ilL-Export-Job":
+				job_values.update(field if isinstance(field, dict) else {field: value})
+
+		with self.packet_service() as (packets, pages):
+			packets.frappe.db.set_value = MagicMock(side_effect=set_value)
+			result = packets.generate("S", "SPEC_SUBMITTAL", include_cover=False, job_name="JOB")
+			self.assertTrue(result["success"], result)
+			self.assertEqual(result["status"], "INCOMPLETE")
+			self.assertTrue(result["file_url"].endswith("Spec_Submittal_JOB.pdf"))
+			self.assertEqual([entry["status"] for entry in result["manifest"]], ["included", "failed"])
+			# The customer's pages name the missing type but never why it is missing.
+			contents = pages[-1]
+			self.assertIn("X9", contents)
+			self.assertNotIn("missing", contents.lower())
+			self.assertNotIn("omission", contents.lower())
+			self.assertIn("Required source document is missing", job_values["issue_log"])
+			self.assertEqual(job_values["issue_count"], 1)
+
+			failed = packets.generate("S", "SPEC_SUBMITTAL_FULL", include_cover=False, job_name="JOB")
+			self.assertFalse(failed["success"])
+			self.assertIn("Required source document is missing", job_values["issue_log"])
 
 	def test_both_supply_paths_use_the_template_spec_sheet_when_no_mappings_exist(self):
 		self.mappings = []

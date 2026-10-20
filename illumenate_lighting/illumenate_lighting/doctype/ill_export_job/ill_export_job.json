@@ -17,6 +17,9 @@
     "output_file",
     "column_break_output",
     "error_log",
+    "staff_review_section",
+    "issue_count",
+    "issue_log",
     "manifest_json",
     "snapshot_json",
     "source_revision",
@@ -129,6 +132,29 @@
       "label": "Error Log"
     },
     {
+      "collapsible": 0,
+      "depends_on": "eval:doc.issue_log",
+      "fieldname": "staff_review_section",
+      "fieldtype": "Section Break",
+      "label": "Submittal Issues (staff only)",
+      "permlevel": 1
+    },
+    {
+      "description": "Errors and warnings from generating this export. Customers never see these; the packet they download leaves the affected documents or fields blank.",
+      "fieldname": "issue_count",
+      "fieldtype": "Int",
+      "label": "Errors",
+      "permlevel": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "issue_log",
+      "fieldtype": "Long Text",
+      "label": "Issue Log",
+      "permlevel": 1,
+      "read_only": 1
+    },
+    {
       "fieldname": "packet_options",
       "fieldtype": "Code",
       "label": "Packet Options",
@@ -176,7 +202,7 @@
   "grid_page_length": 50,
   "index_web_pages_for_search": 1,
   "links": [],
-  "modified": "2026-01-07 21:00:00.000000",
+  "modified": "2026-10-20 12:00:00.000000",
   "modified_by": "Administrator",
   "module": "ilLumenate Lighting",
   "name": "ilL-Export-Job",
@@ -213,6 +239,24 @@
       "report": 1,
       "role": "Dealer",
       "share": 1
+    },
+    {
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "ilL Engineering"
+    },
+    {
+      "permlevel": 1,
+      "read": 1,
+      "role": "System Manager"
+    },
+    {
+      "permlevel": 1,
+      "read": 1,
+      "role": "ilL Engineering"
     }
   ],
   "row_format": "Dynamic",

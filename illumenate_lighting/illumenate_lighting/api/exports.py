@@ -16,6 +16,7 @@ Export Types:
 """
 
 import csv
+import html
 import io
 import os
 from datetime import datetime
@@ -712,92 +713,107 @@ def _build_config_summary_from_dict(fixture: dict) -> str:
 	return "<br>".join(parts) if parts else ""
 
 
-def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) -> str:
+def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False, submittal: bool = False) -> str:
 	"""
 	Generate HTML content for PDF export.
 
-	Produces a professional construction lighting fixture schedule with a
-	branded header, compact data table, and industry-standard aesthetics
-	using the ilLumenate #1a365d navy palette.
+	Produces a construction lighting fixture schedule with the ilLumenate
+	wordmark, a title block, and a compact data table in the #1a365d navy palette.
 
 	Args:
 		schedule_data: Data from _get_schedule_data
 		include_pricing: Whether to include pricing columns
+		submittal: Rendering for a customer spec submittal packet, which never
+			prints internal notes such as a line still needing configuration
 
 	Returns:
 		str: HTML content for PDF rendering
 	"""
+	from illumenate_lighting.illumenate_lighting.portal.packet_pages import (
+		BASE_CSS,
+		MUTED,
+		NAVY,
+		RULE,
+		TINT,
+		brand_header,
+	)
+
+	def escape(value):
+		return html.escape(str(value or ""))
+
 	schedule = schedule_data["schedule"]
 	project = schedule_data["project"]
 	customer = schedule_data["customer"]
 	lines = schedule_data["lines"]
 	export_date = schedule_data["export_date"]
 
-	# Build CSS
+	# wkhtmltopdf has no flexbox gap, so the title block is a table.
 	css_rules = [
 		"@page { size: landscape; margin: 12mm; }",
-		"body { font-family: Arial, Helvetica, sans-serif; font-size: 8px; color: #333; margin: 0; padding: 0; }",
-		# Header block
-		"h1 { font-size: 14px; color: #1a365d; margin: 0 0 2px 0; }",
-		".accent-bar { height: 2px; background: #1a365d; margin-bottom: 6px; }",
-		"h2 { font-size: 11px; color: #4a5568; margin: 0 0 8px 0; font-weight: normal; }",
-		".info-bar { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 3px;"
-		" padding: 5px 10px; margin-bottom: 10px; display: flex; gap: 18px; font-size: 7.5px; }",
-		".info-bar .lbl { color: #4a5568; font-weight: bold; margin-right: 3px; }",
+		BASE_CSS,
+		f".title-block {{ width: 100%; border-collapse: collapse; background: {TINT}; border: 1px solid {RULE}; margin-bottom: 12px; }}",
+		".title-block td { padding: 6px 10px; border: 0; vertical-align: top; }",
+		f".title-block .lbl {{ display: block; font-size: 6.5pt; color: {MUTED}; text-transform: uppercase; letter-spacing: 1px; }}",
+		".title-block .val { font-size: 9pt; font-weight: bold; }",
 		# Table
-		"table { width: 100%; border-collapse: collapse; margin-top: 4px; }",
-		"th, td { border: 1px solid #e2e8f0; padding: 3px 5px; text-align: left;"
-		" font-size: 7.5px; vertical-align: top; }",
-		"th { background-color: #1a365d; color: #fff; font-weight: bold; font-size: 7.5px; }",
-		"tbody tr:nth-child(even) { background-color: #f7fafc; }",
-		".col-fixture-type { width: 40px; text-align: center; }",
+		"table.schedule { width: 100%; border-collapse: collapse; }",
+		"table.schedule thead { display: table-header-group; }",
+		"table.schedule tr { page-break-inside: avoid; }",
+		f"table.schedule th {{ text-align: left; font-size: 7pt; color: #fff; background: {NAVY};"
+		" text-transform: uppercase; letter-spacing: 0.8px; padding: 5px 6px; }",
+		f"table.schedule td {{ border-bottom: 1px solid {RULE}; padding: 5px 6px; font-size: 8pt; vertical-align: top; }}",
+		f"table.schedule tbody tr:nth-child(even) td {{ background: {TINT}; }}",
+		f".col-fixture-type {{ width: 48px; text-align: center; font-weight: bold; color: {NAVY}; }}",
+		".col-qty { width: 34px; text-align: center; }",
 		".text-right { text-align: right; }",
-		".total-row { font-weight: bold; background-color: #edf2f7 !important; }",
-		".other-manufacturer { background-color: #fffbe6 !important; }",
-		".desc-detail { color: #4a5568; }",
-		# Footer
-		".footer { text-align: center; font-size: 7px; color: #a0aec0; margin-top: 12px;"
-		" border-top: 1px solid #e2e8f0; padding-top: 4px; }",
+		f".total-row td {{ font-weight: bold; background: #e8edf3 !important; border-top: 1.5px solid {NAVY}; }}",
+		f".desc-detail {{ color: {MUTED}; }}",
 	]
 	if include_pricing:
-		css_rules.append(".pricing-sub-line { font-size: 6.5px; color: #888; }")
+		css_rules.append(f".pricing-sub-line {{ font-size: 6.5pt; color: {MUTED}; }}")
 
 	html_parts = [
-		"<html><head><style>",
+		"<html><head><meta charset='utf-8'><style>",
 		"".join(css_rules),
 		"</style></head><body>",
 	]
 
 	# ── Header section ──
-	html_parts.append(f"<h1>{schedule.schedule_name}</h1>")
-	html_parts.append("<div class='accent-bar'></div>")
+	html_parts.append(brand_header("Fixture schedule"))
+	html_parts.append(f"<h1>{escape(schedule.schedule_name)}</h1>")
 	if project:
-		html_parts.append(f"<h2>{project.project_name}</h2>")
+		html_parts.append(f"<p class='subtitle'>{escape(project.project_name)}</p>")
 
-	# Info bar — horizontal label/value pairs
+	# Title block — label above value, one cell each
 	info_items = []
 	if customer:
-		customer_name = customer.customer_name or customer.name
-		info_items.append(f"<span><span class='lbl'>Customer:</span> {customer_name}</span>")
+		info_items.append(("Customer", customer.customer_name or customer.name))
 	if project and project.get("end_client_party"):
 		# DESK-9: dealers name the end client as a project party; the Customer above bills.
 		from illumenate_lighting.illumenate_lighting.portal.project_parties import label
 
-		end_client = frappe.utils.escape_html(label(project.end_client_party))
-		info_items.append(f"<span><span class='lbl'>End client:</span> {end_client}</span>")
-	info_items.append(f"<span><span class='lbl'>Date:</span> {export_date}</span>")
-	info_items.append(f"<span><span class='lbl'>Status:</span> {schedule.status}</span>")
+		info_items.append(("End client", label(project.end_client_party)))
+	info_items.append(("Date", export_date))
+	if not submittal:
+		info_items.append(("Status", schedule.status))
 	version = getattr(schedule, "version", None)
 	if version:
-		info_items.append(f"<span><span class='lbl'>Version:</span> {version}</span>")
-	html_parts.append(f"<div class='info-bar'>{''.join(info_items)}</div>")
+		info_items.append(("Version", version))
+	html_parts.append(
+		"<table class='title-block'><tr>"
+		+ "".join(
+			f"<td><span class='lbl'>{name}</span><span class='val'>{escape(str(value))}</span></td>"
+			for name, value in info_items
+		)
+		+ "</tr></table>"
+	)
 
 	# ── Table header ──
-	html_parts.append("<table>")
+	html_parts.append("<table class='schedule'>")
 	html_parts.append("<thead><tr>")
-	html_parts.append("<th class='col-fixture-type'>Fixture<br>Type</th>")
-	html_parts.append("<th>Type</th>")
-	html_parts.append("<th>Qty</th>")
+	html_parts.append("<th class='col-fixture-type'>Type</th>")
+	html_parts.append("<th>Manufacturer</th>")
+	html_parts.append("<th class='col-qty'>Qty</th>")
 	html_parts.append("<th>Location</th>")
 	html_parts.append("<th>Description</th>")
 	if include_pricing:
@@ -808,20 +824,19 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	# ── Table body ──
 	html_parts.append("<tbody>")
 	for line in lines:
-		row_class = "other-manufacturer" if line["manufacturer_type"] == "OTHER" else ""
-		html_parts.append(f"<tr class='{row_class}'>")
-		html_parts.append(f"<td class='col-fixture-type'>{line['line_id']}</td>")
+		html_parts.append("<tr>")
+		html_parts.append(f"<td class='col-fixture-type'>{escape(line['line_id'])}</td>")
 		# Display manufacturer type
 		if line["manufacturer_type"] in ["ILLUMENATE", "ACCESSORY"]:
 			type_display = "ilLumenate Lighting"
 		else:
 			type_display = line.get("manufacturer_name") or "Other"
-		html_parts.append(f"<td>{type_display}</td>")
-		html_parts.append(f"<td>{line['qty']}</td>")
-		html_parts.append(f"<td>{line['location']}</td>")
+		html_parts.append(f"<td>{escape(type_display)}</td>")
+		html_parts.append(f"<td class='col-qty'>{line['qty']}</td>")
+		html_parts.append(f"<td>{escape(line['location'])}</td>")
 
 		# Description column — compact multi-line layout
-		description = _build_pdf_description(line)
+		description = _build_pdf_description(line, submittal=submittal)
 
 		html_parts.append(f"<td>{description}</td>")
 
@@ -851,16 +866,14 @@ def _generate_pdf_content(schedule_data: dict, include_pricing: bool = False) ->
 	html_parts.append("</tbody></table>")
 
 	# ── Footer ──
-	html_parts.append(
-		f"<div class='footer'>ilLumenate Lighting | Generated {export_date}</div>"
-	)
+	html_parts.append(f"<div class='footer'>ilLumenate Lighting &middot; {escape(str(export_date))}</div>")
 
 	html_parts.append("</body></html>")
 
 	return "".join(html_parts)
 
 
-def _build_pdf_description(line: dict) -> str:
+def _build_pdf_description(line: dict, submittal: bool = False) -> str:
 	"""
 	Build a compact HTML description cell for a single schedule line.
 
@@ -885,6 +898,8 @@ def _build_pdf_description(line: dict) -> str:
 			or line.get("fixture_template")
 			or "Unknown Template"
 		)
+		if submittal:
+			return f"<strong>{template_name}</strong>"
 		return (
 			f"<strong>{template_name}</strong>"
 			"<br><span class='desc-detail' style='color:#856404;'>"
@@ -1431,8 +1446,10 @@ def get_export_history(schedule_id: str) -> dict:
 		)
 		user_names_map = {u.name: u.full_name for u in users}
 
-	# Enrich with user display name
+	# Enrich with user display name. Omissions on a finished packet are for staff in Desk only.
 	for export in exports:
+		if export.status != "FAILED":
+			export["error_log"] = None
 		if export.requested_by:
 			export["requested_by_name"] = user_names_map.get(export.requested_by) or export.requested_by
 		else:
@@ -1492,9 +1509,10 @@ def get_project_export_files(project_name: str) -> dict:
 	can_view_pricing = _check_pricing_permission()
 
 	# Build filters for export jobs
+	# A spec submittal with staff-only issues (INCOMPLETE) is still a finished document.
 	filters = {
 		"schedule": ["in", schedule_names],
-		"status": "COMPLETE",
+		"status": ["in", ["COMPLETE", "INCOMPLETE"]],
 	}
 	if not can_view_pricing:
 		filters["export_type"] = ["in", [

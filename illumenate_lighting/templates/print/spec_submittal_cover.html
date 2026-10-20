@@ -2,208 +2,82 @@
 <html>
 <head>
 	<meta charset="UTF-8">
-	<title>Spec Submittal Packet - {{ schedule.schedule_name | e }}</title>
+	<title>Submittal Package - {{ schedule.schedule_name | e }}</title>
 	<style>
-		body {
-			font-family: Arial, Helvetica, sans-serif;
-			margin: 0;
-			padding: 40px;
-			color: #333;
-		}
-		.header {
-			text-align: center;
-			margin-bottom: 40px;
-			border-bottom: 2px solid #1a365d;
-			padding-bottom: 20px;
-		}
-		.company-name {
-			font-size: 24px;
-			font-weight: bold;
-			color: #1a365d;
+		{{ base_css | safe }}
+		.cover { padding-top: 150px; }
+		.eyebrow {
+			font-size: 9pt;
+			color: #6b7280;
+			text-transform: uppercase;
+			letter-spacing: 3px;
 			margin-bottom: 10px;
 		}
-		.document-title {
-			font-size: 20px;
-			color: #4a5568;
-			margin-top: 20px;
+		.cover h1 {
+			font-size: 30pt;
+			font-weight: 300;
+			margin-bottom: 6px;
 		}
-		.project-info {
-			margin: 30px 0;
-			padding: 20px;
-			background-color: #f7fafc;
-			border-radius: 8px;
+		.cover .project {
+			font-size: 14pt;
+			color: #1f2933;
+			margin: 0 0 40px 0;
 		}
-		.project-info h2 {
-			font-size: 16px;
-			color: #1a365d;
-			margin-top: 0;
-			margin-bottom: 15px;
-			border-bottom: 1px solid #e2e8f0;
-			padding-bottom: 10px;
+		.accent {
+			width: 64px;
+			height: 3px;
+			background: #1a365d;
+			margin-bottom: 40px;
 		}
-		.info-row {
-			display: flex;
-			margin-bottom: 8px;
-		}
-		.info-label {
-			font-weight: bold;
-			width: 150px;
-			color: #4a5568;
-		}
-		.info-value {
-			flex: 1;
-		}
-		.fixture-table {
-			width: 100%;
+		table.details {
 			border-collapse: collapse;
-			margin-top: 30px;
+			width: 70%;
 		}
-		.fixture-table th {
-			background-color: #1a365d;
-			color: white;
-			padding: 12px 8px;
-			text-align: left;
-			font-size: 12px;
+		table.details td {
+			padding: 9px 0;
+			border-bottom: 1px solid #d9dee5;
+			font-size: 10pt;
+			vertical-align: top;
 		}
-		.fixture-table td {
-			padding: 10px 8px;
-			border-bottom: 1px solid #e2e8f0;
-			font-size: 11px;
+		table.details td.lbl {
+			width: 34%;
+			color: #6b7280;
+			font-size: 8pt;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			padding-top: 11px;
 		}
-		.fixture-table tr:nth-child(even) {
-			background-color: #f7fafc;
-		}
-		.fixture-table tr:hover {
-			background-color: #edf2f7;
-		}
-		.status-configured {
-			color: #38a169;
-			font-weight: bold;
-		}
-		.status-pending {
-			color: #d69e2e;
-			font-weight: bold;
-		}
-		.status-other {
-			color: #4a5568;
-		}
-		.footer {
-			margin-top: 40px;
-			padding-top: 20px;
-			border-top: 1px solid #e2e8f0;
-			text-align: center;
-			font-size: 10px;
-			color: #718096;
-		}
-		.toc-title {
-			font-size: 16px;
-			color: #1a365d;
-			margin-top: 30px;
-			margin-bottom: 15px;
-		}
-		.has-spec {
-			color: #38a169;
-		}
-		.no-spec {
-			color: #e53e3e;
-		}
-		.page-break {
-			page-break-after: always;
+		.cover .footer {
+			margin-top: 160px;
 		}
 	</style>
 </head>
 <body>
-	<div class="header">
-		<div class="company-name">{{ company_name | e }}</div>
-		<div class="document-title">Spec Submittal Packet</div>
-	</div>
+	{{ brand_header | safe }}
+	<div class="cover">
+		<div class="eyebrow">Submittal package</div>
+		<h1>{{ schedule.schedule_name | e }}</h1>
+		{% if project %}<p class="project">{{ project.project_name | e }}</p>{% endif %}
+		<div class="accent"></div>
 
-	<div class="project-info">
-		<h2>Project Information</h2>
-		{% if project %}
-		<div class="info-row">
-			<span class="info-label">Project Name:</span>
-			<span class="info-value">{{ project.project_name | e }}</span>
-		</div>
-		{% if end_client or project.customer %}
-		<div class="info-row">
-			<span class="info-label">Customer:</span>
-			<span class="info-value">{{ (end_client or project.customer) | e }}</span>
-		</div>
-		{% endif %}
-		{% endif %}
-		<div class="info-row">
-			<span class="info-label">Schedule Name:</span>
-			<span class="info-value">{{ schedule.schedule_name | e }}</span>
-		</div>
-		{% if generation_date %}
-		<div class="info-row">
-			<span class="info-label">Generated:</span>
-			<span class="info-value">{{ generation_date | e }}</span>
-		</div>
-		{% endif %}
-	</div>
+		<table class="details">
+			{% if end_client or (project and project.customer) %}
+			<tr><td class="lbl">Client</td><td>{{ (end_client or project.customer) | e }}</td></tr>
+			{% endif %}
+			{% if schedule.get('version') %}
+			<tr><td class="lbl">Revision</td><td>{{ schedule.version | e }}</td></tr>
+			{% endif %}
+			{% if generation_date %}
+			<tr><td class="lbl">Date</td><td>{{ generation_date | e }}</td></tr>
+			{% endif %}
+			<tr><td class="lbl">Fixture types</td><td>{{ fixture_count | e }}</td></tr>
+			<tr><td class="lbl">Prepared by</td><td>{{ company_name | e }}</td></tr>
+		</table>
 
-	<h3 class="toc-title">Fixture Schedule - Table of Contents</h3>
-	
-	<table class="fixture-table">
-		<thead>
-			<tr>
-				<th>Fixture Type</th>
-				<th>Qty</th>
-				<th>Location</th>
-				<th>Type</th>
-				<th>Status</th>
-				<th>Spec Sheet</th>
-			</tr>
-		</thead>
-		<tbody>
-			{% for line in fixture_lines %}
-			<tr>
-				<td><strong>{{ (line.line_id or '-') | e }}</strong></td>
-				<td>{{ (line.qty or 1) | e }}</td>
-				<td>{{ (line.location or '-') | e }}</td>
-				<td>
-					{% if line.manufacturer_type == 'ILLUMENATE' %}
-						ilLumenate
-					{% elif line.manufacturer_type == 'ACCESSORY' %}
-						Accessory
-					{% else %}
-						Other Mfr.
-					{% endif %}
-				</td>
-				<td>
-					{% if line.manufacturer_type == 'ILLUMENATE' %}
-						{% if line.get('build') %}
-							<span class="status-configured">Configured</span>
-						{% else %}
-							<span class="status-pending">Pending</span>
-						{% endif %}
-					{% elif line.manufacturer_type == 'OTHER' %}
-						<span class="status-other">External</span>
-					{% else %}
-						<span class="status-other">-</span>
-					{% endif %}
-				</td>
-				<td>
-					{% if line.spec_document_url %}
-						<span class="has-spec">✓ Included</span>
-					{% elif not line.get('required', True) %}
-						<span class="status-other">{{ line.get('exclusion_reason') | e }}</span>
-					{% else %}
-						<span class="no-spec">✗ Missing</span>
-					{% endif %}
-				</td>
-			</tr>
-			{% endfor %}
-		</tbody>
-	</table>
-
-	<div class="footer">
-		<p>This document was automatically generated by {{ company_name | e }} ERP System</p>
-		{% if generation_datetime %}
-		<p>Generated on {{ generation_datetime | e }}</p>
-		{% endif %}
+		<div class="footer">
+			This package contains the fixture schedule, a table of contents, and the product
+			documentation for each fixture type.
+		</div>
 	</div>
 </body>
 </html>

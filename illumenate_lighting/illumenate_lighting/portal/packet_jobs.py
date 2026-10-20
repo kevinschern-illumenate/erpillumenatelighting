@@ -37,9 +37,7 @@ def _access(schedule):
 		frappe.throw(error or "Schedule is unavailable", frappe.PermissionError)
 
 
-def request(
-	schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *, retry_of=None, allow_partial=False
-):
+def request(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *, retry_of=None):
 	from illumenate_lighting.illumenate_lighting.api.exports import _create_export_job
 
 	_access(schedule_name)
@@ -50,13 +48,7 @@ def request(
 	)
 	_access(schedule_name)
 	revision = str(frappe.db.get_value("ilL-Project-Fixture-Schedule", schedule_name, "modified"))
-	options = json.dumps(
-		{
-			"include_cover": parse_bool(include_cover, default=True),
-			"allow_partial": parse_bool(allow_partial),
-		},
-		sort_keys=True,
-	)
+	options = json.dumps({"include_cover": parse_bool(include_cover, default=True)}, sort_keys=True)
 	existing = frappe.db.get_value(
 		DOCTYPE,
 		{
@@ -125,13 +117,7 @@ def run(packet_job):
 		):
 			raise ValueError("Schedule changed after this request. Generate a new packet.")
 		options = json.loads(job.packet_options)
-		generate(
-			job.schedule,
-			job.export_type,
-			options["include_cover"],
-			job_name=job.name,
-			allow_partial=options.get("allow_partial", False),
-		)
+		generate(job.schedule, job.export_type, options["include_cover"], job_name=job.name)
 		frappe.db.commit()
 	except InterruptedPacket:
 		frappe.db.rollback()
@@ -154,21 +140,21 @@ def run(packet_job):
 
 @frappe.whitelist()
 def status(job_name):
+	"""What the portal shows while a packet runs. Omissions and warnings stay on the job for staff."""
 	job = frappe.get_doc(DOCTYPE, job_name)
 	_access(job.schedule)
 	if job.export_type not in TYPES:
 		raise ValueError("This is not a packet job")
-	manifest = json.loads(job.manifest_json or "[]")
+	ready = job.status in ("COMPLETE", "INCOMPLETE")
 	return {
 		"success": True,
 		"export_job": job.name,
-		"status": job.status,
+		# A packet with issues is still the customer's finished document.
+		"status": "COMPLETE" if ready else job.status,
 		"progress": job.progress or 0,
 		"message": job.progress_message,
-		"error": job.error_log if job.status in ("FAILED", "INCOMPLETE") else None,
-		"manifest": manifest,
-		"warnings": list(dict.fromkeys(w for entry in manifest for w in entry.get("warnings") or [])),
-		"file_url": job.output_file if job.status in ("COMPLETE", "INCOMPLETE") else None,
+		"error": job.error_log if job.status == "FAILED" else None,
+		"file_url": job.output_file if ready else None,
 	}
 
 
@@ -183,7 +169,6 @@ def retry(job_name):
 		job.export_type,
 		json.loads(job.packet_options or "{}").get("include_cover", True),
 		retry_of=job.name,
-		allow_partial=json.loads(job.packet_options or "{}").get("allow_partial", False),
 	)
 
 
@@ -202,8 +187,9 @@ def issue(job_name):
 		frappe.throw("Packet issuance requires schedule editor access", frappe.PermissionError)
 	frappe.db.sql("select name from `tabilL-Export-Job` where name=%s for update", job_name)
 	job.reload()
-	if job.status != "COMPLETE" or not job.output_sha256 or not job.manifest_json:
-		raise ValueError("Only a complete verified packet can be issued")
+	# A standard submittal with staff-only issues is still the document the customer issues.
+	if job.status not in ("COMPLETE", "INCOMPLETE") or not job.output_sha256 or not job.manifest_json:
+		raise ValueError("Only a finished verified packet can be issued")
 	file_name = frappe.db.get_value(
 		"File",
 		{
