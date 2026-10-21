@@ -97,6 +97,37 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				'font-weight': 'bold',
 				'border-color': '#fdc757'
 			});
+
+			// Display Target Brands in the Sidebar
+		if (frm.doc.target_brands && frm.doc.target_brands.length > 0) {
+			let active_brands = frm.doc.target_brands
+				.filter(row => row.enabled)
+				.map(row => {
+					// Map backend codes to pretty names
+					if (row.brand === "lighting_206") return "206 Lighting";
+					if (row.brand === "illumenate") return "ilLumenate Lighting";
+					return row.brand;
+				});
+
+			if (active_brands.length > 0) {
+				let brand_html = `
+					<div style="margin-top: 10px; margin-bottom: -10px; padding: 0 15px;">
+						<span style="font-size: 11px; text-transform: uppercase; color: #8D99A6; font-weight: 600; letter-spacing: 0.5px;">Target Brands</span>
+						<div style="margin-top: 4px;">
+				`;
+				
+				active_brands.forEach(brand => {
+					let color = brand === "206 Lighting" ? "#fdc757" : "#0052cc";
+					let text_color = brand === "206 Lighting" ? "#172e48" : "white";
+					brand_html += `<span class="badge" style="background-color: ${color}; color: ${text_color}; margin-right: 5px; font-weight: 500;">${brand}</span>`;
+				});
+				
+				brand_html += `</div></div>`;
+				
+				// Inject into the top of the sidebar
+				$('.layout-side-section').prepend(brand_html);
+			}
+		}
 			
 			// Direct link to open live product on Webflow site
 			frm.add_custom_button(__("Open in Webflow"), function() {
