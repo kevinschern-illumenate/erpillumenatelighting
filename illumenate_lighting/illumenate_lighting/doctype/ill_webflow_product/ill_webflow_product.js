@@ -246,6 +246,23 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		}
 	},
 
+	// Limit Compatible Products to products matching this document's active brands
+		frm.set_query("related_product", "compatible_products", function(doc, cdt, cdn) {
+			let active_brands = [];
+			if (doc.target_brands && doc.target_brands.length > 0) {
+				active_brands = doc.target_brands.filter(b => b.enabled).map(b => b.brand);
+			} else {
+				active_brands = ["lighting_206"]; // Fallback 
+			}
+
+			return {
+				query: "illumenate_lighting.illumenate_lighting.api.webflow_brand.get_brand_filtered_products",
+				filters: {
+					"brands": active_brands
+				}
+			};
+		});
+
 	before_save(frm) {
 		// Hard safety net: clear fields again right before saving a duplicate
 		if (is_duplicate_doc(frm)) {
