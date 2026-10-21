@@ -10,8 +10,19 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		if (!frm.is_new()) {
 			let sync_btn = frm.add_custom_button(__('Sync to Webflow'), function() {
 				
-				// STEP 1: Freeze for PDF Generation
-				frappe.dom.freeze(__('Step 1/2: Generating Spec Sheets & Attaching Files...'));
+				// --- STEP 2 FIX: Darken the background overlay temporarily ---
+				if (!$('#custom-freeze-style').length) {
+					$('<style id="custom-freeze-style">.freeze { background-color: rgba(0, 0, 0, 0.75) !important; backdrop-filter: blur(3px); }</style>').appendTo('head');
+				}
+
+				// --- STEP 1 & 2 FIX: Single message, styled as a solid, readable card ---
+				const freezeMsg = `
+					<div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 450px; margin: 0 auto; color: #172e48; border: 2px solid #fdc757; text-align: center;">
+						<h4 style="margin-top: 0; margin-bottom: 15px; color: #172e48; font-weight: 700;">Syncing to Webflow</h4>
+						<p style="margin-bottom: 0; font-size: 15px; font-weight: 500; line-height: 1.5;">Please wait, this might take a few minutes. The page will unfreeze once the spec sheet has been successfully generated and Webflow has been updated.</p>
+					</div>
+				`;
+				frappe.dom.freeze(freezeMsg);
 
 				fetch('https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2', {
 					method: 'POST',
@@ -31,8 +42,8 @@ frappe.ui.form.on("ilL-Webflow-Product", {
                         throw new Error(data.message || "Pipeline reported an issue.");
                     }
 
-					// STEP 2: PDFs are done. Start checking the database for Workflow 2's finish!
-					frappe.dom.freeze(__('Step 2/2: Spec sheets saved. Pushing to Webflow...'));
+					// We removed the second freeze message here. 
+					// The screen stays frozen with the original card while polling begins!
 
 					let checkInterval = setInterval(() => {
 						// Use xcall to bypass the browser cache!
@@ -47,12 +58,14 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 							if (current_status === 'Synced' || current_status === 'LIVE') {
 								clearInterval(checkInterval);
 								frappe.dom.unfreeze();
+								$('#custom-freeze-style').remove(); // Remove dark overlay
 								frappe.show_alert({message: __('Webflow Sync Complete!'), indicator: 'green'});
 								frm.reload_doc();
 							} 
 							else if (current_status === 'Error' || current_status === 'Failed') {
 								clearInterval(checkInterval);
 								frappe.dom.unfreeze();
+								$('#custom-freeze-style').remove(); // Remove dark overlay
 								frappe.msgprint({title: __('Sync Error'), message: __('Pipeline failed. Check logs.'), indicator: 'red'});
 								frm.reload_doc();
 							}
@@ -64,6 +77,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 						clearInterval(checkInterval);
 						if (document.querySelector('.freeze-message-container')) { 
 							frappe.dom.unfreeze();
+							$('#custom-freeze-style').remove(); // Remove dark overlay
 							frappe.msgprint(__('Sync is taking longer than usual. It is running in the background.'));
 							frm.reload_doc();
 						}
@@ -72,6 +86,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				})
 				.catch(err => {
 					frappe.dom.unfreeze();
+					$('#custom-freeze-style').remove(); // Remove dark overlay
 					frappe.msgprint({title: __('Sync Failed'), message: err.message, indicator: 'red'});
 				});
 			});
