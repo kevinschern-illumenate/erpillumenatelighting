@@ -322,7 +322,7 @@ def get_webflow_products(
         "ilL-Webflow-Product",
         filters=filters,
         fields=[
-            "name", "product_name", "product_slug", "product_type",
+            "name", "product_name", "product_slug", "product_type", "custom_webflow_status",
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
             "driver_template", "controller_template",
