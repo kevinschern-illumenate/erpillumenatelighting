@@ -331,6 +331,7 @@ def get_webflow_products(
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
             "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
+			"photometric_image", "photometric_data",
             "webflow_item_id", "webflow_collection_slug",
             "last_synced_at", "sync_status", "sync_error_message",
             "creation", "modified"
