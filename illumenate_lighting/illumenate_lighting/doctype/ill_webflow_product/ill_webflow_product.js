@@ -129,15 +129,38 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			}
 		}
 			
-			// Direct link to open live product on Webflow site
-			frm.add_custom_button(__("Open in Webflow"), function() {
-				const slug = frm.doc.product_slug || frm.doc.name;
-				if (!slug) {
-					frappe.msgprint(__("No product slug found for this product."));
-					return;
+			// Direct link to open live product on Webflow site (Dynamic by Brand)
+			const slug = frm.doc.product_slug || frm.doc.name;
+			
+			if (slug && frm.doc.target_brands && frm.doc.target_brands.length > 0) {
+				let active_brands = frm.doc.target_brands.filter(row => row.enabled);
+				
+				if (active_brands.length === 1) {
+					// Single brand -> Standard button
+					let brandCode = active_brands[0].brand;
+					let domain = brandCode === "lighting_206" ? "https://206.lighting" : "https://illumenate.lighting";
+					
+					frm.add_custom_button(__("Open in Webflow"), function() {
+						window.open(`${domain}/products/${slug}`, "_blank");
+					});
+				} else if (active_brands.length > 1) {
+					// Multiple brands -> Dropdown menu!
+					active_brands.forEach(row => {
+						let brandCode = row.brand;
+						let brandName = brandCode === "lighting_206" ? "206 Lighting" : "ilLumenate Lighting";
+						let domain = brandCode === "lighting_206" ? "https://206.lighting" : "https://illumenate.lighting";
+						
+						frm.add_custom_button(__(`View on ${brandName}`), function() {
+							window.open(`${domain}/products/${slug}`, "_blank");
+						}, __("Open in Webflow")); 
+					});
 				}
-				window.open(`https://illumenate.lighting/products/${slug}`, "_blank");
-			});
+			} else if (slug) {
+				// Safety fallback if no brands are set
+				frm.add_custom_button(__("Open in Webflow"), function() {
+					window.open(`https://illumenate.lighting/products/${slug}`, "_blank");
+				});
+			}
 
 			// Add button to recalculate specifications
 			frm.add_custom_button(__("Refresh Attribute Links"), function() {
