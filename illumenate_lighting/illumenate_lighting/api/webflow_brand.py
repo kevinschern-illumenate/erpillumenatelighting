@@ -255,3 +255,20 @@ def get_brand_config(brand: str) -> Dict[str, Any]:
         "categories_collection_id": collections.get("Categories", ""),
         "collections": collections,
     }
+@frappe.whitelist()
+def get_brand_filtered_products(doctype, txt, searchfield, start, page_len, filters):
+    brands = filters.get("brands")
+    if not brands:
+        return []
+    
+    # Return products where at least one of their target_brands matches the current product's brands
+    query = """
+        SELECT parent 
+        FROM `tabilL-Child-Webflow-Brand-Target` 
+        WHERE parenttype = 'ilL-Webflow-Product' 
+        AND enabled = 1 
+        AND brand IN %s
+        AND parent LIKE %s
+        LIMIT %s OFFSET %s
+    """
+    return frappe.db.sql(query, (tuple(brands), f"%{txt}%", page_len, start))
