@@ -458,7 +458,7 @@
    "fieldname": "photometric_data",
    "fieldtype": "Table",
    "label": "Photometric Data",
-   "options": "ilL-Child-Photometric-Data
+   "options": "ilL-Child-Photometric-Data"
   }
   
  ],
