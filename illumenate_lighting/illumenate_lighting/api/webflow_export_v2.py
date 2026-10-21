@@ -327,7 +327,7 @@ def get_webflow_products(
             "fixture_template", "driver_spec", "controller_spec",
             "driver_template", "controller_template",
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
-            "accessory_spec", "documents", "kit_components"
+            "accessory_spec",
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
             "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
