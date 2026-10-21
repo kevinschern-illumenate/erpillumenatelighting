@@ -219,6 +219,18 @@ def project_product(
 				{key: row.get(key) for key in ("related_product", "relationship_type", "notes")}
 				for row in get("compatible_products") or []
 			],
+			"kit_components": [
+				{
+					"component_type": row.get("component_type"),
+					"component_item": row.get("component_item"),
+					"component_spec_name": row.get("component_spec_name"),
+					"quantity": row.get("quantity"),
+					"notes": row.get("notes"),
+					"custom_webflow_title": row.get("custom_webflow_title"),
+					"custom_webflow_description": row.get("custom_webflow_description")
+				}
+				for row in get("kit_components") or []
+			],
 		}
 	)
 	if commercial and family in PER_FOOT_TEMPLATES and price is not None:
