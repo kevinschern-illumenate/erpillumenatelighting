@@ -3090,7 +3090,7 @@ class ilLWebflowProduct(Document):
 			"Driver": {"link_field": "driver_template", "doctype": "ilL-Driver-Template"},
 			"Controller": {"link_field": "controller_template", "doctype": "ilL-Controller-Template"},
 			"LED Sheet": {"link_field": "led_sheet_template", "doctype": "ilL-LED-Sheet-Template"},
-			"Extrusion Kit": {"link_field": "custom_extrusion_kit_template", "doctype": "ilL-Extrusion-Kit-Template"},
+			"Extrusion Kit": {"link_field": "kit_template", "doctype": "ilL-Extrusion-Kit-Template"},
 		}
 
 		MANAGED_LABELS = (
