@@ -198,7 +198,7 @@ def project_product(
 			"configurator_options": sorted(options, key=lambda r: r["step"] or 0),
 			"validation_errors": errors,
 			"certifications": list(certifications),
-			"photomeric_image": photometric.image
+			"photometric_image": get("photometric_image"),
 			"specifications": [
 				{
 					"spec_group": row.get("spec_group"),
@@ -233,7 +233,8 @@ def project_product(
 				for row in get("kit_components") or []
 			],
 			"photometric_data": [
-				{key: row.get(key) for key in ("mounting_height", "light_level", "beam_diameter", "display_order")} for row in get("photometric_data") or []
+				{key: row.get(key) for key in ("mounting_height", "light_level", "beam_diameter", "display_order")} 
+				for row in get("photometric_data") or []
 			],
 		}
 	)
