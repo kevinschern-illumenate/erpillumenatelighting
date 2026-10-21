@@ -443,7 +443,24 @@
    "fieldname": "fixture_weight_per_foot_grams",
    "fieldtype": "Float",
    "label": "Fixture Weight per Foot (g)"
+  },
+  {
+   "fieldname": "photometric_section",
+   "fieldtype": "Section Break",
+   "label": "Photometrics"
+  },
+  {
+   "fieldname": "photometric_image",
+   "fieldtype": "Attach Image",
+   "label": "Photometric Image"
+  },
+  {
+   "fieldname": "photometric_data",
+   "fieldtype": "Table",
+   "label": "Photometric Data",
+   "options": "ilL-Child-Photometric-Data
   }
+  
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
