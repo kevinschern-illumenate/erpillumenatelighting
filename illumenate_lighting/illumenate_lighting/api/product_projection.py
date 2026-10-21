@@ -164,6 +164,7 @@ def project_product(
 			"product_name",
 			"product_slug",
 			"product_type",
+			"custom_webflow_status",
 			"product_category",
 			"series",
 			"short_description",
