@@ -2014,6 +2014,37 @@
         }
       ]
     },
+    "ilL-Child-Photometric-Data": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "mounting_height",
+          "label": "Mounting Height (ft)",
+          "fieldtype": "Float",
+          "reqd": 1,
+          "description": "Distance from the fixture to the lit surface, in feet."
+        },
+        {
+          "fieldname": "light_level",
+          "label": "Light Level (fc)",
+          "fieldtype": "Float",
+          "description": "Center-beam illuminance at this height, in footcandles."
+        },
+        {
+          "fieldname": "beam_diameter",
+          "label": "Beam Diameter (ft)",
+          "fieldtype": "Float",
+          "description": "Width of the beam at this height, in feet."
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
     "ilL-Child-Profile Environment": {
       "autoname": "",
       "istable": 1,
@@ -6327,11 +6358,6 @@
           "options": "ilL-Child-Webflow-Feed-Length"
         },
         {
-          "fieldname": "beam_angle",
-          "label": "Beam Angle",
-          "fieldtype": "Float"
-        },
-        {
           "fieldname": "l70_life_hours",
           "label": "L70 Life (Hours)",
           "fieldtype": "Int"
@@ -6350,6 +6376,32 @@
           "fieldname": "fixture_weight_per_foot_grams",
           "label": "Fixture Weight per Foot (g)",
           "fieldtype": "Float"
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "photometric_image",
+          "label": "Photometric Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "tm30_chart_image",
+          "label": "TM-30 Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "polar_chart_image",
+          "label": "Polar Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "photometric_data",
+          "label": "Cone of Light",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Photometric-Data"
         }
       ]
     },
