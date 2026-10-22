@@ -143,6 +143,7 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	mm_to_inches,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal_listing import template_scoped
 
 # Engine version - used for tracking configuration computation version
 ENGINE_VERSION = "1.0.0"
@@ -547,6 +548,7 @@ def _endcap_style_supports_feed(endcap_style_code: str) -> bool:
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 def debug_template_data(fixture_template_code: str) -> dict[str, Any]:
 	"""
 	Debug endpoint to inspect template data and linked tape offerings.
@@ -598,6 +600,7 @@ def debug_template_data(fixture_template_code: str) -> dict[str, Any]:
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def validate_and_quote(
 	fixture_template_code: str,
@@ -942,6 +945,7 @@ def validate_and_quote(
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 def validate_and_quote_inches(
 	fixture_template_code: str,
 	finish_code: str,
@@ -1053,6 +1057,7 @@ def validate_and_quote_inches(
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 def validate_and_quote_with_output(
 	fixture_template_code: str,
 	finish_code: str,
@@ -1220,6 +1225,7 @@ def validate_and_quote_with_output(
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def validate_and_quote_multisegment_with_output(
 	fixture_template_code: str,
@@ -1370,6 +1376,7 @@ def validate_and_quote_multisegment_with_output(
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def validate_and_quote_multisegment(
 	fixture_template_code: str,
@@ -4282,6 +4289,7 @@ def _register_fixture_handoff(configured_name):
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 	"""
@@ -4357,6 +4365,7 @@ def get_led_packages_for_template(fixture_template_code: str) -> dict[str, Any]:
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def get_environment_ratings_for_template(fixture_template_code: str) -> dict[str, Any]:
 	"""
@@ -4412,6 +4421,7 @@ def get_environment_ratings_for_template(fixture_template_code: str) -> dict[str
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def get_ccts_for_template(
 	fixture_template_code: str,
@@ -4643,6 +4653,7 @@ def _find_closest_fixture_output_level(delivered_lm_ft: float, fixture_output_le
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def get_delivered_outputs_for_template(
 	fixture_template_code: str,
@@ -4886,6 +4897,7 @@ def get_delivered_outputs_for_template(
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def auto_select_tape_for_configuration(
 	fixture_template_code: str,
@@ -5105,6 +5117,7 @@ def auto_select_tape_for_configuration(
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Fixture-Template", "fixture_template_code")
 @price_scoped
 def get_cascading_options_for_template(
 	fixture_template_code: str,

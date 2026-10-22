@@ -1250,8 +1250,10 @@ def get_fixture_templates(product_type: str = None) -> dict:
 			"templates": [{"name": template_code, "template_name": name, "template_code": code, "image": url or None, "gallery": [...]}]
 		}
 	"""
-	# Get active fixture templates
-	filters = {"is_active": 1}
+	# Get the fixture templates offered to the user (Internal Only ones for staff only)
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
+
+	filters = template_filters()
 
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
@@ -1319,9 +1321,11 @@ def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> 
 	if product_category not in TAPE_NEON_CATEGORIES:
 		return {"templates": []}
 
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
+
 	templates = frappe.get_all(
 		"ilL-Tape-Neon-Template",
-		filters={"is_active": 1, "product_category": product_category},
+		filters=template_filters(product_category=product_category),
 		fields=["name", "template_code", "template_name", "webflow_product", "image", "description"],
 		order_by="template_name asc",
 	)
@@ -1397,11 +1401,12 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 		dict: {"templates": [{"name", "template_name", "template_code", "description",
 			"image", "gallery"}]}
 	"""
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
 	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
 
 	templates = frappe.get_all(
 		"ilL-Extrusion-Kit-Template",
-		filters={"is_active": 1},
+		filters=template_filters(),
 		fields=[
 			"name", "template_code", "template_name", "image", "webflow_product", "profile_stock_length_mm",
 			"lens_stock_length_mm", "solid_endcap_qty", "feed_through_endcap_qty", "mounting_accessory_qty",
@@ -4280,11 +4285,12 @@ def get_led_sheet_templates() -> dict:
 
 
 def _led_sheet_templates() -> dict:
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
 	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
 
 	templates = frappe.get_all(
 		"ilL-LED-Sheet-Template",
-		filters={"is_active": 1},
+		filters=template_filters(),
 		fields=[
 			"name", "template_code", "template_name", "sku_series_code", "price_per_sheet_msrp",
 			"jumper_cable_item", "leader_cable_item", "webflow_product", "image", "description",

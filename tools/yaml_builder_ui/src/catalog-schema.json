@@ -2968,9 +2968,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
-          "default": "Active",
-          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "default": "Internal Only",
+          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3193,9 +3193,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
-          "default": "Active",
-          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "default": "Internal Only",
+          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3317,9 +3317,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
-          "default": "Active",
-          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "default": "Internal Only",
+          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3517,9 +3517,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
-          "default": "Active",
-          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "default": "Internal Only",
+          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -3943,9 +3943,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
-          "default": "Active",
-          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "default": "Internal Only",
+          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",
@@ -6159,9 +6159,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
-          "default": "Active",
-          "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "default": "Internal Only",
+          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
         },
         {
           "fieldname": "series",

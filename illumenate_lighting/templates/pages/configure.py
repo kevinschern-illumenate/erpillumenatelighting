@@ -327,10 +327,12 @@ def _normalize_product_category(category):
 
 
 def _get_linear_fixture_templates():
-	"""Fetch active ilL-Fixture-Template records with gallery images from Webflow."""
+	"""Fetch the ilL-Fixture-Template records offered to the user, with Webflow gallery images."""
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
+
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
-		filters={"is_active": 1},
+		filters=template_filters(),
 		fields=["template_code", "template_name", "webflow_product"],
 		order_by="template_name asc",
 		ignore_permissions=True,
@@ -350,10 +352,12 @@ def _get_linear_fixture_templates():
 
 
 def _get_tape_neon_templates(product_category):
-	"""Fetch active ilL-Tape-Neon-Template records for the given product category."""
+	"""Fetch the ilL-Tape-Neon-Template records offered to the user in the given product category."""
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
+
 	templates = frappe.get_all(
 		"ilL-Tape-Neon-Template",
-		filters={"is_active": 1, "product_category": product_category},
+		filters=template_filters(product_category=product_category),
 		fields=["template_code", "template_name", "webflow_product", "image", "description"],
 		order_by="template_name asc",
 		ignore_permissions=True,
@@ -376,10 +380,12 @@ def _get_tape_neon_templates(product_category):
 
 
 def _get_driver_templates():
-	"""Active ilL-Driver-Template records with Webflow imagery for the power supply picker."""
+	"""ilL-Driver-Template records offered to the user, with Webflow imagery, for the power supply picker."""
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
+
 	templates = frappe.get_all(
 		"ilL-Driver-Template",
-		filters={"is_active": 1},
+		filters=template_filters(),
 		fields=["name", "template_code", "template_name", "webflow_product"],
 		order_by="template_name asc",
 		ignore_permissions=True,

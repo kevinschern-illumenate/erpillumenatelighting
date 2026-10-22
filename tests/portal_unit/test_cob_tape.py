@@ -197,7 +197,8 @@ class PortalCategoryList(unittest.TestCase):
 			frappe.get_all.return_value = []
 			module.get_tape_neon_templates_for_schedule("COB Tape")
 			self.assertEqual(
-				frappe.get_all.call_args.kwargs["filters"], {"is_active": 1, "product_category": "COB Tape"}
+				frappe.get_all.call_args.kwargs["filters"],
+				{"product_category": "COB Tape", "product_status": ["in", ["Active"]]},
 			)
 			frappe.get_all.reset_mock()
 			self.assertEqual(module.get_tape_neon_templates_for_schedule("Other"), {"templates": []})

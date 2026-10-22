@@ -1841,6 +1841,31 @@ def _output_level_matches(tape_output_level: str, selected_output: str, selected
 # =============================================================================
 
 def _get_configurable_product(product_slug: str):
+    """The configurable product for ``product_slug`` (see ``_find_configurable_product``).
+
+    Called by this module's public endpoints, it also refuses a product whose template
+    the caller is not offered (an Internal Only template, for anyone but staff). Server
+    code elsewhere (spec sheets for an existing line) still gets the product.
+    """
+    product = _find_configurable_product(product_slug)
+    if product is None:
+        return None
+    from illumenate_lighting.illumenate_lighting.portal.configurator_access import _entry_method
+    from illumenate_lighting.illumenate_lighting.portal_listing import template_visible
+
+    if not (_entry_method() or "").startswith(__name__ + "."):
+        return product
+    for field, doctype in (
+        ("fixture_template", "ilL-Fixture-Template"),
+        ("tape_neon_template", "ilL-Tape-Neon-Template"),
+    ):
+        name = getattr(product, field, None)
+        if name:
+            return product if template_visible(doctype, name) else None
+    return product
+
+
+def _find_configurable_product(product_slug: str):
     """
     Get a configurable Webflow product by slug, or create a virtual product
     from a fixture template code if no product exists.

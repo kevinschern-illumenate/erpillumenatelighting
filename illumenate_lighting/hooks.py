@@ -275,6 +275,13 @@ permission_query_conditions = {
 	"Customer": "illumenate_lighting.illumenate_lighting.portal.master_scope.customer_query_conditions",
 	"Contact": "illumenate_lighting.illumenate_lighting.portal.master_scope.contact_query_conditions",
 	"Address": "illumenate_lighting.illumenate_lighting.portal.master_scope.address_query_conditions",
+	# Internal Only templates are hidden from everyone but staff.
+	"ilL-Fixture-Template": "illumenate_lighting.illumenate_lighting.portal_listing.fixture_template_conditions",
+	"ilL-Tape-Neon-Template": "illumenate_lighting.illumenate_lighting.portal_listing.tape_neon_template_conditions",
+	"ilL-LED-Sheet-Template": "illumenate_lighting.illumenate_lighting.portal_listing.led_sheet_template_conditions",
+	"ilL-Extrusion-Kit-Template": "illumenate_lighting.illumenate_lighting.portal_listing.extrusion_kit_template_conditions",
+	"ilL-Driver-Template": "illumenate_lighting.illumenate_lighting.portal_listing.driver_template_conditions",
+	"ilL-Controller-Template": "illumenate_lighting.illumenate_lighting.portal_listing.controller_template_conditions",
 }
 
 has_permission = {
@@ -300,6 +307,12 @@ has_permission = {
 	"Customer": "illumenate_lighting.illumenate_lighting.portal.master_scope.customer_has_permission",
 	"Contact": "illumenate_lighting.illumenate_lighting.portal.master_scope.contact_has_permission",
 	"Address": "illumenate_lighting.illumenate_lighting.portal.master_scope.address_has_permission",
+	"ilL-Fixture-Template": "illumenate_lighting.illumenate_lighting.portal_listing.template_has_permission",
+	"ilL-Tape-Neon-Template": "illumenate_lighting.illumenate_lighting.portal_listing.template_has_permission",
+	"ilL-LED-Sheet-Template": "illumenate_lighting.illumenate_lighting.portal_listing.template_has_permission",
+	"ilL-Extrusion-Kit-Template": "illumenate_lighting.illumenate_lighting.portal_listing.template_has_permission",
+	"ilL-Driver-Template": "illumenate_lighting.illumenate_lighting.portal_listing.template_has_permission",
+	"ilL-Controller-Template": "illumenate_lighting.illumenate_lighting.portal_listing.template_has_permission",
 }
 
 # Website/Portal Permissions

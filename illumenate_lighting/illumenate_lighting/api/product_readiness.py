@@ -243,6 +243,13 @@ def evaluate(product, channel="cms"):
 			issue(product.name, field, "Required for this channel")
 	for error in projection["validation_errors"]:
 		issue(product.name, error["field"], "Correct invalid configurator choice JSON")
+	if channel == "cms":
+		from illumenate_lighting.illumenate_lighting.web_listing_migration import template_link
+		from illumenate_lighting.illumenate_lighting.web_listing_schema import INTERNAL_STATUS
+
+		linked_doctype, linked_name = template_link(product.source)
+		if linked_doctype and frappe.db.get_value(linked_doctype, linked_name, "product_status") == INTERNAL_STATUS:
+			issue(linked_name, "product_status", "Internal Only templates stay off the website; set the template to Active first")
 	if channel in ("cms", "portal"):
 		for field in ("featured_image", "short_description"):
 			if not product.get(field):

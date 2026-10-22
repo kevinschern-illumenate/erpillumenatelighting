@@ -48,7 +48,7 @@ test('false checkboxes, zero prices and quoted attribute names survive YAML', ()
   template.variants[0].is_default = 0;
   template.allowed_options[0].option_value = '00096';
   assert.deepEqual(parseCatalog(stringify(catalog), parse, schema), catalog);
-  assert.equal(blankRecord('ilL-Driver-Template', schema).product_status, 'Active');
+  assert.equal(blankRecord('ilL-Driver-Template', schema).product_status, 'Internal Only');
 });
 
 test('malformed imports cannot replace the current draft', () => {

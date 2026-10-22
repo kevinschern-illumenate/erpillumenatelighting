@@ -101,11 +101,11 @@
    "fieldname": "product_status",
    "fieldtype": "Select",
    "label": "Product Status",
-   "options": "Draft\nActive\nERPNext Only\nDiscontinued\nArchived",
-   "default": "Active",
+   "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+   "default": "Internal Only",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "Active: offered in ERPNext and the portal. ERPNext Only: usable in ERPNext but hidden from the portal. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+   "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
   },
   {
    "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
@@ -393,7 +393,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-13 18:00:00.000000",
+ "modified": "2026-10-22 20:32:49.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Fixture-Template",

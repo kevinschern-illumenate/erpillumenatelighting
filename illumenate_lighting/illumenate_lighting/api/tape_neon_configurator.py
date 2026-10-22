@@ -56,6 +56,7 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     mm_to_inches,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal_listing import template_scoped
 
 # ═══════════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -1905,6 +1906,7 @@ def get_tape_neon_spec_cascading(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@template_scoped("ilL-Tape-Neon-Template", "template_code")
 @price_scoped
 def get_tape_neon_template_init(template_code: str) -> dict:
     """
@@ -2064,6 +2066,7 @@ def get_tape_neon_template_init(template_code: str) -> dict:
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Tape-Neon-Template", "template_code")
 @price_scoped
 def get_tape_neon_template_cascading(
     template_code: str,
@@ -2351,6 +2354,7 @@ def validate_tape_neon_template_config(
 
 
 @frappe.whitelist(methods=["POST"])
+@template_scoped("ilL-Tape-Neon-Template", "template_code")
 @atomic_build
 def save_tape_neon_template_to_schedule(
     schedule_name: str,
@@ -2733,6 +2737,7 @@ def _resolve_root_configured_tape_neon(name: str | None) -> str | None:
 
 
 @frappe.whitelist()
+@template_scoped("ilL-Tape-Neon-Template", "tape_neon_template")
 def select_driver_plan_for_tape_neon(tape_neon_template: str, runs_count: int, total_watts: float,
     tape_offering_doc=None, dimming_protocol_code: str | None = None, run_loads=None) -> tuple:
     from illumenate_lighting.illumenate_lighting.api.tape_neon_power import select_plan
