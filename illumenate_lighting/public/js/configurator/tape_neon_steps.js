@@ -489,8 +489,12 @@
 	TapeNeon.prototype._addPowerSelections = function (args) {
 		args.include_power_supply = this.$('#includePowerSupply').length ? this.$('#includePowerSupply').is(':checked') : true;
 		args.dimming_protocol_code = this.$name('dimming_protocol_code').val() || null;
+		args.power_allocation = this.powerAllocation();
 		this.lastCalcSelections.include_power_supply = args.include_power_supply;
 		this.lastCalcSelections.dimming_protocol_code = args.dimming_protocol_code;
+		// Saved with the request so a reopened build keeps its output grouping.
+		if (args.power_allocation) this.lastCalcSelections.power_allocation = args.power_allocation;
+		else delete this.lastCalcSelections.power_allocation;
 		this.lastCalcSelections.override_max_run_ft = this._getOverrideMaxRunFt();
 		if (this.selectedMountingAccessory) {
 			this.lastCalcSelections.mounting_accessory_item = this.selectedMountingAccessory.accessory_item;

@@ -170,6 +170,12 @@ Context:
 						</div>
 						<label for="dimmingProtocol">{{ _("Power supply control protocol") }}</label>
 						<select class="form-control mb-3" id="dimmingProtocol" name="dimming_protocol_code"><option value="">{{ _("Any compatible protocol") }}</option></select>
+						<label for="powerAllocation">{{ _("Power supply outputs") }}</label>
+						<select class="form-control mb-1" id="powerAllocation" name="power_allocation">
+							<option value="">{{ _("One output per segment/run") }}</option>
+							<option value="grouped">{{ _("Group runs onto shared outputs") }}</option>
+						</select>
+						<small class="text-muted d-block mb-3">{{ _("Grouping wires several runs to one output when their combined load fits its per-output and total limits, for fewer and smaller power supplies.") }}</small>
 						<div class="custom-control custom-checkbox mb-2">
 							<input type="checkbox" id="overrideMaxRunCheck" name="override_max_run_enabled" class="custom-control-input">
 							<label class="custom-control-label" for="overrideMaxRunCheck">{{ _("Use an engineering run-length limit") }}</label>

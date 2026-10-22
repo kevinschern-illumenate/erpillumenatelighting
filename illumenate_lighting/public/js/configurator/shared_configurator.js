@@ -261,9 +261,15 @@
 			'#includePowerSupply': selections.include_power_supply == null ? true : selections.include_power_supply,
 			'#overrideMaxRunCheck': !!selections.override_max_run_ft,
 			'#overrideMaxRunInput': selections.override_max_run_ft || '',
-			'[name="dimming_protocol_code"]': selections.dimming_protocol_code || ''
+			'[name="dimming_protocol_code"]': selections.dimming_protocol_code || '',
+			'[name="power_allocation"]': selections.power_allocation === 'grouped' ? 'grouped' : ''
 		};
 		this.queueRestoreFields(fields);
+	};
+
+	// "grouped" lets runs share supply outputs; null keeps the default of one output per run.
+	Base.prototype.powerAllocation = function () {
+		return this.$name('power_allocation').val() === 'grouped' ? 'grouped' : null;
 	};
 
 	Base.prototype.restoreSegment = function ($card, segment, family) {

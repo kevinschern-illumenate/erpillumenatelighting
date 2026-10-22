@@ -213,7 +213,7 @@
 		});
 
 		// Power supply / override.
-		this.$('#includePowerSupply').on('change' + '.' + self.instanceId, function () { self._afterChange(); });
+		this.$('#includePowerSupply, [name="power_allocation"]').on('change' + '.' + self.instanceId, function () { self._afterChange(); });
 		this.$('#overrideMaxRunCheck').on('change' + '.' + self.instanceId, function () {
 			var on = $(this).is(':checked');
 			self.$('#overrideMaxRunGroup').toggle(on);
@@ -834,6 +834,7 @@
 			items.push({ label: __('Power Feed'), value: feed });
 		}
 		if (!this.$('#includePowerSupply').is(':checked')) items.push({ label: __('Power Supply'), value: __('Excluded') });
+		else if (this.powerAllocation()) items.push({ label: __('Power Supply Outputs'), value: __('Runs grouped onto shared outputs') });
 		var override = this._getOverrideMaxRunFt();
 		if (override !== '') items.push({ label: __('Max Run Override'), value: override + ' ft' });
 
@@ -940,6 +941,7 @@
 			segments: this._collectSegments(),
 			include_power_supply: this.$('#includePowerSupply').is(':checked'),
 			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null,
+			power_allocation: this.powerAllocation(),
 			override_max_run_ft: this._getOverrideMaxRunFt(),
 			product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val()
 		};
@@ -980,7 +982,8 @@
 			endcap_color_code: sel.endcap_color_code,
 			segments_json: JSON.stringify(segments),
 			include_power_supply: sel.include_power_supply,
-			dimming_protocol_code: sel.dimming_protocol_code
+			dimming_protocol_code: sel.dimming_protocol_code,
+			power_allocation: sel.power_allocation
 		};
 		if (sel.override_max_run_ft !== '') data.override_max_run_ft = sel.override_max_run_ft;
 		// Portal and Desk both persist only when Save is requested.
@@ -1294,6 +1297,7 @@
 			self.$name('endcap_color_code').val('');
 			self.$('#endcapColorDisplay').hide();
 			self.$('#includePowerSupply').prop('checked', true);
+			self.$name('power_allocation').val('');
 			self.$('#overrideMaxRunCheck').prop('checked', false);
 			self.$('#overrideMaxRunInput').val('');
 			self.$('#overrideMaxRunGroup, #overrideMaxRunWarning').hide();

@@ -8,6 +8,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	TAPE_CATEGORIES,
 	TAPE_NEON_CATEGORIES,
 )
+from illumenate_lighting.illumenate_lighting.api.power_planner import GROUPED
 from illumenate_lighting.illumenate_lighting.portal.configuration import (
 	FAMILIES,
 	resolve_line,
@@ -104,6 +105,8 @@ def for_line(line):
 			"dimming_protocol_code": build.get("dimming_protocol_code"),
 		}
 		segments = None
+	if _grouped_power(doc, build):
+		inputs["power_allocation"] = GROUPED
 	return {
 		"schema_version": 2,
 		"family": family,
@@ -111,6 +114,16 @@ def for_line(line):
 		"selections": inputs,
 		"segments": segments,
 	}
+
+
+def _grouped_power(doc, build):
+	"""Whether the build's supplies were planned with runs sharing outputs."""
+	plans = [
+		(build.get("resolved_items") or {}).get("driver_plan"),
+		build.get("power_plan"),
+		json.loads(doc.get("power_plan_json") or "{}") if doc.get("power_plan_json") else None,
+	]
+	return any((plan or {}).get("allocation") == GROUPED for plan in plans)
 
 
 @frappe.whitelist()

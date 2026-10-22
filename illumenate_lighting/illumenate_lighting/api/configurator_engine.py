@@ -618,6 +618,7 @@ def validate_and_quote(
 	start_leader_len_mm: int = 0,
 	end_leader_len_mm: int = 0,
 	include_power_supply: bool | str | None = True,
+	power_allocation: str | None = None,
 	_skip_record_creation: bool | str | None = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
@@ -670,6 +671,7 @@ def validate_and_quote(
 	require_configuration("Linear Fixture")
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number, parse_bool
 	include_power_supply = parse_bool(include_power_supply, default=True)
+	power_allocation = _power_allocation(power_allocation)
 	_skip_record_creation = parse_bool(_skip_record_creation)
 	if override_max_run_ft not in (None, ""):
 		override_max_run_ft = finite_number(override_max_run_ft, minimum=0, field="maximum run override")
@@ -858,6 +860,7 @@ def validate_and_quote(
 			tape_offering_doc=validation_result.get("tape_offering_doc"),
 			dimming_protocol_code=dimming_protocol_code,
 			runs=computed_result["runs"],
+			allocation=power_allocation,
 		)
 		response["messages"].extend(driver_messages)
 		if driver_plan_result.get("status") != "selected":
@@ -948,6 +951,7 @@ def validate_and_quote_inches(
 	dimming_protocol_code: str = None,
 	qty: int | str | None = 1,
 	include_power_supply: bool | str | None = True,
+	power_allocation: str | None = None,
 	_skip_record_creation: bool | str | None = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
@@ -1035,6 +1039,7 @@ def validate_and_quote_inches(
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
 		include_power_supply=include_power_supply,
+		power_allocation=power_allocation,
 		_skip_record_creation=_skip_record_creation,
 		parent_configured_fixture=parent_configured_fixture,
 		variant_origin=variant_origin,
@@ -1059,6 +1064,7 @@ def validate_and_quote_with_output(
 	dimming_protocol_code: str = None,
 	qty: int | str | None = 1,
 	include_power_supply: bool | str | None = True,
+	power_allocation: str | None = None,
 	start_feed_direction_code: str = None,
 	end_feed_direction_code: str = "C",
 	start_leader_len_mm: int = 0,
@@ -1169,6 +1175,7 @@ def validate_and_quote_with_output(
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
 		include_power_supply=include_power_supply,
+		power_allocation=power_allocation,
 		start_feed_direction_code=start_feed_direction_code,
 		end_feed_direction_code=end_feed_direction_code,
 		start_leader_len_mm=start_leader_len_mm,
@@ -1222,6 +1229,7 @@ def validate_and_quote_multisegment_with_output(
 	dimming_protocol_code: str = None,
 	qty: int | str | None = 1,
 	include_power_supply: bool | str | None = True,
+	power_allocation: str | None = None,
 	_skip_record_creation: bool | str | None = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
@@ -1319,6 +1327,7 @@ def validate_and_quote_multisegment_with_output(
 		dimming_protocol_code=dimming_protocol_code,
 		qty=qty,
 		include_power_supply=include_power_supply,
+		power_allocation=power_allocation,
 		_skip_record_creation=_skip_record_creation,
 		parent_configured_fixture=parent_configured_fixture,
 		variant_origin=variant_origin,
@@ -1366,6 +1375,7 @@ def validate_and_quote_multisegment(
 	dimming_protocol_code: str = None,
 	qty: int | str | None = 1,
 	include_power_supply: bool | str | None = True,
+	power_allocation: str | None = None,
 	_skip_record_creation: bool | str | None = False,
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
@@ -1408,6 +1418,7 @@ def validate_and_quote_multisegment(
 	require_configuration("Linear Fixture")
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number, parse_bool
 	include_power_supply = parse_bool(include_power_supply, default=True)
+	power_allocation = _power_allocation(power_allocation)
 	_skip_record_creation = parse_bool(_skip_record_creation)
 	if override_max_run_ft not in (None, ""):
 		override_max_run_ft = finite_number(override_max_run_ft, minimum=0, field="maximum run override")
@@ -1618,6 +1629,7 @@ def validate_and_quote_multisegment(
 			tape_offering_doc=tape_offering_doc,
 			dimming_protocol_code=dimming_protocol_code,
 			runs=computed_result["runs"],
+			allocation=power_allocation,
 		)
 		response["messages"].extend(driver_messages)
 		if driver_plan_result.get("status") != "selected":
@@ -3669,13 +3681,24 @@ def _resolve_items(
 	return resolved, messages, is_valid
 
 
+def _power_allocation(value):
+    """Canonical supply allocation mode ("per_run" default or "grouped") for an engine entry point."""
+    from illumenate_lighting.illumenate_lighting.api.power_planner import allocation_mode
+    try:
+        return allocation_mode(value)
+    except ValueError as exc:
+        frappe.throw(str(exc))
+
+
 def _select_driver_plan(
     fixture_template_code: str, runs_count: int, total_watts: float, tape_offering_doc=None,
-    dimming_protocol_code: str = None, runs=None,
+    dimming_protocol_code: str = None, runs=None, allocation=None,
 ) -> tuple[dict[str, Any], list[dict[str, str]]]:
     from illumenate_lighting.illumenate_lighting.api.linear_power import select
     try:
-        return select(fixture_template_code, runs_count, total_watts, tape_offering_doc, dimming_protocol_code, runs)
+        return select(
+            fixture_template_code, runs_count, total_watts, tape_offering_doc, dimming_protocol_code, runs, allocation
+        )
     except (ValueError, frappe.ValidationError) as exc:
         return {"status": "invalid", "drivers": []}, [{"severity": "error", "text": str(exc), "field": "include_power_supply"}]
 

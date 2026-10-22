@@ -420,6 +420,7 @@ def validate_tape_configuration(
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
     override_max_run_ft: float | str | None = None,
+    power_allocation: str | None = None,
 ) -> dict:
     """
     Validate a complete LED Tape or COB Tape configuration and compute manufacturable length.
@@ -477,6 +478,10 @@ def validate_tape_configuration(
         segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
     except json.JSONDecodeError:
         return {"success": False, "is_valid": False, "error": "Invalid segments JSON"}
+    try:
+        power_allocation = _power_allocation(sel, power_allocation)
+    except ValueError as exc:
+        return {"success": False, "is_valid": False, "error": str(exc)}
 
     # Normalise stringy booleans (Frappe sends HTTP query params as strings)
     include_power_supply = parse_bool(include_power_supply, default=True)
@@ -856,7 +861,9 @@ def validate_tape_configuration(
         describe(return_result)
 
     from illumenate_lighting.illumenate_lighting.api.tape_neon_power import resolve_before_save
-    resolve_before_save(return_result, tape_neon_template, tape_offering, include_power_supply, dimming_protocol_code)
+    resolve_before_save(
+        return_result, tape_neon_template, tape_offering, include_power_supply, dimming_protocol_code, power_allocation
+    )
     if not return_result.get("is_valid"):
         return return_result
     from illumenate_lighting.illumenate_lighting.api.tape_neon_build import prepare
@@ -995,6 +1002,7 @@ def validate_neon_configuration(
     variant_origin: str | None = None,
     tape_neon_template: str | None = None,
     override_max_run_ft: float | str | None = None,
+    power_allocation: str | None = None,
 ) -> dict:
     """
     Validate a complete LED Neon configuration with multi-segment support.
@@ -1024,6 +1032,10 @@ def validate_neon_configuration(
         segments = json.loads(segments_json) if isinstance(segments_json, str) else segments_json
     except json.JSONDecodeError:
         return {"success": False, "is_valid": False, "error": "Invalid JSON input"}
+    try:
+        power_allocation = _power_allocation(sel, power_allocation)
+    except ValueError as exc:
+        return {"success": False, "is_valid": False, "error": str(exc)}
 
     # Normalise stringy booleans
     include_power_supply = parse_bool(include_power_supply, default=True)
@@ -1370,7 +1382,9 @@ def validate_neon_configuration(
     }
 
     from illumenate_lighting.illumenate_lighting.api.tape_neon_power import resolve_before_save
-    resolve_before_save(return_result, tape_neon_template, tape_offering, include_power_supply, dimming_protocol_code)
+    resolve_before_save(
+        return_result, tape_neon_template, tape_offering, include_power_supply, dimming_protocol_code, power_allocation
+    )
     if not return_result.get("is_valid"):
         return return_result
     from illumenate_lighting.illumenate_lighting.api.tape_neon_build import prepare
@@ -2723,6 +2737,17 @@ def select_driver_plan_for_tape_neon(tape_neon_template: str, runs_count: int, t
     tape_offering_doc=None, dimming_protocol_code: str | None = None, run_loads=None) -> tuple:
     from illumenate_lighting.illumenate_lighting.api.tape_neon_power import select_plan
     return select_plan(tape_neon_template, runs_count, total_watts, tape_offering_doc, dimming_protocol_code, run_loads)
+
+
+def _power_allocation(sel, power_allocation):
+    """Canonical supply allocation mode, taken off the selections so it never enters their identity.
+
+    The grouped mode is recorded on the driver plan instead, which the build snapshot pins.
+    """
+    from illumenate_lighting.illumenate_lighting.api.power_planner import allocation_mode
+
+    embedded = sel.pop("power_allocation", None) if isinstance(sel, dict) else None
+    return allocation_mode(power_allocation if power_allocation not in (None, "") else embedded)
 
 
 def _tape_neon_snapshot(template, validation_result, is_neon):

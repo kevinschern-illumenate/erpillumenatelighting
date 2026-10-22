@@ -44,6 +44,7 @@ def select_plan(
 	protocol=None,
 	run_loads=None,
 	template_type="ilL-Tape-Neon-Template",
+	allocation=None,
 ):
 	if isinstance(run_loads, str):
 		run_loads = json.loads(run_loads)
@@ -64,14 +65,14 @@ def select_plan(
 	candidates, revisions = catalog_candidates(
 		template_type, template, spec.input_voltage, spec.input_protocol, protocol
 	)
-	plan = plan_power(circuits, candidates)
+	plan = plan_power(circuits, candidates, allocation=allocation)
 	plan["dependency_revisions"] = {
 		row["driver_item"]: revisions[row["driver_item"]] for row in plan["drivers"]
 	}
 	return plan, []
 
 
-def resolve_before_save(result, template, offering, include_power, protocol):
+def resolve_before_save(result, template, offering, include_power, protocol, allocation=None):
 	result["include_power_supply"] = include_power
 	result["dimming_protocol_code"] = protocol
 	try:
@@ -94,6 +95,7 @@ def resolve_before_save(result, template, offering, include_power, protocol):
 			offering,
 			protocol,
 			run_loads=[run["run_watts"] for run in runs],
+			allocation=allocation,
 		)
 		result["resolved_items"]["driver_plan"] = plan
 		result["messages"].extend(messages)

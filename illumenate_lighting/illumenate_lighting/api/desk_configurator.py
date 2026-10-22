@@ -1041,6 +1041,7 @@ def _save_led_sheet(selections: dict[str, Any]) -> dict[str, Any]:
 		"include_power_supply": selections.get("include_power_supply", 1),
 		"dimming_protocol_code": selections.get("dimming_protocol_code"),
 		"power_supply_separate": selections.get("power_supply_separate") or 0,
+		"power_allocation": selections.get("power_allocation"),
 	}
 	result = led_sheet_configurator.validate_sheet_configuration(**kwargs)
 	saved = led_sheet_configurator.save_sheet_configuration(**kwargs)

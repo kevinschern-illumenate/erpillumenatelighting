@@ -239,7 +239,9 @@ def calculate(request):
 		if include
 		else ([], {})
 	)
-	plan = plan_power(circuits, drivers, include_power=include)
+	plan = plan_power(
+		circuits, drivers, include_power=include, allocation=request["power"].get("power_allocation")
+	)
 	plan["dependency_revisions"] = {
 		row["driver_item"]: revisions[row["driver_item"]] for row in plan["drivers"]
 	}

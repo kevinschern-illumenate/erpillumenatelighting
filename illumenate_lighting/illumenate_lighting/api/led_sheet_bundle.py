@@ -13,7 +13,14 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	is_count_uom,
 	parse_bool,
 )
-from illumenate_lighting.illumenate_lighting.api.power_planner import MAX_CANDIDATES, MAX_CIRCUITS, plan_power
+from illumenate_lighting.illumenate_lighting.api.power_planner import (
+	GROUPED,
+	MAX_CANDIDATES,
+	MAX_CIRCUITS,
+	PER_RUN,
+	allocation_mode,
+	plan_power,
+)
 
 ENGINE_VERSION = "led-sheet-2"
 
@@ -79,23 +86,26 @@ def _drivers(template, spec, watts_per_panel, protocol=None):
 	)
 
 
-def plan_feeds(circuits, candidates, include_power=True):
+def plan_feeds(circuits, candidates, include_power=True, allocation=PER_RUN):
 	"""Plan any number of feeds by planning bounded batches and numbering their supplies in sequence."""
 	if not include_power or len(circuits) <= MAX_CIRCUITS:
-		return plan_power(circuits, candidates, include_power=include_power)
+		return plan_power(circuits, candidates, include_power=include_power, allocation=allocation)
 	quantities, allocations = {}, []
 	for start in range(0, len(circuits), MAX_CIRCUITS):
-		part = plan_power(circuits[start : start + MAX_CIRCUITS], candidates)
+		part = plan_power(circuits[start : start + MAX_CIRCUITS], candidates, allocation=allocation)
 		offset = max((a["supply"] for a in allocations), default=0)
 		allocations.extend({**a, "supply": a["supply"] + offset} for a in part["allocations"])
 		for row in part["drivers"]:
 			quantities[row["driver_item"]] = quantities.get(row["driver_item"], 0) + row["qty"]
-	return {
+	plan = {
 		"status": "selected",
 		"drivers": [{"driver_item": item, "qty": qty} for item, qty in sorted(quantities.items())],
 		"allocations": allocations,
 		"requirements": circuits,
 	}
+	if allocation_mode(allocation) == GROUPED:
+		plan["allocation"] = GROUPED
+	return plan
 
 
 def feed_limit(watts_per_panel, candidates, maximum=None):
@@ -156,6 +166,7 @@ def resolve(result, template, spec):
 		[{"run_key": str(g["group_number"]), "watts": g["group_watts"]} for g in groups],
 		candidates,
 		include_power=include,
+		allocation=result.get("power_allocation"),
 	)
 	for allocation in plan["allocations"]:
 		group = groups[int(allocation["run_key"]) - 1]

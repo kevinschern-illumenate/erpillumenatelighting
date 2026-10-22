@@ -47,6 +47,7 @@ function Coordinator(rootEl, context) {
 		selections.segments = collectSegments();
 		selections.include_power_supply = $('#includePowerSupply').is(':checked');
 		selections.dimming_protocol_code = self.$name('dimming_protocol_code').val() || '';
+		selections.power_allocation = self.powerAllocation();
 		selections.override_max_run_ft = $('#overrideMaxRunCheck').is(':checked') ? $('#overrideMaxRunInput').val() : '';
 		return {family: productCategory, template: selections.fixture_template_code, selections: selections};
 	};
@@ -1213,7 +1214,8 @@ function validateAndQuote() {
 		endcap_color_code: form.find('[name="endcap_color_code"]').val(),
 		segments_json: JSON.stringify(segments),
 		include_power_supply: power.include_power_supply,
-		dimming_protocol_code: power.dimming_protocol_code
+		dimming_protocol_code: power.dimming_protocol_code,
+		power_allocation: power.power_allocation
 	};
 
 	// Omit an unused optional number: form encoding turns null into an empty
@@ -3061,6 +3063,7 @@ function powerSelections() {
 	}
 	return { include_power_supply: $('#includePowerSupply').is(':checked'),
 		dimming_protocol_code: self.$name('dimming_protocol_code').val() || null,
+		power_allocation: self.powerAllocation(),
 		override_max_run_ft: override };
 }
 }
