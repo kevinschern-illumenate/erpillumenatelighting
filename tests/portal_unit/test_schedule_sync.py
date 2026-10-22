@@ -33,7 +33,16 @@ def schedule_line(name, **values):
 
 
 def quote_row(name, line=None, **values):
-	return Row({"name": name, "item_code": "ITEM", "qty": 1, "conversion_factor": 1, "ill_schedule_line_id": line, **values})
+	return Row(
+		{
+			"name": name,
+			"item_code": "ITEM",
+			"qty": 1,
+			"conversion_factor": 1,
+			"ill_schedule_line_id": line,
+			**values,
+		}
+	)
 
 
 NEXT_ID = types.SimpleNamespace(_next_fixture_type=lambda schedule, used: "A9")
@@ -85,9 +94,13 @@ class LineUpdates(unittest.TestCase):
 		with service() as (sync, _):
 			line = schedule_line("L1", manufacturer_type="ACCESSORY", accessory_item="CLIP")
 			before = quote_row("R1", "L1", item_code="CLIP")
-			row = quote_row("R1", "L1", item_code="CLIP-2", qty=3, ill_section_label="Lobby", ill_fixture_type="X1")
+			row = quote_row(
+				"R1", "L1", item_code="CLIP-2", qty=3, ill_section_label="Lobby", ill_fixture_type="X1"
+			)
 			changes = sync.line_updates(line, row, before)
-		self.assertEqual(changes, {"qty": 3, "accessory_item": "CLIP-2", "location": "Lobby", "line_id": "X1"})
+		self.assertEqual(
+			changes, {"qty": 3, "accessory_item": "CLIP-2", "location": "Lobby", "line_id": "X1"}
+		)
 
 	def test_supply_lines_follow_their_fixture(self):
 		with service() as (sync, _):
@@ -97,10 +110,14 @@ class LineUpdates(unittest.TestCase):
 
 	def test_fractional_or_multi_row_quantities_never_reach_the_schedule(self):
 		with service() as (sync, _):
-			kit = schedule_line("K", manufacturer_type="ILLUMENATE", product_type="Extrusion Kit", variant_selections="{}")
+			kit = schedule_line(
+				"K", manufacturer_type="ILLUMENATE", product_type="Extrusion Kit", variant_selections="{}"
+			)
 			self.assertEqual(sync.line_updates(kit, quote_row("R", "K", qty=6), quote_row("R", "K")), {})
 			fixture = schedule_line("F", manufacturer_type="ILLUMENATE", configured_fixture="CF-1")
-			self.assertEqual(sync.line_updates(fixture, quote_row("R", "F", qty=2.5), quote_row("R", "F")), {})
+			self.assertEqual(
+				sync.line_updates(fixture, quote_row("R", "F", qty=2.5), quote_row("R", "F")), {}
+			)
 
 
 class PlanScheduleChanges(unittest.TestCase):
@@ -129,15 +146,32 @@ class PlanScheduleChanges(unittest.TestCase):
 
 	def test_new_rows_sit_with_their_schedule_neighbours(self):
 		with service() as (sync, _):
-			items = [quote_row("R1", "L1"), quote_row("R3", "L3"), quote_row("FREIGHT"), quote_row("N2", "L2"), quote_row("N0", "L0")]
+			items = [
+				quote_row("R1", "L1"),
+				quote_row("R3", "L3"),
+				quote_row("FREIGHT"),
+				quote_row("N2", "L2"),
+				quote_row("N0", "L0"),
+			]
 			placed = sync.place_new_rows(["L0", "L1", "L2", "L3"], items, 3)
 		self.assertEqual([row.name for row in placed], ["N0", "R1", "N2", "R3", "FREIGHT"])
 		self.assertEqual([row.idx for row in placed], [1, 2, 3, 4, 5])
 
 
 def quotation(items, before_items, **values):
-	doc = Doc({"doctype": "Quotation", "name": "QTN-1", "docstatus": 0, "ill_fixture_schedule": "SCH-1", "items": items, **values})
-	before = Doc({"ill_fixture_schedule": "SCH-1", "items": before_items}) if before_items is not None else None
+	doc = Doc(
+		{
+			"doctype": "Quotation",
+			"name": "QTN-1",
+			"docstatus": 0,
+			"ill_fixture_schedule": "SCH-1",
+			"items": items,
+			**values,
+		}
+	)
+	before = (
+		Doc({"ill_fixture_schedule": "SCH-1", "items": before_items}) if before_items is not None else None
+	)
 	doc.get_doc_before_save = lambda: before
 	return doc
 
@@ -195,28 +229,48 @@ class TransactionToSchedule(unittest.TestCase):
 		self.assertIsNone(freight.ill_schedule_line_id)
 
 	def test_removing_a_fixture_drops_its_line_and_its_supply_rows(self):
-		fixture = schedule_line("L1", manufacturer_type="ILLUMENATE", configured_fixture="CF-1", line_key="K1")
-		supply = schedule_line("P1", manufacturer_type="ACCESSORY", accessory_item="PS", power_supply_for_line="K1")
+		fixture = schedule_line(
+			"L1", manufacturer_type="ILLUMENATE", configured_fixture="CF-1", line_key="K1"
+		)
+		supply = schedule_line(
+			"P1", manufacturer_type="ACCESSORY", accessory_item="PS", power_supply_for_line="K1"
+		)
 		sched = schedule([fixture, supply])
 		# The schedule's own validate drops supplies whose fixture line is gone.
-		sched.save.side_effect = lambda: sched.set("lines", [line for line in sched.lines if not line.get("power_supply_for_line")])
-		fixture_row, supply_row, other = quote_row("R1", "L1"), quote_row("R2", "P1", ill_is_power_supply_line=1), quote_row("R3")
+		sched.save.side_effect = lambda: sched.set(
+			"lines", [line for line in sched.lines if not line.get("power_supply_for_line")]
+		)
+		fixture_row, supply_row, other = (
+			quote_row("R1", "L1"),
+			quote_row("R2", "P1", ill_is_power_supply_line=1),
+			quote_row("R3"),
+		)
 		doc = quotation([supply_row, other], [fixture_row, supply_row, other])
 		self.run_sync(doc, sched)
 		self.assertEqual(sched.lines, [])
 		self.assertEqual([row.name for row in doc["items"]], ["R3"])
 
 	def test_fixture_quantity_drives_its_supply_rows(self):
-		fixture = schedule_line("L1", manufacturer_type="ILLUMENATE", configured_fixture="CF-1", line_key="K1", qty=1)
-		supply = schedule_line("P1", manufacturer_type="ACCESSORY", accessory_item="PS", power_supply_for_line="K1", qty=2)
+		fixture = schedule_line(
+			"L1", manufacturer_type="ILLUMENATE", configured_fixture="CF-1", line_key="K1", qty=1
+		)
+		supply = schedule_line(
+			"P1", manufacturer_type="ACCESSORY", accessory_item="PS", power_supply_for_line="K1", qty=2
+		)
 
 		def reconcile():
 			supply.qty = 2 * fixture.qty
 
 		sched = schedule([fixture, supply])
 		sched.save.side_effect = reconcile
-		before = [quote_row("R1", "L1", rate=500), quote_row("R2", "P1", qty=2, rate=40, ill_is_power_supply_line=1)]
-		rows = [quote_row("R1", "L1", qty=3, rate=500), quote_row("R2", "P1", qty=2, rate=40, ill_is_power_supply_line=1)]
+		before = [
+			quote_row("R1", "L1", rate=500),
+			quote_row("R2", "P1", qty=2, rate=40, ill_is_power_supply_line=1),
+		]
+		rows = [
+			quote_row("R1", "L1", qty=3, rate=500),
+			quote_row("R2", "P1", qty=2, rate=40, ill_is_power_supply_line=1),
+		]
 		self.run_sync(quotation(rows, before), sched)
 		self.assertEqual((fixture.qty, supply.qty), (3, 6))
 		self.assertEqual([(row.qty, row.rate) for row in rows], [(3, 500), (6.0, 40)])
@@ -229,7 +283,9 @@ class TransactionToSchedule(unittest.TestCase):
 			(quotation([quote_row("R2", item_code="CLIP")], [], ill_fixture_schedule=None), True),
 		):
 			sched = schedule([])
-			self.run_sync(doc, sched, Record(item_name="Clip", is_stock_item=1, is_sales_item=1), is_open=is_open)
+			self.run_sync(
+				doc, sched, Record(item_name="Clip", is_stock_item=1, is_sales_item=1), is_open=is_open
+			)
 			sched.save.assert_not_called()
 
 	def test_switching_schedule_versions_does_not_rewrite_either(self):
@@ -243,7 +299,9 @@ class TransactionToSchedule(unittest.TestCase):
 		sched = schedule([])
 		sched.save.side_effect = RuntimeError("schedule rejected the line")
 		clip = quote_row("R2", item_code="CLIP")
-		frappe = self.run_sync(quotation([clip], []), sched, Record(item_name="Clip", is_stock_item=1, is_sales_item=1))
+		frappe = self.run_sync(
+			quotation([clip], []), sched, Record(item_name="Clip", is_stock_item=1, is_sales_item=1)
+		)
 		frappe.db.rollback.assert_called_once_with(save_point="ill_schedule_sync")
 		self.assertIsNone(clip.ill_schedule_line_id)
 		self.assertEqual(frappe.msgprint.call_args.kwargs["indicator"], "orange")
@@ -254,7 +312,9 @@ class ScheduleToTransactions(unittest.TestCase):
 		with service() as (sync, frappe):
 			lines = [schedule_line("L1", qty=4), schedule_line("L3")]
 			sched = schedule(lines)
-			sched.get_doc_before_save = lambda: Doc({"lines": [schedule_line("L1", qty=2), schedule_line("L2")]})
+			sched.get_doc_before_save = lambda: Doc(
+				{"lines": [schedule_line("L1", qty=2), schedule_line("L2")]}
+			)
 			sched.flags["ill_schedule_sync_source"] = ("Quotation", "QTN-SOURCE")
 			sched._schedule_line_group_fields = lambda line: (line.location, line.notes or None)
 
@@ -264,14 +324,20 @@ class ScheduleToTransactions(unittest.TestCase):
 				return {"rows_added": 1}
 
 			sched.append_quote_lines = MagicMock(side_effect=append_quote_lines)
-			draft = quotation([quote_row("R1", "L1", qty=2, rate=99), quote_row("R2", "L2"), quote_row("FREIGHT")], [])
-			frappe.get_all.side_effect = lambda doctype, **kwargs: ["QTN-SOURCE", "QTN-1"] if doctype == "Quotation" else []
+			draft = quotation(
+				[quote_row("R1", "L1", qty=2, rate=99), quote_row("R2", "L2"), quote_row("FREIGHT")], []
+			)
+			frappe.get_all.side_effect = lambda doctype, **kwargs: (
+				["QTN-SOURCE", "QTN-1"] if doctype == "Quotation" else []
+			)
 			frappe.get_doc.return_value = draft
 			with patch.object(sync, "schedule_is_open", return_value=True):
 				sync.on_schedule_update(sched)
 
 		frappe.get_doc.assert_called_once_with("Quotation", "QTN-1")
-		self.assertEqual([(row.name, row.qty) for row in draft["items"]], [("R1", 4.0), ("N3", 1), ("FREIGHT", 1)])
+		self.assertEqual(
+			[(row.name, row.qty) for row in draft["items"]], [("R1", 4.0), ("N3", 1), ("FREIGHT", 1)]
+		)
 		self.assertEqual(draft["items"][0].rate, 99)
 		self.assertTrue(draft.flags["ill_skip_schedule_sync"])
 		draft.save.assert_called_once()
@@ -293,6 +359,88 @@ class ScheduleToTransactions(unittest.TestCase):
 			with patch.object(sync, "schedule_is_open", return_value=False):
 				sync.on_schedule_update(sched)
 		frappe.get_all.assert_not_called()
+
+
+STOCK = Record(item_name="Clip", is_stock_item=1, is_sales_item=1, disabled=0, has_variants=0)
+
+
+class DuplicateAndMove(TransactionToSchedule):
+	def test_a_duplicated_row_becomes_its_own_line(self):
+		fixture = schedule_line(
+			"L1", manufacturer_type="ILLUMENATE", product_type="Linear Fixture", configured_fixture="CF-1"
+		)
+		sched = schedule([fixture])
+		original = quote_row(
+			"R1", "L1", item_code="FIX", ill_configured_fixture="CF-1", ill_fixture_type="A1"
+		)
+		copy = quote_row(
+			"new-1", "L1", item_code="FIX", ill_configured_fixture="CF-1", ill_fixture_type="A1", qty=2
+		)
+		before = quote_row("R1", "L1", item_code="FIX", ill_configured_fixture="CF-1", ill_fixture_type="A1")
+		self.run_sync(quotation([original, copy], [before]), sched)
+
+		self.assertEqual(len(sched.lines), 2)
+		added = sched.lines[1]
+		self.assertEqual(
+			(added.manufacturer_type, added.configured_fixture, added.qty, added.line_id),
+			("ILLUMENATE", "CF-1", 2, "A1"),
+		)
+		self.assertEqual((original.ill_schedule_line_id, copy.ill_schedule_line_id), ("L1", added.name))
+
+	def test_a_kits_component_rows_are_not_duplicates(self):
+		with service() as (sync, _):
+			rows = [
+				quote_row("new-1", "KIT", item_code="PROFILE"),
+				quote_row("new-2", "KIT", item_code="ENDCAP"),
+			]
+			plan = sync.plan_transaction_changes(["KIT"], [], rows, newly_linked=True)
+		self.assertEqual(plan["add"], [])
+
+	def test_moving_rows_reorders_the_schedule(self):
+		lines = [schedule_line("L1"), schedule_line("OTHER", manufacturer_type="OTHER"), schedule_line("L2")]
+		sched = schedule(lines)
+		before = [quote_row("R1", "L1"), quote_row("R2", "L2")]
+		rows = [quote_row("R2", "L2"), quote_row("R1", "L1")]
+		frappe = self.run_sync(quotation(rows, before), sched)
+		# The other-manufacturer line has no row and keeps following L1.
+		self.assertEqual([line.name for line in sched.lines], ["L2", "L1", "OTHER"])
+		self.assertEqual([line.idx for line in sched.lines], [1, 2, 3])
+		sched.save.assert_called_once()
+		self.assertIn("reordered", frappe.msgprint.call_args.args[0])
+
+	def test_a_row_added_mid_quote_lands_in_the_same_place(self):
+		sched = schedule([schedule_line("L1"), schedule_line("L2")])
+		rows = [quote_row("R1", "L1"), quote_row("new-1", item_code="CLIP"), quote_row("R2", "L2")]
+		self.run_sync(quotation(rows, [rows[0], rows[2]]), sched, STOCK)
+		self.assertEqual([line.name for line in sched.lines], ["L1", "NEW-2", "L2"])
+
+	def test_planned_order_without_changes_is_none(self):
+		with service() as (sync, _):
+			self.assertIsNone(sync.planned_line_order(["A", "B"], ["A", "B"], [], moved=False))
+
+	def test_a_closed_schedule_says_why_it_was_not_updated(self):
+		sched = schedule([])
+		sched.status = "QUOTED"
+		frappe = self.run_sync(
+			quotation([quote_row("new-1", item_code="CLIP")], []), sched, STOCK, is_open=False
+		)
+		sched.save.assert_not_called()
+		self.assertIn("QUOTED", frappe.msgprint.call_args.args[0])
+		self.assertEqual(frappe.msgprint.call_args.kwargs["indicator"], "orange")
+
+
+class ScheduleReorder(unittest.TestCase):
+	def test_reordered_lines_reorder_every_draft(self):
+		with service() as (sync, frappe):
+			sched = schedule([schedule_line("L2"), schedule_line("L1")])
+			sched.get_doc_before_save = lambda: Doc({"lines": [schedule_line("L1"), schedule_line("L2")]})
+			draft = quotation([quote_row("R1", "L1"), quote_row("FREIGHT"), quote_row("R2", "L2")], [])
+			frappe.get_all.side_effect = lambda doctype, **kwargs: ["QTN-1"] if doctype == "Quotation" else []
+			frappe.get_doc.return_value = draft
+			with patch.object(sync, "schedule_is_open", return_value=True):
+				sync.on_schedule_update(sched)
+		self.assertEqual([row.name for row in draft["items"]], ["R2", "R1", "FREIGHT"])
+		draft.save.assert_called_once()
 
 
 if __name__ == "__main__":
