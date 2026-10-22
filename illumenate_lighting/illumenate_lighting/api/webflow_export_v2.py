@@ -1032,42 +1032,18 @@ def get_sync_statistics() -> dict:
     
     return stats
 
-
-def _get_certification_details(certification_name: str, brand_code: str | None = None) -> dict:
-    """Helper to get certification details for export, picking the correct brand images."""
+def _get_certification_details(certification_name: str) -> dict:
+    """Helper to get certification details for export."""
     if not certification_name:
         return {}
     
     cert = frappe.db.get_value(
         "ilL-Attribute-Certification",
         certification_name,
-        [
-            "certification_code", "certification_body", "description", 
-            "badge_image", "custom_badge_image_dark", 
-            "custom_206_badge_image_light", "custom_206_badge_image_dark"
-        ],
+        ["certification_code", "certification_body", "description", "badge_image"],
         as_dict=True
     )
-    if not cert:
-        return {}
-
-    # Default to ilLumenate images
-    final_light = cert.get("badge_image")
-    final_dark = cert.get("custom_badge_image_dark")
-
-    # Swap to 206 Lighting images if targeted
-    if brand_code == "lighting_206":
-        final_light = cert.get("custom_206_badge_image_light") or final_light
-        final_dark = cert.get("custom_206_badge_image_dark") or final_dark
-
-    return {
-        "certification_code": cert.get("certification_code"),
-        "certification_body": cert.get("certification_body"),
-        "description": cert.get("description"),
-        "badge_image": final_light,
-        "badge_image_dark": final_dark
-    }
-
+    return cert or {}
 
 def _get_category_details(category_name: str) -> dict:
     """Helper to get category details for export."""
