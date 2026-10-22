@@ -5,3 +5,21 @@
 @import "./configurator/tape_neon_steps";
 @import "./configurator/driver_steps";
 @import "./configurator/desk_configurator";
+
+// Upload dialog > "Library" file browser: Frappe v16 styles the selected file
+// (.tree-link.active) the same as every other row, so a click selects the file
+// with no visible change. Restore a highlight so users can see their pick
+// before pressing Upload.
+.file-browser .tree-link.active {
+	background-color: var(--subtle-fg, var(--fg-hover-color));
+	border-radius: var(--border-radius-sm, 4px);
+
+	.tree-label {
+		color: var(--ink-gray-9, var(--text-color));
+		font-weight: 600;
+	}
+
+	svg {
+		color: var(--ink-blue-3, var(--indicator-blue));
+	}
+}
