@@ -111,6 +111,7 @@ def _segment(raw, family, index):
 		"template",
 		"include_power_supply",
 		"override_max_run_ft",
+		"equal_length_runs",
 		"dimming_protocol_code",
 		"ordering_mode",
 	}:
@@ -185,6 +186,9 @@ def normalize(value):
 		"dimming_protocol_code": str(power.get("dimming_protocol_code") or "").strip() or None,
 		"override_max_run_ft": override,
 	}
+	if family == "Linear Fixture" and parse_bool(power.get("equal_length_runs"), default=False):
+		# Recorded only when chosen, so existing group identities are unchanged.
+		policy["equal_length_runs"] = True
 	if policy["include_power_supply"] and parse_bool(power.get("separate_supply_line"), default=False):
 		# Supplies are planned for the group but ordered on their own schedule line.
 		policy["separate_supply_line"] = True

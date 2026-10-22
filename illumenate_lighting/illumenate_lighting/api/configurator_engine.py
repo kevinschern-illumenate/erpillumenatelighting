@@ -623,6 +623,7 @@ def validate_and_quote(
 	variant_origin: str | None = None,
 	relax_length_validation: bool = False,
 	override_max_run_ft: float | str | None = None,
+	equal_length_runs: bool | str | None = False,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a fixture configuration.
@@ -661,6 +662,9 @@ def validate_and_quote(
 		end_leader_len_mm: End leader cable length in mm. 0 = no end leader (ignored when end_feed = "C").
 		include_power_supply: Whether to include power supply/driver selection (default: True).
 			When False, driver selection is skipped and no driver pricing is included.
+		equal_length_runs: Split the tape into the fewest equal-length runs within the
+			max run length (20 ft at 15 ft max = 2 x 10 ft) instead of full runs then a
+			remainder (15 ft + 5 ft). Default False keeps the remainder method.
 
 	Returns:
 		dict: Response containing validation status, computed values, resolved items,
@@ -670,6 +674,7 @@ def validate_and_quote(
 	require_configuration("Linear Fixture")
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number, parse_bool
 	include_power_supply = parse_bool(include_power_supply, default=True)
+	equal_length_runs = parse_bool(equal_length_runs, default=False)
 	_skip_record_creation = parse_bool(_skip_record_creation)
 	if override_max_run_ft not in (None, ""):
 		override_max_run_ft = finite_number(override_max_run_ft, minimum=0, field="maximum run override")
@@ -791,6 +796,7 @@ def validate_and_quote(
 		max_watts_per_run=run_watt_limit(
 			fixture_template_code, validation_result.get("tape_offering_doc"), dimming_protocol_code
 		),
+		equal_length_runs=equal_length_runs,
 	)
 
 	response["computed"].update(computed_result)
@@ -1226,6 +1232,7 @@ def validate_and_quote_multisegment_with_output(
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
 	override_max_run_ft: float | str | None = None,
+	equal_length_runs: bool | str | None = False,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture using the output-based cascading flow.
@@ -1323,6 +1330,7 @@ def validate_and_quote_multisegment_with_output(
 		parent_configured_fixture=parent_configured_fixture,
 		variant_origin=variant_origin,
 		override_max_run_ft=override_max_run_ft,
+		equal_length_runs=equal_length_runs,
 	)
 
 	# Add auto-selected tape info
@@ -1370,6 +1378,7 @@ def validate_and_quote_multisegment(
 	parent_configured_fixture: str | None = None,
 	variant_origin: str | None = None,
 	override_max_run_ft: float | str | None = None,
+	equal_length_runs: bool | str | None = False,
 ) -> dict[str, Any]:
 	"""
 	Validate and quote a multi-segment fixture configuration.
@@ -1395,6 +1404,9 @@ def validate_and_quote_multisegment(
 			whole. Applies across all segments/runs, not per-segment — if the
 			fixture's total tape length exceeds it, a new run (with its own
 			leader cable and power supply output) is still required.
+		equal_length_runs: Split the fixture's total tape into the fewest
+			equal-length runs within the max run length instead of full runs
+			then a remainder. Default False keeps the remainder method.
 
 	Returns:
 		dict: Response containing validation status, computed values, resolved items,
@@ -1408,6 +1420,7 @@ def validate_and_quote_multisegment(
 	require_configuration("Linear Fixture")
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number, parse_bool
 	include_power_supply = parse_bool(include_power_supply, default=True)
+	equal_length_runs = parse_bool(equal_length_runs, default=False)
 	_skip_record_creation = parse_bool(_skip_record_creation)
 	if override_max_run_ft not in (None, ""):
 		override_max_run_ft = finite_number(override_max_run_ft, minimum=0, field="maximum run override")
@@ -1563,6 +1576,7 @@ def validate_and_quote_multisegment(
 		tape_offering_doc=tape_offering_doc,
 		override_max_run_ft=override_max_run_ft,
 		max_watts_per_run=run_watt_limit(fixture_template_code, tape_offering_doc, dimming_protocol_code),
+		equal_length_runs=equal_length_runs,
 	)
 
 	response["computed"].update(computed_result)
@@ -1755,6 +1769,7 @@ def _compute_multisegment_outputs(
 	tape_offering_doc=None,
 	override_max_run_ft: float | None = None,
 	max_watts_per_run: float | None = None,
+	equal_length_runs: bool = False,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable outputs for a multi-segment fixture.
@@ -1777,6 +1792,8 @@ def _compute_multisegment_outputs(
 			whole (applies across all segments/runs, not per-segment).
 		max_watts_per_run: Largest load one eligible supply output carries
 			(see linear_power.run_watt_limit); defaults to 85 W.
+		equal_length_runs: Split the total tape into the fewest equal runs
+			instead of full runs then a remainder.
 
 	Returns:
 		dict: Computed values for the multi-segment fixture
@@ -2113,16 +2130,26 @@ def _compute_multisegment_outputs(
 		else:
 			total_runs_needed = 1
 
+		equal_lengths_mm = None
+		if equal_length_runs and total_runs_needed > 1:
+			from illumenate_lighting.illumenate_lighting.api.linear_power import equal_run_lengths
+
+			equal_lengths_mm = equal_run_lengths(total_tape_length, max_run_mm, cut_increment_mm)
+			total_runs_needed = len(equal_lengths_mm)
+
 		# Distribute runs across the fixture using the "optimize" strategy:
 		# Use maximum-length runs where possible, then fill remainder
+		# (or the fewest equal runs when equal_length_runs is chosen)
 		remaining_tape_to_process = total_tape_length
 		current_run_index = 0
 
 		for run_num in range(total_runs_needed):
 			current_run_index += 1
 
+			if equal_lengths_mm:
+				run_len = equal_lengths_mm[run_num]
 			# For all but the last run, use max run length
-			if run_num < total_runs_needed - 1:
+			elif run_num < total_runs_needed - 1:
 				run_len = max_run_mm if max_run_mm != float("inf") else remaining_tape_to_process
 			else:
 				# Last run gets the remainder
@@ -2213,6 +2240,8 @@ def _compute_multisegment_outputs(
 		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
 		"max_run_mm": round(max_run_mm, 2) if max_run_mm != float("inf") else None,
 		"override_max_run_ft_active": override_max_run_ft_active,
+		# Only present when chosen, so default builds keep their identity.
+		**({"equal_length_runs": True} if equal_length_runs else {}),
 		"segments": profile_lens_segments,
 		"user_segments": all_segments,
 		"runs": all_runs,
@@ -2940,6 +2969,7 @@ def _compute_manufacturable_outputs(
 	start_leader_len_mm: int = 0,
 	override_max_run_ft: float | None = None,
 	max_watts_per_run: float | None = None,
+	equal_length_runs: bool = False,
 ) -> dict[str, Any]:
 	"""
 	Compute manufacturable dimensions, segments, and runs.
@@ -2948,7 +2978,9 @@ def _compute_manufacturable_outputs(
 	- Task 3.1: Length math (locked rules)
 	- Task 3.2: Segmentation plan (profile + lens)
 	- Task 3.3: Run splitting (min of voltage-drop max length and the watt limit:
-	  max_watts_per_run, the largest eligible supply output, capped at 85W)
+	  max_watts_per_run, the largest eligible supply output, capped at 85W).
+	  ``equal_length_runs`` splits into the fewest equal runs instead of full
+	  runs then a remainder (see linear_power.equal_run_lengths).
 	- Task 3.4: Assembly mode rule
 
 	Returns:
@@ -3142,9 +3174,18 @@ def _compute_manufacturable_outputs(
 	else:
 		max_run_mm = max_run_ft_effective * MM_PER_FOOT
 
+	equal_lengths_mm = None
+	if equal_length_runs and runs_count > 1:
+		from illumenate_lighting.illumenate_lighting.api.linear_power import equal_run_lengths
+
+		equal_lengths_mm = equal_run_lengths(L_tape_cut, max_run_mm, cut_increment_mm)
+		runs_count = len(equal_lengths_mm)
+
 	for i in range(runs_count):
 		run_index = i + 1
-		if run_index < runs_count:
+		if equal_lengths_mm:
+			run_len_mm = equal_lengths_mm[i]
+		elif run_index < runs_count:
 			# Full run
 			run_len_mm = min(max_run_mm, remaining_tape_mm)
 		else:
@@ -3206,6 +3247,8 @@ def _compute_manufacturable_outputs(
 		"max_run_ft_by_voltage_drop": round(max_run_ft_by_voltage_drop, 2) if max_run_ft_by_voltage_drop else None,
 		"max_run_ft_effective": round(max_run_ft_effective, 2) if max_run_ft_effective != float("inf") else None,
 		"override_max_run_ft_active": override_max_run_ft_active,
+		# Only present when chosen, so default builds keep their identity.
+		**({"equal_length_runs": True} if equal_length_runs else {}),
 		# Task 3.4 outputs
 		"assembly_mode": assembly_mode,
 		"assembled_max_len_mm": int(assembled_max_len_mm),

@@ -45,6 +45,16 @@
 						<label for="coordinatorProtocol">{{ _("Control protocol") }}</label>
 						<select id="coordinatorProtocol" name="dimming_protocol_code" class="form-control"><option value="">{{ _("Any compatible protocol") }}</option></select>
 					</div>
+					{% if not is_tape_neon %}
+					<!-- Equal-length run splitting (linear fixtures) -->
+					<div class="custom-control custom-checkbox mt-3">
+						<input type="checkbox" class="custom-control-input" id="equalRunsCheck" name="equal_length_runs">
+						<label class="custom-control-label" for="equalRunsCheck">
+							<strong>{{ _("Split into Equal-Length Runs") }}</strong>
+							<small class="text-muted d-block">{{ _("Use the fewest runs of equal length within the max run length (20 ft at a 15 ft max becomes two 10 ft runs) instead of full-length runs plus a shorter remainder (15 ft + 5 ft).") }}</small>
+						</label>
+					</div>
+					{% endif %}
 					<!-- Override Max Run Length -->
 					<div class="custom-control custom-checkbox mt-3">
 						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck">

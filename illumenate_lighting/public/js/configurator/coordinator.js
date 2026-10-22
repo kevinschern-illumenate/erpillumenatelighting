@@ -48,6 +48,7 @@ function Coordinator(rootEl, context) {
 		selections.include_power_supply = $('#includePowerSupply').is(':checked');
 		selections.dimming_protocol_code = self.$name('dimming_protocol_code').val() || '';
 		selections.override_max_run_ft = $('#overrideMaxRunCheck').is(':checked') ? $('#overrideMaxRunInput').val() : '';
+		selections.equal_length_runs = $('#equalRunsCheck').is(':checked');
 		return {family: productCategory, template: selections.fixture_template_code, selections: selections};
 	};
     function coordinatorRequest(options) {
@@ -1219,6 +1220,8 @@ function validateAndQuote() {
 	// Omit an unused optional number: form encoding turns null into an empty
 	// string, which Frappe's typed API validation cannot parse as a float.
 	if (power.override_max_run_ft !== '') data.override_max_run_ft = power.override_max_run_ft;
+	// Sent only when chosen; the engine defaults to full runs then a remainder.
+	if ($('#equalRunsCheck').is(':checked')) data.equal_length_runs = 1;
 	
 	// Show loading state
 	$('#calculateBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> ' + __('Calculating...') + '');

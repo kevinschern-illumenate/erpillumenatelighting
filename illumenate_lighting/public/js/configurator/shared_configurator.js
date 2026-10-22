@@ -261,6 +261,7 @@
 			'#includePowerSupply': selections.include_power_supply == null ? true : selections.include_power_supply,
 			'#overrideMaxRunCheck': !!selections.override_max_run_ft,
 			'#overrideMaxRunInput': selections.override_max_run_ft || '',
+			'#equalRunsCheck': !!selections.equal_length_runs,
 			'[name="dimming_protocol_code"]': selections.dimming_protocol_code || ''
 		};
 		this.queueRestoreFields(fields);

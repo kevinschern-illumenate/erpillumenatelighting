@@ -405,10 +405,12 @@
         this.capture();
         var request = this.readMember(), values = request.selections || {}, shared = {};
         (SHARED[request.family] || []).forEach(function (key) { if (values[key] != null && values[key] !== '') shared[key] = values[key]; });
+        var power = {include_power_supply: values.include_power_supply, dimming_protocol_code: values.dimming_protocol_code || null, override_max_run_ft: values.override_max_run_ft == null || values.override_max_run_ft === '' ? null : values.override_max_run_ft,
+            // Included supplies are saved as their own line under the group.
+            separate_supply_line: true};
+        if (values.equal_length_runs) power.equal_length_runs = true;
         return {schema_version: 3, family: request.family, template: request.template, shared: shared,
-            power: {include_power_supply: values.include_power_supply, dimming_protocol_code: values.dimming_protocol_code || null, override_max_run_ft: values.override_max_run_ft == null || values.override_max_run_ft === '' ? null : values.override_max_run_ft,
-                // Included supplies are saved as their own line under the group.
-                separate_supply_line: true}, members: clone(this.members)};
+            power: power, members: clone(this.members)};
     };
     /** Problems the dealer can fix before asking the server. */
     Editor.prototype.problem = function (request) {
