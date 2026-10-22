@@ -396,13 +396,13 @@ def get_webflow_products(
             # ----------------------------------------
             
             # Enrich specifications with data from linked doctypes
-            _enrich_specifications_from_linked_doctypes(product, doc.source, brand_code)
+            _enrich_specifications_from_linked_doctypes(product, doc.source)
             
             product["certifications"] = [
                 {
                     "certification": c.certification,
                     "display_order": c.display_order,
-                    "certification_details": _get_certification_details(c.certification, brand_code)
+                    "certification_details": _get_certification_details(c.certification)
                 }
                 for c in doc.certifications
             ]
@@ -1171,7 +1171,7 @@ def preview_specifications(webflow_product: str) -> dict:
     }
 
 
-def _enrich_specifications_from_linked_doctypes(product: dict, doc, brand_code: str | None = None) -> None:
+def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
     """Enrich the product specifications list with data from linked doctypes.
 
     Adds missing spec entries for: Color Rendering (CRI), Input Voltage,
@@ -1261,7 +1261,7 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc, brand_code: 
 
     # Certifications & Ratings (icons) — applies to all product types
     if "Certifications & Ratings" not in existing_labels:
-        cert_spec = _build_certifications_spec(doc, brand_code)
+        cert_spec = _build_certifications_spec(doc)
         if cert_spec:
             additional_specs.append(cert_spec)
 
@@ -2411,7 +2411,7 @@ def _enrich_profile_specs(product: dict, existing_labels: set) -> list:
     return specs
 
 
-def _build_certifications_spec(doc, brand_code: str | None = None) -> dict | None:
+def _build_certifications_spec(doc) -> dict | None:
     """Build a Certifications & Ratings spec entry from the product's certifications."""
     if not getattr(doc, "certifications", None):
         return None
@@ -2421,16 +2421,14 @@ def _build_certifications_spec(doc, brand_code: str | None = None) -> dict | Non
         cert_name = c.certification
         if not cert_name:
             continue
-        details = _get_certification_details(cert_name, brand_code)
-        
+        details = _get_certification_details(cert_name)
         cert_options.append({
             "attribute_type": "Certification",
             "attribute_doctype": "ilL-Attribute-Certification",
             "attribute_value": cert_name,
             "display_label": details.get("certification_code") or cert_name,
             "certification_body": details.get("certification_body") or "",
-            "badge_image": _make_absolute_url(details.get("badge_image"), brand_code) if details.get("badge_image") else "",
-            "badge_image_dark": _make_absolute_url(details.get("badge_image_dark"), brand_code) if details.get("badge_image_dark") else "",
+            "badge_image": _make_absolute_url(details.get("badge_image")) if details.get("badge_image") else "",
         })
 
     if not cert_options:
