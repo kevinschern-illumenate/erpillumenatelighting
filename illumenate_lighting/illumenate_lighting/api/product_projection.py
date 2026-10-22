@@ -199,6 +199,8 @@ def project_product(
 			"validation_errors": errors,
 			"certifications": list(certifications),
 			"photometric_image": get("photometric_image"),
+			"tm30_chart_image": get("tm30_chart_image"),
+			"polar_chart_image": get("polar_chart_image"),
 			"specifications": [
 				{
 					"spec_group": row.get("spec_group"),
@@ -233,8 +235,8 @@ def project_product(
 				for row in get("kit_components") or []
 			],
 			"photometric_data": [
-				{key: row.get(key) for key in ("mounting_height", "light_level", "beam_diameter", "display_order")} 
-				for row in get("photometric_data") or []
+				{key: row.get(key) for key in ("mounting_height", "light_level", "beam_diameter", "display_order")}
+				for row in sorted(get("photometric_data") or [], key=lambda r: r.get("display_order") or 0)
 			],
 		}
 	)
