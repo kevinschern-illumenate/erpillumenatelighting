@@ -402,7 +402,7 @@ def get_webflow_products(
                 {
                     "certification": c.certification,
                     "display_order": c.display_order,
-                    "certification_details": _get_certification_details(c.certification)
+                    "certification_details": _get_certification_details(c.certification, getattr(c, "custom_badge_images", None))
                 }
                 for c in doc.certifications
             ]
@@ -1032,7 +1032,7 @@ def get_sync_statistics() -> dict:
     
     return stats
 
-def _get_certification_details(certification_name: str) -> dict:
+def _get_certification_details(certification_name: str, badge_json: str = None) -> dict:
     """Helper to get certification details for export."""
     if not certification_name:
         return {}
@@ -1042,8 +1042,28 @@ def _get_certification_details(certification_name: str) -> dict:
         certification_name,
         ["certification_code", "certification_body", "description", "badge_image"],
         as_dict=True
-    )
-    return cert or {}
+    ) or {}
+
+    details = {
+        "certification_code": cert.get("certification_code"),
+        "certification_body": cert.get("certification_body"),
+        "description": cert.get("description"),
+        "badge_image": cert.get("badge_image") # Kept for legacy backwards compatibility
+    }
+
+    # Inject the keys from the custom JSON field directly into the details dict
+    if badge_json:
+        try:
+            import json
+            parsed = json.loads(badge_json)
+            if isinstance(parsed, list) and len(parsed) > 0:
+                details.update(parsed[0])
+            elif isinstance(parsed, dict):
+                details.update(parsed)
+        except Exception:
+            pass
+
+    return details
 
 def _get_category_details(category_name: str) -> dict:
     """Helper to get category details for export."""
@@ -2421,7 +2441,10 @@ def _build_certifications_spec(doc) -> dict | None:
         cert_name = c.certification
         if not cert_name:
             continue
-        details = _get_certification_details(cert_name)
+        
+        # Pass the JSON field here as well
+        details = _get_certification_details(cert_name, getattr(c, "custom_badge_images", None))
+        
         cert_options.append({
             "attribute_type": "Certification",
             "attribute_doctype": "ilL-Attribute-Certification",
