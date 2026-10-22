@@ -294,7 +294,12 @@ def example_catalog(product_type):
 			tm30_chart_image="/files/example-tm30.png",
 			polar_chart_image="/files/example-polar.png",
 			photometric_data=[
-				{"mounting_height": height, "light_level": level, "beam_diameter": diameter, "display_order": i}
+				{
+					"mounting_height": height,
+					"light_level": level,
+					"beam_diameter": diameter,
+					"display_order": i,
+				}
 				for i, (height, level, diameter) in enumerate(((2, 45, 6.9), (4, 11, 13.9), (6, 5, 20.8)), 1)
 			],
 		)
