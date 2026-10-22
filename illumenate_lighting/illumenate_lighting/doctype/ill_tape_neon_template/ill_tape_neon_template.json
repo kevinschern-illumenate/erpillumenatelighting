@@ -64,12 +64,19 @@
   "length_increment_mm",
   "feed_lengths",
   "web_spec_sheet_section",
-  "beam_angle",
   "l70_life_hours",
   "web_spec_sheet_column",
   "operating_temp_min_c",
   "operating_temp_max_c",
-  "fixture_weight_per_foot_grams"
+  "fixture_weight_per_foot_grams",
+  "photometric_section",
+  "beam_angle",
+  "photometric_image",
+  "photometric_column",
+  "tm30_chart_image",
+  "polar_chart_image",
+  "cone_of_light_section",
+  "photometric_data"
  ],
  "fields": [
   {
@@ -416,11 +423,6 @@
    "label": "Spec Sheet Data"
   },
   {
-   "fieldname": "beam_angle",
-   "fieldtype": "Float",
-   "label": "Beam Angle"
-  },
-  {
    "fieldname": "l70_life_hours",
    "fieldtype": "Int",
    "label": "L70 Life (Hours)"
@@ -450,22 +452,45 @@
    "label": "Photometrics"
   },
   {
+   "fieldname": "beam_angle",
+   "fieldtype": "Float",
+   "label": "Beam Angle"
+  },
+  {
    "fieldname": "photometric_image",
    "fieldtype": "Attach Image",
    "label": "Photometric Image"
   },
   {
+   "fieldname": "photometric_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tm30_chart_image",
+   "fieldtype": "Attach Image",
+   "label": "TM-30 Chart"
+  },
+  {
+   "fieldname": "polar_chart_image",
+   "fieldtype": "Attach Image",
+   "label": "Polar Chart"
+  },
+  {
+   "fieldname": "cone_of_light_section",
+   "fieldtype": "Section Break",
+   "label": "Cone of Light"
+  },
+  {
    "fieldname": "photometric_data",
    "fieldtype": "Table",
-   "label": "Photometric Data",
+   "label": "Cone of Light",
    "options": "ilL-Child-Photometric-Data"
   }
-  
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-11 22:47:13.000000",
+ "modified": "2026-10-22 03:57:52.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

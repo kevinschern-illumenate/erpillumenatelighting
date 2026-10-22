@@ -40,6 +40,7 @@ from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
 from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
     compute_profile_dimensions,
 )
+from illumenate_lighting.illumenate_lighting.web_listing_schema import PHOTOMETRIC_FIELDS
 from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 # Base URL for converting relative file paths to absolute URLs (legacy default;
@@ -331,7 +332,6 @@ def get_webflow_products(
             "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
             "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
-			"photometric_image", "photometric_data",
             "webflow_item_id", "webflow_collection_slug",
             "last_synced_at", "sync_status", "sync_error_message",
             "creation", "modified"
@@ -354,6 +354,7 @@ def get_webflow_products(
     for product in products:
         listing = Listing(frappe.get_doc("ilL-Webflow-Product", product["name"]))
         listing.overlay(product)
+        product.update(_photometrics(listing.template))
         listings[product["name"]] = listing
     
     if include_child_tables:
@@ -1881,6 +1882,30 @@ def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> lis
     add("IP Rating", "Certifications & Ratings", ", ".join(ip_ratings), "", 60, "ilL-Attribute-IP Rating")
     add("Warranty", "Warranty", warranty, "", 90)
     return specs
+
+def _photometrics(template) -> dict:
+    """Charts and cone-of-light rows from a template that holds them; the Webflow Product does not.
+
+    Empty fields are left out, so a listing's payload (and the publication approval hashed
+    from it) only changes once photometric content is added.
+    """
+    if not template:
+        return {}
+    meta = frappe.get_meta(template.doctype)
+    data = {}
+    for field in PHOTOMETRIC_FIELDS:
+        if not meta.has_field(field):
+            continue
+        value = template.get(field)
+        if field == "photometric_data":
+            value = [
+                {key: row.get(key) for key in ("mounting_height", "light_level", "beam_diameter", "display_order")}
+                for row in sorted(value or [], key=lambda r: r.get("display_order") or 0)
+            ]
+        if value:
+            data[field] = value
+    return data
+
 
 def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=None) -> list:
     """Add missing specs for LED Tape/Neon products linked via tape_neon_template."""
