@@ -94,14 +94,21 @@ _FEED_LENGTHS = [
 	},
 ]
 
-_SPEC_SHEET_DATA = [
-	_section("web_spec_sheet_section", "Spec Sheet Data"),
-	{"fieldname": "beam_angle", "fieldtype": "Float", "label": "Beam Angle"},
-	{"fieldname": "l70_life_hours", "fieldtype": "Int", "label": "L70 Life (Hours)"},
-	_column("web_spec_sheet_column"),
-	{"fieldname": "operating_temp_min_c", "fieldtype": "Int", "label": "Operating Temp Min (C)"},
-	{"fieldname": "operating_temp_max_c", "fieldtype": "Int", "label": "Operating Temp Max (C)"},
-]
+_BEAM_ANGLE = {"fieldname": "beam_angle", "fieldtype": "Float", "label": "Beam Angle"}
+
+
+def _spec_sheet_data(beam_angle=True):
+	return [
+		_section("web_spec_sheet_section", "Spec Sheet Data"),
+		*([_BEAM_ANGLE] if beam_angle else []),
+		{"fieldname": "l70_life_hours", "fieldtype": "Int", "label": "L70 Life (Hours)"},
+		_column("web_spec_sheet_column"),
+		{"fieldname": "operating_temp_min_c", "fieldtype": "Int", "label": "Operating Temp Min (C)"},
+		{"fieldname": "operating_temp_max_c", "fieldtype": "Int", "label": "Operating Temp Max (C)"},
+	]
+
+
+_SPEC_SHEET_DATA = _spec_sheet_data()
 
 _WEIGHT = [
 	{
@@ -121,9 +128,34 @@ _KIT_COMPONENTS = [
 	},
 ]
 
+# Charts and cone-of-light rows for the product page. Templates that carry this block
+# keep their beam angle here instead of under Spec Sheet Data; it is the same field.
+_PHOTOMETRICS = [
+	_section("photometric_section", "Photometrics"),
+	_BEAM_ANGLE,
+	{"fieldname": "photometric_image", "fieldtype": "Attach Image", "label": "Photometric Image"},
+	_column("photometric_column"),
+	{"fieldname": "tm30_chart_image", "fieldtype": "Attach Image", "label": "TM-30 Chart"},
+	{"fieldname": "polar_chart_image", "fieldtype": "Attach Image", "label": "Polar Chart"},
+	_section("cone_of_light_section", "Cone of Light"),
+	{
+		"fieldname": "photometric_data",
+		"fieldtype": "Table",
+		"label": "Cone of Light",
+		"options": "ilL-Child-Photometric-Data",
+	},
+]
+
+# Photometric fields a template may hold; exports read them from the template.
+PHOTOMETRIC_FIELDS = ("photometric_image", "tm30_chart_image", "polar_chart_image", "photometric_data")
+
 TYPE_FIELDS = {
 	"ilL-Fixture-Template": _LENGTHS + _FEED_LENGTHS + _SPEC_SHEET_DATA + _WEIGHT,
-	"ilL-Tape-Neon-Template": _LENGTHS + _FEED_LENGTHS + _SPEC_SHEET_DATA + _WEIGHT,
+	"ilL-Tape-Neon-Template": _LENGTHS
+	+ _FEED_LENGTHS
+	+ _spec_sheet_data(beam_angle=False)
+	+ _WEIGHT
+	+ _PHOTOMETRICS,
 	"ilL-Controller-Template": [],
 	"ilL-Driver-Template": [],
 	"ilL-Extrusion-Kit-Template": _LENGTHS + _SPEC_SHEET_DATA + _WEIGHT + _KIT_COMPONENTS,
