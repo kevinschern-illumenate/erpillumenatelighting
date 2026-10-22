@@ -330,7 +330,7 @@ def get_webflow_products(
             "driver_template", "controller_template",
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
             "accessory_spec",
-            "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
+            "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "custom_dimensions_image_2", "series_family_image",
             "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
@@ -398,13 +398,13 @@ def get_webflow_products(
             # ----------------------------------------
             
             # Enrich specifications with data from linked doctypes
-            _enrich_specifications_from_linked_doctypes(product, doc.source)
+            _enrich_specifications_from_linked_doctypes(product, doc.source, brand_code)
             
             product["certifications"] = [
                 {
                     "certification": c.certification,
                     "display_order": c.display_order,
-                    "certification_details": _get_certification_details(c.certification)
+                    "certification_details": _get_certification_details(c.certification, brand_code)
                 }
                 for c in doc.certifications
             ]
@@ -1034,18 +1034,40 @@ def get_sync_statistics() -> dict:
     return stats
 
 
-def _get_certification_details(certification_name: str) -> dict:
-    """Helper to get certification details for export."""
+def _get_certification_details(certification_name: str, brand_code: str = None) -> dict:
+    """Helper to get certification details for export, picking the correct brand images."""
     if not certification_name:
         return {}
     
     cert = frappe.db.get_value(
         "ilL-Attribute-Certification",
         certification_name,
-        ["certification_code", "certification_body", "description", "badge_image"],
+        [
+            "certification_code", "certification_body", "description", 
+            "badge_image", "custom_badge_image_dark", 
+            "custom_206_badge_image_light", "custom_206_badge_image_dark"
+        ],
         as_dict=True
     )
-    return cert or {}
+    if not cert:
+        return {}
+
+    # Default to ilLumenate images
+    final_light = cert.get("badge_image")
+    final_dark = cert.get("custom_badge_image_dark")
+
+    # Swap to 206 Lighting images if targeted
+    if brand_code == "lighting_206":
+        final_light = cert.get("custom_206_badge_image_light") or final_light
+        final_dark = cert.get("custom_206_badge_image_dark") or final_dark
+
+    return {
+        "certification_code": cert.get("certification_code"),
+        "certification_body": cert.get("certification_body"),
+        "description": cert.get("description"),
+        "badge_image": final_light,
+        "badge_image_dark": final_dark
+    }
 
 
 def _get_category_details(category_name: str) -> dict:
@@ -1174,7 +1196,7 @@ def preview_specifications(webflow_product: str) -> dict:
     }
 
 
-def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
+def _enrich_specifications_from_linked_doctypes(product: dict, doc, brand_code: str = None) -> None:
     """Enrich the product specifications list with data from linked doctypes.
 
     Adds missing spec entries for: Color Rendering (CRI), Input Voltage,
@@ -1264,7 +1286,7 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
 
     # Certifications & Ratings (icons) — applies to all product types
     if "Certifications & Ratings" not in existing_labels:
-        cert_spec = _build_certifications_spec(doc)
+        cert_spec = _build_certifications_spec(doc, brand_code)
         if cert_spec:
             additional_specs.append(cert_spec)
 
@@ -2414,7 +2436,7 @@ def _enrich_profile_specs(product: dict, existing_labels: set) -> list:
     return specs
 
 
-def _build_certifications_spec(doc) -> dict | None:
+def _build_certifications_spec(doc, brand_code: str = None) -> dict | None:
     """Build a Certifications & Ratings spec entry from the product's certifications."""
     if not getattr(doc, "certifications", None):
         return None
@@ -2424,14 +2446,16 @@ def _build_certifications_spec(doc) -> dict | None:
         cert_name = c.certification
         if not cert_name:
             continue
-        details = _get_certification_details(cert_name)
+        details = _get_certification_details(cert_name, brand_code)
+        
         cert_options.append({
             "attribute_type": "Certification",
             "attribute_doctype": "ilL-Attribute-Certification",
             "attribute_value": cert_name,
             "display_label": details.get("certification_code") or cert_name,
             "certification_body": details.get("certification_body") or "",
-            "badge_image": _make_absolute_url(details.get("badge_image")) if details.get("badge_image") else "",
+            "badge_image": _make_absolute_url(details.get("badge_image"), brand_code) if details.get("badge_image") else "",
+            "badge_image_dark": _make_absolute_url(details.get("badge_image_dark"), brand_code) if details.get("badge_image_dark") else "",
         })
 
     if not cert_options:
