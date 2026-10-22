@@ -134,6 +134,7 @@ def add_to_schedule(
             requested_overall_length_mm=length_mm,
             qty=quantity,
             include_power_supply=include_power_supply,
+            power_allocation=config.get("power_allocation"),
             override_max_run_ft=override_max_run_ft,
         )
         

@@ -493,6 +493,7 @@ def _tape_neon_payload_from_portal_selections(
         "include_power_supply": selections.get("include_power_supply", True),
         "dimming_protocol_code": selections.get("dimming_protocol_code"),
         "override_max_run_ft": selections.get("override_max_run_ft"),
+        "power_allocation": selections.get("power_allocation"),
     }
     payload["segments_json"] = segments_json or selections.get("segments_json") or selections.get("segments")
     return payload
@@ -600,6 +601,8 @@ def _fixture_payload_from_portal_selections(
 
     if selections.get("dimming_protocol_code"):
         payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
+    if selections.get("power_allocation"):
+        payload["power_allocation"] = selections["power_allocation"]
 
     for key in (
         "start_feed_direction_code",
@@ -678,6 +681,8 @@ def _fixture_payload_from_engine_selections(
 
     if selections.get("dimming_protocol_code"):
         payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
+    if selections.get("power_allocation"):
+        payload["power_allocation"] = selections["power_allocation"]
 
     return payload
 
@@ -787,7 +792,7 @@ def _sheet_kwargs(payload):
     allowed = ("template", "spec", "options", "coverage_width_ft", "coverage_height_ft",
                "coverage_width_value", "coverage_width_unit", "coverage_height_value",
                "coverage_height_unit", "include_power_supply", "dimming_protocol_code",
-               "power_supply_separate")
+               "power_supply_separate", "power_allocation")
     return {key: payload[key] for key in allowed if key in payload}
 
 
@@ -834,6 +839,7 @@ def _dispatch_calculate(
             parent_configured_tape_neon=parent_configured_tape_neon,
             include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
             dimming_protocol_code=payload.get("dimming_protocol_code"),
+            power_allocation=payload.get("power_allocation"),
             tape_neon_template=tape_neon_template,
             override_max_run_ft=payload.get("override_max_run_ft"),
         )
@@ -849,6 +855,7 @@ def _dispatch_calculate(
         parent_configured_tape_neon=parent_configured_tape_neon,
         include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
         dimming_protocol_code=payload.get("dimming_protocol_code"),
+        power_allocation=payload.get("power_allocation"),
         tape_neon_template=tape_neon_template,
         override_max_run_ft=payload.get("override_max_run_ft"),
     )
@@ -899,6 +906,7 @@ def _dispatch_save(
             parent_configured_tape_neon=parent_configured_tape_neon,
             include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
             dimming_protocol_code=payload.get("dimming_protocol_code"),
+            power_allocation=payload.get("power_allocation"),
             variant_origin=variant_origin,
             tape_neon_template=tape_neon_template,
             override_max_run_ft=payload.get("override_max_run_ft"),
@@ -914,6 +922,7 @@ def _dispatch_save(
         parent_configured_tape_neon=parent_configured_tape_neon,
         include_power_supply=parse_bool(payload.get("include_power_supply"), default=True),
         dimming_protocol_code=payload.get("dimming_protocol_code"),
+        power_allocation=payload.get("power_allocation"),
         variant_origin=variant_origin,
         tape_neon_template=tape_neon_template,
         override_max_run_ft=payload.get("override_max_run_ft"),
@@ -1064,6 +1073,7 @@ _FIXTURE_SINGLE_KEYS = (
     "start_leader_len_mm",
     "end_leader_len_mm",
     "include_power_supply",
+    "power_allocation",
     "override_max_run_ft",
     "equal_length_runs",
 )
@@ -1081,6 +1091,7 @@ _FIXTURE_MULTI_KEYS = (
     "dimming_protocol_code",
     "qty",
     "include_power_supply",
+    "power_allocation",
     "override_max_run_ft",
     "equal_length_runs",
 )

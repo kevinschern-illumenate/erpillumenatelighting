@@ -59,7 +59,7 @@ def equal_run_lengths(total_mm, max_run_mm, cut_increment_mm=0):
 	return lengths
 
 
-def select(template, runs_count, total_watts, offering, protocol=None, runs=None):
+def select(template, runs_count, total_watts, offering, protocol=None, runs=None, allocation=None):
 	if runs is None:
 		raise ValueError("Actual run wattages are required for linear supply selection")
 	plan, messages = select_plan(
@@ -70,6 +70,7 @@ def select(template, runs_count, total_watts, offering, protocol=None, runs=None
 		protocol,
 		run_loads=[run["run_watts"] for run in runs],
 		template_type="ilL-Fixture-Template",
+		allocation=allocation,
 	)
 	# Preserve the existing linear UI/child-table projection; allocations remain authoritative.
 	for row in plan["drivers"]:
@@ -82,7 +83,8 @@ def select(template, runs_count, total_watts, offering, protocol=None, runs=None
 				"item_code": item,
 				"driver_spec": spec["name"],
 				"outputs_per_driver": spec["outputs_count"],
-				"outputs_used": len(allocations),
+				# Grouped runs share an output, so count distinct outputs rather than runs.
+				"outputs_used": len({(a["supply"], a["output"]) for a in allocations}),
 				"w_usable_per_driver": usable,
 				"total_w_usable": usable * row["qty"],
 				"mapping_notes": "; ".join(

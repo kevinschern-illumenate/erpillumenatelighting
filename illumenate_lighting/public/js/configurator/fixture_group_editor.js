@@ -409,6 +409,7 @@
             // Included supplies are saved as their own line under the group.
             separate_supply_line: true};
         if (values.equal_length_runs) power.equal_length_runs = true;
+        if (values.power_allocation === 'grouped') power.power_allocation = 'grouped';
         return {schema_version: 3, family: request.family, template: request.template, shared: shared,
             power: power, members: clone(this.members)};
     };

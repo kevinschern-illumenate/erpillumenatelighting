@@ -11,6 +11,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	optional_positive,
 	parse_bool,
 )
+from illumenate_lighting.illumenate_lighting.api.power_planner import GROUPED, allocation_mode
 
 ENGINE_VERSION = "fixture-group-1"
 TEMPLATE_TYPES = {
@@ -110,6 +111,7 @@ def _segment(raw, family, index):
 		"family",
 		"template",
 		"include_power_supply",
+		"power_allocation",
 		"override_max_run_ft",
 		"equal_length_runs",
 		"dimming_protocol_code",
@@ -189,6 +191,9 @@ def normalize(value):
 	if family == "Linear Fixture" and parse_bool(power.get("equal_length_runs"), default=False):
 		# Recorded only when chosen, so existing group identities are unchanged.
 		policy["equal_length_runs"] = True
+	if allocation_mode(power.get("power_allocation")) == GROUPED:
+		# Runs may share supply outputs; only this non-default mode joins the group identity.
+		policy["power_allocation"] = GROUPED
 	if policy["include_power_supply"] and parse_bool(power.get("separate_supply_line"), default=False):
 		# Supplies are planned for the group but ordered on their own schedule line.
 		policy["separate_supply_line"] = True

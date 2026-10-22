@@ -45,6 +45,14 @@
 						<label for="coordinatorProtocol">{{ _("Control protocol") }}</label>
 						<select id="coordinatorProtocol" name="dimming_protocol_code" class="form-control"><option value="">{{ _("Any compatible protocol") }}</option></select>
 					</div>
+					<div class="form-group mt-2">
+						<label for="coordinatorPowerAllocation">{{ _("Power supply outputs") }}</label>
+						<select class="form-control mb-1" id="coordinatorPowerAllocation" name="power_allocation">
+							<option value="">{{ _("One output per segment/run") }}</option>
+							<option value="grouped">{{ _("Group runs onto shared outputs") }}</option>
+						</select>
+						<small class="text-muted d-block mb-0">{{ _("Grouping wires several runs to one output when their combined load fits its per-output and total limits, for fewer and smaller power supplies.") }}</small>
+					</div>
 					{% if not is_tape_neon %}
 					<!-- Equal-length run splitting (linear fixtures) -->
 					<div class="custom-control custom-checkbox mt-3">

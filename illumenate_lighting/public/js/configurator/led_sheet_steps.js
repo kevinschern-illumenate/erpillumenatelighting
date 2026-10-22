@@ -267,7 +267,8 @@
 			var saved = (this.context.initial_request || {}).selections;
 			if (saved) {
 				this.restoreGeometry(saved);
-				this.queueRestoreFields({'[name="dimming_protocol_code"]': saved.dimming_protocol_code || ''});
+				this.queueRestoreFields({'[name="dimming_protocol_code"]': saved.dimming_protocol_code || '',
+					'[name="power_allocation"]': saved.power_allocation === 'grouped' ? 'grouped' : ''});
 			}
 		}
 
@@ -456,7 +457,8 @@
 			include_power_supply: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0,
 			// Included supplies are saved as their own schedule line under the sheet.
 			power_supply_separate: this.$('#sheetIncludePowerSupply').is(':checked') ? 1 : 0,
-			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null
+			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null,
+			power_allocation: this.powerAllocation()
 		};
 	};
 
