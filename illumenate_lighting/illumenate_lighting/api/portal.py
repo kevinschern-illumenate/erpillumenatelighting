@@ -1617,7 +1617,7 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 
 @frappe.whitelist(methods=["POST"])
 def delete_schedule_line(
-	schedule_name: str, line_idx: int | None = None, line_key: str | None = None, expected_modified=None
+	schedule_name: str, line_idx: int | str | None = None, line_key: str | None = None, expected_modified=None
 ) -> dict:
 	"""
 	Delete a line from a fixture schedule.
@@ -1668,7 +1668,7 @@ def delete_schedule_line(
 
 @frappe.whitelist(methods=["POST"])
 def duplicate_schedule_line(
-	schedule_name: str, line_idx: int | None = None, line_key: str | None = None, expected_modified=None
+	schedule_name: str, line_idx: int | str | None = None, line_key: str | None = None, expected_modified=None
 ) -> dict:
 	"""
 	Duplicate a line in a fixture schedule.
@@ -1724,8 +1724,8 @@ def duplicate_schedule_line(
 @frappe.whitelist(methods=["POST"])
 def move_schedule_line(
 	schedule_name: str,
-	from_idx: int | None = None,
-	to_idx: int | None = None,
+	from_idx: int | str | None = None,
+	to_idx: int | str | None = None,
 	line_key: str | None = None,
 	to_line_key: str | None = None,
 	expected_modified=None,
@@ -1780,7 +1780,7 @@ def move_schedule_line(
 @frappe.whitelist(methods=["POST"])
 def update_schedule_line(
 	schedule_name: str,
-	line_idx: int | None = None,
+	line_idx: int | str | None = None,
 	line_data: Union[str, dict] = None,
 	line_key: str | None = None,
 	expected_modified=None,

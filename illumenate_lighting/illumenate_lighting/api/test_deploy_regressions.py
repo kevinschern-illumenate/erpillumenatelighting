@@ -1,4 +1,4 @@
-"""Installed-site regressions for the September 29, 2026 Phase 2 deployment fixes.
+"""Installed-site regressions for deployment fixes and the October 22 audit.
 
 Run on a migrated test site with bench run-tests --module
 illumenate_lighting.illumenate_lighting.api.test_deploy_regressions.
@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import frappe
+import requests
 
 try:
 	from frappe.tests import IntegrationTestCase
@@ -43,6 +44,102 @@ def _system_user(email, roles):
 class TestDeployRegressions(IntegrationTestCase):
 	def tearDown(self):
 		frappe.set_user("Administrator")
+
+	def test_publication_keeps_documents_without_changing_approval_hash(self):
+		from illumenate_lighting.illumenate_lighting.api import publication, webflow_export_v2
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+		from illumenate_lighting.illumenate_lighting.api.product_readiness import content_record
+
+		doc = frappe._dict(
+			name="demo",
+			product_slug="demo",
+			is_active=1,
+			target_brands=[frappe._dict(brand="demo-brand", enabled=1)],
+		)
+		state = frappe._dict(brand="demo-brand", approved_hash="")
+		config = {
+			"brand_code": "demo-brand",
+			"is_active": 1,
+			"collections": {"Products": "collection"},
+			"sync_enabled": 1,
+		}
+		export = {
+			"name": "demo",
+			"sync_status": "Synced",
+			"documents": [
+				{"document_type": "Spec Sheet", "file_url": "/files/current.pdf", "display_order": 1}
+			],
+		}
+		with (
+			patch.object(publication, "Listing", side_effect=lambda value: value),
+			patch.object(
+				publication, "evaluate", return_value={"ready": True, "issues": [], "dependencies": []}
+			),
+			patch.object(publication, "_save"),
+			patch.object(webflow_export_v2, "get_webflow_products", return_value={"products": [export]}),
+		):
+			payload, _ = publication._refresh(doc, state, config)
+			self.assertEqual(payload["product"]["documents"], export["documents"])
+			legacy_payload = {**payload, "product": content_record(export)}
+			self.assertEqual(
+				state.current_hash,
+				fingerprint(
+					publication._strip_volatile_metadata({"payload": legacy_payload, "dependencies": []})
+				),
+			)
+			approved_hash = state.current_hash
+			export["documents"][0]["file_url"] = "/files/regenerated.pdf"
+			new_payload, _ = publication._refresh(doc, state, config)
+			self.assertEqual(state.current_hash, approved_hash)
+			self.assertEqual(new_payload["product"]["documents"][0]["file_url"], "/files/regenerated.pdf")
+			self.assertNotEqual(fingerprint(payload), fingerprint(new_payload))
+
+	def test_webhook_http_and_network_failures_fail_the_worker(self):
+		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
+
+		for status in (401, 500):
+			response = requests.Response()
+			response.status_code = status
+			with (
+				self.subTest(status=status),
+				patch.object(webflow_export_v2.requests, "post", return_value=response),
+				patch.object(frappe, "log_error") as log_error,
+				self.assertRaises(requests.HTTPError),
+			):
+				webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
+			log_error.assert_called_once()
+		with (
+			patch.object(webflow_export_v2.requests, "post", side_effect=requests.Timeout),
+			patch.object(frappe, "log_error") as log_error,
+			self.assertRaises(requests.Timeout),
+		):
+			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
+		log_error.assert_called_once()
+
+	def test_webhook_success_and_dispatch_after_commit(self):
+		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
+
+		response = requests.Response()
+		response.status_code = 202
+		with patch.object(webflow_export_v2.requests, "post", return_value=response):
+			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
+		doc = frappe._dict(target_brands=[frappe._dict(brand="demo", enabled=1)])
+		for method in (webflow_export_v2.trigger_sync_v2, webflow_export_v2.trigger_publish_v2):
+			with (
+				self.subTest(method=method.__name__),
+				patch.object(frappe, "get_doc", return_value=doc),
+				patch.object(webflow_export_v2, "resolve_brand", return_value={}),
+				patch.object(
+					webflow_export_v2,
+					"inspect",
+					return_value={"readiness": {"ready": True}, "current_hash": "v1"},
+				),
+				patch.object(webflow_export_v2, "request"),
+				patch.object(webflow_export_v2, "claim", return_value={"jobs": [{"job": "J1"}]}),
+				patch.object(frappe, "enqueue") as enqueue,
+			):
+				self.assertEqual(method("demo")["jobs"], ["J1"])
+				self.assertTrue(enqueue.call_args.kwargs["enqueue_after_commit"])
 
 	def test_non_administrators_can_upload_edit_and_delete_attachments(self):
 		for email, roles in (

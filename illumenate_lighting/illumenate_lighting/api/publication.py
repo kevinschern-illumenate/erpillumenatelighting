@@ -105,7 +105,9 @@ def _refresh(doc, state, config):
 		products = get_webflow_products(brand=state.brand, product_slug=doc.name, limit=1)["products"]
 		if not products:
 			frappe.throw(_("Product is not available for this brand"))
-		payload["product"] = content_record(json.loads(frappe.as_json(products[0])))
+		# Freeze the complete export. Hash-only exclusions (notably documents)
+		# must not remove fields that the remote projection needs to publish.
+		payload["product"] = json.loads(frappe.as_json(products[0]))
 		# Category references must belong to this brand, never the default brand.
 		if doc.product_category:
 			category_id = frappe.db.get_value(
@@ -129,7 +131,10 @@ def _refresh(doc, state, config):
 				)
 			payload["product"]["category_webflow_item_id"] = category_id
 			payload["product"]["category_details"] = {"webflow_item_id": category_id}
-	clean_data = _strip_volatile_metadata({"payload": payload, "dependencies": readiness["dependencies"]})
+	hash_payload = {**payload, "product": content_record(payload["product"])}
+	clean_data = _strip_volatile_metadata(
+		{"payload": hash_payload, "dependencies": readiness["dependencies"]}
+	)
 	state.current_hash = fingerprint(clean_data)
 	state.readiness_json = canonical_json({key: readiness[key] for key in ("ready", "issues")})
 	state.dependencies_json = canonical_json(readiness["dependencies"])

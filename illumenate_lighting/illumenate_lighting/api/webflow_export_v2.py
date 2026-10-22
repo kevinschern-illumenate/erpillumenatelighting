@@ -50,11 +50,12 @@ ERPNEXT_BASE_URL = DEFAULT_ERPNEXT_BASE_URL
 def enqueue_n8n_webhook(webhook_url, job_data):
     """Background worker to trigger n8n to prevent locking the Frappe API thread"""
     try:
-        requests.post(webhook_url, json=job_data, timeout=300)
-    except Exception as e:
-        brand = job_data.get("brand") or "Unknown"
+        response = requests.post(webhook_url, json=job_data, timeout=120)
+        response.raise_for_status()
+    except requests.RequestException as e:
         frappe.log_error(f"Failed to push {job_data.get('job')} to n8n: {str(e)}", "Webflow V2 Sync")
-        # In a background job, msgprint won't reach the UI, but we log the error
+        # Fail the worker job visibly; the publication lease remains recoverable.
+        raise
 
 def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
     """Convert a relative URL to an absolute, percent-encoded URL for Webflow.
@@ -2484,6 +2485,7 @@ def trigger_sync_v2(docname):
             frappe.enqueue(
                 "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.enqueue_n8n_webhook",
                 queue="short",
+                enqueue_after_commit=True,
                 webhook_url=webhook_url,
                 job_data=job_data
             )
@@ -2539,6 +2541,7 @@ def trigger_publish_v2(docname):
             frappe.enqueue(
                 "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.enqueue_n8n_webhook",
                 queue="short",
+                enqueue_after_commit=True,
                 webhook_url=webhook_url,
                 job_data=job_data
             )

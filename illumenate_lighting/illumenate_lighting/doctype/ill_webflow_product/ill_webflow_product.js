@@ -23,9 +23,27 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					</div>
 				`;
 				frappe.dom.freeze(freezeMsg);
+				const controller = new AbortController();
+				let checkInterval;
+				let finished = false;
+				const finish = () => {
+					finished = true;
+					clearInterval(checkInterval);
+					clearTimeout(deadline);
+					frappe.dom.unfreeze();
+					$('#custom-freeze-style').remove();
+				};
+				// Start the deadline before the webhook request: it may never respond.
+				const deadline = setTimeout(() => {
+					finish();
+					controller.abort();
+					frappe.msgprint(__('Sync has not been confirmed. It may still be running in the background.'));
+					frm.reload_doc();
+				}, 120000);
 
 				fetch('https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2', {
 					method: 'POST',
+					signal: controller.signal,
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						product: frm.doc.name,
@@ -38,6 +56,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					return response.json();
 				})
 				.then(data => {
+					if (finished) return;
                     if (data.success === false) {
                         throw new Error(data.message || "Pipeline reported an issue.");
                     }
@@ -45,48 +64,33 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					// We removed the second freeze message here. 
 					// The screen stays frozen with the original card while polling begins!
 
-					let checkInterval = setInterval(() => {
+					checkInterval = setInterval(() => {
 						// Use xcall to bypass the browser cache!
 						frappe.xcall('frappe.client.get_value', {
 							doctype: 'ilL-Webflow-Product',
 							filters: { name: frm.doc.name },
 							fieldname: 'sync_status'
 						}).then(r => {
-							if (!r) return;
+							if (finished || !r) return;
 							let current_status = r.sync_status;
 							
 							if (current_status === 'Synced' || current_status === 'LIVE') {
-								clearInterval(checkInterval);
-								frappe.dom.unfreeze();
-								$('#custom-freeze-style').remove(); // Remove dark overlay
+								finish();
 								frappe.show_alert({message: __('Webflow Sync Complete!'), indicator: 'green'});
 								frm.reload_doc();
 							} 
 							else if (current_status === 'Error' || current_status === 'Failed') {
-								clearInterval(checkInterval);
-								frappe.dom.unfreeze();
-								$('#custom-freeze-style').remove(); // Remove dark overlay
+								finish();
 								frappe.msgprint({title: __('Sync Error'), message: __('Pipeline failed. Check logs.'), indicator: 'red'});
 								frm.reload_doc();
 							}
 						}).catch(err => console.error("Polling error:", err));
 					}, 3000);
 
-					// Safety timeout after 2 minutes
-					setTimeout(() => {
-						clearInterval(checkInterval);
-						if (document.querySelector('.freeze-message-container')) { 
-							frappe.dom.unfreeze();
-							$('#custom-freeze-style').remove(); // Remove dark overlay
-							frappe.msgprint(__('Sync is taking longer than usual. It is running in the background.'));
-							frm.reload_doc();
-						}
-					}, 120000);
-
 				})
 				.catch(err => {
-					frappe.dom.unfreeze();
-					$('#custom-freeze-style').remove(); // Remove dark overlay
+					if (finished) return;
+					finish();
 					frappe.msgprint({title: __('Sync Failed'), message: err.message, indicator: 'red'});
 				});
 			});
@@ -267,9 +271,8 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				`<span class="indicator red">Sync Error</span> - ${frm.doc.sync_error_message || "Unknown error"}`
 			);
 		}
-	},
 
-	// Limit Compatible Products to products matching this document's active brands
+		// Limit Compatible Products to products matching this document's active brands
 		frm.set_query("related_product", "compatible_products", function(doc, cdt, cdn) {
 			let active_brands = [];
 			if (doc.target_brands && doc.target_brands.length > 0) {
@@ -285,6 +288,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				}
 			};
 		});
+	},
 
 	before_save(frm) {
 		// Hard safety net: clear fields again right before saving a duplicate
