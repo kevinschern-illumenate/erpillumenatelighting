@@ -474,18 +474,6 @@ def get_webflow_products(
                 }
                 for k in doc.kit_components
             ]
-
-			product["custom_compatible_power_supplies"] = [
-                {
-                    "part_number": ps.part_number,
-                    "input_protocol": ps.input_protocol,
-                    "voltagefrequency": ps.voltagefrequency,
-                    "output_voltage": ps.output_voltage,
-                    "max_wattage": ps.max_wattage,
-                    "location_rating": ps.location_rating
-                }
-                for ps in getattr(doc, "custom_compatible_power_supplies", [])
-            ]
             
             product["gallery_images"] = [
                 {
@@ -514,6 +502,18 @@ def get_webflow_products(
                     "notes": cp.notes
                 }
                 for cp in doc.compatible_products
+            ]
+
+			product["custom_compatible_power_supplies"] = [
+                {
+                    "part_number": ps.part_number,
+                    "input_protocol": ps.input_protocol,
+                    "voltagefrequency": ps.voltagefrequency,
+                    "output_voltage": ps.output_voltage,
+                    "max_wattage": ps.max_wattage,
+                    "location_rating": ps.location_rating
+                }
+                for ps in getattr(doc.source, "custom_compatible_power_supplies", [])
             ]
             
             # Add attribute links for Webflow filter fields
