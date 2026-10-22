@@ -474,6 +474,18 @@ def get_webflow_products(
                 }
                 for k in doc.kit_components
             ]
+
+			product["custom_compatible_power_supplies"] = [
+                {
+                    "part_number": ps.part_number,
+                    "input_protocol": ps.input_protocol,
+                    "voltagefrequency": ps.voltagefrequency,
+                    "output_voltage": ps.output_voltage,
+                    "max_wattage": ps.max_wattage,
+                    "location_rating": ps.location_rating
+                }
+                for ps in getattr(doc, "custom_compatible_power_supplies", [])
+            ]
             
             product["gallery_images"] = [
                 {
