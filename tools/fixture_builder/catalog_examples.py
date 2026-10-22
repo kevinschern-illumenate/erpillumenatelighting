@@ -295,9 +295,9 @@ def example_catalog(product_type):
 			polar_chart_image="/files/example-polar.png",
 			photometric_data=[
 				{
-					"mounting_height": height,
-					"light_level": level,
-					"beam_diameter": diameter,
+					"mounting_height": f"{height} ft",
+					"light_level": f"{level} fc",
+					"beam_diameter": f"{diameter} ft",
 					"display_order": i,
 				}
 				for i, (height, level, diameter) in enumerate(((2, 45, 6.9), (4, 11, 13.9), (6, 5, 20.8)), 1)

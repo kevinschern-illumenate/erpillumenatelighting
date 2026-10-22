@@ -13,26 +13,26 @@
  ],
  "fields": [
   {
-   "description": "Distance from the fixture to the lit surface, in feet.",
+   "description": "Display measurement including units, e.g. 6 ft or 1.8 m.",
    "fieldname": "mounting_height",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Mounting Height (ft)",
+   "label": "Mounting Height",
    "reqd": 1
   },
   {
-   "description": "Center-beam illuminance at this height, in footcandles.",
+   "description": "Display measurement including units, e.g. 25 fc or 269 lux.",
    "fieldname": "light_level",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Light Level (fc)"
+   "label": "Light Level"
   },
   {
-   "description": "Width of the beam at this height, in feet.",
+   "description": "Display measurement including units, e.g. 4 ft or 1.2 m.",
    "fieldname": "beam_diameter",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Beam Diameter (ft)"
+   "label": "Beam Diameter"
   },
   {
    "default": "0",
@@ -45,7 +45,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-22 04:00:00.000000",
+ "modified": "2026-10-22 05:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Photometric-Data",

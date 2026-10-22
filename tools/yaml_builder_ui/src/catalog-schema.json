@@ -2020,22 +2020,22 @@
       "fields": [
         {
           "fieldname": "mounting_height",
-          "label": "Mounting Height (ft)",
-          "fieldtype": "Float",
+          "label": "Mounting Height",
+          "fieldtype": "Data",
           "reqd": 1,
-          "description": "Distance from the fixture to the lit surface, in feet."
+          "description": "Display measurement including units, e.g. 6 ft or 1.8 m."
         },
         {
           "fieldname": "light_level",
-          "label": "Light Level (fc)",
-          "fieldtype": "Float",
-          "description": "Center-beam illuminance at this height, in footcandles."
+          "label": "Light Level",
+          "fieldtype": "Data",
+          "description": "Display measurement including units, e.g. 25 fc or 269 lux."
         },
         {
           "fieldname": "beam_diameter",
-          "label": "Beam Diameter (ft)",
-          "fieldtype": "Float",
-          "description": "Width of the beam at this height, in feet."
+          "label": "Beam Diameter",
+          "fieldtype": "Data",
+          "description": "Display measurement including units, e.g. 4 ft or 1.2 m."
         },
         {
           "fieldname": "display_order",

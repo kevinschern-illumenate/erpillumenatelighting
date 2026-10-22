@@ -13,10 +13,10 @@ class ilLChildPhotometricData(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
-		beam_diameter: DF.Float
+		beam_diameter: DF.Data
 		display_order: DF.Int
-		light_level: DF.Float
-		mounting_height: DF.Float
+		light_level: DF.Data
+		mounting_height: DF.Data
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data

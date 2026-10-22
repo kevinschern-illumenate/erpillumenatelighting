@@ -77,17 +77,17 @@ records:
     tm30_chart_image: /files/example-tm30.png
     polar_chart_image: /files/example-polar.png
     photometric_data:
-    - mounting_height: 2
-      light_level: 45
-      beam_diameter: 6.9
+    - mounting_height: 2 ft
+      light_level: 45 fc
+      beam_diameter: 6.9 ft
       display_order: 1
-    - mounting_height: 4
-      light_level: 11
-      beam_diameter: 13.9
+    - mounting_height: 4 ft
+      light_level: 11 fc
+      beam_diameter: 13.9 ft
       display_order: 2
-    - mounting_height: 6
-      light_level: 5
-      beam_diameter: 20.8
+    - mounting_height: 6 ft
+      light_level: 5 fc
+      beam_diameter: 20.8 ft
       display_order: 3
   ilL-Rel-Driver-Eligibility:
   - template_type: ilL-Tape-Neon-Template

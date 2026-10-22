@@ -11,8 +11,10 @@ import hashlib
 import json
 import re
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
+from uuid import uuid4
 
 import frappe
 from frappe.model.base_document import get_controller
@@ -24,6 +26,83 @@ except ImportError:  # Frappe v15
 	from frappe.tests.utils import FrappeTestCase as IntegrationTestCase
 
 from illumenate_lighting import portal_workspace
+
+
+class TestPhotometricMigration(IntegrationTestCase):
+	"""Exercise real Frappe DDL on isolated tables, without altering catalog data."""
+
+	measurements = ("mounting_height", "light_level", "beam_diameter")
+
+	def setUp(self):
+		super().setUp()
+		if frappe.db.db_type != "mariadb":
+			self.skipTest("Regression for MariaDB's strict decimal conversion")
+		self.table_name = "_Test Photometric " + uuid4().hex[:12]
+		self.table = frappe.qb.DocType(self.table_name)
+		self.addCleanup(self._drop_table)
+
+	def _drop_table(self):
+		frappe.db.rollback()
+		frappe.db.sql_ddl(f"DROP TABLE IF EXISTS `tab{self.table_name}`")
+
+	def _sync(self, fieldtype=None):
+		from frappe.database.mariadb.schema import MariaDBTable
+		from frappe.model.meta import Meta
+
+		path = Path(frappe.get_app_path(
+			"illumenate_lighting", "illumenate_lighting", "doctype",
+			"ill_child_photometric_data", "ill_child_photometric_data.json",
+		))
+		schema = json.loads(path.read_text())
+		schema["name"] = self.table_name
+		for field in schema["fields"]:
+			if fieldtype and field["fieldname"] in self.measurements:
+				field["fieldtype"] = fieldtype
+		# This is the same validate/sync path used by frappe.db.updatedb.
+		table = MariaDBTable(self.table_name, Meta(frappe.get_doc(schema)))
+		table.validate()
+		table.sync()
+
+	def _insert(self, name, values):
+		frappe.qb.into(self.table).columns(
+			"name", "parent", "parenttype", "parentfield", "idx", "display_order", *self.measurements,
+		).insert(name, "test-template", "ilL-Tape-Neon-Template", "photometric_data", 1, 2, *values).run()
+
+	def _rows(self):
+		return frappe.qb.from_(self.table).select(self.table.star).orderby(self.table.name).run(as_dict=True)
+
+	def test_unit_bearing_rows_survive_failed_numeric_conversion_and_repeated_sync(self):
+		self._sync("Data")
+		self._insert("imperial", ("6 ft", "25 fc", "4 ft"))
+		self._insert("metric", ("1.8 m", "269 lux", "1.2 m"))
+		before = self._rows()
+		# MariaDB versions report either 1292 (wrapped by Frappe) or 1265.
+		with self.assertRaisesRegex(
+			(frappe.ValidationError, frappe.db.DataError), "Cannot change field type|Data truncated for column"
+		):
+			self._sync("Float")
+		self.assertEqual(self._rows(), before)
+		self._insert("blank", (None, "", "N/A"))
+		before = self._rows()
+		for _ in range(2):
+			self._sync()
+			self.assertEqual(self._rows(), before)
+
+	def test_already_numeric_columns_keep_their_values(self):
+		self._sync("Float")
+		values = (Decimal("6.125"), Decimal("25.123456789"), Decimal("4"))
+		self._insert("numeric", values)
+		for _ in range(2):
+			self._sync()
+			row = self._rows()[0]
+			self.assertEqual(tuple(Decimal(row[field]) for field in self.measurements), values)
+		self._insert("with-units", ("6 ft", "25 fc", "4 ft"))
+		self.assertEqual(self._rows()[1].mounting_height, "6 ft")
+
+	def test_fresh_schema_accepts_measurements_with_units(self):
+		self._sync()
+		self._insert("new", ("6 ft", "25 fc", "4 ft"))
+		self.assertEqual(self._rows()[0].mounting_height, "6 ft")
 
 
 class TestMigrationAssets(IntegrationTestCase):

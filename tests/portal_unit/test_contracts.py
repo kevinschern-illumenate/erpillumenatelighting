@@ -152,6 +152,17 @@ class ProductContracts(unittest.TestCase):
 		)
 		self.assertTrue(all(row["metadata"] for row in projection["configurator_options"]))
 
+	def test_photometric_projection_preserves_measurements_and_units(self):
+		product = self.product("LED Neon")
+		product["photometric_image"] = "/files/photometric.png"
+		product["photometric_data"] = [
+			{"mounting_height": "6 ft", "light_level": "25 fc", "beam_diameter": "4 ft", "display_order": 1},
+			{"mounting_height": "1.8 m", "light_level": "269 lux", "beam_diameter": "1.2 m", "display_order": 2},
+		]
+		projection = project_product(product)
+		self.assertEqual(projection["photometric_data"], product["photometric_data"])
+		self.assertEqual(projection["photometric_image"], product["photometric_image"])
+
 	def test_invalid_option_shapes_are_inquiry(self):
 		for value in ('"broken"', "5", "[1,2]"):
 			with self.subTest(value=value):
