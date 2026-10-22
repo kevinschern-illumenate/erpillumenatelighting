@@ -355,7 +355,8 @@ class ilLWebflowProduct(Document):
 				"voltagefrequency": voltage_freq,
 				"output_voltage": str(driver_doc.voltage_output) if driver_doc.voltage_output else "",
 				"max_wattage": f"{driver_doc.max_wattage:g}W" if driver_doc.max_wattage else "",
-				"location_rating": driver_doc.location_rating or ""
+				"location_rating": driver_doc.location_rating or "",
+				"output_count": driver_doc.outputs_count  # <-- ADDED NEW FIELD HERE
 			})
 
 	def sync_compatible_products(self):
