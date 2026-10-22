@@ -162,6 +162,48 @@ class ilLWebflowProduct(Document):
 		webflow_item_id: DF.Data | None
 	# end: auto-generated types
 
+	def populate_certification_badges(self):
+		"""Populate the custom_badge_images JSON field based on active Target Brands."""
+		active_brands = [row.brand for row in self.get("target_brands", []) if row.enabled]
+		if not active_brands:
+			active_brands = ["lighting_206", "illumenate"]  # Fallback if none selected
+
+		base_url = "https://app.illumenate.lighting"
+
+		def make_url(path):
+			if not path: return None
+			if path.startswith("http"): return path
+			return f"{base_url}{path}" if path.startswith("/") else f"{base_url}/{path}"
+
+		for row in self.get("certifications", []):
+			if not row.certification:
+				continue
+
+			cert_doc = frappe.db.get_value(
+				"ilL-Attribute-Certification",
+				row.certification,
+				[
+					"badge_image", "custom_badge_image_dark", 
+					"custom_206_badge_image_light", "custom_206_badge_image_dark"
+				],
+				as_dict=True
+			)
+			if not cert_doc:
+				continue
+
+			badge_data = {}
+
+			if "illumenate" in active_brands:
+				badge_data["illumenate_badge_light"] = make_url(cert_doc.get("badge_image"))
+				badge_data["illumenate_badge_dark"] = make_url(cert_doc.get("custom_badge_image_dark"))
+
+			if "lighting_206" in active_brands:
+				badge_data["206_badge_light"] = make_url(cert_doc.get("custom_206_badge_image_light"))
+				badge_data["206_badge_dark"] = make_url(cert_doc.get("custom_206_badge_image_dark"))
+
+			# Save as JSON array with a single object inside, matching your request
+			row.custom_badge_images = frappe.as_json([badge_data])
+	
 	def validate(self):
 		self._clear_template_links_for_other_types()
 
@@ -205,6 +247,7 @@ class ilLWebflowProduct(Document):
 		# V2 Custom Specification Sync
 		self.sync_custom_template_data()
 		self.populate_compatible_power_supplies()
+		self.populate_certification_badges()
 
 		if self.is_configurable and self.fixture_template:
 			if self.get("auto_populate_configurator_options", True):
