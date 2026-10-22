@@ -294,6 +294,71 @@ class ilLWebflowProduct(Document):
 				target_doc.flags.syncing_compatibility = True
 				target_doc.save(ignore_permissions=True)
 
+	def before_save(self):
+		# Existing before_save logic (if any) goes here...
+		self.populate_compatible_power_supplies()
+
+	def populate_compatible_power_supplies(self):
+		"""Fetch eligible drivers from the linked template and populate the child table."""
+		# 1. Figure out which template is linked to this product
+		template_name = (
+			self.tape_neon_template or 
+			self.fixture_template or 
+			self.led_sheet_template or 
+			self.kit_template
+		)
+
+		if not template_name:
+			self.set("custom_compatible_power_supplies", [])
+			return
+
+		# 2. Query ilL-Rel-Driver-Eligibility for all drivers linked to this template
+		eligible_drivers = frappe.get_all(
+			"ilL-Rel-Driver-Eligibility",
+			filters={"product_template": template_name, "is_active": 1},
+			pluck="driver_spec"
+		)
+
+		# Clear the table so we can rebuild it cleanly
+		self.set("custom_compatible_power_supplies", [])
+
+		if not eligible_drivers:
+			return
+
+		# 3. Fetch each Driver Spec and map its fields into the child table
+		for driver_name in eligible_drivers:
+			try:
+				driver_doc = frappe.get_doc("ilL-Spec-Driver", driver_name)
+			except frappe.DoesNotExistError:
+				continue
+
+			# Format Input Protocols (Comma-separated string)
+			protocols = []
+			for row in driver_doc.get("input_protocols", []):
+				if row.protocol:
+					protocols.append(row.protocol)
+			protocol_str = ", ".join(protocols)
+
+			# Format Voltage / Frequency (e.g., "120 - 277VAC")
+			v_min = driver_doc.input_voltage_min or ""
+			v_max = driver_doc.input_voltage_max or ""
+			v_type = driver_doc.input_voltage_type or ""
+			
+			if v_min and v_max:
+				voltage_freq = f"{v_min} - {v_max}{v_type}"
+			else:
+				voltage_freq = f"{v_min or v_max}{v_type}"
+
+			# Append the mapped row to your custom child table
+			self.append("custom_compatible_power_supplies", {
+				"part_number": driver_doc.name,
+				"input_protocol": protocol_str,
+				"voltagefrequency": voltage_freq,
+				"output_voltage": driver_doc.voltage_output,
+				"max_wattage": driver_doc.max_wattage,
+				"location_rating": driver_doc.location_rating
+			})
+
 	def sync_compatible_products(self):
 		"""Handle additions for bi-directional compatibility links."""
 		child_table = "compatible_products" 
