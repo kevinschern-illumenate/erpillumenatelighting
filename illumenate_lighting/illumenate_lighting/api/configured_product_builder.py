@@ -595,6 +595,8 @@ def _fixture_payload_from_portal_selections(
     override_max_run_ft = optional_positive(selections.get("override_max_run_ft"), field="maximum run length")
     if override_max_run_ft is not None:
         payload["override_max_run_ft"] = override_max_run_ft
+    if parse_bool(selections.get("equal_length_runs"), default=False):
+        payload["equal_length_runs"] = True
 
     if selections.get("dimming_protocol_code"):
         payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
@@ -671,6 +673,8 @@ def _fixture_payload_from_engine_selections(
     override_max_run_ft = optional_positive(selections.get("override_max_run_ft"), field="maximum run length")
     if override_max_run_ft is not None:
         payload["override_max_run_ft"] = override_max_run_ft
+    if parse_bool(selections.get("equal_length_runs"), default=False):
+        payload["equal_length_runs"] = True
 
     if selections.get("dimming_protocol_code"):
         payload["dimming_protocol_code"] = selections["dimming_protocol_code"]
@@ -1061,6 +1065,7 @@ _FIXTURE_SINGLE_KEYS = (
     "end_leader_len_mm",
     "include_power_supply",
     "override_max_run_ft",
+    "equal_length_runs",
 )
 
 
@@ -1077,6 +1082,7 @@ _FIXTURE_MULTI_KEYS = (
     "qty",
     "include_power_supply",
     "override_max_run_ft",
+    "equal_length_runs",
 )
 
 

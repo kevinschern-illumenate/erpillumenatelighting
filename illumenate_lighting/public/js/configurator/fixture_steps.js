@@ -221,6 +221,7 @@
 			self._afterChange();
 		});
 		this.$('#overrideMaxRunInput').on('input' + '.' + self.instanceId + ' ' + 'change' + '.' + self.instanceId, this.debounce(function () { self._afterChange(); }, 250));
+		this.$('#equalRunsCheck').on('change' + '.' + self.instanceId, function () { self._afterChange(); });
 
 		// Action buttons.
 		this.$('[data-action="reset"]').on('click' + '.' + self.instanceId, function () { self.resetConfiguration(); });
@@ -836,6 +837,7 @@
 		if (!this.$('#includePowerSupply').is(':checked')) items.push({ label: __('Power Supply'), value: __('Excluded') });
 		var override = this._getOverrideMaxRunFt();
 		if (override !== '') items.push({ label: __('Max Run Override'), value: override + ' ft' });
+		if (this._equalLengthRuns()) items.push({ label: __('Run Split'), value: __('Equal lengths') });
 
 		if (!items.length) {
 			$placeholder.show();
@@ -861,6 +863,10 @@
 			if (!self.$name(required[i]).val()) return false;
 		}
 		return this._segmentsComplete();
+	};
+
+	Fixture.prototype._equalLengthRuns = function () {
+		return this.$('#equalRunsCheck').is(':checked');
 	};
 
 	Fixture.prototype._getOverrideMaxRunFt = function () {
@@ -941,6 +947,7 @@
 			include_power_supply: this.$('#includePowerSupply').is(':checked'),
 			dimming_protocol_code: this.$name('dimming_protocol_code').val() || null,
 			override_max_run_ft: this._getOverrideMaxRunFt(),
+			equal_length_runs: this._equalLengthRuns(),
 			product_slug: this.productSlug || this.$('#fixtureTemplateSelect').val()
 		};
 	};
@@ -983,6 +990,8 @@
 			dimming_protocol_code: sel.dimming_protocol_code
 		};
 		if (sel.override_max_run_ft !== '') data.override_max_run_ft = sel.override_max_run_ft;
+		// Sent only when chosen; the engine defaults to full runs then a remainder.
+		if (sel.equal_length_runs) data.equal_length_runs = 1;
 		// Portal and Desk both persist only when Save is requested.
 		data._skip_record_creation = true;
 
@@ -1065,7 +1074,7 @@
 
 			this.$('#manufacturingResults').show();
 			this.$('#profileSegmentsCount').text(computed.segments_count);
-			this.$('#runsCount').text(computed.runs_count);
+			this.$('#runsCount').text(computed.runs_count + (computed.equal_length_runs ? ' (' + __('equal lengths') + ')' : ''));
 			this.$('#endcapsCount').text(computed.total_endcaps);
 			this.$('#mountingCount').text(computed.total_mounting_accessories);
 			this.$('#totalWatts').text(computed.total_watts + ' W');
@@ -1297,6 +1306,7 @@
 			self.$('#overrideMaxRunCheck').prop('checked', false);
 			self.$('#overrideMaxRunInput').val('');
 			self.$('#overrideMaxRunGroup, #overrideMaxRunWarning').hide();
+			self.$('#equalRunsCheck').prop('checked', false);
 			self.$('#templateOptions').hide();
 			self.$('#actionButtons').hide();
 			self.$('#resultsPanel').hide();

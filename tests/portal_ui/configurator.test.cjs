@@ -664,3 +664,66 @@ test('restoring a linear run shows inches and keeps its millimetre length', () =
   inst.destroy();
   dom.window.close();
 });
+
+test('fixture sends equal-length runs only when chosen, saves it, and restores it', () => {
+  const { dom, $, api, requests } = setup('<div id="host"><input id="equalRunsCheck" type="checkbox"><input name="tape_offering_id" value="TAPE"><button id="validateBtn">Calculate</button></div>');
+  let saved;
+  const inst = new api.Fixture($('#host'), { saveHandler: data => { saved = data; } });
+  inst._collectSegments = () => [{ end_type: 'Endcap', requested_length_mm: 6096 }];
+  inst._updateButtons = inst._displayResults = () => {};
+  inst.validateConfiguration();
+  assert.equal(Object.hasOwn(requests.at(-1).args, 'equal_length_runs'), false);
+  assert.match(requests.at(-1).method, /validate_and_quote_multisegment$/);
+  inst.$('#equalRunsCheck').prop('checked', true).trigger('change');
+  inst.validateConfiguration();
+  const calc = requests.at(-1);
+  assert.equal(new URLSearchParams($.param(calc.args)).get('equal_length_runs'), '1');
+  calc.callback({ message: { is_valid: true } });
+  inst.addToSchedule();
+  assert.equal(saved.selections.equal_length_runs, true);
+  assert.equal(inst.exportRequest().selections.equal_length_runs, true);
+  inst.$('#equalRunsCheck').prop('checked', false);
+  inst.restorePower({ equal_length_runs: true });
+  inst.applyRestoreFields();
+  assert.equal(inst.$('#equalRunsCheck').prop('checked'), true);
+  dom.window.close();
+});
+
+test('linear coordinator offers equal-length runs; tape and neon do not', () => {
+  for (const category of ['Linear Fixture', 'LED Tape', 'COB Tape', 'LED Neon']) {
+    const html = fs.readFileSync(path.join(__dirname, 'rendered', category.replaceAll(' ', '-') + '-coordinator.html'), 'utf8');
+    const { dom, $, api, requests } = setup(html);
+    const inst = new api.Coordinator($('#portal-configurator'), { product_category: category, is_tape: TAPE_FAMILIES.includes(category), is_neon: category === 'LED Neon', is_tape_neon: category !== 'Linear Fixture', has_templates: false });
+    inst.init();
+    if (category !== 'Linear Fixture') {
+      assert.equal(inst.$('#equalRunsCheck').length, 0, category);
+      dom.window.close();
+      continue;
+    }
+    inst.restoreGeometry({segments: [{requested_length_mm: 6096, end_type: 'Endcap'}]});
+    inst.$name('delivered_output_value').append('<option value="100">100</option>').val('100');
+    const calculate = () => inst.$('#calculateBtn').prop('disabled', false).trigger('click');
+    calculate();
+    assert.equal(Object.hasOwn(requests.at(-1).args, 'equal_length_runs'), false);
+    inst.$('#equalRunsCheck').prop('checked', true);
+    calculate();
+    assert.equal(requests.at(-1).args.equal_length_runs, 1);
+    assert.equal(inst.exportRequest().selections.equal_length_runs, true);
+    dom.window.close();
+  }
+});
+
+test('group power carries equal-length runs only when chosen', () => {
+  const {dom, $, api} = setup('<div id="host"></div>');
+  let equal = false;
+  const instance = new api.Base($('#host'), {groups_enabled: true});
+  instance.exportRequest = () => ({family: 'Linear Fixture', template: 'ILL-SH01-SW', selections: {
+    include_power_supply: true, override_max_run_ft: '', equal_length_runs: equal, segments: [{requested_length_mm: 1000, end_type: 'Endcap'}]
+  }});
+  instance.restoreGeometry = () => {};
+  api.attachGroupEditor(instance);
+  assert.equal(Object.hasOwn(instance.groupEditor.request().power, 'equal_length_runs'), false);
+  equal = true;
+  assert.equal(instance.groupEditor.request().power.equal_length_runs, true);
+  dom.window.close();
+});
