@@ -31,9 +31,23 @@ SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
 TRANSACTION_DOCTYPES = ("Quotation", "Sales Order")
 CONFIGURED_LINKS = ("configured_group", "configured_fixture", "configured_tape_neon", "configured_led_sheet")
 # A change to any of these makes the line a different product, so its rows are rebuilt.
-PRODUCT_FIELDS = (*CONFIGURED_LINKS, "manufacturer_type", "product_type", "accessory_item", "variant_selections")
+PRODUCT_FIELDS = (
+	*CONFIGURED_LINKS,
+	"manufacturer_type",
+	"product_type",
+	"accessory_item",
+	"variant_selections",
+)
 LABEL_FIELDS = ("line_id", "location", "notes")
-LINE_PRODUCT_TYPES = ("Linear Fixture", "Linear Fixtures", "LED Tape", "COB Tape", "LED Neon", "LED Sheet", "Extrusion Kit")
+LINE_PRODUCT_TYPES = (
+	"Linear Fixture",
+	"Linear Fixtures",
+	"LED Tape",
+	"COB Tape",
+	"LED Neon",
+	"LED Sheet",
+	"Extrusion Kit",
+)
 POWER_OWNER_FIELD = "power_supply_for_line"
 # Set on a document whose save is itself a sync write and must not sync onward.
 SKIP_FLAG = "ill_skip_schedule_sync"
@@ -77,28 +91,62 @@ def single_row_line(line) -> bool:
 		return False  # A supply follows its fixture line's quantity.
 	if line.get("manufacturer_type") == "ACCESSORY":
 		return True
-	return line.get("manufacturer_type") == "ILLUMENATE" and any(line.get(field) for field in CONFIGURED_LINKS)
+	return line.get("manufacturer_type") == "ILLUMENATE" and any(
+		line.get(field) for field in CONFIGURED_LINKS
+	)
+
+
+def linked_order(rows, line_names) -> list:
+	"""Schedule lines in the order their first row appears on the transaction."""
+	line_names = set(line_names)
+	return list(
+		dict.fromkeys(
+			row.get("ill_schedule_line_id")
+			for row in rows or []
+			if row.get("ill_schedule_line_id") in line_names
+		)
+	)
 
 
 def plan_transaction_changes(line_names, before_rows, rows, *, newly_linked: bool) -> dict:
 	"""What one transaction save changes on its schedule.
 
 	``add``: rows new to this save (every row, when the schedule was just
-	linked) that point at no schedule line. ``remove``: lines whose last row this
-	save removed. ``update``: ``(row, before_row)`` for lines that had and still
-	have exactly that one row.
+	linked) that point at no schedule line, plus duplicated rows: a new row that
+	copied the line link and Item of a row already on that line. ``remove``:
+	lines whose last row this save removed. ``update``: ``(row, before_row)``
+	for lines that had and still have exactly that one row. ``moved``: rows were
+	reordered relative to each other.
 	"""
 	line_names = set(line_names)
 	before_names = {row.get("name") for row in before_rows or []}
-	add = []
+
+	def is_new(row):
+		return bool(newly_linked or row.get("__islocal") or row.get("name") not in before_names)
+
+	# A duplicated grid row carries the original's link; the saved row keeps it.
+	claimed = {
+		(row.get("ill_schedule_line_id"), row.get("item_code"))
+		for row in rows or []
+		if row.get("ill_schedule_line_id") in line_names and not is_new(row)
+	}
+	add, copies = [], []
 	for row in rows or []:
 		if not row.get("item_code") or row.get("ill_is_power_supply_line") or row.get("is_alternative"):
 			continue  # Supplies follow their fixture line; alternatives are not scope.
-		if row.get("ill_schedule_line_id") in line_names:
+		link = row.get("ill_schedule_line_id")
+		if link in line_names:
+			key = (link, row.get("item_code"))
+			if is_new(row) and key in claimed:
+				add.append(row)
+				copies.append(row)
+			else:
+				claimed.add(key)
 			continue
-		if newly_linked or row.get("__islocal") or row.get("name") not in before_names:
+		if is_new(row):
 			add.append(row)
 
+	rows = [row for row in rows or [] if not any(row is copy for copy in copies)]
 	current = rows_by_line(rows)
 	previous = rows_by_line(before_rows)
 	remove = [name for name in previous if name in line_names and name not in current]
@@ -110,7 +158,53 @@ def plan_transaction_changes(line_names, before_rows, rows, *, newly_linked: boo
 		and len(previous.get(name) or []) == 1
 		and now[0].get("name") == previous[name][0].get("name")
 	]
-	return {"add": add, "remove": remove, "update": update}
+	was = linked_order(before_rows, line_names)
+	now = linked_order(rows, line_names)
+	common = set(was) & set(now)
+	moved = [name for name in now if name in common] != [name for name in was if name in common]
+	return {"add": add, "remove": remove, "update": update, "moved": moved}
+
+
+def planned_line_order(schedule_keys, doc_keys, new_keys, *, moved: bool) -> list | None:
+	"""The schedule's line order after a transaction save, or ``None`` when it stays.
+
+	Keys are any hashable stand-ins for lines. When the user reordered rows,
+	the lines with rows follow the transaction's order and every line without a
+	row (an other-manufacturer line, a supply) keeps following the line it
+	followed. Otherwise only lines added by this save move, next to the line of
+	the row above them.
+	"""
+	new_keys = set(new_keys)
+	if moved:
+		anchors = set(doc_keys)
+		leading, followers, current = [], {}, None
+		for key in schedule_keys:
+			if key in anchors:
+				current = key
+				followers.setdefault(key, [])
+			elif current is None:
+				leading.append(key)
+			else:
+				followers[current].append(key)
+		result = list(leading)
+		for key in doc_keys:
+			result += [key, *followers.get(key, [])]
+		return result
+	if not new_keys:
+		return None
+	result = [key for key in schedule_keys if key not in new_keys]
+	for position, key in enumerate(doc_keys):
+		if key not in new_keys:
+			continue
+		above = next((other for other in reversed(doc_keys[:position]) if other in result), None)
+		below = next((other for other in doc_keys[position + 1 :] if other in result), None)
+		if above is not None:
+			result.insert(result.index(above) + 1, key)
+		elif below is not None:
+			result.insert(result.index(below), key)
+		else:
+			result.append(key)
+	return result
 
 
 def line_updates(line, row, before_row) -> dict:
@@ -141,8 +235,9 @@ def plan_schedule_changes(before_lines, lines) -> dict:
 	"""What one schedule save changes on its draft transactions.
 
 	``added`` / ``removed`` lines; ``rebuilt`` lines that became another product;
-	``scaled`` lines whose quantity changed (name → new / old ratio); and
-	``relabelled`` lines whose Fixture Type, Location or notes changed.
+	``scaled`` lines whose quantity changed (name → new / old ratio);
+	``relabelled`` lines whose Fixture Type, Location or notes changed; and
+	``reordered`` when lines kept on both sides changed order.
 	"""
 	before = {line.get("name"): line for line in before_lines or [] if line.get("name")}
 	after = {line.get("name"): line for line in lines or [] if line.get("name")}
@@ -152,6 +247,7 @@ def plan_schedule_changes(before_lines, lines) -> dict:
 		"rebuilt": [],
 		"scaled": {},
 		"relabelled": [],
+		"reordered": [name for name in after if name in before] != [name for name in before if name in after],
 	}
 	for name, line in after.items():
 		old = before.get(name)
@@ -169,6 +265,33 @@ def plan_schedule_changes(before_lines, lines) -> dict:
 
 def has_changes(plan: dict) -> bool:
 	return any(plan.values())
+
+
+def order_rows_by_lines(items, line_order) -> list:
+	"""Reorder transaction rows to follow the schedule's line order.
+
+	A line's rows move together; a row with no line (freight, a service) stays
+	right after the row it followed.
+	"""
+	rank = {name: index for index, name in enumerate(line_order)}
+	leading, units, unit_for, last = [], [], {}, None
+	for row in items:
+		link = row.get("ill_schedule_line_id")
+		if link in rank:
+			if link not in unit_for:
+				unit_for[link] = (rank[link], [])
+				units.append(unit_for[link])
+			last = unit_for[link]
+			last[1].append(row)
+		elif last is None:
+			leading.append(row)
+		else:
+			last[1].append(row)
+	units.sort(key=lambda unit: unit[0])
+	result = leading + [row for _rank, rows in units for row in rows]
+	for index, row in enumerate(result, 1):
+		row.idx = index
+	return result
 
 
 def place_new_rows(line_order, items, first_new: int) -> list:
@@ -211,7 +334,9 @@ def schedule_is_open(schedule) -> bool:
 
 def _skip_globally() -> bool:
 	flags = frappe.flags
-	return bool(flags.get("in_import") or flags.get("in_migrate") or flags.get("in_install") or flags.get("in_patch"))
+	return bool(
+		flags.get("in_import") or flags.get("in_migrate") or flags.get("in_install") or flags.get("in_patch")
+	)
 
 
 def _set(row, fieldname: str, value) -> None:
@@ -266,22 +391,26 @@ def _line_from_row(row) -> dict | None:
 		if product_type not in LINE_PRODUCT_TYPES:
 			return None
 		values.update(links)
-		values.update({
-			"manufacturer_type": "ILLUMENATE",
-			"product_type": product_type,
-			"ill_item_code": row.item_code,
-			"ill_bom": row.get("ill_bom") or None,
-			"ill_configurator_request": row.get("ill_configurator_request") or None,
-		})
+		values.update(
+			{
+				"manufacturer_type": "ILLUMENATE",
+				"product_type": product_type,
+				"ill_item_code": row.item_code,
+				"ill_bom": row.get("ill_bom") or None,
+				"ill_configurator_request": row.get("ill_configurator_request") or None,
+			}
+		)
 		return values
 	item = _sellable_stock_item(row.item_code)
 	if not item:
 		return None
-	values.update({
-		"manufacturer_type": "ACCESSORY",
-		"accessory_item": row.item_code,
-		"accessory_item_name": item.item_name,
-	})
+	values.update(
+		{
+			"manufacturer_type": "ACCESSORY",
+			"accessory_item": row.item_code,
+			"accessory_item_name": item.item_name,
+		}
+	)
 	return values
 
 
@@ -306,9 +435,6 @@ def on_transaction_validate(doc, method=None):
 	if not frappe.db.exists(SCHEDULE_DOCTYPE, name):
 		return
 	schedule = frappe.get_doc(SCHEDULE_DOCTYPE, name)
-	if not schedule_is_open(schedule):
-		return
-
 	plan = plan_transaction_changes(
 		[line.name for line in schedule.lines],
 		(before.get("items") if before is not None else None) or [],
@@ -316,6 +442,18 @@ def on_transaction_validate(doc, method=None):
 		newly_linked=not previous_link,
 	)
 	if not has_changes(plan):
+		return
+	if not schedule_is_open(schedule):
+		# Say so: silently diverging is what this sync exists to prevent.
+		state = _("locked") if cint(schedule.get("is_locked")) else schedule.get("status")
+		frappe.msgprint(
+			_(
+				"Fixture Schedule {0} is {1}, so these row changes were not copied to it. "
+				"Create a new version of the schedule to keep both in step."
+			).format(name, state),
+			indicator="orange",
+			alert=True,
+		)
 		return
 
 	frappe.db.savepoint(SAVEPOINT)
@@ -387,7 +525,24 @@ def push_to_schedule(schedule, doc, plan) -> str | None:
 			updated += 1
 			edited.add(line.name)
 
-	if not (added or removed or updated):
+	# Keep the schedule in the transaction's row order (moved rows, new lines).
+	present = {id(line): line for line in schedule.lines}
+	new_line_for = {id(row): line for row, line in added}
+	doc_keys = []
+	for row in doc.get("items") or []:
+		line = new_line_for.get(id(row)) or lines.get(row.get("ill_schedule_line_id"))
+		if line is not None and id(line) in present and id(line) not in doc_keys:
+			doc_keys.append(id(line))
+	order = planned_line_order(
+		list(present), doc_keys, [id(line) for _row, line in added], moved=plan.get("moved", False)
+	)
+	reordered = bool(order) and order != list(present)
+	if reordered:
+		for index, key in enumerate(order, 1):
+			present[key].idx = index
+		schedule.set("lines", [present[key] for key in order])
+
+	if not (added or removed or updated or reordered):
 		return _skipped_message(schedule, skipped)
 
 	schedule.flags.ignore_permissions = True
@@ -405,7 +560,9 @@ def push_to_schedule(schedule, doc, plan) -> str | None:
 	kept = [
 		row
 		for row in items
-		if not (row.get("ill_schedule_line_id") in qty_before and row.get("ill_schedule_line_id") not in remaining)
+		if not (
+			row.get("ill_schedule_line_id") in qty_before and row.get("ill_schedule_line_id") not in remaining
+		)
 	]
 	if len(kept) != len(items):
 		for index, row in enumerate(kept, 1):
@@ -421,6 +578,8 @@ def push_to_schedule(schedule, doc, plan) -> str | None:
 	message = _("Fixture Schedule {0} updated: {1} line(s) added, {2} removed, {3} changed.").format(
 		schedule.name, len(added), removed, updated
 	)
+	if reordered and not (added or removed or updated):
+		message = _("Fixture Schedule {0} updated: lines reordered to match.").format(schedule.name)
 	extra = _skipped_message(schedule, skipped)
 	return f"{message} {extra}" if extra else message
 
@@ -448,7 +607,9 @@ def on_schedule_update(doc, method=None):
 		return
 	source = tuple(doc.flags.get(SOURCE_FLAG) or ())
 	for doctype in TRANSACTION_DOCTYPES:
-		for name in frappe.get_all(doctype, filters={"ill_fixture_schedule": doc.name, "docstatus": 0}, pluck="name"):
+		for name in frappe.get_all(
+			doctype, filters={"ill_fixture_schedule": doc.name, "docstatus": 0}, pluck="name"
+		):
 			if (doctype, name) == source:
 				continue
 			frappe.db.savepoint(SAVEPOINT)
@@ -504,7 +665,16 @@ def push_to_transaction(schedule, target, plan) -> bool:
 		)
 		if counts.get("rows_added"):
 			changed = True
-			target.set("items", place_new_rows([line.name for line in schedule.lines], target.get("items"), first_new))
+			target.set(
+				"items",
+				place_new_rows([line.name for line in schedule.lines], target.get("items"), first_new),
+			)
+
+	if plan.get("reordered"):
+		ordered = order_rows_by_lines(target.get("items") or [], [line.name for line in schedule.lines])
+		if any(a is not b for a, b in zip(ordered, target.get("items") or [], strict=True)):
+			target.set("items", ordered)
+			changed = True
 
 	if not changed:
 		return False
