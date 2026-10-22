@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+from urllib.parse import urlsplit
 
 import frappe
 
@@ -36,13 +37,29 @@ def _part_number(line):
 	return None
 
 
-def _driver_submittal(line, entry, warnings):
-	"""Use the exact driver template's submittal or spec sheet before Item literature."""
+# A configured power supply or controller line: how its template is found and its submittal filled.
+_VARIANT_KINDS = {
+	"ilL-Driver-Template": (
+		"power supply",
+		"_driver_document_source",
+		"generate_filled_driver_line_submittal",
+	),
+	"ilL-Controller-Template": (
+		"controller",
+		"_controller_document_source",
+		"generate_filled_controller_line_submittal",
+	),
+}
+
+
+def _driver_submittal(line, entry, warnings, template_doctype="ilL-Driver-Template"):
+	"""Use the exact driver or controller template's submittal or spec sheet before Item literature."""
 	from illumenate_lighting.illumenate_lighting.api import spec_submittal as pdf
 
+	noun, resolve, render = _VARIANT_KINDS[template_doctype]
 	label = line.line_id or f"Row {line.idx}"
 	try:
-		source = pdf._driver_document_source(line)
+		source = getattr(pdf, resolve)(line)
 	except ValueError as error:
 		warning = f"Line {label}: {error}"
 		entry["warnings"] = [warning]
@@ -51,12 +68,10 @@ def _driver_submittal(line, entry, warnings):
 	if not source:
 		return False
 	template = source["template"]
-	entry["build"] = {"doctype": "ilL-Driver-Template", "name": template}
+	entry["build"] = {"doctype": template_doctype, "name": template}
 	line_warnings = []
 	try:
-		result = pdf.generate_filled_driver_line_submittal(
-			template, warnings=line_warnings, schedule_line=line.name
-		)
+		result = getattr(pdf, render)(template, warnings=line_warnings, schedule_line=line.name)
 	except (ValueError, frappe.ValidationError) as error:
 		result = {"success": False, "message": str(error)}
 	warnings.extend(line_warnings)
@@ -67,14 +82,14 @@ def _driver_submittal(line, entry, warnings):
 			reason = "; ".join(
 				dict.fromkeys([result.get("message") or "Submittal generation failed", *notes])
 			)
-			warning = f"Line {label}: used the {template} spec sheet because the power supply submittal could not be generated ({reason})"
+			warning = f"Line {label}: used the {template} spec sheet because the {noun} submittal could not be generated ({reason})"
 			entry.update(
 				spec_document_url=spec_sheet,
 				has_submittal=True,
 				source_kind="template_spec_sheet",
 				filled_required=False,
 				provenance={
-					"template_type": "ilL-Driver-Template",
+					"template_type": template_doctype,
 					"template": template,
 					"source_url": spec_sheet,
 				},
@@ -82,7 +97,9 @@ def _driver_submittal(line, entry, warnings):
 			)
 			warnings.append(warning)
 			return True
-		warning = f"Line {label}: power supply submittal unavailable ({result.get('message')}); using its Item literature"
+		warning = (
+			f"Line {label}: {noun} submittal unavailable ({result.get('message')}); using its Item literature"
+		)
 		entry["warnings"] = [warning]
 		warnings.append(warning)
 		return False
@@ -114,7 +131,7 @@ _GROUP_TEMPLATES = {
 def _template_spec_sheet(build):
 	"""The (template doctype, template, spec sheet URL) backing a configured build."""
 	doctype, name = build["doctype"], build["name"]
-	if doctype in ("ilL-Extrusion-Kit-Template", "ilL-Driver-Template"):
+	if doctype in ("ilL-Extrusion-Kit-Template", "ilL-Driver-Template", "ilL-Controller-Template"):
 		template_doctype, template = doctype, name
 	elif doctype == "ilL-Configured-Group":
 		group = frappe.db.get_value(doctype, name, ["family", "template"], as_dict=True) or {}
@@ -218,8 +235,11 @@ def gather(schedule, warnings, pinned=None):
 					break
 		elif line.manufacturer_type == "OTHER":
 			entry.update(spec_document_url=line.spec_sheet, source_kind="uploaded_literature")
-		elif line.manufacturer_type == "ACCESSORY" and _driver_submittal(line, entry, warnings):
-			# A configured power supply gets its template's filled submittal.
+		elif line.manufacturer_type == "ACCESSORY" and (
+			_driver_submittal(line, entry, warnings)
+			or _driver_submittal(line, entry, warnings, "ilL-Controller-Template")
+		):
+			# A power supply or controller gets its template's filled submittal or spec sheet.
 			pass
 		elif line.manufacturer_type == "ACCESSORY":
 			registry = frappe.db.get_value(
@@ -284,6 +304,52 @@ def gather(schedule, warnings, pinned=None):
 	return lines
 
 
+def full_literature(schedule, lines, pinned, warnings):
+	"""FULL adds each configured build's template spec sheet after its submittal, never an arbitrary
+	attachment. A template without a spec sheet is noted for staff instead of failing the line."""
+	lines = list(lines)
+	for line in schedule.lines:
+		entry = next(entry for entry in lines if entry.get("schedule_line") == line.name)
+		literature = {
+			**entry,
+			"line_key": f"{line.name}:literature",
+			"source_kind": "approved_literature",
+			"filled_required": False,
+			"has_submittal": True,
+			"warnings": None,
+		}
+		prior = pinned.get(literature["line_key"])
+		if prior and prior.get("source_file"):
+			lines.append(
+				{
+					**literature,
+					"spec_document_url": frappe.db.get_value("File", prior["source_file"], "file_url"),
+					"expected_sha256": prior["sha256"],
+					"provenance": prior.get("provenance"),
+				}
+			)
+			continue
+		build = entry.get("build")
+		# A line that already fell back to its spec sheet would only repeat it.
+		if not build or entry.get("source_kind") == "template_spec_sheet":
+			continue
+		template_doctype, template, url = _template_spec_sheet(build)
+		if not url:
+			warning = f"Line {line.line_id or f'Row {line.idx}'}: {template or 'its template'} has no spec sheet to add to the full submittal"
+			entry["warnings"] = [*(entry.get("warnings") or []), warning]
+			warnings.append(warning)
+			continue
+		lines.append(
+			{
+				**literature,
+				"spec_document_url": url,
+				"expected_sha256": None,
+				"provenance": {"template_type": template_doctype, "template": template, "source_url": url},
+			}
+		)
+	return lines
+
+
 def _issue_log(manifest, errors, notes=()):
 	"""Everything that went wrong or was worked around, for staff in Desk only."""
 	warnings = [warning for entry in manifest for warning in entry.get("warnings") or []]
@@ -340,73 +406,8 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 		frappe.db.commit()
 		lines = gather(schedule, warnings, pinned)
 		checkpoint(job_name, 60, "Validating and pinning source documents")
-		# FULL additionally includes explicitly selected template literature, never an arbitrary attachment.
 		if export_type == "SPEC_SUBMITTAL_FULL":
-			for line in schedule.lines:
-				entry = next(entry for entry in lines if entry.get("schedule_line") == line.name)
-				prior_literature = pinned.get(f"{line.name}:literature")
-				if prior_literature and prior_literature.get("source_file"):
-					lines.append(
-						{
-							**entry,
-							"line_key": f"{line.name}:literature",
-							"spec_document_url": frappe.db.get_value(
-								"File", prior_literature["source_file"], "file_url"
-							),
-							"source_kind": "approved_literature",
-							"expected_sha256": prior_literature["sha256"],
-							"filled_required": False,
-							"warnings": None,
-							"provenance": prior_literature.get("provenance"),
-						}
-					)
-					continue
-				build = entry.get("build")
-				# A line that already fell back to its spec sheet would only repeat it.
-				if not build or entry.get("source_kind") == "template_spec_sheet":
-					continue
-				configured = frappe.get_doc(build["doctype"], build["name"])
-				if build["doctype"] == "ilL-Configured-Group":
-					field = {
-						"Linear Fixture": "fixture_template",
-						"LED Tape": "tape_neon_template",
-						"COB Tape": "tape_neon_template",
-						"LED Neon": "tape_neon_template",
-						"LED Sheet": "sheet_template",
-					}[configured.family]
-					configured.set(field, configured.template)
-				if build["doctype"] == "ilL-Extrusion-Kit-Template":
-					configured.set("kit_template", configured.name)
-				if build["doctype"] == "ilL-Driver-Template":
-					configured.set("driver_template", configured.name)
-				for field, doctype in (
-					("fixture_template", "ilL-Fixture-Template"),
-					("tape_neon_template", "ilL-Tape-Neon-Template"),
-					("sheet_template", "ilL-LED-Sheet-Template"),
-					("kit_template", "ilL-Extrusion-Kit-Template"),
-					("driver_template", "ilL-Driver-Template"),
-				):
-					if configured.get(field):
-						url = frappe.db.get_value(doctype, configured.get(field), "spec_sheet")
-						if url:
-							lines.append(
-								{
-									**entry,
-									"line_key": f"{line.name}:literature",
-									"spec_document_url": url,
-									"source_kind": "approved_literature",
-									"provenance": {
-										"template_type": doctype,
-										"template": configured.get(field),
-										"source_url": url,
-									},
-									"expected_sha256": None,
-									"filled_required": False,
-									"has_submittal": True,
-									"warnings": None,
-								}
-							)
-						break
+			lines = full_literature(schedule, lines, pinned, warnings)
 		cover = (
 			pdf._generate_cover_page(schedule_name, schedule.ill_project, lines) if include_cover else None
 		)
@@ -417,7 +418,10 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 		cover_pages = len(PdfReader(io.BytesIO(cover)).pages) if cover else 0
 
 		def load_source(url):
-			if not url.startswith(("/files/", "/private/files/")) or ".." in url.split("/"):
+			# An Attach field may hold this site's full link to the file (https://site/files/...).
+			parts = urlsplit(url)
+			path = parts.path if parts.scheme in ("http", "https") else url
+			if not path.startswith(("/files/", "/private/files/")) or ".." in path.split("/"):
 				raise ValueError("Source must be a local registered file")
 			file = pdf._get_file_doc_by_url(url)
 			if not file:
