@@ -260,6 +260,8 @@ class TestConfiguratorTransport(IntegrationTestCase):
 				"name": prefix,
 				"template_name": "Transport Test Template",
 				"is_active": 1,
+				# New templates start Internal Only; this one must reach a non-staff caller.
+				"product_status": "Active",
 			},
 			{
 				"doctype": "ilL-Configured-Fixture",

@@ -39,6 +39,7 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_driver_template.ill_dri
     _normalise_axis_value,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal_listing import product_template, template_scoped
 
 # =============================================================================
 # CONFIGURATION CONSTANTS
@@ -89,6 +90,7 @@ _KINDS = {
 # =============================================================================
 
 @frappe.whitelist(allow_guest=True)
+@template_scoped("ilL-Driver-Template", resolve=lambda a: a.get("template") or product_template("driver_template")(a))
 @price_scoped
 def get_driver_configurator_init(product_slug: str | None = None, template: str | None = None) -> dict:
     """Initialise the Driver configurator for a Webflow product slug or an ilL-Driver-Template."""
@@ -96,6 +98,7 @@ def get_driver_configurator_init(product_slug: str | None = None, template: str 
 
 
 @frappe.whitelist(allow_guest=True)
+@template_scoped("ilL-Controller-Template", resolve=product_template("controller_template"))
 @price_scoped
 def get_controller_configurator_init(product_slug: str) -> dict:
     """Initialise the Controller configurator for a Webflow product slug."""
@@ -103,6 +106,7 @@ def get_controller_configurator_init(product_slug: str) -> dict:
 
 
 @frappe.whitelist(allow_guest=True)
+@template_scoped("ilL-Driver-Template", resolve=lambda a: a.get("template") or product_template("driver_template")(a))
 @price_scoped
 def get_driver_cascading_options(
     product_slug: str | None = None,
@@ -115,6 +119,7 @@ def get_driver_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
+@template_scoped("ilL-Controller-Template", resolve=product_template("controller_template"))
 @price_scoped
 def get_controller_cascading_options(
     product_slug: str,
@@ -126,6 +131,7 @@ def get_controller_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
+@template_scoped("ilL-Driver-Template", resolve=lambda a: a.get("template") or product_template("driver_template")(a))
 @price_scoped
 def validate_driver_configuration(
     product_slug: str | None = None, selections: str | None = None, template: str | None = None
@@ -135,6 +141,7 @@ def validate_driver_configuration(
 
 
 @frappe.whitelist(allow_guest=True)
+@template_scoped("ilL-Controller-Template", resolve=product_template("controller_template"))
 @price_scoped
 def validate_controller_configuration(product_slug: str, selections: str) -> dict:
     """Resolve a Controller selection set to exactly one template variant."""

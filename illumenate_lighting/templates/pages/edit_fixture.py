@@ -90,10 +90,12 @@ def get_context(context):
 	if not fixture_config.get("success"):
 		frappe.throw(fixture_config.get("error") or "Failed to load fixture configuration")
 
-	# Get available templates
+	# Get the templates offered to the user (Internal Only ones for staff only)
+	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
+
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
-		filters={"is_active": 1},
+		filters=template_filters(),
 		fields=["template_code", "template_name"],
 		order_by="template_name asc",
 	)

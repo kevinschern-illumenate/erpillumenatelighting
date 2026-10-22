@@ -32,6 +32,7 @@ from illumenate_lighting.illumenate_lighting.api.led_sheet_math import (
 )
 from illumenate_lighting.illumenate_lighting.api.power_planner import GROUPED, allocation_mode
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal_listing import template_scoped
 
 OPTION_FIELD_BY_TYPE = {
     "CCT": "selected_cct",
@@ -234,6 +235,7 @@ def _resolve_dimensions(
 
 
 @frappe.whitelist()
+@template_scoped("ilL-LED-Sheet-Template", "template")
 @price_scoped
 def validate_sheet_configuration(template, spec=None, options=None, coverage_width_ft=0,
     coverage_height_ft=0, schedule_name=None, line_idx=None, coverage_width_value=None,
@@ -526,6 +528,7 @@ def _apply_multi_line_schedule(schedule, panel_line_idx: int, template, doc, res
 
 
 @frappe.whitelist(methods=["POST"])
+@template_scoped("ilL-LED-Sheet-Template", "template")
 def save_sheet_configuration(
     template,
     spec=None,

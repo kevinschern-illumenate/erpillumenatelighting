@@ -125,7 +125,12 @@ def build_facts():
 	products = [
 		row
 		for row in frappe.get_all(PRODUCT, fields=["*"])
-		if on_portal(row, status_of=lambda doctype, name: (tables[doctype].get(name) or {}).get("product_status"))
+		# Shared by every viewer, so built for dealers: Internal Only products stay out.
+		if on_portal(
+			row,
+			status_of=lambda doctype, name: (tables[doctype].get(name) or {}).get("product_status"),
+			staff=False,
+		)
 	]
 	if not products:
 		return []

@@ -98,6 +98,7 @@ class TestDealerOrderConversion(FrappeTestCase):
 			template.template_code = TEMPLATE_CODE
 			template.template_name = "Test Conv Template"
 			template.is_active = 1
+			template.product_status = "Active"  # offered to dealers
 			template.insert(ignore_permissions=True)
 
 		# Buildable fixture: has a profile component so a BOM can be generated.

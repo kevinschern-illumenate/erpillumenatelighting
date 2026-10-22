@@ -103,23 +103,25 @@ def apply(doc):
 
 
 class ProductStatus(unittest.TestCase):
-	def test_a_new_template_without_a_status_takes_it_from_is_active(self):
-		self.assertEqual(apply(Doc(is_active=1)), ("Active", 1))
+	def test_a_new_template_without_a_status_starts_internal_only(self):
+		self.assertEqual(apply(Doc(is_active=1)), ("Internal Only", 1))
 		self.assertEqual(apply(Doc(is_active=0)), ("Draft", 0))
 
 	def test_a_new_inactive_template_is_not_made_active_by_the_status_default(self):
+		self.assertEqual(apply(Doc(product_status="Internal Only", is_active=0)), ("Draft", 0))
 		self.assertEqual(apply(Doc(product_status="Active", is_active=0)), ("Draft", 0))
+		self.assertEqual(apply(Doc(product_status="Internal Only", is_active=1)), ("Internal Only", 1))
 		self.assertEqual(apply(Doc(product_status="Active", is_active=1)), ("Active", 1))
 
 	def test_a_chosen_status_sets_is_active(self):
 		before = {"product_status": "Active", "is_active": 1}
-		self.assertEqual(apply(Doc(before, product_status="ERPNext Only", is_active=1)), ("ERPNext Only", 1))
+		self.assertEqual(apply(Doc(before, product_status="Internal Only", is_active=1)), ("Internal Only", 1))
 		self.assertEqual(apply(Doc(before, product_status="Discontinued", is_active=1)), ("Discontinued", 0))
 		self.assertEqual(apply(Doc(product_status="Draft", is_active=1)), ("Draft", 0))
 
 	def test_code_that_only_flips_is_active_moves_the_status(self):
-		active = {"product_status": "ERPNext Only", "is_active": 1}
-		self.assertEqual(apply(Doc(active, product_status="ERPNext Only", is_active=0)), ("Draft", 0))
+		active = {"product_status": "Internal Only", "is_active": 1}
+		self.assertEqual(apply(Doc(active, product_status="Internal Only", is_active=0)), ("Draft", 0))
 		archived = {"product_status": "Archived", "is_active": 0}
 		self.assertEqual(apply(Doc(archived, product_status="Archived", is_active=1)), ("Active", 1))
 

@@ -37,6 +37,11 @@ from frappe.utils import flt
 
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal_listing import (
+    json_argument,
+    template_filters,
+    template_scoped,
+)
 
 # The only values a caller supplies for a kit; everything else is resolved here.
 KIT_SELECTION_KEYS = (
@@ -92,6 +97,7 @@ def _compute_kit_pricing(kit_composition):
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@template_scoped("ilL-Extrusion-Kit-Template", "kit_template_name")
 @price_scoped
 def get_kit_configurator_init(kit_template_name: str = None) -> dict:
     """
@@ -119,7 +125,7 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
     # No template specified — return list of available templates
     templates = frappe.get_all(
         "ilL-Extrusion-Kit-Template",
-        filters={"is_active": 1},
+        filters=template_filters(),
         fields=["name", "template_code", "template_name", "series", "image",
                 "profile_stock_length_mm", "lens_stock_length_mm",
                 "solid_endcap_qty", "feed_through_endcap_qty",
@@ -241,6 +247,7 @@ def kit_spec_sheet_data(template) -> list:
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@template_scoped("ilL-Extrusion-Kit-Template", "kit_template_name")
 @price_scoped
 def get_kit_cascading_options(
     kit_template_name: str,
@@ -329,6 +336,7 @@ def get_kit_cascading_options(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@template_scoped("ilL-Extrusion-Kit-Template", resolve=lambda a: json_argument(a, "selections", "kit_template"))
 @price_scoped
 def validate_kit_configuration(selections: str | dict) -> dict:
     """
@@ -576,6 +584,7 @@ def validate_kit_configuration(selections: str | dict) -> dict:
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist(methods=["POST"])
+@template_scoped("ilL-Extrusion-Kit-Template", resolve=lambda a: json_argument(a, "selections", "kit_template"))
 def save_kit_to_schedule(
     schedule_name: str,
     line_idx: int | str | None = None,
@@ -779,6 +788,7 @@ def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) 
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist()
+@template_scoped("ilL-Extrusion-Kit-Template", "kit_template_name")
 def get_kit_spec_data(kit_template_name: str, selections: str = None) -> dict:
     """
     Get the full spec information for a kit configuration.
@@ -825,6 +835,7 @@ def get_kit_spec_data(kit_template_name: str, selections: str = None) -> dict:
 
 
 @frappe.whitelist(allow_guest=False)
+@template_scoped("ilL-Extrusion-Kit-Template", "kit_template")
 def get_kit_component_stock(
 	kit_template: str,
 	finish: str,
