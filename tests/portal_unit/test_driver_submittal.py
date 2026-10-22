@@ -424,8 +424,13 @@ class DriverSubmittal(unittest.TestCase):
 			self.assertIn("Required source document is missing", job_values["issue_log"])
 			self.assertEqual(job_values["issue_count"], 1)
 
-			failed = packets.generate("S", "SPEC_SUBMITTAL_FULL", include_cover=False, job_name="JOB")
-			self.assertFalse(failed["success"])
+			# The full submittal follows the same rule and adds the supply's spec sheet.
+			full = packets.generate("S", "SPEC_SUBMITTAL_FULL", include_cover=False, job_name="JOB")
+			self.assertTrue(full["success"], full)
+			self.assertEqual(full["status"], "INCOMPLETE")
+			self.assertEqual(
+				[entry["status"] for entry in full["manifest"]], ["included", "failed", "included"]
+			)
 			self.assertIn("Required source document is missing", job_values["issue_log"])
 
 	def test_both_supply_paths_use_the_template_spec_sheet_when_no_mappings_exist(self):

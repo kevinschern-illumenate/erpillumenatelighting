@@ -16,7 +16,8 @@ Supports:
 Export Types:
 - SPEC_SUBMITTAL: Cover page + spec submittals only (filled PDFs for configured fixtures).
   Always produces a packet; omissions and warnings are logged on the export job for staff.
-- SPEC_SUBMITTAL_FULL: Cover page + all spec sheets + spec submittals; fails when a document is missing
+- SPEC_SUBMITTAL_FULL: Cover page + spec submittals + each template's spec sheet; also always
+  produces a packet and logs omissions on the export job.
 """
 
 import hashlib

@@ -1,4 +1,4 @@
-"""Private packet preparation with source snapshots and a fail-closed manifest."""
+"""Private packet preparation with source snapshots and a staff-only issue log."""
 
 import hashlib
 import io
@@ -362,8 +362,8 @@ def _issue_log(manifest, errors, notes=()):
 
 
 def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *, job_name=None):
-	"""A standard submittal always produces a packet: a document that cannot be included is left out
-	and every reason goes to the job's staff-only issue log. A full submittal stays fail-closed."""
+	"""Both submittals always produce a packet: a document that cannot be included is left out and
+	every reason goes to the job's staff-only issue log. The full submittal also adds template spec sheets."""
 	from pypdf import PdfReader
 
 	from illumenate_lighting.illumenate_lighting.api import exports
@@ -376,7 +376,6 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 	from illumenate_lighting.illumenate_lighting.portal.quotes import _snapshot
 
 	include_cover = parse_bool(include_cover, default=True)
-	always = export_type == "SPEC_SUBMITTAL"
 	if export_type not in ("SPEC_SUBMITTAL", "SPEC_SUBMITTAL_FULL"):
 		frappe.throw("Choose a supported packet type")
 	allowed, error = exports._check_schedule_access(schedule_name)
@@ -412,8 +411,6 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 			pdf._generate_cover_page(schedule_name, schedule.ill_project, lines) if include_cover else None
 		)
 		if include_cover and not cover:
-			if not always:
-				raise ValueError("Cover generation failed")
 			notes.append("The cover page could not be generated; the packet was issued without it")
 		cover_pages = len(PdfReader(io.BytesIO(cover)).pages) if cover else 0
 
@@ -455,19 +452,6 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 			},
 		)
 		checkpoint(job_name, 75, "Assembling schedule and page index")
-		if errors and not always:
-			lock_running(job_name)
-			issue_log, issue_count = _issue_log(manifest, errors)
-			frappe.db.set_value(
-				"ilL-Export-Job", job_name, {"issue_log": issue_log, "issue_count": issue_count}
-			)
-			exports._update_export_job_status(job_name, "FAILED", error_log="\n".join(errors))
-			return {
-				"success": False,
-				"export_job": job_name,
-				"manifest": manifest,
-				"warnings": warnings + errors,
-			}
 		from frappe.utils.pdf import get_pdf
 
 		schedule_data = exports._get_schedule_data(schedule_name, include_pricing=False)
