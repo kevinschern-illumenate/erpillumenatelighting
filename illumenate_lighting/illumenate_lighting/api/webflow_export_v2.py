@@ -504,7 +504,7 @@ def get_webflow_products(
                 for cp in doc.compatible_products
             ]
 
-			product["custom_compatible_power_supplies"] = [
+            product["custom_compatible_power_supplies"] = [
                 {
                     "part_number": ps.part_number,
                     "input_protocol": ps.input_protocol,
