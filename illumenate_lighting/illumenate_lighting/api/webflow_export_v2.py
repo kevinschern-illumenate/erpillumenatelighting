@@ -511,7 +511,8 @@ def get_webflow_products(
                     "voltagefrequency": ps.voltagefrequency,
                     "output_voltage": ps.output_voltage,
                     "max_wattage": ps.max_wattage,
-                    "location_rating": ps.location_rating
+                    "location_rating": ps.location_rating,
+                    "output_count": ps.output_count  # <-- ADD THIS HERE
                 }
                 for ps in getattr(doc.source, "custom_compatible_power_supplies", [])
             ]
