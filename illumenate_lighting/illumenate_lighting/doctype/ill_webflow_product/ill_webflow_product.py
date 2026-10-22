@@ -204,6 +204,7 @@ class ilLWebflowProduct(Document):
 
 		# V2 Custom Specification Sync
 		self.sync_custom_template_data()
+		self.populate_compatible_power_supplies()
 
 		if self.is_configurable and self.fixture_template:
 			if self.get("auto_populate_configurator_options", True):
@@ -294,10 +295,6 @@ class ilLWebflowProduct(Document):
 				target_doc.flags.syncing_compatibility = True
 				target_doc.save(ignore_permissions=True)
 
-	def before_save(self):
-		# Existing before_save logic (if any) goes here...
-		self.populate_compatible_power_supplies()
-
 	def populate_compatible_power_supplies(self):
 		"""Fetch eligible drivers from the linked template and populate the child table."""
 		# 1. Figure out which template is linked to this product
@@ -309,18 +306,18 @@ class ilLWebflowProduct(Document):
 		)
 
 		if not template_name:
-			self.set("custom_compatible_power_supplies", [])
+			self.custom_compatible_power_supplies = []
 			return
 
 		# 2. Query ilL-Rel-Driver-Eligibility for all drivers linked to this template
 		eligible_drivers = frappe.get_all(
 			"ilL-Rel-Driver-Eligibility",
-			filters={"product_template": template_name, "is_active": 1},
+			filters={"fixture_template": template_name, "is_active": 1},
 			pluck="driver_spec"
 		)
 
 		# Clear the table so we can rebuild it cleanly
-		self.set("custom_compatible_power_supplies", [])
+		self.custom_compatible_power_supplies = []
 
 		if not eligible_drivers:
 			return
@@ -332,11 +329,13 @@ class ilLWebflowProduct(Document):
 			except frappe.DoesNotExistError:
 				continue
 
-			# Format Input Protocols (Comma-separated string)
+			# Format Input Protocols (Comma-separated string of Labels)
 			protocols = []
 			for row in driver_doc.get("input_protocols", []):
 				if row.protocol:
-					protocols.append(row.protocol)
+					# Get the pretty label ("0-10V") rather than the database code
+					label = frappe.db.get_value("ilL-Attribute-Dimming Protocol", row.protocol, "label")
+					protocols.append(label or row.protocol)
 			protocol_str = ", ".join(protocols)
 
 			# Format Voltage / Frequency (e.g., "120 - 277VAC")
@@ -354,9 +353,9 @@ class ilLWebflowProduct(Document):
 				"part_number": driver_doc.name,
 				"input_protocol": protocol_str,
 				"voltagefrequency": voltage_freq,
-				"output_voltage": driver_doc.voltage_output,
-				"max_wattage": driver_doc.max_wattage,
-				"location_rating": driver_doc.location_rating
+				"output_voltage": str(driver_doc.voltage_output) if driver_doc.voltage_output else "",
+				"max_wattage": f"{driver_doc.max_wattage:g}W" if driver_doc.max_wattage else "",
+				"location_rating": driver_doc.location_rating or ""
 			})
 
 	def sync_compatible_products(self):
