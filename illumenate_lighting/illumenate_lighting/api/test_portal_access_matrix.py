@@ -174,6 +174,7 @@ class TestPortalAccessMatrix(FrappeTestCase):
 			template.template_code = TEMPLATE_CODE
 			template.template_name = "Test Access Template"
 			template.is_active = 1
+			template.product_status = "Active"  # offered to dealers
 			template.insert(ignore_permissions=True)
 
 		# Owned by Administrator and not on any schedule: a guessed id. The
