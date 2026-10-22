@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-22 04:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "mounting_height",
+  "light_level",
+  "beam_diameter",
+  "display_order"
+ ],
+ "fields": [
+  {
+   "description": "Distance from the fixture to the lit surface, in feet.",
+   "fieldname": "mounting_height",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Mounting Height (ft)",
+   "reqd": 1
+  },
+  {
+   "description": "Center-beam illuminance at this height, in footcandles.",
+   "fieldname": "light_level",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Light Level (fc)"
+  },
+  {
+   "description": "Width of the beam at this height, in feet.",
+   "fieldname": "beam_diameter",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Beam Diameter (ft)"
+  },
+  {
+   "default": "0",
+   "fieldname": "display_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Display Order"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-22 04:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Photometric-Data",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "display_order",
+ "sort_order": "ASC",
+ "states": []
+}
