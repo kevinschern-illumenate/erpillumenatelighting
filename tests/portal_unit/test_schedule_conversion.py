@@ -74,6 +74,7 @@ class TapeNeonConversion(unittest.TestCase):
 								_create_or_get_bom=None,
 								_create_or_get_configured_item=None,
 								_update_fixture_links=None,
+								mirror_selling_price=None,
 							)
 						},
 					),

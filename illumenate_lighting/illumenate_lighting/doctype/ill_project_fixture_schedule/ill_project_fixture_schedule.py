@@ -639,6 +639,7 @@ class ilLProjectFixtureSchedule(Document):
 			_create_or_get_bom,
 			_create_or_get_configured_item,
 			_update_fixture_links,
+			mirror_selling_price,
 		)
 
 		counts = {
@@ -873,7 +874,9 @@ class ilLProjectFixtureSchedule(Document):
 						continue
 
 				# Ensure brand + MSRP Item Price so the quotation rate populates.
-				if self._check_and_update_item_pricing(item_code, configured_fixture):
+				if self._check_and_update_item_pricing(
+					item_code, configured_fixture, target_doc.get("selling_price_list")
+				):
 					counts["items_updated"] += 1
 
 				# Step 2: ensure the BOM exists
@@ -969,6 +972,8 @@ class ilLProjectFixtureSchedule(Document):
 				item = frappe.get_doc("Item", line.accessory_item)
 				if item.disabled or item.has_variants or not item.is_sales_item:
 					frappe.throw(_("Line {0}: select an active sales Item").format(line_label))
+				# Power supplies and accessories are priced on Standard Selling, as the portal shows.
+				mirror_selling_price(line.accessory_item, target_doc.get("selling_price_list"))
 				# Schedule quantities are expressed in stock UOM, never the Item's
 				# possibly different default selling UOM (for example a case of 12).
 				row.uom = row.stock_uom = item.stock_uom
@@ -1130,7 +1135,9 @@ class ilLProjectFixtureSchedule(Document):
 				configured.configured_item = item_code
 
 		# Ensure brand + MSRP Item Price so the transaction rate populates.
-		if self._check_and_update_tape_neon_item_pricing(item_code, configured):
+		if self._check_and_update_tape_neon_item_pricing(
+			item_code, configured, target_doc.get("selling_price_list")
+		):
 			counts["items_updated"] = counts.get("items_updated", 0) + 1
 
 		# Step 2: ensure the BOM exists
@@ -1174,7 +1181,7 @@ class ilLProjectFixtureSchedule(Document):
 		self._set_optional_row_value(row, "ill_engine_version", configured.engine_version)
 		return True
 
-	def _check_and_update_item_pricing(self, item_code, configured_fixture):
+	def _check_and_update_item_pricing(self, item_code, configured_fixture, price_list=None):
 		"""
 		Check if Item pricing and brand match the configured fixture and update if needed.
 
@@ -1191,9 +1198,9 @@ class ilLProjectFixtureSchedule(Document):
 			ensure_configured_item_price,
 		)
 
-		return ensure_configured_item_price(item_code, configured_fixture)
+		return ensure_configured_item_price(item_code, configured_fixture, price_list=price_list)
 
-	def _check_and_update_tape_neon_item_pricing(self, item_code, configured_tape_neon):
+	def _check_and_update_tape_neon_item_pricing(self, item_code, configured_tape_neon, price_list=None):
 		"""
 		Check if a tape/neon Item has correct brand and MSRP Item Price and update if needed.
 
@@ -1210,7 +1217,7 @@ class ilLProjectFixtureSchedule(Document):
 			ensure_configured_item_price,
 		)
 
-		return ensure_configured_item_price(item_code, configured_tape_neon)
+		return ensure_configured_item_price(item_code, configured_tape_neon, price_list=price_list)
 
 	def _check_and_update_bom(self, bom_name, configured_fixture):
 		"""

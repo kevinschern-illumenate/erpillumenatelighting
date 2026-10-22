@@ -324,21 +324,79 @@ def on_sales_order_submit(doc, method):
 			)
 
 
-def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_list: list) -> None:
-	"""Upsert an Item Price in the standard selling price list at MSRP.
+def _selling_price_list_currency(price_list: str) -> str | None:
+	"""Currency of an enabled selling Price List, or ``None`` when it cannot hold selling prices."""
+	details = frappe.db.get_value(
+		"Price List", price_list, ["enabled", "selling", "currency"], as_dict=True
+	)
+	if not details or not details.get("enabled") or not details.get("selling"):
+		return None
+	return details.get("currency") or ""
+
+
+def _write_selling_price(item_code: str, rate: float, price_list: str, existing) -> None:
+	"""Upsert one selling Item Price that applies on every transaction date.
+
+	ERPNext defaults ``valid_from`` to today, so a brand-new configured Item's
+	price would be invisible to a Quotation or Sales Order dated earlier (an
+	existing quote the line is being added to), and every re-price of that
+	document would land on 0. Prices written here are open-ended instead.
+	"""
+	if existing:
+		frappe.db.set_value(
+			"Item Price", existing.name, {"price_list_rate": rate, "valid_from": None}
+		)
+		return
+	item_price = frappe.new_doc("Item Price")
+	item_price.item_code = item_code
+	item_price.price_list = price_list
+	item_price.selling = 1
+	item_price.price_list_rate = rate
+	item_price.insert(ignore_permissions=True)
+	if item_price.get("valid_from"):
+		frappe.db.set_value("Item Price", item_price.name, "valid_from", None)
+
+
+def _existing_selling_price(item_code: str, price_list: str):
+	"""The general (no customer / batch) selling Item Price ERPNext would pick first."""
+	existing = frappe.get_all(
+		"Item Price",
+		filters={
+			"item_code": item_code,
+			"price_list": price_list,
+			"selling": 1,
+			"customer": ["is", "not set"],
+			"batch_no": ["is", "not set"],
+		},
+		fields=["name", "price_list_rate", "valid_from"],
+		order_by="valid_from desc, modified desc",
+		limit=1,
+	)
+	return existing[0] if existing else None
+
+
+def _create_item_price_at_msrp(
+	item_code: str, msrp: Optional[float], messages_list: list, price_list: str | None = None
+) -> None:
+	"""Upsert an Item Price at MSRP in the standard selling price list (or ``price_list``).
 
 	Best-effort: logs an error if the price list doesn't exist but does not
 	raise, so item creation is never blocked. When an Item Price already
-	exists for ``item_code`` on the selling price list, its rate is updated
-	in place only when the MSRP has changed (so a reconfigured fixture with a
-	new MSRP refreshes the listed price); otherwise it is left untouched.
+	exists for ``item_code`` on the price list, its rate is updated in place
+	only when the MSRP has changed (so a reconfigured fixture with a new MSRP
+	refreshes the listed price); otherwise it is left untouched.
+
+	A missing or non-positive MSRP is never written: a 0.00 Item Price is what
+	makes the configured line come up at 0.00 on the Quotation / Sales Order.
 
 	Args:
 		item_code: The Item code to price.
 		msrp: The MSRP value (numeric).
 		messages_list: Append info/error dicts here for caller visibility.
+		price_list: Selling Price List to write; the standard one when omitted.
 	"""
-	if msrp is None:
+	price_list = price_list or DEFAULT_SELLING_PRICE_LIST
+	if msrp is None or flt(msrp) <= 0:
 		messages_list.append({
 			"severity": "warning",
 			"text": f"No MSRP available for {item_code}; Item Price not created.",
@@ -346,37 +404,25 @@ def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_l
 		return
 
 	try:
-		if not frappe.db.exists("Price List", DEFAULT_SELLING_PRICE_LIST):
+		if _selling_price_list_currency(price_list) is None:
 			messages_list.append({
 				"severity": "error",
 				"text": (
-					f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist. "
+					f"Price list '{price_list}' does not exist or is not an enabled selling list. "
 					f"Item Price not created for {item_code}."
 				),
 			})
 			frappe.log_error(
 				title=f"Item Price Not Created for {item_code}",
-				message=f"Price list '{DEFAULT_SELLING_PRICE_LIST}' does not exist.",
+				message=f"Price list '{price_list}' does not exist or is not an enabled selling list.",
 			)
 			return
 
-		existing = frappe.get_all(
-			"Item Price",
-			filters={
-				"item_code": item_code,
-				"price_list": DEFAULT_SELLING_PRICE_LIST,
-				"selling": 1,
-			},
-			fields=["name", "price_list_rate"],
-			order_by="valid_from desc, modified desc",
-			limit=1,
-		)
+		existing = _existing_selling_price(item_code, price_list)
 		if existing:
-			current_rate = flt(existing[0].price_list_rate)
-			if current_rate != flt(msrp):
-				frappe.db.set_value(
-					"Item Price", existing[0].name, "price_list_rate", msrp
-				)
+			current_rate = flt(existing.price_list_rate)
+			if current_rate != flt(msrp) or existing.get("valid_from"):
+				_write_selling_price(item_code, flt(msrp), price_list, existing)
 				messages_list.append({
 					"severity": "info",
 					"text": (
@@ -391,12 +437,7 @@ def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_l
 				})
 			return
 
-		item_price = frappe.new_doc("Item Price")
-		item_price.item_code = item_code
-		item_price.price_list = DEFAULT_SELLING_PRICE_LIST
-		item_price.selling = 1
-		item_price.price_list_rate = msrp
-		item_price.insert(ignore_permissions=True)
+		_write_selling_price(item_code, flt(msrp), price_list, None)
 
 		messages_list.append({
 			"severity": "info",
@@ -411,6 +452,48 @@ def _create_item_price_at_msrp(item_code: str, msrp: Optional[float], messages_l
 			title=f"Item Price Creation Failed for {item_code}",
 			message=str(e),
 		)
+
+
+def standard_selling_rate(item_code: str) -> float | None:
+	"""The positive Standard Selling rate the portal shows for ``item_code``, or ``None``."""
+	existing = _existing_selling_price(item_code, DEFAULT_SELLING_PRICE_LIST)
+	rate = flt(existing.price_list_rate) if existing else 0
+	return rate if rate > 0 else None
+
+
+def mirror_selling_price(item_code: str, price_list: str | None, rate: float | None = None, *, overwrite: bool = False) -> bool:
+	"""Make ``item_code`` priced on a transaction's own selling ``price_list``.
+
+	MSRP lives on Standard Selling, which is what the portal and the fixture
+	schedule read. A Quotation / Sales Order on another selling list looks the
+	Item up there whenever ERPNext prices or re-prices a row, and finds nothing:
+	the line drops to 0.00. This copies ``rate`` (default: the Standard Selling
+	rate) onto that list when the two lists share a currency. Configured Items
+	(``overwrite``) follow their current MSRP; catalog Items such as power
+	supplies only get a price where the list has none, so a deliberate price on
+	that list is never replaced.
+
+	Returns:
+		bool: True when an Item Price was created or changed.
+	"""
+	if not item_code or not price_list or price_list == DEFAULT_SELLING_PRICE_LIST:
+		return False
+	try:
+		currency = _selling_price_list_currency(price_list)
+		if currency is None or currency != _selling_price_list_currency(DEFAULT_SELLING_PRICE_LIST):
+			return False
+		rate = flt(rate) if rate and flt(rate) > 0 else standard_selling_rate(item_code)
+		if not rate:
+			return False
+		existing = _existing_selling_price(item_code, price_list)
+		if existing and flt(existing.price_list_rate) > 0:
+			if not overwrite or (flt(existing.price_list_rate) == rate and not existing.get("valid_from")):
+				return False
+		_write_selling_price(item_code, rate, price_list, existing)
+		return True
+	except Exception as e:  # Pricing must never block the row write.
+		frappe.log_error(title=f"Item Price mirror failed for {item_code} on {price_list}", message=str(e))
+		return False
 
 
 def _configured_doc_msrp(configured_doc) -> float | None:
@@ -428,14 +511,19 @@ def _configured_doc_msrp(configured_doc) -> float | None:
 	return flt(msrp) if msrp is not None else None
 
 
-def ensure_configured_item_price(item_code: str, configured_doc, msrp: float | None = None) -> bool:
+def ensure_configured_item_price(
+	item_code: str, configured_doc, msrp: float | None = None, price_list: str | None = None
+) -> bool:
 	"""Make sure a configured Item carries the ilLumenate brand and an MSRP Item Price.
 
 	Shared by the schedule → Quotation/Sales Order conversion and the desk
 	configurator so ``erpnext.stock.get_item_details`` always finds a
 	``price_list_rate`` for configured rows. ``configured_doc`` is an
 	ilL-Configured-Fixture / ilL-Configured-Tape-Neon; ``msrp`` overrides the
-	value read from its pricing snapshot.
+	value read from it (the current estimate the portal shows for v2 builds).
+	``price_list`` is the transaction's selling price list: when it is not the
+	standard one the MSRP is written there too, so ERPNext finds it on that
+	document.
 
 	Returns:
 		bool: True when the Item brand or Item Price was created/changed.
@@ -449,24 +537,19 @@ def ensure_configured_item_price(item_code: str, configured_doc, msrp: float | N
 		frappe.db.set_value("Item", item_code, "brand", ILLUMENATE_BRAND)
 		updated = True
 
-	if msrp is None:
+	if msrp is None or flt(msrp) <= 0:
 		msrp = _configured_doc_msrp(configured_doc)
-	if msrp is None:
-		return updated
-
-	current_price = frappe.db.get_value(
-		"Item Price",
-		{"item_code": item_code, "selling": 1, "price_list": DEFAULT_SELLING_PRICE_LIST},
-		"price_list_rate",
-	)
-	if current_price is not None and abs(flt(current_price) - flt(msrp)) <= 0.01:
+	if msrp is None or flt(msrp) <= 0:
 		return updated
 
 	messages: list = []
 	_create_item_price_at_msrp(item_code, flt(msrp), messages)
 	if configured_doc.get("build_schema_version") == 2 and any(m.get("severity") == "error" for m in messages):
 		frappe.throw("A current configured Item selling price could not be saved")
-	return updated or not any(m.get("severity") == "error" for m in messages)
+	changed = any(m.get("text", "").startswith(("Created", "Updated")) for m in messages)
+	if mirror_selling_price(item_code, price_list, flt(msrp), overwrite=True):
+		changed = True
+	return updated or changed
 
 
 def _ensure_brand_exists(brand_name: str) -> None:

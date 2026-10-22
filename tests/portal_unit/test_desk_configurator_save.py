@@ -70,7 +70,9 @@ def desk():
 			ROOT + ".api.build_artifacts": stub(ROOT + ".api.build_artifacts", atomic_build=lambda f: f),
 			ROOT + ".api.configured_product_builder": builder,
 			ROOT + ".api.manufacturing_generator": stub(
-				ROOT + ".api.manufacturing_generator", ensure_configured_item_price=MagicMock()
+				ROOT + ".api.manufacturing_generator",
+				_configured_doc_msrp=MagicMock(return_value=None),
+				ensure_configured_item_price=MagicMock(),
 			),
 			ROOT + ".api.quote_order_configurator": stub(
 				ROOT + ".api.quote_order_configurator",
@@ -192,3 +194,18 @@ class DeskScheduleLine(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
+
+
+class DeskMsrp(unittest.TestCase):
+	def test_line_msrp_is_the_current_estimate_the_portal_shows(self):
+		with desk() as (module, _frappe, _builder, _sheets, _tape_neon):
+			doc = Record(pricing_snapshot=[Record(msrp_unit=0.0)])
+			validation = {"pricing": {"msrp_unit": 0.0}, "computed": {"total_price_msrp": 275.0}}
+			estimate = module._configured_doc_msrp
+			estimate.return_value = 312.5
+			self.assertEqual(module._resolve_msrp_unit(doc, validation), 312.5)
+			# A build with no current estimate falls back to the engine result, never to 0.
+			estimate.return_value = 0.0
+			self.assertEqual(module._resolve_msrp_unit(doc, validation), 275.0)
+			estimate.return_value = None
+			self.assertIsNone(module._resolve_msrp_unit(doc, {"pricing": {"msrp_unit": 0.0}}))
