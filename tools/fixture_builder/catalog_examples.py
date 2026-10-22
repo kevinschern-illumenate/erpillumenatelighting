@@ -289,6 +289,14 @@ def example_catalog(product_type):
 					"is_active": 1,
 				},
 			],
+			# Photometrics for the product page. Upload the charts first and use their site URLs.
+			beam_angle=120,
+			tm30_chart_image="/files/example-tm30.png",
+			polar_chart_image="/files/example-polar.png",
+			photometric_data=[
+				{"mounting_height": height, "light_level": level, "beam_diameter": diameter, "display_order": i}
+				for i, (height, level, diameter) in enumerate(((2, 45, 6.9), (4, 11, 13.9), (6, 5, 20.8)), 1)
+			],
 		)
 	elif product_type == "led-sheet":
 		sheet = item("DEMO-SHEET")
