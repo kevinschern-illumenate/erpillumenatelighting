@@ -16,7 +16,8 @@ Supports:
 Export Types:
 - SPEC_SUBMITTAL: Cover page + spec submittals only (filled PDFs for configured fixtures).
   Always produces a packet; omissions and warnings are logged on the export job for staff.
-- SPEC_SUBMITTAL_FULL: Cover page + all spec sheets + spec submittals; fails when a document is missing
+- SPEC_SUBMITTAL_FULL: Cover page + spec submittals + each template's spec sheet; also always
+  produces a packet and logs omissions on the export job.
 """
 
 import hashlib
@@ -2262,6 +2263,26 @@ def generate_filled_driver_submittal(
 	)
 
 
+def _template_variants_for_item(kind: str, item: str, specs: list, template: str | None = None) -> list:
+	"""Template variant rows for an Item, matched through its spec or the variant's own Item link."""
+	cfg = _VARIANT_SUBMITTAL_KINDS[kind]
+	base = {"parenttype": cfg["template_doctype"], "parentfield": "variants"}
+	if template:
+		base["parent"] = template
+	fields = ["name", "parent", cfg["spec_field"], "item"]
+	if kind == "Driver":
+		fields += ["wattage", "voltage_output", "input_protocol", "output_protocol"]
+	matches = [{cfg["spec_field"]: ["in", specs]}] if specs else []
+	matches.append({"item": item})
+	rows = {}
+	for match in matches:
+		for row in frappe.get_all(
+			cfg["variant_doctype"], filters={**base, **match}, fields=fields, order_by="parent asc, idx asc"
+		):
+			rows.setdefault(row.name, row)
+	return list(rows.values())
+
+
 def _driver_document_source(line) -> dict | None:
 	"""Resolve driver documents without changing the line or selecting a different supply.
 
@@ -2279,29 +2300,7 @@ def _driver_document_source(line) -> dict | None:
 	if config and config.get("variant_name"):
 		return {**config, "template": template, "item_code": item}
 	specs = frappe.get_all("ilL-Spec-Driver", filters={"item": item}, pluck="name")
-	rows = []
-	if specs:
-		filters = {
-			"parenttype": "ilL-Driver-Template",
-			"parentfield": "variants",
-			"driver_spec": ["in", specs],
-		}
-		if template:
-			filters["parent"] = template
-		rows = frappe.get_all(
-			"ilL-Child-Driver-Template-Variant",
-			filters=filters,
-			fields=[
-				"name",
-				"parent",
-				"driver_spec",
-				"wattage",
-				"voltage_output",
-				"input_protocol",
-				"output_protocol",
-			],
-			order_by="parent asc, idx asc",
-		)
+	rows = _template_variants_for_item("Driver", item, specs, template)
 	if len(rows) == 1:
 		row = rows[0]
 		return {
@@ -2425,6 +2424,82 @@ def generate_filled_controller_submittal(
 	"""
 	return _generate_filled_variant_submittal(
 		"Controller", controller_template_name, variant_name, warnings, webflow_overrides, is_private
+	)
+
+
+def _controller_document_source(line) -> dict | None:
+	"""The controller template and variant behind an ACCESSORY line's Item, or None.
+
+	A configured controller line keeps its template and variant code; any other line is
+	matched through the Item. An Item on several templates' variants is never guessed.
+	"""
+	item = line.get("accessory_item")
+	if line.get("manufacturer_type") != "ACCESSORY" or not item:
+		return None
+	raw = line.get("variant_selections")
+	try:
+		stored = json.loads(raw) if isinstance(raw, str) else raw or {}
+	except (TypeError, ValueError):
+		stored = {}
+	if not isinstance(stored, dict):
+		stored = {}
+	template = stored.get("template")
+	if template and not frappe.db.exists("ilL-Controller-Template", template):
+		template = None
+	specs = frappe.get_all("ilL-Spec-Controller", filters={"item": item}, pluck="name")
+	rows = _template_variants_for_item("Controller", item, specs, template)
+	if len(rows) > 1 and stored.get("variant_code"):
+		chosen = frappe.get_all(
+			"ilL-Child-Controller-Template-Variant",
+			filters={"name": ["in", [row.name for row in rows]], "variant_code": stored["variant_code"]},
+			pluck="name",
+		)
+		rows = [row for row in rows if row.name in chosen]
+	if len(rows) == 1:
+		return {"template": rows[0].parent, "variant_name": rows[0].name, "item_code": item}
+	if len(rows) > 1:
+		raise ValueError(
+			f"Controller Item '{item}' matches multiple template variants; configure its controller line to select one"
+		)
+	return None
+
+
+def generate_filled_controller_line_submittal(
+	controller_template_name: str,
+	warnings: list | None = None,
+	schedule_line: str | None = None,
+) -> dict:
+	"""Fill the controller template's submittal for the variant a schedule line's Item resolves to.
+
+	.. note::
+		This is an internal helper and is intentionally **not** whitelisted.
+		The schedule line is authorized through its schedule before any value is read.
+	"""
+	if warnings is None:
+		warnings = []
+	line = frappe.get_doc("ilL-Child-Fixture-Schedule-Line", schedule_line) if schedule_line else None
+	schedule, project, line = _explicit_schedule_context(
+		"accessory_item", line.get("accessory_item") if line else None, schedule_line
+	)
+	config = _controller_document_source(line) if line else None
+	if not config:
+		return {"success": False, "message": _("Configure this controller before exporting"), "warnings": warnings}
+	if config["template"] != controller_template_name:
+		frappe.throw("This line does not reference the requested controller template", frappe.PermissionError)
+	overrides = {
+		"project_name": project.get("project_name") if project else None,
+		"fixture_type": line.get("line_id"),
+		"project_location": line.get("location") or (project.get("location") if project else None),
+		"part_number": config["item_code"],
+	}
+	return _generate_filled_variant_submittal(
+		"Controller",
+		controller_template_name,
+		config["variant_name"],
+		warnings,
+		{key: value for key, value in overrides.items() if value not in (None, "")},
+		is_private=1,
+		schedule_context=(schedule, project, line),
 	)
 
 

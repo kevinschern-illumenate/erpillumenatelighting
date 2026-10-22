@@ -365,5 +365,96 @@ class PacketGather(unittest.TestCase):
 		self.assertTrue(lines[0]["has_submittal"])
 
 
+class FullLiterature(unittest.TestCase):
+	"""The full submittal adds the template spec sheet of every kind of configured build."""
+
+	BUILDS = (
+		("ilL-Configured-Fixture", "CF", "ilL-Fixture-Template", "FIXTURE-T"),
+		("ilL-Configured-Tape-Neon", "CTN", "ilL-Tape-Neon-Template", "NEON-T"),
+		("ilL-Configured-LED-Sheet", "CS", "ilL-LED-Sheet-Template", "SHEET-T"),
+		("ilL-Configured-Group", "GROUP", "ilL-Tape-Neon-Template", "NEON-GROUP-T"),
+		("ilL-Extrusion-Kit-Template", "KIT-T", "ilL-Extrusion-Kit-Template", "KIT-T"),
+		("ilL-Driver-Template", "DRV-T", "ilL-Driver-Template", "DRV-T"),
+		("ilL-Controller-Template", "CTL-T", "ilL-Controller-Template", "CTL-T"),
+	)
+
+	def literature(self, spec_sheets, entries, pinned=None):
+		def get_value(doctype, name, field, **_kwargs):
+			if doctype == "ilL-Configured-Group":
+				return {"family": "LED Neon", "template": "NEON-GROUP-T"}
+			if field == "spec_sheet":
+				return spec_sheets.get((doctype, name))
+			if field == "file_url":
+				return f"/private/files/{name}.pdf"
+			return {"CF": "FIXTURE-T", "CTN": "NEON-T", "CS": "SHEET-T"}.get(name)
+
+		with load_service(ROOT + ".portal.packets", {}) as (module, frappe):
+			frappe.db.get_value.side_effect = get_value
+			schedule = Record(
+				lines=[Record(name=e["schedule_line"], line_id=e["line_id"], idx=1) for e in entries]
+			)
+			warnings = []
+			return module.full_literature(schedule, entries, pinned or {}, warnings), warnings
+
+	@staticmethod
+	def entry(number, doctype, name, **values):
+		return {
+			"line_key": f"K{number}",
+			"schedule_line": f"R{number}",
+			"line_id": f"F{number}",
+			"manufacturer_type": "ILLUMENATE",
+			"qty": 1,
+			"spec_document_url": f"/private/files/submittal-{number}.pdf",
+			"source_kind": "filled_submittal",
+			"has_submittal": True,
+			"build": {"doctype": doctype, "name": name},
+			**values,
+		}
+
+	def test_every_configurable_template_adds_its_spec_sheet(self):
+		sheets = {(t_doctype, t): f"/files/{t}-sheet.pdf" for _d, _n, t_doctype, t in self.BUILDS}
+		entries = [self.entry(i, d, n) for i, (d, n, _t_doctype, _t) in enumerate(self.BUILDS)]
+		lines, warnings = self.literature(sheets, entries)
+		self.assertEqual(warnings, [])
+		literature = [line for line in lines if line["line_key"].endswith(":literature")]
+		self.assertEqual(
+			[line["spec_document_url"] for line in literature],
+			[f"/files/{t}-sheet.pdf" for _d, _n, _t_doctype, t in self.BUILDS],
+		)
+		self.assertEqual(
+			[line["provenance"]["template_type"] for line in literature],
+			[t_doctype for _d, _n, t_doctype, _t in self.BUILDS],
+		)
+		manifest, parts, errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "source.pdf"))
+		self.assertEqual(errors, [])
+		self.assertEqual(len(parts), 2 * len(self.BUILDS))
+		self.assertTrue(all(entry["status"] == "included" for entry in manifest))
+
+	def test_neon_spec_sheet_follows_its_filled_submittal(self):
+		entries = [self.entry(1, "ilL-Configured-Tape-Neon", "CTN")]
+		lines, _warnings = self.literature(
+			{("ilL-Tape-Neon-Template", "NEON-T"): "/files/neon-sheet.pdf"}, entries
+		)
+		self.assertEqual(
+			[line["spec_document_url"] for line in lines],
+			["/private/files/submittal-1.pdf", "/files/neon-sheet.pdf"],
+		)
+		self.assertEqual(lines[1]["source_kind"], "approved_literature")
+
+	def test_template_without_a_spec_sheet_is_noted_for_staff_not_failed(self):
+		entries = [self.entry(1, "ilL-Configured-Tape-Neon", "CTN")]
+		lines, warnings = self.literature({}, entries)
+		self.assertEqual(len(lines), 1)
+		self.assertIn("Line F1: NEON-T has no spec sheet", warnings[0])
+		self.assertEqual(lines[0]["warnings"], warnings)
+		_manifest, _parts, errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "source.pdf"))
+		self.assertEqual(errors, [])
+
+	def test_a_line_already_on_its_spec_sheet_does_not_repeat_it(self):
+		entries = [self.entry(1, "ilL-Configured-Tape-Neon", "CTN", source_kind="template_spec_sheet")]
+		lines, warnings = self.literature({("ilL-Tape-Neon-Template", "NEON-T"): "/files/n.pdf"}, entries)
+		self.assertEqual((len(lines), warnings), (1, []))
+
+
 if __name__ == "__main__":
 	unittest.main()

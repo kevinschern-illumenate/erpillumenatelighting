@@ -134,6 +134,37 @@ class DriverSubmittal(unittest.TestCase):
 			("ilL-Project", "P"): self.project,
 		}
 		self.candidates = [self.variant]
+		self.controller_variant = Record(
+			name="ctl-row",
+			parent="CTL",
+			controller_spec="CTL-ITEM",
+			item="CTL-ITEM",
+			variant_code="4Z",
+			is_active=1,
+			is_default=1,
+			channels=4,
+		)
+		self.records[("ilL-Controller-Template", "CTL")] = Record(
+			doctype="ilL-Controller-Template",
+			name="CTL",
+			spec_submittal_template="/files/master.pdf",
+			spec_sheet="/files/controller-sheet.pdf",
+			variants=[self.controller_variant],
+		)
+		self.records[("ilL-Spec-Controller", "CTL-ITEM")] = Record(name="CTL-ITEM", item="CTL-ITEM")
+		self.controller_mappings = [
+			{
+				"pdf_field_name": "watts",
+				"source_doctype": "ilL-Child-Controller-Template-Variant",
+				"source_field": "channels",
+				"suffix": " zones",
+			},
+			{
+				"pdf_field_name": "fixture",
+				"source_doctype": "ilL-Child-Fixture-Schedule-Line",
+				"source_field": "line_id",
+			},
+		]
 
 	def save_file(self, filename, content, doctype, name, **kwargs):
 		url = f"/private/files/{filename}"
@@ -148,15 +179,31 @@ class DriverSubmittal(unittest.TestCase):
 			return [
 				row
 				for row in self.candidates
-				if row.driver_spec in filters["driver_spec"][1]
+				if (
+					row.driver_spec in filters["driver_spec"][1]
+					if "driver_spec" in filters
+					else row.get("item") == filters["item"]
+				)
 				and (not filters.get("parent") or row.parent == filters["parent"])
 			]
 		if doctype == "ilL-Driver-Submittal-Mapping":
 			return self.mappings
+		if doctype == "ilL-Spec-Controller":
+			return ["CTL-ITEM"] if kwargs["filters"]["item"] == "CTL-ITEM" else []
+		if doctype == "ilL-Child-Controller-Template-Variant":
+			filters = kwargs["filters"]
+			row = self.controller_variant
+			if "controller_spec" in filters:
+				return [row] if row.controller_spec in filters["controller_spec"][1] else []
+			return [row] if row.item == filters.get("item") else []
+		if doctype == "ilL-Controller-Submittal-Mapping":
+			return self.controller_mappings
 		return []
 
 	def get_value(self, doctype, name, field, **kwargs):
 		if doctype == "ilL-Item-Literature":
+			return None
+		if doctype == "File":
 			return None
 		if doctype == "ilL-Configured-Fixture":
 			return "LINEAR-PART"
@@ -172,6 +219,7 @@ class DriverSubmittal(unittest.TestCase):
 	def configure(self, pdf, frappe):
 		frappe.get_doc.side_effect = lambda doctype, name: self.records[(doctype, name)]
 		frappe.get_all.side_effect = self.get_all
+		frappe.db.exists.side_effect = lambda doctype, name: (doctype, name) in self.records
 		frappe.db.get_value.side_effect = self.get_value
 		frappe.log_error = MagicMock()
 		pdf._get_linked_webflow_product = MagicMock(return_value=None)
@@ -376,8 +424,13 @@ class DriverSubmittal(unittest.TestCase):
 			self.assertIn("Required source document is missing", job_values["issue_log"])
 			self.assertEqual(job_values["issue_count"], 1)
 
-			failed = packets.generate("S", "SPEC_SUBMITTAL_FULL", include_cover=False, job_name="JOB")
-			self.assertFalse(failed["success"])
+			# The full submittal follows the same rule and adds the supply's spec sheet.
+			full = packets.generate("S", "SPEC_SUBMITTAL_FULL", include_cover=False, job_name="JOB")
+			self.assertTrue(full["success"], full)
+			self.assertEqual(full["status"], "INCOMPLETE")
+			self.assertEqual(
+				[entry["status"] for entry in full["manifest"]], ["included", "failed", "included"]
+			)
 			self.assertIn("Required source document is missing", job_values["issue_log"])
 
 	def test_both_supply_paths_use_the_template_spec_sheet_when_no_mappings_exist(self):
@@ -453,6 +506,51 @@ class DriverSubmittal(unittest.TestCase):
 		self.assertEqual(entries[0]["source_kind"], "approved_item_literature")
 		self.assertEqual(entries[0]["spec_document_url"], "/files/bracket.pdf")
 		self.saved.assert_not_called()
+
+	def test_supply_is_found_through_the_variants_own_item_link(self):
+		# The driver spec carries no Item, but the template variant names the scheduled Item.
+		get_all = self.get_all
+		self.get_all = lambda doctype, **kwargs: (
+			[] if doctype == "ilL-Spec-Driver" else get_all(doctype, **kwargs)
+		)
+		self.variant["item"] = "ITEM-100"
+		entries, warnings = self.gather()
+		self.assertEqual(entries[0]["build"], {"doctype": "ilL-Driver-Template", "name": "DRV"}, warnings)
+		self.assertEqual(entries[0]["source_kind"], "filled_submittal", warnings)
+
+	def test_controller_line_fills_its_template_submittal(self):
+		self.line.update(
+			accessory_item="CTL-ITEM",
+			power_supply_for_line=None,
+			variant_selections=json.dumps({"template": "CTL", "variant_code": "4Z", "item_code": "CTL-ITEM"}),
+		)
+		self.master = form_pdf(["watts", "fixture"])
+		entries, warnings = self.gather()
+		self.assertEqual(entries[0]["build"], {"doctype": "ilL-Controller-Template", "name": "CTL"}, warnings)
+		self.assertEqual(entries[0]["source_kind"], "filled_submittal", warnings)
+		text = (
+			PdfReader(io.BytesIO(self.saved_content[entries[0]["spec_document_url"]])).pages[0].extract_text()
+		)
+		self.assertIn("4 zones", text)
+		self.assertIn("L1", text)
+
+	def test_controller_without_mappings_uses_its_spec_sheet(self):
+		self.line.update(accessory_item="CTL-ITEM", power_supply_for_line=None)
+		self.controller_mappings = []
+		entries, warnings = self.gather()
+		self.assertEqual(entries[0]["spec_document_url"], "/files/controller-sheet.pdf")
+		self.assertEqual(entries[0]["source_kind"], "template_spec_sheet")
+		self.assertIn("controller submittal could not be generated", warnings[-1])
+
+	def test_full_packet_reads_a_spec_sheet_saved_as_this_sites_link(self):
+		self.template["spec_sheet"] = "https://erp.example.com/files/driver-sheet.pdf"
+		with self.packet_service() as (packets, _pages):
+			result = packets.generate("S", "SPEC_SUBMITTAL_FULL", include_cover=False, job_name="JOB")
+		self.assertTrue(result["success"], result)
+		self.assertEqual([entry["status"] for entry in result["manifest"]], ["included", "included"])
+		self.assertEqual(
+			result["manifest"][1]["source_url"], "https://erp.example.com/files/driver-sheet.pdf"
+		)
 
 	def test_schedule_access_is_checked_before_driver_documents_are_resolved(self):
 		stubs = self.modules()
