@@ -53,6 +53,16 @@
 						</select>
 						<small class="text-muted d-block mb-0">{{ _("Grouping wires several runs to one output when their combined load fits its per-output and total limits, for fewer and smaller power supplies.") }}</small>
 					</div>
+					{% if not is_tape_neon %}
+					<!-- Equal-length run splitting (linear fixtures) -->
+					<div class="custom-control custom-checkbox mt-3">
+						<input type="checkbox" class="custom-control-input" id="equalRunsCheck" name="equal_length_runs">
+						<label class="custom-control-label" for="equalRunsCheck">
+							<strong>{{ _("Split into Equal-Length Runs") }}</strong>
+							<small class="text-muted d-block">{{ _("Use the fewest runs of equal length within the max run length (20 ft at a 15 ft max becomes two 10 ft runs) instead of full-length runs plus a shorter remainder (15 ft + 5 ft).") }}</small>
+						</label>
+					</div>
+					{% endif %}
 					<!-- Override Max Run Length -->
 					<div class="custom-control custom-checkbox mt-3">
 						<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck">

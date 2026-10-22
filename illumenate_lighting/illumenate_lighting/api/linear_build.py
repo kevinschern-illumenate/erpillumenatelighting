@@ -254,6 +254,8 @@ def finish(doc, inputs, computed, resolved, include_power, override, *, in_memor
 			"include_power_supply": parse_bool(include_power),
 			"override_max_run_ft": override,
 			"dimming_protocol": (resolved.get("driver_plan") or {}).get("requested_protocol"),
+			# Recorded only when chosen, so remainder-method builds keep their identity.
+			**({"equal_length_runs": True} if computed.get("equal_length_runs") else {}),
 		},
 		"computed": computed,
 		"resolved_items": resolved,

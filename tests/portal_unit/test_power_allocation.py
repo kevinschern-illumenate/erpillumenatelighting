@@ -288,5 +288,28 @@ class GroupedRunGroups(unittest.TestCase):
 		self.assertEqual(json.loads(grouped["build_snapshot_json"])["power_plan"]["allocation"], GROUPED)
 
 
+class WithEqualLengthRuns(unittest.TestCase):
+	"""Equal-length splitting decides the runs; grouping then decides which outputs carry them."""
+
+	def test_equal_runs_can_share_one_output(self):
+		with load_service(ROOT + ".api.linear_power") as (linear, _):
+			lengths = linear.equal_run_lengths(20 * 304.8, 15 * 304.8)
+		self.assertEqual([round(mm / 304.8, 6) for mm in lengths], [10, 10])
+		watts_per_ft = 3.5
+		runs = circuits(*(round(mm / 304.8 * watts_per_ft, 6) for mm in lengths))
+		per_run = plan_power(runs, CATALOG)
+		self.assertEqual([a["output"] for a in per_run["allocations"]], [1, 2])
+		grouped = plan_power(runs, CATALOG, allocation=GROUPED)
+		self.assertEqual(grouped["drivers"], [{"driver_item": "PS-100W", "qty": 1}])
+		self.assertEqual({(a["supply"], a["output"]) for a in grouped["allocations"]}, {(1, 1)})
+		check(self, grouped, CATALOG)
+
+	def test_group_policy_records_both_choices(self):
+		r = request()
+		r["power"].update(equal_length_runs=True, power_allocation="grouped")
+		power = normalize(r)["power"]
+		self.assertEqual((power["equal_length_runs"], power["power_allocation"]), (True, GROUPED))
+
+
 if __name__ == "__main__":
 	unittest.main()

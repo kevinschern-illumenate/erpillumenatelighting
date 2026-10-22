@@ -1,5 +1,7 @@
 """Linear fixture adapter for the common actual-circuit power planner."""
 
+import math
+
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.tape_neon_power import select_plan
@@ -30,6 +32,31 @@ def run_watt_limit(template, offering, protocol=None, ceiling=MAX_WATTS_PER_RUN)
 		return ceiling
 	usable = [watts for watts in usable if watts > 0]
 	return min(ceiling, max(usable)) if usable else ceiling
+
+
+def equal_run_lengths(total_mm, max_run_mm, cut_increment_mm=0):
+	"""Split tape into the fewest runs no longer than ``max_run_mm``, as equal as possible.
+
+	The alternative to full runs then a remainder: 20 ft at a 15 ft limit gives two
+	10 ft runs instead of 15 ft + 5 ft. Runs end on the tape's cut points, so lengths
+	differ by at most one cut increment (longer runs first) and always sum to the total.
+	"""
+	if total_mm <= 0:
+		return []
+	if not max_run_mm or max_run_mm <= 0 or math.isinf(max_run_mm) or total_mm <= max_run_mm:
+		return [total_mm]
+	cut = float(cut_increment_mm or 0)
+	cuts_per_run = math.floor(max_run_mm / cut + 1e-9) if cut > 0 else 0
+	units = round(total_mm / cut) if cut > 0 else 0
+	if cuts_per_run < 1 or abs(units * cut - total_mm) > 0.5:
+		# No cut point fits a run, or the tape is not cut on its increments: split evenly.
+		count = math.ceil(total_mm / max_run_mm - 1e-9)
+		return [total_mm / count] * count
+	count = math.ceil(units / cuts_per_run)
+	base, extra = divmod(units, count)
+	lengths = [(base + (1 if index < extra else 0)) * cut for index in range(count)]
+	lengths[-1] += total_mm - sum(lengths)
+	return lengths
 
 
 def select(template, runs_count, total_watts, offering, protocol=None, runs=None, allocation=None):

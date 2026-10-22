@@ -155,6 +155,13 @@ Context:
 									</label>
 								</div>
 								<div class="custom-control custom-checkbox mt-3">
+									<input type="checkbox" class="custom-control-input" id="equalRunsCheck" name="equal_length_runs">
+									<label class="custom-control-label" for="equalRunsCheck">
+										<strong>{{ _("Split into Equal-Length Runs") }}</strong>
+										<small class="text-muted d-block">{{ _("Use the fewest runs of equal length within the max run length (20 ft at a 15 ft max becomes two 10 ft runs) instead of full-length runs plus a shorter remainder (15 ft + 5 ft).") }}</small>
+									</label>
+								</div>
+								<div class="custom-control custom-checkbox mt-3">
 									<input type="checkbox" class="custom-control-input" id="overrideMaxRunCheck" name="override_max_run_enabled">
 									<label class="custom-control-label" for="overrideMaxRunCheck">
 										<strong>{{ _("Override Max Run Length") }}</strong>
