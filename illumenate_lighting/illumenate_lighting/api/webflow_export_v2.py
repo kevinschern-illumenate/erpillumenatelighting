@@ -18,12 +18,10 @@ import json
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import frappe
+import requests
 from frappe import _
 
-import requests
-from illumenate_lighting.illumenate_lighting.api.publication import inspect, request, claim
-from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand, resolve_brand
-
+from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
 )
@@ -53,7 +51,7 @@ def enqueue_n8n_webhook(webhook_url, job_data):
         response = requests.post(webhook_url, json=job_data, timeout=120)
         response.raise_for_status()
     except requests.RequestException as e:
-        frappe.log_error(f"Failed to push {job_data.get('job')} to n8n: {str(e)}", "Webflow V2 Sync")
+        frappe.log_error(f"Failed to push {job_data.get('job')} to n8n: {e!s}", "Webflow V2 Sync")
         # Fail the worker job visibly; the publication lease remains recoverable.
         raise
 
@@ -198,13 +196,13 @@ def _collect_component_item_codes(kit_components) -> list[str]:
 
 @frappe.whitelist(allow_guest=False)
 def get_webflow_products(
-    product_type: str = None,
-    sync_status: str = None,
+    product_type: str | None = None,
+    sync_status: str | None = None,
     limit: int = 100,
     offset: int = 0,
     include_child_tables: bool | str | None = True,
-    brand: str = None,
-    product_slug: str = None,
+    brand: str | None = None,
+    product_slug: str | None = None,
 ) -> dict:
     """
     Get Webflow products for n8n export.
@@ -681,8 +679,8 @@ def mark_webflow_error(product_slug, error_message=None, brand=None,
 @frappe.whitelist(allow_guest=False)
 def get_webflow_categories(
     include_inactive: bool = False,
-    sync_status: str = None,
-    brand: str = None,
+    sync_status: str | None = None,
+    brand: str | None = None,
 ) -> dict:
     """Get Webflow categories for navigation and filtering, scoped by brand."""
     brand_code = brand or get_default_brand() or "illumenate"
@@ -788,7 +786,7 @@ def get_webflow_categories(
 def mark_category_synced(
     category_slug: str,
     webflow_item_id: str,
-    brand: str = None,
+    brand: str | None = None,
 ) -> dict:
     """Mark a category as synced for the given brand."""
     from illumenate_lighting.illumenate_lighting.portal.staff import require
@@ -834,7 +832,7 @@ def mark_category_synced(
 def mark_category_error(
     category_slug: str,
     error_message: str,
-    brand: str = None,
+    brand: str | None = None,
 ) -> dict:
     """Mark a category as errored for the given brand."""
     from illumenate_lighting.illumenate_lighting.portal.staff import require
@@ -876,10 +874,10 @@ def mark_category_error(
 @frappe.whitelist(methods=["POST"])
 def trigger_sync(
     product_slugs: str | list | None = None,
-    product_type: str = None,
+    product_type: str | None = None,
     category_slugs: str | list | None = None,
     sync_all_categories: bool | str | None = False,
-    brand: str = None,
+    brand: str | None = None,
 ) -> dict:
     """
     Mark products and/or categories as pending sync to trigger n8n workflow.
@@ -1034,7 +1032,7 @@ def get_sync_statistics() -> dict:
     return stats
 
 
-def _get_certification_details(certification_name: str, brand_code: str = None) -> dict:
+def _get_certification_details(certification_name: str, brand_code: str | None = None) -> dict:
     """Helper to get certification details for export, picking the correct brand images."""
     if not certification_name:
         return {}
@@ -1196,7 +1194,7 @@ def preview_specifications(webflow_product: str) -> dict:
     }
 
 
-def _enrich_specifications_from_linked_doctypes(product: dict, doc, brand_code: str = None) -> None:
+def _enrich_specifications_from_linked_doctypes(product: dict, doc, brand_code: str | None = None) -> None:
     """Enrich the product specifications list with data from linked doctypes.
 
     Adds missing spec entries for: Color Rendering (CRI), Input Voltage,
@@ -2436,7 +2434,7 @@ def _enrich_profile_specs(product: dict, existing_labels: set) -> list:
     return specs
 
 
-def _build_certifications_spec(doc, brand_code: str = None) -> dict | None:
+def _build_certifications_spec(doc, brand_code: str | None = None) -> dict | None:
     """Build a Certifications & Ratings spec entry from the product's certifications."""
     if not getattr(doc, "certifications", None):
         return None
@@ -2486,7 +2484,7 @@ def trigger_sync_v2(docname):
     for brand in active_brands:
         # Resolve brand config to get the proper webhook URL
         try:
-            brand_config = resolve_brand(brand, allow_inactive=True)
+            resolve_brand(brand, allow_inactive=True)
             webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
         except frappe.ValidationError:
             webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
@@ -2542,7 +2540,7 @@ def trigger_publish_v2(docname):
     for brand in active_brands:
         # Resolve brand config to get the proper webhook URL
         try:
-            brand_config = resolve_brand(brand, allow_inactive=True)
+            resolve_brand(brand, allow_inactive=True)
             webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
         except frappe.ValidationError:
             webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
