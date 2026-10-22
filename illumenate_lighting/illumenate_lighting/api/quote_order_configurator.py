@@ -25,6 +25,7 @@ from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import 
 	build_fixture_bom_items,
 	configured_tape_neon_item_group,
 	ensure_configured_item_price,
+	mirror_selling_price,
 )
 from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
 
@@ -585,6 +586,9 @@ def _apply_pricing_to_row(parent_doc, row, item_code: str, qty: float, artifact:
 	list and finally the engine MSRP when no Item Price/rule is found.
 	"""
 	price_list = _parent_selling_price_list(parent_doc)
+	# MSRP lives on Standard Selling; a document on another selling list must
+	# find the Item there too, or every ERPNext re-price drops the row to 0.00.
+	mirror_selling_price(item_code, price_list, _artifact_msrp(artifact), overwrite=_is_configured(artifact))
 	details = None
 	try:
 		from erpnext.stock.get_item_details import get_item_details
@@ -643,9 +647,18 @@ def _artifact_msrp(artifact: dict[str, Any]) -> float | None:
 	"""Best-effort engine MSRP fallback from the artifact payload."""
 	for key in ("msrp_unit", "msrp", "total_msrp"):
 		value = artifact.get(key)
-		if value:
+		if flt(value) > 0:
 			return flt(value)
 	return None
+
+
+def _is_configured(artifact: dict[str, Any]) -> bool:
+	"""True for the configured product's own Item (not a power supply or accessory row)."""
+	if (artifact.get("power_supply") or {}).get("is_power_supply_line"):
+		return False
+	if (artifact.get("configuration_snapshot") or {}).get("accessory_for"):
+		return False
+	return bool(artifact.get("source_doctype") or artifact.get("configured_group"))
 
 
 def _get_selling_rate(item_code: str, price_list: str | None = None) -> float | None:
@@ -660,7 +673,7 @@ def _get_selling_rate(item_code: str, price_list: str | None = None) -> float | 
 		order_by="valid_from desc, modified desc",
 		limit=1,
 	)
-	if not prices:
+	if not prices or flt(prices[0].price_list_rate) <= 0:
 		return None
 	return flt(prices[0].price_list_rate)
 

@@ -39,6 +39,7 @@ from illumenate_lighting.illumenate_lighting.api.configured_product_builder impo
 	_tape_neon_payload_from_portal_selections,
 )
 from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import (
+	_configured_doc_msrp,
 	ensure_configured_item_price,
 )
 from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import (
@@ -657,7 +658,9 @@ def build_configured_line(
 
 	# LED Sheet v2 MSRP covers the entire bundle, including cables and included power.
 	msrp_unit = artifact.get("msrp_unit") if group_artifact or product_type == PRODUCT_TYPE_SHEET else _resolve_msrp_unit(configured_doc, validation)
-	ensure_configured_item_price(artifact["item_code"], configured_doc, msrp=msrp_unit)
+	ensure_configured_item_price(
+		artifact["item_code"], configured_doc, msrp=msrp_unit, price_list=header.get("selling_price_list")
+	)
 	if msrp_unit is not None:
 		artifact["msrp_unit"] = msrp_unit
 
@@ -1196,15 +1199,22 @@ def _mark_sync_source(schedule_doc, parent_doctype: str, parent_name: str | None
 
 
 def _resolve_msrp_unit(configured_doc, validation: dict[str, Any]) -> float | None:
-	snapshot = getattr(configured_doc, "pricing_snapshot", None) or []
-	if snapshot and getattr(snapshot[-1], "msrp_unit", None) is not None:
-		return flt(snapshot[-1].msrp_unit)
+	"""The unit MSRP the portal schedule shows for this build, or ``None``.
+
+	v2 builds are priced by their current estimate (``compute_line_msrp`` in the
+	schedule page does the same). The stored pricing snapshot is only a fallback
+	for legacy records: a deduplicated build keeps the snapshot of whoever made it
+	first, and an unpriced engine result stores 0.0 there. Zero is never an MSRP.
+	"""
+	current = _configured_doc_msrp(configured_doc)
+	if current is not None and flt(current) > 0:
+		return flt(current)
 	pricing = validation.get("pricing") or {}
 	for key in ("msrp_unit", "total_msrp", "total_price_msrp"):
-		if pricing.get(key):
+		if flt(pricing.get(key)) > 0:
 			return flt(pricing[key])
 	computed = validation.get("computed") or {}
-	if computed.get("total_price_msrp"):
+	if flt(computed.get("total_price_msrp")) > 0:
 		return flt(computed["total_price_msrp"])
 	return None
 
