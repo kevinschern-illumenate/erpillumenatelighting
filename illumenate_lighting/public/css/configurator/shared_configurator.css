@@ -406,8 +406,19 @@ select.ill-template-select-driven { display: none !important; }
 .ill-group-mode-body small { color: var(--ill-muted, #6c757d); line-height: 1.35; }
 .ill-group-help { margin-top: 10px; font-size: 13px; color: var(--ill-ink, #172e48); }
 .ill-group-help summary { cursor: pointer; color: var(--ill-accent, #00588c); font-weight: 500; }
-.ill-group-help ol { margin: 8px 0 0; padding-left: 20px; }
+.ill-group-lede { margin: 10px 0 0; font-size: 13px; color: var(--ill-muted, #6c757d); }
+.ill-group-help p { margin: 8px 0 0; }
+.ill-group-help h6 { margin: 12px 0 0; font-size: 13px; font-weight: 600; color: var(--ill-ink, #172e48); }
+.ill-group-help ol,
+.ill-group-help ul { margin: 6px 0 0; padding-left: 20px; }
 .ill-group-help li { margin-bottom: 4px; }
+.ill-group-tip {
+	margin: 0 0 10px;
+	padding: 6px 10px;
+	border-left: 3px solid var(--ill-accent, #00588c);
+	background: var(--ill-accent-bg, #e6f0f7);
+	color: var(--ill-ink, #172e48);
+}
 .ill-group-body { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--ill-border, #dce2e8); }
 .ill-group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .ill-run-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 6px; }

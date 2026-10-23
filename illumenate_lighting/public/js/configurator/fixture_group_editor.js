@@ -163,22 +163,59 @@
         this.$toggle = mode('group', __('Multi-run group'), sheet
             ? __('Several separate coverage areas of this same panel, each with its own feed, quoted and ordered as one line.')
             : __('Several separate runs of this same product, each with its own leader and end, quoted and ordered as one line.'));
-        var help = $('<details class="ill-group-help"></details>').appendTo(this.$panel);
-        el('summary', null, __('When should I use a multi-run group?')).appendTo(help);
-        var steps = el('ol').appendTo(help);
-        (sheet ? [
-            __('Use it when one fixture type covers several separate areas — for example, fixture type S1 is three lightbox faces: 2 × 4 ft, 2 × 4 ft and 4 × 8 ft.'),
-            __('Choose the panel, colour temperature, finish and other options once. They apply to every area.'),
-            __('Add an area for each separate surface and enter its width and height. Each area gets its own panel layout and feeds.'),
-            __('Choose whether to include power supplies once for the whole group. Areas can share a supply; included supplies are added as their own line under the group.'),
-            __('Calculate to check every area, then save. The group is quoted, ordered and built as one line; its quantity repeats the whole group.')
+        el('p', 'ill-group-lede', sheet
+            ? __('Most fixture types are a single area. Choose a multi-run group only when one fixture type covers several separate surfaces, each fed on its own.')
+            : __('Most fixture types are a single run. Choose a multi-run group only when one fixture type is installed as several separate pieces, each with its own power feed.'))
+            .appendTo(this.$panel);
+        this.$help = $('<details class="ill-group-help"></details>').appendTo(this.$panel);
+        el('summary', null, __('What is a multi-run group, and when should I use it?')).appendTo(this.$help);
+        function section(title, items, tag) {
+            el('h6', null, title).appendTo(self.$help);
+            var list = el(tag || 'ul').appendTo(self.$help);
+            items.forEach(function (text) { el('li', null, text).appendTo(list); });
+        }
+        el('p', null, sheet
+            ? __('A multi-run group is one fixture type made of several separate coverage areas of the same panel. Each area gets its own panel layout and feeds, but the whole group is quoted, ordered and tracked as one line on your schedule.')
+            : __('A multi-run group is one fixture type made of several separate runs of the same product. Each run is built to its own length with its own leader cable and end, but the whole group is quoted, ordered and tracked as one line on your schedule.'))
+            .appendTo(this.$help);
+        section(__('Use a multi-run group when'), sheet ? [
+            __('One fixture type on the drawings covers several separate surfaces — for example, fixture type S1 is three lightbox faces: 2 × 4 ft, 2 × 4 ft and 4 × 8 ft.'),
+            __('The areas are different sizes but use the same panel and options.'),
+            __('You want the areas to share power supplies where they can.')
         ] : [
-            __('Use it when one fixture type is installed as several separate pieces — for example, fixture type L1 is three cove runs in one room: 20 ft, 5 ft and 25 ft, each fed by its own leader cable.'),
+            __('One fixture type on the drawings is installed as several separate pieces — for example, fixture type L1 is three cove runs in one room: 20 ft, 5 ft and 25 ft, each fed by its own leader cable.'),
+            __('The runs are different lengths, or need different leaders or ends, but use the same product and options.'),
+            __('You want the runs to share power supplies where they can.')
+        ]);
+        section(__('Use something else when'), sheet ? [
+            __('Every area is the same size: choose Single area and set the line quantity instead.'),
+            __('An area needs a different panel, colour temperature or option: configure it as its own fixture type on a separate line.'),
+            __('There are more than {0} areas: split them across more than one line.', [MAX_RUNS])
+        ] : [
+            __('Every run is identical: choose Single run and set the line quantity instead.'),
+            __('The pieces are joined by a jumper cable and share one feed: that is one run. Choose Single run and add a segment with a Jumper end.'),
+            __('A piece needs a different product, colour temperature, finish or output: configure it as its own fixture type on a separate line.'),
+            __('There are more than {0} runs: split them across more than one line.', [MAX_RUNS])
+        ]);
+        section(__('What you get'), [
+            __('One line on the schedule, quote and order, with one part number for the whole group.'),
+            sheet
+                ? __('Every area is still built and labeled on its own. Name each area (for example, "North face") so the installer knows where it goes; the names appear on the quote.')
+                : __('Every run is still built and labeled on its own. Name each run (for example, "North wall") so the installer knows where it goes; the names appear on the quote.'),
+            __('Included power supplies are planned for the whole group and added as their own line under it.'),
+            __('The line quantity repeats the complete group. Quantity 2 means two of every {0}.', [nouns(this.family).one])
+        ]);
+        section(__('How to set it up'), sheet ? [
+            __('Choose the panel, colour temperature, finish and other options once. They apply to every area.'),
+            __('Add an area for each separate surface and enter its width and height.'),
+            __('Choose whether to include power supplies once for the whole group.'),
+            __('Calculate to check every area, power and price, then save.')
+        ] : [
             __('Choose the product, colour temperature, finish and other options once. They apply to every run.'),
-            __('Add a run for each separate piece and enter its own length, leader and end. Pieces joined by a cable stay in one run: choose Jumper on a segment end.'),
-            __('Choose whether to include power supplies once for the whole group. Runs can share a supply; included supplies are added as their own line under the group.'),
-            __('Calculate to check every run, then save. The group is quoted, ordered and built as one line; its quantity repeats the whole group.')
-        ]).forEach(function (text) { el('li', null, text).appendTo(steps); });
+            __('Add a run for each separate piece and enter its own length, leader and end.'),
+            __('Choose whether to include power supplies once for the whole group.'),
+            __('Calculate to check every run, power and price, then save.')
+        ], 'ol');
 
         // ── Run list ────────────────────────────────────────────────
         this.$content = el('div', 'ill-group-body').appendTo(this.$panel);
@@ -186,6 +223,7 @@
         this.$heading = el('strong', 'ill-group-count').appendTo(head);
         this.$total = el('span', 'ill-group-total text-muted small').appendTo(head);
         this.$list = $('<ol class="ill-run-list"></ol>').attr('aria-label', __('Runs in this group')).appendTo(this.$content);
+        this.$tip = $('<p class="ill-group-tip small" role="note"></p>').appendTo(this.$content);
         var tools = el('div', 'ill-group-tools').appendTo(this.$content);
         this.$add = button('+ ' + __('Add run'), 'btn-outline-primary', function () { self.add(); }).appendTo(tools);
         this.$duplicate = button(__('Duplicate selected'), 'btn-outline-secondary', function () { self.duplicate(self.active); }).appendTo(tools);
@@ -259,6 +297,8 @@
         if (enabled) {
             // The run on screen becomes the first run, or replaces the run it was before.
             this.enabled = true;
+            // A first-time group opens the explanation; a reopened group already knows what it is.
+            if (!this.members.length) this.$help.prop('open', true);
             if (!this.members.length) this.members.push(this.newMember(geometry(this.readMember())));
             this.capture();
         } else {
@@ -292,6 +332,19 @@
             $(this).toggleClass('ill-run-incomplete', summary.empty);
         });
         this.$total.text(total > 0 ? __('Total') + ' ' + feetInches(total) : '');
+        this.refreshTip();
+    };
+    /** A nudge when the group is not doing anything a single line would not. */
+    Editor.prototype.refreshTip = function () {
+        var noun = this.noun(), count = this.members.length, text = '';
+        var inputs = this.members.map(function (member) { return JSON.stringify(member.input || {}); });
+        var filled = this.members.every(function (member) { return !summarize(member.input, this.family).empty; }, this);
+        if (count === 1) {
+            text = __('Add a {0} for each separate piece. A group with one {0} orders the same as a single {0}.', [noun.one]);
+        } else if (filled && inputs.every(function (input) { return input === inputs[0]; })) {
+            text = __('All {0} {1} are identical. A single {2} with a line quantity of {0} orders the same pieces; keep the group if they should share power supplies.', [count, noun.many, noun.one]);
+        }
+        this.$tip.text(text).toggle(!!text);
     };
     Editor.prototype.render = function () {
         var self = this, instance = this.instance, noun = this.noun(), count = this.members.length;

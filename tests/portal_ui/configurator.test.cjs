@@ -505,6 +505,30 @@ test('group editor keeps independent geometry and only sends canonical intent on
   dom.window.close();
 });
 
+test('group editor explains when to use a group and nudges toward a single line', () => {
+  const {dom, $, api} = setup('<div id="host"><input id="length" value="100"></div>');
+  const instance = new api.Base($('#host'), {groups_enabled: true, saveHandler: () => {}});
+  instance.exportRequest = () => ({family: 'Linear Fixture', template: 'ILL-SH01-SW', selections: {
+    segments: [{requested_length_mm: Number(instance.$('#length').val()), end_type: 'Endcap'}]
+  }});
+  instance.restoreGeometry = geometry => instance.$('#length').val(geometry.segments[0].requested_length_mm);
+  api.attachGroupEditor(instance);
+  const group = instance.groupEditor;
+  assert.match(group.$panel.find('.ill-group-lede').text(), /Most fixture types are a single run/);
+  assert.match(group.$help.text(), /Use something else when/);
+  assert.match(group.$help.text(), /Quantity 2 means two of every run/);
+  assert.equal(group.$help.prop('open'), false);
+  group.$toggle[0].click();
+  assert.equal(group.$help.prop('open'), true);
+  assert.match(group.$tip.text(), /A group with one run orders the same as a single run/);
+  group.duplicate(0);
+  assert.match(group.$tip.text(), /All 2 runs are identical/);
+  instance.$('#length').val('250').trigger('input');
+  assert.equal(group.$tip.text(), '');
+  instance.destroy();
+  dom.window.close();
+});
+
 test('group reopen unwraps only the active member and retains the complete request', () => {
   const {dom, $, api} = setup('<div id="host"></div>');
   const group = {family: 'LED Sheet', template: 'Snowfield', shared: {spec: 'SW', options: {CCT: '3000K'}}, power: {include_power_supply: false}, members: [
