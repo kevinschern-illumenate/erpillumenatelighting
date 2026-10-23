@@ -11,9 +11,59 @@ from illumenate_lighting.private_storage import private_state_directory
 
 WORKSPACE = "ilLumenate Lighting"
 
+# Blocks and cards of the pre-2026-10 layout. A site still holding any of them gets the
+# shipped layout once, with its own blocks and cards kept after it, because merging by
+# identity alone would interleave the old sections with the new ones.
+RETIRED_BLOCKS = {
+	"ill_dashboard_header",
+	"ill_spacer_dashboard",
+	"ill_portal_header",
+	"ill_spacer_portal",
+	"ill_catalog_systems_header",
+	"ill_card_driver_controller",
+	"ill_reports_header",
+	"ill_spacer_reports",
+	"ill_shortcuts_header",
+	"ill_workflow_header",
+	"ill_spacer_1",
+	"ill_masters_header",
+}
+RETIRED_CARDS = {"Driver & Controller Catalog"}
+
+
+def _cards(links):
+	"""Split workspace links into (Card Break, [links]) groups; links before any card render nowhere."""
+	groups = []
+	for row in links or []:
+		if row.get("type") == "Card Break":
+			groups.append((row, []))
+		elif groups:
+			groups[-1][1].append(row)
+	return groups
+
+
+def _relayout(site, shipped):
+	"""Take the shipped content and cards, then append the site's own blocks and cards."""
+	result = copy.deepcopy(site)
+	shipped_blocks = json.loads(shipped.get("content") or "[]")
+	known = {block.get("id") for block in shipped_blocks} | RETIRED_BLOCKS
+	own = [block for block in json.loads(site.get("content") or "[]") if block.get("id") not in known]
+	result["content"] = json.dumps(shipped_blocks + own)
+	shipped_links = shipped.get("links") or []
+	known_cards = {row.get("label") for row, _ in _cards(shipped_links)} | RETIRED_CARDS
+	links = copy.deepcopy(shipped_links)
+	for card, rows in _cards(site.get("links")):
+		if card.get("label") not in known_cards:
+			links += copy.deepcopy([card, *rows])
+	result["links"] = links
+	return result
+
 
 def merge_workspace(site, shipped):
 	"""Retain site rows/blocks and add shipped destinations by stable identity."""
+	site_ids = {block.get("id") for block in json.loads(site.get("content") or "[]")}
+	if site_ids & RETIRED_BLOCKS:
+		site = _relayout(site, shipped)
 	result = copy.deepcopy(site)
 	# v16 makes Workspace.type mandatory. Backups made on v15 (including a
 	# pending snapshot from a failed upgrade) do not contain it. A normal save
