@@ -318,10 +318,13 @@ def get_webflow_products(
         filters["name"] = product_slug
 
     # Get product list with basic fields
+    # custom_webflow_status and custom_dimensions_image_2 are site Custom Fields the app does not
+    # ship; query only the columns this site has.
+    product_meta = frappe.get_meta("ilL-Webflow-Product")
     products = frappe.get_all(
         "ilL-Webflow-Product",
         filters=filters,
-        fields=[
+        fields=[f for f in [
             "name", "product_name", "product_slug", "product_type", "custom_webflow_status",
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
@@ -334,7 +337,7 @@ def get_webflow_products(
             "webflow_item_id", "webflow_collection_slug",
             "last_synced_at", "sync_status", "sync_error_message",
             "creation", "modified"
-        ],
+        ] if f in ("name", "creation", "modified") or product_meta.has_field(f)],
         limit=limit,
         start=offset,
         order_by="modified desc"
@@ -467,8 +470,8 @@ def get_webflow_products(
                     "quantity": k.quantity,
                     "notes": k.notes,
                     "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
-                    "webflow_title": k.custom_webflow_title,  # <-- added
-                    "webflow_description": k.custom_webflow_description,
+                    "webflow_title": k.get("custom_webflow_title"),  # site Custom Field, absent on fresh sites
+                    "webflow_description": k.get("custom_webflow_description"),
                 }
                 for k in doc.kit_components
             ]
