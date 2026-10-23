@@ -19,9 +19,14 @@
  * Server builds (configured record, Item, BOM, Item Price, schedule line);
  * client inserts the row. The parent document is never auto-saved.
  *
+ * "Reconfigure Row" on the Items grid reopens a configured row (opts.rowName):
+ * its rows, and the rows of its schedule line's supplies / accessories, are
+ * replaced in place so the document keeps matching the schedule.
+ *
  * Public API (consumed by the quote_order_configurator.js shim):
  *   IllDesk.addConfiguratorButton(frm)
  *   IllDesk.openConfiguratorDialog(frm, opts)
+ *   IllDesk.reconfigureSelectedRow(frm)
  */
 (function (root) {
 	'use strict';
@@ -30,6 +35,7 @@
 	var DESK_API = 'illumenate_lighting.illumenate_lighting.api.desk_configurator.';
 	var MARKUP_METHOD = 'illumenate_lighting.templates.pages.configure.get_configurator_markup';
 	var BUTTON_LABEL = __('Configure & Add Fixture');
+	var RECONFIGURE_LABEL = __('Reconfigure Row');
 	var INTERNAL_ROLES = ['System Manager', 'Administrator', 'ilL Sales Review', 'ilL Order Approver'];
 
 	var PRODUCT_TYPES = [
@@ -47,6 +53,13 @@
 	var CATALOG_CLASSES = { 'Extrusion Kit': 'Kit', 'Driver': 'Driver', 'Controller': 'DriverController' };
 	var CATALOG_SCOPES = { 'Extrusion Kit': 'ill-configurator-kit', 'Driver': 'ill-configurator-driver', 'Controller': 'ill-configurator-controller' };
 
+	// Row fields written from a build (quote_order_configurator._apply_artifact_to_row).
+	var BUILD_FIELDS = ['ill_product_type', 'ill_configured_group', 'ill_configured_fixture', 'ill_configured_tape_neon',
+		'ill_configured_led_sheet', 'ill_configured_product_doctype', 'ill_configured_product', 'ill_configured_item',
+		'ill_bom', 'ill_template_code', 'ill_requested_length_mm', 'ill_mfg_length_mm', 'ill_runs_count',
+		'ill_total_watts', 'ill_finish', 'ill_lens', 'ill_engine_version', 'ill_is_power_supply_line',
+		'ill_power_supply_for', 'ill_parent_configured_fixture', 'bom_no'];
+
 	var STEPS = [
 		{ key: 'project',   label: __('Project & Schedule') },
 		{ key: 'line',      label: __('Line Details') },
@@ -61,9 +74,11 @@
 		var grid = frm && frm.fields_dict && frm.fields_dict.items && frm.fields_dict.items.grid;
 		if (!canConfigure(frm)) {
 			// Grid buttons survive form refreshes, so hide ours once the doc is no longer editable.
-			if (grid && grid.custom_buttons && grid.custom_buttons[BUTTON_LABEL]) {
-				grid.custom_buttons[BUTTON_LABEL].addClass('hidden');
-			}
+			[BUTTON_LABEL, RECONFIGURE_LABEL].forEach(function (label) {
+				if (grid && grid.custom_buttons && grid.custom_buttons[label]) {
+					grid.custom_buttons[label].addClass('hidden');
+				}
+			});
 			return;
 		}
 
@@ -79,7 +94,30 @@
 			grid.add_custom_button(BUTTON_LABEL, function () {
 				IllDesk.openConfiguratorDialog(frm);
 			});
+			grid.add_custom_button(RECONFIGURE_LABEL, function () {
+				IllDesk.reconfigureSelectedRow(frm);
+			});
 		}
+	};
+
+	// Reopens the ticked configured row with its saved selections. A ticked
+	// power-supply or accessory row opens the configured row it belongs to.
+	IllDesk.reconfigureSelectedRow = function (frm) {
+		var grid = frm && frm.fields_dict && frm.fields_dict.items && frm.fields_dict.items.grid;
+		var selected = (grid && typeof grid.get_selected_children === 'function') ? grid.get_selected_children() : [];
+		if (selected.length !== 1) {
+			frappe.msgprint({ title: __('Select one row'), indicator: 'orange',
+				message: __('Tick the checkbox of one configured row in Items, then click {0}.', [RECONFIGURE_LABEL]) });
+			return null;
+		}
+		var row = configuredRowFor(frm, selected[0]);
+		if (!row) {
+			frappe.msgprint({ title: __('Not a configured row'), indicator: 'orange',
+				message: __('Row {0} was not added with {1}, so there is no configuration to reopen. Edit it in the grid instead.',
+					[selected[0].idx, BUTTON_LABEL]) });
+			return null;
+		}
+		return IllDesk.openConfiguratorDialog(frm, { rowName: row.name });
 	};
 
 	IllDesk.openConfiguratorDialog = function (frm, opts) {
@@ -147,6 +185,15 @@
 		return Object.prototype.hasOwnProperty.call(CATALOG_CLASSES, productType);
 	}
 
+	// A dialog product type for a row: catalog rows (kit, supply, controller)
+	// carry no ill_product_type, so their saved request names the family.
+	function productTypeOf(productType, request) {
+		var known = function (value) { return PRODUCT_TYPES.some(function (pt) { return pt.value === value; }); };
+		if (known(productType)) return productType;
+		var family = request && (request.family || ((request.selections || {}).group_request || {}).family);
+		return known(family) ? family : (productType || null);
+	}
+
 	function productTypeLabel(productType) {
 		var match = PRODUCT_TYPES.find(function (pt) { return pt.value === productType; });
 		return match ? match.label : productType;
@@ -164,14 +211,36 @@
 		return out;
 	}
 
-	function usedFixtureTypes(frm) {
-		return (frm.doc.items || []).map(function (r) { return r.ill_fixture_type; }).filter(Boolean);
+	function usedFixtureTypes(frm, exceptLine) {
+		return (frm.doc.items || []).filter(function (r) { return !exceptLine || r.ill_schedule_line_id !== exceptLine; })
+			.map(function (r) { return r.ill_fixture_type; }).filter(Boolean);
 	}
 
-	function usedSectionLabels(frm) {
-		var seen = {};
-		return (frm.doc.items || []).map(function (r) { return r.ill_section_label; })
-			.filter(function (v) { if (!v || seen[v]) return false; seen[v] = true; return true; });
+	function isConfiguredRow(row) {
+		return !!(row && !row.ill_is_power_supply_line && (row.ill_configurator_request
+			|| row.ill_configured_group || row.ill_configured_fixture || row.ill_configured_tape_neon || row.ill_configured_led_sheet));
+	}
+
+	// The configured row a ticked row belongs to: itself, or the row whose build
+	// its power supply / LED Sheet accessory was added for (same Fixture Type).
+	function configuredRowFor(frm, row) {
+		if (!row) return null;
+		var rows = frm.doc.items || [];
+		var sameType = function (r) { return r.ill_fixture_type === row.ill_fixture_type; };
+		if (row.ill_is_power_supply_line) {
+			var owner = row.ill_power_supply_for;
+			return owner ? rows.find(function (r) {
+				return isConfiguredRow(r) && sameType(r)
+					&& (r.ill_configured_product === owner || r.ill_configured_group === owner || r.ill_configured_led_sheet === owner);
+			}) || null : null;
+		}
+		if (row.ill_configurator_request) return row;
+		if (row.ill_configured_led_sheet) {
+			// Jumper / leader rows share the sheet link; the panel row comes first.
+			var sheetRows = rows.filter(function (r) { return r.ill_configured_led_sheet === row.ill_configured_led_sheet && sameType(r); });
+			return sheetRows.find(function (r) { return r.ill_configurator_request; }) || sheetRows[0] || row;
+		}
+		return isConfiguredRow(row) ? row : null;
 	}
 
 	function errorText(msg) {
@@ -242,6 +311,7 @@
 			this.qty = row.qty; this.notes = row.additional_notes || '';
 			this.scheduleLineName = row.ill_schedule_line_id;
 			try { this.initialRequest = row.ill_configurator_request ? JSON.parse(row.ill_configurator_request) : null; } catch (_) { this.initialRequest = null; }
+			this.productType = productTypeOf(this.productType, this.initialRequest);
 		}
 		this.addedCount = 0;
 	}
@@ -265,7 +335,9 @@
 		if (this.editingRow && !this.initialRequest && !this.frm.is_new()) {
 			this.call('reopen_row', {parent_doctype: this.frm.doctype, parent_name: this.frm.doc.name, row_name: this.rowName}).then(function (result) {
 				if (self.closed) return;
-				self.initialRequest = result.request; self.renderProjectStep();
+				self.initialRequest = result.request;
+				self.productType = productTypeOf(self.productType, self.initialRequest);
+				self.renderProjectStep();
 			}).catch(function () { self.body$().html('<div role="alert">' + __('This configuration could not be reopened. Close the dialog and review the document.') + '</div>'); });
 		} else this.renderProjectStep();
 	};
@@ -709,7 +781,7 @@
 	DialogController.prototype.renderLineForm = function (data) {
 		var self = this;
 		var $body = this.body$();
-		var pendingLines = (data.lines || []).filter(function (l) { return l.is_pending || !!l.initial_request; });
+		var pendingLines = (data.lines || []).filter(function (l) { return l.is_pending || !!l.initial_request || l.idx === self.lineIdx; });
 		var showLineSelect = !!(this.schedule && pendingLines.length);
 
 		var header = this.schedule
@@ -779,7 +851,7 @@
 			c.line_select = makeControl({
 				fieldtype: 'Select', fieldname: 'line_select', label: __('Schedule line'),
 				options: options,
-				description: __('Edit an existing schedule configuration or add a new line.'),
+				description: __('Pick a line to reconfigure it (its rows on this document are replaced), or add a new line.'),
 				onchange: function () {
 					if (self.restoringLineSelection) return;
 					var val = c.line_select.get_value();
@@ -863,7 +935,11 @@
 			self.renderConfigureStep();
 		};
 
-		var duplicateOnForm = !this.rowName && usedFixtureTypes(this.frm).indexOf(fixtureType) !== -1;
+		// Rows of the line being reconfigured are replaced, so they are not duplicates.
+		var editedLine = this.lineIdx != null
+			? ((this.pickerData || {}).lines || []).find(function (l) { return l.idx === self.lineIdx; })
+			: null;
+		var duplicateOnForm = !this.rowName && usedFixtureTypes(this.frm, editedLine && editedLine.name).indexOf(fixtureType) !== -1;
 		var duplicateOnSchedule = this.lineIdx == null && !!this.pickerData
 			&& (this.pickerData.lines || []).some(function (l) { return l.line_id === fixtureType; });
 		if (duplicateOnForm || duplicateOnSchedule) {
@@ -1093,25 +1169,51 @@
 		if (msg.save_receipt && (frm.doc.items || []).some(function (row) { return row.ill_configuration_save_key === msg.save_receipt; })) return;
 		var childDoctype = frm.doctype + ' Item';
 		var row = null;
+		var lineName = msg.schedule_line_name || null;
+		var replacedLines = msg.replaced_line_names || [];
 
 		if (this.rowName && locals[childDoctype] && locals[childDoctype][this.rowName]) {
 			row = locals[childDoctype][this.rowName];
-		} else {
+		} else if (lineName) {
+			// A reconfigured schedule line: its first row on this document takes the new build.
+			row = (frm.doc.items || []).find(function (r) {
+				return r.ill_schedule_line_id === lineName && !r.ill_is_power_supply_line;
+			}) || null;
+		}
+		if (!row) {
 			// Reuse the blank default row a new document starts with.
 			row = (frm.doc.items || []).find(function (r) { return !r.item_code && !r.ill_configured_product; }) || null;
 			if (!row) row = frm.add_child('items', {});
 		}
-		// A reconfigured row replaces the power-supply rows of its previous build.
-		var previousOwner = this.rowName ? (row.ill_configured_product || row.ill_configured_group || null) : null;
+		// The previous build's rows go: every other row of this schedule line, the
+		// rows of the supply / accessory lines the rewrite replaced and, for a row
+		// on no schedule, the supplies, sheet accessories and kit components built with it.
+		var previousOwner = row.ill_configured_product || row.ill_configured_group || null;
+		var previousSheet = row.ill_configured_led_sheet || null;
+		var previousRequest = row.ill_configurator_request || null;
 		var previousType = row.ill_fixture_type;
-		if (previousOwner) {
-			var stale = (frm.doc.items || []).filter(function (r) {
-				return r !== row && r.ill_is_power_supply_line && r.ill_power_supply_for === previousOwner
-					&& r.ill_fixture_type === previousType;
-			});
+		// A reopened row moved to another line leaves its old line with no rows; saving drops that line.
+		var previousLine = this.rowName ? (row.ill_schedule_line_id || null) : null;
+		var reconfiguring = !!(this.rowName || (lineName && row.ill_schedule_line_id === lineName));
+		msg.reconfigured = reconfiguring;
+		var stale = (frm.doc.items || []).filter(function (r) {
+			if (r === row) return false;
+			if (lineName && r.ill_schedule_line_id === lineName) return true;
+			if (previousLine && r.ill_schedule_line_id === previousLine) return true;
+			if (r.ill_schedule_line_id && replacedLines.indexOf(r.ill_schedule_line_id) >= 0) return true;
+			if (!reconfiguring || r.ill_fixture_type !== previousType) return false;
+			if (r.ill_is_power_supply_line) return !!previousOwner && r.ill_power_supply_for === previousOwner;
+			if (r.ill_schedule_line_id || row.ill_schedule_line_id) return false;
+			return (!!previousSheet && r.ill_configured_led_sheet === previousSheet)
+				|| (!!previousRequest && r.ill_configurator_request === previousRequest);
+		});
+		if (stale.length) {
 			frm.doc.items = frm.doc.items.filter(function (r) { return stale.indexOf(r) < 0; });
 			stale.forEach(function (r) { frappe.model.clear_doc(r.doctype, r.name); });
+			frm.doc.items.forEach(function (r, i) { r.idx = i + 1; });
 		}
+		// A reused row may have held another family: clear the build links the new values leave out.
+		BUILD_FIELDS.forEach(function (k) { if (!(k in values) && row[k] != null) row[k] = null; });
 		Object.keys(values).forEach(function (k) { row[k] = values[k]; });
 		row.__unsaved = 1;
 
@@ -1165,7 +1267,9 @@
 
 		var html = '<div class="ill-desk-done text-center py-4">'
 			+ '<div class="ill-desk-done-icon text-success"><i class="fa fa-check-circle fa-3x"></i></div>'
-			+ '<h5 class="mt-3">' + __('Added {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)]) + '</h5>'
+			+ '<h5 class="mt-3">' + (msg.reconfigured
+				? __('Updated {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)])
+				: __('Added {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)])) + '</h5>'
 			+ (msg.schedule
 				? '<p class="text-muted mb-1">' + __('Schedule line saved to {0}.', ['<strong>' + escapeHtml(this.scheduleName || msg.schedule) + '</strong>']) + '</p>'
 				: '<p class="text-warning mb-1">' + __('Not linked to a fixture schedule.') + '</p>')
