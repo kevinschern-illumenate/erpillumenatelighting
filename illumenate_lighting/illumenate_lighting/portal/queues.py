@@ -10,7 +10,15 @@ from illumenate_lighting.illumenate_lighting.portal.status import SALES_EMAIL
 
 # (label, capability, DocType, base filters, projected fields, owner, due date)
 QUEUES = {
-	"verification": ("Product verification", "sales", "ilL-Product-Verification-Request", {"state": ["in", ["REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED"]]}, ["name", "product_title", "customer", "state", "assigned_to", "due_date", "modified"], "assigned_to", "due_date"),
+	"verification": (
+		"Product verification",
+		"sales",
+		"ilL-Product-Verification-Request",
+		{"state": ["in", ["REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED"]]},
+		["name", "product_title", "customer", "state", "assigned_to", "due_date", "modified"],
+		"assigned_to",
+		"due_date",
+	),
 	"order_changes": (
 		"Order changes and cancellations",
 		"sales",
@@ -319,6 +327,7 @@ def summary():
 		entry = {
 			"key": key,
 			"label": label,
+			"group": capability,
 			"views": _views(owner, due),
 		}
 		try:

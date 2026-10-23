@@ -40,7 +40,12 @@ frappe.pages["submittal-readiness"].on_page_load = function (wrapper) {
 	status.setAttribute("role", "status");
 	const table = document.createElement("div");
 	table.className = "table-responsive";
-	container.append(status, table);
+	const intro = document.createElement("p");
+	intro.className = "text-muted";
+	intro.textContent = __(
+		"Product templates that cannot produce a spec submittal yet. Fix what each row lists, then use Test to fill a sample submittal and check every mapped field.",
+	);
+	container.append(intro, status, table);
 	const METHOD = "illumenate_lighting.illumenate_lighting.api.submittal_readiness.";
 	const deskUrl = (doctype, name) =>
 		`/app/${doctype.toLowerCase().replace(/[^a-z0-9]+/g, "-")}/${encodeURIComponent(name)}`;

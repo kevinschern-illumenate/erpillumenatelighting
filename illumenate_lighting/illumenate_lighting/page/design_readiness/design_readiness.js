@@ -12,7 +12,9 @@ frappe.pages['design-readiness'].on_page_load = function (wrapper) {
 	const container = document.createElement('div'); container.className = 'p-3'; page.main[0].append(container);
 	const status = document.createElement('p'); status.setAttribute('role', 'status');
 	const table = document.createElement('div'); table.className = 'table-responsive';
-	container.append(status, table);
+	const intro = document.createElement('p'); intro.className = 'text-muted';
+	intro.textContent = __('Catalog records the System Designer cannot use yet. Open a record and fill the listed fields; Volume shows how many recent schedule lines use it, so start with the highest.');
+	container.append(intro, status, table);
 	let version = 0;
 	const deskUrl = (doctype, name) => `/app/${doctype.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/${encodeURIComponent(name)}`;
 	const statusColor = {'ready': 'green', 'incomplete': 'orange', 'not modelled': 'gray'};

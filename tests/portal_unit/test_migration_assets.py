@@ -254,6 +254,50 @@ class WorkspaceMigrationRetry(unittest.TestCase):
 				with self.subTest(kind=kind):
 					self.assertEqual(module.merge_workspace({"type": kind}, shipped)["type"], kind)
 
+	def test_old_layout_is_replaced_once_and_site_sections_are_kept(self):
+		with load_service("illumenate_lighting.portal_workspace") as (module, _frappe):
+			shipped = read_json(WORKSPACE_FILE)
+			site = copy.deepcopy(shipped)
+			site["content"] = json.dumps(
+				[
+					{"id": "ill_dashboard_header", "type": "header", "data": {"text": "Dashboard"}},
+					{
+						"id": "ill_card_driver_controller",
+						"type": "card",
+						"data": {"card_name": "Driver & Controller Catalog"},
+					},
+					{"id": "ill_card_specs", "type": "card", "data": {"card_name": "Specifications"}},
+					{"id": "site-block", "type": "card", "data": {"card_name": "Our checklist"}},
+				]
+			)
+			site["links"] = [
+				{"type": "Card Break", "label": "Driver & Controller Catalog"},
+				{"type": "Link", "label": "Old", "link_type": "DocType", "link_to": "ilL-Driver-Template"},
+				{"type": "Card Break", "label": "Our checklist"},
+				{"type": "Link", "label": "Customers", "link_type": "DocType", "link_to": "Customer"},
+			]
+			merged = module.merge_workspace(site, shipped)
+			self.assertEqual(module.merge_workspace(merged, shipped), merged)
+			ids = [block["id"] for block in json.loads(merged["content"])]
+			shipped_ids = [block["id"] for block in json.loads(shipped["content"])]
+			self.assertEqual(ids, [*shipped_ids, "site-block"])
+			cards = [row["label"] for row in merged["links"] if row["type"] == "Card Break"]
+			self.assertNotIn("Driver & Controller Catalog", cards)
+			self.assertEqual(cards[-1], "Our checklist")
+			self.assertEqual(merged["links"][-1]["link_to"], "Customer")
+			self.assertEqual(len(merged["links"]), len(shipped["links"]) + 2)
+
+	def test_shipped_cards_and_shortcuts_are_all_placed(self):
+		workspace = read_json(WORKSPACE_FILE)
+		blocks = json.loads(workspace["content"])
+		cards = {row["label"] for row in workspace["links"] if row["type"] == "Card Break"}
+		self.assertEqual({b["data"]["card_name"] for b in blocks if b["type"] == "card"}, cards)
+		self.assertEqual(
+			{b["data"]["shortcut_name"] for b in blocks if b["type"] == "shortcut"},
+			{row["label"] for row in workspace["shortcuts"]},
+		)
+		self.assertEqual(len({b["id"] for b in blocks}), len(blocks))
+
 	def test_hook_does_not_clear_backup_if_later_migration_work_rolls_back(self):
 		with (
 			load_service("illumenate_lighting.portal_workspace") as (module, frappe),
