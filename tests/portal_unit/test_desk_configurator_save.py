@@ -209,3 +209,18 @@ class DeskMsrp(unittest.TestCase):
 			self.assertEqual(module._resolve_msrp_unit(doc, validation), 275.0)
 			estimate.return_value = None
 			self.assertIsNone(module._resolve_msrp_unit(doc, {"pricing": {"msrp_unit": 0.0}}))
+
+
+class DeskReconfiguredLine(unittest.TestCase):
+	def test_rewritten_line_reports_the_supply_lines_it_replaced(self):
+		with desk() as (module, _frappe, _builder, _sheets, _tape_neon):
+			fixture = Doc(name="L1", line_key="k1", configured_fixture="CF-1")
+			old_supply = Doc(name="P1", line_key="p1", power_supply_for_line="k1")
+			other = Doc(name="P9", line_key="p9", power_supply_for_line="k9")
+			schedule = Doc(name="S1", lines=[fixture, old_supply, other])
+			owned = module._owned_line_names(schedule, fixture)
+			self.assertEqual(owned, ["P1"])
+			# set_power_lines recreates the supplies under new names.
+			schedule.lines[:] = [fixture, other, Doc(name="P2", line_key="p2", power_supply_for_line="k1")]
+			self.assertEqual(module._gone_lines(schedule, owned), ["P1"])
+			self.assertEqual(module._owned_line_names(schedule, Doc(name="L2")), [])

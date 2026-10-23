@@ -674,9 +674,11 @@ def build_configured_line(
 	line_position = None
 	power_lines: list = []
 	sheet_lines: list = []
+	replaced_lines: list = []
 	if schedule_doc is not None:
 		frappe.db.savepoint(SCHEDULE_LINE_SAVEPOINT)
 		try:
+			owned_before = _owned_line_names(schedule_doc, schedule_doc.lines[line_idx_int]) if line_idx_int is not None else []
 			line = _write_schedule_line(
 				schedule_doc,
 				line_idx_int,
@@ -700,6 +702,7 @@ def build_configured_line(
 			line_position = line.idx
 			power_lines = [l for l in schedule_doc.lines if l.get("power_supply_for_line") == line.line_key]
 			sheet_lines = _sheet_accessory_lines(schedule_doc, line)
+			replaced_lines = _gone_lines(schedule_doc, owned_before)
 		except Exception as exc:  # The outer atomic build rolls back artifacts and the line together.
 			frappe.db.rollback(save_point=SCHEDULE_LINE_SAVEPOINT)
 			frappe.log_error(
@@ -759,6 +762,7 @@ def build_configured_line(
 		"schedule": schedule_doc.name if schedule_doc is not None else None,
 		"schedule_line_name": line_name,
 		"schedule_line_idx": (line_position - 1) if line_position else None,
+		"replaced_line_names": replaced_lines,
 		"fixture_type": fixture_type,
 		"location": location,
 		"product_type": product_type,
@@ -838,12 +842,14 @@ def _build_catalog_line(
 	})
 
 	line_name = None
+	replaced_lines: list = []
 	if schedule_doc is not None:
 		from illumenate_lighting.illumenate_lighting.api.power_supply_lines import clear_power_lines
 
 		frappe.db.savepoint(SCHEDULE_LINE_SAVEPOINT)
 		try:
 			line = schedule_doc.lines[line_idx_int] if line_idx_int is not None else schedule_doc.append("lines", {})
+			owned_before = _owned_line_names(schedule_doc, line) if line_idx_int is not None else []
 			# An overwritten line drops the sheet accessories and supplies of its old product.
 			led_sheet_configurator.remove_sheet_accessories_for_line(schedule_doc, line)
 			clear_power_lines(schedule_doc, line)
@@ -857,6 +863,7 @@ def _build_catalog_line(
 			_mark_sync_source(schedule_doc, parent_doctype, parent_name)
 			schedule_doc.save()
 			line_name = line.name
+			replaced_lines = _gone_lines(schedule_doc, owned_before)
 		except Exception as exc:  # The outer atomic build rolls the line back.
 			frappe.db.rollback(save_point=SCHEDULE_LINE_SAVEPOINT)
 			frappe.log_error(
@@ -900,6 +907,7 @@ def _build_catalog_line(
 		"header_values": {"ill_fixture_schedule": schedule_doc.name if schedule_doc is not None else None},
 		"schedule": schedule_doc.name if schedule_doc is not None else None,
 		"schedule_line_name": line_name,
+		"replaced_line_names": replaced_lines,
 		"fixture_type": fixture_type,
 		"location": location,
 		"product_type": product_type,
@@ -1189,6 +1197,24 @@ def _sheet_accessory_lines(schedule_doc, line) -> list:
 		for other in schedule_doc.lines
 		if other is not line and is_generated_accessory_line(other.manufacturer_type, other.notes, markers)
 	]
+
+
+def _owned_line_names(schedule_doc, line) -> list[str]:
+	"""Names of the power-supply and LED Sheet accessory lines generated for ``line``."""
+	key = line.get("line_key")
+	owned = [other.name for other in schedule_doc.lines if key and other.get("power_supply_for_line") == key]
+	owned += [other.name for other in _sheet_accessory_lines(schedule_doc, line)]
+	return [name for name in owned if name]
+
+
+def _gone_lines(schedule_doc, names: list[str]) -> list[str]:
+	"""The lines in ``names`` a rewrite removed, so the open form can drop their rows.
+
+	Rewriting a line recreates its supplies and sheet accessories under new
+	names; rows still pointing at the old ones would never match the schedule.
+	"""
+	remaining = {line.name for line in schedule_doc.lines}
+	return [name for name in names if name not in remaining]
 
 
 def _mark_sync_source(schedule_doc, parent_doctype: str, parent_name: str | None) -> None:
