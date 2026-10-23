@@ -164,6 +164,16 @@ class ilLWebflowProduct(Document):
 
 	def populate_certification_badges(self):
 		"""Populate the custom_badge_images JSON field based on active Target Brands."""
+		# custom_badge_images (certification rows) and the dark/206 badge images (ilL-Attribute-Certification)
+		# are site Custom Fields the app does not ship; skip where they are absent.
+		if not frappe.get_meta(self.meta.get_field("certifications").options).has_field("custom_badge_images"):
+			return
+		cert_meta = frappe.get_meta("ilL-Attribute-Certification")
+		badge_fields = [
+			f for f in ("badge_image", "custom_badge_image_dark", "custom_206_badge_image_light", "custom_206_badge_image_dark")
+			if cert_meta.has_field(f)
+		]
+
 		active_brands = [row.brand for row in self.get("target_brands", []) if row.enabled]
 		if not active_brands:
 			active_brands = ["lighting_206", "illumenate"]  # Fallback if none selected
@@ -182,10 +192,7 @@ class ilLWebflowProduct(Document):
 			cert_doc = frappe.db.get_value(
 				"ilL-Attribute-Certification",
 				row.certification,
-				[
-					"badge_image", "custom_badge_image_dark", 
-					"custom_206_badge_image_light", "custom_206_badge_image_dark"
-				],
+				badge_fields,
 				as_dict=True
 			)
 			if not cert_doc:
@@ -340,6 +347,10 @@ class ilLWebflowProduct(Document):
 
 	def populate_compatible_power_supplies(self):
 		"""Fetch eligible drivers from the linked template and populate the child table."""
+		# custom_compatible_power_supplies is a site Custom Field the app does not ship; skip where it is absent.
+		if not self.meta.has_field("custom_compatible_power_supplies"):
+			return
+
 		# 1. Figure out which template is linked to this product
 		template_name = (
 			self.tape_neon_template or 
