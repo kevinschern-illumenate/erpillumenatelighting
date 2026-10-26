@@ -28,6 +28,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
+LINE_DOCTYPE = "ilL-Child-Fixture-Schedule-Line"
 TRANSACTION_DOCTYPES = ("Quotation", "Sales Order")
 CONFIGURED_LINKS = ("configured_group", "configured_fixture", "configured_tape_neon", "configured_led_sheet")
 # A change to any of these makes the line a different product, so its rows are rebuilt.
@@ -332,6 +333,69 @@ def schedule_is_open(schedule) -> bool:
 	return not cint(schedule.get("is_locked")) and schedule.get("status") in EDITABLE_STATUSES
 
 
+def version_root(schedule_name: str | None) -> str | None:
+	"""The first version of ``schedule_name``; every later version names it as ``version_parent``."""
+	if not schedule_name:
+		return None
+	return frappe.db.get_value(SCHEDULE_DOCTYPE, schedule_name, "version_parent") or schedule_name
+
+
+def same_schedule_family(a: str | None, b: str | None) -> bool:
+	return bool(a and b) and (a == b or version_root(a) == version_root(b))
+
+
+def stale_line_map(schedule, line_names) -> dict[str, str]:
+	"""``{old line name: line on schedule}`` for line names left over from another version.
+
+	Creating a schedule version (or leaving QUOTED, which versions it) copies
+	every line under a new name but keeps its ``line_key``, so a row linked to
+	the old version still finds its line by key. Lines of unrelated schedules
+	never match.
+	"""
+	current = {line.name for line in schedule.lines}
+	stale = sorted({name for name in line_names or [] if name and name not in current})
+	if not stale:
+		return {}
+	by_key = {line.get("line_key"): line.name for line in schedule.lines if line.get("line_key")}
+	if not by_key:
+		return {}
+	old_lines = frappe.get_all(
+		LINE_DOCTYPE,
+		filters={"name": ["in", stale], "parenttype": SCHEDULE_DOCTYPE},
+		fields=["name", "parent", "line_key"],
+	)
+	root = schedule.get("version_parent") or schedule.name
+	roots: dict[str, str | None] = {}
+	mapping = {}
+	for old in old_lines or []:
+		if old.get("parent") not in roots:
+			roots[old.get("parent")] = version_root(old.get("parent"))
+		if roots[old.get("parent")] == root and old.get("line_key") in by_key:
+			mapping[old.get("name")] = by_key[old.get("line_key")]
+	return mapping
+
+
+def relink_rows(rows, mapping) -> int:
+	"""Point rows at ``mapping``'s current lines in place; returns how many moved."""
+	moved = 0
+	for row in rows or []:
+		target = mapping.get(row.get("ill_schedule_line_id"))
+		if target:
+			_set(row, "ill_schedule_line_id", target)
+			moved += 1
+	return moved
+
+
+def _relinked_copy(row, mapping):
+	target = mapping.get(row.get("ill_schedule_line_id"))
+	if not target:
+		return row
+	as_dict = getattr(row, "as_dict", None)
+	values = dict(as_dict()) if callable(as_dict) else dict(row)
+	values["ill_schedule_line_id"] = target
+	return values
+
+
 def _skip_globally() -> bool:
 	flags = frappe.flags
 	return bool(
@@ -427,17 +491,25 @@ def on_transaction_validate(doc, method=None):
 	if not name:
 		return
 	before = doc.get_doc_before_save()
-	if before is None and doc.get("amended_from"):
-		return  # An amendment re-copies rows already reconciled on the cancelled document.
+	amended = before is None and doc.get("amended_from")
 	previous_link = before.get("ill_fixture_schedule") if before is not None else None
-	if previous_link and previous_link != name:
-		return  # Switched to another schedule version; its rows still name the old lines.
+	if previous_link and previous_link != name and not same_schedule_family(previous_link, name):
+		return  # Moved to an unrelated schedule; its rows name lines it does not have.
 	if not frappe.db.exists(SCHEDULE_DOCTYPE, name):
 		return
 	schedule = frappe.get_doc(SCHEDULE_DOCTYPE, name)
+	# Rows still naming an earlier version's lines (a new version, or an amendment
+	# of a document quoted on one) follow their line to this version by line key.
+	before_rows = (before.get("items") if before is not None else None) or []
+	mapping = stale_line_map(
+		schedule, [row.get("ill_schedule_line_id") for row in (*before_rows, *(doc.get("items") or []))]
+	)
+	relink_rows(doc.get("items"), mapping)
+	if amended:
+		return  # An amendment re-copies rows already reconciled on the cancelled document.
 	plan = plan_transaction_changes(
 		[line.name for line in schedule.lines],
-		(before.get("items") if before is not None else None) or [],
+		[_relinked_copy(row, mapping) for row in before_rows],
 		doc.get("items") or [],
 		newly_linked=not previous_link,
 	)

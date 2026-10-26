@@ -83,6 +83,39 @@ def get_permission_query_conditions(user=None):
 	return "`tabilL-Quote-Offer`.customer=" + frappe.db.escape(actor.customer)
 
 
+def _version_root(name):
+	return frappe.db.get_value(SCHEDULE, name, "version_parent") or name
+
+
+def offer_schedule(quotation, request):
+	"""The schedule revision this Quotation offers: the request's, or a later version of it.
+
+	Changing a quoted schedule from the desk creates a new version, so an
+	amended or revised Quotation may carry that version instead of the one the
+	request was raised on. ``None`` when it names an unrelated schedule.
+	"""
+	name = quotation.get("ill_fixture_schedule")
+	if not name or name == request.schedule:
+		return name
+	if frappe.db.exists(SCHEDULE, name) and _version_root(name) == _version_root(request.schedule):
+		return name
+	return None
+
+
+def open_revision(name):
+	"""``name``, or the newest unlocked version of it when it has been superseded."""
+	if not frappe.db.get_value(SCHEDULE, name, "is_locked"):
+		return name
+	latest = frappe.get_all(
+		SCHEDULE,
+		filters={"version_parent": _version_root(name), "is_locked": 0},
+		pluck="name",
+		order_by="version desc",
+		limit=1,
+	)
+	return latest[0] if latest else name
+
+
 def before_submit(quotation, method=None):
 	if not quotation.get("ill_quote_request"):
 		return
@@ -90,10 +123,11 @@ def before_submit(quotation, method=None):
 	if quotation.quotation_to != "Customer":
 		frappe.throw("Portal offers must be addressed to a Customer")
 	request = frappe.get_doc(REQUEST, quotation.ill_quote_request)
-	schedule = frappe.get_doc(SCHEDULE, request.schedule)
-	if quotation.get(
-		"ill_fixture_schedule"
-	) != request.schedule or quotation.party_name != commercial_customer(schedule):
+	schedule_name = offer_schedule(quotation, request)
+	if not schedule_name:
+		frappe.throw("Quotation customer and schedule must match the quote request's owning company")
+	schedule = frappe.get_doc(SCHEDULE, schedule_name)
+	if quotation.party_name != commercial_customer(schedule):
 		frappe.throw("Quotation customer and schedule must match the quote request's owning company")
 	if request.customer != quotation.party_name:
 		frappe.throw("The request's commercial customer must be reconciled before issuing this offer")
@@ -124,12 +158,13 @@ def on_submit(quotation, method=None):
 	if frappe.db.exists(DOCTYPE, {"quotation": quotation.name}):
 		return
 	request = frappe.get_doc(REQUEST, quotation.ill_quote_request)
+	schedule_name = offer_schedule(quotation, request)
 	frappe.db.sql(
-		"select name from `tabilL-Project-Fixture-Schedule` where name=%s for update", request.schedule
+		"select name from `tabilL-Project-Fixture-Schedule` where name=%s for update", schedule_name
 	)
 	frappe.db.sql("select name from `tabilL-Quote-Request` where name=%s for update", request.name)
 	request.reload()
-	schedule = frappe.get_doc(SCHEDULE, request.schedule)
+	schedule = frappe.get_doc(SCHEDULE, schedule_name)
 	data = _snapshot(quotation)
 	data["exclusions"] = [
 		{
@@ -200,6 +235,25 @@ def on_cancel(quotation, method=None):
 		offer = frappe.get_doc(DOCTYPE, name)
 		offer.state = "CANCELLED"
 		_save(offer)
+		_reopen_request(offer, quotation)
+
+
+def _reopen_request(offer, quotation):
+	"""Cancelling the issued offer puts its request back under review.
+
+	An ISSUED request refuses a new Quotation, so without this the cancelled
+	quote could only be amended, never re-prepared from the request.
+	"""
+	if not offer.quote_request:
+		return
+	request = frappe.get_doc(REQUEST, offer.quote_request)
+	if request.state != "ISSUED" or request.latest_issued_offer != offer.name:
+		return
+	request.state = "UNDER_REVIEW"
+	request.save(ignore_permissions=True)
+	request.add_comment(
+		"Info", f"Quotation {quotation.name} was cancelled; offer {offer.name} withdrawn and the request reopened."
+	)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -222,7 +276,8 @@ def prepare_quotation(request_name, company):
 		return {"quotation": existing.name, "already_existed": True}
 	if request.state in ("CLOSED", "ISSUED"):
 		frappe.throw("Amend the existing offer or reopen the request before preparing another Quotation")
-	schedule = frappe.get_doc(SCHEDULE, request.schedule)
+	# A request raised on a since-versioned schedule is quoted on its open version.
+	schedule = frappe.get_doc(SCHEDULE, open_revision(request.schedule))
 	if schedule.is_locked or schedule.status not in ("DRAFT", "READY", "QUOTED"):
 		frappe.throw("This schedule revision cannot be quoted")
 	if request.customer != commercial_customer(schedule):
@@ -235,7 +290,7 @@ def prepare_quotation(request_name, company):
 			"company": company,
 			"order_type": "Sales",
 			"transaction_date": nowdate(),
-			"ill_fixture_schedule": request.schedule,
+			"ill_fixture_schedule": schedule.name,
 			"ill_quote_request": request.name,
 		}
 	)

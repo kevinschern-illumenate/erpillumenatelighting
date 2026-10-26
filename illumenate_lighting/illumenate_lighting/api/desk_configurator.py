@@ -244,6 +244,10 @@ def get_desk_context(
 	_require_parent_doctype(parent_doctype)
 
 	linked = None
+	linked_missing = None
+	if linked_schedule and not frappe.db.exists(SCHEDULE_DOCTYPE, linked_schedule):
+		# The document names a schedule that was deleted: let staff pick another.
+		linked_missing, linked_schedule = linked_schedule, None
 	if linked_schedule:
 		schedule, err = _load_schedule(linked_schedule, "read")
 		if err:
@@ -268,6 +272,7 @@ def get_desk_context(
 		"success": True,
 		"customer": customer,
 		"linked_schedule": linked,
+		"linked_missing": linked_missing,
 		"projects": [
 			{"value": p.name, "label": p.project_name or p.name, "customer": p.customer} for p in projects
 		],
@@ -278,15 +283,41 @@ def get_desk_context(
 	}
 
 
+def _initial_request(line) -> dict[str, Any] | None:
+	"""A line's saved configurator request, or ``None`` when it cannot be rebuilt.
+
+	One line whose configured record was deleted or whose stored request is
+	unreadable must not stop the whole schedule from loading; that line just
+	opens the configurator empty.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+
+	try:
+		return for_line(line)
+	except Exception:
+		frappe.log_error(
+			title=f"Desk configurator: could not reopen schedule line {line.get('name')}",
+			message=frappe.get_traceback(),
+		)
+		return None
+
+
 @frappe.whitelist()
-def get_schedule_picker_data(schedule: str, used_json: str | list | None = None) -> dict[str, Any]:
-	"""Lines, distinct locations and the next free fixture type for a schedule."""
+def get_schedule_picker_data(
+	schedule: str, used_json: str | list | None = None, row_lines_json: str | list | None = None
+) -> dict[str, Any]:
+	"""Lines, distinct locations and the next free fixture type for a schedule.
+
+	``row_lines_json`` lists the form's ``ill_schedule_line_id`` values;
+	``line_aliases`` maps the ones left over from an earlier version of this
+	schedule to the line that replaced them, so the form can relink its rows.
+	"""
 	_require_internal_user()
 	doc, err = _load_schedule(schedule, "read")
 	if err:
 		return err
 
-	from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+	from illumenate_lighting.illumenate_lighting.api.schedule_sync import stale_line_map
 
 	lines = []
 	locations: list[str] = []
@@ -308,7 +339,7 @@ def get_schedule_picker_data(schedule: str, used_json: str | list | None = None)
 			"configured_tape_neon": line.configured_tape_neon or None,
 			"configured_group": line.get("configured_group"),
 			"configured_led_sheet": line.get("configured_led_sheet"),
-			"initial_request": for_line(line),
+			"initial_request": _initial_request(line),
 			"ill_item_code": line.ill_item_code or None,
 			"is_pending": _line_is_pending(line),
 			"summary": _line_summary(line),
@@ -322,6 +353,7 @@ def get_schedule_picker_data(schedule: str, used_json: str | list | None = None)
 		"lines": lines,
 		"locations": locations,
 		"next_fixture_type": _next_fixture_type(doc, _coerce_list(used_json)),
+		"line_aliases": stale_line_map(doc, [str(v) for v in _coerce_list(row_lines_json) if v]),
 	})
 	return summary
 
@@ -461,6 +493,11 @@ def create_schedule_version(schedule: str) -> dict[str, Any]:
 	doc, err = _load_schedule(schedule, "write")
 	if err:
 		return err
+	if not cint(doc.get("is_locked")) and reopen_in_place(doc):
+		# Same schedule, same line names: the document's rows stay linked.
+		summary = _schedule_summary(doc)
+		summary.update({"success": True, "reused_existing_version": True, "reopened": True})
+		return summary
 	if cint(doc.get("is_locked")):
 		# A locked schedule is already superseded; find the newest open version.
 		root = doc.version_parent or doc.name
@@ -1413,12 +1450,61 @@ def on_quotation_submit(doc, method=None):
 		)
 
 
+def _still_quoted(schedule_name: str, ignore_quotation: str | None = None) -> bool:
+	"""Whether a submitted Quotation or an open portal offer still stands on this schedule."""
+	filters: dict[str, Any] = {"ill_fixture_schedule": schedule_name, "docstatus": 1}
+	if ignore_quotation:
+		filters["name"] = ["!=", ignore_quotation]
+	if frappe.db.exists("Quotation", filters):
+		return True
+	return bool(frappe.db.exists("ilL-Quote-Offer", {"schedule": schedule_name, "state": ["in", ("ISSUED", "ACCEPTED")]}))
+
+
+def reopen_in_place(schedule, ignore_quotation: str | None = None) -> bool:
+	"""Put a QUOTED or ISSUE schedule back to an editable status without versioning it.
+
+	A QUOTED schedule whose Quotations were all cancelled (no open offer) quotes
+	nothing any more, so an amended or new Quotation keeps editing it under the
+	same line names instead of a new version its rows do not point at. ISSUE
+	(a cancelled or withdrawn order) reopens the same way. Returns whether the
+	schedule was reopened.
+	"""
+	if cint(schedule.get("is_locked")):
+		return False
+	if schedule.status == "QUOTED" and not _still_quoted(schedule.name, ignore_quotation):
+		new_status = "READY"
+	elif schedule.status == "ISSUE" and not frappe.db.exists(
+		"Sales Order", {"ill_fixture_schedule": schedule.name, "docstatus": 1}
+	):
+		new_status = "DRAFT"
+	else:
+		return False
+	previous = schedule.status
+	schedule.set_lifecycle_status(new_status, note=None)
+	schedule.add_comment(
+		"Info",
+		_("Reopened from {0} to {1} so its draft Quotation / Sales Order can keep changing it.").format(
+			previous, new_status
+		),
+	)
+	return True
+
+
 def on_quotation_cancel(doc, method=None):
-	"""Cancelling a Quotation leaves the schedule status untouched; log only."""
+	"""A cancelled Quotation that was the only one quoting its schedule reopens it (READY)."""
 	name = doc.get("ill_fixture_schedule")
 	if not name or not frappe.db.exists(SCHEDULE_DOCTYPE, name):
 		return
-	frappe.get_doc(SCHEDULE_DOCTYPE, name).add_comment(
+	schedule = frappe.get_doc(SCHEDULE_DOCTYPE, name)
+	try:
+		if schedule.status == "QUOTED" and reopen_in_place(schedule, ignore_quotation=doc.name):
+			return
+	except Exception:  # never block the cancel on schedule bookkeeping
+		frappe.log_error(
+			title=f"Schedule reopen failed for cancelled Quotation {doc.name}",
+			message=frappe.get_traceback(),
+		)
+	schedule.add_comment(
 		"Info", _("Quotation {0} was cancelled; schedule status left unchanged.").format(doc.name)
 	)
 
@@ -1435,9 +1521,7 @@ def reopen_row(parent_doctype, parent_name, row_name):
 	row = next((row for row in parent.items if row.name == row_name), None)
 	if not row:
 		frappe.throw("Row does not belong to this document", frappe.PermissionError)
-	from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
-
-	line = frappe._dict({"product_type": row.get("ill_product_type"), "ill_configurator_request": row.get("ill_configurator_request")})
+	line =frappe._dict({"name": row.name, "product_type": row.get("ill_product_type"), "ill_configurator_request": row.get("ill_configurator_request")})
 	for field in ("configured_group", "configured_fixture", "configured_tape_neon", "configured_led_sheet"):
 		line[field] = row.get("ill_" + field)
-	return {"success": True, "request": for_line(line)}
+	return {"success": True, "request": _initial_request(line)}
