@@ -130,6 +130,9 @@ from illumenate_lighting.illumenate_lighting.api.item_availability import (
 	allowed_tape_offering_rows,
 	enabled_rows,
 )
+from illumenate_lighting.illumenate_lighting.api.mounting_accessory import (
+	needs_accessory,
+)
 from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
 	get_tier_price_for_customer,
 )
@@ -141,9 +144,6 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	add_inch_values_to_computed,
 	inches_to_mm,
 	mm_to_inches,
-)
-from illumenate_lighting.illumenate_lighting.doctype.ill_attribute_mounting_method.ill_attribute_mounting_method import (
-	needs_accessory,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 from illumenate_lighting.illumenate_lighting.portal_listing import template_scoped

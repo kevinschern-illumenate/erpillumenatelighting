@@ -141,6 +141,7 @@ class KitValidation(unittest.TestCase):
 				_resolve_kit_mounting=MagicMock(return_value=mounting),
 				_collect_spec_data=MagicMock(return_value={}),
 				get_kit_component_stock=MagicMock(return_value={"success": False}),
+				needs_accessory=MagicMock(return_value=True),
 			):
 				result = service.validate_kit_configuration(selections)
 				self.assertTrue(result["is_valid"])
@@ -158,6 +159,46 @@ class KitValidation(unittest.TestCase):
 				self.assertFalse(invalid["is_valid"])
 				self.assertIn("profile family", invalid["error"])
 			frappe.db.exists.assert_called_with("ilL-Extrusion-Kit-Template", "KIT-1")
+
+	def test_mounting_method_without_accessory_validates_without_a_mounting_map(self):
+		# Drywall is mudded in and Direct Surface Mount screws through: no
+		# accessory kit exists, so no Kit Mounting Map is needed or used.
+		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
+			template = Record(
+				name="KIT-1", template_code="KIT-1", template_name="Slim Kit", is_active=1,
+				default_profile_family="SH01", profile_stock_length_mm=2000, lens_stock_length_mm=2000,
+				solid_endcap_qty=2, feed_through_endcap_qty=2, mounting_accessory_qty=6,
+				get_allowed_values=lambda kind: [],
+			)
+			frappe.db.exists.return_value = True
+			frappe.get_doc.return_value = template
+			codes = {"Anodized Silver": "SV", "White": "WH", "Drywall": "DW"}
+			frappe.db.get_value.side_effect = lambda dt, name, field: 10 if dt == "Item Price" else codes.get(name)
+			resolve_mounting = MagicMock(return_value=None)
+			selections = dict(kit_template="KIT-1", finish="Anodized Silver", lens_appearance="White", mounting_method="Drywall")
+			with patch.multiple(
+				service,
+				_resolve_kit_profile=MagicMock(return_value=Record(profile_item="PROFILE-SV", profile_spec=None)),
+				_resolve_kit_lens=MagicMock(return_value=Record(lens_item="LENS-WH", lens_spec=None)),
+				_resolve_kit_endcaps=MagicMock(return_value={
+					"solid": Record(endcap_item="SOLID-SV", endcap_spec=None, endcap_style="Solid"),
+					"feed_through": Record(endcap_item="FEED-SV", endcap_spec=None),
+					"color": "Silver",
+				}),
+				_resolve_kit_mounting=resolve_mounting,
+				get_kit_component_stock=MagicMock(return_value={"success": False}),
+				needs_accessory=MagicMock(return_value=False),
+			):
+				result = service.validate_kit_configuration(selections)
+		self.assertTrue(result["is_valid"], result.get("error"))
+		resolve_mounting.assert_not_called()
+		self.assertEqual(result["part_number"], "KIT-SH01-WH-DW-SV")
+		self.assertTrue(result["kit_composition"]["mounting"]["not_required"])
+		self.assertEqual(result["kit_composition"]["mounting"]["qty"], 0)
+		self.assertIsNone(result["resolved_items"]["mounting_item"])
+		self.assertIn("Mounting Accessory: none required", result["build_description"])
+		# Four priced components at $10: profile, lens, 2 solid and 2 feed-through endcaps.
+		self.assertEqual(result["pricing"], {"total_price_msrp": 60.0})
 
 	def test_request_type_check_admits_the_dict_the_savers_pass(self):
 		# During a web request Frappe checks every call to a whitelisted function
