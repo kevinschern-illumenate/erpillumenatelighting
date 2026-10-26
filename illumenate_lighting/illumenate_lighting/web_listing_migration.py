@@ -104,7 +104,7 @@ def template_link(listing):
 	"""Return (template doctype, template name) for a listing, or (None, None)."""
 	for field, doctype in LINK_FIELDS.items():
 		if listing.get(field):
-			return doctype, listing[field]
+			return doctype, listing.get(field)
 	return None, None
 
 
