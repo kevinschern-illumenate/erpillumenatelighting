@@ -132,11 +132,19 @@ def _add_schedule_to_transaction(
 		frappe.msgprint("Lines awaiting product verification: " + ", ".join(pending))
 
 
-	# Header-level traceability: one transaction carries one schedule.
+	from illumenate_lighting.illumenate_lighting.api.schedule_sync import (
+		relink_rows,
+		same_schedule_family,
+		stale_line_map,
+	)
+
+	# Header-level traceability: one transaction carries one schedule. Another
+	# version of the same schedule (e.g. after a cancelled quote was revised) is
+	# the same scope, so the document follows it.
 	header_changed = False
 	if target_doc.meta.has_field("ill_fixture_schedule"):
 		existing_link = target_doc.get("ill_fixture_schedule")
-		if existing_link and existing_link != schedule.name:
+		if existing_link and not same_schedule_family(existing_link, schedule.name):
 			frappe.throw(
 				_("{0} {1} is already linked to Fixture Schedule {2}. Create a separate {0} for another schedule.").format(
 					parent_doctype, target_doc.name, existing_link
@@ -146,12 +154,27 @@ def _add_schedule_to_transaction(
 			target_doc.ill_fixture_schedule = schedule.name
 			header_changed = True
 
+	# Rows already on the document keep their line: pull only the lines it lacks,
+	# so running Get Items From again never duplicates rows (or schedule lines).
+	items = target_doc.get("items") or []
+	if relink_rows(items, stale_line_map(schedule, [row.get("ill_schedule_line_id") for row in items])):
+		header_changed = True
+	present = {row.get("ill_schedule_line_id") for row in items if row.get("ill_schedule_line_id")}
+	missing = {line.name for line in schedule.lines if line.name not in present}
+
 	counts = schedule.append_quote_lines(
 		target_doc,
 		include_accessories=bool(cint(include_accessories)),
 		include_other=bool(cint(include_other)),
 		tape_neon_mode=tape_neon_mode,
+		only_lines=missing if present else None,
 	)
+	if present and len(missing) < len(schedule.lines):
+		counts.setdefault("messages", []).append(
+			_("{0} schedule line(s) already on this {1} were left as they are.").format(
+				len(schedule.lines) - len(missing), parent_doctype
+			)
+		)
 
 	if counts.get("rows_added") or header_changed:
 		target_doc.save()

@@ -70,3 +70,15 @@ test('Reconfigure Row opens the configured row a ticked supply belongs to', () =
   assert.equal(opened.length,2);
  } finally {dom.window.close();}
 });
+
+test('rows linked to an earlier schedule version follow their line to the current one', () => {
+ const {dom,frm,ctrl}=load([FIXTURE,SUPPLY,FREIGHT],{rowName:'r1'});
+ try {
+  assert.equal(ctrl.scheduleLineName,'L1');
+  ctrl.relinkRows({L1:'L1-V2',P1:'P1-V2'});
+  assert.deepEqual(frm.doc.items.map(r=>r.ill_schedule_line_id),['L1-V2','P1-V2',undefined]);
+  assert.equal(ctrl.scheduleLineName,'L1-V2','reconfiguring now targets the current version\'s line');
+  ctrl.relinkRows({});
+  assert.deepEqual(frm.doc.items.map(r=>r.ill_schedule_line_id),['L1-V2','P1-V2',undefined]);
+ } finally {dom.window.close();}
+});
