@@ -142,6 +142,9 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
 	inches_to_mm,
 	mm_to_inches,
 )
+from illumenate_lighting.illumenate_lighting.doctype.ill_attribute_mounting_method.ill_attribute_mounting_method import (
+	needs_accessory,
+)
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 from illumenate_lighting.illumenate_lighting.portal_listing import template_scoped
 
@@ -2411,9 +2414,10 @@ def _resolve_multisegment_items(
 		resolved["mounting_item"] = mount_row.accessory_item
 		break
 
-	if not resolved["mounting_item"]:
+	if not resolved["mounting_item"] and needs_accessory(mounting_method_code):
 		# Some mounting methods (e.g. screw-through-back) don't use separate
-		# mounting accessories.  Treat this as a gentle informational warning.
+		# mounting accessories.  Treat this as a gentle informational warning;
+		# methods flagged No Accessory Required need no warning at all.
 		messages.append({
 			"severity": "warning",
 			"text": (
@@ -3659,10 +3663,11 @@ def _resolve_items(
 		mounting_item = mount_row.accessory_item
 		break
 
-	if not mounting_item:
+	if not mounting_item and needs_accessory(mounting_method_code):
 		# Some mounting methods (e.g. screw-through-back) don't use separate
 		# mounting accessories.  Treat this as a non-blocking informational
-		# warning rather than a hard error so the configurator can proceed.
+		# warning rather than a hard error so the configurator can proceed;
+		# methods flagged No Accessory Required need no warning at all.
 		messages.append(
 			{
 				"severity": "warning",

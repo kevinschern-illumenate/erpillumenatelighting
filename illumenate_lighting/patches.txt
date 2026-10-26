@@ -75,3 +75,4 @@ illumenate_lighting.patches.add_issue_portal_project
 illumenate_lighting.patches.add_delivery_tracking_fields
 illumenate_lighting.patches.migrate_project_parties
 illumenate_lighting.patches.rename_erpnext_only_status
+illumenate_lighting.patches.flag_mounting_methods_without_accessory

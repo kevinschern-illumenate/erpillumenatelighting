@@ -421,7 +421,7 @@ function _show_kit_configurator_dialog(frm, cdt, cdn, init_data) {
 		const existing_onchange = d.fields_dict[field].df.onchange;
 		d.fields_dict[field].df.onchange = function () {
 			if (existing_onchange) existing_onchange();
-			_update_kit_preview(d, kit);
+			_update_kit_preview(d, kit, options);
 		};
 	});
 
@@ -486,7 +486,7 @@ function _refresh_kit_cascading(dialog, kit_template_name, current_values) {
 					indicator: "orange",
 				});
 			}
-			if (data.mounting_available === false) {
+			if (data.mounting_available === false && data.mounting_accessory_required !== false) {
 				frappe.show_alert({
 					message: __("No mounting accessory for this method. Check Kit Mounting Maps."),
 					indicator: "orange",
@@ -499,7 +499,12 @@ function _refresh_kit_cascading(dialog, kit_template_name, current_values) {
 /**
  * Update the preview HTML showing what components will be resolved.
  */
-function _update_kit_preview(dialog, kit) {
+function _kit_method_needs_accessory(options, method) {
+	const option = (options.mounting_method || []).find((o) => o.value === method);
+	return !(option && option.no_accessory_required);
+}
+
+function _update_kit_preview(dialog, kit, options) {
 	const vals = dialog.get_values(true);
 	const has_all = vals.finish && vals.lens_appearance && vals.mounting_method;
 
@@ -518,7 +523,11 @@ function _update_kit_preview(dialog, kit) {
 					<tr><td colspan="2"><hr style="margin:4px 0;"></td></tr>
 					<tr><td>${__("Profile")}</td><td>${kit.profile_stock_length_mm}mm ×1</td></tr>
 					<tr><td>${__("Lens")}</td><td>${kit.lens_stock_length_mm}mm ×1</td></tr>
-					<tr><td>${__("Mounting Clips")}</td><td>×${kit.mounting_accessory_qty}</td></tr>
+					<tr><td>${__("Mounting Clips")}</td><td>${
+						_kit_method_needs_accessory(options, vals.mounting_method)
+							? "×" + kit.mounting_accessory_qty
+							: __("None required")
+					}</td></tr>
 					<tr><td>${__("Solid Endcaps")}</td><td>×${kit.solid_endcap_qty}</td></tr>
 					<tr><td>${__("Feed-Through Endcaps")}</td><td>×${kit.feed_through_endcap_qty}</td></tr>
 				</table>

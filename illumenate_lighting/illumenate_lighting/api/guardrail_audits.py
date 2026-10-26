@@ -16,6 +16,10 @@ from typing import Any
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.doctype.ill_attribute_mounting_method.ill_attribute_mounting_method import (
+	methods_without_accessory,
+)
+
 
 @frappe.whitelist()
 def run_coverage_audit(fixture_template: str = None) -> dict[str, Any]:
@@ -248,9 +252,11 @@ def _check_mounting_map_coverage(
 	# Create lookup set (mounting_method is the key, env_rating is optional)
 	existing_methods = {m.mounting_method for m in existing_maps}
 
-	# Check all allowed mounting methods
+	# Check all allowed mounting methods; those flagged No Accessory Required
+	# need no map.
+	without_accessory = methods_without_accessory(allowed_options["mounting_methods"])
 	for method in allowed_options["mounting_methods"]:
-		if method not in existing_methods:
+		if method not in existing_methods and method not in without_accessory:
 			missing.append({
 				"type": "mounting_map",
 				"mounting_method": method,
