@@ -423,6 +423,17 @@
 				return;
 			}
 			self.context = ctx;
+			if (ctx.linked_missing) {
+				// The linked schedule was deleted: unlink it so a new pick can take its place.
+				self.linkedToForm = false;
+				self.schedule = null;
+				if (self.frm.fields_dict.ill_fixture_schedule) self.frm.set_value('ill_fixture_schedule', null);
+				frappe.show_alert({
+					message: __('Fixture Schedule {0} no longer exists; pick or create a schedule for this {1}.',
+						[escapeHtml(ctx.linked_missing), __(self.frm.doctype)]),
+					indicator: 'orange'
+				}, 8);
+			}
 			if (ctx.linked_schedule) {
 				self.renderLinkedSchedule(ctx.linked_schedule);
 			} else {
@@ -493,6 +504,16 @@
 					return;
 				}
 				var previous = self.schedule;
+				if (res.reopened) {
+					self.scheduleStatus = res.status;
+					frappe.show_alert({
+						message: __('Reopened schedule {0} ({1}); nothing still quotes it, so no new version was needed.',
+							[escapeHtml(res.name), escapeHtml(res.status)]),
+						indicator: 'green'
+					}, 7);
+					self.renderLineStep();
+					return;
+				}
 				self.schedule = res.name;
 				self.scheduleName = res.schedule_name;
 				self.scheduleStatus = res.status;
@@ -741,8 +762,12 @@
 		$body.html('<div class="text-muted py-3"><i class="fa fa-spinner fa-spin"></i> ' + __('Loading schedule…') + '</div>');
 
 		var used = usedFixtureTypes(this.frm);
+		var rowLines = (this.frm.doc.items || []).map(function (r) { return r.ill_schedule_line_id; }).filter(Boolean);
+		if (this.scheduleLineName) rowLines.push(this.scheduleLineName);
 		var load = this.schedule
-			? this.call('get_schedule_picker_data', { schedule: this.schedule, used_json: JSON.stringify(used) })
+			? this.call('get_schedule_picker_data', {
+				schedule: this.schedule, used_json: JSON.stringify(used), row_lines_json: JSON.stringify(rowLines)
+			})
 			: this.call('get_next_fixture_type', { schedule: null, used_json: JSON.stringify(used) })
 				.then(function (next) {
 					return { success: true, lines: [], locations: [], next_fixture_type: (typeof next === 'string') ? next : '' };
@@ -755,6 +780,7 @@
 				return;
 			}
 			self.pickerData = data;
+			self.relinkRows(data.line_aliases);
 			if (self.schedule) {
 				self.scheduleName = data.schedule_name || self.scheduleName;
 				self.projectName = data.project_name || self.projectName;
@@ -773,9 +799,28 @@
 				self.scheduleLineName = null;
 			}
 			self.renderLineForm(data);
-		}).catch(function () {
-			$body.html('<div class="alert alert-danger">' + __('Could not load the schedule.') + '</div>');
+		}).catch(function (err) {
+			console.error('[illumenate_lighting] Could not load the schedule', err);
+			$body.html('<div class="alert alert-danger">' + __('Could not load the schedule.') + ' '
+				+ __('Close this dialog, reload the {0} and try again; if it keeps failing, check the Error Log.', [__(self.frm.doctype)])
+				+ '</div>');
 		});
+	};
+
+	// Rows linked to an earlier version of the schedule follow their line
+	// (same line key) to the current version, so reconfiguring replaces them.
+	DialogController.prototype.relinkRows = function (aliases) {
+		if (!aliases || !Object.keys(aliases).length) return;
+		var moved = 0;
+		(this.frm.doc.items || []).forEach(function (r) {
+			var target = aliases[r.ill_schedule_line_id];
+			if (target) { r.ill_schedule_line_id = target; moved += 1; }
+		});
+		if (this.scheduleLineName && aliases[this.scheduleLineName]) this.scheduleLineName = aliases[this.scheduleLineName];
+		if (moved) {
+			this.frm.refresh_field('items');
+			this.frm.dirty();
+		}
 	};
 
 	DialogController.prototype.renderLineForm = function (data) {

@@ -288,11 +288,15 @@ class TransactionToSchedule(unittest.TestCase):
 			)
 			sched.save.assert_not_called()
 
-	def test_switching_schedule_versions_does_not_rewrite_either(self):
+	def test_switching_to_an_unrelated_schedule_does_not_rewrite_either(self):
 		sched = schedule([schedule_line("L1")])
 		doc = quotation([quote_row("R2", item_code="CLIP")], [])
 		doc.get_doc_before_save = lambda: Doc({"ill_fixture_schedule": "SCH-0", "items": []})
-		self.run_sync(doc, sched, Record(item_name="Clip", is_stock_item=1, is_sales_item=1))
+		with service() as (sync, frappe):
+			frappe.db.get_value.return_value = None  # Neither schedule is a version of the other.
+			frappe.db.exists.return_value = True
+			frappe.get_doc.return_value = sched
+			sync.on_transaction_validate(doc)
 		sched.save.assert_not_called()
 
 	def test_a_failed_schedule_write_never_blocks_the_quote(self):
