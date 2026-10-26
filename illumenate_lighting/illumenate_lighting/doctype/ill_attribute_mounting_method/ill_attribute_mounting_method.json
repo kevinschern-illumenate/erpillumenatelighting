@@ -11,6 +11,7 @@
                         "label",
                         "code",
                         "mounting_method",
+                        "no_accessory_required",
                         "column_break_hskv",
                         "notes"
                     ],
@@ -37,6 +38,14 @@
                        "options":  "Surface\nRecessed\nAngled\nSuspension\nPendant\nAdhesive\nTrimless"
                    },
                    {
+                       "default":  "0",
+                       "description":  "Check for methods that ship without a separate mounting accessory (e.g. Drywall is mudded in, Direct Surface Mount screws through the profile). Configurators then skip the mounting accessory instead of requiring a mounting map.",
+                       "fieldname":  "no_accessory_required",
+                       "fieldtype":  "Check",
+                       "in_list_view":  1,
+                       "label":  "No Accessory Required"
+                   },
+                   {
                        "fieldname":  "column_break_hskv",
                        "fieldtype":  "Column Break"
                    },
@@ -51,7 +60,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-07 11:52:01.535114",
+    "modified":  "2026-10-26 18:40:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Attribute-Mounting Method",

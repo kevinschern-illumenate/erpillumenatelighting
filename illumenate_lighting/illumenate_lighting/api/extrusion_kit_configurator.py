@@ -8,7 +8,8 @@ Provides the configuration, validation, and variant-matching flow for
 Extrusion Kit products — bundles consisting of:
   - 1 × 2m profile piece
   - 1 × 2m lens piece
-  - 6 × mounting accessories
+  - 6 × mounting accessories (none for a mounting method flagged
+    No Accessory Required, e.g. Drywall or Direct Surface Mount)
   - 2 × solid endcaps
   - 2 × feed-through endcaps
 
@@ -36,6 +37,10 @@ from frappe import _
 from frappe.utils import flt
 
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
+from illumenate_lighting.illumenate_lighting.doctype.ill_attribute_mounting_method.ill_attribute_mounting_method import (
+    methods_without_accessory,
+    needs_accessory,
+)
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
 from illumenate_lighting.illumenate_lighting.portal_listing import (
     json_argument,
@@ -178,6 +183,11 @@ def _build_init_response(template) -> dict:
         if default_value:
             defaults[field_name] = default_value
 
+    # Methods that ship without a mounting accessory, so the UI can say so.
+    without = methods_without_accessory([o["value"] for o in options.get("mounting_method", [])])
+    for option in options.get("mounting_method", []):
+        option["no_accessory_required"] = option["value"] in without
+
     return {
         "success": True,
         "kit_template": {
@@ -310,7 +320,11 @@ def get_kit_cascading_options(
         result["available_lens_appearances"] = available_lenses
 
     # ── If mounting method is selected, validate map exists ──
-    if mounting_method:
+    if mounting_method and not needs_accessory(mounting_method):
+        result["mounting_available"] = True
+        result["mounting_accessory_required"] = False
+    elif mounting_method:
+        result["mounting_accessory_required"] = True
         mounting_maps = frappe.get_all(
             "ilL-Rel-Kit-Mounting-Map",
             filters={
@@ -439,8 +453,14 @@ def validate_kit_configuration(selections: str | dict) -> dict:
     }
 
     # ── Resolve Mounting ──────────────────────────────────────────────
-    mounting_map = _resolve_kit_mounting(kit_template_name, sel["mounting_method"])
-    if not mounting_map:
+    # A method flagged No Accessory Required (mudded in, screwed through)
+    # ships no mounting accessory, so it needs no Kit Mounting Map.
+    accessory_required = needs_accessory(sel["mounting_method"])
+    mounting_map = (
+        _resolve_kit_mounting(kit_template_name, sel["mounting_method"])
+        if accessory_required else None
+    )
+    if accessory_required and not mounting_map:
         return {
             "success": False,
             "is_valid": False,
@@ -495,6 +515,12 @@ def validate_kit_configuration(selections: str | dict) -> dict:
             "spec": mounting_map.accessory_spec,
             "spec_doctype": "ilL-Spec-Accessory",
             "qty": template.mounting_accessory_qty,
+        } if mounting_map else {
+            "item": None,
+            "spec": None,
+            "spec_doctype": "ilL-Spec-Accessory",
+            "qty": 0,
+            "not_required": True,
         },
     }
 
@@ -508,9 +534,12 @@ def validate_kit_configuration(selections: str | dict) -> dict:
         "solid_endcap_spec": solid_endcap.endcap_spec,
         "feed_through_endcap_item": feed_through_endcap.endcap_item,
         "feed_through_endcap_spec": feed_through_endcap.endcap_spec,
-        "mounting_item": mounting_map.accessory_item,
-        "mounting_spec": mounting_map.accessory_spec,
+        "mounting_item": mounting_map.accessory_item if mounting_map else None,
+        "mounting_spec": mounting_map.accessory_spec if mounting_map else None,
     }
+
+    if not mounting_map:
+        messages.append(f"'{sel['mounting_method']}' needs no mounting accessory; none is included in the kit.")
 
     # ── Compute config hash for deduplication ─────────────────────────
     config_hash = _compute_config_hash(sel)
@@ -761,6 +790,8 @@ def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) 
         item_code = comp.get("item")
         qty = comp.get("qty", 1)
 
+        if comp.get("not_required"):
+            continue
         if not item_code:
             messages.append(f"Warning: No {comp_label} item defined in kit composition")
             continue
@@ -891,6 +922,9 @@ def get_kit_component_stock(
 	solid_endcap = endcaps.get("solid")
 	feed_through_endcap = endcaps.get("feed_through")
 	mounting_map = _resolve_kit_mounting(kit_template, mounting_method)
+	mounting_qty = template.mounting_accessory_qty or 0
+	if not needs_accessory(mounting_method):
+		mounting_qty = 0
 
 	# Build component list: (label, item_code, qty_per_kit)
 	# Only include components that the kit actually requires (qty > 0).
@@ -899,7 +933,7 @@ def get_kit_component_stock(
 		("Lens", lens_map.lens_item if lens_map else None, 1),
 		("Solid Endcap", solid_endcap.endcap_item if solid_endcap else None, template.solid_endcap_qty or 0),
 		("Feed-Through Endcap", feed_through_endcap.endcap_item if feed_through_endcap else None, template.feed_through_endcap_qty or 0),
-		("Mounting Accessory", mounting_map.accessory_item if mounting_map else None, template.mounting_accessory_qty or 0),
+		("Mounting Accessory", mounting_map.accessory_item if mounting_map else None, mounting_qty),
 	]
 	component_defs = [cd for cd in component_defs if cd[2] > 0]
 
@@ -1136,8 +1170,8 @@ def _collect_spec_data(profile_map, lens_map, solid_endcap,
     if feed_through_endcap.endcap_spec:
         spec_data["feed_through_endcap"] = _get_accessory_spec_data(feed_through_endcap.endcap_spec)
 
-    # Mounting spec data
-    if mounting_map.accessory_spec:
+    # Mounting spec data (none when the method needs no accessory)
+    if mounting_map and mounting_map.accessory_spec:
         spec_data["mounting"] = _get_accessory_spec_data(mounting_map.accessory_spec)
 
     return spec_data
@@ -1276,9 +1310,12 @@ def _build_kit_description(sel, template, profile_map, lens_map,
     lines.append(
         f"Feed-Through Endcaps: {feed_through_endcap.endcap_item} ×{template.feed_through_endcap_qty}"
     )
-    lines.append(
-        f"Mounting: {mounting_map.accessory_item} ×{template.mounting_accessory_qty}"
-    )
+    if mounting_map:
+        lines.append(
+            f"Mounting: {mounting_map.accessory_item} ×{template.mounting_accessory_qty}"
+        )
+    else:
+        lines.append("Mounting Accessory: none required")
 
     return " | ".join(lines)
 

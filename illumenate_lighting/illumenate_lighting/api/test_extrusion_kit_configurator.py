@@ -318,6 +318,48 @@ class TestExtrusionKitConfigurator(FrappeTestCase):
         self.assertTrue(all(c["in_stock"] for c in result["components"]))
 
 
+class TestKitWithoutMountingAccessory(FrappeTestCase):
+    """Mounting methods flagged No Accessory Required ship no mounting accessory."""
+
+    def test_sales_order_skips_mounting_not_required(self):
+        """A kit whose mounting needs no accessory adds no mounting SO line or warning."""
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            create_kit_so_lines,
+        )
+
+        so = frappe.new_doc("Sales Order")
+        result = create_kit_so_lines(so, None, {
+            "kit_composition": {
+                "profile": {"item": "PROF-001", "qty": 1},
+                "mounting": {"item": None, "qty": 0, "not_required": True},
+            },
+        })
+        self.assertEqual([row.item_code for row in so.items], ["PROF-001"])
+        self.assertEqual(result["messages"], [])
+
+    def test_description_says_none_required(self):
+        """The build description names no mounting item when none is required."""
+        from types import SimpleNamespace
+
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _build_kit_description,
+        )
+
+        template = SimpleNamespace(
+            template_name="Kit", name="Kit", profile_stock_length_mm=2000,
+            lens_stock_length_mm=2000, solid_endcap_qty=2,
+            feed_through_endcap_qty=2, mounting_accessory_qty=6,
+        )
+        desc = _build_kit_description(
+            {"mounting_method": "Drywall"}, template,
+            SimpleNamespace(profile_item="P"), SimpleNamespace(lens_item="L"),
+            SimpleNamespace(endcap_item="S"), SimpleNamespace(endcap_item="F"),
+            None,
+        )
+        self.assertIn("Mounting Accessory: none required", desc)
+        self.assertNotIn("×6", desc)
+
+
 class TestComputeKitPricing(FrappeTestCase):
     """Test _compute_kit_pricing helper."""
 
