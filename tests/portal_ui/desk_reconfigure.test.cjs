@@ -82,3 +82,16 @@ test('rows linked to an earlier schedule version follow their line to the curren
   assert.deepEqual(frm.doc.items.map(r=>r.ill_schedule_line_id),['L1-V2','P1-V2',undefined]);
  } finally {dom.window.close();}
 });
+
+test('the line step renders, suggesting schedule locations and the form\'s Section / Room labels', () => {
+ const {dom,w,frm,ctrl}=load([{...FIXTURE,ill_section_label:'Lobby'},{...FREIGHT,ill_section_label:'Lobby'},{name:'r4',item_code:'X',ill_section_label:'Stair'}],{rowName:'r1'});
+ try {
+  w.frappe.ui.form={make_control:({df,parent})=>{let value;const $input=w.$('<input>').appendTo(parent);
+   return {df,$input,refresh(){},set_value(v){value=v;},get_value(){return value;}};}};
+  ctrl.schedule='S1';
+  ctrl.renderLineForm({lines:[],locations:['Lobby','Roof'],next_fixture_type:'A2'});
+  const options=[...ctrl.body$()[0].querySelectorAll('datalist option')].map(o=>o.getAttribute('value'));
+  assert.deepEqual(options,['Lobby','Roof','Stair']);
+  assert.equal(frm.doc.items.length,3);
+ } finally {dom.window.close();}
+});

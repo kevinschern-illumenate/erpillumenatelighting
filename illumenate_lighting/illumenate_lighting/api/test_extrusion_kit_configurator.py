@@ -357,7 +357,7 @@ class TestKitWithoutMountingAccessory(FrappeTestCase):
             None,
         )
         self.assertIn("Mounting Accessory: none required", desc)
-        self.assertNotIn("×6", desc)
+        self.assertEqual(desc.count("Mounting:"), 1)  # the method, no item line
 
 
 class TestComputeKitPricing(FrappeTestCase):
