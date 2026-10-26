@@ -216,6 +216,12 @@
 			.map(function (r) { return r.ill_fixture_type; }).filter(Boolean);
 	}
 
+	function usedSectionLabels(frm) {
+		var seen = {};
+		return (frm.doc.items || []).map(function (r) { return r.ill_section_label; })
+			.filter(function (v) { if (!v || seen[v]) return false; seen[v] = true; return true; });
+	}
+
 	function isConfiguredRow(row) {
 		return !!(row && !row.ill_is_power_supply_line && (row.ill_configurator_request
 			|| row.ill_configured_group || row.ill_configured_fixture || row.ill_configured_tape_neon || row.ill_configured_led_sheet));
