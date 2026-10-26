@@ -37,7 +37,7 @@ from frappe import _
 from frappe.utils import flt
 
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
-from illumenate_lighting.illumenate_lighting.doctype.ill_attribute_mounting_method.ill_attribute_mounting_method import (
+from illumenate_lighting.illumenate_lighting.api.mounting_accessory import (
     methods_without_accessory,
     needs_accessory,
 )

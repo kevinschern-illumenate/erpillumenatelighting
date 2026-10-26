@@ -16,7 +16,7 @@ from typing import Any
 import frappe
 from frappe import _
 
-from illumenate_lighting.illumenate_lighting.doctype.ill_attribute_mounting_method.ill_attribute_mounting_method import (
+from illumenate_lighting.illumenate_lighting.api.mounting_accessory import (
 	methods_without_accessory,
 )
 
