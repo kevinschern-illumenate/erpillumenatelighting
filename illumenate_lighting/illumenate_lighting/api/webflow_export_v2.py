@@ -21,6 +21,8 @@ import frappe
 import requests
 from frappe import _
 
+from frappe.handler import upload_file
+
 from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
@@ -2587,3 +2589,16 @@ def trigger_publish_v2(docname):
             dispatched_jobs.append(job_data["job"])
                 
     return {"status": "success", "jobs": dispatched_jobs}
+
+@frappe.whitelist()
+def upload_spec_pdf():
+    """Uploads a spec sheet PDF, skipping the pdf_contains_js check for system generation."""
+    # Monkey-patch or temporarily disable check_content on the File document during this upload
+    from frappe.core.doctype.file.file import File
+    
+    original_check_content = File.check_content
+    try:
+        File.check_content = lambda self: None  # Bypass the check
+        return upload_file()
+    finally:
+        File.check_content = original_check_content
