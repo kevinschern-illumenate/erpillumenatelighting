@@ -3360,7 +3360,7 @@ class ilLWebflowProduct(Document):
 
 				template_certs = [
 					c_row.certification
-					for c_row in getattr(template_doc, "certifications", []):
+					for c_row in getattr(template_doc, "certifications", [])
 					if c_row.certification
 				]
 				self.certifications = []
