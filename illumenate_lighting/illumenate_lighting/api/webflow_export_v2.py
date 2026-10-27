@@ -2539,6 +2539,7 @@ def trigger_sync_v2(docname):
 def trigger_publish_v2(docname):
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    doc.save(ignore_permissions=True)
     rows = doc.get("target_brands") or []
     active_brands = [row.brand for row in rows if row.enabled] if rows else [get_default_brand()]
     
