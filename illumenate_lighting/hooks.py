@@ -349,8 +349,12 @@ doc_events = {
 	},
 	"Material Request": {"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_material_request"},
 	"Quotation": {
-		# A draft linked to a Fixture Schedule pushes its row changes onto the schedule.
-		"validate": "illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+		# Configured rows follow their Item's build, then a draft linked to a Fixture
+		# Schedule pushes its row changes onto the schedule.
+		"validate": [
+			"illumenate_lighting.illumenate_lighting.api.build_links.follow_items",
+			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+		],
 		# Only a submitted Quotation linked to an intake creates a portal offer.
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.offers.before_submit",
 		"on_submit": "illumenate_lighting.illumenate_lighting.portal.offers.on_submit",
@@ -359,6 +363,7 @@ doc_events = {
 	},
 	"Sales Order": {
 		"validate": [
+			"illumenate_lighting.illumenate_lighting.api.build_links.follow_items",
 			"illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
 		],

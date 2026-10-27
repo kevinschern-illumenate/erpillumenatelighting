@@ -229,6 +229,23 @@ def line_updates(line, row, before_row) -> dict:
 			changes["qty"] = qty
 	if line.get("manufacturer_type") == "ACCESSORY" and edited("item_code") and row.get("item_code"):
 		changes["accessory_item"] = row.get("item_code")
+	if (
+		line.get("manufacturer_type") == "ILLUMENATE"
+		and line.get("configured_fixture")
+		and row.get("ill_configured_fixture")
+		and edited("ill_configured_fixture")
+	):
+		# The row now orders another fixture build (build_links.follow_items); so does its line.
+		changes.update(
+			{
+				"configured_fixture": row.get("ill_configured_fixture"),
+				"fixture_template": row.get("ill_template_code") or line.get("fixture_template"),
+				"ill_item_code": row.get("item_code"),
+				"ill_bom": row.get("ill_bom") or None,
+				"manufacturable_length_mm": row.get("ill_mfg_length_mm"),
+				"ill_configurator_request": None,
+			}
+		)
 	return {key: value for key, value in changes.items() if not _same(line.get(key), value)}
 
 

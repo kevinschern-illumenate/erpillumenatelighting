@@ -29,8 +29,13 @@ def pinned_build(row):
 		):
 			return None  # Historical single fixtures retain their existing adapter.
 		build = import_module("illumenate_lighting.illumenate_lighting.api." + module).snapshot(doc)
-		if row.item_code != doc.configured_item or (row.get("ill_bom") or row.get("bom_no")) != doc.bom:
-			raise ValueError("Order Item/BOM must match its pinned configured build")
+		bom = row.get("ill_bom") or row.get("bom_no")
+		if row.item_code != doc.configured_item or bom != doc.bom:
+			raise ValueError(
+				f"Row {row.idx}: Item {row.item_code} / BOM {bom} must match its pinned configured build "
+				f"{doc.name} (Item {doc.configured_item} / BOM {doc.bom}). Reconfigure the row or pick "
+				"the build's own Item."
+			)
 		assert_bom(row.item_code, build["components"], frappe.get_doc("BOM", doc.bom))
 		return doc, build
 	return None
