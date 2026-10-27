@@ -255,7 +255,7 @@ def evaluate(product, channel="cms"):
 			if not product.get(field):
 				issue(product.name, field, "Add product imagery and description before publication")
 		for row in product.get("documents") or []:
-			if not safe_document_url(row.document_file):
+			if row.document_file and not safe_document_url(row.document_file):
 				issue(product.name, "documents", "Public literature must use a public file or HTTPS URL")
 		if product.featured_image and not safe_document_url(product.featured_image):
 			issue(product.name, "featured_image", "Use an approved public image")

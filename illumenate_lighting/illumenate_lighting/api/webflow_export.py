@@ -491,6 +491,7 @@ def get_webflow_products(
                     "display_order": d.display_order
                 }
                 for d in doc.documents
+                if d.document_file
             ]
             
             product["compatible_products"] = [

@@ -16,23 +16,20 @@
    "fieldname": "document_file",
    "fieldtype": "Attach",
    "in_list_view": 1,
-   "label": "Document File",
-   "reqd": 1
+   "label": "Document File"
   },
   {
    "fieldname": "document_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Document Type",
-   "options": "Spec Sheet\nIES File\nInstallation Guide\nCAD Drawing\nWarranty\nDatasheet",
-   "reqd": 1
+   "options": "Spec Sheet\nIES File\nInstallation Guide\nCAD Drawing\nWarranty\nDatasheet"
   },
   {
    "fieldname": "document_title",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Document Title",
-   "reqd": 1
+   "label": "Document Title"
   },
   {
    "default": "0",
@@ -44,7 +41,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-21 10:00:00.000000",
+ "modified": "2026-10-27 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Webflow-Document",
