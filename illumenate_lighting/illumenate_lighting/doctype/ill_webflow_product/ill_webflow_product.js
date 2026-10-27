@@ -41,15 +41,19 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					frm.reload_doc();
 				}, 120000);
 
+				// Get the first enabled target brand, fallback to 'illumenate'
+				const activeBrand = (frm.doc.target_brands || [])
+				    .filter(row => row.enabled)
+				    .map(row => row.brand)[0] || 'illumenate';
 				fetch('https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2', {
-					method: 'POST',
-					signal: controller.signal,
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						product: frm.doc.name,
-						product_slug: frm.doc.product_slug || frm.doc.name,
-						brand: 'lighting_206'
-					})
+				    method: 'POST',
+				    signal: controller.signal,
+				    headers: { 'Content-Type': 'application/json' },
+				    body: JSON.stringify({
+				        product: frm.doc.name,
+				        product_slug: frm.doc.product_slug || frm.doc.name,
+				        brand: activeBrand   // ← dynamic now
+				    })
 				})
 				.then(response => {
 					if (!response.ok) throw new Error(`Pipeline failed with status ${response.status}.`);
