@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parse, stringify } from 'yaml';
 import schema from './catalog-schema.json';
 import examples from './catalog-examples.json';
@@ -8,15 +8,17 @@ import ConfirmDialog from './ConfirmDialog.jsx';
 import FindReplaceDialog from './FindReplaceDialog.jsx';
 import CloneFamilyDialog from './CloneFamilyDialog.jsx';
 import GenerateRowsDialog from './GenerateRowsDialog.jsx';
+import NewProductDialog, { SaveStarterDialog } from './NewProductDialog.jsx';
 import { recordCounts } from './erp-api.js';
 import {
-  blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeItemRecords,
+  blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeMissingRecords, canCreate,
   referenceSummary, withReferenceLinks, unconfirmedLinks, isComplete,
   catalogAddition, mergeAdditions, excludeCatalog, referenceOrigin, catalogKey, familyTypes,
 } from './catalog-model.js';
 import { issueIndex, findingGroups } from './grid-model.js';
 import { renameRecords, applyReplace } from './rename-model.js';
 import { withRecipe } from './generator-model.js';
+import { builtinStarters, draftStarter, readStarters, writeStarters } from './starter-model.js';
 import { RecordFields } from './RecordFields.jsx';
 import { RecordGrid, GridData } from './RecordGrid.jsx';
 import './catalog.css';
@@ -141,6 +143,9 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const [findOpen, setFindOpen] = useState(false);
   const [cloneOpen, setCloneOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  const [saveStarterOpen, setSaveStarterOpen] = useState(false);
+  const [savedStarters, setSavedStarters] = useState(readStarters);
   // Snapshots of the active product's draft; catalogs are never mutated, so snapshots share unchanged records.
   const [history, setHistory] = useState({ product: null, past: [], future: [] });
   const [view, setView] = useState(restoreView);
@@ -267,9 +272,39 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const fromErp = Object.values(resolved.external_links).reduce((sum, names) => sum + names.length, 0)
     - Object.values(catalog.external_links).reduce((sum, names) => sum + names.length, 0);
   const total = Object.values(catalog.records).reduce((sum, rows) => sum + rows.length, 0);
-  const orderedTypes = [...new Set(['Item', product.spec, product.template, 'ilL-Webflow-Product', ...familyTypes(product, schema),
-    ...Object.keys(catalog.records), ...parentTypes])]
-    .filter(name => name.toLowerCase().includes(search.toLowerCase()));
+  const typeFilter = name => name.toLowerCase().includes(search.toLowerCase());
+  // The records this product is built from (its starter's, and those linking its template) come
+  // first, as a checklist of what is still empty. Linking existing records counts as done.
+  const productTypes = [...new Set([product.template, 'Item', product.spec, ...Object.keys(examples[workspace.active]?.records || {}),
+    ...familyTypes(product, schema), 'ilL-Webflow-Product'])].filter(name => schema.doctypes[name]);
+  const productStarted = name => Boolean(catalog.records[name]?.length || resolved.external_links[name]?.length);
+  const otherTypes = [...new Set([...Object.keys(catalog.records), ...parentTypes])].filter(name => !productTypes.includes(name)).filter(typeFilter);
+  const shownProductTypes = productTypes.filter(typeFilter);
+  const productDone = productTypes.filter(productStarted).length;
+  const starters = useMemo(() => [...builtinStarters(examples, schema), ...savedStarters], [savedStarters]);
+  const creatable = missing.filter(link => canCreate(link.doctype, schema)).length;
+  const createMissing = () => {
+    const result = makeMissingRecords(catalog, schema, reference);
+    if (!result.added.length) return;
+    setCatalog(result.catalog, { label: 'Create missing records' });
+    const types = [...new Set(result.added.map(row => shortName(row.doctype)))];
+    setMessage(`Created ${plural(result.added.length, 'record')} (${types.join(', ')}) for links that pointed at nothing. Fill in their values; Undo removes them.`);
+  };
+  const startProduct = (result, values) => {
+    setCatalog(result.catalog, { label: 'New product' });
+    setSelected(product.template); setFieldSearch(''); setRun({ phase: 'idle' });
+    setMessage(`Created ${plural(result.count, 'record')} for ${values.code.trim()}${result.reused.length ? `, linked to existing ${result.reused.map(row => row.name).join(', ')}` : ''}.`
+      + ' Review the values copied from the starter, then use Import readiness for what is left. Undo brings back the previous draft.');
+  };
+  const saveStarters = next => {
+    setSavedStarters(next);
+    if (!writeStarters(next)) setMessage('Browser storage is full or unavailable, so the starter is kept only until you reload.');
+  };
+  const saveStarter = values => {
+    const starter = draftStarter(catalog, values, new Date().toISOString().slice(0, 10));
+    saveStarters([...savedStarters.filter(item => !(item.productType === starter.productType && item.label === starter.label)), starter]);
+    setMessage(`Saved starter ${starter.label}. Use New product to start the next ${product.label.toLowerCase()} product from it.`);
+  };
   const rows = catalog.records[selected] || [];
   const filename = `${(catalog.series_name || workspace.active).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-catalog.yaml`;
   const replaceRows = (next, change) => setCatalog({ ...catalog, records: { ...catalog.records, [selected]: next } }, change);
@@ -461,6 +496,10 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
           setCatalog(next, { label: 'Add to reference setting' });
         }} /> Add to ERPNext reference after import</label>}
       <span>{total} records · {issues.length} checks to resolve</span>
+      <button className="catalog-primary" onClick={() => setNewOpen(true)} title="Create every record a new product needs, named from its product code">New product</button>
+      {creatable > 0 && <button onClick={createMissing} title="Add a record for each link that points at nothing yet, such as a spec or accessory you named">
+        Create {plural(creatable, 'missing record')}</button>}
+      <button disabled={!total} onClick={() => setSaveStarterOpen(true)} title="Keep this draft as a starting point for the next product">Save as starter</button>
       <button onClick={() => setConfirm({ title: 'Replace this draft with an illustrative example? Review engineering values before using it.', run: () => {
         setCatalog(structuredClone(examples[workspace.active]), { label: 'Load example' }); setSelected(product.template); setRun({ phase: 'idle' });
       } })}>Load example</button>
@@ -488,10 +527,17 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
             title={view.types === 'pinned' ? 'Hide this list to give the table the full width' : 'Keep this list open beside the table'}>
             {view.types === 'pinned' ? '« Hide' : 'Pin'}</button></div>
         <input aria-label="Find a DocType" placeholder="Find a DocType…" value={search} onChange={e => setSearch(e.target.value)} autoFocus={drawer} />
-        <div className="catalog-type-list">{orderedTypes.map(doctype => <button key={doctype} aria-pressed={selected === doctype}
-          onClick={() => chooseDoctype(doctype)}>{shortName(doctype)} <span className="catalog-type-counts">
-            {findingCounts[doctype] ? <Badge tone="error" label={`${findingCounts[doctype]} to fix`}>{findingCounts[doctype]}</Badge> : null}
-            <span>{catalog.records[doctype]?.length || ''}</span></span></button>)}</div>
+        <div className="catalog-type-list">
+          {shownProductTypes.length > 0 && <h3 className="catalog-type-group">This product <small>{productDone} of {productTypes.length} started</small></h3>}
+          {[...shownProductTypes, ...otherTypes].map((doctype, i) => <Fragment key={doctype}>
+            {i === shownProductTypes.length && otherTypes.length > 0 && <h3 className="catalog-type-group">Other DocTypes</h3>}
+            <button aria-pressed={selected === doctype} onClick={() => chooseDoctype(doctype)}>
+              {i < shownProductTypes.length && <span className={`catalog-type-mark ${productStarted(doctype) ? 'is-done' : ''}`}
+                title={catalog.records[doctype]?.length ? 'Records in this draft' : productStarted(doctype) ? 'Links to existing ERPNext records' : 'Nothing yet'}>
+                {productStarted(doctype) ? '✓' : '○'}</span>}
+              <span className="catalog-type-name">{shortName(doctype)}</span> <span className="catalog-type-counts">
+              {findingCounts[doctype] ? <Badge tone="error" label={`${findingCounts[doctype]} to fix`}>{findingCounts[doctype]}</Badge> : null}
+              <span>{catalog.records[doctype]?.length || ''}</span></span></button></Fragment>)}</div>
       </aside>}
       <main className="catalog-editor">
         <div className="catalog-bar">
@@ -553,7 +599,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
               {ownPending.map(row => <div className="catalog-link" key={row.catalog}><strong>{row.catalog}</strong>
                 <small>{Object.values(row.records).reduce((sum, names) => sum + names.length, 0)} records · {row.added_on}{row.catalog === catalogKey(catalog) ? ' · this catalog' : ''}</small>
                 <button onClick={() => setPending(previous => previous.filter(item => item.catalog !== row.catalog))}>Remove from this browser</button></div>)}</details>}
-            {missing.some(link => link.doctype === 'Item') && <button onClick={() => { setCatalog(makeItemRecords(catalog, schema, reference), { label: 'Create missing Items' }); chooseDoctype('Item'); }}>Create missing Item records</button>}
+            {creatable > 0 && <button onClick={createMissing}>Create {plural(creatable, 'missing record')}</button>}
             {missing.length > 0 && <details open><summary>{missing.length} unresolved links</summary>{missing.map(link => <div className="catalog-link" key={JSON.stringify([link.doctype, link.name])}>
               <strong>{link.name}</strong><small>{link.doctype || 'Select the Dynamic Link DocType first'}</small>
               {link.doctype && <button onClick={() => setCatalog({ ...catalog, external_links: { ...catalog.external_links, [link.doctype]: [...(catalog.external_links[link.doctype] || []), link.name] } }, { label: 'Declare existing record' })}>Use existing ERPNext record</button>}
@@ -602,6 +648,9 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
       onSaveRecipe={recipe => setCatalog(withRecipe(catalog, selected, recipe.name, recipe), { label: 'Save recipe' })}
       onDeleteRecipe={name => setCatalog(withRecipe(catalog, selected, name, null), { label: 'Delete recipe' })}
       onClose={() => setGenerateOpen(false)} />}
+    {newOpen && <NewProductDialog product={product} productType={workspace.active} starters={starters} reference={reference}
+      onApply={startProduct} onDelete={id => saveStarters(savedStarters.filter(item => item.id !== id))} onClose={() => setNewOpen(false)} />}
+    {saveStarterOpen && <SaveStarterDialog catalog={catalog} product={product} onSave={saveStarter} onClose={() => setSaveStarterOpen(false)} />}
     {findOpen && <FindReplaceDialog catalog={catalog} reference={reference} doctype={selected} onApply={replaceAll} onClose={() => setFindOpen(false)} />}
   </div>;
 }

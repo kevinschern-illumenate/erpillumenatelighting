@@ -42,6 +42,8 @@ export function createErpApi({ csrfToken, fetchImpl = fetch }) {
   return {
     reference: refresh => call('reference', { query: refresh ? { refresh: 1 } : undefined }),
     record: (doctype, name) => call('record', { query: { doctype, name } }),
+    /** Full records for [[doctype, name], ...]: one { record } or { error } per pair, in order. */
+    records: pairs => call('records', { body: { records: pairs } }),
     check: catalog => call('check', { body: { catalog } }),
     importCatalog: (catalog, expectedHash) => call('import_catalog', { body: { catalog, expected_hash: expectedHash } }),
     history: () => call('history'),

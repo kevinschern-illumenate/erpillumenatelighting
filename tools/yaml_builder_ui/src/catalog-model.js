@@ -294,3 +294,43 @@ export function makeItemRecords(catalog, schema, reference = null) {
   });
   return result;
 }
+
+// ERPNext masters (units, item groups) are set up in ERPNext, never stubbed from a catalog.
+const MASTER_TYPES = new Set(['Item Group', 'UOM', 'Brand', 'Item Attribute', 'Item Price', 'ilL-Webflow-Category']);
+
+/** True when a missing record of this DocType can be created from its name alone. */
+export function canCreate(doctype, schema) {
+  const meta = schema.doctypes[doctype];
+  const rule = meta?.autoname || '';
+  return Boolean(meta) && !meta.istable && !MASTER_TYPES.has(doctype) && (doctype === 'Item' || rule.startsWith('field:') || rule === 'prompt');
+}
+
+/**
+ * Add a record for every unresolved link a new record can satisfy: Items as above, and any
+ * other DocType named by a field or typed name (specs, accessories, attributes). Records named
+ * by a format: rule are built from their own fields, so they are left for the author. New
+ * records can link onward (a spec to its Item), so this repeats until nothing more is added.
+ * Returns { catalog, added: [{ doctype, name }] }.
+ */
+export function makeMissingRecords(catalog, schema, reference = null) {
+  let result = catalog;
+  const added = [];
+  for (let pass = 0; pass < 5; pass += 1) {
+    const before = added.length;
+    const items = unresolvedLinks(result, schema, reference).filter(link => link.doctype === 'Item');
+    if (items.length) {
+      result = makeItemRecords(result, schema, reference);
+      added.push(...items.map(link => ({ doctype: 'Item', name: link.name })));
+    } else result = structuredClone(result);
+    for (const link of unresolvedLinks(result, schema, reference)) {
+      if (link.doctype === 'Item' || !canCreate(link.doctype, schema)) continue;
+      const rule = schema.doctypes[link.doctype].autoname;
+      const row = blankRecord(link.doctype, schema);
+      if (rule.startsWith('field:')) row[rule.slice(6)] = link.name; else row.name = link.name;
+      (result.records[link.doctype] ||= []).push(row);
+      added.push({ doctype: link.doctype, name: link.name });
+    }
+    if (added.length === before) break;
+  }
+  return { catalog: result, added };
+}

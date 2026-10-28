@@ -105,7 +105,45 @@ def live_reference():
 @frappe.whitelist(methods=["GET"])
 def record(doctype, name):
 	require("catalog")
+	return _full_record(doctype, name, cached_schema())
+
+
+MAX_BATCH = 200
+
+
+@frappe.whitelist(methods=["POST"])
+def records(records=None):
+	"""Full records for Clone family, in one round trip: [[doctype, name], ...] in, one result each out.
+
+	Each result is {"record": {...}} or {"error": "..."}, so one unreadable record never hides the rest.
+	"""
+	require("catalog")
+	if isinstance(records, str):
+		records = json.loads(records)
+	if (
+		not isinstance(records, list)
+		or len(records) > MAX_BATCH
+		or any(
+			not isinstance(pair, (list, tuple))
+			or len(pair) != 2
+			or not all(isinstance(part, str) and part for part in pair)
+			for pair in records
+		)
+	):
+		frappe.throw(_("Send up to {0} [DocType, name] pairs").format(MAX_BATCH))
 	schema = cached_schema()
+	results = []
+	for doctype, name in records:
+		try:
+			results.append({"record": _full_record(doctype, name, schema)})
+		except Exception as error:
+			results.append({"error": _error_text(error)})
+		finally:
+			frappe.local.message_log = []
+	return results
+
+
+def _full_record(doctype, name, schema):
 	meta = schema["doctypes"].get(doctype)
 	if not meta or meta.get("istable") or doctype in NOT_LISTED:
 		frappe.throw(_("Choose a catalog DocType"))

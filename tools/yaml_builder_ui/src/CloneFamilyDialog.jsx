@@ -4,7 +4,9 @@ import { emptyCatalog, referenceSummary } from './catalog-model.js';
 import { AS_IS_LIMIT, cloneFamily, DEFAULT_LIMIT, discoverFamily, rootTypes, ruleRenamer } from './clone-model.js';
 
 const SHOWN = 400;
-const FETCHES = 4;
+// Records per request, and requests in flight at once.
+const BATCH = 100;
+const FETCHES = 2;
 const shortName = name => name.replace(/^ilL-/, '');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const key = (doctype, name) => JSON.stringify([doctype, name]);
@@ -14,7 +16,7 @@ const AS_IS_LABELS = { ...MODE_LABELS, copy: 'Copy as-is' };
 /**
  * Copy an existing ERPNext family into the draft, either under new names from rename rules
  * or as-is under its current names, for the author to rename afterwards with Find & replace. In ERPNext, records to
- * copy are fetched in full (`api.record`) so their child rows come along; on Vercel the
+ * copy are fetched in full, in batches (`api.records`), so their child rows come along; on Vercel the
  * exported reference already holds them.
  */
 export default function CloneFamilyDialog({ catalog, product, reference, api, onApply, onClose }) {
@@ -49,20 +51,33 @@ export default function CloneFamilyDialog({ catalog, product, reference, api, on
     : { nodes: [], needed: [], truncated: false }, [root, reference, full, modes, rename, renameText, asIs, withAttributes]);
   const labels = asIs ? AS_IS_LABELS : MODE_LABELS;
   const waiting = discovery.needed.filter(node => !failed.has(key(node.doctype, node.name)));
-  // Fetch records to copy a few at a time; each arrival can reveal more links to follow.
+  // Fetch records to copy in batches; each arrival can reveal more links to follow.
   useEffect(() => {
     if (!api) return;
+    const batch = [];
     for (const node of waiting) {
+      if (inflight.current.size + batch.length >= BATCH * FETCHES) break;
       const id = key(node.doctype, node.name);
-      if (inflight.current.size >= FETCHES) break;
-      if (inflight.current.has(id)) continue;
-      inflight.current.add(id);
-      api.record(node.doctype, node.name).then(record => {
-        inflight.current.delete(id);
-        if (alive.current) setFetched(previous => new Map(previous).set(id, record));
+      if (!inflight.current.has(id) && !batch.some(item => item.id === id)) batch.push({ id, node });
+    }
+    for (let start = 0; start < batch.length; start += BATCH) {
+      const part = batch.slice(start, start + BATCH);
+      part.forEach(item => inflight.current.add(item.id));
+      api.records(part.map(item => [item.node.doctype, item.node.name])).then(results => {
+        part.forEach(item => inflight.current.delete(item.id));
+        if (!alive.current) return;
+        const arrived = new Map();
+        const errors = new Map();
+        part.forEach((item, i) => {
+          const result = results?.[i];
+          if (result?.record) arrived.set(item.id, result.record);
+          else errors.set(item.id, result?.error || 'ERPNext returned no record');
+        });
+        if (arrived.size) setFetched(previous => new Map([...previous, ...arrived]));
+        if (errors.size) setFailed(previous => new Map([...previous, ...errors]));
       }, error => {
-        inflight.current.delete(id);
-        if (alive.current) setFailed(previous => new Map(previous).set(id, error?.message || String(error)));
+        part.forEach(item => inflight.current.delete(item.id));
+        if (alive.current) setFailed(previous => new Map([...previous, ...part.map(item => [item.id, error?.message || String(error)])]));
       });
     }
   }); // eslint-disable-line react-hooks/exhaustive-deps

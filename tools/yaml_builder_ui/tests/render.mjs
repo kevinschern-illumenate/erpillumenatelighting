@@ -27,6 +27,15 @@ try {
   const cloneReference = { source: 'export', doctypes: { 'ilL-Fixture-Template': { source: 'export', records: { 'DEMO-FIXTURE': { template_name: 'Demo' } } } } };
   const cloner = renderToStaticMarkup(React.createElement(CloneFamilyDialog, { catalog: examples.fixture, product: schema.products.fixture, reference: cloneReference, api: null, onApply() {}, onClose() {} }));
   assert.ok(cloner.includes('Clone an existing family') && cloner.includes('DEMO-FIXTURE') && cloner.includes('Fixture-Template'));
+  assert.ok(shell.includes('New product') && shell.includes('Save as starter') && shell.includes('This product'));
+  const { default: NewProductDialog, SaveStarterDialog } = await server.ssrLoadModule('/src/NewProductDialog.jsx');
+  const { builtinStarters } = await server.ssrLoadModule('/src/starter-model.js');
+  for (const [type, product] of Object.entries(schema.products)) {
+    const dialog = renderToStaticMarkup(React.createElement(NewProductDialog, { product, productType: type, starters: builtinStarters(examples, schema), reference: null, onApply() {}, onDelete() {}, onClose() {} }));
+    assert.ok(dialog.includes(`${product.label} starter`) && dialog.includes('Product code'), `${type} new product dialog must render`);
+  }
+  const saver = renderToStaticMarkup(React.createElement(SaveStarterDialog, { catalog: examples.fixture, product: schema.products.fixture, onSave() {}, onClose() {} }));
+  assert.ok(saver.includes('Save as starter') && saver.includes('Example Linear fixtures'));
   assert.ok(shell.includes('Generate rows'));
   const { default: GenerateRowsDialog } = await server.ssrLoadModule('/src/GenerateRowsDialog.jsx');
   const generator = renderToStaticMarkup(React.createElement(GenerateRowsDialog, { doctype: 'ilL-Rel-Endcap-Map', catalog: examples.fixture, reference: null,
