@@ -345,6 +345,17 @@ def get_webflow_products(
         order_by="modified desc"
     )
 
+	# --- V2 DIMENSIONS IMAGE MAPPING ---
+    for p in products:
+        # Pass dimensions_image as dimensions_image_light
+        p["dimensions_image_light"] = p.get("dimensions_image")
+        # Pass custom_dimensions_image_2 as dimensions_image_dark
+        p["dimensions_image_dark"] = p.get("custom_dimensions_image_2")
+        
+        # Optional: You can pop the old keys out if you don't want them in the payload at all
+        # p.pop("dimensions_image", None)
+        # p.pop("custom_dimensions_image_2", None)
+
 	# Override top-level sync fields with the active brand's sync_targets row
     for p in products:
         per_brand_row = _get_brand_sync_row("ilL-Webflow-Product", p["name"], brand_code)
