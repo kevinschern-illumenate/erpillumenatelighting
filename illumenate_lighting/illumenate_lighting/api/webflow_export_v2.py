@@ -466,7 +466,7 @@ def get_webflow_products(
                     "component_type": k.component_type,
                     "custom_webflow_description": k.get("custom_webflow_description") or "[]"
                 }
-                for k in doc.kit_components
+                for k in getattr(doc.source, "kit_components", [])
             ]
             
             product["gallery_images"] = [
