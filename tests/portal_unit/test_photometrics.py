@@ -229,3 +229,29 @@ class Migration(unittest.TestCase):
 			]
 			self.assertEqual(len(module.shared_beam_angles()), 1)
 			self.assertIn("A, B", module.shared_beam_angles()[0])
+
+
+class SubmittalRecord(unittest.TestCase):
+	def resolve(self, doctype, template, cct=None):
+		with load_service(ROOT + ".photometrics") as (module, frappe):
+			frappe.get_cached_doc = MagicMock(side_effect=lambda dt, name: (dt, name))
+			return module.submittal_record(doctype, template, cct)
+
+	def test_photometry_is_the_template_link(self):
+		self.assertEqual(
+			self.resolve("ilL-Spec-Photometry", Doc(photometry="PH-1")), ("ilL-Spec-Photometry", "PH-1")
+		)
+		self.assertIsNone(self.resolve("ilL-Spec-Photometry", Doc()))
+		self.assertIsNone(self.resolve("ilL-Spec-Photometry", None))
+
+	def test_colorimetry_follows_the_configured_cct_then_the_featured_row(self):
+		template = Doc(
+			colorimetry=[
+				Row(colorimetry="C-2700", cct="2700K"),
+				Row(colorimetry="C-4000", cct="4000K", is_featured=1),
+			]
+		)
+		self.assertEqual(self.resolve("ilL-Spec-Colorimetry", template, "2700K")[1], "C-2700")
+		self.assertEqual(self.resolve("ilL-Spec-Colorimetry", template, "3500K")[1], "C-4000")
+		self.assertEqual(self.resolve("ilL-Spec-Colorimetry", template)[1], "C-4000")
+		self.assertIsNone(self.resolve("ilL-Spec-Colorimetry", Doc(colorimetry=[])))

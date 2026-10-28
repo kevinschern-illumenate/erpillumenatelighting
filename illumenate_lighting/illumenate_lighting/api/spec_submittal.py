@@ -33,6 +33,7 @@ import frappe
 from frappe import _
 from frappe.utils import now, nowdate
 
+from illumenate_lighting.illumenate_lighting.photometrics import RECORD_SOURCES, submittal_record
 from illumenate_lighting.illumenate_lighting.portal.pdf_mapping import set_value as _set_mapped_value
 
 # Conversion constants
@@ -313,6 +314,13 @@ def _get_source_value(
 	handled, value = resolve(configured_fixture, source_doctype, source_field)
 	if handled:
 		return value
+	if source_doctype in RECORD_SOURCES:
+		offering = getattr(configured_fixture, "tape_offering", None)
+		cct = frappe.db.get_value("ilL-Rel-Tape Offering", offering, "cct") if offering else None
+		record = submittal_record(source_doctype, fixture_template, cct)
+		val = record.get(source_field) if record else None
+		_debug(f"_get_source_value: {source_doctype}.{source_field} → {val!r} (cct={cct!r})", warnings)
+		return val
 	try:
 		if source_doctype == "ilL-Webflow-Product" and webflow_product:
 			val = getattr(webflow_product, source_field, None)
@@ -1396,6 +1404,12 @@ def _get_sheet_source_value(source_doctype, source_field, configured_sheet_doc=N
 		if source_field == "total_sheet_watts":
 			return build.get("watts_per_panel")
 		return engineering.get(source_field, build.get(source_field))
+	if source_doctype in RECORD_SOURCES:
+		cct = getattr(configured_sheet_doc, "selected_cct", None)
+		record = submittal_record(source_doctype, template_doc, cct)
+		val = record.get(source_field) if record else None
+		_debug(f"_get_sheet_source_value: {source_doctype}.{source_field} → {val!r} (cct={cct!r})", warnings)
+		return val
 	lookup = {
 		"ilL-Configured-LED-Sheet": configured_sheet_doc,
 		"ilL-LED-Sheet-Template": template_doc,
@@ -1515,6 +1529,12 @@ def _get_neon_source_value(
 	"""
 	if _commercial_source_blocked(source_doctype, source_field):
 		return None
+	if source_doctype in RECORD_SOURCES:
+		cct = getattr(configured_tape_neon, "cct", None)
+		record = submittal_record(source_doctype, tape_neon_template, cct)
+		val = record.get(source_field) if record else None
+		_debug(f"_get_neon_source_value: {source_doctype}.{source_field} → {val!r} (cct={cct!r})", warnings)
+		return val
 	try:
 		if source_doctype == "ilL-Webflow-Product" and webflow_product:
 			val = getattr(webflow_product, source_field, None)
@@ -2562,6 +2582,8 @@ def _kit_source_record(source_doctype, kit_component, template, config, context,
 	schedule, project, schedule_line, webflow_product = context
 	if source_doctype == "ilL-Extrusion-Kit-Template":
 		return template
+	if source_doctype in RECORD_SOURCES:
+		return submittal_record(source_doctype, template)
 	if source_doctype == "ilL-Spec-Profile":
 		return load(
 			source_doctype,
