@@ -4282,7 +4282,8 @@ class ilLWebflowProduct(Document):
 
 					# 6. Kit Components Grouping
 					grouped_components = {}
-					# FIX: Changed "components" to "kit_components" here!
+					grouped_images = {}  # Store just one image per component type
+					
 					for c_row in (template_doc.get("kit_components") or []):
 						c_type = c_row.get("component_type")
 						if not c_type:
@@ -4291,22 +4292,41 @@ class ilLWebflowProduct(Document):
 						if c_type not in grouped_components:
 							grouped_components[c_type] = []
 							
-						# Safely grab the description (handles variations in the fieldname)
+						# Safely grab the description
 						desc = c_row.get("custom_webflow_description") or c_row.get("webflow_description") or c_row.get("description") or ""
 						
+						item_code = c_row.get("component_item")
+						
+						# Try to get the image from the variant's parent template Item (only once per type)
+						if c_type not in grouped_images and item_code:
+							variant_of = frappe.db.get_value("Item", item_code, "variant_of")
+							if variant_of:
+								img = frappe.db.get_value("Item", variant_of, "image")
+								if img:
+									# Make sure it has the absolute URL
+									grouped_images[c_type] = img if img.startswith("http") else f"https://app.illumenate.lighting{img}"
+						
 						grouped_components[c_type].append({
-							"code": c_row.get("component_item") or "",
+							"code": item_code or "",
 							"label": desc
 						})
 					
 					# Clear existing rows and append the new grouped rows
 					self.kit_components = []
 					for c_type, items_list in grouped_components.items():
+						
+						# Build the final array: Image object first, then the item objects
+						final_json_list = []
+						if c_type in grouped_images:
+							final_json_list.append({"hero_image": grouped_images[c_type]})
+						
+						final_json_list.extend(items_list)
+						
 						self.append("kit_components", {
 							"component_type": c_type,
 							# Populating component_item with the first code just in case Frappe requires it to be non-empty
 							"component_item": items_list[0]["code"] if items_list else "", 
-							"custom_webflow_description": json.dumps(items_list, indent=1)
+							"custom_webflow_description": json.dumps(final_json_list, indent=1)
 						})
 					
 					record(debug, "Kit Components", len(grouped_components), [f"{k} ({len(v)} items)" for k, v in grouped_components.items()], appended=True)
