@@ -46,8 +46,13 @@ def record_issues(doctype, record):
 			)
 
 	# Engineering specs are named by their Item; ilL-Spec-Submittal-Mapping shares the
-	# prefix but maps PDF fields to a template and has no item field.
-	if doctype.startswith("ilL-Spec-") and doctype != "ilL-Spec-Submittal-Mapping":
+	# prefix but maps PDF fields to a template and has no item field, and photometry and
+	# colorimetry records describe test results, named by their own code.
+	if doctype.startswith("ilL-Spec-") and doctype not in (
+		"ilL-Spec-Submittal-Mapping",
+		"ilL-Spec-Photometry",
+		"ilL-Spec-Colorimetry",
+	):
 		required("item")
 	if doctype == "ilL-Spec-LED Tape":
 		required("input_voltage", "input_protocol", "led_package")

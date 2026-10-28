@@ -1,0 +1,393 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:colorimetry_code",
+ "creation": "2026-10-28 16:00:00.000000",
+ "description": "Measured color results for one light source (LED package, CCT and CRI class): CRI, TM-30, chromaticity and charts. Templates link it per CCT.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "colorimetry_code",
+  "title",
+  "is_active",
+  "identity_column",
+  "led_package",
+  "cct",
+  "cri_class",
+  "sdcm",
+  "cri_section",
+  "ra",
+  "cri_column",
+  "r9",
+  "r_values_section",
+  "r1",
+  "r2",
+  "r3",
+  "r4",
+  "r5",
+  "r6",
+  "r7",
+  "r8",
+  "r_values_column",
+  "r10",
+  "r11",
+  "r12",
+  "r13",
+  "r14",
+  "r15",
+  "tm30_section",
+  "tm30_rf",
+  "tm30_rg",
+  "tm30_rcs_h1",
+  "tm30_column",
+  "tm30_chart_image",
+  "tm30_color_vector_image",
+  "chromaticity_section",
+  "measured_cct_k",
+  "duv",
+  "sp_ratio",
+  "chromaticity_column",
+  "cie_x",
+  "cie_y",
+  "cie_chart_image",
+  "spd_image",
+  "charts_section",
+  "charts",
+  "source_section",
+  "test_report",
+  "lab",
+  "source_column",
+  "report_number",
+  "test_date",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "colorimetry_code",
+   "fieldtype": "Data",
+   "label": "Colorimetry Code",
+   "reqd": 1,
+   "unique": 1,
+   "description": "Short code for this measured source, e.g. SW-2700-95."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "identity_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "led_package",
+   "fieldtype": "Link",
+   "label": "LED Package",
+   "options": "ilL-Attribute-LED Package",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cct",
+   "fieldtype": "Link",
+   "label": "CCT",
+   "options": "ilL-Attribute-CCT",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cri_class",
+   "fieldtype": "Link",
+   "label": "CRI Class",
+   "options": "ilL-Attribute-CRI",
+   "in_standard_filter": 1,
+   "description": "The sellable CRI rating these results prove."
+  },
+  {
+   "fieldname": "sdcm",
+   "fieldtype": "Link",
+   "label": "SDCM",
+   "options": "ilL-Attribute-SDCM"
+  },
+  {
+   "fieldname": "cri_section",
+   "fieldtype": "Section Break",
+   "label": "Color Rendering (CRI)"
+  },
+  {
+   "fieldname": "ra",
+   "fieldtype": "Float",
+   "label": "Ra (CRI)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cri_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "r9",
+   "fieldtype": "Int",
+   "label": "R9"
+  },
+  {
+   "fieldname": "r_values_section",
+   "fieldtype": "Section Break",
+   "label": "R1 to R15",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "r1",
+   "fieldtype": "Int",
+   "label": "R1"
+  },
+  {
+   "fieldname": "r2",
+   "fieldtype": "Int",
+   "label": "R2"
+  },
+  {
+   "fieldname": "r3",
+   "fieldtype": "Int",
+   "label": "R3"
+  },
+  {
+   "fieldname": "r4",
+   "fieldtype": "Int",
+   "label": "R4"
+  },
+  {
+   "fieldname": "r5",
+   "fieldtype": "Int",
+   "label": "R5"
+  },
+  {
+   "fieldname": "r6",
+   "fieldtype": "Int",
+   "label": "R6"
+  },
+  {
+   "fieldname": "r7",
+   "fieldtype": "Int",
+   "label": "R7"
+  },
+  {
+   "fieldname": "r8",
+   "fieldtype": "Int",
+   "label": "R8"
+  },
+  {
+   "fieldname": "r_values_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "r10",
+   "fieldtype": "Int",
+   "label": "R10"
+  },
+  {
+   "fieldname": "r11",
+   "fieldtype": "Int",
+   "label": "R11"
+  },
+  {
+   "fieldname": "r12",
+   "fieldtype": "Int",
+   "label": "R12"
+  },
+  {
+   "fieldname": "r13",
+   "fieldtype": "Int",
+   "label": "R13"
+  },
+  {
+   "fieldname": "r14",
+   "fieldtype": "Int",
+   "label": "R14"
+  },
+  {
+   "fieldname": "r15",
+   "fieldtype": "Int",
+   "label": "R15"
+  },
+  {
+   "fieldname": "tm30_section",
+   "fieldtype": "Section Break",
+   "label": "TM-30"
+  },
+  {
+   "fieldname": "tm30_rf",
+   "fieldtype": "Float",
+   "label": "TM-30 Rf (Fidelity)"
+  },
+  {
+   "fieldname": "tm30_rg",
+   "fieldtype": "Float",
+   "label": "TM-30 Rg (Gamut)"
+  },
+  {
+   "fieldname": "tm30_rcs_h1",
+   "fieldtype": "Float",
+   "label": "TM-30 Rcs,h1 (%)"
+  },
+  {
+   "fieldname": "tm30_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tm30_chart_image",
+   "fieldtype": "Attach Image",
+   "label": "TM-30 Chart"
+  },
+  {
+   "fieldname": "tm30_color_vector_image",
+   "fieldtype": "Attach Image",
+   "label": "TM-30 Color Vector Graphic"
+  },
+  {
+   "fieldname": "chromaticity_section",
+   "fieldtype": "Section Break",
+   "label": "Chromaticity"
+  },
+  {
+   "fieldname": "measured_cct_k",
+   "fieldtype": "Float",
+   "label": "Measured CCT (K)"
+  },
+  {
+   "fieldname": "duv",
+   "fieldtype": "Float",
+   "label": "Duv",
+   "precision": "4"
+  },
+  {
+   "fieldname": "sp_ratio",
+   "fieldtype": "Float",
+   "label": "S/P Ratio"
+  },
+  {
+   "fieldname": "chromaticity_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cie_x",
+   "fieldtype": "Float",
+   "label": "CIE x",
+   "precision": "4"
+  },
+  {
+   "fieldname": "cie_y",
+   "fieldtype": "Float",
+   "label": "CIE y",
+   "precision": "4"
+  },
+  {
+   "fieldname": "cie_chart_image",
+   "fieldtype": "Attach Image",
+   "label": "CIE Chart"
+  },
+  {
+   "fieldname": "spd_image",
+   "fieldtype": "Attach Image",
+   "label": "Spectral Distribution (SPD)"
+  },
+  {
+   "fieldname": "charts_section",
+   "fieldtype": "Section Break",
+   "label": "More Charts"
+  },
+  {
+   "fieldname": "charts",
+   "fieldtype": "Table",
+   "label": "Charts",
+   "options": "ilL-Child-Colorimetry-Chart"
+  },
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "Test Source",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "test_report",
+   "fieldtype": "Attach",
+   "label": "Test Report"
+  },
+  {
+   "fieldname": "lab",
+   "fieldtype": "Data",
+   "label": "Lab"
+  },
+  {
+   "fieldname": "source_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "report_number",
+   "fieldtype": "Data",
+   "label": "Report Number"
+  },
+  {
+   "fieldname": "test_date",
+   "fieldtype": "Date",
+   "label": "Test Date"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 16:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-Colorimetry",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "title",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title"
+}

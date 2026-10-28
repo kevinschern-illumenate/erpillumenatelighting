@@ -70,13 +70,16 @@
   "operating_temp_max_c",
   "fixture_weight_per_foot_grams",
   "photometric_section",
+  "photometry",
   "beam_angle",
   "photometric_image",
   "photometric_column",
   "tm30_chart_image",
   "polar_chart_image",
   "cone_of_light_section",
-  "photometric_data"
+  "photometric_data",
+  "colorimetry_section",
+  "colorimetry"
  ],
  "fields": [
   {
@@ -452,14 +455,23 @@
    "label": "Photometrics"
   },
   {
+   "fieldname": "photometry",
+   "fieldtype": "Link",
+   "label": "Photometry",
+   "options": "ilL-Spec-Photometry",
+   "description": "Beam angle, charts and cone of light are copied from this record on save."
+  },
+  {
    "fieldname": "beam_angle",
    "fieldtype": "Float",
-   "label": "Beam Angle"
+   "label": "Beam Angle",
+   "read_only_depends_on": "eval:doc.photometry"
   },
   {
    "fieldname": "photometric_image",
    "fieldtype": "Attach Image",
-   "label": "Photometric Image"
+   "label": "Photometric Image",
+   "read_only_depends_on": "eval:doc.photometry"
   },
   {
    "fieldname": "photometric_column",
@@ -468,12 +480,15 @@
   {
    "fieldname": "tm30_chart_image",
    "fieldtype": "Attach Image",
-   "label": "TM-30 Chart"
+   "label": "TM-30 Chart",
+   "read_only_depends_on": "eval:doc.colorimetry && doc.colorimetry.length",
+   "description": "Copied from the featured Colorimetry row when there is one."
   },
   {
    "fieldname": "polar_chart_image",
    "fieldtype": "Attach Image",
-   "label": "Polar Chart"
+   "label": "Polar Chart",
+   "read_only_depends_on": "eval:doc.photometry"
   },
   {
    "fieldname": "cone_of_light_section",
@@ -484,13 +499,26 @@
    "fieldname": "photometric_data",
    "fieldtype": "Table",
    "label": "Cone of Light",
-   "options": "ilL-Child-Photometric-Data"
+   "options": "ilL-Child-Photometric-Data",
+   "read_only_depends_on": "eval:doc.photometry"
+  },
+  {
+   "fieldname": "colorimetry_section",
+   "fieldtype": "Section Break",
+   "label": "Colorimetry"
+  },
+  {
+   "fieldname": "colorimetry",
+   "fieldtype": "Table",
+   "label": "Colorimetry",
+   "options": "ilL-Child-Template-Colorimetry",
+   "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-22 20:32:49.000000",
+ "modified": "2026-10-28 15:50:50.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

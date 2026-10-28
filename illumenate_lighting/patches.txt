@@ -76,3 +76,5 @@ illumenate_lighting.patches.add_delivery_tracking_fields
 illumenate_lighting.patches.migrate_project_parties
 illumenate_lighting.patches.rename_erpnext_only_status
 illumenate_lighting.patches.flag_mounting_methods_without_accessory
+illumenate_lighting.patches.migrate_photometrics_to_spec_records
+illumenate_lighting.patches.catalog_builder_permissions #2026-10-28 rerun for ilL-Spec-Photometry and ilL-Spec-Colorimetry

@@ -41,11 +41,21 @@
   "product_data_section",
   "warranty_years",
   "web_spec_sheet_section",
-  "beam_angle",
   "l70_life_hours",
   "web_spec_sheet_column",
   "operating_temp_min_c",
-  "operating_temp_max_c"
+  "operating_temp_max_c",
+  "photometric_section",
+  "photometry",
+  "beam_angle",
+  "photometric_image",
+  "photometric_column",
+  "tm30_chart_image",
+  "polar_chart_image",
+  "cone_of_light_section",
+  "photometric_data",
+  "colorimetry_section",
+  "colorimetry"
  ],
  "fields": [
   {
@@ -254,11 +264,6 @@
    "label": "Spec Sheet Data"
   },
   {
-   "fieldname": "beam_angle",
-   "fieldtype": "Float",
-   "label": "Beam Angle"
-  },
-  {
    "fieldname": "l70_life_hours",
    "fieldtype": "Int",
    "label": "L70 Life (Hours)"
@@ -276,12 +281,77 @@
    "fieldname": "operating_temp_max_c",
    "fieldtype": "Int",
    "label": "Operating Temp Max (C)"
+  },
+  {
+   "fieldname": "photometric_section",
+   "fieldtype": "Section Break",
+   "label": "Photometrics"
+  },
+  {
+   "fieldname": "photometry",
+   "fieldtype": "Link",
+   "label": "Photometry",
+   "options": "ilL-Spec-Photometry",
+   "description": "Beam angle, charts and cone of light are copied from this record on save."
+  },
+  {
+   "fieldname": "beam_angle",
+   "fieldtype": "Float",
+   "label": "Beam Angle",
+   "read_only_depends_on": "eval:doc.photometry"
+  },
+  {
+   "fieldname": "photometric_image",
+   "fieldtype": "Attach Image",
+   "label": "Photometric Image",
+   "read_only_depends_on": "eval:doc.photometry"
+  },
+  {
+   "fieldname": "photometric_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tm30_chart_image",
+   "fieldtype": "Attach Image",
+   "label": "TM-30 Chart",
+   "read_only_depends_on": "eval:doc.colorimetry && doc.colorimetry.length",
+   "description": "Copied from the featured Colorimetry row when there is one."
+  },
+  {
+   "fieldname": "polar_chart_image",
+   "fieldtype": "Attach Image",
+   "label": "Polar Chart",
+   "read_only_depends_on": "eval:doc.photometry"
+  },
+  {
+   "fieldname": "cone_of_light_section",
+   "fieldtype": "Section Break",
+   "label": "Cone of Light"
+  },
+  {
+   "fieldname": "photometric_data",
+   "fieldtype": "Table",
+   "label": "Cone of Light",
+   "options": "ilL-Child-Photometric-Data",
+   "read_only_depends_on": "eval:doc.photometry"
+  },
+  {
+   "fieldname": "colorimetry_section",
+   "fieldtype": "Section Break",
+   "label": "Colorimetry"
+  },
+  {
+   "fieldname": "colorimetry",
+   "fieldtype": "Table",
+   "label": "Colorimetry",
+   "options": "ilL-Child-Template-Colorimetry",
+   "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-22 20:32:49.000000",
+ "modified": "2026-10-28 15:50:50.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-LED-Sheet-Template",

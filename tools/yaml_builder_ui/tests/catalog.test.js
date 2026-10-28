@@ -120,7 +120,7 @@ test('live lists confirm existing records and flag declared names they do not co
 test("a family's maps, submittal mappings and specs list right after its template", () => {
   assert.deepEqual(familyTypes(schema.products['extrusion-kit'], schema), ['ilL-Kit-Submittal-Mapping', 'ilL-Rel-Kit-Endcap-Map',
     'ilL-Rel-Kit-Lens-Map', 'ilL-Rel-Kit-Mounting-Map', 'ilL-Rel-Kit-Profile-Map', 'ilL-Webflow-Product',
-    'ilL-Spec-Accessory', 'ilL-Spec-Lens', 'ilL-Spec-Profile']);
+    'ilL-Spec-Accessory', 'ilL-Spec-Lens', 'ilL-Spec-Photometry', 'ilL-Spec-Profile']);
   assert.ok(familyTypes(schema.products.fixture, schema).includes('ilL-Spec-Submittal-Mapping'));
   assert.deepEqual(familyTypes({ template: 'Missing' }, schema), []);
 });

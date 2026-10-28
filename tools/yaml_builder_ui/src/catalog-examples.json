@@ -436,8 +436,21 @@
               "is_active": 1
             }
           ],
+          "photometry": "DEMO-TAPE",
+          "colorimetry": [
+            {
+              "colorimetry": "DEMO-3000-90",
+              "is_featured": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Spec-Photometry": [
+        {
+          "photometry_code": "DEMO-TAPE",
+          "title": "Example tape photometry",
+          "is_active": 1,
           "beam_angle": 120,
-          "tm30_chart_image": "/files/example-tm30.png",
           "polar_chart_image": "/files/example-polar.png",
           "photometric_data": [
             {
@@ -459,6 +472,19 @@
               "display_order": 3
             }
           ]
+        }
+      ],
+      "ilL-Spec-Colorimetry": [
+        {
+          "colorimetry_code": "DEMO-3000-90",
+          "title": "Example 3000K 90 CRI",
+          "is_active": 1,
+          "cct": "3000K",
+          "ra": 92,
+          "r9": 55,
+          "tm30_rf": 90,
+          "tm30_rg": 101,
+          "tm30_chart_image": "/files/example-tm30.png"
         }
       ],
       "ilL-Rel-Driver-Eligibility": [
@@ -625,8 +651,21 @@
               "is_active": 1
             }
           ],
+          "photometry": "DEMO-NEON",
+          "colorimetry": [
+            {
+              "colorimetry": "DEMO-3000-90",
+              "is_featured": 1
+            }
+          ]
+        }
+      ],
+      "ilL-Spec-Photometry": [
+        {
+          "photometry_code": "DEMO-NEON",
+          "title": "Example neon photometry",
+          "is_active": 1,
           "beam_angle": 120,
-          "tm30_chart_image": "/files/example-tm30.png",
           "polar_chart_image": "/files/example-polar.png",
           "photometric_data": [
             {
@@ -648,6 +687,19 @@
               "display_order": 3
             }
           ]
+        }
+      ],
+      "ilL-Spec-Colorimetry": [
+        {
+          "colorimetry_code": "DEMO-3000-90",
+          "title": "Example 3000K 90 CRI",
+          "is_active": 1,
+          "cct": "3000K",
+          "ra": 92,
+          "r9": 55,
+          "tm30_rf": 90,
+          "tm30_rg": 101,
+          "tm30_chart_image": "/files/example-tm30.png"
         }
       ],
       "ilL-Rel-Driver-Eligibility": [

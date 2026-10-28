@@ -289,9 +289,18 @@ def example_catalog(product_type):
 					"is_active": 1,
 				},
 			],
-			# Photometrics for the product page. Upload the charts first and use their site URLs.
+			# Photometrics and colorimetry come from shared records; the template's beam angle,
+			# charts and cone of light are copied from them on save.
+			photometry=f"DEMO-{product_type.upper()}",
+			colorimetry=[{"colorimetry": "DEMO-3000-90", "is_featured": 1}],
+		)
+		# Upload the charts first and use their site URLs.
+		add(
+			"ilL-Spec-Photometry",
+			photometry_code=f"DEMO-{product_type.upper()}",
+			title=f"Example {product_type} photometry",
+			is_active=1,
 			beam_angle=120,
-			tm30_chart_image="/files/example-tm30.png",
 			polar_chart_image="/files/example-polar.png",
 			photometric_data=[
 				{
@@ -302,6 +311,18 @@ def example_catalog(product_type):
 				}
 				for i, (height, level, diameter) in enumerate(((2, 45, 6.9), (4, 11, 13.9), (6, 5, 20.8)), 1)
 			],
+		)
+		add(
+			"ilL-Spec-Colorimetry",
+			colorimetry_code="DEMO-3000-90",
+			title="Example 3000K 90 CRI",
+			is_active=1,
+			cct="3000K",
+			ra=92,
+			r9=55,
+			tm30_rf=90,
+			tm30_rg=101,
+			tm30_chart_image="/files/example-tm30.png",
 		)
 	elif product_type == "led-sheet":
 		sheet = item("DEMO-SHEET")
