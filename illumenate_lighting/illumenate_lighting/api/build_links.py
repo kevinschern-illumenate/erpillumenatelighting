@@ -102,12 +102,39 @@ def _set(row, fieldname, value):
 	row.set(fieldname, value)
 
 
+def _follow_supplies(rows, row, old, new):
+	"""Point the power-supply rows added for ``row``'s old build at its new build.
+
+	Reconfigure Row finds a supply's fixture (and clears it on rebuild) by
+	``ill_power_supply_for``, matched within the same Fixture Type.
+	"""
+	fixture_type = row.get("ill_fixture_type") or None
+	if any(
+		other is not row
+		and not other.get("ill_is_power_supply_line")
+		and (other.get("ill_fixture_type") or None) == fixture_type
+		and old in (other.get("ill_configured_product"), *(other.get(field) for field in ROW_LINKS.values()))
+		for other in rows
+	):
+		return  # Another row of this Fixture Type still orders the old build and keeps its supplies.
+	for supply in rows:
+		if (
+			supply.get("ill_is_power_supply_line")
+			and (supply.get("ill_fixture_type") or None) == fixture_type
+			and supply.get("ill_power_supply_for") == old
+		):
+			_set(supply, "ill_power_supply_for", new)
+			if supply.get("ill_parent_configured_fixture") == old:
+				_set(supply, "ill_parent_configured_fixture", new)
+
+
 def follow_items(doc, method=None):
 	"""Quotation / Sales Order ``validate``: point each configured row at its Item's own build."""
 	if doc.docstatus == 2:
 		return
 	moved = []
-	for row in doc.get("items") or []:
+	rows = doc.get("items") or []
+	for row in rows:
 		if row.get("ill_is_power_supply_line") or row.get("ill_configured_group"):
 			continue
 		linked = row_build(row)
@@ -121,6 +148,7 @@ def follow_items(doc, method=None):
 			_set(row, field, value)
 		if doc.doctype == "Sales Order" and build.get("bom"):
 			_set(row, "bom_no", build.bom)
+		_follow_supplies(rows, row, linked[1], build.name)
 		moved.append(str(row.idx))
 	if moved:
 		frappe.msgprint(

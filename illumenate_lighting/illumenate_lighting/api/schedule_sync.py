@@ -246,6 +246,23 @@ def line_updates(line, row, before_row) -> dict:
 				"ill_configurator_request": None,
 			}
 		)
+	if (
+		line.get("manufacturer_type") == "ILLUMENATE"
+		and line.get("configured_tape_neon")
+		and row.get("ill_configured_tape_neon")
+		and edited("ill_configured_tape_neon")
+	):
+		# Same for a tape / neon build.
+		changes.update(
+			{
+				"configured_tape_neon": row.get("ill_configured_tape_neon"),
+				"tape_neon_template": row.get("ill_template_code") or line.get("tape_neon_template"),
+				"ill_item_code": row.get("item_code"),
+				"ill_bom": row.get("ill_bom") or None,
+				"manufacturable_length_mm": row.get("ill_mfg_length_mm"),
+				"ill_configurator_request": None,
+			}
+		)
 	return {key: value for key, value in changes.items() if not _same(line.get(key), value)}
 
 
