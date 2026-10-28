@@ -4282,6 +4282,8 @@ class ilLWebflowProduct(Document):
 
 					# 6. Kit Components Grouping
 					grouped_components = {}
+					grouped_images = {}
+					
 					for c_row in (template_doc.get("kit_components") or []):
 						c_type = c_row.get("component_type")
 						if not c_type:
@@ -4293,6 +4295,21 @@ class ilLWebflowProduct(Document):
 						desc = c_row.get("custom_webflow_description") or c_row.get("webflow_description") or c_row.get("description") or ""
 						item_code = c_row.get("component_item")
 						
+						# Grab image only once per component type
+						if c_type not in grouped_images and item_code:
+							# First try to get the image from the variant's parent
+							variant_of = frappe.db.get_value("Item", item_code, "variant_of")
+							img = None
+							if variant_of:
+								img = frappe.db.get_value("Item", variant_of, "image")
+							
+							# If no variant parent, or parent has no image, check the item itself
+							if not img:
+								img = frappe.db.get_value("Item", item_code, "image")
+								
+							if img:
+								grouped_images[c_type] = img if img.startswith("http") else f"https://app.illumenate.lighting{img}"
+						
 						grouped_components[c_type].append({
 							"code": item_code or "",
 							"label": desc
@@ -4300,10 +4317,18 @@ class ilLWebflowProduct(Document):
 					
 					self.kit_components = []
 					for c_type, items_list in grouped_components.items():
+						final_json_list = []
+						
+						# Inject the hero image as the first object in the array
+						if c_type in grouped_images:
+							final_json_list.append({"hero_image": grouped_images[c_type]})
+							
+						final_json_list.extend(items_list)
+						
 						self.append("kit_components", {
 							"component_type": c_type,
 							"component_item": items_list[0]["code"] if items_list else "", 
-							"custom_webflow_description": json.dumps(items_list, indent=1)
+							"custom_webflow_description": json.dumps(final_json_list, indent=1)
 						})
 					
 					record(debug, "Kit Components", len(grouped_components), [f"{k} ({len(v)} items)" for k, v in grouped_components.items()], appended=True)
