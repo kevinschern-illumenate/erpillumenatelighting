@@ -98,21 +98,13 @@ _FEED_LENGTHS = [
 	},
 ]
 
-_BEAM_ANGLE = {"fieldname": "beam_angle", "fieldtype": "Float", "label": "Beam Angle"}
-
-
-def _spec_sheet_data(beam_angle=True):
-	return [
-		_section("web_spec_sheet_section", "Spec Sheet Data"),
-		*([_BEAM_ANGLE] if beam_angle else []),
-		{"fieldname": "l70_life_hours", "fieldtype": "Int", "label": "L70 Life (Hours)"},
-		_column("web_spec_sheet_column"),
-		{"fieldname": "operating_temp_min_c", "fieldtype": "Int", "label": "Operating Temp Min (C)"},
-		{"fieldname": "operating_temp_max_c", "fieldtype": "Int", "label": "Operating Temp Max (C)"},
-	]
-
-
-_SPEC_SHEET_DATA = _spec_sheet_data()
+_SPEC_SHEET_DATA = [
+	_section("web_spec_sheet_section", "Spec Sheet Data"),
+	{"fieldname": "l70_life_hours", "fieldtype": "Int", "label": "L70 Life (Hours)"},
+	_column("web_spec_sheet_column"),
+	{"fieldname": "operating_temp_min_c", "fieldtype": "Int", "label": "Operating Temp Min (C)"},
+	{"fieldname": "operating_temp_max_c", "fieldtype": "Int", "label": "Operating Temp Max (C)"},
+]
 
 _WEIGHT = [
 	{
@@ -132,21 +124,58 @@ _KIT_COMPONENTS = [
 	},
 ]
 
-# Charts and cone-of-light rows for the product page. Templates that carry this block
-# keep their beam angle here instead of under Spec Sheet Data; it is the same field.
+# Beam angle, charts and cone-of-light rows. With a photometry record linked they are
+# copies of it (photometrics.py) and read only; without one they stay editable.
+_FROM_PHOTOMETRY = {"read_only_depends_on": "eval:doc.photometry"}
 _PHOTOMETRICS = [
 	_section("photometric_section", "Photometrics"),
-	_BEAM_ANGLE,
-	{"fieldname": "photometric_image", "fieldtype": "Attach Image", "label": "Photometric Image"},
+	{
+		"fieldname": "photometry",
+		"fieldtype": "Link",
+		"label": "Photometry",
+		"options": "ilL-Spec-Photometry",
+		"description": "Beam angle, charts and cone of light are copied from this record on save.",
+	},
+	{"fieldname": "beam_angle", "fieldtype": "Float", "label": "Beam Angle", **_FROM_PHOTOMETRY},
+	{
+		"fieldname": "photometric_image",
+		"fieldtype": "Attach Image",
+		"label": "Photometric Image",
+		**_FROM_PHOTOMETRY,
+	},
 	_column("photometric_column"),
-	{"fieldname": "tm30_chart_image", "fieldtype": "Attach Image", "label": "TM-30 Chart"},
-	{"fieldname": "polar_chart_image", "fieldtype": "Attach Image", "label": "Polar Chart"},
+	{
+		"fieldname": "tm30_chart_image",
+		"fieldtype": "Attach Image",
+		"label": "TM-30 Chart",
+		"read_only_depends_on": "eval:doc.colorimetry && doc.colorimetry.length",
+		"description": "Copied from the featured Colorimetry row when there is one.",
+	},
+	{
+		"fieldname": "polar_chart_image",
+		"fieldtype": "Attach Image",
+		"label": "Polar Chart",
+		**_FROM_PHOTOMETRY,
+	},
 	_section("cone_of_light_section", "Cone of Light"),
 	{
 		"fieldname": "photometric_data",
 		"fieldtype": "Table",
 		"label": "Cone of Light",
 		"options": "ilL-Child-Photometric-Data",
+		**_FROM_PHOTOMETRY,
+	},
+]
+
+# Measured color results, one row per CCT the template is sold in.
+_COLORIMETRY = [
+	_section("colorimetry_section", "Colorimetry"),
+	{
+		"fieldname": "colorimetry",
+		"fieldtype": "Table",
+		"label": "Colorimetry",
+		"options": "ilL-Child-Template-Colorimetry",
+		"description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page.",
 	},
 ]
 
@@ -154,16 +183,22 @@ _PHOTOMETRICS = [
 PHOTOMETRIC_FIELDS = ("photometric_image", "tm30_chart_image", "polar_chart_image", "photometric_data")
 
 TYPE_FIELDS = {
-	"ilL-Fixture-Template": _LENGTHS + _FEED_LENGTHS + _SPEC_SHEET_DATA + _WEIGHT,
+	"ilL-Fixture-Template": _LENGTHS
+	+ _FEED_LENGTHS
+	+ _SPEC_SHEET_DATA
+	+ _WEIGHT
+	+ _PHOTOMETRICS
+	+ _COLORIMETRY,
 	"ilL-Tape-Neon-Template": _LENGTHS
 	+ _FEED_LENGTHS
-	+ _spec_sheet_data(beam_angle=False)
+	+ _SPEC_SHEET_DATA
 	+ _WEIGHT
-	+ _PHOTOMETRICS,
+	+ _PHOTOMETRICS
+	+ _COLORIMETRY,
 	"ilL-Controller-Template": [],
 	"ilL-Driver-Template": [],
-	"ilL-Extrusion-Kit-Template": _LENGTHS + _SPEC_SHEET_DATA + _WEIGHT + _KIT_COMPONENTS,
-	"ilL-LED-Sheet-Template": _SPEC_SHEET_DATA,
+	"ilL-Extrusion-Kit-Template": _LENGTHS + _SPEC_SHEET_DATA + _WEIGHT + _KIT_COMPONENTS + _PHOTOMETRICS,
+	"ilL-LED-Sheet-Template": _SPEC_SHEET_DATA + _PHOTOMETRICS + _COLORIMETRY,
 }
 
 

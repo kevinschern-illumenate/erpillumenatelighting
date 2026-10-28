@@ -1392,6 +1392,34 @@
         }
       ]
     },
+    "ilL-Child-Colorimetry-Chart": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "chart_type",
+          "label": "Chart Type",
+          "fieldtype": "Select",
+          "options": "\nTM-30 Hue Bins\nTM-30 Local Fidelity\nCIE 1931\nCIE 1976\nSPD\nCRI Bar Chart\nOther"
+        },
+        {
+          "fieldname": "image",
+          "label": "Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "caption",
+          "label": "Caption",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "display_order",
+          "label": "Display Order",
+          "fieldtype": "Int",
+          "default": "0"
+        }
+      ]
+    },
     "ilL-Child-Compatible Lens": {
       "autoname": "",
       "istable": 1,
@@ -2365,6 +2393,33 @@
           "label": "Lens Appearance",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Lens Appearance"
+        }
+      ]
+    },
+    "ilL-Child-Template-Colorimetry": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "colorimetry",
+          "label": "Colorimetry",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Colorimetry",
+          "reqd": 1
+        },
+        {
+          "fieldname": "cct",
+          "label": "CCT",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CCT",
+          "read_only": 1
+        },
+        {
+          "fieldname": "is_featured",
+          "label": "Featured",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "The product page shows this row's TM-30 chart. One row per template."
         }
       ]
     },
@@ -3461,11 +3516,6 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "beam_angle",
-          "label": "Beam Angle",
-          "fieldtype": "Float"
-        },
-        {
           "fieldname": "l70_life_hours",
           "label": "L70 Life (Hours)",
           "fieldtype": "Int"
@@ -3490,6 +3540,40 @@
           "label": "Kit Components",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Kit-Component"
+        },
+        {
+          "fieldname": "photometry",
+          "label": "Photometry",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Photometry",
+          "description": "Beam angle, charts and cone of light are copied from this record on save."
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "photometric_image",
+          "label": "Photometric Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "tm30_chart_image",
+          "label": "TM-30 Chart",
+          "fieldtype": "Attach Image",
+          "description": "Copied from the featured Colorimetry row when there is one."
+        },
+        {
+          "fieldname": "polar_chart_image",
+          "label": "Polar Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "photometric_data",
+          "label": "Cone of Light",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Photometric-Data"
         }
       ]
     },
@@ -3685,11 +3769,6 @@
           "options": "ilL-Child-Webflow-Feed-Length"
         },
         {
-          "fieldname": "beam_angle",
-          "label": "Beam Angle",
-          "fieldtype": "Float"
-        },
-        {
           "fieldname": "l70_life_hours",
           "label": "L70 Life (Hours)",
           "fieldtype": "Int"
@@ -3708,6 +3787,47 @@
           "fieldname": "fixture_weight_per_foot_grams",
           "label": "Fixture Weight per Foot (g)",
           "fieldtype": "Float"
+        },
+        {
+          "fieldname": "photometry",
+          "label": "Photometry",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Photometry",
+          "description": "Beam angle, charts and cone of light are copied from this record on save."
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "photometric_image",
+          "label": "Photometric Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "tm30_chart_image",
+          "label": "TM-30 Chart",
+          "fieldtype": "Attach Image",
+          "description": "Copied from the featured Colorimetry row when there is one."
+        },
+        {
+          "fieldname": "polar_chart_image",
+          "label": "Polar Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "photometric_data",
+          "label": "Cone of Light",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Photometric-Data"
+        },
+        {
+          "fieldname": "colorimetry",
+          "label": "Colorimetry",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Template-Colorimetry",
+          "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
         }
       ]
     },
@@ -4068,11 +4188,6 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "beam_angle",
-          "label": "Beam Angle",
-          "fieldtype": "Float"
-        },
-        {
           "fieldname": "l70_life_hours",
           "label": "L70 Life (Hours)",
           "fieldtype": "Int"
@@ -4086,6 +4201,47 @@
           "fieldname": "operating_temp_max_c",
           "label": "Operating Temp Max (C)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "photometry",
+          "label": "Photometry",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Photometry",
+          "description": "Beam angle, charts and cone of light are copied from this record on save."
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "photometric_image",
+          "label": "Photometric Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "tm30_chart_image",
+          "label": "TM-30 Chart",
+          "fieldtype": "Attach Image",
+          "description": "Copied from the featured Colorimetry row when there is one."
+        },
+        {
+          "fieldname": "polar_chart_image",
+          "label": "Polar Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "photometric_data",
+          "label": "Cone of Light",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Photometric-Data"
+        },
+        {
+          "fieldname": "colorimetry",
+          "label": "Colorimetry",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Template-Colorimetry",
+          "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
         }
       ]
     },
@@ -4864,6 +5020,226 @@
           "label": "Cross-Section Outlines",
           "fieldtype": "Long Text",
           "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
+        }
+      ]
+    },
+    "ilL-Spec-Colorimetry": {
+      "autoname": "field:colorimetry_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "colorimetry_code",
+          "label": "Colorimetry Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Short code for this measured source, e.g. SW-2700-95."
+        },
+        {
+          "fieldname": "title",
+          "label": "Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "led_package",
+          "label": "LED Package",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-LED Package"
+        },
+        {
+          "fieldname": "cct",
+          "label": "CCT",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CCT"
+        },
+        {
+          "fieldname": "cri_class",
+          "label": "CRI Class",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CRI",
+          "description": "The sellable CRI rating these results prove."
+        },
+        {
+          "fieldname": "sdcm",
+          "label": "SDCM",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-SDCM"
+        },
+        {
+          "fieldname": "ra",
+          "label": "Ra (CRI)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "r9",
+          "label": "R9",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r1",
+          "label": "R1",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r2",
+          "label": "R2",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r3",
+          "label": "R3",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r4",
+          "label": "R4",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r5",
+          "label": "R5",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r6",
+          "label": "R6",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r7",
+          "label": "R7",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r8",
+          "label": "R8",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r10",
+          "label": "R10",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r11",
+          "label": "R11",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r12",
+          "label": "R12",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r13",
+          "label": "R13",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r14",
+          "label": "R14",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "r15",
+          "label": "R15",
+          "fieldtype": "Int"
+        },
+        {
+          "fieldname": "tm30_rf",
+          "label": "TM-30 Rf (Fidelity)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "tm30_rg",
+          "label": "TM-30 Rg (Gamut)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "tm30_rcs_h1",
+          "label": "TM-30 Rcs,h1 (%)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "tm30_chart_image",
+          "label": "TM-30 Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "tm30_color_vector_image",
+          "label": "TM-30 Color Vector Graphic",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "measured_cct_k",
+          "label": "Measured CCT (K)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "duv",
+          "label": "Duv",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "sp_ratio",
+          "label": "S/P Ratio",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "cie_x",
+          "label": "CIE x",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "cie_y",
+          "label": "CIE y",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "cie_chart_image",
+          "label": "CIE Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "spd_image",
+          "label": "Spectral Distribution (SPD)",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "charts",
+          "label": "Charts",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Colorimetry-Chart"
+        },
+        {
+          "fieldname": "test_report",
+          "label": "Test Report",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "lab",
+          "label": "Lab",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "report_number",
+          "label": "Report Number",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "test_date",
+          "label": "Test Date",
+          "fieldtype": "Date"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
         }
       ]
     },
@@ -5740,6 +6116,151 @@
         }
       ]
     },
+    "ilL-Spec-Photometry": {
+      "autoname": "field:photometry_code",
+      "istable": 0,
+      "fields": [
+        {
+          "fieldname": "photometry_code",
+          "label": "Photometry Code",
+          "fieldtype": "Data",
+          "reqd": 1,
+          "description": "Short code for this tested build, e.g. the template code."
+        },
+        {
+          "fieldname": "title",
+          "label": "Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "is_active",
+          "label": "Is Active",
+          "fieldtype": "Check",
+          "default": "1"
+        },
+        {
+          "fieldname": "lens_appearance",
+          "label": "Lens",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Lens Appearance"
+        },
+        {
+          "fieldname": "led_package",
+          "label": "LED Package",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-LED Package"
+        },
+        {
+          "fieldname": "cct",
+          "label": "CCT Tested",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-CCT"
+        },
+        {
+          "fieldname": "output_level",
+          "label": "Output Level Tested",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Level"
+        },
+        {
+          "fieldname": "beam_angle",
+          "label": "Beam Angle (°)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "field_angle",
+          "label": "Field Angle (°)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "distribution_type",
+          "label": "Distribution Type",
+          "fieldtype": "Select",
+          "options": "\nSymmetric\nAsymmetric\nWall Wash\nBatwing\nDirect/Indirect"
+        },
+        {
+          "fieldname": "max_candela",
+          "label": "Max Candela (cd)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "ugr",
+          "label": "UGR",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "delivered_lumens_per_ft",
+          "label": "Delivered Lumens per Foot",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "efficacy_lm_per_w",
+          "label": "Efficacy (lm/W)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "watts_per_ft_tested",
+          "label": "Watts per Foot Tested",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "photometric_image",
+          "label": "Photometric Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "isolux_image",
+          "label": "Isolux Diagram",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "polar_chart_image",
+          "label": "Polar Chart",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "ies_file",
+          "label": "IES File",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "ldt_file",
+          "label": "LDT (EULUMDAT) File",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "photometric_data",
+          "label": "Cone of Light",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Photometric-Data"
+        },
+        {
+          "fieldname": "test_report",
+          "label": "Test Report",
+          "fieldtype": "Attach"
+        },
+        {
+          "fieldname": "lab",
+          "label": "Lab",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "report_number",
+          "label": "Report Number",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "test_date",
+          "label": "Test Date",
+          "fieldtype": "Date"
+        },
+        {
+          "fieldname": "notes",
+          "label": "Notes",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
     "ilL-Spec-Profile": {
       "autoname": "field:item",
       "istable": 0,
@@ -6382,6 +6903,13 @@
           "fieldtype": "Float"
         },
         {
+          "fieldname": "photometry",
+          "label": "Photometry",
+          "fieldtype": "Link",
+          "options": "ilL-Spec-Photometry",
+          "description": "Beam angle, charts and cone of light are copied from this record on save."
+        },
+        {
           "fieldname": "beam_angle",
           "label": "Beam Angle",
           "fieldtype": "Float"
@@ -6394,7 +6922,8 @@
         {
           "fieldname": "tm30_chart_image",
           "label": "TM-30 Chart",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Copied from the featured Colorimetry row when there is one."
         },
         {
           "fieldname": "polar_chart_image",
@@ -6406,6 +6935,13 @@
           "label": "Cone of Light",
           "fieldtype": "Table",
           "options": "ilL-Child-Photometric-Data"
+        },
+        {
+          "fieldname": "colorimetry",
+          "label": "Colorimetry",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Template-Colorimetry",
+          "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
         }
       ]
     },

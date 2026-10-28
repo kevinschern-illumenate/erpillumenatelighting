@@ -628,3 +628,10 @@ for _template_doctype in ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL
 	_template_hooks = doc_events.setdefault(_template_doctype, {})
 	_template_old = _template_hooks.get("on_update", [])
 	_template_hooks["on_update"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.web_listing_source.sync_to_listing"]
+
+# Beam angle, charts and cone of light on the templates are copies of the linked
+# ilL-Spec-Photometry / ilL-Spec-Colorimetry records.
+for _template_doctype in ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-Extrusion-Kit-Template", "ilL-LED-Sheet-Template"):
+	_template_hooks = doc_events.setdefault(_template_doctype, {})
+	_template_old = _template_hooks.get("validate", [])
+	_template_hooks["validate"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.photometrics.apply_to_template"]

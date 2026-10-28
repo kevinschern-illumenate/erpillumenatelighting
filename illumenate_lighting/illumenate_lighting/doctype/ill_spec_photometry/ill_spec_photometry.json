@@ -1,0 +1,295 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:photometry_code",
+ "creation": "2026-10-28 16:00:00.000000",
+ "description": "Measured light output for one product build: beam angle, charts, IES/LDT files and cone of light. Templates link one.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "photometry_code",
+  "title",
+  "is_active",
+  "identity_column",
+  "lens_appearance",
+  "led_package",
+  "cct",
+  "output_level",
+  "distribution_section",
+  "beam_angle",
+  "field_angle",
+  "distribution_type",
+  "distribution_column",
+  "max_candela",
+  "ugr",
+  "output_section",
+  "delivered_lumens_per_ft",
+  "efficacy_lm_per_w",
+  "output_column",
+  "watts_per_ft_tested",
+  "charts_section",
+  "photometric_image",
+  "isolux_image",
+  "charts_column",
+  "polar_chart_image",
+  "files_section",
+  "ies_file",
+  "files_column",
+  "ldt_file",
+  "cone_of_light_section",
+  "photometric_data",
+  "source_section",
+  "test_report",
+  "lab",
+  "source_column",
+  "report_number",
+  "test_date",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "photometry_code",
+   "fieldtype": "Data",
+   "label": "Photometry Code",
+   "reqd": 1,
+   "unique": 1,
+   "description": "Short code for this tested build, e.g. the template code."
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "identity_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lens_appearance",
+   "fieldtype": "Link",
+   "label": "Lens",
+   "options": "ilL-Attribute-Lens Appearance"
+  },
+  {
+   "fieldname": "led_package",
+   "fieldtype": "Link",
+   "label": "LED Package",
+   "options": "ilL-Attribute-LED Package"
+  },
+  {
+   "fieldname": "cct",
+   "fieldtype": "Link",
+   "label": "CCT Tested",
+   "options": "ilL-Attribute-CCT"
+  },
+  {
+   "fieldname": "output_level",
+   "fieldtype": "Link",
+   "label": "Output Level Tested",
+   "options": "ilL-Attribute-Output Level"
+  },
+  {
+   "fieldname": "distribution_section",
+   "fieldtype": "Section Break",
+   "label": "Distribution"
+  },
+  {
+   "fieldname": "beam_angle",
+   "fieldtype": "Float",
+   "label": "Beam Angle (°)",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "field_angle",
+   "fieldtype": "Float",
+   "label": "Field Angle (°)"
+  },
+  {
+   "fieldname": "distribution_type",
+   "fieldtype": "Select",
+   "label": "Distribution Type",
+   "options": "\nSymmetric\nAsymmetric\nWall Wash\nBatwing\nDirect/Indirect"
+  },
+  {
+   "fieldname": "distribution_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "max_candela",
+   "fieldtype": "Float",
+   "label": "Max Candela (cd)"
+  },
+  {
+   "fieldname": "ugr",
+   "fieldtype": "Float",
+   "label": "UGR"
+  },
+  {
+   "fieldname": "output_section",
+   "fieldtype": "Section Break",
+   "label": "Output"
+  },
+  {
+   "fieldname": "delivered_lumens_per_ft",
+   "fieldtype": "Float",
+   "label": "Delivered Lumens per Foot"
+  },
+  {
+   "fieldname": "efficacy_lm_per_w",
+   "fieldtype": "Float",
+   "label": "Efficacy (lm/W)"
+  },
+  {
+   "fieldname": "output_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "watts_per_ft_tested",
+   "fieldtype": "Float",
+   "label": "Watts per Foot Tested"
+  },
+  {
+   "fieldname": "charts_section",
+   "fieldtype": "Section Break",
+   "label": "Charts"
+  },
+  {
+   "fieldname": "photometric_image",
+   "fieldtype": "Attach Image",
+   "label": "Photometric Image"
+  },
+  {
+   "fieldname": "isolux_image",
+   "fieldtype": "Attach Image",
+   "label": "Isolux Diagram"
+  },
+  {
+   "fieldname": "charts_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "polar_chart_image",
+   "fieldtype": "Attach Image",
+   "label": "Polar Chart"
+  },
+  {
+   "fieldname": "files_section",
+   "fieldtype": "Section Break",
+   "label": "Photometric Files"
+  },
+  {
+   "fieldname": "ies_file",
+   "fieldtype": "Attach",
+   "label": "IES File"
+  },
+  {
+   "fieldname": "files_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ldt_file",
+   "fieldtype": "Attach",
+   "label": "LDT (EULUMDAT) File"
+  },
+  {
+   "fieldname": "cone_of_light_section",
+   "fieldtype": "Section Break",
+   "label": "Cone of Light"
+  },
+  {
+   "fieldname": "photometric_data",
+   "fieldtype": "Table",
+   "label": "Cone of Light",
+   "options": "ilL-Child-Photometric-Data"
+  },
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "Test Source",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "test_report",
+   "fieldtype": "Attach",
+   "label": "Test Report"
+  },
+  {
+   "fieldname": "lab",
+   "fieldtype": "Data",
+   "label": "Lab"
+  },
+  {
+   "fieldname": "source_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "report_number",
+   "fieldtype": "Data",
+   "label": "Report Number"
+  },
+  {
+   "fieldname": "test_date",
+   "fieldtype": "Date",
+   "label": "Test Date"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-28 16:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Spec-Photometry",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "search_fields": "title",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title"
+}
