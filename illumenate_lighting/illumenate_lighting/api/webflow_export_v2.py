@@ -460,23 +460,35 @@ def get_webflow_products(
                 ]
             )
             
-            component_codes = _collect_component_item_codes(doc.kit_components)
+            # 1. Look at the raw Template to find the actual item codes for images
+            template_doc = doc.template # This is the active linked template
+            raw_components = getattr(template_doc, "kit_components", [])
+            component_codes = _collect_component_item_codes(raw_components)
             component_hero_by_code = _resolve_item_hero_images(component_codes, brand_code)
 
-            product["kit_components"] = [
-                {
+            # 2. Rebuild the grouped list from ilL-Webflow-Product
+            product["kit_components"] = []
+            
+            for k in doc.kit_components:
+                # Load the clean JSON array we built in ill_webflow_product.py
+                desc_json = k.get("custom_webflow_description") or "[]"
+                try:
+                    parsed_list = json.loads(desc_json)
+                except Exception:
+                    parsed_list = []
+                
+                # Check if we successfully resolved a hero image for this component type
+                # We use the dummy component_item to get a match for the type (e.g. CH-RA01-SV -> Profile)
+                hero_img = component_hero_by_code.get((k.component_item or "").strip())
+                if hero_img:
+                    # Prepend the image to the very top of the list
+                    parsed_list.insert(0, {"hero_image": hero_img})
+                
+                # We only pass the type and the final clean JSON array to n8n
+                product["kit_components"].append({
                     "component_type": k.component_type,
-                    "component_item": k.component_item,
-                    "component_spec_doctype": k.component_spec_doctype,
-                    "component_spec_name": k.component_spec_name,
-                    "quantity": k.quantity,
-                    "notes": k.notes,
-                    "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
-                    "webflow_title": k.get("custom_webflow_title"),  # site Custom Field, absent on fresh sites
-                    "webflow_description": k.get("custom_webflow_description"),
-                }
-                for k in doc.kit_components
-            ]
+                    "custom_webflow_description": json.dumps(parsed_list, indent=1)
+                })
             
             product["gallery_images"] = [
                 {
