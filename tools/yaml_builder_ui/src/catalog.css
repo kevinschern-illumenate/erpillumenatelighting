@@ -135,7 +135,7 @@
 /* Record table */
 .grid { margin-bottom: 16px; }
 .grid-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
-.grid-actions { display: flex; gap: 4px; }
+.grid-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .catalog-app .grid-toolbar button, .catalog-app .grid-footer button, .catalog-app .grid-expand-title button { padding: 5px 10px; font-size: 12px; }
 .catalog-app .grid-toolbar .grid-filter { width: 200px; padding: 6px 9px; font-size: 12px; }
 .grid-menu { position: relative; }
@@ -287,3 +287,8 @@
 .catalog-new-fields label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
 .catalog-new-fields small { font-weight: 400; color: #706b61; }
 .catalog-new-counts { columns: 3 180px; margin: 6px 0 10px; padding-left: 18px; font-size: 12px; }
+.grid-menu.is-disabled > summary { opacity: .5; cursor: default; }
+.grid-set-field { display: grid; gap: 8px; }
+.grid-set-field p { margin: 0; font-size: 13px; }
+.grid-set-field label { display: grid; gap: 3px; font-size: 13px; }
+.grid-check-actions { flex-wrap: wrap; }

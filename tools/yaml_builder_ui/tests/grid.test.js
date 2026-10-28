@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { catalogIssues, unresolvedLinks } from '../src/catalog-model.js';
 import {
   gridColumns, visibleColumns, parseTSV, toTSV, coerceCell, copyMatrix, pasteCells, rowsFromMatrix,
-  fillDown, clearCells, duplicateRows, moveRows, removeRows, issueIndex, parseNumber, locatePath, findingGroups,
+  fillDown, clearCells, duplicateRows, moveRows, removeRows, setColumnValue, rowSpan, issueIndex, parseNumber, locatePath, findingGroups,
 } from '../src/grid-model.js';
 
 const schema = JSON.parse(readFileSync(new URL('../src/catalog-schema.json', import.meta.url)));
@@ -117,6 +117,26 @@ test('fill down, clear and row operations return new rows', () => {
   assert.deepEqual(moveRows(['a', 'b', 'c', 'd'], [0, 2], -1), { rows: ['a', 'c', 'b', 'd'], indexes: [0, 1] });
   assert.deepEqual(moveRows(['a', 'b', 'c'], [1, 2], 1), { rows: ['a', 'b', 'c'], indexes: [1, 2] });
   assert.deepEqual(removeRows(['a', 'b', 'c'], [0, 2]), ['b']);
+});
+
+test('set field writes one typed value to the chosen rows', () => {
+  const rows = [{ f: 1 }, { f: 2 }, { f: 3 }];
+  const number = column('Int');
+  const result = setColumnValue(rows, [0, 2], number, '1,200');
+  assert.deepEqual(result.rows, [{ f: 1200 }, { f: 2 }, { f: 1200 }]);
+  assert.equal(result.written, 2);
+  assert.deepEqual(rows[0], { f: 1 }, 'source rows are not mutated');
+  assert.deepEqual(setColumnValue(rows, [1], number, '').rows, [{ f: 1 }, {}, { f: 3 }], 'an empty value clears the field');
+  const select = column('Select', { options: 'Feed-Through\nEnd' });
+  assert.equal(setColumnValue([{}], [0], select, 'feed through').rows[0].f, 'Feed-Through');
+  assert.equal(setColumnValue([{}], [0], { ...column('Table'), kind: 'table' }, 'not rows').written, 0);
+});
+
+test('a shift-click range follows the shown row order', () => {
+  const order = [4, 1, 7, 2];
+  assert.deepEqual(rowSpan(order, 1, 2), [1, 7, 2]);
+  assert.deepEqual(rowSpan(order, 2, 4), [4, 1, 7, 2]);
+  assert.deepEqual(rowSpan(order, 9, 7), [7], 'a filtered-out anchor checks just the clicked row');
 });
 
 test('validation findings mark cells, child-table cells and rows', () => {

@@ -5,7 +5,7 @@ import { RecordFields } from './RecordFields.jsx';
 import { namingField } from './rename-model.js';
 import {
   gridColumns, visibleColumns, filledCount, defaultWidth, parseTSV, toTSV, parseNumber, rangeBounds, copyMatrix,
-  pasteCells, rowsFromMatrix, fillDown, clearCells, insertAfter, duplicateRows, removeRows, moveRows, setField,
+  pasteCells, rowsFromMatrix, fillDown, clearCells, insertAfter, duplicateRows, removeRows, moveRows, setField, setColumnValue, rowSpan,
   NUMERIC_TYPES, LONG_TEXT_TYPES,
 } from './grid-model.js';
 
@@ -142,7 +142,7 @@ const GridRow = memo(function GridRow(props) {
       <th scope="row" className="grid-rowhead" title={findings.join('\n') || undefined}
         id={rowIdPrefix ? `${rowIdPrefix}${index}` : undefined} tabIndex={rowIdPrefix ? -1 : undefined}>
         <input type="checkbox" tabIndex={-1} aria-label={`Select row ${index + 1}`} checked={checked}
-          onChange={e => actions.toggleCheck(index, e.nativeEvent.shiftKey)} />
+          onClick={e => actions.toggleCheck(index, e.shiftKey)} onChange={() => {}} />
         <button type="button" tabIndex={-1} className="grid-rownum" title="Select the row's cells (Shift extends)"
           onClick={e => actions.selectRow(r, e.shiftKey)}>{index + 1}{findings.length ? <span className="grid-flag">{findings.length}</span> : null}</button>
         <button type="button" tabIndex={-1} className="grid-open" aria-pressed={openKeys.includes('__form')} title="Show this row as a form"
@@ -171,19 +171,21 @@ const GridRow = memo(function GridRow(props) {
 }, (a, b) => Object.keys(b).every(key => key === 'issues' ? a.issueSig === b.issueSig : a[key] === b[key]));
 
 /** Closes a <details> menu when the pointer goes down elsewhere. */
-function Menu({ label, className = '', children }) {
+function Menu({ label, className = '', disabled = false, children }) {
   const ref = useRef(null);
   useEffect(() => {
     const close = event => { if (ref.current?.open && !ref.current.contains(event.target)) ref.current.open = false; };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, []);
-  return <details ref={ref} className={`grid-menu ${className}`}><summary>{label}</summary><div className="grid-menu-panel">{children}</div></details>;
+  useEffect(() => { if (disabled && ref.current) ref.current.open = false; }, [disabled]);
+  return <details ref={ref} className={`grid-menu ${className} ${disabled ? 'is-disabled' : ''}`}><summary aria-disabled={disabled || undefined}
+    onClick={event => { if (disabled) event.preventDefault(); }}>{label}</summary><div className="grid-menu-panel">{children}</div></details>;
 }
 
 const SHORTCUTS = [
   ['Tab / Shift+Tab', 'Next / previous cell'], ['Arrows', 'Move between cells (inside text, at its start or end)'],
-  ['Enter / Shift+Enter', 'Move down / up'], ['Shift+Arrows, Shift+click, drag', 'Select a block of cells'],
+  ['Enter / Shift+Enter', 'Move down / up'], ['Shift+Arrows, Shift+click, drag', 'Select a block of cells'], ['Shift+click a row checkbox', 'Check every row in between'],
   ['Click a header or row number', 'Select a column or row'], ['Ctrl+C / Ctrl+X / Ctrl+V', 'Copy, cut and paste blocks (works with Excel and Google Sheets)'],
   ['Paste one value into a block', 'Fills every selected cell'], ['Ctrl+D', 'Fill down from the top selected row'],
   ['Delete', 'Clear the selected cells'], ['Ctrl+Z / Ctrl+Y', 'Undo / redo'], ['F2', 'Edit the text in a cell'],
@@ -212,6 +214,7 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
   const [rowFilter, setRowFilter] = useState('');
   const [status, setStatus] = useState('');
   const [width, setWidth] = useState(null);
+  const [armed, setArmed] = useState(false);
   const pendingFocus = useRef(false);
   const drag = useRef(false);
   const lastChecked = useRef(null);
@@ -354,15 +357,12 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
       });
     },
     toggleCheck(i, shift) {
-      setChecked(previous => {
-        const next = new Set(previous);
-        const on = !previous.has(i);
-        const from = shift && lastChecked.current !== null ? order.indexOf(lastChecked.current) : -1;
-        const to = order.indexOf(i);
-        const span = from >= 0 && to >= 0 ? order.slice(Math.min(from, to), Math.max(from, to) + 1) : [i];
-        span.forEach(at => (on ? next.add(at) : next.delete(at)));
-        return next;
-      });
+      // The range is worked out now: a state updater can run after lastChecked has moved on.
+      const on = !checked.has(i);
+      const span = shift && lastChecked.current !== null ? rowSpan(order, lastChecked.current, i) : [i];
+      const next = new Set(checked);
+      span.forEach(at => (on ? next.add(at) : next.delete(at)));
+      setChecked(next);
       lastChecked.current = i;
     },
     selectRow(r, shift) {
@@ -411,6 +411,32 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
     setChecked(new Set(selectAfter));
     setSel(null);
     setOpen(new Set());
+  }
+  function checkRows(kind) {
+    const next = kind === 'all' ? order : kind === 'invert' ? order.filter(i => !checked.has(i))
+      : kind === 'issues' ? order.filter(i => index.rows.get(`${path}[${i}]`)?.length) : [];
+    setChecked(new Set(next));
+    lastChecked.current = null;
+    if (kind === 'issues') setStatus(next.length ? `Checked ${count(next.length, 'row')} with something to fix.` : 'No rows have something to fix.');
+  }
+  function setValue(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const column = all.find(item => item.key === form.elements.field.value);
+    if (!column || !targetRows.length) return;
+    const text = form.elements.value.value;
+    const result = setColumnValue(rows, targetRows, column, text);
+    if (!result.written) { setStatus(`That value does not fit ${column.label}.`); return; }
+    commit(result.rows, `Set ${column.label}`, text.trim() ? `Set ${column.label} on ${count(result.written, 'row')}.` : `Cleared ${column.label} on ${count(result.written, 'row')}.`);
+    form.closest('details').open = false;
+  }
+  function deleteAll() {
+    if (!armed) { setArmed(true); return; }
+    const total = rows.length;
+    setArmed(false);
+    onChange([], { label: 'Delete all rows' });
+    setChecked(new Set()); setSel(null); setOpen(new Set());
+    setStatus(`Deleted all ${count(total, 'row')}. Ctrl+Z restores them.`);
   }
   function addRows(amount) {
     const result = insertAfter(rows, [], Array.from({ length: amount }, () => blankRecord(doctype, schema)));
@@ -604,6 +630,26 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
         <button type="button" disabled={!targetRows.length} onClick={() => rowOp('move', -1)} aria-label="Move rows up" title="Move rows up">↑</button>
         <button type="button" disabled={!targetRows.length} onClick={() => rowOp('move', 1)} aria-label="Move rows down" title="Move rows down">↓</button>
         <button type="button" className="catalog-danger" disabled={!targetRows.length} onClick={() => rowOp('delete')}>Delete{targetRows.length ? ` ${targetRows.length}` : ''}</button>
+        <Menu label={`Set field${targetRows.length ? ` on ${targetRows.length}` : ''}`} disabled={!targetRows.length}>
+          <form className="grid-set-field" onSubmit={setValue}>
+            <p>Give the {count(targetRows.length, 'checked or selected row')} the same value. Leave the value empty to clear the field.</p>
+            <label>Field <select name="field">{all.filter(column => column.kind !== 'computed' && column.kind !== 'table')
+              .map(column => <option key={column.key} value={column.key}>{column.label}{column.reqd ? ' *' : ''}</option>)}</select></label>
+            <label>Value <input name="value" autoComplete="off" /></label>
+            <button type="submit" className="catalog-primary">Apply to {count(targetRows.length, 'row')}</button>
+          </form>
+        </Menu>
+        <Menu label="Check">
+          <div className="grid-menu-actions grid-check-actions">
+            <button type="button" onClick={() => checkRows('all')}>All shown</button>
+            <button type="button" onClick={() => checkRows('none')}>None</button>
+            <button type="button" onClick={() => checkRows('invert')}>Invert</button>
+            <button type="button" onClick={() => checkRows('issues')}>With issues</button>
+          </div>
+          <small>Shift+click a row checkbox to check every row between it and the last one you clicked.</small>
+        </Menu>
+        {!top && <button type="button" className="catalog-danger" disabled={!rows.length} onClick={deleteAll} onBlur={() => setArmed(false)}
+          title="Delete every row in this table">{armed ? `Click again to delete all ${rows.length}` : 'Delete all'}</button>}
       </div>
       <div className="grid-actions" role="group" aria-label="Cell actions">
         <button type="button" disabled={!bounds} onClick={fill} title="Ctrl+D">Fill down</button>
@@ -616,8 +662,7 @@ export function RecordGrid({ doctype, rows, onChange, path = doctype, top = true
       </Menu>
     </div>
     <p className="grid-status" aria-live="polite">
-      {checked.size ? `${count(checked.size, 'row')} checked · ` : ''}{selection ? `${selection} cells selected` : ''}
-      {(checked.size || selection) && status ? ' · ' : ''}{status}
+      {[checked.size ? `${count(checked.size, 'row')} checked` : '', selection ? `${selection} cells selected` : '', status].filter(Boolean).join(' · ')}
     </p>
     <div className="grid-wrap" ref={wrap} onKeyDown={onKeyDown} onFocus={onFocus} onBlur={onBlur} onMouseDown={onMouseDown} onMouseOver={onMouseOver}
       onCopy={event => onCopy(event)} onCut={event => onCopy(event, true)} onPaste={onPaste}>

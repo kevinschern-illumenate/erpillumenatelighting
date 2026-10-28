@@ -553,6 +553,11 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
           <button disabled={!timeline.past.length} onClick={undo} title={timeline.past.length ? `Undo ${timeline.past.at(-1).label.toLowerCase()} (Ctrl+Z)` : 'Nothing to undo'}>↶ Undo</button>
           <button disabled={!timeline.future.length} onClick={redo} title={timeline.future.length ? `Redo ${timeline.future.at(-1).label.toLowerCase()} (Ctrl+Y)` : 'Nothing to redo'}>↷ Redo</button>
           <button onClick={() => setGenerateOpen(true)} title={`Add ${shortName(selected)} rows for every combination of chosen values`}>Generate rows</button>
+          <button className="catalog-danger" disabled={!rows.length} title={`Remove every ${shortName(selected)} row from this draft`}
+            onClick={() => setConfirm({ title: `Clear all ${rows.length} ${shortName(selected)} ${rows.length === 1 ? 'row' : 'rows'}?`, label: `Clear ${shortName(selected)}`,
+              body: <p>Removes every {shortName(selected)} record from this draft, for example rows copied in by a starter or clone that this product does not need.
+                Other DocTypes and declared existing ERPNext records stay. Undo brings the rows back.</p>,
+              run: () => replaceRows([], { label: `Clear ${shortName(selected)}` }) })}>Clear all</button>
           <button onClick={() => setFindOpen(true)} title="Rename records or replace text across the draft; links follow renamed records (Ctrl+H)">Find &amp; replace</button>
           {!view.table && <button className="catalog-primary" onClick={() => replaceRows([...rows, blankRecord(selected, schema)], { label: 'Add record' })}>+ Add record</button>}
           <button ref={readinessToggle} className="catalog-readiness-toggle" aria-expanded={readinessOpen} aria-controls="catalog-readiness"

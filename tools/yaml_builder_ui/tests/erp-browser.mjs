@@ -15,10 +15,10 @@ const passed = { status: 'Passed', log: 'LOG-CHECK', catalog_hash: 'checked-hash
 const imported = { ...passed, status: 'Imported', log: 'LOG-IMPORT', results: [{ ...row, status: 'created' }], summary: { ...passed.summary, checked: 0, created: 1 } };
 const reference = { source: 'live', doctypes: { [doctype]: { source: 'live', records: {} } } };
 const json = (route, message) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ message }) });
-async function open() {
+async function open(draft = catalog, { ready = true } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const state = { calls: [], check: route => json(route, passed), import_catalog: route => json(route, imported), reference: route => json(route, reference), history: route => json(route, []), design_readiness: route => json(route, { incomplete: 0, total: 1 }) };
-  await context.addInitScript(draft => localStorage.setItem('illumenate-product-catalog-v2', JSON.stringify({ active: 'extrusion-kit', drafts: { 'extrusion-kit': draft } })), catalog);
+  await context.addInitScript(draft => localStorage.setItem('illumenate-product-catalog-v2', JSON.stringify({ active: 'extrusion-kit', drafts: { 'extrusion-kit': draft } })), draft);
   await context.route('http://catalog.test/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname.startsWith('/api/method/')) {
@@ -34,10 +34,44 @@ async function open() {
   await page.goto('http://catalog.test/catalog-builder');
   const check = page.getByRole('button', { name: 'Check in ERPNext', exact: true });
   const importButton = page.getByRole('button', { name: 'Import to ERPNext', exact: true });
-  await expect(check).toBeEnabled();
+  if (ready) await expect(check).toBeEnabled(); else await expect(page.locator('.grid-top')).toBeVisible();
   return { context, state, page, check, importButton, errors };
 }
 try {
+  {
+    // Bulk row tools: shift-click checking, Set field, Delete all in a child table, Clear all for a DocType.
+    const kits = Array.from({ length: 6 }, (_, i) => ({ template_code: `UI-KIT-${i + 1}`, template_name: `Kit ${i + 1}`,
+      allowed_options: i ? [] : [{ option_type: 'Finish' }, { option_type: 'Lens' }] }));
+    const { context, page, errors } = await open({ ...catalog, records: { [doctype]: kits } }, { ready: false });
+    if (await page.locator('.catalog-types-toggle').isVisible()) await page.locator('.catalog-types-toggle').click();
+    await page.locator('.catalog-sidebar button', { has: page.locator('.catalog-type-name', { hasText: /^Extrusion-Kit-Template$/ }) }).click();
+    const grid = page.locator('.grid-top');
+    await grid.getByLabel('Select row 2', { exact: true }).click();
+    await grid.getByLabel('Select row 5', { exact: true }).click({ modifiers: ['Shift'] });
+    await expect(grid.locator('.grid-status')).toContainText('4 rows checked');
+    await grid.getByLabel('Select row 3', { exact: true }).click({ modifiers: ['Shift'] });
+    await expect(grid.locator('.grid-status')).toContainText('1 row checked', { message: 'shift-clicking a checked row unchecks rows 5 back to 3' });
+    await grid.getByLabel('Select row 6', { exact: true }).click();
+    await expect(grid.locator('.grid-status')).toContainText('2 rows checked');
+    await grid.locator('summary', { hasText: 'Set field on 2' }).click();
+    await grid.locator('.grid-set-field select').selectOption('warranty_years');
+    await grid.locator('.grid-set-field input').fill('5');
+    await grid.getByRole('button', { name: 'Apply to 2 rows' }).click();
+    for (const [row, value] of [[2, '5'], [6, '5'], [3, ''], [1, '']]) await expect(grid.getByLabel(`Warranty (Years), row ${row}`, { exact: true })).toHaveValue(value);
+    await grid.getByLabel('Allowed Options, row 1: 2 rows', { exact: true }).click();
+    const child = page.locator('.grid-nested');
+    await child.getByRole('button', { name: 'Delete all', exact: true }).click();
+    await child.getByRole('button', { name: 'Click again to delete all 2', exact: true }).click();
+    await expect(grid.getByLabel('Allowed Options, row 1: 0 rows', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Clear all', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Clear Extrusion-Kit-Template', exact: true }).click();
+    await expect(page.locator('.catalog-bar-title p')).toHaveText('0 records');
+    await page.getByRole('button', { name: '↶ Undo' }).click();
+    await expect(page.locator('.catalog-bar-title p')).toHaveText('6 records');
+    assert.deepEqual(errors, []);
+    await context.close();
+    console.log('Passed: shift-click row ranges, Set field on checked rows, Delete all child rows, Clear all with undo.');
+  }
   {
     const { context, state, page, check, importButton, errors } = await open();
     assert.equal(state.calls.filter(call => call.method === 'history').length, 0);
