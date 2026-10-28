@@ -4280,9 +4280,10 @@ class ilLWebflowProduct(Document):
 					else:
 						record(debug, "Operating Temperature", 0, skip_reason="Missing min/max temp on template")
 
-					# 6. Kit Components Grouping (PASTE NEW CODE HERE!)
+					# 6. Kit Components Grouping
 					grouped_components = {}
-					for c_row in (template_doc.get("components") or []):
+					# FIX: Changed "components" to "kit_components" here!
+					for c_row in (template_doc.get("kit_components") or []):
 						c_type = c_row.get("component_type")
 						if not c_type:
 							continue
