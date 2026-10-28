@@ -135,7 +135,7 @@
 /* Record table */
 .grid { margin-bottom: 16px; }
 .grid-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
-.grid-actions { display: flex; gap: 4px; }
+.grid-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .catalog-app .grid-toolbar button, .catalog-app .grid-footer button, .catalog-app .grid-expand-title button { padding: 5px 10px; font-size: 12px; }
 .catalog-app .grid-toolbar .grid-filter { width: 200px; padding: 6px 9px; font-size: 12px; }
 .grid-menu { position: relative; }
@@ -267,3 +267,28 @@
 .catalog-generate-save label { display: grid; gap: 4px; font-weight: 600; font-size: 12px; flex: 1 1 240px; }
 .catalog-app .catalog-generate-save button { margin: 0; }
 @media (max-width: 760px) { .catalog-generate-axis-head { grid-template-columns: minmax(0, 1fr); } }
+/* Sidebar checklist of the records a product needs. */
+.catalog-app .catalog-type-group { margin: 10px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #706b61; }
+.catalog-app .catalog-type-group:first-child { margin-top: 0; }
+.catalog-type-group small { font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+.catalog-type-list button { align-items: center; gap: 6px; }
+.catalog-type-list .catalog-type-name { flex: 1; font-weight: inherit; }
+.catalog-type-list .catalog-type-mark { width: 14px; flex: none; color: #a39c8f; font-weight: 400; }
+.catalog-type-list .catalog-type-mark.is-done { color: #2f7a4b; font-weight: 700; }
+/* New product and Save as starter. */
+.catalog-new-starters { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.catalog-app .catalog-new-starters label { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border: 1px solid #e0dace; border-radius: 6px; cursor: pointer; }
+.catalog-app .catalog-new-starters label:has(input:checked) { background: #f6f1e7; border-color: #b8a07b; }
+.catalog-app .catalog-new-starters input { width: auto; flex: none; margin: 3px 0 0; }
+.catalog-new-starters span { display: grid; gap: 4px; flex: 1; }
+.catalog-new-starters small { font-size: 12px; }
+.catalog-app .catalog-new-starters button { margin: 0; padding: 3px 8px; font-size: 12px; }
+.catalog-new-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px 14px; margin-bottom: 10px; }
+.catalog-new-fields label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.catalog-new-fields small { font-weight: 400; color: #706b61; }
+.catalog-new-counts { columns: 3 180px; margin: 6px 0 10px; padding-left: 18px; font-size: 12px; }
+.grid-menu.is-disabled > summary { opacity: .5; cursor: default; }
+.grid-set-field { display: grid; gap: 8px; }
+.grid-set-field p { margin: 0; font-size: 13px; }
+.grid-set-field label { display: grid; gap: 3px; font-size: 13px; }
+.grid-check-actions { flex-wrap: wrap; }

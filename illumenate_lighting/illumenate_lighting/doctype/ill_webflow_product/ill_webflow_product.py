@@ -1570,82 +1570,6 @@ class ilLWebflowProduct(Document):
 			self._calculate_tape_specs()
 		elif self.product_type in ["Component"] and self.profile_spec:
 			self._calculate_profile_specs()
-		elif self.product_type == "Extrusion Kit":
-					
-					# 1. Lenses
-					lens_values = set()
-					for o_row in (template_doc.get("allowed_options") or []):
-						if o_row.get("option_type") == "Lens Appearance" and o_row.get("lens_appearance"):
-							lens_values.add(o_row.get("lens_appearance"))
-					if lens_values:
-						append_spec(self, "", "Lenses", ", ".join(sorted(lens_values)), "", 10, "ilL-Attribute-Lens Appearance")
-						record(debug, "Lenses", len(lens_values), sorted(lens_values), appended=True)
-					else:
-						record(debug, "Lenses", 0, skip_reason="No Lens Appearance rows in allowed_options")
-
-					# 2. Mounting
-					mount_values = set()
-					for o_row in (template_doc.get("allowed_options") or []):
-						if o_row.get("option_type") == "Mounting Method" and o_row.get("mounting_method"):
-							mount_values.add(o_row.get("mounting_method"))
-					if mount_values:
-						append_spec(self, "", "Mounting", ", ".join(sorted(mount_values)), "", 20, "ilL-Attribute-Mounting Method")
-						record(debug, "Mounting", len(mount_values), sorted(mount_values), appended=True)
-					else:
-						record(debug, "Mounting", 0, skip_reason="No Mounting Method rows in allowed_options")
-
-					# 3. Finish
-					finish_values = set()
-					for o_row in (template_doc.get("allowed_options") or []):
-						if o_row.get("option_type") == "Finish" and o_row.get("finish"):
-							disp = frappe.db.get_value("ilL-Attribute-Finish", o_row.get("finish"), "finish_name") or o_row.get("finish")
-							finish_values.add(disp)
-					if finish_values:
-						append_spec(self, "", "Finish", ", ".join(sorted(finish_values)), "", 30, "ilL-Attribute-Finish")
-						record(debug, "Finish", len(finish_values), sorted(finish_values), appended=True)
-					else:
-						record(debug, "Finish", 0, skip_reason="No Finish rows in allowed_options")
-
-					# 4. Dimensions (From default_profile_spec)
-					profile_spec_name = template_doc.get("default_profile_spec")
-					if not profile_spec_name:
-						frappe.throw(f"Template '{template_doc.name}' is missing a Default Profile Spec. Dimensions are required for Extrusion Kits.")
-					
-					profile = frappe.db.get_value(
-						"ilL-Spec-Profile", profile_spec_name,
-						["dimensions", "width_mm", "height_mm"], as_dict=True,
-					)
-					dims = profile.get("dimensions") if profile else None
-					
-					# Fallback if dimensions field is empty but width/height exist
-					if not dims and profile and profile.get("width_mm") and profile.get("height_mm"):
-						w_in = format_inches(profile["width_mm"])
-						h_in = format_inches(profile["height_mm"])
-						if w_in and h_in:
-							dims = f"{w_in} ({profile['width_mm']:g}mm) x {h_in} ({profile['height_mm']:g}mm)"
-					
-					if dims:
-						append_spec(self, "", "Dimensions", dims, "", 40)
-						record(debug, "Dimensions", 1, [dims], appended=True)
-					else:
-						frappe.throw(f"Profile Spec '{profile_spec_name}' is missing dimension values (width/height or dimensions string).")
-
-					# 5. Operating Temperature (Auto-calculated F to C)
-					temp_min_c = template_doc.get("operating_temp_min_c")
-					temp_max_c = template_doc.get("operating_temp_max_c")
-					
-					if temp_min_c not in (None, "") and temp_max_c not in (None, ""):
-						min_c = float(temp_min_c)
-						max_c = float(temp_max_c)
-						min_f = round(min_c * 9/5 + 32)
-						max_f = round(max_c * 9/5 + 32)
-						temp_str = f"{min_f}°F ({int(min_c)}°C) to {max_f}°F ({int(max_c)}°C)"
-						
-						append_spec(self, "", "Operating Temperature", temp_str, "", 50)
-						record(debug, "Operating Temperature", 1, [temp_str], appended=True)
-					else:
-						record(debug, "Operating Temperature", 0, skip_reason="Missing min/max temp on template")
-
 	def _calculate_fixture_specs(self):
 		"""Calculate aggregated specs from fixture template with linked attribute options."""
 		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
@@ -3289,7 +3213,7 @@ class ilLWebflowProduct(Document):
 
 		MANAGED_LABELS = (
 			"Color Rendering (CRI)", "Output Options", "Light Color (CCT)", "Lens Options",
-			"Mounting Options", "Mounting", "Finish Options", "Finish", "Environment Ratings", 
+			"Mounting Options", "Mounting", "Finish Options", "Finish", "Lenses", "Environment Ratings", 
 			"Operating Temperature", "Production Interval", "Dimensions", "Dimensions (ft)",
 			"Cut Interval", "Watts per Foot", "Watts per Square Foot", "Max Run Length",
 			"Input Voltage", "Dimming", "Max Footage per 100W Supply", "Beam Spread",
@@ -4280,6 +4204,81 @@ class ilLWebflowProduct(Document):
 					warranty = template_doc.get("warranty_years") or template_doc.get("warranty")
 					if warranty:
 						append_spec(self, "Performance", "Warranty", f"{warranty} years", "", 150)
+
+				elif self.product_type == "Extrusion Kit":
+					# 1. Lenses
+					lens_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Lens Appearance" and o_row.get("lens_appearance"):
+							lens_values.add(o_row.get("lens_appearance"))
+					if lens_values:
+						append_spec(self, "", "Lenses", ", ".join(sorted(lens_values)), "", 10, "ilL-Attribute-Lens Appearance")
+						record(debug, "Lenses", len(lens_values), sorted(lens_values), appended=True)
+					else:
+						record(debug, "Lenses", 0, skip_reason="No Lens Appearance rows in allowed_options")
+
+					# 2. Mounting
+					mount_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Mounting Method" and o_row.get("mounting_method"):
+							mount_values.add(o_row.get("mounting_method"))
+					if mount_values:
+						append_spec(self, "", "Mounting", ", ".join(sorted(mount_values)), "", 20, "ilL-Attribute-Mounting Method")
+						record(debug, "Mounting", len(mount_values), sorted(mount_values), appended=True)
+					else:
+						record(debug, "Mounting", 0, skip_reason="No Mounting Method rows in allowed_options")
+
+					# 3. Finish
+					finish_values = set()
+					for o_row in (template_doc.get("allowed_options") or []):
+						if o_row.get("option_type") == "Finish" and o_row.get("finish"):
+							disp = frappe.db.get_value("ilL-Attribute-Finish", o_row.get("finish"), "finish_name") or o_row.get("finish")
+							finish_values.add(disp)
+					if finish_values:
+						append_spec(self, "", "Finish", ", ".join(sorted(finish_values)), "", 30, "ilL-Attribute-Finish")
+						record(debug, "Finish", len(finish_values), sorted(finish_values), appended=True)
+					else:
+						record(debug, "Finish", 0, skip_reason="No Finish rows in allowed_options")
+
+					# 4. Dimensions (From default_profile_spec)
+					profile_spec_name = template_doc.get("default_profile_spec")
+					if not profile_spec_name:
+						frappe.throw(f"Template '{template_doc.name}' is missing a Default Profile Spec. Dimensions are required for Extrusion Kits.")
+					
+					profile = frappe.db.get_value(
+						"ilL-Spec-Profile", profile_spec_name,
+						["dimensions", "width_mm", "height_mm"], as_dict=True,
+					)
+					dims = profile.get("dimensions") if profile else None
+					
+					# Fallback if dimensions field is empty but width/height exist
+					if not dims and profile and profile.get("width_mm") and profile.get("height_mm"):
+						w_in = format_inches(profile["width_mm"])
+						h_in = format_inches(profile["height_mm"])
+						if w_in and h_in:
+							dims = f"{w_in} ({profile['width_mm']:g}mm) x {h_in} ({profile['height_mm']:g}mm)"
+					
+					if dims:
+						append_spec(self, "", "Dimensions", dims, "", 40)
+						record(debug, "Dimensions", 1, [dims], appended=True)
+					else:
+						frappe.throw(f"Profile Spec '{profile_spec_name}' is missing dimension values (width/height or dimensions string).")
+
+					# 5. Operating Temperature (Auto-calculated F to C)
+					temp_min_c = template_doc.get("operating_temp_min_c")
+					temp_max_c = template_doc.get("operating_temp_max_c")
+					
+					if temp_min_c not in (None, "") and temp_max_c not in (None, ""):
+						min_c = float(temp_min_c)
+						max_c = float(temp_max_c)
+						min_f = round(min_c * 9/5 + 32)
+						max_f = round(max_c * 9/5 + 32)
+						temp_str = f"{min_f}°F ({int(min_c)}°C) to {max_f}°F ({int(max_c)}°C)"
+						
+						append_spec(self, "", "Operating Temperature", temp_str, "", 50)
+						record(debug, "Operating Temperature", 1, [temp_str], appended=True)
+					else:
+						record(debug, "Operating Temperature", 0, skip_reason="Missing min/max temp on template")
 
 				else:
 					for label in MANAGED_LABELS:

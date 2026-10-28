@@ -52,6 +52,8 @@ class CatalogBuilderReference(unittest.TestCase):
 						service.reference()
 					with self.assertRaises(PermissionError):
 						service.record("Item", "secret")
+					with self.assertRaises(PermissionError):
+						service.records([["Item", "secret"]])
 					live.assert_not_called()
 					frappe.cache().get_value.assert_not_called()
 					frappe.get_doc.assert_not_called()
@@ -190,6 +192,44 @@ class CatalogBuilderReference(unittest.TestCase):
 			)
 			doc.check_permission.assert_called_once_with("read")
 			doc.apply_fieldlevel_read_permissions.assert_called_once()
+
+	def test_records_batch_returns_one_result_per_pair_and_isolates_failures(self):
+		with catalog_service(API) as (service, frappe):
+			self.assertEqual(service.records.whitelist_options, {"methods": ["POST"]})
+			readable = MagicMock()
+			readable.as_dict.return_value = {"doctype": "Item", "name": "ITEM-1", "item_code": "ITEM-1"}
+			private = MagicMock()
+			private.check_permission.side_effect = frappe.PermissionError("No permission for Item ITEM-2")
+			frappe.get_doc.side_effect = lambda doctype, name: {"ITEM-1": readable, "ITEM-2": private}[name]
+			frappe.local.message_log = []
+			frappe.utils.strip_html_tags = lambda text: text
+			self.assertEqual(
+				service.records(json.dumps([["Item", "ITEM-1"], ["Item", "ITEM-2"], ["Item Price", "P-1"]])),
+				[
+					{"record": {"item_code": "ITEM-1"}},
+					{"error": "No permission for Item ITEM-2"},
+					{"error": "Choose a catalog DocType"},
+				],
+			)
+			private.as_dict.assert_not_called()
+			readable.apply_fieldlevel_read_permissions.assert_called_once()
+
+	def test_records_batch_rejects_malformed_or_oversized_requests(self):
+		with catalog_service(API) as (service, frappe):
+			for value in (
+				"not json",
+				{"Item": "x"},
+				[["Item"]],
+				[["Item", ""]],
+				[["Item", 1]],
+				[["Item", "x"]] * 201,
+			):
+				with (
+					self.subTest(value=str(value)[:40]),
+					self.assertRaises((frappe.ValidationError, ValueError)),
+				):
+					service.records(value)
+			frappe.get_doc.assert_not_called()
 
 
 class CatalogBuilderPage(unittest.TestCase):

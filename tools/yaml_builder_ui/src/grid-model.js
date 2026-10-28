@@ -291,6 +291,22 @@ export function duplicateRows(rows, indexes, copy = structuredClone) {
   return insertAfter(rows, sorted, sorted.map(i => copy(rows[i])));
 }
 
+/** Set one field to the same typed value on the chosen rows; '' clears it. */
+export function setColumnValue(rows, indexes, column, text) {
+  const { ok, value } = coerceCell(column, text);
+  if (!ok) return { rows, written: 0 };
+  const chosen = new Set(indexes);
+  return { rows: rows.map((row, i) => chosen.has(i) ? setField(row, column.key, value) : row), written: chosen.size };
+}
+
+/** Rows from `from` to `to` in display order, inclusive, for a shift-click range. */
+export function rowSpan(order, from, to) {
+  const a = order.indexOf(from);
+  const b = order.indexOf(to);
+  if (a < 0 || b < 0) return [to];
+  return order.slice(Math.min(a, b), Math.max(a, b) + 1);
+}
+
 export function removeRows(rows, indexes) {
   const drop = new Set(indexes);
   return rows.filter((_, i) => !drop.has(i));
