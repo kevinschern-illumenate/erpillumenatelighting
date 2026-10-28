@@ -10,7 +10,7 @@ import base64
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import frappe
 import requests
@@ -123,8 +123,9 @@ class TestDeployRegressions(IntegrationTestCase):
 		response.status_code = 202
 		with patch.object(webflow_export_v2.requests, "post", return_value=response):
 			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
-		doc = frappe._dict(target_brands=[frappe._dict(brand="demo", enabled=1)])
 		for method in (webflow_export_v2.trigger_sync_v2, webflow_export_v2.trigger_publish_v2):
+			# Both triggers save the product first so its template data is fresh.
+			doc = frappe._dict(target_brands=[frappe._dict(brand="demo", enabled=1)], save=MagicMock())
 			with (
 				self.subTest(method=method.__name__),
 				patch.object(frappe, "get_doc", return_value=doc),
@@ -140,6 +141,7 @@ class TestDeployRegressions(IntegrationTestCase):
 			):
 				self.assertEqual(method("demo")["jobs"], ["J1"])
 				self.assertTrue(enqueue.call_args.kwargs["enqueue_after_commit"])
+				doc.save.assert_called_once_with(ignore_permissions=True)
 
 	def test_non_administrators_can_upload_edit_and_delete_attachments(self):
 		for email, roles in (
