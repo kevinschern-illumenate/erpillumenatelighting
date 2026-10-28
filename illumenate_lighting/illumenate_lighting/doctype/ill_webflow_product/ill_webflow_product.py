@@ -4280,6 +4280,36 @@ class ilLWebflowProduct(Document):
 					else:
 						record(debug, "Operating Temperature", 0, skip_reason="Missing min/max temp on template")
 
+					# 6. Kit Components Grouping (PASTE NEW CODE HERE!)
+					grouped_components = {}
+					for c_row in (template_doc.get("components") or []):
+						c_type = c_row.get("component_type")
+						if not c_type:
+							continue
+						
+						if c_type not in grouped_components:
+							grouped_components[c_type] = []
+							
+						# Safely grab the description (handles variations in the fieldname)
+						desc = c_row.get("custom_webflow_description") or c_row.get("webflow_description") or c_row.get("description") or ""
+						
+						grouped_components[c_type].append({
+							"code": c_row.get("component_item") or "",
+							"label": desc
+						})
+					
+					# Clear existing rows and append the new grouped rows
+					self.kit_components = []
+					for c_type, items_list in grouped_components.items():
+						self.append("kit_components", {
+							"component_type": c_type,
+							# Populating component_item with the first code just in case Frappe requires it to be non-empty
+							"component_item": items_list[0]["code"] if items_list else "", 
+							"custom_webflow_description": json.dumps(items_list, indent=1)
+						})
+					
+					record(debug, "Kit Components", len(grouped_components), [f"{k} ({len(v)} items)" for k, v in grouped_components.items()], appended=True)
+				
 				else:
 					for label in MANAGED_LABELS:
 						record(debug, label, skip_reason=f"Not yet implemented for product_type '{self.product_type}'")
