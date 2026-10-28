@@ -2537,21 +2537,18 @@
         {
           "fieldname": "document_file",
           "label": "Document File",
-          "fieldtype": "Attach",
-          "reqd": 1
+          "fieldtype": "Attach"
         },
         {
           "fieldname": "document_type",
           "label": "Document Type",
           "fieldtype": "Select",
-          "options": "Spec Sheet\nIES File\nInstallation Guide\nCAD Drawing\nWarranty\nDatasheet",
-          "reqd": 1
+          "options": "Spec Sheet\nIES File\nInstallation Guide\nCAD Drawing\nWarranty\nDatasheet"
         },
         {
           "fieldname": "document_title",
           "label": "Document Title",
-          "fieldtype": "Data",
-          "reqd": 1
+          "fieldtype": "Data"
         },
         {
           "fieldname": "display_order",

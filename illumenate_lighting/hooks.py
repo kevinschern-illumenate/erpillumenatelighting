@@ -76,6 +76,13 @@ doctype_js.update({name: "public/js/authoring_readiness.js" for name in (
     "ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template",
     "ilL-Driver-Template", "ilL-Controller-Template",
 )})
+for _name in (
+    "ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template",
+    "ilL-Driver-Template", "ilL-Controller-Template", "ilL-Extrusion-Kit-Template",
+):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/template_documents.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
