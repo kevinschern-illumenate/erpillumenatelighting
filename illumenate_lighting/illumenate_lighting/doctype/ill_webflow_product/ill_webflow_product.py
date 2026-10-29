@@ -3428,24 +3428,24 @@ class ilLWebflowProduct(Document):
 				if spec_submittal_file:
 					self.documents = [
 						d for d in (self.documents or []) 
-						if not (d.document_type == "Spec Sheet" and d.document_title == submittal_title and d.document_file != spec_submittal_file)
+						if not (d.document_type == "Spec Submittal" and d.document_title == submittal_title and d.document_file != spec_submittal_file)
 					]
 					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
 					
 					if spec_submittal_file in existing_docs:
-						existing_docs[spec_submittal_file].document_type = "Spec Sheet"
+						existing_docs[spec_submittal_file].document_type = "Spec Submittal"
 						existing_docs[spec_submittal_file].document_title = submittal_title
 						existing_docs[spec_submittal_file].display_order = 2
 					else:
 						self.append("documents", {
-							"document_type": "Spec Sheet",
+							"document_type": "Spec Submittal",
 							"document_file": spec_submittal_file,
 							"document_title": submittal_title,
 							"display_order": 2,
 						})
 						existing_docs[spec_submittal_file] = self.documents[-1]
 				else:
-					self.documents = [d for d in (self.documents or []) if not (d.document_type == "Spec Sheet" and d.document_title == submittal_title)]
+					self.documents = [d for d in (self.documents or []) if not (d.document_type == "Spec Submittal" and d.document_title == submittal_title)]
 					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
 
 				for d in (template_doc.get("custom_documents") or []):
