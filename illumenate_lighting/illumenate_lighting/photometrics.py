@@ -138,3 +138,56 @@ def submittal_record(source_doctype, template, cct=None):
 		row = next((row for row in rows if cct and row.get("cct") == cct), None) or featured_row(template)
 		name = row.get("colorimetry") if row else None
 	return frappe.get_cached_doc(source_doctype, name) if name else None
+
+
+# Colorimetry results the website and portal show per CCT. Unset numbers read as 0, so a
+# zero counts as empty; a row holding none of these (a migrated TM-30 chart, say) is left
+# out, and a listing's payload, and its publication approval, only change once results land.
+COLORIMETRY_VALUES = ("cri_class", "sdcm", "ra", "r9", "tm30_rf", "tm30_rg", "duv", "measured_cct_k")
+PHOTOMETRY_FILES = ("ies_file", "ldt_file")
+
+
+def published(template):
+	"""A template's photometrics for the Webflow export and the portal: its charts and cone
+	of light, its photometry record's IES/LDT files and its colorimetry results per CCT.
+
+	Empty values and inactive records are left out."""
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import PHOTOMETRIC_FIELDS
+
+	if not template:
+		return {}
+	meta = frappe.get_meta(template.doctype)
+	data = {}
+	for field in PHOTOMETRIC_FIELDS:
+		if not meta.has_field(field):
+			continue
+		value = template.get(field)
+		if field == CONE_TABLE:
+			value = cone_rows(value)
+		if value:
+			data[field] = value
+	if meta.has_field("photometry") and template.get("photometry"):
+		record = frappe.db.get_value(
+			PHOTOMETRY, template.photometry, ["is_active", *PHOTOMETRY_FILES], as_dict=True
+		)
+		if record and record.is_active:
+			data.update({field: record[field] for field in PHOTOMETRY_FILES if record.get(field)})
+	if meta.has_field("colorimetry"):
+		results = []
+		for row in template.get("colorimetry") or []:
+			if not row.get("colorimetry"):
+				continue
+			record = frappe.db.get_value(
+				COLORIMETRY,
+				row.colorimetry,
+				["is_active", "cct", "tm30_chart_image", *COLORIMETRY_VALUES],
+				as_dict=True,
+			)
+			if not record or not record.is_active or not any(record.get(f) for f in COLORIMETRY_VALUES):
+				continue
+			result = {"cct": record.cct or row.get("cct"), "is_featured": 1 if row.get("is_featured") else 0}
+			result.update({f: record[f] for f in (*COLORIMETRY_VALUES, "tm30_chart_image") if record.get(f)})
+			results.append(result)
+		if results:
+			data["colorimetry"] = results
+	return data

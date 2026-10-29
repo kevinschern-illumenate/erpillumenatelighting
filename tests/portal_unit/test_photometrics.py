@@ -255,3 +255,68 @@ class SubmittalRecord(unittest.TestCase):
 		self.assertEqual(self.resolve("ilL-Spec-Colorimetry", template, "3500K")[1], "C-4000")
 		self.assertEqual(self.resolve("ilL-Spec-Colorimetry", template)[1], "C-4000")
 		self.assertIsNone(self.resolve("ilL-Spec-Colorimetry", Doc(colorimetry=[])))
+
+
+class Published(unittest.TestCase):
+	def publish(self, template, records):
+		with load_service(ROOT + ".photometrics") as (module, frappe):
+			frappe.get_meta = MagicMock(return_value=meta(*TEMPLATE_FIELDS))
+			frappe.db.get_value.side_effect = lambda doctype, name, fields, as_dict: (
+				Row(records[name]) if name in records else None
+			)
+			return module.published(template)
+
+	def test_cone_rows_and_charts_keep_their_payload_shape(self):
+		data = self.publish(Doc(doctype=FIXTURE, photometric_image="/files/p.png", photometric_data=CONE), {})
+		self.assertEqual(data["photometric_image"], "/files/p.png")
+		self.assertEqual([row["mounting_height"] for row in data["photometric_data"]], ["2 ft", "4 ft"])
+		self.assertEqual(
+			list(data["photometric_data"][0]),
+			["mounting_height", "light_level", "beam_diameter", "display_order"],
+		)
+		self.assertNotIn("colorimetry", data)
+
+	def test_ies_file_comes_from_an_active_photometry_record(self):
+		template = Doc(doctype=FIXTURE, photometry="PH-1")
+		data = self.publish(
+			template, {"PH-1": {"is_active": 1, "ies_file": "/files/a.ies", "ldt_file": None}}
+		)
+		self.assertEqual(data, {"ies_file": "/files/a.ies"})
+		self.assertEqual(self.publish(template, {"PH-1": {"is_active": 0, "ies_file": "/files/a.ies"}}), {})
+
+	def test_colorimetry_lists_measured_rows_per_cct(self):
+		template = Doc(
+			doctype=FIXTURE,
+			colorimetry=[
+				Row(colorimetry="C-2700", cct="2700K", is_featured=1),
+				Row(colorimetry="C-3000", cct="3000K"),
+				Row(colorimetry="C-4000", cct="4000K"),
+				Row(colorimetry="C-OLD", cct="5000K"),
+			],
+		)
+		data = self.publish(
+			template,
+			{
+				"C-2700": {
+					"is_active": 1,
+					"cct": "2700K",
+					"ra": 95.2,
+					"r9": 60,
+					"tm30_chart_image": "/files/t.png",
+				},
+				# A migrated chart with no measurements yet stays out of the payload.
+				"C-3000": {"is_active": 1, "cct": "3000K", "ra": 0, "tm30_chart_image": "/files/t3.png"},
+				"C-4000": {"is_active": 1, "cct": "4000K", "tm30_rf": 91},
+				"C-OLD": {"is_active": 0, "cct": "5000K", "ra": 90},
+			},
+		)
+		self.assertEqual(
+			data["colorimetry"],
+			[
+				{"cct": "2700K", "is_featured": 1, "ra": 95.2, "r9": 60, "tm30_chart_image": "/files/t.png"},
+				{"cct": "4000K", "is_featured": 0, "tm30_rf": 91},
+			],
+		)
+
+	def test_no_template_publishes_nothing(self):
+		self.assertEqual(self.publish(None, {}), {})

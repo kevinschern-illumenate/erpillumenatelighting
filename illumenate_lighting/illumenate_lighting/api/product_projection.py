@@ -201,6 +201,9 @@ def project_product(
 			"photometric_image": get("photometric_image"),
 			"tm30_chart_image": get("tm30_chart_image"),
 			"polar_chart_image": get("polar_chart_image"),
+			"ies_file": get("ies_file"),
+			"ldt_file": get("ldt_file"),
+			"colorimetry": list(get("colorimetry") or []),
 			"specifications": [
 				{
 					"spec_group": row.get("spec_group"),
