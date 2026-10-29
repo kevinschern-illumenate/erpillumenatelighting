@@ -4371,6 +4371,44 @@ class ilLWebflowProduct(Document):
 					else:
 						frappe.throw(f"Profile Spec '{profile_spec_name}' is missing dimension values (width/height or dimensions string).")
 
+					# 4.5 Additional Profile Specs
+					if profile_spec_name:
+						try:
+							profile_doc = frappe.get_doc("ilL-Spec-Profile", profile_spec_name)
+							
+							# Stock Length (Order 31)
+							if profile_doc.stock_length_mm:
+								append_spec(self, "Physical", "Stock Length", str(profile_doc.stock_length_mm), "mm", 31)
+								record(debug, "Stock Length", 1, [str(profile_doc.stock_length_mm)], appended=True)
+							
+							# Max Assembled Length (Order 32)
+							if profile_doc.max_assembled_length_mm:
+								append_spec(self, "Physical", "Max Assembled Length", str(profile_doc.max_assembled_length_mm), "mm", 32)
+								record(debug, "Max Assembled Length", 1, [str(profile_doc.max_assembled_length_mm)], appended=True)
+							
+							# Cuttable (Order 5)
+							if profile_doc.is_cuttable:
+								append_spec(self, "Physical", "Cuttable", "Yes", "", 5)
+								record(debug, "Cuttable", 1, ["Yes"], appended=True)
+							
+							# Lens Interface (Order 11)
+							if profile_doc.lens_interface:
+								append_spec(self, "Physical", "Lens Interface", profile_doc.lens_interface, "", 11, "ilL-Attribute-Lens Interface Type")
+								record(debug, "Lens Interface", 1, [profile_doc.lens_interface], appended=True)
+							
+							# Environment Ratings (Order 49)
+							env_ratings = []
+							for env_row in (profile_doc.get("supported_environment_ratings") or []):
+								if env_row.environment_rating:
+									env_ratings.append(env_row.environment_rating)
+							
+							if env_ratings:
+								sorted_env = sorted(list(set(env_ratings)))
+								append_spec(self, "Environmental", "Environment Ratings", ", ".join(sorted_env), "", 49, "ilL-Attribute-Environment Rating")
+								record(debug, "Environment Ratings", len(sorted_env), sorted_env, appended=True)
+						except frappe.DoesNotExistError:
+							record(debug, "Additional Profile Specs", 0, skip_reason=f"Profile doc {profile_spec_name} not found")
+
 					# 5. Operating Temperature (Auto-calculated F to C)
 					temp_min_c = template_doc.get("operating_temp_min_c")
 					temp_max_c = template_doc.get("operating_temp_max_c")
