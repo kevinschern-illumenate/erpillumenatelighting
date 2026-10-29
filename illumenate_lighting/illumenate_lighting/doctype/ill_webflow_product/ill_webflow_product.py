@@ -4379,13 +4379,17 @@ class ilLWebflowProduct(Document):
 							
 							# Stock Length (Order 31)
 							if profile_doc.stock_length_mm:
-								append_spec(self, "Physical", "Stock Length", str(profile_doc.stock_length_mm), "mm", 31)
-								record(debug, "Stock Length", 1, [str(profile_doc.stock_length_mm)], appended=True)
+								stock_in = float(profile_doc.stock_length_mm) / 25.4
+								stock_str = f"{profile_doc.stock_length_mm}mm ({stock_in:.1f}in)"
+								append_spec(self, "Physical", "Stock Length", stock_str, "", 31)
+								record(debug, "Stock Length", 1, [stock_str], appended=True)
 							
 							# Max Assembled Length (Order 32)
 							if profile_doc.max_assembled_length_mm:
-								append_spec(self, "Physical", "Max Assembled Length", str(profile_doc.max_assembled_length_mm), "mm", 32)
-								record(debug, "Max Assembled Length", 1, [str(profile_doc.max_assembled_length_mm)], appended=True)
+								max_in = float(profile_doc.max_assembled_length_mm) / 25.4
+								max_str = f"{profile_doc.max_assembled_length_mm}mm ({max_in:.1f}in)"
+								append_spec(self, "Physical", "Max Assembled Length", max_str, "", 32)
+								record(debug, "Max Assembled Length", 1, [max_str], appended=True)
 							
 							# Cuttable (Order 5)
 							if profile_doc.is_cuttable:
