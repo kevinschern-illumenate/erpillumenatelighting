@@ -109,7 +109,12 @@ def _refresh(doc, state, config):
 		# must not remove fields that the remote projection needs to publish.
 		payload["product"] = json.loads(frappe.as_json(products[0]))
 		# Category references must belong to this brand, never the default brand.
-		if doc.product_category:
+		# Webflow categories are product types; a light type left in the field is
+		# published with no category instead of blocking readiness.
+		if doc.product_category and _is_light_type(doc.product_category):
+			payload["product"]["category_webflow_item_id"] = None
+			payload["product"]["category_details"] = None
+		elif doc.product_category:
 			category_id = frappe.db.get_value(
 				"ilL-Child-Webflow-Sync-State",
 				{
@@ -142,6 +147,27 @@ def _refresh(doc, state, config):
 		state.state = "NEEDS_REVIEW"
 	_save(state)
 	return payload, readiness
+
+
+def _key(value):
+	return "".join(ch for ch in str(value or "").lower() if ch.isalnum())
+
+
+def _is_light_type(category):
+	"""Whether a category names a light type (Static White, Tunable White, ...).
+
+	Light types are LED Package attributes (spectrum type, or the package itself, as
+	with Full Spectrum), not the product-type categories marketing keeps in Webflow.
+	"""
+	package = "ilL-Attribute-LED Package"
+	field = frappe.get_meta(package).get_field("spectrum_type")
+	light_types = {_key(option) for option in ((field and field.options) or "").split("\n")}
+	light_types.update(_key(name) for name in frappe.get_all(package, pluck="name"))
+	light_types.discard("")
+	names = frappe.db.get_value(
+		"ilL-Webflow-Category", category, ["category_name", "category_slug"], as_dict=True
+	) or {}
+	return any(_key(value) in light_types for value in (category, *names.values()) if value)
 
 
 def _receipt(state):
