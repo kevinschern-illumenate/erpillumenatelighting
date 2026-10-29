@@ -40,7 +40,7 @@ from illumenate_lighting.illumenate_lighting.api.webflow_brand import (
 from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_profile import (
     compute_profile_dimensions,
 )
-from illumenate_lighting.illumenate_lighting.web_listing_schema import PHOTOMETRIC_FIELDS
+from illumenate_lighting.illumenate_lighting.photometrics import published as published_photometrics
 from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 # Base URL for converting relative file paths to absolute URLs (legacy default;
@@ -1922,27 +1922,13 @@ def _enrich_led_sheet_template_specs(product: dict, existing_labels: set) -> lis
     return specs
 
 def _photometrics(template) -> dict:
-    """Charts and cone-of-light rows from a template that holds them; the Webflow Product does not.
+    """Charts, cone of light, IES/LDT files and colorimetry results from a template's
+    linked records; the Webflow Product does not hold them.
 
     Empty fields are left out, so a listing's payload (and the publication approval hashed
     from it) only changes once photometric content is added.
     """
-    if not template:
-        return {}
-    meta = frappe.get_meta(template.doctype)
-    data = {}
-    for field in PHOTOMETRIC_FIELDS:
-        if not meta.has_field(field):
-            continue
-        value = template.get(field)
-        if field == "photometric_data":
-            value = [
-                {key: row.get(key) for key in ("mounting_height", "light_level", "beam_diameter", "display_order")}
-                for row in sorted(value or [], key=lambda r: r.get("display_order") or 0)
-            ]
-        if value:
-            data[field] = value
-    return data
+    return published_photometrics(template)
 
 
 def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=None) -> list:

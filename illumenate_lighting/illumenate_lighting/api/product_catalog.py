@@ -331,6 +331,17 @@ def get_catalog_products(
     }
 
 
+def _template_photometrics(product) -> dict:
+    """Charts, files and colorimetry results the Webflow export reads from the template."""
+    from illumenate_lighting.illumenate_lighting.photometrics import published
+    from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
+
+    try:
+        return published(Listing(product).template)
+    except frappe.DoesNotExistError:
+        return {}
+
+
 @frappe.whitelist()
 def get_catalog_product_detail(product_slug: str, finder=None) -> dict:
     """Full product detail with all child tables.
@@ -371,6 +382,7 @@ def get_catalog_product_detail(product_slug: str, finder=None) -> dict:
     projection = _project(
         product, _template_activity([product]), certifications=certifications, price=price
     )
+    projection.update(_template_photometrics(product))
     if not projection["configure_url"]:
         projection["standard_choices"] = _standard_choices(product)
         if projection["standard_choices"]:
