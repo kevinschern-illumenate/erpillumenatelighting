@@ -94,6 +94,61 @@ class TestDeployRegressions(IntegrationTestCase):
 			self.assertEqual(new_payload["product"]["documents"][0]["file_url"], "/files/regenerated.pdf")
 			self.assertNotEqual(fingerprint(payload), fingerprint(new_payload))
 
+	def test_publication_ignores_light_type_categories(self):
+		from illumenate_lighting.illumenate_lighting.api import publication, webflow_export_v2
+
+		state = frappe._dict(brand="demo-brand", approved_hash="")
+		config = {
+			"brand_code": "demo-brand",
+			"is_active": 1,
+			"collections": {"Products": "collection"},
+			"sync_enabled": 1,
+		}
+		meta = MagicMock()
+		meta.get_field.return_value = frappe._dict(options="Static White\nDim to Warm\nTunable White")
+		names = {
+			"dim-to-warm": {"category_name": "Dim to Warm", "category_slug": "dim-to-warm"},
+			"full-spectrum": {"category_name": "Full Spectrum", "category_slug": "full-spectrum"},
+			"linear-fixtures": {"category_name": "Linear Fixtures", "category_slug": "linear-fixtures"},
+		}
+		real_get_value = frappe.db.get_value
+
+		def get_value(doctype, filters=None, fieldname=None, *args, **kwargs):
+			if doctype == "ilL-Webflow-Category":
+				return frappe._dict(names[filters])
+			if doctype == "ilL-Child-Webflow-Sync-State":
+				return None
+			return real_get_value(doctype, filters, fieldname, *args, **kwargs)
+
+		for category, ready in (("dim-to-warm", True), ("full-spectrum", True), ("linear-fixtures", False)):
+			doc = frappe._dict(
+				name="demo",
+				product_slug="demo",
+				product_category=category,
+				is_active=1,
+				target_brands=[frappe._dict(brand="demo-brand", enabled=1)],
+			)
+			with (
+				self.subTest(category=category),
+				patch.object(publication, "Listing", side_effect=lambda value: value),
+				patch.object(
+					publication, "evaluate", return_value={"ready": True, "issues": [], "dependencies": []}
+				),
+				patch.object(publication, "_save"),
+				patch.object(
+					webflow_export_v2, "get_webflow_products", return_value={"products": [{"name": "demo"}]}
+				),
+				patch.object(publication.frappe, "get_meta", return_value=meta),
+				patch.object(publication.frappe, "get_all", return_value=["Full Spectrum"]),
+				patch.object(publication.frappe.db, "get_value", side_effect=get_value),
+			):
+				payload, readiness = publication._refresh(doc, state, config)
+				self.assertEqual(readiness["ready"], ready)
+				if ready:
+					self.assertIsNone(payload["product"]["category_webflow_item_id"])
+				else:
+					self.assertEqual(readiness["issues"][0]["record"], "linear-fixtures")
+
 	def test_webhook_http_and_network_failures_fail_the_worker(self):
 		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
 
