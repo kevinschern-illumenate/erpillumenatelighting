@@ -276,6 +276,10 @@ class ilLWebflowProduct(Document):
 			if self.get("auto_populate_configurator_options", True):
 				self.populate_controller_configurator_options()
 
+		if self.is_configurable and self.kit_template:
+			if self.get("auto_populate_configurator_options", True):
+				self.populate_extrusion_kit_configurator_options()
+
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)
 		if not getattr(self, "_skip_sync_status_check", False):
@@ -2353,6 +2357,109 @@ class ilLWebflowProduct(Document):
 			(7, "Mounting Type", "Mounting Type", 0),
 		]
 		self._populate_variant_configurator_options(template, option_flow)
+
+	def populate_extrusion_kit_configurator_options(self):
+		"""Populate configurator options for Extrusion Kits from linked ilL-Extrusion-Kit-Template.
+
+		Steps:
+		1. Lens Appearance (label: 'Lens')
+		2. Mounting Method (label: 'Mounting')
+		3. Finish (label: 'Finish')
+		4. Length (label: 'Length', e.g., '2M (6.56ft)')
+		"""
+		if not self.kit_template:
+			return
+
+		try:
+			template = frappe.get_doc("ilL-Extrusion-Kit-Template", self.kit_template)
+		except frappe.DoesNotExistError:
+			frappe.log_error(
+				message=f"Extrusion Kit template {self.kit_template} not found for product {self.name}",
+				title="Extrusion Kit Template Not Found",
+			)
+			return
+
+		existing_is_required = self._get_existing_is_required()
+		self.configurator_options = []
+
+		# Steps 1 to 3: Lens Appearance, Mounting Method, Finish
+		option_flow = [
+			(1, "Lens Appearance", "Lens", "lens_appearance", "ilL-Attribute-Lens Appearance"),
+			(2, "Mounting Method", "Mounting", "mounting_method", "ilL-Attribute-Mounting Method"),
+			(3, "Finish", "Finish", "finish", "ilL-Attribute-Finish"),
+		]
+
+		for step, option_type, label, field_name, attr_doctype in option_flow:
+			values = []
+			seen = set()
+
+			for opt in (template.allowed_options or []):
+				if getattr(opt, "option_type", None) != option_type:
+					continue
+				if hasattr(opt, "is_active") and not opt.is_active:
+					continue
+
+				attr_val = getattr(opt, field_name, None)
+				if not attr_val or attr_val in seen:
+					continue
+				seen.add(attr_val)
+
+				code_field = _resolve_attribute_code_field(attr_doctype) or "code"
+				code = frappe.db.get_value(attr_doctype, attr_val, code_field) or ""
+				is_default = 1 if getattr(opt, "is_default", 0) else 0
+
+				values.append({
+					"code": code,
+					"is_default": is_default,
+					"label": attr_val,
+				})
+
+			if values:
+				self.append("configurator_options", {
+					"option_step": step,
+					"option_type": option_type,
+					"option_label": label,
+					"is_required": existing_is_required.get(step, 1),
+					"depends_on_step": 0,
+					"allowed_values_json": frappe.as_json(values),
+				})
+
+		# Step 4: Length (Single stock length on template or fallback to default profile spec)
+		stock_length_mm = (
+			template.get("profile_stock_length_mm")
+			or getattr(template, "profile_stock_length_mm", None)
+			or template.get("default_profile_stock_len_mm")
+		)
+		if not stock_length_mm and template.get("default_profile_spec"):
+			stock_length_mm = frappe.db.get_value(
+				"ilL-Spec-Profile", template.default_profile_spec, "stock_length_mm"
+			)
+
+		if stock_length_mm:
+			try:
+				length_mm = float(stock_length_mm)
+				meters = length_mm / 1000.0
+				meters_str = f"{int(meters)}M" if meters.is_integer() else f"{meters:g}M"
+				feet = length_mm / 304.8
+				feet_str = f"{feet:.2f}ft"
+				length_label = f"{meters_str} ({feet_str})"
+
+				length_values = [{
+					"code": meters_str,
+					"is_default": 1,
+					"label": length_label,
+				}]
+
+				self.append("configurator_options", {
+					"option_step": 4,
+					"option_type": "Length",
+					"option_label": "Length",
+					"is_required": existing_is_required.get(4, 1),
+					"depends_on_step": 0,
+					"allowed_values_json": frappe.as_json(length_values),
+				})
+			except (ValueError, TypeError):
+				pass
 
 	def _populate_variant_configurator_options(self, template, option_flow):
 		"""Shared rebuild of configurator_options for variant-matched templates.
