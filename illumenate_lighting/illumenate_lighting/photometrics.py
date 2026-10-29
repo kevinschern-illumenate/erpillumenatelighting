@@ -120,3 +120,21 @@ def refresh_templates(record, method=None):
 			indicator="orange",
 		)
 	return failed
+
+
+# Submittal mapping rows may read a template's photometry or colorimetry record.
+RECORD_SOURCES = (PHOTOMETRY, COLORIMETRY)
+
+
+def submittal_record(source_doctype, template, cct=None):
+	"""The record a submittal mapping reads for one template: its photometry record, or the
+	colorimetry row for the configured CCT, falling back to the featured row."""
+	if not template:
+		return None
+	if source_doctype == PHOTOMETRY:
+		name = template.get("photometry")
+	else:
+		rows = [row for row in template.get("colorimetry") or [] if row.get("colorimetry")]
+		row = next((row for row in rows if cct and row.get("cct") == cct), None) or featured_row(template)
+		name = row.get("colorimetry") if row else None
+	return frappe.get_cached_doc(source_doctype, name) if name else None

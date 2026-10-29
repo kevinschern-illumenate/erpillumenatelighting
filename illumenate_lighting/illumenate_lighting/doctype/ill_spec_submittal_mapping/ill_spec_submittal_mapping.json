@@ -56,7 +56,7 @@
       "fieldtype": "Select",
       "in_list_view": 1,
       "label": "Source DocType",
-      "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Webflow-Product\nilL-Rel-Tape Offering\nilL-Spec-LED Tape\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+      "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Webflow-Product\nilL-Rel-Tape Offering\nilL-Spec-LED Tape\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line\nilL-Spec-Photometry\nilL-Spec-Colorimetry",
       "reqd": 1
     },
     {
@@ -177,7 +177,7 @@
   "grid_page_length": 50,
   "index_web_pages_for_search": 1,
   "links": [],
-  "modified": "2026-10-13 15:00:00.000000",
+  "modified": "2026-10-28 23:00:00.000000",
   "modified_by": "Administrator",
   "module": "ilLumenate Lighting",
   "name": "ilL-Spec-Submittal-Mapping",

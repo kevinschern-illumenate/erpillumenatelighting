@@ -3853,7 +3853,7 @@
           "fieldname": "source_doctype",
           "label": "Source DocType",
           "fieldtype": "Select",
-          "options": "ilL-Extrusion-Kit-Template\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Accessory\nilL-Attribute-Finish\nilL-Attribute-Lens Appearance\nilL-Attribute-Mounting Method\nilL-Attribute-Endcap Style\nilL-Attribute-Endcap Color\nilL-Attribute-Series\nilL-Webflow-Product\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "options": "ilL-Extrusion-Kit-Template\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Accessory\nilL-Attribute-Finish\nilL-Attribute-Lens Appearance\nilL-Attribute-Mounting Method\nilL-Attribute-Endcap Style\nilL-Attribute-Endcap Color\nilL-Attribute-Series\nilL-Webflow-Product\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line\nilL-Spec-Photometry",
           "reqd": 1,
           "description": "The record to pull the value from. Specs and attributes are the ones the configured kit resolved to."
         },
@@ -3962,7 +3962,7 @@
           "fieldname": "source_doctype",
           "label": "Source DocType",
           "fieldtype": "Select",
-          "options": "ilL-Configured-LED-Sheet\nilL-LED-Sheet-Template\nilL-Spec-LED-Sheet\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "options": "ilL-Configured-LED-Sheet\nilL-LED-Sheet-Template\nilL-Spec-LED-Sheet\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line\nilL-Spec-Photometry\nilL-Spec-Colorimetry",
           "reqd": 1,
           "description": "The DocType to pull the source value from"
         },
@@ -4267,7 +4267,7 @@
           "fieldname": "source_doctype",
           "label": "Source DocType",
           "fieldtype": "Select",
-          "options": "ilL-Configured-Tape-Neon\nilL-Child-Tape-Neon-Segment\nilL-Tape-Neon-Template\nilL-Webflow-Product\nilL-Spec-LED Tape\nilL-Rel-Tape Offering\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "options": "ilL-Configured-Tape-Neon\nilL-Child-Tape-Neon-Segment\nilL-Tape-Neon-Template\nilL-Webflow-Product\nilL-Spec-LED Tape\nilL-Rel-Tape Offering\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line\nilL-Spec-Photometry\nilL-Spec-Colorimetry",
           "reqd": 1,
           "description": "The DocType to pull the source value from"
         },
@@ -6402,7 +6402,7 @@
           "fieldname": "source_doctype",
           "label": "Source DocType",
           "fieldtype": "Select",
-          "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Webflow-Product\nilL-Rel-Tape Offering\nilL-Spec-LED Tape\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line",
+          "options": "ilL-Configured-Fixture\nilL-Fixture-Template\nilL-Webflow-Product\nilL-Rel-Tape Offering\nilL-Spec-LED Tape\nilL-Spec-Profile\nilL-Spec-Lens\nilL-Spec-Driver\nilL-Project-Fixture-Schedule\nilL-Project\nilL-Child-Fixture-Schedule-Line\nilL-Spec-Photometry\nilL-Spec-Colorimetry",
           "reqd": 1,
           "description": "The DocType to pull the source value from"
         },
