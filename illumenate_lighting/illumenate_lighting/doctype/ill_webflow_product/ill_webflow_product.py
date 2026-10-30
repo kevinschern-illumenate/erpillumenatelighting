@@ -4411,14 +4411,14 @@ class ilLWebflowProduct(Document):
 							# Stock Length (Order 31)
 							if profile_doc.stock_length_mm:
 								stock_in = float(profile_doc.stock_length_mm) / 25.4
-								stock_str = f"{profile_doc.stock_length_mm}mm ({stock_in:.1f}in)"
+								stock_str = f"{stock_in:.1f}in ({profile_doc.stock_length_mm}mm)"
 								append_spec(self, "Physical", "Stock Length", stock_str, "", 31)
 								record(debug, "Stock Length", 1, [stock_str], appended=True)
 							
 							# Max Assembled Length (Order 32)
 							if profile_doc.max_assembled_length_mm:
 								max_in = float(profile_doc.max_assembled_length_mm) / 25.4
-								max_str = f"{profile_doc.max_assembled_length_mm}mm ({max_in:.1f}in)"
+								max_str = f"{max_in:.1f}in ({profile_doc.max_assembled_length_mm}mm)"
 								append_spec(self, "Physical", "Max Assembled Length", max_str, "", 32)
 								record(debug, "Max Assembled Length", 1, [max_str], appended=True)
 							
