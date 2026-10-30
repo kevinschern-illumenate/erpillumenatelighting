@@ -2619,3 +2619,44 @@ def upload_spec_pdf():
         return upload_file()
     finally:
         File.check_content = original_check_content
+
+@frappe.whitelist(methods=["POST"])
+def request_spec_sheet(docname, brand=None):
+    """Called by the desk button. Checks permissions, then forwards to n8n with the shared secret."""
+    _require_product_access(docname, "write")
+
+    import requests as req
+
+    secret = frappe.conf.get("n8n_sync_secret")
+    if not secret:
+        frappe.throw(_("n8n sync secret is not configured. Ask your administrator to set n8n_sync_secret in site config."))
+
+    product_slug = frappe.db.get_value("ilL-Webflow-Product", docname, "product_slug") or docname
+    if not brand:
+        brand = "illumenate"
+
+    payload = {
+        "product": docname,
+        "product_slug": product_slug,
+        "brand": brand
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "ERP-Sync-Secret-2026": secret
+    }
+
+    try:
+        resp = req.post(
+            "https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2",
+            json=payload,
+            headers=headers,
+            timeout=180
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except req.exceptions.Timeout:
+        frappe.throw(_("The spec generation request timed out. It may still be running."))
+    except req.exceptions.HTTPError as e:
+        frappe.throw(_("Pipeline failed with status {0}.").format(resp.status_code))
+    except Exception as e:
+        frappe.throw(_("Could not reach n8n: {0}").format(str(e)))
