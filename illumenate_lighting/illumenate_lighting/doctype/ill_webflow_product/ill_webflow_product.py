@@ -232,6 +232,7 @@ class ilLWebflowProduct(Document):
 		
 	def before_save(self):
 		"""Calculate specifications, attribute links, and configurator options before saving."""
+		self.set_dynamic_hero_image()
 
 		# Duplicate guard: clear inherited Webflow sync identity/state
 		if getattr(self.flags, "in_copy", False) or self.is_new():
@@ -302,6 +303,36 @@ class ilLWebflowProduct(Document):
 			self._update_template_backlink(template_doctype, fieldname)
 		self._top_up_template()
 
+	def set_dynamic_hero_image(self):
+        # 1. Define a list of all possible template link fields on the Product doctype
+        template_fields = [
+            "kit_template",
+            "fixture_template",
+            "tape_neon_template",
+            "driver_template",
+            "controller_template",
+            "led_sheet_template"
+        ]
+
+        # 2. Reset the image so it clears out if no template is linked
+        self.hero_image = None
+
+        # 3. Loop through the possible fields
+        for fieldname in template_fields:
+            template_name = self.get(fieldname)
+            
+            if template_name:
+                # Get the DocType of the linked template (e.g., "ilL-Extrusion-Kit-Template")
+                template_doctype = self.meta.get_field(fieldname).options
+                
+                # Fetch the hero_image from that specific template record
+                hero_image_url = frappe.db.get_value(template_doctype, template_name, "hero_image")
+                
+                # If the template actually has an image, apply it to the product and stop searching
+                if hero_image_url:
+                    self.hero_image = hero_image_url
+                    break
+					
 	def _top_up_template(self):
 		"""Move product data onto a template when this listing is first linked to it."""
 		from illumenate_lighting.illumenate_lighting.web_listing_source import top_up_template
