@@ -3358,7 +3358,7 @@ class ilLWebflowProduct(Document):
 			"Minimum Bending Diameter", "Warranty", "Power Factor", "Total Harmonic Distortion",
 			"Efficiency", "Start Up Time", "Minimum Load", "Inrush Current", "Max Input Current",
 			"Output Voltage", "Max Output Current", "Certifications",
-			"Stock Length", "Max Assembled Length"
+			"Stock Length", "Max Assembled Length", "Cuttable", "Lens Interface"
 		)
 
 		def format_inches(mm):
