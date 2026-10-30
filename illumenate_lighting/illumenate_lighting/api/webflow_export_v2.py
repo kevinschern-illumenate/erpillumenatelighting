@@ -196,6 +196,22 @@ def _collect_component_item_codes(kit_components) -> list[str]:
     return codes
 
 
+def _require_product_access(docname, ptype="write"):
+    """Allow only System Users who have the given permission on this product."""
+    user_type = frappe.get_cached_value("User", frappe.session.user, "user_type")
+    if user_type != "System User":
+        frappe.throw(_("Only ERPNext desk users can do this."), frappe.PermissionError)
+    if not frappe.has_permission("ilL-Webflow-Product", ptype, doc=docname):
+        frappe.throw(_("You don't have permission to do this for this product."), frappe.PermissionError)
+
+
+def _require_system_user():
+    """Allow only System Users (used where no product name is available)."""
+    user_type = frappe.get_cached_value("User", frappe.session.user, "user_type")
+    if user_type != "System User":
+        frappe.throw(_("Only ERPNext desk users can do this."), frappe.PermissionError)
+
+
 @frappe.whitelist(allow_guest=False)
 def get_webflow_products(
     product_type: str | None = None,
@@ -2466,6 +2482,7 @@ def _build_certifications_spec(doc) -> dict | None:
 
 @frappe.whitelist(methods=["POST"])
 def trigger_sync_v2(docname):
+    _require_product_access(docname, "write")
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
 
@@ -2523,9 +2540,18 @@ def trigger_sync_v2(docname):
                 
     return {"status": "success", "jobs": dispatched_jobs}
 
+@frappe.whitelist(allow_guest=True)
+def spec_sheet(product):
+    url = frappe.db.get_value("ilL-Webflow-Product", product, "spec_sheet_url")  # use your mirrored field name
+    if not url:
+        frappe.throw(_("No spec sheet for this product."), frappe.DoesNotExistError)
+    frappe.local.response["type"] = "redirect"
+    frappe.local.response["location"] = url
+
 
 @frappe.whitelist(methods=["POST"])
 def trigger_publish_v2(docname):
+    _require_product_access(docname, "write")
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
     doc.save(ignore_permissions=True)
@@ -2583,6 +2609,7 @@ def trigger_publish_v2(docname):
 @frappe.whitelist()
 def upload_spec_pdf():
     """Uploads a spec sheet PDF, skipping the pdf_contains_js check for system generation."""
+    _require_system_user()
     # Monkey-patch or temporarily disable check_content on the File document during this upload
     from frappe.core.doctype.file.file import File
     
