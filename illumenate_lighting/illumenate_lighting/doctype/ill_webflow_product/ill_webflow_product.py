@@ -3358,7 +3358,7 @@ class ilLWebflowProduct(Document):
 			"Minimum Bending Diameter", "Warranty", "Power Factor", "Total Harmonic Distortion",
 			"Efficiency", "Start Up Time", "Minimum Load", "Inrush Current", "Max Input Current",
 			"Output Voltage", "Max Output Current", "Certifications",
-			"Stock Length", "Max Assembled Length", "Cuttable", "Lens Interface"
+			"Stock Length", "Max Assembled Length"
 		)
 
 		def format_inches(mm):
@@ -4421,16 +4421,6 @@ class ilLWebflowProduct(Document):
 								max_str = f"{max_in:.1f}in ({profile_doc.max_assembled_length_mm}mm)"
 								append_spec(self, "Physical", "Max Assembled Length", max_str, "", 32)
 								record(debug, "Max Assembled Length", 1, [max_str], appended=True)
-							
-							# Cuttable (Order 5)
-							if profile_doc.is_cuttable:
-								append_spec(self, "Physical", "Cuttable", "Yes", "", 5)
-								record(debug, "Cuttable", 1, ["Yes"], appended=True)
-							
-							# Lens Interface (Order 11)
-							if profile_doc.lens_interface:
-								append_spec(self, "Physical", "Lens Interface", profile_doc.lens_interface, "", 11, "ilL-Attribute-Lens Interface Type")
-								record(debug, "Lens Interface", 1, [profile_doc.lens_interface], appended=True)
 							
 							# Environment Ratings (Order 49)
 							env_ratings = []
