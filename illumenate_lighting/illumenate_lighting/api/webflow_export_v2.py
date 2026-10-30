@@ -2498,9 +2498,9 @@ def trigger_sync_v2(docname):
         # Resolve brand config to get the proper webhook URL
         try:
             resolve_brand(brand, allow_inactive=True)
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
+            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/staging-product-sync-v2"
         except frappe.ValidationError:
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
+            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/staging-product-sync-v2"
             
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
