@@ -2643,7 +2643,7 @@ def request_spec_sheet(docname, brand=None):
     headers = {
         "Content-Type": "application/json",
         "ERP-Sync-Secret-2026": secret
-    }wa
+    }
 
     try:
         resp = req.post(
