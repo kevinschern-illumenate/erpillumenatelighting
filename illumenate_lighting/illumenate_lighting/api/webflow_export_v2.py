@@ -2627,7 +2627,7 @@ def request_spec_sheet(docname, brand=None):
 
     import requests as req
 
-    secret = frappe.conf.get("n8n_sync_secret")
+    secret = frappe.conf.get("ERP-Sync-Secret-2026")
     if not secret:
         frappe.throw(_("n8n sync secret is not configured. Ask your administrator to set n8n_sync_secret in site config."))
 
@@ -2643,7 +2643,7 @@ def request_spec_sheet(docname, brand=None):
     headers = {
         "Content-Type": "application/json",
         "ERP-Sync-Secret-2026": secret
-    }
+    }wa
 
     try:
         resp = req.post(
