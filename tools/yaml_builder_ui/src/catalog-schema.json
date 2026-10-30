@@ -3120,6 +3120,11 @@
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
         }
       ]
     },
@@ -3345,6 +3350,11 @@
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
         }
       ]
     },
@@ -3499,6 +3509,11 @@
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
         },
         {
           "fieldname": "min_length_mm",
@@ -3746,6 +3761,11 @@
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
         },
         {
           "fieldname": "min_length_mm",
@@ -4186,6 +4206,11 @@
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
         },
         {
           "fieldname": "l70_life_hours",
@@ -6860,6 +6885,11 @@
           "label": "Scene Archetypes",
           "fieldtype": "Small Text",
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
         },
         {
           "fieldname": "min_length_mm",

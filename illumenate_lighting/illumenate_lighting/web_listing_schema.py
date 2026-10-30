@@ -80,6 +80,10 @@ SHARED_FIELDS = [
 	{"fieldname": TAB, "fieldtype": "Tab Break", "label": "Product Data"},
 	_section("product_data_section", "Product Data"),
 	{"fieldname": "warranty_years", "fieldtype": "Int", "label": "Warranty (Years)"},
+	# Marketing first added this on the live site; the Webflow Product copies it from its
+	# template on save (set_dynamic_hero_image).
+	_column("product_data_column"),
+	{"fieldname": "hero_image", "fieldtype": "Attach Image", "label": "Hero Image"},
 ]
 
 _LENGTHS = [
