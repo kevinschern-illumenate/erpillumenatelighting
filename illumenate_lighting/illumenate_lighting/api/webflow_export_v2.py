@@ -333,7 +333,7 @@ def get_webflow_products(
             "driver_template", "controller_template",
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
             "accessory_spec",
-            "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "custom_dimensions_image_2", "series_family_image",
+            "short_description", "sublabel", "features", "product_badge", "featured_image", "hero_image", "dimensions_image", "custom_dimensions_image_2", "series_family_image",
             "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
