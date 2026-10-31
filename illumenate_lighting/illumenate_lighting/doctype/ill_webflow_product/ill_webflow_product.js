@@ -275,6 +275,8 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			);
 		}
 
+		show_staging_webflow_banner(frm);
+
 		// Limit Compatible Products to products matching this document's active brands
 		frm.set_query("related_product", "compatible_products", function(doc, cdt, cdn) {
 			let active_brands = [];
@@ -481,6 +483,25 @@ frappe.ui.form.on("ilL-Child-Webflow-Document", {
 		}
 	}
 });
+
+// Plan 4.11 item 6: on a staging site, Webflow writes go to "[staging]" items
+// only. The environment comes from site config and is fetched once per page load.
+let webflow_environment_promise = null;
+function show_staging_webflow_banner(frm) {
+	if (!webflow_environment_promise) {
+		webflow_environment_promise = frappe
+			.xcall("illumenate_lighting.illumenate_lighting.api.n8n_config.get_webflow_environment")
+			.catch(() => null);
+	}
+	webflow_environment_promise.then((environment) => {
+		if (environment === "staging") {
+			frm.set_intro(
+				__("Staging: Webflow writes go to [staging] items only. They are always hidden from the public."),
+				"orange"
+			);
+		}
+	});
+}
 
 function is_duplicate_doc(frm) {
 	// Frappe duplicate creates a new unsaved doc with copied values

@@ -23,6 +23,7 @@ from frappe import _
 
 from frappe.handler import upload_file
 
+from illumenate_lighting.illumenate_lighting.api import n8n_config
 from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
@@ -48,9 +49,15 @@ from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 ERPNEXT_BASE_URL = DEFAULT_ERPNEXT_BASE_URL
 
 def enqueue_n8n_webhook(webhook_url, job_data):
-    """Background worker to trigger n8n to prevent locking the Frappe API thread"""
+    """Background worker to trigger n8n to prevent locking the Frappe API thread.
+
+    The shared-secret header is read from site config here, at send time, so the
+    secret never travels through the job queue.
+    """
     try:
-        response = requests.post(webhook_url, json=job_data, timeout=120)
+        response = requests.post(
+            webhook_url, json=job_data, headers=n8n_config.auth_headers(), timeout=120
+        )
         response.raise_for_status()
     except requests.RequestException as e:
         frappe.log_error(f"Failed to push {job_data.get('job')} to n8n: {e!s}", "Webflow V2 Sync")
@@ -2492,15 +2499,14 @@ def trigger_sync_v2(docname):
     rows = doc.get("target_brands") or []
     active_brands = [row.brand for row in rows if row.enabled] if rows else [get_default_brand()]
     
+    # Z1: the webhook URL and secret come from site config. Check both before
+    # any job is requested so a misconfigured site fails without side effects.
+    webhook_url = n8n_config.sync_webhook_url()
+    n8n_config.auth_headers()
+
     dispatched_jobs = []
     
     for brand in active_brands:
-        # Resolve brand config to get the proper webhook URL
-        try:
-            resolve_brand(brand, allow_inactive=True)
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/staging-product-sync-v2"
-        except frappe.ValidationError:
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/staging-product-sync-v2"
             
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
@@ -2558,15 +2564,14 @@ def trigger_publish_v2(docname):
     rows = doc.get("target_brands") or []
     active_brands = [row.brand for row in rows if row.enabled] if rows else [get_default_brand()]
     
+    # Z1: the webhook URL and secret come from site config. Check both before
+    # any job is requested so a misconfigured site fails without side effects.
+    webhook_url = n8n_config.sync_webhook_url()
+    n8n_config.auth_headers()
+
     dispatched_jobs = []
     
     for brand in active_brands:
-        # Resolve brand config to get the proper webhook URL
-        try:
-            resolve_brand(brand, allow_inactive=True)
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
-        except frappe.ValidationError:
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
 
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
@@ -2627,9 +2632,8 @@ def request_spec_sheet(docname, brand=None):
 
     import requests as req
 
-    secret = frappe.conf.get("ERP-Sync-Secret-2026")
-    if not secret:
-        frappe.throw(_("n8n sync secret is not configured. Ask your administrator to set n8n_sync_secret in site config."))
+    webhook_url = n8n_config.spec_webhook_url()
+    auth_headers = n8n_config.auth_headers()
 
     product_slug = frappe.db.get_value("ilL-Webflow-Product", docname, "product_slug") or docname
     if not brand:
@@ -2640,14 +2644,11 @@ def request_spec_sheet(docname, brand=None):
         "product_slug": product_slug,
         "brand": brand
     }
-    headers = {
-        "Content-Type": "application/json",
-        "ERP-Sync-Secret-2026": secret
-    }
+    headers = {"Content-Type": "application/json", **auth_headers}
 
     try:
         resp = req.post(
-            "https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2",
+            webhook_url,
             json=payload,
             headers=headers,
             timeout=180

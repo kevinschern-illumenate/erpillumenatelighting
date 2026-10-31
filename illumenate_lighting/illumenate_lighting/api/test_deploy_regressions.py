@@ -23,6 +23,14 @@ except ImportError:  # Frappe v15
 from illumenate_lighting import portal_workspace
 from illumenate_lighting.illumenate_lighting.portal import order_review
 
+# Placeholder site config for the ERPNext -> n8n calls (Z1). Not real values.
+N8N_TEST_CONF = {
+	"n8n_sync_webhook_url": "https://n8n.invalid/webhook/test-sync",
+	"n8n_spec_webhook_url": "https://n8n.invalid/webhook/test-spec",
+	"n8n_sync_secret": "test-secret",
+	"n8n_sync_secret_header": "X-Test-Secret",
+}
+
 PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
 
 
@@ -152,6 +160,7 @@ class TestDeployRegressions(IntegrationTestCase):
 	def test_webhook_http_and_network_failures_fail_the_worker(self):
 		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
 
+		self.enterContext(patch.dict(frappe.conf, N8N_TEST_CONF))
 		for status in (401, 500):
 			response = requests.Response()
 			response.status_code = status
@@ -174,10 +183,13 @@ class TestDeployRegressions(IntegrationTestCase):
 	def test_webhook_success_and_dispatch_after_commit(self):
 		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
 
+		self.enterContext(patch.dict(frappe.conf, N8N_TEST_CONF))
 		response = requests.Response()
 		response.status_code = 202
-		with patch.object(webflow_export_v2.requests, "post", return_value=response):
+		with patch.object(webflow_export_v2.requests, "post", return_value=response) as post:
 			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
+		# Z1: every ERPNext -> n8n call carries the shared-secret header from site config.
+		self.assertEqual(post.call_args.kwargs["headers"], {"X-Test-Secret": "test-secret"})
 		for method in (webflow_export_v2.trigger_sync_v2, webflow_export_v2.trigger_publish_v2):
 			# Both triggers save the product first so its template data is fresh.
 			doc = frappe._dict(target_brands=[frappe._dict(brand="demo", enabled=1)], save=MagicMock())
@@ -196,6 +208,9 @@ class TestDeployRegressions(IntegrationTestCase):
 			):
 				self.assertEqual(method("demo")["jobs"], ["J1"])
 				self.assertTrue(enqueue.call_args.kwargs["enqueue_after_commit"])
+				self.assertEqual(
+					enqueue.call_args.kwargs["webhook_url"], N8N_TEST_CONF["n8n_sync_webhook_url"]
+				)
 				doc.save.assert_called_once_with(ignore_permissions=True)
 
 	def test_non_administrators_can_upload_edit_and_delete_attachments(self):
