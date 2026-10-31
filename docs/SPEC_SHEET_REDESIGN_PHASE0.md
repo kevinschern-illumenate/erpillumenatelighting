@@ -132,7 +132,7 @@ Webflow API, or `developers.webflow.com` (network policy). Spikes that need them
 | S1 `/files/` interception | Blocked (no access to staging) | Run Appendix B of the plan. Build `/spec-sheets/` either way. |
 | S2 `/spec-sheets/<name>.pdf` route | Blocked | Needs a deployed prototype and `curl -i`. Folded into Phase 4. |
 | S3 Webflow unpublish and archive | Done (docs) | See below. |
-| S4 readiness and guards | Blocked | Commands below. |
+| S4 readiness and guards | Done (partly) | See below. Readiness checks confirmed; the `request()` guards and the Internal Only rule were not exercised. |
 | S5 Custom Fields on `ilL-*` | Blocked | Commands below. |
 | S6 production item IDs on staging | Done | Yes: 112 products and 4 publications carried production IDs. Cleared on staging (see Z4). |
 | S7 freeze overlay | Done (Frappe v16 source) | See below. |
@@ -152,6 +152,33 @@ Webflow API, or `developers.webflow.com` (network policy). Spikes that need them
 
 Sources: [Unpublish Single Live Item](https://developers.webflow.com/data/reference/cms/collection-items/live-items/delete-item-live),
 [Unpublish Live Items](https://developers.webflow.com/data/reference/cms/collection-items/live-items/delete-items-live.md).
+
+### S4: readiness on staging (run by the owner, 2026-10-31, brand `illumenate`)
+
+| Product | Ready | Issues |
+|---|---|---|
+| `kit-ra01`, `kit-ra02`, `kit-ra03`, `kit-az01` | yes | none |
+| `led-hd-sw` | no | see below |
+
+`led-hd-sw` issues, traced to the code:
+
+- "Dependency graph exceeds preflight bounds" (`product_readiness.dependency_manifest`): the walk of
+  linked records passed 400 records or depth 8 (Appendix C item 21).
+- "Source field is absent from the installed schema" (`product_readiness`, spec submittal check): a
+  row in the template's submittal mapping names a source field that does not exist on its source
+  doctype (Appendix C item 15).
+- "Enter a finite positive number" twice (`authoring_contract.record_issues`): two numeric engineering
+  values on linked spec records are empty, zero or invalid (Appendix C item 22). For an LED tape spec
+  the checked fields are `watts_per_foot`, `voltage_drop_max_run_length_ft` and, when the tape is not
+  free-cutting, `cut_increment_mm`.
+- The console warning "Xref table not zero-indexed" comes from the PDF library reading the submittal
+  PDF. It is not a readiness issue.
+
+Decision: Appendix C matches the running code for the readiness checks. The kits are ready, so kits
+are the right first staging sync test. `led-hd-sw` needs data fixes before it can sync; that is
+catalog work, not part of this plan. The Internal Only readiness rule and the `request()` guards
+(Appendix C items 1 to 5 and 8) were not exercised by this sample. They are covered when Phase 5
+changes them.
 
 ### S7: why the "Syncing to Webflow" box is see-through
 
@@ -197,5 +224,5 @@ Run the same on production (read-only) to compare.
 
 ## What is next
 
-Phase 0 is complete except for the blocked spikes (S1, S2, S4, S5, S8). The plan says to report before Phase 1. Phase 1a does not depend on those spikes,
+Phase 0 is complete except for the blocked spikes (S1, S2, S5, S8). The plan says to report before Phase 1. Phase 1a does not depend on those spikes,
 but Phase 1b depends on S5's Custom Field export, and Phase 4 on S1 and S2.
