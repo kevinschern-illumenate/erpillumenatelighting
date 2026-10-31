@@ -147,11 +147,12 @@
   },
   {
    "depends_on": "eval:doc.product_type=='Fixture Template'",
-   "description": "Linear fixture family that drives the Webflow configurator.",
+   "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "fixture_template",
    "fieldtype": "Link",
    "label": "Fixture Template",
-   "options": "ilL-Fixture-Template"
+   "options": "ilL-Fixture-Template",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.product_type=='Driver'",
@@ -163,11 +164,12 @@
   },
   {
    "depends_on": "eval:doc.product_type=='Driver'",
-   "description": "Driver family used to drive the Webflow configurator (wattage, output voltage, dimming protocol).",
+   "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "driver_template",
    "fieldtype": "Link",
    "label": "Driver Template",
-   "options": "ilL-Driver-Template"
+   "options": "ilL-Driver-Template",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.product_type=='Controller'",
@@ -179,11 +181,12 @@
   },
   {
    "depends_on": "eval:doc.product_type=='Controller'",
-   "description": "Controller family used to drive the Webflow configurator (type, channels, zones, protocols).",
+   "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "controller_template",
    "fieldtype": "Link",
    "label": "Controller Template",
-   "options": "ilL-Controller-Template"
+   "options": "ilL-Controller-Template",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_source",
@@ -213,27 +216,30 @@
   },
   {
    "depends_on": "eval:in_list(['LED Tape','COB Tape','LED Neon'], doc.product_type)",
-   "description": "LED tape or neon family that drives the Webflow configurator.",
+   "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "tape_neon_template",
    "fieldtype": "Link",
    "label": "Tape / Neon Template",
-   "options": "ilL-Tape-Neon-Template"
+   "options": "ilL-Tape-Neon-Template",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.product_type=='LED Sheet'",
-   "description": "LED sheet family that drives the Webflow configurator.",
+   "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "led_sheet_template",
    "fieldtype": "Link",
    "label": "LED Sheet Template",
-   "options": "ilL-LED-Sheet-Template"
+   "options": "ilL-LED-Sheet-Template",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.product_type=='Extrusion Kit'",
-   "description": "Extrusion kit family that drives the Webflow configurator (finishes, lenses, endcaps, mounting).",
+   "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "kit_template",
    "fieldtype": "Link",
    "label": "Extrusion Kit Template",
-   "options": "ilL-Extrusion-Kit-Template"
+   "options": "ilL-Extrusion-Kit-Template",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.product_type=='Accessory'",
@@ -590,7 +596,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-13 18:30:00.000000",
+ "modified": "2026-10-31 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

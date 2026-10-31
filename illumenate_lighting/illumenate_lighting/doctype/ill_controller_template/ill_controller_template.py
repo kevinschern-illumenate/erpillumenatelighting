@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 
+from illumenate_lighting.illumenate_lighting import template_link
 from illumenate_lighting.illumenate_lighting.doctype.ill_driver_template.ill_driver_template import (
 	_normalise_axis_value,
 )
@@ -26,8 +27,15 @@ CONTROLLER_SCALAR_OPTION_TYPES = ("Channels", "Zones", "Wireless Protocol")
 
 
 class ilLControllerTemplate(Document):
+	def on_update(self):
+		template_link.on_template_update(self)
+
+	def on_trash(self):
+		template_link.on_template_trash(self)
+
 	def validate(self):
 		apply_product_status(self)
+		template_link.validate_template(self)
 		self._validate_single_default()
 		self._validate_unique_variant_axes()
 		self._validate_allowed_options()

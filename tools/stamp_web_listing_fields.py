@@ -5,7 +5,8 @@ Run from the repository root after editing ``web_listing_schema.py``:
     python tools/stamp_web_listing_fields.py
 
 Idempotent: everything from the Product Data tab on is replaced, Product Status sits right
-after is_active (which becomes read only), and a doctype's
+after is_active (which becomes read only), webflow_product becomes editable while empty,
+and a doctype's
 ``modified`` stamp only moves when its fields actually change, so ``bench migrate``
 reloads exactly the doctypes that changed.
 """
@@ -24,6 +25,8 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 	STATUS_FIELD,
 	TAB,
 	TEMPLATE_DOCTYPES,
+	WEBFLOW_PRODUCT_FIELD,
+	WEBFLOW_PRODUCT_OVERRIDES,
 	fields_for,
 )
 
@@ -46,6 +49,8 @@ def stamp(doctype, module, now):
 			continue
 		if field["fieldname"] == STATUS_AFTER:
 			fields += [{**field, **IS_ACTIVE_OVERRIDES}, dict(STATUS_FIELD)]
+		elif field["fieldname"] == WEBFLOW_PRODUCT_FIELD:
+			fields.append({**field, **WEBFLOW_PRODUCT_OVERRIDES})
 		else:
 			fields.append(field)
 	fields += [dict(field) for field in added]

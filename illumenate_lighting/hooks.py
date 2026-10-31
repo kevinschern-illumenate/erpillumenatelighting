@@ -82,7 +82,7 @@ for _name in (
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
-    doctype_js[_name] = [*_scripts, "public/js/template_documents.js"]
+    doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/template_webflow_link.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 

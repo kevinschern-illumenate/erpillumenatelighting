@@ -50,16 +50,37 @@ class StampedSchema(unittest.TestCase):
 			self.assertEqual(fields[at]["read_only"], 1)
 
 	def test_marketing_fields_stay_off_the_templates(self):
+		# Target Brands moved to the template (D10, D22); marketing copy stays on the product.
 		for doctype in TEMPLATE_DOCTYPES:
 			names = {field["fieldname"] for field in fields_for(doctype)}
-			for marketing in (
-				"web_slug",
-				"short_description",
-				"gallery_images",
-				"documents",
-				"target_brands",
-			):
+			for marketing in ("web_slug", "short_description", "gallery_images", "documents"):
 				self.assertNotIn(marketing, names)
+
+	def test_every_template_owns_its_listing_data_on_the_product_data_tab(self):
+		listing = {
+			"target_brands": "ilL-Child-Webflow-Brand-Target",
+			"certifications": "ilL-Child-Spec-Certification",
+			"other_documents": "ilL-Child-Webflow-Document",
+		}
+		for doctype, module in TEMPLATE_DOCTYPES.items():
+			with self.subTest(doctype=doctype):
+				fields = doctype_json(module)["fields"]
+				names = [field["fieldname"] for field in fields]
+				tab = names.index(TAB)
+				by_name = {field["fieldname"]: field for field in fields}
+				for fieldname in ("sublabel", "dimensions_image", "spec_sheet_public_url", *listing):
+					self.assertGreater(names.index(fieldname), tab, fieldname)
+				for fieldname, child in listing.items():
+					self.assertEqual(by_name[fieldname]["options"], child)
+				self.assertEqual(by_name["spec_sheet_public_url"]["read_only"], 1)
+				self.assertEqual("webflow_category" in names, doctype == "ilL-Tape-Neon-Template")
+
+	def test_webflow_product_is_editable_only_while_empty(self):
+		for module in TEMPLATE_DOCTYPES.values():
+			field = next(f for f in doctype_json(module)["fields"] if f["fieldname"] == "webflow_product")
+			self.assertEqual(field["options"], "ilL-Webflow-Product")
+			self.assertFalse(field.get("read_only"))
+			self.assertEqual(field["read_only_depends_on"], "eval:doc.webflow_product")
 
 	def test_tables_and_links_point_at_existing_doctypes(self):
 		core = {"Item", "DocType"}

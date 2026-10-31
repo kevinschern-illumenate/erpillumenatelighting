@@ -67,6 +67,19 @@ STATUS_FIELD = {
 STATUS_AFTER = "is_active"
 IS_ACTIVE_OVERRIDES = {"read_only": 1, "description": "Set from Product Status."}
 
+# The template owns the link to its Webflow Product (plan 4.2). The field is editable
+# while empty and read only once set; template_link.py validates it and writes the
+# product's per-type link field, which is a read-only mirror.
+WEBFLOW_PRODUCT_FIELD = "webflow_product"
+WEBFLOW_PRODUCT_OVERRIDES = {
+	"read_only": 0,
+	"read_only_depends_on": "eval:doc.webflow_product",
+	"description": (
+		"The Webflow Product that lists this template. Pick one while empty; use Actions > "
+		"Unlink Webflow Product to change it. Required when Product Status is Active."
+	),
+}
+
 
 def _section(fieldname, label):
 	return {"fieldname": fieldname, "fieldtype": "Section Break", "label": label}
@@ -183,6 +196,67 @@ _COLORIMETRY = [
 	},
 ]
 
+
+# Listing data the template owns and its Webflow Product mirrors (plan 4.1, D10, D57).
+# Target Brands holds at most one enabled row (D17, D22).
+def _listing_data(category=None):
+	return [
+		_section("web_brand_section", "Brand"),
+		{
+			"fieldname": "target_brands",
+			"fieldtype": "Table",
+			"label": "Target Brand",
+			"options": "ilL-Child-Webflow-Brand-Target",
+			"description": (
+				"The one brand this template is listed under. At most one row can be enabled, and "
+				"one is required to link a Webflow Product or generate a spec sheet."
+			),
+		},
+		_section("web_listing_content_section", "Listing Content"),
+		{"fieldname": "sublabel", "fieldtype": "Data", "label": "Sublabel"},
+		*([category] if category else []),
+		_column("web_listing_content_column"),
+		{"fieldname": "dimensions_image", "fieldtype": "Attach Image", "label": "Dimensions Image"},
+		_section("web_certifications_section", "Certifications"),
+		{
+			"fieldname": "certifications",
+			"fieldtype": "Table",
+			"label": "Certifications",
+			"options": "ilL-Child-Spec-Certification",
+			"description": "Copied to the Webflow Product with each brand's badge images.",
+		},
+		_section("web_documents_section", "Documents"),
+		{
+			"fieldname": "spec_sheet_public_url",
+			"fieldtype": "Data",
+			"label": "Spec Sheet Public URL",
+			"read_only": 1,
+			"description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+		},
+		{
+			"fieldname": "other_documents",
+			"fieldtype": "Table",
+			"label": "Other Documents",
+			"options": "ilL-Child-Webflow-Document",
+		},
+	]
+
+
+# Tape/Neon's own product_category is the tape family (LED Tape, COB Tape, LED Neon), so the
+# Webflow category it is listed under is a separate field (D54).
+_TAPE_WEBFLOW_CATEGORY = {
+	"fieldname": "webflow_category",
+	"fieldtype": "Link",
+	"label": "Webflow Category",
+	"options": "ilL-Webflow-Category",
+	"description": "The category this template's Webflow Product is listed under.",
+}
+
+LISTING_DATA = {
+	doctype: _listing_data(_TAPE_WEBFLOW_CATEGORY if doctype == "ilL-Tape-Neon-Template" else None)
+	for doctype in TEMPLATE_DOCTYPES
+}
+
 # Photometric fields a template may hold; exports read them from the template.
 PHOTOMETRIC_FIELDS = ("photometric_image", "tm30_chart_image", "polar_chart_image", "photometric_data")
 
@@ -222,7 +296,7 @@ def fields_for(doctype):
 	"""Product Data tab fields for one template, skipping fieldnames it already defines."""
 	return [
 		field
-		for field in SHARED_FIELDS + TYPE_FIELDS[doctype]
+		for field in SHARED_FIELDS + TYPE_FIELDS[doctype] + LISTING_DATA[doctype]
 		if field["fieldname"] not in PREEXISTING[doctype]
 	]
 

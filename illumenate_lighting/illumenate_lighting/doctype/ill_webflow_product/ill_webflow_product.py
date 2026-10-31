@@ -18,7 +18,6 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_p
 	compute_profile_dimensions,
 )
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
-	WEBFLOW_PRODUCT_LINK_TYPES,
 	WEBFLOW_PRODUCT_LINKS,
 )
 
@@ -212,20 +211,10 @@ class ilLWebflowProduct(Document):
 			row.custom_badge_images = frappe.as_json([badge_data])
 	
 	def validate(self):
-		self._clear_template_links_for_other_types()
+		# The template owns the link (plan 4.2); the per-type link fields here are mirrors.
+		from illumenate_lighting.illumenate_lighting.template_link import validate_product_links
 
-	def _clear_template_links_for_other_types(self):
-		"""Drop template links left over from a previous product type.
-
-		Only runs when the type changes, so existing products keep whatever they
-		link today. Without this a stale link would keep claiming its template's
-		Webflow Product backlink.
-		"""
-		if self.is_new() or not self.has_value_changed("product_type"):
-			return
-		for fieldname, product_types in WEBFLOW_PRODUCT_LINK_TYPES.items():
-			if self.get(fieldname) and self.product_type not in product_types:
-				self.set(fieldname, None)
+		validate_product_links(self)
 	
 	def onload(self):
 		pass
@@ -291,16 +280,24 @@ class ilLWebflowProduct(Document):
 				if self.sync_status == "Synced":
 					self.sync_status = "Pending"
 
+	def after_insert(self):
+		# A product created with a template link writes the template side (template_link.py).
+		from illumenate_lighting.illumenate_lighting.template_link import on_product_insert
+
+		on_product_insert(self)
+
 	def on_update(self):
-		"""Update webflow_product backlink on linked templates after save and sync compatibilities."""
+		"""Sync compatibilities and top up the linked template.
+
+		The template owns the link (plan 4.2): template_link.py writes this product's
+		per-type link field, so nothing here writes the template's webflow_product.
+		"""
 		# 1. Prevent infinite loops globally for this compatibility sync transaction
 		if not self.flags.syncing_compatibility:
 			# 2. Run deletions first, then additions
 			self.handle_deletions()
 			self.sync_compatible_products()
 
-		for template_doctype, fieldname in WEBFLOW_PRODUCT_LINKS.items():
-			self._update_template_backlink(template_doctype, fieldname)
 		self._top_up_template()
 
 	def set_dynamic_hero_image(self):
@@ -496,34 +493,6 @@ class ilLWebflowProduct(Document):
 					None,
 					update_modified=False,
 				)
-
-	def _update_template_backlink(self, template_doctype: str, fieldname: str):
-		"""Point the template's webflow_product backlink at this product.
-
-		Also clears the backlink on the previously linked template when the
-		link field was changed.
-		"""
-		old_doc = self.get_doc_before_save()
-		old_template = old_doc.get(fieldname) if old_doc else None
-		new_template = self.get(fieldname)
-
-		if old_template and old_template != new_template:
-			frappe.db.set_value(
-				template_doctype,
-				old_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-
-		if new_template:
-			frappe.db.set_value(
-				template_doctype,
-				new_template,
-				"webflow_product",
-				self.name,
-				update_modified=False,
-			)
 
 	def populate_attribute_links(self):
 		"""Populate attribute links from the linked source spec for each product type."""

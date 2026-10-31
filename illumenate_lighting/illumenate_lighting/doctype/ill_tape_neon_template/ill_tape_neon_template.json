@@ -31,7 +31,6 @@
   "driver_max_wattage_override",
   "production_interval_mm",
   "is_free_cutting",
-  "certifications",
   "warranty_years",
   "defaults_section",
   "default_tape_spec",
@@ -81,7 +80,19 @@
   "cone_of_light_section",
   "photometric_data",
   "colorimetry_section",
-  "colorimetry"
+  "colorimetry",
+  "web_brand_section",
+  "target_brands",
+  "web_listing_content_section",
+  "sublabel",
+  "webflow_category",
+  "web_listing_content_column",
+  "dimensions_image",
+  "web_certifications_section",
+  "certifications",
+  "web_documents_section",
+  "spec_sheet_public_url",
+  "other_documents"
  ],
  "fields": [
   {
@@ -239,12 +250,6 @@
    "label": "Free Cutting"
   },
   {
-   "fieldname": "certifications",
-   "fieldtype": "Table",
-   "label": "Certifications",
-   "options": "ilL-Child-Spec-Certification"
-  },
-  {
    "description": "Product warranty duration in years",
    "fieldname": "warranty_years",
    "fieldtype": "Int",
@@ -357,12 +362,13 @@
    "label": "Webflow Integration"
   },
   {
-   "description": "Backlink to the Webflow product that references this template (for gallery images)",
+   "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active.",
    "fieldname": "webflow_product",
    "fieldtype": "Link",
    "label": "Webflow Product",
    "options": "ilL-Webflow-Product",
-   "read_only": 1
+   "read_only": 0,
+   "read_only_depends_on": "eval:doc.webflow_product"
   },
   {
    "fieldname": "system_designer_section",
@@ -524,12 +530,80 @@
    "label": "Colorimetry",
    "options": "ilL-Child-Template-Colorimetry",
    "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
+  },
+  {
+   "fieldname": "web_brand_section",
+   "fieldtype": "Section Break",
+   "label": "Brand"
+  },
+  {
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brand",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
+  },
+  {
+   "fieldname": "web_listing_content_section",
+   "fieldtype": "Section Break",
+   "label": "Listing Content"
+  },
+  {
+   "fieldname": "sublabel",
+   "fieldtype": "Data",
+   "label": "Sublabel"
+  },
+  {
+   "fieldname": "webflow_category",
+   "fieldtype": "Link",
+   "label": "Webflow Category",
+   "options": "ilL-Webflow-Category",
+   "description": "The category this template's Webflow Product is listed under."
+  },
+  {
+   "fieldname": "web_listing_content_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dimensions_image",
+   "fieldtype": "Attach Image",
+   "label": "Dimensions Image"
+  },
+  {
+   "fieldname": "web_certifications_section",
+   "fieldtype": "Section Break",
+   "label": "Certifications"
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Spec-Certification",
+   "description": "Copied to the Webflow Product with each brand's badge images."
+  },
+  {
+   "fieldname": "web_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "spec_sheet_public_url",
+   "fieldtype": "Data",
+   "label": "Spec Sheet Public URL",
+   "read_only": 1,
+   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
+  },
+  {
+   "fieldname": "other_documents",
+   "fieldtype": "Table",
+   "label": "Other Documents",
+   "options": "ilL-Child-Webflow-Document"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-30 21:58:27.000000",
+ "modified": "2026-10-31 22:08:30.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",
