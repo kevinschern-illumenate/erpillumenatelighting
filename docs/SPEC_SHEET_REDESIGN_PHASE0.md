@@ -246,7 +246,26 @@ product. Staging version `3ce70f5b-c475-4427-acc2-6981cc8fc86c` adds a `"Publish
 | D53 | Delete `custom_min_operating_temp_c_copy` and `custom_column_break_lgzvl`. |
 | D54 | The Tape/Neon template gets a real category Link (proposed name `webflow_category`, Link to `ilL-Webflow-Category`), so its products' `product_category` mirrors from the template like the other five. The existing Select `product_category` on that template stays: it is the tape family that readiness and the configurators use. |
 | D55 | Products whose current `product_category` or `series` differs from the template's are listed by the migration and it stops for owner review before anything is changed. |
-| Q20 (open) | Rename the `custom_` fields on doctypes the app does not own. Owner prefers the prefix `web_`. A separate step after this plan. Prefix choice pending (see below). |
+| Q20 (closed) | The owner did not mean the custom fields on core doctypes. They stay as they are. |
+| D56 | Naming for the `custom_` conversion (supersedes the names in D35, D36 and D47 where they differ): fields on `ilL-Webflow-Product` take the prefix **`webflow_`**; fields on the six templates take **no prefix**. Mapping below. |
+
+D56 mapping (fields deleted by D46, D51 and D53 are not listed):
+
+| Doctype | Current | New |
+|---|---|---|
+| ilL-Webflow-Product | `custom_webflow_status` | `webflow_status` |
+| ilL-Webflow-Product | `custom_web_badge` | `webflow_badge` (replaces `product_badge`, D50 options) |
+| ilL-Webflow-Product | `custom_spec_custom` | `webflow_specifications` (the legacy table keeps its name `specifications`, so the D47 rename to `specifications_legacy` is no longer needed) |
+| ilL-Webflow-Product | `custom_compatible_power_supplies` | `webflow_compatible_power_supplies` |
+| ilL-Webflow-Product | `custom_template_status` | `webflow_template_status` |
+| ilL-Tape-Neon-Template | `custom_documents` | `other_documents` (added to all six templates, plan 4.1) |
+| Child of the product: ilL-Child-Webflow-Certification-Link | `custom_badge_images` | `webflow_badge_images` (proposed, to confirm) |
+| Child of the kit template and the product: ilL-Child-Webflow-Kit-Component | `custom_webflow_title`, `custom_webflow_description` | `webflow_title`, `webflow_description` (same under either rule) |
+| Child of the tape template: ilL-Child-Tape-Neon-Allowed-Option | `custom_value_label` | `value_label` |
+| ilL-Attribute-Certification (attribute master, not a product or template) | `custom_badge_image_dark`, `custom_206_badge_image_dark`, `custom_206_badge_image_light` | D52 names, if still in scope (to confirm) |
+
+New fields the plan adds (not conversions) keep the plan's names, for example `is_discontinued` on
+the product and `specifications`, `sublabel`, `dimensions_image` on the templates.
 
 Notes on D51 from the code:
 
