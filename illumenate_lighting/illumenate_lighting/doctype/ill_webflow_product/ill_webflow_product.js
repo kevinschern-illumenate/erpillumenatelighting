@@ -61,6 +61,8 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				        });
 				    }
 				}).then(r => {
+				    // The deadline may already have released the form; do not start polling then.
+				    if (finished) return;
 				    const data = r.message;
 				    if (!data) throw new Error(__('No response from server.'));
 
