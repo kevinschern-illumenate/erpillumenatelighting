@@ -241,10 +241,12 @@ product. Staging version `3ce70f5b-c475-4427-acc2-6981cc8fc86c` adds a `"Publish
 |---|---|
 | D49 | `webflow_status` keeps the option **"Published"**. Wherever the plan says stage "Publish", read "Published". |
 | D50 | `web_badge` options: blank, New, On Sale, Quick Ship. **No "Hide"** (and no "None"). Migration: "None" becomes blank. A `product_badge` value of "Hide" becomes blank too, and the migration report lists those products. |
-| D51 (proposed, to confirm) | Category and series on the product simply mirror the template's existing `product_category` and `series` fields. No new `web_product_category` or `web_series` fields on the template. On the product, the existing standard `product_category` and `series` Links (which the export and the publication pipeline already read) become read-only mirrors for templated products, and the duplicates `custom_web_product_category` and `custom_web_series` are **deleted, not renamed**. Supersedes the category and series parts of D34 and D47. |
+| D51 | Category and series on the product simply mirror the template's existing `product_category` and `series` fields. No new `web_product_category` or `web_series` fields on the template. On the product, the existing standard `product_category` and `series` Links (which the export and the publication pipeline already read) become read-only mirrors for templated products, and the duplicates `custom_web_product_category` and `custom_web_series` are **deleted, not renamed**. Supersedes the category and series parts of D34 and D47. |
 | D52 | Certification badge fields: `badge_image_dark`, `badge_image_206_dark`, `badge_image_206_light`. |
 | D53 | Delete `custom_min_operating_temp_c_copy` and `custom_column_break_lgzvl`. |
-| Q20 (open) | The owner asks whether the 65 `custom_` fields on doctypes the app does not own can be renamed too. Answer and recommendation in the session reply; needs the field list. |
+| D54 | The Tape/Neon template gets a real category Link (proposed name `webflow_category`, Link to `ilL-Webflow-Category`), so its products' `product_category` mirrors from the template like the other five. The existing Select `product_category` on that template stays: it is the tape family that readiness and the configurators use. |
+| D55 | Products whose current `product_category` or `series` differs from the template's are listed by the migration and it stops for owner review before anything is changed. |
+| Q20 (open) | Rename the `custom_` fields on doctypes the app does not own. Owner prefers the prefix `web_`. A separate step after this plan. Prefix choice pending (see below). |
 
 Notes on D51 from the code:
 
@@ -254,6 +256,25 @@ Notes on D51 from the code:
   not match product"). It is not a category record, so it cannot fill the product's category Link.
 - Mirroring onto `product_category` can change the Webflow category of any product whose current value
   differs from its template's. The Phase 1 migration lists those products first and stops for review.
+
+**Custom fields on doctypes the app does not own (staging export, 2026-10-31).** The query used
+`fieldname like 'custom_%'`, where `_` is a one-character wildcard, so it also matched
+`User Invitation.customer`, which is not a `custom_` field. That leaves 64:
+
+| Doctype | Fields | Referenced in this repo (code or n8n JSON) |
+|---|---|---|
+| CRM Lead (Frappe CRM) | 28, including 6 layout breaks/HTML | `custom_campaign` (3 files), `custom_email_activity_log` (1); the rest 0 |
+| CRM Deal (Frappe CRM) | 7 address fields and a section break | 0 |
+| Email Group Member | 11, including 2 layout | 0 |
+| Payment Entry | `custom_qbo_event_type`, `custom_qbo_id`, `custom_qbo_last_synced`, `custom_qbo_sync_note`, `custom_synced_from` | yes (QBO sync) |
+| Customer, Supplier, Sales Invoice, Purchase Invoice | `custom_qbo_id`, `custom_synced_from` | yes (QBO sync, 9 and 5 files) |
+| Item | `custom_ill_configured_fixture`, `custom_ill_configured_tape_neon` | yes (5 files each) |
+| Item Supplier | `custom_supplier_description` | yes (9 files) |
+| Company | `custom_invoice_payment_instructions` | yes (3 files) |
+| Attendance Request | 1 column break | 0 |
+
+"Referenced 0" only covers this repo. Fields used by n8n workflows that are not exported here, by
+Webflow forms, print formats, reports or server scripts on the site would also need updating.
 
 **Data checks to run on staging** (`bench --site stagingillumenate.v.frappe.cloud console`), read-only:
 
