@@ -196,5 +196,44 @@ class Report(unittest.TestCase):
 		self.assertEqual(report["set_template_link"] + report["set_product_link"], [])
 
 
+class LivePromotion(unittest.TestCase):
+	def plan(self, templates, stages):
+		with load_service(ROOT + ".template_link_report") as (module, _frappe):
+			return module.plan_live_promotion(templates, stages)
+
+	def test_active_templates_with_a_published_product_become_live(self):
+		plan = self.plan(
+			{
+				KIT: [
+					template("KIT-A", "kit-a", product_status="Active"),
+					template("KIT-B", "kit-b", product_status="Active"),  # older "Publish" spelling
+					template("KIT-C", "kit-c", product_status="Active"),  # Webflow Draft: stays
+					template("KIT-D", product_status="Active"),  # not linked: stays
+					template("KIT-E", "kit-e", product_status="Active + Live"),  # already Live
+				],
+				DRIVER: [
+					template("DRV-I", "drv-i", product_status="Internal Only"),
+					template("DRV-X", "drv-x", product_status="Active"),
+				],
+			},
+			{
+				"kit-a": "Published",
+				"kit-b": "Publish",
+				"kit-c": "Webflow Draft",
+				"kit-e": "Published",
+				"drv-i": "Published",
+				"drv-x": "Discontinued",
+			},
+		)
+		self.assertEqual([row["template"] for row in plan["promote"]], [(KIT, "KIT-A"), (KIT, "KIT-B")])
+		self.assertEqual(
+			[(row["template"], row["reason"]) for row in plan["review"]],
+			[
+				((DRIVER, "DRV-I"), "product is Published but the template is not Active"),
+				((DRIVER, "DRV-X"), "product is Discontinued (its page stays public)"),
+			],
+		)
+
+
 if __name__ == "__main__":
 	unittest.main()

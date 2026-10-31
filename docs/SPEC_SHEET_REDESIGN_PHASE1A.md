@@ -159,8 +159,25 @@ Product Status options are now: Draft, Active, **Active + Live**, Internal Only,
   need to be moved to Active + Live by the owner (or by a migration, if wanted) before Phase 5's
   automatic pushes are turned on.
 
-Open for Phase 5 (Q21): when an Active + Live template whose product has been published moves back to
-plain Active, should the page be hidden like the D14/D45 cases, or stay up like Internal Only (D4)?
+**D61 (owner, answers Q21):** when an Active + Live template whose product has been published moves
+back to plain Active, the page is **hidden** and the owner is **notified**; the owner then decides
+whether to change the product's Webflow Status. (Phase 5: same hide-and-notify path as D45.)
+
+**Migration (owner):** Active templates whose product is Published in Webflow become Active + Live.
+`template_link_report.promote_live_templates`, System Manager only, dry run by default. "Published"
+is the product's Webflow Status stage (`custom_webflow_status`, later `webflow_status`), value
+"Published" or the older "Publish"; the publication records' dates were cleared on staging by the
+Phase 0 reset, so they cannot be used there. Only linked templates change. It also lists, without
+changing them, templates in another status whose product is Published, and Active templates whose
+product is Discontinued (still public).
+
+```bash
+bench --site stagingillumenate.v.frappe.cloud execute illumenate_lighting.illumenate_lighting.template_link_report.promote_live_templates
+```
+
+```bash
+bench --site stagingillumenate.v.frappe.cloud execute illumenate_lighting.illumenate_lighting.template_link_report.promote_live_templates --kwargs "{'apply': True}"
+```
 
 ## Questions for the owner
 

@@ -29,6 +29,7 @@ and products whose category or series would change once they mirror the template
 import frappe
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	ACTIVE_STATUS,
 	LIVE_STATUS,
 	TEMPLATE_DOCTYPES,
 	WEBFLOW_PRODUCT_LINK_TYPES,
@@ -315,3 +316,76 @@ def link_consistency_report(apply=False, link_suggestions=False):
 		).db_insert()
 	frappe.db.commit()
 	return report
+
+
+# ---------------------------------------------------------------- Active -> Active + Live (D60)
+
+# The product's Webflow stage. "Publish" is the older spelling of the stored option (D49).
+PUBLISHED_STAGES = ("Published", "Publish")
+STAGE_FIELDS = ("webflow_status", "custom_webflow_status")  # after / before Phase 1b (D36)
+
+
+def plan_live_promotion(templates, stages):
+	"""Pure: which templates become Active + Live.
+
+	``templates``: {doctype: rows with name, webflow_product, product_status}.
+	``stages``: {product: its Webflow stage}.
+	A linked Active template whose product's stage is Published becomes Active + Live. Linked
+	templates in another status whose product is Published, or Active ones whose product is
+	Discontinued (still public), are listed for the owner and left alone.
+	"""
+	plan = {"promote": [], "review": []}
+	for doctype, rows in sorted(templates.items()):
+		for row in sorted(rows, key=lambda r: r["name"]):
+			product = row.get("webflow_product")
+			stage = stages.get(product) if product else None
+			if not stage:
+				continue
+			entry = {
+				"template": (doctype, row["name"]),
+				"product": product,
+				"status": row.get("product_status"),
+				"stage": stage,
+			}
+			if stage in PUBLISHED_STAGES and row.get("product_status") == ACTIVE_STATUS:
+				plan["promote"].append(entry)
+			elif stage in PUBLISHED_STAGES and row.get("product_status") != LIVE_STATUS:
+				plan["review"].append(
+					{**entry, "reason": "product is Published but the template is not Active"}
+				)
+			elif stage == "Discontinued" and row.get("product_status") == ACTIVE_STATUS:
+				plan["review"].append({**entry, "reason": "product is Discontinued (its page stays public)"})
+	plan["counts"] = {key: len(value) for key, value in plan.items()}
+	return plan
+
+
+@frappe.whitelist(methods=["POST"])
+def promote_live_templates(apply=False):
+	"""Set Active templates whose Webflow Product is Published to Active + Live. Dry run by default.
+
+	System Manager only. Runs no save hooks: each promoted template is already linked, which is
+	all Active + Live requires (D60).
+	"""
+	frappe.only_for("System Manager")
+	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
+	stage_field = next((f for f in STAGE_FIELDS if frappe.db.has_column(PRODUCT, f)), None)
+	if not stage_field:
+		frappe.throw("The Webflow Product has no Webflow Status field on this site.")
+	stages = {
+		row.name: row.get(stage_field)
+		for row in frappe.get_all(PRODUCT, fields=["name", stage_field], limit_page_length=0)
+	}
+	templates = {
+		doctype: frappe.get_all(
+			doctype, fields=["name", "webflow_product", "product_status"], limit_page_length=0
+		)
+		for doctype in TEMPLATE_DOCTYPES
+	}
+	plan = plan_live_promotion(templates, stages)
+	plan["applied"] = apply
+	if apply:
+		for row in plan["promote"]:
+			doctype, name = row["template"]
+			frappe.db.set_value(doctype, name, "product_status", LIVE_STATUS, update_modified=False)
+		frappe.db.commit()
+	return plan
