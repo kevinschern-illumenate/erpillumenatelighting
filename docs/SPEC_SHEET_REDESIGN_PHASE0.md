@@ -235,6 +235,26 @@ product. Staging version `3ce70f5b-c475-4427-acc2-6981cc8fc86c` adds a `"Publish
 7. The 65 `custom_` fields on doctypes the app does not own: leave as site Custom Fields
    (plan 4.9). Their names are needed only if you want them reviewed.
 
+**Owner answers (2026-10-31).** New decision IDs continue the plan's log.
+
+| ID | Decision |
+|---|---|
+| D49 | `webflow_status` keeps the option **"Published"**. Wherever the plan says stage "Publish", read "Published". |
+| D50 | `web_badge` options: blank, New, On Sale, Quick Ship. **No "Hide"** (and no "None"). Migration: "None" becomes blank. A `product_badge` value of "Hide" becomes blank too, and the migration report lists those products. |
+| D51 (proposed, to confirm) | Category and series on the product simply mirror the template's existing `product_category` and `series` fields. No new `web_product_category` or `web_series` fields on the template. On the product, the existing standard `product_category` and `series` Links (which the export and the publication pipeline already read) become read-only mirrors for templated products, and the duplicates `custom_web_product_category` and `custom_web_series` are **deleted, not renamed**. Supersedes the category and series parts of D34 and D47. |
+| D52 | Certification badge fields: `badge_image_dark`, `badge_image_206_dark`, `badge_image_206_light`. |
+| D53 | Delete `custom_min_operating_temp_c_copy` and `custom_column_break_lgzvl`. |
+| Q20 (open) | The owner asks whether the 65 `custom_` fields on doctypes the app does not own can be renamed too. Answer and recommendation in the session reply; needs the field list. |
+
+Notes on D51 from the code:
+
+- Five templates have `product_category` as a Link to `ilL-Webflow-Category`. The **Tape/Neon template's
+  `product_category` is a Select** (LED Tape, COB Tape, LED Neon): it is the tape family, which
+  readiness compares with the product's `product_type` (`product_readiness.py`, "Template family does
+  not match product"). It is not a category record, so it cannot fill the product's category Link.
+- Mirroring onto `product_category` can change the Webflow category of any product whose current value
+  differs from its template's. The Phase 1 migration lists those products first and stops for review.
+
 **Data checks to run on staging** (`bench --site stagingillumenate.v.frappe.cloud console`), read-only:
 
 ```python
