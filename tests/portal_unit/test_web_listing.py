@@ -83,7 +83,7 @@ class StampedSchema(unittest.TestCase):
 	def test_fixture_keeps_its_part_number_sections_beside_the_configurator(self):
 		fields = {f["fieldname"]: f for f in doctype_json("ill_fixture_template")["fields"]}
 		self.assertEqual(fields["part_number_builder"]["options"], "ilL-Child-PN-Builder-Row")
-		self.assertEqual(CONFIGURATOR_TABLE["ilL-Fixture-Template"], "part_no_configurator")
+		self.assertEqual(set(CONFIGURATOR_TABLE.values()), {"part_no_configurator"})
 
 	def test_webflow_product_is_editable_only_while_empty(self):
 		for module in TEMPLATE_DOCTYPES.values():

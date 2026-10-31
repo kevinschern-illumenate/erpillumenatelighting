@@ -131,6 +131,19 @@ class Report(unittest.TestCase):
 			[{"template": (TAPE, "TAPE-A"), "values": {"webflow_category": "Tape"}}],
 		)
 
+	def test_the_templates_own_link_wins_over_a_stale_product_link(self):
+		report = self.build(
+			[product("kit-ra01", kit_template="KIT-RA01"), product("ext001-a", kit_template="KIT-RA01")],
+			{KIT: [template("KIT-RA01", "kit-ra01")]},
+			default_brand="illumenate",
+		)
+		self.assertEqual(
+			report["clear_product_link"],
+			[{"template": (KIT, "KIT-RA01"), "product": "ext001-a", "field": "kit_template"}],
+		)
+		self.assertEqual(report["conflicts"], [])
+		self.assertEqual(report["consistent"], [{"template": (KIT, "KIT-RA01"), "product": "kit-ra01"}])
+
 	def test_a_product_without_brand_rows_seeds_the_default_brand(self):
 		report = self.build(
 			[product("kit-a", kit_template="KIT-A"), product("kit-b", kit_template="KIT-B")],

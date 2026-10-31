@@ -11,11 +11,13 @@ and fills what can be filled safely. Dry run is the default::
         illumenate_lighting.illumenate_lighting.template_link_report.link_consistency_report \\
         --kwargs "{'apply': True}"
 
-``apply`` only does three things, all without running save hooks:
+``apply`` only does four things, all without running save hooks:
 
 - sets a template's empty ``webflow_product`` where exactly one product links it;
 - sets a product's empty link field where the template points at it and the product
   links no other template;
+- clears the link field of a product that claims a template whose own link points at a
+  different product (the template owns the link, D2);
 - seeds an empty template ``target_brands`` from its product when the product has exactly
   one enabled brand (D17, D22).
 
@@ -66,6 +68,7 @@ def build_report(products, templates, product_brands, template_brands, default_b
 		"consistent": [],
 		"set_template_link": [],
 		"set_product_link": [],
+		"clear_product_link": [],
 		"seed_template_brand": [],
 		"seed_template_category_series": [],
 		"suggested_links": [],
@@ -110,6 +113,11 @@ def build_report(products, templates, product_brands, template_brands, default_b
 		fieldname = WEBFLOW_PRODUCT_LINKS[doctype]
 		backlink = row.get("webflow_product")
 		claimants = claimed_by_products.get(key, [])
+		if len(claimants) > 1 and backlink in claimants:
+			# The template owns the link (D2): the products it does not point at lose theirs.
+			for other in sorted(set(claimants) - {backlink}):
+				report["clear_product_link"].append({"template": key, "product": other, "field": fieldname})
+			claimants = [backlink]
 		if len(claimants) > 1:
 			report["conflicts"].append(
 				{
@@ -286,6 +294,8 @@ def link_consistency_report(apply=False, link_suggestions=False):
 		frappe.db.set_value(doctype, name, "webflow_product", row["webflow_product"], update_modified=False)
 	for row in report["set_product_link"]:
 		frappe.db.set_value(PRODUCT, row["product"], row["field"], row["template"][1], update_modified=False)
+	for row in report["clear_product_link"]:
+		frappe.db.set_value(PRODUCT, row["product"], row["field"], None, update_modified=False)
 	for row in report["seed_template_category_series"]:
 		doctype, name = row["template"]
 		frappe.db.set_value(doctype, name, row["values"], update_modified=False)

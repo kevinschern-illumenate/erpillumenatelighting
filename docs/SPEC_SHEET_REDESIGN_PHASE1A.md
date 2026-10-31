@@ -100,8 +100,9 @@ bench --site stagingillumenate.v.frappe.cloud execute illumenate_lighting.illume
 **D58 (owner):** the Fixture template keeps its existing `part_number_builder` (part-number sections,
 child `ilL-Child-PN-Builder-Row`, read by the spec sheet export and the Dry/Wet code sync). Its
 configurator table is a separate `part_no_configurator` (child `ilL-Child-Webflow-Configurator-Option`).
-The other five templates use `part_number_builder` for the configurator table, as D25 says.
-`web_listing_schema.CONFIGURATOR_TABLE` maps each template to its table.
+Revised by the owner: all six templates use `part_no_configurator` for the configurator table, for
+consistency (`web_listing_schema.CONFIGURATOR_FIELD`). Only the Fixture template has the older
+`part_number_builder` sections table.
 
 The two site-only child doctypes now ship with the app (`ilL-Child-Webflow-Spec-Custom`,
 `ilL-Child-Comp-Power`, fields from the staging export), and the templates have their `specifications`
@@ -119,6 +120,9 @@ differences, no duplicate names. The report was reworked from what it showed:
 - Templates with no link on either side are matched to a free product with the same name (any case) and
   a fitting type, listed as `suggested_links`, and linked only with `link_suggestions`.
 - The conflict entry now shows which product the template itself points at.
+- When two products claim a template whose own link points at one of them, `apply` clears the other
+  product's link (`clear_product_link`): the template owns the link (D2). This resolves KIT-RA01
+  (`ext001-a`).
 
 ## Questions for the owner
 

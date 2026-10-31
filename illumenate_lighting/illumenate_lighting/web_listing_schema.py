@@ -197,20 +197,18 @@ _COLORIMETRY = [
 ]
 
 
-# The configurator table (D25, child ilL-Child-Webflow-Configurator-Option). The Fixture
-# template already has a part_number_builder table with another structure (part-number
-# sections read by the spec sheet export), so its configurator table has its own name.
-CONFIGURATOR_TABLE = {
-	doctype: ("part_no_configurator" if doctype == "ilL-Fixture-Template" else "part_number_builder")
-	for doctype in TEMPLATE_DOCTYPES
-}
+# The configurator table (D25, D58, child ilL-Child-Webflow-Configurator-Option): the same
+# name on all six templates. The Fixture template's own part_number_builder table is a
+# different thing (part-number sections read by the spec sheet export) and stays.
+CONFIGURATOR_FIELD = "part_no_configurator"
+CONFIGURATOR_TABLE = {doctype: CONFIGURATOR_FIELD for doctype in TEMPLATE_DOCTYPES}
 
 
 def _configurator_table(fieldname):
 	return {
 		"fieldname": fieldname,
 		"fieldtype": "Table",
-		"label": "Part No. Configurator" if fieldname == "part_no_configurator" else "Part Number Builder",
+		"label": "Part No. Configurator",
 		"options": "ilL-Child-Webflow-Configurator-Option",
 		"description": "The configurator steps and their allowed values. The Webflow Product copies them.",
 	}

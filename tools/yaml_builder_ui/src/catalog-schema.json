@@ -3173,8 +3173,8 @@
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "part_number_builder",
-          "label": "Part Number Builder",
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The Webflow Product copies them."
@@ -3449,8 +3449,8 @@
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "part_number_builder",
-          "label": "Part Number Builder",
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The Webflow Product copies them."
@@ -3735,8 +3735,8 @@
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "part_number_builder",
-          "label": "Part Number Builder",
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The Webflow Product copies them."
@@ -4510,8 +4510,8 @@
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "part_number_builder",
-          "label": "Part Number Builder",
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The Webflow Product copies them."
@@ -7267,8 +7267,8 @@
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "part_number_builder",
-          "label": "Part Number Builder",
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The Webflow Product copies them."
