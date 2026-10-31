@@ -38,6 +38,7 @@ TAPE = "ilL-Tape-Neon-Template"
 
 
 def _brands(parenttype):
+	"""{parent: enabled brands}; a parent with rows but none enabled maps to []."""
 	by_parent = {}
 	for row in frappe.get_all(
 		BRAND_TARGET,
@@ -45,27 +46,33 @@ def _brands(parenttype):
 		fields=["parent", "brand", "enabled"],
 		limit_page_length=0,
 	):
+		brands = by_parent.setdefault(row.parent, [])
 		if row.enabled and row.brand:
-			by_parent.setdefault(row.parent, []).append(row.brand)
+			brands.append(row.brand)
 	return by_parent
 
 
-def build_report(products, templates, product_brands, template_brands):
+def build_report(products, templates, product_brands, template_brands, default_brand=None):
 	"""Pure: compare both sides and plan the safe fixes.
 
 	``products``: rows with name, product_type, product_category, series and the six link fields.
 	``templates``: {doctype: rows with name, webflow_product, product_status, product_category,
 	series and, for Tape/Neon, webflow_category}.
+	``product_brands`` / ``template_brands``: {name: enabled brands}, a name absent when it has no
+	Target Brand rows at all. A product with no rows syncs to ``default_brand`` today
+	(publication._targeted), so that is the brand its template is seeded with.
 	"""
 	report = {
 		"consistent": [],
 		"set_template_link": [],
 		"set_product_link": [],
 		"seed_template_brand": [],
+		"seed_template_category_series": [],
+		"suggested_links": [],
 		"conflicts": [],
 		"active_without_product": [],
 		"brand_needs_owner": [],
-		"category_series_changes": [],
+		"category_series_conflicts": [],
 		"duplicate_names": [],
 	}
 	product_by_name = {row["name"]: row for row in products}
@@ -92,6 +99,7 @@ def build_report(products, templates, product_brands, template_brands):
 			claimed_by_templates.setdefault(row["webflow_product"], []).append(key)
 
 	pairs = {}
+	unlinked = []
 	for product, keys in claimed_by_templates.items():
 		if len(keys) > 1:
 			report["conflicts"].append(
@@ -104,13 +112,17 @@ def build_report(products, templates, product_brands, template_brands):
 		claimants = claimed_by_products.get(key, [])
 		if len(claimants) > 1:
 			report["conflicts"].append(
-				{"template": key, "issue": "linked from more than one product", "products": sorted(claimants)}
+				{
+					"template": key,
+					"issue": "linked from more than one product",
+					"products": sorted(claimants),
+					"webflow_product": backlink,
+				}
 			)
 			continue
 		product_name = backlink or (claimants[0] if claimants else None)
 		if not product_name:
-			if row.get("product_status") == "Active":
-				report["active_without_product"].append({"template": key})
+			unlinked.append(key)
 			continue
 		product = product_by_name.get(product_name)
 		if not product:
@@ -151,29 +163,73 @@ def build_report(products, templates, product_brands, template_brands):
 			report["consistent"].append({"template": key, "product": product_name})
 		pairs[key] = product_name
 
+	# Templates linked from neither side: suggest the product with the same name (any case)
+	# when it is free too and its type fits. Applied only on request (link_suggestions).
+	claimed = (
+		set(pairs.values())
+		| set(claimed_by_templates)
+		| {name for names in claimed_by_products.values() for name in names}
+	)
+	free_products = {
+		row["name"].lower(): row
+		for row in products
+		if row["name"] not in claimed and not any(row.get(f) for f in WEBFLOW_PRODUCT_LINK_TYPES)
+	}
+	for key in unlinked:
+		doctype, name = key
+		row = template_rows[key]
+		match = free_products.get(name.lower())
+		fieldname = WEBFLOW_PRODUCT_LINKS[doctype]
+		if match and match.get("product_type") in WEBFLOW_PRODUCT_LINK_TYPES[fieldname]:
+			report["suggested_links"].append(
+				{
+					"template": key,
+					"product": match["name"],
+					"field": fieldname,
+					"product_status": row.get("product_status"),
+				}
+			)
+		elif row.get("product_status") == "Active":
+			report["active_without_product"].append({"template": key})
+
 	for key, product_name in pairs.items():
 		doctype, name = key
 		row = template_rows[key]
 		product = product_by_name[product_name]
-		if not template_brands.get(name):
-			brands = product_brands.get(product_name, [])
+		template_brand = template_brands.get(key)
+		if not template_brand:
+			if product_name in product_brands:
+				brands = product_brands[product_name]
+				source = "product"
+			else:
+				brands = [default_brand] if default_brand else []
+				source = "default brand (the product has no Target Brand rows)"
 			if len(brands) == 1:
-				report["seed_template_brand"].append({"template": key, "brand": brands[0]})
+				report["seed_template_brand"].append({"template": key, "brand": brands[0], "from": source})
 			else:
 				report["brand_needs_owner"].append(
 					{"template": key, "product": product_name, "product_brands": brands}
 				)
-		elif len(template_brands[name]) > 1:
-			report["brand_needs_owner"].append({"template": key, "template_brands": template_brands[name]})
-		category = row.get("webflow_category") if doctype == TAPE else row.get("product_category")
-		changes = {}
-		if (category or None) != (product.get("product_category") or None):
-			changes["product_category"] = [product.get("product_category"), category]
-		if (row.get("series") or None) != (product.get("series") or None):
-			changes["series"] = [product.get("series"), row.get("series")]
-		if changes:
-			report["category_series_changes"].append(
-				{"template": key, "product": product_name, "from_to": changes}
+		elif len(template_brand) > 1:
+			report["brand_needs_owner"].append({"template": key, "template_brands": template_brand})
+		# D55: the product will mirror the template. Fill empty template fields from the product
+		# (nothing on the product changes); list real disagreements for the owner.
+		category_field = "webflow_category" if doctype == TAPE else "product_category"
+		seed, conflicts = {}, {}
+		for template_field, product_field in ((category_field, "product_category"), ("series", "series")):
+			template_value = row.get(template_field) or None
+			product_value = product.get(product_field) or None
+			if template_value == product_value or product_value is None:
+				continue  # nothing changes, or the product just gains the template's value
+			if template_value is None:
+				seed[template_field] = product_value
+			else:
+				conflicts[product_field] = [product_value, template_value]
+		if seed:
+			report["seed_template_category_series"].append({"template": key, "values": seed})
+		if conflicts:
+			report["category_series_conflicts"].append(
+				{"template": key, "product": product_name, "product_then_template": conflicts}
 			)
 
 	seen = {}
@@ -185,10 +241,16 @@ def build_report(products, templates, product_brands, template_brands):
 
 
 @frappe.whitelist(methods=["POST"])
-def link_consistency_report(apply=False):
-	"""Report (and with ``apply``, fill) the template link on both sides. System Manager only."""
+def link_consistency_report(apply=False, link_suggestions=False):
+	"""Report (and with ``apply``, fill) the template link on both sides. System Manager only.
+
+	``link_suggestions`` also links the same-name pairs in ``suggested_links``.
+	"""
 	frappe.only_for("System Manager")
 	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
+	link_suggestions = (
+		frappe.parse_json(link_suggestions) if isinstance(link_suggestions, str) else bool(link_suggestions)
+	)
 	link_fields = list(WEBFLOW_PRODUCT_LINK_TYPES)
 	products = frappe.get_all(
 		PRODUCT,
@@ -202,10 +264,21 @@ def link_consistency_report(apply=False):
 		if doctype == TAPE:
 			fields.append("webflow_category")
 		templates[doctype] = frappe.get_all(doctype, fields=fields, limit_page_length=0)
-		template_brands.update(_brands(doctype))
-	report = build_report(products, templates, _brands(PRODUCT), template_brands)
+		template_brands.update({(doctype, name): brands for name, brands in _brands(doctype).items()})
+	from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
+
+	report = build_report(products, templates, _brands(PRODUCT), template_brands, get_default_brand())
 	report["applied"] = apply
+	report["linked_suggestions"] = link_suggestions
+	if link_suggestions:
+		# Only the link; run the report again with apply to seed brands and categories.
+		for row in report["suggested_links"]:
+			doctype, name = row["template"]
+			frappe.db.set_value(doctype, name, "webflow_product", row["product"], update_modified=False)
+			frappe.db.set_value(PRODUCT, row["product"], row["field"], name, update_modified=False)
 	if not apply:
+		if link_suggestions:
+			frappe.db.commit()
 		return report
 
 	for row in report["set_template_link"]:
@@ -213,6 +286,9 @@ def link_consistency_report(apply=False):
 		frappe.db.set_value(doctype, name, "webflow_product", row["webflow_product"], update_modified=False)
 	for row in report["set_product_link"]:
 		frappe.db.set_value(PRODUCT, row["product"], row["field"], row["template"][1], update_modified=False)
+	for row in report["seed_template_category_series"]:
+		doctype, name = row["template"]
+		frappe.db.set_value(doctype, name, row["values"], update_modified=False)
 	for row in report["seed_template_brand"]:
 		doctype, name = row["template"]
 		frappe.get_doc(

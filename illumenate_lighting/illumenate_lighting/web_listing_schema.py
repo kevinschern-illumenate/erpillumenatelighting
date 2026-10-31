@@ -197,9 +197,28 @@ _COLORIMETRY = [
 ]
 
 
+# The configurator table (D25, child ilL-Child-Webflow-Configurator-Option). The Fixture
+# template already has a part_number_builder table with another structure (part-number
+# sections read by the spec sheet export), so its configurator table has its own name.
+CONFIGURATOR_TABLE = {
+	doctype: ("part_no_configurator" if doctype == "ilL-Fixture-Template" else "part_number_builder")
+	for doctype in TEMPLATE_DOCTYPES
+}
+
+
+def _configurator_table(fieldname):
+	return {
+		"fieldname": fieldname,
+		"fieldtype": "Table",
+		"label": "Part No. Configurator" if fieldname == "part_no_configurator" else "Part Number Builder",
+		"options": "ilL-Child-Webflow-Configurator-Option",
+		"description": "The configurator steps and their allowed values. The Webflow Product copies them.",
+	}
+
+
 # Listing data the template owns and its Webflow Product mirrors (plan 4.1, D10, D57).
 # Target Brands holds at most one enabled row (D17, D22).
-def _listing_data(category=None):
+def _listing_data(configurator, category=None):
 	return [
 		_section("web_brand_section", "Brand"),
 		{
@@ -217,6 +236,8 @@ def _listing_data(category=None):
 		*([category] if category else []),
 		_column("web_listing_content_column"),
 		{"fieldname": "dimensions_image", "fieldtype": "Attach Image", "label": "Dimensions Image"},
+		_section("web_configurator_section", "Configurator"),
+		_configurator_table(configurator),
 		_section("web_specifications_section", "Specifications"),
 		{
 			"fieldname": "specifications",
@@ -264,7 +285,10 @@ _TAPE_WEBFLOW_CATEGORY = {
 }
 
 LISTING_DATA = {
-	doctype: _listing_data(_TAPE_WEBFLOW_CATEGORY if doctype == "ilL-Tape-Neon-Template" else None)
+	doctype: _listing_data(
+		CONFIGURATOR_TABLE[doctype],
+		_TAPE_WEBFLOW_CATEGORY if doctype == "ilL-Tape-Neon-Template" else None,
+	)
 	for doctype in TEMPLATE_DOCTYPES
 }
 

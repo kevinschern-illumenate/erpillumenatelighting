@@ -33,11 +33,13 @@ def template(name, webflow_product=None, product_status="Internal Only", **value
 
 
 class Report(unittest.TestCase):
-	def build(self, products, templates, product_brands=None, template_brands=None):
+	def build(self, products, templates, product_brands=None, template_brands=None, default_brand=None):
 		with load_service(ROOT + ".template_link_report") as (module, _frappe):
 			full = {doctype: [] for doctype in module.TEMPLATE_DOCTYPES}
 			full.update(templates)
-			return module.build_report(products, full, product_brands or {}, template_brands or {})
+			return module.build_report(
+				products, full, product_brands or {}, template_brands or {}, default_brand
+			)
 
 	def test_consistent_pair_and_safe_fills(self):
 		report = self.build(
@@ -112,11 +114,73 @@ class Report(unittest.TestCase):
 		)
 		self.assertEqual(report["active_without_product"], [{"template": (KIT, "KIT-ACT")}])
 		self.assertEqual(report["duplicate_names"], [[(DRIVER, "DUP-1"), (KIT, "dup-1")]])
-		changes = {row["product"]: row["from_to"] for row in report["category_series_changes"]}
-		self.assertEqual(changes["kit-a"], {"product_category": ["Linear", "Kits"]})
-		# Tape mirrors its new Webflow Category (D54), not the tape-family Select.
-		self.assertEqual(changes["tape-a"], {"product_category": ["Tape", None]})
-		self.assertEqual(report["counts"]["category_series_changes"], 2)
+		# A real disagreement is the owner's call (D55).
+		self.assertEqual(
+			report["category_series_conflicts"],
+			[
+				{
+					"template": (KIT, "KIT-A"),
+					"product": "kit-a",
+					"product_then_template": {"product_category": ["Linear", "Kits"]},
+				}
+			],
+		)
+		# An empty template field is filled from the product. Tape uses its Webflow Category (D54).
+		self.assertEqual(
+			report["seed_template_category_series"],
+			[{"template": (TAPE, "TAPE-A"), "values": {"webflow_category": "Tape"}}],
+		)
+
+	def test_a_product_without_brand_rows_seeds_the_default_brand(self):
+		report = self.build(
+			[product("kit-a", kit_template="KIT-A"), product("kit-b", kit_template="KIT-B")],
+			{KIT: [template("KIT-A", "kit-a"), template("KIT-B", "kit-b")]},
+			product_brands={"kit-b": []},  # rows exist, none enabled
+			default_brand="illumenate",
+		)
+		self.assertEqual(
+			report["seed_template_brand"],
+			[
+				{
+					"template": (KIT, "KIT-A"),
+					"brand": "illumenate",
+					"from": "default brand (the product has no Target Brand rows)",
+				}
+			],
+		)
+		self.assertEqual(
+			report["brand_needs_owner"],
+			[{"template": (KIT, "KIT-B"), "product": "kit-b", "product_brands": []}],
+		)
+
+	def test_same_name_products_are_suggested_not_linked(self):
+		report = self.build(
+			[
+				product("kit-az01"),
+				product("kit-zz01", product_type="Driver"),  # name matches, type does not
+				product("kit-ra01", kit_template="KIT-RA01"),
+			],
+			{
+				KIT: [
+					template("KIT-AZ01", product_status="Active"),
+					template("KIT-ZZ01", product_status="Active"),
+					template("KIT-RA01", "kit-ra01"),
+				]
+			},
+		)
+		self.assertEqual(
+			report["suggested_links"],
+			[
+				{
+					"template": (KIT, "KIT-AZ01"),
+					"product": "kit-az01",
+					"field": "kit_template",
+					"product_status": "Active",
+				}
+			],
+		)
+		self.assertEqual(report["active_without_product"], [{"template": (KIT, "KIT-ZZ01")}])
+		self.assertEqual(report["set_template_link"] + report["set_product_link"], [])
 
 
 if __name__ == "__main__":

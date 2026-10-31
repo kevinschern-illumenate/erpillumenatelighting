@@ -7,6 +7,7 @@ from pathlib import Path
 from test_services import ROOT, load_service
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	CONFIGURATOR_TABLE,
 	PREEXISTING,
 	STATUS_FIELD,
 	TAB,
@@ -75,6 +76,14 @@ class StampedSchema(unittest.TestCase):
 					self.assertEqual(by_name[fieldname]["options"], child)
 				self.assertEqual(by_name["spec_sheet_public_url"]["read_only"], 1)
 				self.assertEqual("webflow_category" in names, doctype == "ilL-Tape-Neon-Template")
+				configurator = by_name[CONFIGURATOR_TABLE[doctype]]
+				self.assertEqual(configurator["options"], "ilL-Child-Webflow-Configurator-Option")
+				self.assertGreater(names.index(configurator["fieldname"]), tab)
+
+	def test_fixture_keeps_its_part_number_sections_beside_the_configurator(self):
+		fields = {f["fieldname"]: f for f in doctype_json("ill_fixture_template")["fields"]}
+		self.assertEqual(fields["part_number_builder"]["options"], "ilL-Child-PN-Builder-Row")
+		self.assertEqual(CONFIGURATOR_TABLE["ilL-Fixture-Template"], "part_no_configurator")
 
 	def test_webflow_product_is_editable_only_while_empty(self):
 		for module in TEMPLATE_DOCTYPES.values():
@@ -137,7 +146,9 @@ class ProductStatus(unittest.TestCase):
 
 	def test_a_chosen_status_sets_is_active(self):
 		before = {"product_status": "Active", "is_active": 1}
-		self.assertEqual(apply(Doc(before, product_status="Internal Only", is_active=1)), ("Internal Only", 1))
+		self.assertEqual(
+			apply(Doc(before, product_status="Internal Only", is_active=1)), ("Internal Only", 1)
+		)
 		self.assertEqual(apply(Doc(before, product_status="Discontinued", is_active=1)), ("Discontinued", 0))
 		self.assertEqual(apply(Doc(product_status="Draft", is_active=1)), ("Draft", 0))
 

@@ -95,16 +95,41 @@ bench --site stagingillumenate.v.frappe.cloud execute illumenate_lighting.illume
 2. Run the consistency report dry run and send the output for review. Phase 1a is done when it is
    clean, or when every remaining item has an owner decision.
 
+## Follow-up (2026-10-31, after the first staging run)
+
+**D58 (owner):** the Fixture template keeps its existing `part_number_builder` (part-number sections,
+child `ilL-Child-PN-Builder-Row`, read by the spec sheet export and the Dry/Wet code sync). Its
+configurator table is a separate `part_no_configurator` (child `ilL-Child-Webflow-Configurator-Option`).
+The other five templates use `part_number_builder` for the configurator table, as D25 says.
+`web_listing_schema.CONFIGURATOR_TABLE` maps each template to its table.
+
+The two site-only child doctypes now ship with the app (`ilL-Child-Webflow-Spec-Custom`,
+`ilL-Child-Comp-Power`, fields from the staging export), and the templates have their `specifications`
+table.
+
+**First staging report** (dry run): 56 consistent pairs, 10 product links to fill, 55 template brands to
+seed, 1 conflict, 28 Active templates with no product, 11 brands needing review, 66 category or series
+differences, no duplicate names. The report was reworked from what it showed:
+
+- A product with no Target Brand rows syncs to the default brand today, so its template is seeded with
+  the default brand instead of being listed for review.
+- 62 of the 66 differences were empty template fields. Empty template category, Tape/Neon Webflow
+  Category and series are now **seeded from the product** with `apply` (nothing on the product changes).
+  Only real disagreements stay listed, as `category_series_conflicts`.
+- Templates with no link on either side are matched to a free product with the same name (any case) and
+  a fitting type, listed as `suggested_links`, and linked only with `link_suggestions`.
+- The conflict entry now shows which product the template itself points at.
+
 ## Questions for the owner
 
-1. **`part_number_builder` name conflict (D25).** The Fixture template already has a
+1. *(Answered: D58 above.)* **`part_number_builder` name conflict (D25).** The Fixture template already has a
    `part_number_builder` table (child `ilL-Child-PN-Builder-Row`: section, code, label). The spec sheet
    export and environment codes read it. D25 wants the same name for the configurator-option table
    (`ilL-Child-Webflow-Configurator-Option`), which is a different structure. Recommended: keep the
    Fixture's existing table as it is, and name the configurator table `configurator_options` on the
    templates (the product already uses that name, so nothing on the product is renamed), with the label
    "Configurator Options". Alternative: rename the Fixture's existing table and update its readers.
-2. **Site-only child doctypes.** Please export these two so they can ship with the app:
+2. *(Answered: shipped.)* **Site-only child doctypes.** Please export these two so they can ship with the app:
 
    ```bash
    bench --site stagingillumenate.v.frappe.cloud execute frappe.client.get --kwargs "{'doctype': 'DocType', 'name': 'ilL-Child-Webflow-Spec-Custom'}"

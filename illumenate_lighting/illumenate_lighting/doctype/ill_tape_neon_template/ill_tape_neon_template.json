@@ -88,6 +88,8 @@
   "webflow_category",
   "web_listing_content_column",
   "dimensions_image",
+  "web_configurator_section",
+  "part_number_builder",
   "web_specifications_section",
   "specifications",
   "web_certifications_section",
@@ -572,6 +574,18 @@
    "label": "Dimensions Image"
   },
   {
+   "fieldname": "web_configurator_section",
+   "fieldtype": "Section Break",
+   "label": "Configurator"
+  },
+  {
+   "fieldname": "part_number_builder",
+   "fieldtype": "Table",
+   "label": "Part Number Builder",
+   "options": "ilL-Child-Webflow-Configurator-Option",
+   "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+  },
+  {
    "fieldname": "web_specifications_section",
    "fieldtype": "Section Break",
    "label": "Specifications"
@@ -617,7 +631,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-31 22:28:44.000000",
+ "modified": "2026-10-31 22:51:54.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",
