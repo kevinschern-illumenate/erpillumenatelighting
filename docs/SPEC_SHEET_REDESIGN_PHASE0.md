@@ -133,7 +133,7 @@ Webflow API, or `developers.webflow.com` (network policy). Spikes that need them
 | S2 `/spec-sheets/<name>.pdf` route | Blocked | Needs a deployed prototype and `curl -i`. Folded into Phase 4. |
 | S3 Webflow unpublish and archive | Done (docs) | See below. |
 | S4 readiness and guards | Done (partly) | See below. Readiness checks confirmed; the `request()` guards and the Internal Only rule were not exercised. |
-| S5 Custom Fields on `ilL-*` | Blocked | Commands below. |
+| S5 Custom Fields on `ilL-*` | Done (staging) | See below. Raises a promotion blocker and owner questions for Phase 1b. |
 | S6 production item IDs on staging | Done | Yes: 112 products and 4 publications carried production IDs. Cleared on staging (see Z4). |
 | S7 freeze overlay | Done (Frappe v16 source) | See below. |
 | S8 Webflow `product-badge` field | Blocked (no Webflow access) | Owner reads it in the Webflow Designer (collection settings) or via `GET /v2/collections/{id}`. Information only. |
@@ -180,6 +180,73 @@ catalog work, not part of this plan. The Internal Only readiness rule and the `r
 (Appendix C items 1 to 5 and 8) were not exercised by this sample. They are covered when Phase 5
 changes them.
 
+### S5: Custom Fields on staging (run by the owner, 2026-10-31)
+
+**Fields without the `custom_` prefix** (the `webflow_item_id`, `webflow_sync_*` and
+`webflow_sync_targets*` group on the `ilL-Attribute-*` doctypes, and `ill_impact_task`,
+`ill_next_action_by`, `ill_observed_build_hash`, `ill_review_state` on `ilL-Document-Request`) are
+created by the app's own patches (`add_webflow_sync_fields_to_attributes`,
+`migrate_attribute_sync_fields_to_brand_table`, `b2b_conversations`). They deploy with the code, so
+they are not drift and are out of scope for D35.
+
+**`custom_` fields on `ilL-*` doctypes (in scope for Phase 1b):**
+
+| Doctype | Field | Type | Notes |
+|---|---|---|---|
+| ilL-Webflow-Product | `custom_webflow_status` | Select: Draft, Webflow Draft, **Published**, Discontinued, Archived | The option is "Published", not "Publish". See the finding below. |
+| ilL-Webflow-Product | `custom_web_badge` | Select: **None**, New, On Sale, Quick Ship | `product_badge` has blank, New, On Sale, Quick Ship, **Hide**. They differ. |
+| ilL-Webflow-Product | `custom_web_product_category` | **Data** | The plan expects a Link. |
+| ilL-Webflow-Product | `custom_web_series` | **Data** | The plan expects a Link to `ilL-Attribute-Series`. |
+| ilL-Webflow-Product | `custom_spec_custom` | Table (`ilL-Child-Webflow-Spec-Custom`) | Exists on staging, so the template mirror runs there. Production not yet checked. |
+| ilL-Webflow-Product | `custom_compatible_power_supplies` | Table (`ilL-Child-Comp-Power`) | |
+| ilL-Webflow-Product | `custom_dimensions_image_2` | Attach Image, "Dimensions Image (Dark)" | Deleted per D46 after its values are copied. |
+| ilL-Webflow-Product | `custom_template_status` | Data | |
+| ilL-Webflow-Product | `custom_min_operating_temp_c_copy` | Int | Odd name; owner to decide. |
+| ilL-Webflow-Product | `custom_column_break_lgzvl` | Column Break | Its options hold a local Mac file path (a UL badge SVG). Layout only, no data. |
+| ilL-Tape-Neon-Template | `custom_documents` | Table (`ilL-Child-Webflow-Document`) | Exists on the tape/neon template **only**, not on the other five. |
+| ilL-Attribute-Certification | `custom_badge_image_dark`, `custom_206_badge_image_dark`, `custom_206_badge_image_light` | Attach Image | No `custom_badge_image_light`. |
+| ilL-Child-Webflow-Certification-Link | `custom_badge_images` | JSON | |
+| ilL-Child-Webflow-Kit-Component | `custom_webflow_title` (Data), `custom_webflow_description` (Long Text) | | |
+| ilL-Child-Tape-Neon-Allowed-Option | `custom_value_label` | Data | |
+
+That is the 15 names from Appendix E plus `custom_column_break_lgzvl`. 65 more `custom_` fields
+exist on doctypes the app does not own; per plan 4.9 they are listed for the owner, not converted.
+
+**Finding (promotion blocker, fixed in staging n8n):** the stored status option is "Published", but
+both Transform nodes, in production as well as staging, only match "Publish". Published products
+have therefore been falling into `default:`, which made them public by accident. With the Z3
+fail-closed default, promoting the Transform nodes unchanged would have hidden every Published
+product. Staging version `3ce70f5b-c475-4427-acc2-6981cc8fc86c` adds a `"Published"` case next to
+`"Publish"`. Production must get the same case in the same publish as Z3.
+
+**Questions for the owner before Phase 1b** (recommendations first):
+
+1. `webflow_status` option name: keep **"Published"** (matches the stored data, no data change) and
+   read the plan's "Publish" as that option. Recommended.
+2. `web_badge` options: use blank, New, On Sale, Quick Ship, Hide (the `product_badge` set, as plan
+   4.8 says), and migrate the value "None" to blank. Recommended. Confirm "Hide" is wanted.
+3. `web_product_category` and `web_series` are free text today. Make them Links (category to
+   `ilL-Webflow-Category`, series to `ilL-Attribute-Series`); the migration lists any value that
+   matches no record and stops for the owner. Recommended.
+4. Certification badge names (Appendix E said ask): `badge_image_dark`, `badge_image_206_dark`,
+   `badge_image_206_light` (the brand number moved off the front so the names are valid).
+5. `custom_min_operating_temp_c_copy`: delete if it holds no data, otherwise tell me what it is for.
+6. `custom_column_break_lgzvl`: delete (layout only). Recommended.
+7. The 65 `custom_` fields on doctypes the app does not own: leave as site Custom Fields
+   (plan 4.9). Their names are needed only if you want them reviewed.
+
+**Data checks to run on staging** (`bench --site stagingillumenate.v.frappe.cloud console`), read-only:
+
+```python
+P = "tabilL-Webflow-Product"
+for f in ("custom_webflow_status", "custom_web_badge", "product_badge"):
+    print(f, frappe.db.sql(f"select `{f}`, count(*) from `{P}` group by `{f}`"))
+print("temp copy set:", frappe.db.sql(f"select count(*) from `{P}` where ifnull(custom_min_operating_temp_c_copy, 0) != 0"))
+for f, dt in (("custom_web_product_category", "ilL-Webflow-Category"), ("custom_web_series", "ilL-Attribute-Series")):
+    vals = frappe.db.sql_list(f"select distinct `{f}` from `{P}` where ifnull(`{f}`, '') != ''")
+    print(f, len(vals), "distinct; no matching record:", [v for v in vals if not frappe.db.exists(dt, v)])
+```
+
 ### S7: why the "Syncing to Webflow" box is see-through
 
 Confirmed from Frappe `version-16` source (`frappe/public/js/frappe/dom.js`, `frappe/public/scss/desk/global.scss`):
@@ -224,5 +291,6 @@ Run the same on production (read-only) to compare.
 
 ## What is next
 
-Phase 0 is complete except for the blocked spikes (S1, S2, S5, S8). The plan says to report before Phase 1. Phase 1a does not depend on those spikes,
+Phase 0 is complete except for S1 and S2 (folded into Phase 4) and S8 (information only). Phase 1b
+waits on the owner's answers to the S5 questions and the data checks above. The plan says to report before Phase 1. Phase 1a does not depend on those spikes,
 but Phase 1b depends on S5's Custom Field export, and Phase 4 on S1 and S2.
