@@ -45,25 +45,24 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				const activeBrand = (frm.doc.target_brands || [])
 				    .filter(row => row.enabled)
 				    .map(row => row.brand)[0] || 'illumenate';
-				fetch('https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2', {
-				    method: 'POST',
-				    signal: controller.signal,
-				    headers: { 'Content-Type': 'application/json' },
-				    body: JSON.stringify({
-				        product: frm.doc.name,
-				        product_slug: frm.doc.product_slug || frm.doc.name,
-				        brand: activeBrand   // ← dynamic now
-				    })
-				})
-				.then(response => {
-					if (!response.ok) throw new Error(`Pipeline failed with status ${response.status}.`);
-					return response.json();
-				})
-				.then(data => {
-					if (finished) return;
-                    if (data.success === false) {
-                        throw new Error(data.message || "Pipeline reported an issue.");
-                    }
+				frappe.call({
+				    method: 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.request_spec_sheet',
+				    args: {
+				        docname: frm.doc.name,
+				        brand: activeBrand
+				    },
+				    error: function(err) {
+				        if (finished) return;
+				        finish();
+				        frappe.msgprint({
+				            title: __('Sync Failed'),
+				            message: err.message || __('An error occurred.'),
+				            indicator: 'red'
+				        });
+				    }
+				}).then(r => {
+				    const data = r.message;
+				    if (!data) throw new Error(__('No response from server.'));
 
 					// We removed the second freeze message here. 
 					// The screen stays frozen with the original card while polling begins!
