@@ -259,10 +259,41 @@ D56 mapping (fields deleted by D46, D51 and D53 are not listed):
 | ilL-Webflow-Product | `custom_compatible_power_supplies` | `webflow_compatible_power_supplies` |
 | ilL-Webflow-Product | `custom_template_status` | `webflow_template_status` |
 | ilL-Tape-Neon-Template | `custom_documents` | `other_documents` (added to all six templates, plan 4.1) |
-| Child of the product: ilL-Child-Webflow-Certification-Link | `custom_badge_images` | `webflow_badge_images` (proposed, to confirm) |
+| Child of the product: ilL-Child-Webflow-Certification-Link | `custom_badge_images` | `webflow_badge_images` (confirmed) |
 | Child of the kit template and the product: ilL-Child-Webflow-Kit-Component | `custom_webflow_title`, `custom_webflow_description` | `webflow_title`, `webflow_description` (same under either rule) |
 | Child of the tape template: ilL-Child-Tape-Neon-Allowed-Option | `custom_value_label` | `value_label` |
-| ilL-Attribute-Certification (attribute master, not a product or template) | `custom_badge_image_dark`, `custom_206_badge_image_dark`, `custom_206_badge_image_light` | D52 names, if still in scope (to confirm) |
+| ilL-Attribute-Certification (attribute master, not a product or template) | `custom_badge_image_dark`, `custom_206_badge_image_dark`, `custom_206_badge_image_light` | D52 names: the D57 badge logic reads them, so they ship with the app (owner may object) |
+
+**D57: certifications are owned by the template (owner, 2026-10-31).**
+
+Today (verified in code):
+
+- Four templates already have a `certifications` table (child `ilL-Child-Spec-Certification`, one
+  `certification` Link column): Tape/Neon, LED Sheet, Driver and Controller. The Extrusion Kit and
+  Fixture templates have none.
+- On product save, `sync_custom_template_data` replaces the product's `certifications` rows (child
+  `ilL-Child-Webflow-Certification-Link`) with the template's.
+- `populate_certification_badges` then fills each row's `custom_badge_images` JSON with the badge
+  image URLs for the product's enabled brands, read from `ilL-Attribute-Certification`
+  (`badge_image`, `custom_badge_image_dark`, `custom_206_badge_image_light`,
+  `custom_206_badge_image_dark`).
+- `_populate_certification_attributes` adds each certification to the product's attribute links, and
+  the export builds the `certifications` payload and the "Certifications & Ratings" spec row from the
+  product's rows.
+
+Decision:
+
+- All six templates have a `certifications` table on the **Product Data** tab. The four existing
+  tables move to that tab with the same fieldname and child doctype, so no data moves. Kit and
+  Fixture get the same table through `web_listing_schema.py`.
+- The product's `certifications` table becomes a **read-only mirror** of the template's, written by
+  the same mirror function as the other fields (D21). Component and Accessory products, which have no
+  template, keep an editable table (as D26 does for Target Brands).
+- All the logic that fills the product's rows is kept: the per-brand badge JSON (now
+  `webflow_badge_images`), the attribute links, the export payload and the spec row. Only the source
+  of the certification list changes.
+- Found on the way, for Phase 7: the badge URLs use a hardcoded `https://app.illumenate.lighting`, so
+  staging product rows point at production files. It should use the brand's ERPNext base URL.
 
 New fields the plan adds (not conversions) keep the plan's names, for example `is_discontinued` on
 the product and `specifications`, `sublabel`, `dimensions_image` on the templates.
