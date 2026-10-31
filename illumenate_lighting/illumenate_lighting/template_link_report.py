@@ -22,13 +22,14 @@ and fills what can be filled safely. Dry run is the default::
   one enabled brand (D17, D22).
 
 Everything else is listed for the owner and left alone: conflicting links, type
-mismatches, Active templates without a product, ambiguous brands, duplicate record names,
+mismatches, Active + Live templates without a product, ambiguous brands, duplicate record names,
 and products whose category or series would change once they mirror the template (D55).
 """
 
 import frappe
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	LIVE_STATUS,
 	TEMPLATE_DOCTYPES,
 	WEBFLOW_PRODUCT_LINK_TYPES,
 	WEBFLOW_PRODUCT_LINKS,
@@ -73,7 +74,7 @@ def build_report(products, templates, product_brands, template_brands, default_b
 		"seed_template_category_series": [],
 		"suggested_links": [],
 		"conflicts": [],
-		"active_without_product": [],
+		"live_without_product": [],
 		"brand_needs_owner": [],
 		"category_series_conflicts": [],
 		"duplicate_names": [],
@@ -197,8 +198,8 @@ def build_report(products, templates, product_brands, template_brands, default_b
 					"product_status": row.get("product_status"),
 				}
 			)
-		elif row.get("product_status") == "Active":
-			report["active_without_product"].append({"template": key})
+		elif row.get("product_status") == LIVE_STATUS:
+			report["live_without_product"].append({"template": key})
 
 	for key, product_name in pairs.items():
 		doctype, name = key

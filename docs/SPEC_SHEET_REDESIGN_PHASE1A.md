@@ -139,6 +139,29 @@ non-tdr-sw). They are not blocked; the owner links a product or moves each to In
 **Phase 1a is done**: links change only through the allowed paths, saves do not recurse, and the
 consistency report is clean apart from those owner decisions.
 
+## D60: new Product Status "Active + Live" (owner, 2026-10-31)
+
+Product Status options are now: Draft, Active, **Active + Live**, Internal Only, Discontinued, Archived.
+
+- **Active**: offered to dealers and staff in ERPNext and the portal. Not listed on the website, and no
+  Webflow Product is needed.
+- **Active + Live**: offered the same way, and listed on the website through its Webflow Product. The
+  Webflow Product is required: setting this status without one is refused, and a Live template cannot
+  be unlinked. (This replaces "required when Active" from D3 and Phase 1a.)
+- Active + Live counts as active everywhere Active did: `is_active` is set, dealers see it on the portal
+  (list filters, list permission, document permission, the product finder conditions), and staff see it.
+- The readiness message for Internal Only templates now says to set the template to Active + Live.
+- The consistency report lists `live_without_product` instead of `active_without_product`. The 16
+  Active templates without a product on staging are no longer flagged.
+- For the plan's status table (4.3): its "Active" rows 4 to 11 mean **Active + Live**. A plain Active
+  template has no Webflow action of its own.
+- No data was changed. Templates whose product is meant to be on the website today are still Active and
+  need to be moved to Active + Live by the owner (or by a migration, if wanted) before Phase 5's
+  automatic pushes are turned on.
+
+Open for Phase 5 (Q21): when an Active + Live template whose product has been published moves back to
+plain Active, should the page be hidden like the D14/D45 cases, or stay up like Internal Only (D4)?
+
 ## Questions for the owner
 
 1. *(Answered: D58 above.)* **`part_number_builder` name conflict (D25).** The Fixture template already has a

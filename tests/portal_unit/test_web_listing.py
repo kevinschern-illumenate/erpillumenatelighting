@@ -158,6 +158,13 @@ class ProductStatus(unittest.TestCase):
 		archived = {"product_status": "Archived", "is_active": 0}
 		self.assertEqual(apply(Doc(archived, product_status="Archived", is_active=1)), ("Active", 1))
 
+	def test_active_live_is_an_active_status(self):
+		before = {"product_status": "Active", "is_active": 1}
+		self.assertEqual(
+			apply(Doc(before, product_status="Active + Live", is_active=1)), ("Active + Live", 1)
+		)
+		self.assertEqual(apply(Doc(product_status="Active + Live", is_active=1)), ("Active + Live", 1))
+
 	def test_an_untouched_inactive_status_is_kept(self):
 		before = {"product_status": "Archived", "is_active": 0}
 		self.assertEqual(apply(Doc(before, product_status="Archived", is_active=0)), ("Archived", 0))

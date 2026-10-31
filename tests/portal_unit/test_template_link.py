@@ -150,19 +150,27 @@ class LinkRules(unittest.TestCase):
 		cleared.flags.webflow_link_action = True
 		self.module.validate_webflow_product(cleared)
 
-	def test_active_needs_a_product_and_an_active_template_cannot_be_unlinked(self):
-		with self.assertRaisesRegex(ValueError, "before setting the Product Status to Active"):
-			self.module.validate_webflow_product(
-				self.template(before=self.template(), product_status="Active")
-			)
-		# An Active template saved before this rule existed is reported, not blocked.
-		self.module.validate_webflow_product(
-			self.template(before=self.template(product_status="Active"), product_status="Active")
-		)
-		unlink = self.template(
+	def test_active_live_needs_a_product_and_cannot_be_unlinked(self):
+		LIVE = "Active + Live"
+		with self.assertRaisesRegex(ValueError, "before setting the Product Status to Active \\+ Live"):
+			self.module.validate_webflow_product(self.template(before=self.template(), product_status=LIVE))
+		# Plain Active is offered in ERPNext and the portal only: no Webflow Product needed (D60).
+		self.module.validate_webflow_product(self.template(before=self.template(), product_status="Active"))
+		active = self.template(
 			before=self.template(webflow_product="kit-ra01", product_status="Active"),
 			webflow_product=None,
 			product_status="Active",
+		)
+		active.flags.webflow_link_action = True
+		self.module.validate_webflow_product(active)
+		# A Live template saved before this rule existed is reported, not blocked.
+		self.module.validate_webflow_product(
+			self.template(before=self.template(product_status=LIVE), product_status=LIVE)
+		)
+		unlink = self.template(
+			before=self.template(webflow_product="kit-ra01", product_status=LIVE),
+			webflow_product=None,
+			product_status=LIVE,
 		)
 		unlink.flags.webflow_link_action = True
 		with self.assertRaisesRegex(ValueError, "needs its Webflow Product"):

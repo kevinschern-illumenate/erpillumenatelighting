@@ -3061,9 +3061,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
-          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
         },
         {
           "fieldname": "series",
@@ -3089,7 +3089,7 @@
           "label": "Webflow Product",
           "fieldtype": "Link",
           "options": "ilL-Webflow-Product",
-          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active.",
+          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active + Live.",
           "read_only": 0
         },
         {
@@ -3337,9 +3337,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
-          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
         },
         {
           "fieldname": "series",
@@ -3365,7 +3365,7 @@
           "label": "Webflow Product",
           "fieldtype": "Link",
           "options": "ilL-Webflow-Product",
-          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active.",
+          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active + Live.",
           "read_only": 0
         },
         {
@@ -3512,9 +3512,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
-          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
         },
         {
           "fieldname": "series",
@@ -3615,7 +3615,7 @@
           "label": "Webflow Product",
           "fieldtype": "Link",
           "options": "ilL-Webflow-Product",
-          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active.",
+          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active + Live.",
           "read_only": 0
         },
         {
@@ -3798,9 +3798,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
-          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
         },
         {
           "fieldname": "series",
@@ -3913,7 +3913,7 @@
           "label": "Webflow Product",
           "fieldtype": "Link",
           "options": "ilL-Webflow-Product",
-          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active.",
+          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active + Live.",
           "read_only": 0
         },
         {
@@ -4316,9 +4316,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
-          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
         },
         {
           "fieldname": "series",
@@ -4343,7 +4343,7 @@
           "label": "Webflow Product",
           "fieldtype": "Link",
           "options": "ilL-Webflow-Product",
-          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active.",
+          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active + Live.",
           "read_only": 0
         },
         {
@@ -6984,9 +6984,9 @@
           "fieldname": "product_status",
           "label": "Product Status",
           "fieldtype": "Select",
-          "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+          "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
-          "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+          "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
         },
         {
           "fieldname": "series",
@@ -7140,7 +7140,7 @@
           "label": "Webflow Product",
           "fieldtype": "Link",
           "options": "ilL-Webflow-Product",
-          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active.",
+          "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active + Live.",
           "read_only": 0
         },
         {

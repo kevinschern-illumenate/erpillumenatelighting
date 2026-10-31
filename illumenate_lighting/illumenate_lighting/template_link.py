@@ -6,7 +6,7 @@ read-only mirror written from here. Rules, checked on both sides:
 
 - One template links to at most one product, and a product to exactly one template.
 - The product's ``product_type`` must be one the template's link field serves.
-- A template needs its Webflow Product once its Product Status is Active.
+- A template needs its Webflow Product once its Product Status is Active + Live (D60).
 - Target Brands has at most one enabled row, and linking needs exactly one.
 - The brand cannot change once the product was published on the old brand.
 - No two templates, in any of the six doctypes, share a record name (case-insensitive):
@@ -22,6 +22,7 @@ import frappe
 from frappe import _
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	LIVE_STATUS,
 	TEMPLATE_DOCTYPES,
 	WEBFLOW_PRODUCT_LINK_TYPES,
 	WEBFLOW_PRODUCT_LINKS,
@@ -29,7 +30,6 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 
 PRODUCT = "ilL-Webflow-Product"
 PUBLICATION = "ilL-Product-Publication"
-ACTIVE = "Active"
 
 
 # ---------------------------------------------------------------- permissions
@@ -121,15 +121,17 @@ def validate_webflow_product(doc):
 	new = doc.get("webflow_product")
 	if old and new != old and not doc.flags.webflow_link_action:
 		frappe.throw(_("Use Actions > Unlink Webflow Product to change the Webflow Product."))
-	if old and not new and doc.get("product_status") == ACTIVE:
-		frappe.throw(_("An Active template needs its Webflow Product. Change the Product Status first."))
+	if old and not new and doc.get("product_status") == LIVE_STATUS:
+		frappe.throw(
+			_("An Active + Live template needs its Webflow Product. Change the Product Status first.")
+		)
 	if new and new != old:
 		require_template_access(doc.doctype, doc.name)
 		_check_link(doc, new)
-	if doc.get("product_status") == ACTIVE and not new:
-		became_active = not before or before.get("product_status") != ACTIVE
-		if became_active:
-			frappe.throw(_("Link a Webflow Product before setting the Product Status to Active."))
+	if doc.get("product_status") == LIVE_STATUS and not new:
+		became_live = not before or before.get("product_status") != LIVE_STATUS
+		if became_live:
+			frappe.throw(_("Link a Webflow Product before setting the Product Status to Active + Live."))
 
 
 def _check_link(doc, product):
@@ -282,7 +284,7 @@ def link_webflow_product(template_doctype, template_id, product):
 
 @frappe.whitelist(methods=["POST"])
 def unlink_webflow_product(template_doctype, template_id):
-	"""Clear the link on both sides. Not allowed while the template is Active."""
+	"""Clear the link on both sides. Not allowed while the template is Active + Live."""
 	_check_doctype(template_doctype)
 	require_template_access(template_doctype, template_id)
 	doc = frappe.get_doc(template_doctype, template_id)

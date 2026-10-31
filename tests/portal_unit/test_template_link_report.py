@@ -105,14 +105,14 @@ class Report(unittest.TestCase):
 			{
 				KIT: [
 					template("KIT-A", "kit-a", product_category="Kits", series="RA"),
-					template("KIT-ACT", product_status="Active"),
+					template("KIT-ACT", product_status="Active + Live"),
 					template("dup-1"),
 				],
 				TAPE: [template("TAPE-A", "tape-a", product_category="LED Tape", webflow_category=None)],
 				DRIVER: [template("DUP-1")],
 			},
 		)
-		self.assertEqual(report["active_without_product"], [{"template": (KIT, "KIT-ACT")}])
+		self.assertEqual(report["live_without_product"], [{"template": (KIT, "KIT-ACT")}])
 		self.assertEqual(report["duplicate_names"], [[(DRIVER, "DUP-1"), (KIT, "dup-1")]])
 		# A real disagreement is the owner's call (D55).
 		self.assertEqual(
@@ -176,7 +176,7 @@ class Report(unittest.TestCase):
 			{
 				KIT: [
 					template("KIT-AZ01", product_status="Active"),
-					template("KIT-ZZ01", product_status="Active"),
+					template("KIT-ZZ01", product_status="Active + Live"),
 					template("KIT-RA01", "kit-ra01"),
 				]
 			},
@@ -192,7 +192,7 @@ class Report(unittest.TestCase):
 				}
 			],
 		)
-		self.assertEqual(report["active_without_product"], [{"template": (KIT, "KIT-ZZ01")}])
+		self.assertEqual(report["live_without_product"], [{"template": (KIT, "KIT-ZZ01")}])
 		self.assertEqual(report["set_template_link"] + report["set_product_link"], [])
 
 

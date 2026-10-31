@@ -41,11 +41,15 @@ WEBFLOW_PRODUCT_LINK_TYPES = {
 # Fieldname kept from the first release so restamping replaces the old tab in place.
 TAB = "web_listing_tab"
 
-# Where a product is offered in ERPNext and the portal. Whether it is live on the website
-# is the Webflow Product's own Active flag, so the two can differ.
+# Where a product is offered: ERPNext and the portal (Active, Internal Only), and the
+# website too (Active + Live, D60). Active + Live needs a Webflow Product; Active does not.
 INTERNAL_STATUS = "Internal Only"
-STATUSES = ("Draft", "Active", INTERNAL_STATUS, "Discontinued", "Archived")
-ACTIVE_STATUSES = ("Active", INTERNAL_STATUS)
+ACTIVE_STATUS = "Active"
+LIVE_STATUS = "Active + Live"
+STATUSES = ("Draft", ACTIVE_STATUS, LIVE_STATUS, INTERNAL_STATUS, "Discontinued", "Archived")
+ACTIVE_STATUSES = (ACTIVE_STATUS, LIVE_STATUS, INTERNAL_STATUS)
+# Offered to dealers on the portal (Internal Only is staff only).
+DEALER_STATUSES = (ACTIVE_STATUS, LIVE_STATUS)
 # New templates are internal until someone decides dealers should see them.
 DEFAULT_STATUS = INTERNAL_STATUS
 STATUS_FIELD = {
@@ -57,10 +61,11 @@ STATUS_FIELD = {
 	"in_list_view": 1,
 	"in_standard_filter": 1,
 	"description": (
-		"Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and "
-		"the portal, hidden from dealers. New templates start Internal Only. Draft, "
-		"Discontinued and Archived are inactive. Whether the product is live on the website "
-		"is set on its Webflow Product."
+		"Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. "
+		"Active + Live: offered the same way and listed on the website through its Webflow "
+		"Product, which must be linked first. Internal Only: offered to staff only, hidden from "
+		"dealers and the website. New templates start Internal Only. Draft, Discontinued and "
+		"Archived are not offered."
 	),
 }
 # Placed right after is_active, which the status now sets.
@@ -76,7 +81,7 @@ WEBFLOW_PRODUCT_OVERRIDES = {
 	"read_only_depends_on": "eval:doc.webflow_product",
 	"description": (
 		"The Webflow Product that lists this template. Pick one while empty; use Actions > "
-		"Unlink Webflow Product to change it. Required when Product Status is Active."
+		"Unlink Webflow Product to change it. Required when Product Status is Active + Live."
 	),
 }
 
