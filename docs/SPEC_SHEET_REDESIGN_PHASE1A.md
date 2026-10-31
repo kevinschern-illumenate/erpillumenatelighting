@@ -124,6 +124,21 @@ differences, no duplicate names. The report was reworked from what it showed:
   product's link (`clear_product_link`): the template owns the link (D2). This resolves KIT-RA01
   (`ext001-a`).
 
+**D59 (owner):** the product's configurator table `configurator_options` is renamed to
+`part_no_configurator` in Phase 1b, after the Phase 2 adapter that keeps n8n reading the old key
+(supersedes the product name in D25).
+
+## Result on staging (2026-10-31)
+
+After `link_suggestions` and two `apply` runs, the dry run reports: 79 consistent pairs; 0 links to
+fill or clear, 0 brands or categories to seed, 0 suggestions, 0 conflicts, 0 duplicate names. 16 Active
+templates have no Webflow Product (PS-NON, PS-PRI, PS-WALL, KIT-MS01, KIT-MS13, KIT-MS15, KIT-MS16,
+KIT-SN03, ILL-CR01-SW, ILL-CR02-FS, ILL-MS13-FS, ILL-TR03-FS, cob-sn-sw, led-sd-cc, non-bst-sw,
+non-tdr-sw). They are not blocked; the owner links a product or moves each to Internal Only.
+
+**Phase 1a is done**: links change only through the allowed paths, saves do not recurse, and the
+consistency report is clean apart from those owner decisions.
+
 ## Questions for the owner
 
 1. *(Answered: D58 above.)* **`part_number_builder` name conflict (D25).** The Fixture template already has a
