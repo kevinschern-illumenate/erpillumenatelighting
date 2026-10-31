@@ -61,6 +61,7 @@ class StampedSchema(unittest.TestCase):
 			"target_brands": "ilL-Child-Webflow-Brand-Target",
 			"certifications": "ilL-Child-Spec-Certification",
 			"other_documents": "ilL-Child-Webflow-Document",
+			"specifications": "ilL-Child-Webflow-Spec-Custom",
 		}
 		for doctype, module in TEMPLATE_DOCTYPES.items():
 			with self.subTest(doctype=doctype):

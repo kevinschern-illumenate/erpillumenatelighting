@@ -4,6 +4,8 @@ Run from the repository root after editing ``web_listing_schema.py``:
 
     python tools/stamp_web_listing_fields.py
 
+It also refreshes the YAML builder's doctype snapshot (tools/yaml_builder_ui/src/catalog-schema.json).
+
 Idempotent: everything from the Product Data tab on is replaced, Product Status sits right
 after is_active (which becomes read only), webflow_product becomes editable while empty,
 and a doctype's
@@ -67,6 +69,12 @@ def main():
 	now = datetime.now().strftime("%Y-%m-%d %H:%M:%S.000000")
 	for doctype, module in TEMPLATE_DOCTYPES.items():
 		print(f"{doctype}: {'updated' if stamp(doctype, module, now) else 'unchanged'}")
+	# The YAML builder ships a snapshot of these doctypes; CI and the Vercel build fail
+	# when it is stale, so refresh it with every stamp.
+	from tools.fixture_builder.catalog_schema import SNAPSHOT, build_schema
+
+	SNAPSHOT.write_text(json.dumps(build_schema(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+	print(f"{SNAPSHOT.relative_to(ROOT)}: refreshed")
 
 
 if __name__ == "__main__":

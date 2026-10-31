@@ -217,6 +217,17 @@ def _listing_data(category=None):
 		*([category] if category else []),
 		_column("web_listing_content_column"),
 		{"fieldname": "dimensions_image", "fieldtype": "Attach Image", "label": "Dimensions Image"},
+		_section("web_specifications_section", "Specifications"),
+		{
+			"fieldname": "specifications",
+			"fieldtype": "Table",
+			"label": "Specifications",
+			"options": "ilL-Child-Webflow-Spec-Custom",
+			"description": (
+				"Rows with calculated labels are rebuilt on save; rows with other labels are kept. "
+				"Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+			),
+		},
 		_section("web_certifications_section", "Certifications"),
 		{
 			"fieldname": "certifications",

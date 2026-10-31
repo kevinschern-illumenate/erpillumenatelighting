@@ -63,6 +63,8 @@
   "sublabel",
   "web_listing_content_column",
   "dimensions_image",
+  "web_specifications_section",
+  "specifications",
   "web_certifications_section",
   "certifications",
   "web_documents_section",
@@ -396,6 +398,18 @@
    "label": "Dimensions Image"
   },
   {
+   "fieldname": "web_specifications_section",
+   "fieldtype": "Section Break",
+   "label": "Specifications"
+  },
+  {
+   "fieldname": "specifications",
+   "fieldtype": "Table",
+   "label": "Specifications",
+   "options": "ilL-Child-Webflow-Spec-Custom",
+   "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+  },
+  {
    "fieldname": "web_certifications_section",
    "fieldtype": "Section Break",
    "label": "Certifications"
@@ -429,7 +443,7 @@
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-31 22:08:30.000000",
+ "modified": "2026-10-31 22:28:44.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-LED-Sheet-Template",
