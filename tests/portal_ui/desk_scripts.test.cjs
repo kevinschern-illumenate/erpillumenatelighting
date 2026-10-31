@@ -48,6 +48,12 @@ function setup(t, fetchResponse) {
       dom: { freeze() { frozen = true; }, unfreeze() { frozen = false; } },
       msgprint(message) { messages.push(message); },
       xcall: async () => ({ sync_status: 'Synced' }),
+      call(opts = {}) {
+        const response = { message: { sync_status: 'Synced' } };
+        Promise.resolve().then(() => {
+          if (opts.callback) opts.callback(response);
+        });
+      },
       show_alert(message) { messages.push(message); },
     },
   });
