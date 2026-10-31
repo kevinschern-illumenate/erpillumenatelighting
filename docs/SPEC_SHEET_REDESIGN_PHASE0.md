@@ -78,7 +78,7 @@ Both Transform nodes: the `default:` branch now sets `hidden-from-public = true`
 renamed status is hidden. Checked with a local harness against the exact node code: Draft, Webflow
 Draft, Publish, Discontinued, Archived, empty, a typo and a missing key.
 
-### Z4: staging safety guards (done: n8n and app; one-time reset not yet run)
+### Z4: staging safety guards (done: n8n and app; one-time reset run on staging 2026-10-31)
 
 n8n (staging workflow only):
 
@@ -114,8 +114,12 @@ Review the dry-run report (it is also the S6 answer), then:
 bench --site stagingillumenate.v.frappe.cloud execute illumenate_lighting.illumenate_lighting.api.staging_webflow_reset.clear_production_webflow_ids --kwargs "{'dry_run': False}"
 ```
 
-Until it has run, the n8n guards are what protects live items: any sync of a product carrying a
-production item ID now fails at `Staging Guard: Check Item` instead of modifying the live item.
+**Result (2026-10-31, run by the owner on staging):** the dry run found production Webflow item
+IDs on 112 products (product field and brand sync row) and on 4 publication records (`kit-ra01`,
+`kit-ra02`, `kit-az01`, `lil-sw-led`), and no open publish jobs. That answers S6: yes, staging carried
+production item IDs. The reset was then applied, and a second dry run reported 0 in every category.
+The owner kept the first dry-run report as the record of the cleared IDs. Staging syncs now create
+new hidden `[staging]` items; the n8n guards still block any item that is not marked `[staging]`.
 
 ## Spikes
 
@@ -130,7 +134,7 @@ Webflow API, or `developers.webflow.com` (network policy). Spikes that need them
 | S3 Webflow unpublish and archive | Done (docs) | See below. |
 | S4 readiness and guards | Blocked | Commands below. |
 | S5 Custom Fields on `ilL-*` | Blocked | Commands below. |
-| S6 production item IDs on staging | Blocked; tool ready | The dry run of `clear_production_webflow_ids` answers it. |
+| S6 production item IDs on staging | Done | Yes: 112 products and 4 publications carried production IDs. Cleared on staging (see Z4). |
 | S7 freeze overlay | Done (Frappe v16 source) | See below. |
 | S8 Webflow `product-badge` field | Blocked (no Webflow access) | Owner reads it in the Webflow Designer (collection settings) or via `GET /v2/collections/{id}`. Information only. |
 
@@ -193,6 +197,5 @@ Run the same on production (read-only) to compare.
 
 ## What is next
 
-Phase 0 is complete except for the blocked spikes (S1, S2, S4, S5, S6, S8) and running the one-time
-reset on staging. The plan says to report before Phase 1. Phase 1a does not depend on those spikes,
+Phase 0 is complete except for the blocked spikes (S1, S2, S4, S5, S8). The plan says to report before Phase 1. Phase 1a does not depend on those spikes,
 but Phase 1b depends on S5's Custom Field export, and Phase 4 on S1 and S2.
