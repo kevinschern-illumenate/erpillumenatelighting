@@ -3050,6 +3050,11 @@
           "fieldtype": "Data"
         },
         {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
@@ -3064,6 +3069,13 @@
           "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
           "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brand",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
         },
         {
           "fieldname": "series",
@@ -3156,28 +3168,22 @@
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "target_brands",
-          "label": "Target Brand",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target",
-          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "part_no_configurator",
-          "label": "Part No. Configurator",
+          "fieldname": "spec_sheet_public_url",
+          "label": "Spec Sheet Public URL",
+          "fieldtype": "Data",
+          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "other_documents",
+          "label": "Other Documents",
           "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "options": "ilL-Child-Webflow-Document"
         },
         {
           "fieldname": "specifications",
@@ -3194,17 +3200,11 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
-          "fieldname": "spec_sheet_public_url",
-          "label": "Spec Sheet Public URL",
-          "fieldtype": "Data",
-          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-          "read_only": 1
-        },
-        {
-          "fieldname": "other_documents",
-          "label": "Other Documents",
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
           "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
+          "options": "ilL-Child-Webflow-Configurator-Option",
+          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
         }
       ]
     },
@@ -3326,6 +3326,11 @@
           "fieldtype": "Data"
         },
         {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
@@ -3340,6 +3345,13 @@
           "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
           "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brand",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
         },
         {
           "fieldname": "series",
@@ -3432,28 +3444,22 @@
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "target_brands",
-          "label": "Target Brand",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target",
-          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
           "fieldtype": "Attach Image"
         },
         {
-          "fieldname": "part_no_configurator",
-          "label": "Part No. Configurator",
+          "fieldname": "spec_sheet_public_url",
+          "label": "Spec Sheet Public URL",
+          "fieldtype": "Data",
+          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "other_documents",
+          "label": "Other Documents",
           "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "options": "ilL-Child-Webflow-Document"
         },
         {
           "fieldname": "specifications",
@@ -3470,17 +3476,11 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
-          "fieldname": "spec_sheet_public_url",
-          "label": "Spec Sheet Public URL",
-          "fieldtype": "Data",
-          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-          "read_only": 1
-        },
-        {
-          "fieldname": "other_documents",
-          "label": "Other Documents",
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
           "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
+          "options": "ilL-Child-Webflow-Configurator-Option",
+          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
         }
       ]
     },
@@ -3501,6 +3501,11 @@
           "reqd": 1
         },
         {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
@@ -3515,6 +3520,13 @@
           "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
           "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brand",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
         },
         {
           "fieldname": "series",
@@ -3638,11 +3650,6 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "hero_image",
-          "label": "Hero Image",
-          "fieldtype": "Attach Image"
-        },
-        {
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
           "fieldtype": "Int"
@@ -3656,6 +3663,21 @@
           "fieldname": "length_increment_mm",
           "label": "Length Increment (mm)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
         },
         {
           "fieldname": "l70_life_hours",
@@ -3673,9 +3695,38 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "fixture_weight_per_foot_grams",
-          "label": "Fixture Weight per Foot (g)",
-          "fieldtype": "Float"
+          "fieldname": "spec_sheet_public_url",
+          "label": "Spec Sheet Public URL",
+          "fieldtype": "Data",
+          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "other_documents",
+          "label": "Other Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "specifications",
+          "label": "Specifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Spec-Custom",
+          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification",
+          "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option",
+          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
         },
         {
           "fieldname": "kit_components",
@@ -3716,57 +3767,6 @@
           "label": "Cone of Light",
           "fieldtype": "Table",
           "options": "ilL-Child-Photometric-Data"
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brand",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target",
-          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "part_no_configurator",
-          "label": "Part No. Configurator",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
-        },
-        {
-          "fieldname": "specifications",
-          "label": "Specifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Spec-Custom",
-          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
-        },
-        {
-          "fieldname": "certifications",
-          "label": "Certifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Spec-Certification",
-          "description": "Copied to the Webflow Product with each brand's badge images."
-        },
-        {
-          "fieldname": "spec_sheet_public_url",
-          "label": "Spec Sheet Public URL",
-          "fieldtype": "Data",
-          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-          "read_only": 1
-        },
-        {
-          "fieldname": "other_documents",
-          "label": "Other Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
         }
       ]
     },
@@ -3787,6 +3787,11 @@
           "reqd": 1
         },
         {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
@@ -3801,6 +3806,13 @@
           "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
           "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brand",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
         },
         {
           "fieldname": "series",
@@ -3941,11 +3953,6 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "hero_image",
-          "label": "Hero Image",
-          "fieldtype": "Attach Image"
-        },
-        {
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
           "fieldtype": "Int"
@@ -3961,10 +3968,25 @@
           "fieldtype": "Int"
         },
         {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
+        },
+        {
           "fieldname": "feed_lengths",
           "label": "Feed Lengths",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Feed-Length"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
         },
         {
           "fieldname": "l70_life_hours",
@@ -3982,9 +4004,38 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "fixture_weight_per_foot_grams",
-          "label": "Fixture Weight per Foot (g)",
-          "fieldtype": "Float"
+          "fieldname": "spec_sheet_public_url",
+          "label": "Spec Sheet Public URL",
+          "fieldtype": "Data",
+          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "other_documents",
+          "label": "Other Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "specifications",
+          "label": "Specifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Spec-Custom",
+          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification",
+          "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option",
+          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
         },
         {
           "fieldname": "photometry",
@@ -4026,57 +4077,6 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Template-Colorimetry",
           "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brand",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target",
-          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "part_no_configurator",
-          "label": "Part No. Configurator",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
-        },
-        {
-          "fieldname": "specifications",
-          "label": "Specifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Spec-Custom",
-          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
-        },
-        {
-          "fieldname": "certifications",
-          "label": "Certifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Spec-Certification",
-          "description": "Copied to the Webflow Product with each brand's badge images."
-        },
-        {
-          "fieldname": "spec_sheet_public_url",
-          "label": "Spec Sheet Public URL",
-          "fieldtype": "Data",
-          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-          "read_only": 1
-        },
-        {
-          "fieldname": "other_documents",
-          "label": "Other Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
         }
       ]
     },
@@ -4305,6 +4305,11 @@
           "fieldtype": "Data"
         },
         {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
@@ -4319,6 +4324,13 @@
           "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
           "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brand",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
         },
         {
           "fieldname": "series",
@@ -4437,6 +4449,11 @@
           "fieldtype": "Attach Image"
         },
         {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
+        },
+        {
           "fieldname": "l70_life_hours",
           "label": "L70 Life (Hours)",
           "fieldtype": "Int"
@@ -4450,6 +4467,40 @@
           "fieldname": "operating_temp_max_c",
           "label": "Operating Temp Max (C)",
           "fieldtype": "Int"
+        },
+        {
+          "fieldname": "spec_sheet_public_url",
+          "label": "Spec Sheet Public URL",
+          "fieldtype": "Data",
+          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "other_documents",
+          "label": "Other Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "specifications",
+          "label": "Specifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Spec-Custom",
+          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification",
+          "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option",
+          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
         },
         {
           "fieldname": "photometry",
@@ -4491,57 +4542,6 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Template-Colorimetry",
           "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brand",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target",
-          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "part_no_configurator",
-          "label": "Part No. Configurator",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
-        },
-        {
-          "fieldname": "specifications",
-          "label": "Specifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Spec-Custom",
-          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
-        },
-        {
-          "fieldname": "certifications",
-          "label": "Certifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Spec-Certification",
-          "description": "Copied to the Webflow Product with each brand's badge images."
-        },
-        {
-          "fieldname": "spec_sheet_public_url",
-          "label": "Spec Sheet Public URL",
-          "fieldtype": "Data",
-          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-          "read_only": 1
-        },
-        {
-          "fieldname": "other_documents",
-          "label": "Other Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
         }
       ]
     },
@@ -6964,6 +6964,11 @@
           "reqd": 1
         },
         {
+          "fieldname": "sublabel",
+          "label": "Sublabel",
+          "fieldtype": "Data"
+        },
+        {
           "fieldname": "product_category",
           "label": "Product Category",
           "fieldtype": "Select",
@@ -6987,6 +6992,13 @@
           "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
           "default": "Internal Only",
           "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+        },
+        {
+          "fieldname": "target_brands",
+          "label": "Target Brand",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Brand-Target",
+          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
         },
         {
           "fieldname": "series",
@@ -7156,11 +7168,6 @@
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
         },
         {
-          "fieldname": "hero_image",
-          "label": "Hero Image",
-          "fieldtype": "Attach Image"
-        },
-        {
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
           "fieldtype": "Int"
@@ -7176,10 +7183,32 @@
           "fieldtype": "Int"
         },
         {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
+        },
+        {
+          "fieldname": "webflow_category",
+          "label": "Webflow Category",
+          "fieldtype": "Link",
+          "options": "ilL-Webflow-Category",
+          "description": "The category this template's Webflow Product is listed under."
+        },
+        {
           "fieldname": "feed_lengths",
           "label": "Feed Lengths",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Feed-Length"
+        },
+        {
+          "fieldname": "hero_image",
+          "label": "Hero Image",
+          "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "dimensions_image",
+          "label": "Dimensions Image",
+          "fieldtype": "Attach Image"
         },
         {
           "fieldname": "l70_life_hours",
@@ -7197,9 +7226,38 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "fixture_weight_per_foot_grams",
-          "label": "Fixture Weight per Foot (g)",
-          "fieldtype": "Float"
+          "fieldname": "spec_sheet_public_url",
+          "label": "Spec Sheet Public URL",
+          "fieldtype": "Data",
+          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "other_documents",
+          "label": "Other Documents",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Document"
+        },
+        {
+          "fieldname": "specifications",
+          "label": "Specifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Spec-Custom",
+          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+        },
+        {
+          "fieldname": "certifications",
+          "label": "Certifications",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Certification",
+          "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "part_no_configurator",
+          "label": "Part No. Configurator",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Configurator-Option",
+          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
         },
         {
           "fieldname": "photometry",
@@ -7241,64 +7299,6 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Template-Colorimetry",
           "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
-        },
-        {
-          "fieldname": "target_brands",
-          "label": "Target Brand",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Brand-Target",
-          "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-        },
-        {
-          "fieldname": "sublabel",
-          "label": "Sublabel",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "webflow_category",
-          "label": "Webflow Category",
-          "fieldtype": "Link",
-          "options": "ilL-Webflow-Category",
-          "description": "The category this template's Webflow Product is listed under."
-        },
-        {
-          "fieldname": "dimensions_image",
-          "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
-        },
-        {
-          "fieldname": "part_no_configurator",
-          "label": "Part No. Configurator",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
-        },
-        {
-          "fieldname": "specifications",
-          "label": "Specifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Spec-Custom",
-          "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
-        },
-        {
-          "fieldname": "certifications",
-          "label": "Certifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Spec-Certification",
-          "description": "Copied to the Webflow Product with each brand's badge images."
-        },
-        {
-          "fieldname": "spec_sheet_public_url",
-          "label": "Spec Sheet Public URL",
-          "fieldtype": "Data",
-          "description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-          "read_only": 1
-        },
-        {
-          "fieldname": "other_documents",
-          "label": "Other Documents",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Document"
         }
       ]
     },

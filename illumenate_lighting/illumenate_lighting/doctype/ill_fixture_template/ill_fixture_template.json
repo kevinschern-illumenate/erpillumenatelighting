@@ -9,9 +9,11 @@
   "identity_section",
   "template_code",
   "template_name",
+  "sublabel",
   "column_break_identity",
   "is_active",
   "product_status",
+  "target_brands",
   "series",
   "product_category",
   "defaults_section",
@@ -50,19 +52,25 @@
   "web_listing_tab",
   "product_data_section",
   "warranty_years",
-  "product_data_column",
-  "hero_image",
-  "web_lengths_section",
   "min_length_mm",
   "max_length_mm",
   "length_increment_mm",
+  "fixture_weight_per_foot_grams",
   "feed_lengths",
-  "web_spec_sheet_section",
+  "product_data_column",
+  "hero_image",
+  "dimensions_image",
   "l70_life_hours",
-  "web_spec_sheet_column",
   "operating_temp_min_c",
   "operating_temp_max_c",
-  "fixture_weight_per_foot_grams",
+  "web_documents_section",
+  "spec_sheet_public_url",
+  "other_documents",
+  "web_specs_certs_section",
+  "specifications",
+  "certifications",
+  "web_configurator_section",
+  "part_no_configurator",
   "photometric_section",
   "photometry",
   "beam_angle",
@@ -73,22 +81,7 @@
   "cone_of_light_section",
   "photometric_data",
   "colorimetry_section",
-  "colorimetry",
-  "web_brand_section",
-  "target_brands",
-  "web_listing_content_section",
-  "sublabel",
-  "web_listing_content_column",
-  "dimensions_image",
-  "web_configurator_section",
-  "part_no_configurator",
-  "web_specifications_section",
-  "specifications",
-  "web_certifications_section",
-  "certifications",
-  "web_documents_section",
-  "spec_sheet_public_url",
-  "other_documents"
+  "colorimetry"
  ],
  "fields": [
   {
@@ -112,6 +105,11 @@
    "reqd": 1
   },
   {
+   "fieldname": "sublabel",
+   "fieldtype": "Data",
+   "label": "Sublabel"
+  },
+  {
    "fieldname": "column_break_identity",
    "fieldtype": "Column Break"
   },
@@ -133,6 +131,13 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+  },
+  {
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brand",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
   },
   {
    "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
@@ -358,20 +363,6 @@
    "label": "Warranty (Years)"
   },
   {
-   "fieldname": "product_data_column",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "hero_image",
-   "fieldtype": "Attach Image",
-   "label": "Hero Image"
-  },
-  {
-   "fieldname": "web_lengths_section",
-   "fieldtype": "Section Break",
-   "label": "Lengths"
-  },
-  {
    "fieldname": "min_length_mm",
    "fieldtype": "Int",
    "label": "Min Length (mm)"
@@ -387,24 +378,34 @@
    "label": "Length Increment (mm)"
   },
   {
+   "fieldname": "fixture_weight_per_foot_grams",
+   "fieldtype": "Float",
+   "label": "Fixture Weight per Foot (g)"
+  },
+  {
    "fieldname": "feed_lengths",
    "fieldtype": "Table",
    "label": "Feed Lengths",
    "options": "ilL-Child-Webflow-Feed-Length"
   },
   {
-   "fieldname": "web_spec_sheet_section",
-   "fieldtype": "Section Break",
-   "label": "Spec Sheet Data"
+   "fieldname": "product_data_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hero_image",
+   "fieldtype": "Attach Image",
+   "label": "Hero Image"
+  },
+  {
+   "fieldname": "dimensions_image",
+   "fieldtype": "Attach Image",
+   "label": "Dimensions Image"
   },
   {
    "fieldname": "l70_life_hours",
    "fieldtype": "Int",
    "label": "L70 Life (Hours)"
-  },
-  {
-   "fieldname": "web_spec_sheet_column",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "operating_temp_min_c",
@@ -417,9 +418,53 @@
    "label": "Operating Temp Max (C)"
   },
   {
-   "fieldname": "fixture_weight_per_foot_grams",
-   "fieldtype": "Float",
-   "label": "Fixture Weight per Foot (g)"
+   "fieldname": "web_documents_section",
+   "fieldtype": "Section Break",
+   "label": "Documents"
+  },
+  {
+   "fieldname": "spec_sheet_public_url",
+   "fieldtype": "Data",
+   "label": "Spec Sheet Public URL",
+   "read_only": 1,
+   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
+  },
+  {
+   "fieldname": "other_documents",
+   "fieldtype": "Table",
+   "label": "Other Documents",
+   "options": "ilL-Child-Webflow-Document"
+  },
+  {
+   "fieldname": "web_specs_certs_section",
+   "fieldtype": "Section Break",
+   "label": "Specifications & Certifications"
+  },
+  {
+   "fieldname": "specifications",
+   "fieldtype": "Table",
+   "label": "Specifications",
+   "options": "ilL-Child-Webflow-Spec-Custom",
+   "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Spec-Certification",
+   "description": "Copied to the Webflow Product with each brand's badge images."
+  },
+  {
+   "fieldname": "web_configurator_section",
+   "fieldtype": "Section Break",
+   "label": "Configurator"
+  },
+  {
+   "fieldname": "part_no_configurator",
+   "fieldtype": "Table",
+   "label": "Part No. Configurator",
+   "options": "ilL-Child-Webflow-Configurator-Option",
+   "description": "The configurator steps and their allowed values. The Webflow Product copies them."
   },
   {
    "fieldname": "photometric_section",
@@ -485,97 +530,12 @@
    "label": "Colorimetry",
    "options": "ilL-Child-Template-Colorimetry",
    "description": "One row per CCT. The Featured row's TM-30 chart is shown on the product page."
-  },
-  {
-   "fieldname": "web_brand_section",
-   "fieldtype": "Section Break",
-   "label": "Brand"
-  },
-  {
-   "fieldname": "target_brands",
-   "fieldtype": "Table",
-   "label": "Target Brand",
-   "options": "ilL-Child-Webflow-Brand-Target",
-   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-  },
-  {
-   "fieldname": "web_listing_content_section",
-   "fieldtype": "Section Break",
-   "label": "Listing Content"
-  },
-  {
-   "fieldname": "sublabel",
-   "fieldtype": "Data",
-   "label": "Sublabel"
-  },
-  {
-   "fieldname": "web_listing_content_column",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "dimensions_image",
-   "fieldtype": "Attach Image",
-   "label": "Dimensions Image"
-  },
-  {
-   "fieldname": "web_configurator_section",
-   "fieldtype": "Section Break",
-   "label": "Configurator"
-  },
-  {
-   "fieldname": "part_no_configurator",
-   "fieldtype": "Table",
-   "label": "Part No. Configurator",
-   "options": "ilL-Child-Webflow-Configurator-Option",
-   "description": "The configurator steps and their allowed values. The Webflow Product copies them."
-  },
-  {
-   "fieldname": "web_specifications_section",
-   "fieldtype": "Section Break",
-   "label": "Specifications"
-  },
-  {
-   "fieldname": "specifications",
-   "fieldtype": "Table",
-   "label": "Specifications",
-   "options": "ilL-Child-Webflow-Spec-Custom",
-   "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
-  },
-  {
-   "fieldname": "web_certifications_section",
-   "fieldtype": "Section Break",
-   "label": "Certifications"
-  },
-  {
-   "fieldname": "certifications",
-   "fieldtype": "Table",
-   "label": "Certifications",
-   "options": "ilL-Child-Spec-Certification",
-   "description": "Copied to the Webflow Product with each brand's badge images."
-  },
-  {
-   "fieldname": "web_documents_section",
-   "fieldtype": "Section Break",
-   "label": "Documents"
-  },
-  {
-   "fieldname": "spec_sheet_public_url",
-   "fieldtype": "Data",
-   "label": "Spec Sheet Public URL",
-   "read_only": 1,
-   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
-  },
-  {
-   "fieldname": "other_documents",
-   "fieldtype": "Table",
-   "label": "Other Documents",
-   "options": "ilL-Child-Webflow-Document"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-31 23:50:43.000000",
+ "modified": "2026-11-01 00:34:56.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Fixture-Template",

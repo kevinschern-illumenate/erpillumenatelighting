@@ -7,7 +7,8 @@ Run from the repository root after editing ``web_listing_schema.py``:
 It also refreshes the YAML builder's doctype snapshot (tools/yaml_builder_ui/src/catalog-schema.json).
 
 Idempotent: everything from the Product Data tab on is replaced, Product Status sits right
-after is_active (which becomes read only), webflow_product becomes editable while empty,
+after is_active (which becomes read only), Target Brands and Sublabel sit on the first tab
+(web_listing_schema.DETAILS_FIELDS), webflow_product becomes editable while empty,
 and a doctype's
 ``modified`` stamp only moves when its fields actually change, so ``bench migrate``
 reloads exactly the doctypes that changed.
@@ -22,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	DETAILS_FIELDS,
 	IS_ACTIVE_OVERRIDES,
 	STATUS_AFTER,
 	STATUS_FIELD,
@@ -45,6 +47,7 @@ def stamp(doctype, module, now):
 	existing = data["fields"]
 	tab = next((i for i, field in enumerate(existing) if field["fieldname"] == TAB), len(existing))
 	names.add(STATUS_FIELD["fieldname"])
+	names.update(field["fieldname"] for field, _anchor in DETAILS_FIELDS)
 	fields = []
 	for field in existing[:tab]:
 		if field["fieldname"] in names:
@@ -55,6 +58,10 @@ def stamp(doctype, module, now):
 			fields.append({**field, **WEBFLOW_PRODUCT_OVERRIDES})
 		else:
 			fields.append(field)
+	# Details-tab fields go right after their anchor (owner layout, 2026-11-01).
+	for detail, anchor in DETAILS_FIELDS:
+		at = next(i for i, field in enumerate(fields) if field["fieldname"] == anchor)
+		fields.insert(at + 1, dict(detail))
 	fields += [dict(field) for field in added]
 	if fields == data["fields"]:
 		return False

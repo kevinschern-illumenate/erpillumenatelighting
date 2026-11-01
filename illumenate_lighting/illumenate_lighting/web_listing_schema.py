@@ -94,18 +94,20 @@ def _column(fieldname):
 	return {"fieldname": fieldname, "fieldtype": "Column Break"}
 
 
-SHARED_FIELDS = [
-	{"fieldname": TAB, "fieldtype": "Tab Break", "label": "Product Data"},
-	_section("product_data_section", "Product Data"),
-	{"fieldname": "warranty_years", "fieldtype": "Int", "label": "Warranty (Years)"},
-	# Marketing first added this on the live site; the Webflow Product copies it from its
-	# template on save (set_dynamic_hero_image).
-	_column("product_data_column"),
-	{"fieldname": "hero_image", "fieldtype": "Attach Image", "label": "Hero Image"},
-]
+# Layout (owner, 2026-11-01): one two-column Product Data section, then Documents, then
+# Specifications & Certifications, Configurator, Kit Components, Photometrics, Colorimetry.
+# Target Brands and Sublabel sit on the template's first tab instead (DETAILS_FIELDS).
+_WARRANTY = {"fieldname": "warranty_years", "fieldtype": "Int", "label": "Warranty (Years)"}
+# Marketing first added this on the live site; the Webflow Product copies it from its
+# template on save (set_dynamic_hero_image).
+_HERO_IMAGE = {"fieldname": "hero_image", "fieldtype": "Attach Image", "label": "Hero Image"}
+_DIMENSIONS_IMAGE = {
+	"fieldname": "dimensions_image",
+	"fieldtype": "Attach Image",
+	"label": "Dimensions Image",
+}
 
 _LENGTHS = [
-	_section("web_lengths_section", "Lengths"),
 	{"fieldname": "min_length_mm", "fieldtype": "Int", "label": "Min Length (mm)"},
 	{"fieldname": "max_length_mm", "fieldtype": "Int", "label": "Max Length (mm)"},
 	{"fieldname": "length_increment_mm", "fieldtype": "Int", "label": "Length Increment (mm)"},
@@ -121,9 +123,7 @@ _FEED_LENGTHS = [
 ]
 
 _SPEC_SHEET_DATA = [
-	_section("web_spec_sheet_section", "Spec Sheet Data"),
 	{"fieldname": "l70_life_hours", "fieldtype": "Int", "label": "L70 Life (Hours)"},
-	_column("web_spec_sheet_column"),
 	{"fieldname": "operating_temp_min_c", "fieldtype": "Int", "label": "Operating Temp Min (C)"},
 	{"fieldname": "operating_temp_max_c", "fieldtype": "Int", "label": "Operating Temp Max (C)"},
 ]
@@ -221,61 +221,58 @@ def _configurator_table(fieldname):
 
 # Listing data the template owns and its Webflow Product mirrors (plan 4.1, D10, D57).
 # Target Brands holds at most one enabled row (D17, D22).
-def _listing_data(configurator, category=None):
-	return [
-		_section("web_brand_section", "Brand"),
-		{
-			"fieldname": "target_brands",
-			"fieldtype": "Table",
-			"label": "Target Brand",
-			"options": "ilL-Child-Webflow-Brand-Target",
-			"description": (
-				"The one brand this template is listed under. At most one row can be enabled, and "
-				"one is required to link a Webflow Product or generate a spec sheet."
-			),
-		},
-		_section("web_listing_content_section", "Listing Content"),
-		{"fieldname": "sublabel", "fieldtype": "Data", "label": "Sublabel"},
-		*([category] if category else []),
-		_column("web_listing_content_column"),
-		{"fieldname": "dimensions_image", "fieldtype": "Attach Image", "label": "Dimensions Image"},
-		_section("web_configurator_section", "Configurator"),
-		_configurator_table(configurator),
-		_section("web_specifications_section", "Specifications"),
-		{
-			"fieldname": "specifications",
-			"fieldtype": "Table",
-			"label": "Specifications",
-			"options": "ilL-Child-Webflow-Spec-Custom",
-			"description": (
-				"Rows with calculated labels are rebuilt on save; rows with other labels are kept. "
-				"Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
-			),
-		},
-		_section("web_certifications_section", "Certifications"),
-		{
-			"fieldname": "certifications",
-			"fieldtype": "Table",
-			"label": "Certifications",
-			"options": "ilL-Child-Spec-Certification",
-			"description": "Copied to the Webflow Product with each brand's badge images.",
-		},
-		_section("web_documents_section", "Documents"),
-		{
-			"fieldname": "spec_sheet_public_url",
-			"fieldtype": "Data",
-			"label": "Spec Sheet Public URL",
-			"read_only": 1,
-			"description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-		},
-		{
-			"fieldname": "other_documents",
-			"fieldtype": "Table",
-			"label": "Other Documents",
-			"options": "ilL-Child-Webflow-Document",
-		},
-	]
+TARGET_BRANDS_FIELD = {
+	"fieldname": "target_brands",
+	"fieldtype": "Table",
+	"label": "Target Brand",
+	"options": "ilL-Child-Webflow-Brand-Target",
+	"description": (
+		"The one brand this template is listed under. At most one row can be enabled, and "
+		"one is required to link a Webflow Product or generate a spec sheet."
+	),
+}
+SUBLABEL_FIELD = {"fieldname": "sublabel", "fieldtype": "Data", "label": "Sublabel"}
 
+# Placed on the template's first tab, each right after its anchor field (owner layout).
+DETAILS_FIELDS = ((TARGET_BRANDS_FIELD, "product_status"), (SUBLABEL_FIELD, "template_name"))
+
+_DOCUMENTS = [
+	_section("web_documents_section", "Documents"),
+	{
+		"fieldname": "spec_sheet_public_url",
+		"fieldtype": "Data",
+		"label": "Spec Sheet Public URL",
+		"read_only": 1,
+		"description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+	},
+	{
+		"fieldname": "other_documents",
+		"fieldtype": "Table",
+		"label": "Other Documents",
+		"options": "ilL-Child-Webflow-Document",
+	},
+]
+
+_SPECS_AND_CERTIFICATIONS = [
+	_section("web_specs_certs_section", "Specifications & Certifications"),
+	{
+		"fieldname": "specifications",
+		"fieldtype": "Table",
+		"label": "Specifications",
+		"options": "ilL-Child-Webflow-Spec-Custom",
+		"description": (
+			"Rows with calculated labels are rebuilt on save; rows with other labels are kept. "
+			"Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+		),
+	},
+	{
+		"fieldname": "certifications",
+		"fieldtype": "Table",
+		"label": "Certifications",
+		"options": "ilL-Child-Spec-Certification",
+		"description": "Copied to the Webflow Product with each brand's badge images.",
+	},
+]
 
 # Tape/Neon's own product_category is the tape family (LED Tape, COB Tape, LED Neon), so the
 # Webflow category it is listed under is a separate field (D54).
@@ -287,35 +284,58 @@ _TAPE_WEBFLOW_CATEGORY = {
 	"description": "The category this template's Webflow Product is listed under.",
 }
 
-LISTING_DATA = {
-	doctype: _listing_data(
-		CONFIGURATOR_TABLE[doctype],
-		_TAPE_WEBFLOW_CATEGORY if doctype == "ilL-Tape-Neon-Template" else None,
-	)
-	for doctype in TEMPLATE_DOCTYPES
-}
-
 # Photometric fields a template may hold; exports read them from the template.
 PHOTOMETRIC_FIELDS = ("photometric_image", "tm30_chart_image", "polar_chart_image", "photometric_data")
 
-TYPE_FIELDS = {
-	"ilL-Fixture-Template": _LENGTHS
-	+ _FEED_LENGTHS
-	+ _SPEC_SHEET_DATA
-	+ _WEIGHT
-	+ _PHOTOMETRICS
-	+ _COLORIMETRY,
-	"ilL-Tape-Neon-Template": _LENGTHS
-	+ _FEED_LENGTHS
-	+ _SPEC_SHEET_DATA
-	+ _WEIGHT
-	+ _PHOTOMETRICS
-	+ _COLORIMETRY,
-	"ilL-Controller-Template": [],
-	"ilL-Driver-Template": [],
-	"ilL-Extrusion-Kit-Template": _LENGTHS + _SPEC_SHEET_DATA + _WEIGHT + _KIT_COMPONENTS + _PHOTOMETRICS,
-	"ilL-LED-Sheet-Template": _SPEC_SHEET_DATA + _PHOTOMETRICS + _COLORIMETRY,
+_FIXTURE_TAPE = {
+	"lengths": True,
+	"feed": True,
+	"spec": True,
+	"weight": True,
+	"photometrics": True,
+	"colorimetry": True,
 }
+# What each template's Product Data tab holds.
+TEMPLATE_PARTS = {
+	"ilL-Fixture-Template": _FIXTURE_TAPE,
+	"ilL-Tape-Neon-Template": {**_FIXTURE_TAPE, "category": True},
+	"ilL-Controller-Template": {},
+	"ilL-Driver-Template": {},
+	"ilL-Extrusion-Kit-Template": {
+		"lengths": True,
+		"spec": True,
+		"weight": True,
+		"kit": True,
+		"photometrics": True,
+	},
+	"ilL-LED-Sheet-Template": {"spec": True, "photometrics": True, "colorimetry": True},
+}
+
+
+def _tab_fields(doctype):
+	parts = TEMPLATE_PARTS[doctype]
+	left = [
+		_WARRANTY,
+		*(_LENGTHS if parts.get("lengths") else []),
+		*(_WEIGHT if parts.get("weight") else []),
+		*([_TAPE_WEBFLOW_CATEGORY] if parts.get("category") else []),
+		*(_FEED_LENGTHS if parts.get("feed") else []),
+	]
+	right = [_HERO_IMAGE, _DIMENSIONS_IMAGE, *(_SPEC_SHEET_DATA if parts.get("spec") else [])]
+	return [
+		{"fieldname": TAB, "fieldtype": "Tab Break", "label": "Product Data"},
+		_section("product_data_section", "Product Data"),
+		*left,
+		_column("product_data_column"),
+		*right,
+		*_DOCUMENTS,
+		*_SPECS_AND_CERTIFICATIONS,
+		_section("web_configurator_section", "Configurator"),
+		_configurator_table(CONFIGURATOR_TABLE[doctype]),
+		*(_KIT_COMPONENTS if parts.get("kit") else []),
+		*(_PHOTOMETRICS if parts.get("photometrics") else []),
+		*(_COLORIMETRY if parts.get("colorimetry") else []),
+	]
 
 
 # Fields some templates defined before the Product Data tab existed; they keep
@@ -332,15 +352,14 @@ PREEXISTING = {
 
 def fields_for(doctype):
 	"""Product Data tab fields for one template, skipping fieldnames it already defines."""
-	return [
-		field
-		for field in SHARED_FIELDS + TYPE_FIELDS[doctype] + LISTING_DATA[doctype]
-		if field["fieldname"] not in PREEXISTING[doctype]
-	]
+	return [field for field in _tab_fields(doctype) if field["fieldname"] not in PREEXISTING[doctype]]
 
 
 def added_fieldnames(doctype):
-	"""Data-bearing fieldnames this schema adds to one template, Product Status included."""
-	return {
-		field["fieldname"] for field in fields_for(doctype) if not field["fieldtype"].endswith("Break")
-	} | {STATUS_FIELD["fieldname"]}
+	"""Data-bearing fieldnames this schema adds to one template, Product Status and the
+	Details-tab fields included."""
+	return (
+		{field["fieldname"] for field in fields_for(doctype) if not field["fieldtype"].endswith("Break")}
+		| {STATUS_FIELD["fieldname"]}
+		| {field["fieldname"] for field, _anchor in DETAILS_FIELDS}
+	)

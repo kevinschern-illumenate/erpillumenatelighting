@@ -59,7 +59,6 @@ class StampedSchema(unittest.TestCase):
 
 	def test_every_template_owns_its_listing_data_on_the_product_data_tab(self):
 		listing = {
-			"target_brands": "ilL-Child-Webflow-Brand-Target",
 			"certifications": "ilL-Child-Spec-Certification",
 			"other_documents": "ilL-Child-Webflow-Document",
 			"specifications": "ilL-Child-Webflow-Spec-Custom",
@@ -70,8 +69,12 @@ class StampedSchema(unittest.TestCase):
 				names = [field["fieldname"] for field in fields]
 				tab = names.index(TAB)
 				by_name = {field["fieldname"]: field for field in fields}
-				for fieldname in ("sublabel", "dimensions_image", "spec_sheet_public_url", *listing):
+				for fieldname in ("dimensions_image", "spec_sheet_public_url", *listing):
 					self.assertGreater(names.index(fieldname), tab, fieldname)
+				# Owner layout: Target Brands under Product Status, Sublabel under Template Name.
+				self.assertEqual(names[names.index("product_status") + 1], "target_brands")
+				self.assertEqual(names[names.index("template_name") + 1], "sublabel")
+				self.assertEqual(by_name["target_brands"]["options"], "ilL-Child-Webflow-Brand-Target")
 				for fieldname, child in listing.items():
 					self.assertEqual(by_name[fieldname]["options"], child)
 				self.assertEqual(by_name["spec_sheet_public_url"]["read_only"], 1)
@@ -84,6 +87,20 @@ class StampedSchema(unittest.TestCase):
 		fields = {f["fieldname"]: f for f in doctype_json("ill_fixture_template")["fields"]}
 		self.assertEqual(fields["part_number_builder"]["options"], "ilL-Child-PN-Builder-Row")
 		self.assertEqual(set(CONFIGURATOR_TABLE.values()), {"part_no_configurator"})
+
+	def test_product_data_tab_layout(self):
+		for doctype, module in TEMPLATE_DOCTYPES.items():
+			with self.subTest(doctype=doctype):
+				fields = doctype_json(module)["fields"]
+				start = [f["fieldname"] for f in fields].index(TAB)
+				sections = [f["label"] for f in fields[start:] if f["fieldtype"] == "Section Break"]
+				self.assertEqual(
+					sections[:4],
+					["Product Data", "Documents", "Specifications & Certifications", "Configurator"],
+				)
+				first = fields[start + 2 : [f["fieldname"] for f in fields].index("web_documents_section")]
+				self.assertEqual(sum(f["fieldtype"] == "Column Break" for f in first), 1)
+				self.assertIn("dimensions_image", {f["fieldname"] for f in first})
 
 	def test_webflow_product_is_editable_only_while_empty(self):
 		for module in TEMPLATE_DOCTYPES.values():

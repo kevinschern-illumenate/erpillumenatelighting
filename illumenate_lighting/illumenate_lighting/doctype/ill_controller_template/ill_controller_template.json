@@ -10,8 +10,10 @@
   "identity_section",
   "template_code",
   "template_name",
+  "sublabel",
   "is_active",
   "product_status",
+  "target_brands",
   "column_break_identity",
   "series",
   "product_category",
@@ -35,21 +37,15 @@
   "warranty_years",
   "product_data_column",
   "hero_image",
-  "web_brand_section",
-  "target_brands",
-  "web_listing_content_section",
-  "sublabel",
-  "web_listing_content_column",
   "dimensions_image",
-  "web_configurator_section",
-  "part_no_configurator",
-  "web_specifications_section",
-  "specifications",
-  "web_certifications_section",
-  "certifications",
   "web_documents_section",
   "spec_sheet_public_url",
-  "other_documents"
+  "other_documents",
+  "web_specs_certs_section",
+  "specifications",
+  "certifications",
+  "web_configurator_section",
+  "part_no_configurator"
  ],
  "fields": [
   {
@@ -73,6 +69,11 @@
    "label": "Template Name"
   },
   {
+   "fieldname": "sublabel",
+   "fieldtype": "Data",
+   "label": "Sublabel"
+  },
+  {
    "default": "1",
    "fieldname": "is_active",
    "fieldtype": "Check",
@@ -89,6 +90,13 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+  },
+  {
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brand",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
   },
   {
    "fieldname": "column_break_identity",
@@ -220,71 +228,9 @@
    "label": "Hero Image"
   },
   {
-   "fieldname": "web_brand_section",
-   "fieldtype": "Section Break",
-   "label": "Brand"
-  },
-  {
-   "fieldname": "target_brands",
-   "fieldtype": "Table",
-   "label": "Target Brand",
-   "options": "ilL-Child-Webflow-Brand-Target",
-   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-  },
-  {
-   "fieldname": "web_listing_content_section",
-   "fieldtype": "Section Break",
-   "label": "Listing Content"
-  },
-  {
-   "fieldname": "sublabel",
-   "fieldtype": "Data",
-   "label": "Sublabel"
-  },
-  {
-   "fieldname": "web_listing_content_column",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "dimensions_image",
    "fieldtype": "Attach Image",
    "label": "Dimensions Image"
-  },
-  {
-   "fieldname": "web_configurator_section",
-   "fieldtype": "Section Break",
-   "label": "Configurator"
-  },
-  {
-   "fieldname": "part_no_configurator",
-   "fieldtype": "Table",
-   "label": "Part No. Configurator",
-   "options": "ilL-Child-Webflow-Configurator-Option",
-   "description": "The configurator steps and their allowed values. The Webflow Product copies them."
-  },
-  {
-   "fieldname": "web_specifications_section",
-   "fieldtype": "Section Break",
-   "label": "Specifications"
-  },
-  {
-   "fieldname": "specifications",
-   "fieldtype": "Table",
-   "label": "Specifications",
-   "options": "ilL-Child-Webflow-Spec-Custom",
-   "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
-  },
-  {
-   "fieldname": "web_certifications_section",
-   "fieldtype": "Section Break",
-   "label": "Certifications"
-  },
-  {
-   "fieldname": "certifications",
-   "fieldtype": "Table",
-   "label": "Certifications",
-   "options": "ilL-Child-Spec-Certification",
-   "description": "Copied to the Webflow Product with each brand's badge images."
   },
   {
    "fieldname": "web_documents_section",
@@ -303,12 +249,43 @@
    "fieldtype": "Table",
    "label": "Other Documents",
    "options": "ilL-Child-Webflow-Document"
+  },
+  {
+   "fieldname": "web_specs_certs_section",
+   "fieldtype": "Section Break",
+   "label": "Specifications & Certifications"
+  },
+  {
+   "fieldname": "specifications",
+   "fieldtype": "Table",
+   "label": "Specifications",
+   "options": "ilL-Child-Webflow-Spec-Custom",
+   "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Spec-Certification",
+   "description": "Copied to the Webflow Product with each brand's badge images."
+  },
+  {
+   "fieldname": "web_configurator_section",
+   "fieldtype": "Section Break",
+   "label": "Configurator"
+  },
+  {
+   "fieldname": "part_no_configurator",
+   "fieldtype": "Table",
+   "label": "Part No. Configurator",
+   "options": "ilL-Child-Webflow-Configurator-Option",
+   "description": "The configurator steps and their allowed values. The Webflow Product copies them."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-31 23:50:43.000000",
+ "modified": "2026-11-01 00:34:56.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",
