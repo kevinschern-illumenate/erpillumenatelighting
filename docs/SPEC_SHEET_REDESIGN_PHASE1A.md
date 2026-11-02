@@ -179,6 +179,12 @@ bench --site stagingillumenate.v.frappe.cloud execute illumenate_lighting.illume
 bench --site stagingillumenate.v.frappe.cloud execute illumenate_lighting.illumenate_lighting.template_link_report.promote_live_templates --kwargs "{'apply': True}"
 ```
 
+## Later phase: layout and field cleanup (owner, 2026-11-02)
+
+A separate final phase, after a spec sheet can be generated and Webflow updated end to end and that has
+been verified on staging: go back over the templates and the Webflow Product, find the fields that were
+never used, and clean up layout and fields. Until then, layout changes are kept to what the work needs.
+
 ## Questions for the owner
 
 1. *(Answered: D58 above.)* **`part_number_builder` name conflict (D25).** The Fixture template already has a
