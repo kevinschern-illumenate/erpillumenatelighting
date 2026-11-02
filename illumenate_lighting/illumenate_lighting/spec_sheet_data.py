@@ -186,6 +186,15 @@ def _include_configurator(brand):
 	return bool(config is None or config.get("include_configurator_payload", True))
 
 
+def _base_url():
+	try:
+		from frappe.utils import get_url
+
+		return get_url()
+	except Exception:
+		return None
+
+
 def _environment():
 	configured = frappe.conf.get("illumenate_environment")
 	if configured:
@@ -227,6 +236,8 @@ def build(template, product, brand, legacy=None):
 			# The Webflow spec sheet template page is chosen by product type.
 			"product_type": product.product_type if product else _product_type(template),
 			"include_configurator": _include_configurator(brand),
+			# Images and files are stored as /files/...; prefix this to make them absolute.
+			"base_url": _base_url(),
 		},
 		"template": template_section(template),
 		"product": product_section(product) if product else None,

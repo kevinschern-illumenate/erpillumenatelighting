@@ -129,6 +129,12 @@ def refresh_template(template):
 	"""
 	if template.flags.skip_listing_refresh:
 		return
+	from illumenate_lighting.illumenate_lighting import template_images
+
+	try:
+		template_images.refresh(template)
+	except Exception:
+		frappe.log_error(title=f"Template images refresh failed: {template.name}")
 	try:
 		specifications, configurator = compute(template)
 	except Exception as error:

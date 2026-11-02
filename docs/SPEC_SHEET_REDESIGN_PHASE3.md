@@ -37,3 +37,31 @@ import json
 from illumenate_lighting.illumenate_lighting.spec_sheet_data import check_template_records
 print(json.dumps(check_template_records(), default=str, indent=1))
 ```
+
+## Moving the spec workflow off `legacy` (owner, 2026-11-02)
+
+New template columns, filled on every template save (`template_images.py`):
+
+- Kit components `component_image`: per component type, the first item's template item image
+  (`variant_of`), else the item's own image. Example: KIT-RA01, Profile, CH-RA01-SW -> CH-RA01's image.
+- Certifications `badge_image`: the linked certification's dark badge for the template's brand
+  (ilLumenate `custom_badge_image_dark`, 206 Lighting `custom_206_badge_image_dark`).
+
+`context` gains `product_type`, `include_configurator` and `base_url`.
+
+Owner's mapping for the spec workflow:
+
+| Spec sheet key | Template source |
+|---|---|
+| `product_name` | `display_name`, else `template_name` |
+| `sublabel` | `sublabel` |
+| `featured_image` | `hero_image` |
+| `dimensions_image_dark`, `custom_dimensions_image_2` | `dimensions_image` |
+| `product_slug` | `template_code`, lowercase |
+| `product_type` | `context.product_type` |
+| `configurator_options` | `part_no_configurator` (empty when `context.include_configurator` is false) |
+| `specifications` | `specifications`: `spec_label`, `spec_value`, `display_order` only |
+| `kit_components` | `kit_components` grouped by type, as before: `[{hero_image: component_image}, {code: component_item, label: webflow_description}...]` |
+| `certifications` | `certifications`: `certification`, badge from `badge_image` |
+| `photometric_image`, `photometric_data`, `colorimetry` | still `legacy` |
+| `custom_compatible_power_supplies` | still `legacy` (product owns it) |

@@ -8,6 +8,7 @@
  "field_order": [
   "component_type",
   "component_item",
+  "component_image",
   "component_spec_doctype",
   "component_spec_name",
   "column_break_kit",
@@ -32,6 +33,13 @@
    "label": "Component Item",
    "options": "Item",
    "reqd": 1
+  },
+  {
+   "fieldname": "component_image",
+   "fieldtype": "Attach Image",
+   "label": "Component Image",
+   "read_only": 1,
+   "description": "Set on template save: the image of the first item of this component type (its template item's image, from Variant Of, else the item's own). Shown on the spec sheet."
   },
   {
    "fieldname": "component_spec_doctype",
@@ -76,7 +84,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-02 12:00:00.000000",
+ "modified": "2026-11-03 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Webflow-Kit-Component",

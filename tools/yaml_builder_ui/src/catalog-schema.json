@@ -2155,6 +2155,13 @@
           "fieldtype": "Link",
           "options": "ilL-Attribute-Certification",
           "reqd": 1
+        },
+        {
+          "fieldname": "badge_image",
+          "label": "Badge Image",
+          "fieldtype": "Attach Image",
+          "description": "Set on template save from the certification: the dark badge for the template's brand (ilLumenate: Badge Image Dark; 206 Lighting: 206 Badge Image Dark).",
+          "read_only": 1
         }
       ]
     },
@@ -2741,6 +2748,13 @@
           "fieldtype": "Link",
           "options": "Item",
           "reqd": 1
+        },
+        {
+          "fieldname": "component_image",
+          "label": "Component Image",
+          "fieldtype": "Attach Image",
+          "description": "Set on template save: the image of the first item of this component type (its template item's image, from Variant Of, else the item's own). Shown on the spec sheet.",
+          "read_only": 1
         },
         {
           "fieldname": "component_spec_doctype",
