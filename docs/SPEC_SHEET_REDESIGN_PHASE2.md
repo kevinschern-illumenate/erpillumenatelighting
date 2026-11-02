@@ -118,6 +118,12 @@ product is linked to a template, with a note to edit the template.
 calculates), readers keep showing the product's own steps (`template_listing.pending_decision`), so
 the website does not change before the owner chooses. Added after the first dry run.
 
+**Owner decisions on the first dry run (2026-11-02):** Tape/Neon and fixtures with hand-set
+steps keep them (the narrower fixture choices are deliberate; the Tape/Neon step layout is the one
+the website uses). The 10 fixtures with no steps take the calculated ones. The goal is still that
+every template calculates; each one is switched back once its template options match what is sold,
+without breaking the website.
+
 **Hand-set configurators (owner decision, 2026-11-02).** 55 products have steps set up by hand
 (Auto-Populate off), and the website shows those steps today. To keep the website as it is, their
 templates take those steps and stop calculating (Calculate Configurator on Save off). The owner can
@@ -132,7 +138,8 @@ switch any template back to calculated steps later by ticking the check.
   For a step whose summary looks the same, `differs` names the fields that differ
   (`is_required`, `depends_on_step`, `option_description`, allowed values) and
   `only_hand_set` / `only_calculated` list the allowed values on one side only.
-- `empty_on_product`: products with no steps at all (no configurator on the website today).
+- `empty_on_product`: products with no steps at all (no configurator on the website today). They
+  switch to the calculated steps (owner, 2026-11-02), so they are also listed in `kept_calculated`.
 - `kept_calculated`: products named in `use_calculated`. With `apply` their Auto-Populate is turned
   back on and they show the template's calculated steps.
 - `already_hand_set`, `failed`.

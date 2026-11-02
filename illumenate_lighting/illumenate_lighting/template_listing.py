@@ -441,7 +441,7 @@ def adopt_hand_set_configurators(apply=False, use_calculated=None):
 	their templates keep calculating.
 
 	``empty_on_product`` lists products with no steps at all (no configurator on the website
-	today); adopting keeps it that way.
+	today). They switch to the calculated steps (owner, 2026-11-02).
 
 	``use_calculated``: product names that switch to the template's calculated steps instead
 	(their Auto-Populate is turned back on, so readers take the template's steps).
@@ -458,6 +458,7 @@ def adopt_hand_set_configurators(apply=False, use_calculated=None):
 		"kept_calculated": [],
 		"already_hand_set": [],
 		"identical": [],
+		"empty_on_product": [],
 		"failed": [],
 	}
 	for doctype in TEMPLATE_DOCTYPES:
@@ -501,8 +502,10 @@ def adopt_hand_set_configurators(apply=False, use_calculated=None):
 				result["already_hand_set"].append(entry)
 				continue
 			if not hand:
-				entry["empty_on_product"] = True
+				# No steps on the product (no configurator on the website): the owner chose the
+				# calculated steps for these (2026-11-02).
 				result["empty_on_product"].append(product.name)
+				keep.add(product.name)
 			if steps and not entry["different_steps"]:
 				result["identical"].append(entry["product"])
 				if apply:

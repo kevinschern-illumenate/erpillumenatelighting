@@ -270,6 +270,55 @@ class Listing(unittest.TestCase):
 		self.module.refresh_template(template)
 		self.assertEqual(template["part_no_configurator"], [{"option_step": 1}])
 
+	def test_the_adoption_report_sorts_every_kind_of_product(self):
+		import json
+
+		self.frappe.parse_json = json.loads
+		self.frappe.as_json = json.dumps
+		self.frappe.only_for = MagicMock()
+		self.frappe.db.savepoint = MagicMock()
+		self.frappe.db.commit = MagicMock()
+		self.frappe.db.set_value = MagicMock()
+		step = {"option_step": 1, "option_type": "CCT", "option_label": "CCT", "allowed_values_json": "[]"}
+		other = {**step, "allowed_values_json": '["30"]'}
+		cases = {
+			# product: (hand-set rows, template calculated rows)
+			"hand": ([step], [other]),
+			"empty": ([], [other]),
+			"same": ([step], [step]),
+			"auto": ([step], [other]),
+		}
+		templates = {name: Doc(TAPE, name, part_no_configurator=calc) for name, (_h, calc) in cases.items()}
+		for template in templates.values():
+			template.save = MagicMock()
+
+		def get_all(doctype, filters=None, **kwargs):
+			if doctype == TAPE:
+				return [Record(name=name, webflow_product=name) for name in cases]
+			if doctype == self.module.OPTION:
+				return cases[filters["parent"]][0]
+			return []
+
+		self.frappe.get_all.side_effect = get_all
+		self.frappe.db.get_value.side_effect = lambda doctype, name, fields, as_dict=False: Record(
+			name=name,
+			tape_neon_template=name,
+			is_configurable=1,
+			auto_populate_configurator_options=1 if name == "auto" else 0,
+		)
+		self.frappe.get_doc.side_effect = lambda doctype, name: templates[name]
+		result = self.module.adopt_hand_set_configurators(apply=True)
+		self.assertEqual([entry["product"] for entry in result["adopted"]], ["hand"])
+		self.assertEqual(result["empty_on_product"], ["empty"])
+		self.assertEqual([entry["product"] for entry in result["kept_calculated"]], ["empty"])
+		self.assertEqual(result["identical"], ["same"])
+		self.assertEqual(result["failed"], [])
+		self.assertEqual(templates["hand"]["auto_populate_configurator"], 0)
+		templates["hand"].save.assert_called_once()
+		templates["empty"].save.assert_not_called()
+		switched = sorted(call.args[1] for call in self.frappe.db.set_value.call_args_list)
+		self.assertEqual(switched, ["empty", "same"])
+
 	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
 		diff = self.module.diff_listing(
 			[
