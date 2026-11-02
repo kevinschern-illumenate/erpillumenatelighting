@@ -379,8 +379,15 @@ def get_catalog_product_detail(product_slug: str, finder=None) -> dict:
             "certification_name", "certification_body", "certification_code", "badge_image"
         )})
     price = _per_foot_prices([product]).get(product.name)
+    from illumenate_lighting.illumenate_lighting.template_listing import configurator_rows
+
+    # The configurator steps come from the linked template (Phase 2c).
+    projected = {
+        **product.as_dict(),
+        "configurator_options": configurator_rows([product])[product.name],
+    }
     projection = _project(
-        product, _template_activity([product]), certifications=certifications, price=price
+        projected, _template_activity([product]), certifications=certifications, price=price
     )
     projection.update(_template_photometrics(product))
     if not projection["configure_url"]:

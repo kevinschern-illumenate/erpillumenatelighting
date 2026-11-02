@@ -202,13 +202,28 @@ CONFIGURATOR_FIELD = "part_no_configurator"
 CONFIGURATOR_TABLE = {doctype: CONFIGURATOR_FIELD for doctype in TEMPLATE_DOCTYPES}
 
 
+CONFIGURATOR_AUTO_FIELD = {
+	"fieldname": "auto_populate_configurator",
+	"fieldtype": "Check",
+	"label": "Calculate Configurator on Save",
+	"default": "1",
+	"description": (
+		"When checked, the steps below are rebuilt from this template's options on every save "
+		"(the Is Required choices are kept). Uncheck it to set the steps up by hand."
+	),
+}
+
+
 def _configurator_table(fieldname):
 	return {
 		"fieldname": fieldname,
 		"fieldtype": "Table",
 		"label": "Part No. Configurator",
 		"options": "ilL-Child-Webflow-Configurator-Option",
-		"description": "The configurator steps and their allowed values. The Webflow Product copies them.",
+		"description": (
+			"The configurator steps and their allowed values. The website and the dealer portal "
+			"read them from here."
+		),
 	}
 
 
@@ -356,6 +371,7 @@ def _tab_fields(doctype):
 		*right,
 		*_SPECS_AND_CERTIFICATIONS,
 		_section("web_configurator_section", "Configurator"),
+		CONFIGURATOR_AUTO_FIELD,
 		_configurator_table(CONFIGURATOR_TABLE[doctype]),
 		*(_KIT_COMPONENTS if parts.get("kit") else []),
 		*(_PHOTOMETRICS if parts.get("photometrics") else []),

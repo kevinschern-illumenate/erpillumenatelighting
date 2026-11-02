@@ -155,6 +155,90 @@ class Listing(unittest.TestCase):
 		self.assertEqual(template["specifications"], [spec("Watts per Foot", "4.4")])
 		self.frappe.msgprint.assert_called_once()
 
+	def readers(self, legacy=False):
+		self.frappe.flags.web_listing_legacy_read = legacy
+		templates = [Record(name="led-hd-sw", webflow_product="led-hd-sw")]
+		rows = {
+			"ilL-Tape-Neon-Template": [Record(parent="led-hd-sw", option_step=1, option_type="CCT")],
+			"ilL-Webflow-Product": [
+				Record(parent="led-hd-sw", option_step=0, option_type="Series"),
+				Record(parent="no-template", option_step=2, option_type="Finish"),
+			],
+		}
+
+		def get_all(doctype, filters=None, **kwargs):
+			if doctype == TAPE:
+				return templates
+			if doctype == self.module.OPTION:
+				return [
+					row for row in rows.get(filters["parenttype"], []) if row.parent in filters["parent"][1]
+				]
+			return []
+
+		self.frappe.get_all.side_effect = get_all
+		products = [
+			{"name": "led-hd-sw", "tape_neon_template": "led-hd-sw"},
+			{"name": "no-template"},
+		]
+		return self.module.configurator_rows(products)
+
+	def test_readers_take_the_templates_configurator(self):
+		result = self.readers()
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["CCT"])
+		# A product without a template keeps reading its own table.
+		self.assertEqual([row.option_type for row in result["no-template"]], ["Finish"])
+
+	def test_legacy_read_sends_readers_back_to_the_product(self):
+		result = self.readers(legacy=True)
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["Series"])
+
+	def test_a_hand_set_configurator_is_shown_next_to_the_calculated_one(self):
+		hand = [
+			{
+				"option_step": 0,
+				"option_type": "Series",
+				"option_label": "Series",
+				"allowed_values_json": "[1]",
+			},
+			{
+				"option_step": 1,
+				"option_type": "CCT",
+				"option_label": "CCT",
+				"allowed_values_json": '["a","b"]',
+			},
+		]
+		calculated = [
+			{
+				"option_step": 1,
+				"option_type": "CCT",
+				"option_label": "CCT",
+				"allowed_values_json": '["a","b"]',
+			},
+			{
+				"option_step": 2,
+				"option_type": "Finish",
+				"option_label": "Finish",
+				"allowed_values_json": "[]",
+			},
+		]
+		self.frappe.parse_json = __import__("json").loads
+		steps = self.module.side_by_side(hand, calculated)
+		self.assertEqual([step["step"] for step in steps], [0, 1, 2])
+		self.assertEqual([step["same"] for step in steps], [False, True, False])
+		self.assertEqual(steps[0]["hand_set"], "Series / Series (1 values)")
+		self.assertIsNone(steps[0]["calculated"])
+		self.assertEqual(steps[2]["calculated"], "Finish / Finish (0 values)")
+
+	def test_a_template_set_up_by_hand_keeps_its_steps(self):
+		self.module.compute = MagicMock(return_value=([spec("CRI", "90")], [{"option_step": 1}]))
+		template = Doc(TAPE, "led-hd-sw", auto_populate_configurator=0, part_no_configurator=["hand"])
+		self.module.refresh_template(template)
+		self.assertEqual(template["part_no_configurator"], ["hand"])
+		self.assertEqual(template["specifications"], [spec("CRI", "90")])
+		template["auto_populate_configurator"] = 1
+		self.module.refresh_template(template)
+		self.assertEqual(template["part_no_configurator"], [{"option_step": 1}])
+
 	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
 		diff = self.module.diff_listing(
 			[

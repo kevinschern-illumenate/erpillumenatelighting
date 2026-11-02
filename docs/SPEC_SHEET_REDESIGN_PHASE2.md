@@ -79,3 +79,77 @@ It now does so only when site config `webflow_enrichment_debug` is set.
    ```
 
    `failed` lists templates whose save failed, with the reason.
+
+## 2a: result on staging (2026-11-02)
+
+`compare_listing`: 82 linked templates, no unexpected differences. 71 products hold stored rows
+older than their own calculation (they update on their next save); 55 have configurator steps set
+up by hand. `refresh_all_templates(apply=True)`: 230 templates saved, none failed.
+
+## 2c, first push: readers take the template's configurator
+
+Done in two pushes. This one moves every reader to the template and keeps the product table, so
+staging can be checked against it (and switched back). The second removes the product table and
+the product-side calculation.
+
+**Templates.** New check **Calculate Configurator on Save** (`auto_populate_configurator`,
+default on) above the Part No. Configurator. On: the steps are rebuilt on every save (Is Required
+choices kept). Off: the steps are set up by hand and the save leaves them alone (specifications are
+still calculated).
+
+**Readers.** A product linked to a template (the template's Webflow Product points back at it) now
+reads the template's `part_no_configurator`; a product without a template still reads its own table.
+The payload key stays `configurator_options`, so n8n and the Webflow scripts do not change.
+
+| Reader | How |
+|---|---|
+| Webflow export (`webflow_export`, `webflow_export_v2`) | `Listing` reads `configurator_options` from the template |
+| Readiness checks (`product_readiness.evaluate`) | same, through `Listing.as_dict` |
+| Portal product detail (`product_catalog.get_catalog_product_detail`) | `template_listing.configurator_rows` |
+| Product finder facts (`portal/product_finder/facts.py`) | same, one query per template type |
+| Catalog Configurability report | same |
+
+Site config `web_listing_legacy_read: 1` sends all of them back to the product's table, as before.
+
+**Products.** The product's Configurator Options and its Auto-Populate check are read-only once the
+product is linked to a template, with a note to edit the template.
+
+**Hand-set configurators (owner decision, 2026-11-02).** 55 products have steps set up by hand
+(Auto-Populate off), and the website shows those steps today. To keep the website as it is, their
+templates take those steps and stop calculating (Calculate Configurator on Save off). The owner can
+switch any template back to calculated steps later by ticking the check.
+
+`template_listing.adopt_hand_set_configurators`, System Manager only, dry run by default:
+
+- `adopted`: templates that take the product's steps, with `same_steps` and each step that differs
+  (`hand_set` next to `calculated`: type / label and how many values).
+- `identical`: products whose hand-set steps equal the calculated ones. Nothing changes: their
+  templates keep calculating.
+- `kept_calculated`: products named in `use_calculated`, whose templates keep the calculated steps.
+- `already_hand_set`, `failed`.
+
+## 2c: checks on staging
+
+1. Deploy and migrate (the six templates and the Webflow Product changed).
+2. Dry run, and send the output:
+
+   ```python
+   import json
+   from illumenate_lighting.illumenate_lighting.template_listing import adopt_hand_set_configurators
+   print(json.dumps(adopt_hand_set_configurators(), default=str, indent=1))
+   ```
+
+3. Apply, leaving out any product whose template should use the calculated steps:
+
+   ```python
+   print(json.dumps(adopt_hand_set_configurators(apply=True, use_calculated=[]), default=str, indent=1))
+   ```
+
+4. Compare every export payload with the old path (`[]` means no payload changed):
+
+   ```python
+   print(frappe.call("illumenate_lighting.illumenate_lighting.web_listing_source.payload_parity"))
+   ```
+
+   Products listed with `configurator_options` are the stale ones from 2a (stored steps older than
+   the template's); anything else listed is a bug.

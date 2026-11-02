@@ -332,17 +332,19 @@
   {
    "default": "1",
    "depends_on": "eval:doc.is_configurable",
-   "description": "When checked, the Configurator Options below are automatically rebuilt from the linked template every time you save (any manual edits are overwritten). Uncheck this to manually customize the Configurator Options rows without losing your changes on save, while keeping the configurator enabled.",
+   "description": "For a product linked to a template this is no longer used (removed in Phase 2c). Use Calculate Configurator on Save on the linked template instead.",
    "fieldname": "auto_populate_configurator_options",
    "fieldtype": "Check",
-   "label": "Auto-Populate Configurator Options on Save"
+   "label": "Auto-Populate Configurator Options on Save",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template"
   },
   {
-   "description": "Configuration steps and allowed values for each option",
+   "description": "For a product linked to a template, this is an old copy (removed in Phase 2c). The website and the portal read the configurator steps from the linked template's Part No. Configurator: edit them there.",
    "fieldname": "configurator_options",
    "fieldtype": "Table",
    "label": "Configurator Options",
-   "options": "ilL-Child-Webflow-Configurator-Option"
+   "options": "ilL-Child-Webflow-Configurator-Option",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template"
   },
   {
    "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext. Edited on the linked template once one is set.",
@@ -655,7 +657,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-02 13:00:00.000000",
+ "modified": "2026-11-02 18:10:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

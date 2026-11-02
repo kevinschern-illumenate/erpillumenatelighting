@@ -44,6 +44,7 @@
   "specifications",
   "certifications",
   "web_configurator_section",
+  "auto_populate_configurator",
   "part_no_configurator"
  ],
  "fields": [
@@ -269,17 +270,24 @@
    "label": "Configurator"
   },
   {
+   "fieldname": "auto_populate_configurator",
+   "fieldtype": "Check",
+   "label": "Calculate Configurator on Save",
+   "default": "1",
+   "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+  },
+  {
    "fieldname": "part_no_configurator",
    "fieldtype": "Table",
    "label": "Part No. Configurator",
    "options": "ilL-Child-Webflow-Configurator-Option",
-   "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+   "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-11-02 14:57:52.000000",
+ "modified": "2026-11-02 17:53:38.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",

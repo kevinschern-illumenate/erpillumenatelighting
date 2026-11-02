@@ -3258,11 +3258,18 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "auto_populate_configurator",
+          "label": "Calculate Configurator on Save",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+        },
+        {
           "fieldname": "part_no_configurator",
           "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
         }
       ]
     },
@@ -3534,11 +3541,18 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "auto_populate_configurator",
+          "label": "Calculate Configurator on Save",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+        },
+        {
           "fieldname": "part_no_configurator",
           "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
         }
       ]
     },
@@ -3780,11 +3794,18 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "auto_populate_configurator",
+          "label": "Calculate Configurator on Save",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+        },
+        {
           "fieldname": "part_no_configurator",
           "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
         },
         {
           "fieldname": "kit_components",
@@ -4089,11 +4110,18 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "auto_populate_configurator",
+          "label": "Calculate Configurator on Save",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+        },
+        {
           "fieldname": "part_no_configurator",
           "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
         },
         {
           "fieldname": "photometry",
@@ -4554,11 +4582,18 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "auto_populate_configurator",
+          "label": "Calculate Configurator on Save",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+        },
+        {
           "fieldname": "part_no_configurator",
           "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
         },
         {
           "fieldname": "photometry",
@@ -7311,11 +7346,18 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "auto_populate_configurator",
+          "label": "Calculate Configurator on Save",
+          "fieldtype": "Check",
+          "default": "1",
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+        },
+        {
           "fieldname": "part_no_configurator",
           "label": "Part No. Configurator",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "The configurator steps and their allowed values. The Webflow Product copies them."
+          "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
         },
         {
           "fieldname": "photometry",
@@ -7638,14 +7680,14 @@
           "label": "Auto-Populate Configurator Options on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "When checked, the Configurator Options below are automatically rebuilt from the linked template every time you save (any manual edits are overwritten). Uncheck this to manually customize the Configurator Options rows without losing your changes on save, while keeping the configurator enabled."
+          "description": "For a product linked to a template this is no longer used (removed in Phase 2c). Use Calculate Configurator on Save on the linked template instead."
         },
         {
           "fieldname": "configurator_options",
           "label": "Configurator Options",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "Configuration steps and allowed values for each option"
+          "description": "For a product linked to a template, this is an old copy (removed in Phase 2c). The website and the portal read the configurator steps from the linked template's Part No. Configurator: edit them there."
         },
         {
           "fieldname": "feed_lengths",

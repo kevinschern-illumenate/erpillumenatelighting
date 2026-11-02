@@ -25,6 +25,7 @@ import frappe
 from frappe import _
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	CONFIGURATOR_AUTO_FIELD,
 	CONFIGURATOR_FIELD,
 	TEMPLATE_DOCTYPES,
 	WEBFLOW_PRODUCT_LINK_TYPES,
@@ -32,6 +33,8 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 )
 
 PRODUCT = "ilL-Webflow-Product"
+OPTION = "ilL-Child-Webflow-Configurator-Option"
+CONFIGURATOR_AUTO = CONFIGURATOR_AUTO_FIELD["fieldname"]
 TAPE = "ilL-Tape-Neon-Template"
 SPEC_FIELDS = ("spec_label", "spec_value", "display_order", "attribute_doctype", "attribute_options_json")
 CONFIGURATOR_FIELDS = (
@@ -95,7 +98,7 @@ def shadow_product(template):
 		# First computation: carry "Is Required" choices made on the product (not from steps
 		# set up by hand there: their step numbers differ).
 		existing = frappe.get_all(
-			"ilL-Child-Webflow-Configurator-Option",
+			OPTION,
 			filters={"parenttype": PRODUCT, "parent": template.webflow_product},
 			fields=["option_step", "is_required"],
 		)
@@ -137,7 +140,14 @@ def refresh_template(template):
 		)
 		return
 	template.set("specifications", specifications)
-	template.set(CONFIGURATOR_FIELD, configurator)
+	if calculates_configurator(template):
+		template.set(CONFIGURATOR_FIELD, configurator)
+
+
+def calculates_configurator(template):
+	"""Whether the template's configurator steps are rebuilt on save (not set up by hand)."""
+	value = template.get(CONFIGURATOR_AUTO)
+	return value is None or bool(int(value))
 
 
 def push_to_product(template):
@@ -256,6 +266,184 @@ def _calculated_labels():
 	)
 
 	return MANAGED_LABELS
+
+
+# ---------------------------------------------------------------- readers (Phase 2c)
+
+
+def configurator_rows(products, fields=("*",)):
+	"""The configurator steps readers use, for many products at once: {product name: rows}.
+
+	A product linked to a template (the template's Webflow Product points back at it) reads
+	the template's ``part_no_configurator``. A product without a template, or every product
+	while site config ``web_listing_legacy_read`` is set, reads its own table. Rows are in
+	table order.
+	"""
+	from illumenate_lighting.illumenate_lighting.web_listing_source import legacy_read
+
+	products = list(products)
+	owners = {}
+	if not legacy_read():
+		for doctype, field in WEBFLOW_PRODUCT_LINKS.items():
+			names = {p.get(field): p.get("name") for p in products if p.get(field)}
+			if not names:
+				continue
+			for row in frappe.get_all(
+				doctype,
+				filters={"name": ["in", list(names)]},
+				fields=["name", "webflow_product"],
+				ignore_permissions=True,
+			):
+				if row.webflow_product and names.get(row.name) == row.webflow_product:
+					owners[(doctype, row.name)] = row.webflow_product
+	result = {p.get("name"): [] for p in products}
+	parents = {}
+	for (doctype, template), product in owners.items():
+		parents.setdefault(doctype, {})[template] = product
+	fields = list(fields)
+	if fields != ["*"]:
+		fields = sorted({*fields, "parent", "idx"})
+	for doctype, templates in parents.items():
+		for row in frappe.get_all(
+			OPTION,
+			filters={
+				"parenttype": doctype,
+				"parentfield": CONFIGURATOR_FIELD,
+				"parent": ["in", list(templates)],
+			},
+			fields=fields,
+			order_by="idx asc",
+			ignore_permissions=True,
+		):
+			result[templates[row.parent]].append(row)
+	own = [name for name in result if name not in set(owners.values())]
+	if own:
+		for row in frappe.get_all(
+			OPTION,
+			filters={"parenttype": PRODUCT, "parentfield": "configurator_options", "parent": ["in", own]},
+			fields=fields,
+			order_by="idx asc",
+			ignore_permissions=True,
+		):
+			result[row.parent].append(row)
+	return result
+
+
+def _step_summary(row):
+	try:
+		values = frappe.parse_json(row.get("allowed_values_json") or "[]")
+	except Exception:
+		values = None
+	count = len(values) if isinstance(values, (list, dict)) else "?"
+	return f"{row.get('option_type')} / {row.get('option_label')} ({count} values)"
+
+
+def side_by_side(hand_rows, calculated_rows):
+	"""Pure: each step of a hand-set configurator next to the calculated one."""
+	hand = {row.get("option_step"): row for row in hand_rows}
+	calculated = {row.get("option_step"): row for row in calculated_rows}
+	steps = sorted(set(hand) | set(calculated), key=lambda s: (s is None, s or 0))
+	return [
+		{
+			"step": step,
+			"hand_set": _step_summary(hand[step]) if step in hand else None,
+			"calculated": _step_summary(calculated[step]) if step in calculated else None,
+			"same": step in hand
+			and step in calculated
+			and _rows([hand[step]], CONFIGURATOR_FIELDS) == _rows([calculated[step]], CONFIGURATOR_FIELDS),
+		}
+		for step in steps
+	]
+
+
+@frappe.whitelist(methods=["POST"])
+def adopt_hand_set_configurators(apply=False, use_calculated=None):
+	"""Move configurators set up by hand on Webflow Products onto their templates (Phase 2c).
+
+	Dry run by default. For each linked product with "Auto-Populate Configurator Options"
+	off, the report shows its steps next to the steps the template calculates. With
+	``apply`` each template takes the product's steps and stops calculating its own
+	(Calculate Configurator on Save off), so the website shows what it shows today.
+
+	Products whose steps are the same as the calculated ones are only listed (``identical``):
+	their templates keep calculating.
+
+	``use_calculated``: product names whose template keeps the calculated steps instead.
+	System Manager only.
+	"""
+	frappe.only_for("System Manager")
+	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
+	keep = set(frappe.parse_json(use_calculated) if isinstance(use_calculated, str) else use_calculated or [])
+	result = {
+		"applied": apply,
+		"adopted": [],
+		"kept_calculated": [],
+		"already_hand_set": [],
+		"identical": [],
+		"failed": [],
+	}
+	for doctype in TEMPLATE_DOCTYPES:
+		field = WEBFLOW_PRODUCT_LINKS[doctype]
+		for row in frappe.get_all(
+			doctype, filters={"webflow_product": ["is", "set"]}, fields=["name", "webflow_product"]
+		):
+			product = frappe.db.get_value(
+				PRODUCT,
+				row.webflow_product,
+				["name", field, "is_configurable", "auto_populate_configurator_options"],
+				as_dict=True,
+			)
+			if (
+				not product
+				or product.get(field) != row.name
+				or not product.get("is_configurable")
+				or auto_configurator(product)
+			):
+				continue
+			template = frappe.get_doc(doctype, row.name)
+			hand = frappe.get_all(
+				OPTION,
+				filters={
+					"parenttype": PRODUCT,
+					"parent": product.name,
+					"parentfield": "configurator_options",
+				},
+				fields=list(CONFIGURATOR_FIELDS),
+				order_by="idx asc",
+			)
+			steps = side_by_side(hand, template.get(CONFIGURATOR_FIELD) or [])
+			# Only the steps that differ are shown, to keep the report readable.
+			entry = {
+				"template": (doctype, row.name),
+				"product": product.name,
+				"same_steps": sum(1 for step in steps if step["same"]),
+				"different_steps": [step for step in steps if not step["same"]],
+			}
+			if not calculates_configurator(template):
+				result["already_hand_set"].append(entry)
+				continue
+			if steps and not entry["different_steps"]:
+				result["identical"].append(entry["product"])
+				continue
+			if product.name in keep:
+				result["kept_calculated"].append(entry)
+				continue
+			result["adopted"].append(entry)
+			if not apply:
+				continue
+			frappe.db.savepoint("adopt_configurator")
+			try:
+				template.set(CONFIGURATOR_FIELD, _rows(hand, CONFIGURATOR_FIELDS))
+				template.set(CONFIGURATOR_AUTO, 0)
+				template.flags.skip_listing_push = True
+				template.flags.ignore_permissions = True
+				template.save()
+			except Exception as error:
+				frappe.db.rollback(save_point="adopt_configurator")
+				result["failed"].append({"template": (doctype, row.name), "error": str(error)})
+	if apply:
+		frappe.db.commit()
+	return result
 
 
 # ---------------------------------------------------------------- staging checks
