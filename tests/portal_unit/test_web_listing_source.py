@@ -79,6 +79,13 @@ class Reading(unittest.TestCase):
 		view = listing(source, part_no_configurator=[{"option_step": 1, "option_type": "CCT"}])
 		self.assertEqual([row.option_type for row in view.configurator_options], ["CCT"])
 		self.assertEqual(view.as_dict()["configurator_options"], [{"option_step": 1, "option_type": "CCT"}])
+		pending = product(
+			is_configurable=1,
+			auto_populate_configurator_options=0,
+			configurator_options=[{"option_step": 0, "option_type": "Series"}],
+		)
+		waiting = listing(pending, part_no_configurator=[{"option_step": 1, "option_type": "CCT"}])
+		self.assertEqual([row.option_type for row in waiting.configurator_options], ["Series"])
 		unmigrated = listing(source, migrated=False)
 		self.assertEqual([row.option_type for row in unmigrated.configurator_options], ["Series"])
 

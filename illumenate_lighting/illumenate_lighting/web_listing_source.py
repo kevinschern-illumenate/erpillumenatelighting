@@ -59,10 +59,14 @@ class Listing:
 		doctype, name = (None, None) if legacy_read() else template_for(product.name)
 		self.template = frappe.get_doc(doctype, name) if doctype else None
 		self.fields = set(carried(doctype)) if doctype else set()
+		# Hand-set steps waiting for a decision stay on the product (Phase 2c).
+		from illumenate_lighting.illumenate_lighting.template_listing import pending_decision
+
+		self.aliases = {} if self.template is None or pending_decision(product, self.template) else ALIASES
 
 	def get(self, key, default=None):
-		if key in ALIASES and self.template is not None:
-			return self.template.get(ALIASES[key]) or []
+		if key in self.aliases:
+			return self.template.get(self.aliases[key]) or []
 		if key in self.fields:
 			value = self.template.get(key)
 			if key not in TABLES:
@@ -76,9 +80,9 @@ class Listing:
 		return self.source.get(key, default)
 
 	def __getattr__(self, key):
-		if key.startswith("__") or key in ("source", "template", "fields"):
+		if key.startswith("__") or key in ("source", "template", "fields", "aliases"):
 			raise AttributeError(key)
-		if key in self.fields or (key in ALIASES and self.template is not None):
+		if key in self.fields or key in self.aliases:
 			return self.get(key)
 		return getattr(self.source, key)
 
@@ -88,8 +92,8 @@ class Listing:
 			if field in data:
 				value = self.get(field)
 				data[field] = [row.as_dict() for row in value or []] if field in TABLES else value
-		if self.template is not None:
-			for key in ALIASES:
+		if self.aliases:
+			for key in self.aliases:
 				if key in data:
 					data[key] = [row.as_dict() for row in self.get(key)]
 		return data

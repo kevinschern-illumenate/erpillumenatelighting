@@ -155,9 +155,11 @@ class Listing(unittest.TestCase):
 		self.assertEqual(template["specifications"], [spec("Watts per Foot", "4.4")])
 		self.frappe.msgprint.assert_called_once()
 
-	def readers(self, legacy=False):
+	def readers(self, legacy=False, product_flags=(), template_auto=1):
 		self.frappe.flags.web_listing_legacy_read = legacy
-		templates = [Record(name="led-hd-sw", webflow_product="led-hd-sw")]
+		templates = [
+			Record(name="led-hd-sw", webflow_product="led-hd-sw", auto_populate_configurator=template_auto)
+		]
 		rows = {
 			"ilL-Tape-Neon-Template": [Record(parent="led-hd-sw", option_step=1, option_type="CCT")],
 			"ilL-Webflow-Product": [
@@ -169,6 +171,8 @@ class Listing(unittest.TestCase):
 		def get_all(doctype, filters=None, **kwargs):
 			if doctype == TAPE:
 				return templates
+			if doctype == "ilL-Webflow-Product":
+				return list(product_flags)
 			if doctype == self.module.OPTION:
 				return [
 					row for row in rows.get(filters["parenttype"], []) if row.parent in filters["parent"][1]
@@ -187,6 +191,33 @@ class Listing(unittest.TestCase):
 		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["CCT"])
 		# A product without a template keeps reading its own table.
 		self.assertEqual([row.option_type for row in result["no-template"]], ["Finish"])
+
+	def test_hand_set_steps_stay_on_the_product_until_decided(self):
+		hand_set = [Record(name="led-hd-sw", is_configurable=1, auto_populate_configurator_options=0)]
+		result = self.readers(product_flags=hand_set)
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["Series"])
+		# Once the template takes the steps (it stops calculating), the template is read.
+		result = self.readers(product_flags=hand_set, template_auto=0)
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["CCT"])
+
+	def test_the_report_says_what_differs_in_a_step(self):
+		self.frappe.parse_json = __import__("json").loads
+		self.frappe.as_json = __import__("json").dumps
+		hand = {
+			"option_step": 1,
+			"option_type": "CCT",
+			"is_required": 1,
+			"allowed_values_json": '[{"code": "30"}]',
+		}
+		calculated = {
+			"option_step": 1,
+			"option_type": "CCT",
+			"is_required": 0,
+			"allowed_values_json": '[{"code": "30"}, {"code": "40"}]',
+		}
+		(step,) = self.module.side_by_side([hand], [calculated])
+		self.assertEqual(step["differs"], ["is_required", "allowed values"])
+		self.assertEqual((step["only_hand_set"], step["only_calculated"]), ([], ["40"]))
 
 	def test_legacy_read_sends_readers_back_to_the_product(self):
 		result = self.readers(legacy=True)

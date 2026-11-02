@@ -144,6 +144,20 @@ def refresh_template(template):
 		template.set(CONFIGURATOR_FIELD, configurator)
 
 
+def pending_decision(product, template):
+	"""A product whose steps were set up by hand, while its template still calculates.
+
+	Until the owner decides (the template takes the product's steps, or the product is
+	switched to the calculated ones with ``adopt_hand_set_configurators``), readers keep
+	showing the product's own steps, so nothing changes on the website before then.
+	"""
+	return (
+		bool(product.get("is_configurable"))
+		and not auto_configurator(product)
+		and calculates_configurator(template)
+	)
+
+
 def calculates_configurator(template):
 	"""Whether the template's configurator steps are rebuilt on save (not set up by hand)."""
 	value = template.get(CONFIGURATOR_AUTO)
@@ -275,9 +289,9 @@ def configurator_rows(products, fields=("*",)):
 	"""The configurator steps readers use, for many products at once: {product name: rows}.
 
 	A product linked to a template (the template's Webflow Product points back at it) reads
-	the template's ``part_no_configurator``. A product without a template, or every product
-	while site config ``web_listing_legacy_read`` is set, reads its own table. Rows are in
-	table order.
+	the template's ``part_no_configurator``. A product without a template, a product whose
+	hand-set steps wait for a decision (``pending_decision``), and every product while site
+	config ``web_listing_legacy_read`` is set, read their own table. Rows are in table order.
 	"""
 	from illumenate_lighting.illumenate_lighting.web_listing_source import legacy_read
 
@@ -291,11 +305,25 @@ def configurator_rows(products, fields=("*",)):
 			for row in frappe.get_all(
 				doctype,
 				filters={"name": ["in", list(names)]},
-				fields=["name", "webflow_product"],
+				fields=["name", "webflow_product", CONFIGURATOR_AUTO],
 				ignore_permissions=True,
 			):
 				if row.webflow_product and names.get(row.name) == row.webflow_product:
-					owners[(doctype, row.name)] = row.webflow_product
+					owners[(doctype, row.name)] = (row.webflow_product, row)
+		flags = {
+			row.name: row
+			for row in frappe.get_all(
+				PRODUCT,
+				filters={"name": ["in", [product for product, _row in owners.values()] or [""]]},
+				fields=["name", "is_configurable", "auto_populate_configurator_options"],
+				ignore_permissions=True,
+			)
+		}
+		owners = {
+			key: product
+			for key, (product, template) in owners.items()
+			if not pending_decision(flags.get(product) or {}, template)
+		}
 	result = {p.get("name"): [] for p in products}
 	parents = {}
 	for (doctype, template), product in owners.items():
@@ -329,13 +357,52 @@ def configurator_rows(products, fields=("*",)):
 	return result
 
 
-def _step_summary(row):
+def _values(row):
 	try:
 		values = frappe.parse_json(row.get("allowed_values_json") or "[]")
 	except Exception:
-		values = None
+		return None
+	return values
+
+
+def _value_key(value):
+	if isinstance(value, dict):
+		for key in ("code", "value", "name", "label"):
+			if value.get(key) not in (None, ""):
+				return str(value[key])
+		return frappe.as_json(value)
+	return str(value)
+
+
+def _step_summary(row):
+	values = _values(row)
 	count = len(values) if isinstance(values, (list, dict)) else "?"
 	return f"{row.get('option_type')} / {row.get('option_label')} ({count} values)"
+
+
+def _step_difference(hand, calculated):
+	"""What differs between two rows of the same step, in a few words."""
+	differs = [
+		field
+		for field in CONFIGURATOR_FIELDS
+		if field not in ("option_step", "allowed_values_json")
+		and (hand.get(field) or None) != (calculated.get(field) or None)
+	]
+	result = {"differs": differs}
+	left, right = _values(hand), _values(calculated)
+	if left != right:
+		if isinstance(left, list) and isinstance(right, list):
+			a, b = [_value_key(v) for v in left], [_value_key(v) for v in right]
+			only_hand, only_calculated = [v for v in a if v not in b], [v for v in b if v not in a]
+			if only_hand or only_calculated:
+				differs.append("allowed values")
+				result["only_hand_set"] = only_hand
+				result["only_calculated"] = only_calculated
+			else:
+				differs.append("allowed values (same values, other order or detail)")
+		else:
+			differs.append("allowed values")
+	return result
 
 
 def side_by_side(hand_rows, calculated_rows):
@@ -343,17 +410,22 @@ def side_by_side(hand_rows, calculated_rows):
 	hand = {row.get("option_step"): row for row in hand_rows}
 	calculated = {row.get("option_step"): row for row in calculated_rows}
 	steps = sorted(set(hand) | set(calculated), key=lambda s: (s is None, s or 0))
-	return [
-		{
+	result = []
+	for step in steps:
+		entry = {
 			"step": step,
 			"hand_set": _step_summary(hand[step]) if step in hand else None,
 			"calculated": _step_summary(calculated[step]) if step in calculated else None,
-			"same": step in hand
-			and step in calculated
-			and _rows([hand[step]], CONFIGURATOR_FIELDS) == _rows([calculated[step]], CONFIGURATOR_FIELDS),
 		}
-		for step in steps
-	]
+		entry["same"] = (
+			step in hand
+			and step in calculated
+			and _rows([hand[step]], CONFIGURATOR_FIELDS) == _rows([calculated[step]], CONFIGURATOR_FIELDS)
+		)
+		if step in hand and step in calculated and not entry["same"]:
+			entry.update(_step_difference(hand[step], calculated[step]))
+		result.append(entry)
+	return result
 
 
 @frappe.whitelist(methods=["POST"])
@@ -368,7 +440,13 @@ def adopt_hand_set_configurators(apply=False, use_calculated=None):
 	Products whose steps are the same as the calculated ones are only listed (``identical``):
 	their templates keep calculating.
 
-	``use_calculated``: product names whose template keeps the calculated steps instead.
+	``empty_on_product`` lists products with no steps at all (no configurator on the website
+	today); adopting keeps it that way.
+
+	``use_calculated``: product names that switch to the template's calculated steps instead
+	(their Auto-Populate is turned back on, so readers take the template's steps).
+
+	Until a product is decided, readers keep showing its own steps (``pending_decision``).
 	System Manager only.
 	"""
 	frappe.only_for("System Manager")
@@ -422,11 +500,23 @@ def adopt_hand_set_configurators(apply=False, use_calculated=None):
 			if not calculates_configurator(template):
 				result["already_hand_set"].append(entry)
 				continue
+			if not hand:
+				entry["empty_on_product"] = True
+				result["empty_on_product"].append(product.name)
 			if steps and not entry["different_steps"]:
 				result["identical"].append(entry["product"])
+				if apply:
+					frappe.db.set_value(
+						PRODUCT, product.name, "auto_populate_configurator_options", 1, update_modified=False
+					)
 				continue
 			if product.name in keep:
 				result["kept_calculated"].append(entry)
+				if apply:
+					# The product reads the template's calculated steps from now on.
+					frappe.db.set_value(
+						PRODUCT, product.name, "auto_populate_configurator_options", 1, update_modified=False
+					)
 				continue
 			result["adopted"].append(entry)
 			if not apply:
