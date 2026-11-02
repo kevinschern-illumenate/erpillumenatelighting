@@ -343,20 +343,20 @@ def get_webflow_products(
         filters["name"] = product_slug
 
     # Get product list with basic fields
-    # custom_webflow_status and custom_dimensions_image_2 are site Custom Fields the app does not
-    # ship; query only the columns this site has.
+    # Fields that ship with the app; has_field keeps the query safe on a site that has not
+    # migrated yet. The payload still carries the old key names n8n reads (legacy keys below).
     product_meta = frappe.get_meta("ilL-Webflow-Product")
     products = frappe.get_all(
         "ilL-Webflow-Product",
         filters=filters,
         fields=[f for f in [
-            "name", "product_name", "product_slug", "product_type", "custom_webflow_status",
+            "name", "product_name", "product_slug", "product_type", "webflow_status",
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
             "driver_template", "controller_template",
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
             "accessory_spec",
-            "short_description", "sublabel", "features", "product_badge", "featured_image", "hero_image", "dimensions_image", "custom_dimensions_image_2", "series_family_image",
+            "short_description", "sublabel", "features", "product_badge", "featured_image", "hero_image", "dimensions_image", "series_family_image",
             "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
@@ -372,12 +372,8 @@ def get_webflow_products(
     for p in products:
         # Pass dimensions_image as dimensions_image_light
         p["dimensions_image_light"] = p.get("dimensions_image")
-        # Pass custom_dimensions_image_2 as dimensions_image_dark
-        p["dimensions_image_dark"] = p.get("custom_dimensions_image_2")
-        
-        # Optional: You can pop the old keys out if you don't want them in the payload at all
-        # p.pop("dimensions_image", None)
-        # p.pop("custom_dimensions_image_2", None)
+        # Legacy key n8n reads (adapter, plan 4.6). The Webflow Status moved off custom_.
+        p["custom_webflow_status"] = p.get("webflow_status")
 
 	# Override top-level sync fields with the active brand's sync_targets row
     for p in products:
@@ -394,6 +390,10 @@ def get_webflow_products(
         listing.overlay(product)
         product.update(_photometrics(listing.template))
         listings[product["name"]] = listing
+        # Dimensions Image (Dark) moved to the template's dimensions_image (D46). The legacy
+        # keys keep carrying it for n8n until its nodes are reworked (plan 4.6, D39).
+        dark = listing.template.get("dimensions_image") if listing.template else None
+        product["dimensions_image_dark"] = product["custom_dimensions_image_2"] = dark
     
     if include_child_tables:
         # Build reverse mapping: attribute doctype -> code_field (once, outside loop)
@@ -409,7 +409,7 @@ def get_webflow_products(
             product["specifications"] = []
             
             # Use doc.source to access the raw Frappe document beneath the Listing wrapper
-            for s in getattr(doc.source, "custom_spec_custom", []):
+            for s in getattr(doc.source, "webflow_specifications", []):
                 spec_data = {
                     "spec_group": getattr(s, "spec_group", ""),
                     "spec_label": getattr(s, "spec_label", ""),
@@ -441,7 +441,7 @@ def get_webflow_products(
                 {
                     "certification": c.certification,
                     "display_order": c.display_order,
-                    "certification_details": _get_certification_details(c.certification, getattr(c, "custom_badge_images", None))
+                    "certification_details": _get_certification_details(c.certification, getattr(c, "webflow_badge_images", None))
                 }
                 for c in doc.certifications
             ]
@@ -498,7 +498,8 @@ def get_webflow_products(
             product["kit_components"] = [
                 {
                     "component_type": k.component_type,
-                    "custom_webflow_description": k.get("custom_webflow_description") or "[]"
+                    # Legacy key n8n reads; the field is webflow_description now.
+                    "custom_webflow_description": k.get("webflow_description") or "[]"
                 }
                 for k in getattr(doc.source, "kit_components", [])
             ]
@@ -543,7 +544,7 @@ def get_webflow_products(
                     "location_rating": ps.location_rating,
                     "output_count": ps.output_count  # <-- ADD THIS HERE
                 }
-                for ps in getattr(doc.source, "custom_compatible_power_supplies", [])
+                for ps in getattr(doc.source, "webflow_compatible_power_supplies", [])
             ]
             
             # Add attribute links for Webflow filter fields
@@ -2460,7 +2461,7 @@ def _build_certifications_spec(doc) -> dict | None:
             continue
         
         # Pass the JSON field here as well
-        details = _get_certification_details(cert_name, getattr(c, "custom_badge_images", None))
+        details = _get_certification_details(cert_name, getattr(c, "webflow_badge_images", None))
         
         cert_options.append({
             "attribute_type": "Certification",

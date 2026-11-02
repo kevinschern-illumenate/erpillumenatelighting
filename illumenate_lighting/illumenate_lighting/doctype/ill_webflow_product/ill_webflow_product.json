@@ -13,8 +13,11 @@
   "column_break_identity",
   "product_type",
   "product_category",
+  "web_product_category",
   "series",
+  "web_series",
   "is_active",
+  "webflow_template_status",
   "source_reference_section",
   "fixture_template",
   "driver_spec",
@@ -29,7 +32,6 @@
   "led_sheet_template",
   "kit_template",
   "accessory_spec",
-  "portal_item",
   "configurator_section",
   "is_configurable",
   "configurator_intro_text",
@@ -47,6 +49,7 @@
   "sublabel",
   "features",
   "product_badge",
+  "webflow_badge",
   "featured_image",
   "dimensions_image",
   "series_family_image",
@@ -54,15 +57,17 @@
   "gallery_images",
   "documents",
   "specifications_section",
+  "auto_populate_attributes",
+  "column_break_specs",
   "auto_calculate_specs",
   "specifications",
-  "column_break_specs",
-  "auto_populate_attributes",
   "attribute_links",
+  "webflow_specifications",
   "certifications_section",
   "certifications",
   "compatibility_section",
   "compatible_products",
+  "webflow_compatible_power_supplies",
   "spec_sheet_data_section",
   "beam_angle",
   "operating_temp_min_c",
@@ -72,6 +77,7 @@
   "warranty_years",
   "fixture_weight_per_foot_grams",
   "sync_section",
+  "webflow_status",
   "target_brands",
   "sync_targets",
   "legacy_sync_section",
@@ -80,7 +86,8 @@
   "column_break_sync",
   "last_synced_at",
   "sync_status",
-  "sync_error_message"
+  "sync_error_message",
+  "portal_item"
  ],
  "fields": [
   {
@@ -126,6 +133,13 @@
    "options": "ilL-Webflow-Category"
   },
   {
+   "fieldname": "web_product_category",
+   "fieldtype": "Data",
+   "label": "Web Product Category",
+   "read_only": 1,
+   "description": "The template's Product Category. Copied from the template on save."
+  },
+  {
    "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
    "fieldname": "series",
    "fieldtype": "Link",
@@ -134,10 +148,24 @@
    "options": "ilL-Attribute-Series"
   },
   {
+   "fieldname": "web_series",
+   "fieldtype": "Data",
+   "label": "Web Series",
+   "read_only": 1,
+   "description": "The template's Series. Copied from the template on save."
+  },
+  {
    "default": "1",
    "fieldname": "is_active",
    "fieldtype": "Check",
    "label": "Is Active"
+  },
+  {
+   "fieldname": "webflow_template_status",
+   "fieldtype": "Data",
+   "label": "Template Status",
+   "read_only": 1,
+   "description": "The template's Product Status. Copied from the template on save."
   },
   {
    "description": "Link the template (or single spec) this product page describes. Only the link for the selected Product Type is shown.",
@@ -363,6 +391,12 @@
    "options": "\nNew\nOn Sale\nQuick Ship\nHide"
   },
   {
+   "fieldname": "webflow_badge",
+   "fieldtype": "Select",
+   "label": "Web Badge",
+   "options": "\nNew\nOn Sale\nQuick Ship"
+  },
+  {
    "fieldname": "featured_image",
    "fieldtype": "Attach Image",
    "label": "Featured Image"
@@ -435,6 +469,12 @@
    "options": "ilL-Child-Webflow-Attribute-Link"
   },
   {
+   "fieldname": "webflow_specifications",
+   "fieldtype": "Table",
+   "label": "Spec Data",
+   "options": "ilL-Child-Webflow-Spec-Custom"
+  },
+  {
    "collapsible": 1,
    "fieldname": "certifications_section",
    "fieldtype": "Section Break",
@@ -458,6 +498,12 @@
    "fieldtype": "Table",
    "label": "Compatible Products",
    "options": "ilL-Child-Webflow-Compatibility"
+  },
+  {
+   "fieldname": "webflow_compatible_power_supplies",
+   "fieldtype": "Table",
+   "label": "Compatible Power Supplies",
+   "options": "ilL-Child-Comp-Power"
   },
   {
    "collapsible": 1,
@@ -518,6 +564,13 @@
    "fieldname": "sync_section",
    "fieldtype": "Section Break",
    "label": "Webflow Brands & Sync"
+  },
+  {
+   "fieldname": "webflow_status",
+   "fieldtype": "Select",
+   "label": "Webflow Status",
+   "options": "Draft\nWebflow Draft\nPublished\nDiscontinued\nArchived",
+   "in_standard_filter": 1
   },
   {
    "description": "Brands (Webflow sites) this product should be published to. Leave empty during migration; defaults to the default brand.",
@@ -596,7 +649,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-31 12:00:00.000000",
+ "modified": "2026-11-02 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

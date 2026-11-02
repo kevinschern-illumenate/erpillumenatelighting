@@ -31,8 +31,8 @@ COMPONENT_FIELDS = (
 	"component_spec_name",
 	"quantity",
 	"notes",
-	"custom_webflow_title",
-	"custom_webflow_description",
+	"webflow_title",
+	"webflow_description",
 )
 
 

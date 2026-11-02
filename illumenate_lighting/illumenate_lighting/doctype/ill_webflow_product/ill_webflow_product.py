@@ -162,11 +162,9 @@ class ilLWebflowProduct(Document):
 	# end: auto-generated types
 
 	def populate_certification_badges(self):
-		"""Populate the custom_badge_images JSON field based on active Target Brands."""
-		# custom_badge_images (certification rows) and the dark/206 badge images (ilL-Attribute-Certification)
-		# are site Custom Fields the app does not ship; skip where they are absent.
-		if not frappe.get_meta(self.meta.get_field("certifications").options).has_field("custom_badge_images"):
-			return
+		"""Populate the webflow_badge_images JSON field based on active Target Brands."""
+		# The dark/206 badge images on ilL-Attribute-Certification are still site Custom Fields
+		# the app does not ship; skip any that are absent.
 		cert_meta = frappe.get_meta("ilL-Attribute-Certification")
 		badge_fields = [
 			f for f in ("badge_image", "custom_badge_image_dark", "custom_206_badge_image_light", "custom_206_badge_image_dark")
@@ -208,7 +206,7 @@ class ilLWebflowProduct(Document):
 				badge_data["206_badge_dark"] = make_url(cert_doc.get("custom_206_badge_image_dark"))
 
 			# Save as JSON array with a single object inside, matching your request
-			row.custom_badge_images = frappe.as_json([badge_data])
+			row.webflow_badge_images = frappe.as_json([badge_data])
 	
 	def validate(self):
 		# The template owns the link (plan 4.2); the per-type link fields here are mirrors.
@@ -379,9 +377,6 @@ class ilLWebflowProduct(Document):
 
 	def populate_compatible_power_supplies(self):
 		"""Fetch eligible drivers from the linked template and populate the child table."""
-		# custom_compatible_power_supplies is a site Custom Field the app does not ship; skip where it is absent.
-		if not self.meta.has_field("custom_compatible_power_supplies"):
-			return
 
 		# 1. Figure out which template is linked to this product
 		template_name = (
@@ -392,7 +387,7 @@ class ilLWebflowProduct(Document):
 		)
 
 		if not template_name:
-			self.custom_compatible_power_supplies = []
+			self.webflow_compatible_power_supplies = []
 			return
 
 		# 2. Query ilL-Rel-Driver-Eligibility for all drivers linked to this template
@@ -403,7 +398,7 @@ class ilLWebflowProduct(Document):
 		)
 
 		# Clear the table so we can rebuild it cleanly
-		self.custom_compatible_power_supplies = []
+		self.webflow_compatible_power_supplies = []
 
 		if not eligible_drivers:
 			return
@@ -435,7 +430,7 @@ class ilLWebflowProduct(Document):
 				voltage_freq = f"{v_min or v_max}{v_type}"
 
 			# Append the mapped row to your custom child table
-			self.append("custom_compatible_power_supplies", {
+			self.append("webflow_compatible_power_supplies", {
 				"part_number": driver_doc.name,
 				"input_protocol": protocol_str,
 				"voltagefrequency": voltage_freq,
@@ -3303,9 +3298,6 @@ class ilLWebflowProduct(Document):
 
 	def sync_custom_template_data(self):
 		"""V2 Sync: Updates ilL-Webflow-Product custom fields with data from linked templates."""
-		# custom_spec_custom is a site Custom Field the app does not ship; skip where it is absent.
-		if not self.meta.has_field("custom_spec_custom"):
-			return
 
 		PRODUCT_TYPE_TEMPLATE_MAP = {
 			"LED Tape": {"link_field": "tape_neon_template", "doctype": "ilL-Tape-Neon-Template"},
@@ -3343,7 +3335,7 @@ class ilLWebflowProduct(Document):
 			return i
 
 		def append_spec(current_doc, group, label, value, unit="", order=50, attr_doctype="", options=None):
-			current_doc.append("custom_spec_custom", {
+			current_doc.append("webflow_specifications", {
 				"spec_group": group,
 				"spec_label": label,
 				"spec_value": value,
@@ -3357,7 +3349,7 @@ class ilLWebflowProduct(Document):
 		debug = {
 			"product": self.name,
 			"product_type": self.product_type,
-			"existing_labels_before": [row.spec_label for row in (self.custom_spec_custom or [])],
+			"existing_labels_before": [row.spec_label for row in (self.webflow_specifications or [])],
 			"results": {},
 		}
 
@@ -3390,9 +3382,9 @@ class ilLWebflowProduct(Document):
 				# PART 1: Core Field, Document, and Certification Sync
 				# ============================================================
 				
-				self.custom_template_status = template_doc.get("product_status")
-				self.custom_web_product_category = template_doc.get("product_category")
-				self.custom_web_series = template_doc.get("series")
+				self.webflow_template_status = template_doc.get("product_status")
+				self.web_product_category = template_doc.get("product_category")
+				self.web_series = template_doc.get("series")
 
 				# --- Documents Sync ---
 				existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
@@ -3640,8 +3632,8 @@ class ilLWebflowProduct(Document):
 				# ============================================================
 				# PART 3: Custom Spec Child Table Enrichment
 				# ============================================================
-				self.custom_spec_custom = [
-					row for row in (self.custom_spec_custom or [])
+				self.webflow_specifications = [
+					row for row in (self.webflow_specifications or [])
 					if row.spec_label not in MANAGED_LABELS
 				]
 				
@@ -4435,7 +4427,7 @@ class ilLWebflowProduct(Document):
 						if c_type not in grouped_components:
 							grouped_components[c_type] = []
 							
-						desc = c_row.get("custom_webflow_description") or c_row.get("webflow_description") or c_row.get("description") or ""
+						desc = c_row.get("webflow_description") or c_row.get("description") or ""
 						item_code = c_row.get("component_item")
 						
 						# Grab image only once per component type
@@ -4471,7 +4463,7 @@ class ilLWebflowProduct(Document):
 						self.append("kit_components", {
 							"component_type": c_type,
 							"component_item": items_list[0]["code"] if items_list else "", 
-							"custom_webflow_description": json.dumps(final_json_list, indent=1)
+							"webflow_description": json.dumps(final_json_list, indent=1)
 						})
 					
 					record(debug, "Kit Components", len(grouped_components), [f"{k} ({len(v)} items)" for k, v in grouped_components.items()], appended=True)
@@ -4481,19 +4473,19 @@ class ilLWebflowProduct(Document):
 						record(debug, label, skip_reason=f"Not yet implemented for product_type '{self.product_type}'")
 
 		# --- Sort all rows by display_order ---
-		if self.custom_spec_custom:
+		if self.webflow_specifications:
 			# 1. Sort the list
-			self.custom_spec_custom.sort(
+			self.webflow_specifications.sort(
 				key=lambda row: int(row.get("display_order")) if row.get("display_order") not in (None, "") else 999
 			)
 			
 			# 2. Re-assign idx so ERPNext saves and renders them in the new sorted order
 			row_idx = 1
-			for row in self.custom_spec_custom:
+			for row in self.webflow_specifications:
 				row.idx = row_idx
 				row_idx += 1
 			
-		debug["existing_labels_after"] = [row.spec_label for row in (self.custom_spec_custom or [])]
+		debug["existing_labels_after"] = [row.spec_label for row in (self.webflow_specifications or [])]
 
 		frappe.log_error(
 			title=f"Combined Full Enrichment Debug: {self.name}",

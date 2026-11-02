@@ -1420,6 +1420,47 @@
         }
       ]
     },
+    "ilL-Child-Comp-Power": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "part_number",
+          "label": "Part Number",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "input_protocol",
+          "label": "Input Protocol",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "voltagefrequency",
+          "label": "Voltage/Frequency",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "output_voltage",
+          "label": "Output Voltage",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "max_wattage",
+          "label": "Max Wattage",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "output_count",
+          "label": "Output Count",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "location_rating",
+          "label": "Location Rating",
+          "fieldtype": "Data"
+        }
+      ]
+    },
     "ilL-Child-Compatible Lens": {
       "autoname": "",
       "istable": 1,
@@ -2507,6 +2548,13 @@
           "label": "Display Order",
           "fieldtype": "Int",
           "default": "0"
+        },
+        {
+          "fieldname": "webflow_badge_images",
+          "label": "Badge Images",
+          "fieldtype": "JSON",
+          "description": "Badge image URLs for the product's brands, filled on save.",
+          "read_only": 1
         }
       ]
     },
@@ -2716,6 +2764,16 @@
           "label": "Notes",
           "fieldtype": "Data",
           "description": "Additional notes, e.g., '8ft length', 'Pack of 10'"
+        },
+        {
+          "fieldname": "webflow_title",
+          "label": "Webflow Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "webflow_description",
+          "label": "Webflow Description",
+          "fieldtype": "Long Text"
         }
       ]
     },
@@ -7419,6 +7477,13 @@
           "description": "Optional taxonomy category for navigation/filtering"
         },
         {
+          "fieldname": "web_product_category",
+          "label": "Web Product Category",
+          "fieldtype": "Data",
+          "description": "The template's Product Category. Copied from the template on save.",
+          "read_only": 1
+        },
+        {
           "fieldname": "series",
           "label": "Series",
           "fieldtype": "Link",
@@ -7426,10 +7491,24 @@
           "description": "Product series for filtering (e.g., 'SH01', 'SL02')"
         },
         {
+          "fieldname": "web_series",
+          "label": "Web Series",
+          "fieldtype": "Data",
+          "description": "The template's Series. Copied from the template on save.",
+          "read_only": 1
+        },
+        {
           "fieldname": "is_active",
           "label": "Is Active",
           "fieldtype": "Check",
           "default": "1"
+        },
+        {
+          "fieldname": "webflow_template_status",
+          "label": "Template Status",
+          "fieldtype": "Data",
+          "description": "The template's Product Status. Copied from the template on save.",
+          "read_only": 1
         },
         {
           "fieldname": "fixture_template",
@@ -7602,6 +7681,12 @@
           "options": "\nNew\nOn Sale\nQuick Ship\nHide"
         },
         {
+          "fieldname": "webflow_badge",
+          "label": "Web Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship"
+        },
+        {
           "fieldname": "featured_image",
           "label": "Featured Image",
           "fieldtype": "Attach Image"
@@ -7659,6 +7744,12 @@
           "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering."
         },
         {
+          "fieldname": "webflow_specifications",
+          "label": "Spec Data",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Spec-Custom"
+        },
+        {
           "fieldname": "certifications",
           "label": "Certifications",
           "fieldtype": "Table",
@@ -7670,6 +7761,12 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Compatibility",
           "description": "Related products for cross-selling and compatibility info"
+        },
+        {
+          "fieldname": "webflow_compatible_power_supplies",
+          "label": "Compatible Power Supplies",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Comp-Power"
         },
         {
           "fieldname": "beam_angle",
@@ -7706,6 +7803,12 @@
           "label": "Fixture Weight per Foot (g)",
           "fieldtype": "Float",
           "description": "Edited on the linked template once one is set."
+        },
+        {
+          "fieldname": "webflow_status",
+          "label": "Webflow Status",
+          "fieldtype": "Select",
+          "options": "Draft\nWebflow Draft\nPublished\nDiscontinued\nArchived"
         },
         {
           "fieldname": "target_brands",

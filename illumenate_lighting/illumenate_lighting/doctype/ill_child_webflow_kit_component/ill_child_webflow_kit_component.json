@@ -12,7 +12,9 @@
   "component_spec_name",
   "column_break_kit",
   "quantity",
-  "notes"
+  "notes",
+  "webflow_title",
+  "webflow_description"
  ],
  "fields": [
   {
@@ -59,12 +61,22 @@
    "fieldname": "notes",
    "fieldtype": "Data",
    "label": "Notes"
+  },
+  {
+   "fieldname": "webflow_title",
+   "fieldtype": "Data",
+   "label": "Webflow Title"
+  },
+  {
+   "fieldname": "webflow_description",
+   "fieldtype": "Long Text",
+   "label": "Webflow Description"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-21 10:00:00.000000",
+ "modified": "2026-11-02 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Webflow-Kit-Component",
