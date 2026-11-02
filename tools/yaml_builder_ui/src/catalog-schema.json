@@ -2592,7 +2592,8 @@
           "fieldname": "option_step",
           "label": "Step Order",
           "fieldtype": "Int",
-          "reqd": 1
+          "description": "Set from the row order when the steps are set up by hand on the template; calculated otherwise. The website and n8n match steps by this number.",
+          "read_only": 1
         },
         {
           "fieldname": "option_type",
@@ -3262,7 +3263,7 @@
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
         },
         {
           "fieldname": "part_no_configurator",
@@ -3545,7 +3546,7 @@
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
         },
         {
           "fieldname": "part_no_configurator",
@@ -3798,7 +3799,7 @@
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
         },
         {
           "fieldname": "part_no_configurator",
@@ -4114,7 +4115,7 @@
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
         },
         {
           "fieldname": "part_no_configurator",
@@ -4586,7 +4587,7 @@
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
         },
         {
           "fieldname": "part_no_configurator",
@@ -7350,7 +7351,7 @@
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+          "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
         },
         {
           "fieldname": "part_no_configurator",

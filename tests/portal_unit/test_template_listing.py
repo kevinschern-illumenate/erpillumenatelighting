@@ -262,9 +262,11 @@ class Listing(unittest.TestCase):
 
 	def test_a_template_set_up_by_hand_keeps_its_steps(self):
 		self.module.compute = MagicMock(return_value=([spec("CRI", "90")], [{"option_step": 1}]))
-		template = Doc(TAPE, "led-hd-sw", auto_populate_configurator=0, part_no_configurator=["hand"])
+		hand = [Record(option_step=1, option_type="IP Rating")]
+		template = Doc(TAPE, "led-hd-sw", auto_populate_configurator=0, part_no_configurator=hand)
 		self.module.refresh_template(template)
-		self.assertEqual(template["part_no_configurator"], ["hand"])
+		self.assertIs(template["part_no_configurator"], hand)
+		self.assertEqual(hand[0].option_step, 1)
 		self.assertEqual(template["specifications"], [spec("CRI", "90")])
 		template["auto_populate_configurator"] = 1
 		self.module.refresh_template(template)
@@ -361,6 +363,26 @@ class Listing(unittest.TestCase):
 		self.assertEqual(
 			[row["allowed_values_json"] for row in rows], [row["allowed_values_json"] for row in hand[1:]]
 		)
+
+	def test_hand_set_steps_follow_their_row_order(self):
+		# Rows as (step, is lookup). Step 2 was dragged above step 1; a new row was added.
+		pairs = [(2, False), (1, False), (None, False), (98, True), (3, False)]
+		self.assertEqual(self.module.step_numbers(pairs), {0: 1, 1: 2, 2: 3, 4: 4})
+		# Neon starts at step 0 and the numbers in use are kept, gaps included.
+		self.assertEqual(self.module.step_numbers([(0, False), (5, False), (2, False)]), {0: 0, 1: 2, 2: 5})
+
+	def test_moving_a_step_carries_its_dependants_and_feed_lengths(self):
+		rows = [
+			Record(option_step=2, depends_on_step=0),
+			Record(option_step=1, depends_on_step=2),
+			Record(option_step=99, depends_on_step=2),
+		]
+		feed = [Record(step=2), Record(step=7)]
+		template = Doc(TAPE, "x", auto_populate_configurator=0, part_no_configurator=rows, feed_lengths=feed)
+		self.module.renumber_steps(template)
+		self.assertEqual([row.option_step for row in rows], [1, 2, 99])
+		self.assertEqual([row.depends_on_step for row in rows], [0, 1, 1])
+		self.assertEqual([row.step for row in feed], [1, 7])
 
 	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
 		diff = self.module.diff_listing(

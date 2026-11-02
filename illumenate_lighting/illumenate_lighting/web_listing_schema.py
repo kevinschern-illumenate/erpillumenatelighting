@@ -209,7 +209,8 @@ CONFIGURATOR_AUTO_FIELD = {
 	"default": "1",
 	"description": (
 		"When checked, the steps below are rebuilt from this template's options on every save "
-		"(the Is Required choices are kept). Uncheck it to set the steps up by hand."
+		"(the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the "
+		"rows into order and the step numbers follow on save."
 	),
 }
 

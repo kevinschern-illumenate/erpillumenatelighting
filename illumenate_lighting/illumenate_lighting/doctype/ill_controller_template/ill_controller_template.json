@@ -274,7 +274,7 @@
    "fieldtype": "Check",
    "label": "Calculate Configurator on Save",
    "default": "1",
-   "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand."
+   "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
   },
   {
    "fieldname": "part_no_configurator",
@@ -287,7 +287,7 @@
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-11-02 17:53:38.000000",
+ "modified": "2026-11-02 20:49:36.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",

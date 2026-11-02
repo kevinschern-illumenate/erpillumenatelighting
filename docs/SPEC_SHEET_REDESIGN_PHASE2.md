@@ -200,3 +200,11 @@ longer asks for a step order (`configurator_steps` in older YAML files is read a
 Catalog Builder the product's Configurator Options and Auto-Populate are read-only, shown only when
 a record already has them; steps are authored on the template (Part No. Configurator, Calculate
 Configurator on Save).
+
+**Step order from row order (owner, 2026-11-02).** The Step column is no longer typed: it is hidden
+from the configurator grid and read-only. On a template whose steps are set up by hand, dragging the
+rows sets the order; on save the rows take the step numbers already in use, in the new row order
+(`renumber_steps`). Nothing else is renumbered, so the website sees the same numbers unless a row
+moved; a new row gets the next free number; lookup steps (98 and up) keep theirs. "Depends on step"
+and the template's feed lengths follow a moved step. The numbers stay because the website and n8n
+match steps by number. On a template that calculates its steps, the calculation sets the order.

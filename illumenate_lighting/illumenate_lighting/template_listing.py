@@ -142,6 +142,62 @@ def refresh_template(template):
 	template.set("specifications", specifications)
 	if calculates_configurator(template):
 		template.set(CONFIGURATOR_FIELD, configurator)
+	else:
+		renumber_steps(template)
+
+
+LOOKUP_STEP_FROM = 98
+
+
+def step_numbers(rows):
+	"""Pure: step numbers for hand-set configurator rows in their row order.
+
+	``rows`` are (step, is_lookup) pairs in row order. The rows keep the set of step numbers
+	they already use, handed out again in row order, so moving a row moves its place on the
+	website without renumbering anything else; a new row gets the next free number. Lookup
+	steps (98 and up) keep their own numbers. Returns {row index: new step}.
+	"""
+	choice = [i for i, (_step, lookup) in enumerate(rows) if not lookup]
+	used = sorted(step for step, lookup in rows if not lookup and step is not None)
+	free = max(used, default=0) + 1
+	result = {}
+	for position, index in enumerate(choice):
+		if position < len(used):
+			result[index] = used[position]
+		else:
+			result[index] = free
+			free += 1
+	return result
+
+
+def renumber_steps(template):
+	"""Hand-set steps follow their row order (the Step column is not typed by hand).
+
+	"Depends on step" and the template's feed lengths follow a moved step.
+	"""
+	rows = template.get(CONFIGURATOR_FIELD) or []
+
+	def step_of(row):
+		value = row.get("option_step")
+		return None if value in (None, "") else int(value)
+
+	pairs = [(step_of(row), (step_of(row) or 0) >= LOOKUP_STEP_FROM) for row in rows]
+	new = step_numbers(pairs)
+	moved = {
+		pairs[index][0]: step
+		for index, step in new.items()
+		if pairs[index][0] is not None and pairs[index][0] != step
+	}
+	for index, step in new.items():
+		rows[index].option_step = step
+	if not moved:
+		return
+	for row in rows:
+		if row.get("depends_on_step") not in (None, ""):
+			row.depends_on_step = moved.get(int(row.depends_on_step), row.depends_on_step)
+	for row in template.get("feed_lengths") or []:
+		if row.get("step") not in (None, ""):
+			row.step = moved.get(int(row.step), row.step)
 
 
 def pending_decision(product, template):
