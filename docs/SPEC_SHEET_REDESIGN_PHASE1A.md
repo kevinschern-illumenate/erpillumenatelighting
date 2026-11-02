@@ -203,3 +203,23 @@ never used, and clean up layout and fields. Until then, layout changes are kept 
    ```bash
    bench --site stagingillumenate.v.frappe.cloud execute frappe.client.get --kwargs "{'doctype': 'DocType', 'name': 'ilL-Child-Comp-Power'}"
    ```
+
+## Phase 1b leftovers, done 2026-11-02 (plan 4.3, 4.8, D33, D36, D48)
+
+Patch `webflow_status_draft_badge_discontinued`:
+
+- **Webflow Status:** the stage `Draft` is gone; those products (and any with no stage) are now
+  `Webflow Draft`, the new default. Options: Webflow Draft, Published, Discontinued, Archived. The n8n
+  Transform nodes already treated Draft and Webflow Draft the same, so nothing changes on the website.
+  No automatic pushes exist yet (Phase 5), so nothing is sent to Webflow by this.
+- **Badge:** `product_badge` is copied into `webflow_badge` where that is empty. Products whose two
+  badges disagree, or whose old badge is `Hide` (not an option on Web Badge, D50), keep their Web
+  Badge and are listed in the Error Log entry "Product Badge values not moved to Web Badge". The old
+  field is hidden and read-only; both exports now fill `product_badge` from `webflow_badge`, so n8n
+  and Webflow's `product-badge` field read the new value. The field is deleted once nothing reads it.
+- **Is Discontinued** (read-only check on the product, `webflow_state.py`): on when the Webflow Status
+  is Discontinued, or when the template is Discontinued or Internal Only and the product has been
+  published (a publication date, or a Webflow item for any brand). Off for Archived and everything
+  else. Stored on every product save; a template save saves its product, so a template status change
+  refreshes it. The patch sets the first values. Exported as `is_discontinued` (0 or 1) and in payload
+  v2. Webflow does not use it yet (R1, Phase 9).

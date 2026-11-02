@@ -41,7 +41,8 @@ PRODUCT_FIELDS = (
 	("product_type", ""),
 	("is_active", ""),
 	("webflow_status", "Webflow Status stage; legacy key custom_webflow_status"),
-	("webflow_badge", "Badge (D50)"),
+	("webflow_badge", "Badge (D50); legacy key product_badge"),
+	("is_discontinued", "Set on save from the Webflow Status and the template status (D48)"),
 	("is_configurable", "Shows the configurator on the website"),
 	("configurator_intro_text", ""),
 	("short_description", ""),
@@ -235,6 +236,7 @@ def ownership_table():
 	"""Rows (product field, owner, template field, legacy key) for the review table."""
 	legacy_keys = {
 		"webflow_status": "custom_webflow_status",
+		"webflow_badge": "product_badge",
 		"webflow_compatible_power_supplies": "custom_compatible_power_supplies",
 		"dimensions_image": "custom_dimensions_image_2 / dimensions_image_dark",
 		"webflow_specifications": "specifications",

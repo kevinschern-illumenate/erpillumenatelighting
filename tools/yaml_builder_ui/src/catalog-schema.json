@@ -7502,7 +7502,17 @@
           "fieldname": "webflow_status",
           "label": "Webflow Status",
           "fieldtype": "Select",
-          "options": "Draft\nWebflow Draft\nPublished\nDiscontinued\nArchived"
+          "options": "Webflow Draft\nPublished\nDiscontinued\nArchived",
+          "default": "Webflow Draft",
+          "description": "The Webflow stage chosen by people. Webflow Draft (default) keeps the page hidden; Published shows it; Discontinued keeps it up and marks it discontinued; Archived takes it down. The old stage Draft was merged into Webflow Draft."
+        },
+        {
+          "fieldname": "is_discontinued",
+          "label": "Is Discontinued",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Set automatically on save (plan 4.8): on when the Webflow Status is Discontinued, or when the template is Discontinued or Internal Only and the product has been published. Never edited by hand.",
+          "read_only": 1
         },
         {
           "fieldname": "product_slug",
@@ -7735,7 +7745,9 @@
           "fieldname": "product_badge",
           "label": "Product Badge",
           "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship\nHide"
+          "options": "\nNew\nOn Sale\nQuick Ship\nHide",
+          "description": "Replaced by Web Badge (plan 4.8). Kept until nothing reads it; the export fills product_badge from Web Badge.",
+          "read_only": 1
         },
         {
           "fieldname": "featured_image",

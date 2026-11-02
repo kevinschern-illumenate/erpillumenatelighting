@@ -155,7 +155,8 @@ class ilLWebflowProduct(Document):
 		min_length_mm: DF.Int
 		operating_temp_max_c: DF.Int
 		operating_temp_min_c: DF.Int
-		product_badge: DF.Literal["", "New", "On Sale", "Quick Ship"] | None
+		product_badge: DF.Literal["", "New", "On Sale", "Quick Ship", "Hide"] | None
+		is_discontinued: DF.Check
 		product_category: DF.Link | None
 		product_name: DF.Data
 		product_slug: DF.Data
@@ -286,6 +287,10 @@ class ilLWebflowProduct(Document):
 		from illumenate_lighting.illumenate_lighting.template_listing import apply_template_rows
 
 		apply_template_rows(self)
+
+		from illumenate_lighting.illumenate_lighting.webflow_state import set_is_discontinued
+
+		set_is_discontinued(self)
 
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)

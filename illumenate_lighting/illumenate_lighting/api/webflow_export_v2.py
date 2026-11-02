@@ -356,7 +356,7 @@ def get_webflow_products(
             "driver_template", "controller_template",
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
             "accessory_spec",
-            "short_description", "sublabel", "features", "product_badge", "featured_image", "hero_image", "dimensions_image", "series_family_image",
+            "short_description", "sublabel", "features", "product_badge", "webflow_badge", "is_discontinued", "featured_image", "hero_image", "dimensions_image", "series_family_image",
             "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
@@ -374,6 +374,10 @@ def get_webflow_products(
         p["dimensions_image_light"] = p.get("dimensions_image")
         # Legacy key n8n reads (adapter, plan 4.6). The Webflow Status moved off custom_.
         p["custom_webflow_status"] = p.get("webflow_status")
+        # The badge moved to webflow_badge (plan 4.8); n8n and Webflow read product_badge.
+        if "webflow_badge" in p:
+            p["product_badge"] = p.get("webflow_badge") or ""
+        p["is_discontinued"] = 1 if p.get("is_discontinued") else 0
 
 	# Override top-level sync fields with the active brand's sync_targets row
     for p in products:
