@@ -178,3 +178,25 @@ Not changed: Is Required (steps 7 to 11 stay optional on the website, as today).
 
    Products listed with `configurator_options` are the stale ones from 2a (stored steps older than
    the template's); anything else listed is a bug.
+
+## 2c: result on staging and what stays (2026-11-02)
+
+Applied: 45 templates took their products' hand-set steps (26 fixtures with current Environment
+Rating codes and lookups, 19 Tape/Neon unchanged); the 10 fixtures with no steps (RA01 to RA05 DW,
+the four RA06, SH03-DW) show the calculated ones. They have no Target Brand, so they are not exported
+to Webflow until they get one. `payload_parity` lists `configurator_options` only on the 26 fixtures
+and on 16 products whose stored steps were older than their own calculation (controllers `bled`,
+`dmxc-rgbtw`, `dmxc-tw`, `dmxd`, not configurable, lose unused leftover rows; kits `kit-az01`,
+`kit-ch02`, `kit-ra04`, `kit-ra05`, `kit-sh01`, `kit-sh02`, `kit-sh03`, `kit-sl01`; tape
+`led-snf-sw`, `led-snf-tw`; neon `non-uch-sw`, `non-ucl-sw`).
+
+**Owner, 2026-11-02: the product's Configurator Options table, its Auto-Populate check and the
+product-side calculation stay for now**, so nothing breaks. They are removed later, after the
+remaining templates calculate their own steps.
+
+**Catalog import points at the template.** The fixture builder no longer writes placeholder
+configurator steps onto new Webflow Products (the template calculates them on import), and no
+longer asks for a step order (`configurator_steps` in older YAML files is read and ignored). In the
+Catalog Builder the product's Configurator Options and Auto-Populate are read-only, shown only when
+a record already has them; steps are authored on the template (Part No. Configurator, Calculate
+Configurator on Save).

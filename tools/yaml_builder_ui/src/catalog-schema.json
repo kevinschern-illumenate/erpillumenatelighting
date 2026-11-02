@@ -7680,14 +7680,16 @@
           "label": "Auto-Populate Configurator Options on Save",
           "fieldtype": "Check",
           "default": "1",
-          "description": "For a product linked to a template this is no longer used (removed in Phase 2c). Use Calculate Configurator on Save on the linked template instead."
+          "description": "Set on the template: its Part No. Configurator and Calculate Configurator on Save. The website and the portal read the configurator steps from the template.",
+          "read_only": 1
         },
         {
           "fieldname": "configurator_options",
           "label": "Configurator Options",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
-          "description": "For a product linked to a template, this is an old copy (removed in Phase 2c). The website and the portal read the configurator steps from the linked template's Part No. Configurator: edit them there."
+          "description": "Set on the template: its Part No. Configurator and Calculate Configurator on Save. The website and the portal read the configurator steps from the template.",
+          "read_only": 1
         },
         {
           "fieldname": "feed_lengths",

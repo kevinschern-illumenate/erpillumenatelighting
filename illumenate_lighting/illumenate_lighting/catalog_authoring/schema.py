@@ -126,6 +126,21 @@ def standard_doctypes():
 	}
 
 
+# Fields kept on a doctype for now but authored on another record (Phase 2c, D59): read-only
+# here, so the Catalog Builder only shows them when a record already has a value.
+_ON_TEMPLATE = {
+	"read_only": 1,
+	"description": (
+		"Set on the template: its Part No. Configurator and Calculate Configurator on Save. "
+		"The website and the portal read the configurator steps from the template."
+	),
+}
+AUTHORED_ELSEWHERE = {
+	("ilL-Webflow-Product", "configurator_options"): _ON_TEMPLATE,
+	("ilL-Webflow-Product", "auto_populate_configurator_options"): _ON_TEMPLATE,
+}
+
+
 def build_schema():
 	all_docs = {}
 	for path in sorted(DOCTYPE_ROOT.glob("*/*.json")):
@@ -159,7 +174,10 @@ def build_schema():
 			"autoname": doc.get("autoname", ""),
 			"istable": doc.get("istable", 0),
 			"fields": [
-				{k: field[k] for k in keys if k in field}
+				{
+					**{k: field[k] for k in keys if k in field},
+					**AUTHORED_ELSEWHERE.get((name, field["fieldname"]), {}),
+				}
 				for field in doc["fields"]
 				if field["fieldtype"] not in NON_VALUE
 			],
