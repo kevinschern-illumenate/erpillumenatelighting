@@ -53,8 +53,23 @@ It now does so only when site config `webflow_enrichment_debug` is set.
    print(json.dumps(compare_listing(), default=str, indent=1))
    ```
 
-   `with_unexpected_differences` should be empty. `expected_only` counts products whose only
-   differences are the D43 rows. Any other difference is a bug to fix before going on.
+   It compares the template's calculation with the product's own calculation run in memory on
+   today's data (what the product would hold after its next save), not with the product's stored
+   rows, which are often older.
+
+   - `with_unexpected_differences` should be empty. Any difference there is a bug to fix first.
+   - `expected_only` counts products whose only differences are the D43 rows.
+   - `stale_products`: products whose stored rows are older than their own calculation. They
+     change on their next save whatever the template does. Information only.
+   - `hand_curated_configurators`: products with "Auto Populate Configurator Options" off, whose
+     steps were set up by hand. The template never changes them (not even "Is Required"); what
+     happens to them when the product table goes is decided in 2c.
+
+   The first staging run compared against stored rows, so almost every product showed
+   differences (old number formats, old environment codes, rows never recalculated). That run
+   also showed that hand-set Tape/Neon configurators use different step numbers, so copying the
+   template's "Is Required" by step would have changed the wrong steps. Fixed before any template
+   was saved.
 3. Store the rows on every template (products update on their next save):
 
    ```python

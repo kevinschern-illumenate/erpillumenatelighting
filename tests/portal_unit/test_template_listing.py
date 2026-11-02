@@ -89,6 +89,8 @@ class Listing(unittest.TestCase):
 			"ilL-Webflow-Product",
 			"kit-ra01",
 			kit_template="KIT-RA01",
+			is_configurable=1,
+			auto_populate_configurator_options=1,
 			webflow_specifications=[spec("Watts per Foot", "4.4", 20), spec("Product Note", "p", 10)],
 			configurator_options=[option],
 		)
@@ -98,6 +100,42 @@ class Listing(unittest.TestCase):
 			[("Product Note", "p"), ("Watts per Foot", "4.4"), ("Template Note", "t")],
 		)
 		self.assertEqual(option.is_required, 0)
+
+	def test_steps_set_up_by_hand_on_the_product_are_left_alone(self):
+		self.link(
+			Doc(
+				TAPE,
+				"led-hd-sw",
+				webflow_product="led-hd-sw",
+				specifications=[],
+				part_no_configurator=[{"option_step": 1, "is_required": 0}],
+			)
+		)
+		option = Record(option_step=1, is_required=1, option_type="IP Rating")
+		product = Doc(
+			"ilL-Webflow-Product",
+			"led-hd-sw",
+			tape_neon_template="led-hd-sw",
+			is_configurable=1,
+			auto_populate_configurator_options=0,
+			webflow_specifications=[],
+			configurator_options=[option],
+		)
+		self.module.apply_template_rows(product)
+		self.assertEqual(option.is_required, 1)
+
+	def test_a_hand_set_product_configurator_is_not_calculated_for_the_comparison(self):
+		product = Doc(
+			"ilL-Webflow-Product", "led-hd-sw", is_configurable=1, auto_populate_configurator_options=0
+		)
+		product.sync_custom_template_data = MagicMock()
+		product.populate_tape_neon_configurator_options = MagicMock()
+		product["tape_neon_template"] = "led-hd-sw"
+		product["webflow_specifications"] = [spec("CRI", "90")]
+		specs, configurator = self.module.fresh_product_rows(product)
+		self.assertIsNone(configurator)
+		product.populate_tape_neon_configurator_options.assert_not_called()
+		self.assertEqual(specs[0]["spec_value"], "90")
 
 	def test_a_template_without_decisions_leaves_the_product_alone(self):
 		self.link(

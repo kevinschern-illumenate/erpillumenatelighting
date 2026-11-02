@@ -79,8 +79,21 @@ def shadow_product(template):
 	# rows with calculated labels).
 	product.set("webflow_specifications", _rows(template.get("specifications"), SPEC_FIELDS))
 	existing = _rows(template.get(CONFIGURATOR_FIELD), CONFIGURATOR_FIELDS)
-	if not existing and template.get("webflow_product"):
-		# First computation: carry "Is Required" choices made on the product.
+	if (
+		not existing
+		and template.get("webflow_product")
+		and auto_configurator(
+			frappe.db.get_value(
+				PRODUCT,
+				template.webflow_product,
+				["is_configurable", "auto_populate_configurator_options"],
+				as_dict=True,
+			)
+			or {}
+		)
+	):
+		# First computation: carry "Is Required" choices made on the product (not from steps
+		# set up by hand there: their step numbers differ).
 		existing = frappe.get_all(
 			"ilL-Child-Webflow-Configurator-Option",
 			filters={"parenttype": PRODUCT, "parent": template.webflow_product},
@@ -195,6 +208,10 @@ def apply_template_rows(product):
 			key=lambda row: int(row["display_order"]) if row.get("display_order") not in (None, "") else 999,
 		)
 		product.set("webflow_specifications", rows)
+	if not auto_configurator(product):
+		# Steps set up by hand on the product (auto-populate off) are left alone: their step
+		# numbers do not match the template's calculated steps.
+		return
 	required = {
 		row["option_step"]: row["is_required"]
 		for row in _rows(template.get(CONFIGURATOR_FIELD), CONFIGURATOR_FIELDS)
@@ -204,6 +221,32 @@ def apply_template_rows(product):
 		for row in product.get("configurator_options") or []:
 			if row.get("option_step") in required:
 				row.is_required = required[row.get("option_step")]
+
+
+def auto_configurator(product):
+	"""Whether the product's configurator steps are calculated (not set up by hand)."""
+	auto = product.get("auto_populate_configurator_options")
+	return bool(product.get("is_configurable")) and (auto is None or bool(auto))
+
+
+def fresh_product_rows(product):
+	"""What ``product`` would hold after its next save: its calculations run in memory.
+
+	Nothing is saved. Returns (specifications, configurator); configurator is None when the
+	product's steps are set up by hand, or [] when it is not configurable.
+	"""
+	product.sync_custom_template_data()
+	if not product.get("is_configurable"):
+		configurator = []
+	elif not auto_configurator(product):
+		configurator = None
+	else:
+		for field, method in POPULATE.items():
+			if product.get(field):
+				getattr(product, method)()
+				break
+		configurator = _rows(product.get("configurator_options"), CONFIGURATOR_FIELDS)
+	return _rows(product.get("webflow_specifications"), SPEC_FIELDS), configurator
 
 
 def _calculated_labels():
@@ -253,10 +296,18 @@ def diff_listing(current_specs, new_specs, current_configurator, new_configurato
 
 @frappe.whitelist(methods=["POST"])
 def compare_listing(template_doctype=None, template_id=None, limit=0):
-	"""Compare what each linked template would store with what its product holds today.
+	"""Compare what each linked template would store with what its product would hold after
+	its next save (the product's own calculations, run in memory on fresh data).
 
 	Read-only, System Manager only. Without arguments every linked template is checked.
-	``unexpected`` and ``configurator`` should be empty; ``expected`` lists the D43 rows.
+
+	- ``with_unexpected_differences`` should be empty: those are real differences between the
+	  template and product calculations.
+	- ``expected_only`` counts products whose only differences are the D43 rows.
+	- ``stale_products``: products whose stored rows are older than their own calculation. They
+	  change on their next save whatever the template does (informational).
+	- ``hand_curated_configurators``: products whose configurator steps are set up by hand
+	  (auto-populate off). The template does not touch them (decided in Phase 2c).
 	"""
 	frappe.only_for("System Manager")
 	targets = []
@@ -267,26 +318,32 @@ def compare_listing(template_doctype=None, template_id=None, limit=0):
 		targets += [(doctype, name) for name in frappe.get_all(doctype, filters=filters, pluck="name")]
 	if limit:
 		targets = targets[: int(limit)]
-	report = []
+	report, stale, curated = [], [], []
 	for doctype, name in targets:
 		template = frappe.get_doc(doctype, name)
 		product = frappe.get_doc(PRODUCT, template.webflow_product)
 		entry = {"template": (doctype, name), "product": product.name}
+		stored_specs = _rows(product.get("webflow_specifications"), SPEC_FIELDS)
+		stored_configurator = _rows(product.get("configurator_options"), CONFIGURATOR_FIELDS)
 		try:
 			specs, configurator = compute(template)
+			fresh_specs, fresh_configurator = fresh_product_rows(product)
 		except Exception as error:
 			entry["error"] = str(error)
 			report.append(entry)
 			continue
-		configurator_now = product.get("configurator_options") if product.get("is_configurable") else []
-		entry.update(
-			diff_listing(
-				product.get("webflow_specifications"),
-				specs,
-				configurator_now,
-				configurator if product.get("is_configurable") else [],
-			)
-		)
+		if fresh_configurator is None:
+			curated.append(product.name)
+			fresh_configurator = configurator = []
+		elif not product.get("is_configurable"):
+			configurator = []
+		if _spec_map(stored_specs) != _spec_map(fresh_specs) or (
+			product.get("is_configurable")
+			and product.name not in curated
+			and diff_listing([], [], stored_configurator, fresh_configurator)["configurator"]
+		):
+			stale.append(product.name)
+		entry.update(diff_listing(fresh_specs, specs, fresh_configurator, configurator))
 		report.append(entry)
 	return {
 		"checked": len(report),
@@ -298,6 +355,8 @@ def compare_listing(template_doctype=None, template_id=None, limit=0):
 			for r in report
 			if r.get("expected") and not (r.get("unexpected") or r.get("configurator") or r.get("error"))
 		),
+		"stale_products": stale,
+		"hand_curated_configurators": curated,
 	}
 
 
