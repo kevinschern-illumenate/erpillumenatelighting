@@ -304,3 +304,19 @@ print(json.dumps(check_spec_sheet_data(), default=str, indent=1))
 | `last_synced_at` | Not listing data |  | `last_synced_at` |  |
 | `sync_status` | Not listing data |  | `sync_status` |  |
 | `sync_error_message` | Not listing data |  | `sync_error_message` |  |
+
+### Owner review of the ownership table (2026-11-02)
+
+- `webflow_badge`: stays with the Webflow Product.
+- Category and series: the template owns them; the product mirrors them.
+- Target Brands: the template owns them; the product's brand rows become a mirror (later).
+- Attribute links and compatible power supplies: owned by the product, calculated from the template.
+- `documents`: the template owns them (spec sheet and other documents). Left as it is for now; the
+  owner plans to read them straight from the template. Revisit in the cleanup phase.
+- Spec links (`driver_spec`, `controller_spec`, `profile_spec`, `lens_spec`, `tape_spec`,
+  `accessory_spec`): the template owns them. Components and Accessories have no template today, so
+  for those the product keeps them until there is one. Revisit in the cleanup phase.
+- `portal_item` and `is_configurable`: explained to the owner; decision pending.
+
+Staging check (`check_spec_sheet_data`, one linked template per type: ILL-RA01-DW, cob-fc-sw,
+BLED-PWM-5C-SF, PS-UNIV, KIT-RA01, led-snf-tw): all built, and `legacy` equals the export for each.
