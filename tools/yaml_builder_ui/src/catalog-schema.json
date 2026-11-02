@@ -2757,6 +2757,13 @@
           "read_only": 1
         },
         {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text",
+          "description": "Set on template save from the item's Description (formatting removed). The spec sheet shows it next to the item code.",
+          "read_only": 1
+        },
+        {
           "fieldname": "component_spec_doctype",
           "label": "Spec DocType",
           "fieldtype": "Select",
@@ -2822,6 +2829,14 @@
           "fieldname": "attribute_options_json",
           "label": "Attribute Options JSON",
           "fieldtype": "JSON",
+          "read_only": 1
+        },
+        {
+          "fieldname": "is_calculated",
+          "label": "Calculated",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Added by the calculation from the linked spec records (rebuilt on every template save). Rows typed by hand leave it off.",
           "read_only": 1
         }
       ]

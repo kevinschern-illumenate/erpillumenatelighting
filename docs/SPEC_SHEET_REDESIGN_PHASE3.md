@@ -61,7 +61,21 @@ Owner's mapping for the spec workflow:
 | `product_type` | `context.product_type` |
 | `configurator_options` | `part_no_configurator` (empty when `context.include_configurator` is false) |
 | `specifications` | `specifications`: `spec_label`, `spec_value`, `display_order` only |
-| `kit_components` | `kit_components` grouped by type, as before: `[{hero_image: component_image}, {code: component_item, label: webflow_description}...]` |
+| `kit_components` | `kit_components` grouped by type, as before: `[{hero_image: component_image}, {code: component_item, label: description}...]` |
 | `certifications` | `certifications`: `certification`, badge from `badge_image` |
 | `photometric_image`, `photometric_data`, `colorimetry` | still `legacy` |
 | `custom_compatible_power_supplies` | still `legacy` (product owns it) |
+
+Follow-up (owner, 2026-11-02):
+
+- **Specifications are complete on the template.** The template's calculation also runs the export's
+  enrichment from the linked spec records (`template_listing.linked_spec_rows`: CRI, input voltage,
+  dimensions, dimming, certifications and the like). Those rows are marked `is_calculated` (new
+  column) and rebuilt on every save; rows typed by hand leave it off. The enrichment reads linked
+  records from the database, so a change to the template's own allowed options shows in these rows
+  from the next save.
+- **Kit component Description** (new read-only column): the item's Description as plain text, filled
+  on template save. The spec sheet uses it as the label next to the item code.
+- **Brand:** a spec sheet is only made for the template's own Target Brand. A template with no
+  Target Brand, or a request for another brand, is refused (`get_spec_sheet_data`,
+  `generate_spec_sheet`).

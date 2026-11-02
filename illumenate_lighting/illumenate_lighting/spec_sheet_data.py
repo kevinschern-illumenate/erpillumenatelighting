@@ -204,16 +204,25 @@ def _environment():
 
 
 def _brand(template, brand=None):
-	if brand:
-		return brand
+	"""The template's own brand (its one enabled Target Brand). A spec sheet is only ever made
+	for that brand: asking for another one, or for a template with no brand, is refused
+	(owner, 2026-11-02)."""
 	enabled = [
 		row.brand for row in template.get("target_brands") or [] if row.get("enabled") and row.get("brand")
 	]
-	if enabled:
-		return enabled[0]
-	from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
-
-	return get_default_brand()
+	if not enabled:
+		frappe.throw(
+			_("Set the Target Brand on {0} {1} before generating its spec sheet.").format(
+				template.doctype, template.name
+			)
+		)
+	if brand and brand != enabled[0]:
+		frappe.throw(
+			_("{0} {1} is listed under {2}; a spec sheet for {3} cannot be made from it.").format(
+				template.doctype, template.name, enabled[0], brand
+			)
+		)
+	return enabled[0]
 
 
 def _legacy(product_name, brand):

@@ -36,7 +36,14 @@ PRODUCT = "ilL-Webflow-Product"
 OPTION = "ilL-Child-Webflow-Configurator-Option"
 CONFIGURATOR_AUTO = CONFIGURATOR_AUTO_FIELD["fieldname"]
 TAPE = "ilL-Tape-Neon-Template"
-SPEC_FIELDS = ("spec_label", "spec_value", "display_order", "attribute_doctype", "attribute_options_json")
+SPEC_FIELDS = (
+	"spec_label",
+	"spec_value",
+	"display_order",
+	"attribute_doctype",
+	"attribute_options_json",
+	"is_calculated",
+)
 CONFIGURATOR_FIELDS = (
 	"option_step",
 	"option_type",
@@ -80,7 +87,10 @@ def shadow_product(template):
 	product.flags.template_doc = template
 	# Hand-typed template rows go in first so the calculation keeps them (it only replaces
 	# rows with calculated labels).
-	product.set("webflow_specifications", _rows(template.get("specifications"), SPEC_FIELDS))
+	product.set(
+		"webflow_specifications",
+		[row for row in _rows(template.get("specifications"), SPEC_FIELDS) if not row.get("is_calculated")],
+	)
 	existing = _rows(template.get(CONFIGURATOR_FIELD), CONFIGURATOR_FIELDS)
 	if (
 		not existing
@@ -115,10 +125,69 @@ def compute(template):
 	product, field = shadow_product(template)
 	product.sync_custom_template_data()
 	getattr(product, POPULATE[field])()
+	specifications = _rows(product.get("webflow_specifications"), SPEC_FIELDS)
 	return (
-		_rows(product.get("webflow_specifications"), SPEC_FIELDS),
+		specifications + linked_spec_rows(product, specifications),
 		_rows(product.get("configurator_options"), CONFIGURATOR_FIELDS),
 	)
+
+
+def linked_spec_rows(product, specifications):
+	"""Rows the export adds from the linked spec records (CRI, input voltage, dimensions,
+	dimming and the like): the same code (``_enrich_specifications_from_linked_doctypes``), so
+	the template's Specifications are complete (owner, 2026-11-02). Marked ``is_calculated``.
+
+	A failure here leaves these rows out and is logged; it never blocks the template save.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.webflow_export_v2 import (
+		_enrich_specifications_from_linked_doctypes,
+	)
+
+	record = {field: product.get(field) for field in LINKED_SPEC_KEYS}
+	record["specifications"] = [dict(row) for row in specifications]
+	before = len(record["specifications"])
+	try:
+		_enrich_specifications_from_linked_doctypes(record, product)
+	except Exception:
+		frappe.log_error(title=f"Linked spec rows failed: {product.get('product_name')}")
+		return []
+	rows = []
+	for row in record["specifications"][before:]:
+		value = row.get("spec_value")
+		if value in (None, ""):
+			continue
+		unit = row.get("spec_unit")
+		rows.append(
+			{
+				"spec_label": row.get("spec_label"),
+				"spec_value": f"{value} {unit}" if unit else value,
+				"display_order": row.get("display_order") or 0,
+				"attribute_doctype": row.get("attribute_doctype"),
+				"attribute_options_json": row.get("attribute_options_json"),
+				"is_calculated": 1,
+			}
+		)
+	return rows
+
+
+# What the export's spec enrichment reads from a product record.
+LINKED_SPEC_KEYS = (
+	"name",
+	"product_type",
+	"product_name",
+	"fixture_template",
+	"tape_neon_template",
+	"led_sheet_template",
+	"driver_template",
+	"controller_template",
+	"kit_template",
+	"driver_spec",
+	"controller_spec",
+	"profile_spec",
+	"lens_spec",
+	"tape_spec",
+	"accessory_spec",
+)
 
 
 def refresh_template(template):
@@ -283,7 +352,7 @@ def apply_template_rows(product):
 	template_manual = [
 		row
 		for row in _rows(template.get("specifications"), SPEC_FIELDS)
-		if row["spec_label"] not in calculated
+		if row["spec_label"] not in calculated and not row.get("is_calculated")
 	]
 	if template_manual:
 		labels = {row["spec_label"] for row in template_manual}
@@ -776,6 +845,9 @@ def compare_listing(template_doctype=None, template_id=None, limit=0):
 			and diff_listing([], [], stored_configurator, fresh_configurator)["configurator"]
 		):
 			stale.append(product.name)
+		# Rows from the linked spec records are on the template only (the export adds them to
+		# the product's record), so they are not compared here.
+		specs = [row for row in specs if not row.get("is_calculated")]
 		entry.update(diff_listing(fresh_specs, specs, fresh_configurator, configurator))
 		report.append(entry)
 	return {

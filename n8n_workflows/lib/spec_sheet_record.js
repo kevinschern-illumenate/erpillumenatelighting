@@ -53,7 +53,7 @@ for (const row of t.kit_components || []) {
   if (!groups.has(row.component_type)) groups.set(row.component_type, {image: null, items: []});
   const group = groups.get(row.component_type);
   if (!group.image && row.component_image) group.image = absolute(row.component_image);
-  group.items.push({code: row.component_item || '', label: row.webflow_description || row.description || ''});
+  group.items.push({code: row.component_item || '', label: row.description || ''});
 }
 record.kit_components = Array.from(groups, ([type, group]) => ({
   component_type: type,

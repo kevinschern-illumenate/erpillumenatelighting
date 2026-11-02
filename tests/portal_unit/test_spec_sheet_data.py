@@ -85,6 +85,18 @@ class Payload(unittest.TestCase):
 		self.assertIsNone(data["webflow"])
 		self.assertIsNone(data["legacy"])
 
+	def test_a_spec_sheet_is_only_for_the_templates_own_brand(self):
+		self.frappe._ = lambda text: text
+		template = Doc(
+			"ilL-Extrusion-Kit-Template", "KIT-RA01", target_brands=[Row(brand="illumenate", enabled=1)]
+		)
+		self.assertEqual(self.module._brand(template), "illumenate")
+		self.assertEqual(self.module._brand(template, "illumenate"), "illumenate")
+		with self.assertRaises(ValueError):
+			self.module._brand(template, "lighting_206")
+		with self.assertRaises(ValueError):
+			self.module._brand(Doc("ilL-Extrusion-Kit-Template", "KIT-RA02", target_brands=[]))
+
 	def test_the_ownership_table_names_each_field_once(self):
 		fields = [row[0] for row in self.module.ownership_table()]
 		self.assertEqual(len(fields), len(set(fields)))

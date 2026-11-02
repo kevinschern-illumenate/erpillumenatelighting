@@ -12,7 +12,8 @@
   "spec_value",
   "display_order",
   "attribute_doctype",
-  "attribute_options_json"
+  "attribute_options_json",
+  "is_calculated"
  ],
  "fields": [
   {
@@ -46,12 +47,20 @@
    "fieldtype": "JSON",
    "label": "Attribute Options JSON",
    "read_only": 1
+  },
+  {
+   "fieldname": "is_calculated",
+   "fieldtype": "Check",
+   "label": "Calculated",
+   "read_only": 1,
+   "default": "0",
+   "description": "Added by the calculation from the linked spec records (rebuilt on every template save). Rows typed by hand leave it off."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-31 12:00:00.000000",
+ "modified": "2026-11-03 11:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Webflow-Spec-Custom",
