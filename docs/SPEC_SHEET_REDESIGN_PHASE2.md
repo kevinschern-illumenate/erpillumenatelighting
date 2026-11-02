@@ -316,7 +316,13 @@ print(json.dumps(check_spec_sheet_data(), default=str, indent=1))
 - Spec links (`driver_spec`, `controller_spec`, `profile_spec`, `lens_spec`, `tape_spec`,
   `accessory_spec`): the template owns them. Components and Accessories have no template today, so
   for those the product keeps them until there is one. Revisit in the cleanup phase.
-- `portal_item` and `is_configurable`: explained to the owner; decision pending.
+- `is_configurable` (cleanup phase, owner): move it to the template. The dealer portal (Configure
+  button, catalog and product page), the configurator pages (controller list, driver/controller
+  configurator), the product's step calculation, catalog repair and the Catalog Configurability
+  report then read the template's. The product's own check is freed for the owner's other purpose
+  (the Webflow `is-configurable-3` flag is decided then). Not touched now.
+- `portal_item` (the Item a dealer adds to a schedule for a one-SKU product such as a kit): left as
+  it is; may be revisited in the cleanup phase.
 
 Staging check (`check_spec_sheet_data`, one linked template per type: ILL-RA01-DW, cob-fc-sw,
 BLED-PWM-5C-SF, PS-UNIV, KIT-RA01, led-snf-tw): all built, and `legacy` equals the export for each.
