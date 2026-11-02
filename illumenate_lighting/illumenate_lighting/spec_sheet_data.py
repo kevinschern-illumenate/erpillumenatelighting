@@ -169,6 +169,23 @@ def webflow_section(product, brand):
 	}
 
 
+def _product_type(template):
+	from illumenate_lighting.illumenate_lighting.template_listing import product_type_for
+
+	return product_type_for(template)
+
+
+def _include_configurator(brand):
+	"""Whether the brand gets configurator data (the export strips it otherwise)."""
+	try:
+		from illumenate_lighting.illumenate_lighting.api.webflow_brand import resolve_brand
+
+		config = resolve_brand(brand, allow_inactive=True)
+	except Exception:
+		return True
+	return bool(config is None or config.get("include_configurator_payload", True))
+
+
 def _environment():
 	configured = frappe.conf.get("illumenate_environment")
 	if configured:
@@ -207,6 +224,9 @@ def build(template, product, brand, legacy=None):
 			"template_doctype": template.doctype,
 			"template_id": template.name,
 			"product": product.name if product else None,
+			# The Webflow spec sheet template page is chosen by product type.
+			"product_type": product.product_type if product else _product_type(template),
+			"include_configurator": _include_configurator(brand),
 		},
 		"template": template_section(template),
 		"product": product_section(product) if product else None,
