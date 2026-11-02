@@ -17,7 +17,8 @@ class Discontinued(unittest.TestCase):
 				("Webflow Draft", "Internal Only", False, False),  # row 13
 				("Published", "Discontinued", True, True),  # row 14
 				("Published", "Discontinued", False, False),  # row 15
-				("Archived", "Active + Live", True, False),  # row 11
+				("Archived", "Active + Live", True, True),  # row 11, owner 2026-11-02
+				("Archived", "Active + Live", False, False),
 				("Discontinued", "Archived", True, False),  # row 16
 				("Webflow Draft", None, False, False),
 			]

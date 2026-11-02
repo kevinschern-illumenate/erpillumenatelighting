@@ -41,6 +41,7 @@
   "column_break_pricing",
   "web_listing_tab",
   "product_data_section",
+  "display_name",
   "warranty_years",
   "min_length_mm",
   "max_length_mm",
@@ -296,6 +297,12 @@
    "label": "Product Data"
   },
   {
+   "fieldname": "display_name",
+   "fieldtype": "Data",
+   "label": "Display Name",
+   "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
+  },
+  {
    "fieldname": "warranty_years",
    "fieldtype": "Int",
    "label": "Warranty (Years)"
@@ -462,7 +469,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-02 20:49:36.000000",
+ "modified": "2026-11-02 21:49:08.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",

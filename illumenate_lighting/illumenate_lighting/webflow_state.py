@@ -17,10 +17,14 @@ STAYS_UP_DISCONTINUED = ("Discontinued", "Internal Only")
 
 
 def discontinued(webflow_status, template_status, published):
-	"""Pure (plan 4.3 rows 10, 12, 14). Archived and anything hidden are never discontinued."""
-	if template_status == "Archived" or webflow_status == "Archived":
+	"""Pure (plan 4.3 rows 10, 12, 14; owner 2026-11-02 for an Archived stage).
+
+	An Archived template is never discontinued (its page is hidden, row 16). A product whose
+	Webflow Status is Archived is discontinued once it was published (owner, 2026-11-02).
+	"""
+	if template_status == "Archived":
 		return False
-	if template_status in STAYS_UP_DISCONTINUED:
+	if template_status in STAYS_UP_DISCONTINUED or webflow_status == "Archived":
 		return bool(published)
 	return webflow_status == DISCONTINUED_STAGE
 

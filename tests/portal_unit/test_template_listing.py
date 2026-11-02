@@ -384,6 +384,22 @@ class Listing(unittest.TestCase):
 		self.assertEqual([row.depends_on_step for row in rows], [0, 1, 1])
 		self.assertEqual([row.step for row in feed], [1, 7])
 
+	def test_the_product_name_mirrors_the_display_name_or_template_name(self):
+		for template_values, expected in (
+			({"display_name": "Rainier Kit", "template_name": "KIT RA01"}, "Rainier Kit"),
+			({"display_name": " ", "template_name": "KIT RA01"}, "KIT RA01"),
+			({"template_name": ""}, "Old Name"),
+		):
+			with self.subTest(template=template_values):
+				self.link(
+					Doc(KIT, "KIT-RA01", webflow_product="kit-ra01", specifications=[], **template_values)
+				)
+				product = Doc(
+					"ilL-Webflow-Product", "kit-ra01", kit_template="KIT-RA01", product_name="Old Name"
+				)
+				self.module.apply_template_rows(product)
+				self.assertEqual(product["product_name"], expected)
+
 	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
 		diff = self.module.diff_listing(
 			[

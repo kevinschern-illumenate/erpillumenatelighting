@@ -73,7 +73,7 @@ def shadow_product(template):
 	field = WEBFLOW_PRODUCT_LINKS[template.doctype]
 	product = frappe.new_doc(PRODUCT)
 	product.name = template.get("webflow_product") or f"template:{template.name}"
-	product.product_name = template.get("template_name") or template.name
+	product.product_name = display_name(template) or template.name
 	product.product_type = product_type_for(template)
 	product.set(field, template.name)
 	product.is_configurable = 1
@@ -270,6 +270,9 @@ def apply_template_rows(product):
 	template = _linked_template(product)
 	if not template:
 		return
+	name = display_name(template)
+	if name:
+		product.product_name = name
 	calculated = set(_calculated_labels())
 	template_manual = [
 		row
@@ -327,6 +330,11 @@ def fresh_product_rows(product):
 				break
 		configurator = _rows(product.get("configurator_options"), CONFIGURATOR_FIELDS)
 	return _rows(product.get("webflow_specifications"), SPEC_FIELDS), configurator
+
+
+def display_name(template):
+	"""The name the product shows: Display Name, else Template Name (owner, 2026-11-02)."""
+	return (template.get("display_name") or "").strip() or (template.get("template_name") or "").strip()
 
 
 def _calculated_labels():

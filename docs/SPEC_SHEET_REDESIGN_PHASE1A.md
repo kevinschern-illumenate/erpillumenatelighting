@@ -219,7 +219,15 @@ Patch `webflow_status_draft_badge_discontinued`:
   and Webflow's `product-badge` field read the new value. The field is deleted once nothing reads it.
 - **Is Discontinued** (read-only check on the product, `webflow_state.py`): on when the Webflow Status
   is Discontinued, or when the template is Discontinued or Internal Only and the product has been
-  published (a publication date, or a Webflow item for any brand). Off for Archived and everything
-  else. Stored on every product save; a template save saves its product, so a template status change
+  published (a publication date, or a Webflow item for any brand), or when the Webflow Status is
+  Archived and the product has been published (owner, 2026-11-02). Off when the template is Archived,
+  and in every other case. Stored on every product save; a template save saves its product, so a template status change
   refreshes it. The patch sets the first values. Exported as `is_discontinued` (0 or 1) and in payload
   v2. Webflow does not use it yet (R1, Phase 9).
+
+## Display Name (owner, 2026-11-02)
+
+All six templates have `display_name` (Product Data tab, first field of the Product Data section). The
+Webflow Product's `product_name` copies it on every product save, falling back to `template_name` when
+it is empty; a template save saves its product, so a change shows on the product at once. The spec
+sheet data (`template` section) carries it.

@@ -202,6 +202,18 @@ CONFIGURATOR_FIELD = "part_no_configurator"
 CONFIGURATOR_TABLE = {doctype: CONFIGURATOR_FIELD for doctype in TEMPLATE_DOCTYPES}
 
 
+# The name the website and the spec sheet show; the Webflow Product's product_name mirrors it.
+DISPLAY_NAME_FIELD = {
+	"fieldname": "display_name",
+	"fieldtype": "Data",
+	"label": "Display Name",
+	"description": (
+		"The product name shown on the website and the spec sheet. The Webflow Product's "
+		"Product Name copies it. When empty, the Template Name is used."
+	),
+}
+
+
 CONFIGURATOR_AUTO_FIELD = {
 	"fieldname": "auto_populate_configurator",
 	"fieldtype": "Check",
@@ -352,6 +364,7 @@ def _tab_fields(doctype):
 	parts = TEMPLATE_PARTS[doctype]
 	weight = parts.get("weight") and WEIGHT_FIELD["fieldname"] not in _placed(doctype)
 	left = [
+		DISPLAY_NAME_FIELD,
 		_WARRANTY,
 		*(_LENGTHS if parts.get("lengths") else []),
 		*([WEIGHT_FIELD] if weight else []),

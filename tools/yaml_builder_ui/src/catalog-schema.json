@@ -3223,6 +3223,12 @@
           "fieldtype": "Small Text"
         },
         {
+          "fieldname": "display_name",
+          "label": "Display Name",
+          "fieldtype": "Data",
+          "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
+        },
+        {
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
@@ -3506,6 +3512,12 @@
           "fieldtype": "Small Text"
         },
         {
+          "fieldname": "display_name",
+          "label": "Display Name",
+          "fieldtype": "Data",
+          "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
+        },
+        {
           "fieldname": "warranty_years",
           "label": "Warranty (Years)",
           "fieldtype": "Int"
@@ -3722,6 +3734,12 @@
           "fieldtype": "Currency",
           "default": "0",
           "description": "Base kit MSRP price before option adders"
+        },
+        {
+          "fieldname": "display_name",
+          "label": "Display Name",
+          "fieldtype": "Data",
+          "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
         },
         {
           "fieldname": "warranty_years",
@@ -4037,6 +4055,12 @@
           "label": "Scene Archetypes",
           "fieldtype": "Small Text",
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
+        },
+        {
+          "fieldname": "display_name",
+          "label": "Display Name",
+          "fieldtype": "Data",
+          "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
         },
         {
           "fieldname": "warranty_years",
@@ -4530,6 +4554,12 @@
           "label": "Scene Archetypes",
           "fieldtype": "Small Text",
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
+        },
+        {
+          "fieldname": "display_name",
+          "label": "Display Name",
+          "fieldtype": "Data",
+          "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
         },
         {
           "fieldname": "warranty_years",
@@ -7271,6 +7301,12 @@
           "label": "Scene Archetypes",
           "fieldtype": "Small Text",
           "description": "Comma list of 3D scenes this product suits, e.g. cove,under-cabinet."
+        },
+        {
+          "fieldname": "display_name",
+          "label": "Display Name",
+          "fieldtype": "Data",
+          "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
         },
         {
           "fieldname": "min_length_mm",
