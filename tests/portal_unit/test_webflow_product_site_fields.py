@@ -77,5 +77,25 @@ class SiteFields(unittest.TestCase):
 		self.assertEqual(frappe.db.get_value.call_args.args[2], ["badge_image"])
 
 
+class TemplateHooks(SiteFields):
+	"""Phase 2: the calculations can run against a template that is being saved."""
+
+	def test_a_supplied_template_is_used_instead_of_the_saved_one(self):
+		doc, frappe = self.product()
+		template = Record(doctype="ilL-Tape-Neon-Template", name="DEMO-TAPE")
+		doc.flags = Record(template_doc=template)
+		self.assertIs(doc._template_doc("ilL-Tape-Neon-Template", "DEMO-TAPE"), template)
+		frappe.get_doc.reset_mock()
+		doc._template_doc("ilL-Fixture-Template", "OTHER")
+		frappe.get_doc.assert_called_once_with("ilL-Fixture-Template", "OTHER")
+
+	def test_supplied_is_required_choices_win(self):
+		doc, frappe = self.product()
+		doc.flags = Record(existing_is_required={3: 0})
+		self.assertEqual(doc._get_existing_is_required(), {3: 0})
+		frappe.get_all.reset_mock()
+		frappe.get_all.assert_not_called()
+
+
 if __name__ == "__main__":
 	unittest.main()

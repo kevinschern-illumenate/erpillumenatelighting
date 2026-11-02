@@ -4,7 +4,7 @@
 import frappe
 from frappe.model.document import Document
 
-from illumenate_lighting.illumenate_lighting import template_link
+from illumenate_lighting.illumenate_lighting import template_link, template_listing
 from illumenate_lighting.illumenate_lighting.web_listing import apply_product_status
 
 # Maps each allowed-option type to the Link field that carries its value.
@@ -20,7 +20,8 @@ _ALLOWED_OPTION_VALUE_FIELD = {
 
 class ilLFixtureTemplate(Document):
 	def on_update(self):
-		template_link.on_template_update(self)
+		if not template_link.on_template_update(self):
+			template_listing.push_to_product(self)
 
 	def on_trash(self):
 		template_link.on_template_trash(self)
@@ -28,6 +29,7 @@ class ilLFixtureTemplate(Document):
 	def validate(self):
 		apply_product_status(self)
 		template_link.validate_template(self)
+		template_listing.refresh_template(self)
 		self._dedupe_allowed_options()
 
 	def _dedupe_allowed_options(self):

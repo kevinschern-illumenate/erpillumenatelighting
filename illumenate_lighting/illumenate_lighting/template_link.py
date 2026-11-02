@@ -168,12 +168,15 @@ def validate_template(doc):
 
 
 def on_template_update(doc):
-	"""Write the product side of a changed link. Call from each template's on_update()."""
+	"""Write the product side of a changed link. Call from each template's on_update().
+
+	Returns True when it saved the newly linked product (so it already has the template's rows).
+	"""
 	before = doc.get_doc_before_save()
 	old = before.get("webflow_product") if before else None
 	new = doc.get("webflow_product")
 	if old == new:
-		return
+		return False
 	fieldname = WEBFLOW_PRODUCT_LINKS[doc.doctype]
 	if old and frappe.db.get_value(PRODUCT, old, fieldname) == doc.name:
 		frappe.db.set_value(PRODUCT, old, fieldname, None)
@@ -183,6 +186,8 @@ def on_template_update(doc):
 		product.set(fieldname, doc.name)
 		product.flags.from_template_link = True
 		product.save(ignore_permissions=True)
+		return True
+	return False
 
 
 def on_template_trash(doc):

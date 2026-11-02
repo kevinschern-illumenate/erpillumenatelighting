@@ -81,9 +81,16 @@ class TemplateValidation(unittest.TestCase):
 		# The template link rules have their own tests (test_template_link.py).
 		link = types.ModuleType(ROOT + ".template_link")
 		link.validate_template = link.on_template_update = link.on_template_trash = lambda doc: None
+		listing = types.ModuleType(ROOT + ".template_listing")
+		listing.refresh_template = listing.push_to_product = lambda doc: None
 		context = load_service(
 			ROOT + ".doctype.ill_tape_neon_template.ill_tape_neon_template",
-			{"frappe.model": model, "frappe.model.document": document, link.__name__: link},
+			{
+				"frappe.model": model,
+				"frappe.model.document": document,
+				link.__name__: link,
+				listing.__name__: listing,
+			},
 		)
 		module, frappe = context.__enter__()
 		self.addCleanup(context.__exit__, None, None, None)

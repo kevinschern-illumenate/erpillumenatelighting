@@ -1,0 +1,66 @@
+# Spec Sheet Redesign: Phase 2 (template-first spec data)
+
+Plan: `erpnext_spec_sheet_redesign_plan.md` Phase 2, with the owner decisions in the Phase 0 and 1a notes.
+Done in three pushes so each can be checked on staging:
+
+- **2a**: templates calculate and store their specification rows and configurator steps; products
+  merge in what the template owns; the D43 rules. (This push.)
+- **2b**: `get_spec_sheet_data` (payload v2 with the `legacy` adapter) and the field ownership table.
+- **2c**: everything that reads the product's `configurator_options` reads the template's
+  `part_no_configurator` instead, then the product table is removed (owner, 2026-11-02).
+
+## 2a: how it works
+
+The product calculations (`sync_custom_template_data`, the six `populate_*_configurator_options`
+methods) only read the linked template. They now load it through `_template_doc()`, which returns
+an in-memory template when one is supplied, and take "Is Required" choices from
+`flags.existing_is_required` when supplied.
+
+`template_listing.py`:
+
+- `shadow_product(template)`: an unsaved Webflow Product that points at the template being saved.
+- `compute(template)`: runs the product code on the shadow and returns its specification rows
+  and configurator steps. Because it is the same code, a template's rows match its product's.
+- Template `validate`: `refresh_template` stores the result in `specifications` and
+  `part_no_configurator`. Rows typed on the template (labels that are not calculated) are kept. A
+  calculation error never blocks the save: the old rows stay and the user sees a message.
+- Template `on_update`: `push_to_product` saves the linked product (D21). A product that cannot be
+  saved is reported, never blocks the template save. No recursion: product saves never save the
+  template.
+- Product `before_save` (end): `apply_template_rows`. The product keeps its own fresh calculated rows
+  (stored template rows can be older than a changed tape spec or attribute record), and takes from
+  the template what people decide there: hand-typed specification rows and each configurator step's
+  "Is Required". Rows typed on the product by hand are kept.
+
+D43, everywhere the calculation runs (template and product):
+
+- A row whose value is the placeholder "TBD" is not added (the driver rows and the LED Sheet
+  "Dimming" row).
+- An operating temperature range of 0 to 0 is treated as "not set" and not added (kits and LED
+  sheets; it showed as "32°F (0°C) to 32°F (0°C)").
+
+Also: the calculation wrote an Error Log ("Combined Full Enrichment Debug") on every product save.
+It now does so only when site config `webflow_enrichment_debug` is set.
+
+## 2a: checks on staging
+
+1. Deploy. Nothing changes until a template or product is saved.
+2. Compare what each linked template would store with what its product holds today (read-only):
+
+   ```python
+   import json
+   from illumenate_lighting.illumenate_lighting.template_listing import compare_listing
+   print(json.dumps(compare_listing(), default=str, indent=1))
+   ```
+
+   `with_unexpected_differences` should be empty. `expected_only` counts products whose only
+   differences are the D43 rows. Any other difference is a bug to fix before going on.
+3. Store the rows on every template (products update on their next save):
+
+   ```python
+   import json
+   from illumenate_lighting.illumenate_lighting.template_listing import refresh_all_templates
+   print(json.dumps(refresh_all_templates(apply=True), default=str, indent=1))
+   ```
+
+   `failed` lists templates whose save failed, with the reason.
