@@ -9,6 +9,7 @@
  "field_order": [
   "identity_section",
   "product_name",
+  "webflow_status",
   "product_slug",
   "column_break_identity",
   "product_type",
@@ -17,13 +18,13 @@
   "series",
   "web_series",
   "is_active",
-  "webflow_template_status",
   "source_reference_section",
   "fixture_template",
   "driver_spec",
   "driver_template",
   "controller_spec",
   "controller_template",
+  "webflow_template_status",
   "column_break_source",
   "profile_spec",
   "lens_spec",
@@ -45,11 +46,11 @@
   "kit_components_section",
   "kit_components",
   "marketing_section",
+  "webflow_badge",
   "short_description",
   "sublabel",
   "features",
   "product_badge",
-  "webflow_badge",
   "featured_image",
   "dimensions_image",
   "series_family_image",
@@ -62,13 +63,14 @@
   "auto_calculate_specs",
   "specifications",
   "attribute_links",
-  "webflow_specifications",
   "certifications_section",
   "certifications",
   "compatibility_section",
   "compatible_products",
   "webflow_compatible_power_supplies",
   "spec_sheet_data_section",
+  "webflow_specifications",
+  "spec_sheet_values_section",
   "beam_angle",
   "operating_temp_min_c",
   "operating_temp_max_c",
@@ -77,7 +79,6 @@
   "warranty_years",
   "fixture_weight_per_foot_grams",
   "sync_section",
-  "webflow_status",
   "target_brands",
   "sync_targets",
   "legacy_sync_section",
@@ -102,6 +103,13 @@
    "in_list_view": 1,
    "label": "Product Name",
    "reqd": 1
+  },
+  {
+   "fieldname": "webflow_status",
+   "fieldtype": "Select",
+   "label": "Webflow Status",
+   "options": "Draft\nWebflow Draft\nPublished\nDiscontinued\nArchived",
+   "in_standard_filter": 1
   },
   {
    "description": "URL-friendly slug (e.g., 'sh01-linear-fixture')",
@@ -161,13 +169,6 @@
    "label": "Is Active"
   },
   {
-   "fieldname": "webflow_template_status",
-   "fieldtype": "Data",
-   "label": "Template Status",
-   "read_only": 1,
-   "description": "The template's Product Status. Copied from the template on save."
-  },
-  {
    "description": "Link the template (or single spec) this product page describes. Only the link for the selected Product Type is shown.",
    "fieldname": "source_reference_section",
    "fieldtype": "Section Break",
@@ -215,6 +216,13 @@
    "label": "Controller Template",
    "options": "ilL-Controller-Template",
    "read_only": 1
+  },
+  {
+   "fieldname": "webflow_template_status",
+   "fieldtype": "Data",
+   "label": "Template Status",
+   "read_only": 1,
+   "description": "The template's Product Status. Copied from the template on save."
   },
   {
    "fieldname": "column_break_source",
@@ -365,6 +373,12 @@
    "label": "Marketing Content"
   },
   {
+   "fieldname": "webflow_badge",
+   "fieldtype": "Select",
+   "label": "Web Badge",
+   "options": "\nNew\nOn Sale\nQuick Ship"
+  },
+  {
    "description": "Tagline or subtitle for the product",
    "fieldname": "short_description",
    "fieldtype": "Small Text",
@@ -389,12 +403,6 @@
    "fieldtype": "Select",
    "label": "Product Badge",
    "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-  },
-  {
-   "fieldname": "webflow_badge",
-   "fieldtype": "Select",
-   "label": "Web Badge",
-   "options": "\nNew\nOn Sale\nQuick Ship"
   },
   {
    "fieldname": "featured_image",
@@ -469,12 +477,6 @@
    "options": "ilL-Child-Webflow-Attribute-Link"
   },
   {
-   "fieldname": "webflow_specifications",
-   "fieldtype": "Table",
-   "label": "Spec Data",
-   "options": "ilL-Child-Webflow-Spec-Custom"
-  },
-  {
    "collapsible": 1,
    "fieldname": "certifications_section",
    "fieldtype": "Section Break",
@@ -507,11 +509,22 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:in_list(['Fixture Template','LED Tape','COB Tape','LED Neon','LED Sheet','Extrusion Kit'], doc.product_type)",
    "description": "Data not captured elsewhere — fill in for spec sheet export",
    "fieldname": "spec_sheet_data_section",
    "fieldtype": "Section Break",
    "label": "Spec Sheet Data"
+  },
+  {
+   "fieldname": "webflow_specifications",
+   "fieldtype": "Table",
+   "label": "Spec Data",
+   "options": "ilL-Child-Webflow-Spec-Custom"
+  },
+  {
+   "fieldname": "spec_sheet_values_section",
+   "fieldtype": "Section Break",
+   "depends_on": "eval:in_list(['Component','Accessory'], doc.product_type)",
+   "description": "Products with a template take these values from the template."
   },
   {
    "description": "Edited on the linked template once one is set.",
@@ -564,13 +577,6 @@
    "fieldname": "sync_section",
    "fieldtype": "Section Break",
    "label": "Webflow Brands & Sync"
-  },
-  {
-   "fieldname": "webflow_status",
-   "fieldtype": "Select",
-   "label": "Webflow Status",
-   "options": "Draft\nWebflow Draft\nPublished\nDiscontinued\nArchived",
-   "in_standard_filter": 1
   },
   {
    "description": "Brands (Webflow sites) this product should be published to. Leave empty during migration; defaults to the default brand.",
@@ -649,7 +655,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-02 12:00:00.000000",
+ "modified": "2026-11-02 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

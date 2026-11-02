@@ -7456,6 +7456,12 @@
           "description": "Display name for the product (e.g., 'SH01 Linear Fixture')"
         },
         {
+          "fieldname": "webflow_status",
+          "label": "Webflow Status",
+          "fieldtype": "Select",
+          "options": "Draft\nWebflow Draft\nPublished\nDiscontinued\nArchived"
+        },
+        {
           "fieldname": "product_slug",
           "label": "Product Slug",
           "fieldtype": "Data",
@@ -7504,13 +7510,6 @@
           "default": "1"
         },
         {
-          "fieldname": "webflow_template_status",
-          "label": "Template Status",
-          "fieldtype": "Data",
-          "description": "The template's Product Status. Copied from the template on save.",
-          "read_only": 1
-        },
-        {
           "fieldname": "fixture_template",
           "label": "Fixture Template",
           "fieldtype": "Link",
@@ -7546,6 +7545,13 @@
           "fieldtype": "Link",
           "options": "ilL-Controller-Template",
           "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
+          "read_only": 1
+        },
+        {
+          "fieldname": "webflow_template_status",
+          "label": "Template Status",
+          "fieldtype": "Data",
+          "description": "The template's Product Status. Copied from the template on save.",
           "read_only": 1
         },
         {
@@ -7656,6 +7662,12 @@
           "description": "Components included in this extrusion kit Edited on the linked template once one is set."
         },
         {
+          "fieldname": "webflow_badge",
+          "label": "Web Badge",
+          "fieldtype": "Select",
+          "options": "\nNew\nOn Sale\nQuick Ship"
+        },
+        {
           "fieldname": "short_description",
           "label": "Short Description",
           "fieldtype": "Small Text",
@@ -7679,12 +7691,6 @@
           "label": "Product Badge",
           "fieldtype": "Select",
           "options": "\nNew\nOn Sale\nQuick Ship\nHide"
-        },
-        {
-          "fieldname": "webflow_badge",
-          "label": "Web Badge",
-          "fieldtype": "Select",
-          "options": "\nNew\nOn Sale\nQuick Ship"
         },
         {
           "fieldname": "featured_image",
@@ -7744,12 +7750,6 @@
           "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering."
         },
         {
-          "fieldname": "webflow_specifications",
-          "label": "Spec Data",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Spec-Custom"
-        },
-        {
           "fieldname": "certifications",
           "label": "Certifications",
           "fieldtype": "Table",
@@ -7767,6 +7767,12 @@
           "label": "Compatible Power Supplies",
           "fieldtype": "Table",
           "options": "ilL-Child-Comp-Power"
+        },
+        {
+          "fieldname": "webflow_specifications",
+          "label": "Spec Data",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Spec-Custom"
         },
         {
           "fieldname": "beam_angle",
@@ -7803,12 +7809,6 @@
           "label": "Fixture Weight per Foot (g)",
           "fieldtype": "Float",
           "description": "Edited on the linked template once one is set."
-        },
-        {
-          "fieldname": "webflow_status",
-          "label": "Webflow Status",
-          "fieldtype": "Select",
-          "options": "Draft\nWebflow Draft\nPublished\nDiscontinued\nArchived"
         },
         {
           "fieldname": "target_brands",
