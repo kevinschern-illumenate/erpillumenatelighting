@@ -219,137 +219,10 @@ def _require_system_user():
         frappe.throw(_("Only ERPNext desk users can do this."), frappe.PermissionError)
 
 
-@frappe.whitelist(allow_guest=False)
-def get_webflow_products(
-    product_type: str | None = None,
-    sync_status: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
-    include_child_tables: bool | str | None = True,
-    brand: str | None = None,
-    product_slug: str | None = None,
-) -> dict:
-    """
-    Get Webflow products for n8n export.
 
-    Args:
-        product_type: Filter by product type (e.g., "Fixture Template", "Driver")
-        sync_status: Filter by sync status ("Pending", "Never Synced", "Error", "needs_sync")
-        limit: Maximum records to return (default: 100)
-        offset: Pagination offset (default: 0)
-        include_child_tables: Whether to include expanded child table data (default: True)
-        brand: Brand code (e.g. "illumenate", "lighting_206"). Defaults to the
-            default brand (back-compat). When supplied, products are filtered to
-            those whose ``target_brands`` table contains the brand (enabled=1)
-            OR — for back-compat — every product if no target_brands rows exist
-            yet anywhere (pre-migration). Sync-status filter is matched against
-            the per-brand sync row when available, falling back to the legacy
-            scalar.
-
-    Returns:
-        dict: {"products": [...], "total": int, "limit": int, "offset": int, "brand": str}
-    """
-    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
-    from illumenate_lighting.illumenate_lighting.portal.staff import require_catalog_reader
-
-    require_catalog_reader()
-    limit, offset = max(1, min(int(limit), 100)), max(0, int(offset))
-    include_child_tables = parse_bool(include_child_tables, default=True)
-    # Resolve brand (defaulting to the configured default brand for back-compat).
-    brand_code = brand or get_default_brand() or "illumenate"
-    try:
-        brand_cfg = resolve_brand(brand_code, allow_inactive=True)
-    except frappe.ValidationError:
-        brand_cfg = None
-    strip_configurator = brand_cfg is not None and not brand_cfg.get(
-        "include_configurator_payload", True
-    )
-
-    filters = {"is_active": 1}
-
-    if product_type:
-        filters["product_type"] = product_type
-
-    # Determine the candidate name set from target_brands (per-brand); if no
-    # rows exist for this brand at all (pre-migration), skip the filter.
-    targeted_names: set[str] | None = None
-    if frappe.db.count(
-        "ilL-Child-Webflow-Brand-Target",
-        {"brand": brand_code, "parenttype": "ilL-Webflow-Product"},
-    ):
-        targeted = frappe.get_all(
-            "ilL-Child-Webflow-Brand-Target",
-            filters={
-                "brand": brand_code,
-                "enabled": 1,
-                "parenttype": "ilL-Webflow-Product",
-            },
-            pluck="parent",
-        )
-        targeted_names = set(targeted)
-        if not targeted_names:
-            # Brand exists but no products are targeted to it.
-            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
-        filters["name"] = ["in", list(targeted_names)]
-
-    # Sync status filter: prefer per-brand row, fall back to legacy scalar.
-    pending_status_set = {"Pending", "Never Synced"}
-    sync_filter_set: set[str] | None = None
-    if sync_status:
-        if sync_status == "needs_sync":
-            sync_filter_set = pending_status_set
-        else:
-            sync_filter_set = {sync_status}
-
-    if sync_filter_set:
-        # Find names matching per-brand sync row OR legacy scalar.
-        per_brand_match = set(frappe.get_all(
-            "ilL-Child-Webflow-Sync-State",
-            filters={
-                "parenttype": "ilL-Webflow-Product",
-                "brand": brand_code,
-                "sync_status": ["in", list(sync_filter_set)],
-            },
-            pluck="parent",
-        ))
-        # Legacy fallback only applies when there's no per-brand row at all
-        # for that product (during the dual-write window).
-        legacy_match = set(frappe.get_all(
-            "ilL-Webflow-Product",
-            filters={"sync_status": ["in", list(sync_filter_set)]},
-            pluck="name",
-        ))
-        # Exclude any product that already has a per-brand row for this brand
-        # (per-brand row is authoritative).
-        has_per_brand_row = set(frappe.get_all(
-            "ilL-Child-Webflow-Sync-State",
-            filters={"parenttype": "ilL-Webflow-Product", "brand": brand_code},
-            pluck="parent",
-        ))
-        legacy_only = legacy_match - has_per_brand_row
-        match_names = per_brand_match | legacy_only
-
-        if targeted_names is not None:
-            match_names &= targeted_names
-
-        if not match_names:
-            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
-        filters["name"] = ["in", list(match_names)]
-    
-    if product_slug:
-        permitted = filters.get("name")
-        if permitted and product_slug not in permitted[1]:
-            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
-        filters["name"] = product_slug
-
-    # Get product list with basic fields
-    # Fields that ship with the app; has_field keeps the query safe on a site that has not
-    # migrated yet. The payload still carries the old key names n8n reads (legacy keys below).
-    product_meta = frappe.get_meta("ilL-Webflow-Product")
-    products = frappe.get_all(
-        "ilL-Webflow-Product",
-        filters=filters,
-        fields=[f for f in [
+# Webflow Product fields the export reads (fields that ship with the app; has_field keeps the
+# query safe on a site that has not migrated yet).
+EXPORT_FIELDS = [
             "name", "product_name", "product_slug", "product_type", "webflow_status",
             "product_category", "series", "is_active", "is_configurable",
             "fixture_template", "driver_spec", "controller_spec",
@@ -362,12 +235,13 @@ def get_webflow_products(
             "webflow_item_id", "webflow_collection_slug",
             "last_synced_at", "sync_status", "sync_error_message",
             "creation", "modified"
-        ] if f in ("name", "creation", "modified") or product_meta.has_field(f)],
-        limit=limit,
-        start=offset,
-        order_by="modified desc"
-    )
+        ]
 
+
+def _finish_products(products, brand_code, include_child_tables, get_doc):
+    """Turn product rows into export records. ``get_doc(name)`` returns the arguments for
+    ``Listing`` (the product document, and optionally its template), so a template with no
+    product can be exported through a temporary one (``export_template_record``)."""
 	# --- V2 DIMENSIONS IMAGE MAPPING ---
     for p in products:
         # Pass dimensions_image as dimensions_image_light
@@ -390,7 +264,7 @@ def get_webflow_products(
     # A migrated listing's web content is read from its template (merge plan, step 4).
     listings = {}
     for product in products:
-        listing = Listing(frappe.get_doc("ilL-Webflow-Product", product["name"]))
+        listing = Listing(*get_doc(product["name"]))
         listing.overlay(product)
         product.update(_photometrics(listing.template))
         listings[product["name"]] = listing
@@ -606,6 +480,180 @@ def get_webflow_products(
                     product["features_json"] = "[]"
             else:
                 product["features_json"] = "[]"
+
+    return products
+
+
+def export_template_record(template, brand=None):
+    """Today's export record for a template that has no Webflow Product (plan 4.6).
+
+    Runs the same export code on a temporary, unsaved Webflow Product that points at the
+    template (``template_listing.shadow_product``) and has run the product calculations.
+    Fields only a real product has (gallery, documents, copy and the like) come out empty.
+    Nothing is saved.
+    """
+    from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
+    from illumenate_lighting.illumenate_lighting.template_listing import POPULATE, shadow_product
+
+    product, field = shadow_product(template)
+    product.product_slug = template.name.lower()
+    product.is_active = 1 if template.get("is_active") else 0
+    product.webflow_status = "Webflow Draft"
+    product.set_dynamic_hero_image()
+    if product.get("auto_populate_attributes", True):
+        product.populate_attribute_links()
+    product.sync_custom_template_data()
+    product.populate_compatible_power_supplies()
+    product.populate_certification_badges()
+    getattr(product, POPULATE[field])()
+    row = {f: product.get(f) for f in EXPORT_FIELDS if f not in ("creation", "modified")}
+    row["name"] = product.name
+    record = _finish_products([row], brand or get_default_brand(), True, lambda _name: (product, template))
+    return record[0]
+
+
+@frappe.whitelist(allow_guest=False)
+def get_webflow_products(
+    product_type: str | None = None,
+    sync_status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    include_child_tables: bool | str | None = True,
+    brand: str | None = None,
+    product_slug: str | None = None,
+) -> dict:
+    """
+    Get Webflow products for n8n export.
+
+    Args:
+        product_type: Filter by product type (e.g., "Fixture Template", "Driver")
+        sync_status: Filter by sync status ("Pending", "Never Synced", "Error", "needs_sync")
+        limit: Maximum records to return (default: 100)
+        offset: Pagination offset (default: 0)
+        include_child_tables: Whether to include expanded child table data (default: True)
+        brand: Brand code (e.g. "illumenate", "lighting_206"). Defaults to the
+            default brand (back-compat). When supplied, products are filtered to
+            those whose ``target_brands`` table contains the brand (enabled=1)
+            OR — for back-compat — every product if no target_brands rows exist
+            yet anywhere (pre-migration). Sync-status filter is matched against
+            the per-brand sync row when available, falling back to the legacy
+            scalar.
+
+    Returns:
+        dict: {"products": [...], "total": int, "limit": int, "offset": int, "brand": str}
+    """
+    from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+    from illumenate_lighting.illumenate_lighting.portal.staff import require_catalog_reader
+
+    require_catalog_reader()
+    limit, offset = max(1, min(int(limit), 100)), max(0, int(offset))
+    include_child_tables = parse_bool(include_child_tables, default=True)
+    # Resolve brand (defaulting to the configured default brand for back-compat).
+    brand_code = brand or get_default_brand() or "illumenate"
+    try:
+        brand_cfg = resolve_brand(brand_code, allow_inactive=True)
+    except frappe.ValidationError:
+        brand_cfg = None
+    strip_configurator = brand_cfg is not None and not brand_cfg.get(
+        "include_configurator_payload", True
+    )
+
+    filters = {"is_active": 1}
+
+    if product_type:
+        filters["product_type"] = product_type
+
+    # Determine the candidate name set from target_brands (per-brand); if no
+    # rows exist for this brand at all (pre-migration), skip the filter.
+    targeted_names: set[str] | None = None
+    if frappe.db.count(
+        "ilL-Child-Webflow-Brand-Target",
+        {"brand": brand_code, "parenttype": "ilL-Webflow-Product"},
+    ):
+        targeted = frappe.get_all(
+            "ilL-Child-Webflow-Brand-Target",
+            filters={
+                "brand": brand_code,
+                "enabled": 1,
+                "parenttype": "ilL-Webflow-Product",
+            },
+            pluck="parent",
+        )
+        targeted_names = set(targeted)
+        if not targeted_names:
+            # Brand exists but no products are targeted to it.
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = ["in", list(targeted_names)]
+
+    # Sync status filter: prefer per-brand row, fall back to legacy scalar.
+    pending_status_set = {"Pending", "Never Synced"}
+    sync_filter_set: set[str] | None = None
+    if sync_status:
+        if sync_status == "needs_sync":
+            sync_filter_set = pending_status_set
+        else:
+            sync_filter_set = {sync_status}
+
+    if sync_filter_set:
+        # Find names matching per-brand sync row OR legacy scalar.
+        per_brand_match = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={
+                "parenttype": "ilL-Webflow-Product",
+                "brand": brand_code,
+                "sync_status": ["in", list(sync_filter_set)],
+            },
+            pluck="parent",
+        ))
+        # Legacy fallback only applies when there's no per-brand row at all
+        # for that product (during the dual-write window).
+        legacy_match = set(frappe.get_all(
+            "ilL-Webflow-Product",
+            filters={"sync_status": ["in", list(sync_filter_set)]},
+            pluck="name",
+        ))
+        # Exclude any product that already has a per-brand row for this brand
+        # (per-brand row is authoritative).
+        has_per_brand_row = set(frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={"parenttype": "ilL-Webflow-Product", "brand": brand_code},
+            pluck="parent",
+        ))
+        legacy_only = legacy_match - has_per_brand_row
+        match_names = per_brand_match | legacy_only
+
+        if targeted_names is not None:
+            match_names &= targeted_names
+
+        if not match_names:
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = ["in", list(match_names)]
+    
+    if product_slug:
+        permitted = filters.get("name")
+        if permitted and product_slug not in permitted[1]:
+            return {"products": [], "total": 0, "limit": limit, "offset": offset, "brand": brand_code}
+        filters["name"] = product_slug
+
+    # Get product list with basic fields
+    # Fields that ship with the app; has_field keeps the query safe on a site that has not
+    # migrated yet. The payload still carries the old key names n8n reads (legacy keys below).
+    product_meta = frappe.get_meta("ilL-Webflow-Product")
+    products = frappe.get_all(
+        "ilL-Webflow-Product",
+        filters=filters,
+        fields=[f for f in EXPORT_FIELDS if f in ("name", "creation", "modified") or product_meta.has_field(f)],
+        limit=limit,
+        start=offset,
+        order_by="modified desc"
+    )
+
+    products = _finish_products(
+        products,
+        brand_code,
+        include_child_tables,
+        lambda name: (frappe.get_doc("ilL-Webflow-Product", name),),
+    )
 
     total = frappe.db.count("ilL-Webflow-Product", filters)
 

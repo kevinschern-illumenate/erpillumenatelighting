@@ -54,10 +54,16 @@ class Listing:
 	readers can take it in place of one. ``source`` is the Webflow Product itself.
 	"""
 
-	def __init__(self, product):
+	def __init__(self, product, template=None):
+		"""``template``: read from this template instead of looking it up (a temporary,
+		unsaved product made for a template that has no Webflow Product)."""
 		self.source = product
-		doctype, name = (None, None) if legacy_read() else template_for(product.name)
-		self.template = frappe.get_doc(doctype, name) if doctype else None
+		if template is not None:
+			doctype = template.doctype
+			self.template = template
+		else:
+			doctype, name = (None, None) if legacy_read() else template_for(product.name)
+			self.template = frappe.get_doc(doctype, name) if doctype else None
 		self.fields = set(carried(doctype)) if doctype else set()
 		# Hand-set steps waiting for a decision stay on the product (Phase 2c).
 		from illumenate_lighting.illumenate_lighting.template_listing import pending_decision

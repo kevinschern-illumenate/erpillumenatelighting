@@ -1,0 +1,136 @@
+"""Generate a spec sheet from a template (plan Phase 3, 4.5, 4.13).
+
+The Generate Spec button on the six templates calls ``generate_spec_sheet``. It checks
+permission (D28), queues a background job and returns a job id; the form shows a blocking
+dialog and polls ``spec_sheet_job_status``. The job continues if the page is closed.
+
+The job posts ``{template_doctype, template_id, brand}`` to the n8n spec webhook (site config
+``n8n_spec_webhook_url``, with the shared-secret header). n8n reads ``get_spec_sheet_data``,
+renders the PDF, uploads it through ``upload_spec_pdf`` and attaches it to the template's
+Spec Sheet field (so the File records who it is attached to), then answers
+``{success, file_url}``. The job then calls ``register_spec_sheet``, which checks the template
+points at that file. Phase 4 adds the stable URL and removes older files there.
+
+Nothing here talks to Webflow. Syncing stays with the Webflow sync (Phase 5 decides when).
+"""
+
+import frappe
+from frappe import _
+
+from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_DOCTYPES
+
+STATUS_KEY = "spec_sheet_job:{0}"
+STATUS_TTL = 6 * 60 * 60
+TIMEOUT = 300
+
+
+def _status_key(job_id):
+	return STATUS_KEY.format(job_id)
+
+
+def _set_status(job_id, **values):
+	current = frappe.cache().get_value(_status_key(job_id)) or {}
+	current.update(values)
+	frappe.cache().set_value(_status_key(job_id), current, expires_in_sec=STATUS_TTL)
+	return current
+
+
+def _brand(template, brand=None):
+	from illumenate_lighting.illumenate_lighting.spec_sheet_data import _brand as resolve
+
+	return resolve(template, brand)
+
+
+@frappe.whitelist(methods=["POST"])
+def generate_spec_sheet(template_doctype, template_id, brand=None):
+	"""Queue spec sheet generation for a saved template. Returns ``{job_id}``."""
+	from illumenate_lighting.illumenate_lighting.template_link import require_template_access
+
+	if template_doctype not in TEMPLATE_DOCTYPES:
+		frappe.throw(_("{0} is not a product template.").format(template_doctype))
+	require_template_access(template_doctype, template_id)
+	template = frappe.get_doc(template_doctype, template_id)
+	brand = _brand(template, brand)
+	# Fail now, not in the background, when the site is not set up for n8n.
+	from illumenate_lighting.illumenate_lighting.api import n8n_config
+
+	n8n_config.spec_webhook_url()
+	n8n_config.auth_headers()
+	job_id = frappe.generate_hash(length=16)
+	_set_status(
+		job_id,
+		status="Queued",
+		template_doctype=template_doctype,
+		template_id=template_id,
+		brand=brand,
+		user=frappe.session.user,
+	)
+	frappe.enqueue(
+		"illumenate_lighting.illumenate_lighting.spec_sheet_job.run",
+		queue="long",
+		timeout=TIMEOUT + 60,
+		job_id=f"spec_sheet_{job_id}",
+		spec_job=job_id,
+		template_doctype=template_doctype,
+		template_id=template_id,
+		brand=brand,
+	)
+	return {"job_id": job_id}
+
+
+@frappe.whitelist()
+def spec_sheet_job_status(job_id):
+	"""The job's status for the dialog: Queued, Running, Done or Failed, with a message."""
+	status = frappe.cache().get_value(_status_key(job_id))
+	if not status:
+		return {"status": "Unknown"}
+	if status.get("user") not in (frappe.session.user, None) and "System Manager" not in frappe.get_roles():
+		frappe.throw(_("Not permitted."), frappe.PermissionError)
+	return {key: status.get(key) for key in ("status", "message", "file_url")}
+
+
+def call_n8n(template_doctype, template_id, brand):
+	"""Post to the spec webhook and return its JSON answer (raises on failure)."""
+	import requests
+
+	from illumenate_lighting.illumenate_lighting.api import n8n_config
+
+	response = requests.post(
+		n8n_config.spec_webhook_url(),
+		json={"template_doctype": template_doctype, "template_id": template_id, "brand": brand},
+		headers={"Content-Type": "application/json", **n8n_config.auth_headers()},
+		timeout=TIMEOUT,
+	)
+	response.raise_for_status()
+	return response.json()
+
+
+def run(spec_job, template_doctype, template_id, brand):
+	"""Background job."""
+	_set_status(spec_job, status="Running", message=_("Generating the spec sheet..."))
+	try:
+		answer = call_n8n(template_doctype, template_id, brand)
+		if not answer.get("success") or not answer.get("file_url"):
+			raise ValueError(answer.get("error") or answer.get("message") or _("n8n did not return a file."))
+		register_spec_sheet(template_doctype, template_id, answer["file_url"])
+	except Exception as error:
+		frappe.log_error(title=f"Spec sheet generation failed: {template_doctype} {template_id}")
+		_set_status(spec_job, status="Failed", message=str(error))
+		return
+	_set_status(spec_job, status="Done", message=_("Spec sheet generated."), file_url=answer["file_url"])
+
+
+def register_spec_sheet(template_doctype, template_id, file_url):
+	"""After n8n has uploaded and attached the PDF: check the template points at it.
+
+	n8n attaches the file to the template's Spec Sheet field (that is what fills the File's
+	attached-to fields). If the template does not point at the file, it is set here without
+	running the template's hooks. Phase 4 adds the stable URL and removes older files.
+	"""
+	current = frappe.db.get_value(template_doctype, template_id, "spec_sheet")
+	if current != file_url:
+		if not frappe.db.exists("File", {"file_url": file_url}):
+			raise ValueError(_("The spec sheet file {0} was not found.").format(file_url))
+		frappe.db.set_value(template_doctype, template_id, "spec_sheet", file_url)
+	frappe.db.commit()
+	return file_url

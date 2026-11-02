@@ -228,8 +228,83 @@ def get_spec_sheet_data(template_doctype, template_id, brand=None):
 	product = None
 	if name and frappe.db.get_value(PRODUCT, name, WEBFLOW_PRODUCT_LINKS[template_doctype]) == template.name:
 		product = frappe.get_doc(PRODUCT, name)
-	legacy = _legacy(product.name, brand) if product else None
+	legacy = _legacy(product.name, brand) if product else template_record(template, brand)
 	return build(template, product, brand, legacy)
+
+
+def template_record(template, brand):
+	"""The ``legacy`` record for a template with no Webflow Product: the same export code run
+	on a temporary, unsaved product (``webflow_export_v2.export_template_record``)."""
+	from illumenate_lighting.illumenate_lighting.api.webflow_export_v2 import export_template_record
+
+	return export_template_record(template, brand)
+
+
+# Keys only a real Webflow Product fills; empty in a template-only record.
+PRODUCT_ONLY_KEYS = (
+	"name",
+	"product_slug",
+	"webflow_status",
+	"custom_webflow_status",
+	"webflow_badge",
+	"product_badge",
+	"is_discontinued",
+	"short_description",
+	"features",
+	"features_json",
+	"featured_image",
+	"series_family_image",
+	"gallery_images",
+	"documents",
+	"compatible_products",
+	"configurator_intro_text",
+	"webflow_item_id",
+	"webflow_collection_slug",
+	"last_synced_at",
+	"sync_status",
+	"sync_error_message",
+	"creation",
+	"modified",
+	"is_configurable",
+	"driver_spec",
+	"controller_spec",
+	"profile_spec",
+	"lens_spec",
+	"tape_spec",
+	"accessory_spec",
+)
+
+
+def compare_records(real, built):
+	"""Pure: keys whose values differ between the real export and the template-only record,
+	leaving out the keys only a real product fills."""
+	keys = (set(real) | set(built)) - set(PRODUCT_ONLY_KEYS)
+	return sorted(key for key in keys if frappe.as_json(real.get(key)) != frappe.as_json(built.get(key)))
+
+
+@frappe.whitelist(methods=["POST"])
+def check_template_records(limit_per_type=2):
+	"""Staging check: for linked templates, build the template-only record and compare it with
+	the real export. ``differences`` should be empty. System Manager only."""
+	frappe.only_for("System Manager")
+	report = []
+	for doctype in TEMPLATE_DOCTYPES:
+		for name in frappe.get_all(
+			doctype, filters={"webflow_product": ["is", "set"]}, pluck="name", limit=int(limit_per_type)
+		):
+			template = frappe.get_doc(doctype, name)
+			brand = _brand(template)
+			entry = {"template": (doctype, name), "product": template.webflow_product}
+			try:
+				real = _legacy(template.webflow_product, brand)
+				if not real:
+					entry["skipped"] = "product not exported for the brand"
+				else:
+					entry["differences"] = compare_records(real, template_record(template, brand))
+			except Exception as error:
+				entry["error"] = str(error)
+			report.append(entry)
+	return report
 
 
 def ownership_table():
