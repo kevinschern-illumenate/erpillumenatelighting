@@ -208,3 +208,99 @@ rows sets the order; on save the rows take the step numbers already in use, in t
 moved; a new row gets the next free number; lookup steps (98 and up) keep theirs. "Depends on step"
 and the template's feed lengths follow a moved step. The numbers stay because the website and n8n
 match steps by number. On a template that calculates its steps, the calculation sets the order.
+
+## 2b: spec sheet data, payload v2
+
+`spec_sheet_data.get_spec_sheet_data(template_doctype, template_id, brand=None)` (whitelisted, read
+permission on the template) returns `schema_version` 2 with:
+
+- `context`: environment (site config `illumenate_environment`, else from the site name), brand (the
+  template's enabled Target Brand, else the default brand), template doctype and name, product.
+- `template`: every field and table of the template (it owns them all).
+- `product`: only the fields the Webflow Product owns (table below); mirrored template data is
+  not repeated there. `null` when the template has no linked product.
+- `webflow`: the product's Webflow Status and its sync state for the brand (the per-brand sync row
+  first, then the older single one). Phase 5 adds the effective state and action.
+- `legacy`: exactly what `webflow_export_v2.get_webflow_products(brand, product_slug)` returns for
+  the product today, old key names included. The n8n spec workflow (`Get Product Info`, `Format
+  Data to Inject`) and the Vercel generator keep reading this until they move to the v2 sections.
+  `null` when the product is not exported for the brand (no Target Brand for it, or inactive).
+
+Nothing calls the endpoint yet; n8n moves to it in Phase 4. A test fails when a Webflow Product field
+is added without an owner here.
+
+Check on staging (one linked template of each type):
+
+```python
+import json
+from illumenate_lighting.illumenate_lighting.spec_sheet_data import check_spec_sheet_data
+print(json.dumps(check_spec_sheet_data(), default=str, indent=1))
+```
+
+### Field ownership (for owner review)
+
+| Webflow Product field | Owner | Template field | Key in `legacy` | Note |
+|---|---|---|---|---|
+| `product_name` | Webflow Product |  | `product_name` | Listing name |
+| `product_slug` | Webflow Product |  | `product_slug` | Webflow slug |
+| `product_type` | Webflow Product |  | `product_type` |  |
+| `is_active` | Webflow Product |  | `is_active` |  |
+| `webflow_status` | Webflow Product |  | `custom_webflow_status` | Webflow Status stage; legacy key custom_webflow_status |
+| `webflow_badge` | Webflow Product |  | `webflow_badge` | Badge (D50) |
+| `is_configurable` | Webflow Product |  | `is_configurable` | Shows the configurator on the website |
+| `configurator_intro_text` | Webflow Product |  | `configurator_intro_text` |  |
+| `short_description` | Webflow Product |  | `short_description` |  |
+| `features` | Webflow Product |  | `features` |  |
+| `featured_image` | Webflow Product |  | `featured_image` |  |
+| `series_family_image` | Webflow Product |  | `series_family_image` |  |
+| `gallery_images` | Webflow Product |  | `gallery_images` |  |
+| `documents` | Webflow Product |  | `documents` | Includes the spec sheet row built from the template (D19) |
+| `attribute_links` | Webflow Product |  | `attribute_links` | Calculated on the product from the template's options |
+| `compatible_products` | Webflow Product |  | `compatible_products` |  |
+| `webflow_compatible_power_supplies` | Webflow Product |  | `custom_compatible_power_supplies` | Calculated on the product; legacy key custom_compatible_power_supplies |
+| `driver_spec` | Webflow Product |  | `driver_spec` | Spec link (Driver, Component) |
+| `controller_spec` | Webflow Product |  | `controller_spec` | Spec link (Controller) |
+| `profile_spec` | Webflow Product |  | `profile_spec` | Spec link (Component) |
+| `lens_spec` | Webflow Product |  | `lens_spec` | Spec link (Component) |
+| `tape_spec` | Webflow Product |  | `tape_spec` | Spec link (Component) |
+| `accessory_spec` | Webflow Product |  | `accessory_spec` | Spec link (Accessory) |
+| `portal_item` | Webflow Product |  | `portal_item` | Item sold on the portal |
+| `specifications` | Webflow Product |  | `specifications` | Older attribute specification table (deprecated) |
+| `product_category` | Template | `product_category` | `product_category` |  |
+| `series` | Template | `series` | `series` |  |
+| `web_product_category` | Template | `product_category` | `web_product_category` |  |
+| `web_series` | Template | `series` | `web_series` |  |
+| `webflow_template_status` | Template | `product_status` | `webflow_template_status` |  |
+| `sublabel` | Template | `sublabel` | `sublabel` |  |
+| `dimensions_image` | Template | `dimensions_image` | `custom_dimensions_image_2 / dimensions_image_dark` |  |
+| `min_length_mm` | Template | `min_length_mm` | `min_length_mm` |  |
+| `max_length_mm` | Template | `max_length_mm` | `max_length_mm` |  |
+| `length_increment_mm` | Template | `length_increment_mm` | `length_increment_mm` |  |
+| `feed_lengths` | Template | `feed_lengths` | `feed_lengths` |  |
+| `kit_components` | Template | `kit_components` | `kit_components` |  |
+| `configurator_options` | Template | `part_no_configurator` | `configurator_options` |  |
+| `webflow_specifications` | Template | `specifications` | `specifications` |  |
+| `certifications` | Template | `certifications` | `certifications` |  |
+| `beam_angle` | Template | `beam_angle` | `beam_angle` |  |
+| `operating_temp_min_c` | Template | `operating_temp_min_c` | `operating_temp_min_c` |  |
+| `operating_temp_max_c` | Template | `operating_temp_max_c` | `operating_temp_max_c` |  |
+| `l70_life_hours` | Template | `l70_life_hours` | `l70_life_hours` |  |
+| `warranty_years` | Template | `warranty_years` | `warranty_years` |  |
+| `fixture_weight_per_foot_grams` | Template | `fixture_weight_per_foot_grams` | `fixture_weight_per_foot_grams` |  |
+| `target_brands` | Template | `target_brands` | `target_brands` |  |
+| `fixture_template` | Template | `name` | `fixture_template` |  |
+| `tape_neon_template` | Template | `name` | `tape_neon_template` |  |
+| `controller_template` | Template | `name` | `controller_template` |  |
+| `driver_template` | Template | `name` | `driver_template` |  |
+| `kit_template` | Template | `name` | `kit_template` |  |
+| `led_sheet_template` | Template | `name` | `led_sheet_template` |  |
+| `auto_populate_configurator_options` | Not listing data |  | `auto_populate_configurator_options` |  |
+| `auto_populate_attributes` | Not listing data |  | `auto_populate_attributes` |  |
+| `auto_calculate_specs` | Not listing data |  | `auto_calculate_specs` |  |
+| `product_badge` | Not listing data |  | `product_badge` |  |
+| `sync_targets` | Not listing data |  | `sync_targets` |  |
+| `webflow_item_id` | Not listing data |  | `webflow_item_id` |  |
+| `webflow_collection_slug` | Not listing data |  | `webflow_collection_slug` |  |
+| `last_synced_at` | Not listing data |  | `last_synced_at` |  |
+| `sync_status` | Not listing data |  | `sync_status` |  |
+| `sync_error_message` | Not listing data |  | `sync_error_message` |  |
