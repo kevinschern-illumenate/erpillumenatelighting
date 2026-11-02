@@ -3449,7 +3449,10 @@ class ilLWebflowProduct(Document):
 					self.documents = [d for d in (self.documents or []) if not (d.document_type == "Spec Submittal" and d.document_title == submittal_title)]
 					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
 
-				for d in (template_doc.get("custom_documents") or []):
+				# other_documents ships with the app; custom_documents was the site Custom Field
+				# it replaced on the Tape/Neon template (patch move_tape_custom_documents_...).
+				other_documents = template_doc.get("other_documents") or template_doc.get("custom_documents") or []
+				for d in other_documents:
 					df = d.get("document_file")
 					if df:
 						if df in existing_docs:

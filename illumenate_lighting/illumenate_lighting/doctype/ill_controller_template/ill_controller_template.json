@@ -10,13 +10,13 @@
   "identity_section",
   "template_code",
   "template_name",
-  "sublabel",
-  "is_active",
   "product_status",
-  "target_brands",
+  "sublabel",
   "column_break_identity",
-  "series",
   "product_category",
+  "is_active",
+  "series",
+  "target_brands",
   "sku_series_code",
   "webflow_product",
   "pricing_section",
@@ -30,6 +30,7 @@
   "documents_section",
   "spec_submittal_template",
   "spec_sheet",
+  "other_documents",
   "warranty",
   "notes",
   "web_listing_tab",
@@ -38,9 +39,7 @@
   "product_data_column",
   "hero_image",
   "dimensions_image",
-  "web_documents_section",
   "spec_sheet_public_url",
-  "other_documents",
   "web_specs_certs_section",
   "specifications",
   "certifications",
@@ -69,19 +68,6 @@
    "label": "Template Name"
   },
   {
-   "fieldname": "sublabel",
-   "fieldtype": "Data",
-   "label": "Sublabel"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active",
-   "read_only": 1,
-   "description": "Set from Product Status."
-  },
-  {
    "fieldname": "product_status",
    "fieldtype": "Select",
    "label": "Product Status",
@@ -92,21 +78,13 @@
    "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
   },
   {
-   "fieldname": "target_brands",
-   "fieldtype": "Table",
-   "label": "Target Brand",
-   "options": "ilL-Child-Webflow-Brand-Target",
-   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
+   "fieldname": "sublabel",
+   "fieldtype": "Data",
+   "label": "Sublabel"
   },
   {
    "fieldname": "column_break_identity",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "series",
-   "fieldtype": "Link",
-   "label": "Series",
-   "options": "ilL-Attribute-Series"
   },
   {
    "description": "Marketing product category (Webflow taxonomy) this template belongs to",
@@ -115,6 +93,27 @@
    "in_standard_filter": 1,
    "label": "Product Category",
    "options": "ilL-Webflow-Category"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "read_only": 1,
+   "description": "Set from Product Status."
+  },
+  {
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
+  },
+  {
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brand",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
   },
   {
    "description": "Short series code used as the part-number prefix.",
@@ -194,6 +193,12 @@
    "label": "Spec Sheet"
   },
   {
+   "fieldname": "other_documents",
+   "fieldtype": "Table",
+   "label": "Other Documents",
+   "options": "ilL-Child-Webflow-Document"
+  },
+  {
    "fieldname": "warranty",
    "fieldtype": "Data",
    "label": "Warranty"
@@ -233,22 +238,11 @@
    "label": "Dimensions Image"
   },
   {
-   "fieldname": "web_documents_section",
-   "fieldtype": "Section Break",
-   "label": "Documents"
-  },
-  {
    "fieldname": "spec_sheet_public_url",
    "fieldtype": "Data",
    "label": "Spec Sheet Public URL",
    "read_only": 1,
    "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
-  },
-  {
-   "fieldname": "other_documents",
-   "fieldtype": "Table",
-   "label": "Other Documents",
-   "options": "ilL-Child-Webflow-Document"
   },
   {
    "fieldname": "web_specs_certs_section",
@@ -285,7 +279,7 @@
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-11-01 00:34:56.000000",
+ "modified": "2026-11-02 14:57:52.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",

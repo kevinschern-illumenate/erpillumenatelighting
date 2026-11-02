@@ -9,13 +9,13 @@
   "details_section",
   "template_code",
   "template_name",
-  "sublabel",
-  "is_active",
   "product_status",
-  "target_brands",
+  "sublabel",
   "column_break_details",
-  "series",
   "product_category",
+  "is_active",
+  "series",
+  "target_brands",
   "default_profile_family",
   "image",
   "notes",
@@ -32,6 +32,7 @@
   "column_break_spec_links",
   "spec_submittal_template",
   "spec_sheet",
+  "other_documents",
   "webflow_product",
   "allowed_options_section",
   "allowed_options",
@@ -48,12 +49,10 @@
   "product_data_column",
   "hero_image",
   "dimensions_image",
+  "spec_sheet_public_url",
   "l70_life_hours",
   "operating_temp_min_c",
   "operating_temp_max_c",
-  "web_documents_section",
-  "spec_sheet_public_url",
-  "other_documents",
   "web_specs_certs_section",
   "specifications",
   "certifications",
@@ -93,9 +92,31 @@
    "reqd": 1
   },
   {
+   "fieldname": "product_status",
+   "fieldtype": "Select",
+   "label": "Product Status",
+   "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
+   "default": "Internal Only",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+  },
+  {
    "fieldname": "sublabel",
    "fieldtype": "Data",
    "label": "Sublabel"
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Marketing product category (Webflow taxonomy) this template belongs to",
+   "fieldname": "product_category",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Product Category",
+   "options": "ilL-Webflow-Category"
   },
   {
    "default": "1",
@@ -107,27 +128,6 @@
    "description": "Set from Product Status."
   },
   {
-   "fieldname": "product_status",
-   "fieldtype": "Select",
-   "label": "Product Status",
-   "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
-   "default": "Internal Only",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
-  },
-  {
-   "fieldname": "target_brands",
-   "fieldtype": "Table",
-   "label": "Target Brand",
-   "options": "ilL-Child-Webflow-Brand-Target",
-   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
-  },
-  {
-   "fieldname": "column_break_details",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "series",
    "fieldtype": "Link",
    "in_standard_filter": 1,
@@ -135,12 +135,11 @@
    "options": "ilL-Attribute-Series"
   },
   {
-   "description": "Marketing product category (Webflow taxonomy) this template belongs to",
-   "fieldname": "product_category",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Product Category",
-   "options": "ilL-Webflow-Category"
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brand",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
   },
   {
    "fieldname": "default_profile_family",
@@ -242,6 +241,12 @@
    "label": "Spec Sheet"
   },
   {
+   "fieldname": "other_documents",
+   "fieldtype": "Table",
+   "label": "Other Documents",
+   "options": "ilL-Child-Webflow-Document"
+  },
+  {
    "fieldname": "webflow_product",
    "fieldtype": "Link",
    "label": "Webflow Product",
@@ -329,6 +334,13 @@
    "label": "Dimensions Image"
   },
   {
+   "fieldname": "spec_sheet_public_url",
+   "fieldtype": "Data",
+   "label": "Spec Sheet Public URL",
+   "read_only": 1,
+   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
+  },
+  {
    "fieldname": "l70_life_hours",
    "fieldtype": "Int",
    "label": "L70 Life (Hours)"
@@ -342,24 +354,6 @@
    "fieldname": "operating_temp_max_c",
    "fieldtype": "Int",
    "label": "Operating Temp Max (C)"
-  },
-  {
-   "fieldname": "web_documents_section",
-   "fieldtype": "Section Break",
-   "label": "Documents"
-  },
-  {
-   "fieldname": "spec_sheet_public_url",
-   "fieldtype": "Data",
-   "label": "Spec Sheet Public URL",
-   "read_only": 1,
-   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
-  },
-  {
-   "fieldname": "other_documents",
-   "fieldtype": "Table",
-   "label": "Other Documents",
-   "options": "ilL-Child-Webflow-Document"
   },
   {
    "fieldname": "web_specs_certs_section",
@@ -460,7 +454,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-01 00:34:56.000000",
+ "modified": "2026-11-02 14:57:52.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",

@@ -10,16 +10,16 @@
   "identity_section",
   "template_code",
   "template_name",
+  "product_status",
   "sublabel",
   "column_break_identity",
   "product_category",
   "is_active",
-  "product_status",
-  "target_brands",
   "series",
+  "target_brands",
   "description_section",
-  "description",
   "image",
+  "description",
   "column_break_description",
   "notes",
   "spec_sheet_details_section",
@@ -30,6 +30,7 @@
   "available_finishes",
   "column_break_spec_sheet_details",
   "available_mountings",
+  "fixture_weight_per_foot_grams",
   "driver_max_wattage_override",
   "production_interval_mm",
   "is_free_cutting",
@@ -51,6 +52,7 @@
   "spec_sheet",
   "column_break_spec_documents",
   "spec_submittal_template",
+  "other_documents",
   "webflow_section",
   "webflow_product",
   "system_designer_section",
@@ -62,18 +64,15 @@
   "min_length_mm",
   "max_length_mm",
   "length_increment_mm",
-  "fixture_weight_per_foot_grams",
   "webflow_category",
   "feed_lengths",
   "product_data_column",
   "hero_image",
   "dimensions_image",
+  "spec_sheet_public_url",
   "l70_life_hours",
   "operating_temp_min_c",
   "operating_temp_max_c",
-  "web_documents_section",
-  "spec_sheet_public_url",
-  "other_documents",
   "web_specs_certs_section",
   "specifications",
   "certifications",
@@ -113,6 +112,16 @@
    "reqd": 1
   },
   {
+   "fieldname": "product_status",
+   "fieldtype": "Select",
+   "label": "Product Status",
+   "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
+   "default": "Internal Only",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+  },
+  {
    "fieldname": "sublabel",
    "fieldtype": "Data",
    "label": "Sublabel"
@@ -142,14 +151,12 @@
    "description": "Set from Product Status."
   },
   {
-   "fieldname": "product_status",
-   "fieldtype": "Select",
-   "label": "Product Status",
-   "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
-   "default": "Internal Only",
-   "in_list_view": 1,
+   "description": "Product series for filtering (e.g., 'NT01', 'TL03')",
+   "fieldname": "series",
+   "fieldtype": "Link",
    "in_standard_filter": 1,
-   "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
   },
   {
    "fieldname": "target_brands",
@@ -159,29 +166,21 @@
    "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
   },
   {
-   "description": "Product series for filtering (e.g., 'NT01', 'TL03')",
-   "fieldname": "series",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Series",
-   "options": "ilL-Attribute-Series"
-  },
-  {
    "fieldname": "description_section",
    "fieldtype": "Section Break",
    "label": "Description & Media"
-  },
-  {
-   "description": "Short description shown on the configurator template selection",
-   "fieldname": "description",
-   "fieldtype": "Small Text",
-   "label": "Description"
   },
   {
    "description": "Primary product image (used as fallback if no Webflow product linked)",
    "fieldname": "image",
    "fieldtype": "Attach Image",
    "label": "Image"
+  },
+  {
+   "description": "Short description shown on the configurator template selection",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
   },
   {
    "fieldname": "column_break_description",
@@ -238,6 +237,11 @@
    "fieldname": "available_mountings",
    "fieldtype": "Small Text",
    "label": "Available Mountings"
+  },
+  {
+   "fieldname": "fixture_weight_per_foot_grams",
+   "fieldtype": "Float",
+   "label": "Fixture Weight per Foot (g)"
   },
   {
    "description": "Fallback/override value for the CSV Driver Max Wattage column when no preferred driver eligibility is configured.",
@@ -365,6 +369,12 @@
    "label": "Spec Submittal Template"
   },
   {
+   "fieldname": "other_documents",
+   "fieldtype": "Table",
+   "label": "Other Documents",
+   "options": "ilL-Child-Webflow-Document"
+  },
+  {
    "collapsible": 1,
    "fieldname": "webflow_section",
    "fieldtype": "Section Break",
@@ -427,11 +437,6 @@
    "label": "Length Increment (mm)"
   },
   {
-   "fieldname": "fixture_weight_per_foot_grams",
-   "fieldtype": "Float",
-   "label": "Fixture Weight per Foot (g)"
-  },
-  {
    "fieldname": "webflow_category",
    "fieldtype": "Link",
    "label": "Webflow Category",
@@ -459,6 +464,13 @@
    "label": "Dimensions Image"
   },
   {
+   "fieldname": "spec_sheet_public_url",
+   "fieldtype": "Data",
+   "label": "Spec Sheet Public URL",
+   "read_only": 1,
+   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
+  },
+  {
    "fieldname": "l70_life_hours",
    "fieldtype": "Int",
    "label": "L70 Life (Hours)"
@@ -472,24 +484,6 @@
    "fieldname": "operating_temp_max_c",
    "fieldtype": "Int",
    "label": "Operating Temp Max (C)"
-  },
-  {
-   "fieldname": "web_documents_section",
-   "fieldtype": "Section Break",
-   "label": "Documents"
-  },
-  {
-   "fieldname": "spec_sheet_public_url",
-   "fieldtype": "Data",
-   "label": "Spec Sheet Public URL",
-   "read_only": 1,
-   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
-  },
-  {
-   "fieldname": "other_documents",
-   "fieldtype": "Table",
-   "label": "Other Documents",
-   "options": "ilL-Child-Webflow-Document"
   },
   {
    "fieldname": "web_specs_certs_section",
@@ -591,7 +585,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-01 00:34:56.000000",
+ "modified": "2026-11-02 14:57:52.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

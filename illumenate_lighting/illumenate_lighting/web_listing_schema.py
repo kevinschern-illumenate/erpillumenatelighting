@@ -96,7 +96,8 @@ def _column(fieldname):
 
 # Layout (owner, 2026-11-01): one two-column Product Data section, then Documents, then
 # Specifications & Certifications, Configurator, Kit Components, Photometrics, Colorimetry.
-# Target Brands and Sublabel sit on the template's first tab instead (DETAILS_FIELDS).
+# Target Brands and Sublabel sit in the first section (IDENTITY_FIELDS); Other Documents and,
+# where there is a Spec Sheet Details section, the weight sit above the tab (PLACED_FIELDS).
 _WARRANTY = {"fieldname": "warranty_years", "fieldtype": "Int", "label": "Warranty (Years)"}
 # Marketing first added this on the live site; the Webflow Product copies it from its
 # template on save (set_dynamic_hero_image).
@@ -126,14 +127,6 @@ _SPEC_SHEET_DATA = [
 	{"fieldname": "l70_life_hours", "fieldtype": "Int", "label": "L70 Life (Hours)"},
 	{"fieldname": "operating_temp_min_c", "fieldtype": "Int", "label": "Operating Temp Min (C)"},
 	{"fieldname": "operating_temp_max_c", "fieldtype": "Int", "label": "Operating Temp Max (C)"},
-]
-
-_WEIGHT = [
-	{
-		"fieldname": "fixture_weight_per_foot_grams",
-		"fieldtype": "Float",
-		"label": "Fixture Weight per Foot (g)",
-	},
 ]
 
 _KIT_COMPONENTS = [
@@ -233,25 +226,48 @@ TARGET_BRANDS_FIELD = {
 }
 SUBLABEL_FIELD = {"fieldname": "sublabel", "fieldtype": "Data", "label": "Sublabel"}
 
-# Placed on the template's first tab, each right after its anchor field (owner layout).
-DETAILS_FIELDS = ((TARGET_BRANDS_FIELD, "product_status"), (SUBLABEL_FIELD, "template_name"))
+_SPEC_SHEET_PUBLIC_URL = {
+	"fieldname": "spec_sheet_public_url",
+	"fieldtype": "Data",
+	"label": "Spec Sheet Public URL",
+	"read_only": 1,
+	"description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
+}
+OTHER_DOCUMENTS_FIELD = {
+	"fieldname": "other_documents",
+	"fieldtype": "Table",
+	"label": "Other Documents",
+	"options": "ilL-Child-Webflow-Document",
+}
+WEIGHT_FIELD = {
+	"fieldname": "fixture_weight_per_foot_grams",
+	"fieldtype": "Float",
+	"label": "Fixture Weight per Foot (g)",
+}
 
-_DOCUMENTS = [
-	_section("web_documents_section", "Documents"),
-	{
-		"fieldname": "spec_sheet_public_url",
-		"fieldtype": "Data",
-		"label": "Spec Sheet Public URL",
-		"read_only": 1,
-		"description": "Stable link to the current spec sheet. Set when a spec sheet is generated.",
-	},
-	{
-		"fieldname": "other_documents",
-		"fieldtype": "Table",
-		"label": "Other Documents",
-		"options": "ilL-Child-Webflow-Document",
-	},
-]
+# Generated fields that sit above the Product Data tab, each right after an anchor field in
+# the template's own layout (owner layout, 2026-11-02): Other Documents next to the spec
+# sheet, and the weight in Spec Sheet Details where the template has that section.
+PLACED_FIELDS = {
+	"ilL-Fixture-Template": (
+		(OTHER_DOCUMENTS_FIELD, "spec_submittal_template"),
+		(WEIGHT_FIELD, "minimum_top_bend_diameter_mm"),
+	),
+	"ilL-Tape-Neon-Template": (
+		(OTHER_DOCUMENTS_FIELD, "spec_submittal_template"),
+		(WEIGHT_FIELD, "available_mountings"),
+	),
+	"ilL-Controller-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
+	"ilL-Driver-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
+	"ilL-Extrusion-Kit-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
+	"ilL-LED-Sheet-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
+}
+
+# The first section of every template (owner layout, 2026-11-02). Fields not listed keep
+# their order at the end of the right column.
+IDENTITY_LEFT = ("template_code", "template_name", "product_status", "sublabel")
+IDENTITY_RIGHT = ("product_category", "is_active", "series", "target_brands")
+IDENTITY_FIELDS = (TARGET_BRANDS_FIELD, SUBLABEL_FIELD)
 
 _SPECS_AND_CERTIFICATIONS = [
 	_section("web_specs_certs_section", "Specifications & Certifications"),
@@ -312,23 +328,32 @@ TEMPLATE_PARTS = {
 }
 
 
+def _placed(doctype):
+	return {field["fieldname"] for field, _anchor in PLACED_FIELDS[doctype]}
+
+
 def _tab_fields(doctype):
 	parts = TEMPLATE_PARTS[doctype]
+	weight = parts.get("weight") and WEIGHT_FIELD["fieldname"] not in _placed(doctype)
 	left = [
 		_WARRANTY,
 		*(_LENGTHS if parts.get("lengths") else []),
-		*(_WEIGHT if parts.get("weight") else []),
+		*([WEIGHT_FIELD] if weight else []),
 		*([_TAPE_WEBFLOW_CATEGORY] if parts.get("category") else []),
 		*(_FEED_LENGTHS if parts.get("feed") else []),
 	]
-	right = [_HERO_IMAGE, _DIMENSIONS_IMAGE, *(_SPEC_SHEET_DATA if parts.get("spec") else [])]
+	right = [
+		_HERO_IMAGE,
+		_DIMENSIONS_IMAGE,
+		_SPEC_SHEET_PUBLIC_URL,
+		*(_SPEC_SHEET_DATA if parts.get("spec") else []),
+	]
 	return [
 		{"fieldname": TAB, "fieldtype": "Tab Break", "label": "Product Data"},
 		_section("product_data_section", "Product Data"),
 		*left,
 		_column("product_data_column"),
 		*right,
-		*_DOCUMENTS,
 		*_SPECS_AND_CERTIFICATIONS,
 		_section("web_configurator_section", "Configurator"),
 		_configurator_table(CONFIGURATOR_TABLE[doctype]),
@@ -356,10 +381,11 @@ def fields_for(doctype):
 
 
 def added_fieldnames(doctype):
-	"""Data-bearing fieldnames this schema adds to one template, Product Status and the
-	Details-tab fields included."""
+	"""Data-bearing fieldnames this schema adds to one template, including Product Status,
+	the identity fields and the fields placed above the tab."""
 	return (
 		{field["fieldname"] for field in fields_for(doctype) if not field["fieldtype"].endswith("Break")}
 		| {STATUS_FIELD["fieldname"]}
-		| {field["fieldname"] for field, _anchor in DETAILS_FIELDS}
+		| {field["fieldname"] for field in IDENTITY_FIELDS}
+		| _placed(doctype)
 	)
