@@ -428,6 +428,80 @@ def side_by_side(hand_rows, calculated_rows):
 	return result
 
 
+# Environment Rating order codes before the IP-based ones (Dry 20 / Damp 54 / Wet 67), see
+# patches/sync_environment_codes_in_part_number_builder.py.
+OLD_ENVIRONMENT_CODES = {"I": "20", "D": "54", "O": "67"}
+ENVIRONMENT = "Environment Rating"
+# Fixture lookup steps (output level table, finish to endcap colour): data, not choices.
+FIXTURE_LOOKUP_STEPS = (98, 99)
+
+
+def refresh_hand_set(doctype, hand_rows, calculated_rows):
+	"""Pure: hand-set steps with their stale data brought up to date. Returns (rows, notes).
+
+	The choices people made by hand stay (owner, 2026-11-02: the narrower choices are
+	deliberate). Only data that went out of date is refreshed:
+
+	- old Environment Rating codes (I, D, O) become the current ones, taking the calculated
+	  value so the label and details are current too;
+	- on fixtures, the lookup steps (98, 99) are taken from the calculation.
+	"""
+	calculated = {row.get("option_step"): row for row in calculated_rows}
+	rows, notes = [], []
+	for row in _rows(hand_rows, CONFIGURATOR_FIELDS):
+		step = row.get("option_step")
+		if doctype == "ilL-Fixture-Template" and step in FIXTURE_LOOKUP_STEPS and step in calculated:
+			fresh = _rows([calculated[step]], CONFIGURATOR_FIELDS)[0]
+			if fresh != row:
+				notes.append(f"step {step}: {row.get('option_label')} taken from the calculation")
+			rows.append(fresh)
+			continue
+		values = _values(row)
+		if row.get("option_type") == ENVIRONMENT and isinstance(values, list):
+			current = {_value_key(value): value for value in _values(calculated.get(step) or {}) or []}
+			changed = []
+			for index, value in enumerate(values):
+				old = _value_key(value)
+				new = OLD_ENVIRONMENT_CODES.get(old)
+				if new and new in current:
+					# Same form as the hand-set value (a code, or a value with its details).
+					values[index] = current[new] if isinstance(value, dict) else new
+					changed.append(f"{old} -> {new}")
+			if changed:
+				row["allowed_values_json"] = frappe.as_json(values)
+				notes.append(f"step {step}: Environment Rating codes {', '.join(changed)}")
+		rows.append(row)
+	present = {row.get("option_step") for row in rows}
+	if doctype == "ilL-Fixture-Template":
+		for step in FIXTURE_LOOKUP_STEPS:
+			if step in calculated and step not in present and present:
+				rows.append(_rows([calculated[step]], CONFIGURATOR_FIELDS)[0])
+				notes.append(
+					f"step {step}: {calculated[step].get('option_label')} added from the calculation"
+				)
+	return rows, notes
+
+
+def _compact(step):
+	"""One line per differing step, for the report."""
+	if step["hand_set"] is None:
+		return f"{step['step']}: only calculated: {step['calculated']}"
+	if step["calculated"] is None:
+		return f"{step['step']}: only hand-set: {step['hand_set']}"
+	text = f"{step['step']} {step['hand_set']}: {', '.join(step.get('differs') or [])}"
+	if step.get("only_hand_set"):
+		text += f"; only hand-set: {', '.join(step['only_hand_set'])}"
+	if step.get("only_calculated"):
+		text += f"; only calculated: {', '.join(step['only_calculated'])}"
+	if (
+		step["hand_set"] != step["calculated"]
+		and not step.get("only_hand_set")
+		and not step.get("only_calculated")
+	):
+		text += f" (calculated: {step['calculated']})"
+	return text
+
+
 @frappe.whitelist(methods=["POST"])
 def adopt_hand_set_configurators(apply=False, use_calculated=None):
 	"""Move configurators set up by hand on Webflow Products onto their templates (Phase 2c).
@@ -436,6 +510,10 @@ def adopt_hand_set_configurators(apply=False, use_calculated=None):
 	off, the report shows its steps next to the steps the template calculates. With
 	``apply`` each template takes the product's steps and stops calculating its own
 	(Calculate Configurator on Save off), so the website shows what it shows today.
+
+	The hand-set steps keep their choices; out-of-date data in them is refreshed first
+	(``refresh_hand_set``: old Environment Rating codes, fixture lookup steps) and listed under
+	``refreshed``.
 
 	Products whose steps are the same as the calculated ones are only listed (``identical``):
 	their templates keep calculating.
@@ -490,14 +568,18 @@ def adopt_hand_set_configurators(apply=False, use_calculated=None):
 				fields=list(CONFIGURATOR_FIELDS),
 				order_by="idx asc",
 			)
-			steps = side_by_side(hand, template.get(CONFIGURATOR_FIELD) or [])
-			# Only the steps that differ are shown, to keep the report readable.
+			calculated = template.get(CONFIGURATOR_FIELD) or []
+			hand, refreshed = refresh_hand_set(doctype, hand, calculated)
+			steps = side_by_side(hand, calculated)
+			# Only the steps that differ are shown, one line each, to keep the report readable.
 			entry = {
 				"template": (doctype, row.name),
 				"product": product.name,
 				"same_steps": sum(1 for step in steps if step["same"]),
-				"different_steps": [step for step in steps if not step["same"]],
+				"different_steps": [_compact(step) for step in steps if not step["same"]],
 			}
+			if refreshed:
+				entry["refreshed"] = refreshed
 			if not calculates_configurator(template):
 				result["already_hand_set"].append(entry)
 				continue

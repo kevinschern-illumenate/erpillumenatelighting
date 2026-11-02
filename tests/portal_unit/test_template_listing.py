@@ -319,6 +319,49 @@ class Listing(unittest.TestCase):
 		switched = sorted(call.args[1] for call in self.frappe.db.set_value.call_args_list)
 		self.assertEqual(switched, ["empty", "same"])
 
+	def test_hand_set_steps_keep_their_choices_with_current_codes(self):
+		import json
+
+		self.frappe.parse_json = json.loads
+		self.frappe.as_json = json.dumps
+		fixture = "ilL-Fixture-Template"
+		env = {"option_type": "Environment Rating", "option_label": "Dry/Wet"}
+		hand = [
+			{"option_step": 1, **env, "allowed_values_json": json.dumps([{"code": "I", "label": "Indoor"}])},
+			{"option_step": 6, "option_type": "Finish", "allowed_values_json": json.dumps([{"code": "BK"}])},
+			{"option_step": 98, "option_label": "Lookup", "allowed_values_json": json.dumps([1])},
+		]
+		calculated = [
+			{
+				"option_step": 1,
+				**env,
+				"allowed_values_json": json.dumps(
+					[{"code": "20", "label": "Dry"}, {"code": "54", "label": "Damp"}]
+				),
+			},
+			{
+				"option_step": 6,
+				"option_type": "Finish",
+				"allowed_values_json": json.dumps([{"code": "BK"}, {"code": "WH"}]),
+			},
+			{"option_step": 98, "option_label": "Lookup", "allowed_values_json": json.dumps([1, 2])},
+			{"option_step": 99, "option_label": "Endcap", "allowed_values_json": json.dumps({"BK": "BK"})},
+		]
+		rows, notes = self.module.refresh_hand_set(fixture, hand, calculated)
+		by_step = {row["option_step"]: json.loads(row["allowed_values_json"]) for row in rows}
+		# The one deliberate choice stays, under its current code and label.
+		self.assertEqual(by_step[1], [{"code": "20", "label": "Dry"}])
+		self.assertEqual(by_step[6], [{"code": "BK"}])
+		self.assertEqual(by_step[98], [1, 2])
+		self.assertEqual(by_step[99], {"BK": "BK"})
+		self.assertEqual(len(notes), 3)
+		# Tape and Neon steps are left exactly as they are.
+		rows, notes = self.module.refresh_hand_set(TAPE, hand[1:], calculated)
+		self.assertEqual(notes, [])
+		self.assertEqual(
+			[row["allowed_values_json"] for row in rows], [row["allowed_values_json"] for row in hand[1:]]
+		)
+
 	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
 		diff = self.module.diff_listing(
 			[

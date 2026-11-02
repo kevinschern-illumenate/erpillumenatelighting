@@ -129,6 +129,15 @@ without breaking the website.
 templates take those steps and stop calculating (Calculate Configurator on Save off). The owner can
 switch any template back to calculated steps later by ticking the check.
 
+**Second dry run (2026-11-02):** 45 adopted (26 fixtures, 19 Tape/Neon), 10 with no steps take the
+calculated ones, none failed. It also showed that the hand-set fixture steps still offer the old
+Environment Rating codes (I, and I/D/O on SH03-SW/TW) instead of 20/54/67, so the website builds
+part numbers with "I", and carry an older output-level lookup (10 entries, 15 calculated). Before a
+template takes hand-set steps, `refresh_hand_set` brings that data up to date and keeps the
+choices: old Environment Rating codes become the current ones (I 20, D 54, O 67), and on fixtures
+the lookup steps 98 and 99 come from the calculation. Each change is listed under `refreshed`.
+Not changed: Is Required (steps 7 to 11 stay optional on the website, as today).
+
 `template_listing.adopt_hand_set_configurators`, System Manager only, dry run by default:
 
 - `adopted`: templates that take the product's steps, with `same_steps` and each step that differs
