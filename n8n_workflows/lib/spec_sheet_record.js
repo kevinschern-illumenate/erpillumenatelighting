@@ -1,0 +1,80 @@
+// Code for the "Get Product Info" node in the staging spec workflow (owner mapping 2026-11-02,
+// docs/SPEC_SHEET_REDESIGN_PHASE3.md). Builds the record the Format nodes read
+// (window.ERP_DATA) from get_spec_sheet_data: from the TEMPLATE where the owner mapped it,
+// from legacy only for photometrics, colorimetry and compatible power supplies.
+const data = $input.first().json.message;
+if (!data || !data.template) {
+  throw new Error('get_spec_sheet_data returned no template for ' + JSON.stringify(data && data.context));
+}
+const t = data.template;
+const ctx = data.context || {};
+const legacy = data.legacy || {};
+const base = (ctx.base_url || '').replace(/\/$/, '');
+const absolute = url => (!url ? null : /^https?:\/\//.test(url) ? url : base + (url.startsWith('/') ? '' : '/') + url);
+
+const record = {
+  // Template identity
+  product_name: t.display_name || t.template_name || t.name,
+  sublabel: t.sublabel || '',
+  product_slug: String(t.template_code || t.name || '').toLowerCase(),
+  product_type: ctx.product_type || legacy.product_type,
+  // Template images (relative paths; the Format nodes make featured/dimension images absolute)
+  featured_image: t.hero_image || null,
+  dimensions_image_dark: t.dimensions_image || null,
+  custom_dimensions_image_2: t.dimensions_image || null,
+  // Template link, so the Format nodes still find the template doctype and name
+  [{
+    'ilL-Tape-Neon-Template': 'tape_neon_template',
+    'ilL-LED-Sheet-Template': 'led_sheet_template',
+    'ilL-Extrusion-Kit-Template': 'kit_template',
+    'ilL-Fixture-Template': 'fixture_template',
+    'ilL-Driver-Template': 'driver_template',
+    'ilL-Controller-Template': 'controller_template',
+  }[ctx.template_doctype] || 'template']: ctx.template_id,
+};
+
+// Specifications: label, value and order only.
+record.specifications = (t.specifications || []).map(row => ({
+  spec_label: row.spec_label,
+  spec_value: row.spec_value,
+  display_order: row.display_order || 0,
+}));
+
+// Part number builder: the template's Part No. Configurator, unless the brand gets none.
+const STEP_FIELDS = ['option_step', 'option_type', 'option_label', 'option_description', 'is_required', 'depends_on_step', 'allowed_values_json'];
+record.configurator_options = ctx.include_configurator === false ? [] :
+  (t.part_no_configurator || []).map(row => Object.fromEntries(STEP_FIELDS.map(f => [f, row[f] ?? null])));
+
+// Kit components: grouped by component type in template order, the same shape as before:
+// [{hero_image}, {code, label}, ...] as a JSON string under custom_webflow_description.
+const groups = new Map();
+for (const row of t.kit_components || []) {
+  if (!row.component_type) continue;
+  if (!groups.has(row.component_type)) groups.set(row.component_type, {image: null, items: []});
+  const group = groups.get(row.component_type);
+  if (!group.image && row.component_image) group.image = absolute(row.component_image);
+  group.items.push({code: row.component_item || '', label: row.webflow_description || row.description || ''});
+}
+record.kit_components = Array.from(groups, ([type, group]) => ({
+  component_type: type,
+  custom_webflow_description: JSON.stringify([...(group.image ? [{hero_image: group.image}] : []), ...group.items]),
+}));
+
+// Certifications: the template's rows; the badge is the brand's dark badge (Badge Image).
+const legacyCodes = Object.fromEntries((legacy.certifications || []).map(c => [c.certification, c.certification_details?.certification_code]));
+record.certifications = (t.certifications || []).filter(row => row.certification).map(row => ({
+  certification: row.certification,
+  certification_details: {
+    certification_code: legacyCodes[row.certification] || row.certification,
+    badge_image: absolute(row.badge_image),
+    '206_badge_dark': absolute(row.badge_image),
+  },
+}));
+
+// Still from legacy (owner, 2026-11-02).
+record.photometric_image = legacy.photometric_image;
+record.photometric_data = legacy.photometric_data;
+record.colorimetry = legacy.colorimetry;
+record.custom_compatible_power_supplies = legacy.custom_compatible_power_supplies;
+
+return [{json: {message: {products: [record], brand: ctx.brand, context: ctx}}}];
