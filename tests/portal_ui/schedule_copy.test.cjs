@@ -64,7 +64,7 @@ test('copy lists editable targets as text and posts the line keys with the targe
   $('[data-copy-action="copy"]')[0].click();
   const targets = requests.shift();
   assert.match(targets.method, /line_copy\.copy_targets$/);
-  assert.deepEqual(targets.args, { source_schedule: 'S-1' });
+  assert.deepEqual({ ...targets.args }, { source_schedule: 'S-1' });
   targets.callback({ message: { success: true, schedules: [{ value: 'S-2', label: '<b>Phase 2</b>', project: 'Tower', modified: 'rev-2' }] } });
   const $select = $('#copyLinesTarget');
   assert.equal($select.find('b').length, 0);
