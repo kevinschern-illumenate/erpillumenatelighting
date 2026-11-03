@@ -9,6 +9,20 @@ from unittest.mock import MagicMock
 from test_services import ROOT, Record, load_service
 
 
+class FakeCache:
+	def __init__(self):
+		self.values = {}
+
+	def set_value(self, key, value, expires_in_sec=None):
+		self.values[key] = value
+
+	def get_value(self, key):
+		return self.values.get(key)
+
+	def delete_value(self, key):
+		self.values.pop(key, None)
+
+
 class Line(Record):
 	__setattr__ = dict.__setitem__
 
@@ -35,6 +49,8 @@ def positive_int(value, default=1, minimum=1):
 class BulkUpdateLines(unittest.TestCase):
 	def setUp(self):
 		self.enabled = True
+		self.undo_on = True
+		self.cache = FakeCache()
 		self.schedule = Schedule(
 			name="S1",
 			status="DRAFT",
@@ -70,7 +86,14 @@ class BulkUpdateLines(unittest.TestCase):
 		self.extras = {
 			ROOT + ".api.build_artifacts": types.SimpleNamespace(atomic_build=lambda function: function),
 			ROOT + ".portal.site_flags": types.SimpleNamespace(
-				line_copy_enabled=lambda: True, bulk_edit_enabled=lambda: self.enabled
+				line_copy_enabled=lambda: True,
+				bulk_edit_enabled=lambda: self.enabled,
+				undo_enabled=lambda: self.undo_on,
+			),
+			ROOT + ".portal.line_undo": types.SimpleNamespace(
+				snapshot=lambda schedule, lines: [],
+				previous_values=lambda lines, values: [],
+				remember=lambda *args, **kwargs: None,
 			),
 			ROOT + ".portal.configuration": types.SimpleNamespace(
 				schedule_context=schedule_context, resolve_line=resolve_line
@@ -97,8 +120,12 @@ class BulkUpdateLines(unittest.TestCase):
 					ROOT + ".portal.line_copy": line_copy,
 					ROOT + ".portal.line_edit": line_edit,
 				}
-				with load_service(ROOT + ".portal.bulk_lines", extras) as (module, frappe):
-					yield module, frappe
+				with load_service(ROOT + ".portal.line_undo", extras) as (line_undo, undo_frappe):
+					undo_frappe.cache = lambda: self.cache
+					self.line_undo, self.undo_frappe = line_undo, undo_frappe
+					extras[ROOT + ".portal.line_undo"] = line_undo
+					with load_service(ROOT + ".portal.bulk_lines", extras) as (module, frappe):
+						yield module, frappe
 
 	def run_bulk(self, keys, changes, expected_modified="rev-1"):
 		with self.module() as (module, _frappe):
@@ -210,6 +237,108 @@ class BulkUpdateLines(unittest.TestCase):
 		self.assertEqual(self.target.lines, [])
 		self.assertEqual(len(self.schedule.lines), 4)
 		self.schedule.save.assert_not_called()
+
+	def undo(self, token, user="buyer@example.com"):
+		with self.module() as (_module, _frappe):
+			self.undo_frappe.session = Record(user=user)
+			return self.line_undo.undo_line_action(token)
+
+	def test_delete_offers_an_undo_that_restores_rows_with_their_keys_and_places(self):
+		original = [dict(line) for line in self.schedule.lines]
+		result = self.run_bulk(["k3", "k1"], {"action": "delete"})
+		self.assertEqual({key: result["undo"][key] for key in ("expires_in", "action", "count")}, {
+			"expires_in": 10, "action": "delete", "count": 2
+		})
+		stored = json.loads(self.cache.values["ill_portal_line_undo:" + result["undo"]["token"]])
+		self.assertEqual((stored["user"], stored["schedule"]), ("buyer@example.com", "S1"))
+		self.assertNotIn("name", stored["rows"][0]["row"], "system fields are not kept")
+		self.schedule.save.reset_mock()
+		restored = self.undo(result["undo"]["token"])
+		self.assertEqual((restored["success"], restored["action"], restored["count"]), (True, "delete", 2))
+		self.assertEqual([line.line_key for line in self.schedule.lines], [row["line_key"] for row in original])
+		self.assertEqual([line.idx for line in self.schedule.lines], [1, 2, 3, 4])
+		self.assertEqual(self.schedule.lines[2].qty, 5)
+		self.schedule.save.assert_called_once_with(ignore_permissions=True)
+		self.assertEqual(self.cache.values, {}, "a receipt is used once")
+		with self.assertRaisesRegex(ValueError, "can no longer be undone"):
+			self.undo(result["undo"]["token"])
+
+	def test_undo_refuses_a_line_key_that_is_back_or_an_uneditable_schedule(self):
+		token = self.run_bulk(["k3"], {"action": "delete"})["undo"]["token"]
+		self.schedule.lines.append(Line(name="r9", idx=9, line_key="k3", line_id="B1"))
+		with self.assertRaisesRegex(ValueError, "already in this schedule"):
+			self.undo(token)
+		self.schedule.lines.pop()
+		self.schedule["is_locked"] = 1
+		with self.assertRaisesRegex(ValueError, "locked"):
+			self.undo(token)
+		self.schedule.update(is_locked=0, status="ORDERED")
+		with self.assertRaisesRegex(ValueError, "Draft or Ready"):
+			self.undo(token)
+		self.assertEqual(self.ids(), ["A1", "PS", "C1"])
+		self.assertEqual([call[0] for call in self.calls[-3:]], ["S1", "S1", "S1"])
+		self.assertTrue(all(call[1:] == (True, True) for call in self.calls), "restore re-checks edit access")
+
+	def test_undo_receipts_are_personal_expire_and_follow_the_kill_switch(self):
+		token = self.run_bulk(["k3"], {"action": "delete"})["undo"]["token"]
+		with self.assertRaisesRegex(ValueError, "can no longer be undone"):
+			self.undo(token, user="someone@example.com")
+		with self.assertRaisesRegex(ValueError, "can no longer be undone"):
+			self.undo("forged-token")
+		key = "ill_portal_line_undo:" + token
+		receipt = json.loads(self.cache.values[key])
+		self.cache.values[key] = json.dumps({**receipt, "expires": receipt["expires"] - 60})
+		with self.assertRaisesRegex(ValueError, "can no longer be undone"):
+			self.undo(token)
+		self.cache.values[key] = json.dumps(receipt)
+		self.undo_on = False
+		with self.assertRaisesRegex(ValueError, "Undo is turned off"):
+			self.undo(token)
+		self.assertNotIn("undo", self.run_bulk(["k4"], {"action": "delete"}))
+		with self.module() as (_module, _frappe):
+			self.assertEqual(self.line_undo.undo_line_action.whitelist_options, {"methods": ["POST"]})
+			self.undo_frappe.session = Record(user="Guest")
+			with self.assertRaises(PermissionError):
+				self.line_undo.undo_line_action(token)
+
+	def test_undo_of_a_move_restores_the_lines_and_withdraws_the_copies(self):
+		self.target.lines.append(Line(name="t1", idx=1, line_key="other", line_id="Z9"))
+		result = self.run_bulk(["k1"], {"action": "move", "target_schedule": "S2", "target_modified": "rev-2"})
+		self.assertEqual(self.ids(self.target), ["Z9", "A1", "PS"])
+		self.assertEqual(result["undo"]["count"], 2, "the owner's supply line moved too")
+		copies = {line.line_key for line in self.target.lines[1:]}
+		self.target.save.reset_mock()
+		self.undo(result["undo"]["token"])
+		self.assertEqual(self.ids(), ["A1", "PS", "B1", "C1"])
+		self.assertEqual([line.line_key for line in self.schedule.lines][:2], ["k1", "p1"])
+		self.assertEqual(self.ids(self.target), ["Z9"])
+		self.target.save.assert_called_once_with(ignore_permissions=True)
+		doctype, filters, field, value = self.undo_frappe.db.set_value.call_args.args
+		self.assertEqual((doctype, field, value), ("ilL-Line-Document", "active", 0))
+		self.assertEqual((filters["schedule"], filters["line_key"][0]), ("S2", "in"))
+		self.assertEqual(set(filters["line_key"][1]), copies)
+
+	def test_undo_of_a_move_refuses_when_the_copies_changed_or_the_target_locked(self):
+		token = self.run_bulk(["k4"], {"action": "move", "target_schedule": "S2"})["undo"]["token"]
+		self.target["is_locked"] = 1
+		with self.assertRaisesRegex(ValueError, "locked"):
+			self.undo(token)
+		self.target["is_locked"] = 0
+		self.target.lines.clear()
+		with self.assertRaisesRegex(ValueError, "changed in the other schedule"):
+			self.undo(token)
+
+	def test_undo_of_a_bulk_edit_restores_the_previous_values(self):
+		self.schedule.lines[0]["location"] = "Old"
+		token = self.run_bulk(["k1", "k3"], {"qty": "4", "location": "Lobby"})["undo"]["token"]
+		self.undo(token)
+		a1, _ps, b1, _c1 = self.schedule.lines
+		self.assertEqual((a1.qty, a1.location, b1.qty, b1.location), (1, "Old", 5, ""))
+		token = self.run_bulk(["k1"], {"qty": "4"})["undo"]["token"]
+		self.schedule.lines[0]["qty"] = 7
+		with self.assertRaisesRegex(ValueError, "changed again"):
+			self.undo(token)
+		self.assertEqual(self.schedule.lines[0].qty, 7)
 
 	def test_kill_switch_guest_and_post_only(self):
 		self.enabled = False

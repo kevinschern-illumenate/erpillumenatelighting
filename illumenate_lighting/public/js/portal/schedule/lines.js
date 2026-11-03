@@ -1229,6 +1229,7 @@ function duplicateLine(line_idx) {
 			if (r.message && r.message.success) {
 				location.reload();
 			} else {
+				if (window.ScheduleConflict && ScheduleConflict.handle(r)) return;
 				frappe.msgprint((r.message && r.message.error) || 'Error duplicating line');
 			}
 		}
@@ -1351,6 +1352,7 @@ function submitEditLine(line_idx, line_data) {
 				$('#editLineModal').modal('hide');
 				location.reload();
 			} else {
+				if (window.ScheduleConflict && ScheduleConflict.handle(r)) return;
 				frappe.msgprint((r.message && r.message.error) || 'Error updating line');
 			}
 		}
@@ -1364,8 +1366,10 @@ function deleteLine(line_idx) {
 			args: lineRef(line_idx),
 			callback: function(r) {
 				if (r.message && r.message.success) {
+					if (window.ScheduleUndo) ScheduleUndo.offer(r.message.undo);
 					location.reload();
 				} else {
+					if (window.ScheduleConflict && ScheduleConflict.handle(r)) return;
 					frappe.msgprint((r.message && r.message.error) || 'Error deleting line');
 				}
 			}

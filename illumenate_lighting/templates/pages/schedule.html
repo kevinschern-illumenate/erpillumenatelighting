@@ -61,6 +61,9 @@ Also handles new schedule creation when is_new is True
 	</div>
 	{% else %}
 
+	<!-- Plan 3.12: filled by schedule/conflict.js when someone else saved this schedule -->
+	<div class="alert alert-warning ill-conflict-notice" id="scheduleConflictNotice" role="alert" tabindex="-1" hidden></div>
+
 	<!-- Progress (FLOW-2) -->
 	<ol class="ill-schedule-steps" id="scheduleSteps" aria-label="{{ _('Schedule progress') }}">
 		{% for step in progress_steps %}
@@ -326,8 +329,16 @@ Also handles new schedule creation when is_new is True
 	<div class="row">
 		<div class="col-12">
 			<div class="card">
-				<div class="card-header">
+				<div class="card-header{% if lines and keyboard_shortcuts_enabled | default(false) %} d-flex flex-wrap justify-content-between align-items-center ill-lines-header{% endif %}">
 					<h5 class="mb-0">{{ _("Fixture Lines") }}</h5>
+					{% if lines and keyboard_shortcuts_enabled | default(false) %}
+					<div class="d-flex align-items-center ill-line-tools">
+						<label class="sr-only" for="lineFilter">{{ _("Filter lines") }}</label>
+						<input type="search" id="lineFilter" class="form-control form-control-sm ill-line-filter" placeholder="{{ _('Filter lines (press /)') }}" aria-keyshortcuts="/" aria-describedby="lineFilterStatus" autocomplete="off">
+						<span id="lineFilterStatus" class="small text-muted ml-2" role="status" aria-live="polite"></span>
+						<button type="button" class="btn btn-sm btn-link ml-1" data-shortcuts-open aria-keyshortcuts="Shift+?" aria-controls="scheduleShortcutsHelp">{{ _("Shortcuts") }}</button>
+					</div>
+					{% endif %}
 				</div>
 				<div class="card-body p-0">
 					{% if lines %}
@@ -360,7 +371,11 @@ Also handles new schedule creation when is_new is True
 										{% if bulk_edit_enabled | default(false) %}
 										<input type="checkbox" class="line-select" data-line-key="{{ (line.get('line_key') or line.get('name') or '') | e }}" aria-label="{{ _('Select line {0}').format(line.get('line_id') or line.get('idx') or loop.index) | e }}">
 										{% endif %}
+										{% if keyboard_shortcuts_enabled | default(false) %}
+										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder, or press Alt+Up / Alt+Down') }}" aria-label="{{ _('Reorder line: drag, or press Alt+Up / Alt+Down') }}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown">
+										{% else %}
 										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder') }}" aria-label="{{ _('Drag to reorder') }}">
+										{% endif %}
 											<i class="fa fa-arrows" aria-hidden="true"></i>
 										</button>
 									</td>
@@ -1138,6 +1153,50 @@ Also handles new schedule creation when is_new is True
 		</div>
 	</div>
 </div>
+
+{% if activity_timeline_enabled | default(false) %}
+<!-- Activity timeline (plan 3.11), loaded by schedule/activity.js -->
+<div class="row mb-4" id="scheduleActivitySection">
+	<div class="col-12">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h6 class="mb-0" id="scheduleActivityTitle"><i class="fa fa-list-ul" aria-hidden="true"></i> {{ _("Activity") }}</h6>
+				<button type="button" class="btn btn-sm btn-outline-secondary" id="scheduleActivityToggle" aria-expanded="false" aria-controls="scheduleActivity">{{ _("Show activity") }}</button>
+			</div>
+			<div class="card-body" id="scheduleActivity" aria-labelledby="scheduleActivityTitle" aria-live="polite" hidden>
+				<ol class="ill-activity-list list-unstyled mb-2" id="scheduleActivityList"></ol>
+				<p class="text-muted small mb-0" id="scheduleActivityStatus"></p>
+				<button type="button" class="btn btn-sm btn-link px-0" id="scheduleActivityMore" hidden>{{ _("Show more") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
+{% if undo_enabled | default(false) %}
+<!-- Undo toast (plan 3.10), filled by schedule/undo.js after a delete, move or bulk edit -->
+<div id="scheduleUndoToast" class="ill-undo-toast" role="status" aria-live="polite" hidden></div>
+{% endif %}
+
+{% if keyboard_shortcuts_enabled | default(false) %}
+<!-- Keyboard shortcut help (plan 3.13), toggled with ? by schedule/keyboard.js -->
+<div id="scheduleShortcutsHelp" class="ill-shortcuts-help" role="dialog" aria-modal="true" aria-labelledby="scheduleShortcutsTitle" hidden>
+	<div class="ill-shortcuts-panel">
+		<div class="d-flex justify-content-between align-items-center mb-2">
+			<h5 class="mb-0" id="scheduleShortcutsTitle">{{ _("Keyboard shortcuts") }}</h5>
+			<button type="button" class="close" data-shortcuts-close aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+		</div>
+		<dl class="ill-shortcuts-list mb-0">
+			<dt><kbd>/</kbd></dt><dd>{{ _("Filter lines") }}</dd>
+			<dt><kbd>n</kbd></dt><dd>{{ _("Add a line") }}</dd>
+			<dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>{{ _("Move between lines") }}</dd>
+			<dt><kbd>Alt</kbd> + <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>{{ _("Move the focused line up or down") }}</dd>
+			<dt><kbd>Esc</kbd></dt><dd>{{ _("Close a dialog") }}</dd>
+			<dt><kbd>?</kbd></dt><dd>{{ _("Show or hide this help") }}</dd>
+		</dl>
+	</div>
+</div>
+{% endif %}
 
 <!-- Add Line Modal -->
 <div class="modal fade" id="addLineModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="addLineModalTitle">
@@ -1983,10 +2042,14 @@ Also handles new schedule creation when is_new is True
 	"presets": (presets_enabled | default(false)),
 	"recent_products": (recent_products_enabled | default(false)),
 	"stale_badge": (stale_badge_enabled | default(false)),
+	"undo": (undo_enabled | default(false)),
+	"activity_timeline": (activity_timeline_enabled | default(false)),
+	"keyboard_shortcuts": (keyboard_shortcuts_enabled | default(false)),
 	"schedule_import": (schedule_import_enabled | default(false)),
 	"import_columns": (import_columns | default([])),
 	"project_name": (project.name if project else ''),
 	"dealer_customer_group": (dealer_customer_group or '') if show_dealer_pricing else '',
+	"dealer_pricing_on": (dealer_pricing_on | default(false)) if show_dealer_pricing else false,
 	"i18n": {
 		"Select Fixture Template...": _("Select Fixture Template..."),
 		"Select Product Series...": _("Select Product Series..."),
@@ -2087,9 +2150,28 @@ Also handles new schedule creation when is_new is True
 		"{0} selected.": _("{0} selected."),
 		"Catalog updated — review": _("Catalog updated — review"),
 		"Review and re-validate": _("Review and re-validate"),
+		"Updated by {0} at {1}.": _("Updated by {0} at {1}."),
+		"another user": _("another user"),
+		"Your change was not saved.": _("Your change was not saved."),
+		"Reload": _("Reload"),
+		"Compare": _("Compare"),
+		"Delete {0} selected line(s)? You can undo this for a few seconds.": _("Delete {0} selected line(s)? You can undo this for a few seconds."),
+		"Moved {0} line(s).": _("Moved {0} line(s)."),
+		"Updated {0} line(s).": _("Updated {0} line(s)."),
+		"Deleted {0} line(s).": _("Deleted {0} line(s)."),
+		"{0}s": _("{0}s"),
+		"Undo": _("Undo"),
+		"Dismiss": _("Dismiss"),
+		"New since you opened this page": _("New since you opened this page"),
+		"Loading activity…": _("Loading activity…"),
+		"Activity could not be loaded.": _("Activity could not be loaded."),
+		"No activity yet.": _("No activity yet."),
+		"Hide activity": _("Hide activity"),
+		"Show activity": _("Show activity"),
+		"{0} line(s) shown": _("{0} line(s) shown"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale", "conflict", "undo", "activity", "keyboard"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

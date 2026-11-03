@@ -106,6 +106,7 @@ var ScheduleBulk = (function () {
 			callback: function (r) {
 				var message = r.message || {};
 				if (message.success) {
+					if (window.ScheduleUndo) ScheduleUndo.offer(message.undo);
 					ScheduleBulk.reload();
 					return;
 				}
@@ -182,7 +183,10 @@ var ScheduleBulk = (function () {
 		var count = keys().length;
 		if (!count) return;
 		mode = null;
-		frappe.confirm(format(scheduleText("Delete {0} selected line(s)? This cannot be undone."), count), function () {
+		var question = scheduleContext.undo
+			? scheduleText("Delete {0} selected line(s)? You can undo this for a few seconds.")
+			: scheduleText("Delete {0} selected line(s)? This cannot be undone.");
+		frappe.confirm(format(question, count), function () {
 			submit({ action: 'delete' });
 		});
 	}

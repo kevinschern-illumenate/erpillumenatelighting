@@ -70,6 +70,21 @@ def stale_badge_enabled():
 	return conf_flag("ill_portal_stale_badge", default=True)
 
 
+def undo_enabled():
+	"""A 10-second "Undo" after deleting, moving or bulk-editing schedule lines (plan 3.10). On by default."""
+	return conf_flag("ill_portal_undo", default=True)
+
+
+def activity_timeline_enabled():
+	"""The read-only schedule activity timeline (plan 3.11). On by default."""
+	return conf_flag("ill_portal_activity_timeline", default=True)
+
+
+def keyboard_shortcuts_enabled():
+	"""Schedule keyboard shortcuts, help overlay and keyboard reorder (plan 3.13). On by default."""
+	return conf_flag("ill_portal_keyboard_shortcuts", default=True)
+
+
 def live_estimate_enabled():
 	"""Configurator estimate panel: price, stock and lead time labelled "estimate" (plan 3.8). On by default."""
 	return conf_flag("ill_portal_live_estimate", default=True)

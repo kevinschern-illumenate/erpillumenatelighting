@@ -4,7 +4,7 @@ const path = require('node:path');
 
 const DIR = path.join(__dirname, '../../illumenate_lighting/public/js/portal/schedule');
 const TEMPLATE = fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/templates/pages/schedule.html'), 'utf8');
-const ORDER = ['context', 'lines', 'uploads', 'actions', 'packets', 'exports', 'reorder', 'versions', 'copy', 'bulk', 'part_number', 'line_import', 'presets', 'recent', 'stale', 'pricing'];
+const ORDER = ['context', 'lines', 'uploads', 'actions', 'packets', 'exports', 'reorder', 'versions', 'copy', 'bulk', 'part_number', 'line_import', 'presets', 'recent', 'stale', 'conflict', 'undo', 'activity', 'keyboard', 'pricing'];
 const read = name => fs.readFileSync(path.join(DIR, `${name}.js`), 'utf8');
 const SCRIPT = ORDER.map(read).join('\n');
 

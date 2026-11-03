@@ -716,6 +716,9 @@ schedule_variants = {
 		presets_enabled=True,
 		recent_products_enabled=True,
 		stale_badge_enabled=True,
+		undo_enabled=True,
+		activity_timeline_enabled=True,
+		keyboard_shortcuts_enabled=True,
 		import_columns=["Type", "Qty", "Location", "Description", "Part Number", "Notes", "Length (in)"],
 	),
 }
@@ -735,6 +738,7 @@ for name, variant in schedule_variants.items():
 	schedule_context = json.loads(context_block.group(1))
 	assert schedule_context["schedule_name"] == "S-1" and schedule_context["schedule_status"] == variant["schedule"].status
 	assert schedule_context["dealer_customer_group"] == "", "dealer pricing context only renders for pricing users"
+	assert schedule_context["dealer_pricing_on"] is False, "the saved pricing toggle only renders for pricing users"
 	assert set(schedule_context["i18n"]) == SCHEDULE_TEXTS, set(schedule_context["i18n"]) ^ SCHEDULE_TEXTS
 	assert 'src="/assets/illumenate_lighting/js/portal/schedule/context.js?v=' in schedule_html
 	assert "pricing.js" not in schedule_html
@@ -777,6 +781,24 @@ for name, variant in schedule_variants.items():
 	# Plan 3.9: the stale-line badge script runs only behind its kill switch.
 	assert schedule_context["stale_badge"] is bool(variant.get("stale_badge_enabled"))
 	assert "schedule/stale.js?v=" in schedule_html
+	# Plan 3.12: the collaborator conflict notice is always available, filled as text by conflict.js.
+	assert 'id="scheduleConflictNotice"' in schedule_html and "schedule/conflict.js?v=" in schedule_html
+	# Plan 3.10: the Undo toast only renders behind its kill switch.
+	undo_on = bool(variant.get("undo_enabled"))
+	assert schedule_context["undo"] is undo_on
+	assert ('id="scheduleUndoToast"' in schedule_html) is undo_on
+	assert "schedule/undo.js?v=" in schedule_html
+	# Plan 3.11: the activity timeline card only renders behind its kill switch.
+	activity_on = bool(variant.get("activity_timeline_enabled"))
+	assert schedule_context["activity_timeline"] is activity_on
+	assert ('id="scheduleActivitySection"' in schedule_html) is activity_on
+	assert "schedule/activity.js?v=" in schedule_html
+	# Plan 3.13: the shortcut help only renders behind its kill switch (the line filter needs rows).
+	keyboard_on = bool(variant.get("keyboard_shortcuts_enabled"))
+	assert schedule_context["keyboard_shortcuts"] is keyboard_on
+	assert ('id="scheduleShortcutsHelp"' in schedule_html) is keyboard_on
+	assert keyboard_on or 'id="lineFilter"' not in schedule_html
+	assert "schedule/keyboard.js?v=" in schedule_html
 	# Plan 2.8: badge classes come only from the fixed tone allow-list.
 	badge_tones = set(re.findall(r'class="badge badge-([^" ]*)', schedule_html))
 	assert badge_tones <= BADGE_TONES, badge_tones - BADGE_TONES

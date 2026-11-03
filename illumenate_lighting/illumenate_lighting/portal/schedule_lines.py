@@ -16,9 +16,47 @@ from frappe import _
 STALE_MESSAGE = "This schedule changed since you opened it. Reload to see the latest version."
 
 
+class StaleScheduleError(frappe.ValidationError):
+	"""The schedule was saved by someone else since the page loaded (plan 3.12)."""
+
+
+def conflict_details(schedule) -> dict:
+	"""Who last saved ``schedule`` and when, for the "Updated by <user> at <time>" notice.
+
+	Only the display name is returned, never the account's email address.
+	"""
+	user = schedule.get("modified_by") or ""
+	name = ""
+	if user:
+		name = frappe.db.get_value("User", user, "full_name") or ""
+	modified = schedule.get("modified")
+	display = str(modified or "")
+	formatter = getattr(frappe.utils, "format_datetime", None)
+	if formatter and modified:
+		try:
+			display = formatter(modified)
+		except Exception:
+			display = str(modified)
+	return {
+		"modified": str(modified or ""),
+		"modified_display": display,
+		"modified_by_name": name or _("another user"),
+	}
+
+
 def require_fresh(schedule, expected_modified=None) -> None:
 	if expected_modified and str(expected_modified) != str(schedule.modified):
-		frappe.throw(_(STALE_MESSAGE))
+		conflict = conflict_details(schedule)
+		# A thrown error still serialises frappe.local.response, so endpoints that let the
+		# error propagate expose the details too; ``_safe_error`` copies them into its dict.
+		response = getattr(frappe.local, "response", None)
+		if isinstance(response, dict):
+			response["conflict"] = conflict
+		try:
+			frappe.throw(_(STALE_MESSAGE), StaleScheduleError)
+		except StaleScheduleError as error:
+			error.conflict = conflict
+			raise
 
 
 def line_index(schedule, line_key=None, line_idx=None) -> int:

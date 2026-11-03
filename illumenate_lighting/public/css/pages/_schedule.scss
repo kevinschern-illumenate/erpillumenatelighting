@@ -1126,4 +1126,40 @@
 	.ill-recent-card-name { font-weight: 700; color: var(--ill-ink); line-height: 1.25; }
 	.ill-recent-card-code { color: var(--ill-text-secondary); }
 	.ill-recent-card-family { color: var(--ill-text-secondary); font-style: italic; }
+
+	// Plan 3.12: collaborator conflict notice.
+	.ill-conflict-notice { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; overflow-wrap: anywhere; }
+	.ill-conflict-notice[hidden] { display: none; }
+	// Plan 3.10: Undo toast after delete, move and bulk edit.
+	.ill-undo-toast {
+		position: fixed;
+		left: 50%;
+		bottom: 1.5rem;
+		z-index: 1060;
+		display: flex;
+		align-items: center;
+		gap: .5rem;
+		max-width: calc(100vw - 2rem);
+		padding: .5rem .75rem;
+		border-radius: var(--ill-radius-pill);
+		background: var(--ill-ink);
+		color: var(--ill-paper);
+		box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
+		transform: translateX(-50%);
+	}
+	.ill-undo-toast[hidden] { display: none; }
+	.ill-undo-toast .ill-undo-dismiss { color: var(--ill-paper); }
+	.ill-undo-countdown { font-variant-numeric: tabular-nums; opacity: .8; }
+	// Plan 3.11: activity timeline.
+	.ill-activity-item { display: flex; flex-wrap: wrap; gap: .25rem .5rem; padding: .375rem 0; border-bottom: 1px solid var(--ill-gray-100); overflow-wrap: anywhere; }
+	.ill-activity-item.is-new { background: var(--ill-blue-100); }
+	.ill-activity-title { font-weight: 600; }
+	.ill-activity-detail, .ill-activity-meta { color: var(--ill-text-secondary); font-size: .85rem; }
+	// Plan 3.13: line filter and keyboard shortcut help.
+	.ill-line-filter { width: 14rem; max-width: 100%; }
+	.ill-shortcuts-help { position: fixed; inset: 0; z-index: 1070; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .4); }
+	.ill-shortcuts-help[hidden] { display: none; }
+	.ill-shortcuts-panel { width: min(28rem, calc(100vw - 2rem)); padding: 1rem 1.25rem; border-radius: 8px; background: var(--ill-paper); color: var(--ill-ink); }
+	.ill-shortcuts-list { display: grid; grid-template-columns: auto 1fr; gap: .375rem 1rem; }
+	.ill-shortcuts-list dd { margin: 0; }
 }

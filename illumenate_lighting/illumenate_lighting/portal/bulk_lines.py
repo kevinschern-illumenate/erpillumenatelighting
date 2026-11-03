@@ -13,7 +13,7 @@ import frappe
 from frappe import _
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
-from illumenate_lighting.illumenate_lighting.portal import line_copy, site_flags
+from illumenate_lighting.illumenate_lighting.portal import line_copy, line_undo, site_flags
 from illumenate_lighting.illumenate_lighting.portal.configuration import resolve_line, schedule_context
 from illumenate_lighting.illumenate_lighting.portal.schedule_lines import require_fresh
 
@@ -111,7 +111,11 @@ def bulk_update_lines(schedule, line_keys, changes, expected_modified=None):
 		return {"success": False, "error": _("Some lines could not be changed"), "errors": errors}
 
 	result = {"success": True, "schedule": doc.name, "action": action, "count": len(lines)}
+	undo = {}
 	if action == "update":
+		undo["rows"] = [
+			{**entry, "applied": values} for entry in line_undo.previous_values(lines, values)
+		]
 		from illumenate_lighting.illumenate_lighting.portal.line_edit import apply_line_data
 
 		for key, line in lines:
@@ -130,12 +134,18 @@ def bulk_update_lines(schedule, line_keys, changes, expected_modified=None):
 			frappe.throw(_("The target schedule changed. Reload and try again."))
 		pairs, new_keys = line_copy.copy_into(doc, keys, target)
 		moved = {id(old) for old, _new in pairs}
+		undo.update(
+			rows=line_undo.snapshot(doc, [old for old, _new in pairs]),
+			target=target.name,
+			target_keys=[new.line_key for _old, new in pairs],
+		)
 		target.save(ignore_permissions=True)
 		line_copy.clone_documents(doc, target, pairs)
 		doc.lines = [line for line in doc.lines if id(line) not in moved]
 		result.update(target=target.name, line_keys=new_keys, count=len(pairs))
 	else:
 		chosen = {id(line) for _key, line in lines}
+		undo["rows"] = line_undo.snapshot(doc, [line for _key, line in lines])
 		doc.lines = [line for line in doc.lines if id(line) not in chosen]
 
 	if errors:
@@ -144,4 +154,7 @@ def bulk_update_lines(schedule, line_keys, changes, expected_modified=None):
 		line.idx = index
 	doc.save(ignore_permissions=True)
 	result["modified"] = str(doc.modified)
+	receipt = line_undo.remember(doc, action, undo.pop("rows", None), **undo)
+	if receipt:
+		result["undo"] = receipt
 	return result

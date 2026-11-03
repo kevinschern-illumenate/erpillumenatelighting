@@ -73,6 +73,11 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 	if not message:
 		message = _("An unexpected error occurred. Please try again or contact support.")
 
+	# Plan 3.12: a refused stale edit also says who saved the schedule and when.
+	conflict = getattr(e, "conflict", None)
+	if isinstance(conflict, dict):
+		extra.setdefault("conflict", conflict)
+
 	# ``success``/``error`` are the legacy contract; ``error_code`` lets
 	# frontends branch without parsing message text.
 	return {"success": False, "error": message, "error_code": error_code, **extra}
@@ -1532,10 +1537,18 @@ def delete_schedule_line(
 
 		require_fresh(schedule, expected_modified)
 		line_idx = line_index(schedule, line_key, line_idx)
+		from illumenate_lighting.illumenate_lighting.portal import line_undo
+
+		removed = line_undo.snapshot(schedule, [schedule.lines[line_idx]])
 		# Remove the line
 		schedule.lines.pop(line_idx)
 		schedule.save()
-		return {"success": True, "modified": str(schedule.modified)}
+		result = {"success": True, "modified": str(schedule.modified)}
+		# Plan 3.10: an optional receipt the page uses to offer "Undo" for a few seconds.
+		receipt = line_undo.remember(schedule, "delete", removed)
+		if receipt:
+			result["undo"] = receipt
+		return result
 	except Exception as e:
 		return _safe_error(e, f"Portal: error deleting line from schedule {schedule_name}")
 

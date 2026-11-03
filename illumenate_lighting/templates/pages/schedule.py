@@ -477,13 +477,16 @@ def get_context(context):
 	context.lines_json = lines_json
 	context.can_edit = can_edit
 	from illumenate_lighting.illumenate_lighting.portal.site_flags import (
+		activity_timeline_enabled,
 		bulk_edit_enabled,
+		keyboard_shortcuts_enabled,
 		line_copy_enabled,
 		part_number_decode_enabled,
 		presets_enabled,
 		recent_products_enabled,
 		schedule_import_enabled,
 		stale_badge_enabled,
+		undo_enabled,
 	)
 
 	context.line_copy_enabled = line_copy_enabled()
@@ -495,6 +498,10 @@ def get_context(context):
 	context.recent_products_enabled = bool(can_edit and recent_products_enabled())
 	# Plan 3.9: viewers see the badge too; only editors get the review link.
 	context.stale_badge_enabled = stale_badge_enabled()
+	# Plan 3.10/3.11/3.13: Undo is for editors; the timeline and shortcuts are read-only aids.
+	context.undo_enabled = bool(can_edit and undo_enabled())
+	context.activity_timeline_enabled = activity_timeline_enabled()
+	context.keyboard_shortcuts_enabled = keyboard_shortcuts_enabled()
 	context.schedule_import_enabled = bool(
 		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and schedule_import_enabled()
 	)
@@ -516,6 +523,12 @@ def get_context(context):
 
 	context.system_design = schedule_card(schedule)
 	context.can_show_dealer_pricing = can_show_dealer_pricing
+	# Plan 3.14: the dealer pricing toggle starts where the user last left it.
+	context.dealer_pricing_on = False
+	if can_show_dealer_pricing and can_view_pricing:
+		from illumenate_lighting.illumenate_lighting.portal.user_preferences import show_dealer_pricing
+
+		context.dealer_pricing_on = show_dealer_pricing(frappe.session.user)
 	context.dealer_customer_group = dealer_customer_group
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count
