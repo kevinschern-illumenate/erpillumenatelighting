@@ -104,11 +104,15 @@ def annotations(purpose=None, caption=None):
 
 def make_thumbnail(content):
 	"""A metadata-free WebP no larger than 480 px, or None when the bytes are not a PNG/JPEG."""
-	from PIL import Image, ImageOps
+	from PIL import Image, ImageOps, UnidentifiedImageError
 
 	with warnings.catch_warnings():
 		warnings.simplefilter("error", Image.DecompressionBombWarning)
-		with Image.open(io.BytesIO(content)) as source:
+		try:
+			source = Image.open(io.BytesIO(content))
+		except UnidentifiedImageError:
+			return None
+		with source:
 			if source.format not in ("PNG", "JPEG") or source.width * source.height > MAX_IMAGE_PIXELS:
 				return None
 			source.draft("RGB", (THUMBNAIL_PX * 2, THUMBNAIL_PX * 2))
