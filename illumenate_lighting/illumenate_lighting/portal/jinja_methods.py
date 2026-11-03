@@ -19,6 +19,13 @@ def ill_finder_enabled() -> bool:
 	return ill_can_view_catalog() and bool(frappe.db.get_single_value(SETTINGS, "portal_enabled"))
 
 
+def ill_badge_tone(value) -> str:
+	"""A badge tone from the fixed allow-list, for ``badge-{{ ... }}`` classes (plan 2.8)."""
+	from illumenate_lighting.illumenate_lighting.portal.status import badge_tone
+
+	return badge_tone(value)
+
+
 def ill_sanitize_html(html) -> str:
 	"""Sanitize stored rich text for ``| safe`` output.
 
