@@ -247,10 +247,14 @@ def _compute_template_tape_neon_pricing(
 		else:
 			raise ValueError("A leader cable item is required for the selected cable length")
 
+	from illumenate_lighting.illumenate_lighting.api.pricing_utils import sum_then_round
+
 	total_msrp = base_price + length_adder + total_option_adders + leader_cable_msrp
 
 	return {
-		"total_price_msrp": round(total_msrp, 2),
+		"total_price_msrp": sum_then_round(total_msrp),
+		# Unrounded, so callers that add more parts still round only once (6.3).
+		"total_price_msrp_exact": total_msrp,
 		"adder_breakdown": adder_breakdown,
 	}
 
