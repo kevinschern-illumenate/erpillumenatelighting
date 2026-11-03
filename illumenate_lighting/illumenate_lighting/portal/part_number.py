@@ -68,7 +68,7 @@ def parse(part_number):
 	if not NUMBER.match(length) or len(head) < len(HEAD) + 1 or not all(head):
 		raise NotAPartNumber(_("{0} is not a fixture part number").format(part_number))
 	# Only the series (a template's profile family) may itself contain hyphens.
-	parsed = {"series": "-".join(head[: -len(HEAD)]), **dict(zip(HEAD, head[-len(HEAD) :])), **tail}
+	parsed = {"series": "-".join(head[: -len(HEAD)]), **dict(zip(HEAD, head[-len(HEAD) :], strict=True)), **tail}
 	parsed["length_inches"] = float(length)
 	parsed["variant"] = bool(variant)
 	return parsed
