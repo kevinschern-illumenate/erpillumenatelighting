@@ -238,6 +238,12 @@ Readiness (`api/product_readiness.py:228-389`) is strong on engineering but chec
 | 5.8 | P2 | **Image processing on staff upload** | When an image is attached to a gallery/featured field: create WebP derivatives (e.g. 480/1200/2400), strip EXIF GPS, and record width/height. Runs as an `after_insert` enqueue on File for the relevant attached DocTypes. Publication payloads may then reference derivatives once the n8n workflow accepts them (contract change, behind a flag). |
 | 5.9 | P2 | Schema tidy-up | Hide `tape_spec` (deprecated, `ill_webflow_product.json:204-220`) when empty. Collapse irrelevant source-link fields per product type through `depends_on`. Make sync/publication status fields read-only. |
 
+**Phase 5 status** (branch `feat/phase-5-media`, PR #396, stacked on Phase 2):
+
+| # | Status | Commits | Notes / deviations |
+|---|---|---|---|
+| 5.4 | Done | `d0e4291`, `984d6b0`, `d23bb5c` | `product_projection.resolve_product_images(doctype, names)` is a batched, read-only resolver for the six template DocTypes and `ilL-Webflow-Product`. Precedence: live template `hero_image` → `featured_image` → gallery #1 → legacy template `image`. The gallery is de-duplicated against the primary. Used by the configure.py pickers, the portal picker endpoints, the kit/driver/controller configurator images, the product catalog list/detail and the product finder. Responses keep their old keys and add `image_alt`/`image_source`. Kill switch: site config `ill_portal_hero_image_first: 0` restores the gallery-first order. The backfill is the "Templates Without Hero Image" script report. Its "Use as hero image" action is limited to System Manager / ilL Catalog Publisher with write permission, refuses to overwrite, and accepts only the template's own public candidate images. Not changed: Webflow export and InDesign spec-sheet payloads. Schedule lines and exports show no product image today, so they had no thumbnails to switch. Add Line picker (3.7) will use the resolver when it is built. |
+
 ---
 
 ## Phase 6 — Configurator consistency and performance
