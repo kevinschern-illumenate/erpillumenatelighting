@@ -137,6 +137,34 @@
 		padding-left: 6px;
 		padding-right: 6px;
 	}
+	/* Plan 3.3: the select checkbox shares the reorder cell. */
+	.fixture-lines-table.has-bulk-select th.col-drag-handle,
+	.fixture-lines-table.has-bulk-select td.col-drag-handle {
+		width: 72px;
+		max-width: 72px;
+		white-space: nowrap;
+	}
+	.fixture-lines-table .line-select,
+	.fixture-lines-table .line-select-all {
+		vertical-align: middle;
+		cursor: pointer;
+	}
+	.bulk-action-bar {
+		position: sticky;
+		bottom: 0;
+		z-index: 5;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 12px;
+		background: #fff;
+		border-top: 1px solid var(--ill-gray-300, #dee2e6);
+		box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.06);
+	}
+	.bulk-action-bar[hidden] {
+		display: none;
+	}
 	.drag-handle-btn {
 		border: none;
 		background: transparent;

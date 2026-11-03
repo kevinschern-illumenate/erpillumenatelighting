@@ -327,11 +327,11 @@ Also handles new schedule creation when is_new is True
 				<div class="card-body p-0">
 					{% if lines %}
 					<div class="table-responsive">
-						<table class="table table-hover mb-0 fixture-lines-table">
+						<table class="table table-hover mb-0 fixture-lines-table{% if bulk_edit_enabled | default(false) %} has-bulk-select{% endif %}">
 							<thead class="thead-light">
 								<tr>
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
-									<th class="col-drag-handle" aria-label="{{ _('Reorder') }}"></th>
+									<th class="col-drag-handle" aria-label="{{ _('Reorder') }}">{% if bulk_edit_enabled | default(false) %}<input type="checkbox" id="lineSelectAll" class="line-select-all" title="{{ _('Select all lines') }}" aria-label="{{ _('Select all lines') }}">{% endif %}</th>
 									{% endif %}
 									<th>{{ _("Fixture Type") }}</th>
 									<th>{{ _("Type") }}</th>
@@ -352,6 +352,9 @@ Also handles new schedule creation when is_new is True
 								<tr id="line-{{ (line.get('line_key') or line.get('name') or loop.index0) | e }}" data-line-idx="{{ loop.index0 | e }}" data-line-key="{{ (line.get('line_key') or line.get('name') or '') | e }}">
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 									<td class="col-drag-handle">
+										{% if bulk_edit_enabled | default(false) %}
+										<input type="checkbox" class="line-select" data-line-key="{{ (line.get('line_key') or line.get('name') or '') | e }}" aria-label="{{ _('Select line {0}').format(line.get('line_id') or line.get('idx') or loop.index) | e }}">
+										{% endif %}
 										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder') }}" aria-label="{{ _('Drag to reorder') }}">
 											<i class="fa fa-arrows" aria-hidden="true"></i>
 										</button>
@@ -1021,6 +1024,22 @@ Also handles new schedule creation when is_new is True
 							{% endif %}
 						</table>
 					</div>
+					{% if bulk_edit_enabled | default(false) %}
+					<div id="bulkActionBar" class="bulk-action-bar" role="region" aria-label="{{ _('Selected lines') }}" hidden>
+						<strong id="bulkSelectionCount" aria-live="polite"></strong>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="qty">{{ _("Set quantity") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="location">{{ _("Set location") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="line_id">{{ _("Set type") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="notes">{{ _("Set notes") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="move">{{ _("Move to…") }}</button>
+						{% if line_copy_enabled | default(false) %}
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="copy">{{ _("Copy to…") }}</button>
+						{% endif %}
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="drawings">{{ _("Request drawings") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-danger" data-bulk-action="delete">{{ _("Delete") }}</button>
+						<button type="button" class="btn btn-sm btn-link" data-bulk-action="clear">{{ _("Clear selection") }}</button>
+					</div>
+					{% endif %}
 					{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 					<div class="card-footer">
 						<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
@@ -1788,6 +1807,47 @@ Also handles new schedule creation when is_new is True
 	</div>
 </div>
 {% endif %}
+{% if bulk_edit_enabled | default(false) %}
+<div class="modal fade" id="bulkEditModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="bulkEditTitle">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="bulkEditTitle"></h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+			</div>
+			<div class="modal-body">
+				<p id="bulkEditSummary" class="text-muted"></p>
+				<div class="form-group" data-bulk-field="qty">
+					<label for="bulkEditQty">{{ _("Quantity") }}</label>
+					<input type="number" class="form-control" id="bulkEditQty" min="1" step="1" inputmode="numeric">
+				</div>
+				<div class="form-group" data-bulk-field="location">
+					<label for="bulkEditLocation">{{ _("Location") }}</label>
+					<input type="text" class="form-control" id="bulkEditLocation" maxlength="140">
+				</div>
+				<div class="form-group" data-bulk-field="line_id">
+					<label for="bulkEditLineId">{{ _("Fixture Type") }}</label>
+					<input type="text" class="form-control" id="bulkEditLineId" maxlength="140">
+				</div>
+				<div class="form-group" data-bulk-field="notes">
+					<label for="bulkEditNotes">{{ _("Notes") }}</label>
+					<textarea class="form-control" id="bulkEditNotes" rows="3" maxlength="2000"></textarea>
+				</div>
+				<div class="form-group" data-bulk-field="move">
+					<label for="bulkEditTarget">{{ _("Target schedule") }}</label>
+					<select class="form-control" id="bulkEditTarget"></select>
+					<small class="form-text text-muted">{{ _("Moved lines keep their configuration and are re-checked and re-priced in the target schedule.") }}</small>
+				</div>
+				<div id="bulkEditErrors" class="alert alert-danger" role="alert" hidden></div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="bulkEditConfirm">{{ _("Apply") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 {% if line_copy_enabled | default(false) %}
 <div class="modal fade" id="copyLinesModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="copyLinesModalTitle">
 	<div class="modal-dialog" role="document">
@@ -1838,6 +1898,8 @@ Also handles new schedule creation when is_new is True
 	"open_offer": open_offer,
 	"can_issue_packet": (can_issue_packet | default(false)),
 	"line_copy": (line_copy_enabled | default(false)),
+	"bulk_edit": (bulk_edit_enabled | default(false)),
+	"project_name": (project.name if project else ''),
 	"dealer_customer_group": (dealer_customer_group or '') if show_dealer_pricing else '',
 	"i18n": {
 		"Select Fixture Template...": _("Select Fixture Template..."),
@@ -1885,13 +1947,24 @@ Also handles new schedule creation when is_new is True
 		"Copy {0} line(s) from this schedule.": _("Copy {0} line(s) from this schedule."),
 		"Copied {0} line(s).": _("Copied {0} line(s)."),
 		"Open target schedule": _("Open target schedule"),
+		"Set quantity": _("Set quantity"),
+		"Set location": _("Set location"),
+		"Set type": _("Set type"),
+		"Set notes": _("Set notes"),
+		"Move to another schedule": _("Move to another schedule"),
+		"{0} selected": _("{0} selected"),
+		"Nothing was changed.": _("Nothing was changed."),
+		"Applies to {0} selected line(s). Nothing changes unless every line can be updated.": _("Applies to {0} selected line(s). Nothing changes unless every line can be updated."),
+		"Quantity must be a whole number of at least 1": _("Quantity must be a whole number of at least 1"),
+		"Delete {0} selected line(s)? This cannot be undone.": _("Delete {0} selected line(s)? This cannot be undone."),
+		"Schedule {0}: {1}": _("Schedule {0}: {1}"),
 		"Could not copy the lines.": _("Could not copy the lines."),
 		"Could not load your schedules.": _("Could not load your schedules."),
 		"Browser storage is unavailable. Allow session storage to preserve this draft.": _("Browser storage is unavailable. Allow session storage to preserve this draft."),
 		"(similar)": _("(similar)"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

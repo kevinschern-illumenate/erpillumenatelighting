@@ -602,6 +602,21 @@ assert "Shop &lt;Drawing&gt;" in drawings_page and "Lobby &lt;Refit&gt;" in draw
 assert 'data-value="shop_drawing"' not in drawings_page, "request types come from Desk"
 assert 'href="?page=1#all"' in drawings_page and 'href="?page=3#all"' in drawings_page, "REL-8 pager"
 assert 'id="requestProjectSearch"' in drawings_page
+prefilled_drawings = environment.get_template("templates/pages/drawings.html").render(
+	request_types=drawing_types,
+	projects=[View(name="P-1", project_name="Lobby <Refit>")],
+	prefill={"project": "P-1", "fixture_reference": 'Schedule S-1: A1, "B<2>"'},
+	pending_requests=[],
+	completed_requests=[],
+	all_requests=[],
+	pending_count=0,
+	page=1,
+	has_more=False,
+	drawing_type_icon=lambda value: "file",
+)
+assert '<option value="P-1" selected>' in prefilled_drawings, "plan 3.3 drawings prefill"
+assert 'value="Schedule S-1: A1, &#34;B&lt;2&gt;&#34;"' in prefilled_drawings, "prefill is escaped"
+assert "selected>" not in drawings_page.split('id="requestProject"')[1].split("</select>")[0]
 parser.feed(drawings_page)
 (render_dir / "drawings.html").write_text(drawings_page, encoding="utf8")
 overview = environment.get_template("templates/pages/portal.html")
@@ -682,6 +697,7 @@ schedule_variants = {
 		},
 		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
 		line_copy_enabled=True,
+		bulk_edit_enabled=True,
 	),
 }
 SCHEDULE_JS = ROOT / "illumenate_lighting/public/js/portal/schedule"
@@ -708,6 +724,13 @@ for name, variant in schedule_variants.items():
 	assert schedule_context["line_copy"] is copy_enabled
 	assert ('id="copyLinesModal"' in schedule_html) is copy_enabled
 	assert "schedule/copy.js?v=" in schedule_html
+	# Plan 3.3: line selection and the bulk bar/modal only render behind their kill switch.
+	bulk_enabled = bool(variant.get("bulk_edit_enabled"))
+	assert schedule_context["bulk_edit"] is bulk_enabled
+	assert ('id="bulkActionBar"' in schedule_html) is bulk_enabled
+	assert ('id="bulkEditModal"' in schedule_html) is bulk_enabled
+	assert ('class="line-select"' in schedule_html) is bulk_enabled
+	assert "schedule/bulk.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
