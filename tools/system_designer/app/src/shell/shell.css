@@ -447,6 +447,13 @@
 .sd-check-group + .sd-check-group {
 	margin-top: var(--sd-space-4);
 }
+.sd-check-group .ill-sd__check {
+	align-items: flex-start;
+}
+.sd-check-group .ill-sd__check > .sd-severity {
+	flex: none;
+	margin-top: 2px;
+}
 .sd-check-group h4 {
 	margin: 0 0 var(--sd-space-2);
 	font-size: var(--sd-font-size-base);

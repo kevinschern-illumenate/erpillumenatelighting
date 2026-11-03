@@ -824,3 +824,118 @@ Applications Engineer reaches a review request as its `technical_reviewer` (read
 - Limits: AC decoders are not placed on the board; DMX universes are entered by the dealer (default 1).
 - Tests: engine `controls.test.ts`, `golden.test.ts`; jsdom `PowerStep.test.tsx`; Python
   `test_system_design_writeback.py`, `test_system_design_parity.py`.
+
+## Production readiness — Phase 1 and Phase 2 (SD-1.0 to SD-2.7)
+
+Branch `sd/production-readiness`. This is the first part of the System Designer Production-Readiness
+Plan. Status by work package:
+
+| WP | Title | Status |
+| --- | --- | --- |
+| SD-1.0 | Screenshot baseline | Done: `tests/e2e/screens.spec.ts` (every step at 1440, 1024 and 768 px) |
+| SD-1.1 | Design tokens | Done |
+| SD-1.2 | Component layer | Done |
+| SD-1.3 | App shell | Done |
+| SD-1.4 | Autosave and save state | Done |
+| SD-1.5 | Loading, empty and error states | Done |
+| SD-1.6 | Offline, session and conflicts | Done |
+| SD-1.7 | Help, tour and shortcuts | Done |
+| SD-2.1 | Step state | Done |
+| SD-2.2 | Actionable checks | Done |
+| SD-2.3 | Start step | Done (summary and attention list) |
+| SD-2.6 | Check step | Done (summary and grouped checks) |
+| SD-2.7 | Deep links | Done |
+| SD-2.4, SD-2.5 | Spaces/Runs and Power reworks | Not started |
+| SD-3.x | Auto-plan (SD-3.1), review workspace | Not started |
+| SD-4.x, SD-5.x | Hardening, post-launch | Not started |
+
+- **SD-1.1 tokens** (`app/src/ui/tokens.css`)
+  - Semantic `--sd-*` tokens are mapped onto the portal's tokens: text, surfaces, borders, accent,
+    severity, radius, shadow, spacing, type, motion, rail and panel widths.
+  - Raw colours live only in `tokens.css`. `tokens.test.ts` keeps hex and rgb values out of every other
+    stylesheet.
+  - Reduced motion turns off transitions and animations.
+- **SD-1.2 components** (`app/src/ui/`)
+  - Button and IconButton (the tooltip shows the shortcut), Badge, SeverityIcon, Banner.
+  - Dialog and ConfirmDialog, Menu, Tabs and Tooltip, all on Radix.
+  - Field, Input, native Select, and UnitInput, which accepts feet and inches (`length.ts`).
+  - Toast with Undo, Skeleton, EmptyState, ErrorState, Kbd and LoadBar.
+  - A dev gallery at `app/gallery.html`. Tests: `ui.test.tsx`, `length.test.ts`.
+- **SD-1.3 shell** (`app/src/shell/Shell.tsx`, `TopBar.tsx`, `StepRail.tsx`, `CheckPanel.tsx`,
+  `StatusStrip.tsx`, `shell.css`)
+  - Sticky top bar:
+    - breadcrumb (Projects › schedule · version › revision);
+    - title with status and review badges;
+    - save state, Undo and Redo;
+    - Guided/Engineering switch;
+    - View menu (engineering tools opt-in, checks panel, find, shortcuts);
+    - Help and Save.
+  - Left step rail; a canvas with a sticky Back / "Next: X" / Continue footer; a right checks panel
+    that collapses and is remembered per browser; a status strip with runs, connected load, supplies
+    and home-run wire.
+  - Below 1100 px the rail becomes a horizontal strip and the panel moves under the canvas.
+  - The page template's "Back to schedule" breadcrumb is gone; the top bar carries it.
+- **SD-1.4 autosave** (`hooks.ts` `useAutosave`)
+  - Saves after 20 s without an edit, at most once a minute, plus when the step changes and when the
+    tab is hidden.
+  - Never saves while read-only, before the terms are accepted, during a conflict, while locked, or
+    while signed out.
+  - Ctrl+S saves now. Leaving with unsaved changes asks first.
+- **SD-1.5 states**
+  - Opening shows a skeleton. Errors use ErrorState with an error code and Retry (no Retry for
+    forbidden or not found).
+  - Each step sits in an error boundary (`StepBoundary`, code `STEP_<ID>`).
+  - Every step has a screen, so the "upcoming update" fallback is gone.
+- **SD-1.6 resilience**
+  - `design/api.ts` maps a failed fetch to `OFFLINE`, and an un-enveloped 401/403 (CSRF or Guest) to
+    `SESSION`.
+  - Save state gains "Offline · kept in this browser" and "Not saved · sign in again".
+  - Coming back online saves.
+  - A banner shows when the design is open in another tab (BroadcastChannel).
+  - On refocus, at most every 10 min, a read-only `open_design` asks whether the catalog or the saved
+    design changed elsewhere.
+  - A save conflict opens a dialog: "Open the latest version" or "Keep my changes".
+  - A lost session opens a dialog: sign in in a new tab, then save.
+- **SD-1.7 help** (`help.ts`, `HelpDrawer.tsx`, `TourCard.tsx`, `CommandPalette.tsx`)
+  - A help drawer with a tip for this step, the steps, the shortcuts and support.
+  - A three-tip first-run tour; it can be shown again.
+  - Shortcuts: Ctrl+K find, Ctrl+S save, Ctrl+Z/Y undo/redo, `[` and `]` change step, `\` toggles the
+    panel, `?` opens help.
+- **SD-2.1 step state** (`stepState.ts`)
+  - Each rail step shows errors, warnings, done (visited and clean) or to-do, announced to screen
+    readers.
+  - Continue on a step with open errors asks "Stay and fix" / "Go on anyway".
+- **SD-2.2 actionable checks** (`checkTargets.ts`)
+  - Every check carries `code` and `ref`.
+  - "Go to" (panel, palette and Check-step fix buttons) opens the step that fixes the check, then
+    scrolls to the item, highlights and focuses it. Items are found by `data-entity`.
+  - The panel filters by severity.
+- **SD-2.3 Start**
+  - Tiles for ready lines, spaces, runs and lines that need attention.
+  - A list of those lines with the reason each is left out.
+- **SD-2.6 Check**
+  - A one-line verdict (errors to fix / warnings to review / ready to export).
+  - Checks grouped Errors, Warnings, Notes, then Accepted.
+- **SD-2.7 deep links** (`routes.ts`)
+  - `#/power` opens a step and `#/check?item=PS-1` also points at an item. Back and Forward walk the
+    steps.
+  - The last step is remembered per schedule.
+
+Decisions and deviations from the plan:
+
+- Plain CSS with `--sd-*` tokens instead of Tailwind; native Select instead of Radix Select; our own
+  Toast.
+- The side panel has Checks only (no History tab yet).
+- The tour is a non-modal card above the step, so it never blocks the work.
+- The engineering opt-in moved into the View menu.
+- Autosave does not send error or warning counts to the server (`save_design` does not store them).
+- No cost data anywhere (D6).
+
+Known gaps:
+
+- Five drag-based e2e tests (`smoke.spec.ts`, and `commerce.spec.ts` "design, review, approve…") fail
+  on `main` too. The fixture now places PS-1 and PS-2 and auto-assigns `a1linear:1:1`, so its pool row
+  no longer exists. These tests are not run in CI.
+- Tests: `App.test.tsx`, `shell/hooks.test.tsx`, `shell/stepState.test.ts`, `shell/routes.test.ts`,
+  `shell/CheckStep.test.tsx`, `design/store.test.ts`, `ui/*.test.ts(x)`, e2e `smoke`, `commerce` and
+  `screens`.
