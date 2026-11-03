@@ -48,6 +48,17 @@ Allows users to configure fixtures using segment-based configuration
 		{% endif %}
 	</div>
 	{% endif %}
+	{% set preset = preset_prefill | default(none) %}
+	{% if preset %}
+	<div class="alert {{ 'alert-info' if preset.usable else 'alert-warning' }} ill-preset-banner" role="status">
+		{% if preset.usable %}
+		{{ _("Pre-filled from preset {0}. Check every option; nothing is added to the schedule until you save.").format(preset.label) | e }}
+		{% else %}
+		{{ _("Preset {0} can no longer be used. Configure this product again.").format(preset.label) | e }}
+		{% endif %}
+		{% for problem in preset.problems %}<br>{{ problem | e }}{% endfor %}
+	</div>
+	{% endif %}
 	{% if similar_to | default(none) %}
 	<div class="alert alert-info ill-similar-banner" role="status">
 		{{ _("Configuring a new line similar to {0}. Nothing is added to the schedule until you save.").format(similar_to) | e }}
@@ -210,6 +221,9 @@ Allows users to configure fixtures using segment-based configuration
 {{ include_script("illumenate_configurator.bundle.js") }}
 {% if draft_autosave | default(false) %}
 <script type="application/json" id="ill-draft-autosave">{{ {"enabled": true, "product_type": product_category} | tojson }}</script>
+{% endif %}
+{% if presets_enabled | default(false) %}
+<script type="application/json" id="ill-config-presets">{{ {"enabled": true, "can_share": (preset_can_share | default(false))} | tojson }}</script>
 {% endif %}
 <script>
 {% if show_type_chooser | default(false) %}

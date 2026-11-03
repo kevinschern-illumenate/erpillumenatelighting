@@ -37,12 +37,19 @@ class Context(Record):
 	__setattr__ = dict.__setitem__
 
 
-def configure_page(form, resolve_line, drafts=True, for_line=None, copy=True, decode=None, pn=True):
+def configure_page(
+	form, resolve_line, drafts=True, for_line=None, copy=True, decode=None, pn=True, preset=None, presets=True
+):
 	"""Load configure.py with only the boundaries its schedule-line branch touches."""
 	stubs = {}
 	for name, attributes in {
-		".portal.access": {"can_view_catalog": lambda: True},
+		".portal.access": {
+			"can_view_catalog": lambda: True,
+			"get_actor": lambda: Record(is_dealer=True, customer="CUST-A", is_internal=False),
+		},
+		".portal.presets": {"load": preset or (lambda name, schedule_name=None: None)},
 		".portal.site_flags": {
+			"presets_enabled": lambda: presets,
 			"conf_flag": lambda flag: False,
 			"fixture_groups_enabled": lambda: False,
 			"durable_drafts_enabled": lambda: drafts,
@@ -168,6 +175,47 @@ class ConfigurePage(unittest.TestCase):
 		self.assertEqual(context.initial_request, {"template": "FT-1", "selections": decoded["selections"]})
 		self.assertEqual((context.product_category, context.selected_template), ("Linear Fixture", "FT-1"))
 		self.assertIsNone(context.line_idx, "saving adds a new line")
+
+	def test_preset_prefills_a_new_line_and_lists_its_problems(self):
+		request = {"family": "LED Tape", "template": "TN-1", "selections": {"cct": "30K"}, "segments": []}
+		calls = []
+
+		def load(name, schedule_name=None):
+			calls.append((name, schedule_name))
+			return {"name": name, "label": "Cove", "family": "LED Tape", "request": request, "problems": ["Gone"]}
+
+		error, context = self.run_page({"schedule": "S1", "preset": "P1"}, MagicMock(), preset=load)
+		self.assertIsNone(error)
+		self.assertEqual(calls, [("P1", "S1")], "schedule editors load with the schedule grant")
+		self.assertEqual(context.preset_prefill, {"label": "Cove", "problems": ["Gone"], "usable": True})
+		self.assertEqual(context.initial_request, request)
+		self.assertEqual((context.product_category, context.selected_template), ("LED Tape", "TN-1"))
+		self.assertEqual(context.configurator_mode, "coordinator")
+		self.assertIsNone(context.line_idx, "saving adds a new line")
+		self.assertTrue(context.presets_enabled)
+		self.assertTrue(context.preset_can_share)
+
+	def test_unusable_missing_or_switched_off_presets_prefill_nothing(self):
+		def unusable(name, schedule_name=None):
+			return {"name": name, "label": "Old", "family": "Driver", "request": None, "problems": ["DRV is gone"]}
+
+		def missing(name, schedule_name=None):
+			raise LookupError("Preset not found")
+
+		error, context = self.run_page({"category": "Linear Fixture", "schedule": "S1", "preset": "P1"}, MagicMock(), preset=unusable)
+		self.assertIsNone(error)
+		self.assertEqual(context.preset_prefill, {"label": "Old", "problems": ["DRV is gone"], "usable": False})
+		self.assertIsNone(context.initial_request)
+		self.assertEqual(context.product_category, "Driver", "the dealer configures the preset's family again")
+		for page in ({"preset": missing}, {"preset": unusable, "presets": False}):
+			with self.subTest(page=page):
+				error, context = self.run_page(
+					{"category": "Linear Fixture", "schedule": "S1", "preset": "P1"}, MagicMock(), **page
+				)
+				self.assertIsNone(error)
+				self.assertIsNone(context.preset_prefill)
+				self.assertIsNone(context.initial_request)
+				self.assertEqual(context.product_category, "Linear Fixture")
 
 	def test_part_number_without_a_template_or_switched_off_prefills_nothing(self):
 		def invalid(value):

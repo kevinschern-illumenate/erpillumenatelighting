@@ -222,8 +222,13 @@ class ConfigurePage(unittest.TestCase):
 			".portal.access": {
 				"can_view_catalog": lambda user=None: can_view_catalog,
 				"can_edit_schedule": lambda doc, user=None: can_edit,
+				"get_actor": lambda: Record(is_dealer=False, customer=None, is_internal=False),
 			},
-			".portal.site_flags": {"fixture_groups_enabled": lambda: False, "durable_drafts_enabled": lambda: True},
+			".portal.site_flags": {
+				"fixture_groups_enabled": lambda: False,
+				"durable_drafts_enabled": lambda: True,
+				"presets_enabled": lambda: True,
+			},
 			".portal.rollout": {"require_family": lambda family: None},
 			".portal.configuration": {"family_for_template": lambda family, template: family},
 			".portal.product_finder.presentation": {

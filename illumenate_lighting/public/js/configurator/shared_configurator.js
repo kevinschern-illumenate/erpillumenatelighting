@@ -118,6 +118,7 @@
 		registry.push(this);
 		this.delay(function () { if (root.IllConfigurator.attachGroupEditor) root.IllConfigurator.attachGroupEditor(self); }, 0);
 		this.delay(function () { if (root.IllConfigurator.attachDraftAutosave) root.IllConfigurator.attachDraftAutosave(self); }, 0);
+		this.delay(function () { if (root.IllConfigurator.attachPresets) root.IllConfigurator.attachPresets(self); }, 0);
 	}
 	Base._uid = 0;
 

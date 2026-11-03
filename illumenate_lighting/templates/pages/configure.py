@@ -195,6 +195,33 @@ def get_context(context):
 				initial_request = {"template": decoded["template"], "selections": decoded["selections"]}
 				product_category, template_code = "Linear Fixture", decoded["template"]
 
+	# Plan 3.6 "Start from preset": pre-fill a saved configuration, re-checked against what is
+	# offered now; options no longer offered are dropped and listed, and nothing is saved.
+	context.preset_prefill = None
+	preset_name = _query_value(frappe.form_dict.get("preset"))
+	if preset_name and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import presets_enabled
+
+		if presets_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.presets import load as load_preset
+
+			try:
+				loaded = load_preset(preset_name, schedule_name=schedule_name)
+			except frappe.DoesNotExistError:
+				loaded = None
+			if loaded:
+				context.preset_prefill = {
+					"label": loaded["label"],
+					"problems": loaded["problems"],
+					"usable": loaded["request"] is not None,
+				}
+				product_category = loaded["family"]
+				if loaded["request"] is not None:
+					initial_request = loaded["request"]
+					template_code = initial_request.get("template") or template_code
+				if product_category != "Linear Fixture":
+					configurator_mode = "coordinator"
+
 	# Quiz answers are plain words ("Damp", "Silver"); match them on the server to the
 	# options this template offers, so the browser does not apply the raw labels.
 	context.finder = frappe.form_dict.get("finder")
@@ -290,6 +317,15 @@ def get_context(context):
 
 	# Plan 3.1: server-backed drafts only where the dealer can save to this schedule.
 	context.draft_autosave = bool(schedule and can_save and durable_drafts_enabled())
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import presets_enabled
+
+	# Plan 3.6: "Save as preset"; sharing is for users of a dealer company.
+	context.presets_enabled = presets_enabled()
+	if context.presets_enabled:
+		from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+
+		actor = get_actor()
+		context.preset_can_share = bool(actor.is_dealer and actor.customer and not actor.is_internal)
 	context.expected_modified = str(schedule.modified) if schedule else None
 	context.initial_request = initial_request
 	context.templates = templates

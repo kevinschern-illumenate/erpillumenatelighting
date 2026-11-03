@@ -2,6 +2,7 @@
 // (configure, configure_tape, schedule) via include_script, after the web bundle.
 import "./configurator/shared_configurator.js";
 import "./configurator/draft_autosave.js";
+import "./configurator/presets.js";
 import "./configurator/fixture_group_editor.js";
 import "./configurator/fixture_steps.js";
 import "./configurator/tape_neon_steps.js";
