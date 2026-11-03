@@ -50,6 +50,11 @@ def part_number_decode_enabled():
 	return conf_flag("ill_portal_part_number_decode", default=True)
 
 
+def schedule_import_enabled():
+	"""Import schedule lines from a CSV/Excel sheet (plan 3.4). On by default."""
+	return conf_flag("ill_portal_schedule_import", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)
