@@ -13,7 +13,7 @@ function setup(html = '') {
   w.$ = w.jQuery = jquery(w);
   w.__ = (value, args) => args ? value.replace(/\{(\d+)\}/g, (_, i) => args[i]) : value;
   w.frappe = { call: args => requests.push(args), msgprint() {}, show_alert() {} };
-  for (const file of ['shared_configurator', 'fixture_group_editor', 'fixture_steps', 'tape_neon_steps', 'led_sheet_steps', 'coordinator']) {
+  for (const file of ['shared_configurator', 'build_preview', 'fixture_group_editor', 'fixture_steps', 'tape_neon_steps', 'led_sheet_steps', 'coordinator']) {
     w.eval(fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/public/js/configurator', file + '.js'), 'utf8'));
   }
   return { dom, w, $: w.$, requests, api: w.IllConfigurator };
@@ -809,5 +809,43 @@ test('group power carries equal-length runs only when chosen', () => {
   assert.equal(Object.hasOwn(instance.groupEditor.request().power, 'equal_length_runs'), false);
   equal = true;
   assert.equal(instance.groupEditor.request().power.equal_length_runs, true);
+  dom.window.close();
+});
+
+test('build preview renders SVG with text nodes only and honours the kill switch', () => {
+  const { dom, $, api, w } = setup('<div id="host"><div id="resultsPanel"></div><div class="ill-build-preview" data-enabled="1" hidden></div></div>');
+  const inst = new api.Fixture($('#host'), {});
+  const hostile = '<img src=x onerror=alert(1)>';
+  try { inst._displayResults({ messages: [], candidate_part_number: hostile, computed: {
+    build_description: hostile,
+    total_requested_length_mm: 2000, manufacturable_overall_length_mm: 2000,
+    segments: [{ segment_index: 1, profile_cut_len_mm: 2000, lens_cut_len_mm: 1990 }],
+    runs: [{ segment_index: 1, run_len_mm: 1990, run_watts: 12 }],
+  } }); } catch (e) { /* later result panels are not in this fixture */ }
+  const box = $('#host .ill-build-preview')[0];
+  assert.equal(box.hidden, false);
+  const svg = box.querySelector('svg');
+  assert.equal(svg.namespaceURI, 'http://www.w3.org/2000/svg');
+  assert.equal(svg.getAttribute('role'), 'img');
+  assert.match(svg.getAttribute('aria-label'), /1 segment, 1 run, 1 feed point, 0 jumpers/);
+  assert.equal(box.querySelectorAll('rect.ill-bp-piece').length, 1);
+  assert.equal(box.querySelector('img'), null);
+  const off = w.IllBuildPreview;
+  box.setAttribute('data-enabled', '0');
+  assert.equal(off.render(box, { computed: { segments: [{ profile_cut_len_mm: 10 }] } }, 'linear'), null);
+  assert.equal(box.hidden, true);
+  assert.equal(box.childNodes.length, 0);
+  dom.window.close();
+});
+
+test('sheet and tape results mount the preview in their own instance', () => {
+  const { dom, $, api } = setup('<div id="s"><div id="sheetSummary"></div><div class="ill-build-preview" data-enabled="1"></div></div><div id="t"><div id="resultsCard"></div><div class="ill-build-preview" data-enabled="1"></div></div>');
+  const sheet = new api.LedSheet($('#s'), {});
+  try { sheet._displayResults({ panels_wide: 2, panels_tall: 1, panels_needed: 2, groups: [{ sheet_count: 2 }] }); } catch (e) { /* later summary fields are optional here */ }
+  assert.equal($('#s .ill-bp-panel').length, 2);
+  const tape = new api.TapeNeon($('#t'), { is_neon: false });
+  try { tape._showResults({ computed: { segments: [{ segment_index: 1, manufacturable_length_mm: 1000, runs: [{ run_len_mm: 1000 }] }] } }); } catch (e) { /* summary rows are optional here */ }
+  assert.equal($('#t .ill-bp-run').length, 1);
+  assert.equal($('#s .ill-bp-run').length, 0);
   dom.window.close();
 });

@@ -247,6 +247,8 @@ Context:
 				<!-- Messages / Warnings -->
 				<div id="resultMessages" class="mt-2" aria-live="polite"></div>
 
+				<div class="ill-build-preview mt-2" data-enabled="{{ 0 if build_preview is defined and not build_preview else 1 }}" hidden></div>
+
 				<!-- Run Breakdown (when split into multiple runs) -->
 				<div id="resultRunBreakdown" class="mt-2" style="display: none;">
 					<h6>{{ _("Run Breakdown") }}</h6>

@@ -550,6 +550,7 @@
 	TapeNeon.prototype._showResults = function (result) {
 		this.$('#errorsCard').hide();
 		this.$('#resultsCard').show();
+		if (root.IllBuildPreview) root.IllBuildPreview.render(this.$('.ill-build-preview')[0], result, this.IS_NEON ? 'neon' : 'tape');
 		this.$('#resultPartNumber').text(result.part_number || '-');
 		this.$('#resultDescription').text(result.build_description || '-');
 

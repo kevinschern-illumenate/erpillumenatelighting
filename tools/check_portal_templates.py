@@ -898,6 +898,10 @@ for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Shee
 		context["configurator_mode"] = mode
 		output = configurator.render(**context)
 		parser.feed(output)
+		# Plan 6.6: every calculating family has a build preview container behind its kill switch.
+		if category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet"):
+			assert 'class="ill-build-preview' in output and 'data-enabled="1"' in output, (category, mode)
+			assert 'data-enabled="0"' in configurator.render(**context, build_preview=False), (category, mode)
 		(render_dir / (category.replace(" ", "-") + "-" + mode + ".html")).write_text(output, encoding="utf8")
 prefilled = configurator.render(
 	**{

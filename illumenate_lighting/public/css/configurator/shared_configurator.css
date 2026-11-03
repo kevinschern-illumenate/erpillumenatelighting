@@ -784,3 +784,23 @@ select.ill-template-select-driven { display: none !important; }
 .ill-configurator-kit .ill-kit-stock { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
 .ill-configurator-kit .ill-kit-stock.is-in-stock { color: var(--ill-success, #006833); }
 .ill-configurator-kit .ill-kit-stock.is-short { color: var(--ill-danger, #d63b2f); }
+
+/* Build preview (plan 6.6): read-only SVG of the calculated build. */
+.ill-build-preview .ill-bp-svg { display: block; width: 100%; height: auto; max-height: 260px; margin-bottom: 4px; }
+.ill-build-preview .ill-bp-piece { fill: var(--ill-accent-bg); stroke: var(--ill-accent); stroke-width: 1; }
+.ill-build-preview .ill-bp-run--a { fill: var(--ill-accent); }
+.ill-build-preview .ill-bp-run--b { fill: var(--ill-accent-soft); }
+.ill-build-preview .ill-bp-feed { fill: var(--ill-gold); stroke: var(--ill-ink); stroke-width: 1; }
+.ill-build-preview .ill-bp-jumper { fill: none; stroke: var(--ill-ink); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.ill-build-preview .ill-bp-joint { stroke: var(--ill-border-str); stroke-width: 2; }
+.ill-build-preview .ill-bp-label,
+.ill-build-preview .ill-bp-note { font-size: 10px; fill: var(--ill-ink); }
+.ill-build-preview .ill-bp-note { fill: var(--ill-muted); }
+.ill-build-preview .ill-bp-panel { stroke: var(--ill-ink); stroke-width: 0.5; }
+.ill-build-preview .ill-bp-group--none { fill: var(--ill-bg); }
+.ill-build-preview .ill-bp-group--0 { fill: var(--ill-accent-bg); }
+.ill-build-preview .ill-bp-group--1 { fill: var(--ill-gold-bg); }
+.ill-build-preview .ill-bp-group--2 { fill: var(--ill-success-bg); }
+.ill-build-preview .ill-bp-group--3 { fill: var(--ill-accent-soft); }
+.ill-build-preview .ill-bp-group--4 { fill: var(--ill-danger-bg); }
+.ill-build-preview .ill-bp-group--5 { fill: var(--ill-border); }

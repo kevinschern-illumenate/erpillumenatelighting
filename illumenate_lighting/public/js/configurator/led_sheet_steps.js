@@ -566,6 +566,7 @@
 		var includePs = !!r.include_power_supply;
 		this.$('#sheetValidationMessages').hide();
 		this.$('#sheetMessagesList').empty();
+		if (root.IllBuildPreview) root.IllBuildPreview.render(this.$('.ill-build-preview')[0], r, 'sheet');
 
 		var groups = (r.groups || []).map(function (g) {
 			return '<tr><td>' + escapeHtml(g.group_number) + '</td><td>' + escapeHtml(g.sheet_count) + '</td>'

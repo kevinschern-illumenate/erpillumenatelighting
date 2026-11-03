@@ -40,6 +40,16 @@ def option_projection_cache_enabled():
 	return conf_flag("ill_option_projection_cache", default=True)
 
 
+def build_preview_enabled():
+	"""Read-only SVG preview of the calculated build in the configurator review (plan 6.6)."""
+	return conf_flag("ill_portal_build_preview", default=True)
+
+
+def configuration_compare_enabled():
+	"""Side-by-side comparison of two saved schedule lines (plan 6.7)."""
+	return conf_flag("ill_portal_configuration_compare", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)
