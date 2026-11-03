@@ -1124,6 +1124,8 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 		"Accessory Item Code",
 		"Accessory Item Name",
 		"Accessory Category",
+		# Plan 3.4: lets the schedule import read an export back.
+		"Part Number",
 	]
 	if include_pricing:
 		headers.extend(["Unit Price", "Line Total", "PS Unit Price", "PS Line Total"])
@@ -1180,6 +1182,7 @@ def _generate_csv_content(schedule_data: dict, include_pricing: bool = False) ->
 			line.get("accessory_item", ""),
 			line.get("accessory_item_name", ""),
 			line.get("accessory_product_type", ""),
+			line.get("part_number", "") if line["manufacturer_type"] == "ILLUMENATE" else "",
 		]
 		if include_pricing:
 			row.extend([
