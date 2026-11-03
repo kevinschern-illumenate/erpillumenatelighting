@@ -164,6 +164,14 @@ The schedule page is the dealers' main workspace: `templates/pages/schedule.html
 | 2.8 | P1 | Status badge allow-list | `schedule.html:132-150` builds classes from server values. Map them through a fixed dict in Python. |
 | 2.9 | P2 | URL-encode path segments | `schedule.html:113-126` uses `|e` in hrefs, so switch to `|urlencode` for document names. |
 
+**Phase 2 status** (branch `feat/phase-2-foundation`, PR #395, stacked on Phase 1):
+
+| # | Status | Commits | Notes / deviations |
+|---|---|---|---|
+| 2.1 | Done (verbatim extraction; manual golden-path run pending on staging) | `a160839`, `ec72089` | The inline script now lives in `public/js/portal/schedule/{context,lines,uploads,actions,packets,exports,reorder,versions,pricing,new}.js`. Server values and 40 translated strings come from one `<script type="application/json" id="schedule-context">` block. The only changed lines are the 72 Jinja interpolations. Deviation: the scripts are static classic `<script src>` files with a content-hash `?v=`, not part of `illumenate_web.bundle.js`. The esbuild bundle wraps code in an IIFE, which would hide the global functions that `onclick` handlers and other sections call. `check_portal_templates.py` checks that the context JSON parses and that its i18n keys match `scheduleText()` calls. |
+| 2.3 | Scaffold done (callers migrate gradually) | `3404d0d` | `PortalAPI.call(method, args, {button, form, retry, ...})` sits on top of `PortalUI.call`. It keeps the triggering button busy, shows an inline field error or one toast, and retries only after transport failures. The kit steps now show the server's explanation. `portal_call_compat.js` stays until the last caller has moved. |
+| 2.4 | Scaffold done | `3679729` | `portal_error()` attaches `{code, message, field, hint}` to the JSON error response as `portal_error` and msgprints like `frappe.throw`. `failure()` retracts both when it converts the error into the legacy `{success: False}` reply. Configurator call sites move to it with 2.2 and Phase 6. |
+
 ---
 
 ## Phase 3 — Dealer schedule and configuration quality of life
