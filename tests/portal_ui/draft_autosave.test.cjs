@@ -39,6 +39,7 @@ async function mount(env, context = { schedule_name: 'SCH-1', line_key: 'line-1'
 
 function userInput(env, selector) {
   const node = env.$('#host').find(selector)[0];
+  assert.ok(node, `no element for ${selector}`);
   node.dispatchEvent(new env.w.Event('input', { bubbles: true }));
 }
 
@@ -63,7 +64,7 @@ test('offers a server draft and debounces user edits into save_draft', async () 
   assert.deepEqual({ ...get.args }, { schedule_name: 'SCH-1', product_type: 'Fixture', line_key: 'line-1' });
   get.callback({ message: { success: true, draft: null } });
 
-  userInput(env, '#projectSelect');
+  userInput(env, '[data-ill-original-id="projectSelect"]');
   await tick(20);
   assert.equal(env.requests.length, 0, 'project/schedule pickers are not draft edits');
   env.$('#host').find('input').trigger('input');
