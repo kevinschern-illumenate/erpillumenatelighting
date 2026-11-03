@@ -80,13 +80,6 @@ test.describe('screens', () => {
       await page.screenshot({ path: resolve(DIR!, `${width}-00-terms.png`) });
       await page.getByRole('button', { name: 'Accept and continue' }).click();
       const steps = page.getByRole('navigation', { name: /Design steps|Design tabs/ });
-      // A small board so Power, Check and Views have something to show.
-      await steps.getByRole('button', { name: 'Spaces' }).click();
-      await page.getByTestId('space-space-kitchen').getByRole('button', { name: 'Add cabinet' }).click();
-      await steps.getByRole('button', { name: 'Power' }).click();
-      await page.getByTestId('board-C-1').getByRole('button', { name: 'Add supply' }).click();
-      await page.getByRole('button', { name: 'Add Test 96 W supply' }).click();
-      await page.getByTestId('pool-a1linear:1:1').dragTo(page.getByTestId('output-PS-1-OUT1'));
       for (const [index, name] of STEPS.entries()) {
         await steps.getByRole('button', { name, exact: false }).first().click();
         await page.waitForTimeout(300);
