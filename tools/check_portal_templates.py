@@ -239,6 +239,46 @@ if handler_violations:
 		+ "\n  ".join(handler_violations)
 	)
 
+# Plan 8.3: a button or link whose only content is an icon needs an accessible name.
+ICON_ONLY = re.compile(r"<(button|a)\b([^>]*)>\s*<i\b[^>]*>\s*</i>\s*</\1>", re.S)
+
+
+def unnamed_icon_controls(name, source):
+	found = []
+	for match in ICON_ONLY.finditer(source):
+		if re.search(r"aria-label(?:ledby)?=|title=", match.group(2)):
+			continue
+		# jQuery-built controls name themselves right after the markup: $('<button>…').attr('aria-label', …)
+		if re.match(r"""[^;]{0,200}\.attr\(\s*['"](?:aria-label|title)['"]""", source[match.end() :], re.S):
+			continue
+		found.append(f"{name}:{source.count(chr(10), 0, match.start()) + 1}: {match.group(0)[:100]}")
+	return found
+
+
+assert unnamed_icon_controls("x", '<button type="button"><i class="fa fa-trash"></i></button>') == [
+	'x:1: <button type="button"><i class="fa fa-trash"></i></button>'
+]
+assert not unnamed_icon_controls(
+	"x",
+	'<button aria-label="Remove"><i class="fa fa-trash"></i></button>'
+	'<a href="/x" title="Open"><i class="fa fa-link"></i></a>'
+	'<button><i class="fa fa-plus"></i> Add</button>'
+	"$('<button><i class=\"fa fa-x\"></i></button>').attr('data-user', u).attr('aria-label', t)",
+)
+icon_violations = []
+for path in sorted(
+	[*(ROOT / "illumenate_lighting/templates").rglob("*.html"), *(ROOT / "illumenate_lighting/public/js").rglob("*.js")]
+):
+	# Desk scripts render inside Frappe's own chrome and are out of scope for the portal check.
+	if "desk" in path.relative_to(ROOT / "illumenate_lighting").parts or path.name.startswith(("desk_", "illumenate_desk")):
+		continue
+	icon_violations += unnamed_icon_controls(path.relative_to(ROOT), path.read_text(encoding="utf8"))
+if icon_violations:
+	sys.exit(
+		'Give icon-only buttons and links an accessible name (aria-label="...") (plan 8.3):\n  '
+		+ "\n  ".join(icon_violations)
+	)
+
 offer = {
 	"name": "OFFER-00001",
 	"quotation": "Q-00001",

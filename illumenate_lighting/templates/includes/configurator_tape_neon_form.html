@@ -113,15 +113,15 @@ Context:
 							<label for="tapeLengthValue" class="option-label">{{ _("Tape Length") }} <span class="text-danger">*</span></label>
 
 							<!-- Unit selector tabs -->
-							<ul class="nav nav-pills mb-2 length-unit-tabs" id="tapeLengthUnitTabs">
+							<ul class="nav nav-pills mb-2 length-unit-tabs" id="tapeLengthUnitTabs" role="group" aria-label="{{ _('Length unit') }}">
 								<li class="nav-item">
-									<a class="nav-link active" data-unit="in" href="#">{{ _("Inches") }}</a>
+									<button type="button" class="nav-link active" data-unit="in" aria-pressed="true">{{ _("Inches") }}</button>
 								</li>
 								<li class="nav-item">
-									<a class="nav-link" data-unit="ft" href="#">{{ _("Feet") }}</a>
+									<button type="button" class="nav-link" data-unit="ft" aria-pressed="false">{{ _("Feet") }}</button>
 								</li>
 								<li class="nav-item">
-									<a class="nav-link" data-unit="ft_in" href="#">{{ _("Feet + Inches") }}</a>
+									<button type="button" class="nav-link" data-unit="ft_in" aria-pressed="false">{{ _("Feet + Inches") }}</button>
 								</li>
 							</ul>
 

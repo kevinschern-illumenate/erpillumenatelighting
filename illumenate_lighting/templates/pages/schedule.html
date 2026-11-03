@@ -157,23 +157,23 @@ Also handles new schedule creation when is_new is True
 									<i class="fa fa-ellipsis-h" aria-hidden="true"></i>
 								</button>
 								<div class="dropdown-menu dropdown-menu-right" aria-labelledby="scheduleMoreMenu">
-									<a class="dropdown-item" href="#" data-schedule-menu="version">
+									<button type="button" class="dropdown-item" data-schedule-menu="version">
 										<i class="fa fa-code-fork" aria-hidden="true"></i> {{ _("Create New Version") }}
-									</a>
+									</button>
 									{% if schedule.status in ['DRAFT', 'READY', 'QUOTED'] or issue_transitions %}
 									<div class="dropdown-divider"></div>
 									<h6 class="dropdown-header">{{ _("Change Status") }}</h6>
 									{% if schedule.status != 'DRAFT' %}
-									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="DRAFT">
+									<button type="button" class="dropdown-item" data-schedule-menu="status" data-status="DRAFT">
 										<i class="fa fa-pencil text-warning" aria-hidden="true"></i> {{ schedule_status_label('DRAFT') | e }}
 										<small class="text-muted d-block">{{ _("Continue editing") }}</small>
-									</a>
+									</button>
 									{% endif %}
 									{% if schedule.status != 'READY' %}
-									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="READY">
+									<button type="button" class="dropdown-item" data-schedule-menu="status" data-status="READY">
 										<i class="fa fa-check-circle text-info" aria-hidden="true"></i> {{ schedule_status_label('READY') | e }}
 										<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
-									</a>
+									</button>
 									{% endif %}
 									{% endif %}
 								</div>
