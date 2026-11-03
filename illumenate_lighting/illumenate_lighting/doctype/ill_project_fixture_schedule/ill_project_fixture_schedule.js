@@ -21,8 +21,10 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 
 	validate(frm) {
 		// Prevent setting status to READY if there are unconfigured lines
+		// Early warning only: the server re-checks on save (ill_project_fixture_schedule.py).
+		// frm.trigger() returns a Promise, so the helper is called directly.
 		if (frm.doc.status === "READY") {
-			const unconfigured = frm.trigger("get_unconfigured_lines");
+			const unconfigured = _ill_schedule_unconfigured_lines(frm);
 			if (unconfigured && unconfigured.length > 0) {
 				frappe.validated = false;
 				frappe.msgprint({
@@ -31,7 +33,7 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 					message: __(
 						"The following lines are not fully configured: {0}. " +
 							"Please configure all ilLumenate fixtures before setting status to Ready.",
-						[unconfigured.join(", ")]
+						[_ill_schedule_escape_list(unconfigured)]
 					),
 				});
 			}
@@ -39,12 +41,12 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 	},
 
 	check_unconfigured_lines(frm) {
-		const unconfigured = frm.trigger("get_unconfigured_lines");
+		const unconfigured = _ill_schedule_unconfigured_lines(frm);
 		if (unconfigured && unconfigured.length > 0) {
 			frm.dashboard.add_comment(
 				__(
 					"<strong>Note:</strong> {0} line(s) have pending fixture configuration: {1}",
-					[unconfigured.length, unconfigured.join(", ")]
+					[unconfigured.length, _ill_schedule_escape_list(unconfigured)]
 				),
 				"yellow",
 				true
@@ -117,26 +119,29 @@ function _ill_schedule_conversion_buttons(frm) {
 	}
 }
 
+// Product types configured without an ilL-Configured-Fixture, and the field that proves it.
+const ILL_SCHEDULE_CONFIGURED_BY = {
+	"Extrusion Kit": "variant_selections",
+	"LED Tape": "variant_selections",
+	"COB Tape": "variant_selections",
+	"LED Neon": "variant_selections",
+	"LED Sheet": "configured_led_sheet",
+};
+
+function _ill_schedule_line_configured(line) {
+	if (line.manufacturer_type !== "ILLUMENATE" || line.configured_fixture) return true;
+	const field = ILL_SCHEDULE_CONFIGURED_BY[line.product_type];
+	return Boolean(field && line[field]);
+}
+
 function _ill_schedule_unconfigured_lines(frm) {
-	const unconfigured = [];
-	if (frm.doc.lines) {
-		frm.doc.lines.forEach((line) => {
-			if (
-				line.manufacturer_type === "ILLUMENATE" &&
-				!line.configured_fixture &&
-				!(line.product_type === "Extrusion Kit" && line.variant_selections) &&
-				!(line.product_type === "LED Tape" && line.variant_selections) &&
-				!(line.product_type === "COB Tape" && line.variant_selections) &&
-				!(line.product_type === "LED Neon" && line.variant_selections) &&
-				!(line.product_type === "LED Sheet" && line.configured_led_sheet)
-			) {
-				unconfigured.push(
-					line.line_id || __("Row {0}", [line.idx])
-				);
-			}
-		});
-	}
-	return unconfigured;
+	return (frm.doc.lines || [])
+		.filter((line) => !_ill_schedule_line_configured(line))
+		.map((line) => line.line_id || __("Row {0}", [line.idx]));
+}
+
+function _ill_schedule_escape_list(labels) {
+	return labels.map((label) => frappe.utils.escape_html(String(label))).join(", ");
 }
 
 // Child table events for ilL-Child-Fixture-Schedule-Line
