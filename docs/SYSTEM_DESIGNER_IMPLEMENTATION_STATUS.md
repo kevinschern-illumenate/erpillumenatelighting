@@ -931,6 +931,21 @@ Decisions and deviations from the plan:
 - Autosave does not send error or warning counts to the server (`save_design` does not store them).
 - No cost data anywhere (D6).
 
+Host page and other UIs:
+
+- Only `templates/pages/system_design.py` loads the designer bundle. The desk bundle (Configure and
+  Add Fixture), the web bundle and the other portal pages are untouched, and every selector in
+  `designer.css` is scoped to `.ill-sd*` or `.sd-*`.
+- The portal page also loads Bootstrap and the brand skin. Their element rules (2rem `h2`, bold `dt`,
+  label margins, border-box, control fonts) used to restyle the designer. `ui/ui.css` now starts with
+  a scoped element base (one class of specificity) that pins these, so the designer looks the same in
+  any host.
+- The loading and error screens keep a "Back to schedule" link (the template breadcrumb is gone).
+- The step rail's list contains its visually hidden step states, so on screens under 1100px the strip
+  no longer widens the page. Form controls are capped at their container's width.
+- The Power board stacks into one column by the canvas width (container query on
+  `.sd-canvas__step`), not only the viewport, so it is not cramped when the rail and panel are open.
+
 Known gaps:
 
 - Five drag-based e2e tests (`smoke.spec.ts`, and `commerce.spec.ts` "design, review, approve…") fail
