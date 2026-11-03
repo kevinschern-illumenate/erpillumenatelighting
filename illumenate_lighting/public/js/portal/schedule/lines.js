@@ -431,7 +431,8 @@ function loadLedSheetTemplates(productType) {
 			if (r.message && r.message.templates) {
 				r.message.templates.forEach(function(template) {
 					var label = template.template_name + (template.template_code ? ' (' + template.template_code + ')' : '');
-					options += '<option value="' + PortalUI.escape(template.name) + '">' + PortalUI.escape(label) + '</option>';
+					var h = PortalUI.escape;
+					options += '<option value="' + h(template.name) + '" data-name="' + h(template.template_name || '') + '" data-image="' + h(template.image || '') + '" data-gallery="' + h(JSON.stringify(template.gallery || [])) + '" data-description="' + h(template.description || '') + '">' + h(label) + '</option>';
 				});
 			}
 			$('#add_led_sheet_template').html(options);
