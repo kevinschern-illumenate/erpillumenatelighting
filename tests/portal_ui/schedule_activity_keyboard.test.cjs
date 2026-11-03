@@ -64,7 +64,7 @@ test('the timeline loads on open, renders text only and marks entries newer than
   assert.equal(document.getElementById('scheduleActivityToggle').getAttribute('aria-expanded'), 'true');
   assert.equal(requests.length, 1);
   assert.equal(requests[0].method, 'illumenate_lighting.illumenate_lighting.portal.schedule_activity.schedule_activity');
-  assert.deepEqual(requests[0].args, { schedule_name: 'S-1', start: 0, limit: 20 });
+  assert.deepEqual({ ...requests[0].args }, { schedule_name: 'S-1', start: 0, limit: 20 });
   requests[0].callback({ message: { success: true, has_more: true, next_start: 20, entries: [
     { kind: 'line_added', title: 'Line added <b>x</b>', detail: 'A1', at: '2026-11-03 10:05:00', at_display: 'Nov 3', by_name: 'Pat' },
     { kind: 'status', title: 'Status changed', at: '2026-11-02 09:00:00' },
@@ -80,7 +80,7 @@ test('the timeline loads on open, renders text only and marks entries newer than
   assert.equal(document.getElementById('scheduleActivityMore').hidden, false);
 
   document.getElementById('scheduleActivityMore').click();
-  assert.deepEqual(requests[1].args, { schedule_name: 'S-1', start: 20, limit: 20 });
+  assert.deepEqual({ ...requests[1].args }, { schedule_name: 'S-1', start: 20, limit: 20 });
   requests[1].callback({ message: { success: true, has_more: false, entries: [{ kind: 'export', title: 'Exported', at: '2026-11-01' }] } });
   requests[1].always();
   assert.equal(document.querySelectorAll('#scheduleActivityList li').length, 3);
@@ -209,7 +209,7 @@ test('the pricing toggle is saved per user and turned back on at load', () => {
   off.w.toggleDealerPricing();
   const saved = off.requests.find(r => r.method.endsWith('user_preferences.set_show_dealer_pricing'));
   assert.equal(saved.type, 'POST');
-  assert.deepEqual(saved.args, { show: 1 });
+  assert.deepEqual({ ...saved.args }, { show: 1 });
 
   const missing = page({ dealer_pricing_on: true }, '', ['pricing']);
   assert.equal(missing.requests.length, 0);

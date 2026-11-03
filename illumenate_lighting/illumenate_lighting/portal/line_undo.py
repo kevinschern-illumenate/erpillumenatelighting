@@ -79,7 +79,7 @@ def _receipt(token):
 		frappe.throw(_(EXPIRED))
 	raw = frappe.cache().get_value(PREFIX + token.strip())
 	try:
-		receipt = json.loads(raw) if isinstance(raw, (str, bytes)) else raw
+		receipt = json.loads(raw) if isinstance(raw, str | bytes) else raw
 	except ValueError:
 		receipt = None
 	# Someone else's receipt reads exactly like an expired one.

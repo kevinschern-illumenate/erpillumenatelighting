@@ -95,7 +95,7 @@ def _version_entries(version, names):
 		return []
 	at, user, entries = version.get("creation"), version.get("owner"), []
 	for change in data.get("changed") or []:
-		if not isinstance(change, (list, tuple)) or len(change) < 3:
+		if not isinstance(change, list | tuple) or len(change) < 3:
 			continue
 		field, _old, new = change[:3]
 		if field == "status":
@@ -110,21 +110,21 @@ def _version_entries(version, names):
 		("added", "line_added", "{0} line(s) added"),
 		("removed", "line_removed", "{0} line(s) removed"),
 	):
-		rows = [row[1] for row in data.get(key) or [] if isinstance(row, (list, tuple)) and len(row) > 1 and row[0] == "lines"]
+		rows = [row[1] for row in data.get(key) or [] if isinstance(row, list | tuple) and len(row) > 1 and row[0] == "lines"]
 		if rows:
 			labels = [_line_label(row, names) for row in rows]
 			entries.append(_entry(at, kind, _(title).format(len(rows)), _labels(labels), user))
 	edits = []
 	for row in data.get("row_changed") or []:
-		if not isinstance(row, (list, tuple)) or len(row) < 4 or row[0] != "lines":
+		if not isinstance(row, list | tuple) or len(row) < 4 or row[0] != "lines":
 			continue
 		changes = [
-			"{0} {1} → {2}".format(_(LINE_FIELDS[change[0]]), _value(change[1]), _value(change[2]))
+			f"{_(LINE_FIELDS[change[0]])} {_value(change[1])} → {_value(change[2])}"
 			for change in row[3] or []
-			if isinstance(change, (list, tuple)) and len(change) >= 3 and change[0] in LINE_FIELDS
+			if isinstance(change, list | tuple) and len(change) >= 3 and change[0] in LINE_FIELDS
 		]
 		if changes:
-			edits.append("{0}: {1}".format(_line_label(row[2], names, row[1]), ", ".join(changes)))
+			edits.append(f"{_line_label(row[2], names, row[1])}: {', '.join(changes)}")
 	if edits:
 		entries.append(_entry(at, "line_edited", _("{0} line(s) edited").format(len(edits)), "; ".join(edits), user))
 	return entries

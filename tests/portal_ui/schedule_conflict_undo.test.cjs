@@ -67,7 +67,7 @@ test('Undo posts the token once, then reloads; a failure hides the toast', () =>
   assert.equal(requests.length, 1);
   assert.equal(requests[0].method, 'illumenate_lighting.illumenate_lighting.portal.line_undo.undo_line_action');
   assert.equal(requests[0].type, 'POST');
-  assert.deepEqual(requests[0].args, { token: 'tok' });
+  assert.deepEqual({ ...requests[0].args }, { token: 'tok' });
   requests[0].callback({ message: { success: true } });
   requests[0].always();
   assert.deepEqual(reloads, ['undo']);
