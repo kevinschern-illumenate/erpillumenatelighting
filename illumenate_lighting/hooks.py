@@ -342,6 +342,8 @@ override_doctype_class = {
 
 doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
+	# Product and template images get WebP derivatives in the background (plan 5.8).
+	"File": {"after_insert": "illumenate_lighting.illumenate_lighting.api.media_derivatives.on_file_insert"},
 	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans",
 		# Draft Quotations / Sales Orders linked to the schedule follow its lines.
 		"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_schedule_update"]},
