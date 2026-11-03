@@ -56,7 +56,7 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
-		"ill_portal_client_flags": lambda: {"upload_widget": True},
+		"ill_portal_client_flags": lambda: {"upload_widget": True, "upload_purpose": True, "gallery": True},
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),

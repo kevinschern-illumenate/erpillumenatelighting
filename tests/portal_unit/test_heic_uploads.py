@@ -130,7 +130,14 @@ class UploadStream(unittest.TestCase):
 			created.append(values)
 			return doc
 
-		site_flags = types.SimpleNamespace(heic_uploads_enabled=lambda: enabled)
+		site_flags = types.SimpleNamespace(
+			heic_uploads_enabled=lambda: enabled,
+			upload_purpose_enabled=lambda: True,
+			thumbnails_enabled=lambda: False,
+			gallery_enabled=lambda: True,
+			dealer_logo_enabled=lambda: True,
+			staff_heic_enabled=lambda: True,
+		)
 		with load_service(ROOT + ".portal.files", {ROOT + ".portal.site_flags": site_flags}) as (module, frappe):
 			frappe.request = Record(
 				files={"file": Record(filename=filename, stream=io.BytesIO(content))}

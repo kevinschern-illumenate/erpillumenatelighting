@@ -48,11 +48,31 @@ class SiteFlags(unittest.TestCase):
 		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
 			frappe.log_error = MagicMock()
 			self.assertTrue(flags.heic_uploads_enabled())
-			self.assertEqual(flags.portal_client_flags(), {"upload_widget": True})
+			on = {"upload_widget": True, "upload_purpose": True, "gallery": True}
+			self.assertEqual(flags.portal_client_flags(), on)
 			frappe.conf["ill_portal_heic_uploads"] = "false"
 			frappe.conf["ill_portal_upload_widget"] = 0
 			self.assertFalse(flags.heic_uploads_enabled())
-			self.assertEqual(flags.portal_client_flags(), {"upload_widget": False})
+			self.assertEqual(flags.portal_client_flags(), {**on, "upload_widget": False})
+
+	def test_media_switches_are_on_unless_a_site_turns_them_off(self):
+		switches = {
+			"upload_purpose_enabled": "ill_portal_upload_purpose",
+			"thumbnails_enabled": "ill_portal_thumbnails",
+			"gallery_enabled": "ill_portal_gallery",
+			"dealer_logo_enabled": "ill_portal_dealer_logo",
+			"staff_heic_enabled": "ill_desk_heic_conversion",
+		}
+		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
+			frappe.log_error = MagicMock()
+			for function, key in switches.items():
+				with self.subTest(key=key):
+					self.assertTrue(getattr(flags, function)())
+					frappe.conf[key] = "false"
+					self.assertFalse(getattr(flags, function)())
+			client = flags.portal_client_flags()
+			self.assertFalse(client["upload_purpose"])
+			self.assertFalse(client["gallery"])
 
 	def test_portal_layout_publishes_client_flags_as_json(self):
 		from pathlib import Path

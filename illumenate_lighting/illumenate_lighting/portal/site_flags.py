@@ -40,9 +40,38 @@ def upload_widget_enabled():
 	return conf_flag("ill_portal_upload_widget", default=True)
 
 
+def upload_purpose_enabled():
+	"""Upload purpose and caption (hardening plan 4.3). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_upload_purpose", default=True)
+
+
+def thumbnails_enabled():
+	"""Server-generated WebP thumbnails for image uploads (hardening plan 4.4)."""
+	return conf_flag("ill_portal_thumbnails", default=True)
+
+
+def gallery_enabled():
+	"""Project and line photo galleries (hardening plan 4.5)."""
+	return conf_flag("ill_portal_gallery", default=True)
+
+
+def dealer_logo_enabled():
+	"""Dealer logo self-service on /portal/account (hardening plan 4.6)."""
+	return conf_flag("ill_portal_dealer_logo", default=True)
+
+
+def staff_heic_enabled():
+	"""Desk HEIC-to-JPEG conversion for product imagery (hardening plan 4.7)."""
+	return conf_flag("ill_desk_heic_conversion", default=True)
+
+
 def portal_client_flags():
 	"""Dealer-visible kill switches the portal scripts read from ``#ill-portal-flags``."""
-	return {"upload_widget": upload_widget_enabled()}
+	return {
+		"upload_widget": upload_widget_enabled(),
+		"upload_purpose": upload_purpose_enabled(),
+		"gallery": gallery_enabled(),
+	}
 
 
 def conf_list(key):
