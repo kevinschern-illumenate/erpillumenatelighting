@@ -51,13 +51,35 @@
 		}
 	}
 
+	// Plan 2.4: structured details from a {success:false} reply or a portal_error() response.
+	// Transient means the request never got an application answer (offline, gateway, overload).
+	function errorDetails(payload) {
+		const body = payload && payload.responseJSON ? payload.responseJSON : payload;
+		const structured = body && typeof body === 'object' && body.portal_error && typeof body.portal_error === 'object' ? body.portal_error : {};
+		const status = payload && typeof payload.status === 'number' ? payload.status : null;
+		return {
+			code: structured.code || null,
+			field: structured.field || null,
+			hint: structured.hint || null,
+			status,
+			transient: status === 0 || status === 502 || status === 503 || status === 504,
+			serverText: structured.message ? plain(structured.message) : '',
+		};
+	}
+
 	function call(method, args, options) {
 		options = options || {};
 		setBusy(options.busy, true);
 		return new Promise((resolve, reject) => {
-			const fail = message => {
-				const error = new Error(message || t(GENERIC));
+			const fail = (message, details) => {
+				details = details || {};
+				const error = new Error(details.serverText || message || t(GENERIC));
 				error.portal = true;
+				error.code = details.code || null;
+				error.field = details.field || null;
+				error.hint = details.hint || null;
+				error.status = details.status === undefined ? null : details.status;
+				error.transient = !!details.transient;
 				reject(error);
 			};
 			try {
@@ -68,13 +90,13 @@
 					callback(r) {
 						const message = r ? r.message : undefined;
 						if (message && typeof message === 'object' && message.success === false) {
-							fail(plain(message.error));
+							fail(plain(message.error), {code: message.error_code, field: message.field, hint: message.hint && plain(message.hint)});
 							return;
 						}
 						if (options.successToast) toast(options.successToast, 'green');
 						resolve(message);
 					},
-					error(payload) { fail(serverMessage(payload)); },
+					error(payload) { fail(serverMessage(payload), errorDetails(payload)); },
 				});
 			} catch (error) {
 				fail(error && error.message);
@@ -259,5 +281,36 @@
 		return box;
 	}
 
+	/* Plan 2.3: the one portal API layer. PortalAPI.call(method, args, {button, form, retry, type,
+	 * successToast, toast}) returns a promise, keeps the triggering button busy for the whole call
+	 * (retries included), shows a field error under the named input of `form` when the server names
+	 * a field, and otherwise shows one red toast (pass toast: false to handle it yourself). The
+	 * rejected Error carries code/field/hint/status from the server. `retry` re-sends only after a
+	 * transport failure (offline, 502/503/504) where the server gave no answer; pass it for reads
+	 * and idempotent writes only. */
+	const RETRY_DELAY_MS = 600;
+	function apiCall(method, args, options) {
+		options = options || {};
+		const button = options.button || null;
+		const form = options.form || null;
+		const retries = Math.max(0, Math.min(3, parseInt(options.retry, 10) || 0));
+		if (form) fieldErrors(form, {});
+		setBusy(button, true);
+		const attempt = left => call(method, args, {type: options.type, successToast: options.successToast}).catch(error => {
+			if (left > 0 && error.transient) {
+				return new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * (retries - left + 1))).then(() => attempt(left - 1));
+			}
+			throw error;
+		});
+		return attempt(retries).catch(error => {
+			const text = error.hint ? error.message + ' ' + error.hint : error.message;
+			const inline = !!(form && error.field) && fieldErrors(form, {[error.field]: text});
+			if (!inline && options.toast !== false) toast(text, 'red');
+			error.shown = inline || options.toast !== false;
+			throw error;
+		}).finally(() => setBusy(button, false));
+	}
+
 	window.PortalUI = {call, toast, announce, confirm, escape, fieldErrors, serverMessage, skeleton, empty, failed};
+	window.PortalAPI = {call: apiCall};
 })();
