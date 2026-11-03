@@ -9,8 +9,8 @@ The job posts ``{template_doctype, template_id, brand}`` to the n8n spec webhook
 renders the PDF, uploads it through ``upload_spec_pdf`` and attaches it to the template's
 Spec Sheet field (so the File records who it is attached to), then answers
 ``{success, file_url}``. The job then calls ``register_spec_sheet``: it checks the template
-points at that file, sets the stable link (``spec_sheet_route``), removes older files (keeps
-the newest 2) and saves the linked Webflow Product so its Spec Sheet row uses the link.
+points at that file, sets the stable link (``spec_sheet_route``), unattaches the older spec
+sheet files (they stay in File Manager) and saves the linked Webflow Product so its Spec Sheet row uses the link.
 
 Nothing here talks to Webflow. Syncing stays with the Webflow sync (Phase 5 decides when).
 """
@@ -135,13 +135,17 @@ def register_spec_sheet(template_doctype, template_id, file_url):
 		if not frappe.db.exists("File", {"file_url": file_url}):
 			raise ValueError(_("The spec sheet file {0} was not found.").format(file_url))
 		frappe.db.set_value(template_doctype, template_id, "spec_sheet", file_url)
-	# The stable link (Phase 4): set once, the same for every regeneration.
+	# The stable link (Phase 4): the same for every regeneration, for the template's brand.
+	brand = spec_sheet_route.template_brand(template_doctype, template_id)
 	frappe.db.set_value(
-		template_doctype, template_id, "spec_sheet_public_url", spec_sheet_route.public_url(template_id)
+		template_doctype,
+		template_id,
+		"spec_sheet_public_url",
+		spec_sheet_route.public_url(template_id, brand),
 	)
 	frappe.db.commit()
 	try:
-		spec_sheet_route.prune(template_doctype, template_id)
+		spec_sheet_route.detach_older(template_doctype, template_id)
 		frappe.db.commit()
 	except Exception:
 		frappe.db.rollback()

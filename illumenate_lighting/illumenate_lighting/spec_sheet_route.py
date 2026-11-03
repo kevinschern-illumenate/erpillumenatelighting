@@ -1,8 +1,8 @@
 """Stable spec sheet links (plan 4.7, Phase 4, D6, D19, D24).
 
-Every template has one public link that never changes:
-``https://<site>/spec-sheets/<template record name, lowercase>.pdf`` (for example
-``/spec-sheets/kit-ra01.pdf``). It is a redirect, not a file: nothing is stored at
+Every template has one public link that never changes, for its own brand (owner, 2026-11-03):
+``https://<site>/spec-sheets/<brand>_<template record name, lowercase>.pdf``, for example
+``/spec-sheets/illumenate-lighting_kit-ra01.pdf`` or ``/spec-sheets/206-lighting_kit-ra01.pdf``. It is a redirect, not a file: nothing is stored at
 ``/spec-sheets/``. The link answers with a temporary redirect (302, ``Cache-Control:
 no-store``) to the file the template's Spec Sheet field points at, so a new spec sheet is
 served as soon as it is registered, and the old one keeps being served until then.
@@ -10,9 +10,11 @@ served as soon as it is registered, and the old one keeps being served until the
 - Lookup is case-insensitive across the six template doctypes. No match, or more than one,
   is a 404 (and is logged). ``template_link.validate_unique_name`` keeps names unique.
 - The ``.pdf`` suffix is optional: ``/spec-sheets/kit-ra01`` works too.
-- After a successful run, ``prune`` keeps the newest ``KEEP`` spec sheet files attached to
-  the template and deletes older ones through their File documents. The file the template
-  points at is never deleted, and nothing is pruned after a failed run.
+- The brand part must be the template's own brand (its enabled Target Brand), else 404. A
+  link without the brand part (``/spec-sheets/kit-ra01.pdf``) also works.
+- After a successful run, ``detach_older`` unattaches the template's older spec sheet files
+  (owner, 2026-11-03: only the current one stays attached; the files stay in File Manager).
+  Nothing changes after a failed run.
 
 Served by ``SpecSheetRedirect`` (hooks ``page_renderer``), which Frappe asks before its own
 page and static-file handling.
@@ -24,7 +26,6 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_
 
 PREFIX = "spec-sheets/"
 SUFFIX = ".pdf"
-KEEP = 2
 
 
 def key_from_path(path):
@@ -38,10 +39,47 @@ def key_from_path(path):
 	return key if key and "/" not in key else None
 
 
-def public_url(template_name):
+# Brand names in file names and links (owner, 2026-11-03); other brands use their Brand Label.
+BRAND_NAMES = {"illumenate": "ilLumenate Lighting", "lighting_206": "206 Lighting"}
+
+
+def brand_name(brand):
+	if brand in BRAND_NAMES:
+		return BRAND_NAMES[brand]
+	label = frappe.db.get_value("ilL-Webflow-Brand", {"brand_code": brand}, "brand_label") if brand else None
+	return label or brand or ""
+
+
+def brand_slug(name):
+	"""Pure: "ilLumenate Lighting" -> "illumenate-lighting"."""
+	import re
+
+	return re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+
+
+def public_url(template_name, brand):
 	from frappe.utils import get_url
 
-	return f"{get_url()}/{PREFIX}{template_name.lower()}{SUFFIX}"
+	return f"{get_url()}/{PREFIX}{brand_slug(brand_name(brand))}_{template_name.lower()}{SUFFIX}"
+
+
+def template_brand(doctype, name):
+	rows = frappe.get_all(
+		"ilL-Child-Webflow-Brand-Target",
+		filters={"parenttype": doctype, "parent": name, "enabled": 1},
+		pluck="brand",
+	)
+	return rows[0] if rows else None
+
+
+def split_key(key):
+	"""Pure: ("illumenate-lighting", "kit-ra01") for "illumenate-lighting_kit-ra01";
+	(None, key) when there is no brand part."""
+	if "_" in key:
+		prefix, rest = key.split("_", 1)
+		if prefix and rest and prefix == brand_slug(prefix):
+			return prefix, rest
+	return None, key
 
 
 def find_template(key):
@@ -62,18 +100,23 @@ def find_template(key):
 
 def current_file(key):
 	"""The file URL the link redirects to, or None (404)."""
-	found = find_template(key)
+	prefix, template_key = split_key(key)
+	found = find_template(template_key)
+	if not found and prefix:
+		# A record name that itself contains an underscore.
+		prefix, found = None, find_template(key)
 	if not found:
+		return None
+	if prefix and brand_slug(brand_name(template_brand(*found))) != prefix:
 		return None
 	return frappe.db.get_value(*found, "spec_sheet") or None
 
 
-def prune(template_doctype, template_id, keep=KEEP):
-	"""Delete older spec sheet files of a template, keeping the newest ``keep`` and the current one.
+def detach_older(template_doctype, template_id):
+	"""Unattach the template's spec sheet files other than the current one (owner, 2026-11-03).
 
-	Only files attached to the template's Spec Sheet field are considered. Returns the deleted
-	file URLs. Deleting goes through the File document, so a physical file another File
-	still uses is kept.
+	The files stay in File Manager; they are only no longer listed on the template. Returns the
+	file URLs that were unattached.
 	"""
 	current = frappe.db.get_value(template_doctype, template_id, "spec_sheet")
 	files = frappe.get_all(
@@ -83,19 +126,22 @@ def prune(template_doctype, template_id, keep=KEEP):
 			"attached_to_name": template_id,
 			"attached_to_field": "spec_sheet",
 		},
-		fields=["name", "file_url", "creation"],
-		order_by="creation desc",
+		fields=["name", "file_url"],
 	)
-	deleted = []
-	for row in files_to_prune(files, current, keep):
-		frappe.delete_doc("File", row.name, ignore_permissions=True, force=True)
-		deleted.append(row.file_url)
-	return deleted
+	older = files_to_detach(files, current)
+	for row in older:
+		frappe.db.set_value(
+			"File",
+			row.name,
+			{"attached_to_doctype": None, "attached_to_name": None, "attached_to_field": None},
+			update_modified=False,
+		)
+	return [row.file_url for row in older]
 
 
-def files_to_prune(files, current, keep=KEEP):
-	"""Pure: from files newest first, those beyond the newest ``keep``, never ``current``."""
-	return [row for row in files[keep:] if row.get("file_url") != current]
+def files_to_detach(files, current):
+	"""Pure: every file except the one the template points at."""
+	return [row for row in files if row.get("file_url") != current]
 
 
 def absolute_location(url):

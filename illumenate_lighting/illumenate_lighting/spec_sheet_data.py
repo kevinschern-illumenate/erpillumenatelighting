@@ -172,15 +172,28 @@ def webflow_section(product, brand):
 UNSAFE_IN_FILE_NAMES = set('/\\:*?"<>|')
 
 
-def spec_sheet_file_name(template):
-	"""``<Template Name>_Spec Sheet.pdf`` (record name when Template Name is empty).
+def spec_sheet_file_name(template, brand=None):
+	"""``<Brand>_<Display Name>_Spec Sheet.pdf`` (owner, 2026-11-03), for example
+	``ilLumenate Lighting_Rainier [SF] Extrusion Kit_Spec Sheet.pdf``. Display Name, else
+	Template Name, else the record name.
 
 	Spaces, brackets, dots and other characters are kept; only characters that are unsafe in
 	file names (path separators, ``: * ? " < > |`` and control characters) are dropped.
 	"""
-	name = (template.get("template_name") or "").strip() or template.name
-	cleaned = "".join(ch for ch in name if ch not in UNSAFE_IN_FILE_NAMES and ch.isprintable())
-	return " ".join(cleaned.split()) + "_Spec Sheet.pdf"
+	from illumenate_lighting.illumenate_lighting.spec_sheet_route import brand_name
+
+	name = (
+		(template.get("display_name") or "").strip()
+		or (template.get("template_name") or "").strip()
+		or template.name
+	)
+	parts = [brand_name(brand) if brand else "", name, "Spec Sheet.pdf"]
+
+	def clean(text):
+		text = "".join(ch for ch in text if ch not in UNSAFE_IN_FILE_NAMES and ch.isprintable())
+		return " ".join(text.split())
+
+	return "_".join(clean(part) for part in parts if clean(part))
 
 
 def _product_type(template):
@@ -259,8 +272,8 @@ def build(template, product, brand, legacy=None):
 			# The Webflow spec sheet template page is chosen by product type.
 			"product_type": product.product_type if product else _product_type(template),
 			"include_configurator": _include_configurator(brand),
-			# The PDF's file name (plan 4.7, D7): <Template Name>_Spec Sheet.pdf, no brand prefix.
-			"spec_sheet_file_name": spec_sheet_file_name(template),
+			# The PDF's file name: <Brand>_<Display Name>_Spec Sheet.pdf (owner, 2026-11-03).
+			"spec_sheet_file_name": spec_sheet_file_name(template, brand),
 			# Images and files are stored as /files/...; prefix this to make them absolute.
 			"base_url": _base_url(),
 		},

@@ -25,8 +25,9 @@ class Job(unittest.TestCase):
 		import types
 
 		route = types.ModuleType(ROOT + ".spec_sheet_route")
-		route.public_url = lambda name: f"https://site/spec-sheets/{name.lower()}.pdf"
-		route.prune = MagicMock(return_value=[])
+		route.public_url = lambda name, brand: f"https://site/spec-sheets/{brand}_{name.lower()}.pdf"
+		route.template_brand = lambda doctype, name: "illumenate-lighting"
+		route.detach_older = MagicMock(return_value=[])
 		listing = types.ModuleType(ROOT + ".template_listing")
 		listing.push_to_product = MagicMock()
 		self.route, self.listing = route, listing
@@ -54,9 +55,9 @@ class Job(unittest.TestCase):
 			"ilL-Extrusion-Kit-Template",
 			"KIT-RA01",
 			"spec_sheet_public_url",
-			"https://site/spec-sheets/kit-ra01.pdf",
+			"https://site/spec-sheets/illumenate-lighting_kit-ra01.pdf",
 		)
-		self.route.prune.assert_called_once_with("ilL-Extrusion-Kit-Template", "KIT-RA01")
+		self.route.detach_older.assert_called_once_with("ilL-Extrusion-Kit-Template", "KIT-RA01")
 		self.listing.push_to_product.assert_called_once()
 
 	def test_the_template_is_pointed_at_the_file_when_n8n_did_not(self):
@@ -113,8 +114,25 @@ class Route(unittest.TestCase):
 		self.assertIsNone(self.module.find_template("kit-ra01"))
 		self.frappe.log_error.assert_called_once()
 
-	def test_pruning_keeps_the_newest_two_and_the_current_file(self):
-		files = [Record(file_url=f"/files/{n}.pdf") for n in ("new", "mid", "old", "older")]
-		kept_current = self.module.files_to_prune(files, "/files/older.pdf")
-		self.assertEqual([row.file_url for row in kept_current], ["/files/old.pdf"])
-		self.assertEqual(self.module.files_to_prune(files[:2], "/files/new.pdf"), [])
+	def test_only_the_current_file_stays_attached(self):
+		files = [Record(file_url=f"/files/{n}.pdf") for n in ("new", "mid", "old")]
+		older = self.module.files_to_detach(files, "/files/new.pdf")
+		self.assertEqual([row.file_url for row in older], ["/files/mid.pdf", "/files/old.pdf"])
+
+	def test_links_carry_the_brand(self):
+		self.assertEqual(self.module.brand_slug("ilLumenate Lighting"), "illumenate-lighting")
+		self.assertEqual(self.module.brand_slug("206 Lighting"), "206-lighting")
+		self.assertEqual(
+			self.module.split_key("illumenate-lighting_kit-ra01"), ("illumenate-lighting", "kit-ra01")
+		)
+		self.assertEqual(self.module.split_key("kit-ra01"), (None, "kit-ra01"))
+
+	def test_a_link_for_another_brand_is_not_found(self):
+		self.frappe.db.sql.side_effect = lambda query, values: (
+			[("KIT-RA01",)] if "Extrusion-Kit" in query and values[0].lower() == "kit-ra01" else []
+		)
+		self.frappe.get_all.return_value = ["illumenate"]
+		self.frappe.db.get_value.return_value = "/files/kit.pdf"
+		self.assertEqual(self.module.current_file("illumenate-lighting_kit-ra01"), "/files/kit.pdf")
+		self.assertEqual(self.module.current_file("kit-ra01"), "/files/kit.pdf")
+		self.assertIsNone(self.module.current_file("206-lighting_kit-ra01"))

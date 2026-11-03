@@ -97,15 +97,22 @@ class Payload(unittest.TestCase):
 		with self.assertRaises(ValueError):
 			self.module._brand(Doc("ilL-Extrusion-Kit-Template", "KIT-RA02", target_brands=[]))
 
-	def test_the_file_name_keeps_brackets_and_spaces(self):
+	def test_the_file_name_has_the_brand_and_keeps_brackets(self):
 		name = self.module.spec_sheet_file_name
-		kit = Doc("ilL-Extrusion-Kit-Template", "KIT-RA01", template_name="Rainier [SF]-6.5ft Extrusion Kit")
-		self.assertEqual(name(kit), "Rainier [SF]-6.5ft Extrusion Kit_Spec Sheet.pdf")
-		self.assertEqual(
-			name(Doc("ilL-Driver-Template", "PS-UNIV", template_name="")), "PS-UNIV_Spec Sheet.pdf"
+		kit = Doc(
+			"ilL-Extrusion-Kit-Template",
+			"KIT-RA01",
+			display_name="Rainier [SF] Extrusion Kit",
+			template_name="Rainier [SF]-6.5ft Extrusion Kit",
 		)
+		self.assertEqual(
+			name(kit, "illumenate"), "ilLumenate Lighting_Rainier [SF] Extrusion Kit_Spec Sheet.pdf"
+		)
+		self.assertEqual(name(kit, "lighting_206"), "206 Lighting_Rainier [SF] Extrusion Kit_Spec Sheet.pdf")
+		driver = Doc("ilL-Driver-Template", "PS-UNIV", display_name="", template_name="")
+		self.assertEqual(name(driver, "illumenate"), "ilLumenate Lighting_PS-UNIV_Spec Sheet.pdf")
 		odd = Doc("ilL-Driver-Template", "X", template_name='A/B: "C"  D')
-		self.assertEqual(name(odd), "AB C D_Spec Sheet.pdf")
+		self.assertEqual(name(odd, "illumenate"), "ilLumenate Lighting_AB C D_Spec Sheet.pdf")
 
 	def test_the_ownership_table_names_each_field_once(self):
 		fields = [row[0] for row in self.module.ownership_table()]
