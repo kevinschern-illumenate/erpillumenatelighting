@@ -45,11 +45,14 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
     LED_TAPE,
     TAPE_NEON_CATEGORIES,
     canonical_json,
+    dealer_length_mm,
+    display_length,
     fingerprint,
     is_tape_category,
     optional_positive,
     parse_bool,
     spec_categories_for,
+    whole_increments,
 )
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows, enabled_tape_specs
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
@@ -682,7 +685,7 @@ def validate_tape_configuration(
             seg_mfg_mm = seg_requested_mm
         else:
             # Snap to nearest cut increment
-            increments = math.floor(seg_requested_mm / cut_increment_mm)
+            increments = whole_increments(seg_requested_mm, cut_increment_mm)
             if increments < 1:
                 increments = 1
             seg_mfg_mm = increments * cut_increment_mm
@@ -1242,7 +1245,7 @@ def validate_neon_configuration(
         elif is_free_cutting or cut_increment_mm <= 0:
             mfg_length_mm = fixture_length_mm
         else:
-            increments = math.floor(fixture_length_mm / cut_increment_mm)
+            increments = whole_increments(fixture_length_mm, cut_increment_mm)
             if increments < 1:
                 increments = 1
             mfg_length_mm = increments * cut_increment_mm
@@ -3233,18 +3236,12 @@ def _template_tape_category(tape_neon_template: str | None) -> str:
 def _parse_tape_length(sel: dict) -> Optional[float]:
     """Parse the tape length from user selections into millimeters."""
     unit = sel.get("tape_length_unit", "in")
-
-    if unit == "ft_in":
-        feet = float(sel.get("tape_length_feet", 0) or 0)
-        inches = float(sel.get("tape_length_inches", 0) or 0)
-        total_inches = feet * INCHES_PER_FOOT + inches
-        return total_inches * MM_PER_INCH
-    elif unit == "ft":
-        feet = float(sel.get("tape_length_value", 0) or 0)
-        return feet * MM_PER_FOOT
-    else:  # "in" or default
-        inches = float(sel.get("tape_length_value", 0) or 0)
-        return inches * MM_PER_INCH
+    return dealer_length_mm(
+        unit if unit in ("ft", "ft_in") else "in",
+        sel.get("tape_length_value"),
+        sel.get("tape_length_feet"),
+        sel.get("tape_length_inches"),
+    )
 
 
 def _normalize_tape_segments(sel: dict, segments: list | None) -> list:
@@ -3287,18 +3284,12 @@ def _normalize_tape_segments(sel: dict, segments: list | None) -> list:
 def _parse_neon_fixture_length(seg: dict) -> Optional[float]:
     """Parse a neon segment's fixture length into millimeters."""
     unit = seg.get("fixture_length_unit", "in")
-
-    if unit == "ft_in":
-        feet = float(seg.get("fixture_length_feet", 0) or 0)
-        inches = float(seg.get("fixture_length_inches", 0) or 0)
-        total_inches = feet * INCHES_PER_FOOT + inches
-        return total_inches * MM_PER_INCH
-    elif unit == "ft":
-        val = float(seg.get("fixture_length_value", 0) or 0)
-        return val * MM_PER_FOOT
-    else:  # "in"
-        val = float(seg.get("fixture_length_value", 0) or 0)
-        return val * MM_PER_INCH
+    return dealer_length_mm(
+        unit if unit in ("ft", "ft_in") else "in",
+        seg.get("fixture_length_value"),
+        seg.get("fixture_length_feet"),
+        seg.get("fixture_length_inches"),
+    )
 
 
 def _find_matching_tape_spec(
