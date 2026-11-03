@@ -109,6 +109,8 @@ assert not page_style_violations("x", '<a href="#addLineModal">')
 # literal, a macro or sanitized HTML, or listed in tools/portal_raw_outputs.txt with why it is safe.
 OUTPUT = re.compile(r"\{\{-?(.*?)-?\}\}", re.DOTALL)
 MACRO = re.compile(r"\{%-?\s*macro\s+(\w+)")
+# Plan 8.2: macros imported from templates/includes/ are checked in their own file.
+IMPORTED_MACROS = re.compile(r"""\{%-?\s*from\s+["']templates/includes/[^"']+["']\s+import\s+(.+?)\s*-?%\}""")
 ESCAPING_FILTERS = {"e", "escape", "forceescape", "tojson", "urlencode", "int", "float", "round", "length", "count", "abs"}
 RAW_ALLOWLIST_FILE = ROOT / "tools/portal_raw_outputs.txt"
 RAW_ALLOWLIST = {
@@ -149,6 +151,9 @@ def _escaped(expr, macros):
 
 def unescaped_outputs(name, source):
 	macros = set(MACRO.findall(source))
+	for names in IMPORTED_MACROS.findall(source):
+		names = re.sub(r"\s+(?:with|without)\s+context$", "", names)
+		macros.update(part.split(" as ")[-1].strip() for part in names.split(","))
 	found = []
 	for match in OUTPUT.finditer(source):
 		expression = match.group(1).strip()
@@ -167,6 +172,10 @@ assert not unescaped_outputs(
 	"{% macro row(d) %}{% endmacro %}{{ doc.name | e }}{{ (a or b) | e }}{{ x | tojson }}{{ _('Hi') }}"
 	"{{ row(doc) }}{{ page - 1 }}{{ 'a' if ok else 'b' }}{{ ill_sanitize_html(doc.notes) | safe }}",
 )
+assert not unescaped_outputs(
+	"x", '{% from "templates/includes/portal_chrome.html" import pager, breadcrumbs as crumbs %}{{ pager(1) }}{{ crumbs([]) }}'
+)
+assert unescaped_outputs("x", '{% from "elsewhere.html" import pager %}{{ pager(1) }}') == ["x:1: {{ pager(1) }}"]
 assert unescaped_outputs("x", "{{ doc.notes | safe }}{{ a or b | e }}") == [
 	"x:1: {{ doc.notes | safe }}",
 	"x:1: {{ a or b | e }}",
@@ -501,6 +510,13 @@ orders_html = environment.get_template("templates/pages/orders.html").render(
 )
 assert "Newer orders" in orders_html and "Older orders" in orders_html
 assert 'class="ill-record"' in orders_html and "No orders match" not in orders_html
+# Plan 8.2: one breadcrumb trail and one pager carry every filter to the next page.
+assert '<li class="breadcrumb-item active" aria-current="page">Orders</li>' in orders_html
+assert 'rel="prev" href="?page=1&amp;search=PO1&amp;status=shipping"' in orders_html
+assert 'rel="next" href="?page=3&amp;search=PO1&amp;status=shipping"' in orders_html
+assert '<span class="ill-pager__page">Page 2</span>' in orders_html
+assert '<a href="/portal/orders">Orders</a>' in order_html
+assert '<li class="breadcrumb-item active" aria-current="page">' in order_html
 quote_request_html = environment.get_template("templates/pages/quote_request_detail.html").render(
 	request=View(
 		name="QR1",

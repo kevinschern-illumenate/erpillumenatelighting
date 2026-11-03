@@ -61,3 +61,25 @@
 @media (prefers-reduced-motion: reduce) {
 	.ill-dialog, .ill-toast { transition: none; animation: none; }
 }
+
+// Plan 8.2: portal_chrome.html pager and breadcrumbs on every list/detail page,
+// including pages outside the .ill-commerce scope.
+.ill-pager {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 1.25rem;
+}
+
+.ill-pager__page {
+	color: var(--ill-text-secondary, #5d6d7f);
+	font-size: 0.875rem;
+}
+
+.ill-breadcrumbs .breadcrumb {
+	margin-bottom: 0;
+	background: transparent;
+	padding: 0;
+}

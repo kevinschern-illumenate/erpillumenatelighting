@@ -3,12 +3,13 @@ Portal Order Detail Page
 One order or order request: review, progress, items, shipments, invoices and the conversation
 #}
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 
 {% block portal_title %}{{ (order.name if order else _("Order")) | e }}{% endblock %}
 
 {% block portal_page_class %}ill-commerce{% endblock %}
 {% block portal_content %}
-	<a class="ill-back" href="/portal/orders"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Back to orders") }}</a>
+	{{ breadcrumbs([(_("Portal"), "/portal"), (_("Orders"), "/portal/orders"), ((order.name if order else _("Order")), None)]) }}
 
 	{% if not order %}
 	<div class="ill-empty">
