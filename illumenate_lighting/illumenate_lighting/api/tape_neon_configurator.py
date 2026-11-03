@@ -57,6 +57,7 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     mm_to_inches,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal.errors import failure
 from illumenate_lighting.illumenate_lighting.portal_listing import template_scoped
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -892,11 +893,17 @@ def validate_tape_configuration(
             return_result["configured_tape_neon"] = configured_name
             _register_tape_neon_handoff(configured_name)
         except Exception as e:
-            return_result.update({"success": False, "is_valid": False, "error": str(e)})
+            failed = failure(
+                e,
+                "configured_record_failed",
+                title="Tape configured record failed",
+                context={"tape_neon_template": tape_neon_template, "part_number": return_result.get("part_number")},
+            )
+            return_result.update({"success": False, "is_valid": False, "error": failed["error"], "error_code": failed["error_code"]})
             return_result["configured_tape_neon"] = None
             return_result.setdefault("messages", []).append({
                 "severity": "error",
-                "text": f"Could not create configured record: {str(e)}",
+                "text": f"Could not create configured record: {failed['error']}",
             })
 
     return return_result
@@ -1416,11 +1423,17 @@ def validate_neon_configuration(
             return_result["configured_tape_neon"] = configured_name
             _register_tape_neon_handoff(configured_name)
         except Exception as e:
-            return_result.update({"success": False, "is_valid": False, "error": str(e)})
+            failed = failure(
+                e,
+                "configured_record_failed",
+                title="Neon configured record failed",
+                context={"tape_neon_template": tape_neon_template, "part_number": return_result.get("part_number")},
+            )
+            return_result.update({"success": False, "is_valid": False, "error": failed["error"], "error_code": failed["error_code"]})
             return_result["configured_tape_neon"] = None
             return_result.setdefault("messages", []).append({
                 "severity": "error",
-                "text": f"Could not create configured record: {str(e)}",
+                "text": f"Could not create configured record: {failed['error']}",
             })
 
     return return_result
@@ -1584,7 +1597,13 @@ def save_tape_to_schedule(
             "line_idx": line.idx - 1 if hasattr(line, "idx") else len(schedule.lines) - 1,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return failure(
+            e,
+            "schedule_save_failed",
+            title="Tape/neon save to schedule failed",
+            context={"schedule": schedule_name, "line_idx": line_idx},
+            rollback=True,
+        )
 
 
 def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) -> dict:
@@ -2334,7 +2353,13 @@ def validate_tape_neon_template_config(
         result["configured_tape_neon"] = configured_name
         _register_tape_neon_handoff(configured_name)
     except Exception as e:
-        result.update({"success": False, "is_valid": False, "error": str(e)})
+        failed = failure(
+            e,
+            "configured_record_failed",
+            title="Tape/neon template configured record failed",
+            context={"template": template.name, "part_number": result.get("part_number")},
+        )
+        result.update({"success": False, "is_valid": False, "error": failed["error"], "error_code": failed["error_code"]})
         result["configured_tape_neon"] = None
         # Truncate message_log back to pre-call length to remove any
         # entries added by frappe.throw() before the mute flag took effect.
@@ -2348,7 +2373,7 @@ def validate_tape_neon_template_config(
         )
         result.setdefault("messages", []).append({
             "severity": "error",
-            "text": f"Could not create configured record: {str(e)}",
+            "text": f"Could not create configured record: {failed['error']}",
         })
 
     return result
@@ -2453,7 +2478,13 @@ def save_tape_neon_template_to_schedule(
             "configured_tape_neon": configured_name,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return failure(
+            e,
+            "schedule_save_failed",
+            title="Tape/neon save to schedule failed",
+            context={"schedule": schedule_name, "line_idx": line_idx},
+            rollback=True,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
