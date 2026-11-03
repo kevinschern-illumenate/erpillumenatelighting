@@ -1,39 +1,30 @@
-/* Brand tokens from the LED Tape System Visualizer (plan H9 visual language). */
+/* Legacy designer styles; colours come from the --sd-* tokens in ui/tokens.css (SD-1.1). */
 .ill-sd {
-	--ill-primary-600: #172e48;
-	--ill-secondary-600: #00588c;
-	--ill-accent-500: #fdc757;
-	--ill-accent-800: #8a5a00;
-	--ill-error: #d63b2f;
-	--ill-surface: #ffffff;
-	--ill-surface-2: #f4f7fa;
-	--ill-border: #d9e1e8;
-	--ill-muted: #5d6d7f;
 	position: relative;
-	font-family: Poppins, system-ui, sans-serif;
-	color: var(--ill-primary-600);
-	background: var(--ill-surface);
+	font-family: var(--sd-font);
+	color: var(--sd-text);
+	background: var(--sd-surface);
 	border-radius: 16px;
 	padding: 20px 24px;
 	margin: 16px 0;
-	box-shadow: 0 1px 3px rgb(15 30 45 / 0.12);
+	box-shadow: var(--sd-shadow-card);
 	line-height: 1.5;
 }
 .ill-sd *:focus-visible {
-	outline: 3px solid var(--ill-secondary-600);
+	outline: 3px solid var(--sd-focus);
 	outline-offset: 2px;
 }
 .ill-sd h2,
 .ill-sd h3,
 .ill-sd__title {
-	font-family: Manrope, Poppins, system-ui, sans-serif;
+	font-family: var(--sd-font-display);
 }
 .ill-sd__header {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: space-between;
 	gap: 12px;
-	border-bottom: 1px solid var(--ill-border);
+	border-bottom: 1px solid var(--sd-border);
 	padding-bottom: 12px;
 }
 .ill-sd__brand {
@@ -41,7 +32,7 @@
 	font-weight: 600;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 }
 .ill-sd__title {
 	font-size: 1.5rem;
@@ -50,7 +41,7 @@
 }
 .ill-sd__subtitle {
 	margin: 4px 0 0;
-	color: var(--ill-muted);
+	color: var(--sd-text-muted);
 }
 .ill-sd__subtitle a {
 	color: inherit;
@@ -62,30 +53,30 @@
 	gap: 8px;
 }
 .ill-sd__chip {
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 999px;
 	padding: 2px 10px;
 	font-size: 0.85rem;
 }
 .ill-sd__chip--warn {
-	border-color: var(--ill-accent-500);
-	background: #fff6e0;
-	color: var(--ill-accent-800);
+	border-color: var(--sd-highlight);
+	background: var(--sd-warning-soft);
+	color: var(--sd-warning-ink);
 }
 .ill-sd__chip--ok {
-	border-color: #2f8a4f;
-	color: #1f6b3a;
+	border-color: var(--sd-ok);
+	color: var(--sd-ok);
 }
 .ill-sd__save-state {
 	font-size: 0.85rem;
-	color: var(--ill-muted);
+	color: var(--sd-text-muted);
 }
 .ill-sd__button {
 	display: inline-block;
-	border: 1px solid var(--ill-secondary-600);
+	border: 1px solid var(--sd-accent);
 	border-radius: 10px;
-	background: var(--ill-secondary-600);
-	color: #fff;
+	background: var(--sd-accent);
+	color: var(--sd-text-inverse);
 	padding: 6px 14px;
 	font: inherit;
 	text-decoration: none;
@@ -93,7 +84,7 @@
 }
 .ill-sd__button--quiet {
 	background: transparent;
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 }
 .ill-sd__button:disabled {
 	opacity: 0.5;
@@ -101,7 +92,7 @@
 }
 .ill-sd__toggle {
 	display: inline-flex;
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 10px;
 	overflow: hidden;
 }
@@ -114,34 +105,34 @@
 	cursor: pointer;
 }
 .ill-sd__toggle button[aria-pressed='true'] {
-	background: var(--ill-primary-600);
-	color: #fff;
+	background: var(--sd-text);
+	color: var(--sd-text-inverse);
 }
 .ill-sd__help summary {
 	cursor: pointer;
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 }
 .ill-sd__help p {
 	position: absolute;
 	right: 24px;
 	z-index: 2;
 	max-width: 320px;
-	background: var(--ill-surface);
-	border: 1px solid var(--ill-border);
+	background: var(--sd-surface);
+	border: 1px solid var(--sd-border);
 	border-radius: 12px;
 	padding: 12px;
-	box-shadow: 0 4px 12px rgb(15 30 45 / 0.15);
+	box-shadow: var(--sd-shadow-elevated);
 }
 .ill-sd__banner {
 	margin: 12px 0 0;
 	padding: 8px 12px;
 	border-radius: 10px;
-	background: #fff6e0;
-	color: var(--ill-accent-800);
+	background: var(--sd-warning-soft);
+	color: var(--sd-warning-ink);
 }
 .ill-sd__banner--info {
-	background: var(--ill-surface-2);
-	color: var(--ill-primary-600);
+	background: var(--sd-surface-2);
+	color: var(--sd-text);
 }
 .ill-sd__layout {
 	display: grid;
@@ -169,9 +160,9 @@
 	cursor: pointer;
 }
 .ill-sd__nav button[aria-current='step'] {
-	background: var(--ill-surface-2);
+	background: var(--sd-surface-2);
 	font-weight: 600;
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 }
 .ill-sd__step-number {
 	display: inline-grid;
@@ -208,7 +199,7 @@
 	margin-top: 8px;
 }
 .ill-sd__callout {
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 12px;
 	padding: 12px 16px;
 	margin-bottom: 16px;
@@ -217,18 +208,18 @@
 	margin: 0 0 8px;
 }
 .ill-sd__callout--warn {
-	border-color: var(--ill-accent-500);
-	background: #fffaf0;
+	border-color: var(--sd-highlight);
+	background: var(--sd-highlight-soft);
 }
 .ill-sd__muted {
-	color: var(--ill-muted);
+	color: var(--sd-text-muted);
 }
 .ill-sd__error {
-	color: var(--ill-error);
+	color: var(--sd-error);
 }
 .ill-sd__checks {
 	width: 280px;
-	border-left: 1px solid var(--ill-border);
+	border-left: 1px solid var(--sd-border);
 	padding-left: 16px;
 }
 .ill-sd__checks--closed {
@@ -252,13 +243,13 @@
 	font-size: 0.85rem;
 }
 .ill-sd__count--error {
-	color: var(--ill-error);
+	color: var(--sd-error);
 }
 .ill-sd__count--warning {
-	color: var(--ill-accent-800);
+	color: var(--sd-warning-ink);
 }
 .ill-sd__count--info {
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 }
 .ill-sd__check-list {
 	list-style: none;
@@ -269,20 +260,20 @@
 	display: flex;
 	gap: 8px;
 	padding: 8px 0;
-	border-bottom: 1px solid var(--ill-border);
+	border-bottom: 1px solid var(--sd-border);
 }
 .ill-sd__check p {
 	margin: 0;
 	font-size: 0.9rem;
 }
 .ill-sd__check--error > span {
-	color: var(--ill-error);
+	color: var(--sd-error);
 }
 .ill-sd__check--warning > span {
-	color: var(--ill-accent-800);
+	color: var(--sd-warning-ink);
 }
 .ill-sd__check--info > span {
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 }
 .ill-sd__sr {
 	position: absolute;
@@ -298,15 +289,15 @@
 	z-index: 1000;
 	display: grid;
 	place-items: center;
-	background: rgb(15 30 45 / 0.45);
+	background: var(--sd-overlay);
 	padding: 16px;
 }
 .ill-sd__dialog {
 	max-width: 560px;
-	background: var(--ill-surface);
+	background: var(--sd-surface);
 	border-radius: 16px;
 	padding: 24px;
-	box-shadow: 0 10px 30px rgb(15 30 45 / 0.3);
+	box-shadow: var(--sd-shadow-elevated);
 }
 .ill-sd__terms {
 	white-space: pre-line;
@@ -322,7 +313,7 @@
 	.ill-sd__checks {
 		width: auto;
 		border-left: 0;
-		border-top: 1px solid var(--ill-border);
+		border-top: 1px solid var(--sd-border);
 		padding: 12px 0 0;
 	}
 	.ill-sd__nav ol {
@@ -338,7 +329,7 @@
 	min-width: 0;
 }
 .ill-sd__card {
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 14px;
 	padding: 12px 16px;
 	margin-bottom: 16px;
@@ -357,10 +348,10 @@
 .ill-sd input,
 .ill-sd select {
 	font: inherit;
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 8px;
 	padding: 4px 8px;
-	background: var(--ill-surface);
+	background: var(--sd-surface);
 	color: inherit;
 }
 .ill-sd__name {
@@ -375,7 +366,7 @@
 	width: 80px;
 }
 .ill-sd__cabinet {
-	background: var(--ill-surface-2);
+	background: var(--sd-surface-2);
 	border-radius: 10px;
 	padding: 8px 10px;
 	margin-bottom: 8px;
@@ -391,7 +382,7 @@
 	align-items: center;
 	gap: 8px;
 	padding: 6px 0;
-	border-bottom: 1px solid var(--ill-border);
+	border-bottom: 1px solid var(--sd-border);
 }
 .ill-sd__run-label {
 	font-weight: 600;
@@ -404,13 +395,13 @@
 	gap: 6px;
 }
 .ill-sd__pick {
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 999px;
 	background: transparent;
 	padding: 2px 10px;
 	font: inherit;
 	font-size: 0.85rem;
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 	cursor: pointer;
 }
 .ill-sd__bulk {
@@ -421,7 +412,7 @@
 	padding: 8px 12px;
 	margin-bottom: 8px;
 	border-radius: 10px;
-	background: var(--ill-surface-2);
+	background: var(--sd-surface-2);
 }
 .ill-sd__table-wrap {
 	overflow-x: auto;
@@ -435,19 +426,19 @@
 .ill-sd__table td {
 	text-align: left;
 	padding: 6px 8px;
-	border-bottom: 1px solid var(--ill-border);
+	border-bottom: 1px solid var(--sd-border);
 	white-space: nowrap;
 	vertical-align: middle;
 }
 .ill-sd__table thead th {
-	color: var(--ill-muted);
+	color: var(--sd-text-muted);
 	font-weight: 600;
 }
 .ill-sd__nested th {
 	padding-left: 28px;
 }
 .ill-sd__focused {
-	background: var(--ill-surface-2);
+	background: var(--sd-surface-2);
 }
 .ill-sd__link {
 	border: 0;
@@ -455,7 +446,7 @@
 	padding: 0;
 	font: inherit;
 	font-weight: 600;
-	color: var(--ill-secondary-600);
+	color: var(--sd-accent);
 	cursor: pointer;
 	text-decoration: underline;
 }
@@ -471,14 +462,14 @@
 	text-overflow: ellipsis;
 }
 .ill-sd__status--error {
-	color: var(--ill-error);
+	color: var(--sd-error);
 }
 .ill-sd__status--warning {
-	color: var(--ill-accent-800);
+	color: var(--sd-warning-ink);
 }
 .ill-sd__status--info,
 .ill-sd__status--ok {
-	color: var(--ill-muted);
+	color: var(--sd-text-muted);
 }
 .ill-sd__strip {
 	margin: 16px 0 0;
@@ -490,22 +481,22 @@
 }
 .ill-sd__strip text {
 	font-size: 11px;
-	fill: var(--ill-muted);
+	fill: var(--sd-text-muted);
 }
 .ill-sd__strip-bar {
-	fill: var(--ill-accent-500);
-	stroke: var(--ill-accent-800);
+	fill: var(--sd-highlight);
+	stroke: var(--sd-warning-ink);
 }
 .ill-sd__strip-bar--over {
-	fill: #f6c8c4;
-	stroke: var(--ill-error);
+	fill: var(--sd-error-soft);
+	stroke: var(--sd-error);
 }
 .ill-sd__strip-max {
-	stroke: var(--ill-primary-600);
+	stroke: var(--sd-text);
 	stroke-dasharray: 4 3;
 }
 .ill-sd__strip-feed {
-	fill: var(--ill-secondary-600);
+	fill: var(--sd-accent);
 }
 .ill-sd__board {
 	display: grid;
@@ -522,7 +513,7 @@
 .ill-sd__pool {
 	/* Grid items default to their content's width; let long part numbers wrap inside the box instead. */
 	min-width: 0;
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 14px;
 	padding: 8px 12px;
 	position: sticky;
@@ -550,7 +541,7 @@
 	cursor: grab;
 }
 .ill-sd__run-pool li:hover {
-	background: var(--ill-surface-2);
+	background: var(--sd-surface-2);
 }
 .ill-sd__run-pool label {
 	display: inline-flex;
@@ -569,21 +560,21 @@
 	white-space: nowrap;
 }
 .ill-sd__supply {
-	background: var(--ill-surface-2);
+	background: var(--sd-surface-2);
 	border-radius: 10px;
 	padding: 8px 10px;
 	margin-bottom: 8px;
 }
 .ill-sd__output {
-	border: 1px dashed var(--ill-border);
+	border: 1px dashed var(--sd-border);
 	border-radius: 8px;
 	padding: 6px 8px;
 	margin-bottom: 6px;
-	background: var(--ill-surface);
+	background: var(--sd-surface);
 }
 .ill-sd__output--over {
-	border-color: var(--ill-secondary-600);
-	background: #e6f0f6;
+	border-color: var(--sd-accent);
+	background: var(--sd-accent-soft);
 }
 .ill-sd__assigned li {
 	display: inline-flex;
@@ -609,23 +600,23 @@
 	width: 120px;
 	height: 8px;
 	border-radius: 999px;
-	background: var(--ill-border);
+	background: var(--sd-border);
 	overflow: hidden;
 }
 .ill-sd__load-bar > span:first-child {
 	display: block;
 	height: 100%;
-	background: var(--ill-secondary-600);
+	background: var(--sd-accent);
 }
 .ill-sd__load-bar--over > span:first-child {
-	background: var(--ill-error);
+	background: var(--sd-error);
 }
 .ill-sd__load-line {
 	position: absolute;
 	top: 0;
 	bottom: 0;
 	width: 1px;
-	background: var(--ill-primary-600);
+	background: var(--sd-text);
 }
 .ill-sd__zone-dot {
 	display: inline-block;
@@ -634,7 +625,7 @@
 	border-radius: 50%;
 }
 .ill-sd__picker {
-	border: 1px solid var(--ill-border);
+	border: 1px solid var(--sd-border);
 	border-radius: 10px;
 	padding: 8px 10px;
 	margin-top: 8px;
@@ -646,7 +637,7 @@
 	justify-content: space-between;
 	gap: 8px;
 	padding: 6px 0;
-	border-bottom: 1px solid var(--ill-border);
+	border-bottom: 1px solid var(--sd-border);
 }
 
 .ill-sd__riser {
@@ -654,8 +645,8 @@
 	width: 100%;
 	height: auto;
 	margin-top: 12px;
-	border: 1px solid var(--ill-border);
-	background: #fff;
+	border: 1px solid var(--sd-border);
+	background: var(--sd-surface);
 }
 
 /* Comment pins sit on the sheet image at fractions of its size (WP-4.3). */
@@ -676,8 +667,8 @@
 	height: 22px;
 	padding: 0 4px;
 	border-radius: 11px;
-	background: var(--ill-primary-600);
-	color: #fff;
+	background: var(--sd-text);
+	color: var(--sd-text-inverse);
 	font-size: 12px;
 	font-weight: 600;
 	line-height: 22px;
@@ -685,11 +676,11 @@
 	pointer-events: none;
 }
 .ill-sd__pin--resolved {
-	background: var(--ill-muted);
+	background: var(--sd-text-muted);
 }
 .ill-sd__pin--pending {
-	background: var(--ill-accent-500);
-	color: var(--ill-primary-600);
+	background: var(--sd-highlight);
+	color: var(--sd-text);
 }
 .ill-sd__comments {
 	margin: 0 0 12px;
@@ -698,13 +689,13 @@
 }
 .ill-sd__comments li {
 	padding: 8px 0;
-	border-bottom: 1px solid var(--ill-border);
+	border-bottom: 1px solid var(--sd-border);
 }
 .ill-sd__comments p {
 	margin: 0 0 4px;
 }
 .ill-sd__comment--resolved p:first-child {
-	color: var(--ill-muted);
+	color: var(--sd-text-muted);
 }
 
 .ill-sd__grid {
@@ -716,10 +707,10 @@
 	width: 360px;
 	max-width: 90vw;
 	padding: 10px;
-	border: 1px solid var(--ill-border);
-	background: var(--ill-surface);
+	border: 1px solid var(--sd-border);
+	background: var(--sd-surface);
 	border-radius: 6px;
-	box-shadow: 0 8px 30px #0002;
+	box-shadow: var(--sd-shadow-elevated);
 }
 .ill-sd__picker > input {
 	width: 100%;
@@ -740,7 +731,7 @@
 }
 .ill-sd__picker button:hover,
 .ill-sd__picker button[aria-selected='true'] {
-	background: var(--ill-border);
+	background: var(--sd-border);
 }
 .ill-sd__settings {
 	display: grid;

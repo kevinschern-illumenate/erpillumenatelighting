@@ -1,0 +1,104 @@
+/*
+ * System Designer semantic tokens (SD-1.1).
+ *
+ * Every colour, radius, shadow, space and font the designer uses is a --sd-* token defined here and
+ * mapped onto the portal tokens in public/css/portal.css, so a portal re-skin re-skins the designer.
+ * The fallbacks keep the bundle readable when it is mounted without portal.css (tests, gallery).
+ * Raw colour values belong in this file only.
+ *
+ * .ill-sd-layer carries the same tokens for content portalled out of the designer root
+ * (dialogs, menus, tooltips, toasts).
+ */
+.ill-sd,
+.ill-sd-layer {
+	/* Text */
+	--sd-text: var(--ill-navy-600, #172e48);
+	--sd-text-strong: var(--ill-navy-900, #0c1724);
+	--sd-text-muted: var(--ill-text-secondary, #5d6d7f);
+	--sd-text-inverse: #ffffff;
+
+	/* Surfaces and lines */
+	--sd-surface: #ffffff;
+	--sd-surface-2: var(--ill-surface-soft, #f6f8fa);
+	--sd-surface-sunken: var(--ill-gray-100, #eef1f4);
+	--sd-border: var(--ill-gray-300, #dce2e8);
+	--sd-border-strong: var(--ill-gray-400, #a2abb6);
+	--sd-overlay: rgb(12 23 36 / 0.45);
+
+	/* Brand and interaction */
+	--sd-brand: var(--ill-navy-600, #172e48);
+	--sd-accent: var(--ill-blue-600, #00588c);
+	--sd-accent-hover: var(--ill-blue-700, #004670);
+	--sd-accent-soft: var(--ill-blue-100, #e6eef4);
+	--sd-highlight: var(--ill-gold-500, #fdc757);
+	--sd-highlight-soft: var(--ill-gold-100, #fff9ee);
+	--sd-focus: var(--ill-blue-600, #00588c);
+
+	/* Severity: always paired with an icon and text, never colour alone */
+	--sd-error: var(--ill-red, #d63b2f);
+	--sd-error-ink: var(--ill-red-ink, #a8261c);
+	--sd-error-soft: var(--ill-red-100, #fbe7e5);
+	--sd-warning: var(--ill-gold-700, #ca9f46);
+	--sd-warning-ink: var(--ill-gold-ink, #7a5500);
+	--sd-warning-soft: var(--ill-gold-100, #fff9ee);
+	--sd-info: var(--ill-blue-600, #00588c);
+	--sd-info-soft: var(--ill-blue-100, #e6eef4);
+	--sd-ok: var(--ill-green, #006833);
+	--sd-ok-soft: var(--ill-green-100, #e7f5e8);
+
+	/* Shape */
+	--sd-radius-sm: var(--ill-radius-sm, 6px);
+	--sd-radius-control: var(--ill-radius-control, 10px);
+	--sd-radius-card: var(--ill-radius-card, 16px);
+	--sd-radius-full: var(--ill-radius-full, 9999px);
+	--sd-shadow-sm: var(--ill-shadow-sm, 0 1px 2px rgb(12 23 36 / 0.06));
+	--sd-shadow-card: var(--ill-shadow-card, 0 1px 2px rgb(12 23 36 / 0.06), 0 4px 12px rgb(12 23 36 / 0.06));
+	--sd-shadow-elevated: var(--ill-shadow-elevated, 0 8px 24px rgb(12 23 36 / 0.12), 0 2px 6px rgb(12 23 36 / 0.08));
+
+	/* Space (4px grid) */
+	--sd-space-1: var(--ill-space-1, 0.25rem);
+	--sd-space-2: var(--ill-space-2, 0.5rem);
+	--sd-space-3: var(--ill-space-3, 0.75rem);
+	--sd-space-4: var(--ill-space-4, 1rem);
+	--sd-space-5: var(--ill-space-5, 1.25rem);
+	--sd-space-6: var(--ill-space-6, 1.5rem);
+	--sd-space-8: var(--ill-space-8, 2rem);
+
+	/* Type */
+	--sd-font: var(--ill-font-family, Poppins, system-ui, sans-serif);
+	--sd-font-display: Manrope, Poppins, system-ui, sans-serif;
+	--sd-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	--sd-font-size-xs: var(--ill-font-size-xs, 0.75rem);
+	--sd-font-size-sm: var(--ill-font-size-sm, 0.875rem);
+	--sd-font-size-base: var(--ill-font-size-base, 1rem);
+	--sd-font-size-lg: var(--ill-font-size-lg, 1.125rem);
+	--sd-font-size-xl: var(--ill-font-size-xl, 1.25rem);
+
+	/* Motion */
+	--sd-motion-fast: var(--ill-transition-fast, 0.15s ease);
+	--sd-motion: var(--ill-transition-normal, 0.25s ease);
+
+	/* Layout */
+	--sd-rail-width: 220px;
+	--sd-panel-width: 340px;
+
+	font-family: var(--sd-font);
+	color: var(--sd-text);
+	line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ill-sd,
+	.ill-sd-layer {
+		--sd-motion-fast: 0s linear;
+		--sd-motion: 0s linear;
+	}
+	.ill-sd *,
+	.ill-sd-layer,
+	.ill-sd-layer * {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
