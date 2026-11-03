@@ -23,6 +23,18 @@ from jinja2 import (
 )
 from markupsafe import Markup
 
+# Read the allow-list from source: status.py imports frappe, which the checker does not load.
+BADGE_TONES = frozenset(
+	re.findall(
+		r'"(\w+)"',
+		re.search(
+			r"BADGE_TONES = frozenset\(\{([^}]*)\}\)",
+			(ROOT / "illumenate_lighting/illumenate_lighting/portal/status.py").read_text(),
+		).group(1),
+	)
+)
+assert BADGE_TONES >= {"primary", "secondary", "success", "danger"}, BADGE_TONES
+
 environment = Environment(
 	loader=ChoiceLoader(
 		[
@@ -46,6 +58,7 @@ environment.globals.update(
 		"ill_finder_enabled": lambda: True,
 		"ill_portal_client_flags": lambda: {"upload_widget": True},
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
+		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
@@ -658,7 +671,7 @@ schedule_variants = {
 				View(
 					name="QR-1",
 					link="/portal/quote-requests/QR-1",
-					status_class="info",
+					status_class='info" onmouseover="alert(1)',
 					status_label="Received",
 					assigned_name="Sam <S>",
 					last_message="Can you confirm <b>finish</b>?",
@@ -703,6 +716,10 @@ for name, variant in schedule_variants.items():
 	assert set(schedule_context["i18n"]) == SCHEDULE_TEXTS, set(schedule_context["i18n"]) ^ SCHEDULE_TEXTS
 	assert 'src="/assets/illumenate_lighting/js/portal/schedule/context.js?v=' in schedule_html
 	assert "pricing.js" not in schedule_html
+	# Plan 2.8: badge classes come only from the fixed tone allow-list.
+	badge_tones = set(re.findall(r'class="badge badge-([^" ]*)', schedule_html))
+	assert badge_tones <= BADGE_TONES, badge_tones - BADGE_TONES
+	assert "onmouseover" not in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")

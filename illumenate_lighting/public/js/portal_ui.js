@@ -13,10 +13,30 @@
 			.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 
-	function plain(html) {
-		const box = document.createElement('div');
-		box.innerHTML = String(html || '');
-		return box.textContent.trim();
+	// Plan 2.5: markup built by html`` escapes every interpolated value unless it is itself
+	// html``/raw() output; arrays are joined. Assign the result to innerHTML directly.
+	function SafeHTML(value) { this.value = value; }
+	SafeHTML.prototype.toString = function () { return this.value; };
+
+	function fragment(value) {
+		if (value instanceof SafeHTML) return value.value;
+		if (Array.isArray(value)) return value.map(fragment).join('');
+		return escape(value);
+	}
+
+	function html(strings, ...values) {
+		let out = strings[0];
+		values.forEach((value, i) => { out += fragment(value) + strings[i + 1]; });
+		return new SafeHTML(out);
+	}
+
+	// Trusted, static markup only (icons, translated chrome). Never pass user or server data.
+	function raw(markup) { return new SafeHTML(String(markup === undefined || markup === null ? '' : markup)); }
+
+	// Parse into an inert document: a live-document element would load <img onerror> payloads.
+	function plain(markup) {
+		const doc = new DOMParser().parseFromString(String(markup || ''), 'text/html');
+		return (doc.body ? doc.body.textContent : '').trim();
 	}
 
 	// Frappe sends frappe.throw text as a JSON list of JSON-encoded {message} objects.
@@ -311,6 +331,6 @@
 		}).finally(() => setBusy(button, false));
 	}
 
-	window.PortalUI = {call, toast, announce, confirm, escape, fieldErrors, serverMessage, skeleton, empty, failed};
+	window.PortalUI = {call, toast, announce, confirm, escape, html, raw, plain, fieldErrors, serverMessage, skeleton, empty, failed};
 	window.PortalAPI = {call: apiCall};
 })();

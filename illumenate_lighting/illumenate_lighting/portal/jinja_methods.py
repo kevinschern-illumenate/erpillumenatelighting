@@ -26,6 +26,13 @@ def ill_portal_client_flags() -> dict:
 	return portal_client_flags()
 
 
+def ill_badge_tone(value) -> str:
+	"""A badge tone from the fixed allow-list, for ``badge-{{ ... }}`` classes (plan 2.8)."""
+	from illumenate_lighting.illumenate_lighting.portal.status import badge_tone
+
+	return badge_tone(value)
+
+
 def ill_sanitize_html(html) -> str:
 	"""Sanitize stored rich text for ``| safe`` output.
 
