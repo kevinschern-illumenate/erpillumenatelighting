@@ -254,6 +254,16 @@ Readiness (`api/product_readiness.py:228-389`) is strong on engineering but chec
 | 6.7 | P2 | Compare two configurations | Side-by-side part number, dimensions, run plan, driver plan, price and availability. Pure read of two snapshots. |
 | 6.8 | P2 | Finish grouping-plan gates | Remaining items in `CONFIGURATOR_GROUPING_ALIGNMENT_PLAN.md:69,134-138,170-174,186-216` (leader cable BOM ownership, canonical identity). Keep group save behind its existing site flag until these are accepted. |
 
+**Phase 6 status** (branch `feat/phase-6-configurator`, stacked on Phase 2):
+
+| # | Status | Commits | Notes / deviations |
+|---|---|---|---|
+| 6.1 | Done | `16fb944` | `test_configuration_contracts.py` runs fixture, tape/neon, sheet, kit and driver through the same unit round-trip, rounding, breakdown-key and reopen assertions. Deviation: error-shape and receipt idempotency are already covered by `test_portal_errors` and `test_configurators_g`, so those are not duplicated. |
+| 6.2 | Done | `dee59ac` | Contract length helpers convert to mm canonical and keep the display unit. The tape/neon parser goes through them, and reopen falls back to old snapshot keys. Display units come from the stored request rather than new snapshot keys, so `config_hash` dedupe is unchanged. `whole_increments` gained a 1e-9 tolerance, which only affects new configurations. |
+| 6.3 | Done (report must be run by staff on staging/production before release) | `43c6333` | `pricing_utils.sum_then_round` is used once in tape/neon `price_result`. The read-only **Tape Neon Repricing Preview** script report lists old versus new totals for saved draft lines and skips issued documents and snapshots. The `legacy_rounding` keyword exists only for that report. Driver and sheet rounding are unchanged, because D3 covers tape/neon only. |
+| 6.4 | Done | `75e7d9a`, `f5b5f46` | New `led_sheet_configurator.get_sheet_cascading_options` (template-scoped, no prices) with kill switch `ill_portal_sheet_server_options` (default on). The client matcher still gives instant feedback, and the server answer sets the spec and marks unavailable pills. Deviation: unavailable pills are dimmed with a tooltip rather than disabled, so a dealer can still change direction. |
+| 6.5 | Done | `17f0787`, `02eba07` | `api/option_cache.py` caches tape/neon init, kit-by-template init and the LED sheet template list. The key combines the product-finder `catalog_stamp()` (already invalidated on ~45 template/spec/attribute/Webflow doctypes, which covers publication), an own epoch bumped by hooks on driver eligibility and kit maps, and a fingerprint of `ill_*` site flags. Kill switch: `ill_option_projection_cache`. Attribute, lens and sheet-spec lookups are now bulk loads. Deviations: the "configurator audit" line list the plan refers to does not exist, so the N+1 loops were found by reading the code. A write that bypasses hooks can be stale for at most 60 s (the stamp TTL). |
+
 ---
 
 ## Phase 7 — Desk and internal tooling
