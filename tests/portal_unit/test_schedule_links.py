@@ -37,7 +37,7 @@ class Context(Record):
 	__setattr__ = dict.__setitem__
 
 
-def configure_page(form, resolve_line, drafts=True):
+def configure_page(form, resolve_line, drafts=True, for_line=None, copy=True):
 	"""Load configure.py with only the boundaries its schedule-line branch touches."""
 	stubs = {}
 	for name, attributes in {
@@ -46,13 +46,14 @@ def configure_page(form, resolve_line, drafts=True):
 			"conf_flag": lambda flag: False,
 			"fixture_groups_enabled": lambda: False,
 			"durable_drafts_enabled": lambda: drafts,
+			"line_copy_enabled": lambda: copy,
 		},
 		".portal.rollout": {"require_family": lambda family: None},
 		".portal.configuration": {
 			"resolve_line": resolve_line,
 			"family_for_template": lambda family, template: family,
 		},
-		".portal.configuration_reopen": {"for_line": lambda line: None},
+		".portal.configuration_reopen": {"for_line": for_line or (lambda line: None)},
 		".api.configuration_contract": {
 			"finite_number": lambda value, **kwargs: float(value),
 			"TAPE_CATEGORIES": ("LED Tape", "COB Tape"),
@@ -72,8 +73,8 @@ def configure_page(form, resolve_line, drafts=True):
 
 
 class ConfigurePage(unittest.TestCase):
-	def run_page(self, form, resolve_line, drafts=True):
-		loader, form = configure_page(form, resolve_line, drafts)
+	def run_page(self, form, resolve_line, drafts=True, **page):
+		loader, form = configure_page(form, resolve_line, drafts, **page)
 		with loader as (module, frappe):
 			frappe.session = Record(user="buyer@example.com")
 			frappe.form_dict = Record(form)
@@ -116,6 +117,32 @@ class ConfigurePage(unittest.TestCase):
 		self.assertIsNone(error)
 		self.assertEqual((context.line_idx, context.line_key), (0, "KEY1"))
 		self.assertTrue(context.draft_autosave)
+
+	def test_configure_similar_prefills_a_new_line(self):
+		request = {"family": "LED Neon", "template": "NEON-1", "selections": {}}
+		resolve = MagicMock(return_value=Record(line_id="A<1>", line_key="KEY1"))
+		error, context = self.run_page(
+			{"schedule": "S1", "similar_to": "KEY1"}, resolve, for_line=lambda line: request
+		)
+		self.assertIsNone(error)
+		resolve.assert_called_once()
+		self.assertEqual(resolve.call_args.args[1], "KEY1")
+		self.assertEqual(context.similar_to, "A<1>")
+		self.assertEqual(context.initial_request, request)
+		self.assertEqual(context.product_category, "LED Neon")
+		self.assertIsNone(context.line_idx, "saving adds a new line")
+		self.assertIsNone(context.line_key)
+
+	def test_configure_similar_respects_the_kill_switch_and_stale_keys(self):
+		resolve = MagicMock(side_effect=ValueError("The selected line changed or is unavailable; reload the schedule"))
+		error, _context = self.run_page({"category": "Linear Fixture", "schedule": "S1", "similar_to": "GONE"}, resolve)
+		self.assertIn("reload the schedule", error)
+		error, context = self.run_page(
+			{"category": "Linear Fixture", "schedule": "S1", "similar_to": "GONE"}, resolve, copy=False
+		)
+		self.assertIsNone(error)
+		self.assertIsNone(context.similar_to)
+		self.assertIsNone(context.initial_request)
 
 	def test_draft_autosave_needs_a_schedule_and_the_kill_switch(self):
 		form = {"category": "Linear Fixture", "schedule": "S1"}

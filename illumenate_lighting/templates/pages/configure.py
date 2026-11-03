@@ -155,6 +155,27 @@ def get_context(context):
 			template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
 			if product_category != "Linear Fixture":
 				configurator_mode = "coordinator"
+	# Plan 3.2 "Configure similar": pre-fill from another line of this schedule; saving adds a new line.
+	similar_to = _query_value(frappe.form_dict.get("similar_to"))
+	context.similar_to = None
+	if similar_to and schedule and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import line_copy_enabled
+
+		if line_copy_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.configuration import resolve_line
+			from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+
+			try:
+				source_line = resolve_line(schedule, similar_to)
+			except ValueError as exc:
+				frappe.throw(str(exc))
+			initial_request = for_line(source_line)
+			if initial_request:
+				context.similar_to = source_line.get("line_id") or similar_to
+				product_category = initial_request["family"]
+				template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
+				if product_category != "Linear Fixture":
+					configurator_mode = "coordinator"
 
 	# Quiz answers are plain words ("Damp", "Silver"); match them on the server to the
 	# options this template offers, so the browser does not apply the raw labels.

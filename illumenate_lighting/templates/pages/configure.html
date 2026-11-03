@@ -34,6 +34,11 @@ Allows users to configure fixtures using segment-based configuration
 		</span>
 	</div>
 	{% endif %}
+	{% if similar_to | default(none) %}
+	<div class="alert alert-info ill-similar-banner" role="status">
+		{{ _("Configuring a new line similar to {0}. Nothing is added to the schedule until you save.").format(similar_to) | e }}
+	</div>
+	{% endif %}
 {% if product_category == 'Extrusion Kit' %}
 <div id="familyConfigurator" class="ill-configurator ill-configurator-kit container portal-page">
 	<nav aria-label="breadcrumb" class="mb-4">
