@@ -471,7 +471,7 @@ def get_webflow_products(
                     "notes": k.notes,
                     "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
                     "webflow_title": k.get("webflow_title"),
-                    "webflow_description": k.get("webflow_description"),
+                    "webflow_description": k.get("component_description"),
                 }
                 for k in doc.kit_components
             ]

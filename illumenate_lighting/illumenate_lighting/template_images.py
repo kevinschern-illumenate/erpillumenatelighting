@@ -5,7 +5,6 @@ Filled on every template save (``refresh``, from ``template_listing.refresh_temp
 - Kit components: ``component_image`` on each row is the image of its component type: the
   first row of that type with an item, that item's template item (``variant_of``) image, else
   the item's own image. The same lookup the Webflow Product used for its kit groups.
-  ``description`` on each row is the item's own Description, as plain text (owner, 2026-11-02).
 - Certifications: ``badge_image`` on each row is the linked certification's dark badge for the
   template's brand: ilLumenate ``custom_badge_image_dark``, 206 Lighting
   ``custom_206_badge_image_dark``.
@@ -36,8 +35,7 @@ def item_image(item_code):
 	return row.image
 
 
-def fill_component_images(template, image_of=item_image, describe=None):
-	describe = describe or item_description
+def fill_component_images(template, image_of=item_image):
 	images = {}
 	for row in template.get("kit_components") or []:
 		kind = row.get("component_type")
@@ -45,19 +43,6 @@ def fill_component_images(template, image_of=item_image, describe=None):
 			images[kind] = image_of(row.component_item)
 	for row in template.get("kit_components") or []:
 		row.component_image = images.get(row.get("component_type"))
-		row.description = describe(row.get("component_item"))
-
-
-def item_description(item_code):
-	"""The item's Description as plain text."""
-	if not item_code:
-		return None
-	text = frappe.db.get_value("Item", item_code, "description")
-	if not text:
-		return None
-	from frappe.utils import strip_html
-
-	return " ".join(strip_html(text).split()) or None
 
 
 def template_brand(template):

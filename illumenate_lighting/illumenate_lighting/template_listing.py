@@ -153,6 +153,8 @@ def linked_spec_rows(product, specifications):
 		return []
 	rows = []
 	for row in record["specifications"][before:]:
+		if row.get("spec_label") in SKIPPED_LINKED_ROWS.get(product.get("product_type"), ()):
+			continue
 		value = row.get("spec_value")
 		if value in (None, ""):
 			continue
@@ -169,6 +171,10 @@ def linked_spec_rows(product, specifications):
 		)
 	return rows
 
+
+# Linked-record rows a template type does not store (owner, 2026-11-03: kits leave out
+# Certifications & Ratings; the Webflow export still adds it for kit products).
+SKIPPED_LINKED_ROWS = {"Extrusion Kit": ("Certifications & Ratings",)}
 
 # What the export's spec enrichment reads from a product record.
 LINKED_SPEC_KEYS = (

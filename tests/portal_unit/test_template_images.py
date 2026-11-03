@@ -16,14 +16,11 @@ class Images(unittest.TestCase):
 			]
 			images = {"CH-RA01-SW": "/files/ch-ra01.png", "LN-RA01-FR": "/files/lens.png"}
 			template = Record(kit_components=rows)
-			module.fill_component_images(
-				template, image_of=images.get, describe=lambda code: code and f"{code} desc"
-			)
+			module.fill_component_images(template, image_of=images.get)
 			self.assertEqual(
 				[row.component_image for row in rows],
 				["/files/ch-ra01.png", "/files/ch-ra01.png", "/files/lens.png", "/files/lens.png"],
 			)
-			self.assertEqual(rows[0].description, "CH-RA01-SW desc")
 
 	def test_the_variant_parent_image_comes_first(self):
 		with load_service(ROOT + ".template_images") as (module, frappe):

@@ -234,7 +234,7 @@ def project_product(
 					"quantity": row.get("quantity"),
 					"notes": row.get("notes"),
 					"custom_webflow_title": row.get("webflow_title"),
-					"custom_webflow_description": row.get("webflow_description"),
+					"custom_webflow_description": row.get("component_description"),
 				}
 				for row in get("kit_components") or []
 			],

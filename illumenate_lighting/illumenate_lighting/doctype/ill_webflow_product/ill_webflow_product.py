@@ -4442,7 +4442,7 @@ class ilLWebflowProduct(Document):
 						if c_type not in grouped_components:
 							grouped_components[c_type] = []
 							
-						desc = c_row.get("webflow_description") or c_row.get("description") or ""
+						desc = c_row.get("component_description") or ""
 						item_code = c_row.get("component_item")
 						
 						# Grab image only once per component type
@@ -4478,7 +4478,7 @@ class ilLWebflowProduct(Document):
 						self.append("kit_components", {
 							"component_type": c_type,
 							"component_item": items_list[0]["code"] if items_list else "", 
-							"webflow_description": json.dumps(final_json_list, indent=1)
+							"component_description": json.dumps(final_json_list, indent=1)
 						})
 					
 					record(debug, "Kit Components", len(grouped_components), [f"{k} ({len(v)} items)" for k, v in grouped_components.items()], appended=True)

@@ -32,7 +32,7 @@ PRODUCT_TABLES = {
 CHILD_COLUMNS = {
 	KIT_COMPONENT: {
 		"custom_webflow_title": "webflow_title",
-		"custom_webflow_description": "webflow_description",
+		"custom_webflow_description": "component_description",
 	},
 	CERTIFICATION_LINK: {"custom_badge_images": "webflow_badge_images"},
 }

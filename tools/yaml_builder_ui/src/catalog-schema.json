@@ -2757,13 +2757,6 @@
           "read_only": 1
         },
         {
-          "fieldname": "description",
-          "label": "Description",
-          "fieldtype": "Small Text",
-          "description": "Set on template save from the item's Description (formatting removed). The spec sheet shows it next to the item code.",
-          "read_only": 1
-        },
-        {
           "fieldname": "component_spec_doctype",
           "label": "Spec DocType",
           "fieldtype": "Select",
@@ -2793,8 +2786,8 @@
           "fieldtype": "Data"
         },
         {
-          "fieldname": "webflow_description",
-          "label": "Webflow Description",
+          "fieldname": "component_description",
+          "label": "Description",
           "fieldtype": "Long Text"
         }
       ]

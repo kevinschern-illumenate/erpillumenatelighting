@@ -400,6 +400,28 @@ class Listing(unittest.TestCase):
 				self.module.apply_template_rows(product)
 				self.assertEqual(product["product_name"], expected)
 
+	def test_kits_leave_out_certifications_and_ratings(self):
+		import sys
+
+		export = types.ModuleType(ROOT + ".api.webflow_export_v2")
+
+		def enrich(record, _doc):
+			record["specifications"] += [
+				{"spec_label": "Dimensions", "spec_value": "1in"},
+				{"spec_label": "Certifications & Ratings", "spec_value": "DryRated"},
+			]
+
+		export._enrich_specifications_from_linked_doctypes = enrich
+		sys.modules[export.__name__] = export
+		self.addCleanup(sys.modules.pop, export.__name__, None)
+		for product_type, labels in (
+			("Extrusion Kit", ["Dimensions"]),
+			("Driver", ["Dimensions", "Certifications & Ratings"]),
+		):
+			product = Doc("ilL-Webflow-Product", "x", product_type=product_type)
+			rows = self.module.linked_spec_rows(product, [])
+			self.assertEqual([row["spec_label"] for row in rows], labels)
+
 	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
 		diff = self.module.diff_listing(
 			[

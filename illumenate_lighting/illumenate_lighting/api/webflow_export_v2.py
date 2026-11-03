@@ -376,8 +376,8 @@ def _finish_products(products, brand_code, include_child_tables, get_doc):
             product["kit_components"] = [
                 {
                     "component_type": k.component_type,
-                    # Legacy key n8n reads; the field is webflow_description now.
-                    "custom_webflow_description": k.get("webflow_description") or "[]"
+                    # Legacy key n8n reads; the field is component_description now.
+                    "custom_webflow_description": k.get("component_description") or "[]"
                 }
                 for k in getattr(doc.source, "kit_components", [])
             ]

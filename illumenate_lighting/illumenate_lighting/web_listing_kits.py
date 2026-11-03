@@ -32,7 +32,7 @@ COMPONENT_FIELDS = (
 	"quantity",
 	"notes",
 	"webflow_title",
-	"webflow_description",
+	"component_description",
 )
 
 

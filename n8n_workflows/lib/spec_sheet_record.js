@@ -45,19 +45,21 @@ const STEP_FIELDS = ['option_step', 'option_type', 'option_label', 'option_descr
 record.configurator_options = ctx.include_configurator === false ? [] :
   (t.part_no_configurator || []).map(row => Object.fromEntries(STEP_FIELDS.map(f => [f, row[f] ?? null])));
 
-// Kit components: grouped by component type in template order, the same shape as before:
-// [{hero_image}, {code, label}, ...] as a JSON string under custom_webflow_description.
+// Kit components: the template's rows, grouped here by component type in template order
+// (owner, 2026-11-03). Each group's component_description is a JSON string:
+// [{hero_image}, {code, label}, ...]. hero_image is the group's Component Image (the first
+// item's Variant Of image, set on template save); labels are each row's Description, trimmed.
 const groups = new Map();
 for (const row of t.kit_components || []) {
   if (!row.component_type) continue;
   if (!groups.has(row.component_type)) groups.set(row.component_type, {image: null, items: []});
   const group = groups.get(row.component_type);
   if (!group.image && row.component_image) group.image = absolute(row.component_image);
-  group.items.push({code: row.component_item || '', label: row.description || ''});
+  group.items.push({code: row.component_item || '', label: String(row.component_description || '').trim()});
 }
 record.kit_components = Array.from(groups, ([type, group]) => ({
   component_type: type,
-  custom_webflow_description: JSON.stringify([...(group.image ? [{hero_image: group.image}] : []), ...group.items]),
+  component_description: JSON.stringify([...(group.image ? [{hero_image: group.image}] : []), ...group.items], null, 1),
 }));
 
 // Certifications: the template's rows; the badge is the brand's dark badge (Badge Image).

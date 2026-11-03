@@ -36,7 +36,7 @@ class RenamePatch(unittest.TestCase):
 		self.assertTrue(any("set `webflow_status` = `custom_webflow_status`" in q for q in sql))
 		self.assertTrue(any("set `web_product_category` = `custom_web_product_category`" in q for q in sql))
 		self.assertTrue(any("set `webflow_template_status` = `custom_template_status`" in q for q in sql))
-		self.assertTrue(any("set `webflow_description` = `custom_webflow_description`" in q for q in sql))
+		self.assertTrue(any("set `component_description` = `custom_webflow_description`" in q for q in sql))
 		self.assertTrue(any("webflow_badge = '' where webflow_badge = 'None'" in q for q in sql))
 		moved = [call.args[1] for call in frappe.db.sql.call_args_list if len(call.args) > 1]
 		self.assertIn(("webflow_specifications", "ilL-Webflow-Product", "custom_spec_custom"), moved)
