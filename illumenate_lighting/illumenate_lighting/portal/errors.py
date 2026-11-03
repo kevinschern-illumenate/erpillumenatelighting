@@ -26,10 +26,38 @@ class PortalError(_ValidationBase):
 	def __init__(self, code: str, message: str, field: str | None = None, hint: str | None = None):
 		super().__init__(message)
 		self.portal_payload = {"code": code, "message": message, "field": field, "hint": hint}
+		self.msgprinted = None
 
 
 def portal_error(code: str, message: str, field: str | None = None, hint: str | None = None):
-	raise PortalError(code, message, field=field, hint=hint)
+	"""Raise a dealer-readable error.
+
+	Like ``frappe.throw`` the message is msgprinted, so existing callers that read
+	``_server_messages`` keep working; the structured payload is also attached to the
+	JSON response as ``portal_error`` (Frappe keeps ``frappe.local.response`` keys when it
+	builds the error response) for ``PortalAPI.call`` to map onto a field.
+	"""
+	exc = PortalError(code, message, field=field, hint=hint)
+	attach_payload(exc.portal_payload)
+	msgprint = getattr(frappe, "msgprint", None)
+	if callable(msgprint):
+		text = f"{message} {hint}" if hint else message
+		try:
+			msgprint(text, indicator="red")
+			exc.msgprinted = text
+		except Exception:
+			pass
+	raise exc
+
+
+def attach_payload(payload: dict) -> None:
+	response = getattr(getattr(frappe, "local", None), "response", None)
+	if response is None:
+		return
+	try:
+		response["portal_error"] = dict(payload)
+	except Exception:
+		pass
 
 
 def _expected_types() -> tuple:
@@ -62,6 +90,22 @@ def log_unexpected(exc: BaseException, title: str, context: dict | None = None):
 		return None
 
 
+def _retract(exc: PortalError) -> None:
+	"""A caught PortalError becomes a normal reply: drop its queued msgprint and response payload."""
+	local = getattr(frappe, "local", None)
+	log = getattr(local, "message_log", None)
+	if exc.msgprinted and isinstance(log, list):
+		for index in range(len(log) - 1, -1, -1):
+			entry = log[index]
+			text = entry.get("message") if isinstance(entry, dict) else entry
+			if text == exc.msgprinted:
+				del log[index]
+				break
+	response = getattr(local, "response", None)
+	if response is not None and hasattr(response, "pop"):
+		response.pop("portal_error", None)
+
+
 def _rollback_write_request():
 	request = getattr(getattr(frappe, "local", None), "request", None)
 	if getattr(request, "method", None) in ("POST", "PUT", "DELETE"):
@@ -87,6 +131,7 @@ def failure(
 		except Exception:
 			pass
 	if isinstance(exc, PortalError):
+		_retract(exc)
 		payload = exc.portal_payload
 		response = {"success": False, "error": payload["message"], "error_code": payload["code"]}
 		for key in ("field", "hint"):

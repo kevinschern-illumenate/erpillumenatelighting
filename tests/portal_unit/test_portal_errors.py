@@ -22,6 +22,42 @@ class PortalErrors(unittest.TestCase):
 				{"code": "RUN_TOO_LONG", "message": "Reduce this run to 16 ft", "field": "length", "hint": "Add a feed"},
 			)
 
+	def raising_site(self, frappe):
+		frappe.local.response = {}
+		frappe.local.message_log = []
+		frappe.msgprint = lambda text, **kwargs: frappe.local.message_log.append({"message": text, **kwargs})
+
+	def test_portal_error_reaches_the_response_and_the_legacy_message_log(self):
+		with self.load() as (errors, frappe):
+			self.raising_site(frappe)
+			frappe.local.message_log.append({"message": "earlier"})
+			with self.assertRaises(errors.PortalError):
+				errors.portal_error("RUN_TOO_LONG", "Reduce this run to 16 ft.", field="length", hint="Or add a feed.")
+			self.assertEqual(frappe.local.response["portal_error"]["field"], "length")
+			self.assertEqual(frappe.local.response["portal_error"]["code"], "RUN_TOO_LONG")
+			self.assertEqual(
+				frappe.local.message_log[-1], {"message": "Reduce this run to 16 ft. Or add a feed.", "indicator": "red"}
+			)
+
+	def test_a_caught_portal_error_becomes_a_quiet_legacy_reply(self):
+		with self.load() as (errors, frappe):
+			self.raising_site(frappe)
+			frappe.local.message_log.append({"message": "earlier"})
+			try:
+				errors.portal_error("NO_FEED", "Pick a feed", field="feed")
+			except errors.PortalError as exc:
+				result = errors.failure(exc, "FALLBACK", title="t")
+			self.assertEqual(result, {"success": False, "error": "Pick a feed", "error_code": "NO_FEED", "field": "feed"})
+			self.assertNotIn("portal_error", frappe.local.response)
+			self.assertEqual(frappe.local.message_log, [{"message": "earlier"}])
+
+	def test_portal_error_without_a_request_still_raises(self):
+		with self.load() as (errors, frappe):
+			frappe.msgprint = MagicMock(side_effect=RuntimeError("no request"))
+			with self.assertRaises(errors.PortalError) as caught:
+				errors.portal_error("X", "Fix it")
+			self.assertIsNone(caught.exception.msgprinted)
+
 	def test_failure_keeps_portal_payload(self):
 		with self.load() as (errors, frappe):
 			frappe.log_error = MagicMock()
