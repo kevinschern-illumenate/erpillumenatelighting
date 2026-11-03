@@ -2,6 +2,7 @@
 
 import pathlib
 import unittest
+from typing import ClassVar
 from unittest.mock import MagicMock
 
 from test_services import ROOT, Record, load_service
@@ -104,7 +105,7 @@ class KitSpecLoaders(unittest.TestCase):
 class NarrowedSites(unittest.TestCase):
 	"""The plan-listed swallow sites must route through portal.errors."""
 
-	SITES = {
+	SITES: ClassVar[dict[str, tuple[str, int]]] = {
 		"illumenate_lighting/api/tape_neon_configurator.py": ("failure(", 5),
 		"illumenate_lighting/api/extrusion_kit_configurator.py": ("is_expected(e)", 4),
 		"templates/pages/schedule.py": ("log_unexpected(e", 3),

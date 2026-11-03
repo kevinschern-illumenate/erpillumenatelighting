@@ -66,7 +66,7 @@ class SignedWebhooks(unittest.TestCase):
 			settings = MagicMock()
 			settings.get_password.return_value = secret
 			frappe.get_cached_doc = MagicMock(return_value=settings)
-			payload, refused = module.read_signed_json()
+			_payload, refused = module.read_signed_json()
 			self.assertEqual(refused["error"], "unauthorized")
 			self.assertEqual(frappe.local.response["http_status_code"], 401)
 
