@@ -117,6 +117,7 @@
 		});
 		registry.push(this);
 		this.delay(function () { if (root.IllConfigurator.attachGroupEditor) root.IllConfigurator.attachGroupEditor(self); }, 0);
+		this.delay(function () { if (root.IllConfigurator.attachDraftAutosave) root.IllConfigurator.attachDraftAutosave(self); }, 0);
 	}
 	Base._uid = 0;
 
@@ -373,6 +374,7 @@
 				if (r.message && r.message.success) {
 					if (self.context.draft_id) root.sessionStorage.removeItem('ill-line-draft:' + self.context.draft_id);
 					if (self.context.resume_id) root.sessionStorage.removeItem('ill-config-view:' + self.context.resume_id);
+					if (self._draftAutosave) self._draftAutosave.discard(true);
 					if (callbacks.success) callbacks.success(r.message);
 					else root.location.href = '/portal/schedules/' + encodeURIComponent(schedule);
 				} else frappe.msgprint((r.message || {}).error || __('The configuration could not be saved.'));
