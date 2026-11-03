@@ -98,6 +98,7 @@ test('the power supply configurator adds the panel under a valid result',()=>{
  const {setup:family}=require('./family_helpers.cjs');
  const {dom,w,requests,instance}=family('Driver');
  w.document.body.insertAdjacentHTML('beforeend','<script type="application/json" id="ill-live-estimate">{"enabled": true}</script>');
+ w.__=(value,args)=>String(value).replace(/\{(\d+)\}/g,(m,i)=>args&&args[i]!=null?args[i]:m); // frappe's __ substitutes
  w.eval(SOURCE);
  requests.at(-1).callback({message:{success:true,template:{code:'DRV-A',name:'Slim Driver'},steps:[{name:'wattage',label:'Wattage'}],options:{wattage:[{value:96,label:'96 W'}]}}});
  requests.at(-1).callback({message:{success:true,template_code:'DRV-A',part_number:'P',variant:{item:'DRV-96',item_name:'96W'},specs:[],pricing:{total_msrp:120},stock:{in_stock:true,qty_available:7}}});
