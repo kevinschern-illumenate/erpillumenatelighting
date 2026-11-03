@@ -4438,6 +4438,7 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 		frappe.throw(access_error or _("You do not have access to this schedule"), frappe.PermissionError)
 
 	# 6. Load the schedule and compute per-line MSRP + tier pricing.
+	from illumenate_lighting.illumenate_lighting.portal.schedule_lookup import Lookup, prefetch_schedule
 	from illumenate_lighting.templates.pages.schedule import (
 		_get_configured_fixture_display_details,
 		_get_configured_led_sheet_display_details,
@@ -4446,6 +4447,9 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 
 	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
 	lines = schedule.lines or []
+	# Plan 2.6: the same batched reads as the schedule page.
+	lookup = Lookup()
+	prefetch_schedule(lookup, lines)
 
 	# Batch-fetch the latest pricing snapshots for configured fixtures / tape-neon
 	# so MSRP resolution mirrors the schedule page (which uses the same source).
@@ -4500,10 +4504,10 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 
 		cf_details = None
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
-			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
+			cf_details = _get_configured_fixture_display_details(line.configured_fixture, lookup=lookup)
 		cls_details = None
 		if line.manufacturer_type == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
-			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet)
+			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet, lookup=lookup)
 
 		msrp = compute_line_msrp(
 			line,
@@ -4511,6 +4515,7 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 			cls_details=cls_details,
 			fixture_snapshot_price=fixture_snapshot_price,
 			ctn_snapshot_price=ctn_snapshot_price,
+			lookup=lookup,
 		)
 
 		msrp_unit = msrp["unit"]

@@ -14,6 +14,14 @@ from frappe import _
 
 SALES_EMAIL = "sales@illumenate.lighting"
 
+# Plan 2.8: the only badge tones a template may put in a class name.
+BADGE_TONES = frozenset({"primary", "secondary", "success", "danger", "warning", "info", "light", "dark"})
+
+
+def badge_tone(value, default="secondary"):
+	"""``value`` when it is a known Bootstrap badge tone, else ``default``."""
+	return value if isinstance(value, str) and value in BADGE_TONES else default
+
 # --------------------------------------------------------------------------
 # Fixture schedule statuses
 # --------------------------------------------------------------------------
