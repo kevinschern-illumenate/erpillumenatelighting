@@ -1178,6 +1178,18 @@ Also handles new schedule creation when is_new is True
 					<div class="illumenate-fields" style="display: block;">
 						<hr>
 						<h6 class="text-muted mb-3">{{ _("ilLumenate Product Selection") }}</h6>
+						{% if part_number_decode_enabled | default(false) %}
+						<div class="form-group ill-add-by-pn">
+							<label for="addLinePartNumber">{{ _("Add by part number") }}</label>
+							<div class="input-group">
+								<input id="addLinePartNumber" type="text" class="form-control" maxlength="200" autocomplete="off" spellcheck="false" placeholder="ILL-…" aria-describedby="addLinePartNumberResult">
+								<div class="input-group-append">
+									<button type="button" class="btn btn-outline-primary" id="addLinePartNumberGo">{{ _("Configure") }}</button>
+								</div>
+							</div>
+							<small id="addLinePartNumberResult" class="form-text text-muted" role="status" aria-live="polite">{{ _("Paste a fixture part number to open the configurator with its options.") }}</small>
+						</div>
+						{% endif %}
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
@@ -1899,6 +1911,7 @@ Also handles new schedule creation when is_new is True
 	"can_issue_packet": (can_issue_packet | default(false)),
 	"line_copy": (line_copy_enabled | default(false)),
 	"bulk_edit": (bulk_edit_enabled | default(false)),
+	"part_number_decode": (part_number_decode_enabled | default(false)),
 	"project_name": (project.name if project else ''),
 	"dealer_customer_group": (dealer_customer_group or '') if show_dealer_pricing else '',
 	"i18n": {
@@ -1958,13 +1971,20 @@ Also handles new schedule creation when is_new is True
 		"Quantity must be a whole number of at least 1": _("Quantity must be a whole number of at least 1"),
 		"Delete {0} selected line(s)? This cannot be undone.": _("Delete {0} selected line(s)? This cannot be undone."),
 		"Schedule {0}: {1}": _("Schedule {0}: {1}"),
+		"Enter a positive whole quantity.": _("Enter a positive whole quantity."),
+		"This part number fits several products: {0}. Choose the product below.": _("This part number fits several products: {0}. Choose the product below."),
+		"No product matches this part number.": _("No product matches this part number."),
+		"Enter a fixture part number.": _("Enter a fixture part number."),
+		"Looking up…": _("Looking up…"),
+		"Opening the configurator…": _("Opening the configurator…"),
+		"Could not look up this part number.": _("Could not look up this part number."),
 		"Could not copy the lines.": _("Could not copy the lines."),
 		"Could not load your schedules.": _("Could not load your schedules."),
 		"Browser storage is unavailable. Allow session storage to preserve this draft.": _("Browser storage is unavailable. Allow session storage to preserve this draft."),
 		"(similar)": _("(similar)"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

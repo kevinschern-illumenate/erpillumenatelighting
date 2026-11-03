@@ -698,6 +698,7 @@ schedule_variants = {
 		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
 		line_copy_enabled=True,
 		bulk_edit_enabled=True,
+		part_number_decode_enabled=True,
 	),
 }
 SCHEDULE_JS = ROOT / "illumenate_lighting/public/js/portal/schedule"
@@ -733,6 +734,11 @@ for name, variant in schedule_variants.items():
 	assert bulk_enabled or 'id="bulkActionBar"' not in schedule_html
 	assert bulk_enabled or 'class="line-select"' not in schedule_html
 	assert "schedule/bulk.js?v=" in schedule_html
+	# Plan 3.5: "Add by part number" only renders behind its kill switch.
+	decode_enabled = bool(variant.get("part_number_decode_enabled"))
+	assert schedule_context["part_number_decode"] is decode_enabled
+	assert ('id="addLinePartNumber"' in schedule_html) is decode_enabled
+	assert "schedule/part_number.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
@@ -962,6 +968,21 @@ nothing = configurator.render(
 	}
 )
 assert "nothing was pre-filled" in nothing and "5000K" in nothing
+# Plan 3.5: a decoded part number names its unmatched codes and what to set by hand, escaped.
+from_part_number = configurator.render(
+	**{
+		**context,
+		"pn_prefill": {
+			"part_number": "ILL-<SH01>",
+			"unmatched": [{"answer": "<i>WH</i>", "reason": "matches more than one option"}],
+			"review": [{"text": "Length 48 in"}, {"text": "Output <O3>"}],
+		},
+	}
+)
+assert "Pre-filled from part number ILL-&lt;SH01&gt;" in from_part_number
+assert "&lt;i&gt;WH&lt;/i&gt; (matches more than one option)" in from_part_number
+assert "Length 48 in, Output &lt;O3&gt;" in from_part_number
+assert "ill-pn-banner" not in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
 designer_template = environment.get_template("templates/pages/system_design.html")
 designer = designer_template.render(

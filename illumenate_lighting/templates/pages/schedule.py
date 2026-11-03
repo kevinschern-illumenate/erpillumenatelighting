@@ -479,12 +479,17 @@ def get_context(context):
 	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
 	context.can_edit = can_edit
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import bulk_edit_enabled, line_copy_enabled
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import (
+		bulk_edit_enabled,
+		line_copy_enabled,
+		part_number_decode_enabled,
+	)
 
 	context.line_copy_enabled = line_copy_enabled()
 	context.bulk_edit_enabled = bool(
 		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and bulk_edit_enabled()
 	)
+	context.part_number_decode_enabled = bool(can_edit and part_number_decode_enabled())
 	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
