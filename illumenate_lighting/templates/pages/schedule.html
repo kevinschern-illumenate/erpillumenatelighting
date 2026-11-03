@@ -1090,6 +1090,40 @@ Also handles new schedule creation when is_new is True
 			</div>
 		</div>
 	</div>
+{% if compare_enabled and (lines_json or []) | length >= 2 %}
+<!-- Compare two lines (plan 6.7) -->
+<div class="row mt-4">
+	<div class="col-12">
+		<div class="card">
+			<div class="card-header">
+				<h6 class="mb-0"><i class="fa fa-columns" aria-hidden="true"></i> {{ _("Compare two lines") }}</h6>
+			</div>
+			<div class="card-body">
+				<form id="compareLinesForm" class="ill-compare-form">
+					<div>
+						<label for="compareLineA" class="small mb-1">{{ _("First line") }}</label>
+						<select id="compareLineA" class="form-control form-control-sm">
+							{% for line in lines_json %}
+							<option value="{{ line.line_key | e }}"{% if loop.first %} selected{% endif %}>{{ (line.line_id or ("#" ~ line.idx)) | e }}{% if line.location %} — {{ line.location | e }}{% endif %}</option>
+							{% endfor %}
+						</select>
+					</div>
+					<div>
+						<label for="compareLineB" class="small mb-1">{{ _("Second line") }}</label>
+						<select id="compareLineB" class="form-control form-control-sm">
+							{% for line in lines_json %}
+							<option value="{{ line.line_key | e }}"{% if loop.index == 2 %} selected{% endif %}>{{ (line.line_id or ("#" ~ line.idx)) | e }}{% if line.location %} — {{ line.location | e }}{% endif %}</option>
+							{% endfor %}
+						</select>
+					</div>
+					<button type="submit" class="btn btn-sm btn-outline-primary">{{ _("Compare") }}</button>
+				</form>
+				<div id="compareResult" class="mt-3" aria-live="polite"></div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 <!-- Version History Section -->
 <div class="row mt-4 mb-4">
 	<div class="col-12">
@@ -1841,9 +1875,14 @@ Also handles new schedule creation when is_new is True
 		"Loading version history…": _("Loading version history…"),
 		"No earlier versions": _("No earlier versions"),
 		"This is the first version of this schedule.": _("This is the first version of this schedule."),
+		"Choose two different lines to compare.": _("Choose two different lines to compare."),
+		"Comparing…": _("Comparing…"),
+		"The comparison could not be loaded.": _("The comparison could not be loaded."),
+		"Line comparison is turned off on this site.": _("Line comparison is turned off on this site."),
+		"Differs": _("Differs"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "compare"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

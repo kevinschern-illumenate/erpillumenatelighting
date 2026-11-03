@@ -1048,4 +1048,9 @@
 		background: var(--ill-gray-100);
 		color: var(--ill-ink);
 	}
+	// Plan 6.7: compare two lines.
+	.ill-compare-form { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; }
+	.ill-compare-form select { min-width: 14rem; }
+	.ill-compare-table th[scope="row"] { width: 12rem; white-space: nowrap; }
+	.ill-compare-table tr.ill-compare-differs td { background: var(--ill-accent-bg); }
 }
