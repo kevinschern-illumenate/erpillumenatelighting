@@ -244,7 +244,7 @@
 	box-shadow: var(--sd-shadow-sm);
 }
 .sd-canvas__step {
-	padding: var(--sd-space-5) var(--sd-space-6);
+	padding: var(--sd-space-5);
 }
 .sd-canvas h2 {
 	margin-top: 0;
@@ -255,7 +255,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--sd-space-3);
-	padding: var(--sd-space-3) var(--sd-space-6);
+	padding: var(--sd-space-3) var(--sd-space-5);
 	border-top: 1px solid var(--sd-border);
 	border-radius: 0 0 var(--sd-radius-card) var(--sd-radius-card);
 	background: var(--sd-surface);
@@ -346,12 +346,17 @@
 }
 .sd-panel .sd-check {
 	display: flex;
+	align-items: flex-start;
 	gap: var(--sd-space-2);
 	padding: var(--sd-space-2) 0;
 	border-bottom: 1px solid var(--sd-border);
 }
 .sd-panel .sd-check:last-child {
 	border-bottom: 0;
+}
+.sd-panel .sd-check > .sd-severity {
+	flex: none;
+	margin-top: 2px;
 }
 .sd-check__text {
 	min-width: 0;

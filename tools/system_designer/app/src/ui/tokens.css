@@ -79,8 +79,8 @@
 	--sd-motion: var(--ill-transition-normal, 0.25s ease);
 
 	/* Layout */
-	--sd-rail-width: 220px;
-	--sd-panel-width: 340px;
+	--sd-rail-width: 200px;
+	--sd-panel-width: 320px;
 
 	font-family: var(--sd-font);
 	color: var(--sd-text);
