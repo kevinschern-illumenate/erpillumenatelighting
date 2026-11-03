@@ -9,7 +9,7 @@ import { AUTOSAVE_IDLE_MS, AUTOSAVE_MIN_INTERVAL_MS, useAutosave } from './hooks
 
 let root: Root;
 let store: DesignStore;
-let save: ReturnType<typeof vi.fn>;
+let save: ReturnType<typeof vi.fn<() => void>>;
 
 function Harness({ enabled = true, step = 'start', online = true }: { enabled?: boolean; step?: string; online?: boolean }) {
   useAutosave({ store, enabled, save, step, online });
@@ -24,7 +24,7 @@ const edit = (value: number) =>
 beforeEach(() => {
   vi.useFakeTimers();
   store = createDesignStore();
-  save = vi.fn(() => {
+  save = vi.fn<() => void>(() => {
     store.setState({ saveStatus: 'saving' });
     store.setState({ saveStatus: 'saved', dirty: false });
   });

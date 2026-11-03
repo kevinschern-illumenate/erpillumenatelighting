@@ -242,6 +242,7 @@ describe('designer shell', () => {
     await render(apiFor({ ...open, permissions: { ...open.permissions, can_engineer: true } }));
     expect(el.querySelector('nav[aria-label^="Design"]')?.getAttribute('aria-label')).toBe('Design tabs');
     expect(button('Grids')).toBeDefined();
+    await click(button('Accept and continue'));
     await openMenu('View');
     expect(menuItem('Checks panel')).toBeDefined();
     expect(menuItem('Engineering tools')).toBeUndefined();
