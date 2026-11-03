@@ -125,6 +125,18 @@ User profile, notifications, and account preferences
 							<p class="mb-2"><strong>{{ _("Currency") }}:</strong> {{ (customer.default_currency or "USD") | e }}</p>
 						</div>
 					</div>
+					{% if dealer_logo | default(none) %}
+					<hr>
+					<section id="dealerLogo" aria-labelledby="dealerLogoTitle" data-logo-url="{{ (dealer_logo.url or '') | e }}" data-company="{{ customer.customer_name | e }}">
+						<h6 id="dealerLogoTitle">{{ _("Drawing title-block logo") }}</h6>
+						<p class="small text-muted">{{ _("PNG or JPEG. It appears beside the ilLumenate logo on System Designer title blocks and the drawings exported from them. Drawings already issued keep their logo.") }}</p>
+						<div class="mb-2" data-logo-preview></div>
+						<input type="file" class="form-control-file mb-2" accept=".png,.jpg,.jpeg,image/png,image/jpeg" data-logo-input aria-label="{{ _('Logo file') }}">
+						<button type="button" class="btn btn-sm btn-primary" data-logo-save>{{ _("Save logo") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-danger" data-logo-remove hidden>{{ _("Remove logo") }}</button>
+						<div class="small mt-2" role="status" aria-live="polite" data-logo-feedback></div>
+					</section>
+					{% endif %}
 					<hr>
 					<p class="text-muted mb-0">
 						<i class="fa fa-info-circle" aria-hidden="true"></i> 
