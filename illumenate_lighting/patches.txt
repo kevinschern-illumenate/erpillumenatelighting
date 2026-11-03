@@ -79,3 +79,4 @@ illumenate_lighting.patches.flag_mounting_methods_without_accessory
 illumenate_lighting.patches.migrate_photometrics_to_spec_records
 illumenate_lighting.patches.catalog_builder_permissions #2026-10-28 rerun for ilL-Spec-Photometry and ilL-Spec-Colorimetry
 illumenate_lighting.patches.create_publication_worker_user
+illumenate_lighting.patches.create_qbo_integration_user
