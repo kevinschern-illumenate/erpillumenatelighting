@@ -712,7 +712,6 @@ assert 'id="compareLinesForm"' not in schedule_page.render(**compare_base, compa
 assert 'id="compareLinesForm"' not in schedule_page.render(
 	**{**compare_base, "lines_json": compare_lines[:1]}, compare_enabled=True
 )
-parser.feed(compare_html)
 (render_dir / "schedule-compare.html").write_text(compare_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
