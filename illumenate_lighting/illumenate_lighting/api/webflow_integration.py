@@ -16,9 +16,13 @@ import json
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
+
+from illumenate_lighting.illumenate_lighting.api.guest_payload import bounded_int
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_product_detail(item_code: Optional[str] = None, sku: Optional[str] = None) -> dict:
 	"""
 	Get comprehensive product details for a single product.
@@ -562,6 +566,7 @@ def _get_configured_fixture_pricing(configured_fixture_name: str) -> Optional[di
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_related_products(item_code: str, limit: int = 6) -> dict:
 	"""
 	Get related products in the same item group.
@@ -598,7 +603,7 @@ def get_related_products(item_code: str, limit: int = 6) -> dict:
 				"name": ["!=", item_code],
 			},
 			fields=["name", "item_code", "item_name", "image"],
-			limit=limit,
+			limit=bounded_int(limit, default=6, minimum=1, maximum=24),
 		)
 		
 		# Enrich with pricing

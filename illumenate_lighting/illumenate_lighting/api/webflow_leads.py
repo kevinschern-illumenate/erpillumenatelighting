@@ -524,6 +524,7 @@ def _map_webflow_fields(webflow_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @frappe.whitelist(allow_guest=True, methods=["GET"])
+@rate_limit(limit=60, seconds=60)
 def health_check() -> dict:
     """
     Health check endpoint for n8n to verify connectivity.

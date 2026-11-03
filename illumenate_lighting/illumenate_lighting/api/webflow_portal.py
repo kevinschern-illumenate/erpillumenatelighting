@@ -22,6 +22,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 
 
 # =============================================================================
@@ -471,6 +472,7 @@ def get_pricing(item_code: str) -> dict:
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_stock_status(item_code: str) -> dict:
 	"""
 	Return stock status for an item.  Public (guest-accessible) but only
@@ -677,6 +679,7 @@ def _apply_stock_visibility(stock_result: dict, user: str) -> dict:
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_msrp(item_code: str = None, fixture_template: str = None) -> dict:
 	"""
 	Return public MSRP pricing.  No authentication required.

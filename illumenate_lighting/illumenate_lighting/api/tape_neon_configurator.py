@@ -36,6 +36,7 @@ from typing import Any, Optional
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, now
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
@@ -3968,6 +3969,7 @@ def _build_neon_description(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @price_scoped
 def get_mounting_accessories(
     template_code: str,
