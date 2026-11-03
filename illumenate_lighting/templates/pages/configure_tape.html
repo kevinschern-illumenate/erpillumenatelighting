@@ -333,19 +333,13 @@ Allows users to configure LED tape and neon products with step-by-step selection
 {% block script %}
 {{ include_script("illumenate_configurator.bundle.js") }}
 {# Phase 4: shared/tape_neon configurator modules loaded globally via hooks.web_include_js #}
-<script>
-$(function() {
-    var rootEl = document.querySelector('.ill-configurator-tape-neon') || document;
-    var inst = new IllConfigurator.TapeNeon(rootEl, {
-        product_category: {{ product_category | tojson }},
-        is_neon: {{ is_neon | tojson }},
-        schedule_name: {{ schedule_name | tojson }},
-        project_name: {{ project_name | tojson }},
-        line_idx: {{ line_idx | tojson }},
-        can_save: {{ can_save | tojson }}
-    });
-    IllConfigurator.registerDefaultTapeNeon(inst);
-    inst.init();
-});
-</script>
+<script type="application/json" id="configure-tape-context">{{ {
+	"product_category": product_category,
+	"is_neon": is_neon,
+	"schedule_name": schedule_name,
+	"project_name": project_name,
+	"line_idx": line_idx,
+	"can_save": can_save,
+} | tojson }}</script>
+<script src="/assets/illumenate_lighting/js/portal/configure_tape/page.js?v={{ configure_tape_js_version | e }}"></script>
 {% endblock %}
