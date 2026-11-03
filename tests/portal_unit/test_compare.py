@@ -68,7 +68,7 @@ class Compare(unittest.TestCase):
 		frappe.get_all.return_value = []
 
 	def test_switched_off_reads_nothing(self):
-		with load_service(MODULE, self.boundaries(enabled=False)) as (compare, frappe):
+		with load_service(MODULE, self.boundaries(enabled=False)) as (compare, _frappe):
 			self.assertEqual(compare.compare_lines("S1", "a", "b"), {"success": True, "enabled": False})
 		self.assertEqual(self.calls, [])
 
@@ -119,7 +119,7 @@ class Compare(unittest.TestCase):
 		self.assertEqual(side["part_number"], "ILL-LIN-<b>", "values stay raw; the browser writes them as text")
 		self.assertEqual(side["dimensions"], '48.0" (1219 mm)')
 		self.assertEqual(side["run_plan"], ['Run 1 · 47.2" (1200 mm) · 14.6 W · leader 60.0" (1524 mm)'])
-		self.assertEqual(side["driver_plan"], ["1 × DRV-60"])
+		self.assertEqual(side["driver_plan"], ["1 \u00d7 DRV-60"])
 		self.assertEqual(side["availability"], "In stock")
 		self.assertNotIn("unit_price", side)
 
@@ -165,12 +165,12 @@ class Compare(unittest.TestCase):
 			missing = compare.snapshot(Record(manufacturer_type="ILLUMENATE", configured_fixture="GONE", qty=1))
 		self.assertEqual(tape_side["run_plan"], ['Segment 1 · 120.0" (3048 mm) · 30.0 W · Endcap'])
 		self.assertEqual(tape_side["driver_plan"], ["Power supply not included"])
-		self.assertEqual(sheet_side["dimensions"], "4 × 2.5 ft, 10 panels")
+		self.assertEqual(sheet_side["dimensions"], "4 \u00d7 2.5 ft, 10 panels")
 		self.assertEqual(sheet_side["run_plan"], ["Group 1 · 6 panels · 120.0 W", "Group 2 · 4 panels · 80.0 W"])
-		self.assertEqual(sheet_side["driver_plan"], ["2 × DRV-150"])
+		self.assertEqual(sheet_side["driver_plan"], ["2 \u00d7 DRV-150"])
 		self.assertEqual(group_side["part_number"], "ILL-GRP-1")
 		self.assertEqual(group_side["run_plan"], ["Run A · 6' 0\" · 20.0 W", "Run B · 6' 0\" · 20.0 W"])
-		self.assertEqual(group_side["driver_plan"], ["1 × DRV-96"])
+		self.assertEqual(group_side["driver_plan"], ["1 \u00d7 DRV-96"])
 		self.assertIsNone(missing.get("part_number"), "a missing record reads as empty, not an error")
 
 	def test_rows_are_display_text_with_a_same_flag(self):

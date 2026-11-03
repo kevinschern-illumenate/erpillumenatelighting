@@ -212,7 +212,7 @@ def _led_sheet(side, name):
 	side.update(
 		part_number=doc.get("part_number") or doc.get("config_hash"),
 		template=doc.get("sheet_template"),
-		dimensions=f"{float(width):g} × {float(height):g} ft, {doc.get('sheets_needed') or 0} panels"
+		dimensions=f"{float(width):g} \u00d7 {float(height):g} ft, {doc.get('sheets_needed') or 0} panels"
 		if width and height
 		else None,
 		total_watts=watts(doc.get("total_system_watts")),
@@ -249,7 +249,7 @@ def _group(side, line):
 def _drivers(pairs, included):
 	if not included:
 		return ["Power supply not included"]
-	return [f"{int(float(qty or 0)) or 1} × {item}" for item, qty in pairs if item]
+	return [f"{int(float(qty or 0)) or 1} \u00d7 {item}" for item, qty in pairs if item]
 
 
 def _json(value):
