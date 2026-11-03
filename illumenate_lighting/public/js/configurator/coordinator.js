@@ -1318,6 +1318,31 @@ function copyBothToClipboard() {
 	});
 }
 
+// Plan 3.8: price and lead time under the results, labelled as an estimate.
+function estimateEnabled() {
+	var IC = root.IllConfigurator;
+	return !!(IC && IC.estimateEnabled && IC.estimateEnabled());
+}
+
+function estimateTotal(result) {
+	var total = result && result.estimate ? result.estimate.total_price_msrp : null;
+	return total == null || total === '' || !isFinite(Number(total)) ? null : Number(total);
+}
+
+function renderEstimate(result, options) {
+	var IC = root.IllConfigurator;
+	if (!IC || !IC.renderEstimate) return;
+	var $host = $('#noResults').parent();
+	if (!result || !result.is_valid) { $host.children('.ill-estimate').remove(); return; }
+	var settings = { schedule_name: context.config_schedule, show_pricing: !!context.show_pricing };
+	Object.keys(options || {}).forEach(function (key) { settings[key] = options[key]; });
+	if (result.estimate && settings.family === 'tape_neon') {
+		settings.price = estimateTotal(result);
+		settings.lead_time = result.estimate.lead_time || null;
+	}
+	IC.renderEstimate($host, settings);
+}
+
 function displayResults(result) {
 	$('#noResults').hide();
 	
@@ -1468,6 +1493,11 @@ function displayResults(result) {
 			$('#adderBreakdown').html(breakdownHtml);
 		}
 	}
+
+	renderEstimate(result, {
+		family: 'fixture',
+		tape_offering: (result.pricing_inputs || {}).tape_offering || (result.auto_selected_tape || {}).tape_offering_id
+	});
 }
 
 function saveToSchedule() {
@@ -2468,10 +2498,10 @@ function bulkReelCalculate() {
 
 	coordinatorRequest({
 		method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_neon_template_config',
-		args: {
+		args: Object.assign({
 			template_code: templateCode,
 			selections: JSON.stringify(selections),
-		},
+		}, estimateEnabled() ? { include_estimate: 1 } : {}),
 		btn: $('#brCalculateBtn'),
 		callback: function(r) {
 			$('#brCalculateBtn').html('<i class="fa fa-calculator"></i> ' + __('Calculate &amp; Validate') + '');
@@ -2552,6 +2582,7 @@ function bulkReelDisplayResults(result) {
 
 	renderDriverPlan((result.resolved_items || {}).driver_plan);
 	$('#pricingResults').hide();
+	renderEstimate(result, { family: 'tape_neon', tape_offering: (result.resolved_items || {}).tape_offering });
 }
 
 // Included supplies are saved as their own schedule line under the fixture.
@@ -2661,6 +2692,7 @@ function tnValidateAndQuote() {
 		Object.assign(args, power);
 		if (power.override_max_run_ft === '') delete args.override_max_run_ft;
 	}
+	if (estimateEnabled()) args.include_estimate = 1;
 	lastTnSelections = selections;
 	lastTnSegments = args.segments_json || null;
 	lastTnTemplate = templateCode || null;
@@ -2737,6 +2769,7 @@ function tnDisplayResults(result) {
 		$('#pricingResults').hide();
 		$('#ledRunDetailsPanel').hide();
 		$('#driverResults').hide();
+		renderEstimate(null);
 		tnUpdateSaveButtonVisibility();
 		return;
 	}
@@ -2832,8 +2865,17 @@ function tnDisplayResults(result) {
 		renderDriverPlan((result.resolved_items || {}).driver_plan);
 	}
 
-	// Pricing (basic for tape/neon)
-	if (tnTemplateOptions && tnTemplateOptions.pricing) {
+	// Pricing (basic for tape/neon). The server estimate (plan 3.8) is what the save records.
+	var serverTotal = estimateTotal(result);
+	if (serverTotal != null && context.show_pricing) {
+		$('#pricingResults').show();
+		$('#adderBreakdown').empty();
+		$('#priceBreakdownBody').empty().append($('<tr></tr>').append(
+			$('<td></td>').text(__('Total')),
+			$('<td class="text-right"></td>').append($('<strong></strong>').text('$' + serverTotal.toFixed(2))),
+			$('<td class="text-right"></td>').text('-')
+		));
+	} else if (tnTemplateOptions && tnTemplateOptions.pricing) {
 		var p = tnTemplateOptions.pricing;
 		var c = result.computed || {};
 		if (p.price_per_ft_msrp && c.manufacturable_length_ft) {
@@ -2868,6 +2910,7 @@ function tnDisplayResults(result) {
 		}
 	}
 
+	renderEstimate(result, { family: 'tape_neon', tape_offering: (result.resolved_items || {}).tape_offering });
 	tnUpdateSaveButtonVisibility();
 }
 

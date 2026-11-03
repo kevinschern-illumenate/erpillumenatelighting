@@ -475,6 +475,7 @@
 		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
+		this._requestEstimate(args);
 		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
@@ -529,12 +530,19 @@
 		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
+		this._requestEstimate(args);
 		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_neon_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
 			isCurrent: this.validationGuard(),
 			callback: function (r) { self._handleResult(r.message); }
 		});
+	};
+
+	// Plan 3.8: ask the validator for the save path's price and the offering's lead time.
+	TapeNeon.prototype._requestEstimate = function (args) {
+		var IC = root.IllConfigurator;
+		if (IC && IC.estimateEnabled && IC.estimateEnabled()) args.include_estimate = 1;
 	};
 
 	TapeNeon.prototype._handleResult = function (result) {
@@ -569,6 +577,7 @@
 			this.$('#resultDifference').text(((c.difference_mm || 0) / 25.4).toFixed(2) + '"');
 		}
 		this.$('#resultWatts').text((c.total_watts || 0).toFixed(2) + ' W');
+		this._renderEstimate(result);
 
 		if (c.max_run_ft_effective) {
 			this.$('#resultMaxRunRow').show();
@@ -652,6 +661,23 @@
 
 		this.$('#btnSaveToSchedule').prop('disabled', !this.CAN_SAVE && !this.$('#scheduleSelect').val());
 		this._loadMountingAccessories(result);
+	};
+
+	TapeNeon.prototype._renderEstimate = function (result) {
+		var IC = root.IllConfigurator;
+		if (!IC || !IC.renderEstimate) return;
+		var estimate = result.estimate || {};
+		var options = {
+			family: 'tape_neon',
+			tape_offering: (result.resolved_items || {}).tape_offering,
+			schedule_name: this.context.config_schedule,
+			show_pricing: this.context.show_pricing !== false
+		};
+		if (result.estimate) {
+			options.price = estimate.total_price_msrp != null ? estimate.total_price_msrp : null;
+			options.lead_time = estimate.lead_time || null;
+		}
+		IC.renderEstimate(this.$('#resultsCard > .card-body'), options);
 	};
 
 	TapeNeon.prototype._showError = function (msg) {

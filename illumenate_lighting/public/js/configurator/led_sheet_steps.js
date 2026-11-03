@@ -560,6 +560,15 @@
 		}
 
 		this.$('#sheetSummary').html(html);
+		// Plan 3.8: the template's lead-time class, labelled as an estimate.
+		if (root.IllConfigurator && root.IllConfigurator.renderEstimate) {
+			root.IllConfigurator.renderEstimate(this.$('#sheetSummary'), {
+				family: 'led_sheet',
+				template: this.template ? this.template.name : null,
+				schedule_name: this.context.config_schedule,
+				show_pricing: showPricing
+			});
+		}
 		this.$('#sheetResults').show();
 	};
 
