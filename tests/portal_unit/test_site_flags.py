@@ -62,6 +62,7 @@ class SiteFlags(unittest.TestCase):
 			"gallery_enabled": "ill_portal_gallery",
 			"dealer_logo_enabled": "ill_portal_dealer_logo",
 			"staff_heic_enabled": "ill_desk_heic_conversion",
+			"upload_duplicate_check_enabled": "ill_portal_upload_duplicate_check",
 		}
 		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
 			frappe.log_error = MagicMock()

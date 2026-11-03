@@ -83,7 +83,7 @@ class DuplicateDetection(unittest.TestCase):
 
 	def load(self, flag=True):
 		configuration = types.SimpleNamespace(resolve_line=MagicMock(), schedule_context=MagicMock())
-		flags = types.SimpleNamespace(conf_flag=MagicMock(return_value=flag))
+		flags = types.SimpleNamespace(upload_duplicate_check_enabled=MagicMock(return_value=flag))
 		return load_service(
 			ROOT + ".portal.line_documents",
 			{ROOT + ".portal.configuration": configuration, ROOT + ".portal.site_flags": flags},

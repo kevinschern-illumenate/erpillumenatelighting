@@ -16,9 +16,9 @@ MAX_DIGESTS = 10
 
 def duplicate_check_enabled():
 	"""Plan 4.8 kill switch: on unless a site sets ``ill_portal_upload_duplicate_check`` false."""
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import conf_flag
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import upload_duplicate_check_enabled
 
-	return conf_flag("ill_portal_upload_duplicate_check", default=True)
+	return upload_duplicate_check_enabled()
 
 
 def line_label(schedule, line_key):

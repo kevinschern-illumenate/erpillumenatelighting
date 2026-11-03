@@ -43,6 +43,7 @@ def flags(**overrides):
 		"dealer_logo_enabled": True,
 		"staff_heic_enabled": True,
 		"heic_uploads_enabled": True,
+		"upload_duplicate_check_enabled": True,
 		**overrides,
 	}
 	return types.SimpleNamespace(**{key: (lambda value=value: value) for key, value in values.items()})

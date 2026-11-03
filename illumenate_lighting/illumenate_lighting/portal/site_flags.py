@@ -55,6 +55,11 @@ def gallery_enabled():
 	return conf_flag("ill_portal_gallery", default=True)
 
 
+def upload_duplicate_check_enabled():
+	"""Warn about and skip re-uploads of bytes already on a schedule (hardening plan 4.8)."""
+	return conf_flag("ill_portal_upload_duplicate_check", default=True)
+
+
 def dealer_logo_enabled():
 	"""Dealer logo self-service on /portal/account (hardening plan 4.6)."""
 	return conf_flag("ill_portal_dealer_logo", default=True)
