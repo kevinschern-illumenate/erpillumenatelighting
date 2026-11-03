@@ -50,7 +50,7 @@ def _changes(changes):
 			try:
 				number = float(str(value).strip())
 			except ValueError:
-				number = 0
+				number = 0.0
 			if not number.is_integer() or number < 1 or number > MAX_QTY:
 				frappe.throw(_("Quantity must be a whole number of at least 1"))
 			values[field] = int(number)
