@@ -28,6 +28,14 @@
             if (status.status === 'Done') {
                 dialog.hide();
                 frappe.show_alert({message: __('Spec sheet generated.'), indicator: 'green'});
+                const warnings = frm.__spec_sheet_warnings || [];
+                if (warnings.length) {
+                    frappe.msgprint({
+                        title: __('Spec sheet generated, with notes'),
+                        message: '<ul>' + warnings.map(w => `<li>${frappe.utils.escape_html(w)}</li>`).join('') + '</ul>',
+                        indicator: 'orange',
+                    });
+                }
                 frm.reload_doc();
             } else if (status.status === 'Failed' || status.status === 'Unknown') {
                 dialog.hide();
@@ -51,7 +59,10 @@
         frappe.xcall(METHOD + 'generate_spec_sheet', {
             template_doctype: frm.doctype,
             template_id: frm.doc.name,
-        }).then(result => poll(frm, dialog, result.job_id)).catch(() => dialog.hide());
+        }).then(result => {
+            frm.__spec_sheet_warnings = result.warnings || [];
+            poll(frm, dialog, result.job_id);
+        }).catch(() => dialog.hide());
     }
 
     ['ilL-Fixture-Template', 'ilL-Tape-Neon-Template', 'ilL-LED-Sheet-Template', 'ilL-Driver-Template',

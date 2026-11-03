@@ -270,7 +270,8 @@ def build(template, product, brand, legacy=None):
 			"template_id": template.name,
 			"product": product.name if product else None,
 			# The Webflow spec sheet template page is chosen by product type.
-			"product_type": product.product_type if product else _product_type(template),
+			# Always the template's (owner, 2026-11-03): templates may have no Webflow Product.
+			"product_type": _product_type(template),
 			"include_configurator": _include_configurator(brand),
 			# The PDF's file name: <Brand>_<Display Name>_Spec Sheet.pdf (owner, 2026-11-03).
 			"spec_sheet_file_name": spec_sheet_file_name(template, brand),

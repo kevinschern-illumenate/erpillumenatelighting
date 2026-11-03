@@ -68,3 +68,20 @@ bulk run goes one template type at a time (`doctypes="ilL-Extrusion-Kit-Template
 their current spec sheets and links until their Webflow page (`/spec-sheet-templates/<product type>`)
 is built and that type is regenerated and checked. The dry run's `webflow_pages_needed` lists the
 pages a run needs.
+
+## Readiness check and product attachment (owner, 2026-11-03)
+
+- **Generate Spec checks the template first** (`spec_sheet_check.py`) and lists everything missing;
+  nothing is sent to n8n until it passes. Required: Target Brand, Display Name or Template Name,
+  Sublabel, Hero Image, Dimensions Image, at least one Specifications value, and the brand's Webflow
+  page `/spec-sheet-templates/<product type>`. Kits also need a Default Profile Spec with dimensions,
+  Kit Components rows with Type and Item, and a Component Image per type. Warnings (shown after the
+  spec is generated): rows without Description, certifications without Badge Image, no configurator
+  steps. Other template types get their own rules when their Webflow page is built. The bulk run
+  skips templates that fail the check and says why.
+- **The Webflow page comes from the template's product type**, never the Webflow Product's, so
+  templates without a product work. The page check uses site config `spec_sheet_template_sites`
+  ({brand code: Webflow site}) when set, else the brand's Webflow Site URL.
+- **The current spec sheet is also attached to the linked Webflow Product** (a second File record for
+  the same stored file); the product's earlier spec sheet attachments are unattached, as on the
+  template.

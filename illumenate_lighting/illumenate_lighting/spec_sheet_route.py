@@ -139,6 +139,56 @@ def detach_older(template_doctype, template_id):
 	return [row.file_url for row in older]
 
 
+PRODUCT = "ilL-Webflow-Product"
+
+
+def attach_to_product(template, file_url):
+	"""Attach the current spec sheet to the linked Webflow Product too (owner, 2026-11-03).
+
+	A second File record for the same file (Frappe stores the file once), attached to the
+	product. The product's earlier spec sheet attachments are unattached, so only the current
+	one is listed there as well; they stay in File Manager. Returns the File name or None.
+	"""
+	product = template.get("webflow_product")
+	if not product or not frappe.db.exists(PRODUCT, product):
+		return None
+	attached = frappe.get_all(
+		"File",
+		filters={
+			"attached_to_doctype": PRODUCT,
+			"attached_to_name": product,
+			"file_url": ["like", "%_Spec Sheet%"],
+		},
+		fields=["name", "file_url"],
+	)
+	for row in files_to_detach(attached, file_url):
+		frappe.db.set_value(
+			"File",
+			row.name,
+			{"attached_to_doctype": None, "attached_to_name": None, "attached_to_field": None},
+			update_modified=False,
+		)
+	existing = next((row.name for row in attached if row.file_url == file_url), None)
+	if existing:
+		return existing
+	source = (
+		frappe.db.get_value("File", {"file_url": file_url}, ["file_name", "is_private"], as_dict=True) or {}
+	)
+	doc = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_url": file_url,
+			"file_name": source.get("file_name"),
+			"is_private": source.get("is_private") or 0,
+			"attached_to_doctype": PRODUCT,
+			"attached_to_name": product,
+		}
+	)
+	doc.flags.ignore_permissions = True
+	doc.insert()
+	return doc.name
+
+
 def files_to_detach(files, current):
 	"""Pure: every file except the one the template points at."""
 	return [row for row in files if row.get("file_url") != current]

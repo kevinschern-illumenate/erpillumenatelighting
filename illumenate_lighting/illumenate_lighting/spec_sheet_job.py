@@ -52,6 +52,18 @@ def generate_spec_sheet(template_doctype, template_id, brand=None):
 	require_template_access(template_doctype, template_id)
 	template = frappe.get_doc(template_doctype, template_id)
 	brand = _brand(template, brand)
+	# What the spec sheet needs (owner, 2026-11-03): stop and list what is missing.
+	from illumenate_lighting.illumenate_lighting.spec_sheet_check import check
+
+	readiness = check(template)
+	if readiness["missing"]:
+		frappe.throw(
+			_("Fill these in before generating the spec sheet:")
+			+ "<ul>"
+			+ "".join(f"<li>{frappe.utils.escape_html(item)}</li>" for item in readiness["missing"])
+			+ "</ul>",
+			title=_("Spec sheet not ready"),
+		)
 	# Fail now, not in the background, when the site is not set up for n8n.
 	from illumenate_lighting.illumenate_lighting.api import n8n_config
 
@@ -76,7 +88,7 @@ def generate_spec_sheet(template_doctype, template_id, brand=None):
 		template_id=template_id,
 		brand=brand,
 	)
-	return {"job_id": job_id}
+	return {"job_id": job_id, "warnings": readiness["warnings"]}
 
 
 @frappe.whitelist()
@@ -153,7 +165,14 @@ def register_spec_sheet(template_doctype, template_id, file_url):
 	# The Webflow Product's Spec Sheet document row is built from the stable link.
 	from illumenate_lighting.illumenate_lighting.template_listing import push_to_product
 
-	push_to_product(frappe.get_doc(template_doctype, template_id))
+	template = frappe.get_doc(template_doctype, template_id)
+	push_to_product(template)
+	try:
+		spec_sheet_route.attach_to_product(template, file_url)
+		frappe.db.commit()
+	except Exception:
+		frappe.db.rollback()
+		frappe.log_error(title=f"Spec sheet not attached to product: {template_doctype} {template_id}")
 	frappe.db.commit()
 	return file_url
 
@@ -163,17 +182,6 @@ def register_spec_sheet(template_doctype, template_id, file_url):
 BULK_KEY = "spec_sheet_bulk:{0}"
 BULK_TTL = 24 * 60 * 60
 DEFAULT_STATUSES = ("Active + Live",)
-
-
-def webflow_page(doctype, name, product=None):
-	"""The Webflow spec sheet template page the workflow fetches: the product type, as a slug
-	(``/spec-sheet-templates/<slug>``), the same way the Fetch Webflow Template nodes build it."""
-	product_type = frappe.db.get_value("ilL-Webflow-Product", product, "product_type") if product else None
-	if not product_type:
-		from illumenate_lighting.illumenate_lighting.template_listing import product_type_for
-
-		product_type = product_type_for(frappe.get_doc(doctype, name))
-	return (product_type or "").lower().replace(" ", "-")
 
 
 def plan_regeneration(statuses=DEFAULT_STATUSES, names=None, doctypes=None):
@@ -196,9 +204,17 @@ def plan_regeneration(statuses=DEFAULT_STATUSES, names=None, doctypes=None):
 			if not brand:
 				skipped.append({**entry, "reason": "no Target Brand"})
 				continue
+			from illumenate_lighting.illumenate_lighting.spec_sheet_check import check, page_slug
+
+			template = frappe.get_doc(doctype, row.name)
+			readiness = check(template)
+			entry["webflow_page"] = page_slug(template)
+			if readiness["missing"]:
+				skipped.append({**entry, "reason": "missing: " + "; ".join(readiness["missing"])})
+				continue
 			entry["public_url"] = public_url(row.name, brand)
 			entry["current_file"] = row.spec_sheet
-			entry["webflow_page"] = webflow_page(doctype, row.name, row.webflow_product)
+			entry["warnings"] = readiness["warnings"]
 			to_generate.append(entry)
 	return to_generate, skipped
 
