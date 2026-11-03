@@ -6,11 +6,11 @@ window.PortalLineDocuments = {
         const dialog = await window.PortalDialog.create({title: __('Line specifications'), fields: [{fieldname: 'body', fieldtype: 'HTML'}]});
         const body = dialog.fields_dict.body.$wrapper;
         const list = $('<div aria-live="polite"></div>').appendTo(body);
-        const input = $('<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" class="form-control-file mt-3">').attr('aria-label', __('Specification files')).appendTo(body);
+        const input = $('<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.heif" class="form-control-file mt-3">').attr('aria-label', __('Specification files')).appendTo(body);
         const label = $('<label class="mt-2 d-block"></label>').appendTo(body);
         const primary = $('<input type="checkbox" class="mr-2">').appendTo(label);
         label.append(document.createTextNode(__('Use the first selected file as the primary specification')));
-        $('<p class="small text-muted"></p>').text(__('PDF, JPEG or PNG. Up to 10 files per line, 20 MiB per file. Replacements keep earlier issued packets intact.')).appendTo(body);
+        $('<p class="small text-muted"></p>').text(__('PDF, JPEG, PNG or HEIC. Up to 10 files per line, 20 MiB per file. Replacements keep earlier issued packets intact.')).appendTo(body);
         const feedback = $('<div role="status" aria-live="polite"></div>').appendTo(body);
         async function refresh() {
             const result = await PortalUploads.call(api + 'list_documents', {schedule_name: schedule, line_key: lineKey});

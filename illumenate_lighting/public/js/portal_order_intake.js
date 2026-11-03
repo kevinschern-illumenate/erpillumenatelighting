@@ -14,7 +14,7 @@
             {fieldname: 'requested_date', fieldtype: 'Date', label: __('Requested delivery date (subject to confirmation)'), reqd: 1, default: defaults.requested_date || ''},
             {fieldname: 'receiving_instructions', fieldtype: 'Small Text', label: __('Receiving instructions')},
             {fieldname: 'shipping_instructions', fieldtype: 'Small Text', label: __('Shipping instructions')},
-            {fieldname: 'uploads', fieldtype: 'HTML', options: '<label>' + __('PO and reference files (optional, up to 10 PDF/JPEG/PNG files, 20 MiB each)') + '<input type="file" class="form-control intake-files" multiple accept=".pdf,.jpg,.jpeg,.png"></label>'},
+            {fieldname: 'uploads', fieldtype: 'HTML', options: '<label>' + __('PO and reference files (optional, up to 10 PDF/JPEG/PNG/HEIC files, 20 MiB each)') + '<input type="file" class="form-control intake-files" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"></label>'},
             {fieldname: 'acknowledge_scope', fieldtype: 'Check', label: __('I reviewed quantities and sellable scope, including exclusions. Final prices and delivery require review and acknowledgment before staff approval.'), reqd: 1},
             {fieldname: 'feedback', fieldtype: 'HTML', options: '<p role="alert" aria-live="polite" class="intake-feedback"></p>'}
         ];

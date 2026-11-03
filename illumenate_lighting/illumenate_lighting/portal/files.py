@@ -13,6 +13,7 @@ from frappe import _
 from illumenate_lighting.illumenate_lighting.portal.file_validation import (
 	MAX_FILE_BYTES,
 	MAX_FILES,
+	normalize_upload,
 	validate_content,
 )
 
@@ -88,6 +89,12 @@ def has_permission(doc, ptype="read", user=None):
 	return _context_access(doc.parent_type, doc.parent_name, "read", user)
 
 
+def _heic_enabled():
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import heic_uploads_enabled
+
+	return heic_uploads_enabled()
+
+
 @frappe.whitelist(methods=["POST"])
 def upload(parent_type=None, parent_name=None):
 	"""Receive multipart bytes. A parentless upload is a support-intake draft."""
@@ -101,8 +108,11 @@ def upload(parent_type=None, parent_name=None):
 		frappe.throw(_("Select a file to upload"))
 	source = files["file"]
 	content = source.stream.read(MAX_FILE_BYTES + 1)
+	filename = source.filename
 	try:
-		metadata = validate_content(source.filename, content)
+		if _heic_enabled():
+			filename, content = normalize_upload(filename, content)
+		metadata = validate_content(filename, content)
 	except ValueError as exc:
 		frappe.throw(str(exc))
 	artifact = frappe.get_doc(

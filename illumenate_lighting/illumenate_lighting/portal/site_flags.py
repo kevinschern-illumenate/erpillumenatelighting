@@ -30,6 +30,11 @@ def fixture_groups_enabled():
 	return conf_flag("ill_portal_fixture_groups", default=True)
 
 
+def heic_uploads_enabled():
+	"""Dealer HEIC/HEIF photo uploads, converted to JPEG. On unless a site sets the flag false."""
+	return conf_flag("ill_portal_heic_uploads", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

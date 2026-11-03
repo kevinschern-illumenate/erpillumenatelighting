@@ -56,8 +56,8 @@
 		const form = element('form', undefined, 'ill-thread__form');
 		const label = element('label', __('Your message')); label.htmlFor = uid;
 		const body = element('textarea', undefined, 'form-control'); body.id = uid; body.rows = 3; body.required = true; body.maxLength = 20000;
-		const fileLabel = element('label', __('Attachments: PDF, JPEG or PNG, up to 20 MiB each'), 'mt-2 small'); fileLabel.htmlFor = uid + '-files';
-		const files = element('input', undefined, 'form-control'); files.id = fileLabel.htmlFor; files.type = 'file'; files.multiple = true; files.accept = '.pdf,.png,.jpg,.jpeg';
+		const fileLabel = element('label', __('Attachments: PDF, JPEG, PNG or HEIC, up to 20 MiB each'), 'mt-2 small'); fileLabel.htmlFor = uid + '-files';
+		const files = element('input', undefined, 'form-control'); files.id = fileLabel.htmlFor; files.type = 'file'; files.multiple = true; files.accept = '.pdf,.png,.jpg,.jpeg,.heic,.heif';
 		const staffFields = element('div', undefined, 'my-2');
 		const visibilityLabel = element('label', __('Visibility')); visibilityLabel.htmlFor = uid + '-visibility';
 		const visibility = element('select', undefined, 'form-control'); visibility.id = visibilityLabel.htmlFor;
