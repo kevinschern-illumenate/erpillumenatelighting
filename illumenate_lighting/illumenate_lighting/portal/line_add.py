@@ -14,7 +14,10 @@ from illumenate_lighting.illumenate_lighting.utils import parse_positive_int
 
 
 def append_line(schedule, line_data, is_sales_staff):
-	from illumenate_lighting.illumenate_lighting.api.portal import is_extrusion_kit_group, is_power_supply_group
+	from illumenate_lighting.illumenate_lighting.api.portal import (
+		is_extrusion_kit_group,
+		is_power_supply_group,
+	)
 
 	line = schedule.append("lines", {})
 	line.line_id = line_data.get("line_id")
