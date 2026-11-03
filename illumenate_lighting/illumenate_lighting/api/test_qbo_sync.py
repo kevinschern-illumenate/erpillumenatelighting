@@ -134,6 +134,32 @@ class TestQBOSync(FrappeTestCase):
 		):
 			self.assertFalse(qbo_sync._verify_signature(body))
 
+	def test_blank_secret_never_verifies(self):
+		body = b"{}"
+		with (
+			patch(f"{MOD}._get_webhook_secret", return_value="   "),
+			patch.object(frappe, "get_request_header", return_value=_sign(body, "   ")),
+		):
+			self.assertFalse(qbo_sync._verify_signature(body))
+
+	def test_oversized_body_is_refused_without_db_writes(self):
+		raw = b" " * (qbo_sync.MAX_BODY_BYTES + 1)
+		result = self._call(None, raw=raw)
+		self.assertEqual(result["error"], "payload_too_large")
+		self.assertEqual(frappe.local.response.get("http_status_code"), 413)
+
+	def test_signed_events_run_as_the_least_privilege_integration_user(self):
+		from illumenate_lighting.illumenate_lighting.portal.service_users import service_user
+
+		pid = f"{TEST_PREFIX}ACTOR"
+		user = service_user("qbo")
+		self.assertTrue(frappe.db.get_value("User", user, "enabled"))
+		self.assertNotIn("System Manager", frappe.get_roles(user))
+		with patch(f"{MOD}._get_settings", return_value={"sync_enabled": 0}):
+			self._call({"qbo_payment_id": pid, "event_type": "Create", "amount": 1, "qbo_invoice_id": "1"})
+		self.assertEqual(frappe.session.user, user)
+		self.assertEqual(frappe.db.get_value("ilL-QBO-Sync-Log", {"qbo_payment_id": pid}, "owner"), user)
+
 	# -- payload validation ------------------------------------------------
 
 	def test_invalid_json_returns_400(self):

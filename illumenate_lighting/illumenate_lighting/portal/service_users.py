@@ -19,6 +19,12 @@ SERVICE_USERS = {
 		"first_name": "Publication Worker",
 		"roles": ("ilL Integration",),
 	},
+	# Signed QuickBooks webhooks write Payment Entries and QuickBooks ids (hardening plan 1.2).
+	"qbo": {
+		"email": "qbo-integration@illumenate.lighting",
+		"first_name": "QuickBooks Integration",
+		"roles": ("ilL Integration", "Accounts User"),
+	},
 }
 
 

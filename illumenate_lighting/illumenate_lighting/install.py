@@ -75,6 +75,9 @@ def after_install():
 	from illumenate_lighting.patches.create_publication_worker_user import execute as publication_worker
 
 	publication_worker()
+	from illumenate_lighting.patches.create_qbo_integration_user import execute as qbo_user
+
+	qbo_user()
 	frappe.db.commit()
 
 

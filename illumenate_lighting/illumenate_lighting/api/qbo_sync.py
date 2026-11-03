@@ -56,6 +56,10 @@ SYNCED_FROM = "QuickBooks Online"
 VALID_EVENT_TYPES = ("Create", "Update", "Delete", "Merge")
 SAVEPOINT = "qbo_payment_event"
 AMOUNT_TOLERANCE = 0.005
+# Webhook bodies are a few KB; anything far larger is refused before hashing or parsing.
+MAX_BODY_BYTES = 256 * 1024
+# Rollback switch (site config): run signed webhooks as Administrator as before plan 1.2.
+RUN_AS_ADMINISTRATOR_FLAG = "qbo_webhooks_run_as_administrator"
 
 # What differs between a customer payment and a bill payment.
 RECEIVE = {
@@ -117,23 +121,12 @@ def receive_bill_payment_event():
 
 
 def _receive_event(kind):
-	raw_body = frappe.request.get_data() or b""
-
-	if not _verify_signature(raw_body):
-		_record_auth_failure(raw_body)
-		frappe.local.response["http_status_code"] = 401
-		return {"success": False, "error": "unauthorized"}
-
-	try:
-		payload = json.loads(raw_body.decode("utf-8") or "{}")
-		if not isinstance(payload, dict):
-			raise ValueError("payload must be a JSON object")
-	except (ValueError, UnicodeDecodeError) as e:
-		frappe.local.response["http_status_code"] = 400
-		return {"success": False, "error": "invalid_json", "message": str(e)}
-
-	# Authenticated by HMAC; run as Administrator so owner/GL entries are not "Guest".
-	frappe.set_user("Administrator")
+	payload, refused = read_signed_json()
+	if refused:
+		return refused
+	refused = become_integration_user()
+	if refused:
+		return refused
 
 	try:
 		event = _normalize_payload(payload, kind)
@@ -182,9 +175,55 @@ def _receive_event(kind):
 # ---------------------------------------------------------------------------
 
 
+def _refuse(status, error, **extra):
+	frappe.local.response["http_status_code"] = status
+	return {"success": False, "error": error, **extra}
+
+
+def read_signed_json():
+	"""Size cap, then HMAC over the raw bytes, then JSON. Returns ``(payload, refusal)``."""
+	declared = getattr(frappe.request, "content_length", None)
+	if isinstance(declared, int) and declared > MAX_BODY_BYTES:
+		return None, _refuse(413, "payload_too_large")
+	raw_body = frappe.request.get_data() or b""
+	if len(raw_body) > MAX_BODY_BYTES:
+		return None, _refuse(413, "payload_too_large")
+	if not _verify_signature(raw_body):
+		_record_auth_failure(raw_body)
+		return None, _refuse(401, "unauthorized")
+	try:
+		payload = json.loads(raw_body.decode("utf-8") or "{}")
+		if not isinstance(payload, dict):
+			raise ValueError("payload must be a JSON object")
+	except (ValueError, UnicodeDecodeError) as e:
+		return None, _refuse(400, "invalid_json", message=str(e))
+	return payload, None
+
+
+def become_integration_user():
+	"""Act as the least-privilege QuickBooks user for the rest of this signed request.
+
+	Returns a 503 refusal when that user is missing or disabled, so QuickBooks/n8n retry.
+	"""
+	if cint(frappe.conf.get(RUN_AS_ADMINISTRATOR_FLAG)):
+		frappe.set_user("Administrator")
+		return None
+	from illumenate_lighting.illumenate_lighting.portal.service_users import service_user
+
+	user = service_user("qbo")
+	if not frappe.db.get_value("User", user, "enabled"):
+		frappe.log_error(
+			title="QBO webhook: integration user unavailable",
+			message=f"{user} is missing or disabled. Run bench migrate, or set {RUN_AS_ADMINISTRATOR_FLAG}.",
+		)
+		return _refuse(503, "integration_user_unavailable")
+	frappe.set_user(user)
+	return None
+
+
 def _get_webhook_secret():
 	secret = frappe.conf.get("qbo_webhook_secret")
-	if secret:
+	if secret and str(secret).strip():
 		return str(secret)
 	try:
 		settings = frappe.get_cached_doc(SETTINGS_DOCTYPE)
@@ -196,7 +235,8 @@ def _get_webhook_secret():
 def _verify_signature(raw_body):
 	secret = _get_webhook_secret()
 	provided = (frappe.get_request_header(SIGNATURE_HEADER) or "").strip()
-	if not secret or not provided:
+	# A blank secret would make the signature forgeable by anyone, so it never verifies.
+	if not secret or not str(secret).strip() or not provided:
 		return False
 	if provided.lower().startswith("sha256="):
 		provided = provided[7:]
