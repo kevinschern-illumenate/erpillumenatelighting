@@ -1076,4 +1076,54 @@
 		background: var(--ill-gray-100);
 		color: var(--ill-ink);
 	}
+
+	/* Plan 3.7: "Recently used" product cards in the Add Line modal. */
+	.ill-recent-list {
+		display: flex;
+		gap: 10px;
+		overflow-x: auto;
+		padding-bottom: 4px;
+	}
+	.ill-recent-card {
+		display: flex;
+		flex: 0 0 150px;
+		flex-direction: column;
+		padding: 0;
+		text-align: left;
+		background: var(--ill-paper);
+		border: 1.5px solid var(--ill-border);
+		border-radius: var(--ill-radius-lg);
+		overflow: hidden;
+		cursor: pointer;
+	}
+	.ill-recent-card:hover,
+	.ill-recent-card:focus-visible {
+		outline: none;
+		border-color: var(--ill-accent);
+		box-shadow: 0 0 0 3px var(--ill-accent-soft);
+	}
+	.ill-recent-card-media {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		aspect-ratio: 4 / 3;
+		background: var(--ill-bg);
+		color: var(--ill-gray-500);
+		font-size: 28px;
+	}
+	.ill-recent-card-media img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.ill-recent-card-body {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		padding: 6px 8px 8px;
+		font-size: 12px;
+	}
+	.ill-recent-card-name { font-weight: 700; color: var(--ill-ink); line-height: 1.25; }
+	.ill-recent-card-code { color: var(--ill-text-secondary); }
+	.ill-recent-card-family { color: var(--ill-text-secondary); font-style: italic; }
 }

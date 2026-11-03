@@ -54,7 +54,7 @@ function opened(env) {
 test('the template gates the picker and loads presets.js', () => {
   assert.match(TEMPLATE, /\{% if presets_enabled \| default\(false\) %\}\s*<div class="form-group ill-add-from-preset">/);
   assert.match(TEMPLATE, /"presets": \(presets_enabled \| default\(false\)\)/);
-  assert.match(TEMPLATE, /"line_import", "presets"\] %\}/);
+  assert.match(TEMPLATE, /"line_import", "presets"[\],]/);
 });
 
 test('opening the dialog lists presets as text, marking shared and withdrawn ones', () => {

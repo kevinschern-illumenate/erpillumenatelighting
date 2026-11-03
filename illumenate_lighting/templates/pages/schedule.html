@@ -1183,6 +1183,13 @@ Also handles new schedule creation when is_new is True
 					<div class="illumenate-fields" style="display: block;">
 						<hr>
 						<h6 class="text-muted mb-3">{{ _("ilLumenate Product Selection") }}</h6>
+						{% if recent_products_enabled | default(false) %}
+						<div class="form-group ill-add-recent d-none">
+							<label id="addLineRecentLabel">{{ _("Recently used") }}</label>
+							<div id="addLineRecentList" class="ill-recent-list" role="list" aria-labelledby="addLineRecentLabel"></div>
+							<small id="addLineRecentResult" class="form-text text-muted" role="status" aria-live="polite"></small>
+						</div>
+						{% endif %}
 						{% if part_number_decode_enabled | default(false) %}
 						<div class="form-group ill-add-by-pn">
 							<label for="addLinePartNumber">{{ _("Add by part number") }}</label>
@@ -1974,6 +1981,7 @@ Also handles new schedule creation when is_new is True
 	"bulk_edit": (bulk_edit_enabled | default(false)),
 	"part_number_decode": (part_number_decode_enabled | default(false)),
 	"presets": (presets_enabled | default(false)),
+	"recent_products": (recent_products_enabled | default(false)),
 	"schedule_import": (schedule_import_enabled | default(false)),
 	"import_columns": (import_columns | default([])),
 	"project_name": (project.name if project else ''),
@@ -2068,9 +2076,17 @@ Also handles new schedule creation when is_new is True
 		"Delete preset {0}?": _("Delete preset {0}?"),
 		"Preset deleted.": _("Preset deleted."),
 		"Could not delete this preset.": _("Could not delete this preset."),
+		"Linear Fixture": _("Linear Fixture"),
+		"LED Tape": _("LED Tape"),
+		"LED Sheet": _("LED Sheet"),
+		"Extrusion Kit": _("Extrusion Kit"),
+		"Power Supply": _("Power Supply"),
+		"This product is not in the Add Line categories.": _("This product is not in the Add Line categories."),
+		"This product is no longer offered.": _("This product is no longer offered."),
+		"{0} selected.": _("{0} selected."),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

@@ -701,6 +701,7 @@ schedule_variants = {
 		part_number_decode_enabled=True,
 		schedule_import_enabled=True,
 		presets_enabled=True,
+		recent_products_enabled=True,
 		import_columns=["Type", "Qty", "Location", "Description", "Part Number", "Notes", "Length (in)"],
 	),
 }
@@ -754,6 +755,11 @@ for name, variant in schedule_variants.items():
 	assert schedule_context["presets"] is presets_on
 	assert ('id="addLinePreset"' in schedule_html) is presets_on
 	assert "schedule/presets.js?v=" in schedule_html
+	# Plan 3.7: "Recently used" cards only render behind their kill switch.
+	recent_on = bool(variant.get("recent_products_enabled"))
+	assert schedule_context["recent_products"] is recent_on
+	assert ('id="addLineRecentList"' in schedule_html) is recent_on
+	assert "schedule/recent.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
