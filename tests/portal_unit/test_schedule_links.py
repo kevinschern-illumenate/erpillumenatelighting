@@ -37,12 +37,16 @@ class Context(Record):
 	__setattr__ = dict.__setitem__
 
 
-def configure_page(form, resolve_line):
+def configure_page(form, resolve_line, drafts=True):
 	"""Load configure.py with only the boundaries its schedule-line branch touches."""
 	stubs = {}
 	for name, attributes in {
 		".portal.access": {"can_view_catalog": lambda: True},
-		".portal.site_flags": {"conf_flag": lambda flag: False, "fixture_groups_enabled": lambda: False},
+		".portal.site_flags": {
+			"conf_flag": lambda flag: False,
+			"fixture_groups_enabled": lambda: False,
+			"durable_drafts_enabled": lambda: drafts,
+		},
 		".portal.rollout": {"require_family": lambda family: None},
 		".portal.configuration": {
 			"resolve_line": resolve_line,
@@ -68,8 +72,8 @@ def configure_page(form, resolve_line):
 
 
 class ConfigurePage(unittest.TestCase):
-	def run_page(self, form, resolve_line):
-		loader, form = configure_page(form, resolve_line)
+	def run_page(self, form, resolve_line, drafts=True):
+		loader, form = configure_page(form, resolve_line, drafts)
 		with loader as (module, frappe):
 			frappe.session = Record(user="buyer@example.com")
 			frappe.form_dict = Record(form)
@@ -111,6 +115,16 @@ class ConfigurePage(unittest.TestCase):
 		)
 		self.assertIsNone(error)
 		self.assertEqual((context.line_idx, context.line_key), (0, "KEY1"))
+		self.assertTrue(context.draft_autosave)
+
+	def test_draft_autosave_needs_a_schedule_and_the_kill_switch(self):
+		form = {"category": "Linear Fixture", "schedule": "S1"}
+		_error, context = self.run_page(form, MagicMock())
+		self.assertTrue(context.draft_autosave)
+		_error, context = self.run_page(form, MagicMock(), drafts=False)
+		self.assertFalse(context.draft_autosave)
+		_error, context = self.run_page({"category": "Linear Fixture"}, MagicMock())
+		self.assertFalse(context.draft_autosave)
 
 
 if __name__ == "__main__":

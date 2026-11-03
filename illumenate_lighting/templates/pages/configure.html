@@ -189,6 +189,9 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block script %}
 {{ include_script("illumenate_configurator.bundle.js") }}
+{% if draft_autosave | default(false) %}
+<script type="application/json" id="ill-draft-autosave">{{ {"enabled": true, "product_type": product_category} | tojson }}</script>
+{% endif %}
 <script>
 {% if show_type_chooser | default(false) %}
 {% elif product_category in ('Driver','Controller','Extrusion Kit') %}

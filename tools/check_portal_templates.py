@@ -920,6 +920,7 @@ prefilled = configurator.render(
 		},
 	}
 )
+assert 'id="ill-draft-autosave"' not in prefilled
 assert "pre-filled below" in prefilled and "Not offered on this product" in prefilled
 assert "&lt;b&gt;Gold&lt;/b&gt;" in prefilled
 nothing = configurator.render(
@@ -988,9 +989,12 @@ for category, mode in (
 			"config_schedule": "SCH </script><b>",
 			"schedule_name": "SCH </script><b>",
 			"can_save": True,
+			"draft_autosave": mode == "coordinator",
 		}
 	)
 	assert "</script><b>" not in unpriced, category
+	# Plan 3.1: the autosave marker is rendered only when the page enables it.
+	assert ('id="ill-draft-autosave"' in unpriced) == (mode == "coordinator"), category
 	assert 'id="pricingResults"' not in unpriced and "Fixture Price Breakdown" not in unpriced, category
 	assert "config_schedule" in unpriced, category
 	parser.feed(unpriced)

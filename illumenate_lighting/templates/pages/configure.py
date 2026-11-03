@@ -247,6 +247,10 @@ def get_context(context):
 	context.line_idx = int(line_idx) if line_idx is not None else None
 	context.can_save = can_save
 	context.line_key = line_key
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import durable_drafts_enabled
+
+	# Plan 3.1: server-backed drafts only where the dealer can save to this schedule.
+	context.draft_autosave = bool(schedule and can_save and durable_drafts_enabled())
 	context.expected_modified = str(schedule.modified) if schedule else None
 	context.initial_request = initial_request
 	context.templates = templates
