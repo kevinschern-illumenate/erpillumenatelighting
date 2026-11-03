@@ -19,7 +19,11 @@
   "result_stamp",
   "completed_on",
   "claimed_on",
-  "last_seen"
+  "last_seen",
+  "draft_section",
+  "schedule",
+  "line_key",
+  "draft_json"
  ],
  "fields": [
   {
@@ -102,11 +106,38 @@
    "fieldname": "last_seen",
    "fieldtype": "Datetime",
    "label": "Last Seen"
+  },
+  {
+   "fieldname": "draft_section",
+   "fieldtype": "Section Break",
+   "label": "Schedule Line Draft"
+  },
+  {
+   "fieldname": "schedule",
+   "fieldtype": "Link",
+   "label": "Schedule",
+   "options": "ilL-Project-Fixture-Schedule",
+   "read_only": 1,
+   "search_index": 1,
+   "description": "Set only for durable configurator drafts (plan 3.1); finder sessions leave it empty."
+  },
+  {
+   "fieldname": "line_key",
+   "fieldtype": "Data",
+   "label": "Line Key",
+   "read_only": 1,
+   "description": "Empty for a draft of a new line."
+  },
+  {
+   "fieldname": "draft_json",
+   "fieldtype": "JSON",
+   "label": "Draft",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-05 12:00:00.000000",
+ "modified": "2026-11-03 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Configurator-Session",
