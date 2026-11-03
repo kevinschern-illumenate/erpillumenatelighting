@@ -65,6 +65,11 @@ def recent_products_enabled():
 	return conf_flag("ill_portal_recent_products", default=True)
 
 
+def stale_badge_enabled():
+	""""Catalog updated — review" badges on schedule lines (plan 3.9). On by default."""
+	return conf_flag("ill_portal_stale_badge", default=True)
+
+
 def live_estimate_enabled():
 	"""Configurator estimate panel: price, stock and lead time labelled "estimate" (plan 3.8). On by default."""
 	return conf_flag("ill_portal_live_estimate", default=True)
