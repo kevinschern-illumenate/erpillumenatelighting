@@ -8,6 +8,17 @@ export function stepFromHash(hash: string): StepId | null {
   return IDS.has(id) ? (id as StepId) : null;
 }
 
+/** #/check?item=PS-1 also points at one item on that step. */
+export function itemFromHash(hash: string): string | null {
+  const match = /[?&]item=([^&]+)/.exec(hash);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]!);
+  } catch {
+    return null;
+  }
+}
+
 export const hashFor = (step: StepId) => `#/${step}`;
 
 /** The last step a designer was on, per design, so a reopened design lands where they left it. */

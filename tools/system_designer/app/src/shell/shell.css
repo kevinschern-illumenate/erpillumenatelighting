@@ -371,6 +371,87 @@
 	margin-left: calc(-1 * var(--sd-space-2));
 }
 
+/* Start (SD-2.3) */
+.sd-start__stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: var(--sd-space-3);
+	margin: 0 0 var(--sd-space-4);
+}
+.sd-start__stats > div {
+	padding: var(--sd-space-3) var(--sd-space-4);
+	border: 1px solid var(--sd-border);
+	border-radius: var(--sd-radius-card);
+	background: var(--sd-surface-2);
+}
+.sd-start__stats dt {
+	font-size: var(--sd-font-size-sm);
+	color: var(--sd-text-muted);
+}
+.sd-start__stats dd {
+	margin: 0;
+	font-family: var(--sd-font-display);
+	font-size: var(--sd-font-size-xl);
+	font-weight: 600;
+	color: var(--sd-text-strong);
+}
+.sd-start__stats .sd-start__stat--warning {
+	border-color: var(--sd-warning);
+	background: var(--sd-warning-soft);
+}
+.sd-start__issues {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--sd-border);
+	border-radius: var(--sd-radius-card);
+}
+.sd-start__issue {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--sd-space-2);
+	padding: var(--sd-space-2) var(--sd-space-3);
+	border-bottom: 1px solid var(--sd-border);
+}
+.sd-start__issue:last-child {
+	border-bottom: 0;
+}
+.sd-start__issue > .sd-severity {
+	flex: none;
+	margin-top: 2px;
+}
+.sd-start__issue p {
+	margin: 2px 0 0;
+	color: var(--sd-text-muted);
+}
+
+/* Check (SD-2.6) */
+.sd-check-summary {
+	margin: 0 0 var(--sd-space-3);
+	padding: var(--sd-space-2) var(--sd-space-3);
+	border-radius: var(--sd-radius-control);
+	font-weight: 600;
+}
+.sd-check-summary--error {
+	background: var(--sd-error-soft);
+	color: var(--sd-error-ink);
+}
+.sd-check-summary--warning {
+	background: var(--sd-warning-soft);
+	color: var(--sd-warning-ink);
+}
+.sd-check-summary--ok {
+	background: var(--sd-ok-soft);
+	color: var(--sd-text-strong);
+}
+.sd-check-group + .sd-check-group {
+	margin-top: var(--sd-space-4);
+}
+.sd-check-group h4 {
+	margin: 0 0 var(--sd-space-2);
+	font-size: var(--sd-font-size-base);
+}
+
 /* "Go to" lands here */
 .sd-flash {
 	animation: sd-flash 2.4s ease-out;

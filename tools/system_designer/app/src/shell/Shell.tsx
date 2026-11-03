@@ -10,7 +10,7 @@ import { CommandPalette } from './CommandPalette';
 import { HelpDrawer } from './HelpDrawer';
 import { TOUR_KEY } from './help';
 import { useAutosave, useBeforeUnload, useFreshness, useOnline, useOtherTabs } from './hooks';
-import { hashFor, readLastStep, stepFromHash, writeLastStep } from './routes';
+import { hashFor, itemFromHash, readLastStep, stepFromHash, writeLastStep } from './routes';
 import { ConflictDialog, SessionDialog } from './SessionDialogs';
 import { StatusStrip } from './StatusStrip';
 import { StepBoundary } from './StepBoundary';
@@ -145,7 +145,9 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
   const [step, setStepState] = useState<StepId>(() => initialStep(stepKey, staff ? 'engineering' : 'guided'));
   const [visited, setVisited] = useState<ReadonlySet<StepId>>(() => new Set([step]));
   const rootRef = useRef<HTMLDivElement>(null);
-  const pendingReveal = useRef<string | null>(null);
+  const pendingReveal = useRef<string | null>(itemFromHash(globalThis.location?.hash ?? ''));
+  // Bumped on every "Go to" so the same step can point at another item.
+  const [revealNonce, setRevealNonce] = useState(0);
 
   /** Show a step: the address bar follows (SD-2.7) so Back and deep links work. */
   const setStep = useCallback(
@@ -162,7 +164,9 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
     if (globalThis.location.hash !== hashFor(step)) globalThis.history?.replaceState(null, '', hashFor(step));
     const onPop = () => {
       const next = stepFromHash(globalThis.location.hash);
-      if (next) setStep(next, false);
+      if (!next) return;
+      pendingReveal.current = itemFromHash(globalThis.location.hash);
+      setStep(next, false);
     };
     window.addEventListener('popstate', onPop);
     window.addEventListener('hashchange', onPop);
@@ -293,9 +297,19 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
     (check: Check) => {
       const target = stepForCode(check.code);
       pendingReveal.current = check.ref ?? null;
+      setRevealNonce((value) => value + 1);
       setStep(target === GRIDS_TAB.id && mode !== 'engineering' ? 'check' : target);
     },
     [mode, setStep],
+  );
+  /** Open a step from inside another, optionally pointing at an item there. */
+  const goToStep = useCallback(
+    (target: StepId, ref?: string) => {
+      pendingReveal.current = ref ?? null;
+      setRevealNonce((value) => value + 1);
+      setStep(target);
+    },
+    [setStep],
   );
   useEffect(() => {
     const ref = pendingReveal.current;
@@ -311,7 +325,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
     };
     let timer = setTimeout(attempt, 0);
     return () => clearTimeout(timer);
-  }, [step, allChecks]);
+  }, [step, allChecks, revealNonce]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -489,7 +503,7 @@ export function Shell({ open, store, api, drafts, checks, restoredDraft = false,
                 readOnly={Boolean(readOnly)}
                 staff={staff}
                 navigate={navigate}
-                goTo={setStep}
+                goTo={goToStep}
               />
             </StepBoundary>
           </div>
@@ -575,7 +589,7 @@ interface StepContentProps {
   readOnly: boolean;
   staff: boolean;
   navigate?: (url: string) => void;
-  goTo(step: StepId): void;
+  goTo(step: StepId, ref?: string): void;
 }
 
 /** The screen for each step; every step has one (SD-1.5 removed the "upcoming update" placeholder). */

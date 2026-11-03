@@ -224,6 +224,11 @@ describe('designer shell', () => {
     expect(goTo.length).toBeGreaterThan(0);
     await click(goTo[0]);
     expect(el.querySelector('main h2')?.textContent).toBe('Start');
+    // The line the check is about is scrolled to, highlighted and focused.
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    const target = document.activeElement as HTMLElement;
+    expect(target.dataset.entity).toMatch(/^line:/);
+    expect(target.classList.contains('sd-flash')).toBe(true);
 
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
