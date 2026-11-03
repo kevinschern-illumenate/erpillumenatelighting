@@ -14,28 +14,39 @@ def active(schedule, line):
 	return frappe.get_all(
 		DOCTYPE,
 		filters={"schedule": schedule, "line_key": line.get("line_key") or line.name, "active": 1},
-		fields=["name", "file", "file_name", "sha256", "is_primary", "title"],
+		fields=["name", "file", "file_name", "sha256", "is_primary", "title", "purpose", "caption"],
 		order_by="is_primary desc, creation asc, name asc",
 	)
 
 
 @frappe.whitelist()
 def list_documents(schedule_name, line_key):
+	from illumenate_lighting.illumenate_lighting.portal.media import PURPOSES, thumbnail_urls
+
 	schedule = schedule_context(schedule_name)
 	line = resolve_line(schedule, line_key)
+	documents = active(schedule.name, line)
+	thumbs = thumbnail_urls([row.file for row in documents])
+	for row in documents:
+		row["thumbnail_url"] = thumbs.get(row.file) or ""
 	return {
 		"success": True,
 		"modified": str(schedule.modified),
-		"documents": active(schedule.name, line),
+		"documents": documents,
 		"manufacturer_type": line.manufacturer_type,
+		"purposes": list(PURPOSES),
 	}
 
 
 @frappe.whitelist(methods=["POST"])
 @atomic_build
-def attach(schedule_name, line_key, file_ids, primary_file=None, expected_modified=None):
+def attach(
+	schedule_name, line_key, file_ids, primary_file=None, expected_modified=None, purpose=None, caption=None
+):
 	from illumenate_lighting.illumenate_lighting.portal.files import finalize_files
+	from illumenate_lighting.illumenate_lighting.portal.media import annotations
 
+	notes = annotations(purpose, caption)
 	schedule = schedule_context(schedule_name, write=True, lock=True)
 	if str(schedule.modified) != str(expected_modified):
 		raise ValueError("Schedule changed. Reload its documents before saving.")
@@ -75,6 +86,8 @@ def attach(schedule_name, line_key, file_ids, primary_file=None, expected_modifi
 				"active": 1,
 				"title": file["file_name"],
 				"attached_by": frappe.session.user,
+				**annotations(file.get("purpose"), file.get("caption")),
+				**notes,
 			}
 		)
 		doc.flags.line_document_service = True
@@ -110,12 +123,34 @@ def remove(name, expected_modified):
 	return {"success": True, "modified": str(schedule.modified)}
 
 
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+def annotate(name, expected_modified, purpose=None, caption=None):
+	"""Change a line document's purpose or caption (hardening plan 4.3); the file never changes."""
+	from illumenate_lighting.illumenate_lighting.portal.media import annotations
+
+	doc = frappe.get_doc(DOCTYPE, name)
+	schedule = schedule_context(doc.schedule, write=True, lock=True)
+	if str(schedule.modified) != str(expected_modified):
+		raise ValueError("Schedule changed. Reload its documents before saving.")
+	if not doc.active:
+		raise ValueError("This document was removed from the line")
+	notes = annotations(purpose, caption)
+	if notes:
+		frappe.db.set_value(DOCTYPE, doc.name, notes)
+		schedule.save(ignore_permissions=True)
+	return {"success": True, "modified": str(schedule.modified), **notes}
+
+
 def clone(source_schedule, source_line, target_schedule, target_line):
 	for row in active(source_schedule, source_line):
 		doc = frappe.get_doc(
 			{
 				"doctype": DOCTYPE,
-				**{key: row.get(key) for key in ("file", "file_name", "sha256", "title", "is_primary")},
+				**{
+					key: row.get(key)
+					for key in ("file", "file_name", "sha256", "title", "is_primary", "purpose", "caption")
+				},
 				"schedule": target_schedule,
 				"line_key": target_line.line_key,
 				"active": 1,
