@@ -1404,7 +1404,7 @@ Also handles new schedule creation when is_new is True
 							<div class="col-md-6">
 								<div class="form-group">
 									<label for="add_spec_sheet_file">{{ _("Spec Sheet") }}</label>
-									<input type="file" class="form-control-file" name="spec_sheet_file" id="add_spec_sheet_file">
+									<input type="file" class="form-control-file" name="spec_sheet_file" id="add_spec_sheet_file" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif" data-portal-uploader>
 									<small class="text-muted">{{ _("Upload a spec sheet PDF or image") }}</small>
 								</div>
 							</div>
@@ -1598,7 +1598,7 @@ Also handles new schedule creation when is_new is True
 								<div class="form-group">
 									<label for="edit_spec_sheet_file">{{ _("Spec Sheet") }}</label>
 									<div id="edit_spec_sheet_current" class="mb-2"></div>
-									<input type="file" class="form-control-file" name="edit_spec_sheet_file" id="edit_spec_sheet_file">
+									<input type="file" class="form-control-file" name="edit_spec_sheet_file" id="edit_spec_sheet_file" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif" data-portal-uploader>
 									<small class="text-muted">{{ _("Upload a new spec sheet to replace existing") }}</small>
 								</div>
 							</div>

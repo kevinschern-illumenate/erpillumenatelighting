@@ -35,6 +35,16 @@ def heic_uploads_enabled():
 	return conf_flag("ill_portal_heic_uploads", default=True)
 
 
+def upload_widget_enabled():
+	"""The shared drag-and-drop upload widget (plan 4.1). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_upload_widget", default=True)
+
+
+def portal_client_flags():
+	"""Dealer-visible kill switches the portal scripts read from ``#ill-portal-flags``."""
+	return {"upload_widget": upload_widget_enabled()}
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

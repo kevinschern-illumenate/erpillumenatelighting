@@ -5,6 +5,7 @@ import "./portal_call_compat.js";
 import "./portal_ui.js";
 import "./portal.js";
 import "./portal_uploads.js";
+import "./portal_uploader.js";
 import "./portal_dialog.js";
 import "./portal_line_documents.js";
 import "./portal_accounts.js";

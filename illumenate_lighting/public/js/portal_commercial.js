@@ -21,6 +21,7 @@
             else input.maxLength = field.type === 'textarea' ? 4000 : 240;
             if (field.type === 'textarea') input.rows = 4;
             inputs[field.name] = input; form.append(label, input);
+            if (field.type === 'file') window.PortalUploader?.attach(input);
         }
         const result = document.createElement('p'); result.setAttribute('role', 'status');
         const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-secondary mr-2'; cancel.textContent = __('Cancel'); cancel.onclick = () => modal.close();

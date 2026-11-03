@@ -44,6 +44,25 @@ class SiteFlags(unittest.TestCase):
 					frappe.conf["ill_portal_fixture_groups"] = value
 					self.assertFalse(flags.fixture_groups_enabled())
 
+	def test_upload_switches_are_on_unless_a_site_turns_them_off(self):
+		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
+			frappe.log_error = MagicMock()
+			self.assertTrue(flags.heic_uploads_enabled())
+			self.assertEqual(flags.portal_client_flags(), {"upload_widget": True})
+			frappe.conf["ill_portal_heic_uploads"] = "false"
+			frappe.conf["ill_portal_upload_widget"] = 0
+			self.assertFalse(flags.heic_uploads_enabled())
+			self.assertEqual(flags.portal_client_flags(), {"upload_widget": False})
+
+	def test_portal_layout_publishes_client_flags_as_json(self):
+		from pathlib import Path
+
+		root = Path(__file__).resolve().parents[2]
+		base = (root / "illumenate_lighting/templates/portal_base.html").read_text(encoding="utf-8")
+		self.assertIn('id="ill-portal-flags">{{ ill_portal_client_flags() | tojson }}</script>', base)
+		hooks = (root / "illumenate_lighting/hooks.py").read_text(encoding="utf-8")
+		self.assertIn("portal.jinja_methods.ill_portal_client_flags", hooks)
+
 	def test_list_accepts_json_and_json_strings(self):
 		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
 			frappe.log_error = MagicMock()

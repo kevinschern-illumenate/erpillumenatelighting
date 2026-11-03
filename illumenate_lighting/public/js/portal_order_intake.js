@@ -36,6 +36,7 @@
         }});
         const previous = document.activeElement;
         dialog.onhide = () => { if (previous && previous.isConnected) previous.focus(); };
+        window.PortalUploader?.attach(dialog.fields_dict.uploads.$wrapper.find('input')[0]);
         dialog.show();
     }};
 })();

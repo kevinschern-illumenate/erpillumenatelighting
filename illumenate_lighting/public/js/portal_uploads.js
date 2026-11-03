@@ -28,6 +28,7 @@ window.PortalUploads = {
 		}
 	},
 	async uploadAll(input, parentType, parentName) {
+		if (input?._portalUploader && window.PortalUploader) return window.PortalUploader.uploadAll(input, parentType, parentName);
 		const files = Array.from(input?.files || []);
 		if (files.length > 10) throw new Error(__('Choose at most 10 files.'));
 		input._uploadedFiles = input._uploadedFiles || new Map();

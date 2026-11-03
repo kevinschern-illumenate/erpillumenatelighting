@@ -7,6 +7,7 @@ window.PortalLineDocuments = {
         const body = dialog.fields_dict.body.$wrapper;
         const list = $('<div aria-live="polite"></div>').appendTo(body);
         const input = $('<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.heif" class="form-control-file mt-3">').attr('aria-label', __('Specification files')).appendTo(body);
+        window.PortalUploader?.attach(input[0]);
         const label = $('<label class="mt-2 d-block"></label>').appendTo(body);
         const primary = $('<input type="checkbox" class="mr-2">').appendTo(label);
         label.append(document.createTextNode(__('Use the first selected file as the primary specification')));
@@ -40,7 +41,7 @@ window.PortalLineDocuments = {
                 const files = await PortalUploads.uploadAll(input[0], 'ilL-Project-Fixture-Schedule', schedule);
                 await PortalUploads.call(api + 'attach', {schedule_name: schedule, line_key: lineKey, file_ids: JSON.stringify(files),
                     primary_file: primary.prop('checked') ? files[0] : null, expected_modified: modified});
-                changed = true; input.val(''); feedback.text(__('Documents attached.'));
+                changed = true; input.val(''); window.PortalUploader?.reset(input[0]); feedback.text(__('Documents attached.'));
                 await refresh();
             } catch (error) { feedback.text(error.message); }
             finally { busy = false; dialog.get_primary_btn().prop('disabled', false); }

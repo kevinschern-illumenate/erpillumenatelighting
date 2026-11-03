@@ -68,6 +68,7 @@
 		staffFields.append(visibilityLabel, visibility, actionLabel, action); staffFields.hidden = true;
 		const submit = element('button', __('Send message'), 'btn btn-primary mt-3'); submit.type = 'submit';
 		form.append(label, body, fileLabel, files, staffFields, submit, result);
+		window.PortalUploader?.attach(files);
 		root.append(status, paging, list, form);
 		// Every message loaded so far, by name. Pages are merged, never swapped,
 		// so earlier messages stay on screen after a reply and nothing is lost when
@@ -145,7 +146,7 @@
 				if (signature !== retryBody) { retryBody = signature; retryKey = crypto.randomUUID(); }
 				await PortalUploads.call(api + 'reply', {...payload, idempotency_key: retryKey});
 				if (body.value.trim() === draft.body) body.value = '';
-				files.value = ''; files._uploadedFiles = new Map(); retryBody = null; retryKey = null;
+				files.value = ''; files._uploadedFiles = new Map(); window.PortalUploader?.reset(files); retryBody = null; retryKey = null;
 				result.textContent = __('Message sent.'); await load();
 			} catch (error) { result.textContent = error.message || __('Message not sent. Your draft is preserved.'); }
 			finally { sending = false; submit.disabled = false; }

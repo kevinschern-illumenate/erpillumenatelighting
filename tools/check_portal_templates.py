@@ -44,6 +44,7 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
+		"ill_portal_client_flags": lambda: {"upload_widget": True},
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
