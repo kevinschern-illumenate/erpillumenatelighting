@@ -982,6 +982,16 @@ Also handles new schedule creation when is_new is True
 												<button class="btn btn-sm btn-outline-secondary" type="button" data-line-action="duplicateLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Duplicate') }}">
 													<i class="fa fa-copy" aria-hidden="true"></i> {{ _('Duplicate') }}
 												</button>
+												{% if line_copy_enabled | default(false) %}
+												{% if line.get('can_configure_similar') %}
+												<button class="btn btn-sm btn-outline-secondary" type="button" data-copy-action="similar" data-line-index="{{ loop.index0 | e }}" title="{{ _('Configure a new line starting from this configuration') }}">
+													<i class="fa fa-clone" aria-hidden="true"></i> {{ _('Configure similar') }}
+												</button>
+												{% endif %}
+												<button class="btn btn-sm btn-outline-secondary" type="button" data-copy-action="copy" data-line-index="{{ loop.index0 | e }}" title="{{ _('Copy to another schedule') }}">
+													<i class="fa fa-share" aria-hidden="true"></i> {{ _('Copy to…') }}
+												</button>
+												{% endif %}
 												<button class="btn btn-sm btn-outline-danger" type="button" data-line-action="deleteLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Delete') }}">
 													<i class="fa fa-trash" aria-hidden="true"></i> {{ _('Delete') }}
 											</button>
@@ -1778,6 +1788,34 @@ Also handles new schedule creation when is_new is True
 	</div>
 </div>
 {% endif %}
+{% if line_copy_enabled | default(false) %}
+<div class="modal fade" id="copyLinesModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="copyLinesModalTitle">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="copyLinesModalTitle">{{ _("Copy to another schedule") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<p class="small text-muted" id="copyLinesSummary"></p>
+				<div class="form-group">
+					<label for="copyLinesTarget">{{ _("Target schedule") }}</label>
+					<select class="form-control" id="copyLinesTarget" disabled>
+						<option value="">{{ _("Loading...") }}</option>
+					</select>
+				</div>
+				<p class="small text-muted mb-0">{{ _("Configured lines are copied as Pending. Reconfigure them in the target schedule so engineering and prices are recalculated.") }}</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="copyLinesConfirm" disabled>{{ _("Copy") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 
 {% endif %}
 {% endblock %}
@@ -1799,6 +1837,7 @@ Also handles new schedule creation when is_new is True
 	"status_labels": status_labels,
 	"open_offer": open_offer,
 	"can_issue_packet": (can_issue_packet | default(false)),
+	"line_copy": (line_copy_enabled | default(false)),
 	"dealer_customer_group": (dealer_customer_group or '') if show_dealer_pricing else '',
 	"i18n": {
 		"Select Fixture Template...": _("Select Fixture Template..."),
@@ -1841,9 +1880,18 @@ Also handles new schedule creation when is_new is True
 		"Loading version history…": _("Loading version history…"),
 		"No earlier versions": _("No earlier versions"),
 		"This is the first version of this schedule.": _("This is the first version of this schedule."),
+		"Choose a target schedule…": _("Choose a target schedule…"),
+		"No other Draft or Ready schedules you can edit.": _("No other Draft or Ready schedules you can edit."),
+		"Copy {0} line(s) from this schedule.": _("Copy {0} line(s) from this schedule."),
+		"Copied {0} line(s).": _("Copied {0} line(s)."),
+		"Open target schedule": _("Open target schedule"),
+		"Could not copy the lines.": _("Could not copy the lines."),
+		"Could not load your schedules.": _("Could not load your schedules."),
+		"Browser storage is unavailable. Allow session storage to preserve this draft.": _("Browser storage is unavailable. Allow session storage to preserve this draft."),
+		"(similar)": _("(similar)"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

@@ -681,6 +681,7 @@ schedule_variants = {
 			"secondary": None,
 		},
 		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
+		line_copy_enabled=True,
 	),
 }
 SCHEDULE_JS = ROOT / "illumenate_lighting/public/js/portal/schedule"
@@ -702,6 +703,11 @@ for name, variant in schedule_variants.items():
 	assert set(schedule_context["i18n"]) == SCHEDULE_TEXTS, set(schedule_context["i18n"]) ^ SCHEDULE_TEXTS
 	assert 'src="/assets/illumenate_lighting/js/portal/schedule/context.js?v=' in schedule_html
 	assert "pricing.js" not in schedule_html
+	# Plan 3.2: copy/configure-similar UI only renders behind its kill switch.
+	copy_enabled = bool(variant.get("line_copy_enabled"))
+	assert schedule_context["line_copy"] is copy_enabled
+	assert ('id="copyLinesModal"' in schedule_html) is copy_enabled
+	assert "schedule/copy.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")

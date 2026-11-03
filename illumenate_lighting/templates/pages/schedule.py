@@ -260,6 +260,24 @@ def get_context(context):
 			"led_sheet_template": getattr(line, "led_sheet_template", None),
 			"led_sheet_template_name": None,  # Will be populated below
 			"configured_led_sheet": getattr(line, "configured_led_sheet", None),
+			# Plan 3.2: lines whose configuration can pre-fill "Configure similar".
+			"can_configure_similar": bool(
+				(
+					line.manufacturer_type == "ILLUMENATE"
+					and any(
+						line.get(field)
+						for field in (
+							"ill_configurator_request",
+							"configured_fixture",
+							"configured_tape_neon",
+							"configured_led_sheet",
+							"configured_group",
+							"kit_template",
+						)
+					)
+				)
+				or (line.get("driver_template") and line.get("accessory_item"))
+			),
 			"cls_details": {},  # Configured LED Sheet display details
 			# Accessory/Component fields
 			"accessory_product_type": line.accessory_product_type,
@@ -461,6 +479,9 @@ def get_context(context):
 	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
 	context.can_edit = can_edit
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import line_copy_enabled
+
+	context.line_copy_enabled = line_copy_enabled()
 	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 

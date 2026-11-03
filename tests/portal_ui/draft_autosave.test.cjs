@@ -17,6 +17,7 @@ function setup(html, query = '') {
   const navigations = [];
   w.$ = w.jQuery = jquery(w);
   w.__ = value => value;
+  if (!(w.crypto && w.crypto.randomUUID)) Object.defineProperty(w, 'crypto', { value: { randomUUID: () => require('node:crypto').randomUUID() }, configurable: true });
   w.frappe = { call: args => requests.push(args), msgprint() {}, show_alert() {}, csrf_token: 'tok' };
   w.fetch = (url, options) => { fetches.push({ url, options }); return Promise.resolve({}); };
   for (const file of ['shared_configurator', 'draft_autosave']) {
