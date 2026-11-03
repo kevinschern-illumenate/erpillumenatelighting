@@ -220,8 +220,7 @@ class LookupUnit(unittest.TestCase):
 		with load_service(ROOT_LOOKUP) as (lookup_module, _frappe):
 			row = lookup_module.Row(a=1)
 			self.assertEqual(row.a, 1)
-			with self.assertRaises(AttributeError):
-				row.missing  # noqa: B018
+			self.assertFalse(hasattr(row, "missing"), "missing keys raise AttributeError")
 
 
 ROOT_LOOKUP = "illumenate_lighting.illumenate_lighting.portal.schedule_lookup"

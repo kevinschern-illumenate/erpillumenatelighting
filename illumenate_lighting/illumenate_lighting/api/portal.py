@@ -4438,13 +4438,12 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 		frappe.throw(access_error or _("You do not have access to this schedule"), frappe.PermissionError)
 
 	# 6. Load the schedule and compute per-line MSRP + tier pricing.
+	from illumenate_lighting.illumenate_lighting.portal.schedule_lookup import Lookup, prefetch_schedule
 	from illumenate_lighting.templates.pages.schedule import (
 		_get_configured_fixture_display_details,
 		_get_configured_led_sheet_display_details,
 		compute_line_msrp,
 	)
-
-	from illumenate_lighting.illumenate_lighting.portal.schedule_lookup import Lookup, prefetch_schedule
 
 	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
 	lines = schedule.lines or []
