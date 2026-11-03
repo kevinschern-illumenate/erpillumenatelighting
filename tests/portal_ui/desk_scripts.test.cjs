@@ -20,7 +20,18 @@ test('all DocType scripts parse even when they are excluded from the asset bundl
   }
 });
 
-function setup(t, fetchResponse) {
+const PROGRESS = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.get_sync_progress';
+const SPEC_SHEET = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.request_spec_sheet';
+const BASELINE = {
+  server_time: '2026-11-03 10:00:00',
+  brands: [{ brand: 'illumenate', state: 'pending' }, { brand: 'lighting_206', state: 'pending' }],
+  complete: false,
+  failed: false,
+};
+const flush = () => new Promise(resolve => setImmediate(resolve));
+
+// requestResponse answers request_spec_sheet; progress answers polls that carry "since".
+function setup(t, requestResponse, progress = () => ({ ...BASELINE })) {
   const dom = new JSDOM('<html><head></head><body></body></html>');
   t.after(() => dom.window.close());
   const $ = jquery(dom.window);
@@ -28,7 +39,15 @@ function setup(t, fetchResponse) {
   const timers = new Map(), intervals = new Map();
   let serial = 0, frozen = false;
   const frm = {
-    doc: { name: 'demo', product_slug: 'demo' },
+    doc: {
+      name: 'demo',
+      product_slug: 'demo',
+      target_brands: [
+        { brand: 'illumenate', enabled: 1 },
+        { brand: 'lighting_206', enabled: 1 },
+        { brand: 'retired', enabled: 0 },
+      ],
+    },
     is_new: () => false,
     add_custom_button(label, fn) { buttons[label] = fn; return $('<button>'); },
     set_query(...args) { queries.push(args); },
@@ -37,17 +56,22 @@ function setup(t, fetchResponse) {
   };
   vm.runInNewContext(productScript, {
     $, __: value => value, document: dom.window.document, window: dom.window,
-    AbortController, console,
+    console,
     setTimeout(fn) { const id = ++serial; timers.set(id, fn); return id; },
     clearTimeout(id) { timers.delete(id); },
     setInterval(fn) { const id = ++serial; intervals.set(id, fn); return id; },
     clearInterval(id) { intervals.delete(id); },
-    fetch(url, options) { requests.push({ url, ...options }); return fetchResponse(); },
     frappe: {
       ui: { form: { on(doctype, callbacks) { handlers[doctype] = callbacks; } } },
       dom: { freeze() { frozen = true; }, unfreeze() { frozen = false; } },
+      utils: { escape_html: value => String(value).replace(/</g, '&lt;') },
       msgprint(message) { messages.push(message); },
-      xcall: async () => ({ sync_status: 'Synced' }),
+      xcall(method, args) {
+        requests.push({ method, args });
+        if (method === SPEC_SHEET) return requestResponse(args);
+        if (method === PROGRESS) return Promise.resolve(args.since ? progress(args) : { ...BASELINE });
+        return Promise.resolve({});
+      },
       show_alert(message) { messages.push(message); },
     },
   });
@@ -70,32 +94,73 @@ test('a webhook that never responds cannot leave the product form frozen', async
   state.buttons['Sync to Webflow']();
   assert.equal(state.frozen(), true);
   assert.equal(state.timers.size, 1);
+  await flush();
   [...state.timers.values()][0]();
   assert.equal(state.frozen(), false);
-  assert.equal(state.requests[0].signal.aborted, true);
   assert.equal(state.timers.size, 0);
   assert.equal(state.intervals.size, 0);
   assert.match(state.messages[0], /not been confirmed/);
 });
 
 test('webhook errors clear the deadline and release the form', async t => {
-  const state = setup(t, async () => ({ ok: false, status: 500 }));
+  const state = setup(t, () => Promise.reject({ message: 'Pipeline failed with status 500.' }));
   state.buttons['Sync to Webflow']();
-  await new Promise(resolve => setImmediate(resolve));
+  await flush();
   assert.equal(state.frozen(), false);
   assert.equal(state.timers.size, 0);
   assert.match(state.messages[0].message, /500/);
 });
 
 test('successful polling clears the deadline so it cannot interrupt another operation', async t => {
-  const state = setup(t, async () => ({ ok: true, json: async () => ({ success: true }) }));
+  const state = setup(t, async () => ({ success: true }), () => ({
+    ...BASELINE, complete: true,
+    brands: BASELINE.brands.map(row => ({ ...row, state: 'complete' })),
+  }));
   state.buttons['Sync to Webflow']();
-  await new Promise(resolve => setImmediate(resolve));
+  await flush();
   assert.equal(state.intervals.size, 1);
   [...state.intervals.values()][0]();
-  await new Promise(resolve => setImmediate(resolve));
+  await flush();
   assert.equal(state.frozen(), false);
   assert.equal(state.intervals.size, 0);
   assert.equal(state.timers.size, 0);
   assert.equal(state.messages.length, 1);
+});
+
+test('sync requests every enabled target brand instead of a hard-coded brand', async t => {
+  const state = setup(t, async () => ({ success: true }));
+  state.buttons['Sync to Webflow']();
+  await flush();
+  const brands = state.requests.filter(row => row.method === SPEC_SHEET).map(row => row.args.brand);
+  assert.deepEqual(brands, ['illumenate', 'lighting_206']);
+});
+
+test('an earlier Synced status does not complete a new sync', async t => {
+  const state = setup(t, async () => ({ success: true }), () => ({
+    ...BASELINE,
+    brands: BASELINE.brands.map(row => ({ ...row, sync_status: 'Synced', state: 'pending' })),
+  }));
+  state.buttons['Sync to Webflow']();
+  await flush();
+  [...state.intervals.values()][0]();
+  await flush();
+  const poll = state.requests.filter(row => row.method === PROGRESS).pop();
+  assert.equal(poll.args.since, BASELINE.server_time);
+  assert.equal(state.frozen(), true);
+  assert.equal(state.intervals.size, 1);
+  assert.equal(state.messages.length, 0);
+});
+
+test('a failed publication job for this run stops polling and escapes its error', async t => {
+  const state = setup(t, async () => ({ success: true }), () => ({
+    ...BASELINE, failed: true,
+    brands: [{ brand: 'illumenate', state: 'failed', error: '<b>Publication failed (500)</b>' }],
+  }));
+  state.buttons['Sync to Webflow']();
+  await flush();
+  [...state.intervals.values()][0]();
+  await flush();
+  assert.equal(state.frozen(), false);
+  assert.equal(state.intervals.size, 0);
+  assert.match(state.messages[0].message, /&lt;b>Publication failed/);
 });
