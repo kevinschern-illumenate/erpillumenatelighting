@@ -1,6 +1,7 @@
 """One canonical product image (plan 5.4, owner decision D1)."""
 
 import unittest
+from typing import ClassVar
 from unittest.mock import MagicMock
 
 from test_services import ROOT, Record, load_service
@@ -266,7 +267,7 @@ class MissingHeroReport(unittest.TestCase):
 
 
 class Projection(unittest.TestCase):
-	product = {
+	product: ClassVar[dict] = {
 		"name": "p",
 		"product_name": "Slim",
 		"product_type": "Fixture Template",
