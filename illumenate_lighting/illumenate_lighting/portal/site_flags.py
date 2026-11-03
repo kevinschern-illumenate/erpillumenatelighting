@@ -30,6 +30,11 @@ def fixture_groups_enabled():
 	return conf_flag("ill_portal_fixture_groups", default=True)
 
 
+def desk_links_enabled():
+	"""Staff "Open in Desk" links on portal record pages (plan 7.2). On unless set false."""
+	return conf_flag("ill_portal_desk_links", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

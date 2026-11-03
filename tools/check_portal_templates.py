@@ -23,6 +23,9 @@ from jinja2 import (
 )
 from markupsafe import Markup
 
+_routes = {}
+exec((ROOT / "illumenate_lighting/illumenate_lighting/portal/routes.py").read_text(encoding="utf-8"), _routes)
+
 environment = Environment(
 	loader=ChoiceLoader(
 		[
@@ -45,6 +48,8 @@ environment.globals.update(
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
+		"ill_portal_routes": lambda: dict(_routes["PORTAL_ROUTES"]),
+		"ill_desk_link": lambda path: _routes["desk_path"](*_routes["record_for_path"](path)) if _routes["record_for_path"](path) else "",
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",

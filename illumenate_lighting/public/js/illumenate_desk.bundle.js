@@ -1,5 +1,6 @@
 // Desk (app_include_js) bundle — esbuild emits a content-hashed filename so
 // browsers pick up new code on every deploy instead of a year-long cached copy.
+import "./portal_routes.js";
 import "./configurator/shared_configurator.js";
 import "./configurator/fixture_group_editor.js";
 import "./configurator/fixture_steps.js";

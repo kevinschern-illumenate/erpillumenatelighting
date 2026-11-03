@@ -28,3 +28,26 @@ def ill_sanitize_html(html) -> str:
 	from frappe.utils.html_utils import sanitize_html
 
 	return sanitize_html(html or "")
+
+
+def ill_portal_routes() -> dict:
+	"""The route contract for portal scripts (hardening plan 7.1)."""
+	from illumenate_lighting.illumenate_lighting.portal.routes import PORTAL_ROUTES
+
+	return dict(PORTAL_ROUTES)
+
+
+def ill_desk_link(path) -> str:
+	"""The Desk form behind a portal record page, for staff only; "" for everyone else (7.2)."""
+	import frappe
+
+	from illumenate_lighting.illumenate_lighting.portal.routes import desk_path, record_for_path
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import desk_links_enabled
+
+	user = frappe.session.user
+	if user == "Guest" or not desk_links_enabled():
+		return ""
+	if frappe.get_cached_value("User", user, "user_type") != "System User":
+		return ""
+	record = record_for_path(path)
+	return desk_path(*record) if record else ""

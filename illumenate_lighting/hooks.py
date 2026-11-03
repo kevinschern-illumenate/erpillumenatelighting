@@ -65,6 +65,7 @@ doctype_list_js = {"Item": "public/js/item_list.js"}
 for _name in (
     "ilL-Project", "ilL-Project-Fixture-Schedule", "ilL-Quote-Request", "ilL-Quote-Offer",
     "ilL-Order-Intake", "ilL-Document-Request", "Issue", "Sales Order",
+    "ilL-Order-Change", "ilL-Drawing-Review", "ilL-Portal-Message", "ilL-Account-Request", "ilL-Portal-Invitation",
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
@@ -195,8 +196,11 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link"],
 }
+
+# One route contract for Desk scripts (hardening plan 7.1).
+extend_bootinfo = ["illumenate_lighting.illumenate_lighting.portal.routes.extend_bootinfo"]
 
 # Installation
 # ------------
