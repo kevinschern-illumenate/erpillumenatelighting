@@ -383,7 +383,7 @@ class ManifestPlan(unittest.TestCase):
 class ManifestApply(unittest.TestCase):
 	def test_templates_save_before_products_and_files_are_attached(self):
 		world = World()
-		with manifest_module(world) as (mm, frappe, _):
+		with manifest_module(world) as (mm, _frappe, _):
 			results = mm.plan(
 				[
 					row(alt_text="Side"),
@@ -479,7 +479,7 @@ def builder(world=None, **access):
 class CatalogBuilderMedia(unittest.TestCase):
 	def test_dealers_cannot_check_or_import_media(self):
 		for access in ({"roles": ["Dealer"]}, {"user": "Guest"}, {"roles": []}):
-			with self.subTest(access=access), builder(**access) as (service, frappe, world, events, _, __):
+			with self.subTest(access=access), builder(**access) as (service, _frappe, world, events, _, __):
 				for call in (lambda: service.check(media=[row()]), lambda: service.import_catalog(None, "h", [row()])):
 					with self.assertRaises(PermissionError):
 						call()
@@ -487,7 +487,7 @@ class CatalogBuilderMedia(unittest.TestCase):
 				self.assertEqual(world.saved, [])
 
 	def test_media_only_check_reports_rows_and_writes_nothing(self):
-		with builder() as (service, frappe, world, events, logs, _):
+		with builder() as (service, _frappe, world, events, logs, _):
 			response = service.check(media=json.dumps([row(), row(role="dimensions")]))
 		self.assertEqual((response["status"], response["stage"]), ("Passed", "media"))
 		self.assertEqual([r["status"] for r in response["media"]], ["ok", "skipped"])
@@ -501,7 +501,7 @@ class CatalogBuilderMedia(unittest.TestCase):
 		self.assertNotIn("_actions", json.dumps(response["media"]))
 
 	def test_error_rows_fail_the_check(self):
-		with builder() as (service, _, world, events, __, ___):
+		with builder() as (service, _, _world, _events, __, ___):
 			response = service.check(media=[row(file_url_or_zip_path="http://example.com/x.jpg")])
 		self.assertEqual(response["status"], "Failed")
 		self.assertEqual(response["summary"]["media_errors"], 1)
@@ -509,7 +509,7 @@ class CatalogBuilderMedia(unittest.TestCase):
 		self.assertFalse(response["ok"])
 
 	def test_import_needs_a_passing_check_of_the_same_manifest(self):
-		with builder() as (service, frappe, world, events, _, passing):
+		with builder() as (service, _frappe, world, events, _, passing):
 			checked = service.check(media=[row()])
 			passing.append("CHECK-1")
 			changed = service.import_catalog(None, checked["catalog_hash"], [row(alt_text="new")])
@@ -524,7 +524,7 @@ class CatalogBuilderMedia(unittest.TestCase):
 
 	def test_failed_attach_rolls_back_and_removes_new_files(self):
 		world = World()
-		with builder(world) as (service, frappe, _, events, __, passing), tempfile.TemporaryDirectory(dir=HERE) as folder:
+		with builder(world) as (service, _frappe, _, events, __, passing), tempfile.TemporaryDirectory(dir=HERE) as folder:
 			path = os.path.join(folder, "copy.jpg")
 			with open(path, "wb") as handle:
 				handle.write(b"x")

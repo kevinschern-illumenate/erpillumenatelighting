@@ -287,7 +287,7 @@ class Worker(unittest.TestCase):
 			self.assertEqual(created, [])
 
 	def test_a_failed_file_insert_removes_the_files_already_created(self):
-		with self.worker() as (module, frappe, record, _created, _validate, _replace):
+		with self.worker() as (module, frappe, _record, _created, _validate, _replace):
 			original = frappe.get_doc.side_effect
 
 			def get_doc(doctype, name=None):
