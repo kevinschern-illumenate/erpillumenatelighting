@@ -22,7 +22,7 @@
         <i class="fa fa-bell" aria-hidden="true"></i>
         <span class="sr-only">{{ _("Notifications") }}</span>
         {%- if unread %}
-        <span class="badge badge-pill badge-danger ill-nav-badge" aria-hidden="true">{{ ('9+' if unread > 9 else unread) | e }}</span>
+        <span class="badge badge-danger badge-pill ill-nav-badge" aria-hidden="true">{{ ('9+' if unread > 9 else unread) | e }}</span>
         <span class="sr-only">{{ _("{0} unread").format('9+' if unread > 9 else unread) | e }}</span>
         {%- endif %}
     </a>
