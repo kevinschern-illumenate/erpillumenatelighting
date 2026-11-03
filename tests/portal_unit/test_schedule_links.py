@@ -42,7 +42,7 @@ def configure_page(form, resolve_line):
 	stubs = {}
 	for name, attributes in {
 		".portal.access": {"can_view_catalog": lambda: True},
-		".portal.site_flags": {"conf_flag": lambda flag: False, "fixture_groups_enabled": lambda: False},
+		".portal.site_flags": {"conf_flag": lambda flag: False, "fixture_groups_enabled": lambda: False, "sheet_server_options_enabled": lambda: True},
 		".portal.rollout": {"require_family": lambda family: None},
 		".portal.configuration": {
 			"resolve_line": resolve_line,
