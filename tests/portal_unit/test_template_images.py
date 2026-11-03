@@ -16,10 +16,42 @@ class Images(unittest.TestCase):
 			]
 			images = {"CH-RA01-SW": "/files/ch-ra01.png", "LN-RA01-FR": "/files/lens.png"}
 			template = Record(kit_components=rows)
-			module.fill_component_images(template, image_of=images.get)
+			module.fill_component_images(template, image_of=images.get, describe=lambda kind, code: None)
 			self.assertEqual(
 				[row.component_image for row in rows],
 				["/files/ch-ra01.png", "/files/ch-ra01.png", "/files/lens.png", "/files/lens.png"],
+			)
+
+	def test_descriptions_come_from_the_variant_attribute(self):
+		with load_service(ROOT + ".template_images") as (module, frappe):
+			attributes = {
+				"CH-RA01-SV": [
+					Record(attribute="Finish", attribute_value="Anodized Silver"),
+					Record(attribute="Length", attribute_value="2M"),
+				],
+				"LNS-RAXX-WH": [Record(attribute="lens color", attribute_value=" White ")],
+				"EC-RA01-GR-NO": [Record(attribute="Endcap Color", attribute_value="Grey")],
+			}
+			frappe.get_all.side_effect = lambda doctype, filters, fields: attributes.get(
+				filters["parent"], []
+			)
+			rows = [
+				Record(component_type="Profile", component_item="CH-RA01-SV", component_description="old"),
+				Record(component_type="Lens", component_item="LNS-RAXX-WH", component_description=None),
+				Record(
+					component_type="Endcap Set", component_item="EC-RA01-GR-NO", component_description=None
+				),
+				Record(
+					component_type="Mounting Kit",
+					component_item="ACC-RA01-MC",
+					component_description="Mounting Clip",
+				),
+				Record(component_type="Profile", component_item="CH-NONE", component_description="typed"),
+			]
+			module.fill_component_images(Record(kit_components=rows), image_of=lambda code: None)
+			self.assertEqual(
+				[row.component_description for row in rows],
+				["Anodized Silver", "White", "Grey", "Mounting Clip", "typed"],
 			)
 
 	def test_the_variant_parent_image_comes_first(self):

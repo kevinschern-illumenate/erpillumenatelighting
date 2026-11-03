@@ -101,3 +101,7 @@ pages a run needs.
 - Environment Ratings are always listed Dry, Damp, Wet (others after, A to Z).
 - `web_series` is removed. The product's `series` (a link to ilL-Attribute-Series, like the
   template's) mirrors the template's Series on save and is read-only on a linked product.
+- Kit Stock Length and Max Assembled Length use `"` for inches, like Dimensions: `78.7" (2000mm)`.
+- Kit Components Description is set on template save from the item's variant attributes: Profile
+  Finish, Lens Lens Color, Endcap Set Endcap Color (attribute names matched in any case). Other
+  types, and items without that attribute, keep the typed Description.

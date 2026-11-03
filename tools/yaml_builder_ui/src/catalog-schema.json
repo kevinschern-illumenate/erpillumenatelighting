@@ -2806,7 +2806,8 @@
         {
           "fieldname": "component_description",
           "label": "Description",
-          "fieldtype": "Long Text"
+          "fieldtype": "Long Text",
+          "description": "Shown next to the item code on the spec sheet. Set on template save for Profile (the item's Finish), Lens (Lens Color) and Endcap Set (Endcap Color), from the item's variant attributes; typed by hand for other types."
         }
       ]
     },

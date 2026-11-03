@@ -78,13 +78,14 @@
   {
    "fieldname": "component_description",
    "fieldtype": "Long Text",
-   "label": "Description"
+   "label": "Description",
+   "description": "Shown next to the item code on the spec sheet. Set on template save for Profile (the item's Finish), Lens (Lens Color) and Endcap Set (Endcap Color), from the item's variant attributes; typed by hand for other types."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-03 16:30:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Webflow-Kit-Component",

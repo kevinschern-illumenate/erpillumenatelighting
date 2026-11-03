@@ -5,6 +5,9 @@ Filled on every template save (``refresh``, from ``template_listing.refresh_temp
 - Kit components: ``component_image`` on each row is the image of its component type: the
   first row of that type with an item, that item's template item (``variant_of``) image, else
   the item's own image. The same lookup the Webflow Product used for its kit groups.
+  ``component_description`` is the item's variant attribute for its type: Profile Finish, Lens
+  Lens Color, Endcap Set Endcap Color (owner, 2026-11-03). Other types, and items without that
+  attribute, keep the Description typed on the row.
 - Certifications: ``badge_image`` on each row is the linked certification's dark badge for the
   template's brand: ilLumenate ``badge_image_dark``, 206 Lighting
   ``badge_image_dark_206``.
@@ -35,7 +38,8 @@ def item_image(item_code):
 	return row.image
 
 
-def fill_component_images(template, image_of=item_image):
+def fill_component_images(template, image_of=item_image, describe=None):
+	describe = describe or variant_attribute_value
 	images = {}
 	for row in template.get("kit_components") or []:
 		kind = row.get("component_type")
@@ -43,6 +47,29 @@ def fill_component_images(template, image_of=item_image):
 			images[kind] = image_of(row.component_item)
 	for row in template.get("kit_components") or []:
 		row.component_image = images.get(row.get("component_type"))
+		value = describe(row.get("component_type"), row.get("component_item"))
+		if value:
+			row.component_description = value
+
+
+# The variant attribute that names each component (owner, 2026-11-03). Other component types
+# keep the Description typed on the row.
+DESCRIPTION_ATTRIBUTES = {"Profile": "Finish", "Lens": "Lens Color", "Endcap Set": "Endcap Color"}
+
+
+def variant_attribute_value(component_type, item_code):
+	"""The item's value for its component type's attribute (Item > Variants > Attributes)."""
+	attribute = DESCRIPTION_ATTRIBUTES.get(component_type)
+	if not attribute or not item_code:
+		return None
+	for row in frappe.get_all(
+		"Item Variant Attribute",
+		filters={"parenttype": "Item", "parent": item_code},
+		fields=["attribute", "attribute_value"],
+	):
+		if (row.attribute or "").strip().lower() == attribute.lower() and (row.attribute_value or "").strip():
+			return row.attribute_value.strip()
+	return None
 
 
 def template_brand(template):
