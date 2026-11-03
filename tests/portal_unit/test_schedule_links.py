@@ -37,7 +37,7 @@ class Context(Record):
 	__setattr__ = dict.__setitem__
 
 
-def configure_page(form, resolve_line, drafts=True, for_line=None, copy=True):
+def configure_page(form, resolve_line, drafts=True, for_line=None, copy=True, decode=None, pn=True):
 	"""Load configure.py with only the boundaries its schedule-line branch touches."""
 	stubs = {}
 	for name, attributes in {
@@ -47,7 +47,9 @@ def configure_page(form, resolve_line, drafts=True, for_line=None, copy=True):
 			"fixture_groups_enabled": lambda: False,
 			"durable_drafts_enabled": lambda: drafts,
 			"line_copy_enabled": lambda: copy,
+			"part_number_decode_enabled": lambda: pn,
 		},
+		".portal.part_number": {"NotAPartNumber": NotAPartNumber, "decode": decode or (lambda value: None)},
 		".portal.rollout": {"require_family": lambda family: None},
 		".portal.configuration": {
 			"resolve_line": resolve_line,
@@ -70,6 +72,10 @@ def configure_page(form, resolve_line, drafts=True, for_line=None, copy=True):
 	utils.get_url = lambda path: path
 	stubs["frappe.utils"] = utils
 	return load_service("illumenate_lighting.templates.pages.configure", stubs), form
+
+
+class NotAPartNumber(ValueError):
+	pass
 
 
 class ConfigurePage(unittest.TestCase):
@@ -143,6 +149,40 @@ class ConfigurePage(unittest.TestCase):
 		self.assertIsNone(error)
 		self.assertIsNone(context.similar_to)
 		self.assertIsNone(context.initial_request)
+
+	def test_part_number_prefills_a_new_fixture_line(self):
+		decoded = {
+			"part_number": "ILL-SH01-S",
+			"template": "FT-1",
+			"selections": {"fixture_template_code": "FT-1", "finish_code": "Silver"},
+			"unmatched": [],
+			"review": [],
+		}
+		calls = []
+		error, context = self.run_page(
+			{"schedule": "S1", "pn": "ILL-SH01-S"}, MagicMock(), decode=lambda value: calls.append(value) or decoded
+		)
+		self.assertIsNone(error)
+		self.assertEqual(calls, ["ILL-SH01-S"])
+		self.assertEqual(context.pn_prefill, decoded)
+		self.assertEqual(context.initial_request, {"template": "FT-1", "selections": decoded["selections"]})
+		self.assertEqual((context.product_category, context.selected_template), ("Linear Fixture", "FT-1"))
+		self.assertIsNone(context.line_idx, "saving adds a new line")
+
+	def test_part_number_without_a_template_or_switched_off_prefills_nothing(self):
+		def invalid(value):
+			raise NotAPartNumber("nope")
+
+		for page in (
+			{"decode": invalid},
+			{"decode": lambda value: {"template": None, "selections": {}}},
+			{"decode": invalid, "pn": False},
+		):
+			with self.subTest(page=page):
+				error, context = self.run_page({"category": "Linear Fixture", "schedule": "S1", "pn": "X"}, MagicMock(), **page)
+				self.assertIsNone(error)
+				self.assertIsNone(context.pn_prefill)
+				self.assertIsNone(context.initial_request)
 
 	def test_draft_autosave_needs_a_schedule_and_the_kill_switch(self):
 		form = {"category": "Linear Fixture", "schedule": "S1"}

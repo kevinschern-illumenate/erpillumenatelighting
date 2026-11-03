@@ -34,6 +34,20 @@ Allows users to configure fixtures using segment-based configuration
 		</span>
 	</div>
 	{% endif %}
+	{% set pn = pn_prefill | default(none) %}
+	{% if pn %}
+	<div class="alert alert-info ill-pn-banner" role="status">
+		{{ _("Pre-filled from part number {0}. Check every option; nothing is added to the schedule until you save.").format(pn.part_number) | e }}
+		{% if pn.unmatched %}
+		<br>{{ _("Not recognised, choose these yourself:") }}
+		{% for row in pn.unmatched %}{{ row.answer | e }} ({{ row.reason | e }}){% if not loop.last %}, {% endif %}{% endfor %}
+		{% endif %}
+		{% if pn.review %}
+		<br>{{ _("Also set:") }}
+		{% for row in pn.review %}{{ row.text | e }}{% if not loop.last %}, {% endif %}{% endfor %}
+		{% endif %}
+	</div>
+	{% endif %}
 	{% if similar_to | default(none) %}
 	<div class="alert alert-info ill-similar-banner" role="status">
 		{{ _("Configuring a new line similar to {0}. Nothing is added to the schedule until you save.").format(similar_to) | e }}

@@ -177,6 +177,24 @@ def get_context(context):
 				if product_category != "Linear Fixture":
 					configurator_mode = "coordinator"
 
+	# Plan 3.5 "Add by part number": pre-fill the options a fixture part number names; nothing is saved.
+	context.pn_prefill = None
+	part_number = _query_value(frappe.form_dict.get("pn"))
+	if part_number and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import part_number_decode_enabled
+
+		if part_number_decode_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.part_number import NotAPartNumber, decode
+
+			try:
+				decoded = decode(part_number)
+			except NotAPartNumber:
+				decoded = None
+			if decoded and decoded.get("template"):
+				context.pn_prefill = decoded
+				initial_request = {"template": decoded["template"], "selections": decoded["selections"]}
+				product_category, template_code = "Linear Fixture", decoded["template"]
+
 	# Quiz answers are plain words ("Damp", "Silver"); match them on the server to the
 	# options this template offers, so the browser does not apply the raw labels.
 	context.finder = frappe.form_dict.get("finder")
