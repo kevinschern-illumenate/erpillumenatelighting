@@ -22,7 +22,9 @@
 .ill-thread__files a{display:block;font-size:.875rem;margin-top:.35rem}
 .ill-thread__paging{display:flex;justify-content:center;gap:.75rem;align-items:center;margin:0 0 .75rem;font-size:.8rem;color:var(--t-muted)}
 .ill-thread__form{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--t-line)}
-.ill-thread__result{font-size:.875rem;color:var(--t-muted);margin:.5rem 0 0}`;
+.ill-thread__result{font-size:.875rem;color:var(--t-muted);margin:.5rem 0 0}
+.ill-thread__banner{margin:.5rem 0 0;padding:.5rem .75rem;border:1px solid var(--ill-gold-300,#FEDD9A);border-radius:8px;background:var(--ill-gold-100,#FFF9EE);color:var(--ill-gold-ink,#7A5500);font-weight:600;font-size:.875rem}
+.ill-thread__send-dealer{margin-left:.5rem}`;
 	const STATES = {SUBMITTED: 'Submitted', UNDER_REVIEW: 'Under review', INFORMATION_NEEDED: 'Information needed',
 		CHANGES_PROPOSED: 'Changes proposed', APPROVED: 'Approved', REJECTED: 'Needs correction', WITHDRAWN: 'Withdrawn',
 		REQUESTED: 'Requested', ISSUED: 'Issued', CLOSED: 'Closed', COMPLETED: 'Completed'};
@@ -61,18 +63,32 @@
 		const staffFields = element('div', undefined, 'my-2');
 		const visibilityLabel = element('label', __('Visibility')); visibilityLabel.htmlFor = uid + '-visibility';
 		const visibility = element('select', undefined, 'form-control'); visibility.id = visibilityLabel.htmlFor;
-		[['Customer', __('Customer visible')], ['Internal', __('Staff only')]].forEach(([value, text]) => { const option = element('option', text); option.value = value; visibility.append(option); });
+		// Staff write internal notes unless they deliberately choose the dealer (plan 7.3).
+		[['Internal', __('Internal note (staff only)')], ['Customer', __('Message to the dealer')]].forEach(([value, text]) => { const option = element('option', text); option.value = value; visibility.append(option); });
+		visibility.value = 'Internal';
+		const banner = element('p', __('The dealer will see this message.'), 'ill-thread__banner'); banner.setAttribute('role', 'note'); banner.hidden = true;
 		const actionLabel = element('label', __('Action')); actionLabel.htmlFor = uid + '-action';
 		const action = element('select', undefined, 'form-control'); action.id = actionLabel.htmlFor;
 		[['REPLY', __('Reply')], ['REQUEST_INFO', __('Request customer information')], ['RESOLVE', __('Resolve with this message')], ['REOPEN', __('Reopen with this message')]].forEach(([value, text]) => { const option = element('option', text); option.value = value; action.append(option); });
-		staffFields.append(visibilityLabel, visibility, actionLabel, action); staffFields.hidden = true;
+		staffFields.append(visibilityLabel, visibility, banner, actionLabel, action); staffFields.hidden = true;
 		const submit = element('button', __('Send message'), 'btn btn-primary mt-3'); submit.type = 'submit';
-		form.append(label, body, fileLabel, files, staffFields, submit, result);
+		const sendDealer = element('button', __('Send to dealer'), 'btn btn-warning mt-3 ill-thread__send-dealer'); sendDealer.type = 'submit'; sendDealer.hidden = true;
+		form.append(label, body, fileLabel, files, staffFields, submit, sendDealer, result);
 		root.append(status, paging, list, form);
 		// Every message loaded so far, by name. Pages are merged, never swapped,
 		// so earlier messages stay on screen after a reply and nothing is lost when
 		// a new message shifts the newest-first pages.
-		let loaded = new Map(), pages = 0, serial = 0, sending = false, retryBody, retryKey;
+		let loaded = new Map(), pages = 0, serial = 0, sending = false, retryBody, retryKey, staffView = false;
+		function showMode() {
+			const toDealer = staffView && visibility.value === 'Customer';
+			banner.hidden = !toDealer;
+			sendDealer.hidden = !toDealer;
+			submit.hidden = toDealer;
+			submit.textContent = staffView ? __('Save internal note') : __('Send message');
+			submit.className = staffView ? 'btn btn-secondary mt-3' : 'btn btn-primary mt-3';
+			action.disabled = staffView && visibility.value === 'Internal';
+			if (action.disabled) action.value = 'REPLY';
+		}
 		const context = { parent_type: root.dataset.parentType, parent_name: root.dataset.parentName };
 		const commercial = ['ilL-Quote-Request', 'ilL-Order-Intake', 'ilL-Order-Change', 'ilL-Product-Verification-Request'].includes(context.parent_type);
 		if (commercial) [...action.options].filter(option => ['RESOLVE', 'REOPEN'].includes(option.value)).forEach(option => option.remove());
@@ -116,6 +132,7 @@
 				if (waiting) status.append(element('span', waiting, 'ill-thread__pill ill-thread__pill--wait'));
 				if (data.is_staff && data.new_from_customer) status.append(element('span', __('{0} new customer message(s)', [data.new_from_customer]), 'ill-thread__pill ill-thread__pill--wait ill-thread__unread'));
 				staffFields.hidden = !data.is_staff; form.hidden = !(data.can_reply || (!commercial && data.is_staff));
+				staffView = !!data.is_staff; showMode();
 				data.messages.forEach(message => loaded.set(message.name || [message.creation, message.actor, message.body].join('|'), message));
 				pages = Math.max(pages, page);
 				// The API pages newest first; the conversation reads oldest first.
@@ -133,11 +150,16 @@
 			finally { if (token === serial) older.disabled = false; }
 		}
 		older.addEventListener('click', () => load(pages + 1));
-		visibility.addEventListener('change', () => { if (visibility.value === 'Internal') action.value = 'REPLY'; action.disabled = visibility.value === 'Internal'; });
+		visibility.addEventListener('change', showMode);
 		form.addEventListener('submit', async event => {
 			event.preventDefault(); if (sending) return;
-			sending = true; submit.disabled = true; result.textContent = __('Sending…');
-			const draft = {body: body.value.trim(), visibility: visibility.value, action: action.value};
+			// The button pressed decides who sees the message; Enter follows the toggle. Dealers always write to staff.
+			let audience = visibility.value;
+			if (event.submitter === sendDealer) audience = 'Customer';
+			else if (event.submitter === submit && staffView) audience = 'Internal';
+			if (!staffView) audience = 'Customer';
+			sending = true; submit.disabled = true; sendDealer.disabled = true; result.textContent = __('Sending…');
+			const draft = {body: body.value.trim(), visibility: audience, action: audience === 'Internal' ? 'REPLY' : action.value};
 			try {
 				const file_ids = await PortalUploads.uploadAll(files);
 				const payload = {...context, ...draft, file_ids};
@@ -146,9 +168,11 @@
 				await PortalUploads.call(api + 'reply', {...payload, idempotency_key: retryKey});
 				if (body.value.trim() === draft.body) body.value = '';
 				files.value = ''; files._uploadedFiles = new Map(); retryBody = null; retryKey = null;
-				result.textContent = __('Message sent.'); await load();
+				result.textContent = audience === 'Internal' && staffView ? __('Internal note saved.') : __('Message sent.');
+				if (staffView) { visibility.value = 'Internal'; showMode(); }
+				await load();
 			} catch (error) { result.textContent = error.message || __('Message not sent. Your draft is preserved.'); }
-			finally { sending = false; submit.disabled = false; }
+			finally { sending = false; submit.disabled = false; sendDealer.disabled = false; }
 		});
 		root._conversation = {refresh: () => load()}; load(); return root._conversation;
 	};
