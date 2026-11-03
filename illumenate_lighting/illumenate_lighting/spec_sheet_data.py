@@ -71,7 +71,6 @@ PRODUCT_FIELDS = (
 MIRRORED = {
 	"product_category": "product_category",
 	"series": "series",
-	"web_series": "series",
 	"webflow_template_status": "product_status",
 	"sublabel": "sublabel",
 	"dimensions_image": "dimensions_image",

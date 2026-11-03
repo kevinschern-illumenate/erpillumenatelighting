@@ -442,9 +442,9 @@ function on_template_change(frm, fieldname) {
 	frappe.db
 		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["series"])
 		.then((r) => {
-			// Product Category and Product Type follow the template's Webflow Category on save.
+			// Product Category, Product Type and Series follow the template on save.
 			const template = (r && r.message) || {};
-			if (template.series && !frm.doc.series) {
+			if (template.series) {
 				frm.set_value("series", template.series);
 			}
 		});

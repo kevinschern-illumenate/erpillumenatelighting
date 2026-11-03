@@ -99,3 +99,5 @@ pages a run needs.
   power-supplies Driver. Both are read-only on a linked product. `web_product_category` is removed.
   `web_series` is labelled Series.
 - Environment Ratings are always listed Dry, Damp, Wet (others after, A to Z).
+- `web_series` is removed. The product's `series` (a link to ilL-Attribute-Series, like the
+  template's) mirrors the template's Series on save and is read-only on a linked product.

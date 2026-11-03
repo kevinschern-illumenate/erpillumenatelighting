@@ -3413,7 +3413,9 @@ class ilLWebflowProduct(Document):
 					self.product_category = category
 					if CATEGORY_PRODUCT_TYPES.get(category):
 						self.product_type = CATEGORY_PRODUCT_TYPES[category]
-				self.web_series = template_doc.get("series")
+				# Series mirrors the template's Series (both link to ilL-Attribute-Series).
+				if template_doc.get("series"):
+					self.series = template_doc.get("series")
 
 				# --- Documents Sync ---
 				existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}

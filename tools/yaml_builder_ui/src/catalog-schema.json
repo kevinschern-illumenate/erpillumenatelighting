@@ -7617,14 +7617,7 @@
           "label": "Series",
           "fieldtype": "Link",
           "options": "ilL-Attribute-Series",
-          "description": "Product series for filtering (e.g., 'SH01', 'SL02')"
-        },
-        {
-          "fieldname": "web_series",
-          "label": "Series",
-          "fieldtype": "Data",
-          "description": "The template's Series. Copied from the template on save.",
-          "read_only": 1
+          "description": "Set from the linked template's Series on save."
         },
         {
           "fieldname": "is_active",

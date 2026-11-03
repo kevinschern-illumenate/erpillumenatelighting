@@ -16,7 +16,6 @@
   "product_type",
   "product_category",
   "series",
-  "web_series",
   "is_active",
   "source_reference_section",
   "fixture_template",
@@ -154,19 +153,13 @@
    "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template"
   },
   {
-   "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
+   "description": "Set from the linked template's Series on save.",
    "fieldname": "series",
    "fieldtype": "Link",
    "in_standard_filter": 1,
    "label": "Series",
-   "options": "ilL-Attribute-Series"
-  },
-  {
-   "fieldname": "web_series",
-   "fieldtype": "Data",
-   "label": "Series",
-   "read_only": 1,
-   "description": "The template's Series. Copied from the template on save."
+   "options": "ilL-Attribute-Series",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template"
   },
   {
    "default": "1",
@@ -666,7 +659,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-03 15:00:00.000000",
+ "modified": "2026-11-03 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",
