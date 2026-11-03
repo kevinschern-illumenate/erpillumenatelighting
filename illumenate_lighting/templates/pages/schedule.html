@@ -1195,6 +1195,21 @@ Also handles new schedule creation when is_new is True
 							<small id="addLinePartNumberResult" class="form-text text-muted" role="status" aria-live="polite">{{ _("Paste a fixture part number to open the configurator with its options.") }}</small>
 						</div>
 						{% endif %}
+						{% if presets_enabled | default(false) %}
+						<div class="form-group ill-add-from-preset">
+							<label for="addLinePreset">{{ _("Start from a saved preset") }}</label>
+							<div class="input-group">
+								<select id="addLinePreset" class="form-control" aria-describedby="addLinePresetResult">
+									<option value="">{{ _("Choose a preset…") }}</option>
+								</select>
+								<div class="input-group-append">
+									<button type="button" class="btn btn-outline-primary" id="addLinePresetGo">{{ _("Configure") }}</button>
+									<button type="button" class="btn btn-outline-danger" id="addLinePresetDelete" disabled>{{ _("Delete") }}</button>
+								</div>
+							</div>
+							<small id="addLinePresetResult" class="form-text text-muted" role="status" aria-live="polite">{{ _("Save options as a preset in the configurator to reuse them here.") }}</small>
+						</div>
+						{% endif %}
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
@@ -1958,6 +1973,7 @@ Also handles new schedule creation when is_new is True
 	"line_copy": (line_copy_enabled | default(false)),
 	"bulk_edit": (bulk_edit_enabled | default(false)),
 	"part_number_decode": (part_number_decode_enabled | default(false)),
+	"presets": (presets_enabled | default(false)),
 	"schedule_import": (schedule_import_enabled | default(false)),
 	"import_columns": (import_columns | default([])),
 	"project_name": (project.name if project else ''),
@@ -2043,9 +2059,18 @@ Also handles new schedule creation when is_new is True
 		"Could not load your schedules.": _("Could not load your schedules."),
 		"Browser storage is unavailable. Allow session storage to preserve this draft.": _("Browser storage is unavailable. Allow session storage to preserve this draft."),
 		"(similar)": _("(similar)"),
+		"from your company": _("from your company"),
+		"shared": _("shared"),
+		"no longer offered": _("no longer offered"),
+		"No saved presets yet. Save one from the configurator.": _("No saved presets yet. Save one from the configurator."),
+		"Could not load your presets.": _("Could not load your presets."),
+		"Choose a preset.": _("Choose a preset."),
+		"Delete preset {0}?": _("Delete preset {0}?"),
+		"Preset deleted.": _("Preset deleted."),
+		"Could not delete this preset.": _("Could not delete this preset."),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

@@ -74,7 +74,7 @@ test('the template gates the import and loads line_import.js', () => {
   assert.match(TEMPLATE, /\{% if schedule_import_enabled \| default\(false\) %\}\s*<button class="btn btn-outline-primary" type="button" id="importLinesButton"/);
   assert.match(TEMPLATE, /\{% if schedule_import_enabled \| default\(false\) %\}\s*<div class="modal fade" id="importLinesModal"/);
   assert.match(TEMPLATE, /"schedule_import": \(schedule_import_enabled \| default\(false\)\)/);
-  assert.match(TEMPLATE, /"part_number", "line_import"\] %\}/);
+  assert.match(TEMPLATE, /"part_number", "line_import"[\],]/);
 });
 
 test('a sheet is previewed with its mapping and rows as text only', async () => {

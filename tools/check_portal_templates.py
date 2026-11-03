@@ -700,6 +700,7 @@ schedule_variants = {
 		bulk_edit_enabled=True,
 		part_number_decode_enabled=True,
 		schedule_import_enabled=True,
+		presets_enabled=True,
 		import_columns=["Type", "Qty", "Location", "Description", "Part Number", "Notes", "Length (in)"],
 	),
 }
@@ -748,6 +749,11 @@ for name, variant in schedule_variants.items():
 	assert ('id="importLinesModal"' in schedule_html) is import_enabled
 	assert schedule_context["import_columns"] == (variant["import_columns"] if import_enabled else [])
 	assert "schedule/line_import.js?v=" in schedule_html
+	# Plan 3.6: "Start from a saved preset" only renders behind its kill switch.
+	presets_on = bool(variant.get("presets_enabled"))
+	assert schedule_context["presets"] is presets_on
+	assert ('id="addLinePreset"' in schedule_html) is presets_on
+	assert "schedule/presets.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
@@ -992,6 +998,21 @@ assert "Pre-filled from part number ILL-&lt;SH01&gt;" in from_part_number
 assert "&lt;i&gt;WH&lt;/i&gt; (matches more than one option)" in from_part_number
 assert "Length 48 in, Output &lt;O3&gt;" in from_part_number
 assert "ill-pn-banner" not in nothing
+# Plan 3.6: a preset pre-fill names the preset and every problem, escaped; the save control is gated.
+from_preset = configurator.render(
+	**{
+		**context,
+		"preset_prefill": {"label": "<b>Lobby</b>", "usable": True, "problems": ["Finish <i>X</i> is no longer offered"]},
+		"presets_enabled": True,
+		"preset_can_share": True,
+	}
+)
+assert "Pre-filled from preset &lt;b&gt;Lobby&lt;/b&gt;" in from_preset
+assert "Finish &lt;i&gt;X&lt;/i&gt; is no longer offered" in from_preset
+assert 'id="ill-config-presets"' in from_preset and '"can_share": true' in from_preset
+stale_preset = configurator.render(**{**context, "preset_prefill": {"label": "Old", "usable": False, "problems": []}})
+assert "ill-preset-banner" in stale_preset and "Preset Old can no longer be used" in stale_preset
+assert "ill-preset-banner" not in nothing and "ill-config-presets" not in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
 designer_template = environment.get_template("templates/pages/system_design.html")
 designer = designer_template.render(

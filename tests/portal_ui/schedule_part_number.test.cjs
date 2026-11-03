@@ -38,7 +38,7 @@ function page(context = CONTEXT) {
 test('the template shows the box only behind the kill switch and loads part_number.js', () => {
   assert.match(TEMPLATE, /\{% if part_number_decode_enabled \| default\(false\) %\}\s*<div class="form-group ill-add-by-pn">/);
   assert.match(TEMPLATE, /"part_number_decode": \(part_number_decode_enabled \| default\(false\)\)/);
-  assert.match(TEMPLATE, /"bulk", "part_number", "line_import"\] %\}/);
+  assert.match(TEMPLATE, /"bulk", "part_number", "line_import"[\],]/);
 });
 
 test('a decoded part number opens the configurator with the dialog details as the draft', () => {

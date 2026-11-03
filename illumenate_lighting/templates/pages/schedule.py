@@ -483,6 +483,7 @@ def get_context(context):
 		bulk_edit_enabled,
 		line_copy_enabled,
 		part_number_decode_enabled,
+		presets_enabled,
 		schedule_import_enabled,
 	)
 
@@ -491,6 +492,7 @@ def get_context(context):
 		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and bulk_edit_enabled()
 	)
 	context.part_number_decode_enabled = bool(can_edit and part_number_decode_enabled())
+	context.presets_enabled = bool(can_edit and presets_enabled())
 	context.schedule_import_enabled = bool(
 		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and schedule_import_enabled()
 	)
