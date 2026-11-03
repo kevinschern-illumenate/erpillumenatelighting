@@ -36,7 +36,7 @@ def database(frappe, tables):
 	def get_all(doctype, filters=None, fields=None, **_kw):
 		rows = tables.get(doctype, [])
 		for key, condition in (filters or {}).items():
-			if isinstance(condition, list):
+			if isinstance(condition, list) and condition[0] == "in":
 				rows = [r for r in rows if r.get(key) in condition[1]]
 		return [Record({key: value for key, value in row.items() if key in fields}) for row in rows]
 
@@ -114,7 +114,7 @@ class Resolver(unittest.TestCase):
 			"ilL-Child-Webflow-Gallery-Image": [
 				Record(parent="p-hero", image="/featured.jpg", alt_text="Front", idx=1),
 				Record(parent="p-hero", image="/side.jpg", alt_text="Side", idx=2),
-				Record(parent="p-gal", image="/g1.jpg", alt_text="One", idx=1),
+				Record(parent="p-gal", image="/files/g1.jpg", alt_text="One", idx=1),
 				Record(parent="p-gal", image=None, alt_text="Empty row", idx=2),
 			],
 		}
@@ -130,7 +130,7 @@ class Resolver(unittest.TestCase):
 		self.assertEqual(fixtures["F-HERO"]["primary"], "/hero.jpg")
 		self.assertEqual(fixtures["F-HERO"]["primary_alt"], "Hero Fixture")
 		self.assertEqual([g["image"] for g in fixtures["F-HERO"]["gallery"]], ["/featured.jpg", "/side.jpg"])
-		self.assertEqual((fixtures["F-GAL"]["primary"], fixtures["F-GAL"]["primary_source"]), ("/g1.jpg", "gallery"))
+		self.assertEqual((fixtures["F-GAL"]["primary"], fixtures["F-GAL"]["primary_source"]), ("/files/g1.jpg", "gallery"))
 		self.assertEqual(fixtures["F-GAL"]["gallery"], [])
 		self.assertEqual(fixtures["F-NONE"]["primary"], None)
 		self.assertEqual((tape["T-OLD"]["primary"], tape["T-OLD"]["primary_source"]), ("/legacy.jpg", "template_image"))
@@ -141,7 +141,7 @@ class Resolver(unittest.TestCase):
 			products = service.resolve_product_images("ilL-Webflow-Product", ["p-hero", "p-gal", "p-kit", "p-old"])
 			self.assertEqual(service.resolve_product_images("ilL-Webflow-Product", []), {})
 		self.assertEqual(products["p-hero"]["primary"], "/hero.jpg")
-		self.assertEqual(products["p-gal"]["primary"], "/g1.jpg")
+		self.assertEqual(products["p-gal"]["primary"], "/files/g1.jpg")
 		self.assertEqual(products["p-kit"]["primary"], "/kit-hero.jpg")
 		self.assertEqual([g["image"] for g in products["p-kit"]["gallery"]], ["/kit.jpg"])
 		self.assertEqual(products["p-old"]["primary"], "/legacy.jpg")
@@ -179,6 +179,90 @@ class Resolver(unittest.TestCase):
 		self.assertEqual(hero.gallery, json.loads(hero.gallery_json))
 		for template in (bare, gone):
 			self.assertEqual((template.image, template.gallery_json, template.gallery), (None, "[]", []))
+
+
+REPORT = ROOT + ".report.templates_without_hero_image.templates_without_hero_image"
+
+
+class MissingHeroReport(unittest.TestCase):
+	def tables(self):
+		tables = Resolver().tables()
+		tables["ilL-Fixture-Template"] += [
+			Record(name="F-PRIV", template_name="Private", hero_image=None, webflow_product="p-priv", is_active=1)
+		]
+		tables["ilL-Webflow-Product"].append(Record(name="p-priv", featured_image="/private/files/x.jpg"))
+		for row in tables["ilL-Fixture-Template"]:
+			row.setdefault("is_active", 1)
+		return tables
+
+	def report(self, roles=("ilL Catalog Publisher",), **filters):
+		with load_service(REPORT) as (report, frappe):
+			frappe._dict = Record
+			frappe.get_roles = MagicMock(return_value=list(roles))
+			tables = self.tables()
+			database(frappe, tables)
+			get_all = frappe.get_all.side_effect
+
+			def missing_hero(doctype, filters=None, **kw):
+				rows = get_all(doctype, filters=filters, **kw)
+				if (filters or {}).get("hero_image") == ["is", "not set"]:
+					names = {r.name for r in tables.get(doctype, []) if not r.get("hero_image")}
+					rows = [r for r in rows if r.get("name") in names]
+				return rows
+
+			frappe.get_all.side_effect = missing_hero
+			_columns, data = report.execute({"template_type": "ilL-Fixture-Template", **filters})
+		return {row["template"]: row for row in data}
+
+	def test_lists_templates_without_a_hero_and_what_could_fill_it(self):
+		rows = self.report()
+		self.assertEqual(set(rows), {"F-GAL", "F-NONE", "F-PRIV"})
+		self.assertEqual((rows["F-GAL"]["suggested_image"], rows["F-GAL"]["suggested_from"]), ("/files/g1.jpg", "Webflow gallery, first image"))
+		self.assertEqual(rows["F-GAL"]["can_use"], 1)
+		self.assertIsNone(rows["F-NONE"]["suggested_image"])
+		self.assertEqual((rows["F-PRIV"]["suggestion_public"], rows["F-PRIV"]["can_use"]), (0, 0))
+		self.assertEqual(set(self.report(only_with_suggestion=1)), {"F-GAL", "F-PRIV"})
+		self.assertEqual(self.report(roles=("ilL Engineering",))["F-GAL"]["can_use"], 0)
+
+	def action(self, template, image, hero=None):
+		with load_service(REPORT) as (report, frappe):
+			database(frappe, self.tables())
+			frappe.only_for = MagicMock()
+			doc = Record(name=template, hero_image=hero)
+			doc.check_permission = MagicMock()
+			doc.save = MagicMock()
+			frappe.get_doc = MagicMock(return_value=doc)
+			try:
+				return report.use_as_hero_image("ilL-Fixture-Template", template, image), doc
+			except ValueError as error:
+				return str(error), doc
+			finally:
+				frappe.only_for.assert_called_once_with(report.EDIT_ROLES)
+
+	def test_use_as_hero_sets_an_empty_hero_to_one_of_its_own_public_images(self):
+		result, doc = self.action("F-GAL", "/files/g1.jpg")
+		self.assertEqual(result["hero_image"], "/files/g1.jpg")
+		doc.check_permission.assert_called_once_with("write")
+		doc.save.assert_called_once()
+
+	def test_use_as_hero_never_overwrites_or_takes_foreign_or_private_images(self):
+		for template, image, hero, message in (
+			("F-GAL", "/files/g1.jpg", "/already.jpg", "already has a hero image"),
+			("F-GAL", "/files/elsewhere.jpg", None, "not one of"),
+			("F-PRIV", "/private/files/x.jpg", None, "public image"),
+		):
+			with self.subTest(message=message):
+				error, doc = self.action(template, image, hero)
+				self.assertIn(message, error)
+				doc.save.assert_not_called()
+				self.assertEqual(doc.hero_image, hero)
+
+	def test_unknown_template_types_are_refused(self):
+		with load_service(REPORT) as (report, frappe):
+			frappe.only_for = MagicMock()
+			with self.assertRaises(ValueError):
+				report.use_as_hero_image("User", "Administrator", "/files/x.jpg")
+			frappe.get_doc.assert_not_called()
 
 
 class Projection(unittest.TestCase):
