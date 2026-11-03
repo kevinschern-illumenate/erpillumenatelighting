@@ -136,6 +136,11 @@ Also handles new schedule creation when is_new is True
 								<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Line") }}
 							</button>
 							{% endif %}
+							{% if schedule_import_enabled | default(false) %}
+							<button class="btn btn-outline-primary" type="button" id="importLinesButton" data-toggle="modal" data-target="#importLinesModal">
+								<i class="fa fa-upload" aria-hidden="true"></i> {{ _("Import Lines") }}
+							</button>
+							{% endif %}
 							{% if system_design and (system_design.design or (can_edit and not schedule.is_locked)) %}
 							<a class="btn btn-outline-primary" id="designSystemButton" href="{{ system_design.url | e }}">
 								<i class="fa fa-sitemap" aria-hidden="true"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
@@ -1860,6 +1865,47 @@ Also handles new schedule creation when is_new is True
 	</div>
 </div>
 {% endif %}
+{% if schedule_import_enabled | default(false) %}
+<div class="modal fade" id="importLinesModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="importLinesTitle">
+	<div class="modal-dialog modal-xl" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="importLinesTitle">{{ _("Import lines") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+			</div>
+			<div class="modal-body">
+				<p class="text-muted">{{ _("Upload a CSV or Excel (.xlsx) sheet of up to 500 lines. ilLumenate lines are added as Unconfigured, so configure them before submitting. Nothing is added until you import.") }}</p>
+				<div class="form-group">
+					<label for="importLinesFile">{{ _("Sheet") }}</label>
+					<input type="file" class="form-control-file" id="importLinesFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+					<small class="form-text text-muted"><a href="#" id="importLinesTemplate">{{ _("Download the template") }}</a> {{ _("or upload a CSV export of a schedule.") }}</small>
+				</div>
+				<div id="importLinesMapping" hidden>
+					<h6>{{ _("Columns") }}</h6>
+					<div class="form-row" id="importLinesMappingFields"></div>
+					<button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="importLinesRefresh">{{ _("Update preview") }}</button>
+				</div>
+				<p id="importLinesCounts" role="status" class="mb-2"></p>
+				<div class="table-responsive ill-import-preview" id="importLinesPreview" hidden>
+					<table class="table table-sm">
+						<thead><tr><th>{{ _("Row") }}</th><th>{{ _("Type") }}</th><th>{{ _("Qty") }}</th><th>{{ _("Location") }}</th><th>{{ _("Status") }}</th><th>{{ _("Details") }}</th></tr></thead>
+						<tbody id="importLinesRows"></tbody>
+					</table>
+				</div>
+				<div class="form-check" id="importLinesSkipWrap" hidden>
+					<input type="checkbox" class="form-check-input" id="importLinesSkip">
+					<label class="form-check-label" for="importLinesSkip">{{ _("Skip the rows with errors") }}</label>
+				</div>
+				<div id="importLinesError" class="alert alert-danger mt-2" role="alert" hidden></div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="importLinesConfirm" disabled>{{ _("Import") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 {% if line_copy_enabled | default(false) %}
 <div class="modal fade" id="copyLinesModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="copyLinesModalTitle">
 	<div class="modal-dialog" role="document">
@@ -1912,6 +1958,8 @@ Also handles new schedule creation when is_new is True
 	"line_copy": (line_copy_enabled | default(false)),
 	"bulk_edit": (bulk_edit_enabled | default(false)),
 	"part_number_decode": (part_number_decode_enabled | default(false)),
+	"schedule_import": (schedule_import_enabled | default(false)),
+	"import_columns": (import_columns | default([])),
 	"project_name": (project.name if project else ''),
 	"dealer_customer_group": (dealer_customer_group or '') if show_dealer_pricing else '',
 	"i18n": {
@@ -1971,6 +2019,19 @@ Also handles new schedule creation when is_new is True
 		"Quantity must be a whole number of at least 1": _("Quantity must be a whole number of at least 1"),
 		"Delete {0} selected line(s)? This cannot be undone.": _("Delete {0} selected line(s)? This cannot be undone."),
 		"Schedule {0}: {1}": _("Schedule {0}: {1}"),
+		"Ready": _("Ready"),
+		"Needs configuration": _("Needs configuration"),
+		"Error": _("Error"),
+		"Not imported": _("Not imported"),
+		"Column {0}": _("Column {0}"),
+		"{0} ready, {1} need configuration, {2} with errors.": _("{0} ready, {1} need configuration, {2} with errors."),
+		"Import {0} line(s)": _("Import {0} line(s)"),
+		"Import": _("Import"),
+		"Reading the sheet…": _("Reading the sheet…"),
+		"Could not read this sheet.": _("Could not read this sheet."),
+		"Upload a .csv or .xlsx file.": _("Upload a .csv or .xlsx file."),
+		"The file is larger than 1 MB.": _("The file is larger than 1 MB."),
+		"Could not import the lines.": _("Could not import the lines."),
 		"Enter a positive whole quantity.": _("Enter a positive whole quantity."),
 		"This part number fits several products: {0}. Choose the product below.": _("This part number fits several products: {0}. Choose the product below."),
 		"No product matches this part number.": _("No product matches this part number."),
@@ -1984,7 +2045,7 @@ Also handles new schedule creation when is_new is True
 		"(similar)": _("(similar)"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

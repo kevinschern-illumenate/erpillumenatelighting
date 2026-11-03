@@ -699,6 +699,8 @@ schedule_variants = {
 		line_copy_enabled=True,
 		bulk_edit_enabled=True,
 		part_number_decode_enabled=True,
+		schedule_import_enabled=True,
+		import_columns=["Type", "Qty", "Location", "Description", "Part Number", "Notes", "Length (in)"],
 	),
 }
 SCHEDULE_JS = ROOT / "illumenate_lighting/public/js/portal/schedule"
@@ -739,6 +741,13 @@ for name, variant in schedule_variants.items():
 	assert schedule_context["part_number_decode"] is decode_enabled
 	assert ('id="addLinePartNumber"' in schedule_html) is decode_enabled
 	assert "schedule/part_number.js?v=" in schedule_html
+	# Plan 3.4: the sheet import only renders behind its kill switch.
+	import_enabled = bool(variant.get("schedule_import_enabled"))
+	assert schedule_context["schedule_import"] is import_enabled
+	assert ('id="importLinesButton"' in schedule_html) is import_enabled
+	assert ('id="importLinesModal"' in schedule_html) is import_enabled
+	assert schedule_context["import_columns"] == (variant["import_columns"] if import_enabled else [])
+	assert "schedule/line_import.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")

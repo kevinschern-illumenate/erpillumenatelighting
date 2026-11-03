@@ -483,6 +483,7 @@ def get_context(context):
 		bulk_edit_enabled,
 		line_copy_enabled,
 		part_number_decode_enabled,
+		schedule_import_enabled,
 	)
 
 	context.line_copy_enabled = line_copy_enabled()
@@ -490,6 +491,13 @@ def get_context(context):
 		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and bulk_edit_enabled()
 	)
 	context.part_number_decode_enabled = bool(can_edit and part_number_decode_enabled())
+	context.schedule_import_enabled = bool(
+		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and schedule_import_enabled()
+	)
+	if context.schedule_import_enabled:
+		from illumenate_lighting.illumenate_lighting.portal.schedule_import import TEMPLATE_COLUMNS
+
+		context.import_columns = list(TEMPLATE_COLUMNS)
 	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 

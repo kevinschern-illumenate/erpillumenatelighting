@@ -42,7 +42,7 @@ function page() {
 test('the template offers both actions only behind the kill switch and loads copy.js', () => {
   assert.match(TEMPLATE, /\{% if line_copy_enabled \| default\(false\) %\}[\s\S]*data-copy-action="similar"[\s\S]*data-copy-action="copy"/);
   assert.match(TEMPLATE, /\{% if line\.get\('can_configure_similar'\) %\}/);
-  assert.match(TEMPLATE, /"versions", "copy", "bulk", "part_number"\] %\}/);
+  assert.match(TEMPLATE, /"versions", "copy", "bulk", "part_number", "line_import"\] %\}/);
 });
 
 test('configure similar stores the line details as an add-line draft and opens the configurator', () => {
