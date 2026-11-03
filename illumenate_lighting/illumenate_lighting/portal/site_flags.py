@@ -35,6 +35,11 @@ def sheet_server_options_enabled():
 	return conf_flag("ill_portal_sheet_server_options", default=True)
 
 
+def option_projection_cache_enabled():
+	"""Cache configurator option projections per catalog revision (plan 6.5). Off reads live every time."""
+	return conf_flag("ill_option_projection_cache", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

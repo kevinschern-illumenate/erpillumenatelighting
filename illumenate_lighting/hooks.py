@@ -622,6 +622,13 @@ for _design_doctype in _design_catalog_doctypes:
 		_design_old = _design_hooks.get(_design_event, [])
 		_design_hooks[_design_event] = ([_design_old] if isinstance(_design_old, str) else list(_design_old)) + ["illumenate_lighting.illumenate_lighting.system_design.catalog.invalidate"]
 
+# Configurator option projections (plan 6.5): mapping records outside the catalog stamp.
+for _option_doctype in ("ilL-Rel-Driver-Eligibility", "ilL-Rel-Kit-Endcap-Map", "ilL-Rel-Kit-Lens-Map", "ilL-Rel-Kit-Mounting-Map", "ilL-Rel-Kit-Profile-Map"):
+	for _option_event in ("on_update", "on_trash"):
+		_option_hooks = doc_events.setdefault(_option_doctype, {})
+		_option_old = _option_hooks.get(_option_event, [])
+		_option_hooks[_option_event] = ([_option_old] if isinstance(_option_old, str) else list(_option_old)) + ["illumenate_lighting.illumenate_lighting.api.option_cache.invalidate"]
+
 # Product data lives on the templates; copy it onto the linked Webflow Product for the
 # readers that still read it there.
 for _template_doctype in ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-Controller-Template", "ilL-Driver-Template", "ilL-Extrusion-Kit-Template", "ilL-LED-Sheet-Template"):
