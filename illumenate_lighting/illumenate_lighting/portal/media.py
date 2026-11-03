@@ -1,4 +1,4 @@
-"""Dealer photos and imagery (hardening plan 4.3–4.7).
+"""Dealer photos and imagery (hardening plan 4.3-4.7).
 
 Purpose and caption on uploads, private WebP thumbnails, the project/line photo
 gallery, dealer-logo self-service and Desk HEIC conversion for product imagery.
@@ -401,7 +401,7 @@ def attach_to_request(document, request_name):
 
 
 def normalize_logo(content):
-	"""Re-encode a PNG/JPEG logo as a metadata-free PNG inside 1200×600 px."""
+	"""Re-encode a PNG/JPEG logo as a metadata-free PNG inside 1200x600 px."""
 	from PIL import Image, ImageOps
 
 	try:

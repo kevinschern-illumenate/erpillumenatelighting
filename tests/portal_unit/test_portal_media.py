@@ -1,4 +1,4 @@
-"""Hardening plan 4.3–4.7: purpose/captions, thumbnails, gallery, dealer logo and staff HEIC."""
+"""Hardening plan 4.3-4.7: purpose/captions, thumbnails, gallery, dealer logo and staff HEIC."""
 
 import hashlib
 import importlib.util
