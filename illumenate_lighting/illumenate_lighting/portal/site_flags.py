@@ -55,6 +55,11 @@ def schedule_import_enabled():
 	return conf_flag("ill_portal_schedule_import", default=True)
 
 
+def presets_enabled():
+	"""Saved configuration presets, private or shared with the dealer's company (plan 3.6). On by default."""
+	return conf_flag("ill_portal_presets", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)
