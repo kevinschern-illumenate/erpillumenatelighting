@@ -69,6 +69,19 @@ class Precedence(unittest.TestCase):
 		)
 		self.assertEqual([i["image"] for i in images_list(images)], ["/files/g2.jpg", "/files/g1.jpg", "/l.jpg"])
 
+	def test_the_kill_switch_restores_the_gallery_first_order(self):
+		cases = [
+			({"hero": "/h.jpg", "featured": "/f.jpg", "gallery": self.gallery, "legacy": "/l.jpg"}, "/files/g1.jpg"),
+			({"hero": "/h.jpg", "featured": "/f.jpg", "legacy": "/l.jpg"}, "/f.jpg"),
+			({"hero": "/h.jpg", "legacy": "/l.jpg"}, "/l.jpg"),
+			({"hero": "/h.jpg"}, "/h.jpg"),
+		]
+		for kwargs, primary in cases:
+			with self.subTest(primary=primary):
+				images = choose_images(hero_first=False, **kwargs)
+				self.assertEqual(images["primary"], primary)
+				self.assertEqual(images_list(images)[-1]["image"], "/h.jpg")
+
 	def test_alt_text_prefers_the_hero_alt_then_the_gallery_row_then_the_name(self):
 		self.assertEqual(choose_images(hero="/h.jpg", hero_alt="Front", alt="Slim")["primary_alt"], "Front")
 		self.assertEqual(choose_images(hero="/h.jpg", alt="Slim")["primary_alt"], "Slim")
@@ -132,6 +145,17 @@ class Resolver(unittest.TestCase):
 		self.assertEqual(products["p-kit"]["primary"], "/kit-hero.jpg")
 		self.assertEqual([g["image"] for g in products["p-kit"]["gallery"]], ["/kit.jpg"])
 		self.assertEqual(products["p-old"]["primary"], "/legacy.jpg")
+
+	def test_site_flag_off_resolves_gallery_first(self):
+		for value in (False, "false", 0):
+			with self.subTest(value=value), load_service(ROOT + ".api.product_projection") as (service, frappe):
+				database(frappe, self.tables())
+				frappe.conf["ill_portal_hero_image_first"] = value
+				fixture = service.resolve_product_images("ilL-Fixture-Template", ["F-HERO"])["F-HERO"]
+				product = service.resolve_product_images("ilL-Webflow-Product", ["p-hero"])["p-hero"]
+			self.assertEqual(fixture["primary"], "/featured.jpg")
+			self.assertEqual(product["primary"], "/featured.jpg")
+			self.assertIn({"image": "/hero.jpg", "alt_text": "Hero Fixture"}, fixture["gallery"])
 
 	def test_resolving_never_writes(self):
 		with load_service(ROOT + ".api.product_projection") as (service, frappe):

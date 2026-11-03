@@ -50,11 +50,13 @@ HERO_LINKS = (
 IMAGE_SOURCES = ("template_hero", "featured_image", "gallery", "template_image")
 
 
-def choose_images(*, hero=None, hero_alt=None, featured=None, gallery=(), legacy=None, alt=""):
+def choose_images(*, hero=None, hero_alt=None, featured=None, gallery=(), legacy=None, alt="", hero_first=True):
 	"""The main product image under owner decision D1, plus the other images.
 
 	Precedence: template ``hero_image`` -> Webflow ``featured_image`` -> gallery #1 ->
 	template ``image`` (legacy). Every other distinct image follows in ``gallery``.
+	``hero_first=False`` is the ``ill_portal_hero_image_first`` kill switch: the pre-D1
+	order, gallery #1 -> ``featured_image`` -> template ``image`` -> ``hero_image``.
 	"""
 	alt = alt or ""
 	rows = [
@@ -62,15 +64,18 @@ def choose_images(*, hero=None, hero_alt=None, featured=None, gallery=(), legacy
 		for row in gallery or ()
 		if row.get("image")
 	]
-	candidates = [
-		("template_hero", hero, hero_alt or alt),
-		("featured_image", featured, alt),
-		*(("gallery", row["image"], row["alt_text"]) for row in rows[:1]),
-		("template_image", legacy, alt),
-	]
+	hero_c = ("template_hero", hero, hero_alt or alt)
+	featured_c = ("featured_image", featured, alt)
+	gallery_c = [("gallery", row["image"], row["alt_text"]) for row in rows[:1]]
+	legacy_c = ("template_image", legacy, alt)
+	if hero_first:
+		candidates = [hero_c, featured_c, *gallery_c, legacy_c]
+	else:
+		candidates = [*gallery_c, featured_c, legacy_c, hero_c]
 	source, primary, primary_alt = next(((s, url, a) for s, url, a in candidates if url), (None, None, ""))
 	seen, extra = {primary}, []
-	for url, text in [(row["image"], row["alt_text"]) for row in rows] + [(featured, alt), (legacy, alt)]:
+	others = [(row["image"], row["alt_text"]) for row in rows] + [(featured, alt), (legacy, alt), (hero, hero_alt or alt)]
+	for url, text in others:
 		if url and url not in seen:
 			seen.add(url)
 			extra.append({"image": url, "alt_text": text})
@@ -124,7 +129,7 @@ def _rows(doctype, names, wanted):
 	}
 
 
-def product_images(product, template_row, gallery=()):
+def product_images(product, template_row, gallery=(), hero_first=True):
 	"""D1 images for one ``ilL-Webflow-Product`` row from rows the caller already loaded.
 
 	``template_row(doctype, name)`` returns a template row (or None); ``gallery`` holds the
@@ -146,6 +151,7 @@ def product_images(product, template_row, gallery=()):
 		gallery=gallery or (),
 		legacy=legacy.get("image"),
 		alt=product.get("product_name") or "",
+		hero_first=hero_first,
 	)
 
 
@@ -159,9 +165,12 @@ def resolve_product_images(doctype, names):
 	other distinct images in display order, never the primary. Missing names are left out.
 	Read-only: it never writes a resolved image back (no automatic overwrite).
 	"""
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import hero_image_first_enabled
+
 	names = [name for name in dict.fromkeys(names or ()) if name]
 	if not names:
 		return {}
+	hero_first = hero_image_first_enabled()
 	if doctype == PRODUCT_DOCTYPE:
 		products = _rows(
 			PRODUCT_DOCTYPE, names, ("name", "product_name", "featured_image", *(f for f, _ in HERO_LINKS))
@@ -175,7 +184,9 @@ def resolve_product_images(doctype, names):
 		}
 		galleries = _galleries(products)
 		return {
-			name: product_images(product, lambda doctype, key: templates.get((doctype, key)), galleries.get(name))
+			name: product_images(
+				product, lambda doctype, key: templates.get((doctype, key)), galleries.get(name), hero_first
+			)
 			for name, product in products.items()
 		}
 	templates = _rows(doctype, names, TEMPLATE_IMAGE_FIELDS)
@@ -195,6 +206,7 @@ def resolve_product_images(doctype, names):
 			gallery=galleries.get(product.get("name"), ()),
 			legacy=template.get("image"),
 			alt=template.get("template_name") or product.get("product_name") or "",
+			hero_first=hero_first,
 		)
 	return resolved
 

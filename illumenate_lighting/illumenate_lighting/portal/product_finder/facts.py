@@ -13,6 +13,7 @@ from illumenate_lighting.illumenate_lighting.api.product_projection import (
 	product_images,
 )
 from illumenate_lighting.illumenate_lighting.portal.product_finder.facets import FACETS
+from illumenate_lighting.illumenate_lighting.portal.site_flags import hero_image_first_enabled
 from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
 from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
 
@@ -139,6 +140,7 @@ def build_facts():
 	]
 	if not products:
 		return []
+	hero_first = hero_image_first_enabled()
 	parents = [r.name for r in products] + [name for rows in tables.values() for name in rows]
 	children = defaultdict(lambda: defaultdict(list))
 	child_types = {c for v in TEMPLATES.values() for c in v[2:] if c} | {
@@ -341,6 +343,7 @@ def build_facts():
 					product,
 					lambda doctype, name: tables.get(doctype, {}).get(name),
 					children[GALLERY_DOCTYPE][product.name],
+					hero_first,
 				)["primary"],
 				"product_type": product.product_type,
 				"family": family,

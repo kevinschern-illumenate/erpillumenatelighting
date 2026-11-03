@@ -392,6 +392,8 @@ def attach_images(doctype, templates):
 	The main image follows owner decision D1 (template hero image first); the gallery lists it
 	first, then the other distinct images. Returns ``templates``.
 	"""
+	if not templates:
+		return templates
 	from illumenate_lighting.illumenate_lighting.api.product_projection import (
 		images_list,
 		resolve_product_images,
