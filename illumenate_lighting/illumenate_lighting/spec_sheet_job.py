@@ -118,13 +118,28 @@ def call_n8n(template_doctype, template_id, brand):
 	return response.json()
 
 
+def answer_error(answer):
+	"""Pure: a readable message from n8n's error answer (its error output wraps ERPNext's)."""
+	import re
+
+	error = answer.get("error") or answer.get("message")
+	if isinstance(error, dict):
+		error = error.get("description") or error.get("message") or str(error)
+	text = str(error or "")
+	# ERPNext's own message, when n8n passes the ERPNext error through.
+	match = re.search(r"(is not ready for a spec sheet\. Missing: [^\"\\]+)", text)
+	if match:
+		return "Not ready for a spec sheet. Missing: " + match.group(1).split("Missing: ", 1)[1].strip()
+	return text or None
+
+
 def run(spec_job, template_doctype, template_id, brand):
 	"""Background job."""
 	_set_status(spec_job, status="Running", message=_("Generating the spec sheet..."))
 	try:
 		answer = call_n8n(template_doctype, template_id, brand)
 		if not answer.get("success") or not answer.get("file_url"):
-			raise ValueError(answer.get("error") or answer.get("message") or _("n8n did not return a file."))
+			raise ValueError(answer_error(answer) or _("n8n did not return a file."))
 		register_spec_sheet(template_doctype, template_id, answer["file_url"])
 	except Exception as error:
 		frappe.log_error(title=f"Spec sheet generation failed: {template_doctype} {template_id}")

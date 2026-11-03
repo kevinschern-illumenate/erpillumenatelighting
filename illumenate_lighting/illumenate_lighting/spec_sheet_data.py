@@ -284,14 +284,30 @@ def build(template, product, brand, legacy=None):
 
 
 @frappe.whitelist()
-def get_spec_sheet_data(template_doctype, template_id, brand=None):
-	"""Spec sheet data for one template, payload v2 (see the module docstring)."""
+def get_spec_sheet_data(template_doctype, template_id, brand=None, check_ready=True):
+	"""Spec sheet data for one template, payload v2 (see the module docstring).
+
+	Refuses a template that is missing what its spec sheet needs (``spec_sheet_check``), so the
+	spec workflow stops at its first step whoever started it (owner, 2026-11-03).
+	``check_ready=False`` is for the staging checks only.
+	"""
 	if template_doctype not in TEMPLATE_DOCTYPES:
 		frappe.throw(_("{0} is not a product template.").format(template_doctype))
 	if not frappe.has_permission(template_doctype, "read", doc=template_id):
 		frappe.throw(_("You don't have permission to read this template."), frappe.PermissionError)
 	template = frappe.get_doc(template_doctype, template_id)
 	brand = _brand(template, brand)
+	if frappe.parse_json(check_ready) if isinstance(check_ready, str) else check_ready:
+		from illumenate_lighting.illumenate_lighting.spec_sheet_check import check
+
+		missing = check(template)["missing"]
+		if missing:
+			frappe.throw(
+				_("{0} {1} is not ready for a spec sheet. Missing: {2}").format(
+					template_doctype, template_id, "; ".join(missing)
+				),
+				title=_("Spec sheet not ready"),
+			)
 	name = template.get("webflow_product")
 	product = None
 	if name and frappe.db.get_value(PRODUCT, name, WEBFLOW_PRODUCT_LINKS[template_doctype]) == template.name:
@@ -410,7 +426,7 @@ def check_spec_sheet_data(limit_per_type=1):
 		for name in names:
 			entry = {"template": (doctype, name)}
 			try:
-				data = get_spec_sheet_data(doctype, name)
+				data = get_spec_sheet_data(doctype, name, check_ready=False)
 				entry["product"] = data["context"]["product"]
 				entry["brand"] = data["context"]["brand"]
 				entry["legacy"] = "present" if data["legacy"] else "not exported for this brand"

@@ -68,6 +68,18 @@ class Job(unittest.TestCase):
 			"ilL-Extrusion-Kit-Template", "KIT-RA01", "spec_sheet", "/files/a.pdf"
 		)
 
+	def test_a_refusal_from_erpnext_reads_cleanly(self):
+		answer = {
+			"error": {
+				"message": "417 - ",
+				"description": '{"exception":"frappe.exceptions.ValidationError: ilL-Extrusion-Kit-Template KIT-RA02 is not ready for a spec sheet. Missing: Sublabel; Hero Image"}',
+			}
+		}
+		self.assertEqual(
+			self.module.answer_error(answer), "Not ready for a spec sheet. Missing: Sublabel; Hero Image"
+		)
+		self.assertEqual(self.module.answer_error({"error": "Vercel timed out"}), "Vercel timed out")
+
 	def test_a_failed_run_is_reported_and_changes_nothing(self):
 		self.module.call_n8n = MagicMock(return_value={"success": False, "error": "Vercel timed out"})
 		self.module.run("j1", "ilL-Extrusion-Kit-Template", "KIT-RA01", "illumenate")

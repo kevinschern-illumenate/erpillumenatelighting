@@ -105,3 +105,9 @@ pages a run needs.
 - Kit Components Description is set on template save from the item's variant attributes: Profile
   Finish, Lens Lens Color, Endcap Set Endcap Color (attribute names matched in any case). Other
   types, and items without that attribute, keep the typed Description.
+- **n8n refuses too.** `get_spec_sheet_data` runs the same readiness check and returns an error for a
+  template that is missing anything required, so the spec workflow stops at its first node (Get Spec
+  Sheet Data, which answers through its error reply) whoever started it. The Generate Spec job shows
+  the missing fields from that answer. (`check_ready=False` is used only by the staging checks.)
+  Operating temperatures: an empty Int field reads 0, so "both 0" counts as not set; one bound set and
+  the other empty passes.
