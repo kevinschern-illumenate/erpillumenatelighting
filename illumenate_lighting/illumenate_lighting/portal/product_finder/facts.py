@@ -6,7 +6,12 @@ from time import time_ns
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
-from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_DOCTYPES, TEMPLATE_FIELDS
+from illumenate_lighting.illumenate_lighting.api.product_projection import (
+	GALLERY_DOCTYPE,
+	TEMPLATE_DOCTYPES,
+	TEMPLATE_FIELDS,
+	product_images,
+)
 from illumenate_lighting.illumenate_lighting.portal.product_finder.facets import FACETS
 from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
 from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
@@ -143,6 +148,7 @@ def build_facts():
 		"ilL-Child-Controller-Protocol",
 		"ilL-Child-Wireless-Protocol",
 		"ilL-Child-Webflow-Configurator-Option",
+		GALLERY_DOCTYPE,
 	}
 	for doctype in sorted(child_types):
 		for row in frappe.get_all(
@@ -331,7 +337,11 @@ def build_facts():
 				"name": product.name,
 				"slug": product.product_slug,
 				"title": product.product_name,
-				"image": product.featured_image,
+				"image": product_images(
+					product,
+					lambda doctype, name: tables.get(doctype, {}).get(name),
+					children[GALLERY_DOCTYPE][product.name],
+				)["primary"],
 				"product_type": product.product_type,
 				"family": family,
 				"series": product.get("series"),
