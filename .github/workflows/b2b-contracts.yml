@@ -75,8 +75,13 @@ jobs:
       - name: Changed-file lint and schemas
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
-          export B2B_BASE_REF="${PR_BASE:-HEAD^}"
+          # Lint every commit of a push, not only the last one. A new branch or a
+          # force push has no usable "before" commit, so fall back to HEAD^.
+          base="${PR_BASE:-$PUSH_BEFORE}"
+          if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then base="HEAD^"; fi
+          export B2B_BASE_REF="$base"
           python -B tools/check_b2b_changes.py
       - name: Retain synthetic evidence
         if: always()
