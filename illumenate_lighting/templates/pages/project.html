@@ -479,7 +479,7 @@ Also handles new project creation when is_new is True
 						<h5 class="mb-1">{{ (design.title or design.schedule_name) | e }}</h5>
 						<small class="text-muted">{{ design.schedule_name | e }} · {{ _("Revision {0}").format(design.revision) | e }}</small>
 					</div>
-					<span class="badge badge-{{ design.tone | e }}">{{ _(design.status) | e }}</span>
+					<span class="badge badge-{{ ill_badge_tone(design.tone) | e }}">{{ _(design.status) | e }}</span>
 				</a>
 				{% endfor %}
 			</div>

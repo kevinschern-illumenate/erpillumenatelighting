@@ -10,6 +10,11 @@ import frappe
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
 from illumenate_lighting.illumenate_lighting.portal.errors import log_unexpected
+from illumenate_lighting.illumenate_lighting.portal.schedule_lookup import (
+	STANDARD_SELLING,
+	Lookup,
+	prefetch_schedule,
+)
 from illumenate_lighting.illumenate_lighting.portal.status import (
 	schedule_status_description,
 	schedule_status_label,
@@ -126,6 +131,9 @@ def get_context(context):
 
 	# Get lines
 	lines = schedule.lines or []
+	# Plan 2.6: one query per related DocType instead of one per line.
+	lookup = Lookup()
+	prefetch_schedule(lookup, lines)
 
 	# Calculate summary stats
 	total_qty = sum(line.qty or 0 for line in lines)
@@ -187,9 +195,9 @@ def get_context(context):
 			line_stock_specs.append({"key": line.idx, "qty": line.qty or 1, "components": stock_components(line)})
 		elif line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			if line.configured_fixture not in fixture_component_cache:
-				if frappe.db.exists("ilL-Configured-Fixture", line.configured_fixture):
+				if lookup.exists("ilL-Configured-Fixture", line.configured_fixture):
 					fixture_component_cache[line.configured_fixture] = fixture_components(
-						frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
+						lookup.doc("ilL-Configured-Fixture", line.configured_fixture)
 					)
 				else:
 					fixture_component_cache[line.configured_fixture] = []
@@ -296,26 +304,21 @@ def get_context(context):
 
 		# For ilLumenate fixtures, fetch enriched details from configured fixture
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
-			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
+			cf_details = _get_configured_fixture_display_details(line.configured_fixture, lookup=lookup)
 			line_dict["cf_details"] = cf_details
 
 		# For ilLumenate fixtures with a fixture template, fetch the template name
 		if line.manufacturer_type == "ILLUMENATE" and line.fixture_template:
-			template_name = frappe.db.get_value(
-				"ilL-Fixture-Template",
-				line.fixture_template,
-				"template_name"
-			)
+			template_name = lookup.value("ilL-Fixture-Template", line.fixture_template, "template_name")
 			if template_name:
 				line_dict["fixture_template_name"] = template_name
 
 		# For ilLumenate tape/neon lines, fetch template name/code/description and configured details
 		if line.manufacturer_type == "ILLUMENATE" and line.tape_neon_template:
-			tn_fields = frappe.db.get_value(
+			tn_fields = lookup.value(
 				"ilL-Tape-Neon-Template",
 				line.tape_neon_template,
 				["template_name", "template_code", "description"],
-				as_dict=True,
 			)
 			if tn_fields:
 				line_dict["tape_neon_template_name"] = tn_fields.template_name
@@ -324,27 +327,20 @@ def get_context(context):
 
 		# For configured tape/neon, fetch display details
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_tape_neon:
-			ctn_details = _get_configured_tape_neon_display_details(line.configured_tape_neon)
+			ctn_details = _get_configured_tape_neon_display_details(line.configured_tape_neon, lookup=lookup)
 			line_dict["ctn_details"] = ctn_details
 
 		# For ilLumenate LED Sheet lines, fetch template name and configured details
 		if line.manufacturer_type == "ILLUMENATE" and getattr(line, "led_sheet_template", None):
-			ls_template_name = frappe.db.get_value(
-				"ilL-LED-Sheet-Template", line.led_sheet_template, "template_name"
-			)
+			ls_template_name = lookup.value("ilL-LED-Sheet-Template", line.led_sheet_template, "template_name")
 			if ls_template_name:
 				line_dict["led_sheet_template_name"] = ls_template_name
 		if line.manufacturer_type == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
-			line_dict["cls_details"] = _get_configured_led_sheet_display_details(line.configured_led_sheet)
+			line_dict["cls_details"] = _get_configured_led_sheet_display_details(line.configured_led_sheet, lookup=lookup)
 
 		# For accessory/component items, fetch item description
 		if line.manufacturer_type == "ACCESSORY" and line.accessory_item:
-			item_desc = frappe.db.get_value(
-				"Item",
-				line.accessory_item,
-				["description", "item_name"],
-				as_dict=True
-			)
+			item_desc = lookup.value("Item", line.accessory_item, ["description", "item_name"])
 			if item_desc:
 				line_dict["accessory_item_description"] = item_desc.description or ""
 				# Update item name if not set
@@ -374,7 +370,7 @@ def get_context(context):
 
 			driver = driver_configuration(line) or {}
 			line_dict["driver_template_name"] = (
-				frappe.db.get_value("ilL-Driver-Template", line.driver_template, "template_name")
+				lookup.value("ilL-Driver-Template", line.driver_template, "template_name")
 				or line.driver_template
 			)
 			line_dict["driver_part_number"] = driver.get("part_number")
@@ -386,7 +382,7 @@ def get_context(context):
 
 			if line_dict["kit_template"]:
 				line_dict["kit_template_name"] = (
-					frappe.db.get_value("ilL-Extrusion-Kit-Template", line_dict["kit_template"], "template_name")
+					lookup.value("ilL-Extrusion-Kit-Template", line_dict["kit_template"], "template_name")
 					or line_dict["kit_template"]
 				)
 			vs_raw = getattr(line, "variant_selections", None)
@@ -417,6 +413,7 @@ def get_context(context):
 				cls_details=line_dict.get("cls_details"),
 				fixture_snapshot_price=fixture_snapshot_price,
 				ctn_snapshot_price=ctn_snapshot_price,
+				lookup=lookup,
 			)
 
 			if msrp["unit"]:
@@ -565,13 +562,15 @@ def schedule_status_class(status):
 	return _status_class(status)
 
 
-def _get_configured_fixture_display_details(configured_fixture_id):
+def _get_configured_fixture_display_details(configured_fixture_id, lookup=None):
 	"""
 	Get display-ready details for a configured fixture.
 
-	Returns dict with computed values for portal display.
+	Returns dict with computed values for portal display. ``lookup`` (plan 2.6)
+	answers related-record reads from the schedule page's batched prefetch.
 	"""
-	if not frappe.db.exists("ilL-Configured-Fixture", configured_fixture_id):
+	lookup = lookup or Lookup()
+	if not lookup.exists("ilL-Configured-Fixture", configured_fixture_id):
 		frappe.log_error(
 			message=f"Fixture ID: {configured_fixture_id}",
 			title="Missing Configured Fixture"
@@ -579,7 +578,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 		return {}
 
 	try:
-		cf = frappe.get_doc("ilL-Configured-Fixture", configured_fixture_id)
+		cf = lookup.doc("ilL-Configured-Fixture", configured_fixture_id)
 
 		# Calculate length in inches
 		length_mm = cf.manufacturable_overall_length_mm or 0
@@ -589,11 +588,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 		fixture_template_code = cf.fixture_template or None
 		fixture_template_name = None
 		if fixture_template_code:
-			fixture_template_name = frappe.db.get_value(
-				"ilL-Fixture-Template",
-				fixture_template_code,
-				"template_name"
-			)
+			fixture_template_name = lookup.value("ilL-Fixture-Template", fixture_template_code, "template_name")
 
 		details = {
 			"part_number": cf.get("display_part_number") or cf.configured_item or cf.config_hash,
@@ -628,12 +623,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 
 		# Get finish display name
 		if cf.finish:
-			finish_doc = frappe.db.get_value(
-				"ilL-Attribute-Finish",
-				cf.finish,
-				["code", "finish_name"],
-				as_dict=True,
-			)
+			finish_doc = lookup.value("ilL-Attribute-Finish", cf.finish, ["code", "finish_name"])
 			if finish_doc:
 				details["finish"] = finish_doc.finish_name or finish_doc.code or cf.finish
 			else:
@@ -643,12 +633,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 		# Get lens appearance and transmission
 		lens_transmission = 1.0  # Default 100% if not found (as decimal)
 		if cf.lens_appearance:
-			lens_doc = frappe.db.get_value(
-				"ilL-Attribute-Lens Appearance",
-				cf.lens_appearance,
-				["label", "transmission"],
-				as_dict=True,
-			)
+			lens_doc = lookup.value("ilL-Attribute-Lens Appearance", cf.lens_appearance, ["label", "transmission"])
 			if lens_doc:
 				details["lens_appearance"] = lens_doc.label or cf.lens_appearance
 				if lens_doc.transmission:
@@ -659,11 +644,10 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 
 		# Get tape offering details (CCT, LED Package, Output Level, CRI)
 		if cf.tape_offering:
-			tape_offering = frappe.db.get_value(
+			tape_offering = lookup.value(
 				"ilL-Rel-Tape Offering",
 				cf.tape_offering,
 				["cct", "led_package", "output_level", "tape_spec", "cri"],
-				as_dict=True,
 			)
 			if tape_offering:
 				details["cct"] = tape_offering.cct
@@ -671,12 +655,7 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				
 				# Get CRI display value
 				if tape_offering.cri:
-					cri_doc = frappe.db.get_value(
-						"ilL-Attribute-CRI",
-						tape_offering.cri,
-						["cri_name", "code"],
-						as_dict=True,
-					)
+					cri_doc = lookup.value("ilL-Attribute-CRI", tape_offering.cri, ["cri_name", "code"])
 					if cri_doc:
 						details["cri"] = cri_doc.cri_name or cri_doc.code or tape_offering.cri
 					else:
@@ -684,22 +663,14 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				
 				# Get fixture input voltage from tape spec
 				if tape_offering.tape_spec:
-					tape_spec_data = frappe.db.get_value(
-						"ilL-Spec-LED Tape",
-						tape_offering.tape_spec,
-						["input_voltage"],
-						as_dict=True,
-					)
+					tape_spec_data = lookup.value("ilL-Spec-LED Tape", tape_offering.tape_spec, ["input_voltage"])
 					if tape_spec_data and tape_spec_data.input_voltage:
 						details["fixture_input_voltage"] = tape_spec_data.input_voltage
 
 				# Get output level display name
 				if tape_offering.output_level:
-					output_level_doc = frappe.db.get_value(
-						"ilL-Attribute-Output Level",
-						tape_offering.output_level,
-						["output_level_name", "value"],
-						as_dict=True,
+					output_level_doc = lookup.value(
+						"ilL-Attribute-Output Level", tape_offering.output_level, ["output_level_name", "value"]
 					)
 					if output_level_doc:
 						details["output_level"] = output_level_doc.output_level_name
@@ -730,11 +701,8 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 				if driver_alloc.driver_item:
 					# driver_alloc.driver_item is the Item code (ID)
 					# Find the ilL-Spec-Driver linked to this Item
-					driver_spec = frappe.db.get_value(
-						"ilL-Spec-Driver",
-						{"item": driver_alloc.driver_item},
-						["input_voltage", "max_wattage"],
-						as_dict=True,
+					driver_spec = lookup.first_where(
+						"ilL-Spec-Driver", "item", driver_alloc.driver_item, ["input_voltage", "max_wattage"]
 					)
 
 					# Build driver display string with ID and quantity in parentheses
@@ -751,10 +719,8 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 						driver_input_voltages.append(driver_spec.input_voltage)
 
 					# Look up driver MSRP from Item Price
-					driver_price = frappe.db.get_value(
-						"Item Price",
-						{"item_code": driver_alloc.driver_item, "price_list": "Standard Selling", "selling": 1},
-						"price_list_rate",
+					driver_price = lookup.first_where(
+						"Item Price", "item_code", driver_alloc.driver_item, "price_list_rate", STANDARD_SELLING
 					)
 					if driver_price:
 						driver_msrp_total += float(driver_price) * driver_qty
@@ -802,6 +768,7 @@ def compute_line_msrp(
 	cls_details=None,
 	fixture_snapshot_price=None,
 	ctn_snapshot_price=None,
+	lookup=None,
 ):
 	"""Compute the MSRP unit price (and driver MSRP unit) for a schedule line.
 
@@ -819,25 +786,27 @@ def compute_line_msrp(
 			line's configured fixture, when already resolved by the caller.
 		ctn_snapshot_price: Latest pricing-snapshot ``msrp_unit`` for the line's
 			configured tape/neon, when already resolved by the caller.
+		lookup: Optional request-scoped ``schedule_lookup.Lookup`` (plan 2.6).
 
 	Returns:
 		dict with keys ``unit`` (float | None) and ``driver_unit`` (float | None).
 	"""
 	unit_price = None
 	mt = line.manufacturer_type
+	lookup = lookup or Lookup()
 
 	if mt == "ILLUMENATE" and line.get("configured_group"):
 		from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import current_estimate
 		unit_price = current_estimate(frappe.get_doc("ilL-Configured-Group", line.configured_group))
 	elif mt == "ILLUMENATE" and line.configured_fixture:
-		fixture = frappe.get_doc("ilL-Configured-Fixture", line.configured_fixture)
+		fixture = lookup.doc("ilL-Configured-Fixture", line.configured_fixture)
 		if fixture.get("build_schema_version") == 2:
 			from illumenate_lighting.illumenate_lighting.api.linear_build import current_estimate
 			unit_price = current_estimate(fixture)
 		else:
 			unit_price = fixture_snapshot_price
 	elif mt == "ILLUMENATE" and line.configured_tape_neon:
-		configured = frappe.get_doc("ilL-Configured-Tape-Neon", line.configured_tape_neon)
+		configured = lookup.doc("ilL-Configured-Tape-Neon", line.configured_tape_neon)
 		if configured.get("build_schema_version") == 2:
 			from illumenate_lighting.illumenate_lighting.api.tape_neon_build import current_estimate
 			unit_price = current_estimate(configured)
@@ -848,7 +817,7 @@ def compute_line_msrp(
 			unit_price = _get_msrp_from_variant_selections(line)
 	elif mt == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
 		if cls_details is None:
-			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet)
+			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet, lookup=lookup)
 		unit_price = (cls_details or {}).get("msrp")
 	elif getattr(line, "product_type", None) in TAPE_NEON_CATEGORIES and getattr(line, "tape_neon_template", None):
 		unit_price = _get_msrp_from_variant_selections(line)
@@ -864,18 +833,14 @@ def compute_line_msrp(
 			except (ValueError, TypeError):
 				pass
 	elif mt == "ACCESSORY" and line.accessory_item:
-		item_price = frappe.db.get_value(
-			"Item Price",
-			{"item_code": line.accessory_item, "price_list": "Standard Selling", "selling": 1},
-			"price_list_rate",
-		)
+		item_price = lookup.first_where("Item Price", "item_code", line.accessory_item, "price_list_rate", STANDARD_SELLING)
 		if item_price:
 			unit_price = float(item_price)
 
 	driver_unit = None
 	if mt == "ILLUMENATE" and line.configured_fixture:
 		if cf_details is None:
-			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
+			cf_details = _get_configured_fixture_display_details(line.configured_fixture, lookup=lookup)
 		driver_msrp = (cf_details or {}).get("driver_msrp_unit")
 		if driver_msrp:
 			driver_unit = float(driver_msrp)
@@ -886,13 +851,14 @@ def compute_line_msrp(
 	}
 
 
-def _get_configured_tape_neon_display_details(configured_tape_neon_id):
+def _get_configured_tape_neon_display_details(configured_tape_neon_id, lookup=None):
 	"""
 	Get display-ready details for a configured tape/neon product.
 
 	Returns dict with computed values for portal display.
 	"""
-	if not frappe.db.exists("ilL-Configured-Tape-Neon", configured_tape_neon_id):
+	lookup = lookup or Lookup()
+	if not lookup.exists("ilL-Configured-Tape-Neon", configured_tape_neon_id):
 		frappe.log_error(
 			message=f"Tape/Neon ID: {configured_tape_neon_id}",
 			title="Missing Configured Tape/Neon"
@@ -900,7 +866,7 @@ def _get_configured_tape_neon_display_details(configured_tape_neon_id):
 		return {}
 
 	try:
-		ctn = frappe.get_doc("ilL-Configured-Tape-Neon", configured_tape_neon_id)
+		ctn = lookup.doc("ilL-Configured-Tape-Neon", configured_tape_neon_id)
 
 		# Calculate length in inches
 		length_mm = ctn.manufacturable_length_mm or 0
@@ -934,18 +900,19 @@ def _get_configured_tape_neon_display_details(configured_tape_neon_id):
 		return {}
 
 
-def _get_configured_led_sheet_display_details(configured_led_sheet_id):
+def _get_configured_led_sheet_display_details(configured_led_sheet_id, lookup=None):
 	"""Get display-ready details for a configured LED Sheet product.
 
 	Returns a dict of enriched values (part number, template, spec, selected
 	options, requested dimensions, total panels, groups, total watts, whether
 	power supplies are included, and MSRP) for portal display.
 	"""
-	if not configured_led_sheet_id or not frappe.db.exists("ilL-Configured-LED-Sheet", configured_led_sheet_id):
+	lookup = lookup or Lookup()
+	if not configured_led_sheet_id or not lookup.exists("ilL-Configured-LED-Sheet", configured_led_sheet_id):
 		return {}
 
 	try:
-		cls = frappe.get_doc("ilL-Configured-LED-Sheet", configured_led_sheet_id)
+		cls = lookup.doc("ilL-Configured-LED-Sheet", configured_led_sheet_id)
 		return {
 			"name": cls.name,
 			"part_number": cls.part_number or cls.config_hash,
