@@ -18,15 +18,13 @@ def execute():
 		if not frappe.db.has_column(doctype, "minimum_side_bend_diameter_mm"):
 			continue
 
-		frappe.db.sql(f"""
-			UPDATE `tab{doctype}`
-			SET minimum_side_bend_diameter_mm = minimum_bend_diameter_mm
-			WHERE minimum_bend_diameter_mm IS NOT NULL
-				AND minimum_bend_diameter_mm != 0
-				AND (
-					minimum_side_bend_diameter_mm IS NULL
-					OR minimum_side_bend_diameter_mm = 0
-				)
-		""")
+		table = frappe.qb.DocType(doctype)
+		(
+			frappe.qb.update(table)
+			.set(table.minimum_side_bend_diameter_mm, table.minimum_bend_diameter_mm)
+			.where(table.minimum_bend_diameter_mm.isnotnull())
+			.where(table.minimum_bend_diameter_mm != 0)
+			.where(table.minimum_side_bend_diameter_mm.isnull() | (table.minimum_side_bend_diameter_mm == 0))
+		).run()
 
 	frappe.db.commit()
