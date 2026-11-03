@@ -83,3 +83,41 @@
 	background: transparent;
 	padding: 0;
 }
+
+// Plan 8.4: 44px touch targets (WCAG 2.5.5) on touch devices only, so desktop density is unchanged.
+@media (pointer: coarse) {
+	body:is([data-path^="portal"], [data-path="configure-sheet"], :has(.ill-page)) {
+		.btn,
+		.dropdown-item,
+		.nav-link,
+		.page-link,
+		.drag-handle-btn,
+		.ill-pager a,
+		.breadcrumb-item a,
+		.custom-control-label,
+		select.form-control,
+		input.form-control {
+			min-height: 44px;
+		}
+
+		.btn:not(.btn-block),
+		.drag-handle-btn,
+		.ill-pager a {
+			min-width: 44px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.breadcrumb-item a {
+			display: inline-flex;
+			align-items: center;
+		}
+
+		.dropdown-item,
+		.nav-link {
+			display: flex;
+			align-items: center;
+		}
+	}
+}
