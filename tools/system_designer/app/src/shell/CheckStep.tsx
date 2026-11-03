@@ -19,44 +19,13 @@ import type { CatalogState } from '../design/catalog';
 import type { CheckState } from '../design/engine';
 import type { DesignStore } from '../design/store';
 import { CommitInput } from './fields';
+import { FIX_STEP } from './checkTargets';
 import { entityLabel, type OpenDesign } from './open';
 import type { StepId } from './steps';
 
 const ICONS: Record<DesignMessage['severity'], string> = { error: '✖', warning: '▲', info: 'ℹ' };
 const SEVERITY_LABEL: Record<DesignMessage['severity'], string> = { error: 'Error', warning: 'Warning', info: 'Note' };
 
-/** Where each check is fixed when the Check step cannot fix it in place. */
-const POWER = { step: 'power', label: 'Open Power' } as const;
-const SPACES = { step: 'spaces', label: 'Open Spaces' } as const;
-const RUNS = { step: 'runs', label: 'Open Runs' } as const;
-const FIX_STEP: Record<string, { step: StepId; label: string }> = {
-  PSU_OVERLOAD: POWER,
-  PSU_ABOVE_DERATE: POWER,
-  CHANNEL_OVERCURRENT: POWER,
-  BREAKER_OVERLOAD: POWER,
-  CLASS2_OVER_100VA: POWER,
-  VOLTAGE_MISMATCH: POWER,
-  DRIVE_MISMATCH: POWER,
-  PROTOCOL_MISMATCH: POWER,
-  RUN_UNASSIGNED: POWER,
-  UNRESOLVED_REF: POWER,
-  INPUT_V_OUT_OF_RANGE: POWER,
-  DEVICE_CAPACITY: POWER,
-  DMX_ADDRESS_OVERLAP: POWER,
-  DMX_ADDRESS_OVERFLOW: POWER,
-  DMX_TOPOLOGY: POWER,
-  DMX_NO_TERMINATOR: POWER,
-  ZONE_NO_CONTROL: POWER,
-  DMX_RUN_NO_DECODER: POWER,
-  CONTROL_UNUSED: POWER,
-  SUPPLY_NO_ACCESS: SPACES,
-  NO_VALID_WIRE: SPACES,
-  VD_OVER_TARGET: SPACES,
-  TAPE_UNDERVOLTAGE: SPACES,
-  TAPE_RUN_TOO_LONG: RUNS,
-  INVALID_SPEC: RUNS,
-  SCHEDULE_OUT_OF_SYNC: { step: 'start', label: 'Open Start' },
-};
 
 const feet = (value: number) => `${Number(value.toFixed(1))} ft`;
 const keyOf = (item: DesignMessage) => `${item.code}:${item.entityRef}:${item.text}`;
@@ -202,6 +171,7 @@ export function CheckStep({
                       key={id}
                       className={`ill-sd__check ill-sd__check--${item.override ? 'info' : item.severity}`}
                       data-testid={`check-${item.code}-${item.entityRef}`}
+                      data-entity={item.entityRef}
                     >
                       <span aria-hidden="true">{ICONS[item.override ? 'info' : item.severity]}</span>
                       <div>

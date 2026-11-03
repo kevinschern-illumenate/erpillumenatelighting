@@ -57,15 +57,17 @@ export interface IconButtonProps extends Omit<ButtonProps, 'children' | 'icon'> 
   /** The accessible name, rendered as visually hidden text and shown as the tooltip. */
   label: string;
   icon: ReactNode;
+  /** Shown after the label in the tooltip, e.g. "Ctrl+Z". */
+  shortcut?: string;
 }
 
 /** A square icon-only button whose name is real (hidden) text, so tests and screen readers find it. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { label, icon, className, variant = 'quiet', ...props },
+  { label, icon, shortcut, className, variant = 'quiet', ...props },
   ref,
 ) {
   return (
-    <Tooltip content={label}>
+    <Tooltip content={shortcut ? `${label} (${shortcut})` : label}>
       <Button ref={ref} variant={variant} className={cn('sd-btn--icon', className)} {...props}>
         <span aria-hidden className="sd-btn__icon">
           {icon}

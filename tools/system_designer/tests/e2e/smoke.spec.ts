@@ -116,7 +116,7 @@ test('the Check step runs the engine in a worker and sizes an assigned run', asy
   await page.getByTestId('board-C-1').getByRole('button', { name: 'Add supply' }).click();
   await page.getByRole('button', { name: 'Add Test 96 W supply' }).click();
   await page.getByTestId('pool-a1linear:1:1').dragTo(page.getByTestId('output-PS-1-OUT1'));
-  await page.getByRole('navigation').getByRole('button', { name: 'Check' }).click();
+  await page.getByRole('navigation', { name: /Design steps|Design tabs/ }).getByRole('button', { name: 'Check' }).click();
   await expect(page.getByTestId('result-a1linear:1:1')).toContainText('18/2 CL3R');
   await expect(page.getByTestId('check-UNRESOLVED_REF-PS-1')).toContainText('PS-1 is not on a panel circuit yet.');
   expect(errors).toEqual([]);
@@ -138,7 +138,7 @@ test('the Views step draws the riser in a worker and downloads a PDF with its fo
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`${ORIGIN}/portal/schedules/SCH-0001/design`);
   await assignOneRun(page);
-  await page.getByRole('navigation').getByRole('button', { name: 'Views' }).click();
+  await page.getByRole('navigation', { name: /Design steps|Design tabs/ }).getByRole('button', { name: 'Views' }).click();
   await page.getByRole('button', { name: 'Draw riser' }).click();
   await expect(page.getByRole('img', { name: /Riser sheet/ })).toBeVisible();
   const download = page.waitForEvent('download');
@@ -157,8 +157,9 @@ test('a dealer turns on engineering mode and edits equipment in the grid', async
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`${ORIGIN}/portal/schedules/SCH-0001/design`);
   await assignOneRun(page);
-  await page.getByLabel('Engineering tools').check();
-  await page.getByRole('navigation').getByRole('button', { name: 'Grids' }).click();
+  await page.getByRole('button', { name: 'View' }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Engineering tools' }).click();
+  await page.getByRole('navigation', { name: /Design steps|Design tabs/ }).getByRole('button', { name: 'Grids' }).click();
   await page.getByRole('tab', { name: 'Equipment' }).click();
   const grid = page.getByTestId('grid-equipment');
   await expect(grid.getByRole('gridcell', { name: 'PS-1', exact: true })).toBeVisible();

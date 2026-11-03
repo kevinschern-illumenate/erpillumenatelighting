@@ -4,6 +4,7 @@ import { App } from './App';
 import './ui/tokens.css';
 import './ui/ui.css';
 import './styles.css';
+import './shell/shell.css';
 
 export interface MountOptions {
   /** Fixture schedule name, or null when opened from /portal/design without one. */
