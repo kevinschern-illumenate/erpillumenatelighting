@@ -687,7 +687,8 @@
 				environment_rating: this.selections.environment_rating || '',
 				// Neon has no environment selection; its segments' IP ratings decide the accessories.
 				ip_ratings: JSON.stringify((computed.segments || []).map(function (s) { return s.ip_rating; }).filter(Boolean)),
-				segments: segmentCount
+				segments: segmentCount,
+				runs_count: computed.runs_count || 1
 			},
 			callback: function (r) {
 				if (r.message && r.message.success && r.message.accessories && r.message.accessories.length) {

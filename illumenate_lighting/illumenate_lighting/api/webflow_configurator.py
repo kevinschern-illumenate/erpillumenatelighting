@@ -2155,6 +2155,7 @@ def get_tape_neon_mounting_options(
         length_mm=length_mm,
         environment_rating=environment_rating,
         segments=segments,
+        runs_count=(sel.get("computed") or {}).get("runs_count"),
     )
 
 
