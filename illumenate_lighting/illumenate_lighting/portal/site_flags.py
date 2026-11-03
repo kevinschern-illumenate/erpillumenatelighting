@@ -65,6 +65,11 @@ def recent_products_enabled():
 	return conf_flag("ill_portal_recent_products", default=True)
 
 
+def live_estimate_enabled():
+	"""Configurator estimate panel: price, stock and lead time labelled "estimate" (plan 3.8). On by default."""
+	return conf_flag("ill_portal_live_estimate", default=True)
+
+
 def hero_image_first_enabled():
 	"""D1 image order (template hero image first, plan 5.4). Off restores gallery-first."""
 	return conf_flag("ill_portal_hero_image_first", default=True)

@@ -424,6 +424,7 @@ def validate_tape_configuration(
     tape_neon_template: str | None = None,
     override_max_run_ft: float | str | None = None,
     power_allocation: str | None = None,
+    include_estimate: bool | str | None = None,
 ) -> dict:
     """
     Validate a complete LED Tape or COB Tape configuration and compute manufacturable length.
@@ -906,6 +907,10 @@ def validate_tape_configuration(
                 "text": f"Could not create configured record: {failed['error']}",
             })
 
+    if include_estimate:
+        from illumenate_lighting.illumenate_lighting.portal.estimate import attach_tape_neon_estimate
+
+        attach_tape_neon_estimate(return_result, tape_neon_template, include_estimate)
     return return_result
 
 
@@ -1012,6 +1017,7 @@ def validate_neon_configuration(
     tape_neon_template: str | None = None,
     override_max_run_ft: float | str | None = None,
     power_allocation: str | None = None,
+    include_estimate: bool | str | None = None,
 ) -> dict:
     """
     Validate a complete LED Neon configuration with multi-segment support.
@@ -1436,6 +1442,10 @@ def validate_neon_configuration(
                 "text": f"Could not create configured record: {failed['error']}",
             })
 
+    if include_estimate:
+        from illumenate_lighting.illumenate_lighting.portal.estimate import attach_tape_neon_estimate
+
+        attach_tape_neon_estimate(return_result, tape_neon_template, include_estimate)
     return return_result
 
 
