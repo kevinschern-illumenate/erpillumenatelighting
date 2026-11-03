@@ -5,11 +5,11 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex">
 	<title>Catalog Builder · ilLumenate</title>
-	<link rel="stylesheet" href="{{ assets | e }}.css?v={{ asset_version | e }}">
+	<link rel="stylesheet" href="{{ assets | e }}.css?v={{ asset_version | urlencode }}">
 </head>
 <body>
 	<div id="catalog-builder-root"></div>
-	<script src="{{ assets | e }}.js?v={{ asset_version | e }}"></script>
+	<script src="{{ assets | e }}.js?v={{ asset_version | urlencode }}"></script>
 	<script>IllCatalogBuilder.mount("catalog-builder-root", {{ mount_options | tojson }});</script>
 </body>
 </html>

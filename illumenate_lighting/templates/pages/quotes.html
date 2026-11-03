@@ -95,7 +95,7 @@
     </div>
     <nav class="ill-segments" aria-label="{{ _('Request status') }}">
     {% for key, label in [('open','Open'),('action','Needs your reply'),('closed','Quoted or closed'),('all','All')] %}
-      <a {% if request_status == key %}aria-current="page"{% endif %} href="?requests={{ key | e }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _(label) | e }}</a>
+      <a {% if request_status == key %}aria-current="page"{% endif %} href="?requests={{ key | urlencode }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _(label) | e }}</a>
     {% endfor %}
     </nav>
     <div class="ill-records">

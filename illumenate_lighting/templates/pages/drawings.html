@@ -155,7 +155,7 @@ Request and track custom drawings and technical documentation
 						</div>
 						<div class="request-footer">
 							<small class="text-muted">{{ _("Request") }} #{{ req.name | e }}</small>
-							<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">
+							<a href="/portal/drawings/{{ req.name | urlencode }}" class="btn btn-sm btn-outline-primary">
 								{{ _("View Details") }}
 							</a>
 						</div>
@@ -193,11 +193,11 @@ Request and track custom drawings and technical documentation
 							<small class="text-muted">{{ _("Request") }} #{{ req.name | e }}</small>
 							<div>
 								{% if req.has_attachments %}
-								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-success">
+								<a href="/portal/drawings/{{ req.name | urlencode }}" class="btn btn-sm btn-success">
 									<i class="fa fa-download" aria-hidden="true"></i> {{ _("Download") }}
 								</a>
 								{% endif %}
-								<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">
+								<a href="/portal/drawings/{{ req.name | urlencode }}" class="btn btn-sm btn-outline-primary">
 									{{ _("View") }}
 								</a>
 							</div>
@@ -236,7 +236,7 @@ Request and track custom drawings and technical documentation
 						</div>
 						<div class="request-footer">
 							<small class="text-muted">#{{ req.name | e }}</small>
-							<a href="/portal/drawings/{{ req.name | e }}" class="btn btn-sm btn-outline-primary">{{ _("View") }}</a>
+							<a href="/portal/drawings/{{ req.name | urlencode }}" class="btn btn-sm btn-outline-primary">{{ _("View") }}</a>
 						</div>
 					</div>
 					{% endfor %}

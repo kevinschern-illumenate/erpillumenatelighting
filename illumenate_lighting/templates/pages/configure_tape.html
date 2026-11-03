@@ -15,7 +15,7 @@ Allows users to configure LED tape and neon products with step-by-step selection
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | urlencode }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ title | e }}</li>
 		</ol>

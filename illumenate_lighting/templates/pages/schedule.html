@@ -17,7 +17,7 @@ Also handles new schedule creation when is_new is True
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | e }}">{{ project.project_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | urlencode }}">{{ project.project_name | e }}</a></li>
 			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name | e }}{% endif %}</li>
 		</ol>
 	</nav>
@@ -47,7 +47,7 @@ Also handles new schedule creation when is_new is True
 						</div>
 						<hr>
 						<div class="d-flex justify-content-between">
-							<a href="/portal/projects/{{ project.name | e }}" class="btn btn-secondary">
+							<a href="/portal/projects/{{ project.name | urlencode }}" class="btn btn-secondary">
 								<i class="fa fa-arrow-left" aria-hidden="true"></i> {{ _("Cancel") }}
 							</a>
 							<button type="submit" class="btn btn-primary">
@@ -107,13 +107,13 @@ Also handles new schedule creation when is_new is True
 							<div class="alert alert-info mb-2" role="alert">
 								<i class="fa fa-clock-o" aria-hidden="true"></i>
 								{{ _("Your order request has been submitted and is awaiting approval by ilLumenate.") }}
-								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
+								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order | urlencode }}">{{ _("View order request") }}</a>{% endif %}
 							</div>
 							{% elif schedule.status == 'ORDERED' and schedule.sales_order %}
 							<div class="alert alert-success mb-2" role="alert">
 								<i class="fa fa-check-circle" aria-hidden="true"></i>
 								{{ _("This schedule has been ordered.") }}
-								<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order") }}</a>
+								<a href="/portal/orders/{{ schedule.sales_order | urlencode }}">{{ _("View order") }}</a>
 							</div>
 							{% endif %}
 							<div class="d-flex align-items-center gap-2">
@@ -940,17 +940,17 @@ Also handles new schedule creation when is_new is True
 												</a>
 												{% elif line.get('configured_tape_neon') %}
 												<!-- Configured tape/neon - edit link -->
-												<a href="/portal/configure?category={{ (line.get('product_type') or 'LED Tape') | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category={{ (line.get('product_type') or 'LED Tape') | urlencode }}&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('configured_led_sheet') %}
 												<!-- Configured LED Sheet - edit link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('led_sheet_template') %}
 												<!-- Unconfigured LED Sheet - configure link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% elif line.get('kit_template') %}
@@ -960,12 +960,12 @@ Also handles new schedule creation when is_new is True
 												</a>
 												{% elif line.get('tape_neon_template') %}
 												{% set tn_category = line.get('product_type') or 'LED Tape' %}
-												<a href="/portal/configure?category={{ tn_category | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category={{ tn_category | urlencode }}&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% else %}
 												<!-- Unconfigured linear fixture or no template - configure link -->
-												<a href="/portal/configure?schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% endif %}

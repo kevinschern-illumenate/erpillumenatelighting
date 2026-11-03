@@ -206,6 +206,27 @@ assert not unlabelled_labels(
 	'<label id="t">Type</label><div role="radiogroup" aria-labelledby="t"></div>'
 	"<template><label>Start</label></template>",
 )
+# Plan 2.9: record names in portal paths and query values are URL-encoded, not HTML-escaped.
+HREF = re.compile(r'href="[^"]*"')
+SEGMENT_ESCAPED = re.compile(r"(?:/portal/[a-z_-]+/|[?&](?:amp;)?[a-z_]+=)\{\{[^}|]+\|\s*e\s*\}\}")
+
+
+def html_escaped_segments(name, source):
+	return [
+		f"{name}:{source.count(chr(10), 0, attr.start()) + 1}: {segment.group(0)}"
+		for attr in HREF.finditer(source)
+		for segment in SEGMENT_ESCAPED.finditer(attr.group(0))
+	]
+
+
+assert html_escaped_segments("x", '<a href="/portal/orders/{{ order.name | e }}">') == [
+	"x:1: /portal/orders/{{ order.name | e }}"
+]
+assert html_escaped_segments("x", '<a href="?page=2&search={{ q | e }}">')
+assert not html_escaped_segments(
+	"x", '<a href="/portal/orders/{{ order.name | urlencode }}"><a href="{{ link | e }}"><a href="#line-{{ k | e }}">'
+)
+segment_violations = []
 unescaped = []
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	source = path.read_text(encoding="utf8")
@@ -218,6 +239,10 @@ for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
 	if path.parent.name == "pages":
 		style_violations += page_style_violations(path.relative_to(ROOT), source)
+	if path.parent.name in ("pages", "includes"):
+		segment_violations += html_escaped_segments(path.relative_to(ROOT), source)
+if segment_violations:
+	sys.exit("URL-encode record names in portal links with | urlencode (plan 2.9):\n  " + "\n  ".join(segment_violations))
 if style_violations:
 	sys.exit(
 		"Page styles belong in public/css/pages/_<page>.scss and colours in --ill-* tokens (UI-2):\n  "
