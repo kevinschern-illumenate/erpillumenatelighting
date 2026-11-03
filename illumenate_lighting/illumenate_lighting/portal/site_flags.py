@@ -35,6 +35,11 @@ def durable_drafts_enabled():
 	return conf_flag("ill_portal_durable_drafts", default=True)
 
 
+def line_copy_enabled():
+	"""Copy lines to another schedule and "Configure similar" (plan 3.2). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_line_copy", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)
