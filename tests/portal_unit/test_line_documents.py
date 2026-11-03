@@ -129,7 +129,7 @@ class DuplicateDetection(unittest.TestCase):
 			frappe.get_all.assert_not_called()
 
 	def test_bad_hash_payload_is_a_validation_error(self):
-		with self.load() as (module, frappe):
+		with self.load() as (module, _frappe):
 			with patch.object(module, "schedule_context", return_value=self.schedule()):
 				with self.assertRaisesRegex(ValueError, "JSON list"):
 					module.find_duplicates("S", None, "{not json")
