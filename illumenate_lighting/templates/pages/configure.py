@@ -412,22 +412,11 @@ def _get_linear_fixture_templates():
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
 		filters=template_filters(),
-		fields=["template_code", "template_name", "webflow_product"],
+		fields=["name", "template_code", "template_name", "webflow_product"],
 		order_by="template_name asc",
 		ignore_permissions=True,
 	)
-
-	# Batch-fetch gallery images from linked Webflow products
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = _fetch_webflow_gallery(webflow_product_names)
-
-	# Attach gallery JSON to each template
-	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
-		t.image = gallery[0]["image"] if gallery else None
-		t.gallery_json = json.dumps(gallery) if gallery else "[]"
-
-	return templates
+	return attach_images("ilL-Fixture-Template", templates)
 
 
 def _get_tape_neon_templates(product_category):
@@ -437,25 +426,11 @@ def _get_tape_neon_templates(product_category):
 	templates = frappe.get_all(
 		"ilL-Tape-Neon-Template",
 		filters=template_filters(product_category=product_category),
-		fields=["template_code", "template_name", "webflow_product", "image", "description"],
+		fields=["name", "template_code", "template_name", "webflow_product", "image", "description"],
 		order_by="template_name asc",
 		ignore_permissions=True,
 	)
-
-	# Batch-fetch gallery images from linked Webflow products
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = _fetch_webflow_gallery(webflow_product_names)
-
-	# Attach gallery JSON to each template
-	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
-		# If no Webflow gallery but has a direct image, use that
-		if not gallery and t.image:
-			gallery = [{"image": t.image, "alt_text": t.template_name or ""}]
-		t.image = gallery[0]["image"] if gallery else t.image
-		t.gallery_json = json.dumps(gallery) if gallery else "[]"
-
-	return templates
+	return attach_images("ilL-Tape-Neon-Template", templates)
 
 
 def _get_driver_templates():
@@ -469,7 +444,7 @@ def _get_driver_templates():
 		order_by="template_name asc",
 		ignore_permissions=True,
 	)
-	gallery_by_product = _fetch_webflow_gallery([t.webflow_product for t in templates if t.webflow_product])
+	attach_images("ilL-Driver-Template", templates)
 	descriptions = (
 		dict(
 			frappe.get_all(
@@ -484,50 +459,33 @@ def _get_driver_templates():
 		else {}
 	)
 	for t in templates:
-		gallery = gallery_by_product.get(t.webflow_product, []) if t.webflow_product else []
 		t.template_code = t.template_code or t.name
 		t.template_name = t.template_name or t.name
-		t.image = gallery[0]["image"] if gallery else None
-		t.gallery_json = json.dumps(gallery)
 		t.description = descriptions.get(t.webflow_product) or ""
 	return templates
 
 
-def _fetch_webflow_gallery(webflow_product_names):
-	"""Fetch gallery images from Webflow product records."""
-	if not webflow_product_names:
-		return {}
+def attach_images(doctype, templates):
+	"""Set each template's ``image``, ``image_alt``, ``gallery`` and ``gallery_json`` (plan 5.4).
 
-	webflow_product_gallery = {}
-
-	# Fetch gallery images from child table ordered by idx
-	gallery_rows = frappe.get_all(
-		"ilL-Child-Webflow-Gallery-Image",
-		filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
-		fields=["parent", "image", "alt_text", "display_order", "idx"],
-		order_by="parent, idx asc",
-		ignore_permissions=True,
+	The main image follows owner decision D1 (template hero image first); the gallery lists it
+	first, then the other distinct images. Returns ``templates``.
+	"""
+	if not templates:
+		return templates
+	from illumenate_lighting.illumenate_lighting.api.product_projection import (
+		images_list,
+		resolve_product_images,
 	)
-	for row in gallery_rows:
-		if row.image:
-			webflow_product_gallery.setdefault(row.parent, []).append(
-				{"image": row.image, "alt_text": row.alt_text or ""}
-			)
 
-	# Fallback: also fetch featured_image for products with no gallery
-	webflow_products = frappe.get_all(
-		"ilL-Webflow-Product",
-		filters={"name": ["in", webflow_product_names]},
-		fields=["name", "featured_image"],
-		ignore_permissions=True,
-	)
-	for wp in webflow_products:
-		if wp.name not in webflow_product_gallery and wp.featured_image:
-			webflow_product_gallery[wp.name] = [
-				{"image": wp.featured_image, "alt_text": ""}
-			]
-
-	return webflow_product_gallery
+	resolved = resolve_product_images(doctype, [t.name for t in templates])
+	for t in templates:
+		gallery = images_list(resolved.get(t.name))
+		t["image"] = gallery[0]["image"] if gallery else None
+		t["image_alt"] = gallery[0]["alt_text"] if gallery else ""
+		t["gallery"] = gallery
+		t["gallery_json"] = json.dumps(gallery)
+	return templates
 
 
 @frappe.whitelist()

@@ -1,4 +1,6 @@
-"""Shared schema-accurate product projection; no database or actor side effects."""
+"""Shared schema-accurate product projection; no database or actor side effects.
+
+``resolve_product_images`` is the one batch loader that reads the database (read-only)."""
 
 import json
 from urllib.parse import unquote, urlencode, urlsplit
@@ -34,6 +36,180 @@ PER_FOOT_TEMPLATES = {
 	"LED Neon": "ilL-Tape-Neon-Template",
 }
 
+PRODUCT_DOCTYPE = "ilL-Webflow-Product"
+GALLERY_DOCTYPE = "ilL-Child-Webflow-Gallery-Image"
+# Product link fields in the order set_dynamic_hero_image() reads them.
+HERO_LINKS = (
+	("kit_template", "ilL-Extrusion-Kit-Template"),
+	("fixture_template", "ilL-Fixture-Template"),
+	("tape_neon_template", "ilL-Tape-Neon-Template"),
+	("driver_template", "ilL-Driver-Template"),
+	("controller_template", "ilL-Controller-Template"),
+	("led_sheet_template", "ilL-LED-Sheet-Template"),
+)
+IMAGE_SOURCES = ("template_hero", "featured_image", "gallery", "template_image")
+
+
+def choose_images(*, hero=None, hero_alt=None, featured=None, gallery=(), legacy=None, alt="", hero_first=True):
+	"""The main product image under owner decision D1, plus the other images.
+
+	Precedence: template ``hero_image`` -> Webflow ``featured_image`` -> gallery #1 ->
+	template ``image`` (legacy). Every other distinct image follows in ``gallery``.
+	``hero_first=False`` is the ``ill_portal_hero_image_first`` kill switch: the pre-D1
+	order, gallery #1 -> ``featured_image`` -> template ``image`` -> ``hero_image``.
+	"""
+	alt = alt or ""
+	rows = [
+		{"image": row.get("image"), "alt_text": row.get("alt_text") or alt}
+		for row in gallery or ()
+		if row.get("image")
+	]
+	hero_c = ("template_hero", hero, hero_alt or alt)
+	featured_c = ("featured_image", featured, alt)
+	gallery_c = [("gallery", row["image"], row["alt_text"]) for row in rows[:1]]
+	legacy_c = ("template_image", legacy, alt)
+	if hero_first:
+		candidates = [hero_c, featured_c, *gallery_c, legacy_c]
+	else:
+		candidates = [*gallery_c, featured_c, legacy_c, hero_c]
+	source, primary, primary_alt = next(((s, url, a) for s, url, a in candidates if url), (None, None, ""))
+	seen, extra = {primary}, []
+	others = [(row["image"], row["alt_text"]) for row in rows] + [(featured, alt), (legacy, alt), (hero, hero_alt or alt)]
+	for url, text in others:
+		if url and url not in seen:
+			seen.add(url)
+			extra.append({"image": url, "alt_text": text})
+	return {"primary": primary, "primary_alt": primary_alt, "primary_source": source, "gallery": extra}
+
+
+def images_list(images):
+	"""``[primary, *gallery]`` in the ``{image, alt_text}`` shape the picker galleries read."""
+	if not images:
+		return []
+	lead = [{"image": images["primary"], "alt_text": images["primary_alt"]}] if images.get("primary") else []
+	return lead + list(images.get("gallery") or [])
+
+
+def _fields(doctype, wanted):
+	import frappe
+
+	meta = frappe.get_meta(doctype)
+	return [field for field in wanted if field == "name" or meta.has_field(field)]
+
+
+def _galleries(products):
+	import frappe
+
+	galleries = {}
+	if not products:
+		return galleries
+	for row in frappe.get_all(
+		GALLERY_DOCTYPE,
+		filters={"parent": ["in", list(products)], "parenttype": PRODUCT_DOCTYPE},
+		fields=["parent", "image", "alt_text", "idx"],
+		order_by="parent asc, idx asc",
+		ignore_permissions=True,
+	):
+		if row.get("image"):
+			galleries.setdefault(row.get("parent"), []).append(row)
+	return galleries
+
+
+def _rows(doctype, names, wanted):
+	import frappe
+
+	names = [name for name in dict.fromkeys(names) if name]
+	if not names:
+		return {}
+	return {
+		row.get("name"): row
+		for row in frappe.get_all(
+			doctype, filters={"name": ["in", names]}, fields=_fields(doctype, wanted), ignore_permissions=True
+		)
+	}
+
+
+def product_images(product, template_row, gallery=(), hero_first=True):
+	"""D1 images for one ``ilL-Webflow-Product`` row from rows the caller already loaded.
+
+	``template_row(doctype, name)`` returns a template row (or None); ``gallery`` holds the
+	product's gallery rows in order.
+	"""
+	linked = [
+		row
+		for field, template_doctype in HERO_LINKS
+		if product.get(field)
+		for row in [template_row(template_doctype, product.get(field))]
+		if row
+	]
+	hero = next((t for t in linked if t.get("hero_image")), {})
+	legacy = next((t for t in linked if t.get("image")), {})
+	return choose_images(
+		hero=hero.get("hero_image"),
+		hero_alt=hero.get("hero_image_alt"),
+		featured=product.get("featured_image"),
+		gallery=gallery or (),
+		legacy=legacy.get("image"),
+		alt=product.get("product_name") or "",
+		hero_first=hero_first,
+	)
+
+
+TEMPLATE_IMAGE_FIELDS = ("name", "template_name", "hero_image", "hero_image_alt", "image", "webflow_product")
+
+
+def resolve_product_images(doctype, names):
+	"""Batch-resolve product images for templates or ``ilL-Webflow-Product`` names (D1).
+
+	Returns ``{name: {primary, primary_alt, primary_source, gallery}}``; ``gallery`` holds the
+	other distinct images in display order, never the primary. Missing names are left out.
+	Read-only: it never writes a resolved image back (no automatic overwrite).
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import hero_image_first_enabled
+
+	names = [name for name in dict.fromkeys(names or ()) if name]
+	if not names:
+		return {}
+	hero_first = hero_image_first_enabled()
+	if doctype == PRODUCT_DOCTYPE:
+		products = _rows(
+			PRODUCT_DOCTYPE, names, ("name", "product_name", "featured_image", *(f for f, _ in HERO_LINKS))
+		)
+		templates = {
+			(template_doctype, name): row
+			for field, template_doctype in HERO_LINKS
+			for name, row in _rows(
+				template_doctype, [p.get(field) for p in products.values()], TEMPLATE_IMAGE_FIELDS
+			).items()
+		}
+		galleries = _galleries(products)
+		return {
+			name: product_images(
+				product, lambda doctype, key: templates.get((doctype, key)), galleries.get(name), hero_first
+			)
+			for name, product in products.items()
+		}
+	templates = _rows(doctype, names, TEMPLATE_IMAGE_FIELDS)
+	products = _rows(
+		PRODUCT_DOCTYPE,
+		[t.get("webflow_product") for t in templates.values()],
+		("name", "product_name", "featured_image"),
+	)
+	galleries = _galleries(products)
+	resolved = {}
+	for name, template in templates.items():
+		product = products.get(template.get("webflow_product")) or {}
+		resolved[name] = choose_images(
+			hero=template.get("hero_image"),
+			hero_alt=template.get("hero_image_alt"),
+			featured=product.get("featured_image"),
+			gallery=galleries.get(product.get("name"), ()),
+			legacy=template.get("image"),
+			alt=template.get("template_name") or product.get("product_name") or "",
+			hero_first=hero_first,
+		)
+	return resolved
+
 
 def safe_document_url(value):
 	if not isinstance(value, str) or not value or any(ord(c) < 32 for c in value):
@@ -67,11 +243,14 @@ def project_product(
 	configure_available=True,
 	template_active=True,
 	rollout_reason=None,
+	images=None,
 ):
 	"""Project a catalog product; ``price`` is the template MSRP per foot for per-foot families.
 
 	``rollout_reason`` is ``portal.rollout.reason()`` for the product's family; it names why
 	``configure_available`` is false (for example ``pilot_only``).
+	``images`` is this product's ``resolve_product_images()`` entry. Without it the product's
+	own ``hero_image`` (copied from its template on save) leads, so the result stays D1-ordered.
 	"""
 	get = product.get
 	family = FAMILY_ALIASES.get(get("product_type"), get("product_type"))
@@ -145,18 +324,14 @@ def project_product(
 				"display_order": row.get("display_order") or 0,
 			}
 		)
-	gallery = [
-		{
-			"image": row.get("image"),
-			"alt_text": row.get("alt_text") or "",
-			"display_order": row.get("display_order") or row.get("idx") or 0,
-		}
-		for row in get("gallery_images") or []
-	]
-	if not gallery and get("featured_image"):
-		gallery = [
-			{"image": get("featured_image"), "alt_text": get("product_name") or "", "display_order": 0}
-		]
+	if images is None:
+		rows = sorted(
+			get("gallery_images") or [], key=lambda r: r.get("display_order") or r.get("idx") or 0
+		)
+		images = choose_images(
+			hero=get("hero_image"), featured=get("featured_image"), gallery=rows, alt=get("product_name") or ""
+		)
+	gallery = [dict(row, display_order=index) for index, row in enumerate(images_list(images))]
 	result = {
 		key: get(key)
 		for key in (
@@ -193,7 +368,10 @@ def project_product(
 			"capability_reason": capability_reason,
 			"configure_url": configure_url,
 			"template": template,
-			"gallery": sorted(gallery, key=lambda r: r["display_order"]),
+			"gallery": gallery,
+			"image": images.get("primary"),
+			"image_alt": images.get("primary_alt") or "",
+			"image_source": images.get("primary_source"),
 			"documents": documents,
 			"configurator_options": sorted(options, key=lambda r: r["step"] or 0),
 			"validation_errors": errors,

@@ -60,6 +60,11 @@ def presets_enabled():
 	return conf_flag("ill_portal_presets", default=True)
 
 
+def hero_image_first_enabled():
+	"""D1 image order (template hero image first, plan 5.4). Off restores gallery-first."""
+	return conf_flag("ill_portal_hero_image_first", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

@@ -116,6 +116,16 @@ def _project(product, activity, public=False, **kwargs) -> dict:
     )
 
 
+def _product_images(products) -> dict:
+    """D1 image for each product: template hero image first (plan 5.4)."""
+    from illumenate_lighting.illumenate_lighting.api.product_projection import (
+        PRODUCT_DOCTYPE,
+        resolve_product_images,
+    )
+
+    return resolve_product_images(PRODUCT_DOCTYPE, [p.get("name") for p in products])
+
+
 def _standard_choices(product) -> list:
     """Orderable SKUs for a product without a configurator; a dangling spec link offers none."""
     from illumenate_lighting.illumenate_lighting.portal.standard_products import choices
@@ -309,10 +319,13 @@ def get_catalog_products(
     # ── attach MSRP per foot from linear / tape / neon templates ─────
     pricing_map = _per_foot_prices(products)
     template_activity = _template_activity(products)
+    images = _product_images(products)
 
     result = []
     for product in products:
-        projection = _project(product, template_activity, price=pricing_map.get(product.name))
+        projection = _project(
+            product, template_activity, price=pricing_map.get(product.name), images=images.get(product.name)
+        )
         # Cards offer "Add to schedule" only when the product page will have an orderable SKU.
         if projection["capability"] == "inquiry" and _standard_choices(product):
             projection["capability"] = "quantity"
@@ -380,7 +393,11 @@ def get_catalog_product_detail(product_slug: str, finder=None) -> dict:
         )})
     price = _per_foot_prices([product]).get(product.name)
     projection = _project(
-        product, _template_activity([product]), certifications=certifications, price=price
+        product,
+        _template_activity([product]),
+        certifications=certifications,
+        price=price,
+        images=_product_images([product]).get(product.name),
     )
     projection.update(_template_photometrics(product))
     if not projection["configure_url"]:
