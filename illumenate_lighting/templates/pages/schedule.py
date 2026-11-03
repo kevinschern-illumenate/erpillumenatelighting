@@ -1,6 +1,10 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
+import functools
+import hashlib
+from pathlib import Path
+
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
@@ -15,10 +19,29 @@ from illumenate_lighting.illumenate_lighting.system_design.dealer_data import di
 
 no_cache = 1
 
+# Page scripts are served as plain /assets files (plan 2.1); this hash busts browser caches on deploy.
+SCHEDULE_JS = Path(__file__).resolve().parents[2] / "public" / "js" / "portal" / "schedule"
+
+
+@functools.lru_cache(maxsize=1)
+def _schedule_js_hash() -> str:
+	digest = hashlib.sha1(usedforsecurity=False)
+	for path in sorted(SCHEDULE_JS.glob("*.js")):
+		digest.update(path.name.encode())
+		digest.update(path.read_bytes())
+	return digest.hexdigest()[:12]
+
+
+def schedule_js_version() -> str:
+	if frappe.conf.get("developer_mode"):
+		_schedule_js_hash.cache_clear()
+	return _schedule_js_hash()
+
 
 def get_context(context):
 	"""Get context for the schedule detail portal page."""
 	require_login()
+	context.schedule_js_version = schedule_js_version()
 
 	# Check if this is a new schedule creation (routed from /portal/projects/<project>/schedules/new)
 	project_name = frappe.form_dict.get("project")

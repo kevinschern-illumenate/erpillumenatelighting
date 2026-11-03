@@ -7,7 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { JSDOM } = require('jsdom');
 
-const SOURCE = fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/templates/pages/schedule.html'), 'utf8');
+const { SCRIPT: SOURCE } = require('./schedule_source.cjs');
 
 function load(name) {
   return new JSDOM(fs.readFileSync(path.join(__dirname, `rendered/${name}.html`), 'utf8')).window.document;

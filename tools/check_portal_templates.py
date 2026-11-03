@@ -1,6 +1,7 @@
 """Local Jinja rendering and embedded-JS syntax checks; no Frappe/browser claims."""
 
 import html
+import json
 import re
 import subprocess
 import sys
@@ -677,10 +678,25 @@ schedule_variants = {
 		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
 	),
 }
+SCHEDULE_JS = ROOT / "illumenate_lighting/public/js/portal/schedule"
+SCHEDULE_TEXTS = {
+	json.loads(literal)
+	for path in SCHEDULE_JS.glob("*.js")
+	for literal in re.findall(r'scheduleText\(("(?:[^"\\]|\\.)*")\)', path.read_text(encoding="utf8"))
+}
+assert SCHEDULE_TEXTS, "schedule page strings are found"
 for name, variant in schedule_variants.items():
 	schedule_html = schedule_page.render(**schedule_base, **variant)
 	assert "Sam &lt;S&gt;" in schedule_html or name != "schedule-ready"
 	assert 'onclick="requestQuote()"' not in schedule_html and 'onclick="createSalesOrder()"' not in schedule_html
+	# Plan 2.1: the page scripts read their server values from one JSON block, not inline Jinja.
+	context_block = re.search(r'<script type="application/json" id="schedule-context">(.*?)</script>', schedule_html, re.S)
+	schedule_context = json.loads(context_block.group(1))
+	assert schedule_context["schedule_name"] == "S-1" and schedule_context["schedule_status"] == variant["schedule"].status
+	assert schedule_context["dealer_customer_group"] == "", "dealer pricing context only renders for pricing users"
+	assert set(schedule_context["i18n"]) == SCHEDULE_TEXTS, set(schedule_context["i18n"]) ^ SCHEDULE_TEXTS
+	assert 'src="/assets/illumenate_lighting/js/portal/schedule/context.js?v=' in schedule_html
+	assert "pricing.js" not in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
