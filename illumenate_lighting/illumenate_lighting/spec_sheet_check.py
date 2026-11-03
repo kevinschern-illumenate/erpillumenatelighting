@@ -7,21 +7,22 @@ Required for every template type:
 
 - Target Brand (one enabled row)
 - Display Name or Template Name
+- Webflow Category (Product Category; Tape/Neon: Webflow Category). It picks the Webflow spec
+  sheet page and the Webflow Product's Product Type.
 - Sublabel
 - Hero Image
 - Dimensions Image
 - Specifications: at least one row with a value
-- The brand's Webflow spec sheet page for the template's product type
-  (``<site>/spec-sheet-templates/<product type slug>``)
+- Part No. Configurator: at least one step, each with Option Type, Option Label and Depends On
+  Step
 
 Required for Extrusion Kits:
 
 - Default Profile Spec, with dimensions or a width and height
-- Kit Components: at least one row, each with Component Type and Component Item
-- A Component Image for each component type
+- Operating Temperature Min and Max (both 0 counts as not set, D43)
+- Kit Components: at least one row, each with Component Type, Component Item and Description
 
-Warnings: kit component rows without a Description, certifications without a Badge Image, no
-Part No. Configurator steps.
+Warnings: certifications without a Badge Image, component types without a Component Image.
 
 Other template types get their own required fields when their Webflow page is built.
 """
@@ -57,16 +58,7 @@ def webflow_site(brand):
 	return (url or "").rstrip("/") or None
 
 
-def page_exists(url):
-	import requests
-
-	try:
-		return requests.get(url, timeout=15).status_code == 200
-	except requests.RequestException:
-		return False
-
-
-def check(template, page_exists=page_exists):
+def check(template):
 	"""Returns {"missing": [...], "warnings": [...], "page_url": url or None}."""
 	from illumenate_lighting.illumenate_lighting.template_images import template_brand
 
@@ -86,19 +78,38 @@ def check(template, page_exists=page_exists):
 			missing.append(label)
 	if not any((row.get("spec_value") or "").strip() for row in get("specifications") or []):
 		missing.append("Specifications (at least one row with a value)")
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+		template_category,
+		template_category_field,
+	)
 
-	page_url = None
-	if brand:
-		site = webflow_site(brand)
-		slug = page_slug(template)
-		if not site:
-			missing.append(f"Webflow site for brand {brand} (set its Webflow Site URL)")
-		elif not slug:
-			missing.append("Product type of the template (picks the Webflow spec sheet page)")
-		else:
-			page_url = f"{site}/{PAGE_PATH}/{slug}"
-			if not page_exists(page_url):
-				missing.append(f"Webflow spec sheet page {page_url} (not found)")
+	if not template_category(template):
+		label = (
+			"Webflow Category"
+			if template_category_field(template.doctype) == "webflow_category"
+			else "Product Category"
+		)
+		missing.append(label)
+	steps = get("part_no_configurator") or []
+	if not steps:
+		missing.append("Part No. Configurator (at least one step)")
+	for index, row in enumerate(steps, 1):
+		empty = [
+			label
+			for field, label in (
+				("option_type", "Option Type"),
+				("option_label", "Option Label"),
+				("depends_on_step", "Depends On Step"),
+			)
+			if row.get(field) in (None, "")
+		]
+		if empty:
+			missing.append(f"Part No. Configurator step {index}: {', '.join(empty)}")
+
+	# The Webflow page is not checked (not every template has one); it is listed for reference.
+	site = webflow_site(brand) if brand else None
+	slug = page_slug(template)
+	page_url = f"{site}/{PAGE_PATH}/{slug}" if site and slug else None
 
 	if template.doctype == KIT:
 		_check_kit(template, missing, warnings)
@@ -106,8 +117,6 @@ def check(template, page_exists=page_exists):
 	for row in get("certifications") or []:
 		if row.get("certification") and not row.get("badge_image"):
 			warnings.append(f"Certification {row.certification} has no Badge Image (its badge is skipped)")
-	if not get("part_no_configurator"):
-		warnings.append("No Part No. Configurator steps (the part number section is hidden)")
 	return {"missing": missing, "warnings": warnings, "page_url": page_url}
 
 
@@ -121,17 +130,27 @@ def _check_kit(template, missing, warnings):
 		)
 		if not row or not (row.dimensions or (row.width_mm and row.height_mm)):
 			missing.append(f"Dimensions (or width and height) on Default Profile Spec {profile}")
+	low, high = template.get("operating_temp_min_c"), template.get("operating_temp_max_c")
+	if low in (None, "") or high in (None, "") or (not float(low) and not float(high)):
+		missing.append("Operating Temperature Min and Max")
 	rows = template.get("kit_components") or []
 	if not rows:
 		missing.append("Kit Components (at least one row)")
 	images = {}
 	for index, row in enumerate(rows, 1):
-		if not row.get("component_type") or not row.get("component_item"):
-			missing.append(f"Kit Components row {index}: Component Type and Component Item")
+		empty = [
+			label
+			for field, label in (
+				("component_type", "Component Type"),
+				("component_item", "Component Item"),
+				("component_description", "Description"),
+			)
+			if not str(row.get(field) or "").strip()
+		]
+		if empty:
+			missing.append(f"Kit Components row {index}: {', '.join(empty)}")
 		if row.get("component_type"):
 			images[row.component_type] = images.get(row.component_type) or row.get("component_image")
-		if not (row.get("component_description") or "").strip():
-			warnings.append(f"Kit Components row {index} has no Description (only the code is shown)")
 	for kind, image in images.items():
 		if not image:
-			missing.append(f"Component Image for {kind} (from its first item's Variant Of image)")
+			warnings.append(f"No Component Image for {kind} (its first item's Variant Of item has no image)")

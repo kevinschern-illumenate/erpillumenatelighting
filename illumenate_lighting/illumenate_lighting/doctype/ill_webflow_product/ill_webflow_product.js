@@ -440,12 +440,10 @@ function on_template_change(frm, fieldname) {
 	}
 	frm.set_value("is_configurable", 1);
 	frappe.db
-		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["product_category", "series"])
+		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["series"])
 		.then((r) => {
+			// Product Category and Product Type follow the template's Webflow Category on save.
 			const template = (r && r.message) || {};
-			if (template.product_category) {
-				frm.set_value("product_category", template.product_category);
-			}
 			if (template.series && !frm.doc.series) {
 				frm.set_value("series", template.series);
 			}

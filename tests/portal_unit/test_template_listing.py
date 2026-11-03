@@ -422,6 +422,19 @@ class Listing(unittest.TestCase):
 			rows = self.module.linked_spec_rows(product, [])
 			self.assertEqual([row["spec_label"] for row in rows], labels)
 
+	def test_the_product_type_follows_the_webflow_category(self):
+		self.assertEqual(
+			self.module.product_type_for(Doc(KIT, "K", product_category="extrusions")), "Extrusion Kit"
+		)
+		fixture = Doc("ilL-Fixture-Template", "F", product_category="landscape")
+		self.assertEqual(self.module.product_type_for(fixture), "Fixture Template")
+		# Tape/Neon keep the Webflow Category in webflow_category.
+		neon = Doc(TAPE, "N", product_category="LED Tape", webflow_category="neon")
+		self.assertEqual(self.module.product_type_for(neon), "LED Neon")
+		self.assertEqual(
+			self.module.product_type_for(Doc(TAPE, "T", product_category="COB Tape")), "COB Tape"
+		)
+
 	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
 		diff = self.module.diff_listing(
 			[

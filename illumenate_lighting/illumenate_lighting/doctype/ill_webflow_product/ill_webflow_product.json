@@ -15,7 +15,6 @@
   "column_break_identity",
   "product_type",
   "product_category",
-  "web_product_category",
   "series",
   "web_series",
   "is_active",
@@ -142,21 +141,17 @@
    "in_standard_filter": 1,
    "label": "Product Type",
    "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nCOB Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
-   "reqd": 1
+   "reqd": 1,
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template",
+   "description": "Set from the linked template's Webflow Category: extrusions Extrusion Kit, cob-tape COB Tape, controls Controller, landscape and linear-fixtures Fixture Template, led-sheets LED Sheet, led-tape LED Tape, neon LED Neon, power-supplies Driver."
   },
   {
-   "description": "Optional taxonomy category for navigation/filtering",
+   "description": "Set from the linked template's Webflow Category (Tape/Neon: its Webflow Category field).",
    "fieldname": "product_category",
    "fieldtype": "Link",
    "label": "Product Category",
-   "options": "ilL-Webflow-Category"
-  },
-  {
-   "fieldname": "web_product_category",
-   "fieldtype": "Data",
-   "label": "Web Product Category",
-   "read_only": 1,
-   "description": "The template's Product Category. Copied from the template on save."
+   "options": "ilL-Webflow-Category",
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template"
   },
   {
    "description": "Product series for filtering (e.g., 'SH01', 'SL02')",
@@ -169,7 +164,7 @@
   {
    "fieldname": "web_series",
    "fieldtype": "Data",
-   "label": "Web Series",
+   "label": "Series",
    "read_only": 1,
    "description": "The template's Series. Copied from the template on save."
   },
@@ -671,7 +666,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-02 20:30:00.000000",
+ "modified": "2026-11-03 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

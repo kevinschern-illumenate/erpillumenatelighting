@@ -7602,21 +7602,15 @@
           "label": "Product Type",
           "fieldtype": "Select",
           "options": "Fixture Template\nDriver\nController\nExtrusion Kit\nLED Tape\nCOB Tape\nLED Neon\nComponent\nAccessory\nLED Sheet",
-          "reqd": 1
+          "reqd": 1,
+          "description": "Set from the linked template's Webflow Category: extrusions Extrusion Kit, cob-tape COB Tape, controls Controller, landscape and linear-fixtures Fixture Template, led-sheets LED Sheet, led-tape LED Tape, neon LED Neon, power-supplies Driver."
         },
         {
           "fieldname": "product_category",
           "label": "Product Category",
           "fieldtype": "Link",
           "options": "ilL-Webflow-Category",
-          "description": "Optional taxonomy category for navigation/filtering"
-        },
-        {
-          "fieldname": "web_product_category",
-          "label": "Web Product Category",
-          "fieldtype": "Data",
-          "description": "The template's Product Category. Copied from the template on save.",
-          "read_only": 1
+          "description": "Set from the linked template's Webflow Category (Tape/Neon: its Webflow Category field)."
         },
         {
           "fieldname": "series",
@@ -7627,7 +7621,7 @@
         },
         {
           "fieldname": "web_series",
-          "label": "Web Series",
+          "label": "Series",
           "fieldtype": "Data",
           "description": "The template's Series. Copied from the template on save.",
           "read_only": 1

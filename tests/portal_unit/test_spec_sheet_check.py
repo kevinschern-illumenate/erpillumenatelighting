@@ -17,6 +17,9 @@ def complete_kit(**changes):
 	values = {
 		"name": "KIT-RA01",
 		"display_name": "Rainier [SF] Extrusion Kit",
+		"product_category": "extrusions",
+		"operating_temp_min_c": -20,
+		"operating_temp_max_c": 45,
 		"sublabel": "Surface",
 		"hero_image": "/files/hero.png",
 		"dimensions_image": "/files/dims.jpg",
@@ -32,7 +35,9 @@ def complete_kit(**changes):
 			)
 		],
 		"certifications": [Record(certification="Dry Rated", badge_image="/files/dry.svg")],
-		"part_no_configurator": [Record(option_step=1)],
+		"part_no_configurator": [
+			Record(option_step=1, option_type="Finish", option_label="Finish", depends_on_step=0)
+		],
 	}
 	values.update(changes)
 	return Template(KIT, **values)
@@ -51,8 +56,8 @@ class Check(unittest.TestCase):
 		)
 		self.module.page_slug = lambda template: "extrusion-kit"
 
-	def run_check(self, template, page=True):
-		return self.module.check(template, page_exists=lambda url: page)
+	def run_check(self, template):
+		return self.module.check(template)
 
 	def test_a_complete_kit_is_ready(self):
 		result = self.run_check(complete_kit())
@@ -85,16 +90,25 @@ class Check(unittest.TestCase):
 		):
 			self.assertIn(expected, missing)
 
-	def test_a_missing_webflow_page_or_brand_stops_it(self):
-		self.assertIn(
-			"Webflow spec sheet page https://illumenate-staging.webflow.io/spec-sheet-templates/extrusion-kit (not found)",
-			self.run_check(complete_kit(), page=False)["missing"],
-		)
+	def test_brand_category_and_configurator_are_required(self):
 		self.assertIn(
 			"Target Brand (one enabled row)", self.run_check(complete_kit(target_brands=[]))["missing"]
 		)
+		self.assertIn("Product Category", self.run_check(complete_kit(product_category=None))["missing"])
+		missing = self.run_check(
+			complete_kit(
+				part_no_configurator=[
+					Record(option_step=1, option_type="Finish", option_label="", depends_on_step=None)
+				]
+			)
+		)["missing"]
+		self.assertIn("Part No. Configurator step 1: Option Label, Depends On Step", missing)
+		self.assertIn(
+			"Part No. Configurator (at least one step)",
+			self.run_check(complete_kit(part_no_configurator=[]))["missing"],
+		)
 
-	def test_kit_component_rules(self):
+	def test_kit_rules(self):
 		rows = [
 			Record(
 				component_type="Profile",
@@ -112,19 +126,19 @@ class Check(unittest.TestCase):
 		result = self.run_check(
 			complete_kit(
 				kit_components=rows,
+				operating_temp_min_c=0,
+				operating_temp_max_c=0,
 				certifications=[Record(certification="UL", badge_image=None)],
-				part_no_configurator=[],
 			)
 		)
-		self.assertIn("Kit Components row 2: Component Type and Component Item", result["missing"])
+		self.assertIn("Operating Temperature Min and Max", result["missing"])
+		self.assertIn("Kit Components row 1: Description", result["missing"])
+		self.assertIn("Kit Components row 2: Component Item", result["missing"])
 		self.assertIn(
-			"Component Image for Profile (from its first item's Variant Of image)", result["missing"]
+			"No Component Image for Profile (its first item's Variant Of item has no image)",
+			result["warnings"],
 		)
-		self.assertIn("Kit Components row 1 has no Description (only the code is shown)", result["warnings"])
 		self.assertIn("Certification UL has no Badge Image (its badge is skipped)", result["warnings"])
-		self.assertIn(
-			"No Part No. Configurator steps (the part number section is hidden)", result["warnings"]
-		)
 
 
 if __name__ == "__main__":

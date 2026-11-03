@@ -85,3 +85,17 @@ pages a run needs.
 - **The current spec sheet is also attached to the linked Webflow Product** (a second File record for
   the same stored file); the product's earlier spec sheet attachments are unattached, as on the
   template.
+
+## Follow-up (owner, 2026-11-03)
+
+- The Webflow page is **not** checked (not every template has one). The template's Webflow Category
+  is required instead (Product Category; Tape/Neon: Webflow Category, D54). The page is picked from it.
+- New required fields: Part No. Configurator (at least one step, each with Option Type, Option Label
+  and Depends On Step); for kits, Operating Temperature Min and Max (both 0 counts as unset) and a
+  Description on every Kit Components row. Component Images are a warning, not required.
+- **The Webflow Product's Product Category mirrors the template's Webflow Category, and its Product
+  Type follows it**: extrusions Extrusion Kit, cob-tape COB Tape, controls Controller, landscape and
+  linear-fixtures Fixture Template, led-sheets LED Sheet, led-tape LED Tape, neon LED Neon,
+  power-supplies Driver. Both are read-only on a linked product. `web_product_category` is removed.
+  `web_series` is labelled Series.
+- Environment Ratings are always listed Dry, Damp, Wet (others after, A to Z).

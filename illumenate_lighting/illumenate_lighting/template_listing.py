@@ -68,7 +68,16 @@ def _rows(rows, fields):
 
 
 def product_type_for(template):
-	"""The Webflow Product type a template is listed as (Tape/Neon: its tape family)."""
+	"""The Webflow Product type a template is listed as: from its Webflow Category
+	(``CATEGORY_PRODUCT_TYPES``), else from its doctype (Tape/Neon: its tape family)."""
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+		CATEGORY_PRODUCT_TYPES,
+		template_category,
+	)
+
+	mapped = CATEGORY_PRODUCT_TYPES.get(template_category(template) or "")
+	if mapped:
+		return mapped
 	field = WEBFLOW_PRODUCT_LINKS[template.doctype]
 	if template.doctype == TAPE:
 		return template.get("product_category") or WEBFLOW_PRODUCT_LINK_TYPES[field][0]

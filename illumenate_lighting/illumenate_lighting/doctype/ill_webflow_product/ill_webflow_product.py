@@ -23,6 +23,18 @@ from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 
 # Specification labels sync_custom_template_data rebuilds on every save. Rows with any other
 # label were typed by hand and are kept (template_listing uses the same list).
+# Environment Ratings are always listed Dry, Damp, Wet (owner, 2026-11-03); others follow A-Z.
+ENVIRONMENT_ORDER = ("Dry", "Damp", "Wet")
+
+
+def order_environment_ratings(ratings):
+	unique = list(dict.fromkeys(r for r in ratings if r))
+	return sorted(
+		unique,
+		key=lambda r: (ENVIRONMENT_ORDER.index(r) if r in ENVIRONMENT_ORDER else len(ENVIRONMENT_ORDER), r),
+	)
+
+
 MANAGED_LABELS = (
 	"Color Rendering (CRI)", "Output Options", "Light Color (CCT)", "Lens Options",
 	"Mounting Options", "Mounting", "Finish Options", "Finish", "Lenses", "Environment Ratings", 
@@ -1700,7 +1712,7 @@ class ilLWebflowProduct(Document):
 			specs_to_add.append({
 				"spec_group": "Environmental",
 				"spec_label": "Environment Ratings",
-				"spec_value": ", ".join(env_ratings),
+				"spec_value": ", ".join(order_environment_ratings(env_ratings)),
 				"is_calculated": 1,
 				"display_order": 80,
 				"attribute_doctype": "ilL-Attribute-Environment Rating",
@@ -2123,7 +2135,7 @@ class ilLWebflowProduct(Document):
 				specs_to_add.append({
 					"spec_group": "Environmental",
 					"spec_label": "Environment Ratings",
-					"spec_value": ", ".join(ratings),
+					"spec_value": ", ".join(order_environment_ratings(ratings)),
 					"is_calculated": 1,
 					"display_order": 70
 				})
@@ -3389,7 +3401,18 @@ class ilLWebflowProduct(Document):
 				# ============================================================
 				
 				self.webflow_template_status = template_doc.get("product_status")
-				self.web_product_category = template_doc.get("product_category")
+				# Product Category mirrors the template's Webflow Category, and decides the
+				# Product Type (owner, 2026-11-03).
+				from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+					CATEGORY_PRODUCT_TYPES,
+					template_category,
+				)
+
+				category = template_category(template_doc)
+				if category:
+					self.product_category = category
+					if CATEGORY_PRODUCT_TYPES.get(category):
+						self.product_type = CATEGORY_PRODUCT_TYPES[category]
 				self.web_series = template_doc.get("series")
 
 				# --- Documents Sync ---
@@ -4406,7 +4429,7 @@ class ilLWebflowProduct(Document):
 									env_ratings.append(env_row.environment_rating)
 							
 							if env_ratings:
-								sorted_env = sorted(list(set(env_ratings)))
+								sorted_env = order_environment_ratings(env_ratings)
 								append_spec(self, "Environmental", "Environment Ratings", ", ".join(sorted_env), "", 49, "ilL-Attribute-Environment Rating")
 								record(debug, "Environment Ratings", len(sorted_env), sorted_env, appended=True)
 						except frappe.DoesNotExistError:

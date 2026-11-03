@@ -419,3 +419,28 @@ def added_fieldnames(doctype):
 		| {field["fieldname"] for field in IDENTITY_FIELDS}
 		| _placed(doctype)
 	)
+
+
+# A template's Webflow Category decides its Webflow Product's Product Type (owner, 2026-11-03).
+# Tape/Neon templates hold the Webflow Category in webflow_category (D54); the others in
+# product_category.
+CATEGORY_PRODUCT_TYPES = {
+	"extrusions": "Extrusion Kit",
+	"cob-tape": "COB Tape",
+	"controls": "Controller",
+	"landscape": "Fixture Template",
+	"led-sheets": "LED Sheet",
+	"led-tape": "LED Tape",
+	"linear-fixtures": "Fixture Template",
+	"neon": "LED Neon",
+	"power-supplies": "Driver",
+}
+
+
+def template_category_field(doctype):
+	return "webflow_category" if doctype == "ilL-Tape-Neon-Template" else "product_category"
+
+
+def template_category(template):
+	"""The template's Webflow Category (a link to ilL-Webflow-Category)."""
+	return template.get(template_category_field(template.doctype))
