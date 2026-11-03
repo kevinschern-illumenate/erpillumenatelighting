@@ -2797,7 +2797,8 @@
           "label": "Sync Status",
           "fieldtype": "Select",
           "options": "Never Synced\nPending\nSynced\nError",
-          "default": "Never Synced"
+          "default": "Never Synced",
+          "read_only": 1
         },
         {
           "fieldname": "webflow_item_id",
@@ -7191,7 +7192,8 @@
           "fieldname": "tape_spec",
           "label": "LED Tape Spec (Deprecated)",
           "fieldtype": "Link",
-          "options": "ilL-Spec-LED Tape"
+          "options": "ilL-Spec-LED Tape",
+          "read_only": 1
         },
         {
           "fieldname": "tape_neon_template",
