@@ -215,6 +215,14 @@ no progress/preview). Server validation is solid (`portal/file_validation.py`). 
 | 4.7 | P1 | HEIC for staff uploads too | Staff attach images through native Desk File upload. Add a File `before_insert`/`validate` hook that converts HEIC to JPEG with the same helper as 4.2, limited to images attached to template `hero_image`/`image`, Webflow Product image fields and gallery rows, so hero images are always browser-viewable. |
 | 4.8 | P2 | Duplicate detection | SHA-256 the content (the File doc already stores `content_hash`). Warn "This photo is already attached to Line 12" instead of storing it twice. |
 
+
+**Phase 4 status** (branch `feat/phase-4-uploads`, stacked on Phase 2):
+
+| # | Status | Commits | Notes / deviations |
+|---|---|---|---|
+| 4.1 | Done (manual phone/desktop run pending on staging) | `028b547` | `public/js/portal_uploader.js` progressively enhances the existing inputs instead of replacing them. `input.files` mirrors the accepted files and `PortalUploads.uploadAll(input, ...)` delegates to the widget, so every caller and the upload endpoint stay unchanged. The aggregate cap is 100 MiB. It is client-only; the server still enforces 20 MiB/10 files. Kill switch `ill_portal_upload_widget`, published to scripts as `#ill-portal-flags` from `portal_base.html`. jsdom tests in `tests/portal_ui/portal_uploader.test.cjs`. |
+| 4.2 | Done | `7afa79c`, `028b547` | Server: `file_validation.normalize_upload()` (ftyp major-brand sniffing, lazy guarded `pillow_heif` import, 20 MiB raw / 40M pixel caps, `exif_transpose`, JPEG q90 with the ICC profile only). Only `portal.files.upload` calls it, behind kill switch `ill_portal_heic_uploads`. `validate_content` and the packet/offer/literature callers are unchanged and keep rejecting HEIC. Client: only JPEGs with an EXIF rotation and photos over 4096 px or 8 MiB are re-encoded, so ordinary photos keep full quality. Deviations: the original HEIC is not kept (the optional part), and orientation is fixed client-side only when re-encoding (the server-stored JPEG keeps its EXIF orientation as before). Wheel check (D2): pillow-heif 1.8.1 ships `cp314` manylinux_2_28 wheels for x86_64 and aarch64. Frappe Cloud images are Ubuntu 22.04 (glibc 2.35), so it is pinned `>=1.8.1,<2`. The CI Server job installs it on Python 3.14 with Pillow 13. |
+
 ---
 
 ## Phase 5 — Product and picture authoring for staff
