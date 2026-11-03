@@ -45,6 +45,11 @@ def bulk_edit_enabled():
 	return conf_flag("ill_portal_bulk_edit", default=True)
 
 
+def part_number_decode_enabled():
+	"""Read a fixture part number back into configurator selections (plan 3.5). On by default."""
+	return conf_flag("ill_portal_part_number_decode", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)
