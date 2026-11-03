@@ -54,7 +54,7 @@ Request and track custom drawings and technical documentation
 							<select class="form-control" name="project" id="requestProject">
 								<option value="">{{ _("Select project...") }}</option>
 								{% for project in projects %}
-								<option value="{{ project.name | e }}"{% if prefill and prefill.project == project.name %} selected{% endif %}>{{ (project.project_name or project.name) | e }}</option>
+								<option value="{{ project.name | e }}"{% if prefill is defined and prefill and prefill.project == project.name %} selected{% endif %}>{{ (project.project_name or project.name) | e }}</option>
 								{% endfor %}
 								<option value="_custom">{{ _("Other (specify below)") }}</option>
 							</select>
@@ -67,7 +67,7 @@ Request and track custom drawings and technical documentation
 
 						<div class="form-group" data-show="show_fixture_field">
 							<label for="fixtureReference">{{ _("Fixture / Product") }}</label>
-							<input type="text" class="form-control" name="fixture_reference" id="fixtureReference" placeholder="{{ _('e.g., LS-48 Linear, Quote #12345') }}"{% if prefill and prefill.fixture_reference %} value="{{ prefill.fixture_reference | e }}"{% endif %}>
+							<input type="text" class="form-control" name="fixture_reference" id="fixtureReference" placeholder="{{ _('e.g., LS-48 Linear, Quote #12345') }}"{% if prefill is defined and prefill and prefill.fixture_reference %} value="{{ prefill.fixture_reference | e }}"{% endif %}>
 						</div>
 
 						<div class="form-group">
