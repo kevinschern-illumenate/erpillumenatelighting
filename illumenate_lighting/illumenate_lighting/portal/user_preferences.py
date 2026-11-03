@@ -23,10 +23,10 @@ def can_toggle_dealer_pricing(user=None):
 
 
 def show_dealer_pricing(user=None):
-	"""The saved choice; on (the field default) when the user has not chosen yet."""
+	"""The saved choice; off (list price first, as before plan 3.14) until the user turns it on."""
 	user = user or frappe.session.user
 	value = frappe.db.get_value(SETTINGS, {"user": user}, FIELD)
-	return True if value is None else bool(int(value or 0))
+	return bool(int(value or 0))
 
 
 @frappe.whitelist(methods=["POST"])

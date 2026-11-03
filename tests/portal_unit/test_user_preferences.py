@@ -30,10 +30,10 @@ class DealerPricingPreference(unittest.TestCase):
 	def service(self):
 		return load_service(ROOT + ".portal.user_preferences", self.extras)
 
-	def test_unset_preference_is_on_and_a_saved_choice_wins(self):
+	def test_unset_preference_is_off_and_a_saved_choice_wins(self):
 		with self.service() as (module, frappe):
 			frappe.db.get_value.return_value = None
-			self.assertTrue(module.show_dealer_pricing("dealer@example.com"))
+			self.assertFalse(module.show_dealer_pricing("dealer@example.com"))
 			frappe.db.get_value.assert_called_with(
 				"ilL-Portal-User-Settings", {"user": "dealer@example.com"}, "show_dealer_pricing"
 			)

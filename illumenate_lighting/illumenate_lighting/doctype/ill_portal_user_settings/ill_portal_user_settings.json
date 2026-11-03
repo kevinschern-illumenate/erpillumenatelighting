@@ -136,8 +136,8 @@
                        "options":  "America/New_York\nAmerica/Chicago\nAmerica/Denver\nAmerica/Los_Angeles\nAmerica/Anchorage\nPacific/Honolulu\nAmerica/Phoenix\nAmerica/Puerto_Rico\nEurope/London\nEurope/Paris\nEurope/Berlin\nAsia/Dubai\nAsia/Shanghai\nAsia/Tokyo\nAustralia/Sydney"
                    },
                    {
-                       "default":  "1",
-                       "description":  "Dealers with pricing access see dealer pricing on fixture schedules. Set by the schedule page toggle.",
+                       "default":  "0",
+                       "description":  "Remembers the schedule page's dealer pricing toggle. Off (list price first) until the dealer turns it on.",
                        "fieldname":  "show_dealer_pricing",
                        "fieldtype":  "Check",
                        "label":  "Show dealer pricing on schedules"
