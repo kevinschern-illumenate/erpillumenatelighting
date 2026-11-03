@@ -6,7 +6,7 @@ import { createDesignStore, loadDesign, persistDrafts, type DesignStore } from '
 import type { MountOptions } from './mount';
 import { PRODUCT_NAME } from './product';
 import { openingChecks, OpenDesignSchema, startingDesign, type Check, type OpenDesign } from './shell/open';
-import { Shell } from './shell/Shell';
+import { scheduleUrl, Shell } from './shell/Shell';
 import { ErrorState, Skeleton } from './ui';
 
 export { PRODUCT_NAME };
@@ -22,11 +22,20 @@ type Session =
   | { state: 'error'; message: string; code: string }
   | { state: 'ready'; open: OpenDesign; store: DesignStore; checks: Check[]; restoredDraft: boolean };
 
-function Frame({ children }: { children: React.ReactNode }) {
+function Frame({ schedule, children }: { schedule?: string | null; children: React.ReactNode }) {
   return (
     <div className="ill-sd sd-shell" data-testid="system-designer">
       <header className="sd-topbar">
         <div className="sd-topbar__where">
+          {schedule ? (
+            <nav aria-label="Breadcrumb" className="sd-crumbs">
+              <ol>
+                <li>
+                  <a href={scheduleUrl(schedule)}>Back to schedule</a>
+                </li>
+              </ol>
+            </nav>
+          ) : null}
           <div className="sd-topbar__title-row">
             <h1 className="ill-sd__title sd-topbar__title">{PRODUCT_NAME}</h1>
           </div>
@@ -108,13 +117,13 @@ export function App({ options, services = {} }: { options: MountOptions; service
     );
   if (session.state === 'loading')
     return (
-      <Frame>
+      <Frame schedule={options.schedule}>
         <Loading />
       </Frame>
     );
   if (session.state === 'error')
     return (
-      <Frame>
+      <Frame schedule={options.schedule}>
         <ErrorState
           title="The design could not be opened"
           message={session.message}

@@ -9,6 +9,7 @@ import { DesignApiError, type DesignApi } from './design/api';
 import { openDrafts, type DraftStore } from './design/drafts';
 import { mount } from './mount';
 import { openFixture } from './shell/fixture';
+import { scheduleUrl } from './shell/Shell';
 import { newDesign, type OpenDesign } from './shell/open';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -340,5 +341,9 @@ describe('designer shell', () => {
     expect(el.querySelector('[role="alert"]')?.textContent).toBe(
       'The System Designer is not available for your account yet',
     );
+    expect(button('Retry')).toBeUndefined();
+    const back = [...el.querySelectorAll('a')].find((link) => link.textContent === 'Back to schedule');
+    expect(back?.getAttribute('href')).toBe('/portal/schedules/SCH-TEST');
+    expect(scheduleUrl('SCH </script><b>')).toBe('/portal/schedules/SCH%20%3C%2Fscript%3E%3Cb%3E');
   });
 });

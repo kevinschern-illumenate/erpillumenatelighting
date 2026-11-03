@@ -167,6 +167,9 @@
 	overflow: auto;
 }
 .sd-rail ol {
+	/* Contains the visually hidden step states, which would otherwise escape the strip's scroll box
+	   on narrow screens and widen the page. */
+	position: relative;
 	display: grid;
 	gap: 2px;
 	list-style: none;
@@ -245,6 +248,13 @@
 }
 .sd-canvas__step {
 	padding: var(--sd-space-5);
+	/* Steps lay out by the room the canvas has, not the window: the rail and panel take a share of it. */
+	container: sd-step / inline-size;
+}
+@container sd-step (max-width: 720px) {
+	.ill-sd__board {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 .sd-canvas h2 {
 	margin-top: 0;
