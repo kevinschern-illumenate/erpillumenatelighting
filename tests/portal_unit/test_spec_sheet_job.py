@@ -76,6 +76,28 @@ class Job(unittest.TestCase):
 		self.frappe.db.set_value.assert_not_called()
 
 
+class Bulk(Job):
+	def test_one_failure_does_not_stop_the_rest(self):
+		def fake_run(job, doctype, name, brand):
+			ok = name != "KIT-BAD"
+			self.cache[f"spec_sheet_job:{job}"] = {
+				"status": "Done" if ok else "Failed",
+				"file_url": f"/files/{name}.pdf" if ok else None,
+				"message": None if ok else "Vercel timed out",
+			}
+
+		self.module.run = fake_run
+		items = [
+			{"template": ["ilL-Extrusion-Kit-Template", n], "brand": "illumenate"}
+			for n in ("KIT-RA01", "KIT-BAD", "KIT-RA02")
+		]
+		self.module.run_bulk("b1", items)
+		state = self.cache["spec_sheet_bulk:b1"]
+		self.assertEqual(state["status"], "Done")
+		self.assertEqual([d["template"] for d in state["done"]], ["KIT-RA01", "KIT-RA02"])
+		self.assertEqual(state["failed"], [{"template": "KIT-BAD", "error": "Vercel timed out"}])
+
+
 class Records(unittest.TestCase):
 	def test_product_only_keys_are_ignored(self):
 		with load_service(ROOT + ".spec_sheet_data") as (module, frappe):

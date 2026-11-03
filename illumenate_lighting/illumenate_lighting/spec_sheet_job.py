@@ -156,3 +156,107 @@ def register_spec_sheet(template_doctype, template_id, file_url):
 	push_to_product(frappe.get_doc(template_doctype, template_id))
 	frappe.db.commit()
 	return file_url
+
+
+# ---------------------------------------------------------------- bulk regeneration (Phase 4)
+
+BULK_KEY = "spec_sheet_bulk:{0}"
+BULK_TTL = 24 * 60 * 60
+DEFAULT_STATUSES = ("Active + Live",)
+
+
+def plan_regeneration(statuses=DEFAULT_STATUSES, names=None):
+	"""Templates to regenerate: (to_generate, skipped). Each entry names the template, its brand
+	and the stable link it will get. Templates without a Target Brand are skipped."""
+	from illumenate_lighting.illumenate_lighting.spec_sheet_route import public_url, template_brand
+
+	to_generate, skipped = [], []
+	for doctype in TEMPLATE_DOCTYPES:
+		filters = {"product_status": ["in", list(statuses)]}
+		if names:
+			filters["name"] = ["in", list(names)]
+		for row in frappe.get_all(
+			doctype, filters=filters, fields=["name", "webflow_product", "spec_sheet"], order_by="name asc"
+		):
+			brand = template_brand(doctype, row.name)
+			entry = {"template": (doctype, row.name), "product": row.webflow_product, "brand": brand}
+			if not brand:
+				skipped.append({**entry, "reason": "no Target Brand"})
+				continue
+			entry["public_url"] = public_url(row.name, brand)
+			entry["current_file"] = row.spec_sheet
+			to_generate.append(entry)
+	return to_generate, skipped
+
+
+@frappe.whitelist(methods=["POST"])
+def regenerate_spec_sheets(apply=False, statuses=None, templates=None):
+	"""Regenerate spec sheets in bulk so every template gets the new file name and stable link.
+
+	Dry run by default: lists what would be generated (Active + Live templates unless
+	``statuses`` or ``templates`` say otherwise) and what is skipped. With ``apply`` one
+	background job generates them one after another (so n8n and Vercel get one at a time)
+	and ``spec_sheet_bulk_status`` reports progress. System Manager only.
+
+	Each generation is the same as the Generate Spec button: it sets Spec Sheet and the stable
+	link, unattaches older files and saves the linked Webflow Product (its Spec Sheet document
+	row becomes the stable link; Webflow gets it on the product's next sync).
+	"""
+	frappe.only_for("System Manager")
+	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
+	statuses = frappe.parse_json(statuses) if isinstance(statuses, str) else statuses
+	templates = frappe.parse_json(templates) if isinstance(templates, str) else templates
+	to_generate, skipped = plan_regeneration(statuses or DEFAULT_STATUSES, templates)
+	result = {"applied": apply, "to_generate": len(to_generate), "skipped": skipped, "templates": to_generate}
+	if not apply or not to_generate:
+		return result
+	from illumenate_lighting.illumenate_lighting.api import n8n_config
+
+	n8n_config.spec_webhook_url()
+	n8n_config.auth_headers()
+	bulk_id = frappe.generate_hash(length=16)
+	frappe.cache().set_value(
+		BULK_KEY.format(bulk_id),
+		{"status": "Queued", "total": len(to_generate), "done": [], "failed": []},
+		expires_in_sec=BULK_TTL,
+	)
+	frappe.enqueue(
+		"illumenate_lighting.illumenate_lighting.spec_sheet_job.run_bulk",
+		queue="long",
+		timeout=len(to_generate) * (TIMEOUT + 60),
+		job_id=f"spec_sheet_bulk_{bulk_id}",
+		bulk_id=bulk_id,
+		items=[{"template": list(e["template"]), "brand": e["brand"]} for e in to_generate],
+	)
+	result["bulk_id"] = bulk_id
+	return result
+
+
+def run_bulk(bulk_id, items):
+	"""Background job: generate each template in turn; one failure does not stop the rest."""
+	key = BULK_KEY.format(bulk_id)
+	state = frappe.cache().get_value(key) or {"total": len(items), "done": [], "failed": []}
+	state["status"] = "Running"
+	for item in items:
+		doctype, name = item["template"]
+		job = f"{bulk_id}-{name}"
+		run(job, doctype, name, item["brand"])
+		status = frappe.cache().get_value(_status_key(job)) or {}
+		if status.get("status") == "Done":
+			state["done"].append({"template": name, "file_url": status.get("file_url")})
+		else:
+			state["failed"].append({"template": name, "error": status.get("message")})
+		frappe.cache().set_value(key, state, expires_in_sec=BULK_TTL)
+	state["status"] = "Done"
+	frappe.cache().set_value(key, state, expires_in_sec=BULK_TTL)
+
+
+@frappe.whitelist()
+def spec_sheet_bulk_status(bulk_id):
+	"""Progress of a bulk regeneration: status, total, done and failed. System Manager only."""
+	frappe.only_for("System Manager")
+	state = frappe.cache().get_value(BULK_KEY.format(bulk_id)) or {"status": "Unknown"}
+	return {
+		**state,
+		"progress": f"{len(state.get('done', [])) + len(state.get('failed', []))}/{state.get('total', 0)}",
+	}

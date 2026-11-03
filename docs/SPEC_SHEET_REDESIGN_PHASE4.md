@@ -53,3 +53,12 @@ Not yet (migration, plan 4.7): repointing Webflow to the stable links and removi
   `illumenate` ilLumenate Lighting, `lighting_206` 206 Lighting, others their Brand Label.
 - **Older files are unattached, not deleted.** After a successful run only the current spec sheet stays
   attached to the template; older ones stay in File Manager. (Replaces keep-2 pruning, D24.)
+
+## Bulk regeneration (moving Webflow to the stable links)
+
+`spec_sheet_job.regenerate_spec_sheets`, System Manager only, dry run by default. Active + Live
+templates unless `statuses` or `templates` say otherwise; templates without a Target Brand are
+skipped and listed. With `apply`, one background job generates them one after another (one call to
+n8n and Vercel at a time); one failure does not stop the rest. Each is the same as the Generate Spec
+button, so each linked Webflow Product's Spec Sheet row becomes the stable link, and Webflow shows it
+on that product's next sync. Progress: `spec_sheet_bulk_status(bulk_id)` (kept 24 hours).
