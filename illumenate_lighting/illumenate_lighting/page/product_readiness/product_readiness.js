@@ -6,6 +6,7 @@
 frappe.pages["product-readiness"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __("Product Readiness"), single_column: true });
 	window.ProductReadinessBoard.mount(page, page.main[0]);
+	page.add_inner_button(__("New product wizard"), () => frappe.set_route("new-product-wizard"));
 };
 
 window.ProductReadinessBoard = (function () {
