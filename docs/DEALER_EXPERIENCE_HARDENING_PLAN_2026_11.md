@@ -105,6 +105,18 @@ Priority labels: **P0** = do before dealer-facing expansion; **P1** = high value
 | 0.5 | P1 | Route inventory test | Add a test that builds the set of `website_route_rules` + `templates/pages/*` and checks that every route referenced in `desk_portal_links.js`, `shared_configurator.js` and `ill_document_request.py` resolves. This also covers the kit redirect. | Test fails if a referenced route disappears |
 | 0.6 | P1 | Close remaining deploy-audit items | From `DEPLOY_AUDIT_2026_10_22.md` "Remaining application findings": (a) Webflow direct sync button hard-codes `brand: 'lighting_206'`; (b) completion polling can accept an earlier `Synced`; (c) v2 trigger role mismatch between Catalog Publisher and integration capability. Fix (a) by reading target brands from the product; fix (b) by polling a job id/revision; fix (c) by running `claim` in an enqueued worker under the integration user. Keep both permission checks. | Regression tests for each, plus a staging run |
 
+**Phase 0 status** (branch `feat/phase-0-safety-net`, PR #393):
+
+| # | Status | Commits | Notes / deviations |
+|---|---|---|---|
+| CI | Done | `6209931`, `b424701` | Pre-existing main failures fixed first. The MariaDB client failed Setup with `TLS/SSL error: SSL is required`, so `~/.my.cnf` now sets `skip-ssl` for the CI service container. Three `desk_scripts.test.cjs` tests still mocked the retired webhook `fetch`. |
+| 0.1 | Done | `844343e` | Deviation: `linter.yml` (pre-commit over the whole tree) fails on existing whitespace and import debt, so it stays PR-only. B2B contracts now lints every pushed commit range (`github.event.before`, else `HEAD^`) through the baseline-aware `tools/check_b2b_changes.py`, so only new Ruff diagnostics fail. |
+| 0.2 | Done | `6209931` | The upgrade rehearsal also runs on push to `main` and uses the pre-push SHA as its base. |
+| 0.3 | Done | `3c8a923` | `pip install -e ".[test]"`. `tests/portal_unit/test_dev_dependencies.py` keeps the extra in sync with CI. |
+| 0.4 | Done (staging run pending) | `5793931` | Added three journeys. The first, project → schedule → photo upload → support ticket, also checks that a foreign dealer is denied. Offer accept-once and drawing change requests need staff-prepared records, so they skip with a reason until the manifest's `golden` block names them. Existing specs already cover configuring and saving lines and requesting quotes. CI only lists the specs. |
+| 0.5 | Done | `f034566` | `tests/portal_unit/test_route_inventory.py` scans every `/portal` literal in the app, not only the three named files. |
+| 0.6 | Done (staging run pending) | `b424701` | Sync requests every enabled target brand and polls `get_sync_progress(since=…)` per brand, so an earlier `Synced` no longer counts. Triggers `request` as the caller (catalog check). An after-commit worker `claim`s as the least-privilege `publication-worker@illumenate.lighting` user (integration check, created by patch `create_publication_worker_user`; override via site config `ill_service_users`). The trigger responses' `jobs` key now lists requested jobs rather than claimed ones. |
+
 ---
 
 ## Phase 1 — Correctness and security fixes
