@@ -19,6 +19,32 @@ window.PortalLineDocuments = {
         const purposeInput = $('<select class="form-control form-control-sm"></select>').attr('aria-label', __('Purpose of the selected files')).appendTo($('<div class="col-sm-5"></div>').appendTo(notes));
         const captionInput = $('<input type="text" maxlength="280" class="form-control form-control-sm">').attr({'aria-label': __('Caption for the selected files'), placeholder: __('Caption (optional)')}).appendTo($('<div class="col-sm-7"></div>').appendTo(notes));
         const feedback = $('<div role="status" aria-live="polite"></div>').appendTo(body);
+        // Plan 4.8: hash the selected files and warn before storing bytes the schedule already has.
+        async function sha256(file) {
+            const digest = await window.crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+            return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+        async function duplicateWarning(files) {
+            if (!window.crypto || !window.crypto.subtle) return '';
+            const hashed = [];
+            // HEIC is converted to JPEG on the server, so its uploaded bytes never match a stored digest.
+            for (const file of files) if (!/\.hei[cf]$/i.test(file.name)) hashed.push({name: file.name, hash: await sha256(file)});
+            if (!hashed.length) return '';
+            const result = await PortalUploads.call(api + 'find_duplicates', {schedule_name: schedule, line_key: lineKey, hashes: JSON.stringify(hashed.map(item => item.hash))});
+            const notes = (result.duplicates || []).map(found => {
+                const name = (hashed.find(item => item.hash === found.sha256) || {name: found.file_name}).name;
+                return found.same_line ? __('"{0}" is already attached to this line.', [name]) : __('"{0}" is already attached to Line {1}.', [name, found.line_label]);
+            });
+            return [...new Set(notes)].join(' ');
+        }
+        async function confirmDuplicates(files) {
+            const warning = await duplicateWarning(files).catch(() => '');
+            if (!warning) return true;
+            if (window.PortalUI && window.PortalUI.confirm) {
+                return window.PortalUI.confirm({title: __('Already attached'), body: warning + ' ' + __('Upload anyway?'), confirmLabel: __('Upload anyway')});
+            }
+            return window.confirm(warning + ' ' + __('Upload anyway?'));
+        }
         async function refresh() {
             const result = await PortalUploads.call(api + 'list_documents', {schedule_name: schedule, line_key: lineKey});
             modified = result.modified;
@@ -60,13 +86,14 @@ window.PortalLineDocuments = {
             if (busy || !input[0].files.length) return;
             busy = true;
             dialog.get_primary_btn().prop('disabled', true);
-            feedback.text(__('Uploading files. The current specifications remain selected until every upload succeeds.'));
             try {
+                if (!(await confirmDuplicates(Array.from(input[0].files)))) { feedback.text(__('Upload cancelled.')); return; }
+                feedback.text(__('Uploading files. The current specifications remain selected until every upload succeeds.'));
                 const files = await PortalUploads.uploadAll(input[0], 'ilL-Project-Fixture-Schedule', schedule);
-                await PortalUploads.call(api + 'attach', {schedule_name: schedule, line_key: lineKey, file_ids: JSON.stringify(files),
+                const attached = await PortalUploads.call(api + 'attach', {schedule_name: schedule, line_key: lineKey, file_ids: JSON.stringify(files),
                     primary_file: primary.prop('checked') ? files[0] : null, expected_modified: modified,
                     ...(annotate ? {purpose: purposeInput.val() || '', caption: captionInput.val() || ''} : {})});
-                changed = true; input.val(''); captionInput.val(''); window.PortalUploader?.reset(input[0]); feedback.text(__('Documents attached.'));
+                changed = true; input.val(''); captionInput.val(''); window.PortalUploader?.reset(input[0]); feedback.text(__('Documents attached.') + ((attached && attached.duplicates || []).length ? ' ' + __('{0} file(s) were already on this line and were not added again.', [attached.duplicates.length]) : ''));
                 await refresh();
             } catch (error) { feedback.text(error.message); }
             finally { busy = false; dialog.get_primary_btn().prop('disabled', false); }
