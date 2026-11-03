@@ -1955,10 +1955,17 @@ def get_tape_neon_template_init(template_code: str) -> dict:
       CCT → Output Level → Mounting Method → Finish
       Per-segment: IP Rating → Start Feed Direction → Start Lead Length
                    → Fixture Length → End Type → End Params
+
+    The projection is cached per catalog revision (plan 6.5, ``option_cache``).
     """
     if not template_code:
         return {"success": False, "error": "template_code is required"}
+    from illumenate_lighting.illumenate_lighting.api.option_cache import cached_projection
 
+    return cached_projection("tape_neon_init", template_code, lambda: _tape_neon_template_init(template_code))
+
+
+def _tape_neon_template_init(template_code: str) -> dict:
     template = frappe.get_all(
         "ilL-Tape-Neon-Template",
         filters={"template_code": template_code, "is_active": 1},
@@ -2729,14 +2736,28 @@ def _get_template_allowed_values(template_name: str, option_type: str, field_nam
     return {getattr(r, field_name, None) or r.get(field_name) for r in rows} - {None, ""}
 
 
+def _attribute_rows(doctype: str, names, fields: list) -> list:
+    """The existing ``doctype`` rows named in ``names``, read in one query (plan 6.5).
+
+    Callers sort the result, so order is not significant. Unknown names are skipped,
+    as the per-name ``get_value`` lookups this replaces did.
+    """
+    names = [n for n in set(names or ()) if n]
+    if not names:
+        return []
+    query_fields = list(fields) if "name" in fields else ["name", *fields]
+    return frappe.get_all(
+        doctype, filters={"name": ["in", names]}, fields=query_fields, ignore_permissions=True,
+    )
+
+
 def _resolve_attribute_list(doctype: str, names: set, fields: list) -> list:
     """Resolve a set of attribute names into detailed option dicts."""
     if not names:
         return []
 
     result = []
-    for name in names:
-        data = frappe.db.get_value(doctype, name, fields, as_dict=True)
+    for data in _attribute_rows(doctype, names, fields):
         if data:
             entry = {"value": data.name, "label": data.name}
             for f in fields:
@@ -3559,11 +3580,7 @@ def _get_environment_ratings_for_tape_offerings(tape_offerings, spec_names) -> l
         return [{"value": e.name, "label": e.name, "code": e.get("code")} for e in all_envs]
 
     result = []
-    for env_name in env_names:
-        env = frappe.db.get_value(
-            "ilL-Attribute-Environment Rating", env_name,
-            ["name", "code", "notes"], as_dict=True,
-        )
+    for env in _attribute_rows("ilL-Attribute-Environment Rating", env_names, ["name", "code", "notes"]):
         if env:
             result.append({"value": env.name, "label": env.name, "code": env.get("code")})
     return sorted(result, key=lambda x: x["label"])
@@ -3576,8 +3593,7 @@ def _collect_attribute_options(offerings, field_name, doctype, fields) -> list:
     values.discard("")
 
     result = []
-    for val in values:
-        data = frappe.db.get_value(doctype, val, fields, as_dict=True)
+    for data in _attribute_rows(doctype, values, fields):
         if data:
             entry = {"value": data.name, "label": data.name}
             for f in fields:
