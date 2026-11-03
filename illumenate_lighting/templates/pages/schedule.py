@@ -5,6 +5,7 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import convert_build_description_to_inches
+from illumenate_lighting.illumenate_lighting.portal.errors import log_unexpected
 from illumenate_lighting.illumenate_lighting.portal.status import (
 	schedule_status_description,
 	schedule_status_label,
@@ -747,10 +748,8 @@ def _get_configured_fixture_display_details(configured_fixture_id):
 
 		return details
 	except Exception as e:
-		frappe.log_error(
-			message=f"Fixture: {configured_fixture_id}\nError: {str(e)}",
-			title="Schedule Display Error"
-		)
+		# One broken record must not break the whole schedule page; log it with traceback.
+		log_unexpected(e, "Schedule Display Error", {"Fixture": configured_fixture_id})
 		return {}
 
 
@@ -907,10 +906,8 @@ def _get_configured_tape_neon_display_details(configured_tape_neon_id):
 
 		return details
 	except Exception as e:
-		frappe.log_error(
-			message=f"Tape/Neon: {configured_tape_neon_id}\nError: {str(e)}",
-			title="Schedule Display Error"
-		)
+		# One broken record must not break the whole schedule page; log it with traceback.
+		log_unexpected(e, "Schedule Display Error", {"Tape/Neon": configured_tape_neon_id})
 		return {}
 
 
@@ -947,10 +944,8 @@ def _get_configured_led_sheet_display_details(configured_led_sheet_id):
 			"msrp": float(cls.msrp or 0),
 		}
 	except Exception as e:
-		frappe.log_error(
-			message=f"LED Sheet: {configured_led_sheet_id}\nError: {str(e)}",
-			title="Schedule Display Error"
-		)
+		# One broken record must not break the whole schedule page; log it with traceback.
+		log_unexpected(e, "Schedule Display Error", {"LED Sheet": configured_led_sheet_id})
 		return {}
 
 

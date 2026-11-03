@@ -42,6 +42,7 @@ from illumenate_lighting.illumenate_lighting.api.mounting_accessory import (
     needs_accessory,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal.errors import failure, is_expected, log_unexpected
 from illumenate_lighting.illumenate_lighting.portal_listing import (
     json_argument,
     template_filters,
@@ -573,8 +574,10 @@ def validate_kit_configuration(selections: str | dict) -> dict:
                 "total_kits_fulfillable": stock_result.get("total_kits_fulfillable", 0),
                 "limiting_component": stock_result.get("limiting_component"),
             }
-    except Exception:
-        pass  # Non-critical; omit from response on failure
+    except Exception as e:
+        # Non-critical; omit from response on failure, but surface the unexpected.
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit stock lookup failed", {"kit_template": kit_template_name})
 
     result = {
         "success": True,
@@ -707,7 +710,13 @@ def save_kit_to_schedule(
             "line_idx": line.idx - 1 if hasattr(line, "idx") else len(schedule.lines) - 1,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return failure(
+            e,
+            "schedule_save_failed",
+            title="Extrusion kit save to schedule failed",
+            context={"schedule": schedule_name, "line_idx": line_idx},
+            rollback=True,
+        )
 
 
 def _write_kit_line(schedule, line, result):
@@ -1208,7 +1217,9 @@ def _get_profile_spec_data(spec_name: str) -> dict:
             ]
 
         return data
-    except Exception:
+    except Exception as e:
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit spec load failed", {"spec": spec_name})
         return {"spec_name": spec_name, "error": "Could not load spec"}
 
 
@@ -1236,7 +1247,9 @@ def _get_lens_spec_data(spec_name: str) -> dict:
             ]
 
         return data
-    except Exception:
+    except Exception as e:
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit spec load failed", {"spec": spec_name})
         return {"spec_name": spec_name, "error": "Could not load spec"}
 
 
@@ -1257,7 +1270,9 @@ def _get_accessory_spec_data(spec_name: str) -> dict:
             "qty_rule_type": spec.qty_rule_type,
             "qty_rule_value": spec.qty_rule_value,
         }
-    except Exception:
+    except Exception as e:
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit spec load failed", {"spec": spec_name})
         return {"spec_name": spec_name, "error": "Could not load spec"}
 
 
