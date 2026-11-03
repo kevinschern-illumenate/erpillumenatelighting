@@ -322,11 +322,15 @@ class Scripts(HTMLParser):
 		super().__init__()
 		self.in_script = False
 		self.sources = []
+		self.json_blocks = []
 
 	def handle_starttag(self, tag, attrs):
 		if tag == "script":
 			self.in_script = True
-			self.sources.append("")
+			# Data blocks are JSON, not JavaScript: parse them instead of node --check.
+			target = self.json_blocks if dict(attrs).get("type") == "application/json" else self.sources
+			target.append("")
+			self.current = target
 
 	def handle_endtag(self, tag):
 		if tag == "script":
@@ -334,7 +338,7 @@ class Scripts(HTMLParser):
 
 	def handle_data(self, data):
 		if self.in_script:
-			self.sources[-1] += data
+			self.current[-1] += data
 
 
 parser = Scripts()
@@ -1031,13 +1035,15 @@ parser.feed(support_html)
 (render_dir / "support-company.html").write_text(support_html, encoding="utf8")
 # .tools/ is git-ignored, so a clean checkout (CI) does not have it yet.
 (ROOT / ".tools").mkdir(exist_ok=True)
+for block in parser.json_blocks:
+	json.loads(block)
 with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools") as directory:
 	for index, source in enumerate(parser.sources):
 		path = Path(directory) / f"script-{index}.js"
 		path.write_text(source, encoding="utf8")
 		subprocess.run(["node", "--check", str(path)], check=True)
 print(
-	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts"
+	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts and {len(parser.json_blocks)} JSON blocks"
 )
 
 class PrintDoc(SimpleNamespace):
