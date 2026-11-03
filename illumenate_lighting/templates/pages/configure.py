@@ -326,6 +326,10 @@ def get_context(context):
 
 		actor = get_actor()
 		context.preset_can_share = bool(actor.is_dealer and actor.customer and not actor.is_internal)
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import live_estimate_enabled
+
+	# Plan 3.8: price, stock and lead time under each result, labelled as an estimate.
+	context.live_estimate = live_estimate_enabled()
 	context.expected_modified = str(schedule.modified) if schedule else None
 	context.initial_request = initial_request
 	context.templates = templates

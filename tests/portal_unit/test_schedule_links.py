@@ -38,7 +38,16 @@ class Context(Record):
 
 
 def configure_page(
-	form, resolve_line, drafts=True, for_line=None, copy=True, decode=None, pn=True, preset=None, presets=True
+	form,
+	resolve_line,
+	drafts=True,
+	for_line=None,
+	copy=True,
+	decode=None,
+	pn=True,
+	preset=None,
+	presets=True,
+	estimate=True,
 ):
 	"""Load configure.py with only the boundaries its schedule-line branch touches."""
 	stubs = {}
@@ -50,6 +59,7 @@ def configure_page(
 		".portal.presets": {"load": preset or (lambda name, schedule_name=None: None)},
 		".portal.site_flags": {
 			"presets_enabled": lambda: presets,
+			"live_estimate_enabled": lambda: estimate,
 			"conf_flag": lambda flag: False,
 			"fixture_groups_enabled": lambda: False,
 			"durable_drafts_enabled": lambda: drafts,
@@ -240,6 +250,13 @@ class ConfigurePage(unittest.TestCase):
 		self.assertFalse(context.draft_autosave)
 		_error, context = self.run_page({"category": "Linear Fixture"}, MagicMock())
 		self.assertFalse(context.draft_autosave)
+
+	def test_live_estimate_follows_its_kill_switch(self):
+		form = {"category": "Driver", "schedule": "S1"}
+		_error, context = self.run_page(form, MagicMock())
+		self.assertTrue(context.live_estimate)
+		_error, context = self.run_page(form, MagicMock(), estimate=False)
+		self.assertFalse(context.live_estimate)
 
 
 if __name__ == "__main__":

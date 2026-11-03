@@ -228,6 +228,7 @@ class ConfigurePage(unittest.TestCase):
 				"fixture_groups_enabled": lambda: False,
 				"durable_drafts_enabled": lambda: True,
 				"presets_enabled": lambda: True,
+				"live_estimate_enabled": lambda: True,
 			},
 			".portal.rollout": {"require_family": lambda family: None},
 			".portal.configuration": {"family_for_template": lambda family, template: family},

@@ -1019,6 +1019,7 @@ assert 'id="ill-config-presets"' in from_preset and '"can_share": true' in from_
 stale_preset = configurator.render(**{**context, "preset_prefill": {"label": "Old", "usable": False, "problems": []}})
 assert "ill-preset-banner" in stale_preset and "Preset Old can no longer be used" in stale_preset
 assert "ill-preset-banner" not in nothing and "ill-config-presets" not in nothing
+assert "ill-live-estimate" not in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
 designer_template = environment.get_template("templates/pages/system_design.html")
 designer = designer_template.render(
@@ -1078,11 +1079,14 @@ for category, mode in (
 			"schedule_name": "SCH </script><b>",
 			"can_save": True,
 			"draft_autosave": mode == "coordinator",
+			"live_estimate": mode == "coordinator",
 		}
 	)
 	assert "</script><b>" not in unpriced, category
 	# Plan 3.1: the autosave marker is rendered only when the page enables it.
 	assert ('id="ill-draft-autosave"' in unpriced) == (mode == "coordinator"), category
+	# Plan 3.8: the estimate panel marker follows the ill_portal_live_estimate kill switch.
+	assert ('id="ill-live-estimate"' in unpriced) == (mode == "coordinator"), category
 	assert 'id="pricingResults"' not in unpriced and "Fixture Price Breakdown" not in unpriced, category
 	assert "config_schedule" in unpriced, category
 	parser.feed(unpriced)

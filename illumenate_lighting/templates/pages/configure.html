@@ -222,6 +222,9 @@ Allows users to configure fixtures using segment-based configuration
 {% if draft_autosave | default(false) %}
 <script type="application/json" id="ill-draft-autosave">{{ {"enabled": true, "product_type": product_category} | tojson }}</script>
 {% endif %}
+{% if live_estimate | default(false) %}
+<script type="application/json" id="ill-live-estimate">{{ {"enabled": true} | tojson }}</script>
+{% endif %}
 {% if presets_enabled | default(false) %}
 <script type="application/json" id="ill-config-presets">{{ {"enabled": true, "can_share": (preset_can_share | default(false))} | tojson }}</script>
 {% endif %}
