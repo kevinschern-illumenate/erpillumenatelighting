@@ -121,12 +121,12 @@ Also handles new schedule creation when is_new is True
 									{{ schedule_status_label(schedule.status) | e }}
 								</span>
 								{% if system_design and system_design.design %}
-								<a href="{{ system_design.url | e }}" class="badge badge-{{ system_design.design.tone | e }} ml-1" id="systemDesignBadge" title="{{ _('Open the system design') }}">
+								<a href="{{ system_design.url | e }}" class="badge badge-{{ ill_badge_tone(system_design.design.tone) | e }} ml-1" id="systemDesignBadge" title="{{ _('Open the system design') }}">
 									<i class="fa fa-sitemap" aria-hidden="true"></i> {{ _("Design rev {0}: {1}").format(system_design.design.revision, _(system_design.design.status)) | e }}
 								</a>
 								{% endif %}
 								{% if system_design and system_design.review %}
-								<span class="badge badge-{{ system_design.review.tone | e }} ml-1" id="systemDesignReview">{{ system_design.review.label | e }}</span>
+								<span class="badge badge-{{ ill_badge_tone(system_design.review.tone) | e }} ml-1" id="systemDesignReview">{{ system_design.review.label | e }}</span>
 								{% endif %}
 							</div>
 						</div>
@@ -216,7 +216,7 @@ Also handles new schedule creation when is_new is True
 					{% for request in commercial.requests %}
 					<div class="mb-2">
 						<a href="{{ request.link | e }}">{{ request.name | e }}</a>
-						<span class="badge badge-{{ request.status_class | e }}">{{ request.status_label | e }}</span>
+						<span class="badge badge-{{ ill_badge_tone(request.status_class) | e }}">{{ request.status_label | e }}</span>
 						<div class="small text-muted">{% if request.assigned_name %}{{ _("With {0}").format(request.assigned_name) | e }}{% else %}{{ _("Not assigned yet") }}{% endif %}</div>
 						{% if request.last_message %}<div class="small ill-commercial-message">{{ request.last_message | e }}</div>{% endif %}
 					</div>
@@ -229,7 +229,7 @@ Also handles new schedule creation when is_new is True
 					{% for offer in commercial.offers %}
 					<div class="mb-2">
 						<a href="{{ offer.link | e }}">{{ offer.name | e }}</a>
-						<span class="badge badge-{{ offer.status_class | e }}">{{ offer.status_label | e }}</span>
+						<span class="badge badge-{{ ill_badge_tone(offer.status_class) | e }}">{{ offer.status_label | e }}</span>
 						{% if offer.valid_until %}<div class="small text-muted">{{ _("Valid until {0}").format(frappe.utils.format_date(offer.valid_until)) | e }}</div>{% endif %}
 					</div>
 					{% else %}
@@ -240,7 +240,7 @@ Also handles new schedule creation when is_new is True
 					<h3 class="h6 text-muted">{{ _("Order") }}</h3>
 					{% if commercial.order %}
 					<a href="{{ commercial.order.link | e }}">{{ commercial.order.name | e }}</a>
-					<span class="badge badge-{{ commercial.order.status_class | e }}">{{ commercial.order.status_label | e }}</span>
+					<span class="badge badge-{{ ill_badge_tone(commercial.order.status_class) | e }}">{{ commercial.order.status_label | e }}</span>
 					{% else %}
 					<p class="small text-muted mb-0">{{ _("Not ordered yet.") }}</p>
 					{% endif %}
