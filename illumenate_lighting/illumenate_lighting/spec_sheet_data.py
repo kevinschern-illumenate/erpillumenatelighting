@@ -169,6 +169,20 @@ def webflow_section(product, brand):
 	}
 
 
+UNSAFE_IN_FILE_NAMES = set('/\\:*?"<>|')
+
+
+def spec_sheet_file_name(template):
+	"""``<Template Name>_Spec Sheet.pdf`` (record name when Template Name is empty).
+
+	Spaces, brackets, dots and other characters are kept; only characters that are unsafe in
+	file names (path separators, ``: * ? " < > |`` and control characters) are dropped.
+	"""
+	name = (template.get("template_name") or "").strip() or template.name
+	cleaned = "".join(ch for ch in name if ch not in UNSAFE_IN_FILE_NAMES and ch.isprintable())
+	return " ".join(cleaned.split()) + "_Spec Sheet.pdf"
+
+
 def _product_type(template):
 	from illumenate_lighting.illumenate_lighting.template_listing import product_type_for
 
@@ -245,6 +259,8 @@ def build(template, product, brand, legacy=None):
 			# The Webflow spec sheet template page is chosen by product type.
 			"product_type": product.product_type if product else _product_type(template),
 			"include_configurator": _include_configurator(brand),
+			# The PDF's file name (plan 4.7, D7): <Template Name>_Spec Sheet.pdf, no brand prefix.
+			"spec_sheet_file_name": spec_sheet_file_name(template),
 			# Images and files are stored as /files/...; prefix this to make them absolute.
 			"base_url": _base_url(),
 		},

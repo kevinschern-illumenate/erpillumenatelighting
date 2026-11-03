@@ -107,6 +107,9 @@ role_home_page = {
 	"Customer": "portal",
 }
 
+# Stable spec sheet links: /spec-sheets/<template>.pdf redirects to the current file (Phase 4).
+page_renderer = ["illumenate_lighting.illumenate_lighting.spec_sheet_route.SpecSheetRedirect"]
+
 # Website Route Rules
 # -------------------
 website_route_rules = [

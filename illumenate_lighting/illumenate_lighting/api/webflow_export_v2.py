@@ -2601,11 +2601,19 @@ def trigger_sync_v2(docname):
 
 @frappe.whitelist(allow_guest=True)
 def spec_sheet(product):
-    url = frappe.db.get_value("ilL-Webflow-Product", product, "spec_sheet_url")  # use your mirrored field name
+    """Redirect to a Webflow Product's spec sheet through its template's stable link (Phase 4).
+
+    Replaces the old version, which read a product field that does not exist.
+    """
+    from illumenate_lighting.illumenate_lighting.spec_sheet_route import absolute_location, current_file
+    from illumenate_lighting.illumenate_lighting.web_listing_migration import template_for
+
+    _doctype, template = template_for(product) if frappe.db.exists("ilL-Webflow-Product", product) else (None, None)
+    url = current_file(template) if template else None
     if not url:
         frappe.throw(_("No spec sheet for this product."), frappe.DoesNotExistError)
     frappe.local.response["type"] = "redirect"
-    frappe.local.response["location"] = url
+    frappe.local.response["location"] = absolute_location(url)
 
 
 @frappe.whitelist(methods=["POST"])

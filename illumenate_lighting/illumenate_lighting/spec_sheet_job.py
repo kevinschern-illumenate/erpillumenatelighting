@@ -8,8 +8,9 @@ The job posts ``{template_doctype, template_id, brand}`` to the n8n spec webhook
 ``n8n_spec_webhook_url``, with the shared-secret header). n8n reads ``get_spec_sheet_data``,
 renders the PDF, uploads it through ``upload_spec_pdf`` and attaches it to the template's
 Spec Sheet field (so the File records who it is attached to), then answers
-``{success, file_url}``. The job then calls ``register_spec_sheet``, which checks the template
-points at that file. Phase 4 adds the stable URL and removes older files there.
+``{success, file_url}``. The job then calls ``register_spec_sheet``: it checks the template
+points at that file, sets the stable link (``spec_sheet_route``), removes older files (keeps
+the newest 2) and saves the linked Webflow Product so its Spec Sheet row uses the link.
 
 Nothing here talks to Webflow. Syncing stays with the Webflow sync (Phase 5 decides when).
 """
@@ -127,10 +128,27 @@ def register_spec_sheet(template_doctype, template_id, file_url):
 	attached-to fields). If the template does not point at the file, it is set here without
 	running the template's hooks. Phase 4 adds the stable URL and removes older files.
 	"""
+	from illumenate_lighting.illumenate_lighting import spec_sheet_route
+
 	current = frappe.db.get_value(template_doctype, template_id, "spec_sheet")
 	if current != file_url:
 		if not frappe.db.exists("File", {"file_url": file_url}):
 			raise ValueError(_("The spec sheet file {0} was not found.").format(file_url))
 		frappe.db.set_value(template_doctype, template_id, "spec_sheet", file_url)
+	# The stable link (Phase 4): set once, the same for every regeneration.
+	frappe.db.set_value(
+		template_doctype, template_id, "spec_sheet_public_url", spec_sheet_route.public_url(template_id)
+	)
+	frappe.db.commit()
+	try:
+		spec_sheet_route.prune(template_doctype, template_id)
+		frappe.db.commit()
+	except Exception:
+		frappe.db.rollback()
+		frappe.log_error(title=f"Spec sheet file cleanup failed: {template_doctype} {template_id}")
+	# The Webflow Product's Spec Sheet document row is built from the stable link.
+	from illumenate_lighting.illumenate_lighting.template_listing import push_to_product
+
+	push_to_product(frappe.get_doc(template_doctype, template_id))
 	frappe.db.commit()
 	return file_url

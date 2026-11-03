@@ -97,6 +97,16 @@ class Payload(unittest.TestCase):
 		with self.assertRaises(ValueError):
 			self.module._brand(Doc("ilL-Extrusion-Kit-Template", "KIT-RA02", target_brands=[]))
 
+	def test_the_file_name_keeps_brackets_and_spaces(self):
+		name = self.module.spec_sheet_file_name
+		kit = Doc("ilL-Extrusion-Kit-Template", "KIT-RA01", template_name="Rainier [SF]-6.5ft Extrusion Kit")
+		self.assertEqual(name(kit), "Rainier [SF]-6.5ft Extrusion Kit_Spec Sheet.pdf")
+		self.assertEqual(
+			name(Doc("ilL-Driver-Template", "PS-UNIV", template_name="")), "PS-UNIV_Spec Sheet.pdf"
+		)
+		odd = Doc("ilL-Driver-Template", "X", template_name='A/B: "C"  D')
+		self.assertEqual(name(odd), "AB C D_Spec Sheet.pdf")
+
 	def test_the_ownership_table_names_each_field_once(self):
 		fields = [row[0] for row in self.module.ownership_table()]
 		self.assertEqual(len(fields), len(set(fields)))

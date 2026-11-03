@@ -3395,7 +3395,8 @@ class ilLWebflowProduct(Document):
 				# --- Documents Sync ---
 				existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
 				
-				spec_sheet_file = template_doc.get("spec_sheet")
+				# The stable link when the template has one (D19), else the file itself.
+				spec_sheet_file = template_doc.get("spec_sheet_public_url") or template_doc.get("spec_sheet")
 				spec_title = (self.product_name or "") + " Spec Sheet"
 				
 				if spec_sheet_file:
