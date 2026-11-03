@@ -16,7 +16,7 @@ import frappe
 PORTAL_JS = Path(__file__).resolve().parents[2] / "public" / "js" / "portal"
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _folder_hash(folder: str) -> str:
 	digest = hashlib.sha1(usedforsecurity=False)
 	for path in sorted((PORTAL_JS / folder).glob("*.js")):
