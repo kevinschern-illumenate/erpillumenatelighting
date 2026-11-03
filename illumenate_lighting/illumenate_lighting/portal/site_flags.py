@@ -60,6 +60,11 @@ def presets_enabled():
 	return conf_flag("ill_portal_presets", default=True)
 
 
+def recent_products_enabled():
+	""""Recently used" product cards in the schedule's Add Line picker (plan 3.7). On by default."""
+	return conf_flag("ill_portal_recent_products", default=True)
+
+
 def hero_image_first_enabled():
 	"""D1 image order (template hero image first, plan 5.4). Off restores gallery-first."""
 	return conf_flag("ill_portal_hero_image_first", default=True)
