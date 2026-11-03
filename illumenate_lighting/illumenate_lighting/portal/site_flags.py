@@ -40,6 +40,11 @@ def line_copy_enabled():
 	return conf_flag("ill_portal_line_copy", default=True)
 
 
+def bulk_edit_enabled():
+	"""Select several schedule lines and edit, delete or move them together (plan 3.3). On by default."""
+	return conf_flag("ill_portal_bulk_edit", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)
