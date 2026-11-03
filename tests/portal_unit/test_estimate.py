@@ -1,5 +1,7 @@
 """Plan 3.8: the configurator estimate panel's lead time and tape/neon price estimate."""
 
+import ast
+import pathlib
 import types
 import unittest
 from unittest.mock import MagicMock
@@ -166,6 +168,41 @@ class Estimate(unittest.TestCase):
 		_module, _frappe, out = self.call("attach_tape_neon_estimate", self.valid_result(), None, "true")
 		self.assertNotIn("estimate", out)
 		self.assertEqual(self.priced, [])
+
+
+class TapeNeonWiring(unittest.TestCase):
+	"""The validate endpoints take ``include_estimate`` as a new, optional, last parameter."""
+
+	SOURCE = pathlib.Path(__file__).resolve().parents[2] / (
+		"illumenate_lighting/illumenate_lighting/api/tape_neon_configurator.py"
+	)
+
+	@classmethod
+	def setUpClass(cls):
+		tree = ast.parse(cls.SOURCE.read_text())
+		cls.functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+
+	def calls(self, function, name):
+		return [
+			node
+			for node in ast.walk(self.functions[function])
+			if isinstance(node, ast.Call) and getattr(node.func, "id", None) == name
+		]
+
+	def test_signatures_only_gain_an_optional_last_parameter(self):
+		for name in ("validate_tape_configuration", "validate_neon_configuration", "validate_tape_neon_template_config"):
+			args = self.functions[name].args
+			self.assertEqual(args.args[-1].arg, "include_estimate", name)
+			self.assertIsNone(args.defaults[-1].value, name)
+
+	def test_validators_attach_the_estimate_and_the_template_endpoint_forwards_it(self):
+		for name in ("validate_tape_configuration", "validate_neon_configuration"):
+			(call,) = self.calls(name, "attach_tape_neon_estimate")
+			self.assertEqual([getattr(arg, "id", None) for arg in call.args], ["return_result", "tape_neon_template", "include_estimate"])
+		for delegate in ("validate_tape_configuration", "validate_neon_configuration"):
+			(call,) = self.calls("validate_tape_neon_template_config", delegate)
+			forwarded = {kw.arg: getattr(kw.value, "id", None) for kw in call.keywords}
+			self.assertEqual(forwarded.get("include_estimate"), "include_estimate", delegate)
 
 
 if __name__ == "__main__":

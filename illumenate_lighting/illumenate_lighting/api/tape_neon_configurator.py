@@ -2249,6 +2249,7 @@ def validate_tape_neon_template_config(
     selections: str,
     segments_json: str = None,
     _skip_record_creation: bool | str | None = False,
+    include_estimate: bool | str | None = None,
 ) -> dict:
     """
     Validate a complete tape/neon template configuration and return computed results.
@@ -2311,6 +2312,7 @@ def validate_tape_neon_template_config(
             include_power_supply=bool(_neon_include_ps),
             dimming_protocol_code=_neon_sel.get("dimming_protocol_code"),
             override_max_run_ft=_neon_sel.get("override_max_run_ft") or None,
+            include_estimate=include_estimate,
         )
     else:
         logger.info("validate_tape_neon_template_config: Delegating to validate_tape_configuration")
@@ -2333,6 +2335,7 @@ def validate_tape_neon_template_config(
             include_power_supply=bool(_include_ps),
             dimming_protocol_code=sel_dict.get("dimming_protocol_code"),
             override_max_run_ft=sel_dict.get("override_max_run_ft") or None,
+            include_estimate=include_estimate,
         )
 
     if not result.get("is_valid"):
