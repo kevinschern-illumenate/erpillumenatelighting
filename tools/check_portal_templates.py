@@ -702,6 +702,7 @@ schedule_variants = {
 		schedule_import_enabled=True,
 		presets_enabled=True,
 		recent_products_enabled=True,
+		stale_badge_enabled=True,
 		import_columns=["Type", "Qty", "Location", "Description", "Part Number", "Notes", "Length (in)"],
 	),
 }
@@ -760,6 +761,9 @@ for name, variant in schedule_variants.items():
 	assert schedule_context["recent_products"] is recent_on
 	assert ('id="addLineRecentList"' in schedule_html) is recent_on
 	assert "schedule/recent.js?v=" in schedule_html
+	# Plan 3.9: the stale-line badge script runs only behind its kill switch.
+	assert schedule_context["stale_badge"] is bool(variant.get("stale_badge_enabled"))
+	assert "schedule/stale.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")

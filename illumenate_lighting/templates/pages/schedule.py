@@ -486,6 +486,7 @@ def get_context(context):
 		presets_enabled,
 		recent_products_enabled,
 		schedule_import_enabled,
+		stale_badge_enabled,
 	)
 
 	context.line_copy_enabled = line_copy_enabled()
@@ -495,6 +496,8 @@ def get_context(context):
 	context.part_number_decode_enabled = bool(can_edit and part_number_decode_enabled())
 	context.presets_enabled = bool(can_edit and presets_enabled())
 	context.recent_products_enabled = bool(can_edit and recent_products_enabled())
+	# Plan 3.9: viewers see the badge too; only editors get the review link.
+	context.stale_badge_enabled = stale_badge_enabled()
 	context.schedule_import_enabled = bool(
 		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and schedule_import_enabled()
 	)

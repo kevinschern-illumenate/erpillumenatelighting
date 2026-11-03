@@ -1982,6 +1982,7 @@ Also handles new schedule creation when is_new is True
 	"part_number_decode": (part_number_decode_enabled | default(false)),
 	"presets": (presets_enabled | default(false)),
 	"recent_products": (recent_products_enabled | default(false)),
+	"stale_badge": (stale_badge_enabled | default(false)),
 	"schedule_import": (schedule_import_enabled | default(false)),
 	"import_columns": (import_columns | default([])),
 	"project_name": (project.name if project else ''),
@@ -2084,9 +2085,11 @@ Also handles new schedule creation when is_new is True
 		"This product is not in the Add Line categories.": _("This product is not in the Add Line categories."),
 		"This product is no longer offered.": _("This product is no longer offered."),
 		"{0} selected.": _("{0} selected."),
+		"Catalog updated — review": _("Catalog updated — review"),
+		"Review and re-validate": _("Review and re-validate"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}
