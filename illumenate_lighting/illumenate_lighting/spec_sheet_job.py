@@ -165,6 +165,17 @@ BULK_TTL = 24 * 60 * 60
 DEFAULT_STATUSES = ("Active + Live",)
 
 
+def webflow_page(doctype, name, product=None):
+	"""The Webflow spec sheet template page the workflow fetches: the product type, as a slug
+	(``/spec-sheet-templates/<slug>``), the same way the Fetch Webflow Template nodes build it."""
+	product_type = frappe.db.get_value("ilL-Webflow-Product", product, "product_type") if product else None
+	if not product_type:
+		from illumenate_lighting.illumenate_lighting.template_listing import product_type_for
+
+		product_type = product_type_for(frappe.get_doc(doctype, name))
+	return (product_type or "").lower().replace(" ", "-")
+
+
 def plan_regeneration(statuses=DEFAULT_STATUSES, names=None):
 	"""Templates to regenerate: (to_generate, skipped). Each entry names the template, its brand
 	and the stable link it will get. Templates without a Target Brand are skipped."""
@@ -185,6 +196,7 @@ def plan_regeneration(statuses=DEFAULT_STATUSES, names=None):
 				continue
 			entry["public_url"] = public_url(row.name, brand)
 			entry["current_file"] = row.spec_sheet
+			entry["webflow_page"] = webflow_page(doctype, row.name, row.webflow_product)
 			to_generate.append(entry)
 	return to_generate, skipped
 
@@ -207,7 +219,18 @@ def regenerate_spec_sheets(apply=False, statuses=None, templates=None):
 	statuses = frappe.parse_json(statuses) if isinstance(statuses, str) else statuses
 	templates = frappe.parse_json(templates) if isinstance(templates, str) else templates
 	to_generate, skipped = plan_regeneration(statuses or DEFAULT_STATUSES, templates)
-	result = {"applied": apply, "to_generate": len(to_generate), "skipped": skipped, "templates": to_generate}
+	pages = {}
+	for entry in to_generate:
+		key = f"{entry['brand']}: /spec-sheet-templates/{entry['webflow_page']}"
+		pages[key] = pages.get(key, 0) + 1
+	result = {
+		"applied": apply,
+		"to_generate": len(to_generate),
+		"skipped": skipped,
+		# Each must exist on that brand's Webflow site, or the workflow stops at Fetch Webflow Template.
+		"webflow_pages_needed": pages,
+		"templates": to_generate,
+	}
 	if not apply or not to_generate:
 		return result
 	from illumenate_lighting.illumenate_lighting.api import n8n_config
@@ -220,6 +243,7 @@ def regenerate_spec_sheets(apply=False, statuses=None, templates=None):
 		{"status": "Queued", "total": len(to_generate), "done": [], "failed": []},
 		expires_in_sec=BULK_TTL,
 	)
+	frappe.db.commit()
 	frappe.enqueue(
 		"illumenate_lighting.illumenate_lighting.spec_sheet_job.run_bulk",
 		queue="long",
@@ -233,10 +257,26 @@ def regenerate_spec_sheets(apply=False, statuses=None, templates=None):
 
 
 def run_bulk(bulk_id, items):
-	"""Background job: generate each template in turn; one failure does not stop the rest."""
+	"""Background job: generate each template in turn; one failure does not stop the rest.
+
+	Anything that stops the job itself is recorded in its status and the Error Log, so the
+	status never stays at Queued.
+	"""
 	key = BULK_KEY.format(bulk_id)
+	try:
+		_run_bulk(key, items)
+	except Exception as error:
+		frappe.log_error(title=f"Bulk spec sheet regeneration failed: {bulk_id}")
+		state = frappe.cache().get_value(key) or {}
+		state.update(status="Failed", error=str(error))
+		frappe.cache().set_value(key, state, expires_in_sec=BULK_TTL)
+
+
+def _run_bulk(key, items):
+	bulk_id = key.split(":", 1)[1]
 	state = frappe.cache().get_value(key) or {"total": len(items), "done": [], "failed": []}
 	state["status"] = "Running"
+	frappe.cache().set_value(key, state, expires_in_sec=BULK_TTL)
 	for item in items:
 		doctype, name = item["template"]
 		job = f"{bulk_id}-{name}"
