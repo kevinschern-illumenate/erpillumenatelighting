@@ -4,6 +4,7 @@ import re
 import types
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 from test_services import ROOT, Record, load_service
 
@@ -114,7 +115,7 @@ class OptionCache(unittest.TestCase):
 
 
 class BulkLoads(unittest.TestCase):
-	ATTRS = {
+	ATTRS: ClassVar[dict] = {
 		"3000K": Record(name="3000K", code="30", kelvin=3000),
 		"2700K": Record(name="2700K", code="27", kelvin=2700),
 	}
@@ -148,7 +149,7 @@ class BulkLoads(unittest.TestCase):
 			return {"success": True, "cached": True}
 
 		extras = {ROOT + ".api.option_cache": types.SimpleNamespace(cached_projection=cached_projection)}
-		with load_service(ROOT + ".api.tape_neon_configurator", extras) as (service, frappe):
+		with load_service(ROOT + ".api.tape_neon_configurator", extras) as (service, _frappe):
 			self.assertEqual(service.get_tape_neon_template_init("TN-1"), {"success": True, "cached": True})
 			self.assertEqual(service.get_tape_neon_template_init(""), {"success": False, "error": "template_code is required"})
 		self.assertEqual(calls, [("tape_neon_init", "TN-1")])
