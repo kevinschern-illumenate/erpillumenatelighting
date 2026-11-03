@@ -727,9 +727,11 @@ for name, variant in schedule_variants.items():
 	# Plan 3.3: line selection and the bulk bar/modal only render behind their kill switch.
 	bulk_enabled = bool(variant.get("bulk_edit_enabled"))
 	assert schedule_context["bulk_edit"] is bulk_enabled
-	assert ('id="bulkActionBar"' in schedule_html) is bulk_enabled
 	assert ('id="bulkEditModal"' in schedule_html) is bulk_enabled
-	assert ('class="line-select"' in schedule_html) is bulk_enabled
+	# These variants render no rows, so the row checkboxes and bar (inside {% if lines %}) never appear here;
+	# tests/portal_ui/schedule_bulk.test.cjs checks their markup gating.
+	assert bulk_enabled or 'id="bulkActionBar"' not in schedule_html
+	assert bulk_enabled or 'class="line-select"' not in schedule_html
 	assert "schedule/bulk.js?v=" in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
