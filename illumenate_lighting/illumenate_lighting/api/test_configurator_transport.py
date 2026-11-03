@@ -78,6 +78,8 @@ class TestConfiguratorTransport(IntegrationTestCase):
 		with (
 			patch.object(frappe.local, "request", request, create=True),
 			patch.object(frappe.local, "form_dict", frappe._dict(request.form)),
+			# The real dispatcher always sets request_ip; @rate_limit needs it.
+			patch.object(frappe.local, "request_ip", "127.0.0.1", create=True),
 		):
 			return execute_cmd(API + method)
 
