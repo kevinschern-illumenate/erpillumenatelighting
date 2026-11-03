@@ -241,7 +241,7 @@ def get_cascading_options(
         dict: Updated options for dependent steps
     """
     try:
-        selections_dict = load_guest_json(selections)
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
     
@@ -327,7 +327,7 @@ def validate_configuration(
         dict: Validation result with part number or errors
     """
     try:
-        selections_dict = load_guest_json(selections)
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
 
@@ -453,7 +453,7 @@ def get_part_number_preview(
     Returns partial part number with 'xx' for unselected options.
     """
     try:
-        selections_dict = load_guest_json(selections)
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
     
@@ -499,7 +499,7 @@ def create_complex_fixture_session(
         dict: Session info with redirect URL
     """
     try:
-        selections_dict = load_guest_json(selections)
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         selections_dict = {}
     
@@ -562,7 +562,7 @@ def download_spec_sheet(
         dict: {success, file_url, filename, part_number} or {success, error}
     """
     try:
-        selections_dict = load_guest_json(selections)
+        selections_dict = load_guest_json(selections, object_only=True)
     except (json.JSONDecodeError, TypeError):
         return {"success": False, "error": "Invalid selections JSON"}
 
@@ -2121,7 +2121,7 @@ def get_tape_neon_mounting_options(
         dict: ``{success, accessories: [...], can_skip: True}``
     """
     try:
-        sel = load_guest_json(selections)
+        sel = load_guest_json(selections, object_only=True)
     except (json.JSONDecodeError, TypeError):
         return {"success": False, "error": "Invalid selections JSON"}
 

@@ -79,6 +79,14 @@ class GuestPayload(unittest.TestCase):
 		with self.assertRaises(self.module.PayloadTooLarge):
 			self.module.load_guest_json(value, limit=len(value))
 
+	def test_object_only_rejects_non_objects_as_decode_errors(self):
+		load = self.module.load_guest_json
+		self.assertEqual(load('{"a": 1}', object_only=True), {"a": 1})
+		for value in ("[]", "null", "3", '"x"', [], None):
+			with self.assertRaises(json.JSONDecodeError):
+				load(value, object_only=True)
+		self.assertEqual(load("[]"), [])
+
 	def test_bounded_int_accepts_form_strings_and_clamps(self):
 		bounded = self.module.bounded_int
 		self.assertEqual(bounded("10", default=6, minimum=1, maximum=24), 10)
@@ -110,7 +118,7 @@ class WebflowConfiguratorSelections(unittest.TestCase):
 	def test_every_selections_parse_uses_the_guarded_loader(self):
 		source = (APP / "illumenate_lighting" / "api" / "webflow_configurator.py").read_text(encoding="utf-8")
 		self.assertNotIn("json.loads(selections)", source)
-		self.assertGreaterEqual(source.count("load_guest_json(selections)"), 6)
+		self.assertGreaterEqual(source.count("load_guest_json(selections, object_only=True)"), 6)
 
 
 if __name__ == "__main__":
