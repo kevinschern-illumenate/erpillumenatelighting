@@ -7,13 +7,14 @@ import types
 import unittest
 from unittest.mock import MagicMock, patch
 
+from test_services import ROOT, Record, load_service
+
 from illumenate_lighting.illumenate_lighting.portal import file_validation
 from illumenate_lighting.illumenate_lighting.portal.file_validation import (
 	is_heif,
 	normalize_upload,
 	validate_content,
 )
-from test_services import ROOT, Record, load_service
 
 
 def ftyp(brand, compatible=b"mif1heic"):
