@@ -1,6 +1,7 @@
 """One schema adapter for driver eligibility and independent power outputs."""
 
 import frappe
+from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
 
@@ -17,6 +18,7 @@ def independent_outputs(driver):
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def input_protocols(template_type, template):
 	"""Public choices from approved associations; never expose driver costs."""
 	if template_type not in {"ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template"}:

@@ -22,6 +22,7 @@ import requests
 from frappe import _
 
 from frappe.handler import upload_file
+from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
@@ -2569,6 +2570,7 @@ def trigger_sync_v2(docname):
     return {"status": "success", "jobs": dispatched_jobs}
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=120, seconds=60)
 def spec_sheet(product):
     url = frappe.db.get_value("ilL-Webflow-Product", product, "spec_sheet_url")  # use your mirrored field name
     if not url:

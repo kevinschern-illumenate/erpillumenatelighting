@@ -98,6 +98,7 @@ class LeadWebhooks(unittest.TestCase):
 			{
 				"create_lead_from_webflow": {"limit": 30, "seconds": 60},
 				"create_lead_from_webflow_webhook": {"limit": 30, "seconds": 60},
+				"health_check": {"limit": 60, "seconds": 60},
 			},
 		)
 		for name in ("create_lead_from_webflow", "create_lead_from_webflow_webhook"):
