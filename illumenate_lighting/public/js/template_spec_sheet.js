@@ -16,7 +16,7 @@
         dialog.$wrapper.css('background', 'rgba(20, 20, 20, 0.92)');
         dialog.fields_dict.body.$wrapper.html(
             `<p class="spec-sheet-message">${__('Starting...')}</p>`
-            + `<p class="text-muted small">${__('You can close this page; the spec sheet keeps generating.')}</p>`
+            + `<p class="text-muted small">${__('When completed, this page will unfreeze and the new spec will attach to the Spec Sheet field.')}</p>`
         );
         dialog.show();
         return dialog;

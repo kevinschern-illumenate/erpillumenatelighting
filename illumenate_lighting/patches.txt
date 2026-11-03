@@ -82,3 +82,4 @@ illumenate_lighting.patches.move_tape_custom_documents_to_other_documents
 illumenate_lighting.patches.rename_webflow_product_custom_fields
 illumenate_lighting.patches.webflow_status_draft_badge_discontinued #2026-11-02 rerun: Archived and published is discontinued
 illumenate_lighting.patches.rename_kit_component_description
+illumenate_lighting.patches.certification_badge_fields

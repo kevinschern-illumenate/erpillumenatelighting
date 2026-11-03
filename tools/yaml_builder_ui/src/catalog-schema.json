@@ -447,8 +447,26 @@
         {
           "fieldname": "badge_image",
           "label": "Badge Image",
-          "fieldtype": "Attach Image",
-          "description": "Icon or badge image for display on product pages"
+          "fieldtype": "Attach",
+          "description": "ilLumenate badge (light). Any file type, SVG included."
+        },
+        {
+          "fieldname": "badge_image_dark",
+          "label": "Badge Image (Dark)",
+          "fieldtype": "Attach",
+          "description": "Any file type, SVG included."
+        },
+        {
+          "fieldname": "badge_image_light_206",
+          "label": "206 Badge Image (Light)",
+          "fieldtype": "Attach",
+          "description": "Any file type, SVG included."
+        },
+        {
+          "fieldname": "badge_image_dark_206",
+          "label": "206 Badge Image (Dark)",
+          "fieldtype": "Attach",
+          "description": "Any file type, SVG included."
         },
         {
           "fieldname": "applies_to_types",

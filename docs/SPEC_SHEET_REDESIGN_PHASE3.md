@@ -92,3 +92,11 @@ Changes (owner, 2026-11-03):
   -NO/-HO endcap pairs), and `(ilL) Format Data to Inject` reads `component_description`.
 - Kit templates no longer store the Certifications & Ratings row (`SKIPPED_LINKED_ROWS`); the
   Webflow export still adds it for kit products.
+
+Certification badges (owner, 2026-11-03): ilL-Attribute-Certification ships its badge fields.
+`custom_badge_image_dark` -> `badge_image_dark`, `custom_206_badge_image_light` ->
+`badge_image_light_206`, `custom_206_badge_image_dark` -> `badge_image_dark_206` (patch
+`certification_badge_fields` copies values, then deletes the Custom Fields). These three and
+`badge_image` are Attach fields, so SVG uploads are accepted (Attach Image only takes what the
+upload dialog treats as images). The Generate Spec dialog now reads "When completed, this page
+will unfreeze and the new spec will attach to the Spec Sheet field."

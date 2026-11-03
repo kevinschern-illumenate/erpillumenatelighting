@@ -178,11 +178,11 @@ class ilLWebflowProduct(Document):
 
 	def populate_certification_badges(self):
 		"""Populate the webflow_badge_images JSON field based on active Target Brands."""
-		# The dark/206 badge images on ilL-Attribute-Certification are still site Custom Fields
-		# the app does not ship; skip any that are absent.
+		# Badge fields on ilL-Attribute-Certification (app fields since 2026-11-03); skip any
+		# that are absent on a site that has not migrated yet.
 		cert_meta = frappe.get_meta("ilL-Attribute-Certification")
 		badge_fields = [
-			f for f in ("badge_image", "custom_badge_image_dark", "custom_206_badge_image_light", "custom_206_badge_image_dark")
+			f for f in ("badge_image", "badge_image_dark", "badge_image_light_206", "badge_image_dark_206")
 			if cert_meta.has_field(f)
 		]
 
@@ -214,11 +214,11 @@ class ilLWebflowProduct(Document):
 
 			if "illumenate" in active_brands:
 				badge_data["illumenate_badge_light"] = make_url(cert_doc.get("badge_image"))
-				badge_data["illumenate_badge_dark"] = make_url(cert_doc.get("custom_badge_image_dark"))
+				badge_data["illumenate_badge_dark"] = make_url(cert_doc.get("badge_image_dark"))
 
 			if "lighting_206" in active_brands:
-				badge_data["206_badge_light"] = make_url(cert_doc.get("custom_206_badge_image_light"))
-				badge_data["206_badge_dark"] = make_url(cert_doc.get("custom_206_badge_image_dark"))
+				badge_data["206_badge_light"] = make_url(cert_doc.get("badge_image_light_206"))
+				badge_data["206_badge_dark"] = make_url(cert_doc.get("badge_image_dark_206"))
 
 			# Save as JSON array with a single object inside, matching your request
 			row.webflow_badge_images = frappe.as_json([badge_data])

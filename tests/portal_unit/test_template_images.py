@@ -33,8 +33,8 @@ class Images(unittest.TestCase):
 	def test_badges_follow_the_templates_brand(self):
 		with load_service(ROOT + ".template_images") as (module, _frappe):
 			badges = {
-				("UL", "custom_badge_image_dark"): "/files/ul-ill.png",
-				("UL", "custom_206_badge_image_dark"): "/files/ul-206.png",
+				("UL", "badge_image_dark"): "/files/ul-ill.png",
+				("UL", "badge_image_dark_206"): "/files/ul-206.png",
 			}
 			for brand, expected in (
 				("illumenate", "/files/ul-ill.png"),

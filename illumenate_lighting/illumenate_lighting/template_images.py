@@ -6,8 +6,8 @@ Filled on every template save (``refresh``, from ``template_listing.refresh_temp
   first row of that type with an item, that item's template item (``variant_of``) image, else
   the item's own image. The same lookup the Webflow Product used for its kit groups.
 - Certifications: ``badge_image`` on each row is the linked certification's dark badge for the
-  template's brand: ilLumenate ``custom_badge_image_dark``, 206 Lighting
-  ``custom_206_badge_image_dark``.
+  template's brand: ilLumenate ``badge_image_dark``, 206 Lighting
+  ``badge_image_dark_206``.
 
 Values are stored as Frappe keeps them (``/files/...``); readers make them absolute.
 """
@@ -16,8 +16,8 @@ import frappe
 
 CERTIFICATION = "ilL-Attribute-Certification"
 BADGE_FIELDS = {
-	"illumenate": "custom_badge_image_dark",
-	"lighting_206": "custom_206_badge_image_dark",
+	"illumenate": "badge_image_dark",
+	"lighting_206": "badge_image_dark_206",
 }
 
 
