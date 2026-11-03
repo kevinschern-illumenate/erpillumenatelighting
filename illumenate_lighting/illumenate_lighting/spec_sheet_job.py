@@ -176,13 +176,15 @@ def webflow_page(doctype, name, product=None):
 	return (product_type or "").lower().replace(" ", "-")
 
 
-def plan_regeneration(statuses=DEFAULT_STATUSES, names=None):
+def plan_regeneration(statuses=DEFAULT_STATUSES, names=None, doctypes=None):
 	"""Templates to regenerate: (to_generate, skipped). Each entry names the template, its brand
 	and the stable link it will get. Templates without a Target Brand are skipped."""
 	from illumenate_lighting.illumenate_lighting.spec_sheet_route import public_url, template_brand
 
 	to_generate, skipped = [], []
 	for doctype in TEMPLATE_DOCTYPES:
+		if doctypes and doctype not in doctypes:
+			continue
 		filters = {"product_status": ["in", list(statuses)]}
 		if names:
 			filters["name"] = ["in", list(names)]
@@ -202,11 +204,12 @@ def plan_regeneration(statuses=DEFAULT_STATUSES, names=None):
 
 
 @frappe.whitelist(methods=["POST"])
-def regenerate_spec_sheets(apply=False, statuses=None, templates=None):
+def regenerate_spec_sheets(apply=False, statuses=None, templates=None, doctypes=None):
 	"""Regenerate spec sheets in bulk so every template gets the new file name and stable link.
 
 	Dry run by default: lists what would be generated (Active + Live templates unless
-	``statuses`` or ``templates`` say otherwise) and what is skipped. With ``apply`` one
+	``statuses``, ``templates`` or ``doctypes`` say otherwise, for example
+	``doctypes="ilL-Extrusion-Kit-Template"``) and what is skipped. With ``apply`` one
 	background job generates them one after another (so n8n and Vercel get one at a time)
 	and ``spec_sheet_bulk_status`` reports progress. System Manager only.
 
@@ -218,7 +221,12 @@ def regenerate_spec_sheets(apply=False, statuses=None, templates=None):
 	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
 	statuses = frappe.parse_json(statuses) if isinstance(statuses, str) else statuses
 	templates = frappe.parse_json(templates) if isinstance(templates, str) else templates
-	to_generate, skipped = plan_regeneration(statuses or DEFAULT_STATUSES, templates)
+	doctypes = (
+		frappe.parse_json(doctypes) if isinstance(doctypes, str) and doctypes.startswith("[") else doctypes
+	)
+	if isinstance(doctypes, str):
+		doctypes = [doctypes]
+	to_generate, skipped = plan_regeneration(statuses or DEFAULT_STATUSES, templates, doctypes)
 	pages = {}
 	for entry in to_generate:
 		key = f"{entry['brand']}: /spec-sheet-templates/{entry['webflow_page']}"

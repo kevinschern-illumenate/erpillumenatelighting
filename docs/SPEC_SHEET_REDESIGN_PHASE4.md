@@ -62,3 +62,9 @@ skipped and listed. With `apply`, one background job generates them one after an
 n8n and Vercel at a time); one failure does not stop the rest. Each is the same as the Generate Spec
 button, so each linked Webflow Product's Spec Sheet row becomes the stable link, and Webflow shows it
 on that product's next sync. Progress: `spec_sheet_bulk_status(bulk_id)` (kept 24 hours).
+
+Rollout (owner, 2026-11-03): only the Extrusion Kit spec sheet page exists in Webflow so far, so the
+bulk run goes one template type at a time (`doctypes="ilL-Extrusion-Kit-Template"`). Other types keep
+their current spec sheets and links until their Webflow page (`/spec-sheet-templates/<product type>`)
+is built and that type is regenerated and checked. The dry run's `webflow_pages_needed` lists the
+pages a run needs.
