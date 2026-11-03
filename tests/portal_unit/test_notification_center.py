@@ -46,7 +46,9 @@ EVENTS = [
 
 class NotificationCenter(unittest.TestCase):
 	def test_recent_dedupes_rechecks_access_and_links_to_the_record(self):
-		access = lambda event, user: event.reference_name != "SO-9"
+		def access(event, user):
+			return event.reference_name != "SO-9"
+
 		with load_service(MODULE, services(access)) as (module, frappe):
 			ledger(frappe, DELIVERIES, EVENTS)
 			frappe.defaults.get_user_default.return_value = "2026-11-02 12:00:00"
