@@ -169,6 +169,7 @@ website_route_rules = [
 	{"from_route": "/portal/account", "to_route": "account"},
 	{"from_route": "/portal/accept-invitation", "to_route": "accept_invitation"},
 	{"from_route": "/portal/account/notifications", "to_route": "account"},
+	{"from_route": "/portal/notifications", "to_route": "ill_notifications"},
 ]
 
 # Website Redirects
@@ -195,7 +196,7 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled"],
 }
 
 # Installation

@@ -58,6 +58,8 @@ environment.globals.update(
 		"ill_finder_enabled": lambda: True,
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
+		"ill_unread_notifications": lambda: 12,
+		"ill_notification_center_enabled": lambda: True,
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
@@ -517,6 +519,23 @@ assert 'rel="next" href="?page=3&amp;search=PO1&amp;status=shipping"' in orders_
 assert '<span class="ill-pager__page">Page 2</span>' in orders_html
 assert '<a href="/portal/orders">Orders</a>' in order_html
 assert '<li class="breadcrumb-item active" aria-current="page">' in order_html
+# Plan 8.5: the nav bell caps its badge at 9+ and names itself for screen readers.
+assert 'href="/portal/notifications"' in orders_html and ">9+</span>" in orders_html
+assert '<span class="sr-only">9+ unread</span>' in orders_html
+notifications_page = environment.get_template("templates/pages/ill_notifications.html")
+notifications_html = notifications_page.render(
+	path="portal/notifications",
+	notifications=[
+		{"subject": "Quote <b>Q1</b> ready", "link": "/portal/quotes/Q%3C1", "when": "2026-11-01 10:00:00", "when_label": "1 hour ago", "unread": True},
+		{"subject": "Order shipped", "link": "/portal/orders/SO1", "when": "2026-10-01 10:00:00", "when_label": "1 month ago", "unread": False},
+	],
+)
+assert "Quote &lt;b&gt;Q1&lt;/b&gt; ready" in notifications_html and "<b>Q1" not in notifications_html
+assert notifications_html.count("ill-notification--unread") == 1 and 'href="/portal/quotes/Q%3C1"' in notifications_html
+assert 'class="ill-portal-navigation__bell" href="/portal/notifications" aria-current="page"' in notifications_html
+empty_notifications = notifications_page.render(path="portal/notifications", notifications=[])
+assert "No notifications yet" in empty_notifications and 'href="/portal/projects"' in empty_notifications
+parser.feed(notifications_html)
 quote_request_html = environment.get_template("templates/pages/quote_request_detail.html").render(
 	request=View(
 		name="QR1",

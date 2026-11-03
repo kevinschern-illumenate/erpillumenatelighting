@@ -121,3 +121,40 @@
 		}
 	}
 }
+
+// Plan 8.5: notification bell in the portal nav and the /portal/notifications list.
+.ill-portal-navigation .ill-portal-navigation__bell {
+	position: relative;
+	margin-left: auto;
+}
+
+.ill-nav-badge {
+	position: absolute;
+	top: 2px;
+	right: -4px;
+	font-size: 0.6875rem;
+	line-height: 1.2;
+}
+
+.ill-notifications {
+	margin: 0;
+
+	.ill-notification {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+		align-items: baseline;
+		justify-content: space-between;
+		padding: 0.875rem 0;
+		border-bottom: 1px solid var(--ill-gray-200, #e8eaed);
+	}
+
+	.ill-notification--unread .ill-notification__subject {
+		font-weight: 600;
+	}
+
+	.ill-notification__when {
+		color: var(--ill-text-secondary, #5d6d7f);
+		font-size: 0.875rem;
+	}
+}

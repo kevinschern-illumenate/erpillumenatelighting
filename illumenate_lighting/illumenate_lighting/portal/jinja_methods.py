@@ -35,3 +35,22 @@ def ill_sanitize_html(html) -> str:
 	from frappe.utils.html_utils import sanitize_html
 
 	return sanitize_html(html or "")
+
+
+def ill_unread_notifications() -> int:
+	"""Unread portal notifications for the nav badge (plan 8.5); 0 when switched off or for guests.
+
+	The badge must never break page rendering, so any failure reads as "nothing unread".
+	"""
+	from illumenate_lighting.illumenate_lighting.portal import notification_center
+
+	try:
+		return notification_center.unread_count()
+	except Exception:
+		return 0
+
+
+def ill_notification_center_enabled() -> bool:
+	from illumenate_lighting.illumenate_lighting.portal.notification_center import enabled
+
+	return enabled()
