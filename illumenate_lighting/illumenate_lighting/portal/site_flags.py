@@ -30,6 +30,11 @@ def fixture_groups_enabled():
 	return conf_flag("ill_portal_fixture_groups", default=True)
 
 
+def sheet_server_options_enabled():
+	"""Server-checked LED Sheet option cascade (plan 6.4). Off leaves the browser matcher alone."""
+	return conf_flag("ill_portal_sheet_server_options", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

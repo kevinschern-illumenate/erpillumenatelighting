@@ -587,6 +587,66 @@ test('LED Sheet options select the panel spec; buyers are not asked for it', () 
   dom.window.close();
 });
 
+function snowfieldTemplates() {
+  const option = (option_type, attribute_link, option_code, is_default) => ({ option_type, attribute_link, option_code, is_default, msrp_adder: 0 });
+  return [{
+    name: 'SNF-SW', template_name: 'Snowfield Static White',
+    allowed_specs: [
+      { name: 'SPEC-O-10', item: 'LED-SNF-SW-O-10W-SHEET', sheet_width_ft: 1, sheet_height_ft: 2, total_sheet_watts: 10 },
+      { name: 'SPEC-I-10', item: 'LED-SNF-SW-I-10W-SHEET', sheet_width_ft: 1, sheet_height_ft: 2, total_sheet_watts: 10 }
+    ],
+    allowed_options: [option('CCT', '3000K', '30K', 1), option('Output Level', '10W', '10W', 1),
+      option('Environment Rating', 'Outdoor', 'O', 1), option('Environment Rating', 'Indoor', 'I', 0), option('Finish', 'White', 'WH', 1)]
+  }];
+}
+
+test('LED Sheet server option check wins over the browser match (plan 6.4)', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Sheet-coordinator.html'), 'utf8');
+  const { dom, $, api, requests } = setup(html);
+  const cascades = () => requests.filter(r => /led_sheet_configurator\.get_sheet_cascading_options$/.test(r.method));
+  const inst = new api.LedSheet($('#portal-configurator'), { templates: snowfieldTemplates(), can_save: true, server_options: true });
+  inst.init();
+  inst.$('#sheetTemplate').append($('<option>').val('SNF-SW')).val('SNF-SW').trigger('change');
+  assert.equal(inst.$('#sheetSpecMatch').text(), 'LED-SNF-SW-O-10W-SHEET', 'instant browser match');
+  assert.equal(cascades().length, 1);
+  const first = cascades()[0];
+  assert.equal(first.args.template, 'SNF-SW');
+  assert.equal(JSON.parse(first.args.options)['Environment Rating'], 'Outdoor');
+  first.callback({ message: { success: true, enabled: true, spec: null, match_count: 0, matches: [], invalid: [],
+    available: { 'Environment Rating': ['Indoor'] } } });
+  assert.equal(inst.spec, null, 'the server answer wins');
+  assert.equal(inst.$('#sheetSpecMatch').text(), '');
+  const pill = value => inst.$('.pill-selector[data-field="sheet_environment"] .pill[data-value="' + value + '"]');
+  assert.ok(pill('Outdoor').hasClass('is-unavailable'));
+  assert.ok(!pill('Indoor').hasClass('is-unavailable'));
+  inst.$('#coverageWidthUnit').trigger('change');
+  assert.equal(cascades().length, 1, 'a coverage edit does not re-ask');
+  assert.equal(inst.spec, null, 'and keeps the server answer');
+  inst.$('#sheetEnvironment').val('Indoor').trigger('change');
+  assert.equal(cascades().length, 2);
+  first.callback({ message: { success: true, enabled: true, spec: 'SPEC-O-10', match_count: 1, available: {} } });
+  assert.equal(inst.$('#sheetSpecMatch').text(), 'LED-SNF-SW-I-10W-SHEET', 'a stale answer is ignored');
+  cascades()[1].callback({ message: { success: true, enabled: true, spec: 'SPEC-I-10', match_count: 1, matches: ['SPEC-I-10'], available: {} } });
+  assert.equal(inst.spec.name, 'SPEC-I-10');
+  assert.ok(!pill('Outdoor').hasClass('is-unavailable'));
+  inst.destroy();
+  dom.window.close();
+});
+
+test('LED Sheet keeps the browser match alone when the server check is switched off', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Sheet-coordinator.html'), 'utf8');
+  const { dom, $, api, requests } = setup(html);
+  assert.equal($('#portal-configurator .ill-sheet-flags').attr('data-server-options'), '0', 'rendered without the site flag');
+  const inst = new api.LedSheet($('#portal-configurator'), { templates: snowfieldTemplates(), can_save: true });
+  inst.init();
+  inst.$('#sheetTemplate').append($('<option>').val('SNF-SW')).val('SNF-SW').trigger('change');
+  inst.$('#sheetEnvironment').val('Indoor').trigger('change');
+  assert.equal(requests.filter(r => /get_sheet_cascading_options$/.test(r.method)).length, 0);
+  assert.equal(inst.$('#sheetSpecMatch').text(), 'LED-SNF-SW-I-10W-SHEET');
+  inst.destroy();
+  dom.window.close();
+});
+
 test('multi-run group sits beside the run controls and drives a tape coordinator end to end', async () => {
   const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Tape-coordinator.html'), 'utf8');
   const { dom, $, api, requests } = setup(html);

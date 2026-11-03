@@ -47,9 +47,13 @@ def get_context(context):
 	context.config_schedule = "" if show_pricing else frappe.form_dict.get("schedule")
 	context.show_pricing = show_pricing
 
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import (
+		fixture_groups_enabled,
+		sheet_server_options_enabled,
+	)
 
 	context.groups_enabled = fixture_groups_enabled()
+	context.sheet_server_options = sheet_server_options_enabled()
 
 	quiz_handoff = {
 		"template": frappe.form_dict.get("template"),
@@ -490,12 +494,14 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 		return frappe.render_template("illumenate_lighting/templates/includes/configurator_driver_controller_form.html", context)
 	if product_category == "LED Sheet":
 		from illumenate_lighting.illumenate_lighting.api.portal import get_led_sheet_templates
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import sheet_server_options_enabled
 
 		context = {
 			"templates": get_led_sheet_templates().get("templates", []),
 			"selected_template": selected_template,
 			"can_save": True,
 			"show_pricing": True,
+			"sheet_server_options": sheet_server_options_enabled(),
 		}
 		return frappe.render_template(
 			"illumenate_lighting/templates/includes/configurator_led_sheet_form.html", context

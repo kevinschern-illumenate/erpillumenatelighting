@@ -85,6 +85,11 @@
 	opacity: 0.5;
 	cursor: not-allowed;
 }
+/* Still selectable: the server reports no panel for it with the other choices. */
+.ill-configurator .pill-selector .pill.is-unavailable:not(.active) {
+	opacity: 0.55;
+	text-decoration: line-through;
+}
 .ill-configurator .pill-selector .pill-option input[type="radio"] {
 	display: none;
 }
