@@ -35,6 +35,11 @@ def desk_links_enabled():
 	return conf_flag("ill_portal_desk_links", default=True)
 
 
+def overdue_digest_enabled():
+	"""Daily overdue-work digest bell for staff (plan 7.4). On unless set false."""
+	return conf_flag("ill_portal_overdue_digest", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

@@ -11,5 +11,6 @@ import "./configurator/driver_controller_steps.js";
 import "./configurator/kit_steps.js";
 import "./configurator/driver_steps.js";
 import "./desk/desk_dialog.js";
+import "./desk/staff_inbox.js";
 
 import "./commercial_tasks.js";
