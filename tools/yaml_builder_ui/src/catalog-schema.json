@@ -3125,6 +3125,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         }
       ]
     },
@@ -3355,6 +3361,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         }
       ]
     },
@@ -3514,6 +3526,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "min_length_mm",
@@ -3766,6 +3784,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "min_length_mm",
@@ -4211,6 +4235,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "l70_life_hours",
@@ -6890,6 +6920,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "min_length_mm",
