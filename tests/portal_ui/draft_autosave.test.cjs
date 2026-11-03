@@ -60,7 +60,7 @@ test('offers a server draft and debounces user edits into save_draft', async () 
   assert.ok(inst._draftAutosave);
   const get = env.requests.shift();
   assert.match(get.method, /line_drafts\.get_draft$/);
-  assert.deepEqual(get.args, { schedule_name: 'SCH-1', product_type: 'Fixture', line_key: 'line-1' });
+  assert.deepEqual({ ...get.args }, { schedule_name: 'SCH-1', product_type: 'Fixture', line_key: 'line-1' });
   get.callback({ message: { success: true, draft: null } });
 
   userInput(env, '#projectSelect');
