@@ -2,6 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{JSDOM}=require('jsdom'),jquery=require('jquery');
 const SOURCE=fs.readFileSync(path.join(__dirname,'../../illumenate_lighting/public/js/configurator/estimate_panel.js'),'utf8');
 const METHOD='illumenate_lighting.illumenate_lighting.portal.estimate.lead_time';
+const plain=value=>JSON.parse(JSON.stringify(value)); // jsdom objects carry the window's prototypes
 
 function setup(marker){
  const body=(marker===false?'':'<script type="application/json" id="ill-live-estimate">'+(marker||'{"enabled": true}')+'</script>')+'<div id="host"></div>';
@@ -50,7 +51,7 @@ test('fetches the lead time once per template and escapes its label',()=>{
  assert.equal(requests.length,1);
  const call=requests[0];
  assert.equal(call.method,METHOD);assert.equal(call.type,'GET');
- assert.deepEqual(call.args,{family:'driver',template:'DRV-A',schedule_name:'SCH-1'});
+ assert.deepEqual(plain(call.args),{family:'driver',template:'DRV-A',schedule_name:'SCH-1'});
  call.callback({message:{lead_time:{code:'STD',label:'<b>Standard</b>',days_min:10,days_max:15}}});
  const value=host.find('.ill-estimate-lead strong');
  assert.equal(value.text(),'<b>Standard</b> · 10–15 days');
@@ -59,7 +60,7 @@ test('fetches the lead time once per template and escapes its label',()=>{
  assert.equal(requests.length,1,'cached');
  assert.equal(host.find('.ill-estimate-lead strong').text(),'<b>Standard</b> · 10–15 days');
  api.renderEstimate(host,{family:'fixture',tape_offering:'OFF-1'});
- assert.deepEqual(requests[1].args,{family:'fixture',tape_offering:'OFF-1'});
+ assert.deepEqual(plain(requests[1].args),{family:'fixture',tape_offering:'OFF-1'});
  requests[1].error();
  assert.equal(host.find('.ill-estimate-lead strong').text(),'Confirmed on your quote','a failed lookup defers to the quote');
  api.renderEstimate(host,{family:'led_sheet'});
@@ -102,7 +103,7 @@ test('the power supply configurator adds the panel under a valid result',()=>{
  requests.at(-1).callback({message:{success:true,template_code:'DRV-A',part_number:'P',variant:{item:'DRV-96',item_name:'96W'},specs:[],pricing:{total_msrp:120},stock:{in_stock:true,qty_available:7}}});
  const panel=instance.$('#familySummary .ill-estimate');
  assert.equal(panel.length,1);
- const lead=requests.at(-1);assert.equal(lead.method,METHOD);assert.deepEqual(lead.args,{family:'driver',template:'DRV-A'});
+ const lead=requests.at(-1);assert.equal(lead.method,METHOD);assert.deepEqual(plain(lead.args),{family:'driver',template:'DRV-A'});
  lead.callback({message:{lead_time:{label:'Standard',days_min:5,days_max:7}}});
  assert.equal(panel.find('.ill-estimate-lead strong').text(),'Standard · 5–7 days');
  dom.window.close();
