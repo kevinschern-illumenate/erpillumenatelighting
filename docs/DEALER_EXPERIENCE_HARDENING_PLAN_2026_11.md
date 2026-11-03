@@ -196,6 +196,13 @@ All items ship to every dealer (D5), each with a default-on `site_flags` kill sw
 | 3.13 | P2 | Keyboard and power-user aids | `/` focuses search, `n` adds a line, `Esc` closes dialogs, arrow keys move between rows. Show a help overlay on `?`. Add a keyboard alternative to drag reorder (`_schedule.scss:132-170`). |
 | 3.14 | P2 | Persist pricing toggle | Store "show pricing" per user in `ilL-Portal-User-Settings` (DocType exists) instead of inline toggle state (`schedule.html:209-220`). |
 
+
+**Phase 3 status** (branch `feat/phase-3-schedule-qol`, stacked on Phase 2):
+
+| # | Status | Commits | Notes / deviations |
+|---|---|---|---|
+| 3.1 | Done (jsdom suite runs in CI; manual staging run pending) | `628de23`, `eedbb2e`, `83d0a26` | Additive read-only `schedule`, `line_key` and `draft_json` fields on `ilL-Configurator-Session`. New `portal/line_drafts.py` provides `save_draft` (POST), `get_draft` and `discard_draft` (POST). These require schedule write access via `schedule_context(write=True)` and a valid `line_key` via `resolve_line`, keep only `{request, metadata}`, and cap payloads at 64 KiB. Kill switch: `ill_portal_durable_drafts` (default on). `configure.html` renders the `#ill-draft-autosave` marker only when the page can save to a schedule. `public/js/configurator/draft_autosave.js` debounces user edits (2 s) and shows Saving / Saved / Unsaved / browser-only status. It falls back to sessionStorage when the server is unreachable and offers "Restore draft" through the existing `?resume=` view-switch path, so nothing is written to the schedule until the dealer saves. After a successful line save it sends a keepalive discard. Deviations: drafts are also keyed by product type, because one line can be reconfigured as another family. Product-finder session lookups now ignore draft rows. Drafts expire through the existing `expire_sessions` job (30 days by default). Driver, Controller and Extrusion Kit configurators have no `exportRequest()`, so they are not autosaved yet. |
+
 ---
 
 ## Phase 4 — Pictures and uploads for dealers
