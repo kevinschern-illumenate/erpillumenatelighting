@@ -10,7 +10,10 @@ import "./configurator/coordinator.js";
 import "./configurator/driver_controller_steps.js";
 import "./configurator/kit_steps.js";
 import "./configurator/driver_steps.js";
-import "./desk/desk_dialog.js";
+import "./desk/dialog/state.js";
+import "./desk/dialog/family_steps.js";
+import "./desk/dialog/pricing.js";
+import "./desk/dialog/save.js";
 import "./desk/staff_inbox.js";
 
 import "./commercial_tasks.js";

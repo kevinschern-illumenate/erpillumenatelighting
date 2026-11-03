@@ -29,7 +29,7 @@ app_license = "mit"
 # `bench build` into content-hashed files so browsers never serve a stale copy
 # (plain /assets paths are cached for a year with `immutable`).
 app_include_css = ["illumenate_desk.bundle.css"]
-# shared_configurator + fixture_steps + tape_neon_steps + desk/desk_dialog
+# shared_configurator + fixture_steps + tape_neon_steps + desk/dialog/*
 # ("Configure & Add Fixture" dialog for Quotation / Sales Order).
 app_include_js = ["illumenate_desk.bundle.js"]
 
