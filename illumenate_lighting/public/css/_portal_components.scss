@@ -1,0 +1,63 @@
+// Shared portal components (hardening plan 8.1 and 8.3).
+//
+// PortalUI mounts the dialog and toasts under <body>, outside .ill-page, so these
+// rules are global. They only use the design tokens from portal.css, with literal
+// fallbacks for pages that render before the tokens load.
+
+.ill-dialog {
+	position: fixed;
+	inset: 0;
+	z-index: 1070;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--ill-space-4, 1rem);
+	background: rgba(15, 23, 42, 0.45);
+}
+
+.ill-dialog__box {
+	width: 100%;
+	max-width: 28rem;
+	max-height: calc(100vh - 2rem);
+	overflow-y: auto;
+	padding: var(--ill-space-6, 1.5rem);
+	border-radius: var(--ill-radius-card, 12px);
+	background: #fff;
+	box-shadow: var(--ill-shadow-elevated, 0 12px 40px rgba(0, 0, 0, 0.2));
+	&:focus { outline: none; }
+	&:focus-visible { outline: 2px solid var(--ill-blue-600, #00588C); outline-offset: 2px; }
+}
+
+.ill-dialog__actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: var(--ill-space-2, 0.5rem);
+	margin-top: var(--ill-space-4, 1rem);
+}
+
+.ill-toasts {
+	position: fixed;
+	right: var(--ill-space-4, 1rem);
+	bottom: var(--ill-space-4, 1rem);
+	z-index: 1080;
+	display: flex;
+	flex-direction: column;
+	gap: var(--ill-space-2, 0.5rem);
+}
+
+.ill-toast {
+	max-width: 22rem;
+	padding: var(--ill-space-3, 0.75rem) var(--ill-space-4, 1rem);
+	border-left: 4px solid var(--ill-green, #2F855A);
+	border-radius: 8px;
+	background: #fff;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+	&--red { border-left-color: var(--ill-red-ink, #C0392B); }
+	&--orange { border-left-color: var(--ill-gold-ink, #B7791F); }
+	&--blue { border-left-color: var(--ill-blue-600, #00588C); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.ill-dialog, .ill-toast { transition: none; animation: none; }
+}

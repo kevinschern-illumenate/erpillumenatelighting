@@ -319,20 +319,39 @@ document.getElementById('acknowledge-order')?.addEventListener('click', async fu
 	}
 });
 function editPoNumber() {
-    if (document.getElementById('po-edit-dialog')) return;
-    const dialog = document.createElement('dialog');
-    dialog.id = 'po-edit-dialog';
-    dialog.setAttribute('aria-labelledby', 'po-edit-title');
-    dialog.innerHTML = '<form><h2 id="po-edit-title">PO number</h2><label for="po-edit-value">Purchase order number</label><input id="po-edit-value" name="po_no" class="form-control" maxlength="140"><p role="status"></p><button type="button" class="btn btn-secondary">Cancel</button> <button type="submit" class="btn btn-primary">Save</button></form>';
-    const input = dialog.querySelector('input');
+    if (document.getElementById('po-edit-value')) return;
+    // Plan 8.3: the shared focus-trapping dialog; every node is built without markup.
+    const form = document.createElement('form');
+    const label = document.createElement('label');
+    label.htmlFor = 'po-edit-value';
+    label.textContent = __('Purchase order number');
+    const input = document.createElement('input');
+    input.id = 'po-edit-value';
+    input.name = 'po_no';
+    input.className = 'form-control';
+    input.maxLength = 140;
     const current = document.getElementById('poNumberValue').textContent.trim();
     input.value = current === '-' ? '' : current;
-    dialog.querySelector('[type="button"]').onclick = () => dialog.close();
-    dialog.addEventListener('close', () => dialog.remove());
-    dialog.querySelector('form').onsubmit = async event => {
+    const status = document.createElement('p');
+    status.setAttribute('role', 'status');
+    const actions = document.createElement('div');
+    actions.className = 'ill-dialog__actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'btn btn-secondary';
+    cancel.textContent = __('Cancel');
+    const save = document.createElement('button');
+    save.type = 'submit';
+    save.className = 'btn btn-primary';
+    save.textContent = __('Save');
+    actions.append(cancel, save);
+    form.append(label, input, status, actions);
+    const dialog = PortalUI.dialog({title: __('PO number'), content: form, initialFocus: input});
+    dialog.element.id = 'po-edit-dialog';
+    cancel.onclick = () => dialog.close();
+    form.onsubmit = async event => {
         event.preventDefault();
-        const button = dialog.querySelector('[type="submit"]');
-        button.disabled = true;
+        save.disabled = true;
         try {
             const receipt = await window.PortalUploads.call('illumenate_lighting.illumenate_lighting.api.portal.set_order_request_po_number', {
                 order_name: {{ (order.name if order else '') | tojson }}, po_no: input.value
@@ -340,13 +359,10 @@ function editPoNumber() {
             document.getElementById('poNumberValue').textContent = receipt.po_no || '-';
             dialog.close();
         } catch (error) {
-            dialog.querySelector('[role="status"]').textContent = error.message || 'Could not save PO number.';
-            button.disabled = false;
+            status.textContent = error.message || __('Could not save PO number.');
+            save.disabled = false;
         }
     };
-    document.body.appendChild(dialog);
-    dialog.showModal();
-    input.focus();
 }
 
 </script>
