@@ -1,5 +1,5 @@
 // Code for the "Get Product Info" node in the staging spec workflow (owner mapping 2026-11-02,
-// docs/SPEC_SHEET_REDESIGN_PHASE3.md). Builds the record the Format nodes read
+// docs/erpnext_spec_sheet_redesign_plan.md). Builds the record the Format nodes read
 // (window.ERP_DATA) from get_spec_sheet_data: from the TEMPLATE where the owner mapped it,
 // from legacy only for photometrics, colorimetry and compatible power supplies.
 const data = $input.first().json.message;
