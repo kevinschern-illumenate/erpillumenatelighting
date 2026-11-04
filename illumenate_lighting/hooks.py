@@ -82,7 +82,7 @@ for _name in (
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
-    doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/product_media.js", "public/js/product_clone.js"]
+    doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/template_webflow_link.js", "public/js/template_spec_sheet.js", "public/js/product_media.js", "public/js/product_clone.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -106,6 +106,9 @@ role_home_page = {
 	"Website User": "portal",
 	"Customer": "portal",
 }
+
+# Stable spec sheet links: /spec-sheets/<template>.pdf redirects to the current file (Phase 4).
+page_renderer = ["illumenate_lighting.illumenate_lighting.spec_sheet_route.SpecSheetRedirect"]
 
 # Website Route Rules
 # -------------------
@@ -169,6 +172,7 @@ website_route_rules = [
 	{"from_route": "/portal/account", "to_route": "account"},
 	{"from_route": "/portal/accept-invitation", "to_route": "accept_invitation"},
 	{"from_route": "/portal/account/notifications", "to_route": "account"},
+	{"from_route": "/portal/notifications", "to_route": "ill_notifications"},
 ]
 
 # Website Redirects
@@ -195,7 +199,7 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled"],
 }
 
 # Installation
@@ -623,6 +627,13 @@ for _design_doctype in _design_catalog_doctypes:
 		_design_hooks = doc_events.setdefault(_design_doctype, {})
 		_design_old = _design_hooks.get(_design_event, [])
 		_design_hooks[_design_event] = ([_design_old] if isinstance(_design_old, str) else list(_design_old)) + ["illumenate_lighting.illumenate_lighting.system_design.catalog.invalidate"]
+
+# Configurator option projections (plan 6.5): mapping records outside the catalog stamp.
+for _option_doctype in ("ilL-Rel-Driver-Eligibility", "ilL-Rel-Kit-Endcap-Map", "ilL-Rel-Kit-Lens-Map", "ilL-Rel-Kit-Mounting-Map", "ilL-Rel-Kit-Profile-Map"):
+	for _option_event in ("on_update", "on_trash"):
+		_option_hooks = doc_events.setdefault(_option_doctype, {})
+		_option_old = _option_hooks.get(_option_event, [])
+		_option_hooks[_option_event] = ([_option_old] if isinstance(_option_old, str) else list(_option_old)) + ["illumenate_lighting.illumenate_lighting.api.option_cache.invalidate"]
 
 # Product data lives on the templates; copy it onto the linked Webflow Product for the
 # readers that still read it there.

@@ -249,7 +249,7 @@ def evaluate(product, channel="cms"):
 
 		linked_doctype, linked_name = template_link(product.source)
 		if linked_doctype and frappe.db.get_value(linked_doctype, linked_name, "product_status") == INTERNAL_STATUS:
-			issue(linked_name, "product_status", "Internal Only templates stay off the website; set the template to Active first")
+			issue(linked_name, "product_status", "Internal Only templates stay off the website; set the template to Active + Live first")
 	if channel in ("cms", "portal"):
 		for field in ("featured_image", "short_description"):
 			if not product.get(field):

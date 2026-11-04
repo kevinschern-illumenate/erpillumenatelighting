@@ -24,7 +24,7 @@ from frappe import _
 from frappe.handler import upload_file
 from frappe.rate_limiter import rate_limit
 
-from illumenate_lighting.illumenate_lighting.api import media_derivatives
+from illumenate_lighting.illumenate_lighting.api import media_derivatives, n8n_config
 from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
@@ -51,9 +51,15 @@ from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 ERPNEXT_BASE_URL = DEFAULT_ERPNEXT_BASE_URL
 
 def enqueue_n8n_webhook(webhook_url, job_data):
-    """Background worker to trigger n8n to prevent locking the Frappe API thread"""
+    """Background worker to trigger n8n to prevent locking the Frappe API thread.
+
+    The shared-secret header is read from site config here, at send time, so the
+    secret never travels through the job queue.
+    """
     try:
-        response = requests.post(webhook_url, json=job_data, timeout=120)
+        response = requests.post(
+            webhook_url, json=job_data, headers=n8n_config.auth_headers(), timeout=120
+        )
         response.raise_for_status()
     except requests.RequestException as e:
         frappe.log_error(f"Failed to push {job_data.get('job')} to n8n: {e!s}", "Webflow V2 Sync")
@@ -275,6 +281,302 @@ def _dispatch_requested(brand, webhook_url, requested):
     return requested.get("job")
 
 
+# Webflow Product fields the export reads (fields that ship with the app; has_field keeps the
+# query safe on a site that has not migrated yet).
+EXPORT_FIELDS = [
+            "name", "product_name", "product_slug", "product_type", "webflow_status",
+            "product_category", "series", "is_active", "is_configurable",
+            "fixture_template", "driver_spec", "controller_spec",
+            "driver_template", "controller_template",
+            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
+            "accessory_spec",
+            "short_description", "sublabel", "features", "product_badge", "webflow_badge", "is_discontinued", "featured_image", "hero_image", "dimensions_image", "series_family_image",
+            "min_length_mm", "max_length_mm",
+            "length_increment_mm", "auto_calculate_specs",
+            "webflow_item_id", "webflow_collection_slug",
+            "last_synced_at", "sync_status", "sync_error_message",
+            "creation", "modified"
+        ]
+
+
+def _finish_products(products, brand_code, include_child_tables, get_doc):
+    """Turn product rows into export records. ``get_doc(name)`` returns the arguments for
+    ``Listing`` (the product document, and optionally its template), so a template with no
+    product can be exported through a temporary one (``export_template_record``)."""
+	# --- V2 DIMENSIONS IMAGE MAPPING ---
+    for p in products:
+        # Pass dimensions_image as dimensions_image_light
+        p["dimensions_image_light"] = p.get("dimensions_image")
+        # Legacy key n8n reads (adapter, plan 4.6). The Webflow Status moved off custom_.
+        p["custom_webflow_status"] = p.get("webflow_status")
+        # The badge moved to webflow_badge (plan 4.8); n8n and Webflow read product_badge.
+        if "webflow_badge" in p:
+            p["product_badge"] = p.get("webflow_badge") or ""
+        p["is_discontinued"] = 1 if p.get("is_discontinued") else 0
+
+	# Override top-level sync fields with the active brand's sync_targets row
+    for p in products:
+        per_brand_row = _get_brand_sync_row("ilL-Webflow-Product", p["name"], brand_code)
+        if per_brand_row:
+            p["webflow_item_id"] = per_brand_row.get("webflow_item_id")
+            p["last_synced_at"] = per_brand_row.get("last_synced_at")
+            p["sync_status"] = per_brand_row.get("sync_status") or "Never Synced"
+
+    # A migrated listing's web content is read from its template (merge plan, step 4).
+    listings = {}
+    for product in products:
+        listing = Listing(*get_doc(product["name"]))
+        listing.overlay(product)
+        product.update(_photometrics(listing.template))
+        listings[product["name"]] = listing
+        # Dimensions Image (Dark) moved to the template's dimensions_image (D46). The legacy
+        # keys keep carrying it for n8n until its nodes are reworked (plan 4.6, D39).
+        dark = listing.template.get("dimensions_image") if listing.template else None
+        product["dimensions_image_dark"] = product["custom_dimensions_image_2"] = dark
+    
+    if include_child_tables:
+        # Build reverse mapping: attribute doctype -> code_field (once, outside loop)
+        _doctype_to_code_field = {}
+        for _cfg in ATTRIBUTE_DOCTYPES.values():
+            _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field") or None
+
+        # Expand child tables for each product
+        for product in products:
+            doc = listings[product["name"]]
+
+            # --- V2 CUSTOM SPECIFICATIONS MAPPING ---
+            product["specifications"] = []
+            
+            # Use doc.source to access the raw Frappe document beneath the Listing wrapper
+            for s in getattr(doc.source, "webflow_specifications", []):
+                spec_data = {
+                    "spec_group": getattr(s, "spec_group", ""),
+                    "spec_label": getattr(s, "spec_label", ""),
+                    "spec_value": getattr(s, "spec_value", ""),
+                    "spec_unit": getattr(s, "spec_unit", ""),
+                    "is_calculated": getattr(s, "is_calculated", 0),
+                    "display_order": getattr(s, "display_order", 0),
+                    "show_on_card": getattr(s, "show_on_card", 0),
+                    "attribute_doctype": getattr(s, "attribute_doctype", ""),
+                    "attribute_options_json": getattr(s, "attribute_options_json", ""),
+                }
+                
+                # Parse attribute_options_json into a list for the frontend
+                if getattr(s, "attribute_options_json", None):
+                    try:
+                        spec_data["attribute_options"] = json.loads(s.attribute_options_json)
+                    except (json.JSONDecodeError, TypeError):
+                        spec_data["attribute_options"] = []
+                else:
+                    spec_data["attribute_options"] = []
+                    
+                product["specifications"].append(spec_data)
+            # ----------------------------------------
+            
+            # Enrich specifications with data from linked doctypes
+            _enrich_specifications_from_linked_doctypes(product, doc.source)
+            
+            product["certifications"] = [
+                {
+                    "certification": c.certification,
+                    "display_order": c.display_order,
+                    "certification_details": _get_certification_details(c.certification, getattr(c, "webflow_badge_images", None))
+                }
+                for c in doc.certifications
+            ]
+            
+            product["configurator_options"] = [
+                {
+                    "option_step": o.option_step,
+                    "option_type": o.option_type,
+                    "option_label": o.option_label,
+                    "option_description": o.option_description,
+                    "is_required": o.is_required,
+                    "depends_on_step": o.depends_on_step,
+                    "allowed_values_json": o.allowed_values_json
+                }
+                for o in doc.configurator_options
+            ]
+
+            # Feed lengths offered on the Webflow part-number configurator.
+            # Exported as both a structured list and a JSON string so the
+            # Webflow developer can drop the JSON directly into a plain-text
+            # CMS field if preferred. The ``step`` field on each row matches
+            # the corresponding ``option_step`` in configurator_options so the
+            # Webflow script knows where to insert this code segment in the
+            # part-number string (e.g., step 9 = Start Feed Length,
+            # step 11 = End Feed Length on SH01). This does NOT constrain
+            # ERPNext-side configurator logic (custom jumper / leader cable
+            # lengths remain available via the full configurator).
+            _feed_length_rows = sorted(
+                getattr(doc, "feed_lengths", []) or [],
+                key=lambda r: (r.step or 0, r.display_order or 0, r.idx or 0),
+            )
+            product["feed_lengths"] = [
+                {
+                    "step": fl.step or 0,
+                    "label": (fl.label or "").strip(),
+                    "code": (fl.code or "").strip(),
+                    "display_order": fl.display_order or 0,
+                }
+                for fl in _feed_length_rows
+                if (fl.label or "").strip() or (fl.code or "").strip()
+            ]
+            product["feed_lengths_json"] = json.dumps(
+                [
+                    {
+                        "step": f["step"],
+                        "label": f["label"],
+                        "code": f["code"],
+                    }
+                    for f in product["feed_lengths"]
+                ]
+            )
+            
+            # Just pass the component_type and the pre-built JSON string exactly as they appear in the database
+            product["kit_components"] = [
+                {
+                    "component_type": k.component_type,
+                    # Legacy key n8n reads; the field is component_description now.
+                    "custom_webflow_description": k.get("component_description") or "[]"
+                }
+                for k in getattr(doc.source, "kit_components", [])
+            ]
+            
+            product["gallery_images"] = [
+                {
+                    "image": _make_absolute_url(g.image, brand_code),
+                    "alt_text": g.alt_text,
+                    "caption": g.caption,
+                    "display_order": g.display_order
+                }
+                for g in doc.gallery_images
+            ]
+            
+            product["documents"] = [
+                {
+                    "document_file": _make_absolute_url(d.document_file, brand_code),
+                    "document_type": d.document_type,
+                    "document_title": d.document_title,
+                    "display_order": d.display_order
+                }
+                for d in doc.documents
+                if d.document_file
+            ]
+            
+            product["compatible_products"] = [
+                {
+                    "related_product": cp.related_product,
+                    "relationship_type": cp.relationship_type,
+                    "notes": cp.notes
+                }
+                for cp in doc.compatible_products
+            ]
+
+            product["custom_compatible_power_supplies"] = [
+                {
+                    "part_number": ps.part_number,
+                    "input_protocol": ps.input_protocol,
+                    "voltagefrequency": ps.voltagefrequency,
+                    "output_voltage": ps.output_voltage,
+                    "max_wattage": ps.max_wattage,
+                    "location_rating": ps.location_rating,
+                    "output_count": ps.output_count  # <-- ADD THIS HERE
+                }
+                for ps in getattr(doc.source, "webflow_compatible_power_supplies", [])
+            ]
+            
+            # Add attribute links for Webflow filter fields
+            product["attribute_links"] = [
+                {
+                    "attribute_type": al.attribute_type,
+                    "attribute_doctype": al.attribute_doctype,
+                    "attribute_name": al.attribute_name,
+                    "display_label": al.display_label,
+                    "webflow_item_id": al.webflow_item_id,
+                    "display_order": al.display_order
+                }
+                for al in getattr(doc, 'attribute_links', [])
+            ]
+            
+            # Group attribute links by type for easier Webflow mapping
+            product["attribute_links_by_type"] = {}
+            for al in getattr(doc, 'attribute_links', []):
+                attr_type = al.attribute_type
+                if attr_type not in product["attribute_links_by_type"]:
+                    product["attribute_links_by_type"][attr_type] = []
+
+                # Look up the attribute code from the linked doctype
+                attribute_code = ""
+                if al.attribute_doctype and al.attribute_name:
+                    code_field = _doctype_to_code_field.get(al.attribute_doctype)
+                    if code_field:
+                        try:
+                            attribute_code = frappe.db.get_value(
+                                al.attribute_doctype, al.attribute_name, code_field
+                            ) or ""
+                        except Exception:
+                            attribute_code = ""
+
+                product["attribute_links_by_type"][attr_type].append({
+                    "attribute_name": al.attribute_name,
+                    "display_label": al.display_label,
+                    "attribute_code": attribute_code,
+                    "webflow_item_id": al.webflow_item_id
+                })
+            
+            # Add full series details if series is set
+            if product.get("series"):
+                series_details = _get_series_details(product["series"])
+                product["series_webflow_item_id"] = series_details.get("webflow_item_id")
+                product["series_code"] = series_details.get("series_code")
+                product["series_display_name"] = series_details.get("display_name")
+    
+            # Add features JSON (if present, parse and re-stringify to ensure valid JSON)
+            if product.get("features"):
+                try:
+                    features_data = json.loads(product["features"]) if isinstance(product["features"], str) else product["features"]
+                    product["features_json"] = json.dumps(features_data)
+                except (json.JSONDecodeError, TypeError):
+                    product["features_json"] = "[]"
+            else:
+                product["features_json"] = "[]"
+
+    # Contract change behind a default-off flag: n8n must accept the key before it is enabled.
+    if webflow_image_derivatives_enabled():
+        _add_image_derivatives(products, listings, brand_code)
+
+    return products
+
+
+def export_template_record(template, brand=None):
+    """Today's export record for a template that has no Webflow Product (plan 4.6).
+
+    Runs the same export code on a temporary, unsaved Webflow Product that points at the
+    template (``template_listing.shadow_product``) and has run the product calculations.
+    Fields only a real product has (gallery, documents, copy and the like) come out empty.
+    Nothing is saved.
+    """
+    from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
+    from illumenate_lighting.illumenate_lighting.template_listing import POPULATE, shadow_product
+
+    product, field = shadow_product(template)
+    product.product_slug = template.name.lower()
+    product.is_active = 1 if template.get("is_active") else 0
+    product.webflow_status = "Webflow Draft"
+    product.set_dynamic_hero_image()
+    if product.get("auto_populate_attributes", True):
+        product.populate_attribute_links()
+    product.sync_custom_template_data()
+    product.populate_compatible_power_supplies()
+    product.populate_certification_badges()
+    getattr(product, POPULATE[field])()
+    row = {f: product.get(f) for f in EXPORT_FIELDS if f not in ("creation", "modified")}
+    row["name"] = product.name
+    record = _finish_products([row], brand or get_default_brand(), True, lambda _name: (product, template))
+    return record[0]
+
+
 @frappe.whitelist(allow_guest=False)
 def get_webflow_products(
     product_type: str | None = None,
@@ -399,270 +701,26 @@ def get_webflow_products(
         filters["name"] = product_slug
 
     # Get product list with basic fields
-    # custom_webflow_status and custom_dimensions_image_2 are site Custom Fields the app does not
-    # ship; query only the columns this site has.
+    # Fields that ship with the app; has_field keeps the query safe on a site that has not
+    # migrated yet. The payload still carries the old key names n8n reads (legacy keys below).
     product_meta = frappe.get_meta("ilL-Webflow-Product")
     products = frappe.get_all(
         "ilL-Webflow-Product",
         filters=filters,
-        fields=[f for f in [
-            "name", "product_name", "product_slug", "product_type", "custom_webflow_status",
-            "product_category", "series", "is_active", "is_configurable",
-            "fixture_template", "driver_spec", "controller_spec",
-            "driver_template", "controller_template",
-            "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
-            "accessory_spec",
-            "short_description", "sublabel", "features", "product_badge", "featured_image", "hero_image", "dimensions_image", "custom_dimensions_image_2", "series_family_image",
-            "min_length_mm", "max_length_mm",
-            "length_increment_mm", "auto_calculate_specs",
-            "webflow_item_id", "webflow_collection_slug",
-            "last_synced_at", "sync_status", "sync_error_message",
-            "creation", "modified"
-        ] if f in ("name", "creation", "modified") or product_meta.has_field(f)],
+        fields=[f for f in EXPORT_FIELDS if f in ("name", "creation", "modified") or product_meta.has_field(f)],
         limit=limit,
         start=offset,
         order_by="modified desc"
     )
 
-	# --- V2 DIMENSIONS IMAGE MAPPING ---
-    for p in products:
-        # Pass dimensions_image as dimensions_image_light
-        p["dimensions_image_light"] = p.get("dimensions_image")
-        # Pass custom_dimensions_image_2 as dimensions_image_dark
-        p["dimensions_image_dark"] = p.get("custom_dimensions_image_2")
-        
-        # Optional: You can pop the old keys out if you don't want them in the payload at all
-        # p.pop("dimensions_image", None)
-        # p.pop("custom_dimensions_image_2", None)
-
-	# Override top-level sync fields with the active brand's sync_targets row
-    for p in products:
-        per_brand_row = _get_brand_sync_row("ilL-Webflow-Product", p["name"], brand_code)
-        if per_brand_row:
-            p["webflow_item_id"] = per_brand_row.get("webflow_item_id")
-            p["last_synced_at"] = per_brand_row.get("last_synced_at")
-            p["sync_status"] = per_brand_row.get("sync_status") or "Never Synced"
-
-    # A migrated listing's web content is read from its template (merge plan, step 4).
-    listings = {}
-    for product in products:
-        listing = Listing(frappe.get_doc("ilL-Webflow-Product", product["name"]))
-        listing.overlay(product)
-        product.update(_photometrics(listing.template))
-        listings[product["name"]] = listing
-    
-    if include_child_tables:
-        # Build reverse mapping: attribute doctype -> code_field (once, outside loop)
-        _doctype_to_code_field = {}
-        for _cfg in ATTRIBUTE_DOCTYPES.values():
-            _doctype_to_code_field[_cfg["doctype"]] = _cfg.get("code_field") or None
-
-        # Expand child tables for each product
-        for product in products:
-            doc = listings[product["name"]]
-
-            # --- V2 CUSTOM SPECIFICATIONS MAPPING ---
-            product["specifications"] = []
-            
-            # Use doc.source to access the raw Frappe document beneath the Listing wrapper
-            for s in getattr(doc.source, "custom_spec_custom", []):
-                spec_data = {
-                    "spec_group": getattr(s, "spec_group", ""),
-                    "spec_label": getattr(s, "spec_label", ""),
-                    "spec_value": getattr(s, "spec_value", ""),
-                    "spec_unit": getattr(s, "spec_unit", ""),
-                    "is_calculated": getattr(s, "is_calculated", 0),
-                    "display_order": getattr(s, "display_order", 0),
-                    "show_on_card": getattr(s, "show_on_card", 0),
-                    "attribute_doctype": getattr(s, "attribute_doctype", ""),
-                    "attribute_options_json": getattr(s, "attribute_options_json", ""),
-                }
-                
-                # Parse attribute_options_json into a list for the frontend
-                if getattr(s, "attribute_options_json", None):
-                    try:
-                        spec_data["attribute_options"] = json.loads(s.attribute_options_json)
-                    except (json.JSONDecodeError, TypeError):
-                        spec_data["attribute_options"] = []
-                else:
-                    spec_data["attribute_options"] = []
-                    
-                product["specifications"].append(spec_data)
-            # ----------------------------------------
-            
-            # Enrich specifications with data from linked doctypes
-            _enrich_specifications_from_linked_doctypes(product, doc.source)
-            
-            product["certifications"] = [
-                {
-                    "certification": c.certification,
-                    "display_order": c.display_order,
-                    "certification_details": _get_certification_details(c.certification, getattr(c, "custom_badge_images", None))
-                }
-                for c in doc.certifications
-            ]
-            
-            product["configurator_options"] = [
-                {
-                    "option_step": o.option_step,
-                    "option_type": o.option_type,
-                    "option_label": o.option_label,
-                    "option_description": o.option_description,
-                    "is_required": o.is_required,
-                    "depends_on_step": o.depends_on_step,
-                    "allowed_values_json": o.allowed_values_json
-                }
-                for o in doc.configurator_options
-            ]
-
-            # Feed lengths offered on the Webflow part-number configurator.
-            # Exported as both a structured list and a JSON string so the
-            # Webflow developer can drop the JSON directly into a plain-text
-            # CMS field if preferred. The ``step`` field on each row matches
-            # the corresponding ``option_step`` in configurator_options so the
-            # Webflow script knows where to insert this code segment in the
-            # part-number string (e.g., step 9 = Start Feed Length,
-            # step 11 = End Feed Length on SH01). This does NOT constrain
-            # ERPNext-side configurator logic (custom jumper / leader cable
-            # lengths remain available via the full configurator).
-            _feed_length_rows = sorted(
-                getattr(doc, "feed_lengths", []) or [],
-                key=lambda r: (r.step or 0, r.display_order or 0, r.idx or 0),
-            )
-            product["feed_lengths"] = [
-                {
-                    "step": fl.step or 0,
-                    "label": (fl.label or "").strip(),
-                    "code": (fl.code or "").strip(),
-                    "display_order": fl.display_order or 0,
-                }
-                for fl in _feed_length_rows
-                if (fl.label or "").strip() or (fl.code or "").strip()
-            ]
-            product["feed_lengths_json"] = json.dumps(
-                [
-                    {
-                        "step": f["step"],
-                        "label": f["label"],
-                        "code": f["code"],
-                    }
-                    for f in product["feed_lengths"]
-                ]
-            )
-            
-            # Just pass the component_type and the pre-built JSON string exactly as they appear in the database
-            product["kit_components"] = [
-                {
-                    "component_type": k.component_type,
-                    "custom_webflow_description": k.get("custom_webflow_description") or "[]"
-                }
-                for k in getattr(doc.source, "kit_components", [])
-            ]
-            
-            product["gallery_images"] = [
-                {
-                    "image": _make_absolute_url(g.image, brand_code),
-                    "alt_text": g.alt_text,
-                    "caption": g.caption,
-                    "display_order": g.display_order
-                }
-                for g in doc.gallery_images
-            ]
-            
-            product["documents"] = [
-                {
-                    "document_file": _make_absolute_url(d.document_file, brand_code),
-                    "document_type": d.document_type,
-                    "document_title": d.document_title,
-                    "display_order": d.display_order
-                }
-                for d in doc.documents
-                if d.document_file
-            ]
-            
-            product["compatible_products"] = [
-                {
-                    "related_product": cp.related_product,
-                    "relationship_type": cp.relationship_type,
-                    "notes": cp.notes
-                }
-                for cp in doc.compatible_products
-            ]
-
-            product["custom_compatible_power_supplies"] = [
-                {
-                    "part_number": ps.part_number,
-                    "input_protocol": ps.input_protocol,
-                    "voltagefrequency": ps.voltagefrequency,
-                    "output_voltage": ps.output_voltage,
-                    "max_wattage": ps.max_wattage,
-                    "location_rating": ps.location_rating,
-                    "output_count": ps.output_count  # <-- ADD THIS HERE
-                }
-                for ps in getattr(doc.source, "custom_compatible_power_supplies", [])
-            ]
-            
-            # Add attribute links for Webflow filter fields
-            product["attribute_links"] = [
-                {
-                    "attribute_type": al.attribute_type,
-                    "attribute_doctype": al.attribute_doctype,
-                    "attribute_name": al.attribute_name,
-                    "display_label": al.display_label,
-                    "webflow_item_id": al.webflow_item_id,
-                    "display_order": al.display_order
-                }
-                for al in getattr(doc, 'attribute_links', [])
-            ]
-            
-            # Group attribute links by type for easier Webflow mapping
-            product["attribute_links_by_type"] = {}
-            for al in getattr(doc, 'attribute_links', []):
-                attr_type = al.attribute_type
-                if attr_type not in product["attribute_links_by_type"]:
-                    product["attribute_links_by_type"][attr_type] = []
-
-                # Look up the attribute code from the linked doctype
-                attribute_code = ""
-                if al.attribute_doctype and al.attribute_name:
-                    code_field = _doctype_to_code_field.get(al.attribute_doctype)
-                    if code_field:
-                        try:
-                            attribute_code = frappe.db.get_value(
-                                al.attribute_doctype, al.attribute_name, code_field
-                            ) or ""
-                        except Exception:
-                            attribute_code = ""
-
-                product["attribute_links_by_type"][attr_type].append({
-                    "attribute_name": al.attribute_name,
-                    "display_label": al.display_label,
-                    "attribute_code": attribute_code,
-                    "webflow_item_id": al.webflow_item_id
-                })
-            
-            # Add full series details if series is set
-            if product.get("series"):
-                series_details = _get_series_details(product["series"])
-                product["series_webflow_item_id"] = series_details.get("webflow_item_id")
-                product["series_code"] = series_details.get("series_code")
-                product["series_display_name"] = series_details.get("display_name")
-    
-            # Add features JSON (if present, parse and re-stringify to ensure valid JSON)
-            if product.get("features"):
-                try:
-                    features_data = json.loads(product["features"]) if isinstance(product["features"], str) else product["features"]
-                    product["features_json"] = json.dumps(features_data)
-                except (json.JSONDecodeError, TypeError):
-                    product["features_json"] = "[]"
-            else:
-                product["features_json"] = "[]"
+    products = _finish_products(
+        products,
+        brand_code,
+        include_child_tables,
+        lambda name: (frappe.get_doc("ilL-Webflow-Product", name),),
+    )
 
     total = frappe.db.count("ilL-Webflow-Product", filters)
-
-    # Contract change behind a default-off flag: n8n must accept the key before it is enabled.
-    if webflow_image_derivatives_enabled():
-        _add_image_derivatives(products, listings, brand_code)
 
     # Per-brand configurator stripping (defense-in-depth: enforce server-side
     # so the configurator payload never leaks into a non-configurator brand).
@@ -2520,7 +2578,7 @@ def _build_certifications_spec(doc) -> dict | None:
             continue
         
         # Pass the JSON field here as well
-        details = _get_certification_details(cert_name, getattr(c, "custom_badge_images", None))
+        details = _get_certification_details(cert_name, getattr(c, "webflow_badge_images", None))
         
         cert_options.append({
             "attribute_type": "Certification",
@@ -2558,15 +2616,14 @@ def trigger_sync_v2(docname):
 	
     active_brands = _sync_target_brands(doc)
     
+    # Z1: the webhook URL and secret come from site config. Check both before
+    # any job is requested so a misconfigured site fails without side effects.
+    webhook_url = n8n_config.sync_webhook_url()
+    n8n_config.auth_headers()
+
     dispatched_jobs = []
     
     for brand in active_brands:
-        # Resolve brand config to get the proper webhook URL
-        try:
-            resolve_brand(brand, allow_inactive=True)
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
-        except frappe.ValidationError:
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
             
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
@@ -2598,11 +2655,19 @@ def trigger_sync_v2(docname):
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=120, seconds=60)
 def spec_sheet(product):
-    url = frappe.db.get_value("ilL-Webflow-Product", product, "spec_sheet_url")  # use your mirrored field name
+    """Redirect to a Webflow Product's spec sheet through its template's stable link (Phase 4).
+
+    Replaces the old version, which read a product field that does not exist.
+    """
+    from illumenate_lighting.illumenate_lighting.spec_sheet_route import absolute_location, current_file
+    from illumenate_lighting.illumenate_lighting.web_listing_migration import template_for
+
+    _doctype, template = template_for(product) if frappe.db.exists("ilL-Webflow-Product", product) else (None, None)
+    url = current_file(template) if template else None
     if not url:
         frappe.throw(_("No spec sheet for this product."), frappe.DoesNotExistError)
     frappe.local.response["type"] = "redirect"
-    frappe.local.response["location"] = url
+    frappe.local.response["location"] = absolute_location(url)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -2613,15 +2678,14 @@ def trigger_publish_v2(docname):
     doc.save(ignore_permissions=True)
     active_brands = _sync_target_brands(doc)
     
+    # Z1: the webhook URL and secret come from site config. Check both before
+    # any job is requested so a misconfigured site fails without side effects.
+    webhook_url = n8n_config.sync_webhook_url()
+    n8n_config.auth_headers()
+
     dispatched_jobs = []
     
     for brand in active_brands:
-        # Resolve brand config to get the proper webhook URL
-        try:
-            resolve_brand(brand, allow_inactive=True)
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
-        except frappe.ValidationError:
-            webhook_url = "https://illumenatelighting.app.n8n.cloud/webhook/product-sync-v2"
 
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
@@ -2671,9 +2735,8 @@ def request_spec_sheet(docname, brand=None):
 
     import requests as req
 
-    secret = frappe.conf.get("ERP-Sync-Secret-2026")
-    if not secret:
-        frappe.throw(_("n8n sync secret is not configured. Ask your administrator to set n8n_sync_secret in site config."))
+    webhook_url = n8n_config.spec_webhook_url()
+    auth_headers = n8n_config.auth_headers()
 
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
     product_slug = doc.get("product_slug") or docname
@@ -2688,14 +2751,11 @@ def request_spec_sheet(docname, brand=None):
         "product_slug": product_slug,
         "brand": brand
     }
-    headers = {
-        "Content-Type": "application/json",
-        "ERP-Sync-Secret-2026": secret
-    }
+    headers = {"Content-Type": "application/json", **auth_headers}
 
     try:
         resp = req.post(
-            "https://illumenatelighting.app.n8n.cloud/webhook/generate-spec-sheet-v2",
+            webhook_url,
             json=payload,
             headers=headers,
             timeout=180

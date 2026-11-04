@@ -3,10 +3,12 @@ Portal Projects List Page
 Displays all projects accessible to the current user
 #}
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 
 {% block portal_title %}{{ _("Projects") }}{% endblock %}
 
 {% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_breadcrumbs %}{{ breadcrumbs([(_("Portal"), "/portal"), (_("Projects"), None)]) }}{% endblock %}
 {% block portal_header %}
 	<header class="ill-hero">
 		<div class="ill-hero__top">
@@ -90,14 +92,7 @@ Displays all projects accessible to the current user
 	{% endfor %}
 	</div>
 
-	{% if page > 1 or has_more %}
-	<nav class="ill-pager" aria-label="{{ _('Project pages') }}">
-		{% set query = "&amp;search=" ~ (search | urlencode) ~ "&amp;status=" ~ (status_filter | urlencode) ~ "&amp;sort=" ~ (sort | urlencode) %}
-		{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}{{ query | safe }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Previous") }}</a>{% else %}<span></span>{% endif %}
-		<span>{{ _("Page") }} {{ page | e }}</span>
-		{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}{{ query | safe }}">{{ _("Next") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% else %}<span></span>{% endif %}
-	</nav>
-	{% endif %}
+	{{ pager(_("Project pages"), page, has_more, [("search", search), ("status", status_filter), ("sort", sort)]) }}
 {% endblock %}
 
 {% block script %}

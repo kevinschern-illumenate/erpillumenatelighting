@@ -6,7 +6,8 @@ import { createDesignStore, loadDesign, persistDrafts, type DesignStore } from '
 import type { MountOptions } from './mount';
 import { PRODUCT_NAME } from './product';
 import { openingChecks, OpenDesignSchema, startingDesign, type Check, type OpenDesign } from './shell/open';
-import { Shell } from './shell/Shell';
+import { scheduleUrl, Shell } from './shell/Shell';
+import { ErrorState, Skeleton } from './ui';
 
 export { PRODUCT_NAME };
 
@@ -18,19 +19,49 @@ export interface AppServices {
 
 type Session =
   | { state: 'loading' }
-  | { state: 'error'; message: string }
+  | { state: 'error'; message: string; code: string }
   | { state: 'ready'; open: OpenDesign; store: DesignStore; checks: Check[]; restoredDraft: boolean };
 
-function Frame({ children }: { children: React.ReactNode }) {
+function Frame({ schedule, children }: { schedule?: string | null; children: React.ReactNode }) {
   return (
-    <div className="ill-sd" data-testid="system-designer">
-      <header className="ill-sd__header">
-        <div className="ill-sd__heading">
-          <span className="ill-sd__brand">ilLumenate</span>
-          <h1 className="ill-sd__title">{PRODUCT_NAME}</h1>
+    <div className="ill-sd sd-shell" data-testid="system-designer">
+      <header className="sd-topbar">
+        <div className="sd-topbar__where">
+          {schedule ? (
+            <nav aria-label="Breadcrumb" className="sd-crumbs">
+              <ol>
+                <li>
+                  <a href={scheduleUrl(schedule)}>Back to schedule</a>
+                </li>
+              </ol>
+            </nav>
+          ) : null}
+          <div className="sd-topbar__title-row">
+            <h1 className="ill-sd__title sd-topbar__title">{PRODUCT_NAME}</h1>
+          </div>
         </div>
       </header>
-      <main className="ill-sd__body">{children}</main>
+      <div className="sd-frame">{children}</div>
+    </div>
+  );
+}
+
+/** The shell's outline while the schedule opens (SD-1.5), so the page does not jump when it arrives. */
+function Loading() {
+  return (
+    <div className="sd-loading" role="status" aria-label="Opening the schedule">
+      <div className="sd-loading__rail">
+        {Array.from({ length: 7 }, (_, index) => (
+          <Skeleton key={index} height={32} />
+        ))}
+      </div>
+      <div className="sd-loading__canvas">
+        <Skeleton width="30%" height={28} />
+        <Skeleton width="70%" />
+        <Skeleton height={140} />
+        <Skeleton height={140} />
+      </div>
+      <span className="sd-sr-only">Opening the schedule…</span>
     </div>
   );
 }
@@ -42,6 +73,7 @@ export function App({ options, services = {} }: { options: MountOptions; service
   );
   const drafts = useMemo(() => services.drafts ?? openDrafts(), [services.drafts]);
   const [session, setSession] = useState<Session>({ state: 'loading' });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const schedule = options.schedule;
@@ -68,14 +100,14 @@ export function App({ options, services = {} }: { options: MountOptions; service
           error instanceof DesignApiError
             ? error.message
             : 'The design could not be opened. Reload the page or try again later.';
-        setSession({ state: 'error', message });
+        setSession({ state: 'error', message, code: error instanceof DesignApiError ? error.code : 'OPEN_FAILED' });
       }
     })();
     return () => {
       cancelled = true;
       stop?.();
     };
-  }, [api, drafts, options.schedule]);
+  }, [api, drafts, options.schedule, attempt]);
 
   if (!options.schedule)
     return (
@@ -85,16 +117,26 @@ export function App({ options, services = {} }: { options: MountOptions; service
     );
   if (session.state === 'loading')
     return (
-      <Frame>
-        <p role="status">Opening the schedule…</p>
+      <Frame schedule={options.schedule}>
+        <Loading />
       </Frame>
     );
   if (session.state === 'error')
     return (
-      <Frame>
-        <p role="alert" className="ill-sd__error">
-          {session.message}
-        </p>
+      <Frame schedule={options.schedule}>
+        <ErrorState
+          title="The design could not be opened"
+          message={session.message}
+          code={session.code}
+          onRetry={
+            session.code === 'FORBIDDEN' || session.code === 'NOT_FOUND'
+              ? undefined
+              : () => {
+                  setSession({ state: 'loading' });
+                  setAttempt((value) => value + 1);
+                }
+          }
+        />
       </Frame>
     );
   return (

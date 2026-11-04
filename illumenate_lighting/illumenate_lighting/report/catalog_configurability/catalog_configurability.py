@@ -12,8 +12,7 @@ from illumenate_lighting.illumenate_lighting.api.product_projection import (
 	TEMPLATE_FIELDS,
 	project_product,
 )
-
-OPTION = "ilL-Child-Webflow-Configurator-Option"
+from illumenate_lighting.illumenate_lighting.template_listing import configurator_rows
 
 
 def execute(filters=None):
@@ -74,14 +73,8 @@ def get_data(filters):
 	if not products:
 		return []
 
-	options: dict = {}
-	for row in frappe.get_all(
-		OPTION,
-		filters={"parenttype": "ilL-Webflow-Product", "parent": ["in", [p.name for p in products]]},
-		fields=["parent", "option_step", "allowed_values_json"],
-		ignore_permissions=True,
-	):
-		options.setdefault(row.parent, []).append(row)
+	# The configurator steps come from the linked template (Phase 2c).
+	options = configurator_rows(products, fields=("option_step", "allowed_values_json"))
 	activity = _template_activity(products)
 	backlinks = template_backlinks()
 

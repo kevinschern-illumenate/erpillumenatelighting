@@ -47,9 +47,15 @@ def get_context(context):
 	context.config_schedule = "" if show_pricing else frappe.form_dict.get("schedule")
 	context.show_pricing = show_pricing
 
-	from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import (
+		build_preview_enabled,
+		fixture_groups_enabled,
+		sheet_server_options_enabled,
+	)
 
 	context.groups_enabled = fixture_groups_enabled()
+	context.sheet_server_options = sheet_server_options_enabled()
+	context.build_preview = build_preview_enabled()
 
 	quiz_handoff = {
 		"template": frappe.form_dict.get("template"),
@@ -435,6 +441,9 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 	from illumenate_lighting.illumenate_lighting.portal.access import require_catalog_access
 
 	require_catalog_access()
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import build_preview_enabled
+
+	build_preview = build_preview_enabled()
 	product_category = _normalize_product_category(product_category)
 	if product_category in ("Extrusion Kit", "Driver", "Controller"):
 		# Embedded: the desk dialog collects the line details and owns the save.
@@ -448,12 +457,15 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 		return frappe.render_template("illumenate_lighting/templates/includes/configurator_driver_controller_form.html", context)
 	if product_category == "LED Sheet":
 		from illumenate_lighting.illumenate_lighting.api.portal import get_led_sheet_templates
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import sheet_server_options_enabled
 
 		context = {
 			"templates": get_led_sheet_templates().get("templates", []),
 			"selected_template": selected_template,
 			"can_save": True,
 			"show_pricing": True,
+			"sheet_server_options": sheet_server_options_enabled(),
+			"build_preview": build_preview,
 		}
 		return frappe.render_template(
 			"illumenate_lighting/templates/includes/configurator_led_sheet_form.html", context
@@ -467,6 +479,7 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 			"product_slug": product_slug or "",
 			"can_save": True,
 			"show_pricing": True,
+			"build_preview": build_preview,
 		}
 		return frappe.render_template(
 			"illumenate_lighting/templates/includes/configurator_fixture_form.html", context
@@ -480,5 +493,6 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 		"selected_template": selected_template, "show_pricing": True,
 		"can_save": True, "schedule_name": "", "line_idx": None, "has_quiz_handoff": False,
 		"embedded": True,
+		"build_preview": build_preview,
 	}
 	return frappe.render_template("illumenate_lighting/templates/includes/configurator_coordinator_form.html", context)

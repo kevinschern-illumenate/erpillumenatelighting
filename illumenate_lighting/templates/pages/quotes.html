@@ -1,6 +1,8 @@
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 {% block portal_title %}{{ _("My Quotes") }}{% endblock %}
 {% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_breadcrumbs %}{{ breadcrumbs([(_("Portal"), "/portal"), (_("Quotes"), None)]) }}{% endblock %}
 {% block portal_content %}{% set status = status | default('all', true) %}
 {% set search = search | default('', true) %}
 {% set request_status = request_status | default('open', true) %}
@@ -95,7 +97,7 @@
     </div>
     <nav class="ill-segments" aria-label="{{ _('Request status') }}">
     {% for key, label in [('open','Open'),('action','Needs your reply'),('closed','Quoted or closed'),('all','All')] %}
-      <a {% if request_status == key %}aria-current="page"{% endif %} href="?requests={{ key | e }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _(label) | e }}</a>
+      <a {% if request_status == key %}aria-current="page"{% endif %} href="?requests={{ key | urlencode }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _(label) | e }}</a>
     {% endfor %}
     </nav>
     <div class="ill-records">
@@ -113,11 +115,6 @@
       <div class="ill-empty ill-empty--quiet"><p>{{ _("No requests here.") }}</p></div>
     {% endfor %}
     </div>
-    {% if requests_page > 1 or more_requests %}
-    <nav class="ill-pager" aria-label="{{ _('Request pages') }}">
-      {% if requests_page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?requests={{ request_status | urlencode }}&amp;requests_page={{ requests_page - 1 }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Newer requests") }}</a>{% else %}<span></span>{% endif %}
-      {% if more_requests %}<a class="btn btn-outline-secondary btn-sm" href="?requests={{ request_status | urlencode }}&amp;requests_page={{ requests_page + 1 }}&amp;status={{ status | urlencode }}&amp;search={{ search | urlencode }}">{{ _("Older requests") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% endif %}
-    </nav>
-    {% endif %}
+    {{ pager(_("Request pages"), requests_page, more_requests, [("requests", request_status), ("status", status), ("search", search)], page_param="requests_page", prev_label=_("Newer requests"), next_label=_("Older requests")) }}
   </section>
 {% endblock %}

@@ -339,7 +339,6 @@ def project_product(
 			"product_name",
 			"product_slug",
 			"product_type",
-			"custom_webflow_status",
 			"product_category",
 			"series",
 			"short_description",
@@ -358,6 +357,8 @@ def project_product(
 			"controller_template",
 		)
 	}
+	# The key keeps its old name so projection hashes and readers do not change.
+	result["custom_webflow_status"] = get("webflow_status")
 	result.update(
 		{
 			"projection_version": 1,
@@ -410,13 +411,16 @@ def project_product(
 					"component_spec_name": row.get("component_spec_name"),
 					"quantity": row.get("quantity"),
 					"notes": row.get("notes"),
-					"custom_webflow_title": row.get("custom_webflow_title"),
-					"custom_webflow_description": row.get("custom_webflow_description")
+					"custom_webflow_title": row.get("webflow_title"),
+					"custom_webflow_description": row.get("component_description"),
 				}
 				for row in get("kit_components") or []
 			],
 			"photometric_data": [
-				{key: row.get(key) for key in ("mounting_height", "light_level", "beam_diameter", "display_order")}
+				{
+					key: row.get(key)
+					for key in ("mounting_height", "light_level", "beam_diameter", "display_order")
+				}
 				for row in sorted(get("photometric_data") or [], key=lambda r: r.get("display_order") or 0)
 			],
 		}
