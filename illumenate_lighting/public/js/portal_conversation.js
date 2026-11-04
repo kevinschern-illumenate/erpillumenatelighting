@@ -58,8 +58,8 @@
 		const form = element('form', undefined, 'ill-thread__form');
 		const label = element('label', __('Your message')); label.htmlFor = uid;
 		const body = element('textarea', undefined, 'form-control'); body.id = uid; body.rows = 3; body.required = true; body.maxLength = 20000;
-		const fileLabel = element('label', __('Attachments: PDF, JPEG or PNG, up to 20 MiB each'), 'mt-2 small'); fileLabel.htmlFor = uid + '-files';
-		const files = element('input', undefined, 'form-control'); files.id = fileLabel.htmlFor; files.type = 'file'; files.multiple = true; files.accept = '.pdf,.png,.jpg,.jpeg';
+		const fileLabel = element('label', __('Attachments: PDF, JPEG, PNG or HEIC, up to 20 MiB each'), 'mt-2 small'); fileLabel.htmlFor = uid + '-files';
+		const files = element('input', undefined, 'form-control'); files.id = fileLabel.htmlFor; files.type = 'file'; files.multiple = true; files.accept = '.pdf,.png,.jpg,.jpeg,.heic,.heif';
 		const staffFields = element('div', undefined, 'my-2');
 		const visibilityLabel = element('label', __('Visibility')); visibilityLabel.htmlFor = uid + '-visibility';
 		const visibility = element('select', undefined, 'form-control'); visibility.id = visibilityLabel.htmlFor;
@@ -74,6 +74,7 @@
 		const submit = element('button', __('Send message'), 'btn btn-primary mt-3'); submit.type = 'submit';
 		const sendDealer = element('button', __('Send to dealer'), 'btn btn-warning mt-3 ill-thread__send-dealer'); sendDealer.type = 'submit'; sendDealer.hidden = true;
 		form.append(label, body, fileLabel, files, staffFields, submit, sendDealer, result);
+		window.PortalUploader?.attach(files);
 		root.append(status, paging, list, form);
 		// Every message loaded so far, by name. Pages are merged, never swapped,
 		// so earlier messages stay on screen after a reply and nothing is lost when
@@ -167,7 +168,7 @@
 				if (signature !== retryBody) { retryBody = signature; retryKey = crypto.randomUUID(); }
 				await PortalUploads.call(api + 'reply', {...payload, idempotency_key: retryKey});
 				if (body.value.trim() === draft.body) body.value = '';
-				files.value = ''; files._uploadedFiles = new Map(); retryBody = null; retryKey = null;
+				files.value = ''; files._uploadedFiles = new Map(); window.PortalUploader?.reset(files); retryBody = null; retryKey = null;
 				result.textContent = audience === 'Internal' && staffView ? __('Internal note saved.') : __('Message sent.');
 				if (staffView) { visibility.value = 'Internal'; showMode(); }
 				await load();

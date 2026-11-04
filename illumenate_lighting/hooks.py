@@ -200,7 +200,7 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags"],
 }
 
 # One route contract for Desk scripts (hardening plan 7.1).

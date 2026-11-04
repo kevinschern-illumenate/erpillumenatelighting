@@ -59,6 +59,7 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
+		"ill_portal_client_flags": lambda: {"upload_widget": True, "upload_purpose": True, "gallery": True},
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"ill_portal_routes": lambda: dict(_routes["PORTAL_ROUTES"]),
 		"ill_desk_link": lambda path: _routes["desk_path"](*_routes["record_for_path"](path)) if _routes["record_for_path"](path) else "",
