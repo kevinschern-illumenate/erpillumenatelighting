@@ -38,3 +38,49 @@ class DrawingList(unittest.TestCase):
 	def test_page_numbers_are_positive_integers(self):
 		module, _frappe = self.service()
 		self.assertEqual([module.page_number(v) for v in (None, "3", "-1", "x")], [1, 3, 1, 1])
+
+
+class DrawingsPrefill(unittest.TestCase):
+	"""Plan 3.3: bulk "Request drawings" opens the form pre-filled, never with an unreadable project."""
+
+	def page(self, form, readable=()):
+		guard = types.ModuleType(ROOT + ".portal.web_guard")
+		guard.require_login = lambda *args, **kwargs: None
+		lister = types.ModuleType(ROOT + ".portal.drawing_list")
+		lister.requests = lambda *args, **kwargs: ([], False)
+		lister.page_number = lambda value: 1
+		context = load_service(
+			"illumenate_lighting.templates.pages.drawings",
+			{ROOT + ".portal.web_guard": guard, ROOT + ".portal.drawing_list": lister},
+		)
+		module, frappe = context.__enter__()
+		self.addCleanup(context.__exit__, None, None, None)
+		frappe.form_dict = Record(form)
+		frappe.get_list = MagicMock(
+			side_effect=lambda doctype, filters=None, **kwargs: [
+				Record(name=name, project_name=name.title()) for name in readable if name == (filters or {}).get("name")
+			]
+		)
+		return module
+
+	def test_reference_is_trimmed_and_capped(self):
+		module = self.page({"fixture_reference": "  " + "A" * 600})
+		self.assertEqual(module._prefill([]), {"project": "", "fixture_reference": "A" * 500})
+
+	def test_listed_project_is_selected_without_a_lookup(self):
+		module = self.page({"project": "P-1"})
+		projects = [Record(name="P-1")]
+		self.assertEqual(module._prefill(projects)["project"], "P-1")
+		self.assertEqual(len(projects), 1)
+
+	def test_older_readable_project_is_added(self):
+		module = self.page({"project": "P-9"}, readable=("P-9",))
+		projects = [Record(name="P-1")]
+		self.assertEqual(module._prefill(projects)["project"], "P-9")
+		self.assertEqual([row.name for row in projects], ["P-9", "P-1"])
+
+	def test_unreadable_project_is_dropped(self):
+		module = self.page({"project": "P-X"})
+		projects = []
+		self.assertEqual(module._prefill(projects), {"project": "", "fixture_reference": ""})
+		self.assertEqual(projects, [])

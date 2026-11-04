@@ -174,7 +174,7 @@
    "label": "Source Reference"
   },
   {
-   "depends_on": "eval:doc.product_type=='Fixture Template'",
+   "depends_on": "eval:doc.product_type=='Fixture Template' || doc.fixture_template",
    "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "fixture_template",
    "fieldtype": "Link",
@@ -183,7 +183,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.product_type=='Driver'",
+   "depends_on": "eval:doc.product_type=='Driver' || doc.driver_spec",
    "description": "Single driver. Leave blank and use Driver Template instead when the product page offers a configurable family.",
    "fieldname": "driver_spec",
    "fieldtype": "Link",
@@ -191,7 +191,7 @@
    "options": "ilL-Spec-Driver"
   },
   {
-   "depends_on": "eval:doc.product_type=='Driver'",
+   "depends_on": "eval:doc.product_type=='Driver' || doc.driver_template",
    "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "driver_template",
    "fieldtype": "Link",
@@ -200,7 +200,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.product_type=='Controller'",
+   "depends_on": "eval:doc.product_type=='Controller' || doc.controller_spec",
    "description": "Single controller. Leave blank and use Controller Template instead when the product page offers a configurable family.",
    "fieldname": "controller_spec",
    "fieldtype": "Link",
@@ -208,7 +208,7 @@
    "options": "ilL-Spec-Controller"
   },
   {
-   "depends_on": "eval:doc.product_type=='Controller'",
+   "depends_on": "eval:doc.product_type=='Controller' || doc.controller_template",
    "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "controller_template",
    "fieldtype": "Link",
@@ -228,29 +228,29 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:['Component', 'Extrusion Kit'].includes(doc.product_type)",
+   "depends_on": "eval:['Component', 'Extrusion Kit'].includes(doc.product_type) || doc.profile_spec",
    "fieldname": "profile_spec",
    "fieldtype": "Link",
    "label": "Profile Spec",
    "options": "ilL-Spec-Profile"
   },
   {
-   "depends_on": "eval:doc.product_type=='Component'",
+   "depends_on": "eval:doc.product_type=='Component' || doc.lens_spec",
    "fieldname": "lens_spec",
    "fieldtype": "Link",
    "label": "Lens Spec",
    "options": "ilL-Spec-Lens"
   },
   {
-   "depends_on": "eval:doc.product_type=='LED Tape'",
+   "depends_on": "eval:doc.tape_spec",
    "fieldname": "tape_spec",
    "fieldtype": "Link",
-   "hidden": 1,
    "label": "LED Tape Spec (Deprecated)",
-   "options": "ilL-Spec-LED Tape"
+   "options": "ilL-Spec-LED Tape",
+   "read_only": 1
   },
   {
-   "depends_on": "eval:in_list(['LED Tape','COB Tape','LED Neon'], doc.product_type)",
+   "depends_on": "eval:in_list(['LED Tape','COB Tape','LED Neon'], doc.product_type) || doc.tape_neon_template",
    "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "tape_neon_template",
    "fieldtype": "Link",
@@ -259,7 +259,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.product_type=='LED Sheet'",
+   "depends_on": "eval:doc.product_type=='LED Sheet' || doc.led_sheet_template",
    "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "led_sheet_template",
    "fieldtype": "Link",
@@ -268,7 +268,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.product_type=='Extrusion Kit'",
+   "depends_on": "eval:doc.product_type=='Extrusion Kit' || doc.kit_template",
    "description": "Set from the template's Webflow Product field. Link or unlink on the template.",
    "fieldname": "kit_template",
    "fieldtype": "Link",
@@ -277,7 +277,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.product_type=='Accessory'",
+   "depends_on": "eval:in_list(['Accessory','Component'], doc.product_type) || doc.accessory_spec",
    "fieldname": "accessory_spec",
    "fieldtype": "Link",
    "label": "Accessory Spec",
@@ -659,7 +659,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-03 16:00:00.000000",
+ "modified": "2026-11-20 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

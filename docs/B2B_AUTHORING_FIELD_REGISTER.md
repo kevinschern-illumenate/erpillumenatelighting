@@ -21,6 +21,15 @@ Use **Actions → Engineering preflight** on the five template forms. Resolve th
 
 The JS projection and family mapping DocTypes are the executable field-level register. CMS optional fields are intentionally feature switches in that projection; enabling one requires confirming its actual Webflow field type. Do not enable them based on label similarity. Template mapping rows record the actual PDF form field name, source, transformation, required value, and any public override separately. Inspect a real sample PDF after changing mappings.
 
+## Duplicate as new product
+
+**Actions → Duplicate as new product** on `ilL-Webflow-Product` and the six family templates calls `api/product_clone.duplicate`. It needs a Catalog Publisher (or System Manager) with create permission. The copy is a draft: templates get `product_status` Draft and products are inactive. Afterwards the new record opens with its preflight. Kept media and documents link the same File; nothing is copied. A product copy never shares its family template, because a template points back at one product. Either give a new template code to copy the template as well, or link a template later. `tests/portal_unit/test_product_clone.py` keeps these lists in step with the code.
+
+| Record | Always cleared | Cleared unless "keep media" |
+|---|---|---|
+| Webflow Product | `product_name`, `product_slug`, `is_active`, `webflow_item_id`, `webflow_collection_slug`, `last_synced_at`, `sync_status`, `sync_error_message`, `sync_targets`, `compatible_products`, and every template link | `featured_image`, `dimensions_image`, `series_family_image`, `gallery_images`, `documents` |
+| Family template | `template_code`, `template_name`, `is_active`, `webflow_product` (`product_status` becomes Draft) | `hero_image`, `hero_image_alt`, `image`, `diagram_icon`, `photometric_image`, `tm30_chart_image`, `polar_chart_image`, `spec_sheet` |
+
 ## Imports and engineering setup
 
 Generate family imports with `python -m tools.fixture_builder` using the existing CLI. Sheet CSVs include CCT, required input protocol, full panel watts, optional explicit feed limit, driver eligibility and Required Value mapping columns. Linear/Tape/Neon mapping generators also retain cloned Required Value choices. The legacy Sheet PDF field named `jumper_cables_extra` now maps to the complete assembly quantity `jumper_cables_included`; relabel that form field in a new PDF master when convenient.

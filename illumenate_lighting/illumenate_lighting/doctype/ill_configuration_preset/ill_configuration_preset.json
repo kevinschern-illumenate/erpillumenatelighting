@@ -1,0 +1,116 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-11-10 00:00:00.000000",
+ "description": "A dealer's saved configurator selections (plan 3.6). Portal access goes through portal/presets.py only.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "label",
+  "user",
+  "customer",
+  "shared_with_company",
+  "column_break_main",
+  "family",
+  "template",
+  "contract_version",
+  "section_request",
+  "request_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Label",
+   "reqd": 1,
+   "in_list_view": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "search_index": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Customer",
+   "search_index": 1
+  },
+  {
+   "fieldname": "shared_with_company",
+   "fieldtype": "Check",
+   "label": "Shared With Company",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "family",
+   "fieldtype": "Select",
+   "label": "Product Family",
+   "options": "Linear Fixture\nLED Tape\nCOB Tape\nLED Neon\nLED Sheet\nExtrusion Kit\nDriver\nController",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Data",
+   "label": "Template"
+  },
+  {
+   "fieldname": "contract_version",
+   "fieldtype": "Int",
+   "label": "Contract Version",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_request",
+   "fieldtype": "Section Break",
+   "label": "Configuration"
+  },
+  {
+   "fieldname": "request_json",
+   "fieldtype": "Long Text",
+   "label": "Request JSON",
+   "reqd": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Configuration-Preset",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "label",
+ "track_changes": 0
+}

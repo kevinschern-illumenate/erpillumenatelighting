@@ -10,6 +10,7 @@ from datetime import timedelta
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api import media_manifest
 from illumenate_lighting.illumenate_lighting.catalog_authoring.catalog import (
 	_record_errors,
 	identity,
@@ -161,13 +162,14 @@ AUDIT = "ilL-Catalog-Import"
 
 
 @frappe.whitelist(methods=["POST"])
-def check(catalog=None):
-	return _run(catalog, "Check")
+def check(catalog=None, media=None, media_zip=None):
+	"""Dry run. ``media`` is an optional media manifest (plan 5.7); ``media_zip`` an uploaded ZIP."""
+	return _run(catalog, "Check", media=media, media_zip=media_zip)
 
 
 @frappe.whitelist(methods=["POST"])
-def import_catalog(catalog=None, expected_hash=None):
-	return _run(catalog, "Import", expected_hash)
+def import_catalog(catalog=None, expected_hash=None, media=None, media_zip=None):
+	return _run(catalog, "Import", expected_hash, media=media, media_zip=media_zip)
 
 
 @frappe.whitelist(methods=["GET"])
@@ -210,14 +212,19 @@ def catalog_hash(catalog):
 	return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def _run(catalog, mode, expected_hash=None):
+def _run(catalog, mode, expected_hash=None, media=None, media_zip=None):
 	# Authorization is the only intentional raised error. All runs after it return receipts.
 	require("catalog")
 	started = time.monotonic()
 	log = {"mode": mode, "user": frappe.session.user, "catalog_json": catalog, "record_count": 0}
+	if _has_media(media, media_zip):
+		# Media runs keep the manifest in the same receipt; catalog-only runs are unchanged.
+		log["media"] = {"rows": media, "zip": media_zip}
 	try:
 		try:
-			if isinstance(catalog, str):
+			if log.get("media") is not None and catalog in (None, "", {}):
+				response = _guarded(None, mode, expected_hash, log)
+			elif isinstance(catalog, str):
 				try:
 					catalog = json.loads(catalog)
 				except ValueError:
@@ -229,6 +236,7 @@ def _run(catalog, mode, expected_hash=None):
 				response = _guarded(catalog, mode, expected_hash, log)
 		except Exception:
 			frappe.db.rollback()
+			media_manifest.remove_new_files(log.get("new_files"))
 			log["error_detail"] = frappe.get_traceback()
 			response = _response(
 				log,
@@ -238,6 +246,9 @@ def _run(catalog, mode, expected_hash=None):
 			)
 		finally:
 			frappe.local.message_log = []
+			if log.get("zip_source") is not None:
+				with suppress(Exception):
+					log["zip_source"].close()
 
 		response["summary"]["duration_ms"] = int((time.monotonic() - started) * 1000)
 		try:
@@ -266,8 +277,18 @@ def _run(catalog, mode, expected_hash=None):
 				frappe.db.sql("select release_lock(%s)", _lock_name())
 
 
+def _has_media(media, media_zip):
+	return media not in (None, "", [], "[]") or bool(media_zip)
+
+
 def _guarded(catalog, mode, expected_hash, log):
 	log["stage"] = "shape"
+	if log.get("media") is not None:
+		refused = _media_shape(log)
+		if refused:
+			return refused
+		if catalog is None:
+			return _guarded_media_only(mode, expected_hash, log)
 	if not isinstance(catalog, dict) or not isinstance(catalog.get("records"), dict):
 		return _response(
 			log, "Refused", "shape", errors=["records must map DocType names to lists of records"]
@@ -289,10 +310,56 @@ def _guarded(catalog, mode, expected_hash, log):
 	):
 		return _response(log, "Refused", "shape", errors=["product_type and series_name must be text"])
 	log.update(
-		catalog_hash=catalog_hash(catalog),
+		catalog_hash=_run_hash(catalog, log),
 		product_type=catalog.get("product_type"),
 		series_name=catalog.get("series_name"),
 	)
+	refused = _gate_and_lock(mode, expected_hash, log)
+	if refused:
+		return refused
+	log["stage"] = "validate"
+	schema = cached_schema()
+	try:
+		reference = _existence_map(catalog, schema)
+		missing = [
+			f"Declared existing record not found in ERPNext: {doctype} {name}"
+			for doctype, names in catalog.get("external_links", {}).items()
+			for name in names
+			if name not in reference.get(doctype, ())
+		]
+		if missing:
+			return _response(log, "Failed", "validate", errors=missing)
+		_records, batches, external = prepare_catalog(catalog, schema, reference)
+	except ValueError as error:
+		return _response(log, "Failed", "validate", errors=str(error).splitlines())
+
+	log["stage"] = "permissions"
+	errors = [
+		f"You cannot create {doctype}"
+		for doctype in dict(batches)
+		if not frappe.has_permission(doctype, "create")
+	]
+	if errors:
+		return _response(log, "Failed", "permissions", errors=errors, external=external)
+
+	log["stage"] = "insert"
+	results = _insert_batches(batches, schema, mode)
+	failed = any(row["status"] in {"error", "skipped"} for row in results)
+	if log.get("media") is not None and not failed:
+		# The manifest may name products created by this catalog, so it runs in the same transaction.
+		return _media_stage(mode, log, results=results, external=external)
+	if mode == "Check" or failed:
+		frappe.db.rollback()
+		status = ("Failed" if failed else "Passed") if mode == "Check" else "Rolled Back"
+	else:
+		# commit the complete import before its audit receipt.
+		frappe.db.commit()  # nosemgrep
+		status = "Imported"
+	return _response(log, status, "insert", results=results, external=external)
+
+
+def _gate_and_lock(mode, expected_hash, log):
+	"""Import needs a recent passing Check of the same payload; every run holds the site lock."""
 	if mode == "Import":
 		log["stage"] = "gate"
 		passing = []
@@ -322,42 +389,76 @@ def _guarded(catalog, mode, expected_hash, log):
 			log, "Refused", "lock", errors=["Another catalog check or import is running; try again shortly"]
 		)
 	log["locked"] = True
-	log["stage"] = "validate"
-	schema = cached_schema()
+	return None
+
+
+def _run_hash(catalog, log):
+	if log.get("media") is None:
+		return catalog_hash(catalog)
+	return catalog_hash({"catalog": catalog, "media": log["media_hash"]})
+
+
+def _media_shape(log):
+	"""Parse the media manifest and identify its ZIP before any lock or write (plan 5.7)."""
 	try:
-		reference = _existence_map(catalog, schema)
-		missing = [
-			f"Declared existing record not found in ERPNext: {doctype} {name}"
-			for doctype, names in catalog.get("external_links", {}).items()
-			for name in names
-			if name not in reference.get(doctype, ())
-		]
-		if missing:
-			return _response(log, "Failed", "validate", errors=missing)
-		_records, batches, external = prepare_catalog(catalog, schema, reference)
-	except ValueError as error:
-		return _response(log, "Failed", "validate", errors=str(error).splitlines())
+		rows = media_manifest.parse_manifest(log["media"]["rows"])
+		reference = log["media"]["zip"]
+		if reference is not None and not isinstance(reference, str):
+			raise media_manifest.ManifestError("media_zip must be the URL or name of an uploaded ZIP file")
+		zip_source = media_manifest.ZipSource(reference) if reference else None
+		identity_ = zip_source.identity() if zip_source else None
+	except media_manifest.ManifestError as error:
+		return _response(log, "Refused", "shape", errors=[str(error)])
+	if not rows:
+		return _response(log, "Refused", "shape", errors=["The media manifest has no rows"])
+	log["media"]["rows"] = rows
+	log.update(media_rows=rows, zip_source=zip_source, media_hash=media_manifest.manifest_hash(rows, identity_))
+	return None
 
-	log["stage"] = "permissions"
-	errors = [
-		f"You cannot create {doctype}"
-		for doctype in dict(batches)
-		if not frappe.has_permission(doctype, "create")
-	]
-	if errors:
-		return _response(log, "Failed", "permissions", errors=errors, external=external)
 
-	log["stage"] = "insert"
-	results = _insert_batches(batches, schema, mode)
-	failed = any(row["status"] in {"error", "skipped"} for row in results)
+def _guarded_media_only(mode, expected_hash, log):
+	"""A manifest for existing products, without catalog records."""
+	log.update(catalog_hash=_run_hash(None, log), product_type="", series_name="")
+	refused = _gate_and_lock(mode, expected_hash, log)
+	if refused:
+		return refused
+	return _media_stage(mode, log)
+
+
+def _media_stage(mode, log, results=(), external=()):
+	"""Dry-run every manifest row; on Import attach the files, then commit records and media together."""
+	log["stage"] = "media"
+	failed_status = "Failed" if mode == "Check" else "Rolled Back"
+	try:
+		media = media_manifest.plan(log["media_rows"], log.get("zip_source"))
+	except media_manifest.ManifestError as error:
+		frappe.db.rollback()
+		return _response(log, failed_status, "media", errors=[str(error)], results=results, external=external)
+	failed = any(row["status"] == "error" for row in media)
 	if mode == "Check" or failed:
 		frappe.db.rollback()
-		status = ("Failed" if failed else "Passed") if mode == "Check" else "Rolled Back"
-	else:
-		# commit the complete import before its audit receipt.
-		frappe.db.commit()  # nosemgrep
-		status = "Imported"
-	return _response(log, status, "insert", results=results, external=external)
+		return _response(
+			log, failed_status if failed else "Passed", "media", results=results, external=external, media=media
+		)
+	log["new_files"] = []
+	frappe.local.message_log = []
+	try:
+		media_manifest.apply(media, log["new_files"])
+	except Exception as error:
+		frappe.db.rollback()
+		media_manifest.remove_new_files(log["new_files"])
+		return _response(
+			log,
+			"Rolled Back",
+			"media",
+			errors=[f"Attaching media failed, so nothing was saved: {_error_text(error)}"],
+			results=results,
+			external=external,
+			media=media,
+		)
+	# commit the catalog records and media before the audit receipt.
+	frappe.db.commit()  # nosemgrep
+	return _response(log, "Imported", "media", results=results, external=external, media=media)
 
 
 def _lock_name():
@@ -475,9 +576,9 @@ def _error_text(error):
 	return text[:1000]
 
 
-def _response(log, status, stage, *, errors=(), results=(), external=()):
+def _response(log, status, stage, *, errors=(), results=(), external=(), media=()):
 	results, errors = list(results), list(errors)
-	return {
+	response = {
 		"ok": status in {"Passed", "Imported"},
 		"mode": log["mode"],
 		"status": status,
@@ -497,10 +598,20 @@ def _response(log, status, stage, *, errors=(), results=(), external=()):
 			"duration_ms": 0,
 		},
 	}
+	if log.get("media") is not None:
+		# Additive keys, present only when the run carried a media manifest (plan 5.7).
+		media = list(media)
+		response["media"] = [media_manifest.public_result(row) for row in media]
+		response["summary"].update(media_manifest.summary(media))
+		response["summary"]["errors"] += response["summary"]["media_errors"]
+	return response
 
 
 def _write_log(log, response):
-	payload = json.dumps(log["catalog_json"], indent=1, ensure_ascii=False, default=str)
+	source = log["catalog_json"]
+	if log.get("media") is not None:
+		source = {"catalog": source, "media": log["media"]}
+	payload = json.dumps(source, indent=1, ensure_ascii=False, default=str)
 	if response["stage"] == "shape" and response["status"] == "Refused":
 		payload = payload.encode("utf-8")[: 100 * 1024].decode("utf-8", errors="ignore")
 	summary = response["summary"]
@@ -515,12 +626,18 @@ def _write_log(log, response):
 			"catalog_hash": log.get("catalog_hash"),
 			"check_log": log.get("check_log"),
 			"catalog_json": payload,
-			"results_json": json.dumps(response["results"], indent=1, ensure_ascii=False),
+			"results_json": json.dumps(
+				{"records": response["results"], "media": response["media"]}
+				if "media" in response
+				else response["results"],
+				indent=1,
+				ensure_ascii=False,
+			),
 			"error_detail": log.get("error_detail"),
 			"record_count": summary["records"],
 			"created_count": summary["created"],
 			"error_count": summary["errors"],
-			"skipped_count": summary["skipped"],
+			"skipped_count": summary["skipped"] + summary.get("media_skipped", 0),
 			"warning_count": summary["warnings"],
 			"duration_ms": summary["duration_ms"],
 		}

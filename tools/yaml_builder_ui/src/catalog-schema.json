@@ -2931,7 +2931,8 @@
           "label": "Sync Status",
           "fieldtype": "Select",
           "options": "Never Synced\nPending\nSynced\nError",
-          "default": "Never Synced"
+          "default": "Never Synced",
+          "read_only": 1
         },
         {
           "fieldname": "webflow_item_id",
@@ -3280,6 +3281,12 @@
           "fieldtype": "Attach Image"
         },
         {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
+        },
+        {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
           "fieldtype": "Attach Image"
@@ -3569,6 +3576,12 @@
           "fieldtype": "Attach Image"
         },
         {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
+        },
+        {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
           "fieldtype": "Attach Image"
@@ -3811,6 +3824,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "dimensions_image",
@@ -4133,6 +4152,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "dimensions_image",
@@ -4611,6 +4636,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "dimensions_image",
@@ -7383,6 +7414,12 @@
           "fieldtype": "Attach Image"
         },
         {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
+        },
+        {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
           "fieldtype": "Attach Image"
@@ -7687,7 +7724,8 @@
           "fieldname": "tape_spec",
           "label": "LED Tape Spec (Deprecated)",
           "fieldtype": "Link",
-          "options": "ilL-Spec-LED Tape"
+          "options": "ilL-Spec-LED Tape",
+          "read_only": 1
         },
         {
           "fieldname": "tape_neon_template",
