@@ -29,7 +29,7 @@ app_license = "mit"
 # `bench build` into content-hashed files so browsers never serve a stale copy
 # (plain /assets paths are cached for a year with `immutable`).
 app_include_css = ["illumenate_desk.bundle.css"]
-# shared_configurator + fixture_steps + tape_neon_steps + desk/desk_dialog
+# shared_configurator + fixture_steps + tape_neon_steps + desk/dialog/*
 # ("Configure & Add Fixture" dialog for Quotation / Sales Order).
 app_include_js = ["illumenate_desk.bundle.js"]
 
@@ -65,6 +65,7 @@ doctype_list_js = {"Item": "public/js/item_list.js"}
 for _name in (
     "ilL-Project", "ilL-Project-Fixture-Schedule", "ilL-Quote-Request", "ilL-Quote-Offer",
     "ilL-Order-Intake", "ilL-Document-Request", "Issue", "Sales Order",
+    "ilL-Order-Change", "ilL-Drawing-Review", "ilL-Portal-Message", "ilL-Account-Request", "ilL-Portal-Invitation",
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
@@ -199,8 +200,11 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags"],
 }
+
+# One route contract for Desk scripts (hardening plan 7.1).
+extend_bootinfo = ["illumenate_lighting.illumenate_lighting.portal.routes.extend_bootinfo"]
 
 # Installation
 # ------------
@@ -519,7 +523,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
 
 # Testing
 # -------

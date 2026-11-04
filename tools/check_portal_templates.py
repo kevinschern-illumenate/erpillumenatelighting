@@ -23,6 +23,9 @@ from jinja2 import (
 )
 from markupsafe import Markup
 
+_routes = {}
+exec((ROOT / "illumenate_lighting/illumenate_lighting/portal/routes.py").read_text(encoding="utf-8"), _routes)
+
 # Read the allow-list from source: status.py imports frappe, which the checker does not load.
 BADGE_TONES = frozenset(
 	re.findall(
@@ -58,6 +61,8 @@ environment.globals.update(
 		"ill_finder_enabled": lambda: True,
 		"ill_portal_client_flags": lambda: {"upload_widget": True, "upload_purpose": True, "gallery": True},
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
+		"ill_portal_routes": lambda: dict(_routes["PORTAL_ROUTES"]),
+		"ill_desk_link": lambda path: _routes["desk_path"](*_routes["record_for_path"](path)) if _routes["record_for_path"](path) else "",
 		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
 		"ill_unread_notifications": lambda: 12,
 		"ill_notification_center_enabled": lambda: True,
@@ -1279,7 +1284,7 @@ with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools")
 for source in parser.json_sources:
 	json.loads(source)
 print(
-	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts"
+	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts and {len(parser.json_sources)} JSON blocks"
 )
 
 class PrintDoc(SimpleNamespace):

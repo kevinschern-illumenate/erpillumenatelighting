@@ -1,5 +1,6 @@
 // Desk (app_include_js) bundle — esbuild emits a content-hashed filename so
 // browsers pick up new code on every deploy instead of a year-long cached copy.
+import "./portal_routes.js";
 import "./configurator/shared_configurator.js";
 import "./configurator/build_preview.js";
 import "./configurator/fixture_group_editor.js";
@@ -10,6 +11,10 @@ import "./configurator/coordinator.js";
 import "./configurator/driver_controller_steps.js";
 import "./configurator/kit_steps.js";
 import "./configurator/driver_steps.js";
-import "./desk/desk_dialog.js";
+import "./desk/dialog/state.js";
+import "./desk/dialog/family_steps.js";
+import "./desk/dialog/pricing.js";
+import "./desk/dialog/save.js";
+import "./desk/staff_inbox.js";
 
 import "./commercial_tasks.js";

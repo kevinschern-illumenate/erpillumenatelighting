@@ -12,60 +12,8 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 
 		_show_open_offer_warning(frm);
 
-		// Add "Create User" button for dealers in the collaborators section
-		if (!frm.is_new()) {
-			frappe.call({
-				method: "illumenate_lighting.illumenate_lighting.api.portal.get_user_role_info",
-				async: true,
-				callback: function (r) {
-					if (r.message && (r.message.is_dealer || r.message.is_internal)) {
-						frm.add_custom_button(
-							__("Create Website User"),
-							function () {
-								_show_create_user_dialog(frm);
-							},
-							__("Collaborators")
-						);
-					}
-				},
-			});
-		}
-
-		// Add "Convert to Sales Order" button for schedules in READY / QUOTED status
-		// Per workflow: user sets status to READY then clicks to convert
-		if (!frm.is_new() && ["READY", "QUOTED"].includes(frm.doc.status)) {
-			frm.add_custom_button(
-				__("Convert to Sales Order"),
-				function () {
-					frappe.confirm(
-						__(
-							"This will create Items and BOMs for configured fixtures (if needed) " +
-								"and generate a Sales Order. Continue?"
-						),
-						function () {
-							frm.call({
-								method: "create_sales_order",
-								doc: frm.doc,
-								freeze: true,
-								freeze_message: __(
-									"Creating Items, BOMs, and Sales Order..."
-								),
-								callback: function (r) {
-									if (r.message) {
-										frappe.set_route(
-											"Form",
-											"Sales Order",
-											r.message
-										);
-									}
-								},
-							});
-						}
-					);
-				},
-				__("Actions")
-			);
-		}
+		_ill_schedule_collaborator_buttons(frm);
+		_ill_schedule_conversion_buttons(frm);
 
 		// Show warning if there are unconfigured ILLUMENATE lines
 		frm.trigger("check_unconfigured_lines");
@@ -73,8 +21,10 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 
 	validate(frm) {
 		// Prevent setting status to READY if there are unconfigured lines
+		// Early warning only: the server re-checks on save (ill_project_fixture_schedule.py).
+		// frm.trigger() returns a Promise, so the helper is called directly.
 		if (frm.doc.status === "READY") {
-			const unconfigured = frm.trigger("get_unconfigured_lines");
+			const unconfigured = _ill_schedule_unconfigured_lines(frm);
 			if (unconfigured && unconfigured.length > 0) {
 				frappe.validated = false;
 				frappe.msgprint({
@@ -83,7 +33,7 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 					message: __(
 						"The following lines are not fully configured: {0}. " +
 							"Please configure all ilLumenate fixtures before setting status to Ready.",
-						[unconfigured.join(", ")]
+						[_ill_schedule_escape_list(unconfigured)]
 					),
 				});
 			}
@@ -91,12 +41,12 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 	},
 
 	check_unconfigured_lines(frm) {
-		const unconfigured = frm.trigger("get_unconfigured_lines");
+		const unconfigured = _ill_schedule_unconfigured_lines(frm);
 		if (unconfigured && unconfigured.length > 0) {
 			frm.dashboard.add_comment(
 				__(
 					"<strong>Note:</strong> {0} line(s) have pending fixture configuration: {1}",
-					[unconfigured.length, unconfigured.join(", ")]
+					[unconfigured.length, _ill_schedule_escape_list(unconfigured)]
 				),
 				"yellow",
 				true
@@ -105,27 +55,94 @@ frappe.ui.form.on("ilL-Project-Fixture-Schedule", {
 	},
 
 	get_unconfigured_lines(frm) {
-		const unconfigured = [];
-		if (frm.doc.lines) {
-			frm.doc.lines.forEach((line) => {
-				if (
-					line.manufacturer_type === "ILLUMENATE" &&
-					!line.configured_fixture &&
-					!(line.product_type === "Extrusion Kit" && line.variant_selections) &&
-					!(line.product_type === "LED Tape" && line.variant_selections) &&
-					!(line.product_type === "COB Tape" && line.variant_selections) &&
-					!(line.product_type === "LED Neon" && line.variant_selections) &&
-					!(line.product_type === "LED Sheet" && line.configured_led_sheet)
-				) {
-					unconfigured.push(
-						line.line_id || __("Row {0}", [line.idx])
-					);
-				}
-			});
-		}
-		return unconfigured;
+		return _ill_schedule_unconfigured_lines(frm);
 	},
 });
+
+// Plan 7.6: form helpers kept out of the refresh handler.
+function _ill_schedule_collaborator_buttons(frm) {
+	// Add "Create User" button for dealers in the collaborators section
+	if (!frm.is_new()) {
+		frappe.call({
+			method: "illumenate_lighting.illumenate_lighting.api.portal.get_user_role_info",
+			async: true,
+			callback: function (r) {
+				if (r.message && (r.message.is_dealer || r.message.is_internal)) {
+					frm.add_custom_button(
+						__("Create Website User"),
+						function () {
+							_show_create_user_dialog(frm);
+						},
+						__("Collaborators")
+					);
+				}
+			},
+		});
+	}
+}
+
+function _ill_schedule_conversion_buttons(frm) {
+	// Add "Convert to Sales Order" button for schedules in READY / QUOTED status
+	// Per workflow: user sets status to READY then clicks to convert
+	if (!frm.is_new() && ["READY", "QUOTED"].includes(frm.doc.status)) {
+		frm.add_custom_button(
+			__("Convert to Sales Order"),
+			function () {
+				frappe.confirm(
+					__(
+						"This will create Items and BOMs for configured fixtures (if needed) " +
+							"and generate a Sales Order. Continue?"
+					),
+					function () {
+						frm.call({
+							method: "create_sales_order",
+							doc: frm.doc,
+							freeze: true,
+							freeze_message: __(
+								"Creating Items, BOMs, and Sales Order..."
+							),
+							callback: function (r) {
+								if (r.message) {
+									frappe.set_route(
+										"Form",
+										"Sales Order",
+										r.message
+									);
+								}
+							},
+						});
+					}
+				);
+			},
+			__("Actions")
+		);
+	}
+}
+
+// Product types configured without an ilL-Configured-Fixture, and the field that proves it.
+const ILL_SCHEDULE_CONFIGURED_BY = {
+	"Extrusion Kit": "variant_selections",
+	"LED Tape": "variant_selections",
+	"COB Tape": "variant_selections",
+	"LED Neon": "variant_selections",
+	"LED Sheet": "configured_led_sheet",
+};
+
+function _ill_schedule_line_configured(line) {
+	if (line.manufacturer_type !== "ILLUMENATE" || line.configured_fixture) return true;
+	const field = ILL_SCHEDULE_CONFIGURED_BY[line.product_type];
+	return Boolean(field && line[field]);
+}
+
+function _ill_schedule_unconfigured_lines(frm) {
+	return (frm.doc.lines || [])
+		.filter((line) => !_ill_schedule_line_configured(line))
+		.map((line) => line.line_id || __("Row {0}", [line.idx]));
+}
+
+function _ill_schedule_escape_list(labels) {
+	return labels.map((label) => frappe.utils.escape_html(String(label))).join(", ");
+}
 
 // Child table events for ilL-Child-Fixture-Schedule-Line
 frappe.ui.form.on("ilL-Child-Fixture-Schedule-Line", {

@@ -11,7 +11,7 @@ const js = name => fs.readFileSync(path.join(__dirname, '../../illumenate_lighti
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const translate = (value, args) => String(value).replace(/\{(\d)\}/g, (_, i) => args[i]);
 
-function desk(script) {
+function desk(script, extra = {}) {
   const forms = {};
   const context = {
     __: translate,
@@ -19,16 +19,23 @@ function desk(script) {
     frappe: {
       ui: { form: { on: (doctype, handlers) => { (forms[doctype] = forms[doctype] || []).push(handlers); } } },
       listview_settings: {},
+      ...extra,
     },
   };
   context.window = context;
+  if (script === 'desk_portal_links.js') vm.runInNewContext(js('portal_routes.js'), context);
   vm.runInNewContext(js(script), context);
   return { forms, context };
 }
 
 function form(doctype, doc) {
   const buttons = [];
-  return { doctype, doc: { name: 'X-1', ...doc }, is_new: () => false, add_custom_button: (label, action) => buttons.push({ label, action }), buttons };
+  const add_custom_button = (label, action) => {
+    const button = { label, action, attrs: {} };
+    buttons.push(button);
+    return { attr(values) { Object.assign(button.attrs, values); return this; }, css() { return this; } };
+  };
+  return { doctype, doc: { name: 'X-1', ...doc }, is_new: () => false, add_custom_button, buttons };
 }
 
 test('staff see how many customer messages are unanswered', async () => {
@@ -53,8 +60,15 @@ test('portal-originated records open their portal page; others get no button', (
     ['ilL-Order-Intake', { name: 'OI-1', sales_order: 'SO-1' }, '/portal/orders/SO-1'],
     ['Issue', { name: 'ISS-1', ill_portal_request_key: 'k' }, '/portal/support/ISS-1'],
     ['Issue', { name: 'ISS-2' }, null],
-    ['Sales Order', { name: 'SO-2' }, null],
     ['Sales Order', { name: 'SO-3', ill_fixture_schedule: 'S-1' }, '/portal/orders/SO-3'],
+    ['ilL-Order-Change', { name: 'OC-1', sales_order: 'SO 4' }, '/portal/orders/SO%204'],
+    ['ilL-Drawing-Review', { name: 'DRV-1', request: 'DR-1' }, '/portal/drawings/DR-1'],
+    ['ilL-Drawing-Review', { name: 'DRV-2' }, null],
+    ['ilL-Account-Request', { name: 'AR-1' }, '/portal/account'],
+    ['ilL-Portal-Invitation', { name: 'INV-1', project: 'P-1' }, '/portal/projects/P-1/collaborators'],
+    ['ilL-Portal-Invitation', { name: 'INV-2' }, '/portal/account'],
+    ['ilL-Portal-Message', { name: 'M-1', reference_type: 'Issue', reference_name: 'ISS-1' }, '/portal/support/ISS-1'],
+    ['ilL-Portal-Message', { name: 'M-2', reference_type: 'ilL-Document-Request', reference_name: 'DR/2' }, '/portal/drawings/DR%2F2'],
   ];
   for (const [doctype, doc, expected] of cases) {
     const frm = form(doctype, doc);
@@ -67,6 +81,49 @@ test('portal-originated records open their portal page; others get no button', (
       assert.deepEqual(opened[0], [expected, '_blank', 'noopener']);
     }
   }
+});
+
+test('records the dealer cannot open yet get a dimmed button that explains why', () => {
+  const messages = [];
+  const { forms } = desk('desk_portal_links.js', { msgprint: text => messages.push(text) });
+  for (const [doctype, doc] of [['Sales Order', { name: 'SO-2' }], ['ilL-Order-Change', { name: 'OC-2' }]]) {
+    const frm = form(doctype, doc);
+    forms[doctype].forEach(handlers => handlers.refresh(frm));
+    assert.equal(frm.buttons.length, 1, doctype);
+    assert.equal(frm.buttons[0].attrs['aria-disabled'], 'true');
+    assert.ok(frm.buttons[0].attrs.title.length > 10);
+    frm.buttons[0].action();
+    assert.equal(messages.at(-1), frm.buttons[0].attrs.title);
+  }
+});
+
+test('portal messages on order threads look up the Sales Order', async () => {
+  const lookups = [];
+  const get_value = (doctype, name, field) => {
+    lookups.push([doctype, name, field]);
+    return Promise.resolve({ message: { sales_order: name === 'OI-1' ? 'SO-9' : null } });
+  };
+  const { forms, context } = desk('desk_portal_links.js', { db: { get_value } });
+  const linked = form('ilL-Portal-Message', { name: 'M-3', reference_type: 'ilL-Order-Intake', reference_name: 'OI-1' });
+  const unlinked = form('ilL-Portal-Message', { name: 'M-4', reference_type: 'ilL-Order-Change', reference_name: 'OC-3' });
+  forms['ilL-Portal-Message'].forEach(handlers => { handlers.refresh(linked); handlers.refresh(unlinked); });
+  await tick();
+  assert.deepEqual(JSON.parse(JSON.stringify(lookups)), [['ilL-Order-Intake', 'OI-1', 'sales_order'], ['ilL-Order-Change', 'OC-3', 'sales_order']]);
+  const opened = [];
+  context.open = (...args) => opened.push(args);
+  linked.buttons[0].action();
+  assert.deepEqual(opened[0], ['/portal/orders/SO-9', '_blank', 'noopener']);
+  assert.equal(unlinked.buttons[0].attrs['aria-disabled'], 'true');
+});
+
+test('Desk reads portal addresses from the boot route contract', () => {
+  const { forms, context } = desk('desk_portal_links.js', { boot: { ill_portal_routes: { project: '/portal/p/{name}' } } });
+  const frm = form('ilL-Project', { name: 'P-1' });
+  forms['ilL-Project'].forEach(handlers => handlers.refresh(frm));
+  const opened = [];
+  context.open = (...args) => opened.push(args);
+  frm.buttons[0].action();
+  assert.equal(opened[0][0], '/portal/p/P-1');
 });
 
 test('list indicators say who the next step waits on', () => {

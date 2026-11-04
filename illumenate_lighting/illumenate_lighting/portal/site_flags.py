@@ -30,6 +30,16 @@ def fixture_groups_enabled():
 	return conf_flag("ill_portal_fixture_groups", default=True)
 
 
+def desk_links_enabled():
+	"""Staff "Open in Desk" links on portal record pages (plan 7.2). On unless set false."""
+	return conf_flag("ill_portal_desk_links", default=True)
+
+
+def overdue_digest_enabled():
+	"""Daily overdue-work digest bell for staff (plan 7.4). On unless set false."""
+	return conf_flag("ill_portal_overdue_digest", default=True)
+
+
 def heic_uploads_enabled():
 	"""Dealer HEIC/HEIF photo uploads, converted to JPEG. On unless a site sets the flag false."""
 	return conf_flag("ill_portal_heic_uploads", default=True)
