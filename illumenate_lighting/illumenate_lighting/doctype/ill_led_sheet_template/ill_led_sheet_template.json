@@ -45,6 +45,7 @@
   "warranty_years",
   "product_data_column",
   "hero_image",
+  "hero_image_alt",
   "dimensions_image",
   "spec_sheet_public_url",
   "l70_life_hours",
@@ -299,6 +300,12 @@
    "label": "Hero Image"
   },
   {
+   "fieldname": "hero_image_alt",
+   "fieldtype": "Data",
+   "label": "Hero Image Alt Text",
+   "description": "Describe the main product image for screen readers and search engines."
+  },
+  {
    "fieldname": "dimensions_image",
    "fieldtype": "Attach Image",
    "label": "Dimensions Image"
@@ -432,7 +439,7 @@
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-11-02 21:49:08.000000",
+ "modified": "2026-11-04 05:38:27.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-LED-Sheet-Template",

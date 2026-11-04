@@ -47,6 +47,7 @@ def load_service(relative, extras=None):
 	frappe.local = types.SimpleNamespace()
 	frappe.conf = Record()
 	frappe.get_all = MagicMock()
+	frappe.get_meta = MagicMock()
 	frappe.get_doc = MagicMock()
 	frappe.get_roles = MagicMock(return_value=["Dealer"])
 	frappe.flags = Record()
