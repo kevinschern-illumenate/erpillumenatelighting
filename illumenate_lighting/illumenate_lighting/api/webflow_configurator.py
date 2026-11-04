@@ -19,6 +19,7 @@ from frappe import _
 from frappe.rate_limiter import rate_limit
 from frappe.utils import add_to_date, cint, now_datetime
 
+from illumenate_lighting.illumenate_lighting.api.guest_payload import load_guest_json
 from illumenate_lighting.illumenate_lighting.api.item_availability import allowed_tape_offering_rows
 from illumenate_lighting.illumenate_lighting.portal.product_downloads import isolated_download
 
@@ -53,6 +54,7 @@ STANDARD_LEADER_LENGTHS_FT = [2, 4, 6, 8, 10, 15, 20, 25, 30]
 # =============================================================================
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_configurator_init(product_slug: str) -> dict:
     """
     Initialize configurator for a product.
@@ -212,6 +214,7 @@ def get_configurator_init_by_template(template_code: str) -> dict:
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_cascading_options(
     product_slug: str,
     step_name: str,
@@ -238,7 +241,7 @@ def get_cascading_options(
         dict: Updated options for dependent steps
     """
     try:
-        selections_dict = json.loads(selections) if isinstance(selections, str) else selections
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
     
@@ -305,6 +308,7 @@ def get_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def validate_configuration(
     product_slug: str,
     selections: str,
@@ -323,7 +327,7 @@ def validate_configuration(
         dict: Validation result with part number or errors
     """
     try:
-        selections_dict = json.loads(selections) if isinstance(selections, str) else selections
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
 
@@ -438,6 +442,7 @@ def validate_configuration(
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_part_number_preview(
     product_slug: str,
     selections: str
@@ -448,7 +453,7 @@ def get_part_number_preview(
     Returns partial part number with 'xx' for unselected options.
     """
     try:
-        selections_dict = json.loads(selections) if isinstance(selections, str) else selections
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         return {"success": False, "error": "Invalid selections JSON"}
     
@@ -470,6 +475,7 @@ def get_part_number_preview(
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
+@rate_limit(limit=30, seconds=60)
 def create_complex_fixture_session(
     product_slug: str,
     selections: str,
@@ -493,7 +499,7 @@ def create_complex_fixture_session(
         dict: Session info with redirect URL
     """
     try:
-        selections_dict = json.loads(selections) if isinstance(selections, str) else selections
+        selections_dict = load_guest_json(selections, object_only=True)
     except json.JSONDecodeError:
         selections_dict = {}
     
@@ -556,7 +562,7 @@ def download_spec_sheet(
         dict: {success, file_url, filename, part_number} or {success, error}
     """
     try:
-        selections_dict = json.loads(selections) if isinstance(selections, str) else selections
+        selections_dict = load_guest_json(selections, object_only=True)
     except (json.JSONDecodeError, TypeError):
         return {"success": False, "error": "Invalid selections JSON"}
 
@@ -624,6 +630,7 @@ def download_spec_sheet(
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=120, seconds=60)
 def get_session(session_id: str) -> dict:
     """
     Get session data by session ID.
@@ -2096,6 +2103,7 @@ def _get_stock_for_selections(template, selections_dict: dict, tape_offering_id:
 # =============================================================================
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_tape_neon_mounting_options(
     product_slug: str,
     selections: str,
@@ -2113,7 +2121,7 @@ def get_tape_neon_mounting_options(
         dict: ``{success, accessories: [...], can_skip: True}``
     """
     try:
-        sel = json.loads(selections) if isinstance(selections, str) else selections
+        sel = load_guest_json(selections, object_only=True)
     except (json.JSONDecodeError, TypeError):
         return {"success": False, "error": "Invalid selections JSON"}
 
@@ -2155,10 +2163,12 @@ def get_tape_neon_mounting_options(
         length_mm=length_mm,
         environment_rating=environment_rating,
         segments=segments,
+        runs_count=(sel.get("computed") or {}).get("runs_count"),
     )
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def get_sheet_configurator_data(webflow_product_slug: str) -> dict:
     from illumenate_lighting.illumenate_lighting.api.public_sheet import data
 

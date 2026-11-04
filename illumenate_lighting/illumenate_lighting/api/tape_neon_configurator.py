@@ -36,6 +36,7 @@ from typing import Any, Optional
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 from frappe.utils import flt, now
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
@@ -56,6 +57,7 @@ from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     mm_to_inches,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal.errors import failure
 from illumenate_lighting.illumenate_lighting.portal_listing import template_scoped
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -891,11 +893,17 @@ def validate_tape_configuration(
             return_result["configured_tape_neon"] = configured_name
             _register_tape_neon_handoff(configured_name)
         except Exception as e:
-            return_result.update({"success": False, "is_valid": False, "error": str(e)})
+            failed = failure(
+                e,
+                "configured_record_failed",
+                title="Tape configured record failed",
+                context={"tape_neon_template": tape_neon_template, "part_number": return_result.get("part_number")},
+            )
+            return_result.update({"success": False, "is_valid": False, "error": failed["error"], "error_code": failed["error_code"]})
             return_result["configured_tape_neon"] = None
             return_result.setdefault("messages", []).append({
                 "severity": "error",
-                "text": f"Could not create configured record: {str(e)}",
+                "text": f"Could not create configured record: {failed['error']}",
             })
 
     return return_result
@@ -1415,11 +1423,17 @@ def validate_neon_configuration(
             return_result["configured_tape_neon"] = configured_name
             _register_tape_neon_handoff(configured_name)
         except Exception as e:
-            return_result.update({"success": False, "is_valid": False, "error": str(e)})
+            failed = failure(
+                e,
+                "configured_record_failed",
+                title="Neon configured record failed",
+                context={"tape_neon_template": tape_neon_template, "part_number": return_result.get("part_number")},
+            )
+            return_result.update({"success": False, "is_valid": False, "error": failed["error"], "error_code": failed["error_code"]})
             return_result["configured_tape_neon"] = None
             return_result.setdefault("messages", []).append({
                 "severity": "error",
-                "text": f"Could not create configured record: {str(e)}",
+                "text": f"Could not create configured record: {failed['error']}",
             })
 
     return return_result
@@ -1583,7 +1597,13 @@ def save_tape_to_schedule(
             "line_idx": line.idx - 1 if hasattr(line, "idx") else len(schedule.lines) - 1,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return failure(
+            e,
+            "schedule_save_failed",
+            title="Tape/neon save to schedule failed",
+            context={"schedule": schedule_name, "line_idx": line_idx},
+            rollback=True,
+        )
 
 
 def create_tape_neon_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) -> dict:
@@ -2333,7 +2353,13 @@ def validate_tape_neon_template_config(
         result["configured_tape_neon"] = configured_name
         _register_tape_neon_handoff(configured_name)
     except Exception as e:
-        result.update({"success": False, "is_valid": False, "error": str(e)})
+        failed = failure(
+            e,
+            "configured_record_failed",
+            title="Tape/neon template configured record failed",
+            context={"template": template.name, "part_number": result.get("part_number")},
+        )
+        result.update({"success": False, "is_valid": False, "error": failed["error"], "error_code": failed["error_code"]})
         result["configured_tape_neon"] = None
         # Truncate message_log back to pre-call length to remove any
         # entries added by frappe.throw() before the mute flag took effect.
@@ -2347,7 +2373,7 @@ def validate_tape_neon_template_config(
         )
         result.setdefault("messages", []).append({
             "severity": "error",
-            "text": f"Could not create configured record: {str(e)}",
+            "text": f"Could not create configured record: {failed['error']}",
         })
 
     return result
@@ -2452,7 +2478,13 @@ def save_tape_neon_template_to_schedule(
             "configured_tape_neon": configured_name,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return failure(
+            e,
+            "schedule_save_failed",
+            title="Tape/neon save to schedule failed",
+            context={"schedule": schedule_name, "line_idx": line_idx},
+            rollback=True,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -3968,6 +4000,7 @@ def _build_neon_description(
 # ═══════════════════════════════════════════════════════════════════════
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @price_scoped
 def get_mounting_accessories(
     template_code: str,
@@ -3976,6 +4009,7 @@ def get_mounting_accessories(
     environment_rating: str = None,
     segments: int | str | None = 1,
     ip_ratings: str | list | None = None,
+    runs_count: int | str | None = None,
 ) -> dict:
     """
     Return eligible mounting accessories for a tape/neon template.
@@ -3995,6 +4029,8 @@ def get_mounting_accessories(
         environment_rating: Optional environment rating filter (LED Tape)
         segments: Number of neon segments (for PER_SEGMENT rule)
         ip_ratings: Optional IP Rating of each neon segment (JSON list or comma-separated)
+        runs_count: Total power runs from the calculation's run split
+            (``computed.runs_count``) for the PER_RUN rule. Omitted means 1 run.
 
     With an environment or IP ratings, only accessories the build will approve
     are returned (see ``environment_codes.accessory_serves``).
@@ -4010,6 +4046,7 @@ def get_mounting_accessories(
 
     length_mm = float(length_mm or 0)
     segments = int(segments or 1)
+    runs_count = _positive_runs(runs_count)
 
     # Resolve template name from template_code
     template_name = frappe.db.get_value(
@@ -4077,6 +4114,7 @@ def get_mounting_accessories(
             rounding=row.rounding or "CEIL",
             length_mm=length_mm,
             segments=segments,
+            runs=runs_count,
         )
 
         total_msrp = round(unit_msrp * qty_recommended, 2)
@@ -4105,6 +4143,15 @@ def get_mounting_accessories(
     }
 
 
+def _positive_runs(value) -> int:
+    """A run count from a form string or number; anything unusable means one run."""
+    try:
+        runs = int(float(value))
+    except (TypeError, ValueError):
+        return 1
+    return min(max(runs, 1), 1000)
+
+
 def _get_item_msrp(item_code: str) -> float:
     """Look up the Standard Selling price for an item."""
     price = frappe.db.get_value(
@@ -4126,16 +4173,19 @@ def _calculate_accessory_qty(
     rounding: str,
     length_mm: float,
     segments: int = 1,
+    runs: int = 1,
 ) -> int:
-    """Calculate the recommended quantity for a mounting accessory."""
+    """Calculate the recommended quantity for a mounting accessory.
+
+    ``runs`` is the total from ``_compute_run_split`` (summed over segments), the
+    same count that sizes leader cables and drivers.
+    """
     if qty_rule_type == "PER_FIXTURE":
         qty = 1
     elif qty_rule_type == "PER_SEGMENT":
         qty = segments
     elif qty_rule_type == "PER_RUN":
-        # TODO: determine actual run count from run-splitting logic.
-        # Currently assumes 1 run; will need the run_split result when available.
-        qty = 1
+        qty = runs
     elif qty_rule_type == "PER_X_MM":
         if qty_rule_value > 0 and length_mm > 0:
             qty = length_mm / qty_rule_value

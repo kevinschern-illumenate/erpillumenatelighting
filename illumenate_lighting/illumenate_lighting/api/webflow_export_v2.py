@@ -22,6 +22,7 @@ import requests
 from frappe import _
 
 from frappe.handler import upload_file
+from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.api import n8n_config
 from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
@@ -2627,6 +2628,7 @@ def trigger_sync_v2(docname):
     return {"status": "success", "jobs": dispatched_jobs}
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=120, seconds=60)
 def spec_sheet(product):
     """Redirect to a Webflow Product's spec sheet through its template's stable link (Phase 4).
 
