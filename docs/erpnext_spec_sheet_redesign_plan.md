@@ -1478,10 +1478,9 @@ This is the one list of open work and cleanup notes recorded during Phases 0 to 
 - Spec links (`driver_spec`, `controller_spec`, `profile_spec`, `lens_spec`, `tape_spec`, `accessory_spec`): the template owns them; Components and Accessories keep them on the product until they have a template.
 - `is_configurable`: move it to the template, and move its readers (dealer portal Configure button, catalog and product page; configurator pages; the product's step calculation; catalog repair; the Catalog Configurability report). The product's own check is freed for the owner's other purpose; the Webflow `is-configurable-3` flag is decided then.
 - `portal_item`: may be revisited.
+- **Webflow Products fields to remove (owner, 2026-11-04):** `product-type` and `feed-lengths-json` are no longer sent; remove them from the Webflow collection in cleanup.
 
 ---
-
-- **Webflow Products fields to remove (owner, 2026-11-04):** `product-type` and `feed-lengths-json` are no longer sent; remove them from the Webflow collection in cleanup.
 
 ## 9. Staging test matrix
 
