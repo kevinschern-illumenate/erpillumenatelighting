@@ -4348,13 +4348,17 @@ class ilLWebflowProduct(Document):
 
 				elif self.product_type == "Extrusion Kit":
 					# 1. Lenses
-					lens_values = set()
-					for o_row in (template_doc.get("allowed_options") or []):
-						if o_row.get("option_type") == "Lens Appearance" and o_row.get("lens_appearance"):
-							lens_values.add(o_row.get("lens_appearance"))
+					# In Allowed Options row order, each value once (owner, 2026-11-04).
+					lens_values = list(
+						dict.fromkeys(
+							o_row.get("lens_appearance")
+							for o_row in (template_doc.get("allowed_options") or [])
+							if o_row.get("option_type") == "Lens Appearance" and o_row.get("lens_appearance")
+						)
+					)
 					if lens_values:
-						append_spec(self, "", "Lenses", ", ".join(sorted(lens_values)), "", 10, "ilL-Attribute-Lens Appearance")
-						record(debug, "Lenses", len(lens_values), sorted(lens_values), appended=True)
+						append_spec(self, "", "Lenses", ", ".join(lens_values), "", 10, "ilL-Attribute-Lens Appearance")
+						record(debug, "Lenses", len(lens_values), lens_values, appended=True)
 					else:
 						record(debug, "Lenses", 0, skip_reason="No Lens Appearance rows in allowed_options")
 
