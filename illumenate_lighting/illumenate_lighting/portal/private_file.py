@@ -27,11 +27,14 @@ def _portal_file_decision(doc, ptype="read", user=None):
 	if doc.attached_to_doctype == "ilL-Portal-Upload":
 		from illumenate_lighting.illumenate_lighting.portal.files import has_permission
 
-		if has_permission(frappe.get_doc("ilL-Portal-Upload", doc.attached_to_name), "read", user):
+		artifact = frappe.get_doc("ilL-Portal-Upload", doc.attached_to_name)
+		if has_permission(artifact, "read", user):
 			return True
 		from illumenate_lighting.illumenate_lighting.portal.line_documents import file_access
 
-		return file_access(doc.name, user)
+		# A thumbnail (plan 4.4) is readable wherever its original line document is.
+		source = artifact.file if artifact.get("thumbnail") == doc.name and artifact.file else doc.name
+		return file_access(source, user)
 	if doc.attached_to_doctype != "ilL-Document-Request":
 		return None
 	from illumenate_lighting.illumenate_lighting.doctype.ill_document_request.ill_document_request import (
@@ -61,6 +64,13 @@ def portal_file_permission(doc, ptype="read", user=None, debug=False):
 
 
 class PortalFile(File):
+	def before_insert(self):
+		# File.before_insert writes the bytes, so HEIC product imagery is converted first (plan 4.7).
+		from illumenate_lighting.illumenate_lighting.portal.media import convert_staff_heic
+
+		convert_staff_heic(self)
+		super().before_insert()
+
 	def is_downloadable(self):
 		decision = _portal_file_decision(self)
 		return super().is_downloadable() if decision is None else decision

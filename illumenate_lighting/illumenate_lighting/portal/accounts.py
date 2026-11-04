@@ -303,6 +303,28 @@ def set_purchasing_contact(contact):
 	return {"success": True}
 
 
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+def set_dealer_logo(file_id=None, remove=None):
+	"""Replace or clear the company's title-block logo (hardening plan 4.6).
+
+	``file_id`` is the caller's own unbound upload; it is re-encoded as PNG first.
+	Earlier logo Files are kept, so issued drawings and packets keep theirs.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+	from illumenate_lighting.illumenate_lighting.portal.media import dealer_logo_available, store_dealer_logo
+
+	customer = company()
+	if not dealer_logo_available():
+		frappe.throw("Dealer logos are unavailable", frappe.PermissionError)
+	if parse_bool(remove, default=False):
+		frappe.db.set_value("Customer", customer, "dealer_logo", None)
+		return {"success": True, "dealer_logo": None}
+	if not file_id:
+		raise ValueError("Choose a PNG or JPEG logo")
+	return {"success": True, **store_dealer_logo(file_id, customer)}
+
+
 def _invite_authority(customer, project=None, user=None):
 	if not frappe.db.get_value("User", user or frappe.session.user, "enabled"):
 		frappe.throw("The inviter's account is unavailable", frappe.PermissionError)

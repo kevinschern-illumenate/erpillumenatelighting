@@ -44,6 +44,46 @@ class SiteFlags(unittest.TestCase):
 					frappe.conf["ill_portal_fixture_groups"] = value
 					self.assertFalse(flags.fixture_groups_enabled())
 
+	def test_upload_switches_are_on_unless_a_site_turns_them_off(self):
+		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
+			frappe.log_error = MagicMock()
+			self.assertTrue(flags.heic_uploads_enabled())
+			on = {"upload_widget": True, "upload_purpose": True, "gallery": True}
+			self.assertEqual(flags.portal_client_flags(), on)
+			frappe.conf["ill_portal_heic_uploads"] = "false"
+			frappe.conf["ill_portal_upload_widget"] = 0
+			self.assertFalse(flags.heic_uploads_enabled())
+			self.assertEqual(flags.portal_client_flags(), {**on, "upload_widget": False})
+
+	def test_media_switches_are_on_unless_a_site_turns_them_off(self):
+		switches = {
+			"upload_purpose_enabled": "ill_portal_upload_purpose",
+			"thumbnails_enabled": "ill_portal_thumbnails",
+			"gallery_enabled": "ill_portal_gallery",
+			"dealer_logo_enabled": "ill_portal_dealer_logo",
+			"staff_heic_enabled": "ill_desk_heic_conversion",
+			"upload_duplicate_check_enabled": "ill_portal_upload_duplicate_check",
+		}
+		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
+			frappe.log_error = MagicMock()
+			for function, key in switches.items():
+				with self.subTest(key=key):
+					self.assertTrue(getattr(flags, function)())
+					frappe.conf[key] = "false"
+					self.assertFalse(getattr(flags, function)())
+			client = flags.portal_client_flags()
+			self.assertFalse(client["upload_purpose"])
+			self.assertFalse(client["gallery"])
+
+	def test_portal_layout_publishes_client_flags_as_json(self):
+		from pathlib import Path
+
+		root = Path(__file__).resolve().parents[2]
+		base = (root / "illumenate_lighting/templates/portal_base.html").read_text(encoding="utf-8")
+		self.assertIn('id="ill-portal-flags">{{ ill_portal_client_flags() | tojson }}</script>', base)
+		hooks = (root / "illumenate_lighting/hooks.py").read_text(encoding="utf-8")
+		self.assertIn("portal.jinja_methods.ill_portal_client_flags", hooks)
+
 	def test_build_preview_and_compare_are_on_unless_a_site_turns_them_off(self):
 		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
 			frappe.log_error = MagicMock()

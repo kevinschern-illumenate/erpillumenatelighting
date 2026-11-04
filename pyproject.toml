@@ -11,6 +11,9 @@ dependencies = [
     # "frappe~=15.0.0" # Installed and managed by bench.
     "pypdf>=3.0.0",  # PDF form-filling and merging for spec submittals
     "Pillow>=13.0.0",  # Validated PNG/JPEG intake and packet raster conversion
+    # HEIC/HEIF photo intake (converted to JPEG). 1.8.1 ships cp314 manylinux_2_28 wheels for
+    # x86_64 and aarch64, so Frappe Cloud (ubuntu 22.04, glibc 2.35) never builds from source.
+    "pillow-heif>=1.8.1,<2",
     "jsonschema>=4.18.0",  # System Designer design_json validation against the exported schema
 ]
 
@@ -21,6 +24,7 @@ test = [
     "jsonschema",
     "Jinja2",
     "Pillow",
+    "pillow-heif",
     "pypdf",
     "pypdfium2",
     "PyYAML",
