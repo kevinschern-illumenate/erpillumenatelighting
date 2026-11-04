@@ -38,14 +38,19 @@ const BRAND_PILLS = {
 };
 
 function titleRow($sidebar, name) {
-    // The element showing the record name (for example KIT-RA04), then the row holding it
-    // with the print and like icons.
+    // The element showing the record name (for example KIT-RA04), then the whole row holding
+    // it with the print and like icons. The pill goes above that row and the Template Name
+    // below it, so the three stack vertically and the record name keeps its space.
     const $text = $sidebar.find('*').filter(function () {
         return this.children.length === 0 && $(this).text().trim() === name;
     }).first();
     if (!$text.length) return null;
-    const $row = $text.parent();
-    return $row.find('svg, button, .icon').length ? $row : $text;
+    let $row = $text;
+    while ($row.parent().length && !$row.parent().is($sidebar)) {
+        $row = $row.parent();
+        if ($row.find('svg, button, .icon').length) break;
+    }
+    return $row;
 }
 
 function showTemplateName(frm) {
@@ -58,7 +63,7 @@ function showTemplateName(frm) {
 
     const brands = (frm.doc.target_brands || []).filter(row => row.enabled && row.brand);
     if (brands.length) {
-        const $pills = $('<div class="ill-template-brand"></div>').css({padding: '0 0 6px'});
+        const $pills = $('<div class="ill-template-brand"></div>').css({display: 'block', width: '100%', padding: '0 0 6px'});
         brands.forEach(row => {
             const pill = BRAND_PILLS[row.brand] || {label: row.brand, background: '#8d99a6', color: 'white'};
             $('<span class="badge"></span>').text(pill.label).css({
@@ -76,7 +81,7 @@ function showTemplateName(frm) {
     if (!name) return;
     const $name = $('<div class="ill-template-name text-muted"></div>')
         .text(name)
-        .css({'word-break': 'break-word', 'margin-top': '2px'});
+        .css({display: 'block', width: '100%', 'word-break': 'break-word', 'margin-top': '2px'});
     if ($row) {
         $name.insertAfter($row);
     } else {
