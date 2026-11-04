@@ -22,6 +22,9 @@ const record = {
   featured_image: t.hero_image || null,
   dimensions_image_dark: t.dimensions_image || null,
   custom_dimensions_image_2: t.dimensions_image || null,
+  // <TAG>.<MMDDYY> for #generated-date: the tag in the stored file name and the Pacific date
+  // (owner, 2026-11-04). Made by ERPNext before the PDF is drawn.
+  spec_sheet_stamp: ctx.spec_sheet_stamp || null,
   // Template link, so the Format nodes still find the template doctype and name
   [{
     'ilL-Tape-Neon-Template': 'tape_neon_template',
