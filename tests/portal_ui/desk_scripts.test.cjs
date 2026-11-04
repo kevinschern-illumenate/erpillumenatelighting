@@ -28,16 +28,43 @@ const BASELINE = {
   complete: false,
   failed: false,
 };
+
+// A promise that the test settles by hand, so it controls when the server replies.
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+// Lets pending promise callbacks and any setImmediate work run.
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
+const neverSettles = () => new Promise(() => {});
+const succeeds = async () => ({ success: true });
+const completed = () => ({
+  ...BASELINE,
+  complete: true,
+  brands: BASELINE.brands.map(row => ({ ...row, state: 'complete' })),
+});
+
 // requestResponse answers request_spec_sheet; progress answers polls that carry "since".
-function setup(t, requestResponse, progress = () => ({ ...BASELINE })) {
+function setup(t, requestResponse = succeeds, progress = () => ({ ...BASELINE })) {
   const dom = new JSDOM('<html><head></head><body></body></html>');
   t.after(() => dom.window.close());
   const $ = jquery(dom.window);
-  const handlers = {}, buttons = {}, queries = [], messages = [], requests = [];
-  const timers = new Map(), intervals = new Map();
-  let serial = 0, frozen = false;
+  const handlers = {};
+  const buttons = {};
+  const queries = [];
+  const messages = [];
+  const requests = [];
+  const timers = new Map();
+  const intervals = new Map();
+  let serial = 0;
+  let frozen = false;
   const frm = {
     doc: {
       name: 'demo',
@@ -49,18 +76,40 @@ function setup(t, requestResponse, progress = () => ({ ...BASELINE })) {
       ],
     },
     is_new: () => false,
-    add_custom_button(label, fn) { buttons[label] = fn; return $('<button>'); },
-    set_query(...args) { queries.push(args); },
+    add_custom_button(label, fn) {
+      buttons[label] = fn;
+      return $('<button>');
+    },
+    set_query(...args) {
+      queries.push(args);
+    },
+    set_intro() {},
     reload_doc() {},
     dashboard: { set_headline_alert() {} },
   };
   vm.runInNewContext(productScript, {
-    $, __: value => value, document: dom.window.document, window: dom.window,
+    $,
+    __: value => value,
+    document: dom.window.document,
+    window: dom.window,
+    AbortController,
     console,
-    setTimeout(fn) { const id = ++serial; timers.set(id, fn); return id; },
-    clearTimeout(id) { timers.delete(id); },
-    setInterval(fn) { const id = ++serial; intervals.set(id, fn); return id; },
-    clearInterval(id) { intervals.delete(id); },
+    setTimeout(fn) {
+      const id = ++serial;
+      timers.set(id, fn);
+      return id;
+    },
+    clearTimeout(id) {
+      timers.delete(id);
+    },
+    setInterval(fn) {
+      const id = ++serial;
+      intervals.set(id, fn);
+      return id;
+    },
+    clearInterval(id) {
+      intervals.delete(id);
+    },
     frappe: {
       ui: { form: { on(doctype, callbacks) { handlers[doctype] = callbacks; } } },
       dom: { freeze() { frozen = true; }, unfreeze() { frozen = false; } },
@@ -80,7 +129,7 @@ function setup(t, requestResponse, progress = () => ({ ...BASELINE })) {
 }
 
 test('the product form registers its compatible-product query during refresh', t => {
-  const state = setup(t, () => new Promise(() => {}));
+  const state = setup(t, neverSettles);
   assert.equal(state.queries.length, 1);
   const [field, table, query] = state.queries[0];
   assert.equal(field, 'related_product');
@@ -89,46 +138,96 @@ test('the product form registers its compatible-product query during refresh', t
   assert.deepEqual(Array.from(result.filters.brands), ['illumenate']);
 });
 
-test('a webhook that never responds cannot leave the product form frozen', async t => {
-  const state = setup(t, () => new Promise(() => {}));
+test('a server call that never responds cannot leave the product form frozen', async t => {
+  const state = setup(t, neverSettles);
   state.buttons['Sync to Webflow']();
   assert.equal(state.frozen(), true);
   assert.equal(state.timers.size, 1);
   await flush();
-  [...state.timers.values()][0]();
+
+  const [deadline] = state.timers.values();
+  deadline();
+
   assert.equal(state.frozen(), false);
   assert.equal(state.timers.size, 0);
   assert.equal(state.intervals.size, 0);
   assert.match(state.messages[0], /not been confirmed/);
 });
 
-test('webhook errors clear the deadline and release the form', async t => {
+test('a late server response after the deadline does not start polling', async t => {
+  const pending = deferred();
+  const state = setup(t, () => pending.promise);
+  state.buttons['Sync to Webflow']();
+  await flush();
+
+  const [deadline] = state.timers.values();
+  deadline();
+  assert.equal(state.frozen(), false);
+
+  pending.resolve({ success: true });
+  await flush();
+
+  assert.equal(state.intervals.size, 0, 'no polling may start after the form was released');
+  assert.equal(state.frozen(), false);
+  assert.equal(state.messages.length, 1);
+});
+
+test('a failed server request clears the deadline and reports the error once', async t => {
   const state = setup(t, () => Promise.reject({ message: 'Pipeline failed with status 500.' }));
   state.buttons['Sync to Webflow']();
   await flush();
+
   assert.equal(state.frozen(), false);
   assert.equal(state.timers.size, 0);
+  assert.equal(state.intervals.size, 0);
+  assert.equal(state.messages.length, 1);
   assert.match(state.messages[0].message, /500/);
 });
 
-test('successful polling clears the deadline so it cannot interrupt another operation', async t => {
-  const state = setup(t, async () => ({ success: true }), () => ({
-    ...BASELINE, complete: true,
-    brands: BASELINE.brands.map(row => ({ ...row, state: 'complete' })),
-  }));
+test('a server response with no message is reported as a failure', async t => {
+  const state = setup(t, async () => undefined);
+  state.buttons['Sync to Webflow']();
+  await flush();
+
+  assert.equal(state.frozen(), false);
+  assert.equal(state.timers.size, 0);
+  assert.equal(state.intervals.size, 0);
+  assert.equal(state.messages.length, 1);
+  assert.equal(state.messages[0].message, 'No response from server.');
+});
+
+test('polling keeps the form frozen while the sync is still pending', async t => {
+  const state = setup(t);
   state.buttons['Sync to Webflow']();
   await flush();
   assert.equal(state.intervals.size, 1);
+
   [...state.intervals.values()][0]();
   await flush();
+
+  assert.equal(state.frozen(), true);
+  assert.equal(state.intervals.size, 1);
+  assert.equal(state.messages.length, 0);
+});
+
+test('successful polling clears the interval and deadline', async t => {
+  const state = setup(t, succeeds, completed);
+  state.buttons['Sync to Webflow']();
+  await flush();
+  assert.equal(state.intervals.size, 1);
+
+  [...state.intervals.values()][0]();
+  await flush();
+
   assert.equal(state.frozen(), false);
   assert.equal(state.intervals.size, 0);
   assert.equal(state.timers.size, 0);
   assert.equal(state.messages.length, 1);
+  assert.equal(state.messages[0].message, 'Webflow Sync Complete!');
 });
 
 test('sync requests every enabled target brand instead of a hard-coded brand', async t => {
-  const state = setup(t, async () => ({ success: true }));
+  const state = setup(t);
   state.buttons['Sync to Webflow']();
   await flush();
   const brands = state.requests.filter(row => row.method === SPEC_SHEET).map(row => row.args.brand);
@@ -136,7 +235,7 @@ test('sync requests every enabled target brand instead of a hard-coded brand', a
 });
 
 test('an earlier Synced status does not complete a new sync', async t => {
-  const state = setup(t, async () => ({ success: true }), () => ({
+  const state = setup(t, succeeds, () => ({
     ...BASELINE,
     brands: BASELINE.brands.map(row => ({ ...row, sync_status: 'Synced', state: 'pending' })),
   }));
@@ -151,9 +250,10 @@ test('an earlier Synced status does not complete a new sync', async t => {
   assert.equal(state.messages.length, 0);
 });
 
-test('a failed publication job for this run stops polling and escapes its error', async t => {
-  const state = setup(t, async () => ({ success: true }), () => ({
-    ...BASELINE, failed: true,
+test('a failed publication job reports the pipeline failure, escapes its error and releases the form', async t => {
+  const state = setup(t, succeeds, () => ({
+    ...BASELINE,
+    failed: true,
     brands: [{ brand: 'illumenate', state: 'failed', error: '<b>Publication failed (500)</b>' }],
   }));
   state.buttons['Sync to Webflow']();
@@ -162,5 +262,8 @@ test('a failed publication job for this run stops polling and escapes its error'
   await flush();
   assert.equal(state.frozen(), false);
   assert.equal(state.intervals.size, 0);
+  assert.equal(state.timers.size, 0);
+  assert.equal(state.messages.length, 1);
+  assert.equal(state.messages[0].title, 'Sync Error');
   assert.match(state.messages[0].message, /&lt;b>Publication failed/);
 });

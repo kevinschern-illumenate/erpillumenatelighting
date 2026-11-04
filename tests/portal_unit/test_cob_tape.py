@@ -78,9 +78,19 @@ class TemplateValidation(unittest.TestCase):
 		document.Document = object
 		model = types.ModuleType("frappe.model")
 		model.document = document
+		# The template link rules have their own tests (test_template_link.py).
+		link = types.ModuleType(ROOT + ".template_link")
+		link.validate_template = link.on_template_update = link.on_template_trash = lambda doc: None
+		listing = types.ModuleType(ROOT + ".template_listing")
+		listing.refresh_template = listing.push_to_product = lambda doc: None
 		context = load_service(
 			ROOT + ".doctype.ill_tape_neon_template.ill_tape_neon_template",
-			{"frappe.model": model, "frappe.model.document": document},
+			{
+				"frappe.model": model,
+				"frappe.model.document": document,
+				link.__name__: link,
+				listing.__name__: listing,
+			},
 		)
 		module, frappe = context.__enter__()
 		self.addCleanup(context.__exit__, None, None, None)
@@ -198,7 +208,7 @@ class PortalCategoryList(unittest.TestCase):
 			module.get_tape_neon_templates_for_schedule("COB Tape")
 			self.assertEqual(
 				frappe.get_all.call_args.kwargs["filters"],
-				{"product_category": "COB Tape", "product_status": ["in", ["Active"]]},
+				{"product_category": "COB Tape", "product_status": ["in", ["Active", "Active + Live"]]},
 			)
 			frappe.get_all.reset_mock()
 			self.assertEqual(module.get_tape_neon_templates_for_schedule("Other"), {"templates": []})

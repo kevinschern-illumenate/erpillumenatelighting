@@ -2,6 +2,7 @@
 // browsers pick up new code on every deploy instead of a year-long cached copy.
 import "./portal_routes.js";
 import "./configurator/shared_configurator.js";
+import "./configurator/build_preview.js";
 import "./configurator/fixture_group_editor.js";
 import "./configurator/fixture_steps.js";
 import "./configurator/tape_neon_steps.js";

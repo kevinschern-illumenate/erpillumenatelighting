@@ -58,3 +58,22 @@ def ill_desk_link(path) -> str:
 		return ""
 	record = record_for_path(path)
 	return desk_path(*record) if record else ""
+
+
+def ill_unread_notifications() -> int:
+	"""Unread portal notifications for the nav badge (plan 8.5); 0 when switched off or for guests.
+
+	The badge must never break page rendering, so any failure reads as "nothing unread".
+	"""
+	from illumenate_lighting.illumenate_lighting.portal import notification_center
+
+	try:
+		return notification_center.unread_count()
+	except Exception:
+		return 0
+
+
+def ill_notification_center_enabled() -> bool:
+	from illumenate_lighting.illumenate_lighting.portal.notification_center import enabled
+
+	return enabled()

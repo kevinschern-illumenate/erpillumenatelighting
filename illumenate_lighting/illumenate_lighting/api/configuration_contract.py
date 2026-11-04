@@ -94,20 +94,62 @@ def finite_number(value, *, minimum=None, field="value"):
 	return result
 
 
+LENGTH_FACTORS = {
+	"mm": "1",
+	"inch": "25.4",
+	"in": "25.4",
+	"foot": "304.8",
+	"ft": "304.8",
+	"meter": "1000",
+	"m": "1000",
+}
+FEET_INCHES = "ft_in"
+
+
 def length_mm(value, unit="mm"):
-	factors = {
-		"mm": "1",
-		"inch": "25.4",
-		"in": "25.4",
-		"foot": "304.8",
-		"ft": "304.8",
-		"meter": "1000",
-		"m": "1000",
-	}
-	if unit.lower() not in factors:
+	if unit.lower() not in LENGTH_FACTORS:
 		raise ValueError("Unsupported length unit")
 	finite_number(value, minimum=0, field="length")
-	return float(Decimal(str(value)) * Decimal(factors[unit.lower()]))
+	return float(Decimal(str(value)) * Decimal(LENGTH_FACTORS[unit.lower()]))
+
+
+def dealer_length_mm(unit="in", value=None, feet=None, inches=None):
+	"""Canonical mm for a length as a dealer typed it; blank parts count as zero.
+
+	Engines persist the mm and keep the unit only for display (6.2). Sign is not
+	checked so callers can keep treating a non-positive length as "not given".
+	"""
+	unit = (unit or "in").lower()
+	if unit == FEET_INCHES:
+		total = Decimal(str(finite_number(feet or 0, field="feet"))) * 12
+		total += Decimal(str(finite_number(inches or 0, field="inches")))
+		return float(total * Decimal(LENGTH_FACTORS["in"]))
+	if unit not in LENGTH_FACTORS:
+		raise ValueError("Unsupported length unit")
+	value = finite_number(value or 0, field="length")
+	return float(Decimal(str(value)) * Decimal(LENGTH_FACTORS[unit]))
+
+
+def display_length(mm, unit="in"):
+	"""Inverse of ``dealer_length_mm``: the mm shown again in the dealer's unit."""
+	unit = (unit or "in").lower()
+	exact = Decimal(str(finite_number(mm, field="length")))
+	if unit == FEET_INCHES:
+		total = round(exact / Decimal(LENGTH_FACTORS["in"]), 6)
+		feet = int(total // 12)
+		return {"unit": FEET_INCHES, "feet": feet, "inches": float(total - feet * 12)}
+	if unit not in LENGTH_FACTORS:
+		raise ValueError("Unsupported length unit")
+	return {"unit": unit, "value": float(round(exact / Decimal(LENGTH_FACTORS[unit]), 6))}
+
+
+def whole_increments(length, increment):
+	"""Whole cut increments in ``length``, tolerant of unit-conversion noise.
+
+	24 in on a 1 in pitch is 609.5999999 mm in binary floating point. A bare
+	floor() would then build 23 in.
+	"""
+	return math.floor(length / increment + 1e-9)
 
 
 def optional_positive(value, *, field="value"):

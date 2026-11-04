@@ -277,6 +277,8 @@ class TapeNeonWebflowDef:
     operating_temp_max_c: int = 60
     l70_life_hours: int = 50000
     warranty_years: int = 5
+    # Read from older YAML files but no longer used: the template calculates its configurator
+    # steps (Phase 2c).
     configurator_steps: list[str] = field(default_factory=lambda: [
         "Environment Rating",
         "CCT",
@@ -372,6 +374,8 @@ class LedSheetWebflowDef:
     operating_temp_max_c: int = 60
     l70_life_hours: int = 50000
     warranty_years: int = 5
+    # Read from older YAML files but no longer used: the template calculates its configurator
+    # steps (Phase 2c).
     configurator_steps: list[str] = field(default_factory=lambda: [
         "Environment Rating",
         "CCT",
@@ -392,7 +396,8 @@ class WebflowDef:
     operating_temp_max_c: int = 60
     l70_life_hours: int = 50000
     warranty_years: int = 5
-    # Configurator step order
+    # Read from older YAML files but no longer used: the template calculates its configurator
+    # steps (Phase 2c).
     configurator_steps: list[str] = field(default_factory=lambda: [
         "Environment Rating",
         "CCT",

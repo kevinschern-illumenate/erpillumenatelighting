@@ -104,8 +104,14 @@ class TestilLWebflowProduct(FrappeTestCase):
         # Cleanup
         template.delete()
 
-    def test_fixture_template_backlink_updated_on_change(self):
-        """Test that backlink is moved when fixture_template is changed."""
+    def test_fixture_template_link_moves_only_through_the_templates(self):
+        """The template owns the link (plan 4.2): the product's field is a mirror."""
+        from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
+        from illumenate_lighting.illumenate_lighting.template_link import (
+            link_webflow_product,
+            unlink_webflow_product,
+        )
+
         template1 = frappe.get_doc({
             "doctype": "ilL-Fixture-Template",
             "template_code": "BL-CHG1-" + frappe.generate_hash(length=6),
@@ -119,6 +125,7 @@ class TestilLWebflowProduct(FrappeTestCase):
             "template_code": "BL-CHG2-" + frappe.generate_hash(length=6),
             "template_name": "Backlink Change Test 2",
             "is_active": 1,
+            "target_brands": [{"brand": get_default_brand(), "enabled": 1}],
         })
         template2.insert()
 
@@ -136,9 +143,17 @@ class TestilLWebflowProduct(FrappeTestCase):
         template1.reload()
         self.assertEqual(template1.webflow_product, product.name)
 
-        # Change to template2
+        # Changing the mirror field on the product is refused.
         product.fixture_template = template2.name
-        product.save()
+        with self.assertRaises(frappe.ValidationError):
+            product.save()
+        product.reload()
+
+        # Moving the link: unlink on template1, link on template2.
+        unlink_webflow_product("ilL-Fixture-Template", template1.name)
+        link_webflow_product("ilL-Fixture-Template", template2.name, product.name)
+        product.reload()
+        self.assertEqual(product.fixture_template, template2.name)
 
         # Verify backlink moved
         template1.reload()
