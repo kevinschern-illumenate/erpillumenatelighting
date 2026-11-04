@@ -3,6 +3,14 @@ import json
 import frappe
 from frappe.model.document import Document
 
+# Float columns hold 9 decimals, so a reloaded load (e.g. 3 x 4.8 W stored as 14.4) differs from the
+# snapshot's binary float (14.399999999999999). Compare loads at a precision both sides survive.
+WATTS_PRECISION = 6
+
+
+def _watts(value):
+	return round(float(value or 0), WATTS_PRECISION)
+
 
 class ilLConfiguredGroup(Document):
 	def validate(self):
@@ -31,7 +39,7 @@ class ilLConfiguredGroup(Document):
 				"supply_number": row.supply_number,
 				"output_number": row.output_number,
 				"item_code": row.item_code,
-				"watts": row.watts,
+				"watts": _watts(row.watts),
 			}
 			for row in self.allocations
 		]
@@ -42,7 +50,7 @@ class ilLConfiguredGroup(Document):
 				"supply_number": a["supply"],
 				"output_number": a["output"],
 				"item_code": a["item_code"],
-				"watts": a["watts"],
+				"watts": _watts(a["watts"]),
 			}
 			for a in build["power_plan"]["allocations"]
 		]
