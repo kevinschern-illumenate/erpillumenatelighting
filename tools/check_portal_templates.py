@@ -716,6 +716,21 @@ assert "Shop &lt;Drawing&gt;" in drawings_page and "Lobby &lt;Refit&gt;" in draw
 assert 'data-value="shop_drawing"' not in drawings_page, "request types come from Desk"
 assert 'href="?page=1#all"' in drawings_page and 'href="?page=3#all"' in drawings_page, "REL-8 pager"
 assert 'id="requestProjectSearch"' in drawings_page
+prefilled_drawings = environment.get_template("templates/pages/drawings.html").render(
+	request_types=drawing_types,
+	projects=[View(name="P-1", project_name="Lobby <Refit>")],
+	prefill={"project": "P-1", "fixture_reference": 'Schedule S-1: A1, "B<2>"'},
+	pending_requests=[],
+	completed_requests=[],
+	all_requests=[],
+	pending_count=0,
+	page=1,
+	has_more=False,
+	drawing_type_icon=lambda value: "file",
+)
+assert '<option value="P-1" selected>' in prefilled_drawings, "plan 3.3 drawings prefill"
+assert 'value="Schedule S-1: A1, &#34;B&lt;2&gt;&#34;"' in prefilled_drawings, "prefill is escaped"
+assert "selected>" not in drawings_page.split('id="requestProject"')[1].split("</select>")[0]
 parser.feed(drawings_page)
 (render_dir / "drawings.html").write_text(drawings_page, encoding="utf8")
 overview = environment.get_template("templates/pages/portal.html")
@@ -795,6 +810,17 @@ schedule_variants = {
 			"secondary": None,
 		},
 		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
+		line_copy_enabled=True,
+		bulk_edit_enabled=True,
+		part_number_decode_enabled=True,
+		schedule_import_enabled=True,
+		presets_enabled=True,
+		recent_products_enabled=True,
+		stale_badge_enabled=True,
+		undo_enabled=True,
+		activity_timeline_enabled=True,
+		keyboard_shortcuts_enabled=True,
+		import_columns=["Type", "Qty", "Location", "Description", "Part Number", "Notes", "Length (in)"],
 	),
 }
 SCHEDULE_JS = ROOT / "illumenate_lighting/public/js/portal/schedule"
@@ -813,9 +839,67 @@ for name, variant in schedule_variants.items():
 	schedule_context = json.loads(context_block.group(1))
 	assert schedule_context["schedule_name"] == "S-1" and schedule_context["schedule_status"] == variant["schedule"].status
 	assert schedule_context["dealer_customer_group"] == "", "dealer pricing context only renders for pricing users"
+	assert schedule_context["dealer_pricing_on"] is False, "the saved pricing toggle only renders for pricing users"
 	assert set(schedule_context["i18n"]) == SCHEDULE_TEXTS, set(schedule_context["i18n"]) ^ SCHEDULE_TEXTS
 	assert 'src="/assets/illumenate_lighting/js/portal/schedule/context.js?v=' in schedule_html
 	assert "pricing.js" not in schedule_html
+	# Plan 3.2: copy/configure-similar UI only renders behind its kill switch.
+	copy_enabled = bool(variant.get("line_copy_enabled"))
+	assert schedule_context["line_copy"] is copy_enabled
+	assert ('id="copyLinesModal"' in schedule_html) is copy_enabled
+	assert "schedule/copy.js?v=" in schedule_html
+	# Plan 3.3: line selection and the bulk bar/modal only render behind their kill switch.
+	bulk_enabled = bool(variant.get("bulk_edit_enabled"))
+	assert schedule_context["bulk_edit"] is bulk_enabled
+	assert ('id="bulkEditModal"' in schedule_html) is bulk_enabled
+	# These variants render no rows, so the row checkboxes and bar (inside {% if lines %}) never appear here;
+	# tests/portal_ui/schedule_bulk.test.cjs checks their markup gating.
+	assert bulk_enabled or 'id="bulkActionBar"' not in schedule_html
+	assert bulk_enabled or 'class="line-select"' not in schedule_html
+	assert "schedule/bulk.js?v=" in schedule_html
+	# Plan 3.5: "Add by part number" only renders behind its kill switch.
+	decode_enabled = bool(variant.get("part_number_decode_enabled"))
+	assert schedule_context["part_number_decode"] is decode_enabled
+	assert ('id="addLinePartNumber"' in schedule_html) is decode_enabled
+	assert "schedule/part_number.js?v=" in schedule_html
+	# Plan 3.4: the sheet import only renders behind its kill switch.
+	import_enabled = bool(variant.get("schedule_import_enabled"))
+	assert schedule_context["schedule_import"] is import_enabled
+	assert ('id="importLinesButton"' in schedule_html) is import_enabled
+	assert ('id="importLinesModal"' in schedule_html) is import_enabled
+	assert schedule_context["import_columns"] == (variant["import_columns"] if import_enabled else [])
+	assert "schedule/line_import.js?v=" in schedule_html
+	# Plan 3.6: "Start from a saved preset" only renders behind its kill switch.
+	presets_on = bool(variant.get("presets_enabled"))
+	assert schedule_context["presets"] is presets_on
+	assert ('id="addLinePreset"' in schedule_html) is presets_on
+	assert "schedule/presets.js?v=" in schedule_html
+	# Plan 3.7: "Recently used" cards only render behind their kill switch.
+	recent_on = bool(variant.get("recent_products_enabled"))
+	assert schedule_context["recent_products"] is recent_on
+	assert ('id="addLineRecentList"' in schedule_html) is recent_on
+	assert "schedule/recent.js?v=" in schedule_html
+	# Plan 3.9: the stale-line badge script runs only behind its kill switch.
+	assert schedule_context["stale_badge"] is bool(variant.get("stale_badge_enabled"))
+	assert "schedule/stale.js?v=" in schedule_html
+	# Plan 3.12: the collaborator conflict notice is always available, filled as text by conflict.js.
+	assert 'id="scheduleConflictNotice"' in schedule_html and "schedule/conflict.js?v=" in schedule_html
+	# Plan 3.10: the Undo toast only renders behind its kill switch.
+	undo_on = bool(variant.get("undo_enabled"))
+	assert schedule_context["undo"] is undo_on
+	assert ('id="scheduleUndoToast"' in schedule_html) is undo_on
+	assert "schedule/undo.js?v=" in schedule_html
+	# Plan 3.11: the activity timeline card only renders behind its kill switch.
+	activity_on = bool(variant.get("activity_timeline_enabled"))
+	assert schedule_context["activity_timeline"] is activity_on
+	assert ('id="scheduleActivitySection"' in schedule_html) is activity_on
+	assert "schedule/activity.js?v=" in schedule_html
+	# Plan 3.13: the shortcut help only renders behind its kill switch (the line filter needs rows).
+	keyboard_on = bool(variant.get("keyboard_shortcuts_enabled"))
+	assert schedule_context["keyboard_shortcuts"] is keyboard_on
+	assert ('id="scheduleShortcutsHelp"' in schedule_html) is keyboard_on
+	assert keyboard_on or 'id="lineFilter"' not in schedule_html
+	assert "schedule/keyboard.js?v=" in schedule_html
 	# Plan 2.8: badge classes come only from the fixed tone allow-list.
 	badge_tones = set(re.findall(r'class="badge badge-([^" ]*)', schedule_html))
 	assert badge_tones <= BADGE_TONES, badge_tones - BADGE_TONES
@@ -1057,6 +1141,7 @@ prefilled = configurator.render(
 		},
 	}
 )
+assert 'id="ill-draft-autosave"' not in prefilled
 assert "pre-filled below" in prefilled and "Not offered on this product" in prefilled
 assert "&lt;b&gt;Gold&lt;/b&gt;" in prefilled
 nothing = configurator.render(
@@ -1067,6 +1152,37 @@ nothing = configurator.render(
 	}
 )
 assert "nothing was pre-filled" in nothing and "5000K" in nothing
+# Plan 3.5: a decoded part number names its unmatched codes and what to set by hand, escaped.
+from_part_number = configurator.render(
+	**{
+		**context,
+		"pn_prefill": {
+			"part_number": "ILL-<SH01>",
+			"unmatched": [{"answer": "<i>WH</i>", "reason": "matches more than one option"}],
+			"review": [{"text": "Length 48 in"}, {"text": "Output <O3>"}],
+		},
+	}
+)
+assert "Pre-filled from part number ILL-&lt;SH01&gt;" in from_part_number
+assert "&lt;i&gt;WH&lt;/i&gt; (matches more than one option)" in from_part_number
+assert "Length 48 in, Output &lt;O3&gt;" in from_part_number
+assert "ill-pn-banner" not in nothing
+# Plan 3.6: a preset pre-fill names the preset and every problem, escaped; the save control is gated.
+from_preset = configurator.render(
+	**{
+		**context,
+		"preset_prefill": {"label": "<b>Lobby</b>", "usable": True, "problems": ["Finish <i>X</i> is no longer offered"]},
+		"presets_enabled": True,
+		"preset_can_share": True,
+	}
+)
+assert "Pre-filled from preset &lt;b&gt;Lobby&lt;/b&gt;" in from_preset
+assert "Finish &lt;i&gt;X&lt;/i&gt; is no longer offered" in from_preset
+assert 'id="ill-config-presets"' in from_preset and '"can_share": true' in from_preset
+stale_preset = configurator.render(**{**context, "preset_prefill": {"label": "Old", "usable": False, "problems": []}})
+assert "ill-preset-banner" in stale_preset and "Preset Old can no longer be used" in stale_preset
+assert "ill-preset-banner" not in nothing and "ill-config-presets" not in nothing
+assert "ill-live-estimate" not in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
 designer_template = environment.get_template("templates/pages/system_design.html")
 designer = designer_template.render(
@@ -1123,9 +1239,15 @@ for category, mode in (
 			"config_schedule": "SCH </script><b>",
 			"schedule_name": "SCH </script><b>",
 			"can_save": True,
+			"draft_autosave": mode == "coordinator",
+			"live_estimate": mode == "coordinator",
 		}
 	)
 	assert "</script><b>" not in unpriced, category
+	# Plan 3.1: the autosave marker is rendered only when the page enables it.
+	assert ('id="ill-draft-autosave"' in unpriced) == (mode == "coordinator"), category
+	# Plan 3.8: the estimate panel marker follows the ill_portal_live_estimate kill switch.
+	assert ('id="ill-live-estimate"' in unpriced) == (mode == "coordinator"), category
 	assert 'id="pricingResults"' not in unpriced and "Fixture Price Breakdown" not in unpriced, category
 	assert "config_schedule" in unpriced, category
 	parser.feed(unpriced)

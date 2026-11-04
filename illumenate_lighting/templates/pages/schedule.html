@@ -61,6 +61,9 @@ Also handles new schedule creation when is_new is True
 	</div>
 	{% else %}
 
+	<!-- Plan 3.12: filled by schedule/conflict.js when someone else saved this schedule -->
+	<div class="alert alert-warning ill-conflict-notice" id="scheduleConflictNotice" role="alert" tabindex="-1" hidden></div>
+
 	<!-- Progress (FLOW-2) -->
 	<ol class="ill-schedule-steps" id="scheduleSteps" aria-label="{{ _('Schedule progress') }}">
 		{% for step in progress_steps %}
@@ -134,6 +137,11 @@ Also handles new schedule creation when is_new is True
 							{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 							<button class="btn btn-outline-primary" data-toggle="modal" data-target="#addLineModal">
 								<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Add Line") }}
+							</button>
+							{% endif %}
+							{% if schedule_import_enabled | default(false) %}
+							<button class="btn btn-outline-primary" type="button" id="importLinesButton" data-toggle="modal" data-target="#importLinesModal">
+								<i class="fa fa-upload" aria-hidden="true"></i> {{ _("Import Lines") }}
 							</button>
 							{% endif %}
 							{% if system_design and (system_design.design or (can_edit and not schedule.is_locked)) %}
@@ -321,17 +329,25 @@ Also handles new schedule creation when is_new is True
 	<div class="row">
 		<div class="col-12">
 			<div class="card">
-				<div class="card-header">
+				<div class="card-header{% if lines and keyboard_shortcuts_enabled | default(false) %} d-flex flex-wrap justify-content-between align-items-center ill-lines-header{% endif %}">
 					<h5 class="mb-0">{{ _("Fixture Lines") }}</h5>
+					{% if lines and keyboard_shortcuts_enabled | default(false) %}
+					<div class="d-flex align-items-center ill-line-tools">
+						<label class="sr-only" for="lineFilter">{{ _("Filter lines") }}</label>
+						<input type="search" id="lineFilter" class="form-control form-control-sm ill-line-filter" placeholder="{{ _('Filter lines (press /)') }}" aria-keyshortcuts="/" aria-describedby="lineFilterStatus" autocomplete="off">
+						<span id="lineFilterStatus" class="small text-muted ml-2" role="status" aria-live="polite"></span>
+						<button type="button" class="btn btn-sm btn-link ml-1" data-shortcuts-open aria-keyshortcuts="Shift+?" aria-controls="scheduleShortcutsHelp">{{ _("Shortcuts") }}</button>
+					</div>
+					{% endif %}
 				</div>
 				<div class="card-body p-0">
 					{% if lines %}
 					<div class="table-responsive">
-						<table class="table table-hover mb-0 fixture-lines-table">
+						<table class="table table-hover mb-0 fixture-lines-table{% if bulk_edit_enabled | default(false) %} has-bulk-select{% endif %}">
 							<thead class="thead-light">
 								<tr>
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
-									<th class="col-drag-handle" aria-label="{{ _('Reorder') }}"></th>
+									<th class="col-drag-handle" aria-label="{{ _('Reorder') }}">{% if bulk_edit_enabled | default(false) %}<input type="checkbox" id="lineSelectAll" class="line-select-all" title="{{ _('Select all lines') }}" aria-label="{{ _('Select all lines') }}">{% endif %}</th>
 									{% endif %}
 									<th>{{ _("Fixture Type") }}</th>
 									<th>{{ _("Type") }}</th>
@@ -352,7 +368,14 @@ Also handles new schedule creation when is_new is True
 								<tr id="line-{{ (line.get('line_key') or line.get('name') or loop.index0) | e }}" data-line-idx="{{ loop.index0 | e }}" data-line-key="{{ (line.get('line_key') or line.get('name') or '') | e }}">
 									{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 									<td class="col-drag-handle">
+										{% if bulk_edit_enabled | default(false) %}
+										<input type="checkbox" class="line-select" data-line-key="{{ (line.get('line_key') or line.get('name') or '') | e }}" aria-label="{{ _('Select line {0}').format(line.get('line_id') or line.get('idx') or loop.index) | e }}">
+										{% endif %}
+										{% if keyboard_shortcuts_enabled | default(false) %}
+										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder, or press Alt+Up / Alt+Down') }}" aria-label="{{ _('Reorder line: drag, or press Alt+Up / Alt+Down') }}" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown">
+										{% else %}
 										<button type="button" class="drag-handle-btn" title="{{ _('Drag to reorder') }}" aria-label="{{ _('Drag to reorder') }}">
+										{% endif %}
 											<i class="fa fa-arrows" aria-hidden="true"></i>
 										</button>
 									</td>
@@ -982,6 +1005,16 @@ Also handles new schedule creation when is_new is True
 												<button class="btn btn-sm btn-outline-secondary" type="button" data-line-action="duplicateLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Duplicate') }}">
 													<i class="fa fa-copy" aria-hidden="true"></i> {{ _('Duplicate') }}
 												</button>
+												{% if line_copy_enabled | default(false) %}
+												{% if line.get('can_configure_similar') %}
+												<button class="btn btn-sm btn-outline-secondary" type="button" data-copy-action="similar" data-line-index="{{ loop.index0 | e }}" title="{{ _('Configure a new line starting from this configuration') }}">
+													<i class="fa fa-clone" aria-hidden="true"></i> {{ _('Configure similar') }}
+												</button>
+												{% endif %}
+												<button class="btn btn-sm btn-outline-secondary" type="button" data-copy-action="copy" data-line-index="{{ loop.index0 | e }}" title="{{ _('Copy to another schedule') }}">
+													<i class="fa fa-share" aria-hidden="true"></i> {{ _('Copy to…') }}
+												</button>
+												{% endif %}
 												<button class="btn btn-sm btn-outline-danger" type="button" data-line-action="deleteLine" data-line-index="{{ loop.index0 | e }}" title="{{ _('Delete') }}">
 													<i class="fa fa-trash" aria-hidden="true"></i> {{ _('Delete') }}
 											</button>
@@ -1011,6 +1044,22 @@ Also handles new schedule creation when is_new is True
 							{% endif %}
 						</table>
 					</div>
+					{% if bulk_edit_enabled | default(false) %}
+					<div id="bulkActionBar" class="bulk-action-bar" role="region" aria-label="{{ _('Selected lines') }}" hidden>
+						<strong id="bulkSelectionCount" aria-live="polite"></strong>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="qty">{{ _("Set quantity") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="location">{{ _("Set location") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="line_id">{{ _("Set type") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="notes">{{ _("Set notes") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="move">{{ _("Move to…") }}</button>
+						{% if line_copy_enabled | default(false) %}
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="copy">{{ _("Copy to…") }}</button>
+						{% endif %}
+						<button type="button" class="btn btn-sm btn-outline-secondary" data-bulk-action="drawings">{{ _("Request drawings") }}</button>
+						<button type="button" class="btn btn-sm btn-outline-danger" data-bulk-action="delete">{{ _("Delete") }}</button>
+						<button type="button" class="btn btn-sm btn-link" data-bulk-action="clear">{{ _("Clear selection") }}</button>
+					</div>
+					{% endif %}
 					{% if can_edit and not schedule.is_locked and schedule.status in ['DRAFT', 'READY'] %}
 					<div class="card-footer">
 						<button class="btn btn-primary" data-toggle="modal" data-target="#addLineModal">
@@ -1139,6 +1188,50 @@ Also handles new schedule creation when is_new is True
 	</div>
 </div>
 
+{% if activity_timeline_enabled | default(false) %}
+<!-- Activity timeline (plan 3.11), loaded by schedule/activity.js -->
+<div class="row mb-4" id="scheduleActivitySection">
+	<div class="col-12">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<h6 class="mb-0" id="scheduleActivityTitle"><i class="fa fa-list-ul" aria-hidden="true"></i> {{ _("Activity") }}</h6>
+				<button type="button" class="btn btn-sm btn-outline-secondary" id="scheduleActivityToggle" aria-expanded="false" aria-controls="scheduleActivity">{{ _("Show activity") }}</button>
+			</div>
+			<div class="card-body" id="scheduleActivity" aria-labelledby="scheduleActivityTitle" aria-live="polite" hidden>
+				<ol class="ill-activity-list list-unstyled mb-2" id="scheduleActivityList"></ol>
+				<p class="text-muted small mb-0" id="scheduleActivityStatus"></p>
+				<button type="button" class="btn btn-sm btn-link px-0" id="scheduleActivityMore" hidden>{{ _("Show more") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+
+{% if undo_enabled | default(false) %}
+<!-- Undo toast (plan 3.10), filled by schedule/undo.js after a delete, move or bulk edit -->
+<div id="scheduleUndoToast" class="ill-undo-toast" role="status" aria-live="polite" hidden></div>
+{% endif %}
+
+{% if keyboard_shortcuts_enabled | default(false) %}
+<!-- Keyboard shortcut help (plan 3.13), toggled with ? by schedule/keyboard.js -->
+<div id="scheduleShortcutsHelp" class="ill-shortcuts-help" role="dialog" aria-modal="true" aria-labelledby="scheduleShortcutsTitle" hidden>
+	<div class="ill-shortcuts-panel">
+		<div class="d-flex justify-content-between align-items-center mb-2">
+			<h5 class="mb-0" id="scheduleShortcutsTitle">{{ _("Keyboard shortcuts") }}</h5>
+			<button type="button" class="close" data-shortcuts-close aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+		</div>
+		<dl class="ill-shortcuts-list mb-0">
+			<dt><kbd>/</kbd></dt><dd>{{ _("Filter lines") }}</dd>
+			<dt><kbd>n</kbd></dt><dd>{{ _("Add a line") }}</dd>
+			<dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>{{ _("Move between lines") }}</dd>
+			<dt><kbd>Alt</kbd> + <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>{{ _("Move the focused line up or down") }}</dd>
+			<dt><kbd>Esc</kbd></dt><dd>{{ _("Close a dialog") }}</dd>
+			<dt><kbd>?</kbd></dt><dd>{{ _("Show or hide this help") }}</dd>
+		</dl>
+	</div>
+</div>
+{% endif %}
+
 <!-- Add Line Modal -->
 <div class="modal fade" id="addLineModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="addLineModalTitle">
 	<div class="modal-dialog modal-lg" role="document">
@@ -1183,6 +1276,40 @@ Also handles new schedule creation when is_new is True
 					<div class="illumenate-fields" style="display: block;">
 						<hr>
 						<h6 class="text-muted mb-3">{{ _("ilLumenate Product Selection") }}</h6>
+						{% if recent_products_enabled | default(false) %}
+						<div class="form-group ill-add-recent d-none">
+							<label id="addLineRecentLabel">{{ _("Recently used") }}</label>
+							<div id="addLineRecentList" class="ill-recent-list" role="list" aria-labelledby="addLineRecentLabel"></div>
+							<small id="addLineRecentResult" class="form-text text-muted" role="status" aria-live="polite"></small>
+						</div>
+						{% endif %}
+						{% if part_number_decode_enabled | default(false) %}
+						<div class="form-group ill-add-by-pn">
+							<label for="addLinePartNumber">{{ _("Add by part number") }}</label>
+							<div class="input-group">
+								<input id="addLinePartNumber" type="text" class="form-control" maxlength="200" autocomplete="off" spellcheck="false" placeholder="ILL-…" aria-describedby="addLinePartNumberResult">
+								<div class="input-group-append">
+									<button type="button" class="btn btn-outline-primary" id="addLinePartNumberGo">{{ _("Configure") }}</button>
+								</div>
+							</div>
+							<small id="addLinePartNumberResult" class="form-text text-muted" role="status" aria-live="polite">{{ _("Paste a fixture part number to open the configurator with its options.") }}</small>
+						</div>
+						{% endif %}
+						{% if presets_enabled | default(false) %}
+						<div class="form-group ill-add-from-preset">
+							<label for="addLinePreset">{{ _("Start from a saved preset") }}</label>
+							<div class="input-group">
+								<select id="addLinePreset" class="form-control" aria-describedby="addLinePresetResult">
+									<option value="">{{ _("Choose a preset…") }}</option>
+								</select>
+								<div class="input-group-append">
+									<button type="button" class="btn btn-outline-primary" id="addLinePresetGo">{{ _("Configure") }}</button>
+									<button type="button" class="btn btn-outline-danger" id="addLinePresetDelete" disabled>{{ _("Delete") }}</button>
+								</div>
+							</div>
+							<small id="addLinePresetResult" class="form-text text-muted" role="status" aria-live="polite">{{ _("Save options as a preset in the configurator to reuse them here.") }}</small>
+						</div>
+						{% endif %}
 						<div class="row">
 							<div class="col-md-6">
 								<div class="form-group">
@@ -1812,6 +1939,116 @@ Also handles new schedule creation when is_new is True
 	</div>
 </div>
 {% endif %}
+{% if bulk_edit_enabled | default(false) %}
+<div class="modal fade" id="bulkEditModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="bulkEditTitle">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="bulkEditTitle"></h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+			</div>
+			<div class="modal-body">
+				<p id="bulkEditSummary" class="text-muted"></p>
+				<div class="form-group" data-bulk-field="qty">
+					<label for="bulkEditQty">{{ _("Quantity") }}</label>
+					<input type="number" class="form-control" id="bulkEditQty" min="1" step="1" inputmode="numeric">
+				</div>
+				<div class="form-group" data-bulk-field="location">
+					<label for="bulkEditLocation">{{ _("Location") }}</label>
+					<input type="text" class="form-control" id="bulkEditLocation" maxlength="140">
+				</div>
+				<div class="form-group" data-bulk-field="line_id">
+					<label for="bulkEditLineId">{{ _("Fixture Type") }}</label>
+					<input type="text" class="form-control" id="bulkEditLineId" maxlength="140">
+				</div>
+				<div class="form-group" data-bulk-field="notes">
+					<label for="bulkEditNotes">{{ _("Notes") }}</label>
+					<textarea class="form-control" id="bulkEditNotes" rows="3" maxlength="2000"></textarea>
+				</div>
+				<div class="form-group" data-bulk-field="move">
+					<label for="bulkEditTarget">{{ _("Target schedule") }}</label>
+					<select class="form-control" id="bulkEditTarget"></select>
+					<small class="form-text text-muted">{{ _("Moved lines keep their configuration and are re-checked and re-priced in the target schedule.") }}</small>
+				</div>
+				<div id="bulkEditErrors" class="alert alert-danger" role="alert" hidden></div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="bulkEditConfirm">{{ _("Apply") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+{% if schedule_import_enabled | default(false) %}
+<div class="modal fade" id="importLinesModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="importLinesTitle">
+	<div class="modal-dialog modal-xl" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="importLinesTitle">{{ _("Import lines") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+			</div>
+			<div class="modal-body">
+				<p class="text-muted">{{ _("Upload a CSV or Excel (.xlsx) sheet of up to 500 lines. ilLumenate lines are added as Unconfigured, so configure them before submitting. Nothing is added until you import.") }}</p>
+				<div class="form-group">
+					<label for="importLinesFile">{{ _("Sheet") }}</label>
+					<input type="file" class="form-control-file" id="importLinesFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+					<small class="form-text text-muted"><a href="#" id="importLinesTemplate">{{ _("Download the template") }}</a> {{ _("or upload a CSV export of a schedule.") }}</small>
+				</div>
+				<div id="importLinesMapping" hidden>
+					<h6>{{ _("Columns") }}</h6>
+					<div class="form-row" id="importLinesMappingFields"></div>
+					<button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="importLinesRefresh">{{ _("Update preview") }}</button>
+				</div>
+				<p id="importLinesCounts" role="status" class="mb-2"></p>
+				<div class="table-responsive ill-import-preview" id="importLinesPreview" hidden>
+					<table class="table table-sm">
+						<thead><tr><th>{{ _("Row") }}</th><th>{{ _("Type") }}</th><th>{{ _("Qty") }}</th><th>{{ _("Location") }}</th><th>{{ _("Status") }}</th><th>{{ _("Details") }}</th></tr></thead>
+						<tbody id="importLinesRows"></tbody>
+					</table>
+				</div>
+				<div class="form-check" id="importLinesSkipWrap" hidden>
+					<input type="checkbox" class="form-check-input" id="importLinesSkip">
+					<label class="form-check-label" for="importLinesSkip">{{ _("Skip the rows with errors") }}</label>
+				</div>
+				<div id="importLinesError" class="alert alert-danger mt-2" role="alert" hidden></div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="importLinesConfirm" disabled>{{ _("Import") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
+{% if line_copy_enabled | default(false) %}
+<div class="modal fade" id="copyLinesModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="copyLinesModalTitle">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="copyLinesModalTitle">{{ _("Copy to another schedule") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<p class="small text-muted" id="copyLinesSummary"></p>
+				<div class="form-group">
+					<label for="copyLinesTarget">{{ _("Target schedule") }}</label>
+					<select class="form-control" id="copyLinesTarget" disabled>
+						<option value="">{{ _("Loading...") }}</option>
+					</select>
+				</div>
+				<p class="small text-muted mb-0">{{ _("Configured lines are copied as Pending. Reconfigure them in the target schedule so engineering and prices are recalculated.") }}</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-primary" id="copyLinesConfirm" disabled>{{ _("Copy") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 
 {% endif %}
 {% endblock %}
@@ -1833,7 +2070,20 @@ Also handles new schedule creation when is_new is True
 	"status_labels": status_labels,
 	"open_offer": open_offer,
 	"can_issue_packet": (can_issue_packet | default(false)),
+	"line_copy": (line_copy_enabled | default(false)),
+	"bulk_edit": (bulk_edit_enabled | default(false)),
+	"part_number_decode": (part_number_decode_enabled | default(false)),
+	"presets": (presets_enabled | default(false)),
+	"recent_products": (recent_products_enabled | default(false)),
+	"stale_badge": (stale_badge_enabled | default(false)),
+	"undo": (undo_enabled | default(false)),
+	"activity_timeline": (activity_timeline_enabled | default(false)),
+	"keyboard_shortcuts": (keyboard_shortcuts_enabled | default(false)),
+	"schedule_import": (schedule_import_enabled | default(false)),
+	"import_columns": (import_columns | default([])),
+	"project_name": (project.name if project else ''),
 	"dealer_customer_group": (dealer_customer_group or '') if show_dealer_pricing else '',
+	"dealer_pricing_on": (dealer_pricing_on | default(false)) if show_dealer_pricing else false,
 	"i18n": {
 		"Select Fixture Template...": _("Select Fixture Template..."),
 		"Select Product Series...": _("Select Product Series..."),
@@ -1875,6 +2125,84 @@ Also handles new schedule creation when is_new is True
 		"Loading version history…": _("Loading version history…"),
 		"No earlier versions": _("No earlier versions"),
 		"This is the first version of this schedule.": _("This is the first version of this schedule."),
+		"Choose a target schedule…": _("Choose a target schedule…"),
+		"No other Draft or Ready schedules you can edit.": _("No other Draft or Ready schedules you can edit."),
+		"Copy {0} line(s) from this schedule.": _("Copy {0} line(s) from this schedule."),
+		"Copied {0} line(s).": _("Copied {0} line(s)."),
+		"Open target schedule": _("Open target schedule"),
+		"Set quantity": _("Set quantity"),
+		"Set location": _("Set location"),
+		"Set type": _("Set type"),
+		"Set notes": _("Set notes"),
+		"Move to another schedule": _("Move to another schedule"),
+		"{0} selected": _("{0} selected"),
+		"Nothing was changed.": _("Nothing was changed."),
+		"Applies to {0} selected line(s). Nothing changes unless every line can be updated.": _("Applies to {0} selected line(s). Nothing changes unless every line can be updated."),
+		"Quantity must be a whole number of at least 1": _("Quantity must be a whole number of at least 1"),
+		"Delete {0} selected line(s)? This cannot be undone.": _("Delete {0} selected line(s)? This cannot be undone."),
+		"Schedule {0}: {1}": _("Schedule {0}: {1}"),
+		"Ready": _("Ready"),
+		"Needs configuration": _("Needs configuration"),
+		"Error": _("Error"),
+		"Not imported": _("Not imported"),
+		"Column {0}": _("Column {0}"),
+		"{0} ready, {1} need configuration, {2} with errors.": _("{0} ready, {1} need configuration, {2} with errors."),
+		"Import {0} line(s)": _("Import {0} line(s)"),
+		"Import": _("Import"),
+		"Reading the sheet…": _("Reading the sheet…"),
+		"Could not read this sheet.": _("Could not read this sheet."),
+		"Upload a .csv or .xlsx file.": _("Upload a .csv or .xlsx file."),
+		"The file is larger than 1 MB.": _("The file is larger than 1 MB."),
+		"Could not import the lines.": _("Could not import the lines."),
+		"Enter a positive whole quantity.": _("Enter a positive whole quantity."),
+		"This part number fits several products: {0}. Choose the product below.": _("This part number fits several products: {0}. Choose the product below."),
+		"No product matches this part number.": _("No product matches this part number."),
+		"Enter a fixture part number.": _("Enter a fixture part number."),
+		"Looking up…": _("Looking up…"),
+		"Opening the configurator…": _("Opening the configurator…"),
+		"Could not look up this part number.": _("Could not look up this part number."),
+		"Could not copy the lines.": _("Could not copy the lines."),
+		"Could not load your schedules.": _("Could not load your schedules."),
+		"Browser storage is unavailable. Allow session storage to preserve this draft.": _("Browser storage is unavailable. Allow session storage to preserve this draft."),
+		"(similar)": _("(similar)"),
+		"from your company": _("from your company"),
+		"shared": _("shared"),
+		"no longer offered": _("no longer offered"),
+		"No saved presets yet. Save one from the configurator.": _("No saved presets yet. Save one from the configurator."),
+		"Could not load your presets.": _("Could not load your presets."),
+		"Choose a preset.": _("Choose a preset."),
+		"Delete preset {0}?": _("Delete preset {0}?"),
+		"Preset deleted.": _("Preset deleted."),
+		"Could not delete this preset.": _("Could not delete this preset."),
+		"Linear Fixture": _("Linear Fixture"),
+		"LED Tape": _("LED Tape"),
+		"LED Sheet": _("LED Sheet"),
+		"Extrusion Kit": _("Extrusion Kit"),
+		"Power Supply": _("Power Supply"),
+		"This product is not in the Add Line categories.": _("This product is not in the Add Line categories."),
+		"This product is no longer offered.": _("This product is no longer offered."),
+		"{0} selected.": _("{0} selected."),
+		"Catalog updated — review": _("Catalog updated — review"),
+		"Review and re-validate": _("Review and re-validate"),
+		"Updated by {0} at {1}.": _("Updated by {0} at {1}."),
+		"another user": _("another user"),
+		"Your change was not saved.": _("Your change was not saved."),
+		"Reload": _("Reload"),
+		"Compare": _("Compare"),
+		"Delete {0} selected line(s)? You can undo this for a few seconds.": _("Delete {0} selected line(s)? You can undo this for a few seconds."),
+		"Moved {0} line(s).": _("Moved {0} line(s)."),
+		"Updated {0} line(s).": _("Updated {0} line(s)."),
+		"Deleted {0} line(s).": _("Deleted {0} line(s)."),
+		"{0}s": _("{0}s"),
+		"Undo": _("Undo"),
+		"Dismiss": _("Dismiss"),
+		"New since you opened this page": _("New since you opened this page"),
+		"Loading activity…": _("Loading activity…"),
+		"Activity could not be loaded.": _("Activity could not be loaded."),
+		"No activity yet.": _("No activity yet."),
+		"Hide activity": _("Hide activity"),
+		"Show activity": _("Show activity"),
+		"{0} line(s) shown": _("{0} line(s) shown"),
 		"Choose two different lines to compare.": _("Choose two different lines to compare."),
 		"Comparing…": _("Comparing…"),
 		"The comparison could not be loaded.": _("The comparison could not be loaded."),
@@ -1882,7 +2210,7 @@ Also handles new schedule creation when is_new is True
 		"Differs": _("Differs"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "compare"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "compare", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale", "conflict", "undo", "activity", "keyboard"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

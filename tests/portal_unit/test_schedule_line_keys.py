@@ -11,9 +11,16 @@ LOADED = "2026-10-14 03:00:00.000001"
 
 
 class LineKeys(unittest.TestCase):
+	def setUp(self):
+		self.remember = MagicMock(return_value={"token": "t", "expires_in": 10, "action": "delete", "count": 1})
+
 	def call(self, endpoint, *args, modified=LOADED, locked=0, **kwargs):
 		deps = {
 			ROOT + ".portal.staff": types.SimpleNamespace(allowed=lambda c: False),
+			ROOT + ".portal.line_undo": types.SimpleNamespace(
+				snapshot=lambda schedule, lines: [{"index": 1, "row": dict(line)} for line in lines],
+				remember=self.remember,
+			),
 			ROOT
 			+ ".doctype.ill_project_fixture_schedule.ill_project_fixture_schedule": types.SimpleNamespace(
 				has_permission=lambda *a: True
@@ -50,6 +57,15 @@ class LineKeys(unittest.TestCase):
 		self.assertTrue(result["success"], result)
 		self.assertEqual(self.keys(), ["X", "A", "C"])
 		self.assertEqual(result["modified"], LOADED)
+		# Plan 3.10: the removed row (key B) is kept in an undo receipt.
+		schedule, action, rows = self.remember.call_args.args
+		self.assertEqual((schedule.name, action, rows[0]["row"]["line_key"]), ("S", "delete", "B"))
+		self.assertEqual(result["undo"]["token"], "t")
+
+	def test_delete_without_an_undo_receipt_keeps_the_old_response(self):
+		self.remember.return_value = None
+		result = self.call("delete_schedule_line", line_key="B", expected_modified=LOADED)
+		self.assertEqual(result, {"success": True, "modified": LOADED})
 
 	def test_stale_revision_is_refused_without_writing(self):
 		result = self.call(
@@ -59,6 +75,11 @@ class LineKeys(unittest.TestCase):
 		self.assertIn("changed since you opened it", result["error"])
 		self.assertEqual(self.keys(), ["X", "A", "B", "C"])
 		self.schedule.save.assert_not_called()
+		self.remember.assert_not_called()
+		# Plan 3.12: who saved it and when, next to the old keys.
+		self.assertEqual(result["error_code"], "validation_error")
+		self.assertEqual(result["conflict"]["modified"], "2026-10-14 03:05:00")
+		self.assertIn("modified_by_name", result["conflict"])
 
 	def test_unknown_key_never_falls_back_to_the_index(self):
 		result = self.call("delete_schedule_line", line_idx=0, line_key="GONE")

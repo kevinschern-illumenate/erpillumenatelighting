@@ -161,6 +161,72 @@ def get_context(context):
 			template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
 			if product_category != "Linear Fixture":
 				configurator_mode = "coordinator"
+	# Plan 3.2 "Configure similar": pre-fill from another line of this schedule; saving adds a new line.
+	similar_to = _query_value(frappe.form_dict.get("similar_to"))
+	context.similar_to = None
+	if similar_to and schedule and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import line_copy_enabled
+
+		if line_copy_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.configuration import resolve_line
+			from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+
+			try:
+				source_line = resolve_line(schedule, similar_to)
+			except ValueError as exc:
+				frappe.throw(str(exc))
+			initial_request = for_line(source_line)
+			if initial_request:
+				context.similar_to = source_line.get("line_id") or similar_to
+				product_category = initial_request["family"]
+				template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
+				if product_category != "Linear Fixture":
+					configurator_mode = "coordinator"
+
+	# Plan 3.5 "Add by part number": pre-fill the options a fixture part number names; nothing is saved.
+	context.pn_prefill = None
+	part_number = _query_value(frappe.form_dict.get("pn"))
+	if part_number and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import part_number_decode_enabled
+
+		if part_number_decode_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.part_number import NotAPartNumber, decode
+
+			try:
+				decoded = decode(part_number)
+			except NotAPartNumber:
+				decoded = None
+			if decoded and decoded.get("template"):
+				context.pn_prefill = decoded
+				initial_request = {"template": decoded["template"], "selections": decoded["selections"]}
+				product_category, template_code = "Linear Fixture", decoded["template"]
+
+	# Plan 3.6 "Start from preset": pre-fill a saved configuration, re-checked against what is
+	# offered now; options no longer offered are dropped and listed, and nothing is saved.
+	context.preset_prefill = None
+	preset_name = _query_value(frappe.form_dict.get("preset"))
+	if preset_name and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import presets_enabled
+
+		if presets_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.presets import load as load_preset
+
+			try:
+				loaded = load_preset(preset_name, schedule_name=schedule_name)
+			except frappe.DoesNotExistError:
+				loaded = None
+			if loaded:
+				context.preset_prefill = {
+					"label": loaded["label"],
+					"problems": loaded["problems"],
+					"usable": loaded["request"] is not None,
+				}
+				product_category = loaded["family"]
+				if loaded["request"] is not None:
+					initial_request = loaded["request"]
+					template_code = initial_request.get("template") or template_code
+				if product_category != "Linear Fixture":
+					configurator_mode = "coordinator"
 
 	# Quiz answers are plain words ("Damp", "Silver"); match them on the server to the
 	# options this template offers, so the browser does not apply the raw labels.
@@ -253,6 +319,23 @@ def get_context(context):
 	context.line_idx = int(line_idx) if line_idx is not None else None
 	context.can_save = can_save
 	context.line_key = line_key
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import durable_drafts_enabled
+
+	# Plan 3.1: server-backed drafts only where the dealer can save to this schedule.
+	context.draft_autosave = bool(schedule and can_save and durable_drafts_enabled())
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import presets_enabled
+
+	# Plan 3.6: "Save as preset"; sharing is for users of a dealer company.
+	context.presets_enabled = presets_enabled()
+	if context.presets_enabled:
+		from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+
+		actor = get_actor()
+		context.preset_can_share = bool(actor.is_dealer and actor.customer and not actor.is_internal)
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import live_estimate_enabled
+
+	# Plan 3.8: price, stock and lead time under each result, labelled as an estimate.
+	context.live_estimate = live_estimate_enabled()
 	context.expected_modified = str(schedule.modified) if schedule else None
 	context.initial_request = initial_request
 	context.templates = templates
@@ -339,22 +422,11 @@ def _get_linear_fixture_templates():
 	templates = frappe.get_all(
 		"ilL-Fixture-Template",
 		filters=template_filters(),
-		fields=["template_code", "template_name", "webflow_product"],
+		fields=["name", "template_code", "template_name", "webflow_product"],
 		order_by="template_name asc",
 		ignore_permissions=True,
 	)
-
-	# Batch-fetch gallery images from linked Webflow products
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = _fetch_webflow_gallery(webflow_product_names)
-
-	# Attach gallery JSON to each template
-	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
-		t.image = gallery[0]["image"] if gallery else None
-		t.gallery_json = json.dumps(gallery) if gallery else "[]"
-
-	return templates
+	return attach_images("ilL-Fixture-Template", templates)
 
 
 def _get_tape_neon_templates(product_category):
@@ -364,25 +436,11 @@ def _get_tape_neon_templates(product_category):
 	templates = frappe.get_all(
 		"ilL-Tape-Neon-Template",
 		filters=template_filters(product_category=product_category),
-		fields=["template_code", "template_name", "webflow_product", "image", "description"],
+		fields=["name", "template_code", "template_name", "webflow_product", "image", "description"],
 		order_by="template_name asc",
 		ignore_permissions=True,
 	)
-
-	# Batch-fetch gallery images from linked Webflow products
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = _fetch_webflow_gallery(webflow_product_names)
-
-	# Attach gallery JSON to each template
-	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
-		# If no Webflow gallery but has a direct image, use that
-		if not gallery and t.image:
-			gallery = [{"image": t.image, "alt_text": t.template_name or ""}]
-		t.image = gallery[0]["image"] if gallery else t.image
-		t.gallery_json = json.dumps(gallery) if gallery else "[]"
-
-	return templates
+	return attach_images("ilL-Tape-Neon-Template", templates)
 
 
 def _get_driver_templates():
@@ -396,7 +454,7 @@ def _get_driver_templates():
 		order_by="template_name asc",
 		ignore_permissions=True,
 	)
-	gallery_by_product = _fetch_webflow_gallery([t.webflow_product for t in templates if t.webflow_product])
+	attach_images("ilL-Driver-Template", templates)
 	descriptions = (
 		dict(
 			frappe.get_all(
@@ -411,50 +469,33 @@ def _get_driver_templates():
 		else {}
 	)
 	for t in templates:
-		gallery = gallery_by_product.get(t.webflow_product, []) if t.webflow_product else []
 		t.template_code = t.template_code or t.name
 		t.template_name = t.template_name or t.name
-		t.image = gallery[0]["image"] if gallery else None
-		t.gallery_json = json.dumps(gallery)
 		t.description = descriptions.get(t.webflow_product) or ""
 	return templates
 
 
-def _fetch_webflow_gallery(webflow_product_names):
-	"""Fetch gallery images from Webflow product records."""
-	if not webflow_product_names:
-		return {}
+def attach_images(doctype, templates):
+	"""Set each template's ``image``, ``image_alt``, ``gallery`` and ``gallery_json`` (plan 5.4).
 
-	webflow_product_gallery = {}
-
-	# Fetch gallery images from child table ordered by idx
-	gallery_rows = frappe.get_all(
-		"ilL-Child-Webflow-Gallery-Image",
-		filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
-		fields=["parent", "image", "alt_text", "display_order", "idx"],
-		order_by="parent, idx asc",
-		ignore_permissions=True,
+	The main image follows owner decision D1 (template hero image first); the gallery lists it
+	first, then the other distinct images. Returns ``templates``.
+	"""
+	if not templates:
+		return templates
+	from illumenate_lighting.illumenate_lighting.api.product_projection import (
+		images_list,
+		resolve_product_images,
 	)
-	for row in gallery_rows:
-		if row.image:
-			webflow_product_gallery.setdefault(row.parent, []).append(
-				{"image": row.image, "alt_text": row.alt_text or ""}
-			)
 
-	# Fallback: also fetch featured_image for products with no gallery
-	webflow_products = frappe.get_all(
-		"ilL-Webflow-Product",
-		filters={"name": ["in", webflow_product_names]},
-		fields=["name", "featured_image"],
-		ignore_permissions=True,
-	)
-	for wp in webflow_products:
-		if wp.name not in webflow_product_gallery and wp.featured_image:
-			webflow_product_gallery[wp.name] = [
-				{"image": wp.featured_image, "alt_text": ""}
-			]
-
-	return webflow_product_gallery
+	resolved = resolve_product_images(doctype, [t.name for t in templates])
+	for t in templates:
+		gallery = images_list(resolved.get(t.name))
+		t["image"] = gallery[0]["image"] if gallery else None
+		t["image_alt"] = gallery[0]["alt_text"] if gallery else ""
+		t["gallery"] = gallery
+		t["gallery_json"] = json.dumps(gallery)
+	return templates
 
 
 @frappe.whitelist()

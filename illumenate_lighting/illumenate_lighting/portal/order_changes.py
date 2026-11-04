@@ -48,8 +48,8 @@ def _order(name):
 def fork_schedule(order, purpose):
 	"""Copy customer intent, with current engineering review required before resale."""
 	from illumenate_lighting.illumenate_lighting.portal.access import can_edit_schedule
-	from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
 	from illumenate_lighting.illumenate_lighting.portal.line_documents import clone
+	from illumenate_lighting.illumenate_lighting.portal.line_intent import intent_values
 
 	if not order.get("ill_fixture_schedule"):
 		frappe.throw("This historical order has no source schedule. Ask Sales to prepare a new request.")
@@ -79,50 +79,7 @@ def fork_schedule(order, purpose):
 		"owner",
 	}
 	for line in source.lines:
-		values = {key: value for key, value in line.as_dict().items() if key not in exclude}
-		configured = any(
-			values.get(key)
-			for key in (
-				"configured_group",
-				"configured_fixture",
-				"configured_tape_neon",
-				"configured_led_sheet",
-			)
-		)
-		# Older kit/tape rows can carry generated artifacts only inside selection JSON.
-		configured = configured or bool(
-			values.get("variant_selections") and values.get("manufacturer_type") == "ILLUMENATE"
-		)
-		if configured:
-			request = for_line(line)
-			values["ill_configurator_request"] = canonical_json(request) if request else None
-			# Only intent survives a reorder. Legacy selection JSON may contain
-			# generated Item/BOM links that would bypass current engineering.
-			values["variant_selections"] = None
-			values["configuration_status"] = "Pending"
-			for key in (
-				"configured_group",
-				"configured_fixture",
-				"configured_tape_neon",
-				"configured_led_sheet",
-				"ill_item_code",
-				"item_code",
-				"bom_no",
-				"ill_bom",
-				"unit_price",
-				"extended_price",
-				"manufacturable_length_mm",
-				"total_watts",
-				"total_lumens",
-				"manufacturable_length_in",
-			):
-				if key in values:
-					values[key] = None
-			values["notes"] = (
-				(values.get("notes") or "")
-				+ "\nReconfigure this line against current engineering and pricing before requesting an order."
-			).strip()
-		draft.append("lines", values)
+		draft.append("lines", intent_values(line, exclude))
 	for row in source.collaborators or []:
 		draft.append(
 			"collaborators", {key: value for key, value in row.as_dict().items() if key not in exclude}
