@@ -55,14 +55,19 @@
             frappe.msgprint(__('Save the template first.'));
             return;
         }
-        const dialog = blockingDialog();
-        frappe.xcall(METHOD + 'generate_spec_sheet', {
-            template_doctype: frm.doctype,
-            template_id: frm.doc.name,
-        }).then(result => {
+        // Start the job first: the server checks the template and lists anything missing. The
+        // blocking dialog opens only once the job has been accepted.
+        frappe.call({
+            method: METHOD + 'generate_spec_sheet',
+            args: {template_doctype: frm.doctype, template_id: frm.doc.name},
+            freeze: true,
+            freeze_message: __('Checking the template...'),
+        }).then(r => {
+            const result = r && r.message;
+            if (!result || !result.job_id) return;
             frm.__spec_sheet_warnings = result.warnings || [];
-            poll(frm, dialog, result.job_id);
-        }).catch(() => dialog.hide());
+            poll(frm, blockingDialog(), result.job_id);
+        });
     }
 
     ['ilL-Fixture-Template', 'ilL-Tape-Neon-Template', 'ilL-LED-Sheet-Template', 'ilL-Driver-Template',
