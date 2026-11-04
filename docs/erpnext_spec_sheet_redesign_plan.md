@@ -1303,7 +1303,9 @@ ilLumenate kit sheet: the first `.dimension-item` keeps `dimensions_image` in `#
 - Automatic pushes (replaces the plan's Active + Live rule):
   - Template to Webflow Product: once a template is linked, every template save pushes to its Webflow Product, whatever the template's product status.
   - Webflow Product to Webflow: once the product has been synced to Webflow (it has a Webflow item), its changes push to Webflow automatically. A product never synced does not push on its own.
-  - Archived in Webflow: no pushes. When the product's Webflow Status changes from Archived back to Webflow Draft or Published, the owner is notified (open: whether that change pushes on its own or waits for approval).
+  - Archived in Webflow: no pushes. When the product's Webflow Status changes from Archived back to Webflow Draft or Published, the owner is notified with an Approve action (bell, email and browser push); nothing goes to Webflow until the owner approves.
+
+**Staging test, 2026-11-04 (KIT-RA01):** the Webflow Product's Sync to Webflow button calls `webflow_export_v2.request_spec_sheet`, which posts `{product, product_slug, brand}` to the spec webhook (W1, `staging-generate-spec-sheet`). That is the old product-based "generate spec, then sync" path. Since Phase 3, W1 takes a template (`template_doctype`, `template_id`), so the run failed in Get Spec Sheet Data (n8n execution 12879) and never reached the sync webhook (W2). The STAGE/PUBLISH path through `ilL-Publish-Job` and W2 (`trigger_sync_v2`, `trigger_publish_v2`) exists but the button does not use it. The template's "Generate Spec & Sync to Webflow" label is Phase 5 work, not built yet. The owner asked for an overhaul of the product sync in ERPNext and n8n (grill in progress).
 
 ### Phase 6: UI
 
