@@ -37,54 +37,33 @@ const BRAND_PILLS = {
     lighting_206: {label: '206 Lighting', background: '#fdc757', color: '#172e48'},
 };
 
-function titleRow($sidebar, name) {
-    // The element showing the record name (for example KIT-RA04), then the whole row holding
-    // it with the print and like icons. The pill goes above that row and the Template Name
-    // below it, so the three stack vertically and the record name keeps its space.
-    const $text = $sidebar.find('*').filter(function () {
-        return this.children.length === 0 && $(this).text().trim() === name;
-    }).first();
-    if (!$text.length) return null;
-    let $row = $text;
-    while ($row.parent().length && !$row.parent().is($sidebar)) {
-        $row = $row.parent();
-        if ($row.find('svg, button, .icon').length) break;
-    }
-    return $row;
-}
-
 function showTemplateName(frm) {
-    // Order (owner, 2026-11-04): brand pill, record name (KIT-RA04), Template Name.
-    const $sidebar = frm.sidebar && frm.sidebar.sidebar;
-    if (!$sidebar) return;
-    $sidebar.find('.ill-template-name, .ill-template-brand').remove();
+    // Order (owner, 2026-11-04): brand pill, record name (KIT-RA04), Template Name, stacked.
+    // One block at the top of the sidebar, placed the way the Webflow Product places its
+    // Target Brands pill, outside the title row with the print and like icons.
+    const $side = $(frm.page.wrapper).find('.layout-side-section').first();
+    if (!$side.length) return;
+    $side.find('.ill-template-header').remove();
     if (frm.is_new()) return;
-    const $row = titleRow($sidebar, frm.doc.name);
+
+    const $block = $('<div class="ill-template-header"></div>')
+        .css({display: 'block', padding: '0 15px', 'margin-top': '10px', 'margin-bottom': '-10px'});
 
     const brands = (frm.doc.target_brands || []).filter(row => row.enabled && row.brand);
     if (brands.length) {
-        const $pills = $('<div class="ill-template-brand"></div>').css({display: 'block', width: '100%', padding: '0 0 6px'});
+        const $pills = $('<div></div>').css({'margin-bottom': '6px'});
         brands.forEach(row => {
             const pill = BRAND_PILLS[row.brand] || {label: row.brand, background: '#8d99a6', color: 'white'};
             $('<span class="badge"></span>').text(pill.label).css({
                 'background-color': pill.background, color: pill.color, 'font-weight': 500, 'margin-right': '5px',
             }).appendTo($pills);
         });
-        if ($row) {
-            $pills.insertBefore($row);
-        } else {
-            $sidebar.prepend($pills);
-        }
+        $block.append($pills);
     }
-
-    const name = frm.doc.template_name;
-    if (!name) return;
-    const $name = $('<div class="ill-template-name text-muted"></div>')
-        .text(name)
-        .css({display: 'block', width: '100%', 'word-break': 'break-word', 'margin-top': '2px'});
-    if ($row) {
-        $name.insertAfter($row);
-    } else {
-        $sidebar.prepend($name);
+    $('<div></div>').text(frm.doc.name).css({'font-weight': 600, 'word-break': 'break-word'}).appendTo($block);
+    if (frm.doc.template_name) {
+        $('<div class="text-muted"></div>').text(frm.doc.template_name)
+            .css({'word-break': 'break-word', 'margin-top': '2px'}).appendTo($block);
     }
+    $side.prepend($block);
 }
