@@ -1,5 +1,5 @@
 /* One interaction kit for portal pages (UI-3): calls that fail one way, toasts, a focus-managed
- * confirm, one escape helper and inline field errors. Pages update the DOM in place after a
+ * dialog and confirm, one escape helper and inline field errors. Pages update the DOM in place after a
  * success instead of showing a dialog and reloading. */
 (function () {
 	'use strict';
@@ -13,10 +13,30 @@
 			.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 	}
 
-	function plain(html) {
-		const box = document.createElement('div');
-		box.innerHTML = String(html || '');
-		return box.textContent.trim();
+	// Plan 2.5: markup built by html`` escapes every interpolated value unless it is itself
+	// html``/raw() output; arrays are joined. Assign the result to innerHTML directly.
+	function SafeHTML(value) { this.value = value; }
+	SafeHTML.prototype.toString = function () { return this.value; };
+
+	function fragment(value) {
+		if (value instanceof SafeHTML) return value.value;
+		if (Array.isArray(value)) return value.map(fragment).join('');
+		return escape(value);
+	}
+
+	function html(strings, ...values) {
+		let out = strings[0];
+		values.forEach((value, i) => { out += fragment(value) + strings[i + 1]; });
+		return new SafeHTML(out);
+	}
+
+	// Trusted, static markup only (icons, translated chrome). Never pass user or server data.
+	function raw(markup) { return new SafeHTML(String(markup === undefined || markup === null ? '' : markup)); }
+
+	// Parse into an inert document: a live-document element would load <img onerror> payloads.
+	function plain(markup) {
+		const doc = new DOMParser().parseFromString(String(markup || ''), 'text/html');
+		return (doc.body ? doc.body.textContent : '').trim();
 	}
 
 	// Frappe sends frappe.throw text as a JSON list of JSON-encoded {message} objects.
@@ -51,13 +71,35 @@
 		}
 	}
 
+	// Plan 2.4: structured details from a {success:false} reply or a portal_error() response.
+	// Transient means the request never got an application answer (offline, gateway, overload).
+	function errorDetails(payload) {
+		const body = payload && payload.responseJSON ? payload.responseJSON : payload;
+		const structured = body && typeof body === 'object' && body.portal_error && typeof body.portal_error === 'object' ? body.portal_error : {};
+		const status = payload && typeof payload.status === 'number' ? payload.status : null;
+		return {
+			code: structured.code || null,
+			field: structured.field || null,
+			hint: structured.hint || null,
+			status,
+			transient: status === 0 || status === 502 || status === 503 || status === 504,
+			serverText: structured.message ? plain(structured.message) : '',
+		};
+	}
+
 	function call(method, args, options) {
 		options = options || {};
 		setBusy(options.busy, true);
 		return new Promise((resolve, reject) => {
-			const fail = message => {
-				const error = new Error(message || t(GENERIC));
+			const fail = (message, details) => {
+				details = details || {};
+				const error = new Error(details.serverText || message || t(GENERIC));
 				error.portal = true;
+				error.code = details.code || null;
+				error.field = details.field || null;
+				error.hint = details.hint || null;
+				error.status = details.status === undefined ? null : details.status;
+				error.transient = !!details.transient;
 				reject(error);
 			};
 			try {
@@ -68,13 +110,13 @@
 					callback(r) {
 						const message = r ? r.message : undefined;
 						if (message && typeof message === 'object' && message.success === false) {
-							fail(plain(message.error));
+							fail(plain(message.error), {code: message.error_code, field: message.field, hint: message.hint && plain(message.hint)});
 							return;
 						}
 						if (options.successToast) toast(options.successToast, 'green');
 						resolve(message);
 					},
-					error(payload) { fail(serverMessage(payload)); },
+					error(payload) { fail(serverMessage(payload), errorDetails(payload)); },
 				});
 			} catch (error) {
 				fail(error && error.message);
@@ -109,70 +151,88 @@
 			toastRegion.className = 'ill-toasts';
 			toastRegion.setAttribute('role', 'status');
 			toastRegion.setAttribute('aria-live', 'polite');
-			toastRegion.style.cssText = 'position:fixed;right:1rem;bottom:1rem;z-index:1080;display:flex;flex-direction:column;gap:.5rem';
 			document.body.append(toastRegion);
 		}
 		const item = document.createElement('div');
 		item.className = 'ill-toast ill-toast--' + (tone || 'green');
-		item.style.cssText = 'background:#fff;border-left:4px solid ' + ({red: '#C0392B', orange: '#B7791F', blue: '#00588C'}[tone] || '#2F855A') + ';box-shadow:0 4px 16px rgba(0,0,0,.12);border-radius:8px;padding:.75rem 1rem;max-width:22rem';
 		item.textContent = message;
 		toastRegion.append(item);
 		setTimeout(() => item.remove(), 5000);
 	}
 
+	// Plan 8.3: the one portal dialog. Focus moves inside, Tab and Shift+Tab stay inside, Escape
+	// and a backdrop click cancel, and focus returns to the opener. `content` is a DOM node, never
+	// markup. Returns {element, close(value), closed}; `closed` resolves with the close value.
+	const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+	function dialog(options) {
+		options = options || {};
+		const previous = document.activeElement;
+		const backdrop = document.createElement('div');
+		backdrop.className = ('ill-dialog ' + (options.className || '')).trim();
+		const box = document.createElement('div');
+		box.setAttribute('role', options.role || 'dialog');
+		box.setAttribute('aria-modal', 'true');
+		box.setAttribute('tabindex', '-1');
+		box.className = options.className ? 'ill-dialog__box ' + options.className + '__dialog' : 'ill-dialog__box';
+		const title = document.createElement('h2');
+		title.className = 'h5 mb-2';
+		title.id = 'ill-dialog-' + Math.random().toString(36).slice(2);
+		title.textContent = options.title || '';
+		box.setAttribute('aria-labelledby', title.id);
+		box.append(title);
+		if (options.content) box.append(options.content);
+		backdrop.append(box);
+		let open = true;
+		let settle;
+		const closed = new Promise(resolve => { settle = resolve; });
+		const close = value => {
+			if (!open) return;
+			open = false;
+			document.removeEventListener('keydown', onKey, true);
+			backdrop.remove();
+			if (previous && previous.focus && previous.isConnected) previous.focus();
+			settle(value);
+		};
+		const onKey = event => {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				close(options.cancelValue);
+			} else if (event.key === 'Tab') {
+				const items = Array.from(box.querySelectorAll(FOCUSABLE));
+				event.preventDefault();
+				if (!items.length) { box.focus(); return; }
+				const index = items.indexOf(document.activeElement);
+				const next = index < 0 ? (event.shiftKey ? items.length - 1 : 0) : (index + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+				items[next].focus();
+			}
+		};
+		backdrop.addEventListener('click', event => { if (event.target === backdrop) close(options.cancelValue); });
+		document.addEventListener('keydown', onKey, true);
+		document.body.append(backdrop);
+		const first = options.initialFocus || box.querySelector(FOCUSABLE) || box;
+		first.focus();
+		return {element: box, close, closed};
+	}
+
 	function confirm(options) {
 		options = options || {};
-		return new Promise(resolve => {
-			const previous = document.activeElement;
-			const backdrop = document.createElement('div');
-			backdrop.className = 'ill-confirm';
-			backdrop.style.cssText = 'position:fixed;inset:0;z-index:1070;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:1rem';
-			const dialog = document.createElement('div');
-			dialog.setAttribute('role', 'dialog');
-			dialog.setAttribute('aria-modal', 'true');
-			dialog.className = 'ill-confirm__dialog';
-			dialog.style.cssText = 'background:#fff;border-radius:12px;max-width:28rem;width:100%;padding:1.5rem;box-shadow:0 12px 40px rgba(0,0,0,.2)';
-			const title = document.createElement('h2');
-			title.className = 'h5 mb-2';
-			title.id = 'ill-confirm-' + Math.random().toString(36).slice(2);
-			title.textContent = options.title || t('Are you sure?');
-			dialog.setAttribute('aria-labelledby', title.id);
-			const body = document.createElement('p');
-			body.className = 'mb-4';
-			body.textContent = options.body || '';
-			const actions = document.createElement('div');
-			actions.className = 'd-flex justify-content-end';
-			const cancel = document.createElement('button');
-			cancel.type = 'button'; cancel.className = 'btn btn-secondary mr-2'; cancel.textContent = options.cancelLabel || t('Cancel');
-			const ok = document.createElement('button');
-			ok.type = 'button'; ok.className = 'btn ' + (options.tone === 'danger' ? 'btn-danger' : 'btn-primary');
-			ok.textContent = options.confirmLabel || t('Continue');
-			actions.append(cancel, ok);
-			dialog.append(title, body, actions);
-			backdrop.append(dialog);
-			const close = answer => {
-				document.removeEventListener('keydown', onKey, true);
-				backdrop.remove();
-				if (previous && previous.focus) previous.focus();
-				resolve(answer);
-			};
-			const onKey = event => {
-				if (event.key === 'Escape') { event.preventDefault(); close(false); }
-				if (event.key === 'Tab') {
-					// Keep focus inside the dialog.
-					const items = [cancel, ok];
-					const index = items.indexOf(document.activeElement);
-					event.preventDefault();
-					items[(index + (event.shiftKey ? -1 : 1) + items.length) % items.length].focus();
-				}
-			};
-			cancel.addEventListener('click', () => close(false));
-			ok.addEventListener('click', () => close(true));
-			backdrop.addEventListener('click', event => { if (event.target === backdrop) close(false); });
-			document.addEventListener('keydown', onKey, true);
-			document.body.append(backdrop);
-			ok.focus();
-		});
+		const content = document.createDocumentFragment();
+		const body = document.createElement('p');
+		body.className = 'mb-4';
+		body.textContent = options.body || '';
+		const actions = document.createElement('div');
+		actions.className = 'd-flex justify-content-end';
+		const cancel = document.createElement('button');
+		cancel.type = 'button'; cancel.className = 'btn btn-secondary mr-2'; cancel.textContent = options.cancelLabel || t('Cancel');
+		const ok = document.createElement('button');
+		ok.type = 'button'; ok.className = 'btn ' + (options.tone === 'danger' ? 'btn-danger' : 'btn-primary');
+		ok.textContent = options.confirmLabel || t('Continue');
+		actions.append(cancel, ok);
+		content.append(body, actions);
+		const box = dialog({title: options.title || t('Are you sure?'), content, className: 'ill-confirm', cancelValue: false, initialFocus: ok});
+		cancel.addEventListener('click', () => box.close(false));
+		ok.addEventListener('click', () => box.close(true));
+		return box.closed;
 	}
 
 	function fieldErrors(form, errors) {
@@ -259,5 +319,63 @@
 		return box;
 	}
 
-	window.PortalUI = {call, toast, announce, confirm, escape, fieldErrors, serverMessage, skeleton, empty, failed};
+	/* Plan 2.3: the one portal API layer. PortalAPI.call(method, args, {button, form, retry, type,
+	 * successToast, toast}) returns a promise, keeps the triggering button busy for the whole call
+	 * (retries included), shows a field error under the named input of `form` when the server names
+	 * a field, and otherwise shows one red toast (pass toast: false to handle it yourself). The
+	 * rejected Error carries code/field/hint/status from the server. `retry` re-sends only after a
+	 * transport failure (offline, 502/503/504) where the server gave no answer; pass it for reads
+	 * and idempotent writes only. */
+	const RETRY_DELAY_MS = 600;
+	function apiCall(method, args, options) {
+		options = options || {};
+		const button = options.button || null;
+		const form = options.form || null;
+		const retries = Math.max(0, Math.min(3, parseInt(options.retry, 10) || 0));
+		if (form) fieldErrors(form, {});
+		setBusy(button, true);
+		const attempt = left => call(method, args, {type: options.type, successToast: options.successToast}).catch(error => {
+			if (left > 0 && error.transient) {
+				return new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * (retries - left + 1))).then(() => attempt(left - 1));
+			}
+			throw error;
+		});
+		return attempt(retries).catch(error => {
+			const text = error.hint ? error.message + ' ' + error.hint : error.message;
+			const inline = !!(form && error.field) && fieldErrors(form, {[error.field]: text});
+			if (!inline && options.toast !== false) toast(text, 'red');
+			error.shown = inline || options.toast !== false;
+			throw error;
+		}).finally(() => setBusy(button, false));
+	}
+
+	// Plan 8.3: tablists marked [role="tablist"][data-ill-tabs] follow the WAI-ARIA tabs pattern.
+	// Left/Right wrap, Home/End jump, and only the selected tab is in the Tab order. Selection
+	// itself stays with the page (Bootstrap's tab plugin), which reacts to the synthetic click.
+	function syncTabs(list) {
+		list.querySelectorAll('[role="tab"]').forEach(tab => {
+			const selected = tab.classList.contains('active');
+			tab.setAttribute('aria-selected', String(selected));
+			tab.setAttribute('tabindex', selected ? '0' : '-1');
+		});
+	}
+	document.addEventListener('keydown', event => {
+		const tab = event.target && event.target.closest && event.target.closest('[data-ill-tabs] [role="tab"]');
+		if (!tab) return;
+		const tabs = Array.from(tab.closest('[data-ill-tabs]').querySelectorAll('[role="tab"]'));
+		const index = tabs.indexOf(tab);
+		const next = {ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1}[event.key];
+		if (next === undefined) return;
+		event.preventDefault();
+		const target = tabs[(next + tabs.length) % tabs.length];
+		target.focus();
+		target.click();
+	});
+	document.addEventListener('click', event => {
+		const list = event.target && event.target.closest && event.target.closest('[data-ill-tabs]');
+		if (list) setTimeout(() => syncTabs(list), 0);
+	});
+
+	window.PortalUI = {call, toast, announce, confirm, dialog, syncTabs, escape, html, raw, plain, fieldErrors, serverMessage, skeleton, empty, failed};
+	window.PortalAPI = {call: apiCall};
 })();

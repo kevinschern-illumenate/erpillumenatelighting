@@ -3,6 +3,7 @@ Portal Support Page
 Help center, FAQ, and support ticket submission
 #}
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 {% block portal_scope %}ill-page--ill-support{% endblock %}
 
 {% block portal_title %}{{ _("Support") }}{% endblock %}
@@ -247,10 +248,7 @@ Help center, FAQ, and support ticket submission
 					</span>
 				</div>
 				{% endfor %}
-				<nav aria-label="{{ _('Support pages') }}">
-					{% if ticket_page.page > 1 %}<a class="btn btn-outline-secondary" href="?page={{ ticket_page.page - 1 }}">{{ _("Previous") }}</a>{% endif %}
-					{% if ticket_page.page * ticket_page.page_size < ticket_page.total %}<a class="btn btn-outline-secondary" href="?page={{ ticket_page.page + 1 }}">{{ _("Next") }}</a>{% endif %}
-				</nav>
+				{{ pager(_("Support pages"), ticket_page.page, ticket_page.page * ticket_page.page_size < ticket_page.total) }}
 			</div>
 			{% endif %}
 		</div>

@@ -37,6 +37,33 @@ class StatusVocabulary(unittest.TestCase):
 		self.assertEqual(module.verification_status("INFORMATION_NEEDED"), ("Needs your reply", "warning"))
 		self.assertEqual(module.verification_status(None), ("", "secondary"))
 
+	def test_badge_tone_only_passes_the_fixed_allow_list(self):
+		module = self.service()
+		for tone in ("primary", "secondary", "success", "danger", "warning", "info", "light", "dark"):
+			self.assertEqual(module.badge_tone(tone), tone)
+		for hostile in ('info" onmouseover="x', "info x", "INFO", "", None, 3, ["info"]):
+			with self.subTest(value=hostile):
+				self.assertEqual(module.badge_tone(hostile), "secondary")
+		self.assertEqual(module.badge_tone("nope", default="info"), "info")
+
+	def test_every_mapped_status_class_is_an_allowed_tone(self):
+		module = self.service()
+		metas = [
+			value
+			for name, value in vars(module).items()
+			if name.endswith("_STATUS_META") and isinstance(value, dict)
+		]
+		self.assertTrue(metas)
+		for meta in metas:
+			for status, entry in meta.items():
+				with self.subTest(status=status):
+					self.assertIn(entry["css"], module.BADGE_TONES)
+
+	def test_jinja_helper_uses_the_allow_list(self):
+		with load_service(ROOT + ".portal.jinja_methods") as (methods, _frappe):
+			self.assertEqual(methods.ill_badge_tone("warning"), "warning")
+			self.assertEqual(methods.ill_badge_tone("x\" onclick=\"y"), "secondary")
+
 
 if __name__ == "__main__":
 	unittest.main()

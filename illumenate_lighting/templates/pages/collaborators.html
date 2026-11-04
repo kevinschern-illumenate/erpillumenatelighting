@@ -11,7 +11,7 @@ Manage collaborators for a project
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | e }}">{{ project.project_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | urlencode }}">{{ project.project_name | e }}</a></li>
 			<li class="breadcrumb-item active" aria-current="page">{{ _("Collaborators") }}</li>
 		</ol>
 	</nav>
@@ -24,7 +24,7 @@ Manage collaborators for a project
 				{{ _("Control who can view and edit this project") }}
 			</p>
 		</div>
-		<a href="/portal/projects/{{ project.name | e }}" class="btn btn-secondary">
+		<a href="/portal/projects/{{ project.name | urlencode }}" class="btn btn-secondary">
 			<i class="fa fa-arrow-left" aria-hidden="true"></i> {{ _("Back to Project") }}
 		</a>
 	</div>

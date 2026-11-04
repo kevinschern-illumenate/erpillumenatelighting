@@ -119,14 +119,9 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
       - Default selections (if any)
     """
     if kit_template_name:
-        if not frappe.db.exists("ilL-Extrusion-Kit-Template", kit_template_name):
-            return {"success": False, "error": f"Kit template '{kit_template_name}' not found"}
+        from illumenate_lighting.illumenate_lighting.api.option_cache import cached_projection
 
-        template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template_name)
-        if not template.is_active:
-            return {"success": False, "error": "Kit template is not active"}
-
-        return _build_init_response(template)
+        return cached_projection("kit_init", kit_template_name, lambda: _kit_template_init(kit_template_name))
 
     # No template specified — return list of available templates
     templates = frappe.get_all(
@@ -144,6 +139,17 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
         "templates": templates,
         "message": "Select a kit template to begin configuration",
     }
+
+
+def _kit_template_init(kit_template_name: str) -> dict:
+    if not frappe.db.exists("ilL-Extrusion-Kit-Template", kit_template_name):
+        return {"success": False, "error": f"Kit template '{kit_template_name}' not found"}
+
+    template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template_name)
+    if not template.is_active:
+        return {"success": False, "error": "Kit template is not active"}
+
+    return _build_init_response(template)
 
 
 def _build_init_response(template) -> dict:
@@ -164,8 +170,9 @@ def _build_init_response(template) -> dict:
 
         if allowed_values:
             option_details = []
-            for val in allowed_values:
-                data = frappe.db.get_value(doctype, val, fields, as_dict=True)
+            names = [v for v in allowed_values if v]
+            rows = frappe.get_all(doctype, filters={"name": ["in", names]}, fields=fields) if names else []
+            for data in rows:
                 if data:
                     option_details.append({
                         "value": data.name,
@@ -301,17 +308,24 @@ def get_kit_cascading_options(
         # Filter lens appearances that have valid lens maps
         allowed_lenses = template.get_allowed_values("Lens Appearance")
         available_lenses = []
-        for la in allowed_lenses:
+        if any(allowed_lenses):
+            # One query for the maps and one for the attributes, not two per lens (plan 6.5).
             lens_maps = frappe.get_all(
                 "ilL-Rel-Kit-Lens-Map",
-                filters={"kit_template": kit_template_name, "lens_appearance": la, "is_active": 1},
-                fields=["name", "lens_item"],
+                filters={"kit_template": kit_template_name, "lens_appearance": ["in", [la for la in allowed_lenses if la]], "is_active": 1},
+                fields=["name", "lens_item", "lens_appearance"],
             )
-            if enabled_rows(lens_maps, "lens_item"):
-                data = frappe.db.get_value(
-                    "ilL-Attribute-Lens Appearance", la,
-                    ["name", "code"], as_dict=True,
+            mapped = {row.lens_appearance for row in enabled_rows(lens_maps, "lens_item")}
+            attributes = {
+                row.name: row
+                for row in frappe.get_all(
+                    "ilL-Attribute-Lens Appearance",
+                    filters={"name": ["in", sorted(mapped)]},
+                    fields=["name", "code"],
                 )
+            } if mapped else {}
+            for la in allowed_lenses:
+                data = attributes.get(la) if la in mapped else None
                 if data:
                     available_lenses.append({
                         "value": data.name,

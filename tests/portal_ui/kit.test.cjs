@@ -108,3 +108,14 @@ test('kit failed option checks and validation clear loading and show the failure
   } finally {dom.window.close();}
  }
 });
+
+test('a failed kit option check shows the server explanation when there is one (plan 2.4)',()=>{
+ const {dom,w,requests,instance}=readyKit();
+ try {
+  w.eval(require('node:fs').readFileSync(require('node:path').join(__dirname,'../../illumenate_lighting/public/js/portal_ui.js'),'utf8'));
+  instance.choose('finish','Black');
+  requests.at(-1).error({exc_type:'PortalError',_server_messages:JSON.stringify([JSON.stringify({message:'Black is not offered with Frosted. Choose Clear or White.'})]),portal_error:{code:'kit_option',message:'Black is not offered with Frosted.',field:'finish',hint:'Choose Clear or White.'}});
+  assert.equal(instance.loading,false);
+  assert.match(instance.$('#familySummary').text(),/Black is not offered with Frosted\. Choose Clear or White\./);
+ } finally {dom.window.close();}
+});
