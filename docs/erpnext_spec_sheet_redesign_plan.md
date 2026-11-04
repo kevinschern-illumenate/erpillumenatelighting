@@ -598,6 +598,29 @@ Signed off by the owner 2026-11-04 (rows 4 and 29 to 32 stay managed in Webflow)
 
 Item flags (not fields): `isDraft` and `isArchived` follow the Phase 5 Webflow state. Webflow has no discontinued field yet (Phase 9 R1).
 
+### 4.17 Webflow Product doctype changes (owner, 2026-11-04; done before the sync rebuild)
+
+Order (owner and recommendation): the Webflow Product changes first, then the 4.16 mapping is rechecked, then the sync rebuild (buttons, one W2 path, the ilLumenate Transform node, Phase 5 push rules).
+
+Correction to 4.16 row 8 (owner): Webflow `featured-image` comes from the **product's `featured_image`**. The template's Hero Image is for spec sheets only.
+
+| # | Change | Status |
+|---|---|---|
+| 1 | Sidebar: drop the "Target Brands" heading above the brand pill | agreed |
+| 2 | `product_category` label shows "old-Product Category" on staging. The app's label is already "Product Category", so a staging Property Setter overrides it; remove the override | agreed |
+| 3 | Remove the `configurator_options` table and its calculations | agreed |
+| 4 | Move `is_configurable` into the Identity section, under `is_active` | agreed |
+| 5 | Remove Kit Components from the product and everything related to it | agreed |
+| 6 | `features`: a table with Title and Description columns; sent to Webflow as JSON | agreed |
+| 7 | `featured_image` must be 16:9 (check on save if possible, else a field description); gallery images 16:9 as a warning only | agreed |
+| 8 | Attribute Links always mirror the template; remove `auto_populate_attributes` and the Refresh Attribute Links button. Keep `display_label` for now (see below) | agreed |
+| 9 | Certifications section description: "Automatically filled. To edit images, update through the linked ilL-Attribute-Certification" | agreed |
+| 10 | Compatible power supplies move to the templates (first). Q1: a read-only table on the template, rebuilt from Driver Eligibility on every save and by Apply Calculations, same 7 columns; the spec sheet and Webflow read it from the template; the product table and its calculation are deleted | answered (a) |
+| 11 | Remove the Recalculate Specs (Legacy) button together with the old hidden Specifications table | agreed |
+| 12 | Remove the Sync Now (Per Brand) button (old polling sync; replaced by Sync to Webflow) | agreed |
+
+**`display_label` on Attribute Links: for the owner's developer.** Still read by: the dealer portal catalog facet counts (`api/product_catalog.py`, grouped by `display_label`), the Spec Sheet CSV export (`api/spec_sheet_export.py`), the product projection (`api/product_projection.py`) and `attribute-links-json` in both Webflow exports (Webflow page scripts may read it). Suggestions: (1) point each reader at the attribute's own label (or `attribute_name` when it has none) so the label lives in one place, the attribute record; (2) check the Webflow page scripts for `display_label` before the export stops sending it; (3) then remove the column. Not changed until the developer has answered.
+
 ## 5. Design choices
 
 **Accepted by the owner (now D18 to D22):** ERPNext orchestrates and W1 is spec-only; `spec_sheet_public_url`; the resolver; template-to-product mirror with fallback; one-row `target_brands` table.
