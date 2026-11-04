@@ -95,6 +95,20 @@ def hero_image_first_enabled():
 	return conf_flag("ill_portal_hero_image_first", default=True)
 
 
+
+
+
+def media_derivatives_enabled():
+	"""WebP derivatives for staff product images (plan 5.8). On unless a site sets the flag false."""
+	return conf_flag("ill_media_derivatives", default=True)
+
+
+def webflow_image_derivatives_enabled():
+	"""Add ``image_derivatives`` to Webflow payloads (plan 5.8). Off by default: the payload
+	contract changes, so n8n must accept the key before a site turns this on."""
+	return conf_flag("ill_webflow_image_derivatives", default=False)
+
+
 def sheet_server_options_enabled():
 	"""Server-checked LED Sheet option cascade (plan 6.4). Off leaves the browser matcher alone."""
 	return conf_flag("ill_portal_sheet_server_options", default=True)
