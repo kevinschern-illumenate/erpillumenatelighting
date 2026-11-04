@@ -66,4 +66,16 @@ function showTemplateName(frm) {
             .css({'word-break': 'break-word', 'margin-top': '2px'}).appendTo($block);
     }
     $side.prepend($block);
+    hideTitleText(frm, $side);
+}
+
+function hideTitleText(frm, $side) {
+    // Hide the record title in Frappe's title row (the print and like icons stay): the block
+    // above already shows the Template Name (owner, 2026-11-04).
+    const titles = [frm.doc.template_name, frm.get_title && frm.get_title()]
+        .filter(Boolean).map(t => String(t).trim());
+    if (!titles.length) return;
+    $side.find('*').not('.ill-template-header, .ill-template-header *').filter(function () {
+        return this.children.length === 0 && titles.includes($(this).text().trim());
+    }).first().hide();
 }
