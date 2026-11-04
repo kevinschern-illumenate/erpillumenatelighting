@@ -20,6 +20,15 @@ test('all DocType scripts parse even when they are excluded from the asset bundl
   }
 });
 
+const PROGRESS = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.get_sync_progress';
+const SPEC_SHEET = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.request_spec_sheet';
+const BASELINE = {
+  server_time: '2026-11-03 10:00:00',
+  brands: [{ brand: 'illumenate', state: 'pending' }, { brand: 'lighting_206', state: 'pending' }],
+  complete: false,
+  failed: false,
+};
+
 // A promise that the test settles by hand, so it controls when the server replies.
 function deferred() {
   let resolve;
@@ -31,23 +40,19 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-// A frappe.call stand-in that fails the way the handler expects: it calls the
-// error callback and rejects the returned promise. The handler must report the
-// failure once, whichever path it takes first.
-function failingCall(err) {
-  return opts => {
-    if (opts.error) opts.error(err);
-    return Promise.reject(err);
-  };
-}
-
 // Lets pending promise callbacks and any setImmediate work run.
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
 const neverSettles = () => new Promise(() => {});
-const succeeds = async () => ({ message: { ok: true } });
+const succeeds = async () => ({ success: true });
+const completed = () => ({
+  ...BASELINE,
+  complete: true,
+  brands: BASELINE.brands.map(row => ({ ...row, state: 'complete' })),
+});
 
-function setup(t, { call = succeeds, xcall = async () => ({ sync_status: 'Synced' }) } = {}) {
+// requestResponse answers request_spec_sheet; progress answers polls that carry "since".
+function setup(t, requestResponse = succeeds, progress = () => ({ ...BASELINE })) {
   const dom = new JSDOM('<html><head></head><body></body></html>');
   t.after(() => dom.window.close());
   const $ = jquery(dom.window);
@@ -55,12 +60,21 @@ function setup(t, { call = succeeds, xcall = async () => ({ sync_status: 'Synced
   const buttons = {};
   const queries = [];
   const messages = [];
+  const requests = [];
   const timers = new Map();
   const intervals = new Map();
   let serial = 0;
   let frozen = false;
   const frm = {
-    doc: { name: 'demo', product_slug: 'demo' },
+    doc: {
+      name: 'demo',
+      product_slug: 'demo',
+      target_brands: [
+        { brand: 'illumenate', enabled: 1 },
+        { brand: 'lighting_206', enabled: 1 },
+        { brand: 'retired', enabled: 0 },
+      ],
+    },
     is_new: () => false,
     add_custom_button(label, fn) {
       buttons[label] = fn;
@@ -69,6 +83,7 @@ function setup(t, { call = succeeds, xcall = async () => ({ sync_status: 'Synced
     set_query(...args) {
       queries.push(args);
     },
+    set_intro() {},
     reload_doc() {},
     dashboard: { set_headline_alert() {} },
   };
@@ -98,26 +113,23 @@ function setup(t, { call = succeeds, xcall = async () => ({ sync_status: 'Synced
     frappe: {
       ui: { form: { on(doctype, callbacks) { handlers[doctype] = callbacks; } } },
       dom: { freeze() { frozen = true; }, unfreeze() { frozen = false; } },
+      utils: { escape_html: value => String(value).replace(/</g, '&lt;') },
       msgprint(message) { messages.push(message); },
+      xcall(method, args) {
+        requests.push({ method, args });
+        if (method === SPEC_SHEET) return requestResponse(args);
+        if (method === PROGRESS) return Promise.resolve(args.since ? progress(args) : { ...BASELINE });
+        return Promise.resolve({});
+      },
       show_alert(message) { messages.push(message); },
-      call: opts => call(opts),
-      xcall: (...args) => xcall(...args),
     },
   });
   handlers['ilL-Webflow-Product'].refresh(frm);
-  return {
-    frm,
-    buttons,
-    queries,
-    timers,
-    intervals,
-    messages,
-    frozen: () => frozen,
-  };
+  return { frm, buttons, queries, timers, intervals, messages, requests, frozen: () => frozen };
 }
 
 test('the product form registers its compatible-product query during refresh', t => {
-  const state = setup(t);
+  const state = setup(t, neverSettles);
   assert.equal(state.queries.length, 1);
   const [field, table, query] = state.queries[0];
   assert.equal(field, 'related_product');
@@ -126,11 +138,12 @@ test('the product form registers its compatible-product query during refresh', t
   assert.deepEqual(Array.from(result.filters.brands), ['illumenate']);
 });
 
-test('a server call that never responds cannot leave the product form frozen', t => {
-  const state = setup(t, { call: neverSettles });
+test('a server call that never responds cannot leave the product form frozen', async t => {
+  const state = setup(t, neverSettles);
   state.buttons['Sync to Webflow']();
   assert.equal(state.frozen(), true);
   assert.equal(state.timers.size, 1);
+  await flush();
 
   const [deadline] = state.timers.values();
   deadline();
@@ -143,22 +156,24 @@ test('a server call that never responds cannot leave the product form frozen', t
 
 test('a late server response after the deadline does not start polling', async t => {
   const pending = deferred();
-  const state = setup(t, { call: () => pending.promise });
+  const state = setup(t, () => pending.promise);
   state.buttons['Sync to Webflow']();
+  await flush();
 
   const [deadline] = state.timers.values();
   deadline();
   assert.equal(state.frozen(), false);
 
-  pending.resolve({ message: { ok: true } });
+  pending.resolve({ success: true });
   await flush();
 
   assert.equal(state.intervals.size, 0, 'no polling may start after the form was released');
   assert.equal(state.frozen(), false);
+  assert.equal(state.messages.length, 1);
 });
 
 test('a failed server request clears the deadline and reports the error once', async t => {
-  const state = setup(t, { call: failingCall({ message: 'Server exploded' }) });
+  const state = setup(t, () => Promise.reject({ message: 'Pipeline failed with status 500.' }));
   state.buttons['Sync to Webflow']();
   await flush();
 
@@ -166,11 +181,11 @@ test('a failed server request clears the deadline and reports the error once', a
   assert.equal(state.timers.size, 0);
   assert.equal(state.intervals.size, 0);
   assert.equal(state.messages.length, 1);
-  assert.equal(state.messages[0].message, 'Server exploded');
+  assert.match(state.messages[0].message, /500/);
 });
 
 test('a server response with no message is reported as a failure', async t => {
-  const state = setup(t, { call: async () => ({}) });
+  const state = setup(t, async () => undefined);
   state.buttons['Sync to Webflow']();
   await flush();
 
@@ -182,7 +197,7 @@ test('a server response with no message is reported as a failure', async t => {
 });
 
 test('polling keeps the form frozen while the sync is still pending', async t => {
-  const state = setup(t, { xcall: async () => ({ sync_status: 'Pending' }) });
+  const state = setup(t);
   state.buttons['Sync to Webflow']();
   await flush();
   assert.equal(state.intervals.size, 1);
@@ -195,8 +210,8 @@ test('polling keeps the form frozen while the sync is still pending', async t =>
   assert.equal(state.messages.length, 0);
 });
 
-test('a Synced status from polling clears the interval and deadline', async t => {
-  const state = setup(t);
+test('successful polling clears the interval and deadline', async t => {
+  const state = setup(t, succeeds, completed);
   state.buttons['Sync to Webflow']();
   await flush();
   assert.equal(state.intervals.size, 1);
@@ -211,17 +226,44 @@ test('a Synced status from polling clears the interval and deadline', async t =>
   assert.equal(state.messages[0].message, 'Webflow Sync Complete!');
 });
 
-test('an Error status from polling reports the pipeline failure and releases the form', async t => {
-  const state = setup(t, { xcall: async () => ({ sync_status: 'Error' }) });
+test('sync requests every enabled target brand instead of a hard-coded brand', async t => {
+  const state = setup(t);
   state.buttons['Sync to Webflow']();
   await flush();
+  const brands = state.requests.filter(row => row.method === SPEC_SHEET).map(row => row.args.brand);
+  assert.deepEqual(brands, ['illumenate', 'lighting_206']);
+});
 
+test('an earlier Synced status does not complete a new sync', async t => {
+  const state = setup(t, succeeds, () => ({
+    ...BASELINE,
+    brands: BASELINE.brands.map(row => ({ ...row, sync_status: 'Synced', state: 'pending' })),
+  }));
+  state.buttons['Sync to Webflow']();
+  await flush();
   [...state.intervals.values()][0]();
   await flush();
+  const poll = state.requests.filter(row => row.method === PROGRESS).pop();
+  assert.equal(poll.args.since, BASELINE.server_time);
+  assert.equal(state.frozen(), true);
+  assert.equal(state.intervals.size, 1);
+  assert.equal(state.messages.length, 0);
+});
 
+test('a failed publication job reports the pipeline failure, escapes its error and releases the form', async t => {
+  const state = setup(t, succeeds, () => ({
+    ...BASELINE,
+    failed: true,
+    brands: [{ brand: 'illumenate', state: 'failed', error: '<b>Publication failed (500)</b>' }],
+  }));
+  state.buttons['Sync to Webflow']();
+  await flush();
+  [...state.intervals.values()][0]();
+  await flush();
   assert.equal(state.frozen(), false);
   assert.equal(state.intervals.size, 0);
   assert.equal(state.timers.size, 0);
   assert.equal(state.messages.length, 1);
   assert.equal(state.messages[0].title, 'Sync Error');
+  assert.match(state.messages[0].message, /&lt;b>Publication failed/);
 });

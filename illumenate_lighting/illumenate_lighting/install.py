@@ -72,6 +72,9 @@ def after_install():
 
 	finder_indexes()
 	kit_links()
+	from illumenate_lighting.patches.create_publication_worker_user import execute as publication_worker
+
+	publication_worker()
 	frappe.db.commit()
 
 

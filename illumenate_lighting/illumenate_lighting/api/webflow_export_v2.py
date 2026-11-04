@@ -219,6 +219,45 @@ def _require_system_user():
         frappe.throw(_("Only ERPNext desk users can do this."), frappe.PermissionError)
 
 
+def _sync_target_brands(doc):
+    """Enabled target brands of a product; the default brand when none are listed."""
+    rows = doc.get("target_brands") or []
+    return [row.brand for row in rows if row.enabled] if rows else [get_default_brand()]
+
+
+def claim_and_dispatch(brand, webhook_url, limit=5):
+    """Background worker: claim queued jobs as the integration user and push them to n8n.
+
+    The requester's catalog capability is checked when the job is requested. The
+    integration capability is checked here by ``claim`` under the dedicated worker
+    user, so a Catalog Publisher alone can start a sync without holding both roles.
+    """
+    from illumenate_lighting.illumenate_lighting.portal.service_users import run_as
+
+    with run_as("publication"):
+        claimed = claim(brand, limit=limit)
+    for job_data in claimed.get("jobs", []):
+        frappe.enqueue(
+            "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.enqueue_n8n_webhook",
+            queue="short",
+            enqueue_after_commit=True,
+            webhook_url=webhook_url,
+            job_data=job_data,
+        )
+    return [job_data["job"] for job_data in claimed.get("jobs", [])]
+
+
+def _dispatch_requested(brand, webhook_url, requested):
+    """Queue the claim worker for a brand; returns the requested job name."""
+    frappe.enqueue(
+        "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.claim_and_dispatch",
+        queue="short",
+        enqueue_after_commit=True,
+        brand=brand,
+        webhook_url=webhook_url,
+    )
+    return requested.get("job")
+
 
 # Webflow Product fields the export reads (fields that ship with the app; has_field keeps the
 # query safe on a site that has not migrated yet).
@@ -2549,8 +2588,7 @@ def trigger_sync_v2(docname):
 	# Forces before_save() -> sync_custom_template_data() to pull latest template files
     doc.save(ignore_permissions=True)
 	
-    rows = doc.get("target_brands") or []
-    active_brands = [row.brand for row in rows if row.enabled] if rows else [get_default_brand()]
+    active_brands = _sync_target_brands(doc)
     
     # Z1: the webhook URL and secret come from site config. Check both before
     # any job is requested so a misconfigured site fails without side effects.
@@ -2581,21 +2619,10 @@ def trigger_sync_v2(docname):
         current_hash = inspection.get("current_hash")
         
         # 3. Request a STAGE operation, which queues the ilL-Publish-Job
-        request(docname, brand, "STAGE", current_hash)
-        
-        # 4. Claim pending jobs for this brand
-        claimed = claim(brand, limit=5)
-        
-        # 5. Push the claimed job dictionary to the V2 n8n Webhook in the BACKGROUND
-        for job_data in claimed.get("jobs", []):
-            frappe.enqueue(
-                "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.enqueue_n8n_webhook",
-                queue="short",
-                enqueue_after_commit=True,
-                webhook_url=webhook_url,
-                job_data=job_data
-            )
-            dispatched_jobs.append(job_data["job"])
+        requested = request(docname, brand, "STAGE", current_hash)
+
+        # 4. Claim and push to n8n in a worker that runs as the integration user
+        dispatched_jobs.append(_dispatch_requested(brand, webhook_url, requested))
                 
     return {"status": "success", "jobs": dispatched_jobs}
 
@@ -2622,8 +2649,7 @@ def trigger_publish_v2(docname):
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
     doc.save(ignore_permissions=True)
-    rows = doc.get("target_brands") or []
-    active_brands = [row.brand for row in rows if row.enabled] if rows else [get_default_brand()]
+    active_brands = _sync_target_brands(doc)
     
     # Z1: the webhook URL and secret come from site config. Check both before
     # any job is requested so a misconfigured site fails without side effects.
@@ -2654,21 +2680,10 @@ def trigger_publish_v2(docname):
         current_hash = inspection.get("current_hash")
         
         # 3. Request a PUBLISH operation, which queues the ilL-Publish-Job and enables the Live Hash
-        request(docname, brand, "PUBLISH", current_hash)
-        
-        # 4. Claim pending jobs for this brand
-        claimed = claim(brand, limit=5)
-        
-        # 5. Push the claimed job dictionary to the V2 n8n Webhook in the BACKGROUND
-        for job_data in claimed.get("jobs", []):
-            frappe.enqueue(
-                "illumenate_lighting.illumenate_lighting.api.webflow_export_v2.enqueue_n8n_webhook",
-                queue="short",
-                enqueue_after_commit=True,
-                webhook_url=webhook_url,
-                job_data=job_data
-            )
-            dispatched_jobs.append(job_data["job"])
+        requested = request(docname, brand, "PUBLISH", current_hash)
+
+        # 4. Claim and push to n8n in a worker that runs as the integration user
+        dispatched_jobs.append(_dispatch_requested(brand, webhook_url, requested))
                 
     return {"status": "success", "jobs": dispatched_jobs}
 
@@ -2696,9 +2711,13 @@ def request_spec_sheet(docname, brand=None):
     webhook_url = n8n_config.spec_webhook_url()
     auth_headers = n8n_config.auth_headers()
 
-    product_slug = frappe.db.get_value("ilL-Webflow-Product", docname, "product_slug") or docname
+    doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    product_slug = doc.get("product_slug") or docname
+    targets = [code for code in _sync_target_brands(doc) if code]
     if not brand:
-        brand = "illumenate"
+        brand = targets[0] if targets else (get_default_brand() or "illumenate")
+    elif brand not in targets:
+        frappe.throw(_("{0} is not an enabled target brand for this product.").format(brand))
 
     payload = {
         "product": docname,
@@ -2722,3 +2741,69 @@ def request_spec_sheet(docname, brand=None):
         frappe.throw(_("Pipeline failed with status {0}.").format(resp.status_code))
     except Exception as e:
         frappe.throw(_("Could not reach n8n: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def get_sync_progress(docname, since=None):
+    """Per-brand sync state, and whether each brand finished after ``since``.
+
+    ``since`` is the ``server_time`` returned by an earlier call. A ``Synced`` status
+    counts only if it was written after that time, so an older sync never looks like
+    the one the user just started.
+    """
+    from frappe.utils import get_datetime, now_datetime
+
+    _require_product_access(docname, "read")
+    doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    since_at = get_datetime(since) if since else None
+    states = {
+        row.brand: row
+        for row in frappe.get_all(
+            "ilL-Child-Webflow-Sync-State",
+            filters={"parent": docname, "parenttype": "ilL-Webflow-Product"},
+            fields=["brand", "sync_status", "last_synced_at", "sync_error_message"],
+        )
+    }
+    brands = []
+    for code in [code for code in _sync_target_brands(doc) if code]:
+        row = states.get(code) or frappe._dict()
+        synced_at = get_datetime(row.last_synced_at) if row.get("last_synced_at") else None
+        fresh = bool(since_at and synced_at and synced_at > since_at)
+        failed = None
+        if since_at:
+            failed = frappe.get_all(
+                "ilL-Publish-Job",
+                filters={
+                    "product": docname,
+                    "brand": code,
+                    "state": "FAILED",
+                    "modified": [">", since_at],
+                },
+                fields=["name", "last_error"],
+                order_by="modified desc",
+                limit=1,
+            )
+        if failed:
+            state, error = "failed", failed[0].get("last_error") or _("Publication failed")
+        elif fresh and row.get("sync_status") in ("Synced", "LIVE"):
+            state, error = "complete", None
+        elif fresh and row.get("sync_status") == "Pending":
+            state, error = "superseded", None
+        else:
+            state, error = "pending", None
+        brands.append(
+            {
+                "brand": code,
+                "sync_status": row.get("sync_status"),
+                "last_synced_at": str(synced_at) if synced_at else None,
+                "state": state,
+                "error": error,
+            }
+        )
+    states_seen = {row["state"] for row in brands}
+    return {
+        "server_time": str(now_datetime()),
+        "brands": brands,
+        "complete": bool(brands) and states_seen <= {"complete", "superseded"},
+        "failed": "failed" in states_seen,
+    }

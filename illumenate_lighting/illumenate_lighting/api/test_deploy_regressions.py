@@ -202,16 +202,40 @@ class TestDeployRegressions(IntegrationTestCase):
 					"inspect",
 					return_value={"readiness": {"ready": True}, "current_hash": "v1"},
 				),
-				patch.object(webflow_export_v2, "request"),
-				patch.object(webflow_export_v2, "claim", return_value={"jobs": [{"job": "J1"}]}),
+				patch.object(webflow_export_v2, "request", return_value={"job": "J1"}),
+				patch.object(webflow_export_v2, "claim") as claim,
 				patch.object(frappe, "enqueue") as enqueue,
 			):
 				self.assertEqual(method("demo")["jobs"], ["J1"])
+				# The requester never claims; a worker does that as the integration user.
+				claim.assert_not_called()
+				self.assertTrue(enqueue.call_args.args[0].endswith(".claim_and_dispatch"))
 				self.assertTrue(enqueue.call_args.kwargs["enqueue_after_commit"])
 				self.assertEqual(
 					enqueue.call_args.kwargs["webhook_url"], N8N_TEST_CONF["n8n_sync_webhook_url"]
 				)
 				doc.save.assert_called_once_with(ignore_permissions=True)
+		users = []
+
+		def claim(brand, limit):
+			users.append(frappe.session.user)
+			return {"jobs": [{"job": "J1"}]}
+
+		with patch.object(webflow_export_v2, "claim", side_effect=claim), patch.object(frappe, "enqueue") as enqueue:
+			self.assertEqual(webflow_export_v2.claim_and_dispatch("demo", "https://webhook.invalid"), ["J1"])
+		self.assertNotEqual(users, ["Administrator"])
+		self.assertEqual(frappe.session.user, "Administrator")
+		self.assertTrue(enqueue.call_args.args[0].endswith(".enqueue_n8n_webhook"))
+
+	def test_publication_worker_user_has_only_the_integration_capability(self):
+		from illumenate_lighting.illumenate_lighting.portal import staff
+		from illumenate_lighting.illumenate_lighting.portal.service_users import run_as, service_user
+
+		self.assertTrue(frappe.db.exists("User", service_user("publication")))
+		with run_as("publication"):
+			self.assertTrue(staff.allowed("integration"))
+			self.assertFalse(staff.allowed("catalog"))
+		self.assertEqual(frappe.session.user, "Administrator")
 
 	def test_non_administrators_can_upload_edit_and_delete_attachments(self):
 		for email, roles in (
