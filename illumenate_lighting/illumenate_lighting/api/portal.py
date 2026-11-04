@@ -1262,44 +1262,18 @@ def get_fixture_templates(product_type: str = None) -> dict:
 		order_by="template_name asc",
 	)
 
-	# Batch-fetch gallery images for templates that have a linked Webflow product
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = {}
-	if webflow_product_names:
-		# Fetch gallery images from child table ordered by idx (row order)
-		gallery_rows = frappe.get_all(
-			"ilL-Child-Webflow-Gallery-Image",
-			filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
-			fields=["parent", "image", "alt_text", "display_order", "idx"],
-			order_by="parent, idx asc",
-		)
-		for row in gallery_rows:
-			if row.image:
-				webflow_product_gallery.setdefault(row.parent, []).append(
-					{"image": row.image, "alt_text": row.alt_text or ""}
-				)
+	from illumenate_lighting.templates.pages.configure import attach_images
 
-		# Fallback: featured_image for products with no gallery images
-		webflow_products = frappe.get_all(
-			"ilL-Webflow-Product",
-			filters={"name": ["in", webflow_product_names]},
-			fields=["name", "featured_image"],
-		)
-		for wp in webflow_products:
-			if wp.name not in webflow_product_gallery and wp.featured_image:
-				webflow_product_gallery[wp.name] = [
-					{"image": wp.featured_image, "alt_text": ""}
-				]
-
+	attach_images("ilL-Fixture-Template", templates)
 	result = []
 	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
 		result.append({
 			"name": t.name,
 			"template_code": t.template_code,
 			"template_name": t.template_name,
-			"image": gallery[0]["image"] if gallery else None,
-			"gallery": gallery,
+			"image": t.image,
+			"image_alt": t.image_alt,
+			"gallery": t.gallery,
 		})
 
 	return {"templates": result}
@@ -1330,47 +1304,19 @@ def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> 
 		order_by="template_name asc",
 	)
 
-	# Batch-fetch gallery images from linked Webflow products
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = {}
-	if webflow_product_names:
-		gallery_rows = frappe.get_all(
-			"ilL-Child-Webflow-Gallery-Image",
-			filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
-			fields=["parent", "image", "alt_text", "display_order", "idx"],
-			order_by="parent, idx asc",
-		)
-		for row in gallery_rows:
-			if row.image:
-				webflow_product_gallery.setdefault(row.parent, []).append(
-					{"image": row.image, "alt_text": row.alt_text or ""}
-				)
+	from illumenate_lighting.templates.pages.configure import attach_images
 
-		# Fallback: featured_image for products with no gallery images
-		webflow_products = frappe.get_all(
-			"ilL-Webflow-Product",
-			filters={"name": ["in", webflow_product_names]},
-			fields=["name", "featured_image"],
-		)
-		for wp in webflow_products:
-			if wp.name not in webflow_product_gallery and wp.featured_image:
-				webflow_product_gallery[wp.name] = [
-					{"image": wp.featured_image, "alt_text": ""}
-				]
-
+	attach_images("ilL-Tape-Neon-Template", templates)
 	result = []
 	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
-		# If no Webflow gallery but has a direct image, use that
-		if not gallery and t.image:
-			gallery = [{"image": t.image, "alt_text": t.template_name or ""}]
 		result.append({
 			"name": t.name,
 			"template_code": t.template_code,
 			"template_name": t.template_name,
 			"description": t.description or "",
-			"image": gallery[0]["image"] if gallery else None,
-			"gallery": gallery,
+			"image": t.image,
+			"image_alt": t.image_alt,
+			"gallery": t.gallery,
 		})
 
 	return {"templates": result}
@@ -1402,7 +1348,7 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 			"image", "gallery"}]}
 	"""
 	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
-	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+	from illumenate_lighting.templates.pages.configure import attach_images
 
 	templates = frappe.get_all(
 		"ilL-Extrusion-Kit-Template",
@@ -1414,7 +1360,7 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 		order_by="template_name asc",
 	)
 	products = [t.webflow_product for t in templates if t.webflow_product]
-	gallery_by_product = _fetch_webflow_gallery(products)
+	attach_images("ilL-Extrusion-Kit-Template", templates)
 	descriptions = (
 		dict(
 			frappe.get_all(
@@ -1430,19 +1376,14 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 	)
 	result = []
 	for t in templates:
-		gallery = gallery_by_product.get(t.webflow_product, []) if t.webflow_product else []
-		if t.image:
-			# The template's own image leads; the Webflow gallery follows.
-			gallery = [{"image": t.image, "alt_text": t.template_name or ""}] + [
-				g for g in gallery if g.get("image") != t.image
-			]
 		result.append({
 			"name": t.name,
 			"template_code": t.template_code,
 			"template_name": t.template_name or t.name,
 			"description": descriptions.get(t.webflow_product) or kit_composition_summary(t),
-			"image": gallery[0]["image"] if gallery else None,
-			"gallery": gallery,
+			"image": t.image,
+			"image_alt": t.image_alt,
+			"gallery": t.gallery,
 		})
 	return {"templates": result}
 
@@ -4294,7 +4235,7 @@ def _cached_led_sheet_templates() -> dict:
 
 def _led_sheet_templates() -> dict:
 	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
-	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+	from illumenate_lighting.templates.pages.configure import attach_images
 
 	templates = frappe.get_all(
 		"ilL-LED-Sheet-Template",
@@ -4306,16 +4247,8 @@ def _led_sheet_templates() -> dict:
 		order_by="template_name asc, name asc",
 		ignore_permissions=True,
 	)
-	gallery_by_product = _fetch_webflow_gallery([t.webflow_product for t in templates if t.webflow_product])
+	attach_images("ilL-LED-Sheet-Template", templates)
 	for template in templates:
-		gallery = gallery_by_product.get(template.webflow_product, []) if template.webflow_product else []
-		if template.image:
-			gallery = [{"image": template.image, "alt_text": template.template_name or ""}] + [
-				g for g in gallery if g.get("image") != template.image
-			]
-		template["image"] = gallery[0]["image"] if gallery else None
-		template["gallery_json"] = json.dumps(gallery) if gallery else "[]"
-		template["gallery"] = gallery
 
 		doc = frappe.get_doc("ilL-LED-Sheet-Template", template.name)
 		active = [row.spec for row in doc.allowed_specs or [] if row.is_active and row.spec]

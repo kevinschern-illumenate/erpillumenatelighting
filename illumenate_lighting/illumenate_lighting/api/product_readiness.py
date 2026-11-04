@@ -312,10 +312,66 @@ def evaluate(product, channel="cms"):
 		"channel": channel,
 		"ready": not issues,
 		"issues": issues,
+		"warnings": media_warnings(product) if channel in ("cms", "portal") else [],
 		"dependencies": dependencies,
 		"revision_hash": fingerprint({"version": 1, "dependencies": dependencies}),
 		"projection": projection,
 	}
+
+
+HERO_MIN_WIDTH = 1200
+NON_WEB_IMAGE_SUFFIXES = (".tif", ".tiff", ".bmp")
+LINEAR_PRODUCT_TYPES = {"Fixture Template", "Extrusion Kit", "LED Tape", "COB Tape", "LED Neon"}
+
+
+def media_warnings(product):
+	"""Media checks (plan 5.1) reported as warnings, so nothing publishable today is blocked."""
+	from illumenate_lighting.illumenate_lighting.web_listing_migration import template_link
+
+	warnings = []
+
+	def warn(record, field, message):
+		warnings.append({"record": record, "field": field, "message": message})
+
+	source = getattr(product, "source", None) or product
+	doctype, name = template_link(source)
+	if doctype and name:
+		hero = frappe.db.get_value(doctype, name, "hero_image")
+		if not hero:
+			warn(name, "hero_image", "Add the main product image (hero image) on the template")
+		elif not safe_document_url(hero):
+			warn(name, "hero_image", "Use a public image for the hero image")
+		elif hero.lower().split("?")[0].endswith(NON_WEB_IMAGE_SUFFIXES):
+			warn(name, "hero_image", "Use a JPEG, PNG or WebP hero image instead of TIFF/BMP")
+		else:
+			width = _image_width(hero)
+			if width and width < HERO_MIN_WIDTH:
+				warn(name, "hero_image", f"Hero image is {width} px wide; use at least {HERO_MIN_WIDTH} px")
+	for row in product.get("gallery_images") or []:
+		label = f"gallery_images row {row.get('idx') or '?'}"
+		if row.get("image") and not safe_document_url(row.get("image")):
+			warn(product.name, label, "Use a public image for gallery images")
+		if row.get("image") and not (row.get("alt_text") or "").strip():
+			warn(product.name, label, "Add alt text to this gallery image")
+	if product.get("product_type") in LINEAR_PRODUCT_TYPES and not product.get("dimensions_image"):
+		warn(product.name, "dimensions_image", "Add a dimensions image for this linear product")
+	return warnings
+
+
+def _image_width(url):
+	"""Width of a local public image, or None when it cannot be read cheaply."""
+	if not url.startswith("/files/"):
+		return None
+	file_name = frappe.db.get_value("File", {"file_url": url.split("?")[0]}, "name")
+	if not file_name:
+		return None
+	try:
+		from PIL import Image
+
+		with Image.open(frappe.get_doc("File", file_name).get_full_path()) as image:
+			return image.size[0]
+	except Exception:
+		return None
 
 
 def _electrical_preflight(template, dependencies, issue):

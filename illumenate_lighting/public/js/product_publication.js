@@ -8,8 +8,9 @@ frappe.ui.form.on("ilL-Webflow-Product", {
                 if (frm.is_dirty()) { frappe.msgprint(__('Save the product before inspecting it.')); return; }
                 const response = await frappe.call({method:'illumenate_lighting.illumenate_lighting.api.product_readiness.preview', args:{product:frm.doc.name, channel:values.channel}, freeze:true});
                 const result=response.message, esc=frappe.utils.escape_html;
+                const warnings = (result.warnings || []).map(row=>`<p class="text-warning">${esc(__('Warning'))}: ${esc(row.record)} / ${esc(row.field)}: ${esc(row.message)}</p>`).join('');
                 frappe.msgprint({title: result.ready ? __('Channel ready') : __('Setup corrections required'),
-                    message: result.ready ? __('The current saved dependencies pass this channel preflight.') : (result.issues || []).map(row=>`<p>${esc(row.record)} / ${esc(row.field)}: ${esc(row.message)}</p>`).join(''), wide:true});
+                    message: (result.ready ? __('The current saved dependencies pass this channel preflight.') : (result.issues || []).map(row=>`<p>${esc(row.record)} / ${esc(row.field)}: ${esc(row.message)}</p>`).join('')) + warnings, wide:true});
             }, __('Product channel readiness'));
         }, __('Actions'));
         frm.add_custom_button(__('Portal product preview'), () => window.open('/portal/products/' + encodeURIComponent(frm.doc.product_slug), '_blank', 'noopener'), __('Actions'));
@@ -35,6 +36,9 @@ frappe.ui.form.on("ilL-Webflow-Product", {
                         wrapper.append(`<p>${esc(result.state)} &middot; ${esc(result.current_hash.slice(0, 12))}</p>`);
                         (result.readiness.issues || []).forEach(issue => {
                             wrapper.append(`<p>${esc(issue.record)} / ${esc(issue.field)}: ${esc(issue.message)}</p>`);
+                        });
+                        (result.readiness.warnings || []).forEach(warning => {
+                            wrapper.append(`<p class="text-warning">${esc(__("Warning"))}: ${esc(warning.record)} / ${esc(warning.field)}: ${esc(warning.message)}</p>`);
                         });
                         wrapper.append(`<p>${__("Staged revision")}: ${esc((result.staged_hash || "").slice(0, 12)) || "—"}<br>${__("Live revision")}: ${esc((result.live_hash || "").slice(0, 12)) || "—"}</p>`);
                         const link = document.createElement("a");

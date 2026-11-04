@@ -102,6 +102,13 @@ _WARRANTY = {"fieldname": "warranty_years", "fieldtype": "Int", "label": "Warran
 # Marketing first added this on the live site; the Webflow Product copies it from its
 # template on save (set_dynamic_hero_image).
 _HERO_IMAGE = {"fieldname": "hero_image", "fieldtype": "Attach Image", "label": "Hero Image"}
+# The main product image's alt text (plan 5.2); the portal image resolver reads it.
+_HERO_IMAGE_ALT = {
+	"fieldname": "hero_image_alt",
+	"fieldtype": "Data",
+	"label": "Hero Image Alt Text",
+	"description": "Describe the main product image for screen readers and search engines.",
+}
 _DIMENSIONS_IMAGE = {
 	"fieldname": "dimensions_image",
 	"fieldtype": "Attach Image",
@@ -373,6 +380,7 @@ def _tab_fields(doctype):
 	]
 	right = [
 		_HERO_IMAGE,
+		_HERO_IMAGE_ALT,
 		_DIMENSIONS_IMAGE,
 		_SPEC_SHEET_PUBLIC_URL,
 		*(_SPEC_SHEET_DATA if parts.get("spec") else []),
