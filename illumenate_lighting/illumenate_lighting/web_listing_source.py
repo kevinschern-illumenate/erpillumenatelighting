@@ -2,7 +2,7 @@
 
 A Webflow Product linked to a migrated template (one whose Webflow Product backlink
 points back at it) takes its product data, such as lengths, feed lengths, spec-sheet
-data and kit components, from that template. Everything else, including copy, media,
+data, kit components and the configurator steps, from that template. Everything else, including copy, media,
 documents, compatibility, brand targeting, Active and sync state, stays on the Webflow
 Product. A listing without a template keeps everything on the Webflow Product.
 
@@ -31,7 +31,14 @@ from illumenate_lighting.illumenate_lighting.web_listing_migration import (
 	template_for,
 	template_link,
 )
-from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	CONFIGURATOR_FIELD,
+	WEBFLOW_PRODUCT_LINKS,
+)
+
+# Read from the template under another name (Phase 2c, D59): the product's configurator
+# table is the template's part_no_configurator. The old key stays for n8n and the portal.
+ALIASES = {"configurator_options": CONFIGURATOR_FIELD}
 
 
 def legacy_read():
@@ -47,13 +54,25 @@ class Listing:
 	readers can take it in place of one. ``source`` is the Webflow Product itself.
 	"""
 
-	def __init__(self, product):
+	def __init__(self, product, template=None):
+		"""``template``: read from this template instead of looking it up (a temporary,
+		unsaved product made for a template that has no Webflow Product)."""
 		self.source = product
-		doctype, name = (None, None) if legacy_read() else template_for(product.name)
-		self.template = frappe.get_doc(doctype, name) if doctype else None
+		if template is not None:
+			doctype = template.doctype
+			self.template = template
+		else:
+			doctype, name = (None, None) if legacy_read() else template_for(product.name)
+			self.template = frappe.get_doc(doctype, name) if doctype else None
 		self.fields = set(carried(doctype)) if doctype else set()
+		# Hand-set steps waiting for a decision stay on the product (Phase 2c).
+		from illumenate_lighting.illumenate_lighting.template_listing import pending_decision
+
+		self.aliases = {} if self.template is None or pending_decision(product, self.template) else ALIASES
 
 	def get(self, key, default=None):
+		if key in self.aliases:
+			return self.template.get(self.aliases[key]) or []
 		if key in self.fields:
 			value = self.template.get(key)
 			if key not in TABLES:
@@ -67,9 +86,9 @@ class Listing:
 		return self.source.get(key, default)
 
 	def __getattr__(self, key):
-		if key.startswith("__") or key in ("source", "template", "fields"):
+		if key.startswith("__") or key in ("source", "template", "fields", "aliases"):
 			raise AttributeError(key)
-		if key in self.fields:
+		if key in self.fields or key in self.aliases:
 			return self.get(key)
 		return getattr(self.source, key)
 
@@ -79,6 +98,10 @@ class Listing:
 			if field in data:
 				value = self.get(field)
 				data[field] = [row.as_dict() for row in value or []] if field in TABLES else value
+		if self.aliases:
+			for key in self.aliases:
+				if key in data:
+					data[key] = [row.as_dict() for row in self.get(key)]
 		return data
 
 	def as_dict(self):

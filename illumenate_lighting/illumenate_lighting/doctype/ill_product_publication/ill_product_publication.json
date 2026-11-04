@@ -23,7 +23,8 @@
   "dependencies_json",
   "last_error",
   "staged_on",
-  "published_on"
+  "published_on",
+  "review_reason"
  ],
  "fields": [
   {
@@ -147,6 +148,13 @@
    "fieldtype": "Datetime",
    "label": "Published On",
    "read_only": 1
+  },
+  {
+   "fieldname": "review_reason",
+   "fieldtype": "Small Text",
+   "label": "Review Reason",
+   "read_only": 1,
+   "description": "Set when a product that was public is archived or set back to Draft; cleared by Confirm archive."
   }
  ],
  "permissions": [
@@ -167,5 +175,6 @@
   }
  ],
  "sort_field": "modified",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "modified": "2026-10-31 12:00:00.000000"
 }
