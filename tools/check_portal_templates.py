@@ -815,6 +815,21 @@ for name, variant in schedule_variants.items():
 	assert badge_tones <= BADGE_TONES, badge_tones - BADGE_TONES
 	assert "onmouseover" not in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
+# Plan 6.7: the compare form needs its flag and two lines, and escapes line labels.
+compare_lines = [
+	{"line_key": "k-1", "line_id": "A1", "idx": 1, "location": "Lobby <b>"},
+	{"line_key": "k 2", "line_id": None, "idx": 2, "location": ""},
+]
+compare_base = {**schedule_base, **schedule_variants["schedule-ready"], "lines_json": compare_lines}
+compare_html = schedule_page.render(**compare_base, compare_enabled=True)
+assert 'id="compareLinesForm"' in compare_html and "Lobby &lt;b&gt;" in compare_html and "Lobby <b>" not in compare_html
+assert 'value="k 2" selected' in compare_html and ">#2</option>" in compare_html
+assert "compare.js?v=" in compare_html
+assert 'id="compareLinesForm"' not in schedule_page.render(**compare_base, compare_enabled=False)
+assert 'id="compareLinesForm"' not in schedule_page.render(
+	**{**compare_base, "lines_json": compare_lines[:1]}, compare_enabled=True
+)
+(render_dir / "schedule-compare.html").write_text(compare_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
 
@@ -1015,6 +1030,10 @@ for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Shee
 		context["configurator_mode"] = mode
 		output = configurator.render(**context)
 		parser.feed(output)
+		# Plan 6.6: every calculating family has a build preview container behind its kill switch.
+		if category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet"):
+			assert 'class="ill-build-preview' in output and 'data-enabled="1"' in output, (category, mode)
+			assert 'data-enabled="0"' in configurator.render(**context, build_preview=False), (category, mode)
 		(render_dir / (category.replace(" ", "-") + "-" + mode + ".html")).write_text(output, encoding="utf8")
 prefilled = configurator.render(
 	**{
