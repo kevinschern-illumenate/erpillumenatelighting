@@ -20,9 +20,10 @@ import inspect
 import frappe
 
 from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS, PRODUCT, template_link
-from illumenate_lighting.illumenate_lighting.web_listing_schema import ACTIVE_STATUSES
+from illumenate_lighting.illumenate_lighting.web_listing_schema import ACTIVE_STATUSES, DEALER_STATUSES
 
-PORTAL_STATUS = "Active"
+# Active + Live is Active plus a website listing, so dealers see both (D60).
+PORTAL_STATUSES = DEALER_STATUSES
 
 
 def sees_internal(user=None):
@@ -52,7 +53,7 @@ def sees_internal(user=None):
 def visible_statuses(staff=None):
 	"""The template statuses offered to staff (``staff=True``), dealers (False) or the session user."""
 	staff = sees_internal() if staff is None else staff
-	return ACTIVE_STATUSES if staff else (PORTAL_STATUS,)
+	return ACTIVE_STATUSES if staff else PORTAL_STATUSES
 
 
 def template_filters(staff=None, **filters):
@@ -130,18 +131,19 @@ def product_template(field):
 
 
 def template_query_conditions(doctype, user=None):
-	"""List condition for a template doctype: non-staff see only Active templates."""
+	"""List condition for a template doctype: non-staff see only Active and Active + Live templates."""
 	if sees_internal(user):
 		return ""
-	return f"`tab{doctype}`.product_status = '{PORTAL_STATUS}'"
+	statuses = ", ".join(f"'{status}'" for status in PORTAL_STATUSES)
+	return f"`tab{doctype}`.product_status in ({statuses})"
 
 
 def template_has_permission(doc, ptype="read", user=None):
-	"""Document permission for a template doctype: non-staff may not open a non-Active one.
+	"""Document permission for a template doctype: non-staff may only open Active and Active + Live ones.
 
 	True leaves the decision to the role permissions; it never grants more than they do.
 	"""
-	return bool(sees_internal(user) or doc.get("product_status") == PORTAL_STATUS)
+	return bool(sees_internal(user) or doc.get("product_status") in PORTAL_STATUSES)
 
 
 # permission_query_conditions hooks, one per template doctype (hooks.py names them).

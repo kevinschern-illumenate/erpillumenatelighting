@@ -64,6 +64,7 @@ import type { CatalogState } from '../design/catalog';
 import type { DesignStore } from '../design/store';
 import { CommitInput } from './fields';
 import type { OpenDesign } from './open';
+import { runEntities } from './checkTargets';
 
 const DRAG_TYPE = 'application/x-ill-runs';
 const watts = (value: number) => `${Number(value.toFixed(1))} W`;
@@ -322,6 +323,7 @@ export function PowerStep({
                           draggable={!readOnly}
                           onDragStart={dragStart(row)}
                           data-testid={`pool-${row.id}`}
+                          data-entity={runEntities(row.runs)}
                         >
                           <label>
                             <input
@@ -347,7 +349,7 @@ export function PowerStep({
                 <p className="ill-sd__muted">Add a cabinet on the Spaces step to hold supplies.</p>
               )}
               {design.site.cabinets.map((cabinet) => (
-                <article key={cabinet.id} className="ill-sd__card" data-testid={`board-${cabinet.tag}`}>
+                <article key={cabinet.id} className="ill-sd__card" data-testid={`board-${cabinet.tag}`} data-entity={cabinet.id}>
                   <h3>
                     {cabinet.tag} · {cabinet.name}{' '}
                     <span className="ill-sd__muted">({cabinet.locationRating} location)</span>
@@ -442,6 +444,7 @@ export function PowerStep({
                     key={source.id}
                     className="ill-sd__output"
                     data-testid={`circuit-${source.tag}`}
+                    data-entity={source.id}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => {
                       event.preventDefault();
@@ -679,7 +682,7 @@ function SupplyCard({
     : null;
   const devices = design.project.equipment.filter((device) => feedOf(design, device)?.supply.id === supply.id);
   return (
-    <div className="ill-sd__supply" data-testid={`supply-${supply.tag}`}>
+    <div className="ill-sd__supply" data-testid={`supply-${supply.tag}`} data-entity={supply.id}>
       <div className="ill-sd__row">
         <strong>{supply.tag}</strong>
         <span>{item?.model ?? supply.catalogId}</span>
@@ -1017,6 +1020,7 @@ function ControlCard({
     <div
       className={over ? 'ill-sd__supply ill-sd__output--over' : 'ill-sd__supply'}
       data-testid={`control-${control.tag}`}
+      data-entity={control.id}
       onDragOver={
         decoder
           ? (event) => {

@@ -463,6 +463,9 @@ def get_context(context):
 
 	context.can_issue_packet = can_edit or allowed("engineering")
 	context.can_view_pricing = can_view_pricing
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import configuration_compare_enabled
+
+	context.compare_enabled = configuration_compare_enabled()
 	context.is_dealer = is_dealer
 	context.is_internal = is_internal
 	context.can_create_order = can_create_order

@@ -14,7 +14,7 @@ Allows users to modify an existing configured fixture from a schedule line
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | urlencode }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ _("Edit Fixture") }}</li>
 		</ol>
@@ -163,7 +163,7 @@ Allows users to modify an existing configured fixture from a schedule line
 				</button>
 				{% if can_save %}
 				<div>
-					<a href="/portal/schedules/{{ schedule.name | e }}" class="btn btn-secondary mr-2">
+					<a href="/portal/schedules/{{ schedule.name | urlencode }}" class="btn btn-secondary mr-2">
 						<i class="fa fa-times" aria-hidden="true"></i> {{ _("Cancel") }}
 					</a>
 					<button type="button" class="btn btn-success" id="saveBtn" onclick="updateFixture()" disabled>

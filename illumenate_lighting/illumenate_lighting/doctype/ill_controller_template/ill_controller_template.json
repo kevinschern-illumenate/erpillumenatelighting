@@ -10,11 +10,13 @@
   "identity_section",
   "template_code",
   "template_name",
-  "is_active",
   "product_status",
+  "sublabel",
   "column_break_identity",
-  "series",
   "product_category",
+  "is_active",
+  "series",
+  "target_brands",
   "sku_series_code",
   "webflow_product",
   "pricing_section",
@@ -28,14 +30,23 @@
   "documents_section",
   "spec_submittal_template",
   "spec_sheet",
-  "certifications",
+  "other_documents",
   "warranty",
   "notes",
   "web_listing_tab",
   "product_data_section",
+  "display_name",
   "warranty_years",
   "product_data_column",
-  "hero_image"
+  "hero_image",
+  "dimensions_image",
+  "spec_sheet_public_url",
+  "web_specs_certs_section",
+  "specifications",
+  "certifications",
+  "web_configurator_section",
+  "auto_populate_configurator",
+  "part_no_configurator"
  ],
  "fields": [
   {
@@ -59,32 +70,23 @@
    "label": "Template Name"
   },
   {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "Is Active",
-   "read_only": 1,
-   "description": "Set from Product Status."
-  },
-  {
    "fieldname": "product_status",
    "fieldtype": "Select",
    "label": "Product Status",
-   "options": "Draft\nActive\nInternal Only\nDiscontinued\nArchived",
+   "options": "Draft\nActive\nActive + Live\nInternal Only\nDiscontinued\nArchived",
    "default": "Internal Only",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "Active: offered to dealers and staff. Internal Only: offered to staff in ERPNext and the portal, hidden from dealers. New templates start Internal Only. Draft, Discontinued and Archived are inactive. Whether the product is live on the website is set on its Webflow Product."
+   "description": "Active: offered to dealers and staff in ERPNext and the portal, not listed on the website. Active + Live: offered the same way and listed on the website through its Webflow Product, which must be linked first. Internal Only: offered to staff only, hidden from dealers and the website. New templates start Internal Only. Draft, Discontinued and Archived are not offered."
+  },
+  {
+   "fieldname": "sublabel",
+   "fieldtype": "Data",
+   "label": "Sublabel"
   },
   {
    "fieldname": "column_break_identity",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "series",
-   "fieldtype": "Link",
-   "label": "Series",
-   "options": "ilL-Attribute-Series"
   },
   {
    "description": "Marketing product category (Webflow taxonomy) this template belongs to",
@@ -93,6 +95,27 @@
    "in_standard_filter": 1,
    "label": "Product Category",
    "options": "ilL-Webflow-Category"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "read_only": 1,
+   "description": "Set from Product Status."
+  },
+  {
+   "fieldname": "series",
+   "fieldtype": "Link",
+   "label": "Series",
+   "options": "ilL-Attribute-Series"
+  },
+  {
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brand",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "description": "The one brand this template is listed under. At most one row can be enabled, and one is required to link a Webflow Product or generate a spec sheet."
   },
   {
    "description": "Short series code used as the part-number prefix.",
@@ -105,7 +128,9 @@
    "fieldtype": "Link",
    "label": "Webflow Product",
    "options": "ilL-Webflow-Product",
-   "read_only": 1
+   "read_only": 0,
+   "read_only_depends_on": "eval:doc.webflow_product",
+   "description": "The Webflow Product that lists this template. Pick one while empty; use Actions > Unlink Webflow Product to change it. Required when Product Status is Active + Live."
   },
   {
    "fieldname": "pricing_section",
@@ -170,10 +195,10 @@
    "label": "Spec Sheet"
   },
   {
-   "fieldname": "certifications",
+   "fieldname": "other_documents",
    "fieldtype": "Table",
-   "label": "Certifications",
-   "options": "ilL-Child-Spec-Certification"
+   "label": "Other Documents",
+   "options": "ilL-Child-Webflow-Document"
   },
   {
    "fieldname": "warranty",
@@ -196,6 +221,12 @@
    "label": "Product Data"
   },
   {
+   "fieldname": "display_name",
+   "fieldtype": "Data",
+   "label": "Display Name",
+   "description": "The product name shown on the website and the spec sheet. The Webflow Product's Product Name copies it. When empty, the Template Name is used."
+  },
+  {
    "fieldname": "warranty_years",
    "fieldtype": "Int",
    "label": "Warranty (Years)"
@@ -208,12 +239,62 @@
    "fieldname": "hero_image",
    "fieldtype": "Attach Image",
    "label": "Hero Image"
+  },
+  {
+   "fieldname": "dimensions_image",
+   "fieldtype": "Attach Image",
+   "label": "Dimensions Image"
+  },
+  {
+   "fieldname": "spec_sheet_public_url",
+   "fieldtype": "Data",
+   "label": "Spec Sheet Public URL",
+   "read_only": 1,
+   "description": "Stable link to the current spec sheet. Set when a spec sheet is generated."
+  },
+  {
+   "fieldname": "web_specs_certs_section",
+   "fieldtype": "Section Break",
+   "label": "Specifications & Certifications"
+  },
+  {
+   "fieldname": "specifications",
+   "fieldtype": "Table",
+   "label": "Specifications",
+   "options": "ilL-Child-Webflow-Spec-Custom",
+   "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+  },
+  {
+   "fieldname": "certifications",
+   "fieldtype": "Table",
+   "label": "Certifications",
+   "options": "ilL-Child-Spec-Certification",
+   "description": "Copied to the Webflow Product with each brand's badge images."
+  },
+  {
+   "fieldname": "web_configurator_section",
+   "fieldtype": "Section Break",
+   "label": "Configurator"
+  },
+  {
+   "fieldname": "auto_populate_configurator",
+   "fieldtype": "Check",
+   "label": "Calculate Configurator on Save",
+   "default": "1",
+   "description": "When checked, the steps below are rebuilt from this template's options on every save (the Is Required choices are kept). Uncheck it to set the steps up by hand: drag the rows into order and the step numbers follow on save."
+  },
+  {
+   "fieldname": "part_no_configurator",
+   "fieldtype": "Table",
+   "label": "Part No. Configurator",
+   "options": "ilL-Child-Webflow-Configurator-Option",
+   "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-30 21:58:27.000000",
+ "modified": "2026-11-02 21:49:08.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",

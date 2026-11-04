@@ -637,12 +637,9 @@ def prompt_neon_submittal_mapping(config: FixtureBuilderConfig) -> None:
 def prompt_tape_neon_webflow(config: FixtureBuilderConfig, is_neon: bool) -> None:
     """Prompt for tape/neon webflow config if defaults."""
     wf = config.tape_neon_webflow
-    if wf.product_category in ("led-tape", "led-neon") and wf.configurator_steps:
+    if wf.product_category in ("led-tape", "led-neon"):
         return  # Already configured from YAML
 
     default_cat = "led-neon" if is_neon else "led-tape"
     wf.product_category = _input("Webflow product category", default_cat)
-    steps = _input_list("Configurator step order",
-                        ",".join(wf.configurator_steps))
-    if steps:
-        wf.configurator_steps = steps
+    # No step order to ask for: the template calculates its configurator steps (Phase 2c).

@@ -1,9 +1,10 @@
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 {% block portal_title %}{{ request.name | e }}{% endblock %}
 {% block portal_page_class %}ill-commerce{% endblock %}
 {% block portal_content %}{% set awaiting = request.snapshot.lines | selectattr('verification_status', 'defined') | selectattr('verification_status', 'equalto', 'Pending') | list %}
 
-  <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Quotes and requests") }}</a>
+  {{ breadcrumbs([(_("Portal"), "/portal"), (_("Quotes"), "/portal/quotes"), (request.name, None)]) }}
   <header class="ill-hero">
     <div class="ill-hero__top">
       <div>

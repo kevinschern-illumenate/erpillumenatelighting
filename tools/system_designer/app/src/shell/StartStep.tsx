@@ -3,7 +3,8 @@ import { useStore } from 'zustand';
 import { applyReconcile } from '@ill/engine/reconcile';
 import { DesignApiError, type DesignApi } from '../design/api';
 import type { DesignStore } from '../design/store';
-import { expandOptions, type OpenDesign } from './open';
+import { SeverityIcon } from '../ui';
+import { expandOptions, openingChecks, type OpenDesign } from './open';
 
 export const designUrl = (schedule: string) => `/portal/schedules/${encodeURIComponent(schedule)}/design`;
 
@@ -43,6 +44,8 @@ export function StartStep({
   const { readiness, review_requirement: review } = open;
   const spaces = design?.site.spaces.length ?? 0;
   const runs = design?.runs.length ?? 0;
+  const attention = openingChecks(open);
+  const scheduleUrl = `/portal/schedules/${encodeURIComponent(open.schedule.name)}`;
 
   const applyChanges = () => {
     if (!design || !reconcile) return;
@@ -120,6 +123,24 @@ export function StartStep({
           </ul>
         </div>
       ) : null}
+      <dl className="sd-start__stats" aria-label="This design">
+        <div>
+          <dt>Ready lines</dt>
+          <dd>{readiness.ready.length}</dd>
+        </div>
+        <div>
+          <dt>Spaces</dt>
+          <dd>{spaces}</dd>
+        </div>
+        <div>
+          <dt>Runs</dt>
+          <dd>{runs}</dd>
+        </div>
+        <div className={attention.length ? 'sd-start__stat--warning' : undefined}>
+          <dt>Need attention</dt>
+          <dd>{attention.length}</dd>
+        </div>
+      </dl>
       <p data-testid="design-size">
         This design has {plural(runs, 'run')} in {plural(spaces, 'space')} from{' '}
         {plural(readiness.ready.length, 'ready line')}.
@@ -135,14 +156,37 @@ export function StartStep({
         {readiness.unconfigured.length ? (
           <li>
             {plural(readiness.unconfigured.length, 'line')} not configured yet;{' '}
-            <a href={`/portal/schedules/${encodeURIComponent(open.schedule.name)}`}>configure them on the schedule</a>
+            <a href={scheduleUrl}>configure them on the schedule</a>
           </li>
         ) : null}
         {readiness.catalog_gaps.length ? (
           <li>{plural(readiness.catalog_gaps.length, 'product')} not in the design catalog yet</li>
         ) : null}
       </ul>
-      <p className="ill-sd__muted">The check panel lists each line that needs attention.</p>
+      {attention.length ? (
+        <>
+          <h3>Lines that need attention</h3>
+          <p className="ill-sd__muted">
+            These lines are left out of the design until they are fixed on the{' '}
+            <a href={scheduleUrl}>fixture schedule</a>. The rest of the design can go ahead.
+          </p>
+          <ul className="sd-start__issues" data-testid="start-issues">
+            {attention.map((check) => (
+              <li key={check.id} className="sd-start__issue" data-entity={check.ref} tabIndex={-1}>
+                <SeverityIcon severity={check.severity} label />
+                <div>
+                  <strong>{check.title}</strong>
+                  <p>{check.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="ill-sd__muted" data-testid="start-clear">
+          Every line on the schedule is ready. Continue to name the spaces.
+        </p>
+      )}
     </section>
   );
 }

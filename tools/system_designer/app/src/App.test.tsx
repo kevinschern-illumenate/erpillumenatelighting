@@ -9,6 +9,7 @@ import { DesignApiError, type DesignApi } from './design/api';
 import { openDrafts, type DraftStore } from './design/drafts';
 import { mount } from './mount';
 import { openFixture } from './shell/fixture';
+import { scheduleUrl } from './shell/Shell';
 import { newDesign, type OpenDesign } from './shell/open';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -30,6 +31,8 @@ let root: Root | undefined;
 let el: HTMLDivElement;
 
 beforeEach(() => {
+  localStorage.clear();
+  history.replaceState(null, '', '/');
   drafts = openDrafts(`app-test-${dbIndex++}`);
   el = document.createElement('div');
   document.body.append(el);
@@ -69,8 +72,20 @@ async function render(api: DesignApi, navigate = vi.fn()) {
   return navigate;
 }
 
+// Dialogs and menus render into document.body, outside the designer's element.
 const button = (name: string) =>
-  [...el.querySelectorAll('button, a')].find((node) => node.textContent?.trim() === name) as HTMLElement | undefined;
+  [...document.querySelectorAll('button, a')].find((node) => node.textContent?.trim() === name) as
+    | HTMLElement
+    | undefined;
+const dialog = () => document.querySelector('[role="dialog"]');
+const openMenu = async (name: string) => {
+  const trigger = button(name)!;
+  await act(async () => {
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+};
+const menuItem = (name: string) =>
+  [...document.querySelectorAll<HTMLElement>('[role^="menuitem"]')].find((node) => node.textContent?.trim() === name);
 const click = async (node: HTMLElement | undefined) => {
   if (!node) throw new Error('missing control');
   await act(async () => node.click());
@@ -99,13 +114,12 @@ describe('designer shell', () => {
     expect(el.querySelector('[data-testid="schedule-name"]')?.textContent).toBe('Test house · Version 2');
     expect(el.textContent).toContain('New design');
     expect(el.querySelector('[data-testid="review-chip"]')?.textContent).toBe('Review optional');
-    const dialog = el.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain('Design aid. Verify against product documentation');
+    expect(dialog()?.textContent).toContain('Design aid. Verify against product documentation');
     expect(document.activeElement?.textContent).toBe('Accept and continue');
     expect(el.querySelector('[data-testid="save-state"]')?.textContent).toBe('Unsaved changes');
 
     await click(button('Accept and continue'));
-    expect(el.querySelector('[role="dialog"]')).toBeNull();
+    expect(dialog()).toBeNull();
     await click(button('Save'));
     expect(vi.mocked(api.saveDesign).mock.calls[0]?.[0]).toMatchObject({
       schedule: 'SCH-TEST',
@@ -151,9 +165,9 @@ describe('designer shell', () => {
     );
     expect(el.textContent).toContain('1 line need dealer data');
     const toggle = el.querySelector<HTMLButtonElement>('.ill-sd__checks-toggle')!;
-    expect(toggle.textContent).toContain('✖ 0 errors');
-    expect(toggle.textContent).toContain('▲ 2 warnings');
-    expect(toggle.textContent).toContain('ℹ 1 notes');
+    expect(toggle.textContent).toContain('0 errors');
+    expect(toggle.textContent).toContain('2 warnings');
+    expect(toggle.textContent).toContain('1 notes');
     expect(el.querySelectorAll('.ill-sd__check')).toHaveLength(3);
     await click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
@@ -166,27 +180,78 @@ describe('designer shell', () => {
     expect(button('Back')).toHaveProperty('disabled', true);
     await click(button('Continue'));
     expect(el.querySelector('main h2')?.textContent).toBe('Spaces');
-    expect(el.querySelector('[aria-current="step"]')?.textContent).toBe('2Spaces');
-    // Dealers turn engineering mode on; the choice is kept in this browser.
+    expect(el.querySelector('[aria-current="step"]')?.textContent).toMatch(/^2Spaces/);
+    expect(location.hash).toBe('#/spaces');
+    // Dealers turn engineering mode on from the View menu; the choice is kept in this browser.
     expect(button('Engineering')).toBeUndefined();
-    const optIn = [...el.querySelectorAll('label')].find((node) => node.textContent === 'Engineering tools')!;
-    await click(optIn.querySelector('input') ?? undefined);
+    await openMenu('View');
+    await click(menuItem('Engineering tools'));
     expect(localStorage.getItem('ill-sd:engineering-opt-in')).toBe('1');
-    expect(el.querySelector('nav')?.getAttribute('aria-label')).toBe('Design tabs');
+    expect(el.querySelector('nav[aria-label^="Design"]')?.getAttribute('aria-label')).toBe('Design tabs');
     expect(button('Continue')).toBeUndefined();
-    expect(el.querySelector('[aria-current="step"]')?.textContent).toBe('Spaces');
+    expect(el.querySelector('[aria-current="step"] .sd-rail__name')?.textContent).toBe('Spaces');
+    expect(el.querySelector('[aria-current="step"] .sd-rail__number')).toBeNull();
     expect(button('Grids')).toBeDefined();
     await click(button('Guided'));
     expect(button('Grids')).toBeUndefined();
     localStorage.removeItem('ill-sd:engineering-opt-in');
   });
 
+  it('opens the step in the address bar and moves between steps from the keyboard (SD-2.7)', async () => {
+    localStorage.setItem('ill-sd:tour-done', '1');
+    history.replaceState(null, '', '/#/power');
+    await render(apiFor(openFixture({ design_meta: null })));
+    await click(button('Accept and continue'));
+    expect(el.querySelector('main h2')?.textContent).toBe('Power');
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ']', bubbles: true }));
+    });
+    expect(el.querySelector('main h2')?.textContent).toBe('Check');
+    expect(location.hash).toBe('#/check');
+    await act(async () => {
+      history.replaceState(null, '', '/#/spaces');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    expect(el.querySelector('main h2')?.textContent).toBe('Spaces');
+    expect(localStorage.getItem('ill-sd:last-step:SCH-TEST')).toBe('spaces');
+  });
+
+  it('goes to the step that fixes a check, and finds steps from the palette (SD-2.2)', async () => {
+    localStorage.setItem('ill-sd:tour-done', '1');
+    history.replaceState(null, '', '/#/power');
+    await render(apiFor(openFixture({ design: null, design_meta: null })));
+    await click(button('Accept and continue'));
+    const goTo = [...el.querySelectorAll<HTMLElement>('.sd-check__go')];
+    expect(goTo.length).toBeGreaterThan(0);
+    await click(goTo[0]);
+    expect(el.querySelector('main h2')?.textContent).toBe('Start');
+    // The line the check is about is scrolled to, highlighted and focused.
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    const target = document.activeElement as HTMLElement;
+    expect(target.dataset.entity).toMatch(/^line:/);
+    expect(target.classList.contains('sd-flash')).toBe(true);
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+    });
+    expect(document.querySelector('[role="combobox"]')).not.toBeNull();
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find((node) =>
+      node.textContent?.includes('Go to Views'),
+    );
+    await click(option);
+    expect(dialog()).toBeNull();
+    expect(el.querySelector('main h2')?.textContent).toBe('Views');
+  });
+
   it('opens in engineering mode for ilLumenate staff', async () => {
     const open = openFixture({ design_meta: null });
     await render(apiFor({ ...open, permissions: { ...open.permissions, can_engineer: true } }));
-    expect(el.querySelector('nav')?.getAttribute('aria-label')).toBe('Design tabs');
+    expect(el.querySelector('nav[aria-label^="Design"]')?.getAttribute('aria-label')).toBe('Design tabs');
     expect(button('Grids')).toBeDefined();
-    expect([...el.querySelectorAll('label')].some((node) => node.textContent === 'Engineering tools')).toBe(false);
+    await click(button('Accept and continue'));
+    await openMenu('View');
+    expect(menuItem('Checks panel')).toBeDefined();
+    expect(menuItem('Engineering tools')).toBeUndefined();
   });
 
   it('flags a required review and applies schedule changes as one undoable edit', async () => {
@@ -216,7 +281,7 @@ describe('designer shell', () => {
       }),
     );
     await render(api);
-    expect(el.querySelector('[role="dialog"]')).toBeNull();
+    expect(dialog()).toBeNull();
     expect(el.querySelector('[data-testid="review-chip"]')?.textContent).toBe('Review required');
     expect(el.querySelector('[data-testid="review-banner"]')?.textContent).toContain(
       'The connected load is over the review threshold (1,640 W).',
@@ -247,7 +312,7 @@ describe('designer shell', () => {
       }),
     );
     const navigate = await render(api);
-    expect(el.querySelector('[role="dialog"]')).toBeNull();
+    expect(dialog()).toBeNull();
     expect(el.textContent).toContain('This schedule version is locked');
     expect(button('Save')).toHaveProperty('disabled', true);
     await click(button('Design on version 3'));
@@ -276,5 +341,9 @@ describe('designer shell', () => {
     expect(el.querySelector('[role="alert"]')?.textContent).toBe(
       'The System Designer is not available for your account yet',
     );
+    expect(button('Retry')).toBeUndefined();
+    const back = [...el.querySelectorAll('a')].find((link) => link.textContent === 'Back to schedule');
+    expect(back?.getAttribute('href')).toBe('/portal/schedules/SCH-TEST');
+    expect(scheduleUrl('SCH </script><b>')).toBe('/portal/schedules/SCH%20%3C%2Fscript%3E%3Cb%3E');
   });
 });
