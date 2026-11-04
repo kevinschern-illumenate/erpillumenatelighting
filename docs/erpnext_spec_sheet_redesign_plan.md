@@ -551,6 +551,51 @@ A read-only "Publication History" section on the template and the product, listi
 
 ---
 
+### 4.16 Webflow Products field mapping, ilLumenate (overhaul, for owner sign-off)
+
+Owner decisions (2026-11-04): two buttons, one sync path. The template's **Generate Spec & Sync to Webflow** (shown when a Webflow Product is linked) generates the spec, then syncs the product through W2. The Webflow Product's **Sync to Webflow** syncs through W2 with no spec generation. W1 never syncs and W2 never generates. Every spec sheet link in Webflow is `spec_sheet_public_url`. The `(ilL) Transform to Webflow Format` rewrite (Phase 9) moves into this overhaul for ilLumenate only; 206 keeps its node. The new node sends only the fields signed off below.
+
+Fields read from the staging site's Products collection (34, 2026-11-04). "Not sent" fields are left as they are in Webflow: a PATCH changes only the fields it sends. Owner column: keep, change or drop.
+
+| # | Webflow field | Type | Sent today from | Proposed source | Owner |
+|---|---|---|---|---|---|
+| 1 | `name` (required) | Plain text | product `product_name` | template Display Name, else Template Name | |
+| 2 | `slug` (required) | Plain text | product `product_slug` | product `product_slug`, never changed once the item exists | |
+| 3 | `hidden-from-public` | Switch | from Webflow Status | the Phase 5 Webflow state | |
+| 4 | `fully-launched` | Switch | not sent | not sent (managed in Webflow) | |
+| 5 | `product-type` | Option | product type, as an option ID | template product type (from the Product Category). Webflow has no "COB Tape" option | |
+| 6 | `category` | Reference | category's Webflow item ID | same, from the category's sync row for the brand | |
+| 7 | `short-description` | Plain text | product `short_description` | product `short_description` | |
+| 8 | `featured-image` | Image | product `featured_image` | template Hero Image | |
+| 9 | `gallery` | Multi image | product Gallery Images | product Gallery Images | |
+| 10 | `family-image` | Image | product `series_family_image` | product `series_family_image` | |
+| 11 | `series-display-name` | Plain text | product `series_display_name` | template Series (its name) | |
+| 12 | `last-synced` | Date | sync date (Pacific, noon UTC) | same | |
+| 13 | `is-configurable-3` | Switch | product `is_configurable` | product `is_configurable` (moves to the template in cleanup) | |
+| 14 | `erp-sync-id` | Plain text | product name | product name | |
+| 15 | `attribute-links-json` | Plain text | product Attribute Links | product Attribute Links | |
+| 16 | `certifications-json` | Plain text | product Certifications | template Certifications, with the brand's badge image | |
+| 17 | `compatible-products-json` | Plain text | product Compatible Products | product Compatible Products | |
+| 18 | `configurator-options-json` | Plain text | product configurator (aliased to the template's) | template Part No. Configurator (empty when the brand gets none) | |
+| 19 | `documents-json` | Plain text | product Documents | product Documents; the spec sheet row is `spec_sheet_public_url` | |
+| 20 | `features-json` | Plain text | product Features | product Features | |
+| 21 | `feed-lengths-json` | Plain text | not sent | product Feed Lengths? | |
+| 22 | `kit-components-json` | Plain text | product Kit Components | template Kit Components | |
+| 23 | `specifications-json` | Plain text | product Specifications | template Specifications (label, value, order, attribute options) | |
+| 24 | `spec-sheet` | File | not sent | ? A File field copies the PDF into Webflow, so it cannot stay the stable link | |
+| 25 | `price-per-foot-msrp` | Number | not sent | ? template Base Price (MSRP) | |
+| 26 | `subheading` | Plain text | product `sublabel` | template Sublabel | |
+| 27 | `dimensions` | Image | product dimensions image | template Dimensions Image | |
+| 28 | `product-badge` | Plain text | product badge (from Web Badge) | product Web Badge | |
+| 29 | `turn-off-config-spec-button` | Switch | not sent | not sent (managed in Webflow) | |
+| 30 | `spec-submittal` | File | not sent | not sent | |
+| 31 | `showcasing-at-cedia-2026` | Switch | not sent | not sent (managed in Webflow) | |
+| 32 | `cedia-product-tag` | Plain text | not sent | not sent (managed in Webflow) | |
+| 33 | `led-package-code` | Plain text | not sent | ? | |
+| 34 | `part-number-prefix` | Plain text | not sent | ? | |
+
+Item flags (not fields): `isDraft` and `isArchived` follow the Phase 5 Webflow state. Webflow has no discontinued field yet (Phase 9 R1).
+
 ## 5. Design choices
 
 **Accepted by the owner (now D18 to D22):** ERPNext orchestrates and W1 is spec-only; `spec_sheet_public_url`; the resolver; template-to-product mirror with fallback; one-row `target_brands` table.
