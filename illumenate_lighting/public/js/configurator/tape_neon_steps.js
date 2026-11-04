@@ -304,7 +304,7 @@
 			+ '<div class="segment-card" id="neonSeg' + idx + '" data-seg-idx="' + idx + '">'
 			+ '<div class="card-header">'
 			+ '<strong>Segment ' + idx + '</strong>'
-			+ (idx > 1 ? '<button type="button" class="btn btn-sm btn-outline-danger btn-remove-seg" data-seg="' + idx + '"><i class="fa fa-trash"></i></button>' : '')
+			+ (idx > 1 ? '<button type="button" class="btn btn-sm btn-outline-danger btn-remove-seg" data-seg="' + idx + '" aria-label="' + String(__('Remove segment {0}', [idx])).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"><i class="fa fa-trash" aria-hidden="true"></i></button>' : '')
 			+ '</div>'
 			+ '<div class="card-body">'
 			+ '<div class="row">'
@@ -558,6 +558,7 @@
 	TapeNeon.prototype._showResults = function (result) {
 		this.$('#errorsCard').hide();
 		this.$('#resultsCard').show();
+		if (root.IllBuildPreview) root.IllBuildPreview.render(this.$('.ill-build-preview')[0], result, this.IS_NEON ? 'neon' : 'tape');
 		this.$('#resultPartNumber').text(result.part_number || '-');
 		this.$('#resultDescription').text(result.build_description || '-');
 
@@ -875,8 +876,8 @@
 		this.$('#tapeLengthUnitTabs .nav-link').on('click' + '.' + self.instanceId, function (e) {
 			e.preventDefault();
 			self.invalidateValidation();
-			self.$('#tapeLengthUnitTabs .nav-link').removeClass('active');
-			$(this).addClass('active');
+			self.$('#tapeLengthUnitTabs .nav-link').removeClass('active').attr('aria-pressed', 'false');
+			$(this).addClass('active').attr('aria-pressed', 'true');
 			var unit = $(this).data('unit');
 			self.selections.tape_length_unit = unit;
 			if (unit === 'ft_in') {

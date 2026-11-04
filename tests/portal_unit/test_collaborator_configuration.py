@@ -229,6 +229,8 @@ class ConfigurePage(unittest.TestCase):
 				"durable_drafts_enabled": lambda: True,
 				"presets_enabled": lambda: True,
 				"live_estimate_enabled": lambda: True,
+				"sheet_server_options_enabled": lambda: True,
+				"build_preview_enabled": lambda: True,
 			},
 			".portal.rollout": {"require_family": lambda family: None},
 			".portal.configuration": {"family_for_template": lambda family, template: family},

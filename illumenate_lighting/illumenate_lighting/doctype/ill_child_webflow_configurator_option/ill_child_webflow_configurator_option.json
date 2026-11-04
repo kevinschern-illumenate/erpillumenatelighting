@@ -19,9 +19,9 @@
   {
    "fieldname": "option_step",
    "fieldtype": "Int",
-   "in_list_view": 1,
    "label": "Step Order",
-   "reqd": 1
+   "read_only": 1,
+   "description": "Set from the row order when the steps are set up by hand on the template; calculated otherwise. The website and n8n match steps by this number."
   },
   {
    "fieldname": "option_type",
@@ -70,7 +70,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-21 10:00:00.000000",
+ "modified": "2026-11-02 19:30:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Webflow-Configurator-Option",

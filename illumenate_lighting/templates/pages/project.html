@@ -328,7 +328,7 @@ Also handles new project creation when is_new is True
 							<button type="button" class="btn btn-outline-primary js-edit-project">
 								<i class="fa fa-pencil" aria-hidden="true"></i> {{ _("Edit") }}
 							</button>
-							<a href="/portal/projects/{{ project.name | e }}/collaborators" class="btn btn-outline-secondary">
+							<a href="/portal/projects/{{ project.name | urlencode }}/collaborators" class="btn btn-outline-secondary">
 								<i class="fa fa-users" aria-hidden="true"></i> {{ _("Collaborators") }}
 							</a>
 							{% if project.status != 'ARCHIVED' %}
@@ -404,21 +404,21 @@ Also handles new project creation when is_new is True
 	</div>
 
 	<!-- Tabs -->
-	<ul class="nav nav-tabs mb-4" role="tablist">
+	<ul class="nav nav-tabs mb-4" role="tablist" aria-label="{{ _('Project sections') }}" data-ill-tabs>
 		<li class="nav-item">
-			<a class="nav-link active" id="schedules-tab" data-toggle="tab" href="#schedules" role="tab">
+			<a class="nav-link active" id="schedules-tab" data-toggle="tab" href="#schedules" role="tab" aria-controls="schedules" aria-selected="true">
 				<i class="fa fa-list" aria-hidden="true"></i> {{ _("Fixture Schedules") }}
 			</a>
 		</li>
 		{% if system_designs is defined and system_designs is not none %}
 		<li class="nav-item">
-			<a class="nav-link" id="designs-tab" data-toggle="tab" href="#designs" role="tab">
+			<a class="nav-link" id="designs-tab" data-toggle="tab" href="#designs" role="tab" aria-controls="designs" aria-selected="false" tabindex="-1">
 				<i class="fa fa-sitemap" aria-hidden="true"></i> {{ _("Designs") }}
 			</a>
 		</li>
 		{% endif %}
 		<li class="nav-item">
-			<a class="nav-link" id="files-tab" data-toggle="tab" href="#files" role="tab">
+			<a class="nav-link" id="files-tab" data-toggle="tab" href="#files" role="tab" aria-controls="files" aria-selected="false" tabindex="-1">
 				<i class="fa fa-file" aria-hidden="true"></i> {{ _("Files") }}
 			</a>
 		</li>
@@ -426,11 +426,11 @@ Also handles new project creation when is_new is True
 
 	<div class="tab-content">
 		<!-- Schedules Tab -->
-		<div class="tab-pane fade show active" id="schedules" role="tabpanel">
+		<div class="tab-pane fade show active" id="schedules" role="tabpanel" aria-labelledby="schedules-tab" tabindex="0">
 			<div class="d-flex justify-content-between align-items-center mb-3">
 				<h4>{{ _("Fixture Schedules") }}</h4>
 				{% if can_edit %}
-				<a href="/portal/projects/{{ project.name | e }}/schedules/new" class="btn btn-primary">
+				<a href="/portal/projects/{{ project.name | urlencode }}/schedules/new" class="btn btn-primary">
 					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Create Schedule") }}
 				</a>
 				{% endif %}
@@ -457,7 +457,7 @@ Also handles new project creation when is_new is True
 				<i class="fa fa-clipboard fa-3x text-muted mb-3" aria-hidden="true"></i>
 				<p class="text-muted">{{ _("No schedules found. Create a schedule to start configuring fixtures.") }}</p>
 				{% if can_edit %}
-				<a href="/portal/projects/{{ project.name | e }}/schedules/new" class="btn btn-primary">
+				<a href="/portal/projects/{{ project.name | urlencode }}/schedules/new" class="btn btn-primary">
 					<i class="fa fa-plus" aria-hidden="true"></i> {{ _("Create Schedule") }}
 				</a>
 				{% endif %}
@@ -467,7 +467,7 @@ Also handles new project creation when is_new is True
 
 		{% if system_designs is defined and system_designs is not none %}
 		<!-- Designs Tab (System Designer, WP-4.5) -->
-		<div class="tab-pane fade" id="designs" role="tabpanel">
+		<div class="tab-pane fade" id="designs" role="tabpanel" aria-labelledby="designs-tab" tabindex="0">
 			<div class="d-flex justify-content-between align-items-center mb-3">
 				<h4>{{ _("System Designs") }}</h4>
 			</div>
@@ -493,7 +493,7 @@ Also handles new project creation when is_new is True
 		{% endif %}
 
 		<!-- Files Tab -->
-		<div class="tab-pane fade" id="files" role="tabpanel">
+		<div class="tab-pane fade" id="files" role="tabpanel" aria-labelledby="files-tab" tabindex="0">
 			<div class="d-flex justify-content-between align-items-center mb-3">
 				<h4>{{ _("Exported Documents") }}</h4>
 			</div>

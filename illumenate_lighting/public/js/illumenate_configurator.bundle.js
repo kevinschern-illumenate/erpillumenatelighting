@@ -4,6 +4,7 @@ import "./configurator/shared_configurator.js";
 import "./configurator/draft_autosave.js";
 import "./configurator/presets.js";
 import "./configurator/estimate_panel.js";
+import "./configurator/build_preview.js";
 import "./configurator/fixture_group_editor.js";
 import "./configurator/fixture_steps.js";
 import "./configurator/tape_neon_steps.js";

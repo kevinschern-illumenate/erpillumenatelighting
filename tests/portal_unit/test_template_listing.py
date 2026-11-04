@@ -1,0 +1,456 @@
+"""Phase 2: templates store spec rows and configurator steps; products take them."""
+
+import types
+import unittest
+from unittest.mock import MagicMock
+
+from test_services import ROOT, Record, load_service
+
+KIT = "ilL-Extrusion-Kit-Template"
+TAPE = "ilL-Tape-Neon-Template"
+
+
+class Flags(dict):
+	__getattr__ = dict.get
+
+	def __setattr__(self, key, value):
+		self[key] = value
+
+
+class Doc(dict):
+	def __init__(self, doctype=None, name=None, **values):
+		super().__init__(values)
+		self.__dict__.update(doctype=doctype, name=name, flags=Flags())
+
+	def __getattr__(self, key):
+		return self.get(key)
+
+	def __setattr__(self, key, value):
+		if key in ("doctype", "name", "flags"):
+			self.__dict__[key] = value
+		else:
+			self[key] = value
+
+	def set(self, key, value):
+		self[key] = value
+
+
+def spec(label, value, order=50):
+	return {"spec_label": label, "spec_value": value, "display_order": order}
+
+
+class Listing(unittest.TestCase):
+	def setUp(self):
+		product_module = types.ModuleType(ROOT + ".doctype.ill_webflow_product.ill_webflow_product")
+		product_module.MANAGED_LABELS = ("Watts per Foot", "Operating Temperature", "Dimming")
+		context = load_service(ROOT + ".template_listing", {product_module.__name__: product_module})
+		self.module, self.frappe = context.__enter__()
+		self.addCleanup(context.__exit__, None, None, None)
+
+	def test_the_shadow_product_reads_the_template_being_saved(self):
+		self.frappe.new_doc = lambda doctype: Doc(doctype)
+		self.frappe.get_all.return_value = [Record(option_step=2, is_required=0)]
+		template = Doc(
+			TAPE,
+			"led-hd-sw",
+			template_name="LED HD SW",
+			product_category="LED Tape",
+			webflow_product="led-hd-sw",
+			specifications=[spec("Hand Row", "kept")],
+		)
+		product, field = self.module.shadow_product(template)
+		self.assertEqual((field, product["tape_neon_template"]), ("tape_neon_template", "led-hd-sw"))
+		self.assertEqual(product["product_type"], "LED Tape")
+		self.assertIs(product.flags.template_doc, template)
+		self.assertEqual(product["webflow_specifications"][0]["spec_label"], "Hand Row")
+		# With no configurator on the template yet, the product's "Is Required" choices carry over.
+		self.assertEqual(product.flags.existing_is_required, {2: 0})
+
+	def test_a_kit_template_is_listed_as_an_extrusion_kit(self):
+		self.assertEqual(self.module.product_type_for(Doc(KIT, "KIT-RA01")), "Extrusion Kit")
+
+	def link(self, template):
+		self.frappe.get_doc.return_value = template
+		self.frappe.db.get_value.return_value = template["webflow_product"]
+
+	def test_the_product_keeps_its_fresh_rows_and_takes_the_templates_decisions(self):
+		self.link(
+			Doc(
+				KIT,
+				"KIT-RA01",
+				webflow_product="kit-ra01",
+				# A stale calculated row (ignored) and a row typed on the template (taken).
+				specifications=[spec("Watts per Foot", "stale", 20), spec("Template Note", "t", 90)],
+				part_no_configurator=[{"option_step": 1, "is_required": 0}],
+			)
+		)
+		option = Record(option_step=1, is_required=1, option_type="Finish")
+		product = Doc(
+			"ilL-Webflow-Product",
+			"kit-ra01",
+			kit_template="KIT-RA01",
+			is_configurable=1,
+			auto_populate_configurator_options=1,
+			webflow_specifications=[spec("Watts per Foot", "4.4", 20), spec("Product Note", "p", 10)],
+			configurator_options=[option],
+		)
+		self.module.apply_template_rows(product)
+		self.assertEqual(
+			[(row["spec_label"], row["spec_value"]) for row in product["webflow_specifications"]],
+			[("Product Note", "p"), ("Watts per Foot", "4.4"), ("Template Note", "t")],
+		)
+		self.assertEqual(option.is_required, 0)
+
+	def test_steps_set_up_by_hand_on_the_product_are_left_alone(self):
+		self.link(
+			Doc(
+				TAPE,
+				"led-hd-sw",
+				webflow_product="led-hd-sw",
+				specifications=[],
+				part_no_configurator=[{"option_step": 1, "is_required": 0}],
+			)
+		)
+		option = Record(option_step=1, is_required=1, option_type="IP Rating")
+		product = Doc(
+			"ilL-Webflow-Product",
+			"led-hd-sw",
+			tape_neon_template="led-hd-sw",
+			is_configurable=1,
+			auto_populate_configurator_options=0,
+			webflow_specifications=[],
+			configurator_options=[option],
+		)
+		self.module.apply_template_rows(product)
+		self.assertEqual(option.is_required, 1)
+
+	def test_a_hand_set_product_configurator_is_not_calculated_for_the_comparison(self):
+		product = Doc(
+			"ilL-Webflow-Product", "led-hd-sw", is_configurable=1, auto_populate_configurator_options=0
+		)
+		product.sync_custom_template_data = MagicMock()
+		product.populate_tape_neon_configurator_options = MagicMock()
+		product["tape_neon_template"] = "led-hd-sw"
+		product["webflow_specifications"] = [spec("CRI", "90")]
+		specs, configurator = self.module.fresh_product_rows(product)
+		self.assertIsNone(configurator)
+		product.populate_tape_neon_configurator_options.assert_not_called()
+		self.assertEqual(specs[0]["spec_value"], "90")
+
+	def test_a_template_without_decisions_leaves_the_product_alone(self):
+		self.link(
+			Doc(KIT, "KIT-RA01", webflow_product="kit-ra01", specifications=[], part_no_configurator=[])
+		)
+		rows = [spec("Watts per Foot", "4.4")]
+		product = Doc("ilL-Webflow-Product", "kit-ra01", kit_template="KIT-RA01", webflow_specifications=rows)
+		self.module.apply_template_rows(product)
+		self.assertIs(product["webflow_specifications"], rows)
+
+	def test_a_failed_calculation_keeps_the_rows_and_never_blocks_the_save(self):
+		self.frappe.new_doc = MagicMock(side_effect=RuntimeError("no profile"))
+		self.frappe.log_error = MagicMock()
+		self.frappe.msgprint = MagicMock()
+		template = Doc(KIT, "KIT-RA01", specifications=[spec("Watts per Foot", "4.4")])
+		self.module.refresh_template(template)
+		self.assertEqual(template["specifications"], [spec("Watts per Foot", "4.4")])
+		self.frappe.msgprint.assert_called_once()
+
+	def readers(self, legacy=False, product_flags=(), template_auto=1):
+		self.frappe.flags.web_listing_legacy_read = legacy
+		templates = [
+			Record(name="led-hd-sw", webflow_product="led-hd-sw", auto_populate_configurator=template_auto)
+		]
+		rows = {
+			"ilL-Tape-Neon-Template": [Record(parent="led-hd-sw", option_step=1, option_type="CCT")],
+			"ilL-Webflow-Product": [
+				Record(parent="led-hd-sw", option_step=0, option_type="Series"),
+				Record(parent="no-template", option_step=2, option_type="Finish"),
+			],
+		}
+
+		def get_all(doctype, filters=None, **kwargs):
+			if doctype == TAPE:
+				return templates
+			if doctype == "ilL-Webflow-Product":
+				return list(product_flags)
+			if doctype == self.module.OPTION:
+				return [
+					row for row in rows.get(filters["parenttype"], []) if row.parent in filters["parent"][1]
+				]
+			return []
+
+		self.frappe.get_all.side_effect = get_all
+		products = [
+			{"name": "led-hd-sw", "tape_neon_template": "led-hd-sw"},
+			{"name": "no-template"},
+		]
+		return self.module.configurator_rows(products)
+
+	def test_readers_take_the_templates_configurator(self):
+		result = self.readers()
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["CCT"])
+		# A product without a template keeps reading its own table.
+		self.assertEqual([row.option_type for row in result["no-template"]], ["Finish"])
+
+	def test_hand_set_steps_stay_on_the_product_until_decided(self):
+		hand_set = [Record(name="led-hd-sw", is_configurable=1, auto_populate_configurator_options=0)]
+		result = self.readers(product_flags=hand_set)
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["Series"])
+		# Once the template takes the steps (it stops calculating), the template is read.
+		result = self.readers(product_flags=hand_set, template_auto=0)
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["CCT"])
+
+	def test_the_report_says_what_differs_in_a_step(self):
+		self.frappe.parse_json = __import__("json").loads
+		self.frappe.as_json = __import__("json").dumps
+		hand = {
+			"option_step": 1,
+			"option_type": "CCT",
+			"is_required": 1,
+			"allowed_values_json": '[{"code": "30"}]',
+		}
+		calculated = {
+			"option_step": 1,
+			"option_type": "CCT",
+			"is_required": 0,
+			"allowed_values_json": '[{"code": "30"}, {"code": "40"}]',
+		}
+		(step,) = self.module.side_by_side([hand], [calculated])
+		self.assertEqual(step["differs"], ["is_required", "allowed values"])
+		self.assertEqual((step["only_hand_set"], step["only_calculated"]), ([], ["40"]))
+
+	def test_legacy_read_sends_readers_back_to_the_product(self):
+		result = self.readers(legacy=True)
+		self.assertEqual([row.option_type for row in result["led-hd-sw"]], ["Series"])
+
+	def test_a_hand_set_configurator_is_shown_next_to_the_calculated_one(self):
+		hand = [
+			{
+				"option_step": 0,
+				"option_type": "Series",
+				"option_label": "Series",
+				"allowed_values_json": "[1]",
+			},
+			{
+				"option_step": 1,
+				"option_type": "CCT",
+				"option_label": "CCT",
+				"allowed_values_json": '["a","b"]',
+			},
+		]
+		calculated = [
+			{
+				"option_step": 1,
+				"option_type": "CCT",
+				"option_label": "CCT",
+				"allowed_values_json": '["a","b"]',
+			},
+			{
+				"option_step": 2,
+				"option_type": "Finish",
+				"option_label": "Finish",
+				"allowed_values_json": "[]",
+			},
+		]
+		self.frappe.parse_json = __import__("json").loads
+		steps = self.module.side_by_side(hand, calculated)
+		self.assertEqual([step["step"] for step in steps], [0, 1, 2])
+		self.assertEqual([step["same"] for step in steps], [False, True, False])
+		self.assertEqual(steps[0]["hand_set"], "Series / Series (1 values)")
+		self.assertIsNone(steps[0]["calculated"])
+		self.assertEqual(steps[2]["calculated"], "Finish / Finish (0 values)")
+
+	def test_a_template_set_up_by_hand_keeps_its_steps(self):
+		self.module.compute = MagicMock(return_value=([spec("CRI", "90")], [{"option_step": 1}]))
+		hand = [Record(option_step=1, option_type="IP Rating")]
+		template = Doc(TAPE, "led-hd-sw", auto_populate_configurator=0, part_no_configurator=hand)
+		self.module.refresh_template(template)
+		self.assertIs(template["part_no_configurator"], hand)
+		self.assertEqual(hand[0].option_step, 1)
+		self.assertEqual(template["specifications"], [spec("CRI", "90")])
+		template["auto_populate_configurator"] = 1
+		self.module.refresh_template(template)
+		self.assertEqual(template["part_no_configurator"], [{"option_step": 1}])
+
+	def test_the_adoption_report_sorts_every_kind_of_product(self):
+		import json
+
+		self.frappe.parse_json = json.loads
+		self.frappe.as_json = json.dumps
+		self.frappe.only_for = MagicMock()
+		self.frappe.db.savepoint = MagicMock()
+		self.frappe.db.commit = MagicMock()
+		self.frappe.db.set_value = MagicMock()
+		step = {"option_step": 1, "option_type": "CCT", "option_label": "CCT", "allowed_values_json": "[]"}
+		other = {**step, "allowed_values_json": '["30"]'}
+		cases = {
+			# product: (hand-set rows, template calculated rows)
+			"hand": ([step], [other]),
+			"empty": ([], [other]),
+			"same": ([step], [step]),
+			"auto": ([step], [other]),
+		}
+		templates = {name: Doc(TAPE, name, part_no_configurator=calc) for name, (_h, calc) in cases.items()}
+		for template in templates.values():
+			template.save = MagicMock()
+
+		def get_all(doctype, filters=None, **kwargs):
+			if doctype == TAPE:
+				return [Record(name=name, webflow_product=name) for name in cases]
+			if doctype == self.module.OPTION:
+				return cases[filters["parent"]][0]
+			return []
+
+		self.frappe.get_all.side_effect = get_all
+		self.frappe.db.get_value.side_effect = lambda doctype, name, fields, as_dict=False: Record(
+			name=name,
+			tape_neon_template=name,
+			is_configurable=1,
+			auto_populate_configurator_options=1 if name == "auto" else 0,
+		)
+		self.frappe.get_doc.side_effect = lambda doctype, name: templates[name]
+		result = self.module.adopt_hand_set_configurators(apply=True)
+		self.assertEqual([entry["product"] for entry in result["adopted"]], ["hand"])
+		self.assertEqual(result["empty_on_product"], ["empty"])
+		self.assertEqual([entry["product"] for entry in result["kept_calculated"]], ["empty"])
+		self.assertEqual(result["identical"], ["same"])
+		self.assertEqual(result["failed"], [])
+		self.assertEqual(templates["hand"]["auto_populate_configurator"], 0)
+		templates["hand"].save.assert_called_once()
+		templates["empty"].save.assert_not_called()
+		switched = sorted(call.args[1] for call in self.frappe.db.set_value.call_args_list)
+		self.assertEqual(switched, ["empty", "same"])
+
+	def test_hand_set_steps_keep_their_choices_with_current_codes(self):
+		import json
+
+		self.frappe.parse_json = json.loads
+		self.frappe.as_json = json.dumps
+		fixture = "ilL-Fixture-Template"
+		env = {"option_type": "Environment Rating", "option_label": "Dry/Wet"}
+		hand = [
+			{"option_step": 1, **env, "allowed_values_json": json.dumps([{"code": "I", "label": "Indoor"}])},
+			{"option_step": 6, "option_type": "Finish", "allowed_values_json": json.dumps([{"code": "BK"}])},
+			{"option_step": 98, "option_label": "Lookup", "allowed_values_json": json.dumps([1])},
+		]
+		calculated = [
+			{
+				"option_step": 1,
+				**env,
+				"allowed_values_json": json.dumps(
+					[{"code": "20", "label": "Dry"}, {"code": "54", "label": "Damp"}]
+				),
+			},
+			{
+				"option_step": 6,
+				"option_type": "Finish",
+				"allowed_values_json": json.dumps([{"code": "BK"}, {"code": "WH"}]),
+			},
+			{"option_step": 98, "option_label": "Lookup", "allowed_values_json": json.dumps([1, 2])},
+			{"option_step": 99, "option_label": "Endcap", "allowed_values_json": json.dumps({"BK": "BK"})},
+		]
+		rows, notes = self.module.refresh_hand_set(fixture, hand, calculated)
+		by_step = {row["option_step"]: json.loads(row["allowed_values_json"]) for row in rows}
+		# The one deliberate choice stays, under its current code and label.
+		self.assertEqual(by_step[1], [{"code": "20", "label": "Dry"}])
+		self.assertEqual(by_step[6], [{"code": "BK"}])
+		self.assertEqual(by_step[98], [1, 2])
+		self.assertEqual(by_step[99], {"BK": "BK"})
+		self.assertEqual(len(notes), 3)
+		# Tape and Neon steps are left exactly as they are.
+		rows, notes = self.module.refresh_hand_set(TAPE, hand[1:], calculated)
+		self.assertEqual(notes, [])
+		self.assertEqual(
+			[row["allowed_values_json"] for row in rows], [row["allowed_values_json"] for row in hand[1:]]
+		)
+
+	def test_hand_set_steps_follow_their_row_order(self):
+		# Rows as (step, is lookup). Step 2 was dragged above step 1; a new row was added.
+		pairs = [(2, False), (1, False), (None, False), (98, True), (3, False)]
+		self.assertEqual(self.module.step_numbers(pairs), {0: 1, 1: 2, 2: 3, 4: 4})
+		# Neon starts at step 0 and the numbers in use are kept, gaps included.
+		self.assertEqual(self.module.step_numbers([(0, False), (5, False), (2, False)]), {0: 0, 1: 2, 2: 5})
+
+	def test_moving_a_step_carries_its_dependants_and_feed_lengths(self):
+		rows = [
+			Record(option_step=2, depends_on_step=0),
+			Record(option_step=1, depends_on_step=2),
+			Record(option_step=99, depends_on_step=2),
+		]
+		feed = [Record(step=2), Record(step=7)]
+		template = Doc(TAPE, "x", auto_populate_configurator=0, part_no_configurator=rows, feed_lengths=feed)
+		self.module.renumber_steps(template)
+		self.assertEqual([row.option_step for row in rows], [1, 2, 99])
+		self.assertEqual([row.depends_on_step for row in rows], [0, 1, 1])
+		self.assertEqual([row.step for row in feed], [1, 7])
+
+	def test_the_product_name_mirrors_the_display_name_or_template_name(self):
+		for template_values, expected in (
+			({"display_name": "Rainier Kit", "template_name": "KIT RA01"}, "Rainier Kit"),
+			({"display_name": " ", "template_name": "KIT RA01"}, "KIT RA01"),
+			({"template_name": ""}, "Old Name"),
+		):
+			with self.subTest(template=template_values):
+				self.link(
+					Doc(KIT, "KIT-RA01", webflow_product="kit-ra01", specifications=[], **template_values)
+				)
+				product = Doc(
+					"ilL-Webflow-Product", "kit-ra01", kit_template="KIT-RA01", product_name="Old Name"
+				)
+				self.module.apply_template_rows(product)
+				self.assertEqual(product["product_name"], expected)
+
+	def test_kits_leave_out_certifications_and_ratings(self):
+		import sys
+
+		export = types.ModuleType(ROOT + ".api.webflow_export_v2")
+
+		def enrich(record, _doc):
+			record["specifications"] += [
+				{"spec_label": "Dimensions", "spec_value": "1in"},
+				{"spec_label": "Certifications & Ratings", "spec_value": "DryRated"},
+			]
+
+		export._enrich_specifications_from_linked_doctypes = enrich
+		sys.modules[export.__name__] = export
+		self.addCleanup(sys.modules.pop, export.__name__, None)
+		for product_type, labels in (
+			("Extrusion Kit", ["Dimensions"]),
+			("Driver", ["Dimensions", "Certifications & Ratings"]),
+		):
+			product = Doc("ilL-Webflow-Product", "x", product_type=product_type)
+			rows = self.module.linked_spec_rows(product, [])
+			self.assertEqual([row["spec_label"] for row in rows], labels)
+
+	def test_the_product_type_follows_the_webflow_category(self):
+		self.assertEqual(
+			self.module.product_type_for(Doc(KIT, "K", product_category="extrusions")), "Extrusion Kit"
+		)
+		fixture = Doc("ilL-Fixture-Template", "F", product_category="landscape")
+		self.assertEqual(self.module.product_type_for(fixture), "Fixture Template")
+		# Tape/Neon keep the Webflow Category in webflow_category.
+		neon = Doc(TAPE, "N", product_category="LED Tape", webflow_category="neon")
+		self.assertEqual(self.module.product_type_for(neon), "LED Neon")
+		self.assertEqual(
+			self.module.product_type_for(Doc(TAPE, "T", product_category="COB Tape")), "COB Tape"
+		)
+
+	def test_differences_from_d43_are_expected_and_the_rest_are_not(self):
+		diff = self.module.diff_listing(
+			[
+				spec("Dimming", "TBD"),
+				spec("Operating Temperature", "32°F (0°C) to 32°F (0°C)"),
+				spec("Watts per Foot", "4.4"),
+				spec("CRI", "90"),
+			],
+			[spec("Watts per Foot", "4.4"), spec("CRI", "95")],
+			[{"option_step": 1, "option_type": "Finish"}],
+			[{"option_step": 1, "option_type": "Finish"}],
+		)
+		self.assertEqual([row["label"] for row in diff["expected"]], ["Dimming", "Operating Temperature"])
+		self.assertEqual(diff["unexpected"], [{"label": "CRI", "product": "90", "template": "95"}])
+		self.assertEqual(diff["configurator"], [])
+
+
+if __name__ == "__main__":
+	unittest.main()

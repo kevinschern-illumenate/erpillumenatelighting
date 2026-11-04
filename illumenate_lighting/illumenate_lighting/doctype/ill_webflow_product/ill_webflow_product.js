@@ -24,6 +24,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				`;
 				frappe.dom.freeze(freezeMsg);
 				const api = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.';
+				const controller = new AbortController();
 				let checkInterval;
 				let finished = false;
 				const finish = () => {
@@ -41,6 +42,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				// Start the deadline before the request: the pipeline may never respond.
 				const deadline = setTimeout(() => {
 					finish();
+					controller.abort();
 					frappe.msgprint(__('Sync has not been confirmed. It may still be running in the background.'));
 					frm.reload_doc();
 				}, 120000);
@@ -52,8 +54,14 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					const brands = ((baseline && baseline.brands) || []).map(row => row.brand);
 					return Promise.all((brands.length ? brands : [null]).map(brand =>
 						frappe.xcall(api + 'request_spec_sheet', brand ? { docname: frm.doc.name, brand } : { docname: frm.doc.name })
-					)).then(() => since);
+					)).then(responses => {
+						// The deadline may already have released the form; do not start polling then.
+						if (finished) return since;
+						if (responses.some(response => !response)) throw new Error(__('No response from server.'));
+						return since;
+					});
 				}).then(since => {
+					// The deadline may already have released the form; do not start polling then.
 					if (finished) return;
 					checkInterval = setInterval(() => {
 						frappe.xcall(api + 'get_sync_progress', { docname: frm.doc.name, since }).then(progress => {
@@ -257,6 +265,8 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			);
 		}
 
+		show_staging_webflow_banner(frm);
+
 		// Limit Compatible Products to products matching this document's active brands
 		frm.set_query("related_product", "compatible_products", function(doc, cdt, cdn) {
 			let active_brands = [];
@@ -418,13 +428,11 @@ function on_template_change(frm, fieldname) {
 	}
 	frm.set_value("is_configurable", 1);
 	frappe.db
-		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["product_category", "series"])
+		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["series"])
 		.then((r) => {
+			// Product Category, Product Type and Series follow the template on save.
 			const template = (r && r.message) || {};
-			if (template.product_category) {
-				frm.set_value("product_category", template.product_category);
-			}
-			if (template.series && !frm.doc.series) {
+			if (template.series) {
 				frm.set_value("series", template.series);
 			}
 		});
@@ -463,6 +471,25 @@ frappe.ui.form.on("ilL-Child-Webflow-Document", {
 		}
 	}
 });
+
+// Plan 4.11 item 6: on a staging site, Webflow writes go to "[staging]" items
+// only. The environment comes from site config and is fetched once per page load.
+let webflow_environment_promise = null;
+function show_staging_webflow_banner(frm) {
+	if (!webflow_environment_promise) {
+		webflow_environment_promise = frappe
+			.xcall("illumenate_lighting.illumenate_lighting.api.n8n_config.get_webflow_environment")
+			.catch(() => null);
+	}
+	webflow_environment_promise.then((environment) => {
+		if (environment === "staging") {
+			frm.set_intro(
+				__("Staging: Webflow writes go to [staging] items only. They are always hidden from the public."),
+				"orange"
+			);
+		}
+	});
+}
 
 function is_duplicate_doc(frm) {
 	// Frappe duplicate creates a new unsaved doc with copied values

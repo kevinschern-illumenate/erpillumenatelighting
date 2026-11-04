@@ -45,11 +45,14 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
     LED_TAPE,
     TAPE_NEON_CATEGORIES,
     canonical_json,
+    dealer_length_mm,
+    display_length,
     fingerprint,
     is_tape_category,
     optional_positive,
     parse_bool,
     spec_categories_for,
+    whole_increments,
 )
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows, enabled_tape_specs
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
@@ -244,10 +247,14 @@ def _compute_template_tape_neon_pricing(
 		else:
 			raise ValueError("A leader cable item is required for the selected cable length")
 
+	from illumenate_lighting.illumenate_lighting.api.pricing_utils import sum_then_round
+
 	total_msrp = base_price + length_adder + total_option_adders + leader_cable_msrp
 
 	return {
-		"total_price_msrp": round(total_msrp, 2),
+		"total_price_msrp": sum_then_round(total_msrp),
+		# Unrounded, so callers that add more parts still round only once (6.3).
+		"total_price_msrp_exact": total_msrp,
 		"adder_breakdown": adder_breakdown,
 	}
 
@@ -683,7 +690,7 @@ def validate_tape_configuration(
             seg_mfg_mm = seg_requested_mm
         else:
             # Snap to nearest cut increment
-            increments = math.floor(seg_requested_mm / cut_increment_mm)
+            increments = whole_increments(seg_requested_mm, cut_increment_mm)
             if increments < 1:
                 increments = 1
             seg_mfg_mm = increments * cut_increment_mm
@@ -1248,7 +1255,7 @@ def validate_neon_configuration(
         elif is_free_cutting or cut_increment_mm <= 0:
             mfg_length_mm = fixture_length_mm
         else:
-            increments = math.floor(fixture_length_mm / cut_increment_mm)
+            increments = whole_increments(fixture_length_mm, cut_increment_mm)
             if increments < 1:
                 increments = 1
             mfg_length_mm = increments * cut_increment_mm
@@ -1958,10 +1965,17 @@ def get_tape_neon_template_init(template_code: str) -> dict:
       CCT → Output Level → Mounting Method → Finish
       Per-segment: IP Rating → Start Feed Direction → Start Lead Length
                    → Fixture Length → End Type → End Params
+
+    The projection is cached per catalog revision (plan 6.5, ``option_cache``).
     """
     if not template_code:
         return {"success": False, "error": "template_code is required"}
+    from illumenate_lighting.illumenate_lighting.api.option_cache import cached_projection
 
+    return cached_projection("tape_neon_init", template_code, lambda: _tape_neon_template_init(template_code))
+
+
+def _tape_neon_template_init(template_code: str) -> dict:
     template = frappe.get_all(
         "ilL-Tape-Neon-Template",
         filters={"template_code": template_code, "is_active": 1},
@@ -2735,14 +2749,28 @@ def _get_template_allowed_values(template_name: str, option_type: str, field_nam
     return {getattr(r, field_name, None) or r.get(field_name) for r in rows} - {None, ""}
 
 
+def _attribute_rows(doctype: str, names, fields: list) -> list:
+    """The existing ``doctype`` rows named in ``names``, read in one query (plan 6.5).
+
+    Callers sort the result, so order is not significant. Unknown names are skipped,
+    as the per-name ``get_value`` lookups this replaces did.
+    """
+    names = [n for n in set(names or ()) if n]
+    if not names:
+        return []
+    query_fields = list(fields) if "name" in fields else ["name", *fields]
+    return frappe.get_all(
+        doctype, filters={"name": ["in", names]}, fields=query_fields, ignore_permissions=True,
+    )
+
+
 def _resolve_attribute_list(doctype: str, names: set, fields: list) -> list:
     """Resolve a set of attribute names into detailed option dicts."""
     if not names:
         return []
 
     result = []
-    for name in names:
-        data = frappe.db.get_value(doctype, name, fields, as_dict=True)
+    for data in _attribute_rows(doctype, names, fields):
         if data:
             entry = {"value": data.name, "label": data.name}
             for f in fields:
@@ -3246,18 +3274,12 @@ def _template_tape_category(tape_neon_template: str | None) -> str:
 def _parse_tape_length(sel: dict) -> Optional[float]:
     """Parse the tape length from user selections into millimeters."""
     unit = sel.get("tape_length_unit", "in")
-
-    if unit == "ft_in":
-        feet = float(sel.get("tape_length_feet", 0) or 0)
-        inches = float(sel.get("tape_length_inches", 0) or 0)
-        total_inches = feet * INCHES_PER_FOOT + inches
-        return total_inches * MM_PER_INCH
-    elif unit == "ft":
-        feet = float(sel.get("tape_length_value", 0) or 0)
-        return feet * MM_PER_FOOT
-    else:  # "in" or default
-        inches = float(sel.get("tape_length_value", 0) or 0)
-        return inches * MM_PER_INCH
+    return dealer_length_mm(
+        unit if unit in ("ft", "ft_in") else "in",
+        sel.get("tape_length_value"),
+        sel.get("tape_length_feet"),
+        sel.get("tape_length_inches"),
+    )
 
 
 def _normalize_tape_segments(sel: dict, segments: list | None) -> list:
@@ -3300,18 +3322,12 @@ def _normalize_tape_segments(sel: dict, segments: list | None) -> list:
 def _parse_neon_fixture_length(seg: dict) -> Optional[float]:
     """Parse a neon segment's fixture length into millimeters."""
     unit = seg.get("fixture_length_unit", "in")
-
-    if unit == "ft_in":
-        feet = float(seg.get("fixture_length_feet", 0) or 0)
-        inches = float(seg.get("fixture_length_inches", 0) or 0)
-        total_inches = feet * INCHES_PER_FOOT + inches
-        return total_inches * MM_PER_INCH
-    elif unit == "ft":
-        val = float(seg.get("fixture_length_value", 0) or 0)
-        return val * MM_PER_FOOT
-    else:  # "in"
-        val = float(seg.get("fixture_length_value", 0) or 0)
-        return val * MM_PER_INCH
+    return dealer_length_mm(
+        unit if unit in ("ft", "ft_in") else "in",
+        seg.get("fixture_length_value"),
+        seg.get("fixture_length_feet"),
+        seg.get("fixture_length_inches"),
+    )
 
 
 def _find_matching_tape_spec(
@@ -3577,11 +3593,7 @@ def _get_environment_ratings_for_tape_offerings(tape_offerings, spec_names) -> l
         return [{"value": e.name, "label": e.name, "code": e.get("code")} for e in all_envs]
 
     result = []
-    for env_name in env_names:
-        env = frappe.db.get_value(
-            "ilL-Attribute-Environment Rating", env_name,
-            ["name", "code", "notes"], as_dict=True,
-        )
+    for env in _attribute_rows("ilL-Attribute-Environment Rating", env_names, ["name", "code", "notes"]):
         if env:
             result.append({"value": env.name, "label": env.name, "code": env.get("code")})
     return sorted(result, key=lambda x: x["label"])
@@ -3594,8 +3606,7 @@ def _collect_attribute_options(offerings, field_name, doctype, fields) -> list:
     values.discard("")
 
     result = []
-    for val in values:
-        data = frappe.db.get_value(doctype, val, fields, as_dict=True)
+    for data in _attribute_rows(doctype, values, fields):
         if data:
             entry = {"value": data.name, "label": data.name}
             for f in fields:

@@ -17,7 +17,7 @@ Also handles new schedule creation when is_new is True
 	<nav aria-label="breadcrumb" class="mb-4">
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
-			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | e }}">{{ project.project_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/projects/{{ project.name | urlencode }}">{{ project.project_name | e }}</a></li>
 			<li class="breadcrumb-item active" aria-current="page">{% if is_new %}{{ _("Create Schedule") }}{% else %}{{ schedule.schedule_name | e }}{% endif %}</li>
 		</ol>
 	</nav>
@@ -47,7 +47,7 @@ Also handles new schedule creation when is_new is True
 						</div>
 						<hr>
 						<div class="d-flex justify-content-between">
-							<a href="/portal/projects/{{ project.name | e }}" class="btn btn-secondary">
+							<a href="/portal/projects/{{ project.name | urlencode }}" class="btn btn-secondary">
 								<i class="fa fa-arrow-left" aria-hidden="true"></i> {{ _("Cancel") }}
 							</a>
 							<button type="submit" class="btn btn-primary">
@@ -110,13 +110,13 @@ Also handles new schedule creation when is_new is True
 							<div class="alert alert-info mb-2" role="alert">
 								<i class="fa fa-clock-o" aria-hidden="true"></i>
 								{{ _("Your order request has been submitted and is awaiting approval by ilLumenate.") }}
-								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order request") }}</a>{% endif %}
+								{% if schedule.sales_order %}<a href="/portal/orders/{{ schedule.sales_order | urlencode }}">{{ _("View order request") }}</a>{% endif %}
 							</div>
 							{% elif schedule.status == 'ORDERED' and schedule.sales_order %}
 							<div class="alert alert-success mb-2" role="alert">
 								<i class="fa fa-check-circle" aria-hidden="true"></i>
 								{{ _("This schedule has been ordered.") }}
-								<a href="/portal/orders/{{ schedule.sales_order | e }}">{{ _("View order") }}</a>
+								<a href="/portal/orders/{{ schedule.sales_order | urlencode }}">{{ _("View order") }}</a>
 							</div>
 							{% endif %}
 							<div class="d-flex align-items-center gap-2">
@@ -165,23 +165,23 @@ Also handles new schedule creation when is_new is True
 									<i class="fa fa-ellipsis-h" aria-hidden="true"></i>
 								</button>
 								<div class="dropdown-menu dropdown-menu-right" aria-labelledby="scheduleMoreMenu">
-									<a class="dropdown-item" href="#" data-schedule-menu="version">
+									<button type="button" class="dropdown-item" data-schedule-menu="version">
 										<i class="fa fa-code-fork" aria-hidden="true"></i> {{ _("Create New Version") }}
-									</a>
+									</button>
 									{% if schedule.status in ['DRAFT', 'READY', 'QUOTED'] or issue_transitions %}
 									<div class="dropdown-divider"></div>
 									<h6 class="dropdown-header">{{ _("Change Status") }}</h6>
 									{% if schedule.status != 'DRAFT' %}
-									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="DRAFT">
+									<button type="button" class="dropdown-item" data-schedule-menu="status" data-status="DRAFT">
 										<i class="fa fa-pencil text-warning" aria-hidden="true"></i> {{ schedule_status_label('DRAFT') | e }}
 										<small class="text-muted d-block">{{ _("Continue editing") }}</small>
-									</a>
+									</button>
 									{% endif %}
 									{% if schedule.status != 'READY' %}
-									<a class="dropdown-item" href="#" data-schedule-menu="status" data-status="READY">
+									<button type="button" class="dropdown-item" data-schedule-menu="status" data-status="READY">
 										<i class="fa fa-check-circle text-info" aria-hidden="true"></i> {{ schedule_status_label('READY') | e }}
 										<small class="text-muted d-block">{{ _("Ready for quote/order") }}</small>
-									</a>
+									</button>
 									{% endif %}
 									{% endif %}
 								</div>
@@ -415,7 +415,7 @@ Also handles new schedule creation when is_new is True
 											{% if line.get('variant_selections') %}
 											<div class="small text-muted mt-1">
 												{% for attr_name, attr_val in line.get('variant_selections').items() %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">{{ attr_name | e }}: <strong>{{ attr_val | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">{{ attr_name | e }}: <strong>{{ attr_val | e }}</strong></span>
 												{% endfor %}
 											</div>
 											{% endif %}
@@ -431,12 +431,12 @@ Also handles new schedule creation when is_new is True
 												{% if sa.get('availability') == 'unknown' %}
 												<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
 												{% elif sa.get('all_in_stock') %}
-												<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("In Stock") }}</span>
+												<span class="text-success"><i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("In Stock") }}</span>
 												{% elif sa.get('items', []) | length > 0 %}
 												<details class="stock-breakdown">
 													<summary>
 														<span class="text-danger">
-															<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }}
+															<i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("Not In Stock") }}
 															<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 														</span>
 													</summary>
@@ -457,7 +457,7 @@ Also handles new schedule creation when is_new is True
 													</div>
 												</details>
 												{% else %}
-												<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }}</span>
+												<span class="text-danger"><i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("Not In Stock") }}</span>
 												{% endif %}
 											</div>
 											{% endif %}
@@ -477,19 +477,19 @@ Also handles new schedule creation when is_new is True
 											<!-- Kit attributes as badges -->
 											<div class="small text-muted mt-1">
 												{% if kit_sel.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ kit_sel.get('finish') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Finish: <strong>{{ kit_sel.get('finish') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('lens_appearance') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ kit_sel.get('lens_appearance') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Lens: <strong>{{ kit_sel.get('lens_appearance') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('mounting_method') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ kit_sel.get('mounting_method') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Mounting: <strong>{{ kit_sel.get('mounting_method') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('endcap_style') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap: <strong>{{ kit_sel.get('endcap_style') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Endcap: <strong>{{ kit_sel.get('endcap_style') | e }}</strong></span>
 												{% endif %}
 												{% if kit_sel.get('endcap_color') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Endcap Color: <strong>{{ kit_sel.get('endcap_color') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Endcap Color: <strong>{{ kit_sel.get('endcap_color') | e }}</strong></span>
 												{% endif %}
 											</div>
 											<!-- Kit Component Stock Breakdown -->
@@ -502,11 +502,11 @@ Also handles new schedule creation when is_new is True
 													{% if sa.get('availability') == 'unknown' %}
 													<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
 													{% elif sa.get('all_in_stock') %}
-													<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("All In Stock") }} ({{ total_count | e }}/{{ total_count | e }})</span>
+													<span class="text-success"><i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("All In Stock") }} ({{ total_count | e }}/{{ total_count | e }})</span>
 													{% elif in_count > 0 %}
-													<span class="text-warning"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})</span>
+													<span class="text-warning"><i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})</span>
 													{% else %}
-													<span class="text-danger"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }} (0/{{ total_count | e }})</span>
+													<span class="text-danger"><i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("Not In Stock") }} (0/{{ total_count | e }})</span>
 													{% endif %}
 													<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 												</summary>
@@ -514,31 +514,31 @@ Also handles new schedule creation when is_new is True
 													<thead>
 														<tr class="text-muted">
 															<th style="width:20px;padding:2px 4px;"></th>
-															<th style="padding:2px 4px;">{{ _("Component") }}</th>
-															<th style="padding:2px 4px;">{{ _("Item") }}</th>
+															<th class="ill-tight">{{ _("Component") }}</th>
+															<th class="ill-tight">{{ _("Item") }}</th>
 															{% if sa.get('items', []) and sa.get('items', [])[0].qty_required is defined %}
-															<th class="text-center" style="padding:2px 4px;">{{ _("Needed") }}</th>
-															<th class="text-center" style="padding:2px 4px;">{{ _("Available") }}</th>
+															<th class="text-center ill-tight">{{ _("Needed") }}</th>
+															<th class="text-center ill-tight">{{ _("Available") }}</th>
 															{% endif %}
 														</tr>
 													</thead>
 													<tbody>
 														{% for it in sa.get('items', []) %}
 														<tr>
-															<td style="padding:2px 4px;">
+															<td class="ill-tight">
 																{% if it.is_sufficient %}
 																<i class="fa fa-check-circle text-success" style="font-size:0.8em;" aria-hidden="true"></i>
 																{% else %}
 																<i class="fa fa-times-circle text-danger" style="font-size:0.8em;" aria-hidden="true"></i>
 																{% endif %}
 															</td>
-															<td style="padding:2px 4px;">{{ (it.component_type or '') | e }}</td>
-															<td style="padding:2px 4px;">
+															<td class="ill-tight">{{ (it.component_type or '') | e }}</td>
+															<td class="ill-tight">
 																<span class="text-muted">{{ (it.item_name or it.item_code or '—') | e }}</span>
 															</td>
 															{% if it.qty_required is defined %}
-															<td class="text-center" style="padding:2px 4px;">{{ it.qty_required | e }}</td>
-															<td class="text-center" style="padding:2px 4px;">
+															<td class="text-center ill-tight">{{ it.qty_required | e }}</td>
+															<td class="text-center ill-tight">
 																<span class="{{ ('text-success' if it.qty_available >= it.qty_required else 'text-danger font-weight-bold') | e }}">{{ it.qty_available | e }}</span>
 															</td>
 															{% endif %}
@@ -594,39 +594,39 @@ Also handles new schedule creation when is_new is True
 											<!-- Fixture attributes as badges -->
 											<div class="small text-muted mt-1">
 												{% if cf_details.get('environment_rating') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cf_details.get('environment_rating') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Environment: <strong>{{ cf_details.get('environment_rating') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('cct') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cf_details.get('cct') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">CCT: <strong>{{ cf_details.get('cct') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('cri') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CRI: <strong>{{ cf_details.get('cri') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">CRI: <strong>{{ cf_details.get('cri') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('estimated_delivered_output') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cf_details.get('estimated_delivered_output') | e }} lm/ft</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Output: <strong>{{ cf_details.get('estimated_delivered_output') | e }} lm/ft</strong></span>
 												{% endif %}
 												{% if cf_details.get('lens_appearance') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Lens: <strong>{{ cf_details.get('lens_appearance') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Lens: <strong>{{ cf_details.get('lens_appearance') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('mounting_method') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cf_details.get('mounting_method') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Mounting: <strong>{{ cf_details.get('mounting_method') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cf_details.get('finish') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Finish: <strong>{{ cf_details.get('finish') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('manufacturable_length_inches') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ cf_details.get('manufacturable_length_inches') | e }}"{% if cf_details.get('is_multi_segment') %} ({{ cf_details.get('user_segment_count', 0) | e }} segments){% endif %}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Length: <strong>{{ cf_details.get('manufacturable_length_inches') | e }}"{% if cf_details.get('is_multi_segment') %} ({{ cf_details.get('user_segment_count', 0) | e }} segments){% endif %}</strong></span>
 												{% endif %}
 												{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Build: <strong>{{ cf_details.get('build_description_display') | replace('\n', '; ') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Build: <strong>{{ cf_details.get('build_description_display') | replace('\n', '; ') | e }}</strong></span>
 												{% elif cf_details.get('power_feed_type') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ cf_details.get('power_feed_type') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Feed: <strong>{{ cf_details.get('power_feed_type') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('fixture_input_voltage') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Input Voltage: <strong>{{ cf_details.get('fixture_input_voltage') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Input Voltage: <strong>{{ cf_details.get('fixture_input_voltage') | e }}</strong></span>
 												{% endif %}
 												{% if cf_details.get('total_watts') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cf_details.get('total_watts') | e }}W</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Power: <strong>{{ cf_details.get('total_watts') | e }}W</strong></span>
 												{% endif %}
 											</div>
 											<!-- Driver sub-line -->
@@ -637,7 +637,7 @@ Also handles new schedule creation when is_new is True
 											{% elif cf_details.get('include_power_supply') == 0 %}
 											<div class="driver-sub-line">
 												<div class="small">
-													<span class="badge badge-warning" style="font-weight:normal;"><i class="fa fa-exclamation-circle mr-1" aria-hidden="true"></i>{{ _("Power Supply Not Included") }}</span>
+													<span class="badge badge-warning ill-weight-normal"><i class="fa fa-exclamation-circle mr-1" aria-hidden="true"></i>{{ _("Power Supply Not Included") }}</span>
 												</div>
 											</div>
 											{% elif cf_details.get('power_supply') %}
@@ -664,7 +664,7 @@ Also handles new schedule creation when is_new is True
 											{% if sa.get('availability') == 'unknown' %}
 											<span class="text-muted">{{ _("Stock availability unavailable") }}</span>
 											{% elif sa.get('all_in_stock') %}
-											<span class="text-success"><i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("In Stock") }}</span>
+											<span class="text-success"><i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("In Stock") }}</span>
 											{% else %}
 											{% set in_count = sa.get('items', []) | selectattr('is_sufficient') | list | length %}
 											{% set total_count = sa.get('items', []) | length %}
@@ -672,7 +672,7 @@ Also handles new schedule creation when is_new is True
 											<details class="stock-breakdown">
 												<summary>
 													<span class="text-warning">
-														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})
+														<i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("Partial") }} ({{ in_count | e }}/{{ total_count | e }})
 														<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 													</span>
 												</summary>
@@ -697,7 +697,7 @@ Also handles new schedule creation when is_new is True
 											<details class="stock-breakdown">
 												<summary>
 													<span class="text-danger">
-														<i class="fa fa-circle mr-1" style="font-size:0.6em;vertical-align:middle;" aria-hidden="true"></i>{{ _("Not In Stock") }}
+														<i class="fa fa-circle mr-1 ill-stock-dot" aria-hidden="true"></i>{{ _("Not In Stock") }}
 														<i class="fa fa-caret-right stock-toggle-arrow" aria-hidden="true"></i>
 													</span>
 												</summary>
@@ -734,28 +734,28 @@ Also handles new schedule creation when is_new is True
 											{% endif %}
 											<div class="small text-muted mt-1">
 												{% if line.get('trim_info') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Trim: <strong>{{ line.get('trim_info') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Trim: <strong>{{ line.get('trim_info') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('housing_model_number') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Housing: <strong>{{ line.get('housing_model_number') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Housing: <strong>{{ line.get('housing_model_number') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('driver_model_number') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Driver: <strong>{{ line.get('driver_model_number') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Driver: <strong>{{ line.get('driver_model_number') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('lamp_info') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Lamp: <strong>{{ line.get('lamp_info') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Lamp: <strong>{{ line.get('lamp_info') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('dimming_protocol') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Dimming: <strong>{{ line.get('dimming_protocol') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Dimming: <strong>{{ line.get('dimming_protocol') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('input_voltage') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Voltage: <strong>{{ line.get('input_voltage') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Voltage: <strong>{{ line.get('input_voltage') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('other_finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ line.get('other_finish') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Finish: <strong>{{ line.get('other_finish') | e }}</strong></span>
 												{% endif %}
 												{% if line.get('watts_each') or line.get('input_voltage_v') or line.get('third_party_drive') or line.get('third_party_dimming') %}
-												<span class="badge badge-warning mr-1" style="font-weight:normal;" title="{{ _('Entered by the dealer; not verified by ilLumenate') }}">{{ _("Data by dealer") }}:
+												<span class="badge badge-warning mr-1 ill-weight-normal" title="{{ _('Entered by the dealer; not verified by ilLumenate') }}">{{ _("Data by dealer") }}:
 													{% if line.get('watts_each') %}<strong>{{ line.get('watts_each') | round(1) }} W</strong>{% endif %}
 													{% if line.get('input_voltage_v') %}<strong>{{ line.get('input_voltage_v') | int }} V</strong>{% endif %}
 													{% if line.get('third_party_drive') %}<strong>{{ line.get('third_party_drive') | e }}{% if line.get('third_party_drive') == 'CC' and line.get('third_party_ma') %} {{ line.get('third_party_ma') | int }} mA{% endif %}</strong>{% endif %}
@@ -789,31 +789,31 @@ Also handles new schedule creation when is_new is True
 											<!-- Tape/Neon attributes as badges -->
 											<div class="small text-muted mt-1">
 												{% if ctn_details.get('environment_rating') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ ctn_details.get('environment_rating') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Environment: <strong>{{ ctn_details.get('environment_rating') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('cct') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ ctn_details.get('cct') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">CCT: <strong>{{ ctn_details.get('cct') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('output_level') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ ctn_details.get('output_level') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Output: <strong>{{ ctn_details.get('output_level') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('mounting_method') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ ctn_details.get('mounting_method') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Mounting: <strong>{{ ctn_details.get('mounting_method') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ ctn_details.get('finish') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Finish: <strong>{{ ctn_details.get('finish') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('pcb_mounting') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">PCB: <strong>{{ ctn_details.get('pcb_mounting') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">PCB: <strong>{{ ctn_details.get('pcb_mounting') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('feed_type') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Feed: <strong>{{ ctn_details.get('feed_type') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Feed: <strong>{{ ctn_details.get('feed_type') | e }}</strong></span>
 												{% endif %}
 												{% if ctn_details.get('manufacturable_length_inches') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Length: <strong>{{ ctn_details.get('manufacturable_length_inches') | e }}"</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Length: <strong>{{ ctn_details.get('manufacturable_length_inches') | e }}"</strong></span>
 												{% endif %}
 												{% if ctn_details.get('total_watts') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ ctn_details.get('total_watts') | e }}W</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Power: <strong>{{ ctn_details.get('total_watts') | e }}W</strong></span>
 												{% endif %}
 											</div>
 										</div>
@@ -832,38 +832,38 @@ Also handles new schedule creation when is_new is True
 											{% endif %}
 											<div class="small text-muted mt-1">
 												{% if cls_details.get('sheet_spec') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Spec: <strong>{{ cls_details.get('sheet_spec') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Spec: <strong>{{ cls_details.get('sheet_spec') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('cct') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">CCT: <strong>{{ cls_details.get('cct') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">CCT: <strong>{{ cls_details.get('cct') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('output_level') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Output: <strong>{{ cls_details.get('output_level') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Output: <strong>{{ cls_details.get('output_level') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('environment_rating') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Environment: <strong>{{ cls_details.get('environment_rating') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Environment: <strong>{{ cls_details.get('environment_rating') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('mounting') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Mounting: <strong>{{ cls_details.get('mounting') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Mounting: <strong>{{ cls_details.get('mounting') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('finish') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Finish: <strong>{{ cls_details.get('finish') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Finish: <strong>{{ cls_details.get('finish') | e }}</strong></span>
 												{% endif %}
 											</div>
 											<div class="small text-muted mt-1">
 												{% if cls_details.get('coverage_width_ft') and cls_details.get('coverage_height_ft') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Requested: <strong>{{ cls_details.get('coverage_width_ft') | e }}ft &times; {{ cls_details.get('coverage_height_ft') | e }}ft</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Requested: <strong>{{ cls_details.get('coverage_width_ft') | e }}ft &times; {{ cls_details.get('coverage_height_ft') | e }}ft</strong></span>
 												{% endif %}
 												{% if cls_details.get('total_panels') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Panels: <strong>{{ cls_details.get('total_panels') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Panels: <strong>{{ cls_details.get('total_panels') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('total_groups') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Groups: <strong>{{ cls_details.get('total_groups') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Groups: <strong>{{ cls_details.get('total_groups') | e }}</strong></span>
 												{% endif %}
 												{% if cls_details.get('total_system_watts') %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power: <strong>{{ cls_details.get('total_system_watts') | e }}W</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Power: <strong>{{ cls_details.get('total_system_watts') | e }}W</strong></span>
 												{% endif %}
-												<span class="badge badge-light mr-1" style="font-weight:normal;">Power Supplies: <strong>{{ (_('Own line below') if line.get('has_power_supply_lines') else ('Yes' if cls_details.get('include_power_supply') else 'No')) | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal">Power Supplies: <strong>{{ (_('Own line below') if line.get('has_power_supply_lines') else ('Yes' if cls_details.get('include_power_supply') else 'No')) | e }}</strong></span>
 											</div>
 										</div>
 										{% elif line.get('manufacturer_type') == 'ILLUMENATE' %}
@@ -963,17 +963,17 @@ Also handles new schedule creation when is_new is True
 												</a>
 												{% elif line.get('configured_tape_neon') %}
 												<!-- Configured tape/neon - edit link -->
-												<a href="/portal/configure?category={{ (line.get('product_type') or 'LED Tape') | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category={{ (line.get('product_type') or 'LED Tape') | urlencode }}&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('configured_led_sheet') %}
 												<!-- Configured LED Sheet - edit link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | urlencode }}" class="btn btn-sm btn-info" title="{{ _('Edit Configuration') }}">
 													<i class="fa fa-edit" aria-hidden="true"></i> {{ _('Edit Config') }}
 												</a>
 												{% elif line.get('led_sheet_template') %}
 												<!-- Unconfigured LED Sheet - configure link -->
-												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category=LED%20Sheet&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('led_sheet_template') or '') | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% elif line.get('kit_template') %}
@@ -983,12 +983,12 @@ Also handles new schedule creation when is_new is True
 												</a>
 												{% elif line.get('tape_neon_template') %}
 												{% set tn_category = line.get('product_type') or 'LED Tape' %}
-												<a href="/portal/configure?category={{ tn_category | e }}&schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | e }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?category={{ tn_category | urlencode }}&schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}&template={{ (line.get('tape_neon_template_code') or line.get('tape_neon_template') or '') | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% else %}
 												<!-- Unconfigured linear fixture or no template - configure link -->
-												<a href="/portal/configure?schedule={{ schedule.name | e }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
+												<a href="/portal/configure?schedule={{ schedule.name | urlencode }}&line_key={{ (line.get('line_key') or line.get('name')) | urlencode }}" class="btn btn-sm btn-primary" title="{{ _('Configure') }}">
 													<i class="fa fa-cog" aria-hidden="true"></i> {{ _('Configure') }}
 												</a>
 												{% endif %}
@@ -1139,6 +1139,40 @@ Also handles new schedule creation when is_new is True
 			</div>
 		</div>
 	</div>
+{% if compare_enabled and (lines_json or []) | length >= 2 %}
+<!-- Compare two lines (plan 6.7) -->
+<div class="row mt-4">
+	<div class="col-12">
+		<div class="card">
+			<div class="card-header">
+				<h6 class="mb-0"><i class="fa fa-columns" aria-hidden="true"></i> {{ _("Compare two lines") }}</h6>
+			</div>
+			<div class="card-body">
+				<form id="compareLinesForm" class="ill-compare-form">
+					<div>
+						<label for="compareLineA" class="small mb-1">{{ _("First line") }}</label>
+						<select id="compareLineA" class="form-control form-control-sm">
+							{% for line in lines_json %}
+							<option value="{{ line.line_key | e }}"{% if loop.first %} selected{% endif %}>{{ (line.line_id or ("#" ~ line.idx)) | e }}{% if line.location %} — {{ line.location | e }}{% endif %}</option>
+							{% endfor %}
+						</select>
+					</div>
+					<div>
+						<label for="compareLineB" class="small mb-1">{{ _("Second line") }}</label>
+						<select id="compareLineB" class="form-control form-control-sm">
+							{% for line in lines_json %}
+							<option value="{{ line.line_key | e }}"{% if loop.index == 2 %} selected{% endif %}>{{ (line.line_id or ("#" ~ line.idx)) | e }}{% if line.location %} — {{ line.location | e }}{% endif %}</option>
+							{% endfor %}
+						</select>
+					</div>
+					<button type="submit" class="btn btn-sm btn-outline-primary">{{ _("Compare") }}</button>
+				</form>
+				<div id="compareResult" class="mt-3" aria-live="polite"></div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 <!-- Version History Section -->
 <div class="row mt-4 mb-4">
 	<div class="col-12">
@@ -2169,9 +2203,14 @@ Also handles new schedule creation when is_new is True
 		"Hide activity": _("Hide activity"),
 		"Show activity": _("Show activity"),
 		"{0} line(s) shown": _("{0} line(s) shown"),
+		"Choose two different lines to compare.": _("Choose two different lines to compare."),
+		"Comparing…": _("Comparing…"),
+		"The comparison could not be loaded.": _("The comparison could not be loaded."),
+		"Line comparison is turned off on this site.": _("Line comparison is turned off on this site."),
+		"Differs": _("Differs"),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale", "conflict", "undo", "activity", "keyboard"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "compare", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale", "conflict", "undo", "activity", "keyboard"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

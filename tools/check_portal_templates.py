@@ -58,6 +58,8 @@ environment.globals.update(
 		"ill_finder_enabled": lambda: True,
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
+		"ill_unread_notifications": lambda: 12,
+		"ill_notification_center_enabled": lambda: True,
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
@@ -109,6 +111,8 @@ assert not page_style_violations("x", '<a href="#addLineModal">')
 # literal, a macro or sanitized HTML, or listed in tools/portal_raw_outputs.txt with why it is safe.
 OUTPUT = re.compile(r"\{\{-?(.*?)-?\}\}", re.DOTALL)
 MACRO = re.compile(r"\{%-?\s*macro\s+(\w+)")
+# Plan 8.2: macros imported from templates/includes/ are checked in their own file.
+IMPORTED_MACROS = re.compile(r"""\{%-?\s*from\s+["']templates/includes/[^"']+["']\s+import\s+(.+?)\s*-?%\}""")
 ESCAPING_FILTERS = {"e", "escape", "forceescape", "tojson", "urlencode", "int", "float", "round", "length", "count", "abs"}
 RAW_ALLOWLIST_FILE = ROOT / "tools/portal_raw_outputs.txt"
 RAW_ALLOWLIST = {
@@ -149,6 +153,9 @@ def _escaped(expr, macros):
 
 def unescaped_outputs(name, source):
 	macros = set(MACRO.findall(source))
+	for names in IMPORTED_MACROS.findall(source):
+		names = re.sub(r"\s+(?:with|without)\s+context$", "", names)
+		macros.update(part.split(" as ")[-1].strip() for part in names.split(","))
 	found = []
 	for match in OUTPUT.finditer(source):
 		expression = match.group(1).strip()
@@ -167,6 +174,10 @@ assert not unescaped_outputs(
 	"{% macro row(d) %}{% endmacro %}{{ doc.name | e }}{{ (a or b) | e }}{{ x | tojson }}{{ _('Hi') }}"
 	"{{ row(doc) }}{{ page - 1 }}{{ 'a' if ok else 'b' }}{{ ill_sanitize_html(doc.notes) | safe }}",
 )
+assert not unescaped_outputs(
+	"x", '{% from "templates/includes/portal_chrome.html" import pager, breadcrumbs as crumbs %}{{ pager(1) }}{{ crumbs([]) }}'
+)
+assert unescaped_outputs("x", '{% from "elsewhere.html" import pager %}{{ pager(1) }}') == ["x:1: {{ pager(1) }}"]
 assert unescaped_outputs("x", "{{ doc.notes | safe }}{{ a or b | e }}") == [
 	"x:1: {{ doc.notes | safe }}",
 	"x:1: {{ a or b | e }}",
@@ -206,6 +217,27 @@ assert not unlabelled_labels(
 	'<label id="t">Type</label><div role="radiogroup" aria-labelledby="t"></div>'
 	"<template><label>Start</label></template>",
 )
+# Plan 2.9: record names in portal paths and query values are URL-encoded, not HTML-escaped.
+HREF = re.compile(r'href="[^"]*"')
+SEGMENT_ESCAPED = re.compile(r"(?:/portal/[a-z_-]+/|[?&](?:amp;)?[a-z_]+=)\{\{[^}|]+\|\s*e\s*\}\}")
+
+
+def html_escaped_segments(name, source):
+	return [
+		f"{name}:{source.count(chr(10), 0, attr.start()) + 1}: {segment.group(0)}"
+		for attr in HREF.finditer(source)
+		for segment in SEGMENT_ESCAPED.finditer(attr.group(0))
+	]
+
+
+assert html_escaped_segments("x", '<a href="/portal/orders/{{ order.name | e }}">') == [
+	"x:1: /portal/orders/{{ order.name | e }}"
+]
+assert html_escaped_segments("x", '<a href="?page=2&search={{ q | e }}">')
+assert not html_escaped_segments(
+	"x", '<a href="/portal/orders/{{ order.name | urlencode }}"><a href="{{ link | e }}"><a href="#line-{{ k | e }}">'
+)
+segment_violations = []
 unescaped = []
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	source = path.read_text(encoding="utf8")
@@ -218,6 +250,10 @@ for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
 	if path.parent.name == "pages":
 		style_violations += page_style_violations(path.relative_to(ROOT), source)
+	if path.parent.name in ("pages", "includes"):
+		segment_violations += html_escaped_segments(path.relative_to(ROOT), source)
+if segment_violations:
+	sys.exit("URL-encode record names in portal links with | urlencode (plan 2.9):\n  " + "\n  ".join(segment_violations))
 if style_violations:
 	sys.exit(
 		"Page styles belong in public/css/pages/_<page>.scss and colours in --ill-* tokens (UI-2):\n  "
@@ -237,6 +273,46 @@ if handler_violations:
 	sys.exit(
 		"Inline event handlers interpolate template values (use data attributes and a delegated listener):\n  "
 		+ "\n  ".join(handler_violations)
+	)
+
+# Plan 8.3: a button or link whose only content is an icon needs an accessible name.
+ICON_ONLY = re.compile(r"<(button|a)\b([^>]*)>\s*<i\b[^>]*>\s*</i>\s*</\1>", re.S)
+
+
+def unnamed_icon_controls(name, source):
+	found = []
+	for match in ICON_ONLY.finditer(source):
+		if re.search(r"aria-label(?:ledby)?=|title=", match.group(2)):
+			continue
+		# jQuery-built controls name themselves right after the markup: $('<button>…').attr('aria-label', …)
+		if re.match(r"""[^;]{0,200}\.attr\(\s*['"](?:aria-label|title)['"]""", source[match.end() :], re.S):
+			continue
+		found.append(f"{name}:{source.count(chr(10), 0, match.start()) + 1}: {match.group(0)[:100]}")
+	return found
+
+
+assert unnamed_icon_controls("x", '<button type="button"><i class="fa fa-trash"></i></button>') == [
+	'x:1: <button type="button"><i class="fa fa-trash"></i></button>'
+]
+assert not unnamed_icon_controls(
+	"x",
+	'<button aria-label="Remove"><i class="fa fa-trash"></i></button>'
+	'<a href="/x" title="Open"><i class="fa fa-link"></i></a>'
+	'<button><i class="fa fa-plus"></i> Add</button>'
+	"$('<button><i class=\"fa fa-x\"></i></button>').attr('data-user', u).attr('aria-label', t)",
+)
+icon_violations = []
+for path in sorted(
+	[*(ROOT / "illumenate_lighting/templates").rglob("*.html"), *(ROOT / "illumenate_lighting/public/js").rglob("*.js")]
+):
+	# Desk scripts render inside Frappe's own chrome and are out of scope for the portal check.
+	if "desk" in path.relative_to(ROOT / "illumenate_lighting").parts or path.name.startswith(("desk_", "illumenate_desk")):
+		continue
+	icon_violations += unnamed_icon_controls(path.relative_to(ROOT), path.read_text(encoding="utf8"))
+if icon_violations:
+	sys.exit(
+		'Give icon-only buttons and links an accessible name (aria-label="...") (plan 8.3):\n  '
+		+ "\n  ".join(icon_violations)
 	)
 
 offer = {
@@ -466,6 +542,30 @@ orders_html = environment.get_template("templates/pages/orders.html").render(
 )
 assert "Newer orders" in orders_html and "Older orders" in orders_html
 assert 'class="ill-record"' in orders_html and "No orders match" not in orders_html
+# Plan 8.2: one breadcrumb trail and one pager carry every filter to the next page.
+assert '<li class="breadcrumb-item active" aria-current="page">Orders</li>' in orders_html
+assert 'rel="prev" href="?page=1&amp;search=PO1&amp;status=shipping"' in orders_html
+assert 'rel="next" href="?page=3&amp;search=PO1&amp;status=shipping"' in orders_html
+assert '<span class="ill-pager__page">Page 2</span>' in orders_html
+assert '<a href="/portal/orders">Orders</a>' in order_html
+assert '<li class="breadcrumb-item active" aria-current="page">' in order_html
+# Plan 8.5: the nav bell caps its badge at 9+ and names itself for screen readers.
+assert 'href="/portal/notifications"' in orders_html and ">9+</span>" in orders_html
+assert '<span class="sr-only">9+ unread</span>' in orders_html
+notifications_page = environment.get_template("templates/pages/ill_notifications.html")
+notifications_html = notifications_page.render(
+	path="portal/notifications",
+	notifications=[
+		{"subject": "Quote <b>Q1</b> ready", "link": "/portal/quotes/Q%3C1", "when": "2026-11-01 10:00:00", "when_label": "1 hour ago", "unread": True},
+		{"subject": "Order shipped", "link": "/portal/orders/SO1", "when": "2026-10-01 10:00:00", "when_label": "1 month ago", "unread": False},
+	],
+)
+assert "Quote &lt;b&gt;Q1&lt;/b&gt; ready" in notifications_html and "<b>Q1" not in notifications_html
+assert notifications_html.count("ill-notification--unread") == 1 and 'href="/portal/quotes/Q%3C1"' in notifications_html
+assert 'class="ill-portal-navigation__bell" href="/portal/notifications" aria-current="page"' in notifications_html
+empty_notifications = notifications_page.render(path="portal/notifications", notifications=[])
+assert "No notifications yet" in empty_notifications and 'href="/portal/projects"' in empty_notifications
+parser.feed(notifications_html)
 quote_request_html = environment.get_template("templates/pages/quote_request_detail.html").render(
 	request=View(
 		name="QR1",
@@ -804,6 +904,21 @@ for name, variant in schedule_variants.items():
 	assert badge_tones <= BADGE_TONES, badge_tones - BADGE_TONES
 	assert "onmouseover" not in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
+# Plan 6.7: the compare form needs its flag and two lines, and escapes line labels.
+compare_lines = [
+	{"line_key": "k-1", "line_id": "A1", "idx": 1, "location": "Lobby <b>"},
+	{"line_key": "k 2", "line_id": None, "idx": 2, "location": ""},
+]
+compare_base = {**schedule_base, **schedule_variants["schedule-ready"], "lines_json": compare_lines}
+compare_html = schedule_page.render(**compare_base, compare_enabled=True)
+assert 'id="compareLinesForm"' in compare_html and "Lobby &lt;b&gt;" in compare_html and "Lobby <b>" not in compare_html
+assert 'value="k 2" selected' in compare_html and ">#2</option>" in compare_html
+assert "compare.js?v=" in compare_html
+assert 'id="compareLinesForm"' not in schedule_page.render(**compare_base, compare_enabled=False)
+assert 'id="compareLinesForm"' not in schedule_page.render(
+	**{**compare_base, "lines_json": compare_lines[:1]}, compare_enabled=True
+)
+(render_dir / "schedule-compare.html").write_text(compare_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
 
@@ -1004,6 +1119,10 @@ for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Shee
 		context["configurator_mode"] = mode
 		output = configurator.render(**context)
 		parser.feed(output)
+		# Plan 6.6: every calculating family has a build preview container behind its kill switch.
+		if category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet"):
+			assert 'class="ill-build-preview' in output and 'data-enabled="1"' in output, (category, mode)
+			assert 'data-enabled="0"' in configurator.render(**context, build_preview=False), (category, mode)
 		(render_dir / (category.replace(" ", "-") + "-" + mode + ".html")).write_text(output, encoding="utf8")
 prefilled = configurator.render(
 	**{
@@ -1073,10 +1192,8 @@ designer = designer_template.render(
 )
 assert 'import "/assets/illumenate_lighting/system_designer/designer.js?v=7";' in designer
 assert "IllSystemDesigner.mount" in designer and "</script><b>" not in designer
-assert "/portal/schedules/SCH%20%3C/script%3E%3Cb%3E" in designer
-assert "Back to schedule" not in designer_template.render(
-	assets="a", asset_version=0, schedule_name=None, mount_options={"schedule": None}
-)
+# The designer's own top bar carries the breadcrumb back to the schedule (SD-1.3).
+assert "Back to schedule" not in designer and "ill-sd-breadcrumb" not in designer
 assert 'ill-finder.js' in finder
 parser.feed(finder)
 catalog_builder = environment.get_template("templates/pages/catalog_builder.html").render(

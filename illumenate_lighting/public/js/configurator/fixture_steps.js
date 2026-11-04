@@ -1042,6 +1042,7 @@
 	Fixture.prototype._displayResults = function (result) {
 		var showPricing = this.context.show_pricing !== false;
 		this.$('#resultsPanel').show();
+		if (root.IllBuildPreview) root.IllBuildPreview.render(this.$('.ill-build-preview')[0], result, 'linear');
 
 		// Messages
 		var $messages = this.$('#validationMessages');

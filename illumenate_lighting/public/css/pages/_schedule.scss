@@ -1162,4 +1162,18 @@
 	.ill-shortcuts-panel { width: min(28rem, calc(100vw - 2rem)); padding: 1rem 1.25rem; border-radius: 8px; background: var(--ill-paper); color: var(--ill-ink); }
 	.ill-shortcuts-list { display: grid; grid-template-columns: auto 1fr; gap: .375rem 1rem; }
 	.ill-shortcuts-list dd { margin: 0; }
+	// Plan 6.7: compare two lines.
+	.ill-compare-form { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; }
+	.ill-compare-form select { min-width: 14rem; }
+	.ill-compare-table th[scope="row"] { width: 12rem; white-space: nowrap; }
+	.ill-compare-table tr.ill-compare-differs td { background: var(--ill-accent-bg); }
+}
+
+// Plan 8.1: repeated inline styles moved here. The extra .ill-page--schedule keeps them
+// above Bootstrap's .badge / .fa / .table-sm th rules, as the inline styles were.
+.ill-page--schedule {
+	.ill-weight-normal { font-weight: normal; }
+	.ill-stock-dot { font-size: 0.6em; vertical-align: middle; }
+	.kit-stock-table .ill-tight,
+	.ill-tight { padding: 2px 4px; }
 }

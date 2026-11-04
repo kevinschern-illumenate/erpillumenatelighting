@@ -65,6 +65,8 @@ def configure_page(
 			"durable_drafts_enabled": lambda: drafts,
 			"line_copy_enabled": lambda: copy,
 			"part_number_decode_enabled": lambda: pn,
+			"sheet_server_options_enabled": lambda: True,
+			"build_preview_enabled": lambda: True,
 		},
 		".portal.part_number": {"NotAPartNumber": NotAPartNumber, "decode": decode or (lambda value: None)},
 		".portal.rollout": {"require_family": lambda family: None},

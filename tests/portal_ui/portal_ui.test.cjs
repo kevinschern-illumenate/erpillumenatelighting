@@ -75,6 +75,111 @@ test('confirm focuses the action, resolves true on it and false on Escape, and r
   assert.equal(w.document.querySelector('.ill-confirm'), null);
 });
 
+// Plan 8.3: one dialog with a focus trap, Escape, backdrop cancel and focus return.
+test('dialog traps Tab in both directions, cancels on Escape and returns focus', async () => {
+  const { w, button } = setup(() => {});
+  const doc = w.document;
+  button.focus();
+  const form = doc.createElement('form');
+  const input = doc.createElement('input');
+  const cancel = doc.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = 'Cancel';
+  const save = doc.createElement('button');
+  save.textContent = 'Save';
+  form.append(input, cancel, save);
+  const box = w.PortalUI.dialog({ title: 'PO <b>number</b>', content: form, initialFocus: input, cancelValue: 'cancelled' });
+  const dialog = doc.querySelector('.ill-dialog [role="dialog"]');
+  assert.equal(dialog, box.element);
+  assert.equal(dialog.getAttribute('aria-modal'), 'true');
+  assert.equal(doc.getElementById(dialog.getAttribute('aria-labelledby')).textContent, 'PO <b>number</b>');
+  assert.equal(dialog.querySelectorAll('b').length, 0);
+  assert.equal(doc.activeElement, input);
+  const tab = shiftKey => doc.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab', shiftKey, cancelable: true }));
+  tab(false);
+  assert.equal(doc.activeElement, cancel);
+  tab(false);
+  assert.equal(doc.activeElement, save);
+  tab(false);
+  assert.equal(doc.activeElement, input, 'Tab wraps from the last control to the first');
+  tab(true);
+  assert.equal(doc.activeElement, save, 'Shift+Tab wraps from the first control to the last');
+  button.focus();
+  tab(false);
+  assert.equal(doc.activeElement, input, 'focus outside the dialog is pulled back in');
+  doc.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape' }));
+  assert.equal(await box.closed, 'cancelled');
+  assert.equal(doc.querySelector('.ill-dialog'), null);
+  assert.equal(doc.activeElement, button);
+});
+
+test('dialog closes with a value, on a backdrop click, and only once', async () => {
+  const { w, button } = setup(() => {});
+  button.focus();
+  const first = w.PortalUI.dialog({ title: 'One' });
+  assert.equal(w.document.activeElement, first.element, 'a dialog with no controls focuses itself');
+  first.close('saved');
+  first.close('again');
+  assert.equal(await first.closed, 'saved');
+  const second = w.PortalUI.dialog({ title: 'Two', cancelValue: false });
+  second.element.click();
+  assert.ok(w.document.querySelector('.ill-dialog'), 'a click inside the box does not close it');
+  w.document.querySelector('.ill-dialog').click();
+  assert.equal(await second.closed, false);
+  assert.equal(w.document.activeElement, button);
+});
+
+test('opted-in tablists move with arrows, Home and End and keep one tab in the Tab order', async () => {
+  const { w } = setup(() => {});
+  const doc = w.document;
+  const list = doc.createElement('ul');
+  list.setAttribute('role', 'tablist');
+  list.setAttribute('data-ill-tabs', '');
+  const tabs = ['a', 'b', 'c'].map((id, index) => {
+    const tab = doc.createElement('a');
+    tab.href = '#' + id;
+    tab.setAttribute('role', 'tab');
+    tab.className = index === 0 ? 'nav-link active' : 'nav-link';
+    // Stand-in for Bootstrap's tab plugin, which owns selection.
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      tabs.forEach(other => other.classList.toggle('active', other === tab));
+    });
+    list.append(tab);
+    return tab;
+  });
+  doc.body.append(list);
+  const key = (target, name) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+  const settle = () => new Promise(resolve => setTimeout(resolve, 5));
+  tabs[0].focus();
+  key(tabs[0], 'ArrowRight');
+  await settle();
+  assert.equal(doc.activeElement, tabs[1]);
+  assert.deepEqual(tabs.map(tab => tab.getAttribute('aria-selected')), ['false', 'true', 'false']);
+  assert.deepEqual(tabs.map(tab => tab.getAttribute('tabindex')), ['-1', '0', '-1']);
+  key(tabs[1], 'End');
+  await settle();
+  assert.equal(doc.activeElement, tabs[2]);
+  key(tabs[2], 'ArrowRight');
+  await settle();
+  assert.equal(doc.activeElement, tabs[0], 'ArrowRight wraps to the first tab');
+  key(tabs[0], 'ArrowLeft');
+  await settle();
+  assert.equal(doc.activeElement, tabs[2], 'ArrowLeft wraps to the last tab');
+  key(tabs[2], 'Home');
+  await settle();
+  assert.equal(doc.activeElement, tabs[0]);
+  const plain = doc.createElement('div');
+  plain.setAttribute('role', 'tablist');
+  const loose = doc.createElement('button');
+  loose.setAttribute('role', 'tab');
+  plain.append(loose);
+  doc.body.append(plain);
+  const event = new w.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+  loose.dispatchEvent(event);
+  assert.equal(event.defaultPrevented, false, 'tablists that did not opt in are left alone');
+});
+
 test('field errors show under the field and clear on the next call', () => {
   const { w } = setup(() => {});
   const form = w.document.getElementById('f');

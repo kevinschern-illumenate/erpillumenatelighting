@@ -64,7 +64,9 @@ class ExtrusionKitSpecs(unittest.TestCase):
 		sync = source[source.index("def sync_custom_template_data") :]
 		self.assertNotIn("template_doc", calculate)
 		self.assertIn('elif self.product_type == "Extrusion Kit":', sync)
-		self.assertIn('"Lenses",', sync[: sync.index("def format_inches")])
+		# The calculated labels are a module-level tuple, shared with template_listing.
+		managed = source[source.index("MANAGED_LABELS = (") : source.index("def _resolve_attribute_code_field")]
+		self.assertIn('"Lenses",', managed)
 
 
 if __name__ == "__main__":

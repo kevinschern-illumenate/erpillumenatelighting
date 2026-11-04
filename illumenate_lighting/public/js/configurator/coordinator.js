@@ -1345,6 +1345,7 @@ function renderEstimate(result, options) {
 
 function displayResults(result) {
 	$('#noResults').hide();
+	if (root.IllBuildPreview) root.IllBuildPreview.render($('.ill-build-preview')[0], result, 'linear');
 	
 	// Update validation status
 	var statusBadge = $('#validationStatus');
@@ -2736,6 +2737,7 @@ function tnValidateAndQuote() {
 // ─── Display results (tape/neon) ─────────────────────────────────────
 function tnDisplayResults(result) {
 	$('#noResults').hide();
+	if (root.IllBuildPreview) root.IllBuildPreview.render($('.ill-build-preview')[0], result, isNeon ? 'neon' : 'tape');
 
 	var statusBadge = $('#validationStatus');
 	if (result.is_valid) {

@@ -4113,8 +4113,16 @@ def get_led_sheet_templates() -> dict:
 
 	require_configurator()
 	if not pricing_allowed():
-		return strip_prices(_led_sheet_templates())
-	return _led_sheet_templates()
+		return strip_prices(_cached_led_sheet_templates())
+	return _cached_led_sheet_templates()
+
+
+def _cached_led_sheet_templates() -> dict:
+	"""The sheet template list per catalog revision and visible status set (plan 6.5)."""
+	from illumenate_lighting.illumenate_lighting.api.option_cache import cached_projection
+	from illumenate_lighting.illumenate_lighting.portal_listing import visible_statuses
+
+	return cached_projection("led_sheet_templates", ",".join(sorted(visible_statuses())), _led_sheet_templates)
 
 
 def _led_sheet_templates() -> dict:
@@ -4135,17 +4143,18 @@ def _led_sheet_templates() -> dict:
 	for template in templates:
 
 		doc = frappe.get_doc("ilL-LED-Sheet-Template", template.name)
-		template["allowed_specs"] = []
-		for row in doc.allowed_specs or []:
-			if not row.is_active:
-				continue
-			spec = frappe.db.get_value(
-				"ilL-Spec-LED-Sheet", row.spec,
-				["name", "item", "cct", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
-				as_dict=True,
+		active = [row.spec for row in doc.allowed_specs or [] if row.is_active and row.spec]
+		# One query per template, in the template's row order (plan 6.5).
+		specs = {
+			spec.name: spec
+			for spec in frappe.get_all(
+				"ilL-Spec-LED-Sheet",
+				filters={"name": ["in", active]},
+				fields=["name", "item", "cct", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
+				ignore_permissions=True,
 			)
-			if spec:
-				template["allowed_specs"].append(spec)
+		} if active else {}
+		template["allowed_specs"] = [specs[name] for name in active if name in specs]
 		from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 
 		template["allowed_specs"] = enabled_rows(template["allowed_specs"], "item")
