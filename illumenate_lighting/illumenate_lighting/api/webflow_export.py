@@ -318,7 +318,7 @@ def get_webflow_products(
             "driver_template", "controller_template",
             "profile_spec", "lens_spec", "tape_spec", "tape_neon_template", "led_sheet_template", "kit_template",
             "accessory_spec",
-            "short_description", "sublabel", "features", "product_badge", "featured_image", "dimensions_image", "series_family_image",
+            "short_description", "sublabel", "features", "product_badge", "webflow_badge", "is_discontinued", "featured_image", "dimensions_image", "series_family_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
             "length_increment_mm", "auto_calculate_specs",
             "webflow_item_id", "webflow_collection_slug",
@@ -336,6 +336,9 @@ def get_webflow_products(
         listing = Listing(frappe.get_doc("ilL-Webflow-Product", product["name"]))
         listing.overlay(product)
         listings[product["name"]] = listing
+        # The badge moved to webflow_badge (plan 4.8); n8n and Webflow read product_badge.
+        product["product_badge"] = product.get("webflow_badge") or ""
+        product["is_discontinued"] = 1 if product.get("is_discontinued") else 0
     
     if include_child_tables:
         # Build reverse mapping: attribute doctype -> code_field (once, outside loop)
@@ -467,8 +470,8 @@ def get_webflow_products(
                     "quantity": k.quantity,
                     "notes": k.notes,
                     "component_hero_image_url": component_hero_by_code.get((k.component_item or "").strip()),
-                    "webflow_title": k.get("custom_webflow_title"),  # site Custom Field, absent on fresh sites
-                    "webflow_description": k.get("custom_webflow_description"),
+                    "webflow_title": k.get("webflow_title"),
+                    "webflow_description": k.get("component_description"),
                 }
                 for k in doc.kit_components
             ]

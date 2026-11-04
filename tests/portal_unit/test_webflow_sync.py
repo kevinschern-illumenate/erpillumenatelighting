@@ -50,6 +50,13 @@ def _dependencies(run_as=None):
 	return {module.__name__: module for module in modules}
 
 
+def _configure_n8n(frappe):
+	"""Webhook URLs and the shared secret come from site config (spec sheet Phase 0, Z1)."""
+	frappe.conf["n8n_spec_webhook_url"] = "https://n8n.example/webhook/spec"
+	frappe.conf["n8n_sync_webhook_url"] = "https://n8n.example/webhook/sync"
+	frappe.conf["n8n_sync_secret"] = "secret"
+
+
 class Product(Record):
 	def get(self, key, default=None):
 		return super().get(key, default)
@@ -72,6 +79,7 @@ class WebflowSyncBrands(unittest.TestCase):
 		frappe.enqueue = MagicMock()
 		frappe._dict = Record
 		frappe.conf["ERP-Sync-Secret-2026"] = "secret"
+		_configure_n8n(frappe)
 		return module, frappe
 
 	def test_spec_sheet_defaults_to_the_first_enabled_target_brand(self):
@@ -176,6 +184,7 @@ class PublicationWorker(unittest.TestCase):
 		self.addCleanup(context.__exit__, None, None, None)
 		frappe.get_cached_value = MagicMock(return_value="System User")
 		frappe.enqueue = MagicMock()
+		_configure_n8n(frappe)
 		return module, frappe, users
 
 	def test_requests_are_claimed_by_a_worker_not_the_requesting_user(self):

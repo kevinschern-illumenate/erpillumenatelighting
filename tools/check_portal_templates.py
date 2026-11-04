@@ -1071,10 +1071,8 @@ designer = designer_template.render(
 )
 assert 'import "/assets/illumenate_lighting/system_designer/designer.js?v=7";' in designer
 assert "IllSystemDesigner.mount" in designer and "</script><b>" not in designer
-assert "/portal/schedules/SCH%20%3C/script%3E%3Cb%3E" in designer
-assert "Back to schedule" not in designer_template.render(
-	assets="a", asset_version=0, schedule_name=None, mount_options={"schedule": None}
-)
+# The designer's own top bar carries the breadcrumb back to the schedule (SD-1.3).
+assert "Back to schedule" not in designer and "ill-sd-breadcrumb" not in designer
 assert 'ill-finder.js' in finder
 parser.feed(finder)
 catalog_builder = environment.get_template("templates/pages/catalog_builder.html").render(

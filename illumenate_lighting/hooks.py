@@ -82,7 +82,7 @@ for _name in (
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
-    doctype_js[_name] = [*_scripts, "public/js/template_documents.js"]
+    doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/template_webflow_link.js", "public/js/template_spec_sheet.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -106,6 +106,9 @@ role_home_page = {
 	"Website User": "portal",
 	"Customer": "portal",
 }
+
+# Stable spec sheet links: /spec-sheets/<template>.pdf redirects to the current file (Phase 4).
+page_renderer = ["illumenate_lighting.illumenate_lighting.spec_sheet_route.SpecSheetRedirect"]
 
 # Website Route Rules
 # -------------------
