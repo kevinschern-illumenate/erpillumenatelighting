@@ -2,8 +2,23 @@ import type { VerifySubset } from '@ill/engine/verify';
 import type { Design } from '@ill/core-schemas/design';
 import type { ReconcileDiff } from '@ill/engine/reconcile';
 
-/** The H6 error codes every System Designer endpoint can return. */
-export type DesignErrorCode = 'NOT_FOUND' | 'FORBIDDEN' | 'INVALID' | 'CONFLICT' | 'LOCKED' | 'GATE' | 'INTERNAL';
+/**
+ * The H6 error codes every System Designer endpoint can return, plus two the browser decides (SD-1.6):
+ * OFFLINE when the request never reached the server, SESSION when the portal session or CSRF token expired.
+ */
+export type DesignErrorCode =
+  | 'NOT_FOUND'
+  | 'FORBIDDEN'
+  | 'INVALID'
+  | 'CONFLICT'
+  | 'LOCKED'
+  | 'GATE'
+  | 'INTERNAL'
+  | 'OFFLINE'
+  | 'SESSION';
+
+export const OFFLINE_MESSAGE = "You're offline. Your changes are kept in this browser.";
+export const SESSION_MESSAGE = 'Your portal session has ended. Sign in again to save.';
 
 export class DesignApiError extends Error {
   constructor(
@@ -165,10 +180,15 @@ type Envelope<T> = { success: true; data: T } | { success: false; error: string;
 export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalThis.fetch }: ApiOptions) {
   async function call<T>(method: string, init: RequestInit, query?: URLSearchParams): Promise<T> {
     const url = `${apiBase}.${method}${query ? `?${query.toString()}` : ''}`;
-    const response = await fetchImpl(url, {
-      credentials: 'same-origin',
-      ...init,
-    });
+    let response: Response;
+    try {
+      response = await fetchImpl(url, {
+        credentials: 'same-origin',
+        ...init,
+      });
+    } catch {
+      throw new DesignApiError('OFFLINE', OFFLINE_MESSAGE);
+    }
     let body: { message?: Envelope<T> } | undefined;
     try {
       body = (await response.json()) as { message?: Envelope<T> };
@@ -176,6 +196,10 @@ export function createDesignApi({ apiBase, csrfToken, fetch: fetchImpl = globalT
       body = undefined;
     }
     const envelope = body?.message;
+    // Frappe answers an expired session (a Guest PermissionError) or a stale CSRF token itself, before
+    // our envelope is built; the endpoints' own permission errors always come in the envelope.
+    if (!envelope && (response.status === 401 || response.status === 403))
+      throw new DesignApiError('SESSION', SESSION_MESSAGE);
     if (!envelope) throw new DesignApiError('INTERNAL', `The server answered ${response.status}; please try again`);
     if (!envelope.success) throw new DesignApiError(envelope.code, envelope.error);
     return envelope.data;

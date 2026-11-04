@@ -18,8 +18,33 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_p
 	compute_profile_dimensions,
 )
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
-	WEBFLOW_PRODUCT_LINK_TYPES,
 	WEBFLOW_PRODUCT_LINKS,
+)
+
+# Specification labels sync_custom_template_data rebuilds on every save. Rows with any other
+# label were typed by hand and are kept (template_listing uses the same list).
+# Environment Ratings are always listed Dry, Damp, Wet (owner, 2026-11-03); others follow A-Z.
+ENVIRONMENT_ORDER = ("Dry", "Damp", "Wet")
+
+
+def order_environment_ratings(ratings):
+	unique = list(dict.fromkeys(r for r in ratings if r))
+	return sorted(
+		unique,
+		key=lambda r: (ENVIRONMENT_ORDER.index(r) if r in ENVIRONMENT_ORDER else len(ENVIRONMENT_ORDER), r),
+	)
+
+
+MANAGED_LABELS = (
+	"Color Rendering (CRI)", "Output Options", "Light Color (CCT)", "Lens Options",
+	"Mounting Options", "Mounting", "Finish Options", "Finish", "Lenses", "Environment Ratings", 
+	"Operating Temperature", "Production Interval", "Dimensions", "Dimensions (ft)",
+	"Cut Interval", "Watts per Foot", "Watts per Square Foot", "Max Run Length",
+	"Input Voltage", "Dimming", "Max Footage per 100W Supply", "Beam Spread",
+	"Minimum Bending Diameter", "Warranty", "Power Factor", "Total Harmonic Distortion",
+	"Efficiency", "Start Up Time", "Minimum Load", "Inrush Current", "Max Input Current",
+	"Output Voltage", "Max Output Current", "Certifications",
+	"Stock Length", "Max Assembled Length", "Cuttable", "Lens Interface"
 )
 
 
@@ -142,7 +167,8 @@ class ilLWebflowProduct(Document):
 		min_length_mm: DF.Int
 		operating_temp_max_c: DF.Int
 		operating_temp_min_c: DF.Int
-		product_badge: DF.Literal["", "New", "On Sale", "Quick Ship"] | None
+		product_badge: DF.Literal["", "New", "On Sale", "Quick Ship", "Hide"] | None
+		is_discontinued: DF.Check
 		product_category: DF.Link | None
 		product_name: DF.Data
 		product_slug: DF.Data
@@ -163,14 +189,12 @@ class ilLWebflowProduct(Document):
 	# end: auto-generated types
 
 	def populate_certification_badges(self):
-		"""Populate the custom_badge_images JSON field based on active Target Brands."""
-		# custom_badge_images (certification rows) and the dark/206 badge images (ilL-Attribute-Certification)
-		# are site Custom Fields the app does not ship; skip where they are absent.
-		if not frappe.get_meta(self.meta.get_field("certifications").options).has_field("custom_badge_images"):
-			return
+		"""Populate the webflow_badge_images JSON field based on active Target Brands."""
+		# Badge fields on ilL-Attribute-Certification (app fields since 2026-11-03); skip any
+		# that are absent on a site that has not migrated yet.
 		cert_meta = frappe.get_meta("ilL-Attribute-Certification")
 		badge_fields = [
-			f for f in ("badge_image", "custom_badge_image_dark", "custom_206_badge_image_light", "custom_206_badge_image_dark")
+			f for f in ("badge_image", "badge_image_dark", "badge_image_light_206", "badge_image_dark_206")
 			if cert_meta.has_field(f)
 		]
 
@@ -202,30 +226,20 @@ class ilLWebflowProduct(Document):
 
 			if "illumenate" in active_brands:
 				badge_data["illumenate_badge_light"] = make_url(cert_doc.get("badge_image"))
-				badge_data["illumenate_badge_dark"] = make_url(cert_doc.get("custom_badge_image_dark"))
+				badge_data["illumenate_badge_dark"] = make_url(cert_doc.get("badge_image_dark"))
 
 			if "lighting_206" in active_brands:
-				badge_data["206_badge_light"] = make_url(cert_doc.get("custom_206_badge_image_light"))
-				badge_data["206_badge_dark"] = make_url(cert_doc.get("custom_206_badge_image_dark"))
+				badge_data["206_badge_light"] = make_url(cert_doc.get("badge_image_light_206"))
+				badge_data["206_badge_dark"] = make_url(cert_doc.get("badge_image_dark_206"))
 
 			# Save as JSON array with a single object inside, matching your request
-			row.custom_badge_images = frappe.as_json([badge_data])
+			row.webflow_badge_images = frappe.as_json([badge_data])
 	
 	def validate(self):
-		self._clear_template_links_for_other_types()
+		# The template owns the link (plan 4.2); the per-type link fields here are mirrors.
+		from illumenate_lighting.illumenate_lighting.template_link import validate_product_links
 
-	def _clear_template_links_for_other_types(self):
-		"""Drop template links left over from a previous product type.
-
-		Only runs when the type changes, so existing products keep whatever they
-		link today. Without this a stale link would keep claiming its template's
-		Webflow Product backlink.
-		"""
-		if self.is_new() or not self.has_value_changed("product_type"):
-			return
-		for fieldname, product_types in WEBFLOW_PRODUCT_LINK_TYPES.items():
-			if self.get(fieldname) and self.product_type not in product_types:
-				self.set(fieldname, None)
+		validate_product_links(self)
 	
 	def onload(self):
 		pass
@@ -281,6 +295,15 @@ class ilLWebflowProduct(Document):
 			if self.get("auto_populate_configurator_options", True):
 				self.populate_extrusion_kit_configurator_options()
 
+		# The linked template's stored specifications and configurator steps win (Phase 2, D21).
+		from illumenate_lighting.illumenate_lighting.template_listing import apply_template_rows
+
+		apply_template_rows(self)
+
+		from illumenate_lighting.illumenate_lighting.webflow_state import set_is_discontinued
+
+		set_is_discontinued(self)
+
 		# Mark as pending sync if substantive changes were made
 		# Skip this check if we're being saved from the sync API (sync_status is being set to Synced)
 		if not getattr(self, "_skip_sync_status_check", False):
@@ -291,16 +314,24 @@ class ilLWebflowProduct(Document):
 				if self.sync_status == "Synced":
 					self.sync_status = "Pending"
 
+	def after_insert(self):
+		# A product created with a template link writes the template side (template_link.py).
+		from illumenate_lighting.illumenate_lighting.template_link import on_product_insert
+
+		on_product_insert(self)
+
 	def on_update(self):
-		"""Update webflow_product backlink on linked templates after save and sync compatibilities."""
+		"""Sync compatibilities and top up the linked template.
+
+		The template owns the link (plan 4.2): template_link.py writes this product's
+		per-type link field, so nothing here writes the template's webflow_product.
+		"""
 		# 1. Prevent infinite loops globally for this compatibility sync transaction
 		if not self.flags.syncing_compatibility:
 			# 2. Run deletions first, then additions
 			self.handle_deletions()
 			self.sync_compatible_products()
 
-		for template_doctype, fieldname in WEBFLOW_PRODUCT_LINKS.items():
-			self._update_template_backlink(template_doctype, fieldname)
 		self._top_up_template()
 
 	def set_dynamic_hero_image(self):
@@ -382,9 +413,6 @@ class ilLWebflowProduct(Document):
 
 	def populate_compatible_power_supplies(self):
 		"""Fetch eligible drivers from the linked template and populate the child table."""
-		# custom_compatible_power_supplies is a site Custom Field the app does not ship; skip where it is absent.
-		if not self.meta.has_field("custom_compatible_power_supplies"):
-			return
 
 		# 1. Figure out which template is linked to this product
 		template_name = (
@@ -395,7 +423,7 @@ class ilLWebflowProduct(Document):
 		)
 
 		if not template_name:
-			self.custom_compatible_power_supplies = []
+			self.webflow_compatible_power_supplies = []
 			return
 
 		# 2. Query ilL-Rel-Driver-Eligibility for all drivers linked to this template
@@ -406,7 +434,7 @@ class ilLWebflowProduct(Document):
 		)
 
 		# Clear the table so we can rebuild it cleanly
-		self.custom_compatible_power_supplies = []
+		self.webflow_compatible_power_supplies = []
 
 		if not eligible_drivers:
 			return
@@ -438,7 +466,7 @@ class ilLWebflowProduct(Document):
 				voltage_freq = f"{v_min or v_max}{v_type}"
 
 			# Append the mapped row to your custom child table
-			self.append("custom_compatible_power_supplies", {
+			self.append("webflow_compatible_power_supplies", {
 				"part_number": driver_doc.name,
 				"input_protocol": protocol_str,
 				"voltagefrequency": voltage_freq,
@@ -496,34 +524,6 @@ class ilLWebflowProduct(Document):
 					None,
 					update_modified=False,
 				)
-
-	def _update_template_backlink(self, template_doctype: str, fieldname: str):
-		"""Point the template's webflow_product backlink at this product.
-
-		Also clears the backlink on the previously linked template when the
-		link field was changed.
-		"""
-		old_doc = self.get_doc_before_save()
-		old_template = old_doc.get(fieldname) if old_doc else None
-		new_template = self.get(fieldname)
-
-		if old_template and old_template != new_template:
-			frappe.db.set_value(
-				template_doctype,
-				old_template,
-				"webflow_product",
-				None,
-				update_modified=False,
-			)
-
-		if new_template:
-			frappe.db.set_value(
-				template_doctype,
-				new_template,
-				"webflow_product",
-				self.name,
-				update_modified=False,
-			)
 
 	def populate_attribute_links(self):
 		"""Populate attribute links from the linked source spec for each product type."""
@@ -1712,7 +1712,7 @@ class ilLWebflowProduct(Document):
 			specs_to_add.append({
 				"spec_group": "Environmental",
 				"spec_label": "Environment Ratings",
-				"spec_value": ", ".join(env_ratings),
+				"spec_value": ", ".join(order_environment_ratings(env_ratings)),
 				"is_calculated": 1,
 				"display_order": 80,
 				"attribute_doctype": "ilL-Attribute-Environment Rating",
@@ -2135,7 +2135,7 @@ class ilLWebflowProduct(Document):
 				specs_to_add.append({
 					"spec_group": "Environmental",
 					"spec_label": "Environment Ratings",
-					"spec_value": ", ".join(ratings),
+					"spec_value": ", ".join(order_environment_ratings(ratings)),
 					"is_calculated": 1,
 					"display_order": 70
 				})
@@ -2220,7 +2220,7 @@ class ilLWebflowProduct(Document):
 		LED Package is part of the locked Series step (not a separate step).
 		Endcap Color is auto-resolved from Finish via ilL-Rel-Finish Endcap Color.
 		"""
-		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
+		template = self._template_doc("ilL-Fixture-Template", self.fixture_template)
 
 		# Configurator flow aligned with webflow_configurator.py CONFIGURATOR_STEPS
 		# (step, option_type, label, depends_on_step)
@@ -2279,7 +2279,7 @@ class ilLWebflowProduct(Document):
 
 	def populate_led_sheet_configurator_options(self):
 		"""Populate configurator options from LED Sheet template allowed options."""
-		template = frappe.get_doc("ilL-LED-Sheet-Template", self.led_sheet_template)
+		template = self._template_doc("ilL-LED-Sheet-Template", self.led_sheet_template)
 		option_flow = [
 			(1, "CCT", "CCT", 0),
 			(2, "Output Level", "Output", 1),
@@ -2289,18 +2289,7 @@ class ilLWebflowProduct(Document):
 			(6, "Coverage", "Coverage", 0),
 		]
 
-		existing_is_required = {}
-		if not self.is_new():
-			existing_opts = frappe.get_all(
-				"ilL-Child-Webflow-Configurator-Option",
-				filters={"parent": self.name, "parenttype": "ilL-Webflow-Product"},
-				fields=["option_step", "is_required"],
-			)
-			existing_is_required = {
-				int(opt.option_step): int(opt.is_required)
-				for opt in existing_opts
-				if opt.option_step is not None
-			}
+		existing_is_required = self._get_existing_is_required()
 
 		self.configurator_options = []
 		for step, option_type, label, depends_on in option_flow:
@@ -2335,12 +2324,23 @@ class ilLWebflowProduct(Document):
 			})
 		return values
 
+	def _template_doc(self, doctype, name):
+		"""The linked template. template_listing passes the template being saved, so the
+		calculations see its unsaved values."""
+		override = self.flags.template_doc
+		if override is not None and override.doctype == doctype and override.name == name:
+			return override
+		return frappe.get_doc(doctype, name)
+
 	def _get_existing_is_required(self) -> dict:
 		"""Return {option_step: is_required} as currently stored in the database.
 
 		Lets an admin uncheck "Is Required" on a step without the value being
 		clobbered the next time options are auto-populated.
 		"""
+		# A template computing its own configurator (template_listing) supplies its rows.
+		if self.flags.existing_is_required is not None:
+			return self.flags.existing_is_required
 		if self.is_new():
 			return {}
 		existing_opts = frappe.get_all(
@@ -2361,7 +2361,7 @@ class ilLWebflowProduct(Document):
 		Every axis is independent; the configurator resolves the full selection
 		to exactly one ilL-Child-Driver-Template-Variant row.
 		"""
-		template = frappe.get_doc("ilL-Driver-Template", self.driver_template)
+		template = self._template_doc("ilL-Driver-Template", self.driver_template)
 		option_flow = [
 			(1, "Wattage", "Wattage", 0),
 			(2, "Voltage Output", "Output Voltage", 0),
@@ -2377,7 +2377,7 @@ class ilLWebflowProduct(Document):
 		Output Protocol → Wireless Protocol → Mounting Type. Channels and Zones
 		depend on Controller Type; the rest are independent.
 		"""
-		template = frappe.get_doc("ilL-Controller-Template", self.controller_template)
+		template = self._template_doc("ilL-Controller-Template", self.controller_template)
 		option_flow = [
 			(1, "Controller Type", "Controller Type", 0),
 			(2, "Channels", "Channels", 1),
@@ -2402,7 +2402,7 @@ class ilLWebflowProduct(Document):
 			return
 
 		try:
-			template = frappe.get_doc("ilL-Extrusion-Kit-Template", self.kit_template)
+			template = self._template_doc("ilL-Extrusion-Kit-Template", self.kit_template)
 		except frappe.DoesNotExistError:
 			frappe.log_error(
 				message=f"Extrusion Kit template {self.kit_template} not found for product {self.name}",
@@ -2563,7 +2563,7 @@ class ilLWebflowProduct(Document):
 		User-overridden is_required values are preserved across saves so that, for
 		example, Feed Direction can be marked as optional by unchecking the checkbox.
 		"""
-		template = frappe.get_doc("ilL-Tape-Neon-Template", self.tape_neon_template)
+		template = self._template_doc("ilL-Tape-Neon-Template", self.tape_neon_template)
 
 		if is_tape_category(self.product_type):
 			option_flow = [
@@ -2589,18 +2589,7 @@ class ilLWebflowProduct(Document):
 			]
 
 		# Preserve any user-modified is_required values from the database
-		existing_is_required = {}
-		if not self.is_new():
-			existing_opts = frappe.get_all(
-				"ilL-Child-Webflow-Configurator-Option",
-				filters={"parent": self.name, "parenttype": "ilL-Webflow-Product"},
-				fields=["option_step", "is_required"],
-			)
-			existing_is_required = {
-				int(opt.option_step): int(opt.is_required)
-				for opt in existing_opts
-				if opt.option_step is not None
-			}
+		existing_is_required = self._get_existing_is_required()
 
 		# Clear existing and rebuild
 		self.configurator_options = []
@@ -3334,9 +3323,6 @@ class ilLWebflowProduct(Document):
 
 	def sync_custom_template_data(self):
 		"""V2 Sync: Updates ilL-Webflow-Product custom fields with data from linked templates."""
-		# custom_spec_custom is a site Custom Field the app does not ship; skip where it is absent.
-		if not self.meta.has_field("custom_spec_custom"):
-			return
 
 		PRODUCT_TYPE_TEMPLATE_MAP = {
 			"LED Tape": {"link_field": "tape_neon_template", "doctype": "ilL-Tape-Neon-Template"},
@@ -3349,17 +3335,7 @@ class ilLWebflowProduct(Document):
 			"Extrusion Kit": {"link_field": "kit_template", "doctype": "ilL-Extrusion-Kit-Template"},
 		}
 
-		MANAGED_LABELS = (
-			"Color Rendering (CRI)", "Output Options", "Light Color (CCT)", "Lens Options",
-			"Mounting Options", "Mounting", "Finish Options", "Finish", "Lenses", "Environment Ratings", 
-			"Operating Temperature", "Production Interval", "Dimensions", "Dimensions (ft)",
-			"Cut Interval", "Watts per Foot", "Watts per Square Foot", "Max Run Length",
-			"Input Voltage", "Dimming", "Max Footage per 100W Supply", "Beam Spread",
-			"Minimum Bending Diameter", "Warranty", "Power Factor", "Total Harmonic Distortion",
-			"Efficiency", "Start Up Time", "Minimum Load", "Inrush Current", "Max Input Current",
-			"Output Voltage", "Max Output Current", "Certifications",
-			"Stock Length", "Max Assembled Length", "Cuttable", "Lens Interface"
-		)
+		# MANAGED_LABELS (module level): labels this calculation rebuilds; other rows are kept.
 
 		def format_inches(mm):
 			if not mm:
@@ -3374,7 +3350,10 @@ class ilLWebflowProduct(Document):
 			return i
 
 		def append_spec(current_doc, group, label, value, unit="", order=50, attr_doctype="", options=None):
-			current_doc.append("custom_spec_custom", {
+			# D43: a placeholder is not a specification.
+			if str(value or "").strip().upper() == "TBD":
+				return
+			current_doc.append("webflow_specifications", {
 				"spec_group": group,
 				"spec_label": label,
 				"spec_value": value,
@@ -3388,7 +3367,7 @@ class ilLWebflowProduct(Document):
 		debug = {
 			"product": self.name,
 			"product_type": self.product_type,
-			"existing_labels_before": [row.spec_label for row in (self.custom_spec_custom or [])],
+			"existing_labels_before": [row.spec_label for row in (self.webflow_specifications or [])],
 			"results": {},
 		}
 
@@ -3415,20 +3394,34 @@ class ilLWebflowProduct(Document):
 				for label in MANAGED_LABELS:
 					record(debug, label, skip_reason=reason)
 			else:
-				template_doc = frappe.get_doc(mapping["doctype"], linked_doc_name)
+				template_doc = self._template_doc(mapping["doctype"], linked_doc_name)
 
 				# ============================================================
 				# PART 1: Core Field, Document, and Certification Sync
 				# ============================================================
 				
-				self.custom_template_status = template_doc.get("product_status")
-				self.custom_web_product_category = template_doc.get("product_category")
-				self.custom_web_series = template_doc.get("series")
+				self.webflow_template_status = template_doc.get("product_status")
+				# Product Category mirrors the template's Webflow Category, and decides the
+				# Product Type (owner, 2026-11-03).
+				from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+					CATEGORY_PRODUCT_TYPES,
+					template_category,
+				)
+
+				category = template_category(template_doc)
+				if category:
+					self.product_category = category
+					if CATEGORY_PRODUCT_TYPES.get(category):
+						self.product_type = CATEGORY_PRODUCT_TYPES[category]
+				# Series mirrors the template's Series (both link to ilL-Attribute-Series).
+				if template_doc.get("series"):
+					self.series = template_doc.get("series")
 
 				# --- Documents Sync ---
 				existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
 				
-				spec_sheet_file = template_doc.get("spec_sheet")
+				# The stable link when the template has one (D19), else the file itself.
+				spec_sheet_file = template_doc.get("spec_sheet_public_url") or template_doc.get("spec_sheet")
 				spec_title = (self.product_name or "") + " Spec Sheet"
 				
 				if spec_sheet_file:
@@ -3480,7 +3473,10 @@ class ilLWebflowProduct(Document):
 					self.documents = [d for d in (self.documents or []) if not (d.document_type == "Spec Submittal" and d.document_title == submittal_title)]
 					existing_docs = {d.document_file: d for d in (self.documents or []) if d.document_file}
 
-				for d in (template_doc.get("custom_documents") or []):
+				# other_documents ships with the app; custom_documents was the site Custom Field
+				# it replaced on the Tape/Neon template (patch move_tape_custom_documents_...).
+				other_documents = template_doc.get("other_documents") or template_doc.get("custom_documents") or []
+				for d in other_documents:
 					df = d.get("document_file")
 					if df:
 						if df in existing_docs:
@@ -3668,8 +3664,8 @@ class ilLWebflowProduct(Document):
 				# ============================================================
 				# PART 3: Custom Spec Child Table Enrichment
 				# ============================================================
-				self.custom_spec_custom = [
-					row for row in (self.custom_spec_custom or [])
+				self.webflow_specifications = [
+					row for row in (self.webflow_specifications or [])
 					if row.spec_label not in MANAGED_LABELS
 				]
 				
@@ -4227,7 +4223,13 @@ class ilLWebflowProduct(Document):
 					temp_list = set()
 					for s in sheet_specs:
 						spec_data = frappe.db.get_value("ilL-Spec-LED-Sheet", s, ["operating_temp_min_c", "operating_temp_max_c"], as_dict=True)
-						if spec_data and spec_data.get("operating_temp_min_c") not in (None, "") and spec_data.get("operating_temp_max_c") not in (None, ""):
+						if (
+							spec_data
+							and spec_data.get("operating_temp_min_c") not in (None, "")
+							and spec_data.get("operating_temp_max_c") not in (None, "")
+							# D43: 0 to 0 means "not set".
+							and (float(spec_data["operating_temp_min_c"]) or float(spec_data["operating_temp_max_c"]))
+						):
 							min_c = float(spec_data["operating_temp_min_c"])
 							max_c = float(spec_data["operating_temp_max_c"])
 							min_f = round(min_c * 9/5 + 32)
@@ -4411,14 +4413,14 @@ class ilLWebflowProduct(Document):
 							# Stock Length (Order 31)
 							if profile_doc.stock_length_mm:
 								stock_in = float(profile_doc.stock_length_mm) / 25.4
-								stock_str = f"{stock_in:.1f}in ({profile_doc.stock_length_mm}mm)"
+								stock_str = f'{stock_in:.1f}" ({profile_doc.stock_length_mm}mm)'
 								append_spec(self, "Physical", "Stock Length", stock_str, "", 31)
 								record(debug, "Stock Length", 1, [stock_str], appended=True)
 							
 							# Max Assembled Length (Order 32)
 							if profile_doc.max_assembled_length_mm:
 								max_in = float(profile_doc.max_assembled_length_mm) / 25.4
-								max_str = f"{max_in:.1f}in ({profile_doc.max_assembled_length_mm}mm)"
+								max_str = f'{max_in:.1f}" ({profile_doc.max_assembled_length_mm}mm)'
 								append_spec(self, "Physical", "Max Assembled Length", max_str, "", 32)
 								record(debug, "Max Assembled Length", 1, [max_str], appended=True)
 							
@@ -4429,7 +4431,7 @@ class ilLWebflowProduct(Document):
 									env_ratings.append(env_row.environment_rating)
 							
 							if env_ratings:
-								sorted_env = sorted(list(set(env_ratings)))
+								sorted_env = order_environment_ratings(env_ratings)
 								append_spec(self, "Environmental", "Environment Ratings", ", ".join(sorted_env), "", 49, "ilL-Attribute-Environment Rating")
 								record(debug, "Environment Ratings", len(sorted_env), sorted_env, appended=True)
 						except frappe.DoesNotExistError:
@@ -4439,7 +4441,10 @@ class ilLWebflowProduct(Document):
 					temp_min_c = template_doc.get("operating_temp_min_c")
 					temp_max_c = template_doc.get("operating_temp_max_c")
 					
-					if temp_min_c not in (None, "") and temp_max_c not in (None, ""):
+					# D43: an unset Int field reads 0, so 0 to 0 means "not set".
+					if temp_min_c not in (None, "") and temp_max_c not in (None, "") and (
+						float(temp_min_c) or float(temp_max_c)
+					):
 						min_c = float(temp_min_c)
 						max_c = float(temp_max_c)
 						min_f = round(min_c * 9/5 + 32)
@@ -4463,7 +4468,7 @@ class ilLWebflowProduct(Document):
 						if c_type not in grouped_components:
 							grouped_components[c_type] = []
 							
-						desc = c_row.get("custom_webflow_description") or c_row.get("webflow_description") or c_row.get("description") or ""
+						desc = c_row.get("component_description") or ""
 						item_code = c_row.get("component_item")
 						
 						# Grab image only once per component type
@@ -4499,7 +4504,7 @@ class ilLWebflowProduct(Document):
 						self.append("kit_components", {
 							"component_type": c_type,
 							"component_item": items_list[0]["code"] if items_list else "", 
-							"custom_webflow_description": json.dumps(final_json_list, indent=1)
+							"component_description": json.dumps(final_json_list, indent=1)
 						})
 					
 					record(debug, "Kit Components", len(grouped_components), [f"{k} ({len(v)} items)" for k, v in grouped_components.items()], appended=True)
@@ -4509,21 +4514,23 @@ class ilLWebflowProduct(Document):
 						record(debug, label, skip_reason=f"Not yet implemented for product_type '{self.product_type}'")
 
 		# --- Sort all rows by display_order ---
-		if self.custom_spec_custom:
+		if self.webflow_specifications:
 			# 1. Sort the list
-			self.custom_spec_custom.sort(
+			self.webflow_specifications.sort(
 				key=lambda row: int(row.get("display_order")) if row.get("display_order") not in (None, "") else 999
 			)
 			
 			# 2. Re-assign idx so ERPNext saves and renders them in the new sorted order
 			row_idx = 1
-			for row in self.custom_spec_custom:
+			for row in self.webflow_specifications:
 				row.idx = row_idx
 				row_idx += 1
 			
-		debug["existing_labels_after"] = [row.spec_label for row in (self.custom_spec_custom or [])]
+		debug["existing_labels_after"] = [row.spec_label for row in (self.webflow_specifications or [])]
 
-		frappe.log_error(
-			title=f"Combined Full Enrichment Debug: {self.name}",
-			message=json.dumps(debug, indent=2, default=str),
-		)
+		# This wrote an Error Log on every save; now only when asked for in site config.
+		if frappe.conf.get("webflow_enrichment_debug"):
+			frappe.log_error(
+				title=f"Combined Full Enrichment Debug: {self.name}",
+				message=json.dumps(debug, indent=2, default=str),
+			)

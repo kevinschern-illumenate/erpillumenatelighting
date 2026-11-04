@@ -182,6 +182,10 @@ describe('saving', () => {
       saveStatus: 'error',
       saveMessage: 'offline',
     });
+    await saveDesign(store, apiStub(vi.fn().mockRejectedValue(new DesignApiError('OFFLINE', 'No network'))), drafts);
+    expect(store.getState()).toMatchObject({ saveStatus: 'offline', dirty: true });
+    await saveDesign(store, apiStub(vi.fn().mockRejectedValue(new DesignApiError('SESSION', 'Signed out'))), drafts);
+    expect(store.getState()).toMatchObject({ saveStatus: 'session', saveMessage: 'Signed out', dirty: true });
     stop();
   });
 });
@@ -234,6 +238,24 @@ describe('api client', () => {
     await expect(api.openDesign('SCH-1')).rejects.toMatchObject({
       code: 'INTERNAL',
     });
+  });
+
+  it('tells an expired session and a dropped connection apart from server errors (SD-1.6)', async () => {
+    const failing = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ exc_type: 'CSRFTokenError' }), { status: 403 }))
+      .mockResolvedValueOnce(new Response('', { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: { success: false, error: 'Not yours', code: 'FORBIDDEN' } }), {
+          status: 403,
+        }),
+      )
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const api = createDesignApi({ apiBase: '/m', csrfToken: 't', fetch: failing });
+    await expect(api.openDesign('SCH-1')).rejects.toMatchObject({ code: 'SESSION' });
+    await expect(api.openDesign('SCH-1')).rejects.toMatchObject({ code: 'SESSION' });
+    await expect(api.openDesign('SCH-1')).rejects.toMatchObject({ code: 'FORBIDDEN', message: 'Not yours' });
+    await expect(api.openDesign('SCH-1')).rejects.toMatchObject({ code: 'OFFLINE' });
   });
 });
 
