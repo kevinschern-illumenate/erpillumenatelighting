@@ -559,38 +559,38 @@ Fields read from the staging site's Products collection (34, 2026-11-04). "Not s
 
 | # | Webflow field | Type | Sent today from | Proposed source | Owner |
 |---|---|---|---|---|---|
-| 1 | `name` (required) | Plain text | product `product_name` | template Display Name, else Template Name || keep |
-| 2 | `slug` (required) | Plain text | product `product_slug` | product `product_slug`, never changed once the item exists || keep |
-| 3 | `hidden-from-public` | Switch | from Webflow Status | the Phase 5 Webflow state || keep |
-| 4 | `fully-launched` | Switch | not sent | not sent (managed in Webflow) || keep |
+| 1 | `name` (required) | Plain text | product `product_name` | template Display Name, else Template Name | keep |
+| 2 | `slug` (required) | Plain text | product `product_slug` | product `product_slug`, never changed once the item exists | keep |
+| 3 | `hidden-from-public` | Switch | from Webflow Status | the Phase 5 Webflow state | keep |
+| 4 | `fully-launched` | Switch | not sent | not sent (managed in Webflow) | keep |
 | 5 | `product-type` | Option | product type, as an option ID | **not sent** (owner: not needed; remove the Webflow field in cleanup) | drop |
-| 6 | `category` | Reference | category's Webflow item ID | same, from the category's sync row for the brand || keep |
-| 7 | `short-description` | Plain text | product `short_description` | product `short_description` || keep |
-| 8 | `featured-image` | Image | product `featured_image` | template Hero Image || keep |
-| 9 | `gallery` | Multi image | product Gallery Images | product Gallery Images || keep |
-| 10 | `family-image` | Image | product `series_family_image` | product `series_family_image` || keep |
-| 11 | `series-display-name` | Plain text | product `series_display_name` | template Series (its name) || keep |
-| 12 | `last-synced` | Date | sync date (Pacific, noon UTC) | same || keep |
-| 13 | `is-configurable-3` | Switch | product `is_configurable` | product `is_configurable` (moves to the template in cleanup) || keep |
-| 14 | `erp-sync-id` | Plain text | product name | product name || keep |
-| 15 | `attribute-links-json` | Plain text | product Attribute Links | product Attribute Links || keep |
+| 6 | `category` | Reference | category's Webflow item ID | same, from the category's sync row for the brand | keep |
+| 7 | `short-description` | Plain text | product `short_description` | product `short_description` | keep |
+| 8 | `featured-image` | Image | product `featured_image` | product `featured_image` (owner: the Hero Image is for spec sheets only) | change |
+| 9 | `gallery` | Multi image | product Gallery Images | product Gallery Images | keep |
+| 10 | `family-image` | Image | product `series_family_image` | product `series_family_image` | keep |
+| 11 | `series-display-name` | Plain text | product `series_display_name` | template Series (its name) | keep |
+| 12 | `last-synced` | Date | sync date (Pacific, noon UTC) | same | keep |
+| 13 | `is-configurable-3` | Switch | product `is_configurable` | product `is_configurable` (moves to the template in cleanup) | keep |
+| 14 | `erp-sync-id` | Plain text | product name | product name | keep |
+| 15 | `attribute-links-json` | Plain text | product Attribute Links | product Attribute Links | keep |
 | 16 | `certifications-json` | Plain text | product Certifications | template Certifications as JSON, in table order (each row carries `order`), with the brand's badge image | change |
-| 17 | `compatible-products-json` | Plain text | product Compatible Products | product Compatible Products || keep |
+| 17 | `compatible-products-json` | Plain text | product Compatible Products | product Compatible Products | keep |
 | 18 | `configurator-options-json` | Plain text | product configurator (aliased to the template's) | template Part No. Configurator, only `option_step`, `option_label`, `is_required`, `depends_on_step`, `allowed_values_json` (empty when the brand gets none) | change |
-| 19 | `documents-json` | Plain text | product Documents | product Documents; the spec sheet row is `spec_sheet_public_url` || keep |
-| 20 | `features-json` | Plain text | product Features | product Features || keep |
+| 19 | `documents-json` | Plain text | product Documents | product Documents; the spec sheet row is `spec_sheet_public_url` | keep |
+| 20 | `features-json` | Plain text | product Features | product Features | keep |
 | 21 | `feed-lengths-json` | Plain text | not sent | **not sent** (owner: not needed; remove the Webflow field in cleanup) | drop |
 | 22 | `kit-components-json` | Plain text | product Kit Components | template Kit Components, only `component_type`, `component_image`, `component_description`, grouped by component type in the node exactly as Get Product Info does (`[{hero_image}, {code, label}, ...]` per group) | change |
 | 23 | `specifications-json` | Plain text | product Specifications | template Specifications, only `spec_label`, `spec_value` and `order` (the row's position in the table, not `display_order`) | change |
 | 24 | `spec-sheet` | File | not sent | **not sent**; the spec sheet is only in `documents-json` as `spec_sheet_public_url` | drop |
 | 25 | `price-per-foot-msrp` | Number | not sent | template `price_per_ft_msrp`, else `base_price_msrp` (fixture and tape/neon templates have both; driver, controller and kit have only the base price; LED sheet has neither) | change |
-| 26 | `subheading` | Plain text | product `sublabel` | template Sublabel || keep |
-| 27 | `dimensions` | Image | product dimensions image | template Dimensions Image || keep |
-| 28 | `product-badge` | Plain text | product badge (from Web Badge) | product Web Badge || keep |
-| 29 | `turn-off-config-spec-button` | Switch | not sent | not sent (managed in Webflow) || keep |
-| 30 | `spec-submittal` | File | not sent | not sent || keep |
-| 31 | `showcasing-at-cedia-2026` | Switch | not sent | not sent (managed in Webflow) || keep |
-| 32 | `cedia-product-tag` | Plain text | not sent | not sent (managed in Webflow) || keep |
+| 26 | `subheading` | Plain text | product `sublabel` | template Sublabel | keep |
+| 27 | `dimensions` | Image | product dimensions image | template Dimensions Image | keep |
+| 28 | `product-badge` | Plain text | product badge (from Web Badge) | product Web Badge | keep |
+| 29 | `turn-off-config-spec-button` | Switch | not sent | not sent (managed in Webflow) | keep |
+| 30 | `spec-submittal` | File | not sent | not sent | keep |
+| 31 | `showcasing-at-cedia-2026` | Switch | not sent | not sent (managed in Webflow) | keep |
+| 32 | `cedia-product-tag` | Plain text | not sent | not sent (managed in Webflow) | keep |
 | 33 | `led-package-code` | Plain text | not sent | **not sent** (owner: not needed) | drop |
 | 34 | `part-number-prefix` | Plain text | not sent | **not sent** (owner: not needed) | drop |
 
