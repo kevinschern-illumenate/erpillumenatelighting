@@ -76,6 +76,15 @@ record.certifications = (t.certifications || []).filter(row => row.certification
   },
 }));
 
+// Spec Gallery (owner, 2026-11-04): extra images per spec sheet section, in table order.
+record.spec_gallery = (t.spec_gallery || [])
+  .filter(row => row.gallery_section && row.gallery_img)
+  .map(row => ({
+    section: row.gallery_section,
+    title: String(row.gallery_title || '').trim(),
+    image: absolute(row.gallery_img),
+  }));
+
 // Still from legacy (owner, 2026-11-02).
 record.photometric_image = legacy.photometric_image;
 record.photometric_data = legacy.photometric_data;
