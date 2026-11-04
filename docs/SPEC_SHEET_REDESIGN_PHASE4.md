@@ -132,3 +132,19 @@ empty; image in `#spec-dims-img-other`) and hidden when there are none. The othe
 their Webflow pages.
 
 Template sidebar: brand pill, then the record name, then the Template Name directly under it.
+
+## Kits waiting for data (2026-11-04)
+
+The owner runs the kit bulk regeneration later, once the foundations are set. On
+2026-11-04, KIT-RA01 to KIT-RA04 were ready. These were skipped for missing data:
+
+| Kit | Missing |
+|---|---|
+| KIT-AZ01 | Sublabel, Hero Image, Dimensions Image, Operating Temperature Min and Max |
+| KIT-BN03 | Same as KIT-AZ01, plus the Description on Kit Components row 7 |
+| KIT-CH02 | Same as KIT-AZ01, plus all Kit Components |
+| KIT-RA05 | Hero Image, Dimensions Image, and the Description on Kit Components row 3 |
+| KIT-SH01 | Same as KIT-CH02 |
+| KIT-SH02 | Same as KIT-CH02 |
+| KIT-SH03 | Same as KIT-CH02 |
+| KIT-SL01 | Same as KIT-AZ01 |
