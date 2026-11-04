@@ -148,6 +148,22 @@ def run(spec_job, template_doctype, template_id, brand):
 	_set_status(spec_job, status="Done", message=_("Spec sheet generated."), file_url=answer["file_url"])
 
 
+def display_name(file_url):
+	"""Pure: ``.../X_Spec Sheet_C2174D.pdf`` -> ``X_Spec Sheet.pdf``; other names unchanged."""
+	import re
+	from urllib.parse import unquote
+
+	name = unquote(file_url.rsplit("/", 1)[-1])
+	return re.sub(r"_[A-Z0-9]{6}(\.pdf)$", r"\1", name)
+
+
+def show_without_tag(file_url):
+	name = display_name(file_url)
+	for row in frappe.get_all("File", filters={"file_url": file_url}, fields=["name", "file_name"]):
+		if row.file_name != name:
+			frappe.db.set_value("File", row.name, "file_name", name, update_modified=False)
+
+
 def register_spec_sheet(template_doctype, template_id, file_url):
 	"""After n8n has uploaded and attached the PDF: check the template points at it.
 
@@ -164,6 +180,11 @@ def register_spec_sheet(template_doctype, template_id, file_url):
 		frappe.db.set_value(template_doctype, template_id, "spec_sheet", file_url)
 	# The stable link (Phase 4): the same for every regeneration, for the template's brand.
 	brand = spec_sheet_route.template_brand(template_doctype, template_id)
+	# ERPNext lists the file without its tag (the stored name keeps it, owner 2026-11-04).
+	try:
+		show_without_tag(file_url)
+	except Exception:
+		frappe.log_error(title=f"Spec sheet file name not tidied: {file_url}")
 	frappe.db.set_value(
 		template_doctype,
 		template_id,

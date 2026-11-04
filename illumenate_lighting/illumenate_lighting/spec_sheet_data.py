@@ -170,6 +170,37 @@ def webflow_section(product, brand):
 UNSAFE_IN_FILE_NAMES = set('/\\:*?"<>|')
 
 
+# The tag that makes each spec sheet file unique, printed on the sheet too (owner, 2026-11-04).
+TAG_LENGTH = 6
+STAMP_TIMEZONE = "America/Los_Angeles"
+
+
+def spec_sheet_naming(template, brand, tag=None, now=None):
+	"""File names and the sheet's stamp for one generation (owner, 2026-11-04).
+
+	- ``spec_sheet_file_name``: the stored file, ``<Brand>_<Name>_Spec Sheet_<TAG>.pdf``. The
+	  tag makes the name unique, so Frappe adds nothing of its own.
+	- ``spec_sheet_display_name``: what ERPNext lists (File Name), without the tag.
+	- ``spec_sheet_tag``: 6 characters, uppercase, made before the PDF is drawn.
+	- ``spec_sheet_stamp``: ``<TAG>.<MMDDYY>`` for the sheet's #generated-date, the date in
+	  Pacific time.
+	"""
+	import secrets
+	from datetime import datetime
+	from zoneinfo import ZoneInfo
+
+	tag = (tag or secrets.token_hex(TAG_LENGTH))[:TAG_LENGTH].upper()
+	now = now or datetime.now(ZoneInfo(STAMP_TIMEZONE))
+	display = spec_sheet_file_name(template, brand)
+	stem = display[: -len(".pdf")] if display.endswith(".pdf") else display
+	return {
+		"spec_sheet_file_name": f"{stem}_{tag}.pdf",
+		"spec_sheet_display_name": display,
+		"spec_sheet_tag": tag,
+		"spec_sheet_stamp": f"{tag}.{now:%m%d%y}",
+	}
+
+
 def spec_sheet_file_name(template, brand=None):
 	"""``<Brand>_<Display Name>_Spec Sheet.pdf`` (owner, 2026-11-03), for example
 	``ilLumenate Lighting_Rainier [SF] Extrusion Kit_Spec Sheet.pdf``. Display Name, else
@@ -272,7 +303,7 @@ def build(template, product, brand, legacy=None):
 			"product_type": _product_type(template),
 			"include_configurator": _include_configurator(brand),
 			# The PDF's file name: <Brand>_<Display Name>_Spec Sheet.pdf (owner, 2026-11-03).
-			"spec_sheet_file_name": spec_sheet_file_name(template, brand),
+			**spec_sheet_naming(template, brand),
 			# Images and files are stored as /files/...; prefix this to make them absolute.
 			"base_url": _base_url(),
 		},

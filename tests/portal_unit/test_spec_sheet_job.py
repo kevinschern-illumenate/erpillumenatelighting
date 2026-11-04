@@ -80,6 +80,13 @@ class Job(unittest.TestCase):
 		)
 		self.assertEqual(self.module.answer_error({"error": "Vercel timed out"}), "Vercel timed out")
 
+	def test_the_listed_name_drops_the_tag(self):
+		url = "/files/ilLumenate%20Lighting_Rainier%20%5BAN%5D%20Extrusion%20Kit_Spec%20Sheet_C2174D.pdf"
+		self.assertEqual(
+			self.module.display_name(url), "ilLumenate Lighting_Rainier [AN] Extrusion Kit_Spec Sheet.pdf"
+		)
+		self.assertEqual(self.module.display_name("/files/other.pdf"), "other.pdf")
+
 	def test_a_failed_run_is_reported_and_changes_nothing(self):
 		self.module.call_n8n = MagicMock(return_value={"success": False, "error": "Vercel timed out"})
 		self.module.run("j1", "ilL-Extrusion-Kit-Template", "KIT-RA01", "illumenate")

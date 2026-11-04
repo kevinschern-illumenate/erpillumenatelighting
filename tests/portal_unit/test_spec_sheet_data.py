@@ -114,6 +114,22 @@ class Payload(unittest.TestCase):
 		odd = Doc("ilL-Driver-Template", "X", template_name='A/B: "C"  D')
 		self.assertEqual(name(odd, "illumenate"), "ilLumenate Lighting_AB C D_Spec Sheet.pdf")
 
+	def test_each_generation_gets_a_tag_in_the_file_name_and_on_the_sheet(self):
+		from datetime import datetime
+
+		kit = Doc("ilL-Extrusion-Kit-Template", "KIT-RA01", display_name="Rainier [AN] Extrusion Kit")
+		names = self.module.spec_sheet_naming(
+			kit, "illumenate", tag="c2174d", now=datetime(2026, 11, 4, 23, 30)
+		)
+		self.assertEqual(
+			names["spec_sheet_file_name"],
+			"ilLumenate Lighting_Rainier [AN] Extrusion Kit_Spec Sheet_C2174D.pdf",
+		)
+		self.assertEqual(
+			names["spec_sheet_display_name"], "ilLumenate Lighting_Rainier [AN] Extrusion Kit_Spec Sheet.pdf"
+		)
+		self.assertEqual(names["spec_sheet_stamp"], "C2174D.110426")
+
 	def test_the_ownership_table_names_each_field_once(self):
 		fields = [row[0] for row in self.module.ownership_table()]
 		self.assertEqual(len(fields), len(set(fields)))
