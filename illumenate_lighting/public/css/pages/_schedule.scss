@@ -1049,3 +1049,12 @@
 		color: var(--ill-ink);
 	}
 }
+
+// Plan 8.1: repeated inline styles moved here. The extra .ill-page--schedule keeps them
+// above Bootstrap's .badge / .fa / .table-sm th rules, as the inline styles were.
+.ill-page--schedule {
+	.ill-weight-normal { font-weight: normal; }
+	.ill-stock-dot { font-size: 0.6em; vertical-align: middle; }
+	.kit-stock-table .ill-tight,
+	.ill-tight { padding: 2px 4px; }
+}

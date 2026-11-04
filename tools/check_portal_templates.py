@@ -58,6 +58,8 @@ environment.globals.update(
 		"ill_finder_enabled": lambda: True,
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
+		"ill_unread_notifications": lambda: 12,
+		"ill_notification_center_enabled": lambda: True,
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
@@ -109,6 +111,8 @@ assert not page_style_violations("x", '<a href="#addLineModal">')
 # literal, a macro or sanitized HTML, or listed in tools/portal_raw_outputs.txt with why it is safe.
 OUTPUT = re.compile(r"\{\{-?(.*?)-?\}\}", re.DOTALL)
 MACRO = re.compile(r"\{%-?\s*macro\s+(\w+)")
+# Plan 8.2: macros imported from templates/includes/ are checked in their own file.
+IMPORTED_MACROS = re.compile(r"""\{%-?\s*from\s+["']templates/includes/[^"']+["']\s+import\s+(.+?)\s*-?%\}""")
 ESCAPING_FILTERS = {"e", "escape", "forceescape", "tojson", "urlencode", "int", "float", "round", "length", "count", "abs"}
 RAW_ALLOWLIST_FILE = ROOT / "tools/portal_raw_outputs.txt"
 RAW_ALLOWLIST = {
@@ -149,6 +153,9 @@ def _escaped(expr, macros):
 
 def unescaped_outputs(name, source):
 	macros = set(MACRO.findall(source))
+	for names in IMPORTED_MACROS.findall(source):
+		names = re.sub(r"\s+(?:with|without)\s+context$", "", names)
+		macros.update(part.split(" as ")[-1].strip() for part in names.split(","))
 	found = []
 	for match in OUTPUT.finditer(source):
 		expression = match.group(1).strip()
@@ -167,6 +174,10 @@ assert not unescaped_outputs(
 	"{% macro row(d) %}{% endmacro %}{{ doc.name | e }}{{ (a or b) | e }}{{ x | tojson }}{{ _('Hi') }}"
 	"{{ row(doc) }}{{ page - 1 }}{{ 'a' if ok else 'b' }}{{ ill_sanitize_html(doc.notes) | safe }}",
 )
+assert not unescaped_outputs(
+	"x", '{% from "templates/includes/portal_chrome.html" import pager, breadcrumbs as crumbs %}{{ pager(1) }}{{ crumbs([]) }}'
+)
+assert unescaped_outputs("x", '{% from "elsewhere.html" import pager %}{{ pager(1) }}') == ["x:1: {{ pager(1) }}"]
 assert unescaped_outputs("x", "{{ doc.notes | safe }}{{ a or b | e }}") == [
 	"x:1: {{ doc.notes | safe }}",
 	"x:1: {{ a or b | e }}",
@@ -262,6 +273,46 @@ if handler_violations:
 	sys.exit(
 		"Inline event handlers interpolate template values (use data attributes and a delegated listener):\n  "
 		+ "\n  ".join(handler_violations)
+	)
+
+# Plan 8.3: a button or link whose only content is an icon needs an accessible name.
+ICON_ONLY = re.compile(r"<(button|a)\b([^>]*)>\s*<i\b[^>]*>\s*</i>\s*</\1>", re.S)
+
+
+def unnamed_icon_controls(name, source):
+	found = []
+	for match in ICON_ONLY.finditer(source):
+		if re.search(r"aria-label(?:ledby)?=|title=", match.group(2)):
+			continue
+		# jQuery-built controls name themselves right after the markup: $('<button>…').attr('aria-label', …)
+		if re.match(r"""[^;]{0,200}\.attr\(\s*['"](?:aria-label|title)['"]""", source[match.end() :], re.S):
+			continue
+		found.append(f"{name}:{source.count(chr(10), 0, match.start()) + 1}: {match.group(0)[:100]}")
+	return found
+
+
+assert unnamed_icon_controls("x", '<button type="button"><i class="fa fa-trash"></i></button>') == [
+	'x:1: <button type="button"><i class="fa fa-trash"></i></button>'
+]
+assert not unnamed_icon_controls(
+	"x",
+	'<button aria-label="Remove"><i class="fa fa-trash"></i></button>'
+	'<a href="/x" title="Open"><i class="fa fa-link"></i></a>'
+	'<button><i class="fa fa-plus"></i> Add</button>'
+	"$('<button><i class=\"fa fa-x\"></i></button>').attr('data-user', u).attr('aria-label', t)",
+)
+icon_violations = []
+for path in sorted(
+	[*(ROOT / "illumenate_lighting/templates").rglob("*.html"), *(ROOT / "illumenate_lighting/public/js").rglob("*.js")]
+):
+	# Desk scripts render inside Frappe's own chrome and are out of scope for the portal check.
+	if "desk" in path.relative_to(ROOT / "illumenate_lighting").parts or path.name.startswith(("desk_", "illumenate_desk")):
+		continue
+	icon_violations += unnamed_icon_controls(path.relative_to(ROOT), path.read_text(encoding="utf8"))
+if icon_violations:
+	sys.exit(
+		'Give icon-only buttons and links an accessible name (aria-label="...") (plan 8.3):\n  '
+		+ "\n  ".join(icon_violations)
 	)
 
 offer = {
@@ -486,6 +537,30 @@ orders_html = environment.get_template("templates/pages/orders.html").render(
 )
 assert "Newer orders" in orders_html and "Older orders" in orders_html
 assert 'class="ill-record"' in orders_html and "No orders match" not in orders_html
+# Plan 8.2: one breadcrumb trail and one pager carry every filter to the next page.
+assert '<li class="breadcrumb-item active" aria-current="page">Orders</li>' in orders_html
+assert 'rel="prev" href="?page=1&amp;search=PO1&amp;status=shipping"' in orders_html
+assert 'rel="next" href="?page=3&amp;search=PO1&amp;status=shipping"' in orders_html
+assert '<span class="ill-pager__page">Page 2</span>' in orders_html
+assert '<a href="/portal/orders">Orders</a>' in order_html
+assert '<li class="breadcrumb-item active" aria-current="page">' in order_html
+# Plan 8.5: the nav bell caps its badge at 9+ and names itself for screen readers.
+assert 'href="/portal/notifications"' in orders_html and ">9+</span>" in orders_html
+assert '<span class="sr-only">9+ unread</span>' in orders_html
+notifications_page = environment.get_template("templates/pages/ill_notifications.html")
+notifications_html = notifications_page.render(
+	path="portal/notifications",
+	notifications=[
+		{"subject": "Quote <b>Q1</b> ready", "link": "/portal/quotes/Q%3C1", "when": "2026-11-01 10:00:00", "when_label": "1 hour ago", "unread": True},
+		{"subject": "Order shipped", "link": "/portal/orders/SO1", "when": "2026-10-01 10:00:00", "when_label": "1 month ago", "unread": False},
+	],
+)
+assert "Quote &lt;b&gt;Q1&lt;/b&gt; ready" in notifications_html and "<b>Q1" not in notifications_html
+assert notifications_html.count("ill-notification--unread") == 1 and 'href="/portal/quotes/Q%3C1"' in notifications_html
+assert 'class="ill-portal-navigation__bell" href="/portal/notifications" aria-current="page"' in notifications_html
+empty_notifications = notifications_page.render(path="portal/notifications", notifications=[])
+assert "No notifications yet" in empty_notifications and 'href="/portal/projects"' in empty_notifications
+parser.feed(notifications_html)
 quote_request_html = environment.get_template("templates/pages/quote_request_detail.html").render(
 	request=View(
 		name="QR1",

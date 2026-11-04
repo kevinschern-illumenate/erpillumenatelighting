@@ -3,6 +3,7 @@ Portal Drawings Page
 Request and track custom drawings and technical documentation
 #}
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 {% block portal_scope %}ill-page--drawings{% endblock %}
 
 {% block portal_title %}{{ _("Drawing Requests") }}{% endblock %}
@@ -247,13 +248,7 @@ Request and track custom drawings and technical documentation
 						<p>{{ _("Submit your first request using the form.") }}</p>
 					</div>
 					{% endif %}
-					{% if page > 1 or has_more %}
-					<nav class="ill-pager" aria-label="{{ _('All requests pages') }}">
-						{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}#all">{{ _("Previous") }}</a>{% else %}<span></span>{% endif %}
-						<span class="small text-muted">{{ _("Page {0}").format(page) | e }}</span>
-						{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}#all">{{ _("Next") }}</a>{% else %}<span></span>{% endif %}
-					</nav>
-					{% endif %}
+					{{ pager(_("All requests pages"), page, has_more, fragment="#all") }}
 				</div>
 			</div>
 		</div>

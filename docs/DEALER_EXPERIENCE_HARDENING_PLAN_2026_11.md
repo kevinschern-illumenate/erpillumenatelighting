@@ -290,6 +290,16 @@ Readiness (`api/product_readiness.py:228-389`) is strong on engineering but chec
    camera capture (`accept="image/*" capture="environment"`) in the uploader on phones.
 5. **Notification center.** Unread badge in the portal nav using the existing event ledger.
 
+**Phase 8 status** (branch `feat/phase-8-polish`, PR #402, based on `feat/phase-2-foundation`)
+
+| # | Status | Commits | Notes / deviations |
+|---|--------|---------|--------------------|
+| 8.1 | Done (incremental) | `9cd53b0`, `5b08ad2` | Tokens for color, space, radius and type already existed in `portal.css`; they were reused, not rebuilt. New global partial `public/css/_portal_components.scss` holds the dialog, toast, pager, breadcrumb and notification styles that used to be inline JS `cssText`. 65 repeated inline styles in `schedule.html` became classes in `pages/_schedule.scss`, pinned by `test_schedule_inline_styles.py`. `display:none` styles that page scripts toggle stay inline. The uploader component lives in Phase 4 (#397). |
+| 8.2 | Done | `4e31ad4` | `templates/includes/portal_chrome.html` provides `breadcrumbs`, `pager` and `empty_state` macros, all escaping internally. Projects, orders, quotes (requests), drawings and support use one pager that keeps every filter. Order, quote, quote-request and support detail pages show breadcrumbs instead of back links. The checker trusts macros imported from `templates/includes/`, and the `ill_projects` `query \| safe` allowlist entry is gone. Sort and filter bars were already server-driven; they are unchanged. |
+| 8.3 | Done | `9cd53b0`, `6154377`, `068055e` | `PortalUI.dialog` adds a focus trap, Escape, backdrop cancel and focus return. `confirm` and the order PO editor use it. It is a `role=dialog` div, not native `<dialog>`, because jsdom has no `showModal`. Keyboard tablists (`data-ill-tabs`) are used on the project page. `href="#"` menu items in `schedule.html` are now buttons. The account nav already used real fragment links; it keeps them and adds `aria-current` and focus. The checker rejects icon-only buttons or links without a name. Already in place and only verified: axe-core in Playwright, `role=status`/`alert` toasts, and AA badge contrast, which is now pinned by `test_badge_contrast.py`. |
+| 8.4 | Done (partial) | `fbc0ede` | The schedule card layout below 768 px already existed. 44 px targets now apply under `@media (pointer: coarse)` only. The sticky bulk-action bar comes with Phase 3 bulk actions (#398). Deviation: no `capture="environment"`. Every portal file input also accepts PDFs, and `capture` would hide the file picker on phones. Mobile browsers already offer the camera for `image/*` accepts. |
+| 8.5 | Done | `3864aa4` | Reads the outbox ledger (`ilL-Portal-Delivery` and `ilL-Portal-Event`) per recipient and re-checks `reference_access` for each entry. The seen marker is a Frappe user default, so there is no schema change. The nav bell badge caps at 9+, is cached for 60 s and carries screen-reader text. `/portal/notifications` lists entries and marks them read. Kill switch: site config `ill_portal_notification_center` (default on). |
+
 ---
 
 ## Phase 9 — Acceptance and rollout
