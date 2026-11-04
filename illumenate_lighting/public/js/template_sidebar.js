@@ -1,5 +1,5 @@
 /* Template form extras (owner, 2026-11-04):
-   - the Template Name under the record name in the sidebar;
+   - the brand pill, the record name and the Template Name at the top of the sidebar;
    - Actions > Apply Calculations, which recalculates the saved template (specifications,
      configurator, component and badge images) and saves its Webflow Product. */
 ['ilL-Fixture-Template', 'ilL-Tape-Neon-Template', 'ilL-LED-Sheet-Template', 'ilL-Driver-Template',
@@ -31,20 +31,55 @@
     });
 });
 
+// Brand names and colours as on the Webflow Product's sidebar pill.
+const BRAND_PILLS = {
+    illumenate: {label: 'ilLumenate Lighting', background: '#0052cc', color: 'white'},
+    lighting_206: {label: '206 Lighting', background: '#fdc757', color: '#172e48'},
+};
+
+function titleRow($sidebar, name) {
+    // The element showing the record name (for example KIT-RA04), then the row holding it
+    // with the print and like icons.
+    const $text = $sidebar.find('*').filter(function () {
+        return this.children.length === 0 && $(this).text().trim() === name;
+    }).first();
+    if (!$text.length) return null;
+    const $row = $text.parent();
+    return $row.find('svg, button, .icon').length ? $row : $text;
+}
+
 function showTemplateName(frm) {
+    // Order (owner, 2026-11-04): brand pill, record name (KIT-RA04), Template Name.
     const $sidebar = frm.sidebar && frm.sidebar.sidebar;
     if (!$sidebar) return;
-    $sidebar.find('.ill-template-name').remove();
+    $sidebar.find('.ill-template-name, .ill-template-brand').remove();
+    if (frm.is_new()) return;
+    const $row = titleRow($sidebar, frm.doc.name);
+
+    const brands = (frm.doc.target_brands || []).filter(row => row.enabled && row.brand);
+    if (brands.length) {
+        const $pills = $('<div class="ill-template-brand"></div>').css({padding: '0 0 6px'});
+        brands.forEach(row => {
+            const pill = BRAND_PILLS[row.brand] || {label: row.brand, background: '#8d99a6', color: 'white'};
+            $('<span class="badge"></span>').text(pill.label).css({
+                'background-color': pill.background, color: pill.color, 'font-weight': 500, 'margin-right': '5px',
+            }).appendTo($pills);
+        });
+        if ($row) {
+            $pills.insertBefore($row);
+        } else {
+            $sidebar.prepend($pills);
+        }
+    }
+
     const name = frm.doc.template_name;
-    if (!name || frm.is_new()) return;
-    const $el = $('<div class="ill-template-name text-muted small"></div>')
+    if (!name) return;
+    const $name = $('<div class="ill-template-name text-muted"></div>')
         .text(name)
-        .css({padding: '0 var(--padding-sm, 8px) var(--padding-sm, 8px)', 'word-break': 'break-word'});
-    // Right under the record name at the top of the sidebar.
-    const $title = $sidebar.find('.sidebar-meta-details, .sidebar-image-section, .form-sidebar-title').first();
-    if ($title.length) {
-        $el.insertAfter($title);
+        .css({'word-break': 'break-word', 'margin-top': '2px'});
+    if ($row) {
+        $name.insertAfter($row);
     } else {
-        $sidebar.prepend($el);
+        $sidebar.prepend($name);
     }
 }

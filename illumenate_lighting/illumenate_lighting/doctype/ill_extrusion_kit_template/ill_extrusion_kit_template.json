@@ -58,6 +58,8 @@
   "web_specs_certs_section",
   "specifications",
   "certifications",
+  "spec_gallery_section",
+  "spec_gallery",
   "web_configurator_section",
   "auto_populate_configurator",
   "part_no_configurator",
@@ -390,6 +392,18 @@
    "description": "Copied to the Webflow Product with each brand's badge images."
   },
   {
+   "fieldname": "spec_gallery_section",
+   "fieldtype": "Section Break",
+   "label": "Spec Gallery"
+  },
+  {
+   "fieldname": "spec_gallery",
+   "fieldtype": "Table",
+   "label": "Spec Gallery",
+   "options": "ilL-Child-Spec-Gallery",
+   "description": "Other images the spec sheet shows. Section picks where each goes (for example, extra drawings in Dimensions); rows of a section appear in table order."
+  },
+  {
    "fieldname": "web_configurator_section",
    "fieldtype": "Section Break",
    "label": "Configurator"
@@ -476,7 +490,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-04 05:38:27.000000",
+ "modified": "2026-11-04 17:58:42.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Extrusion-Kit-Template",

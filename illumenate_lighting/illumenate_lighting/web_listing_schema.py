@@ -304,6 +304,22 @@ IDENTITY_LEFT = ("template_code", "template_name", "product_status", "sublabel")
 IDENTITY_RIGHT = ("product_category", "is_active", "series", "target_brands")
 IDENTITY_FIELDS = (TARGET_BRANDS_FIELD, SUBLABEL_FIELD)
 
+# Extra spec sheet images, one row per image, placed by Section (owner, 2026-11-04). Spec
+# sheets only; not copied to the Webflow Product.
+_SPEC_GALLERY = [
+	_section("spec_gallery_section", "Spec Gallery"),
+	{
+		"fieldname": "spec_gallery",
+		"fieldtype": "Table",
+		"label": "Spec Gallery",
+		"options": "ilL-Child-Spec-Gallery",
+		"description": (
+			"Other images the spec sheet shows. Section picks where each goes (for example, extra "
+			"drawings in Dimensions); rows of a section appear in table order."
+		),
+	},
+]
+
 _SPECS_AND_CERTIFICATIONS = [
 	_section("web_specs_certs_section", "Specifications & Certifications"),
 	{
@@ -392,6 +408,7 @@ def _tab_fields(doctype):
 		_column("product_data_column"),
 		*right,
 		*_SPECS_AND_CERTIFICATIONS,
+		*_SPEC_GALLERY,
 		_section("web_configurator_section", "Configurator"),
 		CONFIGURATOR_AUTO_FIELD,
 		_configurator_table(CONFIGURATOR_TABLE[doctype]),

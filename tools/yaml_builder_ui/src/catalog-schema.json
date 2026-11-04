@@ -2183,6 +2183,33 @@
         }
       ]
     },
+    "ilL-Child-Spec-Gallery": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "gallery_section",
+          "label": "Section",
+          "fieldtype": "Select",
+          "options": "Dimensions\nAccessories Dimensions\nBend Diameter(s)\nOverview\nEmission Angle",
+          "reqd": 1,
+          "description": "The spec sheet section the image goes into."
+        },
+        {
+          "fieldname": "gallery_title",
+          "label": "Title",
+          "fieldtype": "Data",
+          "description": "Shown above the image. Left out when empty."
+        },
+        {
+          "fieldname": "gallery_img",
+          "label": "Image",
+          "fieldtype": "Attach",
+          "reqd": 1,
+          "description": "Any image file, SVG included."
+        }
+      ]
+    },
     "ilL-Child-Tape-Channel": {
       "autoname": "",
       "istable": 1,
@@ -3313,6 +3340,13 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "spec_gallery",
+          "label": "Spec Gallery",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Gallery",
+          "description": "Other images the spec sheet shows. Section picks where each goes (for example, extra drawings in Dimensions); rows of a section appear in table order."
+        },
+        {
           "fieldname": "auto_populate_configurator",
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
@@ -3608,6 +3642,13 @@
           "description": "Copied to the Webflow Product with each brand's badge images."
         },
         {
+          "fieldname": "spec_gallery",
+          "label": "Spec Gallery",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Gallery",
+          "description": "Other images the spec sheet shows. Section picks where each goes (for example, extra drawings in Dimensions); rows of a section appear in table order."
+        },
+        {
           "fieldname": "auto_populate_configurator",
           "label": "Calculate Configurator on Save",
           "fieldtype": "Check",
@@ -3871,6 +3912,13 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Spec-Certification",
           "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "spec_gallery",
+          "label": "Spec Gallery",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Gallery",
+          "description": "Other images the spec sheet shows. Section picks where each goes (for example, extra drawings in Dimensions); rows of a section appear in table order."
         },
         {
           "fieldname": "auto_populate_configurator",
@@ -4199,6 +4247,13 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Spec-Certification",
           "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "spec_gallery",
+          "label": "Spec Gallery",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Gallery",
+          "description": "Other images the spec sheet shows. Section picks where each goes (for example, extra drawings in Dimensions); rows of a section appear in table order."
         },
         {
           "fieldname": "auto_populate_configurator",
@@ -4683,6 +4738,13 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Spec-Certification",
           "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "spec_gallery",
+          "label": "Spec Gallery",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Gallery",
+          "description": "Other images the spec sheet shows. Section picks where each goes (for example, extra drawings in Dimensions); rows of a section appear in table order."
         },
         {
           "fieldname": "auto_populate_configurator",
@@ -7459,6 +7521,13 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Spec-Certification",
           "description": "Copied to the Webflow Product with each brand's badge images."
+        },
+        {
+          "fieldname": "spec_gallery",
+          "label": "Spec Gallery",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Spec-Gallery",
+          "description": "Other images the spec sheet shows. Section picks where each goes (for example, extra drawings in Dimensions); rows of a section appear in table order."
         },
         {
           "fieldname": "auto_populate_configurator",

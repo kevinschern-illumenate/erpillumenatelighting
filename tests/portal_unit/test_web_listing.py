@@ -132,7 +132,8 @@ class StampedSchema(unittest.TestCase):
 				start = [f["fieldname"] for f in fields].index(TAB)
 				sections = [f["label"] for f in fields[start:] if f["fieldtype"] == "Section Break"]
 				self.assertEqual(
-					sections[:3], ["Product Data", "Specifications & Certifications", "Configurator"]
+					sections[:4],
+					["Product Data", "Specifications & Certifications", "Spec Gallery", "Configurator"],
 				)
 				first = fields[start + 2 : [f["fieldname"] for f in fields].index("web_specs_certs_section")]
 				self.assertEqual(sum(f["fieldtype"] == "Column Break" for f in first), 1)

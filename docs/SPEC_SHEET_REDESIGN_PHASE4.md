@@ -117,3 +117,18 @@ pages a run needs.
   (`template_listing.apply_calculations`, same permission as linking).
 - The Environment row is labelled "Environment Rating(s)" (the old "Environment Ratings" row is
   replaced on the next calculation).
+
+## Spec Gallery (owner, 2026-11-04)
+
+All six templates have a **Spec Gallery** section on the Product Data tab (`spec_gallery`, child
+`ilL-Child-Spec-Gallery`): Section (required; Dimensions, Accessories Dimensions, Bend Diameter(s),
+Overview, Emission Angle), Title (optional), Image (required, any file type including SVG). Spec
+sheets only; nothing is copied to the Webflow Product or Webflow. The rows reach n8n in
+`get_spec_sheet_data` (`template.spec_gallery`) in table order.
+
+ilLumenate kit sheet: the first `.dimension-item` keeps `dimensions_image` in `#spec-dims-img`;
+`#dimension-item` is repeated once per Dimensions row (title in `#dimension-title`, hidden when
+empty; image in `#spec-dims-img-other`) and hidden when there are none. The other sections wait for
+their Webflow pages.
+
+Template sidebar: brand pill, then the record name, then the Template Name directly under it.
