@@ -231,6 +231,67 @@ class ControllerImmutability(unittest.TestCase):
 				"Group engineering builds are immutable",
 			)
 
+	def group_with_watts(self, build_watts, stored_watts):
+		"""Validate a reloaded group whose stored output load is ``stored_watts``."""
+		build = {
+			"request": {"family": "LED Sheet", "template": "S1"},
+			"members": [{"member_key": "M1", "length": 1}],
+			"power_plan": {
+				"allocations": [
+					{"run_key": "M1:1", "supply": 1, "output": 1, "item_code": "DRV", "watts": build_watts}
+				]
+			},
+		}
+		extras = {
+			"frappe.model.document": document_module(),
+			ROOT + ".api.fixture_group_bom": stub(
+				ROOT + ".api.fixture_group_bom", snapshot=lambda doc: copy.deepcopy(build)
+			),
+			ROOT + ".api.group_contract": stub(
+				ROOT + ".api.group_contract", TEMPLATE_TYPES={"LED Sheet": "ilL-LED-Sheet-Template"}
+			),
+		}
+		with load_service(DOCTYPE + "ill_configured_group.ill_configured_group", extras) as (module, _frappe):
+			fields = [
+				field("family"),
+				field("template_type"),
+				field("template"),
+				field("configured_item", "Link"),
+				field("members", "Table"),
+				field("allocations", "Table"),
+			]
+			values = {
+				"family": "LED Sheet",
+				"template_type": "ilL-LED-Sheet-Template",
+				"template": "S1",
+				"members": stored_rows(
+					{"member_key": "M1", "snapshot_json": json.dumps(build["members"][0])}
+				),
+				"allocations": stored_rows(
+					{
+						"member_key": "M1",
+						"run_key": "M1:1",
+						"supply_number": 1,
+						"output_number": 1,
+						"item_code": "DRV",
+						"watts": stored_watts,
+					}
+				),
+			}
+			doc = saving(
+				lambda f, v, o: module.ilLConfiguredGroup(f, v, o), fields, values, configured_item="GRP"
+			)
+			doc.flags.group_engine_write = True
+			doc.validate()
+
+	def test_group_accepts_loads_rounded_by_the_float_column(self):
+		# 3 panels x 4.8 W is 14.399999999999999 in the snapshot and 14.4 once stored and reloaded.
+		self.group_with_watts(3 * 4.8, 14.4)
+
+	def test_group_still_rejects_a_changed_output_load(self):
+		with self.assertRaisesRegex(ValueError, "output allocations"):
+			self.group_with_watts(14.4, 14.5)
+
 	def test_linear_fixture_keeps_accepting_item_links(self):
 		extras = {
 			"frappe.model.document": document_module(),
