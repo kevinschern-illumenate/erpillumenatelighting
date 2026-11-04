@@ -11,7 +11,7 @@ including input validation, parsing utilities, and CORS handling.
 import frappe
 
 # ---------------------------------------------------------------------------
-# CORS – Allowed Webflow origins
+# CORS - Allowed Webflow origins
 # ---------------------------------------------------------------------------
 
 ALLOWED_ORIGINS = [
@@ -23,6 +23,7 @@ ALLOWED_ORIGINS = [
 	"https://illumenate.lighting",
 	"https://www.illumenate.lighting",
 	"https://stagingillumenatelighting.v.frappe.cloud",
+	"https://staging-illumenate.webflow.io",
 	"https://illumenate-staging.webflow.io",
 	"https://app.illumenate.lighting",
 	"https://configurator-ui-olive.vercel.app",
@@ -30,7 +31,7 @@ ALLOWED_ORIGINS = [
 
 
 def after_request(response):
-	"""Frappe after_request hook – inject CORS headers for allowed Webflow origins.
+	"""Frappe after_request hook - inject CORS headers for allowed Webflow origins.
 
 	Args:
 		response: The werkzeug Response object passed by Frappe's after_request hook.
@@ -91,8 +92,8 @@ def get_compatible_lenses_for_profile(
 
 	Args:
 		profile_spec_name: The name (primary key) of the ilL-Spec-Profile record.
-		lens_appearance_code: Optional filter – only return lenses with this appearance.
-		environment_rating_code: Optional filter – only return lenses whose
+		lens_appearance_code: Optional filter - only return lenses with this appearance.
+		environment_rating_code: Optional filter - only return lenses whose
 			ilL-Child-Lens Environments child table includes this rating.
 		active_only: If True (default), only consider active ilL-Rel-Profile Lens records.
 
