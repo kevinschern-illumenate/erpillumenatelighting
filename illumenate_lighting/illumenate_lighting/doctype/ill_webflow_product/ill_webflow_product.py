@@ -37,7 +37,7 @@ def order_environment_ratings(ratings):
 
 MANAGED_LABELS = (
 	"Color Rendering (CRI)", "Output Options", "Light Color (CCT)", "Lens Options",
-	"Mounting Options", "Mounting", "Finish Options", "Finish", "Lenses", "Environment Ratings", 
+	"Mounting Options", "Mounting", "Finish Options", "Finish", "Lenses", "Environment Ratings", "Environment Rating(s)", 
 	"Operating Temperature", "Production Interval", "Dimensions", "Dimensions (ft)",
 	"Cut Interval", "Watts per Foot", "Watts per Square Foot", "Max Run Length",
 	"Input Voltage", "Dimming", "Max Footage per 100W Supply", "Beam Spread",
@@ -1711,7 +1711,7 @@ class ilLWebflowProduct(Document):
 		if env_ratings:
 			specs_to_add.append({
 				"spec_group": "Environmental",
-				"spec_label": "Environment Ratings",
+				"spec_label": "Environment Rating(s)",
 				"spec_value": ", ".join(order_environment_ratings(env_ratings)),
 				"is_calculated": 1,
 				"display_order": 80,
@@ -2134,7 +2134,7 @@ class ilLWebflowProduct(Document):
 			if ratings:
 				specs_to_add.append({
 					"spec_group": "Environmental",
-					"spec_label": "Environment Ratings",
+					"spec_label": "Environment Rating(s)",
 					"spec_value": ", ".join(order_environment_ratings(ratings)),
 					"is_calculated": 1,
 					"display_order": 70
@@ -4432,8 +4432,8 @@ class ilLWebflowProduct(Document):
 							
 							if env_ratings:
 								sorted_env = order_environment_ratings(env_ratings)
-								append_spec(self, "Environmental", "Environment Ratings", ", ".join(sorted_env), "", 49, "ilL-Attribute-Environment Rating")
-								record(debug, "Environment Ratings", len(sorted_env), sorted_env, appended=True)
+								append_spec(self, "Environmental", "Environment Rating(s)", ", ".join(sorted_env), "", 49, "ilL-Attribute-Environment Rating")
+								record(debug, "Environment Rating(s)", len(sorted_env), sorted_env, appended=True)
 						except frappe.DoesNotExistError:
 							record(debug, "Additional Profile Specs", 0, skip_reason=f"Profile doc {profile_spec_name} not found")
 

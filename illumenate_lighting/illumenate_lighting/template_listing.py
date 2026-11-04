@@ -909,3 +909,22 @@ def refresh_all_templates(apply=False, push=False):
 	if apply:
 		frappe.db.commit()
 	return result
+
+
+@frappe.whitelist(methods=["POST"])
+def apply_calculations(template_doctype, template_id):
+	"""Actions > Apply Calculations (owner, 2026-11-04): recalculate a saved template now.
+
+	Saves the template, which rebuilds its specifications, configurator steps (when it
+	calculates them), component images and descriptions and certification badges, and saves
+	its linked Webflow Product. Same permission as linking (D28).
+	"""
+	from illumenate_lighting.illumenate_lighting.template_link import require_template_access
+
+	if template_doctype not in TEMPLATE_DOCTYPES:
+		frappe.throw(_("{0} is not a product template.").format(template_doctype))
+	require_template_access(template_doctype, template_id)
+	doc = frappe.get_doc(template_doctype, template_id)
+	doc.flags.ignore_version = False
+	doc.save()
+	return {"template": doc.name, "modified": str(doc.modified)}

@@ -111,3 +111,9 @@ pages a run needs.
   the missing fields from that answer. (`check_ready=False` is used only by the staging checks.)
   Operating temperatures: an empty Int field reads 0, so "both 0" counts as not set; one bound set and
   the other empty passes.
+- Template forms (owner, 2026-11-04): the Template Name is shown under the record name in the sidebar,
+  and Actions > Apply Calculations recalculates a saved template on demand (specifications,
+  configurator, component and badge images) and saves its Webflow Product
+  (`template_listing.apply_calculations`, same permission as linking).
+- The Environment row is labelled "Environment Rating(s)" (the old "Environment Ratings" row is
+  replaced on the next calculation).
