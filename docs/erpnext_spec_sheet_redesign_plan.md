@@ -611,7 +611,7 @@ Correction to 4.16 row 8 (owner): Webflow `featured-image` comes from the **prod
 | 3 | Remove the `configurator_options` table and its calculations | agreed |
 | 4 | Move `is_configurable` into the Identity section, under `is_active` | agreed |
 | 5 | Remove Kit Components from the product and everything related to it | agreed |
-| 6 | `features`: a table with Title and Description columns; sent to Webflow as JSON | agreed |
+| 6 | Features (owner, 2026-11-05): new table `web_features` (Title, Description) on the Webflow Product. On save it is formatted as JSON (`[{title, description}, ...]`, the shape `features` holds today) and written into `features`, which is then hidden. Every other reader keeps reading `features` unchanged. | answered |
 | 7 | 16:9: a warning only (owner, 2026-11-05) for `featured_image` and for gallery images; nothing refuses a save | answered (c) |
 | 8 | Attribute Links: full mirror of the template, rebuilt on every save, read-only; remove `auto_populate_attributes` and the Refresh Attribute Links button. Keep `display_label` for now (see below). Kits: default profile (Environment Ratings, Joiner System), default lens (Lens Appearance), kit template Allowed Options (Finish, Mounting Method), certifications; no Series, no Endcap Style. The old kit-component accessory rows never matched anything (the product rows hold an Item, not a spec) and are removed. Certification rows read the template's Certifications | answered (a) |
 | 9 | Certifications section description | dropped: the section is hidden (see below) |
