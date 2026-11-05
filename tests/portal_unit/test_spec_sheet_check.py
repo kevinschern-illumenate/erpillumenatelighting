@@ -141,5 +141,18 @@ class Check(unittest.TestCase):
 		self.assertIn("Certification UL has no Badge Image (its badge is skipped)", result["warnings"])
 
 
+class TemplateSites(unittest.TestCase):
+	def test_the_site_config_map_may_be_a_json_string(self):
+		with load_service(ROOT + ".spec_sheet_check") as (module, _frappe):
+			expected = {"illumenate": "https://staging-illumenate.webflow.io"}
+			self.assertEqual(module.template_sites(expected), expected)
+			self.assertEqual(
+				module.template_sites('{"illumenate": "https://staging-illumenate.webflow.io"}'), expected
+			)
+			self.assertEqual(module.template_sites("not json"), {})
+			self.assertEqual(module.template_sites(None), {})
+			self.assertEqual(module.template_sites('["a"]'), {})
+
+
 if __name__ == "__main__":
 	unittest.main()

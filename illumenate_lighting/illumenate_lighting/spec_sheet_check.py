@@ -27,6 +27,8 @@ Warnings: certifications without a Badge Image, component types without a Compon
 Other template types get their own required fields when their Webflow page is built.
 """
 
+import json
+
 import frappe
 
 KIT = "ilL-Extrusion-Kit-Template"
@@ -40,13 +42,24 @@ def page_slug(template):
 	return (product_type_for(template) or "").lower().replace(" ", "-")
 
 
+def template_sites(value):
+	"""Pure: the ``spec_sheet_template_sites`` map. Frappe Cloud's site config editor can store
+	it as a JSON string; a value that is neither a map nor a JSON map counts as unset."""
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except ValueError:
+			return {}
+	return {str(k): str(v) for k, v in value.items() if v} if isinstance(value, dict) else {}
+
+
 def webflow_site(brand):
 	"""The brand's Webflow site that holds the spec sheet pages.
 
 	Site config ``spec_sheet_template_sites`` ({brand code: "https://..."}) wins, so staging can
 	point at the staging Webflow site; otherwise the brand's Webflow Site URL.
 	"""
-	configured = frappe.conf.get("spec_sheet_template_sites") or {}
+	configured = template_sites(frappe.conf.get("spec_sheet_template_sites"))
 	if configured.get(brand):
 		return configured[brand].rstrip("/")
 	from illumenate_lighting.illumenate_lighting.api.webflow_brand import resolve_brand
