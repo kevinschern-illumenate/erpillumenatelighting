@@ -202,10 +202,15 @@ var ScheduleImport = (function () {
 		});
 	}
 
+	// The header, then guidance and example rows. Those start with "#", which the import skips,
+	// so the file can be filled in under them and uploaded unchanged.
 	function template() {
-		var columns = scheduleContext.import_columns || [];
-		var line = columns.map(function (column) { return '"' + String(column).replace(/"/g, '""') + '"'; }).join(',');
-		ScheduleImport.save(new Blob([line + '\r\n'], { type: 'text/csv' }), 'schedule-import-template.csv');
+		var rows = [scheduleContext.import_columns || []].concat(scheduleContext.import_template_rows || []);
+		var text = rows.map(function (row) {
+			return row.map(function (cell) { return '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"'; }).join(',');
+		}).join('\r\n');
+		// The byte-order mark makes Excel open the file as UTF-8.
+		ScheduleImport.save(new Blob(['\ufeff' + text + '\r\n'], { type: 'text/csv' }), 'schedule-import-template.csv');
 	}
 
 	if (scheduleContext.schedule_import) {

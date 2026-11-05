@@ -198,7 +198,12 @@ def get_context(context):
 				decoded = None
 			if decoded and decoded.get("template"):
 				context.pn_prefill = decoded
-				initial_request = {"template": decoded["template"], "selections": decoded["selections"]}
+				initial_request = {
+					"template": decoded["template"],
+					"selections": decoded["selections"],
+					# Length, start feed, leader and end, so they are not entered twice.
+					"segments": decoded.get("segments") or [],
+				}
 				product_category, template_code = "Linear Fixture", decoded["template"]
 
 	# Plan 3.6 "Start from preset": pre-fill a saved configuration, re-checked against what is

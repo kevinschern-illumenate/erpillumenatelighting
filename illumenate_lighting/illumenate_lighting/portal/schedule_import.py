@@ -62,7 +62,52 @@ FIELDS = (
 	("accessory_item", "Accessory Item Code", ("item code",)),
 )
 FIELD_NAMES = tuple(field for field, _label, _aliases in FIELDS)
-TEMPLATE_COLUMNS = [label for _field, label, _aliases in FIELDS[:7]]
+TEMPLATE_COLUMNS = [label for _field, label, _aliases in FIELDS]
+# A row whose first cell starts with this is a comment: the template's guidance and examples.
+COMMENT = "#"
+
+
+def _example(**values):
+	return [values.get(field, "") for field in FIELD_NAMES]
+
+
+# Guidance and one example per kind of line. Every row starts with "#", so a dealer can type
+# their lines under them and import the file as is; the examples are never added.
+TEMPLATE_ROWS = [
+	_example(line_id="# HOW TO USE: one schedule line per row. Rows whose first cell starts with # (like this one and the examples below) are ignored on import; delete them or leave them."),
+	_example(line_id="# Manufacturer Type: ILLUMENATE, OTHER or ACCESSORY. If blank, a row with an Accessory Item Code is ACCESSORY, a row with a Manufacturer Name is OTHER, and anything else is ILLUMENATE."),
+	_example(line_id="# ILLUMENATE lines (linear fixtures, LED tape, LED neon, LED sheets) are added as Needs configuration. A full ilLumenate part number picks the product; Description, Part Number and Length (in) are kept in the line notes so you can finish it in the configurator."),
+	_example(line_id="# OTHER lines are another manufacturer's product: Manufacturer Name is required; Fixture Model through Finish are optional. ACCESSORY lines need an exact ilLumenate Item Code (power supplies, profiles, lenses, end caps, mounting)."),
+	_example(line_id="# Qty is a whole number (blank means 1). Length (in) is the requested length in inches for linear products and runs."),
+	_example(
+		line_id="#EX-A1", qty="4", location="Lobby cove", description="ilLumenate linear fixture, part number known",
+		part_number="ILL-SH01-S-D-30-O3-FR-CL-SV-48-L10-C", notes="Example: decoded part number", length_in="48",
+		manufacturer_type="ILLUMENATE",
+	),
+	_example(
+		line_id="#EX-A2", qty="2", location="Conference room", description="ilLumenate linear pendant, 3000K, black, about 10 ft",
+		notes="Example: no part number yet; choose the product when configuring", length_in="120", manufacturer_type="ILLUMENATE",
+	),
+	_example(
+		line_id="#EX-T1", qty="1", location="Under-cabinet", description="ilLumenate LED tape, 2700K, high output",
+		notes="Example: LED tape or neon; length is the total run", length_in="216", manufacturer_type="ILLUMENATE",
+	),
+	_example(
+		line_id="#EX-S1", qty="1", location="Backlit wall", description="ilLumenate LED sheet, 8 ft x 4 ft coverage",
+		notes="Example: LED sheet; give the coverage in the description", manufacturer_type="ILLUMENATE",
+	),
+	_example(
+		line_id="#EX-B1", qty="12", location="Open office", description="2x4 recessed troffer",
+		notes="Example: another manufacturer's fixture", manufacturer_type="OTHER", manufacturer_name="Acme Lighting",
+		fixture_model_number="TRF-24-40K", lamp_info="LED 40W 4000K", dimming_protocol="0-10V",
+		input_voltage="120-277V", other_finish="White",
+	),
+	_example(
+		line_id="#EX-P1", qty="2", location="Electrical room", description="Power supply for the lobby cove",
+		notes="Example: replace with a real Item Code from the catalog", manufacturer_type="ACCESSORY",
+		accessory_item="ITEM-CODE",
+	),
+]
 OTHER_FIELDS = (
 	"manufacturer_name",
 	"fixture_model_number",
@@ -233,6 +278,9 @@ class _Planner:
 		return self.items[code]
 
 	def plan(self, number, cells, mapping):
+		first = next((cell for cell in cells if cell), "")
+		if first.startswith(COMMENT):
+			return None
 		values = {field: (cells[index] if index < len(cells) else "") for field, index in mapping.items()}
 		if not any(values.values()) or any(cell.upper() == "SCHEDULE TOTAL" for cell in cells):
 			return None

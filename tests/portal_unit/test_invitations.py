@@ -212,8 +212,9 @@ class AccountInvitations(unittest.TestCase):
 			utilities(frappe)
 			frappe.get_doc.return_value = Record(name="INV-1", state="Accepted", project="P-1", customer=None)
 			with patch.object(module, "_invite_authority"), patch.object(module, "_login"):
-				with self.assertRaises(ValueError):
-					module.resend_invitation("INV-1")
+				refused = module.resend_invitation("INV-1")
+				self.assertFalse(refused["success"])
+				self.assertIn("Only pending invitations", refused["error"])
 			self.outbox.record_invitation.assert_not_called()
 
 	def test_preview_explains_each_state(self):

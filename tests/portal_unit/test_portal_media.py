@@ -483,11 +483,10 @@ class DealerLogo(unittest.TestCase):
 				self.assertEqual(module.set_dealer_logo(remove="1"), {"success": True, "dealer_logo": None})
 				frappe.db.set_value.assert_called_once_with("Customer", "CUST", "dealer_logo", None)
 				self.assertEqual(module.set_dealer_logo(file_id="F1")["dealer_logo"], "/files/x.png")
-				with self.assertRaisesRegex(ValueError, "Choose"):
-					module.set_dealer_logo()
+				# Refusals come back as a readable reply rather than an HTTP error.
+				self.assertIn("Choose", module.set_dealer_logo()["error"])
 				available.return_value = False
-				with self.assertRaises(PermissionError):
-					module.set_dealer_logo(file_id="F1")
+				self.assertFalse(module.set_dealer_logo(file_id="F1")["success"])
 
 	@unittest.skipUnless(has_module("PIL"), "Pillow is not installed")
 	def test_normalize_logo_fits_the_title_block_box(self):

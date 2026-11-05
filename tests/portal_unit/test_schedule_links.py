@@ -184,7 +184,9 @@ class ConfigurePage(unittest.TestCase):
 		self.assertIsNone(error)
 		self.assertEqual(calls, ["ILL-SH01-S"])
 		self.assertEqual(context.pn_prefill, decoded)
-		self.assertEqual(context.initial_request, {"template": "FT-1", "selections": decoded["selections"]})
+		self.assertEqual(
+			context.initial_request, {"template": "FT-1", "selections": decoded["selections"], "segments": []}
+		)
 		self.assertEqual((context.product_category, context.selected_template), ("Linear Fixture", "FT-1"))
 		self.assertIsNone(context.line_idx, "saving adds a new line")
 

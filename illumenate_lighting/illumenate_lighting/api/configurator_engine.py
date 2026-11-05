@@ -3780,7 +3780,8 @@ def _calculate_pricing(
 
 	Implements Epic 4 Task 4.1: Baseline pricing formula
 	- base + $/ft × L_tape_cut (or L_mfg based on template setting)
-	- adders based on selected options (finish, lens, mounting, endcap, power feed, environment)
+	- option adders (finish, lens, mounting, power feed, environment) are per foot:
+	  msrp_adder x the same priced length; Endcap Style adders are flat, once per endcap
 	- customer tier/price list via Customer Group Pricing Rules
 
 	Args:
@@ -3872,15 +3873,17 @@ def _calculate_pricing(
 		]
 
 		option_adder = 0.0
-		if matching_rows:
-			# Use the msrp_adder from the allowed option row
-			option_adder = float(matching_rows[0].msrp_adder or 0)
+		per_ft_adder = float(matching_rows[0].msrp_adder or 0) if matching_rows else 0.0
+		if per_ft_adder:
+			# The option's MSRP adder is per foot: it raises the price per foot, so it is
+			# multiplied by the same priced length as the template's $/ft.
+			option_adder = per_ft_adder * length_ft
 
 		total_option_adders += option_adder
 		if option_adder != 0:
 			adder_breakdown.append({
 				"component": field_name,
-				"description": f"{option_type} ({selected_value})",
+				"description": f"{option_type} ({selected_value}): {length_ft:.2f}ft x ${per_ft_adder:.2f}/ft",
 				"amount": round(option_adder, 2),
 			})
 
@@ -3900,7 +3903,7 @@ def _calculate_pricing(
 
 		option_adder = 0.0
 		if matching_rows:
-			# Use the msrp_adder from the allowed option row
+			# Endcaps are counted per end, so an Endcap Style adder stays a flat amount per endcap.
 			option_adder = float(matching_rows[0].msrp_adder or 0)
 
 		total_option_adders += option_adder

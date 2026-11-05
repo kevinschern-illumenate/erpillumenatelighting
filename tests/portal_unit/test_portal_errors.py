@@ -76,6 +76,39 @@ class PortalErrors(unittest.TestCase):
 				)
 			frappe.log_error.assert_not_called()
 
+	def test_service_endpoint_turns_raised_errors_into_replies(self):
+		"""Account endpoints raised plain ValueErrors, which Frappe answered with a bare HTTP 500."""
+		with self.load() as (errors, frappe):
+			self.raising_site(frappe)
+			frappe.session = Record(user="dealer@example.com")
+			frappe.get_traceback = MagicMock(return_value="Traceback")
+			frappe.log_error = MagicMock(return_value=Record(name="ERR-0002"))
+
+			@errors.service_endpoint("account_request_failed", "Portal account service")
+			def save_record(problem):
+				frappe.local.message_log.append({"message": "queued popup"})
+				raise problem
+
+			refused = save_record(ValueError("This record changed. Reload before requesting a change."))
+			self.assertEqual(
+				refused,
+				{
+					"success": False,
+					"error": "This record changed. Reload before requesting a change.",
+					"error_code": "account_request_failed",
+				},
+			)
+			self.assertEqual(frappe.local.message_log, [])
+			frappe.log_error.assert_not_called()
+
+			crashed = save_record(RuntimeError("Unknown column request_key"))
+			self.assertEqual(crashed["error_code"], errors.UNEXPECTED)
+			self.assertIn("ERR-0002", crashed["error"])
+			message = frappe.log_error.call_args.kwargs["message"]
+			self.assertIn("method: save_record", message)
+			self.assertIn("user: dealer@example.com", message)
+			self.assertEqual(save_record.__name__, "save_record")
+
 	def test_unexpected_errors_are_logged_with_context_and_hidden(self):
 		with self.load() as (errors, frappe):
 			frappe.get_traceback = MagicMock(return_value="Traceback (most recent call last): ...")

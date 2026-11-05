@@ -1173,6 +1173,8 @@
 // above Bootstrap's .badge / .fa / .table-sm th rules, as the inline styles were.
 .ill-page--schedule {
 	.ill-weight-normal { font-weight: normal; }
+	/* A multi-segment build lists one segment per line and wraps, so the lines table never scrolls sideways. */
+	.badge.ill-build-lines { display: inline-block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; line-height: 1.4; }
 	.ill-stock-dot { font-size: 0.6em; vertical-align: middle; }
 	.kit-stock-table .ill-tight,
 	.ill-tight { padding: 2px 4px; }

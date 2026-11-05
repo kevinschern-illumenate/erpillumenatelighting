@@ -506,9 +506,10 @@ def get_context(context):
 		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and schedule_import_enabled()
 	)
 	if context.schedule_import_enabled:
-		from illumenate_lighting.illumenate_lighting.portal.schedule_import import TEMPLATE_COLUMNS
+		from illumenate_lighting.illumenate_lighting.portal.schedule_import import TEMPLATE_COLUMNS, TEMPLATE_ROWS
 
 		context.import_columns = list(TEMPLATE_COLUMNS)
+		context.import_template_rows = [list(row) for row in TEMPLATE_ROWS]
 	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 

@@ -101,18 +101,18 @@
   },
   {
    "default": "0",
-   "description": "MSRP price adder for this option",
+   "description": "Per-foot MSRP adder: added to the template's price per foot and multiplied by the configured (priced) length. Endcap Style adders are a flat amount per endcap.",
    "fieldname": "msrp_adder",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "MSRP Adder"
+   "label": "MSRP Adder ($/ft)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-07 21:00:00.000000",
+ "modified": "2026-11-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Template-Allowed-Option",

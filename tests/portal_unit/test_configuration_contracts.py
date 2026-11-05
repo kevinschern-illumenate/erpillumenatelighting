@@ -134,15 +134,18 @@ class Money(unittest.TestCase):
 				"TN", {"cct": "30K", "output_level": "HO"}, length, 0, is_neon=True
 			)
 
-	def test_fixture_and_tape_neon_round_the_same_sum_once(self):
+	def test_fixture_and_tape_neon_round_their_sums_once(self):
 		for case in PRICE_CASES:
 			with self.subTest(case=case):
 				fixture = self.fixture_total(*case)
 				tape = self.tape_pricing(*case)
 				base, per_ft, length, adders = case
-				exact = base + length / 304.8 * per_ft + sum(adders)
-				self.assertEqual(fixture["msrp_unit"], round(exact, 2))
-				self.assertEqual(tape["total_price_msrp"], fixture["msrp_unit"])
+				# Fixture option adders are per foot, so they scale with the priced length.
+				feet = length / 304.8
+				self.assertEqual(fixture["msrp_unit"], round(base + feet * (per_ft + sum(adders)), 2))
+				# Tape and neon option adders stay a flat amount.
+				exact = base + feet * per_ft + sum(adders)
+				self.assertEqual(tape["total_price_msrp"], round(exact, 2))
 				self.assertAlmostEqual(tape["total_price_msrp_exact"], exact, places=9)
 
 	def test_breakdowns_share_one_shape(self):

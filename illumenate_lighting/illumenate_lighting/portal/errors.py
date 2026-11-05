@@ -10,6 +10,8 @@ unexpected is written to the Error Log with context and replaced by a generic
 message that carries the Error Log reference.
 """
 
+from functools import wraps
+
 import frappe
 
 # Matches the ``internal_error`` code used by api/portal.py::_handle_error.
@@ -144,3 +146,36 @@ def failure(
 	reference = getattr(log, "name", None)
 	message = f"{GENERIC_MESSAGE} (reference {reference})." if reference else f"{GENERIC_MESSAGE}."
 	return {"success": False, "error": message, "error_code": UNEXPECTED}
+
+
+def _clear_messages() -> None:
+	"""The error comes back in the reply; drop frappe.throw's queued popup so it is not shown twice."""
+	log = getattr(getattr(frappe, "local", None), "message_log", None)
+	if isinstance(log, list):
+		del log[:]
+
+
+def service_endpoint(code: str, title: str):
+	"""Return ``{"success": False, "error"}`` instead of an HTTP 500/403 (portal account services).
+
+	Service code raises plain ``ValueError`` for dealer-correctable problems; Frappe answers
+	those with a bare 500, so the portal could only log "Internal Server Error" to the console.
+	Expected errors keep their message; anything else is written to the Error Log and the
+	reply carries its reference. Writes made before the failure are rolled back. Put this
+	below ``@frappe.whitelist`` and above ``@atomic_build``.
+	"""
+
+	def decorate(function):
+		@wraps(function)
+		def wrapped(*args, **kwargs):
+			try:
+				return function(*args, **kwargs)
+			except Exception as exc:
+				if is_expected(exc):
+					_clear_messages()
+				context = {"method": function.__name__, "user": getattr(getattr(frappe, "session", None), "user", None)}
+				return failure(exc, code, title=f"{title}: {function.__name__}", context=context, rollback=True)
+
+		return wrapped
+
+	return decorate
