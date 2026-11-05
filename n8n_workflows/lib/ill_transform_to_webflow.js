@@ -11,7 +11,10 @@ const brand = data.brand;
 const everPublished = Boolean(payload.webflow_state && payload.webflow_state.ever_published);
 
 const baseUrl = String((payload.brand && payload.brand.erpnext_base_url) || 'https://stagingillumenate.v.frappe.cloud').replace(/\/$/, '');
-const fullUrl = path => (!path ? null : /^https?:\/\//.test(path) ? path : baseUrl + (path.startsWith('/') ? '' : '/') + path);
+// Spaces and other characters Webflow cannot fetch are percent-encoded; existing %XX escapes,
+// slashes and brackets are kept, so an already encoded URL is not encoded twice.
+const encodeUrl = url => String(url).replace(/[^A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]/g, ch => encodeURIComponent(ch));
+const fullUrl = path => (!path ? null : encodeUrl(/^https?:\/\//.test(path) ? path : baseUrl + (path.startsWith('/') ? '' : '/') + path));
 const json = list => (Array.isArray(list) && list.length ? JSON.stringify(list) : '');
 
 // --- Status (plan 4.19 Q1): Published/Discontinued are published; a Webflow Draft is staged
@@ -82,9 +85,12 @@ const fieldData = {
   'is-configurable-3': product.is_configurable === 1 || product.is_configurable === true,
   'attribute-links-json': json(product.attribute_links),
   'compatible-products-json': json(product.compatible_products),
-  'documents-json': json(product.documents),
+  // In display order, so the Spec Sheet (the stable spec_sheet_public_url link, order 1) is first.
+  'documents-json': json((product.documents || []).slice().sort((a, b) => (a.display_order || 0) - (b.display_order || 0))),
   'features-json': product.features_json || json(product.features),
   'product-badge': product.product_badge || '',
+  // Web Badge (owner, 2026-11-05): the product's webflow_badge into the new web-badge field.
+  'web-badge': product.webflow_badge || '',
   // 16, 18, 22, 23 (template)
   'certifications-json': json(((tpl && tpl.certifications) || []).map(row => ({...row, badge_image: fullUrl(row.badge_image)}))),
   'configurator-options-json': json(tpl ? tpl.configurator : []),
