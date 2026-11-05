@@ -753,8 +753,8 @@ class ilLWebflowProduct(Document):
 
 	def _populate_extrusion_kit_attributes(self, attribute_links):
 		"""Kit attributes (owner, 2026-11-05): the default profile's Environment Ratings and
-		Joiner System, the default lens's Lens Appearance, and the kit template's Allowed Options
-		(Finish, Mounting Method). No Series and no Endcap Style."""
+		Joiner System, the default lens's Lens Appearance, and the kit template's active Allowed
+		Options: every Finish, Lens Appearance and Mounting Method. No Series and no Endcap Style."""
 
 		def add(attribute_type, doctype, name):
 			if not name or any(
@@ -786,13 +786,15 @@ class ilLWebflowProduct(Document):
 			for option in frappe.get_all(
 				"ilL-Child-Kit-Allowed-Option",
 				filters={"parenttype": "ilL-Extrusion-Kit-Template", "parent": self.kit_template},
-				fields=["option_type", "finish", "mounting_method", "is_active"],
+				fields=["option_type", "finish", "lens_appearance", "mounting_method", "is_active"],
 				order_by="idx asc",
 			):
 				if option.get("is_active") == 0:
 					continue
 				if option.get("option_type") == "Finish":
 					add("Finish", "ilL-Attribute-Finish", option.get("finish"))
+				elif option.get("option_type") == "Lens Appearance":
+					add("Lens Appearance", "ilL-Attribute-Lens Appearance", option.get("lens_appearance"))
 				elif option.get("option_type") == "Mounting Method":
 					add("Mounting Method", "ilL-Attribute-Mounting Method", option.get("mounting_method"))
 

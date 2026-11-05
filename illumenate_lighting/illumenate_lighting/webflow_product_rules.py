@@ -200,3 +200,29 @@ def recommend_power_supplies(doc):
 			title=_("Compatible power supplies"),
 			indicator="orange",
 		)
+
+
+# --- Actions > Apply Calculations ---------------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+def apply_calculations(product):
+	"""Actions > Apply Calculations on the Webflow Product (owner, 2026-11-05).
+
+	A linked product runs its template's Apply Calculations (the template is recalculated and
+	saved, and saves this product); an unlinked product is saved, which reruns its own
+	calculations (attribute links, power supply links, features).
+	"""
+	doc = frappe.get_doc("ilL-Webflow-Product", product)
+	doc.check_permission("write")
+	doctype, template = linked_template(doc)
+	if doctype and frappe.db.exists(doctype, template):
+		from illumenate_lighting.illumenate_lighting.template_listing import apply_calculations as on_template
+
+		on_template(doctype, template)
+		doc.reload()
+		# The template saves this product only when it is linked both ways; save it anyway.
+		doc.save()
+	else:
+		doc.save()
+	return {"product": doc.name, "template": template, "modified": str(doc.modified)}

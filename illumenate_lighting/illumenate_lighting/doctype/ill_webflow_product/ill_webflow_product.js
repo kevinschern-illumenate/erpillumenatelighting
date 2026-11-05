@@ -158,6 +158,25 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				});
 			}
 
+			// Actions > Apply Calculations (owner, 2026-11-05): recalculate the linked template, then
+			// this product (attribute links, power supply links, features, mirrored data).
+			frm.add_custom_button(__("Apply Calculations"), function() {
+				if (frm.is_dirty()) {
+					frappe.msgprint(__("Save the product first."));
+					return;
+				}
+				frappe.call({
+					method: "illumenate_lighting.illumenate_lighting.webflow_product_rules.apply_calculations",
+					args: { product: frm.doc.name },
+					freeze: true,
+					freeze_message: __("Applying calculations..."),
+				}).then(r => {
+					if (!r || r.exc) return;
+					frappe.show_alert({ message: __("Calculations applied."), indicator: "green" });
+					frm.reload_doc();
+				});
+			}, __("Actions"));
+
 			// Spec Sheet CSV export (Fixture Template with linked template,
 			// or LED Tape/Neon with linked tape_neon_template)
 			if (
