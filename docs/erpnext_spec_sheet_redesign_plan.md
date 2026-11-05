@@ -1779,6 +1779,8 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 
 ### 10.8 Staging setup (as of 2026-11-04)
 
+- Staging site config `n8n_sync_webhook_url` = the staging W2 webhook (`.../webhook/staging-product-sync-v2`), added 2026-11-05 when the first sync stopped without it. On main: the production W2 webhook. `spec_sheet_template_sites` may be stored as a JSON string by the Frappe Cloud editor; the check reads both (`73a8b29`).
+
 What staging looks like now, so it is not carried to main by mistake:
 
 - Staging has its own Webflow site, `https://staging-illumenate.webflow.io` (site ID `6aeb4d313e25a078e9393924`, Products collection `6aeb4d313e25a078e9393a2a`), a copy of the main site.
