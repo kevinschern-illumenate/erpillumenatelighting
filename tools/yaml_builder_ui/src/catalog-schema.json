@@ -2459,10 +2459,10 @@
         },
         {
           "fieldname": "msrp_adder",
-          "label": "MSRP Adder",
+          "label": "MSRP Adder ($/ft)",
           "fieldtype": "Currency",
           "default": "0",
-          "description": "MSRP price adder for this option"
+          "description": "Per-foot MSRP adder: added to the template's price per foot and multiplied by the configured (priced) length. Endcap Style adders are a flat amount per endcap."
         }
       ]
     },
