@@ -618,7 +618,7 @@ Also handles new schedule creation when is_new is True
 												<span class="badge badge-light mr-1 ill-weight-normal">Length: <strong>{{ cf_details.get('manufacturable_length_inches') | e }}"{% if cf_details.get('is_multi_segment') %} ({{ cf_details.get('user_segment_count', 0) | e }} segments){% endif %}</strong></span>
 												{% endif %}
 												{% if cf_details.get('is_multi_segment') and cf_details.get('build_description') %}
-												<span class="badge badge-light mr-1 ill-weight-normal">Build: <strong>{{ cf_details.get('build_description_display') | replace('\n', '; ') | e }}</strong></span>
+												<span class="badge badge-light mr-1 ill-weight-normal ill-build-lines">Build:{% for build_line in (cf_details.get('build_description_display') or '').split('\n') if build_line %} <strong class="d-block">{{ build_line | e }}</strong>{% endfor %}</span>
 												{% elif cf_details.get('power_feed_type') %}
 												<span class="badge badge-light mr-1 ill-weight-normal">Feed: <strong>{{ cf_details.get('power_feed_type') | e }}</strong></span>
 												{% endif %}
@@ -2081,6 +2081,7 @@ Also handles new schedule creation when is_new is True
 	"keyboard_shortcuts": (keyboard_shortcuts_enabled | default(false)),
 	"schedule_import": (schedule_import_enabled | default(false)),
 	"import_columns": (import_columns | default([])),
+	"import_template_rows": (import_template_rows | default([])),
 	"project_name": (project.name if project else ''),
 	"dealer_customer_group": (dealer_customer_group or '') if show_dealer_pricing else '',
 	"dealer_pricing_on": (dealer_pricing_on | default(false)) if show_dealer_pricing else false,
@@ -2106,6 +2107,9 @@ Also handles new schedule creation when is_new is True
 		"Please select an item first.": _("Please select an item first."),
 		"Select": _("Select"),
 		"No configurable options available for this item.": _("No configurable options available for this item."),
+		"Options for this item are not fully set up ({0}). Choose the item directly.": _("Options for this item are not fully set up ({0}). Choose the item directly."),
+		"Item": _("Item"),
+		"Select an item...": _("Select an item..."),
 		"Error loading options. Please try again.": _("Error loading options. Please try again."),
 		"No Match": _("No Match"),
 		"Please select options that match an available variant.": _("Please select options that match an available variant."),

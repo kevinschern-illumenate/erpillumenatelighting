@@ -836,7 +836,10 @@ function openItemVariantModal() {
 			$('.variant-config-loading').hide();
 			$('.variant-config-content').show();
 			
-			if (r.message && r.message.success && r.message.attributes && r.message.attributes.length > 0) {
+			if (r.message && r.message.success && r.message.variants && r.message.variants.length
+				&& r.message.incomplete_attributes && r.message.incomplete_attributes.length) {
+				renderDirectVariantChoice(r.message);
+			} else if (r.message && r.message.success && r.message.attributes && r.message.attributes.length > 0) {
 				// Build attribute dropdowns
 				var html = '';
 				r.message.attributes.forEach(function(attr, index) {
@@ -868,6 +871,45 @@ function openItemVariantModal() {
 			$('#variant_attributes_container').html('<div class="alert alert-danger">' + scheduleText("Error loading options. Please try again.") + '</div>');
 		}
 	});
+}
+
+// Some attributes are not recorded on this item's variants (for example a blank Finish), so
+// they cannot be chosen option by option: list the variants themselves instead.
+function renderDirectVariantChoice(message) {
+	var container = document.getElementById('variant_attributes_container');
+	container.textContent = '';
+	var note = document.createElement('div');
+	note.className = 'alert alert-info small';
+	note.textContent = scheduleText("Options for this item are not fully set up ({0}). Choose the item directly.")
+		.replace('{0}', message.incomplete_attributes.join(', '));
+	var group = document.createElement('div');
+	group.className = 'form-group';
+	var label = document.createElement('label');
+	label.htmlFor = 'variant_direct_choice';
+	label.textContent = scheduleText("Item");
+	var select = document.createElement('select');
+	select.id = 'variant_direct_choice';
+	select.className = 'form-control';
+	var blank = document.createElement('option');
+	blank.value = '';
+	blank.textContent = scheduleText("Select an item...");
+	select.appendChild(blank);
+	message.variants.forEach(function (variant) {
+		var option = document.createElement('option');
+		option.value = variant.item_code;
+		option.textContent = (variant.item_name || variant.item_code) + ' (' + variant.item_code + ')';
+		select.appendChild(option);
+	});
+	select.addEventListener('change', function () {
+		var chosen = message.variants.filter(function (variant) { return variant.item_code === select.value; })[0];
+		currentVariantMatch = chosen ? { item_code: chosen.item_code, item_name: chosen.item_name || chosen.item_code } : null;
+		$('#confirmVariantBtn').prop('disabled', !currentVariantMatch);
+		$('.variant-match-status').hide();
+	});
+	group.appendChild(label);
+	group.appendChild(select);
+	container.appendChild(note);
+	container.appendChild(group);
 }
 
 // Collect all selected attribute values from variant dropdowns

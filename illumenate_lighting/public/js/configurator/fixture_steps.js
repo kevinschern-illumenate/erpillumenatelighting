@@ -326,9 +326,24 @@
 		if (typeof segments === 'string') segments = JSON.parse(segments);
 		if (segments.length) {
 			this._clearSegments();
-			segments.forEach(function (segment, index) { self.restoreSegment(self._addSegment(index === 0), segment, 'linear'); });
+			segments.forEach(function (segment, index) {
+				var $card = self._addSegment(index === 0);
+				self.restoreSegment($card, segment, 'linear');
+				self._syncSegmentPills($card);
+			});
 			this._propagateInheritedStarts();
 		}
+	};
+
+	// restoreSegment sets each card's selects; light up the matching feed pills too.
+	Fixture.prototype._syncSegmentPills = function ($card) {
+		if (!$card || !$card.length) return;
+		$card.find('.pill-selector[data-field]').each(function () {
+			var value = $card.find('select[name="' + this.getAttribute('data-field') + '"]').val();
+			$(this).find('.pill').each(function () {
+				$(this).toggleClass('active', value != null && value !== '' && this.getAttribute('data-value') === String(value));
+			});
+		});
 	};
 
 	// ────────────────────────────────────────────────────────────────

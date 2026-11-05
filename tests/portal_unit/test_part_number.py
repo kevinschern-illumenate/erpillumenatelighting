@@ -123,8 +123,27 @@ class PartNumber(unittest.TestCase):
 		self.assertEqual(review["output"]["answer"], "O3")
 		self.assertEqual(
 			[row["text"] for row in result["review"]],
-			["Output O3", "Length 48 in", "Start feed Leader Plug, 6 ft leader"],
+			["Output O3", "Length 48 in", "Start feed Leader Plug, 6 ft leader", "Choose the feed direction"],
 		)
+		# Length, start feed, leader and end prefill the segment, so the dealer does not re-enter them.
+		self.assertEqual(
+			result["segments"],
+			[
+				{
+					"segment_index": 1,
+					"requested_length_mm": 1219.2,
+					"start_power_feed_type": "Leader Plug",
+					"start_leader_cable_length_mm": 1829,
+					"end_type": "Endcap",
+				}
+			],
+		)
+
+	def test_jointed_part_numbers_leave_segments_to_the_dealer(self):
+		module, _frappe = self.module([Record(template("FT-1", []), family="SH01")])
+		result = module.decode("ILL-SH01-S-W-40-O3-FR-CL-SV-120.0-J(AB12)")
+		self.assertEqual(result["segments"], [])
+		self.assertIn("Jointed runs", [row["text"] for row in result["review"]])
 
 	def test_unclear_codes_are_reported_not_guessed(self):
 		builder = [Record(section_name="Mounting", option_code="CL"), Record(section_name="Lens", option_code="FR")]

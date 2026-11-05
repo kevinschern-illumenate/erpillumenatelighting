@@ -793,6 +793,7 @@ select.ill-template-select-driven { display: none !important; }
 .ill-build-preview .ill-bp-feed { fill: var(--ill-gold); stroke: var(--ill-ink); stroke-width: 1; }
 .ill-build-preview .ill-bp-jumper { fill: none; stroke: var(--ill-ink); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .ill-build-preview .ill-bp-joint { stroke: var(--ill-border-str); stroke-width: 2; }
+.ill-build-preview .ill-bp-break { stroke: var(--ill-border-str); stroke-width: 1; stroke-dasharray: 2 4; }
 .ill-build-preview .ill-bp-label,
 .ill-build-preview .ill-bp-note { font-size: 10px; fill: var(--ill-ink); }
 .ill-build-preview .ill-bp-note { fill: var(--ill-muted); }

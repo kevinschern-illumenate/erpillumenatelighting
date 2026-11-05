@@ -962,12 +962,15 @@ def get_item_variant_attributes(template_item: str) -> dict:
 
 		# Build a map of attribute -> set of values used across all variants
 		variant_attr_values = {}
+		variant_names = []
 		for variant in variants:
 			variant_doc = frappe.get_doc("Item", variant.item_code)
+			variant_names.append({"item_code": variant_doc.item_code, "item_name": variant_doc.item_name})
 			for va in variant_doc.get("attributes", []):
 				variant_attr_values.setdefault(va.attribute, set()).add(va.attribute_value)
 
 		attributes = []
+		incomplete = []
 
 		for attr in item_doc.get("attributes", []):
 			if attr.numeric_values:
@@ -990,27 +993,54 @@ def get_item_variant_attributes(template_item: str) -> dict:
 				)
 
 				# Filter to only values that exist in actual variants
-				used_values = variant_attr_values.get(attr.attribute, set())
-				values = [
-					{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
-					for v in attr_values
-					if v.attribute_value in used_values
-				]
+				values = _variant_values(attr_values, variant_attr_values.get(attr.attribute, set()))
+				if not values:
+					incomplete.append(attr.attribute)
 
 			attributes.append({
 				"attribute": attr.attribute,
 				"values": values,
 			})
 
-		return {
+		result = {
 			"success": True,
 			"template_item": template_item,
 			"item_name": item.item_name,
 			"attributes": attributes,
 		}
+		if incomplete and variant_names:
+			# The variants do not record this attribute (blank values), so it cannot be chosen
+			# and matching on the others would pick an arbitrary variant: offer the items directly.
+			result["incomplete_attributes"] = incomplete
+			result["variants"] = sorted(variant_names, key=lambda row: row["item_code"])
+		return result
 
 	except Exception as e:
 		return _safe_error(e, f"Portal: error fetching variant attributes for {template_item}", attributes=[])
+
+
+def _variant_key(value) -> str:
+	return " ".join(str(value or "").split()).casefold()
+
+
+def _variant_values(attr_values, used_values) -> list:
+	"""The values variants actually use, in the Item Attribute's order.
+
+	Each value is spelled as the variants store it, because variant matching compares those
+	strings exactly. Blank values are skipped, case and spacing differences from the Item
+	Attribute list still match, and a value no longer in that list is kept (after the listed ones).
+	"""
+	used = {}
+	for value in used_values:
+		if _variant_key(value):
+			used.setdefault(_variant_key(value), value)
+	values = []
+	for row in attr_values:
+		value = used.pop(_variant_key(row.attribute_value), None)
+		if value is not None:
+			values.append({"value": value, "abbr": row.abbr or value})
+	values.extend({"value": value, "abbr": value} for value in sorted(used.values(), key=_variant_key))
+	return values
 
 
 @frappe.whitelist()
@@ -1088,11 +1118,7 @@ def get_filtered_variant_attributes(template_item: str, selected_attributes: Uni
 				order_by="idx asc",
 			)
 
-			values = [
-				{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
-				for v in attr_values
-				if v.attribute_value in valid_values
-			]
+			values = _variant_values(attr_values, valid_values)
 
 			attributes.append({
 				"attribute": attr_name,
@@ -3268,6 +3294,8 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 		if contact_data.get("customer") and contact_data["customer"] != company():
 			frappe.throw("Contact must belong to your company", frappe.PermissionError)
 		receipt = save_record("Contact", {key: value for key, value in contact_data.items() if key in CONTACT_FIELDS})
+		if not receipt.get("success"):
+			return receipt
 		return {"success": True, "contact_name": receipt["name"]}
 
 	if not contact_data.get("first_name"):

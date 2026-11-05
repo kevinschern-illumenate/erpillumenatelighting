@@ -162,6 +162,20 @@ class ScheduleImport(unittest.TestCase):
 		self.assertEqual(self.schedule.lines, [])
 		self.schedule.save.assert_not_called()
 
+	def test_the_downloaded_template_explains_itself_and_its_examples_are_skipped(self):
+		with self.module() as module:
+			header, examples = module.TEMPLATE_COLUMNS, module.TEMPLATE_ROWS
+			self.assertEqual(len(header), len(module.FIELDS))
+			self.assertEqual(module.suggest_mapping(header), {field: i for i, field in enumerate(module.FIELD_NAMES)})
+			self.assertTrue(all(row[0].startswith("#") and len(row) == len(header) for row in examples))
+			kinds = {row[module.FIELD_NAMES.index("manufacturer_type")] for row in examples}
+			self.assertEqual(kinds - {""}, {"ILLUMENATE", "OTHER", "ACCESSORY"})
+			with self.assertRaises(ValueError):
+				module.preview_schedule_import("S1", "template.csv", sheet([header, *examples]))
+		dealer = ["D1", "3", "Lobby", "Wall wash", "", "", "96", "ILLUMENATE"] + [""] * (len(header) - 8)
+		result = self.preview([header, *examples, dealer])
+		self.assertEqual([(row["line_id"], row["status"]) for row in result["rows"]], [("D1", "needs_configuration")])
+
 	def test_errors_block_the_commit_until_they_are_skipped(self):
 		refused = self.commit(self.rows())
 		self.assertFalse(refused["success"])
@@ -326,7 +340,7 @@ class ScheduleImport(unittest.TestCase):
 		with self.module() as module:
 			for endpoint in (module.preview_schedule_import, module.commit_schedule_import):
 				self.assertEqual(endpoint.whitelist_options, {"methods": ["POST"]})
-			self.assertEqual(module.TEMPLATE_COLUMNS, TEMPLATE)
+			self.assertEqual(module.TEMPLATE_COLUMNS[: len(TEMPLATE)], TEMPLATE)
 
 
 if __name__ == "__main__":

@@ -22,6 +22,8 @@ PLACEHOLDER = "XX"
 JOINT = re.compile(r"^J(\([A-Z0-9]+\))?$")
 VARIANT = re.compile(r"-V\([^()]*\)$")
 NUMBER = re.compile(r"^\d+(\.\d+)?$")
+MM_PER_INCH = 25.4
+MM_PER_FOOT = 304.8
 HEAD = ("led_package", "environment", "cct", "output", "lens", "mounting", "finish")
 
 # Allowed-option codes: PN key -> (builder section, option type, row field, selection key, attribute)
@@ -257,11 +259,13 @@ def decode(part_number):
 		result["candidates"] = [{"value": row.name, "label": row.template_name or row.name} for row, _m in best]
 		return result
 	row, match = best[0]
+	segments = _segments(parsed, match)
 	result.update(
 		{
 			"template": row.name,
 			"template_name": row.template_name or row.name,
 			"selections": {"fixture_template_code": row.name, **match.selections},
+			"segments": segments,
 			"applied": match.applied,
 			"unmatched": match.unmatched,
 			"review": match.review,
@@ -269,6 +273,30 @@ def decode(part_number):
 		}
 	)
 	return result
+
+
+def _segments(parsed, match):
+	"""The fixture's single segment as the configurator restores it: length, start feed, leader, end.
+
+	A jointed part number (``J``/``J(hash)``) does not record its segment lengths, and no part
+	number records the feed direction, so those are left for the dealer (the review notes say so).
+	"""
+	if parsed["joint"]:
+		return []
+	segment = {"segment_index": 1, "requested_length_mm": round(parsed["length_inches"] * MM_PER_INCH, 1)}
+	feed = next((row for row in match.review if row.get("field") == "feed"), {})
+	if feed.get("value"):
+		segment["start_power_feed_type"] = feed["value"]
+	if feed.get("leader_ft") is not None:
+		segment["start_leader_cable_length_mm"] = round(feed["leader_ft"] * MM_PER_FOOT)
+	if parsed["end"] == "C":
+		segment["end_type"] = "Endcap"
+	elif parsed["end"]:
+		match.review.append(
+			{"field": "end", "answer": parsed["end"], "text": _("End feed {0}: choose the end option").format(parsed["end"])}
+		)
+	match.review.append({"field": "feed_direction", "text": _("Choose the feed direction")})
+	return [segment]
 
 
 @frappe.whitelist()
