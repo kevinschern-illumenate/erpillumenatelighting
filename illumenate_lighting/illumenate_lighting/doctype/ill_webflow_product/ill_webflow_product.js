@@ -8,84 +8,38 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		}
 
 		if (!frm.is_new()) {
+			// Sync to Webflow (plan 4.19): stage through the publication pipeline and the W2
+			// workflow only; no spec sheet is generated here (the template's button does that).
 			let sync_btn = frm.add_custom_button(__('Sync to Webflow'), function() {
-				
-				// --- STEP 2 FIX: Darken the background overlay temporarily ---
-				if (!$('#custom-freeze-style').length) {
-					$('<style id="custom-freeze-style">.freeze { background-color: rgba(0, 0, 0, 0.75) !important; backdrop-filter: blur(3px); }</style>').appendTo('head');
+				if (frm.is_dirty()) {
+					frappe.msgprint(__('Save the product first.'));
+					return;
 				}
-
-				// --- STEP 1 & 2 FIX: Single message, styled as a solid, readable card ---
-				const freezeMsg = `
-					<div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 450px; margin: 0 auto; color: #172e48; border: 2px solid #fdc757; text-align: center;">
-						<h4 style="margin-top: 0; margin-bottom: 15px; color: #172e48; font-weight: 700;">Syncing to Webflow</h4>
-						<p style="margin-bottom: 0; font-size: 15px; font-weight: 500; line-height: 1.5;">Please wait, this might take a few minutes. The page will unfreeze once the spec sheet has been successfully generated and Webflow has been updated.</p>
-					</div>
-				`;
-				frappe.dom.freeze(freezeMsg);
-				const api = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.';
-				const controller = new AbortController();
-				let checkInterval;
-				let finished = false;
-				const finish = () => {
-					finished = true;
-					clearInterval(checkInterval);
-					clearTimeout(deadline);
-					frappe.dom.unfreeze();
-					$('#custom-freeze-style').remove();
-				};
-				const fail = (title, message) => {
-					if (finished) return;
-					finish();
-					frappe.msgprint({ title, message: message || __('An error occurred.'), indicator: 'red' });
-				};
-				// Start the deadline before the request: the pipeline may never respond.
-				const deadline = setTimeout(() => {
-					finish();
-					controller.abort();
-					frappe.msgprint(__('Sync has not been confirmed. It may still be running in the background.'));
+				const dialog = new frappe.ui.Dialog({
+					title: __('Syncing to Webflow'),
+					fields: [{fieldtype: 'HTML', fieldname: 'body'}],
+				});
+				dialog.$wrapper.find('.modal-header .btn-modal-close').hide();
+				dialog.$wrapper.modal({backdrop: 'static', keyboard: false});
+				dialog.fields_dict.body.$wrapper.html(`<p class="sync-message">${__('Starting...')}</p>`);
+				dialog.show();
+				const say = text => dialog.fields_dict.body.$wrapper.find('.sync-message').text(text);
+				window.illWebflowSync(frm.doc.name, say).then(result => {
+					dialog.hide();
+					if (result.ok) {
+						frappe.show_alert({message: result.message, indicator: result.superseded ? 'orange' : 'green'});
+					} else {
+						frappe.msgprint({title: __('Webflow sync'), message: frappe.utils.escape_html(result.message), indicator: 'red'});
+					}
 					frm.reload_doc();
-				}, 120000);
-
-				// The server baseline time makes sure an earlier "Synced" is not mistaken
-				// for this run. Every enabled target brand is requested.
-				frappe.xcall(api + 'get_sync_progress', { docname: frm.doc.name }).then(baseline => {
-					const since = baseline && baseline.server_time;
-					const brands = ((baseline && baseline.brands) || []).map(row => row.brand);
-					return Promise.all((brands.length ? brands : [null]).map(brand =>
-						frappe.xcall(api + 'request_spec_sheet', brand ? { docname: frm.doc.name, brand } : { docname: frm.doc.name })
-					)).then(responses => {
-						// The deadline may already have released the form; do not start polling then.
-						if (finished) return since;
-						if (responses.some(response => !response)) throw new Error(__('No response from server.'));
-						return since;
+				}).catch(error => {
+					dialog.hide();
+					frappe.msgprint({
+						title: __('Webflow sync'),
+						message: frappe.utils.escape_html((error && error.message) || __('The sync could not start.')),
+						indicator: 'red',
 					});
-				}).then(since => {
-					// The deadline may already have released the form; do not start polling then.
-					if (finished) return;
-					checkInterval = setInterval(() => {
-						frappe.xcall(api + 'get_sync_progress', { docname: frm.doc.name, since }).then(progress => {
-							if (finished || !progress) return;
-							if (progress.failed) {
-								const errors = (progress.brands || [])
-									.filter(row => row.state === 'failed')
-									.map(row => `${row.brand}: ${row.error || __('failed')}`);
-								fail(__('Sync Error'), frappe.utils.escape_html(errors.join('; ')) || __('Pipeline failed. Check logs.'));
-								frm.reload_doc();
-							} else if (progress.complete) {
-								finish();
-								const superseded = (progress.brands || []).some(row => row.state === 'superseded');
-								frappe.show_alert({
-									message: superseded
-										? __('Webflow sync finished for an older revision. Sync again to publish the latest changes.')
-										: __('Webflow Sync Complete!'),
-									indicator: superseded ? 'orange' : 'green'
-								});
-								frm.reload_doc();
-							}
-						}).catch(err => console.error("Polling error:", err));
-					}, 3000);
-				}).catch(err => fail(__('Sync Failed'), err && err.message && frappe.utils.escape_html(String(err.message))));
+				});
 			});
 
 			sync_btn.css({

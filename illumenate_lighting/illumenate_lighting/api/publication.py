@@ -136,7 +136,17 @@ def _refresh(doc, state, config):
 				)
 			payload["product"]["category_webflow_item_id"] = category_id
 			payload["product"]["category_details"] = {"webflow_item_id": category_id}
-	hash_payload = {**payload, "product": content_record(payload["product"])}
+		# The template's fields for the Webflow mapping (plan 4.16, 4.19); shaped in n8n.
+		from illumenate_lighting.illumenate_lighting.webflow_sync_payload import template_section
+
+		payload["template"] = template_section(doc, bool(config.get("include_configurator_payload")))
+	# Not content: whether the item was ever published decides if a Webflow Draft is staged only
+	# (never published) or published hidden (plan 4.19 Q1). Kept out of the hash.
+	payload["webflow_state"] = {"ever_published": bool(state.get("published_on"))}
+	hash_payload = {
+		**{key: value for key, value in payload.items() if key != "webflow_state"},
+		"product": content_record(payload["product"]),
+	}
 	clean_data = _strip_volatile_metadata(
 		{"payload": hash_payload, "dependencies": readiness["dependencies"]}
 	)

@@ -5,9 +5,9 @@
     const METHOD = 'illumenate_lighting.illumenate_lighting.spec_sheet_job.';
     const POLL_MS = 3000;
 
-    function blockingDialog() {
+    function blockingDialog(sync) {
         const dialog = new frappe.ui.Dialog({
-            title: __('Generating Spec Sheet'),
+            title: sync ? __('Generating Spec Sheet & Syncing to Webflow') : __('Generating Spec Sheet'),
             fields: [{fieldtype: 'HTML', fieldname: 'body'}],
         });
         dialog.$wrapper.find('.modal-header .btn-modal-close').hide();
@@ -22,21 +22,55 @@
         return dialog;
     }
 
-    function poll(frm, dialog, jobId) {
+    function finish(frm, dialog) {
+        dialog.hide();
+        frappe.show_alert({message: __('Spec sheet generated.'), indicator: 'green'});
+        const warnings = frm.__spec_sheet_warnings || [];
+        if (warnings.length) {
+            frappe.msgprint({
+                title: __('Spec sheet generated, with notes'),
+                message: '<ul>' + warnings.map(w => `<li>${frappe.utils.escape_html(w)}</li>`).join('') + '</ul>',
+                indicator: 'orange',
+            });
+        }
+        frm.reload_doc();
+    }
+
+    function syncAfter(frm, dialog) {
+        // Generate Spec & Sync to Webflow (plan 4.19): the spec is registered, then the linked
+        // Webflow Product goes to Webflow through the same path as its own Sync to Webflow.
+        const say = text => dialog.fields_dict.body.$wrapper.find('.spec-sheet-message').text(text);
+        say(__('Spec sheet generated. Syncing to Webflow...'));
+        window.illWebflowSync(frm.doc.webflow_product, say).then(result => {
+            if (!result.ok) {
+                frappe.msgprint({
+                    title: __('Spec sheet generated, Webflow not synced'),
+                    message: frappe.utils.escape_html(result.message),
+                    indicator: 'red',
+                });
+            } else {
+                frappe.show_alert({message: result.message, indicator: result.superseded ? 'orange' : 'green'});
+            }
+            finish(frm, dialog);
+        }).catch(error => {
+            frappe.msgprint({
+                title: __('Spec sheet generated, Webflow not synced'),
+                message: frappe.utils.escape_html((error && error.message) || __('The sync could not start.')),
+                indicator: 'red',
+            });
+            finish(frm, dialog);
+        });
+    }
+
+    function poll(frm, dialog, jobId, sync) {
         frappe.xcall(METHOD + 'spec_sheet_job_status', {job_id: jobId}).then(status => {
             dialog.fields_dict.body.$wrapper.find('.spec-sheet-message').text(status.message || status.status);
             if (status.status === 'Done') {
-                dialog.hide();
-                frappe.show_alert({message: __('Spec sheet generated.'), indicator: 'green'});
-                const warnings = frm.__spec_sheet_warnings || [];
-                if (warnings.length) {
-                    frappe.msgprint({
-                        title: __('Spec sheet generated, with notes'),
-                        message: '<ul>' + warnings.map(w => `<li>${frappe.utils.escape_html(w)}</li>`).join('') + '</ul>',
-                        indicator: 'orange',
-                    });
+                if (sync) {
+                    syncAfter(frm, dialog);
+                } else {
+                    finish(frm, dialog);
                 }
-                frm.reload_doc();
             } else if (status.status === 'Failed' || status.status === 'Unknown') {
                 dialog.hide();
                 frappe.msgprint({
@@ -45,12 +79,12 @@
                     indicator: 'red',
                 });
             } else {
-                setTimeout(() => poll(frm, dialog, jobId), POLL_MS);
+                setTimeout(() => poll(frm, dialog, jobId, sync), POLL_MS);
             }
-        }).catch(() => setTimeout(() => poll(frm, dialog, jobId), POLL_MS * 2));
+        }).catch(() => setTimeout(() => poll(frm, dialog, jobId, sync), POLL_MS * 2));
     }
 
-    function generate(frm) {
+    function generate(frm, sync) {
         if (frm.is_dirty()) {
             frappe.msgprint(__('Save the template first.'));
             return;
@@ -66,7 +100,7 @@
             const result = r && r.message;
             if (!result || !result.job_id) return;
             frm.__spec_sheet_warnings = result.warnings || [];
-            poll(frm, blockingDialog(), result.job_id);
+            poll(frm, blockingDialog(sync), result.job_id, sync);
         });
     }
 
@@ -74,8 +108,13 @@
         'ilL-Controller-Template', 'ilL-Extrusion-Kit-Template'].forEach(doctype => {
         frappe.ui.form.on(doctype, {refresh(frm) {
             if (frm.is_new()) return;
-            // Phase 5 changes the label to "Generate Spec & Sync to Webflow" when a sync follows.
-            frm.add_custom_button(__('Generate Spec'), () => generate(frm));
+            // With a linked Webflow Product the spec is generated, then the product is synced
+            // (plan 4.19); without one it only generates the spec.
+            const sync = Boolean(frm.doc.webflow_product);
+            frm.add_custom_button(
+                sync ? __('Generate Spec & Sync to Webflow') : __('Generate Spec'),
+                () => generate(frm, sync)
+            );
         }});
     });
 })();
