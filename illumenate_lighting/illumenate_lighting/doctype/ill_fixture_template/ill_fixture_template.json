@@ -70,6 +70,7 @@
   "operating_temp_max_c",
   "web_specs_certs_section",
   "specifications",
+  "compatible_power_supplies",
   "certifications",
   "spec_gallery_section",
   "spec_gallery",
@@ -464,6 +465,14 @@
    "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
   },
   {
+   "fieldname": "compatible_power_supplies",
+   "fieldtype": "Table",
+   "label": "Compatible Power Supplies",
+   "options": "ilL-Child-Comp-Power",
+   "read_only": 1,
+   "description": "Rebuilt on save from Driver Eligibility rows that are Active and Allowed, by max wattage. Edit an entry through its Eligibility link."
+  },
+  {
    "fieldname": "certifications",
    "fieldtype": "Table",
    "label": "Certifications",
@@ -570,7 +579,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-04 17:58:42.000000",
+ "modified": "2026-11-05 17:21:58.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Fixture-Template",

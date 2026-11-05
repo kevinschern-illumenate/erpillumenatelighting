@@ -1,7 +1,7 @@
 // Code for the "Get Product Info" node in the staging spec workflow (owner mapping 2026-11-02,
 // docs/erpnext_spec_sheet_redesign_plan.md). Builds the record the Format nodes read
 // (window.ERP_DATA) from get_spec_sheet_data: from the TEMPLATE where the owner mapped it,
-// from legacy only for photometrics, colorimetry and compatible power supplies.
+// from legacy only for photometrics and colorimetry.
 const data = $input.first().json.message;
 if (!data || !data.template) {
   throw new Error('get_spec_sheet_data returned no template for ' + JSON.stringify(data && data.context));
@@ -85,10 +85,15 @@ record.spec_gallery = (t.spec_gallery || [])
     image: absolute(row.gallery_img),
   }));
 
+// Compatible power supplies: the template's table (owner, 2026-11-05), sorted by max wattage
+// on save. The Format nodes still read the old key custom_compatible_power_supplies.
+const SUPPLY_FIELDS = ['part_number', 'input_protocol', 'voltagefrequency', 'output_voltage', 'max_wattage', 'location_rating', 'output_count'];
+record.custom_compatible_power_supplies = (t.compatible_power_supplies || [])
+  .map(row => Object.fromEntries(SUPPLY_FIELDS.map(f => [f, row[f] ?? ''])));
+
 // Still from legacy (owner, 2026-11-02).
 record.photometric_image = legacy.photometric_image;
 record.photometric_data = legacy.photometric_data;
 record.colorimetry = legacy.colorimetry;
-record.custom_compatible_power_supplies = legacy.custom_compatible_power_supplies;
 
 return [{json: {message: {products: [record], brand: ctx.brand, context: ctx}}}];

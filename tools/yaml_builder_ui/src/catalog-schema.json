@@ -1476,6 +1476,14 @@
           "fieldname": "location_rating",
           "label": "Location Rating",
           "fieldtype": "Data"
+        },
+        {
+          "fieldname": "eligibility",
+          "label": "Eligibility",
+          "fieldtype": "Link",
+          "options": "ilL-Rel-Driver-Eligibility",
+          "description": "The Driver Eligibility row this power supply comes from. Open it to edit the entry.",
+          "read_only": 1
         }
       ]
     },
@@ -2516,6 +2524,22 @@
         }
       ]
     },
+    "ilL-Child-Web-Feature": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "title",
+          "label": "Title",
+          "fieldtype": "Data"
+        },
+        {
+          "fieldname": "description",
+          "label": "Description",
+          "fieldtype": "Small Text"
+        }
+      ]
+    },
     "ilL-Child-Webflow-Attribute-Link": {
       "autoname": "",
       "istable": 1,
@@ -2633,6 +2657,14 @@
           "label": "Notes",
           "fieldtype": "Data",
           "description": "Additional context, e.g., 'Required for wet locations'"
+        },
+        {
+          "fieldname": "is_calculated",
+          "label": "Calculated",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "Added from the template's compatible power supplies and rebuilt on save. Rows added by hand are never changed.",
+          "read_only": 1
         }
       ]
     },
@@ -2877,67 +2909,6 @@
           "default": "0",
           "description": "Added by the calculation from the linked spec records (rebuilt on every template save). Rows typed by hand leave it off.",
           "read_only": 1
-        }
-      ]
-    },
-    "ilL-Child-Webflow-Specification": {
-      "autoname": "",
-      "istable": 1,
-      "fields": [
-        {
-          "fieldname": "spec_group",
-          "label": "Specification Group",
-          "fieldtype": "Select",
-          "options": "Electrical\nPhysical\nPerformance\nOptical\nControl\nEnvironmental"
-        },
-        {
-          "fieldname": "spec_label",
-          "label": "Specification Label",
-          "fieldtype": "Data",
-          "reqd": 1
-        },
-        {
-          "fieldname": "spec_value",
-          "label": "Specification Value",
-          "fieldtype": "Data",
-          "reqd": 1
-        },
-        {
-          "fieldname": "spec_unit",
-          "label": "Unit",
-          "fieldtype": "Data"
-        },
-        {
-          "fieldname": "display_order",
-          "label": "Display Order",
-          "fieldtype": "Int",
-          "default": "0"
-        },
-        {
-          "fieldname": "is_calculated",
-          "label": "Is Calculated",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Checked if this spec was auto-populated from source doctype"
-        },
-        {
-          "fieldname": "show_on_card",
-          "label": "Show on Card",
-          "fieldtype": "Check",
-          "default": "0",
-          "description": "Show this specification in product card preview"
-        },
-        {
-          "fieldname": "attribute_doctype",
-          "label": "Attribute DocType",
-          "fieldtype": "Data",
-          "description": "The DocType name for the linked attribute (e.g., ilL-Attribute-Finish)"
-        },
-        {
-          "fieldname": "attribute_options_json",
-          "label": "Attribute Options (JSON)",
-          "fieldtype": "Long Text",
-          "description": "JSON array of linked attribute options with doctype, value, and label"
         }
       ]
     },
@@ -4242,6 +4213,14 @@
           "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
         },
         {
+          "fieldname": "compatible_power_supplies",
+          "label": "Compatible Power Supplies",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Comp-Power",
+          "description": "Rebuilt on save from Driver Eligibility rows that are Active and Allowed, by max wattage. Edit an entry through its Eligibility link.",
+          "read_only": 1
+        },
+        {
           "fieldname": "certifications",
           "label": "Certifications",
           "fieldtype": "Table",
@@ -4731,6 +4710,14 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Spec-Custom",
           "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
+        },
+        {
+          "fieldname": "compatible_power_supplies",
+          "label": "Compatible Power Supplies",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Comp-Power",
+          "description": "Rebuilt on save from Driver Eligibility rows that are Active and Allowed, by max wattage. Edit an entry through its Eligibility link.",
+          "read_only": 1
         },
         {
           "fieldname": "certifications",
@@ -7516,6 +7503,14 @@
           "description": "Rows with calculated labels are rebuilt on save; rows with other labels are kept. Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
         },
         {
+          "fieldname": "compatible_power_supplies",
+          "label": "Compatible Power Supplies",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Comp-Power",
+          "description": "Rebuilt on save from Driver Eligibility rows that are Active and Allowed, by max wattage. Edit an entry through its Eligibility link.",
+          "read_only": 1
+        },
+        {
           "fieldname": "certifications",
           "label": "Certifications",
           "fieldtype": "Table",
@@ -7885,7 +7880,8 @@
           "label": "Kit Components",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Kit-Component",
-          "description": "Components included in this extrusion kit Edited on the linked template once one is set."
+          "description": "Components included in this extrusion kit Edited on the linked template once one is set.",
+          "read_only": 1
         },
         {
           "fieldname": "webflow_badge",
@@ -7910,7 +7906,8 @@
           "label": "Features",
           "fieldtype": "JSON",
           "default": "[]",
-          "description": "Structured feature data for Webflow (array of objects with title and description)"
+          "description": "Written from the Features table on save; do not edit.",
+          "read_only": 1
         },
         {
           "fieldname": "product_badge",
@@ -7923,7 +7920,8 @@
         {
           "fieldname": "featured_image",
           "label": "Featured Image",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Use a 16:9 image (for example 1920 × 1080)."
         },
         {
           "fieldname": "dimensions_image",
@@ -7941,7 +7939,8 @@
           "fieldname": "gallery_images",
           "label": "Gallery Images",
           "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Gallery-Image"
+          "options": "ilL-Child-Webflow-Gallery-Image",
+          "description": "Use 16:9 images."
         },
         {
           "fieldname": "documents",
@@ -7951,31 +7950,12 @@
           "description": "Spec sheets, IES files, installation guides, etc."
         },
         {
-          "fieldname": "auto_populate_attributes",
-          "label": "Auto Populate Attributes",
-          "fieldtype": "Check",
-          "default": "1",
-          "description": "Automatically populate attribute links from linked fixture template's allowed options and tape offerings"
-        },
-        {
-          "fieldname": "auto_calculate_specs",
-          "label": "Auto Calculate Specs",
-          "fieldtype": "Check",
-          "default": "1",
-          "description": "Automatically calculate specifications from linked source doctype (deprecated - use Attribute Links)"
-        },
-        {
-          "fieldname": "specifications",
-          "label": "Specifications",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Specification"
-        },
-        {
           "fieldname": "attribute_links",
           "label": "Attribute Links",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Attribute-Link",
-          "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering."
+          "description": "Mirrors the template: rebuilt on every save.",
+          "read_only": 1
         },
         {
           "fieldname": "certifications",
@@ -7988,13 +7968,7 @@
           "label": "Compatible Products",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Compatibility",
-          "description": "Related products for cross-selling and compatibility info"
-        },
-        {
-          "fieldname": "webflow_compatible_power_supplies",
-          "label": "Compatible Power Supplies",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Comp-Power"
+          "description": "Rows marked Calculated come from the template's compatible power supplies and are rebuilt on save."
         },
         {
           "fieldname": "webflow_specifications",
@@ -8093,6 +8067,13 @@
           "fieldtype": "Link",
           "options": "Item",
           "description": "Optional fixed SKU buying path, including prebuilt kits. Select an active sales Item without variants. Configuration families use their configurator."
+        },
+        {
+          "fieldname": "web_features",
+          "label": "Features",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Web-Feature",
+          "description": "One row per feature. Written into the Features JSON that Webflow and the other systems read."
         }
       ]
     }

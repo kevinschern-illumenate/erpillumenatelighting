@@ -130,14 +130,12 @@ class ilLWebflowProduct(Document):
 		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_kit_component.ill_child_webflow_kit_component import (
 			ilLChildWebflowKitComponent,
 		)
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_specification.ill_child_webflow_specification import (
-			ilLChildWebflowSpecification,
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_web_feature.ill_child_web_feature import (
+			ilLChildWebFeature,
 		)
 
 		accessory_spec: DF.Link | None
 		attribute_links: DF.Table[ilLChildWebflowAttributeLink]
-		auto_calculate_specs: DF.Check
-		auto_populate_attributes: DF.Check
 		auto_populate_configurator_options: DF.Check
 		beam_angle: DF.Float
 		certifications: DF.Table[ilLChildWebflowCertificationLink]
@@ -151,6 +149,7 @@ class ilLWebflowProduct(Document):
 		driver_template: DF.Link | None
 		featured_image: DF.AttachImage | None
 		features: DF.JSON | None
+		web_features: DF.Table[ilLChildWebFeature]
 		fixture_template: DF.Link | None
 		fixture_weight_per_foot_grams: DF.Float
 		gallery_images: DF.Table[ilLChildWebflowGalleryImage]
@@ -178,7 +177,6 @@ class ilLWebflowProduct(Document):
 		series_family_image: DF.AttachImage | None
 		short_description: DF.SmallText | None
 		sublabel: DF.Data | None
-		specifications: DF.Table[ilLChildWebflowSpecification]
 		sync_error_message: DF.SmallText | None
 		sync_status: DF.Literal["Pending", "Synced", "Error", "Never Synced"]
 		tape_neon_template: DF.Link | None
@@ -258,18 +256,20 @@ class ilLWebflowProduct(Document):
 			if hasattr(self, "sync_targets"):
 				self.set("sync_targets", [])
 
-		# Populate attribute links from fixture template
-		if self.get("auto_populate_attributes", True):
-			self.populate_attribute_links()
-
-		# Legacy: calculate specifications (deprecated - moving to attribute links)
-		if self.auto_calculate_specs:
-			self.calculate_specifications()
+		# Attribute Links always mirror the template (owner, 2026-11-05).
+		self.populate_attribute_links()
 
 		# V2 Custom Specification Sync
 		self.sync_custom_template_data()
-		self.populate_compatible_power_supplies()
 		self.populate_certification_badges()
+
+		# Owner changes 2026-11-05 (plan 4.17): features from web_features, power supplies as
+		# calculated Recommended With rows, and 16:9 warnings.
+		from illumenate_lighting.illumenate_lighting import webflow_product_rules
+
+		webflow_product_rules.write_features(self)
+		webflow_product_rules.recommend_power_supplies(self)
+		webflow_product_rules.warn_aspect_ratios(self)
 
 		if self.is_configurable and self.fixture_template:
 			if self.get("auto_populate_configurator_options", True):
@@ -411,71 +411,6 @@ class ilLWebflowProduct(Document):
 				target_doc.flags.syncing_compatibility = True
 				target_doc.save(ignore_permissions=True)
 
-	def populate_compatible_power_supplies(self):
-		"""Fetch eligible drivers from the linked template and populate the child table."""
-
-		# 1. Figure out which template is linked to this product
-		template_name = (
-			self.tape_neon_template or 
-			self.fixture_template or 
-			self.led_sheet_template or 
-			self.kit_template
-		)
-
-		if not template_name:
-			self.webflow_compatible_power_supplies = []
-			return
-
-		# 2. Query ilL-Rel-Driver-Eligibility for all drivers linked to this template
-		eligible_drivers = frappe.get_all(
-			"ilL-Rel-Driver-Eligibility",
-			filters={"fixture_template": template_name, "is_active": 1},
-			pluck="driver_spec"
-		)
-
-		# Clear the table so we can rebuild it cleanly
-		self.webflow_compatible_power_supplies = []
-
-		if not eligible_drivers:
-			return
-
-		# 3. Fetch each Driver Spec and map its fields into the child table
-		for driver_name in eligible_drivers:
-			try:
-				driver_doc = frappe.get_doc("ilL-Spec-Driver", driver_name)
-			except frappe.DoesNotExistError:
-				continue
-
-			# Format Input Protocols (Comma-separated string of Labels)
-			protocols = []
-			for row in driver_doc.get("input_protocols", []):
-				if row.protocol:
-					# Get the pretty label ("0-10V") rather than the database code
-					label = frappe.db.get_value("ilL-Attribute-Dimming Protocol", row.protocol, "label")
-					protocols.append(label or row.protocol)
-			protocol_str = ", ".join(protocols)
-
-			# Format Voltage / Frequency (e.g., "120 - 277VAC")
-			v_min = driver_doc.input_voltage_min or ""
-			v_max = driver_doc.input_voltage_max or ""
-			v_type = driver_doc.input_voltage_type or ""
-			
-			if v_min and v_max:
-				voltage_freq = f"{v_min} - {v_max}{v_type}"
-			else:
-				voltage_freq = f"{v_min or v_max}{v_type}"
-
-			# Append the mapped row to your custom child table
-			self.append("webflow_compatible_power_supplies", {
-				"part_number": driver_doc.name,
-				"input_protocol": protocol_str,
-				"voltagefrequency": voltage_freq,
-				"output_voltage": str(driver_doc.voltage_output) if driver_doc.voltage_output else "",
-				"max_wattage": f"{driver_doc.max_wattage:g}W" if driver_doc.max_wattage else "",
-				"location_rating": driver_doc.location_rating or "",
-				"output_count": driver_doc.outputs_count  # <-- ADDED NEW FIELD HERE
-			})
-
 	def sync_compatible_products(self):
 		"""Handle additions for bi-directional compatibility links."""
 		child_table = "compatible_products" 
@@ -505,7 +440,9 @@ class ilLWebflowProduct(Document):
 			if not exists:
 				target_doc.append(child_table, {
 					related_field: self.name,
-					rel_type_field: relationship
+					rel_type_field: relationship,
+					# A calculated power supply link is calculated on both sides (plan 4.17).
+					"is_calculated": 1 if row.get("is_calculated") else 0,
 				})
 				
 				# Flag to prevent infinite loops
@@ -567,10 +504,24 @@ class ilLWebflowProduct(Document):
 			self.append("attribute_links", link)
 
 	def _populate_certification_attributes(self, attribute_links):
-		"""Add certifications from the certifications child table as attribute links."""
+		"""Add the template's certifications, in table order, as attribute links.
+
+		Read from the template, not this product's (hidden) Certifications table (owner,
+		2026-11-05).
+		"""
+		from illumenate_lighting.illumenate_lighting.webflow_product_rules import linked_template
+
+		doctype, template = linked_template(self)
+		if not doctype:
+			return
+		certifications = frappe.get_all(
+			"ilL-Child-Spec-Certification",
+			filters={"parenttype": doctype, "parent": template, "parentfield": "certifications"},
+			pluck="certification",
+			order_by="idx asc",
+		)
 		display_order = max((a.get("display_order", 0) for a in attribute_links), default=0)
-		for cert in getattr(self, 'certifications', []):
-			cert_name = cert.certification
+		for cert_name in certifications:
 			if not cert_name:
 				continue
 			existing = [a for a in attribute_links
@@ -591,7 +542,7 @@ class ilLWebflowProduct(Document):
 					"webflow_item_id": webflow_id,
 					"display_order": display_order,
 				})
-	
+
 	def _populate_fixture_template_attributes(self, attribute_links):
 		"""Extract attributes from fixture template.
 		
@@ -801,180 +752,49 @@ class ilLWebflowProduct(Document):
 		return profile_spec, lens_spec
 
 	def _populate_extrusion_kit_attributes(self, attribute_links):
-		"""Extract attributes from extrusion kit profile spec, lens spec, and kit components."""
-		display_order = 0
-		profile_spec, lens_spec = self._resolve_kit_specs()
+		"""Kit attributes (owner, 2026-11-05): the default profile's Environment Ratings and
+		Joiner System, the default lens's Lens Appearance, and the kit template's Allowed Options
+		(Finish, Mounting Method). No Series and no Endcap Style."""
 
-		# Extract attributes from profile_spec if present
-		if profile_spec:
-			try:
-				profile = frappe.get_doc("ilL-Spec-Profile", profile_spec)
-			except frappe.DoesNotExistError:
-				frappe.log_error(
-					message=f"Profile spec {profile_spec} not found for extrusion kit {self.name}",
-					title="Extrusion Kit Profile Spec Not Found"
-				)
-				profile = None
-			
-			if profile:
-				# Series from profile
-				if profile.series:
-					display_order += 1
-					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Series", profile.series)
-					attribute_links.append({
-						"attribute_type": "Series",
-						"attribute_doctype": "ilL-Attribute-Series",
-						"attribute_name": profile.series,
-						"display_label": profile.series,
-						"webflow_item_id": webflow_id,
-						"display_order": display_order
-					})
-				
-				# Environment Ratings from profile
-				for env in getattr(profile, 'supported_environment_ratings', []):
-					env_rating = getattr(env, 'environment_rating', None)
-					if env_rating:
-						existing = [a for a in attribute_links 
-						            if a["attribute_doctype"] == "ilL-Attribute-Environment Rating" 
-						            and a["attribute_name"] == env_rating]
-						if not existing:
-							display_order += 1
-							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Environment Rating", env_rating)
-							attribute_links.append({
-								"attribute_type": "Environment Rating",
-								"attribute_doctype": "ilL-Attribute-Environment Rating",
-								"attribute_name": env_rating,
-								"display_label": env_rating,
-								"webflow_item_id": webflow_id,
-								"display_order": display_order
-							})
-				
-				# Joiner System from profile
-				if profile.joiner_system:
-					display_order += 1
-					webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Joiner System", profile.joiner_system)
-					attribute_links.append({
-						"attribute_type": "Joiner System",
-						"attribute_doctype": "ilL-Attribute-Joiner System",
-						"attribute_name": profile.joiner_system,
-						"display_label": profile.joiner_system,
-						"webflow_item_id": webflow_id,
-						"display_order": display_order
-					})
-		
-		# Extract attributes from lens_spec if present
-		if lens_spec:
-			try:
-				lens = frappe.get_doc("ilL-Spec-Lens", lens_spec)
-			except frappe.DoesNotExistError:
-				frappe.log_error(
-					message=f"Lens spec {lens_spec} not found for extrusion kit {self.name}",
-					title="Extrusion Kit Lens Spec Not Found"
-				)
-				lens = None
-			
-			if lens:
-				# Lens Appearance
-				if lens.lens_appearance:
-					existing = [a for a in attribute_links 
-					            if a["attribute_doctype"] == "ilL-Attribute-Lens Appearance" 
-					            and a["attribute_name"] == lens.lens_appearance]
-					if not existing:
-						display_order += 1
-						webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Lens Appearance", lens.lens_appearance)
-						attribute_links.append({
-							"attribute_type": "Lens Appearance",
-							"attribute_doctype": "ilL-Attribute-Lens Appearance",
-							"attribute_name": lens.lens_appearance,
-							"display_label": lens.lens_appearance,
-							"webflow_item_id": webflow_id,
-							"display_order": display_order
-						})
-				
-				# Series from lens (if not already added from profile)
-				if lens.series:
-					existing = [a for a in attribute_links 
-					            if a["attribute_doctype"] == "ilL-Attribute-Series" 
-					            and a["attribute_name"] == lens.series]
-					if not existing:
-						display_order += 1
-						webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Series", lens.series)
-						attribute_links.append({
-							"attribute_type": "Series",
-							"attribute_doctype": "ilL-Attribute-Series",
-							"attribute_name": lens.series,
-							"display_label": lens.series,
-							"webflow_item_id": webflow_id,
-							"display_order": display_order
-						})
-		
-		# Extract attributes from kit_components (endcaps, mounting accessories, etc.)
-		for component in getattr(self, 'kit_components', []):
-			if not component.component_spec_doctype or not component.component_spec_name:
-				continue
-			
-			# Only process accessories (endcaps, mounting, etc.)
-			if component.component_spec_doctype == "ilL-Spec-Accessory":
-				try:
-					accessory = frappe.get_doc(component.component_spec_doctype, component.component_spec_name)
-					
-					# Endcap Style
-					if accessory.endcap_style:
-						existing = [a for a in attribute_links 
-						            if a["attribute_doctype"] == "ilL-Attribute-Endcap Style" 
-						            and a["attribute_name"] == accessory.endcap_style]
-						if not existing:
-							display_order += 1
-							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Endcap Style", accessory.endcap_style)
-							attribute_links.append({
-								"attribute_type": "Endcap Style",
-								"attribute_doctype": "ilL-Attribute-Endcap Style",
-								"attribute_name": accessory.endcap_style,
-								"display_label": accessory.endcap_style,
-								"webflow_item_id": webflow_id,
-								"display_order": display_order
-							})
-					
-					# Mounting Method
-					if accessory.mounting_method:
-						existing = [a for a in attribute_links 
-						            if a["attribute_doctype"] == "ilL-Attribute-Mounting Method" 
-						            and a["attribute_name"] == accessory.mounting_method]
-						if not existing:
-							display_order += 1
-							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Mounting Method", accessory.mounting_method)
-							attribute_links.append({
-								"attribute_type": "Mounting Method",
-								"attribute_doctype": "ilL-Attribute-Mounting Method",
-								"attribute_name": accessory.mounting_method,
-								"display_label": accessory.mounting_method,
-								"webflow_item_id": webflow_id,
-								"display_order": display_order
-							})
-					
-					# Environment Rating from accessory
-					if accessory.environment_rating:
-						existing = [a for a in attribute_links 
-						            if a["attribute_doctype"] == "ilL-Attribute-Environment Rating" 
-						            and a["attribute_name"] == accessory.environment_rating]
-						if not existing:
-							display_order += 1
-							webflow_id = self._get_attribute_webflow_id("ilL-Attribute-Environment Rating", accessory.environment_rating)
-							attribute_links.append({
-								"attribute_type": "Environment Rating",
-								"attribute_doctype": "ilL-Attribute-Environment Rating",
-								"attribute_name": accessory.environment_rating,
-								"display_label": accessory.environment_rating,
-								"webflow_item_id": webflow_id,
-								"display_order": display_order
-							})
-				except (frappe.DoesNotExistError, AttributeError) as e:
-					# Skip if component spec doesn't exist or has missing attributes
-					frappe.log_error(
-						message=f"Error processing kit component {component.component_spec_name}: {str(e)}",
-						title="Extrusion Kit Attribute Population Error"
-					)
+		def add(attribute_type, doctype, name):
+			if not name or any(
+				a["attribute_doctype"] == doctype and a["attribute_name"] == name for a in attribute_links
+			):
+				return
+			attribute_links.append({
+				"attribute_type": attribute_type,
+				"attribute_doctype": doctype,
+				"attribute_name": name,
+				"display_label": name,
+				"webflow_item_id": self._get_attribute_webflow_id(doctype, name),
+				"display_order": len(attribute_links) + 1,
+			})
+
+		profile_spec, lens_spec = self._resolve_kit_specs()
+		if profile_spec and frappe.db.exists("ilL-Spec-Profile", profile_spec):
+			profile = frappe.get_doc("ilL-Spec-Profile", profile_spec)
+			for env in getattr(profile, "supported_environment_ratings", None) or []:
+				add("Environment Rating", "ilL-Attribute-Environment Rating", getattr(env, "environment_rating", None))
+			add("Joiner System", "ilL-Attribute-Joiner System", profile.get("joiner_system"))
+		if lens_spec and frappe.db.exists("ilL-Spec-Lens", lens_spec):
+			add(
+				"Lens Appearance",
+				"ilL-Attribute-Lens Appearance",
+				frappe.db.get_value("ilL-Spec-Lens", lens_spec, "lens_appearance"),
+			)
+		if self.kit_template:
+			for option in frappe.get_all(
+				"ilL-Child-Kit-Allowed-Option",
+				filters={"parenttype": "ilL-Extrusion-Kit-Template", "parent": self.kit_template},
+				fields=["option_type", "finish", "mounting_method", "is_active"],
+				order_by="idx asc",
+			):
+				if option.get("is_active") == 0:
 					continue
+				if option.get("option_type") == "Finish":
+					add("Finish", "ilL-Attribute-Finish", option.get("finish"))
+				elif option.get("option_type") == "Mounting Method":
+					add("Mounting Method", "ilL-Attribute-Mounting Method", option.get("mounting_method"))
 
 	def _populate_led_sheet_template_attributes(self, attribute_links):
 		if not self.led_sheet_template:
@@ -1582,632 +1402,6 @@ class ilLWebflowProduct(Document):
 			return frappe.db.get_value(doctype, name, "webflow_item_id")
 		except Exception:
 			return None
-
-	def calculate_specifications(self):
-		"""Auto-populate specifications from linked source doctype.
-		
-		When auto_calculate_specs is enabled, auto-calculated specifications
-		(is_calculated=1) are cleared and re-populated from the linked spec.
-		Manually-added specifications (is_calculated=0) are preserved.
-		"""
-		if not hasattr(self, 'specifications') or self.meta.get_field('specifications') is None:
-			return
-		
-		if self.product_type == "Fixture Template" and self.fixture_template:
-			self._calculate_fixture_specs()
-		elif self.product_type == "Driver" and self.driver_spec:
-			self._calculate_driver_specs()
-		elif self.product_type == "Controller" and self.controller_spec:
-			self._calculate_controller_specs()
-		elif self.product_type == "LED Sheet" and self.led_sheet_template:
-			self._calculate_led_sheet_specs()
-		elif self.product_type == "LED Tape" and self.tape_spec:
-			self._calculate_tape_specs()
-		elif self.product_type in ["Component"] and self.profile_spec:
-			self._calculate_profile_specs()
-	def _calculate_fixture_specs(self):
-		"""Calculate aggregated specs from fixture template with linked attribute options."""
-		template = frappe.get_doc("ilL-Fixture-Template", self.fixture_template)
-		specs_to_add = []
-
-		# Aggregate output options from allowed tape offerings
-		output_levels = self._get_allowed_output_levels(template)
-		output_level_options = self._get_output_level_options_with_links(template)
-		if output_levels:
-			specs_to_add.append({
-				"spec_group": "Performance",
-				"spec_label": "Output Options",
-				"spec_value": ", ".join(output_levels),
-				"spec_unit": "lm/ft",
-				"is_calculated": 1,
-				"display_order": 10,
-				"attribute_doctype": "ilL-Attribute-Output Level",
-				"attribute_options_json": frappe.as_json(output_level_options) if output_level_options else None
-			})
-
-		# Aggregate CCT options
-		ccts = self._get_allowed_ccts(template)
-		cct_options = self._get_cct_options_with_links(template)
-		if ccts:
-			specs_to_add.append({
-				"spec_group": "Optical",
-				"spec_label": "Light Color (CCT)",
-				"spec_value": ", ".join(ccts),
-				"is_calculated": 1,
-				"display_order": 20,
-				"attribute_doctype": "ilL-Attribute-CCT",
-				"attribute_options_json": frappe.as_json(cct_options) if cct_options else None
-			})
-
-		# Get watts/ft range (no linked attributes for this)
-		watts_range = self._get_watts_per_ft_range(template)
-		if watts_range:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Watts per Foot",
-				"spec_value": watts_range,
-				"spec_unit": "W/ft",
-				"is_calculated": 1,
-				"display_order": 30
-			})
-
-		# Get max run length (no linked attributes for this)
-		max_run = self._get_max_run_length(template)
-		if max_run:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Max Run Length",
-				"spec_value": max_run,
-				"spec_unit": "ft",
-				"is_calculated": 1,
-				"display_order": 40
-			})
-
-		# Get lens options with linked attributes
-		lens_options = self._get_allowed_lens_appearances(template)
-		lens_attr_options = self._get_lens_options_with_links(template)
-		if lens_options:
-			specs_to_add.append({
-				"spec_group": "Optical",
-				"spec_label": "Lens Options",
-				"spec_value": ", ".join(lens_options),
-				"is_calculated": 1,
-				"display_order": 50,
-				"attribute_doctype": "ilL-Attribute-Lens Appearance",
-				"attribute_options_json": frappe.as_json(lens_attr_options) if lens_attr_options else None
-			})
-
-		# Get mounting options with linked attributes
-		mounting_options = self._get_allowed_mounting_methods(template)
-		mounting_attr_options = self._get_mounting_options_with_links(template)
-		if mounting_options:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Mounting Options",
-				"spec_value": ", ".join(mounting_options),
-				"is_calculated": 1,
-				"display_order": 60,
-				"attribute_doctype": "ilL-Attribute-Mounting Method",
-				"attribute_options_json": frappe.as_json(mounting_attr_options) if mounting_attr_options else None
-			})
-
-		# Get finish options with linked attributes
-		finish_options = self._get_allowed_finishes(template)
-		finish_attr_options = self._get_finish_options_with_links(template)
-		if finish_options:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Finish Options",
-				"spec_value": ", ".join(finish_options),
-				"is_calculated": 1,
-				"display_order": 70,
-				"attribute_doctype": "ilL-Attribute-Finish",
-				"attribute_options_json": frappe.as_json(finish_attr_options) if finish_attr_options else None
-			})
-
-		# Get environment ratings with linked attributes
-		env_ratings = self._get_allowed_environment_ratings(template)
-		env_attr_options = self._get_environment_options_with_links(template)
-		if env_ratings:
-			specs_to_add.append({
-				"spec_group": "Environmental",
-				"spec_label": "Environment Rating(s)",
-				"spec_value": ", ".join(order_environment_ratings(env_ratings)),
-				"is_calculated": 1,
-				"display_order": 80,
-				"attribute_doctype": "ilL-Attribute-Environment Rating",
-				"attribute_options_json": frappe.as_json(env_attr_options) if env_attr_options else None
-			})
-
-		# Operating Temperature from webflow product fields
-		if self.operating_temp_min_c is not None and self.operating_temp_max_c is not None:
-			c_min = self.operating_temp_min_c
-			c_max = self.operating_temp_max_c
-			f_min = round(c_min * 9 / 5 + 32)
-			f_max = round(c_max * 9 / 5 + 32)
-			specs_to_add.append({
-				"spec_group": "Environmental",
-				"spec_label": "Operating Temperature",
-				"spec_value": f"{f_min}°F ({c_min}°C) to {f_max}°F ({c_max}°C)",
-				"is_calculated": 1,
-				"display_order": 82
-			})
-
-		# Dimensions from linked profile spec
-		profile_spec_name = getattr(template, "default_profile_spec", None)
-		if profile_spec_name:
-			dimensions = frappe.db.get_value(
-				"ilL-Spec-Profile", profile_spec_name, "dimensions"
-			)
-			if not dimensions:
-				# Profile may not have been re-saved since dimensions field was added;
-				# compute it on the fly from width_mm / height_mm.
-				raw = frappe.db.get_value(
-					"ilL-Spec-Profile", profile_spec_name, ["width_mm", "height_mm"]
-				)
-				if raw:
-					width_mm, height_mm = raw
-					dimensions = compute_profile_dimensions(width_mm, height_mm)
-			if dimensions:
-				specs_to_add.append({
-					"spec_group": "Physical",
-					"spec_label": "Dimensions",
-					"spec_value": dimensions,
-					"is_calculated": 1,
-					"display_order": 85
-				})
-
-		# Production Interval (cut increment from linked tape, in inches)
-		cut_increments_mm = set()
-		for tape_row in template.allowed_tape_offerings or []:
-			offering_name = getattr(tape_row, "tape_offering", None)
-			if not offering_name:
-				continue
-			offering_data = frappe.db.get_value(
-				"ilL-Rel-Tape Offering", offering_name,
-				["cut_increment_mm_override", "tape_spec"],
-				as_dict=True,
-			)
-			if not offering_data:
-				continue
-			cut_mm = offering_data.get("cut_increment_mm_override")
-			if not cut_mm and offering_data.get("tape_spec"):
-				cut_mm = frappe.db.get_value(
-					"ilL-Spec-LED Tape", offering_data["tape_spec"],
-					"cut_increment_mm",
-				)
-			if cut_mm:
-				cut_increments_mm.add(cut_mm)
-		if cut_increments_mm:
-			display_parts = [
-				format_length_inches(v, precision=2)
-				for v in sorted(cut_increments_mm)
-				if format_length_inches(v, precision=2)
-			]
-			if display_parts:
-				specs_to_add.append({
-					"spec_group": "Physical",
-					"spec_label": "Production Interval",
-					"spec_value": ", ".join(display_parts),
-					"is_calculated": 1,
-					"display_order": 90
-				})
-
-		# Clear existing calculated specs and add new ones
-		self.specifications = [
-			s for s in (self.specifications or [])
-			if not s.is_calculated
-		]
-		for spec in specs_to_add:
-			self.append("specifications", spec)
-
-	def _calculate_driver_specs(self):
-		"""Calculate specs from driver spec doctype."""
-		driver = frappe.get_doc("ilL-Spec-Driver", self.driver_spec)
-		specs_to_add = []
-
-		if driver.input_voltage:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Input Voltage",
-				"spec_value": driver.input_voltage,
-				"is_calculated": 1,
-				"display_order": 10
-			})
-
-		if driver.voltage_output:
-			voltage_data = frappe.db.get_value(
-				"ilL-Attribute-Output Voltage",
-				driver.voltage_output,
-				["dc_voltage", "ac_voltage"],
-				as_dict=True,
-			) or {}
-			dc_voltage = voltage_data.get("dc_voltage")
-			ac_voltage = voltage_data.get("ac_voltage")
-			output_voltage = dc_voltage or ac_voltage
-			if output_voltage:
-				specs_to_add.append({
-					"spec_group": "Electrical",
-					"spec_label": "Output Voltage",
-					"spec_value": str(output_voltage),
-					"spec_unit": "VDC" if dc_voltage else "VAC",
-					"is_calculated": 1,
-					"display_order": 20
-				})
-
-		if driver.max_wattage:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Max Wattage",
-				"spec_value": str(driver.max_wattage),
-				"spec_unit": "W",
-				"is_calculated": 1,
-				"display_order": 30
-			})
-
-		if driver.outputs_count:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Output Channels",
-				"spec_value": str(driver.outputs_count),
-				"is_calculated": 1,
-				"display_order": 40
-			})
-
-		# Handle multiple input protocols from child table
-		if driver.input_protocols:
-			protocol_labels = []
-			for row in driver.input_protocols:
-				protocol_label = frappe.db.get_value(
-					"ilL-Attribute-Dimming Protocol",
-					row.protocol,
-					"label"
-				)
-				if protocol_label:
-					protocol_labels.append(protocol_label)
-			if protocol_labels:
-				specs_to_add.append({
-					"spec_group": "Control",
-					"spec_label": "Dimming Protocols",
-					"spec_value": ", ".join(protocol_labels),
-					"is_calculated": 1,
-					"display_order": 50
-				})
-
-		# Clear existing calculated specs and add new ones
-		self.specifications = [
-			s for s in (self.specifications or [])
-			if not s.is_calculated
-		]
-		for spec in specs_to_add:
-			self.append("specifications", spec)
-
-	def _calculate_controller_specs(self):
-		"""Calculate specs from controller spec doctype."""
-		controller = frappe.get_doc("ilL-Spec-Controller", self.controller_spec)
-		specs_to_add = []
-
-		if controller.controller_type:
-			specs_to_add.append({
-				"spec_group": "Control",
-				"spec_label": "Controller Type",
-				"spec_value": controller.controller_type,
-				"is_calculated": 1,
-				"display_order": 10
-			})
-
-		if controller.input_voltage_min and controller.input_voltage_max:
-			voltage_str = f"{controller.input_voltage_min}-{controller.input_voltage_max}"
-			if controller.input_voltage_type:
-				voltage_str += f" {controller.input_voltage_type}"
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Input Voltage",
-				"spec_value": voltage_str,
-				"is_calculated": 1,
-				"display_order": 20
-			})
-
-		if controller.channels:
-			specs_to_add.append({
-				"spec_group": "Control",
-				"spec_label": "Channels",
-				"spec_value": str(controller.channels),
-				"is_calculated": 1,
-				"display_order": 30
-			})
-
-		if controller.zones:
-			specs_to_add.append({
-				"spec_group": "Control",
-				"spec_label": "Zones",
-				"spec_value": str(controller.zones),
-				"is_calculated": 1,
-				"display_order": 40
-			})
-
-		if controller.max_load_watts:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Max Load",
-				"spec_value": str(controller.max_load_watts),
-				"spec_unit": "W",
-				"is_calculated": 1,
-				"display_order": 50
-			})
-
-		# Collect input protocols
-		if controller.input_protocols:
-			protocols = []
-			for p in controller.input_protocols:
-				if p.protocol:
-					label = frappe.db.get_value(
-						"ilL-Attribute-Dimming Protocol",
-						p.protocol,
-						"label"
-					)
-					if label:
-						protocols.append(label)
-			if protocols:
-				specs_to_add.append({
-					"spec_group": "Control",
-					"spec_label": "Input Protocols",
-					"spec_value": ", ".join(protocols),
-					"is_calculated": 1,
-					"display_order": 60
-				})
-
-		# Collect wireless protocols
-		if controller.wireless_protocols:
-			wireless = [p.protocol for p in controller.wireless_protocols if p.protocol]
-			if wireless:
-				specs_to_add.append({
-					"spec_group": "Control",
-					"spec_label": "Wireless Protocols",
-					"spec_value": ", ".join(wireless),
-					"is_calculated": 1,
-					"display_order": 70
-				})
-
-		# Clear existing calculated specs and add new ones
-		self.specifications = [
-			s for s in (self.specifications or [])
-			if not s.is_calculated
-		]
-		for spec in specs_to_add:
-			self.append("specifications", spec)
-
-	def _calculate_tape_specs(self):
-		"""Calculate specs from LED tape spec doctype."""
-		tape = frappe.get_doc("ilL-Spec-LED Tape", self.tape_spec)
-		specs_to_add = []
-
-		if tape.watts_per_foot:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Watts per Foot",
-				"spec_value": str(tape.watts_per_foot),
-				"spec_unit": "W/ft",
-				"is_calculated": 1,
-				"display_order": 10
-			})
-
-		if tape.voltage_drop_max_run_length_ft:
-			specs_to_add.append({
-				"spec_group": "Electrical",
-				"spec_label": "Max Run Length",
-				"spec_value": str(tape.voltage_drop_max_run_length_ft),
-				"spec_unit": "ft",
-				"is_calculated": 1,
-				"display_order": 20
-			})
-
-		if tape.input_voltage:
-			voltage_data = frappe.db.get_value(
-				"ilL-Attribute-Output Voltage",
-				tape.input_voltage,
-				["dc_voltage", "ac_voltage"],
-				as_dict=True,
-			) or {}
-			dc_voltage = voltage_data.get("dc_voltage")
-			ac_voltage = voltage_data.get("ac_voltage")
-			voltage_value = dc_voltage or ac_voltage
-			if voltage_value:
-				specs_to_add.append({
-					"spec_group": "Electrical",
-					"spec_label": "Input Voltage",
-					"spec_value": str(voltage_value),
-					"spec_unit": "VDC" if dc_voltage else "VAC",
-					"is_calculated": 1,
-					"display_order": 30
-				})
-
-		if tape.cut_increment_mm:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Cut Increment",
-				"spec_value": str(tape.cut_increment_mm),
-				"spec_unit": "mm",
-				"is_calculated": 1,
-				"display_order": 40
-			})
-			# Production Interval: cut increment converted to inches
-			formatted = format_length_inches(tape.cut_increment_mm, precision=2)
-			if formatted:
-				specs_to_add.append({
-					"spec_group": "Physical",
-					"spec_label": "Production Interval",
-					"spec_value": formatted,
-					"is_calculated": 1,
-					"display_order": 45
-				})
-
-		# Check for optional fields that may have been added
-		if hasattr(tape, 'lumens_per_foot') and tape.lumens_per_foot:
-			specs_to_add.append({
-				"spec_group": "Performance",
-				"spec_label": "Lumens per Foot",
-				"spec_value": str(tape.lumens_per_foot),
-				"spec_unit": "lm/ft",
-				"is_calculated": 1,
-				"display_order": 5
-			})
-
-		if hasattr(tape, 'cri_typical') and tape.cri_typical:
-			specs_to_add.append({
-				"spec_group": "Optical",
-				"spec_label": "CRI",
-				"spec_value": str(tape.cri_typical),
-				"is_calculated": 1,
-				"display_order": 50
-			})
-
-		# Clear existing calculated specs and add new ones
-		self.specifications = [
-			s for s in (self.specifications or [])
-			if not s.is_calculated
-		]
-		for spec in specs_to_add:
-			self.append("specifications", spec)
-
-	def _calculate_profile_specs(self):
-		"""Calculate specs from profile spec doctype."""
-		profile = frappe.get_doc("ilL-Spec-Profile", self.profile_spec)
-		specs_to_add = []
-
-		if profile.stock_length_mm:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Stock Length",
-				"spec_value": str(profile.stock_length_mm),
-				"spec_unit": "mm",
-				"is_calculated": 1,
-				"display_order": 10
-			})
-
-		if profile.max_assembled_length_mm:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Max Assembled Length",
-				"spec_value": str(profile.max_assembled_length_mm),
-				"spec_unit": "mm",
-				"is_calculated": 1,
-				"display_order": 20
-			})
-
-		if profile.is_cuttable:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Cuttable",
-				"spec_value": "Yes",
-				"is_calculated": 1,
-				"display_order": 30
-			})
-
-		# Dimensions (pre-computed on save; fall back to on-the-fly computation
-		# for profiles that haven't been re-saved since the field was added).
-		dimensions = profile.dimensions or compute_profile_dimensions(profile.width_mm, profile.height_mm)
-		if dimensions:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Dimensions",
-				"spec_value": dimensions,
-				"is_calculated": 1,
-				"display_order": 40
-			})
-
-		if profile.lens_interface:
-			specs_to_add.append({
-				"spec_group": "Physical",
-				"spec_label": "Lens Interface",
-				"spec_value": profile.lens_interface,
-				"is_calculated": 1,
-				"display_order": 60
-			})
-
-		# Environment ratings
-		if profile.supported_environment_ratings:
-			ratings = []
-			for r in profile.supported_environment_ratings:
-				if hasattr(r, 'environment_rating') and r.environment_rating:
-					ratings.append(r.environment_rating)
-			if ratings:
-				specs_to_add.append({
-					"spec_group": "Environmental",
-					"spec_label": "Environment Rating(s)",
-					"spec_value": ", ".join(order_environment_ratings(ratings)),
-					"is_calculated": 1,
-					"display_order": 70
-				})
-
-		# Clear existing calculated specs and add new ones
-		self.specifications = [
-			s for s in (self.specifications or [])
-			if not s.is_calculated
-		]
-		for spec in specs_to_add:
-			self.append("specifications", spec)
-
-	def _calculate_led_sheet_specs(self):
-		"""Calculate specs from the linked LED Sheet template's allowed_specs.
-
-		Mirrors _enrich_led_sheet_template_specs() in webflow_export.py so the
-		persisted Desk-form "Specifications" section matches what the Webflow
-		sync will emit. Only active allowed_specs rows pointing at existing
-		ilL-Spec-LED-Sheet docs with non-empty computed values contribute rows.
-		"""
-		try:
-			template = frappe.get_doc("ilL-LED-Sheet-Template", self.led_sheet_template)
-		except frappe.DoesNotExistError:
-			return
-
-		spec_names = [
-			row.spec for row in (template.allowed_specs or [])
-			if getattr(row, "spec", None) and getattr(row, "is_active", 1)
-		]
-		spec_docs = [
-			frappe.get_doc("ilL-Spec-LED-Sheet", name)
-			for name in spec_names
-			if frappe.db.exists("ilL-Spec-LED-Sheet", name)
-		]
-
-		wattages = sorted({str(getattr(d, "total_sheet_watts", "")) for d in spec_docs if getattr(d, "total_sheet_watts", None)})
-		lumens = sorted({str(getattr(d, "total_sheet_lumens", "")) for d in spec_docs if getattr(d, "total_sheet_lumens", None)})
-		areas = sorted({str(getattr(d, "sheet_area_sqft", "")) for d in spec_docs if getattr(d, "sheet_area_sqft", None)})
-		voltages = sorted({str(getattr(d, "input_voltage", "")) for d in spec_docs if getattr(d, "input_voltage", None)})
-		ip_ratings = sorted({str(getattr(d, "ip_rating", "")) for d in spec_docs if getattr(d, "ip_rating", None)})
-		cri_values = sorted({str(getattr(d, "cri", "")) for d in spec_docs if getattr(d, "cri", None)})
-
-		specs_to_add = []
-
-		def add(label, group, value, unit="", order=50, attr_doctype=None):
-			if value:
-				specs_to_add.append({
-					"spec_group": group,
-					"spec_label": label,
-					"spec_value": value,
-					"spec_unit": unit,
-					"is_calculated": 1,
-					"display_order": order,
-					"attribute_doctype": attr_doctype,
-				})
-
-		# NOTE: spec_group must be a valid ilL-Child-Webflow-Specification Select
-		# value (Electrical, Physical, Performance, Optical, Control, Environmental).
-		add("Sheet Wattage", "Electrical", ", ".join(wattages), "W", 30)
-		add("Sheet Area", "Physical", ", ".join(areas), "sq ft", 35)
-		add("Sheet Lumens", "Optical", ", ".join(lumens), "lm", 40)
-		add("Input Voltage", "Electrical", ", ".join(voltages), "", 25, "ilL-Attribute-Output Voltage")
-		add("Color Rendering", "Optical", ", ".join(cri_values), "CRI", 55)
-		add("IP Rating", "Environmental", ", ".join(ip_ratings), "", 60, "ilL-Attribute-IP Rating")
-		add("Warranty", "Performance", getattr(template, "warranty", None), "", 90)
-
-		self.specifications = [
-			s for s in (self.specifications or [])
-			if not s.is_calculated
-		]
-		for spec in specs_to_add:
-			self.append("specifications", spec)
 
 	def populate_configurator_options(self):
 		"""Populate configurator options from template's allowed options.

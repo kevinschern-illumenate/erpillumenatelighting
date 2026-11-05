@@ -17,6 +17,7 @@
   "product_category",
   "series",
   "is_active",
+  "is_configurable",
   "source_reference_section",
   "fixture_template",
   "driver_spec",
@@ -33,7 +34,6 @@
   "kit_template",
   "accessory_spec",
   "configurator_section",
-  "is_configurable",
   "configurator_intro_text",
   "column_break_configurator",
   "min_length_mm",
@@ -49,6 +49,7 @@
   "short_description",
   "sublabel",
   "features",
+  "web_features",
   "product_badge",
   "featured_image",
   "dimensions_image",
@@ -57,16 +58,12 @@
   "gallery_images",
   "documents",
   "specifications_section",
-  "auto_populate_attributes",
   "column_break_specs",
-  "auto_calculate_specs",
-  "specifications",
   "attribute_links",
   "certifications_section",
   "certifications",
   "compatibility_section",
   "compatible_products",
-  "webflow_compatible_power_supplies",
   "spec_sheet_data_section",
   "webflow_specifications",
   "spec_sheet_values_section",
@@ -335,7 +332,8 @@
    "fieldname": "auto_populate_configurator_options",
    "fieldtype": "Check",
    "label": "Auto-Populate Configurator Options on Save",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template"
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template",
+   "hidden": 1
   },
   {
    "description": "For a product linked to a template, this is an old copy (removed in Phase 2c). The website and the portal read the configurator steps from the linked template's Part No. Configurator: edit them there.",
@@ -343,7 +341,9 @@
    "fieldtype": "Table",
    "label": "Configurator Options",
    "options": "ilL-Child-Webflow-Configurator-Option",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template"
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.led_sheet_template || doc.driver_template || doc.controller_template || doc.kit_template",
+   "read_only": 1,
+   "hidden": 1
   },
   {
    "description": "Feed lengths available on the Webflow part number configurator. Synced to Webflow as a JSON list of {label, code}. Does not restrict configurator logic in ERPNext. Edited on the linked template once one is set.",
@@ -358,7 +358,8 @@
    "depends_on": "eval:doc.product_type=='Extrusion Kit'",
    "fieldname": "kit_components_section",
    "fieldtype": "Section Break",
-   "label": "Kit Components"
+   "label": "Kit Components",
+   "hidden": 1
   },
   {
    "description": "Components included in this extrusion kit Edited on the linked template once one is set.",
@@ -366,7 +367,8 @@
    "fieldtype": "Table",
    "label": "Kit Components",
    "options": "ilL-Child-Webflow-Kit-Component",
-   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
+   "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template",
+   "read_only": 1
   },
   {
    "fieldname": "marketing_section",
@@ -393,11 +395,13 @@
   },
   {
    "default": "[]",
-   "description": "Structured feature data for Webflow (array of objects with title and description)",
+   "description": "Written from the Features table on save; do not edit.",
    "fieldname": "features",
    "fieldtype": "JSON",
    "label": "Features",
-   "placeholder": "[{\"title\": \"IDEAL FOR\", \"description\": \"Minimalist applications\"}]"
+   "placeholder": "[{\"title\": \"IDEAL FOR\", \"description\": \"Minimalist applications\"}]",
+   "hidden": 1,
+   "read_only": 1
   },
   {
    "fieldname": "product_badge",
@@ -411,7 +415,8 @@
   {
    "fieldname": "featured_image",
    "fieldtype": "Attach Image",
-   "label": "Featured Image"
+   "label": "Featured Image",
+   "description": "Use a 16:9 image (for example 1920 \u00d7 1080)."
   },
   {
    "description": "Technical dimensions diagram or illustration",
@@ -433,7 +438,8 @@
    "fieldname": "gallery_images",
    "fieldtype": "Table",
    "label": "Gallery Images",
-   "options": "ilL-Child-Webflow-Gallery-Image"
+   "options": "ilL-Child-Webflow-Gallery-Image",
+   "description": "Use 16:9 images."
   },
   {
    "description": "Spec sheets, IES files, installation guides, etc.",
@@ -448,43 +454,23 @@
    "label": "Attribute Links"
   },
   {
-   "default": "1",
-   "description": "Automatically populate attribute links from linked fixture template's allowed options and tape offerings",
-   "fieldname": "auto_populate_attributes",
-   "fieldtype": "Check",
-   "label": "Auto Populate Attributes"
-  },
-  {
    "fieldname": "column_break_specs",
    "fieldtype": "Column Break"
   },
   {
-   "default": "1",
-   "description": "Automatically calculate specifications from linked source doctype (deprecated - use Attribute Links)",
-   "fieldname": "auto_calculate_specs",
-   "fieldtype": "Check",
-   "hidden": 1,
-   "label": "Auto Calculate Specs"
-  },
-  {
-   "fieldname": "specifications",
-   "fieldtype": "Table",
-   "hidden": 1,
-   "label": "Specifications",
-   "options": "ilL-Child-Webflow-Specification"
-  },
-  {
-   "description": "Links to attribute records that apply to this product. These are automatically synced to Webflow as filter fields for filtering.",
+   "description": "Mirrors the template: rebuilt on every save.",
    "fieldname": "attribute_links",
    "fieldtype": "Table",
    "label": "Attribute Links",
-   "options": "ilL-Child-Webflow-Attribute-Link"
+   "options": "ilL-Child-Webflow-Attribute-Link",
+   "read_only": 1
   },
   {
    "collapsible": 1,
    "fieldname": "certifications_section",
    "fieldtype": "Section Break",
-   "label": "Certifications"
+   "label": "Certifications",
+   "hidden": 1
   },
   {
    "fieldname": "certifications",
@@ -499,21 +485,15 @@
    "label": "Compatibility"
   },
   {
-   "description": "Related products for cross-selling and compatibility info",
+   "description": "Rows marked Calculated come from the template's compatible power supplies and are rebuilt on save.",
    "fieldname": "compatible_products",
    "fieldtype": "Table",
    "label": "Compatible Products",
    "options": "ilL-Child-Webflow-Compatibility"
   },
   {
-   "fieldname": "webflow_compatible_power_supplies",
-   "fieldtype": "Table",
-   "label": "Compatible Power Supplies",
-   "options": "ilL-Child-Comp-Power"
-  },
-  {
    "collapsible": 1,
-   "description": "Data not captured elsewhere — fill in for spec sheet export",
+   "description": "Data not captured elsewhere \u2014 fill in for spec sheet export",
    "fieldname": "spec_sheet_data_section",
    "fieldtype": "Section Break",
    "label": "Spec Sheet Data"
@@ -534,21 +514,21 @@
    "description": "Edited on the linked template once one is set.",
    "fieldname": "beam_angle",
    "fieldtype": "Float",
-   "label": "Beam Angle (°)",
+   "label": "Beam Angle (\u00b0)",
    "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
    "description": "Edited on the linked template once one is set.",
    "fieldname": "operating_temp_min_c",
    "fieldtype": "Int",
-   "label": "Min Operating Temp (°C)",
+   "label": "Min Operating Temp (\u00b0C)",
    "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
    "description": "Edited on the linked template once one is set.",
    "fieldname": "operating_temp_max_c",
    "fieldtype": "Int",
-   "label": "Max Operating Temp (°C)",
+   "label": "Max Operating Temp (\u00b0C)",
    "read_only_depends_on": "eval:doc.fixture_template || doc.tape_neon_template || doc.controller_template || doc.driver_template || doc.kit_template || doc.led_sheet_template"
   },
   {
@@ -655,11 +635,18 @@
    "fieldtype": "Link",
    "label": "Approved Standard Sales Item",
    "options": "Item"
+  },
+  {
+   "fieldname": "web_features",
+   "fieldtype": "Table",
+   "label": "Features",
+   "options": "ilL-Child-Web-Feature",
+   "description": "One row per feature. Written into the Features JSON that Webflow and the other systems read."
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-20 10:00:00.000000",
+ "modified": "2026-11-21 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Product",

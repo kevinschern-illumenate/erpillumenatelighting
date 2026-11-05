@@ -59,7 +59,7 @@ def row_status(product, template=None, image=None, specs=0, docs=0, gallery=(), 
 	else:
 		cells["source"] = here(NA, "No template for this product type")
 
-	cells["specs"] = here(OK, f"{specs} rows") if specs else here(WARN, "No specification rows", "specifications")
+	cells["specs"] = here(OK, f"{specs} rows") if specs else here(WARN, "No specification rows", "webflow_specifications")
 
 	primary = (image or {}).get("primary")
 	if primary:
@@ -153,7 +153,7 @@ def dashboard(family=None, brand=None, after=None, limit=50, only_incomplete=0):
 			):
 				templates[(doctype, row["name"])] = row
 	images = resolve_product_images(PRODUCT, names)
-	specs = _counts("ilL-Child-Webflow-Specification", names)
+	specs = _counts("ilL-Child-Webflow-Spec-Custom", names)  # the template's specifications, mirrored
 	docs = _counts("ilL-Child-Webflow-Document", names)
 	gallery = {}
 	for row in frappe.get_all(

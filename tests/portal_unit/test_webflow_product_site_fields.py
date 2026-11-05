@@ -1,4 +1,4 @@
-"""Compatible power supplies and certification badge images on the Webflow Product.
+"""Certification badge images on the Webflow Product.
 
 webflow_compatible_power_supplies and webflow_badge_images ship with the app (they replaced
 the site Custom Fields custom_compatible_power_supplies and custom_badge_images). The dark/206
@@ -66,12 +66,11 @@ class SiteFields(unittest.TestCase):
 		doc.append = lambda key, row: doc.rows.setdefault(key, []).append(row)
 		return doc, frappe
 
-	def test_power_supplies_and_badge_images_are_filled(self):
+	def test_badge_images_are_filled(self):
+		# Compatible power supplies moved to the templates (plan 4.17; test_template_power_supplies).
 		doc, frappe = self.product()
-		doc.populate_compatible_power_supplies()
+		self.assertFalse(hasattr(doc, "populate_compatible_power_supplies"))
 		doc.populate_certification_badges()
-		(row,) = doc.rows["webflow_compatible_power_supplies"]
-		self.assertEqual((row["part_number"], row["output_count"]), ("DRV-96W", 2))
 		self.assertIn("illumenate_badge_light", doc.certifications[0].webflow_badge_images)
 		# Only the badge columns this site has are read.
 		self.assertEqual(frappe.db.get_value.call_args.args[2], ["badge_image"])

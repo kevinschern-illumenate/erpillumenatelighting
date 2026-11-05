@@ -46,17 +46,14 @@ PRODUCT_FIELDS = (
 	("is_configurable", "Shows the configurator on the website"),
 	("configurator_intro_text", ""),
 	("short_description", ""),
-	("features", ""),
+	("features", "Written from web_features on save (plan 4.17)"),
+	("web_features", "Features table (Title, Description); written into features"),
 	("featured_image", ""),
 	("series_family_image", ""),
 	("gallery_images", ""),
 	("documents", "Includes the spec sheet row built from the template (D19)"),
-	("attribute_links", "Calculated on the product from the template's options"),
-	("compatible_products", ""),
-	(
-		"webflow_compatible_power_supplies",
-		"Calculated on the product; legacy key custom_compatible_power_supplies",
-	),
+	("attribute_links", "Mirrors the template on every save (plan 4.17)"),
+	("compatible_products", "Hand rows, plus calculated Recommended With power supply rows (plan 4.17)"),
 	("driver_spec", "Spec link (Driver, Component)"),
 	("controller_spec", "Spec link (Controller)"),
 	("profile_spec", "Spec link (Component)"),
@@ -64,7 +61,6 @@ PRODUCT_FIELDS = (
 	("tape_spec", "Spec link (Component)"),
 	("accessory_spec", "Spec link (Accessory)"),
 	("portal_item", "Item sold on the portal"),
-	("specifications", "Older attribute specification table (deprecated)"),
 )
 
 # Owned by the template; the Webflow Product holds a copy: product field -> template field.
@@ -95,8 +91,6 @@ MIRRORED = {
 # Not listing data: switches and sync bookkeeping (reported under "webflow").
 NOT_LISTING = (
 	"auto_populate_configurator_options",
-	"auto_populate_attributes",
-	"auto_calculate_specs",
 	"product_badge",
 	"sync_targets",
 	"webflow_item_id",
@@ -427,7 +421,6 @@ def ownership_table():
 	legacy_keys = {
 		"webflow_status": "custom_webflow_status",
 		"webflow_badge": "product_badge",
-		"webflow_compatible_power_supplies": "custom_compatible_power_supplies",
 		"dimensions_image": "custom_dimensions_image_2 / dimensions_image_dark",
 		"webflow_specifications": "specifications",
 	}

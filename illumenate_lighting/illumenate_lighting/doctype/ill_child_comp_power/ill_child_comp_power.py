@@ -20,6 +20,7 @@ class ilLChildCompPower(Document):
 		input_protocol: DF.Data | None
 		location_rating: DF.Data | None
 		max_wattage: DF.Data | None
+		eligibility: DF.Link | None
 		output_count: DF.Data | None
 		output_voltage: DF.Data | None
 		part_number: DF.Data | None

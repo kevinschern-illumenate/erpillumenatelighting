@@ -320,7 +320,7 @@ def get_webflow_products(
             "accessory_spec",
             "short_description", "sublabel", "features", "product_badge", "webflow_badge", "is_discontinued", "featured_image", "dimensions_image", "series_family_image",
             "configurator_intro_text", "min_length_mm", "max_length_mm",
-            "length_increment_mm", "auto_calculate_specs",
+            "length_increment_mm",
             "webflow_item_id", "webflow_collection_slug",
             "last_synced_at", "sync_status", "sync_error_message",
             "creation", "modified"
@@ -376,28 +376,7 @@ def get_webflow_products(
             
             # Export specifications (supports both auto-calculated and manually-added specs)
             product["specifications"] = []
-            for s in doc.specifications:
-                spec_data = {
-                    "spec_group": s.spec_group,
-                    "spec_label": s.spec_label,
-                    "spec_value": s.spec_value,
-                    "spec_unit": s.spec_unit,
-                    "is_calculated": s.is_calculated,
-                    "display_order": s.display_order,
-                    "show_on_card": s.show_on_card,
-                    "attribute_doctype": s.attribute_doctype,
-                    "attribute_options_json": s.attribute_options_json,
-                }
-                # Parse attribute_options_json into a list for convenience
-                if s.attribute_options_json:
-                    try:
-                        spec_data["attribute_options"] = json.loads(s.attribute_options_json)
-                    except (json.JSONDecodeError, TypeError):
-                        spec_data["attribute_options"] = []
-                else:
-                    spec_data["attribute_options"] = []
-                product["specifications"].append(spec_data)
-            
+            # The old Specifications table was removed (plan 4.17); nothing to export.
             # Enrich specifications with data from linked doctypes
             _enrich_specifications_from_linked_doctypes(product, doc.source)
             
@@ -1111,19 +1090,7 @@ def preview_specifications(webflow_product: str) -> dict:
         "specifications": [],
     }
 
-    for s in doc.specifications:
-        product["specifications"].append({
-            "spec_group": s.spec_group,
-            "spec_label": s.spec_label,
-            "spec_value": s.spec_value,
-            "spec_unit": s.spec_unit,
-            "is_calculated": s.is_calculated,
-            "display_order": s.display_order,
-            "show_on_card": s.show_on_card,
-            "attribute_doctype": s.attribute_doctype,
-            "attribute_options_json": s.attribute_options_json,
-        })
-
+    # The old Specifications table was removed (plan 4.17); nothing to export.
     _enrich_specifications_from_linked_doctypes(product, doc)
 
     return {

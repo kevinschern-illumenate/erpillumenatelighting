@@ -320,7 +320,7 @@ _SPEC_GALLERY = [
 	},
 ]
 
-_SPECS_AND_CERTIFICATIONS = [
+_SPECIFICATIONS = [
 	_section("web_specs_certs_section", "Specifications & Certifications"),
 	{
 		"fieldname": "specifications",
@@ -332,6 +332,23 @@ _SPECS_AND_CERTIFICATIONS = [
 			"Rows reading TBD, and a temperature range of 0 to 0, are left out (D43)."
 		),
 	},
+]
+
+# Compatible power supplies (owner, 2026-11-05; plan 4.17 item 10): fixture, tape/neon and LED
+# sheet templates only, rebuilt on save from Driver Eligibility (template_power_supplies.py).
+_POWER_SUPPLIES = {
+	"fieldname": "compatible_power_supplies",
+	"fieldtype": "Table",
+	"label": "Compatible Power Supplies",
+	"options": "ilL-Child-Comp-Power",
+	"read_only": 1,
+	"description": (
+		"Rebuilt on save from Driver Eligibility rows that are Active and Allowed, by max "
+		"wattage. Edit an entry through its Eligibility link."
+	),
+}
+
+_CERTIFICATIONS = [
 	{
 		"fieldname": "certifications",
 		"fieldtype": "Table",
@@ -361,6 +378,7 @@ _FIXTURE_TAPE = {
 	"weight": True,
 	"photometrics": True,
 	"colorimetry": True,
+	"power_supplies": True,
 }
 # What each template's Product Data tab holds.
 TEMPLATE_PARTS = {
@@ -375,7 +393,12 @@ TEMPLATE_PARTS = {
 		"kit": True,
 		"photometrics": True,
 	},
-	"ilL-LED-Sheet-Template": {"spec": True, "photometrics": True, "colorimetry": True},
+	"ilL-LED-Sheet-Template": {
+		"spec": True,
+		"photometrics": True,
+		"colorimetry": True,
+		"power_supplies": True,
+	},
 }
 
 
@@ -407,7 +430,9 @@ def _tab_fields(doctype):
 		*left,
 		_column("product_data_column"),
 		*right,
-		*_SPECS_AND_CERTIFICATIONS,
+		*_SPECIFICATIONS,
+		*([_POWER_SUPPLIES] if parts.get("power_supplies") else []),
+		*_CERTIFICATIONS,
 		*_SPEC_GALLERY,
 		_section("web_configurator_section", "Configurator"),
 		CONFIGURATOR_AUTO_FIELD,
