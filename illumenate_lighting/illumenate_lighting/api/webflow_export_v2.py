@@ -554,14 +554,16 @@ def export_template_record(template, brand=None):
     """Today's export record for a template that has no Webflow Product (plan 4.6).
 
     Runs the same export code on a temporary, unsaved Webflow Product that points at the
-    template (``template_listing.shadow_product``) and has run the product calculations.
-    Fields only a real product has (gallery, documents, copy and the like) come out empty.
-    Nothing is saved.
+    template (``_template_product``). Its configurator steps are the template's own
+    calculation (``template_calculations``), and so are its specification rows (the product's
+    ``sync_custom_template_data`` calls the same code; it also fills the documents,
+    certifications and category the export reads). Fields only a real product has (gallery,
+    documents, copy and the like) come out empty. Nothing is saved.
     """
     from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
-    from illumenate_lighting.illumenate_lighting.template_listing import POPULATE, shadow_product
+    from illumenate_lighting.illumenate_lighting.template_calculations import TemplateCalculator
 
-    product, field = shadow_product(template)
+    product = _template_product(template)
     product.product_slug = template.name.lower()
     product.is_active = 1 if template.get("is_active") else 0
     product.webflow_status = "Webflow Draft"
@@ -569,11 +571,37 @@ def export_template_record(template, brand=None):
     product.populate_attribute_links()
     product.sync_custom_template_data()
     product.populate_certification_badges()
-    getattr(product, POPULATE[field])()
+    product.set("configurator_options", TemplateCalculator.for_template(template).configurator_rows())
     row = {f: product.get(f) for f in EXPORT_FIELDS if f not in ("creation", "modified")}
     row["name"] = product.name
     record = _finish_products([row], brand or get_default_brand(), True, lambda _name: (product, template))
     return record[0]
+
+
+def _template_product(template):
+    """An unsaved Webflow Product that points at ``template`` and reads its unsaved values,
+    for ``export_template_record`` only (a template calculates its own rows without one)."""
+    from illumenate_lighting.illumenate_lighting.template_calculations import (
+        SPEC_FIELDS,
+        display_name,
+        plain_rows,
+        product_type_for,
+    )
+    from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+
+    product = frappe.new_doc("ilL-Webflow-Product")
+    product.name = template.get("webflow_product") or f"template:{template.name}"
+    product.product_name = display_name(template) or template.name
+    product.product_type = product_type_for(template)
+    product.set(WEBFLOW_PRODUCT_LINKS[template.doctype], template.name)
+    product.is_configurable = 1
+    product.flags.template_doc = template
+    # Hand-typed template rows go in first so the calculation keeps them.
+    product.set(
+        "webflow_specifications",
+        [row for row in plain_rows(template.get("specifications"), SPEC_FIELDS) if not row.get("is_calculated")],
+    )
+    return product
 
 
 @frappe.whitelist(allow_guest=False)

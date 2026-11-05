@@ -1,29 +1,44 @@
 """Template-owned spec rows and configurator steps (plan Phase 2, D10, D21, D25, D43, D58).
 
-The calculations that build a Webflow Product's specification rows and configurator steps
-live on ilL-Webflow-Product (``sync_custom_template_data`` and the
-``populate_*_configurator_options`` methods). They only read the linked template, so the
-template runs the very same code on a *shadow* product: an unsaved ilL-Webflow-Product that
-points at the template being saved. The results are stored on the template:
+A template calculates its own rows from the template alone (``template_calculations``; owner,
+2026-11-05: calculations on the template do not rely on ilL-Webflow-Product). The results are
+stored on the template:
 
 - ``specifications``: the calculated rows plus any rows typed on the template by hand (rows
   whose label is not one of the calculated labels are kept, D43);
-- ``part_no_configurator``: the configurator steps.
+- ``part_no_configurator``: the configurator steps. A template whose steps are set up by hand
+  keeps them; a hand-set Tape/Neon template's steps take its current allowed options.
 
-A linked product still runs its own calculations on save (they also fill its documents,
+A linked product still runs the same calculations on save, through wrappers on
+ilL-Webflow-Product that keep its own tables filled (they also fill its documents,
 certifications, kit components and attribute links), so its calculated rows are always fresh.
 From the template it takes what people decide there: hand-typed specification rows and each
 configurator step's "Is Required" (``apply_template_rows``). Spec sheets generated from a
 template calculate fresh too (``compute``).
 
-Sharing the code means a product's rows are the same as before, apart from the D43 rules,
-which apply everywhere: placeholder "TBD" rows and a 0 to 0 temperature range are left out.
+The product's rows are the same as the template's, apart from the D43 rules, which apply
+everywhere: placeholder "TBD" rows and a 0 to 0 temperature range are left out.
 ``compare_listing`` checks that on real data.
 """
 
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.template_calculations import (
+	CONFIGURATOR_FIELDS,
+	CONFIGURATOR_METHODS,
+	LINKED_SPEC_KEYS,
+	SKIPPED_LINKED_ROWS,
+	SPEC_FIELDS,
+	calculate,
+	display_name,
+	linked_spec_rows,
+	product_type_for,
+	refresh_hand_set_tape_neon,
+)
+from illumenate_lighting.illumenate_lighting.template_calculations import (
+	plain_rows as _rows,
+)
 from illumenate_lighting.illumenate_lighting.web_listing_schema import (
 	CONFIGURATOR_AUTO_FIELD,
 	CONFIGURATOR_FIELD,
@@ -36,173 +51,15 @@ PRODUCT = "ilL-Webflow-Product"
 OPTION = "ilL-Child-Webflow-Configurator-Option"
 CONFIGURATOR_AUTO = CONFIGURATOR_AUTO_FIELD["fieldname"]
 TAPE = "ilL-Tape-Neon-Template"
-SPEC_FIELDS = (
-	"spec_label",
-	"spec_value",
-	"display_order",
-	"attribute_doctype",
-	"attribute_options_json",
-	"is_calculated",
-)
-CONFIGURATOR_FIELDS = (
-	"option_step",
-	"option_type",
-	"option_label",
-	"option_description",
-	"is_required",
-	"depends_on_step",
-	"allowed_values_json",
-)
-POPULATE = {
-	"fixture_template": "populate_configurator_options",
-	"tape_neon_template": "populate_tape_neon_configurator_options",
-	"led_sheet_template": "populate_led_sheet_configurator_options",
-	"driver_template": "populate_driver_configurator_options",
-	"controller_template": "populate_controller_configurator_options",
-	"kit_template": "populate_extrusion_kit_configurator_options",
-}
-
-
-def _rows(rows, fields):
-	return [{field: row.get(field) for field in fields} for row in rows or []]
-
-
-def product_type_for(template):
-	"""The Webflow Product type a template is listed as: from its Webflow Category
-	(``CATEGORY_PRODUCT_TYPES``), else from its doctype (Tape/Neon: its tape family)."""
-	from illumenate_lighting.illumenate_lighting.web_listing_schema import (
-		CATEGORY_PRODUCT_TYPES,
-		template_category,
-	)
-
-	mapped = CATEGORY_PRODUCT_TYPES.get(template_category(template) or "")
-	if mapped:
-		return mapped
-	field = WEBFLOW_PRODUCT_LINKS[template.doctype]
-	if template.doctype == TAPE:
-		return template.get("product_category") or WEBFLOW_PRODUCT_LINK_TYPES[field][0]
-	return WEBFLOW_PRODUCT_LINK_TYPES[field][0]
-
-
-def shadow_product(template):
-	"""An unsaved Webflow Product that points at ``template`` and reads its unsaved values."""
-	field = WEBFLOW_PRODUCT_LINKS[template.doctype]
-	product = frappe.new_doc(PRODUCT)
-	product.name = template.get("webflow_product") or f"template:{template.name}"
-	product.product_name = display_name(template) or template.name
-	product.product_type = product_type_for(template)
-	product.set(field, template.name)
-	product.is_configurable = 1
-	product.flags.template_doc = template
-	# Hand-typed template rows go in first so the calculation keeps them (it only replaces
-	# rows with calculated labels).
-	product.set(
-		"webflow_specifications",
-		[row for row in _rows(template.get("specifications"), SPEC_FIELDS) if not row.get("is_calculated")],
-	)
-	existing = _rows(template.get(CONFIGURATOR_FIELD), CONFIGURATOR_FIELDS)
-	if (
-		not existing
-		and template.get("webflow_product")
-		and auto_configurator(
-			frappe.db.get_value(
-				PRODUCT,
-				template.webflow_product,
-				["is_configurable", "auto_populate_configurator_options"],
-				as_dict=True,
-			)
-			or {}
-		)
-	):
-		# First computation: carry "Is Required" choices made on the product (not from steps
-		# set up by hand there: their step numbers differ).
-		existing = frappe.get_all(
-			OPTION,
-			filters={"parenttype": PRODUCT, "parent": template.webflow_product},
-			fields=["option_step", "is_required"],
-		)
-	product.flags.existing_is_required = {
-		int(row["option_step"]): int(row["is_required"] or 0)
-		for row in existing
-		if row.get("option_step") is not None
-	}
-	return product, field
+# The product method that calculates each template type's configurator steps (they call
+# template_calculations).
+POPULATE = CONFIGURATOR_METHODS
 
 
 def compute(template):
-	"""Run the product calculations for ``template``. Returns (specifications, configurator)."""
-	product, field = shadow_product(template)
-	product.sync_custom_template_data()
-	getattr(product, POPULATE[field])()
-	specifications = _rows(product.get("webflow_specifications"), SPEC_FIELDS)
-	return (
-		specifications + linked_spec_rows(product, specifications),
-		_rows(product.get("configurator_options"), CONFIGURATOR_FIELDS),
-	)
-
-
-def linked_spec_rows(product, specifications):
-	"""Rows the export adds from the linked spec records (CRI, input voltage, dimensions,
-	dimming and the like): the same code (``_enrich_specifications_from_linked_doctypes``), so
-	the template's Specifications are complete (owner, 2026-11-02). Marked ``is_calculated``.
-
-	A failure here leaves these rows out and is logged; it never blocks the template save.
-	"""
-	from illumenate_lighting.illumenate_lighting.api.webflow_export_v2 import (
-		_enrich_specifications_from_linked_doctypes,
-	)
-
-	record = {field: product.get(field) for field in LINKED_SPEC_KEYS}
-	record["specifications"] = [dict(row) for row in specifications]
-	before = len(record["specifications"])
-	try:
-		_enrich_specifications_from_linked_doctypes(record, product)
-	except Exception:
-		frappe.log_error(title=f"Linked spec rows failed: {product.get('product_name')}")
-		return []
-	rows = []
-	for row in record["specifications"][before:]:
-		if row.get("spec_label") in SKIPPED_LINKED_ROWS.get(product.get("product_type"), ()):
-			continue
-		value = row.get("spec_value")
-		if value in (None, ""):
-			continue
-		unit = row.get("spec_unit")
-		rows.append(
-			{
-				"spec_label": row.get("spec_label"),
-				"spec_value": f"{value} {unit}" if unit else value,
-				"display_order": row.get("display_order") or 0,
-				"attribute_doctype": row.get("attribute_doctype"),
-				"attribute_options_json": row.get("attribute_options_json"),
-				"is_calculated": 1,
-			}
-		)
-	return rows
-
-
-# Linked-record rows a template type does not store (owner, 2026-11-03: kits leave out
-# Certifications & Ratings; the Webflow export still adds it for kit products).
-SKIPPED_LINKED_ROWS = {"Extrusion Kit": ("Certifications & Ratings",)}
-
-# What the export's spec enrichment reads from a product record.
-LINKED_SPEC_KEYS = (
-	"name",
-	"product_type",
-	"product_name",
-	"fixture_template",
-	"tape_neon_template",
-	"led_sheet_template",
-	"driver_template",
-	"controller_template",
-	"kit_template",
-	"driver_spec",
-	"controller_spec",
-	"profile_spec",
-	"lens_spec",
-	"tape_spec",
-	"accessory_spec",
-)
+	"""Calculate ``template``'s rows from the template alone (``template_calculations``).
+	Returns (specifications, configurator). Nothing is saved and no Webflow Product is read."""
+	return calculate(template)
 
 
 def refresh_template(template):
@@ -239,6 +96,12 @@ def refresh_template(template):
 	if calculates_configurator(template):
 		template.set(CONFIGURATOR_FIELD, configurator)
 	else:
+		try:
+			# Hand-set Tape/Neon steps take the template's current allowed options (owner,
+			# 2026-11-05; this ran on the Webflow Product's save before).
+			refresh_hand_set_tape_neon(template)
+		except Exception:
+			frappe.log_error(title=f"Hand-set Tape/Neon steps refresh failed: {template.name}")
 		renumber_steps(template)
 
 
@@ -428,16 +291,9 @@ def fresh_product_rows(product):
 	return _rows(product.get("webflow_specifications"), SPEC_FIELDS), configurator
 
 
-def display_name(template):
-	"""The name the product shows: Display Name, else Template Name (owner, 2026-11-02)."""
-	return (template.get("display_name") or "").strip() or (template.get("template_name") or "").strip()
-
-
 def _calculated_labels():
-	"""The labels the product calculation rebuilds."""
-	from illumenate_lighting.illumenate_lighting.doctype.ill_webflow_product.ill_webflow_product import (
-		MANAGED_LABELS,
-	)
+	"""The labels the calculation rebuilds."""
+	from illumenate_lighting.illumenate_lighting.template_calculations import MANAGED_LABELS
 
 	return MANAGED_LABELS
 

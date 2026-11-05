@@ -1,0 +1,5070 @@
+{
+ "compute": {
+  "cob_tape": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Environment",
+     "option_step": 1,
+     "option_type": "Environment Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 2,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"400 lm/ft\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"99 lm/ft\",\n  \"value\": \"NOSKU\"\n }\n]",
+     "depends_on_step": 2,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 3,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"W\",\n  \"is_default\": 0,\n  \"label\": \"Wire\",\n  \"value\": \"Wire\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Power Feed Type",
+     "option_step": 4,
+     "option_type": "Power Feed Type"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48.0,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120,\n  \"min_inches\": 12.0,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 5,
+     "option_type": "Length"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Output Level",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Output Options",
+     "spec_value": "400 lm/ft, 200 lm/ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Watts per Foot",
+     "spec_value": "2.9, 4.4"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Max Run Length",
+     "spec_value": "48.5 ft, 32 ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Max Footage per 100W Supply",
+     "spec_value": "28 ft, 19 ft"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-CCT",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Light Color (CCT)",
+     "spec_value": "3000K, 2700K Warm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 60,
+     "is_calculated": 1,
+     "spec_label": "Color Rendering (CRI)",
+     "spec_value": "92"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 70,
+     "is_calculated": 1,
+     "spec_label": "Beam Spread",
+     "spec_value": "120°"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Mounting Options",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Finish Options",
+     "spec_value": "Anodized Silver"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Output Voltage",
+     "attribute_options_json": null,
+     "display_order": 100,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "24V"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+     "attribute_options_json": null,
+     "display_order": 110,
+     "is_calculated": 1,
+     "spec_label": "Dimming",
+     "spec_value": "0-10V Dimming, DALI, ELV, PWM"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "10mm x 2mm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 125,
+     "is_calculated": 1,
+     "spec_label": "Minimum Bending Diameter",
+     "spec_value": "Side Bend: 0.79\" (20mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 130,
+     "is_calculated": 1,
+     "spec_label": "Production Interval",
+     "spec_value": "1.97\" (50.0mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 140,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-20°C to 45°C"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 150,
+     "is_calculated": 1,
+     "spec_label": "Warranty",
+     "spec_value": "5 years"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"tape-product\", \"product_name\": \"Tape HD Display\", \"product_type\": \"COB Tape\", \"profile_spec\": null, \"tape_neon_template\": \"TAPE-TPL\", \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Beam Spread, Color Rendering (CRI), Dimensions, Dimming, Finish Options, Input Voltage, Light Color (CCT), Max Footage per 100W Supply, Max Run Length, Minimum Bending Diameter, Mounting Options, Operating Temperature, Output Options, Production Interval, Warranty, Watts per Foot"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[[\"UL\", null]]"
+    }
+   ]
+  },
+  "controller": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"W\",\n  \"is_default\": false,\n  \"label\": \"Wall\",\n  \"value\": \"Wall\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Controller Type",
+     "option_step": 1,
+     "option_type": "Controller Type"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"4\",\n  \"value\": \"4\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Channels",
+     "option_step": 2,
+     "option_type": "Channels"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": true,\n  \"label\": \"1\",\n  \"value\": \"1\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Zones",
+     "option_step": 3,
+     "option_type": "Zones"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"Zigbee 3.0\",\n  \"value\": \"Zigbee\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Wireless Protocol",
+     "option_step": 6,
+     "option_type": "Wireless Protocol"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": \"CTL-TPL\", \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"template:CTL-TPL\", \"product_name\": \"Controller\", \"product_type\": \"Controller\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[]"
+    }
+   ]
+  },
+  "driver": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"060\",\n  \"is_default\": true,\n  \"label\": \"60W\",\n  \"value\": \"60\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"96\",\n  \"value\": \"96\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Wattage",
+     "option_step": 1,
+     "option_type": "Wattage"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"24V\",\n  \"value\": \"24V\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"48V\",\n  \"value\": \"48V\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Output Voltage",
+     "option_step": 2,
+     "option_type": "Voltage Output"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"0-10V\",\n  \"value\": \"0-10V\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Dimming Input",
+     "option_step": 3,
+     "option_type": "Input Protocol"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"DALI\",\n  \"value\": \"DALI\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output Protocol",
+     "option_step": 4,
+     "option_type": "Output Protocol"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "100 - 277 VAC, 120 - 277 VAC"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Power Factor",
+     "spec_value": "0.95"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Efficiency",
+     "spec_value": "88%, 90%"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 70,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "1.18\" (30mm) × 1.57\" (40mm) × 5.91\" (150mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Inrush Current",
+     "spec_value": "12A, 20A"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Max Input Current",
+     "spec_value": "0.6A, 1.1A"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 100,
+     "is_calculated": 1,
+     "spec_label": "Output Voltage",
+     "spec_value": "24"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Dimming",
+     "spec_value": "0-10V Dimming, DALI, ELV"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 150,
+     "is_calculated": 1,
+     "spec_label": "Warranty",
+     "spec_value": "7 years"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": \"DRV-TPL\", \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"driver-product\", \"product_name\": \"Driver 60-96W\", \"product_type\": \"Driver\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Dimensions, Dimming, Efficiency, Input Voltage, Inrush Current, Max Input Current, Output Voltage, Power Factor, Warranty"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[]"
+    }
+   ]
+  },
+  "fixture": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n },\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Dry/Wet",
+     "option_step": 1,
+     "option_type": "Environment Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"27\",\n  \"kelvin\": 2700,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n },\n {\n  \"code\": \"30\",\n  \"kelvin\": 3000,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"40\",\n  \"kelvin\": 4000,\n  \"label\": \"4000K Neutral\",\n  \"value\": \"4000K\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 2,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\",\n  \"value\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\",\n  \"value\": \"Clear\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Opal\",\n  \"value\": \"Opal\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Lens",
+     "option_step": 3,
+     "option_type": "Lens Appearance"
+    },
+    {
+     "allowed_values_json": "{\n \"lensMap\": {\n  \"CL\": [\n   {\n    \"code\": \"F15\",\n    \"delivered_lm_ft\": 150,\n    \"label\": \"150 lm/ft\",\n    \"tape_output_lm_ft\": 200,\n    \"value\": \"TAPE-200\"\n   },\n   {\n    \"code\": \"F30\",\n    \"delivered_lm_ft\": 300,\n    \"label\": \"300 lm/ft\",\n    \"tape_output_lm_ft\": 400,\n    \"value\": \"TAPE-400\"\n   },\n   {\n    \"code\": \"06\",\n    \"delivered_lm_ft\": 450,\n    \"label\": \"450 lm/ft\",\n    \"tape_output_lm_ft\": 600,\n    \"value\": \"TAPE-600\"\n   }\n  ],\n  \"FR\": [\n   {\n    \"code\": \"F15\",\n    \"delivered_lm_ft\": 150,\n    \"label\": \"150 lm/ft\",\n    \"tape_output_lm_ft\": 200,\n    \"value\": \"TAPE-200\"\n   },\n   {\n    \"code\": \"F30\",\n    \"delivered_lm_ft\": 300,\n    \"label\": \"300 lm/ft\",\n    \"tape_output_lm_ft\": 600,\n    \"value\": \"TAPE-600\"\n   }\n  ]\n }\n}",
+     "depends_on_step": 3,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 4,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\",\n  \"value\": \"Surface\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Mounting",
+     "option_step": 5,
+     "option_type": "Mounting Method"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"BK\",\n  \"is_default\": 0,\n  \"label\": \"Black\",\n  \"value\": \"Black\"\n },\n {\n  \"code\": \"WH\",\n  \"is_default\": 0,\n  \"label\": \"White\",\n  \"value\": \"White\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Finish",
+     "option_step": 6,
+     "option_type": "Finish"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 78.7,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120.0,\n  \"min_inches\": 12,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 7,
+     "option_type": "Length"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Start Feed Direction",
+     "option_step": 8,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+     "depends_on_step": 8,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Start Feed Length",
+     "option_step": 9,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"CAP\",\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "End Feed Direction",
+     "option_step": 10,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+     "depends_on_step": 10,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "End Feed Length",
+     "option_step": 11,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"endcap_color\": \"EC-Black\",\n  \"endcap_color_code\": \"BK\",\n  \"endcap_color_label\": \"Black Cap\",\n  \"finish\": \"Black\",\n  \"is_default\": 1\n },\n {\n  \"endcap_color\": \"EC-White\",\n  \"endcap_color_code\": \"WH\",\n  \"endcap_color_label\": \"WH\",\n  \"finish\": \"White\",\n  \"is_default\": 0\n },\n {\n  \"endcap_color\": \"EC-Gone\",\n  \"endcap_color_code\": \"\",\n  \"endcap_color_label\": \"EC-Gone\",\n  \"finish\": \"Silver\",\n  \"is_default\": 0\n }\n]",
+     "depends_on_step": 6,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Finish→Endcap Color Mapping",
+     "option_step": 99,
+     "option_type": "Endcap Color"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"F15\",\n  \"label\": \"150 lm/ft\",\n  \"numeric_value\": 150,\n  \"value\": \"FIX-150\"\n },\n {\n  \"code\": \"F30\",\n  \"label\": \"300 lm/ft\",\n  \"numeric_value\": 300,\n  \"value\": \"FIX-300\"\n },\n {\n  \"code\": \"\",\n  \"label\": \"450 lm/ft\",\n  \"numeric_value\": 450,\n  \"value\": \"FIX-450\"\n }\n]",
+     "depends_on_step": 4,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Fixture Output Level Lookup",
+     "option_step": 98,
+     "option_type": "Fixture Output Level"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Output Level",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"06\",\n  \"display_label\": \"600 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Output Options",
+     "spec_value": "400 lm/ft, 600 lm/ft, 200 lm/ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Watts per Foot",
+     "spec_value": "2.9, 4.4"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Max Run Length",
+     "spec_value": "48.5 ft, 32 ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 35,
+     "is_calculated": 1,
+     "spec_label": "Max Footage per 100W Supply",
+     "spec_value": "28 ft, 19 ft"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-CCT",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"40\",\n  \"display_label\": \"4000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Light Color (CCT)",
+     "spec_value": "3000K, 4000K, 2700K Warm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Color Rendering (CRI)",
+     "spec_value": "CRI-90, CRI-95"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 55,
+     "is_calculated": 0,
+     "spec_label": "Hand Note",
+     "spec_value": "typed"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Lens Appearance",
+     "attribute_options_json": null,
+     "display_order": 60,
+     "is_calculated": 1,
+     "spec_label": "Lens Options",
+     "spec_value": "Clear, Frosted, Old, Opal"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 70,
+     "is_calculated": 1,
+     "spec_label": "Mounting Options",
+     "spec_value": "Recessed, Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Finish Options",
+     "spec_value": "Matte Black, White"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Output Voltage",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "24V"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 95,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+     "attribute_options_json": null,
+     "display_order": 100,
+     "is_calculated": 1,
+     "spec_label": "Dimming",
+     "spec_value": "0-10V Dimming, DALI, ELV"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 110,
+     "is_calculated": 1,
+     "spec_label": "Production Interval",
+     "spec_value": "1.97\""
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-20°C to 45°C"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": null,
+     "is_calculated": 0,
+     "spec_label": "No Order",
+     "spec_value": "x"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": \"FIX-TPL\", \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"template:FIX-TPL\", \"product_name\": \"Linear 100\", \"product_type\": \"Fixture Template\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Color Rendering (CRI), Dimensions, Dimming, Finish Options, Hand Note, Input Voltage, Lens Options, Light Color (CCT), Max Footage per 100W Supply, Max Run Length, Mounting Options, No Order, Operating Temperature, Output Options, Production Interval, Watts per Foot"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[[\"UL\", null], [\"ETL\", null]]"
+    }
+   ]
+  },
+  "fixture_listed_as_a_controller": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n },\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Dry/Wet",
+     "option_step": 1,
+     "option_type": "Environment Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"27\",\n  \"kelvin\": 2700,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n },\n {\n  \"code\": \"30\",\n  \"kelvin\": 3000,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"40\",\n  \"kelvin\": 4000,\n  \"label\": \"4000K Neutral\",\n  \"value\": \"4000K\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 2,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\",\n  \"value\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\",\n  \"value\": \"Clear\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Opal\",\n  \"value\": \"Opal\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Lens",
+     "option_step": 3,
+     "option_type": "Lens Appearance"
+    },
+    {
+     "allowed_values_json": "{\n \"lensMap\": {\n  \"CL\": [\n   {\n    \"code\": \"F15\",\n    \"delivered_lm_ft\": 150,\n    \"label\": \"150 lm/ft\",\n    \"tape_output_lm_ft\": 200,\n    \"value\": \"TAPE-200\"\n   },\n   {\n    \"code\": \"F30\",\n    \"delivered_lm_ft\": 300,\n    \"label\": \"300 lm/ft\",\n    \"tape_output_lm_ft\": 400,\n    \"value\": \"TAPE-400\"\n   },\n   {\n    \"code\": \"06\",\n    \"delivered_lm_ft\": 450,\n    \"label\": \"450 lm/ft\",\n    \"tape_output_lm_ft\": 600,\n    \"value\": \"TAPE-600\"\n   }\n  ],\n  \"FR\": [\n   {\n    \"code\": \"F15\",\n    \"delivered_lm_ft\": 150,\n    \"label\": \"150 lm/ft\",\n    \"tape_output_lm_ft\": 200,\n    \"value\": \"TAPE-200\"\n   },\n   {\n    \"code\": \"F30\",\n    \"delivered_lm_ft\": 300,\n    \"label\": \"300 lm/ft\",\n    \"tape_output_lm_ft\": 600,\n    \"value\": \"TAPE-600\"\n   }\n  ]\n }\n}",
+     "depends_on_step": 3,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 4,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\",\n  \"value\": \"Surface\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Mounting",
+     "option_step": 5,
+     "option_type": "Mounting Method"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"BK\",\n  \"is_default\": 0,\n  \"label\": \"Black\",\n  \"value\": \"Black\"\n },\n {\n  \"code\": \"WH\",\n  \"is_default\": 0,\n  \"label\": \"White\",\n  \"value\": \"White\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Finish",
+     "option_step": 6,
+     "option_type": "Finish"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 78.7,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120.0,\n  \"min_inches\": 12,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 7,
+     "option_type": "Length"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Start Feed Direction",
+     "option_step": 8,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+     "depends_on_step": 8,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Start Feed Length",
+     "option_step": 9,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"CAP\",\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "End Feed Direction",
+     "option_step": 10,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+     "depends_on_step": 10,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "End Feed Length",
+     "option_step": 11,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"endcap_color\": \"EC-Black\",\n  \"endcap_color_code\": \"BK\",\n  \"endcap_color_label\": \"Black Cap\",\n  \"finish\": \"Black\",\n  \"is_default\": 1\n },\n {\n  \"endcap_color\": \"EC-White\",\n  \"endcap_color_code\": \"WH\",\n  \"endcap_color_label\": \"WH\",\n  \"finish\": \"White\",\n  \"is_default\": 0\n },\n {\n  \"endcap_color\": \"EC-Gone\",\n  \"endcap_color_code\": \"\",\n  \"endcap_color_label\": \"EC-Gone\",\n  \"finish\": \"Silver\",\n  \"is_default\": 0\n }\n]",
+     "depends_on_step": 6,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Finish→Endcap Color Mapping",
+     "option_step": 99,
+     "option_type": "Endcap Color"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"F15\",\n  \"label\": \"150 lm/ft\",\n  \"numeric_value\": 150,\n  \"value\": \"FIX-150\"\n },\n {\n  \"code\": \"F30\",\n  \"label\": \"300 lm/ft\",\n  \"numeric_value\": 300,\n  \"value\": \"FIX-300\"\n },\n {\n  \"code\": \"\",\n  \"label\": \"450 lm/ft\",\n  \"numeric_value\": 450,\n  \"value\": \"FIX-450\"\n }\n]",
+     "depends_on_step": 4,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Fixture Output Level Lookup",
+     "option_step": 98,
+     "option_type": "Fixture Output Level"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 5,
+     "is_calculated": null,
+     "spec_label": "Finish Options",
+     "spec_value": "typed managed"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 55,
+     "is_calculated": 0,
+     "spec_label": "Hand Note",
+     "spec_value": "typed"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": null,
+     "is_calculated": 0,
+     "spec_label": "No Order",
+     "spec_value": "x"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": \"FIX-TPL\", \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"template:FIX-TPL\", \"product_name\": \"Linear 100\", \"product_type\": \"Controller\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Finish Options, Hand Note, No Order"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[]"
+    }
+   ]
+  },
+  "fixture_without_options": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 78.7,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120.0,\n  \"min_inches\": 12,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 7,
+     "option_type": "Length"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Start Feed Direction",
+     "option_step": 8,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+     "depends_on_step": 8,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Start Feed Length",
+     "option_step": 9,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"CAP\",\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "End Feed Direction",
+     "option_step": 10,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+     "depends_on_step": 10,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "End Feed Length",
+     "option_step": 11,
+     "option_type": "Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"endcap_color\": \"EC-Black\",\n  \"endcap_color_code\": \"BK\",\n  \"endcap_color_label\": \"Black Cap\",\n  \"finish\": \"Black\",\n  \"is_default\": 1\n },\n {\n  \"endcap_color\": \"EC-White\",\n  \"endcap_color_code\": \"WH\",\n  \"endcap_color_label\": \"WH\",\n  \"finish\": \"White\",\n  \"is_default\": 0\n },\n {\n  \"endcap_color\": \"EC-Gone\",\n  \"endcap_color_code\": \"\",\n  \"endcap_color_label\": \"EC-Gone\",\n  \"finish\": \"Silver\",\n  \"is_default\": 0\n }\n]",
+     "depends_on_step": 6,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Finish→Endcap Color Mapping",
+     "option_step": 99,
+     "option_type": "Endcap Color"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"F15\",\n  \"label\": \"150 lm/ft\",\n  \"numeric_value\": 150,\n  \"value\": \"FIX-150\"\n },\n {\n  \"code\": \"F30\",\n  \"label\": \"300 lm/ft\",\n  \"numeric_value\": 300,\n  \"value\": \"FIX-300\"\n },\n {\n  \"code\": \"\",\n  \"label\": \"450 lm/ft\",\n  \"numeric_value\": 450,\n  \"value\": \"FIX-450\"\n }\n]",
+     "depends_on_step": 4,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Fixture Output Level Lookup",
+     "option_step": 98,
+     "option_type": "Fixture Output Level"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 55,
+     "is_calculated": 0,
+     "spec_label": "Hand Note",
+     "spec_value": "typed"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 95,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "1.00\" x 0.50\""
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": null,
+     "is_calculated": 0,
+     "spec_label": "No Order",
+     "spec_value": "x"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": \"FIX-TPL\", \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"template:FIX-TPL\", \"product_name\": \"Linear 100\", \"product_type\": \"Fixture Template\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Dimensions, Hand Note, No Order"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[]"
+    }
+   ]
+  },
+  "kit": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Lens",
+     "option_step": 1,
+     "option_type": "Lens Appearance"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Mounting",
+     "option_step": 2,
+     "option_type": "Mounting Method"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"BK\",\n  \"is_default\": 0,\n  \"label\": \"Black\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Finish",
+     "option_step": 3,
+     "option_type": "Finish"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2M\",\n  \"is_default\": 1,\n  \"label\": \"2M (6.56ft)\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 4,
+     "option_type": "Length"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Lens Appearance",
+     "attribute_options_json": null,
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Lenses",
+     "spec_value": "Clear, Frosted"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Mounting",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Finish",
+     "spec_value": "Anodized Silver, Matte Black"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 31,
+     "is_calculated": 1,
+     "spec_label": "Stock Length",
+     "spec_value": "78.7\" (2000mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 32,
+     "is_calculated": 1,
+     "spec_label": "Max Assembled Length",
+     "spec_value": "240.0\" (6096mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Environment Rating",
+     "attribute_options_json": null,
+     "display_order": 49,
+     "is_calculated": 1,
+     "spec_label": "Environment Rating(s)",
+     "spec_value": "Dry, Wet"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-4°F (-20°C) to 113°F (45°C)"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": \"KIT-TPL\", \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"kit-product\", \"product_name\": \"Rainier Kit\", \"product_type\": \"Extrusion Kit\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Dimensions, Environment Rating(s), Finish, Lenses, Max Assembled Length, Mounting, Operating Temperature, Stock Length"
+    }
+   ]
+  },
+  "kit_with_stock_length": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Lens",
+     "option_step": 1,
+     "option_type": "Lens Appearance"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Mounting",
+     "option_step": 2,
+     "option_type": "Mounting Method"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"BK\",\n  \"is_default\": 0,\n  \"label\": \"Black\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Finish",
+     "option_step": 3,
+     "option_type": "Finish"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"2.4384M\",\n  \"is_default\": 1,\n  \"label\": \"2.4384M (8.00ft)\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 4,
+     "option_type": "Length"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Lens Appearance",
+     "attribute_options_json": null,
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Lenses",
+     "spec_value": "Clear, Frosted"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Mounting",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Finish",
+     "spec_value": "Anodized Silver, Matte Black"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "1.00\" x 0.50\""
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-4°F (-20°C) to 113°F (45°C)"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": \"KIT-TPL\", \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"kit-product\", \"product_name\": \"Rainier Kit\", \"product_type\": \"Extrusion Kit\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Dimensions, Finish, Lenses, Mounting, Operating Temperature"
+    }
+   ]
+  },
+  "kit_without_profile": {
+   "error": "ValidationError: Template 'KIT-TPL' is missing a Default Profile Spec. Dimensions are required for Extrusion Kits."
+  },
+  "kit_without_profile_stock": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Lens",
+     "option_step": 1,
+     "option_type": "Lens Appearance"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Mounting",
+     "option_step": 2,
+     "option_type": "Mounting Method"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"BK\",\n  \"is_default\": 0,\n  \"label\": \"Black\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Finish",
+     "option_step": 3,
+     "option_type": "Finish"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Lens Appearance",
+     "attribute_options_json": null,
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Lenses",
+     "spec_value": "Clear, Frosted"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Mounting",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Finish",
+     "spec_value": "Anodized Silver, Matte Black"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "1.00\" x 0.50\""
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": \"KIT-TPL\", \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"kit-product\", \"product_name\": \"Rainier Kit\", \"product_type\": \"Extrusion Kit\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Dimensions, Finish, Lenses, Mounting"
+    }
+   ]
+  },
+  "led_sheet": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 1,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"4000K\",\n  \"value\": \"4000K\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 1,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"TAPE-600\",\n  \"value\": \"TAPE-600\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 2,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Environment",
+     "option_step": 3,
+     "option_type": "Environment Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Adhesive\",\n  \"value\": \"Adhesive\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Mounting",
+     "option_step": 4,
+     "option_type": "Mounting"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"label\": \"Coverage\",\n  \"value\": \"__coverage_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Coverage",
+     "option_step": 6,
+     "option_type": "Coverage"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Output Level",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"06\",\n  \"display_label\": \"600 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Output Options",
+     "spec_value": "600 lm/ft, 200 lm/ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Watts per Square Foot",
+     "spec_value": "7.5"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 35,
+     "is_calculated": 1,
+     "spec_label": "Max Footage per 100W Supply",
+     "spec_value": "11 sqft"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-CCT",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"40\",\n  \"display_label\": \"4000K\"\n }\n]",
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Light Color (CCT)",
+     "spec_value": "3000K, 4000K"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Color Rendering (CRI)",
+     "spec_value": "90, 95"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 65,
+     "is_calculated": 1,
+     "spec_label": "Beam Spread",
+     "spec_value": "120°"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 70,
+     "is_calculated": 1,
+     "spec_label": "Mounting",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Finish",
+     "spec_value": "Matte Black, White"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Output Voltage",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "24V"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 95,
+     "is_calculated": 1,
+     "spec_label": "Dimensions (ft)",
+     "spec_value": "12.00\" (304.8mm) × 24.00\" (609.6mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 105,
+     "is_calculated": 1,
+     "spec_label": "Cut Interval",
+     "spec_value": "2.00\" (50.8mm) × 1.50\" (38.1mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-4°F (-20°C) to 104°F (40°C)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 130,
+     "is_calculated": 1,
+     "spec_label": "Warranty",
+     "spec_value": "3 years"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": \"SHEET-TPL\", \"lens_spec\": null, \"name\": \"sheet-product\", \"product_name\": \"Sheet\", \"product_type\": \"LED Sheet\", \"profile_spec\": null, \"tape_neon_template\": null, \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Beam Spread, Color Rendering (CRI), Cut Interval, Dimensions (ft), Finish, Input Voltage, Light Color (CCT), Max Footage per 100W Supply, Mounting, Operating Temperature, Output Options, Warranty, Watts per Square Foot"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[]"
+    }
+   ]
+  },
+  "neon": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 1,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"400 lm/ft\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"99 lm/ft\",\n  \"value\": \"NOSKU\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 2,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"SV\",\n  \"is_default\": 0,\n  \"label\": \"Silver\",\n  \"value\": \"Silver\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Finish",
+     "option_step": 3,
+     "option_type": "Finish"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"65\",\n  \"is_default\": 0,\n  \"label\": \"IP65\",\n  \"value\": \"IP65\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "IP Rating",
+     "option_step": 4,
+     "option_type": "IP Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"E\",\n  \"is_default\": 0,\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Start Feed Direction",
+     "option_step": 5,
+     "option_type": "Start Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"SD\",\n  \"is_default\": 1,\n  \"label\": \"Side\",\n  \"value\": \"Side\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "End Feed Direction",
+     "option_step": 6,
+     "option_type": "End Feed Direction"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48.0,\n  \"increment_inches\": 1.0,\n  \"label\": \"Length\",\n  \"max_inches\": 600.0,\n  \"min_inches\": 12.0,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 7,
+     "option_type": "Length"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Output Level",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Output Options",
+     "spec_value": "400 lm/ft, 200 lm/ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Watts per Foot",
+     "spec_value": "4.4"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Max Run Length",
+     "spec_value": "32 ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Max Footage per 100W Supply",
+     "spec_value": "19 ft"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-CCT",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Light Color (CCT)",
+     "spec_value": "3000K, 2700K Warm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 60,
+     "is_calculated": 1,
+     "spec_label": "Color Rendering (CRI)",
+     "spec_value": "92, 95"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Mounting Options",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Finish Options",
+     "spec_value": "Anodized Silver"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Output Voltage",
+     "attribute_options_json": null,
+     "display_order": 100,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "24V, 48V"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+     "attribute_options_json": null,
+     "display_order": 110,
+     "is_calculated": 1,
+     "spec_label": "Dimming",
+     "spec_value": "0-10V Dimming, DMX, ELV, PWM"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "10mm x 2mm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 125,
+     "is_calculated": 1,
+     "spec_label": "Minimum Bending Diameter",
+     "spec_value": "Top Bend: 2.00\" (50.8mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 130,
+     "is_calculated": 1,
+     "spec_label": "Production Interval",
+     "spec_value": "Free Cutting"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 140,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-20°C to 45°C"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 150,
+     "is_calculated": 1,
+     "spec_label": "Warranty",
+     "spec_value": "5 years"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"template:NEON-TPL\", \"product_name\": \"Tape HD Display\", \"product_type\": \"LED Neon\", \"profile_spec\": null, \"tape_neon_template\": \"NEON-TPL\", \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Color Rendering (CRI), Dimensions, Dimming, Finish Options, Input Voltage, Light Color (CCT), Max Footage per 100W Supply, Max Run Length, Minimum Bending Diameter, Mounting Options, Operating Temperature, Output Options, Production Interval, Warranty, Watts per Foot"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[[\"UL\", null]]"
+    }
+   ]
+  },
+  "tape": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Environment",
+     "option_step": 1,
+     "option_type": "Environment Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 2,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"400 lm/ft\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"99 lm/ft\",\n  \"value\": \"NOSKU\"\n }\n]",
+     "depends_on_step": 2,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 3,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"W\",\n  \"is_default\": 0,\n  \"label\": \"Wire\",\n  \"value\": \"Wire\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Power Feed Type",
+     "option_step": 4,
+     "option_type": "Power Feed Type"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48.0,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120,\n  \"min_inches\": 12.0,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 5,
+     "option_type": "Length"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Output Level",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Output Options",
+     "spec_value": "400 lm/ft, 200 lm/ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Watts per Foot",
+     "spec_value": "2.9, 4.4"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Max Run Length",
+     "spec_value": "48.5 ft, 32 ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Max Footage per 100W Supply",
+     "spec_value": "28 ft, 19 ft"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-CCT",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Light Color (CCT)",
+     "spec_value": "3000K, 2700K Warm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 60,
+     "is_calculated": 1,
+     "spec_label": "Color Rendering (CRI)",
+     "spec_value": "92"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 70,
+     "is_calculated": 1,
+     "spec_label": "Beam Spread",
+     "spec_value": "120°"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Mounting Options",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Finish Options",
+     "spec_value": "Anodized Silver"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Output Voltage",
+     "attribute_options_json": null,
+     "display_order": 100,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "24V"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+     "attribute_options_json": null,
+     "display_order": 110,
+     "is_calculated": 1,
+     "spec_label": "Dimming",
+     "spec_value": "0-10V Dimming, DALI, ELV, PWM"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "10mm x 2mm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 125,
+     "is_calculated": 1,
+     "spec_label": "Minimum Bending Diameter",
+     "spec_value": "Side Bend: 0.79\" (20mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 130,
+     "is_calculated": 1,
+     "spec_label": "Production Interval",
+     "spec_value": "1.97\" (50.0mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 140,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-20°C to 45°C"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 150,
+     "is_calculated": 1,
+     "spec_label": "Warranty",
+     "spec_value": "5 years"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"tape-product\", \"product_name\": \"Tape HD Display\", \"product_type\": \"LED Tape\", \"profile_spec\": null, \"tape_neon_template\": \"TAPE-TPL\", \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Beam Spread, Color Rendering (CRI), Dimensions, Dimming, Finish Options, Input Voltage, Light Color (CCT), Max Footage per 100W Supply, Max Run Length, Minimum Bending Diameter, Mounting Options, Operating Temperature, Output Options, Production Interval, Warranty, Watts per Foot"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[[\"UL\", null]]"
+    }
+   ]
+  },
+  "tape_free_cutting_with_interval": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Environment",
+     "option_step": 1,
+     "option_type": "Environment Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 2,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"400 lm/ft\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"99 lm/ft\",\n  \"value\": \"NOSKU\"\n }\n]",
+     "depends_on_step": 2,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 3,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"W\",\n  \"is_default\": 0,\n  \"label\": \"Wire\",\n  \"value\": \"Wire\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Power Feed Type",
+     "option_step": 4,
+     "option_type": "Power Feed Type"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48.0,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120,\n  \"min_inches\": 12.0,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 5,
+     "option_type": "Length"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Output Level",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Output Options",
+     "spec_value": "400 lm/ft, 200 lm/ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Watts per Foot",
+     "spec_value": "2.9, 4.4"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Max Run Length",
+     "spec_value": "48.5 ft, 32 ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Max Footage per 100W Supply",
+     "spec_value": "28 ft, 19 ft"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-CCT",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Light Color (CCT)",
+     "spec_value": "3000K, 2700K Warm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 60,
+     "is_calculated": 1,
+     "spec_label": "Color Rendering (CRI)",
+     "spec_value": "92"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 70,
+     "is_calculated": 1,
+     "spec_label": "Beam Spread",
+     "spec_value": "120°"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Mounting Options",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Finish Options",
+     "spec_value": "Anodized Silver"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Output Voltage",
+     "attribute_options_json": null,
+     "display_order": 100,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "24V"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+     "attribute_options_json": null,
+     "display_order": 110,
+     "is_calculated": 1,
+     "spec_label": "Dimming",
+     "spec_value": "0-10V Dimming, DALI, ELV, PWM"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "10mm x 2mm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 125,
+     "is_calculated": 1,
+     "spec_label": "Minimum Bending Diameter",
+     "spec_value": "Side Bend: 0.79\" (20mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 130,
+     "is_calculated": 1,
+     "spec_label": "Production Interval",
+     "spec_value": "2.46\" (62.5mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 140,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-20°C to 45°C"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 150,
+     "is_calculated": 1,
+     "spec_label": "Warranty",
+     "spec_value": "5 years"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"tape-product\", \"product_name\": \"Tape HD Display\", \"product_type\": \"LED Tape\", \"profile_spec\": null, \"tape_neon_template\": \"TAPE-TPL\", \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Beam Spread, Color Rendering (CRI), Dimensions, Dimming, Finish Options, Input Voltage, Light Color (CCT), Max Footage per 100W Supply, Max Run Length, Minimum Bending Diameter, Mounting Options, Operating Temperature, Output Options, Production Interval, Warranty, Watts per Foot"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[[\"UL\", null]]"
+    }
+   ]
+  },
+  "tape_hand_set": {
+   "configurator": [
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Environment",
+     "option_step": 1,
+     "option_type": "Environment Rating"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n }\n]",
+     "depends_on_step": 1,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "CCT",
+     "option_step": 2,
+     "option_type": "CCT"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"400 lm/ft\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"99 lm/ft\",\n  \"value\": \"NOSKU\"\n }\n]",
+     "depends_on_step": 2,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Output",
+     "option_step": 3,
+     "option_type": "Output Level"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"W\",\n  \"is_default\": 0,\n  \"label\": \"Wire\",\n  \"value\": \"Wire\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 0,
+     "option_description": null,
+     "option_label": "Power Feed Type",
+     "option_step": 4,
+     "option_type": "Power Feed Type"
+    },
+    {
+     "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48.0,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120,\n  \"min_inches\": 12.0,\n  \"value\": \"__length_metadata__\"\n }\n]",
+     "depends_on_step": 0,
+     "is_required": 1,
+     "option_description": null,
+     "option_label": "Length",
+     "option_step": 5,
+     "option_type": "Length"
+    }
+   ],
+   "specifications": [
+    {
+     "attribute_doctype": "ilL-Attribute-Output Level",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+     "display_order": 10,
+     "is_calculated": 1,
+     "spec_label": "Output Options",
+     "spec_value": "400 lm/ft, 200 lm/ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 20,
+     "is_calculated": 1,
+     "spec_label": "Watts per Foot",
+     "spec_value": "2.9, 4.4"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 30,
+     "is_calculated": 1,
+     "spec_label": "Max Run Length",
+     "spec_value": "48.5 ft, 32 ft"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 40,
+     "is_calculated": 1,
+     "spec_label": "Max Footage per 100W Supply",
+     "spec_value": "28 ft, 19 ft"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-CCT",
+     "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+     "display_order": 50,
+     "is_calculated": 1,
+     "spec_label": "Light Color (CCT)",
+     "spec_value": "3000K, 2700K Warm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 60,
+     "is_calculated": 1,
+     "spec_label": "Color Rendering (CRI)",
+     "spec_value": "92"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 70,
+     "is_calculated": 1,
+     "spec_label": "Beam Spread",
+     "spec_value": "120°"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Mounting Method",
+     "attribute_options_json": null,
+     "display_order": 80,
+     "is_calculated": 1,
+     "spec_label": "Mounting Options",
+     "spec_value": "Surface"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Finish",
+     "attribute_options_json": null,
+     "display_order": 90,
+     "is_calculated": 1,
+     "spec_label": "Finish Options",
+     "spec_value": "Anodized Silver"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Output Voltage",
+     "attribute_options_json": null,
+     "display_order": 100,
+     "is_calculated": 1,
+     "spec_label": "Input Voltage",
+     "spec_value": "24V"
+    },
+    {
+     "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+     "attribute_options_json": null,
+     "display_order": 110,
+     "is_calculated": 1,
+     "spec_label": "Dimming",
+     "spec_value": "0-10V Dimming, DALI, ELV, PWM"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Dimensions",
+     "spec_value": "10mm x 2mm"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 125,
+     "is_calculated": 1,
+     "spec_label": "Minimum Bending Diameter",
+     "spec_value": "Side Bend: 0.79\" (20mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 130,
+     "is_calculated": 1,
+     "spec_label": "Production Interval",
+     "spec_value": "1.97\" (50.0mm)"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 140,
+     "is_calculated": 1,
+     "spec_label": "Operating Temperature",
+     "spec_value": "-20°C to 45°C"
+    },
+    {
+     "attribute_doctype": "",
+     "attribute_options_json": null,
+     "display_order": 150,
+     "is_calculated": 1,
+     "spec_label": "Warranty",
+     "spec_value": "5 years"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 85,
+     "is_calculated": 1,
+     "spec_label": "Record",
+     "spec_value": "{\"accessory_spec\": null, \"controller_spec\": null, \"controller_template\": null, \"driver_spec\": null, \"driver_template\": null, \"fixture_template\": null, \"kit_template\": null, \"led_sheet_template\": null, \"lens_spec\": null, \"name\": \"tape-product\", \"product_name\": \"Tape HD Display\", \"product_type\": \"LED Tape\", \"profile_spec\": null, \"tape_neon_template\": \"TAPE-TPL\", \"tape_spec\": null}"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Doc",
+     "spec_value": "{\"l70_life_hours\": null, \"operating_temp_max_c\": null, \"operating_temp_min_c\": null, \"warranty_years\": null} doc"
+    },
+    {
+     "attribute_doctype": "X",
+     "attribute_options_json": null,
+     "display_order": 0,
+     "is_calculated": 1,
+     "spec_label": "Existing",
+     "spec_value": "Beam Spread, Color Rendering (CRI), Dimensions, Dimming, Finish Options, Input Voltage, Light Color (CCT), Max Footage per 100W Supply, Max Run Length, Minimum Bending Diameter, Mounting Options, Operating Temperature, Output Options, Production Interval, Warranty, Watts per Foot"
+    },
+    {
+     "attribute_doctype": null,
+     "attribute_options_json": "[]",
+     "display_order": 120,
+     "is_calculated": 1,
+     "spec_label": "Certifications & Ratings",
+     "spec_value": "[[\"UL\", null]]"
+    }
+   ]
+  }
+ },
+ "product": {
+  "controller": {
+   "after_populate": {
+    "certifications": [],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"W\",\n  \"is_default\": false,\n  \"label\": \"Wall\",\n  \"value\": \"Wall\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 1,
+      "is_required": 1,
+      "option_label": "Controller Type",
+      "option_step": 1,
+      "option_type": "Controller Type"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"4\",\n  \"value\": \"4\"\n }\n]",
+      "depends_on_step": 1,
+      "idx": 2,
+      "is_required": 1,
+      "option_label": "Channels",
+      "option_step": 2,
+      "option_type": "Channels"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": true,\n  \"label\": \"1\",\n  \"value\": \"1\"\n }\n]",
+      "depends_on_step": 1,
+      "idx": 3,
+      "is_required": 1,
+      "option_label": "Zones",
+      "option_step": 3,
+      "option_type": "Zones"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"Zigbee 3.0\",\n  \"value\": \"Zigbee\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 4,
+      "is_required": 1,
+      "option_label": "Wireless Protocol",
+      "option_step": 6,
+      "option_type": "Wireless Protocol"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": "controls",
+    "product_type": "Controller",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "after_sync": {
+    "certifications": [],
+    "configurator_options": [],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": "controls",
+    "product_type": "Controller",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "errors": 0
+  },
+  "driver": {
+   "after_populate": {
+    "certifications": [],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"060\",\n  \"is_default\": true,\n  \"label\": \"60W\",\n  \"value\": \"60\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"96\",\n  \"value\": \"96\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 1,
+      "is_required": 1,
+      "option_label": "Wattage",
+      "option_step": 1,
+      "option_type": "Wattage"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"24V\",\n  \"value\": \"24V\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"48V\",\n  \"value\": \"48V\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 2,
+      "is_required": 1,
+      "option_label": "Output Voltage",
+      "option_step": 2,
+      "option_type": "Voltage Output"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"0-10V\",\n  \"value\": \"0-10V\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 3,
+      "is_required": 1,
+      "option_label": "Dimming Input",
+      "option_step": 3,
+      "option_type": "Input Protocol"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": false,\n  \"label\": \"DALI\",\n  \"value\": \"DALI\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 4,
+      "is_required": 1,
+      "option_label": "Output Protocol",
+      "option_step": 4,
+      "option_type": "Output Protocol"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": null,
+    "product_type": "Driver",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "100 - 277 VAC, 120 - 277 VAC"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Power Factor",
+      "spec_unit": "",
+      "spec_value": "0.95"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Efficiency",
+      "spec_unit": "",
+      "spec_value": "88%, 90%"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "1.18\" (30mm) × 1.57\" (40mm) × 5.91\" (150mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Inrush Current",
+      "spec_unit": "",
+      "spec_value": "12A, 20A"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Input Current",
+      "spec_unit": "",
+      "spec_value": "0.6A, 1.1A"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Output Voltage",
+      "spec_unit": "",
+      "spec_value": "24"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DALI, ELV"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 150,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "7 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "after_sync": {
+    "certifications": [],
+    "configurator_options": [],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": null,
+    "product_type": "Driver",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "100 - 277 VAC, 120 - 277 VAC"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Power Factor",
+      "spec_unit": "",
+      "spec_value": "0.95"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Efficiency",
+      "spec_unit": "",
+      "spec_value": "88%, 90%"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "1.18\" (30mm) × 1.57\" (40mm) × 5.91\" (150mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Inrush Current",
+      "spec_unit": "",
+      "spec_value": "12A, 20A"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Input Current",
+      "spec_unit": "",
+      "spec_value": "0.6A, 1.1A"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Output Voltage",
+      "spec_unit": "",
+      "spec_value": "24"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DALI, ELV"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 150,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "7 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "errors": 0
+  },
+  "fixture": {
+   "after_populate": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     },
+     {
+      "certification": "ETL",
+      "display_order": 0,
+      "idx": 2
+     }
+    ],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n },\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 1,
+      "is_required": 1,
+      "option_label": "Dry/Wet",
+      "option_step": 1,
+      "option_type": "Environment Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"27\",\n  \"kelvin\": 2700,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n },\n {\n  \"code\": \"30\",\n  \"kelvin\": 3000,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"40\",\n  \"kelvin\": 4000,\n  \"label\": \"4000K Neutral\",\n  \"value\": \"4000K\"\n }\n]",
+      "depends_on_step": 1,
+      "idx": 2,
+      "is_required": 1,
+      "option_label": "CCT",
+      "option_step": 2,
+      "option_type": "CCT"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\",\n  \"value\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\",\n  \"value\": \"Clear\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Opal\",\n  \"value\": \"Opal\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 3,
+      "is_required": 1,
+      "option_label": "Lens",
+      "option_step": 3,
+      "option_type": "Lens Appearance"
+     },
+     {
+      "allowed_values_json": "{\n \"lensMap\": {\n  \"CL\": [\n   {\n    \"code\": \"F15\",\n    \"delivered_lm_ft\": 150,\n    \"label\": \"150 lm/ft\",\n    \"tape_output_lm_ft\": 200,\n    \"value\": \"TAPE-200\"\n   },\n   {\n    \"code\": \"F30\",\n    \"delivered_lm_ft\": 300,\n    \"label\": \"300 lm/ft\",\n    \"tape_output_lm_ft\": 400,\n    \"value\": \"TAPE-400\"\n   },\n   {\n    \"code\": \"06\",\n    \"delivered_lm_ft\": 450,\n    \"label\": \"450 lm/ft\",\n    \"tape_output_lm_ft\": 600,\n    \"value\": \"TAPE-600\"\n   }\n  ],\n  \"FR\": [\n   {\n    \"code\": \"F15\",\n    \"delivered_lm_ft\": 150,\n    \"label\": \"150 lm/ft\",\n    \"tape_output_lm_ft\": 200,\n    \"value\": \"TAPE-200\"\n   },\n   {\n    \"code\": \"F30\",\n    \"delivered_lm_ft\": 300,\n    \"label\": \"300 lm/ft\",\n    \"tape_output_lm_ft\": 600,\n    \"value\": \"TAPE-600\"\n   }\n  ]\n }\n}",
+      "depends_on_step": 3,
+      "idx": 4,
+      "is_required": 1,
+      "option_label": "Output",
+      "option_step": 4,
+      "option_type": "Output Level"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\",\n  \"value\": \"Surface\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 5,
+      "is_required": 1,
+      "option_label": "Mounting",
+      "option_step": 5,
+      "option_type": "Mounting Method"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"BK\",\n  \"is_default\": 0,\n  \"label\": \"Black\",\n  \"value\": \"Black\"\n },\n {\n  \"code\": \"WH\",\n  \"is_default\": 0,\n  \"label\": \"White\",\n  \"value\": \"White\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 6,
+      "is_required": 1,
+      "option_label": "Finish",
+      "option_step": 6,
+      "option_type": "Finish"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 78.7,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120.0,\n  \"min_inches\": 12,\n  \"value\": \"__length_metadata__\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 7,
+      "is_required": 1,
+      "option_label": "Length",
+      "option_step": 7,
+      "option_type": "Length"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 8,
+      "is_required": 1,
+      "option_label": "Start Feed Direction",
+      "option_step": 8,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+      "depends_on_step": 8,
+      "idx": 9,
+      "is_required": 1,
+      "option_label": "Start Feed Length",
+      "option_step": 9,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"E\",\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"CAP\",\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 10,
+      "is_required": 1,
+      "option_label": "End Feed Direction",
+      "option_step": 10,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"2\",\n  \"label\": \"2 ft\",\n  \"value\": \"2\"\n },\n {\n  \"code\": \"4\",\n  \"label\": \"4 ft\",\n  \"value\": \"4\"\n },\n {\n  \"code\": \"6\",\n  \"label\": \"6 ft\",\n  \"value\": \"6\"\n },\n {\n  \"code\": \"8\",\n  \"label\": \"8 ft\",\n  \"value\": \"8\"\n },\n {\n  \"code\": \"10\",\n  \"label\": \"10 ft\",\n  \"value\": \"10\"\n },\n {\n  \"code\": \"15\",\n  \"label\": \"15 ft\",\n  \"value\": \"15\"\n },\n {\n  \"code\": \"20\",\n  \"label\": \"20 ft\",\n  \"value\": \"20\"\n },\n {\n  \"code\": \"25\",\n  \"label\": \"25 ft\",\n  \"value\": \"25\"\n },\n {\n  \"code\": \"30\",\n  \"label\": \"30 ft\",\n  \"value\": \"30\"\n }\n]",
+      "depends_on_step": 10,
+      "idx": 11,
+      "is_required": 1,
+      "option_label": "End Feed Length",
+      "option_step": 11,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"endcap_color\": \"EC-Black\",\n  \"endcap_color_code\": \"BK\",\n  \"endcap_color_label\": \"Black Cap\",\n  \"finish\": \"Black\",\n  \"is_default\": 1\n },\n {\n  \"endcap_color\": \"EC-White\",\n  \"endcap_color_code\": \"WH\",\n  \"endcap_color_label\": \"WH\",\n  \"finish\": \"White\",\n  \"is_default\": 0\n },\n {\n  \"endcap_color\": \"EC-Gone\",\n  \"endcap_color_code\": \"\",\n  \"endcap_color_label\": \"EC-Gone\",\n  \"finish\": \"Silver\",\n  \"is_default\": 0\n }\n]",
+      "depends_on_step": 6,
+      "idx": 12,
+      "is_required": 0,
+      "option_label": "Finish→Endcap Color Mapping",
+      "option_step": 99,
+      "option_type": "Endcap Color"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"F15\",\n  \"label\": \"150 lm/ft\",\n  \"numeric_value\": 150,\n  \"value\": \"FIX-150\"\n },\n {\n  \"code\": \"F30\",\n  \"label\": \"300 lm/ft\",\n  \"numeric_value\": 300,\n  \"value\": \"FIX-300\"\n },\n {\n  \"code\": \"\",\n  \"label\": \"450 lm/ft\",\n  \"numeric_value\": 450,\n  \"value\": \"FIX-450\"\n }\n]",
+      "depends_on_step": 4,
+      "idx": 13,
+      "is_required": 0,
+      "option_label": "Fixture Output Level Lookup",
+      "option_step": 98,
+      "option_type": "Fixture Output Level"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": null,
+    "product_type": "Fixture Template",
+    "series": "SER-1",
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"06\",\n  \"display_label\": \"600 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "400 lm/ft, 600 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Foot",
+      "spec_unit": "W/ft",
+      "spec_value": "2.9, 4.4"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Run Length",
+      "spec_unit": "",
+      "spec_value": "48.5 ft, 32 ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 35,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "28 ft, 19 ft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"40\",\n  \"display_label\": \"4000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+      "display_order": 40,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 4000K, 2700K Warm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 50,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "CRI-90, CRI-95"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Lens Appearance",
+      "attribute_options_json": null,
+      "display_order": 60,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Lens Options",
+      "spec_unit": "",
+      "spec_value": "Clear, Frosted, Old, Opal"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting Options",
+      "spec_unit": "",
+      "spec_value": "Recessed, Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish Options",
+      "spec_unit": "",
+      "spec_value": "Matte Black, White"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 95,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DALI, ELV"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 110,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Production Interval",
+      "spec_unit": "",
+      "spec_value": "1.97\""
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 15,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-20°C to 45°C"
+     }
+    ],
+    "webflow_template_status": "Active"
+   },
+   "after_sync": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     },
+     {
+      "certification": "ETL",
+      "display_order": 0,
+      "idx": 2
+     }
+    ],
+    "configurator_options": [],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": null,
+    "product_type": "Fixture Template",
+    "series": "SER-1",
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"06\",\n  \"display_label\": \"600 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "400 lm/ft, 600 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Foot",
+      "spec_unit": "W/ft",
+      "spec_value": "2.9, 4.4"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Run Length",
+      "spec_unit": "",
+      "spec_value": "48.5 ft, 32 ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 35,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "28 ft, 19 ft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"40\",\n  \"display_label\": \"4000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+      "display_order": 40,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 4000K, 2700K Warm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 50,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "CRI-90, CRI-95"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Lens Appearance",
+      "attribute_options_json": null,
+      "display_order": 60,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Lens Options",
+      "spec_unit": "",
+      "spec_value": "Clear, Frosted, Old, Opal"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting Options",
+      "spec_unit": "",
+      "spec_value": "Recessed, Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish Options",
+      "spec_unit": "",
+      "spec_value": "Matte Black, White"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 95,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DALI, ELV"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 110,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Production Interval",
+      "spec_unit": "",
+      "spec_value": "1.97\""
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 15,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-20°C to 45°C"
+     }
+    ],
+    "webflow_template_status": "Active"
+   },
+   "errors": 0
+  },
+  "kit": {
+   "after_populate": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     }
+    ],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"FR\",\n  \"is_default\": 1,\n  \"label\": \"Frosted\"\n },\n {\n  \"code\": \"CL\",\n  \"is_default\": 0,\n  \"label\": \"Clear\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 1,
+      "is_required": 1,
+      "option_label": "Lens",
+      "option_step": 1,
+      "option_type": "Lens Appearance"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 2,
+      "is_required": 1,
+      "option_label": "Mounting",
+      "option_step": 2,
+      "option_type": "Mounting Method"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"BK\",\n  \"is_default\": 0,\n  \"label\": \"Black\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 3,
+      "is_required": 1,
+      "option_label": "Finish",
+      "option_step": 3,
+      "option_type": "Finish"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"2M\",\n  \"is_default\": 1,\n  \"label\": \"2M (6.56ft)\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 4,
+      "is_required": 1,
+      "option_label": "Length",
+      "option_step": 4,
+      "option_type": "Length"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [
+     {
+      "component_description": "[\n {\n  \"hero_image\": \"https://app.illumenate.lighting/files/end.png\"\n },\n {\n  \"code\": \"ITM-END\",\n  \"label\": \"End cap\"\n },\n {\n  \"code\": \"\",\n  \"label\": \"Spare\"\n }\n]",
+      "component_item": "ITM-END",
+      "component_type": "Endcap",
+      "idx": 1
+     },
+     {
+      "component_description": "[\n {\n  \"hero_image\": \"https://cdn/clip.png\"\n },\n {\n  \"code\": \"ITM-CLIP\",\n  \"label\": \"\"\n }\n]",
+      "component_item": "ITM-CLIP",
+      "component_type": "Clip",
+      "idx": 2
+     }
+    ],
+    "product_category": "extrusions",
+    "product_type": "Extrusion Kit",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Lens Appearance",
+      "attribute_options_json": null,
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Lenses",
+      "spec_unit": "",
+      "spec_value": "Clear, Frosted"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Mounting",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Finish",
+      "spec_unit": "",
+      "spec_value": "Anodized Silver, Matte Black"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 31,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Stock Length",
+      "spec_unit": "",
+      "spec_value": "78.7\" (2000mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 32,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Max Assembled Length",
+      "spec_unit": "",
+      "spec_value": "240.0\" (6096mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Environment Rating",
+      "attribute_options_json": null,
+      "display_order": 49,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Environment Rating(s)",
+      "spec_unit": "",
+      "spec_value": "Dry, Wet"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 50,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-4°F (-20°C) to 113°F (45°C)"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "after_sync": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     }
+    ],
+    "configurator_options": [],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [
+     {
+      "component_description": "[\n {\n  \"hero_image\": \"https://app.illumenate.lighting/files/end.png\"\n },\n {\n  \"code\": \"ITM-END\",\n  \"label\": \"End cap\"\n },\n {\n  \"code\": \"\",\n  \"label\": \"Spare\"\n }\n]",
+      "component_item": "ITM-END",
+      "component_type": "Endcap",
+      "idx": 1
+     },
+     {
+      "component_description": "[\n {\n  \"hero_image\": \"https://cdn/clip.png\"\n },\n {\n  \"code\": \"ITM-CLIP\",\n  \"label\": \"\"\n }\n]",
+      "component_item": "ITM-CLIP",
+      "component_type": "Clip",
+      "idx": 2
+     }
+    ],
+    "product_category": "extrusions",
+    "product_type": "Extrusion Kit",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Lens Appearance",
+      "attribute_options_json": null,
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Lenses",
+      "spec_unit": "",
+      "spec_value": "Clear, Frosted"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Mounting",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Finish",
+      "spec_unit": "",
+      "spec_value": "Anodized Silver, Matte Black"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 31,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Stock Length",
+      "spec_unit": "",
+      "spec_value": "78.7\" (2000mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 32,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Max Assembled Length",
+      "spec_unit": "",
+      "spec_value": "240.0\" (6096mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Environment Rating",
+      "attribute_options_json": null,
+      "display_order": 49,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Environment Rating(s)",
+      "spec_unit": "",
+      "spec_value": "Dry, Wet"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 50,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-4°F (-20°C) to 113°F (45°C)"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "errors": 0
+  },
+  "kit_missing_template": {
+   "after_populate": {
+    "certifications": [],
+    "configurator_options": [],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": null,
+    "product_type": "Extrusion Kit",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "display_order": 1,
+      "idx": 2,
+      "spec_label": "Dimensions",
+      "spec_value": "old"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "after_sync": {
+    "error": "DoesNotExistError: ilL-Extrusion-Kit-Template KIT-GONE not found"
+   },
+   "errors": 1
+  },
+  "led_sheet": {
+   "after_populate": {
+    "certifications": [],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 1,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"4000K\",\n  \"value\": \"4000K\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 1,
+      "is_required": 1,
+      "option_label": "CCT",
+      "option_step": 1,
+      "option_type": "CCT"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"TAPE-600\",\n  \"value\": \"TAPE-600\"\n }\n]",
+      "depends_on_step": 1,
+      "idx": 2,
+      "is_required": 1,
+      "option_label": "Output",
+      "option_step": 2,
+      "option_type": "Output Level"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 3,
+      "is_required": 1,
+      "option_label": "Environment",
+      "option_step": 3,
+      "option_type": "Environment Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Adhesive\",\n  \"value\": \"Adhesive\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 4,
+      "is_required": 1,
+      "option_label": "Mounting",
+      "option_step": 4,
+      "option_type": "Mounting"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"label\": \"Coverage\",\n  \"value\": \"__coverage_metadata__\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 5,
+      "is_required": 1,
+      "option_label": "Coverage",
+      "option_step": 6,
+      "option_type": "Coverage"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": "led-sheets",
+    "product_type": "LED Sheet",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"06\",\n  \"display_label\": \"600 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "600 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Square Foot",
+      "spec_unit": "W/sqft",
+      "spec_value": "7.5"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 35,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "11 sqft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"40\",\n  \"display_label\": \"4000K\"\n }\n]",
+      "display_order": 40,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 4000K"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 50,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "90, 95"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 65,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Beam Spread",
+      "spec_unit": "",
+      "spec_value": "120°"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish",
+      "spec_unit": "",
+      "spec_value": "Matte Black, White"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 95,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions (ft)",
+      "spec_unit": "",
+      "spec_value": "12.00\" (304.8mm) × 24.00\" (609.6mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 105,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Cut Interval",
+      "spec_unit": "",
+      "spec_value": "2.00\" (50.8mm) × 1.50\" (38.1mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-4°F (-20°C) to 104°F (40°C)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 130,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "3 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "after_sync": {
+    "certifications": [],
+    "configurator_options": [],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": "led-sheets",
+    "product_type": "LED Sheet",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"06\",\n  \"display_label\": \"600 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "600 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Square Foot",
+      "spec_unit": "W/sqft",
+      "spec_value": "7.5"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 35,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "11 sqft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"40\",\n  \"display_label\": \"4000K\"\n }\n]",
+      "display_order": 40,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 4000K"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 50,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "90, 95"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 65,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Beam Spread",
+      "spec_unit": "",
+      "spec_value": "120°"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish",
+      "spec_unit": "",
+      "spec_value": "Matte Black, White"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 95,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions (ft)",
+      "spec_unit": "",
+      "spec_value": "12.00\" (304.8mm) × 24.00\" (609.6mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 105,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Cut Interval",
+      "spec_unit": "",
+      "spec_value": "2.00\" (50.8mm) × 1.50\" (38.1mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-4°F (-20°C) to 104°F (40°C)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 130,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "3 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "errors": 0
+  },
+  "neon": {
+   "after_populate": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     }
+    ],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 1,
+      "is_required": 1,
+      "option_label": "CCT",
+      "option_step": 1,
+      "option_type": "CCT"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"400 lm/ft\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"99 lm/ft\",\n  \"value\": \"NOSKU\"\n }\n]",
+      "depends_on_step": 1,
+      "idx": 2,
+      "is_required": 1,
+      "option_label": "Output",
+      "option_step": 2,
+      "option_type": "Output Level"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"SV\",\n  \"is_default\": 0,\n  \"label\": \"Silver\",\n  \"value\": \"Silver\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 3,
+      "is_required": 1,
+      "option_label": "Finish",
+      "option_step": 3,
+      "option_type": "Finish"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"65\",\n  \"is_default\": 0,\n  \"label\": \"IP65\",\n  \"value\": \"IP65\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 4,
+      "is_required": 1,
+      "option_label": "IP Rating",
+      "option_step": 4,
+      "option_type": "IP Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"E\",\n  \"is_default\": 0,\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 5,
+      "is_required": 1,
+      "option_label": "Start Feed Direction",
+      "option_step": 5,
+      "option_type": "Start Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"SD\",\n  \"is_default\": 1,\n  \"label\": \"Side\",\n  \"value\": \"Side\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 6,
+      "is_required": 1,
+      "option_label": "End Feed Direction",
+      "option_step": 6,
+      "option_type": "End Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48.0,\n  \"increment_inches\": 1.0,\n  \"label\": \"Length\",\n  \"max_inches\": 600.0,\n  \"min_inches\": 12.0,\n  \"value\": \"__length_metadata__\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 7,
+      "is_required": 1,
+      "option_label": "Length",
+      "option_step": 7,
+      "option_type": "Length"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": "neon",
+    "product_type": "LED Neon",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "400 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Foot",
+      "spec_unit": "W/ft",
+      "spec_value": "4.4"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Run Length",
+      "spec_unit": "",
+      "spec_value": "32 ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "19 ft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+      "display_order": 50,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 2700K Warm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 60,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "92, 95"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting Options",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish Options",
+      "spec_unit": "",
+      "spec_value": "Anodized Silver"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V, 48V"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 110,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DMX, ELV, PWM"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "10mm x 2mm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 125,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Minimum Bending Diameter",
+      "spec_unit": "",
+      "spec_value": "Top Bend: 2.00\" (50.8mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 130,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Production Interval",
+      "spec_unit": "",
+      "spec_value": "Free Cutting"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 140,
+      "idx": 15,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-20°C to 45°C"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 150,
+      "idx": 16,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "5 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "after_sync": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     }
+    ],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]",
+      "idx": 1,
+      "option_label": "Environment",
+      "option_step": 1,
+      "option_type": "Environment Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n },\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n }\n]",
+      "idx": 2,
+      "is_required": 0,
+      "option_label": "CCT",
+      "option_step": 2,
+      "option_type": "CCT"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"E\",\n  \"is_default\": 0,\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n }\n]",
+      "idx": 3,
+      "option_label": "Start Feed Direction",
+      "option_step": 4,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"SD\",\n  \"is_default\": 1,\n  \"label\": \"Side\",\n  \"value\": \"Side\"\n },\n {\n  \"code\": \"C\",\n  \"is_default\": 0,\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n }\n]",
+      "idx": 4,
+      "option_label": "End Feed Direction",
+      "option_step": 5,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n },\n {\n  \"code\": \"12\",\n  \"is_default\": 0,\n  \"label\": \"12 in\",\n  \"value\": \"12 in\"\n },\n {\n  \"code\": \"06\",\n  \"is_default\": 0,\n  \"label\": \"6 in\",\n  \"value\": \"6 in\"\n }\n]",
+      "idx": 5,
+      "option_label": "Start Feed Length",
+      "option_step": 6,
+      "option_type": "Feed Length"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"SV\",\n  \"is_default\": 0,\n  \"label\": \"Silver (custom)\",\n  \"value\": \"Silver (custom)\"\n }\n]",
+      "idx": 6,
+      "option_label": "Finish",
+      "option_step": 7,
+      "option_type": "Finish"
+     },
+     {
+      "allowed_values_json": "[1]",
+      "idx": 7,
+      "option_label": "Keep",
+      "option_step": 8,
+      "option_type": "Unknown"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"TAPE-400\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"NOSKU\",\n  \"value\": \"NOSKU\"\n }\n]",
+      "idx": 8,
+      "option_label": "Output Level",
+      "option_step": 99,
+      "option_type": "Output Level"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\",\n  \"value\": \"Surface\"\n }\n]",
+      "idx": 9,
+      "option_label": "Mounting Method",
+      "option_step": 99,
+      "option_type": "Mounting Method"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"65\",\n  \"is_default\": 0,\n  \"label\": \"IP65\",\n  \"value\": \"IP65\"\n }\n]",
+      "idx": 10,
+      "option_label": "IP Rating",
+      "option_step": 99,
+      "option_type": "IP Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120,\n  \"min_inches\": 12,\n  \"value\": \"__length_metadata__\"\n }\n]",
+      "idx": 11,
+      "option_label": "Length",
+      "option_step": 8,
+      "option_type": "Length"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": "neon",
+    "product_type": "LED Neon",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "400 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Foot",
+      "spec_unit": "W/ft",
+      "spec_value": "4.4"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Run Length",
+      "spec_unit": "",
+      "spec_value": "32 ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "19 ft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+      "display_order": 50,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 2700K Warm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 60,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "92, 95"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting Options",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish Options",
+      "spec_unit": "",
+      "spec_value": "Anodized Silver"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V, 48V"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 110,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DMX, ELV, PWM"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "10mm x 2mm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 125,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Minimum Bending Diameter",
+      "spec_unit": "",
+      "spec_value": "Top Bend: 2.00\" (50.8mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 130,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Production Interval",
+      "spec_unit": "",
+      "spec_value": "Free Cutting"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 140,
+      "idx": 15,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-20°C to 45°C"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 150,
+      "idx": 16,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "5 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "errors": 0
+  },
+  "tape": {
+   "after_populate": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     }
+    ],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 1,
+      "is_required": 1,
+      "option_label": "Environment",
+      "option_step": 1,
+      "option_type": "Environment Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n }\n]",
+      "depends_on_step": 1,
+      "idx": 2,
+      "is_required": 0,
+      "option_label": "CCT",
+      "option_step": 2,
+      "option_type": "CCT"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"400 lm/ft\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"99 lm/ft\",\n  \"value\": \"NOSKU\"\n }\n]",
+      "depends_on_step": 2,
+      "idx": 3,
+      "is_required": 1,
+      "option_label": "Output",
+      "option_step": 3,
+      "option_type": "Output Level"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"W\",\n  \"is_default\": 0,\n  \"label\": \"Wire\",\n  \"value\": \"Wire\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 4,
+      "is_required": 1,
+      "option_label": "Power Feed Type",
+      "option_step": 4,
+      "option_type": "Power Feed Type"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48.0,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120,\n  \"min_inches\": 12.0,\n  \"value\": \"__length_metadata__\"\n }\n]",
+      "depends_on_step": 0,
+      "idx": 5,
+      "is_required": 1,
+      "option_label": "Length",
+      "option_step": 5,
+      "option_type": "Length"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": null,
+    "product_type": "LED Tape",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "400 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Foot",
+      "spec_unit": "W/ft",
+      "spec_value": "2.9, 4.4"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Run Length",
+      "spec_unit": "",
+      "spec_value": "48.5 ft, 32 ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "28 ft, 19 ft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+      "display_order": 50,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 2700K Warm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 60,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "92"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Beam Spread",
+      "spec_unit": "",
+      "spec_value": "120°"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting Options",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish Options",
+      "spec_unit": "",
+      "spec_value": "Anodized Silver"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 110,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DALI, ELV, PWM"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "10mm x 2mm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 125,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Minimum Bending Diameter",
+      "spec_unit": "",
+      "spec_value": "Side Bend: 0.79\" (20mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 130,
+      "idx": 15,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Production Interval",
+      "spec_unit": "",
+      "spec_value": "1.97\" (50.0mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 140,
+      "idx": 16,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-20°C to 45°C"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 150,
+      "idx": 17,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "5 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "after_sync": {
+    "certifications": [
+     {
+      "certification": "UL",
+      "display_order": 0,
+      "idx": 1
+     }
+    ],
+    "configurator_options": [
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"20\",\n  \"is_default\": 1,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n  \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]",
+      "idx": 1,
+      "option_label": "Environment",
+      "option_step": 1,
+      "option_type": "Environment Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"27\",\n  \"is_default\": 1,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n },\n {\n  \"code\": \"30\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n }\n]",
+      "idx": 2,
+      "is_required": 0,
+      "option_label": "CCT",
+      "option_step": 2,
+      "option_type": "CCT"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"E\",\n  \"is_default\": 0,\n  \"label\": \"End\",\n  \"value\": \"End\"\n },\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n }\n]",
+      "idx": 3,
+      "option_label": "Start Feed Direction",
+      "option_step": 4,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"B\",\n  \"is_default\": 0,\n  \"label\": \"Back\",\n  \"value\": \"Back\"\n },\n {\n  \"code\": \"SD\",\n  \"is_default\": 1,\n  \"label\": \"Side\",\n  \"value\": \"Side\"\n },\n {\n  \"code\": \"C\",\n  \"is_default\": 0,\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n }\n]",
+      "idx": 4,
+      "option_label": "End Feed Direction",
+      "option_step": 5,
+      "option_type": "Feed Direction"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"Endcap\",\n  \"value\": \"Endcap\"\n },\n {\n  \"code\": \"12\",\n  \"is_default\": 0,\n  \"label\": \"12 in\",\n  \"value\": \"12 in\"\n },\n {\n  \"code\": \"06\",\n  \"is_default\": 0,\n  \"label\": \"6 in\",\n  \"value\": \"6 in\"\n }\n]",
+      "idx": 5,
+      "option_label": "Start Feed Length",
+      "option_step": 6,
+      "option_type": "Feed Length"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"SV\",\n  \"is_default\": 0,\n  \"label\": \"Silver (custom)\",\n  \"value\": \"Silver (custom)\"\n }\n]",
+      "idx": 6,
+      "option_label": "Finish",
+      "option_step": 7,
+      "option_type": "Finish"
+     },
+     {
+      "allowed_values_json": "[1]",
+      "idx": 7,
+      "option_label": "Keep",
+      "option_step": 8,
+      "option_type": "Unknown"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"04\",\n  \"is_default\": 0,\n  \"label\": \"TAPE-400\",\n  \"value\": \"TAPE-400\"\n },\n {\n  \"code\": \"\",\n  \"is_default\": 0,\n  \"label\": \"NOSKU\",\n  \"value\": \"NOSKU\"\n }\n]",
+      "idx": 8,
+      "option_label": "Output Level",
+      "option_step": 99,
+      "option_type": "Output Level"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"S\",\n  \"is_default\": 0,\n  \"label\": \"Surface\",\n  \"value\": \"Surface\"\n }\n]",
+      "idx": 9,
+      "option_label": "Mounting Method",
+      "option_step": 99,
+      "option_type": "Mounting Method"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"65\",\n  \"is_default\": 0,\n  \"label\": \"IP65\",\n  \"value\": \"IP65\"\n }\n]",
+      "idx": 10,
+      "option_label": "IP Rating",
+      "option_step": 99,
+      "option_type": "IP Rating"
+     },
+     {
+      "allowed_values_json": "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"max_inches\": 120,\n  \"min_inches\": 12,\n  \"value\": \"__length_metadata__\"\n }\n]",
+      "idx": 11,
+      "option_label": "Length",
+      "option_step": 8,
+      "option_type": "Length"
+     }
+    ],
+    "documents": [
+     {
+      "document_file": "/files/x.pdf",
+      "document_title": "X",
+      "document_type": "Other",
+      "idx": 1
+     }
+    ],
+    "kit_components": [],
+    "product_category": null,
+    "product_type": "LED Tape",
+    "series": null,
+    "webflow_specifications": [
+     {
+      "display_order": 7,
+      "idx": 1,
+      "spec_label": "Hand Row",
+      "spec_value": "kept"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Level",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"04\",\n  \"display_label\": \"400 lm/ft\"\n },\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"code\": \"02\",\n  \"display_label\": \"200 lm/ft\"\n }\n]",
+      "display_order": 10,
+      "idx": 2,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Output Options",
+      "spec_unit": "lm/ft",
+      "spec_value": "400 lm/ft, 200 lm/ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 20,
+      "idx": 3,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Watts per Foot",
+      "spec_unit": "W/ft",
+      "spec_value": "2.9, 4.4"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 30,
+      "idx": 4,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Run Length",
+      "spec_unit": "",
+      "spec_value": "48.5 ft, 32 ft"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 40,
+      "idx": 5,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Max Footage per 100W Supply",
+      "spec_unit": "",
+      "spec_value": "28 ft, 19 ft"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-CCT",
+      "attribute_options_json": "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"30\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27\",\n  \"display_label\": \"2700K Warm\"\n }\n]",
+      "display_order": 50,
+      "idx": 6,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Light Color (CCT)",
+      "spec_unit": "",
+      "spec_value": "3000K, 2700K Warm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 60,
+      "idx": 7,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Color Rendering (CRI)",
+      "spec_unit": "CRI",
+      "spec_value": "92"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 70,
+      "idx": 8,
+      "is_calculated": 1,
+      "spec_group": "Optical",
+      "spec_label": "Beam Spread",
+      "spec_unit": "",
+      "spec_value": "120°"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Mounting Method",
+      "attribute_options_json": null,
+      "display_order": 80,
+      "idx": 9,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Mounting Options",
+      "spec_unit": "",
+      "spec_value": "Surface"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Finish",
+      "attribute_options_json": null,
+      "display_order": 90,
+      "idx": 10,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Finish Options",
+      "spec_unit": "",
+      "spec_value": "Anodized Silver"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Output Voltage",
+      "attribute_options_json": null,
+      "display_order": 100,
+      "idx": 11,
+      "is_calculated": 1,
+      "spec_group": "Electrical",
+      "spec_label": "Input Voltage",
+      "spec_unit": "",
+      "spec_value": "24V"
+     },
+     {
+      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
+      "attribute_options_json": null,
+      "display_order": 110,
+      "idx": 12,
+      "is_calculated": 1,
+      "spec_group": "Control",
+      "spec_label": "Dimming",
+      "spec_unit": "",
+      "spec_value": "0-10V Dimming, DALI, ELV, PWM"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 120,
+      "idx": 13,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Dimensions",
+      "spec_unit": "",
+      "spec_value": "10mm x 2mm"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 125,
+      "idx": 14,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Minimum Bending Diameter",
+      "spec_unit": "",
+      "spec_value": "Side Bend: 0.79\" (20mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 130,
+      "idx": 15,
+      "is_calculated": 1,
+      "spec_group": "Physical",
+      "spec_label": "Production Interval",
+      "spec_unit": "",
+      "spec_value": "1.97\" (50.0mm)"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 140,
+      "idx": 16,
+      "is_calculated": 1,
+      "spec_group": "Environmental",
+      "spec_label": "Operating Temperature",
+      "spec_unit": "",
+      "spec_value": "-20°C to 45°C"
+     },
+     {
+      "attribute_doctype": "",
+      "attribute_options_json": null,
+      "display_order": 150,
+      "idx": 17,
+      "is_calculated": 1,
+      "spec_group": "Performance",
+      "spec_label": "Warranty",
+      "spec_unit": "",
+      "spec_value": "5 years"
+     }
+    ],
+    "webflow_template_status": null
+   },
+   "errors": 0
+  }
+ }
+}

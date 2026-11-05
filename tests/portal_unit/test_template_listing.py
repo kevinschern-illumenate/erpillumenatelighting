@@ -41,30 +41,21 @@ def spec(label, value, order=50):
 
 class Listing(unittest.TestCase):
 	def setUp(self):
-		product_module = types.ModuleType(ROOT + ".doctype.ill_webflow_product.ill_webflow_product")
-		product_module.MANAGED_LABELS = ("Watts per Foot", "Operating Temperature", "Dimming")
-		context = load_service(ROOT + ".template_listing", {product_module.__name__: product_module})
+		context = load_service(ROOT + ".template_listing")
 		self.module, self.frappe = context.__enter__()
 		self.addCleanup(context.__exit__, None, None, None)
 
-	def test_the_shadow_product_reads_the_template_being_saved(self):
-		self.frappe.new_doc = lambda doctype: Doc(doctype)
-		self.frappe.get_all.return_value = [Record(option_step=2, is_required=0)]
-		template = Doc(
-			TAPE,
-			"led-hd-sw",
-			template_name="LED HD SW",
-			product_category="LED Tape",
-			webflow_product="led-hd-sw",
-			specifications=[spec("Hand Row", "kept")],
-		)
-		product, field = self.module.shadow_product(template)
-		self.assertEqual((field, product["tape_neon_template"]), ("tape_neon_template", "led-hd-sw"))
-		self.assertEqual(product["product_type"], "LED Tape")
-		self.assertIs(product.flags.template_doc, template)
-		self.assertEqual(product["webflow_specifications"][0]["spec_label"], "Hand Row")
-		# With no configurator on the template yet, the product's "Is Required" choices carry over.
-		self.assertEqual(product.flags.existing_is_required, {2: 0})
+	def test_a_template_calculates_without_a_webflow_product(self):
+		# The temporary product is gone (owner, 2026-11-05): template_calculations reads the
+		# template alone (parity: test_template_calculations).
+		self.frappe.new_doc = MagicMock()
+		self.module.calculate = MagicMock(return_value=([spec("CRI", "90")], []))
+		template = Doc(TAPE, "led-hd-sw", webflow_product="led-hd-sw")
+		self.assertEqual(self.module.compute(template), ([spec("CRI", "90")], []))
+		self.module.calculate.assert_called_once_with(template)
+		self.frappe.new_doc.assert_not_called()
+		self.frappe.get_doc.assert_not_called()
+		self.assertFalse(hasattr(self.module, "shadow_product"))
 
 	def test_a_kit_template_is_listed_as_an_extrusion_kit(self):
 		self.assertEqual(self.module.product_type_for(Doc(KIT, "KIT-RA01")), "Extrusion Kit")
@@ -147,7 +138,7 @@ class Listing(unittest.TestCase):
 		self.assertIs(product["webflow_specifications"], rows)
 
 	def test_a_failed_calculation_keeps_the_rows_and_never_blocks_the_save(self):
-		self.frappe.new_doc = MagicMock(side_effect=RuntimeError("no profile"))
+		self.module.calculate = MagicMock(side_effect=RuntimeError("no profile"))
 		self.frappe.log_error = MagicMock()
 		self.frappe.msgprint = MagicMock()
 		template = Doc(KIT, "KIT-RA01", specifications=[spec("Watts per Foot", "4.4")])
@@ -262,15 +253,20 @@ class Listing(unittest.TestCase):
 
 	def test_a_template_set_up_by_hand_keeps_its_steps(self):
 		self.module.compute = MagicMock(return_value=([spec("CRI", "90")], [{"option_step": 1}]))
+		# Hand-set Tape/Neon steps take the template's allowed options first (owner, 2026-11-05;
+		# test_template_calculations), then follow their row order.
+		self.module.refresh_hand_set_tape_neon = MagicMock()
 		hand = [Record(option_step=1, option_type="IP Rating")]
 		template = Doc(TAPE, "led-hd-sw", auto_populate_configurator=0, part_no_configurator=hand)
 		self.module.refresh_template(template)
 		self.assertIs(template["part_no_configurator"], hand)
 		self.assertEqual(hand[0].option_step, 1)
 		self.assertEqual(template["specifications"], [spec("CRI", "90")])
+		self.module.refresh_hand_set_tape_neon.assert_called_once_with(template)
 		template["auto_populate_configurator"] = 1
 		self.module.refresh_template(template)
 		self.assertEqual(template["part_no_configurator"], [{"option_step": 1}])
+		self.module.refresh_hand_set_tape_neon.assert_called_once()
 
 	def test_the_adoption_report_sorts_every_kind_of_product(self):
 		import json
