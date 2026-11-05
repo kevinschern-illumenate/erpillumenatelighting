@@ -619,6 +619,14 @@ Correction to 4.16 row 8 (owner): Webflow `featured-image` comes from the **prod
 | 11 | Remove the Recalculate Specs (Legacy) button together with the old hidden Specifications table | agreed |
 | 12 | Remove the Sync Now (Per Brand) button (old polling sync; replaced by Sync to Webflow) | agreed |
 
+**Compatible power supplies (item 10, owner answers 2026-11-04/05):**
+- New read-only table `compatible_power_supplies` ("Compatible Power Supplies") on the fixture, tape/neon and LED sheet templates only, on the Product Data tab directly under Specifications. Kits, drivers and controllers do not get it.
+- Rebuilt on every template save and by Apply Calculations from ilL-Rel-Driver-Eligibility rows for the template that are both Active and Allowed, sorted by the driver's max wattage (low to high), then part number.
+- Columns: the 7 current ones (part number, input protocol, voltage/frequency, output voltage, max wattage, location rating, outputs) plus **Eligibility**, a link to the ilL-Rel-Driver-Eligibility row (form only; not sent anywhere). `part_number` stays the plain part number.
+- The spec sheet (n8n Get Product Info) reads it from the template instead of the legacy data. The product's `webflow_compatible_power_supplies` table and its calculation are deleted.
+- Webflow gets it as compatible products: on every save the Webflow Product follows each listed driver to its Webflow Product (driver spec → the ilL-Driver-Template whose Variants include it → that template's Webflow Product) and keeps one calculated **Recommended With** row per power supply product in `compatible_products`. Calculated rows are rebuilt each save; hand-added rows are never touched; a driver whose template has no Webflow Product is skipped with a warning.
+- Reverse rows: the power supply product gets calculated Recommended With rows back to the products it powers; they update with those products and are removed when a product stops using the driver.
+
 **`display_label` on Attribute Links: for the owner's developer.** Still read by: the dealer portal catalog facet counts (`api/product_catalog.py`, grouped by `display_label`), the Spec Sheet CSV export (`api/spec_sheet_export.py`), the product projection (`api/product_projection.py`) and `attribute-links-json` in both Webflow exports (Webflow page scripts may read it). Suggestions: (1) point each reader at the attribute's own label (or `attribute_name` when it has none) so the label lives in one place, the attribute record; (2) check the Webflow page scripts for `display_label` before the export stops sending it; (3) then remove the column. Not changed until the developer has answered.
 
 ## 5. Design choices
