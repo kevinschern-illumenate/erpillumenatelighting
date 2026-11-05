@@ -629,7 +629,31 @@ Correction to 4.16 row 8 (owner): Webflow `featured-image` comes from the **prod
 
 **Product Certifications table: for the owner's developer (2026-11-05).** Hidden on the Webflow Product for now, not removed. It is still read by the dealer portal catalog (`api/product_catalog.py`), both Webflow exports (`webflow_export.py`, `webflow_export_v2.py`) and a check in `ill_webflow_product.py`. Suggestion: move those readers to the template's Certifications (with the brand's badge image, in table order), then remove the table. Meanwhile the Webflow sync must not send the product's Certifications: `certifications-json` comes from the template (4.16 row 16) and the attribute rows read the template's Certifications.
 
-**`display_label` on Attribute Links: for the owner's developer.** Still read by: the dealer portal catalog facet counts (`api/product_catalog.py`, grouped by `display_label`), the Spec Sheet CSV export (`api/spec_sheet_export.py`), the product projection (`api/product_projection.py`) and `attribute-links-json` in both Webflow exports (Webflow page scripts may read it). Suggestions: (1) point each reader at the attribute's own label (or `attribute_name` when it has none) so the label lives in one place, the attribute record; (2) check the Webflow page scripts for `display_label` before the export stops sending it; (3) then remove the column. Not changed until the developer has answered.
+**`display_label` on Attribute Links: for the owner's developer (details 2026-11-05).** The column on `ilL-Child-Webflow-Attribute-Link` defaults to the attribute's name when empty (`doctype/ill_child_webflow_attribute_link/ill_child_webflow_attribute_link.py:30-31`), and the product's attribute calculation sets it (usually the attribute name; certifications use `certification_name`). Owner: keep it until the developer has answered. Readers:
+
+| Reader | File:line | Use | Suggested change |
+|---|---|---|---|
+| Dealer portal catalog filters | `api/product_catalog.py:199` | Filters products with `display_label IN (...)`: the portal's filter values are display labels | Filter on `attribute_name` and show the attribute's own label; or keep `display_label` but always fill it from the attribute record |
+| Dealer portal facet counts | `api/product_catalog.py:479-505` | Groups and counts by `display_label` | Same as above (group by `attribute_name`, look up the label once per attribute) |
+| Spec Sheet CSV export | `api/spec_sheet_export.py:190, 213` | `display_label or attribute_name` | Read the attribute's label instead |
+| Portal product projection | `api/product_projection.py:400` | Passes `attribute_type`, `attribute_name`, `display_label` to the portal | Pass the attribute's label as the display value |
+| Webflow exports (`attribute-links-json`) | `api/webflow_export.py:494, 522, 532`; `api/webflow_export_v2.py:496, 524` | Sent to Webflow inside `attribute_links`; v1 uses it for filter text | Check the Webflow page scripts and `n8n_workflows/webflow_product_sync.json` / `n8n_workflows/lib/product_projection.js` (both mention `display_label`) before the export stops sending it |
+
+The other `display_label` keys in the exports (CRI, voltage, protocol, output level and certification options in the spec enrichment) are option dictionaries built in code, not this column, and are not affected. Suggested order: (1) make every reader use the attribute's own label (or `attribute_name`), (2) check Webflow scripts and n8n, (3) remove the column.
+
+**Batch 1 status (2026-11-05):** built and pushed as `d333b18` and `6f25dcc`: items 1, 4, 6, 7, 8, 10, 11, 12 and the hidden Certifications section. Configurator Options and Kit Components on the product are hidden and read-only until the developer moves their readers (4.18). Item 2 is the owner's staging Property Setter removal. n8n Get Product Info reads the template's power supplies (saved as a draft; published after the deploy). The product's Certifications table is no longer read by the attribute calculation; the Webflow sync rebuild sends the template's.
+
+**Template calculations live in the template (owner, 2026-11-05).** Owner rule: calculations on the template must not rely on the Webflow Product. Audit of what a template save runs (`template_listing.refresh_template`):
+
+| Calculation | Where it runs | Relies on the Webflow Product? |
+|---|---|---|
+| Component images and descriptions, certification badges | `template_images.py` | No |
+| Compatible power supplies | `template_power_supplies.py` | No |
+| Specifications | `compute()` on a temporary, unsaved Webflow Product (`template_listing.shadow_product`), then `sync_custom_template_data` and `linked_spec_rows` | Code only: no product record is read or needed, but the calculation lives in the Webflow Product class |
+| Part No. Configurator | the same temporary product's `populate_*_configurator_options` | Code only, and it writes into the product's `configurator_options` table in memory (4.18 key finding 1) |
+| Hand-set Tape/Neon configurator refresh from Allowed Options | product save only (`ill_webflow_product.py` "PART 2") | Yes: a hand-set template is refreshed only through its product. Owner: move into the template's own refresh |
+
+Proposal: move the specifications and configurator calculations into a template module that takes the template document (the temporary product goes away), and move the hand-set Tape/Neon refresh into `refresh_template`. This overlaps the developer's configurator work in 4.18 (steps 4 and C4/C6/C9); who does it is the owner's call.
 
 ### 4.18 Developer guide: moving Configurator Options and Kit Components readers to the template (2026-11-05)
 
@@ -662,7 +686,7 @@ For the owner's developer. The owner wants the Webflow Product tables `configura
 | C3 | `ill_webflow_product.py:274-296` | `before_save` calls `populate_*` | Remove the calls; the product no longer stores steps |
 | C4 | `ill_webflow_product.py:2212-2609` | `populate_*_configurator_options`, `_populate_variant_configurator_options` write `self.configurator_options` | Keep for the shadow, but write to memory (`self.flags.configurator = []` and `.append(frappe._dict({...}))`, or return the rows). `compute` reads that list. Keep order, `option_step`, `depends_on_step` and `allowed_values_json` (`frappe.as_json`) unchanged so `part_no_configurator` stays byte-identical |
 | C5 | `ill_webflow_product.py:2335-2355` | `_get_existing_is_required` reads product rows from the DB | Drop the DB branch; `is_required` comes from `shadow_product` (template rows) |
-| C6 | `ill_webflow_product.py:3506-3663` | Tape/Neon "PART 2" rewrites `allowed_values_json`, adds step-99 and Length rows on the product | Delete. No effect on calculated configurators (the populate step clears the list afterwards). **Not equivalent:** hand-set Tape/Neon templates would no longer get their `allowed_values_json` refreshed from `allowed_options`; port it into `refresh_template` for hand-set Tape/Neon templates if the owner wants that (owner decision) |
+| C6 | `ill_webflow_product.py:3506-3663` | Tape/Neon "PART 2" rewrites `allowed_values_json`, adds step-99 and Length rows on the product | Delete. No effect on calculated configurators (the populate step clears the list afterwards). **Not equivalent:** hand-set Tape/Neon templates would no longer get their `allowed_values_json` refreshed from `allowed_options`; port it into `refresh_template` for hand-set Tape/Neon templates (owner, 2026-11-05: move it to the template's own refresh) |
 | C7 | `ill_webflow_product.py:312` | `has_value_changed("configurator_options")` marks Pending | Remove; template changes still reach sync through `push_to_product` and `on_product_update` (`api/webflow_sync_events.py:125-156`) |
 | C8 | `template_listing.py:103-125` | `shadow_product` copies `is_required` from product rows on first computation | Remove the product fallback (run `refresh_all_templates(apply=True)` first) |
 | C9 | `template_listing.py:132-142` | `compute` reads the shadow's `configurator_options` | Read the in-memory list from C4 |
