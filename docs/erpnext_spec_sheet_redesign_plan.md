@@ -608,9 +608,9 @@ Correction to 4.16 row 8 (owner): Webflow `featured-image` comes from the **prod
 |---|---|---|
 | 1 | Sidebar: drop the "Target Brands" heading above the brand pill | agreed |
 | 2 | `product_category` label shows "old-Product Category" on staging. The app's label is already "Product Category", so a staging Property Setter overrides it; remove the override | agreed |
-| 3 | Remove the `configurator_options` table and its calculations | agreed |
+| 3 | Remove the `configurator_options` table and its calculations: readers move to the template first (developer guide 4.18) | pending owner: who does it |
 | 4 | Move `is_configurable` into the Identity section, under `is_active` | agreed |
-| 5 | Remove Kit Components from the product and everything related to it | agreed |
+| 5 | Remove Kit Components from the product and everything related to it: readers move to the template first (developer guide 4.18) | pending owner: who does it |
 | 6 | Features (owner, 2026-11-05): new table `web_features` (Title, Description) on the Webflow Product. On save it is formatted as JSON (`[{title, description}, ...]`, the shape `features` holds today) and written into `features`, which is then hidden. Every other reader keeps reading `features` unchanged. On migrate, each product's existing `features` JSON is copied into `web_features` rows in the same order; a product whose JSON cannot be read is left as it is and listed in the migrate log. | answered |
 | 7 | 16:9: a warning only (owner, 2026-11-05) for `featured_image` and for gallery images; nothing refuses a save | answered (c) |
 | 8 | Attribute Links: full mirror of the template, rebuilt on every save, read-only; remove `auto_populate_attributes` and the Refresh Attribute Links button. Keep `display_label` for now (see below). Kits: default profile (Environment Ratings, Joiner System), default lens (Lens Appearance), kit template Allowed Options (Finish, Mounting Method), certifications; no Series, no Endcap Style. The old kit-component accessory rows never matched anything (the product rows hold an Item, not a spec) and are removed. Certification rows read the template's Certifications | answered (a) |
@@ -630,6 +630,96 @@ Correction to 4.16 row 8 (owner): Webflow `featured-image` comes from the **prod
 **Product Certifications table: for the owner's developer (2026-11-05).** Hidden on the Webflow Product for now, not removed. It is still read by the dealer portal catalog (`api/product_catalog.py`), both Webflow exports (`webflow_export.py`, `webflow_export_v2.py`) and a check in `ill_webflow_product.py`. Suggestion: move those readers to the template's Certifications (with the brand's badge image, in table order), then remove the table. Meanwhile the Webflow sync must not send the product's Certifications: `certifications-json` comes from the template (4.16 row 16) and the attribute rows read the template's Certifications.
 
 **`display_label` on Attribute Links: for the owner's developer.** Still read by: the dealer portal catalog facet counts (`api/product_catalog.py`, grouped by `display_label`), the Spec Sheet CSV export (`api/spec_sheet_export.py`), the product projection (`api/product_projection.py`) and `attribute-links-json` in both Webflow exports (Webflow page scripts may read it). Suggestions: (1) point each reader at the attribute's own label (or `attribute_name` when it has none) so the label lives in one place, the attribute record; (2) check the Webflow page scripts for `display_label` before the export stops sending it; (3) then remove the column. Not changed until the developer has answered.
+
+### 4.18 Developer guide: moving Configurator Options and Kit Components readers to the template (2026-11-05)
+
+For the owner's developer. The owner wants the Webflow Product tables `configurator_options` (child `ilL-Child-Webflow-Configurator-Option`) and `kit_components` (child `ilL-Child-Webflow-Kit-Component`) deleted. The templates hold the same child doctypes: every template's `part_no_configurator`, and the Extrusion Kit template's `kit_components`. Every other reader must read the template first. Paths are relative to `illumenate_lighting/illumenate_lighting/` unless they start with `tools/`, `tests/`, `n8n_workflows/` or `illumenate_lighting/public/`. Researched read-only from the code at commit `4c8cc35`; key claims spot-checked.
+
+**Key findings**
+
+1. **The configurator calculation writes to the product table.** Templates compute their steps on an unsaved "shadow" Webflow Product (`template_listing.py:87-142`, `compute` reads `product.get("configurator_options")`). The `populate_*_configurator_options` methods `self.append("configurator_options", ...)` (`ill_webflow_product.py:2242-2609`). Deleting the field breaks every template save unless these methods write to an in-memory list. This is the biggest piece of work.
+2. **Silent breakage.** `Listing.__getattr__` falls back to the product (`web_listing_source.py:88-93`), so exports would raise AttributeError for products with no template. `Listing.overlay` only replaces keys already in the product dict (`web_listing_source.py:95-104`), so `product_readiness.evaluate` (`api/product_readiness.py:233-235`) would silently stop validating options.
+3. **The v2 export (used by publication and n8n) reads kit rows from the product, not the template**: `getattr(doc.source, "kit_components", [])` (`api/webflow_export_v2.py:437-444`). The template has one row per item, so the grouping has to be rebuilt from template rows.
+4. **Existing kit bug.** On a template save, `push_to_product` saves the product, which regroups the rows (`ill_webflow_product.py:4459-4507`); then `sync_to_listing` (`hooks.py:644-647`, `web_listing_source.py:124-140`) copies the template's per-item rows back over the grouped ones. The product's stored `kit_components` swap between grouped and per-item depending on which document was saved last. Use the product-save grouping as the reference output.
+
+**Shared helper (suggested, in `template_listing.py` next to `configurator_rows`)**
+
+- `linked_templates(products)`: `{product: (doctype, template)}` where the product's link is set and the template's `webflow_product` points back (the `template_for` rule); one query per template doctype (reuse the loop at `template_listing.py:455-466`, without `pending_decision` / legacy read).
+- `_template_rows(products, child, parentfield, fields)`: `{product: rows in idx order}`, `[]` for a product with no linked template; one `get_all` per template doctype (pattern at `template_listing.py:489-501`).
+- `configurator_rows(products)` = template `part_no_configurator`; `kit_rows(products)` = Extrusion Kit template `kit_components`.
+- `kit_groups(rows)` (pure): group by `component_type` in order of first appearance, skip rows with no type; items `{"code": component_item or "", "label": component_description or ""}` (untrimmed, as the product did); first entry `{"hero_image": url}` when the group has an image (template row `component_image`, set at template save by `template_images.py:41-52`; url prefixed with `https://app.illumenate.lighting` when relative, as the product did); returns `[{component_type, component_item: first code, component_description: json.dumps(list, indent=1)}]`.
+- Single-document readers keep using `Listing`: make `ALIASES = {"configurator_options": CONFIGURATOR_FIELD, "kit_components": "kit_components"}` unconditional (drop the `pending_decision` switch at `web_listing_source.py:69-71`); `get()` returns `[]` when there is no template or the template has no such table; in `as_dict()`, `setdefault` both alias keys before `overlay` so `evaluate()` still sees them.
+- List endpoints use `configurator_rows` / `kit_rows` (about 2 queries per template doctype, no N+1).
+- Product with no linked template: both tables read as `[]` (today it reads its own rows; run the data checks below first).
+- `web_listing_legacy_read` (`web_listing_source.py:44-47`) can no longer send these two tables back to the product; remove it for these keys.
+
+**Configurator Options: readers**
+
+| # | File:line | What it does | Change |
+|---|---|---|---|
+| C1 | `public/catalog_builder/catalog-builder.js:482` (built from `tools/yaml_builder_ui/src/catalog-schema.json:7869`) | Builder schema includes the product field | Regenerate with `python3 -m tools.fixture_builder.catalog_schema` and `npm run build:erp --prefix tools/yaml_builder_ui` after the field is removed |
+| C2 | `catalog_authoring/schema.py:128-141` | `AUTHORED_ELSEWHERE` marks the field (and `auto_populate_configurator_options`) read-only | Remove the entries |
+| C3 | `ill_webflow_product.py:274-296` | `before_save` calls `populate_*` | Remove the calls; the product no longer stores steps |
+| C4 | `ill_webflow_product.py:2212-2609` | `populate_*_configurator_options`, `_populate_variant_configurator_options` write `self.configurator_options` | Keep for the shadow, but write to memory (`self.flags.configurator = []` and `.append(frappe._dict({...}))`, or return the rows). `compute` reads that list. Keep order, `option_step`, `depends_on_step` and `allowed_values_json` (`frappe.as_json`) unchanged so `part_no_configurator` stays byte-identical |
+| C5 | `ill_webflow_product.py:2335-2355` | `_get_existing_is_required` reads product rows from the DB | Drop the DB branch; `is_required` comes from `shadow_product` (template rows) |
+| C6 | `ill_webflow_product.py:3506-3663` | Tape/Neon "PART 2" rewrites `allowed_values_json`, adds step-99 and Length rows on the product | Delete. No effect on calculated configurators (the populate step clears the list afterwards). **Not equivalent:** hand-set Tape/Neon templates would no longer get their `allowed_values_json` refreshed from `allowed_options`; port it into `refresh_template` for hand-set Tape/Neon templates if the owner wants that (owner decision) |
+| C7 | `ill_webflow_product.py:312` | `has_value_changed("configurator_options")` marks Pending | Remove; template changes still reach sync through `push_to_product` and `on_product_update` (`api/webflow_sync_events.py:125-156`) |
+| C8 | `template_listing.py:103-125` | `shadow_product` copies `is_required` from product rows on first computation | Remove the product fallback (run `refresh_all_templates(apply=True)` first) |
+| C9 | `template_listing.py:132-142` | `compute` reads the shadow's `configurator_options` | Read the in-memory list from C4 |
+| C10 | `template_listing.py:383-397` | `apply_template_rows` copies `is_required` onto product rows | Delete |
+| C11 | `template_listing.py:405-422, 785-881` | `fresh_product_rows`, `diff_listing`, `compare_listing` staging checks | Remove the configurator half, or retire these Phase 2 checks |
+| C12 | `template_listing.py:660-778` (helpers 514-657) | `adopt_hand_set_configurators` | Run with `apply=True` before deletion, then delete with its helpers |
+| C13 | `template_listing.py:293-304, 442-511` | `pending_decision`, `configurator_rows` (template unless pending, legacy or unlinked) | Replace with the template-only helper; delete `pending_decision` and `auto_configurator` when unused |
+| C14 | `web_listing_source.py:41, 69-75, 101-104` | `Listing` alias | Unconditional alias plus the `as_dict` fix |
+| C15 | `api/webflow_export.py:413-424, 591-595` | v1 export copies the 7 fields via `Listing`, strips for brand | No change beyond C14 (v1 is only used by `payload_parity`; consider retiring it) |
+| C16 | `api/webflow_export_v2.py:388-399, 727-731, 552-577` | v2 export, `export_template_record` | No change beyond C14; keep `strip_configurator` (brand flag `include_configurator_payload`) |
+| C17 | `api/product_catalog.py:393-401` | Catalog detail uses `configurator_rows([product])` | No change |
+| C18 | `api/product_projection.py:261-284` | Pure projection | No change |
+| C19 | `api/product_readiness.py:228-235` | `evaluate` via `Listing.as_dict()` | Needs the `as_dict` `setdefault`, or validation silently stops |
+| C20 | `portal/product_finder/facts.py:175-181` | `configurator_rows(products)` | No change |
+| C21 | `report/catalog_configurability/catalog_configurability.py:76-91` | `configurator_rows(...)` | No change |
+| C22 | `spec_sheet_data.py:81-82, 97` | `MIRRORED` / `NOT_LISTING` | Remove `configurator_options` and `kit_components` (and `auto_populate_configurator_options` if dropped); `test_every_webflow_product_field_has_an_owner` requires it |
+| C23 | `n8n_workflows/lib/spec_sheet_record.js:46-49` | Reads `t.part_no_configurator` | Already the template |
+| C24 | `n8n_workflows/lib/product_projection.js:131-139` | Reads the export key | No change |
+
+Fields throughout: `option_step`, `option_type`, `option_label`, `option_description`, `is_required`, `depends_on_step`, `allowed_values_json` (`CONFIGURATOR_FIELDS`, `template_listing.py:46-54`); one to one with the template.
+
+Not equivalent: products still waiting for a hand-set decision (resolve all with `adopt_hand_set_configurators` first); products with steps but no linked template (link with `web_listing_migration.link_and_migrate`, or accept the loss); the hand-set Tape/Neon refresh (C6); `auto_populate_configurator_options` has no purpose afterwards and can be removed in the same change.
+
+**Kit Components: readers**
+
+| # | File:line | What it does | Change |
+|---|---|---|---|
+| K1 | `catalog-builder.js:482` / `catalog-schema.json:7884` | Builder schema | Regenerate (as C1) |
+| K2 | `ill_webflow_product.py:911-977` | Kit attribute links from accessory specs in product rows | Replaced by the owner's kit attribute rules (4.17 item 8: no kit-component rows) |
+| K3 | `ill_webflow_product.py:4459-4507` | **Writer:** groups template rows into product rows | Delete; logic moves to the pure `kit_groups(rows)` |
+| K4 | `web_listing_source.py:111-149` (via `TABLES`) | **Writer:** `sync_to_listing` copies template rows onto the product | Remove `kit_components` from `TABLES` (`web_listing_migration.py:52`) |
+| K5 | `web_listing_source.py:65-67, 73-85` | `Listing` returns template rows for migrated kits | Add the alias |
+| K6 | `web_listing_migration.py:50-53, 152-162, 309-318` | Copies product rows to empty templates; parity check | Covered by removing from `TABLES` |
+| K7 | `web_listing_kits.py:39-44, 97-109, 130-134` | One-off: builds kit templates from product rows | Run before deletion if any kit lacks a template; then delete with its test |
+| K8 | `api/webflow_export.py:461-477, 595` | v1 export via `Listing` | No change beyond the alias |
+| K9 | `api/webflow_export_v2.py:437-444, 731` | v2 export reads **`doc.source`** grouped rows, outputs `{component_type, custom_webflow_description}` | `rows = doc.get("kit_components")` (alias = template rows), then `[{"component_type": g["component_type"], "custom_webflow_description": g["component_description"] or "[]"} for g in kit_groups(rows)]`; keep the brand strip |
+| K10 | `api/product_projection.py:407-418` | Pure projection | No change |
+| K11 | `api/product_catalog.py:397-401` | Catalog detail passes the product's own rows | Pass `kit_rows([product])[product.name]`. **Not equivalent:** per-item rows instead of grouped JSON; no portal JS/HTML reads it (grep), so per-item rows are recommended |
+| K12 | `api/product_readiness.py:233-235` | `evaluate` | Covered by the `as_dict` fix |
+| K13 | `spec_sheet_data.py:81` | `MIRRORED` | Remove the entry |
+| K14-K18 | `spec_sheet_check.py:136-156`, `template_images.py:41-52`, `web_listing_schema.py:139-147`, `tools/fixture_builder/catalog_examples.py:188-209`, `n8n_workflows/lib/spec_sheet_record.js:50-66` | Already the template | No change (`spec_sheet_record.js` is a reference implementation of the grouping) |
+
+Kit grouping differences (new vs old): the image is the `component_image` stored at template save (old: looked up live at product save, trying each row's item) and is stale until the template is saved again; labels stay untrimmed (n8n's spec version trims). Recommendation: use the stored image, keep the hard-coded prefix and untrimmed labels, and diff v2 payloads before and after for all kits (adapt `payload_parity`, `web_listing_source.py:174-195`, which uses v1 today).
+
+**Writers to remove:** product `before_save` populate calls; `populate_*` writing the table (to memory); Tape/Neon PART 2; kit grouping (to `kit_groups()` at export); `apply_template_rows` `is_required` copy; `sync_to_listing` / `top_up_template` / `plan_listing` for `kit_components` (remove from `TABLES`); `adopt_hand_set_configurators` (run once, then delete); Catalog Builder fields (regenerate schema and bundle; the import then rejects these keys on ilL-Webflow-Product, `catalog_authoring/catalog.py:85`). Old patches stay. Add a patch deleting orphan child rows: `frappe.db.delete(child, {"parenttype": "ilL-Webflow-Product", "parentfield": field})` for both tables. Doctype: `ill_webflow_product.json` fields and the type hints in `ill_webflow_product.py`. `tools/fixture_builder/generators/common.py:76-114` (`CONFIGURATOR_STEP_TYPES`, `TAPE_NEON_CONFIGURATOR_STEPS`) is unused.
+
+**Tests to update:** `tests/portal_unit/test_web_listing_source.py:77-90` (alias always on, unmigrated gives `[]`, add kit alias and `as_dict` cases); `test_template_listing.py` (remove `apply_template_rows` configurator cases 76-125, `fresh_product_rows` hand-set 127-138, adoption/report/refresh tests 203-361, the shadow fallback 50-67; rewrite `configurator_rows` cases 160-224 for template-only; add `kit_rows` and `kit_groups` tests); `test_spec_sheet_data.py:42-50` (`MIRRORED`/`NOT_LISTING`); `test_web_listing_kits.py` (delete or rewrite with K7). No change: `test_contracts.py`, `test_spec_sheet_check.py`, `test_template_images.py`, the `.cjs` tests, `tools/fixture_builder/tests/test_tape_neon_generators.py`, `tools/yaml_builder_ui/tests/clone.test.js`. Frappe integration tests: `api/test_driver_controller_configurator.py:353-400` reads `product.configurator_options` after save (switch to `template.part_no_configurator`); `doctype/ill_webflow_product/test_ill_webflow_product.py:598-640` (kit attributes). New tests: v2 kit grouping from template rows; readiness still reporting `INVALID_OPTIONS`.
+
+**Order of work**
+
+1. Data checks (System Console, dry run first): `adopt_hand_set_configurators()` then `apply=True` so no product is pending; count product configurator and kit rows whose product has no linked template (link with `link_and_migrate` or sign off the loss); check Extrusion Kit products whose template has no `kit_components`; `refresh_all_templates(apply=True)`.
+2. Helpers: `linked_templates`, `kit_rows`, `kit_groups`, template-only `configurator_rows`, unconditional `Listing` aliases and the `as_dict` fix. No behaviour change while the product fields still exist.
+3. Switch readers K9, K11 (and C19 via `as_dict`); capture v2 payloads before and after for all products and diff.
+4. Calculation to memory (C4/C9); remove C3, C5-C8, C10-C12, K3, K4/K6, K7. Must ship in the same release as step 5, or template saves break.
+5. Remove the fields (doctype JSON, type hints, `MIRRORED`/`NOT_LISTING`, `AUTHORED_ELSEWHERE`), regenerate the schema and Catalog Builder bundle, add the orphan-row patch; optionally drop `auto_populate_configurator_options`.
+
+**Risks:** publication approvals reset once (the v2 payload hash and `dependency_manifest`, which fingerprints the whole product including child tables, `api/product_readiness.py:112-115`, change for every product, so every listing goes to NEEDS_REVIEW; plan a bulk re-approval or one-off re-hash); silent failures if step 2 is skipped; template saves break if step 4 and step 5 ship separately.
 
 ## 5. Design choices
 
