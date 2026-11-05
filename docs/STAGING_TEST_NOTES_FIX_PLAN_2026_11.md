@@ -114,6 +114,9 @@ That is an engine change, not a preview change:
 This changes BOM cable lines, leader quantities, driver plans, prices and build identities for
 existing multi-segment builds, so it needs sign-off before implementation.
 
+Confirmed as the intended behaviour. The investigation and implementation plan are in
+`docs/LINEAR_SEGMENT_ALIGNED_RUNS_PLAN.md` (not implemented yet).
+
 ## 5. MSRP adder per foot
 
 **Changed** (`api/configurator_engine.py::_calculate_pricing`):
@@ -125,7 +128,9 @@ existing multi-segment builds, so it needs sign-off before implementation.
 - The field is relabelled "MSRP Adder ($/ft)" and its description explains this.
 - Tape/neon and LED sheet adders are unchanged.
 
-**Check before deploying.** Any adder already entered as a flat amount on a fixture template will
+**Confirmed:** existing fixture adders are already entered per foot, so no data change is needed.
+
+~~Check before deploying.~~ (Superseded.) Any adder already entered as a flat amount on a fixture template will
 now be multiplied by the length. Review fixture templates with non-zero adders and convert them to
 $/ft. Saved builds keep their pinned price snapshot; live re-estimates use the new rule.
 
