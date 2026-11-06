@@ -814,6 +814,7 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
 
 - Owner: publish the staging site, regenerate the kit spec sheets (so they carry the new tags), then test on `/products/kit-ra01` with the userscript.
 - Later: rules for the other categories, each agreed with the owner.
+- After the owner verifies the new method: remove the templates' `spec_submittal_template` field and its readers (8.2).
 
 ## 5. Design choices
 
@@ -1662,6 +1663,16 @@ This is the one list of open work and cleanup notes recorded during Phases 0 to 
 - The W1 bullets in 4.10 (delete-chain nodes removed, Convert node file-name cleanup removed, `Update Webflow?` and handoff nodes removed) are not each recorded in the phase notes. Check them against the live staging workflow.
 - Phase 3 "Done when" (an unlinked Draft template produces a PDF with no Webflow call and no product created, and the dialog is opaque) is not recorded as checked. The template-only path exists (`export_template_record`).
 
+**After the configured spec sheet is verified (4.20, owner 2026-11-06)**
+
+- Remove the **Spec Submittal Template** field (`spec_submittal_template`) from the templates once the owner has checked that the new submittal method (the configured, highlighted spec sheet) works as intended. Not before. The field is on all six template doctypes. It is still read in these places, and each needs removing or changing in the same change:
+  - the portal submittal fill (`api/spec_submittal.py`, `api/spec_sheet_generator.py`);
+  - Submittal Readiness (`api/submittal_readiness.py`, its page and test);
+  - `api/product_readiness.py`;
+  - `web_listing_schema.py` and `ill_webflow_product.py`;
+  - the Catalog Builder (`public/catalog_builder/catalog-builder.js`).
+  Then regenerate the schema and the Catalog Builder bundle.
+
 **Data work (catalog, not code)**
 
 - `led-hd-sw` fails readiness (dependency graph too large, a submittal mapping source field that does not exist, two empty engineering values). Catalog work, not part of this plan.
@@ -1815,6 +1826,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 - [ ] CMS fields added on staging exist on main with the same slugs (for example the discontinued flag).
 - [ ] Spec sheet links in Webflow use the stable links after the bulk regeneration.
 - [ ] Configured spec sheet (4.20): the Products Template popup has the Fixture Type input (`ill-fixture-type`, optional); the product page custom code includes `webflow_scripts/configured-spec-sheet.html`. Remove the old `.extrusions-dwnld-submittal` script and the old `#ill-download-spec-sheet` handler.
+- [ ] Once the configured spec sheet is verified: remove `spec_submittal_template` from the templates and its readers (8.2).
 
 ### 10.6 n8n
 
