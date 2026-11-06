@@ -64,8 +64,47 @@ def enqueue_n8n_webhook(webhook_url, job_data):
         response.raise_for_status()
     except requests.RequestException as e:
         frappe.log_error(f"Failed to push {job_data.get('job')} to n8n: {e!s}", "Webflow V2 Sync")
-        # Fail the worker job visibly; the publication lease remains recoverable.
-        raise
+        code = _dispatch_error_code(e)
+        if code is None:
+            # Timed out: n8n may still be working on it. Fail the worker job visibly; when the
+            # lease runs out the minute tick records a "timeout" and retries (plan 4.19 Q3).
+            raise
+        _record_dispatch_failure(job_data, code)
+
+
+def _dispatch_error_code(error):
+    """The failure code for a call to n8n that failed, or None for a timeout.
+
+    An HTTP answer gives its status (429 and 5xx retry, other 4xx are permanent); no answer
+    at all is "connection" (retries).
+    """
+    if isinstance(error, requests.exceptions.Timeout):
+        return None
+    response = getattr(error, "response", None)
+    status = getattr(response, "status_code", None)
+    return str(status) if status else "connection"
+
+
+def _record_dispatch_failure(job_data, code):
+    """n8n never took the job: record the failure on it as the integration user, so it retries
+    on the 1, 5, 15 minute schedule or notifies (plan 4.19 Q3)."""
+    from illumenate_lighting.illumenate_lighting.api.publication import acknowledge
+    from illumenate_lighting.illumenate_lighting.portal.service_users import run_as
+
+    try:
+        with run_as("publication"):
+            acknowledge(
+                job_data.get("job"),
+                job_data.get("token"),
+                job_data.get("revision_hash"),
+                job_data.get("payload_hash"),
+                outcome="error",
+                error_code=code,
+            )
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(title=f"Could not record the n8n failure of {job_data.get('job')}")
 
 def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
     """Convert a relative URL to an absolute, percent-encoded URL for Webflow.
@@ -2649,52 +2688,69 @@ def _build_certifications_spec(doc) -> dict | None:
 
 @frappe.whitelist(methods=["POST"])
 def trigger_sync_v2(docname):
+    """The Sync to Webflow button: stage every enabled target brand now (STAGE, W2)."""
     _require_product_access(docname, "write")
     # Plan 4.19: nothing goes to Webflow while a restore or archive waits for approval.
     webflow_approvals.assert_no_pending(docname)
-    # 1. Fetch the document and determine active target brands
-    doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    results = stage_brands(docname)
+    for result in results:
+        if result.get("issues") is not None:
+            _show_not_ready(result["brand"], result["issues"])
+    return {"status": "success", "jobs": [result["job"] for result in results if result.get("job")]}
 
-	# Forces before_save() -> sync_custom_template_data() to pull latest template files
+
+def _show_not_ready(brand, issues):
+    issue_msgs = "<br>".join([
+        f"- {i.get('message', 'Unknown')} ({i.get('field', 'unknown')}) ➔ <b>Record: {i.get('record', 'Unknown')}</b>"
+        for i in issues
+    ])
+    frappe.msgprint(
+        msg=f"<b>Skipping {brand} due to readiness issues:</b><br><br>{issue_msgs}",
+        title="Product Not Ready",
+        indicator="orange"
+    )
+
+
+def stage_brands(docname, brands=None):
+    """What the Sync to Webflow button does, for all enabled target brands or ``brands``.
+
+    Saves the product (before_save pulls the latest template data), then per brand: inspect,
+    STAGE request (ilL-Publish-Job) and a worker that claims it as the integration user and
+    sends it to n8n (W2). The automatic push (``webflow_auto_push``) runs this too. Returns
+    one dict per brand: ``{"brand", "job"}``, or ``{"brand", "issues"}`` when not ready. The
+    brands sent now drop their waiting automatic push: this push sends the latest version.
+    """
+    from illumenate_lighting.illumenate_lighting import webflow_auto_push
+
+    doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    # This save is the push itself; it must not queue an automatic push of its own.
+    doc.flags[webflow_auto_push.SKIP_FLAG] = True
+    # Forces before_save() -> sync_custom_template_data() to pull latest template files
     doc.save(ignore_permissions=True)
-	
-    active_brands = _sync_target_brands(doc)
-    
+
+    targets = _sync_target_brands(doc)
+    active_brands = [brand for brand in targets if brand in brands] if brands else targets
+
     # Z1: the webhook URL and secret come from site config. Check both before
     # any job is requested so a misconfigured site fails without side effects.
     webhook_url = n8n_config.sync_webhook_url()
     n8n_config.auth_headers()
 
-    dispatched_jobs = []
-    
+    results = []
     for brand in active_brands:
-            
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
-        
         if not inspection.get("readiness", {}).get("ready"):
-            issues = inspection.get("readiness", {}).get("issues", [])
-            issue_msgs = "<br>".join([
-                f"- {i.get('message', 'Unknown')} ({i.get('field', 'unknown')}) ➔ <b>Record: {i.get('record', 'Unknown')}</b>" 
-                for i in issues
-            ])
-            
-            frappe.msgprint(
-                msg=f"<b>Skipping {brand} due to readiness issues:</b><br><br>{issue_msgs}",
-                title="Product Not Ready",
-                indicator="orange"
-            )
+            results.append({"brand": brand, "issues": inspection.get("readiness", {}).get("issues", [])})
             continue
-            
-        current_hash = inspection.get("current_hash")
-        
+
         # 3. Request a STAGE operation, which queues the ilL-Publish-Job
-        requested = request(docname, brand, "STAGE", current_hash)
+        requested = request(docname, brand, "STAGE", inspection.get("current_hash"))
 
         # 4. Claim and push to n8n in a worker that runs as the integration user
-        dispatched_jobs.append(_dispatch_requested(brand, webhook_url, requested))
-                
-    return {"status": "success", "jobs": dispatched_jobs}
+        results.append({"brand": brand, "job": _dispatch_requested(brand, webhook_url, requested)})
+        webflow_auto_push.clear(docname, brand)
+    return results
 
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=120, seconds=60)
@@ -2718,8 +2774,11 @@ def spec_sheet(product):
 def trigger_publish_v2(docname):
     _require_product_access(docname, "write")
     webflow_approvals.assert_no_pending(docname)
+    from illumenate_lighting.illumenate_lighting import webflow_auto_push
+
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    doc.flags[webflow_auto_push.SKIP_FLAG] = True  # a push itself; queue no automatic push
     doc.save(ignore_permissions=True)
     active_brands = _sync_target_brands(doc)
     

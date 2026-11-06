@@ -171,3 +171,20 @@ def publication_failed(job, reason=None):
 		product,
 		once=True,
 	)
+
+
+def auto_push_failed(product, brand, reason, saved_by=None):
+	"""An automatic push that could not be requested (not ready, refused): notify at once.
+
+	Failures after the job was requested are the job's (``publication_failed``), so one failure
+	is never notified twice.
+	"""
+	saved = _(" Last saved by {0}.").format(saved_by) if saved_by else ""
+	return notify(
+		_("Webflow automatic push failed: {0} ({1})").format(product, brand),
+		_("{0} on {1}: {2}.{3} Fix it, then save the product or press Sync to Webflow.").format(
+			product, brand, str(reason or _("the push could not be requested")).rstrip("."), saved
+		),
+		PRODUCT,
+		product,
+	)

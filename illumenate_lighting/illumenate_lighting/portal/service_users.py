@@ -19,6 +19,13 @@ SERVICE_USERS = {
 		"first_name": "Publication Worker",
 		"roles": ("ilL Integration",),
 	},
+	# Automatic pushes to Webflow (plan 4.19 Q2): requests the same STAGE sync as the Sync to
+	# Webflow button, which needs the catalog capability. The integration role is not enough.
+	"webflow_auto_push": {
+		"email": "webflow-auto-push@illumenate.lighting",
+		"first_name": "Webflow Auto Push",
+		"roles": ("ilL Catalog Publisher",),
+	},
 	# Signed QuickBooks webhooks write Payment Entries and QuickBooks ids (hardening plan 1.2).
 	"qbo": {
 		"email": "qbo-integration@illumenate.lighting",

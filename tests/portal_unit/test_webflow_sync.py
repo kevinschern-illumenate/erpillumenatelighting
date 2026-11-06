@@ -26,9 +26,11 @@ def _dependencies(run_as=None):
 	)
 	photometrics = _module(ROOT + ".photometrics", published=MagicMock())
 	approvals = _module(ROOT + ".webflow_approvals", assert_no_pending=MagicMock(), pending=MagicMock(return_value=None))
+	auto_push = _module(ROOT + ".webflow_auto_push", SKIP_FLAG="webflow_auto_push_skip", clear=MagicMock())
 	modules = [
 		requests,
 		approvals,
+		auto_push,
 		_module("frappe.handler", upload_file=MagicMock()),
 		publication,
 		_module(ROOT + ".api.unit_conversion", format_length_inches=MagicMock()),
@@ -75,6 +77,7 @@ def _product(*brands):
 	return Product(
 		name="demo",
 		product_slug="demo-slug",
+		flags=Record(),
 		target_brands=[Record(brand=code, enabled=enabled) for code, enabled in brands],
 	)
 
@@ -215,7 +218,14 @@ class PublicationWorker(unittest.TestCase):
 			for call in frappe.enqueue.call_args_list:
 				self.assertTrue(call.args[0].endswith(".claim_and_dispatch"))
 				self.assertTrue(call.kwargs["enqueue_after_commit"])
+			# The button's own save queues no automatic push (plan 4.19 Q2).
+			self.assertTrue(doc.flags["webflow_auto_push_skip"])
 		publication.claim.assert_not_called()
+		# The sync sent the latest version: the brands' waiting automatic pushes are dropped.
+		auto_push = __import__("sys").modules[ROOT + ".webflow_auto_push"]
+		self.assertEqual(
+			[call.args for call in auto_push.clear.call_args_list], [("demo", "illumenate"), ("demo", "lighting_206")]
+		)
 
 	def test_worker_claims_as_the_integration_user_and_dispatches_each_job(self):
 		module, frappe, users = self.load()

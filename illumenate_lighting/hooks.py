@@ -59,7 +59,7 @@ web_include_js = ["illumenate_web.bundle.js"]
 # include js in doctype views
 doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js"],
     "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
-    "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
+    "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # Desk record -> portal page, and portal request list indicators (DESK-4, DESK-5).
 for _name in (
@@ -512,6 +512,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_product_update",
 			# A restore, or archiving a page that was ever published, waits for approval (plan 4.19).
 			"illumenate_lighting.illumenate_lighting.webflow_approvals.on_product_update",
+			# A synced product pushes to Webflow 2 minutes after its last save (plan 4.19 Q2).
+			"illumenate_lighting.illumenate_lighting.webflow_auto_push.on_product_update",
 		],
 	},
 	# Only the Webflow Product's own Webflow Status raises approvals; template status changes
@@ -529,7 +531,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick"]}}
 
 # Testing
 # -------
@@ -561,7 +563,8 @@ scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_
 # point at their subject by Dynamic Link, like Communication. Without this a
 # rejected or withdrawn draft Sales Order could never be deleted once its
 # decision email was queued.
-ignore_links_on_delete = ["ilL-Portal-Event"]
+# A waiting automatic Webflow push never blocks deleting its product; the tick drops it.
+ignore_links_on_delete = ["ilL-Portal-Event", "ilL-Webflow-Auto-Push"]
 
 # Request Events
 # ----------------

@@ -15,7 +15,12 @@ from frappe.utils import get_datetime, now_datetime
 from illumenate_lighting.illumenate_lighting import webflow_approvals, webflow_notify
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 from illumenate_lighting.illumenate_lighting.api.product_readiness import content_record, evaluate
-from illumenate_lighting.illumenate_lighting.api.publication_contract import callback_disposition, retry_at
+from illumenate_lighting.illumenate_lighting.api.publication_contract import (
+	RETRY_MINUTES,
+	callback_disposition,
+	failure_reason,
+	next_retry,
+)
 from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand, resolve_brand
 from illumenate_lighting.illumenate_lighting.portal.staff import require, require_catalog_reader
 from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
@@ -321,6 +326,15 @@ def claim(brand, limit=1):
 			_save(job)
 			continue
 		if job.operation != "RETIRE" and not readiness["ready"]:
+			if job.state == "FAILED" and job.next_attempt_on:
+				# A retry cannot send a product that is no longer ready: stop and notify once.
+				job.next_attempt_on = None
+				job.last_error = state.last_error = (
+					f"Publication failed (readiness: {failure_reason('readiness')})"
+				)
+				_save(job)
+				_save(state)
+				_notify_if_final(job)
 			continue
 		busy = frappe.db.exists(
 			JOB, {"publication": state.name, "name": ["!=", job.name], "state": "RUNNING"}
@@ -389,15 +403,7 @@ def acknowledge(
 		job.state = "SUPERSEDED"
 		state.last_error = "A remote operation completed for an older revision; stage the current revision."
 	elif outcome == "error":
-		job.state = state.state = "FAILED"
-		# Do not persist remote response bodies or credentials in error fields.
-		code = str(error_code or "transport")[:32]
-		job.last_error = state.last_error = f"Publication failed ({code})"
-		job.next_attempt_on = (
-			retry_at(job.attempts, now_datetime(), retry_after)
-			if code in ("transport", "429", "500", "502", "503", "504")
-			else None
-		)
+		_fail(job, state, error_code, retry_after)
 	else:
 		if job.operation != "RETIRE" and not state.remote_item_id:
 			frappe.throw(_("Successful publication requires a remote item ID"))
@@ -412,10 +418,38 @@ def acknowledge(
 			state.live_hash, state.staged_hash, state.state = None, None, "RETIRED"
 	_save(job)
 	_save(state)
-	if job.state == "FAILED":
-		# Plan 4.19: failures notify (bell, email, browser); success never does.
-		webflow_notify.publication_failed(job)
+	_notify_if_final(job)
 	return {"job": job.name, "state": job.state, "publication": _receipt(state)}
+
+
+def _fail(job, state, error_code, retry_after=None):
+	"""Record a failed attempt and schedule its retry (plan 4.19 Q3: 1, 5, 15 minutes).
+
+	A temporary failure (rate limit, timeout, connection, 5xx) gets ``next_attempt_on`` until
+	the three retries are used up; a permanent one gets none. The retry is claimed by the
+	minute tick in ``webflow_auto_push``. A newer save supersedes it at claim time, so a retry
+	never sends an old version.
+	"""
+	# Do not persist remote response bodies or credentials in error fields.
+	code = str(error_code or "transport")[:32]
+	job.state = state.state = "FAILED"
+	job.next_attempt_on = next_retry(code, job.attempts, now_datetime(), retry_after)
+	message = f"Publication failed ({code}: {failure_reason(code)})"
+	if job.next_attempt_on:
+		retry = min(max(1, int(job.attempts or 1)), len(RETRY_MINUTES))
+		message += f"; retry {retry} of {len(RETRY_MINUTES)} at {str(job.next_attempt_on)[11:16]}"
+	elif int(job.attempts or 1) > len(RETRY_MINUTES) and next_retry(code, 1, now_datetime()):
+		message += f" after {len(RETRY_MINUTES)} retries"
+	job.last_error = state.last_error = message
+
+
+def _notify_if_final(job):
+	"""Plan 4.19: notify a failure once it is final (permanent, or retries used up).
+
+	A failure waiting for its retry notifies nobody; success never notifies.
+	"""
+	if job.state == "FAILED" and not job.next_attempt_on:
+		webflow_notify.publication_failed(job)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -433,6 +467,46 @@ def retry(job):
 	job.state, job.next_attempt_on = "QUEUED", None
 	_save(job)
 	return {"job": job.name, "state": job.state}
+
+
+def expire_leases(now=None):
+	"""A claimed job whose lease ran out without an answer is a temporary failure ("timeout").
+
+	It is retried on the 1, 5, 15 minute schedule like any temporary failure, and notifies when
+	the retries are used up. Run by the minute tick as the integration user. Returns job names.
+	"""
+	require("integration")
+	now = now or now_datetime()
+	rows = frappe.get_all(
+		JOB,
+		filters={"state": "RUNNING", "lease_expires": ["<=", now]},
+		pluck="name",
+		order_by="lease_expires asc",
+		limit_page_length=50,
+	)
+	expired = []
+	for name in rows:
+		job, _doc, state, _config = _job_locked(name)
+		if job.state != "RUNNING" or not job.lease_expires or get_datetime(job.lease_expires) > now:
+			continue
+		job.lease_token = None
+		_fail(job, state, "timeout")
+		_save(job)
+		_save(state)
+		_notify_if_final(job)
+		expired.append(job.name)
+	return expired
+
+
+def retry_brands(now=None):
+	"""Brands with a failed job whose retry is due (the minute tick claims them)."""
+	now = now or now_datetime()
+	return frappe.get_all(
+		JOB,
+		filters={"state": "FAILED", "next_attempt_on": ["<=", now]},
+		pluck="brand",
+		distinct=True,
+	)
 
 
 def invalidate_product(doc, method=None):
