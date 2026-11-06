@@ -154,5 +154,14 @@ class TemplateSites(unittest.TestCase):
 			self.assertEqual(module.template_sites('["a"]'), {})
 
 
+class Pages(unittest.TestCase):
+	def test_tapes_and_sheets_share_the_tape_sheets_page(self):
+		with load_service(ROOT + ".spec_sheet_check") as (module, _frappe):
+			for product_type in ("LED Tape", "COB Tape", "LED Sheet"):
+				self.assertEqual(module.page_slug_for(product_type), "tape-sheets")
+			self.assertEqual(module.page_slug_for("Extrusion Kit"), "extrusion-kit")
+			self.assertEqual(module.page_slug_for("LED Neon"), "led-neon")
+
+
 if __name__ == "__main__":
 	unittest.main()

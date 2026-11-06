@@ -35,11 +35,20 @@ KIT = "ilL-Extrusion-Kit-Template"
 PAGE_PATH = "spec-sheet-templates"
 
 
+# Product types that share one spec sheet page (owner, 2026-11-06): tapes and sheets.
+SHARED_PAGES = {"LED Tape": "tape-sheets", "COB Tape": "tape-sheets", "LED Sheet": "tape-sheets"}
+
+
+def page_slug_for(product_type):
+	"""Pure: the Webflow spec sheet page for a product type."""
+	return SHARED_PAGES.get(product_type) or (product_type or "").lower().replace(" ", "-")
+
+
 def page_slug(template):
-	"""The Webflow page slug: the template's product type (never the Webflow Product's)."""
+	"""The Webflow page slug: from the template's product type (never the Webflow Product's)."""
 	from illumenate_lighting.illumenate_lighting.template_listing import product_type_for
 
-	return (product_type_for(template) or "").lower().replace(" ", "-")
+	return page_slug_for(product_type_for(template))
 
 
 def template_sites(value):
