@@ -10,3 +10,16 @@ versions into the main site's custom code when staging moves to main (plan secti
 
 The JSON shapes the sync sends are in `docs/erpnext_spec_sheet_redesign_plan.md` (4.16, 4.19) and
 `n8n_workflows/lib/ill_transform_to_webflow.js`.
+
+## Testing on staging with Tampermonkey
+
+1. Install Tampermonkey (Chrome Web Store). In Chrome, Extensions > Tampermonkey > Details, turn on
+   **Allow User Scripts**.
+2. Tampermonkey > Create a new script, replace everything with `staging.user.js`, save.
+3. Open a product page on `staging-illumenate.webflow.io` (e.g. `/products/kit-ra01`).
+
+The scripts read CMS data from hidden elements (the ids are listed at the top of
+`staging.user.js`). On the main site they come from Code Embeds; on staging (no Site plan) they
+must be Designer text elements bound to the same CMS field with the same id, hidden.
+
+After editing any `.html` file here, rebuild: `python3 webflow_scripts/build_userscript.py`.

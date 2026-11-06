@@ -58,14 +58,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const cardErpId = erpEl.textContent.trim();
 
     // Find the full matching object in the JSON array
-    const matchingData = compatibleProducts.find(item => item.product === cardErpId);
+    // The sync sends related_product / relationship_type; product / type are the old keys.
+    const matchingData = compatibleProducts.find(item => (item.related_product || item.product) === cardErpId);
 
     if (matchingData) {
       // Inject the relationship type
       const typeEl = card.querySelector('.relationship-type');
       if (typeEl) {
-          if (matchingData.type) {
-              typeEl.textContent = matchingData.type;
+          const relationship = matchingData.relationship_type || matchingData.type;
+          if (relationship) {
+              typeEl.textContent = relationship;
               typeEl.style.display = ''; 
           } else {
               typeEl.style.display = 'none'; 

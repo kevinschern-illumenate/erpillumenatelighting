@@ -222,7 +222,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         </div>
                     `;
                 } 
-                else if (lowerLabel === 'output' || lowerType === 'output level') {
+                // option_type is no longer sent (2026-11-06), so the label decides too.
+                else if (lowerLabel === 'output' || lowerLabel === 'output level' || lowerType === 'output level') {
                     if (safeValues && !Array.isArray(safeValues) && safeValues.lensMap) {
                         if (hasLensStep) {
                             optionsContainer.innerHTML = '<div class="card-hint-text">Select a lens option first.</div>';

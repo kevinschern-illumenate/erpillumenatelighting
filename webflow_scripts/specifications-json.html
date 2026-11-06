@@ -102,12 +102,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         bodyEl.style.alignItems = 'center';
                         bodyEl.style.gap = 'var(--button-t-b-padding)';
                         
-                        badgesData.forEach(badge => {
-                            if (badge.badge) { 
+                        // Since 2026-11-06: [{certification, certification_code, badge_image, order}];
+                        // the old keys (badge, name, code) are still read.
+                        badgesData.slice().sort((a, b) => (a.order || 0) - (b.order || 0)).forEach(badge => {
+                            const badgeSrc = badge.badge_image || badge.badge;
+                            const badgeName = badge.certification || badge.name || badge.certification_code || badge.code || 'Certification Badge';
+                            if (badgeSrc) { 
                                 const imgEl = document.createElement('img');
-                                imgEl.src = badge.badge;
-                                imgEl.alt = badge.name || badge.code || 'Certification Badge';
-                                imgEl.title = badge.name || badge.code || 'Certification Badge'; 
+                                imgEl.src = badgeSrc;
+                                imgEl.alt = badgeName;
+                                imgEl.title = badgeName; 
                                 imgEl.style.height = 'var(--small-icons)'; 
                                 bodyEl.appendChild(imgEl);
                             }

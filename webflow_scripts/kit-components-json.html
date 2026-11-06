@@ -36,11 +36,14 @@ document.addEventListener('DOMContentLoaded', function() {
             let parsedDetails = [];
             let heroImageStr = '';
             
-            if (comp.custom_webflow_description) {
+            // component_description since the template-first sync (2026-11-06); the old key is
+            // still read until the main site is moved over.
+            const detailsJson = comp.component_description || comp.custom_webflow_description;
+            if (detailsJson) {
                 try {
-                    parsedDetails = JSON.parse(comp.custom_webflow_description);
+                    parsedDetails = JSON.parse(detailsJson);
                 } catch (e) {
-                    console.error("Error parsing custom_webflow_description", e);
+                    console.error("Error parsing component_description", e);
                 }
             }
 
