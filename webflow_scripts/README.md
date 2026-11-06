@@ -29,3 +29,10 @@ The staging site kept the main site's Code Embeds when it was duplicated, and th
 old copies' DOMContentLoaded listeners and Finsweet callbacks, so each script runs once. It relies
 on the page's own Finsweet and Swiper (no @require). `window.__illStaging.ignored` in the console
 shows how many old registrations were ignored.
+
+## 206 Lighting
+
+`206/` holds the 206 site scripts the illumenate configured spec sheet copies (owner, 2026-11-06):
+the code builder (sets `window.CurrentConfigSelection`) and the configure/highlight script
+(fills the generated spec sheet and highlights the selected options). Reference only; not part of
+the staging userscript.

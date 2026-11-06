@@ -1,0 +1,254 @@
+<style>
+  /* Force the dynamically created inputs to look like minimal text lines */
+  input.config-detail-input {
+    display: flex;
+    width: 100%;
+    min-height: 35px;
+    min-width: 125px;
+    justify-content: flex-start;
+    align-items: flex-end;
+    align-self: flex-end;
+    border-style: none none solid;
+    border-width: 0.5px;
+    border-top-color: var(--colors--main-color);
+    border-right-color: var(--colors--main-color);
+    border-bottom-color: var(--colors--main-color);
+    border-left-color: var(--colors--main-color);
+    font-weight: var(--font-weights--semibold);
+    background-color: transparent;
+  }
+
+  /* Optional: Highlight the line when the user clicks into it */
+  input.config-detail-input:focus {
+    border-bottom-color: #fdc757 !important; 
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // ==============================================================
+    // NEW: Convert static text elements into input fields automatically
+    // ==============================================================
+    const customPlaceholders = {
+        'project_name': 'Seattle HQ',
+        'fixture_type': 'L-07',
+        'location': 'Office 1'
+    };
+
+    ['project_name', 'fixture_type', 'location'].forEach(id => {
+        const staticEl = document.getElementById(id);
+        
+        // If the element exists and isn't already an input field...
+        if (staticEl && staticEl.tagName !== 'INPUT' && staticEl.tagName !== 'TEXTAREA') {
+            const inputField = document.createElement('input');
+            inputField.type = 'text';
+            inputField.id = id;
+            inputField.className = staticEl.className; // Keep your Webflow styling!
+            inputField.placeholder = customPlaceholders[id]; 
+            
+            // Prevent clicks inside the input from bubbling up
+            inputField.addEventListener('click', (e) => e.stopPropagation());
+            
+            // Swap the static element out for the new input field
+            staticEl.replaceWith(inputField);
+        }
+    });
+
+    const configBtn = document.querySelector('#config-spec-btn');
+    const generateBtn = document.querySelector('#generate-spec-btn');
+    const popupWrapper = document.querySelector('.config-popup-wrapper');
+    const closeBtn = document.querySelector('.config-close-icon');
+    const docsJsonEl = document.querySelector('.documents-json');
+    
+    // Ensure all critical elements exist before proceeding
+    if (!configBtn || !docsJsonEl || !generateBtn || !popupWrapper) return;
+
+    // 1. Locate the correct PDF URL
+    let docsData = [];
+    try { docsData = JSON.parse(docsJsonEl.textContent || docsJsonEl.innerText); } 
+    catch (e) {}
+    
+    const specDoc = docsData.find(d => 
+        d.document_type === 'Spec Sheet' && 
+        d.document_title && 
+        d.document_title.includes('Spec Sheet')
+    );
+
+    if (!specDoc || !specDoc.document_file) {
+        configBtn.style.display = 'none';
+        return;
+    }
+
+    // 2. Handle 'Configure Spec' Click -> Show Popup
+    configBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        popupWrapper.style.display = 'flex'; 
+    });
+
+    // 3. Handle Close Icon Click -> Hide Popup
+    if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            popupWrapper.style.display = 'none';
+        });
+    }
+
+    // 4. Handle 'Generate Spec' Click -> Build & Download PDF
+        generateBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        
+        const originalText = generateBtn.textContent;
+        generateBtn.textContent = 'Generating PDF...';
+        generateBtn.style.pointerEvents = 'none';
+
+        try {
+            // A. Grab the custom details from the newly created inputs
+            const projNameInput = document.querySelector('#project_name');
+            const fixTypeInput = document.querySelector('#fixture_type');
+            const locInput = document.querySelector('#location');
+
+            const projNameVal = projNameInput ? projNameInput.value.trim() : '';
+            const fixTypeVal = fixTypeInput ? fixTypeInput.value.trim() : '';
+            const locVal = locInput ? locInput.value.trim() : '';
+
+            // B. Fetch the PDF
+            const originalUrl = new URL(specDoc.document_file);
+            const decodedPath = decodeURIComponent(originalUrl.pathname);
+            const corsFriendlyUrl = `${originalUrl.origin}/api/method/frappe.core.doctype.file.file.download_file?file_url=${encodeURIComponent(decodedPath)}`;
+
+            const response = await fetch(corsFriendlyUrl);
+            if (!response.ok) throw new Error('Network response was not ok');
+            const existingPdfBytes = await response.arrayBuffer();
+            
+            const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
+
+            // ==============================================================
+            // NEW: EMBED THE MATCHING FONT SO TEXT FIELDS MATCH THE PDF DESIGN
+            // ==============================================================
+            let customFont;
+            try {
+                pdfDoc.registerFontkit(fontkit);
+                const fontResponse = await fetch('https://app.illumenate.lighting/files/NotoSerif-SemiBold.ttf');
+                const fontBytes = await fontResponse.arrayBuffer();
+                customFont = await pdfDoc.embedFont(fontBytes);
+            } catch (fontErr) {
+                console.warn('Could not load custom font, falling back to Times Roman:', fontErr);
+                customFont = await pdfDoc.embedFont(PDFLib.StandardFonts.TimesRoman);
+            }
+
+            const form = pdfDoc.getForm();
+            
+            // C. Inject Popup Details into PDF (now with correct font)
+            const headerFields = [
+                { id: 'project_name',    value: projNameVal },
+                { id: 'fixture_type',    value: fixTypeVal  },
+                { id: 'project_location', value: locVal     }
+            ];
+
+            headerFields.forEach(({ id, value }) => {
+                if (!value) return;
+                try {
+                    const field = form.getTextField(id);
+                    field.setText(value);
+                    field.updateAppearances(customFont);
+                } catch (err) {
+                    console.warn('Header field not found:', id, err);
+                }
+            });
+
+            // D. Inject Existing Config Selections
+            const selections = window.CurrentConfigSelection || {};
+            for (const [fieldName, value] of Object.entries(selections)) {
+                try {
+                    const field = form.getField(fieldName);
+                    if (!field) continue;
+
+                    if (typeof field.select === 'function') {
+                        const validOptions = field.getOptions();
+                        const exactMatch = validOptions.find(opt => String(opt).toLowerCase() === String(value).toLowerCase());
+                        field.select(exactMatch || value); 
+                    } else if (typeof field.setText === 'function') {
+                        field.setText(value);
+                        field.updateAppearances(customFont);
+                    }
+                } catch (err) {}
+            }
+
+            // D2. DYNAMIC HIGHLIGHTING OVER SELECTIONS (30% OPACITY + FULL ROW)
+            const highlightColor = PDFLib.rgb(1, 0.92, 0.25);
+            const highlightOpacity = 0.30;
+            const pages = pdfDoc.getPages();
+
+            let highlightCoords = [];
+            try { 
+                highlightCoords = JSON.parse(pdfDoc.getSubject() || '[]'); 
+            } catch (err) {}
+
+            const activeCodes = Object.values(window.CurrentConfigSelection || {})
+                .map(val => String(val).toLowerCase().trim())
+                .filter(Boolean);
+
+            highlightCoords.forEach(hl => {
+                const targetCode = String(hl.code).toLowerCase().trim();
+                if (activeCodes.includes(targetCode)) {
+                    const targetPage = pages[hl.pageIndex] || pages[0];
+                    const padX = hl.isRow ? 0 : 3;
+                    const padY = hl.isRow ? 0.5 : 2;
+                    targetPage.drawRectangle({
+                        x: hl.x - padX,
+                        y: hl.y - padY,
+                        width: hl.width + (padX * 2),
+                        height: hl.height + (padY * 2),
+                        color: highlightColor,
+                        opacity: highlightOpacity
+                    });
+                }
+            });
+
+            // E. Inject the Master Ordering Code
+            try {
+                const masterCodeWrapper = document.querySelector('.master-code-wrapper');
+                if (masterCodeWrapper) {
+                    let visualCode = masterCodeWrapper.textContent || masterCodeWrapper.innerText;
+                    visualCode = visualCode.replace(/_/g, '').replace(/-+$/, '').replace(/\s+/g, '').trim();
+                    
+                    if (visualCode) {
+                        const orderingCodeField = form.getField('SpecOrderingCode');
+                        if (orderingCodeField && typeof orderingCodeField.setText === 'function') {
+                            orderingCodeField.setText(visualCode);
+                            orderingCodeField.updateAppearances(customFont);
+                        }
+                    }
+                }
+            } catch (err) {}
+
+            // F. Save and Download
+            const pdfBytes = await pdfDoc.save();
+            
+            const rawTitle = specDoc.document_title || 'Product';
+            const productName = rawTitle.replace(/Spec Sheet/ig, '').trim();
+            const fileName = `206 Lighting_${productName}_Spec Sheet_Configured.pdf`;
+            
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            popupWrapper.style.display = 'none';
+            
+        } catch (error) {
+            console.error('PDF Builder Error:', error);
+            alert('Failed to generate PDF. Check the browser console for details.');
+        } finally {
+            generateBtn.textContent = originalText;
+            generateBtn.style.pointerEvents = 'auto';
+        }
+    });
+});
+</script>
