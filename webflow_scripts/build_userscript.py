@@ -22,6 +22,7 @@ ORDER = [
 	"documents-json.html",
 	"kit-components-json.html",
 	"configurator-options-json.html",
+	"configured-spec-sheet.html",
 	"compatible-products-json.html",
 	"products-collection-before-body.html",
 ]

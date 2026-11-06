@@ -27,12 +27,12 @@
 //   #raw-components-data
 //   #config-cards-container
 //   #config-nav-container
+//   #ill-download-spec-sheet
 //   #product-json-data
 //   #dynamic-sliders-container
 //   #compatible-products-json
 //   #pdp-category-name
 //   #fixture-length-note
-//   #ill-download-spec-sheet
 
 // ---- Ignore the old copies of these scripts in the page's Code Embeds ----
 window.__illStaging = {own: true, signatures: ['raw-specs-data', 'raw-feature-data', 'raw-components-data', 'raw-documents-json', 'config-cards-container', 'product-json-data', 'compatible-products-json', 'pdp-star-dot', 'ill-download-spec-sheet', 'spec-modal-wrapper'], ignored: 0};
@@ -1284,6 +1284,154 @@ document.addEventListener("DOMContentLoaded", () => {
           let cleanText = selection.toString().replace(/\s+/g, '');
           e.clipboardData.setData('text/plain', cleanText);
       }
+  });
+});
+
+// ---- configured-spec-sheet.html ----
+//=== CONFIGURED SPEC SHEET (plan 4.20, owner 2026-11-06) ===//
+// The Configure Spec Sheet popup: Generate downloads the product's CURRENT spec sheet (read
+// through its stable link, so it never differs from the latest one), filled in and highlighted:
+//   - Project Name, Fixture Type and Location (#ill-project-name, #ill-fixture-type,
+//     #ill-project-location) go into the footer fields (project_name, fixture_type,
+//     project_location);
+//   - each configurator selection (.config-card[data-step][data-selected-code]) selects the
+//     step_N option in the Part Number Builder and fills its display_step_N box;
+//   - the spec values tied to those selections are highlighted (yellow, 30%). The spec sheet
+//     carries their boxes in its Subject, tagged "<step>:<code>" by n8n per product category.
+// Also closes the popup: the close icon (.close-config-modal), Esc and a click on the backdrop.
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.querySelector('.spec-modal-wrapper');
+  const generateBtn = document.getElementById('ill-download-spec-sheet');
+  if (!modal || !generateBtn) return;
+
+  // --- 1. POPUP CLOSE (the open code sets display:flex !important, so close the same way) ---
+  const closeModal = () => modal.style.setProperty('display', 'none', 'important');
+  const isOpen = () => window.getComputedStyle(modal).display !== 'none';
+  document.querySelectorAll('.close-config-modal').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) closeModal(); });
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  modal.querySelectorAll('form').forEach(form => form.addEventListener('submit', (e) => e.preventDefault()));
+
+  // --- 2. THE SPEC SHEET'S STABLE LINK (the Spec Sheet row of the documents JSON) ---
+  function stableLink() {
+    const el = document.getElementById('raw-documents-json');
+    if (!el) return null;
+    let docs = [];
+    try {
+      docs = JSON.parse((el.textContent || '').trim().replace(/[‘’]/g, "'").replace(/[“”]/g, '"'));
+    } catch (e) { return null; }
+    for (const doc of Array.isArray(docs) ? docs : []) {
+      const link = Object.values(doc || {}).find(v => typeof v === 'string' && v.includes('/spec-sheets/'));
+      if (link) return link;
+    }
+    return null;
+  }
+
+  function loadPdfLib() {
+    if (window.PDFLib) return Promise.resolve(window.PDFLib);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+      s.onload = () => resolve(window.PDFLib);
+      s.onerror = () => reject(new Error('pdf-lib did not load'));
+      document.head.appendChild(s);
+    });
+  }
+
+  // --- 3. THE VISITOR'S SELECTIONS: {step: code} ---
+  function selections() {
+    const picked = {};
+    document.querySelectorAll('.config-card[data-step]').forEach(card => {
+      const code = (card.getAttribute('data-selected-code') || '').trim();
+      if (code) picked[card.getAttribute('data-step')] = code;
+    });
+    return picked;
+  }
+
+  const value = id => ((document.getElementById(id) || {}).value || '').trim();
+  const field = (form, name) => { try { return form.getField(name); } catch (e) { return null; } };
+
+  generateBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const link = stableLink();
+    if (!link) { alert('No spec sheet is available for this product yet.'); return; }
+
+    const originalText = generateBtn.textContent;
+    generateBtn.textContent = 'Generating PDF...';
+    generateBtn.style.pointerEvents = 'none';
+    try {
+      const PDFLib = await loadPdfLib();
+      // The stable link redirects to /files (no CORS); this ERPNext call returns the same file.
+      const api = new URL(link).origin
+        + '/api/method/illumenate_lighting.illumenate_lighting.spec_sheet_route.current_pdf?link='
+        + encodeURIComponent(link);
+      const response = await fetch(api, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Spec sheet request failed: ' + response.status);
+      const pdfDoc = await PDFLib.PDFDocument.load(await response.arrayBuffer());
+      const form = pdfDoc.getForm();
+
+      // A. Project details (left editable when empty)
+      [['project_name', value('ill-project-name')],
+       ['fixture_type', value('ill-fixture-type')],
+       ['project_location', value('ill-project-location')]].forEach(([name, text]) => {
+        const f = field(form, name);
+        if (f && text && typeof f.setText === 'function') f.setText(text);
+      });
+
+      // B. Part Number Builder: select each step's option and fill its code box
+      const picked = selections();
+      Object.entries(picked).forEach(([step, code]) => {
+        const f = field(form, 'step_' + step);
+        if (f && typeof f.select === 'function') {
+          const match = f.getOptions().find(opt => String(opt).toLowerCase() === code.toLowerCase());
+          if (match) f.select(match);
+        } else if (f && typeof f.setText === 'function') {
+          f.setText(code);
+        }
+        const box = field(form, 'display_step_' + step);
+        if (box && typeof box.setText === 'function') box.setText(code.toUpperCase());
+      });
+
+      // C. Highlights over the spec values tied to the selections
+      let boxes = [];
+      try { boxes = JSON.parse(pdfDoc.getSubject() || '[]'); } catch (err) {}
+      const tokens = new Set(Object.entries(picked).map(([step, code]) => (step + ':' + code).toLowerCase()));
+      const pages = pdfDoc.getPages();
+      (Array.isArray(boxes) ? boxes : []).forEach(hl => {
+        const hit = String(hl.code || '').toLowerCase().split(/\s+/).some(t => tokens.has(t));
+        if (!hit) return;
+        const page = pages[hl.pageIndex] || pages[0];
+        const padX = hl.isRow ? 0 : 2;
+        const padY = hl.isRow ? 0.5 : 1.5;
+        page.drawRectangle({
+          x: hl.x - padX, y: hl.y - padY,
+          width: hl.width + padX * 2, height: hl.height + padY * 2,
+          color: PDFLib.rgb(1, 0.92, 0.25), opacity: 0.3,
+        });
+      });
+
+      // D. Download
+      const productName = ((document.getElementById('cms-product-name') || {}).textContent || 'Product').trim();
+      const blob = new Blob([await pdfDoc.save()], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ilLumenate Lighting_${productName}_Spec Sheet_Configured.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      closeModal();
+    } catch (error) {
+      console.error('Configured spec sheet:', error);
+      alert('The spec sheet could not be generated. Please try again.');
+    } finally {
+      generateBtn.textContent = originalText;
+      generateBtn.style.pointerEvents = '';
+    }
   });
 });
 

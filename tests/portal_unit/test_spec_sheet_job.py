@@ -126,10 +126,6 @@ class Records(unittest.TestCase):
 			self.assertEqual(module.compare_records(real, built), ["sublabel"])
 
 
-if __name__ == "__main__":
-	unittest.main()
-
-
 class Route(unittest.TestCase):
 	def setUp(self):
 		context = load_service(ROOT + ".spec_sheet_route")
@@ -177,3 +173,29 @@ class Route(unittest.TestCase):
 		self.assertEqual(self.module.current_file("illumenate-lighting_kit-ra01"), "/files/kit.pdf")
 		self.assertEqual(self.module.current_file("kit-ra01"), "/files/kit.pdf")
 		self.assertIsNone(self.module.current_file("206-lighting_kit-ra01"))
+
+	def test_the_key_comes_from_the_stable_link(self):
+		key = self.module.key_from_link
+		self.assertEqual(
+			key("https://site/spec-sheets/illumenate-lighting_kit-ra01.pdf"), "illumenate-lighting_kit-ra01"
+		)
+		self.assertEqual(key("/spec-sheets/kit-ra01.pdf"), "kit-ra01")
+		self.assertEqual(key("illumenate-lighting_kit-ra01.pdf"), "illumenate-lighting_kit-ra01")
+		self.assertEqual(key("https://site/spec-sheets/KIT%2DRA01.pdf"), "KIT-RA01")
+		for link in ("", None, "https://site/files/kit.pdf", "https://site/spec-sheets/a/b.pdf"):
+			self.assertIsNone(key(link), link)
+
+	def test_the_current_pdf_is_served_only_when_public(self):
+		self.module.current_file = MagicMock(return_value="/files/Kit_Spec Sheet_7DBFF4.pdf")
+		self.frappe.DoesNotExistError = type("DoesNotExistError", (Exception,), {})
+		self.frappe.db.get_value.return_value = Record(name="F1", is_private=1)
+		with self.assertRaises(self.frappe.DoesNotExistError):
+			self.module.current_pdf("https://site/spec-sheets/kit-ra01.pdf")
+		self.module.current_file.return_value = None
+		with self.assertRaises(self.frappe.DoesNotExistError):
+			self.module.current_pdf("https://site/spec-sheets/kit-ra01.pdf")
+		self.module.current_file.assert_called_with("kit-ra01")
+
+
+if __name__ == "__main__":
+	unittest.main()

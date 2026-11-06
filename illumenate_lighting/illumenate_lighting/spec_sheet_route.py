@@ -21,6 +21,7 @@ page and static-file handling.
 """
 
 import frappe
+from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_DOCTYPES
 
@@ -203,6 +204,49 @@ def absolute_location(url):
 
 		url = get_url() + url
 	return quote(url, safe=":/?#&=%@+,;~")
+
+
+def key_from_link(link):
+	"""Pure: the template key in a stable link, a ``/spec-sheets/...`` path or a bare key.
+
+	``https://site/spec-sheets/illumenate-lighting_kit-ra01.pdf`` -> ``illumenate-lighting_kit-ra01``.
+	None when it is not a spec sheet link.
+	"""
+	from urllib.parse import unquote, urlparse
+
+	link = unquote((link or "").strip())
+	path = urlparse(link).path if "://" in link else link
+	path = path.strip("/")
+	if not path.lower().startswith(PREFIX):
+		path = PREFIX + path
+	return key_from_path(path)
+
+
+@frappe.whitelist(allow_guest=True, methods=["GET"])
+@rate_limit(limit=30, seconds=60)
+def current_pdf(link):
+	"""The current spec sheet PDF for a stable link, as the file itself (plan 4.20).
+
+	The product page's Configure Spec Sheet fills and highlights the current spec sheet in the
+	browser. The stable link answers with a redirect to ``/files/...``, which a page on another
+	site cannot read (no CORS headers there); this API call can (``utils.after_request`` adds
+	them for the Webflow sites). Only a public file is served, as the stable link does.
+	"""
+	key = key_from_link(link)
+	file_url = current_file(key) if key else None
+	row = (
+		frappe.db.get_value("File", {"file_url": file_url}, ["name", "is_private"], as_dict=True)
+		if file_url
+		else None
+	)
+	if not row or row.is_private:
+		raise frappe.DoesNotExistError("Spec sheet not found.")
+	from illumenate_lighting.illumenate_lighting.spec_sheet_job import display_name
+
+	frappe.local.response.filename = display_name(file_url)
+	frappe.local.response.filecontent = frappe.get_doc("File", row.name).get_content()
+	frappe.local.response.type = "download"
+	frappe.local.response.display_content_as = "inline"
 
 
 try:

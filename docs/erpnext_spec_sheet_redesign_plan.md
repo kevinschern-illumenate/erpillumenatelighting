@@ -768,6 +768,53 @@ Kit grouping differences (new vs old): the image is the `component_image` stored
 
 **Risks:** publication approvals reset once (the v2 payload hash and `dependency_manifest`, which fingerprints the whole product including child tables, `api/product_readiness.py:112-115`, change for every product, so every listing goes to NEEDS_REVIEW; plan a bulk re-approval or one-off re-hash); silent failures if step 2 is skipped; template saves break if step 4 and step 5 ship separately.
 
+### 4.20 Configured spec sheet on the product page (owner, 2026-11-06)
+
+What the owner asked for: the 206 "configure spec sheet" on ilLumenate product pages. In the Configure Spec Sheet popup, Generate downloads the product's spec sheet with the visitor's choices filled in and the spec values tied to those choices highlighted. Highlight rules depend on the product category; Extrusion Kits come first and the other categories later. The owner also reported that the popup did not close.
+
+**Decisions**
+
+- Q1 (a): the page always reads the **current** spec sheet through the stable link, so the configured sheet never differs from the latest one.
+- Q2 (a): a **Fixture Type** input was added to the popup on the staging site (Products Template page). It sits between Project Name and Project Location, has the id `ill-fixture-type` and is optional. It still needs the staging site published (owner).
+- Highlight tags are `"<step>:<code>"`, not the code alone, so the same code in two steps (for example `WH` for a white lens and a white finish) cannot highlight both.
+
+**Highlight rules (n8n `(ilL) Format Data to Inject`, `HIGHLIGHT_RULES`; repo copy `n8n_workflows/lib/ill_format_data_to_inject.js`)**
+
+Each rule ties a specification row (by its label) to a configurator step (by its option type). A row's value is split on `", "`. Each part that is one of the step's option labels is wrapped in a span with `data-highlight="<step>:<code>"`. A "whole" row is tagged with every code of the step. Rows and categories without a rule get no tags. The old row-level `data-highlight=<spec label>` tag is gone.
+
+| Category | Spec row | Configurator step (option type) | How |
+|---|---|---|---|
+| Extrusion Kit | Lenses | Lens Appearance | each value by label |
+| Extrusion Kit | Mounting | Mounting Method | each value by label |
+| Extrusion Kit | Finish | Finish | each value by label |
+| Extrusion Kit | Stock Length | Length | whole row |
+
+The Vercel generator (unchanged) stores each tagged span's box in the PDF Subject. The node now also sends `configurator_options[].allowed_values`, parsed from `allowed_values_json`. The generator reads that field to pre-select single and default options; before this change it was always empty, so nothing was pre-selected.
+
+**Getting the current spec sheet:** `spec_sheet_route.current_pdf(link)` (guest, GET) takes the stable link and returns the file the link points at. It serves only public files, like the link itself, and sends it inline. It exists because the stable link redirects to `/files/...`, which has no CORS headers, so a Webflow page cannot read it. API responses get the CORS headers from `utils.after_request` for the Webflow origins.
+
+**Page script (`webflow_scripts/configured-spec-sheet.html`, in `staging.user.js`)**
+
+- Closes the popup with the close icon `.close-config-modal`, Esc, or a click on the backdrop. It sets `display: none !important`, because the open code sets `display: flex !important` and Webflow's own close could not override it.
+- Generate (`#ill-download-spec-sheet`):
+  - finds the stable link in `#raw-documents-json` and fetches the PDF through `current_pdf`;
+  - fills `project_name`, `fixture_type` and `project_location`; an empty value leaves the field editable;
+  - for each `.config-card[data-step][data-selected-code]`, selects the `step_N` radio option (case-insensitive) and fills `display_step_N`;
+  - draws a yellow box at 30% over each Subject box whose tags include a selected `<step>:<code>`;
+  - downloads `ilLumenate Lighting_<product>_Spec Sheet_Configured.pdf` and closes the popup.
+- It reads the selections from the configurator cards, so it does not need 206's `window.CurrentConfigSelection`.
+- It replaces the old `.extrusions-dwnld-submittal` submittal script (`extrusion-kit-configured-spec.html`, kept for reference) and the main site's old `#ill-download-spec-sheet` handler.
+
+**Checked:**
+
+- The tagging was run in a browser with KIT-RA01's data from the last spec run. Every Lens, Mounting and Finish value, and the Stock Length row, got the right tag.
+- The page script was run against a mock spec sheet (Playwright). The project fields, the `step_1` radio and the `display_step_1` box were filled. Only the selected values were highlighted. The popup closed after the download, with the close icon and with Esc.
+
+**To do:**
+
+- Owner: publish the staging site, regenerate the kit spec sheets (so they carry the new tags), then test on `/products/kit-ra01` with the userscript.
+- Later: rules for the other categories, each agreed with the owner.
+
 ## 5. Design choices
 
 **Accepted by the owner (now D18 to D22):** ERPNext orchestrates and W1 is spec-only; `spec_sheet_public_url`; the resolver; template-to-product mirror with fallback; one-row `target_brands` table.
@@ -1767,6 +1814,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 - [ ] Spec sheet template pages (`/spec-sheet-templates/<product type>`, e.g. `extrusion-kit`) exist and are published on each brand's site, with the same classes and ids as staging (`#generated-date`, `.cert-icon`, `#dimension-item`, `#dimension-title`, `#spec-dims-img-other`, ...).
 - [ ] CMS fields added on staging exist on main with the same slugs (for example the discontinued flag).
 - [ ] Spec sheet links in Webflow use the stable links after the bulk regeneration.
+- [ ] Configured spec sheet (4.20): the Products Template popup has the Fixture Type input (`ill-fixture-type`, optional); the product page custom code includes `webflow_scripts/configured-spec-sheet.html`. Remove the old `.extrusions-dwnld-submittal` script and the old `#ill-download-spec-sheet` handler.
 
 ### 10.6 n8n
 
@@ -1777,6 +1825,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 - [ ] The 206 nodes, including the owner's own stamp edit in `(206) Format Data to Inject`.
 - [ ] Execution saving: n8n stores webhook headers, including the secret, in execution data. Limit saving of successful executions or rotate the secret.
 - [ ] `n8n_workflows/lib/spec_sheet_record.js` in the repo matches the live Get Product Info node.
+- [ ] `n8n_workflows/lib/ill_format_data_to_inject.js` matches the live `(ilL) Format Data to Inject` node, with the ERPNext host swapped (4.20 highlight rules).
 - [ ] The one-off `[STAGING] Webflow ID remap` workflow is not copied to main.
 
 ### 10.7 Open (**?**)

@@ -30,6 +30,12 @@ old copies' DOMContentLoaded listeners and Finsweet callbacks, so each script ru
 on the page's own Finsweet and Swiper (no @require). `window.__illStaging.ignored` in the console
 shows how many old registrations were ignored.
 
+## Configured spec sheet
+
+`configured-spec-sheet.html` runs the Configure Spec Sheet popup: it closes the popup and makes
+Generate download the current spec sheet filled in and highlighted (plan 4.20). It replaces
+`extrusion-kit-configured-spec.html` (the old submittal script, kept for reference).
+
 ## 206 Lighting
 
 `206/` holds the 206 site scripts the illumenate configured spec sheet copies (owner, 2026-11-06):
