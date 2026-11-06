@@ -24,6 +24,7 @@ from frappe import _
 from frappe.handler import upload_file
 from frappe.rate_limiter import rate_limit
 
+from illumenate_lighting.illumenate_lighting import webflow_approvals
 from illumenate_lighting.illumenate_lighting.api import media_derivatives, n8n_config
 from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
@@ -786,13 +787,39 @@ def mark_webflow_synced(product_slug, webflow_item_id, webflow_collection_slug=N
         frappe.throw(_("Callback product and brand do not match the job"))
         
     res = acknowledge(job, token, revision_hash, payload_hash, webflow_item_id)
-    
+    if res.get("state") == "COMPLETE":
+        _mark_ever_published(target.product, target.brand)
+
     # If the job was superseded by a newer edit, keep it Pending so it re-syncs,
     # but ALWAYS save the newly minted Webflow Item ID so we don't create duplicates!
     final_status = "Pending" if res.get("state") == "SUPERSEDED" else "Synced"
     _update_product_sync_target(target.product, target.brand, webflow_item_id, final_status)
     
     return res
+
+# Webflow Statuses whose page W2 publishes inside the STAGE job (plan 4.19 Q1).
+PUBLISHED_STATUSES = ("Published", "Discontinued")
+
+
+def _mark_ever_published(product, brand):
+    """Set the brand's ``published_on`` after a successful sync of a published page.
+
+    The W2 workflow publishes Published and Discontinued pages inside the STAGE job, so
+    ``acknowledge`` never sets ``published_on`` for them. It feeds the archive approval rule
+    and ``payload.webflow_state.ever_published``. Returns True when it was set.
+    """
+    if frappe.db.get_value("ilL-Webflow-Product", product, "webflow_status") not in PUBLISHED_STATUSES:
+        return False
+    row = frappe.db.get_value(
+        "ilL-Product-Publication", {"product": product, "brand": brand}, ["name", "published_on"], as_dict=True
+    )
+    if not row or row.get("published_on"):
+        return False
+    frappe.db.set_value(
+        "ilL-Product-Publication", row.get("name"), "published_on", frappe.utils.now_datetime(), update_modified=False
+    )
+    return True
+
 
 def _update_product_sync_target(product_name, brand, webflow_item_id, status="Synced"):
     """Update or append the brand's row in the product's sync_targets table directly in the DB."""
@@ -2623,6 +2650,8 @@ def _build_certifications_spec(doc) -> dict | None:
 @frappe.whitelist(methods=["POST"])
 def trigger_sync_v2(docname):
     _require_product_access(docname, "write")
+    # Plan 4.19: nothing goes to Webflow while a restore or archive waits for approval.
+    webflow_approvals.assert_no_pending(docname)
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
 
@@ -2688,6 +2717,7 @@ def spec_sheet(product):
 @frappe.whitelist(methods=["POST"])
 def trigger_publish_v2(docname):
     _require_product_access(docname, "write")
+    webflow_approvals.assert_no_pending(docname)
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
     doc.save(ignore_permissions=True)

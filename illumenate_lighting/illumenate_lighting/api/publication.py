@@ -12,6 +12,7 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, now_datetime
 
+from illumenate_lighting.illumenate_lighting import webflow_approvals, webflow_notify
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 from illumenate_lighting.illumenate_lighting.api.product_readiness import content_record, evaluate
 from illumenate_lighting.illumenate_lighting.api.publication_contract import callback_disposition, retry_at
@@ -230,6 +231,8 @@ def request(product, brand, operation, expected_hash):
 	require("catalog")
 	if operation not in ("STAGE", "PUBLISH", "RETIRE"):
 		frappe.throw(_("Choose a supported publication action"))
+	# Plan 4.19: nothing goes to Webflow while a restore or archive waits for approval.
+	webflow_approvals.assert_no_pending(product)
 	doc, state, config = _locked(product, brand)
 	payload, readiness = _refresh(doc, state, config)
 	if state.current_hash != expected_hash:
@@ -310,6 +313,8 @@ def claim(brand, limit=1):
 			continue
 		if job.state not in ("QUEUED", "FAILED", "RUNNING"):
 			continue
+		if webflow_approvals.pending(job.product):
+			continue  # held until the approval is decided (plan 4.19)
 		_, readiness = _refresh(doc, state, config)
 		if job.revision_hash != state.current_hash or state.approved_hash != state.current_hash:
 			job.state = "SUPERSEDED"
@@ -407,6 +412,9 @@ def acknowledge(
 			state.live_hash, state.staged_hash, state.state = None, None, "RETIRED"
 	_save(job)
 	_save(state)
+	if job.state == "FAILED":
+		# Plan 4.19: failures notify (bell, email, browser); success never does.
+		webflow_notify.publication_failed(job)
 	return {"job": job.name, "state": job.state, "publication": _receipt(state)}
 
 
@@ -414,6 +422,7 @@ def acknowledge(
 def retry(job):
 	require_catalog_reader()
 	job, doc, state, config = _job_locked(job)
+	webflow_approvals.assert_no_pending(job.product)
 	_refresh(doc, state, config)
 	if (
 		job.state != "FAILED"

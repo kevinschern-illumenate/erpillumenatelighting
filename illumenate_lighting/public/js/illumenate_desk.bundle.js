@@ -16,5 +16,6 @@ import "./desk/dialog/family_steps.js";
 import "./desk/dialog/pricing.js";
 import "./desk/dialog/save.js";
 import "./desk/staff_inbox.js";
+import "./desk/webflow_alerts.js";
 
 import "./commercial_tasks.js";

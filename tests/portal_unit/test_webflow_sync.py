@@ -25,8 +25,10 @@ def _dependencies(run_as=None):
 		request=MagicMock(),
 	)
 	photometrics = _module(ROOT + ".photometrics", published=MagicMock())
+	approvals = _module(ROOT + ".webflow_approvals", assert_no_pending=MagicMock(), pending=MagicMock(return_value=None))
 	modules = [
 		requests,
+		approvals,
 		_module("frappe.handler", upload_file=MagicMock()),
 		publication,
 		_module(ROOT + ".api.unit_conversion", format_length_inches=MagicMock()),
