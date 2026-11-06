@@ -4,7 +4,7 @@
 
 (function () {
 	const FIELDS = {
-		"Quotation": "ill_quotation",
+		Quotation: "ill_quotation",
 		"Sales Order": "ill_sales_order",
 		"Sales Invoice": "ill_sales_invoice",
 	};
@@ -49,7 +49,11 @@
 	const handlers = {
 		refresh(frm) {
 			if (frm.is_new() || !helpdesk_installed()) return;
-			frm.add_custom_button(__("Link Helpdesk Tickets"), () => pick_tickets(frm), __("Support"));
+			frm.add_custom_button(
+				__("Link Helpdesk Tickets"),
+				() => pick_tickets(frm),
+				__("Support")
+			);
 		},
 	};
 
