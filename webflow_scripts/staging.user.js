@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ilLumenate staging product page scripts
 // @namespace    https://illumenate.lighting/
-// @version      1
+// @version      2026.11.06.2
 // @description  Main-site product page custom code, for testing on the staging Webflow site
 // @match        https://staging-illumenate.webflow.io/products/*
 // @run-at       document-start
@@ -27,12 +27,12 @@
 //   #raw-components-data
 //   #config-cards-container
 //   #config-nav-container
-//   #ill-download-spec-sheet
 //   #product-json-data
 //   #dynamic-sliders-container
 //   #compatible-products-json
 //   #pdp-category-name
 //   #fixture-length-note
+//   #ill-download-spec-sheet
 
 // ---- Ignore the old copies of these scripts in the page's Code Embeds ----
 window.__illStaging = {own: true, signatures: ['raw-specs-data', 'raw-feature-data', 'raw-components-data', 'raw-documents-json', 'config-cards-container', 'product-json-data', 'compatible-products-json', 'pdp-star-dot', 'ill-download-spec-sheet', 'spec-modal-wrapper'], ignored: 0};
@@ -1289,8 +1289,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ---- configured-spec-sheet.html ----
 //=== CONFIGURED SPEC SHEET (plan 4.20, owner 2026-11-06) ===//
-// The Configure Spec Sheet popup: Generate downloads the product's CURRENT spec sheet (read
-// through its stable link, so it never differs from the latest one), filled in and highlighted:
+// The Configure Spec Sheet popup: the Download button gets the product's CURRENT spec sheet
+// (read through its stable link, so it never differs from the latest one), filled in and
+// highlighted:
 //   - Project Name, Fixture Type and Location (#ill-project-name, #ill-fixture-type,
 //     #ill-project-location) go into the footer fields (project_name, fixture_type,
 //     project_location);
@@ -1299,20 +1300,34 @@ document.addEventListener("DOMContentLoaded", () => {
 //   - the spec values tied to those selections are highlighted (yellow, 30%). The spec sheet
 //     carries their boxes in its Subject, tagged "<step>:<code>" by n8n per product category.
 // Also closes the popup: the close icon (.close-config-modal), Esc and a click on the backdrop.
-document.addEventListener('DOMContentLoaded', () => {
-  const modal = document.querySelector('.spec-modal-wrapper');
-  const generateBtn = document.getElementById('ill-download-spec-sheet');
-  if (!modal || !generateBtn) return;
+//
+// The popup has two Download buttons (Code Embeds shown by condition): #ill-download-spec-sheet
+// and, on kits, #extrusions-dwnld-submittal. Both are handled. The listeners are delegated from
+// the document in the capture phase and registered when the script runs, so they work whichever
+// button is shown and run before any older handler on the buttons.
+(function () {
+  const DOWNLOAD = '#ill-download-spec-sheet, #extrusions-dwnld-submittal';
+  const modalEl = () => document.querySelector('.spec-modal-wrapper');
+  const closeModal = () => { const m = modalEl(); if (m) m.style.setProperty('display', 'none', 'important'); };
+  const isOpen = () => { const m = modalEl(); return !!m && window.getComputedStyle(m).display !== 'none'; };
+  let busy = false;
+  window.__illConfiguredSpec = '2026-11-06.2';
 
-  // --- 1. POPUP CLOSE (the open code sets display:flex !important, so close the same way) ---
-  const closeModal = () => modal.style.setProperty('display', 'none', 'important');
-  const isOpen = () => window.getComputedStyle(modal).display !== 'none';
-  document.querySelectorAll('.close-config-modal').forEach(btn => {
-    btn.addEventListener('click', (e) => { e.preventDefault(); closeModal(); });
-  });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) closeModal(); });
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-  modal.querySelectorAll('form').forEach(form => form.addEventListener('submit', (e) => e.preventDefault()));
+  document.addEventListener('click', (e) => {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target) return;
+    if (target.closest('.close-config-modal')) { e.preventDefault(); closeModal(); return; }
+    if (target === modalEl()) { closeModal(); return; }
+    const button = target.closest(DOWNLOAD);
+    if (!button) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (!busy) generate(button.querySelector('button') || button);
+  }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) closeModal(); }, true);
+  document.addEventListener('submit', (e) => {
+    if (e.target instanceof Element && e.target.closest('.spec-modal-wrapper')) e.preventDefault();
+  }, true);
 
   // --- 2. THE SPEC SHEET'S STABLE LINK (the Spec Sheet row of the documents JSON) ---
   function stableLink() {
@@ -1350,18 +1365,18 @@ document.addEventListener('DOMContentLoaded', () => {
     return picked;
   }
 
-  const value = id => ((document.getElementById(id) || {}).value || '').trim();
+  // The input itself (an id can also sit on its wrapper in the Designer).
+  const value = id => ((document.querySelector(`input#${id}, textarea#${id}`) || {}).value || '').trim();
   const field = (form, name) => { try { return form.getField(name); } catch (e) { return null; } };
 
-  generateBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    e.stopImmediatePropagation();
+  async function generate(generateBtn) {
     const link = stableLink();
     if (!link) { alert('No spec sheet is available for this product yet.'); return; }
 
     const originalText = generateBtn.textContent;
     generateBtn.textContent = 'Generating PDF...';
     generateBtn.style.pointerEvents = 'none';
+    busy = true;
     try {
       const PDFLib = await loadPdfLib();
       // The stable link redirects to /files (no CORS); this ERPNext call returns the same file.
@@ -1431,9 +1446,10 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       generateBtn.textContent = originalText;
       generateBtn.style.pointerEvents = '';
+      busy = false;
     }
-  });
-});
+  }
+})();
 
 // ---- compatible-products-json.html ----
 // WAIT FOR FINSWEET CMS LOAD TO FETCH ALL PAGINATED ITEMS

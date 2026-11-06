@@ -803,6 +803,12 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
   - draws a yellow box at 30% over each Subject box whose tags include a selected `<step>:<code>`;
   - downloads `ilLumenate Lighting_<product>_Spec Sheet_Configured.pdf` and closes the popup.
 - It reads the selections from the configurator cards, so it does not need 206's `window.CurrentConfigSelection`.
+- First staging test (owner, KIT-RA02, 2026-11-06): neither Download nor the close icon responded. What was found:
+  - The popup has two Download buttons, both Code Embeds shown by condition: `#ill-download-spec-sheet`, and `#extrusions-dwnld-submittal` on kits. The first version only handled the first.
+  - The Fixture Type wrapper div also had the id `ill-fixture-type`. That id was removed from the wrapper in the Designer.
+  - The script now handles both buttons and the close icon. Its listeners are delegated from the document in the capture phase and registered when the script runs, so they run before any older handler. It reads the inputs by `input#id`.
+  - Re-checked in Playwright through the built userscript, blocker included, with this structure.
+  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.06.2`).
 - It replaces the old `.extrusions-dwnld-submittal` submittal script (`extrusion-kit-configured-spec.html`, kept for reference) and the main site's old `#ill-download-spec-sheet` handler.
 
 **Checked:**
