@@ -23,3 +23,9 @@ The scripts read CMS data from hidden elements (the ids are listed at the top of
 must be Designer text elements bound to the same CMS field with the same id, hidden.
 
 After editing any `.html` file here, rebuild: `python3 webflow_scripts/build_userscript.py`.
+
+The staging site kept the main site's Code Embeds when it was duplicated, and they still run
+(with the old code). `staging.user.js` lets its own copies register first and then ignores the
+old copies' DOMContentLoaded listeners and Finsweet callbacks, so each script runs once. It relies
+on the page's own Finsweet and Swiper (no @require). `window.__illStaging.ignored` in the console
+shows how many old registrations were ignored.

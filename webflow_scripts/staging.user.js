@@ -6,9 +6,9 @@
 // @match        https://staging-illumenate.webflow.io/products/*
 // @run-at       document-start
 // @grant        none
-// @require      https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmsfilter@1/cmsfilter.js
-// @require      https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmsload@1/cmsload.js
-// @require      https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js
+// Loaded by the page: https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmsfilter@1/cmsfilter.js
+// Loaded by the page: https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmsload@1/cmsload.js
+// Loaded by the page: https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js
 // ==/UserScript==
 // Built by webflow_scripts/build_userscript.py; edit the .html files, not this file.
 // CMS data holders the page needs (Designer text elements bound to the field, hidden):
@@ -33,6 +33,26 @@
 //   #pdp-category-name
 //   #fixture-length-note
 //   #ill-download-spec-sheet
+
+// ---- Ignore the old copies of these scripts in the page's Code Embeds ----
+window.__illStaging = {own: true, signatures: ['raw-specs-data', 'raw-feature-data', 'raw-components-data', 'raw-documents-json', 'config-cards-container', 'product-json-data', 'compatible-products-json', 'pdp-star-dot', 'ill-download-spec-sheet', 'spec-modal-wrapper'], ignored: 0};
+(function () {
+  const state = window.__illStaging;
+  const isOld = fn => !state.own && typeof fn === 'function'
+    && state.signatures.some(name => Function.prototype.toString.call(fn).includes(name));
+  const add = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function (type, fn, options) {
+    if ((this === document || this === window) && isOld(fn)) { state.ignored += 1; return; }
+    return add.call(this, type, fn, options);
+  };
+  const queue = window.fsAttributes = window.fsAttributes || [];
+  const push = queue.push;
+  queue.push = function (...items) {
+    const kept = items.filter(item => !(Array.isArray(item) && isOld(item[1])));
+    state.ignored += items.length - kept.length;
+    return push.apply(this, kept);
+  };
+})();
 
 (function () {
   const addStyles = () => {
@@ -1731,3 +1751,5 @@ window.addEventListener('pageshow', (event) => {
         }
     }
 });
+
+window.__illStaging.own = false;
