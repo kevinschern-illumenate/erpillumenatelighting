@@ -1344,6 +1344,14 @@ window.fsAttributes.push([
     const categoriesOrder = ["Replaces", "Required", "Recommended With", "Works With", "Alternative To"];
     const groupedProducts = {};
 
+    // Only products the site shows: the lookup list holds published items only, so a product
+    // that is not published (or not on this site yet) has no entry and gets no card (2026-11-06).
+    products = products.filter(prod => productDictionary[prod.related_product]);
+    if (products.length === 0) {
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
     products.forEach(prod => {
         const rawType = prod.relationship_type;
 
