@@ -1,0 +1,97 @@
+<script>
+(function() {
+  const buildDownloadCards = () => {
+    const container = document.getElementById('downloads-container');
+    const template = document.getElementById('download-template');
+    const emptyMessage = document.getElementById('empty-docs-message');
+    
+    if (template) template.style.display = 'none';
+
+    const dataField = document.getElementById('raw-documents-json');
+
+    if (!container || !template) {
+      return;
+    }
+
+    if (!dataField) {
+      if (emptyMessage) emptyMessage.style.setProperty('display', 'block', 'important');
+      return;
+    }
+
+    let rawText = dataField.textContent || dataField.innerText || "";
+    let jsonText = rawText.trim().replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+    
+    if (jsonText.includes('(function')) {
+        jsonText = jsonText.split('(function')[0].trim();
+    }
+
+    if (!jsonText || jsonText === "[]" || jsonText === "") {
+      if (emptyMessage) emptyMessage.style.setProperty('display', 'block', 'important');
+      return;
+    }
+
+    try {
+      const documents = JSON.parse(jsonText);
+
+      if (!Array.isArray(documents) || documents.length === 0) {
+        if (emptyMessage) emptyMessage.style.setProperty('display', 'block', 'important');
+        return;
+      }
+
+      const filteredDocuments = documents.filter(doc => {
+          if (!doc.document_type) return true; 
+          return !String(doc.document_type).toLowerCase().includes('spec submittal');
+      });
+
+      if (filteredDocuments.length === 0) {
+        if (emptyMessage) emptyMessage.style.setProperty('display', 'block', 'important');
+        return;
+      }
+
+      if (emptyMessage) emptyMessage.style.setProperty('display', 'none', 'important');
+      
+      filteredDocuments.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+      filteredDocuments.forEach(doc => {
+        const clone = template.cloneNode(true);
+        clone.removeAttribute('id'); 
+        clone.style.display = 'flex'; 
+
+        const typeEl = clone.querySelector('.doc-type, #doc-type');
+        const titleEl = clone.querySelector('.doc-title, #doc-title');
+
+        if (typeEl && doc.document_type) {
+          typeEl.innerText = String(doc.document_type).toUpperCase() + "(S)";
+        }
+        if (titleEl && doc.document_title) {
+          titleEl.innerText = doc.document_title;
+        }
+
+        const actionButton = clone.querySelector('.reg-spec-download, #reg-spec-download');
+        
+        if (clone.tagName === 'A' && clone.classList.contains('reg-spec-download')) {
+           clone.href = doc.document_file || '#';
+           clone.target = '_blank';
+        } else if (actionButton) {
+           actionButton.href = doc.document_file || '#';
+           actionButton.target = '_blank';
+           actionButton.removeAttribute('id'); 
+        }
+
+        container.appendChild(clone);
+      });
+
+      template.remove();
+
+    } catch (error) {
+      if (emptyMessage) emptyMessage.style.setProperty('display', 'block', 'important');
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', buildDownloadCards);
+  } else {
+    buildDownloadCards();
+  }
+})();
+</script>

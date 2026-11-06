@@ -1,0 +1,119 @@
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  (function() {
+    const rawDataEl = document.getElementById('raw-components-data');
+    if (!rawDataEl) return;
+    
+    const rawText = rawDataEl.innerText.trim();
+    if (!rawText || rawText === "[]") return;
+
+    const template = document.querySelector('.component-template');
+    if (!template) return;
+    
+    const container = template.parentNode;
+    container.style.display = 'flex';
+    container.style.flexWrap = 'wrap'; 
+    container.style.gap = '25px'; 
+
+    template.style.display = 'none';
+
+    try {
+        const componentsData = JSON.parse(rawText);
+
+        componentsData.forEach(comp => {
+            const clone = template.cloneNode(true);
+            clone.style.display = ''; 
+            
+            const titleEl = clone.querySelector('.component-title');
+            const heroEl = clone.querySelector('.component-hero');
+            const descEl = clone.querySelector('.component-desc');
+
+            if (titleEl) {
+                titleEl.innerText = comp.component_type || 'Component';
+            }
+
+            let parsedDetails = [];
+            let heroImageStr = '';
+            
+            if (comp.custom_webflow_description) {
+                try {
+                    parsedDetails = JSON.parse(comp.custom_webflow_description);
+                } catch (e) {
+                    console.error("Error parsing custom_webflow_description", e);
+                }
+            }
+
+            // NEW: Set up variables for Deduplication and Endcap checking
+            const optionsData = [];
+            const seenCodes = new Set();
+            const isEndcap = comp.component_type && comp.component_type.toLowerCase().includes('endcap');
+            
+            parsedDetails.forEach(item => {
+                if (item.hero_image) {
+                    heroImageStr = item.hero_image;
+                }
+                
+                if (item.code && item.label) {
+                    let finalCode = item.code;
+                    
+                    // 1. Strip -NO and -HO from the end of the code string if it's an Endcap
+                    if (isEndcap) {
+                        finalCode = finalCode.replace(/-NO$/i, '').replace(/-HO$/i, '');
+                    }
+                    
+                    // 2. Only push to the list if this exact code hasn't been added yet
+                    if (!seenCodes.has(finalCode)) {
+                        seenCodes.add(finalCode);
+                        optionsData.push({
+                            code: finalCode,
+                            label: item.label
+                        });
+                    }
+                }
+            });
+
+            if (descEl) {
+                if (optionsData.length > 0) {
+                    descEl.innerHTML = ''; 
+                    
+                    optionsData.forEach(opt => {
+                        const row = document.createElement('div');
+                        row.style.marginBottom = '4px'; 
+                        row.innerHTML = `<strong>${opt.code}</strong> &mdash; ${opt.label}`;
+                        descEl.appendChild(row);
+                    });
+                    
+                    descEl.style.display = ''; 
+                } else {
+                    descEl.style.display = 'none'; 
+                }
+            }
+
+            if (heroEl) {
+                if (heroImageStr) {
+                    if (heroEl.tagName === 'IMG') {
+                        heroEl.src = heroImageStr;
+                        heroEl.alt = comp.component_type || 'Component Image';
+                    } else {
+                        heroEl.style.backgroundImage = `url('${heroImageStr}')`;
+                        heroEl.style.backgroundSize = 'cover';
+                        heroEl.style.backgroundPosition = 'center';
+                    }
+                } else {
+                    heroEl.style.display = 'none';
+                }
+            }
+
+            container.appendChild(clone);
+        });
+
+        template.remove();
+
+    } catch (error) {
+        console.error("Error parsing Kit Components JSON:", error);
+    }
+  })();
+
+});
+</script>

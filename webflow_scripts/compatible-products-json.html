@@ -1,0 +1,166 @@
+<script async src="https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmsload@1/cmsload.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+
+<style>
+  .swiper-button-disabled {
+      display: none !important;
+  }
+</style>
+
+<script>
+
+// WAIT FOR FINSWEET CMS LOAD TO FETCH ALL PAGINATED ITEMS
+window.fsAttributes = window.fsAttributes || [];
+window.fsAttributes.push([
+  'cmsload',
+  (listInstances) => {
+      
+
+    // 1. BUILD THE DICTIONARY FROM THE LIVE DOM
+    const productDictionary = {};
+    const lookupItems = document.querySelectorAll('.lookup-item');
+    
+    lookupItems.forEach(item => {
+        const sku = item.querySelector('.lookup-sku')?.textContent.trim();
+        const name = item.querySelector('.lookup-name')?.textContent.trim();
+        const imgEl = item.querySelector('.lookup-img');
+        const imgSrc = imgEl ? imgEl.src : '';
+        
+        const category = item.querySelector('.lookup-category')?.textContent.trim();
+        const subheading = item.querySelector('.lookup-subheading')?.textContent.trim();
+        const linkEl = item.querySelector('.lookup-link');
+        const url = linkEl ? linkEl.href : '#';
+
+        if (sku) {
+            productDictionary[sku] = { 
+                name: name, 
+                image: imgSrc,
+                category: category,
+                subheading: subheading,
+                url: url
+            };
+        }
+    });
+
+    // 2. GRAB THE JSON & HANDLE EMPTY STATE
+    const emptyState = document.querySelector('.swiper-empty-comp');
+    const jsonString = document.getElementById('product-json-data')?.textContent;
+    let products = [];
+
+    if (jsonString) {
+        try {
+            products = JSON.parse(jsonString);
+        } catch (e) {
+        }
+    }
+
+    if (products.length === 0) {
+        if (emptyState) emptyState.style.display = 'block'; 
+        return; 
+    } else {
+        if (emptyState) emptyState.style.display = 'none';
+    }
+
+    // 3. SORTING LOGIC
+    const categoriesOrder = ["Replaces", "Required", "Recommended With", "Works With", "Alternative To"];
+    const groupedProducts = {};
+    
+    products.forEach(prod => {
+        const rawType = prod.relationship_type; 
+
+        if (rawType) {
+            const cleanType = String(rawType).trim().toLowerCase();
+            const matchedCategory = categoriesOrder.find(cat => cat.toLowerCase() === cleanType);
+            
+            if (matchedCategory) {
+                if (!groupedProducts[matchedCategory]) groupedProducts[matchedCategory] = [];
+                groupedProducts[matchedCategory].push(prod);
+            }
+        }
+    });
+
+    // 4. FIND CONTAINERS
+    const container = document.getElementById('dynamic-sliders-container');
+    const blueprintSection = document.querySelector('.swiper-section-blueprint');
+    const blueprintSlide = blueprintSection.querySelector('.swiper-slide-comp');
+
+    if (!container || !blueprintSection || !blueprintSlide) {
+        return;
+    }
+
+    // 5. BUILD THE SWIPERS
+    categoriesOrder.forEach(category => {
+        if (groupedProducts[category] && groupedProducts[category].length > 0) {
+            
+            const newSection = blueprintSection.cloneNode(true);
+            newSection.style.display = 'block';
+            newSection.style.position = 'relative';
+            newSection.classList.remove('swiper-section-blueprint');
+            
+            const titleElement = newSection.querySelector('.swiper-section-title');
+            if (titleElement) titleElement.textContent = category;
+            
+            const swiperWrapper = newSection.querySelector('.swiper-wrapper-comp');
+            
+            while (swiperWrapper.firstChild) {
+                swiperWrapper.removeChild(swiperWrapper.firstChild);
+            }
+            
+            groupedProducts[category].forEach(prod => {
+                const newSlide = blueprintSlide.cloneNode(true);
+                
+                const rawProductSKU = prod.related_product;
+                const realData = productDictionary[rawProductSKU];
+                
+                if (realData && realData.url) {
+                    newSlide.href = realData.url;
+                }
+                
+                const nameEl = newSlide.querySelector('.comp-prod-name');
+                if (nameEl) nameEl.textContent = realData ? realData.name : rawProductSKU;
+
+                const catEl = newSlide.querySelector('.comp-prod-category');
+                if (catEl) catEl.textContent = realData && realData.category ? realData.category : '';
+
+                const subEl = newSlide.querySelector('.comp-prod-subheading');
+                if (subEl) subEl.textContent = realData && realData.subheading ? realData.subheading : '';
+                
+                const imgEl = newSlide.querySelector('.comp-prod-image');
+                if (imgEl && realData && realData.image) {
+                    imgEl.src = realData.image;
+                    imgEl.removeAttribute('srcset');
+                    imgEl.removeAttribute('sizes');
+                }
+                
+                swiperWrapper.appendChild(newSlide);
+            });
+            
+            container.appendChild(newSection);
+            
+            // 6. INITIALIZE SWIPER
+      const swiperElement = newSection.querySelector('.swiper-comp');
+      const nextArrow = newSection.querySelector('.comp-next-arrow');
+      const prevArrow = newSection.querySelector('.comp-prev-arrow');
+
+      new Swiper(swiperElement, {
+          wrapperClass: 'swiper-wrapper-comp',
+          slideClass: 'swiper-slide-comp',
+          slidesPerView: 'auto', 
+          spaceBetween: 16,
+          slidesPerGroup: 2, 
+          freeMode: false, 
+          watchOverflow: true, 
+          navigation: {
+              nextEl: nextArrow,
+              prevEl: prevArrow,
+          },
+      });
+    }
+  });
+
+  window.Webflow && window.Webflow.require('ix2').init();
+
+  }
+]);
+</script>

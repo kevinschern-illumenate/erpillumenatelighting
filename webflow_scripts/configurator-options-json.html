@@ -1,0 +1,664 @@
+<script type="application/json" id="config-data">{{wf:configurator-options-json|Dynamo}}</script>
+<div id="feed-lengths-data" style="display:none;">{{wf:feed-lengths-json|Dynamo}}</div>
+
+<div id="cms-product-name" style="display:none;">{{wf:name|Dynamo}}</div>
+<div id="cms-series-code" style="display:none;">{{wf:erp-sync-id|Dynamo}}</div>
+
+<style>
+  @keyframes slideUpFade {
+    0% { transform: translateY(10px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  // ==========================================
+  // --- 1. DATA EXTRACTION & PARSING ---
+  // ==========================================
+  const configDataEl = document.getElementById('config-data');
+  if (!configDataEl) {
+      return;
+  }
+
+  let rawData = configDataEl.innerHTML;
+  const decodeEl = document.createElement("textarea");
+  decodeEl.innerHTML = rawData;
+  rawData = decodeEl.value
+      .replace(/(<([^>]+)>)/gi, "")
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '') 
+      .trim(); 
+
+  let configuratorData = [];
+  try {
+    const parsedRaw = JSON.parse(rawData);
+    
+    // THE FIX: Map the new JSON keys to the old keys the script expects
+    configuratorData = parsedRaw.map(item => {
+      let step = {
+          step: item.option_step !== undefined ? item.option_step : item.step,
+          label: item.option_label !== undefined ? item.option_label : item.label,
+          type: item.option_type !== undefined ? item.option_type : item.type,
+          required: item.is_required !== undefined ? item.is_required : item.required,
+          dependsOn: item.depends_on_step !== undefined ? item.depends_on_step : item.dependsOn,
+          allowedValues: item.allowed_values_json !== undefined ? item.allowed_values_json : item.allowedValues
+      };
+
+      let vals = step.allowedValues;
+      let parseAttempts = 0;
+      while (typeof vals === 'string' && parseAttempts < 3) {
+          try { vals = JSON.parse(vals); } catch(e) { break; }
+          parseAttempts++;
+      }
+      step.allowedValues = vals;
+      return step;
+    });
+  } catch (error) {
+    console.error("Configurator JSON Parsing Error:", error);
+    return;
+  }
+
+  const feedDataEl = document.getElementById('feed-lengths-data');
+  if (feedDataEl) {
+      let rawFeedData = feedDataEl.innerHTML;
+      const feedDecodeEl = document.createElement("textarea");
+      feedDecodeEl.innerHTML = rawFeedData;
+      rawFeedData = feedDecodeEl.value.replace(/(<([^>]+)>)/gi, "").replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').trim();
+      
+      if (rawFeedData) {
+          try {
+              const parsedFeedData = JSON.parse(rawFeedData);
+              const feedSteps = {};
+              
+              parsedFeedData.forEach(item => {
+                  if (!feedSteps[item.step]) {
+                      feedSteps[item.step] = {
+                          step: item.step,
+                          type: item.stepType,
+                          label: item.stepLabel,
+                          description: item.stepDescription,
+                          required: item.stepRequired ? 1 : 0,
+                          dependsOn: item.stepDependsOn,
+                          allowedValues: []
+                      };
+                  }
+                  feedSteps[item.step].allowedValues.push({ code: item.code, label: item.label, value: item.label });
+              });
+
+              Object.values(feedSteps).forEach(newStepObj => {
+                  const existingIndex = configuratorData.findIndex(c => c.step === newStepObj.step);
+                  if (existingIndex > -1) { configuratorData[existingIndex] = newStepObj; } 
+                  else { configuratorData.push(newStepObj); }
+              });
+
+              configuratorData.sort((a, b) => a.step - b.step);
+          } catch (error) {
+              console.error("Feed Length JSON Error:", error);
+          }
+      }
+  }
+
+  // ==========================================
+  // --- 2. UI SETUP & BUILDING ---
+  // ==========================================
+  const requiredTemplate = document.querySelector('#config-cards-container .cp-card-template:not(.optional)');
+  const optionalTemplate = document.querySelector('#config-cards-container .cp-card-template.optional');
+  const cardsContainer = document.getElementById('config-cards-container');
+  const navContainer = document.getElementById('config-nav-container'); 
+
+  if (!cardsContainer || !requiredTemplate) return;
+
+  if (navContainer) navContainer.innerHTML = '';
+  requiredTemplate.style.display = 'none';
+  if (optionalTemplate) optionalTemplate.style.display = 'none';
+
+  const productName = document.getElementById('cms-product-name').textContent.trim() || "Unknown Product";
+  const seriesCode = (document.getElementById('cms-series-code').textContent.trim() || "XX").toUpperCase();
+
+  const hasDynamicSeries = configuratorData.some(c => c.step === 0 && c.label && c.label.toLowerCase() === 'series');
+  const hasLensStep = configuratorData.some(c => c.label && (c.label.toLowerCase() === 'lens' || c.label.toLowerCase() === 'lens appearance'));
+
+  function buildSeriesCard() {
+      if (hasDynamicSeries) return; 
+      
+      const seriesCard = requiredTemplate.cloneNode(true);
+      seriesCard.style.display = 'block'; 
+      seriesCard.classList.add('config-card', 'active'); 
+      seriesCard.classList.remove('optional'); 
+      
+      const titleEl = seriesCard.querySelector('.options-title');
+      if (titleEl) titleEl.textContent = "Series";
+      
+      const codeEl = seriesCard.querySelector('.options-title.part-no');
+      if (codeEl) codeEl.textContent = seriesCode;
+
+      const nameEl = seriesCard.querySelector('.radio-name');
+      if (nameEl) nameEl.textContent = productName;
+
+      const inputEl = seriesCard.querySelector('.real-radio-input');
+      if (inputEl) {
+          inputEl.name = `step-0`;
+          inputEl.value = seriesCode; 
+          inputEl.checked = true;
+          const embedWrapper = inputEl.closest('.w-embed');
+          if (embedWrapper) {
+              embedWrapper.parentNode.insertBefore(inputEl, embedWrapper);
+              embedWrapper.remove();
+          }
+      }
+
+      seriesCard.setAttribute('data-step', '0');
+      seriesCard.setAttribute('data-selected-code', seriesCode);
+      cardsContainer.appendChild(seriesCard);
+      
+      if (navContainer) {
+          const navItem = document.createElement('div');
+          navItem.className = 'card-title selected';
+          navItem.textContent = "Series";
+          navItem.setAttribute('data-target-step', '0');
+          navItem.style.cursor = 'pointer';
+          navContainer.appendChild(navItem);
+      }
+  }
+
+  function buildCategoryCards() {
+    configuratorData.forEach(category => {
+        if (category.step >= 98) return;
+
+        const isOptional = (category.required == 0 || category.required === "0" || category.required === false);
+        const template = (isOptional && optionalTemplate) ? optionalTemplate : requiredTemplate;
+        if (!template) return;
+
+        const cardClone = template.cloneNode(true);
+        cardClone.style.display = 'block';
+        cardClone.classList.add('config-card');
+        if (isOptional) cardClone.classList.add('optional');
+        else cardClone.classList.remove('optional');
+
+        cardClone.setAttribute('data-step', category.step);
+        cardClone.setAttribute('data-depends-on', category.dependsOn);
+
+        const titleEl = cardClone.querySelector('.options-title');
+        if (titleEl) titleEl.textContent = category.label;
+
+        if (navContainer) {
+            const navItem = document.createElement('div');
+            navItem.className = isOptional ? 'card-title optional' : 'card-title';
+            navItem.textContent = category.label;
+            navItem.setAttribute('data-target-step', category.step);
+            navItem.style.cursor = 'pointer';
+            navContainer.appendChild(navItem);
+        }
+
+        const optionsContainer = cardClone.querySelector('.options-container');
+        if (optionsContainer) {
+            const radioTemplate = optionsContainer.querySelector('.radio-card-row');
+            if (radioTemplate) {
+                let safeValues = category.allowedValues;
+                optionsContainer.innerHTML = ''; 
+                
+                const lowerLabel = category.label ? category.label.toLowerCase() : '';
+                const lowerType = category.type ? category.type.toLowerCase() : '';
+                
+                let isDynamicLength = false;
+                if (lowerLabel === 'length' || lowerType === 'length') {
+                    isDynamicLength = true;
+                    if (Array.isArray(safeValues) && safeValues.length > 0) {
+                        if (safeValues[0].code && safeValues[0].code.trim() !== '') {
+                            isDynamicLength = false;
+                        }
+                    }
+                }
+
+                if (isDynamicLength) {
+                    const lengthData = (safeValues && safeValues[0]) ? safeValues[0] : { min_inches: 1, max_inches: 999, increment_inches: 1, default_inches: 100 };
+                    optionsContainer.innerHTML = `
+                        <div style="padding: 10px 0;">
+                            <input type="number" class="custom-length-input" min="${lengthData.min_inches}" max="${lengthData.max_inches}" step="${lengthData.increment_inches}" placeholder="Ex: ${lengthData.default_inches}" style="width: 100%; padding: 10px; background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 15px; font-family: inherit;">
+                            <div class="card-hint-text" style="margin-top: 8px; font-size: 12px; opacity: 0.7;">Min: ${lengthData.min_inches}" | Max: ${lengthData.max_inches}"</div>
+                        </div>
+                    `;
+                } 
+                else if (lowerLabel === 'output' || lowerType === 'output level') {
+                    if (safeValues && !Array.isArray(safeValues) && safeValues.lensMap) {
+                        if (hasLensStep) {
+                            optionsContainer.innerHTML = '<div class="card-hint-text">Select a lens option first.</div>';
+                        } else {
+                            const firstLensKey = Object.keys(safeValues.lensMap)[0];
+                            const optionsToRender = safeValues.lensMap[firstLensKey];
+                            if (optionsToRender && Array.isArray(optionsToRender)) {
+                                optionsToRender.forEach(option => {
+                                    const radioClone = radioTemplate.cloneNode(true);
+                                    const nameEl = radioClone.querySelector('.radio-name');
+                                    if (nameEl) nameEl.textContent = option.label;
+
+                                    const inputEl = radioClone.querySelector('.real-radio-input');
+                                    if (inputEl) {
+                                        inputEl.name = `step-${category.step}`;
+                                        inputEl.value = option.code;
+                                        inputEl.setAttribute('data-label', option.label);
+                                        const embedWrapper = inputEl.closest('.w-embed');
+                                        if (embedWrapper) {
+                                            embedWrapper.parentNode.insertBefore(inputEl, embedWrapper);
+                                            embedWrapper.remove();
+                                        }
+                                    }
+                                    optionsContainer.appendChild(radioClone);
+                                });
+                            }
+                        }
+                    } 
+                    else if (Array.isArray(safeValues)) {
+                        safeValues.forEach(option => {
+                            const radioClone = radioTemplate.cloneNode(true);
+                            const nameEl = radioClone.querySelector('.radio-name');
+                            if (nameEl) nameEl.textContent = option.label;
+
+                            const inputEl = radioClone.querySelector('.real-radio-input');
+                            if (inputEl) {
+                                inputEl.name = `step-${category.step}`;
+                                inputEl.value = option.code;
+                                inputEl.setAttribute('data-label', option.label);
+                                const embedWrapper = inputEl.closest('.w-embed');
+                                if (embedWrapper) {
+                                    embedWrapper.parentNode.insertBefore(inputEl, embedWrapper);
+                                    embedWrapper.remove();
+                                }
+                            }
+                            optionsContainer.appendChild(radioClone);
+                        });
+                    }
+                }
+                else if (Array.isArray(safeValues)) {
+                    safeValues.forEach(option => {
+                        const radioClone = radioTemplate.cloneNode(true);
+                        const nameEl = radioClone.querySelector('.radio-name');
+                        if (nameEl) nameEl.textContent = option.label;
+
+                        const inputEl = radioClone.querySelector('.real-radio-input');
+                        if (inputEl) {
+                            inputEl.name = `step-${category.step}`;
+                            inputEl.value = option.code;
+                            inputEl.setAttribute('data-label', option.label);
+                            const embedWrapper = inputEl.closest('.w-embed');
+                            if (embedWrapper) {
+                                embedWrapper.parentNode.insertBefore(inputEl, embedWrapper);
+                                embedWrapper.remove();
+                            }
+                        }
+                        optionsContainer.appendChild(radioClone);
+                    });
+                }
+            }
+        }
+        cardsContainer.appendChild(cardClone);
+    });
+  }
+
+  // ==========================================
+  // --- 3. MASTER CODE UPDATER ---
+  // ==========================================
+  function updateMasterCode() {
+      for (let i = 0; i <= 11; i++) {
+          const card = document.querySelector(`.config-card[data-step="${i}"]`);
+          const span = document.getElementById(`step-${i}-master-code`);
+          
+          if (span) {
+              let isOptional = false;
+              let isLengthStep = false;
+              let stepExists = false; 
+              let omitDash = (i === 0);
+              
+              if (i === 0 && !hasDynamicSeries) {
+                  stepExists = true; 
+              }
+              
+              const stepData = configuratorData.find(c => c.step === i);
+              if (stepData) {
+                  stepExists = true;
+                  if (stepData.required == 0 || stepData.required === "0" || stepData.required === false) {
+                      isOptional = true;
+                  }
+                  if ((stepData.label && stepData.label.toLowerCase() === 'length') || 
+                      (stepData.type && stepData.type.toLowerCase() === 'length')) {
+                      isLengthStep = true;
+                  }
+                  
+                  if (stepData.label) {
+                      const lowerLabel = stepData.label.toLowerCase();
+                      if (lowerLabel === 'start feed length' || lowerLabel === 'end feed length' || lowerLabel === 'series') {
+                          omitDash = true;
+                      }
+                  }
+              }
+
+              if (!stepExists) {
+                  span.style.display = 'none';
+                  continue; 
+              } else {
+                  span.style.display = 'inline-block';
+              }
+
+              if (isOptional) {
+                  span.classList.add('optional-code');
+                  span.classList.remove('required-code');
+              } else {
+                  span.classList.add('required-code');
+                  span.classList.remove('optional-code');
+              }
+
+              let val = card ? card.getAttribute('data-selected-code') : null;
+              
+              if (i === 0 && !hasDynamicSeries) {
+                  val = seriesCode;
+              }
+              
+              if (!val) val = isLengthStep ? "XXX.XX" : "XX";
+              
+              if (omitDash) {
+                  span.textContent = val;
+              } else {
+                  span.textContent = "-" + val;
+              }
+          }
+      }
+  }
+
+  // ==========================================
+  // --- 4. EVENT HANDLERS ---
+  // ==========================================
+  cardsContainer.addEventListener('click', (event) => {
+    const row = event.target.closest('.radio-card-row');
+    if (!row) return; 
+
+    const inputEl = row.querySelector('.real-radio-input');
+    if (!inputEl) return;
+    
+    inputEl.checked = true; 
+
+    const card = row.closest('.config-card');
+    const step = card.getAttribute('data-step');
+    const selectedCode = inputEl.value;
+
+    const cardCodeDisplay = card.querySelector('.options-title.part-no');
+    if (cardCodeDisplay) cardCodeDisplay.textContent = selectedCode;
+    
+    card.setAttribute('data-selected-code', selectedCode);
+
+    const cardStepData = configuratorData.find(c => c.step === parseInt(step));
+    if (cardStepData && (cardStepData.label && (cardStepData.label.toLowerCase() === 'lens' || cardStepData.label.toLowerCase() === 'lens appearance'))) {
+        const outputStepData = configuratorData.find(c => c.label && (c.label.toLowerCase() === 'output level' || c.label.toLowerCase() === 'output'));
+        if (outputStepData && outputStepData.allowedValues) {
+            let safeOutputVals = outputStepData.allowedValues;
+            if (safeOutputVals && !Array.isArray(safeOutputVals) && safeOutputVals.lensMap) {
+                const mappedOptions = safeOutputVals.lensMap[selectedCode];
+                if (mappedOptions) {
+                    const outputCard = document.querySelector(`.config-card[data-step="${outputStepData.step}"]`);
+                    if(outputCard) {
+                        const outputContainer = outputCard.querySelector('.options-container');
+                        outputCard.removeAttribute('data-selected-code');
+                        const outDisplay = outputCard.querySelector('.options-title.part-no');
+                        if (outDisplay) outDisplay.textContent = "XX";
+
+                        outputContainer.innerHTML = '';
+                        const dummyRow = requiredTemplate.querySelector('.radio-card-row');
+                        mappedOptions.forEach(option => {
+                            const clone = dummyRow.cloneNode(true);
+                            const nameEl = clone.querySelector('.radio-name');
+                            if (nameEl) nameEl.textContent = option.label;
+
+                            const newInput = clone.querySelector('.real-radio-input');
+                            if (newInput) {
+                                newInput.name = `step-${outputStepData.step}`; 
+                                newInput.value = option.code;
+                                newInput.setAttribute('data-label', option.label);
+                                const embedWrapper = newInput.closest('.w-embed');
+                                if (embedWrapper) {
+                                    embedWrapper.parentNode.insertBefore(newInput, embedWrapper);
+                                    embedWrapper.remove();
+                                }
+                            }
+                            outputContainer.appendChild(clone);
+                        });
+                    }
+                }
+            }
+        }
+    }
+    updateMasterCode();
+  });
+
+  cardsContainer.addEventListener('input', (event) => {
+    if (event.target.classList.contains('custom-length-input') && event.target.type !== 'hidden') {
+        const inputEl = event.target;
+        const card = inputEl.closest('.config-card');
+        const val = inputEl.value;
+        const cardCodeDisplay = card.querySelector('.options-title.part-no');
+        if (cardCodeDisplay) cardCodeDisplay.textContent = val ? val : "XXX.XX";
+        card.setAttribute('data-selected-code', val);
+        updateMasterCode();
+    }
+  });
+
+  function autoSelectSingleOptions() {
+      for (let i = 0; i <= 11; i++) {
+          const card = document.querySelector(`.config-card[data-step="${i}"]`);
+          if (card) {
+              const rows = card.querySelectorAll('.radio-card-row');
+              if (rows.length === 1) {
+                  rows[0].click();
+              }
+          }
+      }
+  }
+
+  // ==========================================
+  // --- 5. EXECUTION & NAVIGATION ---
+  // ==========================================
+  buildSeriesCard(); 
+  buildCategoryCards();
+  updateMasterCode();
+  autoSelectSingleOptions(); 
+
+  if (navContainer) {
+      navContainer.addEventListener('click', (e) => {
+          if (e.target.classList.contains('card-title')) {
+              const step = e.target.getAttribute('data-target-step');
+              const targetCard = document.querySelector(`.config-card[data-step="${step}"]`);
+              if (targetCard && cardsContainer) {
+                  const cardLeft = targetCard.getBoundingClientRect().left;
+                  const containerLeft = cardsContainer.getBoundingClientRect().left;
+                  const currentScroll = cardsContainer.scrollLeft;
+                  cardsContainer.scrollTo({ left: currentScroll + (cardLeft - containerLeft), behavior: 'smooth' });
+              }
+          }
+      });
+  }
+
+  if (navContainer && cardsContainer) {
+      cardsContainer.addEventListener('scroll', () => {
+          let closestCard = null;
+          let minDistance = Infinity;
+          const containerLeft = cardsContainer.getBoundingClientRect().left;
+
+          cardsContainer.querySelectorAll('.config-card').forEach(card => {
+              const distance = Math.abs(card.getBoundingClientRect().left - containerLeft);
+              if (distance < minDistance) {
+                  minDistance = distance;
+                  closestCard = card;
+              }
+          });
+
+          if (closestCard) {
+              const step = closestCard.getAttribute('data-step');
+              navContainer.querySelectorAll('.card-title').forEach(el => el.classList.remove('selected'));
+              const activeNav = navContainer.querySelector(`.card-title[data-target-step="${step}"]`);
+              if (activeNav) activeNav.classList.add('selected');
+          }
+      });
+  }
+
+  const prevArrow = document.querySelector('.prev-arrow.config-2');
+  const nextArrow = document.querySelector('.next-arrow.config-2');
+  
+  const scrollCardsByTwo = (direction) => {
+      if (!cardsContainer) return;
+      const card = cardsContainer.querySelector('.config-card');
+      if (!card) return;
+      const containerStyle = window.getComputedStyle(cardsContainer);
+      const gap = parseFloat(containerStyle.gap) || parseFloat(containerStyle.columnGap) || 0;
+      const scrollAmount = (card.offsetWidth + gap) * 2 * direction;
+      cardsContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  };
+  
+  if (prevArrow) prevArrow.addEventListener('click', (e) => { e.preventDefault(); scrollCardsByTwo(-1); });
+  if (nextArrow) nextArrow.addEventListener('click', (e) => { e.preventDefault(); scrollCardsByTwo(1); });
+
+  // ==========================================
+  // --- 6. VALIDATION & RESET LOGIC ---
+  // ==========================================
+  const configBtns = document.querySelectorAll('#config-spec-btn, .config-spec-btn');
+  const resetBtns = document.querySelectorAll('#reset-code-button, .reset-code-btn');
+  const copyBtns = document.querySelectorAll('.copy-code'); 
+  const specModal = document.querySelector('.spec-modal-wrapper');
+
+  function validateConfiguration() {
+      if (configBtns.length === 0 && copyBtns.length === 0 && resetBtns.length === 0) return; 
+      
+      let isValid = true;
+      const allCards = Array.from(cardsContainer.querySelectorAll('.config-card'));
+      
+      allCards.forEach(card => {
+          const stepNum = parseInt(card.getAttribute('data-step'));
+          let isRequired = false;
+          
+          if (stepNum === 0) {
+              isRequired = true; 
+          } else {
+              const stepData = configuratorData.find(c => c.step === stepNum);
+              if (stepData && (stepData.required == 1 || stepData.required === "1" || stepData.required === true)) {
+                  isRequired = true;
+              }
+          }
+
+          if (isRequired) {
+              const selected = card.getAttribute('data-selected-code');
+              if (!selected || selected.trim() === "") isValid = false; 
+          }
+      });
+
+      configBtns.forEach(btn => {
+          if (isValid) {
+              btn.style.pointerEvents = "auto"; btn.style.opacity = "1"; btn.classList.remove('inactive');
+          } else {
+              btn.style.pointerEvents = "none"; btn.style.opacity = "0.5"; btn.classList.add('inactive');
+          }
+      });
+
+      copyBtns.forEach(btn => {
+          if (isValid) {
+              btn.style.pointerEvents = "auto"; btn.style.opacity = "1"; btn.classList.remove('inactive');
+          } else {
+              btn.style.pointerEvents = "none"; btn.style.opacity = "0.5"; btn.classList.add('inactive');
+          }
+      });
+
+      resetBtns.forEach(btn => {
+          if (isValid) {
+              btn.style.pointerEvents = "auto"; btn.style.opacity = "1"; btn.classList.remove('inactive');
+          } else {
+              btn.style.pointerEvents = "none"; btn.style.opacity = "0.25"; btn.classList.add('inactive');
+          }
+      });
+  }
+
+  validateConfiguration();
+  cardsContainer.addEventListener('click', validateConfiguration);
+  cardsContainer.addEventListener('input', validateConfiguration);
+
+  configBtns.forEach(btn => {
+      btn.setAttribute('type', 'button'); 
+      btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (specModal) specModal.style.setProperty('display', 'flex', 'important'); 
+      });
+  });
+
+  copyBtns.forEach(btn => {
+      const originalContent = btn.innerHTML;
+      btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const masterCodeContainer = document.querySelector('.master-code-display');
+          if (!masterCodeContainer) return;
+          
+          let cleanText = '';
+          const codeSpans = masterCodeContainer.querySelectorAll('span[id$="-master-code"]');
+          if (codeSpans.length > 0) {
+              codeSpans.forEach(span => {
+                  if (window.getComputedStyle(span).display !== 'none') cleanText += span.textContent.trim();
+              });
+          } else {
+              cleanText = (masterCodeContainer.innerText || masterCodeContainer.textContent).replace(/\s+/g, '');
+          }
+          
+          try {
+              await navigator.clipboard.writeText(cleanText);
+              btn.innerHTML = `<span style="display: inline-block; animation: slideUpFade 0.3s ease-out forwards;">Product Code Copied!</span>`;
+              setTimeout(() => { btn.innerHTML = originalContent; }, 2500);
+          } catch (err) {
+          }
+      });
+  });
+
+  resetBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          cardsContainer.querySelectorAll('.config-card').forEach(card => {
+              const step = card.getAttribute('data-step');
+              
+              if (step === '0' && !hasDynamicSeries) return; 
+              
+              card.querySelectorAll('.real-radio-input').forEach(radio => radio.checked = false);
+              card.querySelectorAll('.custom-length-input').forEach(input => { if (input.type !== 'hidden') input.value = ""; });
+              
+              const hiddenLen = card.querySelector('input[type="hidden"].custom-length-input');
+              if (!hiddenLen) card.removeAttribute('data-selected-code');
+              
+              const hasTextInput = card.querySelector('input[type="number"].custom-length-input') !== null;
+              const cardCodeDisplay = card.querySelector('.options-title.part-no');
+              if (cardCodeDisplay && !hiddenLen) cardCodeDisplay.textContent = hasTextInput ? "XXX.XX" : "XX";
+              
+              const cardStepData = configuratorData.find(c => c.step === parseInt(step));
+              if (cardStepData && (cardStepData.label && (cardStepData.label.toLowerCase() === 'output level' || cardStepData.label.toLowerCase() === 'output'))) {
+                  let safeResetVals = cardStepData.allowedValues;
+                  if (typeof safeResetVals === 'string') {
+                      try { safeResetVals = JSON.parse(safeResetVals); } catch(e) {}
+                  }
+                  if (safeResetVals && !Array.isArray(safeResetVals) && safeResetVals.lensMap && hasLensStep) {
+                      const outputContainer = card.querySelector('.options-container');
+                      if (outputContainer) outputContainer.innerHTML = '<div class="card-hint-text">Select a lens option first.</div>';
+                  }
+              }
+          });
+          updateMasterCode();
+          autoSelectSingleOptions();
+          validateConfiguration();
+          cardsContainer.scrollTo({ left: 0, behavior: 'smooth' });
+      });
+  });
+
+  document.addEventListener('copy', (e) => {
+      const selection = window.getSelection();
+      if (!selection.rangeCount) return;
+      const masterCodeContainer = document.querySelector('.master-code-display');
+      if (masterCodeContainer && masterCodeContainer.contains(selection.anchorNode)) {
+          e.preventDefault(); 
+          let cleanText = selection.toString().replace(/\s+/g, '');
+          e.clipboardData.setData('text/plain', cleanText);
+      }
+  });
+});
+</script>
