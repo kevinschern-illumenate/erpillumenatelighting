@@ -162,6 +162,35 @@ class TestQBOSync(FrappeTestCase):
 		)
 		self.assertEqual(event["qbo_invoice_ids"], ["10", "11"])
 
+	def test_payment_method_and_ref_num_are_carried(self):
+		event = qbo_sync._normalize_payload(
+			{
+				"qbo_payment_id": "1",
+				"event_type": "Create",
+				"payment_method": "  Check ",
+				"payment_ref_num": "10452",
+			}
+		)
+		self.assertEqual(event["payment_method"], "Check")
+		self.assertEqual(event["payment_ref_num"], "10452")
+		self.assertEqual(
+			qbo_sync._payment_details(event),
+			{"custom_qbo_payment_method": "Check", "custom_qbo_payment_ref_num": "10452"},
+		)
+
+	def test_missing_payment_details_never_wipe_stored_values(self):
+		event = qbo_sync._normalize_payload(
+			{"qbo_payment_id": "1", "event_type": "Update", "payment_method": ""}
+		)
+		self.assertIsNone(event["payment_method"])
+		self.assertIsNone(event["payment_ref_num"])
+		self.assertEqual(qbo_sync._payment_details(event), {})
+
+	def test_payment_details_skipped_before_migrate(self):
+		event = {"payment_method": "ACH", "payment_ref_num": None}
+		with patch(f"{MOD}._has_payment_detail_fields", return_value=False):
+			self.assertEqual(qbo_sync._payment_details(event), {})
+
 	# -- create / idempotency ----------------------------------------------
 
 	def test_invoice_not_matched_logs_failure(self):
@@ -245,6 +274,41 @@ class TestQBOSync(FrappeTestCase):
 		create.assert_not_called()
 		cancel.assert_not_called()
 		self.assertEqual(self._logs(pid)[0].status, "Skipped-Duplicate")
+
+	def test_duplicate_backfills_payment_method(self):
+		pid = f"{TEST_PREFIX}DUPMETHOD"
+		real_set_value = frappe.db.set_value
+		pe_updates = []
+
+		def set_value(doctype, name, *args, **kwargs):
+			if doctype == "Payment Entry":
+				pe_updates.append((name, args[0]))
+				return None
+			return real_set_value(doctype, name, *args, **kwargs)
+
+		with (
+			patch(f"{MOD}._match_invoice", return_value=self._fake_invoice()),
+			patch(f"{MOD}._get_submitted_payment_entry", return_value="PE-TEST-EXISTING"),
+			patch(f"{MOD}._is_in_sync", return_value=True),
+			patch(f"{MOD}._has_payment_detail_fields", return_value=True),
+			patch.object(frappe.db, "set_value", side_effect=set_value),
+		):
+			result = self._call(
+				{
+					"qbo_payment_id": pid,
+					"event_type": "Update",
+					"amount": 100,
+					"qbo_invoice_id": "145",
+					"payment_method": "Visa",
+					"payment_ref_num": "AUTH-77",
+				}
+			)
+		self.assertEqual(result["action"], "skipped")
+		self.assertEqual(len(pe_updates), 1)
+		name, values = pe_updates[0]
+		self.assertEqual(name, "PE-TEST-EXISTING")
+		self.assertEqual(values["custom_qbo_payment_method"], "Visa")
+		self.assertEqual(values["custom_qbo_payment_ref_num"], "AUTH-77")
 
 	def test_update_with_changed_amount_supersedes(self):
 		pid = f"{TEST_PREFIX}UPD"

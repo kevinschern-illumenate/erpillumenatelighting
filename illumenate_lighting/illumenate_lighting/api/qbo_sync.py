@@ -25,6 +25,8 @@ Expected JSON body (customer payment)::
         "qbo_invoice_id": "145",  # legacy single-invoice form, used when allocations is absent
         "qbo_invoice_ids": ["145"],  # legacy; >1 entry without allocations fails loudly
         "customer_qbo_id": "62",  # optional, logged only
+        "payment_method": "Check",  # optional: QBO PaymentMethodRef.name, shown on the invoice print
+        "payment_ref_num": "10452",  # optional: QBO PaymentRefNum (check / confirmation no.)
         "merged_from_id": "180",  # Merge only: QBO id that was folded into qbo_payment_id
         "deleted": false,  # true forces event_type=Delete
     }
@@ -262,7 +264,32 @@ def _normalize_payload(payload, kind=RECEIVE):
 		"allocations": allocations,
 		"customer_qbo_id": str(payload.get(kind["party_qbo_key"]) or "").strip() or None,
 		"merged_from_id": str(payload.get("merged_from_id") or "").strip() or None,
+		"payment_method": _clean_text(payload.get("payment_method")),
+		"payment_ref_num": _clean_text(payload.get("payment_ref_num")),
 	}
+
+
+def _clean_text(value, limit=140):
+	"""Optional display text from the payload; ``None`` when absent so it never wipes a stored value."""
+	text = str(value or "").strip()
+	return text[:limit] or None
+
+
+def _payment_details(event):
+	"""Payment method / reference fields to stamp on the Payment Entry, only those the payload carried."""
+	values = {}
+	if event.get("payment_method"):
+		values["custom_qbo_payment_method"] = event["payment_method"]
+	if event.get("payment_ref_num"):
+		values["custom_qbo_payment_ref_num"] = event["payment_ref_num"]
+	if values and not _has_payment_detail_fields():
+		return {}
+	return values
+
+
+def _has_payment_detail_fields():
+	meta = frappe.get_meta("Payment Entry")
+	return meta.has_field("custom_qbo_payment_method") and meta.has_field("custom_qbo_payment_ref_num")
 
 
 def _normalize_allocations(rows, kind):
@@ -365,7 +392,11 @@ def _handle_upsert(event, log, kind=RECEIVE):
 			frappe.db.set_value(
 				"Payment Entry",
 				existing,
-				{"custom_qbo_event_type": event["event_type"], "custom_qbo_last_synced": now_datetime()},
+				{
+					"custom_qbo_event_type": event["event_type"],
+					"custom_qbo_last_synced": now_datetime(),
+					**_payment_details(event),
+				},
 				update_modified=False,
 			)
 			return {"action": "skipped", "payment_entry": existing}
@@ -562,6 +593,7 @@ def _create_payment_entry(invoices, event, kind=RECEIVE, superseded=None):
 	pe.custom_synced_from = SYNCED_FROM
 	pe.custom_qbo_event_type = event["event_type"]
 	pe.custom_qbo_last_synced = now_datetime()
+	pe.update(_payment_details(event))
 	pe.custom_qbo_sync_note = (
 		f"Recreated after QBO {event['event_type']}; supersedes {superseded}"
 		if superseded

@@ -34,6 +34,9 @@
 {%- endfor -%}
 {%- set has_sections = ns.has_sections -%}
 {%- set company_payment_instructions = frappe.db.get_value('Company', doc.company, 'custom_invoice_payment_instructions') if doc.company else '' -%}
+{#-- Payments applied to this invoice (Payment Entries, advances, journal entries) --#}
+{%- set payments = ill_invoice_payments(doc) if doc.docstatus == 1 else [] -%}
+{%- set paid_in_full = doc.docstatus == 1 and doc.grand_total > 0 and doc.outstanding_amount <= 0 -%}
 
 <style>
     .ill-doc {
@@ -254,6 +257,54 @@
         margin-bottom: 5px;
         text-transform: uppercase;
     }
+    .ill-doc .ill-paid-stamp {
+        display: inline-block;
+        border: 2px solid #2e7d4f;
+        color: #2e7d4f;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin-top: 6px;
+        padding: 2px 8px;
+        text-transform: uppercase;
+    }
+    .ill-doc .ill-summary-paid .ill-summary-value {
+        color: #2e7d4f;
+    }
+    .ill-doc .ill-payments {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 2px;
+    }
+    .ill-doc .ill-payments th {
+        border-bottom: 1px solid #d7dee5;
+        color: #6c7886;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding: 4px 6px;
+        text-align: left;
+        text-transform: uppercase;
+    }
+    .ill-doc .ill-payments td {
+        border-bottom: 1px solid #e7edf3;
+        font-size: 11px;
+        padding: 5px 6px;
+        vertical-align: top;
+        word-wrap: break-word;
+    }
+    .ill-doc .ill-payments .text-right {
+        text-align: right;
+    }
+    .ill-doc .ill-payments tfoot td {
+        border-bottom: none;
+        font-weight: 700;
+    }
+    .ill-doc .ill-payment-sub {
+        color: #6c7886;
+        font-size: 10px;
+    }
     .ill-doc .ql-snow {
         font-size: 11px;
         line-height: 1.45;
@@ -270,6 +321,9 @@
                 <td style="width: 50%;" class="ill-title-wrap">
                     <h2 class="ill-title">Sales Invoice</h2>
                     <div class="ill-doc-no">{{ doc.name }}</div>
+                    {% if paid_in_full %}
+                    <div class="ill-paid-stamp">Paid in Full</div>
+                    {% endif %}
                 </td>
             </tr>
         </table>
@@ -332,7 +386,7 @@
     </div>
 
     {%- set paid_amount = doc.grand_total - doc.outstanding_amount -%}
-    <div class="ill-summary">
+    <div class="ill-summary{% if paid_in_full %} ill-summary-paid{% endif %}">
         <div class="ill-grid">
             <div class="ill-col">
                 <div class="ill-label">Invoice Status</div>
@@ -529,6 +583,55 @@
         </div>
     </div>
 
+    {% if payments %}
+    {%- set pay_ns = namespace(total=0) -%}
+    <div class="ill-block">
+        <div class="ill-terms">
+            <div class="ill-terms-title">Payment History</div>
+            <table class="ill-payments">
+                <thead>
+                    <tr>
+                        <th style="width: 18%;">Date</th>
+                        <th style="width: 27%;">Payment Method</th>
+                        <th style="width: 35%;">Reference</th>
+                        <th style="width: 20%;" class="text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {%- for payment in payments -%}
+                    {%- set pay_ns.total = pay_ns.total + payment.amount -%}
+                    <tr>
+                        <td>{{ frappe.utils.formatdate(payment.date) if payment.date else '' }}</td>
+                        <td>{{ (payment.method or '') | e }}{% if payment.amount < 0 %} <span class="ill-payment-sub">(refund)</span>{% endif %}</td>
+                        <td>
+                            {%- if payment.reference -%}{{ payment.reference | e }}{%- endif -%}
+                            {%- if payment.qbo_id -%}
+                                {%- if payment.reference %}<div class="ill-payment-sub">{% endif -%}
+                                QuickBooks Payment #{{ payment.qbo_id | e }}
+                                {%- if payment.reference %}</div>{% endif -%}
+                            {%- elif not payment.reference -%}
+                                {{ payment.voucher_no | e }}
+                            {%- endif -%}
+                        </td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(payment.amount, currency=doc.currency) }}</td>
+                    </tr>
+                {%- endfor -%}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" class="text-right">Total Paid</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(pay_ns.total, currency=doc.currency) }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="text-right">{% if paid_in_full %}Balance Due (Paid in Full){% else %}Balance Due{% endif %}</td>
+                        <td class="text-right">{{ frappe.utils.fmt_money(doc.outstanding_amount if doc.outstanding_amount > 0 else 0, currency=doc.currency) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     {%- set _has_separate_shipping = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
     {%- set _shipping_display = doc.shipping_address_display -%}
     {%- if _has_separate_shipping and not _shipping_display -%}
@@ -576,7 +679,7 @@
     </div>
     {% endif %}
 
-    {% if doc.payment_schedule or company_payment_instructions %}
+    {% if not paid_in_full and (doc.payment_schedule or company_payment_instructions) %}
     <div class="ill-block">
         <div class="ill-terms">
             <div class="ill-terms-title">Payment Details</div>
