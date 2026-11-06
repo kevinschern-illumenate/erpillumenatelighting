@@ -5,6 +5,6 @@ for (const mode of ['portal','public']) test(mode+' production bundle mounts wit
  const dom=new JSDOM('<div id="ill-configurator-root" data-ill-manual-mount></div>',{runScripts:'outside-only',url:'https://erp.test'}),w=dom.window;
  w.IllConfigurator={existing:true};w.eval(fs.readFileSync(path.join(__dirname,'../../illumenate_lighting/public/product_finder',mode,'ill-finder.js'),'utf8'));
  const client={getDefinition:async()=>({questions:[{id:'family',type:'family',label:'Product type',required:true,options:[{value:'Linear Fixture',label:'Linear Fixture',featured:true}]}],settings:{},glossary:{}}),start:async()=>({token:'T'}),saveAnswers:async()=>({saved:true}),evaluate:async()=>({options:{}})};
- const mounted=w.IllConfigurator.mount('ill-configurator-root',{mode,client});await new Promise(resolve=>setTimeout(resolve,35));
+ const mounted=w.IllConfigurator.mount('ill-configurator-root',{mode,client});for(let waited=0;waited<2000&&!/Linear Fixture/.test(w.document.body.textContent);waited+=25)await new Promise(resolve=>setTimeout(resolve,25));
  assert.equal(w.IllConfigurator.existing,true);assert.match(w.document.body.textContent,/Linear Fixture/);mounted.unmount();dom.window.close();
 });

@@ -816,6 +816,33 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
 - Later: rules for the other categories, each agreed with the owner.
 - After the owner verifies the new method: remove the templates' `spec_submittal_template` field and its readers (8.2).
 
+### 4.21 For the developer: retiring the Spec Submittal Template (to workshop, owner 2026-11-06)
+
+**The goal:** once the owner has verified the configured spec sheet (4.20), remove the templates' **Spec Submittal Template** field (`spec_submittal_template`). The aim is one spec PDF per template (the generated spec sheet), not two.
+
+**Why it needs the developer:** the field is not only a Webflow thing. It is the fillable PDF behind the **ERPNext portal's submittals**, which are filled server-side from per-template field mappings. The 4.20 method only covers the Webflow product page, in the visitor's browser. Removing the field without a replacement would break portal submittals.
+
+**What uses the field today (2026-11-06)**
+
+| Where | What it does |
+|---|---|
+| `api/spec_submittal.py` (`generate_filled_submittal`, tape/neon, LED sheet, kit and driver/controller variants) | Fills `spec_submittal_template` (falling back to `spec_sheet`) from the mapping doctypes `ilL-Spec-Submittal-Mapping`, `ilL-Neon-Submittal-Mapping` and `ilL-LED-Sheet-Submittal-Mapping`. Saves the file to the configured record's `spec_submittal`. |
+| `portal/packets.py`, `portal/build_documents.py`, `public/js/portal/schedule/packets.js` | Project and schedule submittal packets, built on `spec_submittal`. |
+| `api/public_sheet.py` `generate` | Public LED sheet download, through `generate_filled_sheet_submittal`. |
+| `api/spec_sheet_generator.py` | Checks for the field and fills it. |
+| `api/submittal_readiness.py` and the Submittal Readiness page (`page/submittal_readiness`) | Reports templates missing it and dry-runs the fill. Its test checks the field exists. |
+| `api/product_readiness.py` | Readiness issue "Attach a fillable PDF template". |
+| `doctype/ill_webflow_product/ill_webflow_product.py` (~line 1791) | Adds a "Spec Submittal" document row on the Webflow Product. |
+| `web_listing_schema.py` (`PLACED_FIELDS`), the six template doctype JSONs, `public/catalog_builder/catalog-builder.js` | Field placement, the field itself, the Catalog Builder. |
+
+**Questions to workshop**
+
+1. Should portal submittals also move to the generated spec sheet? The generated sheet already has form fields: `project_name`, `fixture_type`, `project_location`, `step_N` radios and `display_step_N` boxes, plus the highlight boxes in its Subject. The server could fill it the way the 4.20 page script does. Or do portal submittals need fields the generated sheet lacks (quantities, schedule line, notes, ...)? The mapping doctypes list what is filled today.
+2. If the portal moves, the three mapping doctypes and the fill code in `spec_submittal.py` may no longer be needed. Retire them, or keep them for 206 / other brands?
+3. 206 Lighting: does it use the field, and does it get the same highlight method?
+4. Order of work: verify 4.20 → switch the portal fill → remove the readers (table above) → remove the field and patch the data (keep or archive the attached PDFs) → regenerate the schema and Catalog Builder bundle.
+5. Until then, should new templates still need the field? Product readiness and Submittal Readiness flag it as missing today.
+
 ## 5. Design choices
 
 **Accepted by the owner (now D18 to D22):** ERPNext orchestrates and W1 is spec-only; `spec_sheet_public_url`; the resolver; template-to-product mirror with fallback; one-row `target_brands` table.
@@ -1665,7 +1692,7 @@ This is the one list of open work and cleanup notes recorded during Phases 0 to 
 
 **After the configured spec sheet is verified (4.20, owner 2026-11-06)**
 
-- Remove the **Spec Submittal Template** field (`spec_submittal_template`) from the templates once the owner has checked that the new submittal method (the configured, highlighted spec sheet) works as intended. Not before. The field is on all six template doctypes. It is still read in these places, and each needs removing or changing in the same change:
+- Developer, to workshop (4.21): remove the **Spec Submittal Template** field (`spec_submittal_template`) from the templates once the owner has checked that the new submittal method (the configured, highlighted spec sheet) works as intended. Not before. The field is on all six template doctypes. It is still read in these places, and each needs removing or changing in the same change:
   - the portal submittal fill (`api/spec_submittal.py`, `api/spec_sheet_generator.py`);
   - Submittal Readiness (`api/submittal_readiness.py`, its page and test);
   - `api/product_readiness.py`;
