@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ilLumenate staging product page scripts
 // @namespace    https://illumenate.lighting/
-// @version      2026.11.06.2
+// @version      2026.11.06.3
 // @description  Main-site product page custom code, for testing on the staging Webflow site
 // @match        https://staging-illumenate.webflow.io/products/*
 // @run-at       document-start
@@ -1311,7 +1311,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeModal = () => { const m = modalEl(); if (m) m.style.setProperty('display', 'none', 'important'); };
   const isOpen = () => { const m = modalEl(); return !!m && window.getComputedStyle(m).display !== 'none'; };
   let busy = false;
-  window.__illConfiguredSpec = '2026-11-06.2';
+  window.__illConfiguredSpec = '2026-11-06.3';
 
   document.addEventListener('click', (e) => {
     const target = e.target instanceof Element ? e.target : null;
@@ -1377,6 +1377,13 @@ document.addEventListener("DOMContentLoaded", () => {
     generateBtn.textContent = 'Generating PDF...';
     generateBtn.style.pointerEvents = 'none';
     busy = true;
+    // Open the tab now, while the click still counts; the PDF is loaded into it when ready.
+    const tab = window.open('', '_blank');
+    if (tab) {
+      tab.document.title = 'Preparing your spec sheet…';
+      tab.document.body.style.cssText = 'font-family: sans-serif; padding: 40px; color: #444;';
+      tab.document.body.textContent = 'Preparing your spec sheet…';
+    }
     try {
       const PDFLib = await loadPdfLib();
       // The stable link redirects to /files (no CORS); this ERPNext call returns the same file.
@@ -1428,19 +1435,26 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
-      // D. Download
+      // D. Show it in the new tab (opened on the click, so popup blockers allow it); download
+      // it instead when the tab could not be opened. The title is shown in the tab.
       const productName = ((document.getElementById('cms-product-name') || {}).textContent || 'Product').trim();
-      const blob = new Blob([await pdfDoc.save()], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ilLumenate Lighting_${productName}_Spec Sheet_Configured.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const fileName = `ilLumenate Lighting_${productName}_Spec Sheet_Configured`;
+      pdfDoc.setTitle(fileName, { showInWindowTitleBar: true });
+      const url = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: 'application/pdf' }));
+      if (tab && !tab.closed) {
+        tab.location.href = url;
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
       closeModal();
     } catch (error) {
+      if (tab && !tab.closed) tab.close();
       console.error('Configured spec sheet:', error);
       alert('The spec sheet could not be generated. Please try again.');
     } finally {

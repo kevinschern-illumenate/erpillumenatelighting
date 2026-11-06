@@ -801,14 +801,15 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
   - fills `project_name`, `fixture_type` and `project_location`; an empty value leaves the field editable;
   - for each `.config-card[data-step][data-selected-code]`, selects the `step_N` radio option (case-insensitive) and fills `display_step_N`;
   - draws a yellow box at 30% over each Subject box whose tags include a selected `<step>:<code>`;
-  - downloads `ilLumenate Lighting_<product>_Spec Sheet_Configured.pdf` and closes the popup.
+  - opens the PDF in a new tab and closes the popup (owner, 2026-11-06: a new tab instead of a download). The tab is opened on the click, showing "Preparing your spec sheet…", so popup blockers allow it. The PDF loads into it when ready, titled `ilLumenate Lighting_<product>_Spec Sheet_Configured`. If the tab is blocked, the PDF downloads under that name instead.
 - It reads the selections from the configurator cards, so it does not need 206's `window.CurrentConfigSelection`.
+- Second staging test (owner, KIT-RA02, 2026-11-06): works, highlighting included.
 - First staging test (owner, KIT-RA02, 2026-11-06): neither Download nor the close icon responded. What was found:
   - The popup has two Download buttons, both Code Embeds shown by condition: `#ill-download-spec-sheet`, and `#extrusions-dwnld-submittal` on kits. The first version only handled the first.
   - The Fixture Type wrapper div also had the id `ill-fixture-type`. That id was removed from the wrapper in the Designer.
   - The script now handles both buttons and the close icon. Its listeners are delegated from the document in the capture phase and registered when the script runs, so they run before any older handler. It reads the inputs by `input#id`.
   - Re-checked in Playwright through the built userscript, blocker included, with this structure.
-  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.06.2`).
+  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.06.3`).
 - It replaces the old `.extrusions-dwnld-submittal` submittal script (`extrusion-kit-configured-spec.html`, kept for reference) and the main site's old `#ill-download-spec-sheet` handler.
 
 **Checked:**

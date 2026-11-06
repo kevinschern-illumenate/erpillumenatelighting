@@ -107,7 +107,7 @@ def build():
 		"// ==UserScript==",
 		"// @name         ilLumenate staging product page scripts",
 		"// @namespace    https://illumenate.lighting/",
-		"// @version      2026.11.06.2",
+		"// @version      2026.11.06.3",
 		"// @description  Main-site product page custom code, for testing on the staging Webflow site",
 		f"// @match        {MATCH}",
 		"// @run-at       document-start",
