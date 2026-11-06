@@ -77,10 +77,11 @@ const fieldData = {
   'featured-image': fullUrl(product.featured_image),
   gallery: galleryFormatted.length ? galleryFormatted : null,
   'family-image': fullUrl(product.series_family_image),
-  // 11, 26, 27 (template)
+  // 11, 26 (template)
   'series-display-name': tpl ? (tpl.series_name || '') : (product.series_display_name || ''),
   subheading: tpl ? (tpl.sublabel || '') : (product.sublabel || ''),
-  dimensions: fullUrl(tpl ? tpl.dimensions_image : product.dimensions_image_light),
+  // The product's Dimensions Image; the template's is for the spec sheet only (owner, 2026-11-06).
+  dimensions: fullUrl(product.dimensions_image_light || product.dimensions_image),
   // 13, 15, 17, 19, 20, 28 (product)
   'is-configurable-3': product.is_configurable === 1 || product.is_configurable === true,
   'attribute-links-json': json(product.attribute_links),

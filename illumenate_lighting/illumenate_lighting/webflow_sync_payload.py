@@ -35,15 +35,20 @@ def configurator_rows(rows, include):
 	return [{key: row.get(key) for key in CONFIGURATOR_KEYS} for row in rows]
 
 
-def certification_rows(rows, codes):
-	"""Pure: certification, its code, its badge image (the brand's, set on template save), and
-	order (table position, from 1)."""
+def certification_rows(rows, details):
+	"""Pure: certification, its code, its badge image and order (table position, from 1).
+
+	The badge is the certification record's Badge Image (ilL-Attribute-Certification
+	``badge_image``; owner, 2026-11-06), not the spec sheet badge on the template row.
+	``details`` is {certification: {"certification_code", "badge_image"}}.
+	"""
 	rows = [row for row in rows if row.get("certification")]
 	return [
 		{
 			"certification": row.get("certification"),
-			"certification_code": codes.get(row.get("certification")) or row.get("certification"),
-			"badge_image": row.get("badge_image") or None,
+			"certification_code": (details.get(row.get("certification")) or {}).get("certification_code")
+			or row.get("certification"),
+			"badge_image": (details.get(row.get("certification")) or {}).get("badge_image") or None,
 			"order": order,
 		}
 		for order, row in enumerate(rows, start=1)
@@ -69,13 +74,13 @@ def template_section(product, include_configurator=True):
 	template = frappe.get_doc(doctype, name)
 	certifications = _rows(template, "certifications")
 	names = [row.certification for row in certifications if row.get("certification")]
-	codes = (
+	details = (
 		{
-			row["name"]: row["certification_code"]
+			row["name"]: row
 			for row in frappe.get_all(
 				"ilL-Attribute-Certification",
 				filters={"name": ["in", names]},
-				fields=["name", "certification_code"],
+				fields=["name", "certification_code", "badge_image"],
 			)
 		}
 		if names
@@ -98,5 +103,5 @@ def template_section(product, include_configurator=True):
 		"kit_components": [
 			{key: row.get(key) for key in KIT_KEYS} for row in _rows(template, "kit_components")
 		],
-		"certifications": certification_rows(certifications, codes),
+		"certifications": certification_rows(certifications, details),
 	}

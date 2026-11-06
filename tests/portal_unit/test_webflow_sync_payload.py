@@ -53,11 +53,11 @@ class Shapes(unittest.TestCase):
 		with load_service(MODULE) as (module, _frappe):
 			rows = module.certification_rows(
 				[
-					{"certification": "UL", "badge_image": "/files/ul.svg"},
+					{"certification": "UL", "badge_image": "/files/spec-sheet-dark.svg"},
 					{"certification": None},
 					{"certification": "ETL"},
 				],
-				{"UL": "cULus"},
+				{"UL": {"certification_code": "cULus", "badge_image": "/files/ul.svg"}},
 			)
 		self.assertEqual(
 			rows,
