@@ -1,0 +1,130 @@
+<div id="raw-specs-data" style="display:none;">
+  {{wf:specifications-json|Dynamo}}
+</div>
+
+<div id="raw-badges-data" style="display:none;">
+  {{wf:certifications-json|Dynamo}}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  
+  (function() {
+    const rawSpecsEl = document.getElementById('raw-specs-data');
+    const rawBadgesEl = document.getElementById('raw-badges-data');
+
+    const specsContainer = document.querySelector('.specs-grid');
+    const specTemplate = document.querySelector('.spec-item-template');
+
+    if (specsContainer && specTemplate) {
+        specTemplate.style.display = 'none'; 
+    } else {
+        return;
+    }
+
+    // ==========================================
+    // PART A: GENERATE STANDARD TEXT SPECS
+    // ==========================================
+    if (rawSpecsEl) {
+        const rawSpecsText = rawSpecsEl.innerText.trim();
+        
+        if (rawSpecsText && rawSpecsText !== "[]") {
+            try {
+                const specsData = JSON.parse(rawSpecsText);
+                
+                specsData.forEach((spec, index) => {
+                    try {
+                        // Added fallback keys (value, label) just in case the CMS structure changed
+                        const rawValue = spec.spec_value || spec.value;
+                        const rawLabel = spec.spec_label || spec.label || spec.name;
+                        
+                        const cleanValue = (rawValue !== null && rawValue !== undefined) ? String(rawValue).trim() : '';
+
+                        // Skip rendering if value is completely blank or "N/A"
+                        if (cleanValue === '' || cleanValue.toUpperCase() === 'N/A') {
+                            return; 
+                        }
+
+                        const upperTitle = (rawLabel || '').toUpperCase();
+                        
+                        // Ignore the old text-based certification rows so they don't duplicate
+                        if (upperTitle.includes('CERTIFICATIONS') || upperTitle === 'STANDARDS') return;
+
+                        // Clone the template
+                        const newItem = specTemplate.cloneNode(true);
+                        newItem.style.display = 'block'; 
+                        
+                        const titleEl = newItem.querySelector('.spec-data-title');
+                        const bodyEl = newItem.querySelector('.spec-value');
+                        
+                        if (titleEl) titleEl.innerText = rawLabel || '';
+
+                        if (bodyEl) {
+                            const safeUnit = spec.spec_unit || spec.unit ? String(spec.spec_unit || spec.unit).trim() : '';
+                            const unitString = safeUnit ? ` ${safeUnit}` : '';
+                            bodyEl.innerText = cleanValue + unitString;
+                        }
+                        
+                        specsContainer.appendChild(newItem);
+                        
+                    } catch (innerError) {
+                        console.error("Error generating text spec item:", spec, innerError);
+                    }
+                });
+            } catch (error) {
+                console.error("Error parsing specifications JSON. Is it valid JSON?", error);
+            }
+        }
+    }
+
+    // ==========================================
+    // PART B: GENERATE BADGES STRICTLY FROM BADGES JSON
+    // ==========================================
+    if (rawBadgesEl) {
+        const rawBadgesText = rawBadgesEl.innerText.trim();
+        if (rawBadgesText && rawBadgesText !== "[]") {
+            try {
+                const badgesData = JSON.parse(rawBadgesText);
+                
+                if (badgesData && badgesData.length > 0) {
+                    const badgeCard = specTemplate.cloneNode(true);
+                    badgeCard.style.display = 'block'; 
+                    
+                    const titleEl = badgeCard.querySelector('.spec-data-title');
+                    const bodyEl = badgeCard.querySelector('.spec-value');
+                    
+                    if (titleEl) titleEl.innerText = 'Certifications & Ratings';
+
+                    if (bodyEl) {
+                        bodyEl.innerHTML = '';
+                        bodyEl.style.display = 'flex';
+                        bodyEl.style.flexWrap = 'wrap'; 
+                        bodyEl.style.alignItems = 'center';
+                        bodyEl.style.gap = 'var(--button-t-b-padding)';
+                        
+                        badgesData.forEach(badge => {
+                            if (badge.badge) { 
+                                const imgEl = document.createElement('img');
+                                imgEl.src = badge.badge;
+                                imgEl.alt = badge.name || badge.code || 'Certification Badge';
+                                imgEl.title = badge.name || badge.code || 'Certification Badge'; 
+                                imgEl.style.height = 'var(--small-icons)'; 
+                                bodyEl.appendChild(imgEl);
+                            }
+                        });
+                    }
+                    specsContainer.appendChild(badgeCard);
+                }
+            } catch (error) {
+                console.error("Error parsing Certifications JSON:", error);
+            }
+        }
+    }
+
+    // Finally, remove the original template
+    specTemplate.remove();
+
+  })();
+
+});
+</script>

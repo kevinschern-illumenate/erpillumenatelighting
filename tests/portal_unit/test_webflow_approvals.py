@@ -48,12 +48,12 @@ class ApprovalRules(unittest.TestCase):
 		self.addCleanup(context.__exit__, None, None, None)
 		return module, frappe
 
-	def test_restore_from_archived_to_draft_or_published_needs_approval(self):
+	def test_restore_from_archived_needs_approval(self):
+		# Discontinued puts the page back up too (owner, 2026-11-06).
 		module, _frappe = self.load()
-		for target in ("Webflow Draft", "Published"):
+		for target in ("Webflow Draft", "Published", "Discontinued"):
 			for published in (True, False):
 				self.assertEqual(module.status_action("Archived", target, published), "Restore")
-		self.assertIsNone(module.status_action("Archived", "Discontinued", True))
 		self.assertIsNone(module.status_action("Archived", "Archived", True))
 
 	def test_archive_needs_approval_only_when_ever_published(self):

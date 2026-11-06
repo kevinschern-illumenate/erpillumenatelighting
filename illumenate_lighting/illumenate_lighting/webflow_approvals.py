@@ -2,7 +2,7 @@
 
 Two changes wait for approval before anything goes to Webflow:
 
-- **Restore:** a Webflow Product's Webflow Status goes from Archived to Webflow Draft or Published.
+- **Restore:** a Webflow Product's Webflow Status goes from Archived to Webflow Draft, Published or Discontinued.
 - **Archive:** a product whose page was ever published (a Product Publication with
   ``published_on``, any brand) gets the Webflow Status Archived, or its linked template gets
   the Product Status Archived. A product never published archives at once.
@@ -26,7 +26,7 @@ APPROVAL = "ilL-Webflow-Approval"
 PRODUCT = "ilL-Webflow-Product"
 PUBLICATION = "ilL-Product-Publication"
 ARCHIVED = "Archived"
-RESTORE_TO = ("Webflow Draft", "Published")
+RESTORE_TO = ("Webflow Draft", "Published", "Discontinued")  # Discontinued puts the page back up (owner, 2026-11-06)
 RESTORE, ARCHIVE = "Restore", "Archive"
 PENDING, APPROVED, REJECTED = "Pending", "Approved", "Rejected"
 # Set on a document saved by an approval decision, so the write-back asks for no new approval.

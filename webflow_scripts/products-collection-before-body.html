@@ -1,0 +1,310 @@
+<script>
+  // --- UPDATES THE COMPATIBLE PRODUCTS SECTION ---
+document.addEventListener("DOMContentLoaded", () => {
+  // Select our main layout elements
+  const wrapperSection = document.querySelector('.related-products-coll-list-wrapper');
+  const parentList = document.querySelector('.related-coll-list');
+  const emptyMsg = document.querySelector('.empty-cmpatible-prods');
+
+  // Helper function to show the empty message and hide the list
+  function triggerEmptyState() {
+      if (parentList) parentList.style.display = 'none';
+      if (emptyMsg) emptyMsg.style.display = 'flex'; 
+      if (wrapperSection) wrapperSection.style.display = 'block'; 
+  }
+
+  // 1. Get the current page's compatible products JSON
+  const jsonEl = document.getElementById('compatible-products-json');
+  if (!jsonEl) {
+      console.warn("STOPPING: Could not find the <div id='compatible-products-json'> element on the page.");
+      return;
+  }
+  
+  let compatibleProducts = [];
+  try {
+    let rawJson = jsonEl.innerHTML.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').trim();
+    
+    // SAFETY CHECK 1: If JSON is totally empty
+    if (!rawJson || rawJson === "") {
+        triggerEmptyState();
+        return; 
+    }
+    
+    compatibleProducts = JSON.parse(rawJson);
+  } catch (e) {
+    console.error("STOPPING: Error parsing compatible products JSON.", e);
+    return;
+  }
+
+  // 2. Find all product cards
+  const allCards = Array.from(document.querySelectorAll('.related-coll-item')); 
+  
+  // SAFETY CHECK 2: If Webflow's list is completely empty
+  if (allCards.length === 0) {
+      triggerEmptyState();
+      return;
+  }
+
+  const matchedCards = [];
+
+  // 3. Loop through cards and match
+  allCards.forEach(card => {
+    const erpEl = card.querySelector('.card-erp-id');
+    if (!erpEl) {
+        card.remove();
+        return;
+    }
+
+    const cardErpId = erpEl.textContent.trim();
+
+    // Find the full matching object in the JSON array
+    const matchingData = compatibleProducts.find(item => item.product === cardErpId);
+
+    if (matchingData) {
+      // Inject the relationship type
+      const typeEl = card.querySelector('.relationship-type');
+      if (typeEl) {
+          if (matchingData.type) {
+              typeEl.textContent = matchingData.type;
+              typeEl.style.display = ''; 
+          } else {
+              typeEl.style.display = 'none'; 
+          }
+      }
+
+      matchedCards.push({
+        element: card,
+        sortIndex: compatibleProducts.indexOf(matchingData) 
+      });
+    } else {
+      card.remove(); 
+    }
+  });
+
+  // 4. Cleanup & Reordering
+  // SAFETY CHECK 3: Checking if any cards actually survived the matching process
+  if (matchedCards.length > 0 && parentList) {
+    
+    if (emptyMsg) emptyMsg.style.display = 'none';
+    if (parentList) parentList.style.display = ''; 
+
+    matchedCards.sort((a, b) => a.sortIndex - b.sortIndex);
+    matchedCards.forEach(match => {
+      match.element.style.display = 'block'; 
+      parentList.appendChild(match.element);
+    });
+    
+  } else {
+    triggerEmptyState();
+  }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // --- 1. HERO SLIDER NAVIGATION (STARS & ARROWS) ---
+  const starSelector = '.pdp-star-dot, .custom-star-dot';
+  $(document).off('click', starSelector).on('click', starSelector, function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const index = $(starSelector).index(this);
+    let $heroDots = $('.hero-slider-nav .w-slider-dot');
+    if ($heroDots.length === 0) $heroDots = $('.w-slider-nav').first().find('.w-slider-dot');
+    if ($heroDots.length > index) $heroDots.eq(index).trigger('tap'); 
+  });
+
+  $('.pdp-prev-arrow').on('click', function(e) { e.preventDefault(); $('.w-slider-arrow-left').first().trigger('tap'); });
+  $('.pdp-next-arrow').on('click', function(e) { e.preventDefault(); $('.w-slider-arrow-right').first().trigger('tap'); });
+
+  const heroObserver = new MutationObserver(function() {
+      let $heroNav = $('.hero-slider-nav');
+      if ($heroNav.length === 0) $heroNav = $('.w-slider-nav').first();
+      const activeIndex = $heroNav.find('.w-slider-dot.w-active').index();
+      if (activeIndex > -1) {
+          $(starSelector).removeClass('active').eq(activeIndex).addClass('active');
+      }
+  });
+  let $heroNavTarget = $('.hero-slider-nav');
+  if ($heroNavTarget.length === 0) $heroNavTarget = $('.w-slider-nav').first();
+  $heroNavTarget.each(function() { heroObserver.observe(this, { attributes: true, subtree: true, childList: true }); });
+
+  // --- 2. DYNAMIC HERO SLIDER POPULATOR ---
+  const sliderMask = document.querySelector('.w-slider-mask'); 
+  const slideTemplate = document.querySelector('.hero-slide-template');
+  const ghostImages = document.querySelectorAll('.ghost-img-source');
+  const $starTemplate = $('.pdp-star-dot').first(); 
+  const $nextArrow = $('.pdp-next-arrow');         
+
+  if (sliderMask && slideTemplate) {
+    if (ghostImages.length > 0) {
+      ghostImages.forEach((img, idx) => {
+        const newSlide = slideTemplate.cloneNode(true);
+        newSlide.classList.remove('hero-slide-template');
+        newSlide.classList.add('w-slide'); 
+        const targetImg = newSlide.querySelector('.hero-slide-img');
+        if (targetImg) {
+          targetImg.src = img.src; targetImg.srcset = img.srcset; targetImg.sizes = img.sizes; targetImg.removeAttribute('id');
+        }
+        sliderMask.appendChild(newSlide);
+        if (idx >= 0 && $starTemplate.length > 0 && $nextArrow.length > 0) {
+            const $newStar = $starTemplate.clone(); $newStar.removeClass('active'); $nextArrow.before($newStar);   
+        }
+      });
+    }
+    slideTemplate.remove();
+    if (window.Webflow && window.Webflow.require('slider')) {
+        window.Webflow.require('slider').redraw();
+        window.Webflow.require('slider').ready();
+    }
+  }
+
+  // --- 3. SPECIFICATIONS CLEANER ---
+  const specElements = document.querySelectorAll('[data-clean-spec]');
+  specElements.forEach(el => {
+    const raw = el.getAttribute('data-clean-spec');
+    if (!raw) return;
+    const cleanNames = raw.split('|').map(g => g.split(',')[0].trim());
+    el.innerText = cleanNames.join(', ');
+  });
+
+  // --- 7. DYNAMIC LENGTH DISCLAIMER ---
+  (function() {
+    const categoryEl = document.getElementById('pdp-category-name');
+    const categoryText = categoryEl ? categoryEl.innerText.toLowerCase().trim() : '';
+    const noteWrapper = document.querySelector('.length-note');
+    const noteTextEl = document.getElementById('fixture-length-note');
+
+    if (!noteWrapper || !categoryText.includes('linear fixtures')) {
+      if (noteWrapper) noteWrapper.style.display = 'none';
+      return;
+    }
+
+    let formattedInterval = '1.31in (33.3mm)'; 
+    const rawSpecsEl = document.getElementById('raw-specs-data');
+    if (rawSpecsEl) {
+      try {
+        const specsData = JSON.parse(rawSpecsEl.innerText.trim());
+        const intervalSpec = specsData.find(s => s.spec_label && s.spec_label.toUpperCase() === 'PRODUCTION INTERVAL');
+        if (intervalSpec && intervalSpec.spec_value) {
+          const rawValue = intervalSpec.spec_value;
+          const numberMatch = rawValue.match(/([\d.]+)/);
+          if (numberMatch) {
+            const inches = parseFloat(numberMatch[1]);
+            const mm = (inches * 25.4).toFixed(1); 
+            formattedInterval = `${inches}in (${mm}mm)`;
+          } else {
+            formattedInterval = rawValue;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse specifications for Length Disclaimer.", e);
+      }
+    }
+
+    if (noteTextEl) {
+      noteTextEl.innerText = `Fixtures will be built as close to the requested length without going over based on a ${formattedInterval} production interval. Lengths longer than 78in will consist of multiple pieces of channel and lens to be assembled in the field to create the complete fixture length.`;
+      noteWrapper.style.display = 'flex';
+    }
+  })();
+
+  // --- 8. RELATED PRODUCTS ARROWS ---
+  (function() {
+    const prevArrow = document.querySelector('.prev-arrow.related');
+    const nextArrow = document.querySelector('.next-arrow.related');
+    
+    const scrollRelatedCards = (direction) => {
+        let scrollContainer = document.querySelector('.related-coll-list');
+        if (!scrollContainer) return;
+
+        const cards = Array.from(scrollContainer.querySelectorAll('.related-coll-item'));
+        const visibleCard = cards.find(card => card.style.display !== 'none');
+        if (!visibleCard) return;
+
+        const containerStyle = window.getComputedStyle(scrollContainer);
+        const gap = parseFloat(containerStyle.gap) || parseFloat(containerStyle.columnGap) || 0;
+        const cardStyle = window.getComputedStyle(visibleCard);
+        const margin = parseFloat(cardStyle.marginRight) || parseFloat(cardStyle.marginLeft) || 0;
+        
+        const scrollAmount = (visibleCard.offsetWidth + gap + margin) * direction;
+
+        scrollContainer.scrollBy({
+            left: scrollAmount,
+            behavior: 'smooth'
+        });
+    };
+
+    if (prevArrow) {
+        prevArrow.addEventListener('click', (e) => {
+            e.preventDefault();
+            scrollRelatedCards(-1); 
+        });
+    }
+    if (nextArrow) {
+        nextArrow.addEventListener('click', (e) => {
+            e.preventDefault();
+            scrollRelatedCards(1); 
+        });
+    }
+  })();
+
+  // --- 9. PRODUCT BADGES ---
+  (function() {
+    const pdpBadges = document.querySelectorAll('.pdp-product-badge');
+    pdpBadges.forEach(badge => {
+        const rawText = badge.textContent || badge.innerText;
+        const badgeText = rawText.trim().toLowerCase();
+
+        if (!badgeText || badgeText === '' || badgeText === 'none') {
+            badge.style.display = 'none';
+            return;
+        }
+
+        badge.style.display = 'flex'; 
+
+        if (badgeText.includes('new')) {
+            badge.classList.add('badge-new');
+        } else if (badgeText.includes('sale')) {
+            badge.classList.add('badge-sale');
+        } else if (badgeText.includes('quick ship')) {
+            badge.classList.add('badge-quick-ship');
+        }
+    });
+  })();
+
+});
+</script>
+
+<script>
+  //=== ILL-DOWNLOAD-SPEC-BTN ===//
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Prevent the "Enter" key from submitting Webflow's form, and trigger the download instead!
+    const specModal = document.querySelector('.spec-modal-wrapper');
+    
+    if (specModal) {
+        specModal.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                
+                const dlBtn = document.getElementById('ill-download-spec-sheet');
+                if (dlBtn) dlBtn.click(); 
+            }
+        });
+    }
+});
+
+// 2. Fix the "Back Button" cache glitch
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        const modal = document.querySelector('.spec-modal-wrapper');
+        if (modal) modal.style.setProperty('display', 'none', 'important');
+        
+        const dlBtn = document.getElementById('ill-download-spec-sheet');
+        if (dlBtn) {
+            dlBtn.disabled = false;
+            dlBtn.style.opacity = '1';
+            dlBtn.textContent = 'Download Spec Sheet'; 
+        }
+    }
+});
+</script>

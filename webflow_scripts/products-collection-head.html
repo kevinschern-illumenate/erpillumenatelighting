@@ -1,0 +1,176 @@
+<style>
+  /* --- 1. SLIDER RESET & EQUAL HEIGHTS --- */
+  .w-slider-mask {
+    display: flex !important;
+    align-items: stretch !important;
+    overflow: visible !important;
+  }
+  
+  .w-slide {
+    height: auto !important;
+    display: flex !important;
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+  
+  .Part-No-Card {
+    flex: 1 0 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100%;
+  }
+  
+  .options-container {
+    flex-grow: 1;
+  }
+
+  /* --- 2. CARD STYLING (Updated Variables) --- */
+  
+  /* Layout */
+  .radio-card-row { 
+    display: flex; 
+    align-items: flex-start; /* Aligns checkbox with top of text line */
+    cursor: pointer; 
+    width: 100%; 
+    /* Updated Padding */
+    padding: 0px 0 !important; 
+    /* Removed Border */
+    border-bottom: none !important;
+  }
+
+  .real-radio-input { 
+    position: absolute; 
+    opacity: 0; 
+    cursor: pointer; 
+    height: 0; 
+    width: 0; 
+  }
+  
+ /* Square Styling (Redesigned & Color Updated) */
+  .custom-square {
+    height: 15px !important; 
+    width: 15px !important; 
+    background-color: transparent; 
+    border: 1px solid #FFFFFF; /* Default Unselected White */
+    border-radius: 3px;
+    margin-right: 15px !important; 
+    margin-top: 3px !important; 
+    flex-shrink: 0; 
+    transition: all 0.2s ease;
+    position: relative; 
+    display: block;
+  }
+  
+  /* Concentric Inner Square Design */
+  .custom-square::before {
+    content: '';
+    display: block;
+    position: absolute;
+    height: 9px; 
+    width: 9px; 
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 2px; 
+    background-color: transparent; 
+    transition: all 0.2s ease;
+  }
+  
+  /* Applies variable color when clicked natively OR forced by single option */
+  .real-radio-input:checked ~ .custom-square,
+  .custom-square.single-checked { 
+    border-color: var(--_colors---accent-20) !important; 
+  }
+  
+  /* Fills in the inner square when clicked natively OR forced by single option */
+  .real-radio-input:checked ~ .custom-square::before,
+  .custom-square.single-checked::before { 
+    background-color: var(--_colors---accent-20) !important; 
+  }
+  
+  /* Text Layout */
+  .text-container { display: flex; flex-direction: column; width: 100%; }
+  .top-row { display: flex; justify-content: space-between; align-items: center; width: 100%; } 
+  
+  /* Name Font (Linked to Global Variables) */
+  .radio-name { 
+    font-family: var(--_fonts---body-font) !important; 
+    font-weight: var(--body-weight) !important; 
+    font-size: var(--body) !important; 
+    line-height: var(--body-line-height) !important; 
+    color: #FFFFFF; 
+  }
+  
+  /* Price/Specs Font (Optional support for extra data) */
+  .radio-price, .radio-specs { 
+    font-family: var(--_fonts---body-font) !important; 
+    font-size: 14px !important; 
+    color: #FFFFFF; 
+    opacity: 0.6; 
+  }
+  .radio-specs:empty { display: none; }
+
+  /* --- 3. LOGIC STATES --- */
+  .Part-No-Card.is-locked {
+    pointer-events: none !important;
+    opacity: 0.4 !important;
+    filter: grayscale(1) !important;
+  }
+  
+  .output-embed { display: none !important; }
+  .output-embed.is-active { display: block !important; }
+  .lens-hint { display: flex; align-items: center; color: #ffcc00; font-size: 14px; padding: 10px 0; }
+
+  /* --- 4. NAVIGATION --- */
+  .category-link { cursor: pointer; transition: all 0.2s ease; opacity: 0.6; }
+  .category-link.current { color: #ffffff !important; opacity: 1; }
+</style>
+
+<style>
+  /* 1. Force the Sub Menu to Stick */
+  .pdp-sub-menu-wrap {
+      position: -webkit-sticky !important; /* Safari support */
+      position: sticky !important;
+      top: 0px !important;
+      z-index: 9999 !important; /* Ensure it stays above other content */
+  }
+
+  /* 2. The Magic Bullet: Fix the global overflow bug */
+  /* This targets the parents to ensure they don't 'clip' the sticky child */
+  html, body {
+      overflow: visible !important;
+      overflow-x: clip !important; 
+  }
+</style>
+
+<style>
+  /* --- CONFIGURATOR TOOLTIP & ARROWS --- */
+/* 1. Hide the native scrollbar but keep it scrollable */
+  .configure-slider::-webkit-scrollbar {
+      display: none !important;
+  }
+  .configure-slider {
+      -ms-overflow-style: none !important;  /* IE and Edge */
+      scrollbar-width: none !important;  /* Firefox */
+  }
+  
+  /* Hide the scrollbar but keep the physics */
+.related-scroll-container {
+    -ms-overflow-style: none !important;  /* IE and Edge */
+    scrollbar-width: none !important;  /* Firefox */
+}
+.related-scroll-container::-webkit-scrollbar {
+    display: none !important; /* Chrome, Safari and Opera */
+}
+  </style>
+
+<style>
+  /* --- ANIMATION FOR COPY CODE BUTTON --- */
+  @keyframes slideUpFade {
+    0% { transform: translateY(10px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+</style>
+
+<script async src="https://cdn.jsdelivr.net/npm/@finsweet/attributes-cmsfilter@1/cmsfilter.js"></script>
