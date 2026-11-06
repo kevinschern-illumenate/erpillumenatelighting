@@ -392,6 +392,18 @@
 	},
 	{
 		"doctype": "Custom Field",
+		"dt": "Sales Invoice",
+		"fieldname": "custom_qbo_payment_link",
+		"fieldtype": "Data",
+		"options": "URL",
+		"length": 500,
+		"insert_after": "custom_synced_from",
+		"label": "QuickBooks Payment Link",
+		"read_only": 1,
+		"no_copy": 1
+	},
+	{
+		"doctype": "Custom Field",
 		"dt": "Purchase Invoice",
 		"fieldname": "custom_qbo_id",
 		"fieldtype": "Data",
