@@ -13,7 +13,8 @@ buttons, publication requests and the worker's claim refuse). Approve sends the 
 the normal sync path as the approving user. Reject leaves Webflow alone and puts the status back.
 
 Created by the ``on_update`` doc_events in hooks.py: ``on_product_update`` (ilL-Webflow-Product)
-and ``on_template_update`` (the six template doctypes).
+(owner, 2026-11-06: template status changes raise no approval; they push to the linked
+product, and only the product's Webflow Status decides what Webflow does).
 """
 
 import frappe
@@ -26,7 +27,8 @@ APPROVAL = "ilL-Webflow-Approval"
 PRODUCT = "ilL-Webflow-Product"
 PUBLICATION = "ilL-Product-Publication"
 ARCHIVED = "Archived"
-RESTORE_TO = ("Webflow Draft", "Published", "Discontinued")  # Discontinued puts the page back up (owner, 2026-11-06)
+# Discontinued puts the page back up too (owner, 2026-11-06).
+RESTORE_TO = ("Webflow Draft", "Published", "Discontinued")
 RESTORE, ARCHIVE = "Restore", "Archive"
 PENDING, APPROVED, REJECTED = "Pending", "Approved", "Rejected"
 # Set on a document saved by an approval decision, so the write-back asks for no new approval.
@@ -224,23 +226,6 @@ def on_product_update(doc, method=None):
 	old, new = before.get("webflow_status"), doc.get("webflow_status")
 	if old != new:
 		record_change(doc.name, "product", old, new)
-
-
-def on_template_update(doc, method=None):
-	"""doc_events on_update of the six template doctypes: a Product Status change."""
-	if doc.flags.get(FLAG):
-		return
-	product = doc.get("webflow_product")
-	field = WEBFLOW_PRODUCT_LINKS.get(doc.doctype)
-	if not product or not field:
-		return
-	before = doc.get_doc_before_save()
-	if not before:
-		return
-	old, new = before.get("product_status"), doc.get("product_status")
-	if old == new or frappe.db.get_value(PRODUCT, product, field) != doc.name:
-		return
-	record_change(product, "template", old, new, (doc.doctype, doc.name))
 
 
 # --- Decisions -----------------------------------------------------------------------------

@@ -514,13 +514,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.webflow_approvals.on_product_update",
 		],
 	},
-	# Archiving a template whose product page was ever published waits for approval (plan 4.19).
-	"ilL-Fixture-Template": {"on_update": "illumenate_lighting.illumenate_lighting.webflow_approvals.on_template_update"},
-	"ilL-Tape-Neon-Template": {"on_update": "illumenate_lighting.illumenate_lighting.webflow_approvals.on_template_update"},
-	"ilL-LED-Sheet-Template": {"on_update": "illumenate_lighting.illumenate_lighting.webflow_approvals.on_template_update"},
-	"ilL-Driver-Template": {"on_update": "illumenate_lighting.illumenate_lighting.webflow_approvals.on_template_update"},
-	"ilL-Controller-Template": {"on_update": "illumenate_lighting.illumenate_lighting.webflow_approvals.on_template_update"},
-	"ilL-Extrusion-Kit-Template": {"on_update": "illumenate_lighting.illumenate_lighting.webflow_approvals.on_template_update"},
+	# Only the Webflow Product's own Webflow Status raises approvals; template status changes
+	# push to the linked product as usual (owner, 2026-11-06).
 	"ilL-Webflow-Category": {
 		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_category_update",
 	},

@@ -218,27 +218,6 @@ class ApprovalRecords(unittest.TestCase):
 		frappe.db.get_value.assert_not_called()
 		self.assertEqual(self.inserted, [])
 
-	def test_template_archive_waits_for_its_linked_product(self):
-		module, frappe = self.load()
-		template = Doc(
-			doctype="ilL-Fixture-Template",
-			name="FT-1",
-			webflow_product="kit-ra01",
-			product_status="Archived",
-			before=Record(product_status="Active + Live"),
-		)
-
-		def get_value(doctype, filters, fields=None, **kwargs):
-			if doctype == module.PRODUCT:
-				return "FT-1"
-			return None
-
-		frappe.db.get_value.side_effect = get_value
-		module.on_template_update(template)
-		(doc,) = self.inserted
-		self.assertEqual((doc.template_doctype, doc.template_name), ("ilL-Fixture-Template", "FT-1"))
-		self.assertEqual((doc.from_status, doc.to_status), ("Active + Live", "Archived"))
-
 	def approval(self, module, frappe, state="Pending", **values):
 		doc = Doc(
 			{
