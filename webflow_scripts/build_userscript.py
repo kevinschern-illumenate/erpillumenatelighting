@@ -96,7 +96,10 @@ def build():
 		+ "\n\n".join(code)
 		+ "\n"
 	)
-	(HERE / "staging.user.js").write_text("\n".join(header) + "\n" + body, encoding="utf-8")
+	text = "\n".join(header) + "\n" + body
+	# Trailing spaces are harmless, but Tampermonkey's editor highlights them.
+	text = "\n".join(line.rstrip() for line in text.split("\n"))
+	(HERE / "staging.user.js").write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":
