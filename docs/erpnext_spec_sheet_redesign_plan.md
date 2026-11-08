@@ -1644,7 +1644,14 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 
 **Phase 6: status**
 - Built:
-  - **Publication History** (4.14, built 2026-11-08), `publication_history.get_history` and `public/js/publication_history.js`. It is a section at the bottom of the Webflow Product and of each linked template, read permission only. Per brand: published since, last sync, review reason. The latest 25 pushes: when, what (Sync, Publish, Remove from Webflow), brand, result (Done, Failed, Failed retrying, Waiting, Running, Replaced by a newer save), started by, finished, error. A link opens all jobs;
+  - **Publication History** (4.14, built 2026-11-08), `publication_history.get_history` and `public/js/publication_history.js`, read permission only.
+    - Where: a section at the bottom of the Webflow Product and of each linked template, in Frappe's section markup so it has the same width as the other sections.
+    - Per brand: published since, last sync, review reason.
+    - One timeline (owner, 2026-11-08) with the columns When, Status, Result, By, Finished, Error. It shows:
+      - the latest 25 pushes, with the statuses at the time ("Active + Live · Published", plus "(sent as Webflow Draft)" when the template overrode it). New `ilL-Publish-Job` fields `template_status`, `webflow_status` and `effective_status` record them from 2026-11-08, so older pushes show "—";
+      - the status changes of the template's Product Status and the product's Webflow Status, from the change log (Version). Track changes was switched on for `ilL-LED-Sheet-Template`, the one template without it.
+    - The What and Brand columns were dropped (owner): every push is a Sync, and the result names any other operation ("Done (removed from Webflow)").
+    - A link opens all jobs.
   - the brand pill and record name in the template sidebar;
   - the approval banner (replaces the archive review banner);
   - the "automatic push waiting / held" line on the product.

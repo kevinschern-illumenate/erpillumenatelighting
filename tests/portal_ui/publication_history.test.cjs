@@ -32,9 +32,10 @@ test('the product shows its brands and latest pushes, escaped', async t => {
   const history = {
     product: 'kit-ra02', limit: 25,
     brands: [{ brand: 'illumenate', published_on: '2026-11-06 10:00:00', staged_on: '2026-11-08 09:00:00', on_webflow: true }],
-    jobs: [
-      { requested_on: '2026-11-08 09:00:00', what: 'Sync', brand: 'illumenate', result: 'Done', ok: true, by: 'owner@example.com', completed_on: '2026-11-08 09:00:05' },
-      { requested_on: '2026-11-07 09:00:00', what: 'Sync', brand: 'illumenate', result: 'Failed', ok: false, by: 'a', error: HOSTILE },
+    rows: [
+      { kind: 'push', when: '2026-11-08 09:00:00', status: 'Active + Live · Published', result: 'Done', ok: true, by: 'owner@example.com', completed_on: '2026-11-08 09:00:05' },
+      { kind: 'status', when: '2026-11-08 08:59:00', status: 'Webflow Status: Webflow Draft → Published', result: 'Status changed', ok: null, by: 'owner@example.com' },
+      { kind: 'push', when: '2026-11-07 09:00:00', status: '', result: 'Failed', ok: false, by: 'a', error: HOSTILE },
     ],
   };
   const { dom, handlers, calls, frm } = setup(t, history);
@@ -43,13 +44,17 @@ test('the product shows its brands and latest pushes, escaped', async t => {
   assert.deepEqual(JSON.parse(JSON.stringify(calls[0][1])), { product: 'kit-ra02' });
   const section = dom.window.document.querySelector('.ill-publication-history');
   assert.match(section.textContent, /published since 2026-11-06 10:00/);
-  assert.equal(section.querySelectorAll('tbody tr').length, 2);
+  assert.equal(section.querySelectorAll('tbody tr').length, 3);
+  assert.equal(section.querySelectorAll('tbody tr.ill-status-change').length, 1);
+  assert.match(section.textContent, /Webflow Draft → Published/);
+  assert.equal([...section.querySelectorAll('thead th')].map(th => th.textContent).join('|'), 'When|Status|Result|By|Finished|Error');
+  assert.ok(section.classList.contains('form-section'));
   assert.equal(section.querySelector('img'), null);
   assert.match(section.textContent, /<img src=x/);
 });
 
 test('a template asks through its linked product; without one nothing shows', async t => {
-  const { dom, handlers, calls, frm } = setup(t, { product: 'kit-ra02', brands: [], jobs: [], limit: 25 },
+  const { dom, handlers, calls, frm } = setup(t, { product: 'kit-ra02', brands: [], rows: [], limit: 25 },
     'ilL-Extrusion-Kit-Template', { name: 'KIT-RA02', webflow_product: 'kit-ra02' });
   handlers['ilL-Extrusion-Kit-Template'].refresh(frm);
   await flush();

@@ -47,28 +47,49 @@ class Backfill(unittest.TestCase):
 
 
 class History(unittest.TestCase):
-	def test_job_rows_read_plainly(self):
+	def test_push_rows_carry_the_statuses_and_name_other_operations(self):
 		with load_service(ROOT + ".publication_history") as (module, _frappe):
 			done = module.job_row(
 				{
-					"name": "J1",
 					"operation": "STAGE",
 					"state": "COMPLETE",
 					"requested_by": "auto",
 					"started_by": "owner",
+					"template_status": "Draft",
+					"webflow_status": "Published",
+					"effective_status": "Webflow Draft",
 				}
 			)
 			self.assertEqual(
-				(done["what"], done["result"], done["ok"], done["by"]), ("Sync", "Done", True, "owner")
+				(done["status"], done["result"], done["ok"], done["by"]),
+				("Draft · Published (sent as Webflow Draft)", "Done", True, "owner"),
 			)
 			retry = module.job_row(
-				{"operation": "PUBLISH", "state": "FAILED", "next_attempt_on": "x", "last_error": "429"}
+				{"operation": "RETIRE", "state": "FAILED", "next_attempt_on": "x", "last_error": "429"}
 			)
 			self.assertEqual(
-				(retry["what"], retry["result"], retry["error"]), ("Publish", "Failed, retrying", "429")
+				(retry["status"], retry["result"], retry["error"]),
+				("", "Failed, retrying (removed from Webflow)", "429"),
 			)
 			old = module.job_row({"operation": "STAGE", "state": "SUPERSEDED", "requested_by": "a"})
 			self.assertEqual((old["result"], old["by"]), ("Replaced by a newer save", "a"))
+
+	def test_status_changes_come_from_the_change_log(self):
+		with load_service(ROOT + ".publication_history") as (module, _frappe):
+			versions = [
+				{
+					"data": '{"changed": [["product_status", "Draft", "Active + Live"], ["sublabel", "a", "b"]]}',
+					"owner": "owner",
+					"creation": "2026-11-08 09:00:00",
+				},
+				{"data": "not json", "owner": "x", "creation": "2026-11-07"},
+			]
+			(row,) = module.change_rows(versions, "product_status")
+			self.assertEqual(
+				(row["kind"], row["status"], row["by"]),
+				("status", "Template: Draft → Active + Live", "owner"),
+			)
+			self.assertEqual(module.change_rows(versions, "webflow_status"), [])
 
 
 if __name__ == "__main__":

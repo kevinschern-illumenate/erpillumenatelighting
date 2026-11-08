@@ -18,6 +18,9 @@
   "request_key",
   "requested_by",
   "started_by",
+  "template_status",
+  "webflow_status",
+  "effective_status",
   "state",
   "attempts",
   "lease_token",
@@ -122,6 +125,27 @@
    "read_only": 1,
    "options": "User",
    "description": "Who started this push (the button, or the save behind an automatic push). Gets the success notification."
+  },
+  {
+   "fieldname": "template_status",
+   "fieldtype": "Data",
+   "label": "Template Status",
+   "read_only": 1,
+   "description": "The template's Product Status when the push was requested."
+  },
+  {
+   "fieldname": "webflow_status",
+   "fieldtype": "Data",
+   "label": "Webflow Status",
+   "read_only": 1,
+   "description": "The product's Webflow Status when the push was requested."
+  },
+  {
+   "fieldname": "effective_status",
+   "fieldtype": "Data",
+   "label": "Sent As",
+   "read_only": 1,
+   "description": "The status Webflow got (the template's status can override the product's, plan 4.3)."
   },
   {
    "fieldname": "state",

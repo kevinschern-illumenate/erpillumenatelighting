@@ -170,6 +170,9 @@ def _refresh(doc, state, config):
 	payload["webflow_state"] = {
 		"ever_published": bool(state.get("published_on")),
 		"effective_status": effective,
+		# For the Publication History (owner, 2026-11-08); kept out of the hash.
+		"template_status": template_status,
+		"webflow_status": doc.get("webflow_status"),
 	}
 	if rule:
 		# Hashed, so a template status change is a new revision to push.
@@ -306,6 +309,9 @@ def request(product, brand, operation, expected_hash):
 				"requested_by": frappe.session.user,
 				# The automatic push runs as its service user; the saver is who started it.
 				"started_by": frappe.flags.get("ill_webflow_started_by") or frappe.session.user,
+				"template_status": (payload.get("webflow_state") or {}).get("template_status"),
+				"webflow_status": (payload.get("webflow_state") or {}).get("webflow_status"),
+				"effective_status": (payload.get("webflow_state") or {}).get("effective_status"),
 				"state": "QUEUED",
 			}
 		)
