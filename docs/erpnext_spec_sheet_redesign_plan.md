@@ -801,7 +801,13 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
   - fills `project_name`, `fixture_type` and `project_location`; an empty value leaves the field editable;
   - for each `.config-card[data-step][data-selected-code]`, selects the `step_N` radio option (case-insensitive) and fills `display_step_N`;
   - draws a yellow box at 30% over each Subject box whose tags include a selected `<step>:<code>`;
-  - opens the PDF in a new tab and closes the popup (owner, 2026-11-06: a new tab instead of a download). The tab is opened on the click, showing "Preparing your spec sheet…", so popup blockers allow it. The PDF loads into it when ready, titled `ilLumenate Lighting_<product>_Spec Sheet_Configured`. If the tab is blocked, the PDF downloads under that name instead.
+  - opens the PDF in a new tab and closes the popup (owner, 2026-11-06: a new tab instead of a download).
+    - The tab opens on the click, so popup blockers allow it, and first shows a branded "Preparing your configured spec sheet for <product>…" page.
+    - When the PDF is ready, the tab shows our page: a bar with the logo, the file name and a **Download PDF** button, and the PDF full-size in the browser's viewer below.
+    - The tab stays on our page because a tab showing the PDF directly is titled with the browser's temporary ID (owner, 2026-11-08).
+    - File name (owner, 2026-11-08): `ilLumenate Lighting_CONFIGURED SPEC_<Product Name>.pdf`. It is the tab title and the Download button's name. The viewer's own save button still uses the temporary ID; the browser decides that.
+    - If the tab is blocked, the PDF downloads under that name.
+    - The look (background, text and accent colours, logo) is set in `TAB_LOOK` at the top of the page section of `configured-spec-sheet.html`.
 - It reads the selections from the configurator cards, so it does not need 206's `window.CurrentConfigSelection`.
 - Second staging test (owner, KIT-RA02, 2026-11-06): works, highlighting included.
 - First staging test (owner, KIT-RA02, 2026-11-06): neither Download nor the close icon responded. What was found:
@@ -809,7 +815,7 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
   - The Fixture Type wrapper div also had the id `ill-fixture-type`. That id was removed from the wrapper in the Designer.
   - The script now handles both buttons and the close icon. Its listeners are delegated from the document in the capture phase and registered when the script runs, so they run before any older handler. It reads the inputs by `input#id`.
   - Re-checked in Playwright through the built userscript, blocker included, with this structure.
-  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.06.3`).
+  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.08.1`).
 - It replaces the old `.extrusions-dwnld-submittal` submittal script (`extrusion-kit-configured-spec.html`, kept for reference) and the main site's old `#ill-download-spec-sheet` handler.
 
 **Checked:**
