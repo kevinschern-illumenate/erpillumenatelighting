@@ -1963,10 +1963,10 @@ This replaces the matrix above for Phase 8. The matrix is kept for its history; 
 - [ ] A desk user without ilL Catalog Publisher: Sync to Webflow and Generate Spec are refused with a message; nothing is saved. (old 17)
 - [ ] A website (portal) user: refused everywhere. (old 17)
 
-**J. Configured spec sheet (Webflow product page)**
-- [ ] On /products/kit-ra02, configure all steps, open Configure Spec Sheet, fill Project Name, Fixture Type, Location, click Download: the file `ilLumenate Lighting_CONFIGURED SPEC_<product>.pdf` downloads; the popup closes.
-- [ ] In the PDF: the footer fields are filled (and editable when left empty), the chosen options are ticked with their codes in the boxes, and only the chosen Lens, Mounting, Finish and Stock Length values are highlighted.
-- [ ] The popup closes with the X, with Esc and with a click outside it.
+**J. Configured spec sheet (Webflow product page)**: passed (owner, 2026-11-08).
+- [x] On /products/kit-ra02, configure all steps, open Configure Spec Sheet, fill Project Name, Fixture Type, Location, click Download: the file `ilLumenate Lighting_CONFIGURED SPEC_<product>.pdf` downloads; the popup closes.
+- [x] In the PDF: the footer fields are filled (and editable when left empty), the chosen options are ticked with their codes in the boxes, and only the chosen Lens, Mounting, Finish and Stock Length values are highlighted.
+- [x] The popup closes with the X, with Esc and with a click outside it.
 
 **K. Tools for main (dry runs, nothing changes)**
 - [ ] `webflow_promotion.backfill_published_on()`: almost everything "already" (the remap set them).
