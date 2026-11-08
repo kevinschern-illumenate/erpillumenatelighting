@@ -32,7 +32,7 @@ window.illWebflowSync = window.illWebflowSync || function (product, onMessage) {
                             const superseded = (progress.brands || []).some(row => row.state === 'superseded');
                             resolve({ok: true, superseded, message: superseded
                                 ? __('Webflow finished an older revision. Sync again for the latest changes.')
-                                : __('Synced to Webflow.')});
+                                : __('Webflow sync finished.')});
                         } else if (Date.now() - started > TIMEOUT_MS) {
                             resolve({ok: false, message: __('Not confirmed yet. It may still be running; check the product later.')});
                         } else {

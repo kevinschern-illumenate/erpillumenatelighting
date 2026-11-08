@@ -1693,7 +1693,10 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 - **Changed (owner, 2026-11-08):** successes now notify too, as a **browser push only**. They create no bell entry and no email.
   - When: a spec sheet generated, and a push to Webflow confirmed by Webflow. A bulk regeneration sends one push at the end with the counts.
   - Who: only the person who started it (Q1 b). That is whoever pressed the button; for an automatic push, whoever saved (Q2 a).
-  - How: `webflow_notify.success_push` sends the realtime event with `system_only`, so it shows as a system notification only, with no in-page alert (owner, 2026-11-08: the page that started it already shows its own message). The new `ilL-Publish-Job.started_by` field ("Started By") holds the person; an automatic push sets it from the saver through `frappe.flags.ill_webflow_started_by`.
+  - How: `webflow_notify.success_push` sends the green realtime alert: in the page and as a system notification.
+  - Wording (owner, 2026-11-08, b), so the two messages after a sync are told apart:
+    - the page's own message is "Webflow sync finished.";
+    - the push says what Webflow shows: "kit-ra02 is live on Webflow" (Published, Discontinued), "… is updated on Webflow (hidden)" (Webflow Draft), "… is archived on Webflow" or "… was removed from Webflow". The new `ilL-Publish-Job.started_by` field ("Started By") holds the person; an automatic push sets it from the saver through `frappe.flags.ill_webflow_started_by`.
   - Nobody gets the push when no person started it (Guest, Administrator, the auto-push user).
   - Like the failure push, it shows while an ERPNext tab is open.
 - Automatic pushes (replaces the plan's Active + Live rule):

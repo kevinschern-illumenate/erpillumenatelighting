@@ -171,7 +171,7 @@ test('successful polling closes the dialog and reports the sync once', async t =
   assert.equal(poll.args.since, BASELINE.server_time);
   assert.equal(state.dialogs[0].open, false);
   assert.equal(state.messages.length, 1);
-  assert.equal(state.messages[0].message, 'Synced to Webflow.');
+  assert.equal(state.messages[0].message, 'Webflow sync finished.');
 });
 
 test('an earlier Synced status does not complete a new sync', async t => {

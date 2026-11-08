@@ -211,9 +211,6 @@ def success_push(user, title, body, document_type=None, document_name=None):
 				"title": title,
 				"body": body,
 				"indicator": "green",
-				# Owner 2026-11-08: a system notification only; the page that started it already
-				# shows its own message, so no in-page alert.
-				"system_only": True,
 				"route": _desk_route(document_type, document_name) if document_name else None,
 			},
 			user=user,
@@ -225,20 +222,26 @@ def success_push(user, title, body, document_type=None, document_name=None):
 		return False
 
 
-PUSH_DONE = {
-	"STAGE": "Synced to Webflow",
-	"PUBLISH": "Published on Webflow",
-	"RETIRE": "Removed from Webflow",
-}
+def push_title(product, operation, status):
+	"""Pure: the success push's title, from what Webflow now shows (owner, 2026-11-08: worded
+	apart from the page's own "Webflow sync finished.")."""
+	if operation == "RETIRE":
+		return _("{0} was removed from Webflow").format(product)
+	if status in ("Published", "Discontinued"):
+		return _("{0} is live on Webflow").format(product)
+	if status == "Archived":
+		return _("{0} is archived on Webflow").format(product)
+	if status == "Webflow Draft":
+		return _("{0} is updated on Webflow (hidden)").format(product)
+	return _("{0} is updated on Webflow").format(product)
 
 
 def publication_succeeded(job):
 	"""A publication job that Webflow confirmed: push to who started it."""
 	product, brand = job.get("product"), job.get("brand")
-	done = _(PUSH_DONE.get(job.get("operation"), "Synced to Webflow"))
 	return success_push(
 		job.get("started_by") or job.get("requested_by"),
-		_("{0}: {1}").format(done, product),
+		push_title(product, job.get("operation"), job.get("effective_status")),
 		_("{0} ({1}) went through.").format(product, brand),
 		PRODUCT,
 		product,

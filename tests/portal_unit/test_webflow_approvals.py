@@ -506,8 +506,7 @@ class Notifications(unittest.TestCase):
 		event, payload = frappe.publish_realtime.call_args.args
 		self.assertEqual(event, "ill_webflow_alert")
 		self.assertEqual(payload["indicator"], "green")
-		self.assertTrue(payload["system_only"])
-		self.assertIn("Synced to Webflow: kit-ra02", payload["title"])
+		self.assertEqual(payload["title"], "kit-ra02 is updated on Webflow")
 		self.assertEqual(frappe.publish_realtime.call_args.kwargs["user"], "saver@example.com")
 		# Older jobs have no started_by: the requester gets it.
 		job["started_by"] = None
@@ -515,7 +514,15 @@ class Notifications(unittest.TestCase):
 		job["operation"] = "PUBLISH"
 		module.publication_succeeded(job)
 		self.assertEqual(frappe.publish_realtime.call_args.kwargs["user"], "owner@example.com")
-		self.assertIn("Published on Webflow", frappe.publish_realtime.call_args.args[1]["title"])
+		job["effective_status"] = "Published"
+		module.publication_succeeded(job)
+		self.assertEqual(frappe.publish_realtime.call_args.args[1]["title"], "kit-ra02 is live on Webflow")
+		for status, title in (
+			("Webflow Draft", "kit-ra02 is updated on Webflow (hidden)"),
+			("Archived", "kit-ra02 is archived on Webflow"),
+		):
+			self.assertEqual(module.push_title("kit-ra02", "STAGE", status), title)
+		self.assertEqual(module.push_title("kit-ra02", "RETIRE", None), "kit-ra02 was removed from Webflow")
 
 	def test_no_success_push_without_a_person(self):
 		module, frappe = self.load()
