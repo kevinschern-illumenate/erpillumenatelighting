@@ -492,6 +492,43 @@ class Notifications(unittest.TestCase):
 		module.publication_failed(job)
 		self.assertEqual(len(self.logs), 1)
 
+	def test_a_success_is_a_push_to_who_started_it_only(self):
+		module, frappe = self.load(["owner@example.com"], known=["owner@example.com"])
+		job = Record(
+			product="kit-ra02",
+			brand="illumenate",
+			operation="STAGE",
+			requested_by="webflow_auto_push",
+			started_by="saver@example.com",
+		)
+		self.assertTrue(module.publication_succeeded(job))
+		self.assertEqual(self.logs, [])  # no bell, no email
+		event, payload = frappe.publish_realtime.call_args.args
+		self.assertEqual(event, "ill_webflow_alert")
+		self.assertEqual(payload["indicator"], "green")
+		self.assertIn("Synced to Webflow: kit-ra02", payload["title"])
+		self.assertEqual(frappe.publish_realtime.call_args.kwargs["user"], "saver@example.com")
+		# Older jobs have no started_by: the requester gets it.
+		job["started_by"] = None
+		job["requested_by"] = "owner@example.com"
+		job["operation"] = "PUBLISH"
+		module.publication_succeeded(job)
+		self.assertEqual(frappe.publish_realtime.call_args.kwargs["user"], "owner@example.com")
+		self.assertIn("Published on Webflow", frappe.publish_realtime.call_args.args[1]["title"])
+
+	def test_no_success_push_without_a_person(self):
+		module, frappe = self.load()
+		for user in (None, "", "Guest", "Administrator", "webflow_auto_push"):
+			self.assertFalse(module.success_push(user, "t", "b"))
+		frappe.publish_realtime.assert_not_called()
+
+	def test_a_spec_sheet_push_names_the_template(self):
+		module, frappe = self.load()
+		module.spec_sheet_generated("owner@example.com", "ilL-Extrusion-Kit-Template", "KIT-RA02")
+		payload = frappe.publish_realtime.call_args.args[1]
+		self.assertEqual(payload["title"], "Spec sheet generated: KIT-RA02")
+		self.assertEqual(payload["route"], "/app/ill-extrusion-kit-template/KIT-RA02")
+
 	def test_a_notification_problem_never_raises(self):
 		module, frappe = self.load(["owner@example.com"], known=["owner@example.com"])
 		frappe.get_doc = MagicMock(side_effect=RuntimeError("smtp"))
@@ -503,7 +540,9 @@ class PublicationFailures(unittest.TestCase):
 	def load(self):
 		import test_publication
 
-		notify = _module(ROOT + ".webflow_notify", publication_failed=MagicMock())
+		notify = _module(
+			ROOT + ".webflow_notify", publication_failed=MagicMock(), publication_succeeded=MagicMock()
+		)
 		approvals = _module(ROOT + ".webflow_approvals", assert_no_pending=MagicMock(), pending=MagicMock())
 		deps = test_publication.PublicationCallbacks.dependencies(None)
 		deps.update({notify.__name__: notify, approvals.__name__: approvals})
@@ -525,13 +564,15 @@ class PublicationFailures(unittest.TestCase):
 			module.acknowledge("J1", "secret", "v1", "p1", "a" * 24, outcome=outcome, error_code=error_code)
 		return job
 
-	def test_a_failed_job_notifies_and_a_successful_one_does_not(self):
+	def test_a_failed_job_notifies_and_a_successful_one_only_pushes(self):
 		module, _frappe = self.load()
-		self.acknowledge(module, "success")
+		done = self.acknowledge(module, "success")
 		self.notify.publication_failed.assert_not_called()
+		self.notify.publication_succeeded.assert_called_once_with(done)
 		job = self.acknowledge(module, "error", "400")
 		self.assertEqual(job.state, "FAILED")
 		self.notify.publication_failed.assert_called_once_with(job)
+		self.notify.publication_succeeded.assert_called_once()
 
 	def test_a_publication_request_is_refused_while_pending(self):
 		module, _frappe = self.load()

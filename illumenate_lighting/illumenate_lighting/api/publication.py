@@ -279,6 +279,8 @@ def request(product, brand, operation, expected_hash):
 				"payload_hash": fingerprint(payload),
 				"request_key": key,
 				"requested_by": frappe.session.user,
+				# The automatic push runs as its service user; the saver is who started it.
+				"started_by": frappe.flags.get("ill_webflow_started_by") or frappe.session.user,
 				"state": "QUEUED",
 			}
 		)
@@ -446,10 +448,13 @@ def _fail(job, state, error_code, retry_after=None):
 def _notify_if_final(job):
 	"""Plan 4.19: notify a failure once it is final (permanent, or retries used up).
 
-	A failure waiting for its retry notifies nobody; success never notifies.
+	A failure waiting for its retry notifies nobody. A success is a push to who started it.
 	"""
 	if job.state == "FAILED" and not job.next_attempt_on:
 		webflow_notify.publication_failed(job)
+	elif job.state == "COMPLETE":
+		# Owner, 2026-11-08: a success is a browser push to who started it, nothing else.
+		webflow_notify.publication_succeeded(job)
 
 
 @frappe.whitelist(methods=["POST"])

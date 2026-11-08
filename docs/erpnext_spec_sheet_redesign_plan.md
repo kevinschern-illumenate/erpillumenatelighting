@@ -1599,6 +1599,12 @@ ilLumenate kit sheet: the first `.dimension-item` keeps `dimensions_image` in `#
 **Phase 5 owner answers (grill, 2026-11-04):**
 - Notifications while testing go to the owner only; recipients are a list in site config so Kevin is added on main (D83).
 - Notify on approvals and failures only, nothing on success. Each goes to the bell, email and browser push.
+- **Changed (owner, 2026-11-08):** successes now notify too, as a **browser push only**. They create no bell entry and no email.
+  - When: a spec sheet generated, and a push to Webflow confirmed by Webflow. A bulk regeneration sends one push at the end with the counts.
+  - Who: only the person who started it (Q1 b). That is whoever pressed the button; for an automatic push, whoever saved (Q2 a).
+  - How: `webflow_notify.success_push` sends the green realtime alert. The new `ilL-Publish-Job.started_by` field ("Started By") holds the person; an automatic push sets it from the saver through `frappe.flags.ill_webflow_started_by`.
+  - Nobody gets the push when no person started it (Guest, Administrator, the auto-push user).
+  - Like the failure push, it shows while an ERPNext tab is open.
 - Automatic pushes (replaces the plan's Active + Live rule):
   - Template to Webflow Product: once a template is linked, every template save pushes to its Webflow Product, whatever the template's product status.
   - Webflow Product to Webflow: once the product has been synced to Webflow (it has a Webflow item), its changes push to Webflow automatically. A product never synced does not push on its own.

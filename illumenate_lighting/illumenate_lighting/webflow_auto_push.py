@@ -346,6 +346,7 @@ def push(row):
 
 	frappe.db.savepoint("webflow_auto_push")
 	try:
+		frappe.flags.ill_webflow_started_by = row.get("saved_by")
 		with run_as(SERVICE_USER):
 			results = stage_brands(row.product, [row.brand])
 	except Exception as error:
@@ -354,6 +355,8 @@ def push(row):
 		frappe.db.delete(DOCTYPE, {"name": row.name})
 		webflow_notify.auto_push_failed(row.product, row.brand, _plain(error), row.get("saved_by"))
 		return "failed"
+	finally:
+		frappe.flags.ill_webflow_started_by = None
 	frappe.db.delete(DOCTYPE, {"name": row.name})
 	for result in results:
 		if result.get("issues") is not None:

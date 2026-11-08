@@ -1,4 +1,5 @@
-// Webflow approvals and failures as browser notifications (plan 4.19, D83).
+// Webflow approvals and failures as browser notifications (plan 4.19, D83), and successes
+// (owner, 2026-11-08: webflow_notify.success_push sends only this event, green, no bell).
 // webflow_notify.notify() rings the Desk bell (Notification Log, emailed per Notification
 // Settings) and sends this realtime event to each recipient. While ERPNext is open in a tab, it
 // shows an in-page alert and, once the browser allows notifications, a system notification.
@@ -26,7 +27,7 @@
 	function handle(data) {
 		data = data || {};
 		if (root.frappe && root.frappe.show_alert) {
-			root.frappe.show_alert({ message: root.frappe.utils.escape_html(data.title || ""), indicator: "orange" }, 10);
+			root.frappe.show_alert({ message: root.frappe.utils.escape_html(data.title || ""), indicator: data.indicator || "orange" }, 10);
 		}
 		try {
 			browserNotify(data);

@@ -17,6 +17,7 @@
   "payload_hash",
   "request_key",
   "requested_by",
+  "started_by",
   "state",
   "attempts",
   "lease_token",
@@ -113,6 +114,14 @@
    "label": "Requested By",
    "read_only": 1,
    "options": "User"
+  },
+  {
+   "fieldname": "started_by",
+   "fieldtype": "Link",
+   "label": "Started By",
+   "read_only": 1,
+   "options": "User",
+   "description": "Who started this push (the button, or the save behind an automatic push). Gets the success notification."
   },
   {
    "fieldname": "state",

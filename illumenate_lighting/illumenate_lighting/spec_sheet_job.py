@@ -133,8 +133,8 @@ def answer_error(answer):
 	return text or None
 
 
-def run(spec_job, template_doctype, template_id, brand):
-	"""Background job."""
+def run(spec_job, template_doctype, template_id, brand, notify=True):
+	"""Background job. ``notify``: push to who pressed the button when it is done."""
 	_set_status(spec_job, status="Running", message=_("Generating the spec sheet..."))
 	try:
 		answer = call_n8n(template_doctype, template_id, brand)
@@ -145,7 +145,13 @@ def run(spec_job, template_doctype, template_id, brand):
 		frappe.log_error(title=f"Spec sheet generation failed: {template_doctype} {template_id}")
 		_set_status(spec_job, status="Failed", message=str(error))
 		return
-	_set_status(spec_job, status="Done", message=_("Spec sheet generated."), file_url=answer["file_url"])
+	status = _set_status(
+		spec_job, status="Done", message=_("Spec sheet generated."), file_url=answer["file_url"]
+	)
+	if notify:
+		from illumenate_lighting.illumenate_lighting import webflow_notify
+
+		webflow_notify.spec_sheet_generated(status.get("user"), template_doctype, template_id)
 
 
 def display_name(file_url):
@@ -300,7 +306,13 @@ def regenerate_spec_sheets(apply=False, statuses=None, templates=None, doctypes=
 	bulk_id = frappe.generate_hash(length=16)
 	frappe.cache().set_value(
 		BULK_KEY.format(bulk_id),
-		{"status": "Queued", "total": len(to_generate), "done": [], "failed": []},
+		{
+			"status": "Queued",
+			"total": len(to_generate),
+			"done": [],
+			"failed": [],
+			"user": frappe.session.user,
+		},
 		expires_in_sec=BULK_TTL,
 	)
 	frappe.db.commit()
@@ -340,7 +352,7 @@ def _run_bulk(key, items):
 	for item in items:
 		doctype, name = item["template"]
 		job = f"{bulk_id}-{name}"
-		run(job, doctype, name, item["brand"])
+		run(job, doctype, name, item["brand"], notify=False)
 		status = frappe.cache().get_value(_status_key(job)) or {}
 		if status.get("status") == "Done":
 			state["done"].append({"template": name, "file_url": status.get("file_url")})
@@ -349,6 +361,13 @@ def _run_bulk(key, items):
 		frappe.cache().set_value(key, state, expires_in_sec=BULK_TTL)
 	state["status"] = "Done"
 	frappe.cache().set_value(key, state, expires_in_sec=BULK_TTL)
+	try:
+		from illumenate_lighting.illumenate_lighting import webflow_notify
+
+		webflow_notify.spec_sheets_regenerated(state.get("user"), len(state["done"]), len(state["failed"]))
+	except Exception:
+		# The push is a courtesy; the run itself is done.
+		frappe.log_error(title=f"Bulk spec sheet push failed: {bulk_id}")
 
 
 @frappe.whitelist()

@@ -1,4 +1,4 @@
-"""Webflow notifications (plan 4.19, D83): approvals and failures only, nothing on success.
+"""Webflow notifications (plan 4.19, D83): approvals and failures; successes as a push only.
 
 Each recipient gets a Notification Log (the Desk bell). Frappe emails it when the user's
 Notification Settings allow it, and the Desk shows it as a browser notification
@@ -7,6 +7,10 @@ Notification Settings allow it, and the Desk shows it as a browser notification
 Site config ``webflow_notify_users``: the recipients, as a list of user emails, a JSON string of
 one, or a comma-separated string (the Frappe Cloud editor stores text). Unset: nobody is
 notified and a warning is logged once.
+
+Successes (owner, 2026-11-08): a spec sheet generated, a push confirmed by Webflow. Only a
+browser push (the realtime alert, no bell, no email), only to the person who started it: who
+pressed the button, or who saved for an automatic push (``success_push``).
 """
 
 import json
@@ -187,4 +191,72 @@ def auto_push_failed(product, brand, reason, saved_by=None):
 		),
 		PRODUCT,
 		product,
+	)
+
+
+# Users who never get a success push (no person behind them).
+NO_PUSH_USERS = ("Guest", "Administrator")
+
+
+def success_push(user, title, body, document_type=None, document_name=None):
+	"""A success as a browser push only, to one user (owner, 2026-11-08). Never raises."""
+	try:
+		from illumenate_lighting.illumenate_lighting.webflow_auto_push import SERVICE_USER
+
+		if not user or user in NO_PUSH_USERS or user == SERVICE_USER:
+			return False
+		frappe.publish_realtime(
+			REALTIME_EVENT,
+			{
+				"title": title,
+				"body": body,
+				"indicator": "green",
+				"route": _desk_route(document_type, document_name) if document_name else None,
+			},
+			user=user,
+			after_commit=True,
+		)
+		return True
+	except Exception:
+		frappe.log_error(title=_("Webflow success push failed"))
+		return False
+
+
+PUSH_DONE = {
+	"STAGE": "Synced to Webflow",
+	"PUBLISH": "Published on Webflow",
+	"RETIRE": "Removed from Webflow",
+}
+
+
+def publication_succeeded(job):
+	"""A publication job that Webflow confirmed: push to who started it."""
+	product, brand = job.get("product"), job.get("brand")
+	done = _(PUSH_DONE.get(job.get("operation"), "Synced to Webflow"))
+	return success_push(
+		job.get("started_by") or job.get("requested_by"),
+		_("{0}: {1}").format(done, product),
+		_("{0} ({1}) went through.").format(product, brand),
+		PRODUCT,
+		product,
+	)
+
+
+def spec_sheet_generated(user, template_doctype, template_id):
+	"""A spec sheet generated from the template's Generate Spec button."""
+	return success_push(
+		user,
+		_("Spec sheet generated: {0}").format(template_id),
+		_("The new spec sheet for {0} is attached to the template.").format(template_id),
+		template_doctype,
+		template_id,
+	)
+
+
+def spec_sheets_regenerated(user, done, failed):
+	"""One push when a bulk regeneration ends."""
+	return success_push(
+		user,
+		_("Spec sheet regeneration finished"),
+		_("{0} generated, {1} failed.").format(done, failed),
 	)

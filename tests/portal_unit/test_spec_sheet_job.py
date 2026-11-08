@@ -44,6 +44,29 @@ class Job(unittest.TestCase):
 	def status(self):
 		return self.cache["spec_sheet_job:j1"]
 
+	def test_a_successful_run_pushes_to_who_pressed_the_button(self):
+		import sys
+		import types
+
+		notify = types.ModuleType(ROOT + ".webflow_notify")
+		notify.spec_sheet_generated = MagicMock()
+		sys.modules[notify.__name__] = notify
+		self.addCleanup(sys.modules.pop, notify.__name__, None)
+		package = sys.modules.get(ROOT)
+		if package is not None:
+			old = getattr(package, "webflow_notify", None)
+			package.webflow_notify = notify
+			self.addCleanup(setattr, package, "webflow_notify", old)
+		self.cache["spec_sheet_job:j1"] = {"user": "owner@example.com"}
+		self.module.call_n8n = MagicMock(return_value={"success": True, "file_url": "/files/a.pdf"})
+		self.frappe.db.get_value.return_value = "/files/a.pdf"
+		self.module.run("j1", "ilL-Extrusion-Kit-Template", "KIT-RA02", "illumenate")
+		notify.spec_sheet_generated.assert_called_once_with(
+			"owner@example.com", "ilL-Extrusion-Kit-Template", "KIT-RA02"
+		)
+		self.module.run("j1", "ilL-Extrusion-Kit-Template", "KIT-RA02", "illumenate", notify=False)
+		notify.spec_sheet_generated.assert_called_once()
+
 	def test_a_successful_run_registers_the_file(self):
 		self.module.call_n8n = MagicMock(return_value={"success": True, "file_url": "/files/a.pdf"})
 		self.frappe.db.get_value.return_value = "/files/a.pdf"
@@ -97,7 +120,9 @@ class Job(unittest.TestCase):
 
 class Bulk(Job):
 	def test_one_failure_does_not_stop_the_rest(self):
-		def fake_run(job, doctype, name, brand):
+		def fake_run(job, doctype, name, brand, notify=True):
+			# A bulk run pushes once at the end, not once per template.
+			self.assertFalse(notify)
 			ok = name != "KIT-BAD"
 			self.cache[f"spec_sheet_job:{job}"] = {
 				"status": "Done" if ok else "Failed",
