@@ -506,6 +506,7 @@ class Notifications(unittest.TestCase):
 		event, payload = frappe.publish_realtime.call_args.args
 		self.assertEqual(event, "ill_webflow_alert")
 		self.assertEqual(payload["indicator"], "green")
+		self.assertTrue(payload["system_only"])
 		self.assertIn("Synced to Webflow: kit-ra02", payload["title"])
 		self.assertEqual(frappe.publish_realtime.call_args.kwargs["user"], "saver@example.com")
 		# Older jobs have no started_by: the requester gets it.

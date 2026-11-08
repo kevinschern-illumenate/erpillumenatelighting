@@ -211,6 +211,9 @@ def success_push(user, title, body, document_type=None, document_name=None):
 				"title": title,
 				"body": body,
 				"indicator": "green",
+				# Owner 2026-11-08: a system notification only; the page that started it already
+				# shows its own message, so no in-page alert.
+				"system_only": True,
 				"route": _desk_route(document_type, document_name) if document_name else None,
 			},
 			user=user,

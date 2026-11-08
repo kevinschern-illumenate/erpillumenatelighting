@@ -121,4 +121,8 @@ test('the Desk bundle listens for Webflow alerts and shows a browser notificatio
   assert.equal(notices.length, 1);
   assert.equal(notices[0].title, 'Webflow approval needed: Restore kit-ra01');
   assert.equal(shown.length, 1);
+  // A success push (owner, 2026-11-08) is a system notification only.
+  listeners.ill_webflow_alert({ title: 'Synced to Webflow: kit-ra02', body: 'b', indicator: 'green', system_only: true });
+  assert.equal(notices.length, 2);
+  assert.equal(shown.length, 1);
 });
