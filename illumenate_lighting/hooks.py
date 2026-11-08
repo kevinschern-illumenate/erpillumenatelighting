@@ -653,7 +653,7 @@ for _option_doctype in ("ilL-Rel-Driver-Eligibility", "ilL-Rel-Kit-Endcap-Map", 
 for _template_doctype in ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-Controller-Template", "ilL-Driver-Template", "ilL-Extrusion-Kit-Template", "ilL-LED-Sheet-Template"):
 	_template_hooks = doc_events.setdefault(_template_doctype, {})
 	_template_old = _template_hooks.get("on_update", [])
-	_template_hooks["on_update"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.web_listing_source.sync_to_listing"]
+	_template_hooks["on_update"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.web_listing_source.sync_to_listing", "illumenate_lighting.illumenate_lighting.webflow_state.on_template_update"]
 
 # Beam angle, charts and cone of light on the templates are copies of the linked
 # ilL-Spec-Photometry / ilL-Spec-Colorimetry records.

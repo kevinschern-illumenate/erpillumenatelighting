@@ -10,6 +10,9 @@
 
     function lines(status) {
         const out = [];
+        // What Webflow shows when the template's Product Status overrides this product's
+        // Webflow Status (owner, 2026-11-08).
+        if (status.effective) out.push(esc(status.effective));
         (status.waiting || []).forEach(row => {
             if (row.state === 'held') {
                 out.push(__('Automatic push to {0} held: automatic pushes are off (site config webflow_auto_push).', [esc(row.brand)]));

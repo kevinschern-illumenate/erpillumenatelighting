@@ -690,7 +690,9 @@ def get_webflow_products(
         "include_configurator_payload", True
     )
 
-    filters = {"is_active": 1}
+    # The publication refresh exports a product whose template is Draft or Discontinued but whose
+    # page still updates (plan 4.3, owner 2026-11-08); never set from a request.
+    filters = {} if frappe.flags.get("ill_export_inactive") else {"is_active": 1}
 
     if product_type:
         filters["product_type"] = product_type

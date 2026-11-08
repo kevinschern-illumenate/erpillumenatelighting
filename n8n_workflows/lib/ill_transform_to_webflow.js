@@ -23,7 +23,10 @@ const json = list => (Array.isArray(list) && list.length ? JSON.stringify(list) 
 let isDraft = false;
 let isArchived = false;
 let hiddenFromPublic = true;
-switch (product.custom_webflow_status || '') {
+// The template's Product Status can override the product's Webflow Status (owner, 2026-11-08,
+// plan 4.3): ERPNext sends the status to use as webflow_state.effective_status.
+const effectiveStatus = payload.webflow_state && payload.webflow_state.effective_status;
+switch ((effectiveStatus != null ? effectiveStatus : product.custom_webflow_status) || '') {
   case 'Published':
   case 'Discontinued':
     hiddenFromPublic = false;

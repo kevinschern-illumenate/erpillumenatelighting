@@ -116,3 +116,73 @@ class PublicationCallbacks(unittest.TestCase):
 			):
 				module.acknowledge("J1", "secret", "v1", "p1", "b" * 24)
 			save.assert_not_called()
+
+
+class EffectiveStatusGate(unittest.TestCase):
+	"""The template's Product Status decides whether a linked product pushes (owner 2026-11-08)."""
+
+	def refresh(self, template_status, webflow_status="Published", published_on="2026-11-01", is_active=0):
+		deps = PublicationCallbacks.dependencies(None)
+		with load_service(ROOT + ".api.publication", deps) as (module, _frappe):
+			from test_services import Record
+
+			readiness = {
+				"ready": True,
+				"issues": [{"field": "product_status", "message": "Internal Only templates stay off"}],
+				"dependencies": [],
+			}
+			deps[ROOT + ".api.product_readiness"].evaluate.return_value = readiness
+			state = Record(brand="illumenate", published_on=published_on, approved_hash=None)
+			doc = Record(
+				name="kit-ra02",
+				product_slug="kit-ra02",
+				is_active=is_active,
+				webflow_status=webflow_status,
+				product_category=None,
+				target_brands=[],
+			)
+			export = types.ModuleType(ROOT + ".api.webflow_export_v2")
+			export.get_webflow_products = MagicMock(return_value={"products": [{"name": "kit-ra02"}]})
+			sync = types.ModuleType(ROOT + ".webflow_sync_payload")
+			sync.template_section = MagicMock(return_value=None)
+			import sys
+
+			for extra in (export, sync):
+				sys.modules[extra.__name__] = extra
+				self.addCleanup(sys.modules.pop, extra.__name__, None)
+			state_module = sys.modules[ROOT + ".webflow_state"] = __import__("importlib").import_module(
+				ROOT + ".webflow_state"
+			)
+			with (
+				patch.object(state_module, "template_status", return_value=template_status),
+				patch.object(module, "Listing", side_effect=lambda value: value),
+				patch.object(module, "_save"),
+				patch.object(module, "_targeted", return_value=True),
+				patch.object(module, "_strip_volatile_metadata", side_effect=lambda value: value),
+			):
+				payload, readiness = module._refresh(
+					doc, state, {"is_active": True, "sync_enabled": True, "collections": {"Products": "c"}}
+				)
+			return payload, readiness, export.get_webflow_products
+
+	def test_a_published_page_under_a_draft_template_pushes_hidden(self):
+		payload, _readiness, export = self.refresh("Draft")
+		self.assertTrue(payload["active"])
+		self.assertEqual(payload["webflow_state"]["effective_status"], "Webflow Draft")
+		self.assertEqual(payload["effective_webflow_status"], "Webflow Draft")
+		export.assert_called_once()
+
+	def test_never_published_under_a_plain_active_template_does_not_push(self):
+		payload, _readiness, _export = self.refresh("Active", "Webflow Draft", published_on=None, is_active=1)
+		self.assertFalse(payload["active"])
+
+	def test_internal_only_keeps_a_published_page_up_without_the_readiness_issue(self):
+		payload, readiness, _export = self.refresh("Internal Only", is_active=1)
+		self.assertTrue(payload["active"])
+		self.assertEqual(payload["webflow_state"]["effective_status"], "Discontinued")
+		self.assertEqual(readiness["issues"], [])
+
+	def test_a_live_template_leaves_the_hash_key_out(self):
+		payload, _readiness, _export = self.refresh("Active + Live", is_active=1)
+		self.assertNotIn("effective_webflow_status", payload)
+		self.assertEqual(payload["webflow_state"]["effective_status"], "Published")

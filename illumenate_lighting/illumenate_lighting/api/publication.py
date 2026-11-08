@@ -74,9 +74,23 @@ def _targeted(doc, brand):
 
 
 def _refresh(doc, state, config):
+	from illumenate_lighting.illumenate_lighting import webflow_state
+
+	# What Webflow shows (owner, 2026-11-08): the template's Product Status can override the
+	# product's Webflow Status. A linked product pushes only when there is a status to push.
+	template_status = webflow_state.template_status(doc)
+	effective, rule = webflow_state.effective_status(
+		template_status, doc.get("webflow_status"), bool(state.get("published_on"))
+	)
 	doc = Listing(doc)
-	active = bool(doc.is_active and config["is_active"] and _targeted(doc, state.brand))
+	live = (effective is not None) if template_status else bool(doc.is_active)
+	active = bool(live and config["is_active"] and _targeted(doc, state.brand))
 	readiness = evaluate(doc, "cms")
+	if effective == webflow_state.DISCONTINUED_STAGE and template_status == "Internal Only":
+		# A published page stays up as Discontinued (row 12): not a readiness problem.
+		readiness["issues"] = [
+			issue for issue in readiness["issues"] if issue.get("field") != "product_status"
+		]
 	brand_projection = {
 		key: config.get(key)
 		for key in (
@@ -108,7 +122,12 @@ def _refresh(doc, state, config):
 	if active:
 		from illumenate_lighting.illumenate_lighting.api.webflow_export_v2 import get_webflow_products
 
-		products = get_webflow_products(brand=state.brand, product_slug=doc.name, limit=1)["products"]
+		# A Draft or Discontinued template leaves the product inactive; its page still updates.
+		frappe.flags.ill_export_inactive = True
+		try:
+			products = get_webflow_products(brand=state.brand, product_slug=doc.name, limit=1)["products"]
+		finally:
+			frappe.flags.ill_export_inactive = False
 		if not products:
 			frappe.throw(_("Product is not available for this brand"))
 		# Freeze the complete export. Hash-only exclusions (notably documents)
@@ -148,7 +167,13 @@ def _refresh(doc, state, config):
 		payload["template"] = template_section(doc, bool(config.get("include_configurator_payload")))
 	# Not content: whether the item was ever published decides if a Webflow Draft is staged only
 	# (never published) or published hidden (plan 4.19 Q1). Kept out of the hash.
-	payload["webflow_state"] = {"ever_published": bool(state.get("published_on"))}
+	payload["webflow_state"] = {
+		"ever_published": bool(state.get("published_on")),
+		"effective_status": effective,
+	}
+	if rule:
+		# Hashed, so a template status change is a new revision to push.
+		payload["effective_webflow_status"] = effective
 	hash_payload = {
 		**{key: value for key, value in payload.items() if key != "webflow_state"},
 		"product": content_record(payload["product"]),

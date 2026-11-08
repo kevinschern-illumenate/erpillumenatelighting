@@ -1617,11 +1617,26 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 - The `[staging]` guard for ilLumenate (D82).
 
 **Phase 5: not built**
-1. **Template status effects.** 4.19 says the 4.3 table and D61 still apply, but only the product's Webflow Status drives a push today. The template's Product Status reaches the product only as `is_active`: on for Active, Active + Live and Internal Only; off for Draft, Discontinued and Archived. Today:
-   - Draft, Discontinued or Archived template: the product reads as inactive, so `request()` refuses every push. A published page stays up, unchanged, and cannot be updated or hidden. This affects rows 3, 14 and 16; D45; and test 39.
-   - Internal Only template: readiness refuses the push ("Internal Only templates stay off the website"), so row 12 (stays up as Discontinued) does not happen. Test 10.
-   - Active + Live back to Active: pushes continue as before, so D61 (hide and notify) does not happen.
-   - Back to Active from Discontinued or Archived: the Webflow Status is not reset to Webflow Draft (D5, test 25).
+1. **Template status effects. Built 2026-11-08 except the Archived row.**
+   - Owner decisions (2026-11-08): the status table as proposed (Q1 a), and the product's Webflow Status field is left alone (Q2 b). Each push works out the status Webflow gets.
+   - `webflow_state.effective_status(template status, Webflow Status, ever published)` returns the status, or None for nothing goes to Webflow:
+     - unlinked or Active + Live: the product's own Webflow Status;
+     - the product set to Archived: Archived;
+     - never published, any other template status: nothing (rows 2, 13, 15, 17, D60);
+     - Discontinued or Internal Only: a public page stays up as Discontinued (rows 12, 14); a hidden page stays hidden;
+     - Draft or Active: Webflow Draft, hidden (row 3, D61);
+     - Archived: nothing yet (open question below).
+   - `publication._refresh` uses it. A linked product is active for a push only when there is a status, and an inactive product is still exported (`frappe.flags.ill_export_inactive`).
+   - The status goes to n8n as `webflow_state.effective_status`, which the `(ilL) Transform to Webflow Format` uses when present. When the template overrides the product, the payload also carries the hashed key `effective_webflow_status`, so the status change is a new revision. Products without an override keep their hash.
+   - The Internal Only readiness issue is dropped when the page stays up as Discontinued.
+   - Template `on_update` (`webflow_state.on_template_update`):
+     - a published, public page whose template goes to Draft or Active notifies the list (bell, email, push);
+     - back to Active + Live from Discontinued or Archived resets the product's Webflow Status to Webflow Draft (D5);
+     - from Internal Only it resumes.
+   - The push itself is the product's automatic push.
+   - The product form line shows the override, e.g. "Shown on Webflow as Discontinued, because the template is Internal Only (Webflow Status here: Published)". This is the effective-state indicator from 4.4 item 6.
+   - **Open:** the table said a template set to Archived goes through the Archive approval, but on 2026-11-06 the owner decided only the product's Webflow Status raises approvals (`c1cbc11`). Until this is decided, an Archived template sends nothing.
+   - Not built from D5: recording the reset in a history.
 2. **Status changes skip the wait** (D44, test 38): every push waits the 2 minutes.
 3. **`is_discontinued` reaching Webflow** (R1): not sent. Phase 9.
 4. **`published_on` backfill on main** (10.4): no function yet. On staging the remap did it.
@@ -1634,7 +1649,6 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
   - the "automatic push waiting / held" line on the product.
 - Not built:
   - the create-product popup (4.5);
-  - the effective-state indicator (4.4 item 6);
   - the Publication History view (4.14).
 - Dropped: the staging banner on the forms, since staging has its own site (D82).
 

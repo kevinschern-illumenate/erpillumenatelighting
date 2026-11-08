@@ -403,4 +403,12 @@ def get_status(product):
 			order_by="next_attempt_on asc",
 		)
 	]
-	return {"enabled": switch_on, "waiting": waiting, "retries": retries}
+	from illumenate_lighting.illumenate_lighting import webflow_state
+
+	doc = frappe.get_doc(PRODUCT, product)
+	template_status = webflow_state.template_status(doc)
+	status, rule = webflow_state.effective_status(
+		template_status, doc.get("webflow_status"), webflow_state.ever_published(product)
+	)
+	effective = webflow_state.describe_effective(template_status, doc.get("webflow_status"), status, rule)
+	return {"enabled": switch_on, "waiting": waiting, "retries": retries, "effective": effective}
