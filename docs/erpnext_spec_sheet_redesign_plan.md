@@ -1677,7 +1677,7 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
   To be run on staging and on main (10.4).
 - **Production addresses:** `ill_webflow_product.py` built certification badge and kit component image URLs on `https://app.illumenate.lighting`. Neither reaches Webflow or the spec sheet any more (both read the template's rows, 4.19), but they now use the site's own address (`frappe.utils.get_url()`).
 
-**Phase 8:** the test matrix (section 9) has not been run as a whole. Many rows have been checked one at a time: the stable link, the spec sheet, sync, approvals, automatic pushes and notifications. Read the matrix with "Expected results changed by later decisions" and the replacements above.
+**Phase 8:** the current checklist is 9.1 (2026-11-08). The test matrix (section 9) has not been run as a whole. Many rows have been checked one at a time: the stable link, the spec sheet, sync, approvals, automatic pushes and notifications. Read the matrix with "Expected results changed by later decisions" and the replacements above.
 
 ### Phase 5: Resolver, pipeline, automatic pushes, badges
 
@@ -1900,6 +1900,79 @@ This is the one list of open work and cleanup notes recorded during Phases 0 to 
 - Test 19: passed on staging (Phase 2, `check_spec_sheet_data`).
 
 ---
+
+### 9.1 Staging acceptance checklist, current (Phase 8, 2026-11-08)
+
+This replaces the matrix above for Phase 8. The matrix is kept for its history; the rows it carries over are given as (old #). Use a kit you can change freely, here KIT-RA02 (template) and kit-ra02 (Webflow Product). Tick each line when what you see matches.
+
+**A. Before you start**
+- [ ] ERPNext deployed with everything up to `15e554d`, and migrate run (new fields on the publish job, track changes on LED Sheet templates).
+- [ ] Desk reloaded. The browser allows notifications for the ERPNext site.
+- [ ] Tampermonkey runs `staging.user.js` version `2026.11.08.3`. In the console on a product page, `window.__illStaging` shows `own: false` and `ignored` above 0.
+- [ ] Site config: `webflow_notify_users` lists you; `webflow_auto_push` on (1).
+- [ ] System Console: `webflow_promotion.check_integration_users()` returns `ok: True`.
+
+**B. Spec sheet**
+- [ ] KIT-RA02 > Generate Spec: the opaque dialog shows, then "Spec sheet ready" with the link. A green push "Spec sheet generated: KIT-RA02" arrives. (old 32)
+- [ ] The stable link `…/spec-sheets/illumenate-lighting_kit-ra02.pdf` opens the new PDF; `…/spec-sheets/KIT-RA02.pdf` opens the same file; a made-up name gives "Spec sheet not found". (old 14, 20)
+- [ ] The template's Spec Sheet field and the file list show only the new file (older ones unattached, still in File Manager). (old 7)
+- [ ] A template missing something its spec sheet needs: Generate Spec lists what is missing and creates nothing. (old 28)
+- [ ] The PDF: the kit's Lenses, Mounting, Finish and Stock Length values are where they belong; single options (Finish, Length) are pre-ticked in the part number builder.
+
+**C. Sync to Webflow**
+- [ ] kit-ra02 > Sync to Webflow: the dialog shows, then "Synced"; a green push "Synced to Webflow: kit-ra02" arrives; the staging page shows the change. (old 32)
+- [ ] KIT-RA02 > Generate Spec & Sync to Webflow: both steps run; two green pushes arrive.
+- [ ] The Webflow page: dimensions image, certification badges, compatible products (published ones only), components, specifications and documents are right.
+
+**D. Publication History**
+- [ ] At the bottom of kit-ra02 and of KIT-RA02: the line "illumenate: published since … · last sync …" and the table (When, Status, Result, By, Finished, Error), the same width as the other sections.
+- [ ] The syncs from C show with Status "Active + Live · Published" and Result "Done". Status changes made in E show as shaded rows.
+
+**E. Template status (plan 4.3 as built)**
+- [ ] KIT-RA02 to **Draft**: a notification "Webflow page will be hidden: kit-ra02"; kit-ra02 shows "Shown on Webflow as Webflow Draft, because the template is Draft…"; about 2 minutes later the page is hidden. (old 39)
+- [ ] KIT-RA02 back to **Active + Live**: the line disappears; about 2 minutes later the page is public again.
+- [ ] **Internal Only**: the page stays public, marked Discontinued; the line says so; it is not refused as not ready. (old 10, 33b)
+- [ ] **Discontinued**: same as Internal Only. Back to Active + Live: kit-ra02's Webflow Status is reset to Webflow Draft (message), the page is hidden until you set Published. (old 25)
+- [ ] **Active** (from Active + Live): hidden and notified, like Draft.
+- [ ] **Archived**: hidden and notified; nothing archived in Webflow.
+- [ ] A template whose product was never published, set to Draft or Internal Only: nothing goes to Webflow; the line says "Nothing goes to Webflow…". (old 4, 13)
+
+**F. Webflow Status and approvals**
+- [ ] kit-ra02 Webflow Status Published to **Archived**: an orange banner with Approve / Reject; a notification; Sync to Webflow is refused while it waits. (old 11)
+- [ ] **Reject**: the status goes back; nothing changes in Webflow.
+- [ ] Again, then **Approve**: the page is archived in Webflow. (old 12)
+- [ ] Archived back to Published: a Restore approval; Approve publishes it again.
+- [ ] A product never published, set to Archived: no approval, nothing sent. (old 13)
+- [ ] Published to Discontinued and back: `is_discontinued` ticks and unticks; the web badge does not change. (old 33)
+
+**G. Automatic pushes**
+- [ ] Edit a field on KIT-RA02 and save: kit-ra02 shows "Automatic push to illumenate waiting: due hh:mm"; about 2 minutes later it goes, with a green push. (old 9)
+- [ ] Three saves within the 2 minutes: one push, after the last save. (old 23)
+- [ ] `webflow_auto_push` off: the line says "held"; turn it on and the held push goes. Turn it back on.
+- [ ] A product that is not ready (e.g. empty required field) after a save: no push; a notification says why. (old 24)
+- [ ] Save template then product, and product then template: both finish, no loop. (old 16)
+
+**H. Create-product popup**
+- [ ] A saved Draft template with no Webflow Product, set to Active + Live: the popup appears with name, slug and type filled in.
+- [ ] Cancel: the status goes back.
+- [ ] Create new: the product is created and linked; the template saves as Active + Live; both sides show the link. (old 2)
+- [ ] Link existing (on another template): only unlinked products of the right type are offered.
+- [ ] Unlink a template that is not Active + Live: the product's link clears. (old 15)
+
+**I. Permissions**
+- [ ] A desk user without ilL Catalog Publisher: Sync to Webflow and Generate Spec are refused with a message; nothing is saved. (old 17)
+- [ ] A website (portal) user: refused everywhere. (old 17)
+
+**J. Configured spec sheet (Webflow product page)**
+- [ ] On /products/kit-ra02, configure all steps, open Configure Spec Sheet, fill Project Name, Fixture Type, Location, click Download: the file `ilLumenate Lighting_CONFIGURED SPEC_<product>.pdf` downloads; the popup closes.
+- [ ] In the PDF: the footer fields are filled (and editable when left empty), the chosen options are ticked with their codes in the boxes, and only the chosen Lens, Mounting, Finish and Stock Length values are highlighted.
+- [ ] The popup closes with the X, with Esc and with a click outside it.
+
+**K. Tools for main (dry runs, nothing changes)**
+- [ ] `webflow_promotion.backfill_published_on()`: almost everything "already" (the remap set them).
+- [ ] `webflow_promotion.auto_push_preview()`: the list makes sense.
+
+**Rows of the old matrix that no longer apply:** 5, 6, 30, 31 (the `[staging]` guard, removed for ilLumenate, D82); 3 (the status popup became the create-product popup, H); 8 (failure after upload: still true, not worth forcing); 18 (n8n secret, checked in Phase 0); 19, 34 to 37 (migrations, done and recorded); 21, 22, 26, 27, 29 (checked when built, Phases 1 and 4); 38 (status changes now wait like other edits, owner 2026-11-08).
 
 ## 10. Moving from staging to main (promotion checklist)
 
