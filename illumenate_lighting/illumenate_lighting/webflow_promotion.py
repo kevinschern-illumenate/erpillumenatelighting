@@ -204,3 +204,91 @@ def auto_push_preview():
 		"pushes": pushes,
 		"quiet": quiet,
 	}
+
+
+# --- The users the sync runs as (Phase 7, plan 4.12) ---------------------------------------
+
+
+def expected_access(kind):
+	"""Pure: what each integration user needs, as (roles, [(doctype, permission)]).
+
+	- ``n8n``: the n8n "Authorization" credential's user. It reads templates and the product
+	  (Get Spec Sheet Data), writes the template's Spec Sheet field (Update Template Spec Sheet),
+	  uploads the PDF (``upload_spec_pdf``) and answers the publication jobs
+	  (``mark_webflow_synced``, role ilL Integration).
+	- ``publication``: the worker that claims jobs and sends them to n8n (ilL Integration).
+	- ``webflow_auto_push``: requests the automatic pushes (ilL Catalog Publisher).
+	"""
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_DOCTYPES
+
+	if kind == "n8n":
+		perms = [(doctype, "read") for doctype in TEMPLATE_DOCTYPES]
+		perms += [(doctype, "write") for doctype in TEMPLATE_DOCTYPES]
+		perms += [(PRODUCT, "read"), ("File", "create")]
+		return ("ilL Integration",), perms
+	if kind == "publication":
+		return ("ilL Integration",), [(PRODUCT, "read")]
+	if kind == "webflow_auto_push":
+		return ("ilL Catalog Publisher",), [(PRODUCT, "read")]
+	return (), []
+
+
+def access_problems(user_type, enabled, roles, permitted, kind):
+	"""Pure: what is missing for one user. ``permitted`` is {(doctype, permission): bool}."""
+	needed_roles, needed_perms = expected_access(kind)
+	problems = []
+	if not enabled:
+		problems.append("user is disabled")
+	if user_type != "System User":
+		problems.append(f"user type is {user_type or 'not set'}, needs System User")
+	has_admin = "System Manager" in roles
+	problems += [f"missing role {role}" for role in needed_roles if role not in roles and not has_admin]
+	problems += [
+		f"cannot {perm} {doctype}" for doctype, perm in needed_perms if not permitted.get((doctype, perm))
+	]
+	return problems
+
+
+@frappe.whitelist()
+def check_integration_users(n8n_user=None):
+	"""Read only: the users the Webflow sync runs as, their roles and what is missing.
+
+	``n8n_user`` is the user behind the n8n "Authorization" credential (its API key). When not
+	given, every enabled user with the ilL Integration role and an API key is checked as one.
+	"""
+	frappe.only_for("System Manager")
+	from illumenate_lighting.illumenate_lighting.portal.service_users import service_user
+
+	users = [
+		(service_user("publication"), "publication"),
+		(service_user("webflow_auto_push"), "webflow_auto_push"),
+	]
+	if n8n_user:
+		users.append((n8n_user, "n8n"))
+	else:
+		holders = frappe.get_all(
+			"Has Role", filters={"role": "ilL Integration", "parenttype": "User"}, pluck="parent"
+		)
+		for name in sorted(set(holders)):
+			if name not in dict(users) and frappe.db.get_value("User", name, "api_key"):
+				users.append((name, "n8n"))
+	report = []
+	for name, kind in users:
+		row = frappe.db.get_value("User", name, ["name", "enabled", "user_type"], as_dict=True)
+		if not row:
+			report.append({"user": name, "kind": kind, "problems": ["user does not exist"]})
+			continue
+		roles = frappe.get_roles(name)
+		_roles, perms = expected_access(kind)
+		permitted = {
+			(doctype, perm): bool(frappe.has_permission(doctype, perm, user=name)) for doctype, perm in perms
+		}
+		report.append(
+			{
+				"user": name,
+				"kind": kind,
+				"roles": sorted(role for role in roles if role not in ("All", "Guest")),
+				"problems": access_problems(row.user_type, row.enabled, roles, permitted, kind),
+			}
+		)
+	return {"ok": not any(row["problems"] for row in report), "users": report}

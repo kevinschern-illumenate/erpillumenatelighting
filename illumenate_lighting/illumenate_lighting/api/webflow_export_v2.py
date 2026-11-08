@@ -274,6 +274,28 @@ def _require_product_access(docname, ptype="write"):
         frappe.throw(_("You don't have permission to do this for this product."), frappe.PermissionError)
 
 
+def _require_sync_access(docname):
+    """The Sync to Webflow buttons (plan 4.12, D28): a System User with write on the product,
+    the catalog capability (role ilL Catalog Publisher; System Manager passes), and write on
+    the linked template when there is one. Checked before anything is saved or sent."""
+    from illumenate_lighting.illumenate_lighting.portal.staff import allowed
+    from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+
+    _require_product_access(docname, "write")
+    if not allowed("catalog"):
+        frappe.throw(_("Syncing to Webflow needs the ilL Catalog Publisher role."), frappe.PermissionError)
+    links = frappe.db.get_value(
+        "ilL-Webflow-Product", docname, list(WEBFLOW_PRODUCT_LINKS.values()), as_dict=True
+    ) or {}
+    for doctype, field in WEBFLOW_PRODUCT_LINKS.items():
+        template = links.get(field)
+        if template and frappe.db.exists(doctype, template):
+            from illumenate_lighting.illumenate_lighting.template_link import require_template_access
+
+            require_template_access(doctype, template)
+            break
+
+
 def _require_system_user():
     """Allow only System Users (used where no product name is available)."""
     user_type = frappe.get_cached_value("User", frappe.session.user, "user_type")
@@ -2691,7 +2713,7 @@ def _build_certifications_spec(doc) -> dict | None:
 @frappe.whitelist(methods=["POST"])
 def trigger_sync_v2(docname):
     """The Sync to Webflow button: stage every enabled target brand now (STAGE, W2)."""
-    _require_product_access(docname, "write")
+    _require_sync_access(docname)
     # Plan 4.19: nothing goes to Webflow while a restore or archive waits for approval.
     webflow_approvals.assert_no_pending(docname)
     results = stage_brands(docname)
@@ -2774,7 +2796,7 @@ def spec_sheet(product):
 
 @frappe.whitelist(methods=["POST"])
 def trigger_publish_v2(docname):
-    _require_product_access(docname, "write")
+    _require_sync_access(docname)
     webflow_approvals.assert_no_pending(docname)
     from illumenate_lighting.illumenate_lighting import webflow_auto_push
 
@@ -2822,8 +2844,15 @@ def trigger_publish_v2(docname):
 
 @frappe.whitelist()
 def upload_spec_pdf():
-    """Uploads a spec sheet PDF, skipping the pdf_contains_js check for system generation."""
+    """Uploads a spec sheet PDF, skipping the pdf_contains_js check for system generation.
+
+    The generated spec sheets carry form scripts (the part number builder), so Frappe's check
+    is skipped; only the n8n integration user may do that (Phase 7; System Manager passes).
+    """
+    from illumenate_lighting.illumenate_lighting.portal.staff import require
+
     _require_system_user()
+    require("integration")
     # Monkey-patch or temporarily disable check_content on the File document during this upload
     from frappe.core.doctype.file.file import File
     
@@ -2837,7 +2866,7 @@ def upload_spec_pdf():
 @frappe.whitelist(methods=["POST"])
 def request_spec_sheet(docname, brand=None):
     """Called by the desk button. Checks permissions, then forwards to n8n with the shared secret."""
-    _require_product_access(docname, "write")
+    _require_sync_access(docname)
 
     import requests as req
 

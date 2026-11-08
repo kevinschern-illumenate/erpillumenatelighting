@@ -152,7 +152,8 @@ class ilLWebflowProduct(Document):
 		if not active_brands:
 			active_brands = ["lighting_206", "illumenate"]  # Fallback if none selected
 
-		base_url = "https://app.illumenate.lighting"
+		# This site's own address (Phase 7): staging no longer points at production files.
+		base_url = frappe.utils.get_url()
 
 		def make_url(path):
 			if not path: return None
@@ -2038,7 +2039,7 @@ class ilLWebflowProduct(Document):
 								img = frappe.db.get_value("Item", item_code, "image")
 								
 							if img:
-								grouped_images[c_type] = img if img.startswith("http") else f"https://app.illumenate.lighting{img}"
+								grouped_images[c_type] = img if img.startswith("http") else f"{frappe.utils.get_url()}{img}"
 						
 						grouped_components[c_type].append({
 							"code": item_code or "",

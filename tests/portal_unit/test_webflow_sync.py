@@ -48,6 +48,10 @@ def _dependencies(run_as=None):
 		),
 		photometrics,
 		_module(ROOT + ".web_listing_source", Listing=MagicMock()),
+		# The Sync to Webflow buttons' role check (Phase 7): a publisher here; refused in
+		# test_webflow_sync_access.
+		_module(ROOT + ".portal.staff", allowed=MagicMock(return_value=True), require=MagicMock()),
+		_module(ROOT + ".template_link", require_template_access=MagicMock()),
 	]
 	if run_as:
 		modules.append(_module(ROOT + ".portal.service_users", run_as=run_as))

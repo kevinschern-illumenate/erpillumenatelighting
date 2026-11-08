@@ -524,6 +524,8 @@ def make_frappe(data, product_class=None):
 	utils = types.ModuleType("frappe.utils")
 	utils.cint = lambda value: int(value or 0)
 	utils.flt = lambda value: float(value or 0)
+	# The site's own address (Phase 7). The parity fixture was recorded on production.
+	utils.get_url = lambda *args, **kwargs: "https://app.illumenate.lighting"
 	frappe.utils = utils
 	return frappe
 

@@ -55,6 +55,7 @@ class SiteFields(unittest.TestCase):
 			outputs_count=2,
 		)
 		frappe.db.get_value.return_value = Record(badge_image="/files/ul.png")
+		frappe.utils.get_url = MagicMock(return_value="https://erp.example")
 
 		doc = module.ilLWebflowProduct()
 		doc.meta = Meta(product_fields, {"certifications": CERT_LINK})

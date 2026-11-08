@@ -1666,16 +1666,16 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 - Nothing left to build in Phase 6.
 - Dropped: the staging banner on the forms, since staging has its own site (D82).
 
-**Phase 7: status**
-- Built:
-  - n8n URLs and the secret come from site config (Phase 0 Z1);
-  - the D28 check on link/unlink, Generate Spec and Apply Calculations;
-  - the sync endpoints check write on the product;
-  - the new configured spec endpoint is rate limited.
-- To check:
-  - the D28 check on the sync endpoints (they check write on the product, not the template's catalog role);
-  - the API users' permissions (4.12);
-  - two places in `ill_webflow_product.py` that still build URLs with `https://app.illumenate.lighting` (certification badges, line ~155, and the kit component images, ~2041). Both are older product-side code. 4.19 stopped sending the product's certifications, so they may no longer reach Webflow; confirm, then remove or switch them to the brand's base URL.
+**Phase 7: status (built 2026-11-08)**
+- Built earlier: n8n URLs and the secret come from site config (Phase 0 Z1); the D28 check on link/unlink, Generate Spec, Apply Calculations and the create-product popup; the configured spec endpoint is rate limited.
+- **Sync buttons (D28):** Sync to Webflow, `trigger_publish_v2` and the old `request_spec_sheet` call `webflow_export_v2._require_sync_access` before anything is saved or sent. It requires a System User with write on the product, the catalog capability (ilL Catalog Publisher; System Manager passes) and, for a linked product, write on its template. Before this, a user without the role could cause a product save before `request()` refused them. The automatic push and approvals keep their own paths (service user, approver).
+- **`upload_spec_pdf`:** it skips Frappe's check for scripts inside PDFs, because the generated spec sheets carry the part number builder's form scripts. It now needs the integration capability (ilL Integration; System Manager passes), not just any desk user. All of n8n's ERPNext calls use the one "Authorization" credential, whose user already has ilL Integration.
+- **API users (4.12):** `webflow_promotion.check_integration_users(n8n_user=None)` is read only, System Manager. It lists the publication worker, the auto-push user and the n8n credential's user (given, or every ilL Integration user with an API key), with their roles and what each is missing:
+  - n8n: System User, ilL Integration, read and write on the six templates, read on the product, create File;
+  - publication worker: ilL Integration;
+  - auto push: ilL Catalog Publisher.
+  To be run on staging and on main (10.4).
+- **Production addresses:** `ill_webflow_product.py` built certification badge and kit component image URLs on `https://app.illumenate.lighting`. Neither reaches Webflow or the spec sheet any more (both read the template's rows, 4.19), but they now use the site's own address (`frappe.utils.get_url()`).
 
 **Phase 8:** the test matrix (section 9) has not been run as a whole. Many rows have been checked one at a time: the stable link, the spec sheet, sync, approvals, automatic pushes and notifications. Read the matrix with "Expected results changed by later decisions" and the replacements above.
 
@@ -1948,6 +1948,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 - [ ] `template_link_report.promote_live_templates` (Active templates with a published product become Active + Live) before automatic pushes are turned on.
 - [ ] `published_on` backfill (Phase 5): `webflow_promotion.backfill_published_on()` dry run, review, then `apply=True`.
 - [ ] Before turning `webflow_auto_push` on: `webflow_promotion.auto_push_preview()`, reviewed by the owner.
+- [ ] `webflow_promotion.check_integration_users()` reports no problems (pass the n8n credential's user if it finds the wrong one).
 - [ ] Review the "Product Badge values not moved to Web Badge" and `custom_dimensions_image_2` Error Log entries the patches write.
 - [ ] `spec_sheet_job.regenerate_spec_sheets` per template type that has a spec sheet page, so every product gets the stable link `/spec-sheets/<brand>_<template>.pdf`.
 - [ ] Kits still missing data on 2026-11-04 (KIT-AZ01, KIT-BN03, KIT-CH02, KIT-RA05, KIT-SH01, KIT-SH02, KIT-SH03, KIT-SL01): see Phase 4 "As built" and 8.2.
