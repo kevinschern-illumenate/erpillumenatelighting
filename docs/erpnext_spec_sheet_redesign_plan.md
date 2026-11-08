@@ -1656,7 +1656,7 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
     - Where: a section at the bottom of the Webflow Product and of each linked template, in Frappe's section markup so it has the same width as the other sections.
     - Per brand: published since, last sync, review reason.
     - One timeline (owner, 2026-11-08) with the columns When, Status, Result, By, Finished, Error. It shows:
-      - the latest 25 pushes, with the statuses at the time ("Active + Live · Published", plus "(sent as Webflow Draft)" when the template overrode it). New `ilL-Publish-Job` fields `template_status`, `webflow_status` and `effective_status` record them from 2026-11-08, so older pushes show "—";
+      - the latest 10 pushes (owner, 2026-11-08; was 25), with the statuses at the time ("Active + Live · Published", plus "(sent as Webflow Draft)" when the template overrode it). New `ilL-Publish-Job` fields `template_status`, `webflow_status` and `effective_status` record them from 2026-11-08, so older pushes show "—";
       - the status changes of the template's Product Status and the product's Webflow Status, from the change log (Version). Track changes was switched on for `ilL-LED-Sheet-Template`, the one template without it.
     - The What and Brand columns were dropped (owner): every push is a Sync, and the result names any other operation ("Done (removed from Webflow)").
     - A link opens all jobs.
@@ -1905,28 +1905,28 @@ This is the one list of open work and cleanup notes recorded during Phases 0 to 
 
 This replaces the matrix above for Phase 8. The matrix is kept for its history; the rows it carries over are given as (old #). Use a kit you can change freely, here KIT-RA02 (template) and kit-ra02 (Webflow Product). Tick each line when what you see matches.
 
-**A. Before you start**
-- [ ] ERPNext deployed with everything up to `15e554d`, and migrate run (new fields on the publish job, track changes on LED Sheet templates).
-- [ ] Desk reloaded. The browser allows notifications for the ERPNext site.
-- [ ] Tampermonkey runs `staging.user.js` version `2026.11.08.3`. In the console on a product page, `window.__illStaging` shows `own: false` and `ignored` above 0.
-- [ ] Site config: `webflow_notify_users` lists you; `webflow_auto_push` on (1).
-- [ ] System Console: `webflow_promotion.check_integration_users()` returns `ok: True`.
+**A. Before you start**: passed (owner, 2026-11-08).
+- [x] ERPNext deployed with everything up to `15e554d`, and migrate run (new fields on the publish job, track changes on LED Sheet templates).
+- [x] Desk reloaded. The browser allows notifications for the ERPNext site.
+- [x] Tampermonkey runs `staging.user.js` version `2026.11.08.3`. In the console on a product page, `window.__illStaging` shows `own: false` and `ignored` above 0.
+- [x] Site config: `webflow_notify_users` lists you; `webflow_auto_push` on (1).
+- [x] System Console: `webflow_promotion.check_integration_users()` returns `ok: True`.
 
-**B. Spec sheet**
-- [ ] KIT-RA02 > Generate Spec: the opaque dialog shows, then "Spec sheet ready" with the link. A green push "Spec sheet generated: KIT-RA02" arrives. (old 32)
-- [ ] The stable link `…/spec-sheets/illumenate-lighting_kit-ra02.pdf` opens the new PDF; `…/spec-sheets/KIT-RA02.pdf` opens the same file; a made-up name gives "Spec sheet not found". (old 14, 20)
-- [ ] The template's Spec Sheet field and the file list show only the new file (older ones unattached, still in File Manager). (old 7)
-- [ ] A template missing something its spec sheet needs: Generate Spec lists what is missing and creates nothing. (old 28)
-- [ ] The PDF: the kit's Lenses, Mounting, Finish and Stock Length values are where they belong; single options (Finish, Length) are pre-ticked in the part number builder.
+**B. Spec sheet**: passed (owner, 2026-11-08).
+- [x] KIT-RA02 > Generate Spec: the opaque dialog shows, then "Spec sheet ready" with the link. A green push "Spec sheet generated: KIT-RA02" arrives. (old 32)
+- [x] The stable link `…/spec-sheets/illumenate-lighting_kit-ra02.pdf` opens the new PDF; `…/spec-sheets/KIT-RA02.pdf` opens the same file; a made-up name gives "Spec sheet not found". (old 14, 20)
+- [x] The template's Spec Sheet field and the file list show only the new file (older ones unattached, still in File Manager). (old 7)
+- [x] A template missing something its spec sheet needs: Generate Spec lists what is missing and creates nothing. (old 28)
+- [x] The PDF: the kit's Lenses, Mounting, Finish and Stock Length values are where they belong; single options (Finish, Length) are pre-ticked in the part number builder.
 
-**C. Sync to Webflow**
-- [ ] kit-ra02 > Sync to Webflow: the dialog shows, then "Synced"; a green push "Synced to Webflow: kit-ra02" arrives; the staging page shows the change. (old 32)
-- [ ] KIT-RA02 > Generate Spec & Sync to Webflow: both steps run; two green pushes arrive.
-- [ ] The Webflow page: dimensions image, certification badges, compatible products (published ones only), components, specifications and documents are right.
+**C. Sync to Webflow**: passed (owner, 2026-11-08).
+- [x] kit-ra02 > Sync to Webflow: the dialog shows, then "Synced"; a green push "Synced to Webflow: kit-ra02" arrives; the staging page shows the change. (old 32)
+- [x] KIT-RA02 > Generate Spec & Sync to Webflow: both steps run; two green pushes arrive.
+- [x] The Webflow page: dimensions image, certification badges, compatible products (published ones only), components, specifications and documents are right.
 
-**D. Publication History**
-- [ ] At the bottom of kit-ra02 and of KIT-RA02: the line "illumenate: published since … · last sync …" and the table (When, Status, Result, By, Finished, Error), the same width as the other sections.
-- [ ] The syncs from C show with Status "Active + Live · Published" and Result "Done". Status changes made in E show as shaded rows.
+**D. Publication History**: passed (owner, 2026-11-08).
+- [x] At the bottom of kit-ra02 and of KIT-RA02: the line "illumenate: published since … · last sync …" and the table (When, Status, Result, By, Finished, Error), the same width as the other sections.
+- [x] The syncs from C show with Status "Active + Live · Published" and Result "Done". Status changes made in E show as shaded rows.
 
 **E. Template status (plan 4.3 as built)**
 - [ ] KIT-RA02 to **Draft**: a notification "Webflow page will be hidden: kit-ra02"; kit-ra02 shows "Shown on Webflow as Webflow Draft, because the template is Draft…"; about 2 minutes later the page is hidden. (old 39)

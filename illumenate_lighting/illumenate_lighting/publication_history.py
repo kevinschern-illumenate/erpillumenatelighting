@@ -17,7 +17,7 @@ from frappe import _
 PRODUCT = "ilL-Webflow-Product"
 PUBLICATION = "ilL-Product-Publication"
 JOB = "ilL-Publish-Job"
-LIMIT = 25
+LIMIT = 10
 
 # Every push is a Sync today; the others are named in the result.
 OPERATIONS = {"PUBLISH": "published", "RETIRE": "removed from Webflow"}
