@@ -666,7 +666,7 @@ Goal: one sync path from ERPNext to Webflow for ilLumenate (206 keeps its guarde
 - **Failures (Q3):** temporary failures (rate limit, timeout, n8n or Webflow 5xx) retry after 1, 5 and 15 minutes, then notify; permanent failures notify at once with the reason and a link; a newer save replaces a waiting failed push.
 - **Off switch (Q4):** site config `webflow_auto_push`, off at first. Off: buttons work, saves do not push; waiting pushes are held and go out when it is turned on; a running push is never cancelled.
 - **Approvals (Q5, Q6):** restoring an archived item (Webflow Status from Archived to Webflow Draft or Published) and archiving a page that was ever published wait for approval. Shown as an orange banner on the Webflow Product with Approve and Reject and what would happen; the notification links to it; a "Webflow Approvals" list shows everything waiting. Reject leaves Webflow unchanged and puts the Webflow Status back. A never-published item archives at once. A template set to Archived follows the same rule.
-- **Notifications (Q2 of the Phase 5 grill, D83):** approvals and failures only, nothing on success; bell, email and browser push; recipients are a site config list (owner only on staging; add Kevin on main).
+- **Notifications (Q2 of the Phase 5 grill, D83):** approvals and failures only, nothing on success; bell, email and browser push; recipients are a site config list (owner only on staging; add Kevin on main). **Changed 2026-11-08:** successes are a browser push to the person who started them (Phase 5 answers).
 - **Archived items:** no pushes while Archived.
 - **Template statuses:** the 4.3 status table and D61 (Active + Live back to Active hides the page and notifies) still apply.
 
@@ -1587,6 +1587,63 @@ ilLumenate kit sheet: the first `.dimension-item` keeps `dimensions_image` in `#
 | KIT-SL01 | Same as KIT-AZ01 |
 
 **Staging Webflow site (2026-11-04, D82).** Not part of Phase 4's scope, but done at the same time: staging got its own ilLumenate Webflow site and the stored IDs were remapped. Details in 10.8.
+
+### Phases 5 to 8: status as of 2026-11-08
+
+The status lines in Phases 5 to 7 below were written before the sync rebuild (4.19, steps 1 to 3). This is what is built, what later decisions replaced, and what is left.
+
+**Phase 5: built**
+- Automatic pushes: 2 minutes after the last save, not the 5 in 4.4 item 7 (4.19 Q2).
+- The off switch: site config `webflow_auto_push`, not `webflow_auto_push_enabled`.
+- Retries after 1, 5 and 15 minutes, and a newer save replacing a waiting retry.
+- Notifications:
+  - approvals and failures: bell, email and push;
+  - successes: push only, to the person who started it (owner 2026-11-08, Phase 5 answers).
+- Approvals (`ilL-Webflow-Approval`). These replace the archive review flag and the Confirm archive action (4.4 item 8, rows 11 and 16).
+- `published_on`, set on the first sync of a Published or Discontinued product. On staging it was also filled from the staging site by the remap (10.8).
+- `is_discontinued`, stored on the product (`webflow_state.py`).
+- The "Generate Spec & Sync to Webflow" label, and the blocking dialog on Sync to Webflow (step 1).
+
+**Phase 5: replaced by later decisions**
+- The resolver as one module, and `webflow_state` in the payload. The `(ilL) Transform to Webflow Format` node decides from the product's Webflow Status (4.19 Q1). The payload carries only `ever_published`.
+- STAGE-then-PUBLISH chaining: one job publishes when the status is Published or Discontinued (4.19 Q1).
+- Row 4 (linking an Active + Live template creates the hidden draft automatically): never-synced products push only from a button (4.19 Q2).
+- The `[staging]` guard for ilLumenate (D82).
+
+**Phase 5: not built**
+1. **Template status effects.** 4.19 says the 4.3 table and D61 still apply, but only the product's Webflow Status drives a push today. The template's Product Status reaches the product only as `is_active`: on for Active, Active + Live and Internal Only; off for Draft, Discontinued and Archived. Today:
+   - Draft, Discontinued or Archived template: the product reads as inactive, so `request()` refuses every push. A published page stays up, unchanged, and cannot be updated or hidden. This affects rows 3, 14 and 16; D45; and test 39.
+   - Internal Only template: readiness refuses the push ("Internal Only templates stay off the website"), so row 12 (stays up as Discontinued) does not happen. Test 10.
+   - Active + Live back to Active: pushes continue as before, so D61 (hide and notify) does not happen.
+   - Back to Active from Discontinued or Archived: the Webflow Status is not reset to Webflow Draft (D5, test 25).
+2. **Status changes skip the wait** (D44, test 38): every push waits the 2 minutes.
+3. **`is_discontinued` reaching Webflow** (R1): not sent. Phase 9.
+4. **`published_on` backfill on main** (10.4): no function yet. On staging the remap did it.
+5. **A dry-run list before automatic pushes are turned on on main** (4.3 migration note): the waiting rows show what would push, but there is no report.
+
+**Phase 6: status**
+- Built:
+  - the brand pill and record name in the template sidebar;
+  - the approval banner (replaces the archive review banner);
+  - the "automatic push waiting / held" line on the product.
+- Not built:
+  - the create-product popup (4.5);
+  - the effective-state indicator (4.4 item 6);
+  - the Publication History view (4.14).
+- Dropped: the staging banner on the forms, since staging has its own site (D82).
+
+**Phase 7: status**
+- Built:
+  - n8n URLs and the secret come from site config (Phase 0 Z1);
+  - the D28 check on link/unlink, Generate Spec and Apply Calculations;
+  - the sync endpoints check write on the product;
+  - the new configured spec endpoint is rate limited.
+- To check:
+  - the D28 check on the sync endpoints (they check write on the product, not the template's catalog role);
+  - the API users' permissions (4.12);
+  - two places in `ill_webflow_product.py` that still build URLs with `https://app.illumenate.lighting` (certification badges, line ~155, and the kit component images, ~2041). Both are older product-side code. 4.19 stopped sending the product's certifications, so they may no longer reach Webflow; confirm, then remove or switch them to the brand's base URL.
+
+**Phase 8:** the test matrix (section 9) has not been run as a whole. Many rows have been checked one at a time: the stable link, the spec sheet, sync, approvals, automatic pushes and notifications. Read the matrix with "Expected results changed by later decisions" and the replacements above.
 
 ### Phase 5: Resolver, pipeline, automatic pushes, badges
 
