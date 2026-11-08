@@ -46,7 +46,8 @@ class EffectiveStatus(unittest.TestCase):
 				("Draft", "Published", False, None, "never_published"),  # row 2
 				("Active", "Webflow Draft", False, None, "never_published"),  # D60
 				("Internal Only", "Published", False, None, "never_published"),  # row 13
-				("Archived", "Published", True, None, "archived_template"),  # to be decided
+				("Archived", "Published", True, "Webflow Draft", "hidden"),  # row 16, owner 2026-11-08
+				("Archived", "Published", False, None, "never_published"),  # row 17
 				("Discontinued", "Archived", True, "Archived", None),
 			]
 			for template, status, published, expected, rule in cases:
@@ -98,7 +99,7 @@ class TemplateStatusChange(unittest.TestCase):
 		return notify.notify, frappe
 
 	def test_hiding_a_published_page_notifies(self):
-		for new in ("Draft", "Active"):
+		for new in ("Draft", "Active", "Archived"):
 			with self.subTest(new=new):
 				notify, frappe = self.load("Active + Live", new)
 				notify.assert_called_once()

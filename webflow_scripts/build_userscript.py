@@ -71,8 +71,11 @@ window.__illStaging = {own: true, signatures: __SIGNATURES__, ignored: 0};
 
 def parts(html):
 	requires = re.findall(r'<script[^>]*\bsrc="([^"]+)"[^>]*>\s*</script>', html)
-	styles = re.findall(r"<style[^>]*>(.*?)</style>", html, re.S)
-	links = re.findall(r'<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"', html)
+	# Styles and stylesheet links outside the scripts only: a script may hold "<style>" as text
+	# (the configured spec sheet's new-tab page), which is not page CSS.
+	outside = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.S)
+	styles = re.findall(r"<style[^>]*>(.*?)</style>", outside, re.S)
+	links = re.findall(r'<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"', outside)
 	scripts = [
 		body
 		for attrs, body in re.findall(r"<script([^>]*)>(.*?)</script>", html, re.S)
@@ -107,7 +110,7 @@ def build():
 		"// ==UserScript==",
 		"// @name         ilLumenate staging product page scripts",
 		"// @namespace    https://illumenate.lighting/",
-		"// @version      2026.11.08.1",
+		"// @version      2026.11.08.2",
 		"// @description  Main-site product page custom code, for testing on the staging Webflow site",
 		f"// @match        {MATCH}",
 		"// @run-at       document-start",
@@ -134,7 +137,9 @@ def build():
     style.textContent = `{style}`;
     document.head.appendChild(style);
   }};
-  if (document.head) addStyles(); else document.addEventListener('DOMContentLoaded', addStyles);
+  // A styling problem must never stop the scripts below (2026-11-08: it did once).
+  const safeStyles = () => {{ try {{ addStyles(); }} catch (error) {{ console.error('ilLumenate staging styles:', error); }} }};
+  if (document.head) safeStyles(); else document.addEventListener('DOMContentLoaded', safeStyles);
 }})();
 
 """

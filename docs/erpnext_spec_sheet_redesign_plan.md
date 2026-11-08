@@ -810,12 +810,13 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
     - The look (background, text and accent colours, logo) is set in `TAB_LOOK` at the top of the page section of `configured-spec-sheet.html`.
 - It reads the selections from the configurator cards, so it does not need 206's `window.CurrentConfigSelection`.
 - Second staging test (owner, KIT-RA02, 2026-11-06): works, highlighting included.
+- Userscript `2026.11.08.1` broke the staging page (owner, 2026-11-08): components gone, badges missing, unfiltered compatible products, the old submittal script opening. `build_userscript.py` collected every `<style>` block, including the text `<style>${tabStyle}</style>` inside the new-tab code. The userscript then threw while adding styles, before any of its scripts ran (`window.__illStaging.own` stayed true). Since `2026.11.08.2`, styles are collected outside scripts only, and a styling error is logged instead of stopping the userscript.
 - First staging test (owner, KIT-RA02, 2026-11-06): neither Download nor the close icon responded. What was found:
   - The popup has two Download buttons, both Code Embeds shown by condition: `#ill-download-spec-sheet`, and `#extrusions-dwnld-submittal` on kits. The first version only handled the first.
   - The Fixture Type wrapper div also had the id `ill-fixture-type`. That id was removed from the wrapper in the Designer.
   - The script now handles both buttons and the close icon. Its listeners are delegated from the document in the capture phase and registered when the script runs, so they run before any older handler. It reads the inputs by `input#id`.
   - Re-checked in Playwright through the built userscript, blocker included, with this structure.
-  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.08.1`).
+  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.08.2`).
 - It replaces the old `.extrusions-dwnld-submittal` submittal script (`extrusion-kit-configured-spec.html`, kept for reference) and the main site's old `#ill-download-spec-sheet` handler.
 
 **Checked:**
@@ -1617,7 +1618,7 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 - The `[staging]` guard for ilLumenate (D82).
 
 **Phase 5: not built**
-1. **Template status effects. Built 2026-11-08 except the Archived row.**
+1. **Template status effects. Built 2026-11-08.**
    - Owner decisions (2026-11-08): the status table as proposed (Q1 a), and the product's Webflow Status field is left alone (Q2 b). Each push works out the status Webflow gets.
    - `webflow_state.effective_status(template status, Webflow Status, ever published)` returns the status, or None for nothing goes to Webflow:
      - unlinked or Active + Live: the product's own Webflow Status;
@@ -1625,17 +1626,17 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
      - never published, any other template status: nothing (rows 2, 13, 15, 17, D60);
      - Discontinued or Internal Only: a public page stays up as Discontinued (rows 12, 14); a hidden page stays hidden;
      - Draft or Active: Webflow Draft, hidden (row 3, D61);
-     - Archived: nothing yet (open question below).
+     - Archived: Webflow Draft, hidden, and the list is notified (row 16; owner 2026-11-08, Q3 a). Archiving the page in Webflow is only the product's Webflow Status set to Archived, with its approval (the 2026-11-06 rule).
    - `publication._refresh` uses it. A linked product is active for a push only when there is a status, and an inactive product is still exported (`frappe.flags.ill_export_inactive`).
    - The status goes to n8n as `webflow_state.effective_status`, which the `(ilL) Transform to Webflow Format` uses when present. When the template overrides the product, the payload also carries the hashed key `effective_webflow_status`, so the status change is a new revision. Products without an override keep their hash.
    - The Internal Only readiness issue is dropped when the page stays up as Discontinued.
    - Template `on_update` (`webflow_state.on_template_update`):
-     - a published, public page whose template goes to Draft or Active notifies the list (bell, email, push);
+     - a published, public page whose template goes to Draft, Active or Archived notifies the list (bell, email, push);
      - back to Active + Live from Discontinued or Archived resets the product's Webflow Status to Webflow Draft (D5);
      - from Internal Only it resumes.
    - The push itself is the product's automatic push.
    - The product form line shows the override, e.g. "Shown on Webflow as Discontinued, because the template is Internal Only (Webflow Status here: Published)". This is the effective-state indicator from 4.4 item 6.
-   - **Open:** the table said a template set to Archived goes through the Archive approval, but on 2026-11-06 the owner decided only the product's Webflow Status raises approvals (`c1cbc11`). Until this is decided, an Archived template sends nothing.
+   - The Archived row was settled on 2026-11-08 (Q3 a, above). The table had said a template archive goes through the Archive approval; the owner kept the 2026-11-06 rule instead.
    - Not built from D5: recording the reset in a history.
 2. **Status changes skip the wait** (D44, test 38): every push waits the 2 minutes.
 3. **`is_discontinued` reaching Webflow** (R1): not sent. Phase 9.

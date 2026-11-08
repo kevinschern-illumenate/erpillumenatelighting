@@ -16,8 +16,10 @@ DISCONTINUED_STAGE = "Discontinued"
 # Template statuses whose page stays up, marked discontinued, once it was published (rows 12, 14).
 STAYS_UP_DISCONTINUED = ("Discontinued", "Internal Only")
 LIVE_STATUS = "Active + Live"
-# Template statuses that hide a page that was published (rows 3, D61).
-HIDES_WHEN_PUBLISHED = ("Draft", "Active")
+# Template statuses that hide a page that was published (rows 3, 16, D61). An Archived template
+# hides the page; only the product's Webflow Status set to Archived archives it in Webflow,
+# through the approval (owner, 2026-11-08).
+HIDES_WHEN_PUBLISHED = ("Draft", "Active", "Archived")
 PUBLIC_STAGES = ("Published", "Discontinued")
 WEBFLOW_DRAFT = "Webflow Draft"
 ARCHIVED = "Archived"
@@ -86,8 +88,7 @@ def effective_status(template_status, webflow_status, published):
 		return webflow_status, None
 	if template_status in HIDES_WHEN_PUBLISHED:
 		return WEBFLOW_DRAFT, "hidden"
-	# Archived template: not decided yet (plan 4.3, Phases 5 to 8 status); nothing is sent.
-	return None, "archived_template"
+	return None, "unknown_template_status"
 
 
 def describe_effective(template_status, webflow_status, status, rule):
@@ -98,8 +99,8 @@ def describe_effective(template_status, webflow_status, status, rule):
 		return _("Nothing goes to Webflow: the template is {0} and this page was never published.").format(
 			template_status
 		)
-	if rule == "archived_template":
-		return _("Nothing goes to Webflow while the template is Archived.")
+	if rule == "unknown_template_status":
+		return _("Nothing goes to Webflow: the template status {0} is not known.").format(template_status)
 	return _("Shown on Webflow as {0}, because the template is {1} (Webflow Status here: {2}).").format(
 		status, template_status, webflow_status or _("not set")
 	)
@@ -123,7 +124,8 @@ def ever_published(product):
 def on_template_update(template, method=None):
 	"""Template on_update: a Product Status change on a page that was published.
 
-	- Draft or Active (from Active + Live): the page is hidden; the notification list is told.
+	- Draft, Active (from Active + Live) or Archived: the page is hidden; the notification list
+	  is told. Archiving it in Webflow is the product's Webflow Status, with its approval.
 	- Back to Active + Live from Discontinued or Archived: the product's Webflow Status is reset to
 	  Webflow Draft (D5); going public again needs a person to set it to Published.
 	The push itself is the product's automatic push (the template save saves the product).
@@ -143,7 +145,8 @@ def on_template_update(template, method=None):
 			_("Webflow page will be hidden: {0}").format(product),
 			_(
 				"Template {0} was set to {1}, so the published page of {2} is hidden (Webflow Draft) at its "
-				"next push. Set the template back to Active + Live to show it again."
+				"next push. Set the template back to Active + Live to show it again, or set the product's "
+				"Webflow Status to Archived to archive the page."
 			).format(template.name, new, product),
 			PRODUCT,
 			product,

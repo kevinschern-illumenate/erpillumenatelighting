@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ilLumenate staging product page scripts
 // @namespace    https://illumenate.lighting/
-// @version      2026.11.08.1
+// @version      2026.11.08.2
 // @description  Main-site product page custom code, for testing on the staging Webflow site
 // @match        https://staging-illumenate.webflow.io/products/*
 // @run-at       document-start
@@ -235,7 +235,6 @@ window.__illStaging = {own: true, signatures: ['raw-specs-data', 'raw-feature-da
     100% { transform: translateY(0); opacity: 1; }
   }
 
-${tabStyle}
 
   .swiper-button-disabled {
       display: none !important;
@@ -243,7 +242,9 @@ ${tabStyle}
 `;
     document.head.appendChild(style);
   };
-  if (document.head) addStyles(); else document.addEventListener('DOMContentLoaded', addStyles);
+  // A styling problem must never stop the scripts below (2026-11-08: it did once).
+  const safeStyles = () => { try { addStyles(); } catch (error) { console.error('ilLumenate staging styles:', error); } };
+  if (document.head) safeStyles(); else document.addEventListener('DOMContentLoaded', safeStyles);
 })();
 
 // ---- specifications-json.html ----
