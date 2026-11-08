@@ -1639,17 +1639,17 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
    - Not built from D5: recording the reset in a history.
 2. **Status changes skip the wait** (D44, test 38): **dropped (owner, 2026-11-08, Q4 b).** Every push, status changes included, waits the 2 minutes after the last save; the buttons still push at once.
 3. **`is_discontinued` reaching Webflow** (R1): not sent. Phase 9.
-4. **`published_on` backfill on main** (10.4): no function yet. On staging the remap did it.
-5. **A dry-run list before automatic pushes are turned on on main** (4.3 migration note): the waiting rows show what would push, but there is no report.
+4. **`published_on` backfill on main** (10.4): **built 2026-11-08**, `webflow_promotion.backfill_published_on(apply=False)` (System Manager; dry run by default). A product whose Webflow Status is Published or Discontinued and that has a Webflow item for the brand gets `published_on`. The date is the brand's last sync, else the product's, else now; a missing publication record is created as the first sync would. The report lists set, create, already and skip.
+5. **A dry-run list before automatic pushes are turned on on main**: **built 2026-11-08**, `webflow_promotion.auto_push_preview()` (System Manager, read only). It lists every product a save would push, with brands, Webflow Status, template status, the status Webflow would get and readiness issues. It also lists the products that would not push, and why (Archived, never synced).
 
 **Phase 6: status**
 - Built:
+  - **Publication History** (4.14, built 2026-11-08), `publication_history.get_history` and `public/js/publication_history.js`. It is a section at the bottom of the Webflow Product and of each linked template, read permission only. Per brand: published since, last sync, review reason. The latest 25 pushes: when, what (Sync, Publish, Remove from Webflow), brand, result (Done, Failed, Failed retrying, Waiting, Running, Replaced by a newer save), started by, finished, error. A link opens all jobs;
   - the brand pill and record name in the template sidebar;
   - the approval banner (replaces the archive review banner);
   - the "automatic push waiting / held" line on the product.
 - Not built:
   - the create-product popup (4.5);
-  - the Publication History view (4.14).
 - Dropped: the staging banner on the forms, since staging has its own site (D82).
 
 **Phase 7: status**
@@ -1932,7 +1932,8 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 - [ ] `template_listing.refresh_all_templates(apply=True, push=True)`.
 - [ ] `template_listing.adopt_hand_set_configurators` (staging adopted 55: 45 kept hand-set with refreshed codes, 10 empty fixtures switched to calculated), then `web_listing_source.payload_parity`.
 - [ ] `template_link_report.promote_live_templates` (Active templates with a published product become Active + Live) before automatic pushes are turned on.
-- [ ] `published_on` backfill (Phase 5).
+- [ ] `published_on` backfill (Phase 5): `webflow_promotion.backfill_published_on()` dry run, review, then `apply=True`.
+- [ ] Before turning `webflow_auto_push` on: `webflow_promotion.auto_push_preview()`, reviewed by the owner.
 - [ ] Review the "Product Badge values not moved to Web Badge" and `custom_dimensions_image_2` Error Log entries the patches write.
 - [ ] `spec_sheet_job.regenerate_spec_sheets` per template type that has a spec sheet page, so every product gets the stable link `/spec-sheets/<brand>_<template>.pdf`.
 - [ ] Kits still missing data on 2026-11-04 (KIT-AZ01, KIT-BN03, KIT-CH02, KIT-RA05, KIT-SH01, KIT-SH02, KIT-SH03, KIT-SL01): see Phase 4 "As built" and 8.2.
