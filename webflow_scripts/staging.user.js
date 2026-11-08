@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ilLumenate staging product page scripts
 // @namespace    https://illumenate.lighting/
-// @version      2026.11.08.2
+// @version      2026.11.08.3
 // @description  Main-site product page custom code, for testing on the staging Webflow site
 // @match        https://staging-illumenate.webflow.io/products/*
 // @run-at       document-start
@@ -1313,7 +1313,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeModal = () => { const m = modalEl(); if (m) m.style.setProperty('display', 'none', 'important'); };
   const isOpen = () => { const m = modalEl(); return !!m && window.getComputedStyle(m).display !== 'none'; };
   let busy = false;
-  window.__illConfiguredSpec = '2026-11-08.1';
+  window.__illConfiguredSpec = '2026-11-08.3';
 
   document.addEventListener('click', (e) => {
     const target = e.target instanceof Element ? e.target : null;
@@ -1371,62 +1371,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const value = id => ((document.querySelector(`input#${id}, textarea#${id}`) || {}).value || '').trim();
   const field = (form, name) => { try { return form.getField(name); } catch (e) { return null; } };
 
-  // --- 4. THE NEW TAB: "Preparing" page, then the PDF with a Download button ---
-  // Edit the look here (owner, 2026-11-08): background colour, text colour and logo.
-  const TAB_LOOK = {
-    background: '#0b3b5e',
-    text: '#ffffff',
-    accent: '#fdc757',
-    logo: '', // image URL; empty shows the brand name as text
-    brand: 'ilLumenate Lighting',
-  };
-  const esc = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const logoHtml = () => TAB_LOOK.logo
-    ? `<img src="${esc(TAB_LOOK.logo)}" alt="${esc(TAB_LOOK.brand)}" class="logo">`
-    : `<span class="brand">${esc(TAB_LOOK.brand)}</span>`;
-  const tabStyle = `
-    html, body { margin: 0; height: 100%; background: ${TAB_LOOK.background}; color: ${TAB_LOOK.text};
-      font-family: Manrope, "Helvetica Neue", Arial, sans-serif; }
-    .logo { height: 40px; } .brand { font-size: 22px; font-weight: 700; }
-    .wait { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 24px; text-align: center; padding: 0 24px; }
-    .wait p { font-size: 18px; margin: 0; }
-    .spin { width: 36px; height: 36px; border: 3px solid rgba(255,255,255,.25); border-top-color: ${TAB_LOOK.accent};
-      border-radius: 50%; animation: s 0.9s linear infinite; } @keyframes s { to { transform: rotate(360deg); } }
-    .bar { height: 56px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 16px; }
-    .bar .logo { height: 28px; } .bar .brand { font-size: 16px; }
-    .bar .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; opacity: .85; }
-    .bar a { background: ${TAB_LOOK.accent}; color: #1d1d1b; text-decoration: none; font-weight: 600;
-      padding: 8px 16px; border-radius: 6px; font-size: 14px; white-space: nowrap; }
-    iframe { display: block; width: 100%; height: calc(100% - 56px); border: 0; background: #525659; }`;
-  function writeTab(tab, title, body) {
-    tab.document.open();
-    tab.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><style>${tabStyle}</style></head><body>${body}</body></html>`);
-    tab.document.close();
-  }
-  function showPreparing(tab, productName) {
-    writeTab(tab, 'Preparing your configured spec sheet…',
-      `<div class="wait">${logoHtml()}<div class="spin"></div><p>Preparing your configured spec sheet for ${esc(productName)}…</p></div>`);
-  }
-  function showPdf(tab, url, fileName) {
-    writeTab(tab, fileName,
-      `<div class="bar">${logoHtml()}<span class="name">${esc(fileName)}</span>`
-      + `<a href="${url}" download="${esc(fileName)}">Download PDF</a></div>`
-      + `<iframe src="${url}" title="${esc(fileName)}"></iframe>`);
-  }
-
   async function generate(generateBtn) {
     const link = stableLink();
     if (!link) { alert('No spec sheet is available for this product yet.'); return; }
 
     const originalText = generateBtn.textContent;
-    generateBtn.textContent = 'Generating PDF...';
+    generateBtn.textContent = 'Preparing your spec sheet…';
     generateBtn.style.pointerEvents = 'none';
     busy = true;
-    // Open the tab now, while the click still counts; the PDF is shown in it when ready.
     const productName = ((document.getElementById('cms-product-name') || {}).textContent || 'Product').trim();
-    const tab = window.open('', '_blank');
-    if (tab) showPreparing(tab, productName);
     try {
       const PDFLib = await loadPdfLib();
       // The stable link redirects to /files (no CORS); this ERPNext call returns the same file.
@@ -1478,25 +1431,20 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       });
 
-      // D. Show it in the tab (our page, so the tab title is the file name), or download it
-      //    when the tab could not be opened.
+      // D. Download (owner, 2026-11-08: a download, named
+      //    "ilLumenate Lighting_CONFIGURED SPEC_<Product Name>.pdf").
       const fileName = `ilLumenate Lighting_CONFIGURED SPEC_${productName}.pdf`;
       pdfDoc.setTitle(fileName.replace(/\.pdf$/, ''));
       const url = URL.createObjectURL(new Blob([await pdfDoc.save()], { type: 'application/pdf' }));
-      if (tab && !tab.closed) {
-        showPdf(tab, url, fileName);
-      } else {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
-      }
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
       closeModal();
     } catch (error) {
-      if (tab && !tab.closed) tab.close();
       console.error('Configured spec sheet:', error);
       alert('The spec sheet could not be generated. Please try again.');
     } finally {
