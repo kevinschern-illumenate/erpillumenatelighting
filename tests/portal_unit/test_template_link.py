@@ -289,5 +289,67 @@ class LinkRules(unittest.TestCase):
 			self.module.link_webflow_product(KIT, "KIT-RA01", "kit-ra02")
 
 
+class GoLive(unittest.TestCase):
+	"""The popup when a template without a product is set to Active + Live (owner 2026-11-08)."""
+
+	setUp = LinkRules.setUp
+	get_value = LinkRules.get_value
+
+	def test_defaults_come_from_the_template(self):
+		kit = Doc(KIT, "KIT-RA03", display_name="Rainier [AN] Extrusion Kit", target_brands=[brand()])
+		kit["doctype"], kit["name"] = KIT, "KIT-RA03"
+		defaults = self.module.product_defaults(kit)
+		self.assertEqual(
+			(
+				defaults["product_name"],
+				defaults["product_slug"],
+				defaults["product_types"],
+				defaults["brands"],
+			),
+			("Rainier [AN] Extrusion Kit", "kit-ra03", ["Extrusion Kit"], ["illumenate"]),
+		)
+		tape = Doc(
+			TAPE, "LED HD-SW", template_name="Static White", product_type="COB Tape", target_brands=[brand()]
+		)
+		tape["doctype"], tape["name"] = TAPE, "LED HD-SW"
+		defaults = self.module.product_defaults(tape)
+		self.assertEqual((defaults["product_slug"], defaults["product_type"]), ("led-hd-sw", "COB Tape"))
+		self.assertEqual(defaults["product_types"], ["LED Tape", "COB Tape", "LED Neon"])
+
+	def create(self, **values):
+		kit = Doc(KIT, "KIT-RA03", target_brands=[brand()], **values.pop("template", {}))
+		kit["doctype"], kit["name"] = KIT, "KIT-RA03"
+		self.frappe.get_doc = MagicMock(
+			side_effect=lambda value, *a: kit if value == KIT else self.insert(value)
+		)
+		self.frappe.db.exists = MagicMock(return_value=values.pop("exists", False))
+		self.frappe.has_permission = MagicMock(return_value=True)
+		self.frappe.throw = MagicMock(side_effect=ValueError)
+		return self.module.create_webflow_product(KIT, "KIT-RA03", **values)
+
+	def insert(self, values):
+		self.created = Record(values)
+		self.created["insert"] = MagicMock()
+		self.created["name"] = values["product_slug"]
+		return self.created
+
+	def test_create_makes_a_webflow_draft_for_the_template_brand(self):
+		name = self.create(product_name=" Rainier [AN] ", product_slug="KIT RA03")
+		self.assertEqual(name, "kit-ra03")
+		self.assertEqual(
+			(self.created["product_name"], self.created["product_type"], self.created["webflow_status"]),
+			("Rainier [AN]", "Extrusion Kit", "Webflow Draft"),
+		)
+		self.assertEqual(self.created["target_brands"], [{"brand": "illumenate", "enabled": 1}])
+
+	def test_create_refuses_a_taken_slug_a_wrong_type_or_a_linked_template(self):
+		with self.assertRaises(ValueError):
+			self.create(product_name="A", product_slug="kit-ra03", exists=True)
+		with self.assertRaises(ValueError):
+			self.create(product_name="A", product_slug="a", product_type="Driver")
+		with self.assertRaises(ValueError):
+			self.create(product_name="A", product_slug="a", template={"webflow_product": "kit-ra03"})
+
+
 if __name__ == "__main__":
 	unittest.main()

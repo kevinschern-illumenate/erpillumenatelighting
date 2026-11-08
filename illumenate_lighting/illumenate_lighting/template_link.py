@@ -287,6 +287,81 @@ def link_webflow_product(template_doctype, template_id, product):
 	return {"template": doc.name, "webflow_product": doc.webflow_product}
 
 
+def product_defaults(template):
+	"""Pure: the new Webflow Product's fields from a template (dict-like), for the popup."""
+	fieldname = WEBFLOW_PRODUCT_LINKS[template.get("doctype")]
+	types = list(WEBFLOW_PRODUCT_LINK_TYPES[fieldname])
+	own_type = template.get("product_type")
+	return {
+		"link_field": fieldname,
+		"product_name": template.get("display_name") or template.get("template_name") or template.get("name"),
+		"product_slug": slugify(template.get("name")),
+		"product_types": types,
+		"product_type": own_type if own_type in types else types[0],
+		"brands": enabled_brands(template),
+	}
+
+
+def slugify(value):
+	"""Pure: "KIT-RA03" -> "kit-ra03"; spaces and other characters become hyphens."""
+	import re
+
+	return re.sub(r"[^a-z0-9]+", "-", str(value or "").lower()).strip("-")
+
+
+@frappe.whitelist()
+def go_live_defaults(template_doctype, template_id):
+	"""For the popup shown when a template without a Webflow Product is set to Active + Live
+	(plan 4.5, D3; owner 2026-11-08)."""
+	_check_doctype(template_doctype)
+	require_template_access(template_doctype, template_id)
+	return product_defaults(frappe.get_doc(template_doctype, template_id))
+
+
+@frappe.whitelist(methods=["POST"])
+def create_webflow_product(template_doctype, template_id, product_name, product_slug, product_type=None):
+	"""Create the template's Webflow Product (popup "Create new"). The popup then links it by
+	saving the template with the new product and Active + Live, so both sides are written by the
+	normal save and the user's other unsaved edits are kept. Returns the product's name.
+	"""
+	_check_doctype(template_doctype)
+	require_template_access(template_doctype, template_id)
+	template = frappe.get_doc(template_doctype, template_id)
+	if template.get("webflow_product"):
+		frappe.throw(_("This template is already linked to {0}.").format(template.webflow_product))
+	defaults = product_defaults(template)
+	if len(defaults["brands"]) != 1:
+		frappe.throw(
+			_("Enable exactly one Target Brand on this template before creating its Webflow Product.")
+		)
+	product_type = product_type or defaults["product_type"]
+	if product_type not in defaults["product_types"]:
+		frappe.throw(
+			_("A {0} can only link a product of type {1}.").format(
+				template_doctype, ", ".join(defaults["product_types"])
+			)
+		)
+	slug = slugify(product_slug)
+	if not slug or not (product_name or "").strip():
+		frappe.throw(_("Enter a product name and slug."))
+	if frappe.db.exists(PRODUCT, slug):
+		frappe.throw(
+			_("A Webflow Product {0} already exists. Choose Link existing, or another slug.").format(slug)
+		)
+	product = frappe.get_doc(
+		{
+			"doctype": PRODUCT,
+			"product_name": product_name.strip(),
+			"product_slug": slug,
+			"product_type": product_type,
+			"webflow_status": "Webflow Draft",
+			"target_brands": [{"brand": defaults["brands"][0], "enabled": 1}],
+		}
+	)
+	product.insert()
+	return product.name
+
+
 @frappe.whitelist(methods=["POST"])
 def unlink_webflow_product(template_doctype, template_id):
 	"""Clear the link on both sides. Not allowed while the template is Active + Live."""

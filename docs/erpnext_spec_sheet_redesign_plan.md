@@ -1644,6 +1644,14 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 
 **Phase 6: status**
 - Built:
+  - **The create-product popup** (4.5, D3; owner 2026-11-08, a), in `public/js/template_webflow_link.js`.
+    - When: a saved template without a Webflow Product is set to Active + Live.
+    - **Create new:** Product Name, Slug and Product Type are filled from the template (display name, record name in lower case, the type the template serves) and can be edited. `template_link.create_webflow_product` creates a Webflow Draft product for the template's brand.
+    - **Link existing:** a product of the right type that no template links yet.
+    - **Cancel**, or closing the popup, puts the Product Status back.
+    - Create and link both finish with the template's normal save, which writes both sides and keeps other unsaved edits. If that save fails after Create new, the product exists unlinked and the message says to link it.
+    - `template_link.go_live_defaults` gives the popup its defaults.
+    - The server's "Link a Webflow Product before setting the Product Status to Active + Live" check stays as the backstop.
   - **Publication History** (4.14, built 2026-11-08), `publication_history.get_history` and `public/js/publication_history.js`, read permission only.
     - Where: a section at the bottom of the Webflow Product and of each linked template, in Frappe's section markup so it has the same width as the other sections.
     - Per brand: published since, last sync, review reason.
@@ -1655,8 +1663,7 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
   - the brand pill and record name in the template sidebar;
   - the approval banner (replaces the archive review banner);
   - the "automatic push waiting / held" line on the product.
-- Not built:
-  - the create-product popup (4.5);
+- Nothing left to build in Phase 6.
 - Dropped: the staging banner on the forms, since staging has its own site (D82).
 
 **Phase 7: status**
