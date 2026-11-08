@@ -801,13 +801,12 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
   - fills `project_name`, `fixture_type` and `project_location`; an empty value leaves the field editable;
   - for each `.config-card[data-step][data-selected-code]`, selects the `step_N` radio option (case-insensitive) and fills `display_step_N`;
   - draws a yellow box at 30% over each Subject box whose tags include a selected `<step>:<code>`;
-  - opens the PDF in a new tab and closes the popup (owner, 2026-11-06: a new tab instead of a download).
-    - The tab opens on the click, so popup blockers allow it, and first shows a branded "Preparing your configured spec sheet for <product>…" page.
-    - When the PDF is ready, the tab shows our page: a bar with the logo, the file name and a **Download PDF** button, and the PDF full-size in the browser's viewer below.
-    - The tab stays on our page because a tab showing the PDF directly is titled with the browser's temporary ID (owner, 2026-11-08).
-    - File name (owner, 2026-11-08): `ilLumenate Lighting_CONFIGURED SPEC_<Product Name>.pdf`. It is the tab title and the Download button's name. The viewer's own save button still uses the temporary ID; the browser decides that.
-    - If the tab is blocked, the PDF downloads under that name.
-    - The look (background, text and accent colours, logo) is set in `TAB_LOOK` at the top of the page section of `configured-spec-sheet.html`.
+  - downloads the PDF and closes the popup. History of this step (owner):
+    - 2026-11-06: opened it in a new tab instead of downloading.
+    - 2026-11-08, first: a branded "Preparing" tab, then the PDF shown inside our page so the tab title could be the file name.
+    - 2026-11-08, final: a plain download again, with no tab and no Preparing page. A download needs no tab, since browsers only block tabs opened after a wait. While it works, the button reads "Preparing your spec sheet…".
+    - File name (owner, 2026-11-08): `ilLumenate Lighting_CONFIGURED SPEC_<Product Name>.pdf`; the PDF title is the same.
+    - Colours the owner gave for a possible Preparing page, for later: primary `#172e48`, secondary `#00588c`, accent `#fdc757`; background a 140° gradient from secondary (3%) to primary (84%).
 - It reads the selections from the configurator cards, so it does not need 206's `window.CurrentConfigSelection`.
 - Second staging test (owner, KIT-RA02, 2026-11-06): works, highlighting included.
 - Userscript `2026.11.08.1` broke the staging page (owner, 2026-11-08): components gone, badges missing, unfiltered compatible products, the old submittal script opening. `build_userscript.py` collected every `<style>` block, including the text `<style>${tabStyle}</style>` inside the new-tab code. The userscript then threw while adding styles, before any of its scripts ran (`window.__illStaging.own` stayed true). Since `2026.11.08.2`, styles are collected outside scripts only, and a styling error is logged instead of stopping the userscript.
@@ -816,7 +815,7 @@ The Vercel generator (unchanged) stores each tagged span's box in the PDF Subjec
   - The Fixture Type wrapper div also had the id `ill-fixture-type`. That id was removed from the wrapper in the Designer.
   - The script now handles both buttons and the close icon. Its listeners are delegated from the document in the capture phase and registered when the script runs, so they run before any older handler. It reads the inputs by `input#id`.
   - Re-checked in Playwright through the built userscript, blocker included, with this structure.
-  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.08.2`).
+  - `window.__illConfiguredSpec` shows the script version in the console (userscript `@version 2026.11.08.3`).
 - It replaces the old `.extrusions-dwnld-submittal` submittal script (`extrusion-kit-configured-spec.html`, kept for reference) and the main site's old `#ill-download-spec-sheet` handler.
 
 **Checked:**
@@ -1638,7 +1637,7 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
    - The product form line shows the override, e.g. "Shown on Webflow as Discontinued, because the template is Internal Only (Webflow Status here: Published)". This is the effective-state indicator from 4.4 item 6.
    - The Archived row was settled on 2026-11-08 (Q3 a, above). The table had said a template archive goes through the Archive approval; the owner kept the 2026-11-06 rule instead.
    - Not built from D5: recording the reset in a history.
-2. **Status changes skip the wait** (D44, test 38): every push waits the 2 minutes.
+2. **Status changes skip the wait** (D44, test 38): **dropped (owner, 2026-11-08, Q4 b).** Every push, status changes included, waits the 2 minutes after the last save; the buttons still push at once.
 3. **`is_discontinued` reaching Webflow** (R1): not sent. Phase 9.
 4. **`published_on` backfill on main** (10.4): no function yet. On staging the remap did it.
 5. **A dry-run list before automatic pushes are turned on on main** (4.3 migration note): the waiting rows show what would push, but there is no report.
