@@ -113,6 +113,9 @@ _DIMENSIONS_IMAGE = {
 	"fieldname": "dimensions_image",
 	"fieldtype": "Attach Image",
 	"label": "Dimensions Image",
+	# Owner, 2026-11-11.
+	"description": "Goes on the spec sheet (Dimensions section). Max width 744px, min height 150px. "
+	"The website uses the Webflow Product's own Dimensions Image.",
 }
 
 _LENGTHS = [

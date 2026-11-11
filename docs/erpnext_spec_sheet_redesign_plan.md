@@ -1630,7 +1630,7 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
    - The status goes to n8n as `webflow_state.effective_status`, which the `(ilL) Transform to Webflow Format` uses when present. When the template overrides the product, the payload also carries the hashed key `effective_webflow_status`, so the status change is a new revision. Products without an override keep their hash.
    - The Internal Only readiness issue is dropped when the page stays up as Discontinued.
    - Template `on_update` (`webflow_state.on_template_update`):
-     - a published, public page whose template goes to Draft, Active or Archived notifies the list (bell, email, push);
+     - a published, public page whose template goes to Draft, Active or Archived notifies the list (bell, email, push); the text names the template with its Template Name, e.g. "KIT-RA02 (Rainier [RC]-6.5ft Extrusion Kit)" (owner, 2026-11-11);
      - back to Active + Live from Discontinued or Archived resets the product's Webflow Status to Webflow Draft (D5);
      - from Internal Only it resumes.
    - The push itself is the product's automatic push.
@@ -1641,6 +1641,8 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 3. **`is_discontinued` reaching Webflow** (R1): not sent. Phase 9.
 4. **`published_on` backfill on main** (10.4): **built 2026-11-08**, `webflow_promotion.backfill_published_on(apply=False)` (System Manager; dry run by default). A product whose Webflow Status is Published or Discontinued and that has a Webflow item for the brand gets `published_on`. The date is the brand's last sync, else the product's, else now; a missing publication record is created as the first sync would. The report lists set, create, already and skip.
 5. **A dry-run list before automatic pushes are turned on on main**: **built 2026-11-08**, `webflow_promotion.auto_push_preview()` (System Manager, read only). It lists every product a save would push, with brands, Webflow Status, template status, the status Webflow would get and readiness issues. It also lists the products that would not push, and why (Archived, never synced).
+
+**Button colours (owner, 2026-11-11):** the template's Generate Spec is #e6eef4 with #00588c text; Generate Spec & Sync to Webflow is #fdc757 with #172e48 text; the Webflow Product's Sync to Webflow is #172e48 with white text. **Template Dimensions Image** description (owner, 2026-11-11): it goes on the spec sheet, max width 744px, min height 150px; the website uses the Webflow Product's own Dimensions Image.
 
 **Phase 6: status**
 - Built:
@@ -1931,14 +1933,14 @@ This replaces the matrix above for Phase 8. The matrix is kept for its history; 
 - [x] At the bottom of kit-ra02 and of KIT-RA02: the line "illumenate: published since … · last sync …" and the table (When, Status, Result, By, Finished, Error), the same width as the other sections.
 - [x] The syncs from C show with Status "Active + Live · Published" and Result "Done". Status changes made in E show as shaded rows.
 
-**E. Template status (plan 4.3 as built)**
-- [ ] KIT-RA02 to **Draft**: a notification "Webflow page will be hidden: kit-ra02"; kit-ra02 shows "Shown on Webflow as Webflow Draft, because the template is Draft…"; about 2 minutes later the page is hidden. (old 39)
-- [ ] KIT-RA02 back to **Active + Live**: the line disappears; about 2 minutes later the page is public again.
-- [ ] **Internal Only**: the page stays public, marked Discontinued; the line says so; it is not refused as not ready. (old 10, 33b)
-- [ ] **Discontinued**: same as Internal Only. Back to Active + Live: kit-ra02's Webflow Status is reset to Webflow Draft (message), the page is hidden until you set Published. (old 25)
-- [ ] **Active** (from Active + Live): hidden and notified, like Draft.
-- [ ] **Archived**: hidden and notified; nothing archived in Webflow.
-- [ ] A template whose product was never published, set to Draft or Internal Only: nothing goes to Webflow; the line says "Nothing goes to Webflow…". (old 4, 13)
+**E. Template status (plan 4.3 as built)**: passed (owner, 2026-11-11).
+- [x] KIT-RA02 to **Draft**: a notification "Webflow page will be hidden: kit-ra02"; kit-ra02 shows "Shown on Webflow as Webflow Draft, because the template is Draft…"; about 2 minutes later the page is hidden. (old 39)
+- [x] KIT-RA02 back to **Active + Live**: the line disappears; about 2 minutes later the page is public again.
+- [x] **Internal Only**: the page stays public, marked Discontinued; the line says so; it is not refused as not ready. (old 10, 33b)
+- [x] **Discontinued**: same as Internal Only. Back to Active + Live: kit-ra02's Webflow Status is reset to Webflow Draft (message), the page is hidden until you set Published. (old 25)
+- [x] **Active** (from Active + Live): hidden and notified, like Draft.
+- [x] **Archived**: hidden and notified; nothing archived in Webflow.
+- [x] A template whose product was never published, set to Draft or Internal Only: nothing goes to Webflow; the line says "Nothing goes to Webflow…". (old 4, 13)
 
 **F. Webflow Status and approvals**
 - [ ] kit-ra02 Webflow Status Published to **Archived**: an orange banner with Approve / Reject; a notification; Sync to Webflow is refused while it waits. (old 11)
@@ -1948,23 +1950,23 @@ This replaces the matrix above for Phase 8. The matrix is kept for its history; 
 - [ ] A product never published, set to Archived: no approval, nothing sent. (old 13)
 - [ ] Published to Discontinued and back: `is_discontinued` ticks and unticks; the web badge does not change. (old 33)
 
-**G. Automatic pushes**
-- [ ] Edit a field on KIT-RA02 and save: kit-ra02 shows "Automatic push to illumenate waiting: due hh:mm"; about 2 minutes later it goes, with a green push. (old 9)
-- [ ] Three saves within the 2 minutes: one push, after the last save. (old 23)
-- [ ] `webflow_auto_push` off: the line says "held"; turn it on and the held push goes. Turn it back on.
-- [ ] A product that is not ready (e.g. empty required field) after a save: no push; a notification says why. (old 24)
-- [ ] Save template then product, and product then template: both finish, no loop. (old 16)
+**G. Automatic pushes**: passed (owner, 2026-11-11).
+- [x] Edit a field on KIT-RA02 and save: kit-ra02 shows "Automatic push to illumenate waiting: due hh:mm"; about 2 minutes later it goes, with a green push. (old 9)
+- [x] Three saves within the 2 minutes: one push, after the last save. (old 23)
+- [x] `webflow_auto_push` off: the line says "held"; turn it on and the held push goes. Turn it back on.
+- [x] A product that is not ready (e.g. empty required field) after a save: no push; a notification says why. (old 24)
+- [x] Save template then product, and product then template: both finish, no loop. (old 16)
 
-**H. Create-product popup**
-- [ ] A saved Draft template with no Webflow Product, set to Active + Live: the popup appears with name, slug and type filled in.
-- [ ] Cancel: the status goes back.
-- [ ] Create new: the product is created and linked; the template saves as Active + Live; both sides show the link. (old 2)
-- [ ] Link existing (on another template): only unlinked products of the right type are offered.
-- [ ] Unlink a template that is not Active + Live: the product's link clears. (old 15)
+**H. Create-product popup**: passed (owner, 2026-11-11).
+- [x] A saved Draft template with no Webflow Product, set to Active + Live: the popup appears with name, slug and type filled in.
+- [x] Cancel: the status goes back.
+- [x] Create new: the product is created and linked; the template saves as Active + Live; both sides show the link. (old 2)
+- [x] Link existing (on another template): only unlinked products of the right type are offered.
+- [x] Unlink a template that is not Active + Live: the product's link clears. (old 15)
 
-**I. Permissions**
-- [ ] A desk user without ilL Catalog Publisher: Sync to Webflow and Generate Spec are refused with a message; nothing is saved. (old 17)
-- [ ] A website (portal) user: refused everywhere. (old 17)
+**I. Permissions**: passed (owner, 2026-11-11).
+- [x] A desk user without ilL Catalog Publisher: Sync to Webflow and Generate Spec are refused with a message; nothing is saved. (old 17)
+- [x] A website (portal) user: refused everywhere. (old 17)
 
 **J. Configured spec sheet (Webflow product page)**: passed (owner, 2026-11-08).
 - [x] On /products/kit-ra02, configure all steps, open Configure Spec Sheet, fill Project Name, Fixture Type, Location, click Download: the file `ilLumenate Lighting_CONFIGURED SPEC_<product>.pdf` downloads; the popup closes.

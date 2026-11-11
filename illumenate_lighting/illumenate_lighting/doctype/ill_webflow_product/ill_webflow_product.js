@@ -42,11 +42,12 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				});
 			});
 
+			// Owner, 2026-11-11: primary (#172e48) with white text.
 			sync_btn.css({
-				'background-color': '#fdc757',
-				'color': '#172e48',
+				'background-color': '#172e48',
+				'color': '#ffffff',
 				'font-weight': 'bold',
-				'border-color': '#fdc757'
+				'border-color': '#172e48'
 			});
 
 			// Display Target Brands in the Sidebar

@@ -3287,7 +3287,8 @@
         {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Goes on the spec sheet (Dimensions section). Max width 744px, min height 150px. The website uses the Webflow Product's own Dimensions Image."
         },
         {
           "fieldname": "spec_sheet_public_url",
@@ -3589,7 +3590,8 @@
         {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Goes on the spec sheet (Dimensions section). Max width 744px, min height 150px. The website uses the Webflow Product's own Dimensions Image."
         },
         {
           "fieldname": "spec_sheet_public_url",
@@ -3846,7 +3848,8 @@
         {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Goes on the spec sheet (Dimensions section). Max width 744px, min height 150px. The website uses the Webflow Product's own Dimensions Image."
         },
         {
           "fieldname": "spec_sheet_public_url",
@@ -4181,7 +4184,8 @@
         {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Goes on the spec sheet (Dimensions section). Max width 744px, min height 150px. The website uses the Webflow Product's own Dimensions Image."
         },
         {
           "fieldname": "spec_sheet_public_url",
@@ -4680,7 +4684,8 @@
         {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Goes on the spec sheet (Dimensions section). Max width 744px, min height 150px. The website uses the Webflow Product's own Dimensions Image."
         },
         {
           "fieldname": "spec_sheet_public_url",
@@ -7471,7 +7476,8 @@
         {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
-          "fieldtype": "Attach Image"
+          "fieldtype": "Attach Image",
+          "description": "Goes on the spec sheet (Dimensions section). Max width 744px, min height 150px. The website uses the Webflow Product's own Dimensions Image."
         },
         {
           "fieldname": "spec_sheet_public_url",

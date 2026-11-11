@@ -93,7 +93,12 @@ class TemplateStatusChange(unittest.TestCase):
 		frappe.db.get_value = MagicMock(return_value=stage)
 		frappe.db.set_value = MagicMock()
 		frappe.msgprint = MagicMock()
-		template = Record(name="KIT-RA02", doctype="ilL-Extrusion-Kit-Template", product_status=new)
+		template = Record(
+			name="KIT-RA02",
+			doctype="ilL-Extrusion-Kit-Template",
+			product_status=new,
+			template_name="Rainier [RC]-6.5ft Extrusion Kit",
+		)
 		template["get_doc_before_save"] = lambda: Record(product_status=old)
 		module.on_template_update(template)
 		return notify.notify, frappe
@@ -104,6 +109,7 @@ class TemplateStatusChange(unittest.TestCase):
 				notify, frappe = self.load("Active + Live", new)
 				notify.assert_called_once()
 				self.assertIn("hidden", notify.call_args.args[0])
+				self.assertIn("KIT-RA02 (Rainier [RC]-6.5ft Extrusion Kit)", notify.call_args.args[1])
 				frappe.db.set_value.assert_not_called()
 
 	def test_back_to_live_from_discontinued_resets_to_webflow_draft(self):

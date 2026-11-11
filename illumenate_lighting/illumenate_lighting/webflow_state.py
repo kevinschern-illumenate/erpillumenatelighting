@@ -141,13 +141,17 @@ def on_template_update(template, method=None):
 	if new in HIDES_WHEN_PUBLISHED and old not in HIDES_WHEN_PUBLISHED and stage in PUBLIC_STAGES:
 		from illumenate_lighting.illumenate_lighting import webflow_notify
 
+		# The template's name too (owner, 2026-11-11): "KIT-RA02 (Rainier [RC]-6.5ft Extrusion Kit)".
+		label = template.name
+		if template.get("template_name") and template.get("template_name") != template.name:
+			label = f"{template.name} ({template.get('template_name')})"
 		webflow_notify.notify(
 			_("Webflow page will be hidden: {0}").format(product),
 			_(
 				"Template {0} was set to {1}, so the published page of {2} is hidden (Webflow Draft) at its "
 				"next push. Set the template back to Active + Live to show it again, or set the product's "
 				"Webflow Status to Archived to archive the page."
-			).format(template.name, new, product),
+			).format(label, new, product),
 			PRODUCT,
 			product,
 		)

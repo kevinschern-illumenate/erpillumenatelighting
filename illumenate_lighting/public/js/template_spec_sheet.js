@@ -111,10 +111,16 @@
             // With a linked Webflow Product the spec is generated, then the product is synced
             // (plan 4.19); without one it only generates the spec.
             const sync = Boolean(frm.doc.webflow_product);
-            frm.add_custom_button(
+            const button = frm.add_custom_button(
                 sync ? __('Generate Spec & Sync to Webflow') : __('Generate Spec'),
                 () => generate(frm, sync)
             );
+            // Owner, 2026-11-11: accent with primary text when it also syncs; light blue with
+            // secondary text when it only generates the spec.
+            const [background, color] = sync ? ['#fdc757', '#172e48'] : ['#e6eef4', '#00588c'];
+            if (button && button.css) {
+                button.css({'background-color': background, color, 'border-color': background, 'font-weight': 'bold'});
+            }
         }});
     });
 })();
