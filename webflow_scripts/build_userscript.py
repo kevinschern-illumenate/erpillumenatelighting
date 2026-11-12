@@ -26,7 +26,7 @@ ORDER = [
 	"compatible-products-json.html",
 	"products-collection-before-body.html",
 ]
-MATCH = "https://staging-illumenate.webflow.io/products/*"
+MATCHES = ["https://staging2-illumenate.webflow.io/products/*", "https://staging-illumenate.webflow.io/products/*"]
 
 
 # The staging site kept the main site's Code Embeds when it was duplicated, and they still run
@@ -110,9 +110,9 @@ def build():
 		"// ==UserScript==",
 		"// @name         ilLumenate staging product page scripts",
 		"// @namespace    https://illumenate.lighting/",
-		"// @version      2026.11.08.3",
+		"// @version      2026.11.12.1",
 		"// @description  Main-site product page custom code, for testing on the staging Webflow site",
-		f"// @match        {MATCH}",
+		*[f"// @match        {match}" for match in MATCHES],
 		"// @run-at       document-start",
 		"// @grant        none",
 		# No @require: the page's copied Code Embeds already load Finsweet and Swiper (owner,

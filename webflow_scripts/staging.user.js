@@ -1,8 +1,9 @@
 // ==UserScript==
 // @name         ilLumenate staging product page scripts
 // @namespace    https://illumenate.lighting/
-// @version      2026.11.08.3
+// @version      2026.11.12.1
 // @description  Main-site product page custom code, for testing on the staging Webflow site
+// @match        https://staging2-illumenate.webflow.io/products/*
 // @match        https://staging-illumenate.webflow.io/products/*
 // @run-at       document-start
 // @grant        none
