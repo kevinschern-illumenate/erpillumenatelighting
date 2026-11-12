@@ -149,11 +149,30 @@ def notify(subject, message, document_type=PRODUCT, document_name=None, once=Fal
 		return []
 
 
+def product_label(product):
+	"""'kit-ra02 (Rainier [RC] Extrusion Kit)': the linked template's Display Name, else the
+	product's name (owner, 2026-11-12). Never raises."""
+	try:
+		from illumenate_lighting.illumenate_lighting.webflow_product_rules import linked_template
+
+		doc = frappe.get_doc(PRODUCT, product)
+		doctype, template = linked_template(doc)
+		name = None
+		if doctype and template:
+			name = frappe.db.get_value(doctype, template, "display_name")
+		name = name or doc.get("product_name")
+		return f"{product} ({name})" if name and name != product else product
+	except Exception:
+		return product
+
+
 def approval_requested(approval):
 	"""A new or changed pending approval (plan 4.19 Q5, Q6)."""
 	requested_by = approval.get("requested_by") or frappe.session.user
 	return notify(
-		_("Webflow approval needed: {0} {1}").format(approval.get("action"), approval.get("product")),
+		_("Webflow approval needed: {0} {1}").format(
+			approval.get("action"), product_label(approval.get("product"))
+		),
 		_("{0}. Requested by {1}. Open the Webflow Product to approve or reject it.").format(
 			approval.get("summary"), requested_by
 		),
