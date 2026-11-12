@@ -3817,7 +3817,7 @@
         {
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
-          "fieldtype": "Int"
+          "fieldtype": "Float"
         },
         {
           "fieldname": "max_length_mm",
@@ -4152,7 +4152,7 @@
         {
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
-          "fieldtype": "Int"
+          "fieldtype": "Float"
         },
         {
           "fieldname": "max_length_mm",
@@ -7437,7 +7437,7 @@
         {
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
-          "fieldtype": "Int"
+          "fieldtype": "Float"
         },
         {
           "fieldname": "max_length_mm",

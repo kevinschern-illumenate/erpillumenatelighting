@@ -212,6 +212,27 @@ def format_inches(mm):
 	return f'{inches:.2f}"'
 
 
+def dimension_part(mm):
+	"""Pure: 304.8 -> '12.00” (304.8mm)' (owner, 2026-11-12: curly inch mark, mm without
+	trailing zeros)."""
+	return f"{float(mm) / 25.4:.2f}” ({float(mm):g}mm)"
+
+
+def dimensions_text(width_mm, height_mm, length_mm=None, fallback=None):
+	"""Pure: the Dimensions specification. Length (fixtures: the template's Min Length) first,
+	then the profile's width and height, joined by ' × '. When the profile has no width or
+	height, its free-text Dimensions (``fallback``) is used, after the length if there is one.
+	None when there is nothing to show."""
+	parts = [dimension_part(length_mm)] if length_mm else []
+	if width_mm and height_mm:
+		parts += [dimension_part(width_mm), dimension_part(height_mm)]
+	elif fallback:
+		parts.append(fallback)
+	elif not parts:
+		return None
+	return " × ".join(parts)
+
+
 def ceil_val(num):
 	i = int(num)
 	if num > i:
@@ -814,12 +835,18 @@ class TemplateCalculator:
 					["dimensions", "width_mm", "height_mm"],
 					as_dict=True,
 				)
-				dims = profile.get("dimensions") if profile else None
-				if not dims and profile and profile.get("width_mm") and profile.get("height_mm"):
-					w_in = format_inches(profile["width_mm"])
-					h_in = format_inches(profile["height_mm"])
-					if w_in and h_in:
-						dims = f"{w_in} ({profile['width_mm']:g}mm) x {h_in} ({profile['height_mm']:g}mm)"
+				# Owner, 2026-11-12: Min Length x width x height, e.g.
+				# 12.00” (304.8mm) × 0.59” (15mm) × 0.59” (15mm).
+				dims = (
+					dimensions_text(
+						profile.get("width_mm"),
+						profile.get("height_mm"),
+						template_doc.get("min_length_mm"),
+						profile.get("dimensions"),
+					)
+					if profile
+					else None
+				)
 				if dims:
 					append_spec(self, "Physical", "Dimensions", dims, "", 95)
 					record(debug, "Dimensions", 1, [dims], appended=True)
@@ -1622,14 +1649,14 @@ class TemplateCalculator:
 				["dimensions", "width_mm", "height_mm"],
 				as_dict=True,
 			)
-			dims = profile.get("dimensions") if profile else None
-
-			# Fallback if dimensions field is empty but width/height exist
-			if not dims and profile and profile.get("width_mm") and profile.get("height_mm"):
-				w_in = format_inches(profile["width_mm"])
-				h_in = format_inches(profile["height_mm"])
-				if w_in and h_in:
-					dims = f"{w_in} ({profile['width_mm']:g}mm) x {h_in} ({profile['height_mm']:g}mm)"
+			# Owner, 2026-11-12: width x height in the fixtures' style, e.g. 0.63” (16mm) × 0.63” (16mm).
+			dims = (
+				dimensions_text(
+					profile.get("width_mm"), profile.get("height_mm"), None, profile.get("dimensions")
+				)
+				if profile
+				else None
+			)
 
 			if dims:
 				append_spec(self, "", "Dimensions", dims, "", 40)

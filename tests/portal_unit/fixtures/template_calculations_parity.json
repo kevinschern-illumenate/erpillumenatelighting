@@ -638,7 +638,7 @@
      "display_order": 95,
      "is_calculated": 1,
      "spec_label": "Dimensions",
-     "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+     "spec_value": "0.69” (17.5mm) × 0.28” (7mm)"
     },
     {
      "attribute_doctype": "ilL-Attribute-Dimming Protocol",
@@ -966,7 +966,7 @@
      "display_order": 95,
      "is_calculated": 1,
      "spec_label": "Dimensions",
-     "spec_value": "1.00\" x 0.50\""
+     "spec_value": "1.00” (25.4mm) × 0.50” (12.7mm)"
     },
     {
      "attribute_doctype": null,
@@ -1096,7 +1096,7 @@
      "display_order": 40,
      "is_calculated": 1,
      "spec_label": "Dimensions",
-     "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+     "spec_value": "0.69” (17.5mm) × 0.28” (7mm)"
     },
     {
      "attribute_doctype": "ilL-Attribute-Environment Rating",
@@ -1210,7 +1210,7 @@
      "display_order": 40,
      "is_calculated": 1,
      "spec_label": "Dimensions",
-     "spec_value": "1.00\" x 0.50\""
+     "spec_value": "1.00” (25.4mm) × 0.50” (12.7mm)"
     },
     {
      "attribute_doctype": "",
@@ -1310,7 +1310,7 @@
      "display_order": 40,
      "is_calculated": 1,
      "spec_label": "Dimensions",
-     "spec_value": "1.00\" x 0.50\""
+     "spec_value": "1.00” (25.4mm) × 0.50” (12.7mm)"
     },
     {
      "attribute_doctype": null,
@@ -3030,7 +3030,7 @@
       "spec_group": "Physical",
       "spec_label": "Dimensions",
       "spec_unit": "",
-      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+      "spec_value": "0.69” (17.5mm) × 0.28” (7mm)"
      },
      {
       "attribute_doctype": "ilL-Attribute-Dimming Protocol",
@@ -3220,7 +3220,7 @@
       "spec_group": "Physical",
       "spec_label": "Dimensions",
       "spec_unit": "",
-      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+      "spec_value": "0.69” (17.5mm) × 0.28” (7mm)"
      },
      {
       "attribute_doctype": "ilL-Attribute-Dimming Protocol",
@@ -3403,7 +3403,7 @@
       "spec_group": "",
       "spec_label": "Dimensions",
       "spec_unit": "",
-      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+      "spec_value": "0.69” (17.5mm) × 0.28” (7mm)"
      },
      {
       "attribute_doctype": "ilL-Attribute-Environment Rating",
@@ -3535,7 +3535,7 @@
       "spec_group": "",
       "spec_label": "Dimensions",
       "spec_unit": "",
-      "spec_value": "0.69\" (17.5mm) x 0.28\" (7mm)"
+      "spec_value": "0.69” (17.5mm) × 0.28” (7mm)"
      },
      {
       "attribute_doctype": "ilL-Attribute-Environment Rating",

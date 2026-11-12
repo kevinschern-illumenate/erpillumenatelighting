@@ -119,7 +119,8 @@ _DIMENSIONS_IMAGE = {
 }
 
 _LENGTHS = [
-	{"fieldname": "min_length_mm", "fieldtype": "Int", "label": "Min Length (mm)"},
+	# Float (owner, 2026-11-12): e.g. 304.8 for a 12" minimum.
+	{"fieldname": "min_length_mm", "fieldtype": "Float", "label": "Min Length (mm)"},
 	{"fieldname": "max_length_mm", "fieldtype": "Int", "label": "Max Length (mm)"},
 	{"fieldname": "length_increment_mm", "fieldtype": "Int", "label": "Length Increment (mm)"},
 ]
