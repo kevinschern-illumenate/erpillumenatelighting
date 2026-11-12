@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001  (the expected text contains the curly inch mark and the multiplication sign)
 """The Dimensions specification (owner, 2026-11-12)."""
 
 import unittest
