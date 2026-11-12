@@ -35,6 +35,8 @@ PUBLIC_STAGES = ("Published", "Discontinued")
 def backfill_rows(products, sync_rows, publications, default_brand):
 	"""Pure: what the backfill does for each public product and brand.
 
+	The item ID is read from the publication's remote_item_id, else the sync row, else (default
+	brand) the product's webflow_item_id.
 	``products``: dicts with name, webflow_status, webflow_item_id, last_synced_at and
 	brands (the enabled target brands, empty for none). ``sync_rows``: {(product, brand):
 	{webflow_item_id, last_synced_at}}. ``publications``: {(product, brand): {name,
@@ -51,10 +53,14 @@ def backfill_rows(products, sync_rows, publications, default_brand):
 			if product.get("webflow_status") not in PUBLIC_STAGES:
 				continue
 			sync = sync_rows.get((product["name"], brand)) or {}
-			item = sync.get("webflow_item_id") or (
-				product.get("webflow_item_id") if brand == default_brand else None
-			)
 			publication = publications.get((product["name"], brand))
+			# The publication record holds the item ID since the sync rebuild (4.19); the sync
+			# row and the product's own field are the older places.
+			item = (
+				(publication or {}).get("remote_item_id")
+				or sync.get("webflow_item_id")
+				or (product.get("webflow_item_id") if brand == default_brand else None)
+			)
 			if not item:
 				out.append({**row, "action": "skip", "reason": "no Webflow item for this brand"})
 				continue
@@ -115,7 +121,7 @@ def backfill_published_on(apply=False):
 		for row in frappe.get_all(
 			PUBLICATION,
 			filters={"product": ["in", names or [""]]},
-			fields=["name", "product", "brand", "published_on"],
+			fields=["name", "product", "brand", "published_on", "remote_item_id"],
 		)
 	}
 	rows = backfill_rows(products, sync_rows, publications, default_brand)

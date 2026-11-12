@@ -26,6 +26,14 @@ class Backfill(unittest.TestCase):
 		self.assertEqual(rows[1]["published_on"], "2026-10-01 10:00:00")
 		self.assertEqual(rows[0]["item"], "a" * 24)  # the legacy item ID counts for the default brand
 
+	def test_the_publication_record_holds_the_item_id(self):
+		products = [{"name": "kit-ra02", "webflow_status": "Published", "brands": ["illumenate"]}]
+		publications = {
+			("kit-ra02", "illumenate"): {"name": "P", "published_on": None, "remote_item_id": "e" * 24}
+		}
+		(row,) = self.rows(products, publications=publications)
+		self.assertEqual((row["action"], row["item"]), ("set", "e" * 24))
+
 	def test_drafts_items_missing_or_already_set_are_left_alone(self):
 		products = [
 			{"name": "draft", "webflow_status": "Webflow Draft", "webflow_item_id": "a" * 24, "brands": []},
