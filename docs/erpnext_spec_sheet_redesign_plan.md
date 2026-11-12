@@ -1973,9 +1973,9 @@ This replaces the matrix above for Phase 8. The matrix is kept for its history; 
 - [x] In the PDF: the footer fields are filled (and editable when left empty), the chosen options are ticked with their codes in the boxes, and only the chosen Lens, Mounting, Finish and Stock Length values are highlighted.
 - [x] The popup closes with the X, with Esc and with a click outside it.
 
-**K. Tools for main (dry runs, nothing changes)**
-- [ ] `webflow_promotion.backfill_published_on()`: almost everything "already" (the remap set them).
-- [ ] `webflow_promotion.auto_push_preview()`: the list makes sense.
+**K. Tools for main (dry runs, nothing changes)**: passed (owner, 2026-11-12; backfill: 34 already).
+- [x] `webflow_promotion.backfill_published_on()`: almost everything "already" (the remap set them).
+- [x] `webflow_promotion.auto_push_preview()`: the list makes sense.
 
 **Rows of the old matrix that no longer apply:** 5, 6, 30, 31 (the `[staging]` guard, removed for ilLumenate, D82); 3 (the status popup became the create-product popup, H); 8 (failure after upload: still true, not worth forcing); 18 (n8n secret, checked in Phase 0); 19, 34 to 37 (migrations, done and recorded); 21, 22, 26, 27, 29 (checked when built, Phases 1 and 4); 38 (status changes now wait like other edits, owner 2026-11-08).
 
