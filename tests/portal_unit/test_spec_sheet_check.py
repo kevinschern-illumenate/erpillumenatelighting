@@ -160,7 +160,10 @@ class Pages(unittest.TestCase):
 			for product_type in ("LED Tape", "COB Tape", "LED Sheet"):
 				self.assertEqual(module.page_slug_for(product_type), "tape-sheets")
 			self.assertEqual(module.page_slug_for("Extrusion Kit"), "extrusion-kit")
-			self.assertEqual(module.page_slug_for("LED Neon"), "led-neon")
+			self.assertEqual(module.page_slug_for("LED Neon"), "neon")
+			self.assertEqual(module.page_slug_for("Fixture Template"), "linear-fixtures")
+			self.assertEqual(module.page_slug_for("Driver"), "driver")
+			self.assertEqual(module.page_slug_for("Controller"), "controller")
 
 
 if __name__ == "__main__":

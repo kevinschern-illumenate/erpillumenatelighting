@@ -1644,6 +1644,8 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 
 **Button colours (owner, 2026-11-11):** the template's Generate Spec is #e6eef4 with #00588c text; Generate Spec & Sync to Webflow is #fdc757 with #172e48 text; the Webflow Product's Sync to Webflow is #172e48 with white text. **Template Dimensions Image** description (owner, 2026-11-11): it goes on the spec sheet, max width 744px, min height 150px; the website uses the Webflow Product's own Dimensions Image.
 
+**Spec sheet template pages (owner, 2026-11-12):** n8n `(ilL) Fetch Webflow Template` reads the pages from the main site, `https://illumenate.lighting/spec-sheet-templates/<page>`, on staging too (reading poses no risk). Pages by product type, also in `spec_sheet_check.SHARED_PAGES`: Extrusion Kit `extrusion-kit`, Fixture Template `linear-fixtures`, LED Tape / COB Tape / LED Sheet `tape-sheets`, LED Neon `neon`, Driver `driver`, Controller `controller`; any other type its slugified name.
+
 **Phase 6: status**
 - Built:
   - **The create-product popup** (4.5, D3; owner 2026-11-08, a), in `public/js/template_webflow_link.js`.

@@ -35,8 +35,18 @@ KIT = "ilL-Extrusion-Kit-Template"
 PAGE_PATH = "spec-sheet-templates"
 
 
-# Product types that share one spec sheet page (owner, 2026-11-06): tapes and sheets.
-SHARED_PAGES = {"LED Tape": "tape-sheets", "COB Tape": "tape-sheets", "LED Sheet": "tape-sheets"}
+# The Webflow spec sheet page for each product type (owner, 2026-11-06 and 2026-11-12). The same
+# map is in the n8n "(ilL) Fetch Webflow Template" URL; other types use their slugified name.
+SHARED_PAGES = {
+	"Extrusion Kit": "extrusion-kit",
+	"Fixture Template": "linear-fixtures",
+	"LED Tape": "tape-sheets",
+	"COB Tape": "tape-sheets",
+	"LED Sheet": "tape-sheets",
+	"LED Neon": "neon",
+	"Driver": "driver",
+	"Controller": "controller",
+}
 
 
 def page_slug_for(product_type):
