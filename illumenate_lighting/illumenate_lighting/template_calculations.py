@@ -213,14 +213,14 @@ def format_inches(mm):
 
 
 def dimension_part(mm):
-	"""Pure: 304.8 -> '12.00” (304.8mm)' (owner, 2026-11-12: curly inch mark, mm without
+	"""Pure: 304.8 -> '12.00" (304.8mm)' (owner, 2026-11-12: curly inch mark, mm without
 	trailing zeros)."""
-	return f"{float(mm) / 25.4:.2f}” ({float(mm):g}mm)"
+	return f"{float(mm) / 25.4:.2f}\u201d ({float(mm):g}mm)"
 
 
 def dimensions_text(width_mm, height_mm, length_mm=None, fallback=None):
 	"""Pure: the Dimensions specification. Length (fixtures: the template's Min Length) first,
-	then the profile's width and height, joined by ' × '. When the profile has no width or
+	then the profile's width and height, joined by ' \u00d7 '. When the profile has no width or
 	height, its free-text Dimensions (``fallback``) is used, after the length if there is one.
 	None when there is nothing to show."""
 	parts = [dimension_part(length_mm)] if length_mm else []
@@ -230,7 +230,7 @@ def dimensions_text(width_mm, height_mm, length_mm=None, fallback=None):
 		parts.append(fallback)
 	elif not parts:
 		return None
-	return " × ".join(parts)
+	return " \u00d7 ".join(parts)
 
 
 def ceil_val(num):
@@ -836,7 +836,7 @@ class TemplateCalculator:
 					as_dict=True,
 				)
 				# Owner, 2026-11-12: Min Length x width x height, e.g.
-				# 12.00” (304.8mm) × 0.59” (15mm) × 0.59” (15mm).
+				# 12.00" (304.8mm) x 0.59" (15mm) x 0.59" (15mm).
 				dims = (
 					dimensions_text(
 						profile.get("width_mm"),
@@ -1649,7 +1649,7 @@ class TemplateCalculator:
 				["dimensions", "width_mm", "height_mm"],
 				as_dict=True,
 			)
-			# Owner, 2026-11-12: width x height in the fixtures' style, e.g. 0.63” (16mm) × 0.63” (16mm).
+			# Owner, 2026-11-12: width x height in the fixtures' style, e.g. 0.63" (16mm) x 0.63" (16mm).
 			dims = (
 				dimensions_text(
 					profile.get("width_mm"), profile.get("height_mm"), None, profile.get("dimensions")
