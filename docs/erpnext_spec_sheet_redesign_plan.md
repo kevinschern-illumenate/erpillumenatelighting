@@ -2029,7 +2029,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 - [ ] `webflow_promotion.check_integration_users()` reports no problems (pass the n8n credential's user if it finds the wrong one).
 - [ ] Review the "Product Badge values not moved to Web Badge" and `custom_dimensions_image_2` Error Log entries the patches write.
 - [ ] `spec_sheet_job.regenerate_spec_sheets` per template type that has a spec sheet page, so every product gets the stable link `/spec-sheets/<brand>_<template>.pdf`.
-- [ ] Kits still missing data on 2026-11-04 (KIT-AZ01, KIT-BN03, KIT-CH02, KIT-RA05, KIT-SH01, KIT-SH02, KIT-SH03, KIT-SL01): see Phase 4 "As built" and 8.2.
+- [ ] Kits still missing data on 2026-11-04 (KIT-AZ01, KIT-BN03, KIT-CH02, KIT-RA05, KIT-SH01, KIT-SH02, KIT-SH03, KIT-SL01): see Phase 4 "As built" and 8.2. Owner, 2026-11-12: filled in on main after the move, not on staging; then the kit bulk regeneration on main.
 
 ### 10.5 Webflow (main sites)
 
