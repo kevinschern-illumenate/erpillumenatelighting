@@ -1646,6 +1646,8 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 
 **Spec sheet template pages (owner, 2026-11-12):** n8n `(ilL) Fetch Webflow Template` reads the pages from the main site, `https://illumenate.lighting/spec-sheet-templates/<page>`, on staging too (reading poses no risk). Pages by product type, also in `spec_sheet_check.SHARED_PAGES`: Extrusion Kit `extrusion-kit`, Fixture Template `linear-fixtures`, LED Tape / COB Tape / LED Sheet `tape-sheets`, LED Neon `neon`, Driver `driver`, Controller `controller`; any other type its slugified name.
 
+**Blank Webflow item IDs on products (fixed 2026-11-12):** n8n sends the item ID, and the callback writes it to the product's sync row and legacy field straight to the database without changing `modified`. A form opened before the sync finished then saved its old blank values over them unnoticed (no "modified after you opened it"). Since then, `ilLWebflowProduct.keep_sync_identity` (before_save) keeps the stored item ID, sync status, last synced and sync error on every normal save; only the sync writes them (`flags.sync_identity_write`). `webflow_promotion.repair_sync_item_ids(apply=False)` copies the publication records' item IDs back where blank (dry run by default; also for main).
+
 **Phase 6: status**
 - Built:
   - **The create-product popup** (4.5, D3; owner 2026-11-08, a), in `public/js/template_webflow_link.js`.

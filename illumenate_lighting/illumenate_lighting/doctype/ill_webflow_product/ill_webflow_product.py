@@ -186,6 +186,37 @@ class ilLWebflowProduct(Document):
 			# Save as JSON array with a single object inside, matching your request
 			row.webflow_badge_images = frappe.as_json([badge_data])
 	
+	SYNC_FIELDS = ("webflow_item_id", "sync_status", "last_synced_at", "sync_error_message")
+	SYNC_ROW_FIELDS = ("webflow_item_id", "sync_status", "last_synced_at", "sync_error_message")
+
+	def keep_sync_identity(self):
+		"""The sync's own fields keep what the database holds (2026-11-12).
+
+		The Webflow callback writes the item ID and sync state straight to the database without
+		changing ``modified``, so a form opened before the sync finished would save its old,
+		blank values over them unnoticed. Only the sync writes these (with
+		``flags.sync_identity_write`` when it saves the document).
+		"""
+		if self.flags.get("sync_identity_write"):
+			return
+		saved = frappe.db.get_value(self.doctype, self.name, list(self.SYNC_FIELDS), as_dict=True)
+		if saved:
+			for field in self.SYNC_FIELDS:
+				self.set(field, saved.get(field))
+		rows = {
+			row.brand: row
+			for row in frappe.get_all(
+				"ilL-Child-Webflow-Sync-State",
+				filters={"parenttype": self.doctype, "parent": self.name},
+				fields=["brand", *self.SYNC_ROW_FIELDS],
+			)
+		}
+		for row in self.get("sync_targets") or []:
+			stored = rows.get(row.get("brand"))
+			if stored:
+				for field in self.SYNC_ROW_FIELDS:
+					row.set(field, stored.get(field))
+
 	def validate(self):
 		# The template owns the link (plan 4.2); the per-type link fields here are mirrors.
 		from illumenate_lighting.illumenate_lighting.template_link import validate_product_links
@@ -208,6 +239,9 @@ class ilLWebflowProduct(Document):
 			self.sync_status = "Never Synced"
 			if hasattr(self, "sync_targets"):
 				self.set("sync_targets", [])
+
+		else:
+			self.keep_sync_identity()
 
 		# Attribute Links always mirror the template (owner, 2026-11-05).
 		self.populate_attribute_links()

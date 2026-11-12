@@ -914,6 +914,7 @@ def _update_product_sync_target(product_name, brand, webflow_item_id, status="Sy
         })
         doc.flags._skip_sync_status_check = True
         doc.flags._skip_webflow_sync = True
+        doc.flags.sync_identity_write = True
         doc.save(ignore_permissions=True)
 
     # Update top-level legacy fields without bumping the document's modified timestamp

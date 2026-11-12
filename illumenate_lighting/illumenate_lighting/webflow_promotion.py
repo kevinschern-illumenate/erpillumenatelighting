@@ -298,3 +298,59 @@ def check_integration_users(n8n_user=None):
 			}
 		)
 	return {"ok": not any(row["problems"] for row in report), "users": report}
+
+
+# --- Repair blank item IDs (2026-11-12) ----------------------------------------------------
+
+
+@frappe.whitelist(methods=["POST"])
+def repair_sync_item_ids(apply=False):
+	"""Copy each publication's Webflow item ID into the product's sync row (and, for the default
+	brand, its legacy Webflow Item ID) where those are blank. Dry run by default.
+
+	They could be blanked by a product form saved after the sync wrote them; product saves now
+	keep them (``ilLWebflowProduct.keep_sync_identity``).
+	"""
+	frappe.only_for("System Manager")
+	from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
+
+	apply = cint(apply)
+	default_brand = get_default_brand()
+	rows = []
+	for pub in frappe.get_all(
+		PUBLICATION, filters={"remote_item_id": ["is", "set"]}, fields=["product", "brand", "remote_item_id"]
+	):
+		if not frappe.db.exists(PRODUCT, pub.product):
+			continue
+		sync = frappe.db.get_value(
+			SYNC_STATE,
+			{"parenttype": PRODUCT, "parent": pub.product, "brand": pub.brand},
+			["name", "webflow_item_id"],
+			as_dict=True,
+		)
+		legacy = frappe.db.get_value(PRODUCT, pub.product, "webflow_item_id")
+		fix_sync = bool(sync) and sync.webflow_item_id != pub.remote_item_id
+		fix_legacy = pub.brand == default_brand and legacy != pub.remote_item_id
+		if not (fix_sync or fix_legacy):
+			continue
+		rows.append(
+			{
+				"product": pub.product,
+				"brand": pub.brand,
+				"item": pub.remote_item_id,
+				"sync_row_was": sync.webflow_item_id if sync else "(no row)",
+				"legacy_was": legacy,
+			}
+		)
+		if apply:
+			if fix_sync:
+				frappe.db.set_value(
+					SYNC_STATE, sync.name, "webflow_item_id", pub.remote_item_id, update_modified=False
+				)
+			if fix_legacy:
+				frappe.db.set_value(
+					PRODUCT, pub.product, "webflow_item_id", pub.remote_item_id, update_modified=False
+				)
+	if apply:
+		frappe.db.commit()
+	return {"applied": bool(apply), "fixed": len(rows), "rows": rows}
