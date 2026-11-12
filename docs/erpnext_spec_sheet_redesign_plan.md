@@ -2062,7 +2062,7 @@ Owner approval required. Kept up to date as the work goes on (owner, 2026-11-04)
 
 What staging looks like now, so it is not carried to main by mistake:
 
-- Staging has its own Webflow site, `https://staging-illumenate.webflow.io` (site ID `6aeb4d313e25a078e9393924`, Products collection `6aeb4d313e25a078e9393a2a`), a copy of the main site.
+- Staging has its own Webflow site, now at `https://staging2-illumenate.webflow.io` (same site, new address, 2026-11-12: the n8n `(ilL) Fetch Webflow Template` URL, the userscript and CORS were updated; the brand record's Webflow Public Site URL and `spec_sheet_template_sites` are set by the owner), earlier `https://staging-illumenate.webflow.io` (site ID `6aeb4d313e25a078e9393924`, Products collection `6aeb4d313e25a078e9393a2a`), a copy of the main site.
 - The staging ERPNext brand `illumenate` is being repointed to it.
 - The n8n credential `Webflow ilLumenate Staging` (Header Auth) holds the staging site's token.
 - The staging n8n workflow's guard (the `[staging]` prefixes, forced hidden, guard checks) is being removed for the ilLumenate branch only. 206 keeps its guard until it has its own staging site.
