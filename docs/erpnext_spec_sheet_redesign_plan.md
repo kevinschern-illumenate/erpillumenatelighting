@@ -1942,13 +1942,13 @@ This replaces the matrix above for Phase 8. The matrix is kept for its history; 
 - [x] **Archived**: hidden and notified; nothing archived in Webflow.
 - [x] A template whose product was never published, set to Draft or Internal Only: nothing goes to Webflow; the line says "Nothing goes to Webflow…". (old 4, 13)
 
-**F. Webflow Status and approvals**
-- [ ] kit-ra02 Webflow Status Published to **Archived**: an orange banner with Approve / Reject; a notification; Sync to Webflow is refused while it waits. (old 11)
-- [ ] **Reject**: the status goes back; nothing changes in Webflow.
-- [ ] Again, then **Approve**: the page is archived in Webflow. (old 12)
-- [ ] Archived back to Published: a Restore approval; Approve publishes it again.
-- [ ] A product never published, set to Archived: no approval, nothing sent. (old 13)
-- [ ] Published to Discontinued and back: `is_discontinued` ticks and unticks; the web badge does not change. (old 33)
+**F. Webflow Status and approvals**: passed (owner, 2026-11-12).
+- [x] kit-ra02 Webflow Status Published to **Archived**: an orange banner with Approve / Reject; a notification; Sync to Webflow is refused while it waits. (old 11)
+- [x] **Reject**: the status goes back; nothing changes in Webflow.
+- [x] Again, then **Approve**: the page is archived in Webflow. (old 12)
+- [x] Archived back to Published: a Restore approval; Approve publishes it again.
+- [x] A product never published, set to Archived: no approval, nothing sent. (old 13)
+- [x] Published to Discontinued and back: `is_discontinued` ticks and unticks; the web badge does not change. (old 33)
 
 **G. Automatic pushes**: passed (owner, 2026-11-11).
 - [x] Edit a field on KIT-RA02 and save: kit-ra02 shows "Automatic push to illumenate waiting: due hh:mm"; about 2 minutes later it goes, with a green push. (old 9)

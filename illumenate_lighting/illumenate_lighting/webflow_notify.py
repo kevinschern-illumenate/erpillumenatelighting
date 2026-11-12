@@ -94,7 +94,7 @@ def recipients():
 
 
 def _desk_route(document_type, document_name):
-	return f"/app/{frappe.scrub(document_type).replace('_', '-')}/{document_name}"
+	return f"/desk/{frappe.scrub(document_type).replace('_', '-')}/{document_name}"
 
 
 def notify(subject, message, document_type=PRODUCT, document_name=None, once=False):

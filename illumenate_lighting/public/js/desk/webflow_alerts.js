@@ -13,7 +13,8 @@
 			const notice = new Notice(data.title || "Webflow", { body: data.body || "", tag: data.route || EVENT });
 			notice.onclick = () => {
 				root.focus && root.focus();
-				if (data.route && root.frappe && root.frappe.set_route) root.frappe.set_route(data.route);
+				// Opens the record in the Desk (/desk/..., owner 2026-11-12).
+				if (data.route) root.location.assign(data.route);
 				notice.close();
 			};
 		};

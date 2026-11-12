@@ -471,7 +471,7 @@ class Notifications(unittest.TestCase):
 		self.assertIn("Restore kit-ra01 to Published on x", log["email_content"])
 		event, payload = frappe.publish_realtime.call_args.args
 		self.assertEqual(event, "ill_webflow_alert")
-		self.assertEqual(payload["route"], "/app/ill_webflow_product/kit-ra01".replace("_", "-"))
+		self.assertEqual(payload["route"], "/desk/ill_webflow_product/kit-ra01".replace("_", "-"))
 		self.assertEqual(frappe.publish_realtime.call_args.kwargs["user"], "owner@example.com")
 
 	def test_a_failed_job_notifies_once_with_the_reason(self):
@@ -535,7 +535,7 @@ class Notifications(unittest.TestCase):
 		module.spec_sheet_generated("owner@example.com", "ilL-Extrusion-Kit-Template", "KIT-RA02")
 		payload = frappe.publish_realtime.call_args.args[1]
 		self.assertEqual(payload["title"], "Spec sheet generated: KIT-RA02")
-		self.assertEqual(payload["route"], "/app/ill-extrusion-kit-template/KIT-RA02")
+		self.assertEqual(payload["route"], "/desk/ill-extrusion-kit-template/KIT-RA02")
 
 	def test_a_notification_problem_never_raises(self):
 		module, frappe = self.load(["owner@example.com"], known=["owner@example.com"])
