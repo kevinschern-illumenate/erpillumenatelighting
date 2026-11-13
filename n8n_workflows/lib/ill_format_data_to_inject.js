@@ -421,6 +421,50 @@ const mappingScript = `<script>
           dimTemplate.style.display = 'none';
       }
 
+      // --- E4. DELIVERED LUMENS (fixtures; owner, 2026-11-13) ---
+      // Header: the first .table-title is "Output"; the next ones (#lumen-table-lens) take the
+      // template's lenses in order. Rows: the first .table-item-wrapper is the pattern, copied once
+      // per output (#output-item, then #output-c1..c4 for the lenses). Cells for lenses the
+      // template does not have are removed. No rows: the section is hidden.
+      const lumenSection = document.getElementById('delivered-lumens');
+      if (lumenSection) {
+          const lumens = data.delivered_lumens || {};
+          const lenses = lumens.lenses || [];
+          const lumenRows = lumens.rows || [];
+          if (!lenses.length || !lumenRows.length) {
+              lumenSection.style.display = 'none';
+          } else {
+              const head = lumenSection.querySelector('.table-title-wrapper');
+              const lensCells = head ? Array.from(head.querySelectorAll('.table-title')).slice(1) : [];
+              lensCells.forEach((cell, i) => {
+                  if (i < lenses.length) { cell.innerText = lenses[i].label; cell.removeAttribute('id'); }
+                  else cell.remove();
+              });
+              const body = lumenSection.querySelector('.table-data-wrapper');
+              const pattern = body ? body.querySelector('.table-item-wrapper') : null;
+              if (body && pattern) {
+                  Array.from(body.children).forEach(child => child.remove());
+                  lumenRows.forEach((row, r) => {
+                      const line = pattern.cloneNode(true);
+                      line.classList.toggle('last-row', r === lumenRows.length - 1);
+                      const label = line.querySelector('#output-item');
+                      if (label) { label.innerText = row.output || ''; label.removeAttribute('id'); }
+                      for (let i = 1; i <= 4; i++) {
+                          const cell = line.querySelector('#output-c' + i);
+                          if (!cell) continue;
+                          if (i <= lenses.length) {
+                              cell.innerText = (row.values || {})[lenses[i - 1].key] || '—';
+                              cell.removeAttribute('id');
+                          } else {
+                              cell.remove();
+                          }
+                      }
+                      body.appendChild(line);
+                  });
+              }
+          }
+      }
+
       // --- F. GENERATED DATE (Strictly MMDDYY) ---
       const now = new Date();
       const mm = String(now.getMonth() + 1).padStart(2, '0');

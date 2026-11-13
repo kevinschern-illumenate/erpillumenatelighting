@@ -91,6 +91,18 @@ const SUPPLY_FIELDS = ['part_number', 'input_protocol', 'voltagefrequency', 'out
 record.custom_compatible_power_supplies = (t.compatible_power_supplies || [])
   .map(row => Object.fromEntries(SUPPLY_FIELDS.map(f => [f, row[f] ?? ''])));
 
+// Delivered lumens per foot (owner, 2026-11-13; fixture templates): the lenses the template has,
+// in White, Frosted, Clear, Black order, and one row per output with a value (or a dash) each.
+const LUMEN_LENSES = [['white', 'White'], ['frosted', 'Frosted'], ['clear', 'Clear'], ['black', 'Black']];
+const lumenRows = t.delivered_lumens || [];
+record.delivered_lumens = {
+  lenses: LUMEN_LENSES.filter(([key]) => lumenRows.some(row => row[key])).map(([key, label]) => ({key, label})),
+  rows: lumenRows.map(row => ({
+    output: row.output_level,
+    values: Object.fromEntries(LUMEN_LENSES.map(([key]) => [key, row[key] || ''])),
+  })),
+};
+
 // Still from legacy (owner, 2026-11-02).
 record.photometric_image = legacy.photometric_image;
 record.photometric_data = legacy.photometric_data;
