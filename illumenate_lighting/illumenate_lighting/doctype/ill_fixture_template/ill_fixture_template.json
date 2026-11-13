@@ -79,6 +79,8 @@
   "feed_lengths",
   "delivered_lumens_section",
   "delivered_lumens",
+  "web_kit_components_section",
+  "kit_components",
   "photometric_section",
   "photometry",
   "beam_angle",
@@ -527,6 +529,17 @@
    "description": "Rebuilt on save: each allowed tape's Lumens per Foot x the lens Transmission, placed at the nearest fixture output level. Change the tape or lens data to change it."
   },
   {
+   "fieldname": "web_kit_components_section",
+   "fieldtype": "Section Break",
+   "label": "Kit Components"
+  },
+  {
+   "fieldname": "kit_components",
+   "fieldtype": "Table",
+   "label": "Kit Components",
+   "options": "ilL-Child-Webflow-Kit-Component"
+  },
+  {
    "fieldname": "photometric_section",
    "fieldtype": "Section Break",
    "label": "Photometrics"
@@ -595,7 +608,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-13 18:00:25.000000",
+ "modified": "2026-11-13 19:32:30.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Fixture-Template",

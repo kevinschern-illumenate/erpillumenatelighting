@@ -16,6 +16,8 @@ same level the nearer one wins. Levels no lens reaches are left out; a lens that
 a level leaves its cell empty.
 """
 
+import math
+
 import frappe
 
 FIELD = "delivered_lumens"
@@ -35,7 +37,7 @@ def table(lenses, tapes, levels):
 
 	``lenses``: {lens column: (lens name, transmission fraction)}. ``tapes``: [(lumens per foot,
 	lens name the offering is limited to or None)]. ``levels``: [{name, value}] per-foot
-	fixture levels. Returns [{"output_level", <lens column>: "126.6" or a dash, ...}] by level
+	fixture levels. Returns [{"output_level", <lens column>: "127" or a dash, ...}] by level
 	value, with a column only for the template's lenses.
 	"""
 	levels = sorted((level for level in levels if level.get("value")), key=lambda level: level["value"])
@@ -61,7 +63,9 @@ def table(lenses, tapes, levels):
 		row = {"output_level": level["name"]}
 		for column in lenses:
 			cell = cells.get((level["name"], column))
-			row[column] = f"{cell[1]:g}" if cell else NOT_REACHED
+			# Whole numbers, rounded up (owner, 2026-11-13); rounded to one decimal first so float
+			# noise (56.0000001) does not round up.
+			row[column] = str(math.ceil(cell[1])) if cell else NOT_REACHED
 		rows.append(row)
 	return rows
 

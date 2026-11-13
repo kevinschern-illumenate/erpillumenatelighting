@@ -59,7 +59,11 @@ class DeliveredLumens(unittest.TestCase):
 		self.assertEqual(by_level["750 lm/ft"]["black"], "\u2014")
 		# Only the template's lenses are columns.
 		self.assertEqual(set(by_level["50lm/ft"]), {"output_level", "white", "black"})
-		self.assertEqual(module.table({"white": ("White", 0.56)}, [(226.07, None)], LEVELS)[0]["white"], "126.6")
+		self.assertEqual(
+			module.table({"white": ("White", 0.56)}, [(226.07, None)], LEVELS)[0]["white"], "127"
+		)
+		# 742.5 rounds up; 100 x 0.56 (float noise 56.000...01) stays 56.
+		self.assertEqual(module.table({"clear": ("Clear", 0.99)}, [(750, None)], LEVELS)[0]["clear"], "743")
 		self.assertNotIn("1000 lm/ft", by_level)
 
 	def test_only_per_foot_levels_count(self):

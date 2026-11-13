@@ -402,7 +402,8 @@ _FIXTURE_TAPE = {
 }
 # What each template's Product Data tab holds.
 TEMPLATE_PARTS = {
-	"ilL-Fixture-Template": {**_FIXTURE_TAPE, "delivered_lumens": True},
+	# Kit Components on fixtures too (owner, 2026-11-13).
+	"ilL-Fixture-Template": {**_FIXTURE_TAPE, "delivered_lumens": True, "kit": True},
 	"ilL-Tape-Neon-Template": {**_FIXTURE_TAPE, "category": True},
 	"ilL-Controller-Template": {},
 	"ilL-Driver-Template": {},

@@ -4298,6 +4298,12 @@
           "read_only": 1
         },
         {
+          "fieldname": "kit_components",
+          "label": "Kit Components",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Kit-Component"
+        },
+        {
           "fieldname": "photometry",
           "label": "Photometry",
           "fieldtype": "Link",
