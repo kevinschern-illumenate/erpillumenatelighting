@@ -79,6 +79,25 @@ class Payload(unittest.TestCase):
 		self.assertEqual(data["webflow"]["sync_status"], "Synced")
 		self.assertIs(data["legacy"], legacy)
 
+	def test_led_packages_come_from_the_allowed_tape_offerings(self):
+		calls = []
+
+		def get_all(doctype, filters=None, pluck=None):
+			calls.append((doctype, filters, pluck))
+			return ["ilLumenate Static White", None, "ilLumenate Static White", "ilLumenate Dim to Warm"]
+
+		self.frappe.get_all = get_all
+		template = Doc(
+			"ilL-Fixture-Template",
+			"ILL-SH01-SW",
+			allowed_tape_offerings=[Row(tape_offering="A"), Row(tape_offering="B"), Row(tape_offering=None)],
+		)
+		self.assertEqual(
+			self.module.led_packages(template), ["ilLumenate Dim to Warm", "ilLumenate Static White"]
+		)
+		self.assertEqual(calls, [("ilL-Rel-Tape Offering", {"name": ["in", ["A", "B"]]}, "led_package")])
+		self.assertEqual(self.module.led_packages(Doc("ilL-Fixture-Template", "X")), [])
+
 	def test_a_template_without_a_product(self):
 		data = self.module.build(Doc("ilL-Driver-Template", "PS-UNIV"), None, "illumenate")
 		self.assertIsNone(data["product"])

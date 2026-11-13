@@ -103,6 +103,9 @@ record.delivered_lumens = {
   })),
 };
 
+// LED packages of the fixture template's tape offerings: the gradient lines (owner, 2026-11-13).
+record.led_packages = ctx.led_packages || [];
+
 // Still from legacy (owner, 2026-11-02).
 record.photometric_image = legacy.photometric_image;
 record.photometric_data = legacy.photometric_data;

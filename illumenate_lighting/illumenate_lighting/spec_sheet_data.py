@@ -138,6 +138,21 @@ def template_section(template):
 	return result
 
 
+def led_packages(template):
+	"""The LED packages of the template's allowed tape offerings (fixture templates)."""
+	offerings = [
+		row.get("tape_offering")
+		for row in template.get("allowed_tape_offerings") or []
+		if row.get("tape_offering")
+	]
+	if not offerings:
+		return []
+	packages = frappe.get_all(
+		"ilL-Rel-Tape Offering", filters={"name": ["in", offerings]}, pluck="led_package"
+	)
+	return sorted({package for package in packages if package})
+
+
 def product_section(product):
 	"""Only what the Webflow Product owns (mirrored template data is left out)."""
 	data = product.as_dict()
@@ -296,6 +311,8 @@ def build(template, product, brand, legacy=None):
 			# Always the template's (owner, 2026-11-03): templates may have no Webflow Product.
 			"product_type": _product_type(template),
 			"include_configurator": _include_configurator(brand),
+			# The fixture spec sheet shows the gradient line of these (owner, 2026-11-13).
+			"led_packages": led_packages(template),
 			# The PDF's file name: <Brand>_<Display Name>_Spec Sheet.pdf (owner, 2026-11-03).
 			**spec_sheet_naming(template, brand),
 			# Images and files are stored as /files/...; prefix this to make them absolute.

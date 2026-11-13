@@ -196,15 +196,27 @@ const mappingScript = `<script>
           }
           
           // 2. Setup Dynamic Option Blocks
+          // Fixtures (owner, 2026-11-13): the Length step gets the .part-no-length block, a free text
+          // box tagged data-input-step for the PDF generator; each Feed Direction step gets a
+          // .part-no-feed-section (the "feed-direction-title" one for directions, the
+          // "feed-length-title" one for lengths), with no dash between a feed direction and its
+          // length. Steps 90 and up are lookup tables (Finish to Endcap Color, Fixture Output
+          // Level), not part number steps. #part-no-ex is the series and each step's first option,
+          // with 50 for the Length.
           const wrapper = builderSection.querySelector('.part-no-wrapper');
           if (wrapper) {
               const dashTemplate = wrapper.querySelector('.part-no-dash');
               const sectionTemplate = wrapper.querySelector('.part-no-section');
-              
+              const lengthTemplate = wrapper.querySelector('.part-no-length');
+              const feedTemplates = Array.from(wrapper.querySelectorAll('.part-no-feed-section'));
+              const feedDirTemplate = feedTemplates.find(el => el.querySelector('#feed-direction-title')) || feedTemplates[0];
+              const feedLenTemplate = feedTemplates.find(el => el.querySelector('#feed-length-title')) || feedTemplates[1] || feedDirTemplate;
+
               if (dashTemplate && sectionTemplate) {
                   dashTemplate.style.display = 'none';
                   sectionTemplate.style.display = 'none';
-                  
+                  [lengthTemplate, ...feedTemplates].forEach(el => { if (el) el.remove(); });
+
                   // Clear placeholder dynamic sections
                   Array.from(wrapper.children).forEach(child => {
                       if (!child.classList.contains('part-1-wrapper') && child !== dashTemplate && child !== sectionTemplate) {
@@ -212,63 +224,103 @@ const mappingScript = `<script>
                       }
                   });
 
-                  const sortedConfig = data.configurator_options.sort((a, b) => a.option_step - b.option_step);
+                  const addDash = () => {
+                      const dashClone = dashTemplate.cloneNode(true);
+                      dashClone.style.display = '';
+                      wrapper.appendChild(dashClone);
+                  };
+
+                  const fillOptions = (sectionClone, opt, values) => {
+                      const optionsWrapper = sectionClone.querySelector('.part-no-options-wrapper');
+                      const optTemplate = sectionClone.querySelector('#part-no-options');
+                      if (!optionsWrapper || !optTemplate) return;
+                      optTemplate.style.display = 'none';
+                      Array.from(optionsWrapper.children).forEach(child => {
+                          if (child !== optTemplate) child.remove();
+                      });
+                      values.forEach(valObj => {
+                          const optClone = optTemplate.cloneNode(true);
+                          optClone.style.display = '';
+                          optClone.removeAttribute('id');
+
+                          // TAG THE DYNAMIC BUTTONS FOR VERCEL
+                          optClone.setAttribute('data-step', opt.option_step);
+                          optClone.setAttribute('data-code', valObj.code || valObj.value);
+
+                          const codeEl = optClone.querySelector('#part-no-code');
+                          const descEl = optClone.querySelector('#part-no-desc');
+                          if (codeEl) codeEl.innerText = valObj.code || '';
+                          if (descEl) descEl.innerText = valObj.label || valObj.value || '';
+                          optionsWrapper.appendChild(optClone);
+                      });
+                  };
+
+                  const example = [seriesSlug];
+                  let lastWasFeedDir = false;
+                  const sortedConfig = data.configurator_options
+                      .filter(opt => Number(opt.option_step) < 90)
+                      .sort((a, b) => a.option_step - b.option_step);
 
                   sortedConfig.forEach(opt => {
                       let currentValues = [];
                       try {
                           currentValues = JSON.parse(opt.allowed_values_json || "[]");
                       } catch(e) {}
-                      
-                      if (currentValues.length > 0) {
-                          // Inject Dash separator
-                          const dashClone = dashTemplate.cloneNode(true);
-                          dashClone.style.display = '';
-                          wrapper.appendChild(dashClone);
-                          
-                          // Inject Option Section
-                          const sectionClone = sectionTemplate.cloneNode(true);
-                          sectionClone.style.display = '';
-                          
+                      const label = opt.option_label || opt.option_type || '';
+
+                      // A free length (fixtures) has only the length metadata row; a kit's stock
+                      // length is an ordinary step.
+                      const freeLength = opt.option_type === 'Length' && currentValues.length > 0
+                          && currentValues.every(v => v && v.value === '__length_metadata__');
+                      if (freeLength) {
+                          lastWasFeedDir = false;
+                          if (!lengthTemplate) return;
+                          addDash();
+                          const lengthClone = lengthTemplate.cloneNode(true);
+                          lengthClone.style.display = '';
+                          lengthClone.setAttribute('data-input-step', opt.option_step);
+                          const lengthInput = lengthClone.querySelector('#part-no-length-input');
+                          if (lengthInput) lengthInput.innerHTML = '';
+                          wrapper.appendChild(lengthClone);
+                          example.push('50');
+                          return;
+                      }
+
+                      const values = currentValues.filter(v => v && (v.code || v.label || v.value));
+                      if (values.length === 0) return;
+                      const firstCode = String(values[0].code || values[0].value || '');
+
+                      const isFeed = opt.option_type === 'Feed Direction' && feedDirTemplate;
+                      const isFeedLength = isFeed && /length/i.test(label);
+                      let sectionClone;
+                      if (isFeed) {
+                          // A feed length sits right after its feed direction, with no dash.
+                          if (!(isFeedLength && lastWasFeedDir)) addDash();
+                          sectionClone = (isFeedLength ? feedLenTemplate : feedDirTemplate).cloneNode(true);
+                          const titleEl = sectionClone.querySelector('#feed-direction-title, #feed-length-title, .part-no-title');
+                          if (titleEl) titleEl.innerText = label.toUpperCase();
+                          const inputEl = sectionClone.querySelector('.part-no-feeddir-input');
+                          if (inputEl) inputEl.innerHTML = '';
+                          if (isFeedLength && lastWasFeedDir) example[example.length - 1] += firstCode;
+                          else example.push(firstCode);
+                          lastWasFeedDir = !isFeedLength;
+                      } else {
+                          addDash();
+                          sectionClone = sectionTemplate.cloneNode(true);
                           const titleEl = sectionClone.querySelector('#part-no-title');
-                          if (titleEl) titleEl.innerText = (opt.option_label || opt.option_type).toUpperCase();
-                          
+                          if (titleEl) titleEl.innerText = label.toUpperCase();
                           const inputEl = sectionClone.querySelector('#part-no-code-input');
                           if (inputEl) inputEl.innerHTML = ''; // Empty out placeholder
-                          
-                          const optionsWrapper = sectionClone.querySelector('.part-no-options-wrapper');
-                          const optTemplate = sectionClone.querySelector('#part-no-options');
-                          
-                          if (optionsWrapper && optTemplate) {
-                              optTemplate.style.display = 'none';
-                              
-                              Array.from(optionsWrapper.children).forEach(child => {
-                                  if (child !== optTemplate) child.remove();
-                              });
-                              
-                              currentValues.forEach(valObj => {
-                                  if (valObj.code || valObj.label || valObj.value) {
-                                      const optClone = optTemplate.cloneNode(true);
-                                      optClone.style.display = '';
-                                      optClone.removeAttribute('id');
-                                      
-                                      // TAG THE DYNAMIC BUTTONS FOR VERCEL
-                                      optClone.setAttribute('data-step', opt.option_step);
-                                      optClone.setAttribute('data-code', valObj.code || valObj.value);
-                                      
-                                      const codeEl = optClone.querySelector('#part-no-code');
-                                      const descEl = optClone.querySelector('#part-no-desc');
-                                      
-                                      if (codeEl) codeEl.innerText = valObj.code || '';
-                                      if (descEl) descEl.innerText = valObj.label || valObj.value || '';
-                                      
-                                      optionsWrapper.appendChild(optClone);
-                                  }
-                              });
-                          }
-                          wrapper.appendChild(sectionClone);
+                          example.push(firstCode);
+                          lastWasFeedDir = false;
                       }
+                      sectionClone.style.display = '';
+                      fillOptions(sectionClone, opt, values);
+                      wrapper.appendChild(sectionClone);
                   });
+
+                  const exampleEl = document.getElementById('part-no-ex');
+                  if (exampleEl) exampleEl.innerText = example.filter(Boolean).join('-');
               }
           }
       } else if (builderSection) {
@@ -419,6 +471,28 @@ const mappingScript = `<script>
               anchor = item;
           });
           dimTemplate.style.display = 'none';
+      }
+
+      // --- GRADIENT LINES (owner, 2026-11-13) ---
+      // The page has one header and one footer gradient line per family (#fs-, #sw-, #tw-,
+      // #dw-gradient-line and #fsfooter-... to #dwfooter-gradient-line). The template's LED
+      // packages pick the ones shown; the others are hidden. No known package: nothing changes.
+      const GRADIENTS = {
+          'ilLumenate Static White': 'sw',
+          'ilLumenate Tunable White': 'tw',
+          'ilLumenate RGBW': 'fs',
+          'ilLumenate RGB+TW': 'fs',
+          'ilLumenate Color Changing Pixel': 'fs',
+          'ilLumenate Dim to Warm': 'dw',
+      };
+      const shownGradients = new Set((data.led_packages || []).map(p => GRADIENTS[p]).filter(Boolean));
+      if (shownGradients.size > 0) {
+          ['fs', 'sw', 'tw', 'dw'].forEach(key => {
+              [key + '-gradient-line', key + 'footer-gradient-line'].forEach(id => {
+                  const line = document.getElementById(id);
+                  if (line) line.style.display = shownGradients.has(key) ? '' : 'none';
+              });
+          });
       }
 
       // --- E4. DELIVERED LUMENS (fixtures; owner, 2026-11-13) ---
