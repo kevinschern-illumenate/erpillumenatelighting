@@ -1656,6 +1656,8 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 
 **Fixture specifications (owner, 2026-11-13, built):** fixture templates get a Warranty row, "<warranty_years> year(s)" (Performance, order 150). The second Color Rendering row ("Color Rendering", value "95+ CRI", order 85) came from the old export's linked-spec enrichment (`webflow_export_v2._enrich_specifications_from_linked_doctypes`, which adds it when no row is labelled exactly "Color Rendering"); it is skipped for fixture templates (`SKIPPED_LINKED_ROWS`), so only the calculated "Color Rendering (CRI)" row stays.
 
+**Fixture Components (owner, 2026-11-13, built):** on fixture templates the table is labelled "Components" (kits keep "Kit Components"). Each save puts one "Light Source" row first (`template_light_source`, called from `template_listing.refresh_template`): the Template Name of the Tape/Neon template whose allowed tape specs hold the tape specs of the fixture's allowed tape offerings, e.g. "High Density Static White LED Tape" for ILL-SH01-SW (owner: use the template name). When several Tape/Neon templates match, those for the fixture's own target brand are used; a name is listed once. The name is in the row's Description (the spec sheet's label) and Webflow Title; Component Item is a link to an Item, so the Light Source row has none (Component Item is required on the other types only). "Light Source" is the last Component Type option, so new rows still default to Profile.
+
 **Phase 6: status**
 - Built:
   - **The create-product popup** (4.5, D3; owner 2026-11-08, a), in `public/js/template_webflow_link.js`.

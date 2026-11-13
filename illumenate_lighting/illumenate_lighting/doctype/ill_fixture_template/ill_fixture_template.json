@@ -531,12 +531,12 @@
   {
    "fieldname": "web_kit_components_section",
    "fieldtype": "Section Break",
-   "label": "Kit Components"
+   "label": "Components"
   },
   {
    "fieldname": "kit_components",
    "fieldtype": "Table",
-   "label": "Kit Components",
+   "label": "Components",
    "options": "ilL-Child-Webflow-Kit-Component"
   },
   {
@@ -608,7 +608,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-13 19:32:30.000000",
+ "modified": "2026-11-13 23:58:13.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Fixture-Template",

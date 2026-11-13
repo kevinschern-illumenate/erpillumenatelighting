@@ -23,7 +23,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Component Type",
-   "options": "Profile\nLens\nEndcap Set\nMounting Kit\nJoiner\nHardware",
+   "options": "Profile\nLens\nEndcap Set\nMounting Kit\nJoiner\nHardware\nLight Source",
    "reqd": 1
   },
   {
@@ -32,7 +32,8 @@
    "in_list_view": 1,
    "label": "Component Item",
    "options": "Item",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.component_type!='Light Source'",
+   "description": "Not used on the Light Source row (its name is in Description)."
   },
   {
    "fieldname": "component_image",
@@ -85,7 +86,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-03 16:30:00.000000",
+ "modified": "2026-11-13 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Webflow-Kit-Component",

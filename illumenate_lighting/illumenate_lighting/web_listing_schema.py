@@ -140,15 +140,18 @@ _SPEC_SHEET_DATA = [
 	{"fieldname": "operating_temp_max_c", "fieldtype": "Int", "label": "Operating Temp Max (C)"},
 ]
 
-_KIT_COMPONENTS = [
-	_section("web_kit_components_section", "Kit Components"),
-	{
-		"fieldname": "kit_components",
-		"fieldtype": "Table",
-		"label": "Kit Components",
-		"options": "ilL-Child-Webflow-Kit-Component",
-	},
-]
+
+def _kit_components(label):
+	return [
+		_section("web_kit_components_section", label),
+		{
+			"fieldname": "kit_components",
+			"fieldtype": "Table",
+			"label": label,
+			"options": "ilL-Child-Webflow-Kit-Component",
+		},
+	]
+
 
 # Beam angle, charts and cone-of-light rows. With a photometry record linked they are
 # copies of it (photometrics.py) and read only; without one they stay editable.
@@ -402,8 +405,8 @@ _FIXTURE_TAPE = {
 }
 # What each template's Product Data tab holds.
 TEMPLATE_PARTS = {
-	# Kit Components on fixtures too (owner, 2026-11-13).
-	"ilL-Fixture-Template": {**_FIXTURE_TAPE, "delivered_lumens": True, "kit": True},
+	# The components table on fixtures too, labelled "Components" (owner, 2026-11-13).
+	"ilL-Fixture-Template": {**_FIXTURE_TAPE, "delivered_lumens": True, "kit": "Components"},
 	"ilL-Tape-Neon-Template": {**_FIXTURE_TAPE, "category": True},
 	"ilL-Controller-Template": {},
 	"ilL-Driver-Template": {},
@@ -460,7 +463,11 @@ def _tab_fields(doctype):
 		# Owner, 2026-11-13: feed lengths belong with the configurator.
 		*(_FEED_LENGTHS if parts.get("feed") else []),
 		*(_DELIVERED_LUMENS if parts.get("delivered_lumens") else []),
-		*(_KIT_COMPONENTS if parts.get("kit") else []),
+		*(
+			_kit_components(parts["kit"] if isinstance(parts["kit"], str) else "Kit Components")
+			if parts.get("kit")
+			else []
+		),
 		*(_PHOTOMETRICS if parts.get("photometrics") else []),
 		*(_COLORIMETRY if parts.get("colorimetry") else []),
 	]

@@ -2853,7 +2853,7 @@
           "fieldname": "component_type",
           "label": "Component Type",
           "fieldtype": "Select",
-          "options": "Profile\nLens\nEndcap Set\nMounting Kit\nJoiner\nHardware",
+          "options": "Profile\nLens\nEndcap Set\nMounting Kit\nJoiner\nHardware\nLight Source",
           "reqd": 1
         },
         {
@@ -2861,7 +2861,7 @@
           "label": "Component Item",
           "fieldtype": "Link",
           "options": "Item",
-          "reqd": 1
+          "description": "Not used on the Light Source row (its name is in Description)."
         },
         {
           "fieldname": "component_image",
@@ -4299,7 +4299,7 @@
         },
         {
           "fieldname": "kit_components",
-          "label": "Kit Components",
+          "label": "Components",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Kit-Component"
         },
