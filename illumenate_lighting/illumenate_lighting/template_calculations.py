@@ -121,7 +121,11 @@ ENVIRONMENT_ORDER = ("Dry", "Damp", "Wet")
 
 # Linked-record rows a template type does not store (owner, 2026-11-03: kits leave out
 # Certifications & Ratings; the Webflow export still adds it for kit products).
-SKIPPED_LINKED_ROWS = {"Extrusion Kit": ("Certifications & Ratings",)}
+SKIPPED_LINKED_ROWS = {
+	"Extrusion Kit": ("Certifications & Ratings",),
+	# The calculation has "Color Rendering (CRI)" already (owner, 2026-11-13).
+	"Fixture Template": ("Color Rendering",),
+}
 
 # What the export's spec enrichment reads from a product record.
 LINKED_SPEC_KEYS = (
@@ -880,6 +884,14 @@ class TemplateCalculator:
 				record(debug, "Dimming", len(dimming_values), sorted(dimming_values), appended=True)
 			else:
 				record(debug, "Dimming", 0, skip_reason="No dimming protocols resolved")
+
+			# Owner, 2026-11-13: "<warranty_years> year(s)".
+			warranty = template_doc.get("warranty_years")
+			if warranty:
+				append_spec(self, "Performance", "Warranty", f"{warranty} year(s)", "", 150)
+				record(debug, "Warranty", 1, [f"{warranty} year(s)"], appended=True)
+			else:
+				record(debug, "Warranty", 0, skip_reason="Template has no warranty_years")
 
 		elif self.product_type in ("LED Tape", "COB Tape", "LED Neon"):
 			tape_rows = template_doc.get("allowed_tape_specs") or []
