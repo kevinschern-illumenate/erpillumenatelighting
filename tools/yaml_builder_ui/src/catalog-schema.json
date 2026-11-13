@@ -1752,6 +1752,43 @@
         }
       ]
     },
+    "ilL-Child-Delivered-Lumens": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "output_level",
+          "label": "Output",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Level",
+          "read_only": 1
+        },
+        {
+          "fieldname": "white",
+          "label": "White",
+          "fieldtype": "Float",
+          "read_only": 1
+        },
+        {
+          "fieldname": "frosted",
+          "label": "Frosted",
+          "fieldtype": "Float",
+          "read_only": 1
+        },
+        {
+          "fieldname": "clear",
+          "label": "Clear",
+          "fieldtype": "Float",
+          "read_only": 1
+        },
+        {
+          "fieldname": "black",
+          "label": "Black",
+          "fieldtype": "Float",
+          "read_only": 1
+        }
+      ]
+    },
     "ilL-Child-Driver-Allowed-Option": {
       "autoname": "",
       "istable": 1,
@@ -4251,6 +4288,14 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
+        },
+        {
+          "fieldname": "delivered_lumens",
+          "label": "Delivered Lumens (lm/ft)",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Delivered-Lumens",
+          "description": "Rebuilt on save: each allowed tape's Lumens per Foot x the lens Transmission, placed at the nearest fixture output level. Change the tape or lens data to change it.",
+          "read_only": 1
         },
         {
           "fieldname": "photometry",

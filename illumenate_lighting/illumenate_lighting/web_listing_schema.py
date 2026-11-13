@@ -352,6 +352,22 @@ _POWER_SUPPLIES = {
 	),
 }
 
+# Delivered lumens per foot by output and lens (owner, 2026-11-13; template_delivered_lumens).
+_DELIVERED_LUMENS = [
+	_section("delivered_lumens_section", "Delivered Lumens"),
+	{
+		"fieldname": "delivered_lumens",
+		"fieldtype": "Table",
+		"label": "Delivered Lumens (lm/ft)",
+		"options": "ilL-Child-Delivered-Lumens",
+		"read_only": 1,
+		"description": (
+			"Rebuilt on save: each allowed tape's Lumens per Foot x the lens Transmission, placed "
+			"at the nearest fixture output level. Change the tape or lens data to change it."
+		),
+	},
+]
+
 _CERTIFICATIONS = [
 	{
 		"fieldname": "certifications",
@@ -386,7 +402,7 @@ _FIXTURE_TAPE = {
 }
 # What each template's Product Data tab holds.
 TEMPLATE_PARTS = {
-	"ilL-Fixture-Template": _FIXTURE_TAPE,
+	"ilL-Fixture-Template": {**_FIXTURE_TAPE, "delivered_lumens": True},
 	"ilL-Tape-Neon-Template": {**_FIXTURE_TAPE, "category": True},
 	"ilL-Controller-Template": {},
 	"ilL-Driver-Template": {},
@@ -441,6 +457,7 @@ def _tab_fields(doctype):
 		_section("web_configurator_section", "Configurator"),
 		CONFIGURATOR_AUTO_FIELD,
 		_configurator_table(CONFIGURATOR_TABLE[doctype]),
+		*(_DELIVERED_LUMENS if parts.get("delivered_lumens") else []),
 		*(_KIT_COMPONENTS if parts.get("kit") else []),
 		*(_PHOTOMETRICS if parts.get("photometrics") else []),
 		*(_COLORIMETRY if parts.get("colorimetry") else []),

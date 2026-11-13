@@ -82,6 +82,12 @@ def refresh_template(template):
 		template_power_supplies.refresh(template)
 	except Exception:
 		frappe.log_error(title=f"Template power supplies refresh failed: {template.name}")
+	from illumenate_lighting.illumenate_lighting import template_delivered_lumens
+
+	try:
+		template_delivered_lumens.refresh(template)
+	except Exception:
+		frappe.log_error(title=f"Template delivered lumens refresh failed: {template.name}")
 	try:
 		specifications, configurator = compute(template)
 	except Exception as error:

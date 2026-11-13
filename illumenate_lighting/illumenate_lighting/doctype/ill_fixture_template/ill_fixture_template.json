@@ -77,6 +77,8 @@
   "web_configurator_section",
   "auto_populate_configurator",
   "part_no_configurator",
+  "delivered_lumens_section",
+  "delivered_lumens",
   "photometric_section",
   "photometry",
   "beam_angle",
@@ -512,6 +514,19 @@
    "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
   },
   {
+   "fieldname": "delivered_lumens_section",
+   "fieldtype": "Section Break",
+   "label": "Delivered Lumens"
+  },
+  {
+   "fieldname": "delivered_lumens",
+   "fieldtype": "Table",
+   "label": "Delivered Lumens (lm/ft)",
+   "options": "ilL-Child-Delivered-Lumens",
+   "read_only": 1,
+   "description": "Rebuilt on save: each allowed tape's Lumens per Foot x the lens Transmission, placed at the nearest fixture output level. Change the tape or lens data to change it."
+  },
+  {
    "fieldname": "photometric_section",
    "fieldtype": "Section Break",
    "label": "Photometrics"
@@ -580,7 +595,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-12 22:44:41.000000",
+ "modified": "2026-11-13 17:12:51.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Fixture-Template",
