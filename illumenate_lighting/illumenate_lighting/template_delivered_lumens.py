@@ -21,6 +21,7 @@ import frappe
 FIELD = "delivered_lumens"
 DOCTYPES = ("ilL-Fixture-Template",)
 LENS_COLUMNS = {"WH": "white", "FR": "frosted", "CL": "clear", "BK": "black"}
+NOT_REACHED = "\u2014"
 
 
 def per_foot(level):
@@ -34,7 +35,8 @@ def table(lenses, tapes, levels):
 
 	``lenses``: {lens column: (lens name, transmission fraction)}. ``tapes``: [(lumens per foot,
 	lens name the offering is limited to or None)]. ``levels``: [{name, value}] per-foot
-	fixture levels. Returns [{"output_level", <lens column>: value, ...}] by level value.
+	fixture levels. Returns [{"output_level", <lens column>: "126.6" or a dash, ...}] by level
+	value, with a column only for the template's lenses.
 	"""
 	levels = sorted((level for level in levels if level.get("value")), key=lambda level: level["value"])
 	if not levels:
@@ -52,12 +54,15 @@ def table(lenses, tapes, levels):
 				cells[key] = (distance, round(delivered, 1))
 	rows = []
 	for level in levels:
+		if not any((level["name"], column) in cells for column in lenses):
+			continue
+		# Owner, 2026-11-13: a lens the template has but that does not reach this output shows
+		# a dash, never 0; a lens the template does not have stays empty (its column is hidden).
 		row = {"output_level": level["name"]}
 		for column in lenses:
-			if (level["name"], column) in cells:
-				row[column] = cells[(level["name"], column)][1]
-		if len(row) > 1:
-			rows.append(row)
+			cell = cells.get((level["name"], column))
+			row[column] = f"{cell[1]:g}" if cell else NOT_REACHED
+		rows.append(row)
 	return rows
 
 

@@ -1766,25 +1766,25 @@
         {
           "fieldname": "white",
           "label": "White",
-          "fieldtype": "Float",
+          "fieldtype": "Data",
           "read_only": 1
         },
         {
           "fieldname": "frosted",
           "label": "Frosted",
-          "fieldtype": "Float",
+          "fieldtype": "Data",
           "read_only": 1
         },
         {
           "fieldname": "clear",
           "label": "Clear",
-          "fieldtype": "Float",
+          "fieldtype": "Data",
           "read_only": 1
         },
         {
           "fieldname": "black",
           "label": "Black",
-          "fieldtype": "Float",
+          "fieldtype": "Data",
           "read_only": 1
         }
       ]
@@ -4202,12 +4202,6 @@
           "fieldtype": "Int"
         },
         {
-          "fieldname": "feed_lengths",
-          "label": "Feed Lengths",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Feed-Length"
-        },
-        {
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
@@ -4288,6 +4282,12 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
+        },
+        {
+          "fieldname": "feed_lengths",
+          "label": "Feed Lengths",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Feed-Length"
         },
         {
           "fieldname": "delivered_lumens",
@@ -7502,12 +7502,6 @@
           "description": "The category this template's Webflow Product is listed under."
         },
         {
-          "fieldname": "feed_lengths",
-          "label": "Feed Lengths",
-          "fieldtype": "Table",
-          "options": "ilL-Child-Webflow-Feed-Length"
-        },
-        {
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
@@ -7588,6 +7582,12 @@
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Configurator-Option",
           "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
+        },
+        {
+          "fieldname": "feed_lengths",
+          "label": "Feed Lengths",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Webflow-Feed-Length"
         },
         {
           "fieldname": "photometry",

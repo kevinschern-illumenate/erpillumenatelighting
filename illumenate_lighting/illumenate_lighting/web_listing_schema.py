@@ -435,7 +435,6 @@ def _tab_fields(doctype):
 		*(_LENGTHS if parts.get("lengths") else []),
 		*([WEIGHT_FIELD] if weight else []),
 		*([_TAPE_WEBFLOW_CATEGORY] if parts.get("category") else []),
-		*(_FEED_LENGTHS if parts.get("feed") else []),
 	]
 	right = [
 		_HERO_IMAGE,
@@ -457,6 +456,8 @@ def _tab_fields(doctype):
 		_section("web_configurator_section", "Configurator"),
 		CONFIGURATOR_AUTO_FIELD,
 		_configurator_table(CONFIGURATOR_TABLE[doctype]),
+		# Owner, 2026-11-13: feed lengths belong with the configurator.
+		*(_FEED_LENGTHS if parts.get("feed") else []),
 		*(_DELIVERED_LUMENS if parts.get("delivered_lumens") else []),
 		*(_KIT_COMPONENTS if parts.get("kit") else []),
 		*(_PHOTOMETRICS if parts.get("photometrics") else []),

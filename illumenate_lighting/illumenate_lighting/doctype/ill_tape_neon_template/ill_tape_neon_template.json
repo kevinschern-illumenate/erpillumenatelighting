@@ -66,7 +66,6 @@
   "max_length_mm",
   "length_increment_mm",
   "webflow_category",
-  "feed_lengths",
   "product_data_column",
   "hero_image",
   "hero_image_alt",
@@ -84,6 +83,7 @@
   "web_configurator_section",
   "auto_populate_configurator",
   "part_no_configurator",
+  "feed_lengths",
   "photometric_section",
   "photometry",
   "beam_angle",
@@ -456,12 +456,6 @@
    "description": "The category this template's Webflow Product is listed under."
   },
   {
-   "fieldname": "feed_lengths",
-   "fieldtype": "Table",
-   "label": "Feed Lengths",
-   "options": "ilL-Child-Webflow-Feed-Length"
-  },
-  {
    "fieldname": "product_data_column",
    "fieldtype": "Column Break"
   },
@@ -563,6 +557,12 @@
    "description": "The configurator steps and their allowed values. The website and the dealer portal read them from here."
   },
   {
+   "fieldname": "feed_lengths",
+   "fieldtype": "Table",
+   "label": "Feed Lengths",
+   "options": "ilL-Child-Webflow-Feed-Length"
+  },
+  {
    "fieldname": "photometric_section",
    "fieldtype": "Section Break",
    "label": "Photometrics"
@@ -631,7 +631,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-12 22:44:41.000000",
+ "modified": "2026-11-13 18:00:25.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

@@ -1,7 +1,7 @@
 {
  "actions": [],
  "creation": "2026-11-13 12:00:00.000000",
- "description": "Delivered lumens per foot on a fixture template, one row per output, rebuilt on save (owner, 2026-11-13).",
+ "description": "Delivered lumens per foot on a fixture template, one row per output, rebuilt on save (owner, 2026-11-13). A dash means the lens does not reach that output; an empty column is a lens the template does not have (hidden on the form).",
  "doctype": "DocType",
  "editable_grid": 0,
  "engine": "InnoDB",
@@ -24,40 +24,36 @@
   },
   {
    "fieldname": "white",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "label": "White",
-   "precision": "1",
    "in_list_view": 1,
    "read_only": 1
   },
   {
    "fieldname": "frosted",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "label": "Frosted",
-   "precision": "1",
    "in_list_view": 1,
    "read_only": 1
   },
   {
    "fieldname": "clear",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "label": "Clear",
-   "precision": "1",
    "in_list_view": 1,
    "read_only": 1
   },
   {
    "fieldname": "black",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "label": "Black",
-   "precision": "1",
    "in_list_view": 1,
    "read_only": 1
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-11-13 12:00:00.000000",
+ "modified": "2026-11-13 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Child-Delivered-Lumens",

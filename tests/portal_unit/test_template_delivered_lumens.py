@@ -36,13 +36,13 @@ class DeliveredLumens(unittest.TestCase):
 		self.assertEqual(
 			[(row["output_level"], row["white"]) for row in rows],
 			[
-				("50lm/ft", 56.0),
-				("100 lm/ft", 112.0),
-				("200 lm/ft", 224.0),  # 224 beats 168 (from the 300 tape) for 200
-				("300 lm/ft", 280.0),
-				("400 lm/ft", 420.0),
-				("500 lm/ft", 560.0),
-				("750 lm/ft", 700.0),  # 700 beats 840 for 750; nothing above
+				("50lm/ft", "56"),
+				("100 lm/ft", "112"),
+				("200 lm/ft", "224"),  # 224 beats 168 (from the 300 tape) for 200
+				("300 lm/ft", "280"),
+				("400 lm/ft", "420"),
+				("500 lm/ft", "560"),
+				("750 lm/ft", "700"),  # 700 beats 840 for 750; nothing above
 			],
 		)
 
@@ -54,8 +54,12 @@ class DeliveredLumens(unittest.TestCase):
 			LEVELS,
 		)
 		by_level = {row["output_level"]: row for row in rows}
-		self.assertEqual(by_level["50lm/ft"], {"output_level": "50lm/ft", "white": 56.0, "black": 64.0})
-		self.assertNotIn("black", by_level["750 lm/ft"])  # the 1500 tape is limited to White
+		self.assertEqual(by_level["50lm/ft"], {"output_level": "50lm/ft", "white": "56", "black": "64"})
+		# The 1500 tape is limited to White: Black does not reach 750, so a dash, never 0.
+		self.assertEqual(by_level["750 lm/ft"]["black"], "\u2014")
+		# Only the template's lenses are columns.
+		self.assertEqual(set(by_level["50lm/ft"]), {"output_level", "white", "black"})
+		self.assertEqual(module.table({"white": ("White", 0.56)}, [(226.07, None)], LEVELS)[0]["white"], "126.6")
 		self.assertNotIn("1000 lm/ft", by_level)
 
 	def test_only_per_foot_levels_count(self):
