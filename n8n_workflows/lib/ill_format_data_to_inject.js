@@ -473,6 +473,76 @@ const mappingScript = `<script>
           dimTemplate.style.display = 'none';
       }
 
+      // --- E3b. ACCESSORIES DIMENSIONS (Spec Gallery, section "Accessories Dimensions") ---
+      // #accdimension-item is the pattern: copied once per row (title in #accdimension-title,
+      // hidden when empty; image in #accdim-img), then removed. No rows: the section is hidden.
+      const accSection = document.getElementById('acc-dimensions');
+      if (accSection) {
+          const accTemplate = accSection.querySelector('#accdimension-item');
+          const accRows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])
+              .filter(row => row.section === 'Accessories Dimensions' && row.image);
+          if (!accTemplate || accRows.length === 0) {
+              accSection.style.display = 'none';
+          } else {
+              let anchor = accTemplate;
+              accRows.forEach(row => {
+                  const item = accTemplate.cloneNode(true);
+                  item.removeAttribute('id');
+                  const titleEl = item.querySelector('#accdimension-title');
+                  if (titleEl) {
+                      titleEl.removeAttribute('id');
+                      if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }
+                  }
+                  const imgEl = item.querySelector('#accdim-img');
+                  if (imgEl) {
+                      imgEl.removeAttribute('id');
+                      imgEl.src = row.image;
+                      imgEl.removeAttribute('srcset');
+                      imgEl.removeAttribute('loading');
+                  }
+                  anchor.parentNode.insertBefore(item, anchor.nextSibling);
+                  anchor = item;
+              });
+              accTemplate.remove();
+          }
+      }
+
+      // --- E3c. COMPATIBLE POWER SUPPLIES (the template's table, by max wattage) ---
+      // The columns follow the page's .table-title headers (matched by their text); the first
+      // .table-item-wrapper is the row pattern, its .table-item cells in the same order. The
+      // last row gets last-row. No rows: the section is hidden.
+      const supplySection = document.getElementById('power-supplies');
+      if (supplySection) {
+          const supplies = Array.isArray(data.custom_compatible_power_supplies) ? data.custom_compatible_power_supplies : [];
+          const body = supplySection.querySelector('.table-data-wrapper');
+          const pattern = body ? body.querySelector('.table-item-wrapper') : null;
+          if (!supplies.length || !body || !pattern) {
+              supplySection.style.display = 'none';
+          } else {
+              const SUPPLY_COLUMNS = {
+                  'part number': 'part_number',
+                  'input protocol': 'input_protocol',
+                  'voltage/frequency': 'voltagefrequency',
+                  'output voltage': 'output_voltage',
+                  'max wattage': 'max_wattage',
+                  'output count': 'output_count',
+                  'location rating': 'location_rating',
+              };
+              const columns = Array.from(supplySection.querySelectorAll('.table-title-wrapper .table-title'))
+                  .map(el => SUPPLY_COLUMNS[el.innerText.trim().toLowerCase()] || null);
+              Array.from(body.children).forEach(child => child.remove());
+              supplies.forEach((supply, r) => {
+                  const line = pattern.cloneNode(true);
+                  line.classList.toggle('last-row', r === supplies.length - 1);
+                  line.querySelectorAll('.table-item').forEach((cell, i) => {
+                      const key = columns[i];
+                      cell.innerText = key && supply[key] != null ? String(supply[key]) : '';
+                  });
+                  body.appendChild(line);
+              });
+          }
+      }
+
       // --- GRADIENT LINES (owner, 2026-11-13) ---
       // The page has one header and one footer gradient line per family (#fs-, #sw-, #tw-,
       // #dw-gradient-line and #fsfooter-... to #dwfooter-gradient-line). The template's LED
