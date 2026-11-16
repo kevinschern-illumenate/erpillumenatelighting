@@ -8,7 +8,7 @@ import type { DraftStore } from './drafts';
 
 export const UNDO_LIMIT = 100;
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'conflict' | 'locked' | 'error';
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'conflict' | 'locked' | 'error' | 'offline' | 'session';
 
 export interface DesignState {
   schedule: string | null;
@@ -171,6 +171,8 @@ export async function saveDesign(store: DesignStore, api: DesignApi, drafts: Dra
   } catch (error) {
     if (error instanceof DesignApiError && (error.code === 'CONFLICT' || error.code === 'LOCKED')) {
       store.getState().setSaveStatus(error.code === 'CONFLICT' ? 'conflict' : 'locked', error.message);
+    } else if (error instanceof DesignApiError && (error.code === 'OFFLINE' || error.code === 'SESSION')) {
+      store.getState().setSaveStatus(error.code === 'OFFLINE' ? 'offline' : 'session', error.message);
     } else {
       store.getState().setSaveStatus('error', error instanceof Error ? error.message : String(error));
     }

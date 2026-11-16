@@ -24,6 +24,7 @@ import { runLabel } from '@ill/engine/runs';
 import type { DesignStore } from '../design/store';
 import { CommitInput, Distance, EnvironmentSelect, parseFeet, PICKS, PROVENANCE } from './fields';
 import type { OpenDesign } from './open';
+import { runEntities } from './checkTargets';
 
 const VOLTAGES = [120, 208, 240, 277, 347, 480] as const;
 
@@ -67,7 +68,7 @@ export function SpacesStep({ open, store, readOnly }: { open: OpenDesign; store:
           const runs = design.runs.filter((run) => run.spaceId === space.id);
           const spaceCabinets = cabinets.filter((cabinet) => cabinet.spaceId === space.id);
           return (
-            <article key={space.id} className="ill-sd__card" data-testid={`space-${space.id}`}>
+            <article key={space.id} className="ill-sd__card" data-testid={`space-${space.id}`} data-entity={space.id}>
               <div className="ill-sd__row">
                 <CommitInput
                   label="Space name"
@@ -107,7 +108,7 @@ export function SpacesStep({ open, store, readOnly }: { open: OpenDesign; store:
 
               <h3>Cabinets</h3>
               {spaceCabinets.map((cabinet) => (
-                <div key={cabinet.id} className="ill-sd__cabinet" data-testid={`cabinet-${cabinet.tag}`}>
+                <div key={cabinet.id} className="ill-sd__cabinet" data-testid={`cabinet-${cabinet.tag}`} data-entity={cabinet.id}>
                   <div className="ill-sd__row">
                     <CommitInput
                       label="Cabinet tag"
@@ -219,7 +220,7 @@ export function SpacesStep({ open, store, readOnly }: { open: OpenDesign; store:
                   </div>
                   <ul className="ill-sd__runs">
                     {runs.map((run) => (
-                      <li key={run.key} data-testid={`run-${run.key}`}>
+                      <li key={run.key} data-testid={`run-${run.key}`} data-entity={runEntities([run])}>
                         <span className="ill-sd__run-label">{runLabel(run)}</span>
                         <span>
                           {run.watts} W{run.lengthFt ? ` · ${run.lengthFt} ft` : ''}
@@ -263,7 +264,7 @@ export function SpacesStep({ open, store, readOnly }: { open: OpenDesign; store:
           <h3>Panel circuits</h3>
           {sources.length ? null : <p className="ill-sd__muted">Add the circuits that feed your cabinets.</p>}
           {sources.map((source) => (
-            <div key={source.id} className="ill-sd__row" data-testid={`circuit-${source.tag}`}>
+            <div key={source.id} className="ill-sd__row" data-testid={`circuit-${source.tag}`} data-entity={source.id}>
               <span className="ill-sd__tag">{source.tag}</span>
               <CommitInput
                 label={`${source.tag} panel`}
