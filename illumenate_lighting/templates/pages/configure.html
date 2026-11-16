@@ -40,7 +40,7 @@ Allows users to configure fixtures using segment-based configuration
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | urlencode }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ title | e }}</li>
 		</ol>
@@ -53,7 +53,7 @@ Allows users to configure fixtures using segment-based configuration
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | urlencode }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ title | e }}</li>
 		</ol>
@@ -72,7 +72,7 @@ Allows users to configure fixtures using segment-based configuration
 		<ol class="breadcrumb">
 			<li class="breadcrumb-item"><a href="/portal/projects">{{ _("Projects") }}</a></li>
 			{% if schedule %}
-			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | e }}">{{ schedule.schedule_name | e }}</a></li>
+			<li class="breadcrumb-item"><a href="/portal/schedules/{{ schedule.name | urlencode }}">{{ schedule.schedule_name | e }}</a></li>
 			{% endif %}
 			<li class="breadcrumb-item active" aria-current="page">{{ title | e }}</li>
 		</ol>
@@ -110,11 +110,11 @@ Allows users to configure fixtures using segment-based configuration
 	<!-- Configurator Mode Toggle (Linear Fixture only) -->
 	<div class="d-flex justify-content-end mb-3">
 		<div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Configurator Mode') }}">
-			<a href="/portal/configure?category=Linear%20Fixture{% if schedule_name %}&schedule={{ schedule_name | e }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx | e }}{% endif %}{% if selected_template %}&template={{ selected_template | e }}{% endif %}"
+			<a href="/portal/configure?category=Linear%20Fixture{% if schedule_name %}&schedule={{ schedule_name | urlencode }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx | urlencode }}{% endif %}{% if selected_template %}&template={{ selected_template | urlencode }}{% endif %}"
 			   data-configurator-mode="coordinator" class="btn btn-outline-primary {% if configurator_mode != 'wizard' %}active{% endif %}">
 				<i class="fa fa-th-large" aria-hidden="true"></i> {{ _("Multi-Segment Coordinator") }}
 			</a>
-			<a href="/portal/configure?category=Linear%20Fixture&mode=wizard{% if schedule_name %}&schedule={{ schedule_name | e }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx | e }}{% endif %}{% if selected_template %}&template={{ selected_template | e }}{% endif %}"
+			<a href="/portal/configure?category=Linear%20Fixture&mode=wizard{% if schedule_name %}&schedule={{ schedule_name | urlencode }}{% endif %}{% if line_idx is not none %}&line_idx={{ line_idx | urlencode }}{% endif %}{% if selected_template %}&template={{ selected_template | urlencode }}{% endif %}"
 			   data-configurator-mode="wizard" class="btn btn-outline-primary {% if configurator_mode == 'wizard' %}active{% endif %}">
 				<i class="fa fa-magic" aria-hidden="true"></i> {{ _("Guided Wizard") }}
 			</a>

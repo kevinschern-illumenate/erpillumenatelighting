@@ -22,6 +22,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from illumenate_lighting.illumenate_lighting.api import qbo_invoices, qbo_sync
+from illumenate_lighting.illumenate_lighting.portal.service_users import service_user
 
 MOD = "illumenate_lighting.illumenate_lighting.api.qbo_invoices"
 SYNC_MOD = "illumenate_lighting.illumenate_lighting.api.qbo_sync"
@@ -41,6 +42,7 @@ class TestQBOInvoices(FrappeTestCase):
 		self.rows = {
 			("Sales Invoice", "SINV-TEST-QBO"): {"customer": "Test Customer", "custom_qbo_id": None},
 			("Customer", "Test Customer"): {"custom_qbo_id": None},
+			("User", service_user("qbo")): {"enabled": 1},
 		}
 		self.writes = []
 

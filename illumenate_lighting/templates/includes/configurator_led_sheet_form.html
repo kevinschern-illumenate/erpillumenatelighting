@@ -17,9 +17,14 @@ Context:
 - selected_template: optional pre-selected template name
 - can_save: show the Add button (default true)
 - show_pricing: show pricing (default true)
+- sheet_server_options: confirm option matches with
+  led_sheet_configurator.get_sheet_cascading_options (default false; site flag
+  ill_portal_sheet_server_options)
 #}
 {# Template data for IllConfigurator.LedSheet (specs + options); read from within the host root. #}
 <script type="application/json" class="ill-sheet-templates">{{ templates | tojson }}</script>
+{# Plan 6.4 kill switch: whether the browser asks the server to confirm option matches. #}
+<span hidden class="ill-sheet-flags" data-server-options="{{ 1 if sheet_server_options | default(false) else 0 }}"></span>
 <div class="row">
 	<div class="col-lg-7">
 		<div class="card mb-3">
@@ -172,6 +177,7 @@ Context:
 				<div id="sheetResults" style="display: none;">
 					<hr>
 					<div id="sheetSummary"></div>
+					<div class="ill-build-preview mt-3" data-enabled="{{ 0 if build_preview is defined and not build_preview else 1 }}" hidden></div>
 				</div>
 			</div>
 		</div>

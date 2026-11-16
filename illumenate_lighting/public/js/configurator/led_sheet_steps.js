@@ -223,6 +223,64 @@
 		this.$('#sheetSpec').empty().append($('<option></option>').val(this.spec ? this.spec.name : '').text(this.spec ? (this.spec.item || this.spec.name) : ''));
 		this.$('#sheetSpec').val(this.spec ? this.spec.name : '');
 		this._updateSpecHint();
+		this._confirmSpec(choices);
+	};
+
+	// Plan 6.4: the browser match above is instant feedback; the server answers
+	// from live specs and wins. Off (site flag) leaves the browser match alone.
+	LedSheet.prototype._serverOptionsEnabled = function () {
+		if (this.context && this.context.server_options !== undefined) return !!this.context.server_options;
+		return String(this.$('.ill-sheet-flags').first().attr('data-server-options') || '') === '1';
+	};
+
+	LedSheet.prototype._confirmSpec = function (choices) {
+		if (!this.template || !this._serverOptionsEnabled()) return;
+		var self = this, template = this.template, options = {};
+		OPTION_FIELDS.forEach(function (f) { options[f.type] = (choices[f.type] || {}).value || ''; });
+		var key = template.name + '|' + JSON.stringify(options);
+		if (key === this._optionsKey) {
+			// Unchanged options (a coverage edit): keep the server's answer over the browser's.
+			if (this._serverAnswer && this._serverAnswer.key === key) this._applyServerOptions(this._serverAnswer.res);
+			return;
+		}
+		this._optionsKey = key;
+		this._serverAnswer = null;
+		this.request({
+			method: SHEET_API + 'get_sheet_cascading_options',
+			args: { template: template.name, options: JSON.stringify(options) },
+			isCurrent: function () { return self.template === template && self._optionsKey === key; },
+			callback: function (r) {
+				self._serverAnswer = { key: key, res: r && r.message };
+				self._applyServerOptions(self._serverAnswer.res);
+			},
+			// A failed check keeps the browser match; validation is checked on the server anyway.
+			error: function () { self._optionsKey = null; }
+		});
+	};
+
+	LedSheet.prototype._applyServerOptions = function (res) {
+		if (!res || !res.enabled || !this.template) return;
+		var self = this;
+		var available = res.available || {};
+		OPTION_FIELDS.forEach(function (f) {
+			var values = available[f.type];
+			self.$(f.select).closest('.config-section').find('.pill-selector[data-field="' + f.field + '"] .pill').each(function () {
+				var off = Array.isArray(values) && values.indexOf(String($(this).attr('data-value'))) < 0;
+				$(this).toggleClass('is-unavailable', off).attr('title', off ? __('No panel matches this with your other choices') : null);
+			});
+		});
+		var spec = null;
+		if (res.spec) {
+			spec = (this.template.allowed_specs || []).find(function (s) { return s.name === res.spec; }) || { name: res.spec };
+		}
+		this.spec = spec;
+		this.specMatchCount = Number(res.match_count) || 0;
+		this.$('#sheetSpec').empty().append($('<option></option>').val(spec ? spec.name : '').text(spec ? (spec.item || spec.name) : ''));
+		this.$('#sheetSpec').val(spec ? spec.name : '');
+		this._updateSpecHint();
+		this._updateProgress();
+		this._updateSummary();
+		this._updateButtons();
 	};
 
 	LedSheet.prototype._onTemplateSelected = function (name, existing) {
@@ -508,6 +566,7 @@
 		var includePs = !!r.include_power_supply;
 		this.$('#sheetValidationMessages').hide();
 		this.$('#sheetMessagesList').empty();
+		if (root.IllBuildPreview) root.IllBuildPreview.render(this.$('.ill-build-preview')[0], r, 'sheet');
 
 		var groups = (r.groups || []).map(function (g) {
 			return '<tr><td>' + escapeHtml(g.group_number) + '</td><td>' + escapeHtml(g.sheet_count) + '</td>'

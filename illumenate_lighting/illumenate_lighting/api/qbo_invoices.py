@@ -11,8 +11,6 @@ can't do this: ``custom_qbo_id`` can't change on a submitted invoice. Payment
 sync (``qbo_sync.receive_payment_event``) matches invoices on this id.
 """
 
-import json
-
 import frappe
 from frappe.rate_limiter import rate_limit
 
@@ -20,8 +18,8 @@ from illumenate_lighting.illumenate_lighting.api.qbo_bills import _set_qbo_id
 from illumenate_lighting.illumenate_lighting.api.qbo_sync import (
 	QBOSyncError,
 	_commit,
-	_record_auth_failure,
-	_verify_signature,
+	become_integration_user,
+	read_signed_json,
 )
 
 
@@ -29,20 +27,12 @@ from illumenate_lighting.illumenate_lighting.api.qbo_sync import (
 @rate_limit(limit=120, seconds=60)
 def receive_invoice_link():
 	"""Body: ``{"sales_invoice", "qbo_invoice_id", "customer_qbo_id"?}``, signed like the payment events."""
-	raw_body = frappe.request.get_data() or b""
-	if not _verify_signature(raw_body):
-		_record_auth_failure(raw_body)
-		frappe.local.response["http_status_code"] = 401
-		return {"success": False, "error": "unauthorized"}
-	try:
-		payload = json.loads(raw_body.decode("utf-8") or "{}")
-		if not isinstance(payload, dict):
-			raise ValueError("payload must be a JSON object")
-	except (ValueError, UnicodeDecodeError) as e:
-		frappe.local.response["http_status_code"] = 400
-		return {"success": False, "error": "invalid_json", "message": str(e)}
-
-	frappe.set_user("Administrator")
+	payload, refused = read_signed_json()
+	if refused:
+		return refused
+	refused = become_integration_user()
+	if refused:
+		return refused
 	try:
 		result = link_invoice(payload)
 	except QBOSyncError as e:

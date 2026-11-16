@@ -46,7 +46,10 @@
 				const loadingText = this.dataset.loadingText || 'Loading...';
 				
 				this.disabled = true;
-				this.innerHTML = '<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> ' + loadingText;
+				const spinner = document.createElement('i');
+				spinner.className = 'fa fa-spinner fa-spin';
+				spinner.setAttribute('aria-hidden', 'true');
+				this.replaceChildren(spinner, document.createTextNode(' ' + loadingText));
 				
 				this.dataset.originalText = originalText;
 			});
@@ -87,12 +90,16 @@
 		const toast = document.createElement('div');
 		toast.className = 'portal-toast portal-toast-' + type;
 		toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
-		toast.innerHTML = `
-			<div class="toast-content">
-				<i class="fa ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}" aria-hidden="true"></i>
-				<span>${message}</span>
-			</div>
-		`;
+		// Plan 2.5: the message is text, never markup.
+		const content = document.createElement('div');
+		content.className = 'toast-content';
+		const icon = document.createElement('i');
+		icon.className = 'fa ' + (type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+		icon.setAttribute('aria-hidden', 'true');
+		const text = document.createElement('span');
+		text.textContent = message === undefined || message === null ? '' : String(message);
+		content.append(icon, text);
+		toast.appendChild(content);
 		
 		document.body.appendChild(toast);
 		

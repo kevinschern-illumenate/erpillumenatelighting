@@ -3,7 +3,7 @@
 {% block portal_shell_class %}ill-portal-shell--bare{% endblock %}
 {% block portal_page_class %}{% endblock %}
 {% block portal_content %}
-<link rel="stylesheet" href="{{ assets | e }}.css?v={{ asset_version | e }}">
+<link rel="stylesheet" href="{{ assets | e }}.css?v={{ asset_version | urlencode }}">
 <div id="ill-system-designer-root"></div>
 {% endblock %}
 {% block script %}

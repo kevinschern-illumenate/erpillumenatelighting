@@ -26,8 +26,8 @@ User profile, notifications, and account preferences
 	<div class="row">
 		<!-- Settings Navigation -->
 		<div class="col-lg-3 mb-4">
-			<div class="settings-nav">
-				<a href="#profile" class="settings-nav-item active" data-section="profile">
+			<nav class="settings-nav" aria-label="{{ _('Account settings') }}">
+				<a href="#profile" class="settings-nav-item active" data-section="profile" aria-current="true">
 					<i class="fa fa-user" aria-hidden="true"></i> {{ _("Profile") }}
 				</a>
 				<a href="#company" class="settings-nav-item" data-section="company">
@@ -39,7 +39,7 @@ User profile, notifications, and account preferences
 				<a href="#security" class="settings-nav-item" data-section="security">
 					<i class="fa fa-lock" aria-hidden="true"></i> {{ _("Security") }}
 				</a>
-			</div>
+			</nav>
 		</div>
 
 		<!-- Settings Content -->
@@ -282,11 +282,15 @@ document.addEventListener('DOMContentLoaded', function() {
 	navItems.forEach(item => {
 		item.addEventListener('click', function(e) {
 			e.preventDefault();
-			navItems.forEach(i => i.classList.remove('active'));
+			navItems.forEach(i => { i.classList.remove('active'); i.removeAttribute('aria-current'); });
 			this.classList.add('active');
+			this.setAttribute('aria-current', 'true');
 
-			const section = this.dataset.section;
-			document.getElementById(section).scrollIntoView({ behavior: 'smooth' });
+			const target = document.getElementById(this.dataset.section);
+			target.scrollIntoView({ behavior: 'smooth' });
+			// Keyboard and screen-reader users continue from the section they chose (plan 8.3).
+			if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+			target.focus({ preventScroll: true });
 		});
 	});
 

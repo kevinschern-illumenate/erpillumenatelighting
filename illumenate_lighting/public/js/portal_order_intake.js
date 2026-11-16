@@ -1,12 +1,17 @@
 (function () {
     const api = 'illumenate_lighting.illumenate_lighting.portal.order_intake.';
-    const esc = value => frappe.utils.escape_html(String(value == null ? '' : value));
+    // Plan 2.5: PortalUI.html escapes every interpolated value.
+    const scopeMarkup = scope => {
+        const html = window.PortalUI.html;
+        const lines = (scope.lines || []).map(line => html`<li>${line.line_id}: ${line.qty} - ${line.product_type || line.manufacturer_type}${line.manufacturer_type === 'OTHER' ? ' - ' + __('EXCLUDED from sellable order') : ''}</li>`);
+        return String(html`<p>${scope.basis}</p><ul>${lines}</ul><p><a href="/portal/account#companyManagement" target="_blank" rel="noopener">${__('Manage company addresses and contacts')}</a></p>`);
+    };
     window.PortalOrderIntake = {async open(target) {
         const data = await PortalUploads.call(api + 'prepare', target);
         const choices = data.choices, defaults = data.defaults || {};
         const option = (type, label) => [{value: '', label: __('Choose ' + label)}].concat((choices[type] || []).map(row => ({value: row.name, label: type === 'address' ? [row.address_title, row.address_line1, row.city].filter(Boolean).join(' - ') : [row.first_name, row.last_name, row.email_id].filter(Boolean).join(' ')})));
         const fields = [
-            {fieldname: 'scope', fieldtype: 'HTML', options: '<p>' + esc(data.scope.basis) + '</p><ul>' + data.scope.lines.map(line => '<li>' + esc(line.line_id) + ': ' + esc(line.qty) + ' - ' + esc(line.product_type || line.manufacturer_type) + (line.manufacturer_type === 'OTHER' ? ' - ' + __('EXCLUDED from sellable order') : '') + '</li>').join('') + '</ul><p><a href="/portal/account#companyManagement" target="_blank" rel="noopener">' + __('Manage company addresses and contacts') + '</a></p>'},
+            {fieldname: 'scope', fieldtype: 'HTML', options: scopeMarkup(data.scope)},
             {fieldname: 'po_no', fieldtype: 'Data', label: __('PO number'), default: defaults.po_no || ''},
             {fieldname: 'customer_address', fieldtype: 'Select', label: __('Billing address'), options: option('address', 'billing address'), reqd: 1, default: defaults.customer_address || ''},
             {fieldname: 'shipping_address_name', fieldtype: 'Select', label: __('Shipping address'), options: option('address', 'shipping address'), reqd: 1, default: defaults.shipping_address_name || ''},

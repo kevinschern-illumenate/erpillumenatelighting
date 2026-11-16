@@ -86,6 +86,10 @@ jobs:
       - name: Install MariaDB Client
         run: sudo apt-get update && sudo apt-get install -y mariadb-client
 
+      # Newer MariaDB clients require TLS by default; the CI service container has none.
+      - name: Configure MariaDB client for the CI service
+        run: printf '[client-mariadb]\nskip-ssl\n' > ~/.my.cnf
+
       - name: Setup
         run: |
           pip install frappe-bench
@@ -138,13 +142,15 @@ jobs:
     # A fresh install marks every patch as done without running it. This job
     # installs the base revision (what main has deployed), gives the site the
     # production state that broke earlier deploys, then migrates to this change.
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    # Also runs on pushes to main so a direct push cannot skip the rehearsal.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     name: Upgrade rehearsal (version-16)
     env:
       # Set the PRODUCTION_SHA repository variable to the commit production runs
-      # when it differs from the pull request base.
-      BASE_SHA: ${{ vars.PRODUCTION_SHA || github.event.pull_request.base.sha || 'origin/main' }}
+      # when it differs from the pull request base. On a push, the base is the
+      # previous tip of main.
+      BASE_SHA: ${{ vars.PRODUCTION_SHA || github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
 
     services:
       redis-cache:
@@ -181,6 +187,10 @@ jobs:
 
       - name: Install MariaDB Client
         run: sudo apt-get update && sudo apt-get install -y mariadb-client
+
+      # Newer MariaDB clients require TLS by default; the CI service container has none.
+      - name: Configure MariaDB client for the CI service
+        run: printf '[client-mariadb]\nskip-ssl\n' > ~/.my.cnf
 
       - name: Setup
         run: |

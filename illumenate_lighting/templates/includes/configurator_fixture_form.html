@@ -284,6 +284,8 @@ Context:
 						<hr>
 					</div>
 
+					<div class="ill-build-preview" data-enabled="{{ 0 if build_preview is defined and not build_preview else 1 }}" hidden></div>
+
 					<div id="driverResults" style="display: none;">
 						<h6>{{ _("Driver Plan") }}</h6>
 						<div id="driverPlan" class="small"></div>

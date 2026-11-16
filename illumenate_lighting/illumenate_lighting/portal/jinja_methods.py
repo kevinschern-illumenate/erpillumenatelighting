@@ -19,6 +19,13 @@ def ill_finder_enabled() -> bool:
 	return ill_can_view_catalog() and bool(frappe.db.get_single_value(SETTINGS, "portal_enabled"))
 
 
+def ill_badge_tone(value) -> str:
+	"""A badge tone from the fixed allow-list, for ``badge-{{ ... }}`` classes (plan 2.8)."""
+	from illumenate_lighting.illumenate_lighting.portal.status import badge_tone
+
+	return badge_tone(value)
+
+
 def ill_sanitize_html(html) -> str:
 	"""Sanitize stored rich text for ``| safe`` output.
 
@@ -28,3 +35,22 @@ def ill_sanitize_html(html) -> str:
 	from frappe.utils.html_utils import sanitize_html
 
 	return sanitize_html(html or "")
+
+
+def ill_unread_notifications() -> int:
+	"""Unread portal notifications for the nav badge (plan 8.5); 0 when switched off or for guests.
+
+	The badge must never break page rendering, so any failure reads as "nothing unread".
+	"""
+	from illumenate_lighting.illumenate_lighting.portal import notification_center
+
+	try:
+		return notification_center.unread_count()
+	except Exception:
+		return 0
+
+
+def ill_notification_center_enabled() -> bool:
+	from illumenate_lighting.illumenate_lighting.portal.notification_center import enabled
+
+	return enabled()

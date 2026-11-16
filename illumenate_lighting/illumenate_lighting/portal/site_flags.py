@@ -30,6 +30,26 @@ def fixture_groups_enabled():
 	return conf_flag("ill_portal_fixture_groups", default=True)
 
 
+def sheet_server_options_enabled():
+	"""Server-checked LED Sheet option cascade (plan 6.4). Off leaves the browser matcher alone."""
+	return conf_flag("ill_portal_sheet_server_options", default=True)
+
+
+def option_projection_cache_enabled():
+	"""Cache configurator option projections per catalog revision (plan 6.5). Off reads live every time."""
+	return conf_flag("ill_option_projection_cache", default=True)
+
+
+def build_preview_enabled():
+	"""Read-only SVG preview of the calculated build in the configurator review (plan 6.6)."""
+	return conf_flag("ill_portal_build_preview", default=True)
+
+
+def configuration_compare_enabled():
+	"""Side-by-side comparison of two saved schedule lines (plan 6.7)."""
+	return conf_flag("ill_portal_configuration_compare", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

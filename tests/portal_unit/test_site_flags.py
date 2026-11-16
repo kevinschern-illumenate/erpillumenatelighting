@@ -44,6 +44,20 @@ class SiteFlags(unittest.TestCase):
 					frappe.conf["ill_portal_fixture_groups"] = value
 					self.assertFalse(flags.fixture_groups_enabled())
 
+	def test_build_preview_and_compare_are_on_unless_a_site_turns_them_off(self):
+		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
+			frappe.log_error = MagicMock()
+			for check, key in (
+				(flags.build_preview_enabled, "ill_portal_build_preview"),
+				(flags.configuration_compare_enabled, "ill_portal_configuration_compare"),
+			):
+				frappe.conf.pop(key, None)
+				self.assertTrue(check())
+				frappe.conf[key] = "false"
+				self.assertFalse(check())
+				frappe.conf[key] = "garbage"
+				self.assertTrue(check())
+
 	def test_list_accepts_json_and_json_strings(self):
 		with load_service(ROOT + ".portal.site_flags") as (flags, frappe):
 			frappe.log_error = MagicMock()

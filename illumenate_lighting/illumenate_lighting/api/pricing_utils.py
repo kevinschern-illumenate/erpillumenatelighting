@@ -16,6 +16,15 @@ from frappe import _
 from frappe.utils import flt, now_datetime
 
 
+def sum_then_round(*amounts: float, places: int = 2) -> float:
+	"""The one money rule for configured prices: add the unrounded parts, then round once.
+
+	Fixture pricing (``configurator_engine._calculate_pricing``) already works this way.
+	Tape/neon adopted it in hardening plan 6.3. Rounded per-adder amounts are display-only.
+	"""
+	return round(sum(float(amount or 0) for amount in amounts), places)
+
+
 def get_customer_for_session_user() -> str | None:
     """
     Look up the Customer linked to the current session user.

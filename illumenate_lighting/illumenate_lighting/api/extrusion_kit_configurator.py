@@ -42,6 +42,7 @@ from illumenate_lighting.illumenate_lighting.api.mounting_accessory import (
     needs_accessory,
 )
 from illumenate_lighting.illumenate_lighting.portal.configurator_access import price_scoped
+from illumenate_lighting.illumenate_lighting.portal.errors import failure, is_expected, log_unexpected
 from illumenate_lighting.illumenate_lighting.portal_listing import (
     json_argument,
     template_filters,
@@ -118,14 +119,9 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
       - Default selections (if any)
     """
     if kit_template_name:
-        if not frappe.db.exists("ilL-Extrusion-Kit-Template", kit_template_name):
-            return {"success": False, "error": f"Kit template '{kit_template_name}' not found"}
+        from illumenate_lighting.illumenate_lighting.api.option_cache import cached_projection
 
-        template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template_name)
-        if not template.is_active:
-            return {"success": False, "error": "Kit template is not active"}
-
-        return _build_init_response(template)
+        return cached_projection("kit_init", kit_template_name, lambda: _kit_template_init(kit_template_name))
 
     # No template specified — return list of available templates
     templates = frappe.get_all(
@@ -143,6 +139,17 @@ def get_kit_configurator_init(kit_template_name: str = None) -> dict:
         "templates": templates,
         "message": "Select a kit template to begin configuration",
     }
+
+
+def _kit_template_init(kit_template_name: str) -> dict:
+    if not frappe.db.exists("ilL-Extrusion-Kit-Template", kit_template_name):
+        return {"success": False, "error": f"Kit template '{kit_template_name}' not found"}
+
+    template = frappe.get_doc("ilL-Extrusion-Kit-Template", kit_template_name)
+    if not template.is_active:
+        return {"success": False, "error": "Kit template is not active"}
+
+    return _build_init_response(template)
 
 
 def _build_init_response(template) -> dict:
@@ -163,8 +170,9 @@ def _build_init_response(template) -> dict:
 
         if allowed_values:
             option_details = []
-            for val in allowed_values:
-                data = frappe.db.get_value(doctype, val, fields, as_dict=True)
+            names = [v for v in allowed_values if v]
+            rows = frappe.get_all(doctype, filters={"name": ["in", names]}, fields=fields) if names else []
+            for data in rows:
                 if data:
                     option_details.append({
                         "value": data.name,
@@ -300,17 +308,24 @@ def get_kit_cascading_options(
         # Filter lens appearances that have valid lens maps
         allowed_lenses = template.get_allowed_values("Lens Appearance")
         available_lenses = []
-        for la in allowed_lenses:
+        if any(allowed_lenses):
+            # One query for the maps and one for the attributes, not two per lens (plan 6.5).
             lens_maps = frappe.get_all(
                 "ilL-Rel-Kit-Lens-Map",
-                filters={"kit_template": kit_template_name, "lens_appearance": la, "is_active": 1},
-                fields=["name", "lens_item"],
+                filters={"kit_template": kit_template_name, "lens_appearance": ["in", [la for la in allowed_lenses if la]], "is_active": 1},
+                fields=["name", "lens_item", "lens_appearance"],
             )
-            if enabled_rows(lens_maps, "lens_item"):
-                data = frappe.db.get_value(
-                    "ilL-Attribute-Lens Appearance", la,
-                    ["name", "code"], as_dict=True,
+            mapped = {row.lens_appearance for row in enabled_rows(lens_maps, "lens_item")}
+            attributes = {
+                row.name: row
+                for row in frappe.get_all(
+                    "ilL-Attribute-Lens Appearance",
+                    filters={"name": ["in", sorted(mapped)]},
+                    fields=["name", "code"],
                 )
+            } if mapped else {}
+            for la in allowed_lenses:
+                data = attributes.get(la) if la in mapped else None
                 if data:
                     available_lenses.append({
                         "value": data.name,
@@ -573,8 +588,10 @@ def validate_kit_configuration(selections: str | dict) -> dict:
                 "total_kits_fulfillable": stock_result.get("total_kits_fulfillable", 0),
                 "limiting_component": stock_result.get("limiting_component"),
             }
-    except Exception:
-        pass  # Non-critical; omit from response on failure
+    except Exception as e:
+        # Non-critical; omit from response on failure, but surface the unexpected.
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit stock lookup failed", {"kit_template": kit_template_name})
 
     result = {
         "success": True,
@@ -707,7 +724,13 @@ def save_kit_to_schedule(
             "line_idx": line.idx - 1 if hasattr(line, "idx") else len(schedule.lines) - 1,
         }
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return failure(
+            e,
+            "schedule_save_failed",
+            title="Extrusion kit save to schedule failed",
+            context={"schedule": schedule_name, "line_idx": line_idx},
+            rollback=True,
+        )
 
 
 def _write_kit_line(schedule, line, result):
@@ -1208,7 +1231,9 @@ def _get_profile_spec_data(spec_name: str) -> dict:
             ]
 
         return data
-    except Exception:
+    except Exception as e:
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit spec load failed", {"spec": spec_name})
         return {"spec_name": spec_name, "error": "Could not load spec"}
 
 
@@ -1236,7 +1261,9 @@ def _get_lens_spec_data(spec_name: str) -> dict:
             ]
 
         return data
-    except Exception:
+    except Exception as e:
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit spec load failed", {"spec": spec_name})
         return {"spec_name": spec_name, "error": "Could not load spec"}
 
 
@@ -1257,7 +1284,9 @@ def _get_accessory_spec_data(spec_name: str) -> dict:
             "qty_rule_type": spec.qty_rule_type,
             "qty_rule_value": spec.qty_rule_value,
         }
-    except Exception:
+    except Exception as e:
+        if not is_expected(e):
+            log_unexpected(e, "Extrusion kit spec load failed", {"spec": spec_name})
         return {"spec_name": spec_name, "error": "Could not load spec"}
 
 

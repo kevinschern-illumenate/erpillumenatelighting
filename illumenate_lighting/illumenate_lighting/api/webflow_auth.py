@@ -15,9 +15,11 @@ to retrieve the authenticated user's context for subsequent API calls.
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=300, seconds=60)
 def get_user_context() -> dict:
 	"""Return auth and dealer state for the Webflow configurator widget."""
 	origin = frappe.request.headers.get("Origin", "") if frappe.request else ""
