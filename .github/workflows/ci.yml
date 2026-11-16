@@ -122,6 +122,7 @@ jobs:
           bench --site test_site set-config allow_tests true
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_migration_assets
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_configurator_transport
+          bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_product_images
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_deploy_regressions
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_build_saves
           bench --site test_site run-tests --app illumenate_lighting --module illumenate_lighting.illumenate_lighting.api.test_submittal_readiness

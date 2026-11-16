@@ -24,6 +24,7 @@ from frappe import _
 from frappe.handler import upload_file
 from frappe.rate_limiter import rate_limit
 
+from illumenate_lighting.illumenate_lighting.api import media_derivatives
 from illumenate_lighting.illumenate_lighting.api.publication import claim, inspect, request
 from illumenate_lighting.illumenate_lighting.api.unit_conversion import (
     format_length_inches,
@@ -42,6 +43,7 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_p
     compute_profile_dimensions,
 )
 from illumenate_lighting.illumenate_lighting.photometrics import published as published_photometrics
+from illumenate_lighting.illumenate_lighting.portal.site_flags import webflow_image_derivatives_enabled
 from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 # Base URL for converting relative file paths to absolute URLs (legacy default;
@@ -89,6 +91,26 @@ def _make_absolute_url(url: str, brand_code: str | None = None) -> str:
     parts = urlsplit(absolute)
     safe_path = quote(parts.path, safe="/%")
     return urlunsplit((parts.scheme, parts.netloc, safe_path, parts.query, parts.fragment))
+
+
+def _add_image_derivatives(products, listings, brand_code=None):
+    """``image_derivatives``: {absolute source URL: [{width, height, url}]} per product (plan 5.8)."""
+    sources = {}
+    for product in products:
+        listing = listings.get(product["name"])
+        urls = [product.get(field) for field in media_derivatives.PAYLOAD_FIELDS]
+        urls += [row.image for row in (getattr(listing, "gallery_images", None) or [])]
+        sources[product["name"]] = [url for url in dict.fromkeys(urls) if url]
+    found = media_derivatives.derivative_map(url for urls in sources.values() for url in urls)
+    for product in products:
+        product["image_derivatives"] = {
+            _make_absolute_url(url, brand_code): [
+                {**item, "url": _make_absolute_url(item["url"], brand_code)}
+                for item in found[url]["derivatives"]
+            ]
+            for url in sources[product["name"]]
+            if url in found
+        }
 
 
 def _get_brand_sync_row(parent_doctype: str, parent_name: str, brand_code: str) -> dict | None:
@@ -637,6 +659,10 @@ def get_webflow_products(
                 product["features_json"] = "[]"
 
     total = frappe.db.count("ilL-Webflow-Product", filters)
+
+    # Contract change behind a default-off flag: n8n must accept the key before it is enabled.
+    if webflow_image_derivatives_enabled():
+        _add_image_derivatives(products, listings, brand_code)
 
     # Per-brand configurator stripping (defense-in-depth: enforce server-side
     # so the configurator payload never leaks into a non-configurator brand).

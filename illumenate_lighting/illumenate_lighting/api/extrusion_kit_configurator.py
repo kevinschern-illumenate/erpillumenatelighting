@@ -235,15 +235,10 @@ KIT_SPEC_SHEET_FIELDS = (
 
 
 def kit_template_image(template):
-    """The kit's picture: the template's own image, else its Webflow product's first image."""
-    if template.get("image"):
-        return template.image
-    if not template.get("webflow_product"):
-        return None
-    from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+    """The kit's main picture under owner decision D1 (template hero image first, plan 5.4)."""
+    from illumenate_lighting.illumenate_lighting.api.product_projection import resolve_product_images
 
-    gallery = _fetch_webflow_gallery([template.webflow_product]).get(template.webflow_product) or []
-    return gallery[0]["image"] if gallery else None
+    return (resolve_product_images("ilL-Extrusion-Kit-Template", [template.name]).get(template.name) or {}).get("primary")
 
 
 def kit_spec_sheet_data(template) -> list:

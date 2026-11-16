@@ -264,9 +264,10 @@ function renderGrid() {
 	products.forEach(function(p) {
 		var detailUrl = productDetailHref(p.product_slug);
 		var imgHtml;
-		if (p.featured_image) {
-			imgHtml = '<img class="product-card-img" src="' + escapeHtml(p.featured_image) +
-				'" alt="' + escapeHtml(p.product_name) + '" loading="lazy">';
+		var cardImage = p.image || p.featured_image;
+		if (cardImage) {
+			imgHtml = '<img class="product-card-img" src="' + escapeHtml(cardImage) +
+				'" alt="' + escapeHtml(p.image_alt || p.product_name) + '" loading="lazy">';
 		} else {
 			imgHtml = '<div class="product-card-img placeholder"><i class="fa fa-cube" aria-hidden="true"></i></div>';
 		}
