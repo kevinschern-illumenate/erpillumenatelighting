@@ -14,6 +14,8 @@ in public/css/pages/.
 {% block head_include %}{{ super() }}
 <link rel="preload" href="/assets/illumenate_lighting/fonts/Poppins-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/illumenate_lighting/fonts/Poppins-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+{# Dealer-visible kill switches (site_flags.portal_client_flags) for the portal scripts. #}
+<script type="application/json" id="ill-portal-flags">{{ ill_portal_client_flags() | tojson }}</script>
 {% endblock %}
 
 {% block page_content %}

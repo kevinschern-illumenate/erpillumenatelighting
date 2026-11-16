@@ -19,6 +19,13 @@ def ill_finder_enabled() -> bool:
 	return ill_can_view_catalog() and bool(frappe.db.get_single_value(SETTINGS, "portal_enabled"))
 
 
+def ill_portal_client_flags() -> dict:
+	"""Kill switches for portal scripts, rendered as JSON by ``portal_base.html``."""
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import portal_client_flags
+
+	return portal_client_flags()
+
+
 def ill_badge_tone(value) -> str:
 	"""A badge tone from the fixed allow-list, for ``badge-{{ ... }}`` classes (plan 2.8)."""
 	from illumenate_lighting.illumenate_lighting.portal.status import badge_tone

@@ -47,8 +47,10 @@ def get_context(context):
 			"customer_group": customer.customer_group,
 			"default_currency": customer.default_currency,
 		}
+		context.dealer_logo = _dealer_logo(customer)
 	else:
 		context.customer = None
+		context.dealer_logo = None
 
 	# Load portal user settings (notification prefs, display prefs)
 	context.portal_settings = _get_portal_settings(frappe.session.user)
@@ -112,3 +114,12 @@ def _get_portal_settings(user):
 		"date_format": "mm/dd/yyyy",
 		"timezone": "America/New_York",
 	}
+
+
+def _dealer_logo(customer):
+	"""Logo self-service state (hardening plan 4.6); None hides the section."""
+	from illumenate_lighting.illumenate_lighting.portal.media import dealer_logo_available
+
+	if not dealer_logo_available():
+		return None
+	return {"url": customer.get("dealer_logo") or ""}

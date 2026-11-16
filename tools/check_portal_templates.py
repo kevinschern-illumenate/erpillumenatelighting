@@ -56,6 +56,7 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
+		"ill_portal_client_flags": lambda: {"upload_widget": True, "upload_purpose": True, "gallery": True},
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
 		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
 		"ill_unread_notifications": lambda: 12,
@@ -393,11 +394,16 @@ class Scripts(HTMLParser):
 		super().__init__()
 		self.in_script = False
 		self.sources = []
+		self.json_sources = []
+		self._target = None
 
 	def handle_starttag(self, tag, attrs):
 		if tag == "script":
 			self.in_script = True
-			self.sources.append("")
+			# JSON data blocks (e.g. #ill-portal-flags) are checked with json.loads, not node --check.
+			kind = (dict(attrs).get("type") or "").strip().lower()
+			self._target = self.json_sources if kind == "application/json" else self.sources
+			self._target.append("")
 
 	def handle_endtag(self, tag):
 		if tag == "script":
@@ -405,7 +411,7 @@ class Scripts(HTMLParser):
 
 	def handle_data(self, data):
 		if self.in_script:
-			self.sources[-1] += data
+			self._target[-1] += data
 
 
 parser = Scripts()
@@ -1148,6 +1154,8 @@ with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools")
 		path = Path(directory) / f"script-{index}.js"
 		path.write_text(source, encoding="utf8")
 		subprocess.run(["node", "--check", str(path)], check=True)
+for source in parser.json_sources:
+	json.loads(source)
 print(
 	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts"
 )

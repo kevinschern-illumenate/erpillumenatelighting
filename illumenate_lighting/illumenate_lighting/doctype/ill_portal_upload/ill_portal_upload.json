@@ -1,6 +1,6 @@
 {
  "doctype":"DocType","name":"ilL-Portal-Upload","module":"ilLumenate Lighting","autoname":"hash","engine":"InnoDB",
- "field_order":["requested_by","parent_type","parent_name","state","file","sha256","file_size","mime_type"],
+ "field_order":["requested_by","parent_type","parent_name","state","file","sha256","file_size","mime_type","purpose","caption","thumbnail"],
  "fields":[
   {"fieldname":"requested_by","fieldtype":"Link","options":"User","label":"Uploaded By","reqd":1},
   {"fieldname":"parent_type","fieldtype":"Link","options":"DocType","label":"Artifact Type"},
@@ -9,7 +9,10 @@
   {"fieldname":"file","fieldtype":"Link","options":"File","label":"File"},
   {"fieldname":"sha256","fieldtype":"Data","label":"SHA256","reqd":1},
   {"fieldname":"file_size","fieldtype":"Int","label":"Bytes","reqd":1},
-  {"fieldname":"mime_type","fieldtype":"Data","label":"Content Type","reqd":1}
+  {"fieldname":"mime_type","fieldtype":"Data","label":"Content Type","reqd":1},
+  {"fieldname":"purpose","fieldtype":"Select","options":"\nSite photo\nReference image\nExisting fixture\nDrawing markup\nLogo\nPO\nOther","label":"Purpose","default":""},
+  {"fieldname":"caption","fieldtype":"Small Text","label":"Caption","default":""},
+  {"fieldname":"thumbnail","fieldtype":"Link","options":"File","label":"Thumbnail","read_only":1,"description":"Private 480 px WebP preview generated after validation."}
  ],
  "permissions":[{"role":"System Manager","read":1,"report":1}],"sort_field":"creation","sort_order":"DESC"
 }
