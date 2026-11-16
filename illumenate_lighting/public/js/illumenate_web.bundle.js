@@ -1,6 +1,7 @@
 // Website / portal (web_include_js) bundle — content-hashed on build.
 // The configurator lives in illumenate_configurator.bundle.js, which only the
 // configure and schedule pages load (UI-6).
+import "./portal_routes.js";
 import "./portal_call_compat.js";
 import "./portal_ui.js";
 import "./portal.js";

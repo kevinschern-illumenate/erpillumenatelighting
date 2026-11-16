@@ -6,6 +6,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_to_date, now_datetime
 
+from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
 from illumenate_lighting.illumenate_lighting.stored_values import same
 
 
@@ -276,7 +277,7 @@ class ilLDocumentRequest(Document):
 				name=self.name,
 				request_type=self.request_type,
 				deliverables_text=_("<p><strong>Deliverables:</strong> {0} file(s) available for download</p>").format(len(deliverables)) if deliverables else "",
-				url=frappe.utils.get_url(f"/portal/drawings/{self.name}"),
+				url=frappe.utils.get_url(portal_path("drawing", self.name)),
 			),
 			reference_doctype=self.doctype,
 			reference_name=self.name,
@@ -335,7 +336,7 @@ class ilLDocumentRequest(Document):
 """).format(
 				name=self.name,
 				file=frappe.utils.escape_html(deliverable.file.split("/")[-1]) if deliverable.file else "File",
-				url=frappe.utils.get_url(f"/portal/drawings/{self.name}"),
+				url=frappe.utils.get_url(portal_path("drawing", self.name)),
 			),
 			reference_doctype=self.doctype,
 			reference_name=self.name,

@@ -377,7 +377,7 @@
 					if (self.context.resume_id) root.sessionStorage.removeItem('ill-config-view:' + self.context.resume_id);
 					if (self._draftAutosave) self._draftAutosave.discard(true);
 					if (callbacks.success) callbacks.success(r.message);
-					else root.location.href = '/portal/schedules/' + encodeURIComponent(schedule);
+					else root.location.href = root.PortalRoutes.path('schedule', schedule);
 				} else frappe.msgprint((r.message || {}).error || __('The configuration could not be saved.'));
 			},
 			error: function () { if (callbacks.error) callbacks.error(); },
