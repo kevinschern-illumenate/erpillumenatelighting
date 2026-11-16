@@ -7,11 +7,29 @@ var dealerPricingData = null;  // cached after first successful fetch
 var dealerCustomerGroup = scheduleContext.dealer_customer_group;
 
 function toggleDealerPricing() {
+	var show = !dealerPricingActive;
 	if (dealerPricingActive) {
 		restoreMsrpPricing();
 	} else if (dealerPricingData) {
 		applyDealerPricing(dealerPricingData);
 	} else {
+		fetchDealerPricing();
+	}
+	saveDealerPricingPreference(show);
+}
+
+// Plan 3.14: the toggle is remembered per user (ilL-Portal-User-Settings.show_dealer_pricing).
+function saveDealerPricingPreference(show) {
+	frappe.call({
+		method: 'illumenate_lighting.illumenate_lighting.portal.user_preferences.set_show_dealer_pricing',
+		type: 'POST',
+		args: { show: show ? 1 : 0 },
+		callback: function() {},
+	});
+}
+
+function restoreDealerPricingPreference() {
+	if (scheduleContext.dealer_pricing_on && document.getElementById('dealerPricingBtn')) {
 		fetchDealerPricing();
 	}
 }
@@ -167,3 +185,5 @@ function _setHeaderDealerSuffix(active) {
 	}
 	// Line Total header stays unchanged in both modes
 }
+
+restoreDealerPricingPreference();

@@ -161,6 +161,72 @@ def get_context(context):
 			template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
 			if product_category != "Linear Fixture":
 				configurator_mode = "coordinator"
+	# Plan 3.2 "Configure similar": pre-fill from another line of this schedule; saving adds a new line.
+	similar_to = _query_value(frappe.form_dict.get("similar_to"))
+	context.similar_to = None
+	if similar_to and schedule and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import line_copy_enabled
+
+		if line_copy_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.configuration import resolve_line
+			from illumenate_lighting.illumenate_lighting.portal.configuration_reopen import for_line
+
+			try:
+				source_line = resolve_line(schedule, similar_to)
+			except ValueError as exc:
+				frappe.throw(str(exc))
+			initial_request = for_line(source_line)
+			if initial_request:
+				context.similar_to = source_line.get("line_id") or similar_to
+				product_category = initial_request["family"]
+				template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
+				if product_category != "Linear Fixture":
+					configurator_mode = "coordinator"
+
+	# Plan 3.5 "Add by part number": pre-fill the options a fixture part number names; nothing is saved.
+	context.pn_prefill = None
+	part_number = _query_value(frappe.form_dict.get("pn"))
+	if part_number and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import part_number_decode_enabled
+
+		if part_number_decode_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.part_number import NotAPartNumber, decode
+
+			try:
+				decoded = decode(part_number)
+			except NotAPartNumber:
+				decoded = None
+			if decoded and decoded.get("template"):
+				context.pn_prefill = decoded
+				initial_request = {"template": decoded["template"], "selections": decoded["selections"]}
+				product_category, template_code = "Linear Fixture", decoded["template"]
+
+	# Plan 3.6 "Start from preset": pre-fill a saved configuration, re-checked against what is
+	# offered now; options no longer offered are dropped and listed, and nothing is saved.
+	context.preset_prefill = None
+	preset_name = _query_value(frappe.form_dict.get("preset"))
+	if preset_name and line_idx is None and initial_request is None:
+		from illumenate_lighting.illumenate_lighting.portal.site_flags import presets_enabled
+
+		if presets_enabled():
+			from illumenate_lighting.illumenate_lighting.portal.presets import load as load_preset
+
+			try:
+				loaded = load_preset(preset_name, schedule_name=schedule_name)
+			except frappe.DoesNotExistError:
+				loaded = None
+			if loaded:
+				context.preset_prefill = {
+					"label": loaded["label"],
+					"problems": loaded["problems"],
+					"usable": loaded["request"] is not None,
+				}
+				product_category = loaded["family"]
+				if loaded["request"] is not None:
+					initial_request = loaded["request"]
+					template_code = initial_request.get("template") or template_code
+				if product_category != "Linear Fixture":
+					configurator_mode = "coordinator"
 
 	# Quiz answers are plain words ("Damp", "Silver"); match them on the server to the
 	# options this template offers, so the browser does not apply the raw labels.
@@ -253,6 +319,23 @@ def get_context(context):
 	context.line_idx = int(line_idx) if line_idx is not None else None
 	context.can_save = can_save
 	context.line_key = line_key
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import durable_drafts_enabled
+
+	# Plan 3.1: server-backed drafts only where the dealer can save to this schedule.
+	context.draft_autosave = bool(schedule and can_save and durable_drafts_enabled())
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import presets_enabled
+
+	# Plan 3.6: "Save as preset"; sharing is for users of a dealer company.
+	context.presets_enabled = presets_enabled()
+	if context.presets_enabled:
+		from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+
+		actor = get_actor()
+		context.preset_can_share = bool(actor.is_dealer and actor.customer and not actor.is_internal)
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import live_estimate_enabled
+
+	# Plan 3.8: price, stock and lead time under each result, labelled as an estimate.
+	context.live_estimate = live_estimate_enabled()
 	context.expected_modified = str(schedule.modified) if schedule else None
 	context.initial_request = initial_request
 	context.templates = templates

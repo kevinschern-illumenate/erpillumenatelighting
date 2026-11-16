@@ -222,8 +222,16 @@ class ConfigurePage(unittest.TestCase):
 			".portal.access": {
 				"can_view_catalog": lambda user=None: can_view_catalog,
 				"can_edit_schedule": lambda doc, user=None: can_edit,
+				"get_actor": lambda: Record(is_dealer=False, customer=None, is_internal=False),
 			},
-			".portal.site_flags": {"fixture_groups_enabled": lambda: False, "sheet_server_options_enabled": lambda: True, "build_preview_enabled": lambda: True},
+			".portal.site_flags": {
+				"fixture_groups_enabled": lambda: False,
+				"durable_drafts_enabled": lambda: True,
+				"presets_enabled": lambda: True,
+				"live_estimate_enabled": lambda: True,
+				"sheet_server_options_enabled": lambda: True,
+				"build_preview_enabled": lambda: True,
+			},
 			".portal.rollout": {"require_family": lambda family: None},
 			".portal.configuration": {"family_for_template": lambda family, template: family},
 			".portal.product_finder.presentation": {
@@ -268,6 +276,7 @@ class ConfigurePage(unittest.TestCase):
 		self.assertFalse(context.show_stock_qty)
 		self.assertEqual(context.config_schedule, "S1")
 		self.assertTrue(context.can_save)
+		self.assertTrue(context.draft_autosave)
 		self.assertEqual(frappe.flags["ill_config_schedule"], "S1")
 
 	def test_collaborator_chooser_hides_catalog_routes(self):
@@ -285,6 +294,7 @@ class ConfigurePage(unittest.TestCase):
 		self.assertTrue(context.show_pricing)
 		self.assertTrue(context.show_stock_qty)
 		self.assertEqual(context.config_schedule, "")
+		self.assertFalse(context.draft_autosave)
 
 
 if __name__ == "__main__":

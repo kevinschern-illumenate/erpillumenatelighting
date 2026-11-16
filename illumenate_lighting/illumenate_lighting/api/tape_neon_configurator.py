@@ -431,6 +431,7 @@ def validate_tape_configuration(
     tape_neon_template: str | None = None,
     override_max_run_ft: float | str | None = None,
     power_allocation: str | None = None,
+    include_estimate: bool | str | None = None,
 ) -> dict:
     """
     Validate a complete LED Tape or COB Tape configuration and compute manufacturable length.
@@ -913,6 +914,10 @@ def validate_tape_configuration(
                 "text": f"Could not create configured record: {failed['error']}",
             })
 
+    if include_estimate:
+        from illumenate_lighting.illumenate_lighting.portal.estimate import attach_tape_neon_estimate
+
+        attach_tape_neon_estimate(return_result, tape_neon_template, include_estimate)
     return return_result
 
 
@@ -1019,6 +1024,7 @@ def validate_neon_configuration(
     tape_neon_template: str | None = None,
     override_max_run_ft: float | str | None = None,
     power_allocation: str | None = None,
+    include_estimate: bool | str | None = None,
 ) -> dict:
     """
     Validate a complete LED Neon configuration with multi-segment support.
@@ -1443,6 +1449,10 @@ def validate_neon_configuration(
                 "text": f"Could not create configured record: {failed['error']}",
             })
 
+    if include_estimate:
+        from illumenate_lighting.illumenate_lighting.portal.estimate import attach_tape_neon_estimate
+
+        attach_tape_neon_estimate(return_result, tape_neon_template, include_estimate)
     return return_result
 
 
@@ -2253,6 +2263,7 @@ def validate_tape_neon_template_config(
     selections: str,
     segments_json: str = None,
     _skip_record_creation: bool | str | None = False,
+    include_estimate: bool | str | None = None,
 ) -> dict:
     """
     Validate a complete tape/neon template configuration and return computed results.
@@ -2315,6 +2326,7 @@ def validate_tape_neon_template_config(
             include_power_supply=bool(_neon_include_ps),
             dimming_protocol_code=_neon_sel.get("dimming_protocol_code"),
             override_max_run_ft=_neon_sel.get("override_max_run_ft") or None,
+            include_estimate=include_estimate,
         )
     else:
         logger.info("validate_tape_neon_template_config: Delegating to validate_tape_configuration")
@@ -2337,6 +2349,7 @@ def validate_tape_neon_template_config(
             include_power_supply=bool(_include_ps),
             dimming_protocol_code=sel_dict.get("dimming_protocol_code"),
             override_max_run_ft=sel_dict.get("override_max_run_ft") or None,
+            include_estimate=include_estimate,
         )
 
     if not result.get("is_valid"):

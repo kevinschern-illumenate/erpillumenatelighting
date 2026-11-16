@@ -1179,6 +1179,18 @@
 
 		if (result.stock_availability) this._renderStockAvailability(result.stock_availability);
 		else this.$('#stockAvailability').hide();
+
+		// Plan 3.8: lead time from the tape offering, labelled as an estimate.
+		var IC = root.IllConfigurator;
+		if (IC && IC.renderEstimate) {
+			if (result.is_valid === false || !partNumber) this.$('#resultsPanel').children('.ill-estimate').remove();
+			else IC.renderEstimate(this.$('#resultsPanel'), {
+				family: 'fixture',
+				tape_offering: (result.pricing_inputs || {}).tape_offering || (result.auto_selected_tape || {}).tape_offering_id,
+				schedule_name: this.context.config_schedule,
+				show_pricing: showPricing
+			});
+		}
 	};
 
 	Fixture.prototype._renderStockAvailability = function (stockData) {

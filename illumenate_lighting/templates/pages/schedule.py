@@ -268,6 +268,24 @@ def get_context(context):
 			"led_sheet_template": getattr(line, "led_sheet_template", None),
 			"led_sheet_template_name": None,  # Will be populated below
 			"configured_led_sheet": getattr(line, "configured_led_sheet", None),
+			# Plan 3.2: lines whose configuration can pre-fill "Configure similar".
+			"can_configure_similar": bool(
+				(
+					line.manufacturer_type == "ILLUMENATE"
+					and any(
+						line.get(field)
+						for field in (
+							"ill_configurator_request",
+							"configured_fixture",
+							"configured_tape_neon",
+							"configured_led_sheet",
+							"configured_group",
+							"kit_template",
+						)
+					)
+				)
+				or (line.get("driver_template") and line.get("accessory_item"))
+			),
 			"cls_details": {},  # Configured LED Sheet display details
 			# Accessory/Component fields
 			"accessory_product_type": line.accessory_product_type,
@@ -458,6 +476,39 @@ def get_context(context):
 	context.lines = lines_with_details  # Use enriched lines instead of raw child table
 	context.lines_json = lines_json
 	context.can_edit = can_edit
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import (
+		activity_timeline_enabled,
+		bulk_edit_enabled,
+		keyboard_shortcuts_enabled,
+		line_copy_enabled,
+		part_number_decode_enabled,
+		presets_enabled,
+		recent_products_enabled,
+		schedule_import_enabled,
+		stale_badge_enabled,
+		undo_enabled,
+	)
+
+	context.line_copy_enabled = line_copy_enabled()
+	context.bulk_edit_enabled = bool(
+		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and bulk_edit_enabled()
+	)
+	context.part_number_decode_enabled = bool(can_edit and part_number_decode_enabled())
+	context.presets_enabled = bool(can_edit and presets_enabled())
+	context.recent_products_enabled = bool(can_edit and recent_products_enabled())
+	# Plan 3.9: viewers see the badge too; only editors get the review link.
+	context.stale_badge_enabled = stale_badge_enabled()
+	# Plan 3.10/3.11/3.13: Undo is for editors; the timeline and shortcuts are read-only aids.
+	context.undo_enabled = bool(can_edit and undo_enabled())
+	context.activity_timeline_enabled = activity_timeline_enabled()
+	context.keyboard_shortcuts_enabled = keyboard_shortcuts_enabled()
+	context.schedule_import_enabled = bool(
+		can_edit and not schedule.get("is_locked") and schedule.status in ("DRAFT", "READY") and schedule_import_enabled()
+	)
+	if context.schedule_import_enabled:
+		from illumenate_lighting.illumenate_lighting.portal.schedule_import import TEMPLATE_COLUMNS
+
+		context.import_columns = list(TEMPLATE_COLUMNS)
 	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
@@ -475,6 +526,12 @@ def get_context(context):
 
 	context.system_design = schedule_card(schedule)
 	context.can_show_dealer_pricing = can_show_dealer_pricing
+	# Plan 3.14: the dealer pricing toggle starts where the user last left it.
+	context.dealer_pricing_on = False
+	if can_show_dealer_pricing and can_view_pricing:
+		from illumenate_lighting.illumenate_lighting.portal.user_preferences import show_dealer_pricing
+
+		context.dealer_pricing_on = show_dealer_pricing(frappe.session.user)
 	context.dealer_customer_group = dealer_customer_group
 	context.total_qty = total_qty
 	context.illumenate_count = illumenate_count

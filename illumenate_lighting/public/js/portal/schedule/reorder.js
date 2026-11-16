@@ -36,6 +36,7 @@ function moveScheduleLine(from_idx, to_idx) {
 				location.reload();
 			} else {
 				try { sessionStorage.removeItem(REORDER_SCROLL_KEY); } catch (e) {}
+				if (window.ScheduleConflict && ScheduleConflict.handle(r)) return;
 				frappe.msgprint(r.message && r.message.error ? r.message.error : 'Error moving line');
 			}
 		}

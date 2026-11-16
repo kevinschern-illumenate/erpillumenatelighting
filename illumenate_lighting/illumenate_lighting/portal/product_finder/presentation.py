@@ -55,7 +55,8 @@ def banner():
 	}
 	rows = frappe.get_all(
 		sessions.DOCTYPE,
-		filters={"user": frappe.session.user, "status": "Active"},
+		# Schedule line drafts (plan 3.1) share the DocType; only finder sessions resume here.
+		filters={"user": frappe.session.user, "status": "Active", "schedule": ["is", "not set"]},
 		fields=["session_token", "quiz_answers"],
 		order_by="modified desc",
 		limit=1,

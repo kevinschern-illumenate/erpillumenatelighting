@@ -431,7 +431,8 @@ function loadLedSheetTemplates(productType) {
 			if (r.message && r.message.templates) {
 				r.message.templates.forEach(function(template) {
 					var label = template.template_name + (template.template_code ? ' (' + template.template_code + ')' : '');
-					options += '<option value="' + PortalUI.escape(template.name) + '">' + PortalUI.escape(label) + '</option>';
+					var h = PortalUI.escape;
+					options += '<option value="' + h(template.name) + '" data-name="' + h(template.template_name || '') + '" data-image="' + h(template.image || '') + '" data-gallery="' + h(JSON.stringify(template.gallery || [])) + '" data-description="' + h(template.description || '') + '">' + h(label) + '</option>';
 				});
 			}
 			$('#add_led_sheet_template').html(options);
@@ -1228,6 +1229,7 @@ function duplicateLine(line_idx) {
 			if (r.message && r.message.success) {
 				location.reload();
 			} else {
+				if (window.ScheduleConflict && ScheduleConflict.handle(r)) return;
 				frappe.msgprint((r.message && r.message.error) || 'Error duplicating line');
 			}
 		}
@@ -1350,6 +1352,7 @@ function submitEditLine(line_idx, line_data) {
 				$('#editLineModal').modal('hide');
 				location.reload();
 			} else {
+				if (window.ScheduleConflict && ScheduleConflict.handle(r)) return;
 				frappe.msgprint((r.message && r.message.error) || 'Error updating line');
 			}
 		}
@@ -1363,8 +1366,10 @@ function deleteLine(line_idx) {
 			args: lineRef(line_idx),
 			callback: function(r) {
 				if (r.message && r.message.success) {
+					if (window.ScheduleUndo) ScheduleUndo.offer(r.message.undo);
 					location.reload();
 				} else {
+					if (window.ScheduleConflict && ScheduleConflict.handle(r)) return;
 					frappe.msgprint((r.message && r.message.error) || 'Error deleting line');
 				}
 			}

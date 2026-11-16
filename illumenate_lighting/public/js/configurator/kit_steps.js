@@ -109,6 +109,7 @@
     COMPONENTS.forEach(function(c){var comp=(data.kit_composition||{})[c[0]];if(comp&&comp.not_required){body.append($('<tr class="text-muted">').append($('<td>').text(c[1]),$('<td>').text(__('None required')),$('<td class="text-right">').text('0')));return;}if(!comp||!comp.item)return;body.append($('<tr>').append($('<td>').text(c[1]+(comp.length_mm?' ('+comp.length_mm+' mm)':'')),$('<td>').text(comp.item),$('<td class="text-right">').text(comp.qty)));});
     box.append(table);
     var sa=data.stock_availability;if(sa){box.append($('<p class="ill-kit-stock">').addClass(sa.all_in_stock?'is-in-stock':'is-short').text(sa.all_in_stock?'Components in stock':'Some components need replenishment'));if(self.context.show_stock_qty)(sa.items||[]).forEach(function(item){box.append($('<p class="small text-muted mb-0">').text(item.item_name+': '+item.qty_available+' available'));});}
+    if(IC.renderEstimate)IC.renderEstimate(box,{family:'kit',schedule_name:this.context.config_schedule,show_pricing:!!this.context.show_pricing});
   };
   IC.Kit=Kit;
 })(window);

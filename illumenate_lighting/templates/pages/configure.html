@@ -34,6 +34,36 @@ Allows users to configure fixtures using segment-based configuration
 		</span>
 	</div>
 	{% endif %}
+	{% set pn = pn_prefill | default(none) %}
+	{% if pn %}
+	<div class="alert alert-info ill-pn-banner" role="status">
+		{{ _("Pre-filled from part number {0}. Check every option; nothing is added to the schedule until you save.").format(pn.part_number) | e }}
+		{% if pn.unmatched %}
+		<br>{{ _("Not recognised, choose these yourself:") }}
+		{% for row in pn.unmatched %}{{ row.answer | e }} ({{ row.reason | e }}){% if not loop.last %}, {% endif %}{% endfor %}
+		{% endif %}
+		{% if pn.review %}
+		<br>{{ _("Also set:") }}
+		{% for row in pn.review %}{{ row.text | e }}{% if not loop.last %}, {% endif %}{% endfor %}
+		{% endif %}
+	</div>
+	{% endif %}
+	{% set preset = preset_prefill | default(none) %}
+	{% if preset %}
+	<div class="alert {{ 'alert-info' if preset.usable else 'alert-warning' }} ill-preset-banner" role="status">
+		{% if preset.usable %}
+		{{ _("Pre-filled from preset {0}. Check every option; nothing is added to the schedule until you save.").format(preset.label) | e }}
+		{% else %}
+		{{ _("Preset {0} can no longer be used. Configure this product again.").format(preset.label) | e }}
+		{% endif %}
+		{% for problem in preset.problems %}<br>{{ problem | e }}{% endfor %}
+	</div>
+	{% endif %}
+	{% if similar_to | default(none) %}
+	<div class="alert alert-info ill-similar-banner" role="status">
+		{{ _("Configuring a new line similar to {0}. Nothing is added to the schedule until you save.").format(similar_to) | e }}
+	</div>
+	{% endif %}
 {% if product_category == 'Extrusion Kit' %}
 <div id="familyConfigurator" class="ill-configurator ill-configurator-kit container portal-page">
 	<nav aria-label="breadcrumb" class="mb-4">
@@ -189,6 +219,15 @@ Allows users to configure fixtures using segment-based configuration
 
 {% block script %}
 {{ include_script("illumenate_configurator.bundle.js") }}
+{% if draft_autosave | default(false) %}
+<script type="application/json" id="ill-draft-autosave">{{ {"enabled": true, "product_type": product_category} | tojson }}</script>
+{% endif %}
+{% if live_estimate | default(false) %}
+<script type="application/json" id="ill-live-estimate">{{ {"enabled": true} | tojson }}</script>
+{% endif %}
+{% if presets_enabled | default(false) %}
+<script type="application/json" id="ill-config-presets">{{ {"enabled": true, "can_share": (preset_can_share | default(false))} | tojson }}</script>
+{% endif %}
 <script>
 {% if show_type_chooser | default(false) %}
 {% elif product_category in ('Driver','Controller','Extrusion Kit') %}
