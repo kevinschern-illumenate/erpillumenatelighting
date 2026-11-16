@@ -22,6 +22,8 @@ REVIEWED_READERS = {
 	"illumenate_lighting/hooks.py",
 	"illumenate_lighting/illumenate_lighting/portal/conversations.py",
 	"illumenate_lighting/illumenate_lighting/portal/files.py",
+	# Reads only a message's parent record to build a link; every entry passes outbox.reference_access.
+	"illumenate_lighting/illumenate_lighting/portal/notification_center.py",
 	"illumenate_lighting/illumenate_lighting/portal/outbox.py",
 	"illumenate_lighting/illumenate_lighting/portal/product_finder/verification.py",
 	"illumenate_lighting/illumenate_lighting/portal/schedule_commercial.py",

@@ -216,7 +216,9 @@ class BulkLoads(unittest.TestCase):
 		)
 
 	def test_sheet_templates_read_their_specs_in_one_query_in_row_order(self):
-		gallery = types.SimpleNamespace(_fetch_webflow_gallery=lambda products: {})
+		gallery = types.SimpleNamespace(
+			_fetch_webflow_gallery=lambda products: {}, attach_images=lambda doctype, templates: templates
+		)
 		cache = types.SimpleNamespace(cached_projection=lambda kind, template, build: build())
 		extras = {
 			"illumenate_lighting.templates.pages.configure": gallery,
