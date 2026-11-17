@@ -62,7 +62,7 @@ doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.j
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
-for _name in ("Quotation", "Sales Order", "Sales Invoice"):
+for _name in ("Quotation", "Sales Order", "Sales Invoice", "ilL-Project", "ilL-Project-Fixture-Schedule"):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
     doctype_js[_name] = [*_scripts, "public/js/helpdesk_tickets.js"]
@@ -216,7 +216,7 @@ after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
 before_migrate = "illumenate_lighting.portal_workspace.before_migrate"
 after_migrate = [
 	"illumenate_lighting.portal_workspace.after_migrate",
-	# Helpdesk ticket -> Quotation / Sales Order / Sales Invoice links, once Helpdesk is installed.
+	# Helpdesk ticket -> Project / Fixture Schedule / Quotation / Sales Order / Sales Invoice links, once Helpdesk is installed.
 	"illumenate_lighting.illumenate_lighting.helpdesk_links.after_migrate",
 ]
 
@@ -358,7 +358,7 @@ doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
 	# Product and template images get WebP derivatives in the background (plan 5.8).
 	"File": {"after_insert": "illumenate_lighting.illumenate_lighting.api.media_derivatives.on_file_insert"},
-	# Helpdesk: a ticket linked to an invoice or order also gets its order and quote.
+	# Helpdesk: a ticket linked to an invoice or order also gets its order, quote, schedule and project.
 	"HD Ticket": {"validate": "illumenate_lighting.illumenate_lighting.helpdesk_links.fill_upstream"},
 	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans",
 		# Draft Quotations / Sales Orders linked to the schedule follow its lines.
@@ -556,6 +556,8 @@ override_doctype_dashboards = {
 	"Quotation": "illumenate_lighting.illumenate_lighting.helpdesk_links.quotation_dashboard",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_order_dashboard",
 	"Sales Invoice": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_invoice_dashboard",
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.helpdesk_links.project_dashboard",
+	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.helpdesk_links.fixture_schedule_dashboard",
 }
 
 # exempt linked doctypes from being automatically cancelled

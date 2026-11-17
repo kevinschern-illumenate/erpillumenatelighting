@@ -1,8 +1,8 @@
-"""Link Helpdesk tickets (HD Ticket) to the Quotation, Sales Order and Sales Invoice they concern.
+"""Link Helpdesk tickets (HD Ticket) to the project, fixture schedule and sales documents they concern.
 
 The links live on the ticket because Helpdesk renders its saved replies and
 notification emails against the ticket: ``{{ ill_quotation }}`` in a saved reply,
-``{{ doc.ill_quotation }}`` in an HD Settings email. The sales documents list
+``{{ doc.ill_quotation }}`` in an HD Settings email. The linked documents list
 their tickets under Connections and get a button to link more.
 
 Helpdesk is optional. Nothing here runs or registers until the HD Ticket DocType
@@ -17,12 +17,27 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 TICKET = "HD Ticket"
 
+PROJECT = "ilL-Project"
+SCHEDULE = "ilL-Project-Fixture-Schedule"
+
 # Sales DocType -> the HD Ticket field that links to it, in sales-flow order.
-LINK_FIELDS = {
+SALES_FIELDS = {
 	"Quotation": "ill_quotation",
 	"Sales Order": "ill_sales_order",
 	"Sales Invoice": "ill_sales_invoice",
 }
+
+# Every linked DocType -> its HD Ticket field, in the order they show on the ticket.
+LINK_FIELDS = {
+	PROJECT: "ill_project",
+	SCHEDULE: "ill_fixture_schedule",
+	**SALES_FIELDS,
+}
+
+LABELS = {PROJECT: "Project", SCHEDULE: "Fixture Schedule"}
+
+# Fields the agent sidebar was seeded with before the setting recorded which ones.
+_SEEDED_BEFORE_TRACKING = set(SALES_FIELDS.values())
 
 TEMPLATE = "Default"
 
@@ -32,7 +47,7 @@ def helpdesk_installed() -> bool:
 
 
 def ensure_fields():
-	"""Create the ticket's sales-document links when Helpdesk is installed (after_migrate)."""
+	"""Create the ticket's project and sales-document links when Helpdesk is installed (after_migrate)."""
 	if not helpdesk_installed():
 		return
 	meta = frappe.get_meta(TICKET)
@@ -41,7 +56,7 @@ def ensure_fields():
 			{
 				"fieldname": "ill_sales_documents_section",
 				"fieldtype": "Section Break",
-				"label": "Sales Documents",
+				"label": "Project & Sales Documents",
 				"insert_after": "via_customer_portal",
 				"collapsible": 0,
 			}
@@ -53,7 +68,7 @@ def ensure_fields():
 					"fieldname": fieldname,
 					"fieldtype": "Link",
 					"options": doctype,
-					"label": doctype,
+					"label": LABELS.get(doctype, doctype),
 					"insert_after": previous,
 					"search_index": 1,
 					"in_standard_filter": 1,
@@ -65,32 +80,43 @@ def ensure_fields():
 
 
 def _add_to_agent_sidebar():
-	"""Show the links in the Helpdesk agent ticket sidebar, once.
+	"""Show each link in the Helpdesk agent ticket sidebar, once per field.
 
 	The Default ticket template is staff-maintained data, so only missing rows are
 	added; a field an agent removed from the template is not re-added on later migrates
-	because the flag below records that it was seeded.
+	because the setting below records which fields were seeded. Older sites stored "1"
+	there, meaning the three sales-document fields.
 	"""
 	if not frappe.db.exists("HD Ticket Template", TEMPLATE):
 		return
-	if frappe.db.get_default("ill_helpdesk_sidebar_seeded"):
+	seeded = _seeded_fields()
+	to_seed = [f for f in LINK_FIELDS.values() if f not in seeded]
+	if not to_seed:
 		return
 	template = frappe.get_doc("HD Ticket Template", TEMPLATE)
 	present = {row.fieldname for row in template.get("fields") or []}
-	missing = [f for f in LINK_FIELDS.values() if f not in present]
+	missing = [f for f in to_seed if f not in present]
 	for fieldname in missing:
 		template.append("fields", {"fieldname": fieldname, "required": 0, "visible_to": "Agents"})
 	if missing:
 		template.flags.ignore_permissions = True
 		template.save()
-	frappe.db.set_default("ill_helpdesk_sidebar_seeded", "1")
+	frappe.db.set_default("ill_helpdesk_sidebar_seeded", ",".join(sorted(seeded | set(to_seed))))
+
+
+def _seeded_fields() -> set[str]:
+	value = frappe.db.get_default("ill_helpdesk_sidebar_seeded") or ""
+	if value == "1":
+		return set(_SEEDED_BEFORE_TRACKING)
+	return {f for f in value.split(",") if f}
 
 
 def fill_upstream(doc, method=None):
-	"""HD Ticket validate: fill an empty Sales Order / Quotation from the document after it.
+	"""HD Ticket validate: fill empty links from the documents already linked.
 
 	A ticket linked to an invoice usually concerns that invoice's order and quote too,
-	so templates can quote all three. Fields already set are never changed.
+	and the order or quote's fixture schedule and project, so templates can quote them
+	all. Fields already set are never changed.
 	"""
 	if doc.get("ill_sales_invoice") and not doc.get("ill_sales_order"):
 		doc.ill_sales_order = _first_value(
@@ -104,6 +130,15 @@ def fill_upstream(doc, method=None):
 			{"parent": doc.ill_sales_order, "prevdoc_docname": ["is", "set"]},
 			"prevdoc_docname",
 		)
+	if not doc.get("ill_fixture_schedule"):
+		for doctype, fieldname in (("Sales Order", "ill_sales_order"), ("Quotation", "ill_quotation")):
+			if doc.get(fieldname):
+				schedule = frappe.db.get_value(doctype, doc.get(fieldname), "ill_fixture_schedule")
+				if schedule:
+					doc.ill_fixture_schedule = schedule
+					break
+	if doc.get("ill_fixture_schedule") and not doc.get("ill_project"):
+		doc.ill_project = frappe.db.get_value(SCHEDULE, doc.ill_fixture_schedule, "ill_project")
 
 
 def _first_value(doctype, filters, field):
@@ -134,13 +169,19 @@ def _dashboard(doctype):
 quotation_dashboard = _dashboard("Quotation")
 sales_order_dashboard = _dashboard("Sales Order")
 sales_invoice_dashboard = _dashboard("Sales Invoice")
+project_dashboard = _dashboard(PROJECT)
+fixture_schedule_dashboard = _dashboard(SCHEDULE)
 
 
 @frappe.whitelist()
 def link_tickets(doctype: str, name: str, tickets: list[str] | str):
-	"""Point each ticket's link for ``doctype`` at ``name`` (the sales form's Link Tickets button)."""
+	"""Point each ticket's link for ``doctype`` at ``name`` (the form's Link Helpdesk Tickets button)."""
 	if doctype not in LINK_FIELDS:
-		frappe.throw(_("Tickets can only be linked to a Quotation, Sales Order or Sales Invoice."))
+		frappe.throw(
+			_(
+				"Tickets can only be linked to a Project, Fixture Schedule, Quotation, Sales Order or Sales Invoice."
+			)
+		)
 	if not helpdesk_installed():
 		frappe.throw(_("Helpdesk is not installed on this site."))
 	frappe.get_doc(doctype, name).check_permission("read")
@@ -167,7 +208,7 @@ def ill_print_pdf_url(doctype, name, print_format=None, letterhead=None) -> str:
 	empty, the DocType is not a sales document, or the person rendering the template
 	cannot read the document, so a blank link never leaks a record.
 	"""
-	if not name or doctype not in LINK_FIELDS:
+	if not name or doctype not in SALES_FIELDS:
 		return ""
 	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", name):
 		return ""
@@ -188,4 +229,4 @@ def after_migrate():
 	try:
 		ensure_fields()
 	except Exception:
-		frappe.log_error(title="Helpdesk sales-document links", message=frappe.get_traceback())
+		frappe.log_error(title="Helpdesk ticket links", message=frappe.get_traceback())
