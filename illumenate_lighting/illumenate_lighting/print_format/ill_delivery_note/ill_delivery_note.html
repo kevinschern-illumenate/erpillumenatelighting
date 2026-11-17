@@ -81,7 +81,7 @@
     <div class="ill-block">
         <div class="ill-grid">
             <div class="ill-col"><div class="ill-box"><div class="ill-box-title">Ship To</div><div>{{ ill_sanitize_html(doc.shipping_address or doc.address_display) | safe }}</div></div></div>
-            <div class="ill-col">{% if doc.contact_display %}<div class="ill-box"><div class="ill-box-title">Contact</div><div>{{ doc.contact_display | e }}{% if doc.contact_mobile %}<br>{{ doc.contact_mobile }}{% endif %}{% if doc.contact_email %}<br>{{ doc.contact_email }}{% endif %}</div></div>{% endif %}</div>
+            <div class="ill-col">{% if doc.contact_display %}<div class="ill-box"><div class="ill-box-title">Contact</div><div>{{ doc.contact_display | e }}{% if doc.contact_phone %}<br>{{ doc.contact_phone | e }}{% endif %}{% if doc.contact_mobile %}<br>{{ doc.contact_mobile }}{% endif %}{% if doc.contact_email %}<br>{{ doc.contact_email }}{% endif %}</div></div>{% endif %}</div>
         </div>
     </div>
     {% endif %}
