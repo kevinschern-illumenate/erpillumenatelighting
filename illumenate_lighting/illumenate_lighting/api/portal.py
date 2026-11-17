@@ -73,6 +73,11 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 	if not message:
 		message = _("An unexpected error occurred. Please try again or contact support.")
 
+	# Plan 3.12: a refused stale edit also says who saved the schedule and when.
+	conflict = getattr(e, "conflict", None)
+	if isinstance(conflict, dict):
+		extra.setdefault("conflict", conflict)
+
 	# ``success``/``error`` are the legacy contract; ``error_code`` lets
 	# frontends branch without parsing message text.
 	return {"success": False, "error": message, "error_code": error_code, **extra}
@@ -957,12 +962,15 @@ def get_item_variant_attributes(template_item: str) -> dict:
 
 		# Build a map of attribute -> set of values used across all variants
 		variant_attr_values = {}
+		variant_names = []
 		for variant in variants:
 			variant_doc = frappe.get_doc("Item", variant.item_code)
+			variant_names.append({"item_code": variant_doc.item_code, "item_name": variant_doc.item_name})
 			for va in variant_doc.get("attributes", []):
 				variant_attr_values.setdefault(va.attribute, set()).add(va.attribute_value)
 
 		attributes = []
+		incomplete = []
 
 		for attr in item_doc.get("attributes", []):
 			if attr.numeric_values:
@@ -985,27 +993,54 @@ def get_item_variant_attributes(template_item: str) -> dict:
 				)
 
 				# Filter to only values that exist in actual variants
-				used_values = variant_attr_values.get(attr.attribute, set())
-				values = [
-					{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
-					for v in attr_values
-					if v.attribute_value in used_values
-				]
+				values = _variant_values(attr_values, variant_attr_values.get(attr.attribute, set()))
+				if not values:
+					incomplete.append(attr.attribute)
 
 			attributes.append({
 				"attribute": attr.attribute,
 				"values": values,
 			})
 
-		return {
+		result = {
 			"success": True,
 			"template_item": template_item,
 			"item_name": item.item_name,
 			"attributes": attributes,
 		}
+		if incomplete and variant_names:
+			# The variants do not record this attribute (blank values), so it cannot be chosen
+			# and matching on the others would pick an arbitrary variant: offer the items directly.
+			result["incomplete_attributes"] = incomplete
+			result["variants"] = sorted(variant_names, key=lambda row: row["item_code"])
+		return result
 
 	except Exception as e:
 		return _safe_error(e, f"Portal: error fetching variant attributes for {template_item}", attributes=[])
+
+
+def _variant_key(value) -> str:
+	return " ".join(str(value or "").split()).casefold()
+
+
+def _variant_values(attr_values, used_values) -> list:
+	"""The values variants actually use, in the Item Attribute's order.
+
+	Each value is spelled as the variants store it, because variant matching compares those
+	strings exactly. Blank values are skipped, case and spacing differences from the Item
+	Attribute list still match, and a value no longer in that list is kept (after the listed ones).
+	"""
+	used = {}
+	for value in used_values:
+		if _variant_key(value):
+			used.setdefault(_variant_key(value), value)
+	values = []
+	for row in attr_values:
+		value = used.pop(_variant_key(row.attribute_value), None)
+		if value is not None:
+			values.append({"value": value, "abbr": row.abbr or value})
+	values.extend({"value": value, "abbr": value} for value in sorted(used.values(), key=_variant_key))
+	return values
 
 
 @frappe.whitelist()
@@ -1083,11 +1118,7 @@ def get_filtered_variant_attributes(template_item: str, selected_attributes: Uni
 				order_by="idx asc",
 			)
 
-			values = [
-				{"value": v.attribute_value, "abbr": v.abbr or v.attribute_value}
-				for v in attr_values
-				if v.attribute_value in valid_values
-			]
+			values = _variant_values(attr_values, valid_values)
 
 			attributes.append({
 				"attribute": attr_name,
@@ -1262,44 +1293,18 @@ def get_fixture_templates(product_type: str = None) -> dict:
 		order_by="template_name asc",
 	)
 
-	# Batch-fetch gallery images for templates that have a linked Webflow product
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = {}
-	if webflow_product_names:
-		# Fetch gallery images from child table ordered by idx (row order)
-		gallery_rows = frappe.get_all(
-			"ilL-Child-Webflow-Gallery-Image",
-			filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
-			fields=["parent", "image", "alt_text", "display_order", "idx"],
-			order_by="parent, idx asc",
-		)
-		for row in gallery_rows:
-			if row.image:
-				webflow_product_gallery.setdefault(row.parent, []).append(
-					{"image": row.image, "alt_text": row.alt_text or ""}
-				)
+	from illumenate_lighting.templates.pages.configure import attach_images
 
-		# Fallback: featured_image for products with no gallery images
-		webflow_products = frappe.get_all(
-			"ilL-Webflow-Product",
-			filters={"name": ["in", webflow_product_names]},
-			fields=["name", "featured_image"],
-		)
-		for wp in webflow_products:
-			if wp.name not in webflow_product_gallery and wp.featured_image:
-				webflow_product_gallery[wp.name] = [
-					{"image": wp.featured_image, "alt_text": ""}
-				]
-
+	attach_images("ilL-Fixture-Template", templates)
 	result = []
 	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
 		result.append({
 			"name": t.name,
 			"template_code": t.template_code,
 			"template_name": t.template_name,
-			"image": gallery[0]["image"] if gallery else None,
-			"gallery": gallery,
+			"image": t.image,
+			"image_alt": t.image_alt,
+			"gallery": t.gallery,
 		})
 
 	return {"templates": result}
@@ -1330,47 +1335,19 @@ def get_tape_neon_templates_for_schedule(product_category: str = "LED Tape") -> 
 		order_by="template_name asc",
 	)
 
-	# Batch-fetch gallery images from linked Webflow products
-	webflow_product_names = [t.webflow_product for t in templates if t.webflow_product]
-	webflow_product_gallery = {}
-	if webflow_product_names:
-		gallery_rows = frappe.get_all(
-			"ilL-Child-Webflow-Gallery-Image",
-			filters={"parent": ["in", webflow_product_names], "parenttype": "ilL-Webflow-Product"},
-			fields=["parent", "image", "alt_text", "display_order", "idx"],
-			order_by="parent, idx asc",
-		)
-		for row in gallery_rows:
-			if row.image:
-				webflow_product_gallery.setdefault(row.parent, []).append(
-					{"image": row.image, "alt_text": row.alt_text or ""}
-				)
+	from illumenate_lighting.templates.pages.configure import attach_images
 
-		# Fallback: featured_image for products with no gallery images
-		webflow_products = frappe.get_all(
-			"ilL-Webflow-Product",
-			filters={"name": ["in", webflow_product_names]},
-			fields=["name", "featured_image"],
-		)
-		for wp in webflow_products:
-			if wp.name not in webflow_product_gallery and wp.featured_image:
-				webflow_product_gallery[wp.name] = [
-					{"image": wp.featured_image, "alt_text": ""}
-				]
-
+	attach_images("ilL-Tape-Neon-Template", templates)
 	result = []
 	for t in templates:
-		gallery = webflow_product_gallery.get(t.webflow_product, []) if t.webflow_product else []
-		# If no Webflow gallery but has a direct image, use that
-		if not gallery and t.image:
-			gallery = [{"image": t.image, "alt_text": t.template_name or ""}]
 		result.append({
 			"name": t.name,
 			"template_code": t.template_code,
 			"template_name": t.template_name,
 			"description": t.description or "",
-			"image": gallery[0]["image"] if gallery else None,
-			"gallery": gallery,
+			"image": t.image,
+			"image_alt": t.image_alt,
+			"gallery": t.gallery,
 		})
 
 	return {"templates": result}
@@ -1402,7 +1379,7 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 			"image", "gallery"}]}
 	"""
 	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
-	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+	from illumenate_lighting.templates.pages.configure import attach_images
 
 	templates = frappe.get_all(
 		"ilL-Extrusion-Kit-Template",
@@ -1414,7 +1391,7 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 		order_by="template_name asc",
 	)
 	products = [t.webflow_product for t in templates if t.webflow_product]
-	gallery_by_product = _fetch_webflow_gallery(products)
+	attach_images("ilL-Extrusion-Kit-Template", templates)
 	descriptions = (
 		dict(
 			frappe.get_all(
@@ -1430,19 +1407,14 @@ def get_extrusion_kit_templates_for_schedule() -> dict:
 	)
 	result = []
 	for t in templates:
-		gallery = gallery_by_product.get(t.webflow_product, []) if t.webflow_product else []
-		if t.image:
-			# The template's own image leads; the Webflow gallery follows.
-			gallery = [{"image": t.image, "alt_text": t.template_name or ""}] + [
-				g for g in gallery if g.get("image") != t.image
-			]
 		result.append({
 			"name": t.name,
 			"template_code": t.template_code,
 			"template_name": t.template_name or t.name,
 			"description": descriptions.get(t.webflow_product) or kit_composition_summary(t),
-			"image": gallery[0]["image"] if gallery else None,
-			"gallery": gallery,
+			"image": t.image,
+			"image_alt": t.image_alt,
+			"gallery": t.gallery,
 		})
 	return {"templates": result}
 
@@ -1536,83 +1508,11 @@ def add_schedule_line(schedule_name: str, line_data: Union[str, dict]) -> dict:
 		return {"success": False, "error": "Choose an active orderable Item"}
 	# Add the line
 	try:
-		line = schedule.append("lines", {})
-		line.line_id = line_data.get("line_id")
-		line.qty = parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
-		line.location = line_data.get("location")
-		line.manufacturer_type = line_data.get("manufacturer_type", "ILLUMENATE")
-		line.notes = line_data.get("notes")
+		from illumenate_lighting.illumenate_lighting.portal.line_add import append_line
 
-		if line.manufacturer_type == "ILLUMENATE":
-			line.product_type = line_data.get("product_type")
-			line.fixture_template = line_data.get("fixture_template")
-			line.tape_neon_template = line_data.get("tape_neon_template")
-			if line.tape_neon_template:
-				# The series decides LED Tape / COB Tape / LED Neon, whatever the group is called.
-				category = frappe.db.get_value("ilL-Tape-Neon-Template", line.tape_neon_template, "product_category")
-				if category in TAPE_NEON_CATEGORIES:
-					line.product_type = category
-			line.led_sheet_template = line_data.get("led_sheet_template")
-			line.kit_template = line_data.get("kit_template")
-			if line.kit_template or is_extrusion_kit_group(line.product_type):
-				# Kit lines are always configured later through the kit configurator.
-				if not line.kit_template or not frappe.db.get_value(
-					"ilL-Extrusion-Kit-Template", line.kit_template, "is_active"
-				):
-					return {"success": False, "error": _("Choose an active Extrusion Kit")}
-				line.product_type = "Extrusion Kit"
-				line.configuration_status = "Pending"
-			else:
-				line.configuration_status = (
-					line_data.get("configuration_status", "Pending") if is_sales_staff else "Pending"
-				)
-
-		if line.manufacturer_type == "ACCESSORY" and (
-			line_data.get("driver_template") or is_power_supply_group(line_data.get("accessory_product_type"))
-		):
-			# Power supply lines pick an ilL-Driver-Template and are configured later in the
-			# power supply configurator, which resolves the ilL-Spec-Driver Item.
-			line.driver_template = line_data.get("driver_template")
-			if not line.driver_template or not frappe.db.get_value(
-				"ilL-Driver-Template", line.driver_template, "is_active"
-			):
-				return {"success": False, "error": _("Choose an active power supply")}
-			line.accessory_product_type = line_data.get("accessory_product_type")
-			line.configuration_status = "Pending"
-		elif line.manufacturer_type == "ACCESSORY":
-			line.accessory_product_type = line_data.get("accessory_product_type")
-			line.accessory_item = line_data.get("accessory_item")
-			line.accessory_item_name = line_data.get("accessory_item_name")
-			# Store variant attribute selections as JSON for display
-			variant_selections = line_data.get("variant_selections")
-			if variant_selections:
-				if isinstance(variant_selections, str):
-					line.variant_selections = variant_selections
-				else:
-					line.variant_selections = json.dumps(variant_selections)
-			# For accessories, set configuration_status to Configured since no config needed
-			line.configuration_status = "Configured"
-
-		if line.manufacturer_type == "OTHER":
-			line.manufacturer_name = line_data.get("manufacturer_name")
-			line.fixture_model_number = line_data.get("fixture_model_number")
-			line.trim_info = line_data.get("trim_info")
-			line.housing_model_number = line_data.get("housing_model_number")
-			line.driver_model_number = line_data.get("driver_model_number")
-			line.lamp_info = line_data.get("lamp_info")
-			line.dimming_protocol = line_data.get("dimming_protocol")
-			line.input_voltage = line_data.get("input_voltage")
-			line.other_finish = line_data.get("other_finish")
-			from illumenate_lighting.illumenate_lighting.system_design import dealer_data
-
-			dealer_data.apply(line, line_data)
-			from illumenate_lighting.illumenate_lighting.portal.files import finalize_spec
-
-			if line_data.get("spec_sheet"):
-				frappe.throw(_("Upload the specification and provide its File ID."))
-			if line_data.get("spec_sheet_file_id"):
-				line.spec_sheet = finalize_spec(line_data["spec_sheet_file_id"], schedule.name)
-
+		error = append_line(schedule, line_data, is_sales_staff)
+		if error:
+			return {"success": False, "error": error}
 		schedule.save()
 		return {"success": True, "line_idx": len(schedule.lines) - 1}
 	except Exception as e:
@@ -1663,10 +1563,18 @@ def delete_schedule_line(
 
 		require_fresh(schedule, expected_modified)
 		line_idx = line_index(schedule, line_key, line_idx)
+		from illumenate_lighting.illumenate_lighting.portal import line_undo
+
+		removed = line_undo.snapshot(schedule, [schedule.lines[line_idx]])
 		# Remove the line
 		schedule.lines.pop(line_idx)
 		schedule.save()
-		return {"success": True, "modified": str(schedule.modified)}
+		result = {"success": True, "modified": str(schedule.modified)}
+		# Plan 3.10: an optional receipt the page uses to offer "Undo" for a few seconds.
+		receipt = line_undo.remember(schedule, "delete", removed)
+		if receipt:
+			result["undo"] = receipt
+		return result
 	except Exception as e:
 		return _safe_error(e, f"Portal: error deleting line from schedule {schedule_name}")
 
@@ -1840,58 +1748,9 @@ def update_schedule_line(
 		line_idx = line_index(schedule, line_key, line_idx)
 		line = schedule.lines[line_idx]
 
-		# Update allowed fields
-		if "line_id" in line_data:
-			line.line_id = line_data.get("line_id")
-		if "qty" in line_data:
-			line.qty = parse_positive_int(line_data.get("qty", 1), default=1, minimum=1)
-			# For a configured LED Sheet, the line qty is the bundle/fixture count.
-			# Re-sync only this sheet's generated jumper/leader/power-supply rows so
-			# their quantities scale with the new bundle quantity.
-			if (
-				line.manufacturer_type == "ILLUMENATE"
-				and getattr(line, "product_type", None) == "LED Sheet"
-				and getattr(line, "configured_led_sheet", None)
-			):
-				from illumenate_lighting.illumenate_lighting.api.led_sheet_configurator import (
-					resync_led_sheet_line_accessories,
-				)
+		from illumenate_lighting.illumenate_lighting.portal.line_edit import apply_line_data
 
-				resync_led_sheet_line_accessories(schedule, line, line.qty)
-		if "location" in line_data:
-			line.location = line_data.get("location")
-		if "notes" in line_data:
-			line.notes = line_data.get("notes")
-
-		# For OTHER manufacturer type, also allow updating these fields
-		if line.manufacturer_type == "OTHER":
-			if "manufacturer_name" in line_data:
-				line.manufacturer_name = line_data.get("manufacturer_name")
-			if "fixture_model_number" in line_data:
-				line.fixture_model_number = line_data.get("fixture_model_number")
-			if "trim_info" in line_data:
-				line.trim_info = line_data.get("trim_info")
-			if "housing_model_number" in line_data:
-				line.housing_model_number = line_data.get("housing_model_number")
-			if "driver_model_number" in line_data:
-				line.driver_model_number = line_data.get("driver_model_number")
-			if "lamp_info" in line_data:
-				line.lamp_info = line_data.get("lamp_info")
-			if "dimming_protocol" in line_data:
-				line.dimming_protocol = line_data.get("dimming_protocol")
-			if "input_voltage" in line_data:
-				line.input_voltage = line_data.get("input_voltage")
-			if "other_finish" in line_data:
-				line.other_finish = line_data.get("other_finish")
-			from illumenate_lighting.illumenate_lighting.system_design import dealer_data
-
-			dealer_data.apply(line, line_data)
-			from illumenate_lighting.illumenate_lighting.portal.files import finalize_spec
-
-			if "spec_sheet" in line_data and line_data["spec_sheet"] != line.spec_sheet:
-				frappe.throw(_("Upload the replacement specification and provide its File ID."))
-			if line_data.get("spec_sheet_file_id"):
-				line.spec_sheet = finalize_spec(line_data["spec_sheet_file_id"], schedule.name)
+		apply_line_data(schedule, line, line_data)
 
 		schedule.save()
 		return {"success": True, "modified": str(schedule.modified)}
@@ -3435,6 +3294,8 @@ def create_contact(contact_data: Union[str, dict]) -> dict:
 		if contact_data.get("customer") and contact_data["customer"] != company():
 			frappe.throw("Contact must belong to your company", frappe.PermissionError)
 		receipt = save_record("Contact", {key: value for key, value in contact_data.items() if key in CONTACT_FIELDS})
+		if not receipt.get("success"):
+			return receipt
 		return {"success": True, "contact_name": receipt["name"]}
 
 	if not contact_data.get("first_name"):
@@ -4280,13 +4141,21 @@ def get_led_sheet_templates() -> dict:
 
 	require_configurator()
 	if not pricing_allowed():
-		return strip_prices(_led_sheet_templates())
-	return _led_sheet_templates()
+		return strip_prices(_cached_led_sheet_templates())
+	return _cached_led_sheet_templates()
+
+
+def _cached_led_sheet_templates() -> dict:
+	"""The sheet template list per catalog revision and visible status set (plan 6.5)."""
+	from illumenate_lighting.illumenate_lighting.api.option_cache import cached_projection
+	from illumenate_lighting.illumenate_lighting.portal_listing import visible_statuses
+
+	return cached_projection("led_sheet_templates", ",".join(sorted(visible_statuses())), _led_sheet_templates)
 
 
 def _led_sheet_templates() -> dict:
 	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
-	from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+	from illumenate_lighting.templates.pages.configure import attach_images
 
 	templates = frappe.get_all(
 		"ilL-LED-Sheet-Template",
@@ -4298,29 +4167,22 @@ def _led_sheet_templates() -> dict:
 		order_by="template_name asc, name asc",
 		ignore_permissions=True,
 	)
-	gallery_by_product = _fetch_webflow_gallery([t.webflow_product for t in templates if t.webflow_product])
+	attach_images("ilL-LED-Sheet-Template", templates)
 	for template in templates:
-		gallery = gallery_by_product.get(template.webflow_product, []) if template.webflow_product else []
-		if template.image:
-			gallery = [{"image": template.image, "alt_text": template.template_name or ""}] + [
-				g for g in gallery if g.get("image") != template.image
-			]
-		template["image"] = gallery[0]["image"] if gallery else None
-		template["gallery_json"] = json.dumps(gallery) if gallery else "[]"
-		template["gallery"] = gallery
 
 		doc = frappe.get_doc("ilL-LED-Sheet-Template", template.name)
-		template["allowed_specs"] = []
-		for row in doc.allowed_specs or []:
-			if not row.is_active:
-				continue
-			spec = frappe.db.get_value(
-				"ilL-Spec-LED-Sheet", row.spec,
-				["name", "item", "cct", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
-				as_dict=True,
+		active = [row.spec for row in doc.allowed_specs or [] if row.is_active and row.spec]
+		# One query per template, in the template's row order (plan 6.5).
+		specs = {
+			spec.name: spec
+			for spec in frappe.get_all(
+				"ilL-Spec-LED-Sheet",
+				filters={"name": ["in", active]},
+				fields=["name", "item", "cct", "led_package", "sheet_width_ft", "sheet_height_ft", "sheet_area_sqft", "watts_per_sqft", "total_sheet_watts", "lumens_per_sqft", "total_sheet_lumens"],
+				ignore_permissions=True,
 			)
-			if spec:
-				template["allowed_specs"].append(spec)
+		} if active else {}
+		template["allowed_specs"] = [specs[name] for name in active if name in specs]
 		from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 
 		template["allowed_specs"] = enabled_rows(template["allowed_specs"], "item")
@@ -4438,6 +4300,7 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 		frappe.throw(access_error or _("You do not have access to this schedule"), frappe.PermissionError)
 
 	# 6. Load the schedule and compute per-line MSRP + tier pricing.
+	from illumenate_lighting.illumenate_lighting.portal.schedule_lookup import Lookup, prefetch_schedule
 	from illumenate_lighting.templates.pages.schedule import (
 		_get_configured_fixture_display_details,
 		_get_configured_led_sheet_display_details,
@@ -4446,6 +4309,9 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 
 	schedule = frappe.get_doc("ilL-Project-Fixture-Schedule", schedule_name)
 	lines = schedule.lines or []
+	# Plan 2.6: the same batched reads as the schedule page.
+	lookup = Lookup()
+	prefetch_schedule(lookup, lines)
 
 	# Batch-fetch the latest pricing snapshots for configured fixtures / tape-neon
 	# so MSRP resolution mirrors the schedule page (which uses the same source).
@@ -4500,10 +4366,10 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 
 		cf_details = None
 		if line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
-			cf_details = _get_configured_fixture_display_details(line.configured_fixture)
+			cf_details = _get_configured_fixture_display_details(line.configured_fixture, lookup=lookup)
 		cls_details = None
 		if line.manufacturer_type == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
-			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet)
+			cls_details = _get_configured_led_sheet_display_details(line.configured_led_sheet, lookup=lookup)
 
 		msrp = compute_line_msrp(
 			line,
@@ -4511,6 +4377,7 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 			cls_details=cls_details,
 			fixture_snapshot_price=fixture_snapshot_price,
 			ctn_snapshot_price=ctn_snapshot_price,
+			lookup=lookup,
 		)
 
 		msrp_unit = msrp["unit"]

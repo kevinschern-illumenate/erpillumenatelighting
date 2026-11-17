@@ -135,6 +135,10 @@ export interface Check {
   severity: Severity;
   title: string;
   detail: string;
+  /** The check code, which says which step fixes it (SD-2.2). */
+  code?: string;
+  /** The entity the check is about, for "Go to item". */
+  ref?: string;
 }
 
 const lineLabel = (open: OpenDesign, key: string) => {
@@ -146,12 +150,28 @@ const lineLabel = (open: OpenDesign, key: string) => {
 export function openingChecks(open: OpenDesign, skipped: Skipped[] = []): Check[] {
   const checks: Check[] = [];
   for (const item of open.readiness.needs_data)
-    checks.push({ id: `data:${item.key}`, severity: 'warning', title: lineLabel(open, item.key), detail: item.reason });
+    checks.push({
+      id: `data:${item.key}`,
+      code: 'DATA',
+      ref: `line:${item.key}`,
+      severity: 'warning',
+      title: lineLabel(open, item.key),
+      detail: item.reason,
+    });
   for (const item of open.readiness.catalog_gaps)
-    checks.push({ id: `gap:${item.key}`, severity: 'warning', title: lineLabel(open, item.key), detail: item.reason });
+    checks.push({
+      id: `gap:${item.key}`,
+      code: 'GAP',
+      ref: `line:${item.key}`,
+      severity: 'warning',
+      title: lineLabel(open, item.key),
+      detail: item.reason,
+    });
   for (const key of open.readiness.unconfigured)
     checks.push({
       id: `unconfigured:${key}`,
+      code: 'UNCONFIGURED',
+      ref: `line:${key}`,
       severity: 'info',
       title: lineLabel(open, key),
       detail: 'Configure this line on the schedule to include it in the design',
@@ -161,6 +181,8 @@ export function openingChecks(open: OpenDesign, skipped: Skipped[] = []): Check[
     if (!listed.has(item.key))
       checks.push({
         id: `skipped:${item.key}`,
+        code: 'SKIPPED',
+        ref: `line:${item.key}`,
         severity: 'warning',
         title: lineLabel(open, item.key),
         detail: item.reason,
@@ -174,6 +196,8 @@ export function runCheckItems(design: Design, builds: OpenDesign['builds']): Che
     const run = design.runs.find((candidate) => candidate.key === item.entityRef);
     return {
       id: `${item.code}:${item.entityRef}`,
+      code: item.code,
+      ref: item.entityRef,
       severity: item.severity,
       title: run ? `Run ${runLabel(run)}` : item.entityRef,
       detail: item.text,
@@ -213,6 +237,8 @@ export function engineCheckItems(messages: readonly DesignMessage[], design: Des
       continue;
     checks.push({
       id: `${item.code}:${item.entityRef}:${item.text}`,
+      code: item.code,
+      ref: item.entityRef,
       severity: item.override ? 'info' : item.severity,
       title: entityLabel(design, item.entityRef),
       detail: item.override ? `${item.text} Accepted: ${item.override.reason}` : item.text,

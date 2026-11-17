@@ -735,3 +735,10 @@
 .frappe-control .tooltip-content {
 	display: none !important;
 }
+
+/* Staff-only "Open in Desk" link on portal record pages (plan 7.2). */
+.ill-desk-link {
+	margin: 0 0 0.5rem;
+	text-align: right;
+	font-size: 0.8125rem;
+}

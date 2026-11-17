@@ -6,9 +6,16 @@ from time import time_ns
 import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import TAPE_NEON_CATEGORIES
-from illumenate_lighting.illumenate_lighting.api.product_projection import TEMPLATE_DOCTYPES, TEMPLATE_FIELDS
+from illumenate_lighting.illumenate_lighting.api.product_projection import (
+	GALLERY_DOCTYPE,
+	TEMPLATE_DOCTYPES,
+	TEMPLATE_FIELDS,
+	product_images,
+)
 from illumenate_lighting.illumenate_lighting.portal.product_finder.facets import FACETS
+from illumenate_lighting.illumenate_lighting.portal.site_flags import hero_image_first_enabled
 from illumenate_lighting.illumenate_lighting.portal_listing import on_portal
+from illumenate_lighting.illumenate_lighting.template_listing import configurator_rows
 from illumenate_lighting.illumenate_lighting.web_listing_migration import LINK_FIELDS
 
 PRODUCT = "ilL-Webflow-Product"
@@ -134,6 +141,7 @@ def build_facts():
 	]
 	if not products:
 		return []
+	hero_first = hero_image_first_enabled()
 	parents = [r.name for r in products] + [name for rows in tables.values() for name in rows]
 	children = defaultdict(lambda: defaultdict(list))
 	child_types = {c for v in TEMPLATES.values() for c in v[2:] if c} | {
@@ -142,7 +150,7 @@ def build_facts():
 		"ilL-Child-Driver-Input-Protocol",
 		"ilL-Child-Controller-Protocol",
 		"ilL-Child-Wireless-Protocol",
-		"ilL-Child-Webflow-Configurator-Option",
+		GALLERY_DOCTYPE,
 	}
 	for doctype in sorted(child_types):
 		for row in frappe.get_all(
@@ -164,9 +172,13 @@ def build_facts():
 	activity = {
 		(d, n): active(row) for d in set(TEMPLATE_DOCTYPES.values()) for n, row in tables.get(d, {}).items()
 	}
+	# The configurator steps come from the linked template (Phase 2c).
+	configurator = {
+		name: [row for row in rows if active(row)] for name, rows in configurator_rows(products).items()
+	}
 	result = []
 	for product in products:
-		product["configurator_options"] = children["ilL-Child-Webflow-Configurator-Option"][product.name]
+		product["configurator_options"] = configurator[product.name]
 		projection = _project(product, activity, public=True)
 		capability = projection["capability"]
 		if capability != "configure" and choices(
@@ -331,7 +343,12 @@ def build_facts():
 				"name": product.name,
 				"slug": product.product_slug,
 				"title": product.product_name,
-				"image": product.featured_image,
+				"image": product_images(
+					product,
+					lambda doctype, name: tables.get(doctype, {}).get(name),
+					children[GALLERY_DOCTYPE][product.name],
+					hero_first,
+				)["primary"],
 				"product_type": product.product_type,
 				"family": family,
 				"series": product.get("series"),

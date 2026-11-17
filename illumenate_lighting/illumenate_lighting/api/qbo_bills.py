@@ -32,8 +32,8 @@ from illumenate_lighting.illumenate_lighting.api.qbo_sync import (
 	_commit,
 	_get_settings,
 	_get_webhook_secret,
-	_record_auth_failure,
-	_verify_signature,
+	become_integration_user,
+	read_signed_json,
 )
 
 RETRY_BATCH = 50
@@ -181,20 +181,12 @@ def send_pending():
 @rate_limit(limit=120, seconds=60)
 def receive_bill_link():
 	"""Body: ``{"purchase_invoice", "qbo_bill_id", "vendor_qbo_id"?}``, signed like the payment events."""
-	raw_body = frappe.request.get_data() or b""
-	if not _verify_signature(raw_body):
-		_record_auth_failure(raw_body)
-		frappe.local.response["http_status_code"] = 401
-		return {"success": False, "error": "unauthorized"}
-	try:
-		payload = json.loads(raw_body.decode("utf-8") or "{}")
-		if not isinstance(payload, dict):
-			raise ValueError("payload must be a JSON object")
-	except (ValueError, UnicodeDecodeError) as e:
-		frappe.local.response["http_status_code"] = 400
-		return {"success": False, "error": "invalid_json", "message": str(e)}
-
-	frappe.set_user("Administrator")
+	payload, refused = read_signed_json()
+	if refused:
+		return refused
+	refused = become_integration_user()
+	if refused:
+		return refused
 	try:
 		result = link_bill(payload)
 	except QBOSyncError as e:

@@ -161,10 +161,10 @@ class MigrationAssets(unittest.TestCase):
 				with self.subTest(field=field, target=row[name_field]):
 					self.assertIn((target_type, row[name_field]), available)
 
-	def test_all_six_number_cards_are_loaded_from_the_app_fixture_directory(self):
+	def test_all_eleven_number_cards_are_loaded_from_the_app_fixture_directory(self):
 		cards = {doc["name"]: doc for doc in fixture_records() if doc["doctype"] == "Number Card"}
 		workspace_cards = {row["number_card_name"] for row in read_json(WORKSPACE_FILE)["number_cards"]}
-		self.assertEqual(len(workspace_cards), 6)
+		self.assertEqual(len(workspace_cards), 11)
 		self.assertTrue(workspace_cards <= cards.keys())
 		for name in workspace_cards:
 			with self.subTest(card=name):
@@ -172,11 +172,59 @@ class MigrationAssets(unittest.TestCase):
 				self.assertEqual(card["type"], "Document Type")
 				self.assertIn(
 					card["document_type"],
-					("Quotation", "Sales Order", "Sales Invoice", "Purchase Order", "Purchase Invoice"),
+					(
+						"Quotation",
+						"Sales Order",
+						"Sales Invoice",
+						"Purchase Order",
+						"Purchase Invoice",
+						*STAFF_QUEUE_CARDS.values(),
+					),
 				)
 				self.assertIsInstance(json.loads(card["filters_json"]), list)
 				if card["function"] != "Count":
 					self.assertTrue(card["aggregate_function_based_on"])
+
+	def test_staff_queue_cards_filter_on_real_select_options(self):
+		"""Plan 7.7: each card counts a DocType state the app actually uses, so the list it opens is not empty."""
+		cards = {doc["name"]: doc for doc in fixture_records() if doc["doctype"] == "Number Card"}
+		for name, doctype in STAFF_QUEUE_CARDS.items():
+			with self.subTest(card=name):
+				card = cards[name]
+				self.assertEqual((card["document_type"], card["function"]), (doctype, "Count"))
+				folder = doctype.lower().replace("-", "_")
+				schema = read_json(MODULE / "doctype" / folder / f"{folder}.json")
+				options = {field["fieldname"]: field.get("options", "").split("\n") for field in schema["fields"]}
+				for dt, field, operator, value, _ in json.loads(card["filters_json"]):
+					self.assertEqual(dt, doctype)
+					values = value if operator == "in" else [value]
+					self.assertTrue(set(values) <= set(options[field]), (field, values))
+
+	def test_existing_sites_get_the_needs_attention_section_after_business_overview(self):
+		with load_service("illumenate_lighting.portal_workspace") as (module, _frappe):
+			shipped = read_json(WORKSPACE_FILE)
+			site = copy.deepcopy(shipped)
+			new_ids = {"ill_ws_attention_header", "ill_ws_attention_intro", "ill_ws_attention_spacer"}
+			new_ids |= {"ill_nc_" + name.lower().replace(" ", "_") for name in STAFF_QUEUE_CARDS}
+			site["content"] = json.dumps([b for b in json.loads(site["content"]) if b["id"] not in new_ids])
+			site["number_cards"] = [r for r in site["number_cards"] if r["number_card_name"] not in STAFF_QUEUE_CARDS]
+			site["shortcuts"].append({"label": "Our customers", "type": "DocType", "link_to": "Customer"})
+			merged = module.merge_workspace(site, shipped)
+			ids = [block["id"] for block in json.loads(merged["content"])]
+			start = ids.index("ill_ws_overview_spacer") + 1
+			self.assertEqual(ids[start], "ill_ws_attention_header")
+			self.assertEqual(ids[start + 7], "ill_ws_attention_spacer")
+			self.assertTrue(STAFF_QUEUE_CARDS.keys() <= {r["number_card_name"] for r in merged["number_cards"]})
+			self.assertIn("Customer", {r.get("link_to") for r in merged["shortcuts"]})
+
+
+STAFF_QUEUE_CARDS = {
+	"Quotes Awaiting Staff": "ilL-Quote-Request",
+	"Drawings Awaiting Review": "ilL-Document-Request",
+	"Orders Needing Acknowledgment": "ilL-Order-Intake",
+	"Products Not Ready": "ilL-Product-Publication",
+	"Failed Publish Jobs": "ilL-Publish-Job",
+}
 
 
 class WorkspaceMigrationRetry(unittest.TestCase):
@@ -237,7 +285,7 @@ class WorkspaceMigrationRetry(unittest.TestCase):
 			self.assertEqual(read_json(Path(temporary) / "last-merge.json")["backup"], backup.name)
 			self.assertIn(site["shortcuts"][-1], applied["shortcuts"])
 			self.assertEqual(json.loads(applied["content"])[0]["data"]["text"], "Our process")
-			self.assertEqual(len(applied["number_cards"]), 7)
+			self.assertEqual(len(applied["number_cards"]), 12)
 			doc.save.assert_called_with(ignore_permissions=True)
 			# Once the pending merge is consumed, another hook call is a no-op.
 			doc.save.reset_mock()

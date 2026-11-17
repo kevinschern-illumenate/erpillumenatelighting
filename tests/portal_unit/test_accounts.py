@@ -21,8 +21,9 @@ class Accounts(unittest.TestCase):
 			with patch.object(module, "get_actor", return_value=actor):
 				with self.assertRaises(PermissionError):
 					module._invite_authority("FOREIGN")
-				with self.assertRaisesRegex(ValueError, "VIEW or EDIT"):
-					module.invite("member@example.com", "Member", access_level="System Manager")
+				refused = module.invite("member@example.com", "Member", access_level="System Manager")
+				self.assertFalse(refused["success"])
+				self.assertIn("VIEW or EDIT", refused["error"])
 			frappe.get_doc.assert_not_called()
 
 	def test_shared_or_foreign_address_cannot_be_changed(self):
@@ -72,8 +73,8 @@ class Accounts(unittest.TestCase):
 					"_invite_authority",
 					side_effect=PermissionError("revoked") if failure == "inviter" else None,
 				):
-					with self.assertRaises((ValueError, PermissionError)):
-						module.accept_invitation("token")
+					# Endpoints answer a readable refusal instead of a bare HTTP 500.
+					self.assertFalse(module.accept_invitation("token")["success"])
 				frappe.db.set_value.assert_not_called()
 
 	def test_acceptance_retains_member_roles_and_binds_only_named_company(self):

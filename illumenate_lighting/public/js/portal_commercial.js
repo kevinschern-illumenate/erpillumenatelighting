@@ -17,10 +17,11 @@
             input.id = heading.id + '-' + field.name; input.name = field.name; label.htmlFor = input.id;
             input.className = 'form-control mb-3'; input.required = !!field.required;
             if (field.type !== 'textarea') input.type = field.type || 'text';
-            if (field.type === 'file') { input.multiple = true; input.accept = '.pdf,.jpg,.jpeg,.png'; }
+            if (field.type === 'file') { input.multiple = true; input.accept = '.pdf,.jpg,.jpeg,.png,.heic,.heif'; }
             else input.maxLength = field.type === 'textarea' ? 4000 : 240;
             if (field.type === 'textarea') input.rows = 4;
             inputs[field.name] = input; form.append(label, input);
+            if (field.type === 'file') window.PortalUploader?.attach(input);
         }
         const result = document.createElement('p'); result.setAttribute('role', 'status');
         const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'btn btn-secondary mr-2'; cancel.textContent = __('Cancel'); cancel.onclick = () => modal.close();
@@ -46,7 +47,7 @@
         modal.addEventListener('cancel', event => { if (sending) event.preventDefault(); });
         modal.showModal(); (Object.values(inputs)[0] || cancel).focus(); return modal;
     }
-    const files = {name: 'files', type: 'file', label: __('Optional PDF/JPEG/PNG attachments: up to 10 files, 20 MiB each')};
+    const files = {name: 'files', type: 'file', label: __('Optional PDF/JPEG/PNG/HEIC attachments: up to 10 files, 20 MiB each')};
     window.PortalCommercial = {
         quote(schedule, modified) {
             return dialog(__('Request quote / engineering review'), [

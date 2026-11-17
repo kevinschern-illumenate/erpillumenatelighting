@@ -46,15 +46,28 @@ def selling_amount(item, quantity):
 	return rate * finite_number(quantity, minimum=0, field="component quantity")
 
 
-def price_result(result, template=None):
+def _template_total(pricing, legacy_rounding):
+	# Before 6.3 the template subtotal was rounded, then rounded again with the other parts.
+	if legacy_rounding:
+		return pricing["total_price_msrp"]
+	return pricing.get("total_price_msrp_exact", pricing["total_price_msrp"])
+
+
+def price_result(result, template=None, *, legacy_rounding=False):
+	"""Price a resolved build: unrounded parts summed, then rounded once (plan 6.3).
+
+	``legacy_rounding`` reproduces the earlier double rounding. Only the read-only
+	repricing report uses it, to show sales which open quotes differ.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.pricing_utils import sum_then_round
 	from illumenate_lighting.illumenate_lighting.api.tape_neon_configurator import (
 		_compute_template_tape_neon_pricing,
 	)
 
 	computed, resolved = result["computed"], result["resolved_items"]
 	if computed.get("ordering_mode") == "BULK_REEL":
-		computed["total_price_msrp"] = round(
-			sum(selling_amount(row["item_code"], row["qty"]) for row in result["components"]), 2
+		computed["total_price_msrp"] = sum_then_round(
+			*(selling_amount(row["item_code"], row["qty"]) for row in result["components"])
 		)
 		computed["price_basis"] = "Standard Selling bulk-stock quantities plus selected accessories"
 		return result
@@ -62,9 +75,12 @@ def price_result(result, template=None):
 		light_rows = [row for row in result["components"] if row["role"] == "light engine"]
 		if template:
 			length = sum(s["manufacturable_length_mm"] for s in computed["segments"])
-			total = _compute_template_tape_neon_pricing(
-				template, result["selections"], length, 0, result["product_category"] == "LED Neon"
-			)["total_price_msrp"]
+			total = _template_total(
+				_compute_template_tape_neon_pricing(
+					template, result["selections"], length, 0, result["product_category"] == "LED Neon"
+				),
+				legacy_rounding,
+			)
 		else:
 			total = sum(selling_amount(row["item_code"], row["qty"]) for row in light_rows)
 		total += sum(
@@ -72,7 +88,7 @@ def price_result(result, template=None):
 			for row in result["components"]
 			if row["role"] != "light engine"
 		)
-		computed["total_price_msrp"] = round(total, 2)
+		computed["total_price_msrp"] = sum_then_round(total)
 		return result
 	segments = computed.get("segments") or []
 	length = (
@@ -95,7 +111,7 @@ def price_result(result, template=None):
 		pricing = _compute_template_tape_neon_pricing(
 			template, selections, length, leads, result["product_category"] == "LED Neon"
 		)
-		total = pricing["total_price_msrp"]
+		total = _template_total(pricing, legacy_rounding)
 	else:
 		total = selling_amount(resolved["tape_item"], stock_quantity(resolved["tape_item"], length, "mm"))
 		if leads:
@@ -105,5 +121,5 @@ def price_result(result, template=None):
 	power = resolved.get("driver_plan") or {}
 	for driver in power.get("drivers", []):
 		total += selling_amount(driver["driver_item"], driver["qty"])
-	computed["total_price_msrp"] = round(total, 2)
+	computed["total_price_msrp"] = sum_then_round(total)
 	return result

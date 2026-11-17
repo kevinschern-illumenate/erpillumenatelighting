@@ -4,6 +4,7 @@ from copy import deepcopy
 
 import frappe
 
+from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.portal.conversations import _pagination
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 from illumenate_lighting.illumenate_lighting.portal.status import SALES_EMAIL
@@ -337,3 +338,159 @@ def summary():
 			entry.update(available=False, error="Native document read permission is required")
 		result.append(entry)
 	return {"queues": result}
+
+
+# One staff inbox over every queue whose records carry an owner (plan 7.4). Drawing reapproval and
+# manufacturing holds are subsets of open drawing requests, so a record appears once.
+INBOX_QUEUES = (
+	"quotes",
+	"orders",
+	"order_changes",
+	"verification",
+	"accounts",
+	"drawings",
+	"reapproval",
+	"production",
+	"support",
+)
+INBOX_LIMIT = 100
+DUE_SOON_HOURS = 24
+DUE_ORDER = {"overdue": 0, "due_soon": 1, "ok": 2, "none": 3}
+# Who the record is for: a customer when it has one, else the dealer user who raised it.
+DEALER_FIELDS = {
+	"ilL-Document-Request": ("requester_user",),
+	"Issue": ("customer", "raised_by"),
+}
+DEFAULT_DEALER_FIELDS = ("customer", "requested_by")
+
+
+def due_state(value, due_field, now=None):
+	"""overdue, due_soon (a date due today, or a datetime within a day), ok, or none."""
+	if not value:
+		return "none"
+	utils = frappe.utils
+	now = utils.get_datetime(now or utils.now_datetime())
+	if due_field in DATE_DUE_FIELDS:
+		due, today = utils.getdate(value), now.date()
+		return "overdue" if due < today else "due_soon" if due == today else "ok"
+	due = utils.get_datetime(value)
+	if due < now:
+		return "overdue"
+	return "due_soon" if due <= utils.add_to_date(now, hours=DUE_SOON_HOURS) else "ok"
+
+
+def _age_days(value, now):
+	if not value:
+		return None
+	return max(0, (now - frappe.utils.get_datetime(value)).days)
+
+
+def _customer_names(rows):
+	names = sorted({row["customer"] for row in rows if row.get("customer")})
+	if not names:
+		return {}
+	return {
+		row.name: row.customer_name or row.name
+		for row in frappe.get_all(
+			"Customer", filters={"name": ["in", names]}, fields=["name", "customer_name"]
+		)
+	}
+
+
+def _inbox_rows(key, view, search, now):
+	from illumenate_lighting.illumenate_lighting.portal.conversations import CLOSED, PARENTS
+
+	owner, due = QUEUES[key][5], QUEUES[key][6]
+	label, doctype, filters, fields = query(key, view, search)
+	dealer = DEALER_FIELDS.get(doctype, DEFAULT_DEALER_FIELDS)
+	rows = frappe.get_list(
+		doctype,
+		filters=filters,
+		fields=list(dict.fromkeys([*fields, *dealer, "creation"])),
+		order_by="modified asc, name asc",
+		limit_page_length=INBOX_LIMIT + 1,
+	)
+	result = []
+	for row in rows[:INBOX_LIMIT]:
+		state = row.get("state") or row.get("ill_review_state") or row.get("status")
+		result.append(
+			{
+				"queue": key,
+				"queue_label": label,
+				"doctype": doctype,
+				"name": row.get("name"),
+				"title": row.get("product_title") or row.get("subject") or row.get("request_type"),
+				"customer": row.get("customer"),
+				"dealer_user": next(
+					(row.get(field) for field in dealer if field != "customer" and row.get(field)), None
+				),
+				"assigned_to": row.get(owner),
+				"due": str(row.get(due)) if due and row.get(due) else None,
+				"due_state": due_state(row.get(due), due, now) if due else "none",
+				"age_days": _age_days(row.get("creation"), now),
+				"state": state,
+				"next_action_by": row.get("ill_next_action_by"),
+				"modified": str(row.get("modified")),
+				"can_wait": doctype in PARENTS and state not in CLOSED,
+			}
+		)
+	return result, len(rows) > INBOX_LIMIT
+
+
+@frappe.whitelist()
+def inbox(view="all", search=None):
+	"""Every owned staff work item the user may read, overdue first (plan 7.4).
+
+	Each queue goes through ``query``, so roles, native read permission and open-state filters are
+	exactly those of the queue tiles. Queues that do not support ``view`` are skipped.
+	"""
+	if view not in ("all", "mine", "unassigned", "overdue"):
+		frappe.throw("This queue does not support that view")
+	now = frappe.utils.get_datetime(frappe.utils.now_datetime())
+	rows, seen, truncated, queues = [], set(), [], []
+	for key in INBOX_QUEUES:
+		_label, capability, _doctype, _filters, _fields, owner, due = QUEUES[key]
+		if view not in _views(owner, due) or not _queue_allowed(key, capability):
+			continue
+		try:
+			found, more = _inbox_rows(key, view, search, now)
+		except frappe.PermissionError:
+			continue
+		queues.append(key)
+		if more:
+			truncated.append(key)
+		for row in found:
+			marker = (row["doctype"], row["name"])
+			if marker not in seen:
+				seen.add(marker)
+				rows.append(row)
+	names = _customer_names(rows)
+	for row in rows:
+		row["customer_name"] = names.get(row["customer"]) if row["customer"] else None
+	rows.sort(key=lambda row: (DUE_ORDER[row["due_state"]], row["due"] or "", -(row["age_days"] or 0)))
+	return {"rows": rows, "total": len(rows), "queues": queues, "truncated": truncated, "view": view}
+
+
+@frappe.whitelist(methods=["POST"])
+@atomic_build
+def claim(queue, name, expected_modified=None):
+	"""Assign an inbox item to the current user through the same checks as the queue's own assign."""
+	from illumenate_lighting.illumenate_lighting.portal import commercial_tasks
+
+	if queue not in INBOX_QUEUES:
+		frappe.throw("Unknown staff queue")
+	_label, capability, doctype, _filters, _fields, owner, _due = QUEUES[queue]
+	user = frappe.session.user
+	if doctype in commercial_tasks.TYPES:
+		# Keep the due date: commercial assign treats a blank due date as "clear it".
+		due = None if doctype == "ilL-Account-Request" else frappe.db.get_value(doctype, name, "due_date")
+		return {**commercial_tasks.assign(doctype, name, user, due, expected_modified), "assigned_to": user}
+	if not _queue_allowed(queue, capability) or not frappe.has_permission(doctype, "write", doc=name):
+		frappe.throw("Staff queue access required", frappe.PermissionError)
+	frappe.db.sql(f"select name from `tab{doctype}` where name=%s for update", name)
+	doc = frappe.get_doc(doctype, name)
+	if str(doc.modified) != str(expected_modified):
+		frappe.throw("This item changed. Reload before assigning it.")
+	doc.set(owner, user)
+	doc.save()
+	return {"success": True, "modified": str(doc.modified), "assigned_to": user}

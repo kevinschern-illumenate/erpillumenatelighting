@@ -6,11 +6,11 @@ const {JSDOM} = require('jsdom');
 const source = fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/public/js/portal_conversation.js'), 'utf8');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-function setup(messages = []) {
+function setup(messages = [], extra = {}) {
   const dom = new JSDOM('<body><div id="a" data-parent-type="Issue" data-parent-name="I1"></div><div id="b" data-parent-type="Issue" data-parent-name="I2"></div></body>', {runScripts:'outside-only', url:'https://portal.test/'});
   const w = dom.window;
   w.__ = value => value;
-  w.frappe = {call: async () => ({message:{messages, status:'Open', next_action_by:'Staff', is_staff:false, can_reply:true, total:messages.length, page:1, page_size:20}})};
+  w.frappe = {call: async () => ({message:{messages, status:'Open', next_action_by:'Staff', is_staff:false, can_reply:true, total:messages.length, page:1, page_size:20, ...extra}})};
   w.PortalUploads = {uploadAll: async () => [], call: async () => ({success:true})};
   w.eval(source);
   return {dom, w, a:w.document.getElementById('a'), b:w.document.getElementById('b')};
@@ -86,5 +86,49 @@ test('the paging bar stays hidden when every message fits', async () => {
   w.PortalConversation(a); await tick();
   assert.equal(a.querySelector('.ill-thread__paging').hidden, true);
   assert.ok(w.document.getElementById('ill-thread-style').textContent.includes('[hidden]{display:none!important}'));
+  dom.window.close();
+});
+
+test('staff write internal notes by default and send to the dealer only with the separate button', async () => {
+  const {dom, w, a} = setup([], {is_staff: true});
+  const calls = [];
+  w.PortalUploads.call = async (method, args) => { calls.push(args); return {success: true}; };
+  w.PortalConversation(a); await tick();
+  const select = a.querySelector('select');
+  const banner = a.querySelector('.ill-thread__banner');
+  const [save, dealer] = a.querySelectorAll('[type=submit]');
+  assert.equal(select.value, 'Internal');
+  assert.equal(save.textContent, 'Save internal note');
+  assert.equal(banner.hidden, true);
+  assert.equal(dealer.hidden, true);
+  a.querySelector('textarea').value = 'Check the stock first';
+  save.click(); await tick(); await tick();
+  assert.equal(calls[0].visibility, 'Internal');
+  assert.equal(calls[0].action, 'REPLY');
+  assert.equal(a.querySelector('.ill-thread__result').textContent, 'Internal note saved.');
+
+  select.value = 'Customer'; select.dispatchEvent(new w.Event('change'));
+  assert.equal(banner.hidden, false);
+  assert.equal(banner.textContent, 'The dealer will see this message.');
+  assert.equal(dealer.hidden, false);
+  assert.equal(save.hidden, true);
+  a.querySelector('textarea').value = 'Your drawing is ready';
+  dealer.click(); await tick(); await tick();
+  assert.equal(calls[1].visibility, 'Customer');
+  assert.equal(select.value, 'Internal', 'the toggle returns to Internal after each message');
+  assert.equal(banner.hidden, true);
+  dom.window.close();
+});
+
+test('dealers always write to staff and never see the staff toggle', async () => {
+  const {dom, w, a} = setup();
+  const calls = [];
+  w.PortalUploads.call = async (method, args) => { calls.push(args); return {success: true}; };
+  w.PortalConversation(a); await tick();
+  assert.equal(a.querySelector('select').closest('div').hidden, true);
+  assert.equal(a.querySelector('[type=submit]').textContent, 'Send message');
+  a.querySelector('textarea').value = 'Hello';
+  a.querySelector('form').dispatchEvent(new w.Event('submit', {cancelable: true})); await tick(); await tick();
+  assert.equal(calls[0].visibility, 'Customer');
   dom.window.close();
 });

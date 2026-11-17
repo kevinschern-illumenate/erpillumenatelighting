@@ -174,7 +174,7 @@ def snapshot(doc):
 	return build
 
 
-def current_estimate(doc):
+def current_estimate(doc, *, legacy_rounding=False):
 	from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import price_result
 
 	build = snapshot(doc)
@@ -182,6 +182,8 @@ def current_estimate(doc):
 		item = frappe.db.get_value("Item", row["item_code"], ["stock_uom", "disabled"], as_dict=True)
 		if not item or item.disabled or item.stock_uom != row["stock_uom"]:
 			raise ValueError("A pinned tape/neon component is inactive or its stock UOM has changed")
-	return price_result({**build, "product_category": doc.product_category}, doc.tape_neon_template)[
-		"computed"
-	]["total_price_msrp"]
+	return price_result(
+		{**build, "product_category": doc.product_category},
+		doc.tape_neon_template,
+		legacy_rounding=legacy_rounding,
+	)["computed"]["total_price_msrp"]

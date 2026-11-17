@@ -12,9 +12,15 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, now_datetime
 
+from illumenate_lighting.illumenate_lighting import webflow_approvals, webflow_notify
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 from illumenate_lighting.illumenate_lighting.api.product_readiness import content_record, evaluate
-from illumenate_lighting.illumenate_lighting.api.publication_contract import callback_disposition, retry_at
+from illumenate_lighting.illumenate_lighting.api.publication_contract import (
+	RETRY_MINUTES,
+	callback_disposition,
+	failure_reason,
+	next_retry,
+)
 from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand, resolve_brand
 from illumenate_lighting.illumenate_lighting.portal.staff import require, require_catalog_reader
 from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
@@ -68,9 +74,23 @@ def _targeted(doc, brand):
 
 
 def _refresh(doc, state, config):
+	from illumenate_lighting.illumenate_lighting import webflow_state
+
+	# What Webflow shows (owner, 2026-11-08): the template's Product Status can override the
+	# product's Webflow Status. A linked product pushes only when there is a status to push.
+	template_status = webflow_state.template_status(doc)
+	effective, rule = webflow_state.effective_status(
+		template_status, doc.get("webflow_status"), bool(state.get("published_on"))
+	)
 	doc = Listing(doc)
-	active = bool(doc.is_active and config["is_active"] and _targeted(doc, state.brand))
+	live = (effective is not None) if template_status else bool(doc.is_active)
+	active = bool(live and config["is_active"] and _targeted(doc, state.brand))
 	readiness = evaluate(doc, "cms")
+	if effective == webflow_state.DISCONTINUED_STAGE and template_status == "Internal Only":
+		# A published page stays up as Discontinued (row 12): not a readiness problem.
+		readiness["issues"] = [
+			issue for issue in readiness["issues"] if issue.get("field") != "product_status"
+		]
 	brand_projection = {
 		key: config.get(key)
 		for key in (
@@ -102,7 +122,12 @@ def _refresh(doc, state, config):
 	if active:
 		from illumenate_lighting.illumenate_lighting.api.webflow_export_v2 import get_webflow_products
 
-		products = get_webflow_products(brand=state.brand, product_slug=doc.name, limit=1)["products"]
+		# A Draft or Discontinued template leaves the product inactive; its page still updates.
+		frappe.flags.ill_export_inactive = True
+		try:
+			products = get_webflow_products(brand=state.brand, product_slug=doc.name, limit=1)["products"]
+		finally:
+			frappe.flags.ill_export_inactive = False
 		if not products:
 			frappe.throw(_("Product is not available for this brand"))
 		# Freeze the complete export. Hash-only exclusions (notably documents)
@@ -136,7 +161,26 @@ def _refresh(doc, state, config):
 				)
 			payload["product"]["category_webflow_item_id"] = category_id
 			payload["product"]["category_details"] = {"webflow_item_id": category_id}
-	hash_payload = {**payload, "product": content_record(payload["product"])}
+		# The template's fields for the Webflow mapping (plan 4.16, 4.19); shaped in n8n.
+		from illumenate_lighting.illumenate_lighting.webflow_sync_payload import template_section
+
+		payload["template"] = template_section(doc, bool(config.get("include_configurator_payload")))
+	# Not content: whether the item was ever published decides if a Webflow Draft is staged only
+	# (never published) or published hidden (plan 4.19 Q1). Kept out of the hash.
+	payload["webflow_state"] = {
+		"ever_published": bool(state.get("published_on")),
+		"effective_status": effective,
+		# For the Publication History (owner, 2026-11-08); kept out of the hash.
+		"template_status": template_status,
+		"webflow_status": doc.get("webflow_status"),
+	}
+	if rule:
+		# Hashed, so a template status change is a new revision to push.
+		payload["effective_webflow_status"] = effective
+	hash_payload = {
+		**{key: value for key, value in payload.items() if key != "webflow_state"},
+		"product": content_record(payload["product"]),
+	}
 	clean_data = _strip_volatile_metadata(
 		{"payload": hash_payload, "dependencies": readiness["dependencies"]}
 	)
@@ -220,6 +264,8 @@ def request(product, brand, operation, expected_hash):
 	require("catalog")
 	if operation not in ("STAGE", "PUBLISH", "RETIRE"):
 		frappe.throw(_("Choose a supported publication action"))
+	# Plan 4.19: nothing goes to Webflow while a restore or archive waits for approval.
+	webflow_approvals.assert_no_pending(product)
 	doc, state, config = _locked(product, brand)
 	payload, readiness = _refresh(doc, state, config)
 	if state.current_hash != expected_hash:
@@ -261,6 +307,11 @@ def request(product, brand, operation, expected_hash):
 				"payload_hash": fingerprint(payload),
 				"request_key": key,
 				"requested_by": frappe.session.user,
+				# The automatic push runs as its service user; the saver is who started it.
+				"started_by": frappe.flags.get("ill_webflow_started_by") or frappe.session.user,
+				"template_status": (payload.get("webflow_state") or {}).get("template_status"),
+				"webflow_status": (payload.get("webflow_state") or {}).get("webflow_status"),
+				"effective_status": (payload.get("webflow_state") or {}).get("effective_status"),
 				"state": "QUEUED",
 			}
 		)
@@ -300,12 +351,23 @@ def claim(brand, limit=1):
 			continue
 		if job.state not in ("QUEUED", "FAILED", "RUNNING"):
 			continue
+		if webflow_approvals.pending(job.product):
+			continue  # held until the approval is decided (plan 4.19)
 		_, readiness = _refresh(doc, state, config)
 		if job.revision_hash != state.current_hash or state.approved_hash != state.current_hash:
 			job.state = "SUPERSEDED"
 			_save(job)
 			continue
 		if job.operation != "RETIRE" and not readiness["ready"]:
+			if job.state == "FAILED" and job.next_attempt_on:
+				# A retry cannot send a product that is no longer ready: stop and notify once.
+				job.next_attempt_on = None
+				job.last_error = state.last_error = (
+					f"Publication failed (readiness: {failure_reason('readiness')})"
+				)
+				_save(job)
+				_save(state)
+				_notify_if_final(job)
 			continue
 		busy = frappe.db.exists(
 			JOB, {"publication": state.name, "name": ["!=", job.name], "state": "RUNNING"}
@@ -374,15 +436,7 @@ def acknowledge(
 		job.state = "SUPERSEDED"
 		state.last_error = "A remote operation completed for an older revision; stage the current revision."
 	elif outcome == "error":
-		job.state = state.state = "FAILED"
-		# Do not persist remote response bodies or credentials in error fields.
-		code = str(error_code or "transport")[:32]
-		job.last_error = state.last_error = f"Publication failed ({code})"
-		job.next_attempt_on = (
-			retry_at(job.attempts, now_datetime(), retry_after)
-			if code in ("transport", "429", "500", "502", "503", "504")
-			else None
-		)
+		_fail(job, state, error_code, retry_after)
 	else:
 		if job.operation != "RETIRE" and not state.remote_item_id:
 			frappe.throw(_("Successful publication requires a remote item ID"))
@@ -397,13 +451,48 @@ def acknowledge(
 			state.live_hash, state.staged_hash, state.state = None, None, "RETIRED"
 	_save(job)
 	_save(state)
+	_notify_if_final(job)
 	return {"job": job.name, "state": job.state, "publication": _receipt(state)}
+
+
+def _fail(job, state, error_code, retry_after=None):
+	"""Record a failed attempt and schedule its retry (plan 4.19 Q3: 1, 5, 15 minutes).
+
+	A temporary failure (rate limit, timeout, connection, 5xx) gets ``next_attempt_on`` until
+	the three retries are used up; a permanent one gets none. The retry is claimed by the
+	minute tick in ``webflow_auto_push``. A newer save supersedes it at claim time, so a retry
+	never sends an old version.
+	"""
+	# Do not persist remote response bodies or credentials in error fields.
+	code = str(error_code or "transport")[:32]
+	job.state = state.state = "FAILED"
+	job.next_attempt_on = next_retry(code, job.attempts, now_datetime(), retry_after)
+	message = f"Publication failed ({code}: {failure_reason(code)})"
+	if job.next_attempt_on:
+		retry = min(max(1, int(job.attempts or 1)), len(RETRY_MINUTES))
+		message += f"; retry {retry} of {len(RETRY_MINUTES)} at {str(job.next_attempt_on)[11:16]}"
+	elif int(job.attempts or 1) > len(RETRY_MINUTES) and next_retry(code, 1, now_datetime()):
+		message += f" after {len(RETRY_MINUTES)} retries"
+	job.last_error = state.last_error = message
+
+
+def _notify_if_final(job):
+	"""Plan 4.19: notify a failure once it is final (permanent, or retries used up).
+
+	A failure waiting for its retry notifies nobody. A success is a push to who started it.
+	"""
+	if job.state == "FAILED" and not job.next_attempt_on:
+		webflow_notify.publication_failed(job)
+	elif job.state == "COMPLETE":
+		# Owner, 2026-11-08: a success is a browser push to who started it, nothing else.
+		webflow_notify.publication_succeeded(job)
 
 
 @frappe.whitelist(methods=["POST"])
 def retry(job):
 	require_catalog_reader()
 	job, doc, state, config = _job_locked(job)
+	webflow_approvals.assert_no_pending(job.product)
 	_refresh(doc, state, config)
 	if (
 		job.state != "FAILED"
@@ -414,6 +503,46 @@ def retry(job):
 	job.state, job.next_attempt_on = "QUEUED", None
 	_save(job)
 	return {"job": job.name, "state": job.state}
+
+
+def expire_leases(now=None):
+	"""A claimed job whose lease ran out without an answer is a temporary failure ("timeout").
+
+	It is retried on the 1, 5, 15 minute schedule like any temporary failure, and notifies when
+	the retries are used up. Run by the minute tick as the integration user. Returns job names.
+	"""
+	require("integration")
+	now = now or now_datetime()
+	rows = frappe.get_all(
+		JOB,
+		filters={"state": "RUNNING", "lease_expires": ["<=", now]},
+		pluck="name",
+		order_by="lease_expires asc",
+		limit_page_length=50,
+	)
+	expired = []
+	for name in rows:
+		job, _doc, state, _config = _job_locked(name)
+		if job.state != "RUNNING" or not job.lease_expires or get_datetime(job.lease_expires) > now:
+			continue
+		job.lease_token = None
+		_fail(job, state, "timeout")
+		_save(job)
+		_save(state)
+		_notify_if_final(job)
+		expired.append(job.name)
+	return expired
+
+
+def retry_brands(now=None):
+	"""Brands with a failed job whose retry is due (the minute tick claims them)."""
+	now = now or now_datetime()
+	return frappe.get_all(
+		JOB,
+		filters={"state": "FAILED", "next_attempt_on": ["<=", now]},
+		pluck="brand",
+		distinct=True,
+	)
 
 
 def invalidate_product(doc, method=None):

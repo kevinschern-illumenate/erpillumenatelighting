@@ -326,9 +326,24 @@
 		if (typeof segments === 'string') segments = JSON.parse(segments);
 		if (segments.length) {
 			this._clearSegments();
-			segments.forEach(function (segment, index) { self.restoreSegment(self._addSegment(index === 0), segment, 'linear'); });
+			segments.forEach(function (segment, index) {
+				var $card = self._addSegment(index === 0);
+				self.restoreSegment($card, segment, 'linear');
+				self._syncSegmentPills($card);
+			});
 			this._propagateInheritedStarts();
 		}
+	};
+
+	// restoreSegment sets each card's selects; light up the matching feed pills too.
+	Fixture.prototype._syncSegmentPills = function ($card) {
+		if (!$card || !$card.length) return;
+		$card.find('.pill-selector[data-field]').each(function () {
+			var value = $card.find('select[name="' + this.getAttribute('data-field') + '"]').val();
+			$(this).find('.pill').each(function () {
+				$(this).toggleClass('active', value != null && value !== '' && this.getAttribute('data-value') === String(value));
+			});
+		});
 	};
 
 	// ────────────────────────────────────────────────────────────────
@@ -1042,6 +1057,7 @@
 	Fixture.prototype._displayResults = function (result) {
 		var showPricing = this.context.show_pricing !== false;
 		this.$('#resultsPanel').show();
+		if (root.IllBuildPreview) root.IllBuildPreview.render(this.$('.ill-build-preview')[0], result, 'linear');
 
 		// Messages
 		var $messages = this.$('#validationMessages');
@@ -1178,6 +1194,18 @@
 
 		if (result.stock_availability) this._renderStockAvailability(result.stock_availability);
 		else this.$('#stockAvailability').hide();
+
+		// Plan 3.8: lead time from the tape offering, labelled as an estimate.
+		var IC = root.IllConfigurator;
+		if (IC && IC.renderEstimate) {
+			if (result.is_valid === false || !partNumber) this.$('#resultsPanel').children('.ill-estimate').remove();
+			else IC.renderEstimate(this.$('#resultsPanel'), {
+				family: 'fixture',
+				tape_offering: (result.pricing_inputs || {}).tape_offering || (result.auto_selected_tape || {}).tape_offering_id,
+				schedule_name: this.context.config_schedule,
+				show_pricing: showPricing
+			});
+		}
 	};
 
 	Fixture.prototype._renderStockAvailability = function (stockData) {

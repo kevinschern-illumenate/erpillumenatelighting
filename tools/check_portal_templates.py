@@ -1,6 +1,7 @@
 """Local Jinja rendering and embedded-JS syntax checks; no Frappe/browser claims."""
 
 import html
+import json
 import re
 import subprocess
 import sys
@@ -21,6 +22,21 @@ from jinja2 import (
 	nodes,
 )
 from markupsafe import Markup
+
+_routes = {}
+exec((ROOT / "illumenate_lighting/illumenate_lighting/portal/routes.py").read_text(encoding="utf-8"), _routes)
+
+# Read the allow-list from source: status.py imports frappe, which the checker does not load.
+BADGE_TONES = frozenset(
+	re.findall(
+		r'"(\w+)"',
+		re.search(
+			r"BADGE_TONES = frozenset\(\{([^}]*)\}\)",
+			(ROOT / "illumenate_lighting/illumenate_lighting/portal/status.py").read_text(),
+		).group(1),
+	)
+)
+assert BADGE_TONES >= {"primary", "secondary", "success", "danger"}, BADGE_TONES
 
 environment = Environment(
 	loader=ChoiceLoader(
@@ -43,7 +59,13 @@ environment.globals.update(
 		"_": lambda value: value,
 		"ill_can_view_catalog": lambda: True,
 		"ill_finder_enabled": lambda: True,
+		"ill_portal_client_flags": lambda: {"upload_widget": True, "upload_purpose": True, "gallery": True},
 		"ill_sanitize_html": lambda value: html.escape(value or ""),
+		"ill_portal_routes": lambda: dict(_routes["PORTAL_ROUTES"]),
+		"ill_desk_link": lambda path: _routes["desk_path"](*_routes["record_for_path"](path)) if _routes["record_for_path"](path) else "",
+		"ill_badge_tone": lambda value: value if value in BADGE_TONES else "secondary",
+		"ill_unread_notifications": lambda: 12,
+		"ill_notification_center_enabled": lambda: True,
 		"include_script": lambda path: Markup(f'<script src="/assets/illumenate_lighting/dist/js/{path}"></script>'),
 		"frappe": SimpleNamespace(
 			format_value=lambda value, options: f"{options.get('options', '')} {value:,.2f}",
@@ -95,6 +117,8 @@ assert not page_style_violations("x", '<a href="#addLineModal">')
 # literal, a macro or sanitized HTML, or listed in tools/portal_raw_outputs.txt with why it is safe.
 OUTPUT = re.compile(r"\{\{-?(.*?)-?\}\}", re.DOTALL)
 MACRO = re.compile(r"\{%-?\s*macro\s+(\w+)")
+# Plan 8.2: macros imported from templates/includes/ are checked in their own file.
+IMPORTED_MACROS = re.compile(r"""\{%-?\s*from\s+["']templates/includes/[^"']+["']\s+import\s+(.+?)\s*-?%\}""")
 ESCAPING_FILTERS = {"e", "escape", "forceescape", "tojson", "urlencode", "int", "float", "round", "length", "count", "abs"}
 RAW_ALLOWLIST_FILE = ROOT / "tools/portal_raw_outputs.txt"
 RAW_ALLOWLIST = {
@@ -135,6 +159,9 @@ def _escaped(expr, macros):
 
 def unescaped_outputs(name, source):
 	macros = set(MACRO.findall(source))
+	for names in IMPORTED_MACROS.findall(source):
+		names = re.sub(r"\s+(?:with|without)\s+context$", "", names)
+		macros.update(part.split(" as ")[-1].strip() for part in names.split(","))
 	found = []
 	for match in OUTPUT.finditer(source):
 		expression = match.group(1).strip()
@@ -153,6 +180,10 @@ assert not unescaped_outputs(
 	"{% macro row(d) %}{% endmacro %}{{ doc.name | e }}{{ (a or b) | e }}{{ x | tojson }}{{ _('Hi') }}"
 	"{{ row(doc) }}{{ page - 1 }}{{ 'a' if ok else 'b' }}{{ ill_sanitize_html(doc.notes) | safe }}",
 )
+assert not unescaped_outputs(
+	"x", '{% from "templates/includes/portal_chrome.html" import pager, breadcrumbs as crumbs %}{{ pager(1) }}{{ crumbs([]) }}'
+)
+assert unescaped_outputs("x", '{% from "elsewhere.html" import pager %}{{ pager(1) }}') == ["x:1: {{ pager(1) }}"]
 assert unescaped_outputs("x", "{{ doc.notes | safe }}{{ a or b | e }}") == [
 	"x:1: {{ doc.notes | safe }}",
 	"x:1: {{ a or b | e }}",
@@ -192,6 +223,27 @@ assert not unlabelled_labels(
 	'<label id="t">Type</label><div role="radiogroup" aria-labelledby="t"></div>'
 	"<template><label>Start</label></template>",
 )
+# Plan 2.9: record names in portal paths and query values are URL-encoded, not HTML-escaped.
+HREF = re.compile(r'href="[^"]*"')
+SEGMENT_ESCAPED = re.compile(r"(?:/portal/[a-z_-]+/|[?&](?:amp;)?[a-z_]+=)\{\{[^}|]+\|\s*e\s*\}\}")
+
+
+def html_escaped_segments(name, source):
+	return [
+		f"{name}:{source.count(chr(10), 0, attr.start()) + 1}: {segment.group(0)}"
+		for attr in HREF.finditer(source)
+		for segment in SEGMENT_ESCAPED.finditer(attr.group(0))
+	]
+
+
+assert html_escaped_segments("x", '<a href="/portal/orders/{{ order.name | e }}">') == [
+	"x:1: /portal/orders/{{ order.name | e }}"
+]
+assert html_escaped_segments("x", '<a href="?page=2&search={{ q | e }}">')
+assert not html_escaped_segments(
+	"x", '<a href="/portal/orders/{{ order.name | urlencode }}"><a href="{{ link | e }}"><a href="#line-{{ k | e }}">'
+)
+segment_violations = []
 unescaped = []
 for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	source = path.read_text(encoding="utf8")
@@ -204,6 +256,10 @@ for path in (ROOT / "illumenate_lighting/templates").rglob("*.html"):
 	handler_violations += [f"{path.relative_to(ROOT)}:{line}" for line in inline_handler_violations(source)]
 	if path.parent.name == "pages":
 		style_violations += page_style_violations(path.relative_to(ROOT), source)
+	if path.parent.name in ("pages", "includes"):
+		segment_violations += html_escaped_segments(path.relative_to(ROOT), source)
+if segment_violations:
+	sys.exit("URL-encode record names in portal links with | urlencode (plan 2.9):\n  " + "\n  ".join(segment_violations))
 if style_violations:
 	sys.exit(
 		"Page styles belong in public/css/pages/_<page>.scss and colours in --ill-* tokens (UI-2):\n  "
@@ -223,6 +279,46 @@ if handler_violations:
 	sys.exit(
 		"Inline event handlers interpolate template values (use data attributes and a delegated listener):\n  "
 		+ "\n  ".join(handler_violations)
+	)
+
+# Plan 8.3: a button or link whose only content is an icon needs an accessible name.
+ICON_ONLY = re.compile(r"<(button|a)\b([^>]*)>\s*<i\b[^>]*>\s*</i>\s*</\1>", re.S)
+
+
+def unnamed_icon_controls(name, source):
+	found = []
+	for match in ICON_ONLY.finditer(source):
+		if re.search(r"aria-label(?:ledby)?=|title=", match.group(2)):
+			continue
+		# jQuery-built controls name themselves right after the markup: $('<button>…').attr('aria-label', …)
+		if re.match(r"""[^;]{0,200}\.attr\(\s*['"](?:aria-label|title)['"]""", source[match.end() :], re.S):
+			continue
+		found.append(f"{name}:{source.count(chr(10), 0, match.start()) + 1}: {match.group(0)[:100]}")
+	return found
+
+
+assert unnamed_icon_controls("x", '<button type="button"><i class="fa fa-trash"></i></button>') == [
+	'x:1: <button type="button"><i class="fa fa-trash"></i></button>'
+]
+assert not unnamed_icon_controls(
+	"x",
+	'<button aria-label="Remove"><i class="fa fa-trash"></i></button>'
+	'<a href="/x" title="Open"><i class="fa fa-link"></i></a>'
+	'<button><i class="fa fa-plus"></i> Add</button>'
+	"$('<button><i class=\"fa fa-x\"></i></button>').attr('data-user', u).attr('aria-label', t)",
+)
+icon_violations = []
+for path in sorted(
+	[*(ROOT / "illumenate_lighting/templates").rglob("*.html"), *(ROOT / "illumenate_lighting/public/js").rglob("*.js")]
+):
+	# Desk scripts render inside Frappe's own chrome and are out of scope for the portal check.
+	if "desk" in path.relative_to(ROOT / "illumenate_lighting").parts or path.name.startswith(("desk_", "illumenate_desk")):
+		continue
+	icon_violations += unnamed_icon_controls(path.relative_to(ROOT), path.read_text(encoding="utf8"))
+if icon_violations:
+	sys.exit(
+		'Give icon-only buttons and links an accessible name (aria-label="...") (plan 8.3):\n  '
+		+ "\n  ".join(icon_violations)
 	)
 
 offer = {
@@ -303,11 +399,16 @@ class Scripts(HTMLParser):
 		super().__init__()
 		self.in_script = False
 		self.sources = []
+		self.json_sources = []
+		self._target = None
 
 	def handle_starttag(self, tag, attrs):
 		if tag == "script":
 			self.in_script = True
-			self.sources.append("")
+			# JSON data blocks (e.g. #ill-portal-flags) are checked with json.loads, not node --check.
+			kind = (dict(attrs).get("type") or "").strip().lower()
+			self._target = self.json_sources if kind == "application/json" else self.sources
+			self._target.append("")
 
 	def handle_endtag(self, tag):
 		if tag == "script":
@@ -315,7 +416,7 @@ class Scripts(HTMLParser):
 
 	def handle_data(self, data):
 		if self.in_script:
-			self.sources[-1] += data
+			self._target[-1] += data
 
 
 parser = Scripts()
@@ -447,6 +548,30 @@ orders_html = environment.get_template("templates/pages/orders.html").render(
 )
 assert "Newer orders" in orders_html and "Older orders" in orders_html
 assert 'class="ill-record"' in orders_html and "No orders match" not in orders_html
+# Plan 8.2: one breadcrumb trail and one pager carry every filter to the next page.
+assert '<li class="breadcrumb-item active" aria-current="page">Orders</li>' in orders_html
+assert 'rel="prev" href="?page=1&amp;search=PO1&amp;status=shipping"' in orders_html
+assert 'rel="next" href="?page=3&amp;search=PO1&amp;status=shipping"' in orders_html
+assert '<span class="ill-pager__page">Page 2</span>' in orders_html
+assert '<a href="/portal/orders">Orders</a>' in order_html
+assert '<li class="breadcrumb-item active" aria-current="page">' in order_html
+# Plan 8.5: the nav bell caps its badge at 9+ and names itself for screen readers.
+assert 'href="/portal/notifications"' in orders_html and ">9+</span>" in orders_html
+assert '<span class="sr-only">9+ unread</span>' in orders_html
+notifications_page = environment.get_template("templates/pages/ill_notifications.html")
+notifications_html = notifications_page.render(
+	path="portal/notifications",
+	notifications=[
+		{"subject": "Quote <b>Q1</b> ready", "link": "/portal/quotes/Q%3C1", "when": "2026-11-01 10:00:00", "when_label": "1 hour ago", "unread": True},
+		{"subject": "Order shipped", "link": "/portal/orders/SO1", "when": "2026-10-01 10:00:00", "when_label": "1 month ago", "unread": False},
+	],
+)
+assert "Quote &lt;b&gt;Q1&lt;/b&gt; ready" in notifications_html and "<b>Q1" not in notifications_html
+assert notifications_html.count("ill-notification--unread") == 1 and 'href="/portal/quotes/Q%3C1"' in notifications_html
+assert 'class="ill-portal-navigation__bell" href="/portal/notifications" aria-current="page"' in notifications_html
+empty_notifications = notifications_page.render(path="portal/notifications", notifications=[])
+assert "No notifications yet" in empty_notifications and 'href="/portal/projects"' in empty_notifications
+parser.feed(notifications_html)
 quote_request_html = environment.get_template("templates/pages/quote_request_detail.html").render(
 	request=View(
 		name="QR1",
@@ -596,6 +721,21 @@ assert "Shop &lt;Drawing&gt;" in drawings_page and "Lobby &lt;Refit&gt;" in draw
 assert 'data-value="shop_drawing"' not in drawings_page, "request types come from Desk"
 assert 'href="?page=1#all"' in drawings_page and 'href="?page=3#all"' in drawings_page, "REL-8 pager"
 assert 'id="requestProjectSearch"' in drawings_page
+prefilled_drawings = environment.get_template("templates/pages/drawings.html").render(
+	request_types=drawing_types,
+	projects=[View(name="P-1", project_name="Lobby <Refit>")],
+	prefill={"project": "P-1", "fixture_reference": 'Schedule S-1: A1, "B<2>"'},
+	pending_requests=[],
+	completed_requests=[],
+	all_requests=[],
+	pending_count=0,
+	page=1,
+	has_more=False,
+	drawing_type_icon=lambda value: "file",
+)
+assert '<option value="P-1" selected>' in prefilled_drawings, "plan 3.3 drawings prefill"
+assert 'value="Schedule S-1: A1, &#34;B&lt;2&gt;&#34;"' in prefilled_drawings, "prefill is escaped"
+assert "selected>" not in drawings_page.split('id="requestProject"')[1].split("</select>")[0]
 parser.feed(drawings_page)
 (render_dir / "drawings.html").write_text(drawings_page, encoding="utf8")
 overview = environment.get_template("templates/pages/portal.html")
@@ -651,7 +791,7 @@ schedule_variants = {
 				View(
 					name="QR-1",
 					link="/portal/quote-requests/QR-1",
-					status_class="info",
+					status_class='info" onmouseover="alert(1)',
 					status_label="Received",
 					assigned_name="Sam <S>",
 					last_message="Can you confirm <b>finish</b>?",
@@ -675,13 +815,116 @@ schedule_variants = {
 			"secondary": None,
 		},
 		unconfigured_lines=[("A1", "key-1"), ("Row 2", "key-2")],
+		line_copy_enabled=True,
+		bulk_edit_enabled=True,
+		part_number_decode_enabled=True,
+		schedule_import_enabled=True,
+		presets_enabled=True,
+		recent_products_enabled=True,
+		stale_badge_enabled=True,
+		undo_enabled=True,
+		activity_timeline_enabled=True,
+		keyboard_shortcuts_enabled=True,
+		import_columns=["Type", "Qty", "Location", "Description", "Part Number", "Notes", "Length (in)"],
 	),
 }
+SCHEDULE_JS = ROOT / "illumenate_lighting/public/js/portal/schedule"
+SCHEDULE_TEXTS = {
+	json.loads(literal)
+	for path in SCHEDULE_JS.glob("*.js")
+	for literal in re.findall(r'scheduleText\(("(?:[^"\\]|\\.)*")\)', path.read_text(encoding="utf8"))
+}
+assert SCHEDULE_TEXTS, "schedule page strings are found"
 for name, variant in schedule_variants.items():
 	schedule_html = schedule_page.render(**schedule_base, **variant)
 	assert "Sam &lt;S&gt;" in schedule_html or name != "schedule-ready"
 	assert 'onclick="requestQuote()"' not in schedule_html and 'onclick="createSalesOrder()"' not in schedule_html
+	# Plan 2.1: the page scripts read their server values from one JSON block, not inline Jinja.
+	context_block = re.search(r'<script type="application/json" id="schedule-context">(.*?)</script>', schedule_html, re.S)
+	schedule_context = json.loads(context_block.group(1))
+	assert schedule_context["schedule_name"] == "S-1" and schedule_context["schedule_status"] == variant["schedule"].status
+	assert schedule_context["dealer_customer_group"] == "", "dealer pricing context only renders for pricing users"
+	assert schedule_context["dealer_pricing_on"] is False, "the saved pricing toggle only renders for pricing users"
+	assert set(schedule_context["i18n"]) == SCHEDULE_TEXTS, set(schedule_context["i18n"]) ^ SCHEDULE_TEXTS
+	assert 'src="/assets/illumenate_lighting/js/portal/schedule/context.js?v=' in schedule_html
+	assert "pricing.js" not in schedule_html
+	# Plan 3.2: copy/configure-similar UI only renders behind its kill switch.
+	copy_enabled = bool(variant.get("line_copy_enabled"))
+	assert schedule_context["line_copy"] is copy_enabled
+	assert ('id="copyLinesModal"' in schedule_html) is copy_enabled
+	assert "schedule/copy.js?v=" in schedule_html
+	# Plan 3.3: line selection and the bulk bar/modal only render behind their kill switch.
+	bulk_enabled = bool(variant.get("bulk_edit_enabled"))
+	assert schedule_context["bulk_edit"] is bulk_enabled
+	assert ('id="bulkEditModal"' in schedule_html) is bulk_enabled
+	# These variants render no rows, so the row checkboxes and bar (inside {% if lines %}) never appear here;
+	# tests/portal_ui/schedule_bulk.test.cjs checks their markup gating.
+	assert bulk_enabled or 'id="bulkActionBar"' not in schedule_html
+	assert bulk_enabled or 'class="line-select"' not in schedule_html
+	assert "schedule/bulk.js?v=" in schedule_html
+	# Plan 3.5: "Add by part number" only renders behind its kill switch.
+	decode_enabled = bool(variant.get("part_number_decode_enabled"))
+	assert schedule_context["part_number_decode"] is decode_enabled
+	assert ('id="addLinePartNumber"' in schedule_html) is decode_enabled
+	assert "schedule/part_number.js?v=" in schedule_html
+	# Plan 3.4: the sheet import only renders behind its kill switch.
+	import_enabled = bool(variant.get("schedule_import_enabled"))
+	assert schedule_context["schedule_import"] is import_enabled
+	assert ('id="importLinesButton"' in schedule_html) is import_enabled
+	assert ('id="importLinesModal"' in schedule_html) is import_enabled
+	assert schedule_context["import_columns"] == (variant["import_columns"] if import_enabled else [])
+	assert "schedule/line_import.js?v=" in schedule_html
+	# Plan 3.6: "Start from a saved preset" only renders behind its kill switch.
+	presets_on = bool(variant.get("presets_enabled"))
+	assert schedule_context["presets"] is presets_on
+	assert ('id="addLinePreset"' in schedule_html) is presets_on
+	assert "schedule/presets.js?v=" in schedule_html
+	# Plan 3.7: "Recently used" cards only render behind their kill switch.
+	recent_on = bool(variant.get("recent_products_enabled"))
+	assert schedule_context["recent_products"] is recent_on
+	assert ('id="addLineRecentList"' in schedule_html) is recent_on
+	assert "schedule/recent.js?v=" in schedule_html
+	# Plan 3.9: the stale-line badge script runs only behind its kill switch.
+	assert schedule_context["stale_badge"] is bool(variant.get("stale_badge_enabled"))
+	assert "schedule/stale.js?v=" in schedule_html
+	# Plan 3.12: the collaborator conflict notice is always available, filled as text by conflict.js.
+	assert 'id="scheduleConflictNotice"' in schedule_html and "schedule/conflict.js?v=" in schedule_html
+	# Plan 3.10: the Undo toast only renders behind its kill switch.
+	undo_on = bool(variant.get("undo_enabled"))
+	assert schedule_context["undo"] is undo_on
+	assert ('id="scheduleUndoToast"' in schedule_html) is undo_on
+	assert "schedule/undo.js?v=" in schedule_html
+	# Plan 3.11: the activity timeline card only renders behind its kill switch.
+	activity_on = bool(variant.get("activity_timeline_enabled"))
+	assert schedule_context["activity_timeline"] is activity_on
+	assert ('id="scheduleActivitySection"' in schedule_html) is activity_on
+	assert "schedule/activity.js?v=" in schedule_html
+	# Plan 3.13: the shortcut help only renders behind its kill switch (the line filter needs rows).
+	keyboard_on = bool(variant.get("keyboard_shortcuts_enabled"))
+	assert schedule_context["keyboard_shortcuts"] is keyboard_on
+	assert ('id="scheduleShortcutsHelp"' in schedule_html) is keyboard_on
+	assert keyboard_on or 'id="lineFilter"' not in schedule_html
+	assert "schedule/keyboard.js?v=" in schedule_html
+	# Plan 2.8: badge classes come only from the fixed tone allow-list.
+	badge_tones = set(re.findall(r'class="badge badge-([^" ]*)', schedule_html))
+	assert badge_tones <= BADGE_TONES, badge_tones - BADGE_TONES
+	assert "onmouseover" not in schedule_html
 	(render_dir / f"{name}.html").write_text(schedule_html, encoding="utf8")
+# Plan 6.7: the compare form needs its flag and two lines, and escapes line labels.
+compare_lines = [
+	{"line_key": "k-1", "line_id": "A1", "idx": 1, "location": "Lobby <b>"},
+	{"line_key": "k 2", "line_id": None, "idx": 2, "location": ""},
+]
+compare_base = {**schedule_base, **schedule_variants["schedule-ready"], "lines_json": compare_lines}
+compare_html = schedule_page.render(**compare_base, compare_enabled=True)
+assert 'id="compareLinesForm"' in compare_html and "Lobby &lt;b&gt;" in compare_html and "Lobby <b>" not in compare_html
+assert 'value="k 2" selected' in compare_html and ">#2</option>" in compare_html
+assert "compare.js?v=" in compare_html
+assert 'id="compareLinesForm"' not in schedule_page.render(**compare_base, compare_enabled=False)
+assert 'id="compareLinesForm"' not in schedule_page.render(
+	**{**compare_base, "lines_json": compare_lines[:1]}, compare_enabled=True
+)
+(render_dir / "schedule-compare.html").write_text(compare_html, encoding="utf8")
 # FLOW-9: the project page lists the latest version of each schedule, earlier ones folded.
 project_page = environment.overlay(undefined=ChainableUndefined).get_template("templates/pages/project.html")
 
@@ -882,6 +1125,10 @@ for category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Shee
 		context["configurator_mode"] = mode
 		output = configurator.render(**context)
 		parser.feed(output)
+		# Plan 6.6: every calculating family has a build preview container behind its kill switch.
+		if category in ("Linear Fixture", "LED Tape", "COB Tape", "LED Neon", "LED Sheet"):
+			assert 'class="ill-build-preview' in output and 'data-enabled="1"' in output, (category, mode)
+			assert 'data-enabled="0"' in configurator.render(**context, build_preview=False), (category, mode)
 		(render_dir / (category.replace(" ", "-") + "-" + mode + ".html")).write_text(output, encoding="utf8")
 prefilled = configurator.render(
 	**{
@@ -899,6 +1146,7 @@ prefilled = configurator.render(
 		},
 	}
 )
+assert 'id="ill-draft-autosave"' not in prefilled
 assert "pre-filled below" in prefilled and "Not offered on this product" in prefilled
 assert "&lt;b&gt;Gold&lt;/b&gt;" in prefilled
 nothing = configurator.render(
@@ -909,6 +1157,37 @@ nothing = configurator.render(
 	}
 )
 assert "nothing was pre-filled" in nothing and "5000K" in nothing
+# Plan 3.5: a decoded part number names its unmatched codes and what to set by hand, escaped.
+from_part_number = configurator.render(
+	**{
+		**context,
+		"pn_prefill": {
+			"part_number": "ILL-<SH01>",
+			"unmatched": [{"answer": "<i>WH</i>", "reason": "matches more than one option"}],
+			"review": [{"text": "Length 48 in"}, {"text": "Output <O3>"}],
+		},
+	}
+)
+assert "Pre-filled from part number ILL-&lt;SH01&gt;" in from_part_number
+assert "&lt;i&gt;WH&lt;/i&gt; (matches more than one option)" in from_part_number
+assert "Length 48 in, Output &lt;O3&gt;" in from_part_number
+assert "ill-pn-banner" not in nothing
+# Plan 3.6: a preset pre-fill names the preset and every problem, escaped; the save control is gated.
+from_preset = configurator.render(
+	**{
+		**context,
+		"preset_prefill": {"label": "<b>Lobby</b>", "usable": True, "problems": ["Finish <i>X</i> is no longer offered"]},
+		"presets_enabled": True,
+		"preset_can_share": True,
+	}
+)
+assert "Pre-filled from preset &lt;b&gt;Lobby&lt;/b&gt;" in from_preset
+assert "Finish &lt;i&gt;X&lt;/i&gt; is no longer offered" in from_preset
+assert 'id="ill-config-presets"' in from_preset and '"can_share": true' in from_preset
+stale_preset = configurator.render(**{**context, "preset_prefill": {"label": "Old", "usable": False, "problems": []}})
+assert "ill-preset-banner" in stale_preset and "Preset Old can no longer be used" in stale_preset
+assert "ill-preset-banner" not in nothing and "ill-config-presets" not in nothing
+assert "ill-live-estimate" not in nothing
 finder = environment.get_template("templates/pages/product_finder.html").render(title="Product Finder", session_token="T", claim_token=None, preview=False, csrf_token="csrf")
 designer_template = environment.get_template("templates/pages/system_design.html")
 designer = designer_template.render(
@@ -919,10 +1198,8 @@ designer = designer_template.render(
 )
 assert 'import "/assets/illumenate_lighting/system_designer/designer.js?v=7";' in designer
 assert "IllSystemDesigner.mount" in designer and "</script><b>" not in designer
-assert "/portal/schedules/SCH%20%3C/script%3E%3Cb%3E" in designer
-assert "Back to schedule" not in designer_template.render(
-	assets="a", asset_version=0, schedule_name=None, mount_options={"schedule": None}
-)
+# The designer's own top bar carries the breadcrumb back to the schedule (SD-1.3).
+assert "Back to schedule" not in designer and "ill-sd-breadcrumb" not in designer
 assert 'ill-finder.js' in finder
 parser.feed(finder)
 catalog_builder = environment.get_template("templates/pages/catalog_builder.html").render(
@@ -967,9 +1244,15 @@ for category, mode in (
 			"config_schedule": "SCH </script><b>",
 			"schedule_name": "SCH </script><b>",
 			"can_save": True,
+			"draft_autosave": mode == "coordinator",
+			"live_estimate": mode == "coordinator",
 		}
 	)
 	assert "</script><b>" not in unpriced, category
+	# Plan 3.1: the autosave marker is rendered only when the page enables it.
+	assert ('id="ill-draft-autosave"' in unpriced) == (mode == "coordinator"), category
+	# Plan 3.8: the estimate panel marker follows the ill_portal_live_estimate kill switch.
+	assert ('id="ill-live-estimate"' in unpriced) == (mode == "coordinator"), category
 	assert 'id="pricingResults"' not in unpriced and "Fixture Price Breakdown" not in unpriced, category
 	assert "config_schedule" in unpriced, category
 	parser.feed(unpriced)
@@ -998,8 +1281,10 @@ with tempfile.TemporaryDirectory(prefix="portal-template-", dir=ROOT / ".tools")
 		path = Path(directory) / f"script-{index}.js"
 		path.write_text(source, encoding="utf8")
 		subprocess.run(["node", "--check", str(path)], check=True)
+for source in parser.json_sources:
+	json.loads(source)
 print(
-	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts"
+	f"Parsed {parsed} Jinja templates; rendered quotes and nine configurator modes; checked {len(parser.sources)} embedded scripts and {len(parser.json_sources)} JSON blocks"
 )
 
 class PrintDoc(SimpleNamespace):
