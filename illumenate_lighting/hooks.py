@@ -61,6 +61,11 @@ doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.j
     "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
+# "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
+for _name in ("Quotation", "Sales Order", "Sales Invoice"):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/helpdesk_tickets.js"]
 # Desk record -> portal page, and portal request list indicators (DESK-4, DESK-5).
 for _name in (
     "ilL-Project", "ilL-Project-Fixture-Schedule", "ilL-Quote-Request", "ilL-Quote-Offer",
@@ -200,7 +205,7 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags", "illumenate_lighting.illumenate_lighting.helpdesk_links.ill_print_pdf_url"],
 }
 
 # One route contract for Desk scripts (hardening plan 7.1).
@@ -212,7 +217,11 @@ extend_bootinfo = ["illumenate_lighting.illumenate_lighting.portal.routes.extend
 # before_install = "illumenate_lighting.install.before_install"
 after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
 before_migrate = "illumenate_lighting.portal_workspace.before_migrate"
-after_migrate = "illumenate_lighting.portal_workspace.after_migrate"
+after_migrate = [
+	"illumenate_lighting.portal_workspace.after_migrate",
+	# Helpdesk ticket -> Quotation / Sales Order / Sales Invoice links, once Helpdesk is installed.
+	"illumenate_lighting.illumenate_lighting.helpdesk_links.after_migrate",
+]
 
 # Fixtures
 # --------
@@ -350,6 +359,8 @@ override_doctype_class = {
 
 doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
+	# Helpdesk: a ticket linked to an invoice or order also gets its order and quote.
+	"HD Ticket": {"validate": "illumenate_lighting.illumenate_lighting.helpdesk_links.fill_upstream"},
 	# Product and template images get WebP derivatives in the background (plan 5.8).
 	"File": {"after_insert": "illumenate_lighting.illumenate_lighting.api.media_derivatives.on_file_insert"},
 	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans",
@@ -551,6 +562,12 @@ scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_
 # override_doctype_dashboards = {
 # 	"Task": "illumenate_lighting.task.get_dashboard_data"
 # }
+# Linked Helpdesk tickets under Connections (only when Helpdesk is installed).
+override_doctype_dashboards = {
+	"Quotation": "illumenate_lighting.illumenate_lighting.helpdesk_links.quotation_dashboard",
+	"Sales Order": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_order_dashboard",
+	"Sales Invoice": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_invoice_dashboard",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #
