@@ -1,6 +1,7 @@
 // Edit fixture page script (plan 2.2). The page renders its server values as JSON in
 // #edit-fixture-context instead of interpolating Jinja into JavaScript. This is a classic
 // (non-module) script, so its top-level names stay global as they were in the inline script.
+/* global PortalUI */
 var editFixtureContext = JSON.parse(document.getElementById('edit-fixture-context').textContent || '{}');
 function editFixtureText(text) {
 	var strings = editFixtureContext.i18n || {};
