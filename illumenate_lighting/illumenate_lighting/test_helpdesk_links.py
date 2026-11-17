@@ -38,3 +38,44 @@ class TestHelpdeskLinks(IntegrationTestCase):
 			self.skipTest("Helpdesk is installed")
 		helpdesk_links.ensure_fields()
 		self.assertFalse(frappe.db.exists("Custom Field", {"dt": "HD Ticket"}))
+
+	def test_project_and_schedule_dashboards_use_ticket_fields(self):
+		for override, doctype, fieldname in (
+			(helpdesk_links.project_dashboard, "ilL-Project", "ill_project"),
+			(
+				helpdesk_links.fixture_schedule_dashboard,
+				"ilL-Project-Fixture-Schedule",
+				"ill_fixture_schedule",
+			),
+		):
+			data = override({})
+			if helpdesk_links.helpdesk_installed():
+				self.assertEqual(data["non_standard_fieldnames"]["HD Ticket"], fieldname, doctype)
+			else:
+				self.assertEqual(data, {})
+
+	def test_pdf_url_is_blank_for_project_documents(self):
+		self.assertEqual(helpdesk_links.ill_print_pdf_url("ilL-Project", "anything"), "")
+
+	def test_fill_upstream_takes_project_from_schedule(self):
+		schedule = frappe.db.get_value(
+			"ilL-Project-Fixture-Schedule",
+			{"ill_project": ["is", "set"]},
+			["name", "ill_project"],
+			as_dict=True,
+		)
+		if not schedule:
+			self.skipTest("no fixture schedule with a project on this site")
+		doc = frappe._dict(ill_fixture_schedule=schedule.name)
+		helpdesk_links.fill_upstream(doc)
+		self.assertEqual(doc.ill_project, schedule.ill_project)
+
+		doc = frappe._dict(ill_fixture_schedule=schedule.name, ill_project="kept")
+		helpdesk_links.fill_upstream(doc)
+		self.assertEqual(doc.ill_project, "kept")
+
+	def test_legacy_sidebar_flag_means_sales_fields_only(self):
+		frappe.db.set_default("ill_helpdesk_sidebar_seeded", "1")
+		self.assertEqual(helpdesk_links._seeded_fields(), set(helpdesk_links.SALES_FIELDS.values()))
+		frappe.db.set_default("ill_helpdesk_sidebar_seeded", "ill_project,ill_quotation")
+		self.assertEqual(helpdesk_links._seeded_fields(), {"ill_project", "ill_quotation"})

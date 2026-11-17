@@ -1,9 +1,12 @@
-// ilLumenate Lighting - link Helpdesk tickets to a Quotation, Sales Order or Sales Invoice.
-// The link is stored on the ticket (ill_quotation / ill_sales_order / ill_sales_invoice)
-// so Helpdesk email templates can read it; linked tickets show under Connections.
+// ilLumenate Lighting - link Helpdesk tickets to an ilL-Project, ilL-Project-Fixture-Schedule,
+// Quotation, Sales Order or Sales Invoice. The link is stored on the ticket (ill_project /
+// ill_fixture_schedule / ill_quotation / ill_sales_order / ill_sales_invoice) so Helpdesk
+// email templates can read it; linked tickets show under Connections.
 
 (function () {
 	const FIELDS = {
+		"ilL-Project": "ill_project",
+		"ilL-Project-Fixture-Schedule": "ill_fixture_schedule",
 		Quotation: "ill_quotation",
 		"Sales Order": "ill_sales_order",
 		"Sales Invoice": "ill_sales_invoice",
