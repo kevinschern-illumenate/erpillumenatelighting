@@ -84,6 +84,13 @@ SHARED_FIELDS = [
 	# template on save (set_dynamic_hero_image).
 	_column("product_data_column"),
 	{"fieldname": "hero_image", "fieldtype": "Attach Image", "label": "Hero Image"},
+	# The main product image's alt text (plan 5.2); the portal image resolver reads it.
+	{
+		"fieldname": "hero_image_alt",
+		"fieldtype": "Data",
+		"label": "Hero Image Alt Text",
+		"description": "Describe the main product image for screen readers and search engines.",
+	},
 ]
 
 _LENGTHS = [

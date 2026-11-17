@@ -262,3 +262,31 @@ Implementation validation commands should include scoped `ruff check` and `ruff 
 The feature is complete when a dealer can choose single or grouped configuration in each requested family, keep internal jumpers, select shared specifications and one power policy, save a complete group as one commercial line with one combined buildable BOM, reopen it losslessly, multiply its quantity correctly, and carry it through quote/order/manufacturing without missing or duplicated materials or power. The Desk checkbox must work through mouse, label, and keyboard on repeated use, and its false value must reach the saved build.
 
 Begin implementation with Phase A's reproduction and the normalized contract. Treat the source-confirmed defects as work items and the deployed checkbox explanation as a hypothesis requiring UI confirmation. Keep catalog-data limitations explicit in planner errors rather than hiding them behind successful validation. Report actual tests run, remaining environment limitations, and migration impact at handoff.
+
+**13. Implementation status and remaining acceptance (hardening plan 6.8, re-verified 2026-11)**
+
+Verified against the code on `feat/phase-6-configurator`. "Code-verified" means the behavior is in source and covered by pure unit tests. It does not mean accepted on an installed site. The group-save path stays behind `ill_portal_fixture_groups`. The flag is enforced in `fixture_group_configurator.py` and `fixture_group_bom.py`, and `desk_configurator.py` passes it to the Desk dialog. Issued builds and BOMs are immutable and were not changed.
+
+| Plan reference | State | Evidence |
+|---|---|---|
+| F9 (line 69): linear leader cables are absent from the BOM | Code-verified | The commented-out TODO block is gone. `linear_build.cable_manifest` lists each run feed, outgoing jumper and single-fixture end leader once, with stock-UOM/assembly-length conversion. It fails on unresolved, disabled or absent cables instead of dropping a row. `manufacturing_generator` reads the pinned `cable_manifest_json` through `cable_bom_rows`. Tests: `test_linear_builds.py`, `test_grouping_gates.py::LinearCableOwnership`. |
+| F10: tape/neon cable ownership and UOM | Code-verified for version-2 builds | `tape_neon_build.physical_manifest`: a jumper belongs to its preceding segment, the inherited start is not counted again, an endcap ignores a stale jumper length, and extra split-run feeds are separate. Tests: `test_tape_neon_builds.py`, `test_count_uoms.py`. Legacy (unversioned) `tape_neon_bom` rows are left as issued. |
+| Service boundaries (lines 131–138) | Code-verified | `configuration_contract.py`, `group_contract.py`, `fixture_group_configurator.py`, `power_planner.py`, `fixture_group_bom.py` exist with the described split. Family engines keep geometry. |
+| Canonical identity (lines 170–174) | Code-verified | `group_contract.normalize` (schema 3) is the single identity for preview/save/lookup. Inches, feet, ft+in and millimetres give one identity. Labels, member order, UUIDs, view and quantity do not affect it. Leader/jumper lengths, template, power inclusion and the electrical policy do. Tests: `test_fixture_groups.py::GroupContract`, `test_grouping_gates.py::CanonicalIdentity`. |
+| Gates A–E (lines 186–196) | Code-verified locally | Covered by the pure suites above plus `test_power_allocation.py`, `test_build_immutability.py` and `test_closeout.py`. |
+| Gates F–G and scenarios in section 11 that need a site | **Remaining: staging acceptance** | See the steps below. |
+
+Remaining acceptance steps. Run these on a disposable staging site with `ill_portal_fixture_groups` on. Record pass/fail, actor, revision and evidence in the `docs/B2B_CLOUD_ACCEPTANCE.md` "Independent groups" and "Review and lineage" rows.
+
+1. Fresh and upgraded site: run `bench --site <site> migrate` on a fresh site and on a copy of production. Confirm that `ilL-Configured-Group` and its child tables install, the patches are idempotent on a second migrate, and existing single, jumper, reel and exploded-sheet lines still render and convert.
+2. L1 reference: create a 20/5/25 ft linear group with 6/3/2 ft leaders and quantity 2 in the portal and in the Quotation Desk dialog. Expect:
+   - The parent BOM has quantity one, and each leader appears exactly once with the correct stock-UOM quantity.
+   - Demand doubles every component exactly once.
+   - The PDF shows distinct member labels and cuts.
+3. Commercial chain: Schedule → Quotation → Sales Order → Work Order. Expect one commercial group line with the pinned BOM and complete member cut/feed instructions. Group lines must not explode into raw components.
+4. Desk browser checks: on new and existing Quotations and Sales Orders, open the dialog for the first time, close and reopen it, use Add Another and Back, and open several modals. Expect the power checkbox (box, label and Space) to toggle only its own instance.
+5. Rollback and races:
+   - Force a member validation failure and a BOM save failure. Expect no partial group, Item or line.
+   - Double-click Save and edit the same line from two sessions. Expect idempotent artifacts, no duplicate line, and a clear concurrency error.
+6. Flag off: disable `ill_portal_fixture_groups`. Existing groups must remain readable and convertible while new group saves are refused.
+7. Business decision, still open: whether to enable the flag for dealers after steps 1–6 pass (opt-in pilot via `ill_portal_pilot_users` first).

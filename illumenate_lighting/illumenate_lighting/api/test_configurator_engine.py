@@ -787,13 +787,13 @@ class TestConfiguratorEngine(FrappeTestCase):
 		# - base_price_msrp = $100
 		# - price_per_ft_msrp = $10/ft
 		# - length_adder = 3.117 * $10 = $31.17 (rounded)
-		# - finish_adder = $25
-		# - lens_adder = $15
-		# - mounting_adder = $10
-		# - endcap_style_adder = $5
+		# Option adders are per foot (x 3.117 ft); Endcap Style adders are flat per endcap:
+		# - finish_adder = $25/ft x 3.117 = $77.92
+		# - lens_adder = $15/ft x 3.117 = $46.75
+		# - mounting_adder = $10/ft x 3.117 = $31.17
+		# - endcap_style_adder = $5 per endcap
 		# - power_feed_type_adder = $0
 		# - environment_rating_adder = $0
-		# Total MSRP = 100 + 31.17 + 25 + 15 + 10 + 5 = $186.17 (approximately)
 
 		result = validate_and_quote(
 			fixture_template_code=self.template_code,
@@ -847,7 +847,8 @@ class TestConfiguratorEngine(FrappeTestCase):
 		# Verify option adders are included
 		self.assertIn("finish", components)
 		finish_adder = next(item for item in pricing["adder_breakdown"] if item["component"] == "finish")
-		self.assertEqual(finish_adder["amount"], 25.0)
+		self.assertEqual(finish_adder["amount"], round(25.0 * 950 / 304.8, 2))
+		self.assertIn("/ft", finish_adder["description"])
 
 	def test_pricing_snapshot_storage_task_4_2(self):
 		"""Test Epic 4 Task 4.2: Store pricing snapshot into ilL-Configured-Fixture"""

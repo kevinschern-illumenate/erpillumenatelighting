@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "allow_import": 0,
+ "autoname": "hash",
+ "creation": "2026-11-20 10:00:00.000000",
+ "description": "WebP derivatives, dimensions and GPS stripping of a product image. Written by the background image job.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "idempotency_key",
+  "status",
+  "source_file",
+  "source_url",
+  "content_hash",
+  "recipe",
+  "column_break_dimensions",
+  "width",
+  "height",
+  "gps_removed",
+  "processed_at",
+  "section_break_derivatives",
+  "derivatives",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "idempotency_key",
+   "fieldtype": "Data",
+   "label": "Idempotency Key",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "Queued",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Queued\nDone\nSkipped\nError",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_file",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source File",
+   "options": "File",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_url",
+   "fieldtype": "Data",
+   "label": "Source URL",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "content_hash",
+   "fieldtype": "Data",
+   "label": "Content Hash",
+   "read_only": 1
+  },
+  {
+   "default": "webp-v1",
+   "fieldname": "recipe",
+   "fieldtype": "Data",
+   "label": "Recipe",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_dimensions",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "width",
+   "fieldtype": "Int",
+   "label": "Width (px)",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "height",
+   "fieldtype": "Int",
+   "label": "Height (px)",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "gps_removed",
+   "fieldtype": "Check",
+   "label": "GPS Removed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "processed_at",
+   "fieldtype": "Datetime",
+   "label": "Processed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_derivatives",
+   "fieldtype": "Section Break",
+   "label": "Derivatives"
+  },
+  {
+   "default": "[]",
+   "fieldname": "derivatives",
+   "fieldtype": "JSON",
+   "label": "Derivatives",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Error",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "links": [],
+ "modified": "2026-11-20 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Image-Derivative",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "ilL Catalog Publisher"
+  }
+ ],
+ "search_fields": "source_url, status",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "source_url",
+ "track_changes": 0
+}

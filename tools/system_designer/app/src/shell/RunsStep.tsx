@@ -27,6 +27,7 @@ import {
 import type { DesignStore } from '../design/store';
 import { CommitInput, parseFeet, PICKS, PROVENANCE } from './fields';
 import type { OpenDesign } from './open';
+import { runEntities } from './checkTargets';
 
 const FEEDS: Record<Run['feedMethod'], string> = {
   end: 'End',
@@ -279,6 +280,7 @@ function RunLine({
     <tr
       className={`${nested ? 'ill-sd__nested' : ''}${focused ? ' ill-sd__focused' : ''}`.trim() || undefined}
       data-testid={`row-${row.id}`}
+      data-entity={runEntities(row.runs)}
     >
       <td>
         <input

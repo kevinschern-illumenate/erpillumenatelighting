@@ -2358,10 +2358,10 @@
         },
         {
           "fieldname": "msrp_adder",
-          "label": "MSRP Adder",
+          "label": "MSRP Adder ($/ft)",
           "fieldtype": "Currency",
           "default": "0",
-          "description": "MSRP price adder for this option"
+          "description": "Per-foot MSRP adder: added to the template's price per foot and multiplied by the configured (priced) length. Endcap Style adders are a flat amount per endcap."
         }
       ]
     },
@@ -2797,7 +2797,8 @@
           "label": "Sync Status",
           "fieldtype": "Select",
           "options": "Never Synced\nPending\nSynced\nError",
-          "default": "Never Synced"
+          "default": "Never Synced",
+          "read_only": 1
         },
         {
           "fieldname": "webflow_item_id",
@@ -3125,6 +3126,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         }
       ]
     },
@@ -3355,6 +3362,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         }
       ]
     },
@@ -3514,6 +3527,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "min_length_mm",
@@ -3766,6 +3785,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "min_length_mm",
@@ -4211,6 +4236,12 @@
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
+        },
+        {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
         },
         {
           "fieldname": "l70_life_hours",
@@ -6892,6 +6923,12 @@
           "fieldtype": "Attach Image"
         },
         {
+          "fieldname": "hero_image_alt",
+          "label": "Hero Image Alt Text",
+          "fieldtype": "Data",
+          "description": "Describe the main product image for screen readers and search engines."
+        },
+        {
           "fieldname": "min_length_mm",
           "label": "Min Length (mm)",
           "fieldtype": "Int"
@@ -7155,7 +7192,8 @@
           "fieldname": "tape_spec",
           "label": "LED Tape Spec (Deprecated)",
           "fieldtype": "Link",
-          "options": "ilL-Spec-LED Tape"
+          "options": "ilL-Spec-LED Tape",
+          "read_only": 1
         },
         {
           "fieldname": "tape_neon_template",

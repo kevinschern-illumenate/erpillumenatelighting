@@ -9,6 +9,8 @@
     "file",
     "file_name",
     "title",
+    "purpose",
+    "caption",
     "sha256",
     "is_primary",
     "active",
@@ -47,6 +49,20 @@
       "fieldtype": "Data",
       "label": "Title",
       "read_only": 1
+    },
+    {
+      "fieldname": "purpose",
+      "fieldtype": "Select",
+      "label": "Purpose",
+      "options": "\nSite photo\nReference image\nExisting fixture\nDrawing markup\nLogo\nPO\nOther",
+      "default": "",
+      "description": "Optional dealer-chosen purpose (hardening plan 4.3)."
+    },
+    {
+      "fieldname": "caption",
+      "fieldtype": "Small Text",
+      "label": "Caption",
+      "default": ""
     },
     {
       "fieldname": "sha256",

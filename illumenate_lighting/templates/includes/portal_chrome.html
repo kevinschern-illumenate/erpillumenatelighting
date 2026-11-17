@@ -1,0 +1,56 @@
+{#-
+Shared portal page chrome (hardening plan 8.2). Import what a page needs:
+  {% from "templates/includes/portal_chrome.html" import breadcrumbs, pager, empty_state %}
+Every value is escaped here, so pages pass raw data.
+-#}
+
+{#- trail: [(label, href), ...]; the last entry is the current page and is not a link. -#}
+{% macro breadcrumbs(trail) -%}
+<nav aria-label="{{ _('Breadcrumb') }}" class="ill-breadcrumbs mb-3">
+	<ol class="breadcrumb">
+	{%- for label, href in trail %}
+		{%- if loop.last or not href %}
+		<li class="breadcrumb-item active"{% if loop.last %} aria-current="page"{% endif %}>{{ label | e }}</li>
+		{%- else %}
+		<li class="breadcrumb-item"><a href="{{ href | e }}">{{ label | e }}</a></li>
+		{%- endif %}
+	{%- endfor %}
+	</ol>
+</nav>
+{%- endmacro %}
+
+{#-
+One previous/next bar for server-paginated lists. params: [(name, value), ...] kept on both links,
+page_param names the page query key, fragment is appended as-is ("#all").
+-#}
+{% macro pager(label, page, has_more, params=(), page_param="page", prev_label=None, next_label=None, fragment="") -%}
+{%- if page > 1 or has_more %}
+<nav class="ill-pager" aria-label="{{ label | e }}">
+	{%- if page > 1 %}
+	<a class="btn btn-outline-secondary btn-sm" rel="prev" href="?{{ page_param | urlencode }}={{ page - 1 }}{% for name, value in params %}&amp;{{ name | urlencode }}={{ (value if value is not none else '') | urlencode }}{% endfor %}{{ fragment | e }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ (prev_label or _("Previous")) | e }}</a>
+	{%- else %}
+	<span></span>
+	{%- endif %}
+	<span class="ill-pager__page">{{ _("Page {0}").format(page) | e }}</span>
+	{%- if has_more %}
+	<a class="btn btn-outline-secondary btn-sm" rel="next" href="?{{ page_param | urlencode }}={{ page + 1 }}{% for name, value in params %}&amp;{{ name | urlencode }}={{ (value if value is not none else '') | urlencode }}{% endfor %}{{ fragment | e }}">{{ (next_label or _("Next")) | e }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>
+	{%- else %}
+	<span></span>
+	{%- endif %}
+</nav>
+{%- endif %}
+{%- endmacro %}
+
+{#- An empty list always says what to do next. action: (label, href) or none. -#}
+{% macro empty_state(title, text=None, icon="inbox", action=None) -%}
+<div class="ill-empty">
+	<i class="fa fa-{{ icon | e }}" aria-hidden="true"></i>
+	<h3>{{ title | e }}</h3>
+	{%- if text %}
+	<p>{{ text | e }}</p>
+	{%- endif %}
+	{%- if action %}
+	<a class="btn btn-primary btn-sm" href="{{ action[1] | e }}">{{ action[0] | e }}</a>
+	{%- endif %}
+</div>
+{%- endmacro %}

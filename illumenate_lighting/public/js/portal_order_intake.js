@@ -1,12 +1,17 @@
 (function () {
     const api = 'illumenate_lighting.illumenate_lighting.portal.order_intake.';
-    const esc = value => frappe.utils.escape_html(String(value == null ? '' : value));
+    // Plan 2.5: PortalUI.html escapes every interpolated value.
+    const scopeMarkup = scope => {
+        const html = window.PortalUI.html;
+        const lines = (scope.lines || []).map(line => html`<li>${line.line_id}: ${line.qty} - ${line.product_type || line.manufacturer_type}${line.manufacturer_type === 'OTHER' ? ' - ' + __('EXCLUDED from sellable order') : ''}</li>`);
+        return String(html`<p>${scope.basis}</p><ul>${lines}</ul><p><a href="/portal/account#companyManagement" target="_blank" rel="noopener">${__('Manage company addresses and contacts')}</a></p>`);
+    };
     window.PortalOrderIntake = {async open(target) {
         const data = await PortalUploads.call(api + 'prepare', target);
         const choices = data.choices, defaults = data.defaults || {};
         const option = (type, label) => [{value: '', label: __('Choose ' + label)}].concat((choices[type] || []).map(row => ({value: row.name, label: type === 'address' ? [row.address_title, row.address_line1, row.city].filter(Boolean).join(' - ') : [row.first_name, row.last_name, row.email_id].filter(Boolean).join(' ')})));
         const fields = [
-            {fieldname: 'scope', fieldtype: 'HTML', options: '<p>' + esc(data.scope.basis) + '</p><ul>' + data.scope.lines.map(line => '<li>' + esc(line.line_id) + ': ' + esc(line.qty) + ' - ' + esc(line.product_type || line.manufacturer_type) + (line.manufacturer_type === 'OTHER' ? ' - ' + __('EXCLUDED from sellable order') : '') + '</li>').join('') + '</ul><p><a href="/portal/account#companyManagement" target="_blank" rel="noopener">' + __('Manage company addresses and contacts') + '</a></p>'},
+            {fieldname: 'scope', fieldtype: 'HTML', options: scopeMarkup(data.scope)},
             {fieldname: 'po_no', fieldtype: 'Data', label: __('PO number'), default: defaults.po_no || ''},
             {fieldname: 'customer_address', fieldtype: 'Select', label: __('Billing address'), options: option('address', 'billing address'), reqd: 1, default: defaults.customer_address || ''},
             {fieldname: 'shipping_address_name', fieldtype: 'Select', label: __('Shipping address'), options: option('address', 'shipping address'), reqd: 1, default: defaults.shipping_address_name || ''},
@@ -14,7 +19,7 @@
             {fieldname: 'requested_date', fieldtype: 'Date', label: __('Requested delivery date (subject to confirmation)'), reqd: 1, default: defaults.requested_date || ''},
             {fieldname: 'receiving_instructions', fieldtype: 'Small Text', label: __('Receiving instructions')},
             {fieldname: 'shipping_instructions', fieldtype: 'Small Text', label: __('Shipping instructions')},
-            {fieldname: 'uploads', fieldtype: 'HTML', options: '<label>' + __('PO and reference files (optional, up to 10 PDF/JPEG/PNG files, 20 MiB each)') + '<input type="file" class="form-control intake-files" multiple accept=".pdf,.jpg,.jpeg,.png"></label>'},
+            {fieldname: 'uploads', fieldtype: 'HTML', options: '<label>' + __('PO and reference files (optional, up to 10 PDF/JPEG/PNG/HEIC files, 20 MiB each)') + '<input type="file" class="form-control intake-files" multiple accept=".pdf,.jpg,.jpeg,.png,.heic,.heif"></label>'},
             {fieldname: 'acknowledge_scope', fieldtype: 'Check', label: __('I reviewed quantities and sellable scope, including exclusions. Final prices and delivery require review and acknowledgment before staff approval.'), reqd: 1},
             {fieldname: 'feedback', fieldtype: 'HTML', options: '<p role="alert" aria-live="polite" class="intake-feedback"></p>'}
         ];
@@ -36,6 +41,7 @@
         }});
         const previous = document.activeElement;
         dialog.onhide = () => { if (previous && previous.isConnected) previous.focus(); };
+        window.PortalUploader?.attach(dialog.fields_dict.uploads.$wrapper.find('input')[0]);
         dialog.show();
     }};
 })();

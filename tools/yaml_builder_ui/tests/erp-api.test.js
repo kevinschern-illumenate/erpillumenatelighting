@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createErpApi, ErpError, frappeMessage, slug, deskUrl, recordCounts } from '../src/erp-api.js';
+import { createErpApi, ErpError, frappeMessage, mediaBody, slug, deskUrl, recordCounts } from '../src/erp-api.js';
 
 test('Frappe errors decode nested messages and tolerate malformed error bodies', () => {
   assert.equal(frappeMessage({ _server_messages: JSON.stringify([JSON.stringify({ message: 'First' }), JSON.stringify({ message: 'Second' })]) }), 'First\nSecond');
@@ -43,6 +43,25 @@ test('all endpoints use same-origin credentials, encoded queries, and exact CSRF
   assert.deepEqual(JSON.parse(calls[4].options.body), { catalog });
   assert.deepEqual(JSON.parse(calls[5].options.body), { catalog, expected_hash: 'checked-hash' });
   assert.equal(calls[6].options.body, undefined);
+});
+
+test('a media manifest is sent only when it has rows, with its optional ZIP', async () => {
+  assert.deepEqual(mediaBody(), {});
+  assert.deepEqual(mediaBody({ manifest: '  \n ', zip: 'media.zip' }), {});
+  assert.deepEqual(mediaBody({ manifest: ' a,b \n', zip: ' ' }), { media: 'a,b' });
+  assert.deepEqual(mediaBody({ manifest: 'a,b', zip: ' /private/files/media.zip ' }), { media: 'a,b', media_zip: '/private/files/media.zip' });
+  const bodies = [];
+  const api = createErpApi({ csrfToken: 'csrf', fetchImpl: async (url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ message: {} }) };
+  } });
+  const media = { manifest: 'product_slug,role,file_url_or_zip_path\nx,hero,/files/x.jpg', zip: 'ZIP-1' };
+  await api.check(null, media);
+  await api.importCatalog(null, 'hash', media);
+  await api.check({ records: {} }, { manifest: '', zip: 'ZIP-1' });
+  assert.deepEqual(bodies[0], { catalog: null, media: media.manifest, media_zip: 'ZIP-1' });
+  assert.deepEqual(bodies[1], { catalog: null, expected_hash: 'hash', media: media.manifest, media_zip: 'ZIP-1' });
+  assert.deepEqual(bodies[2], { catalog: { records: {} } });
 });
 
 test('session and CSRF failures include reload advice and an actionable session flag', async () => {

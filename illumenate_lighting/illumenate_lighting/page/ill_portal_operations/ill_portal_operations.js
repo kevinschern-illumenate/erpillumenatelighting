@@ -118,6 +118,10 @@ frappe.pages["ill-portal-operations"].on_page_load = function (wrapper) {
 		.ill-ops-empty { text-align: center; color: var(--text-muted); padding: 32px 0; }
 		.ill-ops-pager { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--text-muted); font-size: var(--text-sm, 13px); }
 		.ill-ops-table th { white-space: nowrap; color: var(--text-muted); font-weight: 500; }
+		.ill-ops-inbox { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--border-radius-md, 8px); padding: 16px 20px; margin-bottom: 24px; }
+		.ill-ops-inbox h4 { margin: 0; }
+		.ill-ops-inbox-actions { white-space: nowrap; }
+		.ill-ops-inbox-actions .btn + .btn { margin-left: 4px; }
 	`;
 
 	const root = el("div", "ill-ops");
@@ -177,7 +181,12 @@ frappe.pages["ill-portal-operations"].on_page_load = function (wrapper) {
 	pager.append(pagerText, pagerButtons);
 	detail.append(detailTitle, detailHelp, toolbar, status, table, pager);
 
-	root.append(intro, summaryStatus, groupsEl, detail);
+	const inboxEl = el("div");
+	root.append(intro, inboxEl, summaryStatus, groupsEl, detail);
+	// Plan 7.4: one inbox over the owned queues; the tiles below stay for queue-by-queue work.
+	const inbox = window.IllStaffInbox
+		? window.IllStaffInbox.mount(inboxEl, { onChange: () => refresh() })
+		: null;
 
 	let selected,
 		view = "all",
@@ -403,6 +412,13 @@ frappe.pages["ill-portal-operations"].on_page_load = function (wrapper) {
 		currentPage++;
 		load();
 	});
-	page.set_primary_action(__("Refresh"), refresh, "refresh");
+	page.set_primary_action(
+		__("Refresh"),
+		() => {
+			refresh();
+			if (inbox) inbox.load();
+		},
+		"refresh",
+	);
 	refresh();
 };

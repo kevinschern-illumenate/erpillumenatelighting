@@ -1,0 +1,13 @@
+{
+ "doctype": "Page",
+ "name": "product-readiness",
+ "page_name": "product-readiness",
+ "title": "Product Readiness",
+ "module": "ilLumenate Lighting",
+ "standard": "Yes",
+ "system_page": 0,
+ "roles": [
+  {"role": "System Manager"}, {"role": "ilL Catalog Publisher"}, {"role": "ilL Engineering"},
+  {"role": "ilL Integration"}
+ ]
+}

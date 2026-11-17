@@ -14,16 +14,21 @@ in public/css/pages/.
 {% block head_include %}{{ super() }}
 <link rel="preload" href="/assets/illumenate_lighting/fonts/Poppins-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/illumenate_lighting/fonts/Poppins-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
+{# Dealer-visible kill switches (site_flags.portal_client_flags) for the portal scripts. #}
+<script type="application/json" id="ill-portal-flags">{{ ill_portal_client_flags() | tojson }}</script>
 {% endblock %}
 
 {% block page_content %}
 <div class="ill-page {% block portal_scope %}{% endblock %}">
 {% block portal_navigation %}{% include "templates/includes/portal_navigation.html" %}{% endblock %}
 <main id="portal-main" class="{% block portal_shell_class %}container{% endblock %} ill-portal-shell {% block portal_page_class %}portal-page{% endblock %}" {% block portal_main_attrs %}{% endblock %}>
+	{% set ill_desk_href = ill_desk_link(path | default('', true)) %}
+	{% if ill_desk_href %}<p class="ill-desk-link"><a href="{{ ill_desk_href | e }}" target="_blank" rel="noopener">{{ _("Open in Desk") }}</a></p>{% endif %}
 	{% block portal_breadcrumbs %}{% endblock %}
 	{% block portal_header %}{% endblock %}
 	{% block portal_content %}{% endblock %}
 </main>
 {% block portal_after %}{% endblock %}
+<script type="application/json" id="ill-portal-routes">{{ ill_portal_routes() | tojson }}</script>
 </div>
 {% endblock %}

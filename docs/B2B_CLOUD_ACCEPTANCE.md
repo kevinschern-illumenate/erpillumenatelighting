@@ -105,7 +105,7 @@ Record the release owner, Sales approver, Engineering reference reviewer, Catalo
 
 Require every mandatory scenario to pass, no unresolved P0 or core-journey P1, and the plan's at least 90% unassisted pilot completion with sample size and individual failures retained. Set performance targets from the approved S0 baseline before judging results. Do not invent numerical engineering or timing approval locally.
 
-Roll out approved families with the optional JSON-list site settings `ill_portal_enabled_families` and `ill_portal_pilot_users`, alongside product/channel approvals. Canonical family values are `Linear Fixture`, `LED Tape`, `LED Neon`, `LED Sheet`. Omitted lists preserve availability; an empty family list disables new configurations. An empty pilot list allows only authorized Sales/Engineering. Public product-only literature bypasses the user cohort but still obeys family availability. Test direct API calls as well as catalog actions. Retain `ill_portal_fixture_groups=false` until group acceptance; this flag also gates new group preview/save on the server. Historical orders and private issued documents remain readable. These controls do not stop every commercial transaction or integration; use a maintenance window/site access restriction when an incident requires stopping all new writes.
+Roll out approved families with the optional JSON-list site settings `ill_portal_enabled_families` and `ill_portal_pilot_users`, alongside product/channel approvals. Canonical family values are `Linear Fixture`, `LED Tape`, `LED Neon`, `LED Sheet`. Omitted lists preserve availability; an empty family list disables new configurations. An empty pilot list allows only authorized Sales/Engineering. Public product-only literature bypasses the user cohort but still obeys family availability. Test direct API calls as well as catalog actions. Retain `ill_portal_fixture_groups=false` until group acceptance; this flag also gates new group preview/save on the server. Historical orders and private issued documents remain readable. The portal notification bell and `/portal/notifications` page are on by default; set `ill_portal_notification_center=false` to hide both (hardening plan 8.5). These controls do not stop every commercial transaction or integration; use a maintenance window/site access restriction when an incident requires stopping all new writes.
 
 After rollout, inspect failed/incomplete packets, stale/failed publication, mail failures/unknown attempts, unassigned/overdue review work and manufacturing holds. Recheck one private download, one family calculation, one native Desk queue and one remote staged/live comparison after each deployment. Rollback restores the tested matched database/files/code/assets set; do not downgrade code blindly against newer business records.
 
@@ -127,5 +127,12 @@ The existing `B2B_E2E_FIXTURE` manifest additionally needs `finder`:
 - `linear`, `driver`, `kit`: `slug`, `template`, `title`, and ordered `answers` mapping question ids to displayed option-label prefixes (numbers/ranges stay numeric). Linear must include Wet and IP67 and an approved `portal_request` using the existing engineering fixture shape.
 - `driver.choices` and `kit.choices`: ordered maps from the rendered step label to an allowed option label, selecting a real valid combination.
 - `brand`: the allowlisted Brand name; `public_answers`: backend answer values for a complete public quiz.
+
+Golden-path journeys (hardening plan 0.4) create their own project, schedule, uploads and support ticket from the seeded
+customer A. Staff-prepared records are optional; each journey that needs one is skipped with a reason until it is named
+in a `golden` block:
+
+- `golden.offer`: an issued Quotation offer for customer A that `buyer_a` may accept (accept once → order request).
+- `golden.drawing`: a published drawing request whose technical reviewer is `dealer_a` (request changes once).
 
 Use a fresh editable schedule per acceptance run; the scenarios create lines and a quote request. Set the existing actor password environment variables without committing credentials. The Linear browser scenario verifies banner, questions, catalog, product and prefill, then uses the browser's authenticated save API with the approved engineering fixture; the manual scenario above also checks the physical geometry controls.

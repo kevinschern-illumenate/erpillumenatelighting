@@ -182,7 +182,7 @@ async function openAs(browser: Browser, server: Server, permissions: typeof DEAL
   return { context, page, errors };
 }
 
-const step = (page: Page, name: string) => page.getByRole('navigation').getByRole('button', { name }).click();
+const step = (page: Page, name: string) => page.getByRole('navigation', { name: /Design steps|Design tabs/ }).getByRole('button', { name }).click();
 
 async function keepRiser(page: Page) {
   await step(page, 'Views');

@@ -35,8 +35,12 @@ as `6 ft` remain Data fields instead of being coerced into decimals.
 
 ## Remaining application findings
 
-These need follow-up on the actual Webflow/n8n workflow, and are **not fixed** by
-the narrowly scoped changes above:
+These needed follow-up on the actual Webflow/n8n workflow. All three are
+addressed by hardening plan item 0.6 (`docs/DEALER_EXPERIENCE_HARDENING_PLAN_2026_11.md`):
+the button requests every enabled target brand, completion is checked per brand
+against the click time with `get_sync_progress`, and an after-commit worker
+claims jobs as the integration service user while requesters keep the catalog
+check. A staging run against the deployed n8n workflow is still required.
 
 1. **Wrong brand in the direct sync button.** The October 20 button always sends
    `brand: 'lighting_206'`, even when the product targets `illumenate` or multiple

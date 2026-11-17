@@ -9,7 +9,7 @@ import FindReplaceDialog from './FindReplaceDialog.jsx';
 import CloneFamilyDialog from './CloneFamilyDialog.jsx';
 import GenerateRowsDialog from './GenerateRowsDialog.jsx';
 import NewProductDialog, { SaveStarterDialog } from './NewProductDialog.jsx';
-import { recordCounts } from './erp-api.js';
+import { mediaBody, recordCounts } from './erp-api.js';
 import {
   blankRecord, emptyCatalog, recordName, catalogIssues, parseCatalog, unresolvedLinks, makeMissingRecords, canCreate,
   referenceSummary, withReferenceLinks, unconfirmedLinks, isComplete,
@@ -156,6 +156,8 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const [copying, setCopying] = useState(null);
   const [opening, setOpening] = useState(false);
   const [run, setRun] = useState({ phase: 'idle' });
+  // Optional media manifest (plan 5.7): CSV text and an uploaded ZIP's File name or URL.
+  const [media, setMedia] = useState({ manifest: '', zip: '' });
   const currentRun = useRef(run);
   currentRun.current = run;
   const [historyRevision, setHistoryRevision] = useState(0);
@@ -250,7 +252,10 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     delete next.builder;
     return next;
   }, [resolved, mode]);
-  const payloadKey = JSON.stringify(payload);
+  const mediaKeys = mediaBody(media);
+  const hasMedia = Boolean(mediaKeys.media);
+  // Editing the manifest also needs a new Check, because the checked hash covers it.
+  const payloadKey = JSON.stringify(payload) + (hasMedia ? JSON.stringify(mediaKeys) : '');
   const currentPayloadKey = useRef(payloadKey);
   currentPayloadKey.current = payloadKey;
   // Once changed, even undoing an edit requires another Check.
@@ -315,10 +320,11 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
       return;
     }
     runBusy.current = true;
-    const submitted = { payload, payloadKey };
+    // A media-only run sends no catalog, so an empty draft is not checked as one.
+    const submitted = { payload: hasMedia && !total ? null : payload, payloadKey, media: hasMedia ? media : null };
     setRun({ ...submitted, phase: importing ? 'importing' : 'checking' });
     try {
-      const response = importing ? await api.importCatalog(checked.payload, checked.response.catalog_hash) : await api.check(payload);
+      const response = importing ? await api.importCatalog(checked.payload, checked.response.catalog_hash, checked.media) : await api.check(submitted.payload, submitted.media);
       setRun({ ...submitted, response, phase: response.status === 'Imported' ? 'imported' : importing ? 'idle' : 'checked', stale: submitted.payloadKey !== currentPayloadKey.current });
       // A failed reference refresh must never obscure an already committed import.
       if (response.status === 'Imported') await loadExisting({ refresh: true });
@@ -333,7 +339,8 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     if (!canImport || runBusy.current) return;
     const checked = run;
     setConfirm({ title: 'Create these records in ERPNext?', label: 'Import to ERPNext', body: <>
-      <ul>{recordCounts(checked.payload).map(({ doctype, count }) => <li key={doctype}>{count} {shortName(doctype)}</li>)}</ul>
+      <ul>{checked.payload && recordCounts(checked.payload).map(({ doctype, count }) => <li key={doctype}>{count} {shortName(doctype)}</li>)}
+        {checked.response.media && <li>{plural(checked.response.summary.media_checked, 'media row')} to attach</li>}</ul>
       <p>This cannot be undone from the builder.</p>
     </>, run: () => executeRun(true, checked) });
   };
@@ -470,7 +477,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
               : 'Catalog downloaded. Run the command below for engineering validation and CSV generation.');
         }}>Download catalog</button>
         {mode === 'erp' && <>
-          <button disabled={issues.length > 0 || busy || copying !== null || opening || referenceLoading} onClick={() => executeRun(false)}>Check in ERPNext</button>
+          <button disabled={(issues.length > 0 && (total > 0 || !hasMedia)) || busy || copying !== null || opening || referenceLoading} onClick={() => executeRun(false)}>Check in ERPNext</button>
           <button className="catalog-primary" disabled={!canImport || busy || referenceLoading || copying !== null || opening} onClick={confirmImport}>Import to ERPNext</button>
         </>}
         <input ref={fileInput} type="file" accept=".yaml,.yml,.json" hidden onChange={importFile} />
@@ -508,6 +515,16 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
       <button onClick={() => setConfirm({ title: 'Clear this product draft?', run: () => { setCatalog(emptyCatalog(workspace.active), { label: 'Clear draft' }); setRun({ phase: 'idle' }); } })}>Clear draft</button>
     </div>
     {mode === 'erp' && <div className="catalog-run">
+      <details className="catalog-media" open={hasMedia || undefined}>
+        <summary>Media manifest (optional)</summary>
+        <p>One row per image: product_slug, role (hero, featured, dimensions, series_family or gallery), file_url_or_zip_path, alt_text, display_order, is_primary, replace.
+          {' '}Use existing File names or /files/… and /private/files/… paths, or paths inside an uploaded ZIP. Rows that would replace an image are skipped unless replace is 1.</p>
+        <label>Manifest CSV <textarea rows={4} value={media.manifest} disabled={busy} spellCheck={false}
+          placeholder="product_slug,role,file_url_or_zip_path,alt_text,display_order,is_primary,replace"
+          onChange={e => setMedia({ ...media, manifest: e.target.value })} /></label>
+        <label>Media ZIP (File name or /private/files/… URL of an uploaded ZIP) <input value={media.zip} disabled={busy}
+          onChange={e => setMedia({ ...media, zip: e.target.value })} /></label>
+      </details>
       {busy && <p className="catalog-progress" role="status"><span className="catalog-spinner" aria-hidden="true" />{run.phase === 'checking' ? 'Checking' : 'Importing'} {total} records…</p>}
       {(run.stale || (run.phase === 'checked' && run.payloadKey !== payloadKey)) && <p className="catalog-stale" role="status">Catalog changed since the last check — run Check again</p>}
       {run.error && <><ApiError error={run.error} />{run.uncertainImport && <p>Import confirmation was not received. Records may have been saved. Review recent checks and imports and refresh ERPNext records before checking again.</p>}</>}

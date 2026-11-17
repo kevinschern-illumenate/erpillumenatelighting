@@ -23,7 +23,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					</div>
 				`;
 				frappe.dom.freeze(freezeMsg);
-				const controller = new AbortController();
+				const api = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.';
 				let checkInterval;
 				let finished = false;
 				const finish = () => {
@@ -33,69 +33,51 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 					frappe.dom.unfreeze();
 					$('#custom-freeze-style').remove();
 				};
-				// Start the deadline before the webhook request: it may never respond.
+				const fail = (title, message) => {
+					if (finished) return;
+					finish();
+					frappe.msgprint({ title, message: message || __('An error occurred.'), indicator: 'red' });
+				};
+				// Start the deadline before the request: the pipeline may never respond.
 				const deadline = setTimeout(() => {
 					finish();
-					controller.abort();
 					frappe.msgprint(__('Sync has not been confirmed. It may still be running in the background.'));
 					frm.reload_doc();
 				}, 120000);
 
-				// Get the first enabled target brand, fallback to 'illumenate'
-				const activeBrand = (frm.doc.target_brands || [])
-				    .filter(row => row.enabled)
-				    .map(row => row.brand)[0] || 'illumenate';
-				frappe.call({
-				    method: 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.request_spec_sheet',
-				    args: {
-				        docname: frm.doc.name,
-				        brand: activeBrand
-				    },
-				    error: function(err) {
-				        if (finished) return;
-				        finish();
-				        frappe.msgprint({
-				            title: __('Sync Failed'),
-				            message: err.message || __('An error occurred.'),
-				            indicator: 'red'
-				        });
-				    }
-				}).then(r => {
-				    const data = r.message;
-				    if (!data) throw new Error(__('No response from server.'));
-
-					// We removed the second freeze message here. 
-					// The screen stays frozen with the original card while polling begins!
-
+				// The server baseline time makes sure an earlier "Synced" is not mistaken
+				// for this run. Every enabled target brand is requested.
+				frappe.xcall(api + 'get_sync_progress', { docname: frm.doc.name }).then(baseline => {
+					const since = baseline && baseline.server_time;
+					const brands = ((baseline && baseline.brands) || []).map(row => row.brand);
+					return Promise.all((brands.length ? brands : [null]).map(brand =>
+						frappe.xcall(api + 'request_spec_sheet', brand ? { docname: frm.doc.name, brand } : { docname: frm.doc.name })
+					)).then(() => since);
+				}).then(since => {
+					if (finished) return;
 					checkInterval = setInterval(() => {
-						// Use xcall to bypass the browser cache!
-						frappe.xcall('frappe.client.get_value', {
-							doctype: 'ilL-Webflow-Product',
-							filters: { name: frm.doc.name },
-							fieldname: 'sync_status'
-						}).then(r => {
-							if (finished || !r) return;
-							let current_status = r.sync_status;
-							
-							if (current_status === 'Synced' || current_status === 'LIVE') {
-								finish();
-								frappe.show_alert({message: __('Webflow Sync Complete!'), indicator: 'green'});
+						frappe.xcall(api + 'get_sync_progress', { docname: frm.doc.name, since }).then(progress => {
+							if (finished || !progress) return;
+							if (progress.failed) {
+								const errors = (progress.brands || [])
+									.filter(row => row.state === 'failed')
+									.map(row => `${row.brand}: ${row.error || __('failed')}`);
+								fail(__('Sync Error'), frappe.utils.escape_html(errors.join('; ')) || __('Pipeline failed. Check logs.'));
 								frm.reload_doc();
-							} 
-							else if (current_status === 'Error' || current_status === 'Failed') {
+							} else if (progress.complete) {
 								finish();
-								frappe.msgprint({title: __('Sync Error'), message: __('Pipeline failed. Check logs.'), indicator: 'red'});
+								const superseded = (progress.brands || []).some(row => row.state === 'superseded');
+								frappe.show_alert({
+									message: superseded
+										? __('Webflow sync finished for an older revision. Sync again to publish the latest changes.')
+										: __('Webflow Sync Complete!'),
+									indicator: superseded ? 'orange' : 'green'
+								});
 								frm.reload_doc();
 							}
 						}).catch(err => console.error("Polling error:", err));
 					}, 3000);
-
-				})
-				.catch(err => {
-					if (finished) return;
-					finish();
-					frappe.msgprint({title: __('Sync Failed'), message: err.message, indicator: 'red'});
-				});
+				}).catch(err => fail(__('Sync Failed'), err && err.message && frappe.utils.escape_html(String(err.message))));
 			});
 
 			sync_btn.css({

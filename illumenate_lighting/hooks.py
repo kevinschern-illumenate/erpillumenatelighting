@@ -29,7 +29,7 @@ app_license = "mit"
 # `bench build` into content-hashed files so browsers never serve a stale copy
 # (plain /assets paths are cached for a year with `immutable`).
 app_include_css = ["illumenate_desk.bundle.css"]
-# shared_configurator + fixture_steps + tape_neon_steps + desk/desk_dialog
+# shared_configurator + fixture_steps + tape_neon_steps + desk/dialog/*
 # ("Configure & Add Fixture" dialog for Quotation / Sales Order).
 app_include_js = ["illumenate_desk.bundle.js"]
 
@@ -59,12 +59,18 @@ web_include_js = ["illumenate_web.bundle.js"]
 # include js in doctype views
 doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js"],
     "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
-    "ilL-Webflow-Product": "public/js/product_publication.js", "ilL-Publish-Job": "public/js/product_publication.js"}
+    "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
+# "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
+for _name in ("Quotation", "Sales Order", "Sales Invoice"):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/helpdesk_tickets.js"]
 # Desk record -> portal page, and portal request list indicators (DESK-4, DESK-5).
 for _name in (
     "ilL-Project", "ilL-Project-Fixture-Schedule", "ilL-Quote-Request", "ilL-Quote-Offer",
     "ilL-Order-Intake", "ilL-Document-Request", "Issue", "Sales Order",
+    "ilL-Order-Change", "ilL-Drawing-Review", "ilL-Portal-Message", "ilL-Account-Request", "ilL-Portal-Invitation",
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
@@ -82,7 +88,7 @@ for _name in (
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
-    doctype_js[_name] = [*_scripts, "public/js/template_documents.js"]
+    doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/product_media.js", "public/js/product_clone.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -169,6 +175,7 @@ website_route_rules = [
 	{"from_route": "/portal/account", "to_route": "account"},
 	{"from_route": "/portal/accept-invitation", "to_route": "accept_invitation"},
 	{"from_route": "/portal/account/notifications", "to_route": "account"},
+	{"from_route": "/portal/notifications", "to_route": "ill_notifications"},
 ]
 
 # Website Redirects
@@ -195,8 +202,11 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags", "illumenate_lighting.illumenate_lighting.helpdesk_links.ill_print_pdf_url", "illumenate_lighting.illumenate_lighting.api.invoice_payments.ill_invoice_payments"],
 }
+
+# One route contract for Desk scripts (hardening plan 7.1).
+extend_bootinfo = ["illumenate_lighting.illumenate_lighting.portal.routes.extend_bootinfo"]
 
 # Installation
 # ------------
@@ -204,7 +214,11 @@ jinja = {
 # before_install = "illumenate_lighting.install.before_install"
 after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
 before_migrate = "illumenate_lighting.portal_workspace.before_migrate"
-after_migrate = "illumenate_lighting.portal_workspace.after_migrate"
+after_migrate = [
+	"illumenate_lighting.portal_workspace.after_migrate",
+	# Helpdesk ticket -> Quotation / Sales Order / Sales Invoice links, once Helpdesk is installed.
+	"illumenate_lighting.illumenate_lighting.helpdesk_links.after_migrate",
+]
 
 # Fixtures
 # --------
@@ -342,6 +356,10 @@ override_doctype_class = {
 
 doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
+	# Product and template images get WebP derivatives in the background (plan 5.8).
+	"File": {"after_insert": "illumenate_lighting.illumenate_lighting.api.media_derivatives.on_file_insert"},
+	# Helpdesk: a ticket linked to an invoice or order also gets its order and quote.
+	"HD Ticket": {"validate": "illumenate_lighting.illumenate_lighting.helpdesk_links.fill_upstream"},
 	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans",
 		# Draft Quotations / Sales Orders linked to the schedule follow its lines.
 		"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_schedule_update"]},
@@ -513,7 +531,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
 
 # Testing
 # -------
@@ -533,6 +551,12 @@ scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_
 # override_doctype_dashboards = {
 # 	"Task": "illumenate_lighting.task.get_dashboard_data"
 # }
+# Linked Helpdesk tickets under Connections (only when Helpdesk is installed).
+override_doctype_dashboards = {
+	"Quotation": "illumenate_lighting.illumenate_lighting.helpdesk_links.quotation_dashboard",
+	"Sales Order": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_order_dashboard",
+	"Sales Invoice": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_invoice_dashboard",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #
@@ -621,6 +645,13 @@ for _design_doctype in _design_catalog_doctypes:
 		_design_hooks = doc_events.setdefault(_design_doctype, {})
 		_design_old = _design_hooks.get(_design_event, [])
 		_design_hooks[_design_event] = ([_design_old] if isinstance(_design_old, str) else list(_design_old)) + ["illumenate_lighting.illumenate_lighting.system_design.catalog.invalidate"]
+
+# Configurator option projections (plan 6.5): mapping records outside the catalog stamp.
+for _option_doctype in ("ilL-Rel-Driver-Eligibility", "ilL-Rel-Kit-Endcap-Map", "ilL-Rel-Kit-Lens-Map", "ilL-Rel-Kit-Mounting-Map", "ilL-Rel-Kit-Profile-Map"):
+	for _option_event in ("on_update", "on_trash"):
+		_option_hooks = doc_events.setdefault(_option_doctype, {})
+		_option_old = _option_hooks.get(_option_event, [])
+		_option_hooks[_option_event] = ([_option_old] if isinstance(_option_old, str) else list(_option_old)) + ["illumenate_lighting.illumenate_lighting.api.option_cache.invalidate"]
 
 # Product data lives on the templates; copy it onto the linked Webflow Product for the
 # readers that still read it there.

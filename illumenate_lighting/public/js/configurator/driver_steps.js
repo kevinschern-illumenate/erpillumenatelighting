@@ -116,6 +116,7 @@
     if(this.context.show_pricing&&pricing.total_msrp!=null)box.append($('<div class="ill-driver-price">').append($('<span>').text(__('MSRP each')),$('<strong>').text('$'+Number(pricing.total_msrp).toFixed(2))));
     if((data.specs||[]).length){var specs=$('<dl class="ill-driver-specs">');data.specs.forEach(function(row){specs.append($('<dt>').text(row.label),$('<dd>').text(row.value));});box.append(specs);}
     var stock=data.stock;if(stock&&stock.availability!=='unknown'){box.append($('<p class="ill-driver-stock">').addClass(stock.in_stock?'is-in-stock':'is-short').text(stock.in_stock?__('In stock'):__('Not in stock')));if(this.context.show_stock_qty&&stock.qty_available!=null)box.append($('<p class="small text-muted mb-0">').text(__('{0} available',[stock.qty_available])));}
+    if(IC.renderEstimate)IC.renderEstimate(box,{family:'driver',template:data.template_code,schedule_name:this.context.config_schedule,show_pricing:!!this.context.show_pricing});
   };
   IC.Driver=Driver;
 })(window);

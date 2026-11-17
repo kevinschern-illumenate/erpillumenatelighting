@@ -1,0 +1,12 @@
+{
+ "doctype": "Page",
+ "name": "new-product-wizard",
+ "page_name": "new-product-wizard",
+ "title": "New Product Wizard",
+ "module": "ilLumenate Lighting",
+ "standard": "Yes",
+ "system_page": 0,
+ "roles": [
+  {"role": "System Manager"}, {"role": "ilL Catalog Publisher"}
+ ]
+}

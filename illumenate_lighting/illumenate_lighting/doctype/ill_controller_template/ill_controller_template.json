@@ -35,7 +35,8 @@
   "product_data_section",
   "warranty_years",
   "product_data_column",
-  "hero_image"
+  "hero_image",
+  "hero_image_alt"
  ],
  "fields": [
   {
@@ -208,12 +209,18 @@
    "fieldname": "hero_image",
    "fieldtype": "Attach Image",
    "label": "Hero Image"
+  },
+  {
+   "fieldname": "hero_image_alt",
+   "fieldtype": "Data",
+   "label": "Hero Image Alt Text",
+   "description": "Describe the main product image for screen readers and search engines."
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 0,
  "links": [],
- "modified": "2026-10-30 21:58:27.000000",
+ "modified": "2026-11-03 14:48:57.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Controller-Template",

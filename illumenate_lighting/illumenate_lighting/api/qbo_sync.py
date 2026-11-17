@@ -25,6 +25,8 @@ Expected JSON body (customer payment)::
         "qbo_invoice_id": "145",  # legacy single-invoice form, used when allocations is absent
         "qbo_invoice_ids": ["145"],  # legacy; >1 entry without allocations fails loudly
         "customer_qbo_id": "62",  # optional, logged only
+        "payment_method": "Check",  # optional: QBO PaymentMethodRef.name, shown on the invoice print
+        "payment_ref_num": "10452",  # optional: QBO PaymentRefNum (check / confirmation no.)
         "merged_from_id": "180",  # Merge only: QBO id that was folded into qbo_payment_id
         "deleted": false,  # true forces event_type=Delete
     }
@@ -56,6 +58,10 @@ SYNCED_FROM = "QuickBooks Online"
 VALID_EVENT_TYPES = ("Create", "Update", "Delete", "Merge")
 SAVEPOINT = "qbo_payment_event"
 AMOUNT_TOLERANCE = 0.005
+# Webhook bodies are a few KB; anything far larger is refused before hashing or parsing.
+MAX_BODY_BYTES = 256 * 1024
+# Rollback switch (site config): run signed webhooks as Administrator as before plan 1.2.
+RUN_AS_ADMINISTRATOR_FLAG = "qbo_webhooks_run_as_administrator"
 
 # What differs between a customer payment and a bill payment.
 RECEIVE = {
@@ -117,23 +123,12 @@ def receive_bill_payment_event():
 
 
 def _receive_event(kind):
-	raw_body = frappe.request.get_data() or b""
-
-	if not _verify_signature(raw_body):
-		_record_auth_failure(raw_body)
-		frappe.local.response["http_status_code"] = 401
-		return {"success": False, "error": "unauthorized"}
-
-	try:
-		payload = json.loads(raw_body.decode("utf-8") or "{}")
-		if not isinstance(payload, dict):
-			raise ValueError("payload must be a JSON object")
-	except (ValueError, UnicodeDecodeError) as e:
-		frappe.local.response["http_status_code"] = 400
-		return {"success": False, "error": "invalid_json", "message": str(e)}
-
-	# Authenticated by HMAC; run as Administrator so owner/GL entries are not "Guest".
-	frappe.set_user("Administrator")
+	payload, refused = read_signed_json()
+	if refused:
+		return refused
+	refused = become_integration_user()
+	if refused:
+		return refused
 
 	try:
 		event = _normalize_payload(payload, kind)
@@ -182,9 +177,55 @@ def _receive_event(kind):
 # ---------------------------------------------------------------------------
 
 
+def _refuse(status, error, **extra):
+	frappe.local.response["http_status_code"] = status
+	return {"success": False, "error": error, **extra}
+
+
+def read_signed_json():
+	"""Size cap, then HMAC over the raw bytes, then JSON. Returns ``(payload, refusal)``."""
+	declared = getattr(frappe.request, "content_length", None)
+	if isinstance(declared, int) and declared > MAX_BODY_BYTES:
+		return None, _refuse(413, "payload_too_large")
+	raw_body = frappe.request.get_data() or b""
+	if len(raw_body) > MAX_BODY_BYTES:
+		return None, _refuse(413, "payload_too_large")
+	if not _verify_signature(raw_body):
+		_record_auth_failure(raw_body)
+		return None, _refuse(401, "unauthorized")
+	try:
+		payload = json.loads(raw_body.decode("utf-8") or "{}")
+		if not isinstance(payload, dict):
+			raise ValueError("payload must be a JSON object")
+	except (ValueError, UnicodeDecodeError) as e:
+		return None, _refuse(400, "invalid_json", message=str(e))
+	return payload, None
+
+
+def become_integration_user():
+	"""Act as the least-privilege QuickBooks user for the rest of this signed request.
+
+	Returns a 503 refusal when that user is missing or disabled, so QuickBooks/n8n retry.
+	"""
+	if cint(frappe.conf.get(RUN_AS_ADMINISTRATOR_FLAG)):
+		frappe.set_user("Administrator")
+		return None
+	from illumenate_lighting.illumenate_lighting.portal.service_users import service_user
+
+	user = service_user("qbo")
+	if not frappe.db.get_value("User", user, "enabled"):
+		frappe.log_error(
+			title="QBO webhook: integration user unavailable",
+			message=f"{user} is missing or disabled. Run bench migrate, or set {RUN_AS_ADMINISTRATOR_FLAG}.",
+		)
+		return _refuse(503, "integration_user_unavailable")
+	frappe.set_user(user)
+	return None
+
+
 def _get_webhook_secret():
 	secret = frappe.conf.get("qbo_webhook_secret")
-	if secret:
+	if secret and str(secret).strip():
 		return str(secret)
 	try:
 		settings = frappe.get_cached_doc(SETTINGS_DOCTYPE)
@@ -196,7 +237,8 @@ def _get_webhook_secret():
 def _verify_signature(raw_body):
 	secret = _get_webhook_secret()
 	provided = (frappe.get_request_header(SIGNATURE_HEADER) or "").strip()
-	if not secret or not provided:
+	# A blank secret would make the signature forgeable by anyone, so it never verifies.
+	if not secret or not str(secret).strip() or not provided:
 		return False
 	if provided.lower().startswith("sha256="):
 		provided = provided[7:]
@@ -262,7 +304,32 @@ def _normalize_payload(payload, kind=RECEIVE):
 		"allocations": allocations,
 		"customer_qbo_id": str(payload.get(kind["party_qbo_key"]) or "").strip() or None,
 		"merged_from_id": str(payload.get("merged_from_id") or "").strip() or None,
+		"payment_method": _clean_text(payload.get("payment_method")),
+		"payment_ref_num": _clean_text(payload.get("payment_ref_num")),
 	}
+
+
+def _clean_text(value, limit=140):
+	"""Optional display text from the payload; ``None`` when absent so it never wipes a stored value."""
+	text = str(value or "").strip()
+	return text[:limit] or None
+
+
+def _payment_details(event):
+	"""Payment method / reference fields to stamp on the Payment Entry, only those the payload carried."""
+	values = {}
+	if event.get("payment_method"):
+		values["custom_qbo_payment_method"] = event["payment_method"]
+	if event.get("payment_ref_num"):
+		values["custom_qbo_payment_ref_num"] = event["payment_ref_num"]
+	if values and not _has_payment_detail_fields():
+		return {}
+	return values
+
+
+def _has_payment_detail_fields():
+	meta = frappe.get_meta("Payment Entry")
+	return meta.has_field("custom_qbo_payment_method") and meta.has_field("custom_qbo_payment_ref_num")
 
 
 def _normalize_allocations(rows, kind):
@@ -365,7 +432,11 @@ def _handle_upsert(event, log, kind=RECEIVE):
 			frappe.db.set_value(
 				"Payment Entry",
 				existing,
-				{"custom_qbo_event_type": event["event_type"], "custom_qbo_last_synced": now_datetime()},
+				{
+					"custom_qbo_event_type": event["event_type"],
+					"custom_qbo_last_synced": now_datetime(),
+					**_payment_details(event),
+				},
 				update_modified=False,
 			)
 			return {"action": "skipped", "payment_entry": existing}
@@ -562,6 +633,7 @@ def _create_payment_entry(invoices, event, kind=RECEIVE, superseded=None):
 	pe.custom_synced_from = SYNCED_FROM
 	pe.custom_qbo_event_type = event["event_type"]
 	pe.custom_qbo_last_synced = now_datetime()
+	pe.update(_payment_details(event))
 	pe.custom_qbo_sync_note = (
 		f"Recreated after QBO {event['event_type']}; supersedes {superseded}"
 		if superseded
