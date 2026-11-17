@@ -13,6 +13,7 @@ A line is flagged when:
 """
 
 import copy
+import hashlib
 import json
 
 import frappe
@@ -21,6 +22,8 @@ from frappe import _
 from illumenate_lighting.illumenate_lighting.portal import site_flags
 
 MAX_LINES = 500
+CACHE_PREFIX = "ill_catalog_drift"
+CACHE_SECONDS = 600
 DRIVER_SPEC = "ilL-Spec-Driver"
 # The electrical fields driver_catalog records for each chosen supply.
 REVISION_FIELDS = (
@@ -166,4 +169,32 @@ def check(schedule_name):
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Sign in to view this schedule"), frappe.PermissionError)
 	schedule = schedule_context(schedule_name)
-	return {"enabled": True, "lines": line_problems(schedule.get("lines") or [])}
+	lines = list(schedule.get("lines") or [])[:MAX_LINES]
+	key = _cache_key(schedule.name, lines)
+	cached = frappe.cache().get_value(key)
+	if isinstance(cached, dict):
+		return {"enabled": True, "lines": cached}
+	problems = line_problems(lines)
+	frappe.cache().set_value(key, problems, expires_in_sec=CACHE_SECONDS)
+	return {"enabled": True, "lines": problems}
+
+
+def _cache_key(schedule_name, lines):
+	"""The answer for these exact lines, this user and this catalog revision.
+
+	Every schedule page load asks again, and older lines are read one record at a time, so the
+	answer is reused until something it reads changes: any field of any line (the lines are
+	fingerprinted, not the schedule's ``modified``), the catalog (``catalog_stamp`` moves when a
+	template, tape offering or driver specification is saved) or the user (template visibility
+	and the message language). ``CACHE_SECONDS`` bounds anything else.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.product_finder.facts import catalog_stamp
+
+	rows = []
+	for line in lines:
+		as_dict = getattr(line, "as_dict", None)
+		rows.append(as_dict() if callable(as_dict) else dict(line))
+	fingerprint = hashlib.sha1(
+		json.dumps(rows, sort_keys=True, default=str).encode(), usedforsecurity=False
+	).hexdigest()
+	return f"{CACHE_PREFIX}:{schedule_name}:{frappe.session.user}:{catalog_stamp()}:{fingerprint}"

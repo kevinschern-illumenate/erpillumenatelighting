@@ -69,11 +69,13 @@ class CatalogDrift(unittest.TestCase):
 			ROOT + ".portal.presets": presets,
 			ROOT + ".portal.configuration_reopen": types.SimpleNamespace(for_line=for_line),
 			ROOT + ".portal.configuration": types.SimpleNamespace(schedule_context=schedule_context),
+			ROOT + ".portal.product_finder.facts": types.SimpleNamespace(catalog_stamp=lambda: self.stamp),
 			ROOT + ".portal_listing": types.SimpleNamespace(
 				template_visible=lambda doctype, name, staff=None: (doctype, name) in self.visible
 			),
 		}
 		self.schedule = Record(name="SCH-1", lines=[])
+		self.stamp = "2026-11-17 10:00:00:0"
 
 	def wire(self, frappe):
 		frappe.db.get_value = MagicMock(side_effect=lambda doctype, name, field: self.active.get((doctype, name)))
@@ -191,6 +193,48 @@ class CatalogDrift(unittest.TestCase):
 		self.assertEqual(dict(line), before)
 		frappe.db.set_value.assert_not_called()
 		frappe.get_doc.assert_not_called()
+
+	def test_answer_is_cached_for_the_same_lines_user_and_catalog(self):
+		lines = [self.linear("A", finish="GONE")]
+		_module, frappe, result = self.check(lines)
+		set_value = frappe.cache().set_value
+		self.assertEqual(set_value.call_count, 1)
+		key, stored = set_value.call_args.args
+		self.assertEqual(stored, result["lines"])
+		self.assertEqual(set_value.call_args.kwargs, {"expires_in_sec": 600})
+		self.assertIn(":SCH-1:buyer@example.com:2026-11-17 10:00:00:0:", key)
+
+		# A cached answer is returned as it was, without reading a line again.
+		self.linear_calls.clear()
+		self.schedule["lines"] = lines
+		with load_service(MODULE, self.extras) as (module, frappe):
+			self.wire(frappe)
+			frappe.cache().get_value.side_effect = lambda k: stored if k == key else None
+			self.assertEqual(module.check("SCH-1"), {"enabled": True, "lines": stored})
+			frappe.cache().set_value.assert_not_called()
+		self.assertEqual(self.linear_calls, [])
+
+	def test_cache_key_moves_with_any_line_field_the_user_or_the_catalog(self):
+		def key(lines, user="buyer@example.com"):
+			self.schedule["lines"] = lines
+			with load_service(MODULE, self.extras) as (module, frappe):
+				self.wire(frappe)
+				frappe.session.user = user
+				module.check("SCH-1")
+				return frappe.cache().set_value.call_args.args[0]
+
+		base = key([self.linear("A")])
+		self.assertEqual(key([self.linear("A")]), base, "same lines, same answer")
+		self.assertNotEqual(key([self.linear("A", link="CF-2")]), base, "a line changed")
+		self.assertNotEqual(key([self.linear("A"), self.linear("B")]), base, "a line was added")
+		self.assertNotEqual(key([self.linear("A")], user="other@example.com"), base, "another user")
+		self.stamp = "2026-11-17 10:05:00:0"
+		self.assertNotEqual(key([self.linear("A")]), base, "the catalog moved")
+
+	def test_kill_switch_reads_and_writes_no_cache(self):
+		self.enabled = False
+		_module, frappe, _result = self.check([self.linear("A")])
+		frappe.cache().set_value.assert_not_called()
 
 
 if __name__ == "__main__":
