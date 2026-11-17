@@ -8,6 +8,7 @@ import type { DraftStore } from '../design/drafts';
 import { createDesignStore, type DesignStore } from '../design/store';
 import { addCabinet, distanceDefaults } from '@ill/engine/site';
 import { openFixture } from './fixture';
+import { checkSummary } from './CheckStep';
 import { newDesign, type OpenDesign } from './open';
 import { Shell } from './Shell';
 
@@ -185,5 +186,24 @@ describe('Check step', () => {
     expect(el.querySelector('[role="status"]:not([data-testid])')?.textContent).toBe(
       'The ilLumenate catalog could not be loaded.',
     );
+  });
+});
+
+describe('check summary (SD-2.6)', () => {
+  const message = (severity: 'error' | 'warning' | 'info', override = false) =>
+    ({ code: 'X', entityRef: 'PS-1', severity, text: '', ...(override ? { override: { kind: 'accepted' } } : {}) }) as never;
+
+  it('opens the Check step with where the design stands', () => {
+    expect(checkSummary([message('error'), message('warning'), message('warning')])).toEqual({
+      tone: 'error',
+      text: '1 error and 2 warnings to fix before you export.',
+    });
+    expect(checkSummary([message('warning'), message('error', true)]).text).toBe(
+      'No errors. Review 1 warning: fix each one or accept it with a reason.',
+    );
+    expect(checkSummary([message('info'), message('warning', true)])).toEqual({
+      tone: 'ok',
+      text: 'No errors or warnings. The design is ready to export.',
+    });
   });
 });

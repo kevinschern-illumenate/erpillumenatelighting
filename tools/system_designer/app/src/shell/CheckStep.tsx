@@ -18,45 +18,40 @@ import { runLabel } from '@ill/engine/runs';
 import type { CatalogState } from '../design/catalog';
 import type { CheckState } from '../design/engine';
 import type { DesignStore } from '../design/store';
+import { SeverityIcon } from '../ui';
 import { CommitInput } from './fields';
+import { FIX_STEP } from './checkTargets';
 import { entityLabel, type OpenDesign } from './open';
 import type { StepId } from './steps';
 
-const ICONS: Record<DesignMessage['severity'], string> = { error: '✖', warning: '▲', info: 'ℹ' };
 const SEVERITY_LABEL: Record<DesignMessage['severity'], string> = { error: 'Error', warning: 'Warning', info: 'Note' };
+/** The Check step lists errors first and what is already accepted last (SD-2.6). */
+const GROUPS = [
+  { key: 'error', title: 'Errors' },
+  { key: 'warning', title: 'Warnings' },
+  { key: 'info', title: 'Notes' },
+  { key: 'accepted', title: 'Accepted' },
+] as const;
+const groupOf = (item: DesignMessage) => (item.override ? 'accepted' : item.severity);
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-/** Where each check is fixed when the Check step cannot fix it in place. */
-const POWER = { step: 'power', label: 'Open Power' } as const;
-const SPACES = { step: 'spaces', label: 'Open Spaces' } as const;
-const RUNS = { step: 'runs', label: 'Open Runs' } as const;
-const FIX_STEP: Record<string, { step: StepId; label: string }> = {
-  PSU_OVERLOAD: POWER,
-  PSU_ABOVE_DERATE: POWER,
-  CHANNEL_OVERCURRENT: POWER,
-  BREAKER_OVERLOAD: POWER,
-  CLASS2_OVER_100VA: POWER,
-  VOLTAGE_MISMATCH: POWER,
-  DRIVE_MISMATCH: POWER,
-  PROTOCOL_MISMATCH: POWER,
-  RUN_UNASSIGNED: POWER,
-  UNRESOLVED_REF: POWER,
-  INPUT_V_OUT_OF_RANGE: POWER,
-  DEVICE_CAPACITY: POWER,
-  DMX_ADDRESS_OVERLAP: POWER,
-  DMX_ADDRESS_OVERFLOW: POWER,
-  DMX_TOPOLOGY: POWER,
-  DMX_NO_TERMINATOR: POWER,
-  ZONE_NO_CONTROL: POWER,
-  DMX_RUN_NO_DECODER: POWER,
-  CONTROL_UNUSED: POWER,
-  SUPPLY_NO_ACCESS: SPACES,
-  NO_VALID_WIRE: SPACES,
-  VD_OVER_TARGET: SPACES,
-  TAPE_UNDERVOLTAGE: SPACES,
-  TAPE_RUN_TOO_LONG: RUNS,
-  INVALID_SPEC: RUNS,
-  SCHEDULE_OUT_OF_SYNC: { step: 'start', label: 'Open Start' },
-};
+/** One line on where the design stands, so the step opens with the answer (SD-2.6). */
+export function checkSummary(messages: readonly DesignMessage[]) {
+  const open = messages.filter((item) => !item.override);
+  const errors = open.filter((item) => item.severity === 'error').length;
+  const warnings = open.filter((item) => item.severity === 'warning').length;
+  if (errors)
+    return {
+      tone: 'error' as const,
+      text: `${plural(errors, 'error')}${warnings ? ` and ${plural(warnings, 'warning')}` : ''} to fix before you export.`,
+    };
+  if (warnings)
+    return {
+      tone: 'warning' as const,
+      text: `No errors. Review ${plural(warnings, 'warning')}: fix each one or accept it with a reason.`,
+    };
+  return { tone: 'ok' as const, text: 'No errors or warnings. The design is ready to export.' };
+}
 
 const feet = (value: number) => `${Number(value.toFixed(1))} ft`;
 const keyOf = (item: DesignMessage) => `${item.code}:${item.entityRef}:${item.text}`;
@@ -77,7 +72,8 @@ export function CheckStep({
   catalog: CatalogState;
   limits: VdLimits;
   readOnly: boolean;
-  goTo(step: StepId): void;
+  /** Open a step and point at the item a check is about. */
+  goTo(step: StepId, ref?: string): void;
 }) {
   const design = useStore(store, (s) => s.design);
   const [error, setError] = useState('');
@@ -111,6 +107,7 @@ export function CheckStep({
     return run ? runLabel(run) : result.tag;
   };
   const pinned = Object.keys(design.project.wireOverrides);
+  const summary = ready ? checkSummary(ready.messages) : null;
 
   return (
     <section aria-labelledby="ill-sd-step-title" className="ill-sd__check-step">
@@ -184,111 +181,131 @@ export function CheckStep({
             {ready.messages.length === 0 ? (
               <p data-testid="checks-clear">No issues. The design passes every check.</p>
             ) : (
-              <ul className="ill-sd__check-list" data-testid="check-list">
-                {ready.messages.map((item) => {
-                  const id = keyOf(item);
-                  const run = runFor(item.entityRef);
-                  const heavier =
-                    run && (item.code === 'VD_OVER_TARGET' || item.code === 'TAPE_UNDERVOLTAGE')
-                      ? heavierWire(run)
-                      : null;
-                  const fix = FIX_STEP[item.code];
-                  const canAccept =
-                    !readOnly &&
-                    !item.override &&
-                    (item.severity === 'warning' || (item.severity === 'error' && staff));
+              <>
+                <p
+                  className={`sd-check-summary sd-check-summary--${summary?.tone}`}
+                  data-testid="check-summary"
+                >
+                  {summary?.text}
+                </p>
+                {GROUPS.map((group) => {
+                  const items = ready.messages.filter((item) => groupOf(item) === group.key);
+                  if (!items.length) return null;
                   return (
-                    <li
-                      key={id}
-                      className={`ill-sd__check ill-sd__check--${item.override ? 'info' : item.severity}`}
-                      data-testid={`check-${item.code}-${item.entityRef}`}
-                    >
-                      <span aria-hidden="true">{ICONS[item.override ? 'info' : item.severity]}</span>
-                      <div>
-                        <p>
-                          <strong>{entityLabel(design, item.entityRef)}</strong>
-                          <span className="ill-sd__sr"> {SEVERITY_LABEL[item.severity]}</span>
-                        </p>
-                        <p>{item.text}</p>
-                        {item.override ? (
-                          <p className="ill-sd__muted">
-                            {item.override.kind === 'staff-override' ? 'Overridden by ilLumenate' : 'Accepted'}:{' '}
-                            {item.override.reason}
-                          </p>
-                        ) : null}
-                        {readOnly ? null : (
-                          <div className="ill-sd__row">
-                            {heavier && run ? (
-                              <button
-                                type="button"
-                                className="ill-sd__button ill-sd__button--quiet"
-                                onClick={() => change((draft) => setRunWire(draft, run.runId, heavier))}
-                              >
-                                Use {wireLabel(heavier)}
-                              </button>
-                            ) : null}
-                            {fix ? (
-                              <button
-                                type="button"
-                                className="ill-sd__button ill-sd__button--quiet"
-                                onClick={() => goTo(fix.step)}
-                              >
-                                {fix.label}
-                              </button>
-                            ) : null}
-                            {canAccept && accepting !== id ? (
-                              <button
-                                type="button"
-                                className="ill-sd__button ill-sd__button--quiet"
-                                onClick={() => setAccepting(id)}
-                              >
-                                {item.severity === 'error' ? 'Override' : 'Accept'}
-                              </button>
-                            ) : null}
-                            {item.override ? (
-                              <button
-                                type="button"
-                                className="ill-sd__button ill-sd__button--quiet"
-                                onClick={() =>
-                                  change((draft) => withdrawAcknowledgement(draft, item.code, item.entityRef))
-                                }
-                              >
-                                Withdraw
-                              </button>
-                            ) : null}
-                          </div>
-                        )}
-                        {canAccept && accepting === id ? (
-                          <form
-                            className="ill-sd__row"
-                            onSubmit={(event) => {
-                              event.preventDefault();
-                              if (change((draft) => acknowledge(draft, item, reasons[id] ?? '', actor())))
-                                setAccepting(null);
-                            }}
-                          >
-                            <input
-                              aria-label={`Reason for ${entityLabel(design, item.entityRef)}`}
-                              value={reasons[id] ?? ''}
-                              onChange={(event) => setReasons({ ...reasons, [id]: event.target.value })}
-                            />
-                            <button type="submit" className="ill-sd__button">
-                              Save reason
-                            </button>
-                            <button
-                              type="button"
-                              className="ill-sd__button ill-sd__button--quiet"
-                              onClick={() => setAccepting(null)}
+                    <div key={group.key} className="sd-check-group">
+                      <h4>
+                        {group.title} <span className="ill-sd__muted">({items.length})</span>
+                      </h4>
+                      <ul className="ill-sd__check-list" data-testid={`check-list-${group.key}`}>
+                        {items.map((item) => {
+                          const id = keyOf(item);
+                          const run = runFor(item.entityRef);
+                          const heavier =
+                            run && (item.code === 'VD_OVER_TARGET' || item.code === 'TAPE_UNDERVOLTAGE')
+                              ? heavierWire(run)
+                              : null;
+                          const fix = FIX_STEP[item.code];
+                          const canAccept =
+                            !readOnly &&
+                            !item.override &&
+                            (item.severity === 'warning' || (item.severity === 'error' && staff));
+                          return (
+                            <li
+                              key={id}
+                              className={`ill-sd__check ill-sd__check--${item.override ? 'info' : item.severity}`}
+                              data-testid={`check-${item.code}-${item.entityRef}`}
+                              data-entity={item.entityRef}
                             >
-                              Cancel
-                            </button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </li>
+                              <SeverityIcon severity={item.override ? 'info' : item.severity} />
+                              <div>
+                                <p>
+                                  <strong>{entityLabel(design, item.entityRef)}</strong>
+                                  <span className="ill-sd__sr"> {SEVERITY_LABEL[item.severity]}</span>
+                                </p>
+                                <p>{item.text}</p>
+                                {item.override ? (
+                                  <p className="ill-sd__muted">
+                                    {item.override.kind === 'staff-override' ? 'Overridden by ilLumenate' : 'Accepted'}:{' '}
+                                    {item.override.reason}
+                                  </p>
+                                ) : null}
+                                {readOnly ? null : (
+                                  <div className="ill-sd__row">
+                                    {heavier && run ? (
+                                      <button
+                                        type="button"
+                                        className="ill-sd__button ill-sd__button--quiet"
+                                        onClick={() => change((draft) => setRunWire(draft, run.runId, heavier))}
+                                      >
+                                        Use {wireLabel(heavier)}
+                                      </button>
+                                    ) : null}
+                                    {fix ? (
+                                      <button
+                                        type="button"
+                                        className="ill-sd__button ill-sd__button--quiet"
+                                        onClick={() => goTo(fix.step, item.entityRef)}
+                                      >
+                                        {fix.label}
+                                      </button>
+                                    ) : null}
+                                    {canAccept && accepting !== id ? (
+                                      <button
+                                        type="button"
+                                        className="ill-sd__button ill-sd__button--quiet"
+                                        onClick={() => setAccepting(id)}
+                                      >
+                                        {item.severity === 'error' ? 'Override' : 'Accept'}
+                                      </button>
+                                    ) : null}
+                                    {item.override ? (
+                                      <button
+                                        type="button"
+                                        className="ill-sd__button ill-sd__button--quiet"
+                                        onClick={() =>
+                                          change((draft) => withdrawAcknowledgement(draft, item.code, item.entityRef))
+                                        }
+                                      >
+                                        Withdraw
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                )}
+                                {canAccept && accepting === id ? (
+                                  <form
+                                    className="ill-sd__row"
+                                    onSubmit={(event) => {
+                                      event.preventDefault();
+                                      if (change((draft) => acknowledge(draft, item, reasons[id] ?? '', actor())))
+                                        setAccepting(null);
+                                    }}
+                                  >
+                                    <input
+                                      aria-label={`Reason for ${entityLabel(design, item.entityRef)}`}
+                                      value={reasons[id] ?? ''}
+                                      onChange={(event) => setReasons({ ...reasons, [id]: event.target.value })}
+                                    />
+                                    <button type="submit" className="ill-sd__button">
+                                      Save reason
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="ill-sd__button ill-sd__button--quiet"
+                                      onClick={() => setAccepting(null)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </form>
+                                ) : null}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   );
                 })}
-              </ul>
+              </>
             )}
           </div>
 
@@ -314,7 +331,7 @@ export function CheckStep({
                       const target = result.voltageV <= 60 ? ready.targets.vdTargetLowVoltagePct : null;
                       const over = result.checks.voltageDrop === false;
                       return (
-                        <tr key={key} data-testid={`result-${key}`}>
+                        <tr key={key} data-testid={`result-${key}`} data-entity={result.entityRef}>
                           <th scope="row">{runName(result)}</th>
                           <td>
                             {wireLabel(result.wireTypeId)}

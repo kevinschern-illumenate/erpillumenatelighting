@@ -44,12 +44,23 @@ export function createErpApi({ csrfToken, fetchImpl = fetch }) {
     record: (doctype, name) => call('record', { query: { doctype, name } }),
     /** Full records for [[doctype, name], ...]: one { record } or { error } per pair, in order. */
     records: pairs => call('records', { body: { records: pairs } }),
-    check: catalog => call('check', { body: { catalog } }),
-    importCatalog: (catalog, expectedHash) => call('import_catalog', { body: { catalog, expected_hash: expectedHash } }),
+    /** An optional media manifest ({ manifest, zip }) is sent only when it has rows. */
+    check: (catalog, media) => call('check', { body: withMedia({ catalog }, media) }),
+    importCatalog: (catalog, expectedHash, media) => call('import_catalog', { body: withMedia({ catalog, expected_hash: expectedHash }, media) }),
     history: () => call('history'),
     designReadiness: () => call('design_readiness'),
   };
 }
+
+/** The media keys of a Check/Import body: CSV text and an optional uploaded ZIP (File name or URL). */
+export function mediaBody(media) {
+  const manifest = (media?.manifest || '').trim();
+  if (!manifest) return {};
+  const zip = (media.zip || '').trim();
+  return zip ? { media: manifest, media_zip: zip } : { media: manifest };
+}
+
+const withMedia = (body, media) => ({ ...body, ...mediaBody(media) });
 
 export const slug = doctype => doctype.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 export const deskUrl = (doctype, name) => `/app/${slug(doctype)}/${encodeURIComponent(name)}`;

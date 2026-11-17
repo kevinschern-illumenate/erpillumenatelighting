@@ -10,12 +10,15 @@ from frappe.rate_limiter import rate_limit
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+from illumenate_lighting.illumenate_lighting.portal.errors import service_endpoint
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
 INTAKE = "ilL-Account-Request"
 INVITE = "ilL-Portal-Invitation"
 ACCEPT_PATH = "/portal/accept-invitation"
 INVITE_DAYS = 7
+# Dealer-facing endpoints answer {"success": False, "error"} instead of a bare HTTP 500.
+account_endpoint = service_endpoint("account_request_failed", "Portal account service")
 ADDRESS_FIELDS = (
 	"address_title",
 	"address_type",
@@ -191,6 +194,7 @@ def _new_request(
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def request_change(request_type, note, idempotency_key=None):
 	_login()
@@ -239,6 +243,7 @@ def _apply_contact(doc, data):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def save_record(doctype, values, name=None, expected_modified=None):
 	customer = company()
@@ -275,6 +280,7 @@ def save_record(doctype, values, name=None, expected_modified=None):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def archive_record(doctype, name, expected_modified):
 	customer = company()
@@ -295,12 +301,36 @@ def archive_record(doctype, name, expected_modified):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def set_purchasing_contact(contact):
 	customer = company()
 	require_owned(frappe.get_doc("Contact", contact), customer)
 	frappe.db.set_value("Customer", customer, "ill_purchasing_contact", contact)
 	return {"success": True}
+
+
+@frappe.whitelist(methods=["POST"])
+@account_endpoint
+@atomic_build
+def set_dealer_logo(file_id=None, remove=None):
+	"""Replace or clear the company's title-block logo (hardening plan 4.6).
+
+	``file_id`` is the caller's own unbound upload; it is re-encoded as PNG first.
+	Earlier logo Files are kept, so issued drawings and packets keep theirs.
+	"""
+	from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
+	from illumenate_lighting.illumenate_lighting.portal.media import dealer_logo_available, store_dealer_logo
+
+	customer = company()
+	if not dealer_logo_available():
+		frappe.throw("Dealer logos are unavailable", frappe.PermissionError)
+	if parse_bool(remove, default=False):
+		frappe.db.set_value("Customer", customer, "dealer_logo", None)
+		return {"success": True, "dealer_logo": None}
+	if not file_id:
+		raise ValueError("Choose a PNG or JPEG logo")
+	return {"success": True, **store_dealer_logo(file_id, customer)}
 
 
 def _invite_authority(customer, project=None, user=None):
@@ -316,6 +346,7 @@ def _invite_authority(customer, project=None, user=None):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def invite(email, first_name, last_name="", project=None, access_level="VIEW"):
 	_login()
@@ -464,6 +495,7 @@ def send_invitation(doc, token):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def resend_invitation(name):
 	"""Replace the link (the old one stops working), extend the expiry and email it again."""
@@ -524,6 +556,7 @@ def invitation_preview(token):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def accept_invitation(token):
 	_login()
@@ -594,6 +627,7 @@ def _link_member(user, customer):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 def revoke_invitation(name):
 	doc = frappe.get_doc(INVITE, name)
 	_invite_authority(doc.customer, doc.project)
@@ -606,6 +640,7 @@ def revoke_invitation(name):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def disable_member(user):
 	customer = company()
@@ -717,6 +752,7 @@ def _apply_request(request, approved_customer):
 
 
 @frappe.whitelist(methods=["POST"])
+@account_endpoint
 @atomic_build
 def reply(name, message):
 	_login()

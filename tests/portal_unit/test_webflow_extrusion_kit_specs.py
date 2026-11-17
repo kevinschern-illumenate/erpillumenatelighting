@@ -21,50 +21,24 @@ class Meta:
 
 
 class ExtrusionKitSpecs(unittest.TestCase):
-	def test_calculate_specifications_does_not_read_the_template(self):
-		document = types.ModuleType("frappe.model.document")
-		document.Document = object
-		model = types.ModuleType("frappe.model")
-		model.document = document
-		context = load_service(
-			ROOT + ".doctype.ill_webflow_product.ill_webflow_product",
-			{"frappe.model": model, "frappe.model.document": document},
-		)
-		module, frappe = context.__enter__()
-		self.addCleanup(context.__exit__, None, None, None)
-		doc = module.ilLWebflowProduct()
-		doc.meta = Meta()
-		doc.specifications = []
-		doc.product_type = "Extrusion Kit"
-		doc.kit_template = "DEMO-EXTRUSION-KIT"
-		for field in (
-			"fixture_template",
-			"driver_spec",
-			"controller_spec",
-			"led_sheet_template",
-			"tape_spec",
-			"profile_spec",
-		):
-			setattr(doc, field, None)
-		doc.calculate_specifications()
-		self.assertEqual(doc.specifications, [])
-		frappe.get_doc.assert_not_called()
-
 	def test_the_kit_branch_lives_in_template_sync_with_managed_labels(self):
-		path = (
-			Path(__file__)
-			.resolve()
-			.parents[2]
-			.joinpath(*ROOT.split("."), "doctype", "ill_webflow_product", "ill_webflow_product.py")
+		app = Path(__file__).resolve().parents[2].joinpath(*ROOT.split("."))
+		source = app.joinpath("doctype", "ill_webflow_product", "ill_webflow_product.py").read_text(
+			encoding="utf-8"
 		)
-		source = path.read_text(encoding="utf-8")
-		calculate = source[
-			source.index("def calculate_specifications") : source.index("def _calculate_fixture_specs")
-		]
+		# The old calculate_specifications was removed (plan 4.17).
+		self.assertNotIn("def calculate_specifications", source)
+		# The product's sync runs the template calculation for its specification rows (plan 4.17).
 		sync = source[source.index("def sync_custom_template_data") :]
-		self.assertNotIn("template_doc", calculate)
-		self.assertIn('elif self.product_type == "Extrusion Kit":', sync)
-		self.assertIn('"Lenses",', sync[: sync.index("def format_inches")])
+		self.assertIn("calculator.calculate_specifications(template_doc, debug)", sync)
+		calculations = app.joinpath("template_calculations.py").read_text(encoding="utf-8")
+		branch = calculations[calculations.index("def calculate_specifications") :]
+		self.assertIn('elif self.product_type == "Extrusion Kit":', branch)
+		# The calculated labels are a module-level tuple, shared with template_listing.
+		managed = calculations[
+			calculations.index("MANAGED_LABELS = (") : calculations.index("ENVIRONMENT_ORDER = (")
+		]
+		self.assertIn('"Lenses",', managed)
 
 
 if __name__ == "__main__":

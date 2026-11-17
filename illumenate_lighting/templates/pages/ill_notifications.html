@@ -1,0 +1,41 @@
+{#
+Portal Notifications Page (hardening plan 8.5)
+Recent updates from the notification ledger; opening the page marks them read.
+#}
+{% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, empty_state %}
+
+{% block portal_title %}{{ _("Notifications") }}{% endblock %}
+
+{% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_breadcrumbs %}{{ breadcrumbs([(_("Portal"), "/portal"), (_("Notifications"), None)]) }}{% endblock %}
+{% block portal_content %}
+	<header class="ill-hero">
+		<div class="ill-hero__top">
+			<div>
+				<p class="ill-hero__eyebrow">{{ _("Dealer portal") }}</p>
+				<h1>{{ _("Notifications") }}</h1>
+				<p class="ill-hero__lead">{{ _("Updates on your quotes, orders, drawings and support requests.") }}</p>
+			</div>
+			<div class="ill-hero__actions">
+				<a href="/portal/account#notifications" class="btn btn-outline-secondary">{{ _("Email preferences") }}</a>
+			</div>
+		</div>
+	</header>
+
+	{% if notifications %}
+	<ul class="ill-notifications list-unstyled">
+		{% for entry in notifications %}
+		<li class="ill-notification{% if entry.unread %} ill-notification--unread{% endif %}">
+			<a href="{{ entry.link | e }}">
+				{% if entry.unread %}<span class="badge badge-primary">{{ _("New") }}</span>{% endif %}
+				<span class="ill-notification__subject">{{ entry.subject | e }}</span>
+			</a>
+			<time class="ill-notification__when" datetime="{{ entry.when | e }}">{{ entry.when_label | e }}</time>
+		</li>
+		{% endfor %}
+	</ul>
+	{% else %}
+	{{ empty_state(_("No notifications yet"), _("Quote, order, drawing and support updates will appear here."), "bell", (_("Go to projects"), "/portal/projects")) }}
+	{% endif %}
+{% endblock %}

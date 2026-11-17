@@ -23,5 +23,5 @@ def get_latest_session():
 
 	sessions.require_user()
 	require_catalog_access()
-	rows = frappe.get_all(sessions.DOCTYPE, filters={"user": frappe.session.user, "status": "Active"}, fields=["name", "session_token", "product_type", "recommended_template", "quiz_answers", "creation"], order_by="creation desc", limit=1)
+	rows = frappe.get_all(sessions.DOCTYPE, filters={"user": frappe.session.user, "status": "Active", "schedule": ["is", "not set"]}, fields=["name", "session_token", "product_type", "recommended_template", "quiz_answers", "creation"], order_by="creation desc", limit=1)
 	return rows[0] if rows else None

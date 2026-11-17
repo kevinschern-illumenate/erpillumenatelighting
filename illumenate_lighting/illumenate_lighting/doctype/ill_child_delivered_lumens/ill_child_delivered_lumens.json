@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 12:00:00.000000",
+ "description": "Delivered lumens per foot on a fixture template, one row per output, rebuilt on save (owner, 2026-11-13). A dash means the lens does not reach that output; an empty column is a lens the template does not have (hidden on the form).",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "output_level",
+  "white",
+  "frosted",
+  "clear",
+  "black"
+ ],
+ "fields": [
+  {
+   "fieldname": "output_level",
+   "fieldtype": "Link",
+   "label": "Output",
+   "options": "ilL-Attribute-Output Level",
+   "in_list_view": 1,
+   "bold": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "white",
+   "fieldtype": "Data",
+   "label": "White",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "frosted",
+   "fieldtype": "Data",
+   "label": "Frosted",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "clear",
+   "fieldtype": "Data",
+   "label": "Clear",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "black",
+   "fieldtype": "Data",
+   "label": "Black",
+   "in_list_view": 1,
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-13 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Delivered-Lumens",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

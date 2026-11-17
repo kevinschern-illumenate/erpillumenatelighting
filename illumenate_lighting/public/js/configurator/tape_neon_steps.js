@@ -304,7 +304,7 @@
 			+ '<div class="segment-card" id="neonSeg' + idx + '" data-seg-idx="' + idx + '">'
 			+ '<div class="card-header">'
 			+ '<strong>Segment ' + idx + '</strong>'
-			+ (idx > 1 ? '<button type="button" class="btn btn-sm btn-outline-danger btn-remove-seg" data-seg="' + idx + '"><i class="fa fa-trash"></i></button>' : '')
+			+ (idx > 1 ? '<button type="button" class="btn btn-sm btn-outline-danger btn-remove-seg" data-seg="' + idx + '" aria-label="' + String(__('Remove segment {0}', [idx])).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"><i class="fa fa-trash" aria-hidden="true"></i></button>' : '')
 			+ '</div>'
 			+ '<div class="card-body">'
 			+ '<div class="row">'
@@ -475,6 +475,7 @@
 		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
+		this._requestEstimate(args);
 		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_tape_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
@@ -529,12 +530,19 @@
 		if (this.TEMPLATE_CODE) args.tape_neon_template = this.TEMPLATE_CODE;
 		var overrideMaxRun = this._getOverrideMaxRunFt();
 		if (overrideMaxRun !== '') args.override_max_run_ft = overrideMaxRun;
+		this._requestEstimate(args);
 		self.request({
 			method: 'illumenate_lighting.illumenate_lighting.api.tape_neon_configurator.validate_neon_configuration',
 			args: args, freeze: true, freeze_message: 'Calculating...',
 			isCurrent: this.validationGuard(),
 			callback: function (r) { self._handleResult(r.message); }
 		});
+	};
+
+	// Plan 3.8: ask the validator for the save path's price and the offering's lead time.
+	TapeNeon.prototype._requestEstimate = function (args) {
+		var IC = root.IllConfigurator;
+		if (IC && IC.estimateEnabled && IC.estimateEnabled()) args.include_estimate = 1;
 	};
 
 	TapeNeon.prototype._handleResult = function (result) {
@@ -550,6 +558,7 @@
 	TapeNeon.prototype._showResults = function (result) {
 		this.$('#errorsCard').hide();
 		this.$('#resultsCard').show();
+		if (root.IllBuildPreview) root.IllBuildPreview.render(this.$('.ill-build-preview')[0], result, this.IS_NEON ? 'neon' : 'tape');
 		this.$('#resultPartNumber').text(result.part_number || '-');
 		this.$('#resultDescription').text(result.build_description || '-');
 
@@ -569,6 +578,7 @@
 			this.$('#resultDifference').text(((c.difference_mm || 0) / 25.4).toFixed(2) + '"');
 		}
 		this.$('#resultWatts').text((c.total_watts || 0).toFixed(2) + ' W');
+		this._renderEstimate(result);
 
 		if (c.max_run_ft_effective) {
 			this.$('#resultMaxRunRow').show();
@@ -654,6 +664,23 @@
 		this._loadMountingAccessories(result);
 	};
 
+	TapeNeon.prototype._renderEstimate = function (result) {
+		var IC = root.IllConfigurator;
+		if (!IC || !IC.renderEstimate) return;
+		var estimate = result.estimate || {};
+		var options = {
+			family: 'tape_neon',
+			tape_offering: (result.resolved_items || {}).tape_offering,
+			schedule_name: this.context.config_schedule,
+			show_pricing: this.context.show_pricing !== false
+		};
+		if (result.estimate) {
+			options.price = estimate.total_price_msrp != null ? estimate.total_price_msrp : null;
+			options.lead_time = estimate.lead_time || null;
+		}
+		IC.renderEstimate(this.$('#resultsCard > .card-body'), options);
+	};
+
 	TapeNeon.prototype._showError = function (msg) {
 		this.$('#resultsCard').hide();
 		this.$('#errorsCard').show();
@@ -687,7 +714,8 @@
 				environment_rating: this.selections.environment_rating || '',
 				// Neon has no environment selection; its segments' IP ratings decide the accessories.
 				ip_ratings: JSON.stringify((computed.segments || []).map(function (s) { return s.ip_rating; }).filter(Boolean)),
-				segments: segmentCount
+				segments: segmentCount,
+				runs_count: computed.runs_count || 1
 			},
 			callback: function (r) {
 				if (r.message && r.message.success && r.message.accessories && r.message.accessories.length) {
@@ -848,8 +876,8 @@
 		this.$('#tapeLengthUnitTabs .nav-link').on('click' + '.' + self.instanceId, function (e) {
 			e.preventDefault();
 			self.invalidateValidation();
-			self.$('#tapeLengthUnitTabs .nav-link').removeClass('active');
-			$(this).addClass('active');
+			self.$('#tapeLengthUnitTabs .nav-link').removeClass('active').attr('aria-pressed', 'false');
+			$(this).addClass('active').attr('aria-pressed', 'true');
 			var unit = $(this).data('unit');
 			self.selections.tape_length_unit = unit;
 			if (unit === 'ft_in') {

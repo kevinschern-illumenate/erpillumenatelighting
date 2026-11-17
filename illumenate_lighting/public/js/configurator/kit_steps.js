@@ -1,6 +1,8 @@
 (function(root){
   'use strict';
   var IC=root.IllConfigurator,API='illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator.';
+  // Plan 2.4: show what the server said (portal_error text included) before the generic fallback.
+  function serverText(r){return root.PortalUI&&typeof root.PortalUI.serverMessage==='function'?root.PortalUI.serverMessage(r):'';}
   function Kit(el,context){IC.DriverController.call(this,el,context);this.template=context.selected_template||(context.initial_request||{}).template;}
   Kit.prototype=Object.create(IC.DriverController.prototype);Kit.prototype.constructor=Kit;
   Kit.prototype.init=function(){var self=this;IC.DriverController.prototype.init.call(this);this.$('#familyProductSelect').hide().prev('label').hide();this.$('#kitTemplateSelect').prop('hidden',false).on('change',function(){self.template=$(this).val();self.context.initial_request=null;self.loading=true;self.delay(function(){self.load();},0);});this.load();return this;};
@@ -20,7 +22,7 @@
       self.steps=[['finish','Finish'],['lens_appearance','Lens appearance'],['mounting_method','Mounting method']].map(function(s){return {name:s[0],label:s[1]};});
       self.selections=Object.assign({},data.defaults||{},(self.context.initial_request||{}).selections||{}, {kit_template:self.template});
       delete self.selections.endcap_style;delete self.selections.endcap_color;self.reachable={};self.renderSteps();self.changed();
-    },error:function(){if(revision===self.revision)self.fail(__('Unable to load this kit. Please try again.'));}});
+    },error:function(r){if(revision===self.revision)self.fail(serverText(r)||__('Unable to load this kit. Please try again.'));}});
   };
   Kit.prototype.changed=function(){
     var self=this,revision=++this.revision;this.loading=true;this.result=null;this.updateSave();this.renderSteps();
@@ -30,7 +32,7 @@
       self.reachable={};if(data.available_lens_appearances)self.reachable.lens_appearance=data.available_lens_appearances;
       Object.keys(self.reachable).forEach(function(key){if(!self.reachable[key].some(function(o){return o.value===self.selections[key];}))delete self.selections[key];});
       self.renderSteps();self.validate();
-    },error:function(){if(revision===self.revision)self.fail(__('Unable to check kit options. Please try again.'));}});
+    },error:function(r){if(revision===self.revision)self.fail(serverText(r)||__('Unable to check kit options. Please try again.'));}});
   };
   Kit.prototype.validate=function(){
     var self=this,revision=this.revision;
@@ -40,7 +42,7 @@
     this.loading=true;this.result=null;this.updateSave();
     this.request({method:API+'validate_kit_configuration',args:{selections:JSON.stringify(this.selections)},callback:function(r){
       if(revision!==self.revision)return;var data=r.message||{};self.loading=false;self.result=data.is_valid?data:null;self.renderResult(data);self.updateSave();
-    },error:function(){if(revision===self.revision)self.fail(__('Unable to validate this kit. Please try again.'));}});
+    },error:function(r){if(revision===self.revision)self.fail(serverText(r)||__('Unable to validate this kit. Please try again.'));}});
   };
   Kit.prototype.fail=function(message){this.loading=false;this.result=null;this.renderResult({is_valid:false,error:message});this.updateSave();};
   // Kit options invalidate through changed(); line metadata does not change the build.
@@ -107,6 +109,7 @@
     COMPONENTS.forEach(function(c){var comp=(data.kit_composition||{})[c[0]];if(comp&&comp.not_required){body.append($('<tr class="text-muted">').append($('<td>').text(c[1]),$('<td>').text(__('None required')),$('<td class="text-right">').text('0')));return;}if(!comp||!comp.item)return;body.append($('<tr>').append($('<td>').text(c[1]+(comp.length_mm?' ('+comp.length_mm+' mm)':'')),$('<td>').text(comp.item),$('<td class="text-right">').text(comp.qty)));});
     box.append(table);
     var sa=data.stock_availability;if(sa){box.append($('<p class="ill-kit-stock">').addClass(sa.all_in_stock?'is-in-stock':'is-short').text(sa.all_in_stock?'Components in stock':'Some components need replenishment'));if(self.context.show_stock_qty)(sa.items||[]).forEach(function(item){box.append($('<p class="small text-muted mb-0">').text(item.item_name+': '+item.qty_available+' available'));});}
+    if(IC.renderEstimate)IC.renderEstimate(box,{family:'kit',schedule_name:this.context.config_schedule,show_pricing:!!this.context.show_pricing});
   };
   IC.Kit=Kit;
 })(window);

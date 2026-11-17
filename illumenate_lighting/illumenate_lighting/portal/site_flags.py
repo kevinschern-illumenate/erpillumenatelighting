@@ -30,6 +30,164 @@ def fixture_groups_enabled():
 	return conf_flag("ill_portal_fixture_groups", default=True)
 
 
+def desk_links_enabled():
+	"""Staff "Open in Desk" links on portal record pages (plan 7.2). On unless set false."""
+	return conf_flag("ill_portal_desk_links", default=True)
+
+
+def overdue_digest_enabled():
+	"""Daily overdue-work digest bell for staff (plan 7.4). On unless set false."""
+	return conf_flag("ill_portal_overdue_digest", default=True)
+
+
+def heic_uploads_enabled():
+	"""Dealer HEIC/HEIF photo uploads, converted to JPEG. On unless a site sets the flag false."""
+	return conf_flag("ill_portal_heic_uploads", default=True)
+
+
+def upload_widget_enabled():
+	"""The shared drag-and-drop upload widget (plan 4.1). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_upload_widget", default=True)
+
+
+def upload_purpose_enabled():
+	"""Upload purpose and caption (hardening plan 4.3). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_upload_purpose", default=True)
+
+
+def thumbnails_enabled():
+	"""Server-generated WebP thumbnails for image uploads (hardening plan 4.4)."""
+	return conf_flag("ill_portal_thumbnails", default=True)
+
+
+def gallery_enabled():
+	"""Project and line photo galleries (hardening plan 4.5)."""
+	return conf_flag("ill_portal_gallery", default=True)
+
+
+def upload_duplicate_check_enabled():
+	"""Warn about and skip re-uploads of bytes already on a schedule (hardening plan 4.8)."""
+	return conf_flag("ill_portal_upload_duplicate_check", default=True)
+
+
+def dealer_logo_enabled():
+	"""Dealer logo self-service on /portal/account (hardening plan 4.6)."""
+	return conf_flag("ill_portal_dealer_logo", default=True)
+
+
+def staff_heic_enabled():
+	"""Desk HEIC-to-JPEG conversion for product imagery (hardening plan 4.7)."""
+	return conf_flag("ill_desk_heic_conversion", default=True)
+
+
+def portal_client_flags():
+	"""Dealer-visible kill switches the portal scripts read from ``#ill-portal-flags``."""
+	return {
+		"upload_widget": upload_widget_enabled(),
+		"upload_purpose": upload_purpose_enabled(),
+		"gallery": gallery_enabled(),
+	}
+
+
+def durable_drafts_enabled():
+	"""Server-backed configurator draft autosave (plan 3.1). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_durable_drafts", default=True)
+
+
+def line_copy_enabled():
+	"""Copy lines to another schedule and "Configure similar" (plan 3.2). On unless a site sets the flag false."""
+	return conf_flag("ill_portal_line_copy", default=True)
+
+
+def bulk_edit_enabled():
+	"""Select several schedule lines and edit, delete or move them together (plan 3.3). On by default."""
+	return conf_flag("ill_portal_bulk_edit", default=True)
+
+
+def part_number_decode_enabled():
+	"""Read a fixture part number back into configurator selections (plan 3.5). On by default."""
+	return conf_flag("ill_portal_part_number_decode", default=True)
+
+
+def schedule_import_enabled():
+	"""Import schedule lines from a CSV/Excel sheet (plan 3.4). On by default."""
+	return conf_flag("ill_portal_schedule_import", default=True)
+
+
+def presets_enabled():
+	"""Saved configuration presets, private or shared with the dealer's company (plan 3.6). On by default."""
+	return conf_flag("ill_portal_presets", default=True)
+
+
+def recent_products_enabled():
+	""""Recently used" product cards in the schedule's Add Line picker (plan 3.7). On by default."""
+	return conf_flag("ill_portal_recent_products", default=True)
+
+
+def stale_badge_enabled():
+	""""Catalog updated — review" badges on schedule lines (plan 3.9). On by default."""
+	return conf_flag("ill_portal_stale_badge", default=True)
+
+
+def undo_enabled():
+	"""A 10-second "Undo" after deleting, moving or bulk-editing schedule lines (plan 3.10). On by default."""
+	return conf_flag("ill_portal_undo", default=True)
+
+
+def activity_timeline_enabled():
+	"""The read-only schedule activity timeline (plan 3.11). On by default."""
+	return conf_flag("ill_portal_activity_timeline", default=True)
+
+
+def keyboard_shortcuts_enabled():
+	"""Schedule keyboard shortcuts, help overlay and keyboard reorder (plan 3.13). On by default."""
+	return conf_flag("ill_portal_keyboard_shortcuts", default=True)
+
+
+def live_estimate_enabled():
+	"""Configurator estimate panel: price, stock and lead time labelled "estimate" (plan 3.8). On by default."""
+	return conf_flag("ill_portal_live_estimate", default=True)
+
+
+def hero_image_first_enabled():
+	"""D1 image order (template hero image first, plan 5.4). Off restores gallery-first."""
+	return conf_flag("ill_portal_hero_image_first", default=True)
+
+
+
+
+
+def media_derivatives_enabled():
+	"""WebP derivatives for staff product images (plan 5.8). On unless a site sets the flag false."""
+	return conf_flag("ill_media_derivatives", default=True)
+
+
+def webflow_image_derivatives_enabled():
+	"""Add ``image_derivatives`` to Webflow payloads (plan 5.8). Off by default: the payload
+	contract changes, so n8n must accept the key before a site turns this on."""
+	return conf_flag("ill_webflow_image_derivatives", default=False)
+
+
+def sheet_server_options_enabled():
+	"""Server-checked LED Sheet option cascade (plan 6.4). Off leaves the browser matcher alone."""
+	return conf_flag("ill_portal_sheet_server_options", default=True)
+
+
+def option_projection_cache_enabled():
+	"""Cache configurator option projections per catalog revision (plan 6.5). Off reads live every time."""
+	return conf_flag("ill_option_projection_cache", default=True)
+
+
+def build_preview_enabled():
+	"""Read-only SVG preview of the calculated build in the configurator review (plan 6.6)."""
+	return conf_flag("ill_portal_build_preview", default=True)
+
+
+def configuration_compare_enabled():
+	"""Side-by-side comparison of two saved schedule lines (plan 6.7)."""
+	return conf_flag("ill_portal_configuration_compare", default=True)
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

@@ -12,6 +12,7 @@ re-validate, and save changes back to the schedule.
 import frappe
 
 from illumenate_lighting.illumenate_lighting.portal import line_routes
+from illumenate_lighting.illumenate_lighting.portal.page_scripts import script_version
 from illumenate_lighting.illumenate_lighting.portal.web_guard import require_login
 
 no_cache = 1
@@ -20,6 +21,7 @@ no_cache = 1
 def get_context(context):
 	"""Get context for the edit fixture portal page."""
 	require_login()
+	context.edit_fixture_js_version = script_version("edit_fixture")
 
 	# Lines are addressed by key (/portal/schedules/<schedule>/lines/<line_key>/edit); the old
 	# /portal/edit_fixture?schedule=&line_idx=&fixture= links redirect there.

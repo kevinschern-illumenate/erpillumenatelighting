@@ -1,7 +1,7 @@
 ﻿/**
  * Shim for window.illumenate_lighting.quote_order_configurator.
  *
- * The "Configure & Add Fixture" dialog in public/js/desk/desk_dialog.js
+ * The "Configure & Add Fixture" dialog in public/js/desk/dialog/*.js
  * mounts the scoped portal configurator classes inside a Quotation / Sales
  * Order modal, links the work to an ilL-Project + fixture schedule and
  * inserts the priced row client-side (api/desk_configurator.py).

@@ -3,10 +3,12 @@ Portal Orders Page
 View and track sales orders with production and shipment status
 #}
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 
 {% block portal_title %}{{ _("My Orders") }}{% endblock %}
 
 {% block portal_page_class %}ill-commerce{% endblock %}
+{% block portal_breadcrumbs %}{{ breadcrumbs([(_("Portal"), "/portal"), (_("Orders"), None)]) }}{% endblock %}
 {% block portal_content %}{% set search = search | default('', true) %}
 {% set filter = filter | default('all', true) %}
 
@@ -84,11 +86,5 @@ View and track sales orders with production and shipment status
 		</div>
 	{% endfor %}
 	</div>
-	{% if page > 1 or has_more %}
-	<nav class="ill-pager" aria-label="{{ _('Order pages') }}">
-		{% if page > 1 %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page - 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Newer orders") }}</a>{% else %}<span></span>{% endif %}
-		<span>{{ _("Page") }} {{ page | e }}</span>
-		{% if has_more %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page + 1 }}&amp;search={{ search | urlencode }}&amp;status={{ filter | urlencode }}">{{ _("Older orders") }} <i class="fa fa-angle-right" aria-hidden="true"></i></a>{% else %}<span></span>{% endif %}
-	</nav>
-	{% endif %}
+	{{ pager(_("Order pages"), page, has_more, [("search", search), ("status", filter)], prev_label=_("Newer orders"), next_label=_("Older orders")) }}
 {% endblock %}

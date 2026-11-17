@@ -40,10 +40,11 @@ def get_context(context):
 	is_owner = project.owner == frappe.session.user
 	can_manage = can_manage_project_collaborators(project, frappe.session.user)
 
-	# Get current collaborators with user details
+	# Get current collaborators with user details (plan 2.7: one User query)
 	collaborators = []
+	users = _user_details(collab.user for collab in project.collaborators or [])
 	for collab in project.collaborators or []:
-		user_doc = frappe.get_doc("User", collab.user) if frappe.db.exists("User", collab.user) else None
+		user_doc = users.get(collab.user)
 		collaborators.append({
 			"user": collab.user,
 			"full_name": user_doc.full_name if user_doc else collab.user,
@@ -73,6 +74,15 @@ def get_context(context):
 	context.no_cache = 1
 
 	return context
+
+
+def _user_details(names):
+	"""``{user: row}`` with ``full_name`` and ``email`` for existing users, in one query."""
+	names = sorted({name for name in names if name})
+	if not names:
+		return {}
+	rows = frappe.get_all("User", filters={"name": ["in", names]}, fields=["name", "full_name", "email"])
+	return {row.name: row for row in rows}
 
 
 def _get_available_users(project):

@@ -1,9 +1,10 @@
 {% extends "templates/portal_base.html" %}
+{% from "templates/includes/portal_chrome.html" import breadcrumbs, pager %}
 {% block portal_title %}{{ offer.name | e }}{% endblock %}
 {% block portal_page_class %}ill-commerce{% endblock %}
 {% block portal_main_attrs %}data-offer="{{ offer.name | e }}" data-hash="{{ offer.snapshot_hash | e }}"{% endblock %}
 {% block portal_content %}{% set currency = offer.snapshot.currency %}
-  <a class="ill-back" href="/portal/quotes"><i class="fa fa-angle-left" aria-hidden="true"></i> {{ _("Back to quotes") }}</a>
+  {{ breadcrumbs([(_("Portal"), "/portal"), (_("Quotes"), "/portal/quotes"), (offer.name, None)]) }}
   <header class="ill-hero">
     <div class="ill-hero__top">
       <div>

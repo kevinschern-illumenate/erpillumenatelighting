@@ -114,6 +114,26 @@ def _resolve_options(template_doc, options: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+def _matchable_specs(template_doc) -> list[dict[str, Any]]:
+    """The template's active, sellable panel specs as ``{name, item, cct}`` rows."""
+    specs = []
+    for row in template_doc.allowed_specs or []:
+        if not row.is_active:
+            continue
+        doc = frappe.get_doc("ilL-Spec-LED-Sheet", row.spec)
+        if doc.is_active:
+            specs.append({"name": row.spec, "item": doc.item, "cct": doc.cct})
+    return enabled_rows(specs, "item")
+
+
+def _offered_codes(template_doc) -> dict[str, list[str]]:
+    offered: dict[str, list[str]] = {}
+    for row in template_doc.allowed_options or []:
+        if row.is_active:
+            offered.setdefault(row.option_type, []).append(row.option_code)
+    return offered
+
+
 def resolve_sheet_spec(template_doc, resolved: dict[str, Any], spec: str | None = None) -> str:
     """The panel spec selected by the template and its resolved option choices.
 
@@ -124,16 +144,8 @@ def resolve_sheet_spec(template_doc, resolved: dict[str, Any], spec: str | None 
     allowed = [row.spec for row in template_doc.allowed_specs or [] if row.is_active]
     if spec and spec not in allowed:
         frappe.throw(_("LED Sheet spec {0} is not allowed for template {1}").format(spec, template_doc.name))
-    specs = []
-    for name in allowed:
-        doc = frappe.get_doc("ilL-Spec-LED-Sheet", name)
-        if doc.is_active:
-            specs.append({"name": name, "item": doc.item, "cct": doc.cct})
-    specs = enabled_rows(specs, "item")
-    offered: dict[str, list[str]] = {}
-    for row in template_doc.allowed_options or []:
-        if row.is_active:
-            offered.setdefault(row.option_type, []).append(row.option_code)
+    specs = _matchable_specs(template_doc)
+    offered = _offered_codes(template_doc)
     matches = [row["name"] for row in match_sheet_specs(specs, resolved, offered)]
     if spec:
         if spec not in matches:
@@ -153,6 +165,63 @@ def resolve_sheet_spec(template_doc, resolved: dict[str, Any], spec: str | None 
             summary or template_doc.name
         )
     )
+
+
+@frappe.whitelist()
+@template_scoped("ilL-LED-Sheet-Template", "template")
+def get_sheet_cascading_options(template, options=None) -> dict[str, Any]:
+    """Which option values still lead to a panel, and the panel the choices identify.
+
+    The browser matches options against the embedded template data for instant
+    feedback; this is the server's answer from live specs (plan 6.4). ``options``
+    maps an option type (or its field name) to the chosen value, as a dict or
+    JSON. A chosen value the template does not offer is listed in ``invalid``
+    and ignored. ``available`` maps each offered option type to the values that
+    match at least one panel given the other choices. ``spec`` is set only when
+    exactly one panel matches. No prices are returned.
+    """
+    from illumenate_lighting.illumenate_lighting.portal.rollout import require_configuration
+    from illumenate_lighting.illumenate_lighting.portal.site_flags import sheet_server_options_enabled
+
+    require_configuration("LED Sheet")
+    if not sheet_server_options_enabled():
+        return {"success": True, "enabled": False}
+
+    template_doc = frappe.get_doc("ilL-LED-Sheet-Template", template)
+    allowed = _allowed_option_map(template_doc)
+    specs = _matchable_specs(template_doc)
+    offered = _offered_codes(template_doc)
+
+    chosen, invalid = {}, []
+    for key, value in _coerce_options(options).items():
+        option_type = _norm_option_key(key)
+        if value in (None, "") or option_type not in OPTION_FIELD_BY_TYPE:
+            continue
+        row = allowed.get(option_type, {}).get(value)
+        if row is None:
+            invalid.append(option_type)
+            continue
+        chosen[option_type] = {"value": value, "code": row.option_code}
+
+    available = {}
+    for option_type, rows in allowed.items():
+        others = {t: c for t, c in chosen.items() if t != option_type}
+        available[option_type] = [
+            value for value, row in rows.items()
+            if match_sheet_specs(specs, {**others, option_type: {"value": value, "code": row.option_code}}, offered)
+        ]
+
+    matches = [row["name"] for row in match_sheet_specs(specs, chosen, offered)]
+    return {
+        "success": True,
+        "enabled": True,
+        "template": template_doc.name,
+        "available": available,
+        "invalid": invalid,
+        "matches": matches,
+        "match_count": len(matches),
+        "spec": matches[0] if len(matches) == 1 else None,
+    }
 
 
 def _get_eligible_drivers(template_name: str) -> list[dict[str, Any]]:
