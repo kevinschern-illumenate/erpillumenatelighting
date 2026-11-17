@@ -4279,8 +4279,9 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 
 	# 3. Resolve the customer strictly from the session – never from the client.
 	from illumenate_lighting.illumenate_lighting.api.pricing_utils import (
+		apply_tier_rule,
+		customer_tier_rule,
 		get_customer_for_session_user,
-		get_tier_price_for_customer,
 	)
 
 	customer = get_customer_for_session_user()
@@ -4347,6 +4348,9 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 			if snap.parent not in ctn_pricing_map and snap.msrp_unit:
 				ctn_pricing_map[snap.parent] = float(snap.msrp_unit)
 
+	# One customer, one rule: look it up once, not twice per priced line.
+	tier_group, tier_rule = customer_tier_rule(customer)
+
 	result_lines: dict = {}
 	schedule_total_msrp = 0.0
 	schedule_total_tier = 0.0
@@ -4398,7 +4402,7 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 		}
 
 		if msrp_unit:
-			tier = get_tier_price_for_customer(msrp_unit, customer=customer)
+			tier = apply_tier_rule(msrp_unit, tier_group, tier_rule)
 			tier_unit = tier["tier_unit"]
 			entry["msrp_unit"] = round(msrp_unit, 2)
 			entry["tier_unit"] = tier_unit
@@ -4410,7 +4414,7 @@ def get_schedule_dealer_pricing(schedule_name: str) -> dict:
 			overall_discount_percentage = tier["discount_percentage"]
 
 		if driver_msrp_unit:
-			driver_tier = get_tier_price_for_customer(driver_msrp_unit, customer=customer)
+			driver_tier = apply_tier_rule(driver_msrp_unit, tier_group, tier_rule)
 			driver_tier_unit = driver_tier["tier_unit"]
 			entry["driver_msrp_unit"] = round(driver_msrp_unit, 2)
 			entry["driver_tier_unit"] = driver_tier_unit

@@ -13,11 +13,13 @@ function Coordinator(rootEl, context) {
         return root.jQuery(value);
     }
     $.extend = root.jQuery.extend;
-    self.invalidateValidation = function () {
+    self.invalidateValidation = function (options) {
         Base.prototype.invalidateValidation.call(self);
         currentResult = tnCurrentResult = bulkReelCurrentResult = null;
         $('#saveBtn, #tnSaveBtn, #brSaveBtn').prop('disabled', true);
         $('#resultsContent, #tnResultsContent, #brResultsContent').hide();
+        // A calculation starting from unchanged inputs keeps the results on screen until it answers.
+        if (!(options && options.calculating)) clearStaleResults();
         $('#calculateBtn, #tnCalculateBtn, #brCalculateBtn').each(function () {
             var label = $(this).data('illCalculationLabel');
             if (label) $(this).html(label);
@@ -54,7 +56,7 @@ function Coordinator(rootEl, context) {
 	};
     function coordinatorRequest(options) {
         if (/\.validate_/.test(options.method)) {
-            self.invalidateValidation();
+            self.invalidateValidation({ calculating: true });
             options.isCurrent = self.validationGuard();
 			options.args._skip_record_creation = true;
         } else if (!options.isCurrent && /\.(init_|get_|auto_select)/.test(options.method)) {
@@ -1327,6 +1329,20 @@ function estimateEnabled() {
 function estimateTotal(result) {
 	var total = result && result.estimate ? result.estimate.total_price_msrp : null;
 	return total == null || total === '' || !isFinite(Number(total)) ? null : Number(total);
+}
+
+// A changed input makes the shown build, drawing, price and estimate stale. Put the results
+// card back to its "Not Calculated" state; the next Calculate fills it again.
+function clearStaleResults() {
+	$('#partNumberPanel, #lengthResults, #manufacturingResults, #buildDescriptionPanel, #ledRunDetailsPanel, #driverResults, #pricingResults, #messagesPanel').hide();
+	$('.ill-build-preview').empty().prop('hidden', true);
+	$('#noResults').parent().children('.ill-estimate').remove();
+	var $status = $('#validationStatus');
+	if ($status.length) {
+		$status.removeClass('badge-success badge-danger').addClass('badge-secondary');
+		if ($status.attr('data-idle-label')) $status.text($status.attr('data-idle-label'));
+	}
+	$('#noResults').show();
 }
 
 function renderEstimate(result, options) {

@@ -151,6 +151,11 @@
 	DraftAutosave.prototype.offer = function () {
 		var self = this;
 		if (new URLSearchParams(root.location.search).get('resume')) return;
+		// Every new line of one product type on a schedule shares a draft (a new line has no key
+		// until it is saved). A page that opened pre-filled for a new line (part number, preset,
+		// "Configure similar", finder or sheet link) already says what the dealer wants, so an
+		// unrelated draft is not offered over it. Drafts of an existing line are always offered.
+		if (!this.lineKey && (this.context.initial_request || this.context.finder)) return;
 		call({
 			method: METHOD + 'get_draft',
 			type: 'GET',
@@ -186,6 +191,15 @@
 	};
 
 	DraftAutosave.prototype.restore = function (draft) {
+		// Restoring reloads the page; ask first when the dealer has already changed something here.
+		var self = this;
+		if (this.state && !this._confirmedRestore && root.frappe && root.frappe.confirm) {
+			root.frappe.confirm(text('Restoring the draft replaces the changes you made on this page. Continue?'), function () {
+				self._confirmedRestore = true;
+				try { self.restore(draft); } finally { self._confirmedRestore = false; }
+			});
+			return;
+		}
 		var store = storage();
 		if (!store || !root.crypto || !root.crypto.randomUUID) {
 			root.frappe.msgprint(text('Allow session storage to restore this draft.'));

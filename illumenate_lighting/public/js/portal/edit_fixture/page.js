@@ -757,6 +757,27 @@ function collectSegments() {
 	return segments;
 }
 
+// The last calculation's endpoint and inputs. Calculations pass _skip_record_creation so a
+// dealer trying options does not write an ilL-Configured-Fixture each time; Update Fixture
+// repeats the same request without it to create (or reuse, by config hash) the record it saves.
+var lastQuote = null;
+
+function requestQuote(method, data) {
+	var args = $.extend({}, data, { _skip_record_creation: 1 });
+	lastQuote = null;
+	frappe.call({
+		method: method,
+		args: args,
+		callback: function(r) {
+			if (r.message) {
+				currentResult = r.message;
+				lastQuote = { method: method, data: $.extend({}, data) };
+				displayResults(r.message);
+			}
+		}
+	});
+}
+
 function validateAndQuote() {
 	var form = $('#configuratorForm');
 	var segments = collectSegments();
@@ -790,32 +811,15 @@ function validateAndQuote() {
 		segments_json: JSON.stringify(segments)
 	};
 	
-	// Use the output-based API if we have delivered_output_value
+	// Calculate without writing a configured fixture record; Update Fixture writes the
+	// one it saves (see requestQuote and updateFixture).
 	if (deliveredOutputValue) {
 		data.delivered_output_value = parseInt(deliveredOutputValue);
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment_with_output',
-			args: data,
-			callback: function(r) {
-				if (r.message) {
-					currentResult = r.message;
-					displayResults(r.message);
-				}
-			}
-		});
+		requestQuote('illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment_with_output', data);
 	} else if (tapeOfferingId) {
 		// Fallback to old API with tape_offering_id
 		data.tape_offering_id = tapeOfferingId;
-		frappe.call({
-			method: 'illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment',
-			args: data,
-			callback: function(r) {
-				if (r.message) {
-					currentResult = r.message;
-					displayResults(r.message);
-				}
-			}
-		});
+		requestQuote('illumenate_lighting.illumenate_lighting.api.configurator_engine.validate_and_quote_multisegment', data);
 	} else {
 		frappe.msgprint({
 			title: __('Missing Selection'),
@@ -872,9 +876,10 @@ function displayResults(result) {
 	}
 
 	// Display part number and description
-	if (result.configured_fixture_id) {
+	var partNumber = result.configured_fixture_id || result.candidate_part_number;
+	if (partNumber) {
 		$('#partNumberPanel').show();
-		$('#partNumberValue').text(result.configured_fixture_id);
+		$('#partNumberValue').text(partNumber);
 		var desc = (result.computed && (result.computed.build_description_display || result.computed.build_description)) || '-';
 		$('#partDescriptionValue').text(desc);
 	} else {
@@ -1005,21 +1010,44 @@ function displayResults(result) {
 }
 
 function updateFixture() {
-	if (!currentResult || !currentResult.is_valid || !schedule_name) {
+	if (!currentResult || !currentResult.is_valid || !schedule_name || !lastQuote) {
 		frappe.msgprint('Cannot save: configuration is not valid or no schedule specified');
 		return;
 	}
 	
 	// Disable button to prevent double-clicks
 	$('#saveBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin" aria-hidden="true"></i> Updating...');
+	var restoreButton = function() {
+		$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save" aria-hidden="true"></i> Update Fixture');
+	};
 	
+	// The calculation shown was not stored; repeat it once with record creation on.
+	frappe.call({
+		method: lastQuote.method,
+		args: lastQuote.data,
+		callback: function(r) {
+			var result = r && r.message;
+			if (!result || !result.is_valid || !result.configured_fixture_id) {
+				var message = result && result.messages && result.messages.length && result.messages[0].text;
+				frappe.msgprint(message ? PortalUI.escape(message) : 'Error updating fixture configuration');
+				restoreButton();
+				return;
+			}
+			currentResult = result;
+			saveConfiguredFixture(result, restoreButton);
+		},
+		error: restoreButton
+	});
+}
+
+function saveConfiguredFixture(result, restoreButton) {
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_configured_fixture_on_schedule',
 		args: {
 			schedule_name: schedule_name,
 			line_idx: line_idx,
-			new_configured_fixture_id: currentResult.configured_fixture_id,
-			manufacturable_length_mm: currentResult.computed.manufacturable_overall_length_mm
+			new_configured_fixture_id: result.configured_fixture_id,
+			manufacturable_length_mm: result.computed.manufacturable_overall_length_mm
 		},
 		callback: function(r) {
 			if (r.message && r.message.success) {
@@ -1033,12 +1061,10 @@ function updateFixture() {
 					window.location.href = '/portal/schedules/' + schedule_name;
 				}, 1000);
 			} else {
-				frappe.msgprint(r.message.error || 'Error updating fixture configuration');
-				$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save" aria-hidden="true"></i> Update Fixture');
+				frappe.msgprint((r.message && r.message.error) || 'Error updating fixture configuration');
+				restoreButton();
 			}
 		},
-		error: function() {
-			$('#saveBtn').prop('disabled', false).html('<i class="fa fa-save" aria-hidden="true"></i> Update Fixture');
-		}
+		error: restoreButton
 	});
 }
