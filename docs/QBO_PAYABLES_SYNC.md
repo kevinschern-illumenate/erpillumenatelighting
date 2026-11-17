@@ -28,7 +28,17 @@ Not sent: debit notes (returns), invoices posted before **Send Bills Posted On o
 
 ## Sales invoice ids
 
-`custom_qbo_id` can't change on a submitted Sales Invoice, so the n8n invoice workflow calls `qbo_invoices.receive_invoice_link` with `{"sales_invoice", "qbo_invoice_id", "customer_qbo_id"?}` after creating the QuickBooks Invoice. It stores the Invoice id on the Sales Invoice and, when given, the Customer id on the invoice's Customer, with the same contract as `receive_bill_link`: signed, and a different id already stored is refused (409). Customer payments are matched to Sales Invoices by this id.
+`custom_qbo_id` can't change on a submitted Sales Invoice, so the n8n invoice workflow calls `qbo_invoices.receive_invoice_link` with `{"sales_invoice", "qbo_invoice_id", "customer_qbo_id"?, "qbo_payment_link"?}` after creating the QuickBooks Invoice. It stores the Invoice id on the Sales Invoice and, when given, the Customer id on the invoice's Customer, with the same contract as `receive_bill_link`: signed, and a different id already stored is refused (409). Customer payments are matched to Sales Invoices by this id.
+
+### Payment link for customer emails
+
+The same call can carry the Invoice's shareable pay-now link as `qbo_payment_link`. ERPNext stores it in **Sales Invoice → QuickBooks Payment Link** (`custom_qbo_payment_link`), so an Email Template, Notification or print format can use `{{ doc.custom_qbo_payment_link }}`. To get it, the n8n invoice workflow reads the Invoice back after creating it:
+
+```
+GET /v3/company/<realmId>/invoice/<id>?minorversion=75&include=invoiceLink
+```
+
+and sends the response's `Invoice.InvoiceLink`. QuickBooks only returns a link when QuickBooks Payments is on for the company, the Invoice allows online card or ACH payment, and it has a billing email (`BillEmail`); otherwise leave `qbo_payment_link` out. Only `https` links on an `intuit.com` host are accepted (anything else is refused with 400 `invalid_payment_link` and nothing is saved). Unlike the id, a new link replaces the stored one, so a resend with the same Invoice id refreshes it.
 
 The QuickBooks id fields on Sales and Purchase Invoices are "no copy", so an amendment starts without an id. An amendment that still carries its cancelled original's id (made before that change) may have it replaced.
 

@@ -117,3 +117,39 @@ class TestQBOInvoices(FrappeTestCase):
 		self.assertTrue(result["success"])
 		self.assertEqual(self.rows[("Sales Invoice", "SINV-TEST-QBO-1")]["custom_qbo_id"], "145")
 		self.assertEqual(self.rows[("Sales Invoice", "SINV-TEST-QBO")]["custom_qbo_id"], "100")
+
+	def test_payment_link_saved_with_invoice_id(self):
+		link = "https://connect.intuit.com/t/scs-v1-abc123?locale=en_US"
+		result = self._call(
+			{"sales_invoice": "SINV-TEST-QBO", "qbo_invoice_id": "145", "qbo_payment_link": link}
+		)
+		self.assertTrue(result["success"])
+		self.assertEqual(result["qbo_payment_link"], link)
+		self.assertEqual(self.rows[("Sales Invoice", "SINV-TEST-QBO")]["custom_qbo_payment_link"], link)
+
+	def test_resend_replaces_payment_link(self):
+		self.rows[("Sales Invoice", "SINV-TEST-QBO")].update(
+			custom_qbo_id="145", custom_qbo_payment_link="https://connect.intuit.com/t/old"
+		)
+		new_link = "https://connect.intuit.com/t/new"
+		result = self._call(
+			{"sales_invoice": "SINV-TEST-QBO", "qbo_invoice_id": "145", "qbo_payment_link": new_link}
+		)
+		self.assertTrue(result["success"])
+		self.assertEqual(
+			self.writes, [("Sales Invoice", "SINV-TEST-QBO", "custom_qbo_payment_link", new_link)]
+		)
+
+	def test_non_intuit_payment_link_rejected_without_writes(self):
+		for link in (
+			"https://evil.example.com/pay",
+			"http://connect.intuit.com/t/abc",
+			"https://intuit.com.evil.example/pay",
+		):
+			self.writes = []
+			result = self._call(
+				{"sales_invoice": "SINV-TEST-QBO", "qbo_invoice_id": "145", "qbo_payment_link": link}
+			)
+			self.assertEqual(result["error"], "invalid_payment_link", link)
+			self.assertEqual(frappe.local.response.get("http_status_code"), 400)
+			self.assertEqual(self.writes, [], link)
