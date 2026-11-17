@@ -33,19 +33,25 @@ def _get_webflow_spec_sheets():
 		order_by="product_name",
 	)
 
-	spec_sheets = []
-	for product in products:
-		docs = frappe.get_all(
+	# Plan 2.7: one documents query for every product, grouped in memory.
+	docs_by_product = {}
+	if products:
+		for doc in frappe.get_all(
 			"ilL-Child-Webflow-Document",
 			filters={
-				"parent": product.name,
+				"parent": ["in", [product.name for product in products]],
 				"parenttype": "ilL-Webflow-Product",
 				"document_type": "Spec Sheet",
 			},
-			fields=["document_file", "document_title", "display_order"],
+			fields=["parent", "document_file", "document_title", "display_order"],
 			order_by="display_order",
-		)
-		for doc in docs:
+			limit_page_length=0,
+		):
+			docs_by_product.setdefault(doc.parent, []).append(doc)
+
+	spec_sheets = []
+	for product in products:
+		for doc in docs_by_product.get(product.name, []):
 			spec_sheets.append({
 				"product_name": product.product_name,
 				"title": doc.document_title,

@@ -257,8 +257,8 @@ def qbo_sync_stub(settings):
 	stub._commit = MagicMock()
 	stub._get_settings = MagicMock(return_value=settings)
 	stub._get_webhook_secret = MagicMock(return_value="secret")
-	stub._record_auth_failure = MagicMock()
-	stub._verify_signature = MagicMock(return_value=True)
+	stub.read_signed_json = MagicMock(return_value=({}, None))
+	stub.become_integration_user = MagicMock(return_value=None)
 	return {stub.__name__: stub, **utils()}
 
 

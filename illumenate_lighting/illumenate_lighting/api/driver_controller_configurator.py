@@ -29,7 +29,9 @@ from typing import Any
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 
+from illumenate_lighting.illumenate_lighting.api.guest_payload import load_guest_json
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 from illumenate_lighting.illumenate_lighting.doctype.ill_controller_template.ill_controller_template import (
     CONTROLLER_VARIANT_AXES,
@@ -90,6 +92,7 @@ _KINDS = {
 # =============================================================================
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @template_scoped("ilL-Driver-Template", resolve=lambda a: a.get("template") or product_template("driver_template")(a))
 @price_scoped
 def get_driver_configurator_init(product_slug: str | None = None, template: str | None = None) -> dict:
@@ -98,6 +101,7 @@ def get_driver_configurator_init(product_slug: str | None = None, template: str 
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @template_scoped("ilL-Controller-Template", resolve=product_template("controller_template"))
 @price_scoped
 def get_controller_configurator_init(product_slug: str) -> dict:
@@ -106,6 +110,7 @@ def get_controller_configurator_init(product_slug: str) -> dict:
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @template_scoped("ilL-Driver-Template", resolve=lambda a: a.get("template") or product_template("driver_template")(a))
 @price_scoped
 def get_driver_cascading_options(
@@ -119,6 +124,7 @@ def get_driver_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @template_scoped("ilL-Controller-Template", resolve=product_template("controller_template"))
 @price_scoped
 def get_controller_cascading_options(
@@ -131,6 +137,7 @@ def get_controller_cascading_options(
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @template_scoped("ilL-Driver-Template", resolve=lambda a: a.get("template") or product_template("driver_template")(a))
 @price_scoped
 def validate_driver_configuration(
@@ -141,6 +148,7 @@ def validate_driver_configuration(
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 @template_scoped("ilL-Controller-Template", resolve=product_template("controller_template"))
 @price_scoped
 def validate_controller_configuration(product_slug: str, selections: str) -> dict:
@@ -344,13 +352,11 @@ def _resolve_template(kind: str, product_slug: str | None = None, template_name:
 
 
 def template_image(template) -> str | None:
-    """A template's picture: its Webflow product's first gallery image."""
-    if not template.get("webflow_product"):
-        return None
-    from illumenate_lighting.templates.pages.configure import _fetch_webflow_gallery
+    """A template's main picture under owner decision D1 (template hero image first, plan 5.4)."""
+    from illumenate_lighting.illumenate_lighting.api.product_projection import resolve_product_images
 
-    gallery = _fetch_webflow_gallery([template.webflow_product]).get(template.webflow_product) or []
-    return gallery[0]["image"] if gallery else None
+    resolved = resolve_product_images(template.doctype, [template.name]).get(template.name) or {}
+    return resolved.get("primary")
 
 
 #: ilL-Spec-Driver fields shown with a configured power supply, in display order.
@@ -432,7 +438,7 @@ def _coerce_selections(selections: Any) -> dict:
     if isinstance(selections, dict):
         return selections
     try:
-        decoded = json.loads(selections)
+        decoded = load_guest_json(selections)
     except (TypeError, ValueError) as exc:
         raise ValueError("Invalid selections JSON") from exc
     if not isinstance(decoded, dict):

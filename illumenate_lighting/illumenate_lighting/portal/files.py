@@ -13,6 +13,7 @@ from frappe import _
 from illumenate_lighting.illumenate_lighting.portal.file_validation import (
 	MAX_FILE_BYTES,
 	MAX_FILES,
+	normalize_upload,
 	validate_content,
 )
 
@@ -88,9 +89,21 @@ def has_permission(doc, ptype="read", user=None):
 	return _context_access(doc.parent_type, doc.parent_name, "read", user)
 
 
+def _heic_enabled():
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import heic_uploads_enabled
+
+	return heic_uploads_enabled()
+
+
 @frappe.whitelist(methods=["POST"])
-def upload(parent_type=None, parent_name=None):
-	"""Receive multipart bytes. A parentless upload is a support-intake draft."""
+def upload(parent_type=None, parent_name=None, purpose=None, caption=None):
+	"""Receive multipart bytes. A parentless upload is a support-intake draft.
+
+	``purpose``/``caption`` are optional (hardening plan 4.3). Images also get a
+	private 480 px WebP thumbnail (4.4) that never blocks the upload.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.media import annotations, store_thumbnail
+
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Please sign in before uploading"), frappe.PermissionError)
 	if parent_name or parent_type:
@@ -101,8 +114,12 @@ def upload(parent_type=None, parent_name=None):
 		frappe.throw(_("Select a file to upload"))
 	source = files["file"]
 	content = source.stream.read(MAX_FILE_BYTES + 1)
+	filename = source.filename
 	try:
-		metadata = validate_content(source.filename, content)
+		if _heic_enabled():
+			filename, content = normalize_upload(filename, content)
+		metadata = validate_content(filename, content)
+		notes = annotations(purpose, caption)
 	except ValueError as exc:
 		frappe.throw(str(exc))
 	artifact = frappe.get_doc(
@@ -115,6 +132,7 @@ def upload(parent_type=None, parent_name=None):
 			"sha256": metadata["sha256"],
 			"file_size": metadata["size"],
 			"mime_type": metadata["mime_type"],
+			**notes,
 		}
 	).insert(ignore_permissions=True)
 	file = frappe.get_doc(
@@ -132,6 +150,7 @@ def upload(parent_type=None, parent_name=None):
 	if not file.is_private or not file.file_url.startswith("/private/files/"):
 		frappe.throw(_("Upload storage did not produce a private file"))
 	artifact.file = file.name
+	artifact.thumbnail = store_thumbnail(artifact, metadata["filename"], content)
 	artifact.save(ignore_permissions=True)
 	return {
 		"success": True,
@@ -192,7 +211,14 @@ def finalize_files(file_ids, parent_type, parent_name, *, allow_unbound=False):
 		artifact.parent_type, artifact.parent_name, artifact.state = parent_type, parent_name, "FINALIZED"
 		artifact.save(ignore_permissions=True)
 	return [
-		{"name": file.name, "file_name": file.file_name, "file_url": file.file_url, "sha256": artifact.sha256}
+		{
+			"name": file.name,
+			"file_name": file.file_name,
+			"file_url": file.file_url,
+			"sha256": artifact.sha256,
+			"purpose": artifact.get("purpose") or "",
+			"caption": artifact.get("caption") or "",
+		}
 		for artifact, file in validated
 	]
 

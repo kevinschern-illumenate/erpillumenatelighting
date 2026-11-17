@@ -151,6 +151,41 @@ class DeskSegments(unittest.TestCase):
 				builder._tape_neon_payload_from_portal_selections.assert_not_called()
 
 
+class DeskServerAuthority(unittest.TestCase):
+	"""Plan 7.5: the dialog's quantity gate is only an early warning; the save path enforces it."""
+
+	def test_quantity_must_be_a_whole_number_of_at_least_one_on_every_family(self):
+		with desk() as (module, frappe, builder, _sheets, _tape_neon):
+			frappe._dict = Record
+			with (
+				patch.object(module, "_require_internal_user"),
+				patch.object(module, "_require_parent_doctype"),
+			):
+				for product_type in ("Linear Fixture", "LED Neon", "Driver", "Extrusion Kit"):
+					for qty in ("0", "-1", "1.5", "nan", "abc"):
+						with self.subTest(product_type=product_type, qty=qty), self.assertRaisesRegex(
+							ValueError, "quantity must be|Quantity must be"
+						):
+							module.build_configured_line(
+								parent_doctype="Quotation",
+								product_type=product_type,
+								selections_json={},
+								qty=qty,
+								fixture_type="A1",
+							)
+				builder._dispatch_save.assert_not_called()
+
+	def test_dialog_rules_without_a_server_twin_are_documented(self):
+		from pathlib import Path
+
+		root = Path(__file__).resolve().parents[2] / "illumenate_lighting" / "public" / "js" / "desk" / "dialog"
+		steps = (root / "family_steps.js").read_text()
+		# Location stays optional on the server (schedule line field and portal flows); the Desk ask is UX only.
+		self.assertIn("Enter the Section / Room (location) for this schedule line.", steps)
+		# A duplicate fixture type only asks for confirmation; the server allows it like the portal does.
+		self.assertIn("frappe.confirm(", steps)
+
+
 class DeskScheduleLine(unittest.TestCase):
 	def test_overwriting_a_sheet_line_with_neon_drops_sheet_links_accessories_and_notes(self):
 		with desk() as (module, _frappe, _builder, sheets, tape_neon):

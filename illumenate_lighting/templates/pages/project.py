@@ -103,6 +103,7 @@ def get_context(context):
 
 	context.system_designs = project_designs(schedules)
 	context.can_edit = can_edit
+	context.gallery_enabled = _gallery_enabled()
 	context.schedule_status_class = schedule_status_class
 	context.schedule_status_label = schedule_status_label
 	from illumenate_lighting.illumenate_lighting.portal.status import (
@@ -189,3 +190,9 @@ def _can_create_parties():
 
 	user = frappe.session.user
 	return bool(_is_dealer_user(user) or _is_internal_user(user))
+
+
+def _gallery_enabled():
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import gallery_enabled
+
+	return gallery_enabled()

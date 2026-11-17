@@ -1,0 +1,289 @@
+<style>
+  .temp-green-checkbox {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .temp-green-checkbox.is-checked::after {
+    content: '';
+    display: block;
+    width: 9px;
+    height: 9px;
+    background-color: var(--colors--main-color);
+  }
+  input.temp-config-option-label {
+    width: auto; 
+    margin: 5px;
+    padding: 5px 8px;
+    border: 1px solid var(--colors--main-color);
+    border-radius: 0px;
+    background-color: transparent;
+    color: var(--colors--heading-text-color, #000);
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. SELECTORS & BLUEPRINTS
+    const jsonEl = document.querySelector('.configurator-options-json');
+    const erpIdEl = document.querySelector('.erp-sync-id');
+    const builderWrapper = document.querySelector('.code-builder-wrapper');
+    const sectionBlueprint = document.querySelector('.temp-code-section-wrapper');
+
+    const masterCodeWrapper = document.querySelector('.master-code-wrapper');
+    const masterReqBlueprint = document.querySelector('.master-code-text');
+    const masterOptBlueprint = document.querySelector('.master-code-text-opt');
+    const copyBtn = document.querySelector('.copy-master-code');
+    const resetBtn = document.querySelector('.reset-master-code'); 
+    
+    // NEW: Selector for the Config Spec Button
+    const configBtn = document.querySelector('#config-spec-btn');
+
+    if (!jsonEl || !builderWrapper || !sectionBlueprint || !masterReqBlueprint || !masterOptBlueprint) return;
+
+    // HIJACK MANUAL COPYING SO IT STAYS ON ONE LINE
+    if (masterCodeWrapper) {
+        masterCodeWrapper.addEventListener('copy', (e) => {
+            const textToCopy = masterCodeWrapper.getAttribute('data-clipboard');
+            if (textToCopy) {
+                e.clipboardData.setData('text/plain', textToCopy);
+                e.preventDefault(); 
+            }
+        });
+    }
+
+    // 2. PARSE JSON DATA
+    let steps = [];
+    try { steps = JSON.parse(jsonEl.textContent || jsonEl.innerText); } 
+    catch (e) { return; }
+
+    // 3. INJECT SERIES (STEP 0) IF MISSING
+    const hasSeries = steps.some(s => s.option_step === 0 && (s.option_type || "").toLowerCase() === 'series');
+    if (!hasSeries) {
+        const erpIdValue = erpIdEl ? (erpIdEl.textContent || erpIdEl.innerText).trim() : 'UNKNOWN';
+        steps.unshift({
+            option_step: 0, option_type: "Series", option_label: "Series",
+            depends_on_step: null, is_required: 1, 
+            allowed_values_json: JSON.stringify([{ code: erpIdValue, label: "Series", value: erpIdValue }])
+        });
+    }
+
+    // 4. BUILD THE UI & STATE
+    let masterCodeStates = []; 
+
+    steps.forEach((stepData, index) => {
+        const isRequired = stepData.is_required === 1;
+        const isLastStep = index === steps.length - 1;
+        
+        const displayLabel = (stepData.option_label && stepData.option_label.trim() !== "") 
+            ? stepData.option_label : stepData.option_type;
+        
+        const masterClone = isRequired ? masterReqBlueprint.cloneNode(true) : masterOptBlueprint.cloneNode(true);
+        
+        // FIX: Force inline display so manual mouse copies don't generate line breaks
+        masterClone.style.display = 'inline'; 
+        
+        if (masterCodeWrapper) masterCodeWrapper.appendChild(masterClone);
+        
+        const stepState = {
+            optionStep: stepData.option_step, 
+            isRequired: isRequired,
+            isLast: isLastStep,
+            el: masterClone,
+            selectedCode: null,
+            defaultCode: null,
+            isDir: displayLabel.toLowerCase().includes('direction'),
+            isLen: displayLabel.toLowerCase().includes('length') && displayLabel.toLowerCase().includes('feed')
+        };
+        masterCodeStates.push(stepState);
+
+        const sectionClone = sectionBlueprint.cloneNode(true);
+        if (!isRequired) sectionClone.classList.add('opt');
+        if (index % 2 === 0) sectionClone.classList.add('filled');
+        else sectionClone.classList.remove('filled');
+        
+        sectionClone.setAttribute('data-step', stepData.option_step);
+
+        const isSeries = (stepData.option_type || "").toLowerCase() === 'series';
+        const isLength = (stepData.option_type || "").toLowerCase() === 'length';
+
+        const titleEl = sectionClone.querySelector('.temp-config-section-title');
+        if (titleEl) {
+            let finalTitle = displayLabel;
+            if (isLength) finalTitle += ' (inches)';
+            if (isRequired) finalTitle += ' *';
+            titleEl.textContent = finalTitle;
+        }
+
+        const optionBlueprint = sectionClone.querySelector('.config-option-wrapper');
+        const optionsContainer = optionBlueprint.parentElement;
+        sectionClone.querySelectorAll('.config-option-wrapper').forEach(el => el.remove());
+
+        let options = [];
+        try { options = JSON.parse(stepData.allowed_values_json); } catch (e) {}
+
+        const isSingleOption = options.length === 1;
+
+        options.forEach(opt => {
+            const optClone = optionBlueprint.cloneNode(true);
+            const codeEl = optClone.querySelector('.temp-config-option-code');
+            const colonEl = optClone.querySelector('.temp-config-option-colon');
+            const labelEl = optClone.querySelector('.temp-config-option-label');
+            const checkboxEl = optClone.querySelector('.temp-green-checkbox');
+
+            if (codeEl) codeEl.textContent = opt.code;
+            if (colonEl) colonEl.style.display = '';
+            if (labelEl) labelEl.style.display = '';
+
+            if (isSeries) {
+                if (colonEl) colonEl.style.display = 'none';
+                if (labelEl) labelEl.style.display = 'none';
+            } else if (isLength) {
+                if (colonEl) colonEl.style.display = 'none';
+                if (checkboxEl) checkboxEl.remove();
+                if (labelEl) {
+                    const inputField = document.createElement('input');
+                    inputField.type = 'number';
+                    inputField.className = labelEl.className;
+                    inputField.addEventListener('click', (e) => e.stopPropagation());
+                    inputField.addEventListener('input', (e) => {
+                        stepState.selectedCode = e.target.value.trim() !== "" ? e.target.value : null;
+                        renderMasterCode();
+                    });
+                    labelEl.replaceWith(inputField);
+                }
+            } else {
+                if (labelEl) labelEl.textContent = opt.label;
+            }
+
+            if (isSingleOption && isRequired && checkboxEl && !isLength) {
+                checkboxEl.classList.add('is-checked');
+                stepState.selectedCode = opt.code; 
+                stepState.defaultCode = opt.code; 
+            }
+
+            optClone.style.cursor = 'pointer';
+            optClone.addEventListener('click', () => {
+                const allSectionCheckboxes = sectionClone.querySelectorAll('.temp-green-checkbox');
+                allSectionCheckboxes.forEach(cb => cb.classList.remove('is-checked'));
+                if (checkboxEl) checkboxEl.classList.add('is-checked');
+                
+                stepState.selectedCode = opt.code;
+                renderMasterCode();
+            });
+
+            optionsContainer.appendChild(optClone);
+        });
+        builderWrapper.appendChild(sectionClone);
+    });
+
+    // 5. MASTER CODE RENDER LOGIC
+    function renderMasterCode() {
+        let allRequiredSelected = true;
+        let clipboardParts = [];
+        let tempDir = "";
+        
+        window.CurrentConfigSelection = {}; 
+
+        masterCodeStates.forEach((state, i) => {
+            let displayString = "";
+            let rawCode = state.selectedCode ? String(state.selectedCode).toUpperCase().trim() : "___";
+
+            if (state.selectedCode) {
+                state.el.classList.remove('inactive');
+                displayString = rawCode;
+                window.CurrentConfigSelection['step_' + state.optionStep] = String(state.selectedCode);
+            } else {
+                state.el.classList.add('inactive');
+                displayString = "___";
+                if (state.isRequired) allRequiredSelected = false;
+            }
+
+            if (state.isDir) {
+                tempDir = rawCode;
+            } else if (state.isLen && tempDir) {
+                clipboardParts.push(tempDir + rawCode);
+                tempDir = "";
+            } else {
+                if (tempDir) { clipboardParts.push(tempDir); tempDir = ""; }
+                clipboardParts.push(rawCode);
+            }
+
+            let showHyphen = true;
+            if (state.isLast) {
+                showHyphen = false;
+            } else if (i < masterCodeStates.length - 1) {
+                let nextState = masterCodeStates[i + 1];
+                if (state.isDir && nextState.isLen) showHyphen = false;
+            }
+
+            state.el.textContent = showHyphen ? displayString.replace(/\s+/g, '') + "-" : displayString.replace(/\s+/g, '');
+        });
+
+        if (tempDir) clipboardParts.push(tempDir);
+
+        if (copyBtn) {
+            copyBtn.style.display = allRequiredSelected ? '' : 'none';
+            const finalClipboardString = clipboardParts.join('-').replace(/\s+/g, '');
+            masterCodeWrapper.setAttribute('data-clipboard', finalClipboardString);
+        }
+
+        // NEW: Toggle Config Spec Button State based on required fields
+        if (configBtn) {
+            if (allRequiredSelected) {
+                configBtn.style.opacity = '1';
+                configBtn.style.pointerEvents = 'auto';
+                configBtn.style.cursor = 'pointer';
+            } else {
+                configBtn.style.opacity = '0.5';
+                configBtn.style.pointerEvents = 'none';
+                configBtn.style.cursor = 'default';
+            }
+        }
+    }
+
+    if (copyBtn) {
+        copyBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const textToCopy = masterCodeWrapper.getAttribute('data-clipboard');
+            if (textToCopy) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => { copyBtn.textContent = originalText; }, 2000);
+                });
+            }
+        });
+    }
+
+    if (resetBtn) {
+        resetBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const allCheckboxes = builderWrapper.querySelectorAll('.temp-green-checkbox');
+            allCheckboxes.forEach(cb => cb.classList.remove('is-checked'));
+            const allInputs = builderWrapper.querySelectorAll('input[type="number"]');
+            allInputs.forEach(input => input.value = '');
+            
+            masterCodeStates.forEach(state => {
+                state.selectedCode = state.defaultCode;
+            });
+            
+            builderWrapper.querySelectorAll('.config-option-wrapper').forEach(wrapper => {
+                const codeEl = wrapper.querySelector('.temp-config-option-code');
+                const checkboxEl = wrapper.querySelector('.temp-green-checkbox');
+                if (codeEl && checkboxEl) {
+                    const matchingState = masterCodeStates.find(s => s.defaultCode === codeEl.textContent);
+                    if (matchingState) checkboxEl.classList.add('is-checked');
+                }
+            });
+            renderMasterCode();
+        });
+    }
+
+    sectionBlueprint.remove();
+    masterReqBlueprint.remove();
+    masterOptBlueprint.remove();
+    renderMasterCode();
+});
+</script>

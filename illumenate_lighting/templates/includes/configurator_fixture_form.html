@@ -4,7 +4,7 @@ Reusable Linear Fixture configurator markup (scoped IllConfigurator.Fixture).
 Source of truth for the fields/sections used by
 public/js/configurator/fixture_steps.js. Rendered both by the Guided Wizard
 mode of templates/pages/configure.html and by the in-quote desk dialog
-(see configure.get_configurator_markup + desk_dialog.js).
+(see configure.get_configurator_markup + desk/dialog/*.js).
 
 Runs on the SAME engine endpoints as the Multi-Segment Coordinator
 (configurator_engine.get_cascading_options_for_template /
@@ -283,6 +283,8 @@ Context:
 						<div id="ledRunDetails" class="small"></div>
 						<hr>
 					</div>
+
+					<div class="ill-build-preview" data-enabled="{{ 0 if build_preview is defined and not build_preview else 1 }}" hidden></div>
 
 					<div id="driverResults" style="display: none;">
 						<h6>{{ _("Driver Plan") }}</h6>

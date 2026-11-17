@@ -62,7 +62,7 @@ Detailed view of a single document request
 					<div class="detail-group">
 						<span class="detail-label">{{ _("Project") }}</span>
 						<span class="detail-value">
-							<a href="/portal/projects/{{ project_info.name | e }}">{{ project_info.project_name | e }}</a>
+							<a href="/portal/projects/{{ project_info.name | urlencode }}">{{ project_info.project_name | e }}</a>
 						</span>
 					</div>
 					{% endif %}

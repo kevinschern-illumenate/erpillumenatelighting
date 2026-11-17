@@ -15,7 +15,7 @@ function load(items, opts){
   add_child(field,values){const row=Object.assign({doctype:'Quotation Item',name:'new-'+(++n)},values);this.doc.items.push(row);w.locals['Quotation Item'][row.name]=row;return row;}};
  items.forEach(values=>{const row=Object.assign({doctype:'Quotation Item'},values);frm.doc.items.push(row);w.locals['Quotation Item'][row.name]=row;});
  frm.doc.items.forEach((row,i)=>{row.idx=i+1;});
- w.eval(fs.readFileSync(path.join(__dirname,'../../illumenate_lighting/public/js/desk/desk_dialog.js'),'utf8'));
+ for (const part of ['state', 'family_steps', 'pricing', 'save']) w.eval(fs.readFileSync(path.join(__dirname, `../../illumenate_lighting/public/js/desk/dialog/${part}.js`), 'utf8'));
  return {dom,w,frm,opened,ctrl:opts===false?null:w.IllDesk.openConfiguratorDialog(frm,opts||{})};
 }
 

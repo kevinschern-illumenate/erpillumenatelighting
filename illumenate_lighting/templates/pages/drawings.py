@@ -23,6 +23,25 @@ def _get_user_customer(user):
 	return _get_user_customer(user)
 
 
+def _prefill(projects):
+	"""Plan 3.3: "Request drawings" from selected schedule lines opens this form pre-filled.
+
+	The project is only pre-selected when the user can read it (``frappe.get_list`` applies the
+	project permission rules); the reference is plain text the template escapes.
+	"""
+	reference = str(frappe.form_dict.get("fixture_reference") or "").strip()[:500]
+	project = str(frappe.form_dict.get("project") or "").strip()[:140]
+	if project and not any(row.name == project for row in projects):
+		rows = frappe.get_list(
+			"ilL-Project", filters={"name": project}, fields=["name", "project_name"], limit_page_length=1
+		)
+		if rows:
+			projects.insert(0, rows[0])
+		else:
+			project = ""
+	return {"project": project, "fixture_reference": reference}
+
+
 def get_context(context):
 	"""Get context for the drawings portal page."""
 	require_login()
@@ -40,6 +59,8 @@ def get_context(context):
 		order_by="modified desc",
 		limit=20,
 	)
+
+	context.prefill = _prefill(context.projects)
 
 	# REL-8: every list uses the same scope as the dashboard counts (the doctype's
 	# permission predicate), so lists and counts agree and collaborators see their projects.

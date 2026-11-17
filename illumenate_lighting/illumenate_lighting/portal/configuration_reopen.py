@@ -7,6 +7,7 @@ import frappe
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	TAPE_CATEGORIES,
 	TAPE_NEON_CATEGORIES,
+	display_length,
 )
 from illumenate_lighting.illumenate_lighting.api.power_planner import GROUPED
 from illumenate_lighting.illumenate_lighting.portal.configuration import (
@@ -76,8 +77,10 @@ def for_line(line):
 		for row in build.get("segments") or doc.get("segments") or []:
 			segment = dict(row.as_dict()) if hasattr(row, "as_dict") else dict(row)
 			prefix = "tape" if family in TAPE_CATEGORIES else "fixture"
-			segment[prefix + "_length_unit"] = "in"
-			segment[prefix + "_length_value"] = float(segment.get("requested_length_mm") or 0) / 25.4
+			# Snapshots keep only mm; requests saved since schema 2 keep the dealer's unit above.
+			shown = display_length(segment.get("requested_length_mm") or 0, "in")
+			segment[prefix + "_length_unit"] = shown["unit"]
+			segment[prefix + "_length_value"] = shown["value"]
 			segment.setdefault("end_feed_length_inches", segment.get("end_cable_length_inches") or 0)
 			segments.append(segment)
 		if doc.get("assembly_mode") == "BULK_REEL":

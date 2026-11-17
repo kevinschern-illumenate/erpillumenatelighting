@@ -504,13 +504,11 @@ class TestTapeNeonWebflow(unittest.TestCase):
         primary = [r for r in rows if r[0] != ""]
         self.assertEqual(primary[0][2], "LED Tape")
 
-    def test_has_configurator_steps(self):
-        """Should have continuation rows for configurator steps."""
+    def test_writes_no_configurator_steps(self):
+        """The template calculates its configurator steps; the product gets none (Phase 2c)."""
         path = gen_tape_neon_webflow.generate(self.config, self.tmpdir)
-        _, rows = _read_csv(path)
-        total = len(rows)
-        primary = sum(1 for r in rows if r[0] != "")
-        self.assertGreater(total, primary)
+        headers, _ = _read_csv(path)
+        self.assertFalse(any("configurator_options" in header for header in headers))
 
     def test_product_category(self):
         path = gen_tape_neon_webflow.generate(self.config, self.tmpdir)

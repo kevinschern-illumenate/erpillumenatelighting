@@ -245,3 +245,67 @@ test('portal pages have no serious accessibility violations', async ({browser})=
         expect(found).toEqual([]);
     } finally {await context.close();}
 });
+
+// Plan 0.4 golden path. Seeded data covers project → support; offers, orders and drawings come from staff steps,
+// so those journeys run when the manifest's optional `golden` block names them (see docs/B2B_CLOUD_ACCEPTANCE.md).
+const PNG_1PX='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg==';
+async function portalCall(page,method,args){
+    return page.evaluate(async({method,args})=>(await frappe.call({method,type:'POST',args})).message,{method:API+method,args});
+}
+async function uploadPhoto(page,parentType,parentName){
+    return page.evaluate(async({API,png,parentType,parentName})=>{
+        const bytes=Uint8Array.from(atob(png),c=>c.charCodeAt(0)),form=new FormData();
+        form.append('file',new Blob([bytes],{type:'image/png'}),'site-photo.png');
+        if(parentType){form.append('parent_type',parentType);form.append('parent_name',parentName);}
+        const response=await fetch('/api/method/'+API+'portal.files.upload',{method:'POST',body:form,headers:{'X-Frappe-CSRF-Token':frappe.csrf_token}});
+        return {status:response.status,body:await response.json()};
+    },{API,png:PNG_1PX,parentType,parentName});
+}
+test('golden path: dealer creates a project and schedule, uploads a photo and opens a support ticket',async({browser})=>{
+    const data=fixture(),context=await actor(browser,'dealer_a'),page=await context.newPage(),errors=[],tag='GP-'+Date.now();
+    page.on('pageerror',error=>errors.push(error.message));
+    try {
+        await page.goto('/portal/projects');
+        const project=await portalCall(page,'api.portal.create_project',{project_data:JSON.stringify({project_name:tag,owner_customer:data.customers.a})});
+        expect(project.success,project.error).toBeTruthy();
+        const created=await portalCall(page,'api.portal.create_schedule',{schedule_data:JSON.stringify({ill_project:project.project_name||project.name,schedule_name:tag})});
+        expect(created.success,created.error).toBeTruthy();
+        await page.goto('/portal/schedules/'+encodeURIComponent(created.schedule_name));
+        await expect(page.getByRole('button',{name:'Add Line',exact:true})).toBeVisible();
+        const photo=await uploadPhoto(page,'ilL-Project-Fixture-Schedule',created.schedule_name);
+        expect(photo.status).toBe(200);expect(photo.body.message.mime_type).toBe('image/png');
+        const intake=await uploadPhoto(page,null,null);expect(intake.status).toBe(200);
+        const ticket=await portalCall(page,'api.portal.create_support_ticket',{ticket_data:JSON.stringify({subject:tag,description:'Golden path ticket',category:'other',file_ids:[intake.body.message.file_id],idempotency_key:tag})});
+        expect(ticket.success,ticket.error).toBeTruthy();
+        await page.goto('/portal/support/'+encodeURIComponent(ticket.ticket_name));
+        await expect(page.getByText(tag).first()).toBeVisible();
+        const other=await actor(browser,'dealer_b'),foreign=await other.request.get('/portal/support/'+encodeURIComponent(ticket.ticket_name),{maxRedirects:0});
+        expect(foreign.status()).not.toBe(200);await other.close();
+        expect(errors).toEqual([]);
+    } finally {await context.close();}
+});
+test('golden path: issued offer is accepted once and opens the order request',async({browser})=>{
+    const data=fixture(),offer=data.golden&&data.golden.offer;
+    test.skip(!offer,'Manifest golden.offer not set: issue a staff Quotation offer for customer A first.');
+    const context=await actor(browser,'buyer_a'),page=await context.newPage();
+    try {
+        await page.goto('/portal/quotes/'+encodeURIComponent(offer));
+        await page.getByRole('button',{name:'Accept and request order'}).click();
+        await expect(page).toHaveURL(/portal\/orders\//);
+        await page.goto('/portal/quotes/'+encodeURIComponent(offer));
+        await expect(page.getByRole('button',{name:'Accept and request order'})).toHaveCount(0);
+        await page.goto('/portal/orders');await expect(page.locator('main')).toBeVisible();
+    } finally {await context.close();}
+});
+test('golden path: the named reviewer requests drawing changes once',async({browser})=>{
+    const data=fixture(),drawing=data.golden&&data.golden.drawing;
+    test.skip(!drawing,'Manifest golden.drawing not set: publish a drawing revision with dealer_a as technical reviewer.');
+    const context=await actor(browser,'dealer_a'),page=await context.newPage();
+    try {
+        await page.goto('/portal/drawings/'+encodeURIComponent(drawing));
+        await page.locator('#drawing-review-note').fill('Golden path: please move the end cap.');
+        await page.getByRole('button',{name:'Request changes'}).click();
+        await expect(page.getByText(/Changes Requested/i).first()).toBeVisible();
+        await expect(page.getByRole('button',{name:'Approve drawing'})).toHaveCount(0);
+    } finally {await context.close();}
+});

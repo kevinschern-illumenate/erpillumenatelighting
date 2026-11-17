@@ -285,3 +285,101 @@ def reply(doc, message, assignee=None):
 		)
 
 	return _guarded(work, f"Portal reply routing failed for {doc.doctype} {doc.name}")
+
+
+# Owned queues with a due date, read for the daily digest. Drawing reapproval and manufacturing holds
+# are subsets of open drawing requests, so "drawings" covers them.
+DIGEST_QUEUES = ("quotes", "orders", "order_changes", "verification", "drawings", "support")
+DIGEST_SCAN_LIMIT = 500
+DIGEST_LIST_LIMIT = 50
+
+
+def _overdue(now, today):
+	"""(capability, owner, label, doctype, name, due) for every overdue open record in the digest queues."""
+	from copy import deepcopy
+
+	from illumenate_lighting.illumenate_lighting.portal.queues import DATE_DUE_FIELDS
+	from illumenate_lighting.illumenate_lighting.portal.queues import QUEUES as STAFF_QUEUES
+
+	for key in DIGEST_QUEUES:
+		label, capability, doctype, filters, _fields, owner, due = STAFF_QUEUES[key]
+		filters = deepcopy(filters)
+		filters[due] = ["<", today if due in DATE_DUE_FIELDS else now]
+		for row in frappe.get_all(
+			doctype,
+			filters=filters,
+			fields=["name", owner, due],
+			order_by=f"{due} asc",
+			limit_page_length=DIGEST_SCAN_LIMIT,
+		):
+			yield capability, row.get(owner), label, doctype, row.get("name"), row.get(due)
+
+
+def _digest_body(items):
+	from illumenate_lighting.illumenate_lighting.portal.routes import desk_path
+
+	escape = frappe.utils.escape_html
+	lines = []
+	for label, doctype, name, due in items[:DIGEST_LIST_LIMIT]:
+		url = frappe.utils.get_url(desk_path(doctype, name))
+		lines.append(
+			f'<li><a href="{escape(url)}">{escape(name)}</a> - {escape(label)} - '
+			f"{escape(_('due {0}').format(frappe.utils.format_datetime(due) if due else '-'))}</li>"
+		)
+	more = len(items) - DIGEST_LIST_LIMIT
+	tail = ""
+	if more > 0:
+		tail = f"<p>{escape(_('...and {0} more. Open Portal Operations to see them all.').format(more))}</p>"
+	intro = _("{0} portal request(s) are past their due date.").format(len(items))
+	return f"<p>{escape(intro)}</p><ul>{''.join(lines)}</ul>{tail}"
+
+
+def overdue_digest():
+	"""Daily: bell each owner once with their overdue items; unowned items go to the queue's team (plan 7.4).
+
+	An owner who is no longer an enabled staff user is treated as unowned. Idempotent per user and
+	day: the subject names the date, and a second run that day rings nobody again.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import overdue_digest_enabled
+
+	if not overdue_digest_enabled():
+		return {}
+	now = frappe.utils.now()
+	today = frappe.utils.nowdate()
+	found = list(_overdue(now, today))
+	active = set(_staff([owner for _cap, owner, *_rest in found if owner]))
+	teams = {}
+	inbox = {}
+	for capability, owner, label, doctype, name, due in found:
+		if owner in active:
+			targets = [owner]
+		else:
+			if capability not in teams:
+				teams[capability] = staff_users(CAPABILITIES[capability])
+			targets = teams[capability]
+		for user in targets:
+			items = inbox.setdefault(user, {})
+			items.setdefault((doctype, name), (label, doctype, name, due))
+	sent = {}
+	for user, items in sorted(inbox.items()):
+		rows = list(items.values())
+		subject = _("Overdue portal work on {0}").format(frappe.utils.formatdate(today))
+		if frappe.db.exists(NOTIFICATION_LOG, {"for_user": user, "subject": subject}):
+			continue
+
+		def work(user=user, rows=rows, subject=subject):
+			frappe.get_doc(
+				{
+					"doctype": NOTIFICATION_LOG,
+					"for_user": user,
+					"type": "Alert",
+					"subject": subject,
+					"email_content": _digest_body(rows),
+				}
+			).insert(ignore_permissions=True)
+			return len(rows)
+
+		count = _guarded(work, f"Overdue digest failed for {user}")
+		if count:
+			sent[user] = count
+	return sent

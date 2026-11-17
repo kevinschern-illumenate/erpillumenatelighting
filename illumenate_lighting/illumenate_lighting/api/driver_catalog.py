@@ -1,6 +1,7 @@
 """One schema adapter for driver eligibility and independent power outputs."""
 
 import frappe
+from frappe.rate_limiter import rate_limit
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import finite_number
 
@@ -17,6 +18,7 @@ def independent_outputs(driver):
 
 
 @frappe.whitelist(allow_guest=True)
+@rate_limit(limit=600, seconds=60)
 def input_protocols(template_type, template):
 	"""Public choices from approved associations; never expose driver costs."""
 	if template_type not in {"ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template"}:
@@ -37,11 +39,70 @@ def input_protocols(template_type, template):
 	if len(rows) > 200:
 		raise ValueError("Too many driver associations; ask engineering to review this template")
 	protocols = set()
+	drivers, disabled = _load_drivers([row.driver_spec for row in rows])
 	for row in rows:
-		driver = frappe.get_doc("ilL-Spec-Driver", row.driver_spec)
-		if driver.item and not frappe.db.get_value("Item", driver.item, "disabled"):
+		driver = drivers[row.driver_spec]
+		if driver.item and not disabled.get(driver.item):
 			protocols.update(p.protocol for p in driver.input_protocols or [] if p.protocol)
 	return {"protocols": sorted(protocols)}
+
+
+DRIVER_FIELDS = (
+	"name",
+	"item",
+	"cost",
+	"voltage_output",
+	"output_type",
+	"output_protocol",
+	"max_wattage",
+	"max_wattage_per_output",
+	"usable_load_factor",
+	"outputs_count",
+	"independent_outputs_count",
+)
+
+
+def _load_drivers(names):
+	"""Bulk-load driver specs, their input protocols and Item.disabled flags.
+
+	Returns ``(drivers_by_name, disabled_by_item)``. Each driver is a
+	``frappe._dict`` with the fields the catalog reads plus ``input_protocols``.
+	A missing spec falls back to ``frappe.get_doc`` so it raises exactly as the
+	per-row lookup did.
+	"""
+	unique = list(dict.fromkeys(name for name in names if name))
+	drivers = {}
+	if unique:
+		for driver in frappe.get_all(
+			"ilL-Spec-Driver",
+			filters={"name": ["in", unique]},
+			fields=list(DRIVER_FIELDS),
+			limit_page_length=0,
+		):
+			driver["input_protocols"] = []
+			drivers[driver.name] = driver
+		for protocol in frappe.get_all(
+			"ilL-Child-Driver-Input-Protocol",
+			filters={"parenttype": "ilL-Spec-Driver", "parentfield": "input_protocols", "parent": ["in", unique]},
+			fields=["parent", "protocol"],
+			order_by="idx asc",
+			limit_page_length=0,
+		):
+			if protocol.parent in drivers:
+				drivers[protocol.parent]["input_protocols"].append(protocol)
+	for name in names:
+		if name not in drivers:
+			drivers[name] = frappe.get_doc("ilL-Spec-Driver", name)
+	items = list(dict.fromkeys(driver.item for driver in drivers.values() if driver.item))
+	disabled = {}
+	if items:
+		disabled = {
+			row.name: row.disabled
+			for row in frappe.get_all(
+				"Item", filters={"name": ["in", items]}, fields=["name", "disabled"], limit_page_length=0
+			)
+		}
+	return drivers, disabled
 
 
 def candidates(template_type, template, voltage, output_protocol=None, input_protocol=None):
@@ -75,8 +136,9 @@ def catalog_candidates(voltage, output_protocol=None, input_protocol=None):
 
 def _collect(rows, voltage, output_protocol, input_protocol, skip_ambiguous=False):
 	result, revisions = [], {}
+	drivers, disabled = _load_drivers([row.driver_spec for row in rows])
 	for row in rows:
-		driver = frappe.get_doc("ilL-Spec-Driver", row.driver_spec)
+		driver = drivers[row.driver_spec]
 		if (
 			driver.voltage_output != voltage
 			or driver.output_type != "Constant Voltage"
@@ -84,7 +146,7 @@ def _collect(rows, voltage, output_protocol, input_protocol, skip_ambiguous=Fals
 			or (input_protocol and input_protocol not in {p.protocol for p in driver.input_protocols or []})
 		):
 			continue
-		if not driver.item or frappe.db.get_value("Item", driver.item, "disabled"):
+		if not driver.item or disabled.get(driver.item):
 			continue
 		if driver.item in revisions:
 			if skip_ambiguous:

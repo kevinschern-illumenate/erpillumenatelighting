@@ -75,6 +75,111 @@ test('confirm focuses the action, resolves true on it and false on Escape, and r
   assert.equal(w.document.querySelector('.ill-confirm'), null);
 });
 
+// Plan 8.3: one dialog with a focus trap, Escape, backdrop cancel and focus return.
+test('dialog traps Tab in both directions, cancels on Escape and returns focus', async () => {
+  const { w, button } = setup(() => {});
+  const doc = w.document;
+  button.focus();
+  const form = doc.createElement('form');
+  const input = doc.createElement('input');
+  const cancel = doc.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = 'Cancel';
+  const save = doc.createElement('button');
+  save.textContent = 'Save';
+  form.append(input, cancel, save);
+  const box = w.PortalUI.dialog({ title: 'PO <b>number</b>', content: form, initialFocus: input, cancelValue: 'cancelled' });
+  const dialog = doc.querySelector('.ill-dialog [role="dialog"]');
+  assert.equal(dialog, box.element);
+  assert.equal(dialog.getAttribute('aria-modal'), 'true');
+  assert.equal(doc.getElementById(dialog.getAttribute('aria-labelledby')).textContent, 'PO <b>number</b>');
+  assert.equal(dialog.querySelectorAll('b').length, 0);
+  assert.equal(doc.activeElement, input);
+  const tab = shiftKey => doc.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Tab', shiftKey, cancelable: true }));
+  tab(false);
+  assert.equal(doc.activeElement, cancel);
+  tab(false);
+  assert.equal(doc.activeElement, save);
+  tab(false);
+  assert.equal(doc.activeElement, input, 'Tab wraps from the last control to the first');
+  tab(true);
+  assert.equal(doc.activeElement, save, 'Shift+Tab wraps from the first control to the last');
+  button.focus();
+  tab(false);
+  assert.equal(doc.activeElement, input, 'focus outside the dialog is pulled back in');
+  doc.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape' }));
+  assert.equal(await box.closed, 'cancelled');
+  assert.equal(doc.querySelector('.ill-dialog'), null);
+  assert.equal(doc.activeElement, button);
+});
+
+test('dialog closes with a value, on a backdrop click, and only once', async () => {
+  const { w, button } = setup(() => {});
+  button.focus();
+  const first = w.PortalUI.dialog({ title: 'One' });
+  assert.equal(w.document.activeElement, first.element, 'a dialog with no controls focuses itself');
+  first.close('saved');
+  first.close('again');
+  assert.equal(await first.closed, 'saved');
+  const second = w.PortalUI.dialog({ title: 'Two', cancelValue: false });
+  second.element.click();
+  assert.ok(w.document.querySelector('.ill-dialog'), 'a click inside the box does not close it');
+  w.document.querySelector('.ill-dialog').click();
+  assert.equal(await second.closed, false);
+  assert.equal(w.document.activeElement, button);
+});
+
+test('opted-in tablists move with arrows, Home and End and keep one tab in the Tab order', async () => {
+  const { w } = setup(() => {});
+  const doc = w.document;
+  const list = doc.createElement('ul');
+  list.setAttribute('role', 'tablist');
+  list.setAttribute('data-ill-tabs', '');
+  const tabs = ['a', 'b', 'c'].map((id, index) => {
+    const tab = doc.createElement('a');
+    tab.href = '#' + id;
+    tab.setAttribute('role', 'tab');
+    tab.className = index === 0 ? 'nav-link active' : 'nav-link';
+    // Stand-in for Bootstrap's tab plugin, which owns selection.
+    tab.addEventListener('click', event => {
+      event.preventDefault();
+      tabs.forEach(other => other.classList.toggle('active', other === tab));
+    });
+    list.append(tab);
+    return tab;
+  });
+  doc.body.append(list);
+  const key = (target, name) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+  const settle = () => new Promise(resolve => setTimeout(resolve, 5));
+  tabs[0].focus();
+  key(tabs[0], 'ArrowRight');
+  await settle();
+  assert.equal(doc.activeElement, tabs[1]);
+  assert.deepEqual(tabs.map(tab => tab.getAttribute('aria-selected')), ['false', 'true', 'false']);
+  assert.deepEqual(tabs.map(tab => tab.getAttribute('tabindex')), ['-1', '0', '-1']);
+  key(tabs[1], 'End');
+  await settle();
+  assert.equal(doc.activeElement, tabs[2]);
+  key(tabs[2], 'ArrowRight');
+  await settle();
+  assert.equal(doc.activeElement, tabs[0], 'ArrowRight wraps to the first tab');
+  key(tabs[0], 'ArrowLeft');
+  await settle();
+  assert.equal(doc.activeElement, tabs[2], 'ArrowLeft wraps to the last tab');
+  key(tabs[2], 'Home');
+  await settle();
+  assert.equal(doc.activeElement, tabs[0]);
+  const plain = doc.createElement('div');
+  plain.setAttribute('role', 'tablist');
+  const loose = doc.createElement('button');
+  loose.setAttribute('role', 'tab');
+  plain.append(loose);
+  doc.body.append(plain);
+  const event = new w.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+  loose.dispatchEvent(event);
+  assert.equal(event.defaultPrevented, false, 'tablists that did not opt in are left alone');
+});
+
 test('field errors show under the field and clear on the next call', () => {
   const { w } = setup(() => {});
   const form = w.document.getElementById('f');
@@ -138,4 +243,68 @@ test('toasts shown through frappe.show_alert are also announced in a polite stat
   await new Promise(resolve => w.setTimeout(resolve, 80));
   assert.equal(region.textContent, 'Saved <ok>');
   assert.equal(region.querySelector('ok'), null);
+});
+
+// Plan 2.3/2.4: PortalAPI.call on top of PortalUI.call.
+const legacy417 = (payload) => options => options.error(payload);
+
+test('PortalAPI maps a portal_error field onto the form and keeps the button busy until it settles', async () => {
+  const { w, button, alerts } = setup(options => {
+    assert.equal(button.disabled, true);
+    options.error({
+      exc_type: 'PortalError',
+      _server_messages: JSON.stringify([JSON.stringify({ message: 'Use a work email. Personal domains are not accepted.' })]),
+      portal_error: { code: 'EMAIL_DOMAIN', message: 'Use a work email.', field: 'email', hint: 'Personal domains are not accepted.' },
+    });
+  });
+  const form = w.document.getElementById('f');
+  const error = await w.PortalAPI.call('x.y', {}, { button, form }).catch(e => e);
+  assert.equal(error.code, 'EMAIL_DOMAIN');
+  assert.equal(error.field, 'email');
+  assert.equal(error.message, 'Use a work email.');
+  assert.equal(error.shown, true);
+  assert.equal(button.disabled, false);
+  const input = w.document.getElementById('email');
+  assert.equal(input.getAttribute('aria-invalid'), 'true');
+  assert.equal(w.document.getElementById('email-error').textContent, 'Use a work email. Personal domains are not accepted.');
+  assert.deepEqual(alerts, [], 'an inline field error is not also toasted');
+});
+
+test('PortalAPI shows one red toast when no field can take the error, and clears old field errors first', async () => {
+  let reply = { message: { success: false, error: 'Schedule is <b>locked</b>', error_code: 'schedule_locked', field: 'nope' } };
+  const { w, alerts } = setup(options => options.callback(reply));
+  const form = w.document.getElementById('f');
+  w.PortalUI.fieldErrors(form, { email: 'old' });
+  const error = await w.PortalAPI.call('x.y', {}, { form }).catch(e => e);
+  assert.equal(error.code, 'schedule_locked');
+  assert.equal(form.querySelectorAll('.ill-field-error').length, 0);
+  assert.deepEqual(alerts.map(a => [a.message, a.indicator]), [['Schedule is locked', 'red']]);
+  reply = { message: { success: false, error: 'Quiet' } };
+  await assert.rejects(w.PortalAPI.call('x.y', {}, { toast: false }), { message: 'Quiet', shown: false });
+  assert.equal(alerts.length, 1);
+});
+
+test('PortalAPI retries only transport failures, and only as often as asked', async () => {
+  let calls = 0;
+  const { w } = setup(options => {
+    calls += 1;
+    if (calls < 3) options.error({ status: 503 });
+    else options.callback({ message: { ok: true } });
+  });
+  w.setTimeout = (fn) => { fn(); return 0; };
+  const result = await w.PortalAPI.call('x.y', {}, { retry: 2, toast: false });
+  assert.deepEqual(result, { ok: true });
+  assert.equal(calls, 3);
+
+  calls = 0;
+  const validation = setup(options => { calls += 1; legacy417({ _server_messages: JSON.stringify([JSON.stringify({ message: 'Bad length' })]) })(options); });
+  await assert.rejects(validation.w.PortalAPI.call('x.y', {}, { retry: 3, toast: false }), { message: 'Bad length', transient: false });
+  assert.equal(calls, 1, 'a server answer is never re-sent');
+});
+
+test('PortalUI.call keeps its old messages and now also carries the error code', async () => {
+  const { w } = setup(options => options.callback({ message: { success: false, error: 'Nope', error_code: 'permission_denied' } }));
+  await assert.rejects(w.PortalUI.call('x.y'), { message: 'Nope', code: 'permission_denied', field: null, transient: false });
+  const offline = setup(options => options.error({ status: 0, responseText: '' }));
+  await assert.rejects(offline.w.PortalUI.call('x.y'), { message: /offline/, transient: true, status: 0 });
 });

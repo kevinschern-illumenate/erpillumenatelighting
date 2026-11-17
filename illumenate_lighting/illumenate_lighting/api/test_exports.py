@@ -142,6 +142,24 @@ class TestExportsAPI(FrappeTestCase):
 		self.assertIn("Test Manufacturer", csv_content)
 		self.assertIn("TM-100", csv_content)
 
+	def test_csv_export_reads_back_into_the_schedule_import(self):
+		"""Plan 3.4: the import maps an export's columns without help."""
+		import csv
+		import io
+
+		from illumenate_lighting.illumenate_lighting.api.exports import (
+			_generate_csv_content,
+			_get_schedule_data,
+		)
+		from illumenate_lighting.illumenate_lighting.portal.schedule_import import suggest_mapping
+
+		schedule_data = _get_schedule_data(self.schedule_name, include_pricing=False)
+		header = next(csv.reader(io.StringIO(_generate_csv_content(schedule_data, include_pricing=False))))
+		self.assertEqual(header[-1], "Part Number")
+		mapping = suggest_mapping(header)
+		for field in ("line_id", "qty", "location", "description", "part_number", "notes", "length_in", "manufacturer_type", "manufacturer_name", "accessory_item"):
+			self.assertIn(field, mapping)
+
 	def test_generate_pdf_content(self):
 		"""Test _generate_pdf_content function."""
 		from illumenate_lighting.illumenate_lighting.api.exports import (

@@ -1,19 +1,20 @@
 // Schedule add-line modal: the Product Category option decides the template category.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const jquery = require('jquery');
 
-const SCHEDULE = fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/templates/pages/schedule.html'), 'utf8');
+const { SCRIPT, TEMPLATE } = require('./schedule_source.cjs');
+
+// Plan 2.1 moved the page script out of the template; the markup assertions still read the template.
+const SCHEDULE = SCRIPT + '\n' + TEMPLATE;
 
 function helpers() {
-  // The helpers live in the page's inline script; render their Jinja labels as plain text.
+  // The helpers live in the page script; translations come from scheduleText().
   const start = SCHEDULE.indexOf('function tapeNeonCategoryOf(');
   const end = SCHEDULE.indexOf('// Load tape/neon templates from the server');
   assert.ok(start > 0 && end > start, 'add-line category helpers are present');
-  const source = SCHEDULE.slice(start, end).replace(/\{\{ _\("([^"]+)"\) \}\}/g, '$1');
+  const source = 'function scheduleText(text) { return text; }\n' + SCHEDULE.slice(start, end);
   const dom = new JSDOM('<body><select id="add_product_type"></select></body>', { runScripts: 'outside-only' });
   const w = dom.window;
   w.$ = w.jQuery = jquery(w);

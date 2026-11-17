@@ -1,0 +1,47 @@
+<div id="raw-feature-data" style="display:none;">{{wf:features-json|Dynamo}}</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+  // --- FEATURES LIST GENERATOR ---
+  (function() {
+    const rawDataEl = document.getElementById('raw-feature-data');
+    if (!rawDataEl) return;
+    const rawText = rawDataEl.innerText.trim();
+    if (!rawText) return; 
+
+    const gridContainer = document.querySelector('.features-grid');
+    const templateCard = document.querySelector('.feature-card-template');
+    if (!gridContainer || !templateCard) return;
+
+    templateCard.style.display = 'none';
+
+    try {
+        const featuresData = JSON.parse(rawText);
+        featuresData.forEach(feature => {
+            // Skip if both title and description are empty
+            if (!feature.title && !feature.description) return;
+            
+            const newCard = templateCard.cloneNode(true);
+            newCard.style.display = 'flex'; 
+            
+            const titleEl = newCard.querySelector('.feature-card-title');
+            const bodyEl = newCard.querySelector('.feature-card-body');
+            
+            // Inject the data
+            if (titleEl) titleEl.innerText = feature.title || '';
+            if (bodyEl) bodyEl.innerText = feature.description || '';
+            
+            gridContainer.appendChild(newCard);
+        });
+        
+        // Clean up the original template
+        templateCard.remove();
+        
+    } catch (error) {
+        console.error("Error parsing Features JSON:", error);
+    }
+  })();
+
+});
+</script>

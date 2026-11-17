@@ -23,6 +23,14 @@ except ImportError:  # Frappe v15
 from illumenate_lighting import portal_workspace
 from illumenate_lighting.illumenate_lighting.portal import order_review
 
+# Placeholder site config for the ERPNext -> n8n calls (Z1). Not real values.
+N8N_TEST_CONF = {
+	"n8n_sync_webhook_url": "https://n8n.invalid/webhook/test-sync",
+	"n8n_spec_webhook_url": "https://n8n.invalid/webhook/test-spec",
+	"n8n_sync_secret": "test-secret",
+	"n8n_sync_secret_header": "X-Test-Secret",
+}
+
 PNG_1X1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
 
 
@@ -152,6 +160,7 @@ class TestDeployRegressions(IntegrationTestCase):
 	def test_webhook_http_and_network_failures_fail_the_worker(self):
 		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
 
+		self.enterContext(patch.dict(frappe.conf, N8N_TEST_CONF))
 		for status in (401, 500):
 			response = requests.Response()
 			response.status_code = status
@@ -174,10 +183,13 @@ class TestDeployRegressions(IntegrationTestCase):
 	def test_webhook_success_and_dispatch_after_commit(self):
 		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
 
+		self.enterContext(patch.dict(frappe.conf, N8N_TEST_CONF))
 		response = requests.Response()
 		response.status_code = 202
-		with patch.object(webflow_export_v2.requests, "post", return_value=response):
+		with patch.object(webflow_export_v2.requests, "post", return_value=response) as post:
 			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
+		# Z1: every ERPNext -> n8n call carries the shared-secret header from site config.
+		self.assertEqual(post.call_args.kwargs["headers"], {"X-Test-Secret": "test-secret"})
 		for method in (webflow_export_v2.trigger_sync_v2, webflow_export_v2.trigger_publish_v2):
 			# Both triggers save the product first so its template data is fresh.
 			doc = frappe._dict(target_brands=[frappe._dict(brand="demo", enabled=1)], save=MagicMock())
@@ -190,13 +202,40 @@ class TestDeployRegressions(IntegrationTestCase):
 					"inspect",
 					return_value={"readiness": {"ready": True}, "current_hash": "v1"},
 				),
-				patch.object(webflow_export_v2, "request"),
-				patch.object(webflow_export_v2, "claim", return_value={"jobs": [{"job": "J1"}]}),
+				patch.object(webflow_export_v2, "request", return_value={"job": "J1"}),
+				patch.object(webflow_export_v2, "claim") as claim,
 				patch.object(frappe, "enqueue") as enqueue,
 			):
 				self.assertEqual(method("demo")["jobs"], ["J1"])
+				# The requester never claims; a worker does that as the integration user.
+				claim.assert_not_called()
+				self.assertTrue(enqueue.call_args.args[0].endswith(".claim_and_dispatch"))
 				self.assertTrue(enqueue.call_args.kwargs["enqueue_after_commit"])
+				self.assertEqual(
+					enqueue.call_args.kwargs["webhook_url"], N8N_TEST_CONF["n8n_sync_webhook_url"]
+				)
 				doc.save.assert_called_once_with(ignore_permissions=True)
+		users = []
+
+		def claim(brand, limit):
+			users.append(frappe.session.user)
+			return {"jobs": [{"job": "J1"}]}
+
+		with patch.object(webflow_export_v2, "claim", side_effect=claim), patch.object(frappe, "enqueue") as enqueue:
+			self.assertEqual(webflow_export_v2.claim_and_dispatch("demo", "https://webhook.invalid"), ["J1"])
+		self.assertNotEqual(users, ["Administrator"])
+		self.assertEqual(frappe.session.user, "Administrator")
+		self.assertTrue(enqueue.call_args.args[0].endswith(".enqueue_n8n_webhook"))
+
+	def test_publication_worker_user_has_only_the_integration_capability(self):
+		from illumenate_lighting.illumenate_lighting.portal import staff
+		from illumenate_lighting.illumenate_lighting.portal.service_users import run_as, service_user
+
+		self.assertTrue(frappe.db.exists("User", service_user("publication")))
+		with run_as("publication"):
+			self.assertTrue(staff.allowed("integration"))
+			self.assertFalse(staff.allowed("catalog"))
+		self.assertEqual(frappe.session.user, "Administrator")
 
 	def test_non_administrators_can_upload_edit_and_delete_attachments(self):
 		for email, roles in (

@@ -1,24 +1,23 @@
 // Leaving QUOTED with an open offer warns before the quote is superseded (REL-4).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
-
-const SOURCE = fs.readFileSync(path.join(__dirname, '../../illumenate_lighting/templates/pages/schedule.html'), 'utf8');
+const { SCRIPT: SOURCE } = require('./schedule_source.cjs');
 
 function load(status, openOffer) {
   const start = SOURCE.indexOf('var statusLabels = ');
   const end = SOURCE.indexOf('function requestQuote()');
   assert.ok(start > 0 && end > start, 'status script block not found');
-  const script = SOURCE.slice(start, end)
-    .replace('{{ status_labels | tojson }}', JSON.stringify({ DRAFT: 'Draft', READY: 'Ready', QUOTED: 'Quoted' }))
-    .replace('{{ open_offer | tojson }}', JSON.stringify(openOffer))
-    .replace('{{ schedule.status | tojson }}', JSON.stringify(status));
+  const script = SOURCE.slice(start, end);
   assert.doesNotMatch(script, /\{\{/);
   const confirms = [];
   const context = {
     schedule_name: 'S-1',
+    scheduleContext: {
+      status_labels: { DRAFT: 'Draft', READY: 'Ready', QUOTED: 'Quoted' },
+      open_offer: openOffer,
+      schedule_status: status,
+    },
     document: { addEventListener() {} },
     __: (text, args) => (args ? text.replace(/\{(\d+)\}/g, (_, i) => args[i]) : text),
     frappe: {
