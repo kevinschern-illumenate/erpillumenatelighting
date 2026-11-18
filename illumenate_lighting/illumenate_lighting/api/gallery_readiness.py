@@ -18,13 +18,32 @@ from illumenate_lighting.illumenate_lighting.api.gallery_schema import (
 )
 
 SEO_MAX_LENGTH = 160
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 VIDEO_HOSTS = ("youtube.com", "youtu.be", "vimeo.com", "loom.com")
 
 
 def is_public_file(url: str) -> bool:
-	"""True for a public relative path (/files/...) or an https URL; false for private ERP files."""
-	url = (url or "").strip()
-	return bool(url) and "/private/" not in url
+	"""True for a public path under /files/ or an https URL; false for private ERP files.
+
+	Path-only: the image type is a separate rule (`_is_image_type`). File size cannot be checked in a pure
+	module, so it is not checked here.
+	"""
+	url = (url or "").strip().lower()
+	if url.startswith("https://"):
+		try:
+			parsed = urlparse(url)
+		except ValueError:
+			return False
+		return bool(parsed.hostname) and not parsed.path.startswith("/private/")
+	return url.startswith("/files/")
+
+
+def _is_image_type(url: str) -> bool:
+	try:
+		path = urlparse((url or "").strip()).path.lower()
+	except ValueError:
+		return False
+	return path.endswith(IMAGE_EXTENSIONS)
 
 
 def _https_host(url: str) -> str | None:
@@ -71,6 +90,8 @@ def evaluate(gallery: dict, *, config: dict, product_refs: dict, active_series: 
 	for idx, row in enumerate(images, start=1):
 		if not is_public_file(row.get("image")):
 			block("gallery_images", f"Image row {idx} must be a public file, not a private ERP file.")
+		elif not _is_image_type(row.get("image")):
+			block("gallery_images", f"Image row {idx} must be a jpg, jpeg, png, webp or gif file.")
 
 	if gallery.get("gallery_type") not in GALLERY_TYPES:
 		block("gallery_type", "Gallery type must be one of the allowed values.")
@@ -112,7 +133,7 @@ def evaluate(gallery: dict, *, config: dict, product_refs: dict, active_series: 
 		if website and not _https_host(website):
 			block("credits", f"{row.get('credit_type')} website must be a valid https URL.")
 
-	for link in re.split(r"[,\n]+", gallery.get("videos") or ""):
+	for link in re.split(r"[\s,]+", gallery.get("videos") or ""):
 		link = link.strip()
 		if link and not _is_supported_video(link):
 			block("videos", f"Video link {link} must be https from YouTube, Vimeo, Loom or an .mp4 file.")
