@@ -20,6 +20,7 @@
 	var customerOf = D.customerOf;
 	var variantOriginFor = D.variantOriginFor;
 	var escapeHtml = D.escapeHtml;
+	var addedLabel = D.addedLabel;
 	var isFixture = D.isFixture;
 	var isSheet = D.isSheet;
 	var isCatalog = D.isCatalog;
@@ -116,8 +117,8 @@
 		var html = '<div class="ill-desk-done text-center py-4">'
 			+ '<div class="ill-desk-done-icon text-success"><i class="fa fa-check-circle fa-3x"></i></div>'
 			+ '<h5 class="mt-3">' + (msg.reconfigured
-				? __('Updated {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)])
-				: __('Added {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)])) + '</h5>'
+				? __('Updated {0}', [addedLabel(msg)])
+				: __('Added {0}', [addedLabel(msg)])) + '</h5>'
 			+ (msg.schedule
 				? '<p class="text-muted mb-1">' + __('Schedule line saved to {0}.', ['<strong>' + escapeHtml(this.scheduleName || msg.schedule) + '</strong>']) + '</p>'
 				: '<p class="text-warning mb-1">' + __('Not linked to a fixture schedule.') + '</p>')
