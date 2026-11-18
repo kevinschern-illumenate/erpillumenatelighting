@@ -86,6 +86,25 @@ class TestProjection(unittest.TestCase):
 		self.assertEqual(absolute_url("https://x.com/a.jpg", BASE), "https://x.com/a.jpg")
 		self.assertEqual(build()["gallery_images"][0]["url"], BASE + "/files/a.jpg")
 
+	def test_relative_path_without_slash_becomes_absolute(self):
+		self.assertEqual(absolute_url("files/a.jpg", BASE), BASE + "/files/a.jpg")
+		p = build(gallery_images=[{"image": "files/a.jpg", "alt_text": "A"}])
+		self.assertEqual(p["hero_image"]["url"], BASE + "/files/a.jpg")
+
+	def test_http_and_protocol_relative_pass_through(self):
+		self.assertEqual(absolute_url("http://x.com/a.jpg", BASE), "http://x.com/a.jpg")
+		self.assertEqual(absolute_url("//x.com/a.jpg", BASE), "//x.com/a.jpg")
+
+	def test_product_item_ids_deduplicated_in_row_order(self):
+		rows = [
+			{"product": "PRD-1", "series": "Ode", "note": "one"},
+			{"product": "PRD-2", "series": "Ode"},
+			{"product": "PRD-1", "series": "COB", "note": "two"},
+		]
+		p = build(products_used=rows)
+		self.assertEqual(p["product_item_ids"], ["wf1", "wf2"])
+		self.assertEqual(p["product_notes_html"], "<p>Rainier [SF]: one</p><p>Rainier [SF]: two</p>")
+
 	def test_series_distinct_in_row_order(self):
 		rows = [{"series": s} for s in ("Custom", "COB", "Custom")]
 		self.assertEqual(build(products_used=rows)["series_used"], ["Custom", "COB"])
