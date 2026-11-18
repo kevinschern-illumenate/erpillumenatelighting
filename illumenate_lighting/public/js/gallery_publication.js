@@ -15,6 +15,7 @@
 	var API = 'illumenate_lighting.illumenate_lighting.api.gallery_publication.';
 	var JOB = 'ilL-Gallery-Publish-Job';
 	var LABELS = ['Approve and Stage', 'Publish Live', 'Retire', 'Retry'];
+	var SECTION = 'ill-gallery-publication-section';
 
 	function esc(value) {
 		return frappe.utils.escape_html(value == null ? '' : String(value));
@@ -78,12 +79,16 @@
 		if (job && job.state === 'FAILED') {
 			html += '<p class="text-danger">' + esc(__('Last job failed')) + ' (' + esc(job.operation) + '): ' + esc(job.last_error) + '</p>';
 		}
-		var panel = frm.__ill_gallery_panel;
-		if (!panel) {
-			panel = frm.__ill_gallery_panel = frm.dashboard.add_section('<div class="ill-gallery-publication"></div>');
-		}
+		// Rebuilt on every render, never cached on frm: Frappe reuses frm across documents and
+		// clears custom dashboard sections on refresh (same pattern as desk_conversation.js).
+		var dashboard = frm.dashboard;
+		if (dashboard.wrapper && dashboard.wrapper.find) dashboard.wrapper.find('.' + SECTION).remove();
+		var section = dashboard.add_section('<div class="ill-gallery-publication"></div>', __('Webflow publication'), SECTION);
+		if (dashboard.show) dashboard.show();
+		var panel = section.find('.ill-gallery-publication');
+		if (!panel.length) panel = section;
 		panel.html(html);
-		panel.off('change.illgallery').on('change.illgallery', 'select.ill-gallery-brand', function () {
+		panel.on('change.illgallery', 'select.ill-gallery-brand', function () {
 			frm.__ill_gallery_brand = this.value;
 			render(frm);
 		});
@@ -146,8 +151,10 @@
 		var stage = frm.add_custom_button(__('Approve and Stage'), request(frm, brand, 'STAGE'), group);
 		if (stage && stage.prop) stage.prop('disabled', dirty);
 		var publish = frm.add_custom_button(__('Publish Live'), request(frm, brand, 'PUBLISH'), group);
-		var ready = result.state === 'STAGED' && !!result.current_hash &&
-			result.approved_hash === result.current_hash && result.staged_hash === result.current_hash;
+		// By hashes only, as on the product form: a save that changed nothing sent leaves the
+		// state NEEDS_REVIEW until the next inspect, but the staged revision is still current.
+		var ready = !!result.current_hash && result.approved_hash === result.current_hash &&
+			result.staged_hash === result.current_hash && result.live_hash !== result.current_hash;
 		if (publish && publish.prop) publish.prop('disabled', dirty || !ready);
 		var retire = frm.add_custom_button(__('Retire'), request(frm, brand, 'RETIRE'), group);
 		if (retire && retire.prop) retire.prop('disabled', dirty || !!frm.doc.is_active);

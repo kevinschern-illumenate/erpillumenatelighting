@@ -31,6 +31,9 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
   const buttons = {};
   const events = {};
   const sections = [];
+  const shows = [];
+  // Frappe's form dashboard: add_section appends a ".form-dashboard-section custom <css>" block.
+  const $wrapper = $('<div class="form-dashboard"></div>');
   const alerts = [];
   const messages = [];
   const reloads = [];
@@ -73,7 +76,16 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
     },
     remove_custom_button(label) { delete buttons[label]; },
     async reload_doc() { reloads.push(1); },
-    dashboard: { add_section(html) { const $s = $(html); sections.push($s); return $s; } },
+    dashboard: {
+      wrapper: $wrapper,
+      add_section(html, label, css) {
+        const $s = $(`<div class="form-dashboard-section custom ${css || ''}"></div>`).append(html);
+        $wrapper.append($s);
+        sections.push($s);
+        return $s;
+      },
+      show() { shows.push(1); },
+    },
     fields_dict: { gallery_images: { set_description(text) { frm.description = text; } } },
   };
   const context = { frappe, __: s => s, document: dom.window.document, window: dom.window, console };
@@ -81,10 +93,11 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
     fs.readFileSync(modulePath, 'utf8') + '\nreturn typeof module !== "undefined" ? module.exports : null;');
   const mod = { exports: {} };
   factory(context.window, frappe, context.__, context.document, mod, mod.exports);
-  return { api: mod.exports, frm, buttons, calls, sections, alerts, messages, reloads, frappe, events, $ };
+  return { api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, alerts, messages, reloads, frappe, events, $ };
 }
 
-const text = s => s.sections.map(x => x.text()).join('\n');
+// What is on screen: the sections still attached to the dashboard.
+const text = s => s.$wrapper.text();
 
 test('no buttons or panel for an unsaved gallery', async t => {
   const s = setup(t, { isNew: true });
@@ -101,14 +114,22 @@ test('saved gallery gets the three buttons and Publish Live is disabled until st
   assert.equal(s.buttons['Retry'], undefined);
 });
 
-test('Publish Live enables only when staged, approved and staged hashes equal the current hash', async t => {
-  const ok = setup(t, { inspect: receipt({ state: 'STAGED', approved_hash: 'cur', staged_hash: 'cur' }) });
-  await ok.api.refresh(ok.frm);
-  assert.equal(ok.buttons['Publish Live'].$button.prop('disabled'), false);
+test('Publish Live enables by hashes only: approved and staged equal current, live does not', async t => {
+  for (const extra of [
+    { state: 'STAGED', approved_hash: 'cur', staged_hash: 'cur' },
+    // A save that changed nothing sent: state is NEEDS_REVIEW until re-inspected, hashes still match.
+    { state: 'NEEDS_REVIEW', approved_hash: 'cur', staged_hash: 'cur', live_hash: 'old' },
+    { state: 'READY', approved_hash: 'cur', staged_hash: 'cur' },
+  ]) {
+    const ok = setup(t, { inspect: receipt(extra) });
+    await ok.api.refresh(ok.frm);
+    assert.equal(ok.buttons['Publish Live'].$button.prop('disabled'), false, JSON.stringify(extra));
+  }
   for (const extra of [
     { state: 'STAGED', approved_hash: 'old', staged_hash: 'cur' },
     { state: 'STAGED', approved_hash: 'cur', staged_hash: 'old' },
-    { state: 'READY', approved_hash: 'cur', staged_hash: 'cur' },
+    { state: 'LIVE', approved_hash: 'cur', staged_hash: 'cur', live_hash: 'cur' },
+    { state: 'NEEDS_REVIEW', current_hash: '', approved_hash: '', staged_hash: '' },
   ]) {
     const s = setup(t, { inspect: receipt(extra) });
     await s.api.refresh(s.frm);
@@ -283,6 +304,51 @@ test('the form reloads after a successful request and after a retry', async t =>
   assert.equal(s.alerts.length, 1);
   await s.buttons.Retry.fn();
   assert.equal(s.reloads.length, 2);
+});
+
+test('the panel is rebuilt on every refresh: one section, never cached on frm, dashboard shown', async t => {
+  const s = setup(t, { inspect: receipt({ state: 'STAGED' }) });
+  await s.api.refresh(s.frm);
+  await s.api.refresh(s.frm);
+  assert.equal(s.sections.length, 2);
+  assert.equal(s.$wrapper.find('.ill-gallery-publication-section').length, 1);
+  assert.equal(s.sections[0].parent().length, 0, 'the previous section is removed');
+  assert.equal(s.shows.length, 2);
+  assert.equal(s.frm.__ill_gallery_panel, undefined);
+  assert.match(text(s), /STAGED/);
+});
+
+test('the panel survives Frappe clearing custom dashboard sections between refreshes', async t => {
+  const s = setup(t, { inspect: receipt({ state: 'STAGED' }) });
+  await s.api.refresh(s.frm);
+  s.$wrapper.find('.form-dashboard-section.custom').remove();
+  assert.equal(text(s), '');
+  await s.api.refresh(s.frm);
+  assert.match(text(s), /STAGED/);
+});
+
+test('a form reused for another gallery shows that gallery, not the previous one', async t => {
+  const s = setup(t, { inspect: receipt({ state: 'STAGED', current_hash: 'first-gallery' }) });
+  await s.api.refresh(s.frm);
+  s.frm.doc = { ...s.frm.doc, name: 'g2' };
+  s.frappe.call = (orig => async args => {
+    if (args.method === API + 'inspect') return { message: receipt({ state: 'LIVE', current_hash: 'second-galle' }) };
+    return orig(args);
+  })(s.frappe.call);
+  await s.api.refresh(s.frm);
+  assert.match(text(s), /LIVE/);
+  assert.doesNotMatch(text(s), /first-galler/);
+  assert.equal(s.$wrapper.find('.ill-gallery-publication-section').length, 1);
+});
+
+test('choosing another brand in the panel inspects that brand', async t => {
+  const s = setup(t);
+  await s.api.refresh(s.frm);
+  s.calls.length = 0;
+  s.$wrapper.find('select.ill-gallery-brand').val('illumenate').trigger('change');
+  await flush();
+  assert.equal(s.calls.find(c => c.method === API + 'inspect').args.brand, 'illumenate');
+  assert.equal(s.$wrapper.find('.ill-gallery-publication-section').length, 1);
 });
 
 test('no enabled brand shows a notice and no buttons', async t => {
