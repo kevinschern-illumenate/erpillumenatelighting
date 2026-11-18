@@ -1,0 +1,65 @@
+{#
+  ilL Payment Receipt (Payment Entry): a receipt for a customer payment, or a remittance
+  advice for a supplier payment, with the invoices it was applied to.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, totals, closing, money, date with context -%}
+{%- set receiving = doc.payment_type == "Receive" -%}
+{%- set paying = doc.payment_type == "Pay" -%}
+{%- set title = "Payment Receipt" if receiving else "Remittance Advice" if paying else "Internal Transfer" -%}
+{%- set amount = doc.received_amount if receiving else doc.paid_amount -%}
+{%- set currency = doc.paid_to_account_currency if receiving else doc.paid_from_account_currency -%}
+{%- set reference = (doc.reference_no or "") | replace("QBO-", "QuickBooks #") -%}
+{%- set contact = ill_print_contact(doc.contact_person) -%}
+{%- set allocated = namespace(total=0) -%}
+{%- set show_outstanding = (doc.references or []) | selectattr("outstanding_amount") | list | length > 0 -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header(title, doc.name, "Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else "",
+		tone=("alert" if doc.docstatus == 2 else "")) }}
+
+	{{ facts([
+		("Payment date", date(doc.posting_date)),
+		("Amount", money(amount, currency)),
+		("Method", (doc.mode_of_payment or "")),
+		("Reference", reference),
+		("Reference date", date(doc.reference_date) if doc.reference_date and doc.reference_date != doc.posting_date else ""),
+		("Project", (doc.project or "")),
+	]) }}
+
+	{{ parties([
+		("Received from" if receiving else "Paid to" if paying else "Party", doc.party_name or doc.party, [contact.name, doc.contact_email or contact.email]),
+	]) }}
+
+	{%- if doc.references -%}
+	<table class="ill-items ill-block">
+		<thead>
+			<tr>
+				<th>Applied to</th>
+				<th style="width: 16%;">Invoice / due date</th>
+				<th class="ill-num" style="width: 16%;">Invoice total</th>
+				{%- if show_outstanding %}<th class="ill-num" style="width: 16%;">Outstanding before</th>{% endif %}
+				<th class="ill-num" style="width: 16%;">Applied</th>
+			</tr>
+		</thead>
+		<tbody>
+		{%- for ref in doc.references -%}
+			{%- set allocated.total = allocated.total + (ref.allocated_amount or 0) -%}
+			<tr>
+				<td><span class="ill-line-name">{{ ref.reference_name | e }}</span><div class="ill-specs">{{ ref.reference_doctype | e }}{% if ref.bill_no %} &middot; Bill {{ ref.bill_no | e }}{% endif %}</div></td>
+				<td>{{ date(ref.due_date) }}</td>
+				<td class="ill-num">{{ money(ref.total_amount, currency) }}</td>
+				{%- if show_outstanding %}<td class="ill-num">{% if ref.outstanding_amount %}{{ money(ref.outstanding_amount, currency) }}{% endif %}</td>{% endif %}
+				<td class="ill-num">{{ money(ref.allocated_amount, currency) }}</td>
+			</tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+	{%- endif -%}
+
+	{{ totals([("Applied to invoices", money(allocated.total, currency) if doc.references else ""), ("Deductions", money(-doc.difference_amount, currency) if doc.difference_amount else "")],
+		("Total " ~ ("received" if receiving else "paid"), money(amount, currency)),
+		after=([("On account (unapplied)", money(doc.unallocated_amount, currency))] if doc.unallocated_amount else [])) }}
+
+	{{ closing(("Thank you for your payment." if receiving else "Questions about this payment? Contact " ~ ill_print_company(doc).email ~ ".")) }}
+</div>

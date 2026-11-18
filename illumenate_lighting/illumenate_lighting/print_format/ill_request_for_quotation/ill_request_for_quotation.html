@@ -1,0 +1,64 @@
+{#
+  ilL Request for Quotation: what we need priced, with write-in price and lead time
+  columns the vendor can fill in and return.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, notes, terms, signatures, closing, date with context -%}
+{%- set company = ill_print_company(doc) -%}
+{%- set vendors = doc.suppliers or [] -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Request for Quotation", doc.name, "Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else "") }}
+
+	{{ facts([
+		("Request date", date(doc.transaction_date)),
+		("Required by", date(doc.schedule_date)),
+		("Buyer", ill_print_person(doc.owner)),
+		("Reply to", company.purchasing_email),
+	]) }}
+
+	{{ parties([
+		("Vendor" if vendors | length == 1 else "Vendors", (vendors[0].supplier_name or vendors[0].supplier) if vendors | length == 1 else "",
+			([vendors[0].contact, vendors[0].email_id] if vendors | length == 1 else vendors | map(attribute="supplier") | list)),
+		("Deliver to", company.name, company.address),
+	]) }}
+
+	{{ notes("Message", doc.message_for_supplier) }}
+
+	<table class="ill-items ill-block">
+		<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 11%;">Needed by</th>
+				<th class="ill-num" style="width: 11%;">Qty</th>
+				<th class="ill-num" style="width: 13%;">Unit price</th>
+				<th class="ill-num" style="width: 13%;">Lead time</th>
+			</tr>
+		</thead>
+		<tbody>
+		{%- for item in doc.items -%}
+			<tr>
+				<td class="ill-idx">{{ loop.index }}</td>
+				<td>
+					<div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div>
+					<div class="ill-code">Our part <span class="ill-mono">{{ item.item_code | e }}</span>{% if item.supplier_part_no %} &nbsp;&middot;&nbsp; Your part <span class="ill-mono">{{ item.supplier_part_no | e }}</span>{% endif %}</div>
+					{%- set info = ill_print_specs(item) -%}
+					{%- for label, value in info.specs %}{% if loop.first %}<div class="ill-specs">{% endif %}{% if not loop.first %} &nbsp;&middot;&nbsp; {% endif %}{{ label | e }} <b>{{ value | e }}</b>{% if loop.last %}</div>{% endif %}{% endfor -%}
+				</td>
+				<td>{{ date(item.schedule_date) }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) }}</td>
+				<td class="ill-num"><span class="ill-writein"></span></td>
+				<td class="ill-num"><span class="ill-writein"></span></td>
+			</tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+
+	{{ terms("purchase", title="Purchase terms that apply to any resulting order") }}
+
+	{{ signatures(["Quoted by", "Company", "Date", "Quote valid until"], title="Vendor quotation",
+		intro="Fill in your unit prices and lead times and return this form, or send your own quotation referencing " ~ doc.name ~ ".") }}
+
+	{{ closing("Please reply to " ~ company.purchasing_email ~ " by " ~ (date(doc.schedule_date) or "the required-by date") ~ ".") }}
+</div>

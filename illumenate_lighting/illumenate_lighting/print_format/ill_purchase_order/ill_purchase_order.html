@@ -1,274 +1,86 @@
 {#
-  ilLumenate Purchase Order Print Format
-  Matches the standard ilL layout with section / room grouping.
-  Section-header rows (ill_section_label set, qty=0, no item_code) render as
-  bold header rows spanning the table.  All other rows tagged with the same
-  ill_section_label are grouped under that header with a section subtotal.
+  ilL Purchase Order, as sent to the vendor: their part numbers and descriptions first,
+  required-by dates, ship-to, freight and purchase terms.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+  Frappe reads this file at print time, so it overrides the copy stored on the site.
 #}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, section_row, totals, terms, notes, signatures, closing, money, date with context -%}
+{%- set parts = ill_print_supplier_parts(doc) -%}
+{%- set sums = ill_print_totals(doc) -%}
+{%- set sections = ill_print_sections(doc.items) -%}
+{%- set labelled = sections | selectattr("label") | list | length -%}
+{%- set company = ill_print_company(doc) -%}
+{%- set dates = doc.items | map(attribute="schedule_date") | select | unique | list -%}
+{%- set row = namespace(n=0) -%}
+{%- set status = "Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else ("Revised" if doc.amended_from else "") -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Purchase Order", doc.name, status, tone=("alert" if doc.docstatus == 2 else ""),
+		subtitle=("Replaces " ~ doc.amended_from if doc.amended_from else None)) }}
 
-{%- set has_sections = doc.items | selectattr("ill_section_label") | list | length > 0 -%}
+	{{ facts([
+		("Order date", date(doc.transaction_date)),
+		("Required by", date(doc.schedule_date) if dates | length <= 1 else "See lines"),
+		("Your order / ack no.", (doc.ill_vendor_order_no or "")),
+		("Promised ship date", date(doc.ill_promised_ship_date)),
+		("Freight", (doc.ill_freight_mode or "")),
+		("Payment terms", (doc.payment_terms_template or "")),
+		("Buyer", ill_print_person(doc.owner)),
+		("Project", (doc.project or "")),
+	]) }}
 
-{#-- Build ordered list of sections and their items --#}
-{%- set ns = namespace(sections=[], section_map={}, current_section="") -%}
-{%- for item in doc.items -%}
-    {%- set label = item.ill_section_label or "" -%}
-    {#-- Detect section-header-only rows --#}
-    {%- if label and (not item.item_code) and item.qty == 0 -%}
-        {%- if label not in ns.section_map -%}
-            {%- set _ = ns.sections.append(label) -%}
-            {%- set _ = ns.section_map.update({label: []}) -%}
-        {%- endif -%}
-        {%- set ns.current_section = label -%}
-    {%- else -%}
-        {#-- Use explicit label, or inherit from last section header --#}
-        {%- set effective = label or ns.current_section -%}
-        {%- if effective not in ns.section_map -%}
-            {%- set _ = ns.sections.append(effective) -%}
-            {%- set _ = ns.section_map.update({effective: []}) -%}
-        {%- endif -%}
-        {%- set _ = ns.section_map[effective].append(item) -%}
-    {%- endif -%}
-{%- endfor -%}
+	{{ parties([
+		("Vendor", doc.supplier_name or doc.supplier, ill_print_address(doc.address_display, doc.supplier_address) + [doc.contact_display, doc.contact_email, doc.contact_mobile]),
+		("Ship to", company.name, ill_print_address(doc.shipping_address_display, doc.shipping_address) or company.address),
+		("Bill to", company.name, (ill_print_address(doc.billing_address_display, doc.billing_address) or company.address) + [company.email]),
+	]) }}
 
-{#-- Build supplier part info lookup from Item Supplier master --#}
-{%- set sp_ns = namespace(map={}) -%}
-{%- for item in doc.items -%}
-    {%- if item.item_code and item.item_code not in sp_ns.map -%}
-        {%- set _sp_row = frappe.db.get_value("Item Supplier",
-            {"parent": item.item_code, "supplier": doc.supplier},
-            ["supplier_part_no", "custom_supplier_description"], as_dict=True) or {} -%}
-        {%- set _ = sp_ns.map.update({item.item_code: {
-            "supplier_part_no": _sp_row.get("supplier_part_no") or "",
-            "supplier_description": _sp_row.get("custom_supplier_description") or ""
-        }}) -%}
-    {%- endif -%}
-{%- endfor -%}
+	<table class="ill-items ill-block">
+		<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 12%;">Required by</th>
+				<th class="ill-num" style="width: 11%;">Qty</th>
+				<th class="ill-num" style="width: 11%;">Unit price</th>
+				<th class="ill-num" style="width: 12%;">Amount</th>
+			</tr>
+		</thead>
+		<tbody>
+		{%- for section in sections -%}
+			{{ section_row(section.label, 6) }}
+			{%- for item in section["items"] -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- set part = parts.get(item.item_code, {}) -%}
+			{%- set vendor_no = item.supplier_part_no or part.part_no -%}
+			<tr>
+				<td class="ill-idx">{{ row.n }}</td>
+				<td>
+					<div class="ill-line-name">{{ (part.description or item.item_name or item.item_code) | e }}</div>
+					<div class="ill-code">{% if vendor_no %}Your part <span class="ill-mono">{{ vendor_no | e }}</span> &nbsp;&middot;&nbsp; {% endif %}Our part <span class="ill-mono">{{ item.item_code | e }}</span></div>
+					{%- if part.description and item.item_name and part.description != item.item_name %}<div class="ill-specs">{{ item.item_name | e }}</div>{% endif -%}
+					{%- if item.sales_order %}<div class="ill-specs">For order {{ item.sales_order | e }}</div>{% endif -%}
+				</td>
+				<td>{{ date(item.schedule_date) }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) }}</td>
+				<td class="ill-num">{{ money(item.rate) }}</td>
+				<td class="ill-num">{{ money(item.amount) }}</td>
+			</tr>
+			{%- endfor -%}
+			{%- if section.label and labelled > 1 -%}
+			<tr class="ill-section-total"><td colspan="5" class="ill-right">{{ section.label | e }} subtotal</td><td class="ill-num">{{ money(section.subtotal) }}</td></tr>
+			{%- endif -%}
+		{%- endfor -%}
+		</tbody>
+	</table>
 
-<style>
-    .ill-section-header td {
-        background-color: #e8e8e8 !important;
-        font-weight: 700;
-        font-size: 10pt;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 8px 6px !important;
-        border-bottom: 2px solid #bbb !important;
-    }
-    .ill-section-subtotal td {
-        font-weight: 700;
-        border-top: 2px solid #ccc !important;
-        background-color: #f7f7f7 !important;
-    }
-</style>
+	{{ totals(sums.rows, ("Total", sums.grand)) }}
 
-{#-- Header --#}
-<div id="custom-header-container" style="width: 100%; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #d1d8dd; overflow: hidden;">
-    <div style="width: 45%; float: left;">
-        <img src="/files/ilLumenate%20Logo_DW_Black_Main.png" style="max-height: 80px; width: auto; display: block;">
-    </div>
-    <div style="width: 50%; float: right; text-align: right; padding-top: 22px;">
-        <h2 style="margin: 0; line-height: 1.1; border: none !important;">
-            <div style="font-weight: bold; text-transform: uppercase; color: #000; font-size: 1.4em; border: none !important;">
-                Purchase Order
-            </div>
-            <small style="font-size: 0.6em; color: #888; display: block; margin-top: 2px; font-weight: normal; border: none !important;">
-                {{ doc.name }}
-            </small>
-        </h2>
-    </div>
-    <div style="clear: both;"></div>
+	{{ notes("Notes", doc.remarks if doc.remarks and not doc.remarks.startswith("Against") else "") }}
+
+	{{ terms("purchase", title="Purchase terms") }}
+
+	{{ signatures(["Authorized by", "Date"]) }}
+
+	{{ closing("Please confirm this order and your ship date to " ~ company.purchasing_email ~ ", quoting PO " ~ doc.name ~ ".") }}
 </div>
-
-{#-- Supplier / Date info --#}
-<div class="row section-break">
-    <div class="col-xs-4 column-break">
-        <div class="row important data-field">
-            <div class="col-xs-12"><label>Supplier: </label></div>
-            <div class="col-xs-12 value">{{ doc.supplier_name or doc.supplier }}</div>
-        </div>
-        {% if doc.supplier_address %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Supplier Address: </label></div>
-            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.address_display or '' }}</div></div>
-        </div>
-        {% endif %}
-        {% if doc.contact_display %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Contact: </label></div>
-            <div class="col-xs-12 value">{{ doc.contact_display }}</div>
-        </div>
-        {% endif %}
-    </div>
-    <div class="col-xs-4 column-break">
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Date: </label></div>
-            <div class="col-xs-12 value">{{ doc.transaction_date | default('', true) }}</div>
-        </div>
-        {% if doc.schedule_date %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Required By: </label></div>
-            <div class="col-xs-12 value">{{ doc.schedule_date }}</div>
-        </div>
-        {% endif %}
-        {% if doc.company %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Company: </label></div>
-            <div class="col-xs-12 value">{{ doc.company }}</div>
-        </div>
-        {% endif %}
-    </div>
-    <div class="col-xs-4 column-break">
-        {% if doc.shipping_address %}
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Ship To: </label></div>
-            <div class="col-xs-12 value"><div class="ql-snow">{{ doc.shipping_address_display or '' }}</div></div>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-{#-- Items table --#}
-<div class="row section-break">
-    <div class="col-xs-12 column-break">
-        <table class="table table-bordered table-condensed">
-            <thead>
-                <tr>
-                    <th style="width: 40px" class="table-sr">Sr</th>
-                    <th style="width: 15%;">Item Code</th>
-                    <th style="width: 15%;">Supplier Part No</th>
-                    <th style="width: 30%;">Supplier Description</th>
-                    <th style="width: 10%;" class="text-right">Quantity</th>
-                    <th style="width: 10%;" class="text-right">Rate</th>
-                    <th style="width: 15%;" class="text-right">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-            {%- if has_sections -%}
-                {#-- Render grouped by section --#}
-                {%- set row_ns = namespace(sr=0) -%}
-                {%- for section_label in ns.sections -%}
-                    {%- set items = ns.section_map[section_label] -%}
-
-                    {%- if section_label -%}
-                    <tr class="ill-section-header">
-                        <td colspan="7">{{ section_label }}</td>
-                    </tr>
-                    {%- endif -%}
-
-                    {%- set sec_ns = namespace(subtotal=0) -%}
-                    {%- for item in items -%}
-                        {%- set row_ns.sr = row_ns.sr + 1 -%}
-                        {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
-                        {%- set _sp = sp_ns.map.get(item.item_code) or {} -%}
-                        <tr>
-                            <td class="table-sr">{{ row_ns.sr }}</td>
-                            <td><div class="value">{{ item.item_code or '' }}</div></td>
-                            <td><div class="value">{{ _sp.supplier_part_no or '' }}</div></td>
-                            <td><div class="value">{{ _sp.supplier_description or '' }}</div></td>
-                            <td class="text-right">
-                                <div class="value">
-                                    {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
-                                    {{ item.qty }}
-                                </div>
-                            </td>
-                            <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</div></td>
-                            <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</div></td>
-                        </tr>
-                    {%- endfor -%}
-
-                    {%- if section_label and ns.sections | length > 1 -%}
-                    <tr class="ill-section-subtotal">
-                        <td colspan="6" class="text-right">{{ section_label }} Subtotal</td>
-                        <td class="text-right">{{ frappe.utils.fmt_money(sec_ns.subtotal, currency=doc.currency) }}</td>
-                    </tr>
-                    {%- endif -%}
-                {%- endfor -%}
-            {%- else -%}
-                {#-- No sections — standard flat list --#}
-                {%- for item in doc.items -%}
-                {%- set _sp = sp_ns.map.get(item.item_code) or {} -%}
-                <tr>
-                    <td class="table-sr">{{ item.idx }}</td>
-                    <td><div class="value">{{ item.item_code or '' }}</div></td>
-                    <td><div class="value">{{ _sp.supplier_part_no or '' }}</div></td>
-                    <td><div class="value">{{ _sp.supplier_description or '' }}</div></td>
-                    <td class="text-right">
-                        <div class="value">
-                            {%- if item.uom -%}<small class="pull-left">{{ item.uom }}</small>{%- endif -%}
-                            {{ item.qty }}
-                        </div>
-                    </td>
-                    <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</div></td>
-                    <td class="text-right"><div class="value">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</div></td>
-                </tr>
-                {%- endfor -%}
-            {%- endif -%}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-{#-- Totals --#}
-<div class="row section-break">
-    <div class="col-xs-4 column-break">
-        <div class="row data-field">
-            <div class="col-xs-12"><label>Total Quantity: </label></div>
-            <div class="col-xs-12 value">{{ doc.total_qty }}</div>
-        </div>
-    </div>
-    <div class="col-xs-4 column-break"></div>
-    <div class="col-xs-4 column-break">
-        <div class="row data-field">
-            <div class="col-xs-5"><label>Total</label></div>
-            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.total, currency=doc.currency) }}</div>
-        </div>
-    </div>
-</div>
-
-{#-- Additional Discount --#}
-{% if doc.discount_amount %}
-<div class="row section-break">
-    <div class="col-xs-6 column-break"></div>
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-7 text-right"><label>Additional Discount{% if doc.additional_discount_percentage %} ({{ doc.additional_discount_percentage }}%){% endif %}:</label></div>
-            <div class="col-xs-5 text-right value">-{{ frappe.utils.fmt_money(doc.discount_amount, currency=doc.currency) }}</div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-{#-- Taxes / Charges --#}
-{% if doc.taxes %}
-<div class="row section-break" data-label="Taxes and Charges">
-    <div class="col-xs-6 column-break"></div>
-    <div class="col-xs-6 column-break">
-        {% for tax in doc.taxes %}
-        <div class="row data-field">
-            <div class="col-xs-7 text-right"><label>{{ tax.description }}:</label></div>
-            <div class="col-xs-5 text-right value">{{ frappe.utils.fmt_money(tax.tax_amount, currency=doc.currency) }}</div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-{#-- Grand Total --#}
-<div class="row section-break" data-label="Totals">
-    <div class="col-xs-6 column-break"></div>
-    <div class="col-xs-6 column-break">
-        <div class="row data-field">
-            <div class="col-xs-5"><label>Grand Total: </label></div>
-            <div class="col-xs-7 text-right value">{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</div>
-        </div>
-    </div>
-</div>
-
-{#-- Terms --#}
-{% if doc.terms %}
-<div class="row section-break" data-label="Terms and Conditions">
-    <div class="col-xs-12 column-break">
-        <div class="ql-snow">{{ doc.terms }}</div>
-    </div>
-</div>
-{% endif %}

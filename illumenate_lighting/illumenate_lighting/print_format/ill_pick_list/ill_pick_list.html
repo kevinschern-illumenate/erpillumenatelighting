@@ -1,0 +1,47 @@
+{#
+  ilL Pick List: what to pull from which warehouse for an order, with write-in picked
+  quantities and sign-off. Internal; no prices.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date with context -%}
+{%- set found = namespace(orders=[]) -%}
+{%- for row in doc.locations or [] -%}{%- if row.sales_order and row.sales_order not in found.orders -%}{%- set found.orders = found.orders + [row.sales_order] -%}{%- endif -%}{%- endfor -%}
+{%- set project = ill_print_project({"items": [{"sales_order": found.orders[0]}]}) if found.orders else {"project": "", "schedule": ""} -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Pick List", doc.name, ("Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else doc.status or ""), subtitle=doc.purpose) }}
+
+	{{ facts([
+		("Customer", (doc.customer_name or doc.customer or "")),
+		("Sales order", found.orders | join(", ")),
+		("Project", project.project),
+		("Warehouse", ill_print_warehouse(doc.parent_warehouse)),
+		("Created", date(doc.creation)),
+		("For", (doc.for_qty | string ~ " × " ~ (doc.work_order or "")) if doc.work_order else ""),
+	]) }}
+
+	<table class="ill-items ill-block">
+		<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 18%;">Warehouse / batch</th>
+				<th class="ill-num" style="width: 12%;">To pick</th>
+				<th class="ill-num" style="width: 12%;">Picked</th>
+			</tr>
+		</thead>
+		<tbody>
+		{%- for row in doc.locations or [] -%}
+			<tr>
+				<td class="ill-idx">{{ loop.index }}</td>
+				<td>{{ line(row, show_specs=False) }}{% if row.sales_order %}<div class="ill-specs">For {{ row.sales_order | e }}</div>{% endif %}</td>
+				<td>{{ ill_print_warehouse(row.warehouse) | e }}{% if row.batch_no %}<div class="ill-specs">Batch {{ row.batch_no | e }}</div>{% endif %}{% if row.serial_no %}<div class="ill-specs ill-pre">{{ row.serial_no | e }}</div>{% endif %}</td>
+				<td class="ill-num">{{ ill_print_qty(row.qty, row.uom) }}</td>
+				<td class="ill-num">{% if row.picked_qty and doc.docstatus == 1 %}{{ ill_print_qty(row.picked_qty, row.uom) }}{% else %}<span class="ill-writein"></span>{% endif %}</td>
+			</tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+
+	{{ signatures(["Picked by", "Date", "Checked by", "Date"]) }}
+</div>

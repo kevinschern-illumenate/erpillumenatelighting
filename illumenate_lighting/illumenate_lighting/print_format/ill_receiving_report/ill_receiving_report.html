@@ -1,0 +1,65 @@
+{#
+  ilL Receiving Report (Purchase Receipt): what came in against which purchase order,
+  accepted and rejected quantities and where it was put away, with inspection sign-off.
+  Internal; no prices. Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, notes, signatures, date with context -%}
+{%- set orders = ill_print_references(doc, "purchase_order") -%}
+{%- set rejected = doc.items | selectattr("rejected_qty") | list -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Receiving Report", doc.name,
+		"Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else ("Return" if doc.is_return else ""),
+		tone=("alert" if doc.docstatus == 2 or doc.is_return else "")) }}
+
+	{{ facts([
+		("Received", date(doc.posting_date)),
+		("Purchase order", orders | join(", ")),
+		("Vendor packing slip", (doc.supplier_delivery_note or "")),
+		("Received by", ill_print_person(doc.owner)),
+		("Return against", (doc.return_against or "") if doc.is_return else ""),
+		("Project", (doc.project or "")),
+	]) }}
+
+	{{ parties([
+		("Vendor", doc.supplier_name or doc.supplier, [doc.contact_display, doc.contact_email, doc.contact_mobile]),
+	]) }}
+
+	<table class="ill-items ill-block">
+		<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 15%;">Purchase order</th>
+				<th class="ill-num" style="width: 10%;">Received</th>
+				<th class="ill-num" style="width: 10%;">Accepted</th>
+				{%- if rejected %}<th class="ill-num" style="width: 10%;">Rejected</th>{% endif %}
+				<th style="width: 14%;">Put away to</th>
+				<th class="ill-center" style="width: 7%;">OK</th>
+			</tr>
+		</thead>
+		<tbody>
+		{%- for item in doc.items -%}
+			<tr>
+				<td class="ill-idx">{{ loop.index }}</td>
+				<td>
+					<div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div>
+					<div class="ill-code"><span class="ill-mono">{{ item.item_code | e }}</span>{% if item.supplier_part_no %} &nbsp;&middot;&nbsp; Vendor part <span class="ill-mono">{{ item.supplier_part_no | e }}</span>{% endif %}</div>
+					{%- if item.batch_no %}<div class="ill-specs">Batch {{ item.batch_no | e }}</div>{% endif -%}
+				</td>
+				<td>{{ (item.purchase_order or "") | e }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.received_qty or item.qty, item.uom) }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) }}</td>
+				{%- if rejected %}<td class="ill-num">{% if item.rejected_qty %}{{ ill_print_qty(item.rejected_qty, item.uom) }}{% endif %}</td>{% endif %}
+				<td>{{ ill_print_warehouse(item.warehouse) | e }}{% if item.rejected_qty and item.rejected_warehouse %}<div class="ill-specs">Rejected to {{ ill_print_warehouse(item.rejected_warehouse) | e }}</div>{% endif %}</td>
+				<td class="ill-center"><span class="ill-check"></span></td>
+			</tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+	<div class="ill-right ill-block"><span class="ill-label" style="display: inline;">Total received</span> &nbsp;{{ ill_print_qty(doc.total_qty) }}</div>
+
+	{{ notes("Notes", doc.remarks) }}
+
+	{{ signatures(["Received by", "Inspected by", "Date", "Discrepancies reported to vendor"]) }}
+</div>

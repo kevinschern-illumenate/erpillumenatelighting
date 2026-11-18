@@ -1,0 +1,54 @@
+{#
+  ilL Packing List (Packing Slip DocType): the contents of one or more cases of a
+  delivery, for the carton or the receiving dock. No prices.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, closing, date with context -%}
+{%- set dn = frappe.db.get_value("Delivery Note", doc.delivery_note, ["customer_name", "posting_date", "po_no", "shipping_address", "address_display", "shipping_address_name", "customer_address", "ill_carrier", "ill_tracking_number"], as_dict=True) if doc.delivery_note else none -%}
+{%- set cases = (doc.from_case_no ~ ((" to " ~ doc.to_case_no) if doc.to_case_no and doc.to_case_no != doc.from_case_no else "")) if doc.from_case_no else "" -%}
+{%- set weight_unit = doc.weight_uom or "" -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Packing List", doc.name, "Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else "",
+		subtitle=(("Case " if cases and " to " not in cases else "Cases ") ~ cases) if cases else None) }}
+
+	{{ facts([
+		("Delivery note", (doc.delivery_note or "")),
+		("Ship date", date(dn.posting_date) if dn else ""),
+		("Your PO", (dn.po_no or "") if dn else ""),
+		("Case no.", cases),
+		("Carrier", (dn.ill_carrier or "") if dn else ""),
+		("Tracking number", (dn.ill_tracking_number or "") if dn else ""),
+		("Net weight", ((doc.net_weight_pkg | string) ~ " " ~ weight_unit) if doc.net_weight_pkg else ""),
+		("Gross weight", ((doc.gross_weight_pkg | string) ~ " " ~ weight_unit) if doc.gross_weight_pkg else ""),
+	]) }}
+
+	{%- if dn %}
+	{{ parties([("Ship to", dn.customer_name, ill_print_address(dn.shipping_address or dn.address_display, dn.shipping_address_name or dn.customer_address))]) }}
+	{%- endif %}
+
+	<table class="ill-items ill-block">
+		<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th class="ill-num" style="width: 14%;">Quantity</th>
+				<th class="ill-num" style="width: 12%;">Net weight</th>
+				<th class="ill-center" style="width: 8%;">Checked</th>
+			</tr>
+		</thead>
+		<tbody>
+		{%- for item in doc.items -%}
+			<tr>
+				<td class="ill-idx">{{ loop.index }}</td>
+				<td>{{ line(item) }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.stock_uom) }}</td>
+				<td class="ill-num">{% if item.net_weight %}{{ "%g" | format(item.net_weight) }} {{ item.weight_uom or weight_unit }}{% endif %}</td>
+				<td class="ill-center"><span class="ill-check"></span></td>
+			</tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+
+	{{ closing("Report damage or shortages within five business days to " ~ ill_print_company(doc).email ~ ", quoting delivery note " ~ (doc.delivery_note or doc.name) ~ ".") }}
+</div>

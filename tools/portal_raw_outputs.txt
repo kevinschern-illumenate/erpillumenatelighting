@@ -6,3 +6,6 @@ templates/pages/configure_tape.html: include_script("illumenate_configurator.bun
 templates/pages/schedule.html: include_script("illumenate_configurator.bundle.js")  # Frappe builds the <script> tag for a literal bundle name (UI-6)
 templates/print/spec_submittal_cover.html: base_css | safe  # a constant stylesheet from portal/packet_pages.py; no user input
 templates/print/spec_submittal_cover.html: brand_header | safe  # packet_pages.brand_header escapes its only argument and inlines the bundled logo
+templates/print/ill_print.html: left or ""  # HTML a print format builds with {% set %}; every value in it is escaped where it is built
+templates/print/ill_print.html: columns[0]  # printing.ill_print_terms_columns: Terms and Conditions HTML passed through sanitize_html
+templates/print/ill_print.html: columns[1]  # printing.ill_print_terms_columns: Terms and Conditions HTML passed through sanitize_html
