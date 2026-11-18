@@ -4,6 +4,7 @@ The pure readiness and projection modules run for real, so hashes move exactly a
 """
 
 import copy
+import json
 import os
 import types
 import unittest
@@ -103,7 +104,8 @@ class GalleryPublicationCase(unittest.TestCase):
 
 	def get_value(self, doctype, filters=None, field=None, *args, **kwargs):
 		if doctype == "ilL-Child-Webflow-Sync-State":
-			if filters.get("brand") == "staging2" and filters.get("sync_status") == "Synced":
+			# Spec 6a: the sync row's item ID counts whatever its sync status (saves set it Pending).
+			if filters.get("brand") == "staging2" and "sync_status" not in filters:
 				return self.item_ids.get(filters["parent"])
 			return None
 		if doctype == "ilL-Webflow-Product":
@@ -417,6 +419,36 @@ class GalleryPublicationCase(unittest.TestCase):
 		self.assertTrue(self.state.staged_hash)
 		self.assertTrue(self.slug_locked())
 
+	def test_series_only_row_hashes_and_stays_ready(self):
+		"""Spec 5.1: a series-only row (the import's Custom rows) must not break the hash or readiness."""
+		self.gallery["products_used"].append({"product": None, "series": "Custom"})
+		with self.service() as (module, frappe):
+			frappe.get_all.side_effect = lambda doctype, **kw: (
+				["Rainier", "Custom"] if doctype == "ilL-Attribute-Series" else []
+			)
+			result = module.inspect("G1", "staging2")
+			self.assertTrue(result["readiness"]["ready"], result["readiness"]["issues"])
+			dependencies = json.loads(self.state.dependencies_json)
+			self.assertEqual(dependencies["products"], {"rainier-sf": ITEM_A})
+			self.assertEqual(dependencies["series"], ["Custom", "Rainier"])
+			job = module.request("G1", "staging2", "STAGE", result["current_hash"])["job"]
+			self.assertEqual(module.claim("staging2")["jobs"][0]["job"], job)
+
+	def test_product_staged_through_publication_record_is_ready(self):
+		"""A product staged by the publication process has no Synced row, only its publication record."""
+		self.item_ids = {}
+		original = self.get_value
+
+		def get_value(doctype, filters=None, field=None, *args, **kwargs):
+			if doctype == "ilL-Product-Publication" and field == "remote_item_id":
+				return ITEM_A
+			return original(doctype, filters, field, *args, **kwargs)
+
+		self.get_value = get_value
+		with self.service() as (module, _frappe):
+			result = module.inspect("G1", "staging2")
+			self.assertTrue(result["readiness"]["ready"], result["readiness"]["issues"])
+
 	def slug_locked(self):
 		"""Task 2's controller, against the publication record this service writes."""
 		document = types.ModuleType("frappe.model.document")
@@ -438,6 +470,77 @@ class GalleryPublicationCase(unittest.TestCase):
 			gallery.is_new = lambda: False
 			gallery.get_doc_before_save = lambda: Record(name="G1")
 			return gallery._slug_locked()
+
+
+class ProductItemIdCase(unittest.TestCase):
+	"""Spec 6a: a product's Webflow item ID in a brand, from the three places the product flow keeps it."""
+
+	def setUp(self):
+		self.publications = {}
+		self.sync_rows = {}
+		self.own = {}
+		self.calls = []
+
+	@contextmanager
+	def helper(self):
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+
+		brand = types.ModuleType(ROOT + ".api.webflow_brand")
+		brand.get_default_brand = lambda: "illumenate"
+
+		def get_value(doctype, filters=None, field=None, *args, **kwargs):
+			self.calls.append((doctype, filters, field))
+			if doctype == "ilL-Product-Publication":
+				return next(
+					(item for (product, code), item in self.publications.items()
+					if filters == {"scope_key": fingerprint([product, code])} and field == "remote_item_id"),
+					None,
+				)
+			if doctype == "ilL-Child-Webflow-Sync-State":
+				self.assertNotIn("sync_status", filters)
+				key = (filters["parent"], filters["brand"])
+				self.assertEqual(filters["parenttype"], "ilL-Webflow-Product")
+				return self.sync_rows.get(key) if field == "webflow_item_id" else None
+			if doctype == "ilL-Webflow-Product":
+				return self.own.get(filters) if field == "webflow_item_id" else None
+			return None
+
+		with load_service(ROOT + ".api.gallery_products", {brand.__name__: brand}) as (module, frappe):
+			frappe.db.get_value.side_effect = get_value
+			yield module
+
+	def test_publication_record_resolves(self):
+		self.publications[("P-1", "staging2")] = ITEM_A
+		with self.helper() as module:
+			self.assertEqual(module.product_item_id("P-1", "staging2"), ITEM_A)
+
+	def test_sync_row_resolves_whatever_its_status(self):
+		self.sync_rows[("P-1", "staging2")] = ITEM_B
+		with self.helper() as module:
+			self.assertEqual(module.product_item_id("P-1", "staging2"), ITEM_B)
+
+	def test_own_field_resolves_for_default_brand_only(self):
+		self.own["P-1"] = ITEM_G
+		with self.helper() as module:
+			self.assertEqual(module.product_item_id("P-1", "illumenate"), ITEM_G)
+			self.assertIsNone(module.product_item_id("P-1", "staging2"))
+
+	def test_precedence(self):
+		self.publications[("P-1", "illumenate")] = ITEM_A
+		self.sync_rows[("P-1", "illumenate")] = ITEM_B
+		self.own["P-1"] = ITEM_G
+		with self.helper() as module:
+			self.assertEqual(module.product_item_id("P-1", "illumenate"), ITEM_A)
+			del self.publications[("P-1", "illumenate")]
+			self.assertEqual(module.product_item_id("P-1", "illumenate"), ITEM_B)
+			del self.sync_rows[("P-1", "illumenate")]
+			self.assertEqual(module.product_item_id("P-1", "illumenate"), ITEM_G)
+
+	def test_none_found_gives_none(self):
+		with self.helper() as module:
+			self.assertIsNone(module.product_item_id("P-1", "staging2"))
+			self.assertIsNone(module.product_item_id("P-1", "illumenate"))
+			self.assertIsNone(module.product_item_id(None, "staging2"))
 
 
 if __name__ == "__main__":
