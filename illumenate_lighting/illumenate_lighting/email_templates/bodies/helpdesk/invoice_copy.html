@@ -1,0 +1,5 @@
+<p>{% set c = ill_email_context("Sales Invoice", ill_sales_invoice) %}{% set who = ill_email_context("Contact", contact) %}Hi {{ who.greeting_name }},</p>
+<p>{% if c.found %}Here's invoice <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}: {% if c.invoice.is_paid %}it's <strong>paid in full</strong>, thank you.{% else %}<strong>{{ c.invoice.outstanding }}</strong> is due{% if c.invoice.due_date %} {{ c.invoice.due_date }}{% endif %}.{% endif %}{% else %}Could you send the invoice number or your PO number? I'll send a copy right away.{% endif %}</p>
+<p>{% if c.pdf.si %}<a href="{{ c.pdf.si }}">Download invoice {{ c.name }} (PDF)</a>{% endif %}{% for o in c.sales_orders %}{% if o.pdf %} · <a href="{{ o.pdf }}">Order {{ o.name }} (PDF)</a>{% endif %}{% endfor %}</p>
+<p>{% if c.pay_link %}<a href="{{ c.pay_link }}">Pay this invoice online</a>{% elif c.invoice.has_balance and c.pay_instructions %}<strong>How to pay</strong><br>{{ c.pay_instructions }}{% endif %}</p>
+<p>Thanks,<br>{{ full_name }}<br>ilLumenate Lighting</p>

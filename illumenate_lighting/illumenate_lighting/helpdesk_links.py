@@ -9,6 +9,7 @@ Helpdesk is optional. Nothing here runs or registers until the HD Ticket DocType
 exists, and the fields are created on the first migrate after Helpdesk is installed.
 """
 
+import re
 from urllib.parse import urlencode
 
 import frappe
@@ -35,6 +36,19 @@ LINK_FIELDS = {
 }
 
 LABELS = {PROJECT: "Project", SCHEDULE: "Fixture Schedule"}
+
+# DocTypes ``ill_print_pdf_url`` will make a share link for: the sales documents above plus
+# the shipping, purchasing and payment documents customer and supplier emails link to.
+# Kept separate from LINK_FIELDS, which is only the HD Ticket link map.
+PDF_DOCTYPES = (
+	*SALES_FIELDS,
+	"Delivery Note",
+	"Packing Slip",
+	"Purchase Order",
+	"Request for Quotation",
+	"Supplier Quotation",
+	"Payment Entry",
+)
 
 # Fields the agent sidebar was seeded with before the setting recorded which ones.
 _SEEDED_BEFORE_TRACKING = set(SALES_FIELDS.values())
@@ -111,13 +125,55 @@ def _seeded_fields() -> set[str]:
 	return {f for f in value.split(",") if f}
 
 
+# Document numbers our customer emails put in their subjects ("Order confirmed: ilL-SAL-ORD-Acme-00012").
+# Names carry the customer name, so the match runs to the first five-digit counter, plus an
+# amendment suffix; every candidate is checked against the database before it is used.
+SUBJECT_PATTERNS = {
+	"Sales Invoice": re.compile(r"(?:ilL-)?ACC-SINV-.*?-\d{5}(?:-\d+)?"),
+	"Sales Order": re.compile(r"(?:ilL-)?SAL-ORD-.*?-\d{5}(?:-\d+)?"),
+	"Quotation": re.compile(r"(?:ilL-)?SAL-QTN-.*?-\d{5}(?:-\d+)?"),
+}
+
+
+def link_from_subject(doc):
+	"""A new ticket with no sales links takes them from document numbers in its subject.
+
+	Customers reply to our emails, and Helpdesk turns the reply into a ticket whose subject
+	still names the quote, order or invoice; linking it gives saved replies their context.
+	"""
+	if any(doc.get(field) for field in SALES_FIELDS.values()):
+		return
+	subject = doc.get("subject") or ""
+	for doctype, pattern in SUBJECT_PATTERNS.items():
+		for match in pattern.finditer(subject):
+			found = _existing_name(doctype, match.group(0))
+			if found:
+				doc.set(SALES_FIELDS[doctype], found)
+				break
+
+
+def _existing_name(doctype, candidate):
+	candidate = candidate.strip()
+	options = [candidate]
+	base = re.sub(r"(-\d{5})-\d+$", r"\1", candidate)
+	if base != candidate:
+		options.append(base)
+	for name in options:
+		if frappe.db.exists(doctype, name):
+			return name
+	return None
+
+
 def fill_upstream(doc, method=None):
 	"""HD Ticket validate: fill empty links from the documents already linked.
 
 	A ticket linked to an invoice usually concerns that invoice's order and quote too,
 	and the order or quote's fixture schedule and project, so templates can quote them
-	all. Fields already set are never changed.
+	all. Fields already set are never changed. A new ticket with no links first takes
+	them from document numbers in its subject (a customer replying to our email).
 	"""
+	if doc.is_new():
+		link_from_subject(doc)
 	if doc.get("ill_sales_invoice") and not doc.get("ill_sales_order"):
 		doc.ill_sales_order = _first_value(
 			"Sales Invoice Item",
@@ -202,13 +258,14 @@ def link_tickets(doctype: str, name: str, tickets: list[str] | str):
 def ill_print_pdf_url(doctype, name, print_format=None, letterhead=None) -> str:
 	"""Jinja: a link anyone with the email can open to download the document as a PDF.
 
-	For Helpdesk saved replies, e.g. ``<a href="{{ ill_print_pdf_url('Quotation', ill_quotation) }}">``.
-	The link carries a Document Share Key, which expires after System Settings'
-	"Document Share Key Expiry" (90 days by default). Returns "" when the field is
-	empty, the DocType is not a sales document, or the person rendering the template
-	cannot read the document, so a blank link never leaks a record.
+	For Helpdesk saved replies and email templates, e.g.
+	``<a href="{{ ill_print_pdf_url('Quotation', ill_quotation) }}">``. The link carries a
+	Document Share Key, which expires after System Settings' "Document Share Key Expiry"
+	(90 days by default; 30 on the live site). Returns "" when the field is empty, the
+	DocType is not in PDF_DOCTYPES, the document is cancelled, or the person rendering the
+	template cannot read it, so a blank link never leaks a record.
 	"""
-	if not name or doctype not in SALES_FIELDS:
+	if not name or doctype not in PDF_DOCTYPES:
 		return ""
 	if not frappe.db.exists(doctype, name) or not frappe.has_permission(doctype, "read", name):
 		return ""

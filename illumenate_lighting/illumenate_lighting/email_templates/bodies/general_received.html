@@ -1,0 +1,6 @@
+{# Generic: we received your message. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Thanks for your message{% if c.found %} about {{ c.doctype|lower }} {{ c.name }}{% endif %}. We've got it and will get back to you within one business day.</p>
+<p>If it's urgent, call us{% if c.poc.phone %} at {{ c.poc.phone }}{% endif %} and mention this email.</p>
+{{ c.blocks.signature }}

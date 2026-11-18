@@ -1,0 +1,5 @@
+<p>{% set c = ill_email_context("Sales Order", ill_sales_order) %}{% set who = ill_email_context("Contact", contact) %}Hi {{ who.greeting_name }},</p>
+<p>I'm sorry your shipment {% if c.found %}for order <strong>{{ c.name }}</strong> {% endif %}arrived damaged. We'll make it right. Please:</p>
+<ul><li>Keep all cartons and packing materials until the carrier's claim is settled</li><li>Reply with photos of the outside of the cartons, the packing, and the damaged items</li><li>Note the damage on the carrier's delivery receipt if you haven't signed it yet</li></ul>
+<p>{% for s in c.order.shipments %}Shipment {{ s.date }}{% if s.carrier %}, {{ s.carrier }}{% endif %}{% if s.number %}, tracking {{ s.number }}{% endif %}.<br>{% endfor %}We'll file the claim with the carrier and get replacements moving right away.</p>
+<p>Thanks,<br>{{ full_name }}<br>ilLumenate Lighting</p>

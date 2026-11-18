@@ -1,0 +1,8 @@
+{# Payment Entry (Pay, Supplier): remittance advice. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {{ c.greeting_name }},</p>
+<p>We sent a payment of <strong>{{ c.payment.amount }}</strong> on {{ c.payment.date }}{% if c.payment.method %} by {{ c.payment.method }}{% endif %}{% if c.payment.reference %}, reference {{ c.payment.reference }}{% endif %}.</p>
+{{ c.blocks.applied }}
+{% if c.payment.unallocated %}<p>{{ c.payment.unallocated }} is an advance against future invoices.</p>{% endif %}
+<p>Please apply it to the invoices above and reply if anything doesn't match your records.</p>
+{{ c.blocks.signature }}

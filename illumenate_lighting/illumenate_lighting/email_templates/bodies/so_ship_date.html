@@ -1,0 +1,8 @@
+{# Sales Order: the estimated ship date was set or changed (Notification: value change on ill_estimated_ship_date). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>An update on order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}{% if c.job_name %} for {{ c.job_name }}{% endif %}: it's now scheduled to ship on <strong>{{ c.order.ship_date }}</strong>.</p>
+{% if c.order.delivery_promise %}<p>{{ c.order.delivery_promise_label }}: {{ c.order.delivery_promise }}.</p>{% elif c.order.requested_date %}<p>You asked for {{ c.order.requested_date }}.</p>{% endif %}
+<p>If this date doesn't work for your job schedule, reply and we'll look at options with you. We'll email tracking details as soon as it ships.</p>
+{% if c.portal_url %}<p><a href="{{ c.portal_url }}">View the order in the dealer portal</a></p>{% endif %}
+{{ c.blocks.signature }}

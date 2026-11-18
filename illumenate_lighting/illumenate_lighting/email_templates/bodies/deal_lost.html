@@ -1,0 +1,7 @@
+{# CRM Deal: check-in after a deal is lost. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Thanks for considering ilLumenate Lighting{% if c.deal.organization %} for {{ c.deal.organization }}'s project{% endif %}. We understand this one didn't work out.</p>
+<p>If you have a minute, would you tell us what tipped the decision? It helps us serve you better next time.</p>
+<p>We'd love the chance to quote your next job.</p>
+{{ c.blocks.signature }}

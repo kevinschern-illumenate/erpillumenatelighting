@@ -1,0 +1,10 @@
+{# Sales Order: order change confirmation. Add what changed before sending. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>We've updated order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} as you asked.</p>
+<p><strong>What changed:</strong> [describe the change]</p>
+<p>The order total is now <strong>{{ c.order.total }}</strong>{% if c.order.ship_date %} and the {{ c.order.ship_date_label|lower }} is {{ c.order.ship_date }}{% endif %}.</p>
+{{ c.blocks.lines }}
+{% if c.pdf.so %}<p><a href="{{ c.pdf.so }}">Download the updated order acknowledgement (PDF)</a></p>{% endif %}
+<p>Please reply within one business day if anything doesn't look right.</p>
+{{ c.blocks.signature }}

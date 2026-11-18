@@ -1,0 +1,7 @@
+{# Quotation: check-in after a quote is marked Lost. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Thank you for considering us for {% if c.job_name %}{{ c.job_name }}{% else %}quote {{ c.name }}{% endif %}. We understand this one didn't go our way.</p>
+<p>Would you share what made the difference? Price, lead time, product fit or something else, a one-line reply helps us do better on your next project.</p>
+<p>We'd love the chance to quote your next job.</p>
+{{ c.blocks.signature }}

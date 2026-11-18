@@ -1,0 +1,8 @@
+{# Purchase Receipt: receiving discrepancy (rejected quantities). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {{ c.greeting_name }},</p>
+<p>We received your shipment{% if c.receipt.supplier_delivery_note %} (your delivery note {{ c.receipt.supplier_delivery_note }}){% endif %}{% if c.receipt.purchase_orders %} against purchase order {{ c.receipt.purchase_orders|join(", ") }}{% endif %} on {{ c.receipt.date }}, and some items didn't pass our receiving check.</p>
+{{ c.blocks.rejected }}
+<p><strong>Issue:</strong> [describe the problem; photos attached]</p>
+<p>Please reply with how you'd like to resolve it: replacement, credit, or return instructions.</p>
+{{ c.blocks.signature }}
