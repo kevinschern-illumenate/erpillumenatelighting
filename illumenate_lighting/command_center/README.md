@@ -18,6 +18,31 @@ Not in this folder: `cc.html` (unchanged, still what is live) and `ss/cc_api.py`
 - **Saved views** (Phase 4): name and reuse filters on the Tasks list and on every Workbench list. Stored in the browser (localStorage) under the signed-in user, so they do not follow someone to another computer.
 - **Activity feed** (Phase 4): built from the "Command Center:" comments the gateway writes; shown on Executive, per project on Review, and per record in the Workbench sheet. People only see changes to records they can read.
 
+## Manufacturing: production board
+
+The Manufacturing step (`#mfg`) is the warehouse "Schedule Wizard" workbook, live. Its data comes from the app endpoint `illumenate_lighting.illumenate_lighting.api.production_board.get_board`, which is ordinary app code and not a Server Script, so it is deployed with the app. It is read-only and needs Command Center Viewer, Manufacturing User/Manager or System Manager. Dollar columns need Command Center Finance, Manufacturing Manager, Accounts Manager or System Manager; everyone else sees points only.
+
+- Pipeline cards: Pend-Prod / In-Prod / Pend-Ship / Waiting for parts / Paint / Held, each with $, number of orders, points and average commission. Commission above the flag (22% by default) shows red.
+- Shipped today and this month, available to ship, gap to the monthly goal with dollars needed per shipping day, on-time %.
+- Due: past due, today, tomorrow (Monday on a Friday), this week.
+- Capacity: workload, capacity per day (points per person per day × head count), days to complete, date clear, and a 22-workday burn-down that skips weekends and the holiday list.
+- Order queue: 2C–6C runs, Loose, WR, FMC, Assy, points, hours, $ per point and floor notes. It can be filtered by status and sorted by ship date, $ per point or points.
+- Waiting for parts: what's short after stock is handed out in ship-date order, the ETA from open purchase orders, and whether the order is going to miss its date.
+- Shipped this month: delivery notes, on time or late, the reason, and on-time % by week.
+- Sub-tabs for the rest of the workbook:
+  - **Run rate & daily $:** orders received per workday over the last 30 workdays, with $0 / same-day / next-day / rush counts and the month and 30-day averages. Also shipped dollars per workday against the dollars needed per day.
+  - **Monthly report:** this month and the next two. Rows are goal, shipped, scheduled, estimated run rate, at risk, expected releases, projection (with and without at-risk), % of goal and average commission.
+  - **Releases & holds:** orders on Hold for Release / Confirmation, with Likely Ship Date, monthly totals, and release points and days using the release weights. Hold for Ship orders appear with days until their ship date.
+  - **Proforma & will call:** open orders, and those completed this month.
+  - **Paint:** orders with an open PO to the paint supplier group (set in settings) or marked Paint by hand. Shows PO, date sent, date due back and items.
+- The previous work-order tables are in a collapsed "Work order clean-up" card at the bottom.
+
+**Status rules:** the floor override on the Sales Order comes first. Then On Hold or a stopped WO means Held. All WOs complete means Pend-Ship. Any WO in process means In-Prod. Material short means Waiting for parts. Anything else is Pend-Prod.
+
+**Ship date:** the Sales Order's Estimated Ship Date. If that's blank, the delivery date is used, shown with a `*`.
+
+**Weights, capacity, head count, overtime, holiday list and monthly goal:** Desk → ilL-Production-Settings ("Weights & capacity" button on the page).
+
 ## Meeting agenda (v6)
 
 The **Agenda** tab replaces the Google Doc agenda for the weekly meeting.

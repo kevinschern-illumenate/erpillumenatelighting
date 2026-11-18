@@ -435,3 +435,17 @@ details summary { cursor: pointer; }
 #cc a.pill { text-decoration: none; }
 #cc a.pill:hover { background: var(--infob); }
 @media print { #cc .pl-acts, #cc .ib-route { display: none; } }
+
+/* production board (Manufacturing) */
+#cc .pb-kpis { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+#cc .pb-kpis .stat .v { font-size: 24px; }
+#cc .pb-hi, #cc .pb-late { color: var(--badt); font-weight: 600; }
+#cc .pb-today { color: var(--warnt); font-weight: 600; }
+#cc tr.pb-row-late td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
+#cc .pb-cap { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 8px; }
+#cc .pb-big { font-size: 24px; font-weight: 700; letter-spacing: -.5px; line-height: 1.2; margin: 2px 0; }
+#cc .pb-notes { max-width: 220px; white-space: normal; font-size: 12.5px; color: var(--ink2); }
+#cc table.pb-q td, #cc table.pb-q th { padding-left: 8px; padding-right: 8px; }
+#cc .pb-tabs { margin: -4px 0 18px; flex-wrap: wrap; }
+#cc .pb-ok { color: var(--goodt); }
+#cc table.pb-rep td:first-child { min-width: 230px; }
