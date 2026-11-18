@@ -285,13 +285,16 @@ Promotion steps, only after staging2 is verified:
 
 ## 9a. Importing the existing galleries (Claude's call)
 
-A whitelisted ERP method (run from the System Console or a bench command) reads the Galleries collection
-from the Webflow API and creates one `ilL-Webflow-Gallery` per item.
+A whitelisted ERP method, `import_galleries(items, brand, commit=0)` (api/gallery_import.py; needs the
+catalog publisher capability; run from the System Console or a bench command), creates one
+`ilL-Webflow-Gallery` per item. ERP holds no Webflow token, so the method does not call the Webflow API:
+the controller exports the Galleries collection items (JSON exactly as the Webflow v2 list-items API
+returns them) and passes them in. The pure mapping is `map_webflow_item`.
 
 - Matching: by exact slug. The existing Webflow item ID is written to the gallery's sync state and
   `erp-sync-id` is backfilled on the Webflow item at the first sync, so the first sync updates the item
   instead of duplicating it.
-- Images: downloaded from the Webflow CDN and attached in ERP as public files. The first sync re-sends them
+- Images: downloaded from the public Webflow CDN URLs in the items (no credentials) and attached in ERP as public files. The first sync re-sends them
   to Webflow, which creates new assets; the old ones are left as unused assets.
 - Hero image: the existing items already list the hero image as the first gallery image, so the gallery rows
   import in order and the first row is the hero.
@@ -306,7 +309,12 @@ from the Webflow API and creates one `ilL-Webflow-Gallery` per item.
 - Products: each `products-used` Webflow item ID is mapped to an `ilL-Webflow-Product` through its sync state
   for the target brand. An item whose product cannot be mapped is imported with that row left empty and
   listed in the import report, never silently dropped.
-- Dry run first, report to a file, nothing written without `--commit`.
+- Dry run first (`commit` defaults to 0): nothing is written to the database. The report is returned and
+  also written under the site's private files. A failed image download is reported and that image row is
+  skipped; an item that fails to save is rolled back and reported. Existing slugs are reported "exists,
+  skipped", never overwritten. Archived items are skipped; draft items import inactive. The sync-state row
+  is written with status Pending (so the first sync updates the item) and the brand is added to the
+  gallery's `target_brands`.
 - Run against ERP staging first, then production at promotion.
 
 ## 10. Testing
@@ -380,3 +388,5 @@ Still open:
   unbound), and `tests/portal_unit/gallery_workflow.test.cjs` (run in CI). Section 7 records the matching
   rule, the `lookup-incomplete` stop above 100 items and the null-vs-omit rule. The staging2 Galleries
   collection does not have the `erp-sync-id` field yet (section 8); add it before the first sync.
+- 2026-11-18: Task 8 built: `api/gallery_import.py` (`map_webflow_item`, `import_galleries`). Per Rei's ruling the
+  ERP does not call Webflow: the controller passes the exported items in (section 9a updated).

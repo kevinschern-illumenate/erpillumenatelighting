@@ -1,0 +1,393 @@
+"""Import of the existing Webflow galleries (docs/WEBFLOW_GALLERY_SYNC.md section 9a), stubbed Frappe."""
+
+import copy
+import json
+import os
+import types
+import unittest
+from unittest.mock import MagicMock, patch
+
+from test_services import ROOT, Record, load_service
+
+MODULE = ROOT + ".api.gallery_import"
+REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_previous_cwd = None
+ODE_PRODUCT = "6" * 24
+CDN = "https://cdn.prod.website-files.com/site/"
+
+SERIES = {
+	"custom": "Custom",
+	"st. helens": "St. Helens",
+	"led tape": "LED Tape",
+	"rainier": "Rainier",
+}
+PRODUCTS = {ODE_PRODUCT: "rainier-sf"}
+
+
+def setUpModule():
+	global _previous_cwd
+	_previous_cwd = os.getcwd()
+	os.chdir(REPO)
+
+
+def tearDownModule():
+	os.chdir(_previous_cwd)
+
+
+def image(name, alt=""):
+	return {"fileId": "f" + name, "url": f"{CDN}{name}.jpg", "alt": alt}
+
+
+def item(slug, name, **fields):
+	data = {"name": name, "slug": slug}
+	data.update(fields)
+	return {"id": "i" * 23 + slug[0], "isDraft": False, "isArchived": False, "fieldData": data}
+
+
+def ode():
+	return item(
+		"ode-wellness",
+		"Ode Wellness",
+		featured=True,
+		**{
+			"featured-image": image("ode1"),
+			"gallery": [image(f"ode{n}", f"Ode {n}") for n in range(1, 6)],
+			"short-description": "A calm spa.",
+			"about": "Soft light.",
+			"case-study": "<p>Case &amp; study</p>",
+			"project-type": "healthcare",
+			"applications": "Cove, Backlighting",
+			"services-provided": "Takeoff Drawings",
+			"products-used": [ODE_PRODUCT],
+			"owner": "Ode Owner",
+			"owner-website": "https://owner.example",
+			"client-integrator": "Integrator Co",
+			"photo-credit": "Pat Photo",
+			"architect": "",
+			"architect-website": "https://ignored.example",
+			"completion-date": "2025-03-04T00:00:00.000Z",
+		},
+	)
+
+
+def holodeck():
+	return item(
+		"holodeck-wall",
+		"Holodeck Wall",
+		**{
+			"gallery": [image("h1"), image("h2")],
+			"series-used": "Custom LED Tape, Custom Extrusion Kit",
+			"products-used": [],
+			"videos": "https://www.youtube.com/watch?v=abc",
+			"quote": "Great.",
+			"quote-attribution": "Someone",
+			"custom-items": (
+				'<p>Wall panel: Powder coated</p><p><img src="' + CDN + 'panel.jpg" alt=""></p>'
+				"<p>Bracket: Steel &amp; brass</p>"
+			),
+		},
+	)
+
+
+def lowlander():
+	return item(
+		"lowlander-brewing",
+		"Lowlander Brewing",
+		**{
+			"gallery": [image("l1"), image("l2")],
+			"series-used": "St. Helens",
+			"architect": "Arch",
+			"architect-website": "https://arch.example",
+			"designer": "Des",
+			"contractor": "Con",
+			"contractor-website": None,
+			"owner": "Own",
+		},
+	)
+
+
+def map_item(module, raw, **overrides):
+	args = {"series_by_name": SERIES, "product_by_webflow_id": PRODUCTS}
+	args.update(overrides)
+	return module.map_webflow_item(raw, **args)
+
+
+class MapCase(unittest.TestCase):
+	def setUp(self):
+		cm = load_service(MODULE)
+		self.module, self.frappe = cm.__enter__()
+		self.addCleanup(cm.__exit__, None, None, None)
+
+	def test_skips_boutique_hotel_lounge(self):
+		gallery, report = map_item(self.module, item("boutique-hotel-lounge", "Boutique Hotel Lounge"))
+		self.assertIsNone(gallery)
+		self.assertTrue(any("boutique-hotel-lounge" in line and "skipped" in line for line in report))
+
+	def test_skip_slugs_can_be_overridden(self):
+		gallery, _ = map_item(
+			self.module, item("boutique-hotel-lounge", "Boutique"), skip_slugs=frozenset()
+		)
+		self.assertEqual(gallery["slug"], "boutique-hotel-lounge")
+
+	def test_ode_series_is_custom(self):
+		gallery, report = map_item(self.module, ode())
+		rows = gallery["products_used"]
+		self.assertEqual(rows, [
+			{"product": "rainier-sf", "series": None, "note": None},
+			{"product": None, "series": "Custom", "note": None},
+		])
+		self.assertEqual(gallery["featured"], 1)
+		self.assertEqual(gallery["gallery_type"], "Healthcare")
+		self.assertEqual(gallery["completion_date"], "2025-03-04")
+		self.assertEqual(gallery["case_study"], "<p>Case &amp; study</p>")
+		self.assertEqual(gallery["seo_description"], "A calm spa.")
+		self.assertEqual(gallery["applications"], [{"application": "Cove"}, {"application": "Backlighting"}])
+		self.assertEqual(gallery["services_provided"], [{"service": "Takeoff Drawings"}])
+		self.assertEqual(gallery["webflow_item_id"], ode()["id"])
+		self.assertEqual(report, [])
+
+	def test_product_takes_series_of_same_name(self):
+		raw = ode()
+		raw["fieldData"]["series-used"] = "Rainier, led tape"
+		gallery, _ = map_item(self.module, raw, product_series={"rainier-sf": "Rainier"})
+		self.assertEqual(gallery["products_used"], [
+			{"product": "rainier-sf", "series": "Rainier", "note": None},
+			{"product": None, "series": "LED Tape", "note": None},
+		])
+
+	def test_custom_led_tape_and_extrusion_kit_map_to_custom(self):
+		gallery, report = map_item(self.module, holodeck())
+		self.assertEqual(gallery["products_used"], [{"product": None, "series": "Custom", "note": None}])
+		self.assertEqual(report, [])
+		self.assertEqual(gallery["videos"], "https://www.youtube.com/watch?v=abc")
+		self.assertEqual(gallery["quote"], "Great.")
+		self.assertEqual(gallery["quote_attribution"], "Someone")
+
+	def test_mixed_custom_and_named_series_keep_listed_order(self):
+		raw = item(
+			"mio-oh-mio-seattle", "Mio Oh Mio Seattle", **{"series-used": "Custom Extrusion Kit, LED Tape"}
+		)
+		gallery, report = map_item(self.module, raw)
+		self.assertEqual([r["series"] for r in gallery["products_used"]], ["Custom", "LED Tape"])
+		self.assertEqual(report, [])
+
+	def test_custom_items_parse_with_images(self):
+		gallery, _ = map_item(self.module, holodeck())
+		self.assertEqual(gallery["custom_items"], [
+			{"item_name": "Wall panel", "detail": "Powder coated", "image": CDN + "panel.jpg"},
+			{"item_name": "Bracket", "detail": "Steel & brass", "image": None},
+		])
+
+	def test_series_text_matched_case_insensitively_and_deduplicated(self):
+		raw = lowlander()
+		raw["fieldData"]["series-used"] = "st. helens, ST. HELENS, Mystery"
+		gallery, report = map_item(self.module, raw)
+		self.assertEqual(gallery["products_used"], [{"product": None, "series": "St. Helens", "note": None}])
+		self.assertEqual(len(report), 1)
+		self.assertIn("Mystery", report[0])
+
+	def test_credit_pairs_become_rows_only_when_filled(self):
+		gallery, _ = map_item(self.module, lowlander())
+		self.assertEqual(gallery["credits"], [
+			{"credit_type": "Architect", "credit_name": "Arch", "website": "https://arch.example"},
+			{"credit_type": "Designer", "credit_name": "Des", "website": None},
+			{"credit_type": "Contractor", "credit_name": "Con", "website": None},
+			{"credit_type": "Owner", "credit_name": "Own", "website": None},
+		])
+		ode_gallery, _ = map_item(self.module, ode())
+		self.assertEqual(
+			[row["credit_type"] for row in ode_gallery["credits"]], ["Integrator", "Owner", "Photographer"]
+		)
+
+	def test_gallery_rows_keep_order_hero_first(self):
+		raw = ode()
+		gallery, _ = map_item(self.module, raw)
+		alts = [row["alt_text"] for row in gallery["gallery_images"]]
+		self.assertEqual(alts, [f"Ode {n}" for n in range(1, 6)])
+		self.assertEqual(gallery["gallery_images"][0]["image"], CDN + "ode1.jpg")
+		self.assertEqual(len(gallery["gallery_images"]), 5)
+
+	def test_unmapped_product_reported_not_dropped(self):
+		raw = ode()
+		raw["fieldData"]["products-used"] = [ODE_PRODUCT, "9" * 24]
+		gallery, report = map_item(self.module, raw)
+		self.assertEqual([r["product"] for r in gallery["products_used"] if r["product"]], ["rainier-sf"])
+		self.assertTrue(any("9" * 24 in line for line in report))
+
+	def test_existing_webflow_id_is_kept_for_sync_state(self):
+		gallery, _ = map_item(self.module, lowlander())
+		self.assertEqual(gallery["webflow_item_id"], lowlander()["id"])
+
+	def test_unknown_values_are_reported(self):
+		raw = ode()
+		raw["fieldData"].update(
+			{"project-type": "Spaceport", "applications": "Cove, Teleport", "services-provided": "Magic"}
+		)
+		gallery, report = map_item(self.module, raw)
+		self.assertIsNone(gallery["gallery_type"])
+		self.assertEqual(gallery["applications"], [{"application": "Cove"}])
+		self.assertEqual(gallery["services_provided"], [])
+		text = "\n".join(report)
+		for needle in ("Spaceport", "Teleport", "Magic"):
+			self.assertIn(needle, text)
+
+	def test_product_notes_attach_by_name_and_report_unmatched(self):
+		raw = ode()
+		raw["fieldData"]["product-notes"] = (
+			"<p>Rainier SF: White &amp; warm</p><p>Other Thing: nope</p><p>No colon here</p>"
+		)
+		gallery, report = map_item(self.module, raw, product_names={"rainier-sf": "Rainier SF"})
+		self.assertEqual(gallery["products_used"][0]["note"], "White & warm")
+		text = "\n".join(report)
+		self.assertIn("Other Thing", text)
+		self.assertIn("No colon here", text)
+
+	def test_null_and_missing_fields_are_tolerated(self):
+		raw = {"id": "a" * 24, "fieldData": {"name": None, "slug": "bare", "gallery": None, "featured": None}}
+		gallery, _ = map_item(self.module, raw, series_by_name={})
+		self.assertEqual(gallery["gallery_images"], [])
+		self.assertEqual(gallery["featured"], 0)
+		self.assertEqual(gallery["gallery_title"], "bare")
+
+	def test_no_series_and_no_custom_record_is_reported(self):
+		_, report = map_item(self.module, ode(), series_by_name={})
+		self.assertTrue(any("Custom" in line for line in report))
+
+	def test_archived_item_is_skipped(self):
+		raw = lowlander()
+		raw["isArchived"] = True
+		gallery, report = map_item(self.module, raw)
+		self.assertIsNone(gallery)
+		self.assertTrue(report)
+
+
+class ImportCase(unittest.TestCase):
+	def setUp(self):
+		self.staff = types.ModuleType(ROOT + ".portal.staff")
+		self.staff.require = MagicMock()
+		self.inserted = []
+		self.files = []
+		self.existing = set()
+		self.write_calls = []
+
+	def service(self):
+		return load_service(MODULE, {self.staff.__name__: self.staff})
+
+	def prepare(self, frappe):
+		def exists(doctype, filters=None):
+			if doctype == "ilL-Webflow-Brand":
+				return filters == "staging2"
+			if doctype == "ilL-Webflow-Gallery":
+				return filters["slug"] in self.existing
+			return None
+
+		def get_all(doctype, **kwargs):
+			if doctype == "ilL-Attribute-Series":
+				return [Record(name=n) for n in SERIES.values()]
+			if doctype == "ilL-Child-Webflow-Sync-State":
+				return [Record(parent="rainier-sf", webflow_item_id=ODE_PRODUCT)]
+			if doctype == "ilL-Webflow-Product":
+				return [Record(name="rainier-sf", series="Rainier", product_name="Rainier SF")]
+			return []
+
+		def get_doc(data):
+			doc = Record(copy.deepcopy(data))
+			doc.name = data.get("slug")
+			doc.append = lambda table, row: doc.setdefault(table, []).append(row)
+			doc.insert = lambda **kw: (self.inserted.append(doc), doc)[1]
+			doc.save = lambda **kw: doc
+			doc.set = lambda key, value: doc.__setitem__(key, value)
+			if data["doctype"] == "File":
+				doc.insert = lambda **kw: self.attach(doc)
+			return doc
+
+		frappe.db.exists.side_effect = exists
+		frappe.get_all.side_effect = get_all
+		frappe.get_doc.side_effect = get_doc
+		frappe.get_site_path = lambda *parts: os.path.join(self.tmp, *parts)
+		frappe.generate_hash = lambda length=8: "abcd1234"
+
+	def attach(self, doc):
+		self.files.append(doc)
+		doc["file_url"] = "/files/" + doc["file_name"]
+		return doc
+
+	def run_import(self, items, commit, **kwargs):
+		import tempfile
+
+		with tempfile.TemporaryDirectory() as tmp, self.service() as (module, frappe):
+			self.tmp = tmp
+			self.prepare(frappe)
+			with patch.object(module, "_download", return_value=b"bytes") as download:
+				result = module.import_galleries(items, "staging2", commit, **kwargs)
+			self.download = download
+			self.frappe = frappe
+			self.report_files = [os.path.join(d, f) for d, _, fs in os.walk(tmp) for f in fs]
+			return result
+
+	def test_dry_run_writes_nothing(self):
+		result = self.run_import(json.dumps([ode(), holodeck()]), 0)
+		self.assertEqual(self.inserted, [])
+		self.assertEqual(self.files, [])
+		self.download.assert_not_called()
+		self.assertEqual(result["committed"], 0)
+		self.assertEqual(result["would_create"], ["ode-wellness", "holodeck-wall"])
+		self.frappe.db.commit.assert_not_called()
+		self.staff.require.assert_called_with("catalog")
+
+	def test_commit_creates_gallery_with_sync_state_and_brand_target(self):
+		result = self.run_import([ode()], "1")
+		self.assertEqual(result["created"], ["ode-wellness"])
+		gallery = self.inserted[0]
+		self.assertEqual(gallery["sync_targets"], [{
+			"brand": "staging2", "webflow_item_id": ode()["id"], "sync_status": "Pending",
+		}])
+		self.assertEqual(gallery["target_brands"], [{"brand": "staging2", "enabled": 1}])
+		self.assertEqual(len(self.files), 5)
+		self.assertTrue(all(f["is_private"] == 0 for f in self.files))
+		self.assertEqual(
+			[r["image"] for r in gallery["gallery_images"]], ["/files/" + f["file_name"] for f in self.files]
+		)
+		self.assertEqual(self.files[0]["attached_to_name"], "ode-wellness")
+		self.assertEqual(len(self.report_files), 1)
+
+	def test_existing_slug_is_never_overwritten(self):
+		self.existing.add("ode-wellness")
+		result = self.run_import([ode(), lowlander()], 1)
+		self.assertEqual(result["created"], ["lowlander-brewing"])
+		self.assertIn("ode-wellness: exists, skipped", result["report"])
+
+	def test_download_failure_skips_row_and_still_imports(self):
+		import tempfile
+
+		with tempfile.TemporaryDirectory() as tmp, self.service() as (module, frappe):
+			self.tmp = tmp
+			self.prepare(frappe)
+			calls = []
+
+			def flaky(url):
+				calls.append(url)
+				if url.endswith("ode2.jpg"):
+					raise OSError("boom")
+				return b"x"
+
+			with patch.object(module, "_download", side_effect=flaky):
+				result = module.import_galleries([ode()], "staging2", 1)
+		self.assertEqual(result["created"], ["ode-wellness"])
+		self.assertEqual(len(self.inserted[0]["gallery_images"]), 4)
+		self.assertTrue(any("ode2.jpg" in line for line in result["report"]))
+
+	def test_unknown_brand_is_refused(self):
+		with self.service() as (module, frappe):
+			self.prepare(frappe)
+			with self.assertRaises(ValueError):
+				module.import_galleries([ode()], "nope", 0)
+
+	def test_skipped_gallery_is_in_report_not_created(self):
+		result = self.run_import([item("boutique-hotel-lounge", "Boutique")], 1)
+		self.assertEqual(result["created"], [])
+		self.assertTrue(any("skipped" in line for line in result["report"]))
+
+
+if __name__ == "__main__":
+	unittest.main()
