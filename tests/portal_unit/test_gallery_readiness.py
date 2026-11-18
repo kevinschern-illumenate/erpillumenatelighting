@@ -59,6 +59,15 @@ class IsPublicFileTest(unittest.TestCase):
 		self.assertTrue(is_public_file("/files/x.jpg"))
 		self.assertTrue(is_public_file("https://cdn.example/x.jpg"))
 
+	def test_edge_cases(self):
+		self.assertFalse(is_public_file("/PRIVATE/files/a.jpg"))
+		self.assertFalse(is_public_file("private/files/a.jpg"))
+		self.assertFalse(is_public_file("http://x.example/a.jpg"))
+		self.assertFalse(is_public_file("files/a.jpg"))
+		self.assertFalse(is_public_file("https://erp.example/PRIVATE/files/a.jpg"))
+		self.assertTrue(is_public_file("/files/private/a.jpg"))
+		self.assertFalse(is_public_file(None))
+
 	def test_private_cases(self):
 		self.assertFalse(is_public_file("/private/files/x.jpg"))
 		self.assertFalse(is_public_file("https://erp.example/private/files/x.jpg"))
@@ -97,6 +106,22 @@ class BlockingTest(unittest.TestCase):
 	def test_public_and_https_images_pass(self):
 		rows = [{"image": "/files/x.jpg"}, {"image": "https://cdn.example/y.jpg"}]
 		self.assertTrue(run(make_gallery(gallery_images=rows))["ready"])
+
+	def test_image_type_not_allowed(self):
+		for image in ("/files/a.pdf", "/files/noext"):
+			rows = [{"image": image}]
+			self.assert_blocks(run(make_gallery(gallery_images=rows)), "gallery_images")
+
+	def test_image_type_ignores_case_and_query(self):
+		rows = [{"image": "/files/A.JPG"}, {"image": "https://cdn.example/b.webp?w=1"}]
+		self.assertTrue(run(make_gallery(gallery_images=rows))["ready"])
+
+	def test_later_image_type_checked(self):
+		rows = [{"image": "/files/a.jpg"}, {"image": "/files/b.pdf"}]
+		self.assert_blocks(run(make_gallery(gallery_images=rows)), "gallery_images")
+
+	def test_empty_image_blocks(self):
+		self.assert_blocks(run(make_gallery(gallery_images=[{"image": ""}])), "gallery_images")
 
 	def test_gallery_type_not_allowed(self):
 		self.assert_blocks(run(make_gallery(gallery_type="Spaceport")), "gallery_type")
@@ -152,6 +177,18 @@ class BlockingTest(unittest.TestCase):
 		videos = "https://youtu.be/a, https://vimeo.com/1\nhttps://www.loom.com/share/x\nhttps://x.test/a.mp4"
 		self.assertTrue(run(make_gallery(videos=videos))["ready"])
 
+	def test_space_separated_videos(self):
+		good = "https://youtu.be/a https://vimeo.com/1"
+		self.assertTrue(run(make_gallery(videos=good))["ready"])
+		self.assert_blocks(run(make_gallery(videos="https://youtu.be/a https://bad.example/x")), "videos")
+
+	def test_comma_and_newline_separated_videos(self):
+		videos = "https://youtu.be/a,\nhttps://vimeo.com/1 ,https://bad.example/x"
+		self.assert_blocks(run(make_gallery(videos=videos)), "videos")
+
+	def test_comma_in_query_string_is_split(self):
+		self.assert_blocks(run(make_gallery(videos="https://youtu.be/a?x=1,b")), "videos")
+
 	def test_brand_inactive(self):
 		self.assert_blocks(run(config=make_config(is_active=0)), "brand_active")
 
@@ -193,6 +230,12 @@ class DependenciesTest(unittest.TestCase):
 		self.assertNotEqual(first, second)
 		self.assertEqual(first["products"], {"P-1": "wf-1"})
 		self.assertEqual(first["series"], ["Ode"])
+
+	def test_dependencies_change_with_series(self):
+		rows = [{"product": "P-1", "series": "Custom"}]
+		other = run(make_gallery(products_used=rows))["dependencies"]
+		self.assertEqual(other["series"], ["Custom"])
+		self.assertNotEqual(run()["dependencies"], other)
 
 
 if __name__ == "__main__":
