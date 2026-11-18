@@ -179,3 +179,41 @@ test('the kill switch response removes the autosave UI', async () => {
   assert.equal(env.requests.length, 0);
   env.dom.window.close();
 });
+
+test('a pre-filled new line is not offered the shared new-line draft; an existing line still is', async () => {
+  for (const prefill of [{ initial_request: { template: 'TPL-PN' } }, { finder: 'session-1' }]) {
+    const env = setup(MARKER + FORM, '?pn=ABC');
+    const inst = await mount(env, { schedule_name: 'SCH-1', line_key: null, ...prefill });
+    assert.ok(inst._draftAutosave, 'autosave still runs for the pre-filled line');
+    assert.equal(env.requests.length, 0, 'no get_draft for ' + Object.keys(prefill)[0]);
+    userInput(env, 'input');
+    await tick(20);
+    assert.match(env.requests.shift().method, /line_drafts\.save_draft$/);
+    env.dom.window.close();
+  }
+  let env = setup(MARKER + FORM);
+  await mount(env, { schedule_name: 'SCH-1', line_key: 'line-1', initial_request: { template: 'TPL-1' } });
+  assert.match(env.requests.shift().method, /line_drafts\.get_draft$/, 'a reopened line has its own draft');
+  env.dom.window.close();
+  env = setup(MARKER + FORM);
+  await mount(env, { schedule_name: 'SCH-1', line_key: null });
+  assert.match(env.requests.shift().method, /line_drafts\.get_draft$/, 'a blank new line is offered the draft');
+  env.dom.window.close();
+});
+
+test('restoring a draft over changes made on this page asks first', async () => {
+  const env = setup(MARKER + FORM);
+  const confirms = [];
+  env.w.frappe.confirm = (message, yes) => confirms.push({ message, yes });
+  await mount(env);
+  env.requests.shift().callback({ message: { success: true, saved_on: '2026-11-17 09:00:00', draft: { request: { template: 'TPL-9' } } } });
+  userInput(env, 'input');
+  env.$('.ill-draft-prompt .ill-draft-restore').trigger('click');
+  assert.equal(env.navigations.length, 0, 'nothing is replaced before the dealer agrees');
+  assert.equal(confirms.length, 1);
+  assert.match(confirms[0].message, /replaces the changes/);
+  confirms[0].yes();
+  assert.equal(env.navigations.length, 1);
+  assert.ok(new URL(env.navigations[0]).searchParams.get('resume'));
+  env.dom.window.close();
+});

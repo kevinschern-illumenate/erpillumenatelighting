@@ -1,0 +1,79 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $vars.QBO_REALM_ID }}/invoice/{{ $json.qbo_invoice_id }}?include=invoiceLink&minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "read-invoice-link",
+      "name": "Read Invoice Link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [250, 150],
+      "onError": "continueRegularOutput",
+      "notes": "Reads the Invoice back with include=invoiceLink. QuickBooks returns Invoice.InvoiceLink only when QuickBooks Payments is on, the Invoice allows online card/ACH payment and it has a BillEmail."
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "merge-invoice-link",
+      "name": "Merge Invoice Link",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Rebuild the receive_invoice_link body, adding qbo_payment_link when QuickBooks returned one.\n// ERPNext accepts only an https link on an intuit.com host (anything else is refused with 400\n// invalid_payment_link and nothing is saved), so anything else is left out here.\nconst item = $input.item.json;\nconst body = { sales_invoice: item.sales_invoice, qbo_invoice_id: String(item.qbo_invoice_id) };\nif (item.customer_qbo_id) body.customer_qbo_id = String(item.customer_qbo_id);\n\nconst link = String((item.Invoice && item.Invoice.InvoiceLink) || '').trim();\nlet host = '';\ntry { host = new URL(link).hostname.toLowerCase(); } catch (e) {}\nif (link.startsWith('https://') && (host === 'intuit.com' || host.endsWith('.intuit.com')) && link.length <= 500) {\n  body.qbo_payment_link = link;\n}\nreturn { json: body };"
+      },
+      "id": "add-payment-link",
+      "name": "Add Payment Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 0]
+    },
+    {
+      "parameters": {
+        "content": "## Paste into the live Sales Invoice → QuickBooks Invoice workflow\n\nERPNext's `qbo_invoices.receive_invoice_link` now also stores the Invoice's pay-now link (`qbo_payment_link` → Sales Invoice `custom_qbo_payment_link`).\n\n1. Find the node that builds the write-back body `{sales_invoice, qbo_invoice_id, customer_qbo_id?}` (just before the HMAC sign node).\n2. Connect it to **both** `Read Invoice Link` and input 1 of `Merge Invoice Link`.\n3. Connect `Add Payment Link` to the sign node, so the link is inside the signed body.\n4. Bind the QuickBooks OAuth2 credential on `Read Invoice Link`.\n\nIf the read fails or no link comes back, the body is sent exactly as before.",
+        "height": 380,
+        "width": 520
+      },
+      "id": "payment-link-notes",
+      "name": "Payment Link Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, -440]
+    }
+  ],
+  "connections": {
+    "Read Invoice Link": {
+      "main": [[{ "node": "Merge Invoice Link", "type": "main", "index": 1 }]]
+    },
+    "Merge Invoice Link": {
+      "main": [[{ "node": "Add Payment Link", "type": "main", "index": 0 }]]
+    }
+  }
+}

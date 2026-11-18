@@ -118,8 +118,40 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "=https://quickbooks.api.intuit.com/v3/company/{{ $('Split Payment Entities').item.json.realmId }}/query?query={{ encodeURIComponent(\"select Id, Name from PaymentMethod where Id = '\" + (($json.Payment && $json.Payment.PaymentMethodRef && !$json.Payment.PaymentMethodRef.name && /^\\d+$/.test($json.Payment.PaymentMethodRef.value)) ? $json.Payment.PaymentMethodRef.value : '0') + \"'\") }}&minorversion=70",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "quickBooksOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "look-up-payment-method",
+      "name": "Look Up Payment Method",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1125, 300],
+      "onError": "continueRegularOutput",
+      "notes": "QuickBooks often returns Payment.PaymentMethodRef as an id only. Resolves its display name for the ERPNext invoice print. Queries Id '0' (no rows) when the name is already present or for bill payments."
+    },
+    {
+      "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Normalize a QBO Payment or BillPayment into the ERPNext payload (runs once per item;\n// paired-item lookup gives us the originating webhook entity).\nconst source = $('Split Payment Entities').item.json;\nconst isBill = source.entity === 'BillPayment';\nconst payment = (isBill ? $input.item.json.BillPayment : $input.item.json.Payment) || $input.item.json;\nconst linkedType = isBill ? 'Bill' : 'Invoice';\nconst idKey = isBill ? 'qbo_bill_id' : 'qbo_invoice_id';\n\n// One allocation per payment line that is applied to exactly one invoice (or bill).\n// A line linked to several documents has no per-document amount, so allocations are\n// left out and ERPNext logs the payment for manual review instead of guessing a split.\nconst ids = [];\nlet allocations = [];\nfor (const line of payment.Line || []) {\n  const linked = (line.LinkedTxn || []).filter(lt => lt.TxnType === linkedType && lt.TxnId);\n  for (const lt of linked) ids.push(String(lt.TxnId));\n  if (linked.length === 1 && allocations !== null) {\n    allocations.push({ [idKey]: String(linked[0].TxnId), amount: Number(line.Amount || 0) });\n  } else if (linked.length > 1) {\n    allocations = null;\n  }\n}\n\nlet eventType = source.operation || 'Update';\nif (eventType === 'Void') eventType = 'Delete';\n\nconst body = {\n  entity: source.entity,\n  qbo_payment_id: String(payment.Id),\n  event_type: eventType,\n  amount: Number(payment.TotalAmt || 0),\n  txn_date: payment.TxnDate || null,\n  merged_from_id: source.deletedId || null,\n  deleted: false,\n  realm_id: source.realmId || null,\n  last_updated: source.lastUpdated || (payment.MetaData && payment.MetaData.LastUpdatedTime) || null,\n};\nif (allocations && allocations.length) body.allocations = allocations;\n// Shown in the payment history on the ERPNext invoice print. PaymentMethodRef.name is\n// the method's display name (Check, ACH, Visa...); BillPayment has PayType instead.\nconst method = isBill\n  ? (payment.PayType === 'CreditCard' ? 'Credit Card' : payment.PayType)\n  : (payment.PaymentMethodRef && (payment.PaymentMethodRef.name || null));\nbody.payment_method = method || null;\nbody.payment_ref_num = (isBill ? payment.DocNumber : payment.PaymentRefNum) || null;\nif (isBill) {\n  body.qbo_bill_id = ids[0] || null;\n  body.qbo_bill_ids = ids;\n  body.vendor_qbo_id = payment.VendorRef ? String(payment.VendorRef.value) : null;\n} else {\n  body.qbo_invoice_id = ids[0] || null;\n  body.qbo_invoice_ids = ids;\n  body.customer_qbo_id = payment.CustomerRef ? String(payment.CustomerRef.value) : null;\n}\nreturn { json: body };"
+        "jsCode": "// Normalize a QBO Payment or BillPayment into the ERPNext payload (runs once per item;\n// paired-item lookup gives us the originating webhook entity).\nconst source = $('Split Payment Entities').item.json;\nconst isBill = source.entity === 'BillPayment';\nconst fetched = $('Fetch QBO Payment').item.json;\nconst payment = (isBill ? fetched.BillPayment : fetched.Payment) || fetched;\n// Name resolved by 'Look Up Payment Method' when the ref carried only an id.\nconst lookedUpMethod = ((($input.item.json.QueryResponse || {}).PaymentMethod || [])[0] || {}).Name || null;\nconst linkedType = isBill ? 'Bill' : 'Invoice';\nconst idKey = isBill ? 'qbo_bill_id' : 'qbo_invoice_id';\n\n// One allocation per payment line that is applied to exactly one invoice (or bill).\n// A line linked to several documents has no per-document amount, so allocations are\n// left out and ERPNext logs the payment for manual review instead of guessing a split.\nconst ids = [];\nlet allocations = [];\nfor (const line of payment.Line || []) {\n  const linked = (line.LinkedTxn || []).filter(lt => lt.TxnType === linkedType && lt.TxnId);\n  for (const lt of linked) ids.push(String(lt.TxnId));\n  if (linked.length === 1 && allocations !== null) {\n    allocations.push({ [idKey]: String(linked[0].TxnId), amount: Number(line.Amount || 0) });\n  } else if (linked.length > 1) {\n    allocations = null;\n  }\n}\n\nlet eventType = source.operation || 'Update';\nif (eventType === 'Void') eventType = 'Delete';\n\nconst body = {\n  entity: source.entity,\n  qbo_payment_id: String(payment.Id),\n  event_type: eventType,\n  amount: Number(payment.TotalAmt || 0),\n  txn_date: payment.TxnDate || null,\n  merged_from_id: source.deletedId || null,\n  deleted: false,\n  realm_id: source.realmId || null,\n  last_updated: source.lastUpdated || (payment.MetaData && payment.MetaData.LastUpdatedTime) || null,\n};\nif (allocations && allocations.length) body.allocations = allocations;\n// Shown in the payment history on the ERPNext invoice print. PaymentMethodRef.name is\n// the method's display name (Check, ACH, Visa...), looked up when QuickBooks sent only\n// the id; BillPayment has PayType instead.\nconst method = isBill\n  ? (payment.PayType === 'CreditCard' ? 'Credit Card' : payment.PayType)\n  : (payment.PaymentMethodRef && (payment.PaymentMethodRef.name || lookedUpMethod));\nbody.payment_method = method || null;\nbody.payment_ref_num = (isBill ? payment.DocNumber : payment.PaymentRefNum) || null;\nif (isBill) {\n  body.qbo_bill_id = ids[0] || null;\n  body.qbo_bill_ids = ids;\n  body.vendor_qbo_id = payment.VendorRef ? String(payment.VendorRef.value) : null;\n} else {\n  body.qbo_invoice_id = ids[0] || null;\n  body.qbo_invoice_ids = ids;\n  body.customer_qbo_id = payment.CustomerRef ? String(payment.CustomerRef.value) : null;\n}\nreturn { json: body };"
       },
       "id": "build-payment-payload",
       "name": "Build Payment Payload",
@@ -251,6 +283,9 @@
       "main": [[{ "node": "Sign Request (HMAC)", "type": "main", "index": 0 }]]
     },
     "Fetch QBO Payment": {
+      "main": [[{ "node": "Look Up Payment Method", "type": "main", "index": 0 }]]
+    },
+    "Look Up Payment Method": {
       "main": [[{ "node": "Build Payment Payload", "type": "main", "index": 0 }]]
     },
     "Build Payment Payload": {

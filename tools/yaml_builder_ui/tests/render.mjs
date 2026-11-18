@@ -46,6 +46,12 @@ try {
   assert.ok(erpShell.includes('Refresh ERPNext records'));
   assert.ok(!erpShell.includes('Add to ERPNext reference after import'));
   assert.ok(erpShell.includes('Download catalog') && erpShell.includes('YAML Builder'));
+  // Inside the Command Center's Catalog tab only the intro block goes; the actions stay.
+  const embeddedShell = renderToStaticMarkup(React.createElement(Workspace, { loadReference, mode: 'erp', embedded: true }));
+  assert.ok(!embeddedShell.includes('Author the product records') && !embeddedShell.includes('ilLumenate · Product tools'));
+  assert.ok(embeddedShell.includes('catalog-header is-embedded') && embeddedShell.includes('catalog-actions'));
+  assert.ok(embeddedShell.includes('Check in ERPNext') && embeddedShell.includes('Import to ERPNext') && embeddedShell.includes('Download catalog'));
+  assert.ok(erpShell.includes('Author the product records') && !erpShell.includes('is-embedded'));
   for (const [product, catalog] of Object.entries(examples)) {
     for (const [doctype, records] of Object.entries(catalog.records)) {
       for (const row of records) {
@@ -112,6 +118,7 @@ try {
     };
     mount('erp-root', { csrfToken: 'test-csrf' });
     assert.equal(mounted.mode, 'erp');
+    assert.equal(mounted.embedded, false);
     await mounted.api.reference(true);
     assert.ok(calls[0].url.endsWith('.reference?refresh=1'));
     await mounted.api.record('Item', 'A&B +/?');
@@ -119,6 +126,8 @@ try {
     await mounted.api.check({ records: {} });
     assert.equal(calls[2].options.headers['X-Frappe-CSRF-Token'], 'test-csrf');
     assert.equal(mounted.loadReference, undefined);
+    mount('erp-root', { csrfToken: 'test-csrf', embedded: true });
+    assert.equal(mounted.embedded, true);
   } finally {
     ReactDOM.createRoot = originalCreateRoot;
     globalThis.fetch = originalFetch;

@@ -36,7 +36,17 @@ def git(*args):
 
 def lint(source, path):
 	result = subprocess.run(
-		[str(RUFF), "check", "--no-cache", "--output-format", "json", "--stdin-filename", path, "-"],
+		[
+			str(RUFF),
+			"check",
+			"--no-cache",
+			"--force-exclude",
+			"--output-format",
+			"json",
+			"--stdin-filename",
+			path,
+			"-",
+		],
 		input=source,
 		text=True,
 		capture_output=True,

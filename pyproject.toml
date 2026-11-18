@@ -47,6 +47,10 @@ frappe = ">=16.0.0-dev,<17.0.0"
 [tool.ruff]
 line-length = 110
 target-version = "py310"
+# Command Center source is pasted into Server Script / Web Page records by
+# command_center_sync.py. ss/cc_gateway.py runs under RestrictedPython (frappe/json are
+# injected, no imports, no "_" names), and tests/ are compact standalone harnesses.
+extend-exclude = ["illumenate_lighting/command_center"]
 
 [tool.ruff.lint]
 select = [

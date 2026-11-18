@@ -33,6 +33,7 @@ def catalog_service(module, user="publisher@example.com", roles=None, enabled=1,
 		frappe.local.flags = Record()
 		frappe.Redirect = type("Redirect", (Exception,), {})
 		frappe.sessions = SimpleNamespace(get_csrf_token=MagicMock(return_value="test-csrf"))
+		frappe.form_dict = Record()
 		yield service, frappe
 
 
@@ -273,6 +274,39 @@ class CatalogBuilderPage(unittest.TestCase):
 						"user": frappe.session.user,
 					},
 				)
+
+	def test_embed_flag_marks_the_page_embedded_for_the_command_center(self):
+		for value, expected in (("1", True), ("true", True), ("0", False), ("", False), (None, False)):
+			with self.subTest(embed=value), catalog_service(PAGE) as (page, frappe):
+				if value is not None:
+					frappe.form_dict["embed"] = value
+				context = page.get_context({})
+				self.assertIs(context["embedded"], expected)
+				self.assertEqual(context["mount_options"].get("embedded", False), expected)
+				self.assertEqual(context["no_cache"], 1)
+
+	def test_embed_does_not_widen_access(self):
+		for access in (
+			{"roles": ["Dealer"]},
+			{"roles": ["Sales User"]},
+			{"roles": ["Command Center Viewer"]},
+		):
+			with self.subTest(access=access), catalog_service(PAGE, **access) as (page, frappe):
+				frappe.form_dict["embed"] = "1"
+				with self.assertRaises(PermissionError):
+					page.get_context({})
+				frappe.sessions.get_csrf_token.assert_not_called()
+
+	def test_template_marks_the_body_only_when_embedded(self):
+		import jinja2
+
+		source = (REPO / "illumenate_lighting/templates/pages/catalog_builder.html").read_text(
+			encoding="utf-8"
+		)
+		template = jinja2.Environment(autoescape=True).from_string(source)
+		options = {"assets": "/a", "asset_version": 1, "mount_options": {"csrfToken": "t"}}
+		self.assertIn('<body class="embedded">', template.render(embedded=True, **options))
+		self.assertIn("<body>", template.render(embedded=False, **options))
 
 	def test_workspace_merge_preserves_site_edits_and_adds_one_builder_shortcut(self):
 		shipped = json.loads(

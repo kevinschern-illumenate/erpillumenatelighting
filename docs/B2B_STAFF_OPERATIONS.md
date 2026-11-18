@@ -72,6 +72,12 @@ Buy for orders with native ERPNext tools. On a submitted Sales Order use **Creat
 - **Request for Raw Materials** explodes each Item's default BOM, so it is refused when a line pins a different BOM. Use a Production Plan for that order, or have Engineering reconcile the default.
 - A Production Plan cannot create a Work Order for an order line that already has one. Sales Order submit creates draft Work Orders for configured builds, and ERPNext counts only submitted Work Orders as covering an order, so plans are for materials only.
 
+The Command Center **Purchasing** page (`/command-center#purch`) follows the whole cycle after that:
+what to order, requests, vendor quotes, purchase orders (with vendor status, lead time and ETA),
+inbound shipments and their freight/duty costs, receipts, bills and landed cost. Its buttons create
+drafts only (submit in the desk), and its **Draft MR** buttons never set `sales_order` on the rows, so
+the pinned-BOM guard above is not involved. See the Command Center README, "Purchasing (v8)".
+
 ## Shared sales inbox
 
 Customers write to one address, sales@illumenate.lighting, and the team answers from ERPNext so every reply stays on the record. **Sales inbox** in Portal Operations lists received mail to that address that is still open and not filed against a document; **Mine** shows what is assigned to you.
@@ -140,8 +146,11 @@ A packet no longer fails on one bad line:
 
 ## Catalog Builder operations
 
-Open [Catalog Builder](https://illumenatelighting.v.frappe.cloud/catalog-builder) or the
-**Catalog Builder** workspace shortcut. Use an enabled System User with **ilL Catalog
+Open [Catalog Builder](https://illumenatelighting.v.frappe.cloud/catalog-builder), the
+**Catalog Builder** workspace shortcut, or the **Catalog** tab of the Command Center
+(`/command-center#catalog`, the same builder embedded, with **Open full screen**). The tab uses the
+same Check → Import, permissions and `ilL-Catalog-Import` receipts; drafts are kept in the browser and
+carry over between the tab and full screen. Use an enabled System User with **ilL Catalog
 Publisher**; System Manager and Administrator can also use it. User assignments are
 explicit. Kevin Yong Min Schern is the owner's intended Publisher for staging and
 production; match the exact User account and record the assignment in the

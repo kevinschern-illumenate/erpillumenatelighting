@@ -12,6 +12,8 @@ const isUpdate = product.webflow_item_id ? true : false;
 const INCLUDE_ATTRIBUTE_DISPLAY_FIELDS = false; // e.g. finishes-5, cct-options-5
 const INCLUDE_ATTRIBUTE_FILTER_FIELDS  = false; // e.g. finish-filter, cri-filter
 const INCLUDE_CATEGORY_REF_FIELD       = false; // category-filter (ItemRef)
+const INCLUDE_DARK_DIMENSIONS_FIELD    = false; // dimensions-dark (Image)
+const INCLUDE_PHOTOMETRICS_FIELD       = false; // photometrics-json (Plain text, no length limit)
 
 // ============================================
 // URL HELPERS
@@ -150,14 +152,50 @@ const feedLengths = (product.feed_lengths || []).map(fl => ({
 // ============================================
 // KIT COMPONENTS
 // ============================================
-const kitComponents = (product.kit_components || []).map(k => ({
-  type: k.component_type,
-  item: k.component_item,
-  specDoctype: k.component_spec_doctype,
-  specName: k.component_spec_name,
-  qty: k.quantity,
-  notes: k.notes
-}));
+// ERPNext now sends one row per component type whose custom_webflow_description is a
+// JSON string: [{hero_image}, {code, label}, ...]. It is passed through unchanged so this
+// worker writes the same kit-components-json as the live product sync. Rows in the old
+// per-item shape (payloads frozen before that change) keep the old mapping.
+const kitComponents = (product.kit_components || []).map(k =>
+  'custom_webflow_description' in k
+    ? { component_type: k.component_type, custom_webflow_description: k.custom_webflow_description || '[]' }
+    : {
+        type: k.component_type,
+        item: k.component_item,
+        specDoctype: k.component_spec_doctype,
+        specName: k.component_spec_name,
+        qty: k.quantity,
+        notes: k.notes
+      }
+);
+
+// ============================================
+// PHOTOMETRICS (charts, cone of light, IES/LDT, colorimetry)
+// ============================================
+// Top-level keys from the template's photometry and colorimetry records; each is
+// present only when it has a value.
+const photometrics = {
+  photometricImage: makeAbsoluteUrl(product.photometric_image),
+  polarChartImage: makeAbsoluteUrl(product.polar_chart_image),
+  tm30ChartImage: makeAbsoluteUrl(product.tm30_chart_image),
+  iesFile: makeAbsoluteUrl(product.ies_file),
+  ldtFile: makeAbsoluteUrl(product.ldt_file),
+  coneOfLight: (product.photometric_data || []).map(r => ({
+    mountingHeight: r.mounting_height,
+    lightLevel: r.light_level,
+    beamDiameter: r.beam_diameter,
+    order: r.display_order
+  })),
+  colorimetry: (product.colorimetry || []).map(c =>
+    c.tm30_chart_image ? { ...c, tm30_chart_image: makeAbsoluteUrl(c.tm30_chart_image) } : c
+  )
+};
+for (const key of ['photometricImage', 'polarChartImage', 'tm30ChartImage', 'iesFile', 'ldtFile']) {
+  if (!isValidFileUrl(photometrics[key])) delete photometrics[key];
+}
+for (const key of ['coneOfLight', 'colorimetry']) {
+  if (!photometrics[key].length) delete photometrics[key];
+}
 
 // ============================================
 // LENGTH CONVERSIONS
@@ -263,9 +301,20 @@ if (isValidImageUrl(featuredImageUrl)) {
   webflowData.fieldData["featured-image"] = { url: featuredImageUrl };
 }
 
-const dimensionsImageUrl = makeAbsoluteUrl(product.dimensions_image);
+// ERPNext sends the light-theme drawing as dimensions_image_light (and still as
+// dimensions_image) and the dark-theme drawing as dimensions_image_dark.
+const dimensionsImageUrl = makeAbsoluteUrl(product.dimensions_image_light || product.dimensions_image);
 if (isValidImageUrl(dimensionsImageUrl)) {
   webflowData.fieldData["dimensions"] = { url: dimensionsImageUrl };
+}
+
+const dimensionsDarkImageUrl = makeAbsoluteUrl(product.dimensions_image_dark);
+if (INCLUDE_DARK_DIMENSIONS_FIELD && isValidImageUrl(dimensionsDarkImageUrl)) {
+  webflowData.fieldData["dimensions-dark"] = { url: dimensionsDarkImageUrl };
+}
+
+if (INCLUDE_PHOTOMETRICS_FIELD) {
+  webflowData.fieldData["photometrics-json"] = JSON.stringify(photometrics);
 }
 
 const seriesFamilyImageUrl = makeAbsoluteUrl(product.series_family_image);
@@ -312,6 +361,8 @@ return {
     _debug: {
       featuredImageUrl,
       dimensionsImageUrl,
+      dimensionsDarkImageUrl,
+      photometricsKeys: Object.keys(photometrics),
       galleryImagesCount: galleryImages.length,
       rawGalleryCount: rawGalleryImages.length,
       rawGalleryImages: rawGalleryImages.slice(0, 3),

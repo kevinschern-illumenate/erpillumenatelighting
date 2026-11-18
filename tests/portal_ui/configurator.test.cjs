@@ -849,3 +849,42 @@ test('sheet and tape results mount the preview in their own instance', () => {
   assert.equal($('#s .ill-bp-run').length, 0);
   dom.window.close();
 });
+
+test('changing an input clears the shown build, drawing, price and estimate; calculating keeps them', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'rendered/LED-Tape-coordinator.html'), 'utf8');
+  const { dom, $, api, requests } = setup(html);
+  const inst = new api.Coordinator($('#portal-configurator'), { product_category: 'LED Tape', is_tape: true, is_tape_neon: true, has_templates: false });
+  inst.init();
+  const PANELS = ['#partNumberPanel', '#lengthResults', '#manufacturingResults', '#buildDescriptionPanel', '#ledRunDetailsPanel', '#driverResults', '#pricingResults', '#messagesPanel'];
+  const showResults = () => {
+    PANELS.forEach(id => inst.$(id).show());
+    inst.$('#noResults').hide();
+    inst.$('.ill-build-preview').prop('hidden', false).append('<svg></svg>');
+    inst.$('#noResults').parent().append('<div class="ill-estimate">Estimate</div>');
+    inst.$('#validationStatus').removeClass('badge-secondary').addClass('badge-success').text('Valid');
+  };
+  assert.equal(inst.$('#validationStatus').attr('data-idle-label'), 'Not Calculated');
+
+  showResults();
+  inst.invalidateValidation({ calculating: true });
+  PANELS.forEach(id => assert.notEqual(inst.$(id).css('display'), 'none', id + ' stays while recalculating'));
+  assert.equal(inst.$('#validationStatus').text(), 'Valid');
+  assert.equal(inst.$('.ill-estimate').length, 1);
+
+  inst.$('#includePowerSupply').prop('checked', false).trigger('change');
+  PANELS.forEach(id => assert.equal(inst.$(id).css('display'), 'none', id + ' hidden after an edit'));
+  assert.equal(inst.$('.ill-build-preview').prop('hidden'), true);
+  assert.equal(inst.$('.ill-build-preview').children().length, 0);
+  assert.equal(inst.$('.ill-estimate').length, 0);
+  assert.equal(inst.$('#validationStatus').text(), 'Not Calculated');
+  assert.ok(inst.$('#validationStatus').hasClass('badge-secondary'));
+  assert.notEqual(inst.$('#noResults').css('display'), 'none');
+
+  // A real calculation answer still shows after the clear.
+  inst.$('#tnCalculateBtn').prop('disabled', false).trigger('click');
+  requests.at(-1).callback({ message: { is_valid: false, error: 'Rejected calculation' } });
+  assert.equal(inst.$('#validationStatus').text(), 'Invalid');
+  assert.notEqual(inst.$('#messagesPanel').css('display'), 'none');
+  inst.destroy();
+  dom.window.close();
+});

@@ -108,10 +108,22 @@ def get_tier_price_for_customer(msrp_unit: float, customer: str | None = None) -
     if not customer:
         return fallback
 
+    return apply_tier_rule(msrp_unit, *customer_tier_rule(customer))
+
+
+def customer_tier_rule(customer: str | None) -> tuple[str | None, Any]:
+    """``(customer_group, highest-priority selling Pricing Rule or None)`` for ``customer``.
+
+    The lookup half of :func:`get_tier_price_for_customer`, for callers pricing many lines
+    for one customer: look the rule up once, then :func:`apply_tier_rule` per line.
+    """
+    if not customer:
+        return None, None
+
     # Resolve Customer Group
     customer_group = frappe.db.get_value("Customer", customer, "customer_group")
     if not customer_group:
-        return fallback
+        return None, None
 
     # Query active Pricing Rules for this Customer Group (selling side)
     pricing_rules = frappe.get_all(
@@ -133,12 +145,27 @@ def get_tier_price_for_customer(msrp_unit: float, customer: str | None = None) -
         order_by="priority desc, modified desc",
     )
 
-    if not pricing_rules:
+    # Use the highest-priority rule
+    return customer_group, (pricing_rules[0] if pricing_rules else None)
+
+
+def apply_tier_rule(msrp_unit: float, customer_group: str | None, rule: Any) -> dict[str, Any]:
+    """The tier price of ``msrp_unit`` under ``rule``, as :func:`get_tier_price_for_customer` returns it."""
+    fallback = {
+        "tier_unit": round(msrp_unit, 2),
+        "discount_amount": 0.0,
+        "discount_percentage": 0.0,
+        "pricing_rule_name": None,
+        "customer_group": None,
+    }
+
+    if msrp_unit <= 0 or not customer_group:
+        return fallback
+
+    if not rule:
         fallback["customer_group"] = customer_group
         return fallback
 
-    # Use the highest-priority rule
-    rule = pricing_rules[0]
     tier_unit = msrp_unit
     pricing_rule_name = rule.name
 

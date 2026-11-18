@@ -62,7 +62,7 @@ doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.j
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
-for _name in ("Quotation", "Sales Order", "Sales Invoice"):
+for _name in ("Quotation", "Sales Order", "Sales Invoice", "ilL-Project", "ilL-Project-Fixture-Schedule"):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
     doctype_js[_name] = [*_scripts, "public/js/helpdesk_tickets.js"]
@@ -219,8 +219,10 @@ after_install = "illumenate_lighting.illumenate_lighting.install.after_install"
 before_migrate = "illumenate_lighting.portal_workspace.before_migrate"
 after_migrate = [
 	"illumenate_lighting.portal_workspace.after_migrate",
-	# Helpdesk ticket -> Quotation / Sales Order / Sales Invoice links, once Helpdesk is installed.
+	# Helpdesk ticket -> Project / Fixture Schedule / Quotation / Sales Order / Sales Invoice links, once Helpdesk is installed.
 	"illumenate_lighting.illumenate_lighting.helpdesk_links.after_migrate",
+	# Copy the Command Center page JS/CSS and gateway Server Script from command_center/ into the site.
+	"illumenate_lighting.command_center_sync.sync",
 ]
 
 # Fixtures
@@ -359,22 +361,36 @@ override_doctype_class = {
 
 doc_events = {
 	"Issue": {"validate": "illumenate_lighting.illumenate_lighting.portal.support.validate_owner"},
-	# Helpdesk: a ticket linked to an invoice or order also gets its order and quote.
-	"HD Ticket": {"validate": "illumenate_lighting.illumenate_lighting.helpdesk_links.fill_upstream"},
 	# Product and template images get WebP derivatives in the background (plan 5.8).
 	"File": {"after_insert": "illumenate_lighting.illumenate_lighting.api.media_derivatives.on_file_insert"},
+	# Helpdesk: a ticket linked to an invoice or order also gets its order, quote, schedule and project.
+	"HD Ticket": {"validate": "illumenate_lighting.illumenate_lighting.helpdesk_links.fill_upstream"},
 	"ilL-Project-Fixture-Schedule": {"on_update": ["illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update", "illumenate_lighting.illumenate_lighting.portal.product_finder.verification.cancel_orphans",
 		# Draft Quotations / Sales Orders linked to the schedule follow its lines.
 		"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_schedule_update"]},
 	"Work Order": {
-		"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.guard_planned_work_order",
+		"before_insert": [
+			"illumenate_lighting.illumenate_lighting.api.material_planning.guard_planned_work_order",
+			# Manufacturing difficulty for the quantity being built (Production Board).
+			"illumenate_lighting.illumenate_lighting.api.build_points.on_work_order_insert",
+		],
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
 	},
+	# Count each new BOM's pinned build (conductors, wet runs, jumpers, assembly).
+	"BOM": {"on_submit": "illumenate_lighting.illumenate_lighting.api.build_points.on_bom_submit"},
 	"Production Plan": {"validate": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_production_plan"},
 	"Purchase Invoice": {
-		"on_submit": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_submit",
+		# QuickBooks first; then purchasing fills shipment cost lines that link this bill.
+		"on_submit": [
+			"illumenate_lighting.illumenate_lighting.api.qbo_bills.on_submit",
+			"illumenate_lighting.illumenate_lighting.api.purchasing.on_invoice_submit",
+		],
 		"on_cancel": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_cancel",
 	},
+	# Purchasing board: a full receipt marks the PO Delivered and joins its open inbound shipment.
+	"Purchase Receipt": {"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_receipt_submit"},
+	# An email sent from a submitted Purchase Order marks it Sent to the vendor.
+	"Communication": {"after_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.on_communication"},
 	"Material Request": {"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_material_request"},
 	"Quotation": {
 		# Configured rows follow their Item's build, then a draft linked to a Fixture
@@ -394,6 +410,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.build_links.follow_items",
 			"illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+			# After follow_items, so each line is counted against the BOM it now pins.
+			"illumenate_lighting.illumenate_lighting.api.build_points.roll_up_sales_order",
 		],
 		"before_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
 		"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
@@ -419,6 +437,9 @@ doc_events = {
 	},
 	"Purchase Order": {
 		"before_validate": "illumenate_lighting.illumenate_lighting.api.purchase_order.allow_blank_schedule_date",
+		# Purchasing board: lead time, ETA, freight mode and vendor status on new POs.
+		"before_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.prefill_po_tracking",
+		"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_po_submit",
 	},
 	# Webflow sync events for attribute doctypes
 	"ilL-Attribute-CCT": {
@@ -567,6 +588,8 @@ override_doctype_dashboards = {
 	"Quotation": "illumenate_lighting.illumenate_lighting.helpdesk_links.quotation_dashboard",
 	"Sales Order": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_order_dashboard",
 	"Sales Invoice": "illumenate_lighting.illumenate_lighting.helpdesk_links.sales_invoice_dashboard",
+	"ilL-Project": "illumenate_lighting.illumenate_lighting.helpdesk_links.project_dashboard",
+	"ilL-Project-Fixture-Schedule": "illumenate_lighting.illumenate_lighting.helpdesk_links.fixture_schedule_dashboard",
 }
 
 # exempt linked doctypes from being automatically cancelled

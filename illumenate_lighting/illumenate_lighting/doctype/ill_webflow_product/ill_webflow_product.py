@@ -61,6 +61,9 @@ class ilLWebflowProduct(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		from illumenate_lighting.illumenate_lighting.doctype.ill_child_web_feature.ill_child_web_feature import (
+			ilLChildWebFeature,
+		)
 		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_attribute_link.ill_child_webflow_attribute_link import (
 			ilLChildWebflowAttributeLink,
 		)
@@ -81,9 +84,6 @@ class ilLWebflowProduct(Document):
 		)
 		from illumenate_lighting.illumenate_lighting.doctype.ill_child_webflow_kit_component.ill_child_webflow_kit_component import (
 			ilLChildWebflowKitComponent,
-		)
-		from illumenate_lighting.illumenate_lighting.doctype.ill_child_web_feature.ill_child_web_feature import (
-			ilLChildWebFeature,
 		)
 
 		accessory_spec: DF.Link | None

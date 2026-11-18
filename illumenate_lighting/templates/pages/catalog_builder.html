@@ -7,7 +7,7 @@
 	<title>Catalog Builder · ilLumenate</title>
 	<link rel="stylesheet" href="{{ assets | e }}.css?v={{ asset_version | urlencode }}">
 </head>
-<body>
+<body{% if embedded is defined and embedded %} class="embedded"{% endif %}>
 	<div id="catalog-builder-root"></div>
 	<script src="{{ assets | e }}.js?v={{ asset_version | urlencode }}"></script>
 	<script>IllCatalogBuilder.mount("catalog-builder-root", {{ mount_options | tojson }});</script>
