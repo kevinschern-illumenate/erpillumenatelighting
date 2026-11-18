@@ -158,3 +158,13 @@ Rollback restores the matched pre-update database, files, and config backup with
 the previous app commit. Never run old application code against the migrated
 database. Record the actual deploy, smoke result, role assignment, and observation
 window here before marking Session 5 complete.
+
+## Command Center Catalog tab (v8)
+
+The builder is also embedded in the Command Center (`/command-center#catalog`, iframe of
+`/catalog-builder?embed=1`, shown to ilL Catalog Publisher and System Manager). It adds no sync path:
+Check → Import, permissions and receipts are the builder's own. Do not announce the tab until the
+production smoke above is recorded: `/catalog-builder` loads standalone, `/command-center#catalog`
+loads in the iframe, one extrusion-kit **Check only**, and a Viewer-only account sees no Catalog tab.
+If the site sends `X-Frame-Options: DENY` or a `frame-ancestors` CSP the tab will be blank; ask the
+owner before changing headers (not in `hooks.py`).

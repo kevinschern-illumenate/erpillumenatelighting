@@ -4,11 +4,18 @@ from RestrictedPython.Guards import guarded_iter_unpack_sequence, safe_globals
 from RestrictedPython.Eval import default_guarded_getiter, default_guarded_getitem
 class D(dict):
     __getattr__=dict.get
+# per-doctype fake meta for the v8 ilLumenate cases: {dt: {"fields": [...], "title_field", "autoname"}}
+META={}
+def F(fn,ft="Data",**k): return D(dict(dict(fieldname=fn,label=fn.replace("_"," ").title(),fieldtype=ft,read_only=0,hidden=0,options=None,reqd=0,default=None),**k))
 class Meta:
-    def __init__(s,dt): s.fields=[D(fieldname="status",label="Status",fieldtype="Select",read_only=0,hidden=0,options="Open\nDone",reqd=0,default=None),D(fieldname="subject",label="Subject",fieldtype="Data",read_only=0,hidden=0,options=None,reqd=1,default=None)]
+    def __init__(s,dt):
+        x=META.get(dt) or {}
+        s.dt=dt; s.title_field=x.get("title_field"); s.autoname=x.get("autoname","")
+        s.fields=x["fields"] if "fields" in x else [D(fieldname="status",label="Status",fieldtype="Select",read_only=0,hidden=0,options="Open\nDone",reqd=0,default=None),D(fieldname="subject",label="Subject",fieldtype="Data",read_only=0,hidden=0,options=None,reqd=1,default=None)]
     def get_field(s,c):
         for f in s.fields:
             if f.fieldname==c: return f
+        if s.dt in META: return None
         return D(label=c.title(),fieldtype="Data") if c in ("grand_total","modified","customer","exp_end_date","project","priority","valid_till","state","schedule","assigned_to","ill_project","ill_fixture_schedule","schedule_name","request_type") else None
 class Doc:
     docstatus=0; name="T-1"
@@ -21,10 +28,13 @@ class Doc:
     def insert(s,**k):
         s.name="T-NEW"
         if s.v.get("doctype")=="ToDo": TODOS.append(dict(s.v))
+        CREATED.append(dict(s.v))
         return s
     def as_dict(s): return s.v
 saved=[]
 TODOS=[]
+CREATED=[]
+DOCS={}  # (dt, name) -> values for "get"
 CALLS=[]
 # in-memory agenda store (ilL-Meeting-Agenda / ilL-Meeting-Agenda-Item) for the agenda_* actions
 AGD="ilL-Meeting-Agenda"; AGI="ilL-Meeting-Agenda-Item"
@@ -93,6 +103,7 @@ def run(user, roles, form):
         if isinstance(a[0],str) and a[0] in STORE:
             if a[1] not in STORE[a[0]]: raise Exception(a[0]+" "+str(a[1])+" not found")
             return STORE[a[0]][a[1]]
+        if isinstance(a[0],str) and len(a)>1 and (a[0],a[1]) in DOCS: return Doc(DOCS[(a[0],a[1])])
         return Doc(a[0] if isinstance(a[0],dict) else None)
     fr=D(session=D(user=user),get_all=get_all,get_list=get_list,get_meta=Meta,get_doc=get_doc,
          db=D(exists=lambda *a:True,count=lambda *a:0,get_value=lambda dt,n,f:STORE[dt][n].v.get(f)),throw=throw,form_dict=D(form),response=resp,
@@ -182,3 +193,77 @@ for who,form,roles in [("viewer assign",{"action":"assign","dt":"HD Ticket","nam
     try: run("a@x",roles,form); print(who,"NOT BLOCKED")
     except Exception as e: print(who,"blocked:",e)
 run("a@x",E,{"action":"note","dt":"HD Ticket","name":"T-1","text":"linked quotation <Q-1>"}); print("note:", AUDIT[-1])
+
+# ---- v8: Catalog tab flag, ilLumenate area, status kinds, read-only / builder doctypes, purchasing ----
+FAILS=[]
+def ok(name, cond):
+    print(("PASS " if cond else "FAIL ")+name)
+    if not cond: FAILS.append(name)
+CAT="ilL Catalog Publisher"; SM="System Manager"
+ok("catalog tab: publisher allowed", run("a@x",V+[CAT],{"action":"config","lite":1})["catalog"]["allowed"] is True)
+ok("catalog tab: system manager allowed", run("a@x",V+[SM],{"action":"config","lite":1})["catalog"]["allowed"] is True)
+ok("catalog tab: plain viewer not allowed", run("a@x",V,{"action":"config","lite":1})["catalog"]["allowed"] is False)
+lite=run("a@x",V,{"action":"config","lite":1}); ok("config lite has no doctypes", "doctypes" not in lite and lite["catalog"]["url"]=="/catalog-builder")
+META["ilL-Attribute-CCT"]={"title_field":"label","fields":[F("cct_name"),F("label"),F("kelvin","Int",in_list_view=1),F("is_active","Check"),F("notes","Small Text",in_list_view=1),F("secret","Data",permlevel=1)]}
+META["ilL-Spec-Driver"]={"fields":[F("item","Link",in_list_view=1),F("max_wattage","Float",in_list_view=1)]}
+META["ilL-Attribute-LED Package"]={"autoname":"prompt","fields":[F("code"),F("is_active","Check")]}
+META["ilL-Fixture-Template"]={"fields":[F("template_code"),F("is_active","Check"),F("allowed_finishes","Table",options="ilL-Child-Finish")]}
+META["ilL-Child-Finish"]={"fields":[F("finish","Link",in_list_view=1),F("is_default","Check",in_list_view=1),F("hidden_note")]}
+cfg=run("a@x",E,{"action":"config"}); D_=cfg["doctypes"]
+ok("config: sections carry an area", {x["key"]:x["area"] for x in cfg["sections"]}.get("ill_attributes")=="ill" and {x["key"]:x["area"] for x in cfg["sections"]}.get("quotes")=="pipeline")
+ok("config: attribute in the ilL attributes group, bool status, inline create", D_["ilL-Attribute-CCT"]["sections"]==["ill_attributes"] and D_["ilL-Attribute-CCT"]["status_kind"]=="bool" and D_["ilL-Attribute-CCT"]["create"]=="inline")
+ok("config: derived columns = name, title, in_list_view, status, modified", [c["fieldname"] for c in D_["ilL-Attribute-CCT"]["columns"]]==["name","label","kelvin","notes","status","modified"])
+ok("config: no-status doctype has no status column", "status" not in [c["fieldname"] for c in D_["ilL-Spec-Driver"]["columns"]] and D_["ilL-Spec-Driver"]["status_kind"] is None)
+ok("config: template is created via the builder", D_["ilL-Fixture-Template"]["create"]=="builder" and D_["ilL-Fixture-Template"]["builder"] is True)
+ok("config: configured fixture is read-only, no create", D_["ilL-Configured-Fixture"]["read_only"] is True and D_["ilL-Configured-Fixture"]["can_create"] is False)
+ok("config: ilL-Project in Design and the ilL projects group", D_["ilL-Project"]["sections"]==["design","ill_projects"] and D_["ilL-Project"]["section"]=="design")
+ok("config: Webflow session and credential singles excluded", "ilL-Webflow-Session" not in D_ and "ilL-QBO-Settings" not in D_ and "ilL-Webflow-Settings" not in [x["doctype"] for x in cfg["settings"]])
+ok("config: settings card lists singles as desk links", any(x["doctype"]=="ilL-Purchasing-Settings" and x["url"]=="/app/ill-purchasing-settings" for x in cfg["settings"]))
+ok("config: logs group locked without System Manager", [x["locked"] for x in cfg["sections"] if x["key"]=="ill_logs"]==[True] and "ilL-Portal-Event" not in D_)
+ok("config: logs visible to System Manager", "ilL-Portal-Event" in run("a@x",E+[SM],{"action":"config"})["doctypes"])
+ok("config: purchasing doctypes (RFQ, SQ, PR, shipment, supplier) and finance-gated bills", all(D_.get(d,{}).get("section")=="purchasing" for d in ["Request for Quotation","Supplier Quotation","Purchase Receipt","ilL-Inbound-Shipment","Supplier"]) and "Purchase Invoice" not in D_ and run("a@x",E+["Command Center Finance"],{"action":"config"})["doctypes"]["Purchase Invoice"]["section"]=="finance")
+ok("config: shipment also in the ilL purchasing group", D_["ilL-Inbound-Shipment"]["sections"]==["purchasing","ill_purchasing"])
+del CALLS[:]
+c=run("a@x",V,{"action":"counts","area":"ill","section":"ill_attributes"})["counts"]
+ok("counts: one ilL group only", set(c)<=set(run("a@x",E,{"action":"config"})["doctypes"]) and "ilL-Attribute-CCT" in c and "Quotation" not in c and "ilL-Fixture-Template" not in c)
+c=run("a@x",V,{"action":"counts"})["counts"]
+ok("counts: default pipeline area unchanged (no ilL-only doctypes)", "Quotation" in c and "ilL-Attribute-CCT" not in c and "ilL-Project" in c)
+del CALLS[:]
+r=run("a@x",V,{"action":"list","dt":"ilL-Attribute-CCT","filters":{"status":"Active"},"order_by":"status asc"})
+call=[x for x in CALLS if x[0]=="ilL-Attribute-CCT" and "name" in x[1]][-1]
+ok("list: Active filter -> is_active=1, sort by is_active, row status Active", call[2]=={"is_active":1} and call[3]=="is_active asc" and "is_active" in call[1])
+del CALLS[:]
+run("a@x",V,{"action":"list","dt":"ilL-Attribute-CCT","filters":{"status":"Inactive"}})
+ok("list: Inactive filter -> is_active=0", [x for x in CALLS if x[0]=="ilL-Attribute-CCT" and "name" in x[1]][-1][2]=={"is_active":0})
+r=run("a@x",V,{"action":"list","dt":"ilL-Spec-Driver"}); ok("list: doctype with no status works, no status column", "status" not in [c["fieldname"] for c in r["columns"]])
+for who,form in [("save read-only doctype",{"action":"save","dt":"ilL-Configured-Fixture","name":"T-1","values":{"subject":"x"}}),
+                 ("create read-only doctype",{"action":"create","dt":"ilL-Catalog-Import","values":{"subject":"x"}}),
+                 ("create via builder",{"action":"create","dt":"ilL-Fixture-Template","values":{"template_code":"X"}}),
+                 ("prompt name missing",{"action":"create","dt":"ilL-Attribute-LED Package","values":{"code":"X"}}),
+                 ("__newname on a field-named doctype",{"action":"create","dt":"ilL-Attribute-CCT","values":{"__newname":"X","cct_name":"X"}}),
+                 ("permlevel-1 field",{"action":"save","dt":"ilL-Attribute-CCT","name":"T-1","values":{"secret":"x"}})]:
+    try: run("a@x",E,form); ok(who+" refused", False)
+    except Exception as e: ok(who+" refused ("+str(e)[:60]+")", True)
+ok("meta: permlevel-1 field not offered, autoname returned", "secret" not in [f["fieldname"] for f in run("a@x",E,{"action":"meta","dt":"ilL-Attribute-CCT"})["fields"]] and run("a@x",E,{"action":"meta","dt":"ilL-Attribute-LED Package"})["autoname"]=="prompt")
+del CREATED[:]
+n=run("a@x",E,{"action":"create","dt":"ilL-Attribute-LED Package","values":{"__newname":"PKG-2835","code":"2835"}})
+ok("create: prompt-named doctype takes the typed name", CREATED and CREATED[-1].get("name")=="PKG-2835" and CREATED[-1].get("__newname")=="PKG-2835" and CREATED[-1].get("code")=="2835")
+r=run("a@x",E,{"action":"save","dt":"ilL-Attribute-CCT","name":"T-1","values":{"is_active":0}}); ok("save: is_active toggle goes through save", r["changed"]==1)
+DOCS[("ilL-Fixture-Template","FT-1")]={"name":"FT-1","is_active":1,"docstatus":0,"allowed_finishes":[{"finish":"WH"+str(i),"is_default":i==0,"hidden_note":"x"} for i in range(30)]}
+g=run("a@x",E,{"action":"get","dt":"ilL-Fixture-Template","name":"FT-1"}); t=g["tables"][0]
+ok("get: child tables read-only, capped at 25 rows, in_list_view columns", t["count"]==30 and len(t["rows"])==25 and [c["fieldname"] for c in t["columns"]]==["finish","is_default"] and "hidden_note" not in t["rows"][0])
+ok("get: bool status exposed, builder flag, editable header", g["doc"]["status"]=="Active" and g["builder"] is True and g["editable"] is True)
+DOCS[("ilL-Configured-Fixture","CF-1")]={"name":"CF-1","docstatus":0}
+ok("get: read-only doctype not editable", run("a@x",E,{"action":"get","dt":"ilL-Configured-Fixture","name":"CF-1"})["editable"] is False)
+META["Purchase Order"]={"fields":[F("status","Select"),F("supplier","Link"),F("ill_eta","Date"),F("ill_vendor_status","Select"),F("grand_total","Currency"),F("schedule_date","Date"),F("ill_sent_on","Date")]}
+del CALLS[:]
+o=run("a@x",E,{"action":"overview"}); sig=[x["id"] for x in o["signals"]]
+po=[x for x in CALLS if x[0]=="Purchase Order" and x[2] and any(isinstance(f,list) and f[0]=="ill_eta" for f in x[2])]
+ok("overview: purchasing signals", all(k in sig for k in ["po_not_sent","po_unconfirmed","sq_expiring","receipt_no_bill","needs_lcv"]))
+ok("overview: po_late uses ill_eta when the field exists", bool(po))
+ok("overview: sections stay pipeline-only", all(not x["key"].startswith("ill_") for x in o["sections"]))
+pc=[c["fieldname"] for c in run("a@x",E,{"action":"config"})["doctypes"]["Purchase Order"]["columns"]]
+ok("config: PO columns include vendor status and ETA when present", "ill_vendor_status" in pc and "ill_eta" in pc)
+del META["Purchase Order"]
+print("v8 checks:", "ALL PASS" if not FAILS else "FAILED: "+", ".join(FAILS))
+if FAILS: sys.exit(1)

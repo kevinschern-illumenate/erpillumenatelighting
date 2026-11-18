@@ -15,6 +15,7 @@
 .catalog-header { padding: 28px 32px 20px; display: flex; gap: 24px; justify-content: space-between; align-items: center; background: white; }
 .catalog-eyebrow { color: #86653b; text-transform: uppercase; font-size: 11px; letter-spacing: .13em; }
 .catalog-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.catalog-header.is-embedded { padding: 12px 16px; justify-content: flex-end; }
 .catalog-products { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 32px; border-block: 1px solid #e0dace; }
 .catalog-toolbar { display: flex; align-items: center; gap: 16px; padding: 20px 32px; flex-wrap: wrap; }
 .catalog-toolbar label { display: flex; gap: 12px; align-items: center; }

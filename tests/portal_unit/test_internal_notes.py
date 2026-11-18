@@ -19,6 +19,9 @@ ROWS = [
 # Every Python module that reads ilL-Portal-Message. A new reader must be added here only after
 # it is shown to filter visibility for dealers (or be staff/write-only).
 REVIEWED_READERS = {
+	# Staff only: the Command Center gateway lists it in the "Logs & system" Workbench group, which needs
+	# Command Center Viewer + System Manager, is read-only, and reads as the user (System Manager-only doctype).
+	"illumenate_lighting/command_center/ss/cc_gateway.py",
 	"illumenate_lighting/hooks.py",
 	"illumenate_lighting/illumenate_lighting/portal/conversations.py",
 	"illumenate_lighting/illumenate_lighting/portal/files.py",

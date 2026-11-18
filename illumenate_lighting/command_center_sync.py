@@ -17,8 +17,8 @@ Behaviour
       The backup is best-effort (System Settings may not allow .js/.css uploads): if it fails
       the page is still updated, and Web Page's Version history keeps the old values anyway.
     * Finds the page by name, or by its route (/command-center) if it was renamed.
-    * Gives the Command Center roles access to the meeting agenda doctypes (ilL-Meeting-Agenda,
-      ilL-Meeting-Agenda-Item): Viewer reads, Editor reads and writes. Like the roles, a grant is
+    * Gives the Command Center roles access to the app doctypes in GRANTS (meeting agenda, inbound
+      shipments, purchasing settings): Viewer reads, Editor reads and writes. Like the roles, a grant is
       only added when that role has no rule on the doctype yet, so desk changes are kept.
     * Creates the Command Center roles if missing. People are given a role only at the moment
       the role is first created; after that the desk (User -> Roles) is the only authority,
@@ -43,12 +43,29 @@ ROLES = {
 	"Command Center Finance": ["charlotte", "jay", "kevins"],
 }
 
-# meeting agenda doctypes (this app) -> role -> permissions; System Manager comes from the doctype JSON
-AGENDA_DOCTYPES = ("ilL-Meeting-Agenda", "ilL-Meeting-Agenda-Item")
-AGENDA_PERMS = {
-	"Command Center Viewer": {"read", "select", "report", "print"},
-	"Command Center Editor": {"read", "select", "report", "print", "write", "create", "delete"},
+# App doctypes the Command Center roles need -> role -> permissions. The doctype JSON carries the
+# ERPNext roles (System Manager, Purchase Manager, ...); these are the Command Center grants on top.
+VIEW_PERMS = {"read", "select", "report", "print"}
+GRANTS = {
+	# weekly meeting agenda (v6)
+	"ilL-Meeting-Agenda": {
+		"Command Center Viewer": VIEW_PERMS,
+		"Command Center Editor": VIEW_PERMS | {"write", "create", "delete"},
+	},
+	"ilL-Meeting-Agenda-Item": {
+		"Command Center Viewer": VIEW_PERMS,
+		"Command Center Editor": VIEW_PERMS | {"write", "create", "delete"},
+	},
+	# purchasing (v8): inbound shipments are edited from the Purchasing page; settings are read-only here
+	"ilL-Inbound-Shipment": {
+		"Command Center Viewer": VIEW_PERMS,
+		"Command Center Editor": VIEW_PERMS | {"write", "create"},
+	},
+	"ilL-Purchasing-Settings": {"Command Center Viewer": {"read", "print"}},
 }
+# kept for anything that imported the v6 names
+AGENDA_DOCTYPES = ("ilL-Meeting-Agenda", "ilL-Meeting-Agenda-Item")
+AGENDA_PERMS = GRANTS["ilL-Meeting-Agenda"]
 PTYPES = ("read", "select", "write", "create", "delete", "report", "print", "export", "share", "email")
 
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "command_center")
@@ -61,7 +78,7 @@ def _read(*parts):
 
 def sync():
 	"""after_migrate hook."""
-	for step in (_sync_roles, _sync_agenda_permissions, _sync_server_script, _sync_web_page):
+	for step in (_sync_roles, _sync_permissions, _sync_server_script, _sync_web_page):
 		# Every after_migrate hook shares one transaction, so on failure undo only this step,
 		# not uncommitted work from the hooks that ran before it.
 		frappe.db.savepoint("command_center_sync")
@@ -95,14 +112,15 @@ def _sync_roles():
 	return "roles created: " + ", ".join(created) if created else "roles unchanged"
 
 
-def _sync_agenda_permissions():
+def _sync_permissions():
+	"""Grant once per (doctype, role); after that the desk's Role Permissions Manager is the authority."""
 	from frappe.permissions import add_permission, update_permission_property
 
 	added = []
-	for doctype in AGENDA_DOCTYPES:
+	for doctype, grants in GRANTS.items():
 		if not frappe.db.exists("DocType", doctype):
 			continue
-		for role, perms in AGENDA_PERMS.items():
+		for role, perms in grants.items():
 			if not frappe.db.exists("Role", role):
 				continue
 			if frappe.db.exists(
@@ -114,9 +132,13 @@ def _sync_agenda_permissions():
 				update_permission_property(doctype, role, 0, ptype, int(ptype in perms), validate=False)
 			added.append(f"{role} on {doctype}")
 	if not added:
-		return "agenda permissions unchanged"
+		return "doctype permissions unchanged"
 	frappe.clear_cache()
-	return "agenda permissions added: " + "; ".join(added)
+	return "doctype permissions added: " + "; ".join(added)
+
+
+# the v6 name, kept so anything calling it directly still works
+_sync_agenda_permissions = _sync_permissions
 
 
 def _sync_server_script():

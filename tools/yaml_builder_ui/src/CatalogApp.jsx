@@ -19,6 +19,7 @@ import { issueIndex, findingGroups } from './grid-model.js';
 import { renameRecords, applyReplace } from './rename-model.js';
 import { withRecipe } from './generator-model.js';
 import { builtinStarters, draftStarter, readStarters, writeStarters } from './starter-model.js';
+import { addAsIs, editable, notifyParent, openList, openParam, parentMessage, productFor } from './embed-bridge.js';
 import { RecordFields } from './RecordFields.jsx';
 import { RecordGrid, GridData } from './RecordGrid.jsx';
 import './catalog.css';
@@ -132,7 +133,7 @@ function ReferencePanel({ doctype, reference, onCopy, copying }) {
   </details>;
 }
 
-export default function CatalogApp({ onLegacy, loadReference, api, mode = 'vercel' }) {
+export default function CatalogApp({ onLegacy, loadReference, api, mode = 'vercel', embedded = false }) {
   const [workspace, setWorkspace] = useState(restore);
   const [selected, setSelected] = useState('Item');
   const [search, setSearch] = useState('');
@@ -326,8 +327,12 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     try {
       const response = importing ? await api.importCatalog(checked.payload, checked.response.catalog_hash, checked.media) : await api.check(submitted.payload, submitted.media);
       setRun({ ...submitted, response, phase: response.status === 'Imported' ? 'imported' : importing ? 'idle' : 'checked', stale: submitted.payloadKey !== currentPayloadKey.current });
-      // A failed reference refresh must never obscure an already committed import.
-      if (response.status === 'Imported') await loadExisting({ refresh: true });
+      if (response.status === 'Imported') {
+        markClean();
+        notifyParent(window, { type: 'imported', name: response.log || null, created: response.summary?.created || 0 });
+        // A failed reference refresh must never obscure an already committed import.
+        await loadExisting({ refresh: true });
+      }
     } catch (error) {
       setRun({ ...submitted, phase: 'error', error, uncertainImport: importing });
     } finally {
@@ -430,7 +435,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
       const incoming = parseCatalog(await file.text(), text => parse(text, { maxAliasCount: 50, uniqueKeys: true }), schema);
       setConfirm({ title: 'Replace this product draft with the imported catalog?', run: () => {
         setWorkspace(previous => ({ active: incoming.product_type, drafts: { ...previous.drafts, [incoming.product_type]: incoming } }));
-        setSelected(schema.products[incoming.product_type].template); clearHistory(); setRun({ phase: 'idle' });
+        setSelected(schema.products[incoming.product_type].template); clearHistory(); setRun({ phase: 'idle' }); markClean();
         setMessage(`Loaded ${file.name}`);
       } });
     } catch (error) { setMessage(error.message); }
@@ -457,10 +462,107 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
     if (letter === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); }
     if (letter === 'y') { event.preventDefault(); redo(); }
   };
+  // ---- Command Center bridge (embed-bridge.js) ----
+  // Dirty = the active draft holds records and differs from its last clean point. A draft is clean
+  // when first shown in this page, after a successful Import, after Open YAML and after "Start a new
+  // draft"; undoing back to that point is clean again (drafts are immutable, so identity compares).
+  const clean = useRef({});
+  const cleanPending = useRef(false);
+  const sentDirty = useRef(null);
+  const markClean = () => { cleanPending.current = true; clean.current[currentDraft.current.active] = currentDraft.current.catalog; };
+  useEffect(() => {
+    const active = workspace.active;
+    if (cleanPending.current || !(active in clean.current)) { clean.current[active] = catalog; cleanPending.current = false; }
+    const dirty = total > 0 && clean.current[active] !== catalog;
+    if (dirty !== sentDirty.current) { sentDirty.current = dirty; notifyParent(window, { type: 'dirty', dirty }); }
+  }, [catalog, workspace.active, run.phase, total]);
+  /** Apply a change to a product's draft as one undo step, switching to that product when needed. */
+  const applyToProduct = (key, change, label) => {
+    const base = workspace.drafts[key] || emptyCatalog(key);
+    const next = change(base);
+    if (key === workspace.active) { setCatalog(next, { label }); return; }
+    // The other product's stored draft is its clean point, so this change makes it dirty.
+    if (!(key in clean.current)) clean.current[key] = base;
+    setWorkspace(previous => ({ ...previous, active: key, drafts: { ...previous.drafts, [key]: next } }));
+    setHistory({ product: key, past: [{ catalog: base, label }], future: [] });
+    setRun({ phase: 'idle' });
+  };
+  const bridge = useRef({});
+  bridge.current.applyToProduct = applyToProduct;
+  bridge.current.busy = busy || copying !== null || opening;
+  bridge.current.newRecord = doctype => {
+    if (bridge.current.busy) { setMessage('Wait for the current check, import or copy to finish, then try again.'); return; }
+    if (!editable(doctype, schema)) { setMessage(`${doctype} isn't a catalog DocType the builder creates.`); return; }
+    const key = productFor(doctype, schema, workspace.active, familyTypes);
+    applyToProduct(key, base => ({ ...base, records: { ...base.records, [doctype]: [...(base.records[doctype] || []), blankRecord(doctype, schema)] } }),
+      `New ${shortName(doctype)}`);
+    setSelected(doctype); setFieldSearch('');
+    setMessage(`Added a blank ${shortName(doctype)} record to the ${schema.products[key].label} draft. Fill it in, then Check in ERPNext. Undo removes it.`);
+  };
+  bridge.current.open = async requested => {
+    const wanted = openList(requested);
+    if (!wanted.length) return;
+    if (bridge.current.busy) { setMessage('Wait for the current check, import or copy to finish, then open the records again.'); return; }
+    const usable = wanted.filter(row => editable(row.doctype, schema));
+    const refused = wanted.filter(row => !editable(row.doctype, schema)).map(row => `${row.name} (${row.doctype} isn't a catalog DocType)`);
+    if (!usable.length) { setMessage(`Couldn't open ${refused.join(', ')}.`); return; }
+    if (!api) { setMessage('Opening ERPNext records needs the Catalog Builder in ERPNext.'); return; }
+    setOpening(true);
+    try {
+      const results = await api.records(usable.map(row => [row.doctype, row.name]));
+      const fetched = [];
+      usable.forEach((row, i) => {
+        const result = results?.[i];
+        if (result?.record) fetched.push({ ...row, record: result.record });
+        else refused.push(`${row.name} (${result?.error || 'ERPNext returned no record'})`);
+      });
+      bridge.current.applyOpened(fetched, refused);
+    } catch (error) { setMessage(error); }
+    finally { setOpening(false); }
+  };
+  bridge.current.applyOpened = (fetched, refused) => {
+    const problems = refused.length ? ` Couldn't open ${refused.join(', ')}.` : '';
+    if (!fetched.length) { setMessage(`Nothing was opened.${problems}`); return; }
+    const key = productFor(fetched[0].doctype, schema, workspace.active, familyTypes);
+    const result = addAsIs(workspace.drafts[key] || emptyCatalog(key), fetched, schema);
+    if (result.added.length) applyToProduct(key, () => result.catalog, 'Open from ERPNext');
+    else if (key !== workspace.active) setWorkspace(previous => ({ ...previous, active: key }));
+    setSelected(fetched[0].doctype); setFieldSearch('');
+    const names = result.added.map(row => row.name);
+    setMessage([
+      names.length ? `Opened ${plural(names.length, 'record')} from ERPNext into the ${schema.products[key].label} draft under their current names: ${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''}.`
+        + ' Check reports them as already existing until you rename them with Find & replace (Ctrl+H). Undo removes them.' : '',
+      result.skipped.length ? `Already in the draft: ${result.skipped.map(row => row.name).join(', ')}.` : '',
+      problems.trim(),
+    ].filter(Boolean).join(' '));
+  };
+  useEffect(() => {
+    // Listen before announcing "ready", so a queued "open" from the Command Center is never lost.
+    const receive = event => {
+      const data = parentMessage(event, window);
+      if (!data) return;
+      if (data.type === 'open') bridge.current.open(data.records);
+      else if (data.type === 'new' && typeof data.doctype === 'string') bridge.current.newRecord(data.doctype);
+    };
+    window.addEventListener('message', receive);
+    notifyParent(window, { type: 'ready' });
+    // /catalog-builder?open=<doctype>:<name> opens records too (full screen or framed).
+    const requested = openParam(window.location.search);
+    if (requested.length && mode === 'erp') {
+      bridge.current.open(requested);
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('open');
+        window.history.replaceState(window.history.state, '', url);
+      } catch { /* Keeping the parameter only re-offers the same records, which are skipped. */ }
+    }
+    return () => window.removeEventListener('message', receive);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="catalog-app" onKeyDown={onShortcut}>
     <fieldset className="catalog-controls" disabled={busy} aria-busy={busy}>
-    <header className="catalog-header">
-      <div><span className="catalog-eyebrow">ilLumenate · Product tools</span><h1>YAML Builder</h1><p>Author the product records your ERPNext configurators need.</p></div>
+    <header className={`catalog-header${embedded ? ' is-embedded' : ''}`}>
+      {/* Inside the Command Center's Catalog tab the page already has a title, so only the actions show. */}
+      {!embedded && <div><span className="catalog-eyebrow">ilLumenate · Product tools</span><h1>YAML Builder</h1><p>Author the product records your ERPNext configurators need.</p></div>}
       <div className="catalog-actions">
         <button onClick={onLegacy}>Family expansion editor</button>
         <button onClick={() => fileInput.current.click()}>Open YAML</button>
@@ -532,7 +634,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
       {run.phase === 'imported' && <div className="catalog-imported" role="status">
         <p>Import complete. Re-checking this draft will report duplicates for the records just created. Start a new draft for your next catalog.</p>
         <button onClick={() => setConfirm({ title: 'Start a new draft for this product?', label: 'Start a new draft', run: () => {
-          setCatalog(emptyCatalog(workspace.active)); clearHistory(); setRun({ phase: 'idle' });
+          setCatalog(emptyCatalog(workspace.active)); clearHistory(); setRun({ phase: 'idle' }); markClean();
         } })}>Start a new draft</button>
       </div>}
     </div>}

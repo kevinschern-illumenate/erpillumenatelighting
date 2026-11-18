@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "creation": "2026-11-18 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "cost_type",
+  "description",
+  "estimated_amount",
+  "actual_amount",
+  "vendor",
+  "purchase_invoice",
+  "include_in_landed_cost",
+  "expense_account",
+  "allocation"
+ ],
+ "fields": [
+  {
+   "fieldname": "cost_type",
+   "fieldtype": "Select",
+   "label": "Cost Type",
+   "options": "Freight\nDuty\nTariff (additional)\nMPF / HMF\nBrokerage\nInsurance\nDrayage / delivery\nStorage / demurrage\nSales / use tax\nOther",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Description"
+  },
+  {
+   "fieldname": "estimated_amount",
+   "fieldtype": "Currency",
+   "label": "Estimated",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "actual_amount",
+   "fieldtype": "Currency",
+   "label": "Actual",
+   "in_list_view": 1,
+   "description": "Blank until billed."
+  },
+  {
+   "fieldname": "vendor",
+   "fieldtype": "Link",
+   "label": "Billed By",
+   "options": "Supplier",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "include_in_landed_cost",
+   "fieldtype": "Check",
+   "label": "In Landed Cost",
+   "default": "0"
+  },
+  {
+   "fieldname": "expense_account",
+   "fieldtype": "Link",
+   "label": "Expense Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "allocation",
+   "fieldtype": "Select",
+   "label": "Allocation",
+   "options": "\nBy value\nBy qty\nManual"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Shipment-Cost",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
