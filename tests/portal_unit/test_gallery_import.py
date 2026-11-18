@@ -363,7 +363,7 @@ class ImportCase(unittest.TestCase):
 		frappe.generate_hash = lambda length=8: "abcd1234"
 
 	def attach(self, doc):
-		doc.name = "FILE-%d" % (len(self.files) + 1)
+		doc.name = f"FILE-{len(self.files) + 1}"
 		self.files.append(doc)
 		doc["file_url"] = "/files/" + doc["file_name"]
 		return doc
@@ -534,7 +534,7 @@ class RichTextAndFailureCase(ImportCase):
 			with (
 				patch.object(module, "_download", return_value=b"x"),
 				patch.object(module, "_write_report", return_value="r.txt"),
-				patch.object(module, "_discard_files", wraps=module._discard_files) as discard,
+				patch.object(module, "_discard_files", wraps=module._discard_files),
 			):
 				original = frappe.get_doc.side_effect
 

@@ -122,7 +122,8 @@ class SeedPatchTest(unittest.TestCase):
 				if name:
 					existing.add((values["doctype"], name))
 				else:
-					existing.add((values["doctype"], tuple(sorted({"series_name": values["series_name"]}.items()))))
+					key = tuple(sorted({"series_name": values["series_name"]}.items()))
+					existing.add((values["doctype"], key))
 
 			doc.insert = insert
 			return doc
@@ -138,8 +139,11 @@ class SeedPatchTest(unittest.TestCase):
 			self.assertEqual(first, 20 + 8 + 1)
 			patch.execute()
 			self.assertEqual(len(inserted), first)
-			custom = [v for v in inserted if v["doctype"] == "ilL-Attribute-Series"][0]
-			self.assertEqual((custom["series_name"], custom["code"], custom["is_active"]), ("Custom", "CUSTOM", 1))
+			custom = next(v for v in inserted if v["doctype"] == "ilL-Attribute-Series")
+			self.assertEqual(
+				(custom["series_name"], custom["code"], custom["is_active"]),
+				("Custom", "CUSTOM", 1),
+			)
 		finally:
 			if saved is None:
 				sys.modules.pop("frappe", None)
