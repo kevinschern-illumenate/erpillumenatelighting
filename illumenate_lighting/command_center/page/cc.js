@@ -1,8 +1,11 @@
-/* ilLumenate Command Center v5 — base v2/v3 by Claude, Nov 17 2026.
+/* ilLumenate Command Center v8 — base v2/v3 by Claude, Nov 17 2026.
    v4: Workbench. v5: Executive overview, Project review mode, saved views, activity feed, print.
    v6: Meeting agenda (weekly meeting, items linked to any Command Center record).
    v7: Pipeline restructure: Design stage before Quotes, portal requests inside their stages
        (Requests tab retired), Service after Shipping, Inbox as a help desk portal.
+   v8: Purchasing desk (flow strip, lanes for requests / quotes / POs / shipments / bills, landed cost) from
+       the app endpoint purchasing_board.get_board; Catalog tab (the Catalog Builder embedded, kept alive across
+       tabs); Workbench ilLumenate area (every app doctype, grouped), child tables, builder hand-off.
    Workbench/Executive/Review feed: /api/method/ill_cc_gateway (Server Script "ilL Command Center Gateway").
    Original header: ilLumenate Command Center v2 — live page on ERPNext. Built by Claude, Nov 17 2026.
    Data: /api/method/ill_command_center (Server Script "ilL Command Center API", read-only).
@@ -46,7 +49,9 @@
       if (!r.ok) { let msg = ''; try { const jj = await r.json(); msg = JSON.parse(JSON.parse(jj._server_messages)[0]).message; } catch (e) { }
         if (/access/i.test(msg)) { lockScreen('denied'); return; } throw new Error('ERPNext answered ' + r.status); }
       root.classList.remove('locked');
-      D = (await r.json()).message; prep(); PL.stale = true; render();
+      // a manual Refresh also re-reads access (catalog tab), so a new role shows without reloading the page
+      if (manual) WHO = null;
+      D = (await r.json()).message; prep(); PL.stale = true; render(); whoami();
       if (manual) toast('Up to date with ERPNext');
     } catch (e) { $('#ccmain').innerHTML = `<div class="err">Couldn't load data from ERPNext: ${esc(e.message)}. Try Refresh.</div>`; }
     finally { b.disabled = false; b.classList.remove('spinning'); }
@@ -164,7 +169,9 @@
     return [
       { k: 'overview', n: 'Overview' },
       { k: 'score', n: 'Break-even', v: `${m.newThis.length}/8`, l: `New dealers this month · ${m.new3k.length} at $3K+`, s: m.newThis.length >= 8 * m.pace ? ['On pace', 'good'] : m.newThis.length >= 4 * m.pace ? ['Behind', 'warn'] : ['Act now', 'bad'], p: m.newThis.length / 8, mark: m.pace },
-      { k: 'purch', n: 'Purchasing', v: m.firm.length, l: `Lines short · ${m.late.length} past order-by`, s: m.late.length ? ['Act now', 'bad'] : m.firm.length ? ['Watch', 'warn'] : ['Clear', 'good'], c: m.firm.length },
+      (() => { const u = PU.data && PU.data.summary; if (!u) return { k: 'purch', n: 'Purchasing', v: m.firm.length, l: `Lines short · ${m.late.length} past order-by`, s: m.late.length ? ['Act now', 'bad'] : m.firm.length ? ['Watch', 'warn'] : ['Clear', 'good'], c: m.firm.length };
+        const n = (u.to_order || {}).count || 0, late = (u.to_order || {}).late || 0, od = (u.pos || {}).overdue || 0;
+        return { k: 'purch', n: 'Purchasing', v: n, l: `Lines short · ${late} past order-by · ${od} PO${od === 1 ? '' : 's'} overdue`, s: late || od ? ['Act now', 'bad'] : n ? ['Watch', 'warn'] : ['Clear', 'good'], c: n }; })(),
       { k: 'mfg', n: 'Manufacturing', v: m.act.length, l: `Active work orders · ${m.dup.length} duplicate or stale`, s: m.dup.length ? ['Clean up', 'warn'] : ['OK', 'good'] },
       { k: 'ship', n: 'Shipping', v: `${m.past.length}/${D.ship.length}`, l: 'Open orders past delivery date', s: m.past.length > 2 ? ['Act now', 'bad'] : m.past.length ? ['Watch', 'warn'] : ['On time', 'good'], p: D.ship.length ? 1 - m.past.length / D.ship.length : 1, pc: '#12b76a', c: m.past.length },
       { k: 'req', n: 'Requests', v: m.openReq.length, l: `Open · ${m.oldReq.length} older than 2 business days`, s: m.oldReq.length ? ['Follow up', 'warn'] : ['OK', 'good'], c: m.openReq.length },
@@ -194,7 +201,7 @@
     quotes: [['+ New quotation', '/app/quotation/new'], ['Quotations', '/app/quotation'], ['Quote requests', '/app/ill-quote-request'], ['Quote offers', '/app/ill-quote-offer'], ['Help desk', '/helpdesk/tickets']],
     orders: [['+ New sales order', '/app/sales-order/new'], ['Sales orders', '/app/sales-order'], ['Order requests', '/app/ill-order-intake'], ['Order changes', '/app/ill-order-change'], ['Order tickets', '/helpdesk/tickets'], ['Delivery notes', '/app/delivery-note']],
     so: [['Sales orders', '/app/sales-order'], ['+ New delivery note', '/app/delivery-note/new'], ['+ New sales invoice', '/app/sales-invoice/new']],
-    purch: [['+ New material request', '/app/material-request/new'], ['+ New purchase order', '/app/purchase-order/new'], ['Material requests', '/app/material-request'], ['Purchase orders', '/app/purchase-order'], ['Purchase receipts', '/app/purchase-receipt'], ['Suppliers', '/app/supplier'], ['Stock balance', '/app/query-report/Stock%20Balance'], ['Items', '/app/item']],
+    purch: [['+ New material request', '/app/material-request/new'], ['+ New purchase order', '/app/purchase-order/new'], ['Material requests', '/app/material-request'], ['RFQs', '/app/request-for-quotation'], ['Supplier quotations', '/app/supplier-quotation'], ['Purchase orders', '/app/purchase-order'], ['Inbound shipments', '/app/ill-inbound-shipment'], ['Purchase receipts', '/app/purchase-receipt'], ['Purchase invoices', '/app/purchase-invoice'], ['Landed cost vouchers', '/app/landed-cost-voucher'], ['Suppliers', '/app/supplier'], ['Customs tariff numbers', '/app/customs-tariff-number'], ['Stock balance', '/app/query-report/Stock%20Balance'], ['Items', '/app/item']],
     mfg: [['+ New work order', '/app/work-order/new'], ['Work orders', '/app/work-order'], ['BOMs', '/app/bom'], ['Production plans', '/app/production-plan'], ['Stock entries', '/app/stock-entry']],
     ship: [['+ New delivery note', '/app/delivery-note/new'], ['Delivery notes', '/app/delivery-note'], ['Shipments', '/app/shipment'], ['Sales orders to deliver', '/app/sales-order?status=%5B%22in%22%2C%5B%22To%20Deliver%22%2C%22To%20Deliver%20and%20Bill%22%5D%5D']],
     service: [['Help desk', '/helpdesk/tickets'], ['Account requests', '/app/ill-account-request'], ['Knowledge base', '/helpdesk/kb']],
@@ -221,7 +228,8 @@
   const drv = docs => { const wos = docs.filter(x => x.src === 'Work Order'), sos = docs.filter(x => x.src !== 'Work Order');
     return sos.map(x => link('sales-order', x.doc, short(x.doc)) + (x.draft ? ' <span class="calc">(draft)</span>' : '')).join('<br>') +
       (wos.length ? (sos.length ? '<br>' : '') + (wos.length === 1 ? link('work-order', wos[0].doc) : `<span title="${esc(wos.map(w => w.doc).join(', '))}">${link('work-order', wos[0].doc, wos.length + ' work orders')}</span>`) : ''); };
-  V.purch = m => {
+  // the older feed's shortage list: the Purchasing page before v8, and its fallback when the board can't load
+  V.purchOld = (m, bare) => {
     const rows = D.purch.filter(rowOK), firm = rows.filter(r => r.short_firm > 0), maybe = rows.filter(r => r.short_firm <= 0);
     const byGroup = {}; firm.forEach(r => { byGroup[r.group || 'Other'] = (byGroup[r.group || 'Other'] || 0) + 1; });
     const tr = (r, q) => `<tr><td>${link('item', r.item)}<div class="m">${esc(r.group || '')}${r.lead_src !== 'item' && r.lead ? ` · lead time: ${esc(r.lead_src)}` : ''}</div></td>
@@ -232,7 +240,7 @@
       <td style="white-space:nowrap">${drv(r.docs)}</td>
       <td class="num">${!r.draft_po && !r.mr && !r.manufactured ? (LOGGED ? `<button class="cc-btn soft" data-mr="${esc(r.item)}">Draft MR</button>` : `<a class="calc" href="/login?redirect-to=/command-center">Log in</a>`) : ''}</td></tr>`;
     const head = ['Item', '#Short', 'Supplier', 'Order by', 'Draft PO / MR', 'Driven by', ''];
-    return header('Purchasing', 'What we need to order, worked back from each order\'s required date using lead times.') + `
+    return (bare ? '' : header('Purchasing', 'What we need to order, worked back from each order\'s required date using lead times.')) + `
       <div class="callout"><div>ERPNext doesn't reflect the shop floor yet: work orders stay in Draft, and no item has a reorder level or default supplier. <b>Check this list with Ryan before ordering.</b> Where an item has no lead time, the category default is used (extrusions 10 days, tape/neon/sheet 35, power and controls 28). For power supplies, check the shelf for universal units first.</div></div>
       <div class="grid" style="margin-bottom:20px">
         ${stat('Lines short', firm.length, 'Against submitted orders').replace('card stat', 'card stat s3')}
@@ -244,6 +252,376 @@
       <div class="grid">${tableCard('What to order', 'Short = open demand from submitted orders and active work orders, minus stock on hand and on order. Draft MR creates an unsubmitted Material Request for Stores - ilL.', head, firm.map(r => tr(r, r.short_firm)))}
       <div class="card flush s12"><details class="more"><summary>Only short if the draft sales orders go ahead (${maybe.length})</summary><div class="tw" style="border-top:1px solid var(--line)"><table><thead><tr>${head.map(h => `<th>${h.replace('#', '')}</th>`).join('')}</tr></thead><tbody>${maybe.map(r => tr(r, r.short_all)).join('')}</tbody></table></div></details></div></div>`;
   };
+  /* ---------------- purchasing desk (v8) ----------------
+     One place for the whole buying cycle: what to order → requests → vendor quotes → purchase orders →
+     inbound shipments → receipts → bills → landed cost. Data: the app endpoint purchasing_board.get_board
+     (read-only, money blanked without a Finance role). Every button creates a DRAFT through a narrow app
+     endpoint and returns its name; submitting stays in the desk. Until the first fetch returns, or if it
+     fails, the page shows the older feed's shortage list (D.purch). */
+  const PU_API = 'illumenate_lighting.illumenate_lighting.api.purchasing_board.';
+  const PU = { data: null, err: null, busy: false, at: 0, tab: 'overview', view: 'lanes', showDone: false, sel: {} };
+  const PU_TABS = [['overview', 'Overview'], ['order', 'To order'], ['requests', 'Requests'], ['quotes', 'Vendor quotes'], ['pos', 'Purchase orders'], ['shipments', 'Shipments'], ['receipts', 'Receipts'], ['bills', 'Bills'], ['landed', 'Landed cost'], ['suppliers', 'Suppliers']];
+  try { const t = localStorage.getItem('cc.purch.tab.' + USER); if (t && PU_TABS.some(x => x[0] === t)) PU.tab = t; } catch (e) { }
+  const puPost = (m, args) => call(PU_API + m, args || {});
+  const puM = v => v == null ? '<span class="calc">—</span>' : money(v);
+  const puK = v => v == null ? '—' : kfmt(v);
+  const puPct = v => v == null ? '<span class="calc">—</span>' : (Math.round(v * 10) / 10) + '%';
+  const puDays = n => n == null ? '' : `${n}d`;
+  const puShort = () => PU.data ? PU.data.shortages : D.purch;
+  const puDesk = (dt, n, l) => n ? link(dt, n, l || n) : '';
+  const puChips = (dt, list, lbl) => (list || []).map(n => `<span class="qchip">${esc(lbl)} ${link(dt, n, String(n).split('-').slice(-1)[0])}</span>`).join('');
+  const puLead = (d, src) => d == null ? badge('No lead time', 'warn') : `<span class="pu-lead" title="Lead time source: ${esc(src || '')}">${d}d${src ? ' · ' + esc(src) : ''}</span>`;
+  const puEta = r => !r.eta ? '<span class="calc">No ETA</span>' : r.overdue ? badge('Overdue · ' + fmtd(r.eta), 'bad') : r.will_miss ? `<span class="badge warn" title="${esc(r.will_miss_so ? 'Arrives after ' + r.will_miss_so + ' needs it' : 'Arrives after it is needed')}">ETA ${fmtd(r.eta)} · late for ${r.will_miss_so ? 'order ' + esc(short(r.will_miss_so)) : 'its order'}</span>` : `<span class="small">ETA ${fmtd(r.eta)}${r.eta_src ? ` <span class="calc">(${esc(r.eta_src)})</span>` : ''}</span>`;
+  const PU_MODE = { 'Ocean FCL': '⛴', 'Ocean LCL': '⛴', Air: '✈', Courier: '✉', LTL: '⛟', FTL: '⛟', 'Vendor delivers': '⇢', 'Will call': '⌂' };
+  const PU_COST_TYPES = ['Freight', 'Duty', 'Tariff (additional)', 'MPF / HMF', 'Brokerage', 'Insurance', 'Drayage / delivery', 'Storage / demurrage', 'Sales / use tax', 'Other'];
+  const PU_COST_COL = ['#2a78d6', '#eb6834', '#e87ba4', '#6250d6', '#1baf7a', '#eda100', '#008300', '#98a2b3', '#475467', '#d0d5dd'];
+  const PU_VSTAT = ['Not sent', 'Sent', 'Confirmed', 'In production', 'Shipped', 'Delivered', 'Issue'];
+  const PU_FREIGHT = ['', 'Ocean FCL', 'Ocean LCL', 'Air', 'Courier', 'LTL', 'FTL', 'Vendor delivers', 'Will call'];
+  const PU_SHIP_ST = ['Planned', 'Booked', 'In transit', 'At port / customs', 'Cleared', 'Out for delivery', 'Delivered', 'Costs final', 'Cancelled'];
+  // [lane key, label, dot tone] per board
+  const PU_LANES = {
+    requests: [['draft', 'Draft', 'mute'], ['to_quote', 'To quote', 'warn'], ['quoted', 'Quoted', 'info'], ['ordered', 'Ordered', 'good'], ['receiving', 'Receiving', 'good']],
+    quotes: [['rfq_draft', 'RFQ draft', 'mute'], ['awaiting_reply', 'Awaiting reply', 'warn'], ['quoted', 'Quoted', 'info'], ['expiring', 'Expiring soon', 'bad'], ['ordered', 'Ordered', 'good'], ['expired', 'Expired / lost', 'mute']],
+    pos: [['draft', 'Draft', 'mute'], ['not_sent', 'Not sent', 'bad'], ['awaiting_confirmation', 'Awaiting confirmation', 'warn'], ['confirmed', 'Confirmed / in production', 'info'], ['in_transit', 'In transit', 'info'], ['partly_received', 'Partly received', 'warn'], ['to_bill', 'To bill', 'warn'], ['on_hold', 'On hold', 'bad'], ['done', 'Done', 'good']],
+    shipments: [['planned', 'Planned', 'mute'], ['moving', 'Moving', 'info'], ['customs', 'At customs', 'warn'], ['arriving', 'Arriving', 'info'], ['delivered', 'Delivered · costs open', 'warn'], ['final', 'Costs final', 'good']],
+    bills: [['draft', 'Draft', 'mute'], ['unpaid', 'Unpaid', 'warn'], ['overdue', 'Overdue', 'bad'], ['partly_paid', 'Partly paid', 'info'], ['paid', 'Paid (30 days)', 'good']],
+  };
+  const puLaneOf = (tab, r) => tab === 'quotes' && r.lane === 'lost' ? 'expired' : r.lane;
+  function puBoard(tab, rows, cardFn, opts = {}) {
+    const lanes = PU_LANES[tab].filter(l => !(l[0] === 'done' && !PU.showDone) && !(opts.hide || []).includes(l[0]));
+    const cols = lanes.map(([k, n, tone]) => { const cs = rows.filter(r => puLaneOf(tab, r) === k);
+      return `<div class="bcol${PU.lane === k && PU.laneTab === tab ? ' pu-hl' : ''}" data-pulane="${k}"><div class="lane-h"><span><span class="dot ${tone}"></span> ${esc(n)}</span><span class="ct">${cs.length}</span></div>${cs.map(cardFn).join('') || '<div class="drop-hint">Nothing here</div>'}</div>`; });
+    return `<div class="board pu-board" style="grid-template-columns:repeat(${lanes.length},minmax(220px,1fr))">${cols.join('')}</div>`;
+  }
+  const puBtn = (label, attrs, primary) => LOGGED && PU.data && PU.data.can_edit ? `<button type="button" class="cc-btn ${primary ? 'primary' : 'soft'}" ${attrs}>${label}</button>` : '';
+
+  /* ---- flow strip: one tile per step, count + $ + a dot when the step holds a decision ---- */
+  PU.flow = X => {
+    const s = X.summary || {}, z = o => o || {}, dec = tab => (X.decisions || []).filter(d => d.tab === tab);
+    const tiles = [
+      ['order', 'To order', z(s.to_order).count + z(s.reorder).count, z(s.to_order).late ? `${z(s.to_order).late} past order-by` : `${z(s.reorder).count || 0} below reorder level`],
+      ['requests', 'Requests', z(s.mrs).count, z(s.mrs).draft ? `${z(s.mrs).draft} draft` : 'material requests'],
+      ['quotes', 'Vendor quotes', z(s.quotes).out, z(s.quotes).expiring ? `${z(s.quotes).expiring} expiring` : 'RFQs and quotes out'],
+      ['pos', 'POs', z(s.pos).count, X.money ? puK(z(s.pos).amount) + ' open' : `${z(s.pos).not_sent || 0} not sent`],
+      ['shipments', 'In transit', (z(s.shipments).moving || 0) + (z(s.shipments).customs || 0) + (z(s.shipments).arriving || 0), `${z(s.shipments).customs || 0} at customs`],
+      ['receipts', 'Received', z(s.receipts).to_bill, 'to bill'],
+      ['bills', 'Bills', z(s.bills).count, X.money ? puK(z(s.bills).unpaid_amount) + ' unpaid' : `${z(s.bills).overdue || 0} overdue`],
+      ['landed', 'Landed cost', z(s.landed).needs_lcv, X.money && z(s.landed).est_open_amount ? puK(z(s.landed).est_open_amount) + ' to land' : 'need a voucher'],
+    ];
+    return `<div class="pu-flow no-print">${tiles.map(([k, n, c, sub], i) => { const d = dec(k), tone = d.some(x => x.tone === 'bad') ? 'bad' : d.length ? 'warn' : '';
+      return `${i ? '<span class="pu-arrow" aria-hidden="true">→</span>' : ''}<button type="button" class="pu-step ${PU.tab === k ? 'on' : ''}" data-putab="${k}"><span class="pu-step-n">${esc(n)}${tone ? `<span class="dot ${tone}" title="${esc(d.map(x => x.count + ' ' + x.label).join('\n'))}"></span>` : ''}</span><span class="pu-step-v">${c == null || isNaN(c) ? 0 : c}</span><span class="pu-step-s">${esc(sub || '')}</span></button>`; }).join('')}</div>`;
+  };
+
+  PU.body = () => {
+    const X = PU.data; PU.after = null;
+    if (!X) {
+      const fb = PU.err ? `<div class="callout"><div>The purchasing board couldn't load (${esc(PU.err)}). Showing the older shortage list.</div></div>` : '<div class="cc-loading"><span class="cc-spin"></span>Loading the purchasing desk…</div>';
+      return fb + V.purchOld(CUR_M || M(), true) + `<div class="grid" style="margin-top:20px">${V.purch_low()}</div>`;
+    }
+    const tabs = `<div class="seg pu-tabs no-print">${PU_TABS.map(([k, n]) => `<button data-putab="${k}" class="${PU.tab === k ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+    const money0 = X.money ? '' : '<p class="small">Dollar figures need the Command Center Finance, Purchase Manager or Accounts Manager role.</p>';
+    return PU.flow(X) + tabs + money0 + `<div id="pubody">${(PU[PU.tab] || PU.overview)(X)}</div>`;
+  };
+
+  /* ---- Overview: decisions, arriving next 14 days, spend by supplier, open PO $ by month of ETA ---- */
+  PU.overview = X => {
+    const dec = (X.decisions || []).filter(rowOK);
+    const decs = dec.length ? `<div class="dec-grid">${dec.map(d => `<button type="button" class="dec pu-dec ${d.tone}" data-putab="${esc(d.tab)}" data-pulane="${esc(d.lane || '')}"><span class="n">${d.count}</span><span class="l">${esc(d.label)}</span></button>`).join('')}</div>` : '<div class="empty">Nothing late, stuck or expiring. 🎉</div>';
+    const in14 = addDays(X.today, 14);
+    const arr = [].concat(
+      (X.pos || []).filter(p => p.docstatus === 1 && p.eta && p.eta <= in14 && !['done', 'to_bill'].includes(p.lane)).map(p => ({ k: 'PO', dt: 'purchase-order', name: p.name, who: p.supplier, eta: p.eta, late: p.overdue, amount: p.amount })),
+      (X.shipments || []).filter(s => s.eta && s.eta <= in14 && ['planned', 'moving', 'customs', 'arriving'].includes(s.lane)).map(s => ({ k: 'Shipment', dt: 'ill-inbound-shipment', name: s.name, who: s.supplier || s.forwarder, eta: s.eta, late: s.eta < X.today, amount: s.goods_value, mode: s.mode })))
+      .filter(rowOK).sort((a, b) => String(a.eta).localeCompare(String(b.eta)));
+    const arrRows = arr.map(a => `<tr class="${a.late ? 'pu-row-late' : ''}"><td>${a.late ? badge(fmtd(a.eta), 'bad') : fmtd(a.eta)}</td><td>${esc(a.k)}${a.mode ? ' ' + (PU_MODE[a.mode] || '') : ''}</td><td>${link(a.dt, a.name)}</td><td>${esc(a.who || '')}</td><td class="num">${puM(a.amount)}</td></tr>`);
+    const bySup = {}; (X.pos || []).filter(p => p.docstatus === 1 && p.lane !== 'done').forEach(p => { bySup[p.supplier || '—'] = (bySup[p.supplier || '—'] || 0) + (p.amount || 0); });
+    const sup = Object.entries(bySup).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, v]) => ({ label: k, value: v }));
+    const months = {}; (X.pos || []).filter(p => p.docstatus === 1 && p.eta && !['done', 'to_bill'].includes(p.lane)).forEach(p => { const k = String(p.eta).slice(0, 7); months[k] = (months[k] || 0) + (p.amount || 0); });
+    const mk = Object.keys(months).sort().slice(0, 8);
+    PU.after = () => { if (X.money && mk.length) vbars($('#puetam'), mk.map(k => fmtM(k)), [{ name: 'Open PO value', color: '#2a78d6', values: mk.map(k => months[k]) }], { fmt: kfmt, h: 200 }); };
+    return `<div class="grid">
+      ${card('Decisions', 'Late, stuck or expiring. Click one to open its list.', decs, 's12')}
+      ${tableCard('Arriving in the next 14 days', 'Purchase orders and inbound shipments by ETA. Red = ETA passed and not received.', ['ETA', 'Kind', 'Document', 'Supplier', '#Value'], arrRows, '', 's7')}
+      ${card('Open PO value by supplier', X.money ? 'Submitted, not completed' : '', X.money ? hbars(sup, { fmt: kfmt, lw: '150px' }) : '<div class="empty">Needs the Finance role</div>', 's5')}
+      ${card('Open PO value by month of ETA', '', X.money ? (mk.length ? '<div id="puetam"></div>' : '<div class="empty">No open purchase orders with an ETA</div>') : '<div class="empty">Needs the Finance role</div>', 's12')}
+    </div>`;
+  };
+
+  /* ---- To order: shortages, below reorder level, draft-SO shortages, data gaps ---- */
+  PU.order = X => {
+    const rows = (X.shortages || []).filter(rowOK), firm = rows.filter(r => r.short_firm > 0), maybe = rows.filter(r => !(r.short_firm > 0) && r.short_all > 0);
+    const canMR = r => !r.draft_po && !r.mr && !r.manufactured;
+    const tr = (r, q, sel) => `<tr class="${r.late ? 'pu-row-late' : ''}">${sel ? `<td>${canMR(r) && LOGGED ? `<input type="checkbox" data-pusel="${esc(r.item)}" ${PU.sel[r.item] ? 'checked' : ''} aria-label="Select ${esc(r.item)}">` : ''}</td>` : ''}<td>${link('item', r.item)}<div class="m">${esc(r.group || '')}</div></td>
+      <td class="num"><b>${+(+q).toFixed(2)}</b><div class="m">${+(+r.on_hand || 0).toFixed(1)} on hand · ${+(+r.on_order || 0).toFixed(1)} on order</div></td>
+      <td>${r.supplier ? link('supplier', r.supplier) : badge('No supplier', 'warn')}<div class="m">${r.lead ? r.lead + '-day lead · ' + esc(r.lead_src || '') : 'No lead time'}</div></td>
+      <td>${r.order_by ? (r.late ? badge('Late · ' + fmtd(r.order_by), 'bad') : fmtd(r.order_by)) : '—'}<div class="m">Needed ${fmtd(r.need_by)}</div></td>
+      <td style="white-space:nowrap">${[r.draft_po && link('purchase-order', r.draft_po, 'PO ' + r.draft_po.split('-').pop()), r.mr && link('material-request', r.mr, 'MR ' + r.mr.replace(/^MAT-MR-\d{4}-/, ''))].filter(Boolean).join('<br>') || '<span class="calc">None</span>'}</td>
+      <td style="white-space:nowrap">${drv(r.docs || [])}</td>
+      <td class="num">${canMR(r) ? puBtn('Draft MR', `data-mr="${esc(r.item)}"`) : ''}</td></tr>`;
+    const head = ['', 'Item', '#Short', 'Supplier', 'Order by', 'Draft PO / MR', 'Driven by', ''];
+    const nsel = Object.keys(PU.sel).filter(k => PU.sel[k]).length;
+    const re = (X.reorder || []).filter(rowOK).map(r => `<tr><td>${link('item', r.item)}<div class="m">${esc(r.item_name || '')}</div></td><td>${esc(r.warehouse || '')}</td>
+      <td class="num"><b style="color:var(--badt)">${+(+r.projected).toFixed(1)}</b></td><td class="num">${r.level}</td><td class="num">${r.reorder_qty || '—'}</td><td class="num"><b>${r.suggest_qty}</b></td>
+      <td>${r.supplier ? link('supplier', r.supplier) : badge('No supplier', 'warn')}<div class="m">${puLead(r.lead, r.lead_src)}</div></td>
+      <td>${[r.open_mr && link('material-request', r.open_mr), r.open_po && link('purchase-order', r.open_po)].filter(Boolean).join('<br>') || '<span class="calc">None</span>'}</td>
+      <td class="num">${r.suggested_level != null && r.suggested_level !== r.level ? `<span class="small" title="Daily usage × (lead time + safety days)">suggest ${r.suggested_level}</span> ${puBtn('Apply', `data-pureorder="${esc(r.item)}" data-wh="${esc(r.warehouse || '')}" data-level="${r.suggested_level}" data-qty="${r.reorder_qty || r.suggest_qty}"`)}` : ''}</td>
+      <td class="num">${!r.open_mr && !r.open_po ? puBtn('Draft MR', `data-mrlow="${esc(r.item)}" data-qty="${Math.ceil(r.suggest_qty || 1)}"`) : ''}</td></tr>`);
+    const G = X.gaps || {}, gl = [['no_supplier', 'No default supplier'], ['no_lead', 'No lead time'], ['no_reorder', 'No reorder level'], ['no_hts', 'No HTS code'], ['no_origin', 'No country of origin']];
+    const gap = gl.map(([k, n]) => { const list = (G[k] || []).filter(rowOK);
+      return `<details class="more pu-gap"><summary>${esc(n)} <b>${list.length}</b></summary><div class="tw"><table><tbody>${list.slice(0, 200).map(g => `<tr><td>${link('item', g.item)}<div class="m">${esc(g.item_name || '')}</div></td><td class="num">${k === 'no_lead' && LOGGED && X.can_edit ? `<form class="pu-inline" data-puleadf="${esc(g.item)}"><input type="number" min="0" name="days" placeholder="days" aria-label="Lead time days for ${esc(g.item)}"><button class="cc-btn soft">Set</button></form>` : k === 'no_reorder' && g.suggested_level != null ? `<span class="small">suggested level ${g.suggested_level}</span>` : `<a class="small" target="_blank" rel="noopener" href="${docUrl('Item', g.item)}">Open item ↗</a>`}</td></tr>`).join('') || '<tr><td class="empty">None</td></tr>'}</tbody></table></div></details>`; }).join('');
+    return `<div class="grid">
+      ${stat('Lines short', firm.length, 'Against submitted orders').replace('card stat', 'card stat s3')}
+      ${stat('Past order-by date', firm.filter(r => r.late).length, 'Should already be ordered', firm.some(r => r.late) ? 'bad' : '').replace('card stat', 'card stat s3')}
+      ${stat('Below reorder level', re.length, 'Projected stock under the level').replace('card stat', 'card stat s3')}
+      ${stat('Data gaps', gl.reduce((a, [k]) => a + (G[k] || []).length, 0), 'Items missing purchasing data').replace('card stat', 'card stat s3')}
+      ${tableCard('What to order', `Short = open demand from submitted orders and active work orders, minus stock on hand and on order. Order by = needed date − lead time − ${X.settings && X.settings.safety_days != null ? X.settings.safety_days : 3} safety days. Draft MR creates an unsubmitted Material Request.`, head, firm.map(r => tr(r, r.short_firm, true)),
+        `<div class="toolbar">${puBtn(`Draft one MR for selected${nsel ? ' (' + nsel + ')' : ''}`, `id="pumrsel" ${nsel ? '' : 'disabled'}`, true)}</div>`)}
+      ${tableCard('Below reorder level', 'Projected quantity (on hand + on order − reserved) under the item\'s reorder level. Suggested level = daily usage × (lead time + safety days).', ['Item', 'Warehouse', '#Projected', '#Level', '#Reorder qty', '#Suggest', 'Supplier', 'Open MR / PO', '', ''], re)}
+      <div class="card flush s12"><details class="more"><summary>Only short if the draft sales orders go ahead (${maybe.length})</summary><div class="tw" style="border-top:1px solid var(--line)"><table><thead><tr>${head.slice(1).map(h => `<th>${h.replace('#', '')}</th>`).join('')}</tr></thead><tbody>${maybe.map(r => tr(r, r.short_all, false)).join('')}</tbody></table></div></details></div>
+      ${card('Data gaps', 'Without a supplier, lead time and reorder level the list above is mostly guesses. Fix the top purchased items first.', gap, 's12')}
+    </div>`;
+  };
+
+  /* ---- Requests: material request lanes ---- */
+  PU.requests = X => {
+    const rows = (X.mrs || []).filter(rowOK);
+    const cardFn = r => `<div class="tcard"><div class="r">${link('material-request', r.name, r.name.replace(/^MAT-MR-\d{4}-/, 'MR '))}${r.schedule_date ? (r.schedule_date < X.today && !['ordered', 'receiving', 'done'].includes(r.lane) ? badge('Needed ' + fmtd(r.schedule_date), 'bad') : `<span class="small">Needed ${fmtd(r.schedule_date)}</span>`) : ''}</div>
+      <div class="m" style="margin-top:6px">${(r.items || []).slice(0, 3).map(i => `${esc(i.item)} × ${+i.qty}`).join('<br>')}${(r.items || []).length > 3 ? `<br>+ ${r.items.length - 3} more` : ''}</div>
+      ${r.from_so ? `<div class="qchip">For ${link('sales-order', r.from_so, short(r.from_so))}</div>` : ''}${puChips('request-for-quotation', r.rfqs, 'RFQ')}${puChips('supplier-quotation', r.sqs, 'SQ')}${puChips('purchase-order', r.pos, 'PO')}
+      ${r.docstatus === 1 && ['to_quote', 'quoted'].includes(r.lane) ? `<div class="pu-acts">${puBtn('Request quotes', `data-purfq="${esc(r.name)}"`)}${puBtn('Order directly', `data-pupomr="${esc(r.name)}"`)}</div>` : r.docstatus === 0 ? '<div class="small" style="margin-top:6px">Submit in ERPNext to request quotes or order</div>' : ''}</div>`;
+    return `<p class="small">A submitted request can go out for quotes (RFQ) or straight to a draft purchase order. Fully received requests are hidden.</p>` + puBoard('requests', rows, cardFn);
+  };
+
+  /* ---- Vendor quotes: RFQ / supplier quotation lanes + compare ---- */
+  PU.quotes = X => {
+    const rows = (X.quotes || []).filter(rowOK), rfq = r => r.doctype === 'Request for Quotation';
+    const cardFn = r => `<div class="tcard"><div class="r"><span class="badge ${rfq(r) ? 'mute' : 'info'}">${rfq(r) ? 'RFQ' : 'Quote'}</span>${link(slug(r.doctype), r.name)}</div>
+      <div style="margin-top:6px">${rfq(r) ? (r.suppliers || []).map(s => `<span class="qchip" title="${s.email_sent ? 'Email sent' : 'Not emailed yet'}">${esc(s.supplier)} · ${s.quote_status === 'Received' ? '<b style="color:var(--goodt)">received</b>' : 'pending'}</span>`).join('') || '<span class="calc">No suppliers</span>' : (r.supplier ? link('supplier', r.supplier) : '')}</div>
+      <div class="r" style="margin-top:6px"><span class="small">${r.items || 0} item${r.items === 1 ? '' : 's'}${r.lead_days != null ? ' · ' + r.lead_days + 'd lead' : ''}</span><b>${rfq(r) ? '' : puM(r.total)}</b></div>
+      ${r.valid_till ? `<div class="small">${r.days_left != null && r.days_left < 0 ? badge('Expired ' + fmtd(r.valid_till), 'bad') : r.lane === 'expiring' ? badge(`Valid ${r.days_left}d more`, 'warn') : 'Valid till ' + fmtd(r.valid_till)}</div>` : ''}
+      ${r.mr ? `<div class="qchip">MR ${link('material-request', r.mr, r.mr.replace(/^MAT-MR-\d{4}-/, ''))}</div>` : ''}${r.po ? `<div class="qchip">PO ${link('purchase-order', r.po)}</div>` : ''}
+      <div class="pu-acts">${rfq(r) && r.docstatus === 1 ? puBtn('Enter quote', `data-pusq="${esc(r.name)}"`) : ''}${!rfq(r) && r.docstatus === 1 && ['quoted', 'expiring'].includes(r.lane) ? puBtn('Accept → draft PO', `data-pupo="${esc(r.name)}"`, true) : ''}</div></div>`;
+    const cmp = (X.quote_compare || []).filter(rowOK).map(c => `<tr><td>${link('item', c.item)}</td><td>${c.rows.map(q => `<div class="pu-cmp ${q.cheapest ? 'cheap' : ''} ${q.fastest ? 'fast' : ''}">${link('supplier-quotation', q.sq, q.supplier || q.sq)} · <b>${puM(q.rate)}</b> · ${q.lead_days != null ? q.lead_days + 'd' : '—'} · till ${fmtd(q.valid_till)}${q.cheapest ? ' ' + badge('cheapest', 'good') : ''}${q.fastest ? ' ' + badge('fastest', 'info') : ''}</div>`).join('')}</td></tr>`);
+    return puBoard('quotes', rows, cardFn) + `<div class="grid" style="margin-top:20px">${tableCard('Compare quotes', 'Items with two or more live supplier quotations.', ['Item', 'Quotes'], cmp)}</div>`;
+  };
+
+  /* ---- Purchase orders: lanes or table, side sheet with tracking ---- */
+  const puPoCard = r => `<div class="tcard pu-po" data-puopen="${esc(r.name)}" tabindex="0" role="button" aria-label="Open ${esc(r.name)}"><div class="r"><b>${esc(r.name)}</b><span>${puM(r.amount)}</span></div>
+    <div class="m">${esc(r.supplier || '')}${r.paint ? ' ' + badge('Paint', 'warn') : ''}</div>
+    <div class="r" style="margin-top:6px">${puLead(r.lead_days, r.lead_src)}${puEta(r)}</div>
+    ${r.vendor_order_no ? `<div class="small">Ack # ${esc(r.vendor_order_no)}</div>` : ''}${r.sent_on && r.lane === 'awaiting_confirmation' ? `<div class="small">Sent ${fmtd(r.sent_on)}</div>` : ''}
+    ${r.notes ? `<div class="small pu-notes">${esc(r.notes)}</div>` : ''}
+    ${(r.sales_orders || []).length ? `<div>${r.sales_orders.slice(0, 3).map(s => `<span class="qchip">${esc(short(s))}</span>`).join('')}</div>` : ''}
+    ${r.lane === 'partly_received' ? meter((r.per_received || 0) / 100) : ''}</div>`;
+  PU.pos = X => {
+    const rows = (X.pos || []).filter(rowOK);
+    const bar = `<div class="toolbar no-print" style="margin-bottom:12px"><div class="seg"><button data-puview="lanes" class="${PU.view === 'lanes' ? 'on' : ''}">Lanes</button><button data-puview="table" class="${PU.view === 'table' ? 'on' : ''}">Table</button></div>
+      <label class="small"><input type="checkbox" id="pudone" ${PU.showDone ? 'checked' : ''}> Show done</label></div>`;
+    if (PU.view === 'table') {
+      const list = rows.filter(r => PU.showDone || r.lane !== 'done').slice().sort((a, b) => String(a.eta || '9').localeCompare(String(b.eta || '9')));
+      return bar + `<div class="grid">${tableCard('Purchase orders by ETA', 'Click a row to edit tracking.', ['PO', 'Supplier', 'Lane', 'Vendor status', 'Lead', 'ETA', '#Received', '#Value'],
+        list.map(r => `<tr class="wb-row ${r.overdue ? 'pu-row-late' : ''}" data-puopen="${esc(r.name)}"><td><b>${esc(r.name)}</b></td><td>${esc(r.supplier || '')}</td><td>${esc((PU_LANES.pos.find(l => l[0] === r.lane) || [0, r.lane])[1])}</td><td>${esc(r.vendor_status || '')}</td><td>${puLead(r.lead_days, r.lead_src)}</td><td>${puEta(r)}</td><td class="num">${Math.round(r.per_received || 0)}%</td><td class="num">${puM(r.amount)}</td></tr>`))}</div>`;
+    }
+    return bar + puBoard('pos', rows, puPoCard);
+  };
+  function puPoSheet(name) {
+    const X = PU.data, r = (X.pos || []).find(p => p.name === name); if (!r) { window.open(docUrl('Purchase Order', name), '_blank'); return; }
+    const ed = LOGGED && X.can_edit, sub = r.docstatus === 1, dis = ed ? '' : 'disabled';
+    const sel = (n, opts, v) => `<select name="${n}" ${dis}>${opts.map(o => `<option value="${esc(o)}" ${String(v || '') === o ? 'selected' : ''}>${esc(o || '—')}</option>`).join('')}</select>`;
+    const fld = (l, inner) => `<label class="cc-field"><span>${l}</span>${inner}</label>`;
+    const inp = (n, t, v) => `<input type="${t}" name="${n}" value="${esc(v == null ? '' : String(v).slice(0, t === 'date' ? 10 : 200))}" ${dis}>`;
+    const lines = (r.lines || []).map(l => `<tr data-line="${esc(l.name)}"><td>${link('item', l.item)}<div class="m">${esc(l.item_name || '')}</div></td><td class="num">${+l.qty} <span class="calc">(${+(l.received_qty || 0)} in)</span></td>
+      <td><input type="number" min="0" name="lead" value="${esc(l.ill_est_lead_time_days == null ? '' : l.ill_est_lead_time_days)}" placeholder="${esc(l.lead_days == null ? '' : l.lead_days)}" ${dis} aria-label="Line lead time"></td>
+      <td><input type="date" name="eta" value="${esc(String(l.ill_eta || '').slice(0, 10))}" ${dis} aria-label="Line ETA"><div class="m">${l.eta ? 'now ' + fmtd(l.eta) : ''}</div></td></tr>`).join('');
+    const rel = [['Sales orders', 'sales-order', r.sales_orders], ['Shipments', 'ill-inbound-shipment', r.shipments], ['Receipts', 'purchase-receipt', r.receipts], ['Bills', 'purchase-invoice', r.invoices]]
+      .map(([l, dt, list]) => `<div class="wb-kv"><span>${l}</span><b>${(list || []).map(n => link(dt, n, short(n))).join(', ') || '<span class="calc">—</span>'}</b></div>`).join('');
+    const sh = wbShowSheet(`<div class="wb-kvs"><div class="wb-kv"><span>Status</span><b>${badge(r.status || '', wbKind(r.status))}</b></div><div class="wb-kv"><span>Ordered</span><b>${fmtd(r.transaction_date)}</b></div><div class="wb-kv"><span>Value</span><b>${puM(r.amount)}</b></div>
+        <div class="wb-kv"><span>Received / billed</span><b>${Math.round(r.per_received || 0)}% / ${Math.round(r.per_billed || 0)}%</b></div><div class="wb-kv"><span>ETA</span><b>${puEta(r)}</b></div>${rel}</div>
+      <div class="wb-sec">Vendor tracking</div>
+      ${fld('Vendor status', sel('ill_vendor_status', PU_VSTAT, r.vendor_status))}${fld('Sent to vendor on', inp('ill_sent_on', 'date', r.sent_on))}${fld('Vendor confirmed on', inp('ill_vendor_confirmed_on', 'date', r.confirmed_on))}
+      ${fld('Vendor order / ack #', inp('ill_vendor_order_no', 'text', r.vendor_order_no))}${fld('Estimated lead time (days)', inp('ill_est_lead_time_days', 'number', r.est_lead_time_days))}
+      ${fld('Estimated arrival', inp('ill_eta', 'date', r.ill_eta || ''))}${fld('Vendor promised ship date', inp('ill_promised_ship_date', 'date', r.promised_ship_date))}${fld('Freight mode', sel('ill_freight_mode', PU_FREIGHT, r.freight_mode))}
+      ${fld('Purchasing notes', `<textarea name="ill_purchasing_notes" rows="2" ${dis}>${esc(r.notes || '')}</textarea>`)}
+      ${lines ? `<div class="wb-sec">Lines (blank = use the header)</div><div class="card flush"><table class="wb-table pu-lines"><thead><tr><th>Item</th><th>Qty</th><th>Lead (days)</th><th>ETA</th></tr></thead><tbody>${lines}</tbody></table></div>` : ''}
+      <p class="cc-msg" id="puMsg"></p>
+      <div class="cc-sheet-f wb-foot"><a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl('Purchase Order', name)}" style="text-decoration:none" title="Opens the PO in ERPNext: Menu → Email uses the ilL Purchase Order print format. Sending it marks the PO Sent here.">Email PO ↗</a>
+        ${sub && ed ? `<button type="button" class="cc-btn soft" data-puact="create_shipment">Create shipment</button><button type="button" class="cc-btn soft" data-puact="make_receipt">Draft receipt</button><button type="button" class="cc-btn soft" data-puact="make_invoice">Draft bill</button>` : ''}
+        ${WB.cfg && WB.cfg.can_edit !== false && ed ? '<button type="button" class="cc-btn soft" id="puagenda">+ Add to agenda</button>' : ''}<span style="flex:1"></span>${ed ? '<button class="cc-btn primary" type="submit" id="pusave">Save tracking</button>' : ''}</div>`,
+      `Purchase order · ${esc(r.supplier || '')}${r.paint ? ' · Paint' : ''}`, esc(name));
+    const f = sh.querySelector('#wbform'), msg = sh.querySelector('#puMsg');
+    const keys = { ill_vendor_status: r.vendor_status, ill_sent_on: r.sent_on, ill_vendor_confirmed_on: r.confirmed_on, ill_vendor_order_no: r.vendor_order_no, ill_est_lead_time_days: r.est_lead_time_days, ill_eta: r.ill_eta, ill_promised_ship_date: r.promised_ship_date, ill_freight_mode: r.freight_mode, ill_purchasing_notes: r.notes };
+    const ab = sh.querySelector('#puagenda'); if (ab) ab.onclick = () => agQuick('Purchase Order', name, { name, supplier: r.supplier, status: r.status }, ab);
+    sh.querySelectorAll('[data-puact]').forEach(b => b.onclick = () => puAct(b, b.dataset.puact, b.dataset.puact === 'create_shipment' ? { pos: [name], values: { supplier: r.supplier, freight_mode: r.freight_mode || '' } } : b.dataset.puact === 'make_receipt' ? { po: name } : { po: name }));
+    f.onsubmit = async e => {
+      e.preventDefault(); if (!ed) return;
+      const vals = {}; Object.keys(keys).forEach(k => { const el = f.elements[k]; if (!el) return; let v = el.value; if (k === 'ill_est_lead_time_days') v = v === '' ? null : +v;
+        if (String(v == null ? '' : v) !== String(keys[k] == null ? '' : String(keys[k]).slice(0, el.type === 'date' ? 10 : 9999))) vals[k] = v === '' ? null : v; });
+      const rows = []; f.querySelectorAll('tr[data-line]').forEach(tr => { const l = (r.lines || []).find(x => x.name === tr.dataset.line), le = tr.querySelector('[name=lead]').value, et = tr.querySelector('[name=eta]').value;
+        if (String(le) !== String(l.ill_est_lead_time_days == null ? '' : l.ill_est_lead_time_days) || et !== String(l.ill_eta || '').slice(0, 10)) rows.push({ name: l.name, ill_est_lead_time_days: le === '' ? null : +le, ill_eta: et || null }); });
+      if (!Object.keys(vals).length && !rows.length) { msg.textContent = 'No changes to save.'; return; }
+      const b = sh.querySelector('#pusave'); b.disabled = true; b.textContent = 'Saving…'; msg.textContent = '';
+      try {
+        let n = 0;
+        if (Object.keys(vals).length) n += (await puPost('update_po_tracking', { po: name, values: vals })).changed || 0;
+        if (rows.length) n += (await puPost('update_po_line_tracking', { po: name, rows })).changed || 0;
+        closeSheet(); toast(`Saved ${esc(name)} · ${n} change${n === 1 ? '' : 's'}`); puFetch();
+      } catch (err) { msg.textContent = 'Not saved: ' + err.message; b.disabled = false; b.textContent = 'Save tracking'; }
+    };
+  }
+
+  /* ---- Shipments: lanes, cost bar, side sheet with editable cost lines ---- */
+  const puCostBar = s => { const est = s.est_cost || 0, act = s.actual_cost || 0, max = Math.max(est, act, 1), by = k => { const m = {}; (s.costs || []).forEach(c => { m[c.cost_type] = (m[c.cost_type] || 0) + (Number(c[k]) || 0); }); return m; };
+    const seg = (m, tot) => Object.entries(m).filter(e => e[1] > 0).map(([t, v]) => `<i title="${esc(t)}: ${money(v)}" style="width:${(v / max * 100).toFixed(1)}%;background:${PU_COST_COL[PU_COST_TYPES.indexOf(t) >= 0 ? PU_COST_TYPES.indexOf(t) : 9]}"></i>`).join('');
+    return s.est_cost == null ? '' : `<div class="pu-cost" title="Estimated vs actual inbound costs"><div class="pu-cbar"><span>Est</span><div>${seg(by('est'))}</div><b>${kfmt(est)}</b></div><div class="pu-cbar"><span>Act</span><div>${seg(by('actual'))}</div><b>${act ? kfmt(act) : '—'}</b></div></div>`; };
+  const puShipCard = s => `<div class="tcard pu-po" data-pushop="${esc(s.name)}" tabindex="0" role="button" aria-label="Open ${esc(s.name)}"><div class="r"><b><span class="pu-mode" title="${esc(s.mode || 'Mode not set')}">${PU_MODE[s.mode] || '•'}</span> ${esc(s.name)}</b><span class="small">${esc(s.status || '')}</span></div>
+    <div class="m">${esc(s.supplier || '')}${s.forwarder ? ' · via ' + esc(s.forwarder) : ''}</div>
+    ${s.tracking_no ? `<div class="small">${s.tracking_url ? `<a target="_blank" rel="noopener" href="${esc(s.tracking_url)}">${esc(s.tracking_no)} ↗</a>` : esc(s.tracking_no)}${s.container_no ? ' · ' + esc(s.container_no) : ''}</div>` : ''}
+    <div class="small">${s.ata ? 'Arrived ' + fmtd(s.ata) : s.eta ? (s.eta < PU.data.today && ['moving', 'customs', 'arriving', 'planned'].includes(s.lane) ? badge('ETA passed ' + fmtd(s.eta), 'bad') : 'ETA ' + fmtd(s.eta)) : '<span class="calc">No ETA</span>'}</div>
+    <div>${(s.pos || []).map(p => `<span class="qchip">${esc(String(p).split('-').slice(-1)[0])}</span>`).join('')}</div>
+    <div class="r small"><span>Goods ${puM(s.goods_value)}</span><span>${s.landed_pct != null ? 'Landed +' + puPct(s.landed_pct) : ''}</span></div>${puCostBar(s)}
+    ${s.needs_lcv ? `<div style="margin-top:6px">${badge('Needs landed cost', 'warn')}</div>` : ''}</div>`;
+  PU.shipments = X => `<p class="small">A shipment joins purchase orders to the container, flight or truck that carries them, with every cost on it. Estimates come from Purchasing Settings and HTS duty rates; actuals from the forwarder's and broker's bills.</p>` + puBoard('shipments', (X.shipments || []).filter(rowOK), puShipCard);
+  function puShipSheet(name) {
+    const X = PU.data, s = (X.shipments || []).find(x => x.name === name); if (!s) { window.open(docUrl('ilL-Inbound-Shipment', name), '_blank'); return; }
+    const ed = LOGGED && X.can_edit, dis = ed ? '' : 'disabled';
+    // cost lines are saved as a whole list; without the money role the amounts arrive blank, so they stay read-only
+    const costEd = ed && X.money, cdis = costEd ? '' : 'disabled';
+    const inp = (n, t, v, l) => `<label class="cc-field"><span>${l}</span><input type="${t}" name="${n}" value="${esc(v == null ? '' : String(v).slice(0, t === 'date' ? 10 : 200))}" ${dis}></label>`;
+    const sel = (n, opts, v, l) => `<label class="cc-field"><span>${l}</span><select name="${n}" ${dis}>${opts.map(o => `<option value="${esc(o)}" ${String(v || '') === o ? 'selected' : ''}>${esc(o || '—')}</option>`).join('')}</select></label>`;
+    const costRow = c => `<tr data-cost="${esc(c.name || '')}"><td><select name="cost_type" ${cdis}>${PU_COST_TYPES.map(o => `<option ${c.cost_type === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>${c.description ? `<div class="m">${esc(c.description)}</div>` : ''}</td>
+      <td><input type="number" step="any" name="est" value="${esc(c.est == null ? '' : c.est)}" ${cdis} aria-label="Estimated"></td><td><input type="number" step="any" name="actual" value="${esc(c.actual == null ? '' : c.actual)}" ${cdis} aria-label="Actual"></td>
+      <td><input type="text" name="vendor" value="${esc(c.vendor || '')}" ${cdis} aria-label="Billed by" list="pu_sup"></td><td><input type="text" name="pi" value="${esc(c.pi || '')}" ${cdis} aria-label="Purchase invoice" placeholder="PI"></td>
+      <td><input type="checkbox" name="in_lc" ${c.in_lc ? 'checked' : ''} ${cdis} aria-label="Include in landed cost"></td></tr>`;
+    const sh = wbShowSheet(`<div class="wb-kvs"><div class="wb-kv"><span>Goods value</span><b>${puM(s.goods_value)}</b></div><div class="wb-kv"><span>Estimated / actual costs</span><b>${puM(s.est_cost)} / ${puM(s.actual_cost)}</b></div>
+        <div class="wb-kv"><span>Landed cost</span><b>${s.landed_pct != null ? '+' + puPct(s.landed_pct) : '—'}</b></div><div class="wb-kv"><span>Purchase orders</span><b>${(s.pos || []).map(p => link('purchase-order', p)).join(', ') || '—'}</b></div>
+        <div class="wb-kv"><span>Receipts</span><b>${(s.receipts || []).map(p => link('purchase-receipt', p)).join(', ') || '—'}</b></div><div class="wb-kv"><span>Landed cost vouchers</span><b>${(s.lcvs || []).map(v => link('landed-cost-voucher', v.name) + (v.docstatus === 1 ? ' ✓' : ' (draft)')).join(', ') || '—'}</b></div></div>
+      <div class="wb-sec">Shipment</div>
+      ${sel('status', PU_SHIP_ST, s.status, 'Status')}${sel('freight_mode', PU_FREIGHT, s.mode, 'Freight mode')}${inp('tracking_no', 'text', s.tracking_no, 'Tracking # (BOL / AWB / PRO)')}${inp('tracking_url', 'url', s.tracking_url, 'Tracking link')}
+      ${inp('container_no', 'text', s.container_no, 'Container #')}${inp('etd', 'date', s.etd, 'Estimated departure')}${inp('atd', 'date', s.atd, 'Actual departure')}${inp('eta', 'date', s.eta, 'Estimated arrival')}${inp('ata', 'date', s.ata, 'Actual arrival')}
+      ${inp('entry_no', 'text', s.entry_no, 'Customs entry # (7501)')}
+      <div class="wb-sec">Costs</div><div class="card flush"><table class="wb-table pu-costs"><thead><tr><th>Type</th><th>Estimated</th><th>Actual</th><th>Billed by</th><th>Bill (PI)</th><th>In LC</th></tr></thead><tbody id="pucostrows">${(s.costs || []).map(costRow).join('')}</tbody></table></div>
+      ${costEd ? '<button type="button" class="cc-btn soft" id="puaddcost" style="margin-top:8px">+ Cost line</button>' : ed ? '<p class="small">Cost lines need the Finance role to edit here.</p>' : ''}<datalist id="pu_sup"></datalist>
+      ${ed ? '<label class="small" style="display:block;margin-top:12px"><input type="checkbox" id="puallowest"> Allow estimates in the landed cost voucher (lines with no bill yet)</label>' : ''}
+      <p class="cc-msg" id="puMsg"></p>
+      <div class="cc-sheet-f wb-foot"><a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl('ilL-Inbound-Shipment', name)}" style="text-decoration:none">Open in ERPNext</a>
+        ${ed ? `${(s.pos || []).filter(p => !(s.receipts || []).length).slice(0, 1).map(p => `<button type="button" class="cc-btn soft" data-puact="make_receipt" data-po="${esc(p)}">Draft receipt</button>`).join('')}<button type="button" class="cc-btn soft" data-puact="make_landed_cost_voucher">Draft landed cost voucher</button>` : ''}
+        <span style="flex:1"></span>${ed ? '<button class="cc-btn primary" type="submit" id="pusave">Save shipment</button>' : ''}</div>`,
+      `Inbound shipment · ${esc(s.supplier || '')}`, esc(name));
+    const f = sh.querySelector('#wbform'), msg = sh.querySelector('#puMsg');
+    const add = sh.querySelector('#puaddcost'); if (add) add.onclick = () => sh.querySelector('#pucostrows').insertAdjacentHTML('beforeend', costRow({ cost_type: 'Freight', in_lc: 1 }));
+    sh.querySelectorAll('[data-puact]').forEach(b => b.onclick = () => puAct(b, b.dataset.puact, b.dataset.puact === 'make_receipt' ? { po: b.dataset.po, shipment: name } : { shipment: name, allow_estimate: sh.querySelector('#puallowest') && sh.querySelector('#puallowest').checked ? 1 : 0 }));
+    f.onsubmit = async e => {
+      e.preventDefault(); if (!ed) return;
+      const values = {}; ['status', 'freight_mode', 'tracking_no', 'tracking_url', 'container_no', 'etd', 'atd', 'eta', 'ata', 'entry_no'].forEach(k => { const el = f.elements[k]; if (el) values[k] = el.value || null; });
+      // the list replaces the shipment's cost lines, so fields not shown here are carried over from each line
+      const costs = [...f.querySelectorAll('tr[data-cost]')].map(tr => { const g = n => tr.querySelector(`[name=${n}]`), o = (s.costs || []).find(c => tr.dataset.cost && c.name === tr.dataset.cost) || {};
+        return { name: tr.dataset.cost || null, cost_type: g('cost_type').value, description: o.description || null, expense_account: o.expense_account || null, allocation: o.allocation || null,
+          estimated_amount: g('est').value === '' ? null : +g('est').value, actual_amount: g('actual').value === '' ? null : +g('actual').value,
+          vendor: g('vendor').value || null, purchase_invoice: g('pi').value || null, include_in_landed_cost: g('in_lc').checked ? 1 : 0 }; });
+      const b = sh.querySelector('#pusave'); b.disabled = true; b.textContent = 'Saving…'; msg.textContent = '';
+      try { await puPost('update_shipment', costEd ? { name, values, costs } : { name, values }); closeSheet(); toast(`Saved ${esc(name)}`); puFetch(); }
+      catch (err) { msg.textContent = 'Not saved: ' + err.message; b.disabled = false; b.textContent = 'Save shipment'; }
+    };
+  }
+
+  /* ---- Receipts / Bills / Landed cost / Suppliers ---- */
+  const PU_LCV = { landed: ['Landed', 'good'], needs_lcv: ['Needs LCV', 'warn'], no_costs: ['No inbound costs', 'mute'] };
+  PU.receipts = X => `<div class="grid">${tableCard('Purchase receipts', 'Goods received into stock in the last 120 days, and any still to bill.', ['Receipt', 'Supplier', 'Date', 'POs', '#Value', '#Billed', 'Shipment', 'Landed cost', ''],
+    (X.receipts || []).filter(rowOK).map(r => `<tr><td>${link('purchase-receipt', r.name)}${r.docstatus === 0 ? ' ' + badge('Draft', 'mute') : ''}</td><td>${esc(r.supplier || '')}</td><td>${fmtd(r.posting_date)}</td><td>${(r.pos || []).map(p => link('purchase-order', p, String(p).split('-').slice(-1)[0])).join(', ')}</td>
+      <td class="num">${puM(r.amount)}</td><td class="num">${Math.round(r.billed_pct || 0)}%</td><td>${r.shipment ? link('ill-inbound-shipment', r.shipment) : '<span class="calc">—</span>'}</td><td>${badge(...(PU_LCV[r.lcv_status] || PU_LCV.no_costs))}${r.lcv_amount ? ' <span class="small">' + puM(r.lcv_amount) + '</span>' : ''}</td>
+      <td class="num">${r.docstatus === 1 && (r.billed_pct || 0) < 100 ? puBtn('Draft bill', `data-puact="make_invoice" data-pr="${esc(r.name)}"`) : ''}</td></tr>`))}</div>`;
+  const PU_MATCH = { matches: ['Matches', 'good'], qty_off: ['Qty off', 'bad'], price_off: ['Price off', 'warn'] };
+  PU.bills = X => { const notQ = (X.bills || []).filter(b => b.docstatus === 1 && !b.qbo_id).length;
+    const cardFn = b => `<div class="tcard"><div class="r">${link('purchase-invoice', b.name)}<b>${puM(b.lane === 'paid' ? b.amount : b.outstanding)}</b></div><div class="m">${esc(b.supplier || '')}${b.bill_no ? ' · #' + esc(b.bill_no) : ''}</div>
+      <div class="r small" style="margin-top:6px"><span>${b.due_date ? (b.lane === 'overdue' ? badge('Due ' + fmtd(b.due_date), 'bad') : 'Due ' + fmtd(b.due_date)) : ''}</span><span class="badge ${b.kind === 'goods' ? 'mute' : 'info'}">${esc(b.kind || 'goods')}</span></div>
+      <div style="margin-top:6px">${b.docstatus === 1 ? (b.qbo_id ? badge('In QBO', 'good') : badge('Not in QBO', 'warn')) : ''} ${b.match ? `<span class="badge ${PU_MATCH[b.match][1]}" title="${esc(b.variance ? `Qty variance ${b.variance.qty == null ? '—' : b.variance.qty} · price variance ${b.variance.price == null ? '—' : money(b.variance.price)}` : '')}">${PU_MATCH[b.match][0]}</span>` : ''}</div>
+      <div>${puChips('purchase-order', b.pos, 'PO')}${puChips('purchase-receipt', b.receipts, 'PR')}</div></div>`;
+    return `<p class="small">Vendor, forwarder and broker bills. Every submitted bill goes to QuickBooks as a Bill${notQ ? ` · <b>${notQ} not in QuickBooks yet</b> (the hourly sync retries; see Portal Operations)` : ''}. 3-way match compares PO, receipt and bill quantities and prices (over 2% or $50 is flagged).</p>` + puBoard('bills', (X.bills || []).filter(rowOK), cardFn); };
+  PU.landed = X => { const L = X.landed || {};
+    const pend = (L.pending || []).filter(rowOK).map(p => `<tr><td>${p.shipment ? link('ill-inbound-shipment', p.shipment) : ''}${p.receipt ? (p.shipment ? '<br>' : '') + link('purchase-receipt', p.receipt) : ''}</td><td>${esc(p.supplier || '')}</td><td class="num">${puM(p.est)}</td><td class="num">${puM(p.actual)}</td>
+      <td>${(p.missing_bills || []).map(t => badge(t + ' bill not in yet', 'warn')).join(' ') || (p.ready ? badge('Ready', 'good') : '')}</td><td class="num">${p.shipment ? puBtn('Draft LCV', `data-puact="make_landed_cost_voucher" data-ship="${esc(p.shipment)}"`, p.ready) : ''}</td></tr>`);
+    const vou = (L.vouchers || []).filter(rowOK).map(v => `<tr><td>${link('landed-cost-voucher', v.name)}</td><td>${v.docstatus === 1 ? badge('Submitted', 'good') : v.docstatus === 2 ? badge('Cancelled', 'bad') : badge('Draft', 'warn')}</td><td>${fmtd(v.posting_date)}</td><td>${(v.receipts || []).map(r => link('purchase-receipt', r)).join(', ')}</td><td class="num">${puM(v.amount)}</td></tr>`);
+    const byi = (L.by_item || []).filter(rowOK);
+    PU.byItemText = () => ['Item\tLast receipt\tPurchase rate\tLanded rate\tUplift %\t12-month avg uplift %'].concat(byi.map(i => [i.item, i.last_receipt || '', i.purchase_rate == null ? '' : i.purchase_rate, i.landed_rate == null ? '' : i.landed_rate, i.uplift_pct == null ? '' : i.uplift_pct, i.avg_uplift_12m == null ? '' : i.avg_uplift_12m].join('\t'))).join('\n');
+    return `<div class="grid">
+      ${stat('Need landed cost', (L.pending || []).length, 'Delivered, costs not in a submitted voucher', (L.pending || []).length ? 'bad' : '').replace('card stat', 'card stat s4')}
+      ${stat('Estimated costs still to land', puM((X.summary.landed || {}).est_open_amount), 'Freight, duty and tariffs not yet in stock value').replace('card stat', 'card stat s4')}
+      ${stat('Landed cost in stock', puM(L.in_stock_amount), 'For the periodic QuickBooks true-up (Decision D1)').replace('card stat', 'card stat s4')}
+      ${tableCard('Needs landed cost', 'When every included cost has its bill (or you accept estimates), Draft LCV builds the Landed Cost Voucher. Charlotte checks the distribution and submits it in ERPNext.', ['Shipment / receipt', 'Supplier', '#Estimated', '#Actual', 'Missing', ''], pend)}
+      ${tableCard('Landed cost vouchers', 'Last 120 days', ['Voucher', 'Status', 'Date', 'Receipts', '#Amount'], vou, '', 's6')}
+      ${tableCard('Landed cost by item', 'Last purchase rate against the valuation after freight, duty and tariffs.', ['Item', 'Last receipt', '#Purchase rate', '#Landed rate', '#Uplift', '#12-mo avg'],
+        byi.map(i => `<tr><td>${link('item', i.item)}<div class="m">${esc(i.item_name || '')}</div></td><td>${i.last_receipt ? link('purchase-receipt', i.last_receipt) : ''}</td><td class="num">${puM(i.purchase_rate)}</td><td class="num">${puM(i.landed_rate)}</td><td class="num">${puPct(i.uplift_pct)}</td><td class="num">${puPct(i.avg_uplift_12m)}</td></tr>`),
+        `<button type="button" class="cc-btn soft no-print" id="pucopy">Copy as text</button>`, 's6')}
+    </div>`; };
+  PU.suppliers = X => `<div class="grid">${tableCard('Supplier scorecard', 'Quoted lead time from supplier quotations; actual = receipt date − PO date. On time = received by the ETA.', ['Supplier', '#Open POs', '#Open $', '#Quoted lead', '#Actual lead', '#On time', 'Last PO', 'Default lead time'],
+    (X.suppliers || []).filter(rowOK).map(s => `<tr><td>${link('supplier', s.supplier)}</td><td class="num">${s.open_pos || 0}</td><td class="num">${puM(s.open_amount)}</td><td class="num">${puDays(s.avg_quoted_lead) || '—'}</td><td class="num">${puDays(s.avg_actual_lead) || '—'}</td>
+      <td class="num">${s.on_time_pct == null ? '—' : Math.round(s.on_time_pct) + '%'}</td><td>${s.last_po ? link('purchase-order', s.last_po) : '—'}</td>
+      <td>${LOGGED && X.can_edit ? `<form class="pu-inline" data-pusupf="${esc(s.supplier)}"><input type="number" min="0" name="days" value="${esc(s.default_lead == null ? '' : s.default_lead)}" aria-label="Default lead time for ${esc(s.supplier)}"><button class="cc-btn soft">Set</button></form>` : puDays(s.default_lead) || '—'}</td></tr>`))}</div>`;
+
+  /* ---- actions: every button creates a draft (or saves tracking) and says so ---- */
+  const PU_MADE = { make_rfq: ['Request for Quotation', 'request-for-quotation'], make_supplier_quotation: ['Supplier Quotation', 'supplier-quotation'], make_po: ['Purchase Order', 'purchase-order'], make_receipt: ['Purchase Receipt', 'purchase-receipt'],
+    make_invoice: ['Purchase Invoice', 'purchase-invoice'], create_shipment: ['Inbound shipment', 'ill-inbound-shipment'], make_landed_cost_voucher: ['Landed Cost Voucher', 'landed-cost-voucher'], draft_material_request: ['Material Request', 'material-request'] };
+  async function puAct(btn, method, args) {
+    const t = btn ? btn.textContent : ''; if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const r = await puPost(method, args), [lbl, sl] = PU_MADE[method] || ['Record', ''];
+      closeSheet(); toast(`Draft ${esc(lbl)} ${esc(r.name)} created, not submitted · <a target="_blank" rel="noopener" href="/app/${sl}/${encodeURIComponent(r.name)}">Open in ERPNext</a>`);
+      if (method === 'draft_material_request') PU.sel = {};
+      puFetch(); return r;
+    } catch (e) { toast('Could not create: ' + esc(e.message)); if (btn) { btn.disabled = false; btn.textContent = t; } }
+  }
+  function puPick(title, sub, field, label, onOk) {
+    const sh = wbShowSheet(`<label class="cc-field"><span>${esc(label)}</span><input type="text" name="${field}" list="pu_pick" autocomplete="off" data-link="Supplier" placeholder="Supplier"></label><datalist id="pu_pick"></datalist>
+      <p class="cc-msg" id="puMsg"></p><div class="cc-sheet-f"><button class="cc-btn primary" type="submit" id="pusave">Create draft</button></div>`, sub, title);
+    const f = sh.querySelector('#wbform'); wbLinks(f);
+    f.onsubmit = async e => { e.preventDefault(); const v = f.elements[field].value.split(',').map(s => s.trim()).filter(Boolean);
+      if (!v.length) { sh.querySelector('#puMsg').textContent = 'Pick a supplier.'; return; } await onOk(v, sh.querySelector('#pusave')); };
+  }
+  PU.bind = () => {
+    const r = $('#puroot'); if (!r) return;
+    const redraw = () => { r.innerHTML = PU.body(); PU.bind(); };
+    r.querySelectorAll('[data-putab]').forEach(b => b.onclick = () => { PU.tab = b.dataset.putab; PU.lane = b.dataset.pulane || null; PU.laneTab = PU.tab; if (PU.tab === 'pos' && PU.lane === 'done') PU.showDone = true;
+      try { localStorage.setItem('cc.purch.tab.' + USER, PU.tab); } catch (e) { } redraw(); const hl = r.querySelector('.pu-hl'); if (hl && hl.scrollIntoView) hl.scrollIntoView({ block: 'nearest', inline: 'center' }); });
+    r.querySelectorAll('[data-puview]').forEach(b => b.onclick = () => { PU.view = b.dataset.puview; redraw(); });
+    const dn = r.querySelector('#pudone'); if (dn) dn.onchange = () => { PU.showDone = dn.checked; redraw(); };
+    r.querySelectorAll('[data-puopen]').forEach(c => { c.onclick = e => { if (e.target.closest('a,button,input')) return; puPoSheet(c.dataset.puopen); }; c.onkeydown = e => { if (e.key === 'Enter') puPoSheet(c.dataset.puopen); }; });
+    r.querySelectorAll('[data-pushop]').forEach(c => { c.onclick = e => { if (e.target.closest('a,button,input')) return; puShipSheet(c.dataset.pushop); }; c.onkeydown = e => { if (e.key === 'Enter') puShipSheet(c.dataset.pushop); }; });
+    r.querySelectorAll('[data-pusel]').forEach(c => c.onchange = () => { PU.sel[c.dataset.pusel] = c.checked; const b = r.querySelector('#pumrsel'), n = Object.keys(PU.sel).filter(k => PU.sel[k]).length; if (b) { b.disabled = !n; b.textContent = `Draft one MR for selected${n ? ' (' + n + ')' : ''}`; } });
+    const ms = r.querySelector('#pumrsel'); if (ms) ms.onclick = () => { const X = PU.data, items = puShort().filter(x => PU.sel[x.item]).map(x => ({ item: x.item, qty: Math.ceil(x.short_firm), schedule_date: x.need_by && x.need_by > X.today ? x.need_by : addDays(X.today, x.lead || 14) }));
+      if (items.length) puAct(ms, 'draft_material_request', { items }); };
+    r.querySelectorAll('[data-pureorder]').forEach(b => b.onclick = async () => { b.disabled = true; try { await puPost('apply_reorder_level', { item: b.dataset.pureorder, warehouse: b.dataset.wh, level: +b.dataset.level, qty: +b.dataset.qty }); toast('Reorder level saved on ' + esc(b.dataset.pureorder)); puFetch(); } catch (e) { toast('Not saved: ' + esc(e.message)); b.disabled = false; } });
+    r.querySelectorAll('[data-puleadf]').forEach(f => f.onsubmit = async e => { e.preventDefault(); const d = f.elements.days.value; if (d === '') return; try { await puPost('set_item_lead_time', { item: f.dataset.puleadf, days: +d }); toast(`Lead time ${+d} days saved on ${esc(f.dataset.puleadf)}`); puFetch(); } catch (err) { toast('Not saved: ' + esc(err.message)); } });
+    r.querySelectorAll('[data-pusupf]').forEach(f => f.onsubmit = async e => { e.preventDefault(); const d = f.elements.days.value; try { await puPost('set_supplier_lead_time', { supplier: f.dataset.pusupf, days: d === '' ? null : +d }); toast('Default lead time saved on ' + esc(f.dataset.pusupf)); puFetch(); } catch (err) { toast('Not saved: ' + esc(err.message)); } });
+    r.querySelectorAll('[data-purfq]').forEach(b => b.onclick = () => puPick('Request quotes', 'Creates a draft Request for Quotation from ' + esc(b.dataset.purfq) + '. Separate several suppliers with commas.', 'suppliers', 'Suppliers', (v, sb) => puAct(sb, 'make_rfq', { material_request: b.dataset.purfq, suppliers: v })));
+    r.querySelectorAll('[data-pupomr]').forEach(b => b.onclick = () => puPick('Order directly', 'Creates a draft Purchase Order from ' + esc(b.dataset.pupomr) + ' without quotes.', 'supplier', 'Supplier', (v, sb) => puAct(sb, 'make_po', { material_request: b.dataset.pupomr, supplier: v[0] })));
+    r.querySelectorAll('[data-pusq]').forEach(b => b.onclick = () => { const q = (PU.data.quotes || []).find(x => x.name === b.dataset.pusq) || {}, sups = (q.suppliers || []).map(s => s.supplier);
+      const sh = wbShowSheet(`<label class="cc-field"><span>Supplier</span><select name="supplier">${sups.map(s => `<option>${esc(s)}</option>`).join('')}</select></label><p class="small">Creates a draft Supplier Quotation to type in the prices and lead times the vendor sent.</p><p class="cc-msg" id="puMsg"></p><div class="cc-sheet-f"><button class="cc-btn primary" type="submit" id="pusave">Create draft</button></div>`, esc(b.dataset.pusq), 'Enter quote');
+      sh.querySelector('#wbform').onsubmit = e => { e.preventDefault(); puAct(sh.querySelector('#pusave'), 'make_supplier_quotation', { rfq: b.dataset.pusq, supplier: sh.querySelector('[name=supplier]').value }); }; });
+    r.querySelectorAll('[data-pupo]').forEach(b => b.onclick = () => puAct(b, 'make_po', { supplier_quotation: b.dataset.pupo }));
+    r.querySelectorAll('[data-puact]').forEach(b => b.onclick = () => puAct(b, b.dataset.puact, b.dataset.pr ? { purchase_receipt: b.dataset.pr } : b.dataset.ship ? { shipment: b.dataset.ship } : {}));
+    const cp = r.querySelector('#pucopy'); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(PU.byItemText()); toast('Copied landed cost by item'); } catch (e) { toast('Copy is blocked in this browser'); } };
+    mrBind(r);
+    if (PU.data && PU.after) PU.after();
+  };
+  async function puFetch(manual) {
+    if (PU.busy) return; PU.busy = true; PU.err = null;
+    try { PU.data = await call(PU_API + 'get_board', {}); PU.at = Date.now(); if (manual) toast('Purchasing refreshed'); }
+    catch (e) { PU.err = e.message; }
+    PU.busy = false;
+    const v = String(S.view || '');
+    if (v === 'purch') { const r = $('#puroot'); if (r) { r.innerHTML = PU.body(); PU.bind(); } const st = root.querySelector('.chev'); if (st && PU.data) st.outerHTML = stepper(CUR_M || M(), 'purch'); }
+    else if (v.startsWith('so-') && PU.data) render();
+    if (PU.data && $('#agpk') && AG.pick && AG.pick.tab === 'suggested') agPickDraw();
+  }
+  PU.mount = () => {
+    const r = $('#purefresh'); if (r) r.onclick = () => puFetch(true);
+    PU.bind();
+    if (!PU.busy && (!PU.data || Date.now() - PU.at > 120000)) puFetch();
+  };
+  V.purch = () => header('Purchasing', 'What to order, vendor quotes, purchase orders, inbound shipments, receipts, bills and landed cost. Buttons create drafts; submit in ERPNext.',
+    `<div class="toolbar no-print"><details class="pu-new"><summary class="cc-btn soft">+ New</summary><div class="pu-menu"><a target="_blank" rel="noopener" href="/app/material-request/new">Material request</a><a target="_blank" rel="noopener" href="/app/request-for-quotation/new">Request for quotation</a><a target="_blank" rel="noopener" href="/app/purchase-order/new">Purchase order</a><a target="_blank" rel="noopener" href="/app/ill-inbound-shipment/new">Inbound shipment</a></div></details>
+      <a class="cc-btn soft" style="text-decoration:none" href="/app/ill-purchasing-settings" target="_blank" rel="noopener">Settings</a><button class="cc-btn soft" id="purefresh">Refresh</button></div>`) +
+    `<div id="puroot">${PU.body()}</div>`;
+
   /* ---------------- production board (manufacturing) ----------------
      The warehouse "Schedule Wizard", live: order queue with build points, capacity burn-down,
      waiting for parts, shipped and on-time. Data: illumenate_lighting...production_board.get_board
@@ -705,7 +1083,8 @@
     D.tk.forEach(t => { if (t.sales_order) (D.tkBySO[t.sales_order] = D.tkBySO[t.sales_order] || []).push(t); if (t.quotation) (D.tkByQ[t.quotation] = D.tkByQ[t.quotation] || []).push(t); });
     D.qByName = {}; D.quotes.forEach(q => { D.qByName[q.name] = q; });
   }
-  const soPurch = so => D.purch.filter(r => r.short_firm > 0 && r.docs.some(x => x.doc === so || (x.src === 'Work Order' && woSO[x.doc] === so)));
+  const soPurch = so => puShort().filter(r => r.short_firm > 0 && (r.docs || []).some(x => x.doc === so || (x.src === 'Work Order' && woSO[x.doc] === so)));
+  const soPOs = so => PU.data ? (PU.data.pos || []).filter(p => (p.sales_orders || []).includes(so) && p.lane !== 'done') : [];
   const soWOs = so => D.mfg.filter(w => w.so === so);
   const soTodos = so => (D.byRef['Sales Order|' + so] || []);
   const soTasks = so => (D.projBySO[so] || []).flatMap(p => p.tasks.filter(t => t.status !== 'Completed'));
@@ -744,7 +1123,8 @@
       design: () => x ? [dsn.length, `${dr.length} drawing${dr.length === 1 ? '' : 's'} open`, dr.some(r => ageBd(r.creation) > 2 && r.status !== 'Waiting on Customer') ? 'warn' : 'good'] : ['…', 'loading', 'mute'],
       quotes: () => [(qr ? qr.length : p.inqOpen.length) + p.qOut.length, `${p.qOut.length} quotes out`, (qr || []).some(q => ageBd(q.creation) > 2) || p.inqOpen.some(t => t.age > 2) ? 'warn' : 'good'],
       orders: () => [D.ship.length, oi && oi.length ? `${oi.length} new request${oi.length === 1 ? '' : 's'}` : kfmt(p.soVal) + ' open', p.corr.length || (oi || []).some(o => ageBd(o.creation) > 2) ? 'warn' : 'good'],
-      purch: () => [m.firm.length, `${m.late.length} late`, m.late.length ? 'bad' : 'good'],
+      purch: () => { const u = PU.data && PU.data.summary; if (!u) return [m.firm.length, `${m.late.length} late`, m.late.length ? 'bad' : 'good'];
+        const late = (u.to_order || {}).late || 0, od = (u.pos || {}).overdue || 0; return [(u.to_order || {}).count || 0, `${late} late · ${od} PO${od === 1 ? '' : 's'} overdue`, late || od ? 'bad' : (u.to_order || {}).count ? 'warn' : 'good']; },
       mfg: () => [m.act.length, `${D.needwo.length} lines need WO`, D.needwo.length || m.dup.length ? 'warn' : 'good'],
       ship: () => [`${p.ready.length}/${D.ship.length}`, `ready · ${m.past.length} past due`, m.past.length ? 'bad' : 'good'],
       service: () => [svcOpen.length + (ar ? ar.length : 0), ar && ar.length ? `${ar.length} account request${ar.length === 1 ? '' : 's'}` : 'tickets our move', svcOpen.some(t => t.age > 2) || (ar || []).some(a => ageBd(a.creation) > 2) ? 'bad' : 'good'],
@@ -889,10 +1269,10 @@
           Drawing requests: ${PL.data ? (PL.data.reqBySO[s.so] || []).map(r => `${link('ill-document-request', r.name)} ${stBadge(r.status)}`).join(' ') || '—' : '…'}<br>
           Tasks open: ${tk.length}</div>${tk.length ? `<div style="margin-top:8px">${tk.slice(0, 5).map(t => `<div class="todo-r"><span>${avs(t.owners)}</span><span>${esc(t.subject)}</span></div>`).join('')}</div>` : ''}`, 's4')}
         ${tableCard('Order lines', `${s.lines.length} lines`, ['Item', '#Qty', '#Delivered', '#Amount', ''], s.lines.map(l => `<tr><td>${link('item', l.item, l.name || l.item)}<div class="m mono">${esc(l.item)}</div></td><td class="num">${l.qty}</td><td class="num">${l.delivered}</td><td class="num">${money(l.amount)}</td><td>${l.old ? badge('Retired code', 'warn') : ''}</td></tr>`), '', 's12')}
-        ${tableCard('Purchasing needed for this order', 'Short components for this order and its work orders', ['Item', '#Short', 'Supplier', 'Order by', 'Draft PO / MR', ''],
+        ${tableCard('Purchasing needed for this order', PU.data ? 'Short components, and the purchase orders feeding this order with their ETA' : 'Short components for this order and its work orders', ['Item', '#Short', 'Supplier', 'Order by', 'Draft PO / MR', ''],
           pur.map(r => `<tr><td>${link('item', r.item)}<div class="m">${esc(r.group || '')}</div></td><td class="num"><b>${+r.short_firm.toFixed(2)}</b></td><td>${r.supplier ? link('supplier', r.supplier) : badge('No supplier', 'warn')}</td>
             <td>${r.order_by ? (r.late ? badge('Late · ' + fmtd(r.order_by), 'bad') : fmtd(r.order_by)) : '—'}</td><td>${[r.draft_po && link('purchase-order', r.draft_po), r.mr && link('material-request', r.mr)].filter(Boolean).join('<br>') || '<span class="calc">None</span>'}</td>
-            <td class="num">${!r.draft_po && !r.mr && !r.manufactured && LOGGED ? `<button class="cc-btn soft" data-mr="${esc(r.item)}">Draft MR</button>` : ''}</td></tr>`), '', 's6')}
+            <td class="num">${!r.draft_po && !r.mr && !r.manufactured && LOGGED ? `<button class="cc-btn soft" data-mr="${esc(r.item)}">Draft MR</button>` : ''}</td></tr>`).concat(soPOs(s.so).map(p => `<tr><td colspan="3">${link('purchase-order', p.name)} <span class="small">${esc(p.supplier || '')} · ${esc(p.vendor_status || p.status || '')}</span></td><td colspan="3">${p.eta ? (p.overdue ? badge('ETA ' + fmtd(p.eta) + ' · overdue', 'bad') : p.will_miss ? badge('ETA ' + fmtd(p.eta) + ' · late for this order', 'warn') : 'ETA ' + fmtd(p.eta)) : '<span class="calc">No ETA</span>'}</td></tr>`)), '', 's6')}
         ${tableCard('Manufacturing', `${wos.filter(w => w.flag === 'Active').length} active work orders${nw.length ? ` · ${nw.length} line(s) need one` : ''}`, ['Work order', 'Item', '#Qty', 'Status'],
           wos.map(w => `<tr><td>${link('work-order', w.wo)}</td><td>${esc(w.name || w.item)}</td><td class="num">${w.qty}</td><td>${w.flag === 'Active' ? badge(w.status, w.draft ? 'warn' : 'info') : badge('Duplicate/stale', 'bad')}</td></tr>`).concat(nw.map(n => `<tr><td>${badge('Needs WO', 'bad')}</td><td>${link('item', n.item)}</td><td class="num">${n.qty}</td><td></td></tr>`)), '', 's6')}
       </div>`;
@@ -976,13 +1356,6 @@
     root.querySelectorAll('[data-linkso]').forEach(b => b.onclick = () => linkSO(b.dataset.linkso));
     root.querySelectorAll('[data-sotodo]').forEach(b => b.onclick = () => soTodo(b.dataset.sotodo));
     root.querySelectorAll('[data-qdraft]').forEach(b => b.onchange = () => { S.qdraft = b.checked; render(); });
-    root.querySelectorAll('[data-mrlow]').forEach(b => b.onclick = async () => {
-      const date = addDays(TODAY, 14); b.disabled = true; b.textContent = '…';
-      try { const res = await call('frappe.client.insert', { doc: { doctype: 'Material Request', material_request_type: 'Purchase', company: 'ilLumenate Lighting', transaction_date: TODAY, schedule_date: date, set_warehouse: 'Stores - ilL',
-          items: [{ item_code: b.dataset.mrlow, qty: +b.dataset.qty || 1, schedule_date: date, warehouse: 'Stores - ilL' }] } });
-        toast(`Draft ${esc(res.name)} created, not submitted · <a target="_blank" href="/app/material-request/${encodeURIComponent(res.name)}">Open</a>`); await load(); }
-      catch (e) { toast('Could not create: ' + esc(e.message)); b.disabled = false; b.textContent = 'Draft MR'; }
-    });
     const ch = $('#ch-pipe'); if (ch) { const ms = D.monthly; vbars(ch, ms.map(x => fmtM(x.month)), [{ name: 'Invoiced', color: '#2a78d6', values: ms.map(x => x.si) }], { fmt: kfmt, target: D.fin.goal, targetLabel: 'Target ' + kfmt(D.fin.goal), h: 220 }); }
   }
 
@@ -1391,6 +1764,72 @@
     sh.querySelectorAll('[data-unlink]').forEach(b => b.onclick = () => { const i = sh.querySelector(`[name="${b.dataset.unlink}"]`); i.value = ''; b.remove(); });
   }
 
+
+  /* ---------------- Catalog tab (v8) ----------------
+     The ERPNext Catalog Builder (/catalog-builder?embed=1) in a same-origin iframe, so the session, CSRF
+     token, permission gate and localStorage drafts are the builder's own. The iframe lives OUTSIDE #ccmain
+     (which render() replaces) and is only hidden on other tabs, so the grid, undo stack and a passing Check
+     survive switching to Inbox and back. Tab shown to ilL Catalog Publisher / System Manager (gateway
+     config.catalog.allowed); the builder page re-checks server-side. No new sync path: Check → Import. */
+  let WHO = null, WHO_BUSY = false;
+  async function whoami() {
+    if (WHO || WHO_BUSY) return; WHO_BUSY = true;
+    try { WHO = await gw('config', { lite: 1 }); } catch (e) { WHO = { catalog: { allowed: false }, err: e.message }; }
+    WHO_BUSY = false; if (D) render();
+  }
+  const catOK = () => !!(WHO && WHO.catalog && WHO.catalog.allowed);
+  const CAT = { host: null, frame: null, ready: false, dirty: false, queue: [] };
+  const CAT_SRC = '/catalog-builder?embed=1';
+  function catHost() {
+    if (CAT.host) return CAT.host;
+    const h = document.createElement('div'); h.id = 'cccatalog'; h.className = 'cc-catalog no-print';
+    const f = document.createElement('iframe'); f.src = CAT_SRC; f.title = 'Catalog Builder'; f.setAttribute('loading', 'eager');
+    h.appendChild(f); $('#ccmain').insertAdjacentElement('afterend', h);
+    CAT.host = h; CAT.frame = f; return h;
+  }
+  function catShow(on) {
+    if (!on) { if (CAT.host) CAT.host.style.display = 'none'; return; }
+    const h = catHost(); h.style.display = '';
+    try { const top = h.getBoundingClientRect().top + (window.scrollY || 0); if (top > 0) h.style.setProperty('--cat-top', Math.round(top) + 'px'); } catch (e) { }
+  }
+  function catPost(m) { try { CAT.frame.contentWindow.postMessage(m, location.origin); } catch (e) { } }
+  // messages to the builder wait until it has said "ready"
+  function catSend(msg) { const m = Object.assign({ source: 'ill-command-center' }, msg); if (CAT.ready && CAT.frame) catPost(m); else CAT.queue.push(m); }
+  function catOpen(msg) {
+    closeSheet();
+    if (!catOK()) { window.open('/catalog-builder', '_blank', 'noopener'); return; }
+    catSend(msg); location.hash = 'catalog';
+  }
+  function catNav() {
+    const a = $('#ccnav a[href="#catalog"]'); if (!a) return; const d = a.querySelector('.dot');
+    if (CAT.dirty && !d) a.insertAdjacentHTML('afterbegin', '<span class="dot warn" title="Catalog draft not imported yet"></span>');
+    if (!CAT.dirty && d) d.remove();
+  }
+  window.addEventListener('message', e => {
+    const m = e.data;
+    if (e.origin !== location.origin || !m || typeof m !== 'object' || m.source !== 'ill-catalog-builder') return;
+    if (!CAT.frame || (e.source && e.source !== CAT.frame.contentWindow)) return;
+    if (m.type === 'ready') { CAT.ready = true; CAT.queue.splice(0).forEach(catPost); }
+    else if (m.type === 'dirty') { CAT.dirty = !!m.dirty; catNav(); }
+    else if (m.type === 'imported') {
+      CAT.dirty = false; catNav();
+      toast(`Imported ${+m.created || 0} record${+m.created === 1 ? '' : 's'} to ERPNext${m.name ? ` (receipt <a target="_blank" rel="noopener" href="/app/ill-catalog-import/${encodeURIComponent(m.name)}">${esc(m.name)}</a>)` : ''}`);
+      // Workbench counts and catalog lists are stale now; the open sheet (if a catalog record) is re-read
+      WB.counts = null; WB.icounts = {}; WB.igot = {};
+      Object.keys(WB.lists).forEach(d => { const c = WB.cfg && WB.cfg.doctypes[d]; if (c && (c.builder || (c.sections || []).some(k => /^ill_/.test(k)))) WB.lists[d].loaded = false; });
+      if (WB.sheet && $('#ccsheet2').classList.contains('on')) wbOpen(WB.sheet.dt, WB.sheet.name);
+    }
+  });
+  window.addEventListener('beforeunload', e => { if (CAT.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  V.catalog = () => WHO ? `<div class="ph-h cat-h"><div><h1>Catalog Builder</h1><p>Builds sync to ERPNext through Check → Import, with the same permissions and audit receipts as the standalone builder. Drafts are kept in this browser and carry over to full screen.</p></div>
+      <div class="toolbar no-print"><a class="cc-btn soft" style="text-decoration:none" href="/catalog-builder" target="_blank" rel="noopener">Open full screen ↗</a><a class="cc-btn soft" style="text-decoration:none" href="/app/ill-catalog-import" target="_blank" rel="noopener">Import history</a><button class="cc-btn soft" id="catreload">Reload builder</button></div></div>`
+    : '<div class="cc-loading"><span class="cc-spin"></span>Checking catalog access…</div>';
+  function catBind() {
+    const b = $('#catreload'); if (!b) return;
+    b.onclick = () => { if (CAT.dirty && !confirm('Reload the builder? Your draft is kept in this browser, but undo history and the last Check are lost.')) return;
+      CAT.ready = false; CAT.dirty = false; catNav(); try { CAT.frame.contentWindow.location.reload(); } catch (e) { CAT.frame.src = CAT_SRC; } };
+  }
+
   /* ---------------- render ---------------- */
   const agNavCount = () => { const m = (AG.list || []).find(x => x.name === agDefault()); return m && m.status === 'Open' && m.open ? m.open : null; };
   let WORK_SEG = false;
@@ -1401,12 +1840,13 @@
     if (REDIRECT[S.view]) { S.view = REDIRECT[S.view]; history.replaceState(null, '', '#' + S.view); }
     let v = S.view; const so = v.startsWith('so-') ? decodeURIComponent(v.slice(3)) : null, pid = v.startsWith('p-') ? v.slice(2) : null;
     const dsid = v.startsWith('design/') ? decodeURIComponent(v.slice(7)) : null;
-    const known = PIPE.concat(['inbox', 'finance', 'work', 'tasks', 'rec', 'exec', 'review']);
+    const known = PIPE.concat(['inbox', 'finance', 'work', 'tasks', 'rec', 'exec', 'review', 'catalog']);
+    if (v === 'catalog' && WHO && !catOK()) { v = S.view = 'pipeline'; history.replaceState(null, '', '#pipeline'); }
     if (!so && !pid && !dsid && !known.includes(v) && !wbIsView() && !agIsView()) { v = S.view = 'pipeline'; }
     if (plIsView() && ((!PL.data && !PL.err) || PL.stale)) { PL.stale = false; plLoad(true); }
     const group = wbIsView() ? 'wb' : agIsView() ? 'agenda' : so || dsid || PIPE.includes(v) ? 'pipeline' : (pid || v === 'work' || v === 'tasks') ? 'work' : v;
     const TOP = [['pipeline', 'Sales pipeline', null, null], ['exec', 'Executive', null, null], ['inbox', 'Inbox', m.tOpen.length, m.tOld.length > 3 ? 'bad' : m.tOld.length ? 'warn' : 'good'],
-      ['finance', 'Finance', null, D.fin.mtd >= m.goalPace ? 'good' : 'warn'], ['work', 'Projects & tasks', m.overdue.length, m.overdue.length ? 'warn' : 'good'], ['review', 'Review', null, null], ['agenda', 'Agenda', agNavCount(), null], ['wb', 'Workbench', null, null], ['rec', 'Recommendations', null, 'info']];
+      ['finance', 'Finance', null, D.fin.mtd >= m.goalPace ? 'good' : 'warn'], ['work', 'Projects & tasks', m.overdue.length, m.overdue.length ? 'warn' : 'good'], ['review', 'Review', null, null], ['agenda', 'Agenda', agNavCount(), null], ['wb', 'Workbench', null, null]].concat(catOK() ? [['catalog', 'Catalog', null, CAT.dirty ? 'warn' : null]] : []).concat([['rec', 'Recommendations', null, 'info']]);
     $('#ccnav').innerHTML = TOP.map(([k, n, c, s]) => `<a class="cc-tab ${group === k ? 'on' : ''}" href="#${k}">${s ? `<span class="dot ${s}"></span>` : ''}${n}${c ? `<span class="ct">${c}</span>` : ''}</a>`).join('');
     CUR_M = m; CUR_STEP = dsid ? 'design' : (PIPE.includes(v) && !so) ? v : null; WORK_SEG = group === 'work' && !pid; CUR_LINKS = so ? 'so' : pid ? 'project' : dsid ? 'design' : v;
     let html;
@@ -1417,12 +1857,15 @@
     else if (agIsView()) html = AG.html();
     else if (v === 'exec') html = EX.html();
     else if (v === 'review') html = RV.html();
-    else if (v === 'purch') html = V.purch(m) + `<div class="grid" style="margin-top:20px">${V.purch_low()}</div>`;
+    else if (v === 'catalog') html = V.catalog();
+    else if (v === 'purch') html = V.purch(m);
     else html = ({ inbox: V.inbox, finance: V.fin, tasks: V.tasks })[v] ? ({ inbox: V.inbox, finance: V.fin, tasks: V.tasks })[v](m) : V[v](m);
     CUR_STEP = null; WORK_SEG = false; CUR_LINKS = null;
     $('#ccmain').innerHTML = html;
+    catShow(v === 'catalog' && catOK()); if (v === 'catalog') { catBind(); if (!WHO) whoami(); }
     bind(); bindProjects(); bindPipe(); bindStages(); if (wbIsView()) WB.mount();
-    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount(); if (v === 'mfg') PB.mount(); if (agIsView()) AG.mount();
+    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount(); if (v === 'mfg') PB.mount(); if (v === 'purch') PU.mount(); if (agIsView()) AG.mount();
+    if (so && !PU.data && !PU.busy && !PU.err) puFetch();
     root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { location.hash = b.dataset.go; });
   }
   function bind() {
@@ -1437,16 +1880,20 @@
       try { for (const id of b.dataset.done.split(',')) await call('frappe.client.set_value', { doctype: 'ToDo', name: id, fieldname: 'status', value: 'Closed' }); toast('Marked done in ERPNext'); await load(); }
       catch (e) { toast('Could not close: ' + esc(e.message)); b.disabled = false; b.textContent = '✓ Done'; }
     });
-    root.querySelectorAll('[data-mr]').forEach(b => b.onclick = async () => {
-      const r = D.purch.find(x => x.item === b.dataset.mr); if (!r) return;
-      const date = r.need_by && r.need_by > TODAY ? r.need_by : addDays(TODAY, r.lead || 14);
+    mrBind(root);
+  }
+  // "Draft MR" buttons (shortage rows and low-stock rows): one draft Material Request through the purchasing
+  // board endpoint (company and warehouse come from ilL-Purchasing-Settings). Nothing is submitted.
+  function mrBind(scope) {
+    const go = async (b, item, qty, date) => {
       b.disabled = true; b.textContent = '…';
-      try {
-        const res = await call('frappe.client.insert', { doc: { doctype: 'Material Request', material_request_type: 'Purchase', company: 'ilLumenate Lighting', transaction_date: TODAY, schedule_date: date, set_warehouse: 'Stores - ilL',
-          items: [{ item_code: r.item, qty: Math.ceil(r.short_firm), schedule_date: date, warehouse: 'Stores - ilL' }] } });
-        toast(`Draft ${esc(res.name)} created, not submitted · <a target="_blank" href="/app/material-request/${encodeURIComponent(res.name)}">Open</a>`); await load();
-      } catch (e) { toast('Could not create: ' + esc(e.message)); b.disabled = false; b.textContent = 'Draft MR'; }
-    });
+      try { const res = await puPost('draft_material_request', { items: [{ item, qty, schedule_date: date }] });
+        toast(`Draft ${esc(res.name)} created, not submitted · <a target="_blank" href="/app/material-request/${encodeURIComponent(res.name)}">Open</a>`); if (S.view === 'purch') puFetch(); else await load(); }
+      catch (e) { toast('Could not create: ' + esc(e.message)); b.disabled = false; b.textContent = 'Draft MR'; }
+    };
+    scope.querySelectorAll('[data-mr]').forEach(b => b.onclick = () => { const r = puShort().find(x => x.item === b.dataset.mr); if (!r) return;
+      go(b, r.item, Math.ceil(r.short_firm > 0 ? r.short_firm : r.short_all || 1), r.need_by && r.need_by > TODAY ? r.need_by : addDays(TODAY, r.lead || 14)); });
+    scope.querySelectorAll('[data-mrlow]').forEach(b => b.onclick = () => go(b, b.dataset.mrlow, +b.dataset.qty || 1, addDays(TODAY, 14)));
   }
   const addDays = (d, n) => { const t = new Date(d + 'T12:00'); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); };
   async function call(method, args) {
@@ -1485,14 +1932,21 @@
      Talks only to the role-gated Server Script "ilL Command Center Gateway" (ill_cc_gateway).
      Nothing is submitted, cancelled or deleted from here. */
   const GW = 'ill_cc_gateway';
-  const WB = { cfg: null, cfgErr: null, cfgBusy: false, lists: {}, counts: null, cbusy: false, metas: {}, dt: null };
+  const WB = { cfg: null, cfgErr: null, cfgBusy: false, lists: {}, counts: null, cbusy: false, metas: {}, dt: null,
+    area: 'pipeline', icounts: {}, igot: {}, iq: '', from: null, sheet: null };
+  try { if (localStorage.getItem('cc.wb.area.' + USER) === 'ill') WB.area = 'ill'; } catch (e) { }
   const gw = (action, args) => call(GW, Object.assign({ action }, args || {}));
   const wbIsView = () => String(S.view || '').split('/')[0] === 'wb';
-  const wbRoute = v => { const p = String(v || '').split('/'); return p[1] ? decodeURIComponent(p[1]) : null; };
+  // #wb (last area used), #wb/~pipeline, #wb/~ill, #wb/<doctype>[/<status>]
+  const wbRoute = v => { const p = String(v || '').split('/'); return p[1] && p[1][0] !== '~' ? decodeURIComponent(p[1]) : null; };
+  const wbAreaOf = v => { const p = String(v || '').split('/')[1]; return p === '~ill' ? 'ill' : p === '~pipeline' ? 'pipeline' : null; };
+  const wbSecs = info => (info && (info.sections || [info.section])) || [];
   const wbLabel = dt => String(dt).replace(/^ilL-/, '').replace(/-/g, ' ');
   const wbPlain = v => String(v == null ? '' : v).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   const wbKind = s => {
     s = String(s || '');
+    if (/^inactive$/i.test(s)) return 'mute';
+    if (/^active$/i.test(s)) return 'good';
     if (/cancel|reject|lost|expire|stop|overdue|block|fail|spam/i.test(s)) return 'bad';
     if (/complet|paid|closed|resolv|deliver|approv|won|done|ordered|received|submitted/i.test(s)) return 'good';
     if (/draft|open|pend|hold|partly|^to |unpaid|repl|wait|working|new|review/i.test(s)) return 'warn';
@@ -1514,31 +1968,67 @@
     const t = wbPlain(v); return esc(t.length > 70 ? t.slice(0, 70) + '…' : t);
   }
 
-  /* ---- landing: one card per stage ---- */
+  /* ---- landing: Pipeline (one card per stage) or ilLumenate (one card per app doctype group) ---- */
+  const wbAreaSeg = () => `<div class="seg wb-area no-print"><button data-wbarea="pipeline" class="${WB.area !== 'ill' ? 'on' : ''}">Pipeline</button><button data-wbarea="ill" class="${WB.area === 'ill' ? 'on' : ''}">ilLumenate</button></div>`;
+  const wbDtBtn = (d, sec, n) => `<button class="wb-dt" data-wbdt="${esc(d)}" data-wbfrom="${esc(sec)}"><span>${esc(wbLabel(d))}</span><span class="ct" data-wbct="${esc(d)}">${n == null ? '…' : n}</span></button>`;
   function wbLanding() {
-    const cfg = WB.cfg, byS = {};
-    Object.keys(cfg.doctypes).forEach(d => { (byS[cfg.doctypes[d].section] = byS[cfg.doctypes[d].section] || []).push(d); });
-    const cards = cfg.sections.map(s => {
-      const dts = byS[s.key] || [];
+    const cfg = WB.cfg;
+    if (WB.area === 'ill') return wbIllLanding();
+    const cards = cfg.sections.filter(s => (s.area || 'pipeline') === 'pipeline').map(s => {
+      const dts = Object.keys(cfg.doctypes).filter(d => wbSecs(cfg.doctypes[d]).includes(s.key));
       if (s.locked) return `<div class="card wb-card locked"><div class="wb-card-h"><h3>${esc(s.label)}</h3><span class="badge mute">🔒 Locked</span></div><p class="small">Needs the <b>${esc(s.needs)}</b> role. Ask Kevin.</p></div>`;
       if (!dts.length) return '';
       return `<div class="card wb-card"><div class="wb-card-h"><h3>${esc(s.label)}</h3></div>
-        ${dts.map(d => { const n = WB.counts ? WB.counts[d] : null; return `<button class="wb-dt" data-wbdt="${esc(d)}"><span>${esc(wbLabel(d))}</span><span class="ct">${n == null ? '…' : n}</span></button>`; }).join('')}</div>`;
+        ${dts.map(d => wbDtBtn(d, s.key, WB.counts ? WB.counts[d] : null)).join('')}</div>`;
     }).join('');
     return `<div class="wb-head"><div><h1>Workbench</h1><p>Every doctype behind each stage in one place. Pick one to browse, open, edit or add records.</p></div>
-      ${cfg.can_edit ? '<span class="badge good">Editor</span>' : '<span class="badge mute">View only</span>'}</div><div class="wb-grid">${cards}</div>`;
+      ${cfg.can_edit ? '<span class="badge good">Editor</span>' : '<span class="badge mute">View only</span>'}</div>${wbAreaSeg()}<div class="wb-grid">${cards}</div>`;
+  }
+  function wbIllCards() {
+    const cfg = WB.cfg, q = WB.iq.toLowerCase();
+    const cards = cfg.sections.filter(s => s.area === 'ill').map(s => {
+      const all = Object.keys(cfg.doctypes).filter(d => wbSecs(cfg.doctypes[d]).includes(s.key)), dts = all.filter(d => !q || wbLabel(d).toLowerCase().includes(q) || d.toLowerCase().includes(q));
+      if (s.locked) return q ? '' : `<div class="card wb-card locked"><div class="wb-card-h"><h3>${esc(s.label)}</h3><span class="badge mute">🔒 Locked</span></div><p class="small">Needs the <b>${esc(s.needs)}</b> role.</p></div>`;
+      if (!dts.length) return '';
+      return `<div class="card wb-card" data-wbgroup="${esc(s.key)}"><div class="wb-card-h"><h3>${esc(s.label)}</h3><span class="small">${all.length}</span></div>
+        ${dts.map(d => wbDtBtn(d, s.key, WB.icounts[d])).join('')}</div>`;
+    }).join('');
+    const st = (cfg.settings || []).filter(x => !q || x.doctype.toLowerCase().includes(q));
+    const set = st.length ? `<div class="card wb-card"><div class="wb-card-h"><h3>Settings</h3><span class="small">opens in ERPNext</span></div>${st.map(x => `<a class="wb-dt" target="_blank" rel="noopener" href="${esc(x.url)}"><span>${esc(wbLabel(x.doctype))}</span><span class="ct">↗</span></a>`).join('')}</div>` : '';
+    return (cards + set) || '<div class="empty">No doctype matches.</div>';
+  }
+  function wbIllLanding() {
+    return `<div class="wb-head"><div><h1>Workbench · ilLumenate</h1><p>Every app doctype, grouped like the desk workspace: templates, specs, attributes, maps, configured products, portal, publishing and logs. Templates, specs and maps are created in the Catalog Builder.</p></div>
+      ${WB.cfg.can_edit ? '<span class="badge good">Editor</span>' : '<span class="badge mute">View only</span>'}</div>${wbAreaSeg()}
+      <div class="wb-bar"><input type="search" id="wbillq" placeholder="Filter doctypes…" value="${esc(WB.iq)}" aria-label="Filter doctypes"></div><div class="wb-grid" id="wbillgrid">${wbIllCards()}</div>`;
+  }
+  // counts for the ilLumenate landing: one call per group, when its card first comes into view
+  function wbICounts(scope) {
+    const fetchGroup = async key => {
+      if (WB.igot[key]) return; WB.igot[key] = 'busy';
+      try { const c = (await gw('counts', { area: 'ill', section: key })).counts || {}; Object.keys(c).forEach(d => { WB.icounts[d] = c[d] == null ? '—' : c[d]; }); WB.igot[key] = 'done'; }
+      catch (e) { WB.igot[key] = null; }
+      const r = $('#wbroot'); if (r) r.querySelectorAll(`[data-wbgroup="${key}"] [data-wbct]`).forEach(el => { const n = WB.icounts[el.dataset.wbct]; el.textContent = n == null ? '—' : n; });
+    };
+    const cards = [...(scope || root).querySelectorAll('[data-wbgroup]')].filter(c => !WB.igot[c.dataset.wbgroup]);
+    if (!cards.length) return;
+    if (typeof IntersectionObserver === 'function') {
+      const io = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { io.unobserve(en.target); fetchGroup(en.target.dataset.wbgroup); } }), { rootMargin: '200px' });
+      cards.forEach(c => io.observe(c));
+    } else cards.forEach(c => fetchGroup(c.dataset.wbgroup));
   }
 
   /* ---- list view: header + toolbar (static) and #wbdata (redrawn on every fetch) ---- */
   function wbListShell(dt) {
-    const cfg = WB.cfg, info = cfg.doctypes[dt], L = wbL(dt);
-    const sib = Object.keys(cfg.doctypes).filter(d => cfg.doctypes[d].section === info.section);
-    const sec = cfg.sections.find(s => s.key === info.section) || {};
-    return `<div class="wb-crumb"><a href="#wb">Workbench</a><span>›</span>${esc(sec.label || info.section)}</div>
+    const cfg = WB.cfg, info = cfg.doctypes[dt], L = wbL(dt), secs = wbSecs(info);
+    const from = WB.from && WB.from.dt === dt && secs.includes(WB.from.sec) ? WB.from.sec : WB.area === 'ill' ? (secs.find(k => /^ill_/.test(k)) || info.section) : info.section;
+    const sec = cfg.sections.find(s => s.key === from) || {}, ill = sec.area === 'ill';
+    const sib = Object.keys(cfg.doctypes).filter(d => wbSecs(cfg.doctypes[d]).includes(from));
+    return `<div class="wb-crumb"><a href="#wb/${ill ? '~ill' : '~pipeline'}">${ill ? 'Workbench · ilLumenate' : 'Workbench'}</a><span>›</span>${esc(sec.label || from)}${info.read_only ? ' ' + badge('Read-only here', 'mute') : ''}</div>
       <div class="wb-head"><div><h1>${esc(wbLabel(dt))}</h1></div>
         <div class="wb-actions"><a class="cc-btn soft" target="_blank" rel="noopener" href="${wbListUrl(dt)}" style="text-decoration:none">Open in ERPNext</a>
-        ${info.can_create ? `<button class="cc-btn primary" id="wbnew">+ New ${esc(wbLabel(dt))}</button>` : ''}</div></div>
-      ${sib.length > 1 ? `<div class="seg wb-sib">${sib.map(d => `<button data-wbdt="${esc(d)}" class="${d === dt ? 'on' : ''}">${esc(wbLabel(d))}</button>`).join('')}</div>` : ''}
+        ${info.can_create ? `<button class="cc-btn primary" id="wbnew">+ New ${esc(wbLabel(dt))}${info.create === 'builder' ? ' in Catalog Builder' : ''}</button>` : ''}</div></div>
+      ${sib.length > 1 ? `<div class="seg wb-sib">${sib.map(d => `<button data-wbdt="${esc(d)}" data-wbfrom="${esc(from)}" class="${d === dt ? 'on' : ''}">${esc(wbLabel(d))}</button>`).join('')}</div>` : ''}
       <div class="wb-bar"><input type="search" id="wbq" placeholder="Search ${esc(wbLabel(dt))}…" value="${esc(L.search)}">${viewsBar('wb:' + dt)}</div>
       <div id="wbdata"></div>`;
   }
@@ -1631,30 +2121,48 @@
   }
   async function wbMeta(dt) { return WB.metas[dt] || (WB.metas[dt] = await gw('meta', { dt })); }
   function wbItems(doc) {
-    const pref = ['item_code', 'item_name', 'qty', 'uom', 'rate', 'amount'];
+    const pref = ['item_code', 'item_name', 'qty', 'uom', 'rate', 'amount']; WB.itemsKey = null;
     for (const k of Object.keys(doc)) {
       const a = doc[k]; if (!Array.isArray(a) || !a.length || typeof a[0] !== 'object' || !('item_code' in a[0])) continue;
+      WB.itemsKey = k;
       const cs = pref.filter(c => c in a[0] && !(c === 'item_name' && 'item_code' in a[0] && a[0].item_name === a[0].item_code));
       return `<div class="wb-sec">Line items</div><div class="card flush"><table class="wb-table"><thead><tr>${cs.map(c => `<th>${esc(c.replace('_', ' '))}</th>`).join('')}</tr></thead><tbody>${a.slice(0, 8).map(r => `<tr>${cs.map(c => `<td>${['rate', 'amount'].includes(c) ? money(Number(r[c])) : esc(r[c] == null ? '' : r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table>${a.length > 8 ? `<div class="empty">+ ${a.length - 8} more · open in ERPNext to see all</div>` : ''}</div>`;
     }
     return '';
   }
+  // C5: child tables, read-only (the gateway sends the first 25 rows and the child's list columns)
+  function wbTables(g, dt, name) {
+    const ts = (g.tables || []).filter(t => t.fieldname !== WB.itemsKey); if (!ts.length) return '';
+    return `<div class="wb-sec">Child tables (read-only)</div>` + ts.map(t => `<details class="wb-ctab" ${t.count && ts.length < 3 ? 'open' : ''}><summary>${esc(t.label)} <b>${t.count}</b></summary>${t.count ? `<div class="card flush"><table class="wb-table"><thead><tr>${t.columns.map(c => `<th>${esc(c.label)}</th>`).join('') || '<th>Row</th>'}</tr></thead><tbody>${t.rows.map((r, i) => `<tr>${t.columns.map(c => `<td>${wbCell(c, r[c.fieldname])}</td>`).join('') || `<td>${i + 1}</td>`}</tr>`).join('')}</tbody></table>
+      ${t.count > t.rows.length ? `<div class="empty">+ ${t.count - t.rows.length} more, <a target="_blank" rel="noopener" href="${docUrl(dt, name)}">open in ERPNext</a></div>` : ''}</div>` : '<div class="small" style="padding:4px 0 8px">No rows</div>'}</details>`).join('')
+      + `<p class="small">${g.builder && catOK() ? 'Change these rows in the Catalog Builder (Edit in Catalog Builder below) or in ERPNext.' : 'Change these rows in ERPNext.'}</p>`;
+  }
   async function wbOpen(dt, name) {
+    WB.sheet = { dt, name };
     const el = wbShowSheet('<div class="cc-loading"><span class="cc-spin"></span>Loading…</div>', '', esc(name));
     try {
       const [g, meta] = await Promise.all([gw('get', { dt, name }), wbMeta(dt)]);
       const doc = g.doc, L = wbL(dt), cols = (L.cols || WB.cfg.doctypes[dt].columns);
       const canEdit = g.editable && meta.fields.length;
-      const why = !WB.cfg.can_edit ? 'View only. Ask Kevin for the Command Center Editor role to edit.' : doc.docstatus !== 0 ? 'Submitted or cancelled, so it is read-only here. Open it in ERPNext to amend.' : '';
+      const why = g.read_only ? 'A generated or audit record, so it is read-only here.' : !WB.cfg.can_edit ? 'View only. Ask Kevin for the Command Center Editor role to edit.' : doc.docstatus !== 0 ? 'Submitted or cancelled, so it is read-only here. Open it in ERPNext to amend.' : '';
+      const tog = g.status_kind === 'bool' && g.editable ? `<button class="cc-btn soft" type="button" id="wbtoggle" data-on="${doc.is_active ? 1 : 0}">${doc.is_active ? 'Deactivate' : 'Activate'}</button>` : '';
+      const bld = g.builder && catOK() ? '<button class="cc-btn soft" type="button" id="wbbuilder">Edit in Catalog Builder</button>' : '';
       const kv = cols.filter(c => c.fieldname !== 'name' && !(c.fieldname === 'status' && doc.status)).map(c => `<div class="wb-kv"><span>${esc(c.label)}</span><b>${wbCell(c, doc[c.fieldname])}</b></div>`).join('');
       const req = meta.fields.filter(f => f.reqd), opt = meta.fields.filter(f => !f.reqd);
       const form = canEdit ? `<div class="wb-sec">Edit</div>${req.map(f => wbField(f, doc[f.fieldname])).join('')}${opt.length ? `<details class="wb-more-f"><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, doc[f.fieldname])).join('')}</details>` : ''}` : (why ? `<p class="wb-note">${esc(why)}</p>` : '');
       const aud = g.audit.length ? `<div class="wb-sec">Recent changes from the Command Center</div><ul class="wb-audit">${g.audit.map(a => `<li><span>${fmtd(a.creation)}</span> ${esc(wbPlain(a.content).replace(/^Command Center:\s*/, ''))}</li>`).join('')}</ul>` : '';
-      const sh = wbShowSheet(`<div class="wb-kvs">${kv}</div>${wbItems(doc)}${form}${aud}<p class="cc-msg" id="wbMsg"></p>
-        <div class="cc-sheet-f wb-foot"><a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl(dt, name)}" style="text-decoration:none">Open in ERPNext</a>${WB.cfg.can_edit && !agIsView() ? '<button class="cc-btn soft" type="button" id="wbagenda">+ Add to agenda</button>' : ''}<span style="flex:1"></span>${canEdit ? '<button class="cc-btn primary" type="submit" id="wbsave">Save changes</button>' : ''}</div>`,
-        `${esc(wbLabel(dt))}${doc.status ? ' · ' + badge(doc.status, wbKind(doc.status)) : ''}`, esc(name));
+      const items = wbItems(doc);
+      const sh = wbShowSheet(`<div class="wb-kvs">${kv}</div>${items}${wbTables(g, dt, name)}${form}${aud}<p class="cc-msg" id="wbMsg"></p>
+        <div class="cc-sheet-f wb-foot"><a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl(dt, name)}" style="text-decoration:none">Open in ERPNext</a>${bld}${tog}${WB.cfg.can_edit && !agIsView() ? '<button class="cc-btn soft" type="button" id="wbagenda">+ Add to agenda</button>' : ''}<span style="flex:1"></span>${canEdit ? '<button class="cc-btn primary" type="submit" id="wbsave">Save changes</button>' : ''}</div>`,
+        `${esc(wbLabel(dt))}${doc.status ? ' · ' + badge(doc.status, wbKind(doc.status)) : ''}${g.read_only ? ' · ' + badge('Read-only here', 'mute') : ''}`, esc(name));
       const f = sh.querySelector('#wbform'); wbLinks(f);
       const ab = sh.querySelector('#wbagenda'); if (ab) ab.onclick = () => agQuick(dt, name, doc, ab);
+      const bb = sh.querySelector('#wbbuilder'); if (bb) bb.onclick = () => catOpen({ type: 'open', records: [{ doctype: dt, name }] });
+      const tb = sh.querySelector('#wbtoggle'); if (tb) tb.onclick = async () => {
+        const on = tb.dataset.on === '1' ? 0 : 1; tb.disabled = true;
+        try { await gw('save', { dt, name, values: { is_active: on } }); toast(`${esc(name)} ${on ? 'activated' : 'deactivated'}`); wbFetch(dt, false); wbOpen(dt, name); }
+        catch (err) { sh.querySelector('#wbMsg').textContent = 'Not saved: ' + err.message; tb.disabled = false; }
+      };
       f.onsubmit = async e => {
         e.preventDefault(); if (!canEdit) return;
         const vals = wbCollect(f, meta.fields, doc), msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave');
@@ -1666,12 +2174,17 @@
     } catch (e) { wbShowSheet(`<p class="cc-msg">Couldn't open ${esc(name)}: ${esc(e.message)}</p>`, '', esc(name)); }
   }
   async function wbNew(dt) {
+    const info = (WB.cfg && WB.cfg.doctypes[dt]) || {};
+    if (info.create === 'builder') {
+      if (catOK()) { catOpen({ type: 'new', doctype: dt }); toast(`New ${esc(wbLabel(dt))}: opened in the Catalog Builder, so it gets a Check and an import receipt`); return; }
+      wbShowSheet(`<div class="wb-banner">${esc(wbLabel(dt))} records are created in the Catalog Builder so every change is checked and logged. It needs the ilL Catalog Publisher role.</div>`, '', 'New ' + esc(wbLabel(dt))); return;
+    }
     wbShowSheet('<div class="cc-loading"><span class="cc-spin"></span>Loading…</div>', '', 'New ' + esc(wbLabel(dt)));
     try {
-      const meta = await wbMeta(dt), blocked = meta.required_tables.length > 0;
+      const meta = await wbMeta(dt), blocked = meta.required_tables.length > 0, prompt = String(meta.autoname || '').toLowerCase() === 'prompt';
       const req = meta.fields.filter(f => f.reqd), opt = meta.fields.filter(f => !f.reqd);
       const sh = wbShowSheet(`${blocked ? `<div class="wb-banner">This needs line items (${esc(meta.required_tables.join(', '))}), which are added in ERPNext. <a target="_blank" rel="noopener" href="/app/${slug(dt)}/new">Create it in ERPNext ›</a></div>` : ''}
-        ${blocked ? '' : `${req.map(f => wbField(f, f.default)).join('')}${opt.length ? `<details class="wb-more-f" ${req.length ? '' : 'open'}><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, f.default)).join('')}</details>` : ''}
+        ${blocked ? '' : `${prompt ? '<label class="cc-field"><span>Name <i class="wb-req">*</i></span><input type="text" name="__newname" autocomplete="off"></label>' : ''}${req.map(f => wbField(f, f.default)).join('')}${opt.length ? `<details class="wb-more-f" ${req.length ? '' : 'open'}><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, f.default)).join('')}</details>` : ''}
         <p class="cc-msg" id="wbMsg"></p><div class="cc-sheet-f"><button class="cc-btn primary" type="submit" id="wbsave">Create draft</button></div>`}`,
         'Saved as a draft in ERPNext. Nothing is submitted.', 'New ' + esc(wbLabel(dt)));
       const f = sh.querySelector('#wbform'); wbLinks(f);
@@ -1679,6 +2192,7 @@
         e.preventDefault(); if (blocked) return;
         const msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave'), vals = wbCollect(f, meta.fields, null);
         const miss = req.filter(r => vals[r.fieldname] === undefined).map(r => r.label || r.fieldname);
+        if (prompt) { const nn = String(f.elements.__newname.value || '').trim(); if (!nn) miss.unshift('Name'); else vals.__newname = nn; }
         if (miss.length) { msg.textContent = 'Fill in: ' + miss.join(', '); return; }
         b.disabled = true; b.textContent = 'Creating…'; msg.textContent = '';
         try { const r = await gw('create', { dt, values: vals }); closeSheet(); toast(`Created draft ${esc(r.name)} · <a target="_blank" rel="noopener" href="${docUrl(dt, r.name)}">Open</a>`); WB.counts = null; wbFetch(dt, false); }
@@ -1697,7 +2211,10 @@
   function wbBind() {
     const r = $('#wbroot'); if (!r) return;
     bindSV();
-    r.querySelectorAll('[data-wbdt]').forEach(b => b.onclick = () => { location.hash = 'wb/' + encodeURIComponent(b.dataset.wbdt); });
+    r.querySelectorAll('[data-wbdt]').forEach(b => b.onclick = () => { WB.from = { dt: b.dataset.wbdt, sec: b.dataset.wbfrom || null }; location.hash = 'wb/' + encodeURIComponent(b.dataset.wbdt); });
+    r.querySelectorAll('[data-wbarea]').forEach(b => b.onclick = () => { location.hash = 'wb/~' + b.dataset.wbarea; });
+    const iq = r.querySelector('#wbillq'); if (iq) iq.oninput = () => { WB.iq = iq.value.trim(); const g = r.querySelector('#wbillgrid'); if (g) { g.innerHTML = wbIllCards(); g.querySelectorAll('[data-wbdt]').forEach(b => b.onclick = () => { WB.from = { dt: b.dataset.wbdt, sec: b.dataset.wbfrom || null }; location.hash = 'wb/' + encodeURIComponent(b.dataset.wbdt); }); wbICounts(g); } };
+    if (!WB.dt && WB.area === 'ill' && WB.cfg) wbICounts(r);
     const n = r.querySelector('#wbnew'); if (n) n.onclick = () => wbNew(WB.dt);
     const q = r.querySelector('#wbq'); if (q) { let t; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { const L = wbL(WB.dt); L.search = q.value.trim(); wbFetch(WB.dt, false); }, 300); }; }
     wbData();
@@ -1705,7 +2222,7 @@
   async function wbCounts() {
     if (WB.cbusy || !WB.cfg) return; WB.cbusy = true; let c = {};
     try { c = (await gw('counts')).counts || {}; Object.keys(c).forEach(k => { if (c[k] == null) c[k] = '—'; }); }
-    catch (e) { await Promise.all(Object.keys(WB.cfg.doctypes).map(async d => { try { c[d] = (await gw('list', { dt: d, limit: 1 })).total; } catch (e2) { c[d] = '—'; } })); }
+    catch (e) { await Promise.all(Object.keys(WB.cfg.doctypes).filter(d => wbSecs(WB.cfg.doctypes[d]).some(k => !/^ill_/.test(k))).map(async d => { try { c[d] = (await gw('list', { dt: d, limit: 1 })).total; } catch (e2) { c[d] = '—'; } })); }
     WB.counts = c; WB.cbusy = false; if (wbIsView() && !WB.dt) { const r = $('#wbroot'); if (r) { r.innerHTML = wbBody(); wbBind(); } }
   }
   async function wbEnsure() {
@@ -1714,10 +2231,11 @@
     const r = $('#wbroot'); if (r && !r.dataset.drawn) { r.innerHTML = wbBody(); wbBind(); }
     if (!WB.cfg) return;
     if (WB.dt && WB.cfg.doctypes[WB.dt]) { const L = wbL(WB.dt); if (!L.loaded && !L.loading) wbFetch(WB.dt, false); }
-    else if (!WB.dt && !WB.counts) wbCounts();
+    else if (!WB.dt && WB.area !== 'ill' && !WB.counts) wbCounts();
   }
   WB.html = v => {
-    WB.dt = wbRoute(v); const pre = String(v || '').split('/')[2];
+    WB.dt = wbRoute(v); const pre = String(v || '').split('/')[2], area = wbAreaOf(v);
+    if (area) { WB.area = area; try { localStorage.setItem('cc.wb.area.' + USER, area); } catch (e) { } }
     if (WB.dt && pre !== undefined && WB.preApplied !== v) { WB.preApplied = v; const L = wbL(WB.dt), st = decodeURIComponent(pre); if (L.status !== st) { L.status = st; L.loaded = false; L.rows = []; } }
     return `<div id="wbroot" ${WB.cfg || WB.cfgErr ? 'data-drawn="1"' : ''}>${wbBody()}</div>`; };
   WB.mount = () => { wbBind(); wbEnsure(); };
@@ -2150,6 +2668,14 @@
     groups.push(['Quotes expiring this week', D.quotes.filter(q => q.docstatus === 1 && q.status === 'Open' && q.valid_till && String(q.valid_till) >= TODAY && String(q.valid_till) <= in7).map(q => ({ dt: 'Quotation', name: q.name, title: 'Quotation ' + q.name + (q.party_name ? ' · ' + q.party_name : ''),
       sub: `Expires ${fmtd(q.valid_till)} · ${money(q.base_net_total)}` }))]);
     groups.push(['Tickets waiting over 2 days', m.tOld.map(t => ({ dt: 'HD Ticket', name: t.name, title: t.subject || 'Ticket ' + t.name, sub: `Waiting ${t.age} days${t.type ? ' · ' + t.type : ''}` }))]);
+    // purchasing (v8): from the purchasing board once it has loaded (fetched in the background otherwise)
+    if (!PU.data && !PU.busy && !PU.err) puFetch();
+    if (PU.data) {
+      const X = PU.data, warn = (X.settings || {}).vendor_confirm_warn_days || 3, sentBy = addDays(X.today, -warn);
+      groups.push(['Purchase orders overdue', (X.pos || []).filter(p => p.overdue).map(p => ({ dt: 'Purchase Order', name: p.name, title: 'Purchase Order ' + p.name + (p.supplier ? ' · ' + p.supplier : ''), sub: `ETA ${fmtd(p.eta)} passed · ${money(p.amount)}` }))]);
+      groups.push(['POs the vendor hasn\'t confirmed', (X.pos || []).filter(p => p.lane === 'awaiting_confirmation' && p.sent_on && p.sent_on <= sentBy).map(p => ({ dt: 'Purchase Order', name: p.name, title: 'Purchase Order ' + p.name + (p.supplier ? ' · ' + p.supplier : ''), sub: `Sent ${fmtd(p.sent_on)}, not confirmed` }))]);
+      groups.push(['Shipments waiting for landed cost', (X.shipments || []).filter(x => x.needs_lcv).map(x => ({ dt: 'ilL-Inbound-Shipment', name: x.name, title: 'Shipment ' + x.name + (x.supplier ? ' · ' + x.supplier : ''), sub: `Delivered ${fmtd(x.ata || x.eta)} · costs not landed` }))]);
+    }
     return groups.map(([l, rows]) => [l, rows.filter(r => r.name && ok(r.dt)).slice(0, 15)]).filter(g => g[1].length);
   }
   const agPkRow = (c, k) => `<div class="ag-pk-row"><div><b>${esc(c.title)}</b><div class="small">${esc(wbLabel(c.dt))} ${esc(short(c.name))}${c.sub ? ' · ' + esc(c.sub) : ''}</div></div>

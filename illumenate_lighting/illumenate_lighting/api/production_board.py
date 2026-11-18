@@ -445,26 +445,33 @@ def stock_on_hand(items):
 def incoming_purchases(items):
 	if not items:
 		return {}
+	# Purchasing tracks an editable ETA (ill_eta, line then header); it wins over "Required By"
+	# when the fields exist, so the production and purchasing boards agree.
+	header_eta = _has_field("Purchase Order", "ill_eta")
+	line_eta = _has_field("Purchase Order Item", "ill_eta")
 	orders = frappe.get_all(
 		"Purchase Order",
 		filters={"docstatus": 1, "status": ["not in", ["Closed", "Completed", "Cancelled", "On Hold"]]},
-		pluck="name",
+		fields=["name", "ill_eta"] if header_eta else ["name"],
 		limit_page_length=0,
 	)
 	if not orders:
 		return {}
+	po_eta = {o.name: o.get("ill_eta") for o in orders}
 	incoming = {}
 	for row in frappe.get_all(
 		"Purchase Order Item",
-		filters={"parent": ["in", orders], "item_code": ["in", list(items)]},
-		fields=["item_code", "schedule_date", "qty", "received_qty", "stock_qty"],
+		filters={"parent": ["in", list(po_eta)], "item_code": ["in", list(items)]},
+		fields=["parent", "item_code", "schedule_date", "qty", "received_qty", "stock_qty"]
+		+ (["ill_eta"] if line_eta else []),
 		limit_page_length=0,
 	):
 		qty = float(row.qty or 0)
 		open_share = (qty - float(row.received_qty or 0)) / qty if qty else 0
 		pending = float(row.stock_qty or qty) * open_share
-		if pending > 0 and row.schedule_date:
-			incoming.setdefault(row.item_code, []).append((as_date(row.schedule_date), pending))
+		when = row.get("ill_eta") or po_eta.get(row.get("parent")) or row.schedule_date
+		if pending > 0 and when:
+			incoming.setdefault(row.item_code, []).append((as_date(when), pending))
 	return incoming
 
 

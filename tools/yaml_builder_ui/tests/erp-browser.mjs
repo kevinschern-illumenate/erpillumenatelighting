@@ -15,6 +15,10 @@ const passed = { status: 'Passed', log: 'LOG-CHECK', catalog_hash: 'checked-hash
 const imported = { ...passed, status: 'Imported', log: 'LOG-IMPORT', results: [{ ...row, status: 'created' }], summary: { ...passed.summary, checked: 0, created: 1 } };
 const reference = { source: 'live', doctypes: { [doctype]: { source: 'live', records: {} } } };
 const json = (route, message) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ message }) });
+// A stand-in for the Command Center's Catalog tab: frames the builder and records its messages.
+const HOST = '<!doctype html><html><body><script>window.__msgs = []; addEventListener("message", e => { if (e.origin === location.origin && e.data && e.data.source === "ill-catalog-builder") __msgs.push(e.data); });'
+  + 'window.toBuilder = m => document.getElementById("cb").contentWindow.postMessage(Object.assign({ source: "ill-command-center" }, m), location.origin);</script>'
+  + '<iframe id="cb" title="Catalog Builder" src="/catalog-builder?embed=1&open=ilL-Extrusion-Kit-Template:OLD-KIT" style="width:1400px;height:900px;border:0"></iframe></body></html>';
 async function open(draft = catalog, { ready = true } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const state = { calls: [], check: route => json(route, passed), import_catalog: route => json(route, imported), reference: route => json(route, reference), history: route => json(route, []), design_readiness: route => json(route, { incomplete: 0, total: 1 }) };
@@ -26,8 +30,9 @@ async function open(draft = catalog, { ready = true } = {}) {
       state.calls.push({ method, body: route.request().postDataJSON() });
       return state[method](route);
     }
+    if (url.pathname === '/command-center') return route.fulfill({ contentType: 'text/html', body: HOST });
     if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) return route.fulfill({ contentType: url.pathname.endsWith('.js') ? 'text/javascript' : 'text/css', body: readFileSync(new URL(url.pathname.slice(1), assets)) });
-    return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/catalog-builder.css"></head><body><div id="builder"></div><script src="/catalog-builder.js"></script><script>IllCatalogBuilder.mount("builder", {csrfToken:"test-token"})</script></body></html>' });
+    return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/catalog-builder.css"></head><body><div id="builder"></div><script src="/catalog-builder.js"></script><script>IllCatalogBuilder.mount("builder", {csrfToken:"test-token", embedded: location.search.includes("embed=1")})</script></body></html>' });
   });
   const page = await context.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -164,5 +169,43 @@ try {
     assert.deepEqual(errors, []);
     await context.close();
     console.log('Passed: CSRF/login recovery, error selection/focus, result filters, unknown import outcome without retry, preserved draft, history retry, mobile layout.');
+  }
+  {
+    // Command Center Catalog tab: embed mode, ready/dirty/imported messages, ?open= and "new" from the parent.
+    const { context, state, page } = await open();
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    state.records = route => json(route, route.request().postDataJSON().records.map(([, name]) =>
+      name === 'OLD-KIT' ? { record: { template_code: 'OLD-KIT', template_name: 'Old kit' } } : { error: 'Not found' }));
+    await page.goto('http://catalog.test/command-center');
+    const frame = page.frameLocator('#cb');
+    const msgs = () => page.evaluate(() => window.__msgs);
+    await expect.poll(async () => (await msgs()).some(m => m.type === 'ready')).toBe(true);
+    await expect(frame.locator('.catalog-header.is-embedded')).toBeVisible();
+    await expect(frame.getByText('Author the product records')).toHaveCount(0);
+    await expect(frame.getByText(/Opened 1 record from ERPNext into the Extrusion kits draft under their current names: OLD-KIT/)).toBeVisible();
+    assert.deepEqual(state.calls.filter(call => call.method === 'records').map(call => call.body.records), [[[doctype, 'OLD-KIT']]]);
+    await expect.poll(async () => (await msgs()).filter(m => m.type === 'dirty').at(-1)?.dirty).toBe(true);
+    const check = frame.getByRole('button', { name: 'Check in ERPNext', exact: true });
+    await expect(check).toBeEnabled(); await check.click();
+    await frame.getByRole('button', { name: 'Import to ERPNext', exact: true }).click();
+    await frame.getByRole('dialog').getByRole('button', { name: 'Import to ERPNext', exact: true }).click();
+    await expect.poll(async () => (await msgs()).find(m => m.type === 'imported')).toEqual({ source: 'ill-catalog-builder', type: 'imported', name: 'LOG-IMPORT', created: 1 });
+    await expect.poll(async () => (await msgs()).filter(m => m.type === 'dirty').at(-1)?.dirty).toBe(false);
+    // A message the frame sends itself is not from the Command Center and is ignored.
+    await page.frame({ url: /catalog-builder/ }).evaluate(() => postMessage({ source: 'ill-command-center', type: 'new', doctype: 'ilL-Controller-Template' }, location.origin));
+    await page.waitForTimeout(200);
+    await expect(frame.locator('.catalog-products button[aria-pressed=true]')).toHaveText('Extrusion kits');
+    await page.evaluate(() => window.toBuilder({ type: 'open', records: [{ doctype: 'Sales Order', name: 'SO-1' }, { doctype: 'ilL-Extrusion-Kit-Template', name: 'GONE' }] }));
+    await expect(frame.getByText(/Couldn't open SO-1 \(Sales Order isn't a catalog DocType\), GONE \(Not found\)/)).toBeVisible();
+    await page.evaluate(() => window.toBuilder({ type: 'new', doctype: 'ilL-Driver-Template' }));
+    await expect(frame.getByText(/Added a blank Driver-Template record to the Drivers draft/)).toBeVisible();
+    await expect(frame.locator('.catalog-products button[aria-pressed=true]')).toHaveText('Drivers');
+    await expect(frame.locator('.catalog-bar-title h2')).toHaveText('Driver-Template');
+    await expect.poll(async () => (await msgs()).filter(m => m.type === 'dirty').at(-1)?.dirty).toBe(true);
+    await frame.getByRole('button', { name: '↶ Undo' }).click();
+    await expect.poll(async () => (await msgs()).filter(m => m.type === 'dirty').at(-1)?.dirty).toBe(false);
+    assert.deepEqual(errors, []);
+    await context.close();
+    console.log('Passed: embedded header, ready/dirty/imported messages, ?open= through api.records, refused records, "new" switches product, foreign messages ignored.');
   }
 } finally { await browser.close(); }

@@ -377,9 +377,17 @@ doc_events = {
 	"BOM": {"on_submit": "illumenate_lighting.illumenate_lighting.api.build_points.on_bom_submit"},
 	"Production Plan": {"validate": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_production_plan"},
 	"Purchase Invoice": {
-		"on_submit": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_submit",
+		# QuickBooks first; then purchasing fills shipment cost lines that link this bill.
+		"on_submit": [
+			"illumenate_lighting.illumenate_lighting.api.qbo_bills.on_submit",
+			"illumenate_lighting.illumenate_lighting.api.purchasing.on_invoice_submit",
+		],
 		"on_cancel": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_cancel",
 	},
+	# Purchasing board: a full receipt marks the PO Delivered and joins its open inbound shipment.
+	"Purchase Receipt": {"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_receipt_submit"},
+	# An email sent from a submitted Purchase Order marks it Sent to the vendor.
+	"Communication": {"after_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.on_communication"},
 	"Material Request": {"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_material_request"},
 	"Quotation": {
 		# Configured rows follow their Item's build, then a draft linked to a Fixture
@@ -426,6 +434,9 @@ doc_events = {
 	},
 	"Purchase Order": {
 		"before_validate": "illumenate_lighting.illumenate_lighting.api.purchase_order.allow_blank_schedule_date",
+		# Purchasing board: lead time, ETA, freight mode and vendor status on new POs.
+		"before_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.prefill_po_tracking",
+		"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_po_submit",
 	},
 	# Webflow sync events for attribute doctypes
 	"ilL-Attribute-CCT": {

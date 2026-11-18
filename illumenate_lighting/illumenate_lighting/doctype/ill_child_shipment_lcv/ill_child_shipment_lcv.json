@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "creation": "2026-11-18 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "landed_cost_voucher",
+  "lcv_docstatus"
+ ],
+ "fields": [
+  {
+   "fieldname": "landed_cost_voucher",
+   "fieldtype": "Link",
+   "label": "Landed Cost Voucher",
+   "options": "Landed Cost Voucher",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "lcv_docstatus",
+   "fieldtype": "Int",
+   "label": "Voucher Docstatus",
+   "fetch_from": "landed_cost_voucher.docstatus",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "0 draft, 1 submitted, 2 cancelled."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Shipment-LCV",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

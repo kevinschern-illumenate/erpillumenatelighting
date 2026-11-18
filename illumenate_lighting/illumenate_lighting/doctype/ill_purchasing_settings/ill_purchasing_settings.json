@@ -1,0 +1,190 @@
+{
+ "actions": [],
+ "creation": "2026-11-18 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "track_changes": 1,
+ "description": "Purchasing desk settings for the Command Center (lead times, warnings, landed cost rules).",
+ "field_order": [
+  "section_defaults",
+  "company",
+  "default_warehouse",
+  "column_break_defaults",
+  "safety_days",
+  "reorder_lookback_days",
+  "hts_stale_days",
+  "section_lead_times",
+  "default_lead_times",
+  "section_warnings",
+  "quote_expiry_warn_days",
+  "vendor_confirm_warn_days",
+  "column_break_warnings",
+  "receipt_bill_warn_days",
+  "lcv_warn_days",
+  "section_landed",
+  "cost_type_defaults"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_defaults",
+   "fieldtype": "Section Break",
+   "label": "Defaults"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "default_warehouse",
+   "fieldtype": "Link",
+   "label": "Default Warehouse",
+   "options": "Warehouse",
+   "description": "Where Material Requests drafted from the Command Center deliver to."
+  },
+  {
+   "fieldname": "column_break_defaults",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "safety_days",
+   "fieldtype": "Int",
+   "label": "Safety Days",
+   "default": "3",
+   "non_negative": 1,
+   "description": "Added to the lead time when working out the order-by date."
+  },
+  {
+   "fieldname": "reorder_lookback_days",
+   "fieldtype": "Int",
+   "label": "Reorder Look-back (days)",
+   "default": "90",
+   "non_negative": 1,
+   "description": "Usage window for suggested reorder levels."
+  },
+  {
+   "fieldname": "hts_stale_days",
+   "fieldtype": "Int",
+   "label": "HTS Rates Stale After (days)",
+   "default": "90",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_lead_times",
+   "fieldtype": "Section Break",
+   "label": "Lead Times by Item Group"
+  },
+  {
+   "fieldname": "default_lead_times",
+   "fieldtype": "Table",
+   "label": "Default Lead Times",
+   "options": "ilL-Child-Group-Lead-Time",
+   "description": "Used when the item, supplier and quote have no lead time. Child groups inherit their parent's row."
+  },
+  {
+   "fieldname": "section_warnings",
+   "fieldtype": "Section Break",
+   "label": "Warnings"
+  },
+  {
+   "fieldname": "quote_expiry_warn_days",
+   "fieldtype": "Int",
+   "label": "Quote Expiry Warning (days)",
+   "default": "7",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "vendor_confirm_warn_days",
+   "fieldtype": "Int",
+   "label": "Vendor Confirmation Warning (days)",
+   "default": "3",
+   "non_negative": 1,
+   "description": "Sent to the vendor but not confirmed after this many days."
+  },
+  {
+   "fieldname": "column_break_warnings",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "receipt_bill_warn_days",
+   "fieldtype": "Int",
+   "label": "Received, Not Billed Warning (days)",
+   "default": "14",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "lcv_warn_days",
+   "fieldtype": "Int",
+   "label": "Delivered, Costs Not Landed Warning (days)",
+   "default": "30",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_landed",
+   "fieldtype": "Section Break",
+   "label": "Landed Cost Rules"
+  },
+  {
+   "fieldname": "cost_type_defaults",
+   "fieldtype": "Table",
+   "label": "Cost Type Defaults",
+   "options": "ilL-Child-Landed-Cost-Type",
+   "description": "Default per cost type for new shipment cost lines; each line can be changed."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Purchasing-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "print": 1,
+   "export": 1,
+   "write": 1,
+   "create": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Purchase Manager",
+   "read": 1,
+   "report": 1,
+   "print": 1,
+   "export": 1,
+   "write": 1,
+   "create": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "report": 1,
+   "print": 1,
+   "export": 1,
+   "write": 1,
+   "create": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Purchase User",
+   "read": 1
+  },
+  {
+   "role": "Accounts User",
+   "read": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

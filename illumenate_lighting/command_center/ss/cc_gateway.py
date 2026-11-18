@@ -5,8 +5,10 @@
 # records in every pipeline doctype, plus the aggregates for the Executive page.
 #
 # Call:  /api/method/ill_cc_gateway   (POST, JSON body, CSRF token like any desk call)
-#   action=config                      -> what THIS user may see/do
-#   action=counts                      -> record count per available doctype (workbench landing)
+#   action=config [lite]               -> what THIS user may see/do (lite: tabs only, no doctypes); incl.
+#                                        catalog.allowed (Catalog tab: ilL Catalog Publisher / System Manager)
+#   action=counts [area, section]      -> record count per available doctype (workbench landing); area
+#                                        "pipeline" (default) or "ill", or just one section/group
 #   action=list   dt, filters, search, limit, start, order_by
 #   action=meta   dt                   -> editable form fields (so the UI builds forms itself)
 #   action=get    dt, name             -> full doc + recent audit entries
@@ -37,7 +39,9 @@
 #   * Never submits, cancels or deletes (the only delete is removing an agenda item;
 #     unassigning someone cancels their open ToDo on the record, as the desk does).
 #     Submitted docs (docstatus 1/2) are read-only.
-#   * Only doctypes in ALLOWED can be touched; only non-system fields can be written.
+#   * Only doctypes in ALLOWED (pipeline) or ILL_GROUPS (ilLumenate area) can be touched; only non-system,
+#     permlevel-0 fields can be written. READ_ONLY doctypes are never saved or created; CREATE_VIA_BUILDER
+#     doctypes are created in the Catalog Builder (Check -> Import with an audit receipt), not here.
 #   * Doctypes/columns that don't exist on this site are skipped, not errors.
 #   * Every create/save writes an "Info" comment on the record (visible in its timeline).
 #
@@ -90,26 +94,136 @@ def main():
         "ilL-Order-Change":  ("orders",        ["name", "customer", "status", "request_type", "sales_order",
                                                 "assigned_to", "due_date", "creation", "modified"]),
         "Material Request":  ("purchasing",    ["name", "material_request_type", "status", "schedule_date", "modified"]),
-        "Purchase Order":    ("purchasing",    ["name", "supplier", "status", "grand_total", "schedule_date", "modified"]),
+        "Request for Quotation": ("purchasing", ["name", "status", "transaction_date", "schedule_date", "modified"]),
+        "Supplier Quotation": ("purchasing",   ["name", "supplier", "status", "grand_total", "valid_till",
+                                                "transaction_date", "modified"]),
+        "Purchase Order":    ("purchasing",    ["name", "supplier", "status", "ill_vendor_status", "grand_total",
+                                                "ill_eta", "schedule_date", "modified"]),
+        "Purchase Receipt":  ("purchasing",    ["name", "supplier", "status", "grand_total", "posting_date", "per_billed",
+                                                "modified"]),
+        "ilL-Inbound-Shipment": ("purchasing", ["name", "status", "supplier", "freight_mode", "tracking_no", "eta",
+                                                "actual_cost_total", "modified"]),
+        "Supplier":          ("purchasing",    ["name", "supplier_name", "supplier_group", "country",
+                                                "ill_default_lead_time_days", "modified"]),
         "Work Order":        ("manufacturing", ["name", "production_item", "status", "qty", "planned_start_date", "modified"]),
         "Delivery Note":     ("shipping",      ["name", "customer", "status", "posting_date", "modified"]),
         "HD Ticket":         ("service",       ["name", "subject", "status", "priority", "ticket_type", "modified"]),
         "ilL-Account-Request": ("service",     ["name", "request_type", "customer", "status", "requested_by",
                                                 "assigned_to", "creation", "modified"]),
         "Sales Invoice":     ("finance",       ["name", "customer", "status", "grand_total", "outstanding_amount", "due_date", "modified"]),
+        "Purchase Invoice":  ("finance",       ["name", "supplier", "status", "grand_total", "outstanding_amount", "due_date",
+                                                "modified"]),
+        "Landed Cost Voucher": ("finance",     ["name", "posting_date", "total_taxes_and_charges", "docstatus", "modified"]),
         "Project":           ("projects",      ["name", "project_name", "status", "percent_complete", "expected_end_date", "modified"]),
         "Task":              ("projects",      ["name", "subject", "status", "priority", "project", "exp_end_date", "modified"]),
         "ToDo":              ("projects",      ["name", "description", "status", "allocated_to", "date", "modified"]),
     }
 
-    # doctypes whose status lives in another field (the portal doctypes use "state")
+    # ---- ilLumenate area (v8): every app doctype, grouped like the Desk workspace ----
+    # [key, label, extra role ("" = none), [doctypes]]. Keys start with "ill_" so they never clash with a
+    # pipeline section. A doctype may sit in a pipeline section AND a group (lists, views and counts are
+    # keyed by doctype, so they are shared). Columns are derived from meta (title + in_list_view fields).
+    # tests/portal_unit/test_cc_workbench_registry.py fails when an app doctype is in no group, SETTINGS or
+    # EXCLUDED, so a new doctype can't silently go missing.
+    ILL_GROUPS = [
+        ["ill_templates", "Product templates", "", [
+            "ilL-Fixture-Template", "ilL-Extrusion-Kit-Template", "ilL-Tape-Neon-Template", "ilL-LED-Sheet-Template",
+            "ilL-Driver-Template", "ilL-Controller-Template"]],
+        ["ill_specs", "Specifications", "", [
+            "ilL-Spec-Accessory", "ilL-Spec-Colorimetry", "ilL-Spec-Controller", "ilL-Spec-Driver", "ilL-Spec-LED-Sheet",
+            "ilL-Spec-LED Tape", "ilL-Spec-Lens", "ilL-Spec-Photometry", "ilL-Spec-Profile", "ilL-Spec-Wire"]],
+        ["ill_attributes", "Attributes", "", [
+            "ilL-Attribute-CCT", "ilL-Attribute-CRI", "ilL-Attribute-Certification", "ilL-Attribute-Controller Type",
+            "ilL-Attribute-Dimming Protocol", "ilL-Attribute-Endcap Color", "ilL-Attribute-Endcap Style",
+            "ilL-Attribute-Environment Rating", "ilL-Attribute-Feed-Direction", "ilL-Attribute-Finish",
+            "ilL-Attribute-IP Rating", "ilL-Attribute-Joiner Angle", "ilL-Attribute-Joiner System",
+            "ilL-Attribute-LED Package", "ilL-Attribute-Lead Time Class", "ilL-Attribute-Leader Cable",
+            "ilL-Attribute-Lens Appearance", "ilL-Attribute-Lens Interface Type", "ilL-Attribute-Mounting Method",
+            "ilL-Attribute-Mounting Type", "ilL-Attribute-Output Level", "ilL-Attribute-Output Voltage",
+            "ilL-Attribute-PCB Finish", "ilL-Attribute-PCB Mounting", "ilL-Attribute-Power Feed Type",
+            "ilL-Attribute-Pricing Class", "ilL-Attribute-SDCM", "ilL-Attribute-Series", "ilL-Job-Title-Master"]],
+        ["ill_rels", "Relationships & maps", "", [
+            "ilL-Rel-Driver-Eligibility", "ilL-Rel-Endcap-Map", "ilL-Rel-Finish Endcap Color", "ilL-Rel-Kit-Endcap-Map",
+            "ilL-Rel-Kit-Lens-Map", "ilL-Rel-Kit-Mounting-Map", "ilL-Rel-Kit-Profile-Map", "ilL-Rel-Leader-Cable-Map",
+            "ilL-Rel-Mounting-Accessory-Map", "ilL-Rel-Profile Lens", "ilL-Rel-Tape Offering"]],
+        ["ill_submittals", "Submittal mappings", "", [
+            "ilL-Spec-Submittal-Mapping", "ilL-Driver-Submittal-Mapping", "ilL-Controller-Submittal-Mapping",
+            "ilL-Kit-Submittal-Mapping", "ilL-LED-Sheet-Submittal-Mapping", "ilL-Neon-Submittal-Mapping"]],
+        ["ill_configured", "Configured products", "", [
+            "ilL-Configured-Fixture", "ilL-Configured-Group", "ilL-Configured-LED-Sheet", "ilL-Configured-Tape-Neon",
+            "ilL-Configuration-Preset"]],
+        ["ill_projects", "Projects & design", "", [
+            "ilL-Project", "ilL-Project-Fixture-Schedule", "ilL-Project-Party", "ilL-Document-Request",
+            "ilL-Drawing-Review", "ilL-Line-Document", "ilL-Request-Type", "ilL-System-Design"]],
+        ["ill_portal", "Dealer portal", "", [
+            "ilL-Quote-Request", "ilL-Quote-Offer", "ilL-Order-Intake", "ilL-Order-Change", "ilL-Account-Request",
+            "ilL-Portal-Invitation", "ilL-Portal-User-Settings"]],
+        ["ill_purchasing", "Purchasing & inbound", "", ["ilL-Inbound-Shipment"]],
+        ["ill_publishing", "Catalog & Webflow publishing", "", [
+            "ilL-Catalog-Import", "ilL-Product-Publication", "ilL-Publish-Job", "ilL-Item-Literature",
+            "ilL-Image-Derivative", "ilL-Webflow-Product", "ilL-Webflow-Category", "ilL-Webflow-Brand"]],
+        ["ill_finder", "Product finder", "", [
+            "ilL-Finder-Question", "ilL-Finder-Glossary-Term", "ilL-Product-Verification-Request"]],
+        ["ill_meetings", "Meetings", "", ["ilL-Meeting-Agenda", "ilL-Meeting-Agenda-Item"]],
+        # logs and generated records: System Manager only (most are System Manager-only in ERPNext anyway)
+        ["ill_logs", "Logs & system (read-only)", "System Manager", [
+            "ilL-Portal-Event", "ilL-Portal-Message", "ilL-Portal-Delivery", "ilL-Portal-Upload",
+            "ilL-Configurator-Session", "ilL-Configuration-Receipt", "ilL-Design-Catalog-Snapshot",
+            "ilL-Webflow-Configurator-Cache", "ilL-Export-Job", "ilL-QBO-Sync-Log"]],
+    ]
+    # single (settings) doctypes: plain Desk links on the ilLumenate landing; the desk enforces permission
+    SETTINGS = ["ilL-Purchasing-Settings", "ilL-Production-Settings", "ilL-Portal-Routing-Settings",
+                "ilL-Product-Finder-Settings", "ilL-System-Designer-Settings", "Email Campaign Benchmark Settings"]
+    # never exposed: session tokens and singles holding credentials
+    EXCLUDED = ["ilL-Webflow-Session", "ilL-Webflow-Settings", "ilL-QBO-Settings"]
+    # generated or audit records: listed and opened, never saved or created here
+    READ_ONLY = [
+        "ilL-Configured-Fixture", "ilL-Configured-Group", "ilL-Configured-LED-Sheet", "ilL-Configured-Tape-Neon",
+        "ilL-Configuration-Receipt", "ilL-Configurator-Session", "ilL-Design-Catalog-Snapshot", "ilL-Catalog-Import",
+        "ilL-Portal-Event", "ilL-Portal-Message", "ilL-Portal-Delivery", "ilL-Portal-Upload", "ilL-Publish-Job",
+        "ilL-Export-Job", "ilL-QBO-Sync-Log", "ilL-Image-Derivative", "ilL-Webflow-Configurator-Cache",
+    ]
+    # structural catalog records: created (and restructured) in the Catalog Builder, so every change gets a
+    # Check, a single-transaction Import and an ilL-Catalog-Import receipt. "+ New" opens the Catalog tab.
+    CREATE_VIA_BUILDER = ["Item"]
+    for g in ILL_GROUPS:
+        if g[0] in ("ill_templates", "ill_specs", "ill_rels", "ill_submittals"):
+            for d in g[3]:
+                CREATE_VIA_BUILDER.append(d)
+
+    # doctypes whose status lives in another field (the portal doctypes use "state").
+    # Masters with no status but an is_active Check are exposed as status "Active"/"Inactive" (see skind).
     STATE_FIELD = {
         "ilL-Quote-Request": "state", "ilL-Quote-Offer": "state", "ilL-Order-Intake": "state",
         "ilL-Order-Change": "state", "ilL-Account-Request": "state", "ilL-Drawing-Review": "decision",
+        "ilL-Portal-Delivery": "state", "ilL-Portal-Invitation": "state", "ilL-Portal-Upload": "state",
+        "ilL-Product-Publication": "state", "ilL-Publish-Job": "state",
+        "ilL-Product-Verification-Request": "state",
     }
 
+    # the effective registry: doctype -> [section keys] and doctype -> preferred columns (None = from meta)
+    AREA = {}
+    for s in SECTIONS:
+        AREA[s] = "pipeline"
+    SECTION_OF = {}
+    COLUMNS = {}
+    for d in ALLOWED:
+        SECTION_OF[d] = [ALLOWED[d][0]]
+        COLUMNS[d] = ALLOWED[d][1]
+    for g in ILL_GROUPS:
+        SECTIONS[g[0]] = (g[1], g[2])
+        AREA[g[0]] = "ill"
+        for d in g[3]:
+            if d in EXCLUDED:
+                continue
+            if d not in SECTION_OF:
+                SECTION_OF[d] = []
+                COLUMNS[d] = None
+            SECTION_OF[d].append(g[0])
+
     STD_COLS = {"name": ("ID", "Data"), "owner": ("Created by", "Link"),
-                "creation": ("Created", "Datetime"), "modified": ("Modified", "Datetime")}
+                "creation": ("Created", "Datetime"), "modified": ("Modified", "Datetime"),
+                "docstatus": ("Doc status", "Int")}
 
     # never writable from the page, whatever the doctype says
     BLOCKED_WRITE = [
@@ -162,24 +276,43 @@ def main():
         memo[key] = ok
         return ok
 
+    def sections_ok(dt):
+        out = []
+        for sec in SECTION_OF.get(dt) or []:
+            if section_ok(sec):
+                out.append(sec)
+        return out
+
+    def exists_dt(dt):
+        # one query for every registry doctype the first time, instead of one per doctype
+        if "|exists" not in memo:
+            names = []
+            for d in SECTION_OF:
+                names.append(d)
+            have = {}
+            for r in frappe.get_all("DocType", filters={"name": ["in", names]}, fields=["name"],
+                                    limit_page_length=len(names) + 5):
+                have[r["name"]] = 1
+            memo["|exists"] = have
+        return dt in memo["|exists"] or bool(frappe.db.exists("DocType", dt))
+
     def available(dt):
-        # allowed + exists on this site + the user may read it in ERPNext
+        # in the registry + a section the user may open + exists on this site + the user may read it in ERPNext
         key = dt + "|avail"
         if key not in memo:
-            memo[key] = (dt in ALLOWED and section_ok(ALLOWED[dt][0])
-                         and bool(frappe.db.exists("DocType", dt)) and can(dt, "read"))
+            memo[key] = (dt in SECTION_OF and len(sections_ok(dt)) > 0 and exists_dt(dt) and can(dt, "read"))
         return memo[key]
 
     def doctype(dt):
-        if dt not in ALLOWED:
+        if dt not in SECTION_OF:
             deny("That doctype isn't available in the Command Center.")
-        if not section_ok(ALLOWED[dt][0]):
-            deny("You don't have access to the " + SECTIONS[ALLOWED[dt][0]][0] + " section.")
-        if not frappe.db.exists("DocType", dt):
+        if not sections_ok(dt):
+            deny("You don't have access to the " + SECTIONS[SECTION_OF[dt][0]][0] + " section.")
+        if not exists_dt(dt):
             deny(dt + " doesn't exist on this site.")
         if not can(dt, "read"):
             deny("Your ERPNext user can't read " + dt + ".")
-        return ALLOWED[dt][0]
+        return sections_ok(dt)[0]
 
     def can_edit():
         return EDIT_ROLE in roles
@@ -188,20 +321,70 @@ def main():
         if not can_edit():
             deny("You have view-only access. Ask Kevin for the Command Center Editor role.")
 
+    def skind(dt):
+        # how this doctype holds its status: "state" (another field), "status", "bool" (is_active) or ""
+        key = dt + "|skind"
+        if key not in memo:
+            meta = frappe.get_meta(dt)
+            if dt in STATE_FIELD and meta.get_field(STATE_FIELD[dt]):
+                memo[key] = "state"
+            elif meta.get_field("status"):
+                memo[key] = "status"
+            elif meta.get_field("is_active"):
+                memo[key] = "bool"
+            else:
+                memo[key] = ""
+        return memo[key]
+
     def sfield(dt):
-        return STATE_FIELD.get(dt, "status")
+        k = skind(dt)
+        if k == "state":
+            return STATE_FIELD[dt]
+        if k == "bool":
+            return "is_active"
+        return "status"
 
     def real(dt, c):
         # logical column -> the field that holds it on this doctype
         return sfield(dt) if c == "status" else c
 
+    def preferred(dt):
+        # the registry's columns, or (C4) name + title + up to 4 in_list_view fields + status + modified
+        if COLUMNS.get(dt):
+            return COLUMNS[dt]
+        key = dt + "|cols"
+        if key not in memo:
+            meta = frappe.get_meta(dt)
+            out = ["name"]
+            skip = ["name", "status", "is_active", "modified"]
+            if dt in STATE_FIELD:
+                skip.append(STATE_FIELD[dt])
+            tf = meta.title_field
+            if tf and tf not in skip and meta.get_field(tf):
+                out.append(tf)
+                skip.append(tf)
+            n = 0
+            for f in meta.fields:
+                if n >= 4:
+                    break
+                if f.in_list_view and f.fieldname not in skip and f.fieldtype not in SKIP_FIELD_TYPES:
+                    out.append(f.fieldname)
+                    skip.append(f.fieldname)
+                    n = n + 1
+            if skind(dt):
+                out.append("status")
+            out.append("modified")
+            memo[key] = out
+        return memo[key]
+
     def cols(dt):
         # logical columns (may include "status") that exist on this site
         meta = frappe.get_meta(dt)
         out = []
-        for c in ALLOWED[dt][1]:
-            if c in STD_COLS or meta.get_field(real(dt, c)):
-                out.append(c)
+        for c in preferred(dt):
+            if c in STD_COLS or (c == "status" and skind(dt)) or meta.get_field(real(dt, c)):
+                if c not in out:
+                    out.append(c)
         return out
 
     def qfields(dt, logical):
@@ -211,9 +394,13 @@ def main():
         return out
 
     def fixrows(dt, rows):
-        # expose the doctype's state field under the logical name "status"
+        # expose the doctype's state field (or its active flag) under the logical name "status"
+        k = skind(dt)
         sf = sfield(dt)
-        if sf != "status":
+        if k == "bool":
+            for r in rows:
+                r["status"] = "Active" if r.get("is_active") else "Inactive"
+        elif sf != "status":
             for r in rows:
                 r["status"] = r.get(sf)
         return rows
@@ -221,7 +408,10 @@ def main():
     def qfilters(dt, filters):
         out = {}
         for k in filters:
-            out[real(dt, k)] = filters[k]
+            v = filters[k]
+            if k == "status" and skind(dt) == "bool":
+                v = 0 if str(v) == "Inactive" else 1
+            out[real(dt, k)] = v
         return out
 
     def colinfo(dt):
@@ -230,6 +420,8 @@ def main():
         for c in cols(dt):
             if c in STD_COLS:
                 info.append({"fieldname": c, "label": STD_COLS[c][0], "type": STD_COLS[c][1]})
+            elif c == "status" and skind(dt) == "bool":
+                info.append({"fieldname": "status", "label": "Status", "type": "Select"})
             else:
                 f = meta.get_field(real(dt, c))
                 info.append({"fieldname": c, "label": f.label or c, "type": f.fieldtype})
@@ -240,8 +432,19 @@ def main():
         for f in frappe.get_meta(dt).fields:
             if f.fieldtype in SKIP_FIELD_TYPES or f.read_only or f.hidden or f.fieldname in BLOCKED_WRITE:
                 continue
+            # C11: higher permlevel fields need their own permission; Frappe would silently drop the edit
+            if f.permlevel and f.permlevel > 0:
+                continue
             out[f.fieldname] = f
         return out
+
+    def create_kind(dt):
+        # "+ New" behaviour: "builder" (Catalog tab), "inline" (gateway create) or "" (not here)
+        if dt in READ_ONLY:
+            return ""
+        if dt in CREATE_VIA_BUILDER:
+            return "builder"
+        return "inline"
 
     def audit(dt, name, text):
         frappe.get_doc({
@@ -289,18 +492,45 @@ def main():
         sections = []
         for s in SECTIONS:
             sections.append({"key": s, "label": SECTIONS[s][0], "locked": not section_ok(s),
-                             "needs": SECTIONS[s][1]})
-        dts = {}
-        for d in ALLOWED:
-            if available(d):
-                dts[d] = {"section": ALLOWED[d][0], "columns": colinfo(d),
-                          "can_create": can_edit() and can(d, "create")}
-        frappe.response["message"] = {"user": user, "can_edit": can_edit(), "sections": sections,
-                                      "doctypes": dts, "today": frappe.utils.nowdate()}
+                             "needs": SECTIONS[s][1], "area": AREA.get(s) or "pipeline"})
+        catalog = {"allowed": user == "Administrator" or "System Manager" in roles
+                   or "ilL Catalog Publisher" in roles, "url": "/catalog-builder"}
+        out = {"user": user, "can_edit": can_edit(), "sections": sections, "catalog": catalog,
+               "today": frappe.utils.nowdate()}
+        if not frappe.form_dict.get("lite"):
+            # "lite" is the page's startup call (top tabs only); the Workbench asks for the full config
+            dts = {}
+            for d in SECTION_OF:
+                if available(d):
+                    ck = create_kind(d)
+                    dts[d] = {"section": sections_ok(d)[0], "sections": sections_ok(d), "columns": colinfo(d),
+                              "can_create": can_edit() and ck != "" and can(d, "create"),
+                              "create": ck, "read_only": d in READ_ONLY, "status_kind": skind(d) or None,
+                              "builder": d in CREATE_VIA_BUILDER}
+            settings = []
+            for d in SETTINGS:
+                if exists_dt(d):
+                    settings.append({"doctype": d, "url": "/app/" + d.lower().replace(" ", "-")})
+            out["doctypes"] = dts
+            out["settings"] = settings
+        frappe.response["message"] = out
 
     elif action == "counts":
+        # area "pipeline" (default, the Workbench landing as before) or "ill"; optional one section
+        area = frappe.form_dict.get("area") or "pipeline"
+        sec = frappe.form_dict.get("section") or ""
         counts = {}
-        for d in ALLOWED:
+        for d in SECTION_OF:
+            if sec:
+                if sec not in SECTION_OF[d] or not section_ok(sec):
+                    continue
+            else:
+                inarea = False
+                for x in SECTION_OF[d]:
+                    if (AREA.get(x) or "pipeline") == area:
+                        inarea = True
+                if not inarea:
+                    continue
             if available(d):
                 try:
                     counts[d] = total(d, {}, None)
@@ -347,11 +577,14 @@ def main():
             fields.append({"fieldname": f.fieldname, "label": f.label, "type": f.fieldtype,
                            "options": f.options, "reqd": f.reqd, "default": f.default})
         tables = []
-        for f in frappe.get_meta(dt).fields:
+        meta = frappe.get_meta(dt)
+        for f in meta.fields:
             if f.fieldtype == "Table" and f.reqd:
                 tables.append(f.label or f.fieldname)
         frappe.response["message"] = {"dt": dt, "fields": fields, "required_tables": tables,
-                                      "can_edit": can_edit()}
+                                      "can_edit": can_edit(), "autoname": str(meta.autoname or ""),
+                                      "read_only": dt in READ_ONLY, "create": create_kind(dt),
+                                      "status_kind": skind(dt) or None}
 
     elif action == "get":
         doctype(dt)
@@ -364,14 +597,46 @@ def main():
                              fields=["creation", "owner", "content"], order_by="creation desc",
                              limit_page_length=10)
         out = doc.as_dict()
-        if sfield(dt) != "status":
+        if skind(dt) == "bool":
+            out["status"] = "Active" if out.get("is_active") else "Inactive"
+        elif sfield(dt) != "status":
             out["status"] = out.get(sfield(dt))
-        frappe.response["message"] = {"doc": out, "audit": log,
-                                      "editable": can_edit() and doc.docstatus == 0}
+        # C5: child tables, read-only (first 25 rows, the child's in_list_view columns, max 5)
+        tables = []
+        for f in frappe.get_meta(dt).fields:
+            if f.fieldtype != "Table" or not f.options:
+                continue
+            rows = out.get(f.fieldname) or []
+            tcols = []
+            try:
+                for cf in frappe.get_meta(f.options).fields:
+                    if len(tcols) >= 5:
+                        break
+                    if cf.in_list_view and cf.fieldtype not in SKIP_FIELD_TYPES:
+                        tcols.append({"fieldname": cf.fieldname, "label": cf.label or cf.fieldname,
+                                      "type": cf.fieldtype})
+            except Exception:
+                tcols = []
+            trows = []
+            for r in rows:
+                if len(trows) >= 25:
+                    break
+                row = {}
+                for c in tcols:
+                    row[c["fieldname"]] = r.get(c["fieldname"])
+                trows.append(row)
+            tables.append({"fieldname": f.fieldname, "label": f.label or f.fieldname, "count": len(rows),
+                           "columns": tcols, "rows": trows})
+        frappe.response["message"] = {"doc": out, "audit": log, "tables": tables,
+                                      "read_only": dt in READ_ONLY, "create": create_kind(dt),
+                                      "builder": dt in CREATE_VIA_BUILDER, "status_kind": skind(dt) or None,
+                                      "editable": can_edit() and doc.docstatus == 0 and dt not in READ_ONLY}
 
     elif action == "save":
         doctype(dt)
         need_edit()
+        if dt in READ_ONLY:
+            deny(dt + " records are generated or audit records, so they are read-only here.")
         doc = frappe.get_doc(dt, frappe.form_dict.get("name"))
         doc.check_permission("write")
         if doc.docstatus != 0:
@@ -391,8 +656,30 @@ def main():
     elif action == "create":
         doctype(dt)
         need_edit()
-        values = clean(dt, jsonarg("values"))
+        if dt in READ_ONLY:
+            deny(dt + " records are generated or audit records, so they can't be created here.")
+        if dt in CREATE_VIA_BUILDER:
+            deny("Create " + dt.replace("ilL-", "") + " in the Catalog Builder so it's checked and logged.")
+        values = jsonarg("values")
+        newname = ""
+        if "__newname" in values:
+            # C7: "prompt"-named doctypes take the typed name, nothing else may set a name
+            newname = str(values["__newname"] or "").strip()
+            rest = {}
+            for k in values:
+                if k != "__newname":
+                    rest[k] = values[k]
+            values = rest
+        autoname = str(frappe.get_meta(dt).autoname or "").lower()
+        if newname and autoname != "prompt":
+            deny(dt + " is named automatically; leave the name out.")
+        if autoname == "prompt" and not newname:
+            deny("Give the new " + dt.replace("ilL-", "") + " a name.")
+        values = clean(dt, values)
         values["doctype"] = dt
+        if newname:
+            values["__newname"] = newname
+            values["name"] = newname
         doc = frappe.get_doc(values)
         doc.check_permission("create")
         doc.insert()
@@ -403,9 +690,20 @@ def main():
         today = frappe.utils.nowdate()
         in7 = frappe.utils.add_days(today, 7)
         ago2 = frappe.utils.add_days(today, -2)
+        ago3 = frappe.utils.add_days(today, -3)
+        ago14 = frappe.utils.add_days(today, -14)
+        # purchase orders: the team-edited ETA when the purchasing fields are installed, else Required By
+        po_date = "schedule_date"
+        try:
+            if frappe.get_meta("Purchase Order").get_field("ill_eta"):
+                po_date = "ill_eta"
+        except Exception:
+            po_date = "schedule_date"
 
         sections = []
         for s in SECTIONS:
+            if AREA.get(s) != "pipeline":
+                continue
             sections.append({"key": s, "label": SECTIONS[s][0], "locked": not section_ok(s),
                              "needs": SECTIONS[s][1]})
 
@@ -490,7 +788,20 @@ def main():
             ["so_late", "Open orders past delivery date", "Sales Order",
              [["status", "in", ["To Deliver and Bill", "To Deliver"]], ["delivery_date", "<", today]], "", "bad"],
             ["po_late", "Purchase orders past their date", "Purchase Order",
-             [["status", "in", ["To Receive and Bill", "To Receive"]], ["schedule_date", "<", today]], "", "bad"],
+             [["status", "in", ["To Receive and Bill", "To Receive"]], [po_date, "<", today]], "", "bad"],
+            # purchasing (v8): simple filters; the precise versions live in the purchasing board
+            ["po_not_sent", "Purchase orders not sent to the vendor", "Purchase Order",
+             [["docstatus", "=", 1], ["status", "in", ["To Receive and Bill", "To Receive"]],
+              ["ill_vendor_status", "=", "Not sent"]], "", "warn"],
+            ["po_unconfirmed", "Purchase orders the vendor hasn't confirmed", "Purchase Order",
+             [["docstatus", "=", 1], ["ill_vendor_status", "=", "Sent"], ["ill_sent_on", "<", ago3]], "", "warn"],
+            ["sq_expiring", "Supplier quotes expiring within 7 days", "Supplier Quotation",
+             [["docstatus", "=", 1], ["status", "=", "Submitted"], ["valid_till", "between", [today, in7]]],
+             "Submitted", "warn"],
+            ["receipt_no_bill", "Receipts with no vendor bill after 14 days", "Purchase Receipt",
+             [["status", "=", "To Bill"], ["posting_date", "<", ago14]], "To Bill", "warn"],
+            ["needs_lcv", "Delivered shipments waiting for landed cost", "ilL-Inbound-Shipment",
+             [["status", "=", "Delivered"]], "Delivered", "warn"],
             ["mr_late", "Material requests past required date", "Material Request",
              [["status", "in", ["Pending", "Partially Ordered"]], ["schedule_date", "<", today]], "", "warn"],
             ["wo_draft", "Work orders still in Draft", "Work Order",
@@ -530,7 +841,7 @@ def main():
         names = {}
         for r in rows:
             d = r["reference_doctype"]
-            if d in ALLOWED and available(d):
+            if d in SECTION_OF and available(d):
                 if d not in names:
                     names[d] = []
                 if r["reference_name"] not in names[d]:
@@ -768,7 +1079,7 @@ def main():
             want = {}
             for it in items:
                 d = it.get("reference_doctype")
-                if d and it.get("reference_name") and d in ALLOWED and available(d):
+                if d and it.get("reference_name") and d in SECTION_OF and available(d):
                     if d not in want:
                         want[d] = []
                     if it["reference_name"] not in want[d]:
