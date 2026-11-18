@@ -89,6 +89,7 @@
   "bom",
   "column_break_erp",
   "work_order",
+  "light_engines_json",
   "segments_section",
   "segments",
   "runs_section",
@@ -630,6 +631,14 @@
    "label": "Work Order",
    "options": "Work Order",
    "search_index": 1
+  },
+  {
+   "description": "Ship-in-pieces builds only: each light engine's Item and BOM, written when the bundle is prepared.",
+   "fieldname": "light_engines_json",
+   "fieldtype": "Code",
+   "label": "Light Engines",
+   "options": "JSON",
+   "read_only": 1
   },
   {
    "collapsible": 1,

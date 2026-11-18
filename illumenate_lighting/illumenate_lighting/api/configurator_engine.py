@@ -2208,7 +2208,13 @@ def _compute_multisegment_outputs(
 	total_mounting_accessories = math.ceil(total_manufacturable_length / mounting_spacing_mm) if total_manufacturable_length > 0 else 0
 
 	# Determine assembly mode
-	if total_manufacturable_length <= assembled_max_len_mm:
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import classify, split_enabled
+
+	if split_enabled():
+		# Assembled only when every user segment fits one stick (sealed again at save
+		# with the resolved profile and lens stick lengths).
+		assembly_mode = classify([seg["mfg_len"] for seg in segment_data_list], profile_stock_len_mm)
+	elif total_manufacturable_length <= assembled_max_len_mm:
 		assembly_mode = "ASSEMBLED"
 	else:
 		assembly_mode = "SHIP_PIECES"
@@ -3241,7 +3247,12 @@ def _compute_manufacturable_outputs(
 
 	# assembled if L_mfg <= assembled_max_len_mm, else ship in pieces
 	assembled_max_len_mm = float(template_doc.assembled_max_len_mm or 2590)  # ~8.5ft default
-	if L_mfg <= assembled_max_len_mm:
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import classify, split_enabled
+
+	if split_enabled():
+		# Assembled only when the fixture fits one stick of profile and lens.
+		assembly_mode = classify([L_mfg], profile_stock_len_mm)
+	elif L_mfg <= assembled_max_len_mm:
 		assembly_mode = "ASSEMBLED"
 	else:
 		assembly_mode = "SHIP_PIECES"
@@ -3397,7 +3408,20 @@ def _validate_computed_edge_cases(
 	if assembly_mode == "SHIP_PIECES" and template_doc:
 		# Check if template supports joiners
 		supports_joiners = getattr(template_doc, "supports_joiners", False)
-		if not supports_joiners:
+		from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import split_enabled
+
+		if split_enabled():
+			stick = computed.get("profile_stock_len_mm") or 0
+			messages.append({
+				"severity": "info",
+				"text": (
+					f"Ships in pieces: a segment is longer than one {stick}mm (~{stick / 304.8:.1f}ft) stick. "
+					"The LED tape ships as a finished light engine per run with the extrusion, endcaps "
+					"and mounting parts for field assembly."
+				),
+				"field": None,
+			})
+		elif not supports_joiners:
 			messages.append({
 				"severity": "warning",
 				"text": (

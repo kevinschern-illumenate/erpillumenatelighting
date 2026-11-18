@@ -52,6 +52,9 @@ def after_install():
 	from illumenate_lighting.patches.add_item_configured_group_field import execute as item_configured_group
 
 	item_configured_group()
+	from illumenate_lighting.patches.add_item_light_engine_fields import execute as item_light_engine
+
+	item_light_engine()
 	from illumenate_lighting.patches.add_webflow_contact_form_fields import execute as webflow_contact_form
 
 	webflow_contact_form()

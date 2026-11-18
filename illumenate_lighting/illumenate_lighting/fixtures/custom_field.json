@@ -280,6 +280,30 @@
 	},
 	{
 		"doctype": "Custom Field",
+		"dt": "Item",
+		"fieldname": "ill_light_engine_of",
+		"fieldtype": "Link",
+		"options": "ilL-Configured-Fixture",
+		"label": "Light Engine Of",
+		"description": "The ship-in-pieces fixture build this light engine is made for.",
+		"insert_after": "ill_configured_group",
+		"read_only": 1,
+		"no_copy": 1,
+		"search_index": 1
+	},
+	{
+		"doctype": "Custom Field",
+		"dt": "Item",
+		"fieldname": "ill_light_engine_key",
+		"fieldtype": "Data",
+		"label": "Light Engine Key",
+		"description": "Which light engine of the fixture build this Item is (LE1, LE2, ...).",
+		"insert_after": "ill_light_engine_of",
+		"read_only": 1,
+		"no_copy": 1
+	},
+	{
+		"doctype": "Custom Field",
 		"dt": "CRM Lead",
 		"fieldname": "webflow_form_details_section",
 		"fieldtype": "Section Break",
