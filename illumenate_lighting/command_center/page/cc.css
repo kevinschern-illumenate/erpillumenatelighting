@@ -425,6 +425,17 @@ details summary { cursor: pointer; }
   #cc .ag-item { box-shadow: none; }
 }
 
+/* pipeline stages (Design, Quotes, Sales orders, Service lanes) and the Inbox portal */
+#cc .pl-acts { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+#cc .pl-acts .cc-btn { padding: 3px 8px; font-size: 11.5px; }
+#cc .tcard .pl-acts { display: flex; justify-content: flex-start; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+#cc .ib-route { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+#cc .ib-route select { max-width: 200px; }
+#cc .ib-f { margin-bottom: 14px; flex-wrap: wrap; }
+#cc a.pill { text-decoration: none; }
+#cc a.pill:hover { background: var(--infob); }
+@media print { #cc .pl-acts, #cc .ib-route { display: none; } }
+
 /* production board (Manufacturing) */
 #cc .pb-kpis { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 #cc .pb-kpis .stat .v { font-size: 24px; }

@@ -9,7 +9,7 @@ class Meta:
     def get_field(s,c):
         for f in s.fields:
             if f.fieldname==c: return f
-        return D(label=c,fieldtype="Data") if c in ("grand_total","modified","customer","exp_end_date","project","priority","valid_till") else None
+        return D(label=c.title(),fieldtype="Data") if c in ("grand_total","modified","customer","exp_end_date","project","priority","valid_till","state","schedule","assigned_to","ill_project","ill_fixture_schedule","schedule_name","request_type") else None
 class Doc:
     docstatus=0; name="T-1"
     def __init__(s,v=None): s.v=dict(v or {}); s.v.setdefault("status","Open")
@@ -25,6 +25,7 @@ class Doc:
     def as_dict(s): return s.v
 saved=[]
 TODOS=[]
+CALLS=[]
 # in-memory agenda store (ilL-Meeting-Agenda / ilL-Meeting-Agenda-Item) for the agenda_* actions
 AGD="ilL-Meeting-Agenda"; AGI="ilL-Meeting-Agenda-Item"
 STORE={AGD:{},AGI:{}}; AUDIT=[]; SEQ=[0]
@@ -68,10 +69,16 @@ def run(user, roles, form):
     def get_all(dt,**k):
         if dt=="Has Role": return [{"role":r} for r in roles]
         if dt=="Comment": return [{"creation":"x","owner":"a","content":"Command Center: z","reference_doctype":"Task","reference_name":"T-1"}]
+        if dt=="ilL-Child-Fixture-Schedule-Line": return [{"parent":"S-1"},{"parent":"S-1"}]
+        if dt=="ToDo": return [{"name":"TD-X"}] if k.get("filters",{}).get("allocated_to")=="dup@x" else []
         return []
     def get_list(dt,**k):
         if dt in STORE: return store_list(dt,k)
         f=k.get("fields",[])
+        CALLS.append((dt,f,k.get("filters"),k.get("order_by"),k.get("group_by")))
+        if dt=="ilL-Project-Fixture-Schedule" and "schedule_name" in f: return [{"name":"S-1","status":"READY","ill_project":"P-9"}]
+        if dt=="ToDo" and k.get("filters",{}).get("allocated_to"): return [{"name":"TD-OLD"}]
+        if "state" in f and not any(isinstance(x,dict) or "(" in str(x) for x in f): return [{"name":"QR-1","state":"REQUESTED"}]
         # emulate Frappe: v16 accepts aggregates only as dicts, v15 only as strings
         strs = [x for x in f if isinstance(x, str) and "(" in x]; dicts = [x for x in f if isinstance(x, dict)]
         if (strs or dicts) and FALLBACK: raise Exception("aggregates refused")
@@ -89,7 +96,7 @@ def run(user, roles, form):
         return Doc(a[0] if isinstance(a[0],dict) else None)
     fr=D(session=D(user=user),get_all=get_all,get_list=get_list,get_meta=Meta,get_doc=get_doc,
          db=D(exists=lambda *a:True,count=lambda *a:0,get_value=lambda dt,n,f:STORE[dt][n].v.get(f)),throw=throw,form_dict=D(form),response=resp,
-         utils=D(nowdate=lambda:"2026-11-17",add_days=lambda d,n:"2026-11-24"))
+         utils=D(nowdate=lambda:"2026-11-17",now=lambda:"2026-11-17 12:00:00",add_days=lambda d,n:"2026-11-24"))
     g=dict(safe_globals); g["__builtins__"]=dict(safe_builtins, min=min,max=max,sorted=sorted,sum=sum)
     g.update(frappe=fr,json=json,_getattr_=getattr,_getitem_=default_guarded_getitem,_getiter_=default_guarded_getiter,_write_=lambda x:x,_iter_unpack_sequence_=guarded_iter_unpack_sequence,_inplacevar_=lambda op,a,b:a)
     exec(compile_restricted(open(__import__('os').path.join(__import__('os').path.dirname(__file__),'../ss/cc_gateway.py')).read(),'<s>','exec'),g,{})
@@ -148,3 +155,30 @@ for who,form,roles in [("viewer todo",{"action":"agenda_todo","name":b["name"],"
     try: run("a@x",roles,form); print(who,"NOT BLOCKED")
     except Exception as e: print(who,"blocked:",e)
 print("todo doc:", TODOS[0]["reference_type"], TODOS[0]["reference_name"], TODOS[0]["allocated_to"], TODOS[0]["priority"], "escaped:", "&lt;date&gt;" in TODOS[0]["description"], "[meeting] Owners: r@x, j@x" in TODOS[0]["description"])
+
+# ---- pipeline restructure: state fields, stages, assign, note ----
+m=run("a@x",V,{"action":"config"})
+print("sections in pipeline order:", [x["key"] for x in m["sections"]])
+print("no requests section:", "requests" not in [x["key"] for x in m["sections"]])
+qr=m["doctypes"]["ilL-Quote-Request"]; print("quote request section/status col:", qr["section"], [c["fieldname"] for c in qr["columns"]][:4], [c["label"] for c in qr["columns"] if c["fieldname"]=="status"])
+del CALLS[:]
+r=run("a@x",V,{"action":"list","dt":"ilL-Quote-Request","filters":{"status":"REQUESTED"},"order_by":"status asc"})
+c=[x for x in CALLS if x[0]=="ilL-Quote-Request" and "name" in x[1]][-1]
+print("list maps status->state:", "state" in c[1] and "status" not in c[1], c[2], c[3], "row status:", r["rows"][0].get("status"))
+del CALLS[:]
+o=run("a@x",V,{"action":"overview"})
+g=[x for x in CALLS if x[0]=="ilL-Order-Intake" and x[4]][:1]
+print("overview groups intake by state:", g[0][4] if g else None, "signals:", [x["id"] for x in o["signals"]][:4])
+st=run("a@x",V,{"action":"stages"})
+print("stages keys:", sorted(k for k in st if k not in ("today","can_edit")))
+print("stages schedule lines:", st["schedules"][0]["lines"], "project fetched for schedule:", any(x[0]=="ilL-Project" and x[2]=={"name":["in",["P-9"]]} for x in CALLS))
+del TODOS[:]
+a=run("a@x",E,{"action":"assign","dt":"HD Ticket","name":"T-1","add":["j@x","dup@x"],"remove":["r@x"]})
+print("assign:", a["added"], a["removed"], "todo made for:", [t["allocated_to"] for t in TODOS], "audit:", AUDIT[-1] if AUDIT else None)
+for who,form,roles in [("viewer assign",{"action":"assign","dt":"HD Ticket","name":"T-1","add":["j@x"]},V),
+                       ("assign nobody",{"action":"assign","dt":"HD Ticket","name":"T-1"},E),
+                       ("assign not allowed dt",{"action":"assign","dt":"User","name":"x","add":["j@x"]},E),
+                       ("viewer note",{"action":"note","dt":"HD Ticket","name":"T-1","text":"x"},V)]:
+    try: run("a@x",roles,form); print(who,"NOT BLOCKED")
+    except Exception as e: print(who,"blocked:",e)
+run("a@x",E,{"action":"note","dt":"HD Ticket","name":"T-1","text":"linked quotation <Q-1>"}); print("note:", AUDIT[-1])
