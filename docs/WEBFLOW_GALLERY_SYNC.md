@@ -342,3 +342,6 @@ Still open:
   slug lock after staging, slug uniqueness, one credit per type).
 - 2026-11-18: Task 3 built: `api/gallery_readiness.py` (`evaluate`, `is_public_file`), the pure readiness
   checks from section 6. The returned `dependencies` carry product Webflow item IDs and series used.
+- 2026-11-18: Task 4 built: `api/gallery_projection.py` (`build_payload`, `absolute_url`), the pure projection
+  from section 5.1. Hero is the first image row; public paths become absolute on the brand's base URL; plain
+  text in rich-text fields is HTML-escaped; applications, services and series are returned as lists.
