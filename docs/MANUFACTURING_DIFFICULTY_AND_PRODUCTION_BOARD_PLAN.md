@@ -1,6 +1,6 @@
 # Manufacturing difficulty points and Production Board: implementation plan
 
-Date: 2026-11-18. Status: phases 1-3 implemented (build points, production board, rest of the workbook); phase 4 (BOM operations) proposed. Decisions in section 6.
+Date: 2026-11-18. Status: phases 1-4 implemented. Decisions in section 6.
 
 ## Goal
 
@@ -421,3 +421,27 @@ Settings:
 An open paint PO now puts an order in Paint (status 7) automatically. Money is blanked for viewers without a money role by one `scrub()` pass over the whole response.
 
 Not carried over: the workbook's week-over-week "changes from last week" deltas on Reporting. They need stored weekly snapshots. That could be a small scheduled job writing one record per week, if wanted.
+
+## 10. Phase 4 as built
+
+**Operation time goes on the Work Order, not the BOM.** BOMs are submitted, hash-pinned builds that can't change after creation, while weights and points per person per day can be changed on the settings page. A BOM operation time would go stale the first time either was edited.
+
+**How it works:**
+
+- With **Add Build Operation to Work Orders** on (off by default), each new Work Order gets one operation on the build workstation.
+- Time = build points × 60 / points per person-hour. For example, 57.5 points is 510 minutes, one 8.5-hour person-day.
+- ERPNext then plans the operation on the workstation and creates a Job Card on submit.
+- `build_operations.apply_to_open_work_orders` (POST) adds the operation to existing draft Work Orders.
+
+**Defaults:** the patch creates an Operation "Build" and a Workstation "Production Floor" if missing, and points the settings at them. Before turning the option on, set the workstation's working hours and hour rate. Then try it on one Work Order to confirm ERPNext's capacity planning finds time slots.
+
+**Calibration:** the **Build Points Calibration** report lists completed Work Orders with their counts, points and labour minutes.
+
+- Labour minutes come from **Actual Build Minutes** on the Work Order (new field) when filled in, otherwise from Job Card time on the build operation.
+- The fit is minutes = Σ count × minutes per unit, solved by least squares and pulled toward the current weights (ridge 0.1).
+- Suggested weights are fitted minutes relative to a 2C run.
+- A factor seen on fewer than 5 Work Orders keeps its current weight.
+- Suggested points per person per day is what the crew achieved under the suggested weights.
+- **Apply Suggested Weights** (Manufacturing Manager / System Manager) writes the suggestions to settings, which re-scores stored points.
+
+**Hardening:** `build_points.backfill`, `apply_to_open_work_orders` and `apply_calibration` accept POST only, per the repo's mutation hygiene test.

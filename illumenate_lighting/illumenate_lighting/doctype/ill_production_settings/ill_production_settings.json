@@ -48,7 +48,12 @@
   "monthly_revenue_goal",
   "section_goals",
   "monthly_goals",
-  "paint_supplier_group"
+  "paint_supplier_group",
+  "section_operations",
+  "add_build_operation",
+  "build_operation",
+  "column_break_operations",
+  "build_workstation"
  ],
  "fields": [
   {
@@ -381,6 +386,39 @@
    "label": "Paint / Finishing Supplier Group",
    "options": "Supplier Group",
    "description": "Open purchase orders to these suppliers, linked to a sales order, put the order in Paint on the board."
+  },
+  {
+   "fieldname": "section_operations",
+   "fieldtype": "Section Break",
+   "label": "Work Order Operations",
+   "collapsible": 1,
+   "description": "Turns build points into operation time on new Work Orders, so ERPNext plans workstation capacity and creates Job Cards. Minutes = build points x 60 / points per person-hour. Try it on one Work Order before relying on it."
+  },
+  {
+   "fieldname": "add_build_operation",
+   "fieldtype": "Check",
+   "label": "Add Build Operation to Work Orders",
+   "default": "0"
+  },
+  {
+   "fieldname": "build_operation",
+   "fieldtype": "Link",
+   "label": "Build Operation",
+   "options": "Operation",
+   "depends_on": "add_build_operation",
+   "mandatory_depends_on": "add_build_operation"
+  },
+  {
+   "fieldname": "column_break_operations",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "build_workstation",
+   "fieldtype": "Link",
+   "label": "Build Workstation",
+   "options": "Workstation",
+   "depends_on": "add_build_operation",
+   "mandatory_depends_on": "add_build_operation"
   }
  ],
  "index_web_pages_for_search": 0,
