@@ -266,6 +266,17 @@ const mappingScript = `<script>
                       try {
                           currentValues = JSON.parse(opt.allowed_values_json || "[]");
                       } catch(e) {}
+                      // A fixture's Output step lists its outputs per lens ({lensMap: {WH: [...]}}):
+                      // the builder shows each output once, lowest first.
+                      if (!Array.isArray(currentValues)) {
+                          const byCode = new Map();
+                          Object.values((currentValues && currentValues.lensMap) || {}).forEach(list => {
+                              (Array.isArray(list) ? list : []).forEach(v => {
+                                  if (v && v.code && !byCode.has(String(v.code))) byCode.set(String(v.code), { code: String(v.code), label: v.label || String(v.code) });
+                              });
+                          });
+                          currentValues = Array.from(byCode.values()).sort((a, b) => (parseFloat(a.code) || 0) - (parseFloat(b.code) || 0));
+                      }
                       const label = opt.option_label || opt.option_type || '';
 
                       // A free length (fixtures) has only the length metadata row; a kit's stock
