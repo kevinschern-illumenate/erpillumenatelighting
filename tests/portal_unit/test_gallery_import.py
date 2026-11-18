@@ -304,10 +304,12 @@ class ImportCase(unittest.TestCase):
 		frappe.db.exists.side_effect = exists
 		frappe.get_all.side_effect = get_all
 		frappe.get_doc.side_effect = get_doc
+		frappe.delete_doc = MagicMock()
 		frappe.get_site_path = lambda *parts: os.path.join(self.tmp, *parts)
 		frappe.generate_hash = lambda length=8: "abcd1234"
 
 	def attach(self, doc):
+		doc.name = "FILE-%d" % (len(self.files) + 1)
 		self.files.append(doc)
 		doc["file_url"] = "/files/" + doc["file_name"]
 		return doc
@@ -387,6 +389,117 @@ class ImportCase(unittest.TestCase):
 		result = self.run_import([item("boutique-hotel-lounge", "Boutique")], 1)
 		self.assertEqual(result["created"], [])
 		self.assertTrue(any("skipped" in line for line in result["report"]))
+
+
+class FakeResponse:
+	def __init__(self, status=200, content_type="image/jpeg", chunks=(b"abc",)):
+		self.status_code = status
+		self.headers = {"Content-Type": content_type}
+		self._chunks = chunks
+		self.closed = False
+
+	def iter_content(self, chunk_size=0):
+		return iter(self._chunks)
+
+	def close(self):
+		self.closed = True
+
+
+class DownloadCase(unittest.TestCase):
+	def download(self, url, response=None):
+		fake = types.ModuleType("requests")
+		fake.get = MagicMock(return_value=response or FakeResponse())
+		with load_service(MODULE) as (module, _frappe), patch.dict("sys.modules", {"requests": fake}):
+			try:
+				return module._download(url), fake
+			except ValueError as error:
+				return error, fake
+
+	def test_cdn_https_image_is_fetched_without_redirects(self):
+		result, fake = self.download(CDN + "a.jpg")
+		self.assertEqual(result, b"abc")
+		kwargs = fake.get.call_args.kwargs
+		self.assertFalse(kwargs["allow_redirects"])
+		self.assertEqual(kwargs["timeout"], 30)
+
+	def test_non_cdn_host_is_refused_without_a_request(self):
+		for url in ("https://evil.example/a.jpg", "https://website-files.com.evil.example/a.jpg"):
+			error, fake = self.download(url)
+			self.assertIsInstance(error, ValueError)
+			fake.get.assert_not_called()
+
+	def test_http_url_is_refused(self):
+		error, fake = self.download("http://cdn.prod.website-files.com/a.jpg")
+		self.assertIsInstance(error, ValueError)
+		fake.get.assert_not_called()
+
+	def test_redirect_is_a_failure(self):
+		error, _ = self.download(CDN + "a.jpg", FakeResponse(status=302))
+		self.assertIn("302", str(error))
+
+	def test_oversize_body_is_refused(self):
+		big = FakeResponse(chunks=(b"x" * (8 * 1024 * 1024),) * 2)
+		error, _ = self.download(CDN + "a.jpg", big)
+		self.assertIn("15 MB", str(error))
+		self.assertTrue(big.closed)
+
+	def test_non_image_content_type_is_refused(self):
+		error, _ = self.download(CDN + "a.jpg", FakeResponse(content_type="text/html"))
+		self.assertIn("not an image", str(error))
+
+
+class RichTextAndFailureCase(ImportCase):
+	def test_zero_width_paragraphs_make_no_rows_and_no_reports(self):
+		for junk in ("<p>&zwj;</p>", "<p>\u200d</p>", "<p>&#8205; &nbsp;</p>"):
+			raw = ode()
+			raw["fieldData"]["product-notes"] = junk
+			raw["fieldData"]["custom-items"] = junk
+			with load_service(MODULE) as (module, _frappe):
+				gallery, report = map_item(module, raw)
+			self.assertEqual(gallery["custom_items"], [], junk)
+			self.assertFalse(any("note" in line.lower() for line in report), junk)
+
+	def test_exception_rolls_back_and_deletes_created_files(self):
+		with self.service() as (module, frappe):
+			self.tmp = "/nonexistent"
+			self.prepare(frappe)
+			frappe.generate_hash = lambda length=8: "abcd1234"
+			with (
+				patch.object(module, "_download", return_value=b"x"),
+				patch.object(module, "_write_report", return_value="r.txt"),
+				patch.object(module, "_discard_files", wraps=module._discard_files) as discard,
+			):
+				original = frappe.get_doc.side_effect
+
+				def get_doc(data):
+					doc = original(data)
+					if data["doctype"] == "ilL-Webflow-Gallery":
+						doc.save = MagicMock(side_effect=RuntimeError("save broke"))
+					return doc
+
+				frappe.get_doc.side_effect = get_doc
+				result = module.import_galleries([ode()], "staging2", 1)
+		frappe.db.rollback.assert_called_once()
+		self.assertEqual(result["created"], [])
+		self.assertEqual(frappe.delete_doc.call_count, 5)
+		frappe.delete_doc.assert_any_call("File", "FILE-1", ignore_permissions=True, force=True)
+		self.assertTrue(any("import failed" in line and "save broke" in line for line in result["report"]))
+		frappe.db.commit.assert_not_called()
+
+	def test_all_images_failed_imports_inactive_and_flags(self):
+		with self.service() as (module, frappe):
+			self.tmp = "/nonexistent"
+			self.prepare(frappe)
+			with (
+				patch.object(module, "_download", side_effect=OSError("down")),
+				patch.object(module, "_write_report", return_value="r.txt"),
+			):
+				result = module.import_galleries([ode()], "staging2", 1)
+		self.assertEqual(result["created"], ["ode-wellness"])
+		gallery = self.inserted[0]
+		self.assertEqual(gallery["gallery_images"], [])
+		self.assertEqual(gallery["is_active"], 0)
+		self.assertTrue(any("NEEDS ATTENTION: all images failed" in line for line in result["report"]))
 
 
 if __name__ == "__main__":
