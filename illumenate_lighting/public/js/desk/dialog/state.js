@@ -215,6 +215,11 @@
 		return out;
 	}
 
+	// "L1 · ITEM" for the done/alert text; just the Item when the row has no Fixture Type.
+	function addedLabel(msg) {
+		return [msg.fixture_type, msg.item_code].filter(Boolean).map(escapeHtml).join(' · ');
+	}
+
 	function usedFixtureTypes(frm, exceptLine) {
 		return (frm.doc.items || []).filter(function (r) { return !exceptLine || r.ill_schedule_line_id !== exceptLine; })
 			.map(function (r) { return r.ill_fixture_type; }).filter(Boolean);
@@ -431,6 +436,7 @@
 		productTypeLabel: productTypeLabel,
 		pickHeader: pickHeader,
 		usedFixtureTypes: usedFixtureTypes,
+		addedLabel: addedLabel,
 		usedSectionLabels: usedSectionLabels,
 		isConfiguredRow: isConfiguredRow,
 		configuredRowFor: configuredRowFor,

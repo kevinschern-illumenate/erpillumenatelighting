@@ -5,7 +5,7 @@ LED tape it uses: the Template Name of the Tape/Neon template whose allowed tape
 tape specs of the fixture's allowed tape offerings (for ILL-SH01-SW, "High Density Static White
 LED Tape"). When several Tape/Neon templates hold them, the ones for the fixture's own target
 brand are used; the same name is listed once. The name goes in the row's Description (and
-Webflow Title); the row has no Component Item. Rows typed by hand keep their order after it.
+Webflow Title) and that template's Hero Image in Component Image; the row has no Component Item. Rows typed by hand keep their order after it.
 """
 
 import frappe
@@ -25,6 +25,11 @@ def _brands(template):
 
 def names(template):
 	"""The Light Source names for ``template``, sorted."""
+	return [name for name, _image in light_sources(template)]
+
+
+def light_sources(template):
+	"""[(name, hero image)] for ``template``'s Light Source rows, sorted by name."""
 	offerings = [
 		row.get("tape_offering")
 		for row in template.get("allowed_tape_offerings") or []
@@ -70,12 +75,24 @@ def names(template):
 		)
 		if same_brand:
 			parents = sorted(same_brand)
+	return sources(parents)
+
+
+def sources(parents):
+	"""[(name, hero image)] for the Tape/Neon templates ``parents``, one per name, sorted; the
+	image is the first Hero Image among the templates with that name."""
 	rows = frappe.get_all(
 		"ilL-Tape-Neon-Template",
 		filters={"name": ["in", parents]},
-		fields=["name", "template_name"],
+		fields=["name", "template_name", "hero_image"],
+		order_by="name asc",
 	)
-	return sorted({(row.get("template_name") or row.get("name")).strip() for row in rows})
+	images = {}
+	for row in rows:
+		name = (row.get("template_name") or row.get("name")).strip()
+		if not images.get(name):
+			images[name] = row.get("hero_image") or None
+	return sorted(images.items())
 
 
 def refresh(template):
@@ -84,10 +101,16 @@ def refresh(template):
 	if template.doctype != DOCTYPE or (meta is not None and not meta.has_field(FIELD)):
 		return
 	others = [row for row in template.get(FIELD) or [] if row.get("component_type") != LIGHT_SOURCE]
-	light_sources = [
-		{"component_type": LIGHT_SOURCE, "component_description": name, "webflow_title": name}
-		for name in names(template)
+	rows = [
+		{
+			"component_type": LIGHT_SOURCE,
+			"component_description": name,
+			"webflow_title": name,
+			# The tape's own picture (owner, 2026-11-18): its Tape/Neon template's Hero Image.
+			"component_image": image,
+		}
+		for name, image in light_sources(template)
 	]
-	template.set(FIELD, light_sources + others)
+	template.set(FIELD, rows + others)
 	for idx, row in enumerate(template.get(FIELD) or [], 1):
 		row.idx = idx

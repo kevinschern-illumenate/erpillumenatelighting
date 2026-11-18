@@ -192,6 +192,10 @@ const mappingScript = `<script>
           seriesCodes.forEach(el => el.innerText = seriesSlug);
           setText('series-desc', "ilLumenate " + (data.product_name || ""));
           
+          // Radio button colour for the PDF generator (owner, 2026-11-18): linear fixtures
+          // #ffac33; other products keep the generator's green.
+          if (data.product_type === 'Fixture Template') builderSection.setAttribute('data-radio-color', '#ffac33');
+
           // TAG THE SERIES BUTTON FOR VERCEL
           const seriesBtn = builderSection.querySelector('#series-btn');
           if (seriesBtn) {
@@ -231,6 +235,9 @@ const mappingScript = `<script>
                   const addDash = () => {
                       const dashClone = dashTemplate.cloneNode(true);
                       dashClone.style.display = '';
+                      // The page's .part-no-dash has height: 100%, which made each row as tall as
+                      // the whole builder (the big gap under the first row; owner, 2026-11-18).
+                      dashClone.style.height = 'auto';
                       wrapper.appendChild(dashClone);
                   };
 
@@ -336,6 +343,10 @@ const mappingScript = `<script>
 
                   const exampleEl = document.getElementById('part-no-ex');
                   if (exampleEl) exampleEl.innerText = example.filter(Boolean).join('-');
+                  // Rows stay 20px apart (the wrapper's row gap): a wrapper taller than its rows
+                  // would otherwise stretch them apart (owner, 2026-11-18).
+                  wrapper.style.alignContent = 'flex-start';
+                  wrapper.style.height = 'auto';
               }
           }
       } else if (builderSection) {
@@ -682,7 +693,12 @@ const mappingScript = `<script>
       setText('generated-date', data.spec_sheet_stamp || (mm + dd + yy));
 
       // --- G. PAGINATION LOGIC (1056px Max Height) ---
+      // Measured once the page and its web fonts have loaded: measured in the fallback font, text
+      // wrapped less than in the PDF and a section could run into the footer (owner, 2026-11-18).
+      // SAFETY keeps a little room for what still differs when the PDF is drawn.
+      const paginate = () => {
       const PAGE_HEIGHT = 1056; 
+      const SAFETY = 12;
       const container = document.querySelector('.pdf-spec-container');
       let currentPage = document.querySelector('.page-wrapper');
       
@@ -704,34 +720,43 @@ const mappingScript = `<script>
               currentMain = newMain;
           }
 
+          // Page rules (owner, 2026-11-18):
+          // - the Part Number Builder always starts its own page, title and example included;
+          // - a kit's Components start their own page (fixtures' flow on);
+          // - a section split over two pages keeps its title (.spec-h2, and the builder's
+          //   example line) with the content that follows it.
+          const visible = el => el.style.display !== 'none';
+          const pageHasContent = () => Array.from(currentMain.children).some(visible);
+          const isHeading = el => el.classList.contains('spec-h2') || !!el.querySelector('#part-no-ex') || el.id === 'part-no-ex';
           sections.forEach(section => {
-              if (section.id === 'components' && section.style.display !== 'none') {
-                  addPage();
-                  currentMain.appendChild(section);
-                  return;
-              }
+              const ownPage = visible(section) && (section.id === 'part-no-builder'
+                  || (section.id === 'components' && data.product_type === 'Extrusion Kit'));
+              if (ownPage && pageHasContent()) addPage();
 
               currentMain.appendChild(section);
-              
-              if (currentPage.scrollHeight > PAGE_HEIGHT) {
-                  currentMain.removeChild(section); 
-                  
-                  let activeSection = section.cloneNode(false); 
+              if (currentPage.scrollHeight <= PAGE_HEIGHT - SAFETY) return;
+
+              currentMain.removeChild(section);
+              let activeSection = section.cloneNode(false);
+              currentMain.appendChild(activeSection);
+              Array.from(section.children).forEach(item => {
+                  activeSection.appendChild(item);
+                  if (currentPage.scrollHeight <= PAGE_HEIGHT - SAFETY) return;
+                  // Carry the titles just before this item along with it.
+                  const moving = [item];
+                  while (moving[0].previousElementSibling && isHeading(moving[0].previousElementSibling)) {
+                      moving.unshift(moving[0].previousElementSibling);
+                  }
+                  const emptied = moving.length === activeSection.children.length;
+                  // Nothing else on this page: moving would not help, so it stays.
+                  if (emptied && Array.from(currentMain.children).filter(visible).length === 1) return;
+                  moving.forEach(el => activeSection.removeChild(el));
+                  if (emptied) currentMain.removeChild(activeSection);
+                  addPage();
+                  activeSection = section.cloneNode(false);
                   currentMain.appendChild(activeSection);
-                  
-                  const items = Array.from(section.children);
-                  items.forEach(item => {
-                      activeSection.appendChild(item);
-                      
-                      if (currentPage.scrollHeight > PAGE_HEIGHT) {
-                          activeSection.removeChild(item); 
-                          addPage(); 
-                          activeSection = section.cloneNode(false); 
-                          currentMain.appendChild(activeSection);
-                          activeSection.appendChild(item); 
-                      }
-                  });
-              }
+                  moving.forEach(el => activeSection.appendChild(el));
+              });
           });
           
           const allPages = document.querySelectorAll('.page-wrapper');
@@ -745,6 +770,10 @@ const mappingScript = `<script>
               if (totEl) totEl.innerText = allPages.length.toString();
           });
       }
+      };
+      const fontsReady = () => (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve());
+      if (document.readyState === 'complete') fontsReady().then(paginate);
+      else window.addEventListener('load', () => fontsReady().then(paginate));
 
   })();
 <\/script>`;

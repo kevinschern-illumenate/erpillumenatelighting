@@ -26,6 +26,13 @@ class DimensionsText(unittest.TestCase):
 			)
 			self.assertIsNone(module.dimensions_text(None, None))
 
+	def test_production_interval_has_inches_and_mm(self):
+		# Owner, 2026-11-18: xx.xx" (xx.xmm) on every template.
+		with load_service(ROOT + ".template_calculations") as (module, _frappe):
+			self.assertEqual(module.production_interval_text(33.3), '1.31" (33.3mm)')
+			self.assertEqual(module.production_interval_text(50), '1.97" (50.0mm)')
+			self.assertIsNone(module.production_interval_text(None))
+
 
 if __name__ == "__main__":
 	unittest.main()

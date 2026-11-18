@@ -88,6 +88,9 @@ CONFIGURED = {
 # Custom field names (BOM, Sales Order Item, Sales Order share them).
 FIELD = {key: "ill_" + key for key in COUNT_KEYS}
 POINTS_FIELD = "ill_build_points"
+# Sales Order only: floor adjustments to the counted totals ({count key: delta}).
+ADJUST_FIELD = "ill_build_points_adjustments"
+ADJUST_NOTE_FIELD = "ill_build_points_adjust_note"
 STAMPED_FIELD = "ill_build_points_stamped"
 WARNINGS_FIELD = "ill_build_points_warnings"
 
@@ -137,6 +140,29 @@ def tally(runs, *, fmc=0, assembly=0, loose=0):
 def add(total, counts, qty=1):
 	for key in COUNT_KEYS:
 		total[key] = total.get(key, 0) + (counts.get(key) or 0) * qty
+	return total
+
+
+def adjustments(value):
+	"""Floor adjustments stored on a Sales Order: ``{count key: delta}``, non-zero only."""
+	raw = _json(value, {})
+	if not isinstance(raw, dict):
+		return {}
+	out = {}
+	for key in COUNT_KEYS:
+		try:
+			delta = round(float(raw.get(key) or 0), 4)
+		except (TypeError, ValueError):
+			continue
+		if delta:
+			out[key] = delta
+	return out
+
+
+def adjust(total, deltas):
+	"""Add floor adjustments to counted totals; a count never goes below zero."""
+	for key, delta in (deltas or {}).items():
+		total[key] = round(max((total.get(key) or 0) + delta, 0), 4)
 	return total
 
 
@@ -514,6 +540,10 @@ def order_totals(doc, values=None):
 		lines[row.get("name") or row.get("idx")] = line
 		add(total, line)
 		warnings.extend(f"Row {row.get('idx')}: {w}" for w in (counts or {}).get("warnings") or [])
+	# The order total is what the build pins plus whatever the floor added by hand.
+	total["computed"] = {key: total[key] for key in COUNT_KEYS}
+	total["adjustments"] = adjustments(doc.get(ADJUST_FIELD))
+	adjust(total, total["adjustments"])
 	total["points"] = score(total, weight)
 	per_hour = points_per_hour(values)
 	total["hours"] = round(total["points"] / per_hour, 2) if per_hour else 0
