@@ -346,3 +346,6 @@ Still open:
 - 2026-11-18: Task 4 built: `api/gallery_projection.py` (`build_payload`, `absolute_url`), the pure projection
   from section 5.1. Hero is the first image row; public paths become absolute on the brand's base URL; plain
   text in rich-text fields is HTML-escaped; applications, services and series are returned as lists.
+- 2026-11-18: Task 6 built: gallery form script (`public/js/gallery_publication.js`, wired through `doctype_js`
+  and `ill_webflow_gallery.js`) with a brand picker, readiness list (issues red, warnings grey), `Approve and
+  Stage`, `Publish Live`, `Retire` and a failed-job `Retry`, plus a hero-image note under the images table.
