@@ -4,7 +4,7 @@ Living document. Update it in the same change as the code it describes.
 
 | | |
 | --- | --- |
-| Status | **Design approved. Build in progress:** list doctypes, child doctypes and seed patch done (Task 1). |
+| Status | **Design approved. Build in progress:** list doctypes, child doctypes and seed patch done (Task 1); `ilL-Webflow-Gallery` doctype and validation done (Task 2). |
 | Owner | Rei (design), Claude (build) |
 | Doctype | `ilL-Webflow-Gallery` |
 | Webflow collection | `Galleries` (renamed from `Projects` by Rei; the collection ID is unchanged on staging2 and differs per site, see section 9) |
@@ -337,3 +337,6 @@ Still open:
 - 2026-11-18: Task 1 built: `ilL-Gallery-Application`, `ilL-Design-Service`, the four child doctypes
   (`ilL-Child-Gallery-Application`, `-Service`, `-Credit`, `-Product`), `api/gallery_schema.py`, the
   `seed_gallery_lists` patch (lists plus the "Custom" series) and the `Galleries` brand collection kind.
+- 2026-11-18: Task 2 built: `ilL-Webflow-Gallery` (autoname by slug, `sync_targets` read-only), the
+  `ilL-Child-Gallery-Custom-Item` child doctype and `api/gallery_rules.py` (`validate_gallery`: slug format,
+  slug lock after staging, slug uniqueness, one credit per type).
