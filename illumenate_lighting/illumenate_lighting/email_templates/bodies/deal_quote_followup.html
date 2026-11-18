@@ -1,0 +1,12 @@
+{# CRM Deal: quote follow-up. Uses the newest submitted Quotation linked to the deal. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+{% if c.deal.has_quote %}
+<p>I wanted to check in on quote <strong>{{ c.quote.number }}</strong>{% if c.quote.date %}, sent {{ c.quote.date }}{% endif %}, for {{ c.quote.total }}.</p>
+{% if c.quote.valid_till and not c.quote.expired %}<p>Pricing is held until {{ c.quote.valid_till }}.</p>{% elif c.quote.expired %}<p>Its pricing has expired, so if the project is still moving I'll refresh it for you.</p>{% endif %}
+{% if c.pdf.quote %}<p><a href="{{ c.pdf.quote }}">View the quote (PDF)</a></p>{% endif %}
+{% else %}
+<p>I wanted to check in on your lighting project{% if c.deal.organization %} with {{ c.deal.organization }}{% endif %} and see where things stand.</p>
+{% endif %}
+<p>Any questions on fixtures, finishes or lead times? Just reply and I'll take care of it.</p>
+{{ c.blocks.signature }}

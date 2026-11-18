@@ -173,7 +173,8 @@ def main():
     ]
     # single (settings) doctypes: plain Desk links on the ilLumenate landing; the desk enforces permission
     SETTINGS = ["ilL-Purchasing-Settings", "ilL-Production-Settings", "ilL-Portal-Routing-Settings",
-                "ilL-Product-Finder-Settings", "ilL-System-Designer-Settings", "Email Campaign Benchmark Settings"]
+                "ilL-Product-Finder-Settings", "ilL-System-Designer-Settings", "Email Campaign Benchmark Settings",
+                "ilL-Email-Settings"]
     # never exposed: session tokens and singles holding credentials
     EXCLUDED = ["ilL-Webflow-Session", "ilL-Webflow-Settings", "ilL-QBO-Settings"]
     # generated or audit records: listed and opened, never saved or created here

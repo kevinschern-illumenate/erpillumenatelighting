@@ -1,0 +1,8 @@
+{# Supplier Quotation: questions on a supplier's quote, or a nudge before it expires. Edit the questions before sending. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {{ c.greeting_name }},</p>
+<p>Thank you for your quotation <strong>{{ c.name }}</strong>{% if c.supplier_quote.rfqs %} for our RFQ {{ c.supplier_quote.rfqs|join(", ") }}{% endif %}, {{ c.supplier_quote.total }}{% if c.supplier_quote.valid_till %}, valid until {{ c.supplier_quote.valid_till }}{% endif %}.</p>
+<p>Before we place the order, could you confirm:</p>
+<ul><li>[question]</li><li>Lead time from order to ship</li><li>Freight terms and estimated freight cost</li></ul>
+{% if c.supplier_quote.expires_in %}<p>Your pricing expires {{ c.supplier_quote.expires_in }}; if you can extend it, please let us know.</p>{% endif %}
+{{ c.blocks.signature }}

@@ -1,0 +1,9 @@
+{# Quotation: cover email when sending a quote. Values come from ill_email_context; see email_templates/context.py. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Thank you for the opportunity{% if c.job_name %} on <strong>{{ c.job_name }}</strong>{% endif %}. Your quote <strong>{{ c.name }}</strong> comes to <strong>{{ c.quote.total }}</strong>.</p>
+{% if c.quote.valid_till %}<p>Pricing is held until <strong>{{ c.quote.valid_till }}</strong>.</p>{% endif %}
+{{ c.blocks.lines }}
+{% if c.pdf.quote %}<p><a href="{{ c.pdf.quote }}">Download the full quote (PDF)</a></p>{% endif %}
+<p>To order, reply with your purchase order{% if c.portal_url %} or approve the quote in the <a href="{{ c.portal_url }}">dealer portal</a>{% endif %}. If anything needs to change, just reply and we'll revise it.</p>
+{{ c.blocks.signature }}

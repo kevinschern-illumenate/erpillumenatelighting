@@ -1,0 +1,9 @@
+{# Sales Order: ship date changed / delay notice. Update the ship date on the order first, then add the reason. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>I'm sorry to let you know that order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}{% if c.job_name %} for {{ c.job_name }}{% endif %} will ship later than we planned.</p>
+{% if c.order.ship_date %}<p><strong>New {{ c.order.ship_date_label|lower }}:</strong> {{ c.order.ship_date }}</p>{% endif %}
+{% if c.order.delivery_promise %}<p>We had confirmed delivery for {{ c.order.delivery_promise }}, and we know this may affect your plans.</p>{% endif %}
+<p><strong>Why:</strong> [reason for the delay]</p>
+<p>If this affects your job schedule, reply and we'll look at what we can do, such as shipping part of the order first.</p>
+{{ c.blocks.signature }}

@@ -1,0 +1,10 @@
+{# Purchase Order: ship date / ETA check. Asks for an update before the promised date and chases once it has passed (Notification: 1 day after ill_promised_ship_date, not fully received). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {{ c.greeting_name }},</p>
+{% if c.purchase.promised_ship_date %}
+<p>Purchase order <strong>{{ c.name }}</strong>{% if c.purchase.vendor_order_no %} (your order {{ c.purchase.vendor_order_no }}){% endif %} was due to ship on <strong>{{ c.purchase.promised_ship_date }}</strong>{% if c.purchase.received_pct %}, and we've received about {{ c.purchase.received_pct }}% so far{% endif %}.</p>
+<p>Has it shipped? Please reply with the ship date, carrier and tracking or BL number. If it's delayed, please give us the new ship date so we can update our customer.</p>
+{% else %}
+<p>Could you give us an update on purchase order <strong>{{ c.name }}</strong>{% if c.purchase.vendor_order_no %} (your order {{ c.purchase.vendor_order_no }}){% endif %}? Please reply with the expected ship date{% if c.purchase.required_by %} (we need it by {{ c.purchase.required_by }}){% endif %} and, once it ships, the carrier and tracking or BL number.</p>
+{% endif %}
+{{ c.blocks.signature }}

@@ -1,0 +1,8 @@
+{# Payment Entry (Receive, Customer): payment received, thank you. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Thank you! We received your payment of <strong>{{ c.payment.amount }}</strong> on {{ c.payment.date }}{% if c.payment.method %} by {{ c.payment.method }}{% endif %}{% if c.payment.reference %} (reference {{ c.payment.reference }}){% endif %}.</p>
+{{ c.blocks.applied }}
+{% if c.payment.unallocated %}<p>{{ c.payment.unallocated }} is held as a credit on your account for future invoices.</p>{% endif %}
+{% if c.payment.has_remaining_balance %}<p>The remaining balance on these invoices is {{ c.payment.remaining_balance }}.</p>{% endif %}
+{{ c.blocks.signature }}

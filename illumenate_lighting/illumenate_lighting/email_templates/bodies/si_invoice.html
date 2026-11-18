@@ -1,0 +1,17 @@
+{# Sales Invoice: invoice issued (Notification: 1 day after posting_date, so the QuickBooks pay link has time to arrive; or by hand). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Here is invoice <strong>{{ c.name }}</strong>{% if c.sales_orders %} for order {% for o in c.sales_orders %}{{ o.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}.</p>
+<table style="border-collapse:collapse;margin:8px 0 16px;font-size:14px">
+<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Invoice total</td><td style="padding:4px 0">{{ c.invoice.total }}</td></tr>
+{% if c.invoice.paid_to_date %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Paid so far</td><td style="padding:4px 0">{{ c.invoice.paid_to_date }}</td></tr>{% endif %}
+<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Amount due</td><td style="padding:4px 0"><strong>{{ c.invoice.outstanding }}</strong></td></tr>
+{% if c.invoice.due_date and c.invoice.has_balance %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Due date</td><td style="padding:4px 0"><strong>{{ c.invoice.due_date }}</strong></td></tr>{% endif %}
+</table>
+{{ c.blocks.invoice_schedule }}
+{{ c.blocks.pay_button }}
+{% if c.invoice.has_balance and c.pay_instructions %}<p><strong>{% if c.pay_link %}Other ways to pay{% else %}How to pay{% endif %}</strong><br>{{ c.pay_instructions }}</p>{% endif %}
+{% if c.invoice.billing_address %}<p><strong>Billed to:</strong></p>{{ c.blocks.billing_address }}{% endif %}
+<p>{% if c.pdf.si %}<a href="{{ c.pdf.si }}">Invoice {{ c.name }} (PDF)</a>{% endif %}{% for o in c.sales_orders %}{% if o.pdf %}{% if c.pdf.si or not loop.first %} · {% endif %}<a href="{{ o.pdf }}">Order {{ o.name }} (PDF)</a>{% endif %}{% endfor %}</p>
+<p>Questions about this invoice? Just reply.</p>
+{{ c.blocks.signature }}

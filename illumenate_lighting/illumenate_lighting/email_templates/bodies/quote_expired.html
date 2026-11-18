@@ -1,0 +1,6 @@
+{# Quotation: pricing has expired (Notification: 1 day after valid_till, status Open or Expired). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Quote <strong>{{ c.name }}</strong>{% if c.job_name %} for {{ c.job_name }}{% endif %} expired{% if c.quote.valid_till %} on {{ c.quote.valid_till }}{% endif %}.</p>
+<p>Is the project still moving? We'd be glad to refresh the pricing and lead times, and update anything that has changed on the job. Just reply to this email and we'll send an updated quote.</p>
+{{ c.blocks.signature }}

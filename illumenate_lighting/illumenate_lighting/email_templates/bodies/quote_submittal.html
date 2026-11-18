@@ -1,0 +1,7 @@
+{# Quotation: submittal / spec sheet package is ready. Attach the submittal PDF in the composer before sending. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>The submittal package for {% if c.job_name %}<strong>{{ c.job_name }}</strong>{% else %}quote <strong>{{ c.name }}</strong>{% endif %} is attached. It includes the spec sheet for each fixture type on the quote.</p>
+{{ c.blocks.lines_no_prices }}
+<p>Please review it with your team and the design professional, and reply with approval or any comments. Fixtures go into production from the approved submittal.</p>
+{{ c.blocks.signature }}

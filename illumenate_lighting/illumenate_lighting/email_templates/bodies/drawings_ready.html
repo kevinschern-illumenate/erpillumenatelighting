@@ -1,0 +1,7 @@
+{# Sales Order: shop drawings are ready for the customer's approval. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Drawings for order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}{% if c.job_name %} for {{ c.job_name }}{% endif %} are ready for your approval.</p>
+{% if c.portal.drawings %}<p><a href="{{ c.portal.drawings }}">Review and approve the drawings in the dealer portal</a></p>{% else %}<p>They're attached to this email. Please reply with your approval or any changes.</p>{% endif %}
+<p>We start production once the drawings are approved, so a quick review keeps your ship date on track.</p>
+{{ c.blocks.signature }}

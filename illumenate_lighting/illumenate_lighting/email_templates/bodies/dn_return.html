@@ -1,0 +1,7 @@
+{# Delivery Note (return): we received your return. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>We received the items you returned{% if c.sales_orders %} from order {% for o in c.sales_orders %}{{ o.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %} on {{ c.shipment.date }}.</p>
+{{ c.blocks.lines_no_prices }}
+<p>We'll inspect them and email you once the credit is issued, usually within a few business days.</p>
+{{ c.blocks.signature }}

@@ -1,0 +1,6 @@
+{# Generic: works on any DocType. Only uses fields every document has. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>I wanted to follow up{% if c.found %} on {{ c.doctype|lower }} {{ c.name }}{% endif %}. [your message]</p>
+<p>Let me know if you have any questions. Just reply to this email.</p>
+{{ c.blocks.signature }}
