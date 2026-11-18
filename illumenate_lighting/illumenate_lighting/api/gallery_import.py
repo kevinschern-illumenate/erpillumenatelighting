@@ -33,14 +33,18 @@ DEFAULT_SKIP = frozenset({"boutique-hotel-lounge"})
 _TOKEN = re.compile(r"<p\b[^>]*>(.*?)</p>|<img\b[^>]*>", re.I | re.S)
 _IMG = re.compile(r"<img\b[^>]*?\bsrc\s*=\s*[\"']([^\"']+)[\"'][^>]*>", re.I | re.S)
 _TAG = re.compile(r"<[^>]+>")
+_INVISIBLE = re.compile("[\u200b\u200c\u200d\u2060\ufeff]")
+ALLOWED_IMAGE_HOSTS = ("website-files.com", "uploads-ssl.webflow.com")
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
+DOWNLOAD_TIMEOUT = 30
 
 
 def _text(value) -> str:
-	return value.strip() if isinstance(value, str) else ""
+	return _INVISIBLE.sub("", value).strip() if isinstance(value, str) else ""
 
 
 def _plain(html: str) -> str:
-	return " ".join(unescape(_TAG.sub(" ", html or "")).split())
+	return " ".join(_INVISIBLE.sub("", unescape(_TAG.sub(" ", html or ""))).split())
 
 
 def _lookup(allowed, value):
@@ -223,12 +227,32 @@ def map_webflow_item(
 # Database side
 
 
+def _allowed_host(host: str) -> bool:
+	host = (host or "").lower()
+	return any(host == name or host.endswith("." + name) for name in ALLOWED_IMAGE_HOSTS)
+
+
 def _download(url: str) -> bytes:
+	"""Fetch one public CDN image: https and allowlisted host only, no redirects, size and type checked."""
 	import requests
 
-	response = requests.get(url, timeout=30)
-	response.raise_for_status()
-	return response.content
+	parts = urlparse(url)
+	if parts.scheme != "https" or not _allowed_host(parts.hostname):
+		raise ValueError("URL is not an https Webflow CDN address; refused")
+	response = requests.get(url, timeout=DOWNLOAD_TIMEOUT, stream=True, allow_redirects=False)
+	try:
+		if response.status_code != 200:
+			raise ValueError(f"download failed with HTTP {response.status_code} (redirects are not followed)")
+		if not (response.headers.get("Content-Type") or "").lower().startswith("image/"):
+			raise ValueError("response is not an image; refused")
+		body = bytearray()
+		for chunk in response.iter_content(chunk_size=65536):
+			body.extend(chunk)
+			if len(body) > MAX_IMAGE_BYTES:
+				raise ValueError("image is larger than 15 MB; refused")
+		return bytes(body)
+	finally:
+		response.close()
 
 
 def _lookups(brand: str):
@@ -257,7 +281,7 @@ def _file_name(slug: str, index: int, url: str) -> str:
 	return f"{slug}-{index}-{base}"[:140]
 
 
-def _attach(slug: str, index: int, url: str, report: list[str]) -> str | None:
+def _attach(slug: str, index: int, url: str, report: list[str], files: list[str]) -> str | None:
 	try:
 		content = _download(url)
 		doc = frappe.get_doc(
@@ -270,13 +294,14 @@ def _attach(slug: str, index: int, url: str, report: list[str]) -> str | None:
 				"is_private": 0,
 			}
 		).insert(ignore_permissions=True)
+		files.append(doc.name)
 		return doc.file_url
 	except Exception as error:
 		report.append(f"{slug}: image not imported ({url}): {error}")
 		return None
 
 
-def _create(mapped: dict, brand: str, report: list[str]):
+def _create(mapped: dict, brand: str, report: list[str], files: list[str]):
 	slug = mapped["slug"]
 	images, custom = mapped.pop("gallery_images"), mapped.pop("custom_items")
 	item_id = mapped.pop("webflow_item_id")
@@ -292,15 +317,18 @@ def _create(mapped: dict, brand: str, report: list[str]):
 	rows = []
 	for row in images:
 		counter += 1
-		url = _attach(slug, counter, row["image"], report)
+		url = _attach(slug, counter, row["image"], report, files)
 		if url:
 			rows.append({**row, "image": url})
 	items = []
 	for row in custom:
 		if row["image"]:
 			counter += 1
-			row = {**row, "image": _attach(slug, counter, row["image"], report)}
+			row = {**row, "image": _attach(slug, counter, row["image"], report, files)}
 		items.append(row)
+	if images and not rows:
+		doc.set("is_active", 0)
+		report.append(f"{slug}: NEEDS ATTENTION: all images failed to import; gallery imported inactive")
 	doc.set("gallery_images", rows)
 	doc.set("custom_items", items)
 	doc.save(ignore_permissions=True)
@@ -337,11 +365,13 @@ def import_galleries(items, brand, commit=0) -> dict:
 		if not commit:
 			would_create.append(slug)
 			continue
+		files = []
 		try:
-			_create(mapped, brand, report)
+			_create(mapped, brand, report, files)
 			frappe.db.commit()
 			created.append(slug)
 		except Exception as error:
+			_discard_files(files)
 			frappe.db.rollback()
 			report.append(f"{slug}: import failed, nothing saved ({error})")
 	path = _write_report(brand, commit, report)
@@ -353,6 +383,15 @@ def import_galleries(items, brand, commit=0) -> dict:
 		"report": report,
 		"report_file": path,
 	}
+
+
+def _discard_files(names: list[str]):
+	"""Remove public files (rows and bytes on disk) created for a gallery that is being rolled back."""
+	for name in names:
+		try:
+			frappe.delete_doc("File", name, ignore_permissions=True, force=True)
+		except Exception:
+			pass
 
 
 def _write_report(brand: str, commit: bool, report: list[str]) -> str:
