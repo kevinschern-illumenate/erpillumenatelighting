@@ -80,6 +80,19 @@ def ready_gallery(**overrides):
 	return gallery
 
 
+def matches(record, filters):
+	"""Frappe-style filters: a value, ["in", values] or ["!=", value]."""
+	for key, wanted in filters.items():
+		value = record.get(key)
+		if isinstance(wanted, (list, tuple)):
+			op, operand = wanted
+			if (op == "in" and value not in operand) or (op == "!=" and value == operand):
+				return False
+		elif value != wanted:
+			return False
+	return True
+
+
 class GalleryPublicationCase(unittest.TestCase):
 	def setUp(self):
 		self.gallery = ready_gallery()
@@ -110,11 +123,12 @@ class GalleryPublicationCase(unittest.TestCase):
 			return None
 		if doctype == "ilL-Webflow-Product":
 			return "Rainier [SF]"
-		if doctype == JOB and isinstance(filters, dict) and "request_key" in filters:
-			return next(
-				(name for name, job in self.jobs.items() if job.request_key == filters["request_key"]), None
-			)
+		if doctype == JOB and isinstance(filters, dict):
+			return next((name for name, job in self.jobs.items() if matches(job, filters)), None)
 		return None
+
+	def count(self, doctype, filters=None):
+		return sum(1 for job in self.jobs.values() if matches(job, filters or {})) if doctype == JOB else 0
 
 	def sql(self, query, *args, **kwargs):
 		if "from `tabilL-Gallery-Publish-Job`" in query:
@@ -135,6 +149,7 @@ class GalleryPublicationCase(unittest.TestCase):
 		with load_service(MODULE, self.deps) as (module, frappe):
 			frappe.db.get_value.side_effect = self.get_value
 			frappe.db.sql.side_effect = self.sql
+			frappe.db.count.side_effect = self.count
 			frappe.db.exists.return_value = None
 			frappe.get_all.side_effect = lambda doctype, **kw: (
 				["Rainier"] if doctype == "ilL-Attribute-Series" else []
@@ -418,6 +433,117 @@ class GalleryPublicationCase(unittest.TestCase):
 			self.stage(module)
 		self.assertTrue(self.state.staged_hash)
 		self.assertTrue(self.slug_locked())
+
+	def queue(self, module, operation="STAGE"):
+		return module.request("G1", "staging2", operation, self.current_hash(module))["job"]
+
+	def test_same_revision_while_queued_or_running_returns_the_same_job(self):
+		with self.service() as (module, _frappe):
+			first = self.queue(module)
+			self.assertEqual(self.queue(module), first)
+			module.claim("staging2")
+			self.assertEqual(self.jobs[first].state, "RUNNING")
+			self.assertEqual(self.queue(module), first)
+			self.assertEqual(len(self.jobs), 1)
+
+	def test_retire_then_reactivate_then_stage_creates_a_new_job(self):
+		with self.service() as (module, _frappe):
+			live = self.publish(module)
+			self.gallery["is_active"] = 0
+			revision = self.current_hash(module)
+			retire = module.request("G1", "staging2", "RETIRE", revision)["job"]
+			claimed = module.claim("staging2")["jobs"][0]
+			module.acknowledge(retire, claimed["token"], revision, claimed["payload_hash"])
+			self.assertEqual(self.state.state, "RETIRED")
+			self.gallery["is_active"] = 1
+			self.assertEqual(self.current_hash(module), live)
+			stage = self.queue(module)
+			self.assertNotIn(stage, ("J1", "J2", retire))
+			self.assertEqual(self.jobs[stage].state, "QUEUED")
+			self.assertEqual(self.jobs[stage].revision_hash, live)
+			self.assertEqual(self.state.state, "QUEUED")
+			keys = [job.request_key for job in self.jobs.values()]
+			self.assertEqual(len(keys), len(set(keys)))
+
+	def test_repeat_request_after_complete_makes_a_new_job(self):
+		"""A -> B -> back to A (toggling featured) must be stageable again."""
+		with self.service() as (module, _frappe):
+			first = self.stage(module)
+			self.gallery["featured"] = 1
+			self.stage(module)
+			self.gallery["featured"] = 0
+			self.assertEqual(self.current_hash(module), first)
+			again = self.queue(module)
+			self.assertEqual(len(self.jobs), 3)
+			self.assertEqual(self.jobs[again].state, "QUEUED")
+			self.assertEqual(self.jobs["J1"].state, "COMPLETE")
+
+	def test_repeat_request_after_superseded_makes_a_new_job(self):
+		with self.service() as (module, _frappe):
+			first = self.queue(module)
+			self.gallery["featured"] = 1
+			self.assertEqual(module.claim("staging2"), {"jobs": []})
+			self.assertEqual(self.jobs[first].state, "SUPERSEDED")
+			self.gallery["featured"] = 0
+			again = self.queue(module)
+			self.assertNotEqual(again, first)
+			self.assertEqual(self.jobs[again].state, "QUEUED")
+			self.assertNotEqual(self.jobs[again].request_key, self.jobs[first].request_key)
+
+	def save_without_change(self, module):
+		"""invalidate_gallery runs on every save; the hashes then decide on the next inspect."""
+		self.state["state"] = "NEEDS_REVIEW"
+		return module.inspect("G1", "staging2")
+
+	def test_no_op_save_after_stage_restores_staged(self):
+		with self.service() as (module, _frappe):
+			revision = self.stage(module)
+			# Adding a second brand target changes nothing sent to this brand.
+			self.gallery["target_brands"].append({"brand": "illumenate", "enabled": 1})
+			result = self.save_without_change(module)
+			self.assertEqual(result["current_hash"], revision)
+			self.assertEqual(result["state"], "STAGED")
+			job = module.request("G1", "staging2", "PUBLISH", revision)["job"]
+			self.assertEqual(self.jobs[job].operation, "PUBLISH")
+
+	def test_no_op_save_after_publish_restores_live(self):
+		with self.service() as (module, _frappe):
+			self.publish(module)
+			self.assertEqual(self.save_without_change(module)["state"], "LIVE")
+
+	def test_real_change_after_stage_needs_review(self):
+		with self.service() as (module, _frappe):
+			self.stage(module)
+			self.gallery["gallery_title"] = "Hotel Lobby, renewed"
+			self.assertEqual(self.save_without_change(module)["state"], "NEEDS_REVIEW")
+
+	def test_restore_never_overwrites_queued_failed_or_retired(self):
+		for kept in ("QUEUED", "FAILED", "RETIRED"):
+			self.setUp()
+			with self.subTest(kept), self.service() as (module, _frappe):
+				revision = self.stage(module)
+				self.state["state"] = kept
+				self.assertEqual(module.inspect("G1", "staging2")["state"], kept)
+				self.assertEqual(self.state.staged_hash, revision)
+
+	def test_gallery_failure_wording(self):
+		cases = {
+			"identity-conflict": "more than one Webflow item matches this gallery; reconcile it",
+			"lookup-incomplete": "the Webflow collection has too many items to search; ask an administrator",
+			"400": "Webflow rejected the data",
+		}
+		for code, reason in cases.items():
+			with self.subTest(code):
+				self.setUp()
+				with self.service() as (module, _frappe):
+					job = self.queue(module)
+					claimed = module.claim("staging2")["jobs"][0]
+					module.acknowledge(
+						job, claimed["token"], claimed["revision_hash"], claimed["payload_hash"],
+						outcome="error", error_code=code,
+					)
+					self.assertEqual(self.jobs[job].last_error, f"Publication failed ({code}: {reason})")
+					self.assertNotIn("product", self.state.last_error)
 
 	def test_series_only_row_hashes_and_stays_ready(self):
 		"""Spec 5.1: a series-only row (the import's Custom rows) must not break the hash or readiness."""

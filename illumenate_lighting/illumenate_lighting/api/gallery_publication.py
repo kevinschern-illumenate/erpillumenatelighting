@@ -35,6 +35,13 @@ PRODUCT = "ilL-Webflow-Product"
 SYNC_STATE = "ilL-Child-Webflow-Sync-State"
 SERIES = "ilL-Attribute-Series"
 LEASE_MINUTES = 5
+# Gallery wording for failure codes whose shared text names a product or is missing; every other
+# code uses the shared publication_contract.failure_reason.
+GALLERY_REASONS = {
+	"identity-conflict": "more than one Webflow item matches this gallery; reconcile it",
+	"lookup-incomplete": "the Webflow collection has too many items to search; ask an administrator",
+	"readiness": "the gallery is not ready to sync",
+}
 
 
 def _save(doc):
@@ -125,6 +132,13 @@ def _refresh(doc, state, config):
 	state.dependencies_json = canonical_json(dependencies)
 	if state.approved_hash != state.current_hash:
 		state.state = "NEEDS_REVIEW"
+	elif state.state == "NEEDS_REVIEW":
+		# Any save sets NEEDS_REVIEW (invalidate_gallery); a save that changed nothing sent restores
+		# the state from the hashes. QUEUED, FAILED and RETIRED are never overwritten here.
+		if state.live_hash == state.current_hash:
+			state.state = "LIVE"
+		elif state.staged_hash == state.current_hash:
+			state.state = "STAGED"
 	_save(state)
 	return payload, readiness
 
@@ -183,11 +197,25 @@ def request(gallery, brand, operation, expected_hash):
 		frappe.session.user,
 		now_datetime(),
 	)
-	key = fingerprint([state.name, operation, expected_hash])
-	existing = frappe.db.get_value(JOB, {"request_key": key}, "name")
+	# A double click returns the job still queued or running for this revision. Any other earlier
+	# job (complete, failed, superseded) does not block a new request for the same revision: after
+	# retire and reactivation, or A -> B -> A, the unchanged revision must be requestable again.
+	existing = frappe.db.get_value(
+		JOB,
+		{
+			"publication": state.name,
+			"operation": operation,
+			"revision_hash": expected_hash,
+			"state": ["in", ["QUEUED", "RUNNING"]],
+		},
+		"name",
+	)
 	if existing:
 		_save(state)
 		return {"job": existing, **_receipt(state)}
+	# The publication row is locked, so the count is stable; it keeps request_key unique.
+	earlier = frappe.db.count(JOB, {"publication": state.name, "operation": operation})
+	key = fingerprint([state.name, operation, expected_hash, earlier])
 	job = _save(
 		frappe.get_doc(
 			{
@@ -339,6 +367,10 @@ def acknowledge(
 	return {"job": job.name, "state": job.state, "publication": _receipt(state)}
 
 
+def _reason(code):
+	return GALLERY_REASONS.get(str(code).strip().lower()) or failure_reason(code)
+
+
 def _fail(job, state, error_code, retry_after=None):
 	"""Record a failed attempt and schedule its retry (1, 5, 15 minutes, as for products).
 
@@ -350,7 +382,7 @@ def _fail(job, state, error_code, retry_after=None):
 	code = str(error_code or "transport")[:32]
 	job.state = state.state = "FAILED"
 	job.next_attempt_on = next_retry(code, job.attempts, now_datetime(), retry_after)
-	message = f"Publication failed ({code}: {failure_reason(code)})"
+	message = f"Publication failed ({code}: {_reason(code)})"
 	if job.next_attempt_on:
 		retry = min(max(1, int(job.attempts or 1)), len(RETRY_MINUTES))
 		message += f"; retry {retry} of {len(RETRY_MINUTES)} at {str(job.next_attempt_on)[11:16]}"
