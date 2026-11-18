@@ -599,7 +599,7 @@ def refresh_open_documents(errors):
 	return updated_orders, updated_work
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def backfill(force=0, dry_run=0):
 	"""Count every active BOM, then re-total open Sales Orders and Work Orders.
 

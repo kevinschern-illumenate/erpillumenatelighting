@@ -370,6 +370,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.material_planning.guard_planned_work_order",
 			# Manufacturing difficulty for the quantity being built (Production Board).
 			"illumenate_lighting.illumenate_lighting.api.build_points.on_work_order_insert",
+			# Opt-in: build points as an operation, so ERPNext plans capacity and makes Job Cards.
+			"illumenate_lighting.illumenate_lighting.api.build_operations.add_build_operation",
 		],
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
 	},
