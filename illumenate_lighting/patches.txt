@@ -98,3 +98,4 @@ illumenate_lighting.patches.add_purchasing_tracking_fields
 illumenate_lighting.patches.seed_purchasing_settings
 illumenate_lighting.patches.seed_email_templates
 illumenate_lighting.patches.seed_gallery_lists
+illumenate_lighting.patches.add_tape_neon_option_value_label
