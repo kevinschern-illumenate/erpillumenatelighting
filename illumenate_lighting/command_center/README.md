@@ -27,7 +27,7 @@ Not in this folder: `cc.html` (unchanged, still what is live) and `ss/cc_api.py`
 
 ## Deploy
 
-Deploys are automatic: merge to the default branch and deploy on Frappe Cloud. `illumenate_lighting/command_center_sync.py` copies these files into the Web Page and Server Script after migrate. Don't edit the records in the desk, because the next deploy overwrites them. The previous page JS/CSS is attached to the Web Page as private `cc.backup-<timestamp>` files after each change. Problems appear in Error Log as 'Command Center sync failed: …'.
+Deploys are automatic: merge to the default branch and deploy on Frappe Cloud. `illumenate_lighting/command_center_sync.py` copies these files into the Web Page and Server Script after migrate. Don't edit the records in the desk, because the next deploy overwrites them. The previous page JS/CSS is attached to the Web Page as private `cc.backup-<timestamp>` files after each change. Problems appear in Error Log as 'Command Center sync failed: …'. Each deploy's migrate output has one `Command Center sync: …` line per step (roles, Server Script, Web Page) saying what changed. If a backup is refused (e.g. System Settings → Allowed File Extensions excludes JS/CSS), the page is still updated and the old code stays in the Web Page's Version history.
 
 ## Known limits
 

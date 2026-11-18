@@ -14,10 +14,14 @@ Behaviour
     * Only writes when the content actually changed.
     * Before overwriting the page's JS/CSS it attaches the previous version to the Web Page
       as a private file (cc.backup-<timestamp>.js/.css), so a bad deploy can be undone by hand.
+      The backup is best-effort (System Settings may not allow .js/.css uploads): if it fails
+      the page is still updated, and Web Page's Version history keeps the old values anyway.
+    * Finds the page by name, or by its route (/command-center) if it was renamed.
     * Creates the Command Center roles if missing. People are given a role only at the moment
       the role is first created; after that the desk (User -> Roles) is the only authority,
       so removing someone in the desk is never undone by a later deploy.
     * Never raises: any problem is written to the Error Log and the migrate carries on.
+    * Prints one "Command Center sync: ..." line per step, so the deploy log shows the outcome.
 """
 
 import os
@@ -25,6 +29,7 @@ import os
 import frappe
 
 WEB_PAGE = "illumenate-command-center"
+WEB_PAGE_ROUTE = "command-center"
 SERVER_SCRIPT = "ilL Command Center Gateway"
 API_METHOD = "ill_cc_gateway"
 
@@ -50,11 +55,13 @@ def sync():
 		# not uncommitted work from the hooks that ran before it.
 		frappe.db.savepoint("command_center_sync")
 		try:
-			step()
+			result = step()
 			frappe.db.commit()
-		except Exception:
+			print(f"Command Center sync: {result}")
+		except Exception as e:
 			frappe.db.rollback(save_point="command_center_sync")
 			frappe.log_error(title=f"Command Center sync failed: {step.__name__}")
+			print(f"Command Center sync: {step.__name__} FAILED ({e!r}); see Error Log")
 
 
 def _find_user(prefix):
@@ -62,9 +69,11 @@ def _find_user(prefix):
 
 
 def _sync_roles():
+	created = []
 	for role, people in ROLES.items():
 		if frappe.db.exists("Role", role):
 			continue
+		created.append(role)
 		frappe.get_doc({"doctype": "Role", "role_name": role, "desk_access": 1}).insert(
 			ignore_permissions=True
 		)
@@ -72,6 +81,7 @@ def _sync_roles():
 			user = _find_user(prefix)
 			if user:
 				frappe.get_doc("User", user).add_roles(role)
+	return "roles created: " + ", ".join(created) if created else "roles unchanged"
 
 
 def _sync_server_script():
@@ -85,7 +95,7 @@ def _sync_server_script():
 			and not doc.allow_guest
 			and not doc.disabled
 		):
-			return
+			return f"Server Script {SERVER_SCRIPT!r} unchanged"
 	else:
 		doc = frappe.new_doc("Server Script")
 		doc.name = SERVER_SCRIPT  # Server Script names are "set by user" (Prompt)
@@ -96,42 +106,66 @@ def _sync_server_script():
 	doc.script = script
 	if doc.is_new():
 		doc.insert(ignore_permissions=True)
-	else:
-		doc.save(ignore_permissions=True)
+		return f"Server Script {SERVER_SCRIPT!r} created"
+	doc.save(ignore_permissions=True)
+	return f"Server Script {SERVER_SCRIPT!r} updated"
 
 
-def _backup(ext, content):
+def _backup(page, ext, content):
+	"""Attach the old JS/CSS to the page. Best-effort: never blocks the update."""
 	if not (content or "").strip():
 		return
-	frappe.get_doc(
-		{
-			"doctype": "File",
-			"file_name": f"cc.backup-{frappe.utils.now_datetime().strftime('%Y%m%d-%H%M%S')}.{ext}",
-			"attached_to_doctype": "Web Page",
-			"attached_to_name": WEB_PAGE,
-			"is_private": 1,
-			"content": content,
-		}
-	).insert(ignore_permissions=True)
+	frappe.db.savepoint("command_center_backup")
+	try:
+		frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": f"cc.backup-{frappe.utils.now_datetime().strftime('%Y%m%d-%H%M%S')}.{ext}",
+				"attached_to_doctype": "Web Page",
+				"attached_to_name": page,
+				"is_private": 1,
+				"content": content,
+			}
+		).insert(ignore_permissions=True)
+	except Exception:
+		frappe.db.rollback(save_point="command_center_backup")
+		frappe.log_error(title=f"Command Center sync: {ext} backup skipped (Version history still has it)")
+
+
+def _find_web_page():
+	if frappe.db.exists("Web Page", WEB_PAGE):
+		return WEB_PAGE
+	return frappe.db.get_value("Web Page", {"route": WEB_PAGE_ROUTE}, "name")
 
 
 def _sync_web_page():
-	if not frappe.db.exists("Web Page", WEB_PAGE):
+	name = _find_web_page()
+	if not name:
 		# the page (and its HTML) is set up by hand once; nothing to update until it exists
-		return
+		frappe.log_error(
+			title="Command Center sync: Web Page not found",
+			message=f"No Web Page named {WEB_PAGE!r} or with route {WEB_PAGE_ROUTE!r}; page not updated.",
+		)
+		return f"Web Page not found (name {WEB_PAGE!r} / route {WEB_PAGE_ROUTE!r}); skipped"
 	js, css = _read("page", "cc.js"), _read("page", "cc.css")
-	doc = frappe.get_doc("Web Page", WEB_PAGE)
-	changed = False
+	doc = frappe.get_doc("Web Page", name)
+	changed = []
 	if (doc.javascript or "").replace("\r\n", "\n") != js:
-		_backup("js", doc.javascript)
+		_backup(name, "js", doc.javascript)
 		doc.javascript = js
-		changed = True
+		changed.append("javascript")
 	if (doc.css or "").replace("\r\n", "\n") != css:
-		_backup("css", doc.css)
+		_backup(name, "css", doc.css)
 		doc.css = css
-		changed = True
-	if changed:
-		doc.save(ignore_permissions=True)
-		from frappe.website.utils import clear_cache
+		changed.append("css")
+	if not doc.insert_style:
+		# Frappe only renders the css field when Insert Style is ticked
+		doc.insert_style = 1
+		changed.append("insert_style")
+	if not changed:
+		return f"Web Page {name!r} unchanged (route /{doc.route})"
+	doc.save(ignore_permissions=True)
+	from frappe.website.utils import clear_cache
 
-		clear_cache()
+	clear_cache()
+	return f"Web Page {name!r} updated: {', '.join(changed)} (route /{doc.route})"
