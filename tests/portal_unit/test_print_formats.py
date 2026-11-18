@@ -465,6 +465,126 @@ class Formats(unittest.TestCase):
 		self.assertIn("Lead Length: 24.0", html)
 
 
+class LineLayout(unittest.TestCase):
+	"""Section header, fixture type above the line, additional notes below it, everywhere."""
+
+	def assert_order(self, html, *parts):
+		positions = [html.index(part) for part in parts]
+		self.assertEqual(positions, sorted(positions), parts)
+
+	def test_quotes_orders_and_invoices_keep_section_type_line_notes_order(self):
+		doc = sales_doc(items=[line(additional_notes="Power supply for L1")])
+		for folder in (
+			"ill_quotation",
+			"ill_quotation_msrp",
+			"ill_sales_order",
+			"ill_sales_order_msrp",
+			"ill_sales_invoice",
+		):
+			with self.subTest(folder=folder):
+				html = render(folder, doc)
+				self.assert_order(
+					html,
+					'class="ill-section"',
+					"Kitchen",
+					'class="ill-type-row"',
+					">A1<",
+					"LED Tape - 2700K",
+					'class="ill-note-row"',
+					"Power supply for L1",
+				)
+
+	def test_lines_without_type_or_notes_get_no_extra_rows(self):
+		html = render("ill_quotation", sales_doc(items=[line(ill_fixture_type="", additional_notes="")]))
+		self.assertNotIn('class="ill-type-row"', html)
+		self.assertNotIn('class="ill-note-row"', html)
+
+	def test_rep_agency_stays_off_customer_documents(self):
+		doc = sales_doc(sales_partner="Rep Co", referral_sales_partner="Rep Co")
+		for folder in (
+			"ill_quotation",
+			"ill_quotation_msrp",
+			"ill_sales_order",
+			"ill_sales_order_msrp",
+			"ill_sales_invoice",
+		):
+			with self.subTest(folder=folder):
+				self.assertNotIn("Rep Co", render(folder, doc))
+
+	def test_linked_documents_take_type_section_and_notes_from_their_source_lines(self):
+		sources = {
+			"Delivery Note Item": [
+				Doc(
+					name="dn1",
+					ill_section_label="Theater",
+					ill_fixture_type="T1",
+					additional_notes="Hang left",
+					so_detail="so1",
+				)
+			],
+			"Purchase Order Item": [Doc(name="po1", ill_section_label="Bar", sales_order_item="so2")],
+			"Sales Order Item": [
+				Doc(name="so2", ill_section_label="", ill_fixture_type="B2", additional_notes="Dim to warm")
+			],
+		}
+		FRAPPE.get_meta.return_value = Doc(has_field=lambda field: True)
+		FRAPPE.get_all.side_effect = lambda doctype, filters=None, fields=None: [
+			r for r in sources.get(doctype, []) if r.name in filters["name"][1]
+		]
+		try:
+			packing = render(
+				"ill_packing_list",
+				Doc(
+					name="PS-1",
+					docstatus=1,
+					items=[
+						line(
+							doctype="Packing Slip Item",
+							dn_detail="dn1",
+							ill_section_label="",
+							ill_fixture_type="",
+						)
+					],
+				),
+			)
+			receipt = render(
+				"ill_receiving_report",
+				Doc(
+					name="PR-1",
+					docstatus=1,
+					items=[
+						line(
+							doctype="Purchase Receipt Item",
+							purchase_order_item="po1",
+							ill_section_label="",
+							ill_fixture_type="",
+							received_qty=1,
+						)
+					],
+				),
+			)
+		finally:
+			FRAPPE.get_all.side_effect = None
+			FRAPPE.get_all.return_value = []
+		self.assert_order(packing, "Theater", ">T1<", "LED Tape - 2700K", "Hang left")
+		self.assert_order(receipt, "Bar", ">B2<", "LED Tape - 2700K", "Dim to warm")
+
+	def test_vendor_documents_group_by_section_without_customer_fixture_types(self):
+		html = render(
+			"ill_purchase_order",
+			sales_doc(
+				doctype="Purchase Order",
+				items=[line(doctype="Purchase Order Item", ill_fixture_type="", sales_order_item="so9")],
+			),
+		)
+		self.assertIn('class="ill-section"', html)
+		self.assertNotIn('class="ill-type-row"', html)
+
+	def test_fixture_schedule_uses_the_same_rows(self):
+		html = render("ill_fixture_schedule", SAMPLES["ill_fixture_schedule"]())
+		self.assert_order(html, "Kitchen", ">A1<", "DL-4", "Trim to match")
+
+
 class Seeds(unittest.TestCase):
 	def test_terms_records_and_default_formats_line_up(self):
 		spec = importlib.util.spec_from_file_location("isolated_terms", MODULE / "print_terms.py")

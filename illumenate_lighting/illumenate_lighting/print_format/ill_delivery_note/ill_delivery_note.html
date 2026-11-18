@@ -4,11 +4,11 @@
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
   Frappe reads this file at print time, so it overrides the copy stored on the site.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, section_row, notes, signatures, closing, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, notes, signatures, closing, date, line_group, section_total with context -%}
 {%- set project = ill_print_project(doc) -%}
 {%- set orders = ill_print_references(doc, "against_sales_order") -%}
 {%- set packed = ill_print_packed(doc) -%}
-{%- set sections = ill_print_sections(doc.items) -%}
+{%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
 {%- set carrier = doc.get("ill_carrier") or doc.transporter_name -%}
 {%- set tracking = doc.get("ill_tracking_number") or doc.vehicle_no -%}
 {%- set row = namespace(n=0) -%}
@@ -46,25 +46,23 @@
 				<th class="ill-center" style="width: 8%;">Packed</th>
 			</tr>
 		</thead>
-		<tbody>
 		{%- for section in sections -%}
-			{{ section_row(section.label, 4) }}
-			{%- for item in section["items"] -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
 			{%- set row.n = row.n + 1 -%}
-			<tr>
-				<td class="ill-idx">{{ row.n }}</td>
+			{%- call line_group(entry, 4, section.label if loop.first else None) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>
 					{{ line(item) }}
 					{%- for part in packed.get(item.name, []) -%}
-					<div class="ill-specs">Includes {{ ill_print_qty(part.qty, part.uom) }} &times; {{ (part.item_name or part.item_code) | e }} <span class="ill-mono">{{ part.item_code | e }}</span></div>
+					<div class="ill-specs">Includes {{ ill_print_qty(part.qty, part.uom) | e }} &times; {{ (part.item_name or part.item_code) | e }} <span class="ill-mono">{{ part.item_code | e }}</span></div>
 					{%- endfor -%}
 				</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
 				<td class="ill-center"><span class="ill-check"></span></td>
-			</tr>
+			{%- endcall -%}
 			{%- endfor -%}
 		{%- endfor -%}
-		</tbody>
 	</table>
 	<div class="ill-right ill-block"><span class="ill-label" style="display: inline;">Total quantity</span> &nbsp;{{ ill_print_qty(doc.total_qty) }}</div>
 

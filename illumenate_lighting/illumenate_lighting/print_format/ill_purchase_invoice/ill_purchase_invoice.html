@@ -3,8 +3,11 @@
   purchase orders and receipts, with what has been paid.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, section_row, totals, notes, signatures, money, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, totals, notes, signatures, money, date, line_group, section_total with context -%}
 {%- set sums = ill_print_totals(doc) -%}
+{%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
+{%- set labelled = sections | selectattr("label") | list | length -%}
+{%- set row = namespace(n=0) -%}
 {%- set orders = ill_print_references(doc, "purchase_order") -%}
 {%- set receipts = ill_print_references(doc, "purchase_receipt") -%}
 {%- set outstanding = doc.outstanding_amount or 0 -%}
@@ -46,18 +49,21 @@
 				<th class="ill-num" style="width: 12%;">Amount</th>
 			</tr>
 		</thead>
-		<tbody>
-		{%- for item in doc.items -%}
-			<tr>
-				<td class="ill-idx">{{ loop.index }}</td>
+		{%- for section in sections -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- call line_group(entry, 6, section.label if loop.first else None) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
 				<td><div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div><div class="ill-code ill-mono">{{ item.item_code | e }}</div>{% if item.expense_account %}<div class="ill-specs">{{ item.expense_account | e }}</div>{% endif %}</td>
 				<td>{{ (item.purchase_order or "") | e }}{% if item.purchase_receipt %}<div class="ill-specs">{{ item.purchase_receipt | e }}</div>{% endif %}</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
 				<td class="ill-num">{{ money(item.rate) }}</td>
 				<td class="ill-num">{{ money(item.amount) }}</td>
-			</tr>
+			{%- endcall -%}
+			{%- endfor -%}
+			{%- if section.label and labelled > 1 %}{{ section_total(section.label, 6, section.subtotal) }}{% endif -%}
 		{%- endfor -%}
-		</tbody>
 	</table>
 
 	{{ totals(sums.rows, ("Total", sums.grand),

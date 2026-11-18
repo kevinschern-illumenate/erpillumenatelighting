@@ -9,3 +9,4 @@ templates/print/spec_submittal_cover.html: brand_header | safe  # packet_pages.b
 templates/print/ill_print.html: left or ""  # HTML a print format builds with {% set %}; every value in it is escaped where it is built
 templates/print/ill_print.html: columns[0]  # printing.ill_print_terms_columns: Terms and Conditions HTML passed through sanitize_html
 templates/print/ill_print.html: columns[1]  # printing.ill_print_terms_columns: Terms and Conditions HTML passed through sanitize_html
+templates/print/ill_print.html: caller()  # the cells of a print format's {% call line_group %} block; values in them are escaped where they are written

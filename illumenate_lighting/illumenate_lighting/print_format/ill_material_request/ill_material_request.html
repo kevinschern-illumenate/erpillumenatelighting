@@ -3,9 +3,12 @@
   with request / approval / fulfilment sign-off. Internal; no prices.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date, line_group, section_total with context -%}
 {%- set orders = ill_print_references(doc, "sales_order") -%}
 {%- set project = ill_print_project(doc) -%}
+{%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
+{%- set labelled = sections | selectattr("label") | list | length -%}
+{%- set row = namespace(n=0) -%}
 {%- set moving = doc.material_request_type in ("Material Transfer", "Material Issue", "Manufacture") -%}
 {{ styles() }}
 <div class="ill-doc">
@@ -35,10 +38,12 @@
 				<th class="ill-num" style="width: 10%;">Done</th>
 			</tr>
 		</thead>
-		<tbody>
-		{%- for item in doc.items -%}
-			<tr>
-				<td class="ill-idx">{{ loop.index }}</td>
+		{%- for section in sections -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- call line_group(entry, 7, section.label if loop.first else None) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>
 					{{ line(item) }}
 					{%- if item.sales_order %}<div class="ill-specs">For {{ item.sales_order | e }}</div>{% endif -%}
@@ -46,12 +51,12 @@
 				</td>
 				<td>{% if moving and item.from_warehouse %}{{ ill_print_warehouse(item.from_warehouse) | e }} &rarr; {% endif %}{{ ill_print_warehouse(item.warehouse) | e }}</td>
 				<td>{{ date(item.schedule_date) }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) }}</td>
-				<td class="ill-num">{% if item.actual_qty is not none %}{{ ill_print_qty(item.actual_qty) }}{% endif %}</td>
-				<td class="ill-num">{% if item.ordered_qty %}{{ ill_print_qty(item.ordered_qty, item.uom) }}{% else %}<span class="ill-writein"></span>{% endif %}</td>
-			</tr>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
+				<td class="ill-num">{% if item.actual_qty is not none %}{{ ill_print_qty(item.actual_qty) | e }}{% endif %}</td>
+				<td class="ill-num">{% if item.ordered_qty %}{{ ill_print_qty(item.ordered_qty, item.uom) | e }}{% else %}<span class="ill-writein"></span>{% endif %}</td>
+			{%- endcall -%}
+			{%- endfor -%}
 		{%- endfor -%}
-		</tbody>
 	</table>
 
 	{{ signatures(["Requested by", "Approved by", "Fulfilled by", "Date"]) }}

@@ -4,7 +4,7 @@
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
   Frappe reads this file at print time, so it overrides the copy stored on the site.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, section_row, totals, terms, notes, signatures, closing, money, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, totals, terms, notes, signatures, closing, money, date, line_group, section_total with context -%}
 {%- set parts = ill_print_supplier_parts(doc) -%}
 {%- set sums = ill_print_totals(doc) -%}
 {%- set sections = ill_print_sections(doc.items) -%}
@@ -46,15 +46,14 @@
 				<th class="ill-num" style="width: 12%;">Amount</th>
 			</tr>
 		</thead>
-		<tbody>
 		{%- for section in sections -%}
-			{{ section_row(section.label, 6) }}
-			{%- for item in section["items"] -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
 			{%- set row.n = row.n + 1 -%}
 			{%- set part = parts.get(item.item_code, {}) -%}
 			{%- set vendor_no = item.supplier_part_no or part.part_no -%}
-			<tr>
-				<td class="ill-idx">{{ row.n }}</td>
+			{%- call line_group(entry, 6, section.label if loop.first else None) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>
 					<div class="ill-line-name">{{ (part.description or item.item_name or item.item_code) | e }}</div>
 					<div class="ill-code">{% if vendor_no %}Your part <span class="ill-mono">{{ vendor_no | e }}</span> &nbsp;&middot;&nbsp; {% endif %}Our part <span class="ill-mono">{{ item.item_code | e }}</span></div>
@@ -62,16 +61,13 @@
 					{%- if item.sales_order %}<div class="ill-specs">For order {{ item.sales_order | e }}</div>{% endif -%}
 				</td>
 				<td>{{ date(item.schedule_date) }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) }}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
 				<td class="ill-num">{{ money(item.rate) }}</td>
 				<td class="ill-num">{{ money(item.amount) }}</td>
-			</tr>
+			{%- endcall -%}
 			{%- endfor -%}
-			{%- if section.label and labelled > 1 -%}
-			<tr class="ill-section-total"><td colspan="5" class="ill-right">{{ section.label | e }} subtotal</td><td class="ill-num">{{ money(section.subtotal) }}</td></tr>
-			{%- endif -%}
+			{%- if section.label and labelled > 1 %}{{ section_total(section.label, 6, section.subtotal) }}{% endif -%}
 		{%- endfor -%}
-		</tbody>
 	</table>
 
 	{{ totals(sums.rows, ("Total", sums.grand)) }}

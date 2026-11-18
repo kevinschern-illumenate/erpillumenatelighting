@@ -170,41 +170,119 @@ def ill_print_qty(qty, uom=None) -> str:
 	return f"{text} {unit}".strip()
 
 
-def ill_print_sections(items) -> list:
+# Where a line's section / fixture type / notes come from when its own row has none:
+# child DocType -> (link field on the row, the source child DocType it points at).
+_LINE_SOURCES = {
+	"Delivery Note Item": ("so_detail", "Sales Order Item"),
+	"Sales Invoice Item": ("so_detail", "Sales Order Item"),
+	"Packing Slip Item": ("dn_detail", "Delivery Note Item"),
+	"Pick List Item": ("sales_order_item", "Sales Order Item"),
+	"Material Request Item": ("sales_order_item", "Sales Order Item"),
+	"Purchase Order Item": ("sales_order_item", "Sales Order Item"),
+	"Purchase Receipt Item": ("purchase_order_item", "Purchase Order Item"),
+	"Purchase Invoice Item": ("po_detail", "Purchase Order Item"),
+}
+_LINE_FIELDS = ("ill_section_label", "ill_fixture_type", "additional_notes")
+
+
+def _source_lines(doctype, names, depth) -> dict:
+	"""``{row name: {section, type, notes}}`` for rows of a source child DocType, following
+	that DocType's own source link while a field is still missing (at most ``depth`` hops)."""
+	found = {}
+	if not names or depth <= 0:
+		return found
+	meta = frappe.get_meta(doctype)
+	fields = ["name", *[f for f in _LINE_FIELDS if meta.has_field(f)]]
+	link = _LINE_SOURCES.get(doctype)
+	if link and meta.has_field(link[0]):
+		fields.append(link[0])
+	rows = frappe.get_all(doctype, filters={"name": ["in", list(names)]}, fields=fields)
+	deeper = {}
+	if link:
+		wanted = {r.get(link[0]) for r in rows if r.get(link[0])}
+		deeper = _source_lines(link[1], wanted, depth - 1) if wanted else {}
+	for r in rows:
+		parent = deeper.get(r.get(link[0])) if link else None
+		parent = parent or {}
+		found[r.name] = {
+			"section": r.get("ill_section_label") or parent.get("section") or "",
+			"type": r.get("ill_fixture_type") or parent.get("type") or "",
+			"notes": r.get("additional_notes") or parent.get("notes") or "",
+		}
+	return found
+
+
+def ill_print_sections(items, follow_links=False) -> list:
 	"""Group lines into sections (rooms / areas) in document order.
 
 	A row with a section label, no item code and zero quantity is a section header; the
-	rows after it inherit its label until the next one. Returns
-	``[{"label", "items", "subtotal", "list_subtotal"}]`` with one unlabelled section
-	when nothing is labelled.
+	rows after it inherit its label until the next one. Labels match case-insensitively.
+	Each line's section, fixture type and additional notes come from its own row, or with
+	``follow_links`` from the line it was made from (packing slip -> delivery note,
+	receipt -> purchase order -> sales order, ...).
+
+	Returns ``[{"label", "lines": [{"item", "type", "notes"}], "items", "subtotal",
+	"list_subtotal"}]``; everything lands in one unlabelled section when nothing is labelled.
 	"""
+	items = list(items or [])
+	sources = {}
+	if follow_links:
+		try:
+			by_source = {}
+			for item in items:
+				link = _LINE_SOURCES.get(item.get("doctype") or "")
+				if link and item.get(link[0]):
+					by_source.setdefault(link[1], set()).add(item.get(link[0]))
+			for doctype, names in by_source.items():
+				resolved = _source_lines(doctype, names, depth=2)
+				for item in items:
+					link = _LINE_SOURCES.get(item.get("doctype") or "")
+					if link and link[1] == doctype and item.get(link[0]) in resolved:
+						sources[id(item)] = resolved[item.get(link[0])]
+		except Exception:
+			_log("ilL print: could not read the source lines")
+
+	def empty(label):
+		return {"label": label, "lines": [], "items": [], "subtotal": 0.0, "list_subtotal": 0.0}
+
 	sections, by_label, current = [], {}, ""
 	try:
-		for item in items or []:
-			label = (item.get("ill_section_label") or item.get("custom_ill_section_label") or "").strip()
+		for item in items:
+			source = sources.get(id(item), {})
+			label = (
+				item.get("ill_section_label")
+				or item.get("custom_ill_section_label")
+				or source.get("section")
+				or ""
+			).strip()
 			if label and not item.get("item_code") and not item.get("qty"):
 				current = label
 				if label.lower() not in by_label:
-					by_label[label.lower()] = {
-						"label": label,
-						"items": [],
-						"subtotal": 0.0,
-						"list_subtotal": 0.0,
-					}
+					by_label[label.lower()] = empty(label)
 					sections.append(by_label[label.lower()])
 				continue
 			effective = label or current
 			key = effective.lower()
 			if key not in by_label:
-				by_label[key] = {"label": effective, "items": [], "subtotal": 0.0, "list_subtotal": 0.0}
+				by_label[key] = empty(effective)
 				sections.append(by_label[key])
 			section = by_label[key]
 			section["items"].append(item)
+			section["lines"].append(
+				{
+					"item": item,
+					"type": (item.get("ill_fixture_type") or source.get("type") or "").strip(),
+					"notes": ill_print_note(item.get("additional_notes") or source.get("notes")),
+				}
+			)
 			section["subtotal"] += float(item.get("amount") or 0)
 			section["list_subtotal"] += ill_print_msrp(item) * float(item.get("qty") or 0)
 	except Exception:
 		_log("ilL print: could not group lines into sections")
-		return [{"label": "", "items": list(items or []), "subtotal": 0.0, "list_subtotal": 0.0}]
+		fallback = empty("")
+		fallback["items"] = items
+		fallback["lines"] = [{"item": i, "type": "", "notes": ""} for i in items]
+		return [fallback]
 	return sections
 
 

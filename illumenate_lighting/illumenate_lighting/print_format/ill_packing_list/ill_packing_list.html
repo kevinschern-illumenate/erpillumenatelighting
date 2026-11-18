@@ -3,10 +3,12 @@
   delivery, for the carton or the receiving dock. No prices.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, closing, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, closing, date, line_group, section_total with context -%}
 {%- set dn = frappe.db.get_value("Delivery Note", doc.delivery_note, ["customer_name", "posting_date", "po_no", "shipping_address", "address_display", "shipping_address_name", "customer_address", "ill_carrier", "ill_tracking_number"], as_dict=True) if doc.delivery_note else none -%}
 {%- set cases = (doc.from_case_no ~ ((" to " ~ doc.to_case_no) if doc.to_case_no and doc.to_case_no != doc.from_case_no else "")) if doc.from_case_no else "" -%}
 {%- set weight_unit = doc.weight_uom or "" -%}
+{%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
+{%- set row = namespace(n=0) -%}
 {{ styles() }}
 <div class="ill-doc">
 	{{ header("Packing List", doc.name, "Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else "",
@@ -37,17 +39,19 @@
 				<th class="ill-center" style="width: 8%;">Checked</th>
 			</tr>
 		</thead>
-		<tbody>
-		{%- for item in doc.items -%}
-			<tr>
-				<td class="ill-idx">{{ loop.index }}</td>
+		{%- for section in sections -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- call line_group(entry, 5, section.label if loop.first else None) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>{{ line(item) }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.stock_uom) }}</td>
-				<td class="ill-num">{% if item.net_weight %}{{ "%g" | format(item.net_weight) }} {{ item.weight_uom or weight_unit }}{% endif %}</td>
+				<td class="ill-num">{{ ill_print_qty(item.qty, item.stock_uom) | e }}</td>
+				<td class="ill-num">{% if item.net_weight %}{{ "%g" | format(item.net_weight) | e }} {{ (item.weight_uom or weight_unit) | e }}{% endif %}</td>
 				<td class="ill-center"><span class="ill-check"></span></td>
-			</tr>
+			{%- endcall -%}
+			{%- endfor -%}
 		{%- endfor -%}
-		</tbody>
 	</table>
 
 	{{ closing("Report damage or shortages within five business days to " ~ ill_print_company(doc).email ~ ", quoting delivery note " ~ (doc.delivery_note or doc.name) ~ ".") }}

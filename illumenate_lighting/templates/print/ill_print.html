@@ -2,7 +2,7 @@
   ilLumenate print design template: the stylesheet and macros every ilL print format uses.
 
   Import at the top of a print format, with context so the macros can read `doc`:
-      {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, totals, terms, notes, signatures, section_row with context -%}
+      {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, line_group, section_total, totals, terms, notes, signatures with context -%}
 
   Design (docs/PRINT_FORMATS.md): ilLumenate Design System type (Manrope headings, Poppins
   body) and colours (navy #172E48, blue #00588C, gold #FDC757), kept light on ink: no
@@ -74,9 +74,15 @@
 	.ill-doc .ill-items .ill-num { text-align: right; white-space: nowrap; }
 	.ill-doc .ill-items .ill-idx { color: #5d6d7f; width: 22px; }
 	.ill-doc .ill-section td { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; color: #172e48; padding: 10px 6px 4px 8px; border-bottom: 0.6px solid #a2abb6; border-left: 2.5px solid #fdc757; }
+	/* A line group: fixture type row above, the line, its notes row below; kept on one page. */
+	.ill-doc .ill-line { page-break-inside: avoid; }
+	.ill-doc .ill-type-row td { padding: 7px 6px 1px 6px; border-bottom: none; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8.5px; color: #172e48; }
+	.ill-doc .ill-type-row .ill-type-label { font-size: 6.5px; letter-spacing: 1px; text-transform: uppercase; color: #00588c; margin-right: 6px; }
+	.ill-doc .ill-type-row + .ill-line-row td { padding-top: 2px; }
+	.ill-doc .ill-line-row.ill-has-note td { border-bottom: none; padding-bottom: 2px; }
+	.ill-doc .ill-note-row td { padding: 0 6px 6px 6px; font-size: 8.5px; font-style: italic; color: #5d6d7f; white-space: pre-line; }
 	.ill-doc .ill-section-total td { font-size: 8.5px; color: #5d6d7f; padding-top: 4px; padding-bottom: 8px; border-bottom: 0.6px solid #a2abb6; }
 	.ill-doc .ill-line-name { font-weight: 500; color: #231f20; }
-	.ill-doc .ill-type { display: inline-block; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; color: #172e48; border: 1px solid #172e48; border-radius: 3px; padding: 0 4px; margin-right: 5px; line-height: 1.35; }
 	.ill-doc .ill-code { color: #5d6d7f; margin-top: 1px; }
 	.ill-doc .ill-specs { color: #5d6d7f; font-size: 8px; margin-top: 2px; line-height: 1.5; }
 	.ill-doc .ill-specs b { font-weight: 600; color: #231f20; }
@@ -185,10 +191,7 @@
 {%- macro line(item, show_code=True, show_specs=True, code=None) -%}
 {%- set info = ill_print_specs(item) if show_specs else {"part_number": "", "specs": [], "notes": []} -%}
 {%- set shown_code = code or info.part_number or item.item_code -%}
-<div>
-	{%- if item.get("ill_fixture_type") %}<span class="ill-type">{{ item.ill_fixture_type | e }}</span>{% endif -%}
-	<span class="ill-line-name">{{ (item.item_name or item.item_code or "") | e }}</span>
-</div>
+<div class="ill-line-name">{{ (item.item_name or item.item_code or "") | e }}</div>
 {%- if show_code and shown_code and shown_code != item.item_name %}<div class="ill-code ill-mono">{{ shown_code | e }}</div>{% endif -%}
 {%- if info.specs -%}
 <div class="ill-specs">
@@ -196,13 +199,29 @@
 </div>
 {%- endif -%}
 {%- for text in info.notes %}<div class="ill-specs">{{ text | e }}</div>{% endfor -%}
-{%- set note = ill_print_note(item.get("additional_notes")) if item.get("additional_notes") else "" -%}
-{%- if note %}<div class="ill-line-note">{{ note | e }}</div>{% endif -%}
 {%- endmacro -%}
 
-{#-- Section (room / area) header row spanning the items table. --#}
-{%- macro section_row(label, colspan) -%}
-{%- if label %}<tr class="ill-section"><td colspan="{{ colspan | int }}">{{ label | e }}</td></tr>{% endif -%}
+{#--
+  One line of an items table as a group of rows, the layout every ilL format shares:
+    [section / room header, on the section's first line]
+    FIXTURE TYPE  A1                      <- when the line has a fixture type
+    1  Item name, part no., specs   qty   <- the call block's cells
+       Additional notes                   <- when the line has notes
+  `entry` is a line from ill_print_sections ({"item", "type", "notes"}). The group is
+  one <tbody> so a page break never separates a type or note from its line.
+--#}
+{%- macro line_group(entry, colspan, header=None) -%}
+<tbody class="ill-line">
+	{%- if header %}<tr class="ill-section"><td colspan="{{ colspan | int }}">{{ header | e }}</td></tr>{% endif -%}
+	{%- if entry.type %}<tr class="ill-type-row"><td></td><td colspan="{{ (colspan - 1) | int }}"><span class="ill-type-label">Fixture type</span>{{ entry.type | e }}</td></tr>{% endif -%}
+	<tr class="ill-line-row{% if entry.notes %} ill-has-note{% endif %}">{{ caller() }}</tr>
+	{%- if entry.notes %}<tr class="ill-note-row"><td></td><td colspan="{{ (colspan - 1) | int }}">{{ entry.notes | e }}</td></tr>{% endif -%}
+</tbody>
+{%- endmacro -%}
+
+{#-- A section's subtotal row, shown when the document has more than one section. --#}
+{%- macro section_total(label, colspan, amount) -%}
+<tbody class="ill-keep"><tr class="ill-section-total"><td colspan="{{ (colspan - 1) | int }}" class="ill-right">{{ label | e }} subtotal</td><td class="ill-num">{{ money(amount) }}</td></tr></tbody>
 {%- endmacro -%}
 
 {#--
@@ -303,13 +322,12 @@
 			<th class="ill-num" style="width: 12%;">Amount</th>
 		</tr>
 	</thead>
-	<tbody>
 	{%- for section in sections -%}
-		{{ section_row(section.label, cols) }}
-		{%- for item in section["items"] -%}
+		{%- for entry in section.lines -%}
+		{%- set item = entry["item"] -%}
 		{%- set row.n = row.n + 1 -%}
 		{%- set unit = ill_print_msrp(item) if mode == "msrp" else item.rate -%}
-		<tr>
+		{%- call line_group(entry, cols, section.label if loop.first else None) -%}
 			<td class="ill-idx">{{ row.n | int }}</td>
 			<td>{{ line(item) }}</td>
 			<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
@@ -322,15 +340,11 @@
 			<td class="ill-num">{{ money(unit) }}</td>
 			{%- endif %}
 			<td class="ill-num">{{ money(unit * (item.qty or 0) if mode == "msrp" else item.amount) }}</td>
-		</tr>
+		{%- endcall -%}
 		{%- endfor -%}
 		{%- if section.label and labelled > 1 -%}
-		<tr class="ill-section-total">
-			<td colspan="{{ cols - 1 }}" class="ill-right">{{ section.label | e }} subtotal</td>
-			<td class="ill-num">{{ money(section.list_subtotal if mode == "msrp" else section.subtotal) }}</td>
-		</tr>
+		{{ section_total(section.label, cols, section.list_subtotal if mode == "msrp" else section.subtotal) }}
 		{%- endif -%}
 	{%- endfor -%}
-	</tbody>
 </table>
 {%- endmacro -%}

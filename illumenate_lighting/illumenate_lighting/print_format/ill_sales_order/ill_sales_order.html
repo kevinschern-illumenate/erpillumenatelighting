@@ -27,7 +27,6 @@
 		("Payment terms", (doc.payment_terms_template or "")),
 		("Shipping", (doc.shipping_rule or "")),
 		("Will call", (doc.ill_proforma_will_call or "") if doc.ill_proforma_will_call and doc.ill_proforma_will_call != "No" else ""),
-		("Rep agency", (doc.sales_partner or "")),
 	]) }}
 
 	{%- if status == "On Hold" %}{{ notes("On hold", doc.ill_hold_reason or "This order is on hold. Contact us before it can proceed.", alert=True) }}{% endif %}
@@ -68,3 +67,4 @@
 
 	{{ closing() }}
 </div>
+

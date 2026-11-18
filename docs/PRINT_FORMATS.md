@@ -44,19 +44,35 @@ Blocks, top to bottom (each is a macro in `ill_print.html`):
    only shows what the document has.
 3. **Parties**: Bill to / Ship to / Attention (or Vendor, Ship to, Bill to) under a hairline.
    "Bill to / Ship to" merges into one block when the addresses match.
-4. **Line items**, grouped by section (room / area) with section subtotals when there is more
-   than one section. The description cell holds:
-   - the fixture type tag and the item name;
-   - the part number;
-   - the specs: CCT, output, built length, watts, environment, finish. These come from the
-     configured description. Its internal "Configured …: ILL-CTN-…" reference, "N/A" values
-     and the production "Build Description" dump are left out;
-   - kit notes and the line's additional notes.
+4. **Line items** (the `line_group` macro), the same layout in every format:
+
+   ```
+   KITCHEN                                      <- section / room header row
+     FIXTURE TYPE  A1                           <- when the line has a fixture type
+   1 Item name                         2 ea …   <- the line
+     PART-NUMBER · CCT 3000K · Output … · Length …
+     Additional notes                           <- when the line has notes
+                              Kitchen subtotal  <- priced documents, 2+ sections
+   ```
+
+   A row with a section label, no item code and zero quantity starts a section; the rows
+   after it inherit the label. Labels match case-insensitively, and the section header,
+   fixture-type row, line and notes row stay together on a page. Specs come from the
+   configured description; its internal "Configured …: ILL-CTN-…" reference, "N/A" values
+   and the production "Build Description" dump are left out.
+
+   Documents whose rows don't carry these fields take them from the line they were made
+   from: Packing Slip → Delivery Note; Pick List and Material Request → Sales Order;
+   Purchase Receipt and Purchase Invoice → Purchase Order → Sales Order. Vendor documents
+   (Purchase Order, RFQ) group by the PO's own room labels and never print a customer's
+   fixture types or notes.
 5. **Totals** on the right (subtotal, discount, each shipping / tax / fee row, total, then
    paid / balance due). The left side carries context: dealer savings, payment schedule,
    payments received, order progress.
 6. **Notes / instructions** boxes, **Terms** in two columns of 7.5px type, **signature lines**,
    and a one-line **closing** (who to contact).
+
+The rep agency (sales partner) stays off customer-facing documents.
 
 ## Pricing modes
 
@@ -73,9 +89,9 @@ Blocks, top to bottom (each is a macro in `ill_print.html`):
 
 | Format | DocType | Facts | Lines | After the lines |
 |---|---|---|---|---|
-| ilL Quotation | Quotation | Quote date, valid until, project, fixture schedule, prepared by, payment terms, shipping, quote request, rep agency | Dealer pricing | Savings, payment schedule; sales terms; acceptance signature (signature, name, date, PO no.) |
+| ilL Quotation | Quotation | Quote date, valid until, project, fixture schedule, prepared by, payment terms, shipping, quote request | Dealer pricing | Savings, payment schedule; sales terms; acceptance signature (signature, name, date, PO no.) |
 | ilL Quotation - MSRP | Quotation | Quote date, valid until, project, fixture schedule | MSRP | "About these prices"; retail terms |
-| ilL Sales Order | Sales Order | Order date, your PO (+date), requested delivery, confirmed / estimated ship date, project, schedule, quotation, prepared by, payment terms, shipping, will call, rep agency | Dealer pricing | Hold reason, shipping / receiving instructions; progress (shipped / billed %), advance paid and balance; "Please review" box; sales terms |
+| ilL Sales Order | Sales Order | Order date, your PO (+date), requested delivery, confirmed / estimated ship date, project, schedule, quotation, prepared by, payment terms, shipping, will call | Dealer pricing | Hold reason, shipping / receiving instructions; progress (shipped / billed %), advance paid and balance; "Please review" box; sales terms |
 | ilL Sales Order - MSRP | Sales Order | Order date, estimated ship date, project, schedule | MSRP | Retail terms |
 | ilL Sales Invoice | Sales Invoice (Credit Note when a return) | Invoice and due dates, your PO, payment terms, sales orders, shipments, project, schedule, tax IDs | Dealer pricing | Payments received; paid and balance due; "How to pay" box (schedule, past-due days, QuickBooks pay link, Company remittance instructions); sales terms |
 | ilL Delivery Note | Delivery Note (packing / return slip) | Ship date, your PO, sales orders, carrier, tracking, waybill, project, schedule | No prices; kit contents ("Includes 3 ea × …"), packed checkbox | Total qty; received-by signature; damage / shortage reporting line |
