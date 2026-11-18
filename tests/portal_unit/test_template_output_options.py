@@ -68,6 +68,7 @@ class OutputOptions(unittest.TestCase):
 					"output_level": "100 lm/ft",
 					"fixture_wattage": "0.9W",
 					"max_run_length": "40ft",
+					"max_footage_100w": "89ft",
 				}
 			],
 		)

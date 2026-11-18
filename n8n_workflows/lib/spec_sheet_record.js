@@ -104,7 +104,7 @@ record.delivered_lumens = {
 };
 
 // Output Options (owner, 2026-11-18; fixture templates): the output levels are the columns and
-// each lens group has two rows, Fixture Wattage and Max Run Length; a dash where it does not reach.
+// each lens group has three rows, Fixture Wattage, Max Run Length and Max Footage per 100W; a dash where it does not reach.
 const optionRows = t.output_options || [];
 const optionLevels = [...new Set(optionRows.map(row => row.output_level))];
 const optionGroups = [...new Set(optionRows.map(row => row.lens_group))];
@@ -115,6 +115,7 @@ record.output_options = {
   rows: optionGroups.flatMap(group => [
     {label: `Fixture Wattage (${group})`, values: optionLevels.map(level => optionCell(group, level, 'fixture_wattage'))},
     {label: `Max Run Length (${group})`, values: optionLevels.map(level => optionCell(group, level, 'max_run_length'))},
+    {label: `Max Footage per 100W (${group})`, values: optionLevels.map(level => optionCell(group, level, 'max_footage_100w'))},
   ]),
 };
 
