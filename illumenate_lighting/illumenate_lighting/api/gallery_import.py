@@ -114,7 +114,13 @@ def _series(data: dict, series_by_name: dict, report: list[str]) -> list[str]:
 	return found
 
 
-def _products(data, series, product_by_webflow_id, product_series, report) -> list[dict]:
+def _products(data, series, product_by_webflow_id, product_series, report, custom=None) -> list[dict]:
+	"""Product rows, then one series-only row per listed series no product took.
+
+	A row's series is required: the product's own series (listed in the item's text or not); for a
+	product without one, `custom` when the item lists no other series; else the product is left
+	out and reported.
+	"""
 	rows, remaining = [], list(series)
 	own = product_series or {}
 	for webflow_id in data.get("products-used") or []:
@@ -123,10 +129,13 @@ def _products(data, series, product_by_webflow_id, product_series, report) -> li
 			report.append(f"Product {webflow_id} is not synced for this brand; row left out")
 			continue
 		matched = own.get(product)
+		if not matched and custom and not [name for name in series if name != custom]:
+			matched = custom
+		if not matched:
+			report.append(f"Product {product} has no series and the item lists other series; row left out")
+			continue
 		if matched in remaining:
 			remaining.remove(matched)
-		else:
-			matched = None
 		rows.append({"product": product, "series": matched, "note": None})
 	rows.extend({"product": None, "series": name, "note": None} for name in remaining)
 	return rows
@@ -197,7 +206,8 @@ def map_webflow_item(
 		report.append(f"{slug}: draft in Webflow, imported inactive")
 	gallery_type, applications, services = _lists(data, report)
 	series = _series(data, series_by_name, report)
-	products = _products(data, series, product_by_webflow_id, product_series, report)
+	custom = series_by_name.get("custom")
+	products = _products(data, series, product_by_webflow_id, product_series, report, custom)
 	_attach_notes(data.get("product-notes"), products, product_names or {}, report)
 	gallery = {
 		"webflow_item_id": item.get("id"),
