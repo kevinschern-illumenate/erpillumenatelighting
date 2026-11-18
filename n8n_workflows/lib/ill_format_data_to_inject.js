@@ -235,6 +235,9 @@ const mappingScript = `<script>
                   const addDash = () => {
                       const dashClone = dashTemplate.cloneNode(true);
                       dashClone.style.display = '';
+                      // The page's .part-no-dash has height: 100%, which made each row as tall as
+                      // the whole builder (the big gap under the first row; owner, 2026-11-18).
+                      dashClone.style.height = 'auto';
                       wrapper.appendChild(dashClone);
                   };
 
@@ -690,7 +693,12 @@ const mappingScript = `<script>
       setText('generated-date', data.spec_sheet_stamp || (mm + dd + yy));
 
       // --- G. PAGINATION LOGIC (1056px Max Height) ---
+      // Measured once the page and its web fonts have loaded: measured in the fallback font, text
+      // wrapped less than in the PDF and a section could run into the footer (owner, 2026-11-18).
+      // SAFETY keeps a little room for what still differs when the PDF is drawn.
+      const paginate = () => {
       const PAGE_HEIGHT = 1056; 
+      const SAFETY = 12;
       const container = document.querySelector('.pdf-spec-container');
       let currentPage = document.querySelector('.page-wrapper');
       
@@ -726,14 +734,14 @@ const mappingScript = `<script>
               if (ownPage && pageHasContent()) addPage();
 
               currentMain.appendChild(section);
-              if (currentPage.scrollHeight <= PAGE_HEIGHT) return;
+              if (currentPage.scrollHeight <= PAGE_HEIGHT - SAFETY) return;
 
               currentMain.removeChild(section);
               let activeSection = section.cloneNode(false);
               currentMain.appendChild(activeSection);
               Array.from(section.children).forEach(item => {
                   activeSection.appendChild(item);
-                  if (currentPage.scrollHeight <= PAGE_HEIGHT) return;
+                  if (currentPage.scrollHeight <= PAGE_HEIGHT - SAFETY) return;
                   // Carry the titles just before this item along with it.
                   const moving = [item];
                   while (moving[0].previousElementSibling && isHeading(moving[0].previousElementSibling)) {
@@ -762,6 +770,10 @@ const mappingScript = `<script>
               if (totEl) totEl.innerText = allPages.length.toString();
           });
       }
+      };
+      const fontsReady = () => (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve());
+      if (document.readyState === 'complete') fontsReady().then(paginate);
+      else window.addEventListener('load', () => fontsReady().then(paginate));
 
   })();
 <\/script>`;
