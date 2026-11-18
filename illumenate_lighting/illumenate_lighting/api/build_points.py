@@ -58,6 +58,8 @@ WEIGHT_FIELDS = {
 	"fmc": "weight_fmc",
 	"assembly": "weight_assembly",
 }
+# Release estimates (the workbook's ESPR "Capacity Calculator"): heavier adders.
+RELEASE_DEFAULTS = {**DEFAULT_WEIGHTS, "loose": 0.5, "wet": 2.0, "fmc": 2.5, "assembly": 4.0}
 DEFAULT_POINTS_PER_PERSON_DAY = 57.5
 DEFAULT_PAID_HOURS = 8.5
 DEFAULT_PIXEL_CONDUCTORS = 4
@@ -198,6 +200,14 @@ def _number(values, field, default):
 def weights(values=None):
 	values = settings() if values is None else values
 	return {key: _number(values, WEIGHT_FIELDS[key], DEFAULT_WEIGHTS[key]) for key in COUNT_KEYS}
+
+
+def release_weights(values=None):
+	"""Weights for release (hold-for-release) estimates: ``release_weight_*`` settings."""
+	values = settings() if values is None else values
+	return {
+		key: _number(values, "release_" + WEIGHT_FIELDS[key], RELEASE_DEFAULTS[key]) for key in COUNT_KEYS
+	}
 
 
 def points_per_hour(values=None):

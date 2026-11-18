@@ -11,7 +11,7 @@ from illumenate_lighting.illumenate_lighting.api import build_points
 
 class ilLProductionSettings(Document):
 	def validate(self):
-		for field in build_points.WEIGHT_FIELDS.values():
+		for field in [*build_points.WEIGHT_FIELDS.values(), *("release_" + f for f in build_points.WEIGHT_FIELDS.values())]:
 			if flt(self.get(field)) < 0:
 				frappe.throw(_("{0} cannot be negative.").format(self.meta.get_label(field)))
 		if flt(self.points_per_person_day) <= 0:

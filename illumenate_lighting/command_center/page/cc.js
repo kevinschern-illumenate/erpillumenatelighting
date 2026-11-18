@@ -235,7 +235,7 @@
      waiting for parts, shipped and on-time. Data: illumenate_lighting...production_board.get_board
      (app endpoint, read-only). Weights and capacity: ilL-Production-Settings. */
   const PB_API = 'illumenate_lighting.illumenate_lighting.api.production_board.get_board';
-  const PB = { data: null, err: null, busy: false, at: 0, filter: 'all', sort: 'esd' };
+  const PB = { data: null, err: null, busy: false, at: 0, filter: 'all', sort: 'esd', tab: 'board' };
   const PB_ST = { 1: ['Pend-Prod', 'info'], 2: ['In-Prod', 'good'], 3: ['Pend-Ship', 'good'], 5: ['Held', 'bad'], 7: ['Paint', 'warn'], 9: ['Waiting for parts', 'warn'] };
   const PB_RUNS = [['runs_2c', '2C'], ['runs_3c', '3C'], ['runs_4c', '4C'], ['runs_5c', '5C'], ['runs_6c', '6C'], ['loose', 'Loose'], ['wet', 'WR'], ['fmc', 'FMC'], ['assembly', 'Assy']];
   const pbMoney = v => v == null ? '<span class="calc">—</span>' : money(v);
@@ -256,9 +256,94 @@
       ${PB_RUNS.map(([k]) => `<td class="num">${pbCount(r.counts[k])}</td>`).join('')}
       <td class="num"><b>${pbNum(r.points)}</b></td><td class="num">${pbNum(r.hours)}</td><td class="num">${r.worth == null ? '<span class="calc">—</span>' : money(r.worth)}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
   };
+  const PB_TABS = [['board', 'Board'], ['inbound', 'Run rate & daily $'], ['report', 'Monthly report'], ['releases', 'Releases & holds'], ['prowc', 'Proforma & will call'], ['paint', 'Paint']];
+  const pbMonth = m => new Date(m + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const pbSo = r => `${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer || '')}</div>`;
   PB.body = () => {
-    const X = PB.data;
+    const X = PB.data; PB.after = null;
     if (!X) return PB.err ? `<div class="err">Couldn't load the production board: ${esc(PB.err)}</div>` : '<div class="empty">Loading the production board…</div>';
+    const tabs = `<div class="seg pb-tabs no-print">${PB_TABS.map(([k, n]) => `<button data-pbt="${k}" class="${PB.tab === k ? 'on' : ''}">${n}</button>`).join('')}</div>`;
+    const money0 = X.money ? '' : '<p class="small">Dollar figures need the Command Center Finance or Manufacturing Manager role.</p>';
+    return tabs + money0 + (({ inbound: PB.inbound, report: PB.report, releases: PB.releases, prowc: PB.prowc, paint: PB.paint })[PB.tab] || PB.board)(X);
+  };
+  PB.inbound = X => {
+    const I = X.inbound, Dd = X.daily, flag = X.settings.commission_flag_pct;
+    const days = I.days.slice().reverse();
+    const kpis = [
+      stat('Received today', pbMoney(I.today_amount), I.today ? pbN(I.today.count, 'order') + (I.today.rush ? ` · ${I.today.rush} rush` : '') : 'Not a workday'),
+      stat('Average per day this month', pbMoney(I.month_avg_amount), 'Workdays before today'),
+      stat('Average per day, last 30 workdays', pbMoney(I.avg_30_amount), 'Used for the run-rate estimate'),
+      stat('Received this month', pbMoney(I.month_received_amount), ''),
+      stat('Shipped per day this month', pbMoney(Dd.average_amount), Dd.needed_amount != null ? `Need ${money(Dd.needed_amount)}/day to reach the goal` : 'Days with shipments'),
+    ];
+    const rows = I.days.map(r => `<tr><td>${fmtd(r.date)}</td><td class="num">${r.count}</td><td class="num">${pbMoney(r.amount)}</td><td class="num">${pbPct(r.com_pct, flag)}</td><td class="num">${r.zero || ''}</td><td class="num">${r.same_day || ''}</td><td class="num">${r.next_day || ''}</td><td class="num">${r.rush || ''}</td></tr>`);
+    const drows = Dd.days.map(r => `<tr><td>${fmtd(r.date)}</td><td class="num">${r.count || ''}</td><td class="num">${r.date > X.today ? '<span class="calc">—</span>' : pbMoney(r.amount)}</td></tr>`);
+    PB.after = () => {
+      if (!X.money) return;
+      vbars($('#pbinb'), days.map(r => fmtd(r.date)), [{ name: 'Received', color: '#2a78d6', values: days.map(r => r.amount) }], { target: X.goal.needed_per_day || 0, targetLabel: X.goal.needed_per_day ? 'Needed per day' : '', fmt: kfmt, h: 220 });
+      const past = Dd.days.filter(r => r.date <= X.today);
+      vbars($('#pbdaily'), past.map(r => fmtd(r.date)), [{ name: 'Shipped', color: '#12b76a', values: past.map(r => r.amount) }], { target: Dd.needed_amount || 0, targetLabel: Dd.needed_amount ? 'Needed per day' : '', fmt: kfmt, h: 220 });
+    };
+    return `<div class="ex-kpis pb-kpis">${kpis.join('')}</div><div class="grid">
+      ${card('Orders received per workday', 'Run rate: submitted sales orders by order date, last 30 workdays.', X.money ? '<div class="chart" id="pbinb"></div>' : '<div class="empty">Needs the finance role</div>', 's12')}
+      ${tableCard('Inbound by day', 'Same day = ship date is the day received. Next day = the next workday. Rush = ship date within 3 workdays.', ['Received', '#Orders', '#$', '#Com %', '#$0 orders', '#Same day', '#Next day', '#Rush'], rows, '', 's7')}
+      ${card('Daily dollars', 'Shipped (delivery notes) per workday this month.', (X.money ? '<div class="chart" id="pbdaily"></div>' : '') + `<div class="tw"><table><thead><tr><th>Day</th><th class="num">Shipments</th><th class="num">$</th></tr></thead><tbody>${drows.join('')}</tbody></table></div>`, 's5')}
+    </div>`;
+  };
+  PB.report = X => {
+    const R = X.reporting, flag = X.settings.commission_flag_pct;
+    const line = (label, key, fmt, note) => `<tr><td>${label}${note ? `<div class="m">${note}</div>` : ''}</td>${R.map(m => `<td class="num">${fmt(m[key], m)}</td>`).join('')}</tr>`;
+    const pct = v => v == null ? '<span class="calc">—</span>' : `<b class="${v < 1 ? 'pb-hi' : 'pb-ok'}">${Math.round(v * 100)}%</b>`;
+    const body = [
+      line('Goal', 'goal_amount', v => v ? pbMoney(v) : '<span class="calc">not set</span>'),
+      line('Shipped', 'shipped_amount', pbMoney, 'Delivery notes this month'),
+      line('Scheduled / available to ship', 'scheduled_amount', pbMoney, 'Open orders by ship date (WFP by part ETA), incl. hold for ship'),
+      line('Estimated run rate', 'run_rate_amount', (v, m) => pbMoney(v) + `<div class="m">${m.workdays} workdays</div>`, '30-day average received per day × workdays left'),
+      line('At risk', 'at_risk_amount', pbMoney, 'Waiting for parts and going to miss, plus held orders'),
+      line('Expected releases', 'release_amount', pbMoney, 'Hold for release / confirmation by likely ship date'),
+      line('<b>Projection</b>', 'projected_amount', v => `<b>${pbMoney(v)}</b>`),
+      line('Projection without at-risk', 'projected_safe_amount', pbMoney),
+      line('Projection vs goal', 'goal_pct', pct),
+      line('Avg commission (known orders)', 'com_pct', v => pbPct(v, flag)),
+    ];
+    return `<div class="grid"><div class="card flush s12"><div class="card-h"><div><h2>Monthly report</h2><div class="sub">This month and the next two against the shipping goal (goals are set in Weights &amp; capacity).</div></div></div>
+      <div class="tw"><table class="pb-rep"><thead><tr><th></th>${R.map(m => `<th class="num">${pbMonth(m.month)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div></div></div>`;
+  };
+  PB.releases = X => {
+    const Rl = X.releases, H = X.ship_holds, flag = X.settings.commission_flag_pct;
+    const mcards = Rl.months.map(m => stat(pbMonth(m.month), pbMoney(m.amount), `${pbN(m.count, 'release')}${X.money ? ' · com ' + pbPct(m.com_pct, flag) : ''}`));
+    const rrows = Rl.rows.filter(rowOK).sort((a, b) => String(a.likely_ship || '9').localeCompare(String(b.likely_ship || '9'))).map(r => `<tr><td>${pbSo(r)}</td><td class="num">${pbMoney(r.amount)}</td><td class="num">${pbPct(r.com_pct, flag)}</td><td>${r.likely_ship ? fmtd(r.likely_ship) : badge('No date', 'warn')}</td><td>${esc(r.hold_reason.replace('Hold for ', ''))}</td>
+      <td class="num">${pbNum(r.release_points)}</td><td class="num">${pbNum(r.release_days, 2)}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
+    const hrows = H.rows.filter(rowOK).map(r => `<tr><td>${pbSo(r)}</td><td class="num">${pbMoney(r.amount)}</td><td class="num">${pbPct(r.com_pct, flag)}</td><td>${pbEsd(r)}</td><td class="num">${r.days_until == null ? '—' : r.days_until}</td><td class="num">${pbNum(r.points)}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
+    return `<div class="ex-kpis pb-kpis">${mcards.join('')}${stat('Release workload', pbNum(Rl.points) + ' <span class="small">pts</span>', `${pbNum(Rl.days, 2)} days at today's capacity (release weights)`)}</div>
+      <div class="grid">
+      ${tableCard('Expected releases', `Hold for release / confirmation. Set Hold Reason and Likely Ship Date on the sales order.${Rl.no_date ? ` ${Rl.no_date} without a likely ship date.` : ''}`, ['Sales order', '#$', '#Com %', 'Likely ship', 'Hold', '#Release pts', '#Days', 'Notes'], rrows)}
+      <div class="ex-kpis pb-kpis s12" style="margin:0">${stat('Hold for ship', pbMoney(H.total_amount), pbN(H.rows.length, 'order'))}${stat('Through next month', pbMoney(H.through_next_month_amount), 'Ship date by end of next month')}${stat('Within a week', pbMoney(H.week_amount), 'Ship date in 7 days or less')}</div>
+      ${tableCard('Hold for ship', 'Built or buildable; the customer asked us to hold it until the ship date.', ['Sales order', '#$', '#Com %', 'Ship date', '#Days away', '#Points', 'Notes'], hrows)}
+      </div>`;
+  };
+  PB.prowc = X => {
+    const P = X.prowc, flag = X.settings.commission_flag_pct;
+    const sc = (n, o) => [stat(n + ' open', pbMoney(o.open_amount), pbN(o.open_count, 'order')), stat(n + ' completed this month', pbMoney(o.completed_amount), `${pbN(o.completed_count, 'order')}${X.money ? ' · com ' + pbPct(o.com_pct, flag) : ''}`)];
+    const orows = P.rows.filter(rowOK).map(r => `<tr><td>${pbSo(r)}</td><td>${esc(r.prowc)}</td><td class="num">${pbMoney(r.amount)}</td><td class="num">${pbPct(r.com_pct, flag)}</td><td>${pbEsd(r)}</td><td>${badge(PB_ST[r.status][0], PB_ST[r.status][1])}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
+    const crows = P.completed.filter(rowOK).map(s => `<tr><td>${s.so ? link('sales-order', s.so, short(s.so)) : ''}<div class="m">${esc(s.customer || '')}</div></td><td>${esc(s.prowc)}</td><td class="num">${pbMoney(s.amount)}</td><td class="num">${pbPct(s.com_pct, flag)}</td><td>${fmtd(s.shipped)}</td><td>${link('delivery-note', s.delivery_note)}</td></tr>`);
+    return `<div class="ex-kpis pb-kpis">${[...sc('Proforma', P.proforma), ...sc('Will call', P.will_call)].join('')}</div><div class="grid">
+      ${tableCard('Open proforma and will-call orders', 'Set Proforma / Will Call on the sales order.', ['Sales order', 'Type', '#$', '#Com %', 'Ship date', 'Status', 'Notes'], orows)}
+      ${tableCard('Completed this month', 'Shipped or picked up (delivery notes).', ['Sales order', 'Type', '#$', '#Com %', 'Completed', 'Delivery note'], crows)}</div>`;
+  };
+  PB.paint = X => {
+    const P = X.paint;
+    const rows = P.rows.filter(rowOK).map(r => {
+      const jobs = r.paint || [];
+      return `<tr><td>${pbSo(r)}</td><td class="num">${pbMoney(r.amount)}</td><td>${pbEsd(r)}</td><td>${[...new Set(jobs.map(j => j.po))].map(po => link('purchase-order', po)).join('<br>') || '<span class="calc">Marked by hand</span>'}</td>
+        <td>${jobs[0] && jobs[0].sent ? fmtd(jobs[0].sent) : '—'}</td><td>${jobs.length ? fmtd(jobs.map(j => j.due_back).filter(Boolean).sort().pop()) : '—'}</td>
+        <td>${jobs.slice(0, 4).map(j => `${esc(j.item_name || j.item)} <span class="calc">${pbNum(j.qty, 2)}</span>`).join('<br>')}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`;
+    });
+    return `<div class="ex-kpis pb-kpis">${stat('At paint', pbMoney(P.total_amount), pbN(P.rows.length, 'order'))}${stat('Due back this month', pbMoney(P.month_amount), pbN(P.month_count, 'order'))}</div>
+      ${P.supplier_group ? '' : '<p class="small">Set the Paint / Finishing Supplier Group in Weights &amp; capacity to pick up paint purchase orders automatically. Until then only orders marked Paint by hand show here.</p>'}
+      <div class="grid">${tableCard('Out for paint', 'Open purchase orders to the paint supplier group, linked to the sales order.', ['Sales order', '#$', 'Ship date', 'PO', 'Sent', 'Due back', 'Items', 'Notes'], rows)}</div>`;
+  };
+  PB.board = X => {
     const flag = X.settings.commission_flag_pct, p = X.pipeline, c = X.capacity, g = X.goal, sh = X.shipped, d = X.due;
     const pipe = [['pend_prod', 'Pend-Prod'], ['in_prod', 'In-Prod'], ['pend_ship', 'Pend-Ship'], ['wfp', 'Waiting for parts'], ['paint', 'Paint'], ['held', 'Held']]
       .map(([k, n]) => stat(n, X.money ? money(p[k].amount) : p[k].count, `${pbN(p[k].count, 'order')} · ${pbNum(p[k].points)} pts${X.money ? ' · avg com ' + pbPct(p[k].com_pct, flag) : ''}`));
@@ -288,8 +373,11 @@
     const shipRows = sh.rows.filter(rowOK).map(s => `<tr><td>${link('delivery-note', s.delivery_note)}</td><td>${s.so ? link('sales-order', s.so, short(s.so)) : ''}<div class="m">${esc(s.customer || '')}</div></td><td class="num">${pbMoney(s.amount)}</td><td class="num">${pbPct(s.com_pct, flag)}</td>
       <td>${fmtd(s.esd)}</td><td>${fmtd(s.shipped)}</td><td>${s.on_time ? badge('On time', 'good') : s.not_warehouse_fault ? badge('Late, not warehouse', 'warn') : badge('Late', 'bad')}</td><td class="pb-notes">${esc(s.late_reason || '')}</td></tr>`);
     const weekly = hbars(sh.weekly.map(w => ({ label: 'Week of ' + fmtd(w.week_of), value: w.on_time_pct == null ? 0 : w.on_time_pct * 100, color: w.on_time_pct != null && w.on_time_pct < 0.95 ? '#eb6834' : '#12b76a', title: pbN(w.shipments, 'shipment') })), { max: 100, fmt: v => Math.round(v) + '%', lw: '130px' });
-    return `${X.money ? '' : '<p class="small">Dollar figures need the Command Center Finance or Manufacturing Manager role.</p>'}
-      <div class="ex-kpis pb-kpis">${pipe.join('')}</div>
+    PB.after = () => {
+      const b = X.capacity.burndown;
+      vbars($('#pbburn'), b.map(r => fmtd(r.date)), [{ name: 'Points left', color: '#2a78d6', values: b.map(r => r.remaining) }], { target: X.capacity.capacity_per_day, targetLabel: '1 day of capacity', fmt: v => Math.round(v), h: 220 });
+    };
+    return `<div class="ex-kpis pb-kpis">${pipe.join('')}</div>
       <div class="ex-kpis pb-kpis">${ship.join('')}</div>
       <div class="ex-kpis pb-kpis">${dueCards.join('')}</div>
       <div class="grid">
@@ -312,10 +400,9 @@
   }
   PB.bind = () => {
     root.querySelectorAll('[data-pbf]').forEach(b => b.onclick = () => { PB.filter = b.dataset.pbf; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
+    root.querySelectorAll('[data-pbt]').forEach(b => b.onclick = () => { PB.tab = b.dataset.pbt; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
     const s = $('#pbsort'); if (s) s.onchange = () => { PB.sort = s.value; $('#pbroot').innerHTML = PB.body(); PB.bind(); };
-    const X = PB.data; if (!X) return;
-    const b = X.capacity.burndown;
-    vbars($('#pbburn'), b.map(r => fmtd(r.date)), [{ name: 'Points left', color: '#2a78d6', values: b.map(r => r.remaining) }], { target: X.capacity.capacity_per_day, targetLabel: '1 day of capacity', fmt: v => Math.round(v), h: 220 });
+    if (PB.data && PB.after) { PB.after(); }
   };
   PB.mount = () => {
     const r = $('#pbrefresh'); if (r) r.onclick = () => pbFetch(true);

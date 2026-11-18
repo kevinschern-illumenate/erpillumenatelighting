@@ -38,6 +38,23 @@ LABELS = {
 }
 KEYS = {PEND_PROD: "pend_prod", IN_PROD: "in_prod", PEND_SHIP: "pend_ship", HELD: "held", PAINT: "paint", WFP: "wfp"}
 OVERRIDES = {"Paint": PAINT, "Held": HELD, "Waiting for parts": WFP}
+RELEASE_HOLDS = ("Hold for Release", "Hold for Confirmation")
+SHIP_HOLD = "Hold for Ship"
+# Fields blanked for people without a money role.
+# Any key ending in "_amount" is money too.
+MONEY_KEYS = {
+	"amount",
+	"com",
+	"com_pct",
+	"worth",
+	"goal_pct",
+	"month_goal",
+	"gap",
+	"needed_per_day",
+	"shipped_mtd",
+	"available_to_ship",
+	"monthly_revenue_goal",
+}
 
 VIEW_ROLES = {"Command Center Viewer", "System Manager", "Manufacturing Manager", "Manufacturing User"}
 MONEY_ROLES = {"Command Center Finance", "System Manager", "Manufacturing Manager", "Accounts Manager"}
@@ -95,22 +112,29 @@ def month_end(day):
 	return first_next - timedelta(days=1)
 
 
-def order_status(order, work_orders, short):
+def order_status(order, work_orders, short, paint_open=False):
 	"""Workbook status code for one open Sales Order.
 
 	``work_orders`` are its non-cancelled Work Orders; ``short`` says whether any of
-	them still lacks material after stock is handed out.
+	them still lacks material after stock is handed out; ``paint_open`` whether an
+	outside paint purchase order for it is still open.
 	"""
 	override = OVERRIDES.get(order.get("ill_production_status_override") or "")
 	if override:
 		return override
-	if order.get("status") == "On Hold" or any(w.get("status") == "Stopped" for w in work_orders):
+	if (
+		order.get("ill_hold_reason")
+		or order.get("status") == "On Hold"
+		or any(w.get("status") == "Stopped" for w in work_orders)
+	):
 		return HELD
 	if not work_orders:
 		# Nothing to build (stock lines only) is ready to ship; a build without a WO waits for one.
 		return PEND_PROD if (order.get("ill_build_points") or 0) > 0 else PEND_SHIP
 	if all(w.get("status") == "Completed" or (w.get("produced_qty") or 0) >= (w.get("qty") or 0) for w in work_orders):
 		return PEND_SHIP
+	if paint_open:
+		return PAINT
 	if any(
 		w.get("status") == "In Process" or (w.get("material_transferred_for_manufacturing") or 0) > 0
 		for w in work_orders
@@ -208,6 +232,90 @@ def on_time_rows(shipments, today):
 	return rows
 
 
+def scrub(value):
+	"""Blank every money field, at any depth."""
+	if isinstance(value, dict):
+		for key, item in value.items():
+			if (key in MONEY_KEYS or key.endswith("_amount")) and not isinstance(item, (dict, list)):
+				value[key] = None
+			else:
+				scrub(item)
+	elif isinstance(value, list):
+		for item in value:
+			scrub(item)
+	return value
+
+
+def add_months(day, months):
+	month = day.month - 1 + months
+	return date(day.year + month // 12, month % 12 + 1, 1)
+
+
+def workdays_between(start, end, holidays):
+	count, day = 0, start
+	while day <= end:
+		count += is_workday(day, holidays)
+		day += timedelta(days=1)
+	return count
+
+
+def inbound_days(received, days, holidays):
+	"""The Inbound(RR) sheet: orders received per workday.
+
+	``received`` rows: {"received": date, "esd": date|None, "amount", "com"}.
+	Same day = ship date is the day received; next day = the next workday; rush =
+	ship date within 3 workdays of receipt.
+	"""
+	rows = []
+	for day in days:
+		hit = [r for r in received if r["received"] == day]
+		nxt = next_workday(day, holidays)
+		third = day
+		for _ in range(3):
+			third = next_workday(third, holidays)
+		amount = sum(r["amount"] for r in hit)
+		com = sum(r["com"] for r in hit)
+		rows.append(
+			{
+				"date": day.isoformat(),
+				"count": len(hit),
+				"amount": round(amount, 2),
+				"com": round(com, 2),
+				"com_pct": round(com / amount, 4) if amount else 0,
+				"zero": sum(1 for r in hit if not r["amount"]),
+				"same_day": sum(1 for r in hit if r["esd"] == day),
+				"next_day": sum(1 for r in hit if r["esd"] == nxt),
+				"rush": sum(1 for r in hit if r["esd"] and r["esd"] <= third),
+			}
+		)
+	return rows
+
+
+def average(values):
+	values = list(values)
+	return round(sum(values) / len(values), 2) if values else 0
+
+
+def month_totals(rows, key, months):
+	"""Revenue and commission per month for rows dated by ``key`` (ESPR / HFS sheets)."""
+	out = []
+	for first in months:
+		last = month_end(first)
+		hit = [r for r in rows if r.get(key) and first <= as_date(r[key]) <= last]
+		amount = sum(r["amount"] for r in hit)
+		com = sum(r["com"] for r in hit)
+		out.append(
+			{
+				"month": first.isoformat(),
+				"count": len(hit),
+				"amount": round(amount, 2),
+				"com": round(com, 2),
+				"com_pct": round(com / amount, 4) if amount else 0,
+			}
+		)
+	return out
+
+
 # ---------------------------------------------------------------------------
 # Reading ERPNext
 # ---------------------------------------------------------------------------
@@ -260,6 +368,9 @@ def open_orders():
 		"ill_estimated_ship_date",
 		"ill_production_status_override",
 		"ill_floor_notes",
+		"ill_hold_reason",
+		"ill_likely_ship_date",
+		"ill_proforma_will_call",
 		"ill_build_points",
 		"ill_build_hours",
 		"ill_build_points_warnings",
@@ -383,7 +494,16 @@ def shipments_this_month(today, commission_rates):
 			"Sales Order",
 			filters={"name": ["in", so_names]},
 			fields=_fields(
-				"Sales Order", ["name", "customer_name", "delivery_date", "ill_estimated_ship_date", "net_total", "total_commission"]
+				"Sales Order",
+				[
+					"name",
+					"customer_name",
+					"delivery_date",
+					"ill_estimated_ship_date",
+					"net_total",
+					"total_commission",
+					"ill_proforma_will_call",
+				],
 			),
 			limit_page_length=0,
 		):
@@ -411,10 +531,101 @@ def shipments_this_month(today, commission_rates):
 				"on_time": bool(esd and day <= esd),
 				"not_warehouse_fault": bool(note.get("ill_not_warehouse_fault")),
 				"late_reason": note.get("ill_late_reason"),
+				"prowc": so.get("ill_proforma_will_call") or "",
 			}
 		)
 	shipped.sort(key=lambda s: s["shipped"], reverse=True)
 	return shipped
+
+
+def received_orders(start, end):
+	"""Submitted Sales Orders received (transaction date) between two dates."""
+	rows = frappe.get_all(
+		"Sales Order",
+		filters={"docstatus": 1, "transaction_date": ["between", [start, end]]},
+		fields=_fields(
+			"Sales Order",
+			["name", "transaction_date", "delivery_date", "ill_estimated_ship_date", "net_total", "total_commission"],
+		),
+		limit_page_length=0,
+	)
+	out = []
+	for row in rows:
+		amount = float(row.net_total or 0)
+		out.append(
+			{
+				"received": as_date(row.transaction_date),
+				"esd": as_date(row.get("ill_estimated_ship_date") or row.get("delivery_date")),
+				"amount": amount,
+				"com": float(row.total_commission or 0),
+			}
+		)
+	return out
+
+
+def goals(values):
+	"""{first of month: revenue goal} from the settings goal table."""
+	out = {}
+	try:
+		rows = frappe.get_all(
+			"ilL-Child-Production-Goal",
+			filters={"parenttype": build_points.SETTINGS, "parentfield": "monthly_goals"},
+			fields=["month", "revenue_goal"],
+		)
+	except Exception:
+		rows = []
+	for row in rows:
+		if row.month:
+			out[as_date(row.month).replace(day=1)] = float(row.revenue_goal or 0)
+	return out
+
+
+def paint_jobs(order_names, supplier_group):
+	"""{sales order: [open outside-paint PO lines]} for suppliers in the paint group."""
+	if not order_names or not supplier_group:
+		return {}
+	suppliers = frappe.get_all("Supplier", filters={"supplier_group": supplier_group}, pluck="name")
+	if not suppliers:
+		return {}
+	orders = {
+		po.name: po
+		for po in frappe.get_all(
+			"Purchase Order",
+			filters={
+				"docstatus": 1,
+				"supplier": ["in", suppliers],
+				"status": ["not in", ["Closed", "Completed", "Cancelled"]],
+			},
+			fields=["name", "supplier", "transaction_date", "schedule_date"],
+			limit_page_length=0,
+		)
+	}
+	if not orders:
+		return {}
+	jobs = {}
+	for row in frappe.get_all(
+		"Purchase Order Item",
+		filters={"parent": ["in", list(orders)], "sales_order": ["in", order_names]},
+		fields=["parent", "sales_order", "item_code", "item_name", "qty", "received_qty", "schedule_date"],
+		limit_page_length=0,
+	):
+		if float(row.received_qty or 0) >= float(row.qty or 0):
+			continue
+		po = orders[row.parent]
+		jobs.setdefault(row.sales_order, []).append(
+			{
+				"po": row.parent,
+				"supplier": po.supplier,
+				"sent": as_date(po.transaction_date).isoformat() if po.transaction_date else None,
+				"due_back": as_date(row.schedule_date or po.schedule_date).isoformat()
+				if (row.schedule_date or po.schedule_date)
+				else None,
+				"item": row.item_code,
+				"item_name": row.item_name,
+				"qty": float(row.qty or 0) - float(row.received_qty or 0),
+			}
+		)
+	return jobs
 
 
 # ---------------------------------------------------------------------------
@@ -478,6 +689,8 @@ def build_board(now=None, money=True):
 		[o.name for o in ranked], needs, stock_on_hand(items), incoming_purchases(items)
 	)
 	month_last = month_end(today)
+	painting = paint_jobs(names, values.get("paint_supplier_group"))
+	release_weights = build_points.release_weights(values)
 
 	rows, rates = [], {}
 	for order in ranked:
@@ -487,7 +700,9 @@ def build_board(now=None, money=True):
 		open_share = 1 - float(order.get("per_delivered") or 0) / 100
 		amount = net * open_share
 		gap = shortages.get(order.name) or {"short": {}, "eta": None, "no_po": []}
-		status = order_status(order, by_order.get(order.name, []), bool(gap["short"]))
+		status = order_status(
+			order, by_order.get(order.name, []), bool(gap["short"]), bool(painting.get(order.name))
+		)
 		points = float(order.get("ill_build_points") or 0)
 		esd = esd_of(order)
 		eta = gap["eta"]
@@ -514,7 +729,14 @@ def build_board(now=None, money=True):
 			"going_to_miss": bool(status == WFP and (not eta or (esd and esd < eta))),
 			"this_month": bool(status != WFP or (eta and eta <= month_last)),
 			"past_due": bool(esd and esd < today),
+			"hold_reason": order.get("ill_hold_reason") or "",
+			"likely_ship": str(order.get("ill_likely_ship_date") or "")[:10] or None,
+			"prowc": order.get("ill_proforma_will_call") or "",
+			"paint": painting.get(order.name, []),
 		}
+		counts = row["counts"]
+		row["release_points"] = build_points.score(counts, release_weights)
+		row["release_days"] = round(row["release_points"] / per_day, 2) if per_day else None
 		rows.append(row)
 
 	pipeline = {key: _bucket() for key in KEYS.values()}
@@ -570,6 +792,164 @@ def build_board(now=None, money=True):
 	days_left = workdays_left_in_month(today, holidays, include_today=False)
 	gap_amount = goal - shipped_mtd - available_amount
 
+	# --- Inbound (run rate): orders received per workday, last 30 workdays ---
+	back, day = [], today
+	while len(back) < 30:
+		if is_workday(day, holidays):
+			back.append(day)
+		day -= timedelta(days=1)
+	month_first = today.replace(day=1)
+	received = received_orders(min(back[-1], month_first), today)
+	inbound_rows = inbound_days(received, back, holidays)
+	before = [r for r in inbound_rows if r["date"] < today.isoformat()]
+	this_month_before = [r for r in before if r["date"] >= month_first.isoformat()]
+	avg_30 = average(r["amount"] for r in before)
+	inbound = {
+		"today_amount": inbound_rows[0]["amount"] if back[0] == today else 0,
+		"today": inbound_rows[0] if back[0] == today else None,
+		"month_avg_amount": average(r["amount"] for r in this_month_before),
+		"avg_30_amount": avg_30,
+		"month_received_amount": round(sum(r["amount"] for r in inbound_rows if r["date"] >= month_first.isoformat()), 2),
+		"days": inbound_rows,
+	}
+
+	# --- Daily dollars: shipped per workday this month ---
+	month_days = [d for d in workdays(month_first, 23, holidays) if d <= month_last]
+	by_day = {}
+	for s_row in shipped:
+		by_day.setdefault(s_row["shipped"], []).append(s_row)
+	daily_rows = [
+		{
+			"date": d.isoformat(),
+			"count": len(by_day.get(d.isoformat(), [])),
+			"amount": round(sum(x["amount"] for x in by_day.get(d.isoformat(), [])), 2),
+		}
+		for d in month_days
+	]
+	shipped_days = [r["amount"] for r in daily_rows if r["date"] < today.isoformat() and r["amount"] > 0]
+	daily = {
+		"days": daily_rows,
+		"average_amount": average(shipped_days),
+		"needed_amount": round(gap_amount / days_left, 2) if goal and days_left else None,
+	}
+
+	# --- Releases (hold for release / confirmation) and hold for ship ---
+	releases = [r for r in rows if r["hold_reason"] in RELEASE_HOLDS]
+	ship_holds = [r for r in rows if r["hold_reason"] == SHIP_HOLD]
+	for r in ship_holds:
+		r["days_until"] = (as_date(r["esd"]) - today).days if r["esd"] else None
+	months = [add_months(month_first, k) for k in range(4)]
+	release_summary = {
+		"rows": releases,
+		"months": month_totals(releases, "likely_ship", months),
+		"points": round(sum(r["release_points"] for r in releases), 2),
+		"days": round(sum(r["release_points"] for r in releases) / per_day, 2) if per_day else None,
+		"no_date": sum(1 for r in releases if not r["likely_ship"]),
+	}
+	next_last = month_end(add_months(month_first, 1))
+	ship_hold_summary = {
+		"rows": ship_holds,
+		"months": month_totals(ship_holds, "esd", months[:3]),
+		"total_amount": round(sum(r["amount"] for r in ship_holds), 2),
+		"through_next_month_amount": round(
+			sum(r["amount"] for r in ship_holds if r["esd"] and as_date(r["esd"]) <= next_last), 2
+		),
+		"week_amount": round(
+			sum(r["amount"] for r in ship_holds if r["days_until"] is not None and r["days_until"] <= 7), 2
+		),
+	}
+
+	# --- Monthly reporting: this month and the next two against goal ---
+	goal_table = goals(values)
+
+	def ship_month(row):
+		when = as_date(row["esd"])
+		if row["status"] == WFP and row["eta"]:
+			when = max(when or as_date(row["eta"]), as_date(row["eta"]))
+		return max(when or today, month_first)
+
+	reporting = []
+	for k in range(3):
+		first = add_months(month_first, k)
+		last = month_end(first)
+
+		def in_month(when, first=first, last=last):
+			return when is not None and first <= when <= last
+
+		scheduled = [
+			r
+			for r in rows
+			if (r["status"] != HELD or r["hold_reason"] == SHIP_HOLD)
+			and not (r["status"] == WFP and r["going_to_miss"])
+			and in_month(ship_month(r))
+		]
+		at_risk = [
+			r
+			for r in rows
+			if (r["status"] == WFP and r["going_to_miss"] and in_month(ship_month(r)))
+			or (k == 0 and r["status"] == HELD and not r["hold_reason"])
+		]
+		released = [r for r in releases if r["likely_ship"] and in_month(as_date(r["likely_ship"]))]
+		days_in = workdays_left_in_month(today, holidays, include_today=False) if k == 0 else workdays_between(first, last, holidays)
+		month_goal = goal_table.get(first, goal)
+		figures = {
+			"shipped_amount": round(shipped_mtd, 2) if k == 0 else 0,
+			"scheduled_amount": round(sum(r["amount"] for r in scheduled), 2),
+			"run_rate_amount": round(avg_30 * days_in, 2),
+			"at_risk_amount": round(sum(r["amount"] for r in at_risk), 2),
+			"release_amount": round(sum(r["amount"] for r in released), 2),
+		}
+		projected = sum(figures.values())
+		known = [*scheduled, *released]
+		known_amount = sum(r["amount"] for r in known) + (shipped_mtd if k == 0 else 0)
+		known_com = sum(r["com"] for r in known) + (sum(x["com"] for x in shipped) if k == 0 else 0)
+		reporting.append(
+			{
+				"month": first.isoformat(),
+				"goal_amount": month_goal,
+				**figures,
+				"projected_amount": round(projected, 2),
+				"projected_safe_amount": round(projected - figures["at_risk_amount"], 2),
+				"goal_pct": round(projected / month_goal, 4) if month_goal else None,
+				"com_pct": round(known_com / known_amount, 4) if known_amount else 0,
+				"workdays": days_in,
+				"orders": len(scheduled),
+			}
+		)
+
+	# --- Proforma and will call ---
+	def prowc_summary(kind):
+		open_rows = [r for r in rows if r["prowc"] == kind]
+		done = [x for x in shipped if x.get("prowc") == kind]
+		done_amount = sum(x["amount"] for x in done)
+		done_com = sum(x["com"] for x in done)
+		return {
+			"open_count": len(open_rows),
+			"open_amount": round(sum(r["amount"] for r in open_rows), 2),
+			"completed_count": len(done),
+			"completed_amount": round(done_amount, 2),
+			"com_pct": round(done_com / done_amount, 4) if done_amount else 0,
+		}
+
+	prowc = {
+		"proforma": prowc_summary("Proforma"),
+		"will_call": prowc_summary("Will Call"),
+		"rows": [r for r in rows if r["prowc"]],
+		"completed": [x for x in shipped if x.get("prowc")],
+	}
+
+	# --- Paint (outside finishing) ---
+	paint_rows = [r for r in rows if r["status"] == PAINT]
+	paint = {
+		"rows": paint_rows,
+		"total_amount": round(sum(r["amount"] for r in paint_rows), 2),
+		"month_amount": round(
+			sum(r["amount"] for r in paint_rows if r["esd"] and as_date(r["esd"]) <= month_last), 2
+		),
+		"month_count": sum(1 for r in paint_rows if r["esd"] and as_date(r["esd"]) <= month_last),
+		"supplier_group": values.get("paint_supplier_group") or None,
+	}
+
 	shipped_summary = {
 		"today": ship_sum(shipped_today),
 		"mtd": ship_sum(shipped),
@@ -583,7 +963,7 @@ def build_board(now=None, money=True):
 		for s in shipped:
 			s.update(amount=None, com=None, com_pct=None)
 
-	return {
+	board = {
 		"as_of": now.isoformat(timespec="seconds"),
 		"today": today.isoformat(),
 		"money": money,
@@ -610,7 +990,7 @@ def build_board(now=None, money=True):
 			"burndown": curve,
 			"overtime": {"daily": round(ot_daily, 2), "days": ot_days, "weekend": round(ot_weekend, 2)},
 		},
-		"queue": [r for r in rows if r["status"] != WFP],
+		"queue": [r for r in rows if r["status"] != WFP and not r["hold_reason"]],
 		"wfp": [r for r in rows if r["status"] == WFP],
 		"shipped": shipped_summary,
 		"goal": {
@@ -621,7 +1001,15 @@ def build_board(now=None, money=True):
 			"shipping_days_left": days_left,
 			"needed_per_day": round(gap_amount / days_left, 2) if money and goal and days_left else None,
 		},
+		"inbound": inbound,
+		"daily": daily,
+		"reporting": reporting,
+		"releases": release_summary,
+		"ship_holds": ship_hold_summary,
+		"prowc": prowc,
+		"paint": paint,
 	}
+	return board if money else scrub(board)
 
 
 @frappe.whitelist()

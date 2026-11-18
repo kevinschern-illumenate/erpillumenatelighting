@@ -1,6 +1,6 @@
 # Manufacturing difficulty points and Production Board: implementation plan
 
-Date: 2026-11-18. Status: phases 1 (build points data) and 2 (production board) implemented; phases 3-4 proposed. Decisions in section 6.
+Date: 2026-11-18. Status: phases 1-3 implemented (build points, production board, rest of the workbook); phase 4 (BOM operations) proposed. Decisions in section 6.
 
 ## Goal
 
@@ -391,3 +391,33 @@ Known simplifications:
 - Stock on hand is the total `actual_qty` across all warehouses. It ignores reservations.
 - Shortages are checked only for Draft / Not Started Work Orders, because in-process ones already have material issued.
 - "Available to ship" counts open orders (not held), except waiting-for-parts orders whose parts arrive after month end.
+
+## 9. Phase 3 as built
+
+New Sales Order fields (`patches/add_production_hold_fields.py`):
+
+- `ill_hold_reason`: Hold for Release / Hold for Confirmation / Hold for Ship. Held orders come off the build queue.
+- `ill_likely_ship_date`
+- `ill_proforma_will_call`
+
+Settings:
+
+- release weights (`release_weight_*`, the ESPR set);
+- `monthly_goals` table (new child doctype `ilL-Child-Production-Goal`), which falls back to `monthly_revenue_goal`;
+- `paint_supplier_group`.
+
+`get_board` adds these sections:
+
+| Section | Contents | Workbook sheet |
+|---|---|---|
+| `inbound` | Received per workday for the last 30 workdays: $0, same-day, next-day and rush counts, month average, 30-day average | Inbound(RR) |
+| `daily` | Shipped per workday this month, average, needed per day | Daily Dollars |
+| `reporting` | Three months: goal, shipped, scheduled, run-rate estimate (30-day average × workdays left), at risk, releases, projection with and without at-risk, % of goal | Reporting |
+| `releases` | Hold for Release / Confirmation orders: likely ship by month, release points and days | ESPR |
+| `ship_holds` | Hold for Ship orders: totals and days until the ship date | HFS |
+| `prowc` | Proforma / Will Call: open, and completed this month | Pro & WC |
+| `paint` | Paint orders and their open paint POs | Paint |
+
+An open paint PO now puts an order in Paint (status 7) automatically. Money is blanked for viewers without a money role by one `scrub()` pass over the whole response.
+
+Not carried over: the workbook's week-over-week "changes from last week" deltas on Reporting. They need stored weekly snapshots. That could be a small scheduled job writing one record per week, if wanted.

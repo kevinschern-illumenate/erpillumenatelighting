@@ -29,6 +29,12 @@ The Manufacturing step (`#mfg`) is the warehouse "Schedule Wizard" workbook, liv
 - Order queue: 2C–6C runs, Loose, WR, FMC, Assy, points, hours, $ per point and floor notes. It can be filtered by status and sorted by ship date, $ per point or points.
 - Waiting for parts: what's short after stock is handed out in ship-date order, the ETA from open purchase orders, and whether the order is going to miss its date.
 - Shipped this month: delivery notes, on time or late, the reason, and on-time % by week.
+- Sub-tabs for the rest of the workbook:
+  - **Run rate & daily $:** orders received per workday over the last 30 workdays, with $0 / same-day / next-day / rush counts and the month and 30-day averages. Also shipped dollars per workday against the dollars needed per day.
+  - **Monthly report:** this month and the next two. Rows are goal, shipped, scheduled, estimated run rate, at risk, expected releases, projection (with and without at-risk), % of goal and average commission.
+  - **Releases & holds:** orders on Hold for Release / Confirmation, with Likely Ship Date, monthly totals, and release points and days using the release weights. Hold for Ship orders appear with days until their ship date.
+  - **Proforma & will call:** open orders, and those completed this month.
+  - **Paint:** orders with an open PO to the paint supplier group (set in settings) or marked Paint by hand. Shows PO, date sent, date due back and items.
 - The previous work-order tables are in a collapsed "Work order clean-up" card at the bottom.
 
 **Status rules:** the floor override on the Sales Order comes first. Then On Hold or a stopped WO means Held. All WOs complete means Pend-Ship. Any WO in process means In-Prod. Material short means Waiting for parts. Anything else is Pend-Prod.

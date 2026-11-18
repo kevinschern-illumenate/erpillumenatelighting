@@ -17,6 +17,17 @@
   "weight_assembly",
   "weight_loose",
   "pixel_conductors",
+  "section_release_weights",
+  "release_weight_2c",
+  "release_weight_3c",
+  "release_weight_4c",
+  "release_weight_5c",
+  "release_weight_6c",
+  "column_break_release_weights",
+  "release_weight_wet",
+  "release_weight_fmc",
+  "release_weight_assembly",
+  "release_weight_loose",
   "section_capacity",
   "points_per_person_day",
   "headcount",
@@ -34,7 +45,10 @@
   "ot_weekend_hours",
   "section_commission",
   "commission_flag_pct",
-  "monthly_revenue_goal"
+  "monthly_revenue_goal",
+  "section_goals",
+  "monthly_goals",
+  "paint_supplier_group"
  ],
  "fields": [
   {
@@ -131,6 +145,89 @@
    "default": "4",
    "reqd": 1,
    "description": "Pixel tape has no channel count; score it as this many conductors (2-6).",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_release_weights",
+   "fieldtype": "Section Break",
+   "label": "Release Estimate Weights",
+   "collapsible": 1,
+   "description": "Used for orders on Hold for Release / Confirmation (the workbook's ESPR capacity calculator): points and days a release will take."
+  },
+  {
+   "fieldname": "release_weight_2c",
+   "fieldtype": "Float",
+   "label": "2C Run",
+   "default": "1",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_3c",
+   "fieldtype": "Float",
+   "label": "3C Run",
+   "default": "1.3",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_4c",
+   "fieldtype": "Float",
+   "label": "4C Run",
+   "default": "1.4",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_5c",
+   "fieldtype": "Float",
+   "label": "5C Run",
+   "default": "1.5",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_6c",
+   "fieldtype": "Float",
+   "label": "6C Run",
+   "default": "1.75",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_release_weights",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "release_weight_wet",
+   "fieldtype": "Float",
+   "label": "Wet-Rated Run Adder",
+   "default": "2",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_fmc",
+   "fieldtype": "Float",
+   "label": "FMC / Jumper Adder",
+   "default": "2.5",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_assembly",
+   "fieldtype": "Float",
+   "label": "Assembly Adder",
+   "default": "4",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_loose",
+   "fieldtype": "Float",
+   "label": "Loose Adder",
+   "default": "0.5",
+   "reqd": 1,
    "non_negative": 1
   },
   {
@@ -265,6 +362,25 @@
    "default": "0",
    "non_negative": 1,
    "description": "Shipped revenue goal for the current month. The board shows the gap and the dollars needed per shipping day."
+  },
+  {
+   "fieldname": "section_goals",
+   "fieldtype": "Section Break",
+   "label": "Monthly Goals & Paint"
+  },
+  {
+   "fieldname": "monthly_goals",
+   "fieldtype": "Table",
+   "label": "Monthly Shipping Goals",
+   "options": "ilL-Child-Production-Goal",
+   "description": "One row per month. Months without a row use the Monthly Shipping Goal above."
+  },
+  {
+   "fieldname": "paint_supplier_group",
+   "fieldtype": "Link",
+   "label": "Paint / Finishing Supplier Group",
+   "options": "Supplier Group",
+   "description": "Open purchase orders to these suppliers, linked to a sales order, put the order in Paint on the board."
   }
  ],
  "index_web_pages_for_search": 0,
