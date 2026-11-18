@@ -1,0 +1,70 @@
+<div id="cc">
+ <header class="cc-top">
+  <div class="cc-brand"><span class="cc-mark"></span><div><div class="cc-title">ilLumenate Command Center</div><div class="cc-live"><span class="cc-pulse"></span><span id="ccstamp">Connecting to ERPNext…</span></div></div></div>
+  <div class="cc-search"><svg viewBox="0 0 20 20" width="15" height="15"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 14l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input type="search" id="ccq" placeholder="Search dealers, items, orders, tasks…"></div>
+  <div class="cc-actions">
+   <label class="cc-switch" title="Hide Kevin's email-derived tasks for screen sharing"><input type="checkbox" id="ccmeeting"><span></span>Meeting mode</label>
+   <button class="cc-btn ghost" id="ccrefresh" title="Pull the latest from ERPNext"><svg viewBox="0 0 20 20" width="15" height="15"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3v3.5h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Refresh</span></button>
+   <button class="cc-btn primary" id="ccadd"><svg viewBox="0 0 20 20" width="14" height="14"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span>Add task</span></button>
+  </div>
+ </header>
+ <nav class="cc-nav" id="ccnav"></nav>
+ <main class="cc-main" id="ccmain"><div class="cc-loading"><span class="cc-spin"></span>Loading live data…</div></main>
+ <footer class="cc-foot"><span id="ccwho"></span><span>Read-only for guests · nothing is ever submitted from this page</span></footer>
+ <div class="cc-modal" id="ccmodal"><div class="cc-sheet">
+  <div class="cc-sheet-h"><div><h2>Add task</h2><p>Saved to ERPNext as a ToDo. Each owner gets their own copy and a notification.</p></div><button class="cc-x" id="tCancel" aria-label="Close">×</button></div>
+  <form id="tform">
+   <label class="cc-field"><span>Title</span><input type="text" id="tTitle" placeholder="What needs to happen?"></label>
+   <div class="cc-field"><span>Owners</span><div class="cc-owners" id="tOwners"></div></div>
+   <div class="cc-row2">
+    <label class="cc-field"><span>Due date</span><input type="date" id="tDue"></label>
+    <label class="cc-field"><span>Priority</span><select id="tPri"><option>Medium</option><option>High</option><option>Low</option></select></label>
+   </div>
+   <label class="cc-field"><span>Project</span><select id="tProj"></select></label>
+   <label class="cc-field"><span>Notes</span><textarea id="tNotes" rows="3" placeholder="Optional context, links, numbers"></textarea></label>
+   <p class="cc-msg" id="tMsg"></p>
+   <div class="cc-sheet-f"><button class="cc-btn primary" type="submit" id="tSave">Save to ERPNext</button></div>
+  </form>
+ </div></div>
+ <div class="cc-modal" id="ccsheet2"></div>
+ <div class="cc-toast" id="cctoast"></div>
+</div>
+
+	</article>
+	
+</div></div>
+
+		<div class="page-footer"></div>
+	</main>
+	
+</div>
+
+</div>
+
+
+<footer class="web-footer">
+<div class="container">
+<div class="footer-logo-extension">
+<div class="row">
+<div class="text-left col-md-6"></div>
+<div class="text-right col-md-6">
+</div>
+</div>
+</div>
+<div class="footer-links">
+<div class="row">
+<div class="footer-col-left col-sm-6"></div>
+<div class="footer-col-right col-sm-6"></div>
+</div>
+</div>
+<div class="footer-info">
+<div class="row">
+<div class="footer-col-left col-sm-6 col-12">
+</div>
+<div class="footer-col-right col-sm-6 col-12 footer-powered">
+			Powered by <a class="text-muted" href="https://frappe.io/erpnext?source=website_footer" target="_blank">ERPNext</a>
+</div>
+</div>
+</div>
+</div>
+</footer><div id="all-symbols" style="display:none"></div>
