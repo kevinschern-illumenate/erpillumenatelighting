@@ -49,6 +49,9 @@ test('the product shows its brands and latest pushes, escaped', async t => {
   assert.match(section.textContent, /Webflow Draft → Published/);
   assert.equal([...section.querySelectorAll('thead th')].map(th => th.textContent).join('|'), 'When|Status|Result|By|Finished|Error');
   assert.ok(section.classList.contains('form-section'));
+  // The title sits above the table, not beside it (owner, 2026-11-18).
+  assert.match(section.querySelector('.section-head').getAttribute('style'), /flex: 0 0 100%/);
+  assert.match(section.querySelector('.section-body').getAttribute('style'), /flex: 0 0 100%/);
   assert.equal(section.querySelector('img'), null);
   assert.match(section.textContent, /<img src=x/);
 });
