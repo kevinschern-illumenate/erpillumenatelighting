@@ -154,6 +154,46 @@ class BlockingTest(unittest.TestCase):
 	def test_product_missing_from_refs(self):
 		self.assert_blocks(run(refs={}), "products_used")
 
+	def test_series_only_row_is_ready(self):
+		"""Spec 5.1: a row with a series and no product only adds to series-used (Ode Wellness = Custom)."""
+		rows = [{"product": None, "series": "Custom"}]
+		result = run(make_gallery(products_used=rows), refs={})
+		self.assertTrue(result["ready"], result["issues"])
+		self.assertEqual(result["dependencies"], {"products": {}, "series": ["Custom"]})
+
+	def test_series_only_row_still_needs_a_series(self):
+		rows = [{"product": None, "series": None}]
+		self.assert_blocks(run(make_gallery(products_used=rows), refs={}), "products_used")
+
+	def test_mixed_rows_have_no_none_dependency_and_hash(self):
+		from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json
+
+		rows = [{"product": "P-1", "series": "Ode"}, {"product": None, "series": "Custom"}]
+		result = run(make_gallery(products_used=rows))
+		self.assertTrue(result["ready"], result["issues"])
+		self.assertEqual(result["dependencies"]["products"], {"P-1": "wf-1"})
+		canonical_json(result["dependencies"])
+
+	def test_private_custom_item_image_blocks(self):
+		items = [{"item_name": "Cove kit", "image": "/private/files/kit.jpg"}]
+		result = run(make_gallery(custom_items=items))
+		self.assert_blocks(result, "custom_items")
+		self.assertEqual([i["record"] for i in result["issues"]], ["Cove kit"])
+
+	def test_custom_item_image_type_checked(self):
+		items = [{"item_name": "Spec", "image": "/files/spec.pdf"}]
+		self.assert_blocks(run(make_gallery(custom_items=items)), "custom_items")
+
+	def test_public_custom_item_image_and_no_image_pass(self):
+		items = [
+			{"item_name": "Cove kit", "image": "/files/kit.jpg"},
+			{"item_name": "Driver", "image": "https://cdn.example.com/driver.png"},
+			{"item_name": "Channel", "image": None},
+			{"item_name": "Tape"},
+		]
+		result = run(make_gallery(custom_items=items))
+		self.assertTrue(result["ready"], result["issues"])
+
 	def test_no_integrator_credit(self):
 		credits = [{"credit_type": "Architect", "credit_name": "A"}]
 		self.assert_blocks(run(make_gallery(credits=credits)), "credits")
