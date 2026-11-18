@@ -4,7 +4,7 @@ Living document. Update it in the same change as the code it describes.
 
 | | |
 | --- | --- |
-| Status | **Design approved. Build in progress:** list doctypes, child doctypes and seed patch done (Task 1); `ilL-Webflow-Gallery` doctype and validation done (Task 2). |
+| Status | **Code complete through Task 8 and the final whole-branch review (fixes applied 2026-11-18).** Staging run pending: nothing is deployed, migrated or imported yet. |
 | Owner | Rei (design), Claude (build) |
 | Doctype | `ilL-Webflow-Gallery` |
 | Webflow collection | `Galleries` (renamed from `Projects` by Rei; the collection ID is unchanged on staging2 and differs per site, see section 9) |
@@ -91,7 +91,10 @@ later, once galleries are proven.
 
 ### 5.1 `ilL-Webflow-Gallery`
 
-Naming: by `slug` (the ERP name is also the Webflow `erp-sync-id`). Mapping to the existing Webflow fields:
+Naming: by `slug` (the ERP name is also the Webflow `erp-sync-id`). Renaming is disabled (`allow_rename` 0): a
+rename would skip the slug lock and leave the publication record keyed on the old name, and the worker would
+then create a second Webflow item. Attachments from the gallery form default to public
+(`make_attachments_public`). Mapping to the existing Webflow fields:
 
 | ERP field | Type | Webflow field (slug) | Notes |
 | --- | --- | --- | --- |
@@ -112,9 +115,9 @@ Naming: by `slug` (the ERP name is also the Webflow `erp-sync-id`). Mapping to t
 | `completion_date` | Date | `completion-date` | Month and year matter; used for sorting |
 | `credits` | Table: `ilL-Child-Gallery-Credit` (columns `credit_type`, `credit_name`, `website`) | the six name and website pairs below | One row per type, each type at most once. Types: Integrator, Architect, Designer, Contractor, Owner, Photographer. An **Integrator row is required** |
 | `videos` | Small Text | `videos` | One or more links (YouTube, Vimeo, Loom, .mp4) |
-| `custom_items` | Table: `item_name`, `detail`, optional `image` | `custom-items` | Projection builds rich text, one paragraph per item, image directly under its paragraph |
+| `custom_items` | Table: `item_name`, `detail`, optional `image` | `custom-items` | Projection builds rich text, one paragraph per item, image directly under its paragraph. A set image follows the same public-file and image-type rules as gallery images |
 | `target_brands` | Table: `ilL-Child-Webflow-Brand-Target` | n/a | Which brands receive this gallery |
-| `sync_targets` | Table: `ilL-Child-Webflow-Sync-State` | `erp-sync-id` plus item ID | Per-brand Webflow item ID and status |
+| `sync_targets` | Table: `ilL-Child-Webflow-Sync-State` | n/a | Written only by the import (section 9a): the existing Webflow item ID per brand, status `Pending`; nothing updates it afterwards. The publication record (`ilL-Gallery-Publication`, section 5.2) is the real holder of the remote item ID and sync state; it takes the imported ID when it is first created |
 
 The projection (ERP fields to Webflow payload) lives in one place, so changing how Webflow stores the
 people and company fields (section 11) only changes the mapping, not the doctype.
@@ -157,18 +160,32 @@ allowed values are mirrored by the Webflow filter script's expectations.
 
 - Add `Galleries` to the `collection_kind` options of `ilL-Webflow-Brand-Collection`.
 - Add an ERP-staging brand record for Webflow staging2 (brand code `staging2`, site ID
-  `6aeb4d313e25a078e9393924`, Galleries collection ID `6afb3d27742d050cf6903677`, sync enabled).
+  `6aeb4d313e25a078e9393924`, Galleries collection ID `6afb3d27742d050cf6903677`, sync enabled). The brand
+  record is named by its brand code, so its `name` equals `brand_code` (`staging2`). It **must set
+  `erpnext_base_url`** to the ERP host the images are served from (on ERP staging,
+  `https://stagingillumenate.v.frappe.cloud`); without it, image URLs use the default production host and
+  Webflow's image fetches fail.
 - Add the main-site brand record at promotion time (site ID `695c1f9a18a639365b6a31a7`).
 
 ## 6. Publication flow
 
-1. Staff create or edit a gallery. Any change that alters the projection hash moves its publication back to
-   `NEEDS_REVIEW`.
-2. `Readiness and Publication` on the form shows the checks below for a chosen brand.
+1. Staff create or edit a gallery. Any save moves every publication of the gallery to `NEEDS_REVIEW` until
+   it is inspected again (opening the form, a request or a claim). If the hashes then still match (the save
+   changed nothing sent to Webflow, for example a second brand target), the state returns to `STAGED` or
+   `LIVE`; a change that alters the projection hash stays `NEEDS_REVIEW` and needs a new approval. `QUEUED`,
+   `FAILED` and `RETIRED` are never restored this way. `Publish Live` is enabled from the hashes (approved
+   and staged equal the current hash, live does not), not from the state.
+2. The `Webflow publication` panel on the form (rebuilt on every refresh) shows the checks below for a
+   chosen brand.
 3. `Approve and Stage` creates a `STAGE` job. n8n writes the item to Webflow as a draft/staged item.
 4. `Publish Live` creates a separate `PUBLISH` job. n8n publishes the staged item.
 5. Deactivating a gallery and requesting retirement creates a `RETIRE` job. n8n unpublishes and archives the
    item. The ERP record is kept.
+
+Repeated requests. A request for a revision that already has a `QUEUED` or `RUNNING` job of the same
+operation returns that job (a double click does nothing). Any other earlier job (complete, failed or
+superseded) does not block it: an unchanged revision can be requested again, which creates a new job (for
+example after retire and reactivation, or after an edit is undone). Each job's `request_key` stays unique.
 
 A successful stage does not mean live. Approved, staged and live hashes are stored separately.
 
@@ -183,23 +200,36 @@ Webflow staging2 is simply the test site, with its own staged and live copies.
 - **Permissions.** Reuse the product process's roles: `ilL Catalog Publisher` approves and publishes,
   `ilL Integration` is for the n8n integration user only. The author may approve their own gallery.
 - **Dependency changes.** The gallery hash includes the Webflow item ID and name of each product it uses.
-  The product code is not touched. Instead, the hash is recomputed whenever the gallery is inspected or a
-  job is requested, and again when n8n claims a job. A mismatch supersedes the job and sends the gallery
-  back to `NEEDS_REVIEW`. A scheduled sweep recomputes hashes so a changed product surfaces in the list view.
-- **Slug.** Locked after the first `STAGE`. To change a published gallery's slug, retire it and create a
-  new one.
+  The product code is not touched. Instead, the hash is recomputed when the gallery is inspected (opening
+  the form), when a job is requested, and when n8n claims a job. A mismatch supersedes the job and sends the
+  gallery back to `NEEDS_REVIEW`. There is no scheduled sweep: a `LIVE` gallery whose product changes is not
+  flagged in the list view until someone opens it (section 11).
+- **Product Webflow item IDs.** A product's item ID in a brand is resolved in this order
+  (`api/gallery_products.py`, `product_item_id`, used by the publication service and the import): (1) the
+  product publication record's `remote_item_id` (`ilL-Product-Publication`, scope key
+  `fingerprint([product, brand])`), which is where the product publication process keeps it; (2) the
+  product's sync-state row for the brand, whatever its status (every product save sets it to `Pending`);
+  (3) the product's own `webflow_item_id`, for the default brand only. None of these means the product is
+  not staged in the brand.
+- **Slug.** Locked after the first `STAGE`, and the gallery cannot be renamed. To change a published
+  gallery's slug, retire it and create a new one.
 - **Import** (section 9a) is an ERP-side script, not an n8n workflow.
 
 ### Readiness checks (initial list)
 
 Blocking:
 - Title and slug present; slug valid and unique for the brand.
-- At least one gallery image. The first row becomes the hero image, so it must be a public image file of a supported type and size.
-- Every gallery image is a public file; no private ERP file URLs.
+- At least one gallery image. The first row becomes the hero image, so it must be a public image file of a
+  supported type (jpg, jpeg, png, webp, gif). File size is not checked.
+- Every gallery image is a public file of a supported type; no private ERP file URLs.
+- Every custom item with an image: the image is a public file of a supported type (it is written into the
+  `custom-items` rich text).
 - Gallery type is one allowed value; applications and services each from allowed values.
 - **Products used has at least one row, and every row has a series** (required), each an active series record.
+  A row with a series and no product is valid and only adds to series-used.
 - **Integrator is required:** a credits row of type Integrator with a name. (Claude's call: the integrator's website is not blocking, it gives a warning if missing.)
-- Every product in `products_used` is already staged in the target brand (has a Webflow item ID).
+- Every product in `products_used` is already staged in the target brand (has a Webflow item ID, resolved
+  as in section 6a). Rows without a product are skipped here.
 - Every website field is a valid `https` URL when filled.
 - Videos are valid links from supported hosts when filled.
 - Brand is active, sync enabled, targeted by this gallery, and has the Galleries collection ID set.
@@ -301,14 +331,15 @@ returns them) and passes them in. The pure mapping is `map_webflow_item`.
 - People: the six name and website pairs on each item become `credits` rows (only the pairs that are filled).
 - Series: the old `series-used` text is matched to `ilL-Attribute-Series` records by name; "Custom LED Tape"
   and "Custom Extrusion Kit" go to "Custom", and "Ode Wellness" (no series today) is set to "Custom" (Rei).
-  Each series goes on a `products_used` row. A product row takes the series of the same name when the
-  product's own series matches one of the listed values; remaining series become series-only rows. Anything
-  that can't be matched is listed in the import report.
+  Each series goes on a `products_used` row. A product row takes the product's own series (whether or not
+  the item's text lists it); a product without a series takes "Custom" when the item lists no other series,
+  else it is left out and reported. Listed series that no product row took become series-only rows.
+  Anything that can't be matched is listed in the import report.
 - Galleries that still fail the readiness rules after import are imported as drafts needing review; staff
   complete them before approval.
-- Products: each `products-used` Webflow item ID is mapped to an `ilL-Webflow-Product` through its sync state
-  for the target brand. An item whose product cannot be mapped is imported with that row left empty and
-  listed in the import report, never silently dropped.
+- Products: each `products-used` Webflow item ID is mapped to an `ilL-Webflow-Product` whose item ID in the
+  target brand (resolved as in section 6a) matches. A Webflow product that cannot be mapped is left out of
+  `products_used` and listed in the import report, never silently dropped.
 - Dry run first (`commit` defaults to 0): nothing is written to the database. The report is returned and
   also written under the site's private files. A failed image download is reported and that image row is
   skipped; an item that fails to save is rolled back and reported. Existing slugs are reported "exists,
@@ -332,6 +363,8 @@ simulated HTTP boundary (modelled on `tests/portal_unit/publication_workflow.tes
   their websites) in Webflow into one plain-text JSON field, with a page script that parses it. Only the
   projection changes on the ERP side. Not part of this build.
 - Merge the gallery and product publication code once galleries are proven.
+- A scheduled sweep that recomputes gallery hashes, so a `LIVE` gallery whose product changed is flagged in
+  the list view without someone opening it.
 - Multi-locale support.
 
 ## 12. Open questions
@@ -390,3 +423,14 @@ Still open:
   collection does not have the `erp-sync-id` field yet (section 8); add it before the first sync.
 - 2026-11-18: Task 8 built: `api/gallery_import.py` (`map_webflow_item`, `import_galleries`). Per Rei's ruling the
   ERP does not call Webflow: the controller passes the exported items in (section 9a updated).
+- 2026-11-18: Final whole-branch review fixes. Added the missing `ilL-Child-Gallery-Custom-Item` controller.
+  A series-only `products_used` row no longer blocks readiness or breaks the hash. Product Webflow item IDs
+  are resolved from the product publication record, then the sync row (any status), then the product's own
+  field for the default brand (section 6a); the import uses the same order. A repeated request for an
+  unchanged revision creates a new job unless one is queued or running. A save that changes nothing sent
+  returns the publication to `STAGED`/`LIVE` on the next inspect, and `Publish Live` follows the hashes.
+  Custom-item images must be public image files; gallery attachments default to public; galleries cannot be
+  renamed. The import never writes a product row without a series. Gallery wording for `identity-conflict`,
+  `lookup-incomplete` and `readiness` failures. The form panel is rebuilt on every refresh. This document:
+  status, the sweep (not built; section 11), `sync_targets`, image size, the staging2 brand's
+  `erpnext_base_url`, and the import's unmapped-product rule corrected.
