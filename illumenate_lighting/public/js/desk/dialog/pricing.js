@@ -20,6 +20,7 @@
 	var customerOf = D.customerOf;
 	var variantOriginFor = D.variantOriginFor;
 	var escapeHtml = D.escapeHtml;
+	var addedLabel = D.addedLabel;
 	var isFixture = D.isFixture;
 	var isSheet = D.isSheet;
 	var isCatalog = D.isCatalog;
@@ -123,8 +124,8 @@
 			: '';
 		frappe.show_alert({
 			message: (msg.schedule
-				? __('Added {0} · {1} (saved to schedule {2})', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code), escapeHtml(msg.schedule)])
-				: __('Added {0} · {1}', [escapeHtml(msg.fixture_type), escapeHtml(msg.item_code)])) + accNote,
+				? __('Added {0} (saved to schedule {1})', [addedLabel(msg), escapeHtml(msg.schedule)])
+				: __('Added {0}', [addedLabel(msg)])) + accNote,
 			indicator: 'green'
 		}, 6);
 	};

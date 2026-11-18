@@ -371,6 +371,9 @@ def _ensure_configured_artifacts(
 			"engine_version": getattr(fixture, "engine_version", None),
 			"parent_configured_fixture": getattr(fixture, "parent_configured_fixture", None),
 			"configuration_snapshot": _fixture_configuration_snapshot(fixture),
+			# Ships in pieces: the Item is a Product Bundle; each light engine has the BOM.
+			"ships_in_pieces": bool(bom_result.get("bundle")),
+			"light_engines": bom_result.get("light_engines"),
 			"messages": item_result.get("messages", []) + bom_result.get("messages", []),
 		}
 

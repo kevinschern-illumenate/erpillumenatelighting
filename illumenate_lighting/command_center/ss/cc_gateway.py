@@ -161,7 +161,8 @@ def main():
         ["ill_purchasing", "Purchasing & inbound", "", ["ilL-Inbound-Shipment"]],
         ["ill_publishing", "Catalog & Webflow publishing", "", [
             "ilL-Catalog-Import", "ilL-Product-Publication", "ilL-Publish-Job", "ilL-Item-Literature",
-            "ilL-Image-Derivative", "ilL-Webflow-Product", "ilL-Webflow-Category", "ilL-Webflow-Brand"]],
+            "ilL-Image-Derivative", "ilL-Webflow-Product", "ilL-Webflow-Category", "ilL-Webflow-Brand",
+            "ilL-Webflow-Approval", "ilL-Webflow-Auto-Push"]],
         ["ill_finder", "Product finder", "", [
             "ilL-Finder-Question", "ilL-Finder-Glossary-Term", "ilL-Product-Verification-Request"]],
         ["ill_meetings", "Meetings", "", ["ilL-Meeting-Agenda", "ilL-Meeting-Agenda-Item"]],
@@ -183,6 +184,8 @@ def main():
         "ilL-Configuration-Receipt", "ilL-Configurator-Session", "ilL-Design-Catalog-Snapshot", "ilL-Catalog-Import",
         "ilL-Portal-Event", "ilL-Portal-Message", "ilL-Portal-Delivery", "ilL-Portal-Upload", "ilL-Publish-Job",
         "ilL-Export-Job", "ilL-QBO-Sync-Log", "ilL-Image-Derivative", "ilL-Webflow-Configurator-Cache",
+        # approvals are decided and auto pushes queued from the Webflow Product (plan 4.19)
+        "ilL-Webflow-Approval", "ilL-Webflow-Auto-Push",
     ]
     # structural catalog records: created (and restructured) in the Catalog Builder, so every change gets a
     # Check, a single-transaction Import and an ilL-Catalog-Import receipt. "+ New" opens the Catalog tab.

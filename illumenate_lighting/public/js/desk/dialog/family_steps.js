@@ -508,8 +508,8 @@
 		pendingLines.forEach(function (l) { byIdx[String(l.idx)] = l; });
 
 		c.fixture_type = makeControl({
-			fieldtype: 'Data', fieldname: 'fixture_type', label: __('Fixture Type'), reqd: 1,
-			description: __('e.g. A1 — the schedule line id and the row\'s Fixture Type')
+			fieldtype: 'Data', fieldname: 'fixture_type', label: __('Fixture Type'), reqd: 0,
+			description: __('Optional, e.g. L1. Clear it for rows that need no Fixture Type; a schedule line still gets the next L number.')
 		}, slot('fixture_type'));
 
 		c.location = makeControl({
@@ -565,7 +565,8 @@
 		}
 
 		{
-			c.fixture_type.set_value(this.fixtureType || data.next_fixture_type || '');
+			// Reopening a row keeps its Fixture Type, blank included; new lines start at the next L number.
+			c.fixture_type.set_value(this.editingRow ? (this.fixtureType || '') : (this.fixtureType || data.next_fixture_type || ''));
 			c.location.set_value(this.location || '');
 			c.qty.set_value(this.qty || 1);
 			c.notes.set_value(this.notes || '');
@@ -594,11 +595,6 @@
 		var fixtureType = (c.fixture_type.get_value() || '').trim();
 		var location = (c.location.get_value() || '').trim();
 		var qty = parseInt(c.qty.get_value(), 10) || 0;
-		if (!fixtureType) {
-			frappe.msgprint({ title: __('Fixture Type required'), indicator: 'orange',
-				message: __('Enter a Fixture Type such as A1.') });
-			return;
-		}
 		if (this.schedule && !location) {
 			frappe.msgprint({ title: __('Section / Room required'), indicator: 'orange',
 				message: __('Enter the Section / Room (location) for this schedule line.') });
@@ -622,8 +618,8 @@
 		var editedLine = this.lineIdx != null
 			? ((this.pickerData || {}).lines || []).find(function (l) { return l.idx === self.lineIdx; })
 			: null;
-		var duplicateOnForm = !this.rowName && usedFixtureTypes(this.frm, editedLine && editedLine.name).indexOf(fixtureType) !== -1;
-		var duplicateOnSchedule = this.lineIdx == null && !!this.pickerData
+		var duplicateOnForm = !!fixtureType && !this.rowName && usedFixtureTypes(this.frm, editedLine && editedLine.name).indexOf(fixtureType) !== -1;
+		var duplicateOnSchedule = !!fixtureType && this.lineIdx == null && !!this.pickerData
 			&& (this.pickerData.lines || []).some(function (l) { return l.line_id === fixtureType; });
 		if (duplicateOnForm || duplicateOnSchedule) {
 			frappe.confirm(

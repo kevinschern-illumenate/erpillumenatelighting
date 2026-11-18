@@ -36,7 +36,7 @@ def resolve(configured, doctype, field):
 		return False, None
 	raw = configured.get("build_snapshot_json")
 	build = json.loads(raw) if raw else configured
-	sealed = build.get("engine_version") in ("linear-2", "tape-neon-2")
+	sealed = build.get("engine_version") in ("linear-2", "linear-3", "tape-neon-2")
 	if not sealed:
 		return False, None
 	sources = build.get("engineering_sources") or {}

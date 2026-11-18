@@ -4,7 +4,7 @@ import types
 import unittest
 from contextlib import contextmanager
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from test_services import ROOT, Record, load_service
 
@@ -25,8 +25,12 @@ def _dependencies(run_as=None):
 		request=MagicMock(),
 	)
 	photometrics = _module(ROOT + ".photometrics", published=MagicMock())
+	approvals = _module(ROOT + ".webflow_approvals", assert_no_pending=MagicMock(), pending=MagicMock(return_value=None))
+	auto_push = _module(ROOT + ".webflow_auto_push", SKIP_FLAG="webflow_auto_push_skip", clear=MagicMock())
 	modules = [
 		requests,
+		approvals,
+		auto_push,
 		_module("frappe.handler", upload_file=MagicMock()),
 		publication,
 		_module(ROOT + ".api.unit_conversion", format_length_inches=MagicMock()),
@@ -44,10 +48,28 @@ def _dependencies(run_as=None):
 		),
 		photometrics,
 		_module(ROOT + ".web_listing_source", Listing=MagicMock()),
+		# The Sync to Webflow buttons' role check (Phase 7): a publisher here; refused in
+		# test_webflow_sync_access.
+		_module(ROOT + ".portal.staff", allowed=MagicMock(return_value=True), require=MagicMock()),
+		_module(ROOT + ".template_link", require_template_access=MagicMock()),
 	]
 	if run_as:
 		modules.append(_module(ROOT + ".portal.service_users", run_as=run_as))
 	return {module.__name__: module for module in modules}
+
+
+def _configure_n8n(test, module, frappe):
+	"""Webhook URLs and the shared secret come from site config (spec sheet Phase 0, Z1).
+
+	n8n_config may already be imported by an earlier test against another frappe stub, so it
+	reads this test's frappe while the test runs.
+	"""
+	n8n_frappe = patch.object(module.n8n_config, "frappe", frappe)
+	n8n_frappe.start()
+	test.addCleanup(n8n_frappe.stop)
+	frappe.conf["n8n_spec_webhook_url"] = "https://n8n.example/webhook/spec"
+	frappe.conf["n8n_sync_webhook_url"] = "https://n8n.example/webhook/sync"
+	frappe.conf["n8n_sync_secret"] = "secret"
 
 
 class Product(Record):
@@ -59,6 +81,7 @@ def _product(*brands):
 	return Product(
 		name="demo",
 		product_slug="demo-slug",
+		flags=Record(),
 		target_brands=[Record(brand=code, enabled=enabled) for code, enabled in brands],
 	)
 
@@ -72,6 +95,7 @@ class WebflowSyncBrands(unittest.TestCase):
 		frappe.enqueue = MagicMock()
 		frappe._dict = Record
 		frappe.conf["ERP-Sync-Secret-2026"] = "secret"
+		_configure_n8n(self, module, frappe)
 		return module, frappe
 
 	def test_spec_sheet_defaults_to_the_first_enabled_target_brand(self):
@@ -176,6 +200,7 @@ class PublicationWorker(unittest.TestCase):
 		self.addCleanup(context.__exit__, None, None, None)
 		frappe.get_cached_value = MagicMock(return_value="System User")
 		frappe.enqueue = MagicMock()
+		_configure_n8n(self, module, frappe)
 		return module, frappe, users
 
 	def test_requests_are_claimed_by_a_worker_not_the_requesting_user(self):
@@ -197,7 +222,14 @@ class PublicationWorker(unittest.TestCase):
 			for call in frappe.enqueue.call_args_list:
 				self.assertTrue(call.args[0].endswith(".claim_and_dispatch"))
 				self.assertTrue(call.kwargs["enqueue_after_commit"])
+			# The button's own save queues no automatic push (plan 4.19 Q2).
+			self.assertTrue(doc.flags["webflow_auto_push_skip"])
 		publication.claim.assert_not_called()
+		# The sync sent the latest version: the brands' waiting automatic pushes are dropped.
+		auto_push = __import__("sys").modules[ROOT + ".webflow_auto_push"]
+		self.assertEqual(
+			[call.args for call in auto_push.clear.call_args_list], [("demo", "illumenate"), ("demo", "lighting_206")]
+		)
 
 	def test_worker_claims_as_the_integration_user_and_dispatches_each_job(self):
 		module, frappe, users = self.load()

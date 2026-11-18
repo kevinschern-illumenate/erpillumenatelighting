@@ -876,4 +876,3 @@ PyMuPDF is AGPL-licensed, which is fine for internal tooling but is why it is ke
 - **Product line** comes from `tokens.spec_line_for(family, spectrum_type)`: Static White and
   Horticulture → SW, Dim to Warm → DW, Tunable White → TW, Full Spectrum → FS, the RGB types → CC,
   drivers/controllers → PS, extrusion kits/accessories → OTHER.
-

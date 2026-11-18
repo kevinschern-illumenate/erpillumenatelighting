@@ -1,0 +1,73 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-10-14 08:44:45.490153",
+ "description": "Specification rows shown on the spec sheet and the Webflow product page. Rows with managed labels are rebuilt on save; other rows are kept.",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "spec_label",
+  "spec_value",
+  "display_order",
+  "attribute_doctype",
+  "attribute_options_json",
+  "is_calculated"
+ ],
+ "fields": [
+  {
+   "fieldname": "spec_label",
+   "fieldtype": "Data",
+   "label": "Spec Label",
+   "bold": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "spec_value",
+   "fieldtype": "Small Text",
+   "label": "Spec Value",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "display_order",
+   "fieldtype": "Int",
+   "label": "Display Order",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "attribute_doctype",
+   "fieldtype": "Data",
+   "label": "Attribute Doctype"
+  },
+  {
+   "fieldname": "attribute_options_json",
+   "fieldtype": "JSON",
+   "label": "Attribute Options JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_calculated",
+   "fieldtype": "Check",
+   "label": "Calculated",
+   "read_only": 1,
+   "default": "0",
+   "description": "Added by the calculation from the linked spec records (rebuilt on every template save). Rows typed by hand leave it off."
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-03 11:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Webflow-Spec-Custom",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

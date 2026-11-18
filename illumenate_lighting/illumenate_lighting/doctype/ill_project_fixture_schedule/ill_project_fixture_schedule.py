@@ -885,7 +885,9 @@ class ilLProjectFixtureSchedule(Document):
 				bom_detail = ""
 				if not bom_existed:
 					bom_result = _create_or_get_bom(configured_fixture, item_code, skip_if_exists=True)
-					if bom_result.get("success") and bom_result.get("bom_name"):
+					if bom_result.get("success") and bom_result.get("bundle"):
+						bom_name = None  # Ship-in-pieces bundle and light engine BOMs are in place.
+					elif bom_result.get("success") and bom_result.get("bom_name"):
 						bom_name = bom_result["bom_name"]
 						if bom_result.get("created"):
 							counts["boms_created"] += 1
@@ -902,7 +904,11 @@ class ilLProjectFixtureSchedule(Document):
 					counts["boms_updated"] += 1
 					bom_name = configured_fixture.bom or bom_name
 
-				if require_bom and not bom_name:
+				from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import is_ship_pieces
+
+				# Ships in pieces: no BOM on the order Item; its light engines carry BOMs.
+				ships_in_pieces = is_ship_pieces(configured_fixture)
+				if require_bom and not bom_name and not ships_in_pieces:
 					# A manufactured fixture with no BOM cannot be built, so ordering
 					# it would create an unfulfillable line.
 					frappe.throw(
