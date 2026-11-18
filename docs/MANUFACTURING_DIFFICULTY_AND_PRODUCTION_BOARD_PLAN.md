@@ -1,6 +1,6 @@
 # Manufacturing difficulty points and Production Board: implementation plan
 
-Date: 2026-11-18. Status: proposed, nothing built yet.
+Date: 2026-11-18. Status: phase 1 (build points data) implemented; phases 2-4 proposed. Decisions in section 6.
 
 ## Goal
 
@@ -332,12 +332,40 @@ The example numbers are his February data, used as a golden test (4.6).
 
 Phase 1 is useful on its own: every SO will show its point total and per-conductor breakdown on the form even before the board exists.
 
-## 6. Questions for the warehouse manager
+## 6. Decisions (confirmed 2026-11-18)
 
-1. **Com %:** is it the rep commission (higher is worse, net = $ − Com $) or the margin? The red-above-22% format suggests commission.
-2. **WR and FMC counts:** per wet *segment/termination* and per *jumper*? The counts are larger than the run count in his data.
-3. **4C (RGB) weight:** the workbook has no 4C column. Is 1.4 right?
-4. **Assembly vs Loose:** do our ASSEMBLED linear fixtures count as "Assembly" (+2.5 each), and SHIP_PIECES / bulk reels as "Loose"? Should drivers and accessories lines count as Loose?
-5. **Which weight set** for the main board: Warehouse (Loose 0.75 / WR 1.75 / FMC 2 / Assy 2.5) or ESPR (0.5 / 2 / 2.5 / 4)? Plan: Warehouse for the queue, ESPR for release estimates.
-6. **57.54 points per person per day:** carry it over, or re-baseline after a few weeks of ERP data (phase 4)?
-7. **ESD:** ship date or customer delivery date? Is a separate estimated-ship-date field needed?
+| Question | Decision | How phase 1 implements it |
+|---|---|---|
+| Com % | Sales commission | `ill_worth_per_point` = (net total - `total_commission`) / points |
+| Wet | One per **run** whose environment is IP67 or higher | Linear: every run of a wet fixture. Tape/neon: each feed whose segment (or the tape) is wet |
+| FMC | One per **jumper** (connection between segments) | Linear: cable-manifest cuts with role `jumper`. Tape/neon: segments ending in `Jumper`. LED sheet: sheet jumpers |
+| 4C weight | 1.4 | Default `weight_4c` |
+| Assembly | One per assembled linear fixture (tape into cut extrusion, fixture built) | Linear `assembly_mode != SHIP_PIECES` gives 1 per fixture unit. Tape/neon and sheets get 0 |
+| Loose | Bulk reels of tape only | Tape/neon `BULK_REEL` gives 1 per reel. Drivers and other stock lines score 0 |
+| Weights | Main-board (Warehouse sheet) set, adjustable | `ilL-Production-Settings`. Saving re-scores stored counts in the background |
+| Points per person per day | 57.5, adjustable | `points_per_person_day` on the settings page |
+| ESD | The day the order leaves our warehouse | New Sales Order field `ill_estimated_ship_date` (editable after submit). Blank falls back to `delivery_date` |
+
+## 7. Phase 1 as built
+
+- `api/build_points.py`:
+  - pure scoring (`conductor_count`, `tally`, `score`, `tape_runs`, `linear_runs`);
+  - per-type profiles (fixture, tape/neon, LED sheet, group);
+  - `stamp_bom`, `roll_up_sales_order`, `on_work_order_insert`, `backfill`, `rescore`.
+- `doctype/ill_production_settings`: weights, pixel conductor bucket, capacity (points per person per day, head count, paid hours, shift hours and end, holiday list), overtime, commission flag.
+- `patches/add_build_points_fields.py`:
+  - BOM: per-unit counts, points, "Counted" flag and warnings.
+  - Sales Order Item: counts × qty and points.
+  - Sales Order: totals, build hours, worth per point, warnings, and `ill_estimated_ship_date`.
+  - Work Order: `ill_build_points`.
+  - All fields are writable after submit. The patch runs the backfill at the end.
+- `hooks.py`:
+  - BOM `on_submit` stamps the BOM;
+  - Sales Order `validate` totals the order (after `follow_items`);
+  - Work Order `before_insert` scores the WO.
+- `manufacturing_generator.py`:
+  - the older Work Order path now sets `sales_order_item`;
+  - `_get_default_jumper_item` now queries real map fields.
+- Tests: `tests/portal_unit/test_build_points.py`, including the workbook's CapFinal rows.
+
+Run again at any time with `bench --site <site> execute illumenate_lighting.illumenate_lighting.api.build_points.backfill --kwargs "{'force': 1}"`.

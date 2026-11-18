@@ -79,6 +79,7 @@ def generate_manufacturing_artifacts(
 	skip_if_exists: bool = True,
 	bom_name: Optional[str] = None,
 	sales_order: Optional[str] = None,
+	sales_order_item: Optional[str] = None,
 ) -> dict[str, Any]:
 	"""
 	Generate manufacturing artifacts (Item, BOM, Work Order) for a Configured Fixture.
@@ -158,6 +159,7 @@ def generate_manufacturing_artifacts(
 	wo_result = _create_or_get_work_order(
 		fixture, item_result["item_code"], bom_result["bom_name"], qty, skip_if_exists,
 		sales_order=sales_order,
+		sales_order_item=sales_order_item,
 	)
 	response["work_order_name"] = wo_result["work_order_name"]
 	response["messages"].extend(wo_result["messages"])
@@ -243,6 +245,7 @@ def generate_from_sales_order(sales_order: str, automatic=False) -> dict[str, An
 			skip_if_exists=True,
 			bom_name=item.get("ill_bom"),
 			sales_order=sales_order,
+			sales_order_item=item.name,
 		)
 
 		response["results"].append({
@@ -1208,6 +1211,7 @@ def _create_or_get_work_order(
 	qty: int = 1,
 	skip_if_exists: bool = True,
 	sales_order: Optional[str] = None,
+	sales_order_item: Optional[str] = None,
 ) -> dict[str, Any]:
 	"""
 	Create or retrieve Work Order for a configured fixture (Epic 5).
@@ -1308,6 +1312,9 @@ def _create_or_get_work_order(
 		}
 		if sales_order is not None:
 			wo_fields["sales_order"] = sales_order
+		if sales_order_item:
+			# Ties the Work Order to its order line (status, build points per line).
+			wo_fields["sales_order_item"] = sales_order_item
 		wo_doc = frappe.get_doc(wo_fields)
 
 		wo_doc.insert(ignore_permissions=True)
@@ -1971,24 +1978,18 @@ def _get_default_jumper_item(fixture) -> Optional[str]:
 	if fixture.leader_item:
 		return fixture.leader_item
 	
-	# Otherwise look up from mapping
-	if not fixture.fixture_template:
-		return None
-	
-	# Get leader cable mapping which may have jumper info
-	leader_map = frappe.db.get_value(
-		"ilL-Rel-Leader-Cable-Map",
-		{
-			"fixture_template": fixture.fixture_template,
-			"is_active": 1,
-		},
-		["leader_cable_item", "jumper_cable_item"],
-		as_dict=True,
+	# Otherwise use the leader cable mapped to this fixture's tape, feed type and
+	# environment. The map has no jumper column; jumpers use the leader cable.
+	tape_spec = (
+		frappe.db.get_value("ilL-Rel-Tape Offering", fixture.tape_offering, "tape_spec")
+		if fixture.get("tape_offering")
+		else None
 	)
-	
-	if leader_map:
-		# Prefer dedicated jumper item, fall back to leader
-		return leader_map.get("jumper_cable_item") or leader_map.get("leader_cable_item")
-	
-	return None
+	if not tape_spec:
+		return None
+	filters = {"tape_spec": tape_spec, "is_active": 1}
+	for field in ("power_feed_type", "environment_rating"):
+		if fixture.get(field):
+			filters[field] = fixture.get(field)
+	return frappe.db.get_value("ilL-Rel-Leader-Cable-Map", filters, "leader_item")
 
