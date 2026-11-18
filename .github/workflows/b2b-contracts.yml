@@ -33,6 +33,7 @@ jobs:
           python -B tools/check_portal_templates.py
           node --test tests/portal_ui/*.test.cjs
           node tests/portal_unit/publication_workflow.test.cjs
+          node tests/portal_unit/gallery_workflow.test.cjs
           node --test tests/portal_unit/reconciliation.test.cjs
           npm run list --prefix tests/portal_e2e
       - name: Product Finder bundles are fresh
