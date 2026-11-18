@@ -134,10 +134,9 @@ class MapCase(unittest.TestCase):
 	def test_ode_series_is_custom(self):
 		gallery, report = map_item(self.module, ode())
 		rows = gallery["products_used"]
-		self.assertEqual(rows, [
-			{"product": "rainier-sf", "series": None, "note": None},
-			{"product": None, "series": "Custom", "note": None},
-		])
+		# The product has no series of its own and the item lists only Custom: it takes Custom
+		# (series is required; a None series made the commit run fail to insert the gallery).
+		self.assertEqual(rows, [{"product": "rainier-sf", "series": "Custom", "note": None}])
 		self.assertEqual(gallery["featured"], 1)
 		self.assertEqual(gallery["gallery_type"], "Healthcare")
 		self.assertEqual(gallery["completion_date"], "2025-03-04")
@@ -156,6 +155,34 @@ class MapCase(unittest.TestCase):
 			{"product": "rainier-sf", "series": "Rainier", "note": None},
 			{"product": None, "series": "LED Tape", "note": None},
 		])
+
+	def test_product_series_not_in_text_falls_back_to_its_own_series(self):
+		gallery, report = map_item(self.module, ode(), product_series={"rainier-sf": "Rainier"})
+		self.assertEqual(gallery["products_used"], [
+			{"product": "rainier-sf", "series": "Rainier", "note": None},
+			{"product": None, "series": "Custom", "note": None},
+		])
+		self.assertEqual(report, [])
+
+	def test_two_products_of_one_series_both_keep_it(self):
+		raw = ode()
+		raw["fieldData"]["series-used"] = "Rainier"
+		raw["fieldData"]["products-used"] = [ODE_PRODUCT, "7" * 24]
+		gallery, _ = map_item(
+			self.module,
+			raw,
+			product_by_webflow_id={ODE_PRODUCT: "rainier-sf", "7" * 24: "rainier-wall"},
+			product_series={"rainier-sf": "Rainier", "rainier-wall": "Rainier"},
+		)
+		self.assertEqual([r["series"] for r in gallery["products_used"]], ["Rainier", "Rainier"])
+
+	def test_product_without_series_among_other_series_is_left_out_and_reported(self):
+		raw = ode()
+		raw["fieldData"]["series-used"] = "LED Tape"
+		gallery, report = map_item(self.module, raw)
+		self.assertEqual(gallery["products_used"], [{"product": None, "series": "LED Tape", "note": None}])
+		self.assertTrue(any("rainier-sf" in line and "left out" in line for line in report), report)
+		self.assertTrue(all(row["series"] for row in gallery["products_used"]))
 
 	def test_custom_led_tape_and_extrusion_kit_map_to_custom(self):
 		gallery, report = map_item(self.module, holodeck())
