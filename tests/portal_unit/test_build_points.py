@@ -184,6 +184,31 @@ class SettingsAndOrders(unittest.TestCase):
 			self.assertAlmostEqual(total["worth_per_point"], round(8000 / 15.75, 2))
 			self.assertAlmostEqual(total["hours"], round(15.75 / (57.5 / 8.5), 2))
 
+	def test_floor_adjustments_add_to_counted_totals(self):
+		with load_service(MODULE) as (bp, _):
+			order = Record(
+				net_total=0,
+				ill_build_points_adjustments=json.dumps({"runs_3c": 2, "runs_2c": -5, "bogus": 9, "fmc": 0}),
+				items=[Record(name="r1", idx=1, item_code="FIX", qty=3, stock_qty=3, ill_bom="BOM-FIX")],
+			)
+			per_unit = {"BOM-FIX": counts(runs_2c=1) | {"warnings": []}}
+			with patch.object(bp, "line_bom", side_effect=lambda row: row.get("ill_bom")), patch.object(
+				bp, "bom_counts", side_effect=lambda bom: per_unit.get(bom)
+			):
+				lines, total = bp.order_totals(order, values={})
+			self.assertEqual(total["computed"]["runs_2c"], 3)
+			self.assertEqual(total["adjustments"], {"runs_2c": -5.0, "runs_3c": 2.0})
+			self.assertEqual(total["runs_2c"], 0)  # never below zero
+			self.assertEqual(total["runs_3c"], 2)
+			self.assertAlmostEqual(total["points"], 2 * 1.3)
+			self.assertEqual(lines["r1"]["runs_2c"], 3)  # lines stay as counted
+
+	def test_adjustments_ignore_bad_values(self):
+		with load_service(MODULE) as (bp, _):
+			self.assertEqual(bp.adjustments(None), {})
+			self.assertEqual(bp.adjustments("not json"), {})
+			self.assertEqual(bp.adjustments('{"wet": "x", "loose": "1.5"}'), {"loose": 1.5})
+
 
 if __name__ == "__main__":
 	unittest.main()

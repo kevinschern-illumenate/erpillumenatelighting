@@ -1,8 +1,9 @@
 """Production Board (Command Center Manufacturing): status, parts, capacity, shipping."""
 
+import json
 import unittest
 from datetime import date, datetime, time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from test_services import ROOT, Record, load_service
 
@@ -154,6 +155,76 @@ class Board(unittest.TestCase):
 			frappe.get_roles.return_value = ["Dealer"]
 			with self.assertRaises(PermissionError):
 				pb.get_board()
+
+
+class BuildCountAdjustments(unittest.TestCase):
+	def _order(self, adjustments=None):
+		return Record(
+			name="SO-9",
+			docstatus=1,
+			status="To Deliver",
+			add_comment=MagicMock(),
+			ill_build_points_adjustments=json.dumps(adjustments) if adjustments else None,
+		)
+
+	def _run(self, pb, frappe, order, computed, **kwargs):
+		frappe.get_roles.return_value = ["Manufacturing User"]
+		frappe.get_doc.return_value = order
+		current = pb.build_points.adjustments(order.get("ill_build_points_adjustments"))
+		total = {"computed": computed, "adjustments": current}
+		refreshed = {key: 0 for key in pb.build_points.COUNT_KEYS} | {"points": 7.5, "hours": 1.1}
+		with patch.object(pb.build_points, "order_totals", return_value=({}, total)), patch.object(
+			pb.build_points, "refresh_sales_order", return_value=refreshed
+		) as refresh:
+			result = pb.set_build_counts("SO-9", **kwargs)
+		refresh.assert_called_once_with("SO-9")
+		return result
+
+	def test_stores_difference_from_counted_and_notes_timeline(self):
+		with load_service(MODULE) as (pb, frappe):
+			order = self._order()
+			computed = {"runs_2c": 3, "runs_3c": 0}
+			result = self._run(
+				pb, frappe, order, computed, counts=json.dumps({"runs_2c": 2, "runs_3c": 1}), note="Field splice"
+			)
+			self.assertEqual(result["adjustments"], {"runs_2c": -1, "runs_3c": 1})
+			values = frappe.db.set_value.call_args.args[2]
+			self.assertEqual(json.loads(values["ill_build_points_adjustments"]), {"runs_2c": -1, "runs_3c": 1})
+			self.assertEqual(values["ill_build_points_adjust_note"], "Field splice")
+			comment = order.add_comment.call_args.args[1]
+			self.assertIn("2C: 3 → 2", comment)
+			self.assertIn("3C: 0 → 1", comment)
+			self.assertIn("Why: Field splice", comment)
+
+	def test_keeps_untouched_adjustments_and_reset_clears(self):
+		with load_service(MODULE) as (pb, frappe):
+			computed = {"runs_2c": 3, "fmc": 2}
+			result = self._run(pb, frappe, self._order({"fmc": 1}), computed, counts=json.dumps({"runs_2c": 4}))
+			self.assertEqual(result["adjustments"], {"runs_2c": 1, "fmc": 1})
+			result = self._run(pb, frappe, self._order({"fmc": 1}), computed, reset=1)
+			self.assertEqual(result["adjustments"], {})
+			self.assertIsNone(frappe.db.set_value.call_args.args[2]["ill_build_points_adjustments"])
+
+	def test_rejects_bad_input_roles_and_closed_orders(self):
+		with load_service(MODULE) as (pb, frappe):
+			frappe.get_roles.return_value = ["Command Center Viewer"]
+			with self.assertRaises(PermissionError):
+				pb.set_build_counts("SO-9", counts="{}")
+			with self.assertRaises(ValueError):
+				self._run(pb, frappe, self._order(), {}, counts=json.dumps({"runs_3c": -1}))
+			with self.assertRaises(ValueError):
+				self._run(pb, frappe, self._order(), {}, counts=json.dumps({"runs_9c": 1}))
+			with self.assertRaises(ValueError):
+				self._run(pb, frappe, self._order(), {"runs_2c": 1}, counts=json.dumps({"runs_2c": 1}))  # nothing changed
+			frappe.get_roles.return_value = ["Manufacturing User"]
+			frappe.get_doc.return_value = Record(name="SO-9", docstatus=1, status="Closed")
+			with self.assertRaises(ValueError):
+				pb.set_build_counts("SO-9", counts="{}")
+
+	def test_board_flags_editors(self):
+		board, _ = Board()._board()
+		self.assertFalse(board["can_adjust"])  # the test user is a Dealer
+		self.assertEqual(board["queue"][0]["adjustments"], {})
 
 
 if __name__ == "__main__":
