@@ -581,11 +581,12 @@ const mappingScript = `<script>
       }
 
       // --- E5. OUTPUT OPTIONS (fixtures; owner, 2026-11-18) ---
-      // #output-options: in .table-title-wrapper the first .table-title keeps its text and the
-      // second is the pattern for the output columns; in .table-data-wrapper the first
-      // .table-item-wrapper is the row pattern: its first .table-item takes the row label
-      // ("Fixture Wattage (White Lens)") and its second is the pattern for the values. The last
-      // row gets last-row. No rows: the section is hidden.
+      // #output-options: in .table-title-wrapper the first .table-title keeps its text and #output
+      // (or the second .table-title) is the pattern for the output columns; in
+      // .table-data-wrapper the first .table-item-wrapper is the row pattern: its first child
+      // (the .spec-h3) takes the row label ("Fixture Wattage (White Lens)") and #output-data (or
+      // the second child) is the pattern for the values. The last row gets last-row. No rows:
+      // the section is hidden.
       const optionSection = document.getElementById('output-options');
       if (optionSection) {
           const options = data.output_options || {};
@@ -598,7 +599,7 @@ const mappingScript = `<script>
           if (!columns.length || !optionRows.length || !rowPattern || titles.length < 2) {
               optionSection.style.display = 'none';
           } else {
-              const titlePattern = titles[1];
+              const titlePattern = head.querySelector('#output') || titles[1];
               titles.slice(1).forEach(el => el.remove());
               columns.forEach(column => {
                   const cell = titlePattern.cloneNode(true);
@@ -606,8 +607,8 @@ const mappingScript = `<script>
                   cell.innerText = column;
                   head.appendChild(cell);
               });
-              const items = Array.from(rowPattern.querySelectorAll('.table-item'));
-              const cellPattern = items[1] || items[0];
+              const items = Array.from(rowPattern.children);
+              const cellPattern = rowPattern.querySelector('#output-data') || items[1] || items[0];
               Array.from(body.children).forEach(child => child.remove());
               optionRows.forEach((row, r) => {
                   const line = rowPattern.cloneNode(false);
