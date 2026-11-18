@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Doctype names: `ilL-Webflow-Gallery`, `ilL-Gallery-Publication`, `ilL-Gallery-Publish-Job`, `ilL-Gallery-Application`, `ilL-Design-Service`, `ilL-Child-Gallery-Credit`, `ilL-Child-Gallery-Product`, `ilL-Child-Gallery-Application`, `ilL-Child-Gallery-Service`. Module `ilLumenate Lighting`. Existing `ilL Project` is never reused or modified.
+- Doctype names: `ilL-Webflow-Gallery`, `ilL-Gallery-Publication`, `ilL-Gallery-Publish-Job`, `ilL-Gallery-Application`, `ilL-Design-Service`, `ilL-Child-Gallery-Credit`, `ilL-Child-Gallery-Product`, `ilL-Child-Gallery-Application`, `ilL-Child-Gallery-Service`, `ilL-Child-Gallery-Custom-Item`. Module `ilLumenate Lighting`. Existing `ilL Project` is never reused or modified.
 - Never edit `api/publication.py`, `webflow_auto_push.py`, or the product workflow. Import shared helpers only: `fingerprint`, `canonical_json` (`api/configuration_contract.py`); `callback_disposition`, `next_retry`, `failure_reason`, `RETRY_MINUTES` (`api/publication_contract.py`); `resolve_brand`, `get_default_brand` (`api/webflow_brand.py`); `require`, `require_catalog_reader` (`portal/staff.py`); `webflow_notify.notify`.
 - Retries use `next_retry` (1, 5, 15 minutes, then final failure notice). Lease is 5 minutes. Operations are `STAGE`, `PUBLISH`, `RETIRE`; job states `QUEUED RUNNING COMPLETE FAILED SUPERSEDED`; publication states `NEEDS_REVIEW READY QUEUED STAGED LIVE FAILED RETIRED`. (The spec's section 7 quotes an older 30-second figure; fix it in Task 5.)
 - Gallery types (16): Residential, Hospitality, Restaurant, Healthcare, Education, Office, Hotel, Civic/Government, Retail, Architectural, Transportation, Landscape, Multi-family, Theater/Art, Lobby, Sports/Entertainment.
