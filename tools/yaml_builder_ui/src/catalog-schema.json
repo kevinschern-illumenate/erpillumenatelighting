@@ -2145,6 +2145,12 @@
           "label": "Max Run Length",
           "fieldtype": "Data",
           "read_only": 1
+        },
+        {
+          "fieldname": "max_footage_100w",
+          "label": "Max Footage per 100W",
+          "fieldtype": "Data",
+          "read_only": 1
         }
       ]
     },
