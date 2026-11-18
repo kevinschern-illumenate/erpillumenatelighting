@@ -32,6 +32,7 @@ NEW_PATCHES = {
 			"webflow_products_interested",
 		)
 	},
+	"add_tape_neon_option_value_label": {("ilL-Child-Tape-Neon-Allowed-Option", "custom_value_label")},
 	"add_work_order_qc_fields": {
 		("Work Order", name)
 		for name in (
