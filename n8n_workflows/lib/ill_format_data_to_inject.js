@@ -703,8 +703,10 @@ const mappingScript = `<script>
       let currentPage = document.querySelector('.page-wrapper');
       
       if (container && currentPage) {
+          // Measured by its content: with its 1056px minimum height a page always measured full
+          // once the safety margin was taken off (owner, 2026-11-18). Pages get 1056px at the end.
           currentPage.style.height = 'auto';
-          currentPage.style.minHeight = PAGE_HEIGHT + 'px';
+          currentPage.style.minHeight = '0px';
           
           let currentMain = currentPage.querySelector('.spec-main-wrapper');
           const sections = Array.from(currentMain.children);
@@ -762,6 +764,7 @@ const mappingScript = `<script>
           const allPages = document.querySelectorAll('.page-wrapper');
           allPages.forEach((page, idx) => {
               page.style.height = PAGE_HEIGHT + 'px';
+              page.style.minHeight = PAGE_HEIGHT + 'px';
               page.style.overflow = 'hidden';
               
               const curEl = page.querySelector('#current-page-no');
