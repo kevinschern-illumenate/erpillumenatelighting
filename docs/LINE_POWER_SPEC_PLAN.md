@@ -1,6 +1,30 @@
 # Plan: spec and power line under catalog LED Tape, Neon and Sheet rows
 
-Status: ready to implement · Written 2026-11-18 · Scope: Quotation and Sales Order
+Status: **implemented** (see §0) · Written 2026-11-18 · Scope: Quotation and Sales Order
+
+## 0. Implementation notes (2026-11-18)
+
+Built as planned, with these deviations, all found by running the math over every live
+tape / neon / sheet row (1,023 rows on Quotations and Sales Orders):
+
+- **No template fallback.** The only template that has a spec, `LED-HD-SW`, has no W/ft,
+  and its variants range from 0.8 to 14.4 W/ft by output. Borrowing it would print a
+  wrong voltage, run or load, so a variant without its own spec is treated as having
+  none: "No LED spec on file", and it is listed by the missing-spec report. That report
+  now returns 136 Items: the 99 below plus the 37 `LED-HD-SW-O-*` variants.
+- **No per-request spec cache.** One save resolves once in 3 queries; a cache only added
+  stale-state risk.
+- `preview` returns `{"rows": {key: values}, "total_watts": float}`.
+- The PDF **Connected Load (Tape / Neon / Sheet)** total (decision D3) is included in
+  both print formats, under Total Quantity, and only shows when a row has a load.
+- The dealer portal (§4.9) is **not** done; it stays optional.
+- `add_line_power_fields` also runs from `install.py` `after_install`, because a fresh
+  install marks every listed patch as done without running it.
+
+Results on live data: loads computed for 536 rows, a spec without a load (the
+`LED-HD-SW` W/ft gap) on 53, no spec on 431. Eleven rows in `Feet` and two in
+`16.4ft Reel` at conversion factor 1.0 are computed from the UOM and flagged in their
+Spec Note.
 
 ## 1. What we are building
 
@@ -95,8 +119,9 @@ physical meaning (its name), not from the row's `conversion_factor`** (decision 
 - On existing transaction rows: Quotations 299 own spec, 39 via template, 21 sheet,
   **240 no spec**; Sales Orders 206 / 14 / 11 / **191 no spec**. Many of the misses are
   disabled legacy Items.
-- So: fall back to the template's spec, show a clear "No LED spec on file" note when
-  there is none, and ship a missing-spec report (§4.8) so the catalog can be completed.
+- So: show a clear "No LED spec on file" note when there is none, and ship a
+  missing-spec report (§4.8) so the catalog can be completed. (Template fallback was
+  dropped during implementation; see §0.)
 
 ### 2.4 Permissions
 

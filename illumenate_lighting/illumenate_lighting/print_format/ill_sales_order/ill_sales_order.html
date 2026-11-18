@@ -3,6 +3,16 @@
   Clean, readable layout with section / room grouping.
 #}
 
+{#-- Spec line under a catalog LED Tape / Neon / Sheet row (api/line_power.py) --#}
+{%- macro ill_lp_row(item) -%}
+    {%- if item.get("ill_lp_summary") -%}
+    <tr class="ill-spec-row">
+        <td class="table-sr"></td>
+        <td colspan="5"><span class="ill-inline-label">Spec</span>{{ item.ill_lp_summary | e }}</td>
+    </tr>
+    {%- endif -%}
+{%- endmacro -%}
+
 {#-- Build ordered list of sections and their items --#}
 {%- set ns = namespace(sections=[], section_map={}, current_section="", has_sections=false) -%}
 {%- for item in doc.items -%}
@@ -145,6 +155,21 @@
         color: #6c7886;
         font-size: 10px;
         margin-right: 4px;
+    }
+    .ill-doc .ill-spec-row td {
+        background: #fbfcfd;
+        color: #4a5765;
+        font-size: 9.5px;
+        border-top: 0;
+        padding-top: 2px;
+        padding-bottom: 4px;
+    }
+    .ill-doc .ill-spec-row .ill-inline-label {
+        color: #6c7886;
+        font-size: 9px;
+        margin-right: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
     }
     .ill-doc .ill-note-row td {
         background: #fafbfd;
@@ -393,6 +418,7 @@
                             <td class="text-right">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</td>
                             <td class="text-right">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</td>
                         </tr>
+                        {{ ill_lp_row(item) }}
                         {%- if item.additional_notes -%}
                         <tr class="ill-note-row">
                             <td class="table-sr"></td>
@@ -427,6 +453,7 @@
                     <td class="text-right">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</td>
                     <td class="text-right">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</td>
                 </tr>
+                {{ ill_lp_row(item) }}
                 {%- if item.additional_notes -%}
                 <tr class="ill-note-row">
                     <td class="table-sr"></td>
@@ -445,6 +472,19 @@
                         <div class="ill-total-label">Total Quantity</div>
                         <div class="ill-total-value">{{ doc.total_qty }}</div>
                     </div>
+                    {%- set lp = namespace(watts=0, any=false) -%}
+                    {%- for item in doc.items -%}
+                        {%- if item.get("ill_lp_watts") and not item.get("is_alternative") -%}
+                            {%- set lp.watts = lp.watts + item.ill_lp_watts -%}
+                            {%- set lp.any = true -%}
+                        {%- endif -%}
+                    {%- endfor -%}
+                    {%- if lp.any %}
+                    <div class="ill-total-row">
+                        <div class="ill-total-label">Connected Load (Tape / Neon / Sheet)</div>
+                        <div class="ill-total-value">{{ "%.1f" | format(lp.watts) }} W</div>
+                    </div>
+                    {%- endif %}
                 </div>
                 <div class="ill-col"></div>
                 <div class="ill-col">

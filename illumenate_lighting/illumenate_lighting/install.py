@@ -78,6 +78,9 @@ def after_install():
 	from illumenate_lighting.patches.create_qbo_integration_user import execute as qbo_user
 
 	qbo_user()
+	from illumenate_lighting.patches.add_line_power_fields import execute as line_power_fields
+
+	line_power_fields()
 	frappe.db.commit()
 
 
