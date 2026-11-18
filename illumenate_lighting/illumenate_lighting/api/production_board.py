@@ -57,6 +57,20 @@ MONEY_KEYS = {
 }
 
 VIEW_ROLES = {"Command Center Viewer", "System Manager", "Manufacturing Manager", "Manufacturing User"}
+# Who may correct an order's build counts from the queue.
+ADJUST_ROLES = {"System Manager", "Manufacturing Manager", "Manufacturing User"}
+COUNT_LABELS = {
+	"runs_2c": "2C",
+	"runs_3c": "3C",
+	"runs_4c": "4C",
+	"runs_5c": "5C",
+	"runs_6c": "6C",
+	"loose": "Loose",
+	"wet": "WR",
+	"fmc": "FMC",
+	"assembly": "Assy",
+}
+MAX_COUNT = 100000
 MONEY_ROLES = {"Command Center Finance", "System Manager", "Manufacturing Manager", "Accounts Manager"}
 BURNDOWN_DAYS = 22
 
@@ -374,6 +388,8 @@ def open_orders():
 		"ill_build_points",
 		"ill_build_hours",
 		"ill_build_points_warnings",
+		build_points.ADJUST_FIELD,
+		build_points.ADJUST_NOTE_FIELD,
 		*[build_points.FIELD[key] for key in build_points.COUNT_KEYS],
 	]
 	return frappe.get_all(
@@ -842,6 +858,8 @@ def build_board(now=None, money=True):
 			"hours": round(points / per_hour, 2) if per_hour else 0,
 			"worth": round((amount - amount * rate) / points, 2) if points else None,
 			"notes": order.get("ill_floor_notes") or "",
+			"adjustments": build_points.adjustments(order.get(build_points.ADJUST_FIELD)),
+			"adjust_note": order.get(build_points.ADJUST_NOTE_FIELD) or "",
 			"warnings": [w for w in (order.get("ill_build_points_warnings") or "").split("\n") if w],
 			"work_orders": len(by_order.get(order.name, [])),
 			"short_items": [{"item": item, "qty": round(qty, 3)} for item, qty in gap["short"].items()],
@@ -1131,6 +1149,7 @@ def build_board(now=None, money=True):
 		"paint": paint,
 		"material_requests": manufacture_requests(today),
 	}
+	board["can_adjust"] = _can_adjust()
 	return board if money else scrub(board)
 
 
@@ -1140,3 +1159,110 @@ def get_board():
 	if not roles & VIEW_ROLES:
 		frappe.throw("You need the Command Center Viewer role to see the production board.", frappe.PermissionError)
 	return build_board(money=bool(roles & MONEY_ROLES))
+
+
+# ---------------------------------------------------------------------------
+# Floor corrections to build counts
+# ---------------------------------------------------------------------------
+
+
+def _can_adjust():
+	return bool(_roles() & ADJUST_ROLES) and _has_field("Sales Order", build_points.ADJUST_FIELD)
+
+
+def parse_counts(counts):
+	"""Wanted order totals from the queue editor: ``{count key: number >= 0}``."""
+	counts = build_points._json(counts, {})
+	if not isinstance(counts, dict):
+		frappe.throw('Send the counts as an object, for example {"runs_3c": 2}.')
+	wanted = {}
+	for key, value in counts.items():
+		if key not in build_points.COUNT_KEYS:
+			frappe.throw(f"Unknown build count: {key}")
+		if value in (None, ""):
+			continue
+		try:
+			number = float(value)
+		except (TypeError, ValueError):
+			frappe.throw(f"{COUNT_LABELS[key]} must be a number.")
+		if number < 0 or number > MAX_COUNT:
+			frappe.throw(f"{COUNT_LABELS[key]} must be between 0 and {MAX_COUNT}.")
+		wanted[key] = round(number, 4)
+	return wanted
+
+
+def deltas_for(computed, wanted, current):
+	"""New adjustments: what to add to the counted totals to reach ``wanted``.
+
+	Keys left out of ``wanted`` keep their current adjustment.
+	"""
+	out = {}
+	for key in build_points.COUNT_KEYS:
+		if key in wanted:
+			delta = round(wanted[key] - (computed.get(key) or 0), 4)
+		else:
+			delta = current.get(key) or 0
+		if delta:
+			out[key] = delta
+	return out
+
+
+def describe_change(before, after, computed):
+	"""One line per count that changed, for the order's timeline."""
+	lines = []
+	for key in build_points.COUNT_KEYS:
+		old = round(max((computed.get(key) or 0) + (before.get(key) or 0), 0), 4)
+		new = round(max((computed.get(key) or 0) + (after.get(key) or 0), 0), 4)
+		if old != new:
+			counted = computed.get(key) or 0
+			lines.append(f"{COUNT_LABELS[key]}: {old:g} → {new:g} (counted from the build: {counted:g})")
+	return lines
+
+
+@frappe.whitelist(methods=["POST"])
+def set_build_counts(sales_order, counts=None, note=None, reset=0):
+	"""Correct an open order's build counts (2C-6C runs and adders) from the queue.
+
+	The counted totals still come from the pinned builds; this stores the
+	difference on the Sales Order, so later recounts keep the correction. The new
+	totals, points and hours are written to the order and the change is noted on
+	its timeline. ``reset`` clears every correction.
+	"""
+	if not _roles() & ADJUST_ROLES:
+		frappe.throw("Only manufacturing users can change build counts.", frappe.PermissionError)
+	if not _has_field("Sales Order", build_points.ADJUST_FIELD):
+		frappe.throw("Build count adjustment fields are missing; run bench migrate first.")
+	doc = frappe.get_doc("Sales Order", sales_order)
+	if doc.docstatus == 2 or doc.get("status") in ("Closed", "Completed"):
+		state = doc.get("status") or "cancelled"
+		frappe.throw(f"{sales_order} is {state}; its build counts can no longer change.")
+
+	_, total = build_points.order_totals(doc)
+	computed, before = total["computed"], total["adjustments"]
+	after = {} if int(reset or 0) else deltas_for(computed, parse_counts(counts), before)
+	note = (note or "").strip()[:500]
+	changes = describe_change(before, after, computed)
+	if not changes and note == (doc.get(build_points.ADJUST_NOTE_FIELD) or ""):
+		frappe.throw("Nothing changed.")
+
+	values = {
+		build_points.ADJUST_FIELD: frappe.as_json(after) if after else None,
+		build_points.ADJUST_NOTE_FIELD: note if after else None,
+	}
+	frappe.db.set_value("Sales Order", doc.name, values, update_modified=False)
+	result = build_points.refresh_sales_order(doc.name)
+	if changes:
+		comment = "Build counts adjusted on the production board:\n" + "\n".join(changes)
+		if note:
+			comment += f"\nWhy: {note}"
+		comment += f"\nBuild points now {result['points']:g}."
+		doc.add_comment("Comment", comment)
+	return {
+		"sales_order": doc.name,
+		"counts": {key: result[key] for key in build_points.COUNT_KEYS},
+		"computed": computed,
+		"adjustments": after,
+		"adjust_note": values[build_points.ADJUST_NOTE_FIELD] or "",
+		"points": result["points"],
+		"hours": result["hours"],
+	}

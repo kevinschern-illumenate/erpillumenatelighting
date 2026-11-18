@@ -89,3 +89,4 @@ illumenate_lighting.patches.add_production_hold_fields
 illumenate_lighting.patches.add_purchasing_tracking_fields
 illumenate_lighting.patches.seed_purchasing_settings
 illumenate_lighting.patches.seed_email_templates
+illumenate_lighting.patches.add_build_points_adjustment_fields
