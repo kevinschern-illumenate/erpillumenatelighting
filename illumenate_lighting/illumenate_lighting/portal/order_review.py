@@ -349,6 +349,17 @@ def before_submit(order, method=None):
 					):
 						frappe.throw(f"Row {row.idx}: every run in the group needs an active submitted BOM")
 					continue
+			if row.get("ill_configured_fixture"):
+				from illumenate_lighting.illumenate_lighting.api import fixture_fulfillment
+
+				fixture = frappe.get_doc("ilL-Configured-Fixture", row.ill_configured_fixture)
+				if fixture_fulfillment.is_ship_pieces(fixture):
+					# Ships in pieces: every light engine needs its BOM and the bundle must match.
+					try:
+						fixture_fulfillment.verify(fixture, row.item_code)
+					except ValueError as exc:
+						frappe.throw(f"Row {row.idx}: {exc}")
+					continue
 			bom = row.get("ill_bom") or row.get("bom_no")
 			if not bom or not frappe.db.exists(
 				"BOM", {"name": bom, "item": row.item_code, "docstatus": 1, "is_active": 1}

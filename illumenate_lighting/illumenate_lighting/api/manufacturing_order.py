@@ -30,6 +30,17 @@ def pinned_build(row):
 			return None  # Historical single fixtures retain their existing adapter.
 		build = import_module("illumenate_lighting.illumenate_lighting.api." + module).snapshot(doc)
 		bom = row.get("ill_bom") or row.get("bom_no")
+		if doctype == "ilL-Configured-Fixture" and build.get("fulfillment"):
+			from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import verify
+
+			# Ships in pieces: the row orders the bundle; each light engine has the BOM.
+			if row.item_code != doc.configured_item or bom:
+				raise ValueError(
+					f"Row {row.idx}: Item {row.item_code} must be the ship-in-pieces bundle {doc.configured_item} "
+					f"of its pinned build {doc.name}, with no BOM on the row. Reconfigure the row or pick the build's own Item."
+				)
+			verify(doc, row.item_code)
+			return doc, build
 		if row.item_code != doc.configured_item or bom != doc.bom:
 			raise ValueError(
 				f"Row {row.idx}: Item {row.item_code} / BOM {bom} must match its pinned configured build "
@@ -131,11 +142,68 @@ def _create_for_bundle(order, row, members):
 			"remarks": traveler(build),
 		}
 		# Optional links: ERPNext's bundle field and this app's build references.
+		member_field = (
+			"ill_configured_fixture"
+			if doctype == "Light Engine"  # fixture_group_order.LIGHT_ENGINE
+			else next(field for name, _m, field in MEMBER_SOURCES if name == doctype)
+		)
 		optional = {
 			"product_bundle_item": row.item_code,
 			"ill_configured_group": row.get("ill_configured_group"),
-			next(field for name, _m, field in MEMBER_SOURCES if name == doctype): doc.name,
+			member_field: doc.name,
 		}
+		data.update({field: value for field, value in optional.items() if meta.has_field(field)})
+		work = frappe.get_doc(data)
+		work.insert(ignore_permissions=True)
+		names.append(work.name)
+		created = True
+	return {"success": True, "created": {"work_order": created}, "work_orders": names, "messages": []}
+
+
+def _create_for_light_engines(order, row, doc, build):
+	"""One Work Order per light engine of a ship-in-pieces line; the kit is picked from stock."""
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import light_engines, traveler_lines
+
+	qty = finite_number(row.qty, minimum=1, field="complete build quantity")
+	if not qty.is_integer() or float(row.get("conversion_factor") or 1) != 1:
+		raise ValueError("Configured builds require whole quantities in their stock UOM")
+	engines = light_engines(doc)
+	existing = frappe.get_all(
+		"Work Order",
+		filters={"sales_order": order.name, "sales_order_item": row.name, "docstatus": ["<", 2]},
+		fields=["name", "production_item", "bom_no", "qty", "status"],
+	)
+	expected = {code: bom for _engine, code, bom in engines}
+	if any(
+		w.production_item not in expected or w.bom_no != expected[w.production_item] or w.status == "Stopped"
+		for w in existing
+	):
+		raise ValueError(
+			"Existing production differs or is stopped; Manufacturing must reconcile this order line"
+		)
+	meta = frappe.get_meta("Work Order")
+	created, names = False, [w.name for w in existing]
+	kit_notes = traveler_lines(doc)
+	for engine, code, bom in engines:
+		planned = sum(float(w.qty) for w in existing if w.production_item == code)
+		remaining = qty * engine["qty"] - planned
+		if remaining < 0:
+			raise ValueError("Planned production exceeds this order line; Manufacturing must reconcile demand")
+		if remaining == 0:
+			continue
+		notes = [*traveler_lines(doc, engine), "Packed with this order line (from stock):", *kit_notes]
+		data = {
+			"doctype": "Work Order",
+			"company": order.company,
+			"production_item": code,
+			"bom_no": bom,
+			"qty": remaining,
+			"use_multi_level_bom": 0,
+			"sales_order": order.name,
+			"sales_order_item": row.name,
+			"remarks": traveler(build) + "<br>" + "<br>".join(html.escape(line) for line in notes),
+		}
+		optional = {"product_bundle_item": row.item_code, "ill_configured_fixture": doc.name}
 		data.update({field: value for field, value in optional.items() if meta.has_field(field)})
 		work = frappe.get_doc(data)
 		work.insert(ignore_permissions=True)
@@ -157,6 +225,8 @@ def create_for_line(order, row):
 	if pinned is None:
 		return None
 	doc, build = pinned
+	if doc.doctype == "ilL-Configured-Fixture" and build.get("fulfillment"):
+		return _create_for_light_engines(order, row, doc, build)
 	qty = finite_number(row.qty, minimum=1, field="complete build quantity")
 	if not qty.is_integer() or float(row.get("conversion_factor") or 1) != 1:
 		raise ValueError("Configured builds require whole quantities in their stock UOM")

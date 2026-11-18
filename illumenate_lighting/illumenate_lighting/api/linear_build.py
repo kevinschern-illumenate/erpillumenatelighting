@@ -47,6 +47,10 @@ def material_variant(doc, overrides):
 
 	require("engineering")
 	build = snapshot(doc)
+	if build.get("fulfillment"):
+		raise ValueError(
+			"This fixture ships in pieces. Add extra parts as their own order lines instead of editing its materials."
+		)
 	components = validate_material_additions(
 		build["components"],
 		overrides,
@@ -241,10 +245,25 @@ def finish(doc, inputs, computed, resolved, include_power, override, *, in_memor
 	cables = cable_manifest(doc)
 	doc.cable_manifest_json = canonical_json(cables)
 	components = build_fixture_bom_items(doc)
+	engine_version, fulfillment = ENGINE_VERSION, None
+	from illumenate_lighting.illumenate_lighting.api import fixture_fulfillment
+
+	if fixture_fulfillment.split_enabled():
+		# Assembled vs ship in pieces: decided per segment against one stick, then sealed.
+		from illumenate_lighting.illumenate_lighting.api.manufacturing_generator import _get_tape_item
+
+		fulfillment, components = fixture_fulfillment.plan(doc, computed, components, cables, _get_tape_item(doc))
+		computed = {**computed, "assembly_mode": fulfillment["mode"]}
+		doc.assembly_mode = fulfillment["mode"]
+		if fulfillment["mode"] == fixture_fulfillment.SHIP_PIECES:
+			engine_version = fixture_fulfillment.ENGINE_VERSION
+			doc.engine_version = engine_version
+		else:
+			fulfillment = None  # Assembled builds keep today's identity.
 	# Profile, lens, endcaps, mounting and tape are priced and built from these rows.
 	assert_enabled([row.get("item_code") for row in components], "this fixture")
 	value = {
-		"engine_version": ENGINE_VERSION,
+		"engine_version": engine_version,
 		# The customer-facing part number is part of the identity, so a changed attribute
 		# code (e.g. an Environment Rating moving from I/O to 20/54/67) yields a new build
 		# instead of reusing an older record that carries the old-format number.
@@ -272,6 +291,8 @@ def finish(doc, inputs, computed, resolved, include_power, override, *, in_memor
 			driver=doc.drivers[0].driver_item if doc.drivers else None,
 		),
 	}
+	if fulfillment:
+		value["fulfillment"] = fulfillment
 	doc.config_hash = fingerprint(value)
 	doc.build_snapshot_json = canonical_json(value)
 	doc.component_manifest_json = canonical_json(components)
