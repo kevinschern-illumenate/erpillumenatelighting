@@ -230,15 +230,108 @@
       <div class="grid">${tableCard('What to order', 'Short = open demand from submitted orders and active work orders, minus stock on hand and on order. Draft MR creates an unsubmitted Material Request for Stores - ilL.', head, firm.map(r => tr(r, r.short_firm)))}
       <div class="card flush s12"><details class="more"><summary>Only short if the draft sales orders go ahead (${maybe.length})</summary><div class="tw" style="border-top:1px solid var(--line)"><table><thead><tr>${head.map(h => `<th>${h.replace('#', '')}</th>`).join('')}</tr></thead><tbody>${maybe.map(r => tr(r, r.short_all)).join('')}</tbody></table></div></details></div></div>`;
   };
+  /* ---------------- production board (manufacturing) ----------------
+     The warehouse "Schedule Wizard", live: order queue with build points, capacity burn-down,
+     waiting for parts, shipped and on-time. Data: illumenate_lighting...production_board.get_board
+     (app endpoint, read-only). Weights and capacity: ilL-Production-Settings. */
+  const PB_API = 'illumenate_lighting.illumenate_lighting.api.production_board.get_board';
+  const PB = { data: null, err: null, busy: false, at: 0, filter: 'all', sort: 'esd' };
+  const PB_ST = { 1: ['Pend-Prod', 'info'], 2: ['In-Prod', 'good'], 3: ['Pend-Ship', 'good'], 5: ['Held', 'bad'], 7: ['Paint', 'warn'], 9: ['Waiting for parts', 'warn'] };
+  const PB_RUNS = [['runs_2c', '2C'], ['runs_3c', '3C'], ['runs_4c', '4C'], ['runs_5c', '5C'], ['runs_6c', '6C'], ['loose', 'Loose'], ['wet', 'WR'], ['fmc', 'FMC'], ['assembly', 'Assy']];
+  const pbMoney = v => v == null ? '<span class="calc">—</span>' : money(v);
+  const pbPct = (v, flag) => v == null ? '<span class="calc">—</span>' : `<span class="${flag != null && v > flag ? 'pb-hi' : ''}">${(v * 100).toFixed(1)}%</span>`;
+  const pbNum = (v, d = 1) => v == null ? '—' : (+v).toLocaleString('en-US', { maximumFractionDigits: d });
+  const pbN = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const pbCount = v => v ? pbNum(v, 2) : '<span class="calc">·</span>';
+  const pbEsd = r => { if (!r.esd) return '<span class="calc">—</span>'; const k = r.esd < PB.data.today ? 'pb-late' : r.esd === PB.data.today ? 'pb-today' : '';
+    return `<span class="${k}" title="${r.esd_is_ship_date ? 'Estimated ship date' : 'No ship date set: delivery date'}">${fmtd(r.esd)}${r.esd_is_ship_date ? '' : '*'}</span>`; };
+  const pbWarn = r => r.warnings && r.warnings.length ? ` <span class="badge warn" title="${esc(r.warnings.join('\n'))}">!</span>` : '';
+  PB.queueRows = () => {
+    const X = PB.data, flag = X.settings.commission_flag_pct;
+    let rows = X.queue.filter(r => (PB.filter === 'all' || String(r.status) === PB.filter) && rowOK(r));
+    const by = { esd: (a, b) => String(a.esd || '9').localeCompare(String(b.esd || '9')), worth: (a, b) => (b.worth || 0) - (a.worth || 0), points: (a, b) => b.points - a.points };
+    rows = rows.slice().sort(by[PB.sort] || by.esd);
+    return rows.map(r => `<tr class="${r.past_due ? 'pb-row-late' : ''}"><td>${link('sales-order', r.so, short(r.so))}${pbWarn(r)}<div class="m">${esc(r.customer || '')}</div></td>
+      <td class="num">${pbMoney(r.amount)}</td><td class="num">${pbPct(r.com_pct, flag)}</td><td>${pbEsd(r)}</td><td>${badge(PB_ST[r.status][0], PB_ST[r.status][1])}</td>
+      ${PB_RUNS.map(([k]) => `<td class="num">${pbCount(r.counts[k])}</td>`).join('')}
+      <td class="num"><b>${pbNum(r.points)}</b></td><td class="num">${pbNum(r.hours)}</td><td class="num">${r.worth == null ? '<span class="calc">—</span>' : money(r.worth)}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
+  };
+  PB.body = () => {
+    const X = PB.data;
+    if (!X) return PB.err ? `<div class="err">Couldn't load the production board: ${esc(PB.err)}</div>` : '<div class="empty">Loading the production board…</div>';
+    const flag = X.settings.commission_flag_pct, p = X.pipeline, c = X.capacity, g = X.goal, sh = X.shipped, d = X.due;
+    const pipe = [['pend_prod', 'Pend-Prod'], ['in_prod', 'In-Prod'], ['pend_ship', 'Pend-Ship'], ['wfp', 'Waiting for parts'], ['paint', 'Paint'], ['held', 'Held']]
+      .map(([k, n]) => stat(n, X.money ? money(p[k].amount) : p[k].count, `${pbN(p[k].count, 'order')} · ${pbNum(p[k].points)} pts${X.money ? ' · avg com ' + pbPct(p[k].com_pct, flag) : ''}`));
+    const nextLbl = new Date(d.next_day.date + 'T12:00').getDay() === 1 ? 'Due Monday' : 'Due tomorrow';
+    const dueCards = [['Past due', d.past_due, 'bad'], ['Due today', d.today, 'warn'], [nextLbl, d.next_day, ''], ['Due this week', d.this_week, '']]
+      .map(([n, v, k]) => stat(n, v.count, X.money ? money(v.amount) : '', v.count ? k : ''));
+    const ship = [
+      stat('Shipped today', X.money ? money(sh.today.amount) : sh.today.count, `${pbN(sh.today.count, 'shipment')}${X.money ? ' · com ' + pbPct(sh.today.com_pct, flag) : ''}`),
+      stat('Shipped this month', X.money ? money(sh.mtd.amount) : sh.mtd.count, `${pbN(sh.mtd.count, 'shipment')}${X.money ? ' · com ' + pbPct(sh.mtd.com_pct, flag) : ''}`),
+      stat('Available to ship', X.money ? money(g.available_to_ship) : '—', 'Open orders slated this month (not held)'),
+      g.month_goal ? stat('Gap to goal', money(g.gap), `Goal ${money(g.month_goal)} · need ${money(g.needed_per_day)}/day over ${g.shipping_days_left} days`, g.gap > 0 ? 'bad' : 'good')
+        : stat('Shipping days left', g.shipping_days_left, X.money ? 'Set a monthly goal in Production Settings' : ''),
+      stat('On-time this month', sh.on_time_pct == null ? '—' : Math.round(sh.on_time_pct * 100) + '%', 'Shipped by the estimated ship date, or not warehouse fault', sh.on_time_pct != null && sh.on_time_pct < 0.95 ? 'bad' : ''),
+    ];
+    const capBody = `<div class="pb-cap">
+      <div><div class="small">Workload</div><div class="pb-big">${pbNum(c.workload)} <span class="small">pts</span></div><div class="small">${pbNum(c.whse_points)} in-house (${pbNum(c.in_prod_points)} in production) + ${pbNum(c.wfp_month_points)} waiting for parts due this month</div></div>
+      <div><div class="small">Capacity per day</div><div class="pb-big">${pbNum(c.capacity_per_day)}</div><div class="small">${pbNum(X.settings.points_per_person_day)} pts × ${pbNum(X.settings.headcount, 2)} people · ${pbNum(c.left_today)} left today</div></div>
+      <div><div class="small">Days to complete</div><div class="pb-big">${pbNum(c.days_to_complete, 2)}</div></div>
+      <div><div class="small">Date clear</div><div class="pb-big">${c.date_clear ? fmtd(c.date_clear) : 'Over ' + c.burndown.length + ' workdays'}</div></div></div>`;
+    const tabs = [['all', 'All'], ['1', 'Pend-Prod'], ['2', 'In-Prod'], ['3', 'Pend-Ship'], ['7', 'Paint'], ['5', 'Held']]
+      .map(([k, n]) => `<button data-pbf="${k}" class="${PB.filter === k ? 'on' : ''}">${n}</button>`).join('');
+    const sorts = `<select id="pbsort">${[['esd', 'Ship date'], ['worth', '$ per point'], ['points', 'Points']].map(([k, n]) => `<option value="${k}" ${PB.sort === k ? 'selected' : ''}>Sort: ${n}</option>`).join('')}</select>`;
+    const qHead = ['Sales order', '#$', '#Com %', 'Ship date', 'Status', ...PB_RUNS.map(([, n]) => '#' + n), '#Points', '#Hrs', '#$ / pt', 'Notes'];
+    const wfpRows = X.wfp.filter(rowOK).map(r => `<tr class="${r.going_to_miss ? 'pb-row-late' : ''}"><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer || '')}</div></td><td class="num">${pbMoney(r.amount)}</td><td>${pbEsd(r)}</td>
+      <td>${r.eta ? fmtd(r.eta) : badge('No PO', 'bad')}</td><td>${r.going_to_miss ? badge('Going to miss', 'bad') : badge('OK', 'good')}</td><td>${r.this_month ? 'Yes' : 'No'}</td>
+      <td class="num">${pbNum(r.points)}</td><td>${r.short_items.slice(0, 4).map(s => `${link('item', s.item)} <span class="calc">${pbNum(s.qty, 2)}${r.no_po_items.includes(s.item) ? ', no PO' : ''}</span>`).join('<br>')}${r.short_items.length > 4 ? `<div class="calc">+${r.short_items.length - 4} more</div>` : ''}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
+    const shipRows = sh.rows.filter(rowOK).map(s => `<tr><td>${link('delivery-note', s.delivery_note)}</td><td>${s.so ? link('sales-order', s.so, short(s.so)) : ''}<div class="m">${esc(s.customer || '')}</div></td><td class="num">${pbMoney(s.amount)}</td><td class="num">${pbPct(s.com_pct, flag)}</td>
+      <td>${fmtd(s.esd)}</td><td>${fmtd(s.shipped)}</td><td>${s.on_time ? badge('On time', 'good') : s.not_warehouse_fault ? badge('Late, not warehouse', 'warn') : badge('Late', 'bad')}</td><td class="pb-notes">${esc(s.late_reason || '')}</td></tr>`);
+    const weekly = hbars(sh.weekly.map(w => ({ label: 'Week of ' + fmtd(w.week_of), value: w.on_time_pct == null ? 0 : w.on_time_pct * 100, color: w.on_time_pct != null && w.on_time_pct < 0.95 ? '#eb6834' : '#12b76a', title: pbN(w.shipments, 'shipment') })), { max: 100, fmt: v => Math.round(v) + '%', lw: '130px' });
+    return `${X.money ? '' : '<p class="small">Dollar figures need the Command Center Finance or Manufacturing Manager role.</p>'}
+      <div class="ex-kpis pb-kpis">${pipe.join('')}</div>
+      <div class="ex-kpis pb-kpis">${ship.join('')}</div>
+      <div class="ex-kpis pb-kpis">${dueCards.join('')}</div>
+      <div class="grid">
+        ${card('Capacity', 'Pend-Prod + In-Prod points, plus waiting-for-parts orders whose parts arrive this month', capBody, 's12')}
+        ${card('Burn-down', 'Points left at the end of each workday (holidays skipped). The dashed line is one day of capacity.', '<div class="chart" id="pbburn"></div>', 's12')}
+        <div class="card flush s12"><div class="card-h"><div><h2>Order queue</h2><div class="sub">Open sales orders by status. Points = runs by conductor count + wet, FMC, assembly and loose adders. * = no ship date set, delivery date shown.</div></div>
+          <div class="toolbar"><div class="seg">${tabs}</div>${sorts}</div></div>
+          <div class="tw"><table class="pb-q"><thead><tr>${qHead.map(h => `<th class="${h.startsWith('#') ? 'num' : ''}">${h.replace(/^#/, '')}</th>`).join('')}</tr></thead><tbody>${PB.queueRows().join('') || `<tr><td colspan="${qHead.length}" class="empty">Nothing here right now</td></tr>`}</tbody></table></div></div>
+        ${tableCard('Waiting for parts', 'Material is handed to orders in ship-date order; ETA is when open purchase orders cover what is still short.', ['Sales order', '#$', 'Ship date', 'ETA', 'Going to miss?', 'This month?', '#Points', 'Short items', 'Notes'], wfpRows)}
+        ${tableCard('Shipped this month', 'Delivery notes. On time = shipped on or before the estimated ship date.', ['Delivery note', 'Sales order', '#$', '#Com %', 'Ship date', 'Shipped', 'On time?', 'Why late'], shipRows, '', 's8')}
+        ${card('On-time by week', '', weekly, 's4')}
+      </div>`;
+  };
+  async function pbFetch(manual) {
+    if (PB.busy) return; PB.busy = true; PB.err = null;
+    try { PB.data = await call(PB_API, {}); PB.at = Date.now(); if (manual) toast('Production board refreshed'); }
+    catch (e) { PB.err = e.message; }
+    PB.busy = false;
+    if (S.view === 'mfg') { const r = $('#pbroot'); if (r) { r.innerHTML = PB.body(); PB.bind(); } }
+  }
+  PB.bind = () => {
+    root.querySelectorAll('[data-pbf]').forEach(b => b.onclick = () => { PB.filter = b.dataset.pbf; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
+    const s = $('#pbsort'); if (s) s.onchange = () => { PB.sort = s.value; $('#pbroot').innerHTML = PB.body(); PB.bind(); };
+    const X = PB.data; if (!X) return;
+    const b = X.capacity.burndown;
+    vbars($('#pbburn'), b.map(r => fmtd(r.date)), [{ name: 'Points left', color: '#2a78d6', values: b.map(r => r.remaining) }], { target: X.capacity.capacity_per_day, targetLabel: '1 day of capacity', fmt: v => Math.round(v), h: 220 });
+  };
+  PB.mount = () => {
+    const r = $('#pbrefresh'); if (r) r.onclick = () => pbFetch(true);
+    PB.bind();
+    if (!PB.busy && (!PB.data || Date.now() - PB.at > 120000)) pbFetch();
+  };
   V.mfg = m => {
     const row = w => `<tr><td>${link('work-order', w.wo)}</td><td>${link('item', w.item, w.name)}<div class="m mono">${esc(w.item)}</div></td><td class="num">${w.qty}</td><td>${link('sales-order', w.so, short(w.so))}</td><td>${fmtd(w.created)}</td><td>${w.flag === 'Active' ? badge(w.status, w.draft ? 'warn' : 'info') : badge(w.flag.split(':')[0].split(' (')[0], 'bad')}</td></tr>`;
-    return header('Manufacturing', "Production load against Ryan's 30 hours a week.") + `<div class="grid">
-      <div class="card s4"><div class="eyebrow">Capacity this week</div><div class="ring-wrap" style="margin-top:12px">${ring('—', 30, '#2a78d6', 'of 30 hrs', 120)}<div class="d" style="font-size:12.5px;color:var(--ink2)">Hours can't be calculated yet: BOMs have no operation times. With standard minutes per fixture family, this becomes a live load gauge.</div></div></div>
-      ${card('Work order health', '', hbars([{ label: 'Active', value: m.act.length, color: '#2a78d6' }, { label: 'Duplicate or stale drafts', value: m.dup.length, color: '#eb6834' }, { label: 'Order lines with no work order', value: D.needwo.length, color: '#98a2b3' }], { lw: '220px' }), 's8')}
+    return header('Manufacturing', 'Production board: what to build, how long the queue takes with today\'s crew, and what is waiting on parts.',
+      `<div class="toolbar no-print"><a class="cc-btn soft" style="text-decoration:none" href="/app/ill-production-settings" target="_blank" rel="noopener">Weights &amp; capacity</a><button class="cc-btn soft" id="pbrefresh">Refresh</button></div>`) +
+      `<div id="pbroot">${PB.body()}</div>
+      <div class="grid" style="margin-top:20px"><div class="card flush s12"><details class="more"><summary>Work order clean-up (${m.act.length} active · ${m.dup.length} duplicate or stale · ${D.needwo.length} lines with no work order)</summary><div class="grid" style="padding:0 16px 16px">
       ${tableCard('Active work orders', '', ['Work order', 'Item', '#Qty', 'Sales order', 'Created', 'Status'], D.mfg.filter(w => w.flag === 'Active' && rowOK(w)).map(row))}
       ${tableCard('Order lines that need a work order', 'Items with a BOM on submitted sales orders but no work order', ['Item', 'Sales order', '#Qty'], D.needwo.filter(rowOK).map(n => `<tr><td>${link('item', n.item)}</td><td>${link('sales-order', n.so, short(n.so))}</td><td class="num">${n.qty}</td></tr>`), '', 's6')}
       ${tableCard('Duplicate and stale drafts', 'Review and delete in ERPNext', ['Work order', 'Item', '#Qty', 'Sales order', 'Created', 'Flag'], D.mfg.filter(w => w.flag !== 'Active' && rowOK(w)).map(row), '', 's6')}
-    </div>`;
+      </div></details></div></div>`;
   };
   V.ship = m => {
     const rows = D.ship.filter(rowOK);
@@ -825,7 +918,7 @@
     CUR_STEP = null; WORK_SEG = false; CUR_LINKS = null;
     $('#ccmain').innerHTML = html;
     bind(); bindProjects(); bindPipe(); if (wbIsView()) WB.mount();
-    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount();
+    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount(); if (v === 'mfg') PB.mount();
     root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { location.hash = b.dataset.go; });
   }
   function bind() {

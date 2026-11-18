@@ -36,7 +36,23 @@ const gwReply = b => {
   if (b.action === 'feed') return { rows:[{creation:'2026-11-17 10:00:00',owner:'kevins@x.com',content:'Command Center: edited by kevins (status: Open -> Working)',reference_doctype:'Task',reference_name:'TASK-2'}] };
   throw new Error('unknown ' + b.action);
 };
+const cnt = o => Object.assign({ runs_2c:0, runs_3c:0, runs_4c:0, runs_5c:0, runs_6c:0, loose:0, wet:0, fmc:0, assembly:0 }, o);
+const bucket = (n, a, p) => ({ count:n, amount:a, com:a*0.2, com_pct:0.2, points:p });
+const BOARD = { as_of:'2026-11-17T10:00:00', today:TODAY, money:true,
+ settings:{ points_per_person_day:57.5, headcount:5.5, capacity_per_day:316.25, points_per_hour:6.76, commission_flag_pct:0.22, weights:{} },
+ pipeline:{ pend_prod:bucket(1,727,2), in_prod:bucket(1,25251.88,322), pend_ship:bucket(0,0,0), wfp:bucket(1,19459.84,41), paint:bucket(0,0,0), held:bucket(0,0,0) },
+ due:{ past_due:{count:1,amount:727}, today:{count:0,amount:0}, next_day:{count:0,amount:0,date:'2026-11-18'}, this_week:{count:1,amount:25251.88} },
+ capacity:{ whse_points:324, in_prod_points:322, wfp_month_points:41, workload:365, capacity_per_day:316.25, left_today:120, days_to_complete:1.15, date_clear:'2026-11-18', burndown:[{date:'2026-11-17',capacity:120,remaining:245},{date:'2026-11-18',capacity:316.25,remaining:0}], overtime:{daily:0,days:0,weekend:0} },
+ queue:[ { so:'ilL-SAL-ORD-67312', customer:'Wichita', amount:25251.88, com_pct:0.19, com:4797, esd:'2026-11-20', esd_is_ship_date:true, status:2, status_label:'In-Prod', counts:cnt({runs_2c:23, wet:92, fmc:69}), points:322, hours:47.6, worth:63.51, notes:'A lns', warnings:[], work_orders:2, short_items:[], no_po_items:[], eta:null, going_to_miss:false, this_month:true, past_due:false },
+   { so:'ilL-SAL-ORD-68686', customer:'B', amount:727, com_pct:0.25, com:181, esd:'2026-11-10', esd_is_ship_date:false, status:1, status_label:'Pend-Prod', counts:cnt({runs_2c:2}), points:2, hours:0.3, worth:272.75, notes:'', warnings:['Conductor count unknown'], work_orders:1, short_items:[], no_po_items:[], eta:null, going_to_miss:false, this_month:true, past_due:true } ],
+ wfp:[ { so:'ilL-SAL-ORD-68552', customer:'C', amount:19459.84, com_pct:0.1, com:1946, esd:'2026-11-19', esd_is_ship_date:true, status:9, status_label:'Waiting for parts', counts:cnt({runs_2c:41}), points:41, hours:6, worth:427, notes:'41 runs', warnings:[], work_orders:1, short_items:[{item:'EXT-1',qty:12},{item:'TAPE-9',qty:3}], no_po_items:['TAPE-9'], eta:null, going_to_miss:true, this_month:false, past_due:false } ],
+ shipped:{ today:{count:1,amount:14646.36,com:2298,com_pct:0.157}, mtd:{count:2,amount:20000,com:3000,com_pct:0.15}, on_time_pct:0.5, weekly:[{week_of:'2026-11-16',shipments:2,on_time_pct:0.5}],
+   rows:[ { delivery_note:'DN-1', so:'ilL-SAL-ORD-1', customer:'A', amount:14646.36, com_pct:0.157, com:2298, esd:'2026-11-17', shipped:'2026-11-17', on_time:true, not_warehouse_fault:false, late_reason:null },
+          { delivery_note:'DN-2', so:'ilL-SAL-ORD-2', customer:'B', amount:5353.64, com_pct:0.14, com:750, esd:'2026-11-10', shipped:'2026-11-12', on_time:false, not_warehouse_fault:false, late_reason:'Short extrusion' } ] },
+ goal:{ month_goal:250000, shipped_mtd:20000, available_to_ship:45438.72, gap:184561.28, shipping_days_left:9, needed_per_day:20506.81 } };
+let boardMoney = true, boardCalls = 0;
 w.fetch = async (url, opt) => { const ok = (m) => ({ ok:true, status:200, json: async () => ({ message: m }) });
+  if (url.endsWith('production_board.get_board')) { boardCalls++; return ok(boardMoney ? BOARD : Object.assign({}, BOARD, { money:false })); }
   if (url.startsWith('/api/method/ill_command_center')) return ok(D);
   if (url === '/api/method/ill_cc_gateway') { try { return ok(gwReply(JSON.parse(opt.body))); } catch (e) { return { ok:false, status:417, json: async () => ({ exception: e.message }) }; } }
   return { ok:false, status:404, json: async () => ({}) }; };
@@ -84,6 +100,24 @@ const go = async h => { w.location.hash = h; await sleep(120); };
   feedFail = true; const before = calls.length; await go('review'); await sleep(400);
   check('review feed failure does not loop', calls.filter(c => c === 'feed').length - calls.slice(0, before).filter(c => c === 'feed').length <= 1);
   feedFail = false;
+  await go('mfg'); await sleep(250);
+  check('mfg board loads from app endpoint', boardCalls === 1 && /Order queue/.test(txt()));
+  check('mfg pipeline + capacity', /In-Prod/.test(txt()) && /\$25,252/.test(txt()) && /Days to complete/.test(txt()) && /Date clear/.test(txt()));
+  check('mfg queue shows build points and worth', /322/.test(txt()) && /\$64/.test(txt()) && /A lns/.test(txt()));
+  check('mfg burn-down chart drawn', !!w.document.querySelector('#pbburn svg'));
+  check('mfg waiting for parts with no PO', /Waiting for parts/.test(txt()) && /No PO/.test(txt()) && /Going to miss/.test(txt()));
+  check('mfg shipped + on-time', /Shipped this month/.test(txt()) && /Short extrusion/.test(txt()) && /50%/.test(txt()));
+  check('mfg goal gap', /Gap to goal/.test(txt()) && /\$184,561/.test(txt()));
+  check('mfg past-due row flagged', !!w.document.querySelector('tr.pb-row-late'));
+  w.document.querySelector('[data-pbf="1"]').click(); await sleep(50);
+  check('mfg status filter', /68686/.test(txt()) && !/67312/.test(txt()));
+  w.document.querySelector('[data-pbf="all"]').click(); await sleep(50);
+  const sel = w.document.querySelector('#pbsort'); sel.value = 'worth'; sel.dispatchEvent(new w.Event('change')); await sleep(50);
+  check('mfg sort by $ per point', txt().indexOf('68686') < txt().indexOf('67312'));
+  check('mfg keeps work order clean-up', /Work order clean-up/.test(txt()));
+  boardMoney = false; w.document.querySelector('#pbrefresh').click(); await sleep(150);
+  check('mfg hides dollars without role', /need the Command Center Finance/.test(txt()));
+  boardMoney = true;
   for (const v of ['quotes','orders','purch','mfg','ship','service','requests','inbox','finance','work','p-PROJ-1','so-ilL-SAL-ORD-1','rec']) { await go(v); check('view ' + v + ' renders', txt().length > 50 && !/Couldn't load data/.test(txt())); }
   console.log('gateway actions seen:', [...new Set(calls)].join(','));
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS'); process.exit(errs.length ? 1 : 0);

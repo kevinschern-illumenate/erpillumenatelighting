@@ -1,6 +1,6 @@
 # Manufacturing difficulty points and Production Board: implementation plan
 
-Date: 2026-11-18. Status: phase 1 (build points data) implemented; phases 2-4 proposed. Decisions in section 6.
+Date: 2026-11-18. Status: phases 1 (build points data) and 2 (production board) implemented; phases 3-4 proposed. Decisions in section 6.
 
 ## Goal
 
@@ -369,3 +369,25 @@ Phase 1 is useful on its own: every SO will show its point total and per-conduct
 - Tests: `tests/portal_unit/test_build_points.py`, including the workbook's CapFinal rows.
 
 Run again at any time with `bench --site <site> execute illumenate_lighting.illumenate_lighting.api.build_points.backfill --kwargs "{'force': 1}"`.
+
+## 8. Phase 2 as built
+
+- `api/production_board.py`: `get_board` (whitelisted, read-only, role-checked; dollars only for finance or manufacturing-manager roles). Pure helpers carry the logic:
+  - `order_status`;
+  - `allocate` (stock handed out in ship-date order, ETA from open POs);
+  - `workdays`, `burndown` (partial first day, daily and Monday weekend overtime);
+  - `shift_left_fraction`, `on_time_rows`.
+- `patches/add_production_board_fields.py`:
+  - Sales Order `ill_production_status_override` (Paint / Held / Waiting for parts) and `ill_floor_notes`;
+  - Delivery Note `ill_not_warehouse_fault` and `ill_late_reason`.
+- Settings: `ot_daily_days`, `monthly_revenue_goal`.
+- `command_center/page/cc.js` / `cc.css`: the Manufacturing view rebuilt as the board (`PB` object, 2-minute refresh). Old WO tables are kept in a collapsed card.
+- Tests:
+  - `tests/portal_unit/test_production_board.py`, which includes the February workbook burn-down (1,790.05 pts, clears on day 6) and SO 67312's $63.51 per point;
+  - `command_center/tests/smoke.js`, with production board checks added.
+
+Known simplifications:
+
+- Stock on hand is the total `actual_qty` across all warehouses. It ignores reservations.
+- Shortages are checked only for Draft / Not Started Work Orders, because in-process ones already have material issued.
+- "Available to ship" counts open orders (not held), except waiting-for-parts orders whose parts arrive after month end.

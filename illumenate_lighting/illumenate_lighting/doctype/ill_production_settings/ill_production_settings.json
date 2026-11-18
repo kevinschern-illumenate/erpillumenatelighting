@@ -28,11 +28,13 @@
   "section_overtime",
   "ot_daily_headcount",
   "ot_daily_hours",
+  "ot_daily_days",
   "column_break_overtime",
   "ot_weekend_headcount",
   "ot_weekend_hours",
   "section_commission",
-  "commission_flag_pct"
+  "commission_flag_pct",
+  "monthly_revenue_goal"
  ],
  "fields": [
   {
@@ -213,6 +215,15 @@
    "non_negative": 1
   },
   {
+   "fieldname": "ot_daily_days",
+   "fieldtype": "Int",
+   "label": "Daily Overtime Days",
+   "default": "0",
+   "reqd": 1,
+   "non_negative": 1,
+   "description": "How many workdays, starting today, the daily overtime runs."
+  },
+  {
    "fieldname": "column_break_overtime",
    "fieldtype": "Column Break"
   },
@@ -236,7 +247,7 @@
   {
    "fieldname": "section_commission",
    "fieldtype": "Section Break",
-   "label": "Commission"
+   "label": "Commission & Goal"
   },
   {
    "fieldname": "commission_flag_pct",
@@ -246,6 +257,14 @@
    "reqd": 1,
    "description": "Orders with a higher commission rate are shown in red.",
    "non_negative": 1
+  },
+  {
+   "fieldname": "monthly_revenue_goal",
+   "fieldtype": "Currency",
+   "label": "Monthly Shipping Goal",
+   "default": "0",
+   "non_negative": 1,
+   "description": "Shipped revenue goal for the current month. The board shows the gap and the dollars needed per shipping day."
   }
  ],
  "index_web_pages_for_search": 0,

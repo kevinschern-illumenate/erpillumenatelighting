@@ -18,6 +18,25 @@ Not in this folder: `cc.html` (unchanged, still what is live) and `ss/cc_api.py`
 - **Saved views** (Phase 4): name and reuse filters on the Tasks list and on every Workbench list. Stored in the browser (localStorage) under the signed-in user, so they do not follow someone to another computer.
 - **Activity feed** (Phase 4): built from the "Command Center:" comments the gateway writes; shown on Executive, per project on Review, and per record in the Workbench sheet. People only see changes to records they can read.
 
+## Manufacturing: production board
+
+The Manufacturing step (`#mfg`) is the warehouse "Schedule Wizard" workbook, live. Its data comes from the app endpoint `illumenate_lighting.illumenate_lighting.api.production_board.get_board`, which is ordinary app code and not a Server Script, so it is deployed with the app. It is read-only and needs Command Center Viewer, Manufacturing User/Manager or System Manager. Dollar columns need Command Center Finance, Manufacturing Manager, Accounts Manager or System Manager; everyone else sees points only.
+
+- Pipeline cards: Pend-Prod / In-Prod / Pend-Ship / Waiting for parts / Paint / Held, each with $, number of orders, points and average commission. Commission above the flag (22% by default) shows red.
+- Shipped today and this month, available to ship, gap to the monthly goal with dollars needed per shipping day, on-time %.
+- Due: past due, today, tomorrow (Monday on a Friday), this week.
+- Capacity: workload, capacity per day (points per person per day × head count), days to complete, date clear, and a 22-workday burn-down that skips weekends and the holiday list.
+- Order queue: 2C–6C runs, Loose, WR, FMC, Assy, points, hours, $ per point and floor notes. It can be filtered by status and sorted by ship date, $ per point or points.
+- Waiting for parts: what's short after stock is handed out in ship-date order, the ETA from open purchase orders, and whether the order is going to miss its date.
+- Shipped this month: delivery notes, on time or late, the reason, and on-time % by week.
+- The previous work-order tables are in a collapsed "Work order clean-up" card at the bottom.
+
+**Status rules:** the floor override on the Sales Order comes first. Then On Hold or a stopped WO means Held. All WOs complete means Pend-Ship. Any WO in process means In-Prod. Material short means Waiting for parts. Anything else is Pend-Prod.
+
+**Ship date:** the Sales Order's Estimated Ship Date. If that's blank, the delivery date is used, shown with a `*`.
+
+**Weights, capacity, head count, overtime, holiday list and monthly goal:** Desk → ilL-Production-Settings ("Weights & capacity" button on the page).
+
 ## Fixes made while building this (versus the v4 files)
 
 1. **`cc_gateway.py` would not save as a Server Script.** Frappe's sandbox (RestrictedPython) rejects names starting with `_` (`_gate`, `_roles`, ...). It also cannot see top-level helpers/constants from inside functions, and does not expose `frappe.get_roles` / `frappe.has_permission`. The script is now a single `main()` with closures, roles come from the `Has Role` table, permissions from `Document.has_permission()`.
