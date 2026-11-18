@@ -24,8 +24,14 @@
 		return esc((hash || '').slice(0, 12)) || '—';
 	}
 
-	function call(method, args) {
-		return frappe.call({ method: API + method, type: 'POST', args: args });
+	function call(method, args, freeze) {
+		var options = { method: API + method, type: 'POST', args: args };
+		if (freeze) options.freeze = true;
+		return frappe.call(options);
+	}
+
+	function errorText(error) {
+		return (error && error.message) || __('The request failed. Correct the reported error and retry.');
 	}
 
 	async function brandChoices() {
@@ -46,11 +52,17 @@
 		return fallback ? fallback.name : '';
 	}
 
-	function renderPanel(frm, brands, brand, result, job) {
+	function renderPanel(frm, brands, brand, result, job, error) {
 		var html = '<p><label>' + esc(__('Brand')) + ' <select class="form-control input-sm ill-gallery-brand">' +
 			brands.map(function (row) {
 				return '<option value="' + esc(row.name) + '"' + (row.name === brand ? ' selected' : '') + '>' + esc(row.name) + '</option>';
 			}).join('') + '</select></label></p>';
+		if (!brand) {
+			html = '<p class="text-muted">' + esc(__('No Webflow brand is enabled for this gallery.')) + '</p>';
+		}
+		if (error) {
+			html += '<p class="text-danger">' + esc(__('Inspection failed')) + ': ' + esc(error) + '</p>';
+		}
 		if (result) {
 			var readiness = result.readiness || {};
 			html += '<p>' + esc(result.state) + ' &middot; ' + short(result.current_hash) + '</p>';
@@ -77,16 +89,36 @@
 		});
 	}
 
-	function request(frm, brand, operation) {
+	// One action at a time, only on a saved form; failures are shown, never thrown.
+	function guarded(frm, action) {
 		return async function () {
+			if (frm.__ill_gallery_busy) return;
+			if (frm.is_dirty()) {
+				frappe.msgprint(esc(__('Save the gallery first.')));
+				return;
+			}
+			frm.__ill_gallery_busy = true;
+			try {
+				await action();
+				await frm.reload_doc();
+			} catch (error) {
+				frappe.msgprint(esc(errorText(error)));
+				await render(frm);
+			} finally {
+				frm.__ill_gallery_busy = false;
+			}
+		};
+	}
+
+	function request(frm, brand, operation) {
+		return guarded(frm, async function () {
 			var current = await call('inspect', { gallery: frm.doc.name, brand: brand });
 			var receipt = await call('request', {
 				gallery: frm.doc.name, brand: brand, operation: operation,
 				expected_hash: current.message.current_hash,
-			});
+			}, true);
 			frappe.show_alert({ message: __('Publication job: {0}', [receipt.message.job]), indicator: 'green' });
-			await render(frm);
-		};
+		});
 	}
 
 	async function render(frm) {
@@ -96,6 +128,7 @@
 		var brands = await brandChoices();
 		var brand = frm.__ill_gallery_brand || defaultBrand(frm, brands);
 		if (!brand) { renderPanel(frm, brands, '', null, null); return; }
+		var dirty = !!frm.is_dirty();
 		var result, job;
 		try {
 			result = (await call('inspect', { gallery: frm.doc.name, brand: brand })).message;
@@ -105,22 +138,24 @@
 				order_by: 'creation desc', limit: 1,
 			}))[0];
 		} catch (error) {
+			renderPanel(frm, brands, brand, null, null, errorText(error));
 			return;
 		}
 		renderPanel(frm, brands, brand, result, job);
 		var group = __('Publication');
-		frm.add_custom_button(__('Approve and Stage'), request(frm, brand, 'STAGE'), group);
+		var stage = frm.add_custom_button(__('Approve and Stage'), request(frm, brand, 'STAGE'), group);
+		if (stage && stage.prop) stage.prop('disabled', dirty);
 		var publish = frm.add_custom_button(__('Publish Live'), request(frm, brand, 'PUBLISH'), group);
 		var ready = result.state === 'STAGED' && !!result.current_hash &&
 			result.approved_hash === result.current_hash && result.staged_hash === result.current_hash;
-		if (publish && publish.prop) publish.prop('disabled', !ready);
+		if (publish && publish.prop) publish.prop('disabled', dirty || !ready);
 		var retire = frm.add_custom_button(__('Retire'), request(frm, brand, 'RETIRE'), group);
-		if (retire && retire.prop) retire.prop('disabled', !!frm.doc.is_active);
+		if (retire && retire.prop) retire.prop('disabled', dirty || !!frm.doc.is_active);
 		if (job && job.state === 'FAILED') {
-			frm.add_custom_button(__('Retry'), async function () {
-				await call('retry', { job: job.name });
-				await render(frm);
-			}, group);
+			var retry = frm.add_custom_button(__('Retry'), guarded(frm, async function () {
+				await call('retry', { job: job.name }, true);
+			}), group);
+			if (retry && retry.prop) retry.prop('disabled', dirty);
 		}
 	}
 

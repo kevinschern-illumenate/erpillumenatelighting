@@ -23,7 +23,7 @@ const receipt = (extra = {}) => ({
   ...extra,
 });
 
-function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false } = {}) {
+function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dirty = false, requestError = null, inspectError = null, noBrands = false, gate = null } = {}) {
   const dom = new JSDOM('<html><body></body></html>');
   t.after(() => dom.window.close());
   const $ = jquery(dom.window);
@@ -32,6 +32,8 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false } = 
   const events = {};
   const sections = [];
   const alerts = [];
+  const messages = [];
+  const reloads = [];
   const frappe = {
     ui: { form: { on(doctype, handlers) { events[doctype] = handlers; } } },
     utils: { escape_html: s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) },
@@ -39,29 +41,38 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false } = 
       async get_list(doctype, opts) {
         calls.push({ list: doctype, opts });
         if (doctype === 'ilL-Webflow-Brand') {
-          return [{ name: 'lighting_206', is_default: 0 }, { name: 'illumenate', is_default: 1 }];
+          return noBrands ? [] : [{ name: 'lighting_206', is_default: 0 }, { name: 'illumenate', is_default: 1 }];
         }
         return jobs;
       },
     },
     async call(args) {
       calls.push(args);
-      if (args.method === API + 'inspect') return { message: inspect };
-      if (args.method === API + 'request') return { message: { job: 'JOB-9', ...inspect } };
+      if (args.method === API + 'inspect') {
+        if (inspectError) throw inspectError;
+        if (gate) await gate;
+        return { message: inspect };
+      }
+      if (args.method === API + 'request') {
+        if (requestError) throw requestError;
+        return { message: { job: 'JOB-9', ...inspect } };
+      }
       return { message: { job: args.args.job, state: 'QUEUED' } };
     },
     show_alert(a) { alerts.push(a); },
+    msgprint(m) { messages.push(m); },
   };
   const frm = {
     doc: { name: 'g1', is_active: 0, target_brands: [{ brand: 'lighting_206', enabled: 1 }], ...doc },
     is_new: () => isNew,
+    is_dirty: () => dirty,
     add_custom_button(label, fn) {
       const $button = $('<button>');
       buttons[label] = { fn, $button };
       return $button;
     },
     remove_custom_button(label) { delete buttons[label]; },
-    reload_doc() {},
+    async reload_doc() { reloads.push(1); },
     dashboard: { add_section(html) { const $s = $(html); sections.push($s); return $s; } },
     fields_dict: { gallery_images: { set_description(text) { frm.description = text; } } },
   };
@@ -70,7 +81,7 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false } = 
     fs.readFileSync(modulePath, 'utf8') + '\nreturn typeof module !== "undefined" ? module.exports : null;');
   const mod = { exports: {} };
   factory(context.window, frappe, context.__, context.document, mod, mod.exports);
-  return { api: mod.exports, frm, buttons, calls, sections, alerts, frappe, events, $ };
+  return { api: mod.exports, frm, buttons, calls, sections, alerts, messages, reloads, frappe, events, $ };
 }
 
 const text = s => s.sections.map(x => x.text()).join('\n');
@@ -130,6 +141,8 @@ test('Approve and Stage inspects first, then requests with the hash inspect retu
 test('Publish Live and Retire request their operations', async t => {
   const s = setup(t, { inspect: receipt({ state: 'STAGED', approved_hash: 'cur', staged_hash: 'cur' }) });
   await s.api.refresh(s.frm);
+  assert.equal(s.buttons['Publish Live'].$button.prop('disabled'), false);
+  assert.equal(s.buttons.Retire.$button.prop('disabled'), false);
   s.calls.length = 0;
   await s.buttons['Publish Live'].fn();
   await s.buttons.Retire.fn();
@@ -199,4 +212,83 @@ test('the form script wires refresh to the shared module', async t => {
   assert.equal(seen[0][0], 'ilL-Webflow-Gallery');
   seen[0][1].refresh(s.frm);
   assert.equal(seen[1][1], s.frm);
+});
+
+test('a dirty form blocks every action: no server call, a message, buttons disabled', async t => {
+  const s = setup(t, { dirty: true, jobs: [{ name: 'JOB-3', state: 'FAILED', operation: 'STAGE', last_error: 'x' }],
+    inspect: receipt({ state: 'STAGED', approved_hash: 'cur', staged_hash: 'cur' }) });
+  await s.api.refresh(s.frm);
+  for (const label of ['Approve and Stage', 'Publish Live', 'Retire', 'Retry']) {
+    assert.equal(s.buttons[label].$button.prop('disabled'), true, label);
+  }
+  s.calls.length = 0;
+  for (const label of ['Approve and Stage', 'Publish Live', 'Retire', 'Retry']) await s.buttons[label].fn();
+  assert.equal(s.calls.length, 0);
+  assert.equal(s.messages.length, 4);
+  assert.match(s.messages[0], /Save the gallery first/);
+  assert.equal(s.reloads.length, 0);
+});
+
+test('a second click while an action is in flight sends nothing', async t => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const s = setup(t, { gate: null });
+  await s.api.refresh(s.frm);
+  s.calls.length = 0;
+  // Hold the first action inside inspect by making the next inspect wait.
+  const original = s.frappe.call;
+  s.frappe.call = async args => { if (args.method === API + 'inspect') await gate; return original(args); };
+  const first = s.buttons['Approve and Stage'].fn();
+  await flush();
+  await s.buttons['Approve and Stage'].fn();
+  await s.buttons.Retire.fn();
+  release();
+  await first;
+  const methods = s.calls.filter(c => c.method).map(c => c.method);
+  assert.deepEqual(methods, [API + 'inspect', API + 'request']);
+  assert.equal(s.frm.__ill_gallery_busy, false);
+});
+
+test('an inspect failure renders an escaped error line in the panel and no buttons', async t => {
+  const s = setup(t, { inspectError: { message: '<i>boom</i>' } });
+  await s.api.refresh(s.frm);
+  const html = s.sections.map(x => x.html()).join('');
+  assert.ok(!html.includes('<i>boom</i>'));
+  assert.match(text(s), /Inspection failed: <i>boom<\/i>/);
+  assert.equal(s.sections[0].find('.text-danger').length, 1);
+  assert.deepEqual(Object.keys(s.buttons), []);
+});
+
+test('a failed request clears the busy flag, shows the escaped message and does not reload', async t => {
+  const s = setup(t);
+  await s.api.refresh(s.frm);
+  s.frappe.call = (orig => async args => {
+    if (args.method === API + 'request') throw { message: 'Hash <b>changed</b>' };
+    return orig(args);
+  })(s.frappe.call);
+  await s.buttons['Approve and Stage'].fn();
+  assert.equal(s.frm.__ill_gallery_busy, false);
+  assert.equal(s.messages.length, 1);
+  assert.equal(s.messages[0], 'Hash &lt;b&gt;changed&lt;/b&gt;');
+  assert.equal(s.reloads.length, 0);
+  await s.buttons['Approve and Stage'].fn();
+  assert.equal(s.messages.length, 2, 'a later click is not blocked');
+});
+
+test('the form reloads after a successful request and after a retry', async t => {
+  const s = setup(t, { jobs: [{ name: 'JOB-3', state: 'FAILED', operation: 'STAGE', last_error: 'x' }] });
+  await s.api.refresh(s.frm);
+  await s.buttons['Approve and Stage'].fn();
+  assert.equal(s.reloads.length, 1);
+  assert.equal(s.alerts.length, 1);
+  await s.buttons.Retry.fn();
+  assert.equal(s.reloads.length, 2);
+});
+
+test('no enabled brand shows a notice and no buttons', async t => {
+  const s = setup(t, { noBrands: true, doc: { target_brands: [] } });
+  await s.api.refresh(s.frm);
+  assert.match(text(s), /No Webflow brand is enabled for this gallery/);
+  assert.deepEqual(Object.keys(s.buttons), []);
+  assert.equal(s.calls.filter(c => c.method).length, 0);
 });
