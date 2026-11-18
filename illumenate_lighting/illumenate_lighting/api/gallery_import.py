@@ -117,12 +117,13 @@ def _series(data: dict, series_by_name: dict, report: list[str]) -> list[str]:
 def _products(data, series, product_by_webflow_id, product_series, report, custom=None) -> list[dict]:
 	"""Product rows, then one series-only row per listed series no product took.
 
-	A row's series is required: the product's own series (listed in the item's text or not); for a
-	product without one, `custom` when the item lists no other series; else the product is left
-	out and reported.
+	A row's series is required. An item with no series-used text is "Custom" (Rei): every product
+	row takes `custom`, ignoring the product's own series. Otherwise a row takes the product's own
+	series (listed in the text or not); a product without one takes `custom` when the item lists no
+	other series. A product whose series cannot be determined is left out and reported.
 	"""
 	rows, remaining = [], list(series)
-	own = product_series or {}
+	own = {} if not _csv(data.get("series-used")) else (product_series or {})
 	for webflow_id in data.get("products-used") or []:
 		product = product_by_webflow_id.get(webflow_id)
 		if not product:
