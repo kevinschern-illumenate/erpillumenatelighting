@@ -7,7 +7,8 @@ from frappe.model.document import Document
 
 from illumenate_lighting.illumenate_lighting.api.gallery_rules import validate_gallery
 
-PUBLICATION_TABLE = "tabilL-Gallery-Publication"
+# Frappe's table_exists takes the doctype name and adds the "tab" prefix itself.
+PUBLICATION = "ilL-Gallery-Publication"
 
 
 class ilLWebflowGallery(Document):
@@ -29,14 +30,14 @@ class ilLWebflowGallery(Document):
 
 	def _slug_locked(self) -> bool:
 		"""A slug is locked once any publication of this gallery has been staged."""
-		if self.is_new() or not frappe.db.table_exists(PUBLICATION_TABLE):
+		if self.is_new() or not frappe.db.table_exists(PUBLICATION):
 			return False
 		old = self.get_doc_before_save()
 		if not old:
 			return False
 		return bool(
 			frappe.db.exists(
-				"ilL-Gallery-Publication",
+				PUBLICATION,
 				{"gallery": old.name, "staged_hash": ["is", "set"]},
 			)
 		)

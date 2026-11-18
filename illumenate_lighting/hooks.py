@@ -548,6 +548,10 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.webflow_auto_push.on_product_update",
 		],
 	},
+	# A changed gallery shows as unreviewed before n8n claims its next job (gallery sync spec 6a).
+	"ilL-Webflow-Gallery": {
+		"on_update": "illumenate_lighting.illumenate_lighting.api.gallery_publication.invalidate_gallery",
+	},
 	# Only the Webflow Product's own Webflow Status raises approvals; template status changes
 	# push to the linked product as usual (owner, 2026-11-06).
 	"ilL-Webflow-Category": {
@@ -563,7 +567,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick", "illumenate_lighting.illumenate_lighting.api.gallery_publication.tick"]}}
 
 # Testing
 # -------
