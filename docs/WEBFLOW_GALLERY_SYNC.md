@@ -340,3 +340,5 @@ Still open:
 - 2026-11-18: Task 2 built: `ilL-Webflow-Gallery` (autoname by slug, `sync_targets` read-only), the
   `ilL-Child-Gallery-Custom-Item` child doctype and `api/gallery_rules.py` (`validate_gallery`: slug format,
   slug lock after staging, slug uniqueness, one credit per type).
+- 2026-11-18: Task 3 built: `api/gallery_readiness.py` (`evaluate`, `is_public_file`), the pure readiness
+  checks from section 6. The returned `dependencies` carry product Webflow item IDs and series used.
