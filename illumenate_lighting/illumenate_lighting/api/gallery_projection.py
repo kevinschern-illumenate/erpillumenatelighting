@@ -14,11 +14,18 @@ SCHEMA_VERSION = 1
 
 
 def absolute_url(path: str, base_url: str) -> str:
-	"""Public paths under the brand's site become absolute; https URLs pass through."""
+	"""Public paths under the brand's site become absolute; https URLs pass through.
+
+	A bare relative path (`files/a.jpg`) gets a leading slash first. `http://` and `//host` forms are left
+	unchanged: readiness already blocks them, so they never reach Webflow.
+	"""
 	path = (path or "").strip()
-	if path.startswith("/"):
-		return base_url.rstrip("/") + path
-	return path
+	lowered = path.lower()
+	if not path or lowered.startswith(("https://", "http://", "//")):
+		return path
+	if not path.startswith("/"):
+		path = "/" + path
+	return base_url.rstrip("/") + path
 
 
 def _text(value) -> str:
@@ -80,7 +87,7 @@ def build_payload(gallery: dict, *, base_url: str, product_refs: dict) -> dict:
 	item_ids = []
 	for row in products:
 		item_id = (product_refs.get(row.get("product")) or {}).get("webflow_item_id")
-		if row.get("product") and item_id:
+		if row.get("product") and item_id and item_id not in item_ids:
 			item_ids.append(item_id)
 
 	credits = {}
