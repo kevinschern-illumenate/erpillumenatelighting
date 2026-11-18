@@ -58,18 +58,18 @@
     D.todos.forEach(x => {
       if (x.reference_type === 'Task') return;
       const raw = x.description || '';
-      const m = raw.match(/\[(ad-hoc|email|review|cleanup)\] Owners:\s*([^<\n]*)/);
+      const m = raw.match(/\[(ad-hoc|email|review|cleanup|meeting)\] Owners:\s*([^<\n]*)/);
       const tag = m ? m[1] : ((x._user_tags || '').replace(/^,/, '') || null);
       const owners = m ? m[2].split(',').map(s => s.trim()).filter(Boolean) : [x.allocated_to];
       const tmp = document.createElement('div'); tmp.innerHTML = raw;
       const p = tmp.querySelector('p'); const title = (p ? p.textContent : tmp.textContent).trim();
       const mail = (raw.match(/href="(https:\/\/mail\.google\.com[^"]+)"/) || [])[1];
-      let notes = ''; if (p) { p.remove(); notes = tmp.textContent.replace(/\[(ad-hoc|email|review|cleanup)\] Owners:.*$/s, '').replace('Email thread (kevins@ inbox): open in Gmail', '').trim(); }
+      let notes = ''; if (p) { p.remove(); notes = tmp.textContent.replace(/\[(ad-hoc|email|review|cleanup|meeting)\] Owners:.*$/s, '').replace('Email thread (kevins@ inbox): open in Gmail', '').trim(); }
       const nice = title.replace(/^Assignment for (.+?) (ilL-SAL-ORD-)?(\S.*)$/, (_, dt, p, n) => dt + ' ' + n);
       const key = tag ? title : x.name;
       if (seen[key]) { seen[key].ids.push(x.name); return; }
       const row = { id: x.name, ids: [x.name], title: nice || '(no description)', notes, owners, due: x.date, priority: x.priority,
-        source: tag === 'email' ? 'kevins@' : tag === 'ad-hoc' ? 'ad hoc' : 'ERPNext', tag, mail: mail ? mail.replace(/&amp;/g, '&') : null,
+        source: tag === 'email' ? 'kevins@' : tag === 'ad-hoc' ? 'ad hoc' : tag === 'meeting' ? 'meeting' : 'ERPNext', tag, mail: mail ? mail.replace(/&amp;/g, '&') : null,
         url: '/app/todo/' + x.name, ref: x.reference_type ? { dt: x.reference_type, name: x.reference_name } : null, private: tag === 'email', kind: 'todo' };
       seen[key] = row; todos.push(row);
     });
@@ -306,7 +306,7 @@
     const opt = (v, l, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
     const tools = `<div class="toolbar">
       <select data-f="person">${opt('', 'All people', S.person)}${TEAM.map(u => opt(u.name, u.full_name || u.name, S.person)).join('')}</select>
-      <select data-f="source">${opt('', 'All sources', S.source)}${['ERPNext', 'sales@ (help desk)', 'ad hoc'].concat(S.meeting ? [] : ['kevins@']).map(s => opt(s, s, S.source)).join('')}</select>
+      <select data-f="source">${opt('', 'All sources', S.source)}${['ERPNext', 'sales@ (help desk)', 'ad hoc', 'meeting'].concat(S.meeting ? [] : ['kevins@']).map(s => opt(s, s, S.source)).join('')}</select>
       <div class="seg">${['', 'Overdue', 'Open'].map(s => `<button data-st="${s}" class="${S.status === s ? 'on' : ''}">${s || 'All'}</button>`).join('')}</div>
       ${LOGGED ? `<label class="cc-switch" style="color:var(--ink2)"><input type="checkbox" data-f="mine" ${S.mine ? 'checked' : ''}><span style="background:${S.mine ? '#f39c12' : '#d0d5dd'}"></span>My items</label>` : ''}${viewsBar('tasks')}</div>`;
     const pr = p => ({ High: 'bad', Medium: 'mute', Low: 'mute' }[p] || 'mute');
@@ -318,7 +318,7 @@
         t.slice(0, S.limit).map(x => `<tr class="${x.private ? 'priv' : ''}"><td style="max-width:560px">${x.kind === 'task' ? `<a href="#p-${esc(x.ref.name)}" style="color:var(--ink);font-weight:500">${esc(x.title)}</a>` : `<a target="_blank" rel="noopener" href="${x.url}" style="color:var(--ink);font-weight:500">${esc(x.title)}</a>`}
           ${x.notes ? `<div class="m">${esc(x.notes.slice(0, 180))}</div>` : ''}${x.ref ? `<div class="m">${link(x.ref.dt, x.ref.name, x.ref.dt + ' · ' + short(x.ref.name))}</div>` : ''}</td>
           <td>${avs(x.owners)}</td><td style="white-space:nowrap">${x.due ? (x.status === 'Overdue' ? badge(fmtd(x.due), 'bad') : fmtd(x.due)) : '<span class="calc">—</span>'}${x.priority === 'High' ? `<div class="m" style="color:var(--badt)">High priority</div>` : ''}</td>
-          <td style="white-space:nowrap">${esc(x.source)}${x.tag && !['email', 'ad-hoc'].includes(x.tag) ? `<div class="m">${esc(x.tag)}</div>` : ''}${x.mail ? `<div class="m"><a target="_blank" rel="noopener" href="${x.mail}">Open email</a></div>` : ''}</td>
+          <td style="white-space:nowrap">${esc(x.source)}${x.tag && !['email', 'ad-hoc', 'meeting'].includes(x.tag) ? `<div class="m">${esc(x.tag)}</div>` : ''}${x.mail ? `<div class="m"><a target="_blank" rel="noopener" href="${x.mail}">Open email</a></div>` : ''}</td>
           <td class="num" style="white-space:nowrap">${x.kind === 'todo' && LOGGED ? `<button class="cc-btn soft" data-done="${x.ids.join(',')}">✓ Done</button> ` : ''}<a class="cc-btn soft" target="_blank" rel="noopener" href="${x.url}" style="text-decoration:none">Edit</a></td></tr>`).concat(t.length > S.limit ? [`<tr><td colspan="5" style="text-align:center;padding:14px"><button class="cc-btn soft" data-more="1">Show ${Math.min(30, t.length - S.limit)} more of ${t.length - S.limit} remaining</button></td></tr>`] : []), '', 's12')}
       ${card('Projects', `${D.projects.length - projs.length} other open projects have no tasks yet`, hbars(projs.map(p => ({ html: link('project', p.name, p.project_name), value: Math.round(p.percent_complete || 0), title: p.open + ' open tasks' })), { fmt: v => v + '%', lw: '300px', max: 100 }), 's12')}
     </div>`;
@@ -1353,6 +1353,14 @@
     const canOpen = WB.cfg && WB.cfg.doctypes[dt] && row;
     return `<div class="ag-ref"><span class="ag-dt">${esc(wbLabel(dt))}</span>${link(dt, it.reference_name, short(it.reference_name))}${row && row.status ? badge(row.status, wbKind(row.status)) : ''}${bits.map(b => `<span class="small">${b}</span>`).join('')}${row ? '' : '<span class="calc">details not available to you</span>'}${canOpen ? '<button type="button" class="ag-open no-print" data-agopen>Details</button>' : ''}</div>`;
   }
+  const agMade = it => { try { const v = JSON.parse(it.todo_names || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  function agTodos(it) {
+    const made = agMade(it); if (!made.length) return '';
+    return `<ul class="ag-todos">${made.map(t => {
+      const live = (AG.data.todos || {})[t.name], st = live ? live.status : null, done = st === 'Closed' || st === 'Cancelled', due = (live && live.date) || t.date;
+      return `<li class="${done ? 'done' : ''}"><span class="ag-tdk">${done ? '✓' : '○'}</span>${link('ToDo', t.name, t.title)}<span class="small">${esc(SHORT[t.owner] || t.owner)}${due ? ' · due ' + fmtd(due) : ''}${st ? ' · ' + esc(st) : ''}</span></li>`;
+    }).join('')}</ul>`;
+  }
   function agItem(it, i, n, ed) {
     const done = it.status === 'Discussed';
     return `<div class="ag-item ${done ? 'done' : ''}" data-agid="${esc(it.name)}">
@@ -1361,8 +1369,9 @@
         <div class="ag-line"><span class="ag-title" ${ed ? 'data-agedit title="Edit this item"' : ''}>${esc(it.item_title)}</span>${it.carried_from ? '<span class="badge info">Carried over</span>' : ''}${it.presenter ? avatar(it.presenter) : ''}</div>
         ${it.details ? `<div class="ag-det">${esc(it.details)}</div>` : ''}
         ${agRef(it)}
-        ${ed ? `<textarea class="ag-out no-print" data-agout rows="1" placeholder="Outcome or decision…">${esc(it.outcome || '')}</textarea>` : ''}
+        ${ed ? `<div class="ag-outrow no-print"><textarea class="ag-out" data-agout rows="1" placeholder="Outcome or decision…">${esc(it.outcome || '')}</textarea><button type="button" class="cc-btn soft" data-agtodo title="Turn this outcome into to-dos for the owners">+ To-do</button></div>` : ''}
         ${it.outcome ? `<div class="ag-outp${ed ? ' print-only' : ''}"><b>Outcome:</b> ${esc(it.outcome)}</div>` : ''}
+        ${agTodos(it)}
       </div>
       ${ed ? `<div class="ag-ctl no-print"><label class="ag-chk"><input type="checkbox" data-agdone ${done ? 'checked' : ''}>Discussed</label>
         <span class="ag-mv"><button type="button" class="cc-btn soft" data-agmv="-1" ${i === 0 ? 'disabled' : ''} title="Move up" aria-label="Move up">↑</button><button type="button" class="cc-btn soft" data-agmv="1" ${i === n - 1 ? 'disabled' : ''} title="Move down" aria-label="Move down">↓</button></span>
@@ -1451,6 +1460,7 @@
       if (it.details) out.push('   ' + it.details);
       if (it.reference_name) out.push(`   ${wbLabel(it.reference_doctype)} ${it.reference_name}: ${location.origin}${docUrl(it.reference_doctype, it.reference_name)}`);
       if (it.outcome) out.push('   Outcome: ' + it.outcome);
+      agMade(it).forEach(t => out.push(`   To-do: ${t.title} (${SHORT[t.owner] || t.owner}${t.date ? ', due ' + fmtd(t.date) : ''})`));
     });
     if (ag.notes) out.push('', 'Notes: ' + ag.notes);
     return out.join('\n');
@@ -1505,6 +1515,34 @@
     sh.querySelector('#agrm').onclick = async () => {
       if (!window.confirm('Remove “' + it.item_title + '” from this agenda? The linked record is not touched.')) return;
       closeSheet(); AG.data.items = AG.data.items.filter(x => x.name !== id); agRedraw(); agDo('agenda_remove', { name: id }, 'Removed from the agenda');
+    };
+  }
+
+  // "+ To-do": one ERPNext ToDo per owner from the item's outcome, linked to what the item is about
+  function agTodoSheet(id, outcome) {
+    const it = AG.data.items.find(x => x.name === id); if (!it) return;
+    const ag = AG.data.agenda, due = addDays(String(ag.meeting_date).slice(0, 10), 7);
+    const people = TEAM.slice(); if (it.presenter && !people.some(u => u.name === it.presenter)) people.push({ name: it.presenter, full_name: SHORT[it.presenter] || it.presenter });
+    const linked = it.reference_name ? `${esc(wbLabel(it.reference_doctype))} ${link(it.reference_doctype, it.reference_name)}` : 'this agenda item';
+    const sh = wbShowSheet(`<label class="cc-field"><span>To-do</span><input type="text" name="title" maxlength="140" value="${esc((outcome || it.outcome || it.item_title || '').trim().slice(0, 140))}"></label>
+      <div class="cc-field"><span>Owners</span><div class="cc-owners">${people.map(u => `<label><input type="checkbox" name="owner" value="${esc(u.name)}" ${u.name === it.presenter ? 'checked' : ''}>${avatar(u.name)}${esc(u.full_name || u.name)}</label>`).join('')}</div></div>
+      <div class="cc-row2"><label class="cc-field"><span>Due date</span><input type="date" name="date" value="${esc(due)}"></label>
+      <label class="cc-field"><span>Priority</span><select name="priority"><option>Medium</option><option>High</option><option>Low</option></select></label></div>
+      <label class="cc-field"><span>Notes</span><textarea name="notes" rows="2" placeholder="Optional context"></textarea></label>
+      <p class="small">Each owner gets their own to-do in ERPNext, linked to ${linked}, noting it came from this meeting. It also shows on the Tasks page.</p>
+      <p class="cc-msg" id="wbMsg"></p><div class="cc-sheet-f"><button class="cc-btn primary" type="submit" id="wbsave">Create to-do</button></div>`,
+      esc(agDate(ag.meeting_date)) + ' · ' + esc(it.item_title), 'Make a to-do');
+    const f = sh.querySelector('#wbform');
+    f.onsubmit = async e => {
+      e.preventDefault(); const msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave');
+      const owners = [...f.querySelectorAll('input[name="owner"]:checked')].map(x => x.value), title = f.elements.title.value.trim();
+      if (!title || !owners.length) { msg.textContent = 'Add a title and at least one owner.'; return; }
+      b.disabled = true; b.textContent = 'Creating…'; msg.textContent = '';
+      try {
+        const r = await gw('agenda_todo', { name: id, values: { title, owners, date: f.elements.date.value || null, priority: f.elements.priority.value, notes: f.elements.notes.value.trim() } });
+        closeSheet(); toast(`Created ${r.todos.length} to-do${r.todos.length === 1 ? '' : 's'} · ${owners.map(o => esc(SHORT[o] || o)).join(', ')} notified`);
+        agLoad(AG.cur); load();
+      } catch (err) { msg.textContent = 'Not created: ' + err.message; b.disabled = false; b.textContent = 'Create to-do'; }
     };
   }
 
@@ -1605,6 +1643,7 @@
       const d = el.querySelector('[data-agdone]'); if (d) d.onchange = () => { agUpdate(id, { status: d.checked ? 'Discussed' : 'Open' }); agRedraw(); };
       const o = el.querySelector('[data-agout]'); if (o) { o.onchange = () => agUpdate(id, { outcome: o.value }); o.oninput = () => { o.style.height = 'auto'; o.style.height = o.scrollHeight + 'px'; }; if (o.value) o.oninput(); }
       el.querySelectorAll('[data-agmv]').forEach(b => b.onclick = () => agMove(id, +b.dataset.agmv));
+      const td = el.querySelector('[data-agtodo]'); if (td) td.onclick = () => agTodoSheet(id, o ? o.value : '');
       const op = el.querySelector('[data-agopen]'); if (op) op.onclick = () => wbOpen(it.reference_doctype, it.reference_name);
     });
   }

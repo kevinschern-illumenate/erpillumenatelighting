@@ -18,7 +18,8 @@
   "reference_name",
   "carried_from",
   "section_break_outcome",
-  "outcome"
+  "outcome",
+  "todo_names"
  ],
  "fields": [
   {
@@ -101,6 +102,13 @@
    "fieldname": "outcome",
    "fieldtype": "Small Text",
    "label": "Outcome / decision"
+  },
+  {
+   "fieldname": "todo_names",
+   "fieldtype": "Small Text",
+   "label": "To-dos Created",
+   "read_only": 1,
+   "description": "Set by the Command Center: JSON list of the ToDos made from this item's outcome."
   }
  ],
  "permissions": [

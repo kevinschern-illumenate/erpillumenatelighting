@@ -43,6 +43,8 @@ const agendaReply = b => { const v = b.values || {};
   if (b.action === 'agenda_update') { Object.assign(AGS.items.find(i => i.name === b.name), v); return { name: b.name }; }
   if (b.action === 'agenda_order') { b.names.forEach((n, k) => { AGS.items.find(i => i.name === n).sort_order = k + 1; }); return { ordered: b.names.length }; }
   if (b.action === 'agenda_save_meeting') { Object.assign(AGS.meetings.find(m => m.name === b.name), v); return { name: b.name }; }
+  if (b.action === 'agenda_todo') { const it = AGS.items.find(i => i.name === b.name), made = v.owners.map((o, k) => ({ name: 'TD-M' + (++agSeq), owner: o, title: v.title, date: v.date }));
+    it.todo_names = JSON.stringify(JSON.parse(it.todo_names || '[]').concat(made)); AGS.lastTodo = v; return { todos: made }; }
   if (b.action === 'agenda_remove') { AGS.items = AGS.items.filter(i => i.name !== b.name); return { removed: 1 }; }
   throw new Error('unknown ' + b.action); };
 const gwReply = b => {
@@ -137,6 +139,11 @@ const go = async h => { w.location.hash = h; await sleep(120); };
   check('mark discussed saves', AGS.items.find(i => i.reference_name === 'ilL-SAL-ORD-1').status === 'Discussed' && /1 discussed/.test(txt()));
   const o = soItem().querySelector('[data-agout]'); o.value = 'Ship Friday'; o.dispatchEvent(new w.Event('change')); await sleep(250);
   check('outcome saved', AGS.items.find(i => i.reference_name === 'ilL-SAL-ORD-1').outcome === 'Ship Friday');
+  soItem().querySelector('[data-agtodo]').click(); await sleep(50);
+  check('to-do sheet prefilled from outcome, due a week later', sheet().querySelector('input[name="title"]').value === 'Ship Friday' && sheet().querySelector('input[name="date"]').value === '2026-11-24');
+  sheet().querySelector('input[name="owner"][value="jay@x.com"]').checked = true; submit(sheet().querySelector('#wbform')); await sleep(300);
+  check('to-do created for owner', AGS.lastTodo && AGS.lastTodo.owners.join() === 'jay@x.com' && AGS.lastTodo.title === 'Ship Friday');
+  check('item lists its to-do', /Ship Friday/.test(soItem().querySelector('.ag-todos').textContent) && /jay/.test(soItem().querySelector('.ag-todos').textContent));
   w.document.querySelector('.ag-item [data-agmv="1"]').click(); await sleep(250);
   check('move down reorders', /Hiring plan/.test(w.document.querySelectorAll('.ag-item')[1].textContent) && calls.includes('agenda_order'));
   AGS.items.push({ name: 'AI-99', agenda: 'MTG-1', item_title: 'Call Bob', status: 'Open', reference_doctype: 'ToDo', reference_name: 'TD-1', sort_order: 99 });

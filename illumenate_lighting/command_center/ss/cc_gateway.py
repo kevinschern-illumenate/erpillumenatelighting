@@ -22,6 +22,8 @@
 #   action=agenda_update name, values{item_title, details, presenter, status, outcome}
 #   action=agenda_order agenda, names[] -> save the item order
 #   action=agenda_remove name          -> delete one agenda item (never the record it links to)
+#   action=agenda_todo name, values{title, owners[], date, priority, notes} -> one ToDo per owner from
+#                                        the item's outcome, linked to the item's record (or the item)
 #
 # Guarantees
 #   * Needs role "Command Center Viewer" (reads) / "Command Center Editor" (writes).
@@ -490,7 +492,7 @@ def main():
         AG = "ilL-Meeting-Agenda"
         AI = "ilL-Meeting-Agenda-Item"
         ITEM_FIELDS = ["name", "item_title", "details", "status", "presenter", "sort_order", "outcome",
-                       "reference_doctype", "reference_name", "carried_from", "owner", "creation"]
+                       "reference_doctype", "reference_name", "carried_from", "todo_names", "owner", "creation"]
         ITEM_EDITABLE = ["item_title", "details", "presenter", "status", "outcome"]
         MEETING_EDITABLE = ["title", "meeting_date", "status", "notes"]
 
@@ -543,6 +545,42 @@ def main():
                     pass
             return {"refs": refs, "columns": columns}
 
+        def made_todos(it):
+            # "list"/"dict" aren't sandbox builtins: keep only entries that behave like {name: ...}
+            out = []
+            try:
+                v = json.loads(it.get("todo_names") or "[]")
+                for t in v:
+                    try:
+                        if t.get("name"):
+                            out.append(t)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            return out
+
+        def todo_live(items):
+            # current status of the to-dos made from these items, where the user may read them
+            names = []
+            for it in items:
+                for t in made_todos(it):
+                    if t.get("name") and t["name"] not in names:
+                        names.append(t["name"])
+            out = {}
+            if names and available("ToDo"):
+                try:
+                    for r in frappe.get_list("ToDo", filters={"name": ["in", names]},
+                                             fields=["name", "status", "date", "allocated_to"],
+                                             limit_page_length=len(names)):
+                        out[r["name"]] = r
+                except Exception:
+                    pass
+            return out
+
+        def html(t):
+            return str(t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
         def date_label(agenda):
             return str(frappe.db.get_value(AG, agenda, "meeting_date") or agenda)
 
@@ -577,7 +615,7 @@ def main():
             frappe.response["message"] = {
                 "agenda": {"name": ag.name, "title": ag.title, "meeting_date": str(ag.meeting_date or ""),
                            "status": ag.status, "notes": ag.notes or "", "modified": str(ag.modified)},
-                "items": items, "refs": live["refs"], "columns": live["columns"],
+                "items": items, "refs": live["refs"], "columns": live["columns"], "todos": todo_live(items),
                 "can_edit": can_edit() and bool(ag.has_permission("write")),
             }
 
@@ -685,6 +723,50 @@ def main():
                     it.sort_order = i
                     it.save()
             frappe.response["message"] = {"ordered": i}
+
+        elif action == "agenda_todo":
+            need_edit()
+            if not (frappe.db.exists("DocType", "ToDo") and can("ToDo", "create")):
+                deny("Your ERPNext user can't create to-dos.")
+            it = item_doc(frappe.form_dict.get("name"), "write")
+            values = jsonarg("values")
+            title = str(values.get("title") or "").strip()
+            notes = str(values.get("notes") or "").strip()
+            owners = values.get("owners") or []
+            priority = values.get("priority") or "Medium"
+            if not title:
+                deny("Give the to-do a title.")
+            if not owners:
+                deny("Pick at least one owner.")
+            if priority not in ["High", "Medium", "Low"]:
+                deny("Priority must be High, Medium or Low.")
+            for o in owners:
+                if not frappe.db.exists("User", {"name": o, "enabled": 1}):
+                    deny(str(o) + " isn't an active user.")
+            # the to-do points at what the item is about, or back at the agenda item itself
+            ref_dt = AI
+            ref_name = it.name
+            if it.reference_doctype and it.reference_name:
+                ref_dt = it.reference_doctype
+                ref_name = it.reference_name
+            desc = "<p><b>" + html(title) + "</b></p>"
+            if notes:
+                desc = desc + "<p>" + html(notes) + "</p>"
+            desc = desc + "<p>From the " + html(date_label(it.agenda)) + " meeting: " + html(it.item_title) + "</p>"
+            desc = desc + "<p>[meeting] Owners: " + ", ".join(owners) + "</p>"
+            made = []
+            for o in owners:
+                td = {"doctype": "ToDo", "status": "Open", "allocated_to": o, "priority": priority,
+                      "assigned_by": user, "description": desc,
+                      "reference_type": ref_dt, "reference_name": ref_name}
+                if values.get("date"):
+                    td["date"] = values.get("date")
+                doc = frappe.get_doc(td)
+                doc.insert()
+                made.append({"name": doc.name, "owner": o, "title": title[:140], "date": values.get("date") or ""})
+            it.todo_names = json.dumps(made_todos(it) + made)
+            it.save()
+            frappe.response["message"] = {"todos": made}
 
         elif action == "agenda_remove":
             need_edit()

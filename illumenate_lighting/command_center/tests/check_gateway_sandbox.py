@@ -18,9 +18,13 @@ class Doc:
     def get(s,k): return s.v.get(k)
     def set(s,k,x): s.v[k]=x
     def save(s): saved.append(dict(s.v))
-    def insert(s,**k): s.name="T-NEW"; return s
+    def insert(s,**k):
+        s.name="T-NEW"
+        if s.v.get("doctype")=="ToDo": TODOS.append(dict(s.v))
+        return s
     def as_dict(s): return s.v
 saved=[]
+TODOS=[]
 # in-memory agenda store (ilL-Meeting-Agenda / ilL-Meeting-Agenda-Item) for the agenda_* actions
 AGD="ilL-Meeting-Agenda"; AGI="ilL-Meeting-Agenda-Item"
 STORE={AGD:{},AGI:{}}; AUDIT=[]; SEQ=[0]
@@ -135,3 +139,12 @@ m2=run("a@x",E,{"action":"agenda_create","values":{"title":"Weekly","meeting_dat
 print("carry over:", m2["carried"], "old item now:", STORE[AGI][a["name"]].v["status"])
 l=run("a@x",V,{"action":"agenda_list"}); print("list:", [(x["meeting_date"],x["status"],x["items"],x["open"]) for x in l["meetings"]], "can_edit", l["can_edit"])
 run("a@x",E,{"action":"agenda_remove","name":a["name"]}); print("removed:", a["name"] not in STORE[AGI])
+t=run("a@x",E,{"action":"agenda_todo","name":b["name"],"values":{"title":"Confirm balance <date>","owners":["r@x","j@x"],"date":"2026-11-24","priority":"High"}})
+t2=run("a@x",E,{"action":"agenda_todo","name":b["name"],"values":{"title":"Second","owners":["r@x"]}})
+print("todo: made", len(t["todos"]), "stored", len(json.loads(STORE[AGI][b["name"]].v["todo_names"])), "get has todos map:", "todos" in run("a@x",V,{"action":"agenda_get","name":m1}))
+for who,form,roles in [("viewer todo",{"action":"agenda_todo","name":b["name"],"values":{"title":"x","owners":["r@x"]}},V),
+                       ("todo no owners",{"action":"agenda_todo","name":b["name"],"values":{"title":"x","owners":[]}},E),
+                       ("todo bad priority",{"action":"agenda_todo","name":b["name"],"values":{"title":"x","owners":["r@x"],"priority":"Urgent"}},E)]:
+    try: run("a@x",roles,form); print(who,"NOT BLOCKED")
+    except Exception as e: print(who,"blocked:",e)
+print("todo doc:", TODOS[0]["reference_type"], TODOS[0]["reference_name"], TODOS[0]["allocated_to"], TODOS[0]["priority"], "escaped:", "&lt;date&gt;" in TODOS[0]["description"], "[meeting] Owners: r@x, j@x" in TODOS[0]["description"])
