@@ -1,0 +1,9 @@
+{# Quotation: follow-up a few days after the quote was sent (Notification: 3 days after transaction_date, status Open). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>I wanted to check in on quote <strong>{{ c.name }}</strong>{% if c.job_name %} for {{ c.job_name }}{% endif %}{% if c.quote.date %}, sent {{ c.quote.date }}{% endif %}, for {{ c.quote.total }}.</p>
+<p>Do you have any questions? We're happy to adjust fixtures, finishes, lengths or quantities, or talk through lead times for your job.</p>
+{% if c.quote.valid_till and not c.quote.expired %}<p>Pricing is held until {{ c.quote.valid_till }}.</p>{% endif %}
+{% if c.pdf.quote %}<p><a href="{{ c.pdf.quote }}">View the quote (PDF)</a></p>{% endif %}
+<p>Reply to this email to approve the quote or with any questions.</p>
+{{ c.blocks.signature }}

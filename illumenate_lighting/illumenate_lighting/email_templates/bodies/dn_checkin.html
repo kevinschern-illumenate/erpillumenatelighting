@@ -1,0 +1,7 @@
+{# Delivery Note: delivery check-in (Notification: 5 days after posting_date, not a return). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Your shipment {% if c.sales_orders %}for order {% for o in c.sales_orders %}{{ o.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}{{ c.name }}{% endif %}{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} should have arrived by now. Did everything come in complete and undamaged?</p>
+<p>If anything is missing, damaged or not working as expected, reply with photos and we'll make it right. Need installation guides or spec sheets? Just ask{% if c.portal.home %}, or find them in the <a href="{{ c.portal.home }}">dealer portal</a>{% endif %}.</p>
+<p>We'd also love to see the finished install. Photos are always welcome.</p>
+{{ c.blocks.signature }}

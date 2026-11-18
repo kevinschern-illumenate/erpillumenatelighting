@@ -1,0 +1,17 @@
+{# Delivery Note: your order has shipped (sent automatically on submit when ilL-Email-Settings allows, or by hand). Not for returns. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+{% if c.shipment.is_return %}
+<p>We've recorded the return of the items listed below{% if c.sales_orders %} from order {% for o in c.sales_orders %}{{ o.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}. We'll confirm the credit once they've been inspected.</p>
+{% else %}
+<p>Good news: {% if c.sales_orders %}order {% for o in c.sales_orders %}<strong>{{ o.name }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}your order{% endif %}{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} shipped on <strong>{{ c.shipment.date }}</strong>.</p>
+{% if c.shipment.partial %}<p>This is a partial shipment. The rest of the order is still in production and will follow, and we'll send tracking for it separately.</p>{% endif %}
+{% endif %}
+{{ c.blocks.tracking }}
+{% if c.shipment.shipping_address %}<p><strong>Shipping to:</strong></p>{{ c.blocks.shipping_address }}{% endif %}
+<p><strong>What's in this shipment</strong></p>
+{{ c.blocks.lines_no_prices }}
+<p>{% if c.pdf.packing %}<a href="{{ c.pdf.packing }}">Packing list (PDF)</a>{% endif %}{% for o in c.sales_orders %}{% if o.pdf %}{% if c.pdf.packing or not loop.first %} · {% endif %}<a href="{{ o.pdf }}">Order {{ o.name }} (PDF)</a>{% endif %}{% endfor %}</p>
+{% if not c.shipment.is_return %}<p>Please inspect the cartons on arrival and note any visible damage on the carrier's delivery receipt before signing. Report concealed damage to us within 48 hours, with photos.</p>{% endif %}
+{% if c.portal_url %}<p><a href="{{ c.portal_url }}">Track this order in the dealer portal</a></p>{% endif %}
+{{ c.blocks.signature }}

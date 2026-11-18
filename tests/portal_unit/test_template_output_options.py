@@ -43,6 +43,13 @@ class OutputOptions(unittest.TestCase):
 		# A lens that does not reach an output shows dashes.
 		self.assertEqual(grid["Black Lens"]["1000 lm/ft"], ("—", "—"))
 
+	def test_max_footage_per_100w_is_80w_over_the_wattage_rounded_up(self):
+		rows = self.module().table(LENSES, TAPES, LEVELS)
+		per_100w = {(r["lens_group"], r["output_level"]): r["max_footage_100w"] for r in rows}
+		self.assertEqual(per_100w[("White Lens", "100 lm/ft")], "48ft")  # 80 / 1.7 = 47.06
+		self.assertEqual(per_100w[("Other Lenses", "100 lm/ft")], "100ft")  # 80 / 0.8 = 100
+		self.assertEqual(per_100w[("Black Lens", "1000 lm/ft")], "—")
+
 	def test_lenses_with_the_same_numbers_share_a_group_and_singles_come_first(self):
 		rows = self.module().table(LENSES, TAPES, LEVELS)
 		groups = list(dict.fromkeys(row["lens_group"] for row in rows))
@@ -68,6 +75,7 @@ class OutputOptions(unittest.TestCase):
 					"output_level": "100 lm/ft",
 					"fixture_wattage": "0.9W",
 					"max_run_length": "40ft",
+					"max_footage_100w": "89ft",
 				}
 			],
 		)

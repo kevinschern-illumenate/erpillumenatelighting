@@ -1,0 +1,10 @@
+{# Quotation: revised quote (an amended Quotation). Add a sentence on what changed before sending. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Here is your revised quote <strong>{{ c.name }}</strong>{% if c.quote.revised_from %}, which replaces {{ c.quote.revised_from }}{% endif %}{% if c.job_name %} for {{ c.job_name }}{% endif %}. The new total is <strong>{{ c.quote.total }}</strong>.</p>
+<p><strong>What changed:</strong> [describe the changes]</p>
+{{ c.blocks.lines }}
+{% if c.quote.valid_till %}<p>Pricing is held until {{ c.quote.valid_till }}.</p>{% endif %}
+{% if c.pdf.quote %}<p><a href="{{ c.pdf.quote }}">Download the revised quote (PDF)</a></p>{% endif %}
+<p>Reply to approve it, or let us know if anything else needs to change.</p>
+{{ c.blocks.signature }}

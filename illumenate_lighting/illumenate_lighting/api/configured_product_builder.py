@@ -342,6 +342,17 @@ def save_and_apply(
     _check_parent_builds(parent_configured_fixture, parent_configured_tape_neon)
     qty = finite_number(qty, minimum=1, field="Quantity")
     payload = _coerce_dict(payload_json) or {}
+    power_note = []
+    if product_type == PRODUCT_TYPE_FIXTURE:
+        from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import split_enabled
+
+        if split_enabled() and parse_bool(payload.get("include_power_supply"), default=True):
+            # Power supplies are never part of a fixture build; they are their own order lines.
+            payload = {**payload, "include_power_supply": False}
+            power_note = [{
+                "severity": "info",
+                "text": _("Power supplies are not part of the fixture build. Add them as their own lines."),
+            }]
 
     # ── Step 1: persist the configured record via the engine ─────────
     validation = _dispatch_save(
@@ -406,7 +417,7 @@ def save_and_apply(
         "configured_led_sheet": artifact.get("configured_led_sheet"),
         "item_code": artifact["item_code"],
         "bom": artifact.get("bom"),
-        "messages": (validation.get("messages") or []) + (artifact.get("messages") or []),
+        "messages": (validation.get("messages") or []) + (artifact.get("messages") or []) + power_note,
     }
 
 
@@ -992,6 +1003,9 @@ def _ensure_fixture_artifacts(
         "engine_version": getattr(fixture, "engine_version", None),
         "parent_configured_fixture": getattr(fixture, "parent_configured_fixture", None),
         "configuration_snapshot": _fixture_configuration_snapshot(fixture),
+        # Ships in pieces: the Item is a Product Bundle; each light engine has the BOM.
+        "ships_in_pieces": bool(bom_result.get("bundle")),
+        "light_engines": bom_result.get("light_engines"),
         "messages": (item_result.get("messages") or []) + (bom_result.get("messages") or []),
     }
 

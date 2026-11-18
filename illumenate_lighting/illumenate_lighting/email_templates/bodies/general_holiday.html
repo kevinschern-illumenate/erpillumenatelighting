@@ -1,0 +1,7 @@
+{# Generic: holiday / closure hours. Fill in the dates before sending. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>A heads-up: ilLumenate Lighting will be closed <strong>[dates]</strong> for [holiday]. We'll be back on <strong>[date]</strong>.</p>
+<p>Orders placed before <strong>[cutoff date]</strong> keep their ship dates. Anything received while we're closed will be answered when we return.</p>
+<p>Thank you, and happy holidays!</p>
+{{ c.blocks.signature }}

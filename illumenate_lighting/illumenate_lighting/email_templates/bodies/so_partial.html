@@ -1,0 +1,8 @@
+{# Sales Order: partial shipment / backorder notice. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Part of order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} has shipped{% if c.order.per_delivered %} (about {{ c.order.per_delivered }}% of the order){% endif %}, and the rest is still in production.</p>
+{% for s in c.order.shipments %}<p>Shipped {{ s.date }}{% if s.carrier %} by {{ s.carrier }}{% endif %}{% if s.number %}, tracking {% if s.url %}<a href="{{ s.url }}">{{ s.number }}</a>{% else %}{{ s.number }}{% endif %}{% endif %}.</p>{% endfor %}
+{% if c.order.ship_date %}<p>The remaining items are expected to ship {{ c.order.ship_date }}.</p>{% else %}<p>We'll confirm a ship date for the remaining items soon.</p>{% endif %}
+<p>There's no extra freight charge for the second shipment. If you'd rather we hold everything and ship once, just reply.</p>
+{{ c.blocks.signature }}

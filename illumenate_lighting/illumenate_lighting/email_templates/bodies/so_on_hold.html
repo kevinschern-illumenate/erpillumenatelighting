@@ -1,0 +1,8 @@
+{# Sales Order: order on hold, action needed. Wording follows ill_hold_reason (see formatting.HOLD_MESSAGES). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>A quick note on order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}{% if c.job_name %} for {{ c.job_name }}{% endif %}.</p>
+<p>{% if c.order.hold_message %}{{ c.order.hold_message }}{% else %}We need a quick answer from you before we can move your order forward. Reply to this email and we'll sort it out.{% endif %}</p>
+{% if c.order.ship_date %}<p>{{ c.order.ship_date_label }}: {{ c.order.ship_date }}. A quick reply helps us keep that date.</p>{% endif %}
+{% if c.portal_url %}<p><a href="{{ c.portal_url }}">View the order in the dealer portal</a></p>{% endif %}
+{{ c.blocks.signature }}

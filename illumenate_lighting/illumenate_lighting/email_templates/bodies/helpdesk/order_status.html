@@ -1,0 +1,6 @@
+<p>{% set c = ill_email_context("Sales Order", ill_sales_order) %}{% set who = ill_email_context("Contact", contact) %}Hi {{ who.greeting_name }},</p>
+<p>{% if c.found %}Thanks for checking in. Order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}{% if c.job_name %} for {{ c.job_name }}{% endif %} is <strong>{{ c.order.progress }}</strong>.{% else %}Thanks for checking in. Could you send the order number or your PO number? I'll look it up right away.{% endif %}</p>
+<p>{% if c.order.on_hold %}{{ c.order.hold_message }}{% endif %}{% if c.found and not c.order.fully_shipped and c.order.ship_date %} {{ c.order.ship_date_label }}: <strong>{{ c.order.ship_date }}</strong>.{% endif %}</p>
+<p>{% for s in c.order.shipments %}Shipped {{ s.date }}{% if s.carrier %} by {{ s.carrier }}{% endif %}{% if s.number %}, tracking {% if s.url %}<a href="{{ s.url }}">{{ s.number }}</a>{% else %}{{ s.number }}{% endif %}{% endif %}.<br>{% endfor %}</p>
+<p>{% if c.pdf.so %}<a href="{{ c.pdf.so }}">Order acknowledgement (PDF)</a>{% endif %}{% if c.portal_url %} · <a href="{{ c.portal_url }}">Track it in the dealer portal</a>{% endif %}</p>
+<p>Thanks,<br>{{ full_name }}<br>ilLumenate Lighting</p>

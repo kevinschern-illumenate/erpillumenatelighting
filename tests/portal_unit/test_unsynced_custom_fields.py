@@ -19,6 +19,7 @@ PATCHES = Path("illumenate_lighting/patches")
 NEW_PATCHES = {
 	"add_item_build_id_field": {("Item", "ill_build_id")},
 	"add_item_configured_group_field": {("Item", "ill_configured_group")},
+	"add_item_light_engine_fields": {("Item", "ill_light_engine_of"), ("Item", "ill_light_engine_key")},
 	"add_webflow_contact_form_fields": {
 		("CRM Lead", name)
 		for name in (
@@ -72,7 +73,11 @@ class ModuleLevelCustomFields(unittest.TestCase):
 				call = run_patch(patch_name)
 				fields = {(dt, f["fieldname"]) for dt, rows in call.args[0].items() for f in rows}
 				self.assertEqual(fields, expected)
-				if patch_name not in ("add_item_build_id_field", "add_item_configured_group_field"):
+				if patch_name not in (
+					"add_item_build_id_field",
+					"add_item_configured_group_field",
+					"add_item_light_engine_fields",
+				):
 					self.assertFalse(call.kwargs["update"])
 
 	def test_existing_and_fresh_sites_both_run_the_new_patches(self):

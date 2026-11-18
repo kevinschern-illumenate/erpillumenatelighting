@@ -1,0 +1,13 @@
+{# Purchase Order: change or cancellation notice. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {{ c.greeting_name }},</p>
+{% if c.is_cancelled %}
+<p>Please <strong>cancel</strong> purchase order <strong>{{ c.name }}</strong>{% if c.purchase.vendor_order_no %} (your order {{ c.purchase.vendor_order_no }}){% endif %}. Reply to confirm, and tell us if any work has already started.</p>
+{% else %}
+<p>We've revised purchase order <strong>{{ c.name }}</strong>{% if c.purchase.revised_from %}, which replaces {{ c.purchase.revised_from }}{% endif %}{% if c.purchase.vendor_order_no %} (your order {{ c.purchase.vendor_order_no }}){% endif %}.</p>
+<p><strong>What changed:</strong> [describe the change]</p>
+{{ c.blocks.supplier_lines }}
+{% if c.pdf.po %}<p><a href="{{ c.pdf.po }}">Revised purchase order {{ c.name }} (PDF)</a></p>{% endif %}
+<p>Please reply to confirm the revision and whether the ship date changes.</p>
+{% endif %}
+{{ c.blocks.signature }}

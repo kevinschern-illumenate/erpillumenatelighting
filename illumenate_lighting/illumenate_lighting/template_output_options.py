@@ -9,13 +9,15 @@ picked the same way as for Delivered Lumens (``template_delivered_lumens``): eac
 Lumens per Foot x the lens Transmission goes to the nearest per-foot fixture level, the nearer
 tape winning a level. Its wattage is the tape spec's Watts per Foot (the highest, when several
 tape specs have that lumen output) and its max run length the tape spec's Max Run Length (the
-shortest).
+shortest). Max Footage per 100W is 80 / that wattage, rounded up.
 
 Lenses with the same numbers at every level share a row group: a lens on its own is "White
 Lens"; a group of several is "Other Lenses" (or their names, when there is more than one such
 group). A lens that does not reach a level shows a dash. One row per lens group and level,
 rebuilt on every save; the spec sheet lays it out with the levels as columns.
 """
+
+import math
 
 import frappe
 
@@ -36,6 +38,12 @@ def _watts(value):
 
 def _run(value):
 	return f"{float(value):g}ft" if value else NOT_REACHED
+
+
+def _per_100w(watts):
+	"""Max footage on a 100W supply: 80W (the supply's usable load) / watts per foot, rounded up,
+	as the old Max Footage per 100W Supply row (owner, 2026-11-18)."""
+	return f"{math.ceil(round(80.0 / float(watts), 6))}ft" if watts else NOT_REACHED
 
 
 def table(lenses, tapes, levels):
@@ -104,6 +112,7 @@ def table(lenses, tapes, levels):
 					"output_level": level["name"],
 					"fixture_wattage": _watts(watts),
 					"max_run_length": _run(run),
+					"max_footage_100w": _per_100w(watts),
 				}
 			)
 	return rows

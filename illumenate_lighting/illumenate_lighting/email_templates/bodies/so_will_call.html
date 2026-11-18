@@ -1,0 +1,10 @@
+{# Sales Order: ready for will call pickup (ill_proforma_will_call = Will Call). Pickup address and hours come from ilL-Email-Settings. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} is ready for pickup.</p>
+{% if c.settings.pickup_address %}<p><strong>Pickup address:</strong></p>{{ c.blocks.pickup_address }}{% endif %}
+{% if c.settings.pickup_hours %}<p><strong>Pickup hours:</strong><br>{{ c.settings.pickup_hours }}</p>{% endif %}
+<p>Please reply with the day you'll come and the name of the person picking up, and bring the order number with you.</p>
+{% if c.order.payment_due.amount %}<p>{{ c.order.payment_due.label }} of {{ c.order.payment_due.amount }} is due before pickup.</p>{% endif %}
+{{ c.blocks.lines_no_prices }}
+{{ c.blocks.signature }}

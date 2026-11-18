@@ -1,0 +1,7 @@
+{# Quotation: pricing is about to expire (Notification: 7 days before valid_till, status Open). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Pricing on quote <strong>{{ c.name }}</strong>{% if c.job_name %} for {{ c.job_name }}{% endif %} is held until <strong>{{ c.quote.valid_till }}</strong>{% if c.quote.expires_in %} ({{ c.quote.expires_in }}){% endif %}. After that we'll need to re-check pricing and lead times before we can accept an order.</p>
+<p>If you're ready to go ahead, reply with your PO. If you need more time, let us know and we can extend it.</p>
+{% if c.pdf.quote %}<p><a href="{{ c.pdf.quote }}">View the quote (PDF)</a></p>{% endif %}
+{{ c.blocks.signature }}
