@@ -4,7 +4,7 @@ Living document. Update it in the same change as the code it describes.
 
 | | |
 | --- | --- |
-| Status | **Design, awaiting approval.** Nothing is built yet. |
+| Status | **Design approved. Build in progress:** list doctypes, child doctypes and seed patch done (Task 1). |
 | Owner | Rei (design), Claude (build) |
 | Doctype | `ilL-Webflow-Gallery` |
 | Webflow collection | `Galleries` (renamed from `Projects` by Rei; the collection ID is unchanged on staging2 and differs per site, see section 9) |
@@ -334,3 +334,6 @@ Still open:
   left out (five galleries imported, not six). Goals text updated.
 - 2026-11-18: Builder review. Added what staged/live mean, permissions, dependency-change handling, slug
   locking and the import design (sections 6, 6a, 9a). Three questions left open for Rei (section 12).
+- 2026-11-18: Task 1 built: `ilL-Gallery-Application`, `ilL-Design-Service`, the four child doctypes
+  (`ilL-Child-Gallery-Application`, `-Service`, `-Credit`, `-Product`), `api/gallery_schema.py`, the
+  `seed_gallery_lists` patch (lists plus the "Custom" series) and the `Galleries` brand collection kind.
