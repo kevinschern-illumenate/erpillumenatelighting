@@ -635,6 +635,120 @@ def paint_jobs(order_names, supplier_group):
 	return jobs
 
 
+MR_DONE_STATUSES = ("Received", "Issued", "Transferred")
+MR_RECENT_DAYS = 30
+MR_LOOKBACK_DAYS = 180
+
+
+def mr_lane(mr):
+	"""Where a Manufacture Material Request sits on the floor.
+
+	draft -> needs_wo (submitted, no work order yet) -> building (has work orders,
+	not all finished) -> done (every work order finished). ERPNext marks the request
+	"Manufactured" as soon as work orders cover the full quantity, so that status
+	alone means "building", not "built".
+	"""
+	if int(mr.get("docstatus") or 0) == 0:
+		return "draft"
+	if (mr.get("status") or "") in MR_DONE_STATUSES:
+		return "done"
+	wos = [w for w in mr.get("work_orders") or [] if w.get("status") != "Cancelled"]
+	if wos:
+		return "done" if all(w.get("status") == "Completed" for w in wos) else "building"
+	qty = sum(i.get("qty") or 0 for i in mr.get("items") or [])
+	covered = sum(i.get("ordered_qty") or 0 for i in mr.get("items") or [])
+	if mr.get("status") == "Manufactured" or (qty and covered >= qty):
+		return "building"
+	return "needs_wo"
+
+
+def manufacture_requests(today):
+	"""Manufacture-type Material Requests still being worked, plus ones finished in the last 30 days.
+
+	"Manufactured" requests (work orders cover them) are read for 180 days so slow
+	builds stay visible; the board drops finished ones older than 30 days.
+	"""
+	parents = frappe.get_all(
+		"Material Request",
+		filters={
+			"material_request_type": "Manufacture",
+			"docstatus": ["<", 2],
+			"status": ["not in", ["Stopped", "Cancelled"]],
+		},
+		or_filters=[
+			["status", "not in", ["Manufactured", *MR_DONE_STATUSES]],
+			["modified", ">=", (today - timedelta(days=MR_LOOKBACK_DAYS)).isoformat()],
+		],
+		fields=["name", "status", "docstatus", "transaction_date", "schedule_date", "owner", "modified"],
+		order_by="modified desc",
+		limit_page_length=500,
+	)
+	if not parents:
+		return []
+	names = [p.name for p in parents]
+	items = {}
+	for row in frappe.get_all(
+		"Material Request Item",
+		filters={"parent": ["in", names], "parenttype": "Material Request"},
+		fields=["parent", "item_code", "item_name", "qty", "ordered_qty", "sales_order", "schedule_date"],
+		order_by="idx asc",
+		limit_page_length=0,
+	):
+		items.setdefault(row.parent, []).append(row)
+	wos = {}
+	if _has_field("Work Order", "material_request"):
+		for w in frappe.get_all(
+			"Work Order",
+			filters={"material_request": ["in", names], "docstatus": ["<", 2]},
+			fields=["name", "status", "docstatus", "material_request", "qty", "produced_qty", "sales_order"],
+			limit_page_length=0,
+		):
+			wos.setdefault(w.material_request, []).append(w)
+	return build_manufacture_requests(parents, items, wos, today)
+
+
+def build_manufacture_requests(parents, items, wos, today):
+	"""Rows for the Manufacturing view's Material requests tab (pure, no database)."""
+	rows = []
+	for mr in parents:
+		its = items.get(mr["name"]) or []
+		work = wos.get(mr["name"]) or []
+		row = {
+			"name": mr["name"],
+			"status": mr.get("status"),
+			"docstatus": int(mr.get("docstatus") or 0),
+			"transaction_date": as_date(mr.get("transaction_date")).isoformat() if mr.get("transaction_date") else None,
+			"schedule_date": as_date(mr.get("schedule_date")).isoformat() if mr.get("schedule_date") else None,
+			"owner": mr.get("owner"),
+			"items": [
+				{
+					"item": i.get("item_code"),
+					"item_name": i.get("item_name"),
+					"qty": float(i.get("qty") or 0),
+					"ordered_qty": float(i.get("ordered_qty") or 0),
+				}
+				for i in its
+			],
+			"sales_orders": sorted({i.get("sales_order") for i in its if i.get("sales_order")}),
+			"work_orders": [
+				{
+					"name": w.get("name"),
+					"status": "Draft" if int(w.get("docstatus") or 0) == 0 else w.get("status"),
+					"qty": float(w.get("qty") or 0),
+					"produced_qty": float(w.get("produced_qty") or 0),
+				}
+				for w in work
+			],
+		}
+		row["lane"] = mr_lane(row)
+		if row["lane"] == "done" and mr.get("modified") and as_date(mr["modified"]) < today - timedelta(days=MR_RECENT_DAYS):
+			continue
+		row["late"] = bool(row["schedule_date"] and as_date(row["schedule_date"]) < today and row["lane"] != "done")
+		rows.append(row)
+	rows.sort(key=lambda r: (r["schedule_date"] or "9999-12-31", r["name"]))
+	return rows
+
+
 # ---------------------------------------------------------------------------
 # The board
 # ---------------------------------------------------------------------------
@@ -1015,6 +1129,7 @@ def build_board(now=None, money=True):
 		"ship_holds": ship_hold_summary,
 		"prowc": prowc,
 		"paint": paint,
+		"material_requests": manufacture_requests(today),
 	}
 	return board if money else scrub(board)
 
