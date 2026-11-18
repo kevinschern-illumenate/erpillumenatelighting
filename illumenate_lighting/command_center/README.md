@@ -36,6 +36,7 @@ The Manufacturing step (`#mfg`) is the warehouse "Schedule Wizard" workbook, liv
   - **Proforma & will call:** open orders, and those completed this month.
   - **Paint:** orders with an open PO to the paint supplier group (set in settings) or marked Paint by hand. Shows PO, date sent, date due back and items.
 - The previous work-order tables are in a collapsed "Work order clean-up" card at the bottom.
+- **Material requests** sub-tab: Manufacture-type Material Requests (the Purchasing desk shows only Purchase ones), in lanes Draft → Needs work order → Building → Done (last 30 days). A request is "Building" once it has a work order (draft ones count), and "Done" when every linked work order is Completed; ERPNext's own "Manufactured" status only means work orders cover the quantity. Cards show the items, the sales order and the linked work orders with their status. The tab label carries the open count, red when one is past its needed date.
 
 **Status rules:** the floor override on the Sales Order comes first. Then On Hold or a stopped WO means Held. All WOs complete means Pend-Ship. Any WO in process means In-Prod. Material short means Waiting for parts. Anything else is Pend-Prod.
 

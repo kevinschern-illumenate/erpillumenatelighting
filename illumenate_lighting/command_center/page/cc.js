@@ -202,7 +202,7 @@
     orders: [['+ New sales order', '/app/sales-order/new'], ['Sales orders', '/app/sales-order'], ['Order requests', '/app/ill-order-intake'], ['Order changes', '/app/ill-order-change'], ['Order tickets', '/helpdesk/tickets'], ['Delivery notes', '/app/delivery-note']],
     so: [['Sales orders', '/app/sales-order'], ['+ New delivery note', '/app/delivery-note/new'], ['+ New sales invoice', '/app/sales-invoice/new']],
     purch: [['+ New material request', '/app/material-request/new'], ['+ New purchase order', '/app/purchase-order/new'], ['Material requests', '/app/material-request'], ['RFQs', '/app/request-for-quotation'], ['Supplier quotations', '/app/supplier-quotation'], ['Purchase orders', '/app/purchase-order'], ['Inbound shipments', '/app/ill-inbound-shipment'], ['Purchase receipts', '/app/purchase-receipt'], ['Purchase invoices', '/app/purchase-invoice'], ['Landed cost vouchers', '/app/landed-cost-voucher'], ['Suppliers', '/app/supplier'], ['Customs tariff numbers', '/app/customs-tariff-number'], ['Stock balance', '/app/query-report/Stock%20Balance'], ['Items', '/app/item']],
-    mfg: [['+ New work order', '/app/work-order/new'], ['Work orders', '/app/work-order'], ['BOMs', '/app/bom'], ['Production plans', '/app/production-plan'], ['Stock entries', '/app/stock-entry']],
+    mfg: [['+ New work order', '/app/work-order/new'], ['Work orders', '/app/work-order'], ['Material requests (manufacture)', '/app/material-request?material_request_type=Manufacture'], ['BOMs', '/app/bom'], ['Production plans', '/app/production-plan'], ['Stock entries', '/app/stock-entry']],
     ship: [['+ New delivery note', '/app/delivery-note/new'], ['Delivery notes', '/app/delivery-note'], ['Shipments', '/app/shipment'], ['Sales orders to deliver', '/app/sales-order?status=%5B%22in%22%2C%5B%22To%20Deliver%22%2C%22To%20Deliver%20and%20Bill%22%5D%5D']],
     service: [['Help desk', '/helpdesk/tickets'], ['Account requests', '/app/ill-account-request'], ['Knowledge base', '/helpdesk/kb']],
     inbox: [['Help desk', '/helpdesk/tickets'], ['Ticket types (setup)', '/app/hd-ticket-type']],
@@ -627,6 +627,7 @@
      waiting for parts, shipped and on-time. Data: illumenate_lighting...production_board.get_board
      (app endpoint, read-only). Weights and capacity: ilL-Production-Settings. */
   const PB_API = 'illumenate_lighting.illumenate_lighting.api.production_board.get_board';
+  const PB_SET_API = 'illumenate_lighting.illumenate_lighting.api.production_board.set_build_counts';
   const PB = { data: null, err: null, busy: false, at: 0, filter: 'all', sort: 'esd', tab: 'board' };
   const PB_ST = { 1: ['Pend-Prod', 'info'], 2: ['In-Prod', 'good'], 3: ['Pend-Ship', 'good'], 5: ['Held', 'bad'], 7: ['Paint', 'warn'], 9: ['Waiting for parts', 'warn'] };
   const PB_RUNS = [['runs_2c', '2C'], ['runs_3c', '3C'], ['runs_4c', '4C'], ['runs_5c', '5C'], ['runs_6c', '6C'], ['loose', 'Loose'], ['wet', 'WR'], ['fmc', 'FMC'], ['assembly', 'Assy']];
@@ -645,18 +646,62 @@
     rows = rows.slice().sort(by[PB.sort] || by.esd);
     return rows.map(r => `<tr class="${r.past_due ? 'pb-row-late' : ''}"><td>${link('sales-order', r.so, short(r.so))}${pbWarn(r)}<div class="m">${esc(r.customer || '')}</div></td>
       <td class="num">${pbMoney(r.amount)}</td><td class="num">${pbPct(r.com_pct, flag)}</td><td>${pbEsd(r)}</td><td>${badge(PB_ST[r.status][0], PB_ST[r.status][1])}</td>
-      ${PB_RUNS.map(([k]) => `<td class="num">${pbCount(r.counts[k])}</td>`).join('')}
-      <td class="num"><b>${pbNum(r.points)}</b></td><td class="num">${pbNum(r.hours)}</td><td class="num">${r.worth == null ? '<span class="calc">—</span>' : money(r.worth)}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
+      ${PB_RUNS.map(([k]) => pbCountCell(r, k)).join('')}
+      <td class="num"><b>${pbNum(r.points)}</b>${pbAdjusted(r) ? `<div class="pb-adjm" title="${esc(r.adjust_note || 'Adjusted by hand')}">adjusted</div>` : ''}</td><td class="num">${pbNum(r.hours)}</td><td class="num">${r.worth == null ? '<span class="calc">—</span>' : money(r.worth)}</td><td class="pb-notes">${esc(r.notes)}</td>
+      ${X.can_adjust ? `<td class="no-print"><button class="cc-btn soft pb-adjb" data-pbadj="${esc(r.so)}" title="Correct the 2C–6C runs and adders for this order">Edit</button></td>` : ''}</tr>`);
   };
-  const PB_TABS = [['board', 'Board'], ['inbound', 'Run rate & daily $'], ['report', 'Monthly report'], ['releases', 'Releases & holds'], ['prowc', 'Proforma & will call'], ['paint', 'Paint']];
+  /* Floor corrections: the counted totals come from the pinned builds; the order stores the difference. */
+  const pbAdjusted = r => r.adjustments && Object.keys(r.adjustments).length > 0;
+  const pbCounted = (r, k) => Math.max((r.counts[k] || 0) - ((r.adjustments || {})[k] || 0), 0);
+  const pbCountCell = (r, k) => {
+    const d = (r.adjustments || {})[k];
+    if (!d) return `<td class="num">${pbCount(r.counts[k])}</td>`;
+    return `<td class="num pb-adjc" title="Counted from the build: ${pbNum(pbCounted(r, k), 2)}. Adjusted ${d > 0 ? '+' : ''}${pbNum(d, 2)}${r.adjust_note ? ': ' + esc(r.adjust_note) : ''}">${pbCount(r.counts[k])}</td>`;
+  };
+  function pbAdjust(so) {
+    const r = PB.data && PB.data.queue.find(x => x.so === so); if (!r) return;
+    const inputs = PB_RUNS.map(([k, n]) => fld(`${n} <span class="calc">counted ${pbNum(pbCounted(r, k), 2)}</span>`,
+      `<input type="number" name="pbc_${k}" min="0" step="any" inputmode="decimal" value="${+(r.counts[k] || 0)}">`)).join('');
+    sheet('Edit build counts', `${link('sales-order', r.so, short(r.so))} · ${esc(r.customer || '')}`,
+      `<p class="small">Set the order's totals when the configured fixtures don't show all of the work. Runs are by conductor count; WR, FMC, Assy and Loose are the adders. The difference from what the builds count is saved on the sales order, kept through recounts, and noted on its timeline.</p>
+      <div class="pb-adjg">${inputs}</div>
+      ${fld('Why', `<textarea name="pbnote" rows="2" maxlength="500" placeholder="e.g. Field splice adds a 3C run">${esc(r.adjust_note || '')}</textarea>`)}
+      ${pbAdjusted(r) ? '<label class="small" style="display:flex;gap:6px;align-items:center;margin-bottom:10px"><input type="checkbox" name="pbreset"> Clear every adjustment and go back to the counted totals</label>' : ''}`,
+      async el => {
+        const reset = el.querySelector('[name=pbreset]') && el.querySelector('[name=pbreset]').checked;
+        const counts = {}; PB_RUNS.forEach(([k]) => { const v = val(el, 'pbc_' + k); if (v !== '') counts[k] = +v; });
+        if (!reset && Object.values(counts).some(v => !(v >= 0))) throw new Error('counts must be zero or more');
+        const res = await call(PB_SET_API, { sales_order: r.so, counts: JSON.stringify(counts), note: val(el, 'pbnote'), reset: reset ? 1 : 0 });
+        Object.assign(r, { counts: res.counts, adjustments: res.adjustments, adjust_note: res.adjust_note, points: res.points, hours: res.hours });
+        PB.at = 0; toast(`${esc(short(r.so))}: build points now ${pbNum(res.points)}`);
+      }, 'Save counts');
+  }
+  const PB_TABS = [['board', 'Board'], ['mrs', 'Material requests'], ['inbound', 'Run rate & daily $'], ['report', 'Monthly report'], ['releases', 'Releases & holds'], ['prowc', 'Proforma & will call'], ['paint', 'Paint']];
+  const PB_MR_LANES = [['draft', 'Draft', 'mute'], ['needs_wo', 'Needs work order', 'warn'], ['building', 'Building', 'info'], ['done', 'Done (30 days)', 'good']];
+  const pbMrOpen = X => (X.material_requests || []).filter(r => r.lane !== 'done');
   const pbMonth = m => new Date(m + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const pbSo = r => `${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer || '')}</div>`;
   PB.body = () => {
     const X = PB.data; PB.after = null;
     if (!X) return PB.err ? `<div class="err">Couldn't load the production board: ${esc(PB.err)}</div>` : '<div class="empty">Loading the production board…</div>';
-    const tabs = `<div class="seg pb-tabs no-print">${PB_TABS.map(([k, n]) => `<button data-pbt="${k}" class="${PB.tab === k ? 'on' : ''}">${n}</button>`).join('')}</div>`;
-    const money0 = X.money ? '' : '<p class="small">Dollar figures need the Command Center Finance or Manufacturing Manager role.</p>';
-    return tabs + money0 + (({ inbound: PB.inbound, report: PB.report, releases: PB.releases, prowc: PB.prowc, paint: PB.paint })[PB.tab] || PB.board)(X);
+    const mrN = pbMrOpen(X).length, mrLate = pbMrOpen(X).some(r => r.late);
+    const tabs = `<div class="seg pb-tabs no-print">${PB_TABS.map(([k, n]) => `<button data-pbt="${k}" class="${PB.tab === k ? 'on' : ''}">${n}${k === 'mrs' && mrN ? ` <span class="badge ${mrLate ? 'bad' : 'info'}">${mrN}</span>` : ''}</button>`).join('')}</div>`;
+    const money0 = X.money || PB.tab === 'mrs' ? '' : '<p class="small">Dollar figures need the Command Center Finance or Manufacturing Manager role.</p>';
+    return tabs + money0 + (({ mrs: PB.mrs, inbound: PB.inbound, report: PB.report, releases: PB.releases, prowc: PB.prowc, paint: PB.paint })[PB.tab] || PB.board)(X);
+  };
+  /* Manufacture-type Material Requests (the Purchasing desk only shows Purchase ones). Lanes follow their work orders. */
+  PB.mrs = X => {
+    const rows = (X.material_requests || []).filter(rowOK), open = pbMrOpen(X);
+    const cardFn = r => `<div class="tcard"><div class="r">${link('material-request', r.name, r.name.replace(/^MAT-MR-\d{4}-/, 'MR '))}${r.schedule_date ? (r.late ? badge('Needed ' + fmtd(r.schedule_date), 'bad') : `<span class="small">Needed ${fmtd(r.schedule_date)}</span>`) : ''}</div>
+      <div class="m" style="margin-top:6px">${r.items.slice(0, 3).map(i => `${esc(i.item_name || i.item)} × ${pbNum(i.qty, 2)}`).join('<br>')}${r.items.length > 3 ? `<br>+ ${r.items.length - 3} more` : ''}</div>
+      ${r.sales_orders.map(so => `<div class="qchip">For ${link('sales-order', so, short(so))}</div>`).join('')}
+      ${r.work_orders.map(w => `<span class="qchip" title="${esc(w.status)} · ${pbNum(w.produced_qty, 2)} of ${pbNum(w.qty, 2)} made">WO ${link('work-order', w.name, String(w.name).split('-').slice(-1)[0])} · ${esc(w.status)}</span>`).join('')}
+      ${r.docstatus === 0 ? '<div class="small" style="margin-top:6px">Draft: submit in ERPNext</div>' : r.lane === 'needs_wo' ? `<div class="small" style="margin-top:6px"><a target="_blank" rel="noopener" href="${docUrl('material-request', r.name)}">Open to create a work order</a></div>` : ''}</div>`;
+    const cols = PB_MR_LANES.map(([k, n, tone]) => { const cs = rows.filter(r => r.lane === k);
+      return `<div class="bcol"><div class="lane-h"><span><span class="dot ${tone}"></span> ${esc(n)}</span><span class="ct">${cs.length}</span></div>${cs.map(cardFn).join('') || '<div class="drop-hint">Nothing here</div>'}</div>`; });
+    return `<div class="ex-kpis pb-kpis">${stat('Open requests', open.length, 'Manufacture-type material requests')}${stat('Need a work order', open.filter(r => r.lane === 'needs_wo').length, 'Submitted, no work order yet', open.some(r => r.lane === 'needs_wo') ? 'warn' : '')}${stat('Past needed date', open.filter(r => r.late).length, 'Not finished by the required date', open.some(r => r.late) ? 'bad' : '')}</div>
+      <div class="toolbar no-print" style="margin-bottom:12px"><a class="cc-btn soft" style="text-decoration:none" target="_blank" rel="noopener" href="/app/material-request/new?material_request_type=Manufacture">+ New manufacture request</a><a class="cc-btn soft" style="text-decoration:none" target="_blank" rel="noopener" href="/app/material-request?material_request_type=Manufacture">All in ERPNext</a></div>
+      <div class="board pu-board" style="grid-template-columns:repeat(${PB_MR_LANES.length},minmax(220px,1fr))">${cols.join('')}</div>`;
   };
   PB.inbound = X => {
     const I = X.inbound, Dd = X.daily, flag = X.settings.commission_flag_pct;
@@ -758,7 +803,7 @@
     const tabs = [['all', 'All'], ['1', 'Pend-Prod'], ['2', 'In-Prod'], ['3', 'Pend-Ship'], ['7', 'Paint'], ['5', 'Held']]
       .map(([k, n]) => `<button data-pbf="${k}" class="${PB.filter === k ? 'on' : ''}">${n}</button>`).join('');
     const sorts = `<select id="pbsort">${[['esd', 'Ship date'], ['worth', '$ per point'], ['points', 'Points']].map(([k, n]) => `<option value="${k}" ${PB.sort === k ? 'selected' : ''}>Sort: ${n}</option>`).join('')}</select>`;
-    const qHead = ['Sales order', '#$', '#Com %', 'Ship date', 'Status', ...PB_RUNS.map(([, n]) => '#' + n), '#Points', '#Hrs', '#$ / pt', 'Notes'];
+    const qHead = ['Sales order', '#$', '#Com %', 'Ship date', 'Status', ...PB_RUNS.map(([, n]) => '#' + n), '#Points', '#Hrs', '#$ / pt', 'Notes', ...(X.can_adjust ? [''] : [])];
     const wfpRows = X.wfp.filter(rowOK).map(r => `<tr class="${r.going_to_miss ? 'pb-row-late' : ''}"><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer || '')}</div></td><td class="num">${pbMoney(r.amount)}</td><td>${pbEsd(r)}</td>
       <td>${r.eta ? fmtd(r.eta) : badge('No PO', 'bad')}</td><td>${r.going_to_miss ? badge('Going to miss', 'bad') : badge('OK', 'good')}</td><td>${r.this_month ? 'Yes' : 'No'}</td>
       <td class="num">${pbNum(r.points)}</td><td>${r.short_items.slice(0, 4).map(s => `${link('item', s.item)} <span class="calc">${pbNum(s.qty, 2)}${r.no_po_items.includes(s.item) ? ', no PO' : ''}</span>`).join('<br>')}${r.short_items.length > 4 ? `<div class="calc">+${r.short_items.length - 4} more</div>` : ''}</td><td class="pb-notes">${esc(r.notes)}</td></tr>`);
@@ -793,6 +838,7 @@
   PB.bind = () => {
     root.querySelectorAll('[data-pbf]').forEach(b => b.onclick = () => { PB.filter = b.dataset.pbf; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
     root.querySelectorAll('[data-pbt]').forEach(b => b.onclick = () => { PB.tab = b.dataset.pbt; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
+    root.querySelectorAll('[data-pbadj]').forEach(b => b.onclick = () => pbAdjust(b.dataset.pbadj));
     const s = $('#pbsort'); if (s) s.onchange = () => { PB.sort = s.value; $('#pbroot').innerHTML = PB.body(); PB.bind(); };
     if (PB.data && PB.after) { PB.after(); }
   };

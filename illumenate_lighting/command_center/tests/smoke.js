@@ -106,6 +106,10 @@ const gwReply = b => {
 const cnt = o => Object.assign({ runs_2c:0, runs_3c:0, runs_4c:0, runs_5c:0, runs_6c:0, loose:0, wet:0, fmc:0, assembly:0 }, o);
 const bucket = (n, a, p) => ({ count:n, amount:a, com:a*0.2, com_pct:0.2, points:p });
 const BOARD = { as_of:'2026-11-17T10:00:00', today:TODAY, money:true,
+ material_requests:[
+  { name:'MAT-MR-2026-00041', status:'Pending', docstatus:1, schedule_date:'2026-11-10', lane:'needs_wo', late:true, items:[{item:'CH-409', item_name:'Channel 409 cut', qty:12, ordered_qty:0}], sales_orders:['ilL-SAL-ORD-1'], work_orders:[] },
+  { name:'MAT-MR-2026-00042', status:'Manufactured', docstatus:1, schedule_date:'2026-11-30', lane:'building', late:false, items:[{item:'ASSY-7', item_name:'Driver box', qty:3, ordered_qty:3}], sales_orders:[], work_orders:[{name:'MFG-WO-2026-00077', status:'In Process', qty:3, produced_qty:1}] },
+  { name:'MAT-MR-2026-00043', status:'Draft', docstatus:0, schedule_date:null, lane:'draft', late:false, items:[{item:'X', item_name:'Endcap kit', qty:4, ordered_qty:0}], sales_orders:[], work_orders:[] } ],
  settings:{ points_per_person_day:57.5, headcount:5.5, capacity_per_day:316.25, points_per_hour:6.76, commission_flag_pct:0.22, weights:{} },
  pipeline:{ pend_prod:bucket(1,727,2), in_prod:bucket(1,25251.88,322), pend_ship:bucket(0,0,0), wfp:bucket(1,19459.84,41), paint:bucket(0,0,0), held:bucket(0,0,0) },
  due:{ past_due:{count:1,amount:727}, today:{count:0,amount:0}, next_day:{count:0,amount:0,date:'2026-11-18'}, this_week:{count:1,amount:25251.88} },
@@ -244,6 +248,9 @@ const closeAll = () => { const x = w.document.querySelector('#ccsheet2 [data-clo
   check('mfg sort by $ per point', txt().indexOf('68686') < txt().indexOf('67312'));
   check('mfg keeps work order clean-up', /Work order clean-up/.test(txt()));
   const tab = async k => { w.document.querySelector(`[data-pbt="${k}"]`).click(); await sleep(60); };
+  check('mfg material requests tab badge', /Material requests\s*3/.test(w.document.querySelector('.pb-tabs').textContent));
+  await tab('mrs');
+  check('mfg material requests lanes', /Needs work order/.test(txt()) && /MR 00041/.test(txt()) && /Needed/.test(txt()) && /Channel 409 cut/.test(txt()) && /WO 00077/.test(txt()) && /Endcap kit/.test(txt()) && /Past needed date/.test(txt()));
   await tab('inbound');
   check('mfg run rate tab', /Orders received per workday/.test(txt()) && /\$12,418/.test(txt()) && /Rush/.test(txt()) && !!w.document.querySelector('#pbinb svg') && !!w.document.querySelector('#pbdaily svg'));
   await tab('report');
