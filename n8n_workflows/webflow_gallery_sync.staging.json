@@ -1,0 +1,1136 @@
+{
+  "name": "[STAGING] ilL Gallery Publication",
+  "nodes": [
+    {
+      "name": "Manual Trigger",
+      "id": "gallery-manual-trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "name": "Every Minute",
+      "id": "gallery-every-minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Configuration",
+      "id": "gallery-configuration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {json: {\"erp_base_url\": \"https://stagingillumenate.v.frappe.cloud\", \"brand\": \"illumenate\"}};"
+      }
+    },
+    {
+      "name": "Claim Job",
+      "id": "gallery-claim-job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuration').item.json.erp_base_url + '/api/method/illumenate_lighting.illumenate_lighting.api.gallery_publication.claim' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "options": {
+          "timeout": 45000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({brand: $('Configuration').item.json.brand, limit: 1}) }}"
+      }
+    },
+    {
+      "name": "Job Available",
+      "id": "gallery-job-available",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Job Available",
+              "leftValue": "={{ ($json.message?.jobs || []).length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Prepare Claim",
+      "id": "gallery-prepare-claim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const job = $json.message.jobs[0];\nconst collection = job.payload.brand.galleries_collection_id;\nif (!/^[a-f0-9]{24}$/i.test(collection || '')) throw new Error('Invalid Galleries collection ID');\nif (job.payload.schema_version !== 1) throw new Error('Update this workflow for the gallery schema version');\nif (job.remote_item_id && !/^[a-f0-9]{24}$/i.test(job.remote_item_id)) throw new Error('Invalid remote item ID');\njob.remote_item_id = job.remote_item_id || null;\njob.collection_url = 'https://api.webflow.com/v2/collections/' + collection + '/items';\n// Webflow cannot filter by erp-sync-id, so without a known ID the collection page is scanned for it.\njob.lookup_url = job.remote_item_id ? job.collection_url + '/' + job.remote_item_id : job.collection_url + '?limit=100&offset=0';\nreturn {json: job};"
+      }
+    },
+    {
+      "name": "Find Remote Item",
+      "id": "gallery-find-remote-item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.lookup_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 45000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Resolve Remote Item",
+      "id": "gallery-resolve-remote-item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        240
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const job = {...$('Prepare Claim').item.json};\nconst response = $json, status = Number(response.statusCode), body = response.body || {};\nconst syncId = job.payload.erp_sync_id, slug = job.payload.slug;\nconst fail = (code, retryAfter) => ({json: {...job, error_code: code, retry_after: retryAfter || null}});\nif (status === 404 && job.remote_item_id) {\n  if (job.operation === 'RETIRE') return {json: {...job, absent: true}};\n  if (job.operation === 'PUBLISH') return fail('missing-staged-item');\n}\nif (status < 200 || status >= 300) return fail(String(status), response.headers?.['retry-after']);\nlet item = null;\nif (job.remote_item_id) {\n  // Known ID: the item must carry this erp-sync-id, or none yet with the same slug (an imported item,\n  // whose erp-sync-id this write backfills).\n  const own = body.fieldData?.['erp-sync-id'];\n  if (body.id !== job.remote_item_id || !(own === syncId || (!own && body.fieldData?.slug === slug))) return fail('identity-conflict');\n  item = body;\n} else {\n  if (!Array.isArray(body.items)) return fail('response-invalid');\n  if (Number(body.pagination?.total ?? body.items.length) > body.items.length) return fail('lookup-incomplete');\n  // Match by erp-sync-id first (finds an item created before a lost acknowledgement), then by exact\n  // slug; a slug match must carry this erp-sync-id. Any second candidate stops for reconciliation.\n  const bySync = body.items.filter(row => row.fieldData?.['erp-sync-id'] === syncId);\n  const bySlug = body.items.filter(row => row.fieldData?.slug === slug);\n  if (bySync.length > 1 || bySlug.some(row => !bySync.includes(row))) return fail('identity-conflict');\n  item = bySync[0] || null;\n}\nif (item && !/^[a-f0-9]{24}$/i.test(item.id || '')) return fail('response-invalid');\nif (!item && job.operation === 'PUBLISH') return fail('missing-staged-item');\nreturn {json: {...job, remote_item_id: item?.id || null, absent: !item}};"
+      }
+    },
+    {
+      "name": "Lookup Succeeded",
+      "id": "gallery-lookup-succeeded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        520,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Lookup Succeeded",
+              "leftValue": "={{ !$json.error_code }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Retiring",
+      "id": "gallery-retiring",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Retiring",
+              "leftValue": "={{ $json.operation === 'RETIRE' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Already Absent",
+      "id": "gallery-already-absent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Already Absent",
+              "leftValue": "={{ $json.absent === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Unpublish Remote Item",
+      "id": "gallery-unpublish-remote-item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        240
+      ],
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ $json.collection_url + '/' + $json.remote_item_id + '/live' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 45000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Check Unpublish",
+      "id": "gallery-check-unpublish",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const job = {...$('Resolve Remote Item').item.json};\nconst status = Number($json.statusCode), body = $json.body || {};\nconst failed = code => { job.error_code = code; job.retry_after = $json.headers?.['retry-after'] || null; return {json: job}; };\nif ((status < 200 || status >= 300) && status !== 404) return failed(String(status));\nreturn {json: job};"
+      }
+    },
+    {
+      "name": "Unpublish Succeeded",
+      "id": "gallery-unpublish-succeeded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        260,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Unpublish Succeeded",
+              "leftValue": "={{ !$json.error_code }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Archive Remote Item",
+      "id": "gallery-archive-remote-item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        480
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.collection_url + '/' + $json.remote_item_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 45000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({isArchived: true, isDraft: true}) }}"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Check Archive",
+      "id": "gallery-check-archive",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const job = {...$('Resolve Remote Item').item.json};\nconst status = Number($json.statusCode), body = $json.body || {};\nconst failed = code => { job.error_code = code; job.retry_after = $json.headers?.['retry-after'] || null; return {json: job}; };\nif (status < 200 || status >= 300) return failed(String(status));\nif (body.isArchived !== true) return failed('archive-unverified');\nreturn {json: job};"
+      }
+    },
+    {
+      "name": "Prepare Write",
+      "id": "gallery-prepare-write",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function projectWebflowGallery(payload, options) {\n// ERP gallery payload (api/gallery_projection.build_payload) -> Webflow Galleries item body.\n// Field slugs are those of the Galleries collection (docs/WEBFLOW_GALLERY_SYNC.md, section 5.1).\n//\n// Null-vs-omit rule (so a value cleared in ERP is cleared in Webflow, and nothing is blanked by accident):\n// - Every text and rich-text field is always sent; an empty ERP value is sent as '' and clears the field.\n// - List fields are always sent: `gallery` and `products-used` as arrays (possibly empty); the joined text\n//   fields (`applications`, `services-provided`, `series-used`, `videos`) as '' when the list is empty.\n// - `featured-image` is the hero image ({url, alt}) or null when there is none.\n// - Credits: an unfilled name/website pair is never sent as empty strings. A credit type missing from\n//   payload.credits sends null for both slugs, so a removed credit is cleared; a credit without a website\n//   sends null for the website (a Link field rejects '').\n// - `completion-date` is an ISO date-time string, and is omitted (not sent) when ERP has no date.\nif (!options || typeof options.isDraft !== 'boolean') throw new Error('isDraft must be true or false');\n\nconst CREDIT_FIELDS = {\n  Integrator: ['client-integrator', 'client-website'],\n  Architect: ['architect', 'architect-website'],\n  Designer: ['designer', 'designer-website'],\n  Contractor: ['contractor', 'contractor-website'],\n  Owner: ['owner', 'owner-website'],\n  Photographer: ['photo-credit', 'photographer-website']\n};\n\nconst text = (value) => (typeof value === 'string' ? value : '');\nconst joined = (values) => (Array.isArray(values) ? values.filter(v => typeof v === 'string' && v).join(', ') : '');\nconst image = (row) => (row && row.url ? { url: row.url, alt: text(row.alt) } : null);\n\nconst fieldData = {\n  'name': text(payload.name),\n  'slug': text(payload.slug),\n  'erp-sync-id': text(payload.erp_sync_id),\n  'featured': payload.featured === true,\n  'featured-image': image(payload.hero_image),\n  'gallery': (payload.gallery_images || []).map(image).filter(Boolean),\n  'short-description': text(payload.seo_description),\n  'about': text(payload.about),\n  'case-study': text(payload.case_study_html),\n  'project-type': text(payload.gallery_type),\n  'applications': joined(payload.applications),\n  'services-provided': joined(payload.services_provided),\n  'products-used': (payload.product_item_ids || []).filter(id => /^[a-f0-9]{24}$/i.test(id)),\n  'series-used': joined(payload.series_used),\n  'product-notes': text(payload.product_notes_html),\n  'quote': text(payload.quote),\n  'quote-attribution': text(payload.quote_attribution),\n  'location': text(payload.location),\n  'videos': joined(payload.videos),\n  'custom-items': text(payload.custom_items_html)\n};\nif (!fieldData.name || !fieldData.slug || !fieldData['erp-sync-id']) throw new Error('Gallery name, slug and erp-sync-id are required');\n\nif (payload.completion_date) {\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(payload.completion_date)) throw new Error('completion_date must be YYYY-MM-DD');\n  const date = new Date(payload.completion_date + 'T00:00:00.000Z');\n  if (isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== payload.completion_date) throw new Error('completion_date is not a date');\n  fieldData['completion-date'] = date.toISOString();\n}\n\nconst credits = payload.credits || {};\nfor (const [type, [nameSlug, websiteSlug]] of Object.entries(CREDIT_FIELDS)) {\n  const credit = credits[type] || {};\n  fieldData[nameSlug] = text(credit.name) || null;\n  fieldData[websiteSlug] = (fieldData[nameSlug] && text(credit.website)) || null;\n}\n\nreturn { isArchived: false, isDraft: options.isDraft, fieldData };\n}\nif (typeof module !== \"undefined\") module.exports = { projectWebflowGallery };\n\nconst job = {...$json};\ntry {\n  // STAGE saves a draft; PUBLISH marks the staged item ready, then publishes it (as for products).\n  job.write_body = projectWebflowGallery(job.payload, {isDraft: job.operation !== 'PUBLISH'});\n  job.write_method = job.remote_item_id ? 'PATCH' : 'POST';\n  job.write_url = job.collection_url + (job.remote_item_id ? '/' + job.remote_item_id : '');\n} catch (error) { job.error_code = 'projection-invalid'; }\nreturn {json: job};"
+      }
+    },
+    {
+      "name": "Projection Valid",
+      "id": "gallery-projection-valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        480
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Projection Valid",
+              "leftValue": "={{ !$json.error_code }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Write Staged Item",
+      "id": "gallery-write-staged-item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        720
+      ],
+      "parameters": {
+        "method": "={{ $json.write_method }}",
+        "url": "={{ $json.write_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 45000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.write_body) }}"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Check Write",
+      "id": "gallery-check-write",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        720
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const job = {...$('Prepare Write').item.json};\nconst status = Number($json.statusCode), body = $json.body || {};\nconst failed = code => { job.error_code = code; job.retry_after = $json.headers?.['retry-after'] || null; return {json: job}; };\nif (status < 200 || status >= 300) return failed(String(status));\nif (!/^[a-f0-9]{24}$/i.test(body.id || '') || (job.remote_item_id && body.id !== job.remote_item_id)) return failed('response-invalid');\njob.remote_item_id = body.id;\ndelete job.write_body;\nreturn {json: job};"
+      }
+    },
+    {
+      "name": "Write Succeeded",
+      "id": "gallery-write-succeeded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        520,
+        720
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Write Succeeded",
+              "leftValue": "={{ !$json.error_code }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Publishing",
+      "id": "gallery-publishing",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        720
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Publishing",
+              "leftValue": "={{ $json.operation === 'PUBLISH' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Publish Remote Item",
+      "id": "gallery-publish-remote-item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        720
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.collection_url + '/publish' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 45000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({itemIds: [$json.remote_item_id]}) }}"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Check Publish",
+      "id": "gallery-check-publish",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        720
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const job = {...$('Check Write').item.json};\nconst status = Number($json.statusCode), body = $json.body || {};\nconst failed = code => { job.error_code = code; job.retry_after = $json.headers?.['retry-after'] || null; return {json: job}; };\nif (status < 200 || status >= 300) return failed(String(status));\nif (body.errors?.length || !(body.publishedItemIds || []).includes(job.remote_item_id)) return failed('publication-unverified');\nreturn {json: job};"
+      }
+    },
+    {
+      "name": "Remote Action Succeeded",
+      "id": "gallery-remote-action-succeeded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        960
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Remote Action Succeeded",
+              "leftValue": "={{ !$json.error_code }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Transport Failure",
+      "id": "gallery-transport-failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        960
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {json: {...$('Prepare Claim').item.json, error_code: 'transport'}};"
+      }
+    },
+    {
+      "name": "Record Success",
+      "id": "gallery-record-success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        960
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuration').item.json.erp_base_url + '/api/method/illumenate_lighting.illumenate_lighting.api.gallery_publication.acknowledge' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "options": {
+          "timeout": 45000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({job: $json.job, token: $json.token, revision_hash: $json.revision_hash, payload_hash: $json.payload_hash, remote_item_id: $json.remote_item_id || null, outcome: 'success'}) }}"
+      }
+    },
+    {
+      "name": "Record Failure",
+      "id": "gallery-record-failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        960
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Configuration').item.json.erp_base_url + '/api/method/illumenate_lighting.illumenate_lighting.api.gallery_publication.acknowledge' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "erpNextApi",
+        "options": {
+          "timeout": 45000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({job: $json.job, token: $json.token, revision_hash: $json.revision_hash, payload_hash: $json.payload_hash, remote_item_id: $json.remote_item_id || null, outcome: 'error', error_code: $json.error_code, retry_after: $json.retry_after || null}) }}"
+      }
+    },
+    {
+      "name": "Continue Batch",
+      "id": "gallery-continue-batch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        960
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Continue Batch",
+              "leftValue": "={{ $runIndex < 999 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Setup Instructions",
+      "id": "gallery-setup-instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        960
+      ],
+      "parameters": {
+        "content": "Gallery publication (one brand)\n\nBuilt for brand illumenate at https://stagingillumenate.v.frappe.cloud: both values are built in, so no n8n variables are used and a staging and a production copy can sit side by side. Bind the ERP credential (ilL Integration System User) and the Webflow credential for that brand's site to every HTTP node. No secrets in variables or exports. The Galleries collection needs a plain-text erp-sync-id field first.\n\nRuns every minute (and manually): ERP schedules retries 1, 5 and 15 minutes out and this worker claims them on its next poll. It claims one job at a time and drains at most 1000 jobs per run. Remote items are matched by erp-sync-id, then by exact slug with erp-sync-id verified; two candidates stop as identity-conflict, and a collection larger than one page (100) stops as lookup-incomplete. Failed calls record a safe error code only. Import inactive and test on staging2 before activation.\n\nSTAGE saves a draft; PUBLISH publishes the staged item; RETIRE unpublishes then archives and never deletes. No site-wide publish. Primary locale only.",
+        "width": 640,
+        "height": 520
+      }
+    }
+  ],
+  "connections": {
+    "Find Remote Item": {
+      "main": [
+        [
+          {
+            "node": "Resolve Remote Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transport Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpublish Remote Item": {
+      "main": [
+        [
+          {
+            "node": "Check Unpublish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transport Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive Remote Item": {
+      "main": [
+        [
+          {
+            "node": "Check Archive",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transport Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Staged Item": {
+      "main": [
+        [
+          {
+            "node": "Check Write",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transport Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish Remote Item": {
+      "main": [
+        [
+          {
+            "node": "Check Publish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transport Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Minute": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Claim Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Job": {
+      "main": [
+        [
+          {
+            "node": "Job Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Available": {
+      "main": [
+        [
+          {
+            "node": "Prepare Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Claim": {
+      "main": [
+        [
+          {
+            "node": "Find Remote Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Remote Item": {
+      "main": [
+        [
+          {
+            "node": "Lookup Succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Succeeded": {
+      "main": [
+        [
+          {
+            "node": "Retiring",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retiring": {
+      "main": [
+        [
+          {
+            "node": "Already Absent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Write",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Absent": {
+      "main": [
+        [
+          {
+            "node": "Record Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unpublish Remote Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Unpublish": {
+      "main": [
+        [
+          {
+            "node": "Unpublish Succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpublish Succeeded": {
+      "main": [
+        [
+          {
+            "node": "Archive Remote Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Archive": {
+      "main": [
+        [
+          {
+            "node": "Remote Action Succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Write": {
+      "main": [
+        [
+          {
+            "node": "Projection Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Projection Valid": {
+      "main": [
+        [
+          {
+            "node": "Write Staged Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Write": {
+      "main": [
+        [
+          {
+            "node": "Write Succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Succeeded": {
+      "main": [
+        [
+          {
+            "node": "Publishing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publishing": {
+      "main": [
+        [
+          {
+            "node": "Publish Remote Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Publish": {
+      "main": [
+        [
+          {
+            "node": "Remote Action Succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remote Action Succeeded": {
+      "main": [
+        [
+          {
+            "node": "Record Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transport Failure": {
+      "main": [
+        [
+          {
+            "node": "Record Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Success": {
+      "main": [
+        [
+          {
+            "node": "Continue Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Failure": {
+      "main": [
+        [
+          {
+            "node": "Continue Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue Batch": {
+      "main": [
+        [
+          {
+            "node": "Claim Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {}
+}

@@ -1,9 +1,16 @@
-/* Executes the checked-in gallery n8n code/branches against a local transport double. */
+/* Executes the checked-in gallery n8n code/branches against a local transport double.
+   Runs every test against both generated files: the default one (ERP address and brand from n8n variables,
+   "Webflow API" credential) and the staging copy (both values built in, header-token Webflow credential). */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const workflow = JSON.parse(fs.readFileSync('n8n_workflows/webflow_gallery_sync.json', 'utf8'));
-const nodes = new Map(workflow.nodes.map(node => [node.name, node]));
+const VARIANTS = [
+    {file: 'n8n_workflows/webflow_gallery_sync.json', erp: 'https://erp.example.test', brand: 'staging2',
+        vars: {ILL_ERP_BASE_URL: 'https://erp.example.test', ILL_WEBFLOW_BRAND: 'staging2'}, builtIn: false},
+    {file: 'n8n_workflows/webflow_gallery_sync.staging.json', erp: 'https://stagingillumenate.v.frappe.cloud',
+        brand: 'illumenate', vars: {}, builtIn: true}
+];
+let variant, workflow, nodes;
 const { projectWebflowGallery } = require('../../n8n_workflows/lib/gallery_projection.js');
 
 const COLLECTION = 'b'.repeat(24);
@@ -56,7 +63,7 @@ function execute(jobs, options = {}) {
         const index = counts.get(current) || 0;
         counts.set(current, index + 1);
         const context = {$json: json, $input: {item: {json}}, $runIndex: index,
-            $vars: {ILL_ERP_BASE_URL: 'https://erp.example.test', ILL_WEBFLOW_BRAND: 'staging2'},
+            $vars: variant.vars,
             $: name => ({item: {json: output.get(name)}})};
         let branch = 0;
         if (node.type.endsWith('.code')) {
@@ -70,9 +77,9 @@ function execute(jobs, options = {}) {
                 ? vm.runInNewContext(node.parameters.method.slice(3, -2), context) : node.parameters.method;
             const body = node.parameters.jsonBody ? JSON.parse(vm.runInNewContext(node.parameters.jsonBody.slice(3, -2), context)) : undefined;
             requests.push({node: current, method, url, body});
-            assert.ok(url.startsWith('https://erp.example.test/') || url.startsWith(`https://api.webflow.com/v2/collections/${COLLECTION}/items`), url);
+            assert.ok(url.startsWith(`${variant.erp}/`) || url.startsWith(`https://api.webflow.com/v2/collections/${COLLECTION}/items`), url);
             if (current === 'Claim Job') {
-                assert.deepEqual(body, {brand: 'staging2', limit: 1});
+                assert.deepEqual(body, {brand: variant.brand, limit: 1});
                 assert.ok(url.endsWith('.api.gallery_publication.claim'));
                 json = {message: {jobs: queue.length ? [queue.shift()] : []}};
             } else if (current === 'Find Remote Item') {
@@ -357,6 +364,25 @@ function test_workflow_shape() {
     assert.equal(workflow.connections[schedule.name].main[0][0].node, 'Configuration');
     assert.equal(workflow.connections['Manual Trigger'].main[0][0].node, 'Configuration');
     assert.ok(workflow.nodes.every(node => !node.credentials), 'credentials must stay unbound');
+    const text0 = JSON.stringify(workflow);
+    const remoteNodes = workflow.nodes.filter(node => node.type.endsWith('.httpRequest') && !node.parameters.url.includes('.api.gallery_publication.'));
+    const erpNodes = workflow.nodes.filter(node => node.type.endsWith('.httpRequest') && node.parameters.url.includes('.api.gallery_publication.'));
+    assert.equal(remoteNodes.length, 5);
+    assert.equal(erpNodes.length, 3);
+    assert.ok(erpNodes.every(node => node.parameters.nodeCredentialType === 'erpNextApi'), 'ERP calls use the ERP credential type');
+    if (variant.builtIn) {
+        // No n8n variables: the ERP address and brand are in the Configuration node.
+        assert.ok(!text0.includes('$vars'), 'built-in copy must not read n8n variables');
+        const configuration = nodes.get('Configuration').parameters.jsCode;
+        assert.ok(configuration.includes(JSON.stringify(variant.erp)) && configuration.includes(JSON.stringify(variant.brand)));
+        // Webflow is called with a header-token credential, like the other Webflow workflows.
+        assert.ok(remoteNodes.every(node => node.parameters.authentication === 'genericCredentialType'
+            && node.parameters.genericAuthType === 'httpHeaderAuth' && !node.parameters.nodeCredentialType), 'header auth');
+        assert.ok(workflow.name.startsWith('[STAGING]'));
+    } else {
+        assert.ok(text0.includes('$vars.ILL_ERP_BASE_URL') && text0.includes('$vars.ILL_WEBFLOW_BRAND'));
+        assert.ok(remoteNodes.every(node => node.parameters.nodeCredentialType === 'webflowApi'), 'Webflow API credential type');
+    }
     const text = JSON.stringify(workflow);
     assert.ok(!/6afb3d27742d050cf6903677|6aeb4d313e25a078e9393924|695c1f9a18a639365b6a31a7/.test(text), 'hard-coded IDs');
     assert.ok(!/Bearer |api[_-]?key|password/i.test(text), 'secrets in workflow');
@@ -371,5 +397,9 @@ const tests = [test_projection_maps_every_field_slug, test_unfilled_credit_omitt
     test_lost_ack_after_create_does_not_duplicate, test_slug_fallback_verifies_erp_sync_id, test_two_matches_is_identity_conflict,
     test_publish_requires_staged_item, test_retire_unpublishes_and_archives, test_rate_limit_acknowledges_429_for_retry,
     test_workflow_shape];
-for (const test of tests) { test(); console.log(`ok ${test.name}`); }
-console.log(`Gallery workflow: ${tests.length} tests passed`);
+for (variant of VARIANTS) {
+    workflow = JSON.parse(fs.readFileSync(variant.file, 'utf8'));
+    nodes = new Map(workflow.nodes.map(node => [node.name, node]));
+    for (const test of tests) { test(); console.log(`ok ${test.name} (${variant.file})`); }
+}
+console.log(`Gallery workflow: ${tests.length} tests passed for ${VARIANTS.length} workflow files`);

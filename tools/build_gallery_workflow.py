@@ -1,12 +1,47 @@
 """Build the reviewable n8n gallery workflow; never contacts ERPNext or Webflow.
 
 Modelled on tools/build_publication_workflow.py (docs/WEBFLOW_GALLERY_SYNC.md, section 7).
+
+With no arguments it writes n8n_workflows/webflow_gallery_sync.json, which reads the ERPNext address and
+brand from the n8n variables ILL_ERP_BASE_URL and ILL_WEBFLOW_BRAND and calls Webflow with a "Webflow API"
+credential. n8n variables are shared by the whole n8n account, so a staging and a production copy cannot
+both use them. Pass --erp-base-url and --brand to build a copy with those two values built in instead
+(no variables), and --webflow-auth header to call Webflow with a header-token credential like the other
+Webflow workflows in this account, for example:
+
+    python3 -B tools/build_gallery_workflow.py --name "[STAGING] ilL Gallery Publication" \
+        --erp-base-url https://stagingillumenate.v.frappe.cloud --brand illumenate \
+        --webflow-auth header --out n8n_workflows/webflow_gallery_sync.staging.json
 """
 
+import argparse
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+parser.add_argument("--name", default="ilL Gallery Publication (one brand)", help="workflow name in n8n")
+parser.add_argument("--erp-base-url", help="built-in ERPNext address, https://host with no path")
+parser.add_argument("--brand", help="built-in ilL-Webflow-Brand code to claim jobs for")
+parser.add_argument(
+	"--webflow-auth",
+	choices=("api", "header"),
+	default="api",
+	help="api: a 'Webflow API' credential; header: a header-token credential (Authorization header)",
+)
+parser.add_argument("--out", default="n8n_workflows/webflow_gallery_sync.json", help="file to write")
+args = parser.parse_args()
+if bool(args.erp_base_url) != bool(args.brand):
+	parser.error("--erp-base-url and --brand go together")
+if args.erp_base_url:
+	args.erp_base_url = args.erp_base_url.rstrip("/")
+	if not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::\d+)?", args.erp_base_url):
+		parser.error("--erp-base-url must look like https://host (no path)")
+	if not re.fullmatch(r"[a-z0-9_]+", args.brand):
+		parser.error("--brand must be lowercase letters, digits and underscores")
+
 nodes, connections = [], {}
 API = "illumenate_lighting.illumenate_lighting.api.gallery_publication."
 
@@ -60,13 +95,17 @@ def condition(name, expression):
 
 
 def http(name, method, url, body=None, remote=False):
-	params = {
-		"method": method,
-		"url": url,
-		"authentication": "predefinedCredentialType",
-		"nodeCredentialType": "webflowApi" if remote else "erpNextApi",
-		"options": {"timeout": 45000},
-	}
+	params = {"method": method, "url": url}
+	if remote and args.webflow_auth == "header":
+		params.update({"authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth"})
+	else:
+		params.update(
+			{
+				"authentication": "predefinedCredentialType",
+				"nodeCredentialType": "webflowApi" if remote else "erpNextApi",
+			}
+		)
+	params["options"] = {"timeout": 45000}
 	if body is not None:
 		params.update(
 			{"sendBody": True, "specifyBody": "json", "jsonBody": "={{ JSON.stringify(" + body + ") }}"}
@@ -102,13 +141,18 @@ add(
 	{"rule": {"interval": [{"field": "minutes", "minutesInterval": 1}]}},
 	1.2,
 )
-code(
-	"Configuration",
-	r"""const base = String($vars.ILL_ERP_BASE_URL || '').replace(/\/$/, '');
+if args.erp_base_url:
+	# Built in: json.dumps gives a safe JavaScript string literal, and both values were validated above.
+	configuration = {"erp_base_url": args.erp_base_url, "brand": args.brand}
+	code("Configuration", f"return {{json: {json.dumps(configuration)}}};")
+else:
+	code(
+		"Configuration",
+		r"""const base = String($vars.ILL_ERP_BASE_URL || '').replace(/\/$/, '');
 const brand = String($vars.ILL_WEBFLOW_BRAND || '');
 if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(base) || !brand) throw new Error('Set ILL_ERP_BASE_URL and ILL_WEBFLOW_BRAND in n8n variables');
 return {json: {erp_base_url: base, brand}};""",
-)
+	)
 http("Claim Job", "POST", erp("claim"), "{brand: $('Configuration').item.json.brand, limit: 1}")
 condition("Job Available", "($json.message?.jobs || []).length > 0")
 code(
@@ -263,9 +307,17 @@ add(
 	"stickyNote",
 	{
 		"content": "Gallery publication (one brand)\n\n"
-		"Set ILL_ERP_BASE_URL and ILL_WEBFLOW_BRAND. Bind ERP credentials for an ilL Integration System "
-		"User and Webflow credentials for that exact brand to every HTTP node. Deploy one workflow per "
-		"brand. No secrets in variables or exports. The Galleries collection needs a plain-text "
+		+ (
+			f"Built for brand {args.brand} at {args.erp_base_url}: both values are built in, so no n8n "
+			"variables are used and a staging and a production copy can sit side by side. Bind the ERP "
+			"credential (ilL Integration System User) and the Webflow credential for that brand's site "
+			"to every HTTP node. "
+			if args.erp_base_url
+			else "Set ILL_ERP_BASE_URL and ILL_WEBFLOW_BRAND. Bind ERP credentials for an ilL Integration "
+			"System User and Webflow credentials for that exact brand to every HTTP node. Deploy one "
+			"workflow per brand. "
+		)
+		+ "No secrets in variables or exports. The Galleries collection needs a plain-text "
 		"erp-sync-id field first.\n\n"
 		"Runs every minute (and manually): ERP schedules retries 1, 5 and 15 minutes out and this worker "
 		"claims them on its next poll. It claims one job at a time and drains at most 1000 jobs per run. "
@@ -322,14 +374,12 @@ for source, target, branch in [
 	link(source, target, branch)
 
 workflow = {
-	"name": "ilL Gallery Publication (one brand)",
+	"name": args.name,
 	"nodes": nodes,
 	"connections": connections,
 	"active": False,
 	"settings": {"executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "all"},
 	"pinData": {},
 }
-(ROOT / "n8n_workflows/webflow_gallery_sync.json").write_text(
-	json.dumps(workflow, indent=2) + "\n", encoding="utf8"
-)
-print(f"Built {len(nodes)} nodes; workflow remains inactive")
+(ROOT / args.out).write_text(json.dumps(workflow, indent=2) + "\n", encoding="utf8")
+print(f"Built {len(nodes)} nodes into {args.out}; workflow remains inactive")
