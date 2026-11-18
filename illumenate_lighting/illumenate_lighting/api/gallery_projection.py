@@ -35,7 +35,7 @@ def _text(value) -> str:
 def _date(value) -> str | None:
 	if not value:
 		return None
-	if isinstance(value, (datetime.date, datetime.datetime)):
+	if isinstance(value, datetime.date | datetime.datetime):
 		return value.strftime("%Y-%m-%d")
 	return str(value).strip()[:10] or None
 

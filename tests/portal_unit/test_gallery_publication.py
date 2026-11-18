@@ -84,7 +84,7 @@ def matches(record, filters):
 	"""Frappe-style filters: a value, ["in", values] or ["!=", value]."""
 	for key, wanted in filters.items():
 		value = record.get(key)
-		if isinstance(wanted, (list, tuple)):
+		if isinstance(wanted, list | tuple):
 			op, operand = wanted
 			if (op == "in" and value not in operand) or (op == "!=" and value == operand):
 				return False
