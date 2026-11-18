@@ -88,7 +88,11 @@ class TestDeployRegressions(IntegrationTestCase):
 		):
 			payload, _ = publication._refresh(doc, state, config)
 			self.assertEqual(payload["product"]["documents"], export["documents"])
-			legacy_payload = {**payload, "product": content_record(export)}
+			# webflow_state is deliberately kept out of the hash (publication._refresh)
+			legacy_payload = {
+				**{key: value for key, value in payload.items() if key != "webflow_state"},
+				"product": content_record(export),
+			}
 			self.assertEqual(
 				state.current_hash,
 				fingerprint(
@@ -157,28 +161,44 @@ class TestDeployRegressions(IntegrationTestCase):
 				else:
 					self.assertEqual(readiness["issues"][0]["record"], "linear-fixtures")
 
-	def test_webhook_http_and_network_failures_fail_the_worker(self):
+	def test_webhook_http_and_network_failures_are_recorded_on_the_job(self):
 		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
 
 		self.enterContext(patch.dict(frappe.conf, N8N_TEST_CONF))
+		job = {"job": "J1"}
+		# n8n answered with an error, or could not be reached: the failure is recorded on the job
+		# (it retries on the 1, 5, 15 minute schedule) and the worker itself does not fail.
 		for status in (401, 500):
 			response = requests.Response()
 			response.status_code = status
 			with (
 				self.subTest(status=status),
 				patch.object(webflow_export_v2.requests, "post", return_value=response),
+				patch.object(webflow_export_v2, "_record_dispatch_failure") as record,
 				patch.object(frappe, "log_error") as log_error,
-				self.assertRaises(requests.HTTPError),
 			):
-				webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
+				webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", job)
 			log_error.assert_called_once()
+			record.assert_called_once_with(job, str(status))
+		with (
+			self.subTest(error="connection"),
+			patch.object(webflow_export_v2.requests, "post", side_effect=requests.ConnectionError),
+			patch.object(webflow_export_v2, "_record_dispatch_failure") as record,
+			patch.object(frappe, "log_error") as log_error,
+		):
+			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", job)
+		log_error.assert_called_once()
+		record.assert_called_once_with(job, "connection")
+		# A timeout means n8n may still be working: the worker fails, and the expired lease is the retry.
 		with (
 			patch.object(webflow_export_v2.requests, "post", side_effect=requests.Timeout),
+			patch.object(webflow_export_v2, "_record_dispatch_failure") as record,
 			patch.object(frappe, "log_error") as log_error,
 			self.assertRaises(requests.Timeout),
 		):
-			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", {"job": "J1"})
+			webflow_export_v2.enqueue_n8n_webhook("https://webhook.invalid", job)
 		log_error.assert_called_once()
+		record.assert_not_called()
 
 	def test_webhook_success_and_dispatch_after_commit(self):
 		from illumenate_lighting.illumenate_lighting.api import webflow_export_v2
@@ -192,7 +212,9 @@ class TestDeployRegressions(IntegrationTestCase):
 		self.assertEqual(post.call_args.kwargs["headers"], {"X-Test-Secret": "test-secret"})
 		for method in (webflow_export_v2.trigger_sync_v2, webflow_export_v2.trigger_publish_v2):
 			# Both triggers save the product first so its template data is fresh.
-			doc = frappe._dict(target_brands=[frappe._dict(brand="demo", enabled=1)], save=MagicMock())
+			doc = frappe._dict(
+				target_brands=[frappe._dict(brand="demo", enabled=1)], save=MagicMock(), flags={}
+			)
 			with (
 				self.subTest(method=method.__name__),
 				patch.object(frappe, "get_doc", return_value=doc),
