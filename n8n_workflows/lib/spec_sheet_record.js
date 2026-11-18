@@ -103,6 +103,21 @@ record.delivered_lumens = {
   })),
 };
 
+// Output Options (owner, 2026-11-18; fixture templates): the output levels are the columns and
+// each lens group has two rows, Fixture Wattage and Max Run Length; a dash where it does not reach.
+const optionRows = t.output_options || [];
+const optionLevels = [...new Set(optionRows.map(row => row.output_level))];
+const optionGroups = [...new Set(optionRows.map(row => row.lens_group))];
+const optionCell = (group, level, field) =>
+  (optionRows.find(row => row.lens_group === group && row.output_level === level) || {})[field] || '—';
+record.output_options = {
+  columns: optionLevels,
+  rows: optionGroups.flatMap(group => [
+    {label: `Fixture Wattage (${group})`, values: optionLevels.map(level => optionCell(group, level, 'fixture_wattage'))},
+    {label: `Max Run Length (${group})`, values: optionLevels.map(level => optionCell(group, level, 'max_run_length'))},
+  ]),
+};
+
 // LED packages of the fixture template's tape offerings: the gradient lines (owner, 2026-11-13).
 record.led_packages = ctx.led_packages || [];
 

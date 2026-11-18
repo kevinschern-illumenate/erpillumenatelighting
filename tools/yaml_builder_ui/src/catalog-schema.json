@@ -2117,6 +2117,37 @@
         }
       ]
     },
+    "ilL-Child-Output-Option": {
+      "autoname": "",
+      "istable": 1,
+      "fields": [
+        {
+          "fieldname": "lens_group",
+          "label": "Lens",
+          "fieldtype": "Data",
+          "read_only": 1
+        },
+        {
+          "fieldname": "output_level",
+          "label": "Output",
+          "fieldtype": "Link",
+          "options": "ilL-Attribute-Output Level",
+          "read_only": 1
+        },
+        {
+          "fieldname": "fixture_wattage",
+          "label": "Fixture Wattage",
+          "fieldtype": "Data",
+          "read_only": 1
+        },
+        {
+          "fieldname": "max_run_length",
+          "label": "Max Run Length",
+          "fieldtype": "Data",
+          "read_only": 1
+        }
+      ]
+    },
     "ilL-Child-PN-Builder-Row": {
       "autoname": "",
       "istable": 1,
@@ -4288,6 +4319,14 @@
           "label": "Feed Lengths",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Feed-Length"
+        },
+        {
+          "fieldname": "output_options",
+          "label": "Output Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Output-Option",
+          "description": "Rebuilt on save: for each output and lens, the Watts per Foot and Max Run Length of the tape that makes it (the same tape as Delivered Lumens). Lenses with the same numbers share a group.",
+          "read_only": 1
         },
         {
           "fieldname": "delivered_lumens",

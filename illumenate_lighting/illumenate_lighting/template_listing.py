@@ -88,6 +88,12 @@ def refresh_template(template):
 		template_delivered_lumens.refresh(template)
 	except Exception:
 		frappe.log_error(title=f"Template delivered lumens refresh failed: {template.name}")
+	from illumenate_lighting.illumenate_lighting import template_output_options
+
+	try:
+		template_output_options.refresh(template)
+	except Exception:
+		frappe.log_error(title=f"Template output options refresh failed: {template.name}")
 	from illumenate_lighting.illumenate_lighting import template_light_source
 
 	try:

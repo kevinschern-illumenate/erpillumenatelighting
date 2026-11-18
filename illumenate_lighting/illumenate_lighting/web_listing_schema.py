@@ -371,6 +371,22 @@ _DELIVERED_LUMENS = [
 	},
 ]
 
+_OUTPUT_OPTIONS = [
+	_section("output_options_section", "Output Options"),
+	{
+		"fieldname": "output_options",
+		"fieldtype": "Table",
+		"label": "Output Options",
+		"options": "ilL-Child-Output-Option",
+		"read_only": 1,
+		"description": (
+			"Rebuilt on save: for each output and lens, the Watts per Foot and Max Run Length of "
+			"the tape that makes it (the same tape as Delivered Lumens). Lenses with the same "
+			"numbers share a group."
+		),
+	},
+]
+
 _CERTIFICATIONS = [
 	{
 		"fieldname": "certifications",
@@ -462,6 +478,7 @@ def _tab_fields(doctype):
 		_configurator_table(CONFIGURATOR_TABLE[doctype]),
 		# Owner, 2026-11-13: feed lengths belong with the configurator.
 		*(_FEED_LENGTHS if parts.get("feed") else []),
+		*(_OUTPUT_OPTIONS if parts.get("delivered_lumens") else []),
 		*(_DELIVERED_LUMENS if parts.get("delivered_lumens") else []),
 		*(
 			_kit_components(parts["kit"] if isinstance(parts["kit"], str) else "Kit Components")

@@ -125,8 +125,12 @@ const mappingScript = `<script>
           if (masterSpecItem) {
               masterSpecItem.style.display = 'none';
               
+              // With an Output Options table (fixtures), its numbers are not repeated here.
+              const inTable = ((data.output_options || {}).rows || []).length
+                  ? ['Watts per Foot', 'Max Run Length', 'Max Footage per 100W Supply'] : [];
               const filteredSpecs = data.specifications
                   .filter(spec => spec.spec_label !== "Output Options" && spec.spec_label !== "Certifications & Ratings")
+                  .filter(spec => !inTable.includes(spec.spec_label))
                   .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
               Array.from(specSection.children).forEach(child => {
@@ -574,6 +578,53 @@ const mappingScript = `<script>
                   if (line) line.style.display = shownGradients.has(key) ? '' : 'none';
               });
           });
+      }
+
+      // --- E5. OUTPUT OPTIONS (fixtures; owner, 2026-11-18) ---
+      // #output-options: in .table-title-wrapper the first .table-title keeps its text and the
+      // second is the pattern for the output columns; in .table-data-wrapper the first
+      // .table-item-wrapper is the row pattern: its first .table-item takes the row label
+      // ("Fixture Wattage (White Lens)") and its second is the pattern for the values. The last
+      // row gets last-row. No rows: the section is hidden.
+      const optionSection = document.getElementById('output-options');
+      if (optionSection) {
+          const options = data.output_options || {};
+          const columns = options.columns || [];
+          const optionRows = options.rows || [];
+          const head = optionSection.querySelector('.table-title-wrapper');
+          const body = optionSection.querySelector('.table-data-wrapper');
+          const rowPattern = body ? body.querySelector('.table-item-wrapper') : null;
+          const titles = head ? Array.from(head.querySelectorAll('.table-title')) : [];
+          if (!columns.length || !optionRows.length || !rowPattern || titles.length < 2) {
+              optionSection.style.display = 'none';
+          } else {
+              const titlePattern = titles[1];
+              titles.slice(1).forEach(el => el.remove());
+              columns.forEach(column => {
+                  const cell = titlePattern.cloneNode(true);
+                  cell.removeAttribute('id');
+                  cell.innerText = column;
+                  head.appendChild(cell);
+              });
+              const items = Array.from(rowPattern.querySelectorAll('.table-item'));
+              const cellPattern = items[1] || items[0];
+              Array.from(body.children).forEach(child => child.remove());
+              optionRows.forEach((row, r) => {
+                  const line = rowPattern.cloneNode(false);
+                  line.classList.toggle('last-row', r === optionRows.length - 1);
+                  const label = items[0].cloneNode(true);
+                  label.removeAttribute('id');
+                  label.innerText = row.label || '';
+                  line.appendChild(label);
+                  (row.values || []).forEach(value => {
+                      const cell = cellPattern.cloneNode(true);
+                      cell.removeAttribute('id');
+                      cell.innerText = value;
+                      line.appendChild(cell);
+                  });
+                  body.appendChild(line);
+              });
+          }
       }
 
       // --- E4. DELIVERED LUMENS (fixtures; owner, 2026-11-13) ---

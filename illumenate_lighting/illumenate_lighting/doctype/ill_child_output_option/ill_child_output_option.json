@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "creation": "2026-11-18 12:00:00.000000",
+ "description": "Output Options on a fixture template: per lens group and fixture output level, the fixture wattage (W/ft) and max run length of the tape that makes it. Rebuilt on save (owner, 2026-11-18). A dash means the lens group does not reach that output.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "lens_group",
+  "output_level",
+  "fixture_wattage",
+  "max_run_length"
+ ],
+ "fields": [
+  {
+   "fieldname": "lens_group",
+   "fieldtype": "Data",
+   "label": "Lens",
+   "bold": 1,
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "output_level",
+   "fieldtype": "Link",
+   "label": "Output",
+   "options": "ilL-Attribute-Output Level",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "fixture_wattage",
+   "fieldtype": "Data",
+   "label": "Fixture Wattage",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "max_run_length",
+   "fieldtype": "Data",
+   "label": "Max Run Length",
+   "in_list_view": 1,
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Child-Output-Option",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
