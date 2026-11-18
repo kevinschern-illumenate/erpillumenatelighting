@@ -251,3 +251,45 @@ class Phase3Board(unittest.TestCase):
 		self.assertIsNone(hidden["reporting"][0]["projected_amount"])
 		self.assertIsNone(hidden["releases"]["rows"][0]["amount"])
 		self.assertEqual(hidden["releases"]["points"], 12)
+
+
+class ManufactureRequests(unittest.TestCase):
+	def test_lanes_follow_work_orders(self):
+		with load_service(MODULE) as (pb, _):
+			item = {"qty": 4, "ordered_qty": 0}
+			self.assertEqual(pb.mr_lane({"docstatus": 0, "status": "Draft"}), "draft")
+			self.assertEqual(pb.mr_lane({"docstatus": 1, "status": "Pending", "items": [item]}), "needs_wo")
+			# "Manufactured" only means work orders cover it, not that it is built
+			self.assertEqual(pb.mr_lane({"docstatus": 1, "status": "Manufactured", "items": [item]}), "building")
+			draft_wo = {"docstatus": 1, "status": "Pending", "items": [item], "work_orders": [{"status": "Draft"}]}
+			self.assertEqual(pb.mr_lane(draft_wo), "building")
+			done = {"docstatus": 1, "status": "Manufactured", "work_orders": [{"status": "Completed"}, {"status": "Completed"}]}
+			self.assertEqual(pb.mr_lane(done), "done")
+
+	def test_rows_late_flag_and_old_done_dropped(self):
+		with load_service(MODULE) as (pb, _):
+			today = date(2026, 11, 18)
+			parents = [
+				Record(name="MR-LATE", status="Pending", docstatus=1, schedule_date="2026-11-10", modified="2026-11-01"),
+				Record(name="MR-WO", status="Manufactured", docstatus=1, schedule_date="2026-11-30", modified="2026-11-15"),
+				Record(name="MR-OLD", status="Manufactured", docstatus=1, schedule_date="2026-09-01", modified="2026-09-02"),
+			]
+			items = {
+				"MR-LATE": [Record(item_code="CH", item_name="Channel", qty=12, ordered_qty=0, sales_order="SO-1")],
+				"MR-WO": [Record(item_code="BOX", item_name="Box", qty=3, ordered_qty=3, sales_order=None)],
+			}
+			wos = {
+				"MR-WO": [Record(name="WO-7", status="Not Started", docstatus=0, qty=3, produced_qty=0)],
+				"MR-OLD": [Record(name="WO-1", status="Completed", docstatus=1, qty=1, produced_qty=1)],
+			}
+			rows = pb.build_manufacture_requests(parents, items, wos, today)
+		self.assertEqual([r["name"] for r in rows], ["MR-LATE", "MR-WO"])
+		late, building = rows
+		self.assertEqual((late["lane"], late["late"], late["sales_orders"]), ("needs_wo", True, ["SO-1"]))
+		self.assertEqual(building["lane"], "building")
+		self.assertEqual(building["work_orders"][0]["status"], "Draft")
+		self.assertFalse(building["late"])
+
+	def test_board_includes_material_requests(self):
+		board, _ = Board()._board()
+		self.assertEqual(board["material_requests"], [])  # no requests in the stubbed database
