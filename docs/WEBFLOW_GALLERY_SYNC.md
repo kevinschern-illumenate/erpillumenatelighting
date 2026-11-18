@@ -221,9 +221,10 @@ Warnings (shown, not blocking):
 - Flow: trigger (schedule, manual, optional ERP webhook nudge) → claim a job → match the remote item (by
   `erp-sync-id`, falling back to exact slug and verifying `erp-sync-id`) → create or update the staged item →
   for `PUBLISH`, publish live → acknowledge to ERP with job ID, lease token and hashes.
-- Retry and error rules follow the product worker: claims last five minutes, exponential backoff from 30
-  seconds capped at one hour and eight attempts, permanent errors stay visible in ERP for correction and
-  explicit retry.
+- Retry and error rules follow the product worker: claims last five minutes; a temporary failure (rate
+  limit, timeout, connection, 5xx) is retried after 1, then 5, then 15 minutes (`next_retry` in
+  `api/publication_contract.py`), and a lease that runs out is a timeout. Permanent errors, and temporary ones
+  after the third retry, notify once and stay visible in ERP for correction and explicit retry.
 - Images are passed to Webflow as public URLs. ERP files must therefore be public files on an HTTPS origin.
 - Multi-reference `products-used` is written with Webflow item IDs of the products in the same site.
 
