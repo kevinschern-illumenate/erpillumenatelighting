@@ -8,83 +8,46 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 		}
 
 		if (!frm.is_new()) {
+			// Sync to Webflow (plan 4.19): stage through the publication pipeline and the W2
+			// workflow only; no spec sheet is generated here (the template's button does that).
 			let sync_btn = frm.add_custom_button(__('Sync to Webflow'), function() {
-				
-				// --- STEP 2 FIX: Darken the background overlay temporarily ---
-				if (!$('#custom-freeze-style').length) {
-					$('<style id="custom-freeze-style">.freeze { background-color: rgba(0, 0, 0, 0.75) !important; backdrop-filter: blur(3px); }</style>').appendTo('head');
+				if (frm.is_dirty()) {
+					frappe.msgprint(__('Save the product first.'));
+					return;
 				}
-
-				// --- STEP 1 & 2 FIX: Single message, styled as a solid, readable card ---
-				const freezeMsg = `
-					<div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 450px; margin: 0 auto; color: #172e48; border: 2px solid #fdc757; text-align: center;">
-						<h4 style="margin-top: 0; margin-bottom: 15px; color: #172e48; font-weight: 700;">Syncing to Webflow</h4>
-						<p style="margin-bottom: 0; font-size: 15px; font-weight: 500; line-height: 1.5;">Please wait, this might take a few minutes. The page will unfreeze once the spec sheet has been successfully generated and Webflow has been updated.</p>
-					</div>
-				`;
-				frappe.dom.freeze(freezeMsg);
-				const api = 'illumenate_lighting.illumenate_lighting.api.webflow_export_v2.';
-				let checkInterval;
-				let finished = false;
-				const finish = () => {
-					finished = true;
-					clearInterval(checkInterval);
-					clearTimeout(deadline);
-					frappe.dom.unfreeze();
-					$('#custom-freeze-style').remove();
-				};
-				const fail = (title, message) => {
-					if (finished) return;
-					finish();
-					frappe.msgprint({ title, message: message || __('An error occurred.'), indicator: 'red' });
-				};
-				// Start the deadline before the request: the pipeline may never respond.
-				const deadline = setTimeout(() => {
-					finish();
-					frappe.msgprint(__('Sync has not been confirmed. It may still be running in the background.'));
+				const dialog = new frappe.ui.Dialog({
+					title: __('Syncing to Webflow'),
+					fields: [{fieldtype: 'HTML', fieldname: 'body'}],
+				});
+				dialog.$wrapper.find('.modal-header .btn-modal-close').hide();
+				dialog.$wrapper.modal({backdrop: 'static', keyboard: false});
+				dialog.fields_dict.body.$wrapper.html(`<p class="sync-message">${__('Starting...')}</p>`);
+				dialog.show();
+				const say = text => dialog.fields_dict.body.$wrapper.find('.sync-message').text(text);
+				window.illWebflowSync(frm.doc.name, say).then(result => {
+					dialog.hide();
+					if (result.ok) {
+						frappe.show_alert({message: result.message, indicator: result.superseded ? 'orange' : 'green'});
+					} else {
+						frappe.msgprint({title: __('Webflow sync'), message: frappe.utils.escape_html(result.message), indicator: 'red'});
+					}
 					frm.reload_doc();
-				}, 120000);
-
-				// The server baseline time makes sure an earlier "Synced" is not mistaken
-				// for this run. Every enabled target brand is requested.
-				frappe.xcall(api + 'get_sync_progress', { docname: frm.doc.name }).then(baseline => {
-					const since = baseline && baseline.server_time;
-					const brands = ((baseline && baseline.brands) || []).map(row => row.brand);
-					return Promise.all((brands.length ? brands : [null]).map(brand =>
-						frappe.xcall(api + 'request_spec_sheet', brand ? { docname: frm.doc.name, brand } : { docname: frm.doc.name })
-					)).then(() => since);
-				}).then(since => {
-					if (finished) return;
-					checkInterval = setInterval(() => {
-						frappe.xcall(api + 'get_sync_progress', { docname: frm.doc.name, since }).then(progress => {
-							if (finished || !progress) return;
-							if (progress.failed) {
-								const errors = (progress.brands || [])
-									.filter(row => row.state === 'failed')
-									.map(row => `${row.brand}: ${row.error || __('failed')}`);
-								fail(__('Sync Error'), frappe.utils.escape_html(errors.join('; ')) || __('Pipeline failed. Check logs.'));
-								frm.reload_doc();
-							} else if (progress.complete) {
-								finish();
-								const superseded = (progress.brands || []).some(row => row.state === 'superseded');
-								frappe.show_alert({
-									message: superseded
-										? __('Webflow sync finished for an older revision. Sync again to publish the latest changes.')
-										: __('Webflow Sync Complete!'),
-									indicator: superseded ? 'orange' : 'green'
-								});
-								frm.reload_doc();
-							}
-						}).catch(err => console.error("Polling error:", err));
-					}, 3000);
-				}).catch(err => fail(__('Sync Failed'), err && err.message && frappe.utils.escape_html(String(err.message))));
+				}).catch(error => {
+					dialog.hide();
+					frappe.msgprint({
+						title: __('Webflow sync'),
+						message: frappe.utils.escape_html((error && error.message) || __('The sync could not start.')),
+						indicator: 'red',
+					});
+				});
 			});
 
+			// Owner, 2026-11-11: primary (#172e48) with white text.
 			sync_btn.css({
-				'background-color': '#fdc757',
-				'color': '#172e48',
+				'background-color': '#172e48',
+				'color': '#ffffff',
 				'font-weight': 'bold',
-				'border-color': '#fdc757'
+				'border-color': '#172e48'
 			});
 
 			// Display Target Brands in the Sidebar
@@ -101,8 +64,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 			if (active_brands.length > 0) {
 				let brand_html = `
 					<div style="margin-top: 10px; margin-bottom: -10px; padding: 0 15px;">
-						<span style="font-size: 11px; text-transform: uppercase; color: #8D99A6; font-weight: 600; letter-spacing: 0.5px;">Target Brands</span>
-						<div style="margin-top: 4px;">
+						<div>
 				`;
 				
 				active_brands.forEach(brand => {
@@ -151,24 +113,24 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				});
 			}
 
-			// Add button to recalculate specifications
-			frm.add_custom_button(__("Refresh Attribute Links"), function() {
-				frm.set_value("auto_populate_attributes", 1);
-				frm.save().then(() => {
-					frappe.show_alert({
-						message: __("Attribute links refreshed from fixture template"),
-						indicator: "green"
-					});
+			// Actions > Apply Calculations (owner, 2026-11-05): recalculate the linked template, then
+			// this product (attribute links, power supply links, features, mirrored data).
+			frm.add_custom_button(__("Apply Calculations"), function() {
+				if (frm.is_dirty()) {
+					frappe.msgprint(__("Save the product first."));
+					return;
+				}
+				frappe.call({
+					method: "illumenate_lighting.illumenate_lighting.webflow_product_rules.apply_calculations",
+					args: { product: frm.doc.name },
+					freeze: true,
+					freeze_message: __("Applying calculations..."),
+				}).then(r => {
+					if (!r || r.exc) return;
+					frappe.show_alert({ message: __("Calculations applied."), indicator: "green" });
+					frm.reload_doc();
 				});
 			}, __("Actions"));
-
-			// Legacy: Recalculate specs button (hidden if not using legacy specs)
-			if (frm.doc.specifications && frm.doc.specifications.length > 0) {
-				frm.add_custom_button(__("Recalculate Specs (Legacy)"), function() {
-					frm.set_value("auto_calculate_specs", 1);
-					frm.save();
-				}, __("Actions"));
-			}
 
 			// Spec Sheet CSV export (Fixture Template with linked template,
 			// or LED Tape/Neon with linked tape_neon_template)
@@ -197,49 +159,6 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				}, __("Actions"));
 			}
 
-			// Per-brand "Sync Now" — flips sync_status=Pending on the chosen
-			// target_brand rows so n8n picks the product up on next run.
-			frm.add_custom_button(__("Sync Now (Per Brand)"), function() {
-				const targeted = (frm.doc.target_brands || [])
-					.filter(r => r.enabled)
-					.map(r => r.brand);
-				if (targeted.length === 0) {
-					frappe.msgprint(__("No target brands set on this product."));
-					return;
-				}
-				const dlg = new frappe.ui.Dialog({
-					title: __("Mark Product Pending Sync"),
-					fields: [
-						{
-							fieldtype: "MultiCheck",
-							fieldname: "brands",
-							label: __("Target Brands"),
-							options: targeted.map(b => ({ label: b, value: b, checked: 1 })),
-						},
-					],
-					primary_action_label: __("Mark Pending"),
-					primary_action(values) {
-						const selected = (values.brands || []);
-						if (!selected.length) {
-							frappe.msgprint(__("Pick at least one brand."));
-							return;
-						}
-						const calls = selected.map(brand => frappe.call({
-							method: "illumenate_lighting.illumenate_lighting.api.webflow_export.trigger_sync",
-							args: { product_slugs: [frm.doc.name], brand: brand },
-						}));
-						Promise.all(calls).then(() => {
-							frappe.show_alert({
-								message: __("Marked pending for: {0}", [selected.join(", ")]),
-								indicator: "green",
-							});
-							dlg.hide();
-							frm.reload_doc();
-						});
-					},
-				});
-				dlg.show();
-			}, __("Actions"));
 		}
 
 		// Show sync status indicator
@@ -256,6 +175,7 @@ frappe.ui.form.on("ilL-Webflow-Product", {
 				`<span class="indicator red">Sync Error</span> - ${frm.doc.sync_error_message || "Unknown error"}`
 			);
 		}
+
 
 		// Limit Compatible Products to products matching this document's active brands
 		frm.set_query("related_product", "compatible_products", function(doc, cdt, cdn) {
@@ -418,13 +338,11 @@ function on_template_change(frm, fieldname) {
 	}
 	frm.set_value("is_configurable", 1);
 	frappe.db
-		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["product_category", "series"])
+		.get_value(TEMPLATE_LINKS[fieldname], frm.doc[fieldname], ["series"])
 		.then((r) => {
+			// Product Category, Product Type and Series follow the template on save.
 			const template = (r && r.message) || {};
-			if (template.product_category) {
-				frm.set_value("product_category", template.product_category);
-			}
-			if (template.series && !frm.doc.series) {
+			if (template.series) {
 				frm.set_value("series", template.series);
 			}
 		});

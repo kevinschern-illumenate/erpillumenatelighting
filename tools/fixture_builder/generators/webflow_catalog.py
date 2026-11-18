@@ -18,8 +18,6 @@ PARENT_FIELDS = (
 	"led_sheet_template",
 	"is_configurable",
 	"sublabel",
-	"auto_calculate_specs",
-	"auto_populate_attributes",
 	"beam_angle",
 	"operating_temp_min_c",
 	"operating_temp_max_c",
@@ -29,7 +27,6 @@ PARENT_FIELDS = (
 )
 PROTOTYPE = {
 	**dict.fromkeys(PARENT_FIELDS, ""),
-	"configurator_options": [{"option_step": "", "option_type": "", "option_label": "", "is_required": ""}],
 	"attribute_links": [
 		{
 			"attribute_doctype": "",
@@ -108,8 +105,6 @@ def generate(config, output_dir, kind):
 			link_field: code,
 			"is_configurable": 1,
 			"sublabel": wf.sublabel,
-			"auto_calculate_specs": 1,
-			"auto_populate_attributes": 1,
 			"beam_angle": wf.beam_angle,
 			"operating_temp_min_c": wf.operating_temp_min_c,
 			"operating_temp_max_c": wf.operating_temp_max_c,
@@ -117,16 +112,8 @@ def generate(config, output_dir, kind):
 			"warranty_years": wf.warranty_years,
 			"webflow_collection_slug": "products",
 		}
-		steps = list(
-			dict.fromkeys(
-				"Coverage" if step in {"Coverage Width", "Coverage Height"} else step
-				for step in wf.configurator_steps
-			)
-		)
-		record["configurator_options"] = [
-			{"option_step": i, "option_type": step, "option_label": step, "is_required": 1}
-			for i, step in enumerate(steps, 1)
-		]
+		# No configurator steps here: the template calculates them on import (its Part No.
+		# Configurator), and the website and the portal read them from the template (Phase 2c).
 		record["attribute_links"] = []
 		for i, (option_type, value) in enumerate(dict.fromkeys(attributes), 1):
 			target = (
