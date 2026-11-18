@@ -36,7 +36,8 @@ def execute():
 		existing = meta.get_field(field["fieldname"])
 		if not existing:
 			missing.append(field)
-		elif existing.hidden and not existing.is_custom_field:
+		# Standard DocFields have no is_custom_field attribute (only Custom Fields set it).
+		elif existing.hidden and not existing.get("is_custom_field"):
 			make_property_setter("Delivery Note", field["fieldname"], "hidden", "0", "Check")
 	if missing:
 		create_custom_fields({"Delivery Note": missing}, update=False)
