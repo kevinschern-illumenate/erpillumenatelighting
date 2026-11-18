@@ -93,6 +93,17 @@ def evaluate(gallery: dict, *, config: dict, product_refs: dict, active_series: 
 		elif not _is_image_type(row.get("image")):
 			block("gallery_images", f"Image row {idx} must be a jpg, jpeg, png, webp or gif file.")
 
+	# Custom-item images go into the custom-items rich text: the same public-file and type rules apply.
+	for row in gallery.get("custom_items") or []:
+		image = row.get("image")
+		if not image:
+			continue
+		item = row.get("item_name") or record
+		if not is_public_file(image):
+			block("custom_items", f"Custom item {item} image must be a public file, not a private one.", item)
+		elif not _is_image_type(image):
+			block("custom_items", f"Custom item {item} image must be a jpg, jpeg, png, webp or gif.", item)
+
 	if gallery.get("gallery_type") not in GALLERY_TYPES:
 		block("gallery_type", "Gallery type must be one of the allowed values.")
 	for row in gallery.get("applications") or []:
@@ -116,6 +127,9 @@ def evaluate(gallery: dict, *, config: dict, product_refs: dict, active_series: 
 			block("products_used", f"Series {series} is not an active series.", name)
 		else:
 			series_used.add(series)
+		if not name:
+			# A series-only row (spec 5.1) only adds to series-used: no product, no Webflow item.
+			continue
 		ref = product_refs.get(name) or {}
 		item_id = ref.get("webflow_item_id")
 		product_ids[name] = item_id

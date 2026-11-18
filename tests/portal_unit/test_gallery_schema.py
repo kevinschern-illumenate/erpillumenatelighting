@@ -21,6 +21,14 @@ NEW = {
 	"ilL-Child-Gallery-Credit": "ill_child_gallery_credit",
 	"ilL-Child-Gallery-Product": "ill_child_gallery_product",
 }
+# The ten new doctypes of the Global Constraints.
+ALL_GALLERY_DOCTYPES = {
+	**NEW,
+	"ilL-Webflow-Gallery": "ill_webflow_gallery",
+	"ilL-Gallery-Publication": "ill_gallery_publication",
+	"ilL-Gallery-Publish-Job": "ill_gallery_publish_job",
+	"ilL-Child-Gallery-Custom-Item": "ill_child_gallery_custom_item",
+}
 
 
 def load_doctype(folder):
@@ -60,6 +68,25 @@ class GallerySchemaTest(unittest.TestCase):
 		self.assertEqual(credit["credit_type"]["options"], "\n".join(schema.CREDIT_TYPES))
 		kind = {f["fieldname"]: f for f in load_doctype("ill_webflow_brand_collection")["fields"]}
 		self.assertIn("Galleries", kind["collection_kind"]["options"].split("\n"))
+
+	def test_every_gallery_doctype_has_a_controller(self):
+		"""Frappe imports `<folder>/<folder>.py` for every doctype; a missing one fails load and migrate."""
+		for name, folder in ALL_GALLERY_DOCTYPES.items():
+			with self.subTest(name):
+				self.assertEqual(load_doctype(folder)["name"], name)
+				self.assertTrue((DOCTYPES / folder / "__init__.py").exists())
+				controller = DOCTYPES / folder / f"{folder}.py"
+				self.assertTrue(controller.exists(), f"{controller} is missing")
+				class_name = name.replace("-", "")
+				self.assertIn(f"class {class_name}(Document)", controller.read_text())
+
+	def test_gallery_cannot_be_renamed_and_attachments_default_public(self):
+		gallery = load_doctype("ill_webflow_gallery")
+		# A rename skips the slug lock and orphans the publication scope key (spec 5.1).
+		self.assertEqual(gallery.get("allow_rename", 0), 0)
+		self.assertEqual(gallery.get("make_attachments_public"), 1)
+		sync = {f["fieldname"]: f for f in gallery["fields"]}["sync_targets"]
+		self.assertNotIn("Maintained by the sync", sync.get("description") or "")
 
 	def test_list_doctypes_autoname(self):
 		app = load_doctype("ill_gallery_application")
