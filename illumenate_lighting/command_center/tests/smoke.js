@@ -24,7 +24,26 @@ const D = { today: TODAY, generated: '2026-11-17 16:00:00', note_names: {}, note
  mfg: [], reqs: [], needwo: [], drafts: [], quotes: [ { name:'Q-1', party_name:'A', docstatus:1, status:'Open', base_net_total:2500, valid_till:'2026-11-20', transaction_date:'2026-11-10' } ], changes: [], spif: [], spif_start: '2026-11-01',
  fin: { mtd: 8000, goal: 25000, last_month: 9000, mtdN: 3, ar: 4000 }, ar: [], monthly: [{month:'2026-10',si:9000},{month:'2026-11',si:8000}], conc: [], conc_total: 0, trend: [], active90: 5, tiers: {}, customers: ['A'], lowstock: [],
  projects: [ { name:'PROJ-1', project_name:'Lutron launch', status:'Open', customer:'A', expected_start_date:'2026-11-01', expected_end_date:'2026-12-01', percent_complete:30, notes:'<p>Notes here</p>', priority:'High' }, { name:'PROJ-2', project_name:'Spec sheets', status:'Open', expected_end_date:'2026-12-15', percent_complete:0 } ], ptasks };
-let finOK = true, feedFail = false; const calls = [];
+let finOK = true, feedFail = false, stagesFail = false; const calls = [], saves = [], assigns = [];
+// portal data behind the gateway's "stages" action (Design / Quotes / Sales orders / Service lanes)
+const ST = { today: TODAY, can_edit: true, missing: [],
+  projects: [ { name:'ILL-PROJ-1', project_name:'Hotel lobby', customer:'A', status:'ACTIVE', architect:'Arch Co', location:'Denver' } ],
+  schedules: [
+    { name:'SCH-1', schedule_name:'Lobby rev A', ill_project:'ILL-PROJ-1', customer:'A', status:'DRAFT', version:1, is_locked:0, lines:3, modified:'2026-11-16' },
+    { name:'SCH-2', schedule_name:'Lobby rev B', ill_project:'ILL-PROJ-1', customer:'A', status:'READY', version:2, is_locked:1, lines:5, modified:'2026-11-16' },
+    { name:'SCH-3', schedule_name:'Guest floors', ill_project:'ILL-PROJ-1', customer:'A', status:'READY', version:1, lines:2, modified:'2026-11-16' },
+    { name:'SCH-4', schedule_name:'Ballroom', customer:'A', status:'QUOTED', version:1, lines:8, modified:'2026-11-16' },
+    { name:'SCH-5', schedule_name:'Spa', customer:'A', status:'ORDER_REQUESTED', version:1, lines:1, modified:'2026-11-16' } ],
+  doc_requests: [
+    { name:'ILL-REQ-1', request_type:'Shop drawing', status:'In Progress', fixture_schedule:'SCH-3', requester_customer:'A', assigned_to:'jay@x.com', sla_deadline:'2026-11-12 17:00:00', creation:'2026-11-09 10:00:00' },
+    { name:'ILL-REQ-2', request_type:'Manufacturing sign-off', status:'Submitted', sales_order:'ilL-SAL-ORD-1', requester_customer:'A', creation:'2026-11-16 10:00:00' } ],
+  reviews: [], offers: [ { name:'OFFER-1', quotation:'Q-1', quote_request:'QR-2', schedule:'SCH-4', customer:'A', state:'ACCEPTED', responded_on:'2026-11-15 10:00:00', modified:'2026-11-15' } ],
+  quote_requests: [ { name:'QR-1', schedule:'SCH-4', customer:'A', state:'REQUESTED', assigned_to:'ryanb@x.com', creation:'2026-11-05 09:00:00', modified:'2026-11-05' },
+    { name:'QR-2', schedule:'SCH-4', customer:'A', state:'ISSUED', latest_offer:'Q-1', creation:'2026-11-10 09:00:00', modified:'2026-11-12' } ],
+  intakes: [ { name:'OI-1', schedule:'SCH-5', customer:'A', state:'SUBMITTED', creation:'2026-11-16 09:00:00', customer_message:'Please ship by Dec 1' } ],
+  account_requests: [ { name:'AR-1', request_type:'Address change', customer:'A', requested_by:'dealer@a.com', state:'Pending', creation:'2026-11-02 09:00:00' },
+    { name:'AR-2', request_type:'Dealer application', requested_by:'new@b.com', state:'Information needed', creation:'2026-11-14 09:00:00' } ],
+  tickets: [ { name:'HD-1', ill_fixture_schedule:'SCH-3', ill_project:'ILL-PROJ-1', priority:'High' } ] };
 // in-memory meeting agenda behind the gateway's agenda_* actions
 const AGS = { meetings: [], items: [] }; let agSeq = 0;
 const agRefs = items => { const r = {}; items.forEach(i => {
@@ -55,6 +74,12 @@ const gwReply = b => {
   if (b.action === 'list') return { rows:[{name:'QTN-1',status:b.filters&&b.filters.status||'Open',grand_total:1200}], columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'},{fieldname:'grand_total',label:'Total',type:'Currency'}], total:1 };
   if (b.action === 'overview') return { today:TODAY, finance_ok:finOK, sections:[], can_edit:true, stats:{ Quotation:{section:'quotes',count:3,value:9000,statuses:[['Open',2,7000],['Ordered',1,2000]]}, 'Sales Order':{section:'orders',count:2,value:12000,statuses:[['To Deliver',2,12000]]}, 'Purchase Order':{statuses:[['To Receive',1,3000]]}, ...(finOK?{'Sales Invoice':{statuses:[['Overdue',1,500],['Paid',4,0]]}}:{}) }, signals:[{id:'a',label:'Quotes expiring within 7 days',dt:'Quotation',count:2,status:'Open',tone:'warn'},{id:'b',label:'Overdue invoices',dt:'Sales Invoice',count:0,status:'Overdue',tone:'bad'}] };
   if (b.action.startsWith('agenda_')) return agendaReply(b);
+  if (b.action === 'stages') { if (stagesFail) throw new Error('gateway down'); return JSON.parse(JSON.stringify(ST)); }
+  if (b.action === 'save') { saves.push(b); return { name: b.name, changed: Object.keys(b.values).length }; }
+  if (b.action === 'assign') { assigns.push(b); return { name: b.name, added: b.add, removed: b.remove }; }
+  if (b.action === 'get' && b.dt === 'ilL-Project-Fixture-Schedule') return { doc: { name: b.name, status: 'READY', lines: [ { idx:1, line_id:'L1', qty:4, location:'Lobby', manufacturer_type:'ILLUMENATE', ill_item_code:'ILL-TAPE-1', configuration_status:'Configured' } ] }, audit: [], editable: false };
+  if (b.action === 'get' && b.dt === 'HD Ticket') return { doc: { name: b.name, subject: 'Quote', status: 'Open', priority: 'Medium', ticket_type: 'Quotation', raised_by: 'dealer@a.com', _assign: '[]', ill_quotation: null, ill_fixture_schedule: 'SCH-3', docstatus: 0 }, audit: [ { creation: '2026-11-17 09:00:00', content: 'Command Center: assigned jay@x.com by kevins@x.com' } ], editable: true };
+  if (b.action === 'meta' && b.dt === 'HD Ticket') return { dt: b.dt, fields: ['status','priority','ticket_type','agent_group','ill_quotation','ill_sales_order','ill_project','ill_fixture_schedule'].map(f => ({ fieldname: f, label: f, type: 'Data' })), required_tables: [], can_edit: true };
   if (b.action === 'get') return { doc: { name: b.name, status: 'Open', docstatus: 0, grand_total: 1200 }, audit: [], editable: true };
   if (b.action === 'meta') return { dt: b.dt, fields: [], required_tables: [], can_edit: true };
   if (b.action === 'feed' && feedFail) throw new Error('feed down');
@@ -163,7 +188,61 @@ const go = async h => { w.location.hash = h; await sleep(120); };
   const n0 = AGS.items.length; sheet().querySelector('#wbagenda').click(); await sleep(250);
   check('workbench "+ Add to agenda" adds to the open meeting', /Already on|Added to/.test(w.document.querySelector('#cctoast').textContent) && AGS.items.length === n0 && /Already on the agenda/.test(sheet().textContent));
   sheet().querySelector('[data-close]').click();
-  for (const v of ['quotes','orders','purch','mfg','ship','service','requests','inbox','finance','work','p-PROJ-1','so-ilL-SAL-ORD-1','rec']) { await go(v); check('view ' + v + ' renders', txt().length > 50 && !/Couldn't load data/.test(txt())); }
+  for (const v of ['quotes','orders','purch','mfg','ship','service','inbox','finance','work','p-PROJ-1','so-ilL-SAL-ORD-1','rec']) { await go(v); check('view ' + v + ' renders', txt().length > 50 && !/Couldn't load data/.test(txt())); }
+  // ---- pipeline restructure: Design → Quotes → Sales orders → … → Shipping → Service ----
+  const nav = () => w.document.querySelector('#ccnav').textContent, chev = () => [...w.document.querySelectorAll('.chev .cvn')].map(e => e.textContent.trim());
+  await go('pipeline'); await sleep(150);
+  check('stepper order: Design before Quotes, Service after Shipping', chev().join('>') === 'Overview>Design>Quotes>Sales orders>Purchasing>Manufacturing>Shipping>Service');
+  check('Requests and Service tabs gone from the top bar', !/Requests/.test(nav()) && !/Service/.test(nav()) && /Inbox/.test(nav()));
+  await go('requests'); await sleep(150);
+  check('#requests redirects to the pipeline', w.location.hash === '#pipeline' && /Sales pipeline/.test(txt()));
+  await go('design'); await sleep(200);
+  check('design: schedules in the right columns', /Drafting/.test(txt()) && /Lobby rev A/.test(txt()) && /Lobby rev B/.test(txt()) && /Drawing in progress/.test(txt()));
+  const colOf = n => [...w.document.querySelectorAll('.bcol')].find(c => c.textContent.includes(n));
+  check('design: schedule with an open drawing request sits in "Drawing in progress"', /Drawing in progress/.test(colOf('Guest floors').querySelector('.lane-h').textContent));
+  check('design: quoted / order-requested schedules are not on Design', !/Ballroom/.test([...w.document.querySelectorAll('.bcol')].map(c => c.textContent).join('')) && !/Spa\b/.test([...w.document.querySelectorAll('.bcol')].map(c => c.textContent).join('')));
+  check('design: card shows project, parties, lines, lock', /Hotel lobby/.test(txt()) && /Architect: Arch Co/.test(txt()) && /5 lines/.test(txt()) && /locked/.test(txt()));
+  check('design: general drawing request listed with SLA, SO-linked one is not', /ILL-REQ-1/.test(txt()) && /SLA Nov 12/.test(txt()) && !/ILL-REQ-2/.test(txt()));
+  check('design: design tickets board moved here', /Design tickets/.test(txt()));
+  w.document.querySelector('[data-plassign="ilL-Document-Request|ILL-REQ-1"]').click(); await sleep(50);
+  sheet().querySelector('select[name="who"]').value = 'ryanb@x.com'; submit(sheet().querySelector('#sform')); await sleep(300);
+  check('design: reassign drawing request saves assigned_to through the gateway', saves.some(x => x.dt === 'ilL-Document-Request' && x.name === 'ILL-REQ-1' && x.values.assigned_to === 'ryanb@x.com'));
+  await go('design/SCH-3'); await sleep(300);
+  check('design drill-down: project, lines, request', /Guest floors/.test(txt()) && /Hotel lobby/.test(txt()) && /ILL-TAPE-1/.test(txt()) && /ILL-REQ-1/.test(txt()) && w.document.querySelector('.cv.on') && /Design/.test(w.document.querySelector('.cv.on').textContent));
+  await go('quotes'); await sleep(200);
+  check('quotes: request lanes + accepted offer continues in Sales orders', /Quote requests/.test(txt()) && /QR-1/.test(txt()) && /Issued/.test(txt()) && /OFFER-1/.test(txt()) && /Continues in Sales orders/.test(txt()));
+  check('quotes: old request red-aged, design tickets gone', !!w.document.querySelector('.bcol .badge.bad') && !/Design tickets/.test(txt()));
+  await go('orders'); await sleep(200);
+  check('orders: order requests lane + SO drawing requests', /Order requests/.test(txt()) && /OI-1/.test(txt()) && /Please ship by Dec 1/.test(txt()) && /ILL-REQ-2/.test(txt()));
+  await go('so-ilL-SAL-ORD-1'); await sleep(150);
+  check('order page lists its drawing request', /ILL-REQ-2/.test(txt()));
+  await go('service'); await sleep(200);
+  check('service: customer requests lane on top', /Customer requests/.test(txt()) && /Address change/.test(txt()) && /Dealer application/.test(txt()) && txt().indexOf('Customer requests') < txt().indexOf('Service tickets'));
+  check('service is the last stepper step and highlighted', w.document.querySelector('.cv.on') && /Service/.test(w.document.querySelector('.cv.on').textContent));
+  // ---- inbox portal ----
+  await go('inbox'); await sleep(200);
+  check('inbox: triage table with filters and Reply in Helpdesk', !!w.document.querySelector('[data-ibf="status"]') && /Reply in Helpdesk/.test(txt()) && !!w.document.querySelector('a[href="/helpdesk/tickets/HD-1"]'));
+  check('inbox: ticket shows its stage from the linked schedule', /Design/.test([...w.document.querySelectorAll('tr')].find(r => /HD-1/.test(r.textContent)).textContent));
+  w.document.querySelector('[data-ibmode="reply"]').click(); await sleep(100);
+  check('inbox: needs-a-reply queue lists open tickets only', /HD-1/.test(txt()) && !/HD-2/.test(txt()));
+  w.document.querySelector('[data-ibmode="routing"]').click(); await sleep(100);
+  check('inbox: routing lists unassigned tickets', !!w.document.querySelector('[data-ibroute="HD-1"]'));
+  const rf = w.document.querySelector('[data-ibroute="HD-2"]'); rf.querySelector('select[name="who"]').value = 'jay@x.com'; submit(rf); await sleep(300);
+  check('inbox: routing assigns through the gateway', assigns.some(a => a.name === 'HD-2' && a.add.join() === 'jay@x.com'));
+  w.document.querySelector('[data-ibmode="triage"]').click(); await sleep(100);
+  w.document.querySelector('button[data-tksheet="HD-1"]').click(); await sleep(300);
+  check('ticket sheet: links, owners, audit, Reply in Helpdesk', !!sheet().querySelector('input[name="ill_quotation"]') && !!sheet().querySelector('input[name="own"]') && /assigned jay/.test(sheet().textContent) && /Reply in Helpdesk/.test(sheet().textContent));
+  sheet().querySelector('input[name="ill_quotation"]').value = 'Q-1'; sheet().querySelector('select[name="status"]').value = 'Replied';
+  sheet().querySelector('input[name="own"][value="ryanb@x.com"]').checked = true; sheet().querySelector('[data-unlink="ill_fixture_schedule"]').click();
+  submit(sheet().querySelector('#sform')); await sleep(400);
+  const sv = saves.filter(x => x.dt === 'HD Ticket' && x.name === 'HD-1').pop();
+  check('ticket sheet: saves link, unlink and status in one gateway save', sv && sv.values.ill_quotation === 'Q-1' && sv.values.status === 'Replied' && sv.values.ill_fixture_schedule === null);
+  check('ticket sheet: reassign goes through gateway assign', assigns.some(a => a.name === 'HD-1' && a.add.includes('ryanb@x.com')));
+  stagesFail = true; w.document.querySelector('#ccrefresh').click(); await sleep(300); await go('design'); await sleep(200);
+  check('gateway down: design falls back without breaking', /couldn't load/i.test(txt()) && /Design/.test(txt()));
+  await go('quotes'); await sleep(150);
+  check('gateway down: quotes still render', /Quotes waiting on dealers/.test(txt()));
+  stagesFail = false;
   console.log('gateway actions seen:', [...new Set(calls)].join(','));
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS'); process.exit(errs.length ? 1 : 0);
 })();

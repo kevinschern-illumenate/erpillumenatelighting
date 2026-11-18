@@ -14,6 +14,10 @@
 #   action=create dt, values           -> insert a new doc (draft)
 #   action=overview                    -> per-stage counts/values by status + "decision" signals
 #   action=feed   [dts], [limit]       -> recent Command Center changes the user may see
+#   action=stages                      -> lanes for Design / Quotes / Sales orders / Service (portal
+#                                        requests, schedules, projects, offers) + ticket links
+#   action=assign dt, name, add[], remove[] -> add/remove owners (open ToDos) on a record
+#   action=note   dt, name, text       -> "Command Center:" comment on a record (after a change)
 #   action=agenda_list                 -> weekly meetings (newest first) with item counts
 #   action=agenda_get  name            -> one meeting, its items, live columns of linked records
 #   action=agenda_create values{title, meeting_date, carry}  -> new meeting (+ carry Open items over)
@@ -30,7 +34,8 @@
 #   * Each section additionally needs its own role when listed in SECTIONS below.
 #   * Acts as the signed-in user (no ignore_permissions on data), so ERPNext's own
 #     role/permission rules remain the final authority.
-#   * Never submits, cancels or deletes (the only delete is removing an agenda item).
+#   * Never submits, cancels or deletes (the only delete is removing an agenda item;
+#     unassigning someone cancels their open ToDo on the record, as the desk does).
 #     Submitted docs (docstatus 1/2) are read-only.
 #   * Only doctypes in ALLOWED can be touched; only non-system fields can be written.
 #   * Doctypes/columns that don't exist on this site are skipped, not errors.
@@ -52,34 +57,55 @@ def main():
     EDIT_ROLE = "Command Center Editor"
 
     # section -> (label, extra role required IN ADDITION to the viewer role; "" = none)
+    # In pipeline order: Design -> Quotes -> Sales orders -> Purchasing -> Manufacturing -> Shipping -> Service.
     SECTIONS = {
-        "sales": ("Sales", ""), "quotes": ("Quotes", ""), "orders": ("Orders", ""),
-        "requests": ("Requests", ""), "purchasing": ("Purchasing", ""),
+        "sales": ("Sales", ""), "design": ("Design", ""), "quotes": ("Quotes", ""),
+        "orders": ("Sales orders", ""), "purchasing": ("Purchasing", ""),
         "manufacturing": ("Manufacturing", ""), "shipping": ("Shipping", ""),
         "service": ("Service", ""), "projects": ("Projects & tasks", ""),
         "finance": ("Finance", "Command Center Finance"),
     }
 
     # doctype -> (section, [preferred list columns]).  Columns missing on the site are dropped.
+    # "status" is a logical column: for doctypes in STATE_FIELD it reads/filters/sorts that field.
     ALLOWED = {
         "Customer":          ("sales",         ["name", "customer_name", "customer_group", "territory", "modified"]),
+        "ilL-Project":       ("design",        ["name", "project_name", "customer", "status", "architect",
+                                                "lighting_designer", "general_contractor", "erp_project", "modified"]),
+        "ilL-Project-Fixture-Schedule": ("design", ["name", "schedule_name", "ill_project", "customer", "status",
+                                                    "version", "is_locked", "sales_order", "modified"]),
+        "ilL-Document-Request": ("design",     ["name", "request_type", "status", "priority", "requester_customer",
+                                                "fixture_schedule", "sales_order", "assigned_to", "sla_deadline",
+                                                "requested_due_date", "creation", "modified"]),
+        "ilL-Drawing-Review": ("design",       ["name", "request", "revision", "status", "reviewed_by",
+                                                "reviewed_on", "creation"]),
         "Quotation":         ("quotes",        ["name", "party_name", "status", "grand_total", "transaction_date", "modified"]),
-        "ilL-Quote-Request": ("requests",      ["name", "status", "owner", "creation", "modified"]),
-        "ilL-Quote-Offer":   ("quotes",        ["name", "status", "owner", "creation", "modified"]),
+        "ilL-Quote-Request": ("quotes",        ["name", "customer", "status", "schedule", "project", "assigned_to",
+                                                "due_date", "latest_offer", "creation", "modified"]),
+        "ilL-Quote-Offer":   ("quotes",        ["name", "customer", "status", "quotation", "quote_request", "schedule",
+                                                "valid_until", "sales_order", "creation", "modified"]),
         "Sales Order":       ("orders",        ["name", "customer", "status", "grand_total", "delivery_date", "modified"]),
-        "ilL-Order-Intake":  ("requests",      ["name", "status", "owner", "creation", "modified"]),
-        "ilL-Order-Change":  ("orders",        ["name", "status", "owner", "creation", "modified"]),
-        "ilL-Document-Request": ("requests",   ["name", "status", "owner", "creation", "modified"]),
-        "ilL-Account-Request":  ("requests",   ["name", "status", "owner", "creation", "modified"]),
+        "ilL-Order-Intake":  ("orders",        ["name", "customer", "status", "schedule", "sales_order", "assigned_to",
+                                                "due_date", "creation", "modified"]),
+        "ilL-Order-Change":  ("orders",        ["name", "customer", "status", "request_type", "sales_order",
+                                                "assigned_to", "due_date", "creation", "modified"]),
         "Material Request":  ("purchasing",    ["name", "material_request_type", "status", "schedule_date", "modified"]),
         "Purchase Order":    ("purchasing",    ["name", "supplier", "status", "grand_total", "schedule_date", "modified"]),
         "Work Order":        ("manufacturing", ["name", "production_item", "status", "qty", "planned_start_date", "modified"]),
         "Delivery Note":     ("shipping",      ["name", "customer", "status", "posting_date", "modified"]),
-        "Sales Invoice":     ("finance",       ["name", "customer", "status", "grand_total", "outstanding_amount", "due_date", "modified"]),
         "HD Ticket":         ("service",       ["name", "subject", "status", "priority", "ticket_type", "modified"]),
+        "ilL-Account-Request": ("service",     ["name", "request_type", "customer", "status", "requested_by",
+                                                "assigned_to", "creation", "modified"]),
+        "Sales Invoice":     ("finance",       ["name", "customer", "status", "grand_total", "outstanding_amount", "due_date", "modified"]),
         "Project":           ("projects",      ["name", "project_name", "status", "percent_complete", "expected_end_date", "modified"]),
         "Task":              ("projects",      ["name", "subject", "status", "priority", "project", "exp_end_date", "modified"]),
         "ToDo":              ("projects",      ["name", "description", "status", "allocated_to", "date", "modified"]),
+    }
+
+    # doctypes whose status lives in another field (the portal doctypes use "state")
+    STATE_FIELD = {
+        "ilL-Quote-Request": "state", "ilL-Quote-Offer": "state", "ilL-Order-Intake": "state",
+        "ilL-Order-Change": "state", "ilL-Account-Request": "state", "ilL-Drawing-Review": "decision",
     }
 
     STD_COLS = {"name": ("ID", "Data"), "owner": ("Created by", "Link"),
@@ -162,12 +188,40 @@ def main():
         if not can_edit():
             deny("You have view-only access. Ask Kevin for the Command Center Editor role.")
 
+    def sfield(dt):
+        return STATE_FIELD.get(dt, "status")
+
+    def real(dt, c):
+        # logical column -> the field that holds it on this doctype
+        return sfield(dt) if c == "status" else c
+
     def cols(dt):
+        # logical columns (may include "status") that exist on this site
         meta = frappe.get_meta(dt)
         out = []
         for c in ALLOWED[dt][1]:
-            if c in STD_COLS or meta.get_field(c):
+            if c in STD_COLS or meta.get_field(real(dt, c)):
                 out.append(c)
+        return out
+
+    def qfields(dt, logical):
+        out = []
+        for c in logical:
+            out.append(real(dt, c))
+        return out
+
+    def fixrows(dt, rows):
+        # expose the doctype's state field under the logical name "status"
+        sf = sfield(dt)
+        if sf != "status":
+            for r in rows:
+                r["status"] = r.get(sf)
+        return rows
+
+    def qfilters(dt, filters):
+        out = {}
+        for k in filters:
+            out[real(dt, k)] = filters[k]
         return out
 
     def colinfo(dt):
@@ -177,7 +231,7 @@ def main():
             if c in STD_COLS:
                 info.append({"fieldname": c, "label": STD_COLS[c][0], "type": STD_COLS[c][1]})
             else:
-                f = meta.get_field(c)
+                f = meta.get_field(real(dt, c))
                 info.append({"fieldname": c, "label": f.label or c, "type": f.fieldtype})
         return info
 
@@ -263,24 +317,25 @@ def main():
         order = frappe.form_dict.get("order_by") or "modified desc"
         parts = order.split(" ")
         direction = "asc" if len(parts) > 1 and parts[1].lower() == "asc" else "desc"
-        order = (parts[0] if parts[0] in dcols else "modified") + " " + direction
+        order = real(dt, parts[0] if parts[0] in dcols else "modified") + " " + direction
         clean_filters = {}
         for k in filters:
             if k in dcols:
                 clean_filters[k] = filters[k]
+        clean_filters = qfilters(dt, clean_filters)
         or_filters = None
         q = frappe.form_dict.get("search")
         if q:
             meta = frappe.get_meta(dt)
             or_filters = [["name", "like", "%" + q + "%"]]
             for c in dcols:
-                f = meta.get_field(c)
+                f = meta.get_field(real(dt, c))
                 if f and f.fieldtype in TEXT_TYPES:
-                    or_filters.append([c, "like", "%" + q + "%"])
-        rows = frappe.get_list(dt, fields=dcols, filters=clean_filters, or_filters=or_filters,
+                    or_filters.append([real(dt, c), "like", "%" + q + "%"])
+        rows = frappe.get_list(dt, fields=qfields(dt, dcols), filters=clean_filters, or_filters=or_filters,
                                order_by=order, limit_start=start, limit_page_length=limit)
         # total honours the user's permissions and the search box (v4 ignored both)
-        frappe.response["message"] = {"rows": rows, "columns": colinfo(dt),
+        frappe.response["message"] = {"rows": fixrows(dt, rows), "columns": colinfo(dt),
                                       "total": total(dt, clean_filters, or_filters)}
 
     elif action == "meta":
@@ -308,7 +363,10 @@ def main():
                                                  "content": ["like", "Command Center:%"]},
                              fields=["creation", "owner", "content"], order_by="creation desc",
                              limit_page_length=10)
-        frappe.response["message"] = {"doc": doc.as_dict(), "audit": log,
+        out = doc.as_dict()
+        if sfield(dt) != "status":
+            out["status"] = out.get(sfield(dt))
+        frappe.response["message"] = {"doc": out, "audit": log,
                                       "editable": can_edit() and doc.docstatus == 0}
 
     elif action == "save":
@@ -358,6 +416,7 @@ def main():
                 continue
             dcols = cols(d)
             has_status = "status" in dcols
+            sf = sfield(d)
             valf = ""
             if d == "Sales Invoice":
                 valf = "outstanding_amount"
@@ -373,8 +432,8 @@ def main():
             for fields in variants:
                 try:
                     if has_status:
-                        rows = frappe.get_list(d, fields=["status"] + fields, group_by="status",
-                                               order_by="status asc")
+                        rows = frappe.get_list(d, fields=[sf] + fields, group_by=sf,
+                                               order_by=sf + " asc")
                     else:
                         rows = frappe.get_list(d, fields=fields)
                     break
@@ -382,7 +441,7 @@ def main():
                     rows = None
             if rows is not None:
                 for r in rows:
-                    statuses.append([r.get("status") or "", int(r.get("n") or 0), float(r.get("v") or 0)])
+                    statuses.append([r.get(sf) or "", int(r.get("n") or 0), float(r.get("v") or 0)])
             else:
                 # fallback for Frappe versions that refuse SQL aggregates in get_list:
                 # pull the plain columns (capped) and add them up here
@@ -390,13 +449,13 @@ def main():
                 try:
                     plain = ["name"]
                     if has_status:
-                        plain.append("status")
+                        plain.append(sf)
                     if valf:
                         plain.append(valf)
                     agg = {}
                     order = []
                     for r in frappe.get_list(d, fields=plain, limit_page_length=5000):
-                        k = (r.get("status") or "") if has_status else ""
+                        k = (r.get(sf) or "") if has_status else ""
                         if k not in agg:
                             agg[k] = [k, 0, 0.0]
                             order.append(k)
@@ -418,6 +477,14 @@ def main():
         # "decisions this week": things that are late, expiring or stuck.
         # [id, label, doctype, filters, single status for the drill-down ("" = none), tone]
         defs = [
+            ["dr_sla", "Drawing requests past their SLA", "ilL-Document-Request",
+             [["status", "in", ["Submitted", "In Progress"]], ["sla_deadline", "<", frappe.utils.now()]], "", "bad"],
+            ["qr_waiting", "Quote requests waiting on us", "ilL-Quote-Request",
+             [["state", "in", ["REQUESTED", "UNDER_REVIEW"]], ["creation", "<", ago2]], "", "warn"],
+            ["oi_waiting", "Order requests waiting on us", "ilL-Order-Intake",
+             [["state", "in", ["SUBMITTED", "UNDER_REVIEW"]], ["creation", "<", ago2]], "", "warn"],
+            ["ar_pending", "Customer account requests pending", "ilL-Account-Request",
+             [["state", "=", "Pending"]], "Pending", "warn"],
             ["quote_expiring", "Quotes expiring within 7 days", "Quotation",
              [["status", "=", "Open"], ["valid_till", "between", [today, in7]]], "Open", "warn"],
             ["so_late", "Open orders past delivery date", "Sales Order",
@@ -484,6 +551,179 @@ def main():
                 out.append(r)
         frappe.response["message"] = {"rows": out}
 
+    elif action == "stages":
+        # Lanes for the pipeline stages, in one call: Design (projects, fixture schedules, drawing
+        # requests, reviews), Quotes (quote requests, offers), Sales orders (order intakes) and
+        # Service (account requests), plus the project/schedule/quote/order links on recent tickets.
+        # Each list is permission-aware; a doctype that is missing or unreadable comes back empty
+        # and is named in "missing".
+        today = frappe.utils.nowdate()
+        cutoff = frappe.utils.add_days(today, -30)
+        missing = []
+
+        def fetch(d, fields, filters=None, or_filters=None, order_by="modified desc", limit=500):
+            if not available(d):
+                missing.append(d)
+                return []
+            meta = frappe.get_meta(d)
+            keep = []
+            for f in fields:
+                if f in STD_COLS or meta.get_field(f):
+                    keep.append(f)
+            try:
+                return frappe.get_list(d, fields=keep, filters=filters or {}, or_filters=or_filters,
+                                       order_by=order_by, limit_page_length=limit)
+            except Exception:
+                missing.append(d)
+                return []
+
+        def recent(field, done):
+            # still open, or finished within the last 30 days
+            return [[field, "not in", done], ["modified", ">=", cutoff]]
+
+        schedules = fetch("ilL-Project-Fixture-Schedule",
+                          ["name", "schedule_name", "ill_project", "customer", "status", "version", "is_locked",
+                           "sales_order", "status_note", "owner", "creation", "modified"],
+                          or_filters=recent("status", ["CLOSED"]))
+        snames = []
+        pnames = []
+        for r in schedules:
+            snames.append(r["name"])
+            if r.get("ill_project") and r["ill_project"] not in pnames:
+                pnames.append(r["ill_project"])
+        lines = {}
+        if snames:
+            try:
+                for r in frappe.get_all("ilL-Child-Fixture-Schedule-Line",
+                                        filters={"parent": ["in", snames],
+                                                 "parenttype": "ilL-Project-Fixture-Schedule"},
+                                        fields=["parent"], limit_page_length=20000):
+                    lines[r["parent"]] = (lines.get(r["parent"]) or 0) + 1
+            except Exception:
+                lines = {}
+        for r in schedules:
+            r["lines"] = lines.get(r["name"]) or 0
+        pfields = ["name", "project_name", "customer", "status", "architect", "lighting_designer",
+                   "general_contractor", "location", "erp_project", "estimated_start_date", "modified"]
+        projects = fetch("ilL-Project", pfields, filters={"status": ["in", ["ACTIVE", "ON_HOLD"]]})
+        have = []
+        for r in projects:
+            have.append(r["name"])
+        extra = []
+        for n in pnames:
+            if n not in have:
+                extra.append(n)
+        if extra:
+            projects = projects + fetch("ilL-Project", pfields, filters={"name": ["in", extra]})
+
+        doc_requests = fetch("ilL-Document-Request",
+                             ["name", "request_type", "status", "priority", "fixture_schedule", "sales_order", "project",
+                              "requester_customer", "owner_customer", "assigned_to", "sla_deadline",
+                              "requested_due_date", "required_for_manufacturing", "fixture_or_product_text",
+                              "completed_on", "creation", "modified"],
+                             filters={"status": ["not in", ["Closed", "Cancelled"]]},
+                             or_filters=[["status", "!=", "Completed"], ["modified", ">=", cutoff]])
+        rnames = []
+        for r in doc_requests:
+            rnames.append(r["name"])
+        reviews = []
+        if rnames:
+            reviews = fixrows("ilL-Drawing-Review", fetch(
+                "ilL-Drawing-Review", ["name", "request", "revision", "decision", "reviewed_by", "reviewed_on",
+                                       "note", "creation"],
+                filters={"request": ["in", rnames]}, order_by="creation desc"))
+
+        quote_requests = fixrows("ilL-Quote-Request", fetch(
+            "ilL-Quote-Request", ["name", "schedule", "project", "customer", "state", "assigned_to", "due_date",
+                                  "latest_offer", "latest_issued_offer", "ill_next_action_by", "requested_by",
+                                  "owner", "creation", "modified"],
+            filters={"state": ["!=", "DRAFT"]}, or_filters=recent("state", ["CLOSED"])))
+        offers = fixrows("ilL-Quote-Offer", fetch(
+            "ilL-Quote-Offer", ["name", "quotation", "quote_request", "schedule", "customer", "state", "valid_until",
+                                "issued_on", "sales_order", "responded_on", "response_note", "creation", "modified"],
+            filters={"state": ["not in", ["SUPERSEDED", "CANCELLED"]],
+                     "modified": [">=", frappe.utils.add_days(today, -120)]}))
+        intakes = fixrows("ilL-Order-Intake", fetch(
+            "ilL-Order-Intake", ["name", "sales_order", "schedule", "customer", "state", "assigned_to", "due_date",
+                                 "ill_next_action_by", "customer_message", "requested_by", "creation", "modified"],
+            or_filters=recent("state", ["APPROVED", "REJECTED", "WITHDRAWN"])))
+        account_requests = fixrows("ilL-Account-Request", fetch(
+            "ilL-Account-Request", ["name", "request_type", "customer", "requested_by", "state", "assigned_to",
+                                    "staff_note", "reviewed_on", "creation", "modified"],
+            or_filters=recent("state", ["Approved", "Rejected", "Resolved"])))
+        tickets = fetch("HD Ticket", ["name", "ill_project", "ill_fixture_schedule", "ill_quotation",
+                                      "ill_sales_order", "ill_sales_invoice", "priority", "agent_group",
+                                      "ticket_type", "status"],
+                        or_filters=recent("status", ["Resolved", "Closed"]), limit=1000)
+
+        frappe.response["message"] = {
+            "today": today, "can_edit": can_edit(), "missing": missing,
+            "projects": fixrows("ilL-Project", projects), "schedules": schedules,
+            "doc_requests": doc_requests, "reviews": reviews, "quote_requests": quote_requests,
+            "offers": offers, "intakes": intakes, "account_requests": account_requests, "tickets": tickets,
+        }
+
+    elif action == "assign":
+        # add/remove owners on a record (help desk tickets from the Inbox, drawing and quote requests)
+        # the way the desk does it: one open ToDo per owner on the record. Editors only.
+        doctype(dt)
+        need_edit()
+        name = frappe.form_dict.get("name")
+        doc = frappe.get_doc(dt, name)
+        doc.check_permission("write")
+        add = jsonarg("add")
+        remove = jsonarg("remove")
+        if not add and not remove:
+            deny("Pick someone to add or remove.")
+        title = str(doc.get("subject") or doc.get("title") or name)
+        done_add = []
+        done_remove = []
+        for u in add:
+            if not frappe.db.exists("User", {"name": u, "enabled": 1}):
+                deny(str(u) + " isn't an active user.")
+            if frappe.get_all("ToDo", filters={"reference_type": dt, "reference_name": name,
+                                               "allocated_to": u, "status": "Open"}, fields=["name"],
+                              limit_page_length=1):
+                continue
+            frappe.get_doc({"doctype": "ToDo", "status": "Open", "allocated_to": u, "assigned_by": user,
+                            "reference_type": dt, "reference_name": name,
+                            "description": str(title)[:500]}).insert()
+            done_add.append(u)
+        for u in remove:
+            for t in frappe.get_list("ToDo", filters={"reference_type": dt, "reference_name": name,
+                                                      "allocated_to": u, "status": "Open"},
+                                     fields=["name"], limit_page_length=20):
+                td = frappe.get_doc("ToDo", t["name"])
+                td.status = "Cancelled"
+                try:
+                    td.save()
+                except Exception:
+                    deny("Your ERPNext user can't close " + str(u) + "'s to-do on " + str(name)
+                         + ". Unassign them in Helpdesk or the desk instead.")
+                if u not in done_remove:
+                    done_remove.append(u)
+        if done_add or done_remove:
+            bits = []
+            if done_add:
+                bits.append("assigned " + ", ".join(done_add))
+            if done_remove:
+                bits.append("unassigned " + ", ".join(done_remove))
+            audit(dt, name, "; ".join(bits) + " by " + user)
+        frappe.response["message"] = {"name": name, "added": done_add, "removed": done_remove}
+
+    elif action == "note":
+        # leave a "Command Center:" comment on a record after a change made from the page
+        doctype(dt)
+        need_edit()
+        name = frappe.form_dict.get("name")
+        doc = frappe.get_doc(dt, name)
+        doc.check_permission("write")
+        text = str(frappe.form_dict.get("text") or "").strip()
+        if not text:
+            deny("Nothing to note.")
+        audit(dt, name, text.replace("<", "&lt;")[:900] + " (" + user + ")")
+        frappe.response["message"] = {"name": name}
+
     elif action.startswith("agenda_"):
         # ---- weekly meeting agenda (doctypes ilL-Meeting-Agenda / ilL-Meeting-Agenda-Item) ----
         # Same rules as the rest: Viewer reads, Editor writes, ERPNext permissions decide the rest.
@@ -537,8 +777,9 @@ def main():
             columns = {}
             for d in want:
                 try:
-                    for r in frappe.get_list(d, fields=cols(d), filters={"name": ["in", want[d]]},
-                                             limit_page_length=len(want[d])):
+                    for r in fixrows(d, frappe.get_list(d, fields=qfields(d, cols(d)),
+                                                        filters={"name": ["in", want[d]]},
+                                                        limit_page_length=len(want[d]))):
                         refs[d + "|" + r["name"]] = r
                     columns[d] = colinfo(d)
                 except Exception:

@@ -1,6 +1,8 @@
 /* ilLumenate Command Center v5 — base v2/v3 by Claude, Nov 17 2026.
    v4: Workbench. v5: Executive overview, Project review mode, saved views, activity feed, print.
    v6: Meeting agenda (weekly meeting, items linked to any Command Center record).
+   v7: Pipeline restructure: Design stage before Quotes, portal requests inside their stages
+       (Requests tab retired), Service after Shipping, Inbox as a help desk portal.
    Workbench/Executive/Review feed: /api/method/ill_cc_gateway (Server Script "ilL Command Center Gateway").
    Original header: ilLumenate Command Center v2 — live page on ERPNext. Built by Claude, Nov 17 2026.
    Data: /api/method/ill_command_center (Server Script "ilL Command Center API", read-only).
@@ -44,7 +46,7 @@
       if (!r.ok) { let msg = ''; try { const jj = await r.json(); msg = JSON.parse(JSON.parse(jj._server_messages)[0]).message; } catch (e) { }
         if (/access/i.test(msg)) { lockScreen('denied'); return; } throw new Error('ERPNext answered ' + r.status); }
       root.classList.remove('locked');
-      D = (await r.json()).message; prep(); render();
+      D = (await r.json()).message; prep(); PL.stale = true; render();
       if (manual) toast('Up to date with ERPNext');
     } catch (e) { $('#ccmain').innerHTML = `<div class="err">Couldn't load data from ERPNext: ${esc(e.message)}. Try Refresh.</div>`; }
     finally { b.disabled = false; b.classList.remove('spinning'); }
@@ -174,17 +176,28 @@
     ];
   }
   
+  /* ---------------- pipeline config ----------------
+     One list drives the stepper, the router, the tab highlight and the quick links: reorder here.
+     Mirrors the dealer portal: Design → Quotes → Sales orders → … → Shipping → Service. */
+  const STAGES = [
+    { k: 'pipeline', n: 'Overview' }, { k: 'design', n: 'Design' }, { k: 'quotes', n: 'Quotes' }, { k: 'orders', n: 'Sales orders' },
+    { k: 'purch', n: 'Purchasing' }, { k: 'mfg', n: 'Manufacturing' }, { k: 'ship', n: 'Shipping' }, { k: 'service', n: 'Service' },
+  ];
+  const PIPE = STAGES.map(x => x.k);
+  // retired pages → their new home (old bookmarks and links keep working)
+  const REDIRECT = { requests: 'pipeline' };
+
   /* quick links to the ERPNext doctype pages behind each section */
   const QL = {
     pipeline: [['Customers', '/app/customer'], ['Sales orders', '/app/sales-order'], ['Sales invoices', '/app/sales-invoice'], ['Sales partners (reps)', '/app/sales-partner'], ['Customer groups (tiers)', '/app/customer-group']],
-    quotes: [['+ New quotation', '/app/quotation/new'], ['Quotations', '/app/quotation'], ['Quote requests', '/app/ill-quote-request'], ['Quote offers', '/app/ill-quote-offer'], ['Quote & design tickets', '/helpdesk/tickets'], ['Help desk', '/helpdesk/tickets']],
+    design: [['Projects', '/app/ill-project'], ['Fixture schedules', '/app/ill-project-fixture-schedule'], ['Drawing requests', '/app/ill-document-request'], ['Drawing reviews', '/app/ill-drawing-review'], ['Help desk', '/helpdesk/tickets']],
+    quotes: [['+ New quotation', '/app/quotation/new'], ['Quotations', '/app/quotation'], ['Quote requests', '/app/ill-quote-request'], ['Quote offers', '/app/ill-quote-offer'], ['Help desk', '/helpdesk/tickets']],
     orders: [['+ New sales order', '/app/sales-order/new'], ['Sales orders', '/app/sales-order'], ['Order requests', '/app/ill-order-intake'], ['Order changes', '/app/ill-order-change'], ['Order tickets', '/helpdesk/tickets'], ['Delivery notes', '/app/delivery-note']],
     so: [['Sales orders', '/app/sales-order'], ['+ New delivery note', '/app/delivery-note/new'], ['+ New sales invoice', '/app/sales-invoice/new']],
     purch: [['+ New material request', '/app/material-request/new'], ['+ New purchase order', '/app/purchase-order/new'], ['Material requests', '/app/material-request'], ['Purchase orders', '/app/purchase-order'], ['Purchase receipts', '/app/purchase-receipt'], ['Suppliers', '/app/supplier'], ['Stock balance', '/app/query-report/Stock%20Balance'], ['Items', '/app/item']],
     mfg: [['+ New work order', '/app/work-order/new'], ['Work orders', '/app/work-order'], ['BOMs', '/app/bom'], ['Production plans', '/app/production-plan'], ['Stock entries', '/app/stock-entry']],
     ship: [['+ New delivery note', '/app/delivery-note/new'], ['Delivery notes', '/app/delivery-note'], ['Shipments', '/app/shipment'], ['Sales orders to deliver', '/app/sales-order?status=%5B%22in%22%2C%5B%22To%20Deliver%22%2C%22To%20Deliver%20and%20Bill%22%5D%5D']],
-    service: [['Help desk', '/helpdesk/tickets'], ['Knowledge base', '/helpdesk/kb']],
-    requests: [['Quote requests', '/app/ill-quote-request'], ['Order requests', '/app/ill-order-intake'], ['Drawing requests', '/app/ill-document-request'], ['Account requests', '/app/ill-account-request'], ['Order changes', '/app/ill-order-change']],
+    service: [['Help desk', '/helpdesk/tickets'], ['Account requests', '/app/ill-account-request'], ['Knowledge base', '/helpdesk/kb']],
     inbox: [['Help desk', '/helpdesk/tickets'], ['Ticket types (setup)', '/app/hd-ticket-type']],
     finance: [['+ New sales invoice', '/app/sales-invoice/new'], ['Sales invoices', '/app/sales-invoice'], ['Accounts receivable', '/app/query-report/Accounts%20Receivable'], ['Payment entries', '/app/payment-entry'], ['+ New purchase invoice', '/app/purchase-invoice/new'], ['Purchase invoices (bills)', '/app/purchase-invoice'], ['QuickBooks sync log', '/app/ill-qbo-sync-log']],
     work: [['Projects', '/app/project'], ['Tasks', '/app/task'], ['To-dos', '/app/todo?status=Open'], ['Project templates', '/app/project-template']],
@@ -260,30 +273,6 @@
         rows.map(s => `<tr><td>${link('sales-order', s.so, short(s.so))}<div class="m">${esc(s.status)}</div></td><td>${cust(s.customer)}</td><td>${s.delivery < TODAY ? badge(fmtd(s.delivery), 'bad') : fmtd(s.delivery)}</td><td class="num">${money(s.value)}</td>
           <td class="num">${s.delivered}%</td><td>${s.state === 'Ready' ? sdot('Ready', 'good') : sdot('At risk', 'warn')}</td><td class="m" style="max-width:320px">${s.reasons.map(esc).join(' · ')}${s.state === 'Ready' && s.delivery < TODAY ? ' · may have shipped without a Delivery Note' : ''}</td></tr>`))}
       ${D.drafts.length ? tableCard('Draft sales orders', 'Not submitted, so they create no demand', ['Draft', 'Customer', '#Value', 'Created'], D.drafts.map(x => `<tr><td>${link('sales-order', x.so, short(x.so))}</td><td>${cust(x.customer)}</td><td class="num">${money(x.value)}</td><td>${fmtd(x.created)}</td></tr>`)) : ''}
-    </div>`;
-  };
-  V.req = m => {
-    const types = ['Quote Request', 'Sales Order Request', 'Drawing Request', 'Account Request'];
-    return header('Requests pipeline', 'Open requests from the dealer portal. A red age means open for more than 2 business days. ISSUED means the quote is out and we\'re waiting on the dealer.') + `<div class="lanes">
-      ${types.map(t => { const rs = D.reqs.filter(r => r.type === t && rowOK(r)).sort((a, b) => b.open - a.open || b.age - a.age); const o = rs.filter(r => r.open).length;
-        return `<div class="lane"><div class="lane-h"><span>${t}s</span>${badge(o + ' open', o ? 'info' : 'mute')}</div>
-        ${rs.map(r => `<div class="kcard ${r.open ? '' : 'closed'}"><div class="r">${link(r.dt, r.name)}${r.open && r.age > 2 ? badge(r.age + 'd', 'bad') : `<span class="calc">${r.age}d</span>`}</div>
-          <div style="margin-top:4px">${cust(r.customer)}</div><div class="m">${esc(r.state)}${r.detail ? ' · ' + esc(r.detail) : ''}</div>
-          <div class="r" style="margin-top:8px">${r.owner ? avatar(r.owner) : '<span class="calc">Unassigned</span>'}<span class="calc">${fmtd(r.created)}</span></div></div>`).join('') || '<div class="empty">None</div>'}</div>`; }).join('')}</div>`;
-  };
-  V.inbox = m => {
-    const CAT = { Quotation: 'Quotes', Service: 'Tech support', 'Sales Order': 'Order status', Design: 'Design' }, cats = ['Quotes', 'Tech support', 'Order status', 'Design', 'Other'];
-    const cnt = arr => cats.map(c => arr.filter(t => (CAT[t.type] || 'Other') === c).length);
-    setTimeout(() => vbars($('#ch-inbox'), cats, [{ name: 'This week', color: '#2a78d6', values: cnt(m.tw) }, { name: 'Last week', color: '#eb6834', values: cnt(m.lw) }], { labels: true, h: 230 }));
-    const open = D.tk.filter(t => (t.status === 'Open' || t.status === 'Replied') && rowOK(t)).sort((a, b) => (a.status > b.status ? 1 : -1) || b.age - a.age);
-    return header('Inbox (sales@)', 'Help desk tickets. Replying closes the ticket\'s ToDo automatically, and a customer reply reopens it with a fresh ToDo.') + `<div class="grid">
-      ${stat('Tickets this week', m.tw.length, `Last week ${m.lw.length}`).replace('card stat', 'card stat s4')}
-      ${stat('Waiting on us', m.tOpen.length, 'Open tickets').replace('card stat', 'card stat s4')}
-      ${stat('Waiting over 2 business days', m.tOld.length, 'Needs a reply', m.tOld.length ? 'bad' : '').replace('card stat', 'card stat s4')}
-      ${card('Tickets by type', 'Created in the last 7 days vs the 7 before. Emails that never became a ticket aren\'t counted.', '<div class="chart" id="ch-inbox"></div>', 's12')}
-      ${tableCard('Open and waiting tickets', 'Open = our move. Replied = waiting on the customer (close it after 10 days).', ['Ticket', 'Subject', 'Type', 'Status', 'Owner', '#Age'],
-        open.map(t => `<tr><td>${link('hd-ticket', t.name)}</td><td>${esc(t.subject)}<div class="m">${fmtd(t.created)}</div></td><td>${esc(t.type)}</td><td>${t.status === 'Open' ? sdot('Open', 'warn') : sdot('Replied', 'mute')}</td><td>${avs(t.assignedL)}</td>
-          <td class="num">${(t.status === 'Open' && t.age > 2) || (t.status === 'Replied' && t.age > 10) ? badge(t.age + 'd', 'bad') : t.age + 'd'}</td></tr>`))}
     </div>`;
   };
   V.fin = m => {
@@ -565,27 +554,35 @@
   const bigSteps = s => `<div class="steps">${soSteps(s).map(([n, k, d], i) => `<div class="step ${k}"><div class="sc">${k === 'good' ? '✓' : k === 'bad' ? '!' : i + 1}</div><div><div class="sn">${n}</div><div class="sd">${esc(d || (i ? '' : 'Submitted'))}</div></div></div>`).join('<div class="sl"></div>')}</div>`;
 
   function stepper(m, cur) {
-    const p = pipeData(m);
-    const st = [
-      ['pipeline', 'Overview', `${m.newThis.length}/8`, 'new dealers', m.newThis.length >= 8 * m.pace ? 'good' : 'bad'],
-      ['quotes', 'Quotes & design', p.inqOpen.length + p.qOut.length, `${p.inqOpen.length} our move · ${p.qOut.length} quotes out`, p.inqOpen.some(t => t.age > 2) ? 'warn' : 'good'],
-      ['orders', 'Sales orders', D.ship.length, kfmt(p.soVal) + ' open', p.corr.length ? 'warn' : 'good'],
-      ['purch', 'Purchasing', m.firm.length, `${m.late.length} late`, m.late.length ? 'bad' : 'good'],
-      ['mfg', 'Manufacturing', m.act.length, `${D.needwo.length} lines need WO`, D.needwo.length || m.dup.length ? 'warn' : 'good'],
-      ['ship', 'Shipping', `${p.ready.length}/${D.ship.length}`, `ready · ${m.past.length} past due`, m.past.length ? 'bad' : 'good'],
-    ];
-    return `<div class="chev">${st.map(([k, n, v, l, s]) => `<a href="#${k}" class="cv ${cur === k ? 'on' : ''}"><div class="cvn"><span class="dot ${s}"></span>${n}</div><div class="cvv">${esc(v)}</div><div class="cvl">${esc(l)}</div></a>`).join('')}</div>`;
+    const p = pipeData(m), x = PL.data;
+    const svcOpen = D.tk.filter(t => (SVC_TYPES.includes(t.type) || !t.type) && t.status === 'Open');
+    const dsn = x ? x.schedules.filter(z => schedStage(z) === 'design') : null, dr = x ? x.doc_requests.filter(r => DR_OPEN.includes(r.status) && !r.sales_order) : null;
+    const qr = x ? x.quote_requests.filter(q => q.state === 'REQUESTED' || q.state === 'UNDER_REVIEW') : null, oi = x ? x.intakes.filter(o => o.state === 'SUBMITTED' || o.state === 'UNDER_REVIEW') : null;
+    const ar = x ? x.account_requests.filter(a => a.state === 'Pending') : null;
+    const SUM = {
+      pipeline: () => [`${m.newThis.length}/8`, 'new dealers', m.newThis.length >= 8 * m.pace ? 'good' : 'bad'],
+      design: () => x ? [dsn.length, `${dr.length} drawing${dr.length === 1 ? '' : 's'} open`, dr.some(r => ageBd(r.creation) > 2 && r.status !== 'Waiting on Customer') ? 'warn' : 'good'] : ['…', 'loading', 'mute'],
+      quotes: () => [(qr ? qr.length : p.inqOpen.length) + p.qOut.length, `${p.qOut.length} quotes out`, (qr || []).some(q => ageBd(q.creation) > 2) || p.inqOpen.some(t => t.age > 2) ? 'warn' : 'good'],
+      orders: () => [D.ship.length, oi && oi.length ? `${oi.length} new request${oi.length === 1 ? '' : 's'}` : kfmt(p.soVal) + ' open', p.corr.length || (oi || []).some(o => ageBd(o.creation) > 2) ? 'warn' : 'good'],
+      purch: () => [m.firm.length, `${m.late.length} late`, m.late.length ? 'bad' : 'good'],
+      mfg: () => [m.act.length, `${D.needwo.length} lines need WO`, D.needwo.length || m.dup.length ? 'warn' : 'good'],
+      ship: () => [`${p.ready.length}/${D.ship.length}`, `ready · ${m.past.length} past due`, m.past.length ? 'bad' : 'good'],
+      service: () => [svcOpen.length + (ar ? ar.length : 0), ar && ar.length ? `${ar.length} account request${ar.length === 1 ? '' : 's'}` : 'tickets our move', svcOpen.some(t => t.age > 2) || (ar || []).some(a => ageBd(a.creation) > 2) ? 'bad' : 'good'],
+    };
+    return `<div class="chev">${STAGES.map(st => { const [v, l, k] = SUM[st.k](); return `<a href="#${st.k}" class="cv ${cur === st.k ? 'on' : ''}"><div class="cvn"><span class="dot ${k}"></span>${esc(st.n)}</div><div class="cvv">${esc(v)}</div><div class="cvl">${esc(l)}</div></a>`; }).join('')}</div>`;
   }
 
   V.pipeline = m => {
     const p = pipeData(m), tr = D.trend.filter(x => x.change != null && rowOK(x)).slice(0, 10);
     const fun = [
-      ['quotes', 'Inquiries', p.inqOpen.length + p.inqWait.length, 'design & quote tickets open', '#2a78d6'],
+      ['design', 'In design', PL.data ? PL.data.schedules.filter(z => schedStage(z) === 'design').length : p.inqOpen.length + p.inqWait.length, PL.data ? 'fixture schedules · ' + PL.data.doc_requests.filter(r => DR_OPEN.includes(r.status)).length + ' drawings open' : 'design & quote tickets open', '#1d6bc8'],
+      ['quotes', 'Quote requests', PL.data ? PL.data.quote_requests.filter(q => QR_ACTIVE.includes(q.state) && q.state !== 'ISSUED').length : p.inqOpen.length, 'from the portal, not yet issued', '#2a78d6'],
       ['quotes', 'Quotes out', p.qOut.length, kfmt(p.qVal) + ' waiting on dealers', '#3b84dc'],
       ['orders', 'Sales orders', D.ship.length, kfmt(p.soVal) + ' open', '#4c90e1'],
       ['purch', 'Need materials', p.soShort.length, m.firm.length + ' lines short', '#eb6834'],
       ['mfg', 'In production', p.soMfg.length, m.act.length + ' work orders', '#eda100'],
       ['ship', 'Ready to ship', p.ready.length, m.past.length + ' orders past due', '#12b76a'],
+      ['service', 'Service', D.tk.filter(t => (SVC_TYPES.includes(t.type) || !t.type) && t.status === 'Open').length + (PL.data ? PL.data.account_requests.filter(a => AR_OPEN.includes(a.state)).length : 0), 'tickets & customer requests open', '#6250d6'],
       ['finance', 'Invoiced this month', D.fin.mtdN, kfmt(D.fin.mtd), '#067647'],
     ];
     const fmax = Math.max(...fun.map(f => f[2]), 1);
@@ -613,24 +610,29 @@
   V.quotes = m => {
     const p = pipeData(m);
     const since = addDays(TODAY, -30);
-    const tks = p.inq.filter(t => rowOK(t) && (!DONE_TK.includes(t.status) || (t.modified || t.created) >= since));
+    const tks = p.inq.filter(t => t.type === 'Quotation' && rowOK(t) && (!DONE_TK.includes(t.status) || (t.modified || t.created) >= since));
     const col = (title, sub, list, k) => `<div class="bcol"><div class="lane-h"><span><span class="dot ${k}"></span> ${title}</span><span class="ct">${list.length}</span></div><div class="small" style="margin:-4px 0 10px">${sub}</div>
       ${list.map(t => { const q = t.quotation && D.qByName[t.quotation], td = D.byRef['HD Ticket|' + t.name] || [];
-        return `<div class="tcard"><div class="r"><span class="badge ${t.type === 'Design' ? 'info' : 'mute'}">${esc(t.type === 'Quotation' ? 'Quote' : t.type)}</span>${t.status === 'Open' && t.age > 2 ? badge(t.age + 'd', 'bad') : `<span class="small">${t.age}d</span>`}</div>
-          <div class="tt" style="margin-top:8px">${link('hd-ticket', t.name, t.subject || t.name)}</div><div class="m">${esc(t.raised_by || '')}</div>
+        return `<div class="tcard"><div class="r"><span class="badge mute">Quote</span>${t.status === 'Open' && t.age > 2 ? badge(t.age + 'd', 'bad') : `<span class="small">${t.age}d</span>`}</div>
+          <div class="tt" style="margin-top:8px"><a href="#" data-tksheet="${esc(t.name)}">${esc(t.subject || t.name)}</a></div><div class="m">${esc(t.raised_by || '')}</div>
           ${q ? `<div class="qchip">${link('quotation', q.name, short(q.name).replace('ilL-SAL-QTN-', ''))} · ${money(q.base_net_total)} · ${esc(q.docstatus === 0 ? 'Draft' : q.status)}</div>` : (t.type === 'Quotation' ? (LOGGED ? `<button class="cc-btn soft" style="margin-top:8px" data-linkq="${esc(t.name)}">Link quotation</button>` : '<div class="m" style="margin-top:6px">No quotation linked</div>') : '')}
           ${td.length ? `<div class="tdl">${td.slice(0, 3).map(x => `<div>☐ <a target="_blank" rel="noopener" href="${x.url}">${esc(x.title)}</a></div>`).join('')}${td.length > 3 ? `<div class="calc">+${td.length - 3} more</div>` : ''}</div>` : ''}
           <div class="r" style="margin-top:10px">${avs(t.assignedL)}<span class="small">${fmtd(t.created)}</span></div></div>`; }).join('') || '<div class="drop-hint">Nothing here</div>'}</div>`;
     const qrows = p.qOut.concat(S.qdraft ? p.qDraft : []).filter(rowOK).sort((a, b) => String(a.valid_till || '9').localeCompare(String(b.valid_till || '9')));
-    return header('Quotes & design', 'Design and quotation tickets from sales@, the quotes we\'ve sent, and who\'s waiting on whom.') + `
+    const qrq = PL.data ? PL.data.quote_requests.filter(q => q.state === 'REQUESTED' || q.state === 'UNDER_REVIEW') : null, qrw = PL.data ? PL.data.quote_requests.filter(q => q.state === 'INFORMATION_NEEDED') : null;
+    const qOpen = tks.filter(t => t.status === 'Open'), qWait = tks.filter(t => t.status === 'Replied');
+    return header('Quotes', 'Quote requests from the portal, the offers and quotations we\'ve sent, and quotation tickets from sales@. Schedules arrive here from Design.') + `
       <div class="grid" style="margin-bottom:20px">
-        ${stat('Our move', p.inqOpen.length, `${p.inqOpen.filter(t => t.age > 2).length} waiting over 2 business days`, p.inqOpen.some(t => t.age > 2) ? 'bad' : '').replace('card stat', 'card stat s3')}
-        ${stat('Waiting on customer', p.inqWait.length, 'Tickets we\'ve replied to').replace('card stat', 'card stat s3')}
+        ${qrq ? stat('Quote requests, our move', qrq.length, `${qrq.filter(q => ageBd(q.creation) > 2).length} older than 2 business days · ${qOpen.length} tickets open`, qrq.some(q => ageBd(q.creation) > 2) ? 'bad' : '').replace('card stat', 'card stat s3')
+          : stat('Our move', qOpen.length, `${qOpen.filter(t => t.age > 2).length} waiting over 2 business days`, qOpen.some(t => t.age > 2) ? 'bad' : '').replace('card stat', 'card stat s3')}
+        ${stat('Waiting on dealer', (qrw ? qrw.length : 0) + qWait.length, `${qrw ? qrw.length + ' requests need info · ' : ''}${qWait.length} tickets replied`).replace('card stat', 'card stat s3')}
         ${stat('Quotes out', p.qOut.length, `${money(p.qVal)} waiting on dealers`).replace('card stat', 'card stat s3')}
         ${stat('Expiring in 7 days', p.qExp.length, `${p.qDraft.length} unsent drafts (last 120 days)`, p.qExp.length ? 'bad' : '').replace('card stat', 'card stat s3')}
       </div>
+      ${sec('Quote requests', 'From the portal: requested → under review → issued → the dealer\'s answer. Red age = waiting on us more than 2 business days.')}${quoteLanes()}
+      ${sec('Quotation tickets', 'Quote conversations from sales@ (design tickets are on <a href="#design">Design</a>)')}
       <div class="board" style="grid-template-columns:repeat(3,minmax(260px,1fr))">
-        ${col('Our move', 'Open: needs a reply, design or quote', tks.filter(t => t.status === 'Open').sort((a, b) => b.age - a.age), 'bad')}
+        ${col('Our move', 'Open: needs a reply or a quote', tks.filter(t => t.status === 'Open').sort((a, b) => b.age - a.age), 'bad')}
         ${col('Waiting on customer', 'Replied: follow up if quiet for 10+ days', tks.filter(t => t.status === 'Replied').sort((a, b) => b.age - a.age), 'warn')}
         ${col('Done (last 30 days)', 'Resolved or closed', tks.filter(t => DONE_TK.includes(t.status)), 'good')}
       </div>
@@ -651,7 +653,7 @@
     const tks = all.filter(t => rowOK(t) && (!DONE_TK.includes(t.status) || (t.modified || t.created) >= since));
     const card = t => { const so = t.sales_order, s = so && D.ship.find(x => x.so === so), td = D.byRef['HD Ticket|' + t.name] || [];
       return `<div class="tcard"><div class="r"><span class="badge ${t.type === 'Sales Order' ? 'info' : 'mute'}">${esc(t.type === 'Sales Order' ? 'Order status' : (t.type || 'Untyped'))}</span>${t.status === 'Open' && t.age > 2 ? badge(t.age + 'd', 'bad') : t.status === 'Replied' && t.idle > 10 ? badge(t.idle + 'd quiet', 'warn') : `<span class="small">${t.age}d</span>`}</div>
-        <div class="tt" style="margin-top:8px">${link('hd-ticket', t.name, t.subject || t.name)}</div><div class="m">${esc(t.raised_by || '')}</div>
+        <div class="tt" style="margin-top:8px"><a href="#" data-tksheet="${esc(t.name)}">${esc(t.subject || t.name)}</a></div><div class="m">${esc(t.raised_by || '')}</div>
         ${so ? `<div class="qchip">Order ${s ? `<a href="#so-${encodeURIComponent(so)}">${esc(short(so))}</a> · ${esc(s.status)} · ${money(s.value)}` : link('sales-order', so, short(so)) + ' · not open'}</div>` : (LOGGED && !DONE_TK.includes(t.status) ? `<button class="cc-btn soft" style="margin-top:8px" data-linkso="${esc(t.name)}">Link sales order</button>` : '<div class="m" style="margin-top:6px">No order linked</div>')}
         ${td.length ? `<div class="tdl">${td.slice(0, 3).map(x => `<div>☐ <a target="_blank" rel="noopener" href="${x.url}">${esc(x.title)}</a></div>`).join('')}${td.length > 3 ? `<div class="calc">+${td.length - 3} more</div>` : ''}</div>` : ''}
         <div class="r" style="margin-top:10px">${avs(t.assignedL)}<span class="small">${fmtd(t.created)}</span></div></div>`; };
@@ -669,13 +671,15 @@
 
   V.orders = m => {
     const p = pipeData(m), rows = D.ship.filter(rowOK);
-    return header('Sales orders', 'Every open order with its progress, to-dos, tasks and anything that needs correcting. Click an order for the full picture.') + `
+    return header('Sales orders', 'Order requests from the portal, then every open order with its progress, to-dos, tasks and anything that needs correcting.') + `
       <div class="grid" style="margin-bottom:20px">
         ${stat('Open orders', D.ship.length, money(p.soVal) + ' total').replace('card stat', 'card stat s3')}
         ${stat('Past delivery date', m.past.length, '', m.past.length ? 'bad' : '').replace('card stat', 'card stat s3')}
         ${stat('Need materials', p.soShort.length, 'Orders with short items').replace('card stat', 'card stat s3')}
         ${stat('Need correcting', p.corr.length, 'Flags below', p.corr.length ? 'bad' : '').replace('card stat', 'card stat s3')}
       </div>
+      ${orderLanes()}
+      ${sec('Open sales orders', 'Click an order for the full picture')}
       <div class="sol">${rows.map(s => { const fl = soFlags(s), td = soTodos(s.so), tk = soTasks(s.so);
         return `<a class="sorow" href="#so-${encodeURIComponent(s.so)}"><div class="so-a"><div class="so-n">${esc(short(s.so))}</div><div class="small">${esc(s.customer)} · ${esc(s.status)}</div></div>
           <div class="so-b">${miniSteps(s)}<div class="small">${soSteps(s).map(x => x[0] + ': ' + x[2]).slice(1, 4).join(' · ')}</div></div>
@@ -701,6 +705,8 @@
         ${card('To-dos', 'ERPNext ToDos on this order', (td.length ? td.map(x => `<div class="todo-r"><span>${avs(x.owners)}</span><a target="_blank" rel="noopener" href="${x.url}">${esc(x.title)}</a>${x.due ? (x.due < TODAY ? badge(fmtd(x.due), 'bad') : `<span class="small">${fmtd(x.due)}</span>`) : ''}${LOGGED ? `<button class="cc-btn soft" data-done="${x.ids.join(',')}">✓</button>` : ''}</div>`).join('') : '<div class="empty" style="padding:8px">No to-dos</div>'), 's4')}
         ${card('Related', '', `<div class="small" style="line-height:2">Quotation: ${q ? link('quotation', q.name, q.name.replace('ilL-SAL-QTN-', '')) + ' · ' + money(q.base_net_total) : (s.quotation ? link('quotation', s.quotation) : '—')}<br>
           Tickets: ${tks.length ? '' : '—'}${tks.map(t => `<div class="todo-r" style="line-height:1.4"><span>${sdot(t.status === 'Open' ? 'Our move' : t.status === 'Replied' ? 'Waiting' : t.status, t.status === 'Open' ? 'bad' : t.status === 'Replied' ? 'warn' : 'good')}</span>${link('hd-ticket', t.name, t.name + ' · ' + (t.subject || ''))}<span class="small">${t.age}d</span></div>`).join('')}Projects: ${(D.projBySO[s.so] || []).map(p => `<a href="#p-${esc(p.name)}">${esc(p.project_name)}</a>`).join(', ') || '—'}<br>
+          Order requests: ${PL.data ? (PL.data.oiBySO[s.so] || []).map(o => `${link('ill-order-intake', o.name)} ${stBadge(o.state)}`).join(' ') || '—' : '…'}<br>
+          Drawing requests: ${PL.data ? (PL.data.reqBySO[s.so] || []).map(r => `${link('ill-document-request', r.name)} ${stBadge(r.status)}`).join(' ') || '—' : '…'}<br>
           Tasks open: ${tk.length}</div>${tk.length ? `<div style="margin-top:8px">${tk.slice(0, 5).map(t => `<div class="todo-r"><span>${avs(t.owners)}</span><span>${esc(t.subject)}</span></div>`).join('')}</div>` : ''}`, 's4')}
         ${tableCard('Order lines', `${s.lines.length} lines`, ['Item', '#Qty', '#Delivered', '#Amount', ''], s.lines.map(l => `<tr><td>${link('item', l.item, l.name || l.item)}<div class="m mono">${esc(l.item)}</div></td><td class="num">${l.qty}</td><td class="num">${l.delivered}</td><td class="num">${money(l.amount)}</td><td>${l.old ? badge('Retired code', 'warn') : ''}</td></tr>`), '', 's12')}
         ${tableCard('Purchasing needed for this order', 'Short components for this order and its work orders', ['Item', '#Short', 'Supplier', 'Order by', 'Draft PO / MR', ''],
@@ -731,12 +737,14 @@
     const col = (title, sub, list, k) => `<div class="bcol"><div class="lane-h"><span><span class="dot ${k}"></span> ${title}</span><span class="ct">${list.length}</span></div><div class="small" style="margin:-4px 0 10px">${sub}</div>
       ${list.map(t => { const so = t.sales_order, s = so && D.ship.find(x => x.so === so), td = D.byRef['HD Ticket|' + t.name] || [];
         return `<div class="tcard"><div class="r"><span class="badge ${t.type === 'Service' ? 'warn' : 'mute'}">${esc(t.type || 'Untyped')}</span>${t.status === 'Open' && t.age > 2 ? badge(t.age + 'd', 'bad') : t.status === 'Replied' && t.idle > 10 ? badge(t.idle + 'd quiet', 'warn') : `<span class="small">${t.age}d</span>`}</div>
-          <div class="tt" style="margin-top:8px">${link('hd-ticket', t.name, t.subject || t.name)}</div><div class="m">${esc(t.raised_by || '')}</div>
+          <div class="tt" style="margin-top:8px"><a href="#" data-tksheet="${esc(t.name)}">${esc(t.subject || t.name)}</a></div><div class="m">${esc(t.raised_by || '')}</div>
           ${so ? `<div class="qchip">Order ${s ? `<a href="#so-${encodeURIComponent(so)}">${esc(short(so))}</a> · ${esc(s.status)}` : link('sales-order', so, short(so))}</div>` : (LOGGED && !DONE_TK.includes(t.status) ? `<button class="cc-btn soft" style="margin-top:8px" data-linkso="${esc(t.name)}">Link sales order</button>` : '')}
           ${td.length ? `<div class="tdl">${td.slice(0, 3).map(x => `<div>☐ <a target="_blank" rel="noopener" href="${x.url}">${esc(x.title)}</a></div>`).join('')}${td.length > 3 ? `<div class="calc">+${td.length - 3} more</div>` : ''}</div>` : ''}
           <div class="r" style="margin-top:10px">${avs(t.assignedL)}<span class="small">${fmtd(t.created)}</span></div></div>`; }).join('') || '<div class="drop-hint">Nothing here</div>'}</div>`;
     const people = {}; open.concat(wait).forEach(t => (t.assignedL.length ? t.assignedL : ['(unassigned)']).forEach(u => { people[u] = (people[u] || 0) + 1; }));
-    return header('Service', 'Tech support and service tickets from sales@: what\'s waiting on us, what\'s waiting on the customer, and how old it is.') + `
+    return header('Service', 'After shipping: customer requests from the portal (dealer applications, address and contact changes) and tech support tickets from sales@.') + `
+      ${accountLanes()}
+      ${sec('Service tickets', 'What\'s waiting on us, what\'s waiting on the customer, and how old it is')}
       <div class="grid" style="margin-bottom:20px">
         ${stat('Our move', open.length, `${open.filter(t => t.age > 2).length} waiting over 2 business days`, open.some(t => t.age > 2) ? 'bad' : '').replace('card stat', 'card stat s3')}
         ${stat('Waiting on customer', wait.length, `${wait.filter(t => t.idle > 10).length} quiet for 10+ days`).replace('card stat', 'card stat s3')}
@@ -756,7 +764,7 @@
     const sos = D.ship.map(s => s.so);
     sheet('Link a sales order', `Ticket ${esc(t.name)}: ${esc(t.subject || '')}`, fld('Sales order', `<input type="text" name="lso" list="ccsolist" placeholder="Start typing a dealer or order number"><datalist id="ccsolist">${D.ship.map(s => `<option value="${esc(s.so)}">${esc(s.customer)} · ${money(s.value)} · ${esc(s.status)}</option>`).join('')}</datalist>`) + '<p class="small">Open orders are listed. You can also paste any sales order number.</p>', async el => {
       const v = val(el, 'lso').trim(); if (!v) throw new Error('enter a sales order');
-      await call('frappe.client.set_value', { doctype: 'HD Ticket', name: t.name, fieldname: 'ill_sales_order', value: v }); toast('Sales order linked to ticket ' + esc(t.name));
+      await gw('save', { dt: 'HD Ticket', name: t.name, values: { ill_sales_order: v } }); toast('Sales order linked to ticket ' + esc(t.name)); PL.stale = true;
     }, 'Link');
   }
 
@@ -770,7 +778,7 @@
     const qs = D.quotes.filter(q => q.docstatus < 2);
     sheet('Link a quotation', `Ticket ${esc(t.name)}: ${esc(t.subject || '')}`, fld('Quotation', `<input type="text" name="lq" list="ccqlist" placeholder="Start typing a dealer or quote number"><datalist id="ccqlist">${qs.map(q => `<option value="${esc(q.name)}">${esc(q.party_name)} · ${money(q.base_net_total)} · ${esc(q.docstatus === 0 ? 'Draft' : q.status)}</option>`).join('')}</datalist>`), async el => {
       const v = val(el, 'lq').trim(); if (!D.qByName[v]) throw new Error('pick a quotation from the list');
-      await call('frappe.client.set_value', { doctype: 'HD Ticket', name: t.name, fieldname: 'ill_quotation', value: v }); toast('Quotation linked to ticket ' + esc(t.name));
+      await gw('save', { dt: 'HD Ticket', name: t.name, values: { ill_quotation: v } }); toast('Quotation linked to ticket ' + esc(t.name)); PL.stale = true;
     }, 'Link');
   }
   function soTodo(so) {
@@ -798,36 +806,442 @@
     const ch = $('#ch-pipe'); if (ch) { const ms = D.monthly; vbars(ch, ms.map(x => fmtM(x.month)), [{ name: 'Invoiced', color: '#2a78d6', values: ms.map(x => x.si) }], { fmt: kfmt, target: D.fin.goal, targetLabel: 'Target ' + kfmt(D.fin.goal), h: 220 }); }
   }
 
+  /* ---------------- pipeline stages from the dealer portal (gateway action "stages") ----------------
+     Design (projects, fixture schedules, drawing requests) → Quotes (quote requests, offers) →
+     Sales orders (order requests) → … → Service (customer account requests). The fixture schedule's
+     status is the spine, so each schedule shows on exactly one stage (furthest along wins). */
+  const PL = { data: null, err: null, busy: false, at: 0 };
+  const PL_VIEWS = ['pipeline', 'design', 'quotes', 'orders', 'service', 'inbox'];
+  const plIsView = () => PL_VIEWS.includes(String(S.view).split('/')[0]) || String(S.view).startsWith('so-');
+  const QR_ACTIVE = ['REQUESTED', 'UNDER_REVIEW', 'INFORMATION_NEEDED', 'ISSUED'];
+  const DR_OPEN = ['Draft', 'Submitted', 'In Progress', 'Waiting on Customer'];
+  const OI_OPEN = ['SUBMITTED', 'UNDER_REVIEW', 'INFORMATION_NEEDED', 'CHANGES_PROPOSED'];
+  const AR_OPEN = ['Pending', 'Information needed'];
+  // portal states are UPPER_CASE: show them as words, colour them by meaning (not by free text)
+  const stLabel = s => { s = String(s || ''); return /^[A-Z_]+$/.test(s) ? s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, ' ') : s; };
+  const ST_KIND = { DRAFT: 'mute', READY: 'info', QUOTED: 'info', ORDER_REQUESTED: 'info', ORDERED: 'good', ISSUE: 'bad', CLOSED: 'mute',
+    REQUESTED: 'warn', UNDER_REVIEW: 'warn', INFORMATION_NEEDED: 'info', ISSUED: 'info', ACCEPTED: 'good', DECLINED: 'bad', REVISION_REQUESTED: 'warn', SUPERSEDED: 'mute', CANCELLED: 'mute',
+    SUBMITTED: 'warn', CHANGES_PROPOSED: 'info', APPROVED: 'good', REJECTED: 'bad', WITHDRAWN: 'mute', COMPLETED: 'good',
+    Draft: 'mute', Submitted: 'warn', 'In Progress': 'warn', 'Waiting on Customer': 'info', Completed: 'good', Closed: 'mute', Cancelled: 'mute',
+    Pending: 'warn', 'Information needed': 'info', Approved: 'good', Rejected: 'bad', Resolved: 'good', CHANGES_REQUESTED: 'warn' };
+  const stBadge = s => badge(stLabel(s), ST_KIND[s] || 'mute');
+  const ageBd = d => d ? bdaysJS(String(d).slice(0, 10)) : 0;
+  const ageB = (d, open = true) => { const n = ageBd(d); return open && n > 2 ? badge(n + 'd', 'bad') : `<span class="small">${n}d</span>`; };
+  const plCanEdit = () => !!((PL.data && PL.data.can_edit) || (WB.cfg && WB.cfg.can_edit));
+  const by = (rows, k) => { const o = {}; (rows || []).forEach(r => { const v = r[k]; if (v) (o[v] = o[v] || []).push(r); }); return o; };
+
+  async function plLoad(force) {
+    if (PL.busy || (!force && (PL.data || PL.err))) return;
+    PL.busy = true;
+    try { PL.data = plPrep(await gw('stages')); PL.err = null; } catch (e) { PL.err = e.message; }
+    PL.busy = false; PL.at = Date.now();
+    if (D && plIsView() && !$('#ccsheet2').classList.contains('on')) render();
+  }
+  function plPrep(x) {
+    x.projBy = {}; x.projects.forEach(p => { x.projBy[p.name] = p; });
+    x.schedBy = {}; x.schedules.forEach(s => { x.schedBy[s.name] = s; });
+    x.reqBySched = by(x.doc_requests, 'fixture_schedule'); x.reqBySO = by(x.doc_requests, 'sales_order');
+    x.revByReq = by(x.reviews, 'request');
+    x.qrBySched = by(x.quote_requests, 'schedule'); x.qrBy = {}; x.quote_requests.forEach(q => { x.qrBy[q.name] = q; });
+    x.offBySched = by(x.offers, 'schedule'); x.offByQR = by(x.offers, 'quote_request');
+    x.oiBySched = by(x.intakes, 'schedule'); x.oiBySO = by(x.intakes, 'sales_order');
+    x.tkBy = {}; x.tickets.forEach(t => { x.tkBy[t.name] = t; });
+    x.tkBySched = by(x.tickets, 'ill_fixture_schedule');
+    return x;
+  }
+  const tkL = t => (PL.data && PL.data.tkBy[t.name]) || {};
+  const projName = n => { const p = PL.data && PL.data.projBy[n]; return p ? p.project_name || n : n; };
+  const schedName = s => s ? (s.schedule_name || s.name) : '';
+  const schedLink = n => { if (!n) return ''; const s = PL.data && PL.data.schedBy[n]; return `<a href="#design/${encodeURIComponent(n)}">${esc(s ? schedName(s) : n)}</a>`; };
+  const userSel = (name, cur, blank = 'Unassigned') => `<select name="${name}"><option value="">${esc(blank)}</option>${TEAM.map(u => `<option value="${esc(u.name)}" ${u.name === cur ? 'selected' : ''}>${esc(u.full_name || u.name)}</option>`).join('')}</select>`;
+
+  // which stage a schedule sits on right now (furthest along wins; earlier items show as chips)
+  function schedStage(s) {
+    const x = PL.data;
+    if (s.status === 'CLOSED') return 'closed';
+    if (['ORDER_REQUESTED', 'ORDERED'].includes(s.status) || s.sales_order || (x.oiBySched[s.name] || []).some(o => o.state !== 'WITHDRAWN' && o.state !== 'REJECTED')) return 'orders';
+    if (s.status === 'QUOTED' || (x.qrBySched[s.name] || []).some(q => QR_ACTIVE.includes(q.state)) || (x.offBySched[s.name] || []).some(o => o.state === 'ISSUED' || o.state === 'ACCEPTED')) return 'quotes';
+    return 'design';
+  }
+  const openReqs = n => ((PL.data.reqBySched[n] || []).filter(r => DR_OPEN.includes(r.status)));
+  const lastReview = reqs => reqs.flatMap(r => PL.data.revByReq[r.name] || []).sort((a, b) => String(b.reviewed_on || b.creation).localeCompare(String(a.reviewed_on || a.creation)))[0];
+  function designCol(s) {
+    const all = PL.data.reqBySched[s.name] || [], open = openReqs(s.name);
+    if (open.some(r => r.status !== 'Waiting on Customer')) return 'drawing';
+    if (open.length) return 'waiting';
+    const rv = lastReview(all), done = all.filter(r => r.status === 'Completed');
+    if (s.status === 'ISSUE' || (rv && rv.decision === 'CHANGES_REQUESTED') || (done.length && !rv)) return 'review';
+    return s.status === 'READY' ? 'ready' : 'drafting';
+  }
+  const slaBadge = r => { if (!r.sla_deadline || !DR_OPEN.includes(r.status)) return ''; const d = String(r.sla_deadline).slice(0, 10);
+    return d < TODAY ? badge('SLA ' + fmtd(d), 'bad') : `<span class="small">SLA ${fmtd(d)}</span>`; };
+  const tkCountPill = list => { const o = (list || []).filter(t => !DONE_TK.includes(t.status)); return (list || []).length ? `<span class="pill">✉ ${list.length} ticket${list.length > 1 ? 's' : ''}${o.length ? ' · ' + o.length + ' open' : ''}</span>` : ''; };
+  const plCol = (title, sub, cards, k) => `<div class="bcol"><div class="lane-h"><span><span class="dot ${k}"></span> ${title}</span><span class="ct">${cards.length}</span></div>${sub ? `<div class="small" style="margin:-4px 0 10px">${sub}</div>` : ''}${cards.join('') || '<div class="drop-hint">Nothing here</div>'}</div>`;
+  const plBoard = (cols, n) => `<div class="board" style="grid-template-columns:repeat(${n || cols.length},minmax(230px,1fr))">${cols.join('')}</div>`;
+  const plNote = () => PL.busy && !PL.data ? '<div class="card empty"><span class="cc-spin"></span> Loading portal requests from ERPNext…</div>'
+    : PL.err ? `<div class="callout"><div>Portal requests couldn't load from the Command Center gateway (${esc(PL.err)}). Showing what the older data feed has.</div></div>` : '';
+  const sec = (title, sub, right = '') => `<div class="card-h" style="margin:28px 0 12px"><div><h2 style="font-size:17px">${title}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${right}</div>`;
+  // the older feed's request lane (used only when the gateway can't answer)
+  const reqFallback = type => { const rs = (D.reqs || []).filter(r => r.type === type && rowOK(r)).sort((a, b) => b.open - a.open || b.age - a.age);
+    return `<div class="lanes"><div class="lane"><div class="lane-h"><span>${esc(type)}s</span>${badge(rs.filter(r => r.open).length + ' open', 'info')}</div>
+      ${rs.map(r => `<div class="kcard ${r.open ? '' : 'closed'}"><div class="r">${link(r.dt, r.name)}${r.open && r.age > 2 ? badge(r.age + 'd', 'bad') : `<span class="calc">${r.age}d</span>`}</div>
+        <div style="margin-top:4px">${cust(r.customer)}</div><div class="m">${esc(r.state)}${r.detail ? ' · ' + esc(r.detail) : ''}</div>
+        <div class="r" style="margin-top:8px">${r.owner ? avatar(r.owner) : '<span class="calc">Unassigned</span>'}<span class="calc">${fmtd(r.created)}</span></div></div>`).join('') || '<div class="empty">None</div>'}</div></div>`; };
+
+  // generic help desk ticket card + 3-column board (Design, Quotes)
+  const tkCard = t => { const td = D.byRef['HD Ticket|' + t.name] || [], l = tkL(t), q = (t.quotation || l.ill_quotation) && D.qByName[t.quotation || l.ill_quotation];
+    return `<div class="tcard"><div class="r"><span class="badge ${t.type === 'Design' ? 'info' : 'mute'}">${esc(t.type === 'Quotation' ? 'Quote' : (t.type || 'Untyped'))}</span>${t.status === 'Open' && t.age > 2 ? badge(t.age + 'd', 'bad') : t.status === 'Replied' && t.idle > 10 ? badge(t.idle + 'd quiet', 'warn') : `<span class="small">${t.age}d</span>`}</div>
+      <div class="tt" style="margin-top:8px"><a href="#" data-tksheet="${esc(t.name)}">${esc(t.subject || t.name)}</a></div><div class="m">${esc(t.raised_by || '')}</div>
+      ${l.ill_fixture_schedule ? `<div class="qchip">Schedule ${schedLink(l.ill_fixture_schedule)}</div>` : ''}
+      ${q ? `<div class="qchip">${link('quotation', q.name, short(q.name).replace('ilL-SAL-QTN-', ''))} · ${money(q.base_net_total)} · ${esc(q.docstatus === 0 ? 'Draft' : q.status)}</div>` : (t.type === 'Quotation' && LOGGED && !DONE_TK.includes(t.status) ? `<button class="cc-btn soft" style="margin-top:8px" data-linkq="${esc(t.name)}">Link quotation</button>` : '')}
+      ${td.length ? `<div class="tdl">${td.slice(0, 3).map(x => `<div>☐ <a target="_blank" rel="noopener" href="${x.url}">${esc(x.title)}</a></div>`).join('')}${td.length > 3 ? `<div class="calc">+${td.length - 3} more</div>` : ''}</div>` : ''}
+      <div class="r" style="margin-top:10px">${avs(t.assignedL)}<span class="small">${fmtd(t.created)}</span></div></div>`; };
+  function tkBoard(list) {
+    const since = addDays(TODAY, -30), tks = list.filter(t => rowOK(t) && (!DONE_TK.includes(t.status) || (t.modified || t.created) >= since));
+    return plBoard([
+      plCol('Our move', 'Open: needs a reply', tks.filter(t => t.status === 'Open').sort((a, b) => b.age - a.age).map(tkCard), 'bad'),
+      plCol('Waiting on customer', 'Replied: follow up if quiet for 10+ days', tks.filter(t => t.status === 'Replied').sort((a, b) => b.idle - a.idle).map(tkCard), 'warn'),
+      plCol('Done (last 30 days)', 'Resolved or closed', tks.filter(t => DONE_TK.includes(t.status)).map(tkCard), 'good')]);
+  }
+
+  // record actions shared by the lanes: reassign, details (Workbench sheet), to-do, open in ERPNext
+  const recActs = (dt, name, opts = {}) => `<div class="pl-acts">${opts.assign && plCanEdit() ? `<button class="cc-btn soft" data-plassign="${esc(dt)}|${esc(name)}">Reassign</button>` : ''}<button class="cc-btn soft" data-pldetail="${esc(dt)}|${esc(name)}">Details</button>${LOGGED ? `<button class="cc-btn soft" data-pltodo="${esc(dt)}|${esc(name)}">+ To-do</button>` : ''}<a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl(dt, name)}" style="text-decoration:none">↗</a></div>`;
+  function plReassign(dt, name) {
+    const rows = PL.data ? [].concat(PL.data.doc_requests, PL.data.quote_requests) : [], r = rows.find(x => x.name === name) || {};
+    sheet('Reassign ' + esc(wbLabel(dt).toLowerCase()), esc(name), fld('Assigned to', userSel('who', r.assigned_to)) + '<p class="small">Saved on the request in ERPNext, with a “Command Center:” note on its timeline.</p>', async el => {
+      const v = val(el, 'who') || null; if ((v || null) === (r.assigned_to || null)) throw new Error('pick someone else');
+      await gw('save', { dt, name, values: { assigned_to: v } }); toast(`${esc(name)} ${v ? 'assigned to ' + esc(SHORT[v] || v) : 'unassigned'}`); PL.data = null;
+    }, 'Save');
+  }
+  function refTodo(dt, name) {
+    sheet('Add a to-do', `${esc(wbLabel(dt))} ${esc(name)}`, `${fld('To-do', '<input type="text" name="tt" placeholder="What needs to happen?">')}<div class="cc-field"><span>Owners</span>${ownerChips()}</div>
+      <div class="cc-row2">${fld('Due', '<input type="date" name="td">')}${fld('Priority', sel('tp', ['Medium', 'High', 'Low'], 'Medium'))}</div>${fld('Notes', '<textarea name="tn" rows="2"></textarea>')}`, async el => {
+      const title = val(el, 'tt').trim(), own = checked(el); if (!title || !own.length) throw new Error('add a title and at least one owner');
+      const doc = { doctype: 'ToDo', status: 'Open', allocated_to: own[0], priority: val(el, 'tp'), assigned_by: USER, reference_type: dt, reference_name: name,
+        description: `<p><b>${esc(title)}</b></p>${val(el, 'tn').trim() ? `<p>${esc(val(el, 'tn').trim())}</p>` : ''}<p>[ad-hoc] Owners: ${own.join(', ')}</p>` };
+      if (val(el, 'td')) doc.date = val(el, 'td');
+      await call('frappe.client.insert', { doc }); toast('To-do added · ' + own.length + ' notified');
+    }, 'Add to-do');
+  }
+  async function plDetail(dt, name) { if (!WB.cfg) { try { WB.cfg = await gw('config'); } catch (e) { toast('Could not open: ' + esc(e.message)); return; } } if (!WB.cfg.doctypes[dt]) { window.open(docUrl(dt, name), '_blank'); return; } wbOpen(dt, name); }
+  function bindStages() {
+    root.querySelectorAll('[data-plassign]').forEach(b => b.onclick = e => { e.preventDefault(); const [dt, n] = b.dataset.plassign.split('|'); plReassign(dt, n); });
+    root.querySelectorAll('[data-pldetail]').forEach(b => b.onclick = e => { e.preventDefault(); const [dt, n] = b.dataset.pldetail.split('|'); plDetail(dt, n); });
+    root.querySelectorAll('[data-pltodo]').forEach(b => b.onclick = e => { e.preventDefault(); const [dt, n] = b.dataset.pltodo.split('|'); refTodo(dt, n); });
+    root.querySelectorAll('[data-tksheet]').forEach(b => b.onclick = e => { e.preventDefault(); tkSheet(b.dataset.tksheet); });
+    root.querySelectorAll('[data-ibf]').forEach(el => el.onchange = () => { IB[el.dataset.ibf] = el.value; render(); });
+    root.querySelectorAll('[data-ibmode]').forEach(b => b.onclick = () => { IB.mode = b.dataset.ibmode; render(); });
+    root.querySelectorAll('[data-ibroute]').forEach(f => f.onsubmit = e => { e.preventDefault(); ibRoute(f); });
+  }
+
+  /* ---- Design ---- */
+  const drRow = r => { const open = DR_OPEN.includes(r.status), s = r.fixture_schedule && PL.data.schedBy[r.fixture_schedule];
+    return `<tr><td>${link('ill-document-request', r.name)}<div class="m">${esc(r.request_type || 'Request')}${r.fixture_or_product_text ? ' · ' + esc(r.fixture_or_product_text) : ''}</div></td>
+      <td>${cust(r.requester_customer || r.owner_customer)}</td>
+      <td>${r.fixture_schedule ? schedLink(r.fixture_schedule) : ''}${r.sales_order ? `<div class="m">Order <a href="#so-${encodeURIComponent(r.sales_order)}">${esc(short(r.sales_order))}</a></div>` : ''}${r.project ? `<div class="m">${esc(projName(r.project))}</div>` : (s && s.ill_project ? `<div class="m">${esc(projName(s.ill_project))}</div>` : '')}</td>
+      <td>${stBadge(r.status)}${r.priority && r.priority !== 'Normal' ? ' ' + badge(r.priority, 'bad') : ''}${r.required_for_manufacturing ? '<div class="m">Needed for manufacturing</div>' : ''}</td>
+      <td>${r.assigned_to ? avatar(r.assigned_to) + ' <span class="small">' + esc(SHORT[r.assigned_to] || r.assigned_to) + '</span>' : '<span class="calc">Unassigned</span>'}</td>
+      <td style="white-space:nowrap">${slaBadge(r) || (r.requested_due_date ? '<span class="small">Due ' + fmtd(r.requested_due_date) + '</span>' : '')}</td><td class="num">${ageB(r.creation, open)}</td>
+      <td class="num">${recActs('ilL-Document-Request', r.name, { assign: open })}</td></tr>`; };
+  const DR_HEAD = ['Request', 'Dealer', 'Schedule / project', 'Status', 'Assigned', 'SLA / due', '#Age', ''];
+  function schedCard(s) {
+    const x = PL.data, p = x.projBy[s.ill_project] || {}, open = openReqs(s.name), r = open[0] || (x.reqBySched[s.name] || [])[0], tks = x.tkBySched[s.name] || [];
+    const parties = [['Architect', p.architect], ['Lighting designer', p.lighting_designer], ['GC', p.general_contractor]].filter(a => a[1]).map(a => a[0] + ': ' + esc(a[1])).join(' · ');
+    const rv = lastReview(x.reqBySched[s.name] || []);
+    return `<a class="tcard" style="display:block;color:inherit;text-decoration:none" href="#design/${encodeURIComponent(s.name)}">
+      <div class="r">${stBadge(s.status)}${r && DR_OPEN.includes(r.status) ? ageB(r.creation) : `<span class="small">${fmtd(s.modified)}</span>`}</div>
+      <div class="tt" style="margin-top:8px">${esc(schedName(s))}</div>
+      <div class="m">${s.ill_project ? '<b style="font-weight:500;color:var(--ink2)">' + esc(p.project_name || s.ill_project) + '</b> · ' : ''}${esc(s.customer || p.customer || '')}</div>
+      ${parties ? `<div class="m">${parties}</div>` : ''}${p.location ? `<div class="m">${esc(String(p.location).slice(0, 80))}</div>` : ''}
+      <div class="m">v${esc(s.version || 1)}${s.is_locked ? ' · 🔒 locked' : ''} · ${s.lines || 0} line${s.lines === 1 ? '' : 's'}</div>
+      ${r ? `<div class="qchip">Drawing ${esc(r.name)} · ${esc(stLabel(r.status))}${r.sla_deadline && DR_OPEN.includes(r.status) && String(r.sla_deadline).slice(0, 10) < TODAY ? ' · <b style="color:var(--badt)">past SLA</b>' : ''}</div>` : ''}
+      ${rv ? `<div class="m" style="margin-top:6px">Review ${esc(rv.revision || '')}: ${stBadge(rv.decision)}</div>` : ''}
+      <div class="r" style="margin-top:10px">${r && r.assigned_to ? avatar(r.assigned_to) : '<span class="calc">No drawing owner</span>'}${tkCountPill(tks)}</div></a>`;
+  }
+  V.design = m => {
+    const head = header('Design', 'Fixture schedules, projects and drawing requests from the dealer portal. A schedule moves on to Quotes once the dealer asks for a quote.');
+    if (!PL.data) return head + (plNote() || '<div class="card empty">Loading…</div>') + (PL.err ? reqFallback('Drawing Request') + sec('Design tickets', 'Design-type help desk tickets from sales@') + tkBoard(D.tk.filter(t => t.type === 'Design')) : '');
+    const x = PL.data, sch = x.schedules.filter(s => schedStage(s) === 'design' && rowOK({ s, p: x.projBy[s.ill_project] }));
+    const cols = { drafting: [], ready: [], drawing: [], waiting: [], review: [] }; sch.forEach(s => cols[designCol(s)].push(s));
+    const openDR = x.doc_requests.filter(r => DR_OPEN.includes(r.status)), general = x.doc_requests.filter(r => !r.sales_order && rowOK(r));
+    const pastSLA = openDR.filter(r => r.sla_deadline && String(r.sla_deadline).slice(0, 10) < TODAY && r.status !== 'Waiting on Customer');
+    const designTk = D.tk.filter(t => t.type === 'Design');
+    return head + plNote() + `<div class="grid" style="margin-bottom:20px">
+        ${stat('Active projects', x.projects.filter(p => p.status === 'ACTIVE').length, `${x.projects.filter(p => p.status === 'ON_HOLD').length} on hold`).replace('card stat', 'card stat s3')}
+        ${stat('Schedules in design', sch.length, `${cols.drafting.length} drafting · ${cols.ready.length} ready for quote`).replace('card stat', 'card stat s3')}
+        ${stat('Open drawing requests', openDR.length, `${openDR.filter(r => r.status === 'Waiting on Customer').length} waiting on customer`).replace('card stat', 'card stat s3')}
+        ${stat('Drawings past SLA', pastSLA.length, 'Submitted or in progress', pastSLA.length ? 'bad' : '').replace('card stat', 'card stat s3')}
+      </div>
+      ${plBoard([
+        plCol('Drafting', 'Dealer is building the schedule', cols.drafting.map(schedCard), 'mute'),
+        plCol('Ready for quote', 'Ready, no quote request yet', cols.ready.map(schedCard), 'info'),
+        plCol('Drawing in progress', 'Open drawing request on our side', cols.drawing.map(schedCard), 'bad'),
+        plCol('Waiting on customer', 'We asked the dealer for something', cols.waiting.map(schedCard), 'warn'),
+        plCol('Review', 'Changes requested, issue, or just delivered', cols.review.map(schedCard), 'good')], 5)}
+      ${sec('Drawing & document requests', `General requests from the portal. ${x.doc_requests.length - general.length ? `${x.doc_requests.filter(r => r.sales_order).length} tied to sales orders are on <a href="#orders">Sales orders</a>. ` : ''}Red age = open more than 2 business days.`)}
+      <div class="grid">${tableCard('Open and recent requests', 'Open first, oldest first', DR_HEAD, general.sort((a, b) => (DR_OPEN.includes(b.status) - DR_OPEN.includes(a.status)) || String(a.creation).localeCompare(String(b.creation))).map(drRow))}</div>
+      ${sec('Design tickets', 'Design-type help desk tickets from sales@')}${tkBoard(designTk)}`;
+  };
+
+  /* ---- Design drill-down: #design/<schedule> ---- */
+  const DS = { name: null, doc: null, err: null, busy: false };
+  async function dsLoad(name) {
+    if (DS.busy) return; DS.busy = true; DS.err = null;
+    try { DS.doc = (await gw('get', { dt: 'ilL-Project-Fixture-Schedule', name })).doc; DS.name = name; } catch (e) { DS.err = e.message; DS.name = name; DS.doc = null; }
+    DS.busy = false; if (String(S.view).startsWith('design/')) render();
+  }
+  V.designSched = (m, id) => {
+    const back = `<a href="#design" class="small" style="display:inline-block;margin-bottom:10px">← Design</a>`;
+    if (DS.name !== id && !DS.busy) { DS.doc = null; setTimeout(() => dsLoad(id)); }
+    const x = PL.data, s = (x && x.schedBy[id]) || DS.doc;
+    if (!s) return back + header(esc(id), DS.err ? 'Couldn\'t load this schedule: ' + esc(DS.err) : 'Loading…');
+    const p = (x && x.projBy[s.ill_project]) || {}, reqs = (x && x.reqBySched[id]) || [], qrs = (x && x.qrBySched[id]) || [], offs = (x && x.offBySched[id]) || [], ois = (x && x.oiBySched[id]) || [], tks = (x && x.tkBySched[id]) || [];
+    const stage = x ? schedStage(s) : 'design', lines = (DS.name === id && DS.doc && DS.doc.lines) || [];
+    const reviews = reqs.flatMap(r => (x.revByReq[r.name] || []).map(v => ({ ...v, req: r.name })));
+    const kv = (k, v) => v ? `<div class="wb-kv"><span>${k}</span><b>${v}</b></div>` : '';
+    return back + header(esc(schedName(s)), `${esc(s.name)} · ${cust(s.customer || p.customer)} · ${stBadge(s.status)} · v${esc(s.version || 1)}${s.is_locked ? ' · 🔒 locked' : ''}`,
+      `<div class="toolbar">${stage !== 'design' && stage !== 'closed' ? `<a class="cc-btn soft" href="#${stage}" style="text-decoration:none">Now on ${esc(STAGES.find(z => z.k === stage).n)} →</a>` : ''}${LOGGED ? `<button class="cc-btn soft" data-pltodo="ilL-Project-Fixture-Schedule|${esc(id)}">+ To-do</button>` : ''}<button class="cc-btn soft" data-pldetail="ilL-Project-Fixture-Schedule|${esc(id)}">Details</button><a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl('ilL-Project-Fixture-Schedule', id)}" style="text-decoration:none">Open in ERPNext</a></div>`) + `
+      <div class="grid">
+        ${card('Project', s.ill_project ? link('ill-project', s.ill_project, p.project_name || s.ill_project) : 'No project', `<div class="wb-kvs">${kv('Dealer', cust(p.customer || s.customer))}${kv('Status', p.status ? stBadge(p.status) : '')}${kv('Architect', esc(p.architect || ''))}${kv('Lighting designer', esc(p.lighting_designer || ''))}${kv('General contractor', esc(p.general_contractor || ''))}${kv('Location', esc(p.location || ''))}${kv('Start', p.estimated_start_date ? fmtd(p.estimated_start_date) : '')}${kv('ERPNext project', p.erp_project ? link('project', p.erp_project) : '')}</div>`, 's4')}
+        ${card('Where it is', 'Earlier and later steps for this schedule', `<div class="small" style="line-height:1.9">
+          Drawing requests: ${reqs.map(r => `${link('ill-document-request', r.name)} ${stBadge(r.status)}`).join(' ') || '—'}<br>
+          Quote requests: ${qrs.map(q => `${link('ill-quote-request', q.name)} ${stBadge(q.state)}`).join(' ') || '—'}<br>
+          Offers: ${offs.map(o => `${link('ill-quote-offer', o.name)} ${stBadge(o.state)}${o.quotation ? ' ' + link('quotation', o.quotation, short(o.quotation).replace('ilL-SAL-QTN-', '')) : ''}`).join(' ') || '—'}<br>
+          Order requests: ${ois.map(o => `${link('ill-order-intake', o.name)} ${stBadge(o.state)}`).join(' ') || '—'}<br>
+          Sales order: ${s.sales_order ? `<a href="#so-${encodeURIComponent(s.sales_order)}">${esc(short(s.sales_order))}</a>` : '—'}<br>
+          Tickets: ${tks.map(t => `<a href="#" data-tksheet="${esc(t.name)}">${esc(t.name)}</a> ${esc(t.status || '')}`).join(', ') || '—'}</div>`, 's4')}
+        ${card('Drawing reviews', 'Dealer decisions on delivered drawings', reviews.length ? reviews.map(v => `<div class="todo-r"><span>${stBadge(v.decision)}</span><span>${esc(v.req)} rev ${esc(v.revision || '')}${v.note ? ' · ' + esc(v.note) : ''}</span><span class="small">${fmtd(v.reviewed_on || v.creation)}</span></div>`).join('') : '<div class="empty" style="padding:8px">No reviews yet</div>', 's4')}
+        ${tableCard('Fixture schedule lines', DS.busy ? 'Loading…' : `${lines.length} line${lines.length === 1 ? '' : 's'} · read-only here`, ['Line', '#Qty', 'Location', 'Product', 'Configured', 'Status'],
+          lines.map(l => `<tr><td>${esc(l.line_id || l.idx)}</td><td class="num">${esc(l.qty)}</td><td>${esc(l.location || '')}</td><td>${esc(l.manufacturer_type || '')}${l.manufacturer_name ? '<div class="m">' + esc(l.manufacturer_name) + (l.fixture_model_number ? ' ' + esc(l.fixture_model_number) : '') + '</div>' : ''}</td>
+            <td>${esc(l.ill_item_code || l.configured_fixture || l.configured_tape_neon || l.configured_led_sheet || l.accessory_item || '')}</td><td>${l.configuration_status ? badge(l.configuration_status, wbKind(l.configuration_status)) : ''}</td></tr>`), '', 's12')}
+        ${x ? tableCard('Drawing & document requests', '', DR_HEAD, reqs.map(drRow), '', 's12') : ''}
+      </div>`;
+  };
+
+  /* ---- Quotes: quote requests → offers → quotations ---- */
+  function qrCard(q) {
+    const x = PL.data, off = (x.offByQR[q.name] || []).sort((a, b) => String(b.creation).localeCompare(String(a.creation)))[0], qn = (off && off.quotation) || q.latest_offer, qt = qn && D.qByName[qn];
+    const wait = q.state === 'ISSUED' || q.state === 'INFORMATION_NEEDED';
+    return `<div class="tcard"><div class="r">${stBadge(q.state)}${ageB(q.modified || q.creation, !wait)}</div>
+      <div class="tt" style="margin-top:8px">${link('ill-quote-request', q.name)} · ${esc(q.customer || '')}</div>
+      ${q.schedule ? `<div class="m">Schedule ${schedLink(q.schedule)}${q.project ? ' · ' + esc(projName(q.project)) : ''}</div>` : ''}
+      ${qn ? `<div class="qchip">${link('quotation', qn, short(qn).replace('ilL-SAL-QTN-', ''))}${qt ? ' · ' + money(qt.base_net_total) : ''}${off && off.valid_until ? ' · valid to ' + fmtd(off.valid_until) : ''}</div>` : ''}
+      ${q.due_date ? `<div class="m" style="margin-top:6px">Due ${String(q.due_date).slice(0, 10) < TODAY && !wait ? badge(fmtd(q.due_date), 'bad') : fmtd(q.due_date)}</div>` : ''}
+      <div class="r" style="margin-top:10px">${q.assigned_to ? avatar(q.assigned_to) : '<span class="calc">Unassigned</span>'}</div>${recActs('ilL-Quote-Request', q.name, { assign: QR_ACTIVE.includes(q.state) })}</div>`;
+  }
+  function offerCard(o) {
+    const x = PL.data, oi = (o.schedule && (x.oiBySched[o.schedule] || [])[0]) || (o.sales_order && (x.oiBySO[o.sales_order] || [])[0]), qt = o.quotation && D.qByName[o.quotation];
+    return `<div class="tcard"><div class="r">${stBadge(o.state)}<span class="small">${fmtd(o.responded_on || o.modified)}</span></div>
+      <div class="tt" style="margin-top:8px">${link('ill-quote-offer', o.name)} · ${esc(o.customer || '')}</div>
+      ${o.schedule ? `<div class="m">Schedule ${schedLink(o.schedule)}</div>` : ''}${o.response_note ? `<div class="m">“${esc(String(o.response_note).slice(0, 140))}”</div>` : ''}
+      ${o.quotation ? `<div class="qchip">${link('quotation', o.quotation, short(o.quotation).replace('ilL-SAL-QTN-', ''))}${qt ? ' · ' + money(qt.base_net_total) : ''}</div>` : ''}
+      ${o.state === 'ACCEPTED' ? `<div class="qchip" style="background:var(--goodb,#ecfdf3);color:var(--goodt,#067647)">Continues in <a href="#orders">Sales orders</a>${oi ? ' · ' + esc(oi.name) + ' ' + esc(stLabel(oi.state)) : o.sales_order ? ' · ' + esc(short(o.sales_order)) : ''}</div>` : ''}</div>`;
+  }
+  function quoteLanes() {
+    if (!PL.data) return plNote() + (PL.err ? reqFallback('Quote Request') : '');
+    const x = PL.data, qr = x.quote_requests.filter(q => QR_ACTIVE.includes(q.state) && rowOK(q)), st = s => qr.filter(q => q.state === s).sort((a, b) => String(a.creation).localeCompare(String(b.creation)));
+    const since = addDays(TODAY, -30), outc = x.offers.filter(o => ['ACCEPTED', 'DECLINED', 'REVISION_REQUESTED'].includes(o.state) && String(o.responded_on || o.modified) >= since && rowOK(o));
+    return plBoard([
+      plCol('Requested', 'New from the portal', st('REQUESTED').map(qrCard), 'bad'),
+      plCol('Under review', 'We\'re pricing it', st('UNDER_REVIEW').map(qrCard), 'warn'),
+      plCol('Information needed', 'Waiting on the dealer', st('INFORMATION_NEEDED').map(qrCard), 'info'),
+      plCol('Issued', 'Quote out, waiting on the dealer', st('ISSUED').map(qrCard), 'info'),
+      plCol('Dealer responded', 'Accepted, declined or revision asked (30 days)', outc.sort((a, b) => String(b.responded_on || b.modified).localeCompare(String(a.responded_on || a.modified))).map(offerCard), 'good')], 5);
+  }
+
+  /* ---- Sales orders: order requests (intake) + drawing requests tied to orders ---- */
+  function oiCard(o) {
+    const s = o.sales_order && D.ship.find(z => z.so === o.sales_order), wait = o.state === 'INFORMATION_NEEDED' || o.state === 'CHANGES_PROPOSED';
+    return `<div class="tcard"><div class="r">${stBadge(o.state)}${ageB(o.creation, OI_OPEN.includes(o.state) && !wait)}</div>
+      <div class="tt" style="margin-top:8px">${link('ill-order-intake', o.name)} · ${esc(o.customer || '')}</div>
+      ${o.schedule ? `<div class="m">Schedule ${schedLink(o.schedule)}</div>` : ''}${o.customer_message ? `<div class="m">“${esc(String(o.customer_message).slice(0, 140))}”</div>` : ''}
+      ${o.sales_order ? `<div class="qchip">Order ${s ? `<a href="#so-${encodeURIComponent(o.sales_order)}">${esc(short(o.sales_order))}</a> · ${money(s.value)}` : link('sales-order', o.sales_order, short(o.sales_order))}</div>` : ''}
+      ${o.due_date ? `<div class="m" style="margin-top:6px">Due ${fmtd(o.due_date)}</div>` : ''}
+      <div class="r" style="margin-top:10px">${o.assigned_to ? avatar(o.assigned_to) : '<span class="calc">Unassigned</span>'}</div>${recActs('ilL-Order-Intake', o.name)}</div>`;
+  }
+  function orderLanes() {
+    if (!PL.data) return plNote() + (PL.err ? reqFallback('Sales Order Request') : '');
+    const x = PL.data, oi = x.intakes.filter(rowOK), st = s => oi.filter(o => o.state === s).sort((a, b) => String(a.creation).localeCompare(String(b.creation)));
+    const soDR = x.doc_requests.filter(r => r.sales_order && rowOK(r));
+    return sec('Order requests', 'Dealers asking to turn a quoted schedule into an order (portal intake). Approved ones show for 30 days.') + plBoard([
+      plCol('Submitted', 'New from the portal', st('SUBMITTED').map(oiCard), 'bad'),
+      plCol('Under review', '', st('UNDER_REVIEW').map(oiCard), 'warn'),
+      plCol('Information needed', 'Waiting on the dealer', st('INFORMATION_NEEDED').map(oiCard), 'info'),
+      plCol('Changes proposed', 'Waiting on the dealer to accept', st('CHANGES_PROPOSED').map(oiCard), 'info'),
+      plCol('Approved', 'Last 30 days', st('APPROVED').map(oiCard), 'good')], 5)
+      + (soDR.length ? `<div class="grid" style="margin-top:20px">${tableCard('Drawing requests tied to sales orders', 'Manufacturing sign-off and other drawings for orders', DR_HEAD, soDR.sort((a, b) => (DR_OPEN.includes(b.status) - DR_OPEN.includes(a.status)) || String(a.creation).localeCompare(String(b.creation))).map(drRow))}</div>` : '');
+  }
+
+  /* ---- Service: customer account requests ---- */
+  function arCard(a) {
+    return `<div class="tcard"><div class="r"><span class="badge info">${esc(a.request_type || 'Request')}</span>${ageB(a.creation, a.state === 'Pending')}</div>
+      <div class="tt" style="margin-top:8px">${a.customer ? cust(a.customer) : esc(a.requested_by || '—')}</div><div class="m">${esc(a.requested_by || '')} · ${stBadge(a.state)}</div>
+      ${a.staff_note ? `<div class="m">${esc(String(a.staff_note).slice(0, 140))}</div>` : ''}
+      <div class="r" style="margin-top:10px">${a.assigned_to ? avatar(a.assigned_to) : '<span class="calc">Unassigned</span>'}</div>${recActs('ilL-Account-Request', a.name)}</div>`;
+  }
+  function accountLanes() {
+    if (!PL.data) return plNote() + (PL.err ? reqFallback('Account Request') : '');
+    const ar = PL.data.account_requests.filter(rowOK), st = s => ar.filter(a => s.includes(a.state)).sort((a, b) => String(a.creation).localeCompare(String(b.creation)));
+    return sec('Customer requests', 'Dealer applications, address, contact and profile changes from the portal. Red age = pending more than 2 business days.') + plBoard([
+      plCol('Pending', 'Our move', st(['Pending']).map(arCard), 'bad'),
+      plCol('Information needed', 'Waiting on the dealer', st(['Information needed']).map(arCard), 'warn'),
+      plCol('Done (last 30 days)', 'Approved, rejected or resolved', st(['Approved', 'Rejected', 'Resolved']).map(arCard), 'good')]);
+  }
+
+  /* ---------------- Inbox: help desk portal ----------------
+     Triage, reassign, link records and change status/priority/type here; replies are written in Helpdesk. */
+  const IB = { mode: 'triage', status: 'open', type: '', who: '', linked: '', sort: 'age' };
+  const TK_TYPES = () => [...new Set(['Quotation', 'Design', 'Sales Order', 'Service', 'Issue'].concat(D.tk.map(t => t.type).filter(Boolean)))];
+  function tkStage(t) {
+    const l = tkL(t), s = l.ill_fixture_schedule && PL.data && PL.data.schedBy[l.ill_fixture_schedule];
+    if (s) { const st = schedStage(s); if (st !== 'closed') return st; }
+    if (t.sales_order || l.ill_sales_order || t.type === 'Sales Order') return 'orders';
+    if (t.quotation || l.ill_quotation || t.type === 'Quotation') return 'quotes';
+    if (t.type === 'Design' || l.ill_project) return 'design';
+    return 'service';
+  }
+  const tkLinks = t => { const l = tkL(t), out = [];
+    if (l.ill_project) out.push(`<span class="pill">Project ${esc(projName(l.ill_project))}</span>`);
+    if (l.ill_fixture_schedule) out.push(`<span class="pill">${schedLink(l.ill_fixture_schedule)}</span>`);
+    const q = t.quotation || l.ill_quotation; if (q) out.push(`<span class="pill">${link('quotation', q, short(q).replace('ilL-SAL-QTN-', 'Quote '))}</span>`);
+    const so = t.sales_order || l.ill_sales_order; if (so) out.push(`<span class="pill"><a href="#so-${encodeURIComponent(so)}">Order ${esc(short(so))}</a></span>`);
+    return out.join(' '); };
+  const tkLinked = t => { const l = tkL(t); return !!(t.quotation || t.sales_order || l.ill_quotation || l.ill_sales_order || l.ill_project || l.ill_fixture_schedule); };
+  const replyBtn = t => `<a class="cc-btn ${t.status === 'Open' ? 'primary' : 'soft'}" target="_blank" rel="noopener" href="/helpdesk/tickets/${encodeURIComponent(t.name)}" style="text-decoration:none">Reply in Helpdesk</a>`;
+  function ibRows(list) {
+    return list.map(t => { const stg = tkStage(t), sn = (STAGES.find(z => z.k === stg) || {}).n;
+      return `<tr><td style="max-width:380px"><a href="#" data-tksheet="${esc(t.name)}" style="color:var(--ink);font-weight:500">${esc(t.subject || t.name)}</a><div class="m">${esc(t.name)}${t.raised_by ? ' · ' + esc(t.raised_by) : ''}</div></td>
+        <td>${esc(t.type || '—')}${tkL(t).priority ? `<div class="m">${esc(tkL(t).priority)}</div>` : ''}</td><td>${t.status === 'Open' ? sdot('Open', 'warn') : t.status === 'Replied' ? sdot('Replied', 'mute') : sdot(t.status, 'good')}</td>
+        <td>${avs(t.assignedL)}</td><td><a class="pill" href="#${stg}">${esc(sn)}</a> ${tkLinks(t)}</td>
+        <td class="num">${(t.status === 'Open' && t.age > 2) || (t.status === 'Replied' && t.idle > 10) ? badge(t.age + 'd', 'bad') : t.age + 'd'}</td>
+        <td class="num" style="white-space:nowrap"><button class="cc-btn soft" data-tksheet="${esc(t.name)}">Manage</button> ${replyBtn(t)}</td></tr>`; });
+  }
+  const IB_HEAD = ['Ticket', 'Type', 'Status', 'Owners', 'Stage / links', '#Age', ''];
+  V.inbox = m => {
+    const CAT = { Quotation: 'Quotes', Service: 'Tech support', 'Sales Order': 'Order status', Design: 'Design' }, cats = ['Quotes', 'Tech support', 'Order status', 'Design', 'Other'];
+    const cnt = arr => cats.map(c => arr.filter(t => (CAT[t.type] || 'Other') === c).length);
+    const live = D.tk.filter(t => t.status === 'Open' || t.status === 'Replied');
+    const unrouted = live.filter(t => !t.assignedL.length || !t.type), needs = live.filter(t => t.status === 'Open');
+    const opt = (v, l, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`;
+    const seg = `<div class="seg">${[['triage', 'All tickets', live.length], ['reply', 'Needs a reply', needs.length], ['routing', 'Routing', unrouted.length]].map(([k, l, n]) => `<button data-ibmode="${k}" class="${IB.mode === k ? 'on' : ''}">${l} <span class="calc">${n}</span></button>`).join('')}</div>`;
+    let body;
+    if (IB.mode === 'reply') {
+      body = tableCard('Needs a reply', 'Open tickets: the customer wrote last (Helpdesk marks a ticket Open when they do). Oldest first. Write the reply in Helpdesk.', IB_HEAD, ibRows(needs.filter(rowOK).sort((a, b) => b.age - a.age)));
+    } else if (IB.mode === 'routing') {
+      const ed = plCanEdit();
+      body = tableCard('Unassigned or untyped', ed ? 'Give each one a type and an owner so nothing sits unowned.' : 'View only: the Command Center Editor role is needed to route tickets.', ['Ticket', 'Status', '#Age', 'Type', 'Owner', ''],
+        unrouted.filter(rowOK).sort((a, b) => b.age - a.age).map(t => `<tr><td style="max-width:380px"><a href="#" data-tksheet="${esc(t.name)}" style="color:var(--ink);font-weight:500">${esc(t.subject || t.name)}</a><div class="m">${esc(t.name)}${t.raised_by ? ' · ' + esc(t.raised_by) : ''}</div></td>
+          <td>${esc(t.status)}</td><td class="num">${t.age}d</td>
+          <td colspan="3">${ed ? `<form class="ib-route" data-ibroute="${esc(t.name)}"><select name="type">${opt('', '— type —', t.type || '')}${TK_TYPES().map(k => opt(k, k, t.type || '')).join('')}</select>${userSel('who', t.assignedL[0], '— owner —')}<button class="cc-btn primary" type="submit">Save</button></form>` : `${esc(t.type || '—')} · ${avs(t.assignedL)}`}</td></tr>`));
+    } else {
+      let list = D.tk.filter(t => IB.status === 'open' ? (t.status === 'Open' || t.status === 'Replied') : IB.status === 'all' ? true : t.status === IB.status);
+      if (IB.type) list = list.filter(t => (t.type || '') === (IB.type === '(none)' ? '' : IB.type));
+      if (IB.who) list = list.filter(t => IB.who === '(none)' ? !t.assignedL.length : t.assignedL.includes(IB.who));
+      if (IB.linked) list = list.filter(t => IB.linked === 'yes' ? tkLinked(t) : !tkLinked(t));
+      list = list.filter(rowOK).sort((a, b) => IB.sort === 'new' ? String(b.created).localeCompare(String(a.created)) : b.age - a.age);
+      const tools = `<div class="toolbar ib-f s12">
+        <select data-ibf="status">${[['open', 'Open + replied'], ['Open', 'Open'], ['Replied', 'Replied'], ['Resolved', 'Resolved'], ['Closed', 'Closed'], ['all', 'Any status']].map(([v, l]) => opt(v, l, IB.status)).join('')}</select>
+        <select data-ibf="type">${opt('', 'All types', IB.type)}${TK_TYPES().map(k => opt(k, k, IB.type)).join('')}${opt('(none)', 'No type', IB.type)}</select>
+        <select data-ibf="who">${opt('', 'Anyone', IB.who)}${opt('(none)', 'Unassigned', IB.who)}${TEAM.map(u => opt(u.name, u.full_name || u.name, IB.who)).join('')}</select>
+        <select data-ibf="linked">${opt('', 'Linked or not', IB.linked)}${opt('yes', 'Linked to a record', IB.linked)}${opt('no', 'Not linked', IB.linked)}</select>
+        <select data-ibf="sort">${opt('age', 'Oldest first', IB.sort)}${opt('new', 'Newest first', IB.sort)}</select></div>`;
+      body = tools + tableCard('Tickets', `${list.length} matching. Manage reassigns, links and changes status here; replies are written in Helpdesk.`, IB_HEAD, ibRows(list.slice(0, 200)));
+    }
+    setTimeout(() => vbars($('#ch-inbox'), cats, [{ name: 'This week', color: '#2a78d6', values: cnt(m.tw) }, { name: 'Last week', color: '#eb6834', values: cnt(m.lw) }], { labels: true, h: 200 }));
+    return header('Inbox (sales@)', 'The help desk, managed from here: triage, reassign, link quotes, orders, projects and schedules, change status. Anything that needs a written reply opens in Helpdesk.', seg) + `<div class="grid" style="margin-bottom:20px">
+      ${stat('Needs a reply', needs.length, `${m.tOld.length} waiting over 2 business days`, m.tOld.length ? 'bad' : '').replace('card stat', 'card stat s3')}
+      ${stat('Waiting on customer', live.length - needs.length, 'Replied').replace('card stat', 'card stat s3')}
+      ${stat('Unassigned or untyped', unrouted.length, 'See Routing', unrouted.length ? 'warn' : '').replace('card stat', 'card stat s3')}
+      ${stat('Tickets this week', m.tw.length, `Last week ${m.lw.length}`).replace('card stat', 'card stat s3')}
+      </div>${PL.err ? plNote() : ''}<div class="grid">${body}${card('Tickets by type', 'Created in the last 7 days vs the 7 before', '<div class="chart" id="ch-inbox"></div>', 's12')}</div>`;
+  };
+  async function ibRoute(f) {
+    const name = f.dataset.ibroute, t = D.tk.find(x => x.name === name); if (!t) return;
+    const type = f.elements.type.value, who = f.elements.who.value, b = f.querySelector('button'); b.disabled = true; b.textContent = '…';
+    try {
+      if (type && type !== (t.type || '')) await gw('save', { dt: 'HD Ticket', name, values: { ticket_type: type } });
+      if (who && !t.assignedL.includes(who)) await gw('assign', { dt: 'HD Ticket', name, add: [who], remove: [] });
+      toast('Ticket ' + esc(name) + ' routed'); await load();
+    } catch (e) { toast('Not saved: ' + esc(e.message)); b.disabled = false; b.textContent = 'Save'; }
+  }
+  // ticket side sheet: details, owners, links, status/priority/type, recent Command Center changes
+  async function tkSheet(name) {
+    const t = D.tk.find(x => x.name === name) || { name, assignedL: [] };
+    const el = sheet(esc(t.subject || name), esc(name), '<div class="cc-loading"><span class="cc-spin"></span>Loading…</div>', null);
+    let g, meta;
+    try { [g, meta] = await Promise.all([gw('get', { dt: 'HD Ticket', name }), wbMeta('HD Ticket')]); }
+    catch (e) { el.querySelector('#sform').innerHTML = `<p class="cc-msg">Couldn't open ${esc(name)}: ${esc(e.message)}</p><div class="cc-sheet-f">${replyBtn(t)}</div>`; return; }
+    const doc = g.doc, wf = {}; (meta.fields || []).forEach(f => { wf[f.fieldname] = f; });
+    const ed = g.editable && plCanEdit(), can = k => ed && !!wf[k];
+    const owners = t.assignedL.length ? t.assignedL : (() => { try { return JSON.parse(doc._assign || '[]'); } catch (e) { return []; } })();
+    const x = PL.data, dl = (id, rows) => `<datalist id="${id}">${rows.join('')}</datalist>`;
+    const lists = {
+      ill_quotation: dl('tkq', D.quotes.filter(q => q.docstatus < 2).map(q => `<option value="${esc(q.name)}">${esc(q.party_name)} · ${money(q.base_net_total)}</option>`)),
+      ill_sales_order: dl('tkso', D.ship.map(s => `<option value="${esc(s.so)}">${esc(s.customer)} · ${money(s.value)}</option>`)),
+      ill_project: dl('tkp', (x ? x.projects : []).map(p => `<option value="${esc(p.name)}">${esc(p.project_name || '')} · ${esc(p.customer || '')}</option>`)),
+      ill_fixture_schedule: dl('tks', (x ? x.schedules : []).map(s => `<option value="${esc(s.name)}">${esc(schedName(s))} · ${esc(s.customer || '')}</option>`)) };
+    const LINKS = [['ill_quotation', 'Quotation', 'tkq', 'quotation'], ['ill_sales_order', 'Sales order', 'tkso', 'sales-order'], ['ill_project', 'Project', 'tkp', 'ill-project'], ['ill_fixture_schedule', 'Fixture schedule', 'tks', 'ill-project-fixture-schedule']];
+    const fieldOrRO = (k, label, html) => can(k) ? fld(label, html) : `<div class="wb-kv"><span>${label}</span><b>${esc(doc[k] || '—')}</b></div>`;
+    const stg = tkStage({ ...t, type: doc.ticket_type, sales_order: doc.ill_sales_order, quotation: doc.ill_quotation });
+    const inner = `<div class="wb-kvs">
+        <div class="wb-kv"><span>Requester</span><b>${esc(doc.raised_by || t.raised_by || '—')}</b></div>
+        <div class="wb-kv"><span>Opened</span><b>${fmtd(doc.opening_date || doc.creation)} · ${esc(t.age != null ? t.age + ' business days' : '')}</b></div>
+        <div class="wb-kv"><span>Stage</span><b><a href="#${stg}">${esc((STAGES.find(z => z.k === stg) || {}).n || stg)}</a></b></div>
+        <div class="wb-kv"><span>Last activity</span><b>${fmtd(doc.modified)}</b></div></div>
+      ${ed ? '' : `<p class="wb-note">${plCanEdit() ? 'This ticket is read-only here.' : 'View only. Reassigning, linking and status changes need the Command Center Editor role.'}</p>`}
+      <div class="cc-row2">${fieldOrRO('status', 'Status', sel('status', ['Open', 'Replied', 'Paused', 'Resolved', 'Closed'].concat(doc.status && !['Open', 'Replied', 'Paused', 'Resolved', 'Closed'].includes(doc.status) ? [doc.status] : []), doc.status))}
+        ${fieldOrRO('priority', 'Priority', `<input type="text" name="priority" list="tkpri" value="${esc(doc.priority || '')}">${dl('tkpri', ['Low', 'Medium', 'High', 'Urgent'].map(p => `<option value="${p}">`))}`)}</div>
+      <div class="cc-row2">${fieldOrRO('ticket_type', 'Type', `<input type="text" name="ticket_type" list="tktype" value="${esc(doc.ticket_type || '')}">${dl('tktype', TK_TYPES().map(k => `<option value="${esc(k)}">`))}`)}
+        ${fieldOrRO('agent_group', 'Team', `<input type="text" name="agent_group" value="${esc(doc.agent_group || '')}">`)}</div>
+      <div class="cc-field"><span>Owners</span>${ed ? ownerChips(owners) : avs(owners)}</div>
+      <div class="wb-sec">Linked records</div>
+      ${LINKS.map(([k, label, id, sl]) => can(k) ? `<div class="cc-field"><span>${label}${doc[k] ? ` · <a target="_blank" rel="noopener" href="/app/${sl}/${encodeURIComponent(doc[k])}">open ↗</a>` : ''}</span><div style="display:flex;gap:8px"><input type="text" name="${k}" list="${id}" value="${esc(doc[k] || '')}" placeholder="Not linked" style="flex:1">${doc[k] ? `<button type="button" class="cc-btn soft" data-unlink="${k}">Unlink</button>` : ''}</div>${lists[k]}</div>` : `<div class="wb-kv"><span>${label}</span><b>${doc[k] ? link(sl, doc[k]) : '—'}</b></div>`).join('')}
+      ${g.audit.length ? `<div class="wb-sec">Recent changes from the Command Center</div><ul class="wb-audit">${g.audit.map(a => `<li><span>${fmtd(a.creation)}</span> ${esc(wbPlain(a.content).replace(/^Command Center:\s*/, ''))}</li>`).join('')}</ul>` : ''}`;
+    const sh = sheet(esc(doc.subject || t.subject || name), `${esc(name)} · ${esc(doc.status || '')}`, inner, ed ? async elx => {
+      const vals = {};
+      ['status', 'priority', 'ticket_type', 'agent_group', 'ill_quotation', 'ill_sales_order', 'ill_project', 'ill_fixture_schedule'].forEach(k => { if (!can(k)) return; const v = val(elx, k).trim(); if (v !== String(doc[k] || '')) vals[k] = v || null; });
+      if (vals.ill_quotation && !D.qByName[vals.ill_quotation]) throw new Error('pick a quotation from the list');
+      const own = checked(elx), add = own.filter(u => !owners.includes(u)), rem = owners.filter(u => !own.includes(u));
+      if (!Object.keys(vals).length && !add.length && !rem.length) throw new Error('nothing changed');
+      if (Object.keys(vals).length) await gw('save', { dt: 'HD Ticket', name, values: vals });
+      if (add.length || rem.length) await gw('assign', { dt: 'HD Ticket', name, add, remove: rem });
+      toast('Ticket ' + esc(name) + ' updated'); PL.data = null;
+    } : null, 'Save changes');
+    const f = sh.querySelector('.cc-sheet-f'); if (f) f.insertAdjacentHTML('afterbegin', replyBtn({ name, status: doc.status }) + `<a class="cc-btn soft" target="_blank" rel="noopener" href="/app/hd-ticket/${encodeURIComponent(name)}" style="text-decoration:none">Desk view</a><span style="flex:1"></span>`);
+    sh.querySelectorAll('[data-unlink]').forEach(b => b.onclick = () => { const i = sh.querySelector(`[name="${b.dataset.unlink}"]`); i.value = ''; b.remove(); });
+  }
+
   /* ---------------- render ---------------- */
   const agNavCount = () => { const m = (AG.list || []).find(x => x.name === agDefault()); return m && m.status === 'Open' && m.open ? m.open : null; };
   let WORK_SEG = false;
   const workSeg = () => `<div class="seg" style="margin:-8px 0 20px"><button data-go="work" class="${S.view === 'work' || S.view.startsWith('p-') ? 'on' : ''}">Projects</button><button data-go="tasks" class="${S.view === 'tasks' ? 'on' : ''}">All tasks &amp; to-dos</button></div>`;
-  const PIPE = ['pipeline', 'quotes', 'orders', 'purch', 'mfg', 'ship'];
   function render() {
     const m = M();
     $('#ccstamp').textContent = 'Live from ERPNext · updated ' + new Date(D.generated.replace(' ', 'T')).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    if (REDIRECT[S.view]) { S.view = REDIRECT[S.view]; history.replaceState(null, '', '#' + S.view); }
     let v = S.view; const so = v.startsWith('so-') ? decodeURIComponent(v.slice(3)) : null, pid = v.startsWith('p-') ? v.slice(2) : null;
-    const known = PIPE.concat(['service', 'requests', 'inbox', 'finance', 'work', 'tasks', 'rec', 'exec', 'review']);
-    if (!so && !pid && !known.includes(v) && !wbIsView() && !agIsView()) { v = S.view = 'pipeline'; }
-    const group = wbIsView() ? 'wb' : agIsView() ? 'agenda' : so || PIPE.includes(v) ? 'pipeline' : (pid || v === 'work' || v === 'tasks') ? 'work' : v;
-    const p = pipeData(m);
-    const svcOpen = D.tk.filter(t => (SVC_TYPES.includes(t.type) || !t.type) && t.status === 'Open');
-    const TOP = [['pipeline', 'Sales pipeline', null, null], ['exec', 'Executive', null, null], ['service', 'Service', svcOpen.length, svcOpen.some(t => t.age > 2) ? 'bad' : 'good'], ['requests', 'Requests', m.openReq.length, m.oldReq.length ? 'warn' : 'good'], ['inbox', 'Inbox', m.tOpen.length, m.tOld.length > 3 ? 'bad' : m.tOld.length ? 'warn' : 'good'],
+    const dsid = v.startsWith('design/') ? decodeURIComponent(v.slice(7)) : null;
+    const known = PIPE.concat(['inbox', 'finance', 'work', 'tasks', 'rec', 'exec', 'review']);
+    if (!so && !pid && !dsid && !known.includes(v) && !wbIsView() && !agIsView()) { v = S.view = 'pipeline'; }
+    if (plIsView() && ((!PL.data && !PL.err) || PL.stale)) { PL.stale = false; plLoad(true); }
+    const group = wbIsView() ? 'wb' : agIsView() ? 'agenda' : so || dsid || PIPE.includes(v) ? 'pipeline' : (pid || v === 'work' || v === 'tasks') ? 'work' : v;
+    const TOP = [['pipeline', 'Sales pipeline', null, null], ['exec', 'Executive', null, null], ['inbox', 'Inbox', m.tOpen.length, m.tOld.length > 3 ? 'bad' : m.tOld.length ? 'warn' : 'good'],
       ['finance', 'Finance', null, D.fin.mtd >= m.goalPace ? 'good' : 'warn'], ['work', 'Projects & tasks', m.overdue.length, m.overdue.length ? 'warn' : 'good'], ['review', 'Review', null, null], ['agenda', 'Agenda', agNavCount(), null], ['wb', 'Workbench', null, null], ['rec', 'Recommendations', null, 'info']];
     $('#ccnav').innerHTML = TOP.map(([k, n, c, s]) => `<a class="cc-tab ${group === k ? 'on' : ''}" href="#${k}">${s ? `<span class="dot ${s}"></span>` : ''}${n}${c ? `<span class="ct">${c}</span>` : ''}</a>`).join('');
-    CUR_M = m; CUR_STEP = (PIPE.includes(v) && !so) ? v : null; WORK_SEG = group === 'work' && !pid; CUR_LINKS = so ? 'so' : pid ? 'project' : v;
+    CUR_M = m; CUR_STEP = dsid ? 'design' : (PIPE.includes(v) && !so) ? v : null; WORK_SEG = group === 'work' && !pid; CUR_LINKS = so ? 'so' : pid ? 'project' : dsid ? 'design' : v;
     let html;
     if (so) html = V.so(m, so);
     else if (pid) html = V.project(m, pid);
+    else if (dsid) html = V.designSched(m, dsid);
     else if (wbIsView()) html = WB.html(v);
     else if (agIsView()) html = AG.html();
     else if (v === 'exec') html = EX.html();
     else if (v === 'review') html = RV.html();
     else if (v === 'purch') html = V.purch(m) + `<div class="grid" style="margin-top:20px">${V.purch_low()}</div>`;
-    else html = ({ requests: V.req, inbox: V.inbox, finance: V.fin, tasks: V.tasks })[v] ? ({ requests: V.req, inbox: V.inbox, finance: V.fin, tasks: V.tasks })[v](m) : V[v](m);
+    else html = ({ inbox: V.inbox, finance: V.fin, tasks: V.tasks })[v] ? ({ inbox: V.inbox, finance: V.fin, tasks: V.tasks })[v](m) : V[v](m);
     CUR_STEP = null; WORK_SEG = false; CUR_LINKS = null;
     $('#ccmain').innerHTML = html;
-    bind(); bindProjects(); bindPipe(); if (wbIsView()) WB.mount();
+    bind(); bindProjects(); bindPipe(); bindStages(); if (wbIsView()) WB.mount();
     if (v === 'exec') EX.mount(); if (v === 'review') RV.mount(); if (agIsView()) AG.mount();
     root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { location.hash = b.dataset.go; });
   }
