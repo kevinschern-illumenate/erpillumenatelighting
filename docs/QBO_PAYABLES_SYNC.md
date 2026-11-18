@@ -38,7 +38,7 @@ The same call can carry the Invoice's shareable pay-now link as `qbo_payment_lin
 GET /v3/company/<realmId>/invoice/<id>?minorversion=75&include=invoiceLink
 ```
 
-and sends the response's `Invoice.InvoiceLink`. QuickBooks only returns a link when QuickBooks Payments is on for the company, the Invoice allows online card or ACH payment, and it has a billing email (`BillEmail`); otherwise leave `qbo_payment_link` out. Only `https` links on an `intuit.com` host are accepted (anything else is refused with 400 `invalid_payment_link` and nothing is saved). Unlike the id, a new link replaces the stored one, so a resend with the same Invoice id refreshes it.
+and sends the response's `Invoice.InvoiceLink`. QuickBooks only returns a link when QuickBooks Payments is on for the company, the Invoice allows online card or ACH payment, and it has a billing email (`BillEmail`); otherwise leave `qbo_payment_link` out. Only `https` links on an `intuit.com` host are accepted (anything else is refused with 400 `invalid_payment_link` and nothing is saved). Unlike the id, a new link replaces the stored one, so a resend with the same Invoice id refreshes it. The invoice workflow is not in this repo; [`n8n_workflows/snippets/qbo_invoice_payment_link.json`](../n8n_workflows/snippets/qbo_invoice_payment_link.json) holds the nodes to paste into it (read, merge, add link), with wiring steps on its sticky note.
 
 The QuickBooks id fields on Sales and Purchase Invoices are "no copy", so an amendment starts without an id. An amendment that still carries its cancelled original's id (made before that change) may have it replaced.
 

@@ -99,4 +99,22 @@ assert.equal(retiring.counts.get('Archive Remote Item'), 1);
 
 const stripped = projectWebflowProduct(makeJob(3).payload.product, {...makeJob(3).payload.brand, include_configurator_payload: false});
 assert.equal(stripped.json.webflowData.fieldData['configurator-options-json'], undefined);
-console.log('Publication workflow: 123-job drain, create recovery, 429, identity conflict, publish, retirement, brand stripping passed');
+
+// Current ERP export: grouped kit rows, light/dark dimension drawings, photometrics.
+const kitJson = JSON.stringify([{hero_image: 'https://erp.example.test/files/endcap.png'}, {code: 'EC-1', label: 'Flat endcap'}]);
+const current = projectWebflowProduct({...makeJob(4).payload.product,
+    kit_components: [{component_type: 'Endcap', custom_webflow_description: kitJson}, {component_type: 'Lens', custom_webflow_description: null}],
+    dimensions_image: '/files/dims.png', dimensions_image_light: '/files/dims.png', dimensions_image_dark: '/files/dims-dark.png',
+    ies_file: '/files/a.ies', ldt_file: '/private/files/a.ldt', photometric_data: [{mounting_height: '8 ft', display_order: 1}],
+    colorimetry: [{cct: '3000K', ra: 92}], category_webflow_item_id: null}, makeJob(4).payload.brand).json;
+assert.deepEqual(JSON.parse(current.webflowData.fieldData['kit-components-json']), [
+    {component_type: 'Endcap', custom_webflow_description: kitJson}, {component_type: 'Lens', custom_webflow_description: '[]'}]);
+assert.equal(current.webflowData.fieldData.dimensions.url, 'https://erp.example.test/files/dims.png');
+assert.equal(current.webflowData.fieldData['dimensions-dark'], undefined); // behind INCLUDE_DARK_DIMENSIONS_FIELD
+assert.equal(current.webflowData.fieldData['photometrics-json'], undefined); // behind INCLUDE_PHOTOMETRICS_FIELD
+assert.deepEqual(current._debug.photometricsKeys, ['iesFile', 'coneOfLight', 'colorimetry']); // private LDT dropped
+// Payloads frozen before the kit change keep the per-item mapping.
+const legacy = projectWebflowProduct({...makeJob(5).payload.product, kit_components: [{component_type: 'Lens', component_item: 'L-1', quantity: 2}]},
+    makeJob(5).payload.brand).json.webflowData.fieldData;
+assert.deepEqual(JSON.parse(legacy['kit-components-json']), [{type: 'Lens', item: 'L-1', qty: 2}]);
+console.log('Publication workflow: 123-job drain, create recovery, 429, identity conflict, publish, retirement, brand stripping, current export shape passed');
