@@ -465,6 +465,9 @@ class Formats(unittest.TestCase):
 		self.assertIn("Lead Length: 24.0", html)
 
 
+BREAK = '<div class="page-break ill-page-break">'
+
+
 class LineLayout(unittest.TestCase):
 	"""Section header, fixture type above the line, additional notes below it, everywhere."""
 
@@ -579,6 +582,39 @@ class LineLayout(unittest.TestCase):
 		)
 		self.assertIn('class="ill-section"', html)
 		self.assertNotIn('class="ill-type-row"', html)
+
+	def test_page_break_check_starts_a_new_page_and_repeats_the_headings(self):
+		# The item tables with ERPNext's per-line "Page Break" check.
+		for folder in (
+			"ill_quotation",
+			"ill_quotation_msrp",
+			"ill_sales_order",
+			"ill_sales_order_msrp",
+			"ill_sales_invoice",
+			"ill_delivery_note",
+			"ill_packing_list",
+			"ill_purchase_order",
+			"ill_request_for_quotation",
+			"ill_receiving_report",
+			"ill_purchase_invoice",
+			"ill_material_request",
+		):
+			with self.subTest(folder=folder):
+				doc = SAMPLES[folder]()
+				first = line(name="r1", page_break=1, additional_notes="Mount high")
+				second = line(name="r2", item_name="Second line")
+				doc.items = [first, second]
+				html = render(folder, doc)
+				self.assertEqual(html.count(BREAK), 1)
+				self.assertEqual(html.count("<thead>"), 2)
+				position = 0
+				for part in ("Mount high", BREAK, "<thead>", "Kitchen (continued)", "Second line"):
+					position = html.index(part, position)
+				doc.items = [line(name="r1"), second]
+				html = render(folder, doc)
+				self.assertNotIn(BREAK, html)
+				self.assertEqual(html.count("<thead>"), 1)
+				self.assertNotIn("(continued)", html)
 
 	def test_fixture_schedule_uses_the_same_rows(self):
 		html = render("ill_fixture_schedule", SAMPLES["ill_fixture_schedule"]())

@@ -29,8 +29,8 @@
 	{{ parties([("Ship to", dn.customer_name, ill_print_address(dn.shipping_address or dn.address_display, dn.shipping_address_name or dn.customer_address))]) }}
 	{%- endif %}
 
-	<table class="ill-items ill-block">
-		<thead>
+	{%- set items_head -%}
+	<thead>
 			<tr>
 				<th class="ill-idx">#</th>
 				<th>Item</th>
@@ -39,11 +39,14 @@
 				<th class="ill-center" style="width: 8%;">Checked</th>
 			</tr>
 		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
 		{%- for section in sections -%}
 			{%- for entry in section.lines -%}
 			{%- set item = entry["item"] -%}
 			{%- set row.n = row.n + 1 -%}
-			{%- call line_group(entry, 5, section.label if loop.first else None) -%}
+			{%- call line_group(entry, 5, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>{{ line(item) }}</td>
 				<td class="ill-num">{{ ill_print_qty(item.qty, item.stock_uom) | e }}</td>

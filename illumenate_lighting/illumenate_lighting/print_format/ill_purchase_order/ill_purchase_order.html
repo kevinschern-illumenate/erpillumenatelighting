@@ -35,8 +35,8 @@
 		("Bill to", company.name, (ill_print_address(doc.billing_address_display, doc.billing_address) or company.address) + [company.email]),
 	]) }}
 
-	<table class="ill-items ill-block">
-		<thead>
+	{%- set items_head -%}
+	<thead>
 			<tr>
 				<th class="ill-idx">#</th>
 				<th>Item</th>
@@ -46,13 +46,16 @@
 				<th class="ill-num" style="width: 12%;">Amount</th>
 			</tr>
 		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
 		{%- for section in sections -%}
 			{%- for entry in section.lines -%}
 			{%- set item = entry["item"] -%}
 			{%- set row.n = row.n + 1 -%}
 			{%- set part = parts.get(item.item_code, {}) -%}
 			{%- set vendor_no = item.supplier_part_no or part.part_no -%}
-			{%- call line_group(entry, 6, section.label if loop.first else None) -%}
+			{%- call line_group(entry, 6, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>
 					<div class="ill-line-name">{{ (part.description or item.item_name or item.item_code) | e }}</div>

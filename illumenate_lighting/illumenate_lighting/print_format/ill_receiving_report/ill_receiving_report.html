@@ -28,8 +28,8 @@
 		("Vendor", doc.supplier_name or doc.supplier, [doc.contact_display, doc.contact_email, doc.contact_mobile]),
 	]) }}
 
-	<table class="ill-items ill-block">
-		<thead>
+	{%- set items_head -%}
+	<thead>
 			<tr>
 				<th class="ill-idx">#</th>
 				<th>Item</th>
@@ -41,11 +41,14 @@
 				<th class="ill-center" style="width: 7%;">OK</th>
 			</tr>
 		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
 		{%- for section in sections -%}
 			{%- for entry in section.lines -%}
 			{%- set item = entry["item"] -%}
 			{%- set row.n = row.n + 1 -%}
-			{%- call line_group(entry, 8 if rejected else 7, section.label if loop.first else None) -%}
+			{%- call line_group(entry, 8 if rejected else 7, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>
 					<div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div>

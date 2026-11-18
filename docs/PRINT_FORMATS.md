@@ -66,6 +66,13 @@ Blocks, top to bottom (each is a macro in `ill_print.html`):
    Purchase Receipt and Purchase Invoice → Purchase Order → Sales Order. Vendor documents
    (Purchase Order, RFQ) group by the PO's own room labels and never print a customer's
    fixture types or notes.
+
+   **Page Break.** ERPNext's per-line Page Break check is honoured on every item table
+   that has it (Quotation, Sales Order, Sales Invoice, Delivery Note, Packing Slip,
+   Purchase Order, RFQ, Purchase Receipt, Purchase Invoice, Material Request). After a
+   checked line (and its notes row) the table closes, a new page starts and the table
+   reopens with its column headings. If the room continues, its header repeats as
+   "KITCHEN (continued)".
 5. **Totals** on the right (subtotal, discount, each shipping / tax / fee row, total, then
    paid / balance due). The left side carries context: dealer savings, payment schedule,
    payments received, order progress.

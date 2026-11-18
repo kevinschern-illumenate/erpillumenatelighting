@@ -26,8 +26,8 @@
 		("Project", project.project),
 	]) }}
 
-	<table class="ill-items ill-block">
-		<thead>
+	{%- set items_head -%}
+	<thead>
 			<tr>
 				<th class="ill-idx">#</th>
 				<th>Item</th>
@@ -38,11 +38,14 @@
 				<th class="ill-num" style="width: 10%;">Done</th>
 			</tr>
 		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
 		{%- for section in sections -%}
 			{%- for entry in section.lines -%}
 			{%- set item = entry["item"] -%}
 			{%- set row.n = row.n + 1 -%}
-			{%- call line_group(entry, 7, section.label if loop.first else None) -%}
+			{%- call line_group(entry, 7, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>
 					{{ line(item) }}

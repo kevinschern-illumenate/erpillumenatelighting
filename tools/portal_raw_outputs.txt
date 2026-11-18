@@ -10,3 +10,5 @@ templates/print/ill_print.html: left or ""  # HTML a print format builds with {%
 templates/print/ill_print.html: columns[0]  # printing.ill_print_terms_columns: Terms and Conditions HTML passed through sanitize_html
 templates/print/ill_print.html: columns[1]  # printing.ill_print_terms_columns: Terms and Conditions HTML passed through sanitize_html
 templates/print/ill_print.html: caller()  # the cells of a print format's {% call line_group %} block; values in them are escaped where they are written
+templates/print/ill_print.html: head  # the items table's own <thead>, captured with {% set %} from literal markup and escaped values
+templates/print/ill_print.html: items_head  # the priced items table's <thead>, captured with {% set %} from literal column labels

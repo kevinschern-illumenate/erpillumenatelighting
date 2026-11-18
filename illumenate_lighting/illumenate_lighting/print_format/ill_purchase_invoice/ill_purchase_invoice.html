@@ -38,8 +38,8 @@
 		("Vendor", doc.supplier_name or doc.supplier, ill_print_address(doc.address_display, doc.supplier_address) + [doc.contact_email]),
 	]) }}
 
-	<table class="ill-items ill-block">
-		<thead>
+	{%- set items_head -%}
+	<thead>
 			<tr>
 				<th class="ill-idx">#</th>
 				<th>Item</th>
@@ -49,11 +49,14 @@
 				<th class="ill-num" style="width: 12%;">Amount</th>
 			</tr>
 		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
 		{%- for section in sections -%}
 			{%- for entry in section.lines -%}
 			{%- set item = entry["item"] -%}
 			{%- set row.n = row.n + 1 -%}
-			{%- call line_group(entry, 6, section.label if loop.first else None) -%}
+			{%- call line_group(entry, 6, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
 				<td><div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div><div class="ill-code ill-mono">{{ item.item_code | e }}</div>{% if item.expense_account %}<div class="ill-specs">{{ item.expense_account | e }}</div>{% endif %}</td>
 				<td>{{ (item.purchase_order or "") | e }}{% if item.purchase_receipt %}<div class="ill-specs">{{ item.purchase_receipt | e }}</div>{% endif %}</td>

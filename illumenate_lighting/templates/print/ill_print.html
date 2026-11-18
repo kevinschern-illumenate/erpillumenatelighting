@@ -76,6 +76,7 @@
 	.ill-doc .ill-section td { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; color: #172e48; padding: 10px 6px 4px 8px; border-bottom: 0.6px solid #a2abb6; border-left: 2.5px solid #fdc757; }
 	/* A line group: fixture type row above, the line, its notes row below; kept on one page. */
 	.ill-doc .ill-line { page-break-inside: avoid; }
+	.ill-doc .ill-page-break { page-break-after: always; height: 0; margin: 0; padding: 0; border: none; }
 	.ill-doc .ill-type-row td { padding: 7px 6px 1px 6px; border-bottom: none; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8.5px; color: #172e48; }
 	.ill-doc .ill-type-row .ill-type-label { font-size: 6.5px; letter-spacing: 1px; text-transform: uppercase; color: #00588c; margin-right: 6px; }
 	.ill-doc .ill-type-row + .ill-line-row td { padding-top: 2px; }
@@ -207,16 +208,20 @@
     FIXTURE TYPE  A1                      <- when the line has a fixture type
     1  Item name, part no., specs   qty   <- the call block's cells
        Additional notes                   <- when the line has notes
-  `entry` is a line from ill_print_sections ({"item", "type", "notes"}). The group is
-  one <tbody> so a page break never separates a type or note from its line.
+  `entry` is a line from ill_print_sections ({"item", "type", "notes", "header",
+  "page_break"}). The group is one <tbody> so a page break never separates a type or note
+  from its line. When the line's Page Break box is checked the table closes, a new page
+  starts and the table reopens with `head` (the format's <thead>), as ERPNext's own
+  formats do; the section header then repeats as "<room> (continued)".
 --#}
-{%- macro line_group(entry, colspan, header=None) -%}
+{%- macro line_group(entry, colspan, head) -%}
 <tbody class="ill-line">
-	{%- if header %}<tr class="ill-section"><td colspan="{{ colspan | int }}">{{ header | e }}</td></tr>{% endif -%}
+	{%- if entry.header %}<tr class="ill-section"><td colspan="{{ colspan | int }}">{{ entry.header | e }}</td></tr>{% endif -%}
 	{%- if entry.type %}<tr class="ill-type-row"><td></td><td colspan="{{ (colspan - 1) | int }}"><span class="ill-type-label">Fixture type</span>{{ entry.type | e }}</td></tr>{% endif -%}
 	<tr class="ill-line-row{% if entry.notes %} ill-has-note{% endif %}">{{ caller() }}</tr>
 	{%- if entry.notes %}<tr class="ill-note-row"><td></td><td colspan="{{ (colspan - 1) | int }}">{{ entry.notes | e }}</td></tr>{% endif -%}
 </tbody>
+{%- if entry.page_break %}</table><div class="page-break ill-page-break"></div><table class="ill-items ill-block">{{ head }}{% endif -%}
 {%- endmacro -%}
 
 {#-- A section's subtotal row, shown when the document has more than one section. --#}
@@ -306,8 +311,8 @@
 {%- set cols = 7 if discounted else 5 -%}
 {%- set labelled = sections | selectattr("label") | list | length -%}
 {%- set row = namespace(n=0) -%}
-<table class="ill-items ill-block">
-	<thead>
+{%- set items_head -%}
+<thead>
 		<tr>
 			<th class="ill-idx">#</th>
 			<th>Item</th>
@@ -322,12 +327,15 @@
 			<th class="ill-num" style="width: 12%;">Amount</th>
 		</tr>
 	</thead>
+{%- endset -%}
+<table class="ill-items ill-block">
+	{{ items_head }}
 	{%- for section in sections -%}
 		{%- for entry in section.lines -%}
 		{%- set item = entry["item"] -%}
 		{%- set row.n = row.n + 1 -%}
 		{%- set unit = ill_print_msrp(item) if mode == "msrp" else item.rate -%}
-		{%- call line_group(entry, cols, section.label if loop.first else None) -%}
+		{%- call line_group(entry, cols, items_head) -%}
 			<td class="ill-idx">{{ row.n | int }}</td>
 			<td>{{ line(item) }}</td>
 			<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>

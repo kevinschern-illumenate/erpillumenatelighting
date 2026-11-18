@@ -221,8 +221,11 @@ def ill_print_sections(items, follow_links=False) -> list:
 	``follow_links`` from the line it was made from (packing slip -> delivery note,
 	receipt -> purchase order -> sales order, ...).
 
-	Returns ``[{"label", "lines": [{"item", "type", "notes"}], "items", "subtotal",
-	"list_subtotal"}]``; everything lands in one unlabelled section when nothing is labelled.
+	Returns ``[{"label", "lines": [{"item", "type", "notes", "header", "page_break"}], "items",
+	"subtotal", "list_subtotal"}]``; everything lands in one unlabelled section when nothing is
+	labelled. ``header`` is the section label on a section's first line and "<label>
+	(continued)" on the line after a page break; ``page_break`` is the line's own Page Break
+	check.
 	"""
 	items = list(items or [])
 	sources = {}
@@ -268,11 +271,22 @@ def ill_print_sections(items, follow_links=False) -> list:
 				sections.append(by_label[key])
 			section = by_label[key]
 			section["items"].append(item)
+			previous = section["lines"][-1] if section["lines"] else None
 			section["lines"].append(
 				{
 					"item": item,
 					"type": (item.get("ill_fixture_type") or source.get("type") or "").strip(),
 					"notes": ill_print_note(item.get("additional_notes") or source.get("notes")),
+					# The section header prints on its first line, and again after a page break.
+					"header": section["label"]
+					if previous is None
+					else (
+						f"{section['label']} (continued)"
+						if previous["page_break"] and section["label"]
+						else ""
+					),
+					# ERPNext's per-line "Page Break" check: start a new page after this line.
+					"page_break": bool(item.get("page_break")),
 				}
 			)
 			section["subtotal"] += float(item.get("amount") or 0)
@@ -281,7 +295,10 @@ def ill_print_sections(items, follow_links=False) -> list:
 		_log("ilL print: could not group lines into sections")
 		fallback = empty("")
 		fallback["items"] = items
-		fallback["lines"] = [{"item": i, "type": "", "notes": ""} for i in items]
+		fallback["lines"] = [
+			{"item": i, "type": "", "notes": "", "header": "", "page_break": bool(i.get("page_break"))}
+			for i in items
+		]
 		return [fallback]
 	return sections
 
@@ -641,6 +658,8 @@ def ill_print_schedule(doc) -> dict:
 			if key not in by_label:
 				by_label[key] = {"label": label, "lines": []}
 				sections.append(by_label[key])
+			entry["header"] = "" if by_label[key]["lines"] else label
+			entry["page_break"] = False
 			by_label[key]["lines"].append(entry)
 		info["sections"] = sections
 	except Exception:

@@ -22,8 +22,8 @@
 		("For", (doc.for_qty | string ~ " × " ~ (doc.work_order or "")) if doc.work_order else ""),
 	]) }}
 
-	<table class="ill-items ill-block">
-		<thead>
+	{%- set items_head -%}
+	<thead>
 			<tr>
 				<th class="ill-idx">#</th>
 				<th>Item</th>
@@ -32,11 +32,14 @@
 				<th class="ill-num" style="width: 12%;">Picked</th>
 			</tr>
 		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
 		{%- for section in sections -%}
 			{%- for entry in section.lines -%}
 			{%- set row = entry["item"] -%}
 			{%- set counter.n = counter.n + 1 -%}
-			{%- call line_group(entry, 5, section.label if loop.first else None) -%}
+			{%- call line_group(entry, 5, items_head) -%}
 				<td class="ill-idx">{{ counter.n | int }}</td>
 				<td>{{ line(row, show_specs=False) }}{% if row.sales_order %}<div class="ill-specs">For {{ row.sales_order | e }}</div>{% endif %}</td>
 				<td>{{ ill_print_warehouse(row.warehouse) | e }}{% if row.batch_no %}<div class="ill-specs">Batch {{ row.batch_no | e }}</div>{% endif %}{% if row.serial_no %}<div class="ill-specs ill-pre">{{ row.serial_no | e }}</div>{% endif %}</td>

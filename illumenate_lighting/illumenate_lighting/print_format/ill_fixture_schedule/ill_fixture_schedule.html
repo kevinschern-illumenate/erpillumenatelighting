@@ -25,8 +25,8 @@
 
 	{{ notes("Notes", doc.notes) }}
 
-	<table class="ill-items ill-block">
-		<thead>
+	{%- set items_head -%}
+	<thead>
 			<tr>
 				<th class="ill-idx">#</th>
 				<th>Description</th>
@@ -34,10 +34,13 @@
 				<th class="ill-num" style="width: 7%;">Qty</th>
 			</tr>
 		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
 		{%- for section in schedule.sections -%}
 			{%- for line in section.lines -%}
 			{%- set row.n = row.n + 1 -%}
-			{%- call line_group(line, 4, section.label if loop.first else None) -%}
+			{%- call line_group(line, 4, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
 				<td>
 					<div class="ill-line-name">{{ line.name | e }}</div>
