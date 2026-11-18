@@ -1,6 +1,6 @@
 # ilLumenate Command Center (Frappe Cloud web page + Server Scripts)
 
-Source for the Command Center at `/command-center`. These files are **pasted into the site**, they are not part of the `illumenate_lighting` app and are not deployed by Frappe Cloud's bench.
+Source for the Command Center at `/command-center`, kept in `illumenate_lighting/command_center/`. The page and gateway live in database records; `illumenate_lighting/command_center_sync.py` copies these files into them on every `bench migrate` (see Deploy).
 
 | File | Where it goes in ERPNext |
 |---|---|
@@ -23,18 +23,11 @@ Not in this folder: `cc.html` (unchanged, still what is live) and `ss/cc_api.py`
 1. **`cc_gateway.py` would not save as a Server Script.** Frappe's sandbox (RestrictedPython) rejects names starting with `_` (`_gate`, `_roles`, ...). It also cannot see top-level helpers/constants from inside functions, and does not expose `frappe.get_roles` / `frappe.has_permission`. The script is now a single `main()` with closures, roles come from the `Has Role` table, permissions from `Document.has_permission()`.
 2. Row totals respect the user's permissions and the search box (v4 counted all rows).
 3. Workbench landing makes one `counts` call instead of 18 `list` calls.
+4. Frappe v16: aggregates in get_list use the dict form (`{"COUNT": "*"}`), with the v15 string form as a fallback.
 
-## Deploy (about 15 minutes, in this order)
+## Deploy
 
-1. **Back up.** In the Web Page, copy the current JavaScript and CSS into `cc.v3.js` / `cc.v3.css` (they are not in this repo).
-2. **Roles.** Role list → create `Command Center Editor` and `Command Center Finance`. User → Roles: Finance for charlotte@, jay@, kevins@; Editor for whoever may change records (suggested kevins@, jay@, ryanb@, reigine@). Viewer already exists.
-3. **Server Script** → New: `ilL Command Center Gateway`, type API, method `ill_cc_gateway`, Allow Guest off. Paste `ss/cc_gateway.py`. Save. If Save errors, send me the message: it will be a sandbox difference on your Frappe version.
-4. **Web Page** `illumenate-command-center`: replace JavaScript with `page/cc.js` and CSS with `page/cc.css`. Leave `cc.html`.
-5. **Test as Kevin:** Workbench → open a Task → change a harmless field → Save → the "Command Center:" comment appears in the record's ERPNext timeline. Then Executive (numbers load, cards link through) and Review (arrow keys, Print / PDF).
-6. **Viewer-only user:** no `+ New`, no Save. **User without Finance:** Finance locked in Workbench; Finance tiles locked on Executive.
-7. **User with no Viewer role:** lock screen.
-
-If the Workbench, Executive or Review tabs say the gateway is missing, step 3 was skipped. The rest of the page keeps working.
+Deploys are automatic: merge to the default branch and deploy on Frappe Cloud. `illumenate_lighting/command_center_sync.py` copies these files into the Web Page and Server Script after migrate. Don't edit the records in the desk, because the next deploy overwrites them. The previous page JS/CSS is attached to the Web Page as private `cc.backup-<timestamp>` files after each change. Problems appear in Error Log as 'Command Center sync failed: …'.
 
 ## Known limits
 
@@ -46,5 +39,5 @@ If the Workbench, Executive or Review tabs say the gateway is missing, step 3 wa
 
 ## Tests (no ERPNext needed)
 
-- `tests/gateway_sandbox_test.py`: compiles the gateway under RestrictedPython and runs every action against a fake `frappe` (`pip install RestrictedPython`).
-- `tests/smoke.js`: loads `cc.js` in jsdom against a mock gateway and walks every page (`npm i jsdom`, then `node tests/smoke.js`).
+- `tests/check_gateway_sandbox.py`: compiles the gateway under RestrictedPython and runs every action against a fake `frappe`, emulating both the v16 and v15 aggregate rules (`pip install RestrictedPython`, then `python illumenate_lighting/command_center/tests/check_gateway_sandbox.py`). Named `check_*` so pytest/unittest never collect it.
+- `tests/smoke.js`: loads `cc.js` in jsdom against a mock gateway and walks every page (`npm i jsdom`, then `node illumenate_lighting/command_center/tests/smoke.js`).

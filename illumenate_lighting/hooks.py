@@ -218,6 +218,8 @@ after_migrate = [
 	"illumenate_lighting.portal_workspace.after_migrate",
 	# Helpdesk ticket -> Project / Fixture Schedule / Quotation / Sales Order / Sales Invoice links, once Helpdesk is installed.
 	"illumenate_lighting.illumenate_lighting.helpdesk_links.after_migrate",
+	# Copy the Command Center page JS/CSS and gateway Server Script from command_center/ into the site.
+	"illumenate_lighting.command_center_sync.sync",
 ]
 
 # Fixtures

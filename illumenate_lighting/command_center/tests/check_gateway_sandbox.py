@@ -22,6 +22,7 @@ class Doc:
     def as_dict(s): return s.v
 saved=[]
 FALLBACK=False
+V16=True
 def run(user, roles, form):
     resp={}
     def get_all(dt,**k):
@@ -30,9 +31,13 @@ def run(user, roles, form):
         return []
     def get_list(dt,**k):
         f=k.get("fields",[])
-        if any("count(" in x for x in f) and len(f)==1: return [{"total":3}]
-        if any("count(" in x for x in f) and FALLBACK: raise Exception("aggregates refused")
-        if any("count(" in x for x in f): return [{"status":"Open","n":2,"v":100.0},{"status":"Done","n":1,"v":5}]
+        # emulate Frappe: v16 accepts aggregates only as dicts, v15 only as strings
+        strs = [x for x in f if isinstance(x, str) and "(" in x]; dicts = [x for x in f if isinstance(x, dict)]
+        if (strs or dicts) and FALLBACK: raise Exception("aggregates refused")
+        if strs and V16: raise Exception("SQL functions are not allowed as strings in SELECT")
+        if dicts and not V16: raise Exception("Invalid field")
+        if (strs or dicts) and len(f)==1: return [{"total":3}]
+        if strs or dicts: return [{"status":"Open","n":2,"v":100.0},{"status":"Done","n":1,"v":5}]
         return [{"name":"T-1","status":"Open"}]
     def throw(m): raise Exception(m)
     fr=D(session=D(user=user),get_all=get_all,get_list=get_list,get_meta=Meta,get_doc=lambda *a: Doc(a[0] if isinstance(a[0],dict) else None),
@@ -58,3 +63,5 @@ try: run("b@x",[],{"action":"config"})
 except Exception as e: print("no role blocked:",e)
 FALLBACK=True
 o=run("a@x",V,{"action":"overview"}); print("overview fallback (no aggregates):", o["stats"]["Quotation"]["statuses"])
+V16=False; FALLBACK=False
+print("v15 path: list total", run("a@x",V,{"action":"list","dt":"Task","search":"x"})["total"], "overview", run("a@x",V,{"action":"overview"})["stats"]["Quotation"]["statuses"][:1])

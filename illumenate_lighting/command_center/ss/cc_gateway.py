@@ -32,6 +32,8 @@
 #   * frappe.get_roles / frappe.has_permission are not exposed, so roles come from the
 #     "Has Role" table, read access from frappe.get_list (raises if not allowed) and create
 #     access from Document.has_permission() on a blank in-memory doc.
+#   * Frappe v16 rejects SQL functions as strings in get_list fields; aggregates use the dict form
+#     ({"COUNT": "*", "as": "n"}) with the v15 string form as a fallback.
 
 
 def main():
@@ -204,11 +206,15 @@ def main():
         return values
 
     def total(dt, filters, orf):
-        try:
-            r = frappe.get_list(dt, fields=["count(name) as total"], filters=filters, or_filters=orf)
-            return int(r[0]["total"])
-        except Exception:
-            return frappe.db.count(dt, filters)
+        # Frappe v16 only accepts SQL functions in dict form ({"COUNT": "*"}); v15 only as strings.
+        # Both forms are permission-aware and honour or_filters (the search box).
+        for f in ({"COUNT": "*", "as": "total"}, "count(name) as total"):
+            try:
+                r = frappe.get_list(dt, fields=[f], filters=filters, or_filters=orf)
+                return int(r[0]["total"] or 0)
+            except Exception:
+                pass
+        return frappe.db.count(dt, filters)
 
     gate()
     action = frappe.form_dict.get("action") or "config"
@@ -346,20 +352,27 @@ def main():
                 valf = "outstanding_amount"
             elif "grand_total" in dcols:
                 valf = "grand_total"
-            fields = ["count(name) as n"]
-            if has_status:
-                fields.append("status")
+            # v16 dict form first, then the v15 string form
+            variants = [[{"COUNT": "*", "as": "n"}], ["count(name) as n"]]
             if valf:
-                fields.append("sum(" + valf + ") as v")
+                variants[0].append({"SUM": valf, "as": "v"})
+                variants[1].append("sum(" + valf + ") as v")
             statuses = []
-            try:
-                if has_status:
-                    rows = frappe.get_list(d, fields=fields, group_by="status")
-                else:
-                    rows = frappe.get_list(d, fields=fields)
+            rows = None
+            for fields in variants:
+                try:
+                    if has_status:
+                        rows = frappe.get_list(d, fields=["status"] + fields, group_by="status",
+                                               order_by="status asc")
+                    else:
+                        rows = frappe.get_list(d, fields=fields)
+                    break
+                except Exception:
+                    rows = None
+            if rows is not None:
                 for r in rows:
                     statuses.append([r.get("status") or "", int(r.get("n") or 0), float(r.get("v") or 0)])
-            except Exception:
+            else:
                 # fallback for Frappe versions that refuse SQL aggregates in get_list:
                 # pull the plain columns (capped) and add them up here
                 statuses = []
