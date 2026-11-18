@@ -10,7 +10,7 @@ w.addEventListener('error', e => errs.push('onerror: ' + e.message));
 w.console.error = (...a) => errs.push('console.error: ' + a.join(' '));
 w.scrollTo = () => {}; w.print = () => { w.__printed = (w.__printed||0)+1; };
 w.document.cookie = 'user_id=kevins%40x.com'; w.frappe = { csrf_token: 'tok' };
-w.prompt = () => 'My view';
+w.prompt = () => 'My view'; w.confirm = () => true;
 const TODAY = '2026-11-17';
 const users = ['kevins@x.com','jay@x.com','ryanb@x.com'].map(n => ({ name: n, full_name: n.split('@')[0] }));
 const ptasks = [
@@ -25,13 +25,38 @@ const D = { today: TODAY, generated: '2026-11-17 16:00:00', note_names: {}, note
  fin: { mtd: 8000, goal: 25000, last_month: 9000, mtdN: 3, ar: 4000 }, ar: [], monthly: [{month:'2026-10',si:9000},{month:'2026-11',si:8000}], conc: [], conc_total: 0, trend: [], active90: 5, tiers: {}, customers: ['A'], lowstock: [],
  projects: [ { name:'PROJ-1', project_name:'Lutron launch', status:'Open', customer:'A', expected_start_date:'2026-11-01', expected_end_date:'2026-12-01', percent_complete:30, notes:'<p>Notes here</p>', priority:'High' }, { name:'PROJ-2', project_name:'Spec sheets', status:'Open', expected_end_date:'2026-12-15', percent_complete:0 } ], ptasks };
 let finOK = true, feedFail = false; const calls = [];
+// in-memory meeting agenda behind the gateway's agenda_* actions
+const AGS = { meetings: [], items: [] }; let agSeq = 0;
+const agRefs = items => { const r = {}; items.forEach(i => {
+  if (i.reference_doctype === 'Sales Order') r['Sales Order|' + i.reference_name] = { name: i.reference_name, customer: 'A', status: 'To Deliver', grand_total: 5000 };
+  if (i.reference_doctype === 'Quotation') r['Quotation|' + i.reference_name] = { name: i.reference_name, status: 'Open', grand_total: 1200 };
+  if (i.reference_doctype === 'ToDo') r['ToDo|' + i.reference_name] = { name: i.reference_name, description: '<p>Call Bob</p><p>[email] Owners: k</p>', status: 'Open' }; }); return r; };
+const agendaReply = b => { const v = b.values || {};
+  if (b.action === 'agenda_list') return { today: TODAY, can_edit: true, meetings: AGS.meetings.map(m => ({ ...m, items: AGS.items.filter(i => i.agenda === m.name).length, open: AGS.items.filter(i => i.agenda === m.name && i.status === 'Open').length })) };
+  if (b.action === 'agenda_create') { const name = 'MTG-' + (++agSeq); AGS.meetings.unshift({ name, title: v.title, meeting_date: v.meeting_date, status: 'Open', notes: '' }); return { name, carried: 0 }; }
+  if (b.action === 'agenda_get') { const items = AGS.items.filter(i => i.agenda === b.name).sort((a, c) => a.sort_order - c.sort_order);
+    return { agenda: { ...AGS.meetings.find(m => m.name === b.name) }, items: items.map(i => ({ ...i })), refs: agRefs(items), can_edit: true,
+      columns: { 'Sales Order': [{ fieldname: 'name', label: 'ID', type: 'Data' }, { fieldname: 'grand_total', label: 'Total', type: 'Currency' }] } }; }
+  if (b.action === 'agenda_add') { if (v.reference_name && AGS.items.some(i => i.agenda === b.agenda && i.reference_name === v.reference_name)) return { name: 'dup', duplicate: true };
+    const it = { name: 'AI-' + (++agSeq), agenda: b.agenda, item_title: v.item_title, details: '', presenter: v.presenter || null, status: 'Open', outcome: '', reference_doctype: v.reference_doctype || null, reference_name: v.reference_name || null, sort_order: AGS.items.length + 1 };
+    AGS.items.push(it); return { name: it.name }; }
+  if (b.action === 'agenda_update') { Object.assign(AGS.items.find(i => i.name === b.name), v); return { name: b.name }; }
+  if (b.action === 'agenda_order') { b.names.forEach((n, k) => { AGS.items.find(i => i.name === n).sort_order = k + 1; }); return { ordered: b.names.length }; }
+  if (b.action === 'agenda_save_meeting') { Object.assign(AGS.meetings.find(m => m.name === b.name), v); return { name: b.name }; }
+  if (b.action === 'agenda_todo') { const it = AGS.items.find(i => i.name === b.name), made = v.owners.map((o, k) => ({ name: 'TD-M' + (++agSeq), owner: o, title: v.title, date: v.date }));
+    it.todo_names = JSON.stringify(JSON.parse(it.todo_names || '[]').concat(made)); AGS.lastTodo = v; return { todos: made }; }
+  if (b.action === 'agenda_remove') { AGS.items = AGS.items.filter(i => i.name !== b.name); return { removed: 1 }; }
+  throw new Error('unknown ' + b.action); };
 const gwReply = b => {
   calls.push(b.action);
-  if (b.action === 'config') return { user:'k', can_edit:true, today:TODAY, sections:[{key:'quotes',label:'Quotes',locked:false,needs:''},{key:'projects',label:'Projects & tasks',locked:false,needs:''},{key:'finance',label:'Finance',locked:!finOK,needs:'Command Center Finance'}], doctypes:{ Quotation:{section:'quotes',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'},{fieldname:'grand_total',label:'Total',type:'Currency'}]}, ToDo:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'}]}, Task:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'}]} } };
+  if (b.action === 'config') return { user:'k', can_edit:true, today:TODAY, sections:[{key:'quotes',label:'Quotes',locked:false,needs:''},{key:'projects',label:'Projects & tasks',locked:false,needs:''},{key:'finance',label:'Finance',locked:!finOK,needs:'Command Center Finance'}], doctypes:{ Quotation:{section:'quotes',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'},{fieldname:'grand_total',label:'Total',type:'Currency'}]}, ToDo:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'}]}, 'Sales Order':{section:'quotes',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'customer',label:'Customer',type:'Link'},{fieldname:'status',label:'Status',type:'Select'}]}, Task:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'}]} } };
   if (b.action === 'counts') return { counts:{ Quotation:3, Task:null } };
   if (b.action === 'list' && b.dt === 'ToDo') return { rows:[{name:'TD-1',description:'<p>Call Bob</p><p>[email] Owners: k</p>',status:'Open'},{name:'TD-2',description:'<p>Order tape</p>',status:'Open'}], columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'description',label:'Description',type:'Small Text'},{fieldname:'status',label:'Status',type:'Select'}], total:2 };
   if (b.action === 'list') return { rows:[{name:'QTN-1',status:b.filters&&b.filters.status||'Open',grand_total:1200}], columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'},{fieldname:'grand_total',label:'Total',type:'Currency'}], total:1 };
   if (b.action === 'overview') return { today:TODAY, finance_ok:finOK, sections:[], can_edit:true, stats:{ Quotation:{section:'quotes',count:3,value:9000,statuses:[['Open',2,7000],['Ordered',1,2000]]}, 'Sales Order':{section:'orders',count:2,value:12000,statuses:[['To Deliver',2,12000]]}, 'Purchase Order':{statuses:[['To Receive',1,3000]]}, ...(finOK?{'Sales Invoice':{statuses:[['Overdue',1,500],['Paid',4,0]]}}:{}) }, signals:[{id:'a',label:'Quotes expiring within 7 days',dt:'Quotation',count:2,status:'Open',tone:'warn'},{id:'b',label:'Overdue invoices',dt:'Sales Invoice',count:0,status:'Overdue',tone:'bad'}] };
+  if (b.action.startsWith('agenda_')) return agendaReply(b);
+  if (b.action === 'get') return { doc: { name: b.name, status: 'Open', docstatus: 0, grand_total: 1200 }, audit: [], editable: true };
+  if (b.action === 'meta') return { dt: b.dt, fields: [], required_tables: [], can_edit: true };
   if (b.action === 'feed' && feedFail) throw new Error('feed down');
   if (b.action === 'feed') return { rows:[{creation:'2026-11-17 10:00:00',owner:'kevins@x.com',content:'Command Center: edited by kevins (status: Open -> Working)',reference_doctype:'Task',reference_name:'TASK-2'}] };
   throw new Error('unknown ' + b.action);
@@ -145,6 +170,60 @@ const go = async h => { w.location.hash = h; await sleep(120); };
   boardMoney = false; w.document.querySelector('#pbrefresh').click(); await sleep(150);
   check('mfg hides dollars without role', /need the Command Center Finance/.test(txt()));
   boardMoney = true;
+  // ---- meeting agenda ----
+  const submit = f => f.dispatchEvent(new w.Event('submit', { cancelable: true, bubbles: true }));
+  const sheet = () => w.document.querySelector('#ccsheet2');
+  check('nav has Agenda', /Agenda/.test(w.document.querySelector('#ccnav').textContent));
+  await go('agenda'); await sleep(200);
+  check('agenda empty state', /No meeting agendas yet/.test(txt()));
+  w.document.querySelector('[data-agnew]').click(); await sleep(50);
+  check('new meeting sheet defaults to today', sheet().querySelector('input[name="meeting_date"]').value === TODAY);
+  submit(sheet().querySelector('#wbform')); await sleep(300);
+  check('meeting created and shown', /#agenda\/MTG-1/.test(w.location.hash) && /Weekly meeting/.test(txt()) && /Nothing on this agenda yet/.test(txt()));
+  w.document.querySelector('#agaddt').value = 'Hiring plan for Q1'; submit(w.document.querySelector('#agaddf')); await sleep(250);
+  check('free-text item added with presenter', /Hiring plan for Q1/.test(txt()) && AGS.items[0].presenter === 'kevins@x.com');
+  w.document.querySelector('[data-agpicker]').click(); await sleep(150);
+  const sug = sheet().textContent;
+  check('picker suggests at-risk orders + expiring quotes', /Sales orders at risk/.test(sug) && /ilL-SAL-ORD-1|Sales Order 1/.test(sug) && /Quotes expiring this week/.test(sug));
+  const soBtn = [...sheet().querySelectorAll('.ag-pk-row')].find(r => /Sales Order 1/.test(r.textContent)).querySelector('[data-agpk]');
+  soBtn.click(); await sleep(250);
+  check('suggested SO added, picker marks it', AGS.items.some(i => i.reference_doctype === 'Sales Order' && i.reference_name === 'ilL-SAL-ORD-1') && /On the agenda/.test(sheet().textContent));
+  sheet().querySelector('[data-agtab="search"]').click(); await sleep(250);
+  check('search tab lists records', !!sheet().querySelector('#agpkdt') && /QTN-1/.test(sheet().textContent));
+  sheet().querySelector('#agpkdt').value = 'Quotation'; sheet().querySelector('#agpkdt').dispatchEvent(new w.Event('change')); await sleep(250);
+  sheet().querySelector('[data-agpk]').click(); await sleep(250);
+  check('searched quote added', AGS.items.some(i => i.reference_doctype === 'Quotation' && i.reference_name === 'QTN-1'));
+  sheet().querySelector('[data-close]').click(); await sleep(50);
+  check('linked item shows live status + value', /To Deliver/.test(txt()) && /\$5,000/.test(txt()));
+  const soItem = () => [...w.document.querySelectorAll('.ag-item')].find(r => /Sales Order/.test(r.textContent));
+  const d = soItem().querySelector('[data-agdone]'); d.checked = true; d.dispatchEvent(new w.Event('change')); await sleep(250);
+  check('mark discussed saves', AGS.items.find(i => i.reference_name === 'ilL-SAL-ORD-1').status === 'Discussed' && /1 discussed/.test(txt()));
+  const o = soItem().querySelector('[data-agout]'); o.value = 'Ship Friday'; o.dispatchEvent(new w.Event('change')); await sleep(250);
+  check('outcome saved', AGS.items.find(i => i.reference_name === 'ilL-SAL-ORD-1').outcome === 'Ship Friday');
+  soItem().querySelector('[data-agtodo]').click(); await sleep(50);
+  check('to-do sheet prefilled from outcome, due a week later', sheet().querySelector('input[name="title"]').value === 'Ship Friday' && sheet().querySelector('input[name="date"]').value === '2026-11-24');
+  sheet().querySelector('input[name="owner"][value="jay@x.com"]').checked = true; submit(sheet().querySelector('#wbform')); await sleep(300);
+  check('to-do created for owner', AGS.lastTodo && AGS.lastTodo.owners.join() === 'jay@x.com' && AGS.lastTodo.title === 'Ship Friday');
+  check('item lists its to-do', /Ship Friday/.test(soItem().querySelector('.ag-todos').textContent) && /jay/.test(soItem().querySelector('.ag-todos').textContent));
+  w.document.querySelector('.ag-item [data-agmv="1"]').click(); await sleep(250);
+  check('move down reorders', /Hiring plan/.test(w.document.querySelectorAll('.ag-item')[1].textContent) && calls.includes('agenda_order'));
+  AGS.items.push({ name: 'AI-99', agenda: 'MTG-1', item_title: 'Call Bob', status: 'Open', reference_doctype: 'ToDo', reference_name: 'TD-1', sort_order: 99 });
+  w.document.querySelector('#ccrefresh').click(); await sleep(300);
+  check('Refresh re-reads the agenda', /Call Bob/.test(txt()));
+  w.document.querySelector('#ccmeeting').click(); await sleep(250);
+  check('meeting mode hides private email to-do', !/Call Bob/.test(txt()) && /1 hidden in meeting mode/.test(txt()));
+  w.document.querySelector('#ccmeeting').click(); await sleep(250);
+  const ed = [...w.document.querySelectorAll('.ag-item')].find(r => /Call Bob/.test(r.textContent)).querySelector('button[data-agedit]'); ed.click(); await sleep(50);
+  sheet().querySelector('#agrm').click(); await sleep(250);
+  check('remove item', !AGS.items.some(i => i.name === 'AI-99') && !/Call Bob/.test(txt()));
+  w.document.querySelector('[data-agclose]').click(); await sleep(250);
+  check('close meeting', AGS.meetings[0].status === 'Closed' && /Reopen/.test(txt()));
+  w.document.querySelector('[data-agclose]').click(); await sleep(250);
+  await go('wb/Quotation'); await sleep(250);
+  w.document.querySelector('[data-wbopen]').click(); await sleep(250);
+  const n0 = AGS.items.length; sheet().querySelector('#wbagenda').click(); await sleep(250);
+  check('workbench "+ Add to agenda" adds to the open meeting', /Already on|Added to/.test(w.document.querySelector('#cctoast').textContent) && AGS.items.length === n0 && /Already on the agenda/.test(sheet().textContent));
+  sheet().querySelector('[data-close]').click();
   for (const v of ['quotes','orders','purch','mfg','ship','service','requests','inbox','finance','work','p-PROJ-1','so-ilL-SAL-ORD-1','rec']) { await go(v); check('view ' + v + ' renders', txt().length > 50 && !/Couldn't load data/.test(txt())); }
   console.log('gateway actions seen:', [...new Set(calls)].join(','));
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS'); process.exit(errs.length ? 1 : 0);

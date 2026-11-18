@@ -17,6 +17,9 @@ Behaviour
       The backup is best-effort (System Settings may not allow .js/.css uploads): if it fails
       the page is still updated, and Web Page's Version history keeps the old values anyway.
     * Finds the page by name, or by its route (/command-center) if it was renamed.
+    * Gives the Command Center roles access to the meeting agenda doctypes (ilL-Meeting-Agenda,
+      ilL-Meeting-Agenda-Item): Viewer reads, Editor reads and writes. Like the roles, a grant is
+      only added when that role has no rule on the doctype yet, so desk changes are kept.
     * Creates the Command Center roles if missing. People are given a role only at the moment
       the role is first created; after that the desk (User -> Roles) is the only authority,
       so removing someone in the desk is never undone by a later deploy.
@@ -40,6 +43,14 @@ ROLES = {
 	"Command Center Finance": ["charlotte", "jay", "kevins"],
 }
 
+# meeting agenda doctypes (this app) -> role -> permissions; System Manager comes from the doctype JSON
+AGENDA_DOCTYPES = ("ilL-Meeting-Agenda", "ilL-Meeting-Agenda-Item")
+AGENDA_PERMS = {
+	"Command Center Viewer": {"read", "select", "report", "print"},
+	"Command Center Editor": {"read", "select", "report", "print", "write", "create", "delete"},
+}
+PTYPES = ("read", "select", "write", "create", "delete", "report", "print", "export", "share", "email")
+
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "command_center")
 
 
@@ -50,7 +61,7 @@ def _read(*parts):
 
 def sync():
 	"""after_migrate hook."""
-	for step in (_sync_roles, _sync_server_script, _sync_web_page):
+	for step in (_sync_roles, _sync_agenda_permissions, _sync_server_script, _sync_web_page):
 		# Every after_migrate hook shares one transaction, so on failure undo only this step,
 		# not uncommitted work from the hooks that ran before it.
 		frappe.db.savepoint("command_center_sync")
@@ -82,6 +93,30 @@ def _sync_roles():
 			if user:
 				frappe.get_doc("User", user).add_roles(role)
 	return "roles created: " + ", ".join(created) if created else "roles unchanged"
+
+
+def _sync_agenda_permissions():
+	from frappe.permissions import add_permission, update_permission_property
+
+	added = []
+	for doctype in AGENDA_DOCTYPES:
+		if not frappe.db.exists("DocType", doctype):
+			continue
+		for role, perms in AGENDA_PERMS.items():
+			if not frappe.db.exists("Role", role):
+				continue
+			if frappe.db.exists(
+				"Custom DocPerm", {"parent": doctype, "role": role, "permlevel": 0, "if_owner": 0}
+			):
+				continue
+			add_permission(doctype, role, 0)
+			for ptype in PTYPES:
+				update_permission_property(doctype, role, 0, ptype, int(ptype in perms), validate=False)
+			added.append(f"{role} on {doctype}")
+	if not added:
+		return "agenda permissions unchanged"
+	frappe.clear_cache()
+	return "agenda permissions added: " + "; ".join(added)
 
 
 def _sync_server_script():
