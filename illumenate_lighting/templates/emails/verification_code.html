@@ -1,0 +1,7 @@
+{#- Overrides Frappe's emailed sign-in code (two-factor method "Email").
+Frappe passes: code, minutes. -#}
+{% from "templates/emails/ill_macros.html" import heading, para, small, code as show_code %}
+{{ heading("Your sign-in code") }}
+{{ para("Enter this code to finish signing in. It expires in " ~ ("1 minute" if minutes == 1 else (minutes ~ " minutes")) ~ ".") }}
+{{ show_code(code) }}
+{{ small("Didn't ask for this code? You can ignore this email; someone may have typed your email by mistake.") }}

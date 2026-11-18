@@ -207,7 +207,11 @@ jinja = {
 		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_email_context",
 		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_tracking",
 		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_money",
-		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_date"],
+		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_date",
+		# The branded email card and sign-in emails (templates/emails/, email_templates/brand.py).
+		"illumenate_lighting.illumenate_lighting.email_templates.brand.ill_email_brand",
+		"illumenate_lighting.illumenate_lighting.email_templates.brand.ill_link_lifetime",
+		"illumenate_lighting.illumenate_lighting.email_templates.brand.ill_is_staff"],
 }
 
 # One route contract for Desk scripts (hardening plan 7.1).

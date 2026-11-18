@@ -18,6 +18,12 @@ from dataclasses import dataclass
 BODIES = os.path.join(os.path.dirname(__file__), "bodies")
 PREFIX = "ilL - "
 
+# Frappe sends a Notification (and the app's auto-sends) without a container, the same way
+# as a person's composer email, so the wrapper can't tell them apart. Templates sent
+# automatically start with this marker, and templates/emails/standard.html puts any email
+# that carries it in the ilLumenate card.
+CARD_MARKER = "<!-- ill:card -->"
+
 
 @dataclass(frozen=True)
 class Template:
@@ -40,7 +46,8 @@ class Template:
 
 	def body(self):
 		with open(self.path, encoding="utf-8") as handle:
-			return handle.read()
+			text = handle.read()
+		return f"{CARD_MARKER}\n{text}" if self.slug in automatic_slugs() else text
 
 
 @dataclass(frozen=True)
@@ -584,6 +591,14 @@ NOTIFICATIONS = [
 ]
 
 BY_SLUG = {t.slug: t for t in TEMPLATES}
+
+# Sent by the app after submit (email_templates/auto_send.py JOBS).
+AUTO_SEND_SLUGS = ("so_confirmation", "dn_shipped")
+
+
+def automatic_slugs():
+	"""Templates sent with nobody at the keyboard: Notifications and the app's auto-sends."""
+	return {rule.template for rule in NOTIFICATIONS} | set(AUTO_SEND_SLUGS)
 
 
 def template_name(slug):
