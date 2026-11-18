@@ -28,8 +28,11 @@ class OnPortal(unittest.TestCase):
 		product = {"fixture_template": "ILL-EL01-SW", "is_active": 0}
 		self.assertTrue(call("on_portal", product, status("Active"), staff=False))
 
-	def test_dealers_see_only_active_templates(self):
+	def test_dealers_see_active_and_active_live_templates(self):
 		product = {"fixture_template": "ILL-EL01-SW", "is_active": 1}
+		for value in ("Active", "Active + Live"):
+			self.assertTrue(call("on_portal", product, status(value), staff=False), value)
+			self.assertTrue(call("on_portal", product, status(value), staff=True), value)
 		for value in ("Internal Only", "Draft", "Discontinued", "Archived", None):
 			self.assertFalse(call("on_portal", product, status(value), staff=False), value)
 
@@ -39,6 +42,15 @@ class OnPortal(unittest.TestCase):
 		self.assertTrue(call("on_portal", product, status("Active"), staff=True))
 		for value in ("Draft", "Discontinued", "Archived", None):
 			self.assertFalse(call("on_portal", product, status(value), staff=True), value)
+
+	def test_permission_and_list_condition_include_active_live(self):
+		with load_service(ROOT + ".portal_listing") as (module, frappe):
+			as_user(module, frappe, "dealer@example.com")
+			self.assertTrue(module.template_has_permission(Record(product_status="Active + Live")))
+			self.assertFalse(module.template_has_permission(Record(product_status="Internal Only")))
+			condition = module.template_query_conditions("ilL-Fixture-Template", "dealer@example.com")
+			self.assertIn("'Active + Live'", condition)
+			self.assertIn("'Active'", condition)
 
 	def test_a_standalone_listing_follows_its_active_flag(self):
 		self.assertTrue(call("on_portal", {"is_active": 1}, status("Archived"), staff=False))
@@ -89,13 +101,13 @@ class TemplateFilters(unittest.TestCase):
 	def test_dealers_are_offered_active_templates_only(self):
 		self.assertEqual(
 			call("template_filters", False, product_category="LED Neon"),
-			{"product_category": "LED Neon", "product_status": ["in", ["Active"]]},
+			{"product_category": "LED Neon", "product_status": ["in", ["Active", "Active + Live"]]},
 		)
 
 	def test_staff_are_offered_internal_only_templates_too(self):
 		self.assertEqual(
 			call("template_filters", True),
-			{"product_status": ["in", ["Active", "Internal Only"]]},
+			{"product_status": ["in", ["Active", "Active + Live", "Internal Only"]]},
 		)
 
 
@@ -155,7 +167,7 @@ class Permissions(unittest.TestCase):
 			as_user(module, frappe, "dealer@example.com")
 			self.assertEqual(
 				module.fixture_template_conditions("dealer@example.com"),
-				"`tabilL-Fixture-Template`.product_status = 'Active'",
+				"`tabilL-Fixture-Template`.product_status in ('Active', 'Active + Live')",
 			)
 			as_user(module, frappe, "sales@illumenate.example", "System User")
 			self.assertEqual(module.driver_template_conditions("sales@illumenate.example"), "")
@@ -163,10 +175,20 @@ class Permissions(unittest.TestCase):
 	def test_documents_of_internal_templates_are_closed_to_non_staff(self):
 		with load_service(ROOT + ".portal_listing") as (module, frappe):
 			as_user(module, frappe, "dealer@example.com")
-			self.assertFalse(module.template_has_permission({"product_status": "Internal Only"}, "read", "dealer@example.com"))
-			self.assertTrue(module.template_has_permission({"product_status": "Active"}, "read", "dealer@example.com"))
+			self.assertFalse(
+				module.template_has_permission(
+					{"product_status": "Internal Only"}, "read", "dealer@example.com"
+				)
+			)
+			self.assertTrue(
+				module.template_has_permission({"product_status": "Active"}, "read", "dealer@example.com")
+			)
 			as_user(module, frappe, "sales@illumenate.example", "System User")
-			self.assertTrue(module.template_has_permission({"product_status": "Internal Only"}, "read", "sales@illumenate.example"))
+			self.assertTrue(
+				module.template_has_permission(
+					{"product_status": "Internal Only"}, "read", "sales@illumenate.example"
+				)
+			)
 
 
 class PortalCondition(unittest.TestCase):
@@ -174,11 +196,14 @@ class PortalCondition(unittest.TestCase):
 		sql = call("portal_condition", "wp", staff=False)
 		for field in ("fixture_template", "kit_template", "led_sheet_template"):
 			self.assertIn(f"wp.{field}", sql)
-		self.assertIn("product_status in ('Active')", sql)
+		self.assertIn("product_status in ('Active', 'Active + Live')", sql)
 		self.assertIn("wp.is_active = 1", sql)
 
 	def test_staff_condition_includes_internal_only(self):
-		self.assertIn("product_status in ('Active', 'Internal Only')", call("portal_condition", "wp", staff=True))
+		self.assertIn(
+			"product_status in ('Active', 'Active + Live', 'Internal Only')",
+			call("portal_condition", "wp", staff=True),
+		)
 
 
 if __name__ == "__main__":

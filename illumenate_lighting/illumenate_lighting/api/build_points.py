@@ -450,11 +450,30 @@ def _bom_has_fields():
 	return frappe.get_meta("BOM").has_field(STAMPED_FIELD)
 
 
+def light_engine_profile(fixture, engine):
+	"""One run of a ship-in-pieces fixture: its leader, its jumpers, never assembly."""
+	conductors, warning = led_conductors(tape_offering=fixture.get("tape_offering"))
+	wet = is_wet(environment_rating=fixture.get("environment_rating"))
+	return _result(tally([(conductors, wet)], fmc=len(engine.get("jumpers_mm") or [])), [warning])
+
+
+def _light_engine(item_code):
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import engine_for_item
+
+	try:
+		return engine_for_item(item_code)
+	except Exception:
+		return None
+
+
 def stamp_bom(bom_name, *, item_code=None, values=None):
 	"""Count the build behind a BOM and store per-unit counts and points on it."""
 	item_code = item_code or frappe.db.get_value("BOM", bom_name, "item")
-	configured = configured_for_item(item_code)
-	if configured:
+	engine = _light_engine(item_code)
+	configured = None if engine else configured_for_item(item_code)
+	if engine:
+		result = light_engine_profile(engine[0], engine[1])
+	elif configured:
 		result = profile(*configured)
 	else:
 		result = _result(empty(), [])  # Stock items and purchased parts carry no build points.
@@ -513,6 +532,8 @@ def order_totals(doc, values=None):
 	lines, total, warnings = {}, empty(), []
 	for row in doc.get("items") or []:
 		counts = bom_counts(line_bom(row)) if row.get("item_code") else None
+		if counts is None and row.get("ill_configured_fixture"):
+			counts = _light_engine_counts(row.get("ill_configured_fixture"))
 		qty = float(row.get("stock_qty") or row.get("qty") or 0)
 		line = add(empty(), counts or {}, qty)
 		line["points"] = score(line, weight)
@@ -530,6 +551,25 @@ def order_totals(doc, values=None):
 	total["worth_per_point"] = round(net / total["points"], 2) if total["points"] else 0
 	total["warnings"] = warnings
 	return lines, total
+
+
+def _light_engine_counts(fixture_name):
+	"""Per-unit counts of a ship-in-pieces line: the sum of its light engine BOMs."""
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import is_ship_pieces, light_engines
+
+	try:
+		fixture = frappe.get_doc("ilL-Configured-Fixture", fixture_name)
+		if not is_ship_pieces(fixture):
+			return None
+		total, warnings = empty(), []
+		for engine, _code, bom in light_engines(fixture):
+			counts = bom_counts(bom) or {}
+			add(total, counts, engine["qty"])
+			warnings.extend(counts.get("warnings") or [])
+	except Exception:
+		return None
+	total["warnings"] = warnings
+	return total
 
 
 def _order_fields_exist():

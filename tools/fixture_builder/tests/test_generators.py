@@ -597,11 +597,13 @@ class TestWebflowProduct(unittest.TestCase):
 
     def test_is_configurable(self):
         path = gen_webflow_product.generate(self.config, self.tmpdir)
-        _, rows = _read_csv(path)
+        headers, rows = _read_csv(path)
         # Primary rows should have Is Configurable = 1
+        column = headers.index("Is Configurable")
         primary_rows = [r for r in rows if r[0] != ""]
+        self.assertTrue(primary_rows)
         for r in primary_rows:
-            self.assertEqual(str(r[13]), "1")
+            self.assertEqual(str(r[column]), "1")
 
 
 class TestGenerateAll(unittest.TestCase):

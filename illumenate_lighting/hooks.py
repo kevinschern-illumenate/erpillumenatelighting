@@ -59,7 +59,7 @@ web_include_js = ["illumenate_web.bundle.js"]
 # include js in doctype views
 doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js"],
     "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
-    "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
+    "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
 for _name in ("Quotation", "Sales Order", "Sales Invoice", "ilL-Project", "ilL-Project-Fixture-Schedule"):
@@ -88,7 +88,7 @@ for _name in (
 ):
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
-    doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/product_media.js", "public/js/product_clone.js"]
+    doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/template_webflow_link.js", "public/js/webflow_sync.js", "public/js/template_spec_sheet.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/template_sidebar.js", "public/js/publication_history.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -112,6 +112,9 @@ role_home_page = {
 	"Website User": "portal",
 	"Customer": "portal",
 }
+
+# Stable spec sheet links: /spec-sheets/<template>.pdf redirects to the current file (Phase 4).
+page_renderer = ["illumenate_lighting.illumenate_lighting.spec_sheet_route.SpecSheetRedirect"]
 
 # Website Route Rules
 # -------------------
@@ -554,8 +557,16 @@ doc_events = {
 	},
 	# Webflow product and category sync events
 	"ilL-Webflow-Product": {
-		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_product_update",
+		"on_update": [
+			"illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_product_update",
+			# A restore, or archiving a page that was ever published, waits for approval (plan 4.19).
+			"illumenate_lighting.illumenate_lighting.webflow_approvals.on_product_update",
+			# A synced product pushes to Webflow 2 minutes after its last save (plan 4.19 Q2).
+			"illumenate_lighting.illumenate_lighting.webflow_auto_push.on_product_update",
+		],
 	},
+	# Only the Webflow Product's own Webflow Status raises approvals; template status changes
+	# push to the linked product as usual (owner, 2026-11-06).
 	"ilL-Webflow-Category": {
 		"on_update": "illumenate_lighting.illumenate_lighting.api.webflow_sync_events.on_category_update",
 	},
@@ -569,7 +580,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick"]}}
 
 # Testing
 # -------
@@ -609,7 +620,8 @@ override_doctype_dashboards = {
 # point at their subject by Dynamic Link, like Communication. Without this a
 # rejected or withdrawn draft Sales Order could never be deleted once its
 # decision email was queued.
-ignore_links_on_delete = ["ilL-Portal-Event"]
+# A waiting automatic Webflow push never blocks deleting its product; the tick drops it.
+ignore_links_on_delete = ["ilL-Portal-Event", "ilL-Webflow-Auto-Push"]
 
 # Request Events
 # ----------------
@@ -698,7 +710,7 @@ for _option_doctype in ("ilL-Rel-Driver-Eligibility", "ilL-Rel-Kit-Endcap-Map", 
 for _template_doctype in ("ilL-Fixture-Template", "ilL-Tape-Neon-Template", "ilL-Controller-Template", "ilL-Driver-Template", "ilL-Extrusion-Kit-Template", "ilL-LED-Sheet-Template"):
 	_template_hooks = doc_events.setdefault(_template_doctype, {})
 	_template_old = _template_hooks.get("on_update", [])
-	_template_hooks["on_update"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.web_listing_source.sync_to_listing"]
+	_template_hooks["on_update"] = ([_template_old] if isinstance(_template_old, str) else list(_template_old)) + ["illumenate_lighting.illumenate_lighting.web_listing_source.sync_to_listing", "illumenate_lighting.illumenate_lighting.webflow_state.on_template_update"]
 
 # Beam angle, charts and cone of light on the templates are copies of the linked
 # ilL-Spec-Photometry / ilL-Spec-Colorimetry records.

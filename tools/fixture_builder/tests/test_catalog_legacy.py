@@ -59,9 +59,8 @@ class LegacyCatalogTests(unittest.TestCase):
 			self.assertEqual(rows[0][headers.index("Item Code")], "SHEET")
 			self.assertEqual(rows[0][headers.index("Default Unit of Measure")], "Nos")
 			headers, *rows = self.read(files["ilL-Webflow-Product.csv"])
-			steps = [row[headers.index("Option Type (Configurator Options)")] for row in rows]
-			self.assertEqual(steps.count("Coverage"), 1)
-			self.assertNotIn("Coverage Width", steps)
+			# The template calculates its configurator steps; the product gets none (Phase 2c).
+			self.assertFalse(any("Configurator Options" in header for header in headers))
 
 	def test_mounting_map_is_generated_for_tape_and_neon(self):
 		config = _neon_config()

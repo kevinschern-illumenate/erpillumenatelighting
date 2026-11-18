@@ -256,7 +256,7 @@ class TestDeskConfigurator(FrappeTestCase):
 
 		self.assertEqual(result["header_values"]["ill_fixture_schedule"], schedule.name)
 		self.assertEqual(result["schedule_line_name"], line.name)
-		self.assertEqual(result["next_fixture_type"], "A2")
+		self.assertEqual(result["next_fixture_type"], "L1")
 
 		# MSRP Item Price was published so get_item_details finds a rate.
 		self.assertEqual(flt(qoc._get_selling_rate(self.item_code)), 199.0)
@@ -511,11 +511,11 @@ class TestDeskConfigurator(FrappeTestCase):
 	def test_next_fixture_type_considers_form_ids(self):
 		schedule = self._create_schedule(
 			name="_Test Desk Cfg Next Id",
-			lines=[{"line_id": "A1", "qty": 1, "manufacturer_type": "OTHER", "manufacturer_name": "X"}],
+			lines=[{"line_id": "L1", "qty": 1, "manufacturer_type": "OTHER", "manufacturer_name": "X"}],
 		)
-		self.assertEqual(dc.get_next_fixture_type(schedule.name), "A2")
-		self.assertEqual(dc.get_next_fixture_type(schedule.name, json.dumps(["A2", "A3"])), "A4")
-		self.assertEqual(dc.get_next_fixture_type(None, ["A1"]), "A2")
+		self.assertEqual(dc.get_next_fixture_type(schedule.name), "L2")
+		self.assertEqual(dc.get_next_fixture_type(schedule.name, json.dumps(["L2", "L3"])), "L4")
+		self.assertEqual(dc.get_next_fixture_type(None, ["L1"]), "L2")
 
 	def test_get_schedule_picker_data(self):
 		schedule = self._create_schedule(
@@ -535,7 +535,7 @@ class TestDeskConfigurator(FrappeTestCase):
 		data = dc.get_schedule_picker_data(schedule.name)
 		self.assertTrue(data["success"], data)
 		self.assertEqual(data["locations"], ["Lobby"])
-		self.assertEqual(data["next_fixture_type"], "A3")
+		self.assertEqual(data["next_fixture_type"], "L1")
 		self.assertEqual(len(data["lines"]), 2)
 		self.assertTrue(data["lines"][0]["is_pending"])
 		self.assertFalse(data["lines"][1]["is_pending"])

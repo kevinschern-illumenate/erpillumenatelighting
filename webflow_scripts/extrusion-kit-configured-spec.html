@@ -1,0 +1,134 @@
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  async function handleDownloadSpecSheet() {
+    try {
+      // === 1. GRAB DETAILS FROM THE PAGE & MODAL ===
+      const productName = document.getElementById('cms-product-name')?.textContent.trim() || 'Product';
+      const projectName = document.getElementById('ill-project-name')?.value.trim() || '';
+      const projectLocation = document.getElementById('ill-project-location')?.value.trim() || '';
+      
+      /* 🆕 FIXTURE TYPE EXTRACTION: Maps your optional fixture type input field.
+         Change 'ill-fixture-type' if your Webflow element ID is named differently! */
+      const fixtureType = document.getElementById('ill-fixture-type')?.value.trim() || '';
+
+      // === 2. DYNAMICALLY EXTRACT CONFIGURATOR SELECTIONS ===
+      const lensCard = document.querySelector('.config-card[data-step="1"]');
+      const mountCard = document.querySelector('.config-card[data-step="2"]');
+      const finishCard = document.querySelector('.config-card[data-step="3"]');
+      const lengthCard = document.querySelector('.config-card[data-step="4"]');
+
+      const selectedLensCode = lensCard ? (lensCard.getAttribute('data-selected-code') || '') : '';
+      const selectedMountCode = mountCard ? (mountCard.getAttribute('data-selected-code') || '') : '';
+      const selectedFinishCode = finishCard ? (finishCard.getAttribute('data-selected-code') || '') : '';
+      const selectedLengthCode = lengthCard ? (lengthCard.getAttribute('data-selected-code') || '') : '';
+
+      const checkedLens = lensCard ? lensCard.querySelector('.real-radio-input:checked') : null;
+      const selectedLensText = checkedLens ? (checkedLens.getAttribute('data-label') || checkedLens.value) : '';
+
+      const checkedMount = mountCard ? mountCard.querySelector('.real-radio-input:checked') : null;
+      const selectedMountText = checkedMount ? (checkedMount.getAttribute('data-label') || checkedMount.value) : '';
+
+      const checkedFinish = finishCard ? finishCard.querySelector('.real-radio-input:checked') : null;
+      const selectedFinishText = checkedFinish ? (checkedFinish.getAttribute('data-label') || checkedFinish.value) : '';
+
+      const checkedLength = lengthCard ? lengthCard.querySelector('.real-radio-input:checked') : null;
+      const customLengthInput = lengthCard ? lengthCard.querySelector('.custom-length-input') : null;
+      const selectedLengthText = checkedLength ? (checkedLength.getAttribute('data-label') || checkedLength.value) : (customLengthInput ? customLengthInput.value : '');
+
+      // === NATIVE CMS TEMPLATE EXTRACTION ===
+      const submittalLinkEl = document.getElementById('spec-submittal-link');
+      const url = submittalLinkEl ? (submittalLinkEl.getAttribute('href') || submittalLinkEl.innerText.trim()) : '';
+
+      if (!url || url === '') {
+        console.error("Error: The Spec Submittal file is missing or the #spec-submittal-link element is missing.");
+        return;
+      }
+
+      // Fetch the fillable PDF bytes from Webflow CDN
+      const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+
+      // Load the PDF using pdf-lib
+      const { PDFDocument } = PDFLib;
+      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+      const form = pdfDoc.getForm();
+
+      // === DYNAMIC NAMING & METADATA INJECTION ===
+      const customTitle = `ilLumenate Lighting_Spec Submittal_${productName}`;
+      pdfDoc.setTitle(customTitle);
+
+      // === SAFE INJECTION & SELECTIVE LOCKING HELPER ===
+      const setFieldSafely = (fieldName, value) => {
+        try {
+          const field = form.getTextField(fieldName);
+          
+          /* 🔍 OPTIONAL FIELD CHECK: 
+             If a value actually exists, populate it and lock it down.
+             If it is empty, skip completely so it remains a fillable form element! */
+          if (value && value.trim() !== '') {
+            field.setText(value);
+            field.enableReadOnly();
+          } else {
+            // Explicitly ensure it stays editable if empty
+            field.disableReadOnly(); 
+          }
+        } catch (e) {
+          console.warn(`Field target skipped or not found in PDF layout: "${fieldName}"`);
+        }
+      };
+
+      // Inject captured values into the interactive form layers
+      setFieldSafely('lens', selectedLensText);
+      setFieldSafely('lenscode', selectedLensCode);
+      setFieldSafely('mounting', selectedMountText);
+      setFieldSafely('mountingcode', selectedMountCode);
+      setFieldSafely('finish', selectedFinishText);
+      setFieldSafely('finishcode', selectedFinishCode);
+      setFieldSafely('length', selectedLengthText);
+      setFieldSafely('lengthcode', selectedLengthCode);
+
+      // Inject multi-page duplicate targets for project_name
+      setFieldSafely('project_name#0', projectName);
+      setFieldSafely('project_name#1', projectName);
+      setFieldSafely('project_name.0', projectName);
+      setFieldSafely('project_name.1', projectName);
+      setFieldSafely('project_name', projectName);
+
+      // Inject multi-page duplicate targets for project_location
+      setFieldSafely('project_location#0', projectLocation);
+      setFieldSafely('project_location#1', projectLocation);
+      setFieldSafely('project_location.0', projectLocation);
+      setFieldSafely('project_location.1', projectLocation);
+      setFieldSafely('project_location', projectLocation);
+
+      // 🆕 Inject multi-page duplicate targets for fixture_type
+      setFieldSafely('fixture_type#0', fixtureType);
+      setFieldSafely('fixture_type#1', fixtureType);
+      setFieldSafely('fixture_type.0', fixtureType);
+      setFieldSafely('fixture_type.1', fixtureType);
+      setFieldSafely('fixture_type', fixtureType);
+
+      // === 3. OPEN DIRECTLY IN A NEW TAB ===
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      
+      const fileURL = URL.createObjectURL(blob) + `#filename=${encodeURIComponent(customTitle)}.pdf`;
+      window.open(fileURL, '_blank');
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
+  }
+
+  // === ATTACH TO CLASS SELECTOR ===
+  const downloadBtn = document.querySelector('.extrusions-dwnld-submittal');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', handleDownloadSpecSheet);
+  } else {
+    console.warn("Could not find an element with the class 'extrusions-dwnld-submittal' on this page.");
+  }
+
+});
+</script>

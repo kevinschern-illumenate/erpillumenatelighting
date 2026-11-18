@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-11-22 10:05:00.000000",
+ "description": "Webflow Auto Pushes: a saved Webflow Product that was synced before waits here for its automatic push, due 2 minutes after its last save (plan 4.19). Held while site config webflow_auto_push is off. The row is removed once the push is requested.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "product",
+  "brand",
+  "due_at",
+  "column_break_main",
+  "saved_by",
+  "replaces_job",
+  "scope_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Webflow Product",
+   "options": "ilL-Webflow-Product",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "label": "Brand",
+   "options": "ilL-Webflow-Brand",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "due_at",
+   "fieldtype": "Datetime",
+   "label": "Due At",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "search_index": 1,
+   "description": "2 minutes after the last save; each save moves it."
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "saved_by",
+   "fieldtype": "Link",
+   "label": "Last Saved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "replaces_job",
+   "fieldtype": "Link",
+   "label": "Replaces Failed Job",
+   "options": "ilL-Publish-Job",
+   "read_only": 1,
+   "description": "A failed push waiting for its retry that this newer save replaces."
+  },
+  {
+   "fieldname": "scope_key",
+   "fieldtype": "Data",
+   "label": "Scope Key",
+   "reqd": 1,
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-22 10:05:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Webflow-Auto-Push",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "ilL Catalog Publisher"
+  }
+ ],
+ "sort_field": "due_at",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "product"
+}

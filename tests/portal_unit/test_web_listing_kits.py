@@ -32,7 +32,7 @@ LISTING = {
 			"component_type": "Mounting Kit",
 			"component_item": "ACC-CA01-MC",
 			"quantity": 4,
-			"custom_webflow_title": "Clips",
+			"webflow_title": "Clips",
 		},
 	],
 }
@@ -52,7 +52,7 @@ class KitTemplatePlan(unittest.TestCase):
 		self.assertEqual(values["default_lens_spec"], "LNS-CA01-WH")
 		self.assertEqual(values["allowed_options"][0]["lens_appearance"], "White")
 		self.assertEqual(values["mounting_accessory_qty"], 4)
-		self.assertEqual(values["kit_components"][2]["custom_webflow_title"], "Clips")
+		self.assertEqual(values["kit_components"][2]["webflow_title"], "Clips")
 		self.assertNotIn("component_spec_name", values["kit_components"][2])
 		self.assertFalse(any("stock length" in note for note in notes))
 

@@ -22,6 +22,8 @@ from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_b
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import DEFAULT_UOM
 
 GROUP = "ilL-Configured-Group"
+# A ship-in-pieces run's light engine, packed straight into a group bundle.
+LIGHT_ENGINE = "Light Engine"
 ITEM_GROUP = "Configured Fixture Groups"
 # Configured build doctypes, the module whose ``snapshot`` verifies them, and the Work Order link field.
 MEMBER_SOURCES = (
@@ -33,6 +35,9 @@ MEMBER_SOURCES = (
 
 def member_snapshot(doctype, doc):
 	from importlib import import_module
+
+	if doctype == LIGHT_ENGINE:
+		return {"components": doc.components}
 
 	module = next(module for name, module, _ in MEMBER_SOURCES if name == doctype)
 	return import_module("illumenate_lighting.illumenate_lighting.api." + module).snapshot(doc)
@@ -59,7 +64,7 @@ def build_member(request, member, label):
 			f"{label} no longer builds with the materials pinned in its group; "
 			"reconfigure the group before ordering it"
 		)
-	if not artifact.get("bom"):
+	if not artifact.get("bom") and not artifact.get("ships_in_pieces"):
 		raise ValueError(f"{label}: a BOM could not be prepared for this run")
 	return artifact
 
@@ -68,12 +73,51 @@ def bundle_rows(members, build):
 	"""Bundle contents in run order: one row per distinct Item with its count per group."""
 	rows = {}
 	for artifact in members:
+		if artifact.get("ships_in_pieces"):
+			# ERPNext cannot nest bundles: a run that ships in pieces packs its
+			# light engines and extrusion kit straight into the group bundle.
+			for row in _ship_in_pieces_rows(artifact):
+				rows[row["item_code"]] = rows.get(row["item_code"], 0) + row["qty"]
+			continue
 		rows[artifact["item_code"]] = rows.get(artifact["item_code"], 0) + 1
 	power = build["request"]["power"]
 	if power["include_power_supply"] and not power.get("separate_supply_line"):
 		for driver in build["power_plan"]["drivers"]:
 			rows[driver["driver_item"]] = rows.get(driver["driver_item"], 0) + driver["qty"]
 	return [{"item_code": code, "qty": qty} for code, qty in rows.items()]
+
+
+def _ship_in_pieces_rows(artifact):
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import bundle_rows as kit_rows
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import fulfillment
+
+	fixture = frappe.get_doc(artifact["source_doctype"], artifact["source_name"])
+	items = {row["key"]: row["item_code"] for row in artifact.get("light_engines") or []}
+	return kit_rows(fulfillment(fixture), items)
+
+
+class LightEngineMember(dict):
+	"""A light engine packed in a group bundle, shaped like a configured build member."""
+
+	def __getattr__(self, key):
+		return self.get(key)
+
+
+def _light_engine_member(item_code):
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import engine_for_item
+
+	found = engine_for_item(item_code)
+	if not found:
+		return None
+	fixture, engine, bom = found
+	return LightEngineMember(
+		doctype=LIGHT_ENGINE,
+		name=fixture.name,
+		configured_item=item_code,
+		bom=bom,
+		components=engine["components"],
+		fixture=fixture,
+	)
 
 
 def selling_company(target_doc=None):
@@ -225,6 +269,10 @@ def bundle_members(item_code):
 			if name:
 				members.append((doctype, frappe.get_doc(doctype, name), float(row.qty)))
 				break
+		else:
+			engine = _light_engine_member(row.item_code)
+			if engine is not None:
+				members.append((LIGHT_ENGINE, engine, float(row.qty)))
 	return members
 
 

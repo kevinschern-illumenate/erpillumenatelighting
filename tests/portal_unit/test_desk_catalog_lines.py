@@ -113,6 +113,42 @@ class DeskCatalogLines(unittest.TestCase):
 			self.assertIsNone(result["schedule"])
 			kit._write_kit_line.assert_not_called()
 
+	def test_kit_without_schedule_or_fixture_type_leaves_rows_blank(self):
+		with desk() as (module, frappe, *_):
+			result = self.build(
+				module,
+				frappe,
+				families(),
+				product_type="Extrusion Kit",
+				selections_json=json.dumps({"kit_template": "KIT", "finish": "White"}),
+				qty=1,
+				fixture_type="  ",
+			)
+			self.assertTrue(result["success"], result)
+			rows = [result["row_values"], *result["accessory_rows"]]
+			self.assertTrue(all(r["fixture_type"] is None for r in rows))
+			self.assertIsNone(result["fixture_type"])
+
+	def test_blank_fixture_type_on_a_schedule_gets_the_next_one(self):
+		with desk() as (module, frappe, *_):
+			schedule = Doc(name="S1", status="DRAFT", is_locked=0, lines=[], save=MagicMock(), flags=Doc())
+			written = {}
+			modules = families(driver_write=lambda line, result: written.update(line=line))
+			with patch.object(module, "_load_schedule", return_value=(schedule, None)):
+				result = self.build(
+					module,
+					frappe,
+					modules,
+					product_type="Driver",
+					selections_json={"wattage": "96", "voltage_output": "24"},
+					template="DRV-A",
+					qty=1,
+					schedule="S1",
+				)
+			self.assertTrue(result["success"], result)
+			self.assertEqual(written["line"].line_id, "K2")
+			self.assertEqual(result["fixture_type"], "K2")
+
 	def test_power_supply_on_a_schedule_writes_the_portal_accessory_line(self):
 		with desk() as (module, frappe, *_):
 			schedule = Doc(name="S1", status="DRAFT", is_locked=0, lines=[], save=MagicMock(), flags=Doc())
