@@ -61,6 +61,9 @@ def after_install():
 	from illumenate_lighting.patches.add_work_order_qc_fields import execute as work_order_qc
 
 	work_order_qc()
+	from illumenate_lighting.patches.add_tape_neon_option_value_label import execute as tape_neon_value_label
+
+	tape_neon_value_label()
 	from illumenate_lighting.patches.create_product_finder_role import execute as product_finder_role
 
 	product_finder_role()
