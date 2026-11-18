@@ -218,9 +218,35 @@ Warnings (shown, not blocking):
 - **One workflow deployment per brand**, as for products: credentials in n8n are bound per workflow, not
   looked up from ERP. Staging deployment uses the ERP staging integration user and the staging2 Webflow
   credential. The production deployment uses the production ones.
-- Flow: trigger (schedule, manual, optional ERP webhook nudge) → claim a job → match the remote item (by
-  `erp-sync-id`, falling back to exact slug and verifying `erp-sync-id`) → create or update the staged item →
-  for `PUBLISH`, publish live → acknowledge to ERP with job ID, lease token and hashes.
+- Flow: trigger (manual, and a schedule **every minute**; there is no ERP webhook nudge, so the 1/5/15-minute
+  retries depend on this poll) → claim a job for `$vars.ILL_WEBFLOW_BRAND` at `$vars.ILL_ERP_BASE_URL` →
+  match the remote item (by `erp-sync-id`, falling back to exact slug and verifying `erp-sync-id`) → create
+  or update the staged item → for `PUBLISH`, publish live → acknowledge to ERP with job ID, lease token,
+  hashes and the remote item ID.
+- Built: `tools/build_gallery_workflow.py` writes `n8n_workflows/webflow_gallery_sync.json` (inactive,
+  credentials unbound; regenerate, never hand-edit) and embeds `n8n_workflows/lib/gallery_projection.js`
+  (`projectWebflowGallery(payload, {isDraft})`). The Webflow calls and error codes are the product
+  worker's: list/get items, `POST`/`PATCH` the item, `POST .../items/publish`, `DELETE .../items/{id}/live`
+  then `PATCH {isArchived: true}`. Codes: `transport`, the HTTP status (`429` with `retry_after`),
+  `identity-conflict`, `missing-staged-item`, `publication-unverified`, `archive-unverified`,
+  `projection-invalid`, `response-invalid`, and gallery-only `lookup-incomplete`.
+- Matching. A known remote item ID is fetched directly; it must carry this `erp-sync-id`, or none yet with
+  the same slug (an imported item; the write backfills `erp-sync-id`). Without an ID, Webflow cannot filter
+  by `erp-sync-id`, so the worker reads one page of 100 items and looks for `erp-sync-id` first (this finds
+  an item created before a lost acknowledgement), then the exact slug. A slug match with another or empty
+  `erp-sync-id`, or two candidates, is `identity-conflict`. If the collection has more than 100 items the
+  worker stops with `lookup-incomplete` (permanent) rather than risk a duplicate; add paging before then.
+- `STAGE` writes the item as a draft; `PUBLISH` needs the staged item (else `missing-staged-item`), writes
+  it with `isDraft: false` and publishes it, verified by `publishedItemIds`. `RETIRE` unpublishes and
+  archives, never deletes; an item already absent counts as retired.
+- Null-vs-omit rule (comment in `gallery_projection.js`): every text and rich-text field is always sent,
+  `''` when empty, so a value cleared in ERP is cleared in Webflow; `gallery` and `products-used` are
+  always arrays; `featured-image` is `{url, alt}` or null. An unfilled credit pair is never sent as empty
+  strings: a credit type not in the payload sends null for both slugs (clears a removed credit), and a
+  credit without a website sends null for the website. `completion-date` is an ISO date-time and is omitted
+  when ERP has no date, so clearing the date in ERP leaves the old Webflow date.
+- Acknowledgements carry only job, token, hashes, remote item ID, outcome, error code and `retry_after`:
+  never a Webflow response body or a credential.
 - Retry and error rules follow the product worker: claims last five minutes; a temporary failure (rate
   limit, timeout, connection, 5xx) is retried after 1, then 5, then 15 minutes (`next_retry` in
   `api/publication_contract.py`), and a lease that runs out is a timeout. Permanent errors, and temporary ones
@@ -349,3 +375,8 @@ Still open:
 - 2026-11-18: Task 6 built: gallery form script (`public/js/gallery_publication.js`, wired through `doctype_js`
   and `ill_webflow_gallery.js`) with a brand picker, readiness list (issues red, warnings grey), `Approve and
   Stage`, `Publish Live`, `Retire` and a failed-job `Retry`, plus a hero-image note under the images table.
+- 2026-11-18: Task 7 built: `n8n_workflows/lib/gallery_projection.js`, `tools/build_gallery_workflow.py` and the
+  generated `n8n_workflows/webflow_gallery_sync.json` (manual plus every-minute schedule, inactive, credentials
+  unbound), and `tests/portal_unit/gallery_workflow.test.cjs` (run in CI). Section 7 records the matching
+  rule, the `lookup-incomplete` stop above 100 items and the null-vs-omit rule. The staging2 Galleries
+  collection does not have the `erp-sync-id` field yet (section 8); add it before the first sync.
