@@ -192,6 +192,10 @@ const mappingScript = `<script>
           seriesCodes.forEach(el => el.innerText = seriesSlug);
           setText('series-desc', "ilLumenate " + (data.product_name || ""));
           
+          // Radio button colour for the PDF generator (owner, 2026-11-18): linear fixtures
+          // #ffac33; other products keep the generator's green.
+          if (data.product_type === 'Fixture Template') builderSection.setAttribute('data-radio-color', '#ffac33');
+
           // TAG THE SERIES BUTTON FOR VERCEL
           const seriesBtn = builderSection.querySelector('#series-btn');
           if (seriesBtn) {
@@ -336,6 +340,10 @@ const mappingScript = `<script>
 
                   const exampleEl = document.getElementById('part-no-ex');
                   if (exampleEl) exampleEl.innerText = example.filter(Boolean).join('-');
+                  // Rows stay 20px apart (the wrapper's row gap): a wrapper taller than its rows
+                  // would otherwise stretch them apart (owner, 2026-11-18).
+                  wrapper.style.alignContent = 'flex-start';
+                  wrapper.style.height = 'auto';
               }
           }
       } else if (builderSection) {
@@ -704,34 +712,43 @@ const mappingScript = `<script>
               currentMain = newMain;
           }
 
+          // Page rules (owner, 2026-11-18):
+          // - the Part Number Builder always starts its own page, title and example included;
+          // - a kit's Components start their own page (fixtures' flow on);
+          // - a section split over two pages keeps its title (.spec-h2, and the builder's
+          //   example line) with the content that follows it.
+          const visible = el => el.style.display !== 'none';
+          const pageHasContent = () => Array.from(currentMain.children).some(visible);
+          const isHeading = el => el.classList.contains('spec-h2') || !!el.querySelector('#part-no-ex') || el.id === 'part-no-ex';
           sections.forEach(section => {
-              if (section.id === 'components' && section.style.display !== 'none') {
-                  addPage();
-                  currentMain.appendChild(section);
-                  return;
-              }
+              const ownPage = visible(section) && (section.id === 'part-no-builder'
+                  || (section.id === 'components' && data.product_type === 'Extrusion Kit'));
+              if (ownPage && pageHasContent()) addPage();
 
               currentMain.appendChild(section);
-              
-              if (currentPage.scrollHeight > PAGE_HEIGHT) {
-                  currentMain.removeChild(section); 
-                  
-                  let activeSection = section.cloneNode(false); 
+              if (currentPage.scrollHeight <= PAGE_HEIGHT) return;
+
+              currentMain.removeChild(section);
+              let activeSection = section.cloneNode(false);
+              currentMain.appendChild(activeSection);
+              Array.from(section.children).forEach(item => {
+                  activeSection.appendChild(item);
+                  if (currentPage.scrollHeight <= PAGE_HEIGHT) return;
+                  // Carry the titles just before this item along with it.
+                  const moving = [item];
+                  while (moving[0].previousElementSibling && isHeading(moving[0].previousElementSibling)) {
+                      moving.unshift(moving[0].previousElementSibling);
+                  }
+                  const emptied = moving.length === activeSection.children.length;
+                  // Nothing else on this page: moving would not help, so it stays.
+                  if (emptied && Array.from(currentMain.children).filter(visible).length === 1) return;
+                  moving.forEach(el => activeSection.removeChild(el));
+                  if (emptied) currentMain.removeChild(activeSection);
+                  addPage();
+                  activeSection = section.cloneNode(false);
                   currentMain.appendChild(activeSection);
-                  
-                  const items = Array.from(section.children);
-                  items.forEach(item => {
-                      activeSection.appendChild(item);
-                      
-                      if (currentPage.scrollHeight > PAGE_HEIGHT) {
-                          activeSection.removeChild(item); 
-                          addPage(); 
-                          activeSection = section.cloneNode(false); 
-                          currentMain.appendChild(activeSection);
-                          activeSection.appendChild(item); 
-                      }
-                  });
-              }
+                  moving.forEach(el => activeSection.appendChild(el));
+              });
           });
           
           const allPages = document.querySelectorAll('.page-wrapper');
