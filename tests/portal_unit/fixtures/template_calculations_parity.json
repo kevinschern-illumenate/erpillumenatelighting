@@ -654,7 +654,7 @@
      "display_order": 110,
      "is_calculated": 1,
      "spec_label": "Production Interval",
-     "spec_value": "1.97\""
+     "spec_value": "1.97\" (50.0mm)"
     },
     {
      "attribute_doctype": "",
@@ -3052,7 +3052,7 @@
       "spec_group": "Physical",
       "spec_label": "Production Interval",
       "spec_unit": "",
-      "spec_value": "1.97\""
+      "spec_value": "1.97\" (50.0mm)"
      },
      {
       "attribute_doctype": "",
@@ -3242,7 +3242,7 @@
       "spec_group": "Physical",
       "spec_label": "Production Interval",
       "spec_unit": "",
-      "spec_value": "1.97\""
+      "spec_value": "1.97\" (50.0mm)"
      },
      {
       "attribute_doctype": "",

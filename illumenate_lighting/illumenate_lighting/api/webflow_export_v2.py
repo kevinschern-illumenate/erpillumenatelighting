@@ -1446,6 +1446,15 @@ def preview_specifications(webflow_product: str) -> dict:
     }
 
 
+def production_interval_text(mm):
+    """'1.31" (33.3mm)': the Production Interval format of every template (owner, 2026-11-18)."""
+    from illumenate_lighting.illumenate_lighting.template_calculations import (
+        production_interval_text as text,
+    )
+
+    return text(mm)
+
+
 def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
     """Enrich the product specifications list with data from linked doctypes.
 
@@ -1745,9 +1754,9 @@ def _enrich_fixture_template_specs(product: dict, existing_labels: set) -> list:
                 increments_mm.add(cut_mm)
         if increments_mm:
             display_parts = [
-                format_length_inches(v, precision=2)
+                production_interval_text(v)
                 for v in sorted(increments_mm)
-                if format_length_inches(v, precision=2)
+                if production_interval_text(v)
             ]
             if display_parts:
                 specs.append({
@@ -2297,7 +2306,7 @@ def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=No
         # Template-level override takes precedence if provided
         template_pi = getattr(template, "production_interval_mm", None)
         if template_pi:
-            formatted = format_length_inches(template_pi, precision=2)
+            formatted = production_interval_text(template_pi)
             if formatted:
                 cut_increments.add(formatted)
         else:
@@ -2306,7 +2315,7 @@ def _enrich_tape_neon_template_specs(product: dict, existing_labels: set, doc=No
                     continue
                 cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", spec_row.tape_spec, "cut_increment_mm")
                 if cut_mm:
-                    formatted = format_length_inches(cut_mm, precision=2)
+                    formatted = production_interval_text(cut_mm)
                     if formatted:
                         cut_increments.add(formatted)
         if cut_increments:
@@ -2626,7 +2635,7 @@ def _enrich_tape_specs(product: dict, existing_labels: set) -> list:
     # ── Production Interval (cut increment in inches) ─────────
     if "Production Interval" not in existing_labels:
         if tape.cut_increment_mm:
-            formatted = format_length_inches(tape.cut_increment_mm, precision=2)
+            formatted = production_interval_text(tape.cut_increment_mm)
             if formatted:
                 specs.append({
                     "spec_group": "Physical",

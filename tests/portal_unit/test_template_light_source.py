@@ -45,10 +45,13 @@ class LightSource(unittest.TestCase):
 			"lil-sw-led": "Lil Static White LED Tape",
 		}
 
-		def get_all(doctype, filters=None, pluck=None, fields=None):
+		def get_all(doctype, filters=None, pluck=None, fields=None, order_by=None):
 			self.calls.append((doctype, filters))
 			if doctype == "ilL-Tape-Neon-Template":
-				return [{"name": n, "template_name": templates[n]} for n in filters["name"][1]]
+				return [
+					{"name": n, "template_name": templates[n], "hero_image": f"/files/{n}.jpg"}
+					for n in filters["name"][1]
+				]
 			return list(tables.get(doctype, []))
 
 		frappe.get_all = get_all
@@ -97,6 +100,8 @@ class LightSource(unittest.TestCase):
 			],
 		)
 		self.assertEqual(rows[0].webflow_title, "High Density Static White LED Tape")
+		# The tape template's Hero Image is the Light Source picture.
+		self.assertEqual(rows[0].component_image, "/files/led-hd-sw.jpg")
 
 	def test_no_offerings_no_light_source(self):
 		module = self.module()

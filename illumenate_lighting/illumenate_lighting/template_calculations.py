@@ -216,6 +216,14 @@ def format_inches(mm):
 	return f'{inches:.2f}"'
 
 
+def production_interval_text(mm):
+	"""Pure: 33.3 -> '1.31" (33.3mm)' (owner, 2026-11-18: every template's Production Interval
+	shows the inches and the mm to one decimal)."""
+	if not mm:
+		return None
+	return f'{float(mm) / 25.4:.2f}" ({float(mm):.1f}mm)'
+
+
 def dimension_part(mm):
 	"""Pure: 304.8 -> '12.00" (304.8mm)' (owner, 2026-11-12: curly inch mark, mm without
 	trailing zeros)."""
@@ -751,7 +759,7 @@ class TemplateCalculator:
 					continue
 				cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", tape_spec_name, "cut_increment_mm")
 				if cut_mm:
-					formatted = format_inches(cut_mm)
+					formatted = production_interval_text(cut_mm)
 					if formatted:
 						cut_increments.add(formatted)
 			if cut_increments:
@@ -1198,21 +1206,17 @@ class TemplateCalculator:
 			template_pi = template_doc.get("production_interval_mm")
 			cut_increments = set()
 
-			def format_pi(mm_val):
-				inches = float(mm_val) / 25.4
-				return f'{inches:.2f}" ({float(mm_val):.1f}mm)'
-
 			if is_free_cutting and not template_pi:
 				cut_increments.add("Free Cutting")
 			elif template_pi:
-				cut_increments.add(format_pi(template_pi))
+				cut_increments.add(production_interval_text(template_pi))
 			else:
 				for ts in tape_specs:
 					cut_mm = frappe.db.get_value("ilL-Spec-LED Tape", ts, "cut_increment_mm")
 					if is_free_cutting and not cut_mm:
 						cut_increments.add("Free Cutting")
 					elif cut_mm:
-						cut_increments.add(format_pi(cut_mm))
+						cut_increments.add(production_interval_text(cut_mm))
 			if cut_increments:
 				append_spec(
 					self, "Physical", "Production Interval", ", ".join(sorted(cut_increments)), "", 130
