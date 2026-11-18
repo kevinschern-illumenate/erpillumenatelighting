@@ -1,0 +1,8 @@
+{# Request for Quotation: no response yet. Send from the RFQ to the suppliers who haven't quoted. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello,</p>
+<p>A quick reminder about our request for quotation <strong>{{ c.name }}</strong>{% if c.rfq.date %}, sent {{ c.rfq.date }}{% endif %}. We haven't received your quote yet.</p>
+{% if c.rfq.reply_by %}<p>We're hoping to decide by <strong>{{ c.rfq.reply_by }}</strong>.</p>{% endif %}
+{{ c.blocks.supplier_lines_no_prices }}
+<p>If you can't quote some or all of the items, a quick reply saying so helps us too.</p>
+{{ c.blocks.signature }}

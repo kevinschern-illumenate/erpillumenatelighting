@@ -1,0 +1,17 @@
+{# Purchase Order: send the PO to the supplier and ask for confirmation. Sending from a submitted PO marks it Sent on the purchasing board. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {{ c.greeting_name }},</p>
+<p>Please find our purchase order <strong>{{ c.name }}</strong>{% if c.purchase.revised_from %} (this replaces {{ c.purchase.revised_from }}){% endif %} for {{ c.purchase.total }}.</p>
+<table style="border-collapse:collapse;margin:8px 0 16px;font-size:14px">
+{% if c.purchase.required_by %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Required by</td><td style="padding:4px 0"><strong>{{ c.purchase.required_by }}</strong></td></tr>{% endif %}
+{% if c.purchase.incoterm %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Incoterm</td><td style="padding:4px 0">{{ c.purchase.incoterm }}{% if c.purchase.named_place %} {{ c.purchase.named_place }}{% endif %}</td></tr>{% endif %}
+{% if c.purchase.freight_mode %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Ship via</td><td style="padding:4px 0">{{ c.purchase.freight_mode }}</td></tr>{% endif %}
+{% if c.purchase.payment_terms %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Payment terms</td><td style="padding:4px 0">{{ c.purchase.payment_terms }}</td></tr>{% endif %}
+</table>
+{{ c.blocks.supplier_lines }}
+{{ c.blocks.purchase_schedule }}
+{% if c.purchase.ship_to %}<p><strong>Ship to:</strong></p>{{ c.blocks.ship_to }}{% endif %}
+{% if c.purchase.drop_ship_customer %}<p><strong>This is a drop shipment</strong> to our customer {{ c.purchase.drop_ship_customer }}. Please ship it without pricing or invoices in the cartons.</p>{% endif %}
+{% if c.pdf.po %}<p><a href="{{ c.pdf.po }}">Download purchase order {{ c.name }} (PDF)</a></p>{% endif %}
+<p><strong>Please confirm this order</strong> by replying with your order / acknowledgement number and the date it will ship.</p>
+{{ c.blocks.signature }}

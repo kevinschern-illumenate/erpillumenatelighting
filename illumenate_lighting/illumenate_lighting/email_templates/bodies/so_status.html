@@ -1,0 +1,11 @@
+{# Sales Order: order status update (manual; the Helpdesk "Order status" reply uses the same wording). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Here's where order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}{% if c.job_name %} for {{ c.job_name }}{% endif %} stands: <strong>{{ c.order.progress }}</strong>.</p>
+{% if c.order.on_hold %}<p>{{ c.order.hold_message }}</p>{% endif %}
+{% if not c.order.fully_shipped and c.order.ship_date %}<p>{{ c.order.ship_date_label }}: <strong>{{ c.order.ship_date }}</strong></p>{% endif %}
+{% for s in c.order.shipments %}<p>Shipped {{ s.date }}{% if s.carrier %} by {{ s.carrier }}{% endif %}{% if s.number %}, tracking {% if s.url %}<a href="{{ s.url }}">{{ s.number }}</a>{% else %}{{ s.number }}{% endif %}{% endif %}.</p>{% endfor %}
+{% if c.pdf.so %}<p><a href="{{ c.pdf.so }}">Order acknowledgement (PDF)</a></p>{% endif %}
+{% if c.portal_url %}<p><a href="{{ c.portal_url }}">Track this order in the dealer portal</a></p>{% endif %}
+<p>Anything else you need on this order, just reply.</p>
+{{ c.blocks.signature }}

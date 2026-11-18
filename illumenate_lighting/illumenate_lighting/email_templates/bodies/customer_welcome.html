@@ -1,0 +1,12 @@
+{# Customer: welcome a new dealer. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Welcome to ilLumenate Lighting! We're glad to have {{ c.party_name }} on board.</p>
+<p>Here's how to work with us:</p>
+<ul>
+<li><strong>Quotes:</strong> send us your fixture schedule or plans and we'll quote it, usually within two business days.</li>
+<li><strong>Orders:</strong> reply to a quote with your PO, or approve it in the dealer portal. We confirm every order with a ship date.</li>
+<li><strong>Dealer portal:</strong> {% if c.customer.has_portal %}<a href="{{ c.portal.home }}">sign in here</a> to see quotes, orders, drawings and tracking.{% else %}we'll send you an invitation to set up your login, where you can see quotes, orders, drawings and tracking.{% endif %}</li>
+<li><strong>Questions:</strong> reply to this email or reach me directly below.</li>
+</ul>
+{{ c.blocks.signature }}

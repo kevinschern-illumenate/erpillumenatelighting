@@ -1,0 +1,8 @@
+{# Purchase Order: no confirmation yet (Notification: 3 days after ill_sent_on, not confirmed). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {{ c.greeting_name }},</p>
+<p>We sent purchase order <strong>{{ c.name }}</strong>{% if c.purchase.sent_on %} on {{ c.purchase.sent_on }}{% endif %} and haven't received your confirmation yet.</p>
+<p>Could you reply with:</p>
+<ul><li>your order / acknowledgement number, and</li><li>the date it will ship{% if c.purchase.required_by %} (we need it by {{ c.purchase.required_by }}){% endif %}.</li></ul>
+{% if c.pdf.po %}<p><a href="{{ c.pdf.po }}">Purchase order {{ c.name }} (PDF)</a></p>{% endif %}
+{{ c.blocks.signature }}

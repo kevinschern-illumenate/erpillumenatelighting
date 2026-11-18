@@ -1,0 +1,12 @@
+{# Sales Invoice: paid in full, with the payment history as a receipt. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+{% if c.invoice.is_paid %}
+<p>Thank you! Invoice <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} for {{ c.invoice.total }} is <strong>paid in full</strong>.</p>
+{% else %}
+<p>Thank you for your payment on invoice <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}. The remaining balance is <strong>{{ c.invoice.outstanding }}</strong>{% if c.invoice.due_date %}, due {{ c.invoice.due_date }}{% endif %}.</p>
+{% endif %}
+{% if c.invoice.payments %}<p><strong>Payments received</strong></p>{{ c.blocks.payments }}{% endif %}
+{% if c.pdf.si %}<p><a href="{{ c.pdf.si }}">Download the invoice with its payment history (PDF)</a></p>{% endif %}
+{{ c.blocks.pay_button }}
+{{ c.blocks.signature }}

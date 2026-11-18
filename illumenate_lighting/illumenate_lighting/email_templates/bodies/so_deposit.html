@@ -1,0 +1,12 @@
+{# Sales Order: deposit / prepayment request. Uses the first payment schedule row (see context._payment_due). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+{% if c.order.payment_due.amount %}
+<p>To schedule order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} in production, we need a {{ c.order.payment_due.label|lower }} of <strong>{{ c.order.payment_due.amount }}</strong>{% if c.order.payment_due.portion %} ({{ c.order.payment_due.portion }} of the order){% endif %}{% if c.order.payment_due.due_date %}, due {{ c.order.payment_due.due_date }}{% endif %}.</p>
+{% else %}
+<p>To schedule order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} in production, we need your payment as set out in the order's payment terms.</p>
+{% endif %}
+{{ c.blocks.order_schedule }}
+{% if c.pay_instructions %}<p><strong>How to pay</strong><br>{{ c.pay_instructions }}</p>{% endif %}
+<p>Please reference {{ c.name }}{% if c.po_no %} or your PO {{ c.po_no }}{% endif %} with your payment.{% if c.pdf.so %} <a href="{{ c.pdf.so }}">Order acknowledgement (PDF)</a>{% endif %}</p>
+{{ c.blocks.signature }}

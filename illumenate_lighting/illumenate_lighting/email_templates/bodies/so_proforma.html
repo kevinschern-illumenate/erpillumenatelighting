@@ -1,0 +1,9 @@
+{# Sales Order: proforma invoice, payment before shipping (ill_proforma_will_call = Proforma). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} is on proforma terms, so payment of <strong>{% if c.order.payment_due.amount %}{{ c.order.payment_due.amount }}{% else %}{{ c.order.total }}{% endif %}</strong> is due before it ships.</p>
+{% if c.pdf.so %}<p><a href="{{ c.pdf.so }}">Download the proforma (PDF)</a></p>{% endif %}
+{{ c.blocks.lines }}
+{% if c.pay_instructions %}<p><strong>How to pay</strong><br>{{ c.pay_instructions }}</p>{% endif %}
+<p>Please reference {{ c.name }}{% if c.po_no %} or your PO {{ c.po_no }}{% endif %} with your payment. We'll ship as soon as it's received{% if c.order.ship_date %}, on or around {{ c.order.ship_date }}{% endif %}.</p>
+{{ c.blocks.signature }}

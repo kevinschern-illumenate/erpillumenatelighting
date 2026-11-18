@@ -202,7 +202,12 @@ website_redirects = [
 
 # add methods and filters to jinja environment
 jinja = {
-	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags", "illumenate_lighting.illumenate_lighting.helpdesk_links.ill_print_pdf_url", "illumenate_lighting.illumenate_lighting.api.invoice_payments.ill_invoice_payments"],
+	"methods": ["illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_can_view_catalog", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_finder_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_sanitize_html", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_routes", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_desk_link", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_badge_tone", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_unread_notifications", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_notification_center_enabled", "illumenate_lighting.illumenate_lighting.portal.jinja_methods.ill_portal_client_flags", "illumenate_lighting.illumenate_lighting.helpdesk_links.ill_print_pdf_url", "illumenate_lighting.illumenate_lighting.api.invoice_payments.ill_invoice_payments",
+		# Customer and supplier email templates (email_templates/context.py).
+		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_email_context",
+		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_tracking",
+		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_money",
+		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_date"],
 }
 
 # One route contract for Desk scripts (hardening plan 7.1).
@@ -418,6 +423,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.portal.order_review.on_submit",
 			"illumenate_lighting.illumenate_lighting.api.manufacturing_generator.on_sales_order_submit",
 			"illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_submit",
+			# Order confirmation email, queued after commit; off until ilL-Email-Settings enables it.
+			"illumenate_lighting.illumenate_lighting.email_templates.auto_send.on_sales_order_submit",
 		],
 		"on_cancel": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_cancel",
 		"on_trash": [
@@ -427,7 +434,11 @@ doc_events = {
 	},
 	"Delivery Note": {
 		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",
-		"on_submit": "illumenate_lighting.illumenate_lighting.portal.notifications.on_delivery_note_submit",
+		"on_submit": [
+			"illumenate_lighting.illumenate_lighting.portal.notifications.on_delivery_note_submit",
+			# Shipment email to non-portal contacts, queued after commit; off until enabled.
+			"illumenate_lighting.illumenate_lighting.email_templates.auto_send.on_delivery_note_submit",
+		],
 	},
 	"Sales Invoice": {
 		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",
@@ -437,6 +448,12 @@ doc_events = {
 		# Purchasing board: lead time, ETA, freight mode and vendor status on new POs.
 		"before_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.prefill_po_tracking",
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_po_submit",
+		# A blank contact_email defaults to the Supplier's Purchasing Email.
+		"validate": "illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_purchase_order_email",
+	},
+	# Blank RFQ supplier emails default to the Supplier's Purchasing Email.
+	"Request for Quotation": {
+		"validate": "illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_rfq_supplier_emails"
 	},
 	# Webflow sync events for attribute doctypes
 	"ilL-Attribute-CCT": {

@@ -1,0 +1,5 @@
+<p>{% set c = ill_email_context("Quotation", ill_quotation) %}{% set who = ill_email_context("Contact", contact) %}Hi {{ who.greeting_name }},</p>
+<p>{% if c.found %}Here's quote <strong>{{ c.name }}</strong>{% if c.job_name %} for {{ c.job_name }}{% endif %}, {{ c.quote.total }}.{% if c.quote.valid_till and not c.quote.expired %} Pricing is held until {{ c.quote.valid_till }}.{% elif c.quote.expired %} Its pricing has expired, so I'll refresh it if you'd like to go ahead.{% endif %}{% else %}Could you send the quote number or project name? I'll send a copy right away.{% endif %}</p>
+<p>{% if c.pdf.quote %}<a href="{{ c.pdf.quote }}">Download the quote (PDF)</a>{% endif %}</p>
+<p>Reply with your PO to order, or with any changes and I'll revise it.</p>
+<p>Thanks,<br>{{ full_name }}<br>ilLumenate Lighting</p>

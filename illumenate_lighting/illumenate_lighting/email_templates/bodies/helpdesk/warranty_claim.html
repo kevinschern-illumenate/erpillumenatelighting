@@ -1,0 +1,5 @@
+<p>{% set c = ill_email_context("Sales Order", ill_sales_order) %}{% set who = ill_email_context("Contact", contact) %}Hi {{ who.greeting_name }},</p>
+<p>I'm sorry you're having trouble with {% if c.found %}fixtures from order <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %}{% else %}your fixtures{% endif %}. To get this sorted quickly, please reply with:</p>
+<ul><li>{% if not c.found %}The order or PO number, and {% endif %}the fixture type or part number from the label on the fixture or driver</li><li>Photos of the fixture, its label, and the driver / power supply label</li><li>What's happening (not lighting, flickering, color shift, partial outage) and when it started</li><li>How it's controlled (dimmer or control system model) and the supply voltage</li></ul>
+<p>Once we have these, we'll confirm warranty coverage and next steps, usually within one business day.</p>
+<p>Thanks,<br>{{ full_name }}<br>ilLumenate Lighting</p>

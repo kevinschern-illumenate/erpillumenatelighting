@@ -1,0 +1,17 @@
+{# Sales Invoice: past due. One template for the 1, 15 and 30 day Notifications; the tone follows c.invoice.overdue_stage. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+{% if c.invoice.overdue_stage == "final" %}
+<p>Invoice <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} is now <strong>{{ c.invoice.days_overdue }} days past due</strong>, with <strong>{{ c.invoice.outstanding }}</strong> still open. We've reached out before and haven't been able to resolve it.</p>
+<p>Please arrange payment this week, or call or reply so we can agree a plan. If we don't hear from you, we may need to pause shipments on open orders until the account is current.</p>
+{% elif c.invoice.overdue_stage == "second" %}
+<p>Invoice <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} was due {{ c.invoice.due_date }} and is now {{ c.invoice.days_overdue }} days past due, with <strong>{{ c.invoice.outstanding }}</strong> open.</p>
+<p>Please let us know when we can expect payment. If something about the order or invoice is holding it up, reply and we'll sort it out.</p>
+{% else %}
+<p>Our records show invoice <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} was due {% if c.invoice.due_date %}{{ c.invoice.due_date }}{% else %}recently{% endif %} and has an open balance of <strong>{{ c.invoice.outstanding }}</strong>.</p>
+<p>If you've already paid, thank you; please reply with the date and reference so we can match it.</p>
+{% endif %}
+{{ c.blocks.pay_button }}
+{% if c.pay_instructions %}<p><strong>{% if c.pay_link %}Other ways to pay{% else %}How to pay{% endif %}</strong><br>{{ c.pay_instructions }}</p>{% endif %}
+{% if c.pdf.si %}<p><a href="{{ c.pdf.si }}">Invoice {{ c.name }} (PDF)</a></p>{% endif %}
+{{ c.blocks.signature }}

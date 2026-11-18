@@ -1,0 +1,8 @@
+{# Sales Invoice (return): credit note issued. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>We've issued credit note <strong>{{ c.name }}</strong>{% if c.invoice.return_against %} against invoice {{ c.invoice.return_against }}{% endif %} for <strong>{{ c.invoice.total }}</strong>.</p>
+{{ c.blocks.lines }}
+<p>The credit has been applied to your account{% if c.invoice.return_against %} and reduces what's owed on {{ c.invoice.return_against }}{% endif %}. If you'd prefer a refund instead, just reply.</p>
+{% if c.pdf.si %}<p><a href="{{ c.pdf.si }}">Credit note {{ c.name }} (PDF)</a></p>{% endif %}
+{{ c.blocks.signature }}

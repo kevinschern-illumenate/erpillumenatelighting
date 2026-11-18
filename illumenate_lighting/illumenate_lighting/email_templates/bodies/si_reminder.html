@@ -1,0 +1,9 @@
+{# Sales Invoice: friendly reminder before the due date (Notification: 3 days before due_date, balance owing). #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>A friendly reminder that invoice <strong>{{ c.name }}</strong>{% if c.po_no %} (your PO {{ c.po_no }}){% endif %} has a balance of <strong>{{ c.invoice.outstanding }}</strong> due <strong>{{ c.invoice.due_date }}</strong>.</p>
+{{ c.blocks.pay_button }}
+{% if c.pay_instructions %}<p><strong>{% if c.pay_link %}Other ways to pay{% else %}How to pay{% endif %}</strong><br>{{ c.pay_instructions }}</p>{% endif %}
+{% if c.pdf.si %}<p><a href="{{ c.pdf.si }}">Invoice {{ c.name }} (PDF)</a></p>{% endif %}
+<p>If payment is already on its way, thank you, and please ignore this note.</p>
+{{ c.blocks.signature }}

@@ -1,0 +1,220 @@
+{
+ "actions": [],
+ "creation": "2026-11-18 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "track_changes": 1,
+ "description": "Customer and supplier email templates: fallback point of contact, will call pickup details and automatic sends.",
+ "field_order": [
+  "section_contacts",
+  "sales_contact_name",
+  "sales_contact_email",
+  "sales_contact_phone",
+  "column_break_contacts",
+  "purchasing_contact_name",
+  "purchasing_contact_email",
+  "purchasing_contact_phone",
+  "section_pickup",
+  "pickup_address",
+  "column_break_pickup",
+  "pickup_hours",
+  "section_auto",
+  "auto_send_order_confirmation",
+  "auto_send_shipped",
+  "include_portal_recipients",
+  "column_break_auto",
+  "email_account",
+  "bcc_email",
+  "attach_pdf",
+  "section_limits",
+  "max_lines",
+  "column_break_limits",
+  "rfq_reply_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_contacts",
+   "fieldtype": "Section Break",
+   "label": "Point of Contact Fallback",
+   "description": "Customer and supplier emails sign off with the document's own contact: Company Contact Person, then the first Sales Team member, then the staff member who created the document. These are used only when none of those is set."
+  },
+  {
+   "fieldname": "sales_contact_name",
+   "fieldtype": "Data",
+   "label": "Sales Contact Name",
+   "default": "ilLumenate Lighting Sales"
+  },
+  {
+   "fieldname": "sales_contact_email",
+   "fieldtype": "Data",
+   "label": "Sales Contact Email",
+   "options": "Email",
+   "default": "sales@illumenate.lighting"
+  },
+  {
+   "fieldname": "sales_contact_phone",
+   "fieldtype": "Data",
+   "label": "Sales Contact Phone",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "column_break_contacts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "purchasing_contact_name",
+   "fieldtype": "Data",
+   "label": "Purchasing Contact Name",
+   "description": "Signs Purchase Order, RFQ and remittance emails when the document's creator is not a staff user.",
+   "default": "ilLumenate Lighting Purchasing"
+  },
+  {
+   "fieldname": "purchasing_contact_email",
+   "fieldtype": "Data",
+   "label": "Purchasing Contact Email",
+   "options": "Email",
+   "default": "sales@illumenate.lighting"
+  },
+  {
+   "fieldname": "purchasing_contact_phone",
+   "fieldtype": "Data",
+   "label": "Purchasing Contact Phone",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "section_pickup",
+   "fieldtype": "Section Break",
+   "label": "Will Call Pickup",
+   "description": "Printed in the Ready for Pickup email."
+  },
+  {
+   "fieldname": "pickup_address",
+   "fieldtype": "Small Text",
+   "label": "Pickup Address"
+  },
+  {
+   "fieldname": "column_break_pickup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pickup_hours",
+   "fieldtype": "Small Text",
+   "label": "Pickup Hours"
+  },
+  {
+   "fieldname": "section_auto",
+   "fieldtype": "Section Break",
+   "label": "Automatic Emails",
+   "description": "Sent in the background after the document is submitted, with the ilL email template and its PDF attached, and recorded in the document's timeline. Dealer portal users who already get the portal email for the same event are skipped unless the box below is ticked."
+  },
+  {
+   "fieldname": "auto_send_order_confirmation",
+   "fieldtype": "Check",
+   "label": "Email Order Confirmation on Sales Order Submit",
+   "default": "0"
+  },
+  {
+   "fieldname": "auto_send_shipped",
+   "fieldtype": "Check",
+   "label": "Email Shipment Notice on Delivery Note Submit",
+   "default": "0"
+  },
+  {
+   "fieldname": "include_portal_recipients",
+   "fieldtype": "Check",
+   "label": "Also Email Dealer Portal Users",
+   "description": "Off: a contact who is a dealer portal user for the order gets only the portal email. On: they get both.",
+   "default": "0"
+  },
+  {
+   "fieldname": "column_break_auto",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "email_account",
+   "fieldtype": "Link",
+   "label": "Send From Email Account",
+   "description": "Blank uses the Email Account Frappe picks for the DocType (or the default outgoing account).",
+   "options": "Email Account"
+  },
+  {
+   "fieldname": "bcc_email",
+   "fieldtype": "Data",
+   "label": "BCC Every Automatic Email To",
+   "options": "Email"
+  },
+  {
+   "fieldname": "attach_pdf",
+   "fieldtype": "Check",
+   "label": "Attach the PDF",
+   "default": "1"
+  },
+  {
+   "fieldname": "section_limits",
+   "fieldtype": "Section Break",
+   "label": "Content"
+  },
+  {
+   "fieldname": "max_lines",
+   "fieldtype": "Int",
+   "label": "Lines Listed in an Email",
+   "description": "Longer orders list this many lines, then say how many more are in the PDF.",
+   "default": "15",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_limits",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rfq_reply_days",
+   "fieldtype": "Int",
+   "label": "Days Suppliers Have to Answer an RFQ",
+   "description": "Sets the reply-by date printed in RFQ emails.",
+   "default": "7",
+   "non_negative": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Email-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  },
+  {
+   "role": "Purchase Manager",
+   "read": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
