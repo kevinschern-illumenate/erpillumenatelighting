@@ -18,6 +18,18 @@ Not in this folder: `cc.html` (unchanged, still what is live) and `ss/cc_api.py`
 - **Saved views** (Phase 4): name and reuse filters on the Tasks list and on every Workbench list. Stored in the browser (localStorage) under the signed-in user, so they do not follow someone to another computer.
 - **Activity feed** (Phase 4): built from the "Command Center:" comments the gateway writes; shown on Executive, per project on Review, and per record in the Workbench sheet. People only see changes to records they can read.
 
+## Meeting agenda (v6)
+
+The **Agenda** tab replaces the Google Doc agenda for the weekly meeting.
+
+- **Stored in ERPNext**, in two app doctypes: `ilL-Meeting-Agenda` (one per meeting: title, date, Open/Closed, notes) and `ilL-Meeting-Agenda-Item` (title, details, who brings it, status, outcome, order, optional linked record). Everyone sees the same agenda, and the page re-reads it every 30 seconds while it is open (or immediately on Refresh).
+- **Add items** as free text, or with **+ Add from ERPNext**. Its *Suggested* tab lists overdue to-dos and tasks, sales orders at risk, quotes expiring this week and tickets waiting over 2 days. *Search all records* covers every doctype in the Workbench (to-dos, tasks, sales orders, quotes, POs, tickets, ...). Each Workbench record sheet also has **+ Add to agenda**, which adds the record to the next open meeting.
+- Linked items show the record's **live status**, value and date, plus a *Details* button that opens the Workbench sheet (to edit the record mid-meeting).
+- In the meeting: tick **Discussed**, type the **outcome**, and reorder with ↑ ↓. When a linked item is marked discussed, a "Command Center: discussed at the <date> meeting: <outcome>" comment goes on the linked record's timeline. Adding a record to an agenda writes a comment there too.
+- **+ New meeting** defaults to a week after the last one and can carry its still-Open items over (the old copies are marked "Carried over").
+- **Copy as text** (for email/chat) and **Print / PDF**. Meeting mode hides items linked to email-derived to-dos.
+- Permissions: Viewers read, Editors add and change. `command_center_sync.py` grants the Command Center roles on both doctypes the first time (Custom DocPerm). After that the desk's Role Permissions Manager is the authority. Removing an agenda item is the only delete the gateway does, and it never touches the linked record.
+
 ## Fixes made while building this (versus the v4 files)
 
 1. **`cc_gateway.py` would not save as a Server Script.** Frappe's sandbox (RestrictedPython) rejects names starting with `_` (`_gate`, `_roles`, ...). It also cannot see top-level helpers/constants from inside functions, and does not expose `frappe.get_roles` / `frappe.has_permission`. The script is now a single `main()` with closures, roles come from the `Has Role` table, permissions from `Document.has_permission()`.

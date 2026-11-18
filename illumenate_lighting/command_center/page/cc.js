@@ -1,5 +1,6 @@
 /* ilLumenate Command Center v5 — base v2/v3 by Claude, Nov 17 2026.
    v4: Workbench. v5: Executive overview, Project review mode, saved views, activity feed, print.
+   v6: Meeting agenda (weekly meeting, items linked to any Command Center record).
    Workbench/Executive/Review feed: /api/method/ill_cc_gateway (Server Script "ilL Command Center Gateway").
    Original header: ilLumenate Command Center v2 — live page on ERPNext. Built by Claude, Nov 17 2026.
    Data: /api/method/ill_command_center (Server Script "ilL Command Center API", read-only).
@@ -798,6 +799,7 @@
   }
 
   /* ---------------- render ---------------- */
+  const agNavCount = () => { const m = (AG.list || []).find(x => x.name === agDefault()); return m && m.status === 'Open' && m.open ? m.open : null; };
   let WORK_SEG = false;
   const workSeg = () => `<div class="seg" style="margin:-8px 0 20px"><button data-go="work" class="${S.view === 'work' || S.view.startsWith('p-') ? 'on' : ''}">Projects</button><button data-go="tasks" class="${S.view === 'tasks' ? 'on' : ''}">All tasks &amp; to-dos</button></div>`;
   const PIPE = ['pipeline', 'quotes', 'orders', 'purch', 'mfg', 'ship'];
@@ -806,18 +808,19 @@
     $('#ccstamp').textContent = 'Live from ERPNext · updated ' + new Date(D.generated.replace(' ', 'T')).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     let v = S.view; const so = v.startsWith('so-') ? decodeURIComponent(v.slice(3)) : null, pid = v.startsWith('p-') ? v.slice(2) : null;
     const known = PIPE.concat(['service', 'requests', 'inbox', 'finance', 'work', 'tasks', 'rec', 'exec', 'review']);
-    if (!so && !pid && !known.includes(v) && !wbIsView()) { v = S.view = 'pipeline'; }
-    const group = wbIsView() ? 'wb' : so || PIPE.includes(v) ? 'pipeline' : (pid || v === 'work' || v === 'tasks') ? 'work' : v;
+    if (!so && !pid && !known.includes(v) && !wbIsView() && !agIsView()) { v = S.view = 'pipeline'; }
+    const group = wbIsView() ? 'wb' : agIsView() ? 'agenda' : so || PIPE.includes(v) ? 'pipeline' : (pid || v === 'work' || v === 'tasks') ? 'work' : v;
     const p = pipeData(m);
     const svcOpen = D.tk.filter(t => (SVC_TYPES.includes(t.type) || !t.type) && t.status === 'Open');
     const TOP = [['pipeline', 'Sales pipeline', null, null], ['exec', 'Executive', null, null], ['service', 'Service', svcOpen.length, svcOpen.some(t => t.age > 2) ? 'bad' : 'good'], ['requests', 'Requests', m.openReq.length, m.oldReq.length ? 'warn' : 'good'], ['inbox', 'Inbox', m.tOpen.length, m.tOld.length > 3 ? 'bad' : m.tOld.length ? 'warn' : 'good'],
-      ['finance', 'Finance', null, D.fin.mtd >= m.goalPace ? 'good' : 'warn'], ['work', 'Projects & tasks', m.overdue.length, m.overdue.length ? 'warn' : 'good'], ['review', 'Review', null, null], ['wb', 'Workbench', null, null], ['rec', 'Recommendations', null, 'info']];
+      ['finance', 'Finance', null, D.fin.mtd >= m.goalPace ? 'good' : 'warn'], ['work', 'Projects & tasks', m.overdue.length, m.overdue.length ? 'warn' : 'good'], ['review', 'Review', null, null], ['agenda', 'Agenda', agNavCount(), null], ['wb', 'Workbench', null, null], ['rec', 'Recommendations', null, 'info']];
     $('#ccnav').innerHTML = TOP.map(([k, n, c, s]) => `<a class="cc-tab ${group === k ? 'on' : ''}" href="#${k}">${s ? `<span class="dot ${s}"></span>` : ''}${n}${c ? `<span class="ct">${c}</span>` : ''}</a>`).join('');
     CUR_M = m; CUR_STEP = (PIPE.includes(v) && !so) ? v : null; WORK_SEG = group === 'work' && !pid; CUR_LINKS = so ? 'so' : pid ? 'project' : v;
     let html;
     if (so) html = V.so(m, so);
     else if (pid) html = V.project(m, pid);
     else if (wbIsView()) html = WB.html(v);
+    else if (agIsView()) html = AG.html();
     else if (v === 'exec') html = EX.html();
     else if (v === 'review') html = RV.html();
     else if (v === 'purch') html = V.purch(m) + `<div class="grid" style="margin-top:20px">${V.purch_low()}</div>`;
@@ -825,7 +828,7 @@
     CUR_STEP = null; WORK_SEG = false; CUR_LINKS = null;
     $('#ccmain').innerHTML = html;
     bind(); bindProjects(); bindPipe(); if (wbIsView()) WB.mount();
-    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount();
+    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount(); if (agIsView()) AG.mount();
     root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { location.hash = b.dataset.go; });
   }
   function bind() {
@@ -1054,15 +1057,16 @@
       const form = canEdit ? `<div class="wb-sec">Edit</div>${req.map(f => wbField(f, doc[f.fieldname])).join('')}${opt.length ? `<details class="wb-more-f"><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, doc[f.fieldname])).join('')}</details>` : ''}` : (why ? `<p class="wb-note">${esc(why)}</p>` : '');
       const aud = g.audit.length ? `<div class="wb-sec">Recent changes from the Command Center</div><ul class="wb-audit">${g.audit.map(a => `<li><span>${fmtd(a.creation)}</span> ${esc(wbPlain(a.content).replace(/^Command Center:\s*/, ''))}</li>`).join('')}</ul>` : '';
       const sh = wbShowSheet(`<div class="wb-kvs">${kv}</div>${wbItems(doc)}${form}${aud}<p class="cc-msg" id="wbMsg"></p>
-        <div class="cc-sheet-f wb-foot"><a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl(dt, name)}" style="text-decoration:none">Open in ERPNext</a>${canEdit ? '<button class="cc-btn primary" type="submit" id="wbsave">Save changes</button>' : ''}</div>`,
+        <div class="cc-sheet-f wb-foot"><a class="cc-btn soft" target="_blank" rel="noopener" href="${docUrl(dt, name)}" style="text-decoration:none">Open in ERPNext</a>${WB.cfg.can_edit && !agIsView() ? '<button class="cc-btn soft" type="button" id="wbagenda">+ Add to agenda</button>' : ''}<span style="flex:1"></span>${canEdit ? '<button class="cc-btn primary" type="submit" id="wbsave">Save changes</button>' : ''}</div>`,
         `${esc(wbLabel(dt))}${doc.status ? ' · ' + badge(doc.status, wbKind(doc.status)) : ''}`, esc(name));
       const f = sh.querySelector('#wbform'); wbLinks(f);
+      const ab = sh.querySelector('#wbagenda'); if (ab) ab.onclick = () => agQuick(dt, name, doc, ab);
       f.onsubmit = async e => {
         e.preventDefault(); if (!canEdit) return;
         const vals = wbCollect(f, meta.fields, doc), msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave');
         if (!Object.keys(vals).length) { msg.textContent = 'No changes to save.'; return; }
         b.disabled = true; b.textContent = 'Saving…'; msg.textContent = '';
-        try { const r = await gw('save', { dt, name, values: vals }); closeSheet(); toast(`Saved ${esc(name)} · ${r.changed} field${r.changed === 1 ? '' : 's'} updated`); wbFetch(dt, false); }
+        try { const r = await gw('save', { dt, name, values: vals }); closeSheet(); toast(`Saved ${esc(name)} · ${r.changed} field${r.changed === 1 ? '' : 's'} updated`); if (agIsView() && AG.cur) agLoad(AG.cur); else wbFetch(dt, false); }
         catch (err) { msg.textContent = 'Not saved: ' + err.message; b.disabled = false; b.textContent = 'Save changes'; }
       };
     } catch (e) { wbShowSheet(`<p class="cc-msg">Couldn't open ${esc(name)}: ${esc(e.message)}</p>`, '', esc(name)); }
@@ -1306,9 +1310,308 @@
     if (!RV.fbusy && (RV.feed === null || Date.now() - (RV.at || 0) > 120000)) rvFeed();
   };
 
+  /* ---------------- weekly meeting agenda ----------------
+     Replaces the shared Google Doc. Meetings and their items live in ERPNext (ilL-Meeting-Agenda and
+     ilL-Meeting-Agenda-Item) behind the gateway's agenda_* actions, so everyone sees the same list.
+     An item is free text or linked to any record the Command Center can show (to-dos, tasks, sales
+     orders, quotes, tickets, ...); linked items show that record's live status, and once an item is
+     marked discussed its outcome is written to the linked record's timeline. */
+  const AG = { list: null, listErr: null, lbusy: false, canEdit: false, cur: null, data: null, err: null, errFor: null, dbusy: false, at: 0,
+    pick: { tab: 'suggested', dt: '', q: '', rows: null, cols: null, busy: false, err: null, cands: [] } };
+  const agIsView = () => String(S.view || '').split('/')[0] === 'agenda';
+  const agRoute = () => { const p = String(S.view || '').split('/'); return p[1] ? decodeURIComponent(p[1]) : null; };
+  const agDate = d => d ? new Date(String(d).slice(0, 10) + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const agLoading = '<div class="cc-loading"><span class="cc-spin"></span>Loading…</div>';
+  // with no meeting picked: the next open one from today on, otherwise the most recent
+  function agDefault() {
+    const ms = AG.list || [];
+    const up = ms.filter(m => m.status === 'Open' && String(m.meeting_date) >= TODAY).sort((a, b) => String(a.meeting_date).localeCompare(String(b.meeting_date)));
+    return (up[0] || ms[0] || {}).name || null;
+  }
+  // what a linked record is called: its subject/description, or its type + ID + party
+  const AG_OWN = ['subject', 'project_name', 'description'], AG_PARTY = ['customer_name', 'customer', 'party_name', 'supplier', 'production_item', 'material_request_type'];
+  function agTitle(dt, name, row) {
+    row = row || {};
+    for (const f of AG_OWN) { const t = wbPlain(row[f]); if (t) return t.length > 120 ? t.slice(0, 120) + '…' : t; }
+    const id = wbLabel(dt) + ' ' + short(name);
+    for (const f of AG_PARTY) { const t = wbPlain(row[f]); if (t) return id + ' · ' + (t.length > 80 ? t.slice(0, 80) + '…' : t); }
+    return id;
+  }
+  const agRow = it => it.reference_doctype && it.reference_name && AG.data ? (AG.data.refs || {})[it.reference_doctype + '|' + it.reference_name] : null;
+  const agHidden = it => it.reference_doctype === 'ToDo' && wbPrivate('ToDo', agRow(it) || {});
+  const agOn = (dt, name) => !!(AG.data && AG.data.items.some(it => it.reference_doctype === dt && it.reference_name === name));
+  const agVisible = () => AG.data ? AG.data.items.filter(it => !agHidden(it)) : [];
+
+  function agRef(it) {
+    if (!it.reference_doctype || !it.reference_name) return '';
+    const dt = it.reference_doctype, row = agRow(it), cols = (AG.data.columns || {})[dt] || [], bits = [];
+    if (row) {
+      const val = cols.find(c => c.type === 'Currency' && row[c.fieldname] != null); if (val) bits.push(money(Number(row[val.fieldname])));
+      const dc = cols.find(c => c.type === 'Date' && row[c.fieldname]); if (dc) bits.push(esc(dc.label) + ' ' + fmtd(row[dc.fieldname]));
+      if (row.allocated_to) bits.push(esc(SHORT[row.allocated_to] || row.allocated_to));
+    }
+    const canOpen = WB.cfg && WB.cfg.doctypes[dt] && row;
+    return `<div class="ag-ref"><span class="ag-dt">${esc(wbLabel(dt))}</span>${link(dt, it.reference_name, short(it.reference_name))}${row && row.status ? badge(row.status, wbKind(row.status)) : ''}${bits.map(b => `<span class="small">${b}</span>`).join('')}${row ? '' : '<span class="calc">details not available to you</span>'}${canOpen ? '<button type="button" class="ag-open no-print" data-agopen>Details</button>' : ''}</div>`;
+  }
+  function agItem(it, i, n, ed) {
+    const done = it.status === 'Discussed';
+    return `<div class="ag-item ${done ? 'done' : ''}" data-agid="${esc(it.name)}">
+      <div class="ag-num">${done ? '✓' : i + 1}</div>
+      <div class="ag-body">
+        <div class="ag-line"><span class="ag-title" ${ed ? 'data-agedit title="Edit this item"' : ''}>${esc(it.item_title)}</span>${it.carried_from ? '<span class="badge info">Carried over</span>' : ''}${it.presenter ? avatar(it.presenter) : ''}</div>
+        ${it.details ? `<div class="ag-det">${esc(it.details)}</div>` : ''}
+        ${agRef(it)}
+        ${ed ? `<textarea class="ag-out no-print" data-agout rows="1" placeholder="Outcome or decision…">${esc(it.outcome || '')}</textarea>` : ''}
+        ${it.outcome ? `<div class="ag-outp${ed ? ' print-only' : ''}"><b>Outcome:</b> ${esc(it.outcome)}</div>` : ''}
+      </div>
+      ${ed ? `<div class="ag-ctl no-print"><label class="ag-chk"><input type="checkbox" data-agdone ${done ? 'checked' : ''}>Discussed</label>
+        <span class="ag-mv"><button type="button" class="cc-btn soft" data-agmv="-1" ${i === 0 ? 'disabled' : ''} title="Move up" aria-label="Move up">↑</button><button type="button" class="cc-btn soft" data-agmv="1" ${i === n - 1 ? 'disabled' : ''} title="Move down" aria-label="Move down">↓</button></span>
+        <button type="button" class="cc-btn soft" data-agedit>Edit</button></div>` : ''}
+    </div>`;
+  }
+  AG.body = () => {
+    if (AG.listErr) return `<div class="err">Couldn't load the agenda: ${esc(AG.listErr)}</div>`;
+    if (!AG.list) return agLoading;
+    const ed = AG.canEdit;
+    if (!AG.list.length) return `<div class="card ag-empty"><h2>No meeting agendas yet</h2><p class="small">Start one for this week's meeting. Everyone with Command Center access sees the same agenda.</p>
+      ${ed ? '<button class="cc-btn primary" data-agnew>Start this week\'s agenda</button>' : '<p class="small">Ask Kevin for the Command Center Editor role to start one.</p>'}</div>`;
+    const bar = `<div class="ag-bar no-print"><select data-agpick aria-label="Meeting">${AG.list.map(m => `<option value="${esc(m.name)}" ${m.name === AG.cur ? 'selected' : ''}>${esc(agDate(m.meeting_date))} · ${esc(m.title)}${m.status === 'Closed' ? ' (closed)' : ''} · ${m.items} item${m.items === 1 ? '' : 's'}</option>`).join('')}</select>
+      ${ed ? '<button class="cc-btn soft" data-agnew>+ New meeting</button>' : ''}<span style="flex:1"></span><button class="cc-btn soft" data-agcopy>Copy as text</button>${printBtn('agprint')}</div>`;
+    const X = AG.data;
+    if (AG.err && AG.errFor === AG.cur) return bar + `<div class="err">Couldn't load this meeting: ${esc(AG.err)}</div>`;
+    if (!X || X.agenda.name !== AG.cur) return bar + agLoading;
+    const ag = X.agenda, items = agVisible(), hidden = X.items.length - items.length, edit = X.can_edit, open = ag.status === 'Open';
+    const done = items.filter(i => i.status === 'Discussed').length;
+    const head = `<div class="card ag-head"><div class="ag-hrow"><div><div class="eyebrow">${esc(agDate(ag.meeting_date))}</div><h2 class="rv-title">${esc(ag.title)}</h2>
+        <div class="small">${items.length} item${items.length === 1 ? '' : 's'} · ${done} discussed${hidden ? ` · ${hidden} hidden in meeting mode` : ''}</div></div>
+        <div class="ag-hact">${badge(open ? 'Open' : 'Closed', open ? 'warn' : 'good')}${edit ? `<button class="cc-btn soft no-print" data-agclose>${open ? 'Close meeting' : 'Reopen'}</button>` : ''}</div></div>
+      ${items.length ? meter(done / items.length, null, 'var(--good)') : ''}
+      ${edit ? `<label class="cc-field ag-notes no-print"><span>Meeting notes</span><textarea data-agnotes rows="2" placeholder="Anything that isn't tied to one item">${esc(ag.notes)}</textarea></label>` : ''}
+      ${ag.notes ? `<div class="ag-det${edit ? ' print-only' : ''}" style="margin-top:10px"><b>Notes:</b> ${esc(ag.notes)}</div>` : ''}</div>`;
+    const me = TEAM.some(u => u.name === USER) ? USER : '';
+    const add = edit ? `<form class="ag-add no-print" id="agaddf"><input type="text" id="agaddt" placeholder="Add an item and press Enter" maxlength="140" autocomplete="off">
+      <select id="agaddp" aria-label="Who brings it"><option value="">Who brings it?</option>${TEAM.map(u => `<option value="${esc(u.name)}" ${u.name === me ? 'selected' : ''}>${esc(u.full_name || u.name)}</option>`).join('')}</select>
+      <button class="cc-btn primary" type="submit">Add</button><button class="cc-btn soft" type="button" data-agpicker>+ Add from ERPNext</button></form>` : '';
+    const list = items.length ? `<div class="ag-list">${items.map((it, i) => agItem(it, i, items.length, edit)).join('')}</div>`
+      : `<div class="card"><div class="empty">Nothing on this agenda yet.${edit ? ' Type an item above, or use “+ Add from ERPNext” to pull in to-dos, orders, quotes or tickets.' : ''}</div></div>`;
+    return bar + head + add + list + (!edit ? '<p class="small" style="margin-top:12px">View only. Ask Kevin for the Command Center Editor role to add items.</p>' : '');
+  };
+  AG.html = () => {
+    if (AG.list && AG.cur && !agRoute() && !AG.list.some(m => m.name === AG.cur)) AG.cur = null;
+    AG.cur = agRoute() || AG.cur || agDefault();
+    return header('Meeting agenda', 'The weekly meeting agenda, kept in ERPNext. Add topics, pull in to-dos, orders, quotes or tickets, then record what was decided.') + `<div id="agroot">${AG.body()}</div>`;
+  };
+  function agRedraw() {
+    if (!agIsView()) return; const r = $('#agroot'); if (!r) return;
+    AG.cur = agRoute() || AG.cur || agDefault(); r.innerHTML = AG.body(); agBind();
+  }
+  async function agList() {
+    AG.lbusy = true;
+    try { const r = await gw('agenda_list'); AG.list = r.meetings; AG.canEdit = !!r.can_edit; AG.listErr = null; } catch (e) { AG.listErr = e.message; }
+    AG.lbusy = false;
+    if (agIsView()) { agRedraw(); if (AG.cur && !AG.dbusy && !(AG.data && AG.data.agenda.name === AG.cur)) agLoad(AG.cur); }
+  }
+  async function agLoad(name) {
+    AG.dbusy = true;
+    try {
+      AG.data = await gw('agenda_get', { name }); AG.err = null;
+      const m = (AG.list || []).find(x => x.name === name);   // keep the meeting picker's counts current
+      if (m) { m.items = AG.data.items.length; m.open = AG.data.items.filter(i => i.status === 'Open').length; m.status = AG.data.agenda.status; m.title = AG.data.agenda.title; }
+    } catch (e) { AG.err = e.message; AG.errFor = name; }
+    AG.dbusy = false; AG.at = Date.now(); agRedraw();
+    if ($('#ccsheet2').classList.contains('on') && $('#agpk')) agPickDraw();
+  }
+  function agEnsure() {
+    if (!WB.cfg && !WB.cfgBusy) wbEnsure();   // doctypes for the record picker
+    if (!AG.list) { if (!AG.lbusy) agList(); return; }
+    if (AG.cur && !AG.dbusy && (!AG.data || AG.data.agenda.name !== AG.cur || Date.now() - AG.at > 30000)) agLoad(AG.cur);
+  }
+  AG.mount = () => { agBind(); agEnsure(); };
+
+  /* ---- changes ---- */
+  async function agDo(action, args, okMsg) {
+    try { const r = await gw(action, args); if (okMsg) toast(okMsg); return r; }
+    catch (e) { toast('Not saved: ' + esc(e.message)); return null; }
+    finally { if (AG.cur) agLoad(AG.cur); }
+  }
+  function agAdd(values) { return agDo('agenda_add', { agenda: AG.data.agenda.name, values }); }
+  function agUpdate(id, values) {
+    const it = AG.data && AG.data.items.find(x => x.name === id); if (it) Object.assign(it, values);
+    return agDo('agenda_update', { name: id, values });
+  }
+  function agMove(id, dir) {
+    const vis = agVisible(), i = vis.findIndex(x => x.name === id), j = i + dir; if (i < 0 || j < 0 || j >= vis.length) return;
+    const all = AG.data.items, a = all.indexOf(vis[i]), b = all.indexOf(vis[j]); [all[a], all[b]] = [all[b], all[a]];
+    agRedraw(); agDo('agenda_order', { agenda: AG.data.agenda.name, names: all.map(x => x.name) });
+  }
+  function agText() {
+    const ag = AG.data.agenda, out = [`${ag.title} · ${agDate(ag.meeting_date)}`, ''];
+    agVisible().forEach((it, i) => {
+      out.push(`${i + 1}. ${it.item_title}${it.status === 'Discussed' ? ' (discussed)' : ''}${it.presenter ? ' [' + (SHORT[it.presenter] || it.presenter) + ']' : ''}`);
+      if (it.details) out.push('   ' + it.details);
+      if (it.reference_name) out.push(`   ${wbLabel(it.reference_doctype)} ${it.reference_name}: ${location.origin}${docUrl(it.reference_doctype, it.reference_name)}`);
+      if (it.outcome) out.push('   Outcome: ' + it.outcome);
+    });
+    if (ag.notes) out.push('', 'Notes: ' + ag.notes);
+    return out.join('\n');
+  }
+  async function agCopy() {
+    if (!AG.data) return;
+    try { await navigator.clipboard.writeText(agText()); toast('Agenda copied. Paste it into an email or chat.'); }
+    catch (e) { toast('This browser would not copy. Use Print / PDF instead.'); }
+  }
+  function agNewSheet() {
+    const last = (AG.list || [])[0];
+    let date = TODAY; if (last && last.meeting_date) { date = addDays(String(last.meeting_date).slice(0, 10), 7); while (date < TODAY) date = addDays(date, 7); }
+    const prevFor = d => (AG.list || []).find(m => String(m.meeting_date) <= d);
+    const carryText = d => { const p = prevFor(d); return p ? `Carry over the ${p.open} open item${p.open === 1 ? '' : 's'} from ${esc(agDate(p.meeting_date))}` : 'Carry over open items from the last meeting'; };
+    const sh = wbShowSheet(`<label class="cc-field"><span>Title</span><input type="text" name="title" value="${esc(last ? last.title : 'Weekly meeting')}"></label>
+      <label class="cc-field"><span>Meeting date</span><input type="date" name="meeting_date" value="${esc(date)}"></label>
+      <label class="cc-field wb-check"><input type="checkbox" name="carry" ${last ? 'checked' : ''}><span id="agcarry">${carryText(date)}</span></label>
+      <p class="cc-msg" id="wbMsg"></p><div class="cc-sheet-f"><button class="cc-btn primary" type="submit" id="wbsave">Create agenda</button></div>`,
+      'Saved in ERPNext. Open items left from the last meeting can come along.', 'New meeting agenda');
+    const f = sh.querySelector('#wbform');
+    f.elements.meeting_date.onchange = () => { sh.querySelector('#agcarry').innerHTML = carryText(f.elements.meeting_date.value); };
+    f.onsubmit = async e => {
+      e.preventDefault(); const b = sh.querySelector('#wbsave'), msg = sh.querySelector('#wbMsg');
+      const values = { title: f.elements.title.value.trim() || 'Weekly meeting', meeting_date: f.elements.meeting_date.value, carry: f.elements.carry.checked ? 1 : 0 };
+      if (!values.meeting_date) { msg.textContent = 'Pick a date.'; return; }
+      b.disabled = true; b.textContent = 'Creating…';
+      try {
+        const r = await gw('agenda_create', { values }); closeSheet();
+        toast(`Agenda created${r.carried ? ` · ${r.carried} open item${r.carried === 1 ? '' : 's'} carried over` : ''}`);
+        AG.list = null; AG.data = null; AG.cur = r.name; location.hash = 'agenda/' + encodeURIComponent(r.name);
+      } catch (err) { msg.textContent = 'Not created: ' + err.message; b.disabled = false; b.textContent = 'Create agenda'; }
+    };
+  }
+  function agEditSheet(id) {
+    const it = AG.data.items.find(x => x.name === id); if (!it) return;
+    const people = TEAM.map(u => u.name); if (it.presenter && !people.includes(it.presenter)) people.push(it.presenter);
+    const sh = wbShowSheet(`<label class="cc-field"><span>Item</span><input type="text" name="item_title" maxlength="140" value="${esc(it.item_title)}"></label>
+      <label class="cc-field"><span>Details</span><textarea name="details" rows="3">${esc(it.details || '')}</textarea></label>
+      <div class="cc-row2"><label class="cc-field"><span>Who brings it</span><select name="presenter"><option value="">Nobody yet</option>${people.map(p => `<option value="${esc(p)}" ${p === it.presenter ? 'selected' : ''}>${esc(NAMES[p] || SHORT[p] || p)}</option>`).join('')}</select></label>
+      <label class="cc-field"><span>Status</span><select name="status">${['Open', 'Discussed', 'Carried over'].map(s => `<option ${s === it.status ? 'selected' : ''}>${s}</option>`).join('')}</select></label></div>
+      <label class="cc-field"><span>Outcome / decision</span><textarea name="outcome" rows="3">${esc(it.outcome || '')}</textarea></label>
+      ${it.reference_name ? `<p class="small">Linked to ${esc(wbLabel(it.reference_doctype))} ${link(it.reference_doctype, it.reference_name)}. When the item is marked Discussed, the outcome is added to that record's timeline.</p>` : ''}
+      <p class="cc-msg" id="wbMsg"></p><div class="cc-sheet-f wb-foot"><button class="cc-btn soft ag-danger" type="button" id="agrm">Remove from agenda</button><button class="cc-btn primary" type="submit" id="wbsave">Save</button></div>`,
+      esc(agDate(AG.data.agenda.meeting_date)), 'Agenda item');
+    const f = sh.querySelector('#wbform');
+    f.onsubmit = async e => {
+      e.preventDefault(); const vals = {};
+      ['item_title', 'details', 'presenter', 'status', 'outcome'].forEach(k => { const v = f.elements[k].value; if (String(v) !== String(it[k] || '')) vals[k] = k === 'presenter' ? (v || null) : v; });
+      if (vals.item_title !== undefined && !vals.item_title.trim()) { sh.querySelector('#wbMsg').textContent = 'The item needs a title.'; return; }
+      closeSheet(); if (Object.keys(vals).length) agUpdate(id, vals);
+    };
+    sh.querySelector('#agrm').onclick = async () => {
+      if (!window.confirm('Remove “' + it.item_title + '” from this agenda? The linked record is not touched.')) return;
+      closeSheet(); AG.data.items = AG.data.items.filter(x => x.name !== id); agRedraw(); agDo('agenda_remove', { name: id }, 'Removed from the agenda');
+    };
+  }
+
+  /* ---- record picker: suggestions from the live data, or search any Command Center doctype ---- */
+  function agSuggest() {
+    const ok = dt => WB.cfg && WB.cfg.doctypes[dt], m = CUR_M || M(), in7 = addDays(TODAY, 7), groups = [];
+    groups.push(['Overdue to-dos and tasks', m.overdue.filter(x => x.kind === 'todo' || x.kind === 'task').map(x => ({ dt: x.kind === 'todo' ? 'ToDo' : 'Task', name: x.kind === 'todo' ? x.ids[0] : x.id, title: x.title,
+      sub: `Due ${fmtd(x.due)}${(x.owners || []).length ? ' · ' + x.owners.map(o => SHORT[o] || o).join(', ') : ''}` }))]);
+    groups.push(['Sales orders at risk', D.ship.filter(s => s.state !== 'Ready').sort((a, b) => String(a.delivery || '9').localeCompare(String(b.delivery || '9'))).map(s => ({ dt: 'Sales Order', name: s.so, title: 'Sales Order ' + short(s.so) + (s.customer ? ' · ' + s.customer : ''),
+      sub: `${s.delivery && s.delivery < TODAY ? 'Past delivery date ' : 'Delivery '}${fmtd(s.delivery)} · ${money(s.value)}${(s.reasons || []).length ? ' · ' + s.reasons.join(', ') : ''}` }))]);
+    groups.push(['Quotes expiring this week', D.quotes.filter(q => q.docstatus === 1 && q.status === 'Open' && q.valid_till && String(q.valid_till) >= TODAY && String(q.valid_till) <= in7).map(q => ({ dt: 'Quotation', name: q.name, title: 'Quotation ' + q.name + (q.party_name ? ' · ' + q.party_name : ''),
+      sub: `Expires ${fmtd(q.valid_till)} · ${money(q.base_net_total)}` }))]);
+    groups.push(['Tickets waiting over 2 days', m.tOld.map(t => ({ dt: 'HD Ticket', name: t.name, title: t.subject || 'Ticket ' + t.name, sub: `Waiting ${t.age} days${t.type ? ' · ' + t.type : ''}` }))]);
+    return groups.map(([l, rows]) => [l, rows.filter(r => r.name && ok(r.dt)).slice(0, 15)]).filter(g => g[1].length);
+  }
+  const agPkRow = (c, k) => `<div class="ag-pk-row"><div><b>${esc(c.title)}</b><div class="small">${esc(wbLabel(c.dt))} ${esc(short(c.name))}${c.sub ? ' · ' + esc(c.sub) : ''}</div></div>
+    ${agOn(c.dt, c.name) ? '<span class="badge good">On the agenda</span>' : `<button type="button" class="cc-btn soft" data-agpk="${k}">+ Add</button>`}</div>`;
+  function agPickDraw() {
+    const el = $('#agpk'), P = AG.pick; if (!el) return;
+    $('#ccsheet2').querySelectorAll('[data-agtab]').forEach(b => b.classList.toggle('on', b.dataset.agtab === P.tab));
+    if (WB.cfgErr) { el.innerHTML = `<div class="err">Couldn't load the record types: ${esc(WB.cfgErr)}</div>`; return; }
+    if (!WB.cfg) { el.innerHTML = agLoading; wbEnsure().then(() => { if ($('#agpk')) agPickDraw(); }); return; }
+    P.cands = [];
+    if (P.tab === 'suggested') {
+      const g = agSuggest();
+      el.innerHTML = g.length ? g.map(([l, rows]) => `<div class="wb-sec">${esc(l)}</div>${rows.map(c => agPkRow(c, P.cands.push(c) - 1)).join('')}`).join('')
+        : '<div class="empty">Nothing overdue, at risk or expiring right now. Use “Search all records”.</div>';
+    } else {
+      const dts = Object.keys(WB.cfg.doctypes); if (!P.dt || !WB.cfg.doctypes[P.dt]) P.dt = dts.includes('Sales Order') ? 'Sales Order' : dts[0];
+      const opts = WB.cfg.sections.filter(s => !s.locked).map(s => { const ds = dts.filter(d => WB.cfg.doctypes[d].section === s.key); return ds.length ? `<optgroup label="${esc(s.label)}">${ds.map(d => `<option value="${esc(d)}" ${d === P.dt ? 'selected' : ''}>${esc(wbLabel(d))}</option>`).join('')}</optgroup>` : ''; }).join('');
+      const res = P.err ? `<div class="err">${esc(P.err)}</div>` : P.rows === null || P.busy ? agLoading : P.rows.length ? P.rows.map(r => {
+        const st = r.status ? r.status + ' · ' : '', val = (P.cols || []).find(c => c.type === 'Currency' && r[c.fieldname] != null);
+        return agPkRow({ dt: P.dt, name: r.name, title: agTitle(P.dt, r.name, r), row: r, sub: st + (val ? money(Number(r[val.fieldname])) + ' · ' : '') + 'modified ' + fmtd(r.modified) }, P.cands.push({ dt: P.dt, name: r.name, title: agTitle(P.dt, r.name, r) }) - 1);
+      }).join('') : '<div class="empty">Nothing matches.</div>';
+      el.innerHTML = `<div class="ag-pk-bar"><select id="agpkdt" aria-label="Record type">${opts}</select><input type="search" id="agpkq" placeholder="Search ${esc(wbLabel(P.dt))} by ID, name or customer…" value="${esc(P.q)}"></div><div id="agpkres">${res}</div>`;
+      el.querySelector('#agpkdt').onchange = e => { P.dt = e.target.value; P.q = ''; agPickFetch(); };
+      const q = el.querySelector('#agpkq'); let t; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { P.q = q.value.trim(); agPickFetch(true); }, 300); };
+      if (P.rows === null && !P.busy && !P.err) agPickFetch();
+    }
+    el.querySelectorAll('[data-agpk]').forEach(b => b.onclick = async () => {
+      const c = P.cands[+b.dataset.agpk]; if (!c) return; b.disabled = true; b.textContent = 'Adding…';
+      const r = await agAdd({ item_title: c.title, reference_doctype: c.dt, reference_name: c.name });
+      if (!r) { b.disabled = false; b.textContent = '+ Add'; } else if (r.duplicate) toast('Already on this agenda');
+    });
+  }
+  async function agPickFetch(keepFocus) {
+    const P = AG.pick, dt = P.dt; P.busy = true; P.err = null;
+    if (!keepFocus) agPickDraw(); else { const r = $('#agpkres'); if (r) r.innerHTML = agLoading; }
+    try { const res = await gw('list', { dt, search: P.q, limit: 25 }); if (P.dt !== dt) return; P.rows = res.rows; P.cols = res.columns; }
+    catch (e) { P.err = e.message; P.rows = []; }
+    P.busy = false;
+    const q = $('#agpkq'), pos = q && document.activeElement === q ? q.selectionStart : null;
+    agPickDraw(); if (pos !== null) { const q2 = $('#agpkq'); if (q2) { q2.focus(); q2.setSelectionRange(pos, pos); } }
+  }
+  function agPicker() {
+    const el = $('#ccsheet2'), P = AG.pick, ag = AG.data.agenda;
+    P.rows = null; P.err = null;
+    el.innerHTML = `<div class="cc-sheet wb-sheet"><div class="cc-sheet-h"><div><h2>Add from ERPNext</h2><p>${esc(agDate(ag.meeting_date))} · ${esc(ag.title)}</p></div><button class="cc-x" data-close aria-label="Close">×</button></div>
+      <div class="ag-pk"><div class="seg" style="margin-bottom:12px"><button type="button" data-agtab="suggested">Suggested</button><button type="button" data-agtab="search">Search all records</button></div><div id="agpk"></div></div></div>`;
+    el.classList.add('on'); el.querySelector('[data-close]').onclick = closeSheet; el.onclick = e => { if (e.target === el) closeSheet(); };
+    el.querySelectorAll('[data-agtab]').forEach(b => b.onclick = () => { P.tab = b.dataset.agtab; agPickDraw(); });
+    agPickDraw();
+  }
+  // "+ Add to agenda" on a Workbench record: goes on the next open meeting
+  async function agQuick(dt, name, row, btn) {
+    const reset = () => { btn.disabled = false; btn.textContent = '+ Add to agenda'; };
+    btn.disabled = true; btn.textContent = 'Adding…';
+    try {
+      if (!AG.list) { const r = await gw('agenda_list'); AG.list = r.meetings; AG.canEdit = !!r.can_edit; }
+      const m = (AG.list || []).find(x => x.name === agDefault());
+      if (!m || m.status !== 'Open') { toast('No open meeting agenda yet · <a href="#agenda">Start one</a>'); reset(); return; }
+      const r = await gw('agenda_add', { agenda: m.name, values: { item_title: agTitle(dt, name, row), reference_doctype: dt, reference_name: name } });
+      btn.textContent = r.duplicate ? 'Already on the agenda' : '✓ On the agenda';
+      toast(`${r.duplicate ? 'Already on' : 'Added to'} the ${esc(agDate(m.meeting_date))} agenda · <a href="#agenda/${encodeURIComponent(m.name)}">Open agenda</a>`);
+      if (!r.duplicate) m.items = (m.items || 0) + 1; AG.at = 0;
+    } catch (e) { toast('Not added: ' + esc(e.message)); reset(); }
+  }
+  function agBind() {
+    const r = $('#agroot'); if (!r) return;
+    r.querySelectorAll('[data-agnew]').forEach(b => b.onclick = agNewSheet);
+    const pk = r.querySelector('[data-agpick]'); if (pk) pk.onchange = () => { location.hash = 'agenda/' + encodeURIComponent(pk.value); };
+    const pr = r.querySelector('#agprint'); if (pr) pr.onclick = () => window.print();
+    const cp = r.querySelector('[data-agcopy]'); if (cp) cp.onclick = agCopy;
+    const X = AG.data; if (!X || X.agenda.name !== AG.cur) return;
+    const name = X.agenda.name;
+    const cl = r.querySelector('[data-agclose]'); if (cl) cl.onclick = () => { const st = X.agenda.status === 'Open' ? 'Closed' : 'Open'; X.agenda.status = st; agRedraw(); agDo('agenda_save_meeting', { name, values: { status: st } }, st === 'Closed' ? 'Meeting closed' : 'Meeting reopened'); };
+    const nt = r.querySelector('[data-agnotes]'); if (nt) nt.onchange = () => { X.agenda.notes = nt.value; agDo('agenda_save_meeting', { name, values: { notes: nt.value } }, 'Notes saved'); };
+    const af = r.querySelector('#agaddf'); if (af) af.onsubmit = async e => {
+      e.preventDefault(); const t = r.querySelector('#agaddt'), title = t.value.trim(); if (!title) { t.focus(); return; }
+      const b = af.querySelector('[type="submit"]'); b.disabled = true; t.value = '';
+      const res = await agAdd({ item_title: title, presenter: r.querySelector('#agaddp').value || null });
+      b.disabled = false; if (!res) t.value = title; const t2 = $('#agaddt'); if (t2) t2.focus();
+    };
+    const pkb = r.querySelector('[data-agpicker]'); if (pkb) pkb.onclick = agPicker;
+    r.querySelectorAll('[data-agid]').forEach(el => {
+      const id = el.dataset.agid, it = X.items.find(x => x.name === id); if (!it) return;
+      el.querySelectorAll('[data-agedit]').forEach(b => b.onclick = () => agEditSheet(id));
+      const d = el.querySelector('[data-agdone]'); if (d) d.onchange = () => { agUpdate(id, { status: d.checked ? 'Discussed' : 'Open' }); agRedraw(); };
+      const o = el.querySelector('[data-agout]'); if (o) { o.onchange = () => agUpdate(id, { outcome: o.value }); o.oninput = () => { o.style.height = 'auto'; o.style.height = o.scrollHeight + 'px'; }; if (o.value) o.oninput(); }
+      el.querySelectorAll('[data-agmv]').forEach(b => b.onclick = () => agMove(id, +b.dataset.agmv));
+      const op = el.querySelector('[data-agopen]'); if (op) op.onclick = () => wbOpen(it.reference_doctype, it.reference_name);
+    });
+  }
+
   /* ---------------- init ---------------- */
   $('#ccwho').innerHTML = LOGGED ? `Signed in as ${esc(USER)}` : `Viewing as guest · <a href="/login?redirect-to=/command-center">Log in</a> to add tasks, close ToDos and draft orders`;
-  $('#ccrefresh').onclick = () => load(true);
+  $('#ccrefresh').onclick = () => { AG.at = 0; load(true); };   // AG.at = 0: the agenda re-reads too
   $('#ccadd').onclick = openModal; $('#tCancel').onclick = closeModal; $('#tform').onsubmit = addTask;
   $('#ccmodal').onclick = e => { if (e.target.id === 'ccmodal') closeModal(); };
   document.addEventListener('keydown', e => {
@@ -1322,5 +1625,10 @@
   window.addEventListener('hashchange', () => { WB.preApplied = null; S.view = (location.hash || '#pipeline').slice(1); if (D) { render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (D && ['pipeline', 'finance', 'inbox'].includes(S.view)) render(); }, 200); });
   load();
+  // the agenda is shared during the meeting: pick up others' changes every 30 s (not while typing)
+  setInterval(() => {
+    const a = document.activeElement, typing = a && $('#agroot') && $('#agroot').contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
+    if (D && agIsView() && AG.cur && !AG.dbusy && !document.hidden && !typing && !$('#ccsheet2').classList.contains('on') && !$('#ccmodal').classList.contains('on')) agLoad(AG.cur);
+  }, 30000);
   setInterval(() => { if (!document.hidden && !$('#ccmodal').classList.contains('on') && !$('#ccsheet2').classList.contains('on')) load(); }, 5 * 60 * 1000);
 })();

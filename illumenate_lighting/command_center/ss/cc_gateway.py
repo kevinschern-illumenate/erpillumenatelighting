@@ -14,13 +14,22 @@
 #   action=create dt, values           -> insert a new doc (draft)
 #   action=overview                    -> per-stage counts/values by status + "decision" signals
 #   action=feed   [dts], [limit]       -> recent Command Center changes the user may see
+#   action=agenda_list                 -> weekly meetings (newest first) with item counts
+#   action=agenda_get  name            -> one meeting, its items, live columns of linked records
+#   action=agenda_create values{title, meeting_date, carry}  -> new meeting (+ carry Open items over)
+#   action=agenda_save_meeting name, values{title, meeting_date, status, notes}
+#   action=agenda_add  agenda, values{item_title, details, presenter, reference_doctype, reference_name}
+#   action=agenda_update name, values{item_title, details, presenter, status, outcome}
+#   action=agenda_order agenda, names[] -> save the item order
+#   action=agenda_remove name          -> delete one agenda item (never the record it links to)
 #
 # Guarantees
 #   * Needs role "Command Center Viewer" (reads) / "Command Center Editor" (writes).
 #   * Each section additionally needs its own role when listed in SECTIONS below.
 #   * Acts as the signed-in user (no ignore_permissions on data), so ERPNext's own
 #     role/permission rules remain the final authority.
-#   * Never submits, cancels or deletes. Submitted docs (docstatus 1/2) are read-only.
+#   * Never submits, cancels or deletes (the only delete is removing an agenda item).
+#     Submitted docs (docstatus 1/2) are read-only.
 #   * Only doctypes in ALLOWED can be touched; only non-system fields can be written.
 #   * Doctypes/columns that don't exist on this site are skipped, not errors.
 #   * Every create/save writes an "Info" comment on the record (visible in its timeline).
@@ -472,6 +481,219 @@ def main():
             if (r["reference_doctype"] + "|" + r["reference_name"]) in readable:
                 out.append(r)
         frappe.response["message"] = {"rows": out}
+
+    elif action.startswith("agenda_"):
+        # ---- weekly meeting agenda (doctypes ilL-Meeting-Agenda / ilL-Meeting-Agenda-Item) ----
+        # Same rules as the rest: Viewer reads, Editor writes, ERPNext permissions decide the rest.
+        # Removing an agenda item is the one delete the gateway does; it only ever touches
+        # agenda items, never the records they link to.
+        AG = "ilL-Meeting-Agenda"
+        AI = "ilL-Meeting-Agenda-Item"
+        ITEM_FIELDS = ["name", "item_title", "details", "status", "presenter", "sort_order", "outcome",
+                       "reference_doctype", "reference_name", "carried_from", "owner", "creation"]
+        ITEM_EDITABLE = ["item_title", "details", "presenter", "status", "outcome"]
+        MEETING_EDITABLE = ["title", "meeting_date", "status", "notes"]
+
+        if not frappe.db.exists("DocType", AG):
+            deny("The meeting agenda isn't installed on this site yet. It arrives with the next app deploy.")
+
+        def agenda_doc(name, ptype):
+            if not name:
+                deny("Pick a meeting first.")
+            d = frappe.get_doc(AG, name)
+            d.check_permission(ptype)
+            return d
+
+        def item_doc(name, ptype):
+            d = frappe.get_doc(AI, name)
+            d.check_permission(ptype)
+            return d
+
+        def only(values, keys):
+            out = {}
+            for k in values:
+                if k not in keys:
+                    deny("Not editable here: " + k)
+                out[k] = values[k]
+            return out
+
+        def items_of(agenda):
+            return frappe.get_list(AI, filters={"agenda": agenda}, fields=ITEM_FIELDS,
+                                   order_by="sort_order asc, creation asc", limit_page_length=500)
+
+        def ref_rows(items):
+            # live columns of each linked record the user may read (one query per doctype)
+            want = {}
+            for it in items:
+                d = it.get("reference_doctype")
+                if d and it.get("reference_name") and d in ALLOWED and available(d):
+                    if d not in want:
+                        want[d] = []
+                    if it["reference_name"] not in want[d]:
+                        want[d].append(it["reference_name"])
+            refs = {}
+            columns = {}
+            for d in want:
+                try:
+                    for r in frappe.get_list(d, fields=cols(d), filters={"name": ["in", want[d]]},
+                                             limit_page_length=len(want[d])):
+                        refs[d + "|" + r["name"]] = r
+                    columns[d] = colinfo(d)
+                except Exception:
+                    pass
+            return {"refs": refs, "columns": columns}
+
+        def date_label(agenda):
+            return str(frappe.db.get_value(AG, agenda, "meeting_date") or agenda)
+
+        if action == "agenda_list":
+            meetings = frappe.get_list(AG, fields=["name", "title", "meeting_date", "status"],
+                                       order_by="meeting_date desc, creation desc", limit_page_length=60)
+            names = []
+            for m in meetings:
+                names.append(m["name"])
+                m["items"] = 0
+                m["open"] = 0
+            if names:
+                tally = {}
+                for it in frappe.get_list(AI, filters={"agenda": ["in", names]}, fields=["agenda", "status"],
+                                          limit_page_length=5000):
+                    if it["agenda"] not in tally:
+                        tally[it["agenda"]] = [0, 0]
+                    tally[it["agenda"]][0] = tally[it["agenda"]][0] + 1
+                    if it["status"] == "Open":
+                        tally[it["agenda"]][1] = tally[it["agenda"]][1] + 1
+                for m in meetings:
+                    if m["name"] in tally:
+                        m["items"] = tally[m["name"]][0]
+                        m["open"] = tally[m["name"]][1]
+            frappe.response["message"] = {"meetings": meetings, "today": frappe.utils.nowdate(),
+                                          "can_edit": can_edit() and can(AG, "create") and can(AI, "create")}
+
+        elif action == "agenda_get":
+            ag = agenda_doc(frappe.form_dict.get("name"), "read")
+            items = items_of(ag.name)
+            live = ref_rows(items)
+            frappe.response["message"] = {
+                "agenda": {"name": ag.name, "title": ag.title, "meeting_date": str(ag.meeting_date or ""),
+                           "status": ag.status, "notes": ag.notes or "", "modified": str(ag.modified)},
+                "items": items, "refs": live["refs"], "columns": live["columns"],
+                "can_edit": can_edit() and bool(ag.has_permission("write")),
+            }
+
+        elif action == "agenda_create":
+            need_edit()
+            values = jsonarg("values")
+            date = values.get("meeting_date") or frappe.utils.nowdate()
+            ag = frappe.get_doc({"doctype": AG, "title": values.get("title") or "Weekly meeting",
+                                 "meeting_date": date, "status": "Open"})
+            ag.insert()
+            carried = 0
+            if values.get("carry"):
+                # bring forward everything still Open on the most recent earlier meeting
+                prev = frappe.get_list(AG, filters={"meeting_date": ["<=", date], "name": ["!=", ag.name]},
+                                       fields=["name"], order_by="meeting_date desc, creation desc",
+                                       limit_page_length=1)
+                if prev:
+                    for it in items_of(prev[0]["name"]):
+                        if it["status"] != "Open":
+                            continue
+                        carried = carried + 1
+                        frappe.get_doc({"doctype": AI, "agenda": ag.name, "item_title": it["item_title"],
+                                        "details": it["details"], "presenter": it["presenter"],
+                                        "reference_doctype": it["reference_doctype"],
+                                        "reference_name": it["reference_name"], "sort_order": carried,
+                                        "carried_from": it["name"], "status": "Open"}).insert()
+                        old = item_doc(it["name"], "write")
+                        old.status = "Carried over"
+                        old.save()
+            frappe.response["message"] = {"name": ag.name, "carried": carried}
+
+        elif action == "agenda_save_meeting":
+            need_edit()
+            ag = agenda_doc(frappe.form_dict.get("name"), "write")
+            values = only(jsonarg("values"), MEETING_EDITABLE)
+            for k in values:
+                ag.set(k, values[k])
+            ag.save()
+            frappe.response["message"] = {"name": ag.name}
+
+        elif action == "agenda_add":
+            need_edit()
+            ag = agenda_doc(frappe.form_dict.get("agenda"), "read")
+            values = only(jsonarg("values"), ITEM_EDITABLE + ["reference_doctype", "reference_name"])
+            rdt = values.get("reference_doctype") or ""
+            rname = values.get("reference_name") or ""
+            if rdt or rname:
+                if not (rdt and rname):
+                    deny("A linked record needs both its type and its ID.")
+                doctype(rdt)   # allowed in the Command Center, section unlocked, readable
+                if not frappe.get_list(rdt, filters={"name": rname}, fields=["name"], limit_page_length=1):
+                    deny(rdt + " " + rname + " doesn't exist or you can't see it.")
+                dup = frappe.get_list(AI, filters={"agenda": ag.name, "reference_doctype": rdt,
+                                                   "reference_name": rname}, fields=["name"], limit_page_length=1)
+                if dup:
+                    frappe.response["message"] = {"name": dup[0]["name"], "duplicate": True}
+                    return
+            title = str(values.get("item_title") or "").strip() or (rdt + " " + rname).strip()
+            if not title:
+                deny("Give the item a title.")
+            last = 0
+            for it in items_of(ag.name):
+                if (it["sort_order"] or 0) > last:
+                    last = it["sort_order"] or 0
+            it = frappe.get_doc({"doctype": AI, "agenda": ag.name, "item_title": title[:140],
+                                 "details": values.get("details") or "", "presenter": values.get("presenter") or None,
+                                 "reference_doctype": rdt or None, "reference_name": rname or None,
+                                 "status": "Open", "sort_order": last + 1})
+            it.insert()
+            if rdt and rname:
+                audit(rdt, rname, "added to the " + date_label(ag.name) + " meeting agenda by " + user)
+            frappe.response["message"] = {"name": it.name}
+
+        elif action == "agenda_update":
+            need_edit()
+            it = item_doc(frappe.form_dict.get("name"), "write")
+            values = only(jsonarg("values"), ITEM_EDITABLE)
+            was = it.status
+            was_outcome = str(it.outcome or "")
+            for k in values:
+                it.set(k, values[k])
+            it.save()
+            # the decision lands on the linked record's timeline: once when the item is marked
+            # discussed, and again only if its outcome is changed afterwards
+            became = it.status == "Discussed" and was != "Discussed"
+            reworded = it.status == "Discussed" and bool(it.outcome) and str(it.outcome or "") != was_outcome
+            if it.reference_doctype and it.reference_name and (became or reworded):
+                note = "discussed at the " + date_label(it.agenda) + " meeting"
+                if it.outcome:
+                    note = note + ": " + str(it.outcome)[:700]
+                audit(it.reference_doctype, it.reference_name, note)
+            frappe.response["message"] = {"name": it.name}
+
+        elif action == "agenda_order":
+            need_edit()
+            ag = agenda_doc(frappe.form_dict.get("agenda"), "read")
+            names = jsonarg("names")
+            i = 0
+            for n in names:
+                i = i + 1
+                it = item_doc(n, "write")
+                if it.agenda != ag.name:
+                    continue
+                if (it.sort_order or 0) != i:
+                    it.sort_order = i
+                    it.save()
+            frappe.response["message"] = {"ordered": i}
+
+        elif action == "agenda_remove":
+            need_edit()
+            it = item_doc(frappe.form_dict.get("name"), "delete")
+            it.delete()
+            frappe.response["message"] = {"removed": 1}
+
+        else:
+            deny("Unknown action.")
 
     else:
         deny("Unknown action.")
