@@ -61,7 +61,37 @@ const gwReply = b => {
   if (b.action === 'feed') return { rows:[{creation:'2026-11-17 10:00:00',owner:'kevins@x.com',content:'Command Center: edited by kevins (status: Open -> Working)',reference_doctype:'Task',reference_name:'TASK-2'}] };
   throw new Error('unknown ' + b.action);
 };
+const cnt = o => Object.assign({ runs_2c:0, runs_3c:0, runs_4c:0, runs_5c:0, runs_6c:0, loose:0, wet:0, fmc:0, assembly:0 }, o);
+const bucket = (n, a, p) => ({ count:n, amount:a, com:a*0.2, com_pct:0.2, points:p });
+const BOARD = { as_of:'2026-11-17T10:00:00', today:TODAY, money:true,
+ settings:{ points_per_person_day:57.5, headcount:5.5, capacity_per_day:316.25, points_per_hour:6.76, commission_flag_pct:0.22, weights:{} },
+ pipeline:{ pend_prod:bucket(1,727,2), in_prod:bucket(1,25251.88,322), pend_ship:bucket(0,0,0), wfp:bucket(1,19459.84,41), paint:bucket(0,0,0), held:bucket(0,0,0) },
+ due:{ past_due:{count:1,amount:727}, today:{count:0,amount:0}, next_day:{count:0,amount:0,date:'2026-11-18'}, this_week:{count:1,amount:25251.88} },
+ capacity:{ whse_points:324, in_prod_points:322, wfp_month_points:41, workload:365, capacity_per_day:316.25, left_today:120, days_to_complete:1.15, date_clear:'2026-11-18', burndown:[{date:'2026-11-17',capacity:120,remaining:245},{date:'2026-11-18',capacity:316.25,remaining:0}], overtime:{daily:0,days:0,weekend:0} },
+ queue:[ { so:'ilL-SAL-ORD-67312', customer:'Wichita', amount:25251.88, com_pct:0.19, com:4797, esd:'2026-11-20', esd_is_ship_date:true, status:2, status_label:'In-Prod', counts:cnt({runs_2c:23, wet:92, fmc:69}), points:322, hours:47.6, worth:63.51, notes:'A lns', warnings:[], work_orders:2, short_items:[], no_po_items:[], eta:null, going_to_miss:false, this_month:true, past_due:false },
+   { so:'ilL-SAL-ORD-68686', customer:'B', amount:727, com_pct:0.25, com:181, esd:'2026-11-10', esd_is_ship_date:false, status:1, status_label:'Pend-Prod', counts:cnt({runs_2c:2}), points:2, hours:0.3, worth:272.75, notes:'', warnings:['Conductor count unknown'], work_orders:1, short_items:[], no_po_items:[], eta:null, going_to_miss:false, this_month:true, past_due:true } ],
+ wfp:[ { so:'ilL-SAL-ORD-68552', customer:'C', amount:19459.84, com_pct:0.1, com:1946, esd:'2026-11-19', esd_is_ship_date:true, status:9, status_label:'Waiting for parts', counts:cnt({runs_2c:41}), points:41, hours:6, worth:427, notes:'41 runs', warnings:[], work_orders:1, short_items:[{item:'EXT-1',qty:12},{item:'TAPE-9',qty:3}], no_po_items:['TAPE-9'], eta:null, going_to_miss:true, this_month:false, past_due:false } ],
+ shipped:{ today:{count:1,amount:14646.36,com:2298,com_pct:0.157}, mtd:{count:2,amount:20000,com:3000,com_pct:0.15}, on_time_pct:0.5, weekly:[{week_of:'2026-11-16',shipments:2,on_time_pct:0.5}],
+   rows:[ { delivery_note:'DN-1', so:'ilL-SAL-ORD-1', customer:'A', amount:14646.36, com_pct:0.157, com:2298, esd:'2026-11-17', shipped:'2026-11-17', on_time:true, not_warehouse_fault:false, late_reason:null },
+          { delivery_note:'DN-2', so:'ilL-SAL-ORD-2', customer:'B', amount:5353.64, com_pct:0.14, com:750, esd:'2026-11-10', shipped:'2026-11-12', on_time:false, not_warehouse_fault:false, late_reason:'Short extrusion' } ] },
+ goal:{ month_goal:250000, shipped_mtd:20000, available_to_ship:45438.72, gap:184561.28, shipping_days_left:9, needed_per_day:20506.81 },
+ inbound:{ today_amount:12418.01, today:{ date:'2026-11-17', count:3, amount:12418.01, com:2000, com_pct:0.16, zero:1, same_day:1, next_day:0, rush:2 }, month_avg_amount:39063.56, avg_30_amount:55666.78, month_received_amount:400000,
+   days:[ { date:'2026-11-17', count:3, amount:12418.01, com:2000, com_pct:0.16, zero:1, same_day:1, next_day:0, rush:2 }, { date:'2026-11-16', count:5, amount:61000, com:9000, com_pct:0.15, zero:0, same_day:0, next_day:1, rush:1 } ] },
+ daily:{ days:[ { date:'2026-11-16', count:1, amount:5353.64 }, { date:'2026-11-17', count:1, amount:14646.36 }, { date:'2026-11-18', count:0, amount:0 } ], average_amount:10000, needed_amount:20506.81 },
+ reporting:[ { month:'2026-11-01', goal_amount:2477000, shipped_amount:308269.45, scheduled_amount:919819.62, run_rate_amount:750000, at_risk_amount:19262.52, release_amount:53882, projected_amount:2051233.59, projected_safe_amount:2031971.07, goal_pct:0.828, com_pct:0.22, workdays:9, orders:40 },
+   { month:'2026-12-01', goal_amount:3180000, shipped_amount:0, scheduled_amount:337402.07, run_rate_amount:1100000, at_risk_amount:266882.33, release_amount:534490.88, projected_amount:2238775.28, projected_safe_amount:1971892.95, goal_pct:0.704, com_pct:0.2, workdays:21, orders:10 },
+   { month:'2027-01-01', goal_amount:0, shipped_amount:0, scheduled_amount:0, run_rate_amount:1100000, at_risk_amount:88621.98, release_amount:566859.46, projected_amount:1755481.44, projected_safe_amount:1666859.46, goal_pct:null, com_pct:0, workdays:20, orders:0 } ],
+ releases:{ rows:[ { so:'ilL-SAL-ORD-65513', customer:'Wichita Biomedical Campus', amount:14076.3, com_pct:0.3113, com:4382, likely_ship:'2026-12-13', hold_reason:'Hold for Release', release_points:30, release_days:0.09, notes:'PLS ORDER CHECK IN', status:5, points:22 } ],
+   months:[ { month:'2026-11-01', count:0, amount:0, com:0, com_pct:0 }, { month:'2026-12-01', count:1, amount:14076.3, com:4382, com_pct:0.3113 } ], points:30, days:0.09, no_date:0 },
+ ship_holds:{ rows:[ { so:'ilL-SAL-ORD-68725', customer:'D', amount:13006, com_pct:0.3156, com:4105, esd:'2026-12-06', esd_is_ship_date:true, days_until:19, points:17, notes:'17 wr runs', hold_reason:'Hold for Ship', status:5 } ], months:[], total_amount:13006, through_next_month_amount:13006, week_amount:0 },
+ prowc:{ proforma:{ open_count:1, open_amount:21347.93, completed_count:3, completed_amount:24846.18, com_pct:0.61 }, will_call:{ open_count:0, open_amount:0, completed_count:4, completed_amount:4497.53, com_pct:0.14 },
+   rows:[ { so:'ilL-SAL-ORD-63655', customer:'E', amount:21347.93, com_pct:0.69, com:14734, esd:'2026-11-20', esd_is_ship_date:true, status:3, prowc:'Proforma', notes:'' } ],
+   completed:[ { delivery_note:'DN-9', so:'ilL-SAL-ORD-67588', customer:'F', amount:1118.88, com_pct:0, shipped:'2026-11-05', prowc:'Will Call' } ] },
+ paint:{ rows:[ { so:'ilL-SAL-ORD-68572', customer:'G', amount:9310.94, com_pct:0.177, esd:'2026-11-21', esd_is_ship_date:true, status:7, notes:'1 CH-502 on hand', paint:[ { po:'PO-15059', supplier:'Powder Co', sent:'2026-11-06', due_back:'2026-11-19', item:'CH-409', item_name:'Channel 409', qty:35 } ] } ],
+   total_amount:9310.94, month_amount:9310.94, month_count:1, supplier_group:'Finishing' } };
+let boardMoney = true, boardCalls = 0;
 w.fetch = async (url, opt) => { const ok = (m) => ({ ok:true, status:200, json: async () => ({ message: m }) });
+  if (url.endsWith('production_board.get_board')) { boardCalls++; return ok(boardMoney ? BOARD : Object.assign({}, BOARD, { money:false })); }
   if (url.startsWith('/api/method/ill_command_center')) return ok(D);
   if (url === '/api/method/ill_cc_gateway') { try { return ok(gwReply(JSON.parse(opt.body))); } catch (e) { return { ok:false, status:417, json: async () => ({ exception: e.message }) }; } }
   return { ok:false, status:404, json: async () => ({}) }; };
@@ -109,6 +139,37 @@ const go = async h => { w.location.hash = h; await sleep(120); };
   feedFail = true; const before = calls.length; await go('review'); await sleep(400);
   check('review feed failure does not loop', calls.filter(c => c === 'feed').length - calls.slice(0, before).filter(c => c === 'feed').length <= 1);
   feedFail = false;
+  await go('mfg'); await sleep(250);
+  check('mfg board loads from app endpoint', boardCalls === 1 && /Order queue/.test(txt()));
+  check('mfg pipeline + capacity', /In-Prod/.test(txt()) && /\$25,252/.test(txt()) && /Days to complete/.test(txt()) && /Date clear/.test(txt()));
+  check('mfg queue shows build points and worth', /322/.test(txt()) && /\$64/.test(txt()) && /A lns/.test(txt()));
+  check('mfg burn-down chart drawn', !!w.document.querySelector('#pbburn svg'));
+  check('mfg waiting for parts with no PO', /Waiting for parts/.test(txt()) && /No PO/.test(txt()) && /Going to miss/.test(txt()));
+  check('mfg shipped + on-time', /Shipped this month/.test(txt()) && /Short extrusion/.test(txt()) && /50%/.test(txt()));
+  check('mfg goal gap', /Gap to goal/.test(txt()) && /\$184,561/.test(txt()));
+  check('mfg past-due row flagged', !!w.document.querySelector('tr.pb-row-late'));
+  w.document.querySelector('[data-pbf="1"]').click(); await sleep(50);
+  check('mfg status filter', /68686/.test(txt()) && !/67312/.test(txt()));
+  w.document.querySelector('[data-pbf="all"]').click(); await sleep(50);
+  const sel = w.document.querySelector('#pbsort'); sel.value = 'worth'; sel.dispatchEvent(new w.Event('change')); await sleep(50);
+  check('mfg sort by $ per point', txt().indexOf('68686') < txt().indexOf('67312'));
+  check('mfg keeps work order clean-up', /Work order clean-up/.test(txt()));
+  const tab = async k => { w.document.querySelector(`[data-pbt="${k}"]`).click(); await sleep(60); };
+  await tab('inbound');
+  check('mfg run rate tab', /Orders received per workday/.test(txt()) && /\$12,418/.test(txt()) && /Rush/.test(txt()) && !!w.document.querySelector('#pbinb svg') && !!w.document.querySelector('#pbdaily svg'));
+  await tab('report');
+  check('mfg monthly report', /Monthly report/.test(txt()) && /\$2,477,000/.test(txt()) && /Expected releases/.test(txt()) && /83%/.test(txt()));
+  await tab('releases');
+  check('mfg releases + hold for ship', /PLS ORDER CHECK IN/.test(txt()) && /Hold for ship/.test(txt()) && /17 wr runs/.test(txt()) && /Release workload/.test(txt()));
+  await tab('prowc');
+  check('mfg proforma & will call', /Proforma open/.test(txt()) && /\$21,348/.test(txt()) && /DN-9/.test(txt()));
+  await tab('paint');
+  check('mfg paint', /Out for paint/.test(txt()) && /PO-15059/.test(txt()) && /Channel 409/.test(txt()));
+  await tab('board');
+  check('mfg back to board', /Order queue/.test(txt()) && !!w.document.querySelector('#pbburn svg'));
+  boardMoney = false; w.document.querySelector('#pbrefresh').click(); await sleep(150);
+  check('mfg hides dollars without role', /need the Command Center Finance/.test(txt()));
+  boardMoney = true;
   // ---- meeting agenda ----
   const submit = f => f.dispatchEvent(new w.Event('submit', { cancelable: true, bubbles: true }));
   const sheet = () => w.document.querySelector('#ccsheet2');

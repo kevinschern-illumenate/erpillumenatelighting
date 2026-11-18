@@ -366,9 +366,15 @@ doc_events = {
 		# Draft Quotations / Sales Orders linked to the schedule follow its lines.
 		"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_schedule_update"]},
 	"Work Order": {
-		"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.guard_planned_work_order",
+		"before_insert": [
+			"illumenate_lighting.illumenate_lighting.api.material_planning.guard_planned_work_order",
+			# Manufacturing difficulty for the quantity being built (Production Board).
+			"illumenate_lighting.illumenate_lighting.api.build_points.on_work_order_insert",
+		],
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
 	},
+	# Count each new BOM's pinned build (conductors, wet runs, jumpers, assembly).
+	"BOM": {"on_submit": "illumenate_lighting.illumenate_lighting.api.build_points.on_bom_submit"},
 	"Production Plan": {"validate": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_production_plan"},
 	"Purchase Invoice": {
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_submit",
@@ -393,6 +399,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.build_links.follow_items",
 			"illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+			# After follow_items, so each line is counted against the BOM it now pins.
+			"illumenate_lighting.illumenate_lighting.api.build_points.roll_up_sales_order",
 		],
 		"before_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
 		"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",

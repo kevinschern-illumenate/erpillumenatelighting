@@ -1,0 +1,422 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-11-18 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_weights",
+  "weight_2c",
+  "weight_3c",
+  "weight_4c",
+  "weight_5c",
+  "weight_6c",
+  "column_break_weights",
+  "weight_wet",
+  "weight_fmc",
+  "weight_assembly",
+  "weight_loose",
+  "pixel_conductors",
+  "section_release_weights",
+  "release_weight_2c",
+  "release_weight_3c",
+  "release_weight_4c",
+  "release_weight_5c",
+  "release_weight_6c",
+  "column_break_release_weights",
+  "release_weight_wet",
+  "release_weight_fmc",
+  "release_weight_assembly",
+  "release_weight_loose",
+  "section_capacity",
+  "points_per_person_day",
+  "headcount",
+  "paid_hours_per_day",
+  "column_break_capacity",
+  "shift_hours",
+  "shift_end_time",
+  "holiday_list",
+  "section_overtime",
+  "ot_daily_headcount",
+  "ot_daily_hours",
+  "ot_daily_days",
+  "column_break_overtime",
+  "ot_weekend_headcount",
+  "ot_weekend_hours",
+  "section_commission",
+  "commission_flag_pct",
+  "monthly_revenue_goal",
+  "section_goals",
+  "monthly_goals",
+  "paint_supplier_group"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_weights",
+   "fieldtype": "Section Break",
+   "label": "Difficulty Weights",
+   "description": "Build points = runs weighted by conductor count + adders. Defaults are the main board of the warehouse Schedule Wizard. Saving new weights re-scores BOMs, open Sales Orders and open Work Orders."
+  },
+  {
+   "fieldname": "weight_2c",
+   "fieldtype": "Float",
+   "label": "2C Run (Static White)",
+   "default": "1",
+   "reqd": 1,
+   "description": "Points per 2-conductor run.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "weight_3c",
+   "fieldtype": "Float",
+   "label": "3C Run (Tunable White)",
+   "default": "1.3",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "weight_4c",
+   "fieldtype": "Float",
+   "label": "4C Run (RGB)",
+   "default": "1.4",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "weight_5c",
+   "fieldtype": "Float",
+   "label": "5C Run (RGBW)",
+   "default": "1.5",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "weight_6c",
+   "fieldtype": "Float",
+   "label": "6C Run (RGBTW)",
+   "default": "1.75",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_weights",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weight_wet",
+   "fieldtype": "Float",
+   "label": "Wet-Rated Run Adder",
+   "default": "1.75",
+   "reqd": 1,
+   "description": "Added per run rated IP67 or higher.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "weight_fmc",
+   "fieldtype": "Float",
+   "label": "FMC / Jumper Adder",
+   "default": "2",
+   "reqd": 1,
+   "description": "Added per jumper between segments.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "weight_assembly",
+   "fieldtype": "Float",
+   "label": "Assembly Adder",
+   "default": "2.5",
+   "reqd": 1,
+   "description": "Added per assembled linear fixture (tape into cut extrusion, fixture built).",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "weight_loose",
+   "fieldtype": "Float",
+   "label": "Loose Adder",
+   "default": "0.75",
+   "reqd": 1,
+   "description": "Added per bulk reel of tape.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "pixel_conductors",
+   "fieldtype": "Int",
+   "label": "Pixel Tape Conductor Bucket",
+   "default": "4",
+   "reqd": 1,
+   "description": "Pixel tape has no channel count; score it as this many conductors (2-6).",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_release_weights",
+   "fieldtype": "Section Break",
+   "label": "Release Estimate Weights",
+   "collapsible": 1,
+   "description": "Used for orders on Hold for Release / Confirmation (the workbook's ESPR capacity calculator): points and days a release will take."
+  },
+  {
+   "fieldname": "release_weight_2c",
+   "fieldtype": "Float",
+   "label": "2C Run",
+   "default": "1",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_3c",
+   "fieldtype": "Float",
+   "label": "3C Run",
+   "default": "1.3",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_4c",
+   "fieldtype": "Float",
+   "label": "4C Run",
+   "default": "1.4",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_5c",
+   "fieldtype": "Float",
+   "label": "5C Run",
+   "default": "1.5",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_6c",
+   "fieldtype": "Float",
+   "label": "6C Run",
+   "default": "1.75",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_release_weights",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "release_weight_wet",
+   "fieldtype": "Float",
+   "label": "Wet-Rated Run Adder",
+   "default": "2",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_fmc",
+   "fieldtype": "Float",
+   "label": "FMC / Jumper Adder",
+   "default": "2.5",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_assembly",
+   "fieldtype": "Float",
+   "label": "Assembly Adder",
+   "default": "4",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "release_weight_loose",
+   "fieldtype": "Float",
+   "label": "Loose Adder",
+   "default": "0.5",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_capacity",
+   "fieldtype": "Section Break",
+   "label": "Capacity"
+  },
+  {
+   "fieldname": "points_per_person_day",
+   "fieldtype": "Float",
+   "label": "Points Per Person Per Day",
+   "default": "57.5",
+   "reqd": 1,
+   "description": "How many build points one person completes in a day.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "headcount",
+   "fieldtype": "Float",
+   "label": "Production Head Count",
+   "default": "5.5",
+   "reqd": 1,
+   "description": "People building today; fractions allowed for part-time.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "paid_hours_per_day",
+   "fieldtype": "Float",
+   "label": "Paid Hours Per Day",
+   "default": "8.5",
+   "reqd": 1,
+   "description": "Points per person-hour = points per day / paid hours.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_capacity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shift_hours",
+   "fieldtype": "Float",
+   "label": "Shift Working Hours",
+   "default": "8",
+   "reqd": 1,
+   "description": "Used to prorate today's remaining capacity.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "shift_end_time",
+   "fieldtype": "Time",
+   "label": "Shift End",
+   "default": "16:30:00",
+   "reqd": 1
+  },
+  {
+   "fieldname": "holiday_list",
+   "fieldtype": "Link",
+   "label": "Holiday List",
+   "reqd": 0,
+   "options": "Holiday List",
+   "description": "Workdays for the capacity burn-down. Blank uses the company default."
+  },
+  {
+   "fieldname": "section_overtime",
+   "fieldtype": "Section Break",
+   "label": "Overtime"
+  },
+  {
+   "fieldname": "ot_daily_headcount",
+   "fieldtype": "Float",
+   "label": "Daily Overtime Head Count",
+   "default": "0",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "ot_daily_hours",
+   "fieldtype": "Float",
+   "label": "Daily Overtime Hours",
+   "default": "0",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "ot_daily_days",
+   "fieldtype": "Int",
+   "label": "Daily Overtime Days",
+   "default": "0",
+   "reqd": 1,
+   "non_negative": 1,
+   "description": "How many workdays, starting today, the daily overtime runs."
+  },
+  {
+   "fieldname": "column_break_overtime",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ot_weekend_headcount",
+   "fieldtype": "Float",
+   "label": "Weekend Overtime Head Count",
+   "default": "0",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "ot_weekend_hours",
+   "fieldtype": "Float",
+   "label": "Weekend Overtime Hours",
+   "default": "0",
+   "reqd": 1,
+   "description": "Weekend overtime is credited on Monday.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_commission",
+   "fieldtype": "Section Break",
+   "label": "Commission & Goal"
+  },
+  {
+   "fieldname": "commission_flag_pct",
+   "fieldtype": "Float",
+   "label": "Flag Commission Above (%)",
+   "default": "22",
+   "reqd": 1,
+   "description": "Orders with a higher commission rate are shown in red.",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "monthly_revenue_goal",
+   "fieldtype": "Currency",
+   "label": "Monthly Shipping Goal",
+   "default": "0",
+   "non_negative": 1,
+   "description": "Shipped revenue goal for the current month. The board shows the gap and the dollars needed per shipping day."
+  },
+  {
+   "fieldname": "section_goals",
+   "fieldtype": "Section Break",
+   "label": "Monthly Goals & Paint"
+  },
+  {
+   "fieldname": "monthly_goals",
+   "fieldtype": "Table",
+   "label": "Monthly Shipping Goals",
+   "options": "ilL-Child-Production-Goal",
+   "description": "One row per month. Months without a row use the Monthly Shipping Goal above."
+  },
+  {
+   "fieldname": "paint_supplier_group",
+   "fieldtype": "Link",
+   "label": "Paint / Finishing Supplier Group",
+   "options": "Supplier Group",
+   "description": "Open purchase orders to these suppliers, linked to a sales order, put the order in Paint on the board."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-18 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Production-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "role": "System Manager",
+   "write": 1,
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "read": 1,
+   "role": "Manufacturing Manager",
+   "write": 1,
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "share": 1
+  },
+  {
+   "read": 1,
+   "role": "Manufacturing User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
