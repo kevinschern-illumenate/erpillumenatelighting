@@ -15,18 +15,19 @@ from urllib.parse import unquote, urlparse
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.api.gallery_products import product_item_id
 from illumenate_lighting.illumenate_lighting.api.gallery_schema import (
 	APPLICATIONS,
 	CREDIT_FIELDS,
 	DESIGN_SERVICES,
 	GALLERY_TYPES,
 )
+from illumenate_lighting.illumenate_lighting.api.webflow_brand import get_default_brand
 from illumenate_lighting.illumenate_lighting.portal.staff import require
 
 GALLERY = "ilL-Webflow-Gallery"
 PRODUCT = "ilL-Webflow-Product"
 SERIES = "ilL-Attribute-Series"
-SYNC_STATE = "ilL-Child-Webflow-Sync-State"
 BRAND = "ilL-Webflow-Brand"
 CUSTOM_ALIASES = {"custom led tape", "custom extrusion kit"}
 DEFAULT_SKIP = frozenset({"boutique-hotel-lounge"})
@@ -256,18 +257,16 @@ def _download(url: str) -> bytes:
 
 
 def _lookups(brand: str):
+	"""Series by lowercase name; products by their Webflow item ID in `brand` (``product_item_id``)."""
 	series = {row.name.lower(): row.name for row in frappe.get_all(SERIES, fields=["name"])}
-	states = frappe.get_all(
-		SYNC_STATE,
-		filters={"parenttype": PRODUCT, "brand": brand, "sync_status": "Synced"},
-		fields=["parent", "webflow_item_id"],
-	)
-	by_id = {row.webflow_item_id: row.parent for row in states if row.webflow_item_id}
-	products = frappe.get_all(
-		PRODUCT,
-		filters={"name": ["in", list(by_id.values())]},
-		fields=["name", "series", "product_name"],
-	)
+	default_brand = get_default_brand()
+	by_id, products = {}, []
+	# A one-off import: one lookup chain per product is acceptable.
+	for row in frappe.get_all(PRODUCT, fields=["name", "series", "product_name"]):
+		item_id = product_item_id(row.name, brand, default_brand)
+		if item_id:
+			by_id[item_id] = row.name
+			products.append(row)
 	return (
 		series,
 		by_id,

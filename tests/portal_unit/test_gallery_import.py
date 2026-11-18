@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 from test_services import ROOT, Record, load_service
 
+from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+
 MODULE = ROOT + ".api.gallery_import"
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _previous_cwd = None
@@ -269,9 +271,14 @@ class ImportCase(unittest.TestCase):
 		self.files = []
 		self.existing = set()
 		self.write_calls = []
+		self.products = {"rainier-sf": {"series": "Rainier", "product_name": "Rainier SF"}}
+		self.sync_rows = {("rainier-sf", "staging2"): ODE_PRODUCT}
+		self.publications = {}
 
 	def service(self):
-		return load_service(MODULE, {self.staff.__name__: self.staff})
+		brand = types.ModuleType(ROOT + ".api.webflow_brand")
+		brand.get_default_brand = lambda: "illumenate"
+		return load_service(MODULE, {self.staff.__name__: self.staff, brand.__name__: brand})
 
 	def prepare(self, frappe):
 		def exists(doctype, filters=None):
@@ -284,11 +291,21 @@ class ImportCase(unittest.TestCase):
 		def get_all(doctype, **kwargs):
 			if doctype == "ilL-Attribute-Series":
 				return [Record(name=n) for n in SERIES.values()]
-			if doctype == "ilL-Child-Webflow-Sync-State":
-				return [Record(parent="rainier-sf", webflow_item_id=ODE_PRODUCT)]
 			if doctype == "ilL-Webflow-Product":
-				return [Record(name="rainier-sf", series="Rainier", product_name="Rainier SF")]
+				return [Record(name=n, **row) for n, row in self.products.items()]
 			return []
+
+		def get_value(doctype, filters=None, field=None, *args, **kwargs):
+			# Spec 6a order: publication record, then the sync row (any status), then the own field.
+			if doctype == "ilL-Product-Publication":
+				return next(
+					(item for (product, code), item in self.publications.items()
+					if filters == {"scope_key": fingerprint([product, code])}),
+					None,
+				)
+			if doctype == "ilL-Child-Webflow-Sync-State" and "sync_status" not in filters:
+				return self.sync_rows.get((filters["parent"], filters["brand"]))
+			return None
 
 		def get_doc(data):
 			doc = Record(copy.deepcopy(data))
@@ -302,6 +319,7 @@ class ImportCase(unittest.TestCase):
 			return doc
 
 		frappe.db.exists.side_effect = exists
+		frappe.db.get_value.side_effect = get_value
 		frappe.get_all.side_effect = get_all
 		frappe.get_doc.side_effect = get_doc
 		frappe.delete_doc = MagicMock()
@@ -384,6 +402,19 @@ class ImportCase(unittest.TestCase):
 			self.prepare(frappe)
 			with self.assertRaises(ValueError):
 				module.import_galleries([ode()], "nope", 0)
+
+	def test_product_known_only_by_its_publication_record_is_mapped(self):
+		"""A product staged by the publication process has no Synced sync row (spec 6a)."""
+		self.sync_rows = {}
+		self.publications = {("rainier-sf", "staging2"): ODE_PRODUCT}
+		result = self.run_import([ode()], 0)
+		self.assertFalse(any("not synced" in line for line in result["report"]), result["report"])
+		with self.service() as (module, frappe):
+			self.prepare(frappe)
+			_series, by_id, product_series, names = module._lookups("staging2")
+		self.assertEqual(by_id, {ODE_PRODUCT: "rainier-sf"})
+		self.assertEqual(product_series, {"rainier-sf": "Rainier"})
+		self.assertEqual(names, {"rainier-sf": "Rainier SF"})
 
 	def test_skipped_gallery_is_in_report_not_created(self):
 		result = self.run_import([item("boutique-hotel-lounge", "Boutique")], 1)

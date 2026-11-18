@@ -16,6 +16,7 @@ from frappe.utils import get_datetime, now_datetime
 
 from illumenate_lighting.illumenate_lighting import webflow_notify
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
+from illumenate_lighting.illumenate_lighting.api.gallery_products import product_item_id
 from illumenate_lighting.illumenate_lighting.api.gallery_projection import build_payload
 from illumenate_lighting.illumenate_lighting.api.gallery_readiness import evaluate
 from illumenate_lighting.illumenate_lighting.api.publication_contract import (
@@ -80,17 +81,14 @@ def _targeted(gallery, brand):
 
 
 def _product_refs(gallery, brand):
-	"""{product: {"name", "webflow_item_id"}} from each product's Synced state in this brand."""
+	"""{product: {"name", "webflow_item_id"}}; the item ID comes from ``product_item_id`` (spec 6a)."""
 	refs = {}
+	default_brand = get_default_brand()
 	for row in gallery.get("products_used") or []:
 		product = row.get("product")
 		if not product or product in refs:
 			continue
-		item_id = frappe.db.get_value(
-			SYNC_STATE,
-			{"parent": product, "parenttype": PRODUCT, "brand": brand, "sync_status": "Synced"},
-			"webflow_item_id",
-		)
+		item_id = product_item_id(product, brand, default_brand)
 		name = frappe.db.get_value(PRODUCT, product, "product_name")
 		refs[product] = {"name": name or product, "webflow_item_id": item_id or None}
 	return refs
