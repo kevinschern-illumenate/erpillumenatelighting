@@ -331,10 +331,12 @@ returns them) and passes them in. The pure mapping is `map_webflow_item`.
 - People: the six name and website pairs on each item become `credits` rows (only the pairs that are filled).
 - Series: the old `series-used` text is matched to `ilL-Attribute-Series` records by name; "Custom LED Tape"
   and "Custom Extrusion Kit" go to "Custom", and "Ode Wellness" (no series today) is set to "Custom" (Rei).
-  Each series goes on a `products_used` row. A product row takes the product's own series (whether or not
-  the item's text lists it); a product without a series takes "Custom" when the item lists no other series,
-  else it is left out and reported. Listed series that no product row took become series-only rows.
-  Anything that can't be matched is listed in the import report.
+  Each series goes on a `products_used` row. An item with **no** `series-used` text is "Custom" (Rei):
+  every product row takes "Custom", ignoring the product's own series, so `series-used` is "Custom" only
+  (Ode Wellness). An item that has series text: a product row takes the product's own series (whether or
+  not the text lists it); a product without a series takes "Custom" when the item lists no other series.
+  A product whose series cannot be determined is left out and reported. Listed series that no product row
+  took become series-only rows. Anything that can't be matched is listed in the import report.
 - Galleries that still fail the readiness rules after import are imported as drafts needing review; staff
   complete them before approval.
 - Products: each `products-used` Webflow item ID is mapped to an `ilL-Webflow-Product` whose item ID in the
@@ -430,7 +432,7 @@ Still open:
   unchanged revision creates a new job unless one is queued or running. A save that changes nothing sent
   returns the publication to `STAGED`/`LIVE` on the next inspect, and `Publish Live` follows the hashes.
   Custom-item images must be public image files; gallery attachments default to public; galleries cannot be
-  renamed. The import never writes a product row without a series. Gallery wording for `identity-conflict`,
+  renamed. The import never writes a product row without a series, and an item with no series text stays "Custom" only. Gallery wording for `identity-conflict`,
   `lookup-incomplete` and `readiness` failures. The form panel is rebuilt on every refresh. This document:
   status, the sweep (not built; section 11), `sync_targets`, image size, the staging2 brand's
   `erpnext_base_url`, and the import's unmapped-product rule corrected.

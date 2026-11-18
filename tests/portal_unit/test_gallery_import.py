@@ -119,6 +119,9 @@ class MapCase(unittest.TestCase):
 		cm = load_service(MODULE)
 		self.module, self.frappe = cm.__enter__()
 		self.addCleanup(cm.__exit__, None, None, None)
+		from illumenate_lighting.illumenate_lighting.api import gallery_projection
+
+		self.projection = gallery_projection
 
 	def test_skips_boutique_hotel_lounge(self):
 		gallery, report = map_item(self.module, item("boutique-hotel-lounge", "Boutique Hotel Lounge"))
@@ -132,11 +135,15 @@ class MapCase(unittest.TestCase):
 		self.assertEqual(gallery["slug"], "boutique-hotel-lounge")
 
 	def test_ode_series_is_custom(self):
-		gallery, report = map_item(self.module, ode())
-		rows = gallery["products_used"]
-		# The product has no series of its own and the item lists only Custom: it takes Custom
-		# (series is required; a None series made the commit run fail to insert the gallery).
-		self.assertEqual(rows, [{"product": "rainier-sf", "series": "Custom", "note": None}])
+		# Rei: an item with no series-used text is "Custom", whatever the products' own series.
+		self.assertNotIn("series-used", ode()["fieldData"])
+		for own in (None, {"rainier-sf": "Rainier"}):
+			gallery, report = map_item(self.module, ode(), product_series=own)
+			rows = gallery["products_used"]
+			self.assertEqual(rows, [{"product": "rainier-sf", "series": "Custom", "note": None}], own)
+			self.assertEqual({row["series"] for row in rows}, {"Custom"})
+			payload = self.projection.build_payload(gallery, base_url="", product_refs={})
+			self.assertEqual(payload["series_used"], ["Custom"])
 		self.assertEqual(gallery["featured"], 1)
 		self.assertEqual(gallery["gallery_type"], "Healthcare")
 		self.assertEqual(gallery["completion_date"], "2025-03-04")
@@ -157,10 +164,12 @@ class MapCase(unittest.TestCase):
 		])
 
 	def test_product_series_not_in_text_falls_back_to_its_own_series(self):
-		gallery, report = map_item(self.module, ode(), product_series={"rainier-sf": "Rainier"})
+		raw = ode()
+		raw["fieldData"]["series-used"] = "LED Tape"
+		gallery, report = map_item(self.module, raw, product_series={"rainier-sf": "Rainier"})
 		self.assertEqual(gallery["products_used"], [
 			{"product": "rainier-sf", "series": "Rainier", "note": None},
-			{"product": None, "series": "Custom", "note": None},
+			{"product": None, "series": "LED Tape", "note": None},
 		])
 		self.assertEqual(report, [])
 
