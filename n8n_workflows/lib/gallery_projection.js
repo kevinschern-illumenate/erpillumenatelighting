@@ -9,11 +9,12 @@ function projectWebflowGallery(payload, options) {
 // - The hero image ({url, alt}, or null when there is none) and the SEO description go to the fields named by
 //   options.heroField ('featured-image' by default) and options.seoField ('short-description' by default), because the
 //   collections on the two Webflow sites use different slugs for them.
-// - `products-used` is ONE plain-text field holding a JSON array of the Products Used table, row by row (a script on
+// - `products-used` stays a multi-reference field: the Webflow item IDs of the products (an array, possibly empty).
+// - `product-notes` is ONE plain-text field holding a JSON array of the Products Used table, row by row (a script on
 //   the Webflow page parses it): [{"product":"kit-ra01","name":"Rainier [SF] Extrusion Kit","slug":"kit-ra01",
 //   "series":"Rainier","note":"White finish","webflow_item_id":"6aeb..."}, ...]. A series-only row has null product, name,
 //   slug and webflow_item_id. No rows sends ''. When the payload has no `products` key (an ERP that does not send
-//   it yet) the field is left out rather than cleared. The old `product-notes` field is no longer sent.
+//   it yet) the field is left out rather than cleared.
 // - `credits` is ONE plain-text field holding a JSON array (a script on the Webflow page parses it), in this
 //   order, only the credits that have a name: [{"type":"Integrator","name":"Acme","website":"https://..."}, ...].
 //   `website` is null when there is none. No credits at all sends '' (not '[]'), so the field reads as empty
@@ -43,6 +44,7 @@ const fieldData = {
   'project-type': text(payload.gallery_type),
   'applications': joined(payload.applications),
   'services-provided': joined(payload.services_provided),
+  'products-used': (payload.product_item_ids || []).filter(id => /^[a-f0-9]{24}$/i.test(id)),
   'series-used': joined(payload.series_used),
   'quote': text(payload.quote),
   'quote-attribution': text(payload.quote_attribution),
@@ -55,7 +57,7 @@ if (Array.isArray(payload.products)) {
     product: text(row.product) || null, name: text(row.name) || null, slug: text(row.slug) || null,
     series: text(row.series) || null, note: text(row.note) || null, webflow_item_id: text(row.webflow_item_id) || null
   }));
-  fieldData['products-used'] = rows.length ? JSON.stringify(rows) : '';
+  fieldData['product-notes'] = rows.length ? JSON.stringify(rows) : '';
 }
 if (!fieldData.name || !fieldData.slug || !fieldData['erp-sync-id']) throw new Error('Gallery name, slug and erp-sync-id are required');
 
