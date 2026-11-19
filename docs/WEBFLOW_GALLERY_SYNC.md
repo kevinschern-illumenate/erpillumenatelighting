@@ -464,3 +464,6 @@ Still open: nothing.
   import: Invalid file url" for a file name with spaces. Gallery image URLs are now percent-encoded
   (`gallery_projection.absolute_url`), as the product projection already did. Changing a URL changes the
   gallery's hash, so each gallery needs Approve and Stage again after this is deployed.
+- 2026-11-19: The gallery form has a collapsed "What the status means" section at the bottom (`status_guide`, an
+  HTML field) listing the seven statuses the sidebar pill can show and what each means. Work now goes straight
+  to `staging` rather than through feature branches.
