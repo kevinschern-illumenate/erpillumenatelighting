@@ -8,9 +8,9 @@ from illumenate_lighting.illumenate_lighting.api.gallery_projection import absol
 
 BASE = "https://www.illumenatelighting.com"
 REFS = {
-	"PRD-1": {"name": "Rainier [SF]", "webflow_item_id": "wf1"},
-	"PRD-2": {"name": "Ode <Pro>", "webflow_item_id": "wf2"},
-	"PRD-3": {"name": "Unstaged", "webflow_item_id": None},
+	"PRD-1": {"name": "Rainier [SF]", "slug": "kit-ra01", "webflow_item_id": "wf1"},
+	"PRD-2": {"name": "Ode <Pro>", "slug": "ode-pro", "webflow_item_id": "wf2"},
+	"PRD-3": {"name": "Unstaged", "slug": None, "webflow_item_id": None},
 }
 
 
@@ -140,44 +140,88 @@ class TestProjection(unittest.TestCase):
 		]
 		p = build(products_used=rows)
 		self.assertEqual(p["product_item_ids"], ["wf1", "wf2"])
-		self.assertEqual(p["product_notes_html"], "<p>Rainier [SF]: one</p><p>Rainier [SF]: two</p>")
 
 	def test_series_distinct_in_row_order(self):
 		rows = [{"series": s} for s in ("Custom", "COB", "Custom")]
 		self.assertEqual(build(products_used=rows)["series_used"], ["Custom", "COB"])
 
-	def test_series_only_row_adds_series_not_notes(self):
-		p = build(products_used=[{"series": "Custom", "note": "ignored"}])
+	def test_series_only_row_adds_series_and_no_product_id(self):
+		p = build(products_used=[{"series": "Custom", "note": "kept in the row"}])
 		self.assertEqual(p["series_used"], ["Custom"])
-		self.assertEqual(p["product_notes_html"], "")
 		self.assertEqual(p["product_item_ids"], [])
+		self.assertEqual(
+			p["products"],
+			[
+				{
+					"product": None,
+					"name": None,
+					"slug": None,
+					"series": "Custom",
+					"note": "kept in the row",
+					"webflow_item_id": None,
+				}
+			],
+		)
 
 	def test_product_without_item_id_is_skipped(self):
 		rows = [{"product": "PRD-3", "series": "Ode"}, {"product": "PRD-1", "series": "Ode"}]
 		p = build(products_used=rows)
 		self.assertEqual(p["product_item_ids"], ["wf1"])
 
-	def test_product_notes_one_paragraph_per_row_with_note(self):
+	def test_products_are_the_table_row_by_row(self):
 		rows = [
 			{"product": "PRD-1", "series": "Ode", "note": "White finish"},
 			{"product": "PRD-2", "series": "Ode", "note": ""},
-			{"product": "PRD-3", "series": "Ode", "note": "Dimmed"},
+			{"product": "PRD-3", "series": "", "note": "Dimmed"},
+			{"product": "PRD-1", "series": "COB", "note": "again"},
 		]
 		self.assertEqual(
-			build(products_used=rows)["product_notes_html"],
-			"<p>Rainier [SF]: White finish</p><p>Unstaged: Dimmed</p>",
+			build(products_used=rows)["products"],
+			[
+				{
+					"product": "PRD-1",
+					"name": "Rainier [SF]",
+					"slug": "kit-ra01",
+					"series": "Ode",
+					"note": "White finish",
+					"webflow_item_id": "wf1",
+				},
+				{
+					"product": "PRD-2",
+					"name": "Ode <Pro>",
+					"slug": "ode-pro",
+					"series": "Ode",
+					"note": None,
+					"webflow_item_id": "wf2",
+				},
+				{
+					"product": "PRD-3",
+					"name": "Unstaged",
+					"slug": None,
+					"series": None,
+					"note": "Dimmed",
+					"webflow_item_id": None,
+				},
+				{
+					"product": "PRD-1",
+					"name": "Rainier [SF]",
+					"slug": "kit-ra01",
+					"series": "COB",
+					"note": "again",
+					"webflow_item_id": "wf1",
+				},
+			],
 		)
 
-	def test_notes_fall_back_to_docname(self):
+	def test_a_product_missing_from_the_refs_falls_back_to_its_docname(self):
 		rows = [{"product": "PRD-9", "series": "Ode", "note": "n"}]
-		self.assertEqual(build(products_used=rows)["product_notes_html"], "<p>PRD-9: n</p>")
+		row = build(products_used=rows)["products"][0]
+		self.assertEqual((row["product"], row["name"], row["slug"], row["webflow_item_id"]), ("PRD-9", "PRD-9", None, None))
 
-	def test_notes_escape_html(self):
-		rows = [{"product": "PRD-2", "series": "Ode", "note": 'a<b & "c"'}]
-		self.assertEqual(
-			build(products_used=rows)["product_notes_html"],
-			"<p>Ode &lt;Pro&gt;: a&lt;b &amp; &quot;c&quot;</p>",
-		)
+	def test_no_products_is_an_empty_list_and_notes_html_is_gone(self):
+		p = build(products_used=[])
+		self.assertEqual(p["products"], [])
+		self.assertNotIn("product_notes_html", p)
 
 	def test_custom_items_image_under_its_paragraph(self):
 		items = [

@@ -19,6 +19,12 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--erp-base-url", help="Build this https ERP address into the Configuration node")
 parser.add_argument("--brand", help="Build this brand code into the Configuration node")
 parser.add_argument("--webhook-path", default="ill-gallery-sync", help="Path of the Gallery Webhook node")
+parser.add_argument(
+	"--hero-field", default="featured-image", help="Webflow slug of the hero image field (main site: hero-image)"
+)
+parser.add_argument(
+	"--seo-field", default="short-description", help="Webflow slug of the SEO description field (main site: seo-description)"
+)
 parser.add_argument("--name", default="ilL Gallery Publication (one brand)")
 parser.add_argument("--out", default="n8n_workflows/webflow_gallery_sync.json")
 args = parser.parse_args()
@@ -28,6 +34,9 @@ if args.erp_base_url and not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::\d+)?", ar
 	parser.error("--erp-base-url must be an https origin without a path")
 if args.brand and not re.fullmatch(r"[A-Za-z0-9_-]+", args.brand):
 	parser.error("--brand may contain letters, digits, - and _ only")
+for field in (args.hero_field, args.seo_field):
+	if not re.fullmatch(r"[a-z0-9-]+", field):
+		parser.error("field slugs may contain lowercase letters, digits and - only")
 if not re.fullmatch(r"[A-Za-z0-9_-]+", args.webhook_path):
 	parser.error("--webhook-path may contain letters, digits, - and _ only")
 
@@ -236,10 +245,12 @@ code(
 	"Prepare Write",
 	projection
 	+ """
+// The field slugs of this site's Galleries collection that differ between sites.
+const SITE_FIELDS = {heroField: """ + json.dumps(args.hero_field) + """, seoField: """ + json.dumps(args.seo_field) + """};
 const job = {...$json};
 try {
   // STAGE saves a draft; PUBLISH marks the staged item ready, then publishes it (as for products).
-  job.write_body = projectWebflowGallery(job.payload, {isDraft: job.operation !== 'PUBLISH'});
+  job.write_body = projectWebflowGallery(job.payload, {...SITE_FIELDS, isDraft: job.operation !== 'PUBLISH'});
   job.write_method = job.remote_item_id ? 'PATCH' : 'POST';
   job.write_url = job.collection_url + (job.remote_item_id ? '/' + job.remote_item_id : '');
 } catch (error) { job.error_code = 'projection-invalid'; }

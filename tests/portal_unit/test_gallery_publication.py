@@ -123,6 +123,8 @@ class GalleryPublicationCase(unittest.TestCase):
 				return self.item_ids.get(filters["parent"])
 			return None
 		if doctype == "ilL-Webflow-Product":
+			if isinstance(field, list):
+				return Record(product_name="Rainier [SF]", product_slug="rainier-sf")
 			return "Rainier [SF]"
 		if doctype == JOB and isinstance(filters, dict):
 			return next((name for name, job in self.jobs.items() if matches(job, filters)), None)

@@ -540,3 +540,20 @@ Still open: nothing.
   for both environments: `webflow_gallery_sync_production.json` (webhook path `ill-gallery-sync`) and
   `webflow_gallery_sync_staging.json` (`ill-gallery-sync-staging`). The n8n workflow `m55OoaAD9LHaRYZq` was
   reworked into the production one; the staging copy can be re-imported from its file.
+- 2026-11-19: **Products Used goes to Webflow as JSON too.** The workflow now sends the Products Used table, row by
+  row, as one JSON text in the `products-used` field (a plain-text field, no longer a multi-reference), for a
+  script on the Webflow page: `[{"product":"kit-ra01","name":"Rainier [SF] Extrusion Kit","slug":"kit-ra01","series":"Rainier","note":"White finish","webflow_item_id":"6aeb..."}, ...]`.
+  A series-only row has null `product`, `name`, `slug` and `webflow_item_id`; no rows sends `''`. The old
+  `product-notes` field is not sent any more (the notes are in the rows). The ERP payload gained `products`
+  (and lost `product_notes_html`); an ERP that does not send `products` yet leaves the field alone rather than
+  clearing it. `series-used` is still sent as a comma-separated filter text.
+- 2026-11-19: The main site's collection uses the slugs `hero-image` (hero) and `seo-description` (SEO text),
+  where staging2 has `featured-image` and `short-description`. The builder takes `--hero-field` and `--seo-field`;
+  the production copy is built with `hero-image` and `seo-description`. Read from the main collection through
+  the Webflow API (id `6afe3216d7ca4cf3ffc38ccb`, 22 fields, Products Used still a reference at that time).
+  Plain-text fields in Webflow have length limits (several here are single-line), so very long notes can be
+  rejected by Webflow; that fails the job visibly.
+- 2026-11-19: The `ilL-Webflow-Brand-Collection` doctype file kept its old `modified` date when "Galleries" was
+  added to Collection Kind, so a site that had the older copy skipped the change at migrate and the option was
+  missing. `modified` is now bumped (and a test guards it). Any doctype file edited in a commit needs its
+  `modified` moved forward.

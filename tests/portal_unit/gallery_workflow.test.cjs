@@ -9,7 +9,7 @@ const { projectWebflowGallery } = require('../../n8n_workflows/lib/gallery_proje
 const COLLECTION = 'b'.repeat(24);
 const FIELD_SLUGS = ['name', 'slug', 'erp-sync-id', 'featured', 'featured-image', 'gallery', 'short-description',
     'about', 'case-study', 'project-type', 'applications', 'services-provided', 'products-used', 'series-used',
-    'product-notes', 'quote', 'quote-attribution', 'location', 'completion-date', 'videos', 'custom-items',
+    'quote', 'quote-attribution', 'location', 'completion-date', 'videos', 'custom-items',
     'credits'];
 
 function makePayload(index, overrides = {}) {
@@ -21,7 +21,10 @@ function makePayload(index, overrides = {}) {
         seo_description: 'A hotel lobby.', about: 'Warm and calm.', case_study_html: '<p>Case</p>',
         gallery_type: 'Hospitality', applications: ['Cove', 'Accent'], services_provided: ['Takeoff Drawings', 'Troubleshooting'],
         series_used: ['Rainier', 'Custom'], product_item_ids: ['c'.repeat(24), 'd'.repeat(24)],
-        product_notes_html: '<p>Rainier: white</p>', quote: 'Lovely light.', quote_attribution: 'A. Owner',
+        products: [
+            {product: 'kit-ra01', name: 'Rainier [SF] Extrusion Kit', slug: 'kit-ra01', series: 'Rainier', note: 'White finish', webflow_item_id: 'c'.repeat(24)},
+            {product: null, name: null, slug: null, series: 'Custom', note: null, webflow_item_id: null}],
+        quote: 'Lovely light.', quote_attribution: 'A. Owner',
         location: 'Austin, TX', completion_date: '2025-03-14',
         credits: {Integrator: {name: 'Bright Co', website: 'https://bright.example'}, Photographer: {name: 'P. Lens', website: ''}},
         videos: ['https://youtu.be/abc', 'https://vimeo.com/1'], custom_items_html: '<p>Kit: black</p>',
@@ -149,9 +152,13 @@ function test_projection_maps_every_field_slug() {
     assert.equal(data['project-type'], 'Hospitality');
     assert.equal(data.applications, 'Cove, Accent');
     assert.equal(data['services-provided'], 'Takeoff Drawings, Troubleshooting');
-    assert.deepEqual(data['products-used'], ['c'.repeat(24), 'd'.repeat(24)]);
+    // The Products Used table goes as JSON text, row by row; a series-only row has null product fields.
+    assert.deepEqual(JSON.parse(data['products-used']), [
+        {product: 'kit-ra01', name: 'Rainier [SF] Extrusion Kit', slug: 'kit-ra01', series: 'Rainier', note: 'White finish', webflow_item_id: 'c'.repeat(24)},
+        {product: null, name: null, slug: null, series: 'Custom', note: null, webflow_item_id: null}]);
+    assert.equal(typeof data['products-used'], 'string');
+    assert.ok(!('product-notes' in data), 'product notes now travel inside products-used');
     assert.equal(data['series-used'], 'Rainier, Custom');
-    assert.equal(data['product-notes'], '<p>Rainier: white</p>');
     assert.equal(data.quote, 'Lovely light.');
     assert.equal(data['quote-attribution'], 'A. Owner');
     assert.equal(data.location, 'Austin, TX');
@@ -161,12 +168,12 @@ function test_projection_maps_every_field_slug() {
     assert.equal(data.credits, '[{"type":"Integrator","name":"Bright Co","website":"https://bright.example"},{"type":"Photographer","name":"P. Lens","website":null}]');
     // Emptied text fields are sent as '' so clearing a value in ERP clears it in Webflow.
     const cleared = projectWebflowGallery(makePayload(1, {quote: '', case_study_html: '', videos: [], applications: [],
-        product_item_ids: [], hero_image: null, gallery_images: []}), {isDraft: true}).fieldData;
+        products: [], hero_image: null, gallery_images: []}), {isDraft: true}).fieldData;
     assert.equal(cleared.quote, '');
     assert.equal(cleared['case-study'], '');
     assert.equal(cleared.videos, '');
     assert.equal(cleared.applications, '');
-    assert.deepEqual(cleared['products-used'], []);
+    assert.equal(cleared['products-used'], '', 'no rows clears the field');
     assert.deepEqual(cleared.gallery, []);
     assert.equal(cleared['featured-image'], null);
     // completion-date is omitted (not sent) when ERP has none; an invalid date stops the projection.
@@ -182,6 +189,22 @@ function test_projection_maps_every_field_slug() {
     assert.equal(sent('2025-11-03'), '2025-11-03T08:00:00.000Z');
     assert.equal(sent('2026-01-01'), '2026-01-01T08:00:00.000Z');
     assert.throws(() => projectWebflowGallery(makePayload(1), {}));
+}
+
+function test_site_specific_field_slugs_and_products_fallback() {
+    // The main site's collection names the hero image and SEO description fields differently.
+    const main = projectWebflowGallery(makePayload(1), {isDraft: true, heroField: 'hero-image', seoField: 'seo-description'}).fieldData;
+    assert.equal(main['hero-image'].url, 'https://erp.example.test/files/g1-1.jpg');
+    assert.equal(main['seo-description'], 'A hotel lobby.');
+    assert.ok(!('featured-image' in main) && !('short-description' in main));
+    assert.equal(Object.keys(main).length, FIELD_SLUGS.length);
+    // An ERP that does not send `products` yet must not clear the field: it is left out.
+    const old = makePayload(1);
+    delete old.products;
+    assert.ok(!('products-used' in projectWebflowGallery(old, {isDraft: true}).fieldData));
+    // Values are cleaned: non-strings become null, the JSON stays one line.
+    const odd = projectWebflowGallery(makePayload(1, {products: [{product: 5, name: '', slug: 'x', series: 'S\nT', note: null, webflow_item_id: undefined}]}), {isDraft: true}).fieldData;
+    assert.equal(odd['products-used'], '[{"product":null,"name":null,"slug":"x","series":"S\\nT","note":null,"webflow_item_id":null}]');
 }
 
 function test_credits_are_one_json_field() {
@@ -411,15 +434,22 @@ function test_production_build_has_its_own_values_and_the_same_logic() {
     const hook = production.nodes.find(node => node.type === 'n8n-nodes-base.webhook');
     assert.equal(hook.parameters.path, 'ill-gallery-sync');
     // Same graph and same code as the default build apart from the Configuration node, the name and nothing else.
-    const strip = flow => JSON.stringify(flow.nodes.filter(node => node.name !== 'Configuration'));
+    // (Prepare Write also differs by the site's two field slugs, so that line is blanked before comparing.)
+    const strip = flow => JSON.stringify(flow.nodes.filter(node => node.name !== 'Configuration')
+        .map(node => node.name === 'Prepare Write'
+            ? {...node, parameters: {...node.parameters, jsCode: node.parameters.jsCode.replace(/const SITE_FIELDS = .*;/, '')}}
+            : node));
     assert.equal(strip(production), strip(workflow));
     assert.deepEqual(production.connections, workflow.connections);
     assert.ok(production.nodes.every(node => !node.credentials), 'credentials must stay unbound');
     const text = JSON.stringify(production);
     assert.ok(!/stagingillumenate|6afb3d27742d050cf6903677|6aeb4d313e25a078e9393924/.test(text), 'staging values');
+    // The main site's collection uses hero-image and seo-description.
+    const write = production.nodes.find(node => node.name === 'Prepare Write').parameters.jsCode;
+    assert.ok(write.includes('heroField: "hero-image"') && write.includes('seoField: "seo-description"'));
 }
 
-const tests = [test_projection_maps_every_field_slug, test_credits_are_one_json_field, test_stage_creates_item_once,
+const tests = [test_projection_maps_every_field_slug, test_site_specific_field_slugs_and_products_fallback, test_credits_are_one_json_field, test_stage_creates_item_once,
     test_lost_ack_after_create_does_not_duplicate, test_slug_fallback_verifies_erp_sync_id, test_two_matches_is_identity_conflict,
     test_publish_requires_staged_item, test_retire_unpublishes_and_archives, test_rate_limit_acknowledges_429_for_retry,
     test_workflow_shape, test_production_build_has_its_own_values_and_the_same_logic];
