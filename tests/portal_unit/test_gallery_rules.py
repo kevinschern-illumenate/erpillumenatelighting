@@ -74,6 +74,7 @@ class DoctypeJsonTest(unittest.TestCase):
 			"about", "case_study", "gallery_type", "applications", "services_provided",
 			"products_used", "quote", "quote_attribution", "location", "completion_date", "credits",
 			"videos", "custom_items", "target_brands", "sync_targets", "status_guide",
+			"publication_status",
 		}
 		self.assertEqual(expected, {n for n, f in fields.items() if f["fieldtype"] not in (
 			"Section Break", "Column Break", "Tab Break")})
@@ -108,3 +109,34 @@ class DoctypeJsonTest(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
+
+
+class PublicationStatusTest(unittest.TestCase):
+	def test_field_options_match_the_constant(self):
+		fields = {f["fieldname"]: f for f in load_doctype("ill_webflow_gallery")["fields"]}
+		field = fields["publication_status"]
+		self.assertEqual(set(field["options"].split("\n")), set(schema.PUBLICATION_STATUSES))
+		self.assertEqual(field["default"], schema.DEFAULT_PUBLICATION_STATUS)
+		self.assertEqual((field["read_only"], field["in_list_view"], field["in_standard_filter"]), (1, 1, 1))
+
+	def test_one_record_maps_like_the_sidebar_pill(self):
+		status = schema.publication_status
+		self.assertEqual(status("QUEUED"), "Queued")
+		self.assertEqual(status("STAGED"), "Staged")
+		self.assertEqual(status("LIVE"), "Live")
+		self.assertEqual(status("FAILED"), "Failed")
+		self.assertEqual(status("RETIRED"), "Retired")
+		self.assertEqual(status("NEEDS_REVIEW"), "Needs staging")
+		self.assertEqual(status("NEEDS_REVIEW", staged_hash="a"), "Changes not staged")
+		self.assertEqual(status("READY", live_hash="a"), "Changes not staged")
+
+	def test_no_record_means_needs_staging(self):
+		self.assertEqual(schema.gallery_status([]), "Needs staging")
+
+	def test_several_brands_show_the_one_needing_attention(self):
+		live = {"state": "LIVE"}
+		self.assertEqual(schema.gallery_status([live, {"state": "FAILED"}]), "Failed")
+		stale = {"state": "NEEDS_REVIEW", "live_hash": "a"}
+		self.assertEqual(schema.gallery_status([live, stale]), "Changes not staged")
+		self.assertEqual(schema.gallery_status([live, {"state": "STAGED"}]), "Staged")
+		self.assertEqual(schema.gallery_status([live, live]), "Live")

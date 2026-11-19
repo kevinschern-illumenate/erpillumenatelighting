@@ -19,6 +19,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import c
 from illumenate_lighting.illumenate_lighting.api.gallery_products import product_item_id
 from illumenate_lighting.illumenate_lighting.api.gallery_projection import build_payload
 from illumenate_lighting.illumenate_lighting.api.gallery_readiness import evaluate
+from illumenate_lighting.illumenate_lighting.api.gallery_schema import gallery_status
 from illumenate_lighting.illumenate_lighting.api.publication_contract import (
 	RETRY_MINUTES,
 	callback_disposition,
@@ -488,6 +489,17 @@ def invalidate_gallery(doc, method=None):
 		where gallery=%s""",
 		doc.name,
 	)
+	sync_status(doc.name)
+
+
+def sync_status(gallery):
+	"""Store the gallery's publication status on the gallery so it can be listed and filtered."""
+	if not frappe.db.exists(GALLERY, gallery):
+		return
+	rows = frappe.get_all(STATE, filters={"gallery": gallery}, fields=["state", "staged_hash", "live_hash"])
+	status = gallery_status(rows)
+	if frappe.db.get_value(GALLERY, gallery, "publication_status") != status:
+		frappe.db.set_value(GALLERY, gallery, "publication_status", status, update_modified=False)
 
 
 def tick():
