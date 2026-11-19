@@ -527,3 +527,16 @@ Still open: nothing.
 - 2026-11-19: `tools/build_gallery_workflow.py` takes `--erp-base-url`, `--brand`, `--webhook-path`, `--name` and
   `--out` to build the ERP address and brand in (n8n variables are not available on the plan); the production
   copy is `n8n_workflows/webflow_gallery_sync_production.json`.
+- 2026-11-19: **Credits go to Webflow as one JSON field.** The main site's Galleries collection has a single
+  plain-text `credits` field instead of the twelve name and website fields (Rei's design; a script on the
+  Webflow page parses it). The workflow sends, in this fixed order and only for credits with a name,
+  `[{"type":"Integrator","name":"Acme","website":"https://acme.example"},{"type":"Photographer","name":"P. Lens","website":null}]`
+  on one line (types: Integrator, Architect, Designer, Contractor, Owner, Photographer; `website` is null when
+  there is none). No credits sends `''`, not `[]`. The old per-person slugs are no longer sent, because Webflow
+  rejects fields that are not in the collection: **a Galleries collection needs the `credits` field (and may drop
+  the twelve old ones)**; the staging2 collection still has the old fields and needs `credits` added before the
+  staging workflow is used again. ERP is unchanged (credits stay a table).
+- 2026-11-19: Generated copies of the workflow with the ERP address, brand and webhook path built in are checked in
+  for both environments: `webflow_gallery_sync_production.json` (webhook path `ill-gallery-sync`) and
+  `webflow_gallery_sync_staging.json` (`ill-gallery-sync-staging`). The n8n workflow `m55OoaAD9LHaRYZq` was
+  reworked into the production one; the staging copy can be re-imported from its file.

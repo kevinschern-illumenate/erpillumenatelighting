@@ -7,15 +7,10 @@ const nodes = new Map(workflow.nodes.map(node => [node.name, node]));
 const { projectWebflowGallery } = require('../../n8n_workflows/lib/gallery_projection.js');
 
 const COLLECTION = 'b'.repeat(24);
-const CREDIT_SLUGS = {
-    Integrator: ['client-integrator', 'client-website'], Architect: ['architect', 'architect-website'],
-    Designer: ['designer', 'designer-website'], Contractor: ['contractor', 'contractor-website'],
-    Owner: ['owner', 'owner-website'], Photographer: ['photo-credit', 'photographer-website']
-};
 const FIELD_SLUGS = ['name', 'slug', 'erp-sync-id', 'featured', 'featured-image', 'gallery', 'short-description',
     'about', 'case-study', 'project-type', 'applications', 'services-provided', 'products-used', 'series-used',
     'product-notes', 'quote', 'quote-attribution', 'location', 'completion-date', 'videos', 'custom-items',
-    ...Object.values(CREDIT_SLUGS).flat()];
+    'credits'];
 
 function makePayload(index, overrides = {}) {
     const hero = {url: `https://erp.example.test/files/g${index}-1.jpg`, alt: 'Lobby cove'};
@@ -163,9 +158,7 @@ function test_projection_maps_every_field_slug() {
     assert.equal(data['completion-date'], '2025-03-14T07:00:00.000Z', 'daylight time: Pacific midnight is 07:00Z');
     assert.equal(data.videos, 'https://youtu.be/abc, https://vimeo.com/1');
     assert.equal(data['custom-items'], '<p>Kit: black</p>');
-    assert.equal(data['client-integrator'], 'Bright Co');
-    assert.equal(data['client-website'], 'https://bright.example');
-    assert.equal(data['photo-credit'], 'P. Lens');
+    assert.equal(data.credits, '[{"type":"Integrator","name":"Bright Co","website":"https://bright.example"},{"type":"Photographer","name":"P. Lens","website":null}]');
     // Emptied text fields are sent as '' so clearing a value in ERP clears it in Webflow.
     const cleared = projectWebflowGallery(makePayload(1, {quote: '', case_study_html: '', videos: [], applications: [],
         product_item_ids: [], hero_image: null, gallery_images: []}), {isDraft: true}).fieldData;
@@ -191,23 +184,31 @@ function test_projection_maps_every_field_slug() {
     assert.throws(() => projectWebflowGallery(makePayload(1), {}));
 }
 
-function test_unfilled_credit_omitted() {
+function test_credits_are_one_json_field() {
     const data = projectWebflowGallery(makePayload(2), {isDraft: true}).fieldData;
-    // Rule: an unfilled pair is never sent as empty strings. A credit type missing from the payload sends
-    // null for both slugs (clears a removed credit); a credit without a website sends null for the website.
-    for (const type of ['Architect', 'Designer', 'Contractor', 'Owner']) {
-        for (const slug of CREDIT_SLUGS[type]) {
-            assert.ok(slug in data, `${slug} must be sent to clear a removed credit`);
-            assert.equal(data[slug], null, `${slug} must be null, not an empty string`);
-        }
+    const credits = JSON.parse(data.credits);
+    assert.ok(Array.isArray(credits));
+    // Only credits with a name, in a fixed order, with website null when there is none.
+    assert.ok(credits.every(credit => Object.keys(credit).join() === 'type,name,website'));
+    assert.deepEqual(credits.map(credit => credit.type), ['Integrator', 'Photographer']);
+    assert.deepEqual(credits[0], {type: 'Integrator', name: 'Bright Co', website: 'https://bright.example'});
+    assert.deepEqual(credits[1], {type: 'Photographer', name: 'P. Lens', website: null});
+    assert.ok(!data.credits.includes('\n'), 'one line');
+    // The per-person slugs are gone: Webflow rejects fields that are not in the collection.
+    for (const slug of ['client-integrator', 'client-website', 'architect', 'architect-website', 'designer', 'owner', 'photo-credit']) {
+        assert.ok(!(slug in data), slug);
     }
-    assert.equal(data['photo-credit'], 'P. Lens');
-    assert.equal(data['photographer-website'], null);
-    assert.ok(!Object.entries(data).some(([slug, value]) => Object.values(CREDIT_SLUGS).flat().includes(slug) && value === ''));
-    // Removing the Integrator credit clears both its slugs.
-    const removed = projectWebflowGallery(makePayload(2, {credits: {}}), {isDraft: true}).fieldData;
-    assert.equal(removed['client-integrator'], null);
-    assert.equal(removed['client-website'], null);
+    // Order follows the fixed type order, not the payload's key order.
+    const reordered = projectWebflowGallery(makePayload(2, {credits: {
+        Photographer: {name: 'P'}, Owner: {name: 'O', website: 'https://o.example'}, Architect: {name: 'A'}}}), {isDraft: true}).fieldData;
+    assert.deepEqual(JSON.parse(reordered.credits).map(credit => credit.type), ['Architect', 'Owner', 'Photographer']);
+    // Blank names are dropped; no credits at all sends '' so the field clears.
+    const blank = projectWebflowGallery(makePayload(2, {credits: {Integrator: {name: '', website: 'https://x.example'}}}), {isDraft: true}).fieldData;
+    assert.equal(blank.credits, '');
+    assert.equal(projectWebflowGallery(makePayload(2, {credits: {}}), {isDraft: true}).fieldData.credits, '');
+    // Quotes and non-ASCII text survive the JSON round trip.
+    const tricky = projectWebflowGallery(makePayload(2, {credits: {Integrator: {name: 'Café "Nord" & Co', website: ''}}}), {isDraft: true}).fieldData;
+    assert.equal(JSON.parse(tricky.credits)[0].name, 'Café "Nord" & Co');
 }
 
 function test_stage_creates_item_once() {
@@ -418,7 +419,7 @@ function test_production_build_has_its_own_values_and_the_same_logic() {
     assert.ok(!/stagingillumenate|6afb3d27742d050cf6903677|6aeb4d313e25a078e9393924/.test(text), 'staging values');
 }
 
-const tests = [test_projection_maps_every_field_slug, test_unfilled_credit_omitted, test_stage_creates_item_once,
+const tests = [test_projection_maps_every_field_slug, test_credits_are_one_json_field, test_stage_creates_item_once,
     test_lost_ack_after_create_does_not_duplicate, test_slug_fallback_verifies_erp_sync_id, test_two_matches_is_identity_conflict,
     test_publish_requires_staged_item, test_retire_unpublishes_and_archives, test_rate_limit_acknowledges_429_for_retry,
     test_workflow_shape, test_production_build_has_its_own_values_and_the_same_logic];
