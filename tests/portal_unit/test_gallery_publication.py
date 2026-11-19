@@ -98,6 +98,7 @@ class GalleryPublicationCase(unittest.TestCase):
 		self.gallery = ready_gallery()
 		self.item_ids = {"rainier-sf": ITEM_A}
 		self.jobs = {}
+		self.conf = {"n8n_gallery_webhook_url": "https://n8n.example/webhook/gallery"}
 		self.state = Doc(name="P1", gallery="G1", brand="staging2", state="NEEDS_REVIEW")
 		self.notify = types.ModuleType(ROOT + ".webflow_notify")
 		self.notify.notify = MagicMock(return_value=[])
@@ -151,6 +152,9 @@ class GalleryPublicationCase(unittest.TestCase):
 			frappe.db.sql.side_effect = self.sql
 			frappe.db.count.side_effect = self.count
 			frappe.db.exists.return_value = None
+			frappe.enqueue = MagicMock()
+			frappe.log_error = MagicMock()
+			frappe.conf = Record(**self.conf)
 			frappe.get_all.side_effect = lambda doctype, **kw: (
 				["Rainier"] if doctype == "ilL-Attribute-Series" else []
 			)
@@ -426,6 +430,89 @@ class GalleryPublicationCase(unittest.TestCase):
 			expire.assert_called_once_with()
 			self.assertEqual(seen, ["publication", "expired"])
 			frappe.db.commit.assert_called_once()
+
+	NUDGE = ROOT + ".api.gallery_publication.send_nudge"
+
+	def fake_requests(self):
+		"""The app's CI image may not ship `requests`: a stand-in the worker imports."""
+		requests = types.ModuleType("requests")
+		requests.RequestException = type("RequestException", (Exception,), {})
+		requests.post = MagicMock()
+		self.deps["requests"] = requests
+		return requests
+
+	def nudges(self, frappe):
+		return [c.kwargs["brand"] for c in frappe.enqueue.call_args_list if c.args[0] == self.NUDGE]
+
+	def test_request_nudges_n8n_after_commit_and_again_on_a_double_click(self):
+		with self.service() as (module, frappe):
+			self.queue(module)
+			self.queue(module)
+			self.assertEqual(self.nudges(frappe), ["staging2", "staging2"])
+			for call in frappe.enqueue.call_args_list:
+				self.assertTrue(call.kwargs["enqueue_after_commit"])
+
+	def test_retry_nudges_n8n(self):
+		with self.service() as (module, frappe):
+			job = self.queue(module)
+			self.jobs[job].state = "FAILED"
+			frappe.enqueue.reset_mock()
+			module.retry(job)
+			self.assertEqual(self.nudges(frappe), ["staging2"])
+
+	def test_no_webhook_configured_logs_and_leaves_the_job_queued(self):
+		self.conf = {}
+		with self.service() as (module, frappe):
+			job = self.queue(module)
+			self.assertEqual(self.jobs[job].state, "QUEUED")
+			self.assertEqual(self.nudges(frappe), [])
+			frappe.log_error.assert_called_once()
+
+	def test_send_nudge_posts_the_brand_with_the_shared_secret(self):
+		n8n = types.ModuleType(ROOT + ".api.n8n_config")
+		n8n.webhook_url = lambda key: "https://n8n.example/webhook/gallery"
+		n8n.auth_headers = lambda: {"STAGING-Sync-Secret": "s"}
+		self.deps[n8n.__name__] = n8n
+		requests = self.fake_requests()
+		with self.service() as (module, frappe):
+			module.send_nudge("staging2")
+			post = requests.post
+			post.assert_called_once_with(
+				"https://n8n.example/webhook/gallery",
+				json={"brand": "staging2"},
+				headers={"STAGING-Sync-Secret": "s"},
+				timeout=30,
+			)
+
+	def test_a_failed_nudge_is_logged_not_raised(self):
+		n8n = types.ModuleType(ROOT + ".api.n8n_config")
+		n8n.webhook_url = lambda key: "https://n8n.example/webhook/gallery"
+		n8n.auth_headers = lambda: {"h": "s"}
+		self.deps[n8n.__name__] = n8n
+		requests = self.fake_requests()
+		requests.post.side_effect = requests.RequestException("down")
+		with self.service() as (module, frappe):
+			module.send_nudge("staging2")
+			frappe.log_error.assert_called_once()
+
+	def test_tick_nudges_each_brand_with_a_due_retry(self):
+		users = types.ModuleType(ROOT + ".portal.service_users")
+		users.run_as = contextmanager(lambda key: (yield key))
+		self.deps[users.__name__] = users
+		with self.service() as (module, frappe):
+			with (
+				patch.object(module, "expire_leases"),
+				patch.object(module, "retry_brands", return_value=["staging2", "illumenate"]),
+			):
+				module.tick()
+			self.assertEqual(self.nudges(frappe), ["staging2", "illumenate"])
+			with (
+				patch.object(module, "expire_leases"),
+				patch.object(module, "retry_brands", return_value=[]),
+			):
+				frappe.enqueue.reset_mock()
+				module.tick()
+			self.assertEqual(self.nudges(frappe), [])
 
 	def test_slug_locks_after_stage(self):
 		with self.service() as (module, _frappe):

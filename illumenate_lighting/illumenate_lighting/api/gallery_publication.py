@@ -36,6 +36,8 @@ PRODUCT = "ilL-Webflow-Product"
 SYNC_STATE = "ilL-Child-Webflow-Sync-State"
 SERIES = "ilL-Attribute-Series"
 LEASE_MINUTES = 5
+# Site config: absolute https URL of the gallery workflow's webhook (docs/WEBFLOW_GALLERY_SYNC.md 6b).
+WEBHOOK_KEY = "n8n_gallery_webhook_url"
 # Gallery wording for failure codes whose shared text names a product or is missing; every other
 # code uses the shared publication_contract.failure_reason.
 GALLERY_REASONS = {
@@ -213,6 +215,8 @@ def request(gallery, brand, operation, expected_hash):
 	)
 	if existing:
 		_save(state)
+		# Approving again re-sends the nudge, in case n8n was down the first time.
+		nudge(state.brand)
 		return {"job": existing, **_receipt(state)}
 	# The publication row is locked, so the count is stable; it keeps request_key unique.
 	earlier = frappe.db.count(JOB, {"publication": state.name, "operation": operation})
@@ -237,6 +241,7 @@ def request(gallery, brand, operation, expected_hash):
 	)
 	state.state = "QUEUED"
 	_save(state)
+	nudge(state.brand)
 	return {"job": job.name, **_receipt(state)}
 
 
@@ -437,6 +442,7 @@ def retry(job):
 		frappe.throw(_("Only a failed job for the current approved revision can be retried"))
 	job.state, job.next_attempt_on = "QUEUED", None
 	_save(job)
+	nudge(job.brand)
 	return {"job": job.name, "state": job.state}
 
 
@@ -467,6 +473,49 @@ def expire_leases(now=None):
 		_notify_if_final(job)
 		expired.append(job.name)
 	return expired
+
+
+def nudge(brand):
+	"""Tell the n8n gallery workflow there is work, so it claims a job (no polling).
+
+	Sent in the background after the request commits. It carries only the brand: n8n still claims
+	the job from ERP, which keeps the revision check, the lease and the retries in one place. When
+	the webhook is not configured the job waits (it is logged once a day); approving again, or a
+	due retry, sends the nudge again.
+	"""
+	if not frappe.conf.get(WEBHOOK_KEY):
+		from illumenate_lighting.illumenate_lighting.utils import log_error_once
+
+		log_error_once(
+			"gallery-webhook-unconfigured", "Webflow galleries: n8n webhook is not configured",
+			f"Set {WEBHOOK_KEY} in site config; queued gallery jobs wait until n8n is told.",
+		)
+		return
+	frappe.enqueue(
+		"illumenate_lighting.illumenate_lighting.api.gallery_publication.send_nudge",
+		queue="short",
+		enqueue_after_commit=True,
+		brand=brand,
+	)
+
+
+def send_nudge(brand):
+	"""Background worker: POST the brand to the gallery workflow's webhook."""
+	import requests
+
+	from illumenate_lighting.illumenate_lighting.api import n8n_config
+
+	try:
+		response = requests.post(
+			n8n_config.webhook_url(WEBHOOK_KEY),
+			json={"brand": brand},
+			headers=n8n_config.auth_headers(),
+			timeout=30,
+		)
+		response.raise_for_status()
+	except requests.RequestException as error:
+		# The job stays queued; approving again or a due retry sends the nudge again.
+		frappe.log_error(f"Could not tell n8n about gallery work for {brand}: {error!s}", "Webflow gallery sync")
 
 
 def retry_brands(now=None):
@@ -503,10 +552,11 @@ def sync_status(gallery):
 
 
 def tick():
-	"""scheduler_events cron every minute: expired gallery leases become "timeout" failures.
+	"""scheduler_events cron every minute: expired gallery leases become "timeout" failures, and
+	each brand with a retry now due is told to claim it.
 
 	Runs as the same publication service user as the product tick (``webflow_auto_push.tick``).
-	Due retries need no push here: n8n claims them on its next poll.
+	n8n does not poll: a nudge is the only thing that starts its workflow, so a due retry sends one.
 	"""
 	from illumenate_lighting.illumenate_lighting.portal.service_users import run_as
 
@@ -517,3 +567,9 @@ def tick():
 	except Exception:
 		frappe.db.rollback()
 		frappe.log_error(title="Webflow gallery retries: expiring leases failed")
+		return
+	try:
+		for brand in retry_brands():
+			nudge(brand)
+	except Exception:
+		frappe.log_error(title="Webflow gallery retries: telling n8n failed")

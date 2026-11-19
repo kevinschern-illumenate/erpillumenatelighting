@@ -13,24 +13,22 @@
       "parameters": {}
     },
     {
-      "name": "Every Minute",
-      "id": "gallery-every-minute",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
+      "name": "Gallery Webhook",
+      "id": "gallery-gallery-webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
       "position": [
         260,
         0
       ],
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "minutes",
-              "minutesInterval": 1
-            }
-          ]
-        }
-      }
+        "httpMethod": "POST",
+        "path": "ill-gallery-sync",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "3f1d6c1e-6f0b-4b52-9a6a-2b6d2f8f7a11"
     },
     {
       "name": "Configuration",
@@ -708,7 +706,7 @@
         960
       ],
       "parameters": {
-        "content": "Gallery publication (one brand)\n\nSet ILL_ERP_BASE_URL and ILL_WEBFLOW_BRAND. Bind ERP credentials for an ilL Integration System User and Webflow credentials for that exact brand to every HTTP node. Deploy one workflow per brand. No secrets in variables or exports. The Galleries collection needs a plain-text erp-sync-id field first.\n\nRuns every minute (and manually): ERP schedules retries 1, 5 and 15 minutes out and this worker claims them on its next poll. It claims one job at a time and drains at most 1000 jobs per run. Remote items are matched by erp-sync-id, then by exact slug with erp-sync-id verified; two candidates stop as identity-conflict, and a collection larger than one page (100) stops as lookup-incomplete. Failed calls record a safe error code only. Import inactive and test on staging2 before activation.\n\nSTAGE saves a draft; PUBLISH publishes the staged item; RETIRE unpublishes then archives and never deletes. No site-wide publish. Primary locale only.",
+        "content": "Gallery publication (one brand)\n\nSet ILL_ERP_BASE_URL and ILL_WEBFLOW_BRAND. Bind ERP credentials for an ilL Integration System User and Webflow credentials for that exact brand to every HTTP node. Deploy one workflow per brand. No secrets in variables or exports. The Galleries collection needs a plain-text erp-sync-id field first.\n\nStarted by ERP, not a timer: ERP calls the Gallery Webhook when a job is requested or a retry falls due (retries are 1, 5 and 15 minutes out). Bind a Header Auth credential to the webhook and set n8n_gallery_webhook_url (and the secret header) in the ERP site config. It claims one job at a time and drains at most 1000 jobs per run. Remote items are matched by erp-sync-id, then by exact slug with erp-sync-id verified; two candidates stop as identity-conflict, and a collection larger than one page (100) stops as lookup-incomplete. Failed calls record a safe error code only. Import inactive and test on staging2 before activation.\n\nSTAGE saves a draft; PUBLISH publishes the staged item; RETIRE unpublishes then archives and never deletes. No site-wide publish. Primary locale only.",
         "width": 640,
         "height": 520
       }
@@ -816,7 +814,7 @@
         ]
       ]
     },
-    "Every Minute": {
+    "Gallery Webhook": {
       "main": [
         [
           {

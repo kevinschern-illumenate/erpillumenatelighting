@@ -351,10 +351,13 @@ function test_rate_limit_acknowledges_429_for_retry() {
 
 function test_workflow_shape() {
     assert.equal(workflow.active, false);
-    const schedule = workflow.nodes.find(node => node.type === 'n8n-nodes-base.scheduleTrigger');
-    assert.ok(schedule, 'schedule trigger missing');
-    assert.deepEqual(schedule.parameters.rule.interval, [{field: 'minutes', minutesInterval: 1}]);
-    assert.equal(workflow.connections[schedule.name].main[0][0].node, 'Configuration');
+    assert.ok(!workflow.nodes.some(node => node.type === 'n8n-nodes-base.scheduleTrigger'), 'ERP is the trigger: no polling');
+    const hook = workflow.nodes.find(node => node.type === 'n8n-nodes-base.webhook');
+    assert.ok(hook, 'webhook trigger missing');
+    assert.equal(hook.parameters.httpMethod, 'POST');
+    assert.equal(hook.parameters.authentication, 'headerAuth');
+    assert.equal(hook.parameters.responseMode, 'onReceived');
+    assert.equal(workflow.connections[hook.name].main[0][0].node, 'Configuration');
     assert.equal(workflow.connections['Manual Trigger'].main[0][0].node, 'Configuration');
     assert.ok(workflow.nodes.every(node => !node.credentials), 'credentials must stay unbound');
     const text = JSON.stringify(workflow);
