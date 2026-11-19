@@ -9,6 +9,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import c
 from illumenate_lighting.illumenate_lighting.portal.order_intake import _buyer
 from illumenate_lighting.illumenate_lighting.portal.order_review import _staff, snapshot
 from illumenate_lighting.illumenate_lighting.portal.orders import load_accessible_sales_order
+from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
 
 DOCTYPE = "ilL-Order-Change"
 TYPES = ("Change", "Cancellation", "Reorder", "Replacement")
@@ -267,7 +268,7 @@ def decide(name, action, note, expected_modified, revision_hash, result_sales_or
 				f'Note from our team:<br><span style="white-space: pre-wrap">{escape(doc.staff_note)}</span>'
 				if doc.staff_note else None,
 			],
-			action=("Review the outcome", frappe.utils.get_url(f"/portal/orders/{order.name}")),
+			action=("Review the outcome", frappe.utils.get_url(portal_path("order", order.name))),
 			preference_note="order updates",
 		),
 		reference_doctype=DOCTYPE,

@@ -168,3 +168,41 @@ class Conversations(unittest.TestCase):
 				[(row.actor_name, row.from_staff) for row in rows],
 				[("Sam Sales", True), ("Bea Buyer", False)],
 			)
+
+	def test_reply_email_links_an_order_name_with_spaces_as_one_segment(self):
+		notifications = types.SimpleNamespace(notify_user=MagicMock())
+		extras = {
+			ROOT + ".portal.files": types.ModuleType(ROOT + ".portal.files"),
+			ROOT + ".portal.staff_notifications": types.SimpleNamespace(
+				spec_for=lambda doctype: (None, None, "request")
+			),
+			ROOT + ".portal.notifications": notifications,
+			ROOT + ".email_templates.brand": types.SimpleNamespace(
+				portal_email=lambda title, paragraphs, action: action[1]
+			),
+		}
+		for name in ("_context_access", "finalize_files", "list_files"):
+			setattr(extras[ROOT + ".portal.files"], name, MagicMock())
+		with load_service(ROOT + ".portal.conversations", extras) as (module, frappe):
+			frappe.session.user = "sales@x.com"
+			for parent, preference, url in (
+				(
+					Doc(
+						doctype="ilL-Order-Intake",
+						name="INTAKE1",
+						sales_order="ilL-SAL-ORD-Backcountry Electric / LINX-00001",
+						requested_by="buyer@example.com",
+					),
+					"notify_orders",
+					"/portal/orders/ilL-SAL-ORD-Backcountry%20Electric%20%2F%20LINX-00001",
+				),
+				(
+					Doc(doctype="ilL-Document-Request", name="DR 1", requester_user="buyer@example.com"),
+					"notify_drawings",
+					"/portal/drawings/DR%201",
+				),
+			):
+				module._notify(parent, Doc(visibility="Customer", name="MESSAGE1"), True)
+				args = notifications.notify_user.call_args.args
+				self.assertEqual(args[1], preference)
+				self.assertEqual(args[3], "https://portal.test" + url)

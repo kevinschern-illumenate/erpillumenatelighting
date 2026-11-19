@@ -11,6 +11,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	string_list,
 )
 from illumenate_lighting.illumenate_lighting.portal.product_finder import sessions
+from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
 
 DOCTYPE = "ilL-Product-Verification-Request"
 OPEN = ("REQUESTED", "UNDER_REVIEW", "INFORMATION_NEEDED")
@@ -287,7 +288,10 @@ def propagate(request_doc):
 				f"Your product verification <strong>{frappe.utils.escape_html(request_doc.name)}</strong> is now "
 				f"{request_doc.state.replace('_', ' ').lower()}."
 			],
-			action=("View the request", frappe.utils.get_url(f"/portal/product-verification/{request_doc.name}")),
+			action=(
+				"View the request",
+				frappe.utils.get_url(portal_path("product_verification", request_doc.name)),
+			),
 			preference_note="quote updates",
 		),
 		DOCTYPE,
