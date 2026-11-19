@@ -24,7 +24,7 @@ const D = { today: TODAY, generated: '2026-11-17 16:00:00', note_names: {}, note
  mfg: [], reqs: [], needwo: [], drafts: [], quotes: [ { name:'Q-1', party_name:'A', docstatus:1, status:'Open', base_net_total:2500, valid_till:'2026-11-20', transaction_date:'2026-11-10' } ], changes: [], spif: [], spif_start: '2026-11-01',
  fin: { mtd: 8000, goal: 25000, last_month: 9000, mtdN: 3, ar: 4000 }, ar: [], monthly: [{month:'2026-10',si:9000},{month:'2026-11',si:8000}], conc: [], conc_total: 0, trend: [], active90: 5, tiers: {}, customers: ['A'], lowstock: [],
  projects: [ { name:'PROJ-1', project_name:'Lutron launch', status:'Open', customer:'A', expected_start_date:'2026-11-01', expected_end_date:'2026-12-01', percent_complete:30, notes:'<p>Notes here</p>', priority:'High' }, { name:'PROJ-2', project_name:'Spec sheets', status:'Open', expected_end_date:'2026-12-15', percent_complete:0 } ], ptasks };
-let finOK = true, feedFail = false, stagesFail = false, catOK = false; const calls = [], saves = [], assigns = [], creates = [], counted = [];
+let finOK = true, feedFail = false, stagesFail = false, catOK = false; const calls = [], gwBodies = [], saves = [], assigns = [], creates = [], counted = [];
 // v8 Workbench: ilLumenate-area doctypes (status kinds, builder-created, prompt-named)
 const col = (f, l, t) => ({ fieldname: f, label: l, type: t || 'Data' });
 const ILLDT = {
@@ -75,9 +75,10 @@ const agendaReply = b => { const v = b.values || {};
   if (b.action === 'agenda_remove') { AGS.items = AGS.items.filter(i => i.name !== b.name); return { removed: 1 }; }
   throw new Error('unknown ' + b.action); };
 const gwReply = b => {
-  calls.push(b.action);
+  calls.push(b.action); gwBodies.push(b);
   if (b.action === 'config' && b.lite) return { user:'k', can_edit:true, today:TODAY, catalog:{ allowed:catOK, url:'/catalog-builder' }, sections:[] };
-  if (b.action === 'config') return { user:'k', can_edit:true, today:TODAY, catalog:{ allowed:catOK, url:'/catalog-builder' }, settings:[{doctype:'ilL-Purchasing-Settings',url:'/app/ill-purchasing-settings'}], sections:[{key:'quotes',label:'Quotes',locked:false,needs:''},{key:'projects',label:'Projects & tasks',locked:false,needs:''},{key:'finance',label:'Finance',locked:!finOK,needs:'Command Center Finance'},{key:'ill_templates',label:'Product templates',locked:false,needs:'',area:'ill'},{key:'ill_attributes',label:'Attributes',locked:false,needs:'',area:'ill'},{key:'ill_specs',label:'Specifications',locked:false,needs:'',area:'ill'},{key:'ill_logs',label:'Logs & system (read-only)',locked:true,needs:'System Manager',area:'ill'}], doctypes:{ ...ILLDT, Quotation:{section:'quotes',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'},{fieldname:'grand_total',label:'Total',type:'Currency'}]}, ToDo:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'}]}, 'Sales Order':{section:'quotes',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'customer',label:'Customer',type:'Link'},{fieldname:'status',label:'Status',type:'Select'}]}, Task:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'}]} } };
+  if (b.action === 'config') return { user:'k', can_edit:true, today:TODAY, catalog:{ allowed:catOK, url:'/catalog-builder' }, settings:[{doctype:'ilL-Purchasing-Settings',url:'/app/ill-purchasing-settings'}], sections:[{key:'quotes',label:'Quotes',locked:false,needs:''},{key:'projects',label:'Projects & tasks',locked:false,needs:''},{key:'finance',label:'Finance',locked:!finOK,needs:'Command Center Finance'},{key:'ill_templates',label:'Product templates',locked:false,needs:'',area:'ill'},{key:'ill_attributes',label:'Attributes',locked:false,needs:'',area:'ill'},{key:'ill_specs',label:'Specifications',locked:false,needs:'',area:'ill'},{key:'ill_logs',label:'Logs & system (read-only)',locked:true,needs:'System Manager',area:'ill'}], doctypes:{ ...ILLDT, Quotation:{section:'quotes',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'},{fieldname:'grand_total',label:'Total',type:'Currency'}]}, ToDo:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'}]}, 'Sales Order':{section:'quotes',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'customer',label:'Customer',type:'Link'},{fieldname:'status',label:'Status',type:'Select'}]}, Task:{section:'projects',can_create:true,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'}]},
+    'Work Order':{section:'manufacturing',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'},{fieldname:'status',label:'Status',type:'Select'}]}, 'Pick List':{section:'shipping',can_create:false,columns:[{fieldname:'name',label:'ID',type:'Data'}]} } };
   if (b.action === 'counts' && b.area === 'ill') { counted.push(b.section); return { counts: Object.fromEntries(Object.keys(ILLDT).filter(d => ILLDT[d].sections.includes(b.section)).map(d => [d, 7])) }; }
   if (b.action === 'counts') return { counts:{ Quotation:3, Task:null } };
   if (b.action === 'list' && b.dt === 'ilL-Attribute-CCT') return { rows:[{name:'2700K',label:'2700K',status: b.filters && b.filters.status || 'Active'},{name:'5000K',label:'5000K',status:'Inactive'}], columns:ILLDT['ilL-Attribute-CCT'].columns, total:2 };
@@ -97,7 +98,10 @@ const gwReply = b => {
   if (b.action === 'get' && b.dt === 'ilL-Project-Fixture-Schedule') return { doc: { name: b.name, status: 'READY', lines: [ { idx:1, line_id:'L1', qty:4, location:'Lobby', manufacturer_type:'ILLUMENATE', ill_item_code:'ILL-TAPE-1', configuration_status:'Configured' } ] }, audit: [], editable: false };
   if (b.action === 'get' && b.dt === 'HD Ticket') return { doc: { name: b.name, subject: 'Quote', status: 'Open', priority: 'Medium', ticket_type: 'Quotation', raised_by: 'dealer@a.com', _assign: '[]', ill_quotation: null, ill_fixture_schedule: 'SCH-3', docstatus: 0 }, audit: [ { creation: '2026-11-17 09:00:00', content: 'Command Center: assigned jay@x.com by kevins@x.com' } ], editable: true };
   if (b.action === 'meta' && b.dt === 'HD Ticket') return { dt: b.dt, fields: ['status','priority','ticket_type','agent_group','ill_quotation','ill_sales_order','ill_project','ill_fixture_schedule'].map(f => ({ fieldname: f, label: f, type: 'Data' })), required_tables: [], can_edit: true };
+  if (b.action === 'get' && b.dt === 'Sales Order' && /-F/.test(b.name)) return { doc: { name: b.name, status: 'To Deliver', docstatus: 1, customer: 'Flow Co', ill_floor_notes: 'old note', ill_estimated_ship_date: '2026-11-25' }, audit: [], tables: [], editable: true, after_submit: ['ill_estimated_ship_date', 'ill_floor_notes'] };
   if (b.action === 'get') return { doc: { name: b.name, status: 'Open', docstatus: 0, grand_total: 1200 }, audit: [], editable: true };
+  // v9: a submitted sales order offers only its after-submit floor fields
+  if (b.action === 'meta' && b.dt === 'Sales Order') return { dt: b.dt, fields: [{ fieldname: 'customer', label: 'Customer', type: 'Link', reqd: 1 }, { fieldname: 'po_no', label: 'PO', type: 'Data' }, { fieldname: 'ill_estimated_ship_date', label: 'Estimated Ship Date', type: 'Date' }, { fieldname: 'ill_floor_notes', label: 'Floor Notes', type: 'Small Text' }], required_tables: [], can_edit: true, after_submit: ['ill_estimated_ship_date', 'ill_floor_notes'] };
   if (b.action === 'meta') return { dt: b.dt, fields: [], required_tables: [], can_edit: true };
   if (b.action === 'feed' && feedFail) throw new Error('feed down');
   if (b.action === 'feed') return { rows:[{creation:'2026-11-17 10:00:00',owner:'kevins@x.com',content:'Command Center: edited by kevins (status: Open -> Working)',reference_doctype:'Task',reference_name:'TASK-2'}] };
@@ -281,9 +285,30 @@ const closeAll = () => { const x = w.document.querySelector('#ccsheet2 [data-clo
   w.document.querySelector('.fl-todo[data-flgo="lane:waiting_parts"]').click(); await sleep(60);
   check('flow to-do row highlights a lane', !!w.document.querySelector('#fl-wos .bcol.fl-hl[data-fllane="waiting_parts"]'));
   check('stepper uses flow data', /open WOs · 2 lines need one/.test(w.document.querySelector('.chev').textContent));
+  // ---- v9: click into records from the flow ----
+  await sleep(150); let gets = () => gwBodies.filter(b => b.action === 'get');
+  const soLink = w.document.querySelector('#fl-orders a[href*="/app/sales-order/"]');
+  const ev = (o) => new w.MouseEvent('click', Object.assign({ bubbles: true, cancelable: true }, o || {}));
+  const ctrl = ev({ ctrlKey: true }); soLink.dispatchEvent(ctrl); await sleep(50);
+  check('flow: ctrl-click on an order still goes to ERPNext', !ctrl.defaultPrevented && !w.document.querySelector('#ccsheet2.on'));
+  soLink.dispatchEvent(ev()); await sleep(150);
+  check('flow: clicking an order opens its side sheet', !!w.document.querySelector('#ccsheet2.on') && gets().slice(-1)[0].dt === 'Sales Order');
+  const sh = w.document.querySelector('#ccsheet2');
+  check('flow: submitted order sheet offers only the after-submit fields', /only these fields can change after submit/.test(sh.textContent) && !!sh.querySelector('[name="ill_floor_notes"]') && !sh.querySelector('[name="customer"]') && !sh.querySelector('[name="po_no"]'));
+  sh.querySelector('[name="ill_floor_notes"]').value = '2 runs cut'; const fBefore = flowCalls;
+  sh.querySelector('#wbform').dispatchEvent(new w.Event('submit', { cancelable: true, bubbles: true })); await sleep(200);
+  check('flow: save sends only the changed floor field and refreshes the flow', JSON.stringify(saves.slice(-1)[0].values) === '{"ill_floor_notes":"2 runs cut"}' && flowCalls > fBefore);
+  w.document.querySelector('#fl-wos .fl-wo[data-flopen="Work Order|MFG-WO-2026-00252"] .tt').click(); await sleep(150);
+  check('flow: clicking a work order card opens the work order', gets().slice(-1)[0].dt === 'Work Order' && gets().slice(-1)[0].name === 'MFG-WO-2026-00252');
+  closeAll(); await sleep(50);
+  w.document.querySelector('#fl-orders tr[data-flopen="Sales Order|ilL-SAL-ORD-F2"] td:nth-child(2)').click(); await sleep(150);
+  check('flow: clicking an order row opens the order', gets().slice(-1)[0].name === 'ilL-SAL-ORD-F2');
+  closeAll(); await sleep(50);
+  const itemLink = w.document.querySelector('#fl-pick a[href^="/app/item/"]'), ie = ev(); itemLink.dispatchEvent(ie);
+  check('flow: a doctype the Workbench lacks (Item here) still opens ERPNext', !ie.defaultPrevented);
   w.document.querySelector('[data-pbt="board"]').click(); await sleep(250);
   check('mfg tab choice remembered', w.localStorage.getItem('cc.mfg.tab.kevins@x.com') === 'board');
-  check('mfg board loads from app endpoint', boardCalls === 1 && /Order queue/.test(txt()));
+  check('mfg board loads from app endpoint', boardCalls >= 1 && /Order queue/.test(txt()));
   check('mfg pipeline + capacity', /In-Prod/.test(txt()) && /\$25,252/.test(txt()) && /Days to complete/.test(txt()) && /Date clear/.test(txt()));
   check('mfg queue shows build points and worth', /322/.test(txt()) && /\$64/.test(txt()) && /A lns/.test(txt()));
   check('mfg burn-down chart drawn', !!w.document.querySelector('#pbburn svg'));
@@ -320,6 +345,9 @@ const closeAll = () => { const x = w.document.querySelector('#ccsheet2 [data-clo
   await go('ship'); await sleep(200);
   check('ship pick list from the flow', /Pick list: ready to ship/.test(txt()) && /Channel SH01 black/.test(txt()) && /part of KIT-SH01/.test(txt()) && /Short 20/.test(txt()) && /Orders to pick & ship/.test(txt()));
   check('ship open pick lists + draft delivery notes on open orders only', /Open pick lists/.test(txt()) && /STO-PICK-2026-00009/.test(txt()) && /Kit Co-00001/.test(txt()) && !/Gone Co/.test(txt()));
+  w.document.querySelector('#flship a[href*="/app/pick-list/"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(150);
+  check('ship: clicking a pick list opens its side sheet', !!w.document.querySelector('#ccsheet2.on') && gwBodies.filter(b => b.action === 'get').slice(-1)[0].dt === 'Pick List');
+  closeAll(); await sleep(50);
   check('ship keeps the older timeline', /Delivery timeline/.test(txt()) && /Can it go out\?/.test(txt()));
   flowFail = true; w.document.querySelector('#flrefresh').click(); await sleep(150);
   check('ship refresh failure keeps the last pick list with a note', /Couldn't refresh the warehouse flow/.test(txt()) && /Channel SH01 black/.test(txt()) && /Delivery timeline/.test(txt()));

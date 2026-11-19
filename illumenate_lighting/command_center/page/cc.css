@@ -535,10 +535,10 @@ details summary { cursor: pointer; }
 #cc .fl-board { grid-template-columns: repeat(var(--n, 5), minmax(210px, 1fr)); }
 #cc .fl-hint { margin: -6px 0 10px; }
 #cc .bcol.fl-hl { outline: 2px solid var(--s1); outline-offset: 2px; }
-#cc .tcard.fl-wo { cursor: default; }
 #cc .tcard.fl-wo:hover { transform: none; }
 #cc .fl-prog { height: 6px; background: var(--line2); border-radius: 3px; overflow: hidden; margin: 8px 0 3px; }
 #cc .fl-prog i { display: block; height: 100%; background: var(--good); }
+#cc tr.fl-row { cursor: pointer; } #cc tr.fl-row:hover td { background: #f9fafb; }
 #cc tr.fl-grp td { background: #f9fafb; font-weight: 600; font-size: 13px; }
 #cc #fl-orders, #cc #fl-wos, #cc #fl-pick, #cc #fl-ship, #cc #fl-clean, #cc #fl-todo { scroll-margin-top: 16px; }
 @media (max-width: 700px) { #cc .fl-cov { grid-template-columns: 1fr; justify-items: start; } #cc .fl-todo { grid-template-columns: 36px 1fr; } #cc .fl-n { width: 36px; height: 36px; font-size: 15px; } #cc .fl-go { display: none; } #cc .pb-tabsep { display: none; } #cc .fl-pad .board { padding: 0 14px 16px; } }

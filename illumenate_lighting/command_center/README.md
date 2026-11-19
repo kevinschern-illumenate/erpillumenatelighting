@@ -60,6 +60,14 @@ Sales Order → Work Order → pick materials → build → pick & ship → Deli
 - **Clean-up:** draft work orders, draft delivery notes and open pick lists tied to orders that are closed or delivered. They are listed in a collapsed card and not counted as work.
 - **Shipping** now starts with the full pick list for orders ready to ship (one block per order, kit parts labelled), open pick lists and draft delivery notes on open orders, and what shipped in the last 7 days. The older timeline and "Can it go out?" table follow.
 - The stepper's Manufacturing count switches to open work orders and lines needing one once the flow has loaded.
+- **Click into anything:** on Manufacturing (every tab) and Shipping, clicking a document link opens the Workbench side sheet instead of a new tab. The sheet has details, child tables, editable fields, + To-do, + Add to agenda and Open in ERPNext. Ctrl/⌘/Shift-click still opens ERPNext. Work order cards and order rows open their record too. Doctypes the Workbench doesn't cover (Customer stays in Sales; BOM, Bin and similar) still open ERPNext.
+- **Editing submitted documents:** the gateway's `AFTER_SUBMIT` list names the few fields that can change on a *submitted* document, and only when ERPNext marks them "allow on submit":
+  - Sales Order: estimated ship date, production status override, hold reason, likely ship date, proforma / will call, floor notes
+  - Work Order: planned start, expected delivery date
+  - Delivery Note: carrier, tracking number, late-not-warehouse-fault, why late
+
+  Everything else on a submitted document stays read-only; amend in the desk. Saving needs Command Center Editor, as before, and leaves a "Command Center:" comment. A save from Manufacturing or Shipping refreshes the flow (and the production board).
+- **Workbench:** Pick List (Shipping) and Item (Manufacturing; new items are still made in the Catalog Builder) were added.
 
 ## Meeting agenda (v6)
 

@@ -846,7 +846,7 @@
     root.querySelectorAll('[data-pbadj]').forEach(b => b.onclick = () => pbAdjust(b.dataset.pbadj));
     const s = $('#pbsort'); if (s) s.onchange = () => { PB.sort = s.value; $('#pbroot').innerHTML = PB.body(); PB.bind(); };
     if (PB.data && PB.after) { PB.after(); }
-    if (PB.tab === 'flow') FL.mount();
+    if (PB.tab === 'flow') FL.mount(); else flCfg();
   };
   PB.mount = () => {
     const r = $('#pbrefresh'); if (r) r.onclick = () => { if (PB.tab === 'flow') { FL.at = 0; flFetch(true); pbFetch(); } else pbFetch(true); };
@@ -936,18 +936,18 @@
     const tr = r => { const chips = r.work_orders.map(n => `<span class="fl-chip"><span class="dot ${flLaneTone(flLaneOf(n))}"></span>${flWO(n)}</span>`).join('');
       const flags = [r.parts_short && badge('Parts short', 'warn'), r.pick_short && badge('Short in stock', 'warn'), ...r.pick_lists.map(p => `<span class="fl-chip">Pick list ${link('pick-list', p, String(p).split('-').slice(-1)[0])}</span>`),
         ...r.draft_dns.map(d => `<span class="fl-chip">Draft ${link('delivery-note', d, 'delivery note')}</span>`), r.hold_reason && badge(r.hold_reason, 'mute')].filter(Boolean).join(' ');
-      return `<tr class="${r.past_due ? 'pb-row-late' : ''}"><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer)}</div></td><td>${flEsd(r)}</td><td>${flStep(r.step)}</td>
+      return `<tr class="fl-row ${r.past_due ? 'pb-row-late' : ''}" data-flopen="Sales Order|${esc(r.so)}"><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer)}</div></td><td>${flEsd(r)}</td><td>${flStep(r.step)}</td>
         <td>${r.build_lines ? `<b>${r.build_covered}/${r.build_lines}</b> <span class="calc">build lines</span>` : '<span class="calc">Stock only</span>'}${chips ? `<div>${chips}</div>` : ''}
           ${r.needs_wo.length ? `<div class="m">Needs a work order: ${r.needs_wo.slice(0, 3).map(n => `${esc(n.item_name)} × ${flN(n.missing)}`).join('; ')}${r.needs_wo.length > 3 ? `; + ${r.needs_wo.length - 3} more` : ''}</div>` : ''}</td>
         <td><div>${esc(r.next)}</div>${r.step === 'to_ship' && r.pick.length ? `<div class="m">Pick ${flQty(r.pick_summary)}</div>` : ''}${flags ? `<div style="margin-top:4px">${flags}</div>` : ''}</td></tr>`; };
-    return `<div class="card flush s12" id="fl-orders"><div class="card-h"><div><h2>Submitted sales orders</h2><div class="sub">Every open order at the one step it is waiting on, earliest ship date first. Chips are its work orders, coloured by lane. * = no ship date set, delivery date shown.</div></div></div>
+    return `<div class="card flush s12" id="fl-orders"><div class="card-h"><div><h2>Submitted sales orders</h2><div class="sub">Every open order at the one step it is waiting on, earliest ship date first. Chips are its work orders, coloured by lane. * = no ship date set, delivery date shown. Click any order, work order, item or pick list for its details; floor notes, ship dates and holds can be edited there. Ctrl/⌘-click opens ERPNext.</div></div></div>
       <div style="padding:0 24px"><div class="seg pb-tabs">${segs}</div></div>${flTable(['Sales order', 'Ship date', 'Step', 'Work orders', 'Next'], rows.map(tr), FL.step ? 'No orders at this step' : '')}</div>`;
   };
   // Every work order in a lane.
   FL.wos = X => {
     const lanes = FL_LANES.filter(([k]) => k !== 'stopped' || X.summary.wo_lanes.stopped);
     const card = w => { const pct = w.qty ? Math.min(100, w.produced / w.qty * 100) : 0, pk = flSum(w.pick);
-      return `<div class="tcard fl-wo"><div class="r"><b>${flWO(w.name)}</b>${w.past_due ? badge('Past ship date', 'bad') : w.esd ? `<span class="small">Ship ${fmtd(w.esd)}</span>` : ''}</div>
+      return `<div class="tcard fl-wo" data-flopen="Work Order|${esc(w.name)}" title="Details and edit"><div class="r"><b>${flWO(w.name)}</b>${w.past_due ? badge('Past ship date', 'bad') : w.esd ? `<span class="small">Ship ${fmtd(w.esd)}</span>` : ''}</div>
         <div class="tt" style="margin-top:4px">${esc(w.item_name)}</div><div class="fl-prog"><i style="width:${pct}%"></i></div><div class="m">${flN(w.produced)} of ${flN(w.qty)} made</div>
         ${w.so ? `<div class="m">For ${link('sales-order', w.so, short(w.so))}${w.customer ? ' · ' + esc(w.customer) : ''}</div>` : '<div class="m">No sales order (built for stock)</div>'}
         ${w.so && !w.so_open && w.lane !== 'completed' ? `<div style="margin-top:6px">${badge('Its order is closed or delivered', 'warn')}</div>` : ''}
@@ -970,7 +970,7 @@
   // The ship side, short: which orders, how much. The full list is on the Shipping page.
   FL.pickShip = X => { const s = X.summary.pick_shipping;
     const os = X.orders.filter(r => r.step === 'to_ship' && rowOK(r));
-    const rows = os.map(r => `<tr><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer)}</div></td><td>${flEsd(r)}</td><td class="num">${r.pick.length ? flQty(r.pick_summary) : '<span class="calc">Picked</span>'}</td><td>${r.pick_short ? badge('Short', 'warn') : r.draft_dns.length ? badge('Delivery note drafted', 'info') : r.pick_lists.length ? badge('Picking', 'info') : badge('Ready', 'good')}</td></tr>`);
+    const rows = os.map(r => `<tr class="fl-row" data-flopen="Sales Order|${esc(r.so)}"><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer)}</div></td><td>${flEsd(r)}</td><td class="num">${r.pick.length ? flQty(r.pick_summary) : '<span class="calc">Picked</span>'}</td><td>${r.pick_short ? badge('Short', 'warn') : r.draft_dns.length ? badge('Delivery note drafted', 'info') : r.pick_lists.length ? badge('Picking', 'info') : badge('Ready', 'good')}</td></tr>`);
     return flCard('fl-ship', 'Pick & ship', `${flQty(s)} across ${pbN(os.length, 'order')}. ${X.summary.shipped_week} delivery note${X.summary.shipped_week === 1 ? '' : 's'} submitted in the last 7 days.`,
       flTable(['Sales order', 'Ship date', '#To pick', ''], rows, 'No order is ready to ship'), 'flush s5', '<a class="cc-btn soft" style="text-decoration:none" href="#ship">Full pick list →</a>');
   };
@@ -1023,6 +1023,8 @@
   FL.bind = () => {
     root.querySelectorAll('[data-flstep]').forEach(b => b.onclick = () => { FL.step = FL.step === b.dataset.flstep && b.closest('.fl-leg') ? '' : b.dataset.flstep; flRedraw(); });
     root.querySelectorAll('[data-fldone]').forEach(b => b.onclick = () => { FL.showDone = true; flRedraw(); });
+    // whole work order cards and order rows open their record's sheet (links and buttons inside keep their own click)
+    root.querySelectorAll('[data-flopen]').forEach(el => el.onclick = e => { if (e.target.closest('a, button')) return; const [dt, n] = el.dataset.flopen.split('|'); plDetail(dt, n); });
     root.querySelectorAll('[data-flgo]').forEach(b => b.onclick = () => {
       const [k, v] = b.dataset.flgo.split(':'); let target = v;
       if (k === 'go') { location.hash = v; return; }
@@ -1032,7 +1034,20 @@
       const el = $('#' + target); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   };
-  FL.mount = () => { FL.bind(); if (!FL.busy && (!FL.data || Date.now() - FL.at > 120000)) flFetch(); };
+  // Manufacturing and Shipping: a click on a document link opens its side sheet (details, child tables, the fields
+  // that can change, + To-do, + Add to agenda, Open in ERPNext) instead of a new tab. Ctrl/⌘/Shift-click still opens
+  // ERPNext, and doctypes the Workbench doesn't cover (or before its config has loaded) open ERPNext as before.
+  const FL_SHEET_VIEWS = ['mfg', 'ship'];
+  const flDt = slugged => slugged.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  root.addEventListener('click', e => {
+    if (!FL_SHEET_VIEWS.includes(S.view) || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest && e.target.closest('a[href^="/app/"]'); if (!a || a.closest('#ccsheet2, .qlinks, .pu-menu')) return;
+    const mm = a.getAttribute('href').match(/^\/app\/([a-z0-9-]+)\/([^/?#]+)$/); if (!mm || mm[2] === 'new') return;
+    const dt = flDt(mm[1]); if (!WB.cfg || !WB.cfg.doctypes[dt]) return;
+    e.preventDefault(); wbOpen(dt, decodeURIComponent(mm[2]));
+  });
+  const flCfg = () => { if (!WB.cfg && !FL.cfgBusy) { FL.cfgBusy = true; gw('config').then(c => { WB.cfg = c; }).catch(() => { }).finally(() => { FL.cfgBusy = false; }); } };
+  FL.mount = () => { flCfg(); FL.bind(); if (!FL.busy && (!FL.data || Date.now() - FL.at > 120000)) flFetch(); };
   V.mfg = m => {
     const row = w => `<tr><td>${link('work-order', w.wo)}</td><td>${link('item', w.item, w.name)}<div class="m mono">${esc(w.item)}</div></td><td class="num">${w.qty}</td><td>${link('sales-order', w.so, short(w.so))}</td><td>${fmtd(w.created)}</td><td>${w.flag === 'Active' ? badge(w.status, w.draft ? 'warn' : 'info') : badge(w.flag.split(':')[0].split(' (')[0], 'bad')}</td></tr>`;
     return header('Manufacturing', 'Flow: every open order and work order at the step it is waiting on, with what to do next in ERPNext. Reports: the schedule workbook\'s views (points, capacity, dollars).',
@@ -2376,13 +2391,15 @@
     try {
       const [g, meta] = await Promise.all([gw('get', { dt, name }), wbMeta(dt)]);
       const doc = g.doc, L = wbL(dt), cols = (L.cols || WB.cfg.doctypes[dt].columns);
-      const canEdit = g.editable && meta.fields.length;
-      const why = g.read_only ? 'A generated or audit record, so it is read-only here.' : !WB.cfg.can_edit ? 'View only. Ask Kevin for the Command Center Editor role to edit.' : doc.docstatus !== 0 ? 'Submitted or cancelled, so it is read-only here. Open it in ERPNext to amend.' : '';
+      // v9: a submitted document offers only the fields ERPNext lets change after submit (g.after_submit)
+      const sub = doc.docstatus === 1, fields = sub ? meta.fields.filter(f => (g.after_submit || []).includes(f.fieldname)) : meta.fields;
+      const canEdit = g.editable && fields.length;
+      const why = g.read_only ? 'A generated or audit record, so it is read-only here.' : !WB.cfg.can_edit ? 'View only. Ask Kevin for the Command Center Editor role to edit.' : doc.docstatus !== 0 && !canEdit ? 'Submitted or cancelled, so it is read-only here. Open it in ERPNext to amend.' : '';
       const tog = g.status_kind === 'bool' && g.editable ? `<button class="cc-btn soft" type="button" id="wbtoggle" data-on="${doc.is_active ? 1 : 0}">${doc.is_active ? 'Deactivate' : 'Activate'}</button>` : '';
       const bld = g.builder && catOK() ? '<button class="cc-btn soft" type="button" id="wbbuilder">Edit in Catalog Builder</button>' : '';
       const kv = cols.filter(c => c.fieldname !== 'name' && !(c.fieldname === 'status' && doc.status)).map(c => `<div class="wb-kv"><span>${esc(c.label)}</span><b>${wbCell(c, doc[c.fieldname])}</b></div>`).join('');
-      const req = meta.fields.filter(f => f.reqd), opt = meta.fields.filter(f => !f.reqd);
-      const form = canEdit ? `<div class="wb-sec">Edit</div>${req.map(f => wbField(f, doc[f.fieldname])).join('')}${opt.length ? `<details class="wb-more-f"><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, doc[f.fieldname])).join('')}</details>` : ''}` : (why ? `<p class="wb-note">${esc(why)}</p>` : '');
+      const req = sub ? fields : fields.filter(f => f.reqd), opt = sub ? [] : fields.filter(f => !f.reqd);
+      const form = canEdit ? `<div class="wb-sec">Edit</div>${sub ? '<p class="wb-note">Submitted: only these fields can change after submit. Open it in ERPNext for anything else.</p>' : ''}${req.map(f => wbField(f, doc[f.fieldname])).join('')}${opt.length ? `<details class="wb-more-f"><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, doc[f.fieldname])).join('')}</details>` : ''}` : (why ? `<p class="wb-note">${esc(why)}</p>` : '');
       const aud = g.audit.length ? `<div class="wb-sec">Recent changes from the Command Center</div><ul class="wb-audit">${g.audit.map(a => `<li><span>${fmtd(a.creation)}</span> ${esc(wbPlain(a.content).replace(/^Command Center:\s*/, ''))}</li>`).join('')}</ul>` : '';
       const items = wbItems(doc);
       const sh = wbShowSheet(`<div class="wb-kvs">${kv}</div>${items}${wbTables(g, dt, name)}${form}${aud}<p class="cc-msg" id="wbMsg"></p>
@@ -2398,10 +2415,10 @@
       };
       f.onsubmit = async e => {
         e.preventDefault(); if (!canEdit) return;
-        const vals = wbCollect(f, meta.fields, doc), msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave');
+        const vals = wbCollect(f, fields, doc), msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave');
         if (!Object.keys(vals).length) { msg.textContent = 'No changes to save.'; return; }
         b.disabled = true; b.textContent = 'Saving…'; msg.textContent = '';
-        try { const r = await gw('save', { dt, name, values: vals }); closeSheet(); toast(`Saved ${esc(name)} · ${r.changed} field${r.changed === 1 ? '' : 's'} updated`); if (agIsView() && AG.cur) agLoad(AG.cur); else wbFetch(dt, false); }
+        try { const r = await gw('save', { dt, name, values: vals }); closeSheet(); toast(`Saved ${esc(name)} · ${r.changed} field${r.changed === 1 ? '' : 's'} updated`); if (agIsView() && AG.cur) agLoad(AG.cur); else if (S.view === 'mfg' || S.view === 'ship') { FL.at = 0; flFetch(); if (S.view === 'mfg') { PB.at = 0; pbFetch(); } } else wbFetch(dt, false); }
         catch (err) { msg.textContent = 'Not saved: ' + err.message; b.disabled = false; b.textContent = 'Save changes'; }
       };
     } catch (e) { wbShowSheet(`<p class="cc-msg">Couldn't open ${esc(name)}: ${esc(e.message)}</p>`, '', esc(name)); }
