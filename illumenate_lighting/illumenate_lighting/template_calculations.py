@@ -2621,7 +2621,7 @@ def refresh_hand_set_tape_neon(template):
 	"""
 	if template.doctype != TAPE or product_type_for(template) not in TAPE_NEON_TYPES:
 		return False
-	if product_type_for(template) == "LED Tape":
+	if product_type_for(template) in ("LED Tape", "COB Tape"):
 		tape_pcb_steps(template)
 	_refresh_hand_set_values(template)
 	if product_type_for(template) != "LED Neon":
@@ -2632,15 +2632,15 @@ def refresh_hand_set_tape_neon(template):
 	return True
 
 
-# LED Tape (owner, 2026-11-19): PCB Mounting takes the Mounting Method step and PCB Finish the
-# Finish step of the hand-set Part No. Configurator.
+# LED Tape and COB Tape (owner, 2026-11-19): PCB Mounting takes the Mounting Method step and PCB
+# Finish the Finish step of the hand-set Part No. Configurator.
 TAPE_PCB_STEPS = (("Mounting Method", "PCB Mounting"), ("Finish", "PCB Finish"))
 
 
 def tape_pcb_steps(template):
-	"""On an LED Tape template, the Mounting Method step becomes the PCB Mounting step and the
-	Finish step the PCB Finish step, when the template has active options of that PCB type. The
-	step keeps its number and label; any other PCB Mounting or PCB Finish step is removed. The
+	"""On an LED Tape or COB Tape template, the Mounting Method step becomes the PCB Mounting step
+	and the Finish step the PCB Finish step, when the template has active options of that PCB
+	type. The step keeps its number and label; any other PCB Mounting or PCB Finish step is removed. The
 	values are filled afterwards (``_refresh_hand_set_values``)."""
 	active = {
 		row.get("option_type")
