@@ -1,0 +1,16 @@
+{#- Welcome / set your password. Used by the "ilL - Welcome" Email Template (System Settings ->
+Welcome Email Template) and by Frappe's new_user.html. Frappe passes: first_name ("user"
+when the account has no name), user (the sign-in email), link, site_url, app_name. -#}
+{% from "templates/emails/ill_macros.html" import heading, para, button, small, copy_link %}
+{%- set staff = ill_is_staff(user) -%}
+{%- set name = first_name if first_name and first_name != "user" else "there" -%}
+{{ heading("Welcome to ilLumenate Lighting" if staff else "Welcome to the ilLumenate dealer portal") }}
+{{ para("Hi " ~ (name | e) ~ ",") }}
+{%- if staff %}
+{{ para("Your ilLumenate staff account is ready. Set a password to sign in to ERPNext.") }}
+{%- else %}
+{{ para("Your dealer portal account is ready. Set a password to see your pricing, build fixture schedules, place and track orders, and download submittals.") }}
+{%- endif %}
+{{ button("Set your password", link) }}
+{{ small("This link works for <strong>" ~ ill_link_lifetime() ~ "</strong>. If it runs out, choose <em>Forgot password</em> on the sign-in page and enter " ~ (user | e) ~ ".") }}
+{{ copy_link(link) }}

@@ -232,6 +232,8 @@ def dispatch_one(name):
 			recipients=[address(delivery)],
 			subject=event.subject,
 			message=event.message,
+			# The ilLumenate card (templates/emails/ill_card.html via standard.html).
+			with_container=True,
 			reference_doctype=DELIVERY,
 			reference_name=delivery.name,
 			delayed=True,

@@ -1,5 +1,6 @@
 """Service unit tests with explicit Frappe boundary doubles; not Bench tests."""
 
+import html
 import importlib.util
 import io
 import json
@@ -60,6 +61,9 @@ def load_service(relative, extras=None):
 	utils.nowdate = lambda: "2026-09-25"
 	utils.getdate = lambda value: str(value)[:10]
 	utils.get_datetime = lambda value: value if isinstance(value, datetime) else datetime.fromisoformat(value)
+	utils.escape_html = lambda value: html.escape(str(value))
+	utils.get_url = lambda path=None: "https://portal.test" + (path or "")
+	utils.get_url_to_form = lambda doctype, name: f"https://portal.test/desk/{doctype}/{name}"
 	frappe.utils = utils
 	modules = {"frappe": frappe, "frappe.utils": utils, "frappe.rate_limiter": types.SimpleNamespace(rate_limit=lambda **kw: lambda fn: fn), **(extras or {})}
 	path = relative.replace(".", "/") + ".py"
