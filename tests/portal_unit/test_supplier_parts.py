@@ -285,7 +285,67 @@ class LineWriteBack(unittest.TestCase):
 			messages = " ".join(str(c.args[0]) for c in frappe.msgprint.call_args_list)
 		items["A"].save.assert_called_once()
 		items["B"].save.assert_not_called()
-		self.assertIn("B", messages.split("Item:")[-1])
+		self.assertIn("B (you can&#x27;t edit this item)", messages)
+		self.assertNotIn("A (", messages)
+
+	def test_an_item_that_fails_to_save_is_skipped_and_the_document_save_goes_ahead(self):
+		"""Hardening plan 9: one failing Item used to throw and block the whole PO / RFQ save."""
+		items = {"A": Item("A"), "B": Item("B"), "C": Item("C"), "D": Item("D")}
+		doc = Document(
+			"Purchase Order",
+			[{"item_code": code, "supplier_part_no": f"{code}-1"} for code in "ABCD"],
+			supplier="ACME",
+		)
+		with load_service(SERVICE) as (sp, frappe):
+			setup(frappe, items)
+			frappe.get_all.side_effect = item_supplier_rows(items)
+			frappe.has_permission.side_effect = lambda doctype, ptype="read", doc=None, throw=False: (
+				doc != "D"
+			)
+			frappe.local.message_log = [{"message": "earlier message"}]
+
+			def invalid(**kwargs):
+				frappe.local.message_log.append({"message": "Item B: Default UOM is required"})
+				raise frappe.ValidationError("Default UOM is required")
+
+			items["B"].save.side_effect = invalid
+			events = []
+			frappe.db.savepoint.side_effect = lambda name: events.append(("savepoint", name))
+			frappe.db.rollback.side_effect = lambda save_point=None: events.append(("rollback", save_point))
+			sp.save_line_supplier_parts(doc)  # does not raise
+			calls = frappe.msgprint.call_args_list
+			message_log = frappe.local.message_log
+		for code in "AC":
+			items[code].save.assert_called_once()
+		items["D"].save.assert_not_called()
+		# Only the failed Item's save is rolled back, to its own savepoint.
+		self.assertEqual(
+			events,
+			[
+				("savepoint", sp.ITEM_SAVEPOINT),  # A
+				("savepoint", sp.ITEM_SAVEPOINT),  # B
+				("rollback", sp.ITEM_SAVEPOINT),
+				("savepoint", sp.ITEM_SAVEPOINT),  # C
+			],
+		)
+		# Its raw error is dropped from the response; earlier messages are kept.
+		self.assertEqual(message_log, [{"message": "earlier message"}])
+		saved, skipped = (str(call.args[0]) for call in calls)
+		self.assertIn("2 item(s)", saved)
+		self.assertIn("A, C", saved)
+		# One message lists every skipped Item with its reason.
+		self.assertIn("B (Default UOM is required)", skipped)
+		self.assertIn("D (you can&#x27;t edit this item)", skipped)
+		self.assertEqual(calls[1].kwargs["indicator"], "orange")
+
+	def test_the_dialog_still_stops_on_an_item_that_fails_to_save(self):
+		items = {"A": Item("A")}
+		items["A"].save.side_effect = ValueError("Default UOM is required")
+		with load_service(SERVICE) as (sp, frappe):
+			setup(frappe, items)
+			with self.assertRaisesRegex(ValueError, "Could not update item A: Default UOM is required"):
+				sp.update_supplier_part_info("ACME", [{"item_code": "A", "supplier_part_no": "1"}])
+			frappe.db.savepoint.assert_not_called()
 
 	def test_nothing_to_do_without_one_supplier(self):
 		doc = Document(
