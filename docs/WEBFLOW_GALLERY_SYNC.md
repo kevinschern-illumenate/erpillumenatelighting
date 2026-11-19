@@ -182,6 +182,11 @@ allowed values are mirrored by the Webflow filter script's expectations.
    and staged equal the current hash, live does not), not from the state.
 2. The `Webflow publication` panel on the form (rebuilt on every refresh) shows the checks below for a
    chosen brand.
+   A **status pill** on its own row at the top of the form's sidebar (above the title row) shows where the gallery
+   stands for the chosen brand: *Needs staging* (never staged), *Changes not staged* (edited since it was
+   staged or live), *Queued* (waiting for n8n), *Staged* (a draft in Webflow), *Live*, *Failed* (the last job
+   failed) and *Retired*. It comes from the same inspect result as the panel, so it follows the panel's brand
+   picker and is rebuilt on every refresh; hover for what it means.
 3. `Approve and Stage` creates a `STAGE` job. n8n writes the item to Webflow as a draft/staged item.
 4. `Publish Live` creates a separate `PUBLISH` job. n8n publishes the staged item.
 5. Deactivating a gallery and requesting retirement creates a `RETIRE` job. n8n unpublishes and archives the
@@ -464,6 +469,8 @@ Still open: nothing.
   import: Invalid file url" for a file name with spaces. Gallery image URLs are now percent-encoded
   (`gallery_projection.absolute_url`), as the product projection already did. Changing a URL changes the
   gallery's hash, so each gallery needs Approve and Stage again after this is deployed.
+- 2026-11-19: Added the status pill to the top of the gallery form's sidebar (section 6, step 2), from the same
+  inspect result as the publication panel.
 - 2026-11-19: The gallery form has a collapsed "What the status means" section at the bottom (`status_guide`, an
   HTML field) listing the seven statuses the sidebar pill can show and what each means. Work now goes straight
   to `staging` rather than through feature branches.

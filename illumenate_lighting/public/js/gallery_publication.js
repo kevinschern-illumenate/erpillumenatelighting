@@ -3,6 +3,9 @@
  * the Approve and Stage / Publish Live / Retire / Retry buttons on the
  * ilL-Webflow-Gallery form. Every server string is escaped before it is
  * written into the panel. Mirrors public/js/product_publication.js.
+ *
+ * The same inspect result also drives a status pill on its own row at the top of the sidebar, placed the
+ * way public/js/template_sidebar.js places its header block.
  */
 (function (root, factory) {
 	'use strict';
@@ -16,6 +19,24 @@
 	var JOB = 'ilL-Gallery-Publish-Job';
 	var LABELS = ['Approve and Stage', 'Publish Live', 'Retire', 'Retry'];
 	var SECTION = 'ill-gallery-publication-section';
+	var PILL = 'ill-gallery-status';
+
+	// Sidebar status: the publication state of the chosen brand, in words a person can act on. Colours are
+	// Frappe's indicator-pill classes.
+	var STATUS = {
+		needs_staging: { label: 'Needs staging', color: 'orange',
+			hint: 'Not in Webflow yet. Approve and Stage to send it.' },
+		changes: { label: 'Changes not staged', color: 'orange',
+			hint: 'Edited since it was last staged. Approve and Stage again to send the changes.' },
+		queued: { label: 'Queued', color: 'blue',
+			hint: 'Waiting for the n8n workflow to pick it up.' },
+		staged: { label: 'Staged', color: 'yellow',
+			hint: 'Saved as a draft in Webflow. Publish Live to make it public.' },
+		live: { label: 'Live', color: 'green', hint: 'Published on the Webflow site.' },
+		failed: { label: 'Failed', color: 'red',
+			hint: 'The last Webflow job failed. See the Webflow publication section for the error.' },
+		retired: { label: 'Retired', color: 'gray', hint: 'Unpublished and archived in Webflow.' }
+	};
 
 	function esc(value) {
 		return frappe.utils.escape_html(value == null ? '' : String(value));
@@ -23,6 +44,30 @@
 
 	function short(hash) {
 		return esc((hash || '').slice(0, 12)) || '—';
+	}
+
+	// The status for an inspect result (the publication of the chosen brand), or null for none.
+	// NEEDS_REVIEW (and READY) mean never staged, or edited since it was staged or live.
+	function statusOf(result) {
+		if (!result) return null;
+		var key = {
+			QUEUED: 'queued', STAGED: 'staged', LIVE: 'live', FAILED: 'failed', RETIRED: 'retired'
+		}[result.state];
+		if (!key) key = (result.staged_hash || result.live_hash) ? 'changes' : 'needs_staging';
+		return { key: key, label: STATUS[key].label, color: STATUS[key].color, hint: STATUS[key].hint };
+	}
+
+	// Always one pill or none: removed and rebuilt on every render, first child of the sidebar.
+	function setStatusPill(frm, status, brand) {
+		var wrapper = frm.page && frm.page.wrapper;
+		var side = wrapper && wrapper.find ? wrapper.find('.layout-side-section').first() : null;
+		if (!side || !side.length) return;
+		side.find('.' + PILL).remove();
+		if (!status) return;
+		var title = __(status.hint) + (brand ? ' (' + brand + ')' : '');
+		side.prepend('<div class="' + PILL + '" style="padding: 0 15px; margin-top: 10px; margin-bottom: -10px;">' +
+			'<span class="indicator-pill ' + esc(status.color) + '" title="' + esc(title) + '">' +
+			esc(__(status.label)) + '</span></div>');
 	}
 
 	function call(method, args, freeze) {
@@ -132,7 +177,7 @@
 		});
 		var brands = await brandChoices();
 		var brand = frm.__ill_gallery_brand || defaultBrand(frm, brands);
-		if (!brand) { renderPanel(frm, brands, '', null, null); return; }
+		if (!brand) { setStatusPill(frm, null); renderPanel(frm, brands, '', null, null); return; }
 		var dirty = !!frm.is_dirty();
 		var result, job;
 		try {
@@ -143,9 +188,11 @@
 				order_by: 'creation desc', limit: 1,
 			}))[0];
 		} catch (error) {
+			setStatusPill(frm, null);
 			renderPanel(frm, brands, brand, null, null, errorText(error));
 			return;
 		}
+		setStatusPill(frm, statusOf(result), brand);
 		renderPanel(frm, brands, brand, result, job);
 		var group = __('Publication');
 		var stage = frm.add_custom_button(__('Approve and Stage'), request(frm, brand, 'STAGE'), group);
@@ -170,9 +217,9 @@
 		if (frm.fields_dict && frm.fields_dict.gallery_images && frm.fields_dict.gallery_images.set_description) {
 			frm.fields_dict.gallery_images.set_description(__('The first row is always the hero image.'));
 		}
-		if (frm.is_new()) return;
+		if (frm.is_new()) { setStatusPill(frm, null); return; }
 		await render(frm);
 	}
 
-	return { refresh: refresh };
+	return { refresh: refresh, statusOf: statusOf };
 }));
