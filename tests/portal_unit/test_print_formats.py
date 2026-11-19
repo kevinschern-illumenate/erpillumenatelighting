@@ -410,7 +410,7 @@ class Formats(unittest.TestCase):
 				html = render(folder, sample())
 				self.assertNotIn("{{", html)
 				self.assertNotIn("{%", html)
-				self.assertIn('class="ill-doc"', html)
+				self.assertIn('class="ill-doc', html)
 				self.assertIn("ill-title", html)
 
 	def test_templates_follow_the_sandbox_rules(self):
@@ -768,6 +768,27 @@ class LineLayout(unittest.TestCase):
 				self.assertNotIn(BREAK, html)
 				self.assertEqual(html.count("<thead>"), 1)
 				self.assertNotIn("(continued)", html)
+
+	def test_only_the_fixture_schedule_uses_the_brand_typefaces(self):
+		fonts = [
+			(
+				"ilL Poppins",
+				400,
+				"https://example.test/assets/illumenate_lighting/fonts/print/Poppins-Regular.ttf",
+			)
+		]
+		with patch.object(PRINTING, "ill_print_fonts", lambda: fonts):
+			for folder, sample in SAMPLES.items():
+				with self.subTest(folder=folder):
+					html = render(folder, sample())
+					if folder == "ill_fixture_schedule":
+						self.assertIn("@font-face", html)
+						self.assertIn('class="ill-doc ill-brand"', html)
+					else:
+						self.assertNotIn("@font-face", html)
+						self.assertNotIn("ilL Poppins", html)
+						self.assertNotIn("ilL Manrope", html)
+						self.assertIn('"Helvetica Neue", Helvetica, Arial, sans-serif', html)
 
 	def test_fixture_schedule_uses_the_same_rows(self):
 		html = render("ill_fixture_schedule", SAMPLES["ill_fixture_schedule"]())

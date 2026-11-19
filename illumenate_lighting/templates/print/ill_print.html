@@ -4,20 +4,29 @@
   Import at the top of a print format, with context so the macros can read `doc`:
       {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, line_group, section_total, totals, terms, notes, signatures, line_type, line_power, line_notes, connected_load, qty with context -%}
 
-  Design (docs/PRINT_FORMATS.md): ilLumenate Design System type (Manrope headings, Poppins
-  body) and colours (navy #172E48, blue #00588C, gold #FDC757), kept light on ink: no
+  Design (docs/PRINT_FORMATS.md): a standard sans-serif (Helvetica) with ilLumenate Design
+  System colours (navy #172E48, blue #00588C, gold #FDC757), kept light on ink: no
   filled panels or table headers, hairline rules, colour only on a thin accent bar and
   small labels. Tables only: wkhtmltopdf's WebKit has no flexbox, grid or CSS variables.
+  The Fixture Schedule alone is set in the brand typefaces (Manrope, Poppins): styles(brand=True).
 
   Frappe's Jinja sandbox exposes only whitelisted helpers under frappe.utils; lookups go
   through the ill_print_* jinja methods (illumenate_lighting/printing.py). Never assign to `_`.
 #}
 
-{%- macro styles() -%}
+{#--
+  The stylesheet. Documents print in a standard sans-serif (Helvetica, which Frappe's
+  wkhtmltopdf renders as Nimbus Sans). brand=True adds the ilLumenate typefaces, Manrope
+  for display text and Poppins for body text; a format using it also puts the "ill-brand"
+  class on its .ill-doc. Only the Fixture Schedule does.
+--#}
+{%- macro styles(brand=False) -%}
 <style>
+	{%- if brand %}
 	{%- for family, weight, url in ill_print_fonts() %}
 	@font-face { font-family: "{{ family | e }}"; font-weight: {{ weight | int }}; src: url("{{ url | e }}") format("truetype"); }
 	{%- endfor %}
+	{%- endif %}
 
 	/*
 	  Scale: Frappe's wkhtmltopdf prints about 0.94pt per CSS px (margins 15mm, no smart
@@ -26,14 +35,14 @@
 	  !important } and td/th padding; the .print-format-scoped rules below win over it.
 	*/
 	/* 1px inset: right-aligned figures and tag borders never sit exactly on the page's clip edge. */
-	.ill-doc { font-family: "ilL Poppins", "Poppins", Helvetica, Arial, sans-serif; font-size: 8.5px; line-height: 1.4; color: #231f20; padding: 0 1px; }
+	.ill-doc { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 8.5px; line-height: 1.4; color: #231f20; padding: 0 1px; }
 	.ill-doc * { box-sizing: border-box; }
 	.ill-doc table { width: 100%; border-collapse: collapse; border-spacing: 0; margin: 0; }
 	.ill-doc td, .ill-doc th { padding: 0; vertical-align: top; border: none; background: none; }
 	.print-format .ill-doc th, .ill-doc th { background: none !important; background-color: transparent !important; }
 	.ill-doc p { margin: 0 0 4px 0; }
 	.ill-doc b, .ill-doc strong { font-weight: 600; }
-	.ill-doc .ill-h { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; color: #172e48; }
+	.ill-doc .ill-h { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #172e48; }
 	.ill-doc .ill-muted { color: #5d6d7f; }
 	.ill-doc .ill-right { text-align: right; }
 	.ill-doc .ill-center { text-align: center; }
@@ -49,17 +58,17 @@
 	.ill-doc .ill-head .ill-right { padding-top: 10px; }
 	.ill-doc .ill-logo { height: 50px; width: auto; display: block; margin-bottom: 8px; }
 	.ill-doc .ill-company { font-size: 7.5px; color: #5d6d7f; line-height: 1.5; }
-	.ill-doc .ill-title { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: #172e48; line-height: 1; margin: 0; }
+	.ill-doc .ill-title { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: #172e48; line-height: 1; margin: 0; }
 	.ill-doc .ill-number { font-size: 9px; font-weight: 500; color: #231f20; margin-top: 6px; }
 	.ill-doc .ill-subtitle { font-size: 7.5px; color: #5d6d7f; margin-top: 2px; }
-	.ill-doc .ill-tag { display: inline-block; border: 0.75px solid #5d6d7f; border-radius: 8px; padding: 1px 7px; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-size: 6.5px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #5d6d7f; margin-top: 6px; }
+	.ill-doc .ill-tag { display: inline-block; border: 0.75px solid #5d6d7f; border-radius: 8px; padding: 1px 7px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 6.5px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #5d6d7f; margin-top: 6px; }
 	.ill-doc .ill-tag-alert { border-color: #a8261c; color: #a8261c; }
 	.ill-doc .ill-tag-ok { border-color: #00588c; color: #00588c; }
 	.ill-doc .ill-rule { border-top: 1px solid #172e48; margin: 12px 0 16px 0; height: 0; }
 	.ill-doc .ill-rule span { display: block; width: 48px; border-top: 2px solid #fdc757; margin-top: -1.5px; }
 
 	/* Labels: small caps, muted. */
-	.ill-doc .ill-label { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-bottom: 2px; }
+	.ill-doc .ill-label { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-bottom: 2px; }
 	.ill-doc .ill-value { font-size: 8.5px; color: #231f20; }
 
 	/* Fact strip: up to four columns. */
@@ -74,7 +83,7 @@
 
 	/* Line items. */
 	.ill-doc .ill-items { table-layout: fixed; }
-	.print-format .ill-doc .ill-items th, .ill-doc .ill-items th { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #172e48; text-align: left; padding: 0 6px 5px 6px; border-bottom: 1px solid #172e48 !important; }
+	.print-format .ill-doc .ill-items th, .ill-doc .ill-items th { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #172e48; text-align: left; padding: 0 6px 5px 6px; border-bottom: 1px solid #172e48 !important; }
 	.ill-doc .ill-items td { padding: 5px 6px; border-bottom: 0.5px solid #d1d6db; word-wrap: break-word; }
 	.print-format .ill-doc .ill-items th:first-child, .ill-doc .ill-items th:first-child, .ill-doc .ill-items td:first-child { padding-left: 0; }
 	.print-format .ill-doc .ill-items th:last-child, .ill-doc .ill-items th:last-child, .ill-doc .ill-items td:last-child { padding-right: 0; }
@@ -87,8 +96,8 @@
 	/* A line group: section header, fixture type row, the line, its notes; kept on one page. */
 	.ill-doc .ill-line { page-break-inside: avoid; }
 	.ill-doc .ill-page-break { page-break-after: always; height: 0; margin: 0; padding: 0; border: none; }
-	.ill-doc .ill-section td { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 7.5px; letter-spacing: 1px; text-transform: uppercase; color: #172e48; padding: 14px 0 4px 0; border-bottom: 0.75px solid #a2abb6; }
-	.ill-doc .ill-type-line { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; line-height: 12px; height: 12px; margin-bottom: 1px; color: #172e48; white-space: nowrap; overflow: hidden; }
+	.ill-doc .ill-section td { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 7.5px; letter-spacing: 1px; text-transform: uppercase; color: #172e48; padding: 14px 0 4px 0; border-bottom: 0.75px solid #a2abb6; }
+	.ill-doc .ill-type-line { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; line-height: 12px; height: 12px; margin-bottom: 1px; color: #172e48; white-space: nowrap; overflow: hidden; }
 	.ill-doc .ill-type-label { font-size: 6px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-right: 5px; }
 	.ill-doc .ill-items .ill-has-type > td { padding-top: 18px; }
 	.ill-doc .ill-items .ill-has-type > td.ill-idx { padding-top: 19px; }
@@ -102,7 +111,7 @@
 	.ill-doc .ill-spec { white-space: nowrap; }
 	.ill-doc .ill-dot { color: #a2abb6; padding: 0 2px; }
 	.ill-doc .ill-power { margin-top: 2px; }
-	.ill-doc .ill-power .ill-type-label { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; }
+	.ill-doc .ill-power .ill-type-label { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; }
 	.ill-doc .ill-line-note { color: #5d6d7f; font-size: 7.5px; font-style: italic; margin-top: 3px; white-space: pre-line; }
 	.ill-doc .ill-none { color: #a2abb6; }
 	.ill-doc .ill-our-code { color: #00588c; font-weight: 500; }
@@ -115,7 +124,7 @@
 	.ill-doc .ill-totals td { padding: 2px 0; font-size: 8.5px; }
 	.ill-doc .ill-totals .ill-total-label { color: #5d6d7f; padding-right: 16px; text-align: right; }
 	.ill-doc .ill-totals .ill-total-value { text-align: right; white-space: nowrap; width: 96px; }
-	.ill-doc .ill-totals .ill-grand td { border-top: 1px solid #172e48; padding-top: 6px; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
+	.ill-doc .ill-totals .ill-grand td { border-top: 1px solid #172e48; padding-top: 6px; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
 	.ill-doc .ill-totals .ill-grand + tr td { padding-top: 4px; }
 	.ill-doc .ill-aside { font-size: 8px; color: #5d6d7f; line-height: 1.5; }
 	.ill-doc .ill-aside .ill-label { margin-top: 8px; }
@@ -146,10 +155,30 @@
 	.ill-doc .ill-sum .ill-label { display: inline; margin-right: 8px; }
 	.ill-doc .ill-tag-inline { margin-top: 3px; }
 	.ill-doc .ill-pay-link { margin-top: 4px; }
-	.ill-doc .ill-build-name { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
+	.ill-doc .ill-build-name { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
 	.ill-doc .ill-steps { font-size: 8px; line-height: 1.5; color: #3a4047; }
 
 	.ill-doc .ill-closing { margin-top: 16px; padding-top: 6px; border-top: 0.5px solid #d1d6db; font-size: 7px; color: #5d6d7f; text-align: center; }
+	{%- if brand %}
+
+	/* Branded typography (brand=True): Poppins body, Manrope display. Each weight is its own
+	   family (see printing.PRINT_FONTS), so font-weight stays normal to avoid faux bold. */
+	.ill-doc.ill-brand { font-family: "ilL Poppins", Helvetica, Arial, sans-serif; }
+	.ill-brand b, .ill-brand strong, .ill-brand .ill-strong, .ill-brand .ill-party-name,
+	.ill-brand .ill-section-total td.ill-num {
+		font-family: "ilL Poppins SemiBold", Helvetica, Arial, sans-serif; font-weight: normal;
+	}
+	.ill-brand .ill-line-name, .ill-brand .ill-number, .ill-brand .ill-specs b,
+	.ill-brand .ill-our-code, .ill-brand .ill-vendor-part {
+		font-family: "ilL Poppins Medium", Helvetica, Arial, sans-serif; font-weight: normal;
+	}
+	.ill-brand .ill-h, .ill-brand .ill-title, .ill-brand .ill-tag, .ill-brand .ill-label,
+	.ill-brand .ill-section td, .ill-brand .ill-type-line, .ill-brand .ill-totals .ill-grand td,
+	.ill-brand .ill-build-name, .ill-brand .ill-power .ill-type-label,
+	.print-format .ill-brand .ill-items th, .ill-brand .ill-items th {
+		font-family: "ilL Manrope", Helvetica, Arial, sans-serif; font-weight: normal;
+	}
+	{%- endif %}
 </style>
 {%- endmacro -%}
 

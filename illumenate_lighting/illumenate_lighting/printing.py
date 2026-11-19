@@ -78,13 +78,15 @@ def _plain_text(value) -> str:
 	return html.unescape(_TAG.sub("", text)).replace("\xa0", " ")
 
 
-# Brand fonts for print: (family, weight, file in public/fonts/print/).
+# Brand fonts for print (the Fixture Schedule): (family, weight, file in public/fonts/print/).
+# Each face is its own family: wkhtmltopdf's WebKit does not pick between weights of one
+# @font-face family (it set all body text in Poppins Medium), so the stylesheet names the
+# exact face it wants and keeps font-weight normal.
 PRINT_FONTS = (
 	("ilL Poppins", 400, "Poppins-Regular.ttf"),
-	("ilL Poppins", 500, "Poppins-Medium.ttf"),
-	("ilL Poppins", 600, "Poppins-SemiBold.ttf"),
-	("ilL Manrope", 600, "Manrope-SemiBold.ttf"),
-	("ilL Manrope", 700, "Manrope-Bold.ttf"),
+	("ilL Poppins Medium", 400, "Poppins-Medium.ttf"),
+	("ilL Poppins SemiBold", 400, "Poppins-SemiBold.ttf"),
+	("ilL Manrope", 400, "Manrope-Bold.ttf"),
 )
 
 
