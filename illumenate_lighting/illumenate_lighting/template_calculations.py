@@ -123,8 +123,12 @@ ENVIRONMENT_ORDER = ("Dry", "Damp", "Wet")
 # Certifications & Ratings; the Webflow export still adds it for kit products).
 SKIPPED_LINKED_ROWS = {
 	"Extrusion Kit": ("Certifications & Ratings",),
-	# The calculation has "Color Rendering (CRI)" already (owner, 2026-11-13).
+	# The calculation has "Color Rendering (CRI)" already (owner, 2026-11-13; Tape/Neon
+	# 2026-11-19).
 	"Fixture Template": ("Color Rendering",),
+	"LED Tape": ("Color Rendering",),
+	"COB Tape": ("Color Rendering",),
+	"LED Neon": ("Color Rendering",),
 }
 
 # What the export's spec enrichment reads from a product record.

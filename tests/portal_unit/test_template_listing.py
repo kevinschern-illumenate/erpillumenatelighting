@@ -405,14 +405,17 @@ class Listing(unittest.TestCase):
 			record["specifications"] += [
 				{"spec_label": "Dimensions", "spec_value": "1in"},
 				{"spec_label": "Certifications & Ratings", "spec_value": "DryRated"},
+				# Tape/Neon and fixtures calculate "Color Rendering (CRI)" (owner, 2026-11-19).
+				{"spec_label": "Color Rendering", "spec_value": "90"},
 			]
 
 		export._enrich_specifications_from_linked_doctypes = enrich
 		sys.modules[export.__name__] = export
 		self.addCleanup(sys.modules.pop, export.__name__, None)
 		for product_type, labels in (
-			("Extrusion Kit", ["Dimensions"]),
-			("Driver", ["Dimensions", "Certifications & Ratings"]),
+			("Extrusion Kit", ["Dimensions", "Color Rendering"]),
+			("LED Neon", ["Dimensions", "Certifications & Ratings"]),
+			("Driver", ["Dimensions", "Certifications & Ratings", "Color Rendering"]),
 		):
 			product = Doc("ilL-Webflow-Product", "x", product_type=product_type)
 			rows = self.module.linked_spec_rows(product, [])
