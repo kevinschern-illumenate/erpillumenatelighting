@@ -194,7 +194,9 @@ class HandSetTapeNeon(unittest.TestCase):
 			template.set("part_no_configurator", [dict(step) for step in HAND_SET_TAPE_STEPS])
 			template.set("feed_lengths", [{"step": 6, "code": "2", "label": "2ft"}])
 			self.assertTrue(calculations.refresh_hand_set_tape_neon(template))
-			steps = [(row["option_step"], row["option_label"]) for row in plain(template["part_no_configurator"])]
+			steps = [
+				(row["option_step"], row["option_label"]) for row in plain(template["part_no_configurator"])
+			]
 			self.assertEqual(
 				steps,
 				[
@@ -214,6 +216,47 @@ class HandSetTapeNeon(unittest.TestCase):
 			)
 			# Start Feed Length moved from 6 to 8; its feed lengths follow.
 			self.assertEqual(plain(template["feed_lengths"])[0]["step"], 8)
+
+	def test_led_tape_pcb_steps_take_the_mounting_and_finish_steps(self):
+		# Owner, 2026-11-19: on LED Tape, PCB Mounting replaces Mounting Method and PCB Finish
+		# replaces Finish; the separate step-99 PCB rows go.
+		with site():
+			calculations = load(CALCULATIONS)
+			template = Doc(
+				"ilL-Tape-Neon-Template",
+				"T",
+				allowed_options=rows(
+					{"option_type": "PCB Mounting", "is_active": 1},
+					{"option_type": "PCB Finish", "is_active": 1},
+				),
+				part_no_configurator=rows(
+					{"option_step": 3, "option_type": "Output Level", "option_label": "Output"},
+					{"option_step": 4, "option_type": "Mounting Method", "option_label": "Mounting"},
+					{"option_step": 5, "option_type": "Finish", "option_label": "Finish"},
+					{"option_step": 99, "option_type": "PCB Mounting", "option_label": "PCB Mounting"},
+					{"option_step": 99, "option_type": "PCB Finish", "option_label": "PCB Finish"},
+				),
+			)
+			calculations.tape_pcb_steps(template)
+			self.assertEqual(
+				[
+					(r["option_step"], r["option_type"], r["option_label"])
+					for r in plain(template["part_no_configurator"])
+				],
+				[
+					(3, "Output Level", "Output"),
+					(4, "PCB Mounting", "Mounting"),
+					(5, "PCB Finish", "Finish"),
+				],
+			)
+			# Without PCB options nothing changes.
+			template["allowed_options"] = rows()
+			template.set(
+				"part_no_configurator",
+				[{"option_step": 4, "option_type": "Mounting Method", "option_label": "Mounting"}],
+			)
+			calculations.tape_pcb_steps(template)
+			self.assertEqual(plain(template["part_no_configurator"])[0]["option_type"], "Mounting Method")
 
 	def test_neon_step_types_count_each_type_once(self):
 		with site():

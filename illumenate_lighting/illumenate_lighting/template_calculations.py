@@ -2621,6 +2621,8 @@ def refresh_hand_set_tape_neon(template):
 	"""
 	if template.doctype != TAPE or product_type_for(template) not in TAPE_NEON_TYPES:
 		return False
+	if product_type_for(template) == "LED Tape":
+		tape_pcb_steps(template)
 	_refresh_hand_set_values(template)
 	if product_type_for(template) != "LED Neon":
 		return False
@@ -2628,6 +2630,36 @@ def refresh_hand_set_tape_neon(template):
 	# Feed length values are read by step, so fill them again at the new numbers.
 	_refresh_hand_set_values(template)
 	return True
+
+
+# LED Tape (owner, 2026-11-19): PCB Mounting takes the Mounting Method step and PCB Finish the
+# Finish step of the hand-set Part No. Configurator.
+TAPE_PCB_STEPS = (("Mounting Method", "PCB Mounting"), ("Finish", "PCB Finish"))
+
+
+def tape_pcb_steps(template):
+	"""On an LED Tape template, the Mounting Method step becomes the PCB Mounting step and the
+	Finish step the PCB Finish step, when the template has active options of that PCB type. The
+	step keeps its number and label; any other PCB Mounting or PCB Finish step is removed. The
+	values are filled afterwards (``_refresh_hand_set_values``)."""
+	active = {
+		row.get("option_type")
+		for row in template.get("allowed_options") or []
+		if row.get("is_active") and row.get("option_type")
+	}
+	rows = list(template.get(CONFIGURATOR_FIELD) or [])
+	for old_type, pcb_type in TAPE_PCB_STEPS:
+		if pcb_type not in active:
+			continue
+		step = next((row for row in rows if row.get("option_type") == old_type), None)
+		if step is None:
+			continue
+		step.option_type = pcb_type
+		rows = [row for row in rows if row is step or row.get("option_type") != pcb_type]
+	if len(rows) != len(template.get(CONFIGURATOR_FIELD) or []):
+		template.set(CONFIGURATOR_FIELD, rows)
+		for idx, row in enumerate(template.get(CONFIGURATOR_FIELD) or [], 1):
+			row.idx = idx
 
 
 def neon_step_types(template):
