@@ -17,7 +17,9 @@
 
 	var API = 'illumenate_lighting.illumenate_lighting.api.gallery_publication.';
 	var JOB = 'ilL-Gallery-Publish-Job';
-	var LABELS = ['Approve and Stage', 'Publish Live', 'Retire', 'Retry'];
+	var LABELS = ['Approve and Stage', 'Publish Live', 'Retire', 'Retry', 'View in Webflow'];
+	// The Galleries collection page on the Webflow site is /gallery (its template page slug is detail_gallery).
+	var GALLERY_PATH = '/gallery/';
 	var SECTION = 'ill-gallery-publication-section';
 	var PILL = 'ill-gallery-status';
 	var HERO = 'ill-gallery-hero';
@@ -118,6 +120,34 @@
 				__('No hero image yet. The image in the first row becomes the hero.')));
 		}
 		host.parentNode.insertBefore(card, host);
+	}
+
+	// The public address of a live gallery, or null when the brand has no usable site URL.
+	function webflowUrl(siteUrl, slug) {
+		var base = String(siteUrl || '').trim().replace(/\/+$/, '');
+		if (!/^https?:\/\/[^\s]+$/i.test(base) || !slug) return null;
+		return base + GALLERY_PATH + encodeURIComponent(slug);
+	}
+
+	// Opens the gallery's page on the brand's Webflow site. A staged draft has no public page yet.
+	function viewInWebflow(frm, brand, live) {
+		return async function () {
+			if (!live) {
+				frappe.msgprint(__('This gallery is not live in Webflow yet. Use Publish Live first, then it can be viewed.'));
+				return;
+			}
+			var siteUrl = '';
+			try {
+				var found = await frappe.db.get_value('ilL-Webflow-Brand', brand, 'webflow_site_url');
+				siteUrl = found && found.message && found.message.webflow_site_url;
+			} catch (error) { siteUrl = ''; }
+			var url = webflowUrl(siteUrl, frm.doc.slug);
+			if (!url) {
+				frappe.msgprint(__('Set the Webflow Site URL on the brand {0} to view galleries in Webflow.', [brand]));
+				return;
+			}
+			window.open(url, '_blank', 'noopener');
+		};
 	}
 
 	function call(method, args, freeze) {
@@ -255,6 +285,7 @@
 		if (publish && publish.prop) publish.prop('disabled', dirty || !ready);
 		var retire = frm.add_custom_button(__('Retire'), request(frm, brand, 'RETIRE'), group);
 		if (retire && retire.prop) retire.prop('disabled', dirty || !!frm.doc.is_active);
+		frm.add_custom_button(__('View in Webflow'), viewInWebflow(frm, brand, !!result.live_hash && result.state !== 'RETIRED'), group);
 		if (job && job.state === 'FAILED') {
 			var retry = frm.add_custom_button(__('Retry'), guarded(frm, async function () {
 				await call('retry', { job: job.name }, true);
@@ -272,5 +303,5 @@
 		await render(frm);
 	}
 
-	return { refresh: refresh, statusOf: statusOf, setHeroPreview: setHeroPreview };
+	return { refresh: refresh, statusOf: statusOf, setHeroPreview: setHeroPreview, webflowUrl: webflowUrl };
 }));
