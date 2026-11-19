@@ -65,6 +65,7 @@
   "product_data_column",
   "hero_image",
   "hero_image_alt",
+  "dimensions_title",
   "dimensions_image",
   "spec_sheet_public_url",
   "l70_life_hours",
@@ -80,6 +81,8 @@
   "auto_populate_configurator",
   "part_no_configurator",
   "feed_lengths",
+  "output_options_section",
+  "output_options",
   "photometric_section",
   "photometry",
   "beam_angle",
@@ -445,6 +448,12 @@
    "description": "Describe the main product image for screen readers and search engines."
   },
   {
+   "fieldname": "dimensions_title",
+   "fieldtype": "Data",
+   "label": "Dimensions Title",
+   "description": "Optional. The title over the Dimensions Image on the spec sheet."
+  },
+  {
    "fieldname": "dimensions_image",
    "fieldtype": "Attach Image",
    "label": "Dimensions Image",
@@ -537,6 +546,19 @@
    "options": "ilL-Child-Webflow-Feed-Length"
   },
   {
+   "fieldname": "output_options_section",
+   "fieldtype": "Section Break",
+   "label": "Output Options"
+  },
+  {
+   "fieldname": "output_options",
+   "fieldtype": "Table",
+   "label": "Output Options",
+   "options": "ilL-Child-Output-Option",
+   "read_only": 1,
+   "description": "Rebuilt on save: for each output, the Watts per Foot, Max Run Length and Max Footage per 100W of the tape that makes it. On fixtures, per lens (the same tape as Delivered Lumens), and lenses with the same numbers share a group."
+  },
+  {
    "fieldname": "photometric_section",
    "fieldtype": "Section Break",
    "label": "Photometrics"
@@ -605,7 +627,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-19 19:16:03.000000",
+ "modified": "2026-11-19 20:29:12.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

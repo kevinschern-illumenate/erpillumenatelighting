@@ -4331,7 +4331,7 @@
           "label": "Output Options",
           "fieldtype": "Table",
           "options": "ilL-Child-Output-Option",
-          "description": "Rebuilt on save: for each output and lens, the Watts per Foot and Max Run Length of the tape that makes it (the same tape as Delivered Lumens). Lenses with the same numbers share a group.",
+          "description": "Rebuilt on save: for each output, the Watts per Foot, Max Run Length and Max Footage per 100W of the tape that makes it. On fixtures, per lens (the same tape as Delivered Lumens), and lenses with the same numbers share a group.",
           "read_only": 1
         },
         {
@@ -7546,6 +7546,12 @@
           "description": "Describe the main product image for screen readers and search engines."
         },
         {
+          "fieldname": "dimensions_title",
+          "label": "Dimensions Title",
+          "fieldtype": "Data",
+          "description": "Optional. The title over the Dimensions Image on the spec sheet."
+        },
+        {
           "fieldname": "dimensions_image",
           "label": "Dimensions Image",
           "fieldtype": "Attach Image",
@@ -7621,6 +7627,14 @@
           "label": "Feed Lengths",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Feed-Length"
+        },
+        {
+          "fieldname": "output_options",
+          "label": "Output Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Output-Option",
+          "description": "Rebuilt on save: for each output, the Watts per Foot, Max Run Length and Max Footage per 100W of the tape that makes it. On fixtures, per lens (the same tape as Delivered Lumens), and lenses with the same numbers share a group.",
+          "read_only": 1
         },
         {
           "fieldname": "photometry",

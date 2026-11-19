@@ -114,11 +114,17 @@ const optionCell = (group, level, field) =>
 record.output_options = {
   columns: optionLevels.map(level => String(level).replace(/\s*lm\s*\/\s*(sq\s*)?ft\s*$/i, '')),
   rows: optionGroups.flatMap(group => [
-    {label: `Fixture Wattage (${group})`, values: optionLevels.map(level => optionCell(group, level, 'fixture_wattage'))},
-    {label: `Max Run Length (${group})`, values: optionLevels.map(level => optionCell(group, level, 'max_run_length'))},
-    {label: `Max Footage per 100W (${group})`, values: optionLevels.map(level => optionCell(group, level, 'max_footage_100w'))},
+    // LED Neon has one group with no name (owner, 2026-11-19): no "( )" after the label.
+    {label: `Fixture Wattage${group ? ` (${group})` : ''}`, values: optionLevels.map(level => optionCell(group, level, 'fixture_wattage'))},
+    {label: `Max Run Length${group ? ` (${group})` : ''}`, values: optionLevels.map(level => optionCell(group, level, 'max_run_length'))},
+    {label: `Max Footage per 100W${group ? ` (${group})` : ''}`, values: optionLevels.map(level => optionCell(group, level, 'max_footage_100w'))},
   ]),
 };
+
+// LED Neon (owner, 2026-11-19): the optional title over the first dimensions drawing, and the
+// Mounting Accessories (each Mounting Accessory Map row's item code and Item Name).
+record.dimensions_title = String(t.dimensions_title || '').trim();
+record.mounting_accessories = ctx.mounting_accessories || [];
 
 // LED packages of the fixture template's tape offerings: the gradient lines (owner, 2026-11-13).
 record.led_packages = ctx.led_packages || [];

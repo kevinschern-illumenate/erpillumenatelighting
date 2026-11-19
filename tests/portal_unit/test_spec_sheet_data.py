@@ -98,6 +98,38 @@ class Payload(unittest.TestCase):
 		self.assertEqual(calls, [("ilL-Rel-Tape Offering", {"name": ["in", ["A", "B"]]}, "led_package")])
 		self.assertEqual(self.module.led_packages(Doc("ilL-Fixture-Template", "X")), [])
 
+	def test_tape_neon_led_packages_come_from_the_allowed_tape_specs(self):
+		self.frappe.get_all = lambda doctype, filters=None, pluck=None: (
+			["ilLumenate RGBW"] if doctype == "ilL-Spec-LED Tape" else []
+		)
+		template = Doc("ilL-Tape-Neon-Template", "non-cow-sw", allowed_tape_specs=[Row(tape_spec="S1")])
+		self.assertEqual(self.module.led_packages(template), ["ilLumenate RGBW"])
+
+	def test_mounting_accessories_are_the_map_rows_items_once_each(self):
+		calls = []
+
+		def get_all(doctype, filters=None, pluck=None, order_by=None):
+			calls.append((doctype, filters, order_by))
+			return ["ACC-COW-MC", "ACC-COW-CH-SV", "ACC-COW-MC", None]
+
+		self.frappe.get_all = get_all
+		self.frappe.db.get_value = lambda doctype, name, field: {"ACC-COW-MC": "Metal Mounting Clip"}.get(
+			name
+		)
+		template = Doc("ilL-Tape-Neon-Template", "non-cow-sw")
+		self.assertEqual(
+			self.module.mounting_accessories(template),
+			[
+				{"code": "ACC-COW-MC", "label": "Metal Mounting Clip"},
+				{"code": "ACC-COW-CH-SV", "label": "ACC-COW-CH-SV"},
+			],
+		)
+		self.assertEqual(
+			calls[0][1],
+			{"template_type": "ilL-Tape-Neon-Template", "fixture_template": "non-cow-sw", "is_active": 1},
+		)
+		self.assertEqual(self.module.mounting_accessories(Doc("ilL-Driver-Template", "X")), [])
+
 	def test_a_template_without_a_product(self):
 		data = self.module.build(Doc("ilL-Driver-Template", "PS-UNIV"), None, "illumenate")
 		self.assertIsNone(data["product"])
