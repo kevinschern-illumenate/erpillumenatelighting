@@ -25,7 +25,7 @@
 			add_filters_group: 1,
 			columns: ["subject", "raised_by", "status"],
 			get_query() {
-				return { filters: [["HD Ticket", fieldname, "!=", frm.doc.name]] };
+				return { filters: { [fieldname]: ["!=", frm.doc.name] } };
 			},
 			action(selections) {
 				if (!selections || !selections.length) {
