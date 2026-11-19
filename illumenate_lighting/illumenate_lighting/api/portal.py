@@ -2400,9 +2400,26 @@ def delete_schedule(schedule_name: str) -> dict:
 	if schedule.status != "DRAFT":
 		return {"success": False, "error": "Only schedules in DRAFT status can be deleted"}
 
+	message_log = getattr(frappe.local, "message_log", None)
+	queued = len(message_log) if isinstance(message_log, list) else None
 	try:
 		frappe.delete_doc("ilL-Project-Fixture-Schedule", schedule_name)
 		return {"success": True}
+	except frappe.LinkExistsError:
+		# Configuration receipts (kept as history) or a support ticket link to the schedule.
+		# Expected, so no Error Log; roll back whatever on_trash already did, and drop
+		# Frappe's raw "is linked with" popup text queued by frappe.throw.
+		frappe.db.rollback()
+		if queued is not None:
+			del message_log[queued:]
+		return {
+			"success": False,
+			"error": _(
+				"This schedule has configuration history and can't be deleted. "
+				"Archive its project or ask ilLumenate to remove it."
+			),
+			"error_code": "validation_error",
+		}
 	except Exception as e:
 		return _safe_error(e, f"Portal: error deleting schedule {schedule_name}")
 
