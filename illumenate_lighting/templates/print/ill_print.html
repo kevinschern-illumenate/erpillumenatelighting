@@ -384,6 +384,13 @@
 
 {#-- Money in the document's currency, dates in the site's format. --#}
 {%- macro money(value, currency=None) -%}{{ frappe.utils.fmt_money(value or 0, currency=currency or doc.currency) | replace("$ ", "$") | e }}{%- endmacro -%}
+{#-- A unit rate: two decimals like money(), but up to four when the rate carries them (per-inch
+     tape and neon, e.g. $1.6667), so the printed rate times the quantity matches the amount. --#}
+{%- macro unit_money(value, currency=None) -%}
+{%- set v = value or 0 -%}
+{%- set places = 2 if (v - v | round(2)) | abs < 0.000001 else (3 if (v - v | round(3)) | abs < 0.000001 else 4) -%}
+{{ frappe.utils.fmt_money(v, precision=places, currency=currency or doc.currency) | replace("$ ", "$") | e }}
+{%- endmacro -%}
 {#-- A quantity with its unit: "20 ea" inline, a long unit ("6.56ft Piece") on a muted line below. --#}
 {%- macro qty(value, uom=None) -%}
 {%- set q = ill_print_qty_parts(value, uom) -%}
@@ -433,11 +440,11 @@
 			<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
 			{%- if discounted %}
 			{%- set disc = ill_print_discount(item) -%}
-			<td class="ill-num">{{ money(item.price_list_rate if disc else item.rate) }}</td>
+			<td class="ill-num">{{ unit_money(item.price_list_rate if disc else item.rate) }}</td>
 			<td class="ill-num">{% if disc %}{{ "%g" | format(disc) | e }}%{% else %}<span class="ill-none">&mdash;</span>{% endif %}</td>
-			<td class="ill-num">{{ money(item.rate) }}</td>
+			<td class="ill-num">{{ unit_money(item.rate) }}</td>
 			{%- else %}
-			<td class="ill-num">{{ money(unit) }}</td>
+			<td class="ill-num">{{ unit_money(unit) }}</td>
 			{%- endif %}
 			<td class="ill-num">{{ money(unit * (item.qty or 0) if mode == "msrp" else item.amount) }}</td>
 		{%- endcall -%}
