@@ -275,6 +275,12 @@ const mappingScript = `<script>
                           const codeEl = optClone.querySelector('#part-no-code');
                           const descEl = optClone.querySelector('#part-no-desc');
                           if (codeEl) codeEl.innerText = valObj.code || '';
+                          // A blank code (a feed length's "Endcap") reads "blank" in italics, so
+                          // customers know it is left empty (owner, 2026-11-19).
+                          if (codeEl && valObj.code === '') {
+                              codeEl.innerText = 'blank';
+                              codeEl.style.fontStyle = 'italic';
+                          }
                           if (descEl) descEl.innerText = valObj.label || valObj.value || '';
                           optionsWrapper.appendChild(optClone);
                       });
