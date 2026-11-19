@@ -69,14 +69,23 @@ def _images(gallery: dict, base_url: str) -> list[dict]:
 	return images
 
 
-def _product_notes(rows: list[dict], product_refs: dict) -> str:
-	paragraphs = []
+def _product_rows(rows: list[dict], product_refs: dict) -> list[dict]:
+	"""The Products Used table, row by row, for the Webflow page script that renders it (sent as JSON)."""
+	result = []
 	for row in rows:
-		product, note = row.get("product"), _text(row.get("note"))
-		if product and note:
-			name = (product_refs.get(product) or {}).get("name") or product
-			paragraphs.append(f"<p>{escape(name)}: {escape(note)}</p>")
-	return "".join(paragraphs)
+		product = row.get("product") or None
+		ref = (product_refs.get(product) or {}) if product else {}
+		result.append(
+			{
+				"product": product,
+				"name": (ref.get("name") or product) if product else None,
+				"slug": ref.get("slug") or None,
+				"series": _text(row.get("series")) or None,
+				"note": _text(row.get("note")) or None,
+				"webflow_item_id": ref.get("webflow_item_id") or None,
+			}
+		)
+	return result
 
 
 def _custom_items(rows: list[dict], base_url: str) -> str:
@@ -129,7 +138,7 @@ def build_payload(gallery: dict, *, base_url: str, product_refs: dict) -> dict:
 		"services_provided": _names(gallery, "services_provided", "service"),
 		"series_used": series_used,
 		"product_item_ids": item_ids,
-		"product_notes_html": _product_notes(products, product_refs),
+		"products": _product_rows(products, product_refs),
 		"quote": gallery.get("quote") or "",
 		"quote_attribution": gallery.get("quote_attribution") or "",
 		"location": gallery.get("location") or "",
