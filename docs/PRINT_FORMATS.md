@@ -156,13 +156,21 @@ draft: have counsel review it.
   pay" box. It is empty today.
 - **Sales Invoice > QuickBooks Payment Link**: printed as "Pay online" on unpaid invoices.
 
+## Paper and margins
+
+PDFs are US Letter with 15mm margins on every side. Frappe takes the paper size from
+Print Settings › PDF Page Size (Letter on the live site) and gives wkhtmltopdf 15mm margins
+when a format has no header or footer HTML, which these don't. The template adds a 1px
+inset on each side so right-aligned figures and tag borders never sit exactly on the clip
+edge.
+
 ## Previewing a change
 
 Local wkhtmltopdf builds are not the server's patched build and render about 25% small, so
 judge layout against the server: render the format inside Frappe's printview shell and post
 it to `frappe.utils.print_format.report_to_pdf` with `html { zoom: 1.25 }` (that endpoint
 shrinks to fit; the zoom brings it within ~1pt of a real download). Brand fonts can't be
-previewed that way until they are deployed, so check typography in Chromium at scale 1.25.
+previewed that way until they are deployed, so check typography in Chromium with `html { zoom: 1.25 }`. Chromium zooms the PDF margins too, so pass 12mm there to get a true 15mm (its `scale` option clips the right edge instead).
 
 ## Checking a change
 

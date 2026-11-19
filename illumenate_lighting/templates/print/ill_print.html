@@ -25,7 +25,8 @@
 	  Frappe's print stylesheet sets th { background: #eee !important; border-bottom: 0
 	  !important } and td/th padding; the .print-format-scoped rules below win over it.
 	*/
-	.ill-doc { font-family: "ilL Poppins", "Poppins", Helvetica, Arial, sans-serif; font-size: 8.5px; line-height: 1.4; color: #231f20; }
+	/* 1px inset: right-aligned figures and tag borders never sit exactly on the page's clip edge. */
+	.ill-doc { font-family: "ilL Poppins", "Poppins", Helvetica, Arial, sans-serif; font-size: 8.5px; line-height: 1.4; color: #231f20; padding: 0 1px; }
 	.ill-doc * { box-sizing: border-box; }
 	.ill-doc table { width: 100%; border-collapse: collapse; border-spacing: 0; margin: 0; }
 	.ill-doc td, .ill-doc th { padding: 0; vertical-align: top; border: none; background: none; }
