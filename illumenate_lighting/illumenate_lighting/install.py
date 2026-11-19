@@ -52,12 +52,18 @@ def after_install():
 	from illumenate_lighting.patches.add_item_configured_group_field import execute as item_configured_group
 
 	item_configured_group()
+	from illumenate_lighting.patches.add_item_light_engine_fields import execute as item_light_engine
+
+	item_light_engine()
 	from illumenate_lighting.patches.add_webflow_contact_form_fields import execute as webflow_contact_form
 
 	webflow_contact_form()
 	from illumenate_lighting.patches.add_work_order_qc_fields import execute as work_order_qc
 
 	work_order_qc()
+	from illumenate_lighting.patches.add_tape_neon_option_value_label import execute as tape_neon_value_label
+
+	tape_neon_value_label()
 	from illumenate_lighting.patches.create_product_finder_role import execute as product_finder_role
 
 	product_finder_role()

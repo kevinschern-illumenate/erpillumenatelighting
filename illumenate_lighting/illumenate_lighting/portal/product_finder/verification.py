@@ -229,6 +229,7 @@ def request(token, product_slug=None, schedule=None, line_key=None, message=None
 
 
 def _notify_staff(doc):
+	from illumenate_lighting.illumenate_lighting.email_templates import brand
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 	from illumenate_lighting.illumenate_lighting.portal.product_finder.content import SETTINGS
 
@@ -239,7 +240,11 @@ def _notify_staff(doc):
 				user,
 				"notify_quotes",
 				"Product verification requested",
-				"A product verification request is ready for review.",
+				brand.portal_email(
+					"Product verification requested",
+					paragraphs=[f"Verification request <strong>{frappe.utils.escape_html(doc.name)}</strong> is ready for review."],
+					action=("Open the request", frappe.utils.get_url_to_form(DOCTYPE, doc.name)),
+				),
 				DOCTYPE,
 				doc.name,
 				event_key=f"pvr:{doc.name}:requested:{user}",
@@ -269,13 +274,22 @@ def propagate(request_doc):
 		# reject locked versions or require the reviewer to own each configured build.
 		frappe.db.set_value("ilL-Project-Fixture-Schedule", name, "modified", now_datetime())
 		schedule.add_comment("Comment", f"Product verification {request_doc.name}: {request_doc.state}")
+	from illumenate_lighting.illumenate_lighting.email_templates import brand
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
 	notify_user(
 		request_doc.requested_by,
 		"notify_quotes",
 		"Product verification updated",
-		f"Your product verification is now {request_doc.state.replace('_', ' ').lower()}.",
+		brand.portal_email(
+			"Your product verification is updated",
+			paragraphs=[
+				f"Your product verification <strong>{frappe.utils.escape_html(request_doc.name)}</strong> is now "
+				f"{request_doc.state.replace('_', ' ').lower()}."
+			],
+			action=("View the request", frappe.utils.get_url(f"/portal/product-verification/{request_doc.name}")),
+			preference_note="quote updates",
+		),
 		DOCTYPE,
 		request_doc.name,
 		event_key=f"pvr:{request_doc.name}:{request_doc.state}",

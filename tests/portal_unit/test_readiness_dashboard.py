@@ -101,7 +101,7 @@ class Dashboard(unittest.TestCase):
 				return products
 			if doctype == "ilL-Fixture-Template":
 				return [TEMPLATE]
-			if doctype == "ilL-Child-Webflow-Specification":
+			if doctype == "ilL-Child-Webflow-Spec-Custom":
 				return [{"parent": "a", "rows": 3}]
 			if doctype == "ilL-Child-Webflow-Brand-Target":
 				return ["b", "a", "c", "a"]

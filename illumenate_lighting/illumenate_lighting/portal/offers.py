@@ -626,7 +626,8 @@ def remind_expiring():
 	"""Daily: remind buyers of ISSUED offers that expire in 3 days or 1 day (idempotent per offer and day)."""
 	from frappe import _
 
-	from illumenate_lighting.illumenate_lighting.portal.notifications import _portal_link, notify_user
+	from illumenate_lighting.illumenate_lighting.email_templates import brand
+	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
 	today = getdate(nowdate())
 	for days in REMINDER_DAYS:
@@ -639,12 +640,18 @@ def remind_expiring():
 			subject = (
 				_("Quote {0} expires tomorrow") if days == 1 else _("Quote {0} expires in {1} days")
 			).format(offer.name, days)
-			message = _(
-				"<p>Quote <strong>{0}</strong> is valid until {1}. Accept it or ask for changes before then.</p>"
-			).format(
-				frappe.utils.escape_html(offer.name),
-				frappe.utils.escape_html(frappe.utils.format_date(offer.valid_until)),
-			) + _portal_link(f"/portal/quotes/{offer.name}", _("Review the quote"))
+			message = brand.portal_email(
+				_("Your quote expires tomorrow") if days == 1 else _("Your quote expires in {0} days").format(days),
+				paragraphs=[_(
+					"Quote <strong>{0}</strong> is valid until {1}. Accept it or ask for changes before then "
+					"so the pricing holds."
+				).format(
+					frappe.utils.escape_html(offer.name),
+					frappe.utils.escape_html(frappe.utils.format_date(offer.valid_until)),
+				)],
+				action=(_("Review the quote"), frappe.utils.get_url(f"/portal/quotes/{offer.name}")),
+				preference_note=_("quote updates"),
+			)
 			for user in _buyers(offer):
 				notify_user(
 					user,

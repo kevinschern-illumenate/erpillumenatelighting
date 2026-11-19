@@ -1,0 +1,8 @@
+{#- Overrides Frappe's sign-in link email ("Login with email link" on the sign-in page).
+Frappe passes: link, minutes, app_name. -#}
+{% from "templates/emails/ill_macros.html" import heading, para, button, small, copy_link %}
+{{ heading("Your sign-in link") }}
+{{ para("Use the button below to sign in to your ilLumenate account. It works once, for " ~ ("1 minute" if minutes == 1 else (minutes ~ " minutes")) ~ ".") }}
+{{ button("Sign in", link) }}
+{{ small("Didn't ask for this? You can ignore this email. Nobody can sign in without the link.") }}
+{{ copy_link(link) }}

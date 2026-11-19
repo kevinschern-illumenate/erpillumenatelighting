@@ -218,7 +218,7 @@ def _coerce_list(value) -> list:
 
 
 def _next_fixture_type(schedule, used_ids) -> str:
-	"""Next free ``A1``-style id across the schedule lines and the form rows."""
+	"""Next free ``L1``-style id across the schedule lines and the form rows."""
 	existing = {str(v).strip() for v in used_ids or [] if v}
 	for line in (getattr(schedule, "lines", None) or []) if schedule else []:
 		if line.line_id:
@@ -614,10 +614,10 @@ def build_configured_line(
 			line_idx_int = cint(line_idx)
 			if not (0 <= line_idx_int < len(schedule_doc.lines or [])):
 				return _error(_("Schedule line {0} does not exist on {1}.").format(line_idx, schedule_doc.name))
+		# A schedule line is listed by its Fixture Type, so it always gets one.
 		if not fixture_type:
 			fixture_type = _next_fixture_type(schedule_doc, [])
-	if not fixture_type:
-		fixture_type = _next_fixture_type(None, [])
+	# Rows on no schedule may go without a Fixture Type (kit components, loose parts).
 
 	# ── 2. Engine: persist the configured record ────────────────────
 	# Included supplies become their own lines; the fixture is built without them.
@@ -858,7 +858,9 @@ def _build_catalog_line(
 			line_idx_int = cint(line_idx)
 			if not (0 <= line_idx_int < len(schedule_doc.lines or [])):
 				return _error(_("Schedule line {0} does not exist on {1}.").format(line_idx, schedule_doc.name))
-	fixture_type = fixture_type or _next_fixture_type(schedule_doc, [])
+	if schedule_doc is not None and not fixture_type:
+		# A schedule line is listed by its Fixture Type; rows on no schedule may go without one.
+		fixture_type = _next_fixture_type(schedule_doc, [])
 
 	try:
 		if product_type == PRODUCT_TYPE_KIT:

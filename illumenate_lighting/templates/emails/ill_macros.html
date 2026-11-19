@@ -1,0 +1,35 @@
+{#- Building blocks for the sign-in email bodies (inline styles, Design System tokens).
+	{% from "templates/emails/ill_macros.html" import heading, para, button, small, copy_link, code %}
+Text passed in is trusted HTML: escape user values with |e before passing them. -#}
+{%- set b = ill_email_brand() -%}
+{%- set c = b.colors -%}
+
+{%- macro heading(text) -%}
+<h1 style="margin: 0 0 16px; font-family: {{ b.font_display }}; font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -0.02em; color: {{ c.ink }};">{{ text }}</h1>
+{%- endmacro -%}
+
+{%- macro para(text) -%}
+<p style="margin: 0 0 16px; font-family: {{ b.font_body }}; font-size: 15px; line-height: 1.6; color: {{ c.ink }};">{{ text }}</p>
+{%- endmacro -%}
+
+{%- macro small(text) -%}
+<p style="margin: 0 0 12px; font-family: {{ b.font_body }}; font-size: 13px; line-height: 1.6; color: {{ c.muted }};">{{ text }}</p>
+{%- endmacro -%}
+
+{%- macro button(label, url) -%}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0 20px;">
+	<tr>
+		<td bgcolor="{{ c.blue }}" style="border-radius: 999px; background-color: {{ c.blue }};">
+			<a href="{{ url or '#' }}" style="display: inline-block; padding: 13px 28px; font-family: {{ b.font_body }}; font-size: 15px; font-weight: 500; line-height: 1.2; color: #FFFFFF; text-decoration: none; border-radius: 999px;">{{ label }}</a>
+		</td>
+	</tr>
+</table>
+{%- endmacro -%}
+
+{%- macro copy_link(url) -%}
+<p style="margin: 0 0 12px; font-family: {{ b.font_body }}; font-size: 13px; line-height: 1.6; color: {{ c.muted }};">Button not working? Paste this link into your browser:<br /><a href="{{ url or '#' }}" style="color: {{ c.blue }}; word-break: break-all;">{{ url }}</a></p>
+{%- endmacro -%}
+
+{%- macro code(value) -%}
+<p style="margin: 4px 0 20px; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 32px; font-weight: 700; letter-spacing: 0.18em; color: {{ c.ink }};">{{ value }}</p>
+{%- endmacro -%}

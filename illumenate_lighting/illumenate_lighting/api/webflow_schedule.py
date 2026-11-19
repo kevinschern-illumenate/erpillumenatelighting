@@ -514,24 +514,19 @@ def _get_default_endcap_color(template, finish_code: str = None) -> Optional[str
 def _get_next_fixture_type_id(schedule) -> str:
     """
     Get the next fixture type ID for a schedule.
-    
-    Follows pattern: A1, A2, A3... B1, B2, B3...
+
+    Follows pattern: L1, L2, L3... (the first free number).
     """
     existing_ids = set()
-    
+
     for line in getattr(schedule, 'lines', []) or []:
         if getattr(line, 'line_id', None):
             existing_ids.add(line.line_id)
-    
-    # Generate next ID
-    for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
-        for num in range(1, 100):
-            type_id = f"{letter}{num}"
-            if type_id not in existing_ids:
-                return type_id
-    
-    # Fallback
-    return f"X{len(existing_ids) + 1}"
+
+    num = 1
+    while f"L{num}" in existing_ids:
+        num += 1
+    return f"L{num}"
 
 
 def _create_configured_fixture_directly(

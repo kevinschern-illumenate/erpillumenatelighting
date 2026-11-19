@@ -48,7 +48,9 @@
   "monthly_revenue_goal",
   "section_goals",
   "monthly_goals",
-  "paint_supplier_group"
+  "paint_supplier_group",
+  "section_fulfillment",
+  "fixture_fulfillment_split"
  ],
  "fields": [
   {
@@ -381,6 +383,18 @@
    "label": "Paint / Finishing Supplier Group",
    "options": "Supplier Group",
    "description": "Open purchase orders to these suppliers, linked to a sales order, put the order in Paint on the board."
+  },
+  {
+   "fieldname": "section_fulfillment",
+   "fieldtype": "Section Break",
+   "label": "Linear Fixture Fulfillment"
+  },
+  {
+   "default": "0",
+   "description": "On: a linear fixture whose every segment fits one stick of profile and lens is built assembled with a BOM; longer fixtures ship in pieces as a Product Bundle of light engines (one per run, each with its own BOM) and stock extrusion parts. Power supplies are always their own order lines. Applies to builds configured after it is turned on.",
+   "fieldname": "fixture_fulfillment_split",
+   "fieldtype": "Check",
+   "label": "Split assembled and ship-in-pieces fixtures"
   }
  ],
  "index_web_pages_for_search": 0,

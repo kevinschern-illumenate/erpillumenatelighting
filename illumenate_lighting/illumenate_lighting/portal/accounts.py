@@ -460,36 +460,32 @@ def send_invitation(doc, token):
 		intro = frappe._("{0} invited you to join <strong>{1}</strong> on the ilLumenate portal.").format(
 			escape(inviter), escape(target)
 		)
-	message = "".join(
-		(
-			f"<p>{frappe._('Hello {0},').format(escape(doc.first_name or doc.email))}</p>",
-			f"<p>{intro}</p>",
-			*(
-				(
-					"<p>"
-					+ frappe._(
-						"We created a portal account for {0}. Set your password first, then accept the invitation."
-					).format(escape(doc.email))
-					+ "</p>",
-					f'<p><a href="{escape(set_password)}">{frappe._("Set your password")}</a></p>',
-				)
-				if set_password
-				else ()
-			),
-			f'<p><a href="{url}">{frappe._("Accept the invitation")}</a></p>',
-			"<p>"
-			+ (
-				frappe._(
-					"If the password link has expired, use Forgot password on the sign-in page with {0}."
-				)
-				if set_password
-				else frappe._(
-					"Sign in with {0}, or create an account with that email, and the link brings you back to accept."
-				)
-			).format(escape(doc.email))
-			+ "</p>",
-			f"<p>{frappe._('This link works once and expires on {0}.').format(escape(expires))}</p>",
-		)
+	from illumenate_lighting.illumenate_lighting.email_templates import brand
+
+	email = escape(doc.email)
+	if set_password:
+		steps = [
+			frappe._("We created a portal account for {0}. Set your password first, then accept the invitation.").format(email),
+		]
+		action = (frappe._("Set your password"), set_password)
+		secondary = (frappe._("Then accept the invitation"), url)
+		recovery = frappe._(
+			"If the password link has expired, use Forgot password on the sign-in page with {0}."
+		).format(email)
+	else:
+		steps = []
+		action = (frappe._("Accept the invitation"), url)
+		secondary = None
+		recovery = frappe._(
+			"Sign in with {0}, or create an account with that email, and the link brings you back to accept."
+		).format(email)
+	message = brand.portal_email(
+		frappe._("You're invited to a project") if doc.project else frappe._("You're invited to the ilLumenate portal"),
+		greeting=doc.first_name or None,
+		paragraphs=[intro, *steps],
+		action=action,
+		secondary=secondary,
+		note=recovery + " " + frappe._("This link works once and expires on {0}.").format(escape(expires)),
 	)
 	return record_invitation(doc.name, doc.email, subject, message, doc.token_hash)
 

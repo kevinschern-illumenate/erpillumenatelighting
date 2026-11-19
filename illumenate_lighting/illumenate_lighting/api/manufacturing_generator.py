@@ -713,6 +713,11 @@ def _create_or_get_configured_item(
 	# Ensure the Brand master exists so Item.brand can be set
 	_ensure_brand_exists(ILLUMENATE_BRAND)
 
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import is_ship_pieces
+
+	# A ship-in-pieces fixture is ordered as a Product Bundle parent, which never holds stock.
+	ships_in_pieces = is_build and is_ship_pieces(fixture)
+
 	# Create the Item
 	try:
 		_ensure_default_uom_exists()
@@ -722,8 +727,9 @@ def _create_or_get_configured_item(
 			"item_name": item_name,
 			"item_group": CONFIGURED_ITEM_GROUP,
 			"stock_uom": DEFAULT_UOM,
-			"is_stock_item": 1,
-			"has_serial_no": 1,  # Epic 7: Enable serial tracking for finished goods
+			"is_stock_item": 0 if ships_in_pieces else 1,
+			"include_item_in_manufacturing": 0 if ships_in_pieces else 1,
+			"has_serial_no": 0 if ships_in_pieces else 1,  # Epic 7: serial tracking for finished goods
 			"description": _generate_item_description(fixture),
 			"custom_ill_configured_fixture": fixture.name,  # Link back to fixture
 			"ill_build_id": _build_id_or_none(fixture),
@@ -1049,7 +1055,11 @@ def build_fixture_bom_items(fixture) -> list[dict[str, Any]]:
 
 
 	# --- Role 8: Drivers ---
-	if fixture.drivers:
+	# With the assembled / ship-in-pieces split on, power supplies are always their
+	# own order lines and never part of a fixture's materials.
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import split_enabled
+
+	if fixture.drivers and not split_enabled():
 		for driver in fixture.drivers:
 			if driver.driver_item and driver.driver_qty > 0:
 				bom_items.append(_count_bom_row(driver.driver_item, driver.driver_qty, strict=strict))
@@ -1125,6 +1135,11 @@ def _create_or_get_bom(
 		from illumenate_lighting.illumenate_lighting.api.linear_build import snapshot
 		if not item_belongs_to_build(item_code, fixture):
 			frappe.throw("BOM Item does not match this immutable fixture build")
+		from illumenate_lighting.illumenate_lighting.api import fixture_fulfillment
+
+		if fixture_fulfillment.is_ship_pieces(fixture):
+			# No BOM on the order Item: light engine BOMs + a Product Bundle instead.
+			return fixture_fulfillment.ensure_artifacts(fixture, item_code)
 		return ensure_bom(fixture, item_code, snapshot(fixture)["components"])
 	result = {
 		"success": True,
@@ -1816,6 +1831,16 @@ def _calculate_endcap_quantities(fixture) -> dict:
 		else:
 			# Default to solid if not specified or SOLID
 			solid_count += 1
+	elif _explicit_endcap_types(fixture):
+		# Each user segment's ends carry an explicit type; a stick joint inside a
+		# segment (shipped in pieces, joined in the field) carries none and gets no endcap.
+		for segment in fixture.segments:
+			for field in ("start_endcap_type", "end_endcap_type"):
+				value = getattr(segment, field, "") or ""
+				if value == "Feed-Through":
+					feed_through_count += 1
+				elif value == "Solid":
+					solid_count += 1
 	else:
 		# Multi-segment fixture: count endcaps on BOTH ends of EVERY segment
 		if fixture.segments:
@@ -1883,6 +1908,17 @@ def _calculate_endcap_quantities(fixture) -> dict:
 		"feed_through_qty": feed_through_count,
 		"solid_qty": solid_count,
 	}
+
+
+def _explicit_endcap_types(fixture) -> bool:
+	"""Count endcaps from the engine's explicit per-stick types (split on, typed plan)."""
+	from illumenate_lighting.illumenate_lighting.api.fixture_fulfillment import split_enabled
+
+	if not fixture.segments or not split_enabled():
+		return False
+	return any(
+		(getattr(s, "start_endcap_type", "") or getattr(s, "end_endcap_type", "")) for s in fixture.segments
+	)
 
 
 def _calculate_total_tape_length(fixture) -> float:

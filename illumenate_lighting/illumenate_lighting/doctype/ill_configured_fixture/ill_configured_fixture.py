@@ -29,7 +29,7 @@ class ilLConfiguredFixture(Document):
 				assert_unchanged(
 					self,
 					old,
-					{"configured_item", "bom", "work_order", "spec_submittal", "modified", "modified_by"},
+					{"configured_item", "bom", "work_order", "light_engines_json", "spec_submittal", "modified", "modified_by"},
 					"This fixture build is immutable. Create a configuration variant.",
 				)
 			return
