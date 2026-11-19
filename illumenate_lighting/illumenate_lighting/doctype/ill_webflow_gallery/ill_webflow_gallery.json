@@ -37,7 +37,9 @@
   "custom_items",
   "publishing_section",
   "target_brands",
-  "sync_targets"
+  "sync_targets",
+  "status_guide_section",
+  "status_guide"
  ],
  "fields": [
   {
@@ -224,12 +226,23 @@
    "options": "ilL-Child-Webflow-Sync-State",
    "read_only": 1,
    "description": "Webflow item IDs recorded by the import of existing galleries. The gallery publication record holds the current remote item ID and sync state. Never edited by hand."
+  },
+  {
+   "fieldname": "status_guide_section",
+   "fieldtype": "Section Break",
+   "label": "What the status means",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "status_guide",
+   "fieldtype": "HTML",
+   "options": "<p>The pill at the top of the sidebar shows the status for the brand chosen in the Webflow publication section.</p><table class=\"table table-bordered\"><thead><tr><th style=\"width: 200px;\">Pill</th><th>Means</th></tr></thead><tbody><tr><td><span class=\"indicator-pill orange\">Needs staging</span></td><td>Never staged: it is not in Webflow yet. Approve and Stage to send it.</td></tr><tr><td><span class=\"indicator-pill orange\">Changes not staged</span></td><td>Edited since it was staged or live. Approve and Stage again to send the changes.</td></tr><tr><td><span class=\"indicator-pill blue\">Queued</span></td><td>A job is waiting for the n8n workflow to pick it up.</td></tr><tr><td><span class=\"indicator-pill yellow\">Staged</span></td><td>A draft in Webflow, not public. Publish Live to make it public.</td></tr><tr><td><span class=\"indicator-pill green\">Live</span></td><td>Published on the Webflow site.</td></tr><tr><td><span class=\"indicator-pill red\">Failed</span></td><td>The last Webflow job failed. See the Webflow publication section for the error, then Retry.</td></tr><tr><td><span class=\"indicator-pill gray\">Retired</span></td><td>Unpublished and archived in Webflow. The ERP record is kept.</td></tr></tbody></table>"
   }
  ],
  "index_web_pages_for_search": 1,
  "make_attachments_public": 1,
  "links": [],
- "modified": "2026-11-18 18:00:00.000000",
+ "modified": "2026-11-19 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Gallery",

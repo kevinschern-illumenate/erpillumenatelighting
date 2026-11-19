@@ -73,7 +73,7 @@ class DoctypeJsonTest(unittest.TestCase):
 			"gallery_title", "slug", "is_active", "featured", "gallery_images", "seo_description",
 			"about", "case_study", "gallery_type", "applications", "services_provided",
 			"products_used", "quote", "quote_attribution", "location", "completion_date", "credits",
-			"videos", "custom_items", "target_brands", "sync_targets",
+			"videos", "custom_items", "target_brands", "sync_targets", "status_guide",
 		}
 		self.assertEqual(expected, {n for n, f in fields.items() if f["fieldtype"] not in (
 			"Section Break", "Column Break", "Tab Break")})
@@ -83,6 +83,19 @@ class DoctypeJsonTest(unittest.TestCase):
 		self.assertEqual(fields["sync_targets"]["options"], "ilL-Child-Webflow-Sync-State")
 		self.assertEqual(fields["target_brands"]["options"], "ilL-Child-Webflow-Brand-Target")
 		self.assertEqual(fields["custom_items"]["options"], "ilL-Child-Gallery-Custom-Item")
+
+	def test_status_guide_is_a_collapsed_section_at_the_bottom(self):
+		doc = load_doctype("ill_webflow_gallery")
+		fields = {f["fieldname"]: f for f in doc["fields"]}
+		self.assertEqual(doc["field_order"][-2:], ["status_guide_section", "status_guide"])
+		self.assertEqual(fields["status_guide_section"]["fieldtype"], "Section Break")
+		self.assertEqual(fields["status_guide_section"]["collapsible"], 1)
+		self.assertEqual(fields["status_guide"]["fieldtype"], "HTML")
+		guide = fields["status_guide"]["options"]
+		# Every status the pill can show is explained, and the template has no placeholders to render.
+		for label in ("Needs staging", "Changes not staged", "Queued", "Staged", "Live", "Failed", "Retired"):
+			self.assertIn(">" + label + "<", guide)
+		self.assertNotIn("{", guide)
 
 	def test_custom_item_child(self):
 		doc = load_doctype("ill_child_gallery_custom_item")
