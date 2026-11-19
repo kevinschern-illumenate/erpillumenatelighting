@@ -35,8 +35,8 @@
 		("Bill to", company.name, (ill_print_address(doc.billing_address_display, doc.billing_address) or company.address) + [company.email]),
 	]) }}
 
-	{#-- The vendor's part number gets its own column, and their description leads the line;
-	     our part number and item name follow in muted text so receiving can match it. --#}
+	{#-- The vendor's part number gets its own column, and their description leads the line,
+	     with our part number beneath it. Without a supplier description our item name leads. --#}
 	{%- set items_head -%}
 	<thead>
 			<tr>
@@ -64,7 +64,7 @@
 				<td class="ill-vendor-part">{% if vendor_no %}{{ vendor_no | e }}{% else %}<span class="ill-none">&mdash;</span>{% endif %}</td>
 				<td>{{ line_type(entry) }}
 					<div class="ill-line-name ill-pre">{{ (vendor_desc or item.item_name or item.item_code) | e }}</div>
-					<div class="ill-code">Our part {{ item.item_code | e }}{% if vendor_desc and item.item_name and item.item_name != item.item_code %} &nbsp;&middot;&nbsp; {{ item.item_name | e }}{% endif %}</div>
+					<div class="ill-code">Our part <span class="ill-our-code">{{ item.item_code | e }}</span></div>
 					{%- if item.sales_order %}<div class="ill-specs">For order {{ item.sales_order | e }}</div>{% endif -%}
 				{{ line_notes(entry) }}</td>
 				<td class="ill-date">{{ date(item.schedule_date) }}</td>

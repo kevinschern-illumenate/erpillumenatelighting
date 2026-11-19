@@ -629,10 +629,16 @@ class LineLayout(unittest.TestCase):
 			FRAPPE.get_all.return_value = []
 		self.assertIn(">Supplier part no.<", html)
 		self.assert_order(
-			html, "ALP260", "2M Aluminum Profile\nAnodized", "Our part CH-RA01-BK", "Rainier [SF]-Profile-BK"
+			html,
+			"ALP260",
+			"2M Aluminum Profile\nAnodized",
+			'Our part <span class="ill-our-code">CH-RA01-BK</span>',
 		)
-		# A line with no supplier data falls back to our item name, with a dash for the part number.
-		self.assert_order(html, "Rainier [SF]-Profile-BK", "&mdash;", "Rainier Endcap", "Our part EC-RA01")
+		# With supplier details our item name is left off; without them it leads the line.
+		self.assertNotIn("Rainier [SF]-Profile-BK", html)
+		self.assert_order(
+			html, "&mdash;", "Rainier Endcap", 'Our part <span class="ill-our-code">EC-RA01</span>'
+		)
 
 	def test_vendor_documents_group_by_section_without_customer_fixture_types(self):
 		html = render(
