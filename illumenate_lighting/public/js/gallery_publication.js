@@ -20,6 +20,7 @@
 	var LABELS = ['Approve and Stage', 'Publish Live', 'Retire', 'Retry'];
 	var SECTION = 'ill-gallery-publication-section';
 	var PILL = 'ill-gallery-status';
+	var HERO = 'ill-gallery-hero';
 
 	// Sidebar status: the publication state of the chosen brand, in words a person can act on. Colours are
 	// Frappe's indicator-pill classes.
@@ -68,6 +69,55 @@
 		side.prepend('<div class="' + PILL + '" style="padding: 0 15px; margin-top: 10px; margin-bottom: -10px;">' +
 			'<span class="indicator-pill ' + esc(status.color) + '" title="' + esc(title) + '">' +
 			esc(__(status.label)) + '</span></div>');
+	}
+
+	function node(tag, className, text) {
+		var el = document.createElement(tag);
+		if (className) el.className = className;
+		if (text !== undefined) el.textContent = text;
+		return el;
+	}
+
+	// The first image row is the hero (card thumbnail and detail hero). Shown above the table in the
+	// Images section, in the same card style as the main image on the template forms.
+	function setHeroPreview(frm) {
+		var field = frm.fields_dict && frm.fields_dict.gallery_images;
+		var host = field && field.$wrapper && field.$wrapper.get && field.$wrapper.get(0);
+		if (!host || !host.parentNode) return;
+		var old = host.parentNode.querySelector(':scope > .' + HERO);
+		if (old) old.remove();
+		var rows = (frm.doc.gallery_images || []).slice().sort(function (a, b) {
+			return (a.idx || 0) - (b.idx || 0);
+		});
+		var first = rows[0];
+		var card = node('div', HERO + ' frappe-card');
+		card.style.cssText = 'padding:12px;margin-bottom:12px';
+		card.appendChild(node('div', 'h6 text-uppercase text-muted',
+			__('Hero image — the first row of the table below')));
+		if (first && first.image) {
+			var image = node('img');
+			image.alt = first.alt_text || '';
+			image.style.cssText = 'max-width:100%;max-height:240px;object-fit:contain;display:block;margin:8px 0';
+			var badge = node('span', 'indicator-pill gray', __('Checking size…'));
+			image.addEventListener('load', function () {
+				badge.className = 'indicator-pill green';
+				badge.textContent = image.naturalWidth + ' × ' + image.naturalHeight + ' px';
+			});
+			image.addEventListener('error', function () {
+				badge.className = 'indicator-pill red';
+				badge.textContent = __('Image could not be loaded');
+			});
+			image.src = first.image;
+			card.appendChild(image);
+			card.appendChild(badge);
+			if (!String(first.alt_text || '').trim()) {
+				card.appendChild(node('div', 'text-warning small', __('Add alt text for the hero image in the first row.')));
+			}
+		} else {
+			card.appendChild(node('div', 'text-warning',
+				__('No hero image yet. The image in the first row becomes the hero.')));
+		}
+		host.parentNode.insertBefore(card, host);
 	}
 
 	function call(method, args, freeze) {
@@ -214,6 +264,7 @@
 	}
 
 	async function refresh(frm) {
+		setHeroPreview(frm);
 		if (frm.fields_dict && frm.fields_dict.gallery_images && frm.fields_dict.gallery_images.set_description) {
 			frm.fields_dict.gallery_images.set_description(__('The first row is always the hero image.'));
 		}
@@ -221,5 +272,5 @@
 		await render(frm);
 	}
 
-	return { refresh: refresh, statusOf: statusOf };
+	return { refresh: refresh, statusOf: statusOf, setHeroPreview: setHeroPreview };
 }));

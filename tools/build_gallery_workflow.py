@@ -95,12 +95,20 @@ def check(source, body):
 
 
 add("Manual Trigger", "manualTrigger", {})
-# Every minute: ERP schedules retries 1, 5 and 15 minutes out and n8n claims them on its next poll.
+# ERP is the trigger, not a timer: it POSTs {"brand": ...} here when a job is requested, retried or a
+# retry falls due, and the workflow then claims the job. No polling, so no idle executions.
 add(
-	"Every Minute",
-	"scheduleTrigger",
-	{"rule": {"interval": [{"field": "minutes", "minutesInterval": 1}]}},
-	1.2,
+	"Gallery Webhook",
+	"webhook",
+	{
+		"httpMethod": "POST",
+		"path": "ill-gallery-sync",
+		"authentication": "headerAuth",
+		"responseMode": "onReceived",
+		"options": {},
+	},
+	2,
+	webhookId="3f1d6c1e-6f0b-4b52-9a6a-2b6d2f8f7a11",
 )
 code(
 	"Configuration",
@@ -267,8 +275,9 @@ add(
 		"User and Webflow credentials for that exact brand to every HTTP node. Deploy one workflow per "
 		"brand. No secrets in variables or exports. The Galleries collection needs a plain-text "
 		"erp-sync-id field first.\n\n"
-		"Runs every minute (and manually): ERP schedules retries 1, 5 and 15 minutes out and this worker "
-		"claims them on its next poll. It claims one job at a time and drains at most 1000 jobs per run. "
+		"Started by ERP, not a timer: ERP calls the Gallery Webhook when a job is requested or a retry "
+		"falls due (retries are 1, 5 and 15 minutes out). Bind a Header Auth credential to the webhook "
+		"and set n8n_gallery_webhook_url (and the secret header) in the ERP site config. It claims one job at a time and drains at most 1000 jobs per run. "
 		"Remote items are matched by erp-sync-id, then by exact slug with erp-sync-id verified; two "
 		"candidates stop as identity-conflict, and a collection larger than one page (100) stops as "
 		"lookup-incomplete. Failed calls record a safe error code only. Import inactive and test on "
@@ -282,7 +291,7 @@ add(
 
 for source, target, branch in [
 	("Manual Trigger", "Configuration", 0),
-	("Every Minute", "Configuration", 0),
+	("Gallery Webhook", "Configuration", 0),
 	("Configuration", "Claim Job", 0),
 	("Claim Job", "Job Available", 0),
 	("Job Available", "Prepare Claim", 0),

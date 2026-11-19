@@ -67,6 +67,9 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
   };
   // Frappe's sidebar: the layout-side-section holds the title row (and, for galleries, our status pill).
   const $page = $('<div class="page-wrapper"><div class="layout-side-section"><div class="sidebar-title">test</div></div></div>');
+  // The Images section: the table's wrapper sits in a parent, where the hero card is inserted before it.
+  const $imagesSection = $('<div class="section-body"><div class="frappe-control"></div></div>');
+  const $tableHost = $imagesSection.find('.frappe-control');
   const frm = {
     page: { wrapper: $page },
     doc: { name: 'g1', is_active: 0, target_brands: [{ brand: 'lighting_206', enabled: 1 }], ...doc },
@@ -89,14 +92,14 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
       },
       show() { shows.push(1); },
     },
-    fields_dict: { gallery_images: { set_description(text) { frm.description = text; } } },
+    fields_dict: { gallery_images: { set_description(text) { frm.description = text; }, $wrapper: $tableHost } },
   };
   const context = { frappe, __: s => s, document: dom.window.document, window: dom.window, console };
   const factory = new Function('window', 'frappe', '__', 'document', 'module', 'exports',
     fs.readFileSync(modulePath, 'utf8') + '\nreturn typeof module !== "undefined" ? module.exports : null;');
   const mod = { exports: {} };
   factory(context.window, frappe, context.__, context.document, mod, mod.exports);
-  return { api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, $page, alerts, messages, reloads, frappe, events, $ };
+  return { $imagesSection, api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, $page, alerts, messages, reloads, frappe, events, $ };
 }
 
 // What is on screen: the sections still attached to the dashboard.
@@ -452,4 +455,49 @@ test('a sidebar the page does not expose is left alone', async t => {
   await s.api.refresh(s.frm);
   assert.equal(s.$page.find('.ill-gallery-status').length, 0);
   assert.ok(s.buttons['Approve and Stage'], 'the panel and buttons still work');
+});
+
+const hero = s => s.$imagesSection.find('> .ill-gallery-hero');
+
+test('the hero preview shows the first image row above the table', async t => {
+  const s = setup(t, { doc: { gallery_images: [
+    { idx: 2, image: '/files/second.jpg' }, { idx: 1, image: '/files/first.jpg', alt_text: 'Lobby' }] } });
+  await s.api.refresh(s.frm);
+  assert.equal(hero(s).length, 1);
+  assert.equal(hero(s).next().hasClass('frappe-control'), true, 'inserted right above the table');
+  assert.equal(hero(s).find('img').attr('src'), '/files/first.jpg');
+  assert.equal(hero(s).find('img').attr('alt'), 'Lobby');
+  assert.equal(hero(s).find('.text-warning').length, 0);
+});
+
+test('the hero preview asks for alt text and for an image when there is none', async t => {
+  const s = setup(t, { doc: { gallery_images: [{ idx: 1, image: '/files/first.jpg' }] } });
+  await s.api.refresh(s.frm);
+  assert.match(hero(s).find('.text-warning').text(), /alt text/);
+  const empty = setup(t, { doc: { gallery_images: [] } });
+  await empty.api.refresh(empty.frm);
+  assert.match(hero(empty).text(), /No hero image yet/);
+  assert.equal(hero(empty).find('img').length, 0);
+});
+
+test('the hero preview is rebuilt, never duplicated, and works on an unsaved gallery', async t => {
+  const s = setup(t, { isNew: true, doc: { gallery_images: [{ idx: 1, image: '/files/a.jpg' }] } });
+  await s.api.refresh(s.frm);
+  s.frm.doc.gallery_images = [{ idx: 1, image: '/files/b.jpg' }];
+  s.api.setHeroPreview(s.frm);
+  assert.equal(hero(s).length, 1);
+  assert.equal(hero(s).find('img').attr('src'), '/files/b.jpg');
+});
+
+test('the form refreshes the hero preview when rows or the image change', () => {
+  const calls = [];
+  const events = {};
+  new Function('frappe', 'window', fs.readFileSync(formPath, 'utf8'))(
+    { ui: { form: { on(doctype, handlers) { events[doctype] = handlers; } } } },
+    { IllGalleryPublication: { setHeroPreview: frm => calls.push(frm), refresh() {} } });
+  const gallery = events['ilL-Webflow-Gallery'];
+  for (const name of ['gallery_images_add', 'gallery_images_remove', 'gallery_images_move']) gallery[name]('frm');
+  events['ilL-Child-Webflow-Gallery-Image'].image('frm');
+  events['ilL-Child-Webflow-Gallery-Image'].alt_text('frm');
+  assert.equal(calls.length, 5);
 });

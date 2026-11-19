@@ -264,8 +264,8 @@ Warnings (shown, not blocking):
   `ILL_WEBFLOW_BRAND=illumenate`). A production copy in the same account cannot read different values from
   the same variables, so before production the builder needs options to build in the ERP address and brand
   (section 11).
-- Flow: trigger (manual, and a schedule **every minute**; there is no ERP webhook nudge, so the 1/5/15-minute
-  retries depend on this poll) → claim a job for `$vars.ILL_WEBFLOW_BRAND` at `$vars.ILL_ERP_BASE_URL` →
+- Flow: trigger (manual, or the **Gallery Webhook** that ERP calls; no schedule, so nothing runs while there
+  is no work, see 7a) → claim a job for `$vars.ILL_WEBFLOW_BRAND` at `$vars.ILL_ERP_BASE_URL` →
   match the remote item (by `erp-sync-id`, falling back to exact slug and verifying `erp-sync-id`) → create
   or update the staged item → for `PUBLISH`, publish live → acknowledge to ERP with job ID, lease token,
   hashes and the remote item ID.
@@ -302,6 +302,19 @@ Warnings (shown, not blocking):
   `/files/Lilium%20Static%20White_Hero.png`): Webflow rejects a URL with spaces when it imports the image on
   publish ("Invalid file url"), although it accepts it in a draft.
 - Multi-reference `products-used` is written with Webflow item IDs of the products in the same site.
+
+### 7a. ERP is the trigger (no polling)
+
+The workflow has no schedule. ERP POSTs `{"brand": ...}` to the workflow's webhook, with the shared secret
+header from site config, and the workflow then claims a job as before. The nudge is sent (in the background,
+after the request commits) when a job is requested, when **Retry** is pressed, when Approve is pressed again
+for a job still queued, and by the minute tick for each brand with a retry that has fallen due (leases that
+ran out become retries first). An execution therefore happens only when there is work.
+
+Site config on each ERP site: `n8n_gallery_webhook_url` (the workflow's production webhook URL, https), plus the
+existing `n8n_sync_secret` and `n8n_sync_secret_header` (the header name must match the n8n Header Auth
+credential on the webhook node). If the URL is missing the job stays Queued and one Error Log a day says
+why. If n8n is down when a job is requested it also stays Queued; approving again sends the nudge again.
 
 ## 8. Webflow changes needed
 
@@ -445,7 +458,7 @@ Still open: nothing.
   and `ill_webflow_gallery.js`) with a brand picker, readiness list (issues red, warnings grey), `Approve and
   Stage`, `Publish Live`, `Retire` and a failed-job `Retry`, plus a hero-image note under the images table.
 - 2026-11-18: Task 7 built: `n8n_workflows/lib/gallery_projection.js`, `tools/build_gallery_workflow.py` and the
-  generated `n8n_workflows/webflow_gallery_sync.json` (manual plus every-minute schedule, inactive, credentials
+  generated `n8n_workflows/webflow_gallery_sync.json` (manual plus webhook trigger since 2026-11-19, inactive, credentials
   unbound), and `tests/portal_unit/gallery_workflow.test.cjs` (run in CI). Section 7 records the matching
   rule, the `lookup-incomplete` stop above 100 items and the null-vs-omit rule. The staging2 Galleries
   collection does not have the `erp-sync-id` field yet (section 8); add it before the first sync.
@@ -479,3 +492,8 @@ Still open: nothing.
   gallery's publication records whenever one changes, and when the gallery is saved (`sync_status`). With several
   target brands it shows the status that most needs attention: Failed, Queued, Changes not staged, Needs staging,
   Staged, Live, Retired. A patch fills it for existing galleries.
+- 2026-11-19: The gallery form shows a preview of the first image row (the hero) above the Gallery Images table,
+  with its size and an alt-text reminder, like the main image card on the template forms.
+- 2026-11-19: The n8n gallery workflow is triggered by ERP instead of a one-minute schedule (section 7a). ERP calls
+  the workflow's webhook when a job is requested or retried and when a retry falls due. New site config key
+  `n8n_gallery_webhook_url`.
