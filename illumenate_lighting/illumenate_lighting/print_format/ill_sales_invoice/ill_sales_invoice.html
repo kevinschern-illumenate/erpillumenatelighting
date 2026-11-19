@@ -81,7 +81,7 @@
 					{%- endif -%}
 					<div class="ill-muted">Please reference invoice {{ doc.name | e }} with your payment.</div>
 					{%- if doc.custom_qbo_payment_link -%}
-					<div style="margin-top: 4px;">Pay online: <span class="ill-mono">{{ doc.custom_qbo_payment_link | e }}</span></div>
+					<div class="ill-pay-link">Pay online: <span class="ill-mono">{{ doc.custom_qbo_payment_link | e }}</span></div>
 					{%- endif -%}
 				</td>
 				<td style="width: 50%;" class="ill-pre">{{ (remit or "") | e }}</td>

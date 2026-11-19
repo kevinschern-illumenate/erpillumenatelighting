@@ -3,7 +3,7 @@
   delivery, for the carton or the receiving dock. No prices.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, closing, date, line_group, section_total with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, closing, date, line_group, section_total, line_type, line_notes, qty with context -%}
 {%- set dn = frappe.db.get_value("Delivery Note", doc.delivery_note, ["customer_name", "posting_date", "po_no", "shipping_address", "address_display", "shipping_address_name", "customer_address", "ill_carrier", "ill_tracking_number"], as_dict=True) if doc.delivery_note else none -%}
 {%- set cases = (doc.from_case_no ~ ((" to " ~ doc.to_case_no) if doc.to_case_no and doc.to_case_no != doc.from_case_no else "")) if doc.from_case_no else "" -%}
 {%- set weight_unit = doc.weight_uom or "" -%}
@@ -48,8 +48,8 @@
 			{%- set row.n = row.n + 1 -%}
 			{%- call line_group(entry, 5, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
-				<td>{{ line(item) }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.stock_uom) | e }}</td>
+				<td>{{ line_type(entry) }}{{ line(item) }}{{ line_notes(entry) }}</td>
+				<td class="ill-num">{{ qty(item.qty, item.stock_uom) }}</td>
 				<td class="ill-num">{% if item.net_weight %}{{ "%g" | format(item.net_weight) | e }} {{ (item.weight_uom or weight_unit) | e }}{% endif %}</td>
 				<td class="ill-center"><span class="ill-check"></span></td>
 			{%- endcall -%}

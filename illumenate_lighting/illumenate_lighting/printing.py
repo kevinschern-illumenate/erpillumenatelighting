@@ -78,12 +78,37 @@ def _plain_text(value) -> str:
 	return html.unescape(_TAG.sub("", text)).replace("\xa0", " ")
 
 
-def ill_print_asset_base() -> str:
-	"""The site URL for font and image assets (wkhtmltopdf needs absolute URLs)."""
+# Brand fonts for print: (family, weight, file in public/fonts/print/).
+PRINT_FONTS = (
+	("ilL Poppins", 400, "Poppins-Regular.ttf"),
+	("ilL Poppins", 500, "Poppins-Medium.ttf"),
+	("ilL Poppins", 600, "Poppins-SemiBold.ttf"),
+	("ilL Manrope", 600, "Manrope-SemiBold.ttf"),
+	("ilL Manrope", 700, "Manrope-Bold.ttf"),
+)
+
+
+def ill_print_fonts() -> list:
+	"""``[(family, weight, url)]`` for the print @font-face rules, or [] when they can't load.
+
+	wkhtmltopdf needs absolute URLs, and Frappe refuses the whole PDF when any linked
+	resource fails to load ("broken image links"). So a font is only linked when its file is
+	in the installed app (and therefore served under /assets); otherwise the print falls
+	back to Helvetica rather than failing.
+	"""
+	import os
+
+	fonts = []
 	try:
-		return frappe.utils.get_url().rstrip("/")
+		base = frappe.utils.get_url().rstrip("/")
+		folder = frappe.get_app_path("illumenate_lighting", "public", "fonts", "print")
+		for family, weight, filename in PRINT_FONTS:
+			if os.path.isfile(os.path.join(folder, filename)):
+				fonts.append((family, weight, f"{base}/assets/illumenate_lighting/fonts/print/{filename}"))
 	except Exception:
-		return ""
+		_log("ilL print: could not locate the print fonts")
+		return []
+	return fonts
 
 
 def ill_print_specs(item, max_specs=8, max_notes=3) -> dict:
@@ -156,6 +181,28 @@ def ill_print_note(text) -> str:
 def ill_print_warehouse(name) -> str:
 	"""A warehouse without the company abbreviation: "Stores - ilL" -> "Stores"."""
 	return re.sub(r"\s+-\s+[A-Za-z]{2,6}$", "", str(name or ""))
+
+
+def ill_print_phone(text) -> str:
+	"""A bare North American phone number as (425) 381-2447; any other text unchanged."""
+	value = str(text or "").strip()
+	if not value or not re.fullmatch(r"[+\d\s().-]{10,18}", value):
+		return value
+	digits = re.sub(r"\D", "", value)
+	if len(digits) == 11 and digits.startswith("1"):
+		digits = digits[1:]
+	if len(digits) != 10:
+		return value
+	return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+
+
+def ill_print_qty_parts(qty, uom=None) -> dict:
+	"""``{"number", "unit", "inline"}``: short units (in, ea, ft) print beside the number,
+	longer ones ("6.56ft Piece", "Pack of 6") on their own line beneath it."""
+	full = ill_print_qty(qty, uom)
+	number = ill_print_qty(qty)
+	unit = full[len(number) :].strip()
+	return {"number": number, "unit": unit, "inline": len(unit) <= 4}
 
 
 def ill_print_qty(qty, uom=None) -> str:

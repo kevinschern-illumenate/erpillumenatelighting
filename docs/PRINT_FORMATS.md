@@ -24,15 +24,28 @@ every format. Edits made to the HTML in Desk are ignored for these formats.
 
 The ilLumenate Design System, kept light on ink.
 
-- **Type.** Manrope headings and labels, Poppins body (TrueType copies, which the server's
-  wkhtmltopdf embeds as real text). Body 9.5px, labels 7px small caps.
-- **Colour.** Navy `#172E48` for titles and rules; blue `#00588C` only for small field labels;
-  gold `#FDC757` only as a 56px accent under the header and a 2.5px bar on section rows.
-  Body text `#231F20`; muted `#5D6D7F`; hairlines `#D1D6DB`.
-- **Ink.** No filled panels, table headers or zebra rows. Status tags, fixture-type tags,
-  notes boxes and checkboxes are outlines.
+- **Scale.** Frappe's wkhtmltopdf prints about 0.94pt per CSS px (15mm margins, smart
+  shrinking off), so CSS sizes read close to point sizes. Body 8.5px, part numbers and specs
+  7.5px, labels 6.5px small caps, titles 18px. Spacing runs on a 4px rhythm.
+- **Type.** Manrope for titles, labels and totals; Poppins for everything else. They ship as
+  TrueType in `public/fonts/print/`, which the server's wkhtmltopdf embeds as searchable text.
+  `ill_print_fonts()` links a font only when its file is installed: Frappe refuses the whole
+  PDF when any linked resource fails to load, so a missing font falls back to Helvetica
+  instead of breaking every print.
+- **Colour.** Navy `#172E48` for titles, table headings and rules; muted `#5D6D7F` for labels
+  and secondary text; body `#231F20`; hairlines `#D1D6DB`. Gold `#FDC757` appears once, as a
+  48px accent under the header rule. Status tags are the only other colour (red for past due /
+  on hold / cancelled, blue for paid / completed).
+- **Ink.** No filled panels, table headers or zebra rows; tags, boxes and checkboxes are
+  outlines. Frappe's print stylesheet gives every `th` a grey fill and removes its border
+  (`!important`); `ill_print.html` overrides both.
 - **Layout.** Tables only (wkhtmltopdf has no flexbox, grid, CSS variables or CSS columns).
-  Table headers repeat on each page, and rows don't split across pages.
+  The header is top-aligned so the title sits in the same place on every document. Table
+  headings repeat on each page. Each line is one table row, so a page break never splits a
+  line (wkhtmltopdf keeps a row together but not a group of rows).
+- **Numbers.** Money prints as `$1,234.56`; quantities as `20 ea` / `134 in`, with a long unit
+  ("6.56ft Piece", "Pack of 6") on its own small line under the number; US phone numbers as
+  `(559) 916-7300`.
 
 Blocks, top to bottom (each is a macro in `ill_print.html`):
 
@@ -48,16 +61,19 @@ Blocks, top to bottom (each is a macro in `ill_print.html`):
 
    ```
    KITCHEN                                      <- section / room header row
-     FIXTURE TYPE  A1                           <- when the line has a fixture type
-   1 Item name                         2 ea …   <- the line
+   1 FIXTURE TYPE  A1                           <- when the line has a fixture type
+     Item name                         2 ea …   <- the line
      PART-NUMBER · CCT 3000K · Output … · Length …
      Additional notes                           <- when the line has notes
                               Kitchen subtotal  <- priced documents, 2+ sections
    ```
 
+   The fixture type and notes sit inside the description cell (`line_type` / `line_notes`),
+   and the other cells are padded down to line up with the item name.
+
    A row with a section label, no item code and zero quantity starts a section; the rows
-   after it inherit the label. Labels match case-insensitively, and the section header,
-   fixture-type row, line and notes row stay together on a page. Specs come from the
+   after it inherit the label. Labels match case-insensitively, and a line's fixture type,
+   specs and notes always stay together on a page. Specs come from the
    configured description; its internal "Configured …: ILL-CTN-…" reference, "N/A" values
    and the production "Build Description" dump are left out.
 
@@ -70,22 +86,23 @@ Blocks, top to bottom (each is a macro in `ill_print.html`):
    **Page Break.** ERPNext's per-line Page Break check is honoured on every item table
    that has it (Quotation, Sales Order, Sales Invoice, Delivery Note, Packing Slip,
    Purchase Order, RFQ, Purchase Receipt, Purchase Invoice, Material Request). After a
-   checked line (and its notes row) the table closes, a new page starts and the table
+   checked line the table closes, a new page starts and the table
    reopens with its column headings. If the room continues, its header repeats as
    "KITCHEN (continued)".
 5. **Totals** on the right (subtotal, discount, each shipping / tax / fee row, total, then
    paid / balance due). The left side carries context: dealer savings, payment schedule,
    payments received, order progress.
-6. **Notes / instructions** boxes, **Terms** in two columns of 7.5px type, **signature lines**,
-   and a one-line **closing** (who to contact).
+6. **Notes / instructions** boxes, **Terms** in two columns of 7px type (kept together with
+   their title), **signature lines**, and a one-line **closing** (who to contact).
 
 The rep agency (sales partner) stays off customer-facing documents.
 
 ## Pricing modes
 
-- **Dealer** (Quotation, Sales Order, Sales Invoice): List, Disc %, Net and Amount when any
-  line is discounted; otherwise one Unit Price column. The quote shows "List value $X; your
-  dealer pricing saves $Y (Z%)".
+- **Dealer** (Quotation, Sales Order, Sales Invoice): always Qty, List, Disc, Net and Amount.
+  Pricing rules discount by brand, so each line shows its own discount ("—" when none); a
+  document-level discount prints in the totals. Quotes and orders show "List value $X ·
+  you save $Y" beside the totals.
 - **MSRP** (`ilL Quotation - MSRP`, `ilL Sales Order - MSRP`): for the dealer's client.
   The unit price is the Standard Selling list rate (the price before the customer-group
   dealer discount), or the selling rate when that is higher. There are no discounts,
@@ -138,6 +155,14 @@ draft: have counsel review it.
 - **Company > Invoice Payment Instructions** (custom field): printed in the invoice's "How to
   pay" box. It is empty today.
 - **Sales Invoice > QuickBooks Payment Link**: printed as "Pay online" on unpaid invoices.
+
+## Previewing a change
+
+Local wkhtmltopdf builds are not the server's patched build and render about 25% small, so
+judge layout against the server: render the format inside Frappe's printview shell and post
+it to `frappe.utils.print_format.report_to_pdf` with `html { zoom: 1.25 }` (that endpoint
+shrinks to fit; the zoom brings it within ~1pt of a real download). Brand fonts can't be
+previewed that way until they are deployed, so check typography in Chromium at scale 1.25.
 
 ## Checking a change
 

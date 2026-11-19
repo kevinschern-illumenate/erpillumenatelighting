@@ -39,10 +39,10 @@
 	{%- set left -%}
 		{%- if savings > 0.5 -%}
 		<div class="ill-label">Your pricing</div>
-		<div class="ill-muted">List value {{ money(pricing.list_total) }}; your dealer pricing saves {{ money(savings) }} ({{ "%.0f" | format(savings / pricing.list_total * 100) }}%).</div>
+		<div>List value {{ money(pricing.list_total) }} &nbsp;&middot;&nbsp; you save {{ money(savings) }}</div>
 		{%- endif -%}
 		{%- if doc.payment_schedule and doc.payment_schedule | length > 1 -%}
-		<div class="ill-label" style="margin-top: 8px;">Payment schedule</div>
+		<div class="ill-label">Payment schedule</div>
 		{%- for row in doc.payment_schedule -%}
 		<div class="ill-muted">{{ money(row.payment_amount) }} due {{ date(row.due_date) }}{% if row.description %} &middot; {{ row.description | e }}{% endif %}</div>
 		{%- endfor -%}

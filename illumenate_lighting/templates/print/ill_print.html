@@ -2,7 +2,7 @@
   ilLumenate print design template: the stylesheet and macros every ilL print format uses.
 
   Import at the top of a print format, with context so the macros can read `doc`:
-      {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, line_group, section_total, totals, terms, notes, signatures with context -%}
+      {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, line_group, section_total, totals, terms, notes, signatures, line_type, line_notes, qty with context -%}
 
   Design (docs/PRINT_FORMATS.md): ilLumenate Design System type (Manrope headings, Poppins
   body) and colours (navy #172E48, blue #00588C, gold #FDC757), kept light on ink: no
@@ -14,110 +14,137 @@
 #}
 
 {%- macro styles() -%}
-{%- set font_base = ill_print_asset_base() -%}
 <style>
-	@font-face { font-family: "ilL Poppins"; font-weight: 400; src: url("{{ font_base | e }}/assets/illumenate_lighting/fonts/print/Poppins-Regular.ttf") format("truetype"); }
-	@font-face { font-family: "ilL Poppins"; font-weight: 500; src: url("{{ font_base | e }}/assets/illumenate_lighting/fonts/print/Poppins-Medium.ttf") format("truetype"); }
-	@font-face { font-family: "ilL Poppins"; font-weight: 600; src: url("{{ font_base | e }}/assets/illumenate_lighting/fonts/print/Poppins-SemiBold.ttf") format("truetype"); }
-	@font-face { font-family: "ilL Manrope"; font-weight: 600; src: url("{{ font_base | e }}/assets/illumenate_lighting/fonts/print/Manrope-SemiBold.ttf") format("truetype"); }
-	@font-face { font-family: "ilL Manrope"; font-weight: 700; src: url("{{ font_base | e }}/assets/illumenate_lighting/fonts/print/Manrope-Bold.ttf") format("truetype"); }
+	{%- for family, weight, url in ill_print_fonts() %}
+	@font-face { font-family: "{{ family | e }}"; font-weight: {{ weight | int }}; src: url("{{ url | e }}") format("truetype"); }
+	{%- endfor %}
 
-	.ill-doc { font-family: "ilL Poppins", "Poppins", Helvetica, Arial, sans-serif; font-size: 9.5px; line-height: 1.45; color: #231f20; }
+	/*
+	  Scale: Frappe's wkhtmltopdf prints about 0.94pt per CSS px (margins 15mm, no smart
+	  shrinking), so sizes here are close to point sizes. Spacing runs on a 4px rhythm.
+	  Frappe's print stylesheet sets th { background: #eee !important; border-bottom: 0
+	  !important } and td/th padding; the .print-format-scoped rules below win over it.
+	*/
+	.ill-doc { font-family: "ilL Poppins", "Poppins", Helvetica, Arial, sans-serif; font-size: 8.5px; line-height: 1.4; color: #231f20; }
 	.ill-doc * { box-sizing: border-box; }
 	.ill-doc table { width: 100%; border-collapse: collapse; border-spacing: 0; margin: 0; }
 	.ill-doc td, .ill-doc th { padding: 0; vertical-align: top; border: none; background: none; }
+	.print-format .ill-doc th, .ill-doc th { background: none !important; background-color: transparent !important; }
 	.ill-doc p { margin: 0 0 4px 0; }
+	.ill-doc b, .ill-doc strong { font-weight: 600; }
 	.ill-doc .ill-h { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; color: #172e48; }
 	.ill-doc .ill-muted { color: #5d6d7f; }
 	.ill-doc .ill-right { text-align: right; }
 	.ill-doc .ill-center { text-align: center; }
 	.ill-doc .ill-nowrap { white-space: nowrap; }
 	.ill-doc .ill-strong { font-weight: 600; }
-	.ill-doc .ill-mono { font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace; font-size: 8.5px; letter-spacing: -0.1px; }
-	.ill-doc .ill-block { margin-bottom: 14px; }
+	.ill-doc .ill-mono { font-size: 7.5px; letter-spacing: 0.2px; color: #5d6d7f; }
+	.ill-doc .ill-block { margin-bottom: 16px; }
 	.ill-doc tr, .ill-doc .ill-keep { page-break-inside: avoid; }
 	.ill-doc thead { display: table-header-group; }
 
-	/* Header: logo + company, title + number, one navy rule with a short gold accent. */
-	.ill-doc .ill-head td { vertical-align: bottom; }
-	.ill-doc .ill-logo { height: 46px; width: auto; display: block; margin-bottom: 6px; }
-	.ill-doc .ill-company { font-size: 8px; color: #5d6d7f; line-height: 1.5; }
-	.ill-doc .ill-title { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 21px; letter-spacing: 2.5px; text-transform: uppercase; color: #172e48; line-height: 1; margin: 0; }
-	.ill-doc .ill-number { font-size: 10px; font-weight: 500; color: #231f20; margin-top: 6px; }
-	.ill-doc .ill-subtitle { font-size: 8.5px; color: #5d6d7f; margin-top: 2px; }
-	.ill-doc .ill-tag { display: inline-block; border: 1px solid #5d6d7f; border-radius: 9px; padding: 1px 8px; font-size: 7.5px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: #5d6d7f; margin-top: 5px; }
+	/* Header: logo and company on the left; title, number and status on the right. */
+	.ill-doc .ill-head td { vertical-align: top; }
+	.ill-doc .ill-head .ill-right { padding-top: 10px; }
+	.ill-doc .ill-logo { height: 50px; width: auto; display: block; margin-bottom: 8px; }
+	.ill-doc .ill-company { font-size: 7.5px; color: #5d6d7f; line-height: 1.5; }
+	.ill-doc .ill-title { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: #172e48; line-height: 1; margin: 0; }
+	.ill-doc .ill-number { font-size: 9px; font-weight: 500; color: #231f20; margin-top: 6px; }
+	.ill-doc .ill-subtitle { font-size: 7.5px; color: #5d6d7f; margin-top: 2px; }
+	.ill-doc .ill-tag { display: inline-block; border: 0.75px solid #5d6d7f; border-radius: 8px; padding: 1px 7px; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-size: 6.5px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #5d6d7f; margin-top: 6px; }
 	.ill-doc .ill-tag-alert { border-color: #a8261c; color: #a8261c; }
 	.ill-doc .ill-tag-ok { border-color: #00588c; color: #00588c; }
-	.ill-doc .ill-rule { border-top: 1.5px solid #172e48; margin: 10px 0 14px 0; height: 0; }
-	.ill-doc .ill-rule span { display: block; width: 56px; border-top: 3px solid #fdc757; margin-top: -2.25px; }
+	.ill-doc .ill-rule { border-top: 1px solid #172e48; margin: 12px 0 16px 0; height: 0; }
+	.ill-doc .ill-rule span { display: block; width: 48px; border-top: 2px solid #fdc757; margin-top: -1.5px; }
 
-	/* Labels: small caps in blue, the one place colour is used for wayfinding. */
-	.ill-doc .ill-label { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 7px; letter-spacing: 1px; text-transform: uppercase; color: #00588c; margin-bottom: 2px; }
-	.ill-doc .ill-value { font-size: 9.5px; color: #231f20; }
+	/* Labels: small caps, muted. */
+	.ill-doc .ill-label { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-bottom: 2px; }
+	.ill-doc .ill-value { font-size: 8.5px; color: #231f20; }
 
-	/* Fact strip: key facts in up to four columns, hairline between rows. */
-	.ill-doc .ill-facts td { padding: 0 12px 8px 0; width: 25%; }
+	/* Fact strip: up to four columns. */
+	.ill-doc .ill-facts td { padding: 0 12px 8px 0; }
 	.ill-doc .ill-facts td:last-child { padding-right: 0; }
 
-	/* Party blocks (Bill To / Ship To / Contact): no boxes, a thin rule on top. */
-	.ill-doc .ill-parties td { padding-right: 14px; }
+	/* Party blocks (Bill to / Ship to / Attention) under one full-width hairline. */
+	.ill-doc .ill-parties { border-top: 0.75px solid #d1d6db; }
+	.ill-doc .ill-parties td { padding: 8px 12px 0 0; }
 	.ill-doc .ill-parties td:last-child { padding-right: 0; }
-	.ill-doc .ill-party { border-top: 1px solid #d1d6db; padding-top: 6px; }
 	.ill-doc .ill-party-name { font-weight: 600; color: #172e48; }
 
 	/* Line items. */
 	.ill-doc .ill-items { table-layout: fixed; }
-	.ill-doc .ill-items th { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 7px; letter-spacing: 1px; text-transform: uppercase; color: #172e48; text-align: left; padding: 0 6px 5px 6px; border-bottom: 1.2px solid #172e48; }
-	.ill-doc .ill-items td { padding: 6px 6px; border-bottom: 0.6px solid #d1d6db; word-wrap: break-word; }
-	.ill-doc .ill-items th:first-child, .ill-doc .ill-items td:first-child { padding-left: 0; }
-	.ill-doc .ill-items th:last-child, .ill-doc .ill-items td:last-child { padding-right: 0; }
-	.ill-doc .ill-items .ill-num { text-align: right; white-space: nowrap; }
-	.ill-doc .ill-items .ill-idx { color: #5d6d7f; width: 22px; }
-	.ill-doc .ill-section td { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; color: #172e48; padding: 10px 6px 4px 8px; border-bottom: 0.6px solid #a2abb6; border-left: 2.5px solid #fdc757; }
-	/* A line group: fixture type row above, the line, its notes row below; kept on one page. */
+	.print-format .ill-doc .ill-items th, .ill-doc .ill-items th { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #172e48; text-align: left; padding: 0 6px 5px 6px; border-bottom: 1px solid #172e48 !important; }
+	.ill-doc .ill-items td { padding: 5px 6px; border-bottom: 0.5px solid #d1d6db; word-wrap: break-word; }
+	.print-format .ill-doc .ill-items th:first-child, .ill-doc .ill-items th:first-child, .ill-doc .ill-items td:first-child { padding-left: 0; }
+	.print-format .ill-doc .ill-items th:last-child, .ill-doc .ill-items th:last-child, .ill-doc .ill-items td:last-child { padding-right: 0; }
+	.ill-doc .ill-items th.ill-num, .ill-doc .ill-items .ill-num { text-align: right; }
+	.ill-doc .ill-items th, .ill-doc .ill-items td.ill-date { white-space: nowrap; }
+	.ill-doc .ill-items th.ill-center { text-align: center; }
+	.ill-doc .ill-items .ill-idx { color: #a2abb6; width: 22px; font-size: 7.5px; }
+	.ill-doc .ill-items td.ill-idx { padding-top: 6px; }
+
+	/* A line group: section header, fixture type row, the line, its notes; kept on one page. */
 	.ill-doc .ill-line { page-break-inside: avoid; }
 	.ill-doc .ill-page-break { page-break-after: always; height: 0; margin: 0; padding: 0; border: none; }
-	.ill-doc .ill-type-row td { padding: 7px 6px 1px 6px; border-bottom: none; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8.5px; color: #172e48; }
-	.ill-doc .ill-type-row .ill-type-label { font-size: 6.5px; letter-spacing: 1px; text-transform: uppercase; color: #00588c; margin-right: 6px; }
-	.ill-doc .ill-type-row + .ill-line-row td { padding-top: 2px; }
-	.ill-doc .ill-line-row.ill-has-note td { border-bottom: none; padding-bottom: 2px; }
-	.ill-doc .ill-note-row td { padding: 0 6px 6px 6px; font-size: 8.5px; font-style: italic; color: #5d6d7f; white-space: pre-line; }
-	.ill-doc .ill-section-total td { font-size: 8.5px; color: #5d6d7f; padding-top: 4px; padding-bottom: 8px; border-bottom: 0.6px solid #a2abb6; }
+	.ill-doc .ill-section td { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 7.5px; letter-spacing: 1px; text-transform: uppercase; color: #172e48; padding: 14px 0 4px 0; border-bottom: 0.75px solid #a2abb6; }
+	.ill-doc .ill-type-line { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; line-height: 12px; height: 12px; margin-bottom: 1px; color: #172e48; white-space: nowrap; overflow: hidden; }
+	.ill-doc .ill-type-label { font-size: 6px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-right: 5px; }
+	.ill-doc .ill-items .ill-has-type > td { padding-top: 18px; }
+	.ill-doc .ill-items .ill-has-type > td.ill-idx { padding-top: 19px; }
+	.ill-doc .ill-items .ill-has-type > td:nth-child(2) { padding-top: 5px; }
+	.ill-doc .ill-section-total td { font-size: 8px; color: #5d6d7f; padding: 5px 6px 2px 6px; border-bottom: none; }
+	.ill-doc .ill-section-total td.ill-num { color: #231f20; font-weight: 600; padding-right: 0; }
 	.ill-doc .ill-line-name { font-weight: 500; color: #231f20; }
-	.ill-doc .ill-code { color: #5d6d7f; margin-top: 1px; }
-	.ill-doc .ill-specs { color: #5d6d7f; font-size: 8px; margin-top: 2px; line-height: 1.5; }
-	.ill-doc .ill-specs b { font-weight: 600; color: #231f20; }
-	.ill-doc .ill-line-note { color: #5d6d7f; font-size: 8px; font-style: italic; margin-top: 2px; white-space: pre-line; }
-	.ill-doc .ill-strike { text-decoration: line-through; color: #a2abb6; }
-	.ill-doc .ill-check { display: inline-block; width: 11px; height: 11px; border: 1px solid #5d6d7f; }
-	.ill-doc .ill-writein { display: inline-block; min-width: 46px; border-bottom: 0.8px solid #5d6d7f; height: 12px; }
+	.ill-doc .ill-code { font-size: 7.5px; letter-spacing: 0.2px; color: #5d6d7f; margin-top: 1px; }
+	.ill-doc .ill-specs { color: #5d6d7f; font-size: 7.5px; margin-top: 2px; line-height: 1.45; }
+	.ill-doc .ill-specs b { font-weight: 500; color: #231f20; }
+	.ill-doc .ill-spec { white-space: nowrap; }
+	.ill-doc .ill-dot { color: #a2abb6; padding: 0 2px; }
+	.ill-doc .ill-line-note { color: #5d6d7f; font-size: 7.5px; font-style: italic; margin-top: 3px; white-space: pre-line; }
+	.ill-doc .ill-none { color: #a2abb6; }
+	.ill-doc .ill-unit { font-size: 7px; color: #5d6d7f; white-space: nowrap; }
+	.ill-doc .ill-check { display: inline-block; width: 10px; height: 10px; border: 0.75px solid #5d6d7f; border-radius: 1px; }
+	.ill-doc .ill-writein { display: inline-block; min-width: 48px; border-bottom: 0.75px solid #5d6d7f; height: 12px; }
 
-	/* Totals: right-hand column, the grand total on a navy rule. */
-	.ill-doc .ill-totals td { padding: 2px 0; }
+	/* Totals: right-hand column; the total on a navy rule. */
+	.ill-doc .ill-totals td { padding: 2px 0; font-size: 8.5px; }
 	.ill-doc .ill-totals .ill-total-label { color: #5d6d7f; padding-right: 16px; text-align: right; }
-	.ill-doc .ill-totals .ill-total-value { text-align: right; white-space: nowrap; width: 110px; }
-	.ill-doc .ill-totals .ill-grand td { border-top: 1.2px solid #172e48; padding-top: 5px; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 12px; color: #172e48; }
-	.ill-doc .ill-totals .ill-after td { font-size: 9px; }
-	.ill-doc .ill-words { font-size: 8px; color: #5d6d7f; margin-top: 4px; text-align: right; }
+	.ill-doc .ill-totals .ill-total-value { text-align: right; white-space: nowrap; width: 96px; }
+	.ill-doc .ill-totals .ill-grand td { border-top: 1px solid #172e48; padding-top: 6px; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
+	.ill-doc .ill-totals .ill-grand + tr td { padding-top: 4px; }
+	.ill-doc .ill-aside { font-size: 8px; color: #5d6d7f; line-height: 1.5; }
+	.ill-doc .ill-aside .ill-label { margin-top: 8px; }
+	.ill-doc .ill-aside .ill-label:first-child { margin-top: 0; }
+	.ill-doc .ill-words { font-size: 7.5px; color: #5d6d7f; margin-top: 4px; text-align: right; }
 
 	/* Boxes for notes, instructions and payment details: outline only. */
-	.ill-doc .ill-box { border: 0.8px solid #d1d6db; border-radius: 4px; padding: 7px 9px; }
+	.ill-doc .ill-box { border: 0.75px solid #d1d6db; border-radius: 3px; padding: 8px 10px; font-size: 8.5px; }
 	.ill-doc .ill-box-alert { border-color: #a8261c; }
 	.ill-doc .ill-pre { white-space: pre-line; }
 
-	/* Terms: small type, two columns on wide pages. */
-	.ill-doc .ill-terms { font-size: 7.5px; line-height: 1.45; color: #3a4047; }
-	.ill-doc .ill-terms h4, .ill-doc .ill-terms strong { font-size: 7.5px; font-weight: 600; color: #172e48; margin: 0; }
-	.ill-doc .ill-terms p { margin: 0 0 5px 0; }
-	.ill-doc .ill-terms ul, .ill-doc .ill-terms ol { margin: 0 0 5px 0; padding-left: 12px; }
-	.ill-doc .ill-terms-title { margin-bottom: 5px; }
+	/* Terms: small type in two columns, kept with their title. */
+	.ill-doc .ill-terms-block { page-break-inside: avoid; }
+	.ill-doc .ill-terms { font-size: 7px; line-height: 1.45; color: #3a4047; }
+	.ill-doc .ill-terms h4, .ill-doc .ill-terms strong, .ill-doc .ill-terms b { font-size: 7px; font-weight: 600; color: #172e48; margin: 0; }
+	.ill-doc .ill-terms p, .print-format .ill-doc .ill-terms p { margin: 0 0 4px 0; }
+	.ill-doc .ill-terms ul, .ill-doc .ill-terms ol { margin: 0 0 4px 0; padding-left: 12px; }
+	.ill-doc .ill-terms-title { margin-bottom: 6px; }
 
 	/* Signature lines. */
-	.ill-doc .ill-sign td { padding-right: 18px; padding-top: 22px; }
+	.ill-doc .ill-sign td { padding: 28px 16px 0 0; }
 	.ill-doc .ill-sign td:last-child { padding-right: 0; }
-	.ill-doc .ill-sign-line { border-top: 0.8px solid #5d6d7f; padding-top: 3px; font-size: 7.5px; color: #5d6d7f; }
+	.ill-doc .ill-sign-line { border-top: 0.75px solid #5d6d7f; padding-top: 3px; font-size: 7px; color: #5d6d7f; }
+	.ill-doc .ill-intro { font-size: 8px; color: #5d6d7f; }
 
-	.ill-doc .ill-closing { margin-top: 16px; padding-top: 6px; border-top: 0.6px solid #d1d6db; font-size: 7.5px; color: #5d6d7f; text-align: center; }
+	/* Small pieces shared by several formats. */
+	.ill-doc .ill-sum { text-align: right; font-size: 9px; }
+	.ill-doc .ill-sum .ill-label { display: inline; margin-right: 8px; }
+	.ill-doc .ill-tag-inline { margin-top: 3px; }
+	.ill-doc .ill-pay-link { margin-top: 4px; }
+	.ill-doc .ill-build-name { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
+	.ill-doc .ill-steps { font-size: 8px; line-height: 1.5; color: #3a4047; }
+
+	.ill-doc .ill-closing { margin-top: 16px; padding-top: 6px; border-top: 0.5px solid #d1d6db; font-size: 7px; color: #5d6d7f; text-align: center; }
 </style>
 {%- endmacro -%}
 
@@ -175,11 +202,9 @@
 	<tr>
 		{%- for title, name, lines in kept -%}
 		<td style="width: {{ (100 / ([kept | length, 3] | max)) | round(2) }}%;">
-			<div class="ill-party">
-				<div class="ill-label">{{ title | e }}</div>
-				{%- if name %}<div class="ill-party-name">{{ name | e }}</div>{% endif -%}
-				{%- for text in lines if text %}<div>{{ text | e }}</div>{% endfor -%}
-			</div>
+			<div class="ill-label">{{ title | e }}</div>
+			{%- if name %}<div class="ill-party-name">{{ name | e }}</div>{% endif -%}
+			{%- for text in lines if text %}<div>{{ ill_print_phone(text) | e }}</div>{% endfor -%}
 		</td>
 		{%- endfor -%}
 		{%- for i in range(3 - kept | length) %}<td style="width: 33.33%;"></td>{% endfor -%}
@@ -196,32 +221,41 @@
 {%- if show_code and shown_code and shown_code != item.item_name %}<div class="ill-code ill-mono">{{ shown_code | e }}</div>{% endif -%}
 {%- if info.specs -%}
 <div class="ill-specs">
-	{%- for label, value in info.specs -%}{% if not loop.first %} &nbsp;&middot;&nbsp; {% endif %}{{ label | e }} <b>{{ value | e }}</b>{%- endfor -%}
+	{%- for label, value in info.specs -%}{% if not loop.first %} <span class="ill-dot">&middot;</span> {% endif %}<span class="ill-spec">{{ label | e }} <b>{{ value | e }}</b></span>{%- endfor -%}
 </div>
 {%- endif -%}
 {%- for text in info.notes %}<div class="ill-specs">{{ text | e }}</div>{% endfor -%}
 {%- endmacro -%}
 
 {#--
-  One line of an items table as a group of rows, the layout every ilL format shares:
-    [section / room header, on the section's first line]
-    FIXTURE TYPE  A1                      <- when the line has a fixture type
-    1  Item name, part no., specs   qty   <- the call block's cells
-       Additional notes                   <- when the line has notes
+  One line of an items table, the layout every ilL format shares:
+    KITCHEN                                   <- section / room header row (first line of a
+                                                 section, and again after a page break)
+    1  FIXTURE TYPE  A1                       <- line_type(entry), when there is a type
+       Item name, part no., specs   qty  ...  <- the line's cells (the call block)
+       Additional notes                       <- line_notes(entry), when there are notes
+  The type and notes sit inside the description cell, so the whole line is a single table
+  row: wkhtmltopdf keeps a row together across a page break but not a group of rows. The
+  other cells are padded down to line up with the item name.
   `entry` is a line from ill_print_sections ({"item", "type", "notes", "header",
-  "page_break"}). The group is one <tbody> so a page break never separates a type or note
-  from its line. When the line's Page Break box is checked the table closes, a new page
+  "page_break"}). When the line's Page Break box is checked the table closes, a new page
   starts and the table reopens with `head` (the format's <thead>), as ERPNext's own
   formats do; the section header then repeats as "<room> (continued)".
 --#}
 {%- macro line_group(entry, colspan, head) -%}
 <tbody class="ill-line">
 	{%- if entry.header %}<tr class="ill-section"><td colspan="{{ colspan | int }}">{{ entry.header | e }}</td></tr>{% endif -%}
-	{%- if entry.type %}<tr class="ill-type-row"><td></td><td colspan="{{ (colspan - 1) | int }}"><span class="ill-type-label">Fixture type</span>{{ entry.type | e }}</td></tr>{% endif -%}
-	<tr class="ill-line-row{% if entry.notes %} ill-has-note{% endif %}">{{ caller() }}</tr>
-	{%- if entry.notes %}<tr class="ill-note-row"><td></td><td colspan="{{ (colspan - 1) | int }}">{{ entry.notes | e }}</td></tr>{% endif -%}
+	<tr class="ill-line-row{% if entry.type %} ill-has-type{% endif %}">{{ caller() }}</tr>
 </tbody>
 {%- if entry.page_break %}</table><div class="page-break ill-page-break"></div><table class="ill-items ill-block">{{ head }}{% endif -%}
+{%- endmacro -%}
+
+{#-- The fixture type above a line's name, and its additional notes below, in the description cell. --#}
+{%- macro line_type(entry) -%}
+{%- if entry.type %}<div class="ill-type-line"><span class="ill-type-label">Fixture type</span>{{ entry.type | e }}</div>{% endif -%}
+{%- endmacro -%}
+{%- macro line_notes(entry) -%}
+{%- if entry.notes %}<div class="ill-line-note">{{ entry.notes | e }}</div>{% endif -%}
 {%- endmacro -%}
 
 {#-- A section's subtotal row, shown when the document has more than one section. --#}
@@ -237,11 +271,11 @@
 {%- macro totals(rows, grand, after=(), words=None, left=None) -%}
 <table class="ill-block ill-keep">
 	<tr>
-		<td style="width: 52%; padding-right: 18px;">{{ left or "" }}</td>
+		<td style="width: 52%; padding-right: 24px;"><div class="ill-aside">{{ left or "" }}</div></td>
 		<td style="width: 48%;">
 			<table class="ill-totals">
 				{%- for label, value in rows if value %}<tr><td class="ill-total-label">{{ label | e }}</td><td class="ill-total-value">{{ (value if value is string else money(value)) | e }}</td></tr>{% endfor -%}
-				<tr class="ill-grand"><td class="ill-total-label" style="color: #172e48;">{{ grand[0] | e }}</td><td class="ill-total-value">{{ (grand[1] if grand[1] is string else money(grand[1])) | e }}</td></tr>
+				<tr class="ill-grand"><td class="ill-total-label">{{ grand[0] | e }}</td><td class="ill-total-value">{{ (grand[1] if grand[1] is string else money(grand[1])) | e }}</td></tr>
 				{%- for label, value in after if value is not none %}<tr class="ill-after"><td class="ill-total-label">{{ label | e }}</td><td class="ill-total-value">{{ (value if value is string else money(value)) | e }}</td></tr>{% endfor -%}
 			</table>
 			{%- if words %}<div class="ill-words">{{ words | e }}</div>{% endif -%}
@@ -264,12 +298,12 @@
 {%- macro terms(kind="sales", title="Terms and Conditions") -%}
 {%- set columns = ill_print_terms_columns(doc, kind) -%}
 {%- if columns[0] -%}
-<div class="ill-block">
+<div class="ill-block ill-terms-block">
 	<div class="ill-label ill-terms-title">{{ title | e }}</div>
 	<table>
 		<tr>
-			<td class="ill-terms" style="width: 50%; padding-right: 9px;">{{ columns[0] }}</td>
-			<td class="ill-terms" style="width: 50%; padding-left: 9px;">{{ columns[1] }}</td>
+			<td class="ill-terms" style="width: 50%; padding-right: 10px;">{{ columns[0] }}</td>
+			<td class="ill-terms" style="width: 50%; padding-left: 10px;">{{ columns[1] }}</td>
 		</tr>
 	</table>
 </div>
@@ -280,7 +314,7 @@
 {%- macro signatures(labels, title=None, intro=None) -%}
 <div class="ill-block ill-keep">
 	{%- if title %}<div class="ill-label">{{ title | e }}</div>{% endif -%}
-	{%- if intro %}<div class="ill-muted" style="font-size: 8px;">{{ intro | e }}</div>{% endif -%}
+	{%- if intro %}<div class="ill-intro">{{ intro | e }}</div>{% endif -%}
 	<table class="ill-sign">
 		<tr>
 			{%- for label in labels %}<td style="width: {{ (100 / labels | length) | round(2) }}%;"><div class="ill-sign-line">{{ label | e }}</div></td>{% endfor -%}
@@ -296,7 +330,12 @@
 {%- endmacro -%}
 
 {#-- Money in the document's currency, dates in the site's format. --#}
-{%- macro money(value, currency=None) -%}{{ frappe.utils.fmt_money(value or 0, currency=currency or doc.currency) | e }}{%- endmacro -%}
+{%- macro money(value, currency=None) -%}{{ frappe.utils.fmt_money(value or 0, currency=currency or doc.currency) | replace("$ ", "$") | e }}{%- endmacro -%}
+{#-- A quantity with its unit: "20 ea" inline, a long unit ("6.56ft Piece") on a muted line below. --#}
+{%- macro qty(value, uom=None) -%}
+{%- set q = ill_print_qty_parts(value, uom) -%}
+{%- if q.inline -%}{{ (q.number ~ (" " ~ q.unit if q.unit else "")) | e }}{%- else -%}{{ q.number | e }}<div class="ill-unit">{{ q.unit | e }}</div>{%- endif -%}
+{%- endmacro -%}
 {%- macro date(value) -%}{% if value %}{{ frappe.utils.format_date(value) | e }}{% endif %}{%- endmacro -%}
 
 {#--
@@ -307,7 +346,7 @@
 {%- macro priced_items(mode="dealer") -%}
 {%- set pricing = ill_print_pricing(doc.items) -%}
 {%- set sections = ill_print_sections(doc.items) -%}
-{%- set discounted = mode == "dealer" and pricing.has_discount -%}
+{%- set discounted = mode == "dealer" -%}
 {%- set cols = 7 if discounted else 5 -%}
 {%- set labelled = sections | selectattr("label") | list | length -%}
 {%- set row = namespace(n=0) -%}
@@ -316,15 +355,15 @@
 		<tr>
 			<th class="ill-idx">#</th>
 			<th>Item</th>
-			<th class="ill-num" style="width: 10%;">Qty</th>
+			<th class="ill-num" style="width: 8%;">Qty</th>
 			{%- if discounted %}
-			<th class="ill-num" style="width: 10%;">List</th>
+			<th class="ill-num" style="width: 9%;">List</th>
 			<th class="ill-num" style="width: 6%;">Disc</th>
-			<th class="ill-num" style="width: 10%;">Net</th>
+			<th class="ill-num" style="width: 9%;">Net</th>
 			{%- else %}
-			<th class="ill-num" style="width: 12%;">{% if mode == "msrp" %}Unit MSRP{% else %}Unit Price{% endif %}</th>
+			<th class="ill-num" style="width: 11%;">{% if mode == "msrp" %}Unit MSRP{% else %}Unit Price{% endif %}</th>
 			{%- endif %}
-			<th class="ill-num" style="width: 12%;">Amount</th>
+			<th class="ill-num" style="width: 11%;">Amount</th>
 		</tr>
 	</thead>
 {%- endset -%}
@@ -337,12 +376,12 @@
 		{%- set unit = ill_print_msrp(item) if mode == "msrp" else item.rate -%}
 		{%- call line_group(entry, cols, items_head) -%}
 			<td class="ill-idx">{{ row.n | int }}</td>
-			<td>{{ line(item) }}</td>
-			<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
+			<td>{{ line_type(entry) }}{{ line(item) }}{{ line_notes(entry) }}</td>
+			<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
 			{%- if discounted %}
 			{%- set disc = ill_print_discount(item) -%}
-			<td class="ill-num">{% if disc %}{{ money(item.price_list_rate) }}{% endif %}</td>
-			<td class="ill-num">{% if disc %}{{ "%g" | format(disc) | e }}%{% endif %}</td>
+			<td class="ill-num">{{ money(item.price_list_rate if disc else item.rate) }}</td>
+			<td class="ill-num">{% if disc %}{{ "%g" | format(disc) | e }}%{% else %}<span class="ill-none">&mdash;</span>{% endif %}</td>
 			<td class="ill-num">{{ money(item.rate) }}</td>
 			{%- else %}
 			<td class="ill-num">{{ money(unit) }}</td>

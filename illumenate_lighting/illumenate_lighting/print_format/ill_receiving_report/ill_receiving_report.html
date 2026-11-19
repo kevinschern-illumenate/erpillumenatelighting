@@ -3,7 +3,7 @@
   accepted and rejected quantities and where it was put away, with inspection sign-off.
   Internal; no prices. Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, notes, signatures, date, line_group, section_total with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, notes, signatures, date, line_group, section_total, line_type, line_notes, qty with context -%}
 {%- set orders = ill_print_references(doc, "purchase_order") -%}
 {%- set rejected = doc.items | selectattr("rejected_qty") | list -%}
 {%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
@@ -50,22 +50,22 @@
 			{%- set row.n = row.n + 1 -%}
 			{%- call line_group(entry, 8 if rejected else 7, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
-				<td>
+				<td>{{ line_type(entry) }}
 					<div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div>
 					<div class="ill-code"><span class="ill-mono">{{ item.item_code | e }}</span>{% if item.supplier_part_no %} &nbsp;&middot;&nbsp; Vendor part <span class="ill-mono">{{ item.supplier_part_no | e }}</span>{% endif %}</div>
 					{%- if item.batch_no %}<div class="ill-specs">Batch {{ item.batch_no | e }}</div>{% endif -%}
-				</td>
+				{{ line_notes(entry) }}</td>
 				<td>{{ (item.purchase_order or "") | e }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.received_qty or item.qty, item.uom) | e }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
-				{%- if rejected %}<td class="ill-num">{% if item.rejected_qty %}{{ ill_print_qty(item.rejected_qty, item.uom) | e }}{% endif %}</td>{% endif %}
+				<td class="ill-num">{{ qty(item.received_qty or item.qty, item.uom) }}</td>
+				<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
+				{%- if rejected %}<td class="ill-num">{% if item.rejected_qty %}{{ qty(item.rejected_qty, item.uom) }}{% endif %}</td>{% endif %}
 				<td>{{ ill_print_warehouse(item.warehouse) | e }}{% if item.rejected_qty and item.rejected_warehouse %}<div class="ill-specs">Rejected to {{ ill_print_warehouse(item.rejected_warehouse) | e }}</div>{% endif %}</td>
 				<td class="ill-center"><span class="ill-check"></span></td>
 			{%- endcall -%}
 			{%- endfor -%}
 		{%- endfor -%}
 	</table>
-	<div class="ill-right ill-block"><span class="ill-label" style="display: inline;">Total received</span> &nbsp;{{ ill_print_qty(doc.total_qty) }}</div>
+	<div class="ill-sum ill-block"><span class="ill-label">Total received</span>{{ ill_print_qty(doc.total_qty) }}</div>
 
 	{{ notes("Notes", doc.remarks) }}
 

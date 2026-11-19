@@ -4,7 +4,7 @@
   pull, a QC checklist and sign-offs. Internal; no prices.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date, qty with context -%}
 {%- set build = ill_print_build(doc) -%}
 {%- set order_line = ill_print_order_line(doc.sales_order_item) -%}
 {%- set project = ill_print_project({"items": [{"sales_order": doc.sales_order}], "project": doc.project}) if doc.sales_order else ill_print_project(doc) -%}
@@ -32,9 +32,9 @@
 
 	<div class="ill-block">
 		<div class="ill-label">Build</div>
-		<div style="font-size: 12px;" class="ill-h ill-strong">{{ (doc.item_name or doc.production_item) | e }}</div>
+		<div class="ill-build-name">{{ (doc.item_name or doc.production_item) | e }}</div>
 		<div class="ill-code ill-mono">{{ (specs.part_number or doc.production_item) | e }}</div>
-		{%- if order_line.additional_notes %}<div class="ill-line-note" style="font-size: 9px;">Order note: {{ order_line.additional_notes | e }}</div>{% endif -%}
+		{%- if order_line.additional_notes %}<div class="ill-line-note">Order note: {{ order_line.additional_notes | e }}</div>{% endif -%}
 	</div>
 
 	{%- set details = build.facts or specs.specs -%}
@@ -73,7 +73,7 @@
 	{%- if build.steps -%}
 	<div class="ill-block ill-keep">
 		<div class="ill-label">Build description</div>
-		<div class="ill-specs" style="font-size: 8.5px; color: #231f20;">{% for step in build.steps %}{% if not loop.first %} &nbsp;&middot;&nbsp; {% endif %}{{ step | e }}{% endfor %}</div>
+		<div class="ill-steps">{% for step in build.steps %}{% if not loop.first %} &nbsp;&middot;&nbsp; {% endif %}{{ step | e }}{% endfor %}</div>
 	</div>
 	{%- endif -%}
 
@@ -95,8 +95,8 @@
 				<td class="ill-idx">{{ loop.index }}</td>
 				<td>{{ line(item, show_specs=False) }}</td>
 				<td>{{ ill_print_warehouse(item.source_warehouse) | e }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.required_qty, item.stock_uom) }}</td>
-				<td class="ill-num">{% if item.transferred_qty or item.consumed_qty %}{{ ill_print_qty(item.transferred_qty or item.consumed_qty, item.stock_uom) }}{% endif %}</td>
+				<td class="ill-num">{{ qty(item.required_qty, item.stock_uom) }}</td>
+				<td class="ill-num">{% if item.transferred_qty or item.consumed_qty %}{{ qty(item.transferred_qty or item.consumed_qty, item.stock_uom) }}{% endif %}</td>
 				<td class="ill-center"><span class="ill-check"></span></td>
 			</tr>
 		{%- endfor -%}

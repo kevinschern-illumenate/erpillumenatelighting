@@ -3,7 +3,7 @@
   columns the vendor can fill in and return.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, notes, terms, signatures, closing, date, line_group, section_total with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, notes, terms, signatures, closing, date, line_group, section_total, line_type, line_notes, qty with context -%}
 {%- set company = ill_print_company(doc) -%}
 {%- set vendors = doc.suppliers or [] -%}
 {%- set sections = ill_print_sections(doc.items, follow_links=False) -%}
@@ -48,14 +48,14 @@
 			{%- set row.n = row.n + 1 -%}
 			{%- call line_group(entry, 6, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
-				<td>
+				<td>{{ line_type(entry) }}
 					<div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div>
 					<div class="ill-code">Our part <span class="ill-mono">{{ item.item_code | e }}</span>{% if item.supplier_part_no %} &nbsp;&middot;&nbsp; Your part <span class="ill-mono">{{ item.supplier_part_no | e }}</span>{% endif %}</div>
 					{%- set info = ill_print_specs(item) -%}
-					{%- if info.specs %}<div class="ill-specs">{% for label, value in info.specs %}{% if not loop.first %} &nbsp;&middot;&nbsp; {% endif %}{{ label | e }} <b>{{ value | e }}</b>{% endfor %}</div>{% endif -%}
-				</td>
-				<td>{{ date(item.schedule_date) }}</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
+					{%- if info.specs %}<div class="ill-specs">{% for label, value in info.specs %}{% if not loop.first %} <span class="ill-dot">&middot;</span> {% endif %}<span class="ill-spec">{{ label | e }} <b>{{ value | e }}</b></span>{% endfor %}</div>{% endif -%}
+				{{ line_notes(entry) }}</td>
+				<td class="ill-date">{{ date(item.schedule_date) }}</td>
+				<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
 				<td class="ill-num"><span class="ill-writein"></span></td>
 				<td class="ill-num"><span class="ill-writein"></span></td>
 			{%- endcall -%}

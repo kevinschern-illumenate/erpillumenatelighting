@@ -4,7 +4,7 @@
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
   Frappe reads this file at print time, so it overrides the copy stored on the site.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, notes, signatures, closing, date, line_group, section_total with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, notes, signatures, closing, date, line_group, section_total, line_type, line_notes, qty with context -%}
 {%- set project = ill_print_project(doc) -%}
 {%- set orders = ill_print_references(doc, "against_sales_order") -%}
 {%- set packed = ill_print_packed(doc) -%}
@@ -55,19 +55,19 @@
 			{%- set row.n = row.n + 1 -%}
 			{%- call line_group(entry, 4, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
-				<td>
+				<td>{{ line_type(entry) }}
 					{{ line(item) }}
 					{%- for part in packed.get(item.name, []) -%}
-					<div class="ill-specs">Includes {{ ill_print_qty(part.qty, part.uom) | e }} &times; {{ (part.item_name or part.item_code) | e }} <span class="ill-mono">{{ part.item_code | e }}</span></div>
+					<div class="ill-specs">Includes {{ qty(part.qty, part.uom) }} &times; {{ (part.item_name or part.item_code) | e }} <span class="ill-mono">{{ part.item_code | e }}</span></div>
 					{%- endfor -%}
-				</td>
-				<td class="ill-num">{{ ill_print_qty(item.qty, item.uom) | e }}</td>
+				{{ line_notes(entry) }}</td>
+				<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
 				<td class="ill-center"><span class="ill-check"></span></td>
 			{%- endcall -%}
 			{%- endfor -%}
 		{%- endfor -%}
 	</table>
-	<div class="ill-right ill-block"><span class="ill-label" style="display: inline;">Total quantity</span> &nbsp;{{ ill_print_qty(doc.total_qty) }}</div>
+	<div class="ill-sum ill-block"><span class="ill-label">Total quantity</span>{{ ill_print_qty(doc.total_qty) }}</div>
 
 	{{ signatures(["Received by", "Date", "Condition / notes"], title="Received") }}
 

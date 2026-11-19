@@ -427,12 +427,12 @@ class Formats(unittest.TestCase):
 	def test_dealer_formats_show_discounts_and_msrp_formats_do_not(self):
 		dealer = render("ill_quotation", sales_doc())
 		self.assertIn(">Disc<", dealer)
-		self.assertIn("$ 0.51", dealer)
+		self.assertIn("$0.51", dealer)
 		retail = render("ill_quotation_msrp", sales_doc())
 		self.assertNotIn(">Disc<", retail)
-		self.assertNotIn("$ 0.51", retail)
+		self.assertNotIn("$0.51", retail)
 		self.assertNotIn("FedEx", retail)
-		self.assertIn("$ 0.85", retail)
+		self.assertIn("$0.85", retail)
 		self.assertIn("Total (MSRP)", retail)
 
 	def test_shipping_and_shop_documents_carry_no_prices(self):
@@ -446,7 +446,7 @@ class Formats(unittest.TestCase):
 			"ill_fixture_schedule",
 		):
 			with self.subTest(folder=folder):
-				self.assertNotIn("$ ", render(folder, SAMPLES[folder]()))
+				self.assertNotRegex(render(folder, SAMPLES[folder]()), r"\$\s?\d")
 
 	def test_delivery_note_lists_tracking_order_and_kit_contents(self):
 		html = render("ill_delivery_note", SAMPLES["ill_delivery_note"]())
@@ -490,17 +490,40 @@ class LineLayout(unittest.TestCase):
 					html,
 					'class="ill-section"',
 					"Kitchen",
-					'class="ill-type-row"',
+					'class="ill-type-line"',
 					">A1<",
 					"LED Tape - 2700K",
-					'class="ill-note-row"',
+					'class="ill-line-note"',
 					"Power supply for L1",
 				)
 
+	def test_each_line_is_one_table_row_so_page_breaks_cannot_split_it(self):
+		html = render("ill_sales_order", sales_doc(items=[line(additional_notes="Power supply for L1")]))
+		row = html[
+			html.index('<tr class="ill-line-row') : html.index("</tr>", html.index('<tr class="ill-line-row'))
+		]
+		for part in ("Fixture type", ">A1<", "LED Tape - 2700K", "Power supply for L1"):
+			self.assertIn(part, row)
+
+	def test_dealer_documents_always_show_list_disc_and_net(self):
+		doc = sales_doc(items=[line(discount_percentage=0, price_list_rate=0.51)])
+		for folder in ("ill_quotation", "ill_sales_order", "ill_sales_invoice"):
+			with self.subTest(folder=folder):
+				html = render(folder, doc)
+				for heading in (">List<", ">Disc<", ">Net<", ">Amount<"):
+					self.assertIn(heading, html)
+				self.assertIn('<span class="ill-none">&mdash;</span>', html)
+
+	def test_phone_numbers_print_formatted(self):
+		self.assertEqual(PRINTING.ill_print_phone("5599167300"), "(559) 916-7300")
+		self.assertEqual(PRINTING.ill_print_phone("+1 206-502-3521"), "(206) 502-3521")
+		self.assertEqual(PRINTING.ill_print_phone("+86 13929110802"), "+86 13929110802")
+		self.assertEqual(PRINTING.ill_print_phone("pat@example.com"), "pat@example.com")
+
 	def test_lines_without_type_or_notes_get_no_extra_rows(self):
 		html = render("ill_quotation", sales_doc(items=[line(ill_fixture_type="", additional_notes="")]))
-		self.assertNotIn('class="ill-type-row"', html)
-		self.assertNotIn('class="ill-note-row"', html)
+		self.assertNotIn('class="ill-type-line"', html)
+		self.assertNotIn('class="ill-line-note"', html)
 
 	def test_rep_agency_stays_off_customer_documents(self):
 		doc = sales_doc(sales_partner="Rep Co", referral_sales_partner="Rep Co")
@@ -581,7 +604,7 @@ class LineLayout(unittest.TestCase):
 			),
 		)
 		self.assertIn('class="ill-section"', html)
-		self.assertNotIn('class="ill-type-row"', html)
+		self.assertNotIn('class="ill-type-line"', html)
 
 	def test_page_break_check_starts_a_new_page_and_repeats_the_headings(self):
 		# The item tables with ERPNext's per-line "Page Break" check.

@@ -13,7 +13,7 @@
 {{ styles() }}
 <div class="ill-doc">
 	{{ header("Sales Order", doc.name, status, subtitle="Order acknowledgement",
-		tone=("alert" if status in ("On Hold", "Cancelled", "Closed") else "ok" if status == "Completed" else "")) }}
+		tone=("alert" if status in ("On Hold", "Cancelled") else "ok" if status in ("Completed", "Closed") else "")) }}
 
 	{{ facts([
 		("Order date", date(doc.transaction_date)),
@@ -48,7 +48,7 @@
 		<div class="ill-muted">Shipped {{ "%.0f" | format(doc.per_delivered or 0) }}% &nbsp;&middot;&nbsp; Billed {{ "%.0f" | format(doc.per_billed or 0) }}%</div>
 		{%- endif -%}
 		{%- if doc.payment_schedule and doc.payment_schedule | length > 1 -%}
-		<div class="ill-label" style="margin-top: 8px;">Payment schedule</div>
+		<div class="ill-label">Payment schedule</div>
 		{%- for row in doc.payment_schedule -%}
 		<div class="ill-muted">{{ money(row.payment_amount) }} due {{ date(row.due_date) }}{% if row.description %} &middot; {{ row.description | e }}{% endif %}</div>
 		{%- endfor -%}

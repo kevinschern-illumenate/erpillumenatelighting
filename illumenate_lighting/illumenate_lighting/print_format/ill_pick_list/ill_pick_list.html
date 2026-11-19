@@ -3,7 +3,7 @@
   quantities and sign-off. Internal; no prices.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date, line_group, section_total with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date, line_group, section_total, line_type, line_notes, qty with context -%}
 {%- set found = namespace(orders=[]) -%}
 {%- set sections = ill_print_sections(doc.locations, follow_links=True) -%}
 {%- set counter = namespace(n=0) -%}
@@ -41,10 +41,10 @@
 			{%- set counter.n = counter.n + 1 -%}
 			{%- call line_group(entry, 5, items_head) -%}
 				<td class="ill-idx">{{ counter.n | int }}</td>
-				<td>{{ line(row, show_specs=False) }}{% if row.sales_order %}<div class="ill-specs">For {{ row.sales_order | e }}</div>{% endif %}</td>
+				<td>{{ line_type(entry) }}{{ line(row, show_specs=False) }}{% if row.sales_order %}<div class="ill-specs">For {{ row.sales_order | e }}</div>{% endif %}{{ line_notes(entry) }}</td>
 				<td>{{ ill_print_warehouse(row.warehouse) | e }}{% if row.batch_no %}<div class="ill-specs">Batch {{ row.batch_no | e }}</div>{% endif %}{% if row.serial_no %}<div class="ill-specs ill-pre">{{ row.serial_no | e }}</div>{% endif %}</td>
-				<td class="ill-num">{{ ill_print_qty(row.qty, row.uom) | e }}</td>
-				<td class="ill-num">{% if row.picked_qty and doc.docstatus == 1 %}{{ ill_print_qty(row.picked_qty, row.uom) | e }}{% else %}<span class="ill-writein"></span>{% endif %}</td>
+				<td class="ill-num">{{ qty(row.qty, row.uom) }}</td>
+				<td class="ill-num">{% if row.picked_qty and doc.docstatus == 1 %}{{ qty(row.picked_qty, row.uom) }}{% else %}<span class="ill-writein"></span>{% endif %}</td>
 			{%- endcall -%}
 			{%- endfor -%}
 		{%- endfor -%}
