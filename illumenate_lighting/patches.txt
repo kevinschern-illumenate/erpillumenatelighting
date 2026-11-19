@@ -101,3 +101,5 @@ illumenate_lighting.patches.apply_email_branding
 illumenate_lighting.patches.add_build_points_adjustment_fields
 illumenate_lighting.patches.add_tape_neon_option_value_label
 illumenate_lighting.patches.seed_print_terms
+illumenate_lighting.patches.add_line_power_fields
+illumenate_lighting.patches.backfill_line_power

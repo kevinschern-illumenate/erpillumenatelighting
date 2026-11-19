@@ -57,8 +57,8 @@ web_include_js = ["illumenate_web.bundle.js"]
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js"],
-    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
+doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js", "public/js/line_power.js"],
+    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": ["public/js/quotation.js", "public/js/line_power.js"],
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
@@ -433,6 +433,8 @@ doc_events = {
 		"validate": [
 			"illumenate_lighting.illumenate_lighting.api.build_links.follow_items",
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+			# Last: schedule sync can rescale row quantities. Spec and load under tape/neon/sheet rows.
+			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
 		],
 		# Only a submitted Quotation linked to an intake creates a portal offer.
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.offers.before_submit",
@@ -447,8 +449,14 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
 			# After follow_items, so each line is counted against the BOM it now pins.
 			"illumenate_lighting.illumenate_lighting.api.build_points.roll_up_sales_order",
+			# Last: schedule sync can rescale row quantities. Spec and load under tape/neon/sheet rows.
+			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
 		],
-		"before_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+		"before_update_after_submit": [
+			"illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+			# "Update Items" changes qty / UOM on a submitted order without running validate.
+			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
+		],
 		"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
 		"on_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.before_submit",

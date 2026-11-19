@@ -2,7 +2,7 @@
   ilLumenate print design template: the stylesheet and macros every ilL print format uses.
 
   Import at the top of a print format, with context so the macros can read `doc`:
-      {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, line_group, section_total, totals, terms, notes, signatures, line_type, line_notes, qty with context -%}
+      {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, line_group, section_total, totals, terms, notes, signatures, line_type, line_power, line_notes, connected_load, qty with context -%}
 
   Design (docs/PRINT_FORMATS.md): ilLumenate Design System type (Manrope headings, Poppins
   body) and colours (navy #172E48, blue #00588C, gold #FDC757), kept light on ink: no
@@ -101,6 +101,8 @@
 	.ill-doc .ill-specs b { font-weight: 500; color: #231f20; }
 	.ill-doc .ill-spec { white-space: nowrap; }
 	.ill-doc .ill-dot { color: #a2abb6; padding: 0 2px; }
+	.ill-doc .ill-power { margin-top: 2px; }
+	.ill-doc .ill-power .ill-type-label { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; }
 	.ill-doc .ill-line-note { color: #5d6d7f; font-size: 7.5px; font-style: italic; margin-top: 3px; white-space: pre-line; }
 	.ill-doc .ill-none { color: #a2abb6; }
 	.ill-doc .ill-our-code { color: #00588c; font-weight: 500; }
@@ -257,6 +259,25 @@
 {%- macro line_type(entry) -%}
 {%- if entry.type %}<div class="ill-type-line"><span class="ill-type-label">Fixture type</span>{{ entry.type | e }}</div>{% endif -%}
 {%- endmacro -%}
+{#--
+  Spec and load of a catalog LED tape / neon / sheet line, between the line and its notes:
+  "SPEC 24VDC · 2.74 W/ft · Max run 16.4 ft · Length 72.00 ft · Load 197.3 W". The text is
+  stamped on Quotation and Sales Order rows by api/line_power.py; other rows have none.
+--#}
+{%- macro line_power(item) -%}
+{%- if item.get("ill_lp_summary") %}<div class="ill-specs ill-power"><span class="ill-type-label">Spec</span>{{ item.ill_lp_summary | e }}</div>{% endif -%}
+{%- endmacro -%}
+{#-- Total load of those lines, for the aside beside the totals; alternative lines are left out. --#}
+{%- macro connected_load() -%}
+{%- set load = namespace(watts=0, any=false) -%}
+{%- for item in doc.items or [] -%}
+{%- if item.get("ill_lp_watts") and not item.get("is_alternative") -%}
+{%- set load.watts = load.watts + item.ill_lp_watts -%}
+{%- set load.any = true -%}
+{%- endif -%}
+{%- endfor -%}
+{%- if load.any %}<div class="ill-label">Connected load (tape / neon / sheet)</div><div>{{ "%.1f" | format(load.watts) | e }} W</div>{% endif -%}
+{%- endmacro -%}
 {%- macro line_notes(entry) -%}
 {%- if entry.notes %}<div class="ill-line-note">{{ entry.notes | e }}</div>{% endif -%}
 {%- endmacro -%}
@@ -379,7 +400,7 @@
 		{%- set unit = ill_print_msrp(item) if mode == "msrp" else item.rate -%}
 		{%- call line_group(entry, cols, items_head) -%}
 			<td class="ill-idx">{{ row.n | int }}</td>
-			<td>{{ line_type(entry) }}{{ line(item) }}{{ line_notes(entry) }}</td>
+			<td>{{ line_type(entry) }}{{ line(item) }}{{ line_power(item) }}{{ line_notes(entry) }}</td>
 			<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
 			{%- if discounted %}
 			{%- set disc = ill_print_discount(item) -%}

@@ -514,6 +514,31 @@ class LineLayout(unittest.TestCase):
 					self.assertIn(heading, html)
 				self.assertIn('<span class="ill-none">&mdash;</span>', html)
 
+	def test_catalog_tape_lines_show_spec_between_line_and_notes_and_a_connected_load(self):
+		summary = "24VDC · 2.74 W/ft · Max run 16.4 ft · Length 72.00 ft · Load 197.3 W"
+		doc = sales_doc(
+			items=[
+				line(additional_notes="Power supply for L1", ill_lp_summary=summary, ill_lp_watts=197.3),
+				line(name="row2", idx=2, ill_lp_summary="24VDC · 10 W/ft", ill_lp_watts=50.0, is_alternative=1),
+				line(name="row3", idx=3, ill_lp_summary="24VDC · 1 W/ft", ill_lp_watts=10.0),
+			]
+		)
+		for folder in ("ill_quotation", "ill_quotation_msrp", "ill_sales_order", "ill_sales_order_msrp"):
+			with self.subTest(folder=folder):
+				html = render(folder, doc)
+				self.assertNotIn("{{", html)
+				row = html[html.index('<tr class="ill-line-row') : html.index("</tr>", html.index('<tr class="ill-line-row'))]
+				self.assert_order(row, "LED Tape - 2700K", 'class="ill-specs ill-power"', summary, "Power supply for L1")
+				self.assertIn("Connected load (tape / neon / sheet)", html)
+				self.assertIn("207.3 W", html)  # the alternative line is left out
+
+	def test_documents_without_line_power_print_no_spec_or_load(self):
+		for folder in ("ill_quotation", "ill_sales_order", "ill_sales_invoice"):
+			with self.subTest(folder=folder):
+				html = render(folder, sales_doc())
+				self.assertNotIn("ill-power", html.split("</style>", 1)[1])
+				self.assertNotIn("Connected load", html)
+
 	def test_phone_numbers_print_formatted(self):
 		self.assertEqual(PRINTING.ill_print_phone("5599167300"), "(559) 916-7300")
 		self.assertEqual(PRINTING.ill_print_phone("+1 206-502-3521"), "(206) 502-3521")
