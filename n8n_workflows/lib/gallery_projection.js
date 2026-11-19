@@ -7,21 +7,15 @@ function projectWebflowGallery(payload, options) {
 // - List fields are always sent: `gallery` and `products-used` as arrays (possibly empty); the joined text
 //   fields (`applications`, `services-provided`, `series-used`, `videos`) as '' when the list is empty.
 // - `featured-image` is the hero image ({url, alt}) or null when there is none.
-// - Credits: an unfilled name/website pair is never sent as empty strings. A credit type missing from
-//   payload.credits sends null for both slugs, so a removed credit is cleared; a credit without a website
-//   sends null for the website (a Link field rejects '').
+// - `credits` is ONE plain-text field holding a JSON array (a script on the Webflow page parses it), in this
+//   order, only the credits that have a name: [{"type":"Integrator","name":"Acme","website":"https://..."}, ...].
+//   `website` is null when there is none. No credits at all sends '' (not '[]'), so the field reads as empty
+//   and a conditional "Credits is set" hides the section.
 // - `completion-date` is midnight Pacific Time on the ERP date (an ISO instant: 07:00Z in daylight time, 08:00Z
 //   otherwise), so the date reads the same on a site shown in Pacific Time. Omitted (not sent) when ERP has no date.
 if (!options || typeof options.isDraft !== 'boolean') throw new Error('isDraft must be true or false');
 
-const CREDIT_FIELDS = {
-  Integrator: ['client-integrator', 'client-website'],
-  Architect: ['architect', 'architect-website'],
-  Designer: ['designer', 'designer-website'],
-  Contractor: ['contractor', 'contractor-website'],
-  Owner: ['owner', 'owner-website'],
-  Photographer: ['photo-credit', 'photographer-website']
-};
+const CREDIT_TYPES = ['Integrator', 'Architect', 'Designer', 'Contractor', 'Owner', 'Photographer'];
 
 const text = (value) => (typeof value === 'string' ? value : '');
 const joined = (values) => (Array.isArray(values) ? values.filter(v => typeof v === 'string' && v).join(', ') : '');
@@ -66,11 +60,11 @@ if (payload.completion_date) {
 }
 
 const credits = payload.credits || {};
-for (const [type, [nameSlug, websiteSlug]] of Object.entries(CREDIT_FIELDS)) {
-  const credit = credits[type] || {};
-  fieldData[nameSlug] = text(credit.name) || null;
-  fieldData[websiteSlug] = (fieldData[nameSlug] && text(credit.website)) || null;
-}
+const creditList = CREDIT_TYPES
+  .map(type => ({ type, name: text((credits[type] || {}).name), website: text((credits[type] || {}).website) }))
+  .filter(credit => credit.name)
+  .map(credit => ({ type: credit.type, name: credit.name, website: credit.website || null }));
+fieldData['credits'] = creditList.length ? JSON.stringify(creditList) : '';
 
 return { isArchived: false, isDraft: options.isDraft, fieldData };
 }
