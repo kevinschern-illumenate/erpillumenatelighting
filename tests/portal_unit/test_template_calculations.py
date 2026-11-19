@@ -174,12 +174,44 @@ class HandSetTapeNeon(unittest.TestCase):
 				calculations = load(CALCULATIONS)
 				template["auto_populate_configurator"] = 0
 				template.set("part_no_configurator", [dict(step) for step in HAND_SET_TAPE_STEPS])
-				calculations.refresh_hand_set_tape_neon(template)
+				# The values as the product made them; LED Neon's fixed step order is below.
+				calculations._refresh_hand_set_values(template)
 				self.assertEqual(
 					without_idx(plain(template["part_no_configurator"])),
 					without_idx(self.expected[case]["after_sync"]["configurator_options"]),
 				)
 				self.assertEqual(product_lookups(frappe.calls), [])
+
+	def test_led_neon_steps_have_fixed_numbers(self):
+		# Owner, 2026-11-19: Series 0, IP Rating 1, CCT 2, Output Level 3, Finish 4, Length 5,
+		# feed steps 6-9; other steps after them. Feed lengths follow their step.
+		with site():
+			calculations = load(CALCULATIONS)
+			template = scenarios()["neon"]
+			template["auto_populate_configurator"] = 0
+			template.set("part_no_configurator", [dict(step) for step in HAND_SET_TAPE_STEPS])
+			template.set("feed_lengths", [{"step": 6, "code": "2", "label": "2ft"}])
+			self.assertTrue(calculations.refresh_hand_set_tape_neon(template))
+			steps = [(row["option_step"], row["option_label"]) for row in plain(template["part_no_configurator"])]
+			self.assertEqual(
+				steps,
+				[
+					(1, "IP Rating"),
+					(2, "CCT"),
+					(3, "Output Level"),
+					(4, "Finish"),
+					(5, "Length"),
+					(6, "Start Feed Direction"),
+					(7, "Start Feed Length"),
+					(8, "End Feed Direction"),
+					(9, "End Feed Length"),
+					(10, "Environment"),
+					(11, "Keep"),
+					(99, "Mounting Method"),
+				],
+			)
+			# Start Feed Length moved from 6 to 7; its feed lengths follow.
+			self.assertEqual(plain(template["feed_lengths"])[0]["step"], 7)
 
 	def refresh(self, template):
 		images = types.ModuleType(ROOT + ".template_images")

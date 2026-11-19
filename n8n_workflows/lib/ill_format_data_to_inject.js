@@ -204,8 +204,9 @@ const mappingScript = `<script>
           setText('series-desc', "ilLumenate " + (data.product_name || ""));
           
           // Radio button colour for the PDF generator (owner, 2026-11-18): linear fixtures
-          // #ffac33; other products keep the generator's green.
-          if (data.product_type === 'Fixture Template') builderSection.setAttribute('data-radio-color', '#ffac33');
+          // #ffac33, LED Neon #ff990a (owner, 2026-11-19); other products keep the generator's green.
+          const radioColor = {'Fixture Template': '#ffac33', 'LED Neon': '#ff990a'}[data.product_type];
+          if (radioColor) builderSection.setAttribute('data-radio-color', radioColor);
 
           // TAG THE SERIES BUTTON FOR VERCEL. Step 0 unless a configurator step already uses 0
           // (LED Neon's IP Rating; owner, 2026-11-19): then 'S', so the PDF fields do not clash.

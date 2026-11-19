@@ -114,13 +114,16 @@ def refresh_template(template):
 	if calculates_configurator(template):
 		template.set(CONFIGURATOR_FIELD, configurator)
 	else:
+		fixed_steps = False
 		try:
 			# Hand-set Tape/Neon steps take the template's current allowed options (owner,
-			# 2026-11-05; this ran on the Webflow Product's save before).
-			refresh_hand_set_tape_neon(template)
+			# 2026-11-05; this ran on the Webflow Product's save before). LED Neon steps have
+			# fixed numbers (owner, 2026-11-19), so they are not renumbered by row order.
+			fixed_steps = refresh_hand_set_tape_neon(template)
 		except Exception:
 			frappe.log_error(title=f"Hand-set Tape/Neon steps refresh failed: {template.name}")
-		renumber_steps(template)
+		if not fixed_steps:
+			renumber_steps(template)
 
 
 LOOKUP_STEP_FROM = 98

@@ -255,7 +255,7 @@ class Listing(unittest.TestCase):
 		self.module.compute = MagicMock(return_value=([spec("CRI", "90")], [{"option_step": 1}]))
 		# Hand-set Tape/Neon steps take the template's allowed options first (owner, 2026-11-05;
 		# test_template_calculations), then follow their row order.
-		self.module.refresh_hand_set_tape_neon = MagicMock()
+		self.module.refresh_hand_set_tape_neon = MagicMock(return_value=False)
 		hand = [Record(option_step=1, option_type="IP Rating")]
 		template = Doc(TAPE, "led-hd-sw", auto_populate_configurator=0, part_no_configurator=hand)
 		self.module.refresh_template(template)
