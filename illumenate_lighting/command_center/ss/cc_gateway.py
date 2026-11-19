@@ -165,7 +165,9 @@ def main():
         ["ill_publishing", "Catalog & Webflow publishing", "", [
             "ilL-Catalog-Import", "ilL-Product-Publication", "ilL-Publish-Job", "ilL-Item-Literature",
             "ilL-Image-Derivative", "ilL-Webflow-Product", "ilL-Webflow-Category", "ilL-Webflow-Brand",
-            "ilL-Webflow-Approval", "ilL-Webflow-Auto-Push"]],
+            "ilL-Webflow-Approval", "ilL-Webflow-Auto-Push",
+            "ilL-Webflow-Gallery", "ilL-Gallery-Publication", "ilL-Gallery-Publish-Job",
+            "ilL-Gallery-Application", "ilL-Design-Service"]],
         ["ill_finder", "Product finder", "", [
             "ilL-Finder-Question", "ilL-Finder-Glossary-Term", "ilL-Product-Verification-Request"]],
         ["ill_meetings", "Meetings", "", ["ilL-Meeting-Agenda", "ilL-Meeting-Agenda-Item"]],
@@ -187,6 +189,7 @@ def main():
         "ilL-Configuration-Receipt", "ilL-Configurator-Session", "ilL-Design-Catalog-Snapshot", "ilL-Catalog-Import",
         "ilL-Portal-Event", "ilL-Portal-Message", "ilL-Portal-Delivery", "ilL-Portal-Upload", "ilL-Publish-Job",
         "ilL-Export-Job", "ilL-QBO-Sync-Log", "ilL-Image-Derivative", "ilL-Webflow-Configurator-Cache",
+        "ilL-Gallery-Publish-Job",
         # approvals are decided and auto pushes queued from the Webflow Product (plan 4.19)
         "ilL-Webflow-Approval", "ilL-Webflow-Auto-Push",
     ]
@@ -205,6 +208,7 @@ def main():
         "ilL-Order-Change": "state", "ilL-Account-Request": "state", "ilL-Drawing-Review": "decision",
         "ilL-Portal-Delivery": "state", "ilL-Portal-Invitation": "state", "ilL-Portal-Upload": "state",
         "ilL-Product-Publication": "state", "ilL-Publish-Job": "state",
+        "ilL-Gallery-Publication": "state", "ilL-Gallery-Publish-Job": "state",
         "ilL-Product-Verification-Request": "state",
     }
 

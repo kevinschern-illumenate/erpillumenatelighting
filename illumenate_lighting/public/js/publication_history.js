@@ -24,11 +24,12 @@
             <td>${esc(row.by)}</td><td>${change ? '' : when(row.completed_on)}</td>
             <td class="text-muted">${esc(row.error || '')}</td></tr>`;
         }).join('');
-        // Frappe's own section markup, so the section lines up with the others.
+        // Frappe's own section markup, so the section lines up with the others. The title and the
+        // body each take the full width: in the flex .row they sat side by side (owner, 2026-11-18).
         return `<div class="row form-section card-section visible-section ill-publication-history">
-            <div class="section-head">${__('Publication History')}
+            <div class="section-head" style="flex: 0 0 100%; width: 100%;">${__('Publication History')}
               <span class="text-muted small" style="font-weight: normal;">(${esc(history.product)})</span></div>
-            <div class="section-body"><div class="form-column col-sm-12">
+            <div class="section-body" style="flex: 0 0 100%; width: 100%;"><div class="form-column col-sm-12">
             ${brands || `<div class="text-muted">${__('Never synced to Webflow.')}</div>`}
             ${rows ? `<div style="overflow-x: auto; margin-top: 8px;"><table class="table table-sm small" style="margin: 0;">
               <thead><tr><th>${__('When')}</th><th>${__('Status')}</th><th>${__('Result')}</th>

@@ -163,14 +163,6 @@ def _get_allowed_options(template) -> dict[str, list]:
 		elif opt.option_type == "Lens Appearance" and opt.lens_appearance:
 			options["lens_appearances"].append(opt.lens_appearance)
 
-	# Get endcap colors from attribute doctype (all colors are available globally)
-	endcap_colors = frappe.get_all(
-		"ilL-Attribute-Endcap Color",
-		filters={},
-		fields=["name", "code"],
-	)
-	options["endcap_colors"] = [c.name for c in endcap_colors]
-
 	# Get finish → endcap color mappings from ilL-Rel-Finish Endcap Color
 	finish_endcap_mappings = frappe.get_all(
 		"ilL-Rel-Finish Endcap Color",
@@ -178,6 +170,20 @@ def _get_allowed_options(template) -> dict[str, list]:
 		fields=["finish", "endcap_color"],
 	)
 	options["finish_endcap_color_map"] = {m.finish: m.endcap_color for m in finish_endcap_mappings}
+
+	# Endcap colors: the ones the template's finishes use (owner, 2026-11-19). Every endcap
+	# color record in the system used to count, so a leftover "White" record next to WH asked
+	# for maps the template never needs. Inactive colors are left out.
+	inactive = set(
+		frappe.get_all("ilL-Attribute-Endcap Color", filters={"is_active": 0}, pluck="name")
+	)
+	finishes = set(options["finishes"])
+	colors = []
+	for mapping in finish_endcap_mappings:
+		color = mapping.endcap_color
+		if mapping.finish in finishes and color and color not in inactive and color not in colors:
+			colors.append(color)
+	options["endcap_colors"] = colors
 
 	return options
 
