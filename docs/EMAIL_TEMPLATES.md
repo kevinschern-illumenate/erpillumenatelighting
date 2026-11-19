@@ -75,7 +75,7 @@ Why a helper instead of `{{ customer_name }}` and `frappe.db.get_value(...)` in 
 |---|---|---|
 | Desk email composer | The document's fields at the top level (`{{ name }}`, `{{ po_no }}`), full safe globals | Works either way |
 | Notification with an Email Template | `doc.as_dict()` at the top level, **restricted globals** (`restrict_globals=True`) | Long `frappe.*` lookups are limited; hook Jinja methods work |
-| Request for Quotation | RFQ fields + `supplier`, `supplier_name`, `contact` (dict), `portal_link`, `user_fullname`, **restricted globals** | Same |
+| Request for Quotation | RFQ fields + `supplier`, `supplier_name`, `contact` (dict), `user_fullname`, **restricted globals**. ERPNext's `portal_link` / `update_password_link` render as nothing, and no Website User is created for suppliers (`email_templates/rfq.py`): suppliers reply to the email | Same |
 | Frappe CRM (Deal / Lead) | Top-level fields plus `doc`; only `enabled` templates for the DocType are listed | Same |
 | Helpdesk saved reply | `{**ticket, **agent_user}`: **`name`, `doctype`, `owner` are the agent's**, not the ticket's | Saved replies call the helper with the ticket's link fields, and sign with `{{ full_name }}` (the agent) |
 
