@@ -1,4 +1,4 @@
-{# Request for Quotation: set as the RFQ's Email Template. Rendered once per supplier with restricted globals; supplier_name, contact, portal_link and user_fullname come from ERPNext. #}
+{# Request for Quotation: set as the RFQ's Email Template. Rendered once per supplier with restricted globals; supplier_name, contact and user_fullname come from ERPNext. Suppliers reply by email: no portal link, no portal sign-up (email_templates/rfq.py). #}
 {% set c = ill_email_context(doctype, name) %}
 <p>Hello {% if contact is defined and contact and contact.first_name %}{{ contact.first_name }}{% elif supplier_name is defined and supplier_name %}{{ supplier_name }}{% else %}there{% endif %},</p>
 <p>We'd like your best price and lead time for the items below{% if c.rfq.required_by %}, needed by <strong>{{ c.rfq.required_by }}</strong>{% endif %}.</p>
@@ -8,6 +8,5 @@
 {% if c.rfq.reply_by %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Please reply by</td><td style="padding:4px 0"><strong>{{ c.rfq.reply_by }}</strong></td></tr>{% endif %}
 </table>
 {% if c.rfq.ship_to %}<p><strong>Ship to:</strong></p>{{ c.blocks.ship_to }}{% endif %}
-<p>Please include unit price, MOQ, lead time from order, and freight terms for each item.</p>
-{% if portal_link is defined and portal_link %}<p>{{ portal_link }}</p>{% endif %}
+<p>Please reply to this email with your quotation, including unit price, lead time from order, MOQ, and payment terms for each item, plus your freight terms. You're welcome to attach your quotation as a PDF if you prefer.</p>
 {% if user_fullname is defined and user_fullname and user_fullname != "Administrator" %}<p>Thank you,<br>{{ user_fullname }}<br>{{ c.company }}</p>{% else %}{{ c.blocks.signature }}{% endif %}

@@ -388,6 +388,8 @@ has_website_permission = {
 override_doctype_class = {
 	"File": "illumenate_lighting.illumenate_lighting.portal.private_file.PortalFile",
 	"Email Queue": "illumenate_lighting.illumenate_lighting.portal.email_queue.PortalEmailQueue",
+	# Suppliers reply to RFQ emails: no portal link, no Website User / password email.
+	"Request for Quotation": "illumenate_lighting.illumenate_lighting.email_templates.rfq.ILLRequestForQuotation",
 }
 
 # Document Events
