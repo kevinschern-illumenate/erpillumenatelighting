@@ -7376,12 +7376,6 @@
           "fieldtype": "Float"
         },
         {
-          "fieldname": "spec_sheet_dimensions",
-          "label": "Dimensions (L×W×H)",
-          "fieldtype": "Data",
-          "description": "Display value for the CSV Dimensions (L×W×H) column."
-        },
-        {
           "fieldname": "minimum_side_bend_diameter_mm",
           "label": "Minimum Side Bend Diameter (mm)",
           "fieldtype": "Float",
@@ -7533,6 +7527,12 @@
           "fieldtype": "Link",
           "options": "ilL-Webflow-Category",
           "description": "The category this template's Webflow Product is listed under."
+        },
+        {
+          "fieldname": "spec_sheet_dimensions",
+          "label": "Dimensions (L×W×H)",
+          "fieldtype": "Data",
+          "description": "The Dimensions specification on the spec sheet, exactly as typed."
         },
         {
           "fieldname": "hero_image",

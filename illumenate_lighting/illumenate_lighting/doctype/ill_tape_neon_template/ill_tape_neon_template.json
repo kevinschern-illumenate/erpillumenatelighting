@@ -24,7 +24,6 @@
   "notes",
   "spec_sheet_details_section",
   "fixture_weight_per_foot_grams",
-  "spec_sheet_dimensions",
   "minimum_side_bend_diameter_mm",
   "minimum_top_bend_diameter_mm",
   "driver_max_wattage_override",
@@ -62,6 +61,7 @@
   "max_length_mm",
   "length_increment_mm",
   "webflow_category",
+  "spec_sheet_dimensions",
   "product_data_column",
   "hero_image",
   "hero_image_alt",
@@ -207,12 +207,6 @@
    "fieldname": "fixture_weight_per_foot_grams",
    "fieldtype": "Float",
    "label": "Fixture Weight per Foot (g)"
-  },
-  {
-   "description": "Display value for the CSV Dimensions (L×W×H) column.",
-   "fieldname": "spec_sheet_dimensions",
-   "fieldtype": "Data",
-   "label": "Dimensions (L×W×H)"
   },
   {
    "description": "Smallest safe side-bend diameter for bendable/flexible products, entered in millimeters and exported as inches (mm).",
@@ -433,6 +427,12 @@
    "description": "The category this template's Webflow Product is listed under."
   },
   {
+   "fieldname": "spec_sheet_dimensions",
+   "fieldtype": "Data",
+   "label": "Dimensions (L×W×H)",
+   "description": "The Dimensions specification on the spec sheet, exactly as typed."
+  },
+  {
    "fieldname": "product_data_column",
    "fieldtype": "Column Break"
   },
@@ -627,7 +627,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-19 20:29:12.000000",
+ "modified": "2026-11-19 23:36:21.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

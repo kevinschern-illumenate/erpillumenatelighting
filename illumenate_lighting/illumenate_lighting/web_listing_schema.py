@@ -416,6 +416,16 @@ _TAPE_WEBFLOW_CATEGORY = {
 	"description": "The category this template's Webflow Product is listed under.",
 }
 
+# The Dimensions specification on Tape/Neon templates, typed as it shows on the spec sheet. Moved
+# from Spec Sheet Details to Product Data, under the Webflow Category (owner, 2026-11-19; the old
+# CSV export no longer needs it). Same fieldname and type, so saved values stay.
+_TAPE_SPEC_SHEET_DIMENSIONS = {
+	"fieldname": "spec_sheet_dimensions",
+	"fieldtype": "Data",
+	"label": "Dimensions (L\u00d7W\u00d7H)",
+	"description": "The Dimensions specification on the spec sheet, exactly as typed.",
+}
+
 # Photometric fields a template may hold; exports read them from the template.
 PHOTOMETRIC_FIELDS = ("photometric_image", "tm30_chart_image", "polar_chart_image", "photometric_data")
 
@@ -438,6 +448,7 @@ TEMPLATE_PARTS = {
 		"category": True,
 		"output_options": True,
 		"dimensions_title": True,
+		"spec_sheet_dimensions": True,
 	},
 	"ilL-Controller-Template": {},
 	"ilL-Driver-Template": {},
@@ -470,6 +481,7 @@ def _tab_fields(doctype):
 		*(_LENGTHS if parts.get("lengths") else []),
 		*([WEIGHT_FIELD] if weight else []),
 		*([_TAPE_WEBFLOW_CATEGORY] if parts.get("category") else []),
+		*([_TAPE_SPEC_SHEET_DIMENSIONS] if parts.get("spec_sheet_dimensions") else []),
 	]
 	right = [
 		_HERO_IMAGE,
