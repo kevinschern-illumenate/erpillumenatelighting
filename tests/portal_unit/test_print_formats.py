@@ -595,6 +595,45 @@ class LineLayout(unittest.TestCase):
 		self.assert_order(packing, "Theater", ">T1<", "LED Tape - 2700K", "Hang left")
 		self.assert_order(receipt, "Bar", ">B2<", "LED Tape - 2700K", "Dim to warm")
 
+	def test_purchase_order_shows_supplier_part_number_and_description(self):
+		FRAPPE.get_meta.return_value = Doc(has_field=lambda field: True)
+		FRAPPE.get_all.side_effect = lambda doctype, filters=None, fields=None: (
+			[
+				Doc(
+					parent="CH-RA01-BK",
+					supplier_part_no="ALP260",
+					custom_supplier_description="2M Aluminum Profile\n\nAnodized",
+				)
+			]
+			if doctype == "Item Supplier"
+			else []
+		)
+		try:
+			html = render(
+				"ill_purchase_order",
+				sales_doc(
+					doctype="Purchase Order",
+					supplier="Linea Lighting",
+					items=[
+						line(
+							item_code="CH-RA01-BK", item_name="Rainier [SF]-Profile-BK", ill_section_label=""
+						),
+						line(
+							name="r2", item_code="EC-RA01", item_name="Rainier Endcap", ill_section_label=""
+						),
+					],
+				),
+			)
+		finally:
+			FRAPPE.get_all.side_effect = None
+			FRAPPE.get_all.return_value = []
+		self.assertIn(">Supplier part no.<", html)
+		self.assert_order(
+			html, "ALP260", "2M Aluminum Profile\nAnodized", "Our part CH-RA01-BK", "Rainier [SF]-Profile-BK"
+		)
+		# A line with no supplier data falls back to our item name, with a dash for the part number.
+		self.assert_order(html, "Rainier [SF]-Profile-BK", "&mdash;", "Rainier Endcap", "Our part EC-RA01")
+
 	def test_vendor_documents_group_by_section_without_customer_fixture_types(self):
 		html = render(
 			"ill_purchase_order",
