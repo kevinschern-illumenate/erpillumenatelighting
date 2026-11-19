@@ -2601,24 +2601,18 @@ class TemplateCalculator:
 # ---------------------------------------------------------------- hand-set Tape/Neon steps
 
 
-# LED Neon step order (owner, 2026-11-19). Series is step 0 (the locked series step, not a row).
-NEON_STEPS = {"IP Rating": 1, "CCT": 2, "Output Level": 3, "Finish": 4, "Length": 5}
+# LED Neon step order (owner, 2026-11-19): Series is step 0 (the locked series step, not a row);
+# the other steps follow the template's Allowed Options. Feed Direction takes four steps.
 LOOKUP_STEP_FROM = 98
-NEON_FEED_STEPS = {
-	"Start Feed Direction": 6,
-	"Start Feed Length": 7,
-	"End Feed Direction": 8,
-	"End Feed Length": 9,
-}
+NEON_FEED_LABELS = ("Start Feed Direction", "Start Feed Length", "End Feed Direction", "End Feed Length")
 
 
 def refresh_hand_set_tape_neon(template):
 	"""Refresh a hand-set Tape/Neon template's steps (``_refresh_hand_set_values``).
 
-	LED Neon templates (owner, 2026-11-19) also get fixed step numbers: Series 0, IP Rating 1,
-	CCT 2, Output Level 3, Finish 4, Length 5, Start Feed Direction 6, Start Feed Length 7, End
-	Feed Direction 8 and End Feed Length 9 (``neon_step_order``). Returns True when it did that,
-	so the steps are not renumbered by row order afterwards.
+	LED Neon templates also get their step numbers from the Allowed Options order
+	(``neon_step_order``). Returns True when it did that, so the steps are not renumbered by row
+	order afterwards.
 	"""
 	if template.doctype != TAPE or product_type_for(template) not in TAPE_NEON_TYPES:
 		return False
@@ -2631,32 +2625,65 @@ def refresh_hand_set_tape_neon(template):
 	return True
 
 
+def neon_step_types(template):
+	"""Pure: the step order of an LED Neon template, as configurator keys.
+
+	The active Allowed Options' option types in table order, each once (owner, 2026-11-19).
+	Feed Direction is four steps (Start Feed Direction, Start Feed Length, End Feed Direction,
+	End Feed Length, keyed by label); Length, which is not an allowed option, comes just before
+	them, or last when there are none. Returns [("type", option type) | ("label", label)].
+	"""
+	types = []
+	for row in template.get("allowed_options") or []:
+		option_type = row.get("option_type")
+		if row.get("is_active") and option_type and option_type not in types:
+			types.append(option_type)
+	keys = []
+	for option_type in types:
+		if option_type == "Length":
+			continue
+		if option_type == "Feed Direction":
+			keys.append(("type", "Length"))
+			keys.extend(("label", label) for label in NEON_FEED_LABELS)
+		else:
+			keys.append(("type", option_type))
+	if ("type", "Length") not in keys:
+		keys.append(("type", "Length"))
+	return keys
+
+
 def neon_step_order(template):
-	"""Give an LED Neon template's steps their fixed numbers, in step order.
+	"""Number an LED Neon template's steps 1, 2, ... in ``neon_step_types`` order, skipping types
+	with no step.
 
 	The four feed steps are added when the template has an active Feed Direction option and the
-	row is missing. Steps of other option types follow them (10, 11, ... in row order; steps 98
-	and up keep their numbers). "Depends
-	on step" and the template's Feed Lengths follow a renumbered step.
+	row is missing. Other steps follow them in row order; steps 98 and up keep their numbers.
+	"Depends on step" and the template's Feed Lengths follow a renumbered step.
 	"""
-	has_feed = any(
-		row.get("is_active") and row.get("option_type") == "Feed Direction"
-		for row in template.get("allowed_options") or []
-	)
-	if has_feed:
+	keys = neon_step_types(template)
+	if ("label", NEON_FEED_LABELS[0]) in keys:
 		labels = {row.get("option_label") for row in template.get(CONFIGURATOR_FIELD) or []}
-		for label, step in NEON_FEED_STEPS.items():
+		for label in NEON_FEED_LABELS:
 			if label not in labels:
 				template.append(
 					CONFIGURATOR_FIELD,
 					{
 						"option_type": "Feed Direction",
 						"option_label": label,
-						"option_step": step,
+						"option_step": 99,
 						"allowed_values_json": "[]",
 					},
 				)
 	rows = list(template.get(CONFIGURATOR_FIELD) or [])
+
+	def key_of(row):
+		label = row.get("option_label")
+		return ("label", label) if label in NEON_FEED_LABELS else ("type", row.get("option_type"))
+
+	# Only option types with a step are numbered (Power Feed Type has none), so there are no gaps.
+	present = {key_of(row) for row in rows}
+	keys = [key for key in keys if key in present]
+	steps = {key: number for number, key in enumerate(keys, 1)}
 
 	def old_step(row):
 		value = row.get("option_step")
@@ -2666,15 +2693,11 @@ def neon_step_order(template):
 	for row in rows:
 		counts[old_step(row)] = counts.get(old_step(row), 0) + 1
 	moved = {}
-	next_other = max(NEON_FEED_STEPS.values()) + 1
+	next_other = len(keys) + 1
 	for row in rows:
-		step = NEON_FEED_STEPS.get(row.get("option_label"))
-		if step is None and row.get("option_label") not in NEON_FEED_STEPS:
-			step = NEON_STEPS.get(row.get("option_type"))
+		step = steps.get(key_of(row))
 		old = old_step(row)
 		if step is None:
-			# Another option type: after the fixed steps, in row order; lookup steps (98 and up)
-			# keep their numbers.
 			if old is not None and old >= LOOKUP_STEP_FROM:
 				continue
 			step = next_other

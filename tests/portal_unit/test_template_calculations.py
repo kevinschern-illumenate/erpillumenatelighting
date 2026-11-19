@@ -182,9 +182,11 @@ class HandSetTapeNeon(unittest.TestCase):
 				)
 				self.assertEqual(product_lookups(frappe.calls), [])
 
-	def test_led_neon_steps_have_fixed_numbers(self):
-		# Owner, 2026-11-19: Series 0, IP Rating 1, CCT 2, Output Level 3, Finish 4, Length 5,
-		# feed steps 6-9; other steps after them. Feed lengths follow their step.
+	def test_led_neon_steps_follow_the_allowed_options(self):
+		# Owner, 2026-11-19: Series is 0; the steps follow the Allowed Options order, each type
+		# once (the neon case lists Environment Rating, CCT, Output Level, Power Feed Type,
+		# Mounting Method, Finish, Feed Direction, IP Rating). Power Feed Type has no step;
+		# Length comes before the four feed steps; other steps after. Feed lengths follow.
 		with site():
 			calculations = load(CALCULATIONS)
 			template = scenarios()["neon"]
@@ -196,22 +198,41 @@ class HandSetTapeNeon(unittest.TestCase):
 			self.assertEqual(
 				steps,
 				[
-					(1, "IP Rating"),
+					(1, "Environment"),
 					(2, "CCT"),
 					(3, "Output Level"),
-					(4, "Finish"),
-					(5, "Length"),
-					(6, "Start Feed Direction"),
-					(7, "Start Feed Length"),
-					(8, "End Feed Direction"),
-					(9, "End Feed Length"),
-					(10, "Environment"),
-					(11, "Keep"),
-					(99, "Mounting Method"),
+					(4, "Mounting Method"),
+					(5, "Finish"),
+					(6, "Length"),
+					(7, "Start Feed Direction"),
+					(8, "Start Feed Length"),
+					(9, "End Feed Direction"),
+					(10, "End Feed Length"),
+					(11, "IP Rating"),
+					(12, "Keep"),
 				],
 			)
-			# Start Feed Length moved from 6 to 7; its feed lengths follow.
-			self.assertEqual(plain(template["feed_lengths"])[0]["step"], 7)
+			# Start Feed Length moved from 6 to 8; its feed lengths follow.
+			self.assertEqual(plain(template["feed_lengths"])[0]["step"], 8)
+
+	def test_neon_step_types_count_each_type_once(self):
+		with site():
+			calculations = load(CALCULATIONS)
+			template = Doc(
+				"ilL-Tape-Neon-Template",
+				"N",
+				allowed_options=rows(
+					{"option_type": "IP Rating", "is_active": 1},
+					{"option_type": "CCT", "is_active": 1},
+					{"option_type": "CCT", "is_active": 1},
+					{"option_type": "Finish", "is_active": 0},
+					{"option_type": "Output Level", "is_active": 1},
+				),
+			)
+			self.assertEqual(
+				calculations.neon_step_types(template),
+				[("type", "IP Rating"), ("type", "CCT"), ("type", "Output Level"), ("type", "Length")],
+			)
 
 	def refresh(self, template):
 		images = types.ModuleType(ROOT + ".template_images")
