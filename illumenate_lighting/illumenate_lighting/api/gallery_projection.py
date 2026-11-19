@@ -9,23 +9,39 @@ Takes plain dicts only: the gallery as `doc.as_dict()` and the product Webflow r
 import datetime
 import re
 from html import escape
+from urllib.parse import quote, urlsplit, urlunsplit
 
 SCHEMA_VERSION = 1
 
 
-def absolute_url(path: str, base_url: str) -> str:
-	"""Public paths under the brand's site become absolute; https URLs pass through.
+def _encode_path(path: str) -> str:
+	"""Percent-encode a URL path so Webflow can fetch it (spaces, `#`, `?`, non-ASCII file names).
 
-	A bare relative path (`files/a.jpg`) gets a leading slash first. `http://` and `//host` forms are left
-	unchanged: readiness already blocks them, so they never reach Webflow.
+	Idempotent: `/` separators and existing `%XX` escapes are kept, so encoding twice changes nothing. A `%`
+	that is not part of an escape (a file named `100% cotton.png`) becomes `%25`.
+	"""
+	return quote(re.sub(r"%(?![0-9A-Fa-f]{2})", "%25", path), safe="/%")
+
+
+def absolute_url(path: str, base_url: str) -> str:
+	"""Public paths under the brand's site become absolute and percent-encoded; https URLs are encoded too.
+
+	An ERP file URL is the raw file name (`/files/Lilium Static White_Hero.png`), and Webflow rejects a
+	URL with spaces in it ("Invalid file url") when it imports the image on publish. A bare relative path
+	(`files/a.jpg`) gets a leading slash first and is encoded as a whole, so a `#` or `?` in a file name is
+	part of the name. An absolute https URL is a real URL: only its path is encoded. `http://` and `//host`
+	forms are left unchanged: readiness already blocks them, so they never reach Webflow.
 	"""
 	path = (path or "").strip()
 	lowered = path.lower()
-	if not path or lowered.startswith(("https://", "http://", "//")):
+	if not path or lowered.startswith(("http://", "//")):
 		return path
+	if lowered.startswith("https://"):
+		parts = urlsplit(path)
+		return urlunsplit((parts.scheme, parts.netloc, _encode_path(parts.path), parts.query, parts.fragment))
 	if not path.startswith("/"):
 		path = "/" + path
-	return base_url.rstrip("/") + path
+	return base_url.rstrip("/") + _encode_path(path)
 
 
 def _text(value) -> str:
