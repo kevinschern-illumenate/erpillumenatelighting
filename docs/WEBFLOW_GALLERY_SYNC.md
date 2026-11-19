@@ -338,12 +338,21 @@ why. If n8n is down when a job is requested it also stays Queued; approving agai
 | Production | `app.illumenate.lighting` (brand `illumenate`) | gallery workflow, production deployment | main site (`695c1f9a18a639365b6a31a7`; Galleries collection ID to be recorded) |
 
 Promotion steps, only after staging2 is verified:
-1. Merge to `main` through the normal PR flow, migrate the production ERP.
-2. Create the Galleries collection and `erp-sync-id` on the main site; paste the Designer pieces.
-3. Point the production `illumenate` brand at the main site and add its Galleries collection; import the
-   workflow as inactive (see the variables note in section 7); bind production credentials.
-4. Re-run the import against production, approve one gallery, execute manually, verify, then enable the schedule.
-5. Manual (Rei): hide the "Custom" option in the All Products section on the site, once the Series sync has
+1. Merge `staging` to `main` through the normal PR flow (check what else the PR carries: `staging` is usually
+   ahead of `main` by more than the gallery work), migrate the production ERP.
+2. Create the Galleries collection and `erp-sync-id` on the main site (same field slugs as staging2; the schema
+   can be copied through the Webflow API); paste the Designer pieces and rebind. Check links and redirects for
+   `/projects`.
+3. Production ERP: point the `illumenate` brand at the main site, add its Galleries collection row and set its
+   Webflow Site URL; add `n8n_gallery_webhook_url` (the production webhook URL) to site config, next to the
+   existing n8n secret settings; stage the real products.
+4. n8n: import `n8n_workflows/webflow_gallery_sync_production.json` (inactive; built with
+   `https://app.illumenate.lighting`, brand `illumenate` and webhook path `ill-gallery-sync`, see section 7),
+   bind the production Header Auth credential to the webhook and the production ERP and Webflow credentials to
+   the HTTP nodes, then activate it.
+5. Re-run the import against production (dry run first), approve one gallery, verify on the main site, then
+   the rest.
+6. Manual (Rei): hide the "Custom" option in the All Products section on the site, once the Series sync has
    created it.
 
 ## 9a. Importing the existing galleries (Claude's call)
@@ -506,3 +515,15 @@ Still open: nothing.
   path). A gallery that is only staged has no public page, so the button says to use Publish Live first. The
   brand's Webflow Site URL must be the site the gallery was published to (for the staging2 site, its webflow.io
   address, not the production domain).
+- 2026-11-19: Completion dates are sent to Webflow as midnight **Pacific Time** (07:00Z in daylight time, 08:00Z
+  otherwise) instead of midnight UTC, so a site shown in Pacific Time reads the same day as ERP.
+- 2026-11-19: The workflow looks a gallery up by slug (`?slug=`), not by scanning the first 100 items, so the size
+  of the Galleries collection no longer matters. If Webflow ever ignored the filter on a collection over 100 items
+  the job still stops as `lookup-incomplete`, never creating a duplicate. A consequence: an item whose slug was
+  changed by hand in Webflow is no longer found by its `erp-sync-id` (ERP locks the slug once staged, and
+  galleries are not edited in Webflow).
+- 2026-11-19: A new publication request supersedes a failed job that is still waiting to retry, so an old STAGE
+  retry can no longer run after a later Publish and set a live gallery back to Staged.
+- 2026-11-19: `tools/build_gallery_workflow.py` takes `--erp-base-url`, `--brand`, `--webhook-path`, `--name` and
+  `--out` to build the ERP address and brand in (n8n variables are not available on the plan); the production
+  copy is `n8n_workflows/webflow_gallery_sync_production.json`.
