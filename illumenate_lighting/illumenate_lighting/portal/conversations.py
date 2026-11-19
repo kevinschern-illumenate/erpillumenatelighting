@@ -6,6 +6,7 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import fingerprint
+from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
 
 MESSAGE = "ilL-Portal-Message"
 COMMERCIAL = ("ilL-Quote-Request", "ilL-Order-Intake", "ilL-Order-Change")
@@ -321,14 +322,14 @@ def _notify(doc, message, staff):
 		subject = frappe._("New reply on {0} {1} from {2}").format(
 			label, doc.name, staff_notifications.who(doc)
 		)
-	path = "drawings" if doc.doctype == "ilL-Document-Request" else "support"
+	route = "drawing" if doc.doctype == "ilL-Document-Request" else "support"
 	link_name = doc.name
 	if doc.doctype == "ilL-Quote-Request":
-		path, link_name = "quote-requests", doc.name
+		route = "quote_request"
 	elif doc.doctype == "ilL-Product-Verification-Request":
-		path, link_name = "product-verification", doc.name
+		route = "product_verification"
 	elif doc.doctype in ("ilL-Order-Intake", "ilL-Order-Change"):
-		path, link_name = "orders", doc.sales_order
+		route, link_name = "order", doc.sales_order
 	from illumenate_lighting.illumenate_lighting.email_templates import brand
 
 	body = brand.portal_email(
@@ -336,13 +337,13 @@ def _notify(doc, message, staff):
 		paragraphs=[frappe._("There's a new message on {0} <strong>{1}</strong>.").format(
 			frappe.utils.escape_html(label), frappe.utils.escape_html(doc.name)
 		)],
-		action=(frappe._("Read the reply"), frappe.utils.get_url(f"/portal/{path}/{link_name}")),
+		action=(frappe._("Read the reply"), frappe.utils.get_url(portal_path(route, link_name))),
 	)
 	for recipient in recipients:
 		if recipient and recipient != frappe.session.user:
 			notify_user(
 				recipient,
-				"notify_drawings" if path == "drawings" else "notify_orders",
+				"notify_drawings" if route == "drawing" else "notify_orders",
 				subject,
 				body,
 				reference_doctype=MESSAGE,

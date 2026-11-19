@@ -610,6 +610,40 @@ class ContextBuilders(unittest.TestCase):
 			self.assertEqual(c["pay_link"], "")
 			self.assertEqual(c["invoice"]["days_overdue"], 0)
 
+	def test_order_portal_links_encode_names_with_spaces_and_slashes(self):
+		"""Customer names with spaces or "/" end up in Sales Order names; the link must stay one segment."""
+		name = "ilL-SAL-ORD-Backcountry Electric / LINX Audio Visual-00001"
+		encoded = "/portal/orders/ilL-SAL-ORD-Backcountry%20Electric%20%2F%20LINX%20Audio%20Visual-00001"
+		tracker = types.SimpleNamespace(tracking=lambda doc: {"carrier": None, "number": None, "url": None})
+		with self.load() as (module, frappe):
+			frappe.get_all.return_value = []
+			frappe.db.get_value.return_value = 0
+			order = FakeDoc("Sales Order", name, docstatus=1, per_delivered=0)
+			c = module.skeleton()
+			c["docstatus"] = 1
+			c["is_dealer"] = True
+			with (
+				patch.object(module, "pdf_url", return_value=""),
+				patch.object(module, "_schedule_rows", return_value=[]),
+				patch.object(module, "_payment_due", return_value={}),
+				patch.object(module, "_order_shipments", return_value=[]),
+				patch.object(module, "_order_invoices", return_value=[]),
+				patch.object(module, "_pay_instructions", return_value=""),
+			):
+				module._sales_order(c, order, samples.settings())
+			self.assertEqual(c["portal_url"], "https://portal.test" + encoded)
+
+			note = FakeDoc("Delivery Note", "DN-1", items=[Record(against_sales_order=name)])
+			c = module.skeleton()
+			c["is_dealer"] = True
+			with (
+				patch.dict("sys.modules", {ROOT + ".portal.shipment_tracking": tracker}),
+				patch.object(module, "pdf_url", return_value=""),
+			):
+				module._delivery_note(c, note, samples.settings())
+			self.assertEqual(c["portal_url"], "https://portal.test" + encoded)
+			self.assertNotIn(" ", c["portal_url"])
+
 	def test_every_builder_key_exists_in_the_skeleton(self):
 		"""A builder that writes a key the skeleton lacks would break templates on other documents."""
 		source = open(
