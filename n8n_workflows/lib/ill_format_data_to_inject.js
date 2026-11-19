@@ -333,7 +333,8 @@ const mappingScript = `<script>
 
                       const values = currentValues.filter(v => v && (v.code || v.label || v.value));
                       if (values.length === 0) return;
-                      const firstCode = String(values[0].code || values[0].value || '');
+                      // A blank code (a feed length's "Endcap"; owner, 2026-11-19) adds nothing.
+                      const firstCode = values[0].code === '' ? '' : String(values[0].code || values[0].value || '');
 
                       // LED Neon stores the directions as Start/End Feed Direction (owner, 2026-11-19).
                       const isFeed = ['Feed Direction', 'Start Feed Direction', 'End Feed Direction'].includes(opt.option_type) && feedDirTemplate;
