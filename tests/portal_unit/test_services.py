@@ -38,6 +38,8 @@ def load_service(relative, extras=None):
 	frappe.cache().get_value.return_value = None
 	frappe._ = lambda value: value
 	frappe.throw = throwing
+	# Frappe raises it (a ValidationError) when deleting a document that others link to.
+	frappe.LinkExistsError = type("LinkExistsError", (ValueError,), {})
 	frappe.PermissionError = PermissionError
 	frappe.ValidationError = ValueError
 	frappe.DoesNotExistError = LookupError
