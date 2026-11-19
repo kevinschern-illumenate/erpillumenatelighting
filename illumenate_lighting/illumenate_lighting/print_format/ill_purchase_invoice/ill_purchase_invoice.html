@@ -1,0 +1,78 @@
+{#
+  ilL Purchase Invoice: a vendor bill voucher for review and approval, matched to its
+  purchase orders and receipts, with what has been paid.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, totals, notes, signatures, money, date, line_group, section_total, line_type, line_notes, qty with context -%}
+{%- set sums = ill_print_totals(doc) -%}
+{%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
+{%- set labelled = sections | selectattr("label") | list | length -%}
+{%- set row = namespace(n=0) -%}
+{%- set orders = ill_print_references(doc, "purchase_order") -%}
+{%- set receipts = ill_print_references(doc, "purchase_receipt") -%}
+{%- set outstanding = doc.outstanding_amount or 0 -%}
+{%- set overdue = doc.docstatus == 1 and outstanding > 0 and doc.due_date and frappe.utils.date_diff(frappe.utils.today(), doc.due_date) > 0 -%}
+{%- if doc.docstatus == 0 -%}{%- set status, tone = "Draft", "" -%}
+{%- elif doc.docstatus == 2 -%}{%- set status, tone = "Cancelled", "alert" -%}
+{%- elif doc.is_return -%}{%- set status, tone = "Debit note", "" -%}
+{%- elif outstanding <= 0 -%}{%- set status, tone = "Paid", "ok" -%}
+{%- elif overdue -%}{%- set status, tone = "Overdue", "alert" -%}
+{%- else -%}{%- set status, tone = "Unpaid", "" -%}{%- endif -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Debit Note" if doc.is_return else "Vendor Bill", doc.name, status, tone=tone,
+		subtitle=("Vendor invoice " ~ doc.bill_no if doc.bill_no else None)) }}
+
+	{{ facts([
+		("Vendor invoice no.", (doc.bill_no or "")),
+		("Vendor invoice date", date(doc.bill_date)),
+		("Posted", date(doc.posting_date)),
+		("Due date", date(doc.due_date)),
+		("Purchase order", orders | join(", ")),
+		("Receipt", receipts | join(", ")),
+		("Payment terms", (doc.payment_terms_template or "")),
+		("Project", (doc.project or "")),
+	]) }}
+
+	{{ parties([
+		("Vendor", doc.supplier_name or doc.supplier, ill_print_address(doc.address_display, doc.supplier_address) + [doc.contact_email]),
+	]) }}
+
+	{%- set items_head -%}
+	<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 16%;">Order / receipt</th>
+				<th class="ill-num" style="width: 10%;">Qty</th>
+				<th class="ill-num" style="width: 11%;">Unit price</th>
+				<th class="ill-num" style="width: 12%;">Amount</th>
+			</tr>
+		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
+		{%- for section in sections -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- call line_group(entry, 6, items_head) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
+				<td>{{ line_type(entry) }}<div class="ill-line-name">{{ (item.item_name or item.item_code) | e }}</div><div class="ill-code ill-mono">{{ item.item_code | e }}</div>{% if item.expense_account %}<div class="ill-specs">{{ item.expense_account | e }}</div>{% endif %}{{ line_notes(entry) }}</td>
+				<td>{{ (item.purchase_order or "") | e }}{% if item.purchase_receipt %}<div class="ill-specs">{{ item.purchase_receipt | e }}</div>{% endif %}</td>
+				<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
+				<td class="ill-num">{{ money(item.rate) }}</td>
+				<td class="ill-num">{{ money(item.amount) }}</td>
+			{%- endcall -%}
+			{%- endfor -%}
+			{%- if section.label and labelled > 1 %}{{ section_total(section.label, 6, section.subtotal) }}{% endif -%}
+		{%- endfor -%}
+	</table>
+
+	{{ totals(sums.rows, ("Total", sums.grand),
+		after=([("Paid", -(sums.grand - outstanding) if sums.grand - outstanding > 0.005 else none), ("Balance due", outstanding)] if doc.docstatus == 1 and not doc.is_return else [])) }}
+
+	{{ notes("Remarks", doc.remarks if doc.remarks and doc.remarks != "No Remarks" and not doc.remarks.startswith("Against Supplier Invoice") else "") }}
+
+	{{ signatures(["Matched to PO and receipt", "Approved for payment", "Date"]) }}
+</div>
