@@ -77,7 +77,7 @@ class LineKeys(unittest.TestCase):
 		self.schedule.save.assert_not_called()
 		self.remember.assert_not_called()
 		# Plan 3.12: who saved it and when, next to the old keys.
-		self.assertEqual(result["error_code"], "validation_error")
+		self.assertEqual(result["error_code"], "stale")
 		self.assertEqual(result["conflict"]["modified"], "2026-10-14 03:05:00")
 		self.assertIn("modified_by_name", result["conflict"])
 

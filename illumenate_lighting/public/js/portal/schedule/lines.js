@@ -1263,10 +1263,18 @@ function configureLedSheetFromAddModal() {
 	startConfigurationDraft('LED Sheet', template);
 }
 
+// A double click on Duplicate, Delete's confirm or Save sent the same change twice; the second
+// write then failed with Frappe's raw "has been modified" error. One line action at a time.
+var lineActionPending = false;
+
 function duplicateLine(line_idx) {
+	if (lineActionPending) return;
+	lineActionPending = true;
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.duplicate_schedule_line',
 		args: lineRef(line_idx),
+		freeze: true,
+		always: function() { lineActionPending = false; },
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				location.reload();
@@ -1386,9 +1394,13 @@ function saveEditLine() {
 }
 
 function submitEditLine(line_idx, line_data) {
+	if (lineActionPending) return;
+	lineActionPending = true;
 	frappe.call({
 		method: 'illumenate_lighting.illumenate_lighting.api.portal.update_schedule_line',
 		args: Object.assign(lineRef(line_idx), { line_data: line_data }),
+		freeze: true,
+		always: function() { lineActionPending = false; },
 		callback: function(r) {
 			if (r.message && r.message.success) {
 				$('#editLineModal').modal('hide');
@@ -1402,10 +1414,15 @@ function submitEditLine(line_idx, line_data) {
 }
 
 function deleteLine(line_idx) {
+	if (lineActionPending) return;
 	frappe.confirm('Are you sure you want to delete this line?', function() {
+		if (lineActionPending) return;
+		lineActionPending = true;
 		frappe.call({
 			method: 'illumenate_lighting.illumenate_lighting.api.portal.delete_schedule_line',
 			args: lineRef(line_idx),
+			freeze: true,
+			always: function() { lineActionPending = false; },
 			callback: function(r) {
 				if (r.message && r.message.success) {
 					if (window.ScheduleUndo) ScheduleUndo.offer(r.message.undo);
