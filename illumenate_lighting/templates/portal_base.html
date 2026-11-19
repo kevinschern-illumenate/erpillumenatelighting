@@ -19,6 +19,11 @@ in public/css/pages/.
 {% endblock %}
 
 {% block page_content %}
+{#- Frappe swaps every csrf_token placeholder for <script>frappe.csrf_token = "...";</script>
+after rendering (and after the page cache), but its own sits after the page scripts, just
+before </body>. Pages that call the server while loading (the new-project contacts list)
+would otherwise POST without the token and get 400 "Invalid Request". This one sets it first. -#}
+<!-- csrf_token -->
 <div class="ill-page {% block portal_scope %}{% endblock %}">
 {% block portal_navigation %}{% include "templates/includes/portal_navigation.html" %}{% endblock %}
 <main id="portal-main" class="{% block portal_shell_class %}container{% endblock %} ill-portal-shell {% block portal_page_class %}portal-page{% endblock %}" {% block portal_main_attrs %}{% endblock %}>

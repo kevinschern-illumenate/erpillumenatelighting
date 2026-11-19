@@ -66,6 +66,16 @@ class OneLayout(unittest.TestCase):
 		self.assertIn('{{ _("ilLumenate Portal") }}', base)
 		self.assertIn('<main id="portal-main"', base)
 
+	def test_csrf_token_is_set_before_page_scripts(self):
+		# Frappe fills <!-- csrf_token --> only at the end of <body>, after the page's own
+		# scripts, so a call made while the page loads went out with no token and Frappe
+		# answered 400 "Invalid Request" (new project: get_contacts_for_project).
+		base = (REPO / "illumenate_lighting/templates/portal_base.html").read_text()
+		content = base.index("{% block page_content %}")
+		placeholder = base.find("<!-- csrf_token -->", content)
+		self.assertGreater(placeholder, content)
+		self.assertLess(placeholder, base.index('<div class="ill-page', content))
+
 	def test_every_section_can_be_current(self):
 		nav = (REPO / "illumenate_lighting/templates/includes/portal_navigation.html").read_text()
 		for href in (
