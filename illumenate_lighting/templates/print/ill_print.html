@@ -1,0 +1,421 @@
+{#
+  ilLumenate print design template: the stylesheet and macros every ilL print format uses.
+
+  Import at the top of a print format, with context so the macros can read `doc`:
+      {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, line_group, section_total, totals, terms, notes, signatures, line_type, line_power, line_notes, connected_load, qty with context -%}
+
+  Design (docs/PRINT_FORMATS.md): ilLumenate Design System type (Manrope headings, Poppins
+  body) and colours (navy #172E48, blue #00588C, gold #FDC757), kept light on ink: no
+  filled panels or table headers, hairline rules, colour only on a thin accent bar and
+  small labels. Tables only: wkhtmltopdf's WebKit has no flexbox, grid or CSS variables.
+
+  Frappe's Jinja sandbox exposes only whitelisted helpers under frappe.utils; lookups go
+  through the ill_print_* jinja methods (illumenate_lighting/printing.py). Never assign to `_`.
+#}
+
+{%- macro styles() -%}
+<style>
+	{%- for family, weight, url in ill_print_fonts() %}
+	@font-face { font-family: "{{ family | e }}"; font-weight: {{ weight | int }}; src: url("{{ url | e }}") format("truetype"); }
+	{%- endfor %}
+
+	/*
+	  Scale: Frappe's wkhtmltopdf prints about 0.94pt per CSS px (margins 15mm, no smart
+	  shrinking), so sizes here are close to point sizes. Spacing runs on a 4px rhythm.
+	  Frappe's print stylesheet sets th { background: #eee !important; border-bottom: 0
+	  !important } and td/th padding; the .print-format-scoped rules below win over it.
+	*/
+	/* 1px inset: right-aligned figures and tag borders never sit exactly on the page's clip edge. */
+	.ill-doc { font-family: "ilL Poppins", "Poppins", Helvetica, Arial, sans-serif; font-size: 8.5px; line-height: 1.4; color: #231f20; padding: 0 1px; }
+	.ill-doc * { box-sizing: border-box; }
+	.ill-doc table { width: 100%; border-collapse: collapse; border-spacing: 0; margin: 0; }
+	.ill-doc td, .ill-doc th { padding: 0; vertical-align: top; border: none; background: none; }
+	.print-format .ill-doc th, .ill-doc th { background: none !important; background-color: transparent !important; }
+	.ill-doc p { margin: 0 0 4px 0; }
+	.ill-doc b, .ill-doc strong { font-weight: 600; }
+	.ill-doc .ill-h { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; color: #172e48; }
+	.ill-doc .ill-muted { color: #5d6d7f; }
+	.ill-doc .ill-right { text-align: right; }
+	.ill-doc .ill-center { text-align: center; }
+	.ill-doc .ill-nowrap { white-space: nowrap; }
+	.ill-doc .ill-strong { font-weight: 600; }
+	.ill-doc .ill-mono { font-size: 7.5px; letter-spacing: 0.2px; color: #5d6d7f; }
+	.ill-doc .ill-block { margin-bottom: 16px; }
+	.ill-doc tr, .ill-doc .ill-keep { page-break-inside: avoid; }
+	.ill-doc thead { display: table-header-group; }
+
+	/* Header: logo and company on the left; title, number and status on the right. */
+	.ill-doc .ill-head td { vertical-align: top; }
+	.ill-doc .ill-head .ill-right { padding-top: 10px; }
+	.ill-doc .ill-logo { height: 50px; width: auto; display: block; margin-bottom: 8px; }
+	.ill-doc .ill-company { font-size: 7.5px; color: #5d6d7f; line-height: 1.5; }
+	.ill-doc .ill-title { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: #172e48; line-height: 1; margin: 0; }
+	.ill-doc .ill-number { font-size: 9px; font-weight: 500; color: #231f20; margin-top: 6px; }
+	.ill-doc .ill-subtitle { font-size: 7.5px; color: #5d6d7f; margin-top: 2px; }
+	.ill-doc .ill-tag { display: inline-block; border: 0.75px solid #5d6d7f; border-radius: 8px; padding: 1px 7px; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-size: 6.5px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #5d6d7f; margin-top: 6px; }
+	.ill-doc .ill-tag-alert { border-color: #a8261c; color: #a8261c; }
+	.ill-doc .ill-tag-ok { border-color: #00588c; color: #00588c; }
+	.ill-doc .ill-rule { border-top: 1px solid #172e48; margin: 12px 0 16px 0; height: 0; }
+	.ill-doc .ill-rule span { display: block; width: 48px; border-top: 2px solid #fdc757; margin-top: -1.5px; }
+
+	/* Labels: small caps, muted. */
+	.ill-doc .ill-label { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-bottom: 2px; }
+	.ill-doc .ill-value { font-size: 8.5px; color: #231f20; }
+
+	/* Fact strip: up to four columns. */
+	.ill-doc .ill-facts td { padding: 0 12px 8px 0; }
+	.ill-doc .ill-facts td:last-child { padding-right: 0; }
+
+	/* Party blocks (Bill to / Ship to / Attention) under one full-width hairline. */
+	.ill-doc .ill-parties { border-top: 0.75px solid #d1d6db; }
+	.ill-doc .ill-parties td { padding: 8px 12px 0 0; }
+	.ill-doc .ill-parties td:last-child { padding-right: 0; }
+	.ill-doc .ill-party-name { font-weight: 600; color: #172e48; }
+
+	/* Line items. */
+	.ill-doc .ill-items { table-layout: fixed; }
+	.print-format .ill-doc .ill-items th, .ill-doc .ill-items th { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 6.5px; letter-spacing: 0.9px; text-transform: uppercase; color: #172e48; text-align: left; padding: 0 6px 5px 6px; border-bottom: 1px solid #172e48 !important; }
+	.ill-doc .ill-items td { padding: 5px 6px; border-bottom: 0.5px solid #d1d6db; word-wrap: break-word; }
+	.print-format .ill-doc .ill-items th:first-child, .ill-doc .ill-items th:first-child, .ill-doc .ill-items td:first-child { padding-left: 0; }
+	.print-format .ill-doc .ill-items th:last-child, .ill-doc .ill-items th:last-child, .ill-doc .ill-items td:last-child { padding-right: 0; }
+	.ill-doc .ill-items th.ill-num, .ill-doc .ill-items .ill-num { text-align: right; }
+	.ill-doc .ill-items th, .ill-doc .ill-items td.ill-date { white-space: nowrap; }
+	.ill-doc .ill-items th.ill-center { text-align: center; }
+	.ill-doc .ill-items .ill-idx { color: #a2abb6; width: 22px; font-size: 7.5px; }
+	.ill-doc .ill-items td.ill-idx { padding-top: 6px; }
+
+	/* A line group: section header, fixture type row, the line, its notes; kept on one page. */
+	.ill-doc .ill-line { page-break-inside: avoid; }
+	.ill-doc .ill-page-break { page-break-after: always; height: 0; margin: 0; padding: 0; border: none; }
+	.ill-doc .ill-section td { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 7.5px; letter-spacing: 1px; text-transform: uppercase; color: #172e48; padding: 14px 0 4px 0; border-bottom: 0.75px solid #a2abb6; }
+	.ill-doc .ill-type-line { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 8px; line-height: 12px; height: 12px; margin-bottom: 1px; color: #172e48; white-space: nowrap; overflow: hidden; }
+	.ill-doc .ill-type-label { font-size: 6px; letter-spacing: 0.9px; text-transform: uppercase; color: #5d6d7f; margin-right: 5px; }
+	.ill-doc .ill-items .ill-has-type > td { padding-top: 18px; }
+	.ill-doc .ill-items .ill-has-type > td.ill-idx { padding-top: 19px; }
+	.ill-doc .ill-items .ill-has-type > td:nth-child(2) { padding-top: 5px; }
+	.ill-doc .ill-section-total td { font-size: 8px; color: #5d6d7f; padding: 5px 6px 2px 6px; border-bottom: none; }
+	.ill-doc .ill-section-total td.ill-num { color: #231f20; font-weight: 600; padding-right: 0; }
+	.ill-doc .ill-line-name { font-weight: 500; color: #231f20; }
+	.ill-doc .ill-code { font-size: 7.5px; letter-spacing: 0.2px; color: #5d6d7f; margin-top: 1px; }
+	.ill-doc .ill-specs { color: #5d6d7f; font-size: 7.5px; margin-top: 2px; line-height: 1.45; }
+	.ill-doc .ill-specs b { font-weight: 500; color: #231f20; }
+	.ill-doc .ill-spec { white-space: nowrap; }
+	.ill-doc .ill-dot { color: #a2abb6; padding: 0 2px; }
+	.ill-doc .ill-power { margin-top: 2px; }
+	.ill-doc .ill-power .ill-type-label { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; }
+	.ill-doc .ill-line-note { color: #5d6d7f; font-size: 7.5px; font-style: italic; margin-top: 3px; white-space: pre-line; }
+	.ill-doc .ill-none { color: #a2abb6; }
+	.ill-doc .ill-our-code { color: #00588c; font-weight: 500; }
+	.ill-doc .ill-vendor-part { font-weight: 500; color: #172e48; word-break: break-all; }
+	.ill-doc .ill-unit { font-size: 7px; color: #5d6d7f; white-space: nowrap; }
+	.ill-doc .ill-check { display: inline-block; width: 10px; height: 10px; border: 0.75px solid #5d6d7f; border-radius: 1px; }
+	.ill-doc .ill-writein { display: inline-block; min-width: 48px; border-bottom: 0.75px solid #5d6d7f; height: 12px; }
+
+	/* Totals: right-hand column; the total on a navy rule. */
+	.ill-doc .ill-totals td { padding: 2px 0; font-size: 8.5px; }
+	.ill-doc .ill-totals .ill-total-label { color: #5d6d7f; padding-right: 16px; text-align: right; }
+	.ill-doc .ill-totals .ill-total-value { text-align: right; white-space: nowrap; width: 96px; }
+	.ill-doc .ill-totals .ill-grand td { border-top: 1px solid #172e48; padding-top: 6px; font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
+	.ill-doc .ill-totals .ill-grand + tr td { padding-top: 4px; }
+	.ill-doc .ill-aside { font-size: 8px; color: #5d6d7f; line-height: 1.5; }
+	.ill-doc .ill-aside .ill-label { margin-top: 8px; }
+	.ill-doc .ill-aside .ill-label:first-child { margin-top: 0; }
+	.ill-doc .ill-words { font-size: 7.5px; color: #5d6d7f; margin-top: 4px; text-align: right; }
+
+	/* Boxes for notes, instructions and payment details: outline only. */
+	.ill-doc .ill-box { border: 0.75px solid #d1d6db; border-radius: 3px; padding: 8px 10px; font-size: 8.5px; }
+	.ill-doc .ill-box-alert { border-color: #a8261c; }
+	.ill-doc .ill-pre { white-space: pre-line; }
+
+	/* Terms: small type in two columns, kept with their title. */
+	.ill-doc .ill-terms-block { page-break-inside: avoid; }
+	.ill-doc .ill-terms { font-size: 7px; line-height: 1.45; color: #3a4047; }
+	.ill-doc .ill-terms h4, .ill-doc .ill-terms strong, .ill-doc .ill-terms b { font-size: 7px; font-weight: 600; color: #172e48; margin: 0; }
+	.ill-doc .ill-terms p, .print-format .ill-doc .ill-terms p { margin: 0 0 4px 0; }
+	.ill-doc .ill-terms ul, .ill-doc .ill-terms ol { margin: 0 0 4px 0; padding-left: 12px; }
+	.ill-doc .ill-terms-title { margin-bottom: 6px; }
+
+	/* Signature lines. */
+	.ill-doc .ill-sign td { padding: 28px 16px 0 0; }
+	.ill-doc .ill-sign td:last-child { padding-right: 0; }
+	.ill-doc .ill-sign-line { border-top: 0.75px solid #5d6d7f; padding-top: 3px; font-size: 7px; color: #5d6d7f; }
+	.ill-doc .ill-intro { font-size: 8px; color: #5d6d7f; }
+
+	/* Small pieces shared by several formats. */
+	.ill-doc .ill-sum { text-align: right; font-size: 9px; }
+	.ill-doc .ill-sum .ill-label { display: inline; margin-right: 8px; }
+	.ill-doc .ill-tag-inline { margin-top: 3px; }
+	.ill-doc .ill-pay-link { margin-top: 4px; }
+	.ill-doc .ill-build-name { font-family: "ilL Manrope", "Manrope", Helvetica, Arial, sans-serif; font-weight: 700; font-size: 11px; color: #172e48; }
+	.ill-doc .ill-steps { font-size: 8px; line-height: 1.5; color: #3a4047; }
+
+	.ill-doc .ill-closing { margin-top: 16px; padding-top: 6px; border-top: 0.5px solid #d1d6db; font-size: 7px; color: #5d6d7f; text-align: center; }
+</style>
+{%- endmacro -%}
+
+{#-- Header: logo and company contact on the left, title / number / status on the right. --#}
+{%- macro header(title, number=None, status=None, subtitle=None, tone="") -%}
+{%- set company = ill_print_company(doc) -%}
+<table class="ill-head">
+	<tr>
+		<td style="width: 55%;">
+			<img class="ill-logo" src="/files/ilLumenate%20Logo_DW_Black_Main.png" alt="ilLumenate Lighting">
+			<div class="ill-company">
+				{%- if company.address %}{{ company.address | join(", ") | e }}<br>{% endif -%}
+				{{ company.phone | e }}{% if company.email %} &nbsp;&middot;&nbsp; {{ company.email | e }}{% endif %}{% if company.website %} &nbsp;&middot;&nbsp; {{ company.website | e }}{% endif %}
+			</div>
+		</td>
+		<td style="width: 45%;" class="ill-right">
+			<div class="ill-title">{{ title | e }}</div>
+			{%- if number %}<div class="ill-number">{{ number | e }}</div>{% endif -%}
+			{%- if subtitle %}<div class="ill-subtitle">{{ subtitle | e }}</div>{% endif -%}
+			{%- if status %}<div><span class="ill-tag{% if tone %} ill-tag-{{ tone | e }}{% endif %}">{{ status | e }}</span></div>{% endif -%}
+		</td>
+	</tr>
+</table>
+<div class="ill-rule"><span></span></div>
+{%- endmacro -%}
+
+{#-- The document's status label, or "" for the everyday state the title already implies. --#}
+{%- macro status_of(quiet=()) -%}
+{%- if doc.docstatus == 0 -%}Draft{%- elif doc.docstatus == 2 -%}Cancelled{%- elif doc.status and doc.status not in quiet -%}{{ doc.status | e }}{%- endif -%}
+{%- endmacro -%}
+
+{#-- Fact strip. `rows` is a list of (label, value) pairs; empty values are skipped. --#}
+{%- macro facts(rows, columns=4) -%}
+{%- set kept = rows | selectattr("1") | list -%}
+{%- if kept -%}
+<table class="ill-facts ill-block">
+	{%- for chunk in kept | batch(columns, ["", ""]) -%}
+	<tr>
+		{%- for label, value in chunk -%}
+		<td style="width: {{ (100 / columns) | round(2) }}%;">{% if label %}<div class="ill-label">{{ label | e }}</div><div class="ill-value">{{ value | e }}</div>{% endif %}</td>
+		{%- endfor -%}
+	</tr>
+	{%- endfor -%}
+</table>
+{%- endif -%}
+{%- endmacro -%}
+
+{#-- Party blocks. `blocks` is a list of (title, name, lines); a block with no name and no lines is skipped. --#}
+{%- macro parties(blocks) -%}
+{%- set found = namespace(blocks=[]) -%}
+{%- for block in blocks -%}{%- if block[1] or (block[2] | select | list) -%}{%- set found.blocks = found.blocks + [block] -%}{%- endif -%}{%- endfor -%}
+{%- set kept = found.blocks -%}
+{%- if kept -%}
+<table class="ill-parties ill-block">
+	<tr>
+		{%- for title, name, lines in kept -%}
+		<td style="width: {{ (100 / ([kept | length, 3] | max)) | round(2) }}%;">
+			<div class="ill-label">{{ title | e }}</div>
+			{%- if name %}<div class="ill-party-name">{{ name | e }}</div>{% endif -%}
+			{%- for text in lines if text %}<div>{{ ill_print_phone(text) | e }}</div>{% endfor -%}
+		</td>
+		{%- endfor -%}
+		{%- for i in range(3 - kept | length) %}<td style="width: 33.33%;"></td>{% endfor -%}
+	</tr>
+</table>
+{%- endif -%}
+{%- endmacro -%}
+
+{#-- The description cell of a line: fixture type tag, name, part number, specs and notes. --#}
+{%- macro line(item, show_code=True, show_specs=True, code=None) -%}
+{%- set info = ill_print_specs(item) if show_specs else {"part_number": "", "specs": [], "notes": []} -%}
+{%- set shown_code = code or info.part_number or item.item_code -%}
+<div class="ill-line-name">{{ (item.item_name or item.item_code or "") | e }}</div>
+{%- if show_code and shown_code and shown_code != item.item_name %}<div class="ill-code ill-mono">{{ shown_code | e }}</div>{% endif -%}
+{%- if info.specs -%}
+<div class="ill-specs">
+	{%- for label, value in info.specs -%}{% if not loop.first %} <span class="ill-dot">&middot;</span> {% endif %}<span class="ill-spec">{{ label | e }} <b>{{ value | e }}</b></span>{%- endfor -%}
+</div>
+{%- endif -%}
+{%- for text in info.notes %}<div class="ill-specs">{{ text | e }}</div>{% endfor -%}
+{%- endmacro -%}
+
+{#--
+  One line of an items table, the layout every ilL format shares:
+    KITCHEN                                   <- section / room header row (first line of a
+                                                 section, and again after a page break)
+    1  FIXTURE TYPE  A1                       <- line_type(entry), when there is a type
+       Item name, part no., specs   qty  ...  <- the line's cells (the call block)
+       Additional notes                       <- line_notes(entry), when there are notes
+  The type and notes sit inside the description cell, so the whole line is a single table
+  row: wkhtmltopdf keeps a row together across a page break but not a group of rows. The
+  other cells are padded down to line up with the item name.
+  `entry` is a line from ill_print_sections ({"item", "type", "notes", "header",
+  "page_break"}). When the line's Page Break box is checked the table closes, a new page
+  starts and the table reopens with `head` (the format's <thead>), as ERPNext's own
+  formats do; the section header then repeats as "<room> (continued)".
+--#}
+{%- macro line_group(entry, colspan, head) -%}
+<tbody class="ill-line">
+	{%- if entry.header %}<tr class="ill-section"><td colspan="{{ colspan | int }}">{{ entry.header | e }}</td></tr>{% endif -%}
+	<tr class="ill-line-row{% if entry.type %} ill-has-type{% endif %}">{{ caller() }}</tr>
+</tbody>
+{%- if entry.page_break %}</table><div class="page-break ill-page-break"></div><table class="ill-items ill-block">{{ head }}{% endif -%}
+{%- endmacro -%}
+
+{#-- The fixture type above a line's name, and its additional notes below, in the description cell. --#}
+{%- macro line_type(entry) -%}
+{%- if entry.type %}<div class="ill-type-line"><span class="ill-type-label">Fixture type</span>{{ entry.type | e }}</div>{% endif -%}
+{%- endmacro -%}
+{#--
+  Spec and load of a catalog LED tape / neon / sheet line, between the line and its notes:
+  "SPEC 24VDC · 2.74 W/ft · Max run 16.4 ft · Length 72.00 ft · Load 197.3 W". The text is
+  stamped on Quotation and Sales Order rows by api/line_power.py; other rows have none.
+--#}
+{%- macro line_power(item) -%}
+{%- if item.get("ill_lp_summary") %}<div class="ill-specs ill-power"><span class="ill-type-label">Spec</span>{{ item.ill_lp_summary | e }}</div>{% endif -%}
+{%- endmacro -%}
+{#-- Total load of those lines, for the aside beside the totals; alternative lines are left out. --#}
+{%- macro connected_load() -%}
+{%- set load = namespace(watts=0, any=false) -%}
+{%- for item in doc.items or [] -%}
+{%- if item.get("ill_lp_watts") and not item.get("is_alternative") -%}
+{%- set load.watts = load.watts + item.ill_lp_watts -%}
+{%- set load.any = true -%}
+{%- endif -%}
+{%- endfor -%}
+{%- if load.any %}<div class="ill-label">Connected load (tape / neon / sheet)</div><div>{{ "%.1f" | format(load.watts) | e }} W</div>{% endif -%}
+{%- endmacro -%}
+{%- macro line_notes(entry) -%}
+{%- if entry.notes %}<div class="ill-line-note">{{ entry.notes | e }}</div>{% endif -%}
+{%- endmacro -%}
+
+{#-- A section's subtotal row, shown when the document has more than one section. --#}
+{%- macro section_total(label, colspan, amount) -%}
+<tbody class="ill-keep"><tr class="ill-section-total"><td colspan="{{ (colspan - 1) | int }}" class="ill-right">{{ label | e }} subtotal</td><td class="ill-num">{{ money(amount) }}</td></tr></tbody>
+{%- endmacro -%}
+
+{#--
+  Totals on the right. `rows` and `after` are (label, amount) pairs from ill_print_totals or
+  built by hand; numbers are formatted as money, zero/empty rows are skipped. `left` is
+  HTML shown beside the totals (savings, payment schedule).
+--#}
+{%- macro totals(rows, grand, after=(), words=None, left=None) -%}
+<table class="ill-block ill-keep">
+	<tr>
+		<td style="width: 52%; padding-right: 24px;"><div class="ill-aside">{{ left or "" }}</div></td>
+		<td style="width: 48%;">
+			<table class="ill-totals">
+				{%- for label, value in rows if value %}<tr><td class="ill-total-label">{{ label | e }}</td><td class="ill-total-value">{{ (value if value is string else money(value)) | e }}</td></tr>{% endfor -%}
+				<tr class="ill-grand"><td class="ill-total-label">{{ grand[0] | e }}</td><td class="ill-total-value">{{ (grand[1] if grand[1] is string else money(grand[1])) | e }}</td></tr>
+				{%- for label, value in after if value is not none %}<tr class="ill-after"><td class="ill-total-label">{{ label | e }}</td><td class="ill-total-value">{{ (value if value is string else money(value)) | e }}</td></tr>{% endfor -%}
+			</table>
+			{%- if words %}<div class="ill-words">{{ words | e }}</div>{% endif -%}
+		</td>
+	</tr>
+</table>
+{%- endmacro -%}
+
+{#-- A titled outline box of plain text (instructions, notes). --#}
+{%- macro notes(title, text, alert=False) -%}
+{%- if text and (text | striptags | trim) -%}
+<div class="ill-box ill-block ill-keep{% if alert %} ill-box-alert{% endif %}">
+	<div class="ill-label">{{ title | e }}</div>
+	<div class="ill-pre">{{ text | striptags | trim | e }}</div>
+</div>
+{%- endif -%}
+{%- endmacro -%}
+
+{#-- Terms and conditions: the document's own, else the default ilL record for `kind`. --#}
+{%- macro terms(kind="sales", title="Terms and Conditions") -%}
+{%- set columns = ill_print_terms_columns(doc, kind) -%}
+{%- if columns[0] -%}
+<div class="ill-block ill-terms-block">
+	<div class="ill-label ill-terms-title">{{ title | e }}</div>
+	<table>
+		<tr>
+			<td class="ill-terms" style="width: 50%; padding-right: 10px;">{{ columns[0] }}</td>
+			<td class="ill-terms" style="width: 50%; padding-left: 10px;">{{ columns[1] }}</td>
+		</tr>
+	</table>
+</div>
+{%- endif -%}
+{%- endmacro -%}
+
+{#-- Signature lines, e.g. ["Accepted by", "Printed name", "Date", "PO number"]. --#}
+{%- macro signatures(labels, title=None, intro=None) -%}
+<div class="ill-block ill-keep">
+	{%- if title %}<div class="ill-label">{{ title | e }}</div>{% endif -%}
+	{%- if intro %}<div class="ill-intro">{{ intro | e }}</div>{% endif -%}
+	<table class="ill-sign">
+		<tr>
+			{%- for label in labels %}<td style="width: {{ (100 / labels | length) | round(2) }}%;"><div class="ill-sign-line">{{ label | e }}</div></td>{% endfor -%}
+		</tr>
+	</table>
+</div>
+{%- endmacro -%}
+
+{#-- Closing line: questions go to whoever prepared the document, else the company. --#}
+{%- macro closing(text=None) -%}
+{%- set company = ill_print_company(doc) -%}
+<div class="ill-closing">{{ (text or ("Questions? Contact " ~ company.name ~ " at " ~ company.phone ~ " or " ~ company.email ~ ".")) | e }}</div>
+{%- endmacro -%}
+
+{#-- Money in the document's currency, dates in the site's format. --#}
+{%- macro money(value, currency=None) -%}{{ frappe.utils.fmt_money(value or 0, currency=currency or doc.currency) | replace("$ ", "$") | e }}{%- endmacro -%}
+{#-- A quantity with its unit: "20 ea" inline, a long unit ("6.56ft Piece") on a muted line below. --#}
+{%- macro qty(value, uom=None) -%}
+{%- set q = ill_print_qty_parts(value, uom) -%}
+{%- if q.inline -%}{{ (q.number ~ (" " ~ q.unit if q.unit else "")) | e }}{%- else -%}{{ q.number | e }}<div class="ill-unit">{{ q.unit | e }}</div>{%- endif -%}
+{%- endmacro -%}
+{%- macro date(value) -%}{% if value %}{{ frappe.utils.format_date(value) | e }}{% endif %}{%- endmacro -%}
+
+{#--
+  Priced line table for quotes, orders and invoices, grouped by section (room / area).
+  mode "dealer": list price, discount and net price when any line is discounted, else one
+  unit price column. mode "msrp": suggested retail (list) prices only.
+--#}
+{%- macro priced_items(mode="dealer") -%}
+{%- set pricing = ill_print_pricing(doc.items) -%}
+{%- set sections = ill_print_sections(doc.items) -%}
+{%- set discounted = mode == "dealer" -%}
+{%- set cols = 7 if discounted else 5 -%}
+{%- set labelled = sections | selectattr("label") | list | length -%}
+{%- set row = namespace(n=0) -%}
+{%- set items_head -%}
+<thead>
+		<tr>
+			<th class="ill-idx">#</th>
+			<th>Item</th>
+			<th class="ill-num" style="width: 8%;">Qty</th>
+			{%- if discounted %}
+			<th class="ill-num" style="width: 9%;">List</th>
+			<th class="ill-num" style="width: 6%;">Disc</th>
+			<th class="ill-num" style="width: 9%;">Net</th>
+			{%- else %}
+			<th class="ill-num" style="width: 11%;">{% if mode == "msrp" %}Unit MSRP{% else %}Unit Price{% endif %}</th>
+			{%- endif %}
+			<th class="ill-num" style="width: 11%;">Amount</th>
+		</tr>
+	</thead>
+{%- endset -%}
+<table class="ill-items ill-block">
+	{{ items_head }}
+	{%- for section in sections -%}
+		{%- for entry in section.lines -%}
+		{%- set item = entry["item"] -%}
+		{%- set row.n = row.n + 1 -%}
+		{%- set unit = ill_print_msrp(item) if mode == "msrp" else item.rate -%}
+		{%- call line_group(entry, cols, items_head) -%}
+			<td class="ill-idx">{{ row.n | int }}</td>
+			<td>{{ line_type(entry) }}{{ line(item) }}{{ line_power(item) }}{{ line_notes(entry) }}</td>
+			<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
+			{%- if discounted %}
+			{%- set disc = ill_print_discount(item) -%}
+			<td class="ill-num">{{ money(item.price_list_rate if disc else item.rate) }}</td>
+			<td class="ill-num">{% if disc %}{{ "%g" | format(disc) | e }}%{% else %}<span class="ill-none">&mdash;</span>{% endif %}</td>
+			<td class="ill-num">{{ money(item.rate) }}</td>
+			{%- else %}
+			<td class="ill-num">{{ money(unit) }}</td>
+			{%- endif %}
+			<td class="ill-num">{{ money(unit * (item.qty or 0) if mode == "msrp" else item.amount) }}</td>
+		{%- endcall -%}
+		{%- endfor -%}
+		{%- if section.label and labelled > 1 -%}
+		{{ section_total(section.label, cols, section.list_subtotal if mode == "msrp" else section.subtotal) }}
+		{%- endif -%}
+	{%- endfor -%}
+</table>
+{%- endmacro -%}

@@ -1,0 +1,126 @@
+{#
+  ilL Work Order Traveler: travels with the build on the shop floor. What to build, for
+  which order and fixture type, the cut list from the configured record, the materials to
+  pull, a QC checklist and sign-offs. Internal; no prices.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date, qty with context -%}
+{%- set build = ill_print_build(doc) -%}
+{%- set order_line = ill_print_order_line(doc.sales_order_item) -%}
+{%- set project = ill_print_project({"items": [{"sales_order": doc.sales_order}], "project": doc.project}) if doc.sales_order else ill_print_project(doc) -%}
+{%- set customer = frappe.db.get_value("Sales Order", doc.sales_order, "customer_name") if doc.sales_order else "" -%}
+{%- set specs = ill_print_specs({"description": doc.description, "item_name": doc.item_name, "item_code": doc.production_item}, max_specs=10) -%}
+{%- set status = "Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else (doc.status or "") -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Work Order Traveler", doc.name, status, tone=("ok" if status == "Completed" else "alert" if status in ("Stopped", "Cancelled") else ""),
+		subtitle=("Build " ~ ill_print_qty(doc.qty, doc.stock_uom))) }}
+
+	{{ facts([
+		("Sales order", (doc.sales_order or "")),
+		("Customer", (customer or "")),
+		("Fixture type", (order_line.ill_fixture_type or "")),
+		("Location", (order_line.ill_section_label or "")),
+		("Project", project.project),
+		("Fixture schedule", project.schedule),
+		("Planned start", date(doc.planned_start_date)),
+		("Ship by", date(doc.expected_delivery_date)),
+		("Build points", ("%g" | format(doc.ill_build_points)) if doc.ill_build_points else ""),
+		("BOM", (doc.bom_no or "")),
+		("Finished goods to", ill_print_warehouse(doc.fg_warehouse)),
+	]) }}
+
+	<div class="ill-block">
+		<div class="ill-label">Build</div>
+		<div class="ill-build-name">{{ (doc.item_name or doc.production_item) | e }}</div>
+		<div class="ill-code ill-mono">{{ (specs.part_number or doc.production_item) | e }}</div>
+		{%- if order_line.additional_notes %}<div class="ill-line-note">Order note: {{ order_line.additional_notes | e }}</div>{% endif -%}
+	</div>
+
+	{%- set details = build.facts or specs.specs -%}
+	{%- if details -%}
+	<table class="ill-facts ill-block">
+		{%- for chunk in details | batch(4, ["", ""]) -%}
+		<tr>{% for label, value in chunk %}<td>{% if label %}<div class="ill-label">{{ label | e }}</div><div class="ill-value">{{ value | e }}</div>{% endif %}</td>{% endfor %}</tr>
+		{%- endfor -%}
+	</table>
+	{%- endif -%}
+
+	{%- if build.cuts.rows -%}
+	<div class="ill-label">Cut list</div>
+	<table class="ill-items ill-block">
+		<thead><tr><th class="ill-idx">Seg</th>{% for column in build.cuts.columns %}<th{% if column != "Notes" %} class="ill-num"{% endif %}>{{ column }}</th>{% endfor %}<th class="ill-center" style="width: 7%;">Done</th></tr></thead>
+		<tbody>
+		{%- for cut in build.cuts.rows -%}
+			<tr>{% for value in cut %}<td{% if loop.first %} class="ill-idx"{% elif not loop.last %} class="ill-num"{% endif %}>{{ value | e }}</td>{% endfor %}<td class="ill-center"><span class="ill-check"></span></td></tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+	{%- endif -%}
+
+	{%- if build.runs -%}
+	<div class="ill-label">Run plan</div>
+	<table class="ill-items ill-block">
+		<thead><tr><th class="ill-idx">Run</th><th class="ill-num">Run length</th><th class="ill-num">Watts</th><th class="ill-num">Leader</th><th class="ill-center" style="width: 7%;">Done</th></tr></thead>
+		<tbody>
+		{%- for run in build.runs -%}
+			<tr>{% for value in run %}<td{% if loop.first %} class="ill-idx"{% else %} class="ill-num"{% endif %}>{{ value | e }}</td>{% endfor %}<td class="ill-center"><span class="ill-check"></span></td></tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+	{%- endif -%}
+
+	{%- if build.steps -%}
+	<div class="ill-block ill-keep">
+		<div class="ill-label">Build description</div>
+		<div class="ill-steps">{% for step in build.steps %}{% if not loop.first %} &nbsp;&middot;&nbsp; {% endif %}{{ step | e }}{% endfor %}</div>
+	</div>
+	{%- endif -%}
+
+	<div class="ill-label">Materials</div>
+	<table class="ill-items ill-block">
+		<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 16%;">From</th>
+				<th class="ill-num" style="width: 11%;">Required</th>
+				<th class="ill-num" style="width: 11%;">Issued</th>
+				<th class="ill-center" style="width: 7%;">Pulled</th>
+			</tr>
+		</thead>
+		<tbody>
+		{%- for item in doc.required_items or [] -%}
+			<tr>
+				<td class="ill-idx">{{ loop.index }}</td>
+				<td>{{ line(item, show_specs=False) }}</td>
+				<td>{{ ill_print_warehouse(item.source_warehouse) | e }}</td>
+				<td class="ill-num">{{ qty(item.required_qty, item.stock_uom) }}</td>
+				<td class="ill-num">{% if item.transferred_qty or item.consumed_qty %}{{ qty(item.transferred_qty or item.consumed_qty, item.stock_uom) }}{% endif %}</td>
+				<td class="ill-center"><span class="ill-check"></span></td>
+			</tr>
+		{%- endfor -%}
+		</tbody>
+	</table>
+
+	<div class="ill-block ill-keep">
+		<div class="ill-label">Quality check</div>
+		<table class="ill-items">
+			<thead><tr><th>Check</th><th class="ill-center" style="width: 8%;">Pass</th><th class="ill-center" style="width: 8%;">Fail</th><th style="width: 12%;">Initials</th></tr></thead>
+			<tbody>
+			{%- for check in [
+				"Built length and cut lengths match the cut list",
+				"Correct LED tape / CCT / output; colour consistent across runs",
+				"Lens seated, endcaps secure, no scratches or debris",
+				"Leader and jumper lengths, feed direction and wire polarity correct",
+				"Powered at rated voltage: all segments light, dimming / colour channels work",
+				"Label applied with part number and order; packed with mounting hardware",
+			] -%}
+				<tr><td>{{ check }}</td><td class="ill-center"><span class="ill-check"></span></td><td class="ill-center"><span class="ill-check"></span></td><td><span class="ill-writein"></span></td></tr>
+			{%- endfor -%}
+			</tbody>
+		</table>
+	</div>
+
+	{{ signatures(["Built by", "Date", "QC by", "Date"]) }}
+</div>

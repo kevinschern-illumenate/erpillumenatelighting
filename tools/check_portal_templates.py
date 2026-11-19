@@ -1300,6 +1300,30 @@ class PrintDoc(SimpleNamespace):
 		return str(getattr(self, key))
 
 
+def _printing_helpers():
+	"""The ill_print_* jinja methods (printing.py) with a stand-in frappe whose lookups find nothing."""
+	import importlib.util
+	from unittest.mock import MagicMock, patch
+
+	frappe = SimpleNamespace(
+		db=MagicMock(**{"get_value.return_value": None, "exists.return_value": False}),
+		get_all=MagicMock(return_value=[]),
+		log_error=MagicMock(),
+		defaults=SimpleNamespace(get_user_default=lambda key: "ilLumenate Lighting"),
+		utils=SimpleNamespace(get_url=lambda: "https://example.test"),
+	)
+	html_utils = SimpleNamespace(sanitize_html=lambda value: value)
+	path = ROOT / "illumenate_lighting/illumenate_lighting/printing.py"
+	spec = importlib.util.spec_from_file_location("check_printing", path)
+	module = importlib.util.module_from_spec(spec)
+	stubs = {"frappe": frappe, "frappe.utils": frappe.utils, "frappe.utils.html_utils": html_utils}
+	with patch.dict(sys.modules, stubs):
+		spec.loader.exec_module(module)
+	return {name: getattr(module, name) for name in dir(module) if name.startswith("ill_print")}
+
+
+# The ilL print formats call these jinja methods; the delivery note below renders through them.
+environment.globals.update(_printing_helpers())
 shipment = PrintDoc(
 	name="DN-QA",
 	posting_date="2026-09-25",

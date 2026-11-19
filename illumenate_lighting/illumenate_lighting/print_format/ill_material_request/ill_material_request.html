@@ -1,0 +1,66 @@
+{#
+  ilL Material Request: what is needed, for which order, where it comes from and goes to,
+  with request / approval / fulfilment sign-off. Internal; no prices.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date, line_group, section_total, line_type, line_notes, qty with context -%}
+{%- set orders = ill_print_references(doc, "sales_order") -%}
+{%- set project = ill_print_project(doc) -%}
+{%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
+{%- set labelled = sections | selectattr("label") | list | length -%}
+{%- set row = namespace(n=0) -%}
+{%- set moving = doc.material_request_type in ("Material Transfer", "Material Issue", "Manufacture") -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Material Request", doc.name,
+		"Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else (doc.status or ""),
+		subtitle=doc.material_request_type) }}
+
+	{{ facts([
+		("Requested", date(doc.transaction_date)),
+		("Required by", date(doc.schedule_date)),
+		("Requested by", ill_print_person(doc.owner)),
+		("From warehouse", ill_print_warehouse(doc.set_from_warehouse)),
+		("To warehouse", ill_print_warehouse(doc.set_warehouse)),
+		("Sales order", orders | join(", ")),
+		("Project", project.project),
+	]) }}
+
+	{%- set items_head -%}
+	<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 18%;">{% if moving %}From &rarr; to{% else %}Deliver to{% endif %}</th>
+				<th style="width: 11%;">Required by</th>
+				<th class="ill-num" style="width: 10%;">Qty</th>
+				<th class="ill-num" style="width: 9%;">In stock</th>
+				<th class="ill-num" style="width: 10%;">Done</th>
+			</tr>
+		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
+		{%- for section in sections -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- call line_group(entry, 7, items_head) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
+				<td>{{ line_type(entry) }}
+					{{ line(item) }}
+					{%- if item.sales_order %}<div class="ill-specs">For {{ item.sales_order | e }}</div>{% endif -%}
+					{%- if item.bom_no %}<div class="ill-specs">BOM <span class="ill-mono">{{ item.bom_no | e }}</span></div>{% endif -%}
+				{{ line_notes(entry) }}</td>
+				<td>{% if moving and item.from_warehouse %}{{ ill_print_warehouse(item.from_warehouse) | e }} &rarr; {% endif %}{{ ill_print_warehouse(item.warehouse) | e }}</td>
+				<td class="ill-date">{{ date(item.schedule_date) }}</td>
+				<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
+				<td class="ill-num">{% if item.actual_qty is not none %}{{ ill_print_qty(item.actual_qty) | e }}{% endif %}</td>
+				<td class="ill-num">{% if item.ordered_qty %}{{ qty(item.ordered_qty, item.uom) }}{% else %}<span class="ill-writein"></span>{% endif %}</td>
+			{%- endcall -%}
+			{%- endfor -%}
+		{%- endfor -%}
+	</table>
+
+	{{ signatures(["Requested by", "Approved by", "Fulfilled by", "Date"]) }}
+</div>

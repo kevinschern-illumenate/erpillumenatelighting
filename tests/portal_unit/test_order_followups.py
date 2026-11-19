@@ -5,7 +5,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from jinja2.sandbox import SandboxedEnvironment
 from test_services import ROOT, Record, load_service
 
 
@@ -82,52 +81,17 @@ class DeleteWithdrawnDraft(unittest.TestCase):
 
 class PackingSlip(unittest.TestCase):
 	def test_packing_slip_renders_without_shadowing_translation(self):
+		from test_print_formats import Doc, render
+
 		source = PACKING_SLIP.read_text()
 		self.assertNotRegex(source, r"set\s+_\s*=")
-
-		class Doc:
-			def __init__(self, **values):
-				self.__dict__.update(values)
-
-			def __getattr__(self, key):
-				return None
-
-			def get(self, key, default=None):
-				return self.__dict__.get(key, default)
-
-			def get_formatted(self, key):
-				return str(self.get(key))
-
 		items = [
-			Doc(
-				idx=1,
-				item_code="A",
-				item_name="Alpha",
-				qty=2,
-				uom="Nos",
-				against_sales_order="SO1",
-				ill_section_label="Lobby",
-			),
+			Doc(idx=1, item_code="A", item_name="Alpha", qty=2, uom="Nos", against_sales_order="SO1",
+				ill_section_label="Lobby"),
 			Doc(idx=2, item_code="B", item_name="Beta", qty=1, uom="Nos", against_sales_order="SO1"),
 		]
-		doc = Doc(
-			name="DN1",
-			items=items,
-			customer_name="Buyer",
-			posting_date="2026-10-01",
-			vehicle_no="1Z",
-			total_qty=3,
-		)
-		html = (
-			SandboxedEnvironment()
-			.from_string(source)
-			.render(
-				doc=doc,
-				frappe=Doc(utils=Doc(format_date=str)),
-				_=lambda text: text,
-				ill_sanitize_html=lambda text: text,
-			)
-		)
+		doc = Doc(name="DN1", items=items, customer_name="Buyer", posting_date="2026-10-01", vehicle_no="1Z", total_qty=3)
+		html = render("ill_delivery_note", doc)
 		self.assertIn("Packing Slip", html)
 		self.assertIn("1Z", html)
 		self.assertIn("SO1", html)

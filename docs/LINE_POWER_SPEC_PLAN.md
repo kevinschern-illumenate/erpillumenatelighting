@@ -15,8 +15,15 @@ tape / neon / sheet row (1,023 rows on Quotations and Sales Orders):
 - **No per-request spec cache.** One save resolves once in 3 queries; a cache only added
   stale-state risk.
 - `preview` returns `{"rows": {key: values}, "total_watts": float}`.
-- The PDF **Connected Load (Tape / Neon / Sheet)** total (decision D3) is included in
-  both print formats, under Total Quantity, and only shows when a row has a load.
+- **Print, after the shared ilL print template landed (PR #434):** the spec line and the
+  total live in `templates/print/ill_print.html`, not in each format. `line_power(item)`
+  prints a muted "Spec" line inside the line's description cell, after its specs and
+  before its notes, so it stays on the same table row and page as its line. It is called
+  from `priced_items`, so it shows on every quote and order format (dealer and MSRP) and
+  stays empty on Sales Invoices, which have no `ill_lp_*` fields. `connected_load()` puts
+  the **Connected load (tape / neon / sheet)** total (decision D3) in the aside beside the
+  totals on ilL Quotation, ilL Sales Order and both MSRP formats, leaving out alternative
+  rows, and only when a row has a load. §4.5 below is the original plan for the old formats.
 - The dealer portal (§4.9) is **not** done; it stays optional.
 - `add_line_power_fields` also runs from `install.py` `after_install`, because a fresh
   install marks every listed patch as done without running it.

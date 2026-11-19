@@ -1,0 +1,39 @@
+{#
+  ilL Sales Order - MSRP: an order summary at suggested retail prices, for a dealer to
+  hand to their client. No dealer pricing, discounts, freight, tax or billing details.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, connected_load, terms, closing, money, date with context -%}
+{%- set project = ill_print_project(doc) -%}
+{%- set pricing = ill_print_pricing(doc.items) -%}
+{%- set status = status_of(quiet=("To Deliver and Bill", "To Deliver", "To Bill", "Completed", "Closed")) | trim -%}
+{%- set separate_ship = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Order Summary", doc.name, status, subtitle="Suggested retail pricing", tone=("alert" if status in ("On Hold", "Cancelled") else "")) }}
+
+	{{ facts([
+		("Order date", date(doc.transaction_date)),
+		("Estimated ship date", date(doc.ill_confirmed_delivery_date or doc.ill_estimated_ship_date)),
+		("Project", project.project),
+		("Fixture schedule", project.schedule),
+	]) }}
+
+	{{ parties([
+		("Your ilLumenate dealer", doc.customer_name, [doc.contact_display, doc.contact_email, doc.contact_mobile or doc.contact_phone]),
+		("Project site", "", ill_print_address(doc.shipping_address, doc.shipping_address_name) if separate_ship else []),
+	]) }}
+
+	{{ priced_items("msrp") }}
+
+	{%- set left -%}
+	{{ connected_load() }}
+	<div class="ill-label">About these prices</div>
+	<div class="ill-muted">Manufacturer's suggested retail prices in {{ doc.currency or "USD" }}. Your dealer sets final pricing and bills freight, sales tax and installation separately.</div>
+	{%- endset -%}
+	{{ totals([], ("Total (MSRP)", pricing.list_total), left=left) }}
+
+	{{ terms("retail", title="Good to know") }}
+
+	{{ closing("Questions about this order? Contact " ~ (doc.customer_name or "your ilLumenate dealer") ~ (" (" ~ doc.contact_email ~ ")" if doc.contact_email else "") ~ ".") }}
+</div>
