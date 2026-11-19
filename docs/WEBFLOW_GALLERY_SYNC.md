@@ -474,3 +474,8 @@ Still open: nothing.
 - 2026-11-19: The gallery form has a collapsed "What the status means" section at the bottom (`status_guide`, an
   HTML field) listing the seven statuses the sidebar pill can show and what each means. Work now goes straight
   to `staging` rather than through feature branches.
+- 2026-11-19: The gallery has a read-only `publication_status` field (list view column and standard filter) so
+  galleries can be filtered by status. It holds the same seven labels as the sidebar pill. It is copied from the
+  gallery's publication records whenever one changes, and when the gallery is saved (`sync_status`). With several
+  target brands it shows the status that most needs attention: Failed, Queued, Changes not staged, Needs staging,
+  Staged, Live, Retired. A patch fills it for existing galleries.

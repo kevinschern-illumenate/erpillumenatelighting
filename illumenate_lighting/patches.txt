@@ -107,3 +107,4 @@ illumenate_lighting.patches.backfill_line_power
 illumenate_lighting.patches.rfq_reply_by_email
 illumenate_lighting.patches.add_supplier_part_line_fields
 illumenate_lighting.patches.backfill_line_power #2026-11-19 rerun after None fix
+illumenate_lighting.patches.backfill_gallery_publication_status #2026-11-19

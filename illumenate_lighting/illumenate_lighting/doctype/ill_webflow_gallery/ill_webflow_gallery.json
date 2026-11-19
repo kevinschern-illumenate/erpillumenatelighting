@@ -13,6 +13,7 @@
   "column_break_identity",
   "is_active",
   "featured",
+  "publication_status",
   "images_section",
   "gallery_images",
   "content_section",
@@ -80,6 +81,18 @@
    "fieldtype": "Check",
    "label": "Featured",
    "description": "Shows a badge and sorts first."
+  },
+  {
+   "fieldname": "publication_status",
+   "fieldtype": "Select",
+   "label": "Publication Status",
+   "options": "Needs staging\nChanges not staged\nQueued\nStaged\nLive\nFailed\nRetired",
+   "default": "Needs staging",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Set by the publication flow. See \"What the status means\" at the bottom."
   },
   {
    "fieldname": "images_section",
@@ -242,7 +255,7 @@
  "index_web_pages_for_search": 1,
  "make_attachments_public": 1,
  "links": [],
- "modified": "2026-11-19 12:00:00.000000",
+ "modified": "2026-11-19 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Gallery",
