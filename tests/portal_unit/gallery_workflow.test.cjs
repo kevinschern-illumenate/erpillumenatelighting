@@ -9,7 +9,7 @@ const { projectWebflowGallery } = require('../../n8n_workflows/lib/gallery_proje
 const COLLECTION = 'b'.repeat(24);
 const FIELD_SLUGS = ['name', 'slug', 'erp-sync-id', 'featured', 'featured-image', 'gallery', 'short-description',
     'about', 'case-study', 'project-type', 'applications', 'services-provided', 'products-used', 'series-used',
-    'product-notes', 'quote', 'quote-attribution', 'location', 'completion-date', 'videos', 'custom-items',
+    'quote', 'quote-attribution', 'location', 'completion-date', 'videos', 'custom-items',
     'credits'];
 
 function makePayload(index, overrides = {}) {
@@ -152,13 +152,12 @@ function test_projection_maps_every_field_slug() {
     assert.equal(data['project-type'], 'Hospitality');
     assert.equal(data.applications, 'Cove, Accent');
     assert.equal(data['services-provided'], 'Takeoff Drawings, Troubleshooting');
-    // Products Used stays a multi-reference: the Webflow item IDs. The table goes to Product Notes as JSON text,
-    // row by row; a series-only row has null product fields.
-    assert.deepEqual(data['products-used'], ['c'.repeat(24), 'd'.repeat(24)]);
-    assert.deepEqual(JSON.parse(data['product-notes']), [
+    // The Products Used table goes as JSON text, row by row; a series-only row has null product fields.
+    assert.deepEqual(JSON.parse(data['products-used']), [
         {product: 'kit-ra01', name: 'Rainier [SF] Extrusion Kit', slug: 'kit-ra01', series: 'Rainier', note: 'White finish', webflow_item_id: 'c'.repeat(24)},
         {product: null, name: null, slug: null, series: 'Custom', note: null, webflow_item_id: null}]);
-    assert.equal(typeof data['product-notes'], 'string');
+    assert.equal(typeof data['products-used'], 'string');
+    assert.ok(!('product-notes' in data), 'product notes now travel inside products-used');
     assert.equal(data['series-used'], 'Rainier, Custom');
     assert.equal(data.quote, 'Lovely light.');
     assert.equal(data['quote-attribution'], 'A. Owner');
@@ -169,13 +168,12 @@ function test_projection_maps_every_field_slug() {
     assert.equal(data.credits, '[{"type":"Integrator","name":"Bright Co","website":"https://bright.example"},{"type":"Photographer","name":"P. Lens","website":null}]');
     // Emptied text fields are sent as '' so clearing a value in ERP clears it in Webflow.
     const cleared = projectWebflowGallery(makePayload(1, {quote: '', case_study_html: '', videos: [], applications: [],
-        products: [], product_item_ids: [], hero_image: null, gallery_images: []}), {isDraft: true}).fieldData;
+        products: [], hero_image: null, gallery_images: []}), {isDraft: true}).fieldData;
     assert.equal(cleared.quote, '');
     assert.equal(cleared['case-study'], '');
     assert.equal(cleared.videos, '');
     assert.equal(cleared.applications, '');
-    assert.deepEqual(cleared['products-used'], [], 'no products clears the reference field');
-    assert.equal(cleared['product-notes'], '', 'no rows clears the notes field');
+    assert.equal(cleared['products-used'], '', 'no rows clears the field');
     assert.deepEqual(cleared.gallery, []);
     assert.equal(cleared['featured-image'], null);
     // completion-date is omitted (not sent) when ERP has none; an invalid date stops the projection.
@@ -203,12 +201,10 @@ function test_site_specific_field_slugs_and_products_fallback() {
     // An ERP that does not send `products` yet must not clear the field: it is left out.
     const old = makePayload(1);
     delete old.products;
-    const oldData = projectWebflowGallery(old, {isDraft: true}).fieldData;
-    assert.ok(!('product-notes' in oldData));
-    assert.deepEqual(oldData['products-used'], ['c'.repeat(24), 'd'.repeat(24)], 'the references still go');
+    assert.ok(!('products-used' in projectWebflowGallery(old, {isDraft: true}).fieldData));
     // Values are cleaned: non-strings become null, the JSON stays one line.
     const odd = projectWebflowGallery(makePayload(1, {products: [{product: 5, name: '', slug: 'x', series: 'S\nT', note: null, webflow_item_id: undefined}]}), {isDraft: true}).fieldData;
-    assert.equal(odd['product-notes'], '[{"product":null,"name":null,"slug":"x","series":"S\\nT","note":null,"webflow_item_id":null}]');
+    assert.equal(odd['products-used'], '[{"product":null,"name":null,"slug":"x","series":"S\\nT","note":null,"webflow_item_id":null}]');
 }
 
 function test_credits_are_one_json_field() {

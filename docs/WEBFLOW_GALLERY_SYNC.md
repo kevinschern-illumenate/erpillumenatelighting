@@ -557,8 +557,3 @@ Still open: nothing.
   added to Collection Kind, so a site that had the older copy skipped the change at migrate and the option was
   missing. `modified` is now bumped (and a test guards it). Any doctype file edited in a commit needs its
   `modified` moved forward.
-- 2026-11-19: **Correction to the previous products entry.** `products-used` stays a multi-reference field and is sent
-  as before (the Webflow item IDs of the products). The JSON of the Products Used table, row by row, goes to
-  **`product-notes`** instead (a plain-text field; make it multi-line, since the JSON is long). Shape unchanged:
-  `[{"product":"kit-ra01","name":"...","slug":"kit-ra01","series":"Rainier","note":"White finish","webflow_item_id":"6aeb..."}, ...]`,
-  `''` when there are no rows, left out when the ERP does not send `products` yet.
