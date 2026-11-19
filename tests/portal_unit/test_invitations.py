@@ -153,7 +153,7 @@ class AccountInvitations(unittest.TestCase):
 			)
 			self.reset.assert_called_once_with(send_email=False)
 			message = self.outbox.record_invitation.call_args.args[3]
-			self.assertIn('href="https://portal.test/update-password?key=K&x=&lt;y&gt;"', message)
+			self.assertIn('href="https://portal.test/update-password?key=K&amp;x=&lt;y&gt;"', message)
 			self.assertIn("Set your password", message)
 			self.assertTrue(result["emailed"])
 

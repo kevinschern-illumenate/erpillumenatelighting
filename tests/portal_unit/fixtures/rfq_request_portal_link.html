@@ -1,0 +1,13 @@
+{# Request for Quotation: set as the RFQ's Email Template. Rendered once per supplier with restricted globals; supplier_name, contact, portal_link and user_fullname come from ERPNext. #}
+{% set c = ill_email_context(doctype, name) %}
+<p>Hello {% if contact is defined and contact and contact.first_name %}{{ contact.first_name }}{% elif supplier_name is defined and supplier_name %}{{ supplier_name }}{% else %}there{% endif %},</p>
+<p>We'd like your best price and lead time for the items below{% if c.rfq.required_by %}, needed by <strong>{{ c.rfq.required_by }}</strong>{% endif %}.</p>
+{{ c.blocks.supplier_lines_no_prices }}
+<table style="border-collapse:collapse;margin:8px 0 16px;font-size:14px">
+{% if c.rfq.incoterm %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Incoterm</td><td style="padding:4px 0">{{ c.rfq.incoterm }}{% if c.rfq.named_place %} {{ c.rfq.named_place }}{% endif %}</td></tr>{% endif %}
+{% if c.rfq.reply_by %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Please reply by</td><td style="padding:4px 0"><strong>{{ c.rfq.reply_by }}</strong></td></tr>{% endif %}
+</table>
+{% if c.rfq.ship_to %}<p><strong>Ship to:</strong></p>{{ c.blocks.ship_to }}{% endif %}
+<p>Please include unit price, MOQ, lead time from order, and freight terms for each item.</p>
+{% if portal_link is defined and portal_link %}<p>{{ portal_link }}</p>{% endif %}
+{% if user_fullname is defined and user_fullname and user_fullname != "Administrator" %}<p>Thank you,<br>{{ user_fullname }}<br>{{ c.company }}</p>{% else %}{{ c.blocks.signature }}{% endif %}

@@ -44,6 +44,31 @@ The Manufacturing step (`#mfg`) is the warehouse "Schedule Wizard" workbook, liv
 
 **Weights, capacity, head count, overtime, holiday list and monthly goal:** Desk → ilL-Production-Settings ("Weights & capacity" button on the page).
 
+## Warehouse flow (v9)
+
+The Manufacturing step now opens on a **Flow** tab. The production board's other tabs (Schedule board, Material requests, Run rate, Monthly report, Releases, Proforma, Paint) are unchanged and sit after a "Reports" label. The tab used last is remembered per browser. Flow tells the same open orders in ERPNext documents instead of workbook codes:
+
+Sales Order → Work Order → pick materials → build → pick & ship → Delivery Note
+
+- **Data:** the app endpoint `illumenate_lighting.illumenate_lighting.api.warehouse_flow.get_flow`. It is read-only and returns no money, so every viewer sees the same thing. Readers: Command Center Viewer, Manufacturing User/Manager, Stock User/Manager or System Manager.
+- **Flow strip:** the document chain with a count at each step (open sales orders, orders with every build line covered, work orders ready to pick, in production, orders to pick & ship, delivery notes in the last 7 days). Each tile jumps to its section.
+- **Your list:** one row per step that has something in it, most urgent first, with the ERPNext move that clears it: orders needing work orders, draft work orders to submit, work orders ready to pick, waiting for parts, in production, orders to pick & ship, draft delivery notes, holds, and clean-up. Rows filter the orders table or highlight a work order lane.
+- **Sales orders → work orders:** how many orders with build lines (items with a BOM, from the line's BOM or the item's default BOM) are fully covered, partly covered or not covered, how many are stock only, and a bar of where every order sits. The table lists each order at its step with its work orders (coloured by lane), the build lines still missing one, and the next step.
+- **Order step**, first match wins: On hold (hold reason, On Hold, a stopped work order, or the floor override "Held") → Needs work orders → Work orders in draft → Waiting for parts (floor override) → Building (a work order in process, or the "Paint" override) → Waiting for parts → Pick materials → Pick & ship.
+- **Work orders** in lanes: Draft · Ready to pick · Waiting for parts · In production · Completed (last 14 days, or still on an open order) · Stopped (only shown when there is one). A work order whose sales order is closed or delivered is flagged.
+- **Picking:** for production, required minus transferred (minus consumed with "skip material transfer"). For shipping, ordered minus the larger of delivered and picked, with product bundles expanded to their parts. Non-stock lines without parts and drop-ship lines are skipped. Stock outside work-in-progress warehouses goes first to work orders by ship date, then to orders ready to ship. "Short" means ERPNext stock is short after that, and short work orders get an ETA from open purchase orders. Quantities are shown as pieces (Ea, Nos, …) plus any other units (inches, feet).
+- **Clean-up:** draft work orders, draft delivery notes and open pick lists tied to orders that are closed or delivered. They are listed in a collapsed card and not counted as work.
+- **Shipping** now starts with the full pick list for orders ready to ship (one block per order, kit parts labelled), open pick lists and draft delivery notes on open orders, and what shipped in the last 7 days. The older timeline and "Can it go out?" table follow.
+- The stepper's Manufacturing count switches to open work orders and lines needing one once the flow has loaded.
+- **Click into anything:** on Manufacturing (every tab) and Shipping, clicking a document link opens the Workbench side sheet instead of a new tab. The sheet has details, child tables, editable fields, + To-do, + Add to agenda and Open in ERPNext. Ctrl/⌘/Shift-click still opens ERPNext. Work order cards and order rows open their record too. Doctypes the Workbench doesn't cover (Customer stays in Sales; BOM, Bin and similar) still open ERPNext.
+- **Editing submitted documents:** the gateway's `AFTER_SUBMIT` list names the few fields that can change on a *submitted* document, and only when ERPNext marks them "allow on submit":
+  - Sales Order: estimated ship date, production status override, hold reason, likely ship date, proforma / will call, floor notes
+  - Work Order: planned start, expected delivery date
+  - Delivery Note: carrier, tracking number, late-not-warehouse-fault, why late
+
+  Everything else on a submitted document stays read-only; amend in the desk. Saving needs Command Center Editor, as before, and leaves a "Command Center:" comment. A save from Manufacturing or Shipping refreshes the flow (and the production board).
+- **Workbench:** Pick List (Shipping) and Item (Manufacturing; new items are still made in the Catalog Builder) were added.
+
 ## Meeting agenda (v6)
 
 The **Agenda** tab replaces the Google Doc agenda for the weekly meeting.
@@ -161,4 +186,5 @@ Deploys are automatic: merge to the default branch and deploy on Frappe Cloud. `
 ## Tests (no ERPNext needed)
 
 - `tests/check_gateway_sandbox.py`: compiles the gateway under RestrictedPython and runs every action against a fake `frappe`, emulating both the v16 and v15 aggregate rules (`pip install RestrictedPython`, then `python illumenate_lighting/command_center/tests/check_gateway_sandbox.py`). Named `check_*` so pytest/unittest never collect it.
+- `tests/portal_unit/test_warehouse_flow.py`: work order lanes, coverage, pick quantities, order steps and the stock hand-out for the flow endpoint.
 - `tests/smoke.js`: loads `cc.js` in jsdom against a mock gateway and walks every page (`npm i jsdom`, then `node illumenate_lighting/command_center/tests/smoke.js`).

@@ -1,545 +1,71 @@
 {#
-  ilLumenate Sales Order Print Format
-  Clean, readable layout with section / room grouping.
+  ilL Sales Order: the order acknowledgement sent to the dealer, at dealer pricing.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+  Frappe reads this file at print time, so it overrides the copy stored on the site.
 #}
-
-{#-- Build ordered list of sections and their items --#}
-{%- set ns = namespace(sections=[], section_map={}, current_section="", has_sections=false) -%}
-{%- for item in doc.items -%}
-    {%- set label = item.get("ill_section_label") or item.get("custom_ill_section_label") or "" -%}
-    {%- if label -%}
-        {%- set ns.has_sections = true -%}
-    {%- endif -%}
-    {%- if label and (not item.item_code) and item.qty == 0 -%}
-        {%- if label not in ns.section_map -%}
-            {%- set _ = ns.sections.append(label) -%}
-            {%- set _ = ns.section_map.update({label: []}) -%}
-        {%- endif -%}
-        {%- set ns.current_section = label -%}
-    {%- else -%}
-        {%- set effective = label or ns.current_section -%}
-        {%- if effective not in ns.section_map -%}
-            {%- set _ = ns.sections.append(effective) -%}
-            {%- set _ = ns.section_map.update({effective: []}) -%}
-        {%- endif -%}
-        {%- set _ = ns.section_map[effective].append(item) -%}
-    {%- endif -%}
-{%- endfor -%}
-{%- set has_sections = ns.has_sections -%}
-
-<style>
-    .ill-doc {
-        color: #1f272e;
-        font-size: 11px;
-        line-height: 1.45;
-    }
-    .ill-doc .ill-header {
-        border-bottom: 1px solid #d7dee5;
-        margin-bottom: 14px;
-        padding-bottom: 12px;
-    }
-    .ill-doc .ill-header-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .ill-doc .ill-header-table td {
-        vertical-align: middle;
-    }
-    .ill-doc .ill-logo {
-        max-height: 72px;
-        width: auto;
-    }
-    .ill-doc .ill-title-wrap {
-        text-align: right;
-    }
-    .ill-doc .ill-title {
-        font-size: 23px;
-        line-height: 1;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        margin: 0;
-    }
-    .ill-doc .ill-doc-no {
-        font-size: 11px;
-        color: #5f6c7b;
-        margin-top: 5px;
-    }
-
-    .ill-doc .ill-block {
-        margin-bottom: 12px;
-    }
-    .ill-doc .ill-grid {
-        display: table;
-        width: 100%;
-        table-layout: fixed;
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-    .ill-doc .ill-col {
-        display: table-cell;
-        vertical-align: top;
-        padding-right: 10px;
-    }
-    .ill-doc .ill-col:last-child {
-        padding-right: 0;
-    }
-    .ill-doc .ill-info-row {
-        margin-bottom: 7px;
-    }
-    .ill-doc .ill-label {
-        color: #6c7886;
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        text-transform: uppercase;
-        margin-bottom: 2px;
-    }
-    .ill-doc .ill-value {
-        color: #1f272e;
-    }
-    .ill-doc .ill-summary {
-        background: #f2f5f8;
-        border: 1px solid #d7dee5;
-        margin-bottom: 12px;
-        padding: 9px 10px;
-    }
-    .ill-doc .ill-summary-value {
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-    .ill-doc .ill-items {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-        border: 1px solid #d7dee5;
-    }
-    .ill-doc .ill-items thead th {
-        background: #f2f5f8;
-        border-bottom: 1px solid #d7dee5;
-        color: #34414f;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.25px;
-        padding: 7px 6px;
-        text-transform: uppercase;
-    }
-    .ill-doc .ill-items td {
-        border-bottom: 1px solid #e7edf3;
-        padding: 6px;
-        vertical-align: top;
-        word-wrap: break-word;
-    }
-    .ill-doc .ill-items tbody tr:last-child td {
-        border-bottom: none;
-    }
-    .ill-doc .ill-items .text-right {
-        text-align: right;
-    }
-    .ill-doc .ill-items .table-sr {
-        width: 40px;
-        text-align: center;
-    }
-    .ill-doc .ill-uom {
-        float: left;
-        color: #6c7886;
-        font-size: 10px;
-        margin-right: 4px;
-    }
-    .ill-doc .ill-note-row td {
-        background: #fafbfd;
-        color: #5f6c7b;
-        font-size: 10px;
-        font-style: italic;
-        border-bottom: 1px dashed #d7dee5;
-        padding-top: 4px;
-        padding-bottom: 5px;
-    }
-    .ill-doc .ill-fixture-type-row td {
-        background: #fbfcfd;
-        color: #34414f;
-        font-size: 10px;
-        font-weight: 600;
-        border-bottom: none;
-        padding-top: 5px;
-        padding-bottom: 2px;
-    }
-    .ill-doc .ill-fixture-type-row .ill-inline-label {
-        color: #6c7886;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        text-transform: uppercase;
-        margin-right: 6px;
-    }
-    .ill-doc .ill-item-desc {
-        color: #5f6c7b;
-        font-size: 10px;
-        margin-top: 2px;
-    }
-    .ill-doc .ill-section-header td {
-        background: #e8edf2;
-        border-top: 1px solid #d0d7df;
-        border-bottom: 1px solid #d0d7df;
-        color: #2f3a45;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        text-transform: uppercase;
-        padding: 7px 6px;
-    }
-    .ill-doc .ill-section-subtotal td {
-        background: #f6f8fb;
-        border-top: 1px solid #d7dee5;
-        font-weight: 700;
-    }
-
-    .ill-doc .ill-totals {
-        border: 1px solid #d7dee5;
-        border-top: none;
-        padding: 8px 10px;
-    }
-    .ill-doc .ill-total-row {
-        display: table;
-        width: 100%;
-        margin-bottom: 5px;
-    }
-    .ill-doc .ill-total-row:last-child {
-        margin-bottom: 0;
-    }
-    .ill-doc .ill-total-label,
-    .ill-doc .ill-total-value {
-        display: table-cell;
-        width: 50%;
-    }
-    .ill-doc .ill-total-label {
-        color: #4a5765;
-    }
-    .ill-doc .ill-total-value {
-        text-align: right;
-        font-weight: 600;
-    }
-    .ill-doc .ill-grand .ill-total-label,
-    .ill-doc .ill-grand .ill-total-value {
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-    .ill-doc .ill-address,
-    .ill-doc .ill-terms {
-        border: 1px solid #d7dee5;
-        padding: 9px 10px;
-    }
-    .ill-doc .ill-address-title,
-    .ill-doc .ill-terms-title {
-        color: #4a5765;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        margin-bottom: 5px;
-        text-transform: uppercase;
-    }
-    .ill-doc .ql-snow {
-        font-size: 11px;
-        line-height: 1.45;
-    }
-</style>
-
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, connected_load, terms, notes, closing, money, date with context -%}
+{%- set project = ill_print_project(doc) -%}
+{%- set sums = ill_print_totals(doc) -%}
+{%- set quotes = ill_print_references(doc, "prevdoc_docname") -%}
+{%- set status = status_of(quiet=("To Deliver and Bill", "To Deliver", "To Bill")) | trim -%}
+{%- set separate_ship = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
+{%- set ship_date = doc.ill_confirmed_delivery_date or doc.ill_estimated_ship_date -%}
+{{ styles() }}
 <div class="ill-doc">
-    <div class="ill-header">
-        <table class="ill-header-table">
-            <tr>
-                <td style="width: 50%;">
-                    <img class="ill-logo" src="/files/ilLumenate%20Logo_DW_Black_Main.png">
-                </td>
-                <td style="width: 50%;" class="ill-title-wrap">
-                    <h2 class="ill-title">Sales Order</h2>
-                    <div class="ill-doc-no">{{ doc.name }}</div>
-                </td>
-            </tr>
-        </table>
-    </div>
+	{{ header("Sales Order", doc.name, status, subtitle="Order acknowledgement",
+		tone=("alert" if status in ("On Hold", "Cancelled") else "ok" if status in ("Completed", "Closed") else "")) }}
 
-    <div class="ill-block">
-        <div class="ill-grid">
-            <div class="ill-col">
-                <div class="ill-info-row">
-                    <div class="ill-label">Customer Name</div>
-                    <div class="ill-value">{{ doc.customer_name }}</div>
-                </div>
-                {% if doc.po_no %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Purchase Order</div>
-                    <div class="ill-value">{{ doc.po_no }}</div>
-                </div>
-                {% endif %}
-                {% if doc.project %}
-                {% set project_name = frappe.db.get_value('Project', doc.project, 'project_name') %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Project</div>
-                    <div class="ill-value">{{ project_name or doc.project }}</div>
-                </div>
-                {% endif %}
-                {% if doc.get('ill_fixture_schedule') %}
-                {% set ill_sched = frappe.db.get_value('ilL-Project-Fixture-Schedule', doc.ill_fixture_schedule, ['schedule_name', 'ill_project'], as_dict=True) %}
-                {% if ill_sched %}
-                {% set ill_proj_name = frappe.db.get_value('ilL-Project', ill_sched.ill_project, 'project_name') if ill_sched.ill_project else None %}
-                {% if ill_proj_name and not doc.project %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Project</div>
-                    <div class="ill-value">{{ ill_proj_name | e }}</div>
-                </div>
-                {% endif %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Fixture Schedule</div>
-                    <div class="ill-value">{{ (ill_sched.schedule_name or doc.ill_fixture_schedule) | e }}</div>
-                </div>
-                {% endif %}
-                {% endif %}
-            </div>
-            <div class="ill-col">
-                <div class="ill-info-row">
-                    <div class="ill-label">Date</div>
-                    <div class="ill-value">{{ doc.transaction_date | default('', true) }}</div>
-                </div>
-                {% if doc.delivery_date %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Delivery Date</div>
-                    <div class="ill-value">{{ doc.delivery_date }}</div>
-                </div>
-                {% endif %}
-                {% if doc.company %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Company</div>
-                    <div class="ill-value">{{ doc.company }}</div>
-                </div>
-                {% endif %}
-            </div>
-            <div class="ill-col">
-                {% if doc.shipping_rule %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Shipping Method</div>
-                    <div class="ill-value">{{ doc.shipping_rule }}</div>
-                </div>
-                {% endif %}
-                {% if doc.incoterm %}
-                <div class="ill-info-row">
-                    <div class="ill-label">Shipping Terms</div>
-                    <div class="ill-value">{{ doc.incoterm }}{% if doc.named_place %} — {{ doc.named_place }}{% endif %}</div>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
+	{{ facts([
+		("Order date", date(doc.transaction_date)),
+		("Your PO", ((doc.po_no or "")) ~ ((" (" ~ date(doc.po_date) ~ ")") if doc.po_no and doc.po_date else "")),
+		("Requested delivery", date(doc.ill_requested_delivery_date or doc.delivery_date)),
+		("Confirmed ship date" if doc.ill_confirmed_delivery_date else "Estimated ship date", date(ship_date)),
+		("Project", project.project),
+		("Fixture schedule", project.schedule),
+		("Quotation", quotes | join(", ")),
+		("Prepared by", ill_print_person(doc.owner)),
+		("Payment terms", (doc.payment_terms_template or "")),
+		("Shipping", (doc.shipping_rule or "")),
+		("Will call", (doc.ill_proforma_will_call or "") if doc.ill_proforma_will_call and doc.ill_proforma_will_call != "No" else ""),
+	]) }}
 
-    <div class="ill-summary">
-        <div class="ill-grid">
-            <div class="ill-col">
-                <div class="ill-label">Order Status</div>
-                <div class="ill-summary-value">{{ doc.status or 'Draft' }}</div>
-            </div>
-            <div class="ill-col">
-                <div class="ill-label">Fulfilled</div>
-                <div class="ill-summary-value">{{ frappe.utils.fmt_money(doc.per_delivered or 0, precision=1) }}%</div>
-            </div>
-            <div class="ill-col">
-                <div class="ill-label">Pending Delivery</div>
-                <div class="ill-summary-value">{{ frappe.utils.fmt_money(100 - (doc.per_delivered or 0), precision=1) }}%</div>
-            </div>
-        </div>
-    </div>
+	{%- if status == "On Hold" %}{{ notes("On hold", doc.ill_hold_reason or "This order is on hold. Contact us before it can proceed.", alert=True) }}{% endif %}
 
-    <div class="ill-block">
-        <table class="ill-items">
-            <thead>
-                <tr>
-                    <th style="width: 40px;" class="table-sr">Sr</th>
-                    <th style="width: 45%;">Item Name</th>
-                    <th style="width: 20%;">Item Code</th>
-                    <th style="width: 10%;" class="text-right">Quantity</th>
-                    <th style="width: 10%;" class="text-right">Rate</th>
-                    <th style="width: 15%;" class="text-right">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-            {%- if has_sections -%}
-                {%- set row_ns = namespace(sr=0) -%}
-                {%- for section_label in ns.sections -%}
-                    {%- set items = ns.section_map[section_label] -%}
+	{{ parties([
+		("Bill to" if separate_ship else "Bill to / Ship to", doc.customer_name, ill_print_address(doc.address_display, doc.customer_address)),
+		("Ship to", "", ill_print_address(doc.shipping_address, doc.shipping_address_name) if separate_ship else []),
+		("Attention", doc.contact_display, [doc.contact_email, doc.contact_mobile or doc.contact_phone]),
+	]) }}
 
-                    {%- if section_label -%}
-                    <tr class="ill-section-header">
-                        <td colspan="6">{{ section_label }}</td>
-                    </tr>
-                    {%- endif -%}
+	{{ notes("Shipping instructions", doc.ill_shipping_instructions) }}
+	{{ notes("Receiving instructions", doc.ill_receiving_instructions) }}
 
-                    {%- set sec_ns = namespace(subtotal=0) -%}
-                    {%- for item in items -%}
-                        {%- set row_ns.sr = row_ns.sr + 1 -%}
-                        {%- set sec_ns.subtotal = sec_ns.subtotal + item.amount -%}
-                        {%- if item.get("ill_fixture_type") -%}
-                        <tr class="ill-fixture-type-row">
-                            <td class="table-sr"></td>
-                            <td colspan="5"><span class="ill-inline-label">Fixture Type</span>{{ item.ill_fixture_type | e }}</td>
-                        </tr>
-                        {%- endif -%}
-                        <tr>
-                            <td class="table-sr">{{ row_ns.sr }}</td>
-                            <td>{{ item.item_name or item.item_code or '' }}{% if item.description and item.description != item.item_name %}<div class="ill-item-desc">{{ item.description }}</div>{% endif %}</td>
-                            <td>{{ item.item_code or '' }}</td>
-                            <td class="text-right">
-                                {%- if item.uom -%}<span class="ill-uom">{{ item.uom }}</span>{%- endif -%}
-                                {{ item.qty }}
-                            </td>
-                            <td class="text-right">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</td>
-                            <td class="text-right">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</td>
-                        </tr>
-                        {%- if item.additional_notes -%}
-                        <tr class="ill-note-row">
-                            <td class="table-sr"></td>
-                            <td colspan="5">{{ item.additional_notes | e | replace('\n', '<br>') }}</td>
-                        </tr>
-                        {%- endif -%}
-                    {%- endfor -%}
+	{{ priced_items("dealer") }}
 
-                    {%- if section_label and ns.sections | length > 1 -%}
-                    <tr class="ill-section-subtotal">
-                        <td colspan="5" class="text-right">{{ section_label }} Subtotal</td>
-                        <td class="text-right">{{ frappe.utils.fmt_money(sec_ns.subtotal, currency=doc.currency) }}</td>
-                    </tr>
-                    {%- endif -%}
-                {%- endfor -%}
-            {%- else -%}
-                {%- for item in doc.items -%}
-                {%- if item.get("ill_fixture_type") -%}
-                <tr class="ill-fixture-type-row">
-                    <td class="table-sr"></td>
-                    <td colspan="5"><span class="ill-inline-label">Fixture Type</span>{{ item.ill_fixture_type | e }}</td>
-                </tr>
-                {%- endif -%}
-                <tr>
-                    <td class="table-sr">{{ item.idx }}</td>
-                    <td>{{ item.item_name or item.item_code or '' }}{% if item.description and item.description != item.item_name %}<div class="ill-item-desc">{{ item.description }}</div>{% endif %}</td>
-                    <td>{{ item.item_code or '' }}</td>
-                    <td class="text-right">
-                        {%- if item.uom -%}<span class="ill-uom">{{ item.uom }}</span>{%- endif -%}
-                        {{ item.qty }}
-                    </td>
-                    <td class="text-right">{{ frappe.utils.fmt_money(item.rate, currency=doc.currency) }}</td>
-                    <td class="text-right">{{ frappe.utils.fmt_money(item.amount, currency=doc.currency) }}</td>
-                </tr>
-                {%- if item.additional_notes -%}
-                <tr class="ill-note-row">
-                    <td class="table-sr"></td>
-                    <td colspan="5">{{ item.additional_notes | e | replace('\n', '<br>') }}</td>
-                </tr>
-                {%- endif -%}
-                {%- endfor -%}
-            {%- endif -%}
-            </tbody>
-        </table>
+	{%- set left -%}
+		{{ connected_load() }}
+		{%- if doc.docstatus == 1 and (doc.per_delivered or doc.per_billed) -%}
+		<div class="ill-label">Order progress</div>
+		<div class="ill-muted">Shipped {{ "%.0f" | format(doc.per_delivered or 0) }}% &nbsp;&middot;&nbsp; Billed {{ "%.0f" | format(doc.per_billed or 0) }}%</div>
+		{%- endif -%}
+		{%- if doc.payment_schedule and doc.payment_schedule | length > 1 -%}
+		<div class="ill-label">Payment schedule</div>
+		{%- for row in doc.payment_schedule -%}
+		<div class="ill-muted">{{ money(row.payment_amount) }} due {{ date(row.due_date) }}{% if row.description %} &middot; {{ row.description | e }}{% endif %}</div>
+		{%- endfor -%}
+		{%- endif -%}
+	{%- endset -%}
+	{{ totals(sums.rows, ("Total", sums.grand),
+		after=([("Advance paid", -doc.advance_paid), ("Balance due", sums.grand - doc.advance_paid)] if doc.advance_paid else []),
+		left=left) }}
 
-        <div class="ill-totals">
-            <div class="ill-grid">
-                <div class="ill-col">
-                    <div class="ill-total-row">
-                        <div class="ill-total-label">Total Quantity</div>
-                        <div class="ill-total-value">{{ doc.total_qty }}</div>
-                    </div>
-                </div>
-                <div class="ill-col"></div>
-                <div class="ill-col">
-                    <div class="ill-total-row">
-                        <div class="ill-total-label">Total</div>
-                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.total, currency=doc.currency) }}</div>
-                    </div>
-                    {% if doc.discount_amount %}
-                    <div class="ill-total-row">
-                        <div class="ill-total-label">Additional Discount{% if doc.additional_discount_percentage %} ({{ doc.additional_discount_percentage }}%){% endif %}</div>
-                        <div class="ill-total-value">-{{ frappe.utils.fmt_money(doc.discount_amount, currency=doc.currency) }}</div>
-                    </div>
-                    {% endif %}
-                    {% if doc.total != doc.net_total %}
-                    <div class="ill-total-row">
-                        <div class="ill-total-label">Net Total</div>
-                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.net_total, currency=doc.currency) }}</div>
-                    </div>
-                    {% endif %}
-                    {% if doc.taxes %}
-                        {% for tax in doc.taxes %}
-                        <div class="ill-total-row">
-                            <div class="ill-total-label">{{ tax.description }}</div>
-                            <div class="ill-total-value">{{ frappe.utils.fmt_money(tax.tax_amount, currency=doc.currency) }}</div>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                    <div class="ill-total-row ill-grand">
-                        <div class="ill-total-label">Grand Total</div>
-                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.grand_total, currency=doc.currency) }}</div>
-                    </div>
-                    {% if doc.advance_paid %}
-                    <div class="ill-total-row">
-                        <div class="ill-total-label">Advance Paid</div>
-                        <div class="ill-total-value">{{ frappe.utils.fmt_money(doc.advance_paid, currency=doc.currency) }}</div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
+	<div class="ill-box ill-block ill-keep">
+		<div class="ill-label">Please review</div>
+		<div>Check quantities, lengths, finishes and the ship-to address. Tell us of any change within two business days: configured products are built to this acknowledgement and cannot be cancelled or returned once in production.</div>
+	</div>
 
-    {%- set _has_separate_shipping = doc.shipping_address_name and doc.shipping_address_name != doc.customer_address -%}
-    {%- set _shipping_display = doc.shipping_address_display -%}
-    {%- if _has_separate_shipping and not _shipping_display -%}
-        {%- set _addr = frappe.db.get_value('Address', doc.shipping_address_name, ['address_line1', 'address_line2', 'city', 'state', 'pincode', 'country'], as_dict=True) -%}
-        {%- if _addr -%}
-            {%- set _parts = [] -%}
-            {%- if _addr.address_line1 -%}{%- set _ = _parts.append(_addr.address_line1) -%}{%- endif -%}
-            {%- if _addr.address_line2 -%}{%- set _ = _parts.append(_addr.address_line2) -%}{%- endif -%}
-            {%- set _csz = [] -%}
-            {%- if _addr.city -%}{%- set _ = _csz.append(_addr.city) -%}{%- endif -%}
-            {%- if _addr.state -%}{%- set _ = _csz.append(_addr.state) -%}{%- endif -%}
-            {%- if _addr.pincode -%}{%- set _ = _csz.append(_addr.pincode) -%}{%- endif -%}
-            {%- if _csz -%}{%- set _ = _parts.append(_csz | join(', ')) -%}{%- endif -%}
-            {%- if _addr.country -%}{%- set _ = _parts.append(_addr.country) -%}{%- endif -%}
-            {%- set _shipping_display = _parts | join('<br>') -%}
-        {%- endif -%}
-    {%- endif -%}
+	{{ terms("sales") }}
 
-    {% if doc.address_display or _has_separate_shipping %}
-    <div class="ill-block">
-        <div class="ill-grid">
-            {% if _has_separate_shipping %}
-            <div class="ill-col">
-                <div class="ill-address">
-                    <div class="ill-address-title">Billing Address</div>
-                    <div class="ql-snow">{{ doc.address_display or '' }}</div>
-                </div>
-            </div>
-            <div class="ill-col">
-                <div class="ill-address">
-                    <div class="ill-address-title">Shipping Address</div>
-                    <div class="ql-snow">{{ _shipping_display or '' }}</div>
-                </div>
-            </div>
-            {% else %}
-            <div class="ill-col">
-                <div class="ill-address">
-                    <div class="ill-address-title">Billing / Shipping Address</div>
-                    <div class="ql-snow">{{ doc.address_display }}</div>
-                </div>
-            </div>
-            <div class="ill-col"></div>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
-
-    {% if doc.terms %}
-    <div class="ill-block">
-        <div class="ill-terms">
-            <div class="ill-terms-title">Terms and Conditions</div>
-            <div class="ql-snow">{{ doc.terms }}</div>
-        </div>
-    </div>
-    {% endif %}
+	{{ closing() }}
 </div>
+

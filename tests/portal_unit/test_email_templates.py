@@ -341,10 +341,17 @@ class Rendering(unittest.TestCase):
 			contact={"first_name": "Li"},
 			supplier_name="Vendor Co",
 			portal_link='<a href="https://p">Submit your Quotation</a>',
+			update_password_link='<a href="https://p">Set Password</a>',
 			user_fullname="Sam Rivera",
 		)
 		self.assertIn("Hello Li", full)
-		self.assertIn("Submit your Quotation", full)
+		# Suppliers reply by email; ERPNext's portal buttons are never printed.
+		self.assertNotIn("Submit your Quotation", full)
+		self.assertNotIn("Set Password", full)
+		self.assertNotIn("portal_link", body)
+		self.assertIn("reply to this email with your quotation", full)
+		for asked in ("unit price", "lead time", "MOQ", "payment terms", "PDF"):
+			self.assertIn(asked, full)
 		self.assertIn("Sam Rivera", full)
 		bare = render(
 			body,
@@ -783,6 +790,11 @@ class Hooks(unittest.TestCase):
 			"recipients.fill_rfq_supplier_emails",
 		):
 			self.assertIn(handler, hooks)
+		self.assertIn(
+			'"Request for Quotation": "illumenate_lighting.illumenate_lighting.email_templates.rfq.ILLRequestForQuotation"',
+			hooks,
+		)
+		self.assertIn("illumenate_lighting.patches.rfq_reply_by_email", open("illumenate_lighting/patches.txt").read())
 		self.assertIn(
 			"illumenate_lighting.patches.seed_email_templates", open("illumenate_lighting/patches.txt").read()
 		)

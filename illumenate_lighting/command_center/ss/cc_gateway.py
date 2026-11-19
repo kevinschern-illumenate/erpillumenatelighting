@@ -107,6 +107,9 @@ def main():
                                                 "ill_default_lead_time_days", "modified"]),
         "Work Order":        ("manufacturing", ["name", "production_item", "status", "qty", "planned_start_date", "modified"]),
         "Delivery Note":     ("shipping",      ["name", "customer", "status", "posting_date", "modified"]),
+        "Pick List":         ("shipping",      ["name", "customer", "purpose", "status", "work_order", "modified"]),
+        "Item":              ("manufacturing", ["name", "item_name", "item_group", "stock_uom", "default_bom",
+                                                "modified"]),
         "HD Ticket":         ("service",       ["name", "subject", "status", "priority", "ticket_type", "modified"]),
         "ilL-Account-Request": ("service",     ["name", "request_type", "customer", "status", "requested_by",
                                                 "assigned_to", "creation", "modified"]),
@@ -243,6 +246,15 @@ def main():
                         "Text Editor", "HTML Editor", "Markdown Editor", "Code", "JSON", "Signature",
                         "Geolocation", "Password"]
     TEXT_TYPES = ["Data", "Link", "Small Text", "Text", "Long Text", "Select"]
+    # v9: on SUBMITTED documents only these fields can change here, and only when ERPNext marks them
+    # "allow on submit" (floor and shipping fields the warehouse keeps up to date). Everything else on a
+    # submitted document stays read-only; amendments happen in the desk.
+    AFTER_SUBMIT = {
+        "Sales Order": ["ill_estimated_ship_date", "ill_production_status_override", "ill_hold_reason",
+                        "ill_likely_ship_date", "ill_proforma_will_call", "ill_floor_notes"],
+        "Work Order": ["planned_start_date", "expected_delivery_date"],
+        "Delivery Note": ["ill_carrier", "ill_tracking_number", "ill_not_warehouse_fault", "ill_late_reason"],
+    }
 
     user = frappe.session.user
     roles = []
@@ -446,6 +458,15 @@ def main():
             out[f.fieldname] = f
         return out
 
+    def submitted_fields(dt):
+        # the AFTER_SUBMIT fields this site has, that ERPNext lets change after submit, in that order
+        wf = writable_fields(dt)
+        out = []
+        for fn in AFTER_SUBMIT.get(dt) or []:
+            if fn in wf and wf[fn].allow_on_submit:
+                out.append(fn)
+        return out
+
     def create_kind(dt):
         # "+ New" behaviour: "builder" (Catalog tab), "inline" (gateway create) or "" (not here)
         if dt in READ_ONLY:
@@ -592,7 +613,7 @@ def main():
         frappe.response["message"] = {"dt": dt, "fields": fields, "required_tables": tables,
                                       "can_edit": can_edit(), "autoname": str(meta.autoname or ""),
                                       "read_only": dt in READ_ONLY, "create": create_kind(dt),
-                                      "status_kind": skind(dt) or None}
+                                      "status_kind": skind(dt) or None, "after_submit": submitted_fields(dt)}
 
     elif action == "get":
         doctype(dt)
@@ -638,7 +659,9 @@ def main():
         frappe.response["message"] = {"doc": out, "audit": log, "tables": tables,
                                       "read_only": dt in READ_ONLY, "create": create_kind(dt),
                                       "builder": dt in CREATE_VIA_BUILDER, "status_kind": skind(dt) or None,
-                                      "editable": can_edit() and doc.docstatus == 0 and dt not in READ_ONLY}
+                                      "after_submit": submitted_fields(dt) if doc.docstatus == 1 else [],
+                                      "editable": can_edit() and dt not in READ_ONLY and (
+                                          doc.docstatus == 0 or (doc.docstatus == 1 and len(submitted_fields(dt)) > 0))}
 
     elif action == "save":
         doctype(dt)
@@ -647,9 +670,21 @@ def main():
             deny(dt + " records are generated or audit records, so they are read-only here.")
         doc = frappe.get_doc(dt, frappe.form_dict.get("name"))
         doc.check_permission("write")
-        if doc.docstatus != 0:
-            deny("This document is submitted or cancelled and is read-only here.")
-        values = clean(dt, jsonarg("values"))
+        values = jsonarg("values")
+        if doc.docstatus == 1:
+            # submitted: only the after-submit fields; ERPNext re-checks them on save
+            ok = submitted_fields(dt)
+            bad = []
+            for k in values:
+                if k not in ok:
+                    bad.append(k)
+            if not ok:
+                deny("This document is submitted and is read-only here.")
+            if bad:
+                deny("Submitted, so only these can change here: " + ", ".join(ok) + ". Not: " + ", ".join(bad))
+        elif doc.docstatus != 0:
+            deny("This document is cancelled and is read-only here.")
+        values = clean(dt, values)
         changed = []
         for k in values:
             newv = values[k] if values[k] is not None else ""

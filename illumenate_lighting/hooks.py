@@ -57,8 +57,8 @@ web_include_js = ["illumenate_web.bundle.js"]
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js"],
-    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": "public/js/quotation.js",
+doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js", "public/js/line_power.js"],
+    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": ["public/js/quotation.js", "public/js/line_power.js"], "Purchase Order": "public/js/supplier_parts.js", "Request for Quotation": "public/js/supplier_parts.js",
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js", "ilL-Webflow-Gallery": "public/js/gallery_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
@@ -210,7 +210,37 @@ jinja = {
 		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_email_context",
 		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_tracking",
 		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_money",
-		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_date"],
+		"illumenate_lighting.illumenate_lighting.email_templates.context.ill_date",
+		# ilL print formats (printing.py; layout in templates/print/ill_print.html).
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_address",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_fonts",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_build",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_company",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_contact",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_discount",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_msrp",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_note",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_order_line",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_packed",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_person",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_phone",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_pricing",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_project",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_qty",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_qty_parts",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_references",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_schedule",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_sections",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_specs",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_supplier_parts",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_terms",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_terms_columns",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_totals",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_warehouse",
+		# The branded email card and sign-in emails (templates/emails/, email_templates/brand.py).
+		"illumenate_lighting.illumenate_lighting.email_templates.brand.ill_email_brand",
+		"illumenate_lighting.illumenate_lighting.email_templates.brand.ill_link_lifetime",
+		"illumenate_lighting.illumenate_lighting.email_templates.brand.ill_is_staff"],
 }
 
 # One route contract for Desk scripts (hardening plan 7.1).
@@ -358,6 +388,8 @@ has_website_permission = {
 override_doctype_class = {
 	"File": "illumenate_lighting.illumenate_lighting.portal.private_file.PortalFile",
 	"Email Queue": "illumenate_lighting.illumenate_lighting.portal.email_queue.PortalEmailQueue",
+	# Suppliers reply to RFQ emails: no portal link, no Website User / password email.
+	"Request for Quotation": "illumenate_lighting.illumenate_lighting.email_templates.rfq.ILLRequestForQuotation",
 }
 
 # Document Events
@@ -403,6 +435,8 @@ doc_events = {
 		"validate": [
 			"illumenate_lighting.illumenate_lighting.api.build_links.follow_items",
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+			# Last: schedule sync can rescale row quantities. Spec and load under tape/neon/sheet rows.
+			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
 		],
 		# Only a submitted Quotation linked to an intake creates a portal offer.
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.offers.before_submit",
@@ -417,8 +451,14 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
 			# After follow_items, so each line is counted against the BOM it now pins.
 			"illumenate_lighting.illumenate_lighting.api.build_points.roll_up_sales_order",
+			# Last: schedule sync can rescale row quantities. Spec and load under tape/neon/sheet rows.
+			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
 		],
-		"before_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+		"before_update_after_submit": [
+			"illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
+			# "Update Items" changes qty / UOM on a submitted order without running validate.
+			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
+		],
 		"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
 		"on_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.before_submit",
@@ -451,12 +491,22 @@ doc_events = {
 		# Purchasing board: lead time, ETA, freight mode and vendor status on new POs.
 		"before_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.prefill_po_tracking",
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_po_submit",
-		# A blank contact_email defaults to the Supplier's Purchasing Email.
-		"validate": "illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_purchase_order_email",
+		"validate": [
+			# A blank contact_email defaults to the Supplier's Purchasing Email.
+			"illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_purchase_order_email",
+			# Blank supplier part number / description on a line come from the Item.
+			"illumenate_lighting.illumenate_lighting.api.supplier_parts.fill_line_supplier_parts",
+		],
+		# Line supplier part details that differ from the Item are saved to the Item.
+		"on_update": "illumenate_lighting.illumenate_lighting.api.supplier_parts.save_line_supplier_parts",
 	},
-	# Blank RFQ supplier emails default to the Supplier's Purchasing Email.
 	"Request for Quotation": {
-		"validate": "illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_rfq_supplier_emails"
+		"validate": [
+			# Blank RFQ supplier emails default to the Supplier's Purchasing Email.
+			"illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_rfq_supplier_emails",
+			"illumenate_lighting.illumenate_lighting.api.supplier_parts.fill_line_supplier_parts",
+		],
+		"on_update": "illumenate_lighting.illumenate_lighting.api.supplier_parts.save_line_supplier_parts",
 	},
 	# Webflow sync events for attribute doctypes
 	"ilL-Attribute-CCT": {

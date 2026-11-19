@@ -250,13 +250,26 @@ def decide(name, action, note, expected_modified, revision_hash, result_sales_or
 
 	# The outcome email below links here, so the post does not notify again.
 	post(doc, doc.staff_note, key=f"{doc.state}:{doc.decided_on}", notify=False)
+	from illumenate_lighting.illumenate_lighting.email_templates import brand
 	from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
+	outcome = {"UNDER_REVIEW": "is under review", "REJECTED": "was declined", "COMPLETED": "is complete"}[doc.state]
+	escape = frappe.utils.escape_html
 	notify_user(
 		doc.requested_by,
 		"notify_orders",
-		f"Order request {doc.name}: {doc.state}",
-		f'<p><a href="{frappe.utils.get_url()}/portal/orders/{frappe.utils.escape_html(order.name)}">Review the order request outcome</a>.</p>',
+		f"Order change {doc.name} {outcome}",
+		brand.portal_email(
+			f"Your order change {outcome}",
+			paragraphs=[
+				f"Your change request <strong>{escape(doc.name)}</strong> for order "
+				f"<strong>{escape(order.name)}</strong> {outcome}.",
+				f'Note from our team:<br><span style="white-space: pre-wrap">{escape(doc.staff_note)}</span>'
+				if doc.staff_note else None,
+			],
+			action=("Review the outcome", frappe.utils.get_url(f"/portal/orders/{order.name}")),
+			preference_note="order updates",
+		),
 		reference_doctype=DOCTYPE,
 		reference_name=doc.name,
 		event_key=f"{doc.name}:{doc.modified}",

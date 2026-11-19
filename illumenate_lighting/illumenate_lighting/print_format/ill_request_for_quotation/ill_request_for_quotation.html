@@ -1,0 +1,76 @@
+{#
+  ilL Request for Quotation: what we need priced, with write-in price and lead time
+  columns the vendor can fill in and return.
+  Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
+#}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, notes, terms, signatures, closing, date, line_group, section_total, line_type, line_notes, qty with context -%}
+{%- set company = ill_print_company(doc) -%}
+{%- set vendors = doc.suppliers or [] -%}
+{#-- Per supplier: ERPNext sets doc.vendor and each line's supplier_part_no for the supplier printed. --#}
+{%- set parts = ill_print_supplier_parts(doc) -%}
+{%- set sections = ill_print_sections(doc.items, follow_links=False) -%}
+{%- set labelled = sections | selectattr("label") | list | length -%}
+{%- set row = namespace(n=0) -%}
+{{ styles() }}
+<div class="ill-doc">
+	{{ header("Request for Quotation", doc.name, "Draft" if doc.docstatus == 0 else "Cancelled" if doc.docstatus == 2 else "") }}
+
+	{{ facts([
+		("Request date", date(doc.transaction_date)),
+		("Required by", date(doc.schedule_date)),
+		("Buyer", ill_print_person(doc.owner)),
+		("Reply to", company.purchasing_email),
+	]) }}
+
+	{{ parties([
+		("Vendor" if vendors | length == 1 else "Vendors", (vendors[0].supplier_name or vendors[0].supplier) if vendors | length == 1 else "",
+			([vendors[0].contact, vendors[0].email_id] if vendors | length == 1 else vendors | map(attribute="supplier") | list)),
+		("Deliver to", company.name, company.address),
+	]) }}
+
+	{{ notes("Message", doc.message_for_supplier) }}
+
+	{%- set items_head -%}
+	<thead>
+			<tr>
+				<th class="ill-idx">#</th>
+				<th>Item</th>
+				<th style="width: 11%;">Needed by</th>
+				<th class="ill-num" style="width: 11%;">Qty</th>
+				<th class="ill-num" style="width: 13%;">Unit price</th>
+				<th class="ill-num" style="width: 13%;">Lead time</th>
+			</tr>
+		</thead>
+	{%- endset -%}
+	<table class="ill-items ill-block">
+		{{ items_head }}
+		{%- for section in sections -%}
+			{%- for entry in section.lines -%}
+			{%- set item = entry["item"] -%}
+			{%- set row.n = row.n + 1 -%}
+			{%- set part = parts.get(item.item_code, {}) -%}
+			{%- call line_group(entry, 6, items_head) -%}
+				<td class="ill-idx">{{ row.n | int }}</td>
+				<td>{{ line_type(entry) }}
+					{#-- As on the PO: the supplier's own description leads when the Item has one for them. --#}
+					<div class="ill-line-name ill-pre">{{ (ill_print_note(part.description) if part.description else (item.item_name or item.item_code)) | e }}</div>
+					<div class="ill-code">Our part <span class="ill-mono">{{ item.item_code | e }}</span>{% if item.supplier_part_no %} &nbsp;&middot;&nbsp; Your part <span class="ill-mono">{{ item.supplier_part_no | e }}</span>{% endif %}</div>
+					{%- set info = ill_print_specs(item) -%}
+					{%- if info.specs %}<div class="ill-specs">{% for label, value in info.specs %}{% if not loop.first %} <span class="ill-dot">&middot;</span> {% endif %}<span class="ill-spec">{{ label | e }} <b>{{ value | e }}</b></span>{% endfor %}</div>{% endif -%}
+				{{ line_notes(entry) }}</td>
+				<td class="ill-date">{{ date(item.schedule_date) }}</td>
+				<td class="ill-num">{{ qty(item.qty, item.uom) }}</td>
+				<td class="ill-num"><span class="ill-writein"></span></td>
+				<td class="ill-num"><span class="ill-writein"></span></td>
+			{%- endcall -%}
+			{%- endfor -%}
+		{%- endfor -%}
+	</table>
+
+	{{ terms("purchase", title="Purchase terms that apply to any resulting order") }}
+
+	{{ signatures(["Quoted by", "Company", "Date", "Quote valid until"], title="Vendor quotation",
+		intro="Fill in your unit prices and lead times and return this form, or send your own quotation referencing " ~ doc.name ~ ".") }}
+
+	{{ closing("Please reply to " ~ company.purchasing_email ~ " by " ~ (date(doc.schedule_date) or "the required-by date") ~ ".") }}
+</div>

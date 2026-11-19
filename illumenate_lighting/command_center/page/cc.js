@@ -1,4 +1,4 @@
-/* ilLumenate Command Center v8 — base v2/v3 by Claude, Nov 17 2026.
+/* ilLumenate Command Center v9 — base v2/v3 by Claude, Nov 17 2026.
    v4: Workbench. v5: Executive overview, Project review mode, saved views, activity feed, print.
    v6: Meeting agenda (weekly meeting, items linked to any Command Center record).
    v7: Pipeline restructure: Design stage before Quotes, portal requests inside their stages
@@ -6,6 +6,8 @@
    v8: Purchasing desk (flow strip, lanes for requests / quotes / POs / shipments / bills, landed cost) from
        the app endpoint purchasing_board.get_board; Catalog tab (the Catalog Builder embedded, kept alive across
        tabs); Workbench ilLumenate area (every app doctype, grouped), child tables, builder hand-off.
+   v9: Manufacturing "Flow" tab (sales orders → work orders → picks → shipping, with the warehouse's to-do list) and the
+       Shipping pick list, from the app endpoint warehouse_flow.get_flow. The workbook views stay as reports.
    Workbench/Executive/Review feed: /api/method/ill_cc_gateway (Server Script "ilL Command Center Gateway").
    Original header: ilLumenate Command Center v2 — live page on ERPNext. Built by Claude, Nov 17 2026.
    Data: /api/method/ill_command_center (Server Script "ilL Command Center API", read-only).
@@ -628,7 +630,7 @@
      (app endpoint, read-only). Weights and capacity: ilL-Production-Settings. */
   const PB_API = 'illumenate_lighting.illumenate_lighting.api.production_board.get_board';
   const PB_SET_API = 'illumenate_lighting.illumenate_lighting.api.production_board.set_build_counts';
-  const PB = { data: null, err: null, busy: false, at: 0, filter: 'all', sort: 'esd', tab: 'board' };
+  const PB = { data: null, err: null, busy: false, at: 0, filter: 'all', sort: 'esd', tab: 'flow' };
   const PB_ST = { 1: ['Pend-Prod', 'info'], 2: ['In-Prod', 'good'], 3: ['Pend-Ship', 'good'], 5: ['Held', 'bad'], 7: ['Paint', 'warn'], 9: ['Waiting for parts', 'warn'] };
   const PB_RUNS = [['runs_2c', '2C'], ['runs_3c', '3C'], ['runs_4c', '4C'], ['runs_5c', '5C'], ['runs_6c', '6C'], ['loose', 'Loose'], ['wet', 'WR'], ['fmc', 'FMC'], ['assembly', 'Assy']];
   const pbMoney = v => v == null ? '<span class="calc">—</span>' : money(v);
@@ -676,16 +678,19 @@
         PB.at = 0; toast(`${esc(short(r.so))}: build points now ${pbNum(res.points)}`);
       }, 'Save counts');
   }
-  const PB_TABS = [['board', 'Board'], ['mrs', 'Material requests'], ['inbound', 'Run rate & daily $'], ['report', 'Monthly report'], ['releases', 'Releases & holds'], ['prowc', 'Proforma & will call'], ['paint', 'Paint']];
+  // Flow (v9) leads; the rest are the Schedule Wizard workbook's views, kept for reporting.
+  const PB_TABS = [['flow', 'Flow'], ['board', 'Schedule board'], ['mrs', 'Material requests'], ['inbound', 'Run rate & daily $'], ['report', 'Monthly report'], ['releases', 'Releases & holds'], ['prowc', 'Proforma & will call'], ['paint', 'Paint']];
   const PB_MR_LANES = [['draft', 'Draft', 'mute'], ['needs_wo', 'Needs work order', 'warn'], ['building', 'Building', 'info'], ['done', 'Done (30 days)', 'good']];
   const pbMrOpen = X => (X.material_requests || []).filter(r => r.lane !== 'done');
   const pbMonth = m => new Date(m + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const pbSo = r => `${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer || '')}</div>`;
+  try { const t = localStorage.getItem('cc.mfg.tab.' + USER); if (t && PB_TABS.some(x => x[0] === t)) PB.tab = t; } catch (e) { }
   PB.body = () => {
     const X = PB.data; PB.after = null;
-    if (!X) return PB.err ? `<div class="err">Couldn't load the production board: ${esc(PB.err)}</div>` : '<div class="empty">Loading the production board…</div>';
-    const mrN = pbMrOpen(X).length, mrLate = pbMrOpen(X).some(r => r.late);
-    const tabs = `<div class="seg pb-tabs no-print">${PB_TABS.map(([k, n]) => `<button data-pbt="${k}" class="${PB.tab === k ? 'on' : ''}">${n}${k === 'mrs' && mrN ? ` <span class="badge ${mrLate ? 'bad' : 'info'}">${mrN}</span>` : ''}</button>`).join('')}</div>`;
+    const mrN = X ? pbMrOpen(X).length : 0, mrLate = X ? pbMrOpen(X).some(r => r.late) : false;
+    const tabs = `<div class="seg pb-tabs no-print">${PB_TABS.map(([k, n], i) => `${i === 1 ? '<span class="pb-tabsep" title="The Schedule Wizard workbook\'s views, kept for reporting">Reports</span>' : ''}<button data-pbt="${k}" class="${PB.tab === k ? 'on' : ''}">${n}${k === 'mrs' && mrN ? ` <span class="badge ${mrLate ? 'bad' : 'info'}">${mrN}</span>` : ''}</button>`).join('')}</div>`;
+    if (PB.tab === 'flow') return tabs + `<div id="flroot">${FL.body()}</div>`;
+    if (!X) return tabs + (PB.err ? `<div class="err">Couldn't load the production board: ${esc(PB.err)}</div>` : '<div class="empty">Loading the production board…</div>');
     const money0 = X.money || PB.tab === 'mrs' ? '' : '<p class="small">Dollar figures need the Command Center Finance or Manufacturing Manager role.</p>';
     return tabs + money0 + (({ mrs: PB.mrs, inbound: PB.inbound, report: PB.report, releases: PB.releases, prowc: PB.prowc, paint: PB.paint })[PB.tab] || PB.board)(X);
   };
@@ -837,19 +842,215 @@
   }
   PB.bind = () => {
     root.querySelectorAll('[data-pbf]').forEach(b => b.onclick = () => { PB.filter = b.dataset.pbf; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
-    root.querySelectorAll('[data-pbt]').forEach(b => b.onclick = () => { PB.tab = b.dataset.pbt; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
+    root.querySelectorAll('[data-pbt]').forEach(b => b.onclick = () => { PB.tab = b.dataset.pbt; try { localStorage.setItem('cc.mfg.tab.' + USER, PB.tab); } catch (e) { } $('#pbroot').innerHTML = PB.body(); PB.bind(); });
     root.querySelectorAll('[data-pbadj]').forEach(b => b.onclick = () => pbAdjust(b.dataset.pbadj));
     const s = $('#pbsort'); if (s) s.onchange = () => { PB.sort = s.value; $('#pbroot').innerHTML = PB.body(); PB.bind(); };
     if (PB.data && PB.after) { PB.after(); }
+    if (PB.tab === 'flow') FL.mount(); else flCfg();
   };
   PB.mount = () => {
-    const r = $('#pbrefresh'); if (r) r.onclick = () => pbFetch(true);
+    const r = $('#pbrefresh'); if (r) r.onclick = () => { if (PB.tab === 'flow') { FL.at = 0; flFetch(true); pbFetch(); } else pbFetch(true); };
     PB.bind();
     if (!PB.busy && (!PB.data || Date.now() - PB.at > 120000)) pbFetch();
   };
+  /* ---------------- warehouse flow (v9) ----------------
+     The same open orders as the production board, told in ERPNext documents instead of workbook codes:
+     Sales Order → Work Order → pick materials → build → pick & ship → Delivery Note. Each order sits at the one
+     step it is waiting on; "Your list" is those steps with a count and what to do in ERPNext. Data: the app
+     endpoint warehouse_flow.get_flow (read-only, no money). The Shipping page shows its ship-side pick list. */
+  const FL_API = 'illumenate_lighting.illumenate_lighting.api.warehouse_flow.get_flow';
+  const FL = { data: null, err: null, busy: false, at: 0, step: '', showDone: false, hl: '' };
+  // [step, label, tone, bar colour]: in floor order (hold last)
+  const FL_STEPS = [['needs_wo', 'Needs work orders', 'bad', '#f04438'], ['draft_wo', 'Work orders in draft', 'warn', '#f79009'], ['waiting_parts', 'Waiting for parts', 'warn', '#eda100'],
+    ['to_pick', 'Pick materials', 'info', '#2a78d6'], ['building', 'Building', 'info', '#6250d6'], ['to_ship', 'Pick & ship', 'good', '#12b76a'], ['held', 'On hold', 'mute', '#98a2b3']];
+  const FL_LANES = [['draft', 'Draft', 'warn', 'Submit in ERPNext so the floor can start'], ['to_pick', 'Ready to pick', 'info', 'Materials are on the shelf'], ['waiting_parts', 'Waiting for parts', 'warn', 'Short once earlier ship dates take stock'],
+    ['in_process', 'In production', 'info', 'Materials moved; Finish books the build'], ['completed', 'Completed', 'good', 'Last 14 days, or still to ship'], ['stopped', 'Stopped', 'bad', 'A stopped work order holds its order']];
+  const FL_UOM = { inch: 'in', inches: 'in', foot: 'ft', feet: 'ft', meter: 'm', metre: 'm', meters: 'm', millimeter: 'mm' };
+  const flN = v => (+v || 0).toLocaleString('en-US', { maximumFractionDigits: 1 });
+  const flU = u => esc(FL_UOM[String(u || '').toLowerCase()] || u || '');
+  const FL_PCS = ['nos', 'no', 'ea', 'each', 'unit', 'units', 'pc', 'pcs', 'piece', 'pieces', 'set', 'sets', 'pair', 'kit', 'box'];
+  const flSum = rows => { const o = { lines: 0, pieces: 0, other: [] }, by = {};
+    rows.forEach(r => { if (!(r.qty > 0)) return; o.lines++; if (FL_PCS.includes(String(r.uom || '').trim().toLowerCase())) o.pieces += r.qty; else by[r.uom || 'units'] = (by[r.uom || 'units'] || 0) + r.qty; });
+    o.other = Object.entries(by).map(([uom, qty]) => ({ uom, qty })); return o; };
+  const flQty = s => { if (!s) return '—'; const p = [];
+    if (s.pieces) p.push(`${flN(s.pieces)} pcs`);
+    (s.other || []).forEach(o => p.push(`${flN(o.qty)} ${flU(o.uom)}`));
+    return p.join(' + ') || 'nothing'; };
+  const flStep = k => { const s = FL_STEPS.find(x => x[0] === k) || [k, k, 'mute']; return badge(s[1], s[2]); };
+  const flWO = n => link('work-order', n, 'WO ' + String(n).split('-').slice(-1)[0]);
+  const flLaneOf = n => ((FL.data && FL.data.work_orders.find(w => w.name === n)) || {}).lane;
+  const flLaneTone = k => (FL_LANES.find(x => x[0] === k) || [0, 0, 'mute'])[2];
+  const flEsd = r => !r.esd ? '<span class="calc">No date</span>' : `<span class="${r.past_due ? 'pb-late' : r.esd === FL.data.today ? 'pb-today' : ''}" title="${r.esd_is_ship_date === false ? 'No ship date set: delivery date' : 'Estimated ship date'}">${fmtd(r.esd)}${r.esd_is_ship_date === false ? '*' : ''}</span>`;
+  const flCard = (id, title, sub, body, cls, right = '') => `<div class="card ${cls}" id="${id}"><div class="card-h"><div><h2>${title}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${right}</div>${body}</div>`;
+  const flTable = (head, rows, empty) => `<div class="tw"><table><thead><tr>${head.map(h => `<th class="${h.startsWith('#') ? 'num' : ''}">${h.replace(/^#/, '')}</th>`).join('')}</tr></thead><tbody>${rows.join('') || `<tr><td colspan="${head.length}" class="empty">${empty || 'Nothing here right now'}</td></tr>`}</tbody></table></div>`;
+
+  // The document chain, left to right. Each tile jumps to its section.
+  FL.strip = X => { const s = X.summary, L = s.wo_lanes;
+    const tiles = [
+      ['fl-orders', 'Sales orders', 'Sales Order', s.orders, `submitted & open${s.past_due ? ` · ${s.past_due} past ship date` : ''}`, s.past_due ? 'bad' : ''],
+      ['fl-orders', 'Work orders', 'Work Order', `${s.covered}/${s.build_orders}`, `orders with every build covered${s.lines_need_wo ? ` · ${pbN(s.lines_need_wo, 'line')} need one` : ''}`, s.lines_need_wo ? 'bad' : L.draft ? 'warn' : ''],
+      ['fl-pick', 'Pick materials', 'Material transfer', L.to_pick, `work orders ready · ${flQty(s.pick_production)}`, ''],
+      ['fl-wos', 'Building', 'Work Order · In process', L.in_process, `${L.waiting_parts} waiting for parts`, L.waiting_parts ? 'warn' : ''],
+      ['fl-ship', 'Pick & ship', 'Pick List → Delivery Note', s.steps.to_ship, flQty(s.pick_shipping), s.pick_shipping.short_orders ? 'warn' : ''],
+      ['fl-ship', 'Shipped', 'Delivery Note · 7 days', s.shipped_week, 'submitted delivery notes', ''],
+    ];
+    return `<div class="pu-flow fl-flow">${tiles.map(([id, n, dt, v, sub, tone], i) => `${i ? '<span class="pu-arrow" aria-hidden="true">→</span>' : ''}<button type="button" class="pu-step" data-flgo="sec:${id}">
+      <span class="pu-step-n">${esc(n)}${tone ? `<span class="dot ${tone}"></span>` : ''}</span><span class="pu-step-v">${esc(v)}</span><span class="pu-step-s" title="${esc(sub.replace(/<[^>]+>/g, ''))}">${sub}</span><span class="fl-dt">${esc(dt)}</span></button>`).join('')}</div>`;
+  };
+  // The warehouse manager's list: one row per step that has something in it, with the ERPNext move that clears it.
+  FL.todo = X => { const s = X.summary, L = s.wo_lanes, st = s.steps;
+    const draftOpen = X.work_orders.filter(w => w.lane === 'draft' && w.so_open).length;
+    const orphan = X.work_orders.filter(w => w.lane !== 'completed' && w.so && !w.so_open).length;
+    const clean = orphan + s.draft_dns_stale + s.pick_lists_stale;
+    const items = [
+      [st.needs_wo, 'bad', `${pbN(st.needs_wo, 'sales order')} need${st.needs_wo === 1 ? 's' : ''} work orders`, `${pbN(s.lines_need_wo, 'build line')} with no work order. In ERPNext: open the order → Create → Work Order.`, 'step:needs_wo'],
+      [draftOpen, 'warn', `${pbN(draftOpen, 'draft work order')} to submit`, 'A draft work order doesn\'t reserve material or reach the floor until it is submitted.', 'lane:draft'],
+      [L.to_pick, 'info', `${pbN(L.to_pick, 'work order')} ready to pick materials`, `${flQty(s.pick_production)} to pull. In ERPNext: work order → Start (material transfer), or Create → Pick List.`, 'sec:fl-pick'],
+      [L.waiting_parts, 'warn', `${pbN(L.waiting_parts, 'work order')} waiting for parts`, 'Short once earlier ship dates take their stock. Purchasing has the ETAs.', 'lane:waiting_parts'],
+      [L.in_process, 'info', `${pbN(L.in_process, 'work order')} in production`, 'When built: work order → Finish, so the finished goods land in stock.', 'lane:in_process'],
+      [st.to_ship, 'good', `${pbN(st.to_ship, 'order')} to pick & ship`, `${flQty(s.pick_shipping)}${s.pick_shipping.short_orders ? ` · ${s.pick_shipping.short_orders} short in ERPNext stock` : ''}. In ERPNext: sales order → Create → Pick List, then Delivery Note.`, 'go:ship'],
+      [s.draft_dns, 'warn', `${pbN(s.draft_dns, 'draft delivery note')} to submit`, 'Submit it once the order has left the building.', 'go:ship'],
+      [st.held, 'mute', `${pbN(st.held, 'order')} on hold`, 'Hold reason, On Hold status or a stopped work order. Nothing to do until it is released.', 'step:held'],
+      [clean, 'mute', 'Clean-up: drafts for closed orders', `${[orphan && pbN(orphan, 'work order'), s.draft_dns_stale && pbN(s.draft_dns_stale, 'draft delivery note'), s.pick_lists_stale && pbN(s.pick_lists_stale, 'pick list')].filter(Boolean).join(', ')} tied to orders that are closed or delivered.`, 'sec:fl-clean'],
+    ].filter(x => x[0]);
+    const body = items.length ? `<div class="fl-todo-list">${items.map(([n, tone, t, sub, go]) => `<button type="button" class="fl-todo" data-flgo="${go}"><span class="fl-n ${tone}">${n}</span><span><span class="fl-t">${t}</span><span class="fl-s">${sub}</span></span><span class="fl-go" aria-hidden="true">→</span></button>`).join('')}</div>`
+      : '<div class="empty">Nothing waiting on the warehouse right now</div>';
+    return flCard('fl-todo', 'Your list', 'What the open orders are waiting on, most urgent first. Click a row to see the documents.', body, 's6');
+  };
+  // Sales orders → work orders: coverage ring, where every order sits, and the order table.
+  FL.cover = X => { const s = X.summary, tot = s.orders || 1;
+    const seg = FL_STEPS.filter(([k]) => s.steps[k]).map(([k, n, , c]) => `<i style="width:${s.steps[k] / tot * 100}%;background:${c}" title="${esc(n)}: ${s.steps[k]}"></i>`).join('');
+    const leg = FL_STEPS.filter(([k]) => s.steps[k]).map(([k, n, , c]) => `<button type="button" class="${FL.step === k ? 'on' : ''}" data-flstep="${k}"><i style="background:${c}"></i>${esc(n)} <b>${s.steps[k]}</b></button>`).join('');
+    const cov = [['Every build line has a work order', s.covered, 'good'], ['Some lines still need one', s.partly, 'warn'], ['No work orders yet', s.uncovered, 'bad']];
+    const body = `<div class="fl-cov">${ring(s.covered, s.build_orders, '#12b76a', `of ${s.build_orders} covered`, 120)}
+        <div>${cov.map(([n, v, k]) => `<div class="fl-kv"><span>${sdot(n, k)}</span><b>${v}</b></div>`).join('')}
+        <div class="fl-kv"><span>${sdot('Stock only (nothing to build)', 'mute')}</span><b>${s.stock_only}</b></div></div></div>
+      <div class="eyebrow" style="margin:18px 0 8px">Where each order is</div><div class="fl-bar">${seg || '<i style="width:100%;background:var(--line)"></i>'}</div>
+      <div class="fl-leg">${leg}</div>`;
+    return flCard('fl-cover', 'Sales orders → work orders', `${pbN(s.orders, 'submitted sales order')} still to ship; ${s.build_orders} ${s.build_orders === 1 ? 'has' : 'have'} build lines (items with a BOM).`, body, 's6');
+  };
+  FL.orders = X => {
+    const rows = X.orders.filter(r => (!FL.step || r.step === FL.step) && rowOK(r));
+    const segs = [['', 'All', X.orders.length], ...FL_STEPS.filter(([k]) => X.summary.steps[k]).map(([k, n]) => [k, n, X.summary.steps[k]])]
+      .map(([k, n, c]) => `<button data-flstep="${k}" class="${FL.step === k ? 'on' : ''}">${esc(n)} <span class="calc">${c}</span></button>`).join('');
+    const tr = r => { const chips = r.work_orders.map(n => `<span class="fl-chip"><span class="dot ${flLaneTone(flLaneOf(n))}"></span>${flWO(n)}</span>`).join('');
+      const flags = [r.parts_short && badge('Parts short', 'warn'), r.pick_short && badge('Short in stock', 'warn'), ...r.pick_lists.map(p => `<span class="fl-chip">Pick list ${link('pick-list', p, String(p).split('-').slice(-1)[0])}</span>`),
+        ...r.draft_dns.map(d => `<span class="fl-chip">Draft ${link('delivery-note', d, 'delivery note')}</span>`), r.hold_reason && badge(r.hold_reason, 'mute')].filter(Boolean).join(' ');
+      return `<tr class="fl-row ${r.past_due ? 'pb-row-late' : ''}" data-flopen="Sales Order|${esc(r.so)}"><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer)}</div></td><td>${flEsd(r)}</td><td>${flStep(r.step)}</td>
+        <td>${r.build_lines ? `<b>${r.build_covered}/${r.build_lines}</b> <span class="calc">build lines</span>` : '<span class="calc">Stock only</span>'}${chips ? `<div>${chips}</div>` : ''}
+          ${r.needs_wo.length ? `<div class="m">Needs a work order: ${r.needs_wo.slice(0, 3).map(n => `${esc(n.item_name)} × ${flN(n.missing)}`).join('; ')}${r.needs_wo.length > 3 ? `; + ${r.needs_wo.length - 3} more` : ''}</div>` : ''}</td>
+        <td><div>${esc(r.next)}</div>${r.step === 'to_ship' && r.pick.length ? `<div class="m">Pick ${flQty(r.pick_summary)}</div>` : ''}${flags ? `<div style="margin-top:4px">${flags}</div>` : ''}</td></tr>`; };
+    return `<div class="card flush s12" id="fl-orders"><div class="card-h"><div><h2>Submitted sales orders</h2><div class="sub">Every open order at the one step it is waiting on, earliest ship date first. Chips are its work orders, coloured by lane. * = no ship date set, delivery date shown. Click any order, work order, item or pick list for its details; floor notes, ship dates and holds can be edited there. Ctrl/⌘-click opens ERPNext.</div></div></div>
+      <div style="padding:0 24px"><div class="seg pb-tabs">${segs}</div></div>${flTable(['Sales order', 'Ship date', 'Step', 'Work orders', 'Next'], rows.map(tr), FL.step ? 'No orders at this step' : '')}</div>`;
+  };
+  // Every work order in a lane.
+  FL.wos = X => {
+    const lanes = FL_LANES.filter(([k]) => k !== 'stopped' || X.summary.wo_lanes.stopped);
+    const card = w => { const pct = w.qty ? Math.min(100, w.produced / w.qty * 100) : 0, pk = flSum(w.pick);
+      return `<div class="tcard fl-wo" data-flopen="Work Order|${esc(w.name)}" title="Details and edit"><div class="r"><b>${flWO(w.name)}</b>${w.past_due ? badge('Past ship date', 'bad') : w.esd ? `<span class="small">Ship ${fmtd(w.esd)}</span>` : ''}</div>
+        <div class="tt" style="margin-top:4px">${esc(w.item_name)}</div><div class="fl-prog"><i style="width:${pct}%"></i></div><div class="m">${flN(w.produced)} of ${flN(w.qty)} made</div>
+        ${w.so ? `<div class="m">For ${link('sales-order', w.so, short(w.so))}${w.customer ? ' · ' + esc(w.customer) : ''}</div>` : '<div class="m">No sales order (built for stock)</div>'}
+        ${w.so && !w.so_open && w.lane !== 'completed' ? `<div style="margin-top:6px">${badge('Its order is closed or delivered', 'warn')}</div>` : ''}
+        ${w.short.length ? `<div class="m pb-late" style="margin-top:6px">Short: ${w.short.slice(0, 3).map(x => `${esc(x.item)} ${flN(x.qty)}`).join(', ')}${w.short.length > 3 ? ` + ${w.short.length - 3} more` : ''}</div><div class="m">${w.eta ? 'Parts ETA ' + fmtd(w.eta) : 'No open PO covers it'}</div>` : ''}
+        ${pk.lines && w.lane !== 'waiting_parts' ? `<div class="m" style="margin-top:6px">To pick: ${flQty(pk)}</div>` : ''}</div>`; };
+    const cols = lanes.map(([k, n, tone, hint]) => { const all = X.work_orders.filter(w => w.lane === k && rowOK(w)), cut = k === 'completed' && !FL.showDone && all.length > 6, cs = cut ? all.slice(0, 6) : all;
+      return `<div class="bcol ${FL.hl === k ? 'fl-hl' : ''}" data-fllane="${k}"><div class="lane-h"><span><span class="dot ${tone}"></span> ${esc(n)}</span><span class="ct">${all.length}</span></div><div class="small fl-hint">${esc(hint)}</div>
+        ${cs.map(card).join('') || '<div class="drop-hint">Nothing here</div>'}${cut ? `<button type="button" class="cc-btn soft" data-fldone>Show ${all.length - 6} more</button>` : ''}</div>`; });
+    return flCard('fl-wos', 'Work orders', `${pbN(X.summary.wo_open, 'open work order')}, left to right in the order the floor works them. Completed ones show for 14 days, or until their order ships.`,
+      `<div class="board fl-board" style="--n:${lanes.length}">${cols.join('')}</div>`, 'flush s12 fl-pad');
+  };
+  // Pieces to pull from stock for work orders, one block per work order.
+  FL.pickProd = X => {
+    const ws = X.work_orders.filter(w => (w.lane === 'to_pick' || w.lane === 'in_process') && w.pick.length && rowOK(w));
+    const rows = ws.flatMap(w => [`<tr class="fl-grp"><td colspan="5">${flWO(w.name)} <span class="calc">${esc(w.item_name)}</span>${w.so ? ` · for ${link('sales-order', w.so, short(w.so))}` : ''}${w.esd ? ` · ship ${fmtd(w.esd)}` : ''}</td></tr>`,
+      ...w.pick.map(p => `<tr><td>${link('item', p.item)}<div class="m">${esc(p.item_name !== p.item ? p.item_name : '')}</div></td><td class="num"><b>${flN(p.qty)}</b> ${flU(p.uom)}</td><td>${esc(p.warehouse || '—')}</td><td class="num">${flN(p.on_hand)}</td><td>${p.short ? badge('Short ' + flN(p.short), 'bad') : badge('On the shelf', 'good')}</td></tr>`)]);
+    return flCard('fl-pick', 'Pick for production', `${flQty(X.summary.pick_production)} for ${pbN(ws.length, 'work order')}: required minus already transferred. On shelf excludes work-in-progress warehouses.`,
+      flTable(['Item', '#To pick', 'From', '#On shelf', ''], rows, 'No work order is waiting on materials'), 'flush s7');
+  };
+  // The ship side, short: which orders, how much. The full list is on the Shipping page.
+  FL.pickShip = X => { const s = X.summary.pick_shipping;
+    const os = X.orders.filter(r => r.step === 'to_ship' && rowOK(r));
+    const rows = os.map(r => `<tr class="fl-row" data-flopen="Sales Order|${esc(r.so)}"><td>${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer)}</div></td><td>${flEsd(r)}</td><td class="num">${r.pick.length ? flQty(r.pick_summary) : '<span class="calc">Picked</span>'}</td><td>${r.pick_short ? badge('Short', 'warn') : r.draft_dns.length ? badge('Delivery note drafted', 'info') : r.pick_lists.length ? badge('Picking', 'info') : badge('Ready', 'good')}</td></tr>`);
+    return flCard('fl-ship', 'Pick & ship', `${flQty(s)} across ${pbN(os.length, 'order')}. ${X.summary.shipped_week} delivery note${X.summary.shipped_week === 1 ? '' : 's'} submitted in the last 7 days.`,
+      flTable(['Sales order', 'Ship date', '#To pick', ''], rows, 'No order is ready to ship'), 'flush s5', '<a class="cc-btn soft" style="text-decoration:none" href="#ship">Full pick list →</a>');
+  };
+  FL.clean = X => {
+    const wos = X.work_orders.filter(w => w.lane !== 'completed' && w.so && !w.so_open), dns = X.draft_dns.filter(d => !d.open_order), pls = X.pick_lists.filter(p => !p.open_order);
+    if (!wos.length && !dns.length && !pls.length) return '';
+    const rows = [...wos.map(w => `<tr><td>${flWO(w.name)}</td><td>Work order · ${esc(w.status)}</td><td>${link('sales-order', w.so, short(w.so))}</td><td>${fmtd(w.created)}</td></tr>`),
+      ...dns.map(d => `<tr><td>${link('delivery-note', d.name, short(d.name).replace('ilL-MAT-DN-', 'DN '))}</td><td>Draft delivery note</td><td>${d.sales_orders.map(so => link('sales-order', so, short(so))).join('<br>') || '—'}</td><td>${fmtd(d.posting_date)}</td></tr>`),
+      ...pls.map(p => `<tr><td>${link('pick-list', p.name)}</td><td>Pick list · ${esc(p.status)}</td><td>${p.sales_orders.map(so => link('sales-order', so, short(so))).join('<br>') || '—'}</td><td>${fmtd(p.created)}</td></tr>`)];
+    return `<div class="card flush s12" id="fl-clean"><details class="more"><summary>Clean-up: ${pbN(rows.length, 'document')} tied to closed or delivered orders</summary><div style="padding:0 24px 8px" class="small">They don't block anything, but they make the lists above harder to trust. Cancel or delete them in ERPNext.</div>
+      ${flTable(['Document', 'Kind', 'Sales order', 'Date'], rows)}</details></div>`;
+  };
+  FL.body = () => {
+    const X = FL.data;
+    if (!X) return FL.err ? `<div class="err">Couldn't load the warehouse flow: ${esc(FL.err)}</div>` : '<div class="cc-loading"><span class="cc-spin"></span>Loading the warehouse flow…</div>';
+    return flStale() + FL.strip(X) + `<div class="grid">${FL.todo(X)}${FL.cover(X)}${FL.orders(X)}${FL.wos(X)}${FL.pickProd(X)}${FL.pickShip(X)}${FL.clean(X)}</div>`;
+  };
+  // Shipping page: the full pick list for orders ready to go, plus pick lists and draft delivery notes on open orders.
+  FL.shipBody = () => {
+    const X = FL.data;
+    if (!X) return FL.err ? `<div class="err">Couldn't load the pick list: ${esc(FL.err)}</div>` : '<div class="empty">Loading the pick list…</div>';
+    const s = X.summary.pick_shipping, os = X.orders.filter(r => r.step === 'to_ship' && rowOK(r));
+    const rows = os.flatMap(r => [`<tr class="fl-grp"><td colspan="5">${link('sales-order', r.so, short(r.so))} <span class="calc">${esc(r.customer)}</span> · ship ${flEsd(r)}${r.pick_lists.map(p => ` · pick list ${link('pick-list', p)}`).join('')}${r.draft_dns.map(d => ` · draft ${link('delivery-note', d, 'delivery note')}`).join('')}</td></tr>`,
+      ...(r.pick.length ? r.pick.map(p => `<tr><td>${link('item', p.item)}<div class="m">${esc(p.item_name !== p.item ? p.item_name : '')}${p.kit ? ` · part of ${esc(p.kit)}` : ''}</div></td><td class="num"><b>${flN(p.qty)}</b> ${flU(p.uom)}</td><td>${esc(p.warehouse || '—')}</td><td>${p.short ? badge('Short ' + flN(p.short), 'bad') : badge('On the shelf', 'good')}</td><td></td></tr>`)
+        : ['<tr><td colspan="5" class="calc">Everything is picked; submit the delivery note.</td></tr>'])]);
+    const open = X.pick_lists.filter(p => p.open_order), dns = X.draft_dns.filter(d => d.open_order);
+    const kpis = `<div class="ex-kpis pb-kpis">${stat('Orders to pick & ship', os.length, 'Built, or nothing to build')}${stat('Lines to pick', s.lines, flQty(s))}${stat('Short in stock', s.short_orders, 'Orders with a line ERPNext shows short', s.short_orders ? 'warn' : '')}${stat('Draft delivery notes', X.summary.draft_dns, 'On open orders: submit once shipped')}${stat('Shipped, last 7 days', X.summary.shipped_week, 'Submitted delivery notes')}</div>`;
+    return flStale() + kpis + `<div class="grid" style="margin-bottom:20px">
+      <div class="card flush s12" id="fl-shiplist"><div class="card-h"><div><h2>Pick list: ready to ship</h2><div class="sub">Ordered minus delivered or already picked, kits expanded to their parts. Stock is handed to earlier ship dates first, after work orders take theirs. In ERPNext: sales order → Create → Pick List, then Delivery Note.</div></div></div>
+        ${flTable(['Item', '#To pick', 'From', 'Stock', ''], rows, 'No order is ready to ship')}</div>
+      ${open.length ? tableCard('Open pick lists', '', ['Pick list', 'Status', 'Sales order', '#Lines', 'Qty'], open.map(p => `<tr><td>${link('pick-list', p.name)}</td><td>${esc(p.status)}</td><td>${p.sales_orders.map(so => link('sales-order', so, short(so))).join('<br>')}</td><td class="num">${p.lines}</td><td>${flQty(p)}</td></tr>`), '', 's6') : ''}
+      ${dns.length ? tableCard('Draft delivery notes', 'Submit once the order has shipped', ['Delivery note', 'Customer', 'Sales order', 'Date'], dns.map(d => `<tr><td>${link('delivery-note', d.name)}</td><td>${esc(d.customer)}</td><td>${d.sales_orders.map(so => link('sales-order', so, short(so))).join('<br>')}</td><td>${fmtd(d.posting_date)}</td></tr>`), '', 's6') : ''}
+      ${X.shipped.length ? tableCard('Shipped in the last 7 days', '', ['Delivery note', 'Customer', 'Date'], X.shipped.filter(rowOK).map(d => `<tr><td>${link('delivery-note', d.name)}</td><td>${esc(d.customer)}</td><td>${fmtd(d.posting_date)}</td></tr>`), '', 's6') : ''}
+    </div>`;
+  };
+  const flStale = () => FL.err ? `<div class="callout"><div>Couldn't refresh the warehouse flow (${esc(FL.err)}). Showing what loaded ${FL.at ? 'at ' + new Date(FL.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : 'earlier'}.</div></div>` : '';
+  function flRedraw() {
+    // the stage stepper's Manufacturing count comes from this data once it is in
+    const ch = $('.chev'); if (ch && PIPE.includes(S.view)) ch.outerHTML = stepper(CUR_M || M(), S.view);
+    const r = $('#flroot'); if (r && S.view === 'mfg') r.innerHTML = FL.body();
+    const sh = $('#flship'); if (sh && S.view === 'ship') sh.innerHTML = FL.shipBody();
+    FL.bind();
+  }
+  async function flFetch(manual) {
+    if (FL.busy) return; FL.busy = true; FL.err = null;
+    try { FL.data = await call(FL_API, {}); FL.at = Date.now(); if (manual) toast('Warehouse flow refreshed'); }
+    catch (e) { FL.err = e.message; }
+    FL.busy = false; flRedraw();
+  }
+  FL.bind = () => {
+    root.querySelectorAll('[data-flstep]').forEach(b => b.onclick = () => { FL.step = FL.step === b.dataset.flstep && b.closest('.fl-leg') ? '' : b.dataset.flstep; flRedraw(); });
+    root.querySelectorAll('[data-fldone]').forEach(b => b.onclick = () => { FL.showDone = true; flRedraw(); });
+    // whole work order cards and order rows open their record's sheet (links and buttons inside keep their own click)
+    root.querySelectorAll('[data-flopen]').forEach(el => el.onclick = e => { if (e.target.closest('a, button')) return; const [dt, n] = el.dataset.flopen.split('|'); plDetail(dt, n); });
+    root.querySelectorAll('[data-flgo]').forEach(b => b.onclick = () => {
+      const [k, v] = b.dataset.flgo.split(':'); let target = v;
+      if (k === 'go') { location.hash = v; return; }
+      if (k === 'step') { FL.step = v; FL.hl = ''; target = 'fl-orders'; flRedraw(); }
+      else if (k === 'lane') { FL.hl = v; target = 'fl-wos'; flRedraw(); }
+      if (target === 'fl-clean') { const d = $('#fl-clean details'); if (d) d.open = true; }
+      const el = $('#' + target); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+  // Manufacturing and Shipping: a click on a document link opens its side sheet (details, child tables, the fields
+  // that can change, + To-do, + Add to agenda, Open in ERPNext) instead of a new tab. Ctrl/⌘/Shift-click still opens
+  // ERPNext, and doctypes the Workbench doesn't cover (or before its config has loaded) open ERPNext as before.
+  const FL_SHEET_VIEWS = ['mfg', 'ship'];
+  const flDt = slugged => slugged.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  root.addEventListener('click', e => {
+    if (!FL_SHEET_VIEWS.includes(S.view) || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest && e.target.closest('a[href^="/app/"]'); if (!a || a.closest('#ccsheet2, .qlinks, .pu-menu')) return;
+    const mm = a.getAttribute('href').match(/^\/app\/([a-z0-9-]+)\/([^/?#]+)$/); if (!mm || mm[2] === 'new') return;
+    const dt = flDt(mm[1]); if (!WB.cfg || !WB.cfg.doctypes[dt]) return;
+    e.preventDefault(); wbOpen(dt, decodeURIComponent(mm[2]));
+  });
+  const flCfg = () => { if (!WB.cfg && !FL.cfgBusy) { FL.cfgBusy = true; gw('config').then(c => { WB.cfg = c; }).catch(() => { }).finally(() => { FL.cfgBusy = false; }); } };
+  FL.mount = () => { flCfg(); FL.bind(); if (!FL.busy && (!FL.data || Date.now() - FL.at > 120000)) flFetch(); };
   V.mfg = m => {
     const row = w => `<tr><td>${link('work-order', w.wo)}</td><td>${link('item', w.item, w.name)}<div class="m mono">${esc(w.item)}</div></td><td class="num">${w.qty}</td><td>${link('sales-order', w.so, short(w.so))}</td><td>${fmtd(w.created)}</td><td>${w.flag === 'Active' ? badge(w.status, w.draft ? 'warn' : 'info') : badge(w.flag.split(':')[0].split(' (')[0], 'bad')}</td></tr>`;
-    return header('Manufacturing', 'Production board: what to build, how long the queue takes with today\'s crew, and what is waiting on parts.',
+    return header('Manufacturing', 'Flow: every open order and work order at the step it is waiting on, with what to do next in ERPNext. Reports: the schedule workbook\'s views (points, capacity, dollars).',
       `<div class="toolbar no-print"><a class="cc-btn soft" style="text-decoration:none" href="/app/ill-production-settings" target="_blank" rel="noopener">Weights &amp; capacity</a><button class="cc-btn soft" id="pbrefresh">Refresh</button></div>`) +
       `<div id="pbroot">${PB.body()}</div>
       <div class="grid" style="margin-top:20px"><div class="card flush s12"><details class="more"><summary>Work order clean-up (${m.act.length} active · ${m.dup.length} duplicate or stale · ${D.needwo.length} lines with no work order)</summary><div class="grid" style="padding:0 16px 16px">
@@ -864,7 +1065,7 @@
     const pos = d => 3 + (ts(d) - lo) / ((hi - lo) || 1) * 94;
     const col = s => s.state === 'Ready' ? '#12b76a' : s.delivery < TODAY ? '#f04438' : '#f79009';
     const ready = rows.filter(s => s.state === 'Ready').length;
-    return header('Shipping', 'Which open sales orders can go out this week, and which are at risk.') + `<div class="grid">
+    return header('Shipping', 'What to pick and ship now, then which open sales orders can go out this week and which are at risk.', '<div class="toolbar no-print"><button class="cc-btn soft" id="flrefresh">Refresh</button></div>') + `<div id="flship">${FL.shipBody()}</div><div class="grid">
       ${stat('Open sales orders', D.ship.length, money(D.ship.reduce((a, s) => a + s.value, 0)) + ' total').replace('card stat', 'card stat s4')}
       ${stat('Past delivery date', m.past.length, 'Oldest ' + fmtd(m.past.reduce((a, s) => s.delivery < a ? s.delivery : a, '9999')), m.past.length ? 'bad' : '').replace('card stat', 'card stat s4')}
       ${stat('Ready per ERPNext', ready, 'No draft work orders or shortages', 'good').replace('card stat', 'card stat s4')}
@@ -1171,7 +1372,8 @@
       orders: () => [D.ship.length, oi && oi.length ? `${oi.length} new request${oi.length === 1 ? '' : 's'}` : kfmt(p.soVal) + ' open', p.corr.length || (oi || []).some(o => ageBd(o.creation) > 2) ? 'warn' : 'good'],
       purch: () => { const u = PU.data && PU.data.summary; if (!u) return [m.firm.length, `${m.late.length} late`, m.late.length ? 'bad' : 'good'];
         const late = (u.to_order || {}).late || 0, od = (u.pos || {}).overdue || 0; return [(u.to_order || {}).count || 0, `${late} late · ${od} PO${od === 1 ? '' : 's'} overdue`, late || od ? 'bad' : (u.to_order || {}).count ? 'warn' : 'good']; },
-      mfg: () => [m.act.length, `${D.needwo.length} lines need WO`, D.needwo.length || m.dup.length ? 'warn' : 'good'],
+      mfg: () => { const f = FL.data && FL.data.summary; if (!f) return [m.act.length, `${D.needwo.length} lines need WO`, D.needwo.length || m.dup.length ? 'warn' : 'good'];
+        return [f.wo_open, `open WOs · ${f.lines_need_wo} line${f.lines_need_wo === 1 ? '' : 's'} need one`, f.lines_need_wo ? 'bad' : f.wo_lanes.draft || f.wo_lanes.waiting_parts ? 'warn' : 'good']; },
       ship: () => [`${p.ready.length}/${D.ship.length}`, `ready · ${m.past.length} past due`, m.past.length ? 'bad' : 'good'],
       service: () => [svcOpen.length + (ar ? ar.length : 0), ar && ar.length ? `${ar.length} account request${ar.length === 1 ? '' : 's'}` : 'tickets our move', svcOpen.some(t => t.age > 2) || (ar || []).some(a => ageBd(a.creation) > 2) ? 'bad' : 'good'],
     };
@@ -1910,7 +2112,7 @@
     $('#ccmain').innerHTML = html;
     catShow(v === 'catalog' && catOK()); if (v === 'catalog') { catBind(); if (!WHO) whoami(); }
     bind(); bindProjects(); bindPipe(); bindStages(); if (wbIsView()) WB.mount();
-    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount(); if (v === 'mfg') PB.mount(); if (v === 'purch') PU.mount(); if (agIsView()) AG.mount();
+    if (v === 'exec') EX.mount(); if (v === 'review') RV.mount(); if (v === 'mfg') PB.mount(); if (v === 'ship') { FL.mount(); const fr = $('#flrefresh'); if (fr) fr.onclick = () => { FL.at = 0; flFetch(true); }; } if (v === 'purch') PU.mount(); if (agIsView()) AG.mount();
     if (so && !PU.data && !PU.busy && !PU.err) puFetch();
     root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { location.hash = b.dataset.go; });
   }
@@ -2189,13 +2391,15 @@
     try {
       const [g, meta] = await Promise.all([gw('get', { dt, name }), wbMeta(dt)]);
       const doc = g.doc, L = wbL(dt), cols = (L.cols || WB.cfg.doctypes[dt].columns);
-      const canEdit = g.editable && meta.fields.length;
-      const why = g.read_only ? 'A generated or audit record, so it is read-only here.' : !WB.cfg.can_edit ? 'View only. Ask Kevin for the Command Center Editor role to edit.' : doc.docstatus !== 0 ? 'Submitted or cancelled, so it is read-only here. Open it in ERPNext to amend.' : '';
+      // v9: a submitted document offers only the fields ERPNext lets change after submit (g.after_submit)
+      const sub = doc.docstatus === 1, fields = sub ? meta.fields.filter(f => (g.after_submit || []).includes(f.fieldname)) : meta.fields;
+      const canEdit = g.editable && fields.length;
+      const why = g.read_only ? 'A generated or audit record, so it is read-only here.' : !WB.cfg.can_edit ? 'View only. Ask Kevin for the Command Center Editor role to edit.' : doc.docstatus !== 0 && !canEdit ? 'Submitted or cancelled, so it is read-only here. Open it in ERPNext to amend.' : '';
       const tog = g.status_kind === 'bool' && g.editable ? `<button class="cc-btn soft" type="button" id="wbtoggle" data-on="${doc.is_active ? 1 : 0}">${doc.is_active ? 'Deactivate' : 'Activate'}</button>` : '';
       const bld = g.builder && catOK() ? '<button class="cc-btn soft" type="button" id="wbbuilder">Edit in Catalog Builder</button>' : '';
       const kv = cols.filter(c => c.fieldname !== 'name' && !(c.fieldname === 'status' && doc.status)).map(c => `<div class="wb-kv"><span>${esc(c.label)}</span><b>${wbCell(c, doc[c.fieldname])}</b></div>`).join('');
-      const req = meta.fields.filter(f => f.reqd), opt = meta.fields.filter(f => !f.reqd);
-      const form = canEdit ? `<div class="wb-sec">Edit</div>${req.map(f => wbField(f, doc[f.fieldname])).join('')}${opt.length ? `<details class="wb-more-f"><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, doc[f.fieldname])).join('')}</details>` : ''}` : (why ? `<p class="wb-note">${esc(why)}</p>` : '');
+      const req = sub ? fields : fields.filter(f => f.reqd), opt = sub ? [] : fields.filter(f => !f.reqd);
+      const form = canEdit ? `<div class="wb-sec">Edit</div>${sub ? '<p class="wb-note">Submitted: only these fields can change after submit. Open it in ERPNext for anything else.</p>' : ''}${req.map(f => wbField(f, doc[f.fieldname])).join('')}${opt.length ? `<details class="wb-more-f"><summary>${opt.length} more fields</summary>${opt.map(f => wbField(f, doc[f.fieldname])).join('')}</details>` : ''}` : (why ? `<p class="wb-note">${esc(why)}</p>` : '');
       const aud = g.audit.length ? `<div class="wb-sec">Recent changes from the Command Center</div><ul class="wb-audit">${g.audit.map(a => `<li><span>${fmtd(a.creation)}</span> ${esc(wbPlain(a.content).replace(/^Command Center:\s*/, ''))}</li>`).join('')}</ul>` : '';
       const items = wbItems(doc);
       const sh = wbShowSheet(`<div class="wb-kvs">${kv}</div>${items}${wbTables(g, dt, name)}${form}${aud}<p class="cc-msg" id="wbMsg"></p>
@@ -2211,10 +2415,10 @@
       };
       f.onsubmit = async e => {
         e.preventDefault(); if (!canEdit) return;
-        const vals = wbCollect(f, meta.fields, doc), msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave');
+        const vals = wbCollect(f, fields, doc), msg = sh.querySelector('#wbMsg'), b = sh.querySelector('#wbsave');
         if (!Object.keys(vals).length) { msg.textContent = 'No changes to save.'; return; }
         b.disabled = true; b.textContent = 'Saving…'; msg.textContent = '';
-        try { const r = await gw('save', { dt, name, values: vals }); closeSheet(); toast(`Saved ${esc(name)} · ${r.changed} field${r.changed === 1 ? '' : 's'} updated`); if (agIsView() && AG.cur) agLoad(AG.cur); else wbFetch(dt, false); }
+        try { const r = await gw('save', { dt, name, values: vals }); closeSheet(); toast(`Saved ${esc(name)} · ${r.changed} field${r.changed === 1 ? '' : 's'} updated`); if (agIsView() && AG.cur) agLoad(AG.cur); else if (S.view === 'mfg' || S.view === 'ship') { FL.at = 0; flFetch(); if (S.view === 'mfg') { PB.at = 0; pbFetch(); } } else wbFetch(dt, false); }
         catch (err) { msg.textContent = 'Not saved: ' + err.message; b.disabled = false; b.textContent = 'Save changes'; }
       };
     } catch (e) { wbShowSheet(`<p class="cc-msg">Couldn't open ${esc(name)}: ${esc(e.message)}</p>`, '', esc(name)); }

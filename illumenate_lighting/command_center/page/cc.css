@@ -506,3 +506,40 @@ details summary { cursor: pointer; }
 #cc .pb-adjg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
 #cc .pb-adjg .cc-field input { width: 100%; min-width: 0; }
 @media (max-width: 480px) { #cc .pb-adjg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- v9: warehouse flow (Manufacturing → Flow, Shipping pick list) ---------- */
+#cc .pb-tabsep { align-self: center; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--mute); padding: 0 6px 0 12px; border-left: 1px solid var(--line); margin-left: 4px; }
+#cc .fl-flow .pu-step { min-width: 140px; }
+#cc .fl-dt { margin-top: 6px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--infot); background: var(--infob); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+#cc .fl-todo-list { display: grid; gap: 8px; }
+#cc .fl-todo { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer; font: inherit; color: var(--ink); transition: border-color .12s, box-shadow .12s; }
+#cc .fl-todo:hover { border-color: #d0d5dd; box-shadow: 0 4px 12px rgba(16,24,40,.08); }
+#cc .fl-todo > span:nth-child(2) { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+#cc .fl-n { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; letter-spacing: -.3px; }
+#cc .fl-n.bad { background: var(--badb); color: var(--badt); } #cc .fl-n.warn { background: var(--warnb); color: var(--warnt); }
+#cc .fl-n.info { background: var(--infob); color: var(--infot); } #cc .fl-n.good { background: var(--goodb); color: var(--goodt); } #cc .fl-n.mute { background: var(--line2); color: var(--ink2); }
+#cc .fl-t { font-weight: 600; font-size: 13.5px; }
+#cc .fl-s { font-size: 12.5px; color: var(--mute); }
+#cc .fl-go { color: var(--mute); font-size: 16px; }
+#cc .fl-cov { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; }
+#cc .fl-kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line2); font-size: 13px; }
+#cc .fl-kv:last-child { border-bottom: 0; }
+#cc .fl-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--line2); gap: 2px; }
+#cc .fl-bar i { display: block; height: 100%; min-width: 4px; }
+#cc .fl-leg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+#cc .fl-leg button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 3px 9px; font-size: 12px; color: var(--ink2); cursor: pointer; }
+#cc .fl-leg button.on { border-color: var(--s1); box-shadow: 0 0 0 2px rgba(42,120,214,.15); color: var(--ink); }
+#cc .fl-leg i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+#cc .fl-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; border-radius: 7px; padding: 1px 7px; background: var(--line2); color: var(--ink2); margin: 4px 4px 0 0; white-space: nowrap; }
+#cc .fl-pad .board { padding: 0 24px 20px; }
+#cc .fl-board { grid-template-columns: repeat(var(--n, 5), minmax(210px, 1fr)); }
+#cc .fl-hint { margin: -6px 0 10px; }
+#cc .bcol.fl-hl { outline: 2px solid var(--s1); outline-offset: 2px; }
+#cc .tcard.fl-wo:hover { transform: none; }
+#cc .fl-prog { height: 6px; background: var(--line2); border-radius: 3px; overflow: hidden; margin: 8px 0 3px; }
+#cc .fl-prog i { display: block; height: 100%; background: var(--good); }
+#cc tr.fl-row { cursor: pointer; } #cc tr.fl-row:hover td { background: #f9fafb; }
+#cc tr.fl-grp td { background: #f9fafb; font-weight: 600; font-size: 13px; }
+#cc #fl-orders, #cc #fl-wos, #cc #fl-pick, #cc #fl-ship, #cc #fl-clean, #cc #fl-todo { scroll-margin-top: 16px; }
+@media (max-width: 700px) { #cc .fl-cov { grid-template-columns: 1fr; justify-items: start; } #cc .fl-todo { grid-template-columns: 36px 1fr; } #cc .fl-n { width: 36px; height: 36px; font-size: 15px; } #cc .fl-go { display: none; } #cc .pb-tabsep { display: none; } #cc .fl-pad .board { padding: 0 14px 16px; } }
+@media print { #cc .fl-todo { break-inside: avoid; } }
