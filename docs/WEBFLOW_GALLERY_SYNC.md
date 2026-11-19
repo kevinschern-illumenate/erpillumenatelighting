@@ -282,6 +282,9 @@ Warnings (shown, not blocking):
   `api/publication_contract.py`), and a lease that runs out is a timeout. Permanent errors, and temporary ones
   after the third retry, notify once and stay visible in ERP for correction and explicit retry.
 - Images are passed to Webflow as public URLs. ERP files must therefore be public files on an HTTPS origin.
+  The projection percent-encodes each URL's path (`/files/Lilium Static White_Hero.png` becomes
+  `/files/Lilium%20Static%20White_Hero.png`): Webflow rejects a URL with spaces when it imports the image on
+  publish ("Invalid file url"), although it accepts it in a draft.
 - Multi-reference `products-used` is written with Webflow item IDs of the products in the same site.
 
 ## 8. Webflow changes needed
@@ -436,3 +439,7 @@ Still open:
   `lookup-incomplete` and `readiness` failures. The form panel is rebuilt on every refresh. This document:
   status, the sweep (not built; section 11), `sync_targets`, image size, the staging2 brand's
   `erpnext_base_url`, and the import's unmapped-product rule corrected.
+- 2026-11-19: First staging run: the draft was written, but Publish Live failed with "Remote image failed to
+  import: Invalid file url" for a file name with spaces. Gallery image URLs are now percent-encoded
+  (`gallery_projection.absolute_url`), as the product projection already did. Changing a URL changes the
+  gallery's hash, so each gallery needs Approve and Stage again after this is deployed.

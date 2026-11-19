@@ -91,6 +91,43 @@ class TestProjection(unittest.TestCase):
 		p = build(gallery_images=[{"image": "files/a.jpg", "alt_text": "A"}])
 		self.assertEqual(p["hero_image"]["url"], BASE + "/files/a.jpg")
 
+	def test_spaces_in_a_file_name_are_percent_encoded(self):
+		# Webflow rejects a URL with raw spaces ("Invalid file url") when it imports the image on publish.
+		self.assertEqual(
+			absolute_url("/files/Lilium Static White_Hero.png", BASE),
+			BASE + "/files/Lilium%20Static%20White_Hero.png",
+		)
+
+	def test_encoding_is_idempotent_and_handles_odd_names(self):
+		once = absolute_url("/files/Caf\u00e9 #1 (final)?.png", BASE)
+		self.assertEqual(once, BASE + "/files/Caf%C3%A9%20%231%20%28final%29%3F.png")
+		self.assertEqual(absolute_url(once[len(BASE) :], BASE), once)
+		self.assertEqual(absolute_url("/files/a%20b.png", BASE), BASE + "/files/a%20b.png")
+		# A % that is not an escape is data, not part of one.
+		self.assertEqual(absolute_url("/files/100% cotton.png", BASE), BASE + "/files/100%25%20cotton.png")
+
+	def test_https_url_has_only_its_path_encoded(self):
+		self.assertEqual(
+			absolute_url("https://x.com/my file.jpg?v=1", BASE), "https://x.com/my%20file.jpg?v=1"
+		)
+
+	def test_every_image_in_the_payload_is_encoded(self):
+		gallery = {
+			"slug": "g",
+			"gallery_title": "G",
+			"gallery_images": [
+				{"image": "/files/Lilium Static White_Hero.png", "alt_text": "hero"},
+				{"image": "/files/Second Shot.jpg", "alt_text": ""},
+			],
+			"custom_items": [{"item_name": "Kit", "detail": "black", "image": "/files/Kit Photo.jpg"}],
+		}
+		payload = build_payload(gallery, base_url=BASE, product_refs={})
+		hero = BASE + "/files/Lilium%20Static%20White_Hero.png"
+		self.assertEqual(payload["hero_image"]["url"], hero)
+		self.assertEqual(payload["gallery_images"][0]["url"], hero)
+		self.assertEqual(payload["gallery_images"][1]["url"], BASE + "/files/Second%20Shot.jpg")
+		self.assertIn('src="' + BASE + '/files/Kit%20Photo.jpg"', payload["custom_items_html"])
+
 	def test_http_and_protocol_relative_pass_through(self):
 		self.assertEqual(absolute_url("http://x.com/a.jpg", BASE), "http://x.com/a.jpg")
 		self.assertEqual(absolute_url("//x.com/a.jpg", BASE), "//x.com/a.jpg")
