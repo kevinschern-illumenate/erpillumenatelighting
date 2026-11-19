@@ -91,7 +91,7 @@ def _targeted(gallery, brand):
 
 
 def _product_refs(gallery, brand):
-	"""{product: {"name", "webflow_item_id"}}; the item ID comes from ``product_item_id`` (spec 6a)."""
+	"""{product: {"name", "slug", "webflow_item_id"}}; the item ID comes from ``product_item_id`` (spec 6a)."""
 	refs = {}
 	default_brand = get_default_brand()
 	for row in gallery.get("products_used") or []:
@@ -99,8 +99,12 @@ def _product_refs(gallery, brand):
 		if not product or product in refs:
 			continue
 		item_id = product_item_id(product, brand, default_brand)
-		name = frappe.db.get_value(PRODUCT, product, "product_name")
-		refs[product] = {"name": name or product, "webflow_item_id": item_id or None}
+		found = frappe.db.get_value(PRODUCT, product, ["product_name", "product_slug"], as_dict=True) or {}
+		refs[product] = {
+			"name": found.get("product_name") or product,
+			"slug": found.get("product_slug") or None,
+			"webflow_item_id": item_id or None,
+		}
 	return refs
 
 
