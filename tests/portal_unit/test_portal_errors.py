@@ -1,6 +1,7 @@
 """Structured portal errors and broad-except narrowing — plan items 1.6 / 2.4."""
 
 import pathlib
+import types
 import unittest
 from typing import ClassVar
 from unittest.mock import MagicMock
@@ -8,6 +9,11 @@ from unittest.mock import MagicMock
 from test_services import ROOT, Record, load_service
 
 APP = pathlib.Path(__file__).resolve().parents[2] / "illumenate_lighting"
+SCHEDULE = "ilL-Project-Fixture-Schedule"
+LOADED = "2026-11-18 09:00:00.000001"
+SAVED = "2026-11-18 09:00:00.000052"
+STALE = "This schedule changed since you opened it. Reload to see the latest version."
+RAW = "Error: Document has been modified after you have opened it. Please refresh to get the latest document."
 
 
 class PortalErrors(unittest.TestCase):
@@ -169,6 +175,88 @@ class KitSpecLoaders(unittest.TestCase):
 				service._get_lens_spec_data("SPEC-2"), {"spec_name": "SPEC-2", "error": "Could not load spec"}
 			)
 			self.assertIn("spec: SPEC-2", frappe.log_error.call_args.kwargs["message"])
+
+
+class StaleScheduleSaves(unittest.TestCase):
+	"""Health item 6: a double-submitted line action is a stale reply, never a logged raw error."""
+
+	def call(self, endpoint, save_error=None, modified=LOADED, **kwargs):
+		deps = {
+			ROOT + ".portal.staff": types.SimpleNamespace(allowed=lambda c: False),
+			ROOT + ".portal.line_undo": types.SimpleNamespace(
+				snapshot=lambda schedule, lines: [], remember=MagicMock(return_value=None)
+			),
+			ROOT
+			+ ".doctype.ill_project_fixture_schedule.ill_project_fixture_schedule": types.SimpleNamespace(
+				has_permission=lambda *a: True
+			),
+			ROOT + ".portal.line_edit": types.SimpleNamespace(apply_line_data=MagicMock()),
+		}
+		with load_service(ROOT + ".api.portal", deps) as (api, frappe):
+			error = frappe.TimestampMismatchError(RAW) if save_error is None else save_error
+			schedule = Record(
+				name="S",
+				status="DRAFT",
+				is_locked=0,
+				modified=modified,
+				lines=[Record(line_key="A")],
+				save=MagicMock(side_effect=error),
+				duplicate_line=MagicMock(side_effect=error),
+			)
+			frappe.get_doc.return_value = schedule
+			frappe.db.exists.return_value = True
+			# The competing save is committed: who saved it and when is read after the rollback.
+			frappe.db.get_value.side_effect = lambda doctype, name, *a, **kw: (
+				Record(modified=SAVED, modified_by="pat@example.com") if doctype == SCHEDULE else "Pat Smith"
+			)
+			frappe.local.request = Record(method="POST")
+			frappe.local.message_log = [{"message": "earlier"}, {"message": RAW, "raise_exception": 1}]
+			frappe.log_error = MagicMock()
+			frappe.get_traceback = MagicMock(return_value="Traceback")
+			frappe.utils.strip_html = lambda value: value
+			result = getattr(api, endpoint)("S", line_key="A", expected_modified=LOADED, **kwargs)
+			return result, frappe, schedule
+
+	def test_timestamp_mismatch_is_a_stale_reply_with_conflict_details(self):
+		for endpoint, extra in (
+			("delete_schedule_line", {}),
+			("duplicate_schedule_line", {}),
+			("update_schedule_line", {"line_data": {"qty": 2}}),
+		):
+			with self.subTest(endpoint=endpoint):
+				result, frappe, _ = self.call(endpoint, **extra)
+				self.assertEqual(result["error_code"], "stale")
+				self.assertFalse(result["success"])
+				self.assertEqual(result["error"], STALE)
+				self.assertNotIn("modified after", result["error"])
+				self.assertEqual(result["conflict"]["modified"], SAVED)
+				self.assertEqual(result["conflict"]["modified_by_name"], "Pat Smith")
+				self.assertNotIn("pat@example.com", str(result))
+				frappe.log_error.assert_not_called()
+				frappe.db.rollback.assert_called()
+				# The raw Frappe text queued for the page's error dialog is withdrawn too.
+				self.assertEqual(frappe.local.message_log, [{"message": "earlier"}])
+
+	def test_refused_expected_modified_is_stale_and_not_logged(self):
+		result, frappe, schedule = self.call("delete_schedule_line", modified=SAVED)
+		self.assertEqual(result["error_code"], "stale")
+		self.assertEqual(result["error"], STALE)
+		self.assertEqual(result["conflict"]["modified"], SAVED)
+		schedule.save.assert_not_called()
+		frappe.log_error.assert_not_called()
+
+	def test_without_a_schedule_the_reply_is_stale_without_conflict(self):
+		with load_service(ROOT + ".api.portal") as (api, frappe):
+			frappe.log_error = MagicMock()
+			result = api._safe_error(frappe.TimestampMismatchError(RAW), "prefix")
+			self.assertEqual(result, {"success": False, "error": STALE, "error_code": "stale"})
+			frappe.log_error.assert_not_called()
+
+	def test_other_errors_are_still_logged(self):
+		result, frappe, _ = self.call("delete_schedule_line", save_error=RuntimeError("deadlock"))
+		self.assertEqual(result["error_code"], "internal_error")
+		self.assertNotIn("conflict", result)
+		frappe.log_error.assert_called_once()
 
 
 class NarrowedSites(unittest.TestCase):

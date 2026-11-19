@@ -2,6 +2,8 @@
 
 import copy
 import json
+import pathlib
+import runpy
 import types
 import unittest
 from unittest.mock import MagicMock
@@ -9,6 +11,7 @@ from unittest.mock import MagicMock
 from test_services import ROOT, Record, load_service
 
 MODULE = ROOT + ".portal.catalog_drift"
+REPO = pathlib.Path(__file__).resolve().parents[2]
 REVISION = {
 	"name": "SPEC-96",
 	"voltage_output": "24V DC",
@@ -28,6 +31,22 @@ def linear_problems(request):
 		selections.pop("finish_code")
 		return ["Finish GONE is no longer offered; choose it again"]
 	return []
+
+
+class ExpiringCache:
+	"""``frappe.cache()`` double that honours ``expires_in_sec`` against a test clock."""
+
+	def __init__(self):
+		self.now = 0
+		self.store = {}
+
+	def get_value(self, key):
+		value, expires = self.store.get(key, (None, None))
+		return value if expires is None or self.now < expires else None
+
+	def set_value(self, key, value, expires_in_sec=None):
+		expires = None if expires_in_sec is None else self.now + expires_in_sec
+		self.store[key] = (copy.deepcopy(value), expires)
 
 
 class CatalogDrift(unittest.TestCase):
@@ -230,6 +249,59 @@ class CatalogDrift(unittest.TestCase):
 		self.assertNotEqual(key([self.linear("A")], user="other@example.com"), base, "another user")
 		self.stamp = "2026-11-17 10:05:00:0"
 		self.assertNotEqual(key([self.linear("A")]), base, "the catalog moved")
+
+	def test_a_changed_configured_record_shows_once_the_cached_answer_expires(self):
+		"""Pins today's behaviour (plan 12): a configured record changing does not clear the answer.
+
+		The key fingerprints the line rows, the user and the catalog stamp, not the configured
+		record a line links to, so an edit that keeps the same record name is seen only after
+		CACHE_SECONDS (10 minutes). Update this test if an invalidation hook is added.
+		"""
+		changed = "Power supply DRV-ITEM specification changed"
+		edits = {
+			"power plan": lambda: self.plans.update(
+				{"CF-1": json.dumps({"dependency_revisions": {"DRV-ITEM": {**REVISION, "max_wattage": 60}}})}
+			),
+			"saved configuration": lambda: self.requests["A"].update(template="FT-GONE"),
+		}
+		expected = {"power plan": [changed], "saved configuration": ["FT-GONE is no longer offered"]}
+		for name, edit in edits.items():
+			with self.subTest(edit=name):
+				self.setUp()
+				cache = ExpiringCache()
+				lines = [self.linear("A")]
+
+				def check(at):
+					cache.now = at
+					self.schedule["lines"] = lines
+					with load_service(MODULE, self.extras) as (module, frappe):
+						self.wire(frappe)
+						frappe.cache = lambda: cache
+						return module, module.check("SCH-1")["lines"]
+
+				module, first = check(0)
+				self.assertEqual(first, {})
+				self.assertEqual(module.CACHE_SECONDS, 600)
+				edit()
+				self.assertEqual(check(module.CACHE_SECONDS - 1)[1], {}, "stale until it expires")
+				self.assertEqual(len(cache.store), 1, "the record change does not move the key")
+				self.assertEqual(check(module.CACHE_SECONDS)[1], {"A": expected[name]})
+
+	def test_no_hook_clears_the_answer_when_a_configured_record_changes(self):
+		with load_service(MODULE, self.extras) as (module, _frappe):
+			configured = {doctype for doctype, _field in module.PLAN_SOURCES.values()}
+			prefix = module.CACHE_PREFIX
+		hooks = runpy.run_path(str(REPO / "illumenate_lighting" / "hooks.py"))
+		for doctype in sorted(configured):
+			self.assertNotIn(doctype, hooks["doc_events"])
+			self.assertNotIn(doctype, hooks["_finder_fact_doctypes"], "not part of the catalog stamp")
+		self.assertNotIn("*", hooks["doc_events"])
+		readers = [
+			path.relative_to(REPO).as_posix()
+			for path in (REPO / "illumenate_lighting").rglob("*.py")
+			if prefix in path.read_text(encoding="utf-8")
+		]
+		self.assertEqual(readers, ["illumenate_lighting/illumenate_lighting/portal/catalog_drift.py"])
 
 	def test_kill_switch_reads_and_writes_no_cache(self):
 		self.enabled = False

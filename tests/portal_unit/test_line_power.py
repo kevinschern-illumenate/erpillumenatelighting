@@ -6,10 +6,13 @@ reels at a conversion factor of 1.0.
 """
 
 import ast
+import io
 import itertools
 import json
 import pathlib
+import types
 import unittest
+from contextlib import redirect_stdout
 from unittest.mock import MagicMock
 
 from test_schedule_sync import Row
@@ -435,6 +438,154 @@ class MissingSpecs(unittest.TestCase):
 				module.missing_specs()
 
 
+def row_fields():
+	"""The custom fields the patch adds, as Frappe's meta sees them."""
+	custom_field = type("module", (), {"create_custom_fields": MagicMock()})
+	extras = {"frappe.custom.doctype.custom_field.custom_field": custom_field}
+	with load_service("illumenate_lighting.patches.add_line_power_fields", extras) as (patch, _frappe):
+		return patch._row_fields("ill_schedule_line_id")
+
+
+class Meta:
+	def __init__(self, fields):
+		standard = [{"fieldname": name, "fieldtype": "Data"} for name in ("item_code", "uom", "stock_uom")]
+		standard += [{"fieldname": name, "fieldtype": "Float"} for name in ("qty", "conversion_factor")]
+		standard += [
+			{"fieldname": name, "fieldtype": "Check"}
+			for name in ("is_alternative", "ill_is_power_supply_line")
+		]
+		self.fields = {field["fieldname"]: Record(field) for field in [*standard, *fields]}
+
+	def has_field(self, fieldname):
+		return fieldname in self.fields
+
+	def get_field(self, fieldname):
+		return self.fields.get(fieldname)
+
+
+def backfill_catalog(frappe, rows):
+	"""``rows``: ``{child doctype: [row]}``; ``frappe.db.set_value`` records each write."""
+	base = catalog(frappe).side_effect
+
+	def get_all(doctype, filters=None, pluck=None, **kwargs):
+		if doctype in ("Quotation Item", "Sales Order Item"):
+			return [Record(each) for each in rows.get(doctype, [])]
+		found = base(doctype, filters, **kwargs)
+		return [each.get(pluck) for each in found] if pluck else found
+
+	frappe.get_all = MagicMock(side_effect=get_all)
+	frappe.get_meta = MagicMock(return_value=Meta(row_fields()))
+	frappe.db.set_value = MagicMock()
+	return frappe.db.set_value
+
+
+def child(name, parent, item_code, qty, uom="Inch", stock_uom="Inch", **values):
+	return {
+		"name": name,
+		"parent": parent,
+		"item_code": item_code,
+		"qty": qty,
+		"uom": uom,
+		"conversion_factor": 1,
+		"stock_uom": stock_uom,
+		**values,
+	}
+
+
+class Backfill(unittest.TestCase):
+	def test_tape_sheet_and_no_spec_rows_are_written_without_nulls(self):
+		# 2026-11-18: every write failed on NOT NULL ill_lp_watts_per_ft / ill_lp_watts_per_sqft.
+		rows = {
+			"Quotation Item": [
+				child("qi-tape", "Q-1", "NON-COW-SW-67-27K-150", 864),
+				child("qi-sheet", "Q-1", "LED-SNF-SW-O-27K-10W-3M-WH", 9, "Ea", "Ea"),
+				child("qi-nospec", "Q-2", "COB-NOSPEC", 12),
+				child("qi-supply", "Q-2", "NON-COW-SW-67-27K-150", 12, ill_is_power_supply_line=1),
+			],
+		}
+		numeric = {field["fieldname"] for field in row_fields() if field["fieldtype"] == "Float"}
+		with service() as (module, frappe):
+			set_value = backfill_catalog(frappe, rows)
+			counts = module.backfill()
+			frappe.log_error.assert_not_called()
+		self.assertEqual(
+			counts,
+			{"Quotation Item": {"stamped": 3, "failed": 0}, "Sales Order Item": {"stamped": 0, "failed": 0}},
+		)
+		written = {call.args[1]: call.args[2] for call in set_value.call_args_list}
+		self.assertEqual(set(written), {"qi-tape", "qi-sheet", "qi-nospec"})
+		self.assertTrue(all(call.kwargs["update_modified"] is False for call in set_value.call_args_list))
+		for name, values in written.items():
+			for field in numeric:
+				self.assertIsNotNone(values[field], f"{name} {field}")
+		self.assertEqual(written["qi-tape"]["ill_lp_watts"], 197.3)
+		self.assertEqual(written["qi-tape"]["ill_lp_watts_per_sqft"], 0)
+		self.assertEqual(written["qi-sheet"]["ill_lp_watts"], 90.0)
+		self.assertEqual(written["qi-sheet"]["ill_lp_watts_per_ft"], 0)
+		self.assertEqual(written["qi-nospec"]["ill_lp_watts"], 0)
+		self.assertEqual(written["qi-nospec"]["ill_lp_note"], lpm.NO_SPEC_NOTE)
+		self.assertIsNone(written["qi-nospec"]["ill_lp_summary"])  # Text fields still clear.
+
+	def test_failures_are_counted_and_logged_once(self):
+		rows = {
+			"Quotation Item": [
+				child("qi-tape", "Q-1", "NON-COW-SW-67-27K-150", 864),
+				child("qi-sheet-1", "Q-1", "LED-SNF-SW-O-27K-10W-3M-WH", 9, "Ea", "Ea"),
+				child("qi-sheet-2", "Q-2", "LED-SNF-SW-O-27K-10W-3M-WH", 9, "Ea", "Ea"),
+			],
+			"Sales Order Item": [child("soi-sheet", "SO-1", "LED-SNF-SW-O-27K-10W-3M-WH", 9, "Ea", "Ea")],
+		}
+
+		def fail_sheets(doctype, name, values, **kwargs):
+			if "sheet" in name:
+				raise RuntimeError("(1048, \"Column 'ill_lp_watts_per_ft' cannot be null\")")
+
+		with service() as (module, frappe):
+			backfill_catalog(frappe, rows).side_effect = fail_sheets
+			counts = module.backfill()
+			frappe.log_error.assert_called_once()
+			message = frappe.log_error.call_args.kwargs["message"]
+		self.assertEqual(
+			counts,
+			{"Quotation Item": {"stamped": 1, "failed": 2}, "Sales Order Item": {"stamped": 0, "failed": 1}},
+		)
+		self.assertIn(
+			"Documents with failed rows (3):\nQuotation Q-1\nQuotation Q-2\nSales Order SO-1", message
+		)
+
+	def test_summary_names_at_most_fifty_documents(self):
+		rows = {
+			"Quotation Item": [child(f"qi-{i}", f"Q-{i}", "NON-COW-SW-67-27K-150", 12) for i in range(60)]
+		}
+		with service() as (module, frappe):
+			backfill_catalog(frappe, rows).side_effect = RuntimeError("db down")
+			counts = module.backfill()
+			frappe.log_error.assert_called_once()
+			message = frappe.log_error.call_args.kwargs["message"]
+		self.assertEqual(counts["Quotation Item"], {"stamped": 0, "failed": 60})
+		self.assertIn("Q-49\n", message)
+		self.assertNotIn("Q-50\n", message)
+		self.assertIn("... and 10 more", message)
+
+
+class BackfillPatch(unittest.TestCase):
+	def test_prints_counts_and_failures(self):
+		counts = {
+			"Quotation Item": {"stamped": 0, "failed": 584},
+			"Sales Order Item": {"stamped": 1, "failed": 0},
+		}
+		line_power = types.SimpleNamespace(backfill=MagicMock(return_value=counts))
+		api = types.SimpleNamespace(line_power=line_power)
+		extras = {"illumenate_lighting.illumenate_lighting.api": api}
+		with load_service("illumenate_lighting.patches.backfill_line_power", extras) as (patch, frappe):
+			frappe.log_error = MagicMock()
+			with redirect_stdout(io.StringIO()) as out:
+				patch.execute()
+			frappe.log_error.assert_not_called()
+		self.assertIn("'failed': 584", out.getvalue())
+		self.assertIn("584 rows failed", out.getvalue())
+
+
 # ── Wiring ────────────────────────────────────────────────────────────
 
 
@@ -486,6 +637,11 @@ class Wiring(unittest.TestCase):
 		lines = patches.splitlines()
 		self.assertLess(
 			lines.index("illumenate_lighting.patches.add_line_power_fields"),
+			lines.index("illumenate_lighting.patches.backfill_line_power"),
+		)
+		# Re-run once rows can be written (the first run hit NOT NULL on every row).
+		self.assertGreater(
+			lines.index("illumenate_lighting.patches.backfill_line_power #2026-11-19 rerun after None fix"),
 			lines.index("illumenate_lighting.patches.backfill_line_power"),
 		)
 		install = (REPO / "illumenate_lighting" / "illumenate_lighting" / "install.py").read_text()

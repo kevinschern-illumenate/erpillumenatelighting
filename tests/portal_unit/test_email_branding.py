@@ -319,6 +319,34 @@ class PortalShipmentEmail(unittest.TestCase):
 				self.assertIn(text, body)
 			self.assertIsNone(LEAKS.search(body))
 
+	def test_order_links_encode_names_with_spaces_and_slashes(self):
+		name = "ilL-SAL-ORD-Backcountry Electric / LINX Audio Visual-00001"
+		encoded = (
+			SITE + "/portal/orders/ilL-SAL-ORD-Backcountry%20Electric%20%2F%20LINX%20Audio%20Visual-00001"
+		)
+		tracker = types.SimpleNamespace(tracking=lambda dn: {"carrier": None, "number": None, "url": None})
+		with load_service(ROOT + ".portal.notifications", {ROOT + ".portal.shipment_tracking": tracker}) as (
+			module,
+			frappe,
+		):
+			frappe.utils.format_date = lambda value: "November 6, 2026"
+			order = Record(name=name, per_delivered=100)
+			frappe.get_doc.return_value = order
+			frappe.db.get_value = MagicMock(return_value=None)
+			module.order_recipients = MagicMock(return_value={"buyer@example.com"})
+			module.notify_user = MagicMock()
+			note = Record(name="DN-1", is_return=0)
+			note.items = [Record(against_sales_order=name)]
+			module.notify_shipment(note)
+			shipped = module.notify_user.call_args.args[3]
+			module.notify_order_review(order, Record(name="REQ-1", state="APPROVED", modified="m"))
+			reviewed = module.notify_user.call_args.args[3]
+		for body in (shipped, reviewed):
+			links = [href for href in re.findall(r'href="([^"]*)"', body) if "/portal/orders/" in href]
+			self.assertIn(encoded, links)
+			for href in links:
+				self.assertNotIn(" ", href)
+
 
 if __name__ == "__main__":
 	unittest.main()

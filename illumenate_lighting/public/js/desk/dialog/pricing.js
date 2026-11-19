@@ -74,7 +74,7 @@
 			if (lineName && r.ill_schedule_line_id === lineName) return true;
 			if (previousLine && r.ill_schedule_line_id === previousLine) return true;
 			if (r.ill_schedule_line_id && replacedLines.indexOf(r.ill_schedule_line_id) >= 0) return true;
-			if (!reconfiguring || r.ill_fixture_type !== previousType) return false;
+			if (!reconfiguring || (r.ill_fixture_type || '') !== (previousType || '')) return false;
 			if (r.ill_is_power_supply_line) return !!previousOwner && r.ill_power_supply_for === previousOwner;
 			if (r.ill_schedule_line_id || row.ill_schedule_line_id) return false;
 			return (!!previousSheet && r.ill_configured_led_sheet === previousSheet)
@@ -87,6 +87,8 @@
 		}
 		// A reused row may have held another family: clear the build links the new values leave out.
 		BUILD_FIELDS.forEach(function (k) { if (!(k in values) && row[k] != null) row[k] = null; });
+		// The server leaves blank values out: a Fixture Type, Section or note cleared in the dialog clears the row.
+		['ill_fixture_type', 'ill_section_label', 'additional_notes'].forEach(function (k) { if (!(k in values)) row[k] = null; });
 		Object.keys(values).forEach(function (k) { row[k] = values[k]; });
 		row.__unsaved = 1;
 

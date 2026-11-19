@@ -13,6 +13,7 @@ from illumenate_lighting.illumenate_lighting.portal.offer_contract import (
 	assert_conversion_matches,
 	commercial_snapshot,
 )
+from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
 from illumenate_lighting.illumenate_lighting.portal.staff import allowed, require
 
 DOCTYPE = "ilL-Quote-Offer"
@@ -649,7 +650,7 @@ def remind_expiring():
 					frappe.utils.escape_html(offer.name),
 					frappe.utils.escape_html(frappe.utils.format_date(offer.valid_until)),
 				)],
-				action=(_("Review the quote"), frappe.utils.get_url(f"/portal/quotes/{offer.name}")),
+				action=(_("Review the quote"), frappe.utils.get_url(portal_path("quote", offer.name))),
 				preference_note=_("quote updates"),
 			)
 			for user in _buyers(offer):

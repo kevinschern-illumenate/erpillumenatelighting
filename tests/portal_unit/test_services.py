@@ -38,9 +38,13 @@ def load_service(relative, extras=None):
 	frappe.cache().get_value.return_value = None
 	frappe._ = lambda value: value
 	frappe.throw = throwing
+	# Frappe raises it (a ValidationError) when deleting a document that others link to.
+	frappe.LinkExistsError = type("LinkExistsError", (ValueError,), {})
 	frappe.PermissionError = PermissionError
 	frappe.ValidationError = ValueError
 	frappe.DoesNotExistError = LookupError
+	# Frappe raises it (a ValidationError) when two saves of one document race.
+	frappe.TimestampMismatchError = type("TimestampMismatchError", (ValueError,), {})
 	frappe.as_json = lambda value: json.dumps(value, default=str)
 	frappe.has_permission = MagicMock(return_value=True)
 	frappe.session = Record(user="buyer@example.com")

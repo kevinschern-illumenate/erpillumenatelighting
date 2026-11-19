@@ -41,7 +41,7 @@ function changeStatus(new_status) {
 					if (r.message.auto_versioned && r.message.new_schedule_name) {
 						// Leaving QUOTED keeps this version as a locked snapshot;
 						// continue on the new version.
-						window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
+						window.location.href = '/portal/schedules/' + encodeURIComponent(r.message.new_schedule_name);
 						return;
 					}
 					location.reload();

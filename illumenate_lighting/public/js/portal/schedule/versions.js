@@ -78,7 +78,7 @@ function confirmCreateVersion() {
 			if (r.message && r.message.success) {
 				$('#createVersionModal').modal('hide');
 				frappe.show_alert({message: 'New version created!', indicator: 'green'});
-				window.location.href = '/portal/schedules/' + r.message.new_schedule_name;
+				window.location.href = '/portal/schedules/' + encodeURIComponent(r.message.new_schedule_name);
 			} else {
 				btn.prop('disabled', false).html('<i class="fa fa-code-fork" aria-hidden="true"></i> Create');
 				frappe.msgprint(r.message ? r.message.error : 'Error creating version');

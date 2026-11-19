@@ -95,3 +95,61 @@ test('the line step renders, suggesting schedule locations and the form\'s Secti
   assert.equal(frm.doc.items.length,3);
  } finally {dom.window.close();}
 });
+
+// Document-only rows (no schedule line): the server leaves a blank Fixture Type, Section or note out of row_values.
+const DOC_FX={name:'d1',item_code:'OLD-FX',ill_fixture_type:'L3',ill_section_label:'Lobby',additional_notes:'Rush',ill_configured_product:'CF-OLD',ill_configured_fixture:'CF-OLD',ill_product_type:'Linear Fixture',ill_configurator_request:'{"family":"Linear Fixture","template":"T"}'};
+const DOC_PS={name:'d2',item_code:'PS-60',ill_fixture_type:'L3',ill_is_power_supply_line:1,ill_power_supply_for:'CF-OLD'};
+const docBuild=owner=>({fixture_type:null,item_code:'NEW-FX',
+ row_values:{item_code:'NEW-FX',ill_configured_product:owner,ill_configured_fixture:owner,ill_product_type:'Linear Fixture',ill_configurator_request:'{"family":"Linear Fixture","template":"T"}'},
+ accessory_rows:[{item_code:'PS-96',ill_is_power_supply_line:1,ill_power_supply_for:owner}]});
+
+test('clearing the Fixture Type, Section and notes on a document-only reconfigure clears them, and the next reconfigure leaves one supply', () => {
+ const {dom,w,frm,ctrl}=load([DOC_FX,DOC_PS,FREIGHT],{rowName:'d1'});
+ try {
+  ctrl.applyRowToForm(docBuild('CF-1'));
+  assert.deepEqual(frm.doc.items.map(r=>r.item_code),['NEW-FX','PS-96','FREIGHT']);
+  const [main,supply]=frm.doc.items;
+  assert.equal(main.name,'d1');
+  assert.equal(main.ill_fixture_type,null,'the main row no longer keeps the cleared type');
+  assert.equal(main.ill_section_label,null);
+  assert.equal(main.additional_notes,null);
+  assert.ok(!supply.ill_fixture_type,'the new supply row has no type either');
+  frm.fields_dict.items={grid:{get_selected_children:()=>[supply]}};
+  const opened=[];const open=w.IllDesk.openConfiguratorDialog;
+  w.IllDesk.openConfiguratorDialog=(form,opts)=>{opened.push(opts.rowName);return open(form,opts);};
+  const again=w.IllDesk.reconfigureSelectedRow(frm);
+  assert.deepEqual(opened,['d1'],'the untyped supply still finds its untyped owner');
+  again.applyRowToForm(docBuild('CF-2'));
+  assert.deepEqual(frm.doc.items.map(r=>[r.item_code,r.ill_power_supply_for||null]),[['NEW-FX',null],['PS-96','CF-2'],['FREIGHT',null]],'no duplicate supply rows');
+ } finally {dom.window.close();}
+});
+
+test('a blank Fixture Type matches whether it is stored as \'\', null or missing', () => {
+ const KIT={...DOC_FX,ill_fixture_type:'',ill_section_label:undefined,additional_notes:undefined};
+ const PS={...DOC_PS,ill_fixture_type:null};
+ const {dom,w,frm}=load([KIT,PS,FREIGHT],false);
+ try {
+  const calls=[];w.IllDesk.openConfiguratorDialog=(form,opts)=>calls.push(opts.rowName);
+  frm.fields_dict.items={grid:{get_selected_children:()=>[frm.doc.items[1]]}};
+  w.IllDesk.reconfigureSelectedRow(frm);
+  assert.deepEqual(calls,['d1'],'a supply with a null type finds its owner with \'\'');
+ } finally {dom.window.close();}
+ const loaded=load([KIT,PS,FREIGHT],{rowName:'d1'});
+ try {
+  loaded.ctrl.applyRowToForm(docBuild('CF-1'));
+  assert.deepEqual(loaded.frm.doc.items.map(r=>r.item_code),['NEW-FX','PS-96','FREIGHT'],'the old null-type supply is replaced');
+ } finally {loaded.dom.window.close();}
+});
+
+test('saving sends the Fixture Types already on the form, so a blank type on a schedule skips them', () => {
+ const {dom,w,ctrl}=load([FIXTURE,SUPPLY,FREIGHT,{...DOC_FX,ill_fixture_type:''}]);
+ try {
+  const calls=[];w.frappe.call=o=>calls.push(o);
+  if (!w.crypto || !w.crypto.randomUUID) Object.defineProperty(w,'crypto',{value:{randomUUID:()=>'00000000-0000-4000-8000-000000000000'}});
+  ctrl.toggleConfiguratorButtons=()=>{};
+  ctrl.productType='LED Neon';ctrl.fixtureType='';ctrl.schedule='S1';
+  ctrl.onConfiguratorSave({selections:{}});
+  assert.equal(calls.length,1);
+  assert.deepEqual(JSON.parse(calls[0].args.used_json),['A1','A1']);
+ } finally {dom.window.close();}
+});

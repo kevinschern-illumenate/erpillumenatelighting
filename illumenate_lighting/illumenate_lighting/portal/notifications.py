@@ -12,6 +12,8 @@ so the toggles on /portal/account actually gate what is sent.
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
+
 # Preference field on ilL-Portal-User-Settings -> default when no settings row.
 PREFERENCE_DEFAULTS = {
 	"notify_orders": True,
@@ -112,7 +114,7 @@ def notify_order_review(order, request):
 	body = brand.portal_email(
 		title,
 		paragraphs=[intro.format(escape(order.name)), note],
-		action=(_("Review the order"), frappe.utils.get_url(f"/portal/orders/{order.name}")),
+		action=(_("Review the order"), frappe.utils.get_url(portal_path("order", order.name))),
 		preference_note=_("order updates"),
 	)
 	for user in order_recipients(order):
@@ -140,7 +142,7 @@ def notify_schedule_status(schedule, new_status, sales_order=None):
 	from illumenate_lighting.illumenate_lighting.email_templates import brand
 
 	name = frappe.utils.escape_html(schedule.schedule_name or schedule.name)
-	schedule_url = frappe.utils.get_url(f"/portal/schedules/{schedule.name}")
+	schedule_url = frappe.utils.get_url(portal_path("schedule", schedule.name))
 
 	if new_status == "QUOTED":
 		preference = "notify_quotes"
@@ -162,7 +164,7 @@ def notify_schedule_status(schedule, new_status, sales_order=None):
 			paragraphs=[_(
 				"Your order request for <strong>{0}</strong> is approved and in progress."
 			).format(name)],
-			action=(_("View the order"), frappe.utils.get_url(f"/portal/orders/{sales_order}"))
+			action=(_("View the order"), frappe.utils.get_url(portal_path("order", sales_order)))
 			if sales_order else (_("View the schedule"), schedule_url),
 			preference_note=_("order updates"),
 		)
@@ -212,7 +214,7 @@ def notify_shipment(delivery_note):
 
 	for order_name in order_names:
 		order = frappe.get_doc("Sales Order", order_name)
-		order_url = frappe.utils.get_url(f"/portal/orders/{order_name}")
+		order_url = frappe.utils.get_url(portal_path("order", order_name))
 		job = _schedule_label(order)
 		named = f"<strong>{escape(job)}</strong> ({escape(order_name)})" if job else f"<strong>{escape(order_name)}</strong>"
 		if returned:

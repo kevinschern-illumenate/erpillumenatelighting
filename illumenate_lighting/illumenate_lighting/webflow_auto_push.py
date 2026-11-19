@@ -33,6 +33,8 @@ from datetime import timedelta
 import frappe
 from frappe import _
 
+from illumenate_lighting.illumenate_lighting.utils import log_error_once
+
 DOCTYPE = "ilL-Webflow-Auto-Push"
 PRODUCT = "ilL-Webflow-Product"
 PUBLICATION = "ilL-Product-Publication"
@@ -50,6 +52,7 @@ TRUTHY = ("1", "true", "yes", "on")
 PUSHES_PER_TICK = 10
 FIELDS = ["name", "product", "brand", "due_at", "saved_by", "replaces_job"]
 DROP, WAIT, HOLD, APPROVAL, PUSH = "drop", "wait", "held", "approval", "push"
+N8N_MISSING_LOG_KEY = "webflow-retries-n8n-unconfigured"
 
 
 # --- Rules (pure) -------------------------------------------------------------------------
@@ -260,11 +263,14 @@ def run_retries():
 	brands = [brand for brand in publication.retry_brands() if brand]
 	if not brands:
 		return []
+	# Checked before any job is claimed: without n8n the due retries stay as they are (no
+	# claim, no attempt used) and are sent once it is configured. Logged once a day, not
+	# every tick.
 	try:
 		webhook_url = n8n_config.sync_webhook_url()
 		n8n_config.auth_headers()
 	except Exception:
-		frappe.log_error(title="Webflow retries: n8n is not configured")
+		log_error_once(N8N_MISSING_LOG_KEY, "Webflow retries: n8n is not configured")
 		return []
 	sent = []
 	for brand in brands:

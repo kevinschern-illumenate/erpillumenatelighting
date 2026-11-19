@@ -29,6 +29,7 @@ import frappe
 from illumenate_lighting.illumenate_lighting.email_templates import blocks
 from illumenate_lighting.illumenate_lighting.email_templates import formatting as fmt
 from illumenate_lighting.illumenate_lighting.email_templates.settings import get_settings
+from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
 
 SCHEDULE = "ilL-Project-Fixture-Schedule"
 PROJECT = "ilL-Project"
@@ -665,7 +666,7 @@ def _quotation(c, doc, settings):
 			c["greeting_name"] = fmt.clean(deal.get("first_name"))
 	schedule = doc.get("ill_fixture_schedule")
 	if schedule and c["is_dealer"]:
-		c["portal_url"] = frappe.utils.get_url(f"/portal/schedules/{schedule}")
+		c["portal_url"] = frappe.utils.get_url(portal_path("schedule", schedule))
 
 
 def _sales_order(c, doc, settings):
@@ -711,7 +712,7 @@ def _sales_order(c, doc, settings):
 	c["sales_orders"] = [{"name": doc.name, "pdf": c["pdf"]["so"], "complete": o["fully_shipped"]}]
 	c["pay_instructions"] = _pay_instructions(doc.get("company"))
 	if c["is_dealer"]:
-		c["portal_url"] = frappe.utils.get_url(f"/portal/orders/{doc.name}")
+		c["portal_url"] = frappe.utils.get_url(portal_path("order", doc.name))
 
 
 def _payment_due(c, doc, schedule):
@@ -897,7 +898,7 @@ def _delivery_note(c, doc, settings):
 	first_slip = next((slip["pdf"] for slip in sh["packing_slips"] if slip["pdf"]), "")
 	c["pdf"]["packing"] = first_slip or c["pdf"]["dn"]
 	if len(orders) == 1 and c["is_dealer"]:
-		c["portal_url"] = frappe.utils.get_url(f"/portal/orders/{orders[0]}")
+		c["portal_url"] = frappe.utils.get_url(portal_path("order", orders[0]))
 
 
 def _purchase_order(c, doc, settings):
