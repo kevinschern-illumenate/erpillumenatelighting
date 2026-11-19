@@ -70,6 +70,29 @@ def parse_positive_int(value, default: int = 1, minimum: int = 1) -> int:
 		return default
 
 
+# Kept a little longer than a day so the key outlives its date.
+LOG_ONCE_TTL_SECONDS = 26 * 3600
+
+
+def log_error_once(key, title, message=None):
+	"""Write an Error Log at most once per ``key`` per day (site cache key ``<key>:<date>``).
+
+	For conditions that repeat on every tick or read until someone fixes them: one row a day
+	keeps them visible without burying real errors. Without a cache it logs as before.
+	Returns whether it logged.
+	"""
+	cache_key = f"{key}:{frappe.utils.nowdate()}"
+	try:
+		cache = frappe.cache()
+		if cache.get_value(cache_key):
+			return False
+		cache.set_value(cache_key, 1, expires_in_sec=LOG_ONCE_TTL_SECONDS)
+	except Exception:
+		pass
+	frappe.log_error(title=title, message=message)
+	return True
+
+
 # Pagination constants
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100

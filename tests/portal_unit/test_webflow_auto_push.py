@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+from test_log_once import FakeCache
 from test_services import ROOT, Record, load_service
 
 from illumenate_lighting.illumenate_lighting.api import publication_contract as contract
@@ -62,7 +63,7 @@ class AutoPush(unittest.TestCase):
 			expire_leases=MagicMock(return_value=[]),
 			retry_brands=MagicMock(return_value=[]),
 		)
-		n8n = _module(
+		self.n8n = n8n = _module(
 			ROOT + ".api.n8n_config",
 			sync_webhook_url=MagicMock(return_value="https://n8n.example/w2"),
 			auth_headers=MagicMock(),
@@ -325,6 +326,32 @@ class AutoPush(unittest.TestCase):
 		self.publication.expire_leases.assert_called_once()
 		self.assertEqual(self.users[0], "publication")
 		self.export.claim_and_dispatch.assert_called_once_with("illumenate", "https://n8n.example/w2")
+
+	def test_without_n8n_due_retries_are_left_unclaimed_and_logged_once_a_day(self):
+		module, frappe = self.load()
+		frappe.cache = FakeCache()
+		self.publication.retry_brands.return_value = ["illumenate"]
+		self.n8n.sync_webhook_url.side_effect = RuntimeError("n8n_sync_webhook_url is not set")
+		self.assertEqual(module.run_retries(), [])
+		self.assertEqual(module.run_retries(), [])
+		# No job is claimed, so none is marked RUNNING or uses up an attempt.
+		self.export.claim_and_dispatch.assert_not_called()
+		frappe.log_error.assert_called_once_with(title="Webflow retries: n8n is not configured", message=None)
+		# The next day logs again.
+		frappe.utils.nowdate = lambda: "2026-11-23"
+		module.run_retries()
+		self.assertEqual(frappe.log_error.call_count, 2)
+		# Once n8n is configured the same retries are claimed and sent.
+		self.n8n.sync_webhook_url.side_effect = None
+		self.assertEqual(module.run_retries(), ["J1"])
+		self.export.claim_and_dispatch.assert_called_once_with("illumenate", "https://n8n.example/w2")
+
+	def test_without_due_retries_a_missing_n8n_is_not_logged(self):
+		module, frappe = self.load()
+		frappe.cache = FakeCache()
+		self.n8n.sync_webhook_url.side_effect = RuntimeError("n8n_sync_webhook_url is not set")
+		self.assertEqual(module.run_retries(), [])
+		frappe.log_error.assert_not_called()
 
 
 # --- Retries and notifications (publication) ------------------------------------------------

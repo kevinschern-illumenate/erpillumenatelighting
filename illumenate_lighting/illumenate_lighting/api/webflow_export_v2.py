@@ -45,6 +45,7 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_spec_profile.ill_spec_p
 )
 from illumenate_lighting.illumenate_lighting.photometrics import published as published_photometrics
 from illumenate_lighting.illumenate_lighting.portal.site_flags import webflow_image_derivatives_enabled
+from illumenate_lighting.illumenate_lighting.utils import log_error_once
 from illumenate_lighting.illumenate_lighting.web_listing_source import Listing
 
 # Base URL for converting relative file paths to absolute URLs (legacy default;
@@ -1541,7 +1542,7 @@ def _enrich_specifications_from_linked_doctypes(product: dict, doc) -> None:
                 f"specifications could not be enriched from a linked template/spec."
             )
             _record_spec_warning(product, msg)
-            frappe.log_error(message=msg, title="Webflow Spec Enrichment Skipped")
+            _log_enrichment_skipped(product, msg)
 
     # Certifications & Ratings (icons) — applies to all product types
     if "Certifications & Ratings" not in existing_labels:
@@ -1560,6 +1561,13 @@ def _record_spec_warning(product: dict, message: str) -> None:
     a full n8n round-trip.
     """
     product.setdefault("_spec_warnings", []).append(message)
+
+
+def _log_enrichment_skipped(product: dict, message: str) -> None:
+    """Log a skipped enrichment once per product per day: every API read repeats it."""
+    log_error_once(
+        f"spec-enrich-skip:{product.get('name')}", "Webflow Spec Enrichment Skipped", message
+    )
 
 
 
@@ -2041,7 +2049,7 @@ def _enrich_variant_template_specs(kind: str, product: dict, existing_labels: se
             f"active variants; specifications could not be enriched."
         )
         _record_spec_warning(product, msg)
-        frappe.log_error(message=msg, title="Webflow Spec Enrichment Skipped")
+        _log_enrichment_skipped(product, msg)
         return specs
 
     # Base electrical/physical/control specs come from the default variant's spec.
