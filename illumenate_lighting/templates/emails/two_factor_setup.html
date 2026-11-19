@@ -1,0 +1,9 @@
+{#- Overrides Frappe's two-factor setup email (first sign-in with an authenticator app).
+Frappe passes: qrcode_link. -#}
+{% from "templates/emails/ill_macros.html" import heading, para, button, small, copy_link %}
+{{ heading("Set up two-step sign-in") }}
+{{ para("Your ilLumenate account signs in with a password plus a 6-digit code from an authenticator app on your phone, such as Google Authenticator, Microsoft Authenticator or 1Password.") }}
+{{ para("Open the link below, scan the QR code with the app, then enter the code it shows. After that, the app gives you a new code each time you sign in.") }}
+{{ button("Show my QR code", qrcode_link) }}
+{{ small("Didn't just try to sign in? Call us at <span style=\"white-space: nowrap;\">" ~ ill_email_brand().phone ~ "</span> before using this link.") }}
+{{ copy_link(qrcode_link) }}

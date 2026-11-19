@@ -329,13 +329,22 @@ def _notify(doc, message, staff):
 		path, link_name = "product-verification", doc.name
 	elif doc.doctype in ("ilL-Order-Intake", "ilL-Order-Change"):
 		path, link_name = "orders", doc.sales_order
+	from illumenate_lighting.illumenate_lighting.email_templates import brand
+
+	body = brand.portal_email(
+		frappe._("You have a new reply"),
+		paragraphs=[frappe._("There's a new message on {0} <strong>{1}</strong>.").format(
+			frappe.utils.escape_html(label), frappe.utils.escape_html(doc.name)
+		)],
+		action=(frappe._("Read the reply"), frappe.utils.get_url(f"/portal/{path}/{link_name}")),
+	)
 	for recipient in recipients:
 		if recipient and recipient != frappe.session.user:
 			notify_user(
 				recipient,
 				"notify_drawings" if path == "drawings" else "notify_orders",
 				subject,
-				f'<p><a href="{frappe.utils.get_url()}/portal/{path}/{frappe.utils.escape_html(link_name)}">Open the conversation</a> to read the reply.</p>',
+				body,
 				reference_doctype=MESSAGE,
 				reference_name=message.name,
 			)

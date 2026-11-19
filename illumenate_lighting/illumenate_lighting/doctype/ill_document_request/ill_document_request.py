@@ -235,11 +235,16 @@ class ilLDocumentRequest(Document):
 		"""Send notification on request submission."""
 		if not self.assigned_to:
 			return
+		from illumenate_lighting.illumenate_lighting.email_templates import brand
 		from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
-		url = frappe.utils.escape_html(frappe.utils.get_url_to_form(self.doctype, self.name))
 		notify_user(self.assigned_to, "notify_drawings", _("New Document Request: {0}").format(self.name),
-			f'<p>A document request was assigned to you. <a href="{url}">Open request</a>.</p>',
+			brand.portal_email(
+				_("New document request"),
+				paragraphs=[_("Document request <strong>{0}</strong> was assigned to you.").format(
+					frappe.utils.escape_html(self.name))],
+				action=(_("Open the request"), frappe.utils.get_url_to_form(self.doctype, self.name)),
+			),
 			reference_doctype=self.doctype, reference_name=self.name)
 
 	def _on_complete(self):
@@ -255,6 +260,7 @@ class ilLDocumentRequest(Document):
 		if not self.requester_user:
 			return
 
+		from illumenate_lighting.illumenate_lighting.email_templates import brand
 		from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
 		# Get published deliverables
@@ -264,20 +270,16 @@ class ilLDocumentRequest(Document):
 			self.requester_user,
 			"notify_drawings",
 			_("Your Request {0} is Complete").format(self.name),
-			_("""
-<p>Your document request has been completed.</p>
-
-<p><strong>Request:</strong> {name}<br>
-<strong>Type:</strong> {request_type}</p>
-
-{deliverables_text}
-
-<p><a href="{url}">View Request and Download Files</a></p>
-""").format(
-				name=self.name,
-				request_type=self.request_type,
-				deliverables_text=_("<p><strong>Deliverables:</strong> {0} file(s) available for download</p>").format(len(deliverables)) if deliverables else "",
-				url=frappe.utils.get_url(portal_path("drawing", self.name)),
+			brand.portal_email(
+				_("Your document request is complete"),
+				paragraphs=[_("We finished your document request. Your files are ready in the portal.")],
+				details=[
+					(_("Request"), frappe.utils.escape_html(self.name)),
+					(_("Type"), frappe.utils.escape_html(self.request_type or "")),
+					(_("Files"), str(len(deliverables)) if deliverables else None),
+				],
+				action=(_("View and download"), frappe.utils.get_url(portal_path("drawing", self.name))),
+				preference_note=_("drawing updates"),
 			),
 			reference_doctype=self.doctype,
 			reference_name=self.name,
@@ -320,23 +322,22 @@ class ilLDocumentRequest(Document):
 		if not self.requester_user:
 			return
 
+		from illumenate_lighting.illumenate_lighting.email_templates import brand
 		from illumenate_lighting.illumenate_lighting.portal.notifications import notify_user
 
 		notify_user(
 			self.requester_user,
 			"notify_drawings",
 			_("New File Available: {0}").format(self.name),
-			_("""
-<p>A new file has been added to your request.</p>
-
-<p><strong>Request:</strong> {name}<br>
-<strong>File:</strong> {file}</p>
-
-<p><a href="{url}">View and Download</a></p>
-""").format(
-				name=self.name,
-				file=frappe.utils.escape_html(deliverable.file.split("/")[-1]) if deliverable.file else "File",
-				url=frappe.utils.get_url(portal_path("drawing", self.name)),
+			brand.portal_email(
+				_("A new file is ready"),
+				paragraphs=[_("We added a file to your document request.")],
+				details=[
+					(_("Request"), frappe.utils.escape_html(self.name)),
+					(_("File"), frappe.utils.escape_html(deliverable.file.split("/")[-1]) if deliverable.file else _("File")),
+				],
+				action=(_("View and download"), frappe.utils.get_url(portal_path("drawing", self.name))),
+				preference_note=_("drawing updates"),
 			),
 			reference_doctype=self.doctype,
 			reference_name=self.name,
