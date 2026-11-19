@@ -499,7 +499,7 @@ class GalleryPublicationCase(unittest.TestCase):
 		n8n.auth_headers = lambda: {"STAGING-Sync-Secret": "s"}
 		self.deps[n8n.__name__] = n8n
 		requests = self.fake_requests()
-		with self.service() as (module, frappe):
+		with self.service() as (module, _frappe):
 			module.send_nudge("staging2")
 			post = requests.post
 			post.assert_called_once_with(
