@@ -66,11 +66,13 @@ def _compute_kit_pricing(kit_composition):
 	Compute MSRP pricing for an Extrusion Kit using Standard Selling Item Prices.
 
 	Iterates over each component in the kit composition (profile, lens,
-	solid endcap, feed-through endcap, mounting) and looks up its Item Price.
-	Multiplies by the component quantity and sums to get total kit MSRP.
+	solid endcap, feed-through endcap, mounting) and looks up its Standard
+	Selling rate per stock unit — the unit its Sales Order line is created in,
+	so a Foot or Reel price on the same Item is never summed as if it were per
+	piece. Multiplies by the component quantity and sums to get total kit MSRP.
 
-	Components with no ``item`` code or no Item Price in the Standard Selling
-	price list are silently treated as zero-cost.
+	Components with no ``item`` code or no current stock-unit price are
+	silently treated as zero-cost.
 
 	Args:
 		kit_composition: dict mapping component names to dicts with
@@ -79,6 +81,8 @@ def _compute_kit_pricing(kit_composition):
 	Returns:
 		dict with ``total_price_msrp`` (float)
 	"""
+	from illumenate_lighting.illumenate_lighting.api.tape_neon_pricing import stock_unit_rate
+
 	total_msrp = 0.0
 
 	for component_name, component in kit_composition.items():
@@ -87,11 +91,7 @@ def _compute_kit_pricing(kit_composition):
 		if not item_code:
 			continue
 
-		price = frappe.db.get_value(
-			"Item Price",
-			{"item_code": item_code, "price_list": "Standard Selling", "selling": 1},
-			"price_list_rate",
-		)
+		price = stock_unit_rate(item_code)
 		if price:
 			total_msrp += float(price) * qty
 

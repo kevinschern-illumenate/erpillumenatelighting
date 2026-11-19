@@ -388,15 +388,32 @@ class TestComputeKitPricing(FrappeTestCase):
             "MNT-001": 2.0,
         }
 
-        def mock_get_value(doctype, filters, field=None, **kwargs):
-            if doctype == "Item Price":
-                return price_map.get(filters.get("item_code"))
-            return None
-
-        with patch.object(frappe.db, "get_value", side_effect=mock_get_value):
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_pricing.stock_unit_rate",
+            side_effect=price_map.get,
+        ):
             result = _compute_kit_pricing(kit_composition)
 
         self.assertAlmostEqual(result["total_price_msrp"], 66.0, places=2)
+
+    def test_kit_pricing_uses_the_stock_unit_price(self):
+        """A per-foot price on a component is not summed as a per-piece price."""
+        from unittest.mock import patch
+
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _compute_kit_pricing,
+        )
+
+        prices = [
+            frappe._dict(price_list_rate=20.0, uom="Foot", valid_from=None, valid_upto=None),
+            frappe._dict(price_list_rate=75.0, uom="Ea", valid_from=None, valid_upto=None),
+        ]
+        with patch.object(frappe.db, "get_value", return_value="Ea"), patch.object(
+            frappe, "get_all", return_value=prices
+        ):
+            result = _compute_kit_pricing({"profile": {"item": "PROF-001", "qty": 2}})
+
+        self.assertAlmostEqual(result["total_price_msrp"], 150.0, places=2)
 
     def test_kit_pricing_missing_item(self):
         """Components with missing item codes are skipped."""
@@ -410,12 +427,10 @@ class TestComputeKitPricing(FrappeTestCase):
             "lens": {"item": None, "qty": 1},  # No item resolved
         }
 
-        def mock_get_value(doctype, filters, field=None, **kwargs):
-            if doctype == "Item Price" and filters.get("item_code") == "PROF-001":
-                return 25.0
-            return None
-
-        with patch.object(frappe.db, "get_value", side_effect=mock_get_value):
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_pricing.stock_unit_rate",
+            side_effect={"PROF-001": 25.0}.get,
+        ):
             result = _compute_kit_pricing(kit_composition)
 
         self.assertAlmostEqual(result["total_price_msrp"], 25.0, places=2)
@@ -431,7 +446,10 @@ class TestComputeKitPricing(FrappeTestCase):
             "profile": {"item": "PROF-001", "qty": 1},
         }
 
-        with patch.object(frappe.db, "get_value", return_value=None):
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_pricing.stock_unit_rate",
+            return_value=None,
+        ):
             result = _compute_kit_pricing(kit_composition)
 
         self.assertEqual(result["total_price_msrp"], 0)
