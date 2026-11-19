@@ -5,7 +5,6 @@ The dependency manifest invalidates approval when a referenced master changes.
 """
 
 import hashlib
-import io
 import json
 
 import frappe
@@ -290,8 +289,8 @@ def evaluate(product, channel="cms"):
 				product.product_type, template.product_category
 			):
 				issue(template.name, "product_category", "Template family does not match product")
-			if channel == "pdf" or (product.is_configurable and channel in ("cms", "portal")):
-				_pdf_preflight(template, dependencies, issue)
+			# No Spec Submittal Template check (owner, 2026-11-19): the generated spec sheets replace
+			# spec submittals entirely.
 			if product.is_configurable or channel in ("configure", "pdf"):
 				from illumenate_lighting.illumenate_lighting.api.authoring_contract import record_issues
 
@@ -413,51 +412,6 @@ def _electrical_preflight(template, dependencies, issue):
 				feed_limit(watts, drivers, spec.max_panels_per_feed)
 		except (ValueError, frappe.ValidationError) as exc:
 			issue(spec.name, "driver_eligibility", str(exc))
-
-
-def _pdf_preflight(template, dependencies, issue):
-	from pypdf import PdfReader
-
-	file_name = (
-		frappe.db.get_value("File", {"file_url": template.spec_submittal_template}, "name")
-		if template.spec_submittal_template
-		else None
-	)
-	if not file_name:
-		issue(template.name, "spec_submittal_template", "Attach a fillable PDF template")
-		return
-	try:
-		content = frappe.get_doc("File", file_name).get_content()
-		reader = PdfReader(io.BytesIO(content), strict=True)
-		if reader.is_encrypted or not reader.get_fields():
-			raise ValueError("Template must be unencrypted and contain form fields")
-		dependencies.append(
-			{"doctype": "File", "name": file_name, "hash": hashlib.sha256(content).hexdigest()}
-		)
-		from illumenate_lighting.illumenate_lighting.portal.pdf_mapping import check_mappings
-
-		registry = {
-			"ilL-Fixture-Template": ("ilL-Spec-Submittal-Mapping", "fixture_template"),
-			"ilL-Tape-Neon-Template": ("ilL-Neon-Submittal-Mapping", "tape_neon_template"),
-			"ilL-LED-Sheet-Template": ("ilL-LED-Sheet-Submittal-Mapping", "led_sheet_template"),
-			"ilL-Driver-Template": ("ilL-Driver-Submittal-Mapping", "driver_template"),
-			"ilL-Controller-Template": ("ilL-Controller-Submittal-Mapping", "controller_template"),
-			"ilL-Extrusion-Kit-Template": ("ilL-Kit-Submittal-Mapping", "kit_template"),
-		}
-		doctype, field = registry[template.doctype]
-		mappings = frappe.get_all(doctype, filters={field: template.name}, fields=["*"])
-		for message in check_mappings(mappings, reader.get_fields()):
-			issue(template.name, "field_mappings", message)
-		for mapping in mappings:
-			dependencies.append(
-				{"doctype": doctype, "name": mapping.name, "hash": fingerprint(content_record(mapping))}
-			)
-			if not str(mapping.source_field or "").startswith("__") and not frappe.get_meta(
-				mapping.source_doctype
-			).has_field(mapping.source_field):
-				issue(mapping.name, "source_field", "Source field is absent from the installed schema")
-	except Exception as exc:
-		issue(template.name, "spec_submittal_template", str(exc))
 
 
 @frappe.whitelist()

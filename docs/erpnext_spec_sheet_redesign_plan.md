@@ -1664,6 +1664,8 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 
 **Spec sheet layout fixes (owner, 2026-11-18, built):** pagination in `(ilL) Format Data to Inject`: a section split over two pages carries its title (`.spec-h2`, and the builder's example line) to the next page with the content after it; the Part Number Builder always starts its own page with its title and example; Components start their own page only on kits (fixtures flow on). The builder's `.part-no-wrapper` gets `align-content: flex-start` so its rows stay 20px apart. Radio buttons: n8n sets `data-radio-color="#ffac33"` on `#part-no-builder` for fixtures and the PDF generator draws the radios and the code boxes' text in that colour (green otherwise). The cloned `.part-no-dash` gets `height: auto` (the page's `height: 100%` stretched every builder row to the full builder height). Pages are split once the page and its web fonts have loaded, with 12px to spare, so text measured in the fallback font no longer runs into the footer. Production Interval on every template reads `1.31" (33.3mm)` (`production_interval_text`). The Light Source component takes its Tape/Neon template's Hero Image.
 
+**Readiness check (owner, 2026-11-19, built):** the dependency walk checks up to 3,000 linked records (was 400) and reports what it could not reach in one line with a count; endcap map coverage only asks for the endcap colors the template's finishes map to (active only); the Spec Submittal Template / field mapping check is gone from the readiness check, since the generated spec sheets replace spec submittals entirely.
+
 **Phase 6: status**
 - Built:
   - **The create-product popup** (4.5, D3; owner 2026-11-08, a), in `public/js/template_webflow_link.js`.
