@@ -160,7 +160,8 @@ website_route_rules = [
 
 	# Orders
 	{"from_route": "/portal/orders", "to_route": "orders"},
-	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
+	# <path:...> so Sales Order names containing "/" (customer names like "A / B") still match.
+	{"from_route": "/portal/orders/<path:order>", "to_route": "order_detail"},
 
 	# Drawings
 	{"from_route": "/portal/drawings", "to_route": "drawings"},

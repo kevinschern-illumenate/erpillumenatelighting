@@ -22,7 +22,27 @@ def _hooks():
 
 
 def _pattern(from_route):
-	return re.compile("^" + re.sub(r"<[^>]+>", "[^/]+", re.escape(from_route).replace(r"\<", "<").replace(r"\>", ">")) + "$")
+	return re.compile(
+		"^"
+		+ re.sub(r"<[^>]+>", _converter, re.escape(from_route).replace(r"\<", "<").replace(r"\>", ">"))
+		+ "$"
+	)
+
+
+def _converter(match):
+	"""Werkzeug's converter regexes: ``<path:x>`` spans "/", every other converter is one segment."""
+	converter, _, name = match.group(0)[1:-1].rpartition(":")
+	return f"(?P<{name}>[^/].*?)" if converter == "path" else f"(?P<{name}>[^/]+)"
+
+
+def _matches(path, rules):
+	"""``(to_route, args)`` for every rule ``path`` matches; Frappe puts ``args`` in ``form_dict``."""
+	found = []
+	for rule in rules:
+		match = _pattern(rule["from_route"]).match(path)
+		if match:
+			found.append((rule["to_route"], match.groupdict()))
+	return found
 
 
 def _resolves(path, rules, redirects):
@@ -83,6 +103,18 @@ class RouteInventory(unittest.TestCase):
 			with self.subTest(path=path):
 				self.assertTrue(any(re.fullmatch(r["source"], path) for r in self.redirects))
 				self.assertFalse(any(_pattern(r["from_route"]).match(path) for r in self.rules))
+
+	def test_order_names_with_a_slash_reach_the_order_page_whole(self):
+		"""Sales Order names carry the customer name, which can contain "/" (health plan 5B)."""
+		name = "ilL-SAL-ORD-Backcountry Electric / LINX Audio Visual-00001"
+		for order in (name, "SO-1", "ilL-SAL-ORD-Tech Integrated-00005"):
+			with self.subTest(order=order):
+				self.assertEqual(
+					_matches(f"/portal/orders/{order}", self.rules), [("order_detail", {"order": order})]
+				)
+		self.assertEqual(_matches("/portal/orders", self.rules), [("orders", {})])
+		nested = [rule for rule in self.rules if rule["from_route"].startswith("/portal/orders/")]
+		self.assertEqual(nested, [{"from_route": "/portal/orders/<path:order>", "to_route": "order_detail"}])
 
 	def test_unknown_paths_do_not_resolve(self):
 		self.assertFalse(_resolves("/portal/no-such-page", self.rules, self.redirects))

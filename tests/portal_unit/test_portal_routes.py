@@ -4,6 +4,7 @@ import re
 import types
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from test_route_inventory import _hooks, _resolves
 from test_services import ROOT, load_service
@@ -98,6 +99,22 @@ class DeskLink(unittest.TestCase):
 	def test_routes_for_portal_scripts(self):
 		with load_service(ROOT + ".portal.jinja_methods") as (service, _frappe):
 			self.assertEqual(service.ill_portal_routes(), routes.PORTAL_ROUTES)
+
+
+class OrderDetailPage(unittest.TestCase):
+	def test_the_whole_order_name_goes_through_the_access_check(self):
+		name = "ilL-SAL-ORD-Backcountry Electric / LINX Audio Visual-00001"
+		orders = types.SimpleNamespace(get_order_read_model=MagicMock(return_value=None))
+		extras = {
+			ROOT + ".portal.orders": orders,
+			ROOT + ".portal.web_guard": types.SimpleNamespace(require_login=MagicMock()),
+		}
+		with load_service("illumenate_lighting.templates.pages.order_detail", extras) as (page, frappe):
+			frappe.form_dict = {"order": name}
+			context = page.get_context(types.SimpleNamespace())
+		orders.get_order_read_model.assert_called_once_with(name, "buyer@example.com")
+		self.assertIsNone(context.order)
+		self.assertEqual(context.title, "Order Not Found")
 
 
 if __name__ == "__main__":
