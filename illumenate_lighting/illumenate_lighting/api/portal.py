@@ -21,6 +21,7 @@ from illumenate_lighting.illumenate_lighting.api.configuration_contract import (
 	TAPE_NEON_CATEGORIES,
 	parse_bool,
 )
+from illumenate_lighting.illumenate_lighting.portal.errors import service_endpoint
 from illumenate_lighting.illumenate_lighting.utils import (
 	VALID_ACCESS_LEVELS,
 	parse_positive_int,
@@ -3142,15 +3143,24 @@ def get_user_role_info() -> dict:
 
 
 @frappe.whitelist(methods=["POST"])
+@service_endpoint("account_request_failed", "Portal account service")
 def invite_project_collaborator(project_name: str, email: str, first_name: str = None,
 	last_name: str = None, access_level: str = "VIEW", send_invite: int = 1) -> dict:
-	"""Create an expiring project-only invitation without granting access prematurely."""
+	"""Create an expiring project-only invitation without granting access prematurely.
+
+	``accounts.invite`` answers its own failures as ``{"success": False}``, so it is called
+	below that wrapper (``__wrapped__``): a refusal still arrives here as a PermissionError
+	and dealers get the collaborator message. This endpoint's ``service_endpoint`` answers
+	every other failure exactly as ``accounts.invite`` would.
+	"""
 	from illumenate_lighting.illumenate_lighting.portal.accounts import invite
 
 	try:
-		return invite(email, first_name or (email or "").split("@")[0], last_name or "", project_name, access_level)
-	except frappe.PermissionError:
-		return {"success": False, "error": "You cannot invite a collaborator to this project"}
+		return invite.__wrapped__(
+			email, first_name or (email or "").split("@")[0], last_name or "", project_name, access_level
+		)
+	except frappe.PermissionError as exc:
+		raise frappe.PermissionError(_("You cannot invite a collaborator to this project")) from exc
 
 
 @frappe.whitelist(methods=["POST"])

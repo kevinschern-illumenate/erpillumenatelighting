@@ -150,6 +150,49 @@ class Invitation(unittest.TestCase):
 			h.accounts.invite.assert_called_once_with("architect@studio.test", "Ada", "", "P-1", "EDIT")
 
 
+class ProjectInviteEndpoint(unittest.TestCase):
+	"""api.portal.invite_project_collaborator over the real accounts.invite and its service_endpoint."""
+
+	def call(self, manage=True, inviter_enabled=1, access_level="VIEW"):
+		access = types.SimpleNamespace(
+			can_manage_project_collaborators=lambda project, user: manage, get_actor=MagicMock()
+		)
+		staff = types.SimpleNamespace(allowed=MagicMock(return_value=True))
+		deps = {ROOT + ".portal.access": access, ROOT + ".portal.staff": staff}
+		with load_service(ROOT + ".portal.accounts", deps) as (accounts, frappe):
+			frappe.session = Record(user="dealer@acme.test")
+			frappe.db.get_value.side_effect = lambda doctype, name, field=None, *a, **kw: (
+				inviter_enabled if (doctype, field) == ("User", "enabled") else None
+			)
+			frappe.utils.validate_email_address = lambda value: "@" in value
+			deps[ROOT + ".portal.accounts"] = accounts
+			with load_service(ROOT + ".api.portal", deps) as (api, _frappe):
+				result = api.invite_project_collaborator("P-1", "ada@studio.test", access_level=access_level)
+			return result, frappe
+
+	def test_refused_invitations_keep_the_collaborator_message(self):
+		for case in ({"manage": False}, {"inviter_enabled": 0}):
+			with self.subTest(**case):
+				result, frappe = self.call(**case)
+				self.assertEqual(
+					result,
+					{
+						"success": False,
+						"error": "You cannot invite a collaborator to this project",
+						"error_code": "account_request_failed",
+					},
+				)
+				# Refused before the invitee is looked up or any account is created.
+				frappe.db.exists.assert_not_called()
+
+	def test_correctable_errors_keep_their_own_message(self):
+		result, frappe = self.call(access_level="OWNER")
+		self.assertFalse(result["success"])
+		self.assertEqual(result["error"], "Choose VIEW or EDIT project access")
+		self.assertEqual(result["error_code"], "account_request_failed")
+		frappe.db.exists.assert_not_called()
+
+
 class DeprecatedListSave(unittest.TestCase):
 	def run_wrapper(self, rows, submitted):
 		deps = {
