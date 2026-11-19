@@ -130,6 +130,8 @@ The rep agency (sales partner) stays off customer-facing documents.
 | ilL Work Order Traveler | Work Order | Sales order, customer, fixture type, location, project, schedule, planned start, ship by, build points, BOM | Build specs from the configured record; cut list per segment and run plan, each with done boxes; full build description; materials with pulled boxes | Six-point QC checklist (pass / fail / initials); built by and QC by sign-off |
 | ilL Fixture Schedule | ilL-Project-Fixture-Schedule | Project, dealer, location, version, sales order, printed | By location: type tag, name, part no., specs, which line a power supply feeds, notes, maker, qty; other manufacturers' model and electrical details | Built-length note |
 
+Buyers edit those supplier part numbers and descriptions from the Purchase Order itself: **Supplier Parts** opens each line's item and saves the values onto the Item's Supplier Items row for the PO's supplier (adding one if needed). It needs edit rights on both Purchase Orders and Items. Draft lines pick up the new part number when the PO is saved; on a submitted PO the lines are corrected in place and a comment records the change.
+
 ## Terms and conditions
 
 Three Terms and Conditions records, created once by the patch and edited by staff in Desk
