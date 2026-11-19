@@ -241,14 +241,12 @@ def get_context(context):
 
 	context.chooser_url = "/portal/configure?" + urlencode({k: frappe.form_dict[k] for k in ("schedule", "line_key", "line_idx", "draft", "finder") if frappe.form_dict.get(k)})
 	if context.show_type_chooser:
+		from illumenate_lighting.illumenate_lighting.portal.product_chooser import cards
 		from illumenate_lighting.illumenate_lighting.portal.product_finder.presentation import chooser
 
-		context.chooser_options = chooser(frappe.form_dict)
-		if not show_pricing:
-			# Catalog-routed choices lead to pages a schedule editor cannot open.
-			context.chooser_options = [
-				option for option in context.chooser_options if option["href"].startswith("/portal/configure?")
-			]
+		# Each card gets a product photo from its family and leads somewhere it can be used;
+		# catalog cards are left out for a schedule editor, who cannot open the catalog.
+		context.chooser_options = cards(chooser(frappe.form_dict), frappe.form_dict, show_pricing)
 		context.title = "Choose a product type"
 		context.no_cache = 1
 		return context

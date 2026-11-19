@@ -232,7 +232,16 @@ class ConfigurePage(unittest.TestCase):
 				"sheet_server_options_enabled": lambda: True,
 				"build_preview_enabled": lambda: True,
 			},
-			".portal.rollout": {"require_family": lambda family: None},
+			".portal.rollout": {"require_family": lambda family: None, "available": lambda family: True},
+			".portal_listing": {
+				"LINK_FIELDS": {},
+				"portal_condition": lambda: "1=1",
+				"template_filters": lambda **kw: {},
+			},
+			".api.product_projection": {
+				"resolve_product_images": lambda doctype, names: {},
+				"safe_document_url": lambda url: url,
+			},
 			".portal.configuration": {"family_for_template": lambda family, template: family},
 			".portal.product_finder.presentation": {
 				"chooser": lambda query: [
@@ -242,6 +251,7 @@ class ConfigurePage(unittest.TestCase):
 			},
 			".api.configuration_contract": {
 				"finite_number": lambda value, **kwargs: float(value),
+				"FAMILY_ALIASES": {},
 				"TAPE_CATEGORIES": ("LED Tape", "COB Tape"),
 				"TAPE_NEON_CATEGORIES": ("LED Tape", "COB Tape", "LED Neon"),
 			},

@@ -1,15 +1,35 @@
-<section class="container py-4" aria-label="Choose a product type">
-<h1>What would you like to configure?</h1>
+{#
+Product-type chooser on /portal/configure. Cards come from portal/product_chooser.cards():
+each has a product photo from its family (or a swatch tile when there is none) and leads
+to a configurator, or to the catalog when the family has nothing to configure.
+#}
+<section class="container py-4 ill-product-chooser" aria-labelledby="illChooserTitle">
+<h1 id="illChooserTitle">{{ _("What would you like to configure?") }}</h1>
+<p class="lead mb-4">{{ _("Pick a product type to start. You can save the result to a fixture schedule at the end.") }}</p>
+{% set options = chooser_options | default([]) %}
+{% if options %}
 <div class="row">
-{% for option in chooser_options | default([]) %}
-  <div class="{{ ('col-md-8' if option.featured | default(false) else 'col-md-4') | e }} mb-3">
-    <a class="card h-100 p-3 {{ ('border-primary' if option.featured | default(false) else '') | e }}" href="{{ option.href | e }}">
-      {% if option.image | default(none) %}<img src="{{ option.image | e }}" alt="" style="height:140px;object-fit:cover">{% endif %}
-      {% if option.badge | default('') %}<span class="badge badge-warning my-2">{{ option.badge | e }}</span>{% endif %}
-      <h2 class="h4">{{ option.label | e }}</h2><p>{{ option.description | default('') | e }}</p>
+{% for option in options %}
+  {% set featured = option.featured | default(false) %}
+  <div class="{{ 'col-lg-8' if featured else 'col-lg-4' }} col-sm-6 mb-4">
+    <a class="ill-chooser-card{{ ' ill-chooser-card--featured' if featured else '' }}" href="{{ option.href | e }}">
+      {% if option.image | default(none) %}
+      <img class="ill-chooser-card__media" src="{{ option.image | e }}" alt="{{ option.image_alt | default('') | e }}" loading="{{ 'eager' if loop.index <= 4 else 'lazy' }}" decoding="async">
+      {% else %}
+      <span class="ill-chooser-card__media ill-chooser-card__media--swatch" aria-hidden="true"{% if option.swatch | default('') %} style="background: {{ option.swatch | e }}"{% endif %}>{{ (option.label | default('?'))[:1] | e }}</span>
+      {% endif %}
+      <span class="ill-chooser-card__body">
+        {% if option.badge | default('') %}<span class="badge ill-chooser-card__badge">{{ option.badge | e }}</span>{% endif %}
+        <h2 class="h4 ill-chooser-card__title">{{ option.label | e }}</h2>
+        {% if option.description | default('') %}<span class="ill-chooser-card__text">{{ option.description | e }}</span>{% endif %}
+        <span class="ill-chooser-card__cta">{{ _("Browse products") if option.routesTo | default('') == 'catalog' else _("Configure") }} <span aria-hidden="true">&rarr;</span></span>
+      </span>
     </a>
   </div>
 {% endfor %}
 </div>
-{% if ill_finder_enabled() %}<a href="/portal/product-finder">Not sure what you need? Take the Product Finder</a>{% endif %}
+{% else %}
+<div class="alert alert-info" role="status">{{ _("No product types are available to configure on your account yet. Contact Sales for assistance.") }}</div>
+{% endif %}
+{% if ill_finder_enabled() %}<p class="mt-2"><a href="/portal/product-finder">{{ _("Not sure what you need? Take the Product Finder") }}</a></p>{% endif %}
 </section>

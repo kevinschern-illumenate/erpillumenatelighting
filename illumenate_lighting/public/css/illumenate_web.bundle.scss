@@ -11,6 +11,7 @@
 @import "./configurator/driver_steps";
 // Portal page styles (UI-2): one partial per page, scoped by portal_base.html.
 @import "./pages/account";
+@import "./pages/configure";
 @import "./pages/dealer_access";
 @import "./pages/drawing_detail";
 @import "./pages/drawings";
