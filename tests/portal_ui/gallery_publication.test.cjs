@@ -65,7 +65,10 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
     show_alert(a) { alerts.push(a); },
     msgprint(m) { messages.push(m); },
   };
+  // Frappe's sidebar: the layout-side-section holds the title row (and, for galleries, our status pill).
+  const $page = $('<div class="page-wrapper"><div class="layout-side-section"><div class="sidebar-title">test</div></div></div>');
   const frm = {
+    page: { wrapper: $page },
     doc: { name: 'g1', is_active: 0, target_brands: [{ brand: 'lighting_206', enabled: 1 }], ...doc },
     is_new: () => isNew,
     is_dirty: () => dirty,
@@ -93,11 +96,12 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
     fs.readFileSync(modulePath, 'utf8') + '\nreturn typeof module !== "undefined" ? module.exports : null;');
   const mod = { exports: {} };
   factory(context.window, frappe, context.__, context.document, mod, mod.exports);
-  return { api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, alerts, messages, reloads, frappe, events, $ };
+  return { api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, $page, alerts, messages, reloads, frappe, events, $ };
 }
 
 // What is on screen: the sections still attached to the dashboard.
 const text = s => s.$wrapper.text();
+const pill = s => s.$page.find('.ill-gallery-status .indicator-pill');
 
 test('no buttons or panel for an unsaved gallery', async t => {
   const s = setup(t, { isNew: true });
@@ -357,4 +361,95 @@ test('no enabled brand shows a notice and no buttons', async t => {
   assert.match(text(s), /No Webflow brand is enabled for this gallery/);
   assert.deepEqual(Object.keys(s.buttons), []);
   assert.equal(s.calls.filter(c => c.method).length, 0);
+});
+
+test('the status pill sits on its own row, above the title, at the top of the sidebar', async t => {
+  const s = setup(t);
+  await s.api.refresh(s.frm);
+  const $side = s.$page.find('.layout-side-section');
+  assert.equal(pill(s).length, 1);
+  assert.ok($side.children().first().hasClass('ill-gallery-status'), 'first child of the sidebar');
+  assert.equal($side.children().first().children().length, 1, 'nothing else on its row');
+  assert.equal($side.children().eq(1).text(), 'test', 'the title row follows');
+  assert.equal(pill(s).text(), 'Needs staging');
+  assert.ok(pill(s).hasClass('indicator-pill') && pill(s).hasClass('orange'));
+});
+
+test('each publication state shows its own pill', async t => {
+  const cases = [
+    [{ state: 'NEEDS_REVIEW' }, 'Needs staging', 'orange'],
+    [{ state: 'NEEDS_REVIEW', staged_hash: 'old' }, 'Changes not staged', 'orange'],
+    [{ state: 'NEEDS_REVIEW', live_hash: 'old' }, 'Changes not staged', 'orange'],
+    [{ state: 'QUEUED' }, 'Queued', 'blue'],
+    [{ state: 'STAGED', approved_hash: 'cur', staged_hash: 'cur' }, 'Staged', 'yellow'],
+    [{ state: 'LIVE', approved_hash: 'cur', staged_hash: 'cur', live_hash: 'cur' }, 'Live', 'green'],
+    [{ state: 'FAILED' }, 'Failed', 'red'],
+    [{ state: 'RETIRED' }, 'Retired', 'gray'],
+  ];
+  for (const [extra, label, color] of cases) {
+    const s = setup(t, { inspect: receipt(extra) });
+    await s.api.refresh(s.frm);
+    assert.equal(pill(s).length, 1, JSON.stringify(extra));
+    assert.equal(pill(s).text(), label, JSON.stringify(extra));
+    assert.ok(pill(s).hasClass(color), `${label} is ${color}`);
+  }
+});
+
+test('the pill is replaced on every refresh, never duplicated', async t => {
+  const s = setup(t);
+  await s.api.refresh(s.frm);
+  await s.api.refresh(s.frm);
+  await s.api.refresh(s.frm);
+  assert.equal(s.$page.find('.ill-gallery-status').length, 1);
+});
+
+test('the pill names the brand and explains the status in its tooltip', async t => {
+  const s = setup(t, { inspect: receipt({ state: 'LIVE', live_hash: 'cur' }) });
+  await s.api.refresh(s.frm);
+  const title = pill(s).attr('title');
+  assert.match(title, /Published on the Webflow site/);
+  assert.match(title, /lighting_206/);
+});
+
+test('no pill for an unsaved gallery, and a stale one is removed', async t => {
+  const s = setup(t, { isNew: true });
+  s.$page.find('.layout-side-section').prepend('<div class="ill-gallery-status"><span class="indicator-pill green">Live</span></div>');
+  await s.api.refresh(s.frm);
+  assert.equal(s.$page.find('.ill-gallery-status').length, 0);
+});
+
+test('no pill when inspect fails or no brand is enabled, and a previous one is cleared', async t => {
+  const failing = setup(t, { inspectError: new Error('boom') });
+  failing.$page.find('.layout-side-section').prepend('<div class="ill-gallery-status"><span class="indicator-pill green">Live</span></div>');
+  await failing.api.refresh(failing.frm);
+  assert.equal(failing.$page.find('.ill-gallery-status').length, 0);
+  const none = setup(t, { noBrands: true, doc: { target_brands: [] } });
+  none.$page.find('.layout-side-section').prepend('<div class="ill-gallery-status"><span class="indicator-pill green">Live</span></div>');
+  await none.api.refresh(none.frm);
+  assert.equal(none.$page.find('.ill-gallery-status').length, 0);
+});
+
+test('the pill follows the state when the form refreshes again', async t => {
+  const s = setup(t);
+  await s.api.refresh(s.frm);
+  assert.equal(pill(s).text(), 'Needs staging');
+  // The server now reports the gallery as staged, then live; each refresh replaces the pill.
+  const original = s.frappe.call;
+  for (const [extra, label] of [
+    [{ state: 'STAGED', approved_hash: 'cur', staged_hash: 'cur' }, 'Staged'],
+    [{ state: 'LIVE', approved_hash: 'cur', staged_hash: 'cur', live_hash: 'cur' }, 'Live'],
+  ]) {
+    s.frappe.call = async args => (args.method === API + 'inspect' ? { message: receipt(extra) } : original(args));
+    await s.api.refresh(s.frm);
+    assert.equal(s.$page.find('.ill-gallery-status').length, 1);
+    assert.equal(pill(s).text(), label);
+  }
+});
+
+test('a sidebar the page does not expose is left alone', async t => {
+  const s = setup(t);
+  s.frm.page = {};
+  await s.api.refresh(s.frm);
+  assert.equal(s.$page.find('.ill-gallery-status').length, 0);
+  assert.ok(s.buttons['Approve and Stage'], 'the panel and buttons still work');
 });
