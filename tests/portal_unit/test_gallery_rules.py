@@ -177,3 +177,13 @@ class FormLayoutTest(unittest.TestCase):
 
 	def test_every_field_is_still_in_the_order_once(self):
 		self.assertEqual(sorted(self.order), sorted(self.fields))
+
+
+class BrandCollectionKindTest(unittest.TestCase):
+	def test_galleries_is_a_kind_and_the_doctype_is_marked_newer_than_the_old_schema(self):
+		doc = load_doctype("ill_webflow_brand_collection")
+		kinds = {f["fieldname"]: f for f in doc["fields"]}["collection_kind"]["options"].split("\n")
+		self.assertIn("Galleries", kinds)
+		# Frappe skips a doctype whose file is not newer than the site's copy: the "Galleries" option reached
+		# production only after `modified` was moved past the 2026-05-07 schema the sites already had.
+		self.assertGreater(doc["modified"], "2026-11-18")

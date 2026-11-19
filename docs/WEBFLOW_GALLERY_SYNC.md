@@ -527,3 +527,33 @@ Still open: nothing.
 - 2026-11-19: `tools/build_gallery_workflow.py` takes `--erp-base-url`, `--brand`, `--webhook-path`, `--name` and
   `--out` to build the ERP address and brand in (n8n variables are not available on the plan); the production
   copy is `n8n_workflows/webflow_gallery_sync_production.json`.
+- 2026-11-19: **Credits go to Webflow as one JSON field.** The main site's Galleries collection has a single
+  plain-text `credits` field instead of the twelve name and website fields (Rei's design; a script on the
+  Webflow page parses it). The workflow sends, in this fixed order and only for credits with a name,
+  `[{"type":"Integrator","name":"Acme","website":"https://acme.example"},{"type":"Photographer","name":"P. Lens","website":null}]`
+  on one line (types: Integrator, Architect, Designer, Contractor, Owner, Photographer; `website` is null when
+  there is none). No credits sends `''`, not `[]`. The old per-person slugs are no longer sent, because Webflow
+  rejects fields that are not in the collection: **a Galleries collection needs the `credits` field (and may drop
+  the twelve old ones)**; the staging2 collection still has the old fields and needs `credits` added before the
+  staging workflow is used again. ERP is unchanged (credits stay a table).
+- 2026-11-19: Generated copies of the workflow with the ERP address, brand and webhook path built in are checked in
+  for both environments: `webflow_gallery_sync_production.json` (webhook path `ill-gallery-sync`) and
+  `webflow_gallery_sync_staging.json` (`ill-gallery-sync-staging`). The n8n workflow `m55OoaAD9LHaRYZq` was
+  reworked into the production one; the staging copy can be re-imported from its file.
+- 2026-11-19: **Products Used goes to Webflow as JSON too.** The workflow now sends the Products Used table, row by
+  row, as one JSON text in the `products-used` field (a plain-text field, no longer a multi-reference), for a
+  script on the Webflow page: `[{"product":"kit-ra01","name":"Rainier [SF] Extrusion Kit","slug":"kit-ra01","series":"Rainier","note":"White finish","webflow_item_id":"6aeb..."}, ...]`.
+  A series-only row has null `product`, `name`, `slug` and `webflow_item_id`; no rows sends `''`. The old
+  `product-notes` field is not sent any more (the notes are in the rows). The ERP payload gained `products`
+  (and lost `product_notes_html`); an ERP that does not send `products` yet leaves the field alone rather than
+  clearing it. `series-used` is still sent as a comma-separated filter text.
+- 2026-11-19: The main site's collection uses the slugs `hero-image` (hero) and `seo-description` (SEO text),
+  where staging2 has `featured-image` and `short-description`. The builder takes `--hero-field` and `--seo-field`;
+  the production copy is built with `hero-image` and `seo-description`. Read from the main collection through
+  the Webflow API (id `6afe3216d7ca4cf3ffc38ccb`, 22 fields, Products Used still a reference at that time).
+  Plain-text fields in Webflow have length limits (several here are single-line), so very long notes can be
+  rejected by Webflow; that fails the job visibly.
+- 2026-11-19: The `ilL-Webflow-Brand-Collection` doctype file kept its old `modified` date when "Galleries" was
+  added to Collection Kind, so a site that had the older copy skipped the change at migrate and the option was
+  missing. `modified` is now bumped (and a test guards it). Any doctype file edited in a commit needs its
+  `modified` moved forward.
