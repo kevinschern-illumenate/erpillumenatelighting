@@ -869,7 +869,8 @@ def ill_print_supplier_parts(doc) -> dict:
 	parts = {}
 	try:
 		codes = list({item.get("item_code") for item in doc.get("items") or [] if item.get("item_code")})
-		supplier = doc.get("supplier")
+		# An RFQ prints once per supplier; ERPNext sets ``vendor`` to the one being printed.
+		supplier = doc.get("supplier") or doc.get("vendor")
 		if not codes or not supplier:
 			return parts
 		fields = ["parent", "supplier_part_no"]

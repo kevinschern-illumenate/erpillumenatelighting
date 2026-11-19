@@ -58,7 +58,9 @@
 			{%- set row.n = row.n + 1 -%}
 			{%- set part = parts.get(item.item_code, {}) -%}
 			{%- set vendor_no = item.supplier_part_no or part.part_no -%}
-			{%- set vendor_desc = ill_print_note(part.description) if part.description else "" -%}
+			{#-- The line's supplier description leads; the Item's supplier row is the fallback. --#}
+			{%- set vendor_desc_text = item.ill_supplier_description or part.description -%}
+			{%- set vendor_desc = ill_print_note(vendor_desc_text) if vendor_desc_text else "" -%}
 			{%- call line_group(entry, 7, items_head) -%}
 				<td class="ill-idx">{{ row.n | int }}</td>
 				<td class="ill-vendor-part">{% if vendor_no %}{{ vendor_no | e }}{% else %}<span class="ill-none">&mdash;</span>{% endif %}</td>
