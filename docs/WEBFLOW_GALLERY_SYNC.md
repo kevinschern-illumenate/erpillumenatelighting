@@ -471,3 +471,6 @@ Still open: nothing.
   gallery's hash, so each gallery needs Approve and Stage again after this is deployed.
 - 2026-11-19: Added the status pill to the top of the gallery form's sidebar (section 6, step 2), from the same
   inspect result as the publication panel.
+- 2026-11-19: The gallery form has a collapsed "What the status means" section at the bottom (`status_guide`, an
+  HTML field) listing the seven statuses the sidebar pill can show and what each means. Work now goes straight
+  to `staging` rather than through feature branches.
