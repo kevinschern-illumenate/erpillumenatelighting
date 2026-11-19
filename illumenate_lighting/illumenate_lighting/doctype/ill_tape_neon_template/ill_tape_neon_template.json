@@ -23,14 +23,10 @@
   "column_break_description",
   "notes",
   "spec_sheet_details_section",
+  "fixture_weight_per_foot_grams",
   "spec_sheet_dimensions",
   "minimum_side_bend_diameter_mm",
   "minimum_top_bend_diameter_mm",
-  "available_lenses",
-  "available_finishes",
-  "column_break_spec_sheet_details",
-  "available_mountings",
-  "fixture_weight_per_foot_grams",
   "driver_max_wattage_override",
   "production_interval_mm",
   "is_free_cutting",
@@ -69,6 +65,7 @@
   "product_data_column",
   "hero_image",
   "hero_image_alt",
+  "dimensions_title",
   "dimensions_image",
   "spec_sheet_public_url",
   "l70_life_hours",
@@ -84,6 +81,8 @@
   "auto_populate_configurator",
   "part_no_configurator",
   "feed_lengths",
+  "output_options_section",
+  "output_options",
   "photometric_section",
   "photometry",
   "beam_angle",
@@ -205,6 +204,11 @@
    "label": "Spec Sheet Details"
   },
   {
+   "fieldname": "fixture_weight_per_foot_grams",
+   "fieldtype": "Float",
+   "label": "Fixture Weight per Foot (g)"
+  },
+  {
    "description": "Display value for the CSV Dimensions (L×W×H) column.",
    "fieldname": "spec_sheet_dimensions",
    "fieldtype": "Data",
@@ -221,33 +225,6 @@
    "fieldname": "minimum_top_bend_diameter_mm",
    "fieldtype": "Float",
    "label": "Minimum Top Bend Diameter (mm)"
-  },
-  {
-   "description": "Fallback display value for the CSV Lenses column when no Lens Appearance options are configured.",
-   "fieldname": "available_lenses",
-   "fieldtype": "Small Text",
-   "label": "Available Lenses"
-  },
-  {
-   "description": "Fallback display value for the CSV Finish column when no Finish options are configured.",
-   "fieldname": "available_finishes",
-   "fieldtype": "Small Text",
-   "label": "Available Finishes"
-  },
-  {
-   "fieldname": "column_break_spec_sheet_details",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Fallback display value for the CSV Available Mountings column when no Mounting options are configured.",
-   "fieldname": "available_mountings",
-   "fieldtype": "Small Text",
-   "label": "Available Mountings"
-  },
-  {
-   "fieldname": "fixture_weight_per_foot_grams",
-   "fieldtype": "Float",
-   "label": "Fixture Weight per Foot (g)"
   },
   {
    "description": "Fallback/override value for the CSV Driver Max Wattage column when no preferred driver eligibility is configured.",
@@ -471,6 +448,12 @@
    "description": "Describe the main product image for screen readers and search engines."
   },
   {
+   "fieldname": "dimensions_title",
+   "fieldtype": "Data",
+   "label": "Dimensions Title",
+   "description": "Optional. The title over the Dimensions Image on the spec sheet."
+  },
+  {
    "fieldname": "dimensions_image",
    "fieldtype": "Attach Image",
    "label": "Dimensions Image",
@@ -563,6 +546,19 @@
    "options": "ilL-Child-Webflow-Feed-Length"
   },
   {
+   "fieldname": "output_options_section",
+   "fieldtype": "Section Break",
+   "label": "Output Options"
+  },
+  {
+   "fieldname": "output_options",
+   "fieldtype": "Table",
+   "label": "Output Options",
+   "options": "ilL-Child-Output-Option",
+   "read_only": 1,
+   "description": "Rebuilt on save: for each output, the Watts per Foot, Max Run Length and Max Footage per 100W of the tape that makes it. On fixtures, per lens (the same tape as Delivered Lumens), and lenses with the same numbers share a group."
+  },
+  {
    "fieldname": "photometric_section",
    "fieldtype": "Section Break",
    "label": "Photometrics"
@@ -631,7 +627,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-13 18:00:25.000000",
+ "modified": "2026-11-19 20:29:12.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

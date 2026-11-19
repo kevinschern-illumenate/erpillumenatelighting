@@ -174,12 +174,65 @@ class HandSetTapeNeon(unittest.TestCase):
 				calculations = load(CALCULATIONS)
 				template["auto_populate_configurator"] = 0
 				template.set("part_no_configurator", [dict(step) for step in HAND_SET_TAPE_STEPS])
-				calculations.refresh_hand_set_tape_neon(template)
+				# The values as the product made them; LED Neon's fixed step order is below.
+				calculations._refresh_hand_set_values(template)
 				self.assertEqual(
 					without_idx(plain(template["part_no_configurator"])),
 					without_idx(self.expected[case]["after_sync"]["configurator_options"]),
 				)
 				self.assertEqual(product_lookups(frappe.calls), [])
+
+	def test_led_neon_steps_follow_the_allowed_options(self):
+		# Owner, 2026-11-19: Series is 0; the steps follow the Allowed Options order, each type
+		# once (the neon case lists Environment Rating, CCT, Output Level, Power Feed Type,
+		# Mounting Method, Finish, Feed Direction, IP Rating). Power Feed Type has no step;
+		# Length comes before the four feed steps; other steps after. Feed lengths follow.
+		with site():
+			calculations = load(CALCULATIONS)
+			template = scenarios()["neon"]
+			template["auto_populate_configurator"] = 0
+			template.set("part_no_configurator", [dict(step) for step in HAND_SET_TAPE_STEPS])
+			template.set("feed_lengths", [{"step": 6, "code": "2", "label": "2ft"}])
+			self.assertTrue(calculations.refresh_hand_set_tape_neon(template))
+			steps = [(row["option_step"], row["option_label"]) for row in plain(template["part_no_configurator"])]
+			self.assertEqual(
+				steps,
+				[
+					(1, "Environment"),
+					(2, "CCT"),
+					(3, "Output Level"),
+					(4, "Mounting Method"),
+					(5, "Finish"),
+					(6, "Length"),
+					(7, "Start Feed Direction"),
+					(8, "Start Feed Length"),
+					(9, "End Feed Direction"),
+					(10, "End Feed Length"),
+					(11, "IP Rating"),
+					(12, "Keep"),
+				],
+			)
+			# Start Feed Length moved from 6 to 8; its feed lengths follow.
+			self.assertEqual(plain(template["feed_lengths"])[0]["step"], 8)
+
+	def test_neon_step_types_count_each_type_once(self):
+		with site():
+			calculations = load(CALCULATIONS)
+			template = Doc(
+				"ilL-Tape-Neon-Template",
+				"N",
+				allowed_options=rows(
+					{"option_type": "IP Rating", "is_active": 1},
+					{"option_type": "CCT", "is_active": 1},
+					{"option_type": "CCT", "is_active": 1},
+					{"option_type": "Finish", "is_active": 0},
+					{"option_type": "Output Level", "is_active": 1},
+				),
+			)
+			self.assertEqual(
+				calculations.neon_step_types(template),
+				[("type", "IP Rating"), ("type", "CCT"), ("type", "Output Level"), ("type", "Length")],
+			)
 
 	def refresh(self, template):
 		images = types.ModuleType(ROOT + ".template_images")

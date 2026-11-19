@@ -92,5 +92,45 @@ class OutputOptions(unittest.TestCase):
 		self.assertEqual(module.table(LENSES, TAPES, []), [])
 
 
+
+class NeonOutputOptions(unittest.TestCase):
+	"""LED Neon (owner, 2026-11-19): one unnamed group, the template's own outputs as columns."""
+
+	def module(self):
+		context = load_service(ROOT + ".template_output_options")
+		module, _frappe = context.__enter__()
+		self.addCleanup(context.__exit__, None, None, None)
+		return module
+
+	def test_each_output_takes_the_nearest_tape_spec(self):
+		rows = self.module().neon_table(
+			[{"name": "300 lm/ft", "value": 300}, {"name": "150 lm/ft", "value": 150}],
+			[(148, 2.74, 16.4), (305, 5.1, 9), (None, 9, 1)],
+		)
+		self.assertEqual(
+			rows,
+			[
+				{
+					"lens_group": "",
+					"output_level": "150 lm/ft",
+					"fixture_wattage": "2.7W",
+					"max_run_length": "16.4ft",
+					"max_footage_100w": "30ft",
+				},
+				{
+					"lens_group": "",
+					"output_level": "300 lm/ft",
+					"fixture_wattage": "5.1W",
+					"max_run_length": "9ft",
+					"max_footage_100w": "16ft",
+				},
+			],
+		)
+
+	def test_no_tape_lumens_gives_dashes(self):
+		rows = self.module().neon_table([{"name": "150 lm/ft", "value": 150}], [(None, 2.7, 16)])
+		self.assertEqual(rows[0]["fixture_wattage"], "—")
+
+
 if __name__ == "__main__":
 	unittest.main()
