@@ -159,9 +159,14 @@ allowed values are mirrored by the Webflow filter script's expectations.
 ### 5.3 Brand configuration
 
 - Add `Galleries` to the `collection_kind` options of `ilL-Webflow-Brand-Collection`.
-- Add an ERP-staging brand record for Webflow staging2 (brand code `staging2`, site ID
-  `6aeb4d313e25a078e9393924`, Galleries collection ID `6afb3d27742d050cf6903677`, sync enabled). The brand
-  record is named by its brand code, so its `name` equals `brand_code` (`staging2`). It **must set
+- On ERP staging, use the **existing `illumenate` brand record**, which already points at Webflow staging2
+  (site ID `6aeb4d313e25a078e9393924`, Products collection `6aeb4d313e25a078e9393a2a`): add a Galleries row
+  (collection ID `6afb3d27742d050cf6903677`) and turn sync on. Do not create a separate brand code for the
+  test site: the staging product workflow (`[STAGING] Spec Gen & Webflow Sync`) routes jobs by brand code and
+  only knows `illumenate` and `lighting_206`, so products cannot be published under any other code, and
+  galleries need their products published first. The same code on the production ERP points at the main
+  site, so `illumenate` means "this ERP's own Webflow site" in each environment. The brand record is named by
+  its brand code, so its `name` equals `brand_code` (`illumenate`). It **must set
   `erpnext_base_url`** to the ERP host the images are served from (on ERP staging,
   `https://stagingillumenate.v.frappe.cloud`); without it, image URLs use the default production host and
   Webflow's image fetches fail.
@@ -248,6 +253,12 @@ Warnings (shown, not blocking):
 - **One workflow deployment per brand**, as for products: credentials in n8n are bound per workflow, not
   looked up from ERP. Staging deployment uses the ERP staging integration user and the staging2 Webflow
   credential. The production deployment uses the production ones.
+  **Variables are account-wide.** The workflow reads `ILL_ERP_BASE_URL` and `ILL_WEBFLOW_BRAND` from n8n
+  variables, which the whole n8n account shares, and the staging product workflow does not use them. Staging
+  alone can use them as they are (set `ILL_ERP_BASE_URL=https://stagingillumenate.v.frappe.cloud` and
+  `ILL_WEBFLOW_BRAND=illumenate`). A production copy in the same account cannot read different values from
+  the same variables, so before production the builder needs options to build in the ERP address and brand
+  (section 11).
 - Flow: trigger (manual, and a schedule **every minute**; there is no ERP webhook nudge, so the 1/5/15-minute
   retries depend on this poll) → claim a job for `$vars.ILL_WEBFLOW_BRAND` at `$vars.ILL_ERP_BASE_URL` →
   match the remote item (by `erp-sync-id`, falling back to exact slug and verifying `erp-sync-id`) → create
@@ -302,13 +313,14 @@ Warnings (shown, not blocking):
 
 | | ERP | n8n workflow | Webflow site |
 | --- | --- | --- | --- |
-| Test | `stagingillumenate.v.frappe.cloud` | gallery workflow, staging deployment | staging2 (`6aeb4d313e25a078e9393924`) |
-| Production | `app.illumenate.lighting` | gallery workflow, production deployment | main site (`695c1f9a18a639365b6a31a7`; Galleries collection ID to be recorded) |
+| Test | `stagingillumenate.v.frappe.cloud` (brand `illumenate`) | gallery workflow, staging deployment | staging2 (`6aeb4d313e25a078e9393924`) |
+| Production | `app.illumenate.lighting` (brand `illumenate`) | gallery workflow, production deployment | main site (`695c1f9a18a639365b6a31a7`; Galleries collection ID to be recorded) |
 
 Promotion steps, only after staging2 is verified:
 1. Merge to `main` through the normal PR flow, migrate the production ERP.
 2. Create the Galleries collection and `erp-sync-id` on the main site; paste the Designer pieces.
-3. Create the main-site brand record; import workflow as inactive; bind production credentials.
+3. Point the production `illumenate` brand at the main site and add its Galleries collection; import the
+   workflow as inactive (see the variables note in section 7); bind production credentials.
 4. Re-run the import against production, approve one gallery, execute manually, verify, then enable the schedule.
 5. Manual (Rei): hide the "Custom" option in the All Products section on the site, once the Series sync has
    created it.
@@ -365,6 +377,10 @@ simulated HTTP boundary (modelled on `tests/portal_unit/publication_workflow.tes
   their websites) in Webflow into one plain-text JSON field, with a page script that parses it. Only the
   projection changes on the ERP side. Not part of this build.
 - Merge the gallery and product publication code once galleries are proven.
+- Let `tools/build_gallery_workflow.py` build a copy with the ERP address and brand built in (instead of n8n
+  variables), so a staging and a production copy can sit side by side in one n8n account. Needed before the
+  production deployment. (A version of this, with a header-token Webflow option, was built and set aside in
+  PR #435 because staging alone does not need it.)
 - A scheduled sweep that recomputes gallery hashes, so a `LIVE` gallery whose product changed is flagged in
   the list view without someone opening it.
 - Multi-locale support.
@@ -384,8 +400,10 @@ Resolved by Rei, 2026-11-18:
   hides the option manually in All Products afterwards.
 - The Webflow collection URL slug is `/gallery`.
 
-Still open:
-- Brand code for the staging2 brand record: `staging2` (Claude's call).
+- Brand code for ERP staging: the existing `illumenate` brand (decided 2026-11-18, replacing the planned
+  `staging2` code; see section 5.3).
+
+Still open: nothing.
 
 ## 13. Change log
 
@@ -436,3 +454,6 @@ Still open:
   `lookup-incomplete` and `readiness` failures. The form panel is rebuilt on every refresh. This document:
   status, the sweep (not built; section 11), `sync_targets`, image size, the staging2 brand's
   `erpnext_base_url`, and the import's unmapped-product rule corrected.
+- 2026-11-18: ERP staging uses the existing `illumenate` brand (already pointing at staging2) instead of a
+  new `staging2` brand, because the staging product workflow only routes `illumenate` and `lighting_206`
+  (section 5.3). n8n variables are account-wide, which matters before production (sections 7 and 11).
