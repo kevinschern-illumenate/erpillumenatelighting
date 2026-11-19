@@ -94,14 +94,16 @@ def update_supplier_part_info(supplier, rows, purchase_order=None) -> dict:
 	"""Save supplier part numbers and descriptions from a Purchase Order back onto its Items.
 
 	``rows`` is a list of ``{item_code, supplier_part_no, supplier_description}``. Each Item's
-	Supplier Items row for ``supplier`` is updated, or added when the Item has none. Buyers
-	who can write Purchase Orders may do this without write access to Items.
+	Supplier Items row for ``supplier`` is updated, or added when the Item has none. The user
+	needs write access to Purchase Orders and to every Item in ``rows``; nothing is saved
+	unless they can edit all of them.
 
 	When ``purchase_order`` is a submitted PO for this supplier, its lines' Supplier Part
 	Number is corrected too, so a reprint shows the new number. Draft lines are updated in
 	the form instead and saved with the PO.
 	"""
 	frappe.has_permission("Purchase Order", "write", throw=True)
+	frappe.has_permission("Item", "write", throw=True)
 	supplier = _clean(supplier)
 	if not supplier or not frappe.db.exists("Supplier", supplier):
 		frappe.throw(_("Choose a valid supplier first."))
@@ -116,14 +118,16 @@ def update_supplier_part_info(supplier, rows, purchase_order=None) -> dict:
 				_clean(entry.get("supplier_description")) if has_description else "",
 			)
 
+	# Check every Item before saving any, so a partial update can't happen.
+	for code in wanted:
+		frappe.has_permission("Item", "write", doc=code, throw=True)
+
 	updated, unchanged = [], []
 	for code, (part_no, description) in wanted.items():
-		frappe.has_permission("Item", "read", doc=code, throw=True)
 		item = frappe.get_doc("Item", code)
 		if not _apply_to_item(item, supplier, part_no, description, has_description):
 			unchanged.append(code)
 			continue
-		item.flags.ignore_permissions = True
 		try:
 			item.save()
 		except frappe.ValidationError as error:

@@ -104,7 +104,7 @@ class SaveParts(unittest.TestCase):
 		)
 		items["A"].save.assert_called_once()
 		items["C"].save.assert_not_called()
-		self.assertTrue(items["A"].flags.ignore_permissions)
+		self.assertFalse(items["A"].flags.ignore_permissions)  # Item permissions apply
 
 	def test_blank_values_add_no_row(self):
 		items = {"A": Item("A")}
@@ -123,6 +123,29 @@ class SaveParts(unittest.TestCase):
 			)
 		self.assertEqual(result["unchanged"], ["A"])
 		self.assertNotIn(DESC, items["A"].supplier_items[0])
+
+	def test_needs_item_write_permission_on_every_item_before_any_save(self):
+		items = {"A": Item("A"), "B": Item("B")}
+		with load_service(SERVICE) as (po, frappe):
+			setup(frappe, items)
+
+			def check(doctype, ptype="read", doc=None, throw=False):
+				if doctype == "Item" and doc == "B":
+					raise PermissionError
+				return True
+
+			frappe.has_permission.side_effect = check
+			with self.assertRaises(PermissionError):
+				po.update_supplier_part_info(
+					"ACME",
+					[
+						{"item_code": "A", "supplier_part_no": "A-1"},
+						{"item_code": "B", "supplier_part_no": "B-1"},
+					],
+				)
+			calls = [c.args for c in frappe.has_permission.call_args_list]
+			self.assertIn(("Item", "write"), calls)
+		items["A"].save.assert_not_called()
 
 	def test_needs_purchase_order_write_permission(self):
 		with load_service(SERVICE) as (po, frappe):

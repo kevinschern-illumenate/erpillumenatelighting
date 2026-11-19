@@ -103,7 +103,8 @@ async function ill_edit_supplier_parts(frm) {
 
 frappe.ui.form.on('Purchase Order', {
 	refresh(frm) {
-		if (frm.doc.docstatus === 2 || !frappe.model.can_write('Purchase Order')) return;
+		// Saving writes to the Items, so it needs edit rights on both.
+		if (frm.doc.docstatus === 2 || !frappe.model.can_write('Purchase Order') || !frappe.model.can_write('Item')) return;
 		frm.add_custom_button(__('Supplier Parts'), () => ill_edit_supplier_parts(frm));
 	},
 });
