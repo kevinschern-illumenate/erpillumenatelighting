@@ -91,23 +91,27 @@ def content_record(value):
 	return value
 
 
+# Fixtures with many tape offerings link well over 400 records (owner, 2026-11-19: 3,000).
+MAX_DEPENDENCIES = 3000
+MAX_DEPTH = 8
+
+
 def dependency_manifest(root):
-	"""Bounded traversal of declared product/master links and child-row links."""
+	"""Bounded traversal of declared product/master links and child-row links.
+
+	Records past the bounds are not checked; one issue says how many (owner, 2026-11-19: one
+	line, not one per record).
+	"""
 	seen, records, issues = set(), [], []
+	skipped = []
 
 	def visit(doc, depth):
 		key = (doc.doctype, doc.name)
 		if key in seen:
 			return
 		seen.add(key)
-		if len(seen) > 400 or depth > 8:
-			issues.append(
-				{
-					"record": doc.name,
-					"field": "dependencies",
-					"message": "Dependency graph exceeds preflight bounds",
-				}
-			)
+		if len(seen) > MAX_DEPENDENCIES or depth > MAX_DEPTH:
+			skipped.append(key)
 			return
 		data = json.loads(frappe.as_json(doc.as_dict()))
 		for fieldname in unpublished_fields(doc.doctype):
@@ -205,6 +209,17 @@ def dependency_manifest(root):
 					)
 
 	visit(root, 0)
+	if skipped:
+		issues.append(
+			{
+				"record": root.name,
+				"field": "dependencies",
+				"message": (
+					f"{len(skipped)} linked records were not checked: the dependency graph is larger "
+					f"than {MAX_DEPENDENCIES} records or deeper than {MAX_DEPTH} links"
+				),
+			}
+		)
 	return sorted(records, key=lambda row: (row["doctype"], row["name"])), issues
 
 
