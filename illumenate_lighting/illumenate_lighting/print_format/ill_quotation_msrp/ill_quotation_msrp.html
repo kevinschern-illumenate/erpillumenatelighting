@@ -3,7 +3,7 @@
   to their client. No dealer pricing, discounts, freight, tax or billing details.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, terms, closing, money, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, connected_load, terms, closing, money, date with context -%}
 {%- set project = ill_print_project(doc) -%}
 {%- set pricing = ill_print_pricing(doc.items) -%}
 {%- set status = status_of(quiet=("Open", "Replied", "Submitted", "Partially Ordered", "Ordered")) | trim -%}
@@ -27,6 +27,7 @@
 	{{ priced_items("msrp") }}
 
 	{%- set left -%}
+	{{ connected_load() }}
 	<div class="ill-label">About these prices</div>
 	<div class="ill-muted">Manufacturer's suggested retail prices in {{ doc.currency or "USD" }}, for budgeting. Your dealer sets final pricing and quotes freight, sales tax and installation separately.</div>
 	{%- endset -%}

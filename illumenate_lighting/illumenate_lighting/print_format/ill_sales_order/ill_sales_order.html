@@ -3,7 +3,7 @@
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
   Frappe reads this file at print time, so it overrides the copy stored on the site.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, terms, notes, closing, money, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, connected_load, terms, notes, closing, money, date with context -%}
 {%- set project = ill_print_project(doc) -%}
 {%- set sums = ill_print_totals(doc) -%}
 {%- set quotes = ill_print_references(doc, "prevdoc_docname") -%}
@@ -43,6 +43,7 @@
 	{{ priced_items("dealer") }}
 
 	{%- set left -%}
+		{{ connected_load() }}
 		{%- if doc.docstatus == 1 and (doc.per_delivered or doc.per_billed) -%}
 		<div class="ill-label">Order progress</div>
 		<div class="ill-muted">Shipped {{ "%.0f" | format(doc.per_delivered or 0) }}% &nbsp;&middot;&nbsp; Billed {{ "%.0f" | format(doc.per_billed or 0) }}%</div>

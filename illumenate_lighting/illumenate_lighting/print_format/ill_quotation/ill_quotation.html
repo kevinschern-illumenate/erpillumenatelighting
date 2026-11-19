@@ -3,7 +3,7 @@
   Shares its layout and macros with every ilL format: templates/print/ill_print.html.
   Frappe reads this file at print time, so it overrides the copy stored on the site.
 #}
-{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, terms, notes, signatures, closing, money, date with context -%}
+{%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, status_of, facts, parties, priced_items, totals, connected_load, terms, notes, signatures, closing, money, date with context -%}
 {%- set project = ill_print_project(doc) -%}
 {%- set pricing = ill_print_pricing(doc.items) -%}
 {%- set sums = ill_print_totals(doc) -%}
@@ -37,6 +37,7 @@
 
 	{%- set savings = pricing.list_total - doc.total if pricing.has_discount else 0 -%}
 	{%- set left -%}
+		{{ connected_load() }}
 		{%- if savings > 0.5 -%}
 		<div class="ill-label">Your pricing</div>
 		<div>List value {{ money(pricing.list_total) }} &nbsp;&middot;&nbsp; you save {{ money(savings) }}</div>
