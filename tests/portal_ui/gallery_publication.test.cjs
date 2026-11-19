@@ -239,7 +239,8 @@ test('the form script wires refresh to the shared module', async t => {
   new Function('frappe', 'window', form)(frappe, { IllGalleryPublication: { refresh: f => seen.push(['called', f]) } });
   assert.equal(seen[0][0], 'ilL-Webflow-Gallery');
   seen[0][1].refresh(s.frm);
-  assert.equal(seen[1][1], s.frm);
+  const called = seen.find(entry => entry[0] === 'called');
+  assert.equal(called[1], s.frm);
 });
 
 test('a dirty form blocks every action: no server call, a message, buttons disabled', async t => {
