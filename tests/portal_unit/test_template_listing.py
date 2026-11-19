@@ -407,15 +407,30 @@ class Listing(unittest.TestCase):
 				{"spec_label": "Certifications & Ratings", "spec_value": "DryRated"},
 				# Tape/Neon and fixtures calculate "Color Rendering (CRI)" (owner, 2026-11-19).
 				{"spec_label": "Color Rendering", "spec_value": "90"},
+				# LED Neon's "Minimum Bending Diameter" has both bends (owner, 2026-11-19).
+				{"spec_label": "Minimum Side Bend Diameter", "spec_value": "7.87in"},
+				{"spec_label": "Minimum Top Bend Diameter", "spec_value": "3.94in"},
 			]
 
 		export._enrich_specifications_from_linked_doctypes = enrich
 		sys.modules[export.__name__] = export
 		self.addCleanup(sys.modules.pop, export.__name__, None)
 		for product_type, labels in (
-			("Extrusion Kit", ["Dimensions", "Color Rendering"]),
+			(
+				"Extrusion Kit",
+				["Dimensions", "Color Rendering", "Minimum Side Bend Diameter", "Minimum Top Bend Diameter"],
+			),
 			("LED Neon", ["Dimensions", "Certifications & Ratings"]),
-			("Driver", ["Dimensions", "Certifications & Ratings", "Color Rendering"]),
+			(
+				"Driver",
+				[
+					"Dimensions",
+					"Certifications & Ratings",
+					"Color Rendering",
+					"Minimum Side Bend Diameter",
+					"Minimum Top Bend Diameter",
+				],
+			),
 		):
 			product = Doc("ilL-Webflow-Product", "x", product_type=product_type)
 			rows = self.module.linked_spec_rows(product, [])

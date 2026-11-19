@@ -128,7 +128,8 @@ SKIPPED_LINKED_ROWS = {
 	"Fixture Template": ("Color Rendering",),
 	"LED Tape": ("Color Rendering",),
 	"COB Tape": ("Color Rendering",),
-	"LED Neon": ("Color Rendering",),
+	# "Minimum Bending Diameter" has both bends already (owner, 2026-11-19).
+	"LED Neon": ("Color Rendering", "Minimum Side Bend Diameter", "Minimum Top Bend Diameter"),
 }
 
 # What the export's spec enrichment reads from a product record.
