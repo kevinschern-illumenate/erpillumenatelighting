@@ -1,0 +1,12 @@
+{#-
+Legacy /portal/configure-sheet and /configure-sheet URLs. Frappe only runs configure_sheet.py when this
+template exists; the controller redirects to the unified LED Sheet configurator before this renders.
+-#}
+{% extends "templates/portal_base.html" %}
+
+{% block portal_title %}{{ _("LED Sheet Configurator") }}{% endblock %}
+
+{% block portal_page_class %}ill-configurator portal-page{% endblock %}
+{% block portal_content %}
+	<p><a href="/portal/configure?category=LED%20Sheet">{{ _("Open the LED Sheet configurator") }}</a></p>
+{% endblock %}
