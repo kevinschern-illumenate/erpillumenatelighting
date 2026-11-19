@@ -69,6 +69,9 @@ SHEET_FIELDS = (
 	"max_panels_per_feed",
 )
 MAX_PREVIEW_ROWS = 500
+# Frappe creates these columns NOT NULL; the backfill writes 0 where a value is unset.
+NUMERIC_FIELDTYPES = ("Check", "Int", "Currency", "Float", "Percent")
+MAX_LOGGED_PARENTS = 50
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -284,18 +287,49 @@ def _candidate_items() -> list[str]:
 	return sorted(codes)
 
 
+def _numeric_fields(meta) -> set[str]:
+	"""``ill_lp_*`` fields stored as NOT NULL numbers, which take 0 instead of ``None``.
+
+	``doc.save`` does this for a normal save; ``frappe.db.set_value`` writes ``None`` as
+	NULL, which those columns refuse.
+	"""
+	numeric = set()
+	for field in LP_FIELDS:
+		docfield = meta.get_field(field)
+		if docfield and docfield.fieldtype in NUMERIC_FIELDTYPES:
+			numeric.add(field)
+	return numeric
+
+
+def _log_failures(failed: list[str], counts: dict, traceback: str | None) -> None:
+	"""One Error Log for the whole run, naming up to ``MAX_LOGGED_PARENTS`` documents."""
+	shown = failed[:MAX_LOGGED_PARENTS]
+	lines = [f"Counts: {counts}", "", f"Documents with failed rows ({len(failed)}):", *shown]
+	if len(failed) > len(shown):
+		lines.append(f"... and {len(failed) - len(shown)} more")
+	lines += ["", "First failure:", traceback or ""]
+	frappe.log_error(title="Line power backfill: rows failed", message="\n".join(lines))
+
+
 def backfill() -> dict:
-	"""Stamp existing draft and submitted rows in place (``update_modified=False``)."""
+	"""Stamp existing draft and submitted rows in place (``update_modified=False``).
+
+	Returns ``{child doctype: {"stamped": n, "failed": m}}``. Failed rows are left as they
+	were and reported in one Error Log at the end.
+	"""
 	codes = _candidate_items()
 	counts = {}
 	if not codes:
 		return counts
 	resolved = resolve_specs(codes)
+	failed_parents: dict[str, None] = {}
+	first_traceback = None
 	for parent, child in CHILD_DOCTYPES.items():
 		meta = frappe.get_meta(child)
 		if not meta.has_field("ill_lp_watts"):
 			counts[child] = "fields missing"
 			continue
+		numeric = _numeric_fields(meta)
 		fields = ["name", "parent", "ill_is_power_supply_line", *ROW_INPUTS, *CONFIGURED_FIELDS]
 		fields = [
 			field for field in dict.fromkeys(fields) if field in ("name", "parent") or meta.has_field(field)
@@ -306,7 +340,7 @@ def backfill() -> dict:
 			fields=fields,
 			limit_page_length=0,
 		)
-		stamped = 0
+		stamped = failed = 0
 		for row in rows:
 			try:
 				values = {
@@ -316,11 +350,17 @@ def backfill() -> dict:
 				}
 				if not any(value is not None for value in values.values()):
 					continue
+				values = {
+					field: 0 if value is None and field in numeric else value
+					for field, value in values.items()
+				}
 				frappe.db.set_value(child, row.get("name"), values, update_modified=False)
 				stamped += 1
 			except Exception:
-				frappe.log_error(
-					title=f"Line power backfill: {parent} {row.get('parent')}", message=frappe.get_traceback()
-				)
-		counts[child] = stamped
+				failed += 1
+				failed_parents[f"{parent} {row.get('parent')}"] = None
+				first_traceback = first_traceback or frappe.get_traceback()
+		counts[child] = {"stamped": stamped, "failed": failed}
+	if failed_parents:
+		_log_failures(list(failed_parents), counts, first_traceback)
 	return counts
