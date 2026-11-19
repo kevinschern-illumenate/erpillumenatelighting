@@ -241,7 +241,7 @@
 	function configuredRowFor(frm, row) {
 		if (!row) return null;
 		var rows = frm.doc.items || [];
-		var sameType = function (r) { return r.ill_fixture_type === row.ill_fixture_type; };
+		var sameType = function (r) { return (r.ill_fixture_type || '') === (row.ill_fixture_type || ''); };
 		if (row.ill_is_power_supply_line) {
 			var owner = row.ill_power_supply_for;
 			return owner ? rows.find(function (r) {
