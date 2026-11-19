@@ -218,6 +218,16 @@ def request(gallery, brand, operation, expected_hash):
 		# Approving again re-sends the nudge, in case n8n was down the first time.
 		nudge(state.brand)
 		return {"job": existing, **_receipt(state)}
+	# A retry still waiting from an earlier request would run after this one and undo it (a STAGE retry
+	# after a Publish sets the gallery back to Staged), so the new request replaces it.
+	for name in frappe.get_all(
+		JOB,
+		filters={"publication": state.name, "state": "FAILED", "next_attempt_on": ["is", "set"]},
+		pluck="name",
+	):
+		stale = frappe.get_doc(JOB, name)
+		stale.state, stale.next_attempt_on = "SUPERSEDED", None
+		_save(stale)
 	# The publication row is locked, so the count is stable; it keeps request_key unique.
 	earlier = frappe.db.count(JOB, {"publication": state.name, "operation": operation})
 	key = fingerprint([state.name, operation, expected_hash, earlier])
