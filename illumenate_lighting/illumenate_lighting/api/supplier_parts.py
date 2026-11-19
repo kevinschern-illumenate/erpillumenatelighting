@@ -28,6 +28,8 @@ ITEM_DESCRIPTION = "custom_supplier_description"
 # The same value on a Purchase Order / RFQ line.
 LINE_DESCRIPTION = "ill_supplier_description"
 DOCTYPES = ("Purchase Order", "Request for Quotation")
+# Rolls back one Item's failed save when a PO / RFQ save writes line values back to its Items.
+ITEM_SAVEPOINT = "supplier_parts_item"
 
 
 def _clean(value) -> str:
@@ -112,18 +114,37 @@ def _apply_to_item(item, supplier, part_no, description, has_description) -> boo
 	return changed
 
 
-def _save_items(supplier, wanted, has_description) -> tuple[list, list]:
-	"""Write ``{item_code: (part_no, description)}`` onto each Item. Returns (updated, unchanged)."""
+def _save_items(supplier, wanted, has_description, failed=None) -> tuple[list, list]:
+	"""Write ``{item_code: (part_no, description)}`` onto each Item. Returns (updated, unchanged).
+
+	An Item that fails validation stops the call, unless ``failed`` is a list: then that Item's
+	save is rolled back to a savepoint, its error messages are dropped, ``(item_code, reason)``
+	is added to ``failed`` and the other Items are still saved.
+	"""
 	updated, unchanged = [], []
 	for code, (part_no, description) in wanted.items():
 		item = frappe.get_doc("Item", code)
 		if not _apply_to_item(item, supplier, part_no, description, has_description):
 			unchanged.append(code)
 			continue
+		if failed is None:
+			try:
+				item.save()
+			except frappe.ValidationError as error:
+				frappe.throw(_("Could not update item {0}: {1}").format(code, error))
+			updated.append(code)
+			continue
+		messages = getattr(frappe.local, "message_log", None)
+		mark = len(messages) if messages is not None else 0
+		frappe.db.savepoint(ITEM_SAVEPOINT)
 		try:
 			item.save()
 		except frappe.ValidationError as error:
-			frappe.throw(_("Could not update item {0}: {1}").format(code, error))
+			frappe.db.rollback(save_point=ITEM_SAVEPOINT)
+			if messages is not None:
+				del messages[mark:]  # the summary message names it instead of a raw error
+			failed.append((code, _clean(error) or type(error).__name__))
+			continue
 		updated.append(code)
 	return updated, unchanged
 
@@ -263,8 +284,9 @@ def fill_line_supplier_parts(doc, method=None):
 def save_line_supplier_parts(doc, method=None):
 	"""on_update: write line values that differ from the Item back onto the Item.
 
-	Skipped for Items the user cannot edit (the values stay on the document, and a message
-	says which Items were not updated).
+	Skipped for Items the user cannot edit or that fail to save (the values stay on the
+	document, and one message lists the Items not updated with the reason). A failing Item
+	never stops the document's own save.
 	"""
 	if doc.get("docstatus") != 0 or doc.flags.get("ill_skip_supplier_parts"):
 		return
@@ -301,20 +323,25 @@ def save_line_supplier_parts(doc, method=None):
 	allowed = {
 		code: value for code, value in changes.items() if frappe.has_permission("Item", "write", doc=code)
 	}
-	skipped = [code for code in changes if code not in allowed]
+	# (item_code, reason): Items left as they are. The document's own save always goes ahead.
+	skipped = [(code, _("you can't edit this item")) for code in changes if code not in allowed]
 	if allowed:
-		_save_items(supplier, allowed, has_item_description)
-		frappe.msgprint(
-			_("Saved supplier part details to {0} item(s) for {1}: {2}").format(
-				len(allowed), escape_html(supplier), escape_html(", ".join(allowed))
-			),
-			alert=True,
-			indicator="green",
-		)
+		failed = []
+		_save_items(supplier, allowed, has_item_description, failed)
+		skipped.extend(failed)
+		saved = [code for code in allowed if code not in dict(failed)]
+		if saved:
+			frappe.msgprint(
+				_("Saved supplier part details to {0} item(s) for {1}: {2}").format(
+					len(saved), escape_html(supplier), escape_html(", ".join(saved))
+				),
+				alert=True,
+				indicator="green",
+			)
 	if skipped:
 		frappe.msgprint(
 			_(
-				"You can't edit these items, so their supplier part details were not saved to the Item: {0}"
-			).format(escape_html(", ".join(skipped))),
+				"These items were not updated, so their supplier part details are saved on this document only: {0}"
+			).format(escape_html("; ".join(f"{code} ({reason})" for code, reason in skipped))),
 			indicator="orange",
 		)
