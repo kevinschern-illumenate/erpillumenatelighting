@@ -52,6 +52,8 @@
 			header_json: JSON.stringify(pickHeader(this.frm.doc)),
 			qty: this.qty,
 			fixture_type: this.fixtureType,
+			// A blank Fixture Type on a schedule gets the next free id, skipping the ids already on the form.
+			used_json: JSON.stringify(usedFixtureTypes(this.frm)),
 			location: this.location || null,
 			notes: this.notes || null,
 			schedule: this.schedule || null,

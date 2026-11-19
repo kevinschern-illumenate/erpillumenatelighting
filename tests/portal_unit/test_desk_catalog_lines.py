@@ -1,5 +1,6 @@
 """Desk "Configure & Add Fixture" for Extrusion Kits, power supplies and controllers."""
 
+import itertools
 import json
 import unittest
 from unittest.mock import MagicMock, patch
@@ -204,6 +205,77 @@ class DeskCatalogLines(unittest.TestCase):
 			line = schedule.lines[0]
 			self.assertEqual((line.manufacturer_type, line.accessory_item, line.line_id), ("ACCESSORY", "PS-96-24-ITEM", "K2"))
 			self.assertEqual(json.loads(line.variant_selections)["product_slug"], "ctrl-4")
+
+
+def first_free(probe):
+	taken = {line.line_id for line in probe.lines}
+	return next(f"L{n}" for n in itertools.count(1) if f"L{n}" not in taken)
+
+
+class DeskNextFixtureTypeFallback(unittest.TestCase):
+	"""A blank Fixture Type on a schedule gets the next free id, skipping ids already on the form."""
+
+	def schedule(self):
+		return Doc(
+			name="S1", status="DRAFT", is_locked=0, lines=[Doc(line_id="L1")], save=MagicMock(), flags=Doc()
+		)
+
+	def test_catalog_line_skips_ids_used_on_the_form(self):
+		with desk() as (module, frappe, *_):
+			frappe._dict = Record
+			for used_json, expected in ((json.dumps(["L2", "L4"]), "L3"), (None, "L2")):
+				with self.subTest(used_json=used_json):
+					schedule = self.schedule()
+					with (
+						patch.dict("sys.modules", families()),
+						patch.object(module, "_require_internal_user"),
+						patch.object(module, "_require_parent_doctype"),
+						patch.object(module, "_build_row_values", side_effect=row_values),
+						patch.object(module, "_get_next_fixture_type_id", side_effect=first_free),
+						patch.object(module, "_load_schedule", return_value=(schedule, None)),
+					):
+						result = module.build_configured_line(
+							parent_doctype="Quotation",
+							product_type="Driver",
+							selections_json={"wattage": "96", "voltage_output": "24"},
+							template="DRV-A",
+							qty=1,
+							schedule="S1",
+							used_json=used_json,
+						)
+					self.assertTrue(result["success"], result)
+					self.assertEqual(result["fixture_type"], expected)
+
+	def test_configured_line_skips_ids_used_on_the_form(self):
+		with desk() as (module, frappe, builder, *_):
+			frappe._dict = Record
+			# The fallback runs in the preflight; stop at the engine and read the id it chose.
+			builder._dispatch_save.return_value = {"is_valid": False, "error": "stop after dispatch"}
+			real, chosen = module._next_fixture_type, []
+
+			def record(schedule, used):
+				chosen.append(real(schedule, used))
+				return chosen[-1]
+
+			for used_json, expected in ((["L2", "L4"], "L3"), (None, "L2")):
+				with self.subTest(used_json=used_json):
+					with (
+						patch.object(module, "_require_internal_user"),
+						patch.object(module, "_require_parent_doctype"),
+						patch.object(module, "_get_next_fixture_type_id", side_effect=first_free),
+						patch.object(module, "_next_fixture_type", side_effect=record),
+						patch.object(module, "_load_schedule", return_value=(self.schedule(), None)),
+					):
+						result = module.build_configured_line(
+							parent_doctype="Quotation",
+							product_type="LED Neon",
+							selections_json={"cct": "3000K"},
+							schedule="S1",
+							expected_modified="m",
+							used_json=used_json,
+						)
+					self.assertEqual(result["error"], "stop after dispatch")
+					self.assertEqual(chosen[-1], expected)
 
 
 if __name__ == "__main__":

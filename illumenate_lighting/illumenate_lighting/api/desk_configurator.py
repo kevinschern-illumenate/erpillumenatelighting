@@ -550,6 +550,7 @@ def build_configured_line(
 	line_key: str | None = None,
 	expected_modified: str | None = None,
 	template: str | None = None,
+	used_json: str | list | None = None,
 ) -> dict[str, Any]:
 	"""Persist the configured product (+ schedule line) and return row values.
 
@@ -578,6 +579,7 @@ def build_configured_line(
 			line_idx=line_idx,
 			product_slug=product_slug,
 			template=template,
+			used_json=used_json,
 		)
 
 	product_type = _normalize_product_type(product_type)
@@ -616,7 +618,7 @@ def build_configured_line(
 				return _error(_("Schedule line {0} does not exist on {1}.").format(line_idx, schedule_doc.name))
 		# A schedule line is listed by its Fixture Type, so it always gets one.
 		if not fixture_type:
-			fixture_type = _next_fixture_type(schedule_doc, [])
+			fixture_type = _next_fixture_type(schedule_doc, _coerce_list(used_json))
 	# Rows on no schedule may go without a Fixture Type (kit components, loose parts).
 
 	# ── 2. Engine: persist the configured record ────────────────────
@@ -834,6 +836,7 @@ def _build_catalog_line(
 	line_idx,
 	product_slug: str | None,
 	template: str | None,
+	used_json: str | list | None = None,
 ) -> dict[str, Any]:
 	"""Validate a kit / power supply / controller choice, write its schedule line
 	with the portal's own writers and return the rows the schedule → quote
@@ -860,7 +863,7 @@ def _build_catalog_line(
 				return _error(_("Schedule line {0} does not exist on {1}.").format(line_idx, schedule_doc.name))
 	if schedule_doc is not None and not fixture_type:
 		# A schedule line is listed by its Fixture Type; rows on no schedule may go without one.
-		fixture_type = _next_fixture_type(schedule_doc, [])
+		fixture_type = _next_fixture_type(schedule_doc, _coerce_list(used_json))
 
 	try:
 		if product_type == PRODUCT_TYPE_KIT:
