@@ -73,8 +73,10 @@ def idempotent(function):
 		if not result.get("success"):
 			return result
 		result["save_receipt"] = request_key
-		if "row_values" in result:
-			result["row_values"]["ill_configuration_save_key"] = request_key
+		# Every row of one build carries its key, so identical document-only builds stay apart.
+		for row in [result.get("row_values"), *(result.get("accessory_rows") or [])]:
+			if isinstance(row, dict):
+				row["ill_configuration_save_key"] = request_key
 		result["already_existed"] = False
 		record = frappe.get_doc(
 			{

@@ -52,6 +52,35 @@ class DeskReceipt(unittest.TestCase):
 				build("Quotation")
 			self.assertEqual(calls, [1])
 
+	def test_every_row_of_a_build_carries_its_save_key(self):
+		adapter = types.SimpleNamespace(resolve_line=MagicMock(), schedule_context=MagicMock())
+		with load_service(ROOT + ".portal.desk_build_receipt", {ROOT + ".portal.configuration": adapter}) as (
+			service,
+			frappe,
+		):
+			frappe.db.get_value.side_effect = lambda dt, key, field, **kwargs: (
+				("System User" if field == "user_type" else 1) if dt == "User" else None
+			)
+			frappe.get_doc.side_effect = lambda data: Doc(**data, flags=Doc(), insert=MagicMock())
+
+			@service.idempotent
+			def build(parent_doctype, parent_name=None, schedule=None, idempotency_key="test-save-123"):
+				return {
+					"success": True,
+					"row_values": {"item_code": "EXT"},
+					"accessory_rows": [{"item_code": "CAP"}, {"item_code": "CLIP"}],
+				}
+
+			result = build("Quotation")
+			keys = [
+				row["ill_configuration_save_key"] for row in [result["row_values"], *result["accessory_rows"]]
+			]
+			self.assertEqual(keys, [result["save_receipt"]] * 3)
+			stored = json.loads(frappe.get_doc.call_args.args[0]["response_json"])
+			self.assertEqual(
+				stored["accessory_rows"][1]["ill_configuration_save_key"], result["save_receipt"]
+			)
+
 	def test_failed_build_has_no_receipt_and_stale_schedule_never_builds(self):
 		schedule = Doc(name="S", modified="new", lines=[])
 		adapter = types.SimpleNamespace(

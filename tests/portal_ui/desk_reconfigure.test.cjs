@@ -153,3 +153,36 @@ test('saving sends the Fixture Types already on the form, so a blank type on a s
   assert.deepEqual(JSON.parse(calls[0].args.used_json),['A1','A1']);
  } finally {dom.window.close();}
 });
+
+// Two identical Extrusion Kits on no schedule share their request; the save key on every row keeps them apart.
+const KIT_REQ='{"family":"Extrusion Kit","template":"KIT"}';
+const kitBuild=(key,parts)=>({save_receipt:key,fixture_type:null,item_code:'KIT',
+ row_values:{item_code:parts[0],ill_configurator_request:KIT_REQ,...(key?{ill_configuration_save_key:key}:{})},
+ accessory_rows:parts.slice(1).map(item_code=>({item_code,ill_configurator_request:KIT_REQ,...(key?{ill_configuration_save_key:key}:{})}))});
+
+test('reconfiguring one of two identical document-only kits with no Fixture Type leaves the other kit\'s rows alone', () => {
+ const {dom,w,frm,ctrl}=load([FREIGHT]);
+ try {
+  ctrl.applyRowToForm(kitBuild('K1',['EXT-1','CAP-1','CLIP-1']));
+  ctrl.applyRowToForm(kitBuild('K2',['EXT-1','CAP-1','CLIP-1']));
+  const second=frm.doc.items[4];
+  assert.equal(second.ill_configuration_save_key,'K2');
+  const again=w.IllDesk.openConfiguratorDialog(frm,{rowName:second.name});
+  again.applyRowToForm(kitBuild('K3',['EXT-2','CAP-2']));
+  assert.deepEqual(frm.doc.items.map(r=>[r.item_code,r.ill_configuration_save_key||null]),
+   [['FREIGHT',null],['EXT-1','K1'],['CAP-1','K1'],['CLIP-1','K1'],['EXT-2','K3'],['CAP-2','K3']]);
+  assert.equal(frm.doc.items[4].name,second.name);
+ } finally {dom.window.close();}
+});
+
+test('a kit saved before every row carried the save key is still replaced whole on reconfigure', () => {
+ const {dom,w,frm,ctrl}=load([FREIGHT]);
+ try {
+  const legacy=kitBuild(null,['EXT-1','CAP-1','CLIP-1']);
+  legacy.row_values.ill_configuration_save_key='K1';
+  ctrl.applyRowToForm(legacy);
+  const again=w.IllDesk.openConfiguratorDialog(frm,{rowName:frm.doc.items[1].name});
+  again.applyRowToForm(kitBuild('K2',['EXT-2','CAP-2']));
+  assert.deepEqual(frm.doc.items.map(r=>r.item_code),['FREIGHT','EXT-2','CAP-2']);
+ } finally {dom.window.close();}
+});

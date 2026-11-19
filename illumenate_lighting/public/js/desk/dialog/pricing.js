@@ -64,6 +64,7 @@
 		var previousOwner = row.ill_configured_product || row.ill_configured_group || null;
 		var previousSheet = row.ill_configured_led_sheet || null;
 		var previousRequest = row.ill_configurator_request || null;
+		var previousKey = row.ill_configuration_save_key || null;
 		var previousType = row.ill_fixture_type;
 		// A reopened row moved to another line leaves its old line with no rows; saving drops that line.
 		var previousLine = this.rowName ? (row.ill_schedule_line_id || null) : null;
@@ -75,6 +76,11 @@
 			if (previousLine && r.ill_schedule_line_id === previousLine) return true;
 			if (r.ill_schedule_line_id && replacedLines.indexOf(r.ill_schedule_line_id) >= 0) return true;
 			if (!reconfiguring || (r.ill_fixture_type || '') !== (previousType || '')) return false;
+			// Document-only rows: identical builds share their request and owner, so the save key
+			// stamped on every row of a build tells them apart. Rows saved without one match as before.
+			if (previousKey && r.ill_configuration_save_key && !r.ill_schedule_line_id && !row.ill_schedule_line_id) {
+				return r.ill_configuration_save_key === previousKey;
+			}
 			if (r.ill_is_power_supply_line) return !!previousOwner && r.ill_power_supply_for === previousOwner;
 			if (r.ill_schedule_line_id || row.ill_schedule_line_id) return false;
 			return (!!previousSheet && r.ill_configured_led_sheet === previousSheet)
