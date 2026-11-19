@@ -10,7 +10,8 @@ function projectWebflowGallery(payload, options) {
 // - Credits: an unfilled name/website pair is never sent as empty strings. A credit type missing from
 //   payload.credits sends null for both slugs, so a removed credit is cleared; a credit without a website
 //   sends null for the website (a Link field rejects '').
-// - `completion-date` is an ISO date-time string, and is omitted (not sent) when ERP has no date.
+// - `completion-date` is midnight Pacific Time on the ERP date (an ISO instant: 07:00Z in daylight time, 08:00Z
+//   otherwise), so the date reads the same on a site shown in Pacific Time. Omitted (not sent) when ERP has no date.
 if (!options || typeof options.isDraft !== 'boolean') throw new Error('isDraft must be true or false');
 
 const CREDIT_FIELDS = {
@@ -52,9 +53,16 @@ if (!fieldData.name || !fieldData.slug || !fieldData['erp-sync-id']) throw new E
 
 if (payload.completion_date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.completion_date)) throw new Error('completion_date must be YYYY-MM-DD');
-  const date = new Date(payload.completion_date + 'T00:00:00.000Z');
-  if (isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== payload.completion_date) throw new Error('completion_date is not a date');
-  fieldData['completion-date'] = date.toISOString();
+  const check = new Date(payload.completion_date + 'T00:00:00.000Z');
+  if (isNaN(check.getTime()) || check.toISOString().slice(0, 10) !== payload.completion_date) throw new Error('completion_date is not a date');
+  // Pacific midnight is 07:00Z (PDT) or 08:00Z (PST): take the one that reads 00:00 on that date in Los Angeles.
+  const [year, month, day] = payload.completion_date.split('-').map(Number);
+  const pacific = new Intl.DateTimeFormat('en-CA', {timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit',
+    day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
+  const midnight = [7, 8].map(hours => new Date(Date.UTC(year, month - 1, day, hours)))
+    .find(instant => pacific.format(instant).replace(',', '') === payload.completion_date + ' 00:00');
+  if (!midnight) throw new Error('completion_date has no Pacific midnight');
+  fieldData['completion-date'] = midnight.toISOString();
 }
 
 const credits = payload.credits || {};

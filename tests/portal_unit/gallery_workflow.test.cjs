@@ -83,8 +83,12 @@ function execute(jobs, options = {}) {
                     const item = remote.get(byId[1]);
                     json = item ? {statusCode: 200, body: JSON.parse(JSON.stringify(item))} : {statusCode: 404, body: {}};
                 } else {
-                    assert.ok(url.endsWith('/items?limit=100&offset=0'), url);
-                    const items = JSON.parse(JSON.stringify([...remote.values()]));
+                    // Webflow filters the list by slug; `ignoreSlugFilter` simulates a filter it does not honour.
+                    const match = url.match(/\/items\?limit=100&slug=([^&]+)$/);
+                    assert.ok(match, url);
+                    const slug = decodeURIComponent(match[1]);
+                    let items = JSON.parse(JSON.stringify([...remote.values()]));
+                    if (!options.ignoreSlugFilter) items = items.filter(row => row.fieldData?.slug === slug);
                     json = {statusCode: 200, body: {items, pagination: {limit: 100, offset: 0, total: options.total ?? items.length}}};
                 }
             } else if (current === 'Write Staged Item') {
@@ -156,7 +160,7 @@ function test_projection_maps_every_field_slug() {
     assert.equal(data.quote, 'Lovely light.');
     assert.equal(data['quote-attribution'], 'A. Owner');
     assert.equal(data.location, 'Austin, TX');
-    assert.equal(data['completion-date'], '2025-03-14T00:00:00.000Z');
+    assert.equal(data['completion-date'], '2025-03-14T07:00:00.000Z', 'daylight time: Pacific midnight is 07:00Z');
     assert.equal(data.videos, 'https://youtu.be/abc, https://vimeo.com/1');
     assert.equal(data['custom-items'], '<p>Kit: black</p>');
     assert.equal(data['client-integrator'], 'Bright Co');
@@ -175,6 +179,15 @@ function test_projection_maps_every_field_slug() {
     // completion-date is omitted (not sent) when ERP has none; an invalid date stops the projection.
     assert.equal('completion-date' in projectWebflowGallery(makePayload(1, {completion_date: null}), {isDraft: true}).fieldData, false);
     assert.throws(() => projectWebflowGallery(makePayload(1, {completion_date: 'March'}), {isDraft: true}));
+    // The date is midnight Pacific Time: 08:00Z in standard time, 07:00Z in daylight time, including the change days.
+    const sent = date => projectWebflowGallery(makePayload(1, {completion_date: date}), {isDraft: true}).fieldData['completion-date'];
+    assert.equal(sent('2025-11-12'), '2025-11-12T08:00:00.000Z');
+    assert.equal(sent('2025-07-04'), '2025-07-04T07:00:00.000Z');
+    assert.equal(sent('2025-03-09'), '2025-03-09T08:00:00.000Z', 'clocks change at 2am: midnight is still standard time');
+    assert.equal(sent('2025-03-10'), '2025-03-10T07:00:00.000Z');
+    assert.equal(sent('2025-11-02'), '2025-11-02T07:00:00.000Z', 'clocks change at 2am: midnight is still daylight time');
+    assert.equal(sent('2025-11-03'), '2025-11-03T08:00:00.000Z');
+    assert.equal(sent('2026-01-01'), '2026-01-01T08:00:00.000Z');
     assert.throws(() => projectWebflowGallery(makePayload(1), {}));
 }
 
@@ -233,12 +246,6 @@ function test_lost_ack_after_create_does_not_duplicate() {
     assert.equal(recovered.receipts[0].outcome, 'success');
     assert.equal(recovered.receipts[0].remote_item_id, [...interrupted.remote.keys()][0]);
     assert.equal(writes(recovered)[0].method, 'PATCH');
-    // Found by erp-sync-id even when someone changed the Webflow slug by hand.
-    const renamed = interrupted.remote;
-    [...renamed.values()][0].fieldData.slug = 'hand-edited';
-    const again = execute([makeJob(4)], {remote: renamed});
-    assert.equal(again.creates, 0);
-    assert.equal(again.receipts[0].outcome, 'success');
 }
 
 function test_slug_fallback_verifies_erp_sync_id() {
@@ -265,21 +272,42 @@ function test_slug_fallback_verifies_erp_sync_id() {
     const swapped = execute([makeJob(5, 'STAGE', id)], {remote: new Map([[id, remoteItem(id, 'gallery-5', 'other')]])});
     assert.equal(swapped.receipts[0].error_code, 'identity-conflict');
     assert.equal(writes(swapped).length, 0);
-    // More items than one page lists: absence cannot be proven, so nothing is created.
-    const partial = execute([makeJob(5)], {total: 150});
-    assert.equal(partial.receipts[0].error_code, 'lookup-incomplete');
-    assert.equal(partial.creates, 0);
+    // The lookup is by slug, so a collection of any size works: the filtered answer is complete.
+    const filler = new Map(Array.from({length: 150}, (_, index) => {
+        const fillerId = (index + 1).toString(16).padStart(24, 'a');
+        return [fillerId, remoteItem(fillerId, `filler-${index}`, `filler-${index}`)];
+    }));
+    const big = execute([makeJob(5)], {remote: filler});
+    assert.equal(big.receipts[0].outcome, 'success');
+    assert.equal(big.creates, 1, 'a new gallery is created in a collection of more than 100 items');
+    assert.equal(big.remote.size, 151);
+    // Webflow ignoring the slug filter on a collection bigger than one page: absence cannot be proven.
+    const ignored = execute([makeJob(5)], {total: 150, ignoreSlugFilter: true});
+    assert.equal(ignored.receipts[0].error_code, 'lookup-incomplete');
+    assert.equal(ignored.creates, 0);
+    // The same with items listed but not the one wanted (an unfiltered first page).
+    const other = 'a'.repeat(24);
+    const unfiltered = execute([makeJob(5)], {total: 150, ignoreSlugFilter: true, remote: new Map([[other, remoteItem(other, 'other-gallery', 'other')]])});
+    assert.equal(unfiltered.receipts[0].error_code, 'lookup-incomplete');
+    assert.equal(unfiltered.creates, 0);
+    // A small collection that ignores the filter still finds the item among the items it returns.
+    const small = execute([makeJob(5)], {ignoreSlugFilter: true, remote: new Map([[id, remoteItem(id, 'gallery-5', 'gallery-5')]])});
+    assert.equal(small.receipts[0].outcome, 'success');
+    assert.equal(small.creates, 0);
 }
 
 function test_two_matches_is_identity_conflict() {
     const one = 'f'.repeat(24), two = '1'.repeat(24);
+    // Webflow slugs are unique, so a second candidate means the item with this slug belongs to another ERP record
+    // while another item carries this erp-sync-id (when the list is unfiltered), or two items claim the erp-sync-id.
     const duplicate = new Map([[one, remoteItem(one, 'gallery-6', 'gallery-6')], [two, remoteItem(two, 'gallery-6-copy', 'gallery-6')]]);
-    const run = execute([makeJob(6)], {remote: duplicate});
+    const run = execute([makeJob(6)], {remote: duplicate, ignoreSlugFilter: true});
     assert.equal(run.receipts[0].outcome, 'error');
     assert.equal(run.receipts[0].error_code, 'identity-conflict');
     assert.equal(writes(run).length, 0);
-    // One item by erp-sync-id and another holding the slug is also two matches.
     const split = new Map([[one, remoteItem(one, 'old-slug', 'gallery-6')], [two, remoteItem(two, 'gallery-6', 'unrelated')]]);
+    assert.equal(execute([makeJob(6)], {remote: split, ignoreSlugFilter: true}).receipts[0].error_code, 'identity-conflict');
+    // With the filter honoured the item holding the slug but another erp-sync-id is the conflict.
     assert.equal(execute([makeJob(6)], {remote: split}).receipts[0].error_code, 'identity-conflict');
 }
 
@@ -359,6 +387,7 @@ function test_workflow_shape() {
     assert.equal(hook.parameters.responseMode, 'onReceived');
     assert.equal(workflow.connections[hook.name].main[0][0].node, 'Configuration');
     assert.equal(workflow.connections['Manual Trigger'].main[0][0].node, 'Configuration');
+    assert.equal(hook.parameters.path, 'ill-gallery-sync');
     assert.ok(workflow.nodes.every(node => !node.credentials), 'credentials must stay unbound');
     const text = JSON.stringify(workflow);
     assert.ok(!/6afb3d27742d050cf6903677|6aeb4d313e25a078e9393924|695c1f9a18a639365b6a31a7/.test(text), 'hard-coded IDs');
@@ -370,9 +399,28 @@ function test_workflow_shape() {
     assert.equal(batch.counts.get('Claim Job'), 26);
 }
 
+function test_production_build_has_its_own_values_and_the_same_logic() {
+    const production = JSON.parse(fs.readFileSync('n8n_workflows/webflow_gallery_sync_production.json', 'utf8'));
+    assert.equal(production.active, false);
+    assert.ok(production.name.includes('production'));
+    const config = production.nodes.find(node => node.name === 'Configuration').parameters.jsCode;
+    const built = vm.runInNewContext(`(function() {${config}\n})()`, {}).json;
+    assert.equal(JSON.stringify(built), JSON.stringify({erp_base_url: 'https://app.illumenate.lighting', brand: 'illumenate'}));
+    assert.ok(!config.includes('$vars'));
+    const hook = production.nodes.find(node => node.type === 'n8n-nodes-base.webhook');
+    assert.equal(hook.parameters.path, 'ill-gallery-sync');
+    // Same graph and same code as the default build apart from the Configuration node, the name and nothing else.
+    const strip = flow => JSON.stringify(flow.nodes.filter(node => node.name !== 'Configuration'));
+    assert.equal(strip(production), strip(workflow));
+    assert.deepEqual(production.connections, workflow.connections);
+    assert.ok(production.nodes.every(node => !node.credentials), 'credentials must stay unbound');
+    const text = JSON.stringify(production);
+    assert.ok(!/stagingillumenate|6afb3d27742d050cf6903677|6aeb4d313e25a078e9393924/.test(text), 'staging values');
+}
+
 const tests = [test_projection_maps_every_field_slug, test_unfilled_credit_omitted, test_stage_creates_item_once,
     test_lost_ack_after_create_does_not_duplicate, test_slug_fallback_verifies_erp_sync_id, test_two_matches_is_identity_conflict,
     test_publish_requires_staged_item, test_retire_unpublishes_and_archives, test_rate_limit_acknowledges_429_for_retry,
-    test_workflow_shape];
+    test_workflow_shape, test_production_build_has_its_own_values_and_the_same_logic];
 for (const test of tests) { test(); console.log(`ok ${test.name}`); }
 console.log(`Gallery workflow: ${tests.length} tests passed`);

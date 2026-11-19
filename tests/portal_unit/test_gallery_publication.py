@@ -431,6 +431,31 @@ class GalleryPublicationCase(unittest.TestCase):
 			self.assertEqual(seen, ["publication", "expired"])
 			frappe.db.commit.assert_called_once()
 
+	def test_a_new_request_supersedes_a_failed_job_still_waiting_to_retry(self):
+		with self.service() as (module, frappe):
+			stale = self.queue(module)
+			self.jobs[stale].state = "FAILED"
+			self.jobs[stale].next_attempt_on = NOW + timedelta(minutes=1)
+			# A failed job with no retry left stays as it is.
+			self.jobs["JDONE"] = Doc(
+				doctype=JOB, name="JDONE", state="FAILED", next_attempt_on=None, publication="P1"
+			)
+
+			def waiting(doctype, **kwargs):
+				if doctype == "ilL-Attribute-Series":
+					return ["Rainier"]
+				wanted = {k: v for k, v in kwargs["filters"].items() if k != "next_attempt_on"}
+				return [n for n, job in self.jobs.items() if matches(job, wanted) and job.get("next_attempt_on")]
+
+			frappe.get_all.side_effect = waiting
+			frappe.get_doc.side_effect = lambda value, name=None: Doc(value) if isinstance(value, dict) else self.jobs[name]
+			fresh = self.queue(module)
+			self.assertNotEqual(fresh, stale)
+			self.assertEqual(self.jobs[stale].state, "SUPERSEDED")
+			self.assertIsNone(self.jobs[stale].next_attempt_on)
+			self.assertEqual(self.jobs[fresh].state, "QUEUED")
+			self.assertEqual(self.jobs["JDONE"].state, "FAILED")
+
 	NUDGE = ROOT + ".api.gallery_publication.send_nudge"
 
 	def fake_requests(self):

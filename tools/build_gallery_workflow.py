@@ -3,10 +3,34 @@
 Modelled on tools/build_publication_workflow.py (docs/WEBFLOW_GALLERY_SYNC.md, section 7).
 """
 
+import argparse
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# By default the workflow reads the ERP address and brand from n8n variables. n8n variables are an
+# account-wide paid feature, so a deployment can build them in instead:
+#   python tools/build_gallery_workflow.py --erp-base-url https://erp.example.com --brand illumenate \
+#       --webhook-path ill-gallery-sync --name "ilL Gallery Publication (production)" \
+#       --out n8n_workflows/webflow_gallery_sync_production.json
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--erp-base-url", help="Build this https ERP address into the Configuration node")
+parser.add_argument("--brand", help="Build this brand code into the Configuration node")
+parser.add_argument("--webhook-path", default="ill-gallery-sync", help="Path of the Gallery Webhook node")
+parser.add_argument("--name", default="ilL Gallery Publication (one brand)")
+parser.add_argument("--out", default="n8n_workflows/webflow_gallery_sync.json")
+args = parser.parse_args()
+if bool(args.erp_base_url) != bool(args.brand):
+	parser.error("--erp-base-url and --brand go together")
+if args.erp_base_url and not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::\d+)?", args.erp_base_url):
+	parser.error("--erp-base-url must be an https origin without a path")
+if args.brand and not re.fullmatch(r"[A-Za-z0-9_-]+", args.brand):
+	parser.error("--brand may contain letters, digits, - and _ only")
+if not re.fullmatch(r"[A-Za-z0-9_-]+", args.webhook_path):
+	parser.error("--webhook-path may contain letters, digits, - and _ only")
+
 nodes, connections = [], {}
 API = "illumenate_lighting.illumenate_lighting.api.gallery_publication."
 
@@ -102,7 +126,7 @@ add(
 	"webhook",
 	{
 		"httpMethod": "POST",
-		"path": "ill-gallery-sync",
+		"path": args.webhook_path,
 		"authentication": "headerAuth",
 		"responseMode": "onReceived",
 		"options": {},
@@ -110,13 +134,20 @@ add(
 	2,
 	webhookId="3f1d6c1e-6f0b-4b52-9a6a-2b6d2f8f7a11",
 )
-code(
-	"Configuration",
-	r"""const base = String($vars.ILL_ERP_BASE_URL || '').replace(/\/$/, '');
+if args.erp_base_url:
+	code(
+		"Configuration",
+		"// Built in because n8n variables are not available on this plan.\n"
+		"return {json: {erp_base_url: " + json.dumps(args.erp_base_url) + ", brand: " + json.dumps(args.brand) + "}};",
+	)
+else:
+	code(
+		"Configuration",
+		r"""const base = String($vars.ILL_ERP_BASE_URL || '').replace(/\/$/, '');
 const brand = String($vars.ILL_WEBFLOW_BRAND || '');
 if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(base) || !brand) throw new Error('Set ILL_ERP_BASE_URL and ILL_WEBFLOW_BRAND in n8n variables');
 return {json: {erp_base_url: base, brand}};""",
-)
+	)
 http("Claim Job", "POST", erp("claim"), "{brand: $('Configuration').item.json.brand, limit: 1}")
 condition("Job Available", "($json.message?.jobs || []).length > 0")
 code(
@@ -128,8 +159,9 @@ if (job.payload.schema_version !== 1) throw new Error('Update this workflow for 
 if (job.remote_item_id && !/^[a-f0-9]{24}$/i.test(job.remote_item_id)) throw new Error('Invalid remote item ID');
 job.remote_item_id = job.remote_item_id || null;
 job.collection_url = 'https://api.webflow.com/v2/collections/' + collection + '/items';
-// Webflow cannot filter by erp-sync-id, so without a known ID the collection page is scanned for it.
-job.lookup_url = job.remote_item_id ? job.collection_url + '/' + job.remote_item_id : job.collection_url + '?limit=100&offset=0';
+// Without a known ID the item is looked up by its slug (Webflow filters by slug, not by erp-sync-id), so the
+// size of the collection does not matter. ERP locks a slug once staged, and galleries are not edited in Webflow.
+job.lookup_url = job.remote_item_id ? job.collection_url + '/' + job.remote_item_id : job.collection_url + '?limit=100&slug=' + encodeURIComponent(job.payload.slug);
 return {json: job};""",
 )
 http("Find Remote Item", "GET", "={{ $json.lookup_url }}", remote=True)
@@ -153,9 +185,10 @@ if (job.remote_item_id) {
   item = body;
 } else {
   if (!Array.isArray(body.items)) return fail('response-invalid');
-  if (Number(body.pagination?.total ?? body.items.length) > body.items.length) return fail('lookup-incomplete');
-  // Match by erp-sync-id first (finds an item created before a lost acknowledgement), then by exact
-  // slug; a slug match must carry this erp-sync-id. Any second candidate stops for reconciliation.
+  // If Webflow ignored the slug filter and the collection is bigger than one page, absence cannot be proven.
+  if (Number(body.pagination?.total ?? body.items.length) > body.items.length && !(body.items.length > 0 && body.items.every(row => row.fieldData?.slug === slug))) return fail('lookup-incomplete');
+  // Match by erp-sync-id (finds an item created before a lost acknowledgement) and by exact slug; a slug
+  // match must carry this erp-sync-id. Any second candidate stops for reconciliation.
   const bySync = body.items.filter(row => row.fieldData?.['erp-sync-id'] === syncId);
   const bySlug = body.items.filter(row => row.fieldData?.slug === slug);
   if (bySync.length > 1 || bySlug.some(row => !bySync.includes(row))) return fail('identity-conflict');
@@ -278,9 +311,10 @@ add(
 		"Started by ERP, not a timer: ERP calls the Gallery Webhook when a job is requested or a retry "
 		"falls due (retries are 1, 5 and 15 minutes out). Bind a Header Auth credential to the webhook "
 		"and set n8n_gallery_webhook_url (and the secret header) in the ERP site config. It claims one job at a time and drains at most 1000 jobs per run. "
-		"Remote items are matched by erp-sync-id, then by exact slug with erp-sync-id verified; two "
-		"candidates stop as identity-conflict, and a collection larger than one page (100) stops as "
-		"lookup-incomplete. Failed calls record a safe error code only. Import inactive and test on "
+		"Remote items are looked up by exact slug, so the size of the collection does not matter; a match "
+		"must carry this erp-sync-id (or be a known imported item), and two candidates stop as "
+		"identity-conflict. If Webflow ignored the slug filter on a collection over 100 items the job stops "
+		"as lookup-incomplete. Failed calls record a safe error code only. Import inactive and test on "
 		"staging2 before activation.\n\n"
 		"STAGE saves a draft; PUBLISH publishes the staged item; RETIRE unpublishes then archives and "
 		"never deletes. No site-wide publish. Primary locale only.",
@@ -331,14 +365,14 @@ for source, target, branch in [
 	link(source, target, branch)
 
 workflow = {
-	"name": "ilL Gallery Publication (one brand)",
+	"name": args.name,
 	"nodes": nodes,
 	"connections": connections,
 	"active": False,
 	"settings": {"executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "all"},
 	"pinData": {},
 }
-(ROOT / "n8n_workflows/webflow_gallery_sync.json").write_text(
+(ROOT / args.out).write_text(
 	json.dumps(workflow, indent=2) + "\n", encoding="utf8"
 )
 print(f"Built {len(nodes)} nodes; workflow remains inactive")
