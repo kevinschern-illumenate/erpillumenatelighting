@@ -1,5 +1,6 @@
 """Local Jinja rendering and embedded-JS syntax checks; no Frappe/browser claims."""
 
+import ast
 import html
 import json
 import re
@@ -1382,3 +1383,46 @@ portal_shell = environment.get_template("templates/portal_base.html").render()
 for weight in ("Regular", "SemiBold"):
 	assert f'href="/assets/illumenate_lighting/fonts/Poppins-{weight}.woff2" as="font"' in portal_shell
 print("Checked self-hosted fonts and icons")
+
+# Plan 4: Frappe renders a route rule's to_route only when www/ or templates/pages/ holds <route>.html,
+# <route>.md or <route>/index.(html|md) (a to_route with "/" is a sub-folder path); a page's .py alone 404s.
+# Routes known to be missing and still answering 404, as {to_route: why it is tolerated}.
+MISSING_PAGE_ALLOWLIST = {}
+APP = ROOT / "illumenate_lighting"
+
+
+def page_exists(route):
+	route = route.strip("/")
+	return any(
+		(APP / folder / candidate).is_file()
+		for folder in ("www", "templates/pages")
+		for candidate in (f"{route}.html", f"{route}.md", f"{route}/index.html", f"{route}/index.md")
+	)
+
+
+assert page_exists("configure_tape") and not page_exists("no_such_page")
+assert not page_exists("configuration_routes"), "a .py without a template is not a page"
+route_rules = next(
+	ast.literal_eval(node.value)
+	for node in ast.parse(hooks_source).body
+	if isinstance(node, ast.Assign)
+	and any(getattr(target, "id", None) == "website_route_rules" for target in node.targets)
+)
+assert route_rules and all(rule.get("to_route") for rule in route_rules)
+missing_pages = sorted(
+	f"{rule['from_route']} -> {rule['to_route']}"
+	for rule in route_rules
+	if rule["to_route"] not in MISSING_PAGE_ALLOWLIST and not page_exists(rule["to_route"])
+)
+if missing_pages:
+	sys.exit(
+		"website_route_rules point at pages with no template (add templates/pages/<to_route>.html):\n  "
+		+ "\n  ".join(missing_pages)
+	)
+stale_allowlist = [route for route in MISSING_PAGE_ALLOWLIST if page_exists(route)]
+assert not stale_allowlist, f"These pages exist now; drop them from MISSING_PAGE_ALLOWLIST: {stale_allowlist}"
+assert (
+	'href="/portal/configure?category=LED%20Sheet"'
+	in environment.get_template("templates/pages/configure_sheet.html").render()
+)
+print(f"Checked that all {len(route_rules)} website route rules resolve to a page template")
