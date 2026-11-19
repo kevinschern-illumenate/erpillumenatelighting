@@ -58,7 +58,7 @@ web_include_js = ["illumenate_web.bundle.js"]
 
 # include js in doctype views
 doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js", "public/js/line_power.js"],
-    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": ["public/js/quotation.js", "public/js/line_power.js"], "Purchase Order": "public/js/purchase_order.js",
+    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": ["public/js/quotation.js", "public/js/line_power.js"], "Purchase Order": "public/js/supplier_parts.js", "Request for Quotation": "public/js/supplier_parts.js",
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js"}
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
@@ -491,12 +491,22 @@ doc_events = {
 		# Purchasing board: lead time, ETA, freight mode and vendor status on new POs.
 		"before_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.prefill_po_tracking",
 		"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_po_submit",
-		# A blank contact_email defaults to the Supplier's Purchasing Email.
-		"validate": "illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_purchase_order_email",
+		"validate": [
+			# A blank contact_email defaults to the Supplier's Purchasing Email.
+			"illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_purchase_order_email",
+			# Blank supplier part number / description on a line come from the Item.
+			"illumenate_lighting.illumenate_lighting.api.supplier_parts.fill_line_supplier_parts",
+		],
+		# Line supplier part details that differ from the Item are saved to the Item.
+		"on_update": "illumenate_lighting.illumenate_lighting.api.supplier_parts.save_line_supplier_parts",
 	},
-	# Blank RFQ supplier emails default to the Supplier's Purchasing Email.
 	"Request for Quotation": {
-		"validate": "illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_rfq_supplier_emails"
+		"validate": [
+			# Blank RFQ supplier emails default to the Supplier's Purchasing Email.
+			"illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_rfq_supplier_emails",
+			"illumenate_lighting.illumenate_lighting.api.supplier_parts.fill_line_supplier_parts",
+		],
+		"on_update": "illumenate_lighting.illumenate_lighting.api.supplier_parts.save_line_supplier_parts",
 	},
 	# Webflow sync events for attribute doctypes
 	"ilL-Attribute-CCT": {

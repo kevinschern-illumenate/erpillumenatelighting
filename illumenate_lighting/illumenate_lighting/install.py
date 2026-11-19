@@ -87,6 +87,9 @@ def after_install():
 	from illumenate_lighting.patches.add_line_power_fields import execute as line_power_fields
 
 	line_power_fields()
+	from illumenate_lighting.patches.add_supplier_part_line_fields import execute as supplier_part_fields
+
+	supplier_part_fields()
 	frappe.db.commit()
 
 

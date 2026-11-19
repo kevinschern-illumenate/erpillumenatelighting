@@ -665,6 +665,66 @@ class LineLayout(unittest.TestCase):
 			html, "&mdash;", "Rainier Endcap", 'Our part <span class="ill-our-code">EC-RA01</span>'
 		)
 
+	def test_purchase_order_line_supplier_description_leads(self):
+		FRAPPE.get_meta.return_value = Doc(has_field=lambda field: True)
+		FRAPPE.get_all.side_effect = lambda doctype, filters=None, fields=None: (
+			[Doc(parent="CH-RA01-BK", supplier_part_no="ALP260", custom_supplier_description="From the item")]
+			if doctype == "Item Supplier"
+			else []
+		)
+		try:
+			html = render(
+				"ill_purchase_order",
+				sales_doc(
+					doctype="Purchase Order",
+					supplier="Linea Lighting",
+					items=[
+						line(
+							item_code="CH-RA01-BK",
+							item_name="Rainier [SF]-Profile-BK",
+							ill_section_label="",
+							supplier_part_no="ALP260-B",
+							ill_supplier_description="Edited on the line",
+						)
+					],
+				),
+			)
+		finally:
+			FRAPPE.get_all.side_effect = None
+			FRAPPE.get_all.return_value = []
+		self.assert_order(html, "ALP260-B", "Edited on the line", "CH-RA01-BK")
+		self.assertNotIn("From the item", html)
+
+	def test_request_for_quotation_shows_the_printed_suppliers_description(self):
+		FRAPPE.get_meta.return_value = Doc(has_field=lambda field: True)
+		calls = []
+
+		def get_all(doctype, filters=None, fields=None):
+			calls.append((doctype, filters))
+			if doctype == "Item Supplier":
+				return [
+					Doc(
+						parent="CH-RA01-BK",
+						supplier_part_no="ALP260",
+						custom_supplier_description="2M Profile",
+					)
+				]
+			return []
+
+		FRAPPE.get_all.side_effect = get_all
+		try:
+			doc = SAMPLES["ill_request_for_quotation"]()
+			doc.vendor = "Linea Lighting"
+			doc.items = [line(item_code="CH-RA01-BK", item_name="Rainier Profile", supplier_part_no="ALP260")]
+			html = render("ill_request_for_quotation", doc)
+		finally:
+			FRAPPE.get_all.side_effect = None
+			FRAPPE.get_all.return_value = []
+		self.assert_order(html, "2M Profile", "CH-RA01-BK", "ALP260")
+		self.assertNotIn("Rainier Profile", html)
+		supplier_filters = [f for d, f in calls if d == "Item Supplier"]
+		self.assertEqual(supplier_filters[0]["supplier"], "Linea Lighting")
+
 	def test_vendor_documents_group_by_section_without_customer_fixture_types(self):
 		html = render(
 			"ill_purchase_order",
