@@ -110,8 +110,9 @@ const optionLevels = [...new Set(optionRows.map(row => row.output_level))];
 const optionGroups = [...new Set(optionRows.map(row => row.lens_group))];
 const optionCell = (group, level, field) =>
   (optionRows.find(row => row.lens_group === group && row.output_level === level) || {})[field] || '—';
+// Column headers are the numbers only; the page title says "(lm/ft)" (owner, 2026-11-19).
 record.output_options = {
-  columns: optionLevels,
+  columns: optionLevels.map(level => String(level).replace(/\s*lm\s*\/\s*(sq\s*)?ft\s*$/i, '')),
   rows: optionGroups.flatMap(group => [
     {label: `Fixture Wattage (${group})`, values: optionLevels.map(level => optionCell(group, level, 'fixture_wattage'))},
     {label: `Max Run Length (${group})`, values: optionLevels.map(level => optionCell(group, level, 'max_run_length'))},
