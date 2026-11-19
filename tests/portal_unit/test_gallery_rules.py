@@ -140,3 +140,40 @@ class PublicationStatusTest(unittest.TestCase):
 		self.assertEqual(schema.gallery_status([live, stale]), "Changes not staged")
 		self.assertEqual(schema.gallery_status([live, {"state": "STAGED"}]), "Staged")
 		self.assertEqual(schema.gallery_status([live, live]), "Live")
+
+
+class FormLayoutTest(unittest.TestCase):
+	def setUp(self):
+		doc = load_doctype("ill_webflow_gallery")
+		self.order = doc["field_order"]
+		self.fields = {f["fieldname"]: f for f in doc["fields"]}
+
+	def between(self, field, start, end):
+		return self.order.index(start) < self.order.index(field) < self.order.index(end)
+
+	def test_status_sits_under_the_title(self):
+		self.assertEqual(self.order[self.order.index("gallery_title") + 1], "publication_status")
+
+	def test_location_and_date_are_in_identity(self):
+		for name in ("location", "completion_date"):
+			self.assertTrue(self.between(name, "identity_section", "images_section"), name)
+
+	def test_videos_are_in_images(self):
+		self.assertTrue(self.between("videos", "images_section", "content_section"))
+
+	def test_quote_follows_the_case_study_and_details_is_gone(self):
+		i = self.order.index("case_study")
+		self.assertEqual(self.order[i + 1 : i + 3], ["quote", "quote_attribution"])
+		self.assertNotIn("details_section", self.order)
+		self.assertNotIn("column_break_details", self.fields)
+
+	def test_descriptions(self):
+		self.assertEqual(self.fields["quote_attribution"]["description"], "Full Name, Company")
+		self.assertEqual(
+			self.fields["videos"]["description"],
+			"Optional. One or more video links, separated by commas or new lines. YouTube, Vimeo, Loom, "
+			"or a direct .mp4 link. Shown in the gallery strip and lightbox.",
+		)
+
+	def test_every_field_is_still_in_the_order_once(self):
+		self.assertEqual(sorted(self.order), sorted(self.fields))

@@ -23,11 +23,13 @@ const receipt = (extra = {}) => ({
   ...extra,
 });
 
-function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dirty = false, requestError = null, inspectError = null, noBrands = false, gate = null } = {}) {
+function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dirty = false, requestError = null, inspectError = null, noBrands = false, gate = null, siteUrl = 'https://stage.example.com/' } = {}) {
   const dom = new JSDOM('<html><body></body></html>');
   t.after(() => dom.window.close());
   const $ = jquery(dom.window);
   const calls = [];
+  const opened = [];
+  dom.window.open = (...args) => { opened.push(args); };
   const buttons = {};
   const events = {};
   const sections = [];
@@ -41,6 +43,10 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
     ui: { form: { on(doctype, handlers) { events[doctype] = handlers; } } },
     utils: { escape_html: s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) },
     db: {
+      async get_value(doctype, name, field) {
+        calls.push({ value: doctype, name, field });
+        return { message: { [field]: siteUrl } };
+      },
       async get_list(doctype, opts) {
         calls.push({ list: doctype, opts });
         if (doctype === 'ilL-Webflow-Brand') {
@@ -99,7 +105,7 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
     fs.readFileSync(modulePath, 'utf8') + '\nreturn typeof module !== "undefined" ? module.exports : null;');
   const mod = { exports: {} };
   factory(context.window, frappe, context.__, context.document, mod, mod.exports);
-  return { $imagesSection, api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, $page, alerts, messages, reloads, frappe, events, $ };
+  return { opened, $imagesSection, api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, $page, alerts, messages, reloads, frappe, events, $ };
 }
 
 // What is on screen: the sections still attached to the dashboard.
@@ -501,4 +507,43 @@ test('the form refreshes the hero preview when rows or the image change', () => 
   events['ilL-Child-Webflow-Gallery-Image'].image('frm');
   events['ilL-Child-Webflow-Gallery-Image'].alt_text('frm');
   assert.equal(calls.length, 5);
+});
+
+const LIVE = { state: 'LIVE', approved_hash: 'cur', staged_hash: 'cur', live_hash: 'cur' };
+
+test('View in Webflow sits with the Publication buttons and opens the live gallery page', async t => {
+  const s = setup(t, { inspect: receipt(LIVE), doc: { slug: 'ode-wellness' } });
+  await s.api.refresh(s.frm);
+  assert.ok(s.buttons['View in Webflow'], 'button missing');
+  assert.equal(s.buttons['View in Webflow'].$button.prop('disabled'), false);
+  await s.buttons['View in Webflow'].fn();
+  assert.deepEqual(s.opened, [['https://stage.example.com/gallery/ode-wellness', '_blank', 'noopener']]);
+  assert.ok(s.calls.some(c => c.value === 'ilL-Webflow-Brand' && c.name === 'lighting_206' && c.field === 'webflow_site_url'));
+});
+
+test('View in Webflow explains itself for a gallery that is not live, and opens nothing', async t => {
+  for (const extra of [{ state: 'STAGED', staged_hash: 'cur' }, { state: 'RETIRED', live_hash: '' }, {}]) {
+    const s = setup(t, { inspect: receipt(extra), doc: { slug: 'ode-wellness' } });
+    await s.api.refresh(s.frm);
+    await s.buttons['View in Webflow'].fn();
+    assert.equal(s.opened.length, 0, JSON.stringify(extra));
+    assert.match(s.messages[0], /not live in Webflow yet/);
+  }
+});
+
+test('View in Webflow asks for the brand site URL when it is missing or unusable', async t => {
+  for (const siteUrl of ['', 'javascript:alert(1)', 'www.example.com']) {
+    const s = setup(t, { inspect: receipt(LIVE), siteUrl, doc: { slug: 'ode-wellness' } });
+    await s.api.refresh(s.frm);
+    await s.buttons['View in Webflow'].fn();
+    assert.equal(s.opened.length, 0, siteUrl);
+    assert.match(s.messages[0], /Webflow Site URL/);
+  }
+});
+
+test('the gallery address is the site URL, the gallery path and the encoded slug', () => {
+  const s = setup({ after() {} });
+  assert.equal(s.api.webflowUrl('https://a.example/', 'x y'), 'https://a.example/gallery/x%20y');
+  assert.equal(s.api.webflowUrl('http://a.example///', 'x'), 'http://a.example/gallery/x');
+  assert.equal(s.api.webflowUrl('https://a.example', ''), null);
 });

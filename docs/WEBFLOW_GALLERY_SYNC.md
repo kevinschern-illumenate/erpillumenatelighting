@@ -497,3 +497,12 @@ Still open: nothing.
 - 2026-11-19: The n8n gallery workflow is triggered by ERP instead of a one-minute schedule (section 7a). ERP calls
   the workflow's webhook when a job is requested or retried and when a retry falls due. New site config key
   `n8n_gallery_webhook_url`.
+- 2026-11-19: Form layout changes. Publication Status sits under Gallery Title. Location and Completion Date moved
+  to Identity, Videos to Images, and Quote and Quote Attribution follow the Case Study; the Details section is
+  gone (field names are unchanged, so no data moves). Quote Attribution is hinted "Full Name, Company" and the
+  Videos hint now says commas or new lines are accepted.
+- 2026-11-19: A **View in Webflow** button sits with the Publication buttons. For a live gallery it opens
+  `<brand Webflow Site URL>/gallery/<slug>` in a new tab (`/gallery` is the Galleries template page's published
+  path). A gallery that is only staged has no public page, so the button says to use Publish Live first. The
+  brand's Webflow Site URL must be the site the gallery was published to (for the staging2 site, its webflow.io
+  address, not the production domain).

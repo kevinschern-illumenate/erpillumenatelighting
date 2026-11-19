@@ -9,30 +9,28 @@
  "field_order": [
   "identity_section",
   "gallery_title",
+  "publication_status",
   "slug",
   "column_break_identity",
   "is_active",
   "featured",
-  "publication_status",
+  "location",
+  "completion_date",
   "images_section",
   "gallery_images",
+  "videos",
   "content_section",
   "seo_description",
   "about",
   "case_study",
+  "quote",
+  "quote_attribution",
   "classification_section",
   "gallery_type",
   "applications",
   "services_provided",
   "products_section",
   "products_used",
-  "details_section",
-  "quote",
-  "quote_attribution",
-  "column_break_details",
-  "location",
-  "completion_date",
-  "videos",
   "credits_section",
   "credits",
   "custom_items",
@@ -167,11 +165,6 @@
    "description": "One row per product or series used. Series is required on every row."
   },
   {
-   "fieldname": "details_section",
-   "fieldtype": "Section Break",
-   "label": "Details"
-  },
-  {
    "fieldname": "quote",
    "fieldtype": "Small Text",
    "label": "Quote"
@@ -179,11 +172,8 @@
   {
    "fieldname": "quote_attribution",
    "fieldtype": "Small Text",
-   "label": "Quote Attribution"
-  },
-  {
-   "fieldname": "column_break_details",
-   "fieldtype": "Column Break"
+   "label": "Quote Attribution",
+   "description": "Full Name, Company"
   },
   {
    "fieldname": "location",
@@ -200,7 +190,7 @@
    "fieldname": "videos",
    "fieldtype": "Small Text",
    "label": "Videos",
-   "description": "One or more links (YouTube, Vimeo, Loom, .mp4)."
+   "description": "Optional. One or more video links, separated by commas or new lines. YouTube, Vimeo, Loom, or a direct .mp4 link. Shown in the gallery strip and lightbox."
   },
   {
    "fieldname": "credits_section",
@@ -255,7 +245,7 @@
  "index_web_pages_for_search": 1,
  "make_attachments_public": 1,
  "links": [],
- "modified": "2026-11-19 15:00:00.000000",
+ "modified": "2026-11-19 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Gallery",
