@@ -27,7 +27,56 @@ from illumenate_lighting.illumenate_lighting.utils import (
 )
 
 
-def _safe_error(e, log_prefix: str, **extra) -> dict:
+def _stale_types() -> tuple:
+	"""Errors meaning someone else saved the schedule first.
+
+	``StaleScheduleError`` is the ``expected_modified`` check; Frappe's own
+	``TimestampMismatchError`` is two saves racing, e.g. a double click.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.schedule_lines import StaleScheduleError
+
+	candidates = (StaleScheduleError, getattr(frappe, "TimestampMismatchError", None))
+	return tuple(kind for kind in candidates if isinstance(kind, type))
+
+
+def _drop_message(text: str) -> None:
+	"""Remove ``text`` from the queued msgprints so the page never shows it."""
+	log = getattr(frappe.local, "message_log", None)
+	if not isinstance(log, list):
+		return
+	for index in range(len(log) - 1, -1, -1):
+		entry = log[index]
+		if isinstance(entry, str):
+			try:
+				entry = json.loads(entry)
+			except ValueError:
+				continue
+		if isinstance(entry, dict) and entry.get("message") == text:
+			del log[index]
+
+
+def _stale_error(e, schedule: str | None, extra: dict) -> dict:
+	"""The "schedule changed, reload" reply; expected, so nothing is written to the Error Log."""
+	from illumenate_lighting.illumenate_lighting.portal.schedule_lines import STALE_MESSAGE, conflict_details
+
+	conflict = getattr(e, "conflict", None)
+	if not isinstance(conflict, dict) and schedule:
+		# Frappe's TimestampMismatchError carries no details: read who saved it last.
+		try:
+			current = frappe.db.get_value(
+				"ilL-Project-Fixture-Schedule", schedule, ["modified", "modified_by"], as_dict=True
+			)
+			conflict = conflict_details(current) if current else None
+		except Exception:
+			conflict = None
+	if isinstance(conflict, dict):
+		extra.setdefault("conflict", conflict)
+	# Frappe msgprints its raw "Document has been modified" text before raising it.
+	_drop_message(str(e))
+	return {"success": False, "error": _(STALE_MESSAGE), "error_code": "stale", **extra}
+
+
+def _safe_error(e, log_prefix: str, *, schedule: str | None = None, **extra) -> dict:
 	"""
 	Build a safe error response for a portal API endpoint.
 
@@ -41,6 +90,8 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 		e: The caught exception.
 		log_prefix: Short description of the failing operation, used as the
 			Error Log title.
+		schedule: The schedule being edited, if any (not part of the response).
+			A stale save then also says who saved it and when.
 		**extra: Additional keys to merge into the response (e.g. items=[]).
 
 	Returns:
@@ -49,10 +100,15 @@ def _safe_error(e, log_prefix: str, **extra) -> dict:
 	Frappe commits a POST/PUT/DELETE request that returns normally, so a handled
 	error would otherwise persist whatever was written before it. Roll back
 	first, then log with ``defer_insert`` so the Error Log survives.
+
+	A stale schedule save (``StaleScheduleError`` or Frappe's
+	``TimestampMismatchError``) is not logged and returns ``error_code: "stale"``.
 	"""
 	request = getattr(frappe.local, "request", None)
 	if request is not None and getattr(request, "method", None) in ("POST", "PUT", "DELETE"):
 		frappe.db.rollback()
+	if isinstance(e, _stale_types()):
+		return _stale_error(e, schedule, extra)
 	try:
 		frappe.log_error(
 			title=log_prefix[:140], message=frappe.get_traceback() or str(e), defer_insert=True
@@ -1576,7 +1632,9 @@ def delete_schedule_line(
 			result["undo"] = receipt
 		return result
 	except Exception as e:
-		return _safe_error(e, f"Portal: error deleting line from schedule {schedule_name}")
+		return _safe_error(
+			e, f"Portal: error deleting line from schedule {schedule_name}", schedule=schedule_name
+		)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -1631,7 +1689,9 @@ def duplicate_schedule_line(
 			"modified": str(schedule.modified),
 		}
 	except Exception as e:
-		return _safe_error(e, f"Portal: error duplicating line on schedule {schedule_name}")
+		return _safe_error(
+			e, f"Portal: error duplicating line on schedule {schedule_name}", schedule=schedule_name
+		)
 
 
 @frappe.whitelist(methods=["POST"])
@@ -1756,7 +1816,9 @@ def update_schedule_line(
 		return {"success": True, "modified": str(schedule.modified)}
 	except Exception as e:
 		frappe.db.rollback()
-		return _safe_error(e, f"Portal: error updating line on schedule {schedule_name}")
+		return _safe_error(
+			e, f"Portal: error updating line on schedule {schedule_name}", schedule=schedule_name
+		)
 
 
 @frappe.whitelist()

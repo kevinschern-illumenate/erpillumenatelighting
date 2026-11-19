@@ -41,6 +41,8 @@ def load_service(relative, extras=None):
 	frappe.PermissionError = PermissionError
 	frappe.ValidationError = ValueError
 	frappe.DoesNotExistError = LookupError
+	# Frappe raises it (a ValidationError) when two saves of one document race.
+	frappe.TimestampMismatchError = type("TimestampMismatchError", (ValueError,), {})
 	frappe.as_json = lambda value: json.dumps(value, default=str)
 	frappe.has_permission = MagicMock(return_value=True)
 	frappe.session = Record(user="buyer@example.com")
