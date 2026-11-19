@@ -167,11 +167,42 @@ const PUB = { today: TODAY, money: true, can_edit: true, settings: { quote_expir
   suppliers: [ { supplier: 'Acme Extrusions', open_pos: 7, open_amount: 7000, avg_quoted_lead: 28, avg_actual_lead: 31, on_time_pct: 80, last_po: 'PO-done', default_lead: 25 } ] };
 let puMoney = true, puFail = false, puCalls = 0; const puPosts = [];
 const scrubPU = o => JSON.parse(JSON.stringify(o), (k, v) => (/amount|^total$|^value$|goods_value|^est$|^actual$|est_cost|actual_cost|outstanding|purchase_rate|landed_rate|open_amount/.test(k) && typeof v === 'number') ? null : v);
+// v9 warehouse flow (warehouse_flow.get_flow)
+const FWO = (name, lane, o) => Object.assign({ name, status: lane === 'draft' ? 'Draft' : 'Not Started', docstatus: lane === 'draft' ? 0 : 1, lane, so: 'ilL-SAL-ORD-F1', so_open: true, customer: 'Flow Co', esd: '2026-11-25', past_due: false,
+  item: 'FIX-1', item_name: 'Rainier fixture', qty: 2, produced: 0, transferred: 0, created: '2026-11-10', planned_start: null, short: [], eta: null, no_po: [], pick: [] }, o || {});
+const FLOW = { today: TODAY, step_labels: {},
+  summary: { orders: 4, steps: { held: 0, needs_wo: 1, draft_wo: 1, waiting_parts: 0, to_pick: 1, building: 0, to_ship: 1 }, build_orders: 3, stock_only: 1, covered: 2, partly: 0, uncovered: 1, lines_need_wo: 2,
+    wo_lanes: { draft: 2, to_pick: 1, waiting_parts: 1, in_process: 1, completed: 1, stopped: 0 }, wo_open: 5, wo_no_open_order: 1,
+    pick_production: { work_orders: 1, lines: 2, pieces: 6, other: [{ uom: 'Inch', qty: 466.7 }] }, pick_shipping: { orders: 1, short_orders: 1, lines: 2, pieces: 30, other: [] },
+    past_due: 1, pick_lists_open: 1, pick_lists_stale: 0, draft_dns: 1, draft_dns_stale: 1, shipped_week: 3 },
+  orders: [
+    { so: 'ilL-SAL-ORD-F0', customer: 'Late Co', status: 'To Deliver', esd: '2026-11-10', esd_is_ship_date: true, past_due: true, per_delivered: 0, points: 12, hold_reason: '', override: '', notes: '', step: 'needs_wo', step_label: 'Needs work orders', next: 'Create work orders for the build lines',
+      build_lines: 2, build_covered: 0, needs_wo: [{ line: 'l1', item: 'NEON-1', item_name: 'Neon run 63.8in', qty: 2, missing: 2 }, { line: 'l2', item: 'NEON-2', item_name: 'Neon run 11.8in', qty: 1, missing: 1 }], work_orders: [], wo_lanes: {}, parts_short: false, pick: [], pick_lists: [], draft_dns: [], pick_short: false, pick_summary: { lines: 0, pieces: 0, other: [] } },
+    { so: 'ilL-SAL-ORD-F1', customer: 'Flow Co', status: 'To Deliver', esd: '2026-11-25', esd_is_ship_date: true, past_due: false, per_delivered: 0, points: 40, hold_reason: '', override: '', notes: '', step: 'draft_wo', step_label: 'Work orders in draft', next: 'Submit the draft work orders',
+      build_lines: 4, build_covered: 4, needs_wo: [], work_orders: ['MFG-WO-2026-00244', 'MFG-WO-2026-00243'], wo_lanes: { draft: 1, to_pick: 1 }, parts_short: false, pick: [], pick_lists: [], draft_dns: [], pick_short: false, pick_summary: { lines: 0, pieces: 0, other: [] } },
+    { so: 'ilL-SAL-ORD-F2', customer: 'Kit Co', status: 'To Deliver', esd: '2026-11-21', esd_is_ship_date: false, past_due: false, per_delivered: 0, points: 0, hold_reason: '', override: '', notes: '', step: 'to_ship', step_label: 'Pick & ship', next: 'Pick, pack and submit a delivery note',
+      build_lines: 0, build_covered: 0, needs_wo: [], work_orders: [], wo_lanes: {}, parts_short: false, pick_lists: ['STO-PICK-2026-00009'], draft_dns: ['ilL-MAT-DN-Kit Co-00001'], pick_short: true,
+      pick: [{ item: 'CH-SH01-BK', item_name: 'Channel SH01 black', qty: 22, uom: 'Ea', warehouse: 'Stores - ilL', kit: 'KIT-SH01', short: 20 }, { item: 'EC-SH01', item_name: 'Endcap', qty: 8, uom: 'Ea', warehouse: 'Stores - ilL', short: 0 }], pick_summary: { lines: 2, pieces: 30, other: [] } },
+    { so: 'ilL-SAL-ORD-F3', customer: 'Build Co', status: 'To Deliver', esd: '2026-12-02', esd_is_ship_date: true, past_due: false, per_delivered: 0, points: 8, hold_reason: '', override: '', notes: '', step: 'to_pick', step_label: 'Pick materials', next: 'Pull materials and start the work orders',
+      build_lines: 1, build_covered: 1, needs_wo: [], work_orders: ['MFG-WO-2026-00250'], wo_lanes: { to_pick: 1 }, parts_short: false, pick: [], pick_lists: [], draft_dns: [], pick_short: false, pick_summary: { lines: 0, pieces: 0, other: [] } } ],
+  work_orders: [
+    FWO('MFG-WO-2026-00244', 'draft'),
+    FWO('MFG-WO-2026-00180', 'draft', { so: 'ilL-SAL-ORD-Old-00012', so_open: false, customer: '', esd: null, item_name: 'Old shelf fixture' }),
+    FWO('MFG-WO-2026-00243', 'to_pick', { pick: [{ item: 'FML-2C-BK', item_name: 'Leader cable 2C', qty: 244, uom: 'Inch', warehouse: 'Stores - ilL', short: 0, on_hand: 15707 }, { item: 'PS-100', item_name: 'Driver 100W', qty: 6, uom: 'Ea', warehouse: 'Stores - ilL', short: 0, on_hand: 113 }] }),
+    FWO('MFG-WO-2026-00251', 'waiting_parts', { so: 'ilL-SAL-ORD-F3', customer: 'Build Co', short: [{ item: 'TAPE-9', qty: 120 }], eta: '2026-11-28' }),
+    FWO('MFG-WO-2026-00252', 'in_process', { status: 'In Process', produced: 1, transferred: 2, item_name: 'Cascade linear' }),
+    FWO('MFG-WO-2026-00199', 'completed', { status: 'Completed', produced: 2, item_name: 'Finished downlight' }) ],
+  pick_lists: [{ name: 'STO-PICK-2026-00009', purpose: 'Delivery', status: 'Open', docstatus: 1, customer: 'Kit Co', work_order: '', sales_orders: ['ilL-SAL-ORD-F2'], open_order: true, created: '2026-11-18', lines: 2, pieces: 30, other: [] }],
+  draft_dns: [{ name: 'ilL-MAT-DN-Kit Co-00001', customer: 'Kit Co', posting_date: '2026-11-18', sales_orders: ['ilL-SAL-ORD-F2'], open_order: true },
+    { name: 'ilL-MAT-DN-Gone Co-00001', customer: 'Gone Co', posting_date: '2026-10-22', sales_orders: ['ilL-SAL-ORD-Gone Co-00001'], open_order: false }],
+  shipped: [{ name: 'ilL-MAT-DN-Done Co-00004', customer: 'Done Co', posting_date: '2026-11-17' }] };
+let flowCalls = 0, flowFail = false;
 let boardMoney = true, boardCalls = 0;
 w.fetch = async (url, opt) => { const ok = (m) => ({ ok:true, status:200, json: async () => ({ message: m }) });
   if (url.includes('purchasing_board.')) { const m = url.split('purchasing_board.')[1];
     if (m === 'get_board') { puCalls++; if (puFail) return { ok:false, status:500, json: async () => ({ exception: 'board down' }) }; const x = JSON.parse(JSON.stringify(PUB)); return ok(puMoney ? x : Object.assign(scrubPU(x), { money:false })); }
     puPosts.push({ m, body: JSON.parse(opt.body) }); return ok(m === 'update_po_tracking' || m === 'update_po_line_tracking' ? { name: 'PO-x', changed: 1 } : { name: 'NEW-' + m }); }
+  if (url.endsWith('warehouse_flow.get_flow')) { flowCalls++; if (flowFail) return { ok:false, status:500, json: async () => ({ exception: 'flow down' }) }; return ok(JSON.parse(JSON.stringify(FLOW))); }
   if (url.endsWith('production_board.get_board')) { boardCalls++; return ok(boardMoney ? BOARD : Object.assign({}, BOARD, { money:false })); }
   if (url.startsWith('/api/method/ill_command_center')) return ok(D);
   if (url === '/api/method/ill_cc_gateway') { try { return ok(gwReply(JSON.parse(opt.body))); } catch (e) { return { ok:false, status:417, json: async () => ({ exception: e.message }) }; } }
@@ -233,6 +264,25 @@ const closeAll = () => { const x = w.document.querySelector('#ccsheet2 [data-clo
   check('review feed failure does not loop', calls.filter(c => c === 'feed').length - calls.slice(0, before).filter(c => c === 'feed').length <= 1);
   feedFail = false;
   await go('mfg'); await sleep(250);
+  // ---- v9: Flow is the default Manufacturing tab ----
+  check('mfg opens on Flow, loaded from warehouse_flow', flowCalls === 1 && w.document.querySelector('[data-pbt="flow"].on') && /Your list/.test(txt()));
+  check('flow strip shows the document chain', /Sales Order/.test(txt()) && /Work Order/.test(txt()) && /Pick List → Delivery Note/.test(txt()) && /2\/3/.test(txt()));
+  check('flow to-do list in ERPNext terms', /1 sales order needs work orders/.test(txt()) && /1 draft work order to submit/.test(txt()) && /1 work order ready to pick materials/.test(txt()) && /1 order to pick & ship/.test(txt()) && /1 draft delivery note to submit/.test(txt()));
+  check('flow to-do counts units', /6 pcs \+ 466\.7 in/.test(txt()) && /30 pcs/.test(txt()));
+  check('flow clean-up for closed orders', /Clean-up: drafts for closed orders/.test(txt()) && /2 documents tied to closed or delivered orders/.test(txt()));
+  check('flow coverage + step bar', /Sales orders → work orders/.test(txt()) && /Stock only/.test(txt()) && w.document.querySelectorAll('.fl-bar i').length === 4);
+  check('flow orders table', /Neon run 63\.8in × 2/.test(txt()) && /Submit the draft work orders/.test(txt()) && !!w.document.querySelector('#fl-orders tr.pb-row-late'));
+  check('flow work order lanes', w.document.querySelectorAll('#fl-wos .bcol').length === 5 && /Its order is closed or delivered/.test(txt()) && /Parts ETA/.test(txt()) && /1 of 2 made/.test(txt()));
+  check('flow production pick list', /Pick for production/.test(txt()) && /FML-2C-BK/.test(txt()) && /244 in/.test(txt()) && /On the shelf/.test(txt()));
+  w.document.querySelector('.fl-todo[data-flgo="step:needs_wo"]').click(); await sleep(60);
+  check('flow to-do row filters the orders table', /Late Co/.test(w.document.querySelector('#fl-orders').textContent) && !/Kit Co/.test(w.document.querySelector('#fl-orders').textContent));
+  w.document.querySelector('#fl-orders [data-flstep=""]').click(); await sleep(60);
+  check('flow order filter clears', /Kit Co/.test(w.document.querySelector('#fl-orders').textContent));
+  w.document.querySelector('.fl-todo[data-flgo="lane:waiting_parts"]').click(); await sleep(60);
+  check('flow to-do row highlights a lane', !!w.document.querySelector('#fl-wos .bcol.fl-hl[data-fllane="waiting_parts"]'));
+  check('stepper uses flow data', /open WOs · 2 lines need one/.test(w.document.querySelector('.chev').textContent));
+  w.document.querySelector('[data-pbt="board"]').click(); await sleep(250);
+  check('mfg tab choice remembered', w.localStorage.getItem('cc.mfg.tab.kevins@x.com') === 'board');
   check('mfg board loads from app endpoint', boardCalls === 1 && /Order queue/.test(txt()));
   check('mfg pipeline + capacity', /In-Prod/.test(txt()) && /\$25,252/.test(txt()) && /Days to complete/.test(txt()) && /Date clear/.test(txt()));
   check('mfg queue shows build points and worth', /322/.test(txt()) && /\$64/.test(txt()) && /A lns/.test(txt()));
@@ -266,6 +316,14 @@ const closeAll = () => { const x = w.document.querySelector('#ccsheet2 [data-clo
   boardMoney = false; w.document.querySelector('#pbrefresh').click(); await sleep(150);
   check('mfg hides dollars without role', /need the Command Center Finance/.test(txt()));
   boardMoney = true;
+  // ---- v9: Shipping page leads with the pick list ----
+  await go('ship'); await sleep(200);
+  check('ship pick list from the flow', /Pick list: ready to ship/.test(txt()) && /Channel SH01 black/.test(txt()) && /part of KIT-SH01/.test(txt()) && /Short 20/.test(txt()) && /Orders to pick & ship/.test(txt()));
+  check('ship open pick lists + draft delivery notes on open orders only', /Open pick lists/.test(txt()) && /STO-PICK-2026-00009/.test(txt()) && /Kit Co-00001/.test(txt()) && !/Gone Co/.test(txt()));
+  check('ship keeps the older timeline', /Delivery timeline/.test(txt()) && /Can it go out\?/.test(txt()));
+  flowFail = true; w.document.querySelector('#flrefresh').click(); await sleep(150);
+  check('ship refresh failure keeps the last pick list with a note', /Couldn't refresh the warehouse flow/.test(txt()) && /Channel SH01 black/.test(txt()) && /Delivery timeline/.test(txt()));
+  flowFail = false;
   // ---- meeting agenda ----
   const submit = f => f.dispatchEvent(new w.Event('submit', { cancelable: true, bubbles: true }));
   const sheet = () => w.document.querySelector('#ccsheet2');
