@@ -32,7 +32,7 @@ $('#createScheduleForm').on('submit', function(e) {
 					message: 'Schedule created successfully'
 				});
 				// Redirect to the new schedule
-				window.location.href = '/portal/schedules/' + r.message.schedule_name;
+				window.location.href = '/portal/schedules/' + encodeURIComponent(r.message.schedule_name);
 			} else {
 				frappe.msgprint({
 					title: 'Error',

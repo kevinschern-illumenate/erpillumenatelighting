@@ -1059,7 +1059,7 @@ function saveConfiguredFixture(result, restoreButton) {
 				});
 				// Redirect back to schedule
 				setTimeout(function() {
-					window.location.href = '/portal/schedules/' + schedule_name;
+					window.location.href = '/portal/schedules/' + encodeURIComponent(schedule_name);
 				}, 1000);
 			} else {
 				frappe.msgprint((r.message && r.message.error) || 'Error updating fixture configuration');
