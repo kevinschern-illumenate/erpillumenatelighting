@@ -23,14 +23,10 @@
   "column_break_description",
   "notes",
   "spec_sheet_details_section",
+  "fixture_weight_per_foot_grams",
   "spec_sheet_dimensions",
   "minimum_side_bend_diameter_mm",
   "minimum_top_bend_diameter_mm",
-  "available_lenses",
-  "available_finishes",
-  "column_break_spec_sheet_details",
-  "available_mountings",
-  "fixture_weight_per_foot_grams",
   "driver_max_wattage_override",
   "production_interval_mm",
   "is_free_cutting",
@@ -205,6 +201,11 @@
    "label": "Spec Sheet Details"
   },
   {
+   "fieldname": "fixture_weight_per_foot_grams",
+   "fieldtype": "Float",
+   "label": "Fixture Weight per Foot (g)"
+  },
+  {
    "description": "Display value for the CSV Dimensions (L×W×H) column.",
    "fieldname": "spec_sheet_dimensions",
    "fieldtype": "Data",
@@ -221,33 +222,6 @@
    "fieldname": "minimum_top_bend_diameter_mm",
    "fieldtype": "Float",
    "label": "Minimum Top Bend Diameter (mm)"
-  },
-  {
-   "description": "Fallback display value for the CSV Lenses column when no Lens Appearance options are configured.",
-   "fieldname": "available_lenses",
-   "fieldtype": "Small Text",
-   "label": "Available Lenses"
-  },
-  {
-   "description": "Fallback display value for the CSV Finish column when no Finish options are configured.",
-   "fieldname": "available_finishes",
-   "fieldtype": "Small Text",
-   "label": "Available Finishes"
-  },
-  {
-   "fieldname": "column_break_spec_sheet_details",
-   "fieldtype": "Column Break"
-  },
-  {
-   "description": "Fallback display value for the CSV Available Mountings column when no Mounting options are configured.",
-   "fieldname": "available_mountings",
-   "fieldtype": "Small Text",
-   "label": "Available Mountings"
-  },
-  {
-   "fieldname": "fixture_weight_per_foot_grams",
-   "fieldtype": "Float",
-   "label": "Fixture Weight per Foot (g)"
   },
   {
    "description": "Fallback/override value for the CSV Driver Max Wattage column when no preferred driver eligibility is configured.",
@@ -631,7 +605,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-13 18:00:25.000000",
+ "modified": "2026-11-19 19:16:03.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Tape-Neon-Template",

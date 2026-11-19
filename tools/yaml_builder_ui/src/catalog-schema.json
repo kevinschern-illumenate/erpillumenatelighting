@@ -7371,6 +7371,11 @@
           "fieldtype": "Small Text"
         },
         {
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
+        },
+        {
           "fieldname": "spec_sheet_dimensions",
           "label": "Dimensions (L×W×H)",
           "fieldtype": "Data",
@@ -7387,29 +7392,6 @@
           "label": "Minimum Top Bend Diameter (mm)",
           "fieldtype": "Float",
           "description": "Smallest safe top-bend diameter for bendable/flexible products, entered in millimeters and exported as inches (mm)."
-        },
-        {
-          "fieldname": "available_lenses",
-          "label": "Available Lenses",
-          "fieldtype": "Small Text",
-          "description": "Fallback display value for the CSV Lenses column when no Lens Appearance options are configured."
-        },
-        {
-          "fieldname": "available_finishes",
-          "label": "Available Finishes",
-          "fieldtype": "Small Text",
-          "description": "Fallback display value for the CSV Finish column when no Finish options are configured."
-        },
-        {
-          "fieldname": "available_mountings",
-          "label": "Available Mountings",
-          "fieldtype": "Small Text",
-          "description": "Fallback display value for the CSV Available Mountings column when no Mounting options are configured."
-        },
-        {
-          "fieldname": "fixture_weight_per_foot_grams",
-          "label": "Fixture Weight per Foot (g)",
-          "fieldtype": "Float"
         },
         {
           "fieldname": "driver_max_wattage_override",

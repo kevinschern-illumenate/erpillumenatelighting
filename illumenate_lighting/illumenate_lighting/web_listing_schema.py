@@ -297,7 +297,8 @@ PLACED_FIELDS = {
 	),
 	"ilL-Tape-Neon-Template": (
 		(OTHER_DOCUMENTS_FIELD, "spec_submittal_template"),
-		(WEIGHT_FIELD, "available_mountings"),
+		# The available_* fields are gone (owner, 2026-11-19); the weight opens Spec Sheet Details.
+		(WEIGHT_FIELD, "spec_sheet_details_section"),
 	),
 	"ilL-Controller-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
 	"ilL-Driver-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
