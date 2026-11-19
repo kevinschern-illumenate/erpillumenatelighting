@@ -1666,6 +1666,8 @@ The status lines in Phases 5 to 7 below were written before the sync rebuild (4.
 
 **Readiness check (owner, 2026-11-19, built):** the dependency walk checks up to 3,000 linked records (was 400) and reports what it could not reach in one line with a count; endcap map coverage only asks for the endcap colors the template's finishes map to (active only); the Spec Submittal Template / field mapping check is gone from the readiness check, since the generated spec sheets replace spec submittals entirely.
 
+**Footer fields and preview loop (owner, 2026-11-19, built):** the PDF generator puts Project Name, Fixture Type and Location on every page of an ilLumenate spec sheet (one field each, so a value typed once shows on all pages) with no background or border, so the page's underline shows through; 206 Lighting keeps its first two pages and white boxes. Spec sheet changes are previewed before they go live: the repo's n8n code and the generator are run locally on the live page and the latest Generate Spec data, and the PDF is sent for review. Dimension images must be RGB (sRGB): CMYK JPGs render with a slight blue tint in Chrome.
+
 **Phase 6: status**
 - Built:
   - **The create-product popup** (4.5, D3; owner 2026-11-08, a), in `public/js/template_webflow_link.js`.
