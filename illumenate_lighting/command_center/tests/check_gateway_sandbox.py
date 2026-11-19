@@ -19,7 +19,7 @@ class Meta:
         return D(label=c.title(),fieldtype="Data") if c in ("grand_total","modified","customer","exp_end_date","project","priority","valid_till","state","schedule","assigned_to","ill_project","ill_fixture_schedule","schedule_name","request_type") else None
 class Doc:
     docstatus=0; name="T-1"
-    def __init__(s,v=None): s.v=dict(v or {}); s.v.setdefault("status","Open")
+    def __init__(s,v=None): s.v=dict(v or {}); s.v.setdefault("status","Open"); s.docstatus=s.v.get("docstatus",0)
     def has_permission(s,p): return True
     def check_permission(s,p): pass
     def get(s,k): return s.v.get(k)
@@ -265,5 +265,30 @@ ok("overview: sections stay pipeline-only", all(not x["key"].startswith("ill_") 
 pc=[c["fieldname"] for c in run("a@x",E,{"action":"config"})["doctypes"]["Purchase Order"]["columns"]]
 ok("config: PO columns include vendor status and ETA when present", "ill_vendor_status" in pc and "ill_eta" in pc)
 del META["Purchase Order"]
+# ---- v9: submitted documents keep a few "allow on submit" warehouse fields editable ----
+META["Sales Order"]={"fields":[F("customer","Link",in_list_view=1),F("delivery_date","Date",allow_on_submit=1),F("po_no","Data"),
+    F("ill_estimated_ship_date","Date",allow_on_submit=1),F("ill_floor_notes","Small Text",allow_on_submit=1),F("ill_hold_reason","Select",allow_on_submit=0)]}
+DOCS[("Sales Order","SO-1")]={"name":"SO-1","docstatus":1,"status":"To Deliver","ill_floor_notes":"old"}
+DOCS[("Sales Order","SO-X")]={"name":"SO-X","docstatus":2,"status":"Cancelled"}
+g=run("a@x",E,{"action":"get","dt":"Sales Order","name":"SO-1"})
+ok("get: submitted sales order editable for the after-submit floor fields only", g["editable"] is True and g["after_submit"]==["ill_estimated_ship_date","ill_floor_notes"])
+ok("get: viewer can't edit a submitted order", run("a@x",V,{"action":"get","dt":"Sales Order","name":"SO-1"})["editable"] is False)
+ok("get: cancelled order not editable", run("a@x",E,{"action":"get","dt":"Sales Order","name":"SO-X"})["editable"] is False)
+ok("meta: after_submit listed", run("a@x",E,{"action":"meta","dt":"Sales Order"})["after_submit"]==["ill_estimated_ship_date","ill_floor_notes"])
+del saved[:]; del AUDIT[:]
+r=run("a@x",E,{"action":"save","dt":"Sales Order","name":"SO-1","values":{"ill_floor_notes":"2 runs cut","ill_estimated_ship_date":"2026-11-24"}})
+ok("save: submitted order floor fields saved and audited", r["changed"]==2 and saved and saved[-1]["ill_floor_notes"]=="2 runs cut" and AUDIT and "ill_floor_notes" in AUDIT[-1])
+for who,form in [("submitted: ordinary field",{"action":"save","dt":"Sales Order","name":"SO-1","values":{"customer":"Z"}}),
+                 ("submitted: allow-on-submit field not on the list",{"action":"save","dt":"Sales Order","name":"SO-1","values":{"delivery_date":"2026-12-01"}}),
+                 ("submitted: listed field ERPNext won't change after submit",{"action":"save","dt":"Sales Order","name":"SO-1","values":{"ill_hold_reason":"x"}}),
+                 ("cancelled document",{"action":"save","dt":"Sales Order","name":"SO-X","values":{"ill_floor_notes":"x"}}),
+                 ("viewer on a submitted order",{"action":"save","dt":"Sales Order","name":"SO-1","values":{"ill_floor_notes":"x"}})]:
+    try: run("a@x",V if who.startswith("viewer") else E,form); ok(who+" refused", False)
+    except Exception as e: ok(who+" refused ("+str(e)[:60]+")", True)
+DOCS[("Quotation","Q-9")]={"name":"Q-9","docstatus":1}
+ok("get: submitted doctype with no after-submit list stays read-only", run("a@x",E,{"action":"get","dt":"Quotation","name":"Q-9"})["editable"] is False)
+c9=run("a@x",E,{"action":"config"})["doctypes"]
+ok("config: Pick List in Shipping, Item in Manufacturing (created in the builder)", c9["Pick List"]["section"]=="shipping" and c9["Item"]["section"]=="manufacturing" and c9["Item"]["create"]=="builder")
+del META["Sales Order"]
 print("v8 checks:", "ALL PASS" if not FAILS else "FAILED: "+", ".join(FAILS))
 if FAILS: sys.exit(1)
