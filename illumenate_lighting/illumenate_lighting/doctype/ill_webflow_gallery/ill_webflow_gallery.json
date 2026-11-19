@@ -1,0 +1,281 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 0,
+ "autoname": "field:slug",
+ "creation": "2026-11-18 11:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "gallery_title",
+  "publication_status",
+  "slug",
+  "column_break_identity",
+  "is_active",
+  "featured",
+  "location",
+  "completion_date",
+  "images_section",
+  "gallery_images",
+  "videos",
+  "content_section",
+  "seo_description",
+  "about",
+  "case_study",
+  "quote",
+  "quote_attribution",
+  "classification_section",
+  "gallery_type",
+  "applications",
+  "services_provided",
+  "products_section",
+  "products_used",
+  "credits_section",
+  "credits",
+  "custom_items",
+  "publishing_section",
+  "target_brands",
+  "sync_targets",
+  "status_guide_section",
+  "status_guide"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "gallery_title",
+   "fieldtype": "Data",
+   "label": "Gallery Title",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Slug",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Lowercase letters, numbers and hyphens. Locked once the gallery is staged in Webflow."
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1",
+   "in_list_view": 1,
+   "description": "Inactive galleries are retired from Webflow."
+  },
+  {
+   "fieldname": "featured",
+   "fieldtype": "Check",
+   "label": "Featured",
+   "description": "Shows a badge and sorts first."
+  },
+  {
+   "fieldname": "publication_status",
+   "fieldtype": "Select",
+   "label": "Publication Status",
+   "options": "Needs staging\nChanges not staged\nQueued\nStaged\nLive\nFailed\nRetired",
+   "default": "Needs staging",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Set by the publication flow. See \"What the status means\" at the bottom."
+  },
+  {
+   "fieldname": "images_section",
+   "fieldtype": "Section Break",
+   "label": "Images"
+  },
+  {
+   "fieldname": "gallery_images",
+   "fieldtype": "Table",
+   "label": "Gallery Images",
+   "options": "ilL-Child-Webflow-Gallery-Image",
+   "description": "The first row is always the hero image (card thumbnail and detail hero). Drag rows to reorder. At least one image is required."
+  },
+  {
+   "fieldname": "content_section",
+   "fieldtype": "Section Break",
+   "label": "Content"
+  },
+  {
+   "fieldname": "seo_description",
+   "fieldtype": "Small Text",
+   "label": "SEO Description",
+   "description": "About 160 characters, used for search engines."
+  },
+  {
+   "fieldname": "about",
+   "fieldtype": "Small Text",
+   "label": "About",
+   "description": "Information about the space, the intended lighting and the mood"
+  },
+  {
+   "fieldname": "case_study",
+   "fieldtype": "Text Editor",
+   "label": "Case Study",
+   "description": "Optional. Leave empty to hide the section."
+  },
+  {
+   "fieldname": "classification_section",
+   "fieldtype": "Section Break",
+   "label": "Classification"
+  },
+  {
+   "fieldname": "gallery_type",
+   "fieldtype": "Select",
+   "label": "Gallery Type",
+   "options": "Residential\nHospitality\nRestaurant\nHealthcare\nEducation\nOffice\nHotel\nCivic/Government\nRetail\nArchitectural\nTransportation\nLandscape\nMulti-family\nTheater/Art\nLobby\nSports/Entertainment",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "applications",
+   "fieldtype": "Table MultiSelect",
+   "label": "Applications",
+   "options": "ilL-Child-Gallery-Application"
+  },
+  {
+   "fieldname": "services_provided",
+   "fieldtype": "Table MultiSelect",
+   "label": "Services Provided",
+   "options": "ilL-Child-Gallery-Service"
+  },
+  {
+   "fieldname": "products_section",
+   "fieldtype": "Section Break",
+   "label": "Products Used"
+  },
+  {
+   "fieldname": "products_used",
+   "fieldtype": "Table",
+   "label": "Products Used",
+   "options": "ilL-Child-Gallery-Product",
+   "description": "One row per product or series used. Series is required on every row."
+  },
+  {
+   "fieldname": "quote",
+   "fieldtype": "Small Text",
+   "label": "Quote"
+  },
+  {
+   "fieldname": "quote_attribution",
+   "fieldtype": "Small Text",
+   "label": "Quote Attribution",
+   "description": "Full Name, Company"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location",
+   "description": "City, state"
+  },
+  {
+   "fieldname": "completion_date",
+   "fieldtype": "Date",
+   "label": "Completion Date"
+  },
+  {
+   "fieldname": "videos",
+   "fieldtype": "Small Text",
+   "label": "Videos",
+   "description": "Optional. One or more video links, separated by commas or new lines. YouTube, Vimeo, Loom, or a direct .mp4 link. Shown in the gallery strip and lightbox."
+  },
+  {
+   "fieldname": "credits_section",
+   "fieldtype": "Section Break",
+   "label": "Credits"
+  },
+  {
+   "fieldname": "credits",
+   "fieldtype": "Table",
+   "label": "Credits",
+   "options": "ilL-Child-Gallery-Credit",
+   "description": "One row per credit type. An Integrator row is required."
+  },
+  {
+   "fieldname": "custom_items",
+   "fieldtype": "Table",
+   "label": "Custom Items",
+   "options": "ilL-Child-Gallery-Custom-Item"
+  },
+  {
+   "fieldname": "publishing_section",
+   "fieldtype": "Section Break",
+   "label": "Publishing"
+  },
+  {
+   "fieldname": "target_brands",
+   "fieldtype": "Table",
+   "label": "Target Brands",
+   "options": "ilL-Child-Webflow-Brand-Target",
+   "description": "Which brands receive this gallery."
+  },
+  {
+   "fieldname": "sync_targets",
+   "fieldtype": "Table",
+   "label": "Sync Targets",
+   "options": "ilL-Child-Webflow-Sync-State",
+   "read_only": 1,
+   "description": "Webflow item IDs recorded by the import of existing galleries. The gallery publication record holds the current remote item ID and sync state. Never edited by hand."
+  },
+  {
+   "fieldname": "status_guide_section",
+   "fieldtype": "Section Break",
+   "label": "What the status means",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "status_guide",
+   "fieldtype": "HTML",
+   "options": "<p>The pill at the top of the sidebar shows the status for the brand chosen in the Webflow publication section.</p><table class=\"table table-bordered\"><thead><tr><th style=\"width: 200px;\">Pill</th><th>Means</th></tr></thead><tbody><tr><td><span class=\"indicator-pill orange\">Needs staging</span></td><td>Never staged: it is not in Webflow yet. Approve and Stage to send it.</td></tr><tr><td><span class=\"indicator-pill orange\">Changes not staged</span></td><td>Edited since it was staged or live. Approve and Stage again to send the changes.</td></tr><tr><td><span class=\"indicator-pill blue\">Queued</span></td><td>A job is waiting for the n8n workflow to pick it up.</td></tr><tr><td><span class=\"indicator-pill yellow\">Staged</span></td><td>A draft in Webflow, not public. Publish Live to make it public.</td></tr><tr><td><span class=\"indicator-pill green\">Live</span></td><td>Published on the Webflow site.</td></tr><tr><td><span class=\"indicator-pill red\">Failed</span></td><td>The last Webflow job failed. See the Webflow publication section for the error, then Retry.</td></tr><tr><td><span class=\"indicator-pill gray\">Retired</span></td><td>Unpublished and archived in Webflow. The ERP record is kept.</td></tr></tbody></table>"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "make_attachments_public": 1,
+ "links": [],
+ "modified": "2026-11-19 16:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Webflow-Gallery",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "ilL Catalog Publisher",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "gallery_title",
+ "track_changes": 1
+}
