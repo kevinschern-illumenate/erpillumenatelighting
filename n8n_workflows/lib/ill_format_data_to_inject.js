@@ -288,6 +288,12 @@ const mappingScript = `<script>
                           });
                           currentValues = Array.from(byCode.values()).sort((a, b) => (parseFloat(a.code) || 0) - (parseFloat(b.code) || 0));
                       }
+                      // The Output step lists exactly the Output Options table's outputs (owner,
+                      // 2026-11-19): no per-square-foot levels (the stray 550) and nothing the table lacks.
+                      const tableOutputs = ((data.output_options || {}).columns || []).filter(Boolean);
+                      if (opt.option_type === 'Output Level' && tableOutputs.length) {
+                          currentValues = tableOutputs.map(code => ({ code: String(code), label: code + ' lm/ft' }));
+                      }
                       const label = opt.option_label || opt.option_type || '';
 
                       // A free length (fixtures) has only the length metadata row; a kit's stock
