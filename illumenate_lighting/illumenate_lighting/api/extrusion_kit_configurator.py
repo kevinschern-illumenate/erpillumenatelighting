@@ -34,7 +34,7 @@ from typing import Any, Optional
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from illumenate_lighting.illumenate_lighting.api.item_availability import enabled_rows
 from illumenate_lighting.illumenate_lighting.api.mounting_accessory import (
@@ -56,6 +56,70 @@ KIT_SELECTION_KEYS = (
     "lens_appearance",
     "mounting_method",
 )
+
+# kit_components rows of these types ship with every kit as listed (a disposable
+# cover, say). Profile, Lens, Endcap Set and Mounting Kit rows set the per-kit
+# quantity of whichever Item the kit maps resolve; Joiner rows stay optional.
+INCLUDED_COMPONENT_TYPES = ("Hardware",)
+
+# ═══════════════════════════════════════════════════════════════════════
+# KIT QUANTITIES
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _row_value(row, field):
+	return row.get(field) if isinstance(row, dict) else getattr(row, field, None)
+
+
+def _component_rows(template):
+	return getattr(template, "kit_components", None) or []
+
+
+def _component_qty(template, item_code, fallback):
+	"""The kit_components quantity for ``item_code``, else ``fallback``."""
+	if item_code:
+		for row in _component_rows(template):
+			if _row_value(row, "component_item") == item_code and cint(_row_value(row, "quantity")) > 0:
+				return cint(_row_value(row, "quantity"))
+	return fallback
+
+
+def _kit_quantities(template, profile_item, lens_item, solid_item, feed_item, mounting_item):
+	"""Per-kit quantity of each resolved component.
+
+	A component's kit_components row sets its quantity; without one, the template
+	fields apply (1 profile, 1 lens, the endcap and mounting quantities). When the
+	solid and feed-through endcaps are the same Item one row can't split them, so
+	the template's two endcap quantities apply.
+	"""
+	solid_default = cint(template.solid_endcap_qty)
+	feed_default = cint(template.feed_through_endcap_qty)
+	same_endcap = bool(solid_item) and solid_item == feed_item
+	return {
+		"profile": _component_qty(template, profile_item, 1),
+		"lens": _component_qty(template, lens_item, 1),
+		"solid_endcap": solid_default if same_endcap else _component_qty(template, solid_item, solid_default),
+		"feed_through_endcap": feed_default if same_endcap else _component_qty(template, feed_item, feed_default),
+		"mounting": _component_qty(template, mounting_item, cint(template.mounting_accessory_qty)) if mounting_item else 0,
+	}
+
+
+def _included_components(template):
+	"""kit_components rows that ship with every kit, as composition entries."""
+	included = []
+	for row in _component_rows(template):
+		item = _row_value(row, "component_item")
+		qty = cint(_row_value(row, "quantity"))
+		if _row_value(row, "component_type") in INCLUDED_COMPONENT_TYPES and item and qty > 0:
+			included.append({
+				"item": item,
+				"spec": _row_value(row, "component_spec_name"),
+				"spec_doctype": _row_value(row, "component_spec_doctype"),
+				"qty": qty,
+				"label": _row_value(row, "component_type"),
+			})
+	return included
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # PRICING HELPERS
@@ -487,10 +551,21 @@ def validate_kit_configuration(selections: str | dict) -> dict:
     except ValueError as exc:
         return {"success": False, "is_valid": False, "error": str(exc)}
 
+    # ── Quantities: kit_components rows, else template defaults ───────
+    quantities = _kit_quantities(
+        template,
+        profile_map.profile_item,
+        lens_map.lens_item,
+        solid_endcap.endcap_item,
+        feed_through_endcap.endcap_item,
+        mounting_map.accessory_item if mounting_map else None,
+    )
+    included = _included_components(template)
+
     # ── Build description ─────────────────────────────────────────────
     build_description = _build_kit_description(sel, template, profile_map, lens_map,
                                                 solid_endcap, feed_through_endcap,
-                                                mounting_map)
+                                                mounting_map, quantities, included)
 
     # ── Build kit composition ─────────────────────────────────────────
     kit_composition = {
@@ -498,33 +573,33 @@ def validate_kit_configuration(selections: str | dict) -> dict:
             "item": profile_map.profile_item,
             "spec": profile_map.profile_spec,
             "spec_doctype": "ilL-Spec-Profile",
-            "qty": 1,
+            "qty": quantities["profile"],
             "length_mm": template.profile_stock_length_mm,
         },
         "lens": {
             "item": lens_map.lens_item,
             "spec": lens_map.lens_spec,
             "spec_doctype": "ilL-Spec-Lens",
-            "qty": 1,
+            "qty": quantities["lens"],
             "length_mm": template.lens_stock_length_mm,
         },
         "solid_endcap": {
             "item": solid_endcap.endcap_item,
             "spec": solid_endcap.endcap_spec,
             "spec_doctype": "ilL-Spec-Accessory",
-            "qty": template.solid_endcap_qty,
+            "qty": quantities["solid_endcap"],
         },
         "feed_through_endcap": {
             "item": feed_through_endcap.endcap_item,
             "spec": feed_through_endcap.endcap_spec,
             "spec_doctype": "ilL-Spec-Accessory",
-            "qty": template.feed_through_endcap_qty,
+            "qty": quantities["feed_through_endcap"],
         },
         "mounting": {
             "item": mounting_map.accessory_item,
             "spec": mounting_map.accessory_spec,
             "spec_doctype": "ilL-Spec-Accessory",
-            "qty": template.mounting_accessory_qty,
+            "qty": quantities["mounting"],
         } if mounting_map else {
             "item": None,
             "spec": None,
@@ -533,6 +608,8 @@ def validate_kit_configuration(selections: str | dict) -> dict:
             "not_required": True,
         },
     }
+    for n, component in enumerate(included, 1):
+        kit_composition[f"included_{n}"] = component
 
     # ── Build resolved items summary ──────────────────────────────────
     resolved_items = {
@@ -767,12 +844,14 @@ def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) 
     """
     Called during Sales Order creation to add Extrusion Kit item lines.
 
-    Creates SO lines for each component in the kit:
-      - Profile item (qty=1)
-      - Lens item (qty=1)
-      - Solid endcaps (qty from template, typically 2)
-      - Feed-through endcaps (qty from template, typically 2)
-      - Mounting accessories (qty from template, typically 6)
+    Creates SO lines for each component in the kit, in the quantity the saved
+    kit_composition records (a kit_components row, else the template default):
+      - Profile item
+      - Lens item
+      - Solid endcaps
+      - Feed-through endcaps
+      - Mounting accessories
+      - Components included with every kit (kit_components Hardware rows)
 
     Args:
         so: The Sales Order document being built
@@ -801,6 +880,11 @@ def create_kit_so_lines(so, line, config_data: dict, qty_multiplier: float = 1) 
         ("solid_endcap", "Solid Endcap"),
         ("feed_through_endcap", "Feed-Through Endcap"),
         ("mounting", "Mounting Accessory"),
+    ]
+    component_order += [
+        (key, kit_comp[key].get("label") or "Included Component")
+        for key in kit_comp
+        if key.startswith("included_")
     ]
 
     for comp_key, comp_label in component_order:
@@ -940,19 +1024,26 @@ def get_kit_component_stock(
 	solid_endcap = endcaps.get("solid")
 	feed_through_endcap = endcaps.get("feed_through")
 	mounting_map = _resolve_kit_mounting(kit_template, mounting_method)
-	mounting_qty = template.mounting_accessory_qty or 0
 	if not needs_accessory(mounting_method):
-		mounting_qty = 0
+		mounting_map = None
+
+	profile_item = profile_map.profile_item if profile_map else None
+	lens_item = lens_map.lens_item if lens_map else None
+	solid_item = solid_endcap.endcap_item if solid_endcap else None
+	feed_item = feed_through_endcap.endcap_item if feed_through_endcap else None
+	mounting_item = mounting_map.accessory_item if mounting_map else None
+	qty = _kit_quantities(template, profile_item, lens_item, solid_item, feed_item, mounting_item)
 
 	# Build component list: (label, item_code, qty_per_kit)
 	# Only include components that the kit actually requires (qty > 0).
 	component_defs = [
-		("Profile", profile_map.profile_item if profile_map else None, 1),
-		("Lens", lens_map.lens_item if lens_map else None, 1),
-		("Solid Endcap", solid_endcap.endcap_item if solid_endcap else None, template.solid_endcap_qty or 0),
-		("Feed-Through Endcap", feed_through_endcap.endcap_item if feed_through_endcap else None, template.feed_through_endcap_qty or 0),
-		("Mounting Accessory", mounting_map.accessory_item if mounting_map else None, mounting_qty),
+		("Profile", profile_item, qty["profile"]),
+		("Lens", lens_item, qty["lens"]),
+		("Solid Endcap", solid_item, qty["solid_endcap"]),
+		("Feed-Through Endcap", feed_item, qty["feed_through_endcap"]),
+		("Mounting Accessory", mounting_item, qty["mounting"]),
 	]
+	component_defs += [(c["label"], c["item"], c["qty"]) for c in _included_components(template)]
 	component_defs = [cd for cd in component_defs if cd[2] > 0]
 
 	return _build_kit_stock_result(component_defs)
@@ -1316,8 +1407,20 @@ def _build_kit_part_number(sel: dict, template) -> str:
 
 
 def _build_kit_description(sel, template, profile_map, lens_map,
-                           solid_endcap, feed_through_endcap, mounting_map) -> str:
+                           solid_endcap, feed_through_endcap, mounting_map,
+                           quantities=None, included=None) -> str:
     """Build a human-readable description for the Extrusion Kit configuration."""
+    if quantities is None:
+        quantities = _kit_quantities(
+            template,
+            profile_map.profile_item,
+            lens_map.lens_item,
+            solid_endcap.endcap_item,
+            feed_through_endcap.endcap_item,
+            mounting_map.accessory_item if mounting_map else None,
+        )
+    if included is None:
+        included = _included_components(template)
     # Lead with the template's name, like configured tape/neon items do.
     lines = []
     lines.append(f"{template.template_name or template.name} Extrusion Kit")
@@ -1326,20 +1429,24 @@ def _build_kit_description(sel, template, profile_map, lens_map,
     lines.append(f"Mounting: {sel.get('mounting_method', '-')}")
     lines.append(f"Endcap Style: {sel.get('endcap_style', '-')}")
     lines.append(f"Endcap Color: {sel.get('endcap_color', '-')}")
-    lines.append(f"Profile: {profile_map.profile_item} ({template.profile_stock_length_mm}mm)")
-    lines.append(f"Lens: {lens_map.lens_item} ({template.lens_stock_length_mm}mm)")
+    profile_line = f"Profile: {profile_map.profile_item} ({template.profile_stock_length_mm}mm)"
+    lens_line = f"Lens: {lens_map.lens_item} ({template.lens_stock_length_mm}mm)"
+    lines.append(profile_line + (f" ×{quantities['profile']}" if quantities["profile"] != 1 else ""))
+    lines.append(lens_line + (f" ×{quantities['lens']}" if quantities["lens"] != 1 else ""))
     lines.append(
-        f"Solid Endcaps: {solid_endcap.endcap_item} ×{template.solid_endcap_qty}"
+        f"Solid Endcaps: {solid_endcap.endcap_item} ×{quantities['solid_endcap']}"
     )
     lines.append(
-        f"Feed-Through Endcaps: {feed_through_endcap.endcap_item} ×{template.feed_through_endcap_qty}"
+        f"Feed-Through Endcaps: {feed_through_endcap.endcap_item} ×{quantities['feed_through_endcap']}"
     )
     if mounting_map:
         lines.append(
-            f"Mounting: {mounting_map.accessory_item} ×{template.mounting_accessory_qty}"
+            f"Mounting: {mounting_map.accessory_item} ×{quantities['mounting']}"
         )
     else:
         lines.append("Mounting Accessory: none required")
+    for component in included:
+        lines.append(f"{component['label']}: {component['item']} ×{component['qty']}")
 
     return " | ".join(lines)
 
