@@ -1,6 +1,7 @@
 {#
   ilL Fixture Schedule: the project's fixtures by location and type, for the dealer,
-  designer and contractor. No prices.
+  designer and contractor. No prices. The one format set in the ilLumenate typefaces
+  (styles(brand=True) and the ill-brand class); every other document uses a standard sans-serif.
   Outline and design: docs/PRINT_FORMATS.md; layout: templates/print/ill_print.html.
 #}
 {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, notes, line_group, closing, date, line_type, line_notes with context -%}
@@ -8,8 +9,8 @@
 {%- set project = schedule.project -%}
 {%- set customer = frappe.db.get_value("Customer", doc.customer, "customer_name") if doc.customer else "" -%}
 {%- set row = namespace(n=0) -%}
-{{ styles() }}
-<div class="ill-doc">
+{{ styles(brand=True) }}
+<div class="ill-doc ill-brand">
 	{{ header("Fixture Schedule", (project.project_name or doc.schedule_name or doc.name),
 		("Locked" if doc.is_locked else (doc.status or "") | title),
 		subtitle=(doc.schedule_name ~ " · v" ~ (doc.version or 1) ~ " · " ~ doc.name)) }}

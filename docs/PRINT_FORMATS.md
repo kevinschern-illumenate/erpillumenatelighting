@@ -27,11 +27,15 @@ The ilLumenate Design System, kept light on ink.
 - **Scale.** Frappe's wkhtmltopdf prints about 0.94pt per CSS px (15mm margins, smart
   shrinking off), so CSS sizes read close to point sizes. Body 8.5px, part numbers and specs
   7.5px, labels 6.5px small caps, titles 18px. Spacing runs on a 4px rhythm.
-- **Type.** Manrope for titles, labels and totals; Poppins for everything else. They ship as
-  TrueType in `public/fonts/print/`, which the server's wkhtmltopdf embeds as searchable text.
-  `ill_print_fonts()` links a font only when its file is installed: Frappe refuses the whole
-  PDF when any linked resource fails to load, so a missing font falls back to Helvetica
-  instead of breaking every print.
+- **Type.** Documents use a standard sans-serif: `"Helvetica Neue", Helvetica, Arial`, which
+  Frappe's wkhtmltopdf renders as Nimbus Sans (regular and bold only, so 500/600 weights
+  print as regular/bold). No font files are linked.
+  The **Fixture Schedule** alone is set in the brand typefaces: `styles(brand=True)` plus the
+  `ill-brand` class on its `.ill-doc` give it Manrope for titles, labels and totals and
+  Poppins for everything else. They ship as TrueType in `public/fonts/print/`, which the
+  server's wkhtmltopdf embeds as searchable text. `ill_print_fonts()` links a font only when
+  its file is installed: Frappe refuses the whole PDF when any linked resource fails to load,
+  so a missing font falls back to Helvetica instead of breaking the print.
 - **Colour.** Navy `#172E48` for titles, table headings and rules; muted `#5D6D7F` for labels
   and secondary text; body `#231F20`; hairlines `#D1D6DB`. Gold `#FDC757` appears once, as a
   48px accent under the header rule. Status tags are the only other colour (red for past due /
