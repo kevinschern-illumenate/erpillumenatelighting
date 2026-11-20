@@ -35,7 +35,8 @@
 
 /* today's schedule */
 #cc.kd .kd-list, #cc.kd .kd-week { list-style: none; margin: 0; padding: 0; }
-#cc.kd .kd-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; }
+#cc.kd .kd-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 2px 12px; align-items: center; padding: 9px 12px; border-radius: 10px; }
+#cc.kd .kd-row .kd-hat { grid-column: 2; }
 #cc.kd .kd-row + .kd-row { border-top: 1px solid var(--line2); }
 #cc.kd .kd-time { color: var(--ink2); font-size: 12.5px; }
 #cc.kd .kd-title { font-weight: 500; }
@@ -43,10 +44,6 @@
 #cc.kd .kd-row.now { background: var(--warnb); border-top-color: transparent; }
 #cc.kd .kd-row.now + .kd-row { border-top-color: transparent; }
 #cc.kd .kd-row.now .kd-title { font-weight: 700; }
-@media (max-width: 560px) {
-  #cc.kd .kd-row { grid-template-columns: 78px minmax(0, 1fr); }
-  #cc.kd .kd-row .kd-hat { grid-column: 2; }
-}
 
 /* week themes */
 #cc.kd .kd-wrow { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; align-items: start; padding: 9px 10px; border-radius: 10px; }
@@ -54,3 +51,34 @@
 #cc.kd .kd-day { font-weight: 600; color: var(--ink2); }
 #cc.kd .kd-wrow.today .kd-day { color: var(--infot); }
 #cc.kd .kd-note { color: var(--mute); font-size: 12px; margin-top: 2px; }
+
+/* Phase 2: layout columns, decisions strip, pipeline widgets, ToDos */
+#cc.kd .kd-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+#cc.kd .kd-stamp { font-size: 12px; color: #9fb3c8; white-space: nowrap; }
+#cc.kd .kd-signals:not(:empty) { margin-bottom: 20px; }
+#cc.kd .kd-sig-h { margin-bottom: 10px; }
+#cc.kd .kd-sig-note { color: var(--mute); font-size: 12.5px; }
+#cc.kd .kd-loading { padding: 40px 0; }
+#cc.kd .kd-widget .tw { margin-top: 0; border-top: 1px solid var(--line); overflow-x: auto; }
+#cc.kd .kd-widget .empty { border-top: 1px solid var(--line2); }
+#cc.kd .kd-nowrap { white-space: nowrap; }
+#cc.kd .kd-more { padding: 10px 16px; font-size: 12.5px; color: var(--ink2); border-top: 1px solid var(--line2); }
+#cc.kd #kdtodos .card-h { padding: 20px 24px 12px; margin-bottom: 0; }
+#cc.kd .kd-todos { list-style: none; margin: 0; padding: 0 12px 8px; }
+#cc.kd .kd-todo { padding: 10px 12px; border-top: 1px solid var(--line2); overflow-wrap: anywhere; }
+#cc.kd .kd-todo-m { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--ink2); }
+#cc.kd details.kd-fold { border-top: 1px solid var(--line); }
+#cc.kd details.kd-fold summary { padding: 12px 24px; font-size: 13px; cursor: pointer; }
+@media (max-width: 640px) {
+  #cc.kd .cc-actions { width: 100%; flex-wrap: wrap; }
+  #cc.kd .kd-stamp { flex-basis: 100%; }
+  /* widget rows become two-line cards: record + amount, then customer + date */
+  #cc.kd .kd-widget thead { display: none; }
+  #cc.kd .kd-widget table, #cc.kd .kd-widget tbody { display: block; }
+  #cc.kd .kd-widget tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 16px; border-bottom: 1px solid var(--line2); }
+  #cc.kd .kd-widget td { padding: 0; border: 0; font-size: 13px; }
+  #cc.kd .kd-widget td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 500; overflow-wrap: anywhere; }
+  #cc.kd .kd-widget td:nth-child(4) { grid-column: 2; grid-row: 1; }
+  #cc.kd .kd-widget td:nth-child(2) { grid-column: 1; grid-row: 2; color: var(--ink2); font-size: 12.5px; }
+  #cc.kd .kd-widget td:nth-child(3) { grid-column: 2; grid-row: 2; text-align: right; color: var(--ink2); font-size: 12.5px; }
+}
