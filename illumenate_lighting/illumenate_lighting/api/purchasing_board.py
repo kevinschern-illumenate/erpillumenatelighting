@@ -532,9 +532,13 @@ def _lead_info(item, raw, lead_fn):
 	}
 
 
-def _decision(out, id_, label, count, tone, tab, lane=None):
+def _decision(out, id_, label, count, tone, tab, lane=None, href=None):
 	if count:
-		out.append({"id": id_, "label": label, "count": count, "tone": tone, "tab": tab, "lane": lane})
+		row = {"id": id_, "label": label, "count": count, "tone": tone, "tab": tab, "lane": lane}
+		if href:
+			# Opens a Desk list instead of a board tab.
+			row["href"] = href
+		out.append(row)
 
 
 def assemble(raw, settings, today, lead_fn, money=True, can_edit=False):
@@ -1332,6 +1336,16 @@ def assemble(raw, settings, today, lead_fn, money=True, can_edit=False):
 		"warn",
 		"shipments",
 	)
+	mail = raw.get("mail") or {}
+	_decision(
+		decisions,
+		"mail_unlinked",
+		"Purchasing emails not linked to a document",
+		int(mail.get("count") or 0),
+		"warn",
+		"overview",
+		href=mail.get("route"),
+	)
 
 	for s in shipments:
 		s.pop("_landed_basis", None)
@@ -1896,6 +1910,12 @@ def load(today, settings):
 		raw["qbo_since"] = since[1] if since else None
 	except Exception:
 		raw["qbo_since"] = None
+	try:
+		from illumenate_lighting.illumenate_lighting.email_templates.purchasing_mail import unlinked_mail
+
+		raw["mail"] = unlinked_mail() or {}
+	except Exception:
+		raw["mail"] = {}
 	try:
 		purchased = [c for c in codes if not items.get(c, {}).get("default_bom")]
 		raw["usage"] = _usage(purchased, settings.get("reorder_lookback_days"))

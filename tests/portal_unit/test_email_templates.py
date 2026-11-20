@@ -316,7 +316,9 @@ class Rendering(unittest.TestCase):
 				self.assert_clean(html, template.name)
 				if "c.greeting_name" in template.body():
 					self.assertIn("there", html)
-				self.assertIn("sales@illumenate.lighting", html)
+				# With no document, supplier email signs off with the purchasing mailbox.
+				side = "purchasing" if doctype in samples.CONTEXT.PURCHASING_DOCTYPES else "sales"
+				self.assertIn(f"{side}@illumenate.lighting", html)
 
 	def test_subjects_render_from_document_fields(self):
 		for template in library.TEMPLATES:
