@@ -212,8 +212,9 @@
   (list u along (distance (il-xy point) along))
 )
 
-;; Where a jumper pick lands on open VERTICES: ("vertex" index) within TOLERANCE of a vertex (or at a
-;; segment's end), else ("split" segment-index u point) to add a vertex there.
+;; Where a picked POINT lands on open VERTICES: ("vertex" index) when it is within TOLERANCE of a vertex
+;; (or its nearest point on the run is), else ("split" segment-index u point) to add a vertex exactly
+;; at the nearest point on the run. TOLERANCE is small: snapped points land where they were snapped.
 (defun il-jumper-target (vertices point tolerance / best best-d index d near best-seg)
   (setq index 0)
   (foreach vertex vertices
@@ -227,9 +228,27 @@
     (if (or (null best-seg) (< (caddr near) (caddr (cdr best-seg)))) (setq best-seg (cons index near)))
     (setq index (1+ index))
   )
-  (if (or (null best-seg) (<= best-d tolerance) (<= (cadr best-seg) 1e-3) (>= (cadr best-seg) 0.999))
-    (list "vertex" best)
-    (list "split" (car best-seg) (cadr best-seg) (caddr best-seg))
+  (cond
+    ((or (null best-seg) (<= best-d tolerance)) (list "vertex" best))
+    ((<= (distance (il-xy (caddr best-seg)) (il-xy (nth (car best-seg) vertices))) tolerance) (list "vertex" (car best-seg)))
+    ((<= (distance (il-xy (caddr best-seg)) (il-xy (nth (1+ (car best-seg)) vertices))) tolerance) (list "vertex" (1+ (car best-seg))))
+    (T (list "split" (car best-seg) (cadr best-seg) (caddr best-seg)))
+  )
+)
+
+;; How far POINT is from the path of VERTICES (closed paths include the closing side).
+(defun il-distance-to-path (vertices closed point / points best near)
+  (setq points (if closed (append vertices (list (car vertices))) vertices))
+  (if (null (cdr points))
+    (if points (distance (il-xy (car points)) (il-xy point)))
+    (progn
+      (while (cdr points)
+        (setq near (il-segment-nearest (car points) (cadr points) (il-bulge (car points)) point))
+        (if (or (null best) (< (caddr near) best)) (setq best (caddr near)))
+        (setq points (cdr points))
+      )
+      best
+    )
   )
 )
 

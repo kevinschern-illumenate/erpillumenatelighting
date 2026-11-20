@@ -44,6 +44,10 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   picked near the other end (bulges and break indexes follow). ILJUMPER toggles a break at a vertex, or
   adds a vertex where a line or arc is picked. Feed and jumper markers are owned by the run and redrawn
   by ILUPDATE; the run tag sits halfway along the path.
+- **Snapped points.** ILJUMPER and ILFEED ask for points (`getpoint`), so object snaps work, and find the
+  run at the point within the pickbox (`il-run-at`; runs meeting there ask which). Placement is exact:
+  within `*il-snap-tolerance*` (0.01 in) of a vertex is that vertex, anywhere else adds a vertex at the
+  nearest point on the run, and a point off the run says how far off it was.
 - **Jumper spans.** A run's `spans` (segment indexes) are drawn across a gap but are jumper cable, not
   tape: `il-run-pieces` splits the run into lit pieces and gives the jumper after each piece its length
   (a span's drawn length, or `jumper_in` at a break). Spans at either end join nothing and are left out
