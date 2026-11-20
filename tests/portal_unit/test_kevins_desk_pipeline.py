@@ -106,26 +106,42 @@ def pipeline(gw=None, todos=()):
 
 @contextmanager
 def endpoints(user=OWNER, owner=True):
+	"""api.py with every desk module stubbed; returns (api, stubs, cache, store)."""
 	access = types.ModuleType(PKG + ".access")
 
 	def require_owner():
 		if not owner or user != OWNER:
 			raise LookupError("404")
-		return {"desk_owner": OWNER}
+		return {"desk_owner": OWNER, "slug": "S" * 32}
 
 	access.require_owner = MagicMock(side_effect=require_owner)
 	pipe = types.ModuleType(PKG + ".pipeline")
 	pipe.build = MagicMock(return_value={"widgets": [], "todos": []})
 	pipe.signals = MagicMock(return_value={"signals": []})
-	extras = {PKG + ".access": access, PKG + ".pipeline": pipe, "frappe.utils": utils_module()}
+	mail = types.ModuleType(PKG + ".mail")
+	mail.build = MagicMock(
+		return_value={"mailboxes": [{"mailbox": "sales@example.com", "state": "connected"}], "threads": []}
+	)
+	mailboxes = types.ModuleType(PKG + ".mailboxes")
+	mailboxes.connect = MagicMock(return_value="https://accounts.google.com/o/oauth2/v2/auth?x=1")
+	ranking = types.ModuleType(PKG + ".ranking")
+	ranking.merge = MagicMock(return_value={"groups": [], "top": [], "counts": {}, "total": 0})
+	team = types.ModuleType(PKG + ".team")
+	team.resolve = MagicMock(return_value={"jay@example.com": {"name": "Jay"}})
+	stubs = types.SimpleNamespace(
+		access=access, pipeline=pipe, mail=mail, mailboxes=mailboxes, ranking=ranking, team=team
+	)
+	extras = {PKG + "." + k: v for k, v in vars(stubs).items()}
+	extras["frappe.utils"] = utils_module()
 	with load_service(PKG + ".api", extras) as (api, frappe):
 		frappe.session.user = user
 		store = {}
 		cache = MagicMock()
 		cache.get_value.side_effect = store.get
 		cache.set_value.side_effect = lambda k, v, expires_in_sec=None: store.__setitem__(k, v)
+		cache.delete_value.side_effect = lambda k: store.pop(k, None)
 		frappe.cache = MagicMock(return_value=cache)
-		yield api, pipe, cache, store
+		yield api, stubs, cache, store
 
 
 class DeskEndpoints(unittest.TestCase):
@@ -141,30 +157,64 @@ class DeskEndpoints(unittest.TestCase):
 			)
 			self.assertIn("access.require_owner()", ast.unparse(first), fn.name)
 			self.assertIn("allow_guest=True", ast.unparse(fn.decorator_list[0]), fn.name)
-		self.assertEqual(sorted(endpoints_found), ["pipeline", "signals"])
+		self.assertEqual(sorted(endpoints_found), ["connect_mailbox", "signals", "today"])
 
 	def test_guest_and_other_users_get_404_and_nothing_is_read(self):
 		for user in ("Guest", "jay@example.com"):
-			with self.subTest(user=user), endpoints(user=user) as (api, pipe, cache, _):
-				for fn in (api.pipeline, api.signals):
+			with self.subTest(user=user), endpoints(user=user) as (api, stubs, cache, _):
+				for call in (
+					api.today,
+					api.signals,
+					lambda refresh=0: api.connect_mailbox("sales@example.com"),
+				):
 					with self.assertRaises(LookupError):
-						fn()
+						call()
 					with self.assertRaises(LookupError):
-						fn(refresh=1)
-				pipe.build.assert_not_called()
-				pipe.signals.assert_not_called()
+						call(refresh=1)
+				for fn in (
+					stubs.pipeline.build,
+					stubs.pipeline.signals,
+					stubs.mail.build,
+					stubs.mailboxes.connect,
+					stubs.team.resolve,
+				):
+					fn.assert_not_called()
 				cache.get_value.assert_not_called()
 
 	def test_owner_reads_are_cached_per_user_and_refresh_rebuilds(self):
-		with endpoints() as (api, pipe, _, store):
-			first = api.pipeline()
-			second = api.pipeline()
-			third = api.pipeline(refresh="1")
+		with endpoints() as (api, stubs, _, store):
+			first = api.today()
+			second = api.today()
+			third = api.today(refresh="1")
 		self.assertEqual((first["cached"], second["cached"], third["cached"]), (False, True, False))
-		self.assertEqual(pipe.build.call_count, 2)
-		pipe.build.assert_called_with(OWNER)
+		self.assertEqual(stubs.pipeline.build.call_count, 2)
+		self.assertEqual(stubs.mail.build.call_count, 2)
+		stubs.pipeline.build.assert_called_with(OWNER)
+		stubs.mail.build.assert_called_with(OWNER, {"jay@example.com": {"name": "Jay"}})
 		self.assertEqual(first["built_at"], "2026-11-20T10:42:05")
-		self.assertEqual(list(store), [f"kevins_desk:{OWNER}:pipeline"])
+		self.assertEqual(first["mailboxes"], [{"mailbox": "sales@example.com", "state": "connected"}])
+		self.assertEqual(sorted(store), [f"kevins_desk:{OWNER}:mail", f"kevins_desk:{OWNER}:pipeline"])
+		pipeline_arg, mail_arg, team_arg, hats = stubs.ranking.merge.call_args.args
+		self.assertEqual(team_arg, {"jay@example.com": {"name": "Jay"}})
+		self.assertEqual((pipeline_arg["widgets"], mail_arg["threads"]), ([], []))
+		self.assertIn("sales", hats)
+
+	def test_connect_returns_to_the_desk_and_drops_the_mail_cache(self):
+		with endpoints() as (api, stubs, _, store):
+			api.today()
+			out = api.connect_mailbox("sales@example.com")
+		self.assertEqual(out, {"authorize_url": "https://accounts.google.com/o/oauth2/v2/auth?x=1"})
+		stubs.mailboxes.connect.assert_called_once_with(
+			"sales@example.com", OWNER, "/kd/" + "S" * 32 + "?mailbox=connected"
+		)
+		self.assertNotIn(f"kevins_desk:{OWNER}:mail", store)
+
+	def test_connect_is_post_only_and_tightly_rate_limited(self):
+		src = (REPO / "illumenate_lighting/kevins_desk/api.py").read_text(encoding="utf-8")
+		tree = ast.parse(src)
+		fn = next(f for f in tree.body if isinstance(f, ast.FunctionDef) and f.name == "connect_mailbox")
+		self.assertIn("methods=['POST']", ast.unparse(fn.decorator_list[0]))
+		self.assertEqual(ast.unparse(fn.decorator_list[1]), "rate_limit(limit=10, seconds=60)")
 
 
 class GatewayAdapter(unittest.TestCase):

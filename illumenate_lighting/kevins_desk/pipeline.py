@@ -204,7 +204,16 @@ def todos(user, today):
 	rows = frappe.get_list(
 		"ToDo",
 		filters={"allocated_to": user, "status": "Open"},
-		fields=["name", "description", "date", "priority", "reference_type", "reference_name", "_user_tags"],
+		fields=[
+			"name",
+			"description",
+			"date",
+			"priority",
+			"reference_type",
+			"reference_name",
+			"_user_tags",
+			"assigned_by",
+		],
 		order_by="date asc",
 		limit_page_length=200,
 	)
@@ -229,6 +238,7 @@ def todos(user, today):
 			{
 				"bucket": bucket,
 				"priority": r.get("priority"),
+				"assigned_by": r.get("assigned_by"),
 				"tags": tags,
 				"gmail": html.unescape(gmail.group(1)) if gmail else None,
 				"ref": {

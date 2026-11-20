@@ -9,9 +9,18 @@ from frappe.model.document import Document
 
 from illumenate_lighting.kevins_desk.access import SLUG_PATTERN
 
-# Changing these hands the desk (and, from Phase 3, its mailboxes) to someone else, so only the current
-# owner may do it. Administrator (migrate, patches, bench console) is the escape hatch.
-LOCKED = ("desk_owner", "enabled")
+# Changing these hands the desk, or the mailboxes it reads, to someone else, so only the current owner
+# may do it. Administrator (migrate, patches, bench console) is the escape hatch.
+LOCKED = ("desk_owner", "enabled", "google_app", "mailboxes")
+
+
+def locked_value(doc, field):
+	if field == "mailboxes":
+		return [
+			((r.get("mailbox") or "").strip().lower(), int(r.get("enabled") or 0))
+			for r in doc.get(field) or []
+		]
+	return doc.get(field)
 
 
 def new_slug():
@@ -38,7 +47,7 @@ class ilLDeskSettings(Document):
 		user = frappe.session.user
 		if user in ("Administrator", before.desk_owner):
 			return
-		changed = [f for f in LOCKED if before.get(f) != self.get(f)]
+		changed = [f for f in LOCKED if locked_value(before, f) != locked_value(self, f)]
 		if changed:
 			frappe.throw(
 				_("Only {0} can change {1}.").format(before.desk_owner, ", ".join(changed)),
