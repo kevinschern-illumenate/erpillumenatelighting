@@ -298,6 +298,36 @@ class Ingest(unittest.TestCase):
 		)
 
 
+class Scopes(unittest.TestCase):
+	def inbox_query(self, scope):
+		s = FakeSession()
+		with mail_module() as (mail, _, _mb):
+			mail.ingest(
+				gmail.Gmail({}, session=s), "sales@illumenate.example", ME, OURS, TEAM, DIRECTORY, NOW, scope
+			)
+		return next(
+			p for m, path, p, _ in s.calls if path == "/threads" and p.get("q") and "in:inbox" in p["q"]
+		)
+
+	def test_each_mailbox_scope_reads_its_own_slice_of_the_inbox(self):
+		unread = self.inbox_query("Unread only")
+		self.assertIn("is:unread", unread["q"])
+		self.assertIn("-category:promotions", unread["q"])
+		self.assertEqual(unread["maxResults"], 100)
+		everything = self.inbox_query("All inbox")
+		self.assertNotIn("newer_than", everything["q"])
+		self.assertNotIn("is:unread", everything["q"])
+		self.assertNotIn("category:", everything["q"])
+		self.assertIn("-from:github.com", everything["q"])  # the skipped senders stay skipped
+		recent = self.inbox_query("Recent (21 days)")
+		self.assertIn("newer_than:21d", recent["q"])
+		self.assertEqual(self.inbox_query("something else")["q"], recent["q"])
+
+	def test_the_seed_gives_kevins_unread_and_sales_everything(self):
+		src = (REPO / "illumenate_lighting/patches/seed_desk_mailboxes.py").read_text(encoding="utf-8")
+		self.assertIn('scopes = {owner: "Unread only", sales: "All inbox"}', src)
+
+
 class MailBuild(unittest.TestCase):
 	def test_mailbox_states_are_reported_without_tokens(self):
 		rows = [

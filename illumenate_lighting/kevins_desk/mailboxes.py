@@ -47,7 +47,13 @@ def rows():
 	for r in settings.get("mailboxes") or []:
 		address = (r.mailbox or "").strip().lower()
 		if address and r.enabled:
-			out.append({"mailbox": address, "label": r.label or address})
+			out.append(
+				{
+					"mailbox": address,
+					"label": r.label or address,
+					"scope": r.get("scope") or "Recent (21 days)",
+				}
+			)
 	return out
 
 
