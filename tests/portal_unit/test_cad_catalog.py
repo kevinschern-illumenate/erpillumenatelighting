@@ -99,7 +99,13 @@ class CadCatalog(unittest.TestCase):
 		driver = self.payload["drivers"][0]
 		self.assertEqual(driver["code"], "PS-96-24")
 		self.assertEqual((driver["outputs"], driver["per_output_w"], driver["class2"]), (1, 96, True))
-		self.assertEqual(self.payload["controllers"][0]["category"], "dmx-decoder")
+		controls = {row["code"]: row for row in self.payload["controllers"]}
+		decoder = controls["DMXD-PWM-5C-SF"]
+		self.assertEqual((decoder["category"], decoder["kind"], decoder["dmx_footprint"]), ("dmx-decoder", "decoder", 5))
+		self.assertTrue(decoder["receives_dmx"])
+		self.assertEqual(controls["DMXC-TW-BK-WALL"]["ports"], [{"name": "DMX512", "direction": "out", "protocol": "DMX512"}])
+		self.assertEqual(controls["PIX-4"]["max_data_length_ft"], 15)
+		self.assertNotIn("receives_dmx", controls["PIX-4"])
 		self.assertEqual(self.payload["wires"][0]["awg"], "18")
 
 	def test_hash_ignores_who_and_when(self):

@@ -28,7 +28,7 @@ from tools.cad_toolkit.test.mini_lisp import (
 
 LISP = REPO / "tools/cad_toolkit/lisp"
 FIXTURES = REPO / "tools/system_designer/fixtures/cad"
-PURE = ("il-util.lsp", "il-json.lsp", "il-math.lsp", "il-sha256.lsp", "il-catalog.lsp", "il-model.lsp")
+PURE = ("il-util.lsp", "il-json.lsp", "il-math.lsp", "il-sha256.lsp", "il-catalog.lsp", "il-model.lsp", "il-controls.lsp")
 CASES = json.loads((FIXTURES / "lisp-subset.json").read_text(encoding="utf-8"))
 
 
@@ -262,6 +262,87 @@ class Model(unittest.TestCase):
 	def test_stale_catalog_warning(self):
 		self.assertIsNone(self.lisp.call("il-catalog-stale", self.catalog, "2026-12-01"))
 		self.assertIn("days old", self.lisp.call("il-catalog-stale", self.catalog, "2027-01-15"))
+
+
+def control(control_id, code, **extra):
+	values = {"id": control_id, "handle": format(0x3A00 + int(control_id[-2:]) + (0x80 if control_id.startswith("DEC") else 0), "X"), "item_code": code, "start": "auto"}
+	values.update(extra)
+	return to_alist(values)
+
+
+class Controls(unittest.TestCase):
+	"""Controls in v1 (PRD question 7): placement, zones, DMX patch and control checks."""
+
+	issues = Model.issues
+
+	def setUp(self):
+		Model.setUp(self)
+		model = alist(self.model)
+		model["controls"] = lst(
+			[
+				control("CTL-01", "DMXC-TW-BK-WALL", room="Z-Kitchen"),
+				control("DEC-01", "DMXD-PWM-5C-SF", cabinet="CAB-1", universe=1, start=1, control_from="CTL-01"),
+				control("DEC-02", "DMXD-PWM-5C-SF", cabinet="CAB-1", universe=1),
+				control("DEC-03", "DMXD-PWM-5C-SF", cabinet="CAB-1", universe=1, start=11),
+				control("CTL-02", "PIX-4", cabinet="CAB-1"),
+			]
+		)
+		model["zones"] = lst(
+			[
+				to_alist({"id": "ZN-1", "name": "Kitchen", "method": "DMX512", "control": "CTL-01", "port": "DMX512", "runs": lst(["L1-01", "L1-02"])}),
+				to_alist({"id": "ZN-2", "name": "Wrong", "method": "DMX512", "control": "CTL-02", "port": "OUT1", "runs": lst(["L2-01"])}),
+				to_alist({"id": "ZN-3", "name": "Twice", "method": "0-10V", "runs": lst(["L1-02"])}),
+			]
+		)
+		model["wires"] = lst([*model["wires"], to_alist({"id": "W-02", "from": "CTL-02", "to": "L3-01", "kind": "data", "length_in": 240.0})])
+		self.model = to_alist(model)
+
+	def test_dmx_patch_keeps_fixed_addresses_and_fills_auto_ones(self):
+		patch = [plain(row) for row in self.lisp.call("il-dmx-patch", self.model, self.catalog)]
+		self.assertEqual(patch, [[1, "DEC-01", 1, 5, None], [1, "DEC-02", 6, 10, True], [1, "DEC-03", 11, 15, None]])
+
+	def test_control_checks(self):
+		codes = {(issue["code"], issue["ref"]) for issue in self.issues()}
+		self.assertIn(("PROTOCOL_MISMATCH", "ZN-2"), codes)  # DMX zone on an SPI output
+		self.assertIn(("RUN_IN_TWO_ZONES", "L1-02"), codes)
+		self.assertIn(("DATA_TOO_LONG", "W-02"), codes)  # 20 ft of pixel data, 15 ft allowed
+		self.assertIn(("CONTROL_NO_SIGNAL", "DEC-02"), codes)
+		self.assertNotIn(("CONTROL_NO_SIGNAL", "DEC-01"), codes)
+		self.assertNotIn(("PROTOCOL_MISMATCH", "ZN-1"), codes)
+
+	def test_overlap_and_full_universe(self):
+		model = alist(self.model)
+		model["controls"] = lst([control("DEC-01", "DMXD-PWM-5C-SF", universe=2, start=10), control("DEC-02", "DMXD-PWM-5C-SF", universe=2, start=12), control("DEC-03", "DMXD-PWM-5C-SF", universe=2, start=510)])
+		model["zones"] = None
+		self.model = to_alist(model)
+		codes = {(issue["code"], issue["ref"]) for issue in self.issues()}
+		self.assertIn(("DMX_ADDRESS_OVERLAP", "DEC-01"), codes)
+		self.assertIn(("DMX_UNIVERSE_FULL", "DEC-03"), codes)
+
+	def test_unknown_control(self):
+		model = alist(self.model)
+		model["controls"] = lst([control("CTL-09", "NOPE")])
+		model["zones"] = None
+		self.model = to_alist(model)
+		self.assertIn(("CONTROL_UNKNOWN", "CTL-09"), {(issue["code"], issue["ref"]) for issue in self.issues()})
+
+	def test_package_with_controls_and_zones_passes_the_portal_validator(self):
+		model = alist(self.model)
+		model["zones"] = lst(list(model["zones"])[:2])
+		self.model = to_alist(model)
+		issues = self.lisp.call("il-check", self.model, self.catalog, "2026-11-25")
+		package = to_python_json(self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025"))
+		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
+			self.assertEqual(module.validate_package(package), [])
+		decoder = next(item for item in package["controls"] if item["id"] == "DEC-01")
+		self.assertEqual(decoder["dmx"], {"universe": 1, "start_address": 1})
+		self.assertEqual(decoder["control_from"], "CTL-01")
+		self.assertEqual(next(item for item in package["controls"] if item["id"] == "DEC-02")["dmx"]["start_address"], "auto")
+		self.assertEqual(package["zones"][0], {"id": "ZN-1", "name": "Kitchen", "method": "DMX512", "control": {"id": "CTL-01", "port": "DMX512"}, "runs": ["L1-01", "L1-02"]})
+
+	def test_receipt_controls(self):
+		receipt = from_python_json({"schema": "ilq-receipt/1", "runs": [], "controls": {"DEC-01": "LK9"}})
+		self.assertEqual(plain(self.lisp.call("il-receipt-controls", receipt)), {"DEC-01": "LK9"})
 
 
 class AccoreconsoleRunner(unittest.TestCase):

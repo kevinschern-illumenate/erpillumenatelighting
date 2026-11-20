@@ -299,8 +299,31 @@ def design_items(snapshot):
 						"code": item.get("erpItemCode"),
 						"model": item.get("model"),
 						"category": item.get("category"),
+						"kind": kind,
 						"protocol_in": specs.get("protocolIn"),
 						"protocol_out": specs.get("protocolOut"),
+						# Controls in v1 (PRD question 7): what ILCTRL, ILZONE and ILCHECK need.
+						"ports": [
+							_compact(
+								{
+									"name": port.get("name"),
+									"direction": port.get("direction"),
+									"protocol": port.get("protocol"),
+									"max_devices": port.get("maxDevices"),
+								}
+							)
+							for port in specs.get("ports") or []
+						]
+						or None,
+						"channels": specs.get("channels"),
+						"dmx_footprint": specs.get("dmxFootprint"),
+						"max_w_per_channel": specs.get("maxWPerChannel"),
+						"max_w_total": specs.get("maxWTotal"),
+						"max_universes": specs.get("maxUniverses"),
+						"max_pixels": specs.get("maxPixels"),
+						"max_data_length_ft": specs.get("maxDataLengthFt"),
+						"receives_dmx": item.get("category") in ("dmx-decoder", "dmx-0-10v-converter")
+						or None,
 					}
 				)
 			)

@@ -600,6 +600,40 @@ def builtins(interp):
 	def exit_():
 		raise Exit("quit / exit abort")
 
+	def call(function, *args):
+		function = interp.function(function) if not isinstance(function, Function) else function
+		return interp.apply(function, list(args))
+
+	def vl_sort(items, test):
+		# Insertion sort with the LISP predicate (AutoLISP's vl-sort also drops duplicate numbers; the
+		# toolkit sorts ids and records, which are distinct).
+		result = []
+		for item in items or []:
+			index = len(result)
+			while index > 0 and truthy(call(test, item, result[index - 1])):
+				index -= 1
+			result.insert(index, item)
+		return lst(result)
+
+	def vl_some(test, *lists):
+		for args in zip(*[list(items or []) for items in lists], strict=False):
+			value = call(test, *args)
+			if truthy(value):
+				return value
+		return None
+
+	def vl_remove_if(test, items):
+		return lst(item for item in items or [] if not truthy(call(test, item)))
+
+	def vl_remove_if_not(test, items):
+		return lst(item for item in items or [] if truthy(call(test, item)))
+
+	def vl_position(item, items):
+		for index, value in enumerate(items or []):
+			if lisp_equal(item, value):
+				return index
+		return None
+
 	def boole(operator, *values):
 		# Operator bits: 1 when both bits are 1, 2 for (1, 0), 4 for (0, 1), 8 when both are 0.
 		masks = {(1, 1): 1, (1, 0): 2, (0, 1): 4, (0, 0): 8}
@@ -692,6 +726,12 @@ def builtins(interp):
 		"VL-STRING-RIGHT-TRIM": lambda chars, text: text.rstrip(chars),
 		"VL-STRING-LEFT-TRIM": lambda chars, text: text.lstrip(chars),
 		"VL-PRINC-TO-STRING": lambda v: princ_text(v),
+		"VL-SORT": vl_sort,
+		"VL-SOME": vl_some,
+		"VL-REMOVE-IF": vl_remove_if,
+		"VL-REMOVE-IF-NOT": vl_remove_if_not,
+		"VL-REMOVE": lambda item, items: lst(value for value in items or [] if not lisp_equal(item, value)),
+		"VL-POSITION": vl_position,
 		"VL-CATCH-ALL-APPLY": catch_apply,
 		"VL-CATCH-ALL-ERROR-P": lambda v: T if isinstance(v, CaughtError) else None,
 		"VL-CATCH-ALL-ERROR-MESSAGE": lambda v: v.message,

@@ -29,6 +29,8 @@ function design(): Design {
       floorPlans: [],
     },
     runs: [run('K1', 'space-kitchen'), run('K2', 'space-primary-bath'), run('K3', 'space-kitchen')],
+    zones: [],
+    project: { equipment: [] },
   } as unknown as Design;
 }
 
@@ -50,6 +52,50 @@ const SITE = CadSiteSchema.parse({
     K2: { runId: 'L4-01', room: 'Primary Bath', feedMethod: 'double-end' },
     K9: { runId: 'L9-01', room: 'Kitchen' },
   },
+});
+
+const WITH_CONTROLS = CadSiteSchema.parse({
+  ...SITE,
+  controls: {
+    'CTL-01': { lineKey: 'C1', catalogId: 'ctl:DMXC', category: 'dmx-controller', room: 'Kitchen' },
+    'DEC-01': {
+      lineKey: 'C2',
+      catalogId: 'ctl:DEC',
+      category: 'dmx-decoder',
+      cabinet: 'CAB-1',
+      dmx: { universe: 2, start_address: 11 },
+      controlFrom: 'CTL-01',
+    },
+    'DEC-02': { lineKey: 'C3', catalogId: 'ctl:DEC', category: 'dmx-decoder', cabinet: 'CAB-1', dmx: { universe: 2 } },
+  },
+  zones: [
+    { id: 'ZN-1', name: 'Kitchen', method: 'DMX512', control: { id: 'CTL-01', port: 'DMX512' }, lines: ['K1', 'K3'] },
+    { id: 'ZN-2', name: 'Bath', method: '0-10V', lines: ['K2'] },
+  ],
+});
+
+describe('drawn controls and zones (controls in v1)', () => {
+  it('adds each control on its schedule line with its DMX address and signal source', () => {
+    const target = design();
+    const result = applyCadSite(target, WITH_CONTROLS);
+    expect(result.controls).toBe(3);
+    const [wall, first, second] = target.project.equipment;
+    expect(wall).toMatchObject({ id: 'CTL-01', category: 'dmx-controller', scheduleLine: 'C1', location: 'Kitchen', fedFrom: { ref: 'unassigned' } });
+    expect(wall!.dmx).toBeUndefined();
+    expect(first).toMatchObject({ enclosure: 'CAB-1', dmx: { universe: 2, startAddress: 11 }, controlFrom: { ref: 'CTL-01' }, controlLengthFt: 25 });
+    expect(second!.dmx).toEqual({ universe: 2, startAddress: 'auto' });
+    applyCadSite(target, WITH_CONTROLS);
+    expect(target.project.equipment).toHaveLength(3);
+  });
+
+  it('makes the zones and puts their runs in them', () => {
+    const target = design();
+    const result = applyCadSite(target, WITH_CONTROLS);
+    expect(result.zones).toBe(2);
+    expect(target.zones[0]).toMatchObject({ id: 'ZN-1', method: 'DMX512', control: { equipmentId: 'CTL-01', port: 'DMX512' } });
+    expect(target.zones[1]!.control).toBeUndefined();
+    expect(target.runs.map((run) => run.zoneId)).toEqual(['ZN-1', 'ZN-2', 'ZN-1']);
+  });
 });
 
 describe('applying the drawing site to a new design (draw-to-quote 2.3)', () => {

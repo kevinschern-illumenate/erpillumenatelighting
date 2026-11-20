@@ -22,6 +22,12 @@ def encode(value):
 	return base64.b64encode(json.dumps(value).encode()).decode()
 
 
+CONTROL_SPECS = {
+	"DMXC-TW-BK-WALL": ("DMX Controller", [("DMX512", "DMX512"), ("BLE Mesh", "Bluetooth Mesh")]),
+	"DMXD-PWM-5C-SF": ("DMX Decoder", [("DMX512", "DMX512"), ("PWM", "PWM")]),
+}
+
+
 class Line(Record):
 	__setattr__ = dict.__setitem__
 
@@ -175,6 +181,13 @@ class DrawingImport(unittest.TestCase):
 				SNAPSHOT_DOCTYPE="ilL-Design-Catalog-Snapshot", current_snapshot_hash=lambda: "0" * 63 + "1"
 			),
 			ROOT + ".system_design.dealer_data": types.SimpleNamespace(apply=lambda line, data: line.update(watts_each=data.get("watts_each"))),
+			ROOT + ".api.portal": types.SimpleNamespace(
+				orderable_item_problem=lambda code, staff=False: None if code in CONTROL_SPECS else "This Item is not active",
+				is_power_supply_group=lambda group: False,
+			),
+			ROOT + ".system_design.readiness": types.SimpleNamespace(
+				controller_category=lambda kind, dimming=None: {"DMX Decoder": "dmx-decoder", "DMX Controller": "dmx-controller"}.get(kind)
+			),
 		}
 		self.record_doc = record_doc
 
@@ -199,13 +212,18 @@ class DrawingImport(unittest.TestCase):
 	def module(self):
 		with load_service(ROOT + ".portal.drawing_import", self.extras) as (module, frappe):
 			frappe.db.get_value.side_effect = self._get_value
-			frappe.get_all.side_effect = lambda doctype, **kwargs: []
+			frappe.get_all.side_effect = self._get_all
 			frappe.get_doc.side_effect = self.record_doc
 			frappe.utils.date_diff = lambda a, b: 0
 			self.frappe = frappe
 			yield module
 
 	def _get_value(self, doctype, name, field=None, *args, **kwargs):
+		if doctype == "ilL-Spec-Controller":
+			spec = CONTROL_SPECS.get(name["item"])
+			return Record(name=name["item"], controller_type=spec[0], output_dimming=None) if spec else None
+		if doctype == "Item" and name in CONTROL_SPECS:
+			return Record(item_name=f"{name} control", item_group="Controls")
 		if doctype == "ilL-Extrusion-Kit-Template":
 			return 2000
 		if doctype == "ilL-Design-Catalog-Snapshot":
@@ -213,6 +231,12 @@ class DrawingImport(unittest.TestCase):
 		if field == "config_hash":
 			return "cfg-" + name
 		return None
+
+	def _get_all(self, doctype, **kwargs):
+		if doctype == "ilL-Child-Controller-Port":
+			spec = CONTROL_SPECS.get(kwargs["filters"]["parent"])
+			return [Record(port_name=name, protocol=protocol) for name, protocol in spec[1]]
+		return []
 
 	def preview(self, value=None, **kwargs):
 		with self.module() as module:
@@ -228,13 +252,13 @@ class DrawingImport(unittest.TestCase):
 	def test_preview_plans_every_run_and_strips_prices(self):
 		result = self.preview()
 		self.assertTrue(result["success"])
-		self.assertEqual(result["counts"]["ok"], 21)  # 20 runs + one other-manufacturer line
+		self.assertEqual(result["counts"]["ok"], 24)  # 20 runs, one other line, three controls
 		self.assertEqual(result["counts"]["error"], 0)
-		self.assertEqual(result["counts"]["add"], 21)
+		self.assertEqual(result["counts"]["add"], 24)
 		self.assertNotIn("msrp", json.dumps(result))
 		self.assertNotIn("pricing", json.dumps(result))
 		self.schedule.save.assert_not_called()
-		self.assertEqual(result["site"], {"rooms": 4, "cabinets": 2, "wire_paths": 21, "psus": 3})
+		self.assertEqual(result["site"], {"rooms": 4, "cabinets": 2, "wire_paths": 22, "psus": 3})
 
 	def test_tape_segments_are_inches_with_jumpers_and_feeds(self):
 		self.preview()
@@ -365,7 +389,7 @@ class DrawingImport(unittest.TestCase):
 		other = next(line for line in self.schedule.lines if line.get("cad_run_id") == "OTHER.X1")
 		self.assertEqual((other["manufacturer_type"], other["qty"], other["watts_each"]), ("OTHER", 4, 12))
 		record = self.records[-1]
-		self.assertEqual(record["runs_added"], 21)
+		self.assertEqual(record["runs_added"], 24)
 		self.assertTrue(record.flags.cad_import_service_write)
 		site = json.loads(record["site_json"])
 		self.assertEqual(site["schema"], "cad-site/1")
@@ -373,6 +397,51 @@ class DrawingImport(unittest.TestCase):
 		self.assertEqual((line["room"], line["cabinet"], line["homeRunLengthFt"]), ("Kitchen", "CAB-1", 11.46))
 		cabinet = next(item for item in site["cabinets"] if item["id"] == "CAB-1")
 		self.assertEqual(cabinet["feedLengthFt"], 45)
+
+	def test_controls_become_accessory_lines_and_seed_the_design(self):
+		result = self.commit()
+		self.assertTrue(result["success"], result)
+		decoder = next(line for line in self.schedule.lines if line.get("cad_run_id") == "DEC-01")
+		self.assertEqual((decoder["manufacturer_type"], decoder["accessory_item"], decoder["qty"]), ("ACCESSORY", "DMXD-PWM-5C-SF", 1))
+		self.assertEqual(decoder["location"], "CAB-1")
+		wall = next(line for line in self.schedule.lines if line.get("cad_run_id") == "CTL-01")
+		self.assertEqual(wall["location"], "Living")
+		self.assertEqual(result["receipt"]["controls"]["DEC-01"], decoder["line_key"])
+		site = json.loads(self.records[-1]["site_json"])
+		seed = site["controls"]["DEC-01"]
+		self.assertEqual(seed["catalogId"], "ctl:DMXD-PWM-5C-SF")
+		self.assertEqual(seed["category"], "dmx-decoder")
+		self.assertEqual(seed["dmx"], {"universe": 1, "start_address": 1})
+		self.assertEqual((seed["cabinet"], seed["controlFrom"], seed["lineKey"]), ("CAB-1", "CTL-01", decoder["line_key"]))
+		zone = site["zones"][0]
+		self.assertEqual((zone["method"], zone["control"]), ("DMX512", {"id": "CTL-01", "port": "DMX512"}))
+		self.assertEqual(len(zone["lines"]), 3)
+
+	def test_control_changes_update_in_place_and_removed_controls_need_confirmation(self):
+		self.commit()
+		key = next(line["line_key"] for line in self.schedule.lines if line.get("cad_run_id") == "DEC-02")
+		value = package()
+		value["controls"][2]["item_code"] = "DMXC-TW-BK-WALL"
+		self.commit(value)
+		changed = next(line for line in self.schedule.lines if line.get("cad_run_id") == "DEC-02")
+		self.assertEqual((changed["line_key"], changed["accessory_item"]), (key, "DMXC-TW-BK-WALL"))
+		value["controls"] = value["controls"][:2]
+		result = self.commit(value)
+		self.assertTrue(result["confirm_removals_required"])
+		self.assertEqual([row["id"] for row in result["removals"]], ["DEC-02"])
+
+	def test_unknown_control_or_port_is_an_error(self):
+		value = package()
+		value["controls"][0]["item_code"] = "NOT-A-CONTROL"
+		result = self.preview(value)
+		row = next(item for item in result["other_lines"] if item["id"] == "CTL-01")
+		self.assertEqual(row["status"], "error")
+		value = package()
+		value["zones"][0]["control"]["port"] = "DMX OUT"
+		result = self.preview(value)
+		zone = next(item for item in result["other_lines"] if item["id"] == "ZN-1")
+		self.assertIn("has no output DMX OUT", zone["messages"][0])
+		self.assertFalse(self.commit(value)["success"])
 
 	def test_idempotency_keys_are_stable_per_package_and_run(self):
 		self.commit()
@@ -402,6 +471,7 @@ class DrawingImport(unittest.TestCase):
 		value["runs"] = [run for run in value["runs"] if run["id"] != "L1-01"]
 		value["psus"] = [{**psu, "runs": [run for run in psu["runs"] if run != "L1-01"]} for psu in value["psus"]]
 		value["wire_paths"] = [wire for wire in value["wire_paths"] if "L1-01" not in (wire["from"], wire["to"])]
+		value["zones"] = [{**zone, "runs": [run for run in zone["runs"] if run != "L1-01"]} for zone in value["zones"]]
 		key = next(line["line_key"] for line in self.schedule.lines if line.get("cad_run_id") == "L1-01")
 		result = self.commit(value)
 		self.assertFalse(result["success"])

@@ -1,0 +1,63 @@
+{
+ "schema": "ilq/2",
+ "toolkit": {
+  "version": "0.3.0",
+  "platform": "AutoCAD LT 2025"
+ },
+ "catalog": {
+  "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+  "generated_at": "2026-11-20 09:00:00"
+ },
+ "target": {},
+ "drawing": {
+  "file": "min.dwg",
+  "rev": 0,
+  "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "units": "in",
+  "scale_verified": false
+ },
+ "runs": [
+  {
+   "id": "T1-01",
+   "handle": "1A",
+   "fixture_type": "T1",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 24
+    }
+   ]
+  }
+ ],
+ "check": {
+  "errors": 0,
+  "warnings": 0
+ },
+ "zones": [
+  {
+   "id": "ZN-1",
+   "name": "Z",
+   "method": "DMX512",
+   "runs": [
+    "T1-01"
+   ]
+  },
+  {
+   "id": "ZN-2",
+   "name": "Y",
+   "method": "0-10V",
+   "runs": [
+    "T1-01"
+   ]
+  }
+ ]
+}

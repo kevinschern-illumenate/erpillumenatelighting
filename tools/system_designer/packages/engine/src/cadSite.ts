@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { EnvChoiceSchema, FeedMethodSchema, type Cabinet, type Design, type EnvChoice } from '@ill/core-schemas/design';
+import { EquipmentCategorySchema } from '@ill/core-schemas/common';
+import {
+  EnvChoiceSchema,
+  FeedMethodSchema,
+  ZoneSchema,
+  type Cabinet,
+  type Design,
+  type EnvChoice,
+} from '@ill/core-schemas/design';
+import type { Equipment } from '@ill/core-schemas/project';
 import { environmentOption } from '@ill/data/environments';
 import { spaceIdFor } from './expand';
 
@@ -46,13 +55,52 @@ export const CadSiteSchema = z.object({
       }),
     )
     .default({}),
+  /** Controls in v1: each drawn control's schedule line, catalog item, cabinet and DMX address. */
+  controls: z
+    .record(
+      z.string(),
+      z.object({
+        lineKey: z.string().min(1),
+        catalogId: z.string().min(1),
+        category: EquipmentCategorySchema,
+        cabinet: z.string().nullish(),
+        room: z.string().nullish(),
+        dmx: z
+          .object({
+            universe: z.number().int().min(1).max(63999),
+            start_address: z.union([z.number().int().min(1).max(512), z.literal('auto')]).default('auto'),
+          })
+          .nullish(),
+        controlFrom: z.string().nullish(),
+      }),
+    )
+    .default({}),
+  zones: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(160),
+        name: z.string().min(1).max(120),
+        method: ZoneSchema.shape.method,
+        control: z.object({ id: z.string(), port: z.string() }).nullish(),
+        lines: z.array(z.string()).default([]),
+      }),
+    )
+    .default([]),
 });
 export type CadSite = z.infer<typeof CadSiteSchema>;
+
+/** Patch length inside one cabinet and the estimate between cabinets (as `controls.ts`). */
+const PATCH_FT = 3;
+const CROSS_CABINET_FT = 25;
+const ZONE_COLORS = ['#00588c', '#d97706', '#15803d', '#7c3aed', '#be123c', '#0f766e', '#a16207', '#4338ca'];
+const RECEIVES_DMX = new Set(['dmx-decoder', 'dmx-0-10v-converter']);
 
 export interface CadSiteResult {
   spaces: number;
   cabinets: number;
   runs: number;
+  controls: number;
+  zones: number;
   /** Lines of the drawing that have no run in the design (unconfigured or skipped lines). */
   unmatchedLines: string[];
 }
@@ -61,7 +109,7 @@ const RATING_CHOICE: Record<'Dry' | 'Damp' | 'Wet', EnvChoice> = { Dry: 'dry-con
 
 /** Apply the drawing's site to `design` in place (call it inside an immer recipe, or on a copy). */
 export function applyCadSite(design: Design, site: CadSite): CadSiteResult {
-  const result: CadSiteResult = { spaces: 0, cabinets: 0, runs: 0, unmatchedLines: [] };
+  const result: CadSiteResult = { spaces: 0, cabinets: 0, runs: 0, controls: 0, zones: 0, unmatchedLines: [] };
   const spaces = new Map(design.site.spaces.map((space) => [space.id, space]));
   for (const room of site.rooms) {
     const id = spaceIdFor(room.name);
@@ -121,5 +169,71 @@ export function applyCadSite(design: Design, site: CadSite): CadSiteResult {
     result.runs += 1;
   }
   result.unmatchedLines = Object.keys(site.lines).filter((key) => !seen.has(key));
+  result.controls = applyControls(design, site, spaces);
+  result.zones = applyZones(design, site);
   return result;
+}
+
+/**
+ * The drawn controls as design equipment, tied to their schedule lines (`scheduleLine`) so the power
+ * board's schedule sync keeps them instead of adding them again. They wait for power (`unassigned`):
+ * the board's "power controls" step feeds them from their cabinet.
+ */
+function applyControls(design: Design, site: CadSite, spaces: Map<string, Design['site']['spaces'][number]>) {
+  let added = 0;
+  const entries = Object.entries(site.controls);
+  for (const [id, control] of entries) {
+    if (design.project.equipment.some((item) => item.id === id || item.scheduleLine === control.lineKey)) continue;
+    const cabinet = control.cabinet ? design.site.cabinets.find((item) => item.id === control.cabinet) : undefined;
+    const space = control.room ? spaces.get(spaceIdFor(control.room)) : undefined;
+    const equipment: Equipment = {
+      id,
+      tag: id,
+      catalogId: control.catalogId,
+      category: control.category,
+      qty: 1,
+      location: (cabinet?.name || cabinet?.tag || control.room || id).slice(0, 300),
+      ...(cabinet ? { enclosure: cabinet.id } : {}),
+      fedFrom: { ref: 'unassigned' },
+      feedLengthFt: PATCH_FT,
+      env: cabinet?.env ?? space?.env ?? 'dry-concealed',
+      scheduleLine: control.lineKey,
+      ...(RECEIVES_DMX.has(control.category)
+        ? { dmx: { universe: control.dmx?.universe ?? 1, startAddress: control.dmx?.start_address ?? ('auto' as const) } }
+        : {}),
+    };
+    design.project.equipment.push(equipment);
+    added += 1;
+  }
+  for (const [id, control] of entries) {
+    if (!control.controlFrom) continue;
+    const target = design.project.equipment.find((item) => item.id === id);
+    const source = design.project.equipment.find((item) => item.id === control.controlFrom);
+    if (!target || !source || target.controlFrom) continue;
+    target.controlFrom = { ref: source.id };
+    target.controlLengthFt = source.enclosure && source.enclosure === target.enclosure ? PATCH_FT : CROSS_CABINET_FT;
+  }
+  return added;
+}
+
+/** Zones as drawn: each names its control output, and its runs (by schedule line) join it. */
+function applyZones(design: Design, site: CadSite) {
+  let added = 0;
+  for (const zone of site.zones) {
+    if (design.zones.some((item) => item.id === zone.id)) continue;
+    const control = zone.control && design.project.equipment.some((item) => item.id === zone.control!.id)
+      ? { equipmentId: zone.control.id, port: zone.control.port }
+      : undefined;
+    design.zones.push({
+      id: zone.id,
+      name: zone.name,
+      color: ZONE_COLORS[design.zones.length % ZONE_COLORS.length]!,
+      method: zone.method,
+      ...(control ? { control } : {}),
+    });
+    const lines = new Set(zone.lines);
+    for (const run of design.runs) if (lines.has(run.lineKey) && !run.zoneId) run.zoneId = zone.id;
+    added += 1;
+  }
+  return added;
 }

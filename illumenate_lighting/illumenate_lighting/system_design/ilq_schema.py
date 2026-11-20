@@ -80,7 +80,33 @@ def reference_problems(package):
 		for position, run in enumerate(psu.get("runs") or []):
 			if run not in runs:
 				problems.append(f"psus/{index}/runs/{position}: Unknown run: {run}")
-	ends = runs | psus | cabinets
+	controls = unique("controls")
+	unique("zones")
+	for control_id in controls & (runs | psus | cabinets):
+		problems.append(f"controls: Control id is used elsewhere: {control_id}")
+	for index, control in enumerate(package.get("controls") or []):
+		if control.get("cabinet") and control["cabinet"] not in cabinets:
+			problems.append(f"controls/{index}/cabinet: Unknown cabinet: {control['cabinet']}")
+		if control.get("room") and control["room"] not in rooms:
+			problems.append(f"controls/{index}/room: Unknown room: {control['room']}")
+		source = control.get("control_from")
+		if source and (source not in controls or source == control.get("id")):
+			problems.append(f"controls/{index}/control_from: Unknown control: {source}")
+		handle = str(control.get("handle") or "").upper()
+		if handle in handles:
+			problems.append(f"controls/{index}/handle: Duplicate handle: {control.get('handle')}")
+		handles.add(handle)
+	zoned = set()
+	for index, zone in enumerate(package.get("zones") or []):
+		if zone.get("control") and zone["control"].get("id") not in controls:
+			problems.append(f"zones/{index}/control/id: Unknown control: {zone['control'].get('id')}")
+		for position, run in enumerate(zone.get("runs") or []):
+			if run not in runs:
+				problems.append(f"zones/{index}/runs/{position}: Unknown run: {run}")
+			elif run in zoned:
+				problems.append(f"zones/{index}/runs/{position}: Run is in two zones: {run}")
+			zoned.add(run)
+	ends = runs | psus | cabinets | controls
 	for index, wire in enumerate(package.get("wire_paths") or []):
 		for end in ("from", "to"):
 			if wire.get(end) not in ends:
@@ -103,8 +129,14 @@ def with_defaults(package):
 	package["target"].setdefault("schedule", "")
 	package["target"].setdefault("schedule_version", 0)
 	package["target"].setdefault("project", "")
-	for section in ("rooms", "cabinets", "psus", "wire_paths", "other_lines"):
+	for section in ("rooms", "cabinets", "psus", "wire_paths", "other_lines", "controls", "zones"):
 		package.setdefault(section, [])
+	for control in package["controls"]:
+		control.setdefault("erp", {})
+		if control.get("dmx"):
+			control["dmx"].setdefault("start_address", "auto")
+	for zone in package["zones"]:
+		zone.setdefault("runs", [])
 	for room in package["rooms"]:
 		room.setdefault("level", "")
 		room.setdefault("env", "dry-concealed")

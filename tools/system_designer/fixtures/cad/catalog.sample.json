@@ -2,15 +2,70 @@
  "code_tables_version": "nec-2023-1",
  "controllers": [
   {
+   "category": "dmx-controller",
+   "code": "DMXC-TW-BK-WALL",
+   "id": "ctl:DMXC-TW-BK-WALL",
+   "kind": "controller",
+   "max_universes": 1,
+   "model": "DMX wall controller",
+   "ports": [
+    {
+     "direction": "out",
+     "name": "DMX512",
+     "protocol": "DMX512"
+    }
+   ],
+   "protocol_out": [
+    "DMX512"
+   ]
+  },
+  {
    "category": "dmx-decoder",
-   "code": "DMX-DEC-4",
-   "id": "ctl:DMX-DEC-4",
-   "model": "DMX decoder",
+   "channels": 5,
+   "code": "DMXD-PWM-5C-SF",
+   "dmx_footprint": 5,
+   "id": "ctl:DMXD-PWM-5C-SF",
+   "kind": "decoder",
+   "max_w_per_channel": 120,
+   "max_w_total": 1200,
+   "model": "DMX decoder 5 ch",
    "protocol_in": [
     "DMX512"
    ],
    "protocol_out": [
     "PWM"
+   ],
+   "receives_dmx": true
+  },
+  {
+   "category": "pixel-controller",
+   "code": "PIX-4",
+   "id": "ctl:PIX-4",
+   "kind": "controller",
+   "max_data_length_ft": 15,
+   "max_pixels": 4080,
+   "max_universes": 24,
+   "model": "Pixel controller 4 port",
+   "ports": [
+    {
+     "direction": "out",
+     "max_devices": 1020,
+     "name": "OUT1",
+     "protocol": "SPI"
+    },
+    {
+     "direction": "out",
+     "max_devices": 1020,
+     "name": "OUT2",
+     "protocol": "SPI"
+    }
+   ],
+   "protocol_in": [
+    "sACN",
+    "Art-Net"
+   ],
+   "protocol_out": [
+    "SPI"
    ]
   }
  ],
@@ -44,7 +99,7 @@
   }
  ],
  "generated_at": "2026-11-20 09:00:00",
- "hash": "b723ca6af1e77c3b947606d588bef77ef7cfaf7ea4552c1e207fb779f4e1b9d3",
+ "hash": "df12baf1a8f53bb5c6e7dcef43a255725295a60cd8f2bd46ea88ebeb2b189f57",
  "kit_templates": [
   {
    "code": "KIT-AZ01",

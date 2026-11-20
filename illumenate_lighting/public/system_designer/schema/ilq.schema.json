@@ -596,6 +596,228 @@
     "additionalProperties": false
    }
   },
+  "controls": {
+   "default": [],
+   "maxItems": 500,
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+     },
+     "handle": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{1,16}$"
+     },
+     "item_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140
+     },
+     "cabinet": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "room": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "dmx": {
+      "anyOf": [
+       {
+        "type": "object",
+        "properties": {
+         "universe": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 63999
+         },
+         "start_address": {
+          "default": "auto",
+          "anyOf": [
+           {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 512
+           },
+           {
+            "type": "string",
+            "const": "auto"
+           }
+          ]
+         }
+        },
+        "required": [
+         "universe"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "control_from": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "notes": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 1000
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "erp": {
+      "default": {},
+      "type": "object",
+      "properties": {
+       "line_key": {
+        "anyOf": [
+         {
+          "type": "string",
+          "maxLength": 140
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "configured_name": {
+        "anyOf": [
+         {
+          "type": "string",
+          "maxLength": 140
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "config_hash": {
+        "anyOf": [
+         {
+          "type": "string",
+          "maxLength": 140
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "id",
+     "handle",
+     "item_code"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "zones": {
+   "default": [],
+   "maxItems": 500,
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+     },
+     "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+     },
+     "method": {
+      "type": "string",
+      "enum": [
+       "phase-forward",
+       "phase-reverse",
+       "0-10V",
+       "DALI-2",
+       "DMX512",
+       "CRMX-wireless",
+       "Lutron-QS",
+       "Lutron-EcoSystem",
+       "none"
+      ]
+     },
+     "control": {
+      "anyOf": [
+       {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+         },
+         "port": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+         }
+        },
+        "required": [
+         "id",
+         "port"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "runs": {
+      "default": [],
+      "maxItems": 1000,
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+      }
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "method"
+    ],
+    "additionalProperties": false
+   }
+  },
   "check": {
    "type": "object",
    "properties": {

@@ -3,7 +3,7 @@
 ;;; (il-commands.lsp) and CI runs everything here against the shared fixtures.
 ;;;
 ;;; Model: an association list with "drawing", "rooms", "cabinets", "runs", "styles", "psus",
-;;; "wires", "others" and "overrides". A run is an association list ("id" "handle" "fixture_type"
+;;; "wires", "controls", "zones", "others" and "overrides". A run is an association list ("id" "handle" "fixture_type"
 ;;; "room" "location" "style" "vertices" "closed" "breaks" "start_feed" "lead_in" "jumper_in"
 ;;; "feed_method" "feed_handles" "cabinet" "psu_hint" "notes" "line_key" "configured_name"
 ;;; "config_hash" ...). Styles are catalog style objects (IL-OBJ) with an "id".
@@ -179,6 +179,7 @@
     )
   )
   (setq ends (append ids (mapcar '(lambda (x) (il-get "id" x)) (il-get "psus" model))
+                     (mapcar '(lambda (x) (il-get "id" x)) (il-get "controls" model))
                      (mapcar '(lambda (x) (il-get "id" x)) (il-get "cabinets" model))))
   (foreach wire (il-get "wires" model)
     (foreach end (list (il-get "from" wire) (il-get "to" wire))
@@ -213,7 +214,7 @@
       )
     )
   )
-  (reverse issues)
+  (append (reverse issues) (il-check-controls model catalog))
 )
 
 ;; (errors warnings): issues an override covers do not count.
@@ -342,6 +343,8 @@
                                                                        (il-obj (list (cons "code" (il-get "code" o)) (cons "ref" (il-get "ref" o))
                                                                                      (cons "note" (il-get "note" o)))))
                                                                     overrides))))))
+      (cons "controls" (il-package-controls model))
+      (cons "zones" (il-package-zones model))
       (cons "other_lines" (il-arr (il-get "others" model)))
     )
   )
@@ -353,6 +356,13 @@
 (defun il-receipt-index (receipt)
   (if (= (il-j receipt "schema") "ilq-receipt/1")
     (mapcar '(lambda (run) (cons (il-j run "id") run)) (il-items (il-j receipt "runs")))
+  )
+)
+
+;; ((control-id . line-key) ...) from a receipt (controls in v1).
+(defun il-receipt-controls (receipt)
+  (if (= (il-j receipt "schema") "ilq-receipt/1")
+    (mapcar '(lambda (pair) (cons (car pair) (cdr pair))) (cdr (il-j receipt "controls")))
   )
 )
 

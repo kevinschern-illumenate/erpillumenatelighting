@@ -15,7 +15,7 @@ ILRECEIPT <- receipt            keeps package + receipt (ilL-CAD-Import)      ho
 
 | Path | What |
 | --- | --- |
-| `lisp/il-util.lsp`, `il-json.lsp`, `il-math.lsp`, `il-sha256.lsp`, `il-catalog.lsp`, `il-model.lsp` | Pure AutoLISP: helpers, JSON, hint math, SHA-256, catalog lookups, model, ILCHECK rules, `ilq/2` writer, receipt. CI runs them. |
+| `lisp/il-util.lsp`, `il-json.lsp`, `il-math.lsp`, `il-sha256.lsp`, `il-catalog.lsp`, `il-model.lsp`, `il-controls.lsp` | Pure AutoLISP: helpers, JSON, hint math, SHA-256, catalog lookups, model, ILCHECK rules, `ilq/2` writer, receipt. CI runs them. |
 | `lisp/il-assets.lsp` | **Generated** layers, linetypes and blocks (riser symbols, plan symbols, title blocks): `npm run cad:export --prefix tools/system_designer`. |
 | `lisp/il-core.lsp`, `il-blocks.lsp`, `il-commands.lsp` | AutoCAD side: command wrapper (undo, sysvars, `*error*`), XData (`ILLUMENATE`, schema version and migration), drawing dictionary, `entmake` blocks, the `IL*` commands. |
 | `reference/cad_subset.py` | Python reference for the hint math, tested against the configurator's own functions. |
@@ -42,7 +42,7 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
 ## Commands
 
 `ILSETUP` `ILCATALOG` `ILSTYLE` `ILTAPE` `ILCONVERT` `ILJUMPER` `ILFEED` `ILSCALE` `ILROOM` `ILCAB` `ILPSU`
-`ILCONNECT` `ILWIRE` `ILOTHER` `ILOVERRIDE` `ILUPDATE` `ILCHECK` `ILQUOTE` `ILRECEIPT` `ILOUT` `ILRISER`
+`ILCONNECT` `ILCTRL` `ILZONE` `ILDMX` `ILWIRE` `ILOTHER` `ILOVERRIDE` `ILUPDATE` `ILCHECK` `ILQUOTE` `ILRECEIPT` `ILOUT` `ILRISER`
 `ILSTRIP` `ILVERSION` `ILHELP` (see `ILHELP` in AutoCAD).
 
 ## Release checklist

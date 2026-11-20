@@ -955,6 +955,13 @@
    "to": "CAB-2",
    "kind": "line",
    "path_length_in": 540.0
+  },
+  {
+   "id": "W-90",
+   "from": "CTL-01",
+   "to": "DEC-01",
+   "kind": "data",
+   "path_length_in": 360.0
   }
  ],
  "check": {
@@ -978,6 +985,65 @@
    "watts_each": 12,
    "input_voltage_v": 120,
    "voltage_class": "Line Voltage"
+  }
+ ],
+ "controls": [
+  {
+   "id": "CTL-01",
+   "handle": "3A01",
+   "item_code": "DMXC-TW-BK-WALL",
+   "room": "Z-Living",
+   "notes": "Wall station by the entry"
+  },
+  {
+   "id": "DEC-01",
+   "handle": "3A02",
+   "item_code": "DMXD-PWM-5C-SF",
+   "cabinet": "CAB-1",
+   "dmx": {
+    "universe": 1,
+    "start_address": 1
+   },
+   "control_from": "CTL-01"
+  },
+  {
+   "id": "DEC-02",
+   "handle": "3A03",
+   "item_code": "DMXD-PWM-5C-SF",
+   "cabinet": "CAB-1",
+   "dmx": {
+    "universe": 1
+   }
+  }
+ ],
+ "zones": [
+  {
+   "id": "ZN-1",
+   "name": "Living cove",
+   "method": "DMX512",
+   "control": {
+    "id": "CTL-01",
+    "port": "DMX512"
+   },
+   "runs": [
+    "L2-01",
+    "L2-02",
+    "L2-03"
+   ]
+  },
+  {
+   "id": "ZN-2",
+   "name": "Kitchen",
+   "method": "DMX512",
+   "control": {
+    "id": "CTL-01",
+    "port": "DMX512"
+   },
+   "runs": [
+    "L1-01",
+    "L1-02",
+    "L1-03"
+   ]
   }
  ]
 }

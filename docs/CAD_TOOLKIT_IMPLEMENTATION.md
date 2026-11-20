@@ -19,8 +19,10 @@ schedule becomes the quote. Everything ships behind `ill_cad_import` (default **
 | 8. Distribution | Staff first; dealers through `ill_cad_pilot_customers` (or the designer's pilot list); `ill_cad_all_dealers` opens it to every catalog user. |
 | 10. Branch | This work branch, for a PR to `main` (the designer lives there). |
 
-Still open for Kevin: 6 (which field wire Items before the pilot; live has one, unverified), 7 (controls in v1;
-treated as later), 9 (whether the earlier dynamic-block system has geometry worth reusing).
+| 6. Field wire | Pull the most commonly stocked wires and create the data: 33 sourced wires in `tools/seed_imports/field_wire_common.csv`. |
+| 7. Controls in v1 | Yes: controllers, decoders and zones in CAD, the package, the import and the design seed; controller import with Pharos and Advatek data. |
+| 9. Earlier dynamic blocks | Not reused; the generated blocks keep all their functions. |
+| Pushes | Not now; future pushes go to `staging`. |
 
 ## What was built
 
@@ -93,10 +95,44 @@ and quantity, with "only drawing imports" to compare toolkit jobs with the rest 
 same import (upload a `.dxf` in the dialog). Pure Python, no ezdxf. Dealer checklist:
 `public/cad_toolkit/ilLumenate-DXF-drafting-checklist.pdf` (source `tools/cad_toolkit/build/dxf_checklist.md`).
 
+### Field wire data (question 6)
+
+`tools/seed_imports/field_wire_common.py` writes `field_wire_common.csv` for the existing Desk field wire
+import (`system_design.wire_import.import_field_wire`, dry run first): CL3R and CL3P 18-12 AWG, 18/4,
+16/4 and 18/5 (RGB, RGBW) and 18/3 (pixel) CL3R, landscape direct burial 16-8 AWG, NM-B 14/2 and 12/2,
+THHN/THWN #14-#10 raceway sets, MC-AP 12/2, Belden 9841, 9842 and 82841 (DMX), Cat 6 CMR and CMP, 0-10 V
+dimming (CL2 and plenum), 18/2 shielded control, and Lutron QS cable (plain and plenum). Every row cites
+its manufacturer or distributor sheet; conflicting values use the conservative one; resistances are NEC
+Chapter 9 Table 8 or the measured DCR. Rows import as unverified and without prices: each passes the
+readiness rules except `item_price` (test `test_field_wire_common.py`). Cat 6 is 23 AWG; the spec form's
+nearest size, 24 AWG, is recorded and noted.
+
+### Controls in v1 (question 7)
+
+- **AutoCAD**: `ILCTRL` places a controller or decoder from the catalog (tag, cabinet, room, DMX universe
+  and start address or auto, the control that sends its signal); `ILZONE` groups runs under a control
+  output in a protocol (DMX512, CRMX, 0-10 V, DALI-2, Lutron QS/EcoSystem, phase, none); `ILDMX` previews
+  the DMX patch (fixed addresses kept, auto ones filled) and can draw it as a table; `ILWIRE` Data cables
+  connect controls. ILCHECK adds `CONTROL_UNKNOWN`, `CONTROL_NO_SIGNAL`, `DMX_ADDRESS_OVERLAP`,
+  `DMX_UNIVERSE_FULL`, `PROTOCOL_MISMATCH`, `ZONE_NO_CONTROL`, `RUN_IN_TWO_ZONES`, `DATA_TOO_LONG`
+  (`lisp/il-controls.lsp`, tested in CI).
+- **Package**: optional `controls` and `zones` sections in `ilq/2` (TypeScript, JSON Schema, Python,
+  fixtures).
+- **Import**: each control becomes an accessory line for its Item (checked against the active controller
+  specs; updated in place on re-import, removed only when confirmed); a zone naming a port the control
+  does not have is an error. The receipt returns each control's line key.
+- **System Designer**: a new design gets the drawn controls tied to their schedule lines (so the power
+  board's schedule sync keeps them), their DMX addresses and signal sources, and the zones with their runs.
+  Power, outputs, links and the final DMX patch stay the designer's.
+- **Controller data**: `system_design.controller_import.import_controllers` (Desk, dry run first) creates
+  Items, `ilL-Spec-Controller` records with protocols and ports, and the sACN and Art-Net protocol records
+  the site lacks. `tools/seed_imports/controls_common.csv`: Pharos LPC 1, LPC 2, LPC X 10, Advatek PixLite
+  A4-S Mk3 and PixLite 16 Mk2, sourced; terminal sizes (and the PixLite 16 input range) are left for
+  engineering, so readiness lists them.
+
 ### Phase 7 — Later (not built)
 
-Controls and pixel addressing (4 controller specs, none for Pharos/Advatek), 206 brand mode, metric (D11),
-optional online mode for full AutoCAD on Windows.
+206 brand mode, metric (D11), optional online mode for full AutoCAD on Windows.
 
 ## Phase 0 live data (read-only, 2026-11-20)
 
@@ -127,7 +163,8 @@ optional online mode for full AutoCAD on Windows.
 ## Needs people, not code
 
 0.1 dealer version survey · 0.2 spike runs on real installs · 0.3 designer E2E on staging · 0.4 live data
-fixes (`LED-HD-SW`, three drivers, verify the wire, field wire Items; read-only here) · 3.4 Kevin reviews
+fixes (`LED-HD-SW`, three drivers; run the field wire and controller imports, then add their prices and
+have engineering verify them; read-only here) · 3.4 Kevin reviews
 each block's look · 5.1–5.3 pilot jobs, tutorial, review gate on a DMX job.
 
 ## Capability matrix (fill from ILSPIKE)

@@ -37,6 +37,7 @@ from frappe.rate_limiter import rate_limit
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
 
 DOCTYPE = "ilL-CAD-Import"
+CONTROLLER = "ilL-Spec-Controller"
 SCHEDULE = "ilL-Project-Fixture-Schedule"
 MAX_BYTES = 5 * 1024 * 1024
 EXTENSIONS = ("json", "ilq", "dxf")
@@ -326,6 +327,7 @@ class Planner:
 		self.choices = choices or {}
 		self.templates = {}
 		self.kit_stock = {}
+		self.controls = {}
 		self.by_cad_id = {}
 		self.by_line_key = {}
 		for line in schedule.lines:
@@ -533,6 +535,114 @@ class Planner:
 		}
 		return row, {"cad_run_id": key, "line": line, "line_data": line_data}
 
+	def control_spec(self, code):
+		"""The active ``ilL-Spec-Controller`` of an Item, with its port names, or ``None``."""
+		if code not in self.controls:
+			spec = frappe.db.get_value(
+				CONTROLLER,
+				{"item": code, "is_active": 1},
+				["name", "controller_type", "output_dimming"],
+				as_dict=True,
+			)
+			if spec:
+				spec["ports"] = {
+					row.port_name: row.protocol
+					for row in frappe.get_all(
+						"ilL-Child-Controller-Port",
+						filters={"parent": spec.name, "parenttype": CONTROLLER},
+						fields=["port_name", "protocol"],
+					)
+				}
+			self.controls[code] = spec
+		return self.controls[code]
+
+	def plan_control(self, control, rooms):
+		"""A control placed in CAD: an accessory line for its Item, plus its place in the design."""
+		from illumenate_lighting.illumenate_lighting.api.portal import (
+			is_power_supply_group,
+			orderable_item_problem,
+		)
+
+		key = control["id"]
+		line = self.by_cad_id.get(key)
+		row = {
+			"id": key,
+			"fixture_type": key,
+			"family": "CONTROL",
+			"status": "ok",
+			"messages": [],
+			"action": "update" if line is not None else "add",
+			"summary": control["item_code"],
+		}
+		code = control["item_code"]
+		problem = orderable_item_problem(code, self.is_sales_staff)
+		spec = None if problem else self.control_spec(code)
+		if problem or not spec:
+			row["status"] = "error"
+			row["messages"].append(
+				problem or _("{0} is not a control in the ilLumenate catalog").format(code)
+			)
+			return row, None
+		item = frappe.db.get_value("Item", code, ["item_name", "item_group"], as_dict=True) or {}
+		row["summary"] = item.get("item_name") or code
+		if control.get("dmx"):
+			address = control["dmx"].get("start_address")
+			row["messages"].append(
+				_("Universe {0}, address {1}").format(
+					control["dmx"]["universe"], address if address != "auto" else _("auto")
+				)
+			)
+		location = (rooms.get(control.get("room") or "") or {}).get("name") or control.get("cabinet")
+		line_data = {
+			"line_id": key,
+			"qty": 1,
+			"location": location,
+			"manufacturer_type": "ACCESSORY",
+			"accessory_item": code,
+			"accessory_item_name": item.get("item_name") or code,
+			"notes": control.get("notes"),
+		}
+		if not is_power_supply_group(item.get("item_group")):
+			line_data["accessory_product_type"] = item.get("item_group")
+		from illumenate_lighting.illumenate_lighting.system_design.readiness import controller_category
+
+		meta = {
+			"catalogId": f"ctl:{spec.name}",
+			"category": controller_category(spec.controller_type, spec.output_dimming) or "dmx-controller",
+			"cabinet": control.get("cabinet"),
+			"room": (rooms.get(control.get("room") or "") or {}).get("name"),
+			"dmx": control.get("dmx"),
+			"controlFrom": control.get("control_from"),
+		}
+		return row, {
+			"cad_run_id": key,
+			"line": line,
+			"line_data": line_data,
+			"kind": "control",
+			"control": meta,
+		}
+
+	def zone_problems(self):
+		"""Zones whose control output is not a port of that control, as ``(zone id, text)``."""
+		controls = {control["id"]: control for control in self.package.get("controls") or []}
+		problems = []
+		for zone in self.package.get("zones") or []:
+			target = zone.get("control")
+			if not target:
+				continue
+			control = controls.get(target["id"])
+			spec = self.control_spec(control["item_code"]) if control else None
+			if spec and target["port"] not in spec["ports"]:
+				problems.append(
+					(
+						zone["id"],
+						_("{0} has no output {1} (it has {2})").format(
+							target["id"], target["port"], ", ".join(sorted(spec["ports"])) or _("no ports")
+						),
+					)
+				)
+		return problems
+
 	def removals(self, kept):
 		"""Lines an earlier import made whose run is no longer in the drawing."""
 		rows = []
@@ -562,8 +672,25 @@ class Planner:
 			row, data = self.plan_other(other)
 			other_rows.append(row)
 			others.append(data)
+		rooms = {room["id"]: room for room in self.package.get("rooms") or []}
+		for control in self.package.get("controls") or []:
+			row, data = self.plan_control(control, rooms)
+			other_rows.append(row)
+			if data:
+				others.append(data)
+		for zone_id, text in self.zone_problems():
+			other_rows.append(
+				{
+					"id": zone_id,
+					"fixture_type": zone_id,
+					"family": "ZONE",
+					"status": "error",
+					"messages": [text],
+				}
+			)
 		kept = {cad_id(run["id"], part) for run in self.package["runs"] for part, _r in requests_for(run)}
 		kept |= {data["cad_run_id"] for data in others}
+		kept |= {control["id"] for control in self.package.get("controls") or []}
 		return rows, other_rows, self.removals(kept), saves, others
 
 
@@ -595,7 +722,7 @@ def _location(run):
 # --- Site (rooms, cabinets, measured home runs) ---------------------------------------------
 
 
-def site_seed(package, line_keys, import_name=None):
+def site_seed(package, line_keys, import_name=None, controls=None):
 	"""The ``cad-site/1`` document the System Designer applies to a new design (plan 2.3).
 
 	Spaces are named by room (the import sets each line's location to its room, and the designer makes
@@ -659,6 +786,19 @@ def site_seed(package, line_keys, import_name=None):
 			for cabinet in package.get("cabinets") or []
 		],
 		"lines": lines,
+		# Controls in v1: each control's schedule line, catalog item, cabinet and DMX address, and the
+		# zones that group runs (by their lines) under a control output.
+		"controls": {key: value for key, value in (controls or {}).items() if value.get("lineKey")},
+		"zones": [
+			{
+				"id": zone["id"],
+				"name": zone["name"],
+				"method": zone["method"],
+				"control": zone.get("control"),
+				"lines": [line_keys[run] for run in zone.get("runs") or [] if line_keys.get(run)],
+			}
+			for zone in package.get("zones") or []
+		],
 	}
 
 
@@ -877,6 +1017,23 @@ def update_other_line(line, line_data):
 	dealer_data.apply(line, line_data)
 
 
+CONTROL_FIELDS = (
+	"qty",
+	"location",
+	"accessory_item",
+	"accessory_item_name",
+	"accessory_product_type",
+	"notes",
+)
+
+
+def update_control_line(line, line_data):
+	"""Apply a re-imported control to its existing accessory line."""
+	for field in CONTROL_FIELDS:
+		if field in line_data:
+			line.set(field, line_data[field])
+
+
 def _remove_lines(doc, keys):
 	"""Remove lines by ``line_key``, with the supply lines that belong to them."""
 	keys = set(keys)
@@ -1030,7 +1187,10 @@ def commit_drawing_import(
 		line = next((item for item in doc.lines if item.get("cad_run_id") == data["cad_run_id"]), None)
 		if line is not None:
 			# Update in place: the line keeps its line_key, so quotes and orders stay linked.
-			update_other_line(line, data["line_data"])
+			if data.get("kind") == "control":
+				update_control_line(line, data["line_data"])
+			else:
+				update_other_line(line, data["line_data"])
 		else:
 			error = append_line(doc, data["line_data"], _sales_staff())
 			if error:
@@ -1044,7 +1204,7 @@ def commit_drawing_import(
 	if removed_keys:
 		_remove_lines(doc, removed_keys)
 	doc.save(ignore_permissions=True)
-	record = _store(doc, package, digest, rows, other_rows, removals, line_keys)
+	record = _store(doc, package, digest, rows, other_rows, removals, line_keys, others)
 	if plan is not None:
 		store_plan_pdf(record, doc, plan)
 	receipt = json.loads(record.receipt_json)
@@ -1144,10 +1304,13 @@ def receipt_for(doc, package, rows, removals, line_keys, import_name):
 		"runs": runs,
 		"removed": [row["id"] for row in removals],
 		"other_lines": {key: line_keys.get(key) for key in line_keys if key.startswith(OTHER_PREFIX)},
+		"controls": {
+			control["id"]: line_keys.get(control["id"]) for control in package.get("controls") or []
+		},
 	}
 
 
-def _store(doc, package, digest, rows, other_rows, removals, line_keys):
+def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=()):
 	from frappe.utils import now_datetime
 
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json
@@ -1185,7 +1348,12 @@ def _store(doc, package, digest, rows, other_rows, removals, line_keys):
 	record.insert(ignore_permissions=True)
 	receipt = receipt_for(doc, package, rows, removals, line_keys, record.name)
 	record.receipt_json = canonical_json(receipt)
-	record.site_json = canonical_json(site_seed(package, run_line_keys, record.name))
+	controls = {
+		data["cad_run_id"]: {**data["control"], "lineKey": line_keys.get(data["cad_run_id"])}
+		for data in others
+		if data.get("kind") == "control"
+	}
+	record.site_json = canonical_json(site_seed(package, run_line_keys, record.name, controls))
 	record.flags.cad_import_service_write = True
 	record.save(ignore_permissions=True)
 	return record

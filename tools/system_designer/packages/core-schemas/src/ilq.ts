@@ -94,6 +94,54 @@ export const IlqRunSchema = z
   .strict();
 export type IlqRun = z.infer<typeof IlqRunSchema>;
 
+/** Zone control methods: the System Designer's zone methods (`ZoneSchema.method`). */
+export const ZONE_METHODS = [
+  'phase-forward',
+  'phase-reverse',
+  '0-10V',
+  'DALI-2',
+  'DMX512',
+  'CRMX-wireless',
+  'Lutron-QS',
+  'Lutron-EcoSystem',
+  'none',
+] as const;
+
+/** A controller, decoder or other control placed in the drawing (controls in v1, PRD question 7). */
+export const IlqControlSchema = z
+  .object({
+    id: CadIdSchema,
+    handle: HandleSchema,
+    item_code: z.string().trim().min(1).max(140),
+    cabinet: CadIdSchema.nullish(),
+    room: CadIdSchema.nullish(),
+    dmx: z
+      .object({
+        universe: z.number().int().min(1).max(63999),
+        start_address: z.union([z.number().int().min(1).max(512), z.literal('auto')]).default('auto'),
+      })
+      .strict()
+      .nullish(),
+    /** Another control this one takes its signal from (a DMX controller feeding a decoder). */
+    control_from: CadIdSchema.nullish(),
+    notes: Text(1000).nullish(),
+    erp: IlqErpKeysSchema.default({}),
+  })
+  .strict();
+export type IlqControl = z.infer<typeof IlqControlSchema>;
+
+/** Runs dimmed together, and the control output that dims them. */
+export const IlqZoneSchema = z
+  .object({
+    id: CadIdSchema,
+    name: z.string().trim().min(1).max(120),
+    method: z.enum(ZONE_METHODS),
+    control: z.object({ id: CadIdSchema, port: z.string().trim().min(1).max(60) }).strict().nullish(),
+    runs: z.array(CadIdSchema).max(1000).default([]),
+  })
+  .strict();
+export type IlqZone = z.infer<typeof IlqZoneSchema>;
+
 export const IlqPackageSchema = z
   .object({
     schema: z.literal(ILQ_SCHEMA),
@@ -171,6 +219,8 @@ export const IlqPackageSchema = z
       )
       .max(2000)
       .default([]),
+    controls: z.array(IlqControlSchema).max(500).default([]),
+    zones: z.array(IlqZoneSchema).max(500).default([]),
     check: z
       .object({
         errors: z.number().int().nonnegative(),
@@ -241,7 +291,36 @@ export const IlqPackageSchema = z
           ctx.addIssue({ code: 'custom', path: ['psus', index, 'runs', position], message: `Unknown run: ${run}` });
       });
     });
-    const ends = new Set([...runs, ...psus, ...cabinets]);
+    const controls = unique(pkg.controls, 'controls');
+    unique(pkg.zones, 'zones');
+    for (const id of controls)
+      if (runs.has(id) || psus.has(id) || cabinets.has(id))
+        ctx.addIssue({ code: 'custom', path: ['controls'], message: `Control id is used elsewhere: ${id}` });
+    pkg.controls.forEach((control, index) => {
+      if (control.cabinet && !cabinets.has(control.cabinet))
+        ctx.addIssue({ code: 'custom', path: ['controls', index, 'cabinet'], message: `Unknown cabinet: ${control.cabinet}` });
+      if (control.room && !rooms.has(control.room))
+        ctx.addIssue({ code: 'custom', path: ['controls', index, 'room'], message: `Unknown room: ${control.room}` });
+      if (control.control_from && (!controls.has(control.control_from) || control.control_from === control.id))
+        ctx.addIssue({ code: 'custom', path: ['controls', index, 'control_from'], message: `Unknown control: ${control.control_from}` });
+      const handle = control.handle.toUpperCase();
+      if (handles.has(handle))
+        ctx.addIssue({ code: 'custom', path: ['controls', index, 'handle'], message: `Duplicate handle: ${control.handle}` });
+      handles.add(handle);
+    });
+    const zoned = new Set<string>();
+    pkg.zones.forEach((zone, index) => {
+      if (zone.control && !controls.has(zone.control.id))
+        ctx.addIssue({ code: 'custom', path: ['zones', index, 'control', 'id'], message: `Unknown control: ${zone.control.id}` });
+      zone.runs.forEach((run, position) => {
+        if (!runs.has(run))
+          ctx.addIssue({ code: 'custom', path: ['zones', index, 'runs', position], message: `Unknown run: ${run}` });
+        else if (zoned.has(run))
+          ctx.addIssue({ code: 'custom', path: ['zones', index, 'runs', position], message: `Run is in two zones: ${run}` });
+        zoned.add(run);
+      });
+    });
+    const ends = new Set([...runs, ...psus, ...cabinets, ...controls]);
     pkg.wire_paths.forEach((wire, index) => {
       for (const end of ['from', 'to'] as const)
         if (!ends.has(wire[end]))
