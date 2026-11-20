@@ -6,7 +6,8 @@
 {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, line, signatures, date, line_group, section_total, line_type, line_notes, qty with context -%}
 {%- set orders = ill_print_references(doc, "sales_order") -%}
 {%- set project = ill_print_project(doc) -%}
-{%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
+{#-- Repeated rows (the same part for several fixtures) print as one line, quantities added up. --#}
+{%- set sections = ill_print_sections(doc.items, follow_links=True, merge_same=True) -%}
 {%- set labelled = sections | selectattr("label") | list | length -%}
 {%- set row = namespace(n=0) -%}
 {%- set moving = doc.material_request_type in ("Material Transfer", "Material Issue", "Manufacture") -%}

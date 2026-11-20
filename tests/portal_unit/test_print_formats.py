@@ -215,6 +215,64 @@ class Helpers(unittest.TestCase):
 		self.assertEqual([i.name for i in sections[0]["items"]], ["a", "c"])
 		self.assertEqual(sections[0]["subtotal"], 12.0)
 
+	def test_merge_same_adds_up_repeated_rows_and_keeps_every_row(self):
+		def part(name, **values):
+			base = dict(
+				name=name,
+				item_code="EC-CA01",
+				item_name="End cap",
+				qty=1.0,
+				uom="Ea",
+				rate=0.18,
+				amount=0.18,
+				ill_section_label="",
+				ill_fixture_type="",
+				schedule_date="2026-12-01",
+				sales_order="SO-1",
+			)
+			base.update(values)
+			return Doc(**base)
+
+		items = [
+			part("a"),
+			part("b", sales_order="SO-2"),
+			part("other", item_code="CH-CA01", rate=3.8, amount=3.8),
+			part("c"),
+			part("dearer", rate=0.25, amount=0.25),
+			part("later", schedule_date="2026-12-15"),
+			part("broken", page_break=1),
+		]
+		(section,) = PRINTING.ill_print_sections(items, merge_same=True)
+		lines = section["lines"]
+		self.assertEqual(len(lines), 5)
+		merged = lines[0]["item"]
+		self.assertEqual((merged.item_code, merged.qty, merged.merged_rows), ("EC-CA01", 3.0, 3))
+		self.assertAlmostEqual(merged.amount, 0.54)
+		self.assertEqual(merged.get("rate"), 0.18)
+		self.assertEqual(lines[0]["orders"], ["SO-1", "SO-2"])
+		self.assertEqual(merged.sales_order, "SO-1, SO-2")
+		# A different price or required-by date stays its own line, and so does a row with a
+		# page break; single rows are the document's own rows, untouched.
+		self.assertEqual([e["item"].name for e in lines[1:]], ["other", "dearer", "later", "broken"])
+		self.assertIs(lines[1]["item"], items[2])
+		self.assertEqual(len(section["items"]), 7)
+		self.assertAlmostEqual(section["subtotal"], 0.18 * 5 + 3.8 + 0.25)
+		# Off by default: every other format prints every row.
+		self.assertEqual(len(PRINTING.ill_print_sections(items)[0]["lines"]), 7)
+
+	def test_merge_same_stays_inside_a_room_and_repeats_headers_after_breaks(self):
+		items = [
+			line(name="k1", ill_section_label="Kitchen", qty=1, amount=1),
+			line(name="k2", ill_section_label="Kitchen", qty=2, amount=2, page_break=1),
+			line(name="k3", ill_section_label="Kitchen", qty=4, amount=4, item_code="OTHER"),
+			line(name="b1", ill_section_label="Bath", qty=5, amount=5),
+			line(name="k4", ill_section_label="Kitchen", qty=8, amount=8),
+		]
+		kitchen, bath = PRINTING.ill_print_sections(items, merge_same=True)
+		self.assertEqual([e["item"].qty for e in kitchen["lines"]], [9.0, 2, 4])
+		self.assertEqual([e["header"] for e in kitchen["lines"]], ["Kitchen", "", "Kitchen (continued)"])
+		self.assertEqual([e["item"].qty for e in bath["lines"]], [5])
+
 	def test_msrp_is_list_rate_but_never_below_the_selling_rate(self):
 		self.assertEqual(PRINTING.ill_print_msrp(line()), 0.85)
 		self.assertEqual(PRINTING.ill_print_msrp(line(price_list_rate=0, rate_with_margin=0, rate=9.0)), 9.0)
@@ -735,6 +793,50 @@ class LineLayout(unittest.TestCase):
 		)
 		self.assertIn('class="ill-section"', html)
 		self.assertNotIn('class="ill-type-line"', html)
+
+	def test_purchase_order_and_material_request_print_repeated_parts_once(self):
+		def part(name, order, qty=1.0):
+			return line(
+				name=name,
+				item_code="EC-CA01-GR-HO",
+				item_name="End cap",
+				qty=qty,
+				uom="Ea",
+				rate=0.18,
+				amount=round(0.18 * qty, 2),
+				ill_section_label="",
+				ill_fixture_type="",
+				description="End cap",
+				sales_order=order,
+				warehouse="Stores - ilL",
+			)
+
+		items = [part("r1", "SO-1"), part("r2", "SO-2"), part("r3", "SO-1")]
+		html = render(
+			"ill_purchase_order",
+			sales_doc(doctype="Purchase Order", supplier_name="Vendor Co", items=items),
+		)
+		self.assertEqual(html.count("EC-CA01-GR-HO"), 1)
+		self.assertIn("For orders SO-1, SO-2", html)
+		self.assertIn("$0.54", html)
+		self.assertEqual(html.count('<td class="ill-idx">'), 1)
+		self.assertNotIn("{{", html)
+
+		html = render(
+			"ill_material_request",
+			Doc(name="MR-1", docstatus=1, status="Pending", material_request_type="Purchase", items=items),
+		)
+		self.assertEqual(html.count('<td class="ill-idx">'), 1)
+		self.assertIn(">3 ea<", html.replace("\n", ""))
+		self.assertIn("For SO-1, SO-2", html)
+		self.assertNotIn("{{", html)
+
+		# A single linked order still reads "For order".
+		html = render(
+			"ill_purchase_order",
+			sales_doc(doctype="Purchase Order", supplier_name="Vendor Co", items=[part("r1", "SO-1")]),
+		)
+		self.assertIn("For order SO-1", html)
 
 	def test_page_break_check_starts_a_new_page_and_repeats_the_headings(self):
 		# The item tables with ERPNext's per-line "Page Break" check.
