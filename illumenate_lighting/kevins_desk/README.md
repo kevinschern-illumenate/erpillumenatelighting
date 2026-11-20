@@ -20,8 +20,14 @@ A private daily operating page for Kevin at `/kd/<slug>`, built on the Command C
 | `kevins_desk/schedule.py` | Daily blocks, day themes, hats (Pacific). The one place to change a block |
 | `kevins_desk/cc.py` | Calls the Command Center gateway (`ill_cc_gateway`) in process, as the current user |
 | `kevins_desk/pipeline.py` | Phase 2 widgets (via the gateway) and the owner's ToDos (direct) |
-| `kevins_desk/api.py` | `pipeline`, `signals` endpoints, cached per user for 5 minutes; `refresh=1` rebuilds |
-| `doctype/ill_desk_settings` | Enabled, Desk Owner, Link Slug (System Manager only) |
+| `kevins_desk/api.py` | `today` (pipeline + ToDos + mailboxes + the ranked list), `signals`, `connect_mailbox` (POST). Cached per user (pipeline 5 min, mail 10 min); `refresh=1` rebuilds |
+| `kevins_desk/gmail.py` | Minimal Gmail client: read thread metadata, list/create labels, add/remove only @Action/@Waiting/@Quote. No send, trash, delete or archive |
+| `kevins_desk/mail.py` | Reads each connected mailbox, works out thread state, keeps the labels, turns threads into items |
+| `kevins_desk/mailboxes.py` | Mailbox list, connection state, and the Google connect flow (one Connected App per mailbox) |
+| `kevins_desk/ranking.py` | Topic detection, priority-stack placement, the merged ranked list grouped by hat (pure) |
+| `kevins_desk/team.py` | Jay, Charlotte, Ryan, Regina: who they are and what they own |
+| `kevins_desk/tasks.py` | `warm`: rebuilds the caches as the owner every 10 min, 6:00-17:59 weekdays |
+| `doctype/ill_desk_settings` | Enabled, Desk Owner, Link Slug, Google App, Mailboxes (System Manager only; owner-locked) |
 
 ## What the page shows
 
@@ -36,10 +42,59 @@ A private daily operating page for Kevin at `/kd/<slug>`, built on the Command C
   Every row links to its record. "All in the Command Center" opens the Workbench list.
 - **My ToDos:** open ToDos allocated to the owner. Overdue and due today come first; upcoming and undated ones are folded. Each shows its tags, the linked record and the Gmail thread when the description has one.
 
-Every item uses one shape (`id, dt, name, title, party, date, amount, status, flag, url, hat, stack`). Phase 3 merges these items with Gmail threads and ranks them.
+Every item uses one shape (`id, dt, name, title, party, date, amount, status, flag, url, hat, stack`).
+
+- **One list** (default view): every ERPNext item, ToDo and Gmail thread in a single list. Items are ranked by the priority stack: within a level, things Kevin owes come before threads he's waiting on, then late items, then items due today, then the oldest. They're grouped by hat, and the hat with the most urgent item comes first. Each item links to its record or thread. The Pipeline tab keeps the Phase 2 widgets.
+
+## Gmail (Phase 3)
+
+**Connecting a mailbox (once each).** ilL-Desk-Settings → Mailboxes lists the mailboxes; the seed patch adds the owner's mailbox and sales@.
+
+1. In Google Cloud → APIs & Services → Credentials → the OAuth client used by ilL-Desk-Settings → Google App, add each mailbox's redirect URI to Authorized redirect URIs. The URIs are shown on the desk's Mailboxes card, e.g. `…/connected_app.callback/kevins-desk-sales`.
+2. On the desk, click **Connect** and sign in to Google as that mailbox.
+
+The desk creates `kevins-desk-<name>` Connected Apps by copying the Google App's client, and adds `access_type=offline`, `prompt=consent` and `login_hint`. The original Google App is not changed. Frappe stores the tokens encrypted in Token Cache and refreshes them. After connecting, the desk checks Gmail's profile; if you signed in as the wrong account, the card says "Wrong account".
+
+**What's read.** Metadata only, never message bodies:
+- the inbox for the last 21 days, without promotions, social and forums, and without mail from GitHub, Frappe Cloud, Vercel, Amazon, Intuit/QuickBooks, LinkedIn or Google
+- sent mail for the last 30 days
+- threads already labelled @Action or @Waiting
+
+**Thread state** (from the last message):
+
+| State | Meaning | Label |
+|---|---|---|
+| Needs reply | someone else wrote last, and the thread is in the inbox | @Action |
+| Waiting | we wrote last, 3+ days ago | @Waiting |
+| Recent | we wrote last, under 3 days ago | none |
+| Handled | someone else wrote last, and the thread is no longer in the inbox | none |
+
+"We" means the mailbox and the desk owner. A colleague counts as "we" only on a thread with someone outside the company (they answered the customer). A colleague writing internally is asking for something, so it lands in "Unblocking the team".
+
+Automated mail is dropped and loses @Action/@Waiting: list headers, bulk precedence, Auto-Submitted, no-reply-style senders, and the skipped domains. @Quote is added to quote threads and never removed. Nothing is archived, marked read, trashed or sent.
+
+**Placement on the stack:**
+1. Risk words (damaged, not working, late, missing, urgent, …) → 1
+2. A teammate → 5
+3. A supplier → 3
+4. Quote words → 2
+5. Order words → 3
+6. Support words → 4
+7. Any other customer, dealer or new sender → 2
+
+Senders are matched to a Customer, Supplier or Lead through Contact emails, by exact address or by company domain (not for gmail.com and the like).
+
+ToDos are placed by their linked record:
+- Quotation or Lead → 2
+- Sales Order or Purchase Order → 3
+- Ticket → 4
+- Project or Task → 6
+
+A ToDo assigned by a teammate goes to 5. Otherwise the same words as for threads decide, and anything left is 7 (admin).
 
 ## Tests
 
 - `tests/portal_unit/test_kevins_desk.py`: the gate, the page context, the schedule.
 - `tests/portal_unit/test_kevins_desk_pipeline.py`: endpoints and their 404s, the cache, the gateway adapter, and the widgets. The widget filters are checked against the gateway's own column registry, because the gateway silently drops filters on columns it doesn't list.
-- `tests/portal_ui/kevins_desk.test.cjs`: the Pacific clock, block lookup, and the page render with stubbed endpoints.
+- `tests/portal_unit/test_kevins_desk_mail.py`: the Gmail client can't send or touch other labels; thread state; label changes; mailbox states without tokens; the connect flow; ranking; the warm job.
+- `tests/portal_ui/kevins_desk.test.cjs`: the Pacific clock, block lookup, the page render, the one list, the Connect button (CSRF, Google-only redirect) and the view switch.

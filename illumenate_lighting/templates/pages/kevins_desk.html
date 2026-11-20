@@ -23,8 +23,16 @@
 			<section class="kd-now card" id="kdnow" aria-live="polite"></section>
 			<section class="kd-signals" id="kdsignals" aria-label="Command Center decisions this week"></section>
 			<div class="grid kd-grid">
-				<div class="s8 kd-col" id="kdpipe" aria-label="Pipeline by priority"></div>
+				<div class="s8 kd-col">
+					<div class="kd-tabs" role="tablist" aria-label="Main view">
+						<button type="button" class="kd-tab" role="tab" id="kdtab-list" data-view="list" aria-controls="kdlist">One list</button>
+						<button type="button" class="kd-tab" role="tab" id="kdtab-pipe" data-view="pipe" aria-controls="kdpipe">Pipeline</button>
+					</div>
+					<section class="card flush" id="kdlist" role="tabpanel" aria-labelledby="kdtab-list"></section>
+					<div class="kd-col" id="kdpipe" role="tabpanel" aria-labelledby="kdtab-pipe" hidden></div>
+				</div>
 				<div class="s4 kd-col">
+					<section class="card flush" id="kdmail" aria-label="Mailboxes"></section>
 					<section class="card flush" id="kdtodos"></section>
 					<section class="card" id="kdtoday"></section>
 					<section class="card" id="kdweek"></section>

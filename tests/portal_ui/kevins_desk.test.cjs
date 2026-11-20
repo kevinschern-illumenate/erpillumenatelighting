@@ -74,23 +74,38 @@ test('time left rounds up and never goes negative', () => {
   assert.equal(core.fmtLeft(-3), '0m');
 });
 
-const IDS = ['cc', 'kdclock', 'kdnow', 'kdtoday', 'kdweek', 'kdwho', 'kdcc', 'kdstamp', 'kdrefresh', 'kdsignals', 'kdpipe', 'kdtodos'];
+const IDS = ['cc', 'kdclock', 'kdnow', 'kdtoday', 'kdweek', 'kdwho', 'kdcc', 'kdstamp', 'kdrefresh', 'kdsignals', 'kdpipe',
+  'kdtodos', 'kdlist', 'kdmail', 'kdtab-list', 'kdtab-pipe'];
 
-function page({ when = '2026-11-17T18:42:00Z', api, fetch } = {}) {
-  const nodes = {}, listeners = {};
-  IDS.forEach(id => { nodes[id] = { innerHTML: '', textContent: '', href: '', disabled: false, addEventListener: (ev, fn) => { listeners[id + ':' + ev] = fn; } }; });
-  const timers = [], requests = [];
+function node(id, listeners) {
+  const attrs = {}, classes = new Set();
+  return {
+    id, innerHTML: '', textContent: '', href: '', disabled: false, hidden: false,
+    addEventListener: (ev, fn) => { listeners[id + ':' + ev] = fn; },
+    setAttribute: (k, v) => { attrs[k] = v; }, getAttribute: k => attrs[k],
+    classList: { toggle: (c, on) => (on ? classes.add(c) : classes.delete(c)), contains: c => classes.has(c) },
+  };
+}
+
+function page({ when = '2026-11-17T18:42:00Z', api, fetch, search = '', saved = null } = {}) {
+  const listeners = {}, nodes = {};
+  IDS.forEach(id => { nodes[id] = node(id, listeners); });
+  const timers = [], requests = [], assigned = [], replaced = [], stored = {};
   const RealDate = Date;
   class FixedDate extends RealDate { constructor(...a) { super(...(a.length ? a : [when])); } }
   const ctx = load({
     Date: FixedDate,
     KD_BOOT: { user: 'kevins@example.com', first_name: 'Kevin', schedule: SCHEDULE, command_center: '/command-center', api },
+    KD_CSRF: 'csrf-1',
     document: { hidden: false, title: '', getElementById: id => nodes[id] || null, addEventListener() {} },
     setInterval: (fn, ms) => timers.push(ms),
-    fetch: fetch && ((url, opts) => { requests.push(url); return fetch(url, opts); }),
+    fetch: fetch && ((url, opts) => { requests.push({ url, opts }); return fetch(url, opts); }),
+    location: { search, pathname: '/kd/slug', assign: url => assigned.push(url) },
+    history: { replaceState: (a, b, url) => replaced.push(url) },
+    localStorage: { getItem: k => (k === 'kd.view' ? saved : stored[k] || null), setItem: (k, v) => { stored[k] = v; } },
     Promise,
   });
-  return { ctx, nodes, timers, requests, listeners };
+  return { ctx, nodes, timers, requests, listeners, assigned, replaced, stored };
 }
 
 test('the page renders the NOW bar, today and the week into the Command Center shell', () => {
@@ -109,14 +124,14 @@ test('the page renders the NOW bar, today and the week into the Command Center s
   assert.deepEqual(timers, [15000, 300000]);
 });
 
-const API = { pipeline: '/api/method/x.pipeline', signals: '/api/method/x.signals' };
-const PIPE = {
-  today: '2026-11-17', built_at: '2026-11-17T10:42:05', cached: true, todos_error: null,
+const API = { today: '/api/method/x.today', signals: '/api/method/x.signals', connect: '/api/method/x.connect_mailbox' };
+const PIPELINE = {
+  built_at: '2026-11-17T10:42:05', cached: true, todos_error: null,
   widgets: [
     { key: 'so_late', label: 'Sales orders past delivery date', stack: 1, dt: 'Sales Order', total: 1, error: null,
-      items: [{ id: 'Sales Order:SO-1', dt: 'Sales Order', name: 'SO-1', title: 'SO-1', party: 'Acme <b>', date: '2026-11-12', amount: 1200.4, flag: 'late', url: '/desk/sales-order/SO-1', stack: 1 }] },
+      items: [{ id: 'Sales Order:SO-1', dt: 'Sales Order', name: 'SO-1', title: 'SO-1', party: 'Acme <b>', date: '2026-11-12', amount: 1200.4, flag: 'late', url: '/desk/sales-order/SO-1', stack: 1, hat: 'sales' }] },
     { key: 'quotes_open', label: 'Quotations open more than 3 days', stack: 2, dt: 'Quotation', total: 30, error: null,
-      items: [{ id: 'Quotation:Q-1', dt: 'Quotation', name: 'Q-1', title: 'Q-1', party: 'Bolt', date: '2026-11-01', amount: 99, flag: null, url: '/desk/quotation/Q-1', stack: 2 }] },
+      items: [{ id: 'Quotation:Q-1', dt: 'Quotation', name: 'Q-1', title: 'Q-1', party: 'Bolt', date: '2026-11-01', amount: 99, flag: null, url: '/desk/quotation/Q-1', stack: 2, hat: 'sales' }] },
     { key: 'po_late', label: 'Purchase orders past their date', stack: 1, dt: 'Purchase Order', total: 0, error: "Couldn't load", items: [] },
     { key: 'tickets', label: 'Open tickets', stack: 4, dt: 'HD Ticket', total: 0, error: null, items: [] },
   ],
@@ -127,13 +142,34 @@ const PIPE = {
     { name: 'T-up', title: 'Plan Q1', url: '/desk/todo/T-up', date: '2026-11-25', flag: null, bucket: 'upcoming', tags: [] },
   ],
 };
+const GMAIL_ITEM = { id: 'gmail:sales@x.com:t1', source: 'gmail', dt: 'Gmail', mailbox: 'sales@x.com', title: 'RFQ <lobby>', party: 'Acme',
+  party_link: { dt: 'Customer', name: 'Acme', url: '/desk/customer/Acme' }, status: 'Needs reply', flag: 'late', stack: 2, hat: 'sales',
+  url: 'https://mail.google.com/mail/?authuser=sales@x.com#all/t1', snippet: 'Can you price 40 coves?', date: '2026-11-15', rank: 2 };
+const TODAY = {
+  built_at: '2026-11-17T10:42:05', cached: true, pipeline: PIPELINE,
+  mailboxes: [
+    { mailbox: 'kevins@x.com', label: 'kevins@', state: 'not_set_up', redirect_uri: 'https://site/cb/kevins-desk-kevins' },
+    { mailbox: 'sales@x.com', label: 'sales@', state: 'connected', threads: 4 },
+  ],
+  list: {
+    total: 3, counts: { 1: 1, 2: 1, 7: 1 }, top: [],
+    groups: [
+      { hat: 'sales', label: 'Sales & Customer', items: [
+        Object.assign({}, PIPELINE.widgets[0].items[0], { source: 'erpnext', rank: 1 }), GMAIL_ITEM] },
+      { hat: 'none', label: 'No hat · admin', items: [{ id: 'ToDo:T-x', source: 'todo', dt: 'ToDo', title: 'Renew domain', url: '/desk/todo/T-x', stack: 7, hat: null, date: '2026-11-19', rank: 3 }] },
+    ],
+  },
+};
 const SIGNALS = { signals: [{ id: 'so_late', label: 'Open orders past delivery date', dt: 'Sales Order', count: 2, tone: 'bad' }] };
 const ok = body => Promise.resolve({ ok: true, json: () => Promise.resolve({ message: body }) });
+const serve = (url, opts) => opts && opts.method === 'POST'
+  ? ok({ authorize_url: 'https://accounts.google.com/o/oauth2/v2/auth?state=s' })
+  : ok(url.includes('signals') ? SIGNALS : TODAY);
 
 test('pipeline widgets, ToDos and decisions render from the desk endpoints', async () => {
-  const { ctx, nodes, requests, listeners } = page({ api: API, fetch: url => ok(url.includes('signals') ? SIGNALS : PIPE) });
+  const { ctx, nodes, requests, listeners } = page({ api: API, fetch: serve });
   await ctx.KDPage.ready;
-  assert.deepEqual(requests, [API.pipeline, API.signals]);
+  assert.deepEqual(requests.map(r => r.url), [API.today, API.signals]);
   const pipe = nodes.kdpipe.innerHTML;
   assert.ok(pipe.indexOf('data-widget="so_late"') < pipe.indexOf('data-widget="quotes_open"'));
   assert.match(pipe, /1 · Customer blocked · order at risk/);
@@ -155,14 +191,79 @@ test('pipeline widgets, ToDos and decisions render from the desk endpoints', asy
   assert.equal(nodes.kdrefresh.textContent, 'Refresh');
   listeners['kdrefresh:click']();
   await new Promise(r => setTimeout(r, 0));
-  assert.deepEqual(requests.slice(2), [API.pipeline + '?refresh=1', API.signals + '?refresh=1']);
+  assert.deepEqual(requests.slice(2).map(r => r.url), [API.today + '?refresh=1', API.signals + '?refresh=1']);
+});
+
+test('the one list groups by hat, ranks within, and links every item to its source', async () => {
+  const { ctx, nodes } = page({ api: API, fetch: serve });
+  await ctx.KDPage.ready;
+  const html = nodes.kdlist.innerHTML;
+  assert.ok(html.indexOf('Sales &amp; Customer') < html.indexOf('No hat · admin'));
+  assert.ok(html.indexOf('SO-1') < html.indexOf('RFQ &lt;lobby&gt;'));
+  assert.match(html, /data-stack="1"[^>]*>1<\/span>/);
+  assert.match(html, /<a href="https:\/\/mail.google.com\/mail\/\?authuser=sales@x.com#all\/t1"[^>]*>RFQ &lt;lobby&gt;<\/a>/);
+  assert.match(html, /sales@ · Needs reply/);
+  assert.match(html, /<a href="\/desk\/customer\/Acme"[^>]*>Acme<\/a>/);
+  assert.match(html, /Can you price 40 coves\?/);
+  assert.match(html, /<a href="\/desk\/todo\/T-x"[^>]*>Renew domain<\/a>/);
+  assert.match(html, /Not reading kevins@ yet/);
+  const links = [...html.matchAll(/class="kd-item" data-id="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(links, ['Sales Order:SO-1', 'gmail:sales@x.com:t1', 'ToDo:T-x']);
+});
+
+test('mailboxes show their state, and Connect starts Google sign-in with the CSRF token', async () => {
+  const { ctx, nodes, listeners, requests, assigned } = page({ api: API, fetch: serve });
+  await ctx.KDPage.ready;
+  const mail = nodes.kdmail.innerHTML;
+  assert.match(mail, /kevins@x.com[\s\S]*Not connected[\s\S]*data-connect="kevins@x.com">Connect/);
+  assert.match(mail, /sales@x.com[\s\S]*Connected · 4 threads/);
+  assert.doesNotMatch(mail, /data-connect="sales@x.com"/);
+  assert.match(mail, /<code class="kd-uri">https:\/\/site\/cb\/kevins-desk-kevins<\/code>/);
+  const btn = node('btn', {}); btn.getAttribute = () => 'kevins@x.com';
+  listeners['kdmail:click']({ target: { closest: () => btn } });
+  await new Promise(r => setTimeout(r, 0));
+  const post = requests.find(r => r.opts && r.opts.method === 'POST');
+  assert.equal(post.url, API.connect);
+  assert.equal(post.opts.headers['X-Frappe-CSRF-Token'], 'csrf-1');
+  assert.deepEqual(JSON.parse(post.opts.body), { mailbox: 'kevins@x.com' });
+  assert.deepEqual(assigned, ['https://accounts.google.com/o/oauth2/v2/auth?state=s']);
+});
+
+test('Connect refuses to go anywhere but Google', async () => {
+  const evil = (url, opts) => opts && opts.method === 'POST' ? ok({ authorize_url: 'https://evil.example/' }) : serve(url, opts);
+  const { ctx, nodes, listeners, assigned } = page({ api: API, fetch: evil });
+  await ctx.KDPage.ready;
+  const btn = node('btn', {}); btn.getAttribute = () => 'kevins@x.com';
+  listeners['kdmail:click']({ target: { closest: () => btn } });
+  await new Promise(r => setTimeout(r, 0));
+  assert.deepEqual(assigned, []);
+  assert.match(nodes.kdstamp.textContent, /Couldn't start the Google sign-in/);
+});
+
+test('back from Google: rebuilds once and cleans the address bar; the view choice is remembered', async () => {
+  const { ctx, nodes, requests, replaced, listeners, stored } = page({ api: API, fetch: serve, search: '?mailbox=connected', saved: 'pipe' });
+  await ctx.KDPage.ready;
+  assert.equal(requests[0].url, API.today + '?refresh=1');
+  assert.deepEqual(replaced, ['/kd/slug']);
+  assert.equal(nodes.kdlist.hidden, true);
+  assert.equal(nodes.kdpipe.hidden, false);
+  listeners['kdtab-list:click']();
+  assert.equal(nodes.kdlist.hidden, false);
+  assert.equal(nodes['kdtab-list'].getAttribute('aria-selected'), 'true');
+  assert.equal(stored['kd.view'], 'list');
 });
 
 test('a failed load says so instead of showing an empty desk', async () => {
   const { ctx, nodes } = page({ api: API, fetch: url => url.includes('signals') ? Promise.reject(new Error('offline')) : Promise.resolve({ ok: false, status: 404 }) });
   await ctx.KDPage.ready;
+  assert.match(nodes.kdlist.innerHTML, /Couldn't load your list \(HTTP 404\)/);
   assert.match(nodes.kdpipe.innerHTML, /Couldn't load the pipeline \(HTTP 404\)/);
   assert.match(nodes.kdtodos.innerHTML, /Couldn't load your ToDos/);
   assert.match(nodes.kdsignals.innerHTML, /decisions unavailable \(offline\)/);
   assert.equal(nodes.kdstamp.textContent, 'Not updated');
+});
+
+test('a hidden panel stays hidden even though columns are flex containers', () => {
+  const css = fs.readFileSync(path.join(REPO, 'illumenate_lighting/kevins_desk/page/kd.css'), 'utf8');
+  assert.match(css, /#cc\.kd \[hidden\] \{ display: none !important; \}/);
 });

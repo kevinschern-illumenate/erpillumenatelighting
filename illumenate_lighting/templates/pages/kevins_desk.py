@@ -55,8 +55,9 @@ def get_context(context):
 				"schedule": schedule.payload(),
 				"command_center": "/command-center",
 				"api": {
-					"pipeline": "/api/method/illumenate_lighting.kevins_desk.api.pipeline",
+					"today": "/api/method/illumenate_lighting.kevins_desk.api.today",
 					"signals": "/api/method/illumenate_lighting.kevins_desk.api.signals",
+					"connect": "/api/method/illumenate_lighting.kevins_desk.api.connect_mailbox",
 				},
 			},
 			"csrf_token": frappe.sessions.get_csrf_token(),

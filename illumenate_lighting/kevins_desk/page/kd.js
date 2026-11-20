@@ -1,5 +1,6 @@
 /* Kevin's Desk. Phase 1: NOW bar, today's schedule, week themes. Phase 2: pipeline widgets (through the
-   Command Center gateway), the Command Center's decisions, my ToDos.
+   Command Center gateway), the Command Center's decisions, my ToDos. Phase 3: Gmail mailboxes and the one
+   list (ERPNext + ToDos + Gmail, ranked by the priority stack, grouped by hat).
    Inlined into /kd/<slug> by templates/pages/kevins_desk.py (never served from /assets).
    Boot data: window.KD_BOOT = { user, first_name, schedule: kevins_desk.schedule.payload(), command_center, api }.
    The clock is always Pacific (schedule.tz), whatever the laptop's time zone.
@@ -145,8 +146,10 @@
     doc.title = (at.current ? `${at.current.title} · ${fmtLeft(at.left)} · ` : '') + "Kevin's Desk";
   }
 
-  /* ---------------- pipeline + ToDos (Phase 2) ----------------
-     GET kevins_desk.api.pipeline / .signals (owner-only, cached 5 min server-side; Refresh rebuilds). */
+  /* ---------------- data (Phases 2-3) ----------------
+     GET kevins_desk.api.today: pipeline widgets, my ToDos, mailbox states and the merged list ranked by the
+     priority stack (owner-only; cached server-side and warmed every 10 min on weekdays; Refresh rebuilds).
+     GET .signals: the Command Center's decisions. POST .connect_mailbox: start Google's consent flow. */
   const API = BOOT.api || {};
   const CC = BOOT.command_center || '/command-center';
   const STACK = { 1: 'Customer blocked · order at risk', 2: 'New sales', 3: 'Converting sales', 4: 'Tickets',
@@ -159,11 +162,24 @@
   const flag = f => f === 'late' ? ' <span class="badge bad">Late</span>' : f === 'today' ? ' <span class="badge warn">Today</span>' : '';
   const wbUrl = dt => `${CC}#wb/${encodeURIComponent(dt)}`;
   const clock12 = iso => { const m = /T(\d\d):(\d\d)/.exec(iso || ''); return m ? clock(Number(m[1]), Number(m[2])) : ''; };
+  const store = { get: k => { try { return root.localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { root.localStorage.setItem(k, v); } catch (e) { /* private window */ } } };
 
   async function getJSON(url, refresh) {
     const r = await root.fetch(url + (refresh ? '?refresh=1' : ''), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return (await r.json()).message;
+  }
+
+  async function postJSON(url, body) {
+    const r = await root.fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': root.KD_CSRF || '' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((data && data._server_messages && 'ERPNext refused the request') || `HTTP ${r.status}`);
+    return data.message;
   }
 
   function widgetCard(w) {
@@ -211,21 +227,96 @@
       `<a class="dec ${esc(s.tone || '')}" href="${esc(wbUrl(s.dt))}" target="_blank" rel="noopener"><span class="n">${esc(s.count)}</span><span class="l">${esc(s.label)}</span></a>`).join('')}</div>`;
   }
 
+  /* the merged list: groups by hat (most urgent hat first), items ranked by the priority stack */
+  const SOURCE = it => it.source === 'gmail' ? `${it.mailbox.split('@')[0]}@ · ${it.status}`
+    : it.source === 'todo' ? 'ToDo' : it.dt;
+  function itemRow(it) {
+    const party = it.party_link ? out(it.party_link.url, it.party) : esc(it.party || '');
+    const when = it.source === 'gmail' ? '' : (it.date ? esc(fmtd(it.date)) : '');
+    const meta = [`<span class="kd-src" data-src="${esc(it.source)}">${esc(SOURCE(it))}</span>`, party, when,
+      it.amount != null ? esc(money(it.amount)) : ''].filter(Boolean).join('<span class="kd-sep">·</span>');
+    const open = it.source === 'gmail' ? out(it.url, 'Open in Gmail') : '';
+    return `<li class="kd-item" data-id="${esc(it.id)}"><span class="kd-stack" data-stack="${esc(it.stack)}" title="${esc(it.stack)} · ${esc(STACK[it.stack] || '')}">${esc(it.stack)}</span>
+      <div class="kd-item-b"><div class="kd-item-t">${out(it.url, it.title)}${flag(it.flag)}</div>
+      <div class="kd-item-m">${meta}${open ? `<span class="kd-sep">·</span>${open}` : ''}</div>
+      ${it.snippet ? `<div class="kd-snip">${esc(it.snippet)}</div>` : ''}</div></li>`;
+  }
+
+  function listCard(list, mailboxes) {
+    const groups = (list && list.groups) || [];
+    const counts = (list && list.counts) || {};
+    const summary = Object.keys(STACK).filter(k => counts[k]).map(k =>
+      `<span class="kd-count" title="${esc(STACK[k])}"><span class="kd-stack" data-stack="${k}">${k}</span>${esc(counts[k])}</span>`).join('');
+    const off = (mailboxes || []).filter(m => m.state !== 'connected').map(m => m.label || m.mailbox);
+    const note = off.length ? `<div class="kd-note-bar">Not reading ${esc(off.join(', '))} yet: connect in Mailboxes.</div>` : '';
+    const body = groups.length ? groups.map(g => `<section class="kd-group">
+        <div class="kd-group-h">${g.hat === 'none' ? `<span class="kd-hat" data-hat="none">${esc(g.label)}</span>` : hat(g.hat)}<span class="kd-group-n">${g.items.length}</span></div>
+        <ol class="kd-items">${g.items.map(itemRow).join('')}</ol></section>`).join('')
+      : '<div class="empty">Nothing waiting on you. Nice.</div>';
+    return `<div class="card-h"><div><h2>One list</h2><div class="sub">Everything from ERPNext and Gmail, ranked by the priority stack, grouped by hat</div></div>
+      <div class="kd-counts">${summary}</div></div>${note}${body}`;
+  }
+
+  const MAIL_STATE = { connected: ['good', 'Connected'], not_connected: ['warn', 'Not connected'], not_set_up: ['warn', 'Not connected'],
+    error: ['bad', 'Error'], wrong_account: ['bad', 'Wrong account'] };
+  function mailCard(mailboxes) {
+    const rows = (mailboxes || []).map(m => {
+      const [tone, text] = MAIL_STATE[m.state] || ['mute', m.state];
+      const detail = m.state === 'connected' ? `${m.threads || 0} threads` : (m.error || '');
+      const btn = m.state === 'connected' ? '' : `<button type="button" class="cc-btn soft" data-connect="${esc(m.mailbox)}">${m.state === 'not_set_up' ? 'Connect' : 'Reconnect'}</button>`;
+      return `<li class="kd-mbox"><span class="dot ${tone}"></span><div class="kd-mbox-b"><div class="kd-mbox-t">${esc(m.mailbox)}</div>
+        <div class="kd-mbox-m">${esc(text)}${detail ? ' · ' + esc(detail) : ''}</div></div>${btn}</li>`;
+    }).join('');
+    const pending = (mailboxes || []).filter(m => m.state !== 'connected' && m.redirect_uri);
+    const help = pending.length ? `<details class="more kd-fold"><summary>First time? Redirect URIs for Google</summary><div class="kd-help">
+      <p>In Google Cloud → APIs &amp; Services → Credentials → the OAuth client, add these to Authorized redirect URIs, then Connect and sign in as that mailbox.</p>
+      ${pending.map(m => `<code class="kd-uri">${esc(m.redirect_uri)}</code>`).join('')}</div></details>` : '';
+    return `<div class="card-h"><div><h2>Mailboxes</h2><div class="sub">Read-only: drafts and labels only, nothing is sent</div></div></div>
+      ${rows ? `<ul class="kd-mboxes">${rows}</ul>` : '<div class="empty">No mailboxes set up (ilL-Desk-Settings)</div>'}${help}`;
+  }
+
+  async function connect(mailbox, btn) {
+    btn.disabled = true; btn.textContent = 'Opening Google…';
+    try {
+      const r = await postJSON(API.connect, { mailbox });
+      const url = r && r.authorize_url;
+      if (!url || url.indexOf('https://accounts.google.com/') !== 0) throw new Error('unexpected sign-in address');
+      root.location.assign(url);
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'Connect';
+      $('kdstamp').textContent = `Couldn't start the Google sign-in (${e.message})`;
+    }
+  }
+
+  function setView(view) {
+    const v = view === 'pipe' ? 'pipe' : 'list';
+    $('kdlist').hidden = v !== 'list'; $('kdpipe').hidden = v !== 'pipe';
+    ['list', 'pipe'].forEach(k => { const t = $('kdtab-' + k); t.setAttribute('aria-selected', String(k === v)); t.classList.toggle('on', k === v); });
+    store.set('kd.view', v);
+  }
+
   let loading = false;
   async function load(refresh) {
-    if (loading || !API.pipeline) return;
+    if (loading || !API.today) return;
     loading = true;
     const btn = $('kdrefresh'); btn.disabled = true; btn.textContent = refresh ? 'Refreshing…' : 'Loading…';
-    if (!$('kdpipe').innerHTML) $('kdpipe').innerHTML = '<div class="card"><div class="cc-loading kd-loading"><span class="cc-spin"></span>Loading the pipeline…</div></div>';
-    const [pipe, sig] = await Promise.allSettled([getJSON(API.pipeline, refresh), getJSON(API.signals, refresh)]);
-    if (pipe.status === 'fulfilled') {
-      const p = pipe.value;
+    const spin = what => `<div class="cc-loading kd-loading"><span class="cc-spin"></span>Loading ${what}…</div>`;
+    if (!$('kdlist').innerHTML) $('kdlist').innerHTML = spin('your list');
+    if (!$('kdpipe').innerHTML) $('kdpipe').innerHTML = `<div class="card">${spin('the pipeline')}</div>`;
+    const [today, sig] = await Promise.allSettled([getJSON(API.today, refresh), getJSON(API.signals, refresh)]);
+    if (today.status === 'fulfilled') {
+      const t = today.value, p = t.pipeline;
+      $('kdlist').innerHTML = listCard(t.list, t.mailboxes);
       $('kdpipe').innerHTML = p.widgets.map(widgetCard).join('');
       $('kdtodos').innerHTML = todosCard(p.todos, p.todos_error);
-      $('kdstamp').textContent = `Updated ${clock12(p.built_at)}${p.cached ? ' (cached)' : ''}`;
+      $('kdmail').innerHTML = mailCard(t.mailboxes);
+      $('kdstamp').textContent = `Updated ${clock12(t.built_at)}${t.cached ? ' (cached)' : ''}`;
     } else {
-      $('kdpipe').innerHTML = `<div class="card"><div class="empty">Couldn't load the pipeline (${esc(pipe.reason && pipe.reason.message)}). Try Refresh.</div></div>`;
+      const why = esc(today.reason && today.reason.message);
+      $('kdlist').innerHTML = `<div class="empty">Couldn't load your list (${why}). Try Refresh.</div>`;
+      $('kdpipe').innerHTML = `<div class="card"><div class="empty">Couldn't load the pipeline (${why}). Try Refresh.</div></div>`;
       $('kdtodos').innerHTML = todosCard([], 'not loaded');
+      $('kdmail').innerHTML = mailCard([]);
       $('kdstamp').textContent = 'Not updated';
     }
     $('kdsignals').innerHTML = signalsStrip(sig.value, sig.status === 'rejected' ? (sig.reason && sig.reason.message) : null);
@@ -235,9 +326,18 @@
   $('kdwho').textContent = `Signed in as ${BOOT.user}`;
   if (BOOT.command_center) $('kdcc').href = BOOT.command_center;
   $('kdrefresh').addEventListener('click', () => load(true));
+  ['list', 'pipe'].forEach(k => $('kdtab-' + k).addEventListener('click', () => setView(k)));
+  $('kdmail').addEventListener('click', e => {
+    const b = e.target && e.target.closest && e.target.closest('[data-connect]');
+    if (b) connect(b.getAttribute('data-connect'), b);
+  });
+  setView(store.get('kd.view'));
+  // back from Google's consent screen: rebuild once, and drop the marker from the address bar
+  const returned = /[?&]mailbox=connected\b/.test(root.location ? root.location.search : '');
+  if (returned && root.history) root.history.replaceState(null, '', root.location.pathname);
   tick();
   root.setInterval(tick, 15000);
   root.setInterval(() => { if (!doc.hidden) load(false); }, 300000);
   doc.addEventListener('visibilitychange', () => { if (!doc.hidden) tick(); });
-  root.KDPage = { ready: load(false) };
+  root.KDPage = { ready: load(returned) };
 })(typeof window !== 'undefined' ? window : globalThis);
