@@ -2035,11 +2035,11 @@ Also handles new schedule creation when is_new is True
 				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
 			</div>
 			<div class="modal-body">
-				<p class="text-muted">{{ _("Upload the .ilq.json package the ilLumenate CAD toolkit writes (ILQUOTE). Every run is built by the configurator from its style; lengths are snapped and split here, not in AutoCAD. Nothing changes until you import.") }}</p>
+				<p class="text-muted">{{ _("Upload the .ilq.json package the ilLumenate CAD toolkit writes (ILQUOTE), or an ASCII DXF drawn on ILM-TAPE-<template> layers. Every run is built by the configurator from its style; lengths are snapped and split here, not in AutoCAD. Nothing changes until you import.") }}</p>
 				<div class="form-group">
 					<label for="importDrawingFile">{{ _("Drawing package") }}</label>
-					<input type="file" class="form-control-file" id="importDrawingFile" accept=".json,.ilq,application/json">
-					<small class="form-text text-muted"><a href="/api/method/illumenate_lighting.illumenate_lighting.system_design.api.download_cad_catalog" id="importDrawingCatalog">{{ _("Download the CAD catalog") }}</a> · <a href="#" id="importDrawingReceipt">{{ _("Download the last receipt") }}</a></small>
+					<input type="file" class="form-control-file" id="importDrawingFile" accept=".json,.ilq,.dxf,application/json">
+					<small class="form-text text-muted"><a href="/api/method/illumenate_lighting.illumenate_lighting.system_design.api.download_cad_catalog" id="importDrawingCatalog">{{ _("Download the CAD catalog") }}</a> · <a href="#" id="importDrawingReceipt">{{ _("Download the last receipt") }}</a> · <a href="/assets/illumenate_lighting/cad_toolkit/ilLumenate-DXF-drafting-checklist.pdf" target="_blank" rel="noopener">{{ _("DXF drafting checklist") }}</a></small>
 				</div>
 				<div class="form-group">
 					<label for="importDrawingPlan">{{ _("Plotted plan (PDF, optional)") }}</label>

@@ -172,11 +172,11 @@ var DrawingImport = (function () {
 	function choose(file) {
 		reset();
 		if (!file) return;
-		if (!/\.(json|ilq)$/i.test(file.name || '')) {
+		if (!/\.(json|ilq|dxf)$/i.test(file.name || '')) {
 			fail(scheduleText("Upload the .ilq.json file from ILQUOTE."));
 			return;
 		}
-		if (file.size > MAX_BYTES) {
+		if (file.size > (/\.dxf$/i.test(file.name) ? 4 * MAX_BYTES : MAX_BYTES)) {
 			fail(scheduleText("The file is larger than 5 MB."));
 			return;
 		}

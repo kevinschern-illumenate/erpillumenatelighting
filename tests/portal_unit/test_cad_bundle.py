@@ -12,7 +12,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from tools.cad_toolkit import package_bundle
-from tools.cad_toolkit.build import layers
+from tools.cad_toolkit.build import checklist_pdf, layers
 from tools.cad_toolkit.test import mini_lisp
 
 
@@ -28,6 +28,15 @@ class LayerScript(unittest.TestCase):
 			self.assertIn(f"_Make\n{layer['name']}\n", text)
 		issue = text.split("_Make\nE-ANNO-ISSU\n", 1)[1].split("\n\n", 1)[0]
 		self.assertIn("_Plot\n_No\nE-ANNO-ISSU", issue)
+
+
+class Checklist(unittest.TestCase):
+	def test_checklist_items_and_committed_pdf(self):
+		items = checklist_pdf.blocks(checklist_pdf.SOURCE.read_text(encoding="utf-8"))
+		self.assertEqual(items[0][0], "title")
+		self.assertEqual(sum(1 for kind, _text in items if kind == "item"), 13)
+		self.assertIn("ILM-TAPE-<template code>", next(text for kind, text in items if text.startswith("5.")))
+		self.assertTrue(checklist_pdf.TARGET.read_bytes().startswith(b"%PDF"))
 
 
 class Bundle(unittest.TestCase):

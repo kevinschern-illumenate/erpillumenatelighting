@@ -6539,6 +6539,12 @@
           "fieldtype": "Float"
         },
         {
+          "fieldname": "min_bend_radius_mm",
+          "label": "Min Bend Radius (mm)",
+          "fieldtype": "Float",
+          "description": "Smallest inside radius the tape may be bent to. The CAD toolkit flags tighter arcs (ILCHECK); 0 means unknown, and the template's side-bend diameter is used instead."
+        },
+        {
           "fieldname": "leds_per_cut_segment",
           "label": "LEDs Per Cut Segment",
           "fieldtype": "Int"
@@ -7023,6 +7029,13 @@
           "label": "Cross-Section Outlines",
           "fieldtype": "Long Text",
           "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
+        },
+        {
+          "fieldname": "is_curve_capable",
+          "label": "Curve Capable",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "The profile can follow a curved run. The CAD toolkit flags a profile drawn on an arc when this is off."
         }
       ]
     },

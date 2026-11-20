@@ -311,6 +311,25 @@ class DrawingImport(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "not a valid drawing package"):
 				module.preview_drawing_import("S1", "job.json", encode({"schema": "ilq/1"}))
 
+	def test_dxf_uploads_go_through_dxf_ingest_with_their_options(self):
+		seen = {}
+
+		class DxfError(ValueError):
+			pass
+
+		def package_from_dxf(data, filename, options):
+			seen.update(data=data, filename=filename, options=options)
+			return package("minimal.json")
+
+		self.extras[ROOT + ".portal.dxf_ingest"] = types.SimpleNamespace(DxfError=DxfError, package_from_dxf=package_from_dxf)
+		with self.module() as module:
+			result = module.preview_drawing_import(
+				"S1", "plan.dxf", base64.b64encode(b"0\nSECTION").decode(), options=json.dumps({"types": {"ILM-TAPE-x": "T1"}})
+			)
+		self.assertTrue(result["success"])
+		self.assertEqual(seen["options"], {"types": {"ILM-TAPE-x": "T1"}})
+		self.assertEqual(seen["data"], b"0\nSECTION")
+
 	def test_flag_off_or_not_in_pilot_refuses(self):
 		self.enabled = False
 		with self.assertRaises(PermissionError):

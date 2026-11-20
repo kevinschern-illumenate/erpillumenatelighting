@@ -371,6 +371,8 @@ class Sources(unittest.TestCase):
 		self.assertEqual(shadowing, [], "AutoLISP variables share the function namespace")
 
 	def test_every_toolkit_file_parses_and_avoids_activex_in_the_core(self):
+		spike = REPO / "tools/cad_toolkit/spike/il-spike.lsp"
+		mini_lisp.read_all(spike.read_text(encoding="utf-8"))
 		for path in sorted(LISP.glob("*.lsp")):
 			with self.subTest(path.name):
 				text = path.read_text(encoding="utf-8")

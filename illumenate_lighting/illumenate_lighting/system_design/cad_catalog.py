@@ -372,7 +372,9 @@ def build_payload(data):
 		"fixture_templates": sorted(
 			(fixture_template(row) for row in data["fixture_templates"]), key=lambda row: row["code"]
 		),
-		"kit_templates": sorted((kit_template(row) for row in data["kit_templates"]), key=lambda row: row["code"]),
+		"kit_templates": sorted(
+			(kit_template(row) for row in data["kit_templates"]), key=lambda row: row["code"]
+		),
 		"profiles": sorted((profile_row(row) for row in data["profiles"]), key=lambda row: row["code"]),
 		"drivers": sorted(drivers, key=lambda row: row["id"]),
 		"controllers": sorted(controllers, key=lambda row: row["id"]),
@@ -391,7 +393,11 @@ def forbidden_keys(value):
 	found = set()
 	if isinstance(value, dict):
 		for key, child in value.items():
-			if str(key).lower() in CAD_FORBIDDEN_KEYS or "price" in str(key).lower() or "cost" in str(key).lower():
+			if (
+				str(key).lower() in CAD_FORBIDDEN_KEYS
+				or "price" in str(key).lower()
+				or "cost" in str(key).lower()
+			):
 				found.add(key)
 			found |= forbidden_keys(child)
 	elif isinstance(value, list):
@@ -439,7 +445,16 @@ def load_styles(user=None):
 	if not site_flags.presets_enabled() or not frappe.db.exists("DocType", PRESET):
 		return []
 	actor = get_actor(user)
-	fields = ["name", "label", "user", "customer", "shared_with_company", "family", "template", "request_json"]
+	fields = [
+		"name",
+		"label",
+		"user",
+		"customer",
+		"shared_with_company",
+		"family",
+		"template",
+		"request_json",
+	]
 	rows = {row.name: row for row in frappe.get_all(PRESET, filters={"user": actor.user}, fields=fields)}
 	if actor.customer and not actor.is_internal:
 		for row in frappe.get_all(
@@ -484,7 +499,10 @@ def load_data(staff, user=None):
 	)
 	names = [row["name"] for row in tape_templates]
 	allowed_specs = _children(
-		"ilL-Child-Tape-Neon-Allowed-Spec", TAPE_TEMPLATE, names, ["tape_spec", "environment_rating", "is_default"]
+		"ilL-Child-Tape-Neon-Allowed-Spec",
+		TAPE_TEMPLATE,
+		names,
+		["tape_spec", "environment_rating", "is_default"],
 	)
 	option_fields = sorted({field for field, _key, _label in TAPE_OPTIONS.values()})
 	allowed_options = _children(
@@ -512,7 +530,14 @@ def load_data(staff, user=None):
 		for row in frappe.get_all(
 			OFFERING,
 			filters={"is_active": 1, "tape_spec": ["in", [spec["name"] for spec in tapes]]},
-			fields=["name", "tape_spec", "cct", "output_level", "watts_per_ft_override", "cut_increment_mm_override"],
+			fields=[
+				"name",
+				"tape_spec",
+				"cct",
+				"output_level",
+				"watts_per_ft_override",
+				"cut_increment_mm_override",
+			],
 			order_by="name asc",
 			ignore_permissions=True,
 		):

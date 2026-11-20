@@ -39,7 +39,8 @@ from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_b
 DOCTYPE = "ilL-CAD-Import"
 SCHEDULE = "ilL-Project-Fixture-Schedule"
 MAX_BYTES = 5 * 1024 * 1024
-EXTENSIONS = ("json", "ilq")
+EXTENSIONS = ("json", "ilq", "dxf")
+MAX_DXF_BYTES = 20 * 1024 * 1024
 MM_PER_IN = 25.4
 MM_PER_FT = 304.8
 TAPE_FAMILIES = ("LED Tape", "COB Tape", "LED Neon")
@@ -67,33 +68,59 @@ LINEAR_END_KEYS = ("end_feed_direction", "end_power_feed_type", "end_jumper_cabl
 # --- Reading the package -----------------------------------------------------------------------
 
 
-def read_package(filename, content):
-	"""The checked package from an uploaded ``.json``/``.ilq`` file (base64 ``content``)."""
+def read_package(filename, content, options=None):
+	"""The checked package and its SHA-256 from an uploaded file (base64 ``content``).
+
+	A ``.ilq.json`` file is the CAD toolkit's package. A ``.dxf`` is a drawing made without the toolkit
+	(plan 6.1): ``dxf_ingest`` turns its ``ILM-*`` layers into a package, using ``options`` for the
+	preset and schedule Type of each layer.
+	"""
 	from illumenate_lighting.illumenate_lighting.system_design.ilq_schema import PackageError, parse_package
 
 	name = str(filename or "").strip().lower()
 	extension = name.rsplit(".", 1)[-1] if "." in name else ""
 	if extension not in EXTENSIONS:
-		frappe.throw(_("Upload the .ilq.json file the CAD toolkit wrote (ILQUOTE)"))
+		frappe.throw(_("Upload the .ilq.json file the CAD toolkit wrote (ILQUOTE), or an ASCII .dxf"))
+	limit = MAX_DXF_BYTES if extension == "dxf" else MAX_BYTES
 	if not isinstance(content, str) or not content:
 		frappe.throw(_("The file is empty"))
-	if len(content) > (MAX_BYTES * 4) // 3 + 4:
-		frappe.throw(_("The file is larger than 5 MB"))
+	if len(content) > (limit * 4) // 3 + 4:
+		frappe.throw(_("The file is larger than {0} MB").format(limit // (1024 * 1024)))
 	try:
 		data = base64.b64decode(content, validate=True)
 	except (binascii.Error, ValueError):
 		frappe.throw(_("The file could not be read"))
 	if not data:
 		frappe.throw(_("The file is empty"))
+	if extension == "dxf":
+		from illumenate_lighting.illumenate_lighting.portal.dxf_ingest import DxfError, package_from_dxf
+
+		try:
+			data_package = package_from_dxf(data, str(filename), _options(options))
+		except DxfError as error:
+			frappe.throw(str(error))
+	else:
+		data_package = data
 	try:
-		package = parse_package(data)
+		package = parse_package(data_package)
 	except PackageError as error:
-		frappe.throw(
-			_("This is not a valid drawing package: {0}").format("; ".join(error.problems[:5]))
-		)
+		frappe.throw(_("This is not a valid drawing package: {0}").format("; ".join(error.problems[:5])))
 	except UnicodeDecodeError:
 		frappe.throw(_("The file could not be read"))
 	return package, hashlib.sha256(data).hexdigest()
+
+
+def _options(value):
+	if value in (None, ""):
+		return {}
+	if isinstance(value, str):
+		try:
+			value = json.loads(value)
+		except ValueError:
+			frappe.throw(_("Invalid DXF options"))
+	if not isinstance(value, dict):
+		frappe.throw(_("Invalid DXF options"))
+	return value
 
 
 def clean_selections(selections):
@@ -154,7 +181,10 @@ def linear_segments(run, style):
 	count = len(run["segments"])
 	for index, segment in enumerate(run["segments"]):
 		base = _style_segment(style, index)
-		item = {"segment_index": index, "requested_length_mm": round(float(segment["path_length_in"]) * MM_PER_IN)}
+		item = {
+			"segment_index": index,
+			"requested_length_mm": round(float(segment["path_length_in"]) * MM_PER_IN),
+		}
 		if index == 0:
 			item.update({key: base[key] for key in LINEAR_START_KEYS if base.get(key) not in (None, "")})
 			if segment.get("start_feed"):
@@ -185,9 +215,20 @@ def requests_for(run):
 	if style["family"] == KIT:
 		tape = style["tape"]
 		tape_selections, _dropped = clean_selections(tape.get("selections"))
-		kit = {"kit_template": style["template"], **{k: v for k, v in selections.items() if k != "kit_template"}}
+		kit = {
+			"kit_template": style["template"],
+			**{k: v for k, v in selections.items() if k != "kit_template"},
+		}
 		return [
-			("tape", {"family": tape["family"], "template": tape["template"], "selections": tape_selections, "segments": tape_segments(run, {})}),
+			(
+				"tape",
+				{
+					"family": tape["family"],
+					"template": tape["template"],
+					"selections": tape_selections,
+					"segments": tape_segments(run, {}),
+				},
+			),
 			("kit", {"family": KIT, "template": style["template"], "selections": kit}),
 		]
 	if style["family"] == LINEAR:
@@ -209,7 +250,12 @@ def requests_for(run):
 	return [
 		(
 			"build",
-			{"family": style["family"], "template": style["template"], "selections": selections, "segments": tape_segments(run, style)},
+			{
+				"family": style["family"],
+				"template": style["template"],
+				"selections": selections,
+				"segments": tape_segments(run, style),
+			},
 		)
 	]
 
@@ -231,7 +277,9 @@ def _messages(result):
 	texts = []
 	for message in result.get("messages") or []:
 		text = message.get("text") if isinstance(message, dict) else str(message)
-		if text and (not isinstance(message, dict) or message.get("severity") in (None, "warning", "error", "info")):
+		if text and (
+			not isinstance(message, dict) or message.get("severity") in (None, "warning", "error", "info")
+		):
 			texts.append(str(text))
 	return texts[:8]
 
@@ -296,7 +344,9 @@ class Planner:
 			)
 
 			if family not in FAMILY_DOCTYPES:
-				self.templates[key] = _("{0} is not a product family the drawing import can build").format(family)
+				self.templates[key] = _("{0} is not a product family the drawing import can build").format(
+					family
+				)
 			else:
 				self.templates[key] = template_problem(family, template)
 		return self.templates[key]
@@ -339,7 +389,10 @@ class Planner:
 		chosen = self.choices.get(run["id"]) or {}
 		if isinstance(chosen, dict):
 			clean, _dropped = clean_selections(chosen)
-			request["selections"] = {**request["selections"], **{k: v for k, v in clean.items() if v not in (None, "")}}
+			request["selections"] = {
+				**request["selections"],
+				**{k: v for k, v in clean.items() if v not in (None, "")},
+			}
 		return request
 
 	def plan_run(self, run):
@@ -385,11 +438,15 @@ class Planner:
 					row["messages"].append(result.get("error") or _("The kit could not be validated"))
 				elif not qty:
 					row["status"] = "error"
-					row["messages"].append(_("Kit {0} has no profile stock length").format(request["template"]))
+					row["messages"].append(
+						_("Kit {0} has no profile stock length").format(request["template"])
+					)
 				else:
 					entry.update(part_number=result.get("part_number"), qty=qty)
 					row["messages"].append(
-						_("{0} kits of {1} cover {2} in").format(qty, request["template"], row["drawn_length_in"])
+						_("{0} kits of {1} cover {2} in").format(
+							qty, request["template"], row["drawn_length_in"]
+						)
 					)
 			else:
 				result = self.calculate(request)
@@ -401,7 +458,9 @@ class Planner:
 						entry["missing"] = list(missing)
 						row["messages"].append(_("Choose {0} for this run").format(", ".join(missing)))
 					else:
-						row["messages"].append(validation.get("error") or _("This run could not be configured"))
+						row["messages"].append(
+							validation.get("error") or _("This run could not be configured")
+						)
 				else:
 					entry.update(summarize_build(request["family"], result))
 					row["messages"].extend(_messages(validation))
@@ -416,11 +475,15 @@ class Planner:
 							)
 					if (entry.get("runs_count") or 1) > 1:
 						row["messages"].append(
-							_("Splits into {0} runs (max run {1} ft)").format(entry["runs_count"], entry.get("max_run_ft"))
+							_("Splits into {0} runs (max run {1} ft)").format(
+								entry["runs_count"], entry.get("max_run_ft")
+							)
 						)
 			if line is not None and entry["action"] == "update" and _same_meta(line, run):
 				if part == "kit":
-					same = line.get("ill_item_code") == entry.get("part_number") and int(line.get("qty") or 0) == entry.get("qty")
+					same = line.get("ill_item_code") == entry.get("part_number") and int(
+						line.get("qty") or 0
+					) == entry.get("qty")
 				else:
 					same = _same_request(line.get("ill_configurator_request") or "", request)
 				if same:
@@ -452,7 +515,9 @@ class Planner:
 			"status": "ok",
 			"messages": [],
 			"action": "update" if line is not None else "add",
-			"summary": " ".join(filter(None, (other.get("manufacturer_name"), other.get("fixture_model_number")))),
+			"summary": " ".join(
+				filter(None, (other.get("manufacturer_name"), other.get("fixture_model_number")))
+			),
 		}
 		line_data = {
 			"line_id": other["fixture_type"],
@@ -564,7 +629,12 @@ def site_seed(package, line_keys, import_name=None):
 		"import": import_name,
 		"drawing": {key: package["drawing"].get(key) for key in ("file", "rev", "hash")},
 		"rooms": [
-			{"id": room["id"], "name": room["name"], "level": room.get("level") or "", "envChoice": room.get("env")}
+			{
+				"id": room["id"],
+				"name": room["name"],
+				"level": room.get("level") or "",
+				"envChoice": room.get("env"),
+			}
 			for room in package.get("rooms") or []
 		],
 		"cabinets": [
@@ -643,7 +713,9 @@ def _catalog_check(package, schedule_name=None):
 			age = 0
 		if age > CATALOG_STALE_DAYS:
 			warnings.append(
-				_("The drawing's catalog is {0} days old; download the current one and run ILCHECK").format(age)
+				_("The drawing's catalog is {0} days old; download the current one and run ILCHECK").format(
+					age
+				)
 			)
 	target = package.get("target") or {}
 	if target.get("schedule") and schedule_name and target["schedule"] != schedule_name:
@@ -660,15 +732,23 @@ def _toolkit_check(package):
 	problems = []
 	if check["errors"]:
 		problems.append(
-			_("The drawing has {0} ILCHECK errors; fix or override them in AutoCAD, then run ILQUOTE again").format(
-				check["errors"]
-			)
+			_(
+				"The drawing has {0} ILCHECK errors; fix or override them in AutoCAD, then run ILQUOTE again"
+			).format(check["errors"])
 		)
 	return problems
 
 
 def _counts(rows, other_rows, removals):
-	counts = {"ok": 0, "needs_choice": 0, "error": 0, "add": 0, "update": 0, "unchanged": 0, "remove": len(removals)}
+	counts = {
+		"ok": 0,
+		"needs_choice": 0,
+		"error": 0,
+		"add": 0,
+		"update": 0,
+		"unchanged": 0,
+		"remove": len(removals),
+	}
 	for row in rows + other_rows:
 		counts[row["status"]] += 1
 		if row.get("action") in counts and row["status"] == "ok":
@@ -706,12 +786,12 @@ def _truthy(value):
 
 @frappe.whitelist(methods=["POST"])
 @rate_limit(limit=20, seconds=60)
-def preview_drawing_import(schedule, filename, content, choices=None):
+def preview_drawing_import(schedule, filename, content, choices=None, options=None):
 	"""Dry run: every run's planned build and status, the lines to remove and the design delta."""
 	from illumenate_lighting.illumenate_lighting.portal.configurator_access import strip_prices
 
 	doc = _schedule(schedule)
-	package, digest = read_package(filename, content)
+	package, digest = read_package(filename, content, options)
 	rows, other_rows, removals, _saves, _others = _plan(doc, package, _choices(choices))
 	problem = _editable_problem(doc)
 	return strip_prices(
@@ -857,7 +937,12 @@ def store_plan_pdf(record, doc, data):
 		return None
 	try:
 		return deliverables.upload_deliverable(
-			design.name, "Plan PDF", f"rev{record.drawing_rev or 0}", digest, content=data, filename="plan.pdf"
+			design.name,
+			"Plan PDF",
+			f"rev{record.drawing_rev or 0}",
+			digest,
+			content=data,
+			filename="plan.pdf",
 		)
 	except DesignError as error:
 		frappe.throw(error.message)
@@ -875,6 +960,7 @@ def commit_drawing_import(
 	confirm_removals=None,
 	new_version=None,
 	plan_pdf=None,
+	options=None,
 ):
 	"""Plan again and apply the drawing to ``schedule`` in one transaction, all or nothing.
 
@@ -886,7 +972,7 @@ def commit_drawing_import(
 
 	doc = _schedule(schedule, lock=True)
 	require_fresh(doc, expected_modified)
-	package, digest = read_package(filename, content)
+	package, digest = read_package(filename, content, options)
 	plan = read_plan_pdf(plan_pdf)
 	blocking = _toolkit_check(package)
 	if blocking:
@@ -909,7 +995,9 @@ def commit_drawing_import(
 	if removals and not _truthy(confirm_removals):
 		return {
 			"success": False,
-			"error": _("Confirm removing {0} lines whose runs are no longer in the drawing").format(len(removals)),
+			"error": _("Confirm removing {0} lines whose runs are no longer in the drawing").format(
+				len(removals)
+			),
 			"removals": removals,
 			"confirm_removals_required": True,
 		}
@@ -920,7 +1008,9 @@ def commit_drawing_import(
 		if entry["action"] == "unchanged":
 			line_keys[entry["cad_run_id"]] = entry["line_key"]
 			continue
-		response = _save_build(doc.name, save["request"], entry, save["run"], digest, start_modified, modified)
+		response = _save_build(
+			doc.name, save["request"], entry, save["run"], digest, start_modified, modified
+		)
 		if not response.get("success"):
 			frappe.throw(
 				_("Run {0}: {1}").format(save["run"]["id"], response.get("error") or _("could not be saved"))
@@ -963,9 +1053,20 @@ def commit_drawing_import(
 	telemetry.record(
 		"cad_import",
 		doc.name,
-		details={"import": record.name, "runs": len(package["runs"]), "added": record.runs_added, "updated": record.runs_updated},
+		details={
+			"import": record.name,
+			"runs": len(package["runs"]),
+			"added": record.runs_added,
+			"updated": record.runs_updated,
+		},
 	)
-	return {"success": True, "schedule": doc.name, "modified": str(doc.modified), "receipt": receipt, "import": record.name}
+	return {
+		"success": True,
+		"schedule": doc.name,
+		"modified": str(doc.modified),
+		"receipt": receipt,
+		"import": record.name,
+	}
 
 
 # --- Receipt and record ------------------------------------------------------------------------
@@ -993,7 +1094,11 @@ def receipt_for(doc, package, rows, removals, line_keys, import_name):
 		for entry in row.get("parts") or []:
 			line = by_key.get(line_keys.get(entry["cad_run_id"]))
 			doctype, name = _configured_link(line) if line is not None else (None, None)
-			config_hash = frappe.db.get_value(doctype, name, "config_hash") if doctype and doctype != "ilL-Configured-Group" else None
+			config_hash = (
+				frappe.db.get_value(doctype, name, "config_hash")
+				if doctype and doctype != "ilL-Configured-Group"
+				else None
+			)
 			parts.append(
 				{
 					"part": entry["part"],
@@ -1002,7 +1107,9 @@ def receipt_for(doc, package, rows, removals, line_keys, import_name):
 					"configured_doctype": doctype,
 					"configured_name": name,
 					"config_hash": config_hash,
-					"part_number": (line.get("group_part_number") or line.get("ill_item_code")) if line is not None else entry.get("part_number"),
+					"part_number": (line.get("group_part_number") or line.get("ill_item_code"))
+					if line is not None
+					else entry.get("part_number"),
 					"qty": entry.get("qty") or 1,
 					"server_length_in": entry.get("server_length_in"),
 					"segments_in": entry.get("segments_in") or [],
@@ -1114,7 +1221,9 @@ def get_drawing_receipt(schedule, cad_import=None):
 	filters = {"schedule": doc.name}
 	if cad_import:
 		filters["name"] = cad_import
-	rows = frappe.get_all(DOCTYPE, filters=filters, fields=["name", "receipt_json"], order_by="creation desc", limit=1)
+	rows = frappe.get_all(
+		DOCTYPE, filters=filters, fields=["name", "receipt_json"], order_by="creation desc", limit=1
+	)
 	if not rows:
 		frappe.throw(_("This schedule has no drawing import yet"), frappe.DoesNotExistError)
 	return {"success": True, "import": rows[0].name, "receipt": json.loads(rows[0].receipt_json or "{}")}
