@@ -120,6 +120,8 @@ page_renderer = ["illumenate_lighting.illumenate_lighting.spec_sheet_route.SpecS
 # -------------------
 website_route_rules = [
 	{"from_route": "/catalog-builder", "to_route": "catalog_builder"},
+	# Kevin's Desk: private; the page answers 404 unless the desk owner opens the right link.
+	{"from_route": "/kd/<slug>", "to_route": "kevins_desk"},
 	{"from_route": "/portal/product-verification/<request_name>", "to_route": "product_verification"},
 	{"from_route": "/portal/product-finder", "to_route": "product_finder"},
 	# Portal main pages
