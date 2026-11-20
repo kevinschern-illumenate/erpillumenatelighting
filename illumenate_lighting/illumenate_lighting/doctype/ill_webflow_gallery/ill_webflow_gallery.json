@@ -31,14 +31,14 @@
   "services_provided",
   "products_section",
   "products_used",
+  "custom_items",
   "credits_section",
   "credits",
-  "custom_items",
+  "status_guide_section",
+  "status_guide",
   "publishing_section",
   "target_brands",
-  "sync_targets",
-  "status_guide_section",
-  "status_guide"
+  "sync_targets"
  ],
  "fields": [
   {
@@ -245,7 +245,7 @@
  "index_web_pages_for_search": 1,
  "make_attachments_public": 1,
  "links": [],
- "modified": "2026-11-19 16:00:00.000000",
+ "modified": "2026-11-20 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Webflow-Gallery",

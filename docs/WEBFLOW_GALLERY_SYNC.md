@@ -557,3 +557,6 @@ Still open: nothing.
   added to Collection Kind, so a site that had the older copy skipped the change at migrate and the option was
   missing. `modified` is now bumped (and a test guards it). Any doctype file edited in a commit needs its
   `modified` moved forward.
+- 2026-11-20: Gallery form order: Custom Items now sits directly under Products Used, and the Webflow publication
+  section (Target Brands and Sync Targets) moved to the bottom, under the collapsed "What the status means"
+  section. Field names are unchanged. The doctype file's `modified` date was moved forward so migrate applies it.
