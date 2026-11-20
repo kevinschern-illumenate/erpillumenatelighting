@@ -6,6 +6,16 @@
 Templates keep the wording; these keep the markup. Each returns "" when it has nothing
 to show, so a template can print ``{{ c.blocks.lines }}`` without an ``{% if %}``.
 Styles are inline because most mail clients drop <style> blocks.
+
+Tables must also survive the Desk composer's rich-text editor (Quill), which takes over
+the email when someone switches "Use HTML editor" off, and whatever it shows is what gets
+sent. Quill has no header cells and makes a new cell at every line break, so:
+
+- header rows are ``<td>`` cells with ``<strong>`` text (``_head``), never ``<th>``:
+  Quill runs every ``<th>`` of a row together into one cell;
+- a cell holds one line: no ``<br>``, ``<div>`` or ``<p>`` inside a ``<td>``, or the row
+  gains cells and its columns shift;
+- templates never put one table straight after another: Quill joins them into one table.
 """
 
 from html import escape
@@ -48,18 +58,34 @@ def _more(count, where="the PDF"):
 	return f"<p {MUTED}>…and {count} more {noun} in {e(where)}.</p>"
 
 
+def _head(*columns):
+	"""The header row: ``columns`` are labels, or (label, "right") for a right-aligned one.
+
+	Bold ``<td>`` cells rather than ``<th>``, which Quill runs together into one cell.
+	"""
+	cells = []
+	for column in columns:
+		label, align = column if isinstance(column, tuple) else (column, "left")
+		style = TH_RIGHT if align == "right" else TH
+		cells.append(f"<td {style}><strong>{e(label)}</strong></td>")
+	return f"<tr>{''.join(cells)}</tr>"
+
+
+def _with_detail(main, detail):
+	"""Bold text with a muted detail after it, on the same line (a cell holds one line)."""
+	main = f"<strong>{e(main)}</strong>"
+	return f"{main} <span {MUTED}>&middot; {e(detail)}</span>" if detail else main
+
+
 def _label_cell(line):
-	label = e(line.get("label"))
-	detail = e(line.get("detail"))
-	return f"<strong>{label}</strong>" + (f"<br><span {MUTED}>{detail}</span>" if detail else "")
+	return _with_detail(line.get("label"), line.get("detail"))
 
 
 def lines_table(lines, more=0, amounts=True):
 	"""Item summary for quotes, orders and invoices."""
 	if not lines:
 		return ""
-	head = f"<tr><th {TH}>Item</th><th {TH_RIGHT}>Qty</th>"
-	head += f"<th {TH_RIGHT}>Amount</th></tr>" if amounts else "</tr>"
+	head = _head("Item", ("Qty", "right"), *([("Amount", "right")] if amounts else []))
 	rows = []
 	for line in lines:
 		qty = f"{e(line.get('qty'))} {e(line.get('uom'))}".strip()
@@ -73,17 +99,17 @@ def supplier_lines_table(lines, more=0, amounts=True):
 	"""Purchase Order / RFQ lines: our item code, the supplier's part number, qty, required-by date."""
 	if not lines:
 		return ""
-	head = (
-		f"<tr><th {TH}>Item</th><th {TH}>Your part #</th><th {TH_RIGHT}>Qty</th>"
-		f"<th {TH_RIGHT}>Needed by</th>" + (f"<th {TH_RIGHT}>Rate</th>" if amounts else "") + "</tr>"
+	head = _head(
+		"Item",
+		"Your part #",
+		("Qty", "right"),
+		("Needed by", "right"),
+		*([("Rate", "right")] if amounts else []),
 	)
 	rows = []
 	for line in lines:
-		code = e(line.get("item_code"))
-		label = e(line.get("label"))
-		item = f"<strong>{code}</strong>" + (
-			f"<br><span {MUTED}>{label}</span>" if label and label != code else ""
-		)
+		code, label = line.get("item_code"), line.get("label")
+		item = _with_detail(code, label if label and label != code else "")
 		qty = f"{e(line.get('qty'))} {e(line.get('uom'))}".strip()
 		rows.append(
 			f"<tr><td {TD}>{item}</td><td {TD}>{e(line.get('supplier_part_no'))}</td>"
@@ -103,10 +129,7 @@ def schedule_table(rows):
 	"""Payment schedule rows: [{label, due_date, amount, outstanding}]."""
 	if not rows:
 		return ""
-	head = (
-		f"<tr><th {TH}>Payment</th><th {TH}>Due</th><th {TH_RIGHT}>Amount</th>"
-		f"<th {TH_RIGHT}>Still due</th></tr>"
-	)
+	head = _head("Payment", "Due", ("Amount", "right"), ("Still due", "right"))
 	body = "".join(
 		f"<tr><td {TD}>{e(r.get('label'))}</td><td {TD}>{e(r.get('due_date'))}</td>"
 		f"<td {TD_RIGHT}>{e(r.get('amount'))}</td><td {TD_RIGHT}>{e(r.get('outstanding'))}</td></tr>"
@@ -119,7 +142,7 @@ def payments_table(rows):
 	"""Payments received: [{date, amount, method, reference}]."""
 	if not rows:
 		return ""
-	head = f"<tr><th {TH}>Date</th><th {TH}>Method</th><th {TH}>Reference</th><th {TH_RIGHT}>Amount</th></tr>"
+	head = _head("Date", "Method", "Reference", ("Amount", "right"))
 	body = "".join(
 		f"<tr><td {TD}>{e(r.get('date'))}</td><td {TD}>{e(r.get('method'))}</td>"
 		f"<td {TD}>{e(r.get('reference'))}</td><td {TD_RIGHT}>{e(r.get('amount'))}</td></tr>"
@@ -132,7 +155,7 @@ def applied_table(rows):
 	"""Where a payment went: [{label, amount, balance}]."""
 	if not rows:
 		return ""
-	head = f"<tr><th {TH}>Applied to</th><th {TH_RIGHT}>Amount</th><th {TH_RIGHT}>Balance now</th></tr>"
+	head = _head("Applied to", ("Amount", "right"), ("Balance now", "right"))
 	body = "".join(
 		f"<tr><td {TD}>{e(r.get('label'))}</td><td {TD_RIGHT}>{e(r.get('amount'))}</td>"
 		f"<td {TD_RIGHT}>{e(r.get('balance'))}</td></tr>"
@@ -145,16 +168,12 @@ def rejected_table(rows):
 	"""Purchase Receipt lines with a rejected quantity."""
 	if not rows:
 		return ""
-	head = (
-		f"<tr><th {TH}>Item</th><th {TH}>Our PO</th><th {TH_RIGHT}>Received</th>"
-		f"<th {TH_RIGHT}>Accepted</th><th {TH_RIGHT}>Rejected</th></tr>"
-	)
+	head = _head("Item", "Our PO", ("Received", "right"), ("Accepted", "right"), ("Rejected", "right"))
 	body = "".join(
-		f"<tr><td {TD}><strong>{e(r.get('item_code'))}</strong>"
-		+ (
-			f"<br><span {MUTED}>{e(r.get('label'))}</span>"
-			if r.get("label") and r.get("label") != r.get("item_code")
-			else ""
+		f"<tr><td {TD}>"
+		+ _with_detail(
+			r.get("item_code"),
+			r.get("label") if r.get("label") and r.get("label") != r.get("item_code") else "",
 		)
 		+ f"</td><td {TD}>{e(r.get('purchase_order'))}</td>"
 		f"<td {TD_RIGHT}>{e(r.get('received'))} {e(r.get('uom'))}</td>"

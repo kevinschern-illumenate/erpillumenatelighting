@@ -266,6 +266,34 @@ class Rendering(unittest.TestCase):
 		leak = LEAKS.search(visible_text(html)) or re.search(r"\{\{|\{%", html)
 		self.assertIsNone(leak, f"{label}: {leak and html[max(leak.start() - 80, 0) : leak.end() + 80]}")
 
+	def assert_editor_safe(self, html, label):
+		"""The rules in blocks.py: the Desk composer's rich-text editor (Quill) runs <th> cells
+		together, splits a cell at every line break and joins back-to-back tables."""
+		flat = re.sub(r"\s+", " ", html)
+		self.assertNotRegex(flat, r"<th[\s>]", f"{label}: header cells must be <td><strong>")
+		for cell in re.findall(r"<td[^>]*>(.*?)</td>", flat):
+			self.assertNotRegex(cell, r"<(br|div|p|table)[\s/>]", f"{label}: a cell holds one line: {cell[:120]}")
+		self.assertNotRegex(
+			flat, r"</table>\s*<table", f"{label}: a table straight after another becomes one table"
+		)
+
+	def test_every_template_survives_the_rich_text_editor(self):
+		for template in library.TEMPLATES:
+			doctype = template.doctype or "Sales Order"
+			for variant in self.VARIANTS:
+				with self.subTest(template=template.name, variant=variant):
+					c = samples.rich(doctype, **variant)
+					html = render(template.body(), lambda *_a, c=c: c, **samples.doc_dict(doctype, c["name"]))
+					self.assert_editor_safe(html, template.name)
+			with self.subTest(template=template.name, variant="missing document"):
+				html = render(
+					template.body(),
+					lambda d, n: samples.empty(d or "", n or ""),
+					**samples.doc_dict(doctype, "X"),
+				)
+				self.assert_editor_safe(html, template.name)
+				self.assertNotRegex(re.sub(r"\s+", "", html), r"<table[^>]*></table>", template.name)
+
 	def test_every_template_renders_with_full_and_empty_context(self):
 		for template in library.TEMPLATES:
 			doctype = template.doctype or "Sales Order"

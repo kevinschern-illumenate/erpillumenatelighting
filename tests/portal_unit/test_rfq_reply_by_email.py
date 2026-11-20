@@ -152,7 +152,11 @@ class Patch(unittest.TestCase):
 			return module, frappe, result
 
 	def test_shipped_body_becomes_the_reply_by_email_body(self):
-		new = library.BY_SLUG["rfq_request"].body()
+		# The body as this patch shipped it; patches/email_tables_editor_safe.py takes it on to
+		# today's body (test_email_tables_editor_safe.py).
+		new = (
+			Path(__file__).parent / "fixtures" / "email_bodies_before_editor_safe" / "rfq_request.html"
+		).read_text(encoding="utf-8")
 		self.assertIn("portal_link", self.OLD)
 		module, frappe, result = self.run_patch(self.OLD, [("PUR-RFQ-1", self.OLD), ("PUR-RFQ-2", "Custom")])
 		self.assertEqual(module.reply_by_email(self.OLD), new)
