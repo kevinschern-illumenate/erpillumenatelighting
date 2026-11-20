@@ -1,8 +1,9 @@
 """Phase 3: read the desk's Gmail mailboxes into ranked items and keep @Action / @Waiting / @Quote labels.
 
 Per mailbox, the desk reads (metadata only, never bodies):
-    * the inbox for the last 21 days, without promotions, social and forums, and without the senders
-      Kevin asked to skip (GitHub, Frappe Cloud, Vercel, Amazon, Intuit, LinkedIn, Google)
+    * the inbox, by the mailbox's scope (ilL-Desk-Mailbox.scope): the last 21 days, unread only, or all of
+      it; never the senders Kevin asked to skip (GitHub, Frappe Cloud, Vercel, Amazon, Intuit, LinkedIn,
+      Google), and except for "All inbox" never promotions, social and forums
     * sent mail for the last 30 days
     * threads already labelled @Action or @Waiting (so labels can be cleared when a thread moves on)
 
@@ -61,9 +62,16 @@ AUTOMATED_SENDER = re.compile(
 	r"automated|news(?:letter)?|marketing|updates?)\b",
 	re.I,
 )
-INBOX_Q = "in:inbox newer_than:21d -category:promotions -category:social -category:forums " + " ".join(
-	f"-from:{d}" for d in SKIP_DOMAINS
-)
+SKIP_Q = " ".join(f"-from:{d}" for d in SKIP_DOMAINS)
+NOISE_Q = "-category:promotions -category:social -category:forums"
+# ilL-Desk-Mailbox.scope -> (inbox query, how many threads to read)
+SCOPES = {
+	"Recent (21 days)": (f"in:inbox newer_than:21d {NOISE_Q} {SKIP_Q}", 50),
+	"Unread only": (f"in:inbox is:unread {NOISE_Q} {SKIP_Q}", 100),
+	"All inbox": (f"in:inbox {SKIP_Q}", 100),
+}
+DEFAULT_SCOPE = "Recent (21 days)"
+INBOX_Q = SCOPES[DEFAULT_SCOPE][0]
 SENT_Q = "in:sent newer_than:30d"
 WAIT_DAYS = 3
 LATE = {"reply": 2, "waiting": 7}  # days before an item is flagged late
@@ -251,11 +259,12 @@ def wanted_labels(info, topic):
 	return want
 
 
-def ingest(gm, mailbox, me, ours, team, directory, now):
+def ingest(gm, mailbox, me, ours, team, directory, now, scope=DEFAULT_SCOPE):
 	"""Items for one mailbox, and how many threads had labels changed."""
 	label_ids = gm.ensure_labels()
 	names = {v: k for k, v in label_ids.items()}
-	ids = gm.thread_ids(INBOX_Q, limit=PER_QUERY) + gm.thread_ids(SENT_Q, limit=PER_QUERY)
+	inbox_q, inbox_limit = SCOPES.get(scope) or SCOPES[DEFAULT_SCOPE]
+	ids = gm.thread_ids(inbox_q, limit=inbox_limit) + gm.thread_ids(SENT_Q, limit=PER_QUERY)
 	for name in ("@Action", "@Waiting"):
 		ids += gm.thread_ids(label_ids=[label_ids[name]], limit=PER_QUERY)
 	items, changed = [], 0
@@ -304,7 +313,9 @@ def build(owner, team, now=None):
 				else:
 					directory = directory or load_directory()
 					me = {row["mailbox"], owner.lower()}
-					threads, changed = ingest(gm, row["mailbox"], me, ours, team, directory, now)
+					threads, changed = ingest(
+						gm, row["mailbox"], me, ours, team, directory, now, row.get("scope") or DEFAULT_SCOPE
+					)
 					out["threads"] += threads
 					entry.update(threads=len(threads), labels_changed=changed)
 			except Exception as e:

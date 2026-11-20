@@ -1,7 +1,8 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
-"""Seed Kevin's Desk mailboxes once: the desk owner's own mailbox and sales@, plus the Google App.
+"""Seed Kevin's Desk mailboxes once: the desk owner's own mailbox (unread only) and sales@ (all of the
+inbox), plus the Google App.
 
 Insert-if-missing: rows or a Google App already set are left alone. sales@ is the "Sales" Email
 Account's address when there is one, else sales@ on the owner's domain.
@@ -32,8 +33,17 @@ def execute():
 		owner = doc.desk_owner.lower()
 		sales = (frappe.db.get_value("Email Account", "Sales", "email_id") or "").strip().lower()
 		sales = sales or "sales@" + owner.split("@", 1)[1]
+		scopes = {owner: "Unread only", sales: "All inbox"}  # Kevin: his unread mail, and all of sales@
 		for address in dict.fromkeys([owner, sales]):
-			doc.append("mailboxes", {"mailbox": address, "label": address.split("@")[0] + "@", "enabled": 1})
+			doc.append(
+				"mailboxes",
+				{
+					"mailbox": address,
+					"label": address.split("@")[0] + "@",
+					"scope": scopes[address],
+					"enabled": 1,
+				},
+			)
 		changed = True
 	if changed:
 		doc.save(ignore_permissions=True)
