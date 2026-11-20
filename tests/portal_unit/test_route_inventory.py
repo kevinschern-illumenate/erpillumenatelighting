@@ -22,7 +22,10 @@ def _hooks():
 
 
 def _pattern(from_route):
-	return re.compile("^" + re.sub(r"<[^>]+>", "[^/]+", re.escape(from_route).replace(r"\<", "<").replace(r"\>", ">")) + "$")
+	# Werkzeug converters: ``<path:x>`` also matches "/", any other converter one segment.
+	escaped = re.escape(from_route).replace(r"\<", "<").replace(r"\>", ">")
+	escaped = re.sub(r"<path:[^>]+>", ".+", escaped)
+	return re.compile("^" + re.sub(r"<[^>]+>", "[^/]+", escaped) + "$")
 
 
 def _resolves(path, rules, redirects):
@@ -83,6 +86,12 @@ class RouteInventory(unittest.TestCase):
 			with self.subTest(path=path):
 				self.assertTrue(any(re.fullmatch(r["source"], path) for r in self.redirects))
 				self.assertFalse(any(_pattern(r["from_route"]).match(path) for r in self.rules))
+
+	def test_order_names_with_a_slash_resolve_to_the_order_page(self):
+		# Older order names embed the customer name, which may contain "/" (seen live: 404).
+		path = "/portal/orders/ilL-SAL-ORD-Backcountry Electric / LINX Audio Visual-00003-1"
+		matches = [rule["to_route"] for rule in self.rules if _pattern(rule["from_route"]).match(path)]
+		self.assertEqual(matches, ["order_detail"])
 
 	def test_unknown_paths_do_not_resolve(self):
 		self.assertFalse(_resolves("/portal/no-such-page", self.rules, self.redirects))

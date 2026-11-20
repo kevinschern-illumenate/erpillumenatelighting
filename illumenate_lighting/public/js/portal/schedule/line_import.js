@@ -29,7 +29,8 @@ var ScheduleImport = (function () {
 
 	function reset() {
 		state = { filename: null, content: null, counts: null };
-		$('#importLinesMapping, #importLinesPreview, #importLinesSkipWrap').prop('hidden', true);
+		$('#importLinesMapping, #importLinesPreview, #importLinesSkipWrap, #importLinesLegend, #importLinesWarnings').prop('hidden', true);
+		$('#importLinesWarnings').empty();
 		$('#importLinesMappingFields, #importLinesRows').empty();
 		$('#importLinesCounts').text('');
 		$('#importLinesSkip').prop('checked', false);
@@ -78,6 +79,18 @@ var ScheduleImport = (function () {
 		return td;
 	}
 
+	// What the server noticed about the sheet as a whole (a skipped title block, no Qty column...).
+	function renderWarnings(warnings) {
+		var box = document.getElementById('importLinesWarnings');
+		box.textContent = '';
+		(warnings || []).forEach(function (text) {
+			var line = document.createElement('div');
+			line.textContent = String(text);
+			box.appendChild(line);
+		});
+		box.hidden = !(warnings && warnings.length);
+	}
+
 	function renderRows(rows, counts) {
 		var body = document.getElementById('importLinesRows');
 		body.textContent = '';
@@ -104,7 +117,8 @@ var ScheduleImport = (function () {
 			));
 			$('#importLinesSkipWrap').prop('hidden', !counts.error);
 		}
-		$('#importLinesPreview').prop('hidden', false);
+		$('#importLinesPreview, #importLinesLegend').prop('hidden', !rows.length);
+		if (!rows.length) $('#importLinesCounts').text('');
 		updateConfirm();
 	}
 
@@ -142,6 +156,7 @@ var ScheduleImport = (function () {
 					return;
 				}
 				renderMapping(message.columns || [], message.fields || [], message.mapping || {});
+				renderWarnings(message.warnings);
 				renderRows(message.rows || [], message.counts);
 			},
 			error: function () {

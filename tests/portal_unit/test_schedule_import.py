@@ -152,7 +152,8 @@ class ScheduleImport(unittest.TestCase):
 		statuses = [(row["row"], row["status"], row["line_id"]) for row in result["rows"]]
 		self.assertEqual(
 			statuses,
-			[(2, "needs_configuration", "L1"), (3, "needs_configuration", "L2"), (4, "needs_configuration", ""), (5, "error", "L4")],
+			# Sheet row numbers: the blank row 5 still counts, so L4 is row 6 as the dealer sees it.
+			[(2, "needs_configuration", "L1"), (3, "needs_configuration", "L2"), (4, "needs_configuration", ""), (6, "error", "L4")],
 		)
 		first = result["rows"][0]
 		self.assertEqual(first["summary"], "Shallow <01>")
@@ -300,8 +301,12 @@ class ScheduleImport(unittest.TestCase):
 				module.preview_schedule_import("S1", "lines.csv", sheet(too_many))
 			exactly = [TEMPLATE] + [["L", "1"]] * module.MAX_ROWS
 			self.assertEqual(len(module.preview_schedule_import("S1", "lines.csv", sheet(exactly))["rows"]), 500)
+			# No recognisable header: the preview offers the columns to map instead of failing.
+			unmapped = module.preview_schedule_import("S1", "lines.csv", sheet([["Foo"], ["1"]]))
+			self.assertEqual((unmapped["columns"], unmapped["mapping"], unmapped["rows"]), (["Foo"], {}, []))
+			self.assertIn("Choose which column holds each field", unmapped["warnings"][0])
 			with self.assertRaisesRegex(ValueError, "Map at least one column"):
-				module.preview_schedule_import("S1", "lines.csv", sheet([["Foo"], ["1"]]))
+				module.commit_schedule_import("S1", "lines.csv", sheet([["Foo"], ["1"]]))
 
 	def test_semicolon_sheets_and_excel_workbooks_are_read(self):
 		result = self.preview([TEMPLATE, ["A", "2", "Lobby", "", "", "", ""]], filename="x.CSV")
@@ -319,7 +324,7 @@ class ScheduleImport(unittest.TestCase):
 		with self.module() as module:
 			result = module.preview_schedule_import("S1", "x.xlsx", data)
 		self.assertEqual(result["columns"], ["Type", "Qty", ""])
-		self.assertEqual((result["rows"][0]["row"], result["rows"][0]["qty"]), (2, 3))
+		self.assertEqual((result["rows"][0]["row"], result["rows"][0]["qty"]), (3, 3))
 		self.assertTrue(openpyxl.load_workbook.call_args.kwargs["read_only"])
 		book.close.assert_called_once()
 
@@ -335,6 +340,145 @@ class ScheduleImport(unittest.TestCase):
 		self.schedule.is_locked = 1
 		with self.assertRaisesRegex(ValueError, "locked"):
 			self.commit(self.rows())
+
+	def test_an_architects_schedule_with_a_title_block_reads_as_written(self):
+		# Seen live: "QTY." and "MFR" were not recognised, so every quantity became 1 and a Lutron
+		# downlight was added as an ilLumenate line; a title row above the header failed the file.
+		rows = [
+			["Smith Residence - Lighting Fixture Schedule"],
+			["Issued for permit"],
+			["TYPE", "QTY.", "MFR", "CATALOG #", "DESCRIPTION", "LAMP", "VOLTS", "LOCATION"],
+			["A", "12", "Lutron", "HWQS", "Downlight", "LED 12W", "120", "Kitchen"],
+			["B", "3", "ilLumenate", "", "Linear cove", "LED", "24", "Living"],
+			["#1", "2 ea", "Acme", "", "Sconce", "", "", "Hall"],
+		]
+		result = self.preview(rows)
+		self.assertEqual(
+			result["mapping"],
+			{
+				"line_id": 0, "qty": 1, "manufacturer_name": 2, "part_number": 3, "description": 4,
+				"lamp_info": 5, "input_voltage": 6, "location": 7,
+			},
+		)
+		self.assertEqual(
+			[(row["row"], row["line_id"], row["qty"], row["manufacturer_type"], row["status"]) for row in result["rows"]],
+			[
+				(4, "A", 12, "OTHER", "ok"),
+				(5, "B", 3, "ILLUMENATE", "needs_configuration"),
+				# "#1" is a fixture designation, not a comment.
+				(6, "#1", 2, "OTHER", "ok"),
+			],
+		)
+		self.assertIn("Row 3 is used as the header row; the rows above it were skipped.", result["warnings"])
+		self.commit(rows)
+		lutron, cove, sconce = self.schedule.lines
+		# The catalog number is the other maker's model, and the description is kept.
+		self.assertEqual(
+			(lutron.manufacturer_name, lutron.fixture_model_number, lutron.lamp_info, lutron.input_voltage, lutron.notes),
+			("Lutron", "HWQS", "LED 12W", "120", "Description: Downlight"),
+		)
+		self.assertEqual((cove.manufacturer_type, cove.notes), ("ILLUMENATE", "Description: Linear cove"))
+		self.assertEqual((sconce.line_id, sconce.qty), ("#1", 2))
+
+	def test_lengths_quantities_and_types_are_read_the_way_people_type_them(self):
+		header = ["Type", "Qty", "Length", "Manufacturer Type", "Manufacturer"]
+		rows = [
+			header,
+			["L1", "4", "10'", "ilLumenate", ""],
+			["L2", "1,200", '48"', "Illumenate Lighting", ""],
+			["L3", "2", "4' 6\"", "ILL", ""],
+			["L4", "1", "120 in", "", "ilLumenate"],
+			["B1", "6 pcs", "", "Other mfr", "Acme"],
+			["P1", "2", "", "Accessory", ""],
+			["X1", "1", "about ten feet", "", ""],
+		]
+		result = self.preview(rows)
+		got = [(row["line_id"], row["qty"], row["manufacturer_type"], row["status"], row.get("length_in")) for row in result["rows"]]
+		self.assertEqual(
+			got,
+			[
+				("L1", 4, "ILLUMENATE", "needs_configuration", 120.0),
+				("L2", 1200, "ILLUMENATE", "needs_configuration", 48.0),
+				("L3", 2, "ILLUMENATE", "needs_configuration", 54.0),
+				("L4", 1, "ILLUMENATE", "needs_configuration", 120.0),
+				("B1", 6, "OTHER", "ok", None),
+				("P1", 2, "ACCESSORY", "error", None),
+				("X1", 1, "ILLUMENATE", "error", None),
+			],
+		)
+		self.commit(rows, skip_errors=1)
+		self.assertEqual(self.schedule.lines[0].notes, "Length: 120 in (entered as 10')")
+		self.assertEqual(self.schedule.lines[3].notes, "Length: 120 in (entered as 120 in)")
+
+	def test_missing_columns_are_called_out_in_the_preview(self):
+		result = self.preview([["Type", "Location"], ["A", "Lobby"]])
+		warnings = " ".join(result["warnings"])
+		self.assertIn("every line gets Qty 1", warnings)
+		self.assertIn("every line is treated as an ilLumenate line", warnings)
+		self.assertNotIn("without a fixture type", warnings)
+		header, examples = None, None
+		with self.module() as module:
+			header, examples = module.TEMPLATE_COLUMNS, module.TEMPLATE_ROWS
+		full = self.preview([header, *examples, ["D1", "3"] + [""] * (len(header) - 2)])
+		self.assertEqual(full["warnings"], [f"{len(examples)} row(s) starting with # were skipped as notes."])
+
+	def test_a_part_number_kept_by_the_import_reads_back_from_the_notes(self):
+		with self.module() as module:
+			self.assertEqual(
+				module.imported_part_number("Paint first\nPart number: ILL-SH01-SW-67\nLength: 48 in"), "ILL-SH01-SW-67"
+			)
+			self.assertIsNone(module.imported_part_number("Part number unknown, ask the architect"))
+			self.assertIsNone(module.imported_part_number(None))
+
+	def test_the_template_example_part_number_has_the_real_layout(self):
+		with self.module() as module:
+			tokens = module.EXAMPLE_PART_NUMBER.split("-")
+			self.assertEqual(tokens[0], "ILL")
+			self.assertGreaterEqual(len(tokens), 11)
+			column = module.FIELD_NAMES.index("part_number")
+			self.assertIn(module.EXAMPLE_PART_NUMBER, [row[column] for row in module.TEMPLATE_ROWS])
+			self.assertIn(module.EXAMPLE_PART_NUMBER, [row[column] for row in module.EXAMPLES])
+
+	def test_the_excel_template_guides_the_dealer_and_imports_once_filled_in(self):
+		import openpyxl
+
+		with self.module() as module:
+			data = module.template_workbook()
+			self.frappe.local.response = types.SimpleNamespace()
+			module.download_import_template()
+			self.assertEqual(self.frappe.local.response.type, "download")
+			self.assertTrue(self.frappe.local.response.filename.endswith(".xlsx"))
+			self.frappe.session.user = "Guest"
+			with self.assertRaises(PermissionError):
+				module.download_import_template()
+			self.assertEqual(module.download_import_template.whitelist_options, {"methods": ["GET"]})
+			columns = module.TEMPLATE_COLUMNS
+		book = openpyxl.load_workbook(io.BytesIO(data))
+		self.assertEqual(book.sheetnames, ["Lines", "How to use", "Examples"])
+		self.assertEqual(book.active.title, "Lines")
+		lines = book["Lines"]
+		self.assertTrue(lines["A1"].value.startswith("#"))
+		self.assertEqual([cell.value for cell in lines[2]], columns)
+		self.assertTrue(all(cell.comment for cell in lines[2]), "every column name carries a tip")
+		self.assertIn('"ILLUMENATE,OTHER,ACCESSORY"', [v.formula1 for v in lines.data_validations.dataValidation])
+		how = " ".join(str(cell.value) for row in book["How to use"].iter_rows() for cell in row if cell.value)
+		for words in ("Needs configuration", "Manufacturer Name", "Accessory Item Code", "Part Number"):
+			self.assertIn(words, how)
+		self.assertEqual(book["Examples"].max_row, 2 + len(module.EXAMPLES))
+
+		# A dealer fills in two lines and uploads the file as is.
+		lines.append(["A1", 4, "Lobby", "Cove", "", "", "10'", "ILLUMENATE"])
+		lines.append(["B1", 2, "Hall", "Sconce", "", "", "", "", "Acme", "SC-1"])
+		output = io.BytesIO()
+		book.save(output)
+		self.extras.pop("openpyxl", None)
+		with self.module() as module:
+			result = module.preview_schedule_import("S1", "filled.xlsx", base64.b64encode(output.getvalue()).decode())
+		self.assertEqual(result["warnings"], [], "the template's own tip row is not reported")
+		self.assertEqual(
+			[(row["row"], row["line_id"], row["qty"], row["status"]) for row in result["rows"]],
+			[(3, "A1", 4, "needs_configuration"), (4, "B1", 2, "ok")],
+		)
 
 	def test_the_endpoints_are_post_only(self):
 		with self.module() as module:

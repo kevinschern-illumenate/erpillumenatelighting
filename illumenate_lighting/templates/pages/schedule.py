@@ -434,6 +434,8 @@ def get_context(context):
 				lookup=lookup,
 			)
 
+			if msrp.get("price_problem"):
+				line_dict["price_problem"] = frappe._(msrp["price_problem"])
 			if msrp["unit"]:
 				line_dict["unit_price"] = msrp["unit"]
 				line_dict["line_total"] = msrp["unit"] * (line.qty or 1)
@@ -509,10 +511,15 @@ def get_context(context):
 		from illumenate_lighting.illumenate_lighting.portal.schedule_import import (
 			TEMPLATE_COLUMNS,
 			TEMPLATE_ROWS,
+			guide,
 		)
 
 		context.import_columns = list(TEMPLATE_COLUMNS)
 		context.import_template_rows = [list(row) for row in TEMPLATE_ROWS]
+		context.import_guide = guide()
+		context.import_template_url = (
+			"/api/method/illumenate_lighting.illumenate_lighting.portal.schedule_import.download_import_template"
+		)
 	context.design_dimming_protocols = dimming_choices() if can_edit else []
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
@@ -856,28 +863,30 @@ def compute_line_msrp(
 		dict with keys ``unit`` (float | None) and ``driver_unit`` (float | None).
 	"""
 	unit_price = None
+	price_problem = None
 	mt = line.manufacturer_type
 	lookup = lookup or Lookup()
 
 	if mt == "ILLUMENATE" and line.get("configured_group"):
 		from illumenate_lighting.illumenate_lighting.api.fixture_group_bom import current_estimate
-		unit_price = current_estimate(frappe.get_doc("ilL-Configured-Group", line.configured_group))
+		unit_price, price_problem = _estimate(current_estimate, lambda: frappe.get_doc("ilL-Configured-Group", line.configured_group))
 	elif mt == "ILLUMENATE" and line.configured_fixture:
 		fixture = lookup.doc("ilL-Configured-Fixture", line.configured_fixture)
 		if fixture.get("build_schema_version") == 2:
 			from illumenate_lighting.illumenate_lighting.api.linear_build import current_estimate
-			unit_price = current_estimate(fixture)
+			unit_price, price_problem = _estimate(current_estimate, lambda: fixture)
 		else:
 			unit_price = fixture_snapshot_price
 	elif mt == "ILLUMENATE" and line.configured_tape_neon:
 		configured = lookup.doc("ilL-Configured-Tape-Neon", line.configured_tape_neon)
 		if configured.get("build_schema_version") == 2:
 			from illumenate_lighting.illumenate_lighting.api.tape_neon_build import current_estimate
-			unit_price = current_estimate(configured)
+			unit_price, price_problem = _estimate(current_estimate, lambda: configured)
 		else:
 			unit_price = ctn_snapshot_price
-		# Fallback: read from variant_selections when snapshot pricing is missing
-		if not unit_price:
+		# Fallback: read from variant_selections when snapshot pricing is missing (not when the
+		# build's parts are gone: that saved price can no longer be built).
+		if not unit_price and not price_problem:
 			unit_price = _get_msrp_from_variant_selections(line)
 	elif mt == "ILLUMENATE" and getattr(line, "configured_led_sheet", None):
 		if cls_details is None:
@@ -912,7 +921,24 @@ def compute_line_msrp(
 	return {
 		"unit": float(unit_price) if unit_price else None,
 		"driver_unit": driver_unit,
+		"price_problem": price_problem,
 	}
+
+
+PRICE_PROBLEM = "A part in this build is no longer available. Reconfigure this line to price it."
+
+
+def _estimate(current_estimate, load):
+	"""``(price, problem)`` for a v2 build's current estimate.
+
+	The estimate refuses a build whose pinned parts were disabled or changed unit (a
+	``ValueError``). One such line must not take the whole schedule page, export or pricing
+	call down: it is shown unpriced with ``problem`` so the dealer knows to reconfigure it.
+	"""
+	try:
+		return current_estimate(load()), None
+	except (ValueError, frappe.ValidationError):
+		return None, PRICE_PROBLEM
 
 
 def _get_configured_tape_neon_display_details(configured_tape_neon_id, lookup=None):

@@ -438,9 +438,14 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 				else "Included" if group["include_power_supply"]
 				else "External power required"})
 			if include_pricing:
-				unit = current_estimate(frappe.get_doc("ilL-Configured-Group", line.configured_group))
-				line_data.update(unit_price=unit, line_total=unit * (line.qty or 1))
-				schedule_total += line_data["line_total"]
+				try:
+					unit = current_estimate(frappe.get_doc("ilL-Configured-Group", line.configured_group))
+				except (ValueError, frappe.ValidationError):
+					# A pinned part was disabled: export the line unpriced rather than fail the export.
+					unit = None
+				if unit:
+					line_data.update(unit_price=unit, line_total=unit * (line.qty or 1))
+					schedule_total += line_data["line_total"]
 		elif line.manufacturer_type == "ILLUMENATE" and line.configured_fixture:
 			# Get configured fixture details from pre-fetched map
 			fixture = fixtures_map.get(line.configured_fixture)

@@ -935,6 +935,8 @@ Also handles new schedule creation when is_new is True
 										{% if line.get('driver_unit_price') %}
 										<div class="pricing-sub-line text-muted"><span class="dealer-price-driver" data-msrp-value="{{ '%.2f' | format(line.get('driver_unit_price')) | e }}">${{ "%.2f" | format(line.get('driver_unit_price')) | e }}</span></div>
 										{% endif %}
+										{% elif line.get('price_problem') %}
+										<span class="text-warning small" data-price-problem="1"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {{ line.get('price_problem') | e }}</span>
 										{% else %}
 										<span class="text-muted">-</span>
 										{% endif %}
@@ -1989,18 +1991,50 @@ Also handles new schedule creation when is_new is True
 				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
 			</div>
 			<div class="modal-body">
-				<p class="text-muted">{{ _("Upload a CSV or Excel (.xlsx) sheet of up to 500 lines. ilLumenate lines are added as Unconfigured, so configure them before submitting. Nothing is added until you import.") }}</p>
+				<ol class="ill-import-steps pl-3 mb-3">
+					<li><strong>{{ _("Get a sheet ready.") }}</strong> {{ _("Download the template, or use your own fixture schedule or a CSV export of another schedule: the columns are matched by name.") }}
+						<div class="mt-1">
+							<a class="btn btn-sm btn-outline-primary" id="importLinesTemplateXlsx" href="{{ import_template_url | default('') | e }}" download>
+								<i class="fa fa-file-excel-o" aria-hidden="true"></i> {{ _("Excel template (recommended)") }}
+							</a>
+							<a href="#" class="btn btn-sm btn-link" id="importLinesTemplate">{{ _("CSV template") }}</a>
+						</div>
+					</li>
+					<li><strong>{{ _("One row per fixture type.") }}</strong> {{ _("Fill in Type, Qty and what you know. ilLumenate lines just need a description or part number; another manufacturer's fixture needs its Manufacturer Name; an accessory needs its ilLumenate Item Code.") }}</li>
+					<li><strong>{{ _("Upload and check.") }}</strong> {{ _("Every row is checked and shown below before anything is added. Nothing changes until you click Import (up to 500 lines, CSV or .xlsx, 1 MB).") }}</li>
+					<li><strong>{{ _("Configure the ilLumenate lines.") }}</strong> {{ _("They are added as Needs configuration; click Configure on each one before you submit the schedule.") }}</li>
+				</ol>
+				<details class="ill-import-guide mb-3">
+					<summary>{{ _("What goes in each column?") }}</summary>
+					<div class="table-responsive mt-2">
+						<table class="table table-sm small mb-1">
+							<thead><tr><th scope="col">{{ _("Column") }}</th><th scope="col">{{ _("What to enter") }}</th><th scope="col">{{ _("Needed for") }}</th></tr></thead>
+							<tbody>
+								{% for column in import_guide | default([]) %}
+								<tr><th scope="row" class="text-nowrap">{{ column.label | e }}</th><td>{{ column.help | e }}</td><td class="text-nowrap">{{ column.needed | e }}</td></tr>
+								{% endfor %}
+							</tbody>
+						</table>
+						<p class="small text-muted mb-0">{{ _("Your own headers work too: QTY., Mfr, Catalog #, Room, Volts and similar names are recognised, and a title block above the header row is skipped. Rows starting with # are ignored.") }}</p>
+					</div>
+				</details>
 				<div class="form-group">
 					<label for="importLinesFile">{{ _("Sheet") }}</label>
 					<input type="file" class="form-control-file" id="importLinesFile" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-					<small class="form-text text-muted"><a href="#" id="importLinesTemplate">{{ _("Download the template") }}</a> {{ _("or upload a CSV export of a schedule.") }}</small>
 				</div>
+				<div id="importLinesWarnings" class="alert alert-warning small" role="status" hidden></div>
 				<div id="importLinesMapping" hidden>
 					<h6>{{ _("Columns") }}</h6>
+					<p class="small text-muted">{{ _("Each field shows the column of your sheet it was read from. Change any that are wrong, then click Update preview.") }}</p>
 					<div class="form-row" id="importLinesMappingFields"></div>
 					<button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="importLinesRefresh">{{ _("Update preview") }}</button>
 				</div>
 				<p id="importLinesCounts" role="status" class="mb-2"></p>
+				<p class="small text-muted mb-2" id="importLinesLegend" hidden>
+					<span class="badge badge-success">{{ _("Ready") }}</span> {{ _("added as entered") }} ·
+					<span class="badge badge-warning">{{ _("Needs configuration") }}</span> {{ _("ilLumenate line, configure it after importing") }} ·
+					<span class="badge badge-danger">{{ _("Error") }}</span> {{ _("fix the sheet and upload again, or skip it") }}
+				</p>
 				<div class="table-responsive ill-import-preview" id="importLinesPreview" hidden>
 					<table class="table table-sm">
 						<thead><tr><th>{{ _("Row") }}</th><th>{{ _("Type") }}</th><th>{{ _("Qty") }}</th><th>{{ _("Location") }}</th><th>{{ _("Status") }}</th><th>{{ _("Details") }}</th></tr></thead>

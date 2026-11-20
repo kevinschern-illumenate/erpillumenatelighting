@@ -160,7 +160,9 @@ website_route_rules = [
 
 	# Orders
 	{"from_route": "/portal/orders", "to_route": "orders"},
-	{"from_route": "/portal/orders/<order>", "to_route": "order_detail"},
+	# ``path:`` because older order names carry the customer name, and some contain "/"
+	# (e.g. "ilL-SAL-ORD-Backcountry Electric / LINX Audio Visual-00003"); a plain segment 404s.
+	{"from_route": "/portal/orders/<path:order>", "to_route": "order_detail"},
 
 	# Drawings
 	{"from_route": "/portal/drawings", "to_route": "drawings"},

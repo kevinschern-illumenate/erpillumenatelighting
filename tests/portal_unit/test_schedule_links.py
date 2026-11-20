@@ -70,6 +70,9 @@ def configure_page(
 		},
 		".portal.part_number": {"NotAPartNumber": NotAPartNumber, "decode": decode or (lambda value: None)},
 		".portal.rollout": {"require_family": lambda family: None},
+		".portal.schedule_import": {
+			"imported_part_number": lambda notes: (notes or "").partition("Part number: ")[2].split("\n")[0] or None
+		},
 		".portal.configuration": {
 			"resolve_line": resolve_line,
 			"family_for_template": lambda family, template: family,
@@ -189,6 +192,47 @@ class ConfigurePage(unittest.TestCase):
 		)
 		self.assertEqual((context.product_category, context.selected_template), ("Linear Fixture", "FT-1"))
 		self.assertIsNone(context.line_idx, "saving adds a new line")
+
+	def run_line(self, line, **page):
+		loader, _form = configure_page({"schedule": "S1", "line_key": "KEY1"}, lambda schedule, key: schedule.lines[0], **page)
+		with loader as (module, frappe):
+			frappe.session = Record(user="buyer@example.com")
+			frappe.form_dict = Record({"schedule": "S1", "line_key": "KEY1"})
+			frappe.db.exists.return_value = True
+			frappe.get_doc.return_value = Record(name="S1", ill_project="P1", modified="rev-1", lines=[line])
+			frappe.get_all.return_value = []
+			frappe.throw = MagicMock(side_effect=RuntimeError)
+			context = Context()
+			module.get_context(context)
+			return context
+
+	def test_an_imported_line_opens_in_its_decoded_fixture_prefilled(self):
+		# Seen live: an imported line whose part number was matched opened at "Choose a product type".
+		decoded = {
+			"part_number": "ILL-SH01-SW-1",
+			"template": "FT-1",
+			"selections": {"fixture_template_code": "FT-1", "finish_code": "Silver"},
+			"segments": [{"length_in": 48}],
+			"unmatched": [],
+			"review": [],
+		}
+		line = Record(
+			name="row1", line_key="KEY1", product_type="Linear Fixture", fixture_template="FT-1",
+			notes="Paint first\nPart number: ILL-SH01-SW-1\nLength: 48 in",
+		)
+		context = self.run_line(line, decode=lambda value: decoded if value == "ILL-SH01-SW-1" else None)
+		self.assertEqual((context.product_category, context.selected_template), ("Linear Fixture", "FT-1"))
+		self.assertEqual(context.initial_request, {"template": "FT-1", "selections": decoded["selections"], "segments": [{"length_in": 48}]})
+		self.assertEqual(context.pn_prefill, decoded)
+		self.assertEqual((context.line_idx, context.line_key), (0, "KEY1"), "saving fills the imported line")
+
+		# A part number that no longer decodes to the line's fixture still opens that fixture, empty.
+		context = self.run_line(line, decode=lambda value: {**decoded, "template": "FT-2"})
+		self.assertEqual(context.selected_template, "FT-1")
+		self.assertIsNone(context.pn_prefill)
+		context = self.run_line(line, pn=False, decode=MagicMock(side_effect=AssertionError))
+		self.assertEqual(context.selected_template, "FT-1")
+		self.assertIsNone(context.pn_prefill)
 
 	def test_preset_prefills_a_new_line_and_lists_its_problems(self):
 		request = {"family": "LED Tape", "template": "TN-1", "selections": {"cct": "30K"}, "segments": []}

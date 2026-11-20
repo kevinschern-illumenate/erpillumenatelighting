@@ -25,6 +25,7 @@ const PREVIEW = {
     { row: 4, status: 'error', line_id: 'C', qty: 'two', location: '', messages: ['Quantity must be a whole number of at least 1'] },
   ],
   counts: { ok: 1, needs_configuration: 1, error: 1 },
+  warnings: ['No quantity column was found, so every line gets Qty 1. <b>x</b>'],
 };
 
 function respond(call, message) {
@@ -38,7 +39,8 @@ function page(context = CONTEXT) {
     `<body><div id="importLinesModal">
       <input type="file" id="importLinesFile"><a href="#" id="importLinesTemplate"></a>
       <div id="importLinesMapping" hidden><div id="importLinesMappingFields"></div><button type="button" id="importLinesRefresh"></button></div>
-      <p id="importLinesCounts"></p>
+      <div id="importLinesWarnings" hidden></div>
+      <p id="importLinesCounts"></p><p id="importLinesLegend" hidden></p>
       <div id="importLinesPreview" hidden><table><tbody id="importLinesRows"></tbody></table></div>
       <div id="importLinesSkipWrap" hidden><input type="checkbox" id="importLinesSkip"></div>
       <div id="importLinesError" hidden></div>
@@ -87,6 +89,11 @@ test('a sheet is previewed with its mapping and rows as text only', async () => 
   });
   respond(call, PREVIEW);
   assert.equal($('#importLinesMapping').prop('hidden'), false);
+  // Sheet-level warnings and the status legend are shown, as text only.
+  assert.equal($('#importLinesWarnings').prop('hidden'), false);
+  assert.equal($('#importLinesWarnings').text(), 'No quantity column was found, so every line gets Qty 1. <b>x</b>');
+  assert.equal($('#importLinesWarnings b').length, 0);
+  assert.equal($('#importLinesLegend').prop('hidden'), false);
   assert.equal($('#importLinesField-line_id').val(), '0');
   assert.equal($('#importLinesField-location').val(), '');
   assert.deepEqual([...$('#importLinesField-location option').map((_, o) => o.textContent).get()], ['Not imported', 'Type', 'Qty', '<b>Where</b>', 'Column 4']);

@@ -142,6 +142,7 @@ def get_context(context):
 			frappe.throw(str(exc))
 
 	initial_request = None
+	line_prefill = None
 	if frappe.form_dict.get("sheet_selections") and not schedule_name:
 		from illumenate_lighting.illumenate_lighting.api.public_sheet import request as sheet_request
 		raw = frappe.form_dict.sheet_selections
@@ -161,6 +162,17 @@ def get_context(context):
 			template_code = initial_request.get("template") or (initial_request.get("selections") or {}).get("fixture_template_code") or template_code
 			if product_category != "Linear Fixture":
 				configurator_mode = "coordinator"
+		elif selected_line.get("fixture_template") and selected_line.get("product_type") in (None, "", "Linear Fixture"):
+			# An unconfigured line that already names its fixture (a schedule import decoded its part
+			# number) opens in that fixture, pre-filled from the part number the import kept.
+			product_category, template_code = "Linear Fixture", template_code or selected_line.fixture_template
+			line_prefill = _imported_prefill(selected_line, template_code)
+			if line_prefill:
+				initial_request = {
+					"template": line_prefill["template"],
+					"selections": line_prefill["selections"],
+					"segments": line_prefill.get("segments") or [],
+				}
 	# Plan 3.2 "Configure similar": pre-fill from another line of this schedule; saving adds a new line.
 	similar_to = _query_value(frappe.form_dict.get("similar_to"))
 	context.similar_to = None
@@ -184,7 +196,7 @@ def get_context(context):
 					configurator_mode = "coordinator"
 
 	# Plan 3.5 "Add by part number": pre-fill the options a fixture part number names; nothing is saved.
-	context.pn_prefill = None
+	context.pn_prefill = line_prefill
 	part_number = _query_value(frappe.form_dict.get("pn"))
 	if part_number and line_idx is None and initial_request is None:
 		from illumenate_lighting.illumenate_lighting.portal.site_flags import part_number_decode_enabled
@@ -584,3 +596,23 @@ def get_configurator_markup(product_category="Linear Fixture", product_slug=None
 		"build_preview": build_preview,
 	}
 	return frappe.render_template("illumenate_lighting/templates/includes/configurator_coordinator_form.html", context)
+
+
+def _imported_prefill(line, template_code):
+	"""The decoded part number an import kept in ``line``'s notes, when it still names ``template_code``."""
+	from illumenate_lighting.illumenate_lighting.portal.site_flags import part_number_decode_enabled
+
+	if not part_number_decode_enabled():
+		return None
+	from illumenate_lighting.illumenate_lighting.portal.schedule_import import imported_part_number
+
+	part_number = imported_part_number(line.get("notes"))
+	if not part_number:
+		return None
+	from illumenate_lighting.illumenate_lighting.portal.part_number import NotAPartNumber, decode
+
+	try:
+		decoded = decode(part_number)
+	except NotAPartNumber:
+		return None
+	return decoded if decoded and decoded.get("template") == template_code else None
