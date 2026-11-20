@@ -360,6 +360,105 @@ class TestKitWithoutMountingAccessory(FrappeTestCase):
         self.assertEqual(desc.count("Mounting:"), 1)  # the method, no item line
 
 
+class TestKitComponentQuantities(FrappeTestCase):
+    """kit_components rows set per-kit quantities; template fields are the fallback."""
+
+    @staticmethod
+    def _template(rows):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            template_name="Kit", name="Kit", profile_stock_length_mm=2000,
+            lens_stock_length_mm=2000, solid_endcap_qty=2,
+            feed_through_endcap_qty=2, mounting_accessory_qty=6,
+            kit_components=[
+                SimpleNamespace(component_type=t, component_item=i, quantity=q,
+                                component_spec_name=None, component_spec_doctype=None)
+                for t, i, q in rows
+            ],
+        )
+
+    def test_rows_set_the_quantities(self):
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import _kit_quantities
+
+        template = self._template([
+            ("Lens", "LENS", 2), ("Mounting Kit", "SUSP", 4),
+            ("Endcap Set", "EC-NO", 2), ("Endcap Set", "EC-HO", 2),
+        ])
+        qty = _kit_quantities(template, "PROF", "LENS", "EC-NO", "EC-HO", "SUSP")
+        self.assertEqual(
+            qty,
+            {"profile": 1, "lens": 2, "solid_endcap": 2, "feed_through_endcap": 2, "mounting": 4},
+        )
+
+    def test_template_fields_without_a_row(self):
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import _kit_quantities
+
+        qty = _kit_quantities(self._template([]), "PROF", "LENS", "EC-NO", "EC-HO", "CLIP")
+        self.assertEqual(
+            qty,
+            {"profile": 1, "lens": 1, "solid_endcap": 2, "feed_through_endcap": 2, "mounting": 6},
+        )
+
+    def test_one_endcap_item_for_both_ends_keeps_template_split(self):
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import _kit_quantities
+
+        template = self._template([("Endcap Set", "EC", 1)])
+        qty = _kit_quantities(template, "PROF", "LENS", "EC", "EC", None)
+        self.assertEqual((qty["solid_endcap"], qty["feed_through_endcap"], qty["mounting"]), (2, 2, 0))
+
+    def test_hardware_rows_ship_with_every_kit(self):
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _included_components,
+        )
+
+        template = self._template([
+            ("Hardware", "DISP-1", 2), ("Joiner", "JOIN-1", 1), ("Hardware", "DISP-0", 0),
+        ])
+        self.assertEqual(
+            [(c["item"], c["qty"], c["label"]) for c in _included_components(template)],
+            [("DISP-1", 2, "Hardware")],
+        )
+
+    def test_sales_order_adds_included_components(self):
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            create_kit_so_lines,
+        )
+
+        so = frappe.new_doc("Sales Order")
+        create_kit_so_lines(so, None, {
+            "kit_composition": {
+                "profile": {"item": "PROF-001", "qty": 1},
+                "lens": {"item": "LENS-001", "qty": 2},
+                "mounting": {"item": None, "qty": 0, "not_required": True},
+                "included_1": {"item": "DISP-1", "qty": 2, "label": "Hardware"},
+            },
+        }, qty_multiplier=3)
+        self.assertEqual(
+            [(row.item_code, row.qty) for row in so.items],
+            [("PROF-001", 3), ("LENS-001", 6), ("DISP-1", 6)],
+        )
+
+    def test_description_uses_component_quantities(self):
+        from types import SimpleNamespace
+
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _build_kit_description,
+        )
+
+        template = self._template([("Lens", "L", 2), ("Mounting Kit", "M", 4), ("Hardware", "D", 2)])
+        desc = _build_kit_description(
+            {"mounting_method": "Suspension Cable"}, template,
+            SimpleNamespace(profile_item="P"), SimpleNamespace(lens_item="L"),
+            SimpleNamespace(endcap_item="S"), SimpleNamespace(endcap_item="F"),
+            SimpleNamespace(accessory_item="M"),
+        )
+        self.assertIn("Lens: L (2000mm) ×2", desc)
+        self.assertIn("Mounting: M ×4", desc)
+        self.assertIn("Hardware: D ×2", desc)
+        self.assertIn("Profile: P (2000mm) |", desc)  # one profile shows no multiplier
+
+
 class TestComputeKitPricing(FrappeTestCase):
     """Test _compute_kit_pricing helper."""
 
@@ -388,15 +487,32 @@ class TestComputeKitPricing(FrappeTestCase):
             "MNT-001": 2.0,
         }
 
-        def mock_get_value(doctype, filters, field=None, **kwargs):
-            if doctype == "Item Price":
-                return price_map.get(filters.get("item_code"))
-            return None
-
-        with patch.object(frappe.db, "get_value", side_effect=mock_get_value):
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_pricing.stock_unit_rate",
+            side_effect=price_map.get,
+        ):
             result = _compute_kit_pricing(kit_composition)
 
         self.assertAlmostEqual(result["total_price_msrp"], 66.0, places=2)
+
+    def test_kit_pricing_uses_the_stock_unit_price(self):
+        """A per-foot price on a component is not summed as a per-piece price."""
+        from unittest.mock import patch
+
+        from illumenate_lighting.illumenate_lighting.api.extrusion_kit_configurator import (
+            _compute_kit_pricing,
+        )
+
+        prices = [
+            frappe._dict(price_list_rate=20.0, uom="Foot", valid_from=None, valid_upto=None),
+            frappe._dict(price_list_rate=75.0, uom="Ea", valid_from=None, valid_upto=None),
+        ]
+        with patch.object(frappe.db, "get_value", return_value="Ea"), patch.object(
+            frappe, "get_all", return_value=prices
+        ):
+            result = _compute_kit_pricing({"profile": {"item": "PROF-001", "qty": 2}})
+
+        self.assertAlmostEqual(result["total_price_msrp"], 150.0, places=2)
 
     def test_kit_pricing_missing_item(self):
         """Components with missing item codes are skipped."""
@@ -410,12 +526,10 @@ class TestComputeKitPricing(FrappeTestCase):
             "lens": {"item": None, "qty": 1},  # No item resolved
         }
 
-        def mock_get_value(doctype, filters, field=None, **kwargs):
-            if doctype == "Item Price" and filters.get("item_code") == "PROF-001":
-                return 25.0
-            return None
-
-        with patch.object(frappe.db, "get_value", side_effect=mock_get_value):
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_pricing.stock_unit_rate",
+            side_effect={"PROF-001": 25.0}.get,
+        ):
             result = _compute_kit_pricing(kit_composition)
 
         self.assertAlmostEqual(result["total_price_msrp"], 25.0, places=2)
@@ -431,7 +545,10 @@ class TestComputeKitPricing(FrappeTestCase):
             "profile": {"item": "PROF-001", "qty": 1},
         }
 
-        with patch.object(frappe.db, "get_value", return_value=None):
+        with patch(
+            "illumenate_lighting.illumenate_lighting.api.tape_neon_pricing.stock_unit_rate",
+            return_value=None,
+        ):
             result = _compute_kit_pricing(kit_composition)
 
         self.assertEqual(result["total_price_msrp"], 0)
