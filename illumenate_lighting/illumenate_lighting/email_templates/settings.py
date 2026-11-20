@@ -10,8 +10,12 @@ DEFAULTS = {
 	"sales_contact_email": "sales@illumenate.lighting",
 	"sales_contact_phone": "",
 	"purchasing_contact_name": "ilLumenate Lighting Purchasing",
-	"purchasing_contact_email": "sales@illumenate.lighting",
+	"purchasing_contact_email": "purchasing@illumenate.lighting",
 	"purchasing_contact_phone": "",
+	# Purchasing mailbox (email_templates/purchasing_mail.py).
+	"purchasing_email_account": "",
+	"force_purchasing_sender": 1,
+	"link_purchasing_replies": 1,
 	"pickup_address": "",
 	"pickup_hours": "",
 	"auto_send_order_confirmation": 0,

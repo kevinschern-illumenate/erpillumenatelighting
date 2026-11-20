@@ -194,6 +194,14 @@ def brand_sender(email_id):
 
 def _replace_from_header(message, sender):
 	"""Swap the From header in a queued MIME message, leaving the body untouched."""
+	return replace_header(message, "From", sender)
+
+
+def replace_header(message, header, value):
+	"""Swap one header (and its folded lines) in a queued MIME message; the body is untouched.
+
+	A message without that header comes back unchanged.
+	"""
 	if not message:
 		return message
 	newline = "\r\n" if "\r\n" in message else "\n"
@@ -202,13 +210,14 @@ def _replace_from_header(message, sender):
 		return message
 	head, body = message[:split], message[split:]
 	lines = head.split(newline)
+	prefix = header.lower() + ":"
 	out, skipping, replaced = [], False, False
 	for line in lines:
 		if skipping and line[:1] in (" ", "\t"):
 			continue
 		skipping = False
-		if line.lower().startswith("from:") and not replaced:
-			out.append(f"From: {sender}")
+		if line.lower().startswith(prefix) and not replaced:
+			out.append(f"{header}: {value}")
 			skipping = replaced = True
 			continue
 		out.append(line)
