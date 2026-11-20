@@ -105,6 +105,44 @@ class Formatting(unittest.TestCase):
 		no_prices, _ = formatting.summarize_lines([{"item_name": "A", "amount": 5}], with_amounts=False)
 		self.assertEqual(no_prices[0]["amount"], "")
 
+	def test_merge_same_lines_adds_up_repeated_parts(self):
+		def part(**values):
+			row = {
+				"item_code": "EC-CA01",
+				"item_name": "End cap",
+				"uom": "Ea",
+				"qty": 1,
+				"rate": 0.18,
+				"amount": 0.18,
+				"schedule_date": "2026-12-01",
+			}
+			row.update(values)
+			return row
+
+		rows = [
+			part(),
+			part(item_code="CH-CA01", rate=3.8, amount=3.8),
+			part(qty=2, amount=0.36),
+			part(rate=0.25, amount=0.25),
+			part(schedule_date="2026-12-15"),
+			part(ill_section_label="Bath"),
+			{"ill_section_label": "Kitchen", "qty": 0},
+			part(),
+		]
+		merged = formatting.merge_same_lines(rows)
+		self.assertEqual(len(merged), 6)
+		self.assertEqual((merged[0]["item_code"], merged[0]["qty"]), ("EC-CA01", 4))
+		self.assertAlmostEqual(merged[0]["amount"], 0.72)
+		# A different price, required-by date or room keeps its own line; headers are left alone.
+		self.assertEqual(
+			[(r.get("item_code"), r["qty"]) for r in merged[1:]],
+			[("CH-CA01", 1), ("EC-CA01", 1), ("EC-CA01", 1), ("EC-CA01", 1), (None, 0)],
+		)
+		self.assertEqual(rows[0]["qty"], 1)  # the document's own rows are not changed
+		lines, more = formatting.summarize_lines(rows, merge=True)
+		self.assertEqual((lines[0]["qty"], lines[0]["amount"], more), ("4", "$0.72", 0))
+		self.assertEqual(len(formatting.summarize_lines(rows)[0]), 8)
+
 	def test_text_to_html_escapes(self):
 		self.assertEqual(formatting.text_to_html("Dock <3>\nCall"), "Dock &lt;3&gt;<br>Call")
 		self.assertEqual(formatting.text_to_html(None), "")
@@ -410,6 +448,30 @@ class FakeDoc(Record):
 class ContextBuilders(unittest.TestCase):
 	def load(self):
 		return load_service(ROOT + ".email_templates.context")
+
+	def test_purchase_order_lines_add_up_repeated_parts_and_other_documents_do_not(self):
+		with self.load() as (module, _frappe):
+			rows = [
+				Record(item_code="EC-CA01", item_name="End cap", qty=1, uom="Ea", rate=0.18, amount=0.18),
+				Record(item_code="EC-CA01", item_name="End cap", qty=1, uom="Ea", rate=0.18, amount=0.18),
+				Record(item_code="EC-CA01", item_name="End cap", qty=1, uom="Ea", rate=0.18, amount=0.18),
+			]
+			counts = {}
+			with (
+				patch.object(module, "point_of_contact", return_value=module.skeleton()["poc"]),
+				patch.object(module, "_portal"),
+				patch.object(module, "_job"),
+				patch.object(module, "_greeting", return_value="there"),
+			):
+				for doctype in ("Purchase Order", "Sales Order"):
+					c = module.skeleton()
+					doc = FakeDoc(doctype, "DOC-1", fields=("items",), items=rows, currency="USD")
+					module._common(c, doc, samples.settings())
+					counts[doctype] = [line["qty"] for line in c["lines"]]
+			self.assertEqual(counts["Purchase Order"], ["3"])
+			self.assertEqual(counts["Sales Order"], ["1", "1", "1"])
+			blocks_html = blocks.supplier_lines_table(c["lines"])
+			self.assertTrue(blocks_html)
 
 	def test_unreadable_or_missing_document_gives_empty_context(self):
 		with self.load() as (module, frappe):

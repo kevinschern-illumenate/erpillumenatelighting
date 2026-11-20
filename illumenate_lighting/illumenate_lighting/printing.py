@@ -261,20 +261,134 @@ def _source_lines(doctype, names, depth) -> dict:
 	return found
 
 
-def ill_print_sections(items, follow_links=False) -> list:
+# Purchase Order and Material Request prints show repeated rows as one line: a configured
+# fixture breaks into parts, so the same part repeats once per fixture. Rows merge when
+# they match on these fields and on the line's fixture type and notes.
+_MERGE_KEY_FIELDS = (
+	"item_code",
+	"uom",
+	"rate",
+	"schedule_date",
+	"supplier_part_no",
+	"ill_supplier_description",
+	"warehouse",
+	"from_warehouse",
+	"bom_no",
+)
+# Added up on a merged line. Stock on hand (actual_qty) is per item and warehouse, so the
+# merged rows already agree on it and it is not summed.
+_MERGE_SUM_FIELDS = (
+	"qty",
+	"stock_qty",
+	"amount",
+	"base_amount",
+	"net_amount",
+	"base_net_amount",
+	"ordered_qty",
+	"received_qty",
+	"returned_qty",
+	"billed_amt",
+)
+
+
+class _MergedRow:
+	"""Several rows printed as one: reads like a Document row (attribute access and .get())."""
+
+	def __init__(self, values):
+		self._values = values
+
+	def __getattr__(self, key):
+		if key.startswith("_"):
+			raise AttributeError(key)
+		return self._values.get(key)
+
+	def get(self, key, default=None):
+		value = self._values.get(key)
+		return default if value is None else value
+
+
+def _row_values(item) -> dict:
+	as_dict = getattr(item, "as_dict", None)
+	if callable(as_dict):
+		return dict(as_dict())
+	if isinstance(item, dict):
+		return dict(item)
+	return dict(vars(item))
+
+
+def _merge_key_value(value):
+	if isinstance(value, (int, float)) and not isinstance(value, bool):
+		return round(float(value), 6)
+	return str(value).strip() if value is not None else ""
+
+
+def _orders(rows) -> list:
+	orders = []
+	for row in rows:
+		order = row.get("sales_order")
+		if order and order not in orders:
+			orders.append(order)
+	return orders
+
+
+def _merge_same_lines(label, lines) -> list:
+	"""One line per repeated row group (see _MERGE_KEY_FIELDS), at its first row's position.
+
+	Rows without an item code and rows with a page break are left alone, so a break staff
+	placed stays where it was. Section headers are worked out again for the merged lines.
+	"""
+	merged, groups = [], {}
+	for entry in lines:
+		item = entry["item"]
+		if entry["page_break"] or not item.get("item_code"):
+			merged.append(entry)
+			continue
+		key = (
+			entry["type"],
+			entry["notes"],
+			*(_merge_key_value(item.get(field)) for field in _MERGE_KEY_FIELDS),
+		)
+		group = groups.get(key)
+		if group is None:
+			groups[key] = group = dict(entry, rows=[])
+			merged.append(group)
+		group["rows"].append(item)
+	for index, entry in enumerate(merged):
+		rows = entry.pop("rows", None)
+		if rows and len(rows) > 1:
+			values = _row_values(rows[0])
+			for field in _MERGE_SUM_FIELDS:
+				if any(row.get(field) is not None for row in rows):
+					values[field] = round(sum(float(row.get(field) or 0) for row in rows), 9)
+			entry["orders"] = _orders(rows)
+			values["sales_order"] = ", ".join(entry["orders"]) or values.get("sales_order")
+			values["merged_rows"] = len(rows)
+			entry["item"] = _MergedRow(values)
+		previous = merged[index - 1] if index else None
+		entry["header"] = (
+			label
+			if previous is None
+			else (f"{label} (continued)" if previous["page_break"] and label else "")
+		)
+	return merged
+
+
+def ill_print_sections(items, follow_links=False, merge_same=False) -> list:
 	"""Group lines into sections (rooms / areas) in document order.
 
 	A row with a section label, no item code and zero quantity is a section header; the
 	rows after it inherit its label until the next one. Labels match case-insensitively.
 	Each line's section, fixture type and additional notes come from its own row, or with
 	``follow_links`` from the line it was made from (packing slip -> delivery note,
-	receipt -> purchase order -> sales order, ...).
+	receipt -> purchase order -> sales order, ...). With ``merge_same``, repeated rows in a
+	section print as one line with their quantities added up (``_merge_same_lines``).
 
-	Returns ``[{"label", "lines": [{"item", "type", "notes", "header", "page_break"}], "items",
-	"subtotal", "list_subtotal"}]``; everything lands in one unlabelled section when nothing is
-	labelled. ``header`` is the section label on a section's first line and "<label>
-	(continued)" on the line after a page break; ``page_break`` is the line's own Page Break
-	check.
+	Returns ``[{"label", "lines": [{"item", "type", "notes", "header", "page_break",
+	"orders"}], "items", "subtotal", "list_subtotal"}]``; everything lands in one unlabelled
+	section when nothing is labelled. ``header`` is the section label on a section's first
+	line and "<label> (continued)" on the line after a page break; ``page_break`` is the
+	line's own Page Break check; ``orders`` lists the line's sales orders. ``items`` keeps
+	every row, merged or not.
 	"""
 	items = list(items or [])
 	sources = {}
@@ -336,6 +450,7 @@ def ill_print_sections(items, follow_links=False) -> list:
 					),
 					# ERPNext's per-line "Page Break" check: start a new page after this line.
 					"page_break": bool(item.get("page_break")),
+					"orders": _orders([item]),
 				}
 			)
 			section["subtotal"] += float(item.get("amount") or 0)
@@ -345,10 +460,24 @@ def ill_print_sections(items, follow_links=False) -> list:
 		fallback = empty("")
 		fallback["items"] = items
 		fallback["lines"] = [
-			{"item": i, "type": "", "notes": "", "header": "", "page_break": bool(i.get("page_break"))}
+			{
+				"item": i,
+				"type": "",
+				"notes": "",
+				"header": "",
+				"page_break": bool(i.get("page_break")),
+				"orders": [i.get("sales_order")] if i.get("sales_order") else [],
+			}
 			for i in items
 		]
 		return [fallback]
+	if merge_same:
+		try:
+			for section in sections:
+				section["lines"] = _merge_same_lines(section["label"], section["lines"])
+		except Exception:
+			# Printing every row is better than not printing: keep the unmerged lines.
+			_log("ilL print: could not merge repeated lines")
 	return sections
 
 

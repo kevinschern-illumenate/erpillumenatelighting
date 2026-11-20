@@ -397,6 +397,8 @@ def _common(c, doc, settings):
 			limit=limit,
 			currency=c["currency"],
 			with_amounts=doc.doctype not in ("Delivery Note", "Request for Quotation", "Purchase Receipt"),
+			# Vendors get one line per part: repeated PO rows are added up.
+			merge=doc.doctype == "Purchase Order",
 		)
 
 
