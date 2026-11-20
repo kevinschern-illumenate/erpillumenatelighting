@@ -4,7 +4,7 @@
 ;;; plus a few vl- string and list functions that full AutoCAD, LT 2024+ and Mac all provide
 ;;; (no vlax-/vla- ActiveX, no reactors).
 
-(setq *il-version* "0.4.1")
+(setq *il-version* "0.4.2")
 
 ;; --- Association lists ------------------------------------------------------------------------
 
@@ -193,4 +193,25 @@
 ;; POINT scaled by FACTOR about BASE.
 (defun il-scale-about (base point factor)
   (mapcar '(lambda (b p) (+ b (* factor (- p b)))) base point)
+)
+
+;; Where an attribute of a block item ("ATTDEF" tag x y ...) lands for an insert at BASE, SCALE, ROTATION.
+(defun il-attdef-point (base scale rotation item / x y)
+  (setq x (* scale (nth 2 item)) y (* scale (nth 3 item)))
+  (list (+ (car base) (- (* x (cos rotation)) (* y (sin rotation))))
+        (+ (cadr base) (* x (sin rotation)) (* y (cos rotation)))
+        (if (caddr base) (caddr base) 0.0))
+)
+
+;; DATA (an entity list) with group CODE set to VALUE, added when missing.
+(defun il-set-group (code value data)
+  (if (assoc code data)
+    (subst (cons code value) (assoc code data) data)
+    (append data (list (cons code value)))
+  )
+)
+
+;; The text alignment groups for a block item: centred ones carry ((72 . 1) (74 . 0) (11 . point)).
+(defun il-align-groups (item point)
+  (if (= (nth 8 item) "center") (list '(72 . 1) '(74 . 0) (cons 11 point)) '((72 . 0)))
 )

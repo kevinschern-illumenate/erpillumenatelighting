@@ -803,8 +803,10 @@
 (defun c:ILUPDATE () (il-begin) (il-update-all T) (il-end))
 
 ;; New ids for copies and runs without one, rooms by position, tags and PSU loads.
-(defun il-update-all (verbose / x id room count)
+(defun il-update-all (verbose / x id room count moved)
   (il-fix-copies verbose)
+  (setq moved (il-recenter-tags))
+  (if (and verbose (> moved 0)) (princ (strcat "\n" (itoa moved) " tag labels centred.")))
   (setq count 0)
   (foreach ename (il-entities "RUN")
     (setq x (il-xget ename) id (il-get "id" x))

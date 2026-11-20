@@ -162,7 +162,8 @@ class FakeDrawing:
 		for name, function in {
 			"entget": self.entget, "entmod": self.entmod, "entupd": lambda ename: ename, "regapp": lambda name: name,
 			"ssget": self.ssget, "sslength": len, "ssname": lambda ss, index: ss[index], "handent": self.handent,
-			"entnext": self.entnext, "getvar": lambda name: None,
+			"entnext": self.entnext, "getvar": lambda name: None, "entmake": self.entmake, "entlast": self.entlast,
+			"tblsearch": lambda table, name: mini_lisp.T,
 		}.items():
 			interp.set(name, function)
 
@@ -181,6 +182,16 @@ class FakeDrawing:
 		for offset, (tag, value, position, height) in enumerate(attributes, 1):
 			self.add("ATTRIB", f"{handle}{offset}", [(2, tag), (1, value), (10, position), (40, height)])
 		return ename
+
+	def entmake(self, data):
+		groups = [(mini_lisp.car(g), tuple(g[1:]) if isinstance(g, list) else g.cdr) for g in data]
+		kind = dict(groups)[0]
+		if kind != "SEQEND":
+			self.add(kind, f"F{len(self.order):03X}", [g for g in groups if g[0] != 0])
+		return data
+
+	def entlast(self):
+		return next(e for e in reversed(self.order) if self.value(e, 0) != "ATTRIB")
 
 	def handent(self, handle):
 		return next((ename for ename in self.order if ename.handle == handle), None)
@@ -288,6 +299,34 @@ class CopiedEntities(unittest.TestCase):
 		before = {ename: dict(d.xdata[ename]) for ename in d.order}
 		self.lisp.call("il-fix-copies", None)
 		self.assertEqual(before, {ename: dict(d.xdata[ename]) for ename in d.order})
+
+	def test_tags_are_placed_centred(self):
+		insert = self.lisp.call("il-insert", "IL-RUNTAG", lst([10.0, 10.0, 0.0]), 48.0, "E-ANNO-TAGS", None)
+		d = self.drawing
+		attribute = d.attribute(insert, "TAG")
+		self.assertEqual(d.value(attribute, 72), 1)
+		self.assertEqual(d.value(attribute, 74), 0)
+		self.assertEqual(d.value(attribute, 11), (10.0, 7.744, 0.0))
+		self.assertEqual(d.value(d.attribute(insert, "STYLE"), 11), (10.0, -2.0, 0.0))
+
+	def test_title_block_fields_stay_left(self):
+		insert = self.lisp.call("il-insert", "IL-TB-ARCH-D", lst([0.0, 0.0, 0.0]), 1.0, "E-ANNO-TTLB", None)
+		attribute = self.drawing.attribute(insert, "PROJECT")
+		self.assertEqual(self.drawing.value(attribute, 72), 0)
+		self.assertIsNone(self.drawing.value(attribute, 11))
+
+	def test_old_left_tags_are_recentred_once(self):
+		d = self.drawing
+		old = d.insert("1A", "IL-ROOMTAG", (100.0, 50.0, 0.0), 48.0, {"kind": "TAG"}, [("NAME", "Kitchen", (100.0, 50.0, 0.0), 6.0), ("ID", "kitchen", (100.0, 41.36, 0.0), 4.5)])
+		d.groups[old].append((50, 0.0))
+		title = d.insert("2A", "IL-TB-ARCH-D", (0.0, 0.0, 0.0), 1.0, None, [("PROJECT", "Job", (30.0, 20.0, 0.0), 0.125)])
+
+		self.assertEqual(self.lisp.call("il-recenter-tags"), 2)
+		name = d.attribute(old, "NAME")
+		self.assertEqual((d.value(name, 72), d.value(name, 11)), (1, (100.0, 50.0, 0.0)))
+		self.assertEqual(d.value(d.attribute(old, "ID"), 11), (100.0, 41.36, 0.0))
+		self.assertIsNone(d.value(d.attribute(title, "PROJECT"), 72))
+		self.assertEqual(self.lisp.call("il-recenter-tags"), 0)
 
 	def test_rescale_resizes_symbols_but_not_title_blocks(self):
 		d = self.drawing

@@ -2,7 +2,7 @@
 ;;; Layers, linetypes and blocks of the ilLumenate CAD toolkit (draw-to-quote plan 1.6, 3.3, 3.4),
 ;;; from the riser layer standard, symbols and title blocks. il-blocks.lsp builds them with entmake.
 ;;; Layer row: (name aci linetype lineweight-mm plot description). Block item kinds: LINE, PLINE,
-;;; CIRCLE, ARC, TEXT and ATTDEF, in paper inches at 1:1.
+;;; CIRCLE, ARC, TEXT and ATTDEF ("center" last when centred), in paper inches at 1:1.
 
 (setq *il-asset-layers* (quote (
   ("E-ANNO-TTLB" 7 "Continuous" 0.5 T "Border and title block")
@@ -105,9 +105,9 @@
   ("IL-CABINET" "Power supply cabinet or location"
    ("PLINE" (-0.5 -0.3 0.5 -0.3 0.5 0.3 -0.5 0.3) T "E-POWR-CABN")
    ("LINE" -0.5 -0.3 0.5 0.3 "E-POWR-CABN")
-   ("ATTDEF" "TAG" -0.45 0.38 0.125 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "RATING" -0.45 -0.5 0.0938 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "ACCESS" -0.45 -0.65 0.0938 "" nil "E-ANNO-TAGS"))
+   ("ATTDEF" "TAG" 0.0 0.38 0.125 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "RATING" 0.0 -0.5 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "ACCESS" 0.0 -0.65 0.0938 "" nil "E-ANNO-TAGS" "center"))
   ("IL-FEED" "Feed point on a run"
    ("CIRCLE" 0.0 0.0 0.08 "E-LITE-FEED")
    ("PLINE" (-0.08 0.12 0.08 0.12 0.0 0.26) T "E-LITE-FEED"))
@@ -118,28 +118,28 @@
    ("LINE" -0.1 -0.1 0.1 0.1 "E-LITE-FEED"))
   ("IL-RUNTAG" "Run tag: id, style and lengths"
    ("PLINE" (-0.3 -0.1 0.3 -0.1 0.38 0.0 0.3 0.1 -0.3 0.1 -0.38 0.0) T "E-ANNO-TAGS")
-   ("ATTDEF" "TAG" -0.26 -0.047 0.0938 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "STYLE" -0.38 -0.25 0.0938 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "LENGTH" -0.38 -0.4 0.0938 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "PART" -0.38 -0.55 0.0938 "" nil "E-ANNO-TAGS"))
+   ("ATTDEF" "TAG" 0.0 -0.047 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "STYLE" 0.0 -0.25 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "LENGTH" 0.0 -0.4 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "PART" 0.0 -0.55 0.0938 "" nil "E-ANNO-TAGS" "center"))
   ("IL-PSUTAG" "PSU tag with provisional load"
    ("PLINE" (-0.18 -0.18 0.18 -0.18 0.18 0.18 -0.18 0.18) T "E-ANNO-TAGS")
-   ("ATTDEF" "TAG" -0.15 -0.047 0.0938 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "LOAD" -0.18 -0.33 0.0938 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "MODEL" -0.18 -0.48 0.0938 "" nil "E-ANNO-TAGS"))
+   ("ATTDEF" "TAG" 0.0 -0.047 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "LOAD" 0.0 -0.33 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "MODEL" 0.0 -0.48 0.0938 "" nil "E-ANNO-TAGS" "center"))
   ("IL-WIRETAG" "Wire tag"
    ("CIRCLE" 0.0 0.0 0.12 "E-ANNO-TAGS")
-   ("ATTDEF" "TAG" -0.09 -0.047 0.0938 "" T "E-ANNO-TAGS")
-   ("ATTDEF" "LENGTH" 0.16 -0.047 0.0938 "" T "E-ANNO-TAGS"))
+   ("ATTDEF" "TAG" 0.0 -0.047 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "LENGTH" 0.0 -0.28 0.0938 "" T "E-ANNO-TAGS" "center"))
   ("IL-ROOMTAG" "Room tag"
-   ("ATTDEF" "NAME" 0.0 0.0 0.125 "" T "E-ANNO-ROOM")
-   ("ATTDEF" "ID" 0.0 -0.18 0.0938 "" T "E-ANNO-ROOM")
-   ("ATTDEF" "ENV" 0.0 -0.33 0.0938 "" T "E-ANNO-ROOM"))
+   ("ATTDEF" "NAME" 0.0 0.0 0.125 "" T "E-ANNO-ROOM" "center")
+   ("ATTDEF" "ID" 0.0 -0.18 0.0938 "" T "E-ANNO-ROOM" "center")
+   ("ATTDEF" "ENV" 0.0 -0.33 0.0938 "" T "E-ANNO-ROOM" "center"))
   ("IL-ISSUE" "ILCHECK issue marker (no-plot layer)"
    ("CIRCLE" 0.0 0.0 0.15 "E-ANNO-ISSU")
    ("LINE" 0.0 -0.05 0.0 0.09 "E-ANNO-ISSU")
    ("CIRCLE" 0.0 -0.09 0.012 "E-ANNO-ISSU")
-   ("ATTDEF" "CODE" 0.2 -0.047 0.0938 "" T "E-ANNO-ISSU"))
+   ("ATTDEF" "CODE" 0.0 -0.3 0.0938 "" T "E-ANNO-ISSU" "center"))
   ("IL-TB-ARCH-C" "ARCH-C title block (24 x 18 in)"
    ("PLINE" (0.5 0.5 23.5 0.5 23.5 17.5 0.5 17.5) T "E-ANNO-TTLB")
    ("PLINE" (20.25 0.5 23.5 0.5 23.5 17.5 20.25 17.5) T "E-ANNO-TTLB")
