@@ -69,7 +69,7 @@
   (il-end)
 )
 
-(defun c:ILSETUP (/ schedule project size scale tb)
+(defun c:ILSETUP (/ schedule project size scale old-scale tb)
   (il-begin)
   (il-assets-ensure)
   (if (/= (getvar "INSUNITS") 1)
@@ -79,9 +79,19 @@
   (setq project (il-ask "Portal project" (il-str (il-setting "project"))))
   (il-set-setting "schedule" schedule)
   (il-set-setting "project" project)
+  (setq old-scale (il-symbol-scale))
   (initget 6)
-  (setq scale (getreal (strcat "\nPlot scale factor for symbols (48 for 1/4\"=1'-0\") <" (il-num->str (il-symbol-scale) 2) ">: ")))
-  (if scale (il-set-setting "symbol_scale" scale))
+  (setq scale (getreal (strcat "\nPlot scale factor for symbols (48 for 1/4\"=1'-0\") <" (il-num->str old-scale 2) ">: ")))
+  (if scale
+    (progn
+      (il-set-setting "symbol_scale" scale)
+      (if (not (equal scale old-scale 1e-9))
+        (princ (strcat "\nResized " (itoa (il-rescale-symbols (/ (float scale) old-scale))) " placed symbols to the new scale."
+                       " Place DMX and output tables again (ILDMX, ILOUT) if you have them."))
+      )
+    )
+    (il-set-setting "symbol_scale" old-scale)
+  )
   (if (setq size (il-choose "Title block" '("None" "ARCH-D" "ARCH-C" "ANSI-D" "ANSI-B" "ANSI-A") 1))
     (if (/= size "None")
       (progn
@@ -361,6 +371,114 @@
                     (cons "PART" (il-get "part_number" run)))))
   (il-xset tag (list (cons "kind" "TAG") (cons "owner" (il-handle ename))))
 )
+
+;; --- Copies and symbol scale ------------------------------------------------------------------
+
+;; Kinds that carry an id, and the attribute that shows it (on the entity when it is a block, else
+;; on the tag it owns). Run tags are redrawn by il-tag-run, so runs need none.
+(setq *il-copy-kinds* '(("RUN" nil) ("ROOM" "ID") ("WIRE" "TAG") ("CABINET" "TAG") ("PSU" "TAG") ("CONTROL" "TAG")))
+
+;; What a copy must not inherit: the portal line its original was imported as, the runs a PSU
+;; feeds, a fixed DMX address.
+(setq *il-copy-resets*
+  '(("RUN" ("line_key") ("configured_name") ("config_hash") ("part_number") ("server_in") ("feed_handles"))
+    ("PSU" ("runs"))
+    ("CONTROL" ("start" . "auto"))))
+
+;; Where an entity sits: a block's insertion point, a polyline's centroid.
+(defun il-ref-point (ename / data)
+  (setq data (entget ename))
+  (if (= (cdr (assoc 0 data)) "INSERT") (cdr (assoc 10 data)) (il-centroid (il-lw-vertices ename)))
+)
+
+(defun il-owned-tags (owner-handle / ss index ename result)
+  (if (setq ss (ssget "_X" (list '(0 . "INSERT") (list -3 (list *il-app*)))))
+    (progn
+      (setq index 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss index) index (1+ index))
+        (if (= (il-get "owner" (il-xget ename)) owner-handle) (setq result (cons ename result)))
+      )
+    )
+  )
+  result
+)
+
+;; Tags copied with an entity still name the original as owner: give the copy the ones nearer to it.
+(defun il-adopt-tags (original copy attribute id / here there point)
+  (setq here (il-ref-point copy) there (il-ref-point original))
+  (foreach tag (il-owned-tags (il-handle original))
+    (setq point (cdr (assoc 10 (entget tag))))
+    (if (< (distance point here) (distance point there))
+      (progn
+        (il-xupdate tag (list (cons "owner" (il-handle copy))))
+        (if attribute (il-set-attribute tag attribute id))
+      )
+    )
+  )
+)
+
+;; COPY, ARRAY and paste duplicate XData, id included. Give every copy its own id, drop what it must
+;; not inherit, and record each entity's own handle ("self") so later copies are told apart.
+(defun il-fix-copies (verbose / kind attribute enames x records copy original old id block-p)
+  (foreach row *il-copy-kinds*
+    (setq kind (car row) attribute (cadr row) enames (il-entities kind) records nil)
+    (foreach ename enames
+      (setq x (il-xget ename))
+      (setq records (cons (list ename (il-get "id" x) (il-get "self" x) (il-handle ename)) records))
+    )
+    (foreach pair (il-copies (reverse records))
+      (setq copy (car pair) original (handent (cdr pair)) old (il-get "id" (il-xget copy)))
+      (setq id (il-next-id kind (il-id-prefix old)) block-p (= (cdr (assoc 0 (entget copy))) "INSERT"))
+      (il-xupdate copy (cons (cons "id" id) (cdr (assoc kind *il-copy-resets*))))
+      (if (and attribute block-p) (il-set-attribute copy attribute id))
+      (if original (il-adopt-tags original copy (if block-p nil attribute) id))
+      (if verbose (princ (strcat "\nCopy of " old " is now " id ".")))
+    )
+    (foreach ename enames
+      (if (/= (il-get "self" (il-xget ename)) (il-handle ename))
+        (il-xupdate ename (list (cons "self" (il-handle ename))))
+      )
+    )
+  )
+)
+
+;; Resize every placed toolkit symbol by FACTOR about its insertion point; title blocks stay 1:1.
+(defun il-rescale-symbols (factor / ss index ename data base next count)
+  (setq count 0)
+  (if (setq ss (ssget "_X" '((0 . "INSERT") (2 . "IL-*"))))
+    (progn
+      (setq index 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss index) index (1+ index) data (entget ename))
+        (if (not (il-starts-with (cdr (assoc 2 data)) "IL-TB-"))
+          (progn
+            (setq base (cdr (assoc 10 data)))
+            (foreach code '(41 42 43)
+              (if (assoc code data) (setq data (subst (cons code (* factor (cdr (assoc code data)))) (assoc code data) data)))
+            )
+            (entmod data)
+            (setq next (entnext ename))
+            (while (and next (= (cdr (assoc 0 (setq data (entget next)))) "ATTRIB"))
+              (setq data (subst (cons 10 (il-scale-about base (cdr (assoc 10 data)) factor)) (assoc 10 data) data))
+              (if (and (assoc 11 data) (or (/= 0 (il-num-or-0 (cdr (assoc 72 data)))) (/= 0 (il-num-or-0 (cdr (assoc 74 data))))))
+                (setq data (subst (cons 11 (il-scale-about base (cdr (assoc 11 data)) factor)) (assoc 11 data) data))
+              )
+              (setq data (subst (cons 40 (* factor (cdr (assoc 40 data)))) (assoc 40 data) data))
+              (entmod data)
+              (setq next (entnext next))
+            )
+            (entupd ename)
+            (setq count (1+ count))
+          )
+        )
+      )
+    )
+  )
+  count
+)
+
+(defun il-num-or-0 (value) (if (numberp value) value 0))
 
 ;; --- Site: ILSCALE, ILROOM, ILCAB, ILPSU, ILCONNECT, ILWIRE --------------------------------------
 
@@ -684,8 +802,9 @@
 
 (defun c:ILUPDATE () (il-begin) (il-update-all T) (il-end))
 
-;; Ids for runs without one, rooms by position, tags and PSU loads.
+;; New ids for copies and runs without one, rooms by position, tags and PSU loads.
 (defun il-update-all (verbose / x id room count)
+  (il-fix-copies verbose)
   (setq count 0)
   (foreach ename (il-entities "RUN")
     (setq x (il-xget ename) id (il-get "id" x))
@@ -1006,7 +1125,7 @@
 (defun c:ILHELP ()
   (foreach line
     '("ilLumenate CAD toolkit: draw, check, upload. The portal builds the products and the quote."
-      "  ILSETUP     layers, blocks, schedule name, title block"
+      "  ILSETUP     layers, blocks, schedule name, symbol scale, title block"
       "  ILCATALOG   load the CAD catalog downloaded from the portal"
       "  ILSTYLE     choose a run style (saved preset or template and options)"
       "  ILTAPE      draw a run; ILCONVERT turns polylines into runs"
@@ -1015,7 +1134,7 @@
       "  ILCONNECT   assign runs to a PSU; ILWIRE draw a wire path"
       "  ILCTRL      place a controller or decoder; ILZONE group runs under a control output; ILDMX patch"
       "  ILOTHER     another manufacturer's fixture; ILOVERRIDE accept a check with a reason"
-      "  ILUPDATE    ids, rooms and tags; ILCHECK geometry checks"
+      "  ILUPDATE    ids (renumbers copies), rooms and tags; ILCHECK geometry checks"
       "  ILQUOTE     write the .ilq.json package; upload it with Import Drawing on the schedule page"
       "  ILRECEIPT   stamp line keys and part numbers from the import receipt"
       "  ILOUT       run schedule and cut list from the receipt; ILRISER attach the designer's riser"

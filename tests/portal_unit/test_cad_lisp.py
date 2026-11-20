@@ -15,6 +15,7 @@ from test_services import ROOT, load_service
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
+from tools.cad_toolkit import package_bundle
 from tools.cad_toolkit.reference import cad_subset
 from tools.cad_toolkit.test import mini_lisp
 from tools.cad_toolkit.test.mini_lisp import (
@@ -110,6 +111,199 @@ class GoldenMath(unittest.TestCase):
 		self.assertEqual(self.lisp.call("il-num->str", -0.00001, 2), "0")
 		self.assertEqual(self.lisp.call("il-round-even", 2.5), 2)
 		self.assertEqual(self.lisp.call("il-round-even", 3.5), 4)
+
+
+class Copies(unittest.TestCase):
+	"""Pure parts of ILUPDATE's copy handling and ILSETUP's rescale."""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.lisp = interpreter()
+
+	def copies(self, *records):
+		result = self.lisp.call("il-copies", lst(lst(record) for record in records))
+		return [(pair.car, pair.cdr) for pair in result or []]
+
+	def test_copies_keep_the_oldest_and_renumber_the_rest(self):
+		self.assertEqual(self.copies(["a", "L1-01", None, "1A"], ["b", "L1-01", None, "2B"], ["c", "L1-02", None, "2C"]), [("b", "1A")])
+
+	def test_the_entity_on_its_own_handle_keeps_the_id(self):
+		# "a" was pasted from another drawing (new, smaller handle, stale self); "b" is the tagged original.
+		self.assertEqual(self.copies(["a", "L1-01", "9F", "1A"], ["b", "L1-01", "2B", "2B"]), [("a", "2B")])
+
+	def test_handles_compare_as_hex_numbers(self):
+		self.assertEqual(self.copies(["a", "L1-01", None, "FF"], ["b", "L1-01", None, "100"]), [("b", "FF")])
+
+	def test_unique_and_missing_ids_are_not_copies(self):
+		self.assertEqual(self.copies(["a", "L1-01", None, "1A"], ["b", None, None, "1B"], ["c", "", None, "1C"]), [])
+
+	def test_id_prefix(self):
+		for given, expected in (("L1-03", "L1-"), ("CAB-2", "CAB-"), ("kitchen", "kitchen-"), ("W-10", "W-")):
+			self.assertEqual(self.lisp.call("il-id-prefix", given), expected)
+
+	def test_scale_about(self):
+		self.assertEqual(self.lisp.call("il-scale-about", lst([10.0, 10.0, 0.0]), lst([20.0, 30.0, 0.0]), 0.5), [15.0, 20.0, 0.0])
+
+
+class Ename:
+	def __init__(self, drawing, handle):
+		self.drawing, self.handle = drawing, handle
+
+	def __repr__(self):
+		return f"<Entity name: {self.handle}>"
+
+
+class FakeDrawing:
+	"""Just enough of AutoCAD's entity API (entget, entmod, ssget _X, handent, entnext) to run the
+	toolkit's ILUPDATE copy pass and ILSETUP rescale against entities built in Python."""
+
+	def __init__(self, interp):
+		self.order, self.groups, self.xdata = [], {}, {}
+		for name, function in {
+			"entget": self.entget, "entmod": self.entmod, "entupd": lambda ename: ename, "regapp": lambda name: name,
+			"ssget": self.ssget, "sslength": len, "ssname": lambda ss, index: ss[index], "handent": self.handent,
+			"entnext": self.entnext, "getvar": lambda name: None,
+		}.items():
+			interp.set(name, function)
+
+	def add(self, kind, handle, groups, xdata=None):
+		ename = Ename(self, handle)
+		self.order.append(ename)
+		self.groups[ename] = [(0, kind), *groups]
+		self.xdata[ename] = dict(xdata or {})
+		return ename
+
+	def polyline(self, handle, points, xdata):
+		return self.add("LWPOLYLINE", handle, [(70, 1), *((10, (x, y)) for x, y in points)], xdata)
+
+	def insert(self, handle, block, point, scale, xdata=None, attributes=()):
+		ename = self.add("INSERT", handle, [(2, block), (10, point), (41, scale), (42, scale), (43, scale)], xdata)
+		for offset, (tag, value, position, height) in enumerate(attributes, 1):
+			self.add("ATTRIB", f"{handle}{offset}", [(2, tag), (1, value), (10, position), (40, height)])
+		return ename
+
+	def handent(self, handle):
+		return next((ename for ename in self.order if ename.handle == handle), None)
+
+	def entnext(self, ename):
+		index = self.order.index(ename) + 1
+		return self.order[index] if index < len(self.order) else None
+
+	def entget(self, ename, apps=None):
+		data = [mini_lisp.Pair(-1, ename), mini_lisp.Pair(5, ename.handle)]
+		for code, value in self.groups[ename]:
+			data.append([code, *value] if isinstance(value, tuple) else mini_lisp.Pair(code, value))
+		if apps and self.xdata[ename]:
+			items = ["ILLUMENATE"]
+			for key, value in self.xdata[ename].items():
+				items += [mini_lisp.Pair(1000, key), mini_lisp.Pair(1000, value)]
+			data.append([-3, items])
+		return data
+
+	def entmod(self, data):
+		ename, groups = None, []
+		for group in data:
+			code = mini_lisp.car(group)
+			if code == -1:
+				ename = mini_lisp.cdr(group)
+			elif code == -3:
+				values = [mini_lisp.cdr(item) for item in group[1][1:]]
+				self.xdata[ename] = dict(zip(values[::2], values[1::2], strict=True))
+			elif code != 5:
+				groups.append((code, tuple(group[1:]) if isinstance(group, list) else group.cdr))
+		self.groups[ename] = groups
+		return data
+
+	def value(self, ename, code):
+		return dict(self.groups[ename]).get(code)
+
+	def attribute(self, insert, tag):
+		ename = self.entnext(insert)
+		while ename and self.value(ename, 0) == "ATTRIB":
+			if self.value(ename, 2) == tag:
+				return ename
+			ename = self.entnext(ename)
+		return None
+
+	def ssget(self, mode, filters=None):
+		import fnmatch
+
+		found = []
+		for ename in self.order:
+			keep = True
+			for item in filters or []:
+				code = mini_lisp.car(item)
+				if code == -3:
+					keep = keep and bool(self.xdata[ename])
+				elif code in (0, 2):
+					keep = keep and fnmatch.fnmatchcase(str(self.value(ename, code) or ""), mini_lisp.cdr(item))
+			if keep:
+				found.append(ename)
+		return found or None
+
+
+class CopiedEntities(unittest.TestCase):
+	"""ILUPDATE's copy pass and ILSETUP's rescale, run through the toolkit's own AutoCAD-side code."""
+
+	def setUp(self):
+		self.lisp = mini_lisp.Interpreter()
+		self.drawing = FakeDrawing(self.lisp)
+		text = package_bundle.joined_lisp()
+		self.lisp.run(text.replace('(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""))
+
+	def test_copies_get_new_ids_and_lose_portal_links(self):
+		d = self.drawing
+		run = {"kind": "RUN", "id": "L1-01", "type": "L1", "line_key": "row-7", "part_number": "ILL-TAPE-1"}
+		original = d.polyline("1A", [(0, 0), (12, 0)], run)
+		old_copy = d.polyline("2B", [(0, 20), (12, 20)], run)
+		new_copy = d.polyline("2C", [(0, 40), (12, 40)], {**run, "self": "1A"})
+		room = d.polyline("30", [(0, 0), (10, 0), (10, 10), (0, 10)], {"kind": "ROOM", "id": "kitchen", "self": "30"})
+		d.insert("31", "IL-ROOMTAG", (5.0, 5.0, 0.0), 1.0, {"kind": "TAG", "owner": "30"}, [("ID", "kitchen", (5.0, 5.0, 0.0), 0.1)])
+		room_copy = d.polyline("40", [(100, 0), (110, 0), (110, 10), (100, 10)], {"kind": "ROOM", "id": "kitchen", "self": "30"})
+		tag_copy = d.insert("41", "IL-ROOMTAG", (105.0, 5.0, 0.0), 1.0, {"kind": "TAG", "owner": "30"}, [("ID", "kitchen", (105.0, 5.0, 0.0), 0.1)])
+		psu = {"kind": "PSU", "id": "PS-01", "runs": "L1-01"}
+		d.insert("50", "IL-PSUTAG", (0.0, 0.0, 0.0), 1.0, psu, [("TAG", "PS-01", (0.0, 0.0, 0.0), 0.1)])
+		psu_copy = d.insert("60", "IL-PSUTAG", (50.0, 0.0, 0.0), 1.0, psu, [("TAG", "PS-01", (50.0, 0.0, 0.0), 0.1)])
+
+		self.lisp.call("il-fix-copies", None)
+
+		self.assertEqual(d.xdata[original]["id"], "L1-01")
+		self.assertEqual(d.xdata[original]["line_key"], "row-7")
+		self.assertEqual({d.xdata[old_copy]["id"], d.xdata[new_copy]["id"]}, {"L1-02", "L1-03"})
+		for copy in (old_copy, new_copy):
+			self.assertNotIn("line_key", d.xdata[copy])
+			self.assertNotIn("part_number", d.xdata[copy])
+		for ename in (original, old_copy, new_copy, room, room_copy):
+			self.assertEqual(d.xdata[ename]["self"], ename.handle)
+		self.assertEqual(d.xdata[room]["id"], "kitchen")
+		self.assertEqual(d.xdata[room_copy]["id"], "kitchen-01")
+		self.assertEqual(d.xdata[tag_copy]["owner"], "40")
+		self.assertEqual(d.value(d.attribute(tag_copy, "ID"), 1), "kitchen-01")
+		self.assertEqual(d.xdata[d.handent("31")]["owner"], "30")
+		self.assertEqual(d.xdata[psu_copy]["id"], "PS-02")
+		self.assertNotIn("runs", d.xdata[psu_copy])
+		self.assertEqual(d.value(d.attribute(psu_copy, "TAG"), 1), "PS-02")
+
+		# A second pass finds nothing left to fix.
+		before = {ename: dict(d.xdata[ename]) for ename in d.order}
+		self.lisp.call("il-fix-copies", None)
+		self.assertEqual(before, {ename: dict(d.xdata[ename]) for ename in d.order})
+
+	def test_rescale_resizes_symbols_but_not_title_blocks(self):
+		d = self.drawing
+		tag = d.insert("1A", "IL-RUNTAG", (10.0, 10.0, 0.0), 48.0, {"kind": "TAG"}, [("TAG", "L1-01", (-2.48, 7.744, 0.0), 4.5)])
+		title = d.insert("1C", "IL-TB-ARCH-D", (0.0, 0.0, 0.0), 1.0, None, [("PROJECT", "Job", (30.0, 20.0, 0.0), 0.125)])
+		other = d.insert("1E", "DOOR", (0.0, 0.0, 0.0), 1.0)
+
+		self.assertEqual(self.lisp.call("il-rescale-symbols", 0.5), 1)
+
+		self.assertEqual([d.value(tag, code) for code in (41, 42, 43)], [24.0, 24.0, 24.0])
+		attribute = d.attribute(tag, "TAG")
+		self.assertEqual(d.value(attribute, 40), 2.25)
+		self.assertEqual(d.value(attribute, 10), (3.76, 8.872, 0.0))
+		self.assertEqual(d.value(title, 41), 1.0)
+		self.assertEqual(d.value(d.attribute(title, "PROJECT"), 40), 0.125)
+		self.assertEqual(d.value(other, 41), 1.0)
 
 
 class Json(unittest.TestCase):
@@ -392,7 +586,7 @@ AUTOLISP = set(
 	reverse rtos setenv setq setvar sin sqrt ssget sslength ssname strcase strcat strlen subst substr tblsearch type
 	vl-catch-all-apply vl-catch-all-error-message vl-catch-all-error-p vl-filename-base vl-position vl-princ-to-string
 	vl-remove vl-remove-if vl-remove-if-not vl-some vl-sort vl-string-right-trim vl-string-search vl-string-trim while
-	write-line zerop function
+	write-line zerop function handent
 	""".split()
 )
 SPECIAL = {"quote", "function", "setq", "if", "cond", "while", "repeat", "foreach", "progn", "and", "or", "defun", "lambda"}

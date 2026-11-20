@@ -36,6 +36,12 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   checked by `forbidden_keys`). The package never carries prices; the import strips price keys anyway.
 - **LT 2024+ and Mac safe core.** Only `entget`/`entmod`/`entmake`, dictionaries and command-line prompts.
   No `vlax-`/`vla-`/`vlr-` and no DCL; the CI source check refuses them.
+- **Copies are allowed.** COPY, ARRAY and paste duplicate XData, id included. `il-fix-copies` (run by
+  ILUPDATE, ILCHECK and ILQUOTE) keeps the id on the entity still on its own handle (`self`, else the
+  oldest), renumbers the rest, drops what a copy must not inherit (a run's portal line key and part
+  number, a PSU's fed runs, a fixed DMX address) and hands copied room and wire tags to the nearer owner.
+- **Symbol scale.** Plan symbols are drawn in paper inches and inserted at the ILSETUP scale factor;
+  changing it in ILSETUP resizes every placed `IL-*` symbol (not title blocks) about its insertion point.
 - **AutoLISP shares one namespace** for variables and functions: no local may be named after a function
   (CI checks it), and every call must be AutoLISP or defined in the toolkit (CI checks that too).
 

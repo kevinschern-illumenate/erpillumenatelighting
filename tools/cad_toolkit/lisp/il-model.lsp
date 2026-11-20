@@ -127,7 +127,7 @@
     (setq id (il-get "id" run))
     (cond
       ((or (null id) (= id "")) (il-add "RUN_MISSING_ID" (il-get "handle" run) "error" "Run has no ID; run ILUPDATE"))
-      ((member id ids) (il-add "RUN_DUPLICATE_ID" id "error" (strcat "Two runs are tagged " id)))
+      ((member id ids) (il-add "RUN_DUPLICATE_ID" id "error" (strcat "Two runs are tagged " id "; run ILUPDATE to renumber copies")))
       (T (setq ids (cons id ids)))
     )
     (if (or (null (il-get "fixture_type" run)) (= (il-get "fixture_type" run) ""))
