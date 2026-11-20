@@ -23,6 +23,10 @@ Behaviour
     * Creates the Command Center roles if missing. People are given a role only at the moment
       the role is first created; after that the desk (User -> Roles) is the only authority,
       so removing someone in the desk is never undone by a later deploy.
+    * Keeps the page out of search engines without changing who can open it: a Website Route
+      Meta for the route carries <meta name="robots" content="noindex, nofollow">, and Website
+      Settings > Robots Txt disallows the route, which is also what drops it from /sitemap.xml.
+      Both are separate steps, so a problem there never blocks the JS/CSS update.
     * Never raises: any problem is written to the Error Log and the migrate carries on.
     * Prints one "Command Center sync: ..." line per step, so the deploy log shows the outcome.
 """
@@ -35,6 +39,8 @@ WEB_PAGE = "illumenate-command-center"
 WEB_PAGE_ROUTE = "command-center"
 SERVER_SCRIPT = "ilL Command Center Gateway"
 API_METHOD = "ill_cc_gateway"
+# the page is for signed-in staff: keep it out of search engines (see _sync_noindex_meta)
+ROBOTS_META = "noindex, nofollow"
 
 # role -> people to seed when the role is first created (matched by the part before "@")
 ROLES = {
@@ -78,7 +84,14 @@ def _read(*parts):
 
 def sync():
 	"""after_migrate hook."""
-	for step in (_sync_roles, _sync_permissions, _sync_server_script, _sync_web_page):
+	for step in (
+		_sync_roles,
+		_sync_permissions,
+		_sync_server_script,
+		_sync_web_page,
+		_sync_noindex_meta,
+		_sync_sitemap_exclusion,
+	):
 		# Every after_migrate hook shares one transaction, so on failure undo only this step,
 		# not uncommitted work from the hooks that ran before it.
 		frappe.db.savepoint("command_center_sync")
@@ -226,3 +239,107 @@ def _sync_web_page():
 
 	clear_cache()
 	return f"Web Page {name!r} updated: {', '.join(changed)} (route /{doc.route})"
+
+
+def _page_route():
+	"""The Command Center's live route without slashes (follows a renamed route), or None."""
+	name = _find_web_page()
+	if not name:
+		return None
+	return (frappe.db.get_value("Web Page", name, "route") or "").strip("/") or None
+
+
+def _sync_noindex_meta():
+	"""Make the page render <meta name="robots" content="noindex, nofollow">.
+
+	Web Page has no meta tag table of its own (only meta_title/description/image); its
+	"Set Meta Tags" button opens a Website Route Meta named after the route, whose rows Frappe
+	renders on that route. Only the robots row is managed here; other rows are left alone.
+	"""
+	route = _page_route()
+	if not route:
+		return "noindex meta skipped (Web Page not found)"
+	if frappe.db.exists("Website Route Meta", route):
+		doc = frappe.get_doc("Website Route Meta", route)
+	else:
+		doc = frappe.new_doc("Website Route Meta")
+		doc.name = route  # "Prompt" naming: the name is the route
+	rows = [t for t in doc.meta_tags if (t.key or "").strip().lower() == "robots"]
+	if rows and all(t.key == "robots" and t.value == ROBOTS_META for t in rows):
+		return f"noindex meta unchanged (/{route})"
+	for t in rows:
+		t.key, t.value = "robots", ROBOTS_META
+	if not rows:
+		doc.append("meta_tags", {"key": "robots", "value": ROBOTS_META})
+	if doc.is_new():
+		doc.insert(ignore_permissions=True)
+		action = "added"
+	else:
+		doc.save(ignore_permissions=True)
+		action = "updated"
+	from frappe.website.utils import clear_cache
+
+	clear_cache()
+	return f"noindex meta {action} (Website Route Meta {route!r}: robots = {ROBOTS_META!r})"
+
+
+def _robots_with_disallow(robots_txt, path):
+	"""Return robots_txt with ``Disallow: <path>`` for every crawler, or None if it already is.
+
+	Uses the same parser Frappe's sitemap uses (urllib.robotparser), which honours only the
+	first ``User-agent: *`` group and stops at the first matching rule, so the line goes at the
+	top of that group (ahead of any ``Allow: /``), or a new group is appended if there is none.
+	"""
+	from urllib import robotparser
+
+	def blocked(text):
+		rp = robotparser.RobotFileParser()
+		rp.parse(text.splitlines())
+		return not rp.can_fetch("*", path)
+
+	if blocked(robots_txt):
+		return None
+	lines = robots_txt.rstrip().splitlines() if robots_txt.strip() else []
+	rule = f"Disallow: {path}"
+
+	def field(line):
+		key, _, value = line.split("#", 1)[0].partition(":")
+		return key.strip().lower(), value.strip()
+
+	for i, line in enumerate(lines):
+		if field(line) == ("user-agent", "*"):
+			j = i + 1
+			while j < len(lines) and field(lines[j])[0] == "user-agent":
+				j += 1  # keep a multi-agent group together
+			lines.insert(j, rule)
+			break
+	else:
+		if lines:
+			lines.append("")
+		lines += ["User-agent: *", rule]
+	text = "\n".join(lines) + "\n"
+	if not blocked(text):
+		raise ValueError(f"robots.txt still allows {path} after adding {rule!r}")
+	return text
+
+
+def _sync_sitemap_exclusion():
+	"""Keep the page out of /sitemap.xml.
+
+	Frappe v16 lists every published, guest-viewable Web Page in the sitemap; the only per-route
+	opt-out (short of unpublishing, which would take the page down) is a robots.txt rule:
+	frappe/www/sitemap.py skips routes that Website Settings > Robots Txt disallows for "*".
+	Existing robots.txt content is kept; the rule is added only if the route is not blocked yet.
+	"""
+	route = _page_route()
+	if not route:
+		return "sitemap exclusion skipped (Web Page not found)"
+	current = frappe.db.get_single_value("Website Settings", "robots_txt") or ""
+	updated = _robots_with_disallow(current, f"/{route}")
+	if updated is None:
+		return f"sitemap exclusion unchanged (robots.txt already disallows /{route})"
+	frappe.db.set_single_value("Website Settings", "robots_txt", updated)
+	from frappe.website.utils import clear_cache
+
+	clear_cache()  # also drops the cached sitemap route list (get_public_pages_from_doctypes)
+	return f"sitemap exclusion added (robots.txt: Disallow: /{route})"
