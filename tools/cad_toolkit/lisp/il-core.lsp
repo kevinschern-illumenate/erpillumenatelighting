@@ -12,6 +12,7 @@
 ;; --- Command wrapper ----------------------------------------------------------------------------
 
 (defun il-begin (/ saved)
+  (setq *il-json-cache* nil *il-layout* nil *il-tag-index* nil)
   (setq *il-saved-vars* (mapcar '(lambda (name) (cons name (getvar name))) *il-sysvars*))
   (setq *il-old-error* *error*)
   (setq *error* il-error)
@@ -175,9 +176,21 @@
 )
 
 ;; JSON values in the dictionary.
-(defun il-store-json (key value) (il-store key (il-json-text value)) value)
-(defun il-fetch-json (key / text)
-  (if (and (setq text (il-fetch key)) (/= text "")) (il-json-parse text))
+(defun il-store-json (key value)
+  (il-store key (il-json-text value))
+  (setq *il-json-cache* (cons (cons key value) (vl-remove-if '(lambda (pair) (= (car pair) key)) *il-json-cache*)))
+  value
+)
+;; Parsed values are kept for the rest of the command (settings and styles are read per run).
+(defun il-fetch-json (key / text cached value)
+  (if (setq cached (assoc key *il-json-cache*))
+    (cdr cached)
+    (progn
+      (setq value (if (and (setq text (il-fetch key)) (/= text "")) (il-json-parse text)))
+      (setq *il-json-cache* (cons (cons key value) *il-json-cache*))
+      value
+    )
+  )
 )
 
 ;; Drawing settings: an object of schedule, project, catalog path and hash, revision, scale flag.
@@ -188,18 +201,43 @@
 ;; --- Prompts ----------------------------------------------------------------------------------
 
 ;; Pick one of ITEMS (strings) by number; DEFAULT-INDEX is 1-based. Returns the item or nil.
-(defun il-choose (title items default-index / index answer)
-  (princ (strcat "\n" title ":"))
-  (setq index 1)
-  (foreach item items
-    (princ (strcat "\n  " (itoa index) ". " item))
-    (setq index (1+ index))
+;; A number outside the list asks again; Enter takes the default (nil when there is none).
+(defun il-choose (title items default-index / index answer done)
+  (if (and default-index (or (< default-index 1) (> default-index (length items)))) (setq default-index 1))
+  (if items
+    (progn
+      (princ (strcat "\n" title ":"))
+      (setq index 1)
+      (foreach item items
+        (princ (strcat "\n  " (itoa index) ". " (il-str item)))
+        (setq index (1+ index))
+      )
+      (while (not done)
+        (initget 4)
+        (setq answer (getint (strcat "\nNumber" (if default-index (strcat " <" (itoa default-index) ">") "") ": ")))
+        (if (null answer) (setq answer default-index))
+        (if (or (null answer) (and (> answer 0) (<= answer (length items))))
+          (setq done T)
+          (princ (strcat "\nPick 1 to " (itoa (length items)) "."))
+        )
+      )
+      (if answer (nth (1- answer) items))
+    )
   )
-  (initget 4)
-  (setq answer (getint (strcat "\nNumber" (if default-index (strcat " <" (itoa default-index) ">") "") ": ")))
-  (if (null answer) (setq answer default-index))
-  (if (and answer (> answer 0) (<= answer (length items))) (nth (1- answer) items))
 )
+
+;; An id for a new KIND entity: the typed one when it is free, else the next free one after PREFIX.
+(defun il-ask-id (kind message prefix / suggested id)
+  (setq suggested (il-next-id kind prefix) id (il-trim (il-ask message suggested)))
+  (cond
+    ((= id "") suggested)
+    ((il-find-id kind id) (princ (strcat "\n" id " is taken; using " suggested ".")) suggested)
+    (T id)
+  )
+)
+
+;; True when the current space is a layout's paper space (not model space or a viewport in it).
+(defun il-paper-space-p () (and (= (getvar "TILEMODE") 0) (= (getvar "CVPORT") 1)))
 
 (defun il-ask (message default / answer)
   (setq answer (getstring T (strcat "\n" message (if (and default (/= default "")) (strcat " <" default ">") "") ": ")))

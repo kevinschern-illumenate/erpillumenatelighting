@@ -270,3 +270,132 @@
 (defun il-reverse-breaks (breaks count)
   (vl-sort (mapcar '(lambda (b) (- count 1 b)) breaks) '<)
 )
+
+;; Spans (segment indexes) after a vertex was added following segment INDEX: a split span is two.
+(defun il-split-spans (spans index / result)
+  (foreach s spans
+    (cond
+      ((< s index) (setq result (cons s result)))
+      ((= s index) (setq result (cons (1+ s) (cons s result))))
+      (T (setq result (cons (1+ s) result)))
+    )
+  )
+  (reverse result)
+)
+
+;; Spans of open VERTICES (COUNT of them) drawn the other way.
+(defun il-reverse-spans (spans count)
+  (vl-sort (mapcar '(lambda (s) (- count 2 s)) spans) '<)
+)
+
+;; The segment of open VERTICES nearest POINT.
+(defun il-nearest-segment (vertices point / index best best-d near)
+  (setq index 0)
+  (while (< index (1- (length vertices)))
+    (setq near (il-segment-nearest (nth index vertices) (nth (1+ index) vertices) (il-bulge (nth index vertices)) point))
+    (if (or (null best-d) (< (caddr near) best-d)) (setq best index best-d (caddr near)))
+    (setq index (1+ index))
+  )
+  best
+)
+
+;; The run of consecutive SPANS that holds segment INDEX.
+(defun il-span-group (spans index / low high result)
+  (if (member index spans)
+    (progn
+      (setq low index high index)
+      (while (member (1- low) spans) (setq low (1- low)))
+      (while (member (1+ high) spans) (setq high (1+ high)))
+      (while (<= low high) (setq result (cons low result) low (1+ low)))
+      (reverse result)
+    )
+  )
+)
+
+;; The lit pieces of a run and what follows each: ((vertices jumper-p jumper-in) ...). BREAKS are
+;; vertex indexes where a jumper of JUMPER-IN joins two pieces; SPANS are segment indexes drawn as
+;; jumper cable, not tape, whose drawn length is that jumper's length. A span at either end of the
+;; run joins nothing and is left out. A closed run is walked from its first vertex round to it.
+(defun il-run-pieces (vertices closed breaks spans jumper-in / points count index items current gap result next after)
+  (setq points (if (and closed vertices)
+                 (append vertices (list (list (car (car vertices)) (cadr (car vertices)) 0.0)))
+                 vertices))
+  (setq count (length points) index 0 gap 0.0 current (list (car points)))
+  (while (< index (1- count))
+    (if (member index spans)
+      (progn
+        (if (cdr current) (setq items (cons (list "lit" (reverse current)) items)))
+        (setq gap (+ gap (il-segment-length (nth index points) (nth (1+ index) points) (il-bulge (nth index points)))))
+        (setq current (list (nth (1+ index) points)))
+      )
+      (progn
+        (if (> gap 0) (setq items (cons (list "gap" gap) items) gap 0.0))
+        (setq current (cons (nth (1+ index) points) current))
+        (if (and (member (1+ index) breaks) (< (1+ index) (1- count)) (not (member (1+ index) spans)))
+          (setq items (cons (list "break") (cons (list "lit" (reverse current)) items))
+                current (list (nth (1+ index) points)))
+        )
+      )
+    )
+    (setq index (1+ index))
+  )
+  (if (cdr current) (setq items (cons (list "lit" (reverse current)) items)))
+  (setq items (reverse items) index 0)
+  (foreach item items
+    (if (= (car item) "lit")
+      (progn
+        (setq next (nth (1+ index) items) after (nth (+ index 2) items))
+        (setq result (cons (cond ((and next (= (car next) "break")) (list (cadr item) T jumper-in))
+                                 ((and next (= (car next) "gap") after) (list (cadr item) T (il-round-py (cadr next) 2)))
+                                 (T (list (cadr item) nil nil)))
+                           result))
+      )
+    )
+    (setq index (1+ index))
+  )
+  (reverse result)
+)
+
+;; --- Joining lines and arcs (ILCONVERT) ---------------------------------------------------------
+
+;; An ARC (center, radius, start and end angle, counterclockwise) as two vertices with a bulge.
+(defun il-arc-piece (center radius start end / sweep)
+  (setq sweep (rem (- end start) *il-two-pi*))
+  (if (<= sweep 0) (setq sweep (+ sweep *il-two-pi*)))
+  (list (list (+ (car center) (* radius (cos start))) (+ (cadr center) (* radius (sin start))) (il-tan (/ sweep 4.0)))
+        (list (+ (car center) (* radius (cos end))) (+ (cadr center) (* radius (sin end))) 0.0))
+)
+
+(defun il-butlast (items) (reverse (cdr (reverse items))))
+
+(defun il-same-point (a b tolerance) (<= (distance (il-xy a) (il-xy b)) tolerance))
+
+;; Join open PIECES (vertex lists) end to end where they meet within TOLERANCE, turning pieces round
+;; as needed. Returns ((vertices . source-indexes) ...), one per chain.
+(defun il-chain-pieces (pieces tolerance / left chains chain used grown index piece)
+  (setq index 0)
+  (foreach piece pieces (setq left (cons index left) index (1+ index)))
+  (setq left (reverse left))
+  (while left
+    (setq chain (nth (car left) pieces) used (list (car left)) left (cdr left) grown T)
+    (while grown
+      (setq grown nil)
+      (foreach index left
+        (if (not grown)
+          (progn
+            (setq piece (nth index pieces))
+            (cond
+              ((il-same-point (last chain) (car piece) tolerance) (setq chain (append (il-butlast chain) piece) grown T))
+              ((il-same-point (last chain) (last piece) tolerance) (setq chain (append (il-butlast chain) (il-reverse-vertices piece)) grown T))
+              ((il-same-point (car chain) (last piece) tolerance) (setq chain (append (il-butlast piece) chain) grown T))
+              ((il-same-point (car chain) (car piece) tolerance) (setq chain (append (il-butlast (il-reverse-vertices piece)) chain) grown T))
+            )
+            (if grown (setq used (cons index used) left (vl-remove index left)))
+          )
+        )
+      )
+    )
+    (setq chains (cons (cons chain (reverse used)) chains))
+  )
+  (reverse chains)
+)

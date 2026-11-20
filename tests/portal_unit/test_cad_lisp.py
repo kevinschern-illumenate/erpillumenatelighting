@@ -198,6 +198,46 @@ class Polylines(unittest.TestCase):
 		self.assertAlmostEqual(split[0][2], math.tan(math.pi / 8))
 		self.assertAlmostEqual(self.length(split), self.length(arc), places=3)
 
+	def pieces(self, vertices, closed=False, breaks=(), spans=(), jumper=12.0):
+		result = self.call("il-run-pieces", self.v(*vertices), mini_lisp.T if closed else None, lst(breaks), lst(spans), jumper)
+		return [(self.length(piece[0]), piece[1] is mini_lisp.T, piece[2]) for piece in result or []]
+
+	def test_spans_are_jumper_cable_not_tape(self):
+		line = [(0, 0, 0), (60, 0, 0), (96, 0, 0), (156, 0, 0)]
+		self.assertEqual(self.pieces(line, spans=[1]), [(60.0, True, 36.0), (60.0, False, None)])
+		self.assertEqual(self.pieces(line, spans=[0]), [(96.0, False, None)])  # a span at an end joins nothing
+		self.assertEqual(self.pieces(line, breaks=[1], spans=[2]), [(60.0, True, 12.0), (36.0, False, None)])
+		self.assertEqual(self.pieces(line, spans=[0, 1, 2]), [])
+		self.assertEqual(self.pieces(line), [(156.0, False, None)])
+
+	def test_closed_runs_keep_their_closing_side(self):
+		square = [(0, 0, 0), (10, 0, 0), (10, 10, 0), (0, 10, 0)]
+		self.assertEqual(self.pieces(square, closed=True), [(40.0, False, None)])
+		self.assertEqual(self.pieces(square, closed=True, breaks=[2]), [(20.0, True, 12.0), (20.0, False, None)])
+
+	def test_span_bookkeeping(self):
+		self.assertEqual(self.call("il-split-spans", lst([1, 3]), 1), [1, 2, 4])
+		self.assertEqual(self.call("il-reverse-spans", lst([0, 1]), 5), [2, 3])
+		self.assertEqual(self.call("il-span-group", lst([1, 2, 5]), 2), [1, 2])
+		self.assertIsNone(self.call("il-span-group", lst([1, 2]), 3))
+		self.assertEqual(self.call("il-nearest-segment", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), lst([11.0, 6.0, 0.0])), 1)
+
+	def test_arc_piece(self):
+		piece = self.call("il-arc-piece", lst([0.0, 0.0, 0.0]), 10.0, 0.0, math.pi / 2)
+		self.assertPoint(piece[0], [10.0, 0.0, math.tan(math.pi / 8)])
+		self.assertPoint(piece[1][:2], [0.0, 10.0])
+		wrapped = self.call("il-arc-piece", lst([0.0, 0.0, 0.0]), 10.0, 3 * math.pi / 2, math.pi / 2)
+		self.assertAlmostEqual(wrapped[0][2], math.tan(math.pi / 4))  # 270 -> 90 degrees sweeps 180
+
+	def test_chain_joins_touching_pieces_in_any_order_and_direction(self):
+		pieces = lst([self.v((10, 0, 0), (10, 10, 0)), self.v((0, 0, 0), (10, 0, 0)), self.v((20, 10, 0), (10, 10, 0)), self.v((50, 50, 0), (60, 50, 0))])
+		chains = self.call("il-chain-pieces", pieces, 0.01)
+		self.assertEqual(len(chains), 2)
+		joined = [vertex[:2] for vertex in chains[0][0]]
+		self.assertIn(joined, ([[20.0, 10.0], [10.0, 10.0], [10.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [20.0, 10.0]]))
+		self.assertEqual(sorted(chains[0][1:]), [0, 1, 2])
+		self.assertEqual(chains[1][1:], [3])
+
 	def test_reverse_keeps_the_path_and_moves_breaks(self):
 		vertices = self.v((0, 0, 0.5), (10, 0, 0), (10, 10, 0))
 		reversed_ = self.call("il-reverse-vertices", vertices)
@@ -435,6 +475,75 @@ class CopiedEntities(unittest.TestCase):
 		x = d.xdata[run]
 		self.assertEqual((x["breaks"], x["start_feed"], x["lead_in"], x["feed"]), ("2", "Back", "18", "double-end"))
 
+	def test_iljumper_span_marks_a_gap_and_takes_it_off(self):
+		d = self.drawing
+		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
+		self.stub(command=lambda *a: None, setvar=lambda *a: None, il_symbol_scale=lambda: 48.0, il_tag_run=lambda e: None,
+		          initget=lambda *a: None, getpoint=lambda *a: lst([30.0, 0.5, 0.0]))
+		picks = iter(["Span", lst([run, lst([10.0, 0.0, 0.0])])])
+		self.stub(entsel=lambda *a: next(picks))
+		self.lisp.call("c:ILJUMPER")
+		self.assertEqual(d.vertices(run), [(0.0, 0.0), (10.0, 0.0), (30.0, 0.0), (48.0, 0.0)])
+		self.assertEqual(d.xdata[run]["spans"], "1")
+		picks = iter(["Span", lst([run, lst([20.0, 0.2, 0.0])])])
+		self.lisp.call("c:ILJUMPER")
+		self.assertNotIn("spans", d.xdata[run])
+
+	def test_ilconvert_joins_lines_and_arcs_into_one_run(self):
+		d = self.drawing
+		first = d.add("LINE", "1A", [(8, "0"), (10, (0.0, 0.0, 0.0)), (11, (10.0, 0.0, 0.0))])
+		arc = d.add("ARC", "1B", [(8, "0"), (10, (10.0, 10.0, 0.0)), (40, 10.0), (50, 3 * math.pi / 2), (51, 0.0)])
+		last = d.add("LINE", "1C", [(8, "0"), (10, (30.0, 10.0, 0.0)), (11, (20.0, 10.0, 0.0))])
+		made = []
+		self.stub(command=lambda *a: None, setvar=lambda *a: None, il_symbol_scale=lambda: 48.0, initget=lambda *a: None,
+		          ssget=lambda *args: [first, arc, last], getkword=lambda *a: None, il_ask_type=lambda: "L1",
+		          il_require_catalog=lambda: mini_lisp.T, il_require_style=lambda: mini_lisp.T, il_assets_ensure=lambda: mini_lisp.T,
+		          il_run_layer=lambda style: "E-LITE-TAPE", il_style_by_id=lambda i: None,
+		          il_make_run=lambda ename, fixture: made.append(ename))
+		self.lisp.call("c:ILCONVERT")
+		self.assertEqual(len(made), 1)
+		self.assertTrue(all(e not in d.order for e in (first, arc, last)))
+		vertices = d.vertices(made[0])
+		self.assertEqual(vertices[0], (0.0, 0.0))
+		self.assertEqual(len(vertices), 4)
+		self.assertAlmostEqual(vertices[-1][0], 30.0)
+		self.assertAlmostEqual([value for code, value in d.groups[made[0]] if code == 42][1], math.tan(math.pi / 8))
+
+	def test_ilconnect_moves_a_run_from_its_old_psu(self):
+		d = self.drawing
+		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
+		old = d.insert("2A", "IL-PSUTAG", (0.0, 0.0, 0.0), 1.0, {"kind": "PSU", "id": "PS-01", "runs": "L1-01,L1-02"}, [("LOAD", "", (0.0, 0.0, 0.0), 0.1)])
+		new = d.insert("3A", "IL-PSUTAG", (9.0, 0.0, 0.0), 1.0, {"kind": "PSU", "id": "PS-02"}, [("LOAD", "", (9.0, 0.0, 0.0), 0.1)])
+		self.stub(command=lambda *a: None, setvar=lambda *a: None, initget=lambda *a: None, getkword=lambda *a: None,
+		          entsel=lambda *a: lst([new, lst([9.0, 0.0, 0.0])]), il_update_psu_tag=lambda e: None,
+		          ssget=lambda mode=None, filters=None: d.ssget(mode, filters) if mode == "_X" else [run])
+		self.lisp.call("c:ILCONNECT")
+		self.assertEqual(d.xdata[new]["runs"], "L1-01")
+		self.assertEqual(d.xdata[old]["runs"], "L1-02")
+
+	def test_choose_asks_again_and_ids_stay_unique(self):
+		answers = iter([9, 2])
+		self.stub(getint=lambda *a: next(answers), initget=lambda *a: None)
+		self.assertEqual(self.lisp.call("il-choose", "Pick", lst(["a", "b", "c"]), 1), "b")
+		self.assertIsNone(self.lisp.call("il-choose", "Pick", None, 1))
+		self.drawing.insert("1A", "IL-CABINET", (0.0, 0.0, 0.0), 1.0, {"kind": "CABINET", "id": "CAB-01"})
+		self.stub(getstring=lambda *a: "CAB-01")
+		self.assertEqual(self.lisp.call("il-ask-id", "CABINET", "Cabinet tag", "CAB-"), "CAB-02")
+		self.stub(getstring=lambda *a: "")
+		self.assertEqual(self.lisp.call("il-ask-id", "CABINET", "Cabinet tag", "CAB-"), "CAB-02")
+
+	def test_prune_links_drops_deleted_runs(self):
+		d = self.drawing
+		d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
+		psu = d.insert("2A", "IL-PSUTAG", (0.0, 0.0, 0.0), 1.0, {"kind": "PSU", "id": "PS-01", "runs": "L1-01,L1-09"})
+		self.stub(namedobjdict=lambda: None, dictsearch=lambda *a: None)
+		self.lisp.set("*il-json-cache*", lst([mini_lisp.Pair("ZONES", self.lisp.run('(il-arr (list (il-obj (list (cons "id" "ZN-1") (cons "runs" (il-arr (list "L1-01" "L1-09")))))))'))]))
+		stored = {}
+		self.stub(il_store=lambda key, text: stored.setdefault(key, text))
+		self.lisp.call("il-prune-links")
+		self.assertEqual(d.xdata[psu]["runs"], "L1-01")
+		self.assertIn('"runs":["L1-01"]', stored["ZONES"].replace(" ", ""))
+
 	def test_run_markers_are_owned_and_loose_ones_cleared(self):
 		self.stub(il_symbol_scale=lambda: 48.0)
 		loose = self.drawing.insert("9A", "IL-FEED", (0.0, 0.0, 0.0), 48.0)
@@ -527,6 +636,7 @@ class Model(unittest.TestCase):
 			run("L2-01", [[0, 0, 0], [499, 0, 0]], "preset:PRE-0001", fixture_type="L2"),
 			run("L3-01", [[0, 0, 0.4142135623730951], [1, 1, 0]], "custom:1", fixture_type="L3"),
 			run("L5-01", [[0, 0, 0.05], [78.75, 0, 0]], "custom:kit", fixture_type="L5"),
+			run("L6-01", [[0, 0, 0], [60, 0, 0], [96, 0, 0], [156, 0, 0]], "preset:PRE-0001", fixture_type="L6", spans=lst([1])),
 		]
 		self.model = to_alist(
 			{
@@ -595,6 +705,8 @@ class Model(unittest.TestCase):
 		self.assertEqual(kit["style"]["tape"]["template"], "led-hd-sw")
 		arc = next(item for item in package["runs"] if item["id"] == "L3-01")
 		self.assertAlmostEqual(arc["segments"][0]["min_arc_radius_in"], 1.0, places=3)
+		spanned = next(item for item in package["runs"] if item["id"] == "L6-01")
+		self.assertEqual([(s["path_length_in"], s["end_type"], s.get("jumper_length_in")) for s in spanned["segments"]], [(60.0, "JUMPER", 36.0), (60.0, "ENDCAP", None)])
 		self.assertEqual(package["check"]["overrides"][0]["code"], "TAPE_RUN_TOO_LONG")
 		self.assertEqual(package["other_lines"][0]["manufacturer_name"], "Acme Lighting")
 		self.assertNotIn("price", text.lower())

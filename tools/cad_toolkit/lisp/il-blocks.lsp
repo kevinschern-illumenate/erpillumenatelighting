@@ -91,12 +91,14 @@
   found
 )
 
-;; Insert block NAME at POINT with ATTRIBUTES ((tag . value) ...) on LAYER; returns the INSERT.
+;; Insert block NAME at POINT with ATTRIBUTES ((tag . value) ...) on LAYER; returns the INSERT. When
+;; *il-layout* is set (tags of an entity) it goes on that layout, else in the current space.
 (defun il-insert (name point scale layer attributes / block insert at)
   (il-ensure-block (il-block-data name))
   (setq block (il-block-data name))
-  (entmake (list '(0 . "INSERT") (cons 8 layer) (cons 2 name) (cons 10 point) (cons 41 scale) (cons 42 scale) (cons 43 scale)
-                 (cons 66 (if (vl-some '(lambda (item) (= (car item) "ATTDEF")) (cddr block)) 1 0))))
+  (entmake (append (list '(0 . "INSERT") (cons 8 layer) (cons 2 name) (cons 10 point) (cons 41 scale) (cons 42 scale) (cons 43 scale)
+                         (cons 66 (if (vl-some '(lambda (item) (= (car item) "ATTDEF")) (cddr block)) 1 0)))
+                   (if *il-layout* (list (cons 410 *il-layout*)))))
   (foreach item (cddr block)
     (if (= (car item) "ATTDEF")
       (progn

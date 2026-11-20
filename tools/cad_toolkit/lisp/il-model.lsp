@@ -4,7 +4,7 @@
 ;;;
 ;;; Model: an association list with "drawing", "rooms", "cabinets", "runs", "styles", "psus",
 ;;; "wires", "controls", "zones", "others" and "overrides". A run is an association list ("id" "handle" "fixture_type"
-;;; "room" "location" "style" "vertices" "closed" "breaks" "start_feed" "lead_in" "jumper_in"
+;;; "room" "location" "style" "vertices" "closed" "breaks" "spans" "start_feed" "lead_in" "jumper_in"
 ;;; "feed_method" "feed_handles" "cabinet" "psu_hint" "notes" "line_key" "configured_name"
 ;;; "config_hash" ...). Styles are catalog style objects (IL-OBJ) with an "id".
 
@@ -21,17 +21,16 @@
 ;; --- Geometry and hints -----------------------------------------------------------------------
 
 ;; ((segments . (path-result ...)) (length_in . total) (min_arc_radius_in . r))
-(defun il-run-geometry (run / segments results total smallest result)
-  (setq segments (il-split-vertices (il-get "vertices" run) (il-get "breaks" run)) total 0.0)
-  (foreach vertices segments
-    (setq result (il-path-length vertices nil))
+;; ((segments . (path-result ...)) (length_in . total) (min_arc_radius_in . r)). Each segment is a lit
+;; piece of the run with "jumper" (a jumper follows it) and "jumper_in" (its length when known).
+(defun il-run-geometry (run / results total smallest result)
+  (setq total 0.0)
+  (foreach piece (il-run-pieces (il-get "vertices" run) (il-get "closed" run) (il-get "breaks" run) (il-get "spans" run) (il-get "jumper_in" run))
+    (setq result (append (il-path-length (car piece) nil) (list (cons "jumper" (cadr piece)) (cons "jumper_in" (caddr piece)))))
     (setq results (cons result results) total (+ total (il-get "length_in" result)))
     (if (il-get "min_arc_radius_in" result)
       (setq smallest (if smallest (min smallest (il-get "min_arc_radius_in" result)) (il-get "min_arc_radius_in" result)))
     )
-  )
-  (if (and (il-get "closed" run) (= (length segments) 1))
-    (setq results (list (il-path-length (il-get "vertices" run) T)) total (il-get "length_in" (car results)))
   )
   (list (cons "segments" (reverse results)) (cons "length_in" (il-round-py total 4)) (cons "min_arc_radius_in" smallest))
 )
@@ -134,6 +133,13 @@
       (il-add "RUN_MISSING_TYPE" (if id id (il-get "handle" run)) "error" "Run has no schedule Type")
     )
     (if (null (il-get "room" run)) (il-add "RUN_NO_ROOM" id "warning" "Run is not in a room (ILROOM)"))
+    (if (null (il-get "segments" (il-run-geometry run)))
+      (il-add "RUN_NO_TAPE" id "error" "The whole run is marked as jumper span; take a span off with ILJUMPER")
+    )
+    (if (and (il-get "spans" run) (not (il-get "closed" run))
+             (or (member 0 (il-get "spans" run)) (member (- (length (il-get "vertices" run)) 2) (il-get "spans" run))))
+      (il-add "JUMPER_SPAN_AT_END" id "warning" "A jumper span at the run's end joins nothing and is left out; trim it, or count it in the lead (ILFEED)")
+    )
     (setq style (il-model-style model (il-get "style" run)))
     (cond
       ((null style) (il-add "RUN_NO_STYLE" id "error" "Run has no style (ILSTYLE)"))
@@ -261,9 +267,9 @@
          (setq pairs (il-opt "start_feed" (il-get "start_feed" run) pairs)
                pairs (if (il-get "lead_in" run) (append pairs (list (cons "lead_length_in" (il-get "lead_in" run)))) pairs))
        )
-       (setq pairs (append pairs (list (cons "end_type" (if (< index (1- count)) "JUMPER" "ENDCAP")))))
-       (if (and (< index (1- count)) (il-get "jumper_in" run))
-         (setq pairs (append pairs (list (cons "jumper_length_in" (il-get "jumper_in" run)))))
+       (setq pairs (append pairs (list (cons "end_type" (if (and (< index (1- count)) (il-get "jumper" segment)) "JUMPER" "ENDCAP")))))
+       (if (and (< index (1- count)) (il-get "jumper" segment) (il-get "jumper_in" segment))
+         (setq pairs (append pairs (list (cons "jumper_length_in" (il-get "jumper_in" segment)))))
        )
        (if (il-get "min_arc_radius_in" segment)
          (setq pairs (append pairs (list (cons "min_arc_radius_in" (il-get "min_arc_radius_in" segment)))))

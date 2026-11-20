@@ -44,6 +44,14 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   picked near the other end (bulges and break indexes follow). ILJUMPER toggles a break at a vertex, or
   adds a vertex where a line or arc is picked. Feed and jumper markers are owned by the run and redrawn
   by ILUPDATE; the run tag sits halfway along the path.
+- **Jumper spans.** A run's `spans` (segment indexes) are drawn across a gap but are jumper cable, not
+  tape: `il-run-pieces` splits the run into lit pieces and gives the jumper after each piece its length
+  (a span's drawn length, or `jumper_in` at a break). Spans at either end join nothing and are left out
+  (ILCHECK `JUMPER_SPAN_AT_END`). Closed runs are walked round to their first vertex, so a jumper on a
+  closed run keeps the closing side.
+- **Prompts.** `il-choose` asks again on a number outside the list; `il-ask-id` keeps typed ids unique.
+  Settings and styles are parsed once per command (`*il-json-cache*`); tags go on their owner's layout
+  (`*il-layout*`).
 - **Symbol scale.** Plan symbols are drawn in paper inches and inserted at the ILSETUP scale factor;
   changing it in ILSETUP resizes every placed `IL-*` symbol (not title blocks) about its insertion point.
 - **AutoLISP shares one namespace** for variables and functions: no local may be named after a function
