@@ -8,6 +8,7 @@ shape, and reopen equality. It is the safety net for 6.2 and 6.3.
 import json
 import types
 import unittest
+from unittest.mock import patch
 
 from test_services import ROOT, Record, load_service
 
@@ -183,9 +184,11 @@ class Money(unittest.TestCase):
 		self.assertEqual((old, new), (10.0, 10.01))
 
 	def test_kit_sums_components_then_rounds_once(self):
-		with load_service(ROOT + ".api.extrusion_kit_configurator") as (engine, frappe):
-			frappe.db.get_value.side_effect = lambda doctype, filters, field: {"A": 0.004, "B": 0.004}[filters["item_code"]]
-			total = engine._compute_kit_pricing({"profile": {"item": "A", "qty": 1}, "lens": {"item": "B", "qty": 1}})
+		with load_service(ROOT + ".api.extrusion_kit_configurator") as (engine, _frappe):
+			# Kits are priced by each component's stock-unit rate (2026-11-19).
+			rates = {"A": 0.004, "B": 0.004}
+			with patch(ROOT + ".api.tape_neon_pricing.stock_unit_rate", side_effect=rates.get):
+				total = engine._compute_kit_pricing({"profile": {"item": "A", "qty": 1}, "lens": {"item": "B", "qty": 1}})
 		self.assertEqual(total, {"total_price_msrp": 0.01})
 
 	def test_shared_rule(self):

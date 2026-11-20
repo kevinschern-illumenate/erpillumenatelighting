@@ -43,8 +43,12 @@ class KitSave(unittest.TestCase):
 		with load_service(ROOT + ".api.extrusion_kit_configurator", deps) as (service, frappe):
 			frappe.db.exists.return_value = True
 			frappe.get_doc.return_value = schedule
-			frappe.db.get_value.return_value = 10.0  # every component priced at $10
-			with patch.object(service, "validate_kit_configuration", return_value=validation) as validate:
+			# Every component priced at $10 a stock unit (kits are priced by stock_unit_rate since
+			# 2026-11-19).
+			with (
+				patch(ROOT + ".api.tape_neon_pricing.stock_unit_rate", return_value=10.0),
+				patch.object(service, "validate_kit_configuration", return_value=validation) as validate,
+			):
 				result = service.save_kit_to_schedule("SCH-1", **kwargs)
 		return result, validate, appended, schedule
 
@@ -126,7 +130,9 @@ class KitValidation(unittest.TestCase):
 			frappe.db.exists.return_value = True
 			frappe.get_doc.return_value = template
 			codes = {"Anodized Silver": "SV", "White": "WH", "Mounting Clip": "MC"}
-			frappe.db.get_value.side_effect = lambda dt, name, field: 10 if dt == "Item Price" else codes.get(name)
+			frappe.db.get_value.side_effect = lambda dt, name, field: codes.get(name)
+			# Every component priced at $10 a stock unit (stock_unit_rate, 2026-11-19).
+			self.enterContext(patch(ROOT + ".api.tape_neon_pricing.stock_unit_rate", return_value=10))
 			profile = Record(profile_item="PROFILE-SV", profile_spec="PROFILE-SPEC")
 			lens = Record(lens_item="LENS-WH", lens_spec="LENS-SPEC")
 			solid = Record(endcap_item="SOLID-SV", endcap_spec="SOLID-SPEC", endcap_style="Solid")
@@ -173,7 +179,9 @@ class KitValidation(unittest.TestCase):
 			frappe.db.exists.return_value = True
 			frappe.get_doc.return_value = template
 			codes = {"Anodized Silver": "SV", "White": "WH", "Drywall": "DW"}
-			frappe.db.get_value.side_effect = lambda dt, name, field: 10 if dt == "Item Price" else codes.get(name)
+			frappe.db.get_value.side_effect = lambda dt, name, field: codes.get(name)
+			# Every component priced at $10 a stock unit (stock_unit_rate, 2026-11-19).
+			self.enterContext(patch(ROOT + ".api.tape_neon_pricing.stock_unit_rate", return_value=10))
 			resolve_mounting = MagicMock(return_value=None)
 			selections = dict(kit_template="KIT-1", finish="Anodized Silver", lens_appearance="White", mounting_method="Drywall")
 			with patch.multiple(
