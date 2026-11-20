@@ -173,8 +173,15 @@ class EffectiveStatusGate(unittest.TestCase):
 		export.assert_called_once()
 
 	def test_never_published_under_a_plain_active_template_does_not_push(self):
-		payload, _readiness, _export = self.refresh("Active", "Webflow Draft", published_on=None, is_active=1)
+		payload, readiness, _export = self.refresh("Active", "Webflow Draft", published_on=None, is_active=1)
 		self.assertFalse(payload["active"])
+		# The reason is given (owner, 2026-11-20), not a readiness message.
+		self.assertEqual(len(readiness["inactive_reasons"]), 1)
+
+	def test_a_live_template_without_a_webflow_status_says_so(self):
+		payload, readiness, _export = self.refresh("Active + Live", None, is_active=1)
+		self.assertFalse(payload["active"])
+		self.assertEqual(readiness["inactive_reasons"], ["the product's Webflow Status is not set"])
 
 	def test_internal_only_keeps_a_published_page_up_without_the_readiness_issue(self):
 		payload, readiness, _export = self.refresh("Internal Only", is_active=1)

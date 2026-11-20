@@ -84,8 +84,26 @@ def _refresh(doc, state, config):
 	)
 	doc = Listing(doc)
 	live = (effective is not None) if template_status else bool(doc.is_active)
-	active = bool(live and config["is_active"] and _targeted(doc, state.brand))
+	targeted = _targeted(doc, state.brand)
+	active = bool(live and config["is_active"] and targeted)
 	readiness = evaluate(doc, "cms")
+	# Why nothing would go to Webflow (owner, 2026-11-20): shown instead of the readiness message,
+	# which read as if there were readiness issues when the dialog listed only warnings.
+	inactive = []
+	if not live:
+		if not template_status:
+			inactive.append(_("the product is not active"))
+		elif effective is None and rule is None:
+			inactive.append(_("the product's Webflow Status is not set"))
+		else:
+			inactive.append(
+				webflow_state.describe_effective(template_status, doc.get("webflow_status"), effective, rule)
+			)
+	if not config["is_active"]:
+		inactive.append(_("the {0} brand target is not active").format(state.brand))
+	if not targeted:
+		inactive.append(_("the product's Target Brands do not include {0}").format(state.brand))
+	readiness["inactive_reasons"] = inactive
 	if effective == webflow_state.DISCONTINUED_STAGE and template_status == "Internal Only":
 		# A published page stays up as Discontinued (row 12): not a readiness problem.
 		readiness["issues"] = [
@@ -276,7 +294,13 @@ def request(product, brand, operation, expected_hash):
 				_("Deactivate the product or brand target before retirement, and enable synchronization")
 			)
 	else:
-		if not payload["active"] or not readiness["ready"]:
+		if not payload["active"]:
+			frappe.throw(
+				_("Nothing to publish: {0}").format(
+					"; ".join(readiness.get("inactive_reasons") or [_("the product is not active")])
+				)
+			)
+		if not readiness["ready"]:
 			frappe.throw(_("Resolve product readiness issues before publication"))
 		if operation == "PUBLISH" and (
 			state.staged_hash != expected_hash

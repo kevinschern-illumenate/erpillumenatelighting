@@ -37,6 +37,10 @@ frappe.ui.form.on("ilL-Webflow-Product", {
                         (result.readiness.issues || []).forEach(issue => {
                             wrapper.append(`<p>${esc(issue.record)} / ${esc(issue.field)}: ${esc(issue.message)}</p>`);
                         });
+                        // Why nothing would go to Webflow (owner, 2026-11-20).
+                        (result.readiness.inactive_reasons || []).forEach(reason => {
+                            wrapper.append(`<p class="text-danger">${esc(__("Not published"))}: ${esc(reason)}</p>`);
+                        });
                         (result.readiness.warnings || []).forEach(warning => {
                             wrapper.append(`<p class="text-warning">${esc(__("Warning"))}: ${esc(warning.record)} / ${esc(warning.field)}: ${esc(warning.message)}</p>`);
                         });
