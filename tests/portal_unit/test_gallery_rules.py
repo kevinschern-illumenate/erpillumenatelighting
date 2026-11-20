@@ -85,10 +85,21 @@ class DoctypeJsonTest(unittest.TestCase):
 		self.assertEqual(fields["target_brands"]["options"], "ilL-Child-Webflow-Brand-Target")
 		self.assertEqual(fields["custom_items"]["options"], "ilL-Child-Gallery-Custom-Item")
 
-	def test_status_guide_is_a_collapsed_section_at_the_bottom(self):
+	def test_custom_items_sit_right_below_products_used(self):
+		order = load_doctype("ill_webflow_gallery")["field_order"]
+		self.assertEqual(order[order.index("products_used") + 1], "custom_items")
+		self.assertLess(order.index("custom_items"), order.index("credits_section"))
+
+	def test_the_publishing_section_follows_the_status_guide_at_the_bottom(self):
+		order = load_doctype("ill_webflow_gallery")["field_order"]
+		self.assertEqual(
+			order[-5:],
+			["status_guide_section", "status_guide", "publishing_section", "target_brands", "sync_targets"],
+		)
+
+	def test_status_guide_is_a_collapsed_section(self):
 		doc = load_doctype("ill_webflow_gallery")
 		fields = {f["fieldname"]: f for f in doc["fields"]}
-		self.assertEqual(doc["field_order"][-2:], ["status_guide_section", "status_guide"])
 		self.assertEqual(fields["status_guide_section"]["fieldtype"], "Section Break")
 		self.assertEqual(fields["status_guide_section"]["collapsible"], 1)
 		self.assertEqual(fields["status_guide"]["fieldtype"], "HTML")
