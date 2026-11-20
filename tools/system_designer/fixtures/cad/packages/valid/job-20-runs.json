@@ -1,0 +1,983 @@
+{
+ "schema": "ilq/2",
+ "toolkit": {
+  "version": "0.3.0",
+  "platform": "AutoCAD 2025"
+ },
+ "catalog": {
+  "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+  "generated_at": "2026-11-20 09:00:00"
+ },
+ "target": {
+  "schedule": "",
+  "schedule_version": 0,
+  "project": ""
+ },
+ "drawing": {
+  "file": "Ybarra_L1.dwg",
+  "rev": 1,
+  "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "units": "in",
+  "scale_verified": true
+ },
+ "rooms": [
+  {
+   "id": "Z-Kitchen",
+   "name": "Kitchen",
+   "level": "L1",
+   "env": "dry-concealed"
+  },
+  {
+   "id": "Z-Living",
+   "name": "Living",
+   "level": "L1",
+   "env": "dry-concealed"
+  },
+  {
+   "id": "Z-Bath",
+   "name": "Primary Bath",
+   "level": "L2",
+   "env": "damp"
+  },
+  {
+   "id": "Z-Patio",
+   "name": "Patio",
+   "level": "L1",
+   "env": "outdoor-exposed"
+  }
+ ],
+ "cabinets": [
+  {
+   "id": "CAB-1",
+   "room": "Z-Kitchen",
+   "location_rating": "Dry",
+   "access_note": "Pantry, above door"
+  },
+  {
+   "id": "CAB-2",
+   "room": "Z-Bath",
+   "location_rating": "Damp",
+   "access_note": ""
+  }
+ ],
+ "runs": [
+  {
+   "id": "L1-01",
+   "handle": "2F50",
+   "room": "Z-Kitchen",
+   "fixture_type": "L1",
+   "location": "Kitchen",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 96.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2F51"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L1-02",
+   "handle": "2F60",
+   "room": "Z-Kitchen",
+   "fixture_type": "L1",
+   "location": "Kitchen",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 132.5,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2F61"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L1-03",
+   "handle": "2F70",
+   "room": "Z-Kitchen",
+   "fixture_type": "L1",
+   "location": "Kitchen",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 48.25,
+     "end_type": "JUMPER",
+     "start_feed": "End",
+     "lead_length_in": 60,
+     "jumper_length_in": 12
+    },
+    {
+     "path_length_in": 30.0,
+     "end_type": "ENDCAP"
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2F71"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L2-01",
+   "handle": "2F80",
+   "room": "Z-Living",
+   "fixture_type": "L2",
+   "location": "Living",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "3000K",
+     "output_level": "500 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 240.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2F81"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L2-02",
+   "handle": "2F90",
+   "room": "Z-Living",
+   "fixture_type": "L2",
+   "location": "Living",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "3000K",
+     "output_level": "500 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 186.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2F91"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L2-03",
+   "handle": "2FA0",
+   "room": "Z-Living",
+   "fixture_type": "L2",
+   "location": "Living",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "3000K",
+     "output_level": "500 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 310.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2FA1"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L3-01",
+   "handle": "2FB0",
+   "room": "Z-Living",
+   "fixture_type": "L3",
+   "location": "Living",
+   "style": {
+    "family": "LED Neon",
+    "template": "non-pnc-sw",
+    "selections": {
+     "cct": "2700K",
+     "output_level": "200 lm/ft"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 72.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2FB1"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L4-01",
+   "handle": "2FC0",
+   "room": "Z-Bath",
+   "fixture_type": "L4",
+   "location": "Primary Bath",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Damp",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 60.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2FC1"
+    ]
+   },
+   "cabinet": "CAB-2",
+   "erp": {}
+  },
+  {
+   "id": "L4-02",
+   "handle": "2FD0",
+   "room": "Z-Bath",
+   "fixture_type": "L4",
+   "location": "Primary Bath",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Damp",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 60.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2FD1"
+    ]
+   },
+   "cabinet": "CAB-2",
+   "erp": {}
+  },
+  {
+   "id": "L4-03",
+   "handle": "2FE0",
+   "room": "Z-Bath",
+   "fixture_type": "L4",
+   "location": "Primary Bath",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Damp",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 84.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2FE1"
+    ]
+   },
+   "cabinet": "CAB-2",
+   "erp": {}
+  },
+  {
+   "id": "L5-01",
+   "handle": "2FF0",
+   "room": "Z-Kitchen",
+   "fixture_type": "L5",
+   "location": "Kitchen",
+   "style": {
+    "family": "Extrusion Kit",
+    "template": "KIT-AZ01",
+    "selections": {
+     "kit_template": "KIT-AZ01",
+     "finish": "Silver",
+     "lens_appearance": "Frosted",
+     "mounting_method": "Surface"
+    },
+    "tape": {
+     "family": "LED Tape",
+     "template": "led-hd-sw",
+     "selections": {
+      "environment_rating": "Dry",
+      "cct": "2700K",
+      "output_level": "300 lm/ft",
+      "feed_type": "Soldered-End"
+     }
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 78.75,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "2FF1"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L5-02",
+   "handle": "3000",
+   "room": "Z-Kitchen",
+   "fixture_type": "L5",
+   "location": "Kitchen",
+   "style": {
+    "family": "Extrusion Kit",
+    "template": "KIT-AZ01",
+    "selections": {
+     "kit_template": "KIT-AZ01",
+     "finish": "Silver",
+     "lens_appearance": "Frosted",
+     "mounting_method": "Surface"
+    },
+    "tape": {
+     "family": "LED Tape",
+     "template": "led-hd-sw",
+     "selections": {
+      "environment_rating": "Dry",
+      "cct": "2700K",
+      "output_level": "300 lm/ft",
+      "feed_type": "Soldered-End"
+     }
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 120.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3001"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L6-01",
+   "handle": "3010",
+   "room": "Z-Living",
+   "fixture_type": "L6",
+   "location": "Living",
+   "style": {
+    "family": "Linear Fixture",
+    "template": "ILL-RA01-SW",
+    "preset": "RA01 27K Frosted Surface",
+    "selections": {
+     "fixture_template_code": "ILL-RA01-SW",
+     "environment_rating_code": "Dry",
+     "lens_appearance_code": "Frosted",
+     "mounting_method_code": "Surface",
+     "finish_code": "Black",
+     "delivered_output_value": "300"
+    },
+    "segments": [
+     {
+      "start_feed_direction": "End",
+      "start_power_feed_type": "Wire Leads",
+      "start_leader_cable_length_mm": 1524,
+      "end_type": "Endcap"
+     }
+    ]
+   },
+   "segments": [
+    {
+     "path_length_in": 144.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3011"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L6-02",
+   "handle": "3020",
+   "room": "Z-Living",
+   "fixture_type": "L6",
+   "location": "Living",
+   "style": {
+    "family": "Linear Fixture",
+    "template": "ILL-RA01-SW",
+    "preset": "RA01 27K Frosted Surface",
+    "selections": {
+     "fixture_template_code": "ILL-RA01-SW",
+     "environment_rating_code": "Dry",
+     "lens_appearance_code": "Frosted",
+     "mounting_method_code": "Surface",
+     "finish_code": "Black",
+     "delivered_output_value": "300"
+    },
+    "segments": [
+     {
+      "start_feed_direction": "End",
+      "start_power_feed_type": "Wire Leads",
+      "start_leader_cable_length_mm": 1524,
+      "end_type": "Endcap"
+     }
+    ]
+   },
+   "segments": [
+    {
+     "path_length_in": 96.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3021"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L7-01",
+   "handle": "3030",
+   "room": "Z-Patio",
+   "fixture_type": "L7",
+   "location": "Patio",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Wet",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 420.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "double-end",
+    "point_handles": [
+     "3031"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L7-02",
+   "handle": "3040",
+   "room": "Z-Patio",
+   "fixture_type": "L7",
+   "location": "Patio",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Wet",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 200.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3041"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L8-01",
+   "handle": "3050",
+   "room": "Z-Kitchen",
+   "fixture_type": "L8",
+   "location": "Kitchen",
+   "style": {
+    "family": "COB Tape",
+    "template": "cob-sd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 36.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3051"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L8-02",
+   "handle": "3060",
+   "room": "Z-Kitchen",
+   "fixture_type": "L8",
+   "location": "Kitchen",
+   "style": {
+    "family": "COB Tape",
+    "template": "cob-sd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 36.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3061"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L8-03",
+   "handle": "3070",
+   "room": "Z-Kitchen",
+   "fixture_type": "L8",
+   "location": "Kitchen",
+   "style": {
+    "family": "COB Tape",
+    "template": "cob-sd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 42.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3071"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  },
+  {
+   "id": "L8-04",
+   "handle": "3080",
+   "room": "Z-Kitchen",
+   "fixture_type": "L8",
+   "location": "Kitchen",
+   "style": {
+    "family": "COB Tape",
+    "template": "cob-sd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 42.0,
+     "end_type": "ENDCAP",
+     "start_feed": "End",
+     "lead_length_in": 60
+    }
+   ],
+   "feed": {
+    "method": "end",
+    "point_handles": [
+     "3081"
+    ]
+   },
+   "cabinet": "CAB-1",
+   "erp": {}
+  }
+ ],
+ "psus": [
+  {
+   "id": "PS-01",
+   "cabinet": "CAB-1",
+   "item_code": null,
+   "runs": [
+    "L1-01",
+    "L1-02",
+    "L1-03",
+    "L2-01",
+    "L2-02",
+    "L2-03",
+    "L3-01",
+    "L5-01"
+   ]
+  },
+  {
+   "id": "PS-02",
+   "cabinet": "CAB-1",
+   "runs": [
+    "L5-02",
+    "L6-01",
+    "L6-02",
+    "L7-01",
+    "L7-02",
+    "L8-01",
+    "L8-02",
+    "L8-03",
+    "L8-04"
+   ]
+  },
+  {
+   "id": "PS-03",
+   "cabinet": "CAB-2",
+   "runs": [
+    "L4-01",
+    "L4-02",
+    "L4-03"
+   ]
+  }
+ ],
+ "wire_paths": [
+  {
+   "id": "W-01",
+   "from": "PS-01",
+   "to": "L1-01",
+   "kind": "lv",
+   "path_length_in": 137.5
+  },
+  {
+   "id": "W-02",
+   "from": "PS-01",
+   "to": "L1-02",
+   "kind": "lv",
+   "path_length_in": 155.0
+  },
+  {
+   "id": "W-03",
+   "from": "PS-01",
+   "to": "L1-03",
+   "kind": "lv",
+   "path_length_in": 172.5
+  },
+  {
+   "id": "W-04",
+   "from": "PS-01",
+   "to": "L2-01",
+   "kind": "lv",
+   "path_length_in": 190.0
+  },
+  {
+   "id": "W-05",
+   "from": "PS-01",
+   "to": "L2-02",
+   "kind": "lv",
+   "path_length_in": 207.5
+  },
+  {
+   "id": "W-06",
+   "from": "PS-01",
+   "to": "L2-03",
+   "kind": "lv",
+   "path_length_in": 225.0
+  },
+  {
+   "id": "W-07",
+   "from": "PS-01",
+   "to": "L3-01",
+   "kind": "lv",
+   "path_length_in": 242.5
+  },
+  {
+   "id": "W-08",
+   "from": "PS-03",
+   "to": "L4-01",
+   "kind": "lv",
+   "path_length_in": 260.0
+  },
+  {
+   "id": "W-09",
+   "from": "PS-03",
+   "to": "L4-02",
+   "kind": "lv",
+   "path_length_in": 277.5
+  },
+  {
+   "id": "W-10",
+   "from": "PS-03",
+   "to": "L4-03",
+   "kind": "lv",
+   "path_length_in": 295.0
+  },
+  {
+   "id": "W-11",
+   "from": "PS-01",
+   "to": "L5-01",
+   "kind": "lv",
+   "path_length_in": 312.5
+  },
+  {
+   "id": "W-12",
+   "from": "PS-02",
+   "to": "L5-02",
+   "kind": "lv",
+   "path_length_in": 330.0
+  },
+  {
+   "id": "W-13",
+   "from": "PS-02",
+   "to": "L6-01",
+   "kind": "lv",
+   "path_length_in": 347.5
+  },
+  {
+   "id": "W-14",
+   "from": "PS-02",
+   "to": "L6-02",
+   "kind": "lv",
+   "path_length_in": 365.0
+  },
+  {
+   "id": "W-15",
+   "from": "PS-02",
+   "to": "L7-01",
+   "kind": "lv",
+   "path_length_in": 382.5
+  },
+  {
+   "id": "W-16",
+   "from": "PS-02",
+   "to": "L7-02",
+   "kind": "lv",
+   "path_length_in": 400.0
+  },
+  {
+   "id": "W-17",
+   "from": "PS-02",
+   "to": "L8-01",
+   "kind": "lv",
+   "path_length_in": 417.5
+  },
+  {
+   "id": "W-18",
+   "from": "PS-02",
+   "to": "L8-02",
+   "kind": "lv",
+   "path_length_in": 435.0
+  },
+  {
+   "id": "W-19",
+   "from": "PS-02",
+   "to": "L8-03",
+   "kind": "lv",
+   "path_length_in": 452.5
+  },
+  {
+   "id": "W-20",
+   "from": "PS-02",
+   "to": "L8-04",
+   "kind": "lv",
+   "path_length_in": 470.0
+  },
+  {
+   "id": "W-99",
+   "from": "CAB-1",
+   "to": "CAB-2",
+   "kind": "line",
+   "path_length_in": 540.0
+  }
+ ],
+ "check": {
+  "errors": 0,
+  "warnings": 1,
+  "overrides": [
+   {
+    "code": "TAPE_RUN_TOO_LONG",
+    "ref": "L7-01",
+    "note": "Double feed from both ends"
+   }
+  ]
+ },
+ "other_lines": [
+  {
+   "fixture_type": "X1",
+   "qty": 4,
+   "location": "Hall",
+   "manufacturer_name": "Acme Lighting",
+   "fixture_model_number": "DL-4",
+   "watts_each": 12,
+   "input_voltage_v": 120,
+   "voltage_class": "Line Voltage"
+  }
+ ]
+}

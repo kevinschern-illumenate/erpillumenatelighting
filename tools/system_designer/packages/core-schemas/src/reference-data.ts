@@ -152,9 +152,34 @@ export const LayerSchema = z
     (layer) => layer.name !== 'E-ANNO-QAFL' || !layer.export,
     'QA layer must never be exported',
   );
+/** Plan-view layers for the CAD toolkit's DWT (draw-to-quote plan 1.6); the riser never draws on them. */
+export const PlanLayerNameSchema = z.enum([
+  'E-LITE-TAPE',
+  'E-LITE-EXTR',
+  'E-LITE-FEED',
+  'E-LITE-DATA',
+  'E-POWR-CABN',
+  'E-POWR-WIRE-LINE',
+  'E-ANNO-ROOM',
+  'E-ANNO-ISSU',
+]);
+export const PlanLayerSchema = z
+  .object({
+    name: PlanLayerNameSchema,
+    description: IdSchema,
+    linetype: LinetypeSchema,
+    lineweightMm: PositiveSchema,
+    color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    aciColor: z.number().int().min(1).max(255),
+    /** No-plot layers hold check markers and other working marks. */
+    plot: z.boolean(),
+  })
+  .strict()
+  .refine((layer) => layer.name !== 'E-ANNO-ISSU' || !layer.plot, 'The issue layer must never plot');
 export const LayerLibrarySchema = z
   .object({
     layers: uniqueList(LayerSchema, (l) => l.name),
+    planLayers: uniqueList(PlanLayerSchema, (l) => l.name).default([]),
     linetypes: uniqueList(
       z
         .object({
@@ -172,7 +197,7 @@ export const LayerLibrarySchema = z
     if (LayerNameSchema.options.some((l) => !names.has(l)))
       ctx.addIssue({ code: 'custom', path: ['layers'], message: 'Required layer is missing' });
     const patterns = new Set(library.linetypes.map((l) => l.name));
-    if (library.layers.some((l) => !patterns.has(l.linetype)))
+    if ([...library.layers, ...library.planLayers].some((l) => !patterns.has(l.linetype)))
       ctx.addIssue({
         code: 'custom',
         path: ['linetypes'],

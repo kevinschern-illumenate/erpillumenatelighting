@@ -4,6 +4,7 @@ import { DESIGN_SCHEMA_VERSION, DesignSchema, type Design } from '@ill/core-sche
 import { BuildsSchema, LineSchema } from '@ill/core-schemas/open-design';
 import { ProjectSettingsSchema } from '@ill/core-schemas/project';
 import { createDraft } from '@ill/core-schemas/workspace';
+import { applyCadSite, CadSiteSchema } from '@ill/engine/cadSite';
 import { expandRuns, type ExpandOptions, type Skipped } from '@ill/engine/expand';
 import type { ReconcileDiff } from '@ill/engine/reconcile';
 import type { DesignMessage } from '@ill/engine/designCheck';
@@ -82,6 +83,8 @@ export const OpenDesignSchema = z.object({
     .nullish(),
   /** Generated files already stored on this design. */
   deliverables: z.array(z.custom<Deliverable>((value) => typeof value === 'object' && value !== null)).default([]),
+  /** The AutoCAD drawing the schedule was imported from (draw-to-quote 2.3); older servers send none. */
+  cad_site: CadSiteSchema.nullish().catch(null),
 });
 export type OpenDesign = z.infer<typeof OpenDesignSchema>;
 
@@ -119,6 +122,8 @@ export function newDesign(open: OpenDesign): { design: Design; skipped: Skipped[
     zones: [],
     project,
   });
+  // A drawing import gives rooms, cabinets and measured home runs; the rest stays the expansion's.
+  if (open.cad_site) applyCadSite(design, open.cad_site);
   return { design, skipped };
 }
 

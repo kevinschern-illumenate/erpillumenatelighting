@@ -144,6 +144,11 @@ Also handles new schedule creation when is_new is True
 								<i class="fa fa-upload" aria-hidden="true"></i> {{ _("Import Lines") }}
 							</button>
 							{% endif %}
+							{% if drawing_import_enabled | default(false) %}
+							<button class="btn btn-outline-primary" type="button" id="importDrawingButton" data-toggle="modal" data-target="#importDrawingModal">
+								<i class="fa fa-pencil-square-o" aria-hidden="true"></i> {{ _("Import Drawing") }}
+							</button>
+							{% endif %}
 							{% if system_design and (system_design.design or (can_edit and not schedule.is_locked)) %}
 							<a class="btn btn-outline-primary" id="designSystemButton" href="{{ system_design.url | e }}">
 								<i class="fa fa-sitemap" aria-hidden="true"></i> {% if system_design.design %}{{ _("Open System Design") }}{% else %}{{ _("Design System") }}{% endif %}
@@ -2021,6 +2026,48 @@ Also handles new schedule creation when is_new is True
 	</div>
 </div>
 {% endif %}
+{% if drawing_import_enabled | default(false) %}
+<div class="modal fade" id="importDrawingModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="importDrawingTitle">
+	<div class="modal-dialog modal-xl" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="importDrawingTitle">{{ _("Import drawing") }}</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+			</div>
+			<div class="modal-body">
+				<p class="text-muted">{{ _("Upload the .ilq.json package the ilLumenate CAD toolkit writes (ILQUOTE). Every run is built by the configurator from its style; lengths are snapped and split here, not in AutoCAD. Nothing changes until you import.") }}</p>
+				<div class="form-group">
+					<label for="importDrawingFile">{{ _("Drawing package") }}</label>
+					<input type="file" class="form-control-file" id="importDrawingFile" accept=".json,.ilq,application/json">
+					<small class="form-text text-muted"><a href="/api/method/illumenate_lighting.illumenate_lighting.system_design.api.download_cad_catalog" id="importDrawingCatalog">{{ _("Download the CAD catalog") }}</a> · <a href="#" id="importDrawingReceipt">{{ _("Download the last receipt") }}</a></small>
+				</div>
+				<div id="importDrawingWarnings" class="alert alert-warning" role="status" hidden></div>
+				<p id="importDrawingCounts" role="status" class="mb-2"></p>
+				<div class="table-responsive ill-import-preview" id="importDrawingPreview" hidden>
+					<table class="table table-sm">
+						<thead><tr><th>{{ _("Run") }}</th><th>{{ _("Type") }}</th><th>{{ _("Style") }}</th><th>{{ _("Drawn (in)") }}</th><th>{{ _("Built (in)") }}</th><th>{{ _("Change") }}</th><th>{{ _("Status") }}</th><th>{{ _("Details") }}</th></tr></thead>
+						<tbody id="importDrawingRows"></tbody>
+					</table>
+				</div>
+				<div class="form-check" id="importDrawingRemoveWrap" hidden>
+					<input type="checkbox" class="form-check-input" id="importDrawingRemove">
+					<label class="form-check-label" for="importDrawingRemove" id="importDrawingRemoveLabel">{{ _("Remove the lines whose runs are no longer in the drawing") }}</label>
+				</div>
+				<div class="form-check" id="importDrawingVersionWrap" hidden>
+					<input type="checkbox" class="form-check-input" id="importDrawingVersion">
+					<label class="form-check-label" for="importDrawingVersion">{{ _("This schedule is locked or quoted: import into a new version") }}</label>
+				</div>
+				<div id="importDrawingError" class="alert alert-danger mt-2" role="alert" hidden></div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
+				<button type="button" class="btn btn-outline-primary" id="importDrawingRefresh" hidden>{{ _("Update preview") }}</button>
+				<button type="button" class="btn btn-primary" id="importDrawingConfirm" disabled>{{ _("Import") }}</button>
+			</div>
+		</div>
+	</div>
+</div>
+{% endif %}
 {% if line_copy_enabled | default(false) %}
 <div class="modal fade" id="copyLinesModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="copyLinesModalTitle">
 	<div class="modal-dialog" role="document">
@@ -2080,6 +2127,7 @@ Also handles new schedule creation when is_new is True
 	"activity_timeline": (activity_timeline_enabled | default(false)),
 	"keyboard_shortcuts": (keyboard_shortcuts_enabled | default(false)),
 	"schedule_import": (schedule_import_enabled | default(false)),
+	"drawing_import": (drawing_import_enabled | default(false)),
 	"import_columns": (import_columns | default([])),
 	"import_template_rows": (import_template_rows | default([])),
 	"project_name": (project.name if project else ''),
@@ -2212,9 +2260,24 @@ Also handles new schedule creation when is_new is True
 		"The comparison could not be loaded.": _("The comparison could not be loaded."),
 		"Line comparison is turned off on this site.": _("Line comparison is turned off on this site."),
 		"Differs": _("Differs"),
+		"Needs a choice": _("Needs a choice"),
+		"Add": _("Add"),
+		"Update": _("Update"),
+		"Unchanged": _("Unchanged"),
+		"Remove": _("Remove"),
+		"{0} runs ready, {1} need a choice, {2} with errors; {3} to add, {4} to update, {5} unchanged.": _("{0} runs ready, {1} need a choice, {2} with errors; {3} to add, {4} to update, {5} unchanged."),
+		"Remove {0} line(s) whose runs are no longer in the drawing": _("Remove {0} line(s) whose runs are no longer in the drawing"),
+		"Import the drawing": _("Import the drawing"),
+		"Reading the drawing…": _("Reading the drawing…"),
+		"Upload the .ilq.json file from ILQUOTE.": _("Upload the .ilq.json file from ILQUOTE."),
+		"The file is larger than 5 MB.": _("The file is larger than 5 MB."),
+		"Could not read this drawing package.": _("Could not read this drawing package."),
+		"Could not import the drawing.": _("Could not import the drawing."),
+		"Choose {0}": _("Choose {0}"),
+		"No drawing has been imported into this schedule yet.": _("No drawing has been imported into this schedule yet."),
 	},
 } | tojson }}</script>
-{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "reorder", "compare", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale", "conflict", "undo", "activity", "keyboard"] %}
+{% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "drawing_import", "reorder", "compare", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale", "conflict", "undo", "activity", "keyboard"] %}
 <script src="{{ schedule_js | e }}{{ part | e }}.js?v={{ schedule_js_version | e }}"></script>
 {% endfor %}
 {% if show_dealer_pricing %}

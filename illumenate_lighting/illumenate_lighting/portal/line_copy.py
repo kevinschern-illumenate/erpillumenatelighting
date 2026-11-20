@@ -22,8 +22,22 @@ OWNER_FIELD = "power_supply_for_line"
 EDITABLE_STATUSES = ("DRAFT", "READY")
 MAX_LINES = 100
 MAX_TARGETS = 100
+# ``cad_run_id`` ties a line to one run in its own schedule's drawing; a copy is not that run, so a
+# re-import of the drawing must not match it. Schedule versions keep it (they are the same drawing).
 EXCLUDE = frozenset(
-	{"name", "idx", "parent", "parenttype", "parentfield", "doctype", "creation", "modified", "modified_by", "owner"}
+	{
+		"name",
+		"idx",
+		"parent",
+		"parenttype",
+		"parentfield",
+		"doctype",
+		"creation",
+		"modified",
+		"modified_by",
+		"owner",
+		"cad_run_id",
+	}
 )
 
 

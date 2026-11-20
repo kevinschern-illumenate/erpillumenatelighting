@@ -75,6 +75,11 @@ for _name in (
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
     doctype_js[_name] = [*_scripts, "public/js/desk_portal_links.js"]
+# Draw-to-quote: staff import an AutoCAD drawing package from the schedule form (CAD toolkit plan 2.8).
+for _name in ("ilL-Project-Fixture-Schedule",):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/desk_drawing_import.js"]
 doctype_list_js.update({_name: "public/js/portal_request_list.js" for _name in (
     "ilL-Quote-Request", "ilL-Order-Intake", "ilL-Order-Change", "ilL-Document-Request",
 )})

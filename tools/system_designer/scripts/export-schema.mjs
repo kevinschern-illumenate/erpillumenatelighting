@@ -13,6 +13,10 @@ const { module } = await runnerImport(
 mkdirSync(dirname(target), { recursive: true });
 writeFileSync(target, module.exportSchemaText());
 console.log(`Wrote ${target}`);
+// The draw-to-quote package (CAD toolkit plan 1.5): the portal drawing import validates against it.
+const ilqTarget = resolve(dirname(target), 'ilq.schema.json');
+writeFileSync(ilqTarget, module.exportIlqSchemaText());
+console.log(`Wrote ${ilqTarget}`);
 
 // The NEC tables the Python verification mirror reads (plan §18.2); a parity test keeps them identical.
 const tables = resolve(

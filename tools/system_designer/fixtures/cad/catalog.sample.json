@@ -1,0 +1,323 @@
+{
+ "code_tables_version": "nec-2023-1",
+ "controllers": [
+  {
+   "category": "dmx-decoder",
+   "code": "DMX-DEC-4",
+   "id": "ctl:DMX-DEC-4",
+   "model": "DMX decoder",
+   "protocol_in": [
+    "DMX512"
+   ],
+   "protocol_out": [
+    "PWM"
+   ]
+  }
+ ],
+ "drivers": [
+  {
+   "class2": true,
+   "code": "PS-96-24",
+   "dimming": [
+    "0-10V"
+   ],
+   "id": "drv:PS-96-24",
+   "kind": "psu",
+   "model": "96W 24V",
+   "output_v": 24,
+   "outputs": 1,
+   "per_output_w": 96,
+   "rated_w": 96,
+   "usable_load_factor": 0.8
+  }
+ ],
+ "engine_contract": "catalog-1",
+ "fixture_templates": [
+  {
+   "code": "ILL-RA01-SW",
+   "family": "Linear Fixture",
+   "max_assembled_in": 98.4252,
+   "name": "Rainier [SF] Static White",
+   "profile": "CH-RA01-BK",
+   "status": "Active",
+   "stock_length_in": 78.7402
+  }
+ ],
+ "generated_at": "2026-11-20 09:00:00",
+ "hash": "b723ca6af1e77c3b947606d588bef77ef7cfaf7ea4552c1e207fb779f4e1b9d3",
+ "kit_templates": [
+  {
+   "code": "KIT-AZ01",
+   "family": "Extrusion Kit",
+   "name": "Azurite Extrusion Kit",
+   "profile": "CH-AZ01-SV",
+   "status": "Active",
+   "stock_length_in": 78.7402
+  }
+ ],
+ "profiles": [
+  {
+   "code": "CH-AZ01-SV",
+   "curve_capable": false,
+   "family": "AZ01",
+   "height_in": 0.2756,
+   "item": "CH-AZ01-SV",
+   "max_assembled_in": 98.4252,
+   "outline": {
+    "body": [
+     -0.342,
+     0.0,
+     0.342,
+     0.0,
+     0.342,
+     0.276,
+     -0.342,
+     0.276
+    ],
+    "lens": [
+     -0.3,
+     0.276,
+     0.3,
+     0.276,
+     0.3,
+     0.3,
+     -0.3,
+     0.3
+    ]
+   },
+   "stock_length_in": 78.7402,
+   "width_in": 0.685
+  },
+  {
+   "code": "CH-RA01-BK",
+   "curve_capable": true,
+   "family": "RA01",
+   "height_in": 0.5906,
+   "item": "CH-RA01-BK",
+   "max_assembled_in": 98.4252,
+   "stock_length_in": 78.7402,
+   "width_in": 0.9843
+  }
+ ],
+ "schema": "cad-catalog/1",
+ "settings": {
+  "max_watts_per_run": 85.0,
+  "max_watts_per_run_fallback": 85.0,
+  "plan_route_slack_pct": 15.0,
+  "stale_days": 30,
+  "vd_target_class2_pct": 3.0,
+  "vd_target_landscape_pct": 5.0,
+  "vd_target_line_pct": 3.0,
+  "wire_waste_pct": 10.0
+ },
+ "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+ "styles": [
+  {
+   "family": "LED Tape",
+   "id": "preset:PRE-0001",
+   "label": "HD 27K Dry",
+   "selections": {
+    "cct": "2700K",
+    "environment_rating": "Dry",
+    "output_level": "300 lm/ft"
+   },
+   "shared": true,
+   "template": "led-hd-sw"
+  }
+ ],
+ "templates": [
+  {
+   "code": "cob-fc-sw",
+   "default_variant": "TEST-COB-FC|",
+   "family": "COB Tape",
+   "free_cut": true,
+   "name": "COB Free Cut",
+   "status": "Internal Only",
+   "variants": [
+    {
+     "free_cut": true,
+     "id": "TEST-COB-FC|",
+     "item": "TEST-COB-FC",
+     "max_run_double_ft": 32.8,
+     "max_run_single_ft": 16.4,
+     "reel_ft": 16.4042,
+     "spec": "TEST-COB-FC",
+     "voltage": 24,
+     "w_per_ft": 3.05,
+     "width_in": 0.315
+    }
+   ]
+  },
+  {
+   "code": "non-pnc-sw",
+   "default_variant": "TEST-NEON-24|",
+   "family": "LED Neon",
+   "free_cut": false,
+   "name": "Pinnacle Neon",
+   "options": [
+    {
+     "default": "2700K",
+     "key": "cct",
+     "label": "CCT",
+     "values": [
+      "2700K"
+     ]
+    },
+    {
+     "default": "200 lm/ft",
+     "key": "output_level",
+     "label": "Output",
+     "values": [
+      "200 lm/ft"
+     ]
+    },
+    {
+     "default": "White",
+     "key": "finish",
+     "label": "Finish",
+     "values": [
+      "White"
+     ]
+    }
+   ],
+   "status": "Active",
+   "variants": [
+    {
+     "cut_in": 0.9843,
+     "cut_mm": 25,
+     "free_cut": false,
+     "id": "TEST-NEON-24|",
+     "item": "TEST-NEON-24",
+     "max_run_double_ft": 65.6,
+     "max_run_single_ft": 32.8,
+     "max_run_vd_ft": 32.8,
+     "min_bend_radius_in": 1.9685,
+     "reel_ft": 32.8084,
+     "spec": "TEST-NEON-24",
+     "voltage": 24,
+     "w_per_ft": 3,
+     "width_in": 0.6299
+    }
+   ]
+  },
+  {
+   "code": "led-hd-sw",
+   "default_variant": "TEST-HD-SW-24|OFF-1",
+   "family": "LED Tape",
+   "free_cut": false,
+   "leader_allowance_in": 1.9685,
+   "name": "High Density Static White",
+   "options": [
+    {
+     "default": "Dry",
+     "key": "environment_rating",
+     "label": "Environment",
+     "values": [
+      "Dry",
+      "Wet"
+     ]
+    },
+    {
+     "default": "3000K",
+     "key": "cct",
+     "label": "CCT",
+     "values": [
+      "2700K",
+      "3000K"
+     ]
+    },
+    {
+     "default": "300 lm/ft",
+     "key": "output_level",
+     "label": "Output",
+     "values": [
+      "300 lm/ft",
+      "500 lm/ft"
+     ]
+    },
+    {
+     "default": "Soldered-End",
+     "key": "feed_type",
+     "label": "Feed type",
+     "values": [
+      "Soldered-End"
+     ]
+    },
+    {
+     "default": "End",
+     "key": "feed_direction",
+     "label": "Feed direction",
+     "values": [
+      "End"
+     ]
+    }
+   ],
+   "status": "Active",
+   "variants": [
+    {
+     "cct": "2700K",
+     "cut_in": 1.9685,
+     "cut_mm": 50,
+     "environment_rating": "Dry",
+     "free_cut": false,
+     "id": "TEST-HD-SW-24|OFF-1",
+     "item": "TEST-HD-SW-24",
+     "max_run_double_ft": 32.8,
+     "max_run_single_ft": 16.4,
+     "output_level": "300 lm/ft",
+     "reel_ft": 16.4042,
+     "spec": "TEST-HD-SW-24",
+     "voltage": 24,
+     "w_per_ft": 4.4,
+     "width_in": 0.3937
+    },
+    {
+     "cct": "3000K",
+     "cut_in": 3.937,
+     "cut_mm": 100,
+     "environment_rating": "Dry",
+     "free_cut": false,
+     "id": "TEST-HD-SW-24|OFF-2",
+     "item": "TEST-HD-SW-24",
+     "max_run_double_ft": 32.8,
+     "max_run_single_ft": 16.4,
+     "output_level": "500 lm/ft",
+     "reel_ft": 16.4042,
+     "spec": "TEST-HD-SW-24",
+     "voltage": 24,
+     "w_per_ft": 6.2,
+     "width_in": 0.3937
+    },
+    {
+     "cct": "2700K",
+     "cut_in": 1.9685,
+     "cut_mm": 50,
+     "environment_rating": "Wet",
+     "free_cut": false,
+     "id": "TEST-HD-SW-24-WET|OFF-3",
+     "item": "TEST-HD-SW-24-WET",
+     "max_run_double_ft": 32.8,
+     "max_run_single_ft": 16.4,
+     "min_bend_radius_in": 1.0,
+     "output_level": "300 lm/ft",
+     "reel_ft": 16.4042,
+     "spec": "TEST-HD-SW-24-WET",
+     "voltage": 24,
+     "w_per_ft": 4.4,
+     "width_in": 0.4724
+    }
+   ]
+  }
+ ],
+ "units": "in",
+ "wires": [
+  {
+   "awg": "18",
+   "category": "lv-power",
+   "code": "W-18-2",
+   "id": "wire:W-18-2",
+   "name": "18/2 CL3",
+   "verify": true
+  }
+ ]
+}
