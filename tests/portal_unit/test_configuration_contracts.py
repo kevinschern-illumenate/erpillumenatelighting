@@ -183,8 +183,9 @@ class Money(unittest.TestCase):
 		self.assertEqual((old, new), (10.0, 10.01))
 
 	def test_kit_sums_components_then_rounds_once(self):
-		with load_service(ROOT + ".api.extrusion_kit_configurator") as (engine, frappe):
-			frappe.db.get_value.side_effect = lambda doctype, filters, field: {"A": 0.004, "B": 0.004}[filters["item_code"]]
+		# Kit components are priced at their stock-unit Standard Selling rate.
+		prices = types.SimpleNamespace(stock_unit_rate={"A": 0.004, "B": 0.004}.get)
+		with load_service(ROOT + ".api.extrusion_kit_configurator", {ROOT + ".api.tape_neon_pricing": prices}) as (engine, _):
 			total = engine._compute_kit_pricing({"profile": {"item": "A", "qty": 1}, "lens": {"item": "B", "qty": 1}})
 		self.assertEqual(total, {"total_price_msrp": 0.01})
 
