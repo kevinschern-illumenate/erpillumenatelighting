@@ -186,6 +186,8 @@ class Library(unittest.TestCase):
 				self.assertTrue(template.name.startswith("ilL - "))
 				self.assertLessEqual(len(template.name), 140)
 				self.assertTrue(template.subject.strip())
+				# Email Template.subject is a Data field: 140 characters, Jinja included.
+				self.assertLessEqual(len(template.subject), 140)
 				self.assertIn("ill_email_context(doctype, name)", template.body())
 				self.assertIn("c.blocks.signature", template.body())
 
