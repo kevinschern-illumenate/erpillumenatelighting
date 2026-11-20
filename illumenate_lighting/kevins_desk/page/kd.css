@@ -1,0 +1,56 @@
+/* Kevin's Desk: additions on top of the Command Center's cc.css (inlined before this file).
+   Scoped under #cc.kd; colours come from cc.css tokens plus one token per hat. */
+#cc.kd {
+  --hat-sales: var(--s1); --hat-ops: var(--s2); --hat-product: #6250d6; --hat-apps: #e87ba4;
+  --hat-systems: #1baf7a; --hat-growth: #eda100; --hat-none: var(--mute);
+}
+
+/* NOW bar */
+#cc.kd .kd-now { display: flex; gap: 28px; align-items: stretch; flex-wrap: wrap; margin-bottom: 20px; border-left: 4px solid var(--amber); }
+#cc.kd .kd-now-main { flex: 1 1 340px; min-width: 0; }
+#cc.kd .kd-block { font-size: 28px; font-weight: 700; letter-spacing: -.6px; margin: 6px 0 8px; line-height: 1.15; }
+#cc.kd .kd-meta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; color: var(--ink2); font-size: 13px; }
+#cc.kd .kd-now .meter { max-width: 520px; }
+#cc.kd .kd-left { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; padding: 0 8px; }
+#cc.kd .kd-left .v { font-size: 34px; font-weight: 700; letter-spacing: -.8px; line-height: 1.05; }
+#cc.kd .kd-left .d { color: var(--ink2); font-size: 12.5px; margin-top: 4px; }
+#cc.kd .kd-next { flex: 0 1 280px; border-left: 1px solid var(--line); padding-left: 24px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+#cc.kd .kd-next .t { font-weight: 600; font-size: 16px; }
+@media (max-width: 640px) {
+  #cc.kd .kd-now { gap: 16px; }
+  #cc.kd .kd-block { font-size: 23px; }
+  #cc.kd .kd-left { padding: 0; }
+  #cc.kd .kd-next { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 14px; flex-basis: 100%; }
+}
+
+/* hat chip: a coloured dot plus the hat name */
+#cc.kd .kd-hat { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink2); white-space: nowrap; }
+#cc.kd .kd-hat::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--hat-none); flex: none; }
+#cc.kd .kd-hat[data-hat="sales"]::before { background: var(--hat-sales); }
+#cc.kd .kd-hat[data-hat="ops"]::before { background: var(--hat-ops); }
+#cc.kd .kd-hat[data-hat="product"]::before { background: var(--hat-product); }
+#cc.kd .kd-hat[data-hat="apps"]::before { background: var(--hat-apps); }
+#cc.kd .kd-hat[data-hat="systems"]::before { background: var(--hat-systems); }
+#cc.kd .kd-hat[data-hat="growth"]::before { background: var(--hat-growth); }
+
+/* today's schedule */
+#cc.kd .kd-list, #cc.kd .kd-week { list-style: none; margin: 0; padding: 0; }
+#cc.kd .kd-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 10px; }
+#cc.kd .kd-row + .kd-row { border-top: 1px solid var(--line2); }
+#cc.kd .kd-time { color: var(--ink2); font-size: 12.5px; }
+#cc.kd .kd-title { font-weight: 500; }
+#cc.kd .kd-row.past { opacity: .5; }
+#cc.kd .kd-row.now { background: var(--warnb); border-top-color: transparent; }
+#cc.kd .kd-row.now + .kd-row { border-top-color: transparent; }
+#cc.kd .kd-row.now .kd-title { font-weight: 700; }
+@media (max-width: 560px) {
+  #cc.kd .kd-row { grid-template-columns: 78px minmax(0, 1fr); }
+  #cc.kd .kd-row .kd-hat { grid-column: 2; }
+}
+
+/* week themes */
+#cc.kd .kd-wrow { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; align-items: start; padding: 9px 10px; border-radius: 10px; }
+#cc.kd .kd-wrow.today { background: var(--infob); }
+#cc.kd .kd-day { font-weight: 600; color: var(--ink2); }
+#cc.kd .kd-wrow.today .kd-day { color: var(--infot); }
+#cc.kd .kd-note { color: var(--mute); font-size: 12px; margin-top: 2px; }

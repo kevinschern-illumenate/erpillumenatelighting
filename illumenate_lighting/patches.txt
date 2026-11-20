@@ -110,3 +110,4 @@ illumenate_lighting.patches.seed_gallery_lists
 illumenate_lighting.patches.backfill_gallery_publication_status #2026-11-19
 illumenate_lighting.patches.backfill_supplier_purchasing_email
 illumenate_lighting.patches.email_tables_editor_safe
+illumenate_lighting.patches.seed_desk_settings

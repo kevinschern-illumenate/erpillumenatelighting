@@ -1,0 +1,65 @@
+{
+ "actions": [],
+ "creation": "2026-11-20 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "track_changes": 1,
+ "description": "Kevin's Desk: who owns the private /kd/<link> page and its random link. Only the desk owner can change the owner or turn the page off.",
+ "field_order": [
+  "section_access",
+  "enabled",
+  "desk_owner",
+  "column_break_access",
+  "slug"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_access",
+   "fieldtype": "Section Break",
+   "label": "Access"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "description": "When off, the page and its endpoints answer 404 for everyone."
+  },
+  {
+   "fieldname": "desk_owner",
+   "fieldtype": "Link",
+   "label": "Desk Owner",
+   "options": "User",
+   "description": "The only user who can open the page. Must be an enabled System User."
+  },
+  {
+   "fieldname": "column_break_access",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Link Slug",
+   "description": "The page lives at /kd/<slug>. Clear it and save to get a new random link (the old one stops working)."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Desk-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
