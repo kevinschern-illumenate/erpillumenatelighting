@@ -5,6 +5,7 @@ catalog, and the package the LISP writes must pass the same ``ilq/2`` validator 
 """
 
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -145,6 +146,69 @@ class Copies(unittest.TestCase):
 		self.assertEqual(self.lisp.call("il-scale-about", lst([10.0, 10.0, 0.0]), lst([20.0, 30.0, 0.0]), 0.5), [15.0, 20.0, 0.0])
 
 
+class Polylines(unittest.TestCase):
+	"""Pure geometry behind ILJUMPER, ILFEED and tag placement."""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.lisp = interpreter()
+
+	def call(self, name, *args):
+		return self.lisp.call(name, *args)
+
+	def v(self, *points):
+		return lst(lst([float(x), float(y), float(b)]) for x, y, b in points)
+
+	def length(self, vertices):
+		return plain(self.call("il-path-length", vertices, None))["length_in"]
+
+	def assertPoint(self, actual, expected):
+		for a, e in zip(actual, expected, strict=True):
+			self.assertAlmostEqual(a, e, places=6)
+
+	def test_bulge_arc(self):
+		center, radius, start, sweep = self.call("il-bulge-arc", lst([0.0, 0.0]), lst([2.0, 0.0]), 1.0)
+		self.assertPoint(center, [1.0, 0.0])
+		self.assertAlmostEqual(radius, 1.0)
+		self.assertAlmostEqual(abs(start), math.pi)
+		self.assertAlmostEqual(sweep, math.pi)
+		self.assertIsNone(self.call("il-bulge-arc", lst([0.0, 0.0]), lst([2.0, 0.0]), 0.0))
+
+	def test_path_point(self):
+		self.assertPoint(self.call("il-path-point", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), 0.5), [10.0, 0.0, 0.0])
+		self.assertPoint(self.call("il-path-point", self.v((0, 0, 1), (2, 0, 0)), 0.5), [1.0, -1.0, 0.0])
+
+	def test_jumper_target_splits_a_straight_run(self):
+		kind, index, u, point = self.call("il-jumper-target", self.v((0, 0, 0), (48, 0, 0)), lst([20.0, 1.0, 0.0]), 4.8)
+		self.assertEqual((kind, index), ("split", 0))
+		self.assertAlmostEqual(u, 20 / 48)
+		self.assertPoint(point, [20.0, 0.0])
+
+	def test_jumper_target_snaps_to_a_nearby_vertex_or_an_end(self):
+		vertices = self.v((0, 0, 0), (48, 0, 0), (48, 30, 0))
+		self.assertEqual(self.call("il-jumper-target", vertices, lst([47.0, 2.0, 0.0]), 4.8), ["vertex", 1])
+		self.assertEqual(self.call("il-jumper-target", vertices, lst([2.0, 0.5, 0.0]), 4.8), ["vertex", 0])
+
+	def test_insert_vertex_keeps_the_path(self):
+		straight = self.call("il-insert-vertex", self.v((0, 0, 0), (48, 0, 0)), 0, 0.25)
+		self.assertEqual(plain(straight), [[0.0, 0.0, 0.0], [12.0, 0.0, 0.0], [48.0, 0.0, 0.0]])
+		arc = self.v((0, 0, 1), (2, 0, 0))
+		split = self.call("il-insert-vertex", arc, 0, 0.5)
+		self.assertPoint(split[1][:2], [1.0, -1.0])
+		self.assertAlmostEqual(split[0][2], math.tan(math.pi / 8))
+		self.assertAlmostEqual(self.length(split), self.length(arc), places=3)
+
+	def test_reverse_keeps_the_path_and_moves_breaks(self):
+		vertices = self.v((0, 0, 0.5), (10, 0, 0), (10, 10, 0))
+		reversed_ = self.call("il-reverse-vertices", vertices)
+		self.assertPoint(reversed_[0][:2], [10.0, 10.0])
+		self.assertAlmostEqual(reversed_[1][2], -0.5)
+		self.assertAlmostEqual(self.length(reversed_), self.length(vertices), places=6)
+		self.assertPoint(self.call("il-path-point", reversed_, 1.0), [0.0, 0.0, 0.0])
+		self.assertEqual(self.call("il-reverse-breaks", lst([1]), 4), [2])
+		self.assertEqual(self.call("il-shift-breaks", lst([1, 3]), 1), [1, 4])
+
+
 class Ename:
 	def __init__(self, drawing, handle):
 		self.drawing, self.handle = drawing, handle
@@ -163,7 +227,7 @@ class FakeDrawing:
 			"entget": self.entget, "entmod": self.entmod, "entupd": lambda ename: ename, "regapp": lambda name: name,
 			"ssget": self.ssget, "sslength": len, "ssname": lambda ss, index: ss[index], "handent": self.handent,
 			"entnext": self.entnext, "getvar": lambda name: None, "entmake": self.entmake, "entlast": self.entlast,
-			"tblsearch": lambda table, name: mini_lisp.T,
+			"tblsearch": lambda table, name: mini_lisp.T, "entdel": self.entdel,
 		}.items():
 			interp.set(name, function)
 
@@ -174,8 +238,15 @@ class FakeDrawing:
 		self.xdata[ename] = dict(xdata or {})
 		return ename
 
-	def polyline(self, handle, points, xdata):
-		return self.add("LWPOLYLINE", handle, [(70, 1), *((10, (x, y)) for x, y in points)], xdata)
+	def polyline(self, handle, points, xdata, closed=True):
+		return self.add("LWPOLYLINE", handle, [(70, 1 if closed else 0), *((10, (x, y)) for x, y in points)], xdata)
+
+	def vertices(self, ename):
+		return [value for code, value in self.groups[ename] if code == 10]
+
+	def entdel(self, ename):
+		self.order.remove(ename)
+		return ename
 
 	def insert(self, handle, block, point, scale, xdata=None, attributes=()):
 		ename = self.add("INSERT", handle, [(2, block), (10, point), (41, scale), (42, scale), (43, scale)], xdata)
@@ -247,7 +318,7 @@ class FakeDrawing:
 				if code == -3:
 					keep = keep and bool(self.xdata[ename])
 				elif code in (0, 2):
-					keep = keep and fnmatch.fnmatchcase(str(self.value(ename, code) or ""), mini_lisp.cdr(item))
+					keep = keep and any(fnmatch.fnmatchcase(str(self.value(ename, code) or ""), pattern) for pattern in mini_lisp.cdr(item).split(","))
 			if keep:
 				found.append(ename)
 		return found or None
@@ -327,6 +398,52 @@ class CopiedEntities(unittest.TestCase):
 		self.assertEqual(d.value(d.attribute(old, "ID"), 11), (100.0, 41.36, 0.0))
 		self.assertIsNone(d.value(d.attribute(title, "PROJECT"), 72))
 		self.assertEqual(self.lisp.call("il-recenter-tags"), 0)
+
+	def stub(self, **functions):
+		for name, function in functions.items():
+			self.lisp.set(name.replace("_", "-"), function)
+
+	def pick(self, ename, x, y):
+		self.stub(entsel=lambda *args: lst([ename, lst([float(x), float(y), 0.0])]))
+
+	def test_iljumper_adds_a_vertex_and_toggles_off(self):
+		d = self.drawing
+		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
+		tagged = []
+		self.stub(getreal=lambda *a: None, initget=lambda *a: None, command=lambda *a: None, setvar=lambda *a: None,
+		          il_symbol_scale=lambda: 48.0, il_tag_run=lambda ename: tagged.append(ename))
+		self.pick(run, 20, 1)
+		self.lisp.call("c:ILJUMPER")
+		self.assertEqual(d.vertices(run), [(0.0, 0.0), (20.0, 0.0), (48.0, 0.0)])
+		self.assertEqual((d.xdata[run]["breaks"], d.xdata[run]["jumper_in"]), ("1", "12"))
+		self.pick(run, 20.5, 0.5)
+		self.lisp.call("c:ILJUMPER")
+		self.assertNotIn("breaks", d.xdata[run])
+		self.pick(run, 0.5, 0)
+		self.lisp.call("c:ILJUMPER")
+		self.assertNotIn("breaks", d.xdata[run])
+		self.assertEqual(len(tagged), 2)
+
+	def test_ilfeed_turns_the_run_round_to_start_at_the_feed(self):
+		d = self.drawing
+		run = d.polyline("1A", [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0), (20.0, 10.0)], {"kind": "RUN", "id": "L1-01", "breaks": "1", "feed": "end"}, closed=False)
+		self.stub(getreal=lambda *a: 18.0, initget=lambda *a: None, command=lambda *a: None, setvar=lambda *a: None,
+		          getkword=lambda *a: "Double", il_choose=lambda *a: "Back", il_tag_run=lambda ename: None)
+		self.pick(run, 19, 9)
+		self.lisp.call("c:ILFEED")
+		self.assertEqual(d.vertices(run), [(20.0, 10.0), (20.0, 0.0), (10.0, 0.0), (0.0, 0.0)])
+		x = d.xdata[run]
+		self.assertEqual((x["breaks"], x["start_feed"], x["lead_in"], x["feed"]), ("2", "Back", "18", "double-end"))
+
+	def test_run_markers_are_owned_and_loose_ones_cleared(self):
+		self.stub(il_symbol_scale=lambda: 48.0)
+		loose = self.drawing.insert("9A", "IL-FEED", (0.0, 0.0, 0.0), 48.0)
+		run = self.lisp.run('(list (cons "vertices" \'((0.0 0.0 0.0) (10.0 0.0 0.0) (20.0 0.0 0.0))) (cons "breaks" \'(1)) (cons "feed_method" "double-end"))')
+		self.lisp.call("il-run-markers", run, "1A")
+		self.lisp.call("il-clear-loose-markers")
+		markers = [(self.drawing.value(e, 2), self.drawing.value(e, 10), self.drawing.xdata[e].get("owner")) for e in self.drawing.order]
+		self.assertNotIn(loose, self.drawing.order)
+		self.assertEqual(sorted(markers), [("IL-FEED", (0.0, 0.0, 0.0), "1A"), ("IL-FEED", (20.0, 0.0, 0.0), "1A"), ("IL-JUMPER", (10.0, 0.0, 0.0), "1A")])
 
 	def test_rescale_resizes_symbols_but_not_title_blocks(self):
 		d = self.drawing

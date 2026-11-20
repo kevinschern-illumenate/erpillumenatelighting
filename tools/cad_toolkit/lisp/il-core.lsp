@@ -226,6 +226,24 @@
   (reverse result)
 )
 
+;; Replace the vertices of LWPOLYLINE ENAME with VERTICES ((x y bulge) ...); widths reset, XData kept.
+(defun il-lw-set-vertices (ename vertices / head tail seen data)
+  (foreach group (entget ename)
+    (cond
+      ((= (car group) 10) (setq seen T))
+      ((and seen (member (car group) '(40 41 42 91))))
+      (seen (setq tail (cons group tail)))
+      ((= (car group) 90) (setq head (cons (cons 90 (length vertices)) head)))
+      (T (setq head (cons group head)))
+    )
+  )
+  (foreach vertex vertices
+    (setq data (append data (list (list 10 (car vertex) (cadr vertex)) '(40 . 0.0) '(41 . 0.0) (cons 42 (il-bulge vertex)))))
+  )
+  (entmod (append (reverse head) data (reverse tail)))
+  (entupd ename)
+)
+
 (defun il-lw-closed (ename) (= 1 (logand 1 (cdr (assoc 70 (entget ename))))))
 
 (defun il-point-in-polygon (point vertices / inside a b count index)

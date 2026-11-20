@@ -301,44 +301,79 @@
   best
 )
 
-(defun c:ILJUMPER (/ picked ename index x breaks cable)
+(defun il-run-breaks (x) (if (il-get "breaks" x) (mapcar 'atoi (il-split (il-get "breaks" x) ","))))
+
+;; ILJUMPER: pick the run where a jumper joins two segments. At a vertex the jumper goes there (pick it
+;; again to take it off); elsewhere on a line or arc a vertex is added at that point.
+(defun c:ILJUMPER (/ picked ename vertices target index x breaks cable removed)
   (il-begin)
-  (if (and (setq picked (entsel "\nPick a run at the vertex where a jumper joins two segments: "))
+  (if (and (setq picked (entsel "\nPick the run where the jumper goes (pick an existing jumper to remove it): "))
            (= (il-kind (setq ename (car picked))) "RUN"))
     (progn
-      (setq index (il-nearest-vertex ename (cadr picked)) x (il-xget ename))
-      (setq breaks (if (il-get "breaks" x) (mapcar 'atoi (il-split (il-get "breaks" x) ","))))
-      (if (member index breaks)
-        (setq breaks (vl-remove index breaks))
-        (setq breaks (vl-sort (cons index breaks) '<))
+      (setq vertices (il-lw-vertices ename) x (il-xget ename) breaks (il-run-breaks x))
+      (setq target (il-jumper-target vertices (cadr picked) (* 0.1 (il-symbol-scale))))
+      (cond
+        ((= (car target) "split")
+          (setq index (1+ (cadr target)))
+          (il-lw-set-vertices ename (il-insert-vertex vertices (cadr target) (caddr target)))
+          (setq breaks (vl-sort (cons index (il-shift-breaks breaks (cadr target))) '<)))
+        ((or (= (cadr target) 0) (= (cadr target) (1- (length vertices))))
+          (setq index nil))
+        ((member (cadr target) breaks)
+          (setq breaks (vl-remove (cadr target) breaks) index (cadr target) removed T))
+        (T (setq index (cadr target) breaks (vl-sort (cons index breaks) '<)))
       )
-      (initget 4)
-      (setq cable (getreal (strcat "\nJumper cable length in inches <" (if (il-get "jumper_in" x) (il-get "jumper_in" x) "12") ">: ")))
-      (il-xupdate ename (list (cons "breaks" (il-join breaks ","))
-                              (cons "jumper_in" (if cable (il-num->str cable 2) (if (il-get "jumper_in" x) (il-get "jumper_in" x) "12")))))
-      (princ (strcat "\n" (il-get "id" x) ": " (itoa (1+ (length breaks))) " segments."))
-      (il-tag-run ename)
+      (if (null index)
+        (princ "\nThat is the end of the run. A jumper joins two segments: pick a point along the run.")
+        (progn
+          (if (not removed) (initget 4))
+          (if (not removed) (setq cable (getreal (strcat "\nJumper cable length in inches <" (if (il-get "jumper_in" x) (il-get "jumper_in" x) "12") ">: "))))
+          (il-xupdate ename (list (cons "breaks" (il-join breaks ","))
+                                  (cons "jumper_in" (if cable (il-num->str cable 2) (if (il-get "jumper_in" x) (il-get "jumper_in" x) "12")))))
+          (princ (strcat "\n" (il-get "id" x) ": " (if removed "jumper removed; " "")
+                         (if breaks (strcat (itoa (1+ (length breaks))) " segments joined by " (itoa (length breaks))
+                                            " jumper" (if (= (length breaks) 1) "" "s") ".")
+                                    "one segment, no jumpers.")))
+          (il-tag-run ename)
+        )
+      )
     )
     (princ "\nThat is not an ilLumenate run.")
   )
   (il-end)
 )
 
-(defun c:ILFEED (/ picked ename x lead feed)
+(setq *il-feed-directions* '("End" "Back" "Left" "Right" "Side" "Endcap"))
+
+;; ILFEED: pick the run near the end where power comes in. The run is turned round if it was drawn
+;; from the other end (the feed is always its first vertex), then the feed details are asked.
+(defun c:ILFEED (/ picked ename x vertices lead feed method)
   (il-begin)
-  (if (and (setq picked (entsel "\nPick a run: ")) (= (il-kind (setq ename (car picked))) "RUN"))
+  (if (and (setq picked (entsel "\nPick the run near the end where power feeds in: "))
+           (= (il-kind (setq ename (car picked))) "RUN"))
     (progn
+      (setq vertices (il-lw-vertices ename) x (il-xget ename))
+      (if (and (not (il-lw-closed ename))
+               (< (distance (il-xy (last vertices)) (il-xy (cadr picked))) (distance (il-xy (car vertices)) (il-xy (cadr picked)))))
+        (progn
+          (il-lw-set-vertices ename (il-reverse-vertices vertices))
+          (il-xupdate ename (list (cons "breaks" (il-join (il-reverse-breaks (il-run-breaks x) (length vertices)) ","))))
+          (princ "\nRun turned round: it now starts at this end.")
+        )
+      )
       (setq x (il-xget ename))
-      (setq feed (il-ask "Start feed direction (template Feed Direction, for example End)" (il-get "start_feed" x)))
+      (setq feed (il-choose "Start feed direction (where the lead leaves the tape)" *il-feed-directions*
+                            (1+ (if (vl-position (il-get "start_feed" x) *il-feed-directions*) (vl-position (il-get "start_feed" x) *il-feed-directions*) 0))))
       (initget 4)
-      (setq lead (getreal (strcat "\nLeader length in inches <" (il-str (il-get "lead_in" x)) ">: ")))
+      (setq lead (getreal (strcat "\nLead cable from the run to its power supply, inches <" (il-str (il-get "lead_in" x)) ">: ")))
       (initget "End Double Center Multi")
-      (setq x (getkword (strcat "\nFeed method [End/Double-end/Center/Multi-feed] <" (il-get "feed" x) ">: ")))
-      (il-xupdate ename (list (cons "start_feed" feed)
-                              (cons "lead_in" (if lead (il-num->str lead 2) (il-get "lead_in" (il-xget ename))))
-                              (cons "feed" (cond ((= x "Double") "double-end") ((= x "Center") "center") ((= x "Multi") "multi-feed") ((= x "End") "end") (T (il-get "feed" (il-xget ename)))))))
-      (il-insert "IL-FEED" (car (il-lw-vertices ename)) (il-symbol-scale) "E-LITE-FEED" nil)
+      (setq method (getkword (strcat "\nFeed method [End/Double-end/Center/Multi-feed] <" (il-get "feed" x) ">: ")))
+      (il-xupdate ename (list (cons "start_feed" (if feed feed (il-get "start_feed" x)))
+                              (cons "lead_in" (if lead (il-num->str lead 2) (il-get "lead_in" x)))
+                              (cons "feed" (cond ((= method "Double") "double-end") ((= method "Center") "center") ((= method "Multi") "multi-feed") ((= method "End") "end") (T (il-get "feed" x))))))
+      (il-tag-run ename)
     )
+    (princ "\nThat is not an ilLumenate run.")
   )
   (il-end)
 )
@@ -357,12 +392,46 @@
   )
 )
 
-;; (Re)place the run's tag at its midpoint with id, style, lengths and part number.
+;; (Re)place the run's tag halfway along it with id, style, lengths and part number, and its markers.
+;; Feed and jumper markers of RUN, owned by it so ILUPDATE redraws them: the feed at the first vertex
+;; (both ends for double-end feeding, halfway along for a centre feed), a jumper at every break.
+(defun il-run-markers (run owner / vertices count points)
+  (setq vertices (il-get "vertices" run) count (length vertices))
+  (setq points (cond ((= (il-get "feed_method" run) "double-end") (list (il-xy (car vertices)) (il-xy (last vertices))))
+                     ((= (il-get "feed_method" run) "center") (list (il-path-point vertices 0.5)))
+                     (T (list (il-xy (car vertices))))))
+  (foreach point points
+    (il-xset (il-insert "IL-FEED" (list (car point) (cadr point) 0.0) (il-symbol-scale) "E-LITE-FEED" nil)
+             (list (cons "kind" "TAG") (cons "owner" owner)))
+  )
+  (foreach index (il-get "breaks" run)
+    (if (and (> index 0) (< index (1- count)))
+      (il-xset (il-insert "IL-JUMPER" (append (il-xy (nth index vertices)) '(0.0)) (il-symbol-scale) "E-LITE-FEED" nil)
+               (list (cons "kind" "TAG") (cons "owner" owner)))
+    )
+  )
+)
+
+;; Feed and jumper markers placed by toolkit 0.4.2 and earlier had no owner: ILUPDATE redraws them.
+(defun il-clear-loose-markers (/ ss index ename)
+  (if (setq ss (ssget "_X" '((0 . "INSERT") (2 . "IL-FEED,IL-JUMPER"))))
+    (progn
+      (setq index 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss index) index (1+ index))
+        (if (null (il-get "owner" (il-xget ename))) (entdel ename))
+      )
+    )
+  )
+)
+
 (defun il-tag-run (ename / run style hint tag)
   (setq run (il-run-from-entity ename) style (il-style-by-id (il-get "style" run)))
   (setq hint (il-run-hint run style (il-catalog)))
   (il-delete-tags (il-handle ename))
-  (setq tag (il-insert "IL-RUNTAG" (il-midpoint (il-get "vertices" run)) (il-symbol-scale) "E-ANNO-TAGS"
+  (il-run-markers run (il-handle ename))
+  (setq tag (il-insert "IL-RUNTAG" (if (il-get "closed" run) (il-centroid (il-get "vertices" run)) (il-path-point (il-get "vertices" run) 0.5))
+              (il-symbol-scale) "E-ANNO-TAGS"
               (list (cons "TAG" (il-get "id" run))
                     (cons "STYLE" (if style (il-style-label style) "no style"))
                     (cons "LENGTH" (if (il-get "server_in" run)
@@ -805,6 +874,7 @@
 ;; New ids for copies and runs without one, rooms by position, tags and PSU loads.
 (defun il-update-all (verbose / x id room count moved)
   (il-fix-copies verbose)
+  (il-clear-loose-markers)
   (setq moved (il-recenter-tags))
   (if (and verbose (> moved 0)) (princ (strcat "\n" (itoa moved) " tag labels centred.")))
   (setq count 0)
@@ -1131,7 +1201,7 @@
       "  ILCATALOG   load the CAD catalog downloaded from the portal"
       "  ILSTYLE     choose a run style (saved preset or template and options)"
       "  ILTAPE      draw a run; ILCONVERT turns polylines into runs"
-      "  ILJUMPER    split a run into jumpered segments; ILFEED sets feed and leader"
+      "  ILJUMPER    add or remove a jumper at a point on a run; ILFEED picks the feed end, direction and lead"
       "  ILSCALE     calibrate an underlay; ILROOM rooms; ILCAB cabinets; ILPSU supplies"
       "  ILCONNECT   assign runs to a PSU; ILWIRE draw a wire path"
       "  ILCTRL      place a controller or decoder; ILZONE group runs under a control output; ILDMX patch"

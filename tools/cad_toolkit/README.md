@@ -40,6 +40,10 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   ILUPDATE, ILCHECK and ILQUOTE) keeps the id on the entity still on its own handle (`self`, else the
   oldest), renumbers the rest, drops what a copy must not inherit (a run's portal line key and part
   number, a PSU's fed runs, a fixed DMX address) and hands copied room and wire tags to the nearer owner.
+- **Feeds and jumpers.** A run's feed is its first vertex: ILFEED turns the polyline round when it is
+  picked near the other end (bulges and break indexes follow). ILJUMPER toggles a break at a vertex, or
+  adds a vertex where a line or arc is picked. Feed and jumper markers are owned by the run and redrawn
+  by ILUPDATE; the run tag sits halfway along the path.
 - **Symbol scale.** Plan symbols are drawn in paper inches and inserted at the ILSETUP scale factor;
   changing it in ILSETUP resizes every placed `IL-*` symbol (not title blocks) about its insertion point.
 - **AutoLISP shares one namespace** for variables and functions: no local may be named after a function

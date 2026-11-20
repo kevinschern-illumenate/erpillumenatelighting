@@ -129,3 +129,144 @@
   )
   (reverse (cons (reverse current) segments))
 )
+
+;; --- Polyline editing: ILJUMPER, ILFEED, tag placement -----------------------------------------
+
+(setq *il-two-pi* (* 8.0 (atan 1.0)))
+
+(defun il-xy (point) (list (float (car point)) (float (cadr point))))
+
+(defun il-bulge (vertex) (if (numberp (caddr vertex)) (caddr vertex) 0.0))
+
+;; The arc of segment P0 -> P1 with BULGE: (center radius start-angle sweep), nil when straight.
+;; A positive bulge turns counterclockwise; its center lies left of the chord.
+(defun il-bulge-arc (p0 p1 bulge / dx dy chord offset center)
+  (setq dx (- (car p1) (car p0)) dy (- (cadr p1) (cadr p0)) chord (sqrt (+ (* dx dx) (* dy dy))))
+  (if (and (not (equal bulge 0.0 1e-12)) (> chord 0))
+    (progn
+      (setq offset (/ (* chord (- 1.0 (* bulge bulge))) (* 4.0 bulge)))
+      (setq center (list (- (/ (+ (car p0) (car p1)) 2.0) (* offset (/ dy chord)))
+                         (+ (/ (+ (cadr p0) (cadr p1)) 2.0) (* offset (/ dx chord)))))
+      (list center (/ (* chord (+ 1.0 (* bulge bulge))) (* 4.0 (abs bulge)))
+            (atan (- (cadr p0) (cadr center)) (- (car p0) (car center))) (* 4.0 (atan bulge)))
+    )
+  )
+)
+
+(defun il-arc-point (arc angle-at)
+  (list (+ (car (car arc)) (* (cadr arc) (cos angle-at))) (+ (cadr (car arc)) (* (cadr arc) (sin angle-at))))
+)
+
+(defun il-segment-length (p0 p1 bulge / arc)
+  (if (setq arc (il-bulge-arc p0 p1 bulge)) (* (cadr arc) (abs (cadddr arc))) (distance (il-xy p0) (il-xy p1)))
+)
+
+;; The point U (0..1) of the way along segment P0 -> P1.
+(defun il-segment-point (p0 p1 bulge u / arc)
+  (if (setq arc (il-bulge-arc p0 p1 bulge))
+    (il-arc-point arc (+ (caddr arc) (* u (cadddr arc))))
+    (list (+ (car p0) (* u (- (car p1) (car p0)))) (+ (cadr p0) (* u (- (cadr p1) (cadr p0)))))
+  )
+)
+
+;; The point FRACTION (0..1) of the way along open VERTICES ((x y bulge) ...), as (x y 0.0).
+(defun il-path-point (vertices fraction / lengths total target walked points index result)
+  (setq points vertices)
+  (while (cdr points)
+    (setq lengths (cons (il-segment-length (car points) (cadr points) (il-bulge (car points))) lengths) points (cdr points))
+  )
+  (setq lengths (reverse lengths) total (apply '+ (cons 0.0 lengths)) target (* fraction total) walked 0.0 index 0)
+  (if (or (null lengths) (<= total 0)) (setq result (il-xy (car vertices))))
+  (foreach size lengths
+    (if (and (null result) (or (>= (+ walked size) target) (= index (1- (length lengths)))))
+      (setq result (il-segment-point (nth index vertices) (nth (1+ index) vertices) (il-bulge (nth index vertices))
+                                     (if (> size 0) (min 1.0 (max 0.0 (/ (- target walked) size))) 0.0)))
+    )
+    (setq walked (+ walked size) index (1+ index))
+  )
+  (list (car result) (cadr result) 0.0)
+)
+
+;; The closest point of segment P0 -> P1 to POINT: (u point distance), U being 0..1 along it.
+(defun il-segment-nearest (p0 p1 bulge point / arc dx dy size u along swept)
+  (if (setq arc (il-bulge-arc p0 p1 bulge))
+    (progn
+      (setq along (atan (- (cadr point) (cadr (car arc))) (- (car point) (car (car arc)))))
+      (setq swept (rem (- along (caddr arc)) *il-two-pi*))
+      (if (> (cadddr arc) 0)
+        (if (< swept 0) (setq swept (+ swept *il-two-pi*)))
+        (if (> swept 0) (setq swept (- swept *il-two-pi*)))
+      )
+      (if (<= (abs swept) (abs (cadddr arc)))
+        (setq u (/ swept (cadddr arc)))
+        (setq u (if (< (distance (il-xy point) (il-xy p0)) (distance (il-xy point) (il-xy p1))) 0.0 1.0))
+      )
+    )
+    (progn
+      (setq dx (- (car p1) (car p0)) dy (- (cadr p1) (cadr p0)) size (+ (* dx dx) (* dy dy)))
+      (setq u (if (> size 0) (/ (+ (* (- (car point) (car p0)) dx) (* (- (cadr point) (cadr p0)) dy)) size) 0.0))
+      (setq u (min 1.0 (max 0.0 u)))
+    )
+  )
+  (setq along (il-segment-point p0 p1 bulge u))
+  (list u along (distance (il-xy point) along))
+)
+
+;; Where a jumper pick lands on open VERTICES: ("vertex" index) within TOLERANCE of a vertex (or at a
+;; segment's end), else ("split" segment-index u point) to add a vertex there.
+(defun il-jumper-target (vertices point tolerance / best best-d index d near best-seg)
+  (setq index 0)
+  (foreach vertex vertices
+    (setq d (distance (il-xy vertex) (il-xy point)))
+    (if (or (null best-d) (< d best-d)) (setq best index best-d d))
+    (setq index (1+ index))
+  )
+  (setq index 0)
+  (while (< index (1- (length vertices)))
+    (setq near (il-segment-nearest (nth index vertices) (nth (1+ index) vertices) (il-bulge (nth index vertices)) point))
+    (if (or (null best-seg) (< (caddr near) (caddr (cdr best-seg)))) (setq best-seg (cons index near)))
+    (setq index (1+ index))
+  )
+  (if (or (null best-seg) (<= best-d tolerance) (<= (cadr best-seg) 1e-3) (>= (cadr best-seg) 0.999))
+    (list "vertex" best)
+    (list "split" (car best-seg) (cadr best-seg) (caddr best-seg))
+  )
+)
+
+(defun il-tan (x) (/ (sin x) (cos x)))
+
+;; VERTICES with a new vertex at U along segment INDEX (an arc splits into two arcs).
+(defun il-insert-vertex (vertices index u / arc result i point)
+  (setq arc (il-bulge-arc (nth index vertices) (nth (1+ index) vertices) (il-bulge (nth index vertices))))
+  (setq point (il-segment-point (nth index vertices) (nth (1+ index) vertices) (il-bulge (nth index vertices)) u) i 0)
+  (foreach vertex vertices
+    (if (= i index)
+      (setq result (cons (list (car point) (cadr point) (if arc (il-tan (/ (* (- 1.0 u) (cadddr arc)) 4.0)) 0.0))
+                         (cons (list (car vertex) (cadr vertex) (if arc (il-tan (/ (* u (cadddr arc)) 4.0)) 0.0)) result)))
+      (setq result (cons vertex result))
+    )
+    (setq i (1+ i))
+  )
+  (reverse result)
+)
+
+;; Break indexes after a vertex was added following INDEX.
+(defun il-shift-breaks (breaks index)
+  (mapcar '(lambda (b) (if (> b index) (1+ b) b)) breaks)
+)
+
+;; Open VERTICES drawn the other way: each segment keeps its arc (bulges flip sign and move along).
+(defun il-reverse-vertices (vertices / reversed result index)
+  (setq reversed (reverse vertices) index 0)
+  (foreach vertex reversed
+    (setq result (cons (list (car vertex) (cadr vertex)
+                             (if (< index (1- (length reversed))) (- (il-bulge (nth (1+ index) reversed))) 0.0))
+                       result)
+          index (1+ index))
+  )
+  (reverse result)
+)
+
+(defun il-reverse-breaks (breaks count)
+  (vl-sort (mapcar '(lambda (b) (- count 1 b)) breaks) '<)
+)
