@@ -245,6 +245,8 @@ jinja = {
 
 # One route contract for Desk scripts (hardening plan 7.1).
 extend_bootinfo = ["illumenate_lighting.illumenate_lighting.portal.routes.extend_bootinfo"]
+# The email composer picks the purchasing mailbox as From on purchasing documents.
+extend_bootinfo.append("illumenate_lighting.illumenate_lighting.email_templates.purchasing_mail.extend_bootinfo")
 
 # Installation
 # ------------
@@ -426,8 +428,15 @@ doc_events = {
 	},
 	# Purchasing board: a full receipt marks the PO Delivered and joins its open inbound shipment.
 	"Purchase Receipt": {"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_receipt_submit"},
-	# An email sent from a submitted Purchase Order marks it Sent to the vendor.
-	"Communication": {"after_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.on_communication"},
+	"Communication": {
+		# Purchasing mailbox: supplier email leaves from purchasing@; new email in that inbox is
+		# linked to the document it names and to the sender's Supplier (email_templates/purchasing_mail.py).
+		"before_insert": "illumenate_lighting.illumenate_lighting.email_templates.purchasing_mail.on_communication_before_insert",
+		# An email sent from a submitted Purchase Order marks it Sent to the vendor.
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.purchasing.on_communication",
+	},
+	# A blank Purchasing Email takes the primary contact's email.
+	"Supplier": {"validate": "illumenate_lighting.illumenate_lighting.email_templates.recipients.fill_supplier_purchasing_email"},
 	"Material Request": {"before_insert": "illumenate_lighting.illumenate_lighting.api.material_planning.validate_material_request"},
 	"Quotation": {
 		# Configured rows follow their Item's build, then a draft linked to a Fixture

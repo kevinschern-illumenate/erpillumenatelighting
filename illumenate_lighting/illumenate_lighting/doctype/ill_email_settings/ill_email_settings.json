@@ -15,6 +15,11 @@
   "purchasing_contact_name",
   "purchasing_contact_email",
   "purchasing_contact_phone",
+  "section_purchasing_mailbox",
+  "purchasing_email_account",
+  "column_break_purchasing_mailbox",
+  "force_purchasing_sender",
+  "link_purchasing_replies",
   "section_pickup",
   "pickup_address",
   "column_break_pickup",
@@ -74,13 +79,44 @@
    "fieldtype": "Data",
    "label": "Purchasing Contact Email",
    "options": "Email",
-   "default": "sales@illumenate.lighting"
+   "default": "purchasing@illumenate.lighting"
   },
   {
    "fieldname": "purchasing_contact_phone",
    "fieldtype": "Data",
    "label": "Purchasing Contact Phone",
    "options": "Phone"
+  },
+  {
+   "fieldname": "section_purchasing_mailbox",
+   "fieldtype": "Section Break",
+   "label": "Purchasing Mailbox",
+   "description": "One shared mailbox for supplier email. Email sent from a Purchase Order, RFQ, Supplier Quotation, Purchase Receipt, Purchase Invoice, Supplier, Inbound Shipment or a supplier Payment Entry goes out from it, and new supplier email arriving in it is linked to the document it mentions."
+  },
+  {
+   "fieldname": "purchasing_email_account",
+   "fieldtype": "Link",
+   "label": "Purchasing Email Account",
+   "options": "Email Account",
+   "description": "Blank uses the Email Account whose address is the Purchasing Contact Email above."
+  },
+  {
+   "fieldname": "column_break_purchasing_mailbox",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "force_purchasing_sender",
+   "fieldtype": "Check",
+   "label": "Send All Purchasing Email From This Account",
+   "default": "1",
+   "description": "Whoever sends, and whatever From they pick, the supplier sees the purchasing address and replies land in the purchasing inbox. The sender's name is kept."
+  },
+  {
+   "fieldname": "link_purchasing_replies",
+   "fieldtype": "Check",
+   "label": "Link New Supplier Email to the Document It Mentions",
+   "default": "1",
+   "description": "Email arriving in the purchasing inbox that is not already threaded onto a document is linked to the PO, RFQ, Supplier Quotation, Purchase Receipt, Purchase Invoice or Inbound Shipment it names. Every email there is also linked to the Supplier the sender works for."
   },
   {
    "fieldname": "section_pickup",
@@ -178,7 +214,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-18 12:00:00.000000",
+ "modified": "2026-11-20 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Email-Settings",
