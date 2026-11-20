@@ -368,26 +368,27 @@
 
 ;; ILJUMPER: pick the run where a jumper joins two segments. At a vertex the jumper goes there (pick it
 ;; again to take it off); elsewhere on a line or arc a vertex is added at that point.
-(defun c:ILJUMPER (/ picked ename vertices target index x breaks spans cable removed group)
+(defun c:ILJUMPER (/ point ename vertices target index x breaks spans cable removed span)
   (il-begin)
   (initget "Span")
-  (setq picked (entsel "\nPick the run where a jumper joins it, or [Span] to mark a gap the jumper crosses: "))
-  (if (= picked "Span")
-    (setq picked (entsel "\nPick the run where the tape stops (start of the gap, or an existing span to remove it): ")
-          group T)
+  (setq point (getpoint "\nPoint on the run where the jumper goes (object snaps work), or [Span] to mark a gap: "))
+  (if (= point "Span")
+    (setq point (getpoint "\nWhere the tape stops at the gap, or a point inside a span to remove it (object snaps work): ") span T)
   )
   (cond
-    ((not (and (listp picked) picked (= (il-kind (setq ename (car picked))) "RUN")))
-      (princ "\nThat is not an ilLumenate run."))
-    (group (il-jumper-span ename (cadr picked)))
+    ((null point))
+    ((null (setq ename (il-run-at point)))
+      (princ "\nNo ilLumenate run at that point. Snap to the run (Nearest, Endpoint, Midpoint...)."))
+    (span (il-jumper-span ename point))
     (T
+      (il-snap-note ename point)
       (setq vertices (il-lw-vertices ename) x (il-xget ename) breaks (il-run-breaks x) spans (il-run-spans x))
-      (setq target (il-jumper-target vertices (cadr picked) (* 0.1 (il-symbol-scale))))
+      (setq target (il-jumper-target vertices point *il-snap-tolerance*))
       (cond
         ((and (= (car target) "split") (member (cadr target) spans))
-          (il-jumper-span ename (cadr picked)) (setq index 'done))
+          (il-jumper-span ename point) (setq index 'done))
         ((= (car target) "split")
-          (setq index (il-run-vertex-at ename (cadr picked)) x (il-xget ename) breaks (vl-sort (cons index (il-run-breaks x)) '<)))
+          (setq index (il-run-vertex-at ename point) x (il-xget ename) breaks (vl-sort (cons index (il-run-breaks x)) '<)))
         ((or (= (cadr target) 0) (= (cadr target) (1- (length vertices))))
           (setq index nil))
         ((member (cadr target) breaks)
@@ -418,18 +419,25 @@
   (il-end)
 )
 
+;; Snapped points are exact: a pick within this many inches of a vertex is that vertex, else a vertex is
+;; added exactly where it was picked.
+(setq *il-snap-tolerance* 0.01)
+
 (setq *il-feed-directions* '("End" "Back" "Left" "Right" "Side" "Endcap"))
 
 ;; ILFEED: pick the run near the end where power comes in. The run is turned round if it was drawn
 ;; from the other end (the feed is always its first vertex), then the feed details are asked.
-(defun c:ILFEED (/ picked ename x vertices lead feed method)
+(defun c:ILFEED (/ point ename x vertices lead feed method)
   (il-begin)
-  (if (and (setq picked (entsel "\nPick the run near the end where power feeds in: "))
-           (= (il-kind (setq ename (car picked))) "RUN"))
-    (progn
+  (setq point (getpoint "\nPoint at the run's feed end (snap to its Endpoint): "))
+  (cond
+    ((null point))
+    ((null (setq ename (il-run-at point)))
+      (princ "\nNo ilLumenate run at that point. Snap to the end of the run."))
+    (T
       (setq vertices (il-lw-vertices ename) x (il-xget ename))
       (if (and (not (il-lw-closed ename))
-               (< (distance (il-xy (last vertices)) (il-xy (cadr picked))) (distance (il-xy (car vertices)) (il-xy (cadr picked)))))
+               (< (distance (il-xy (last vertices)) (il-xy point)) (distance (il-xy (car vertices)) (il-xy point))))
         (progn
           (il-lw-set-vertices ename (il-reverse-vertices vertices))
           (il-save-run-links ename (il-reverse-breaks (il-run-breaks x) (length vertices)) (il-reverse-spans (il-run-spans x) (length vertices)))
@@ -448,7 +456,6 @@
                               (cons "feed" (cond ((= method "Double") "double-end") ((= method "Center") "center") ((= method "Multi") "multi-feed") ((= method "End") "end") (T (il-get "feed" x))))))
       (il-tag-run ename)
     )
-    (princ "\nThat is not an ilLumenate run.")
   )
   (il-end)
 )
@@ -501,7 +508,7 @@
 )
 
 (defun il-run-vertex-at (ename point / vertices target x)
-  (setq vertices (il-lw-vertices ename) target (il-jumper-target vertices point (* 0.1 (il-symbol-scale))))
+  (setq vertices (il-lw-vertices ename) target (il-jumper-target vertices point *il-snap-tolerance*))
   (if (= (car target) "split")
     (progn
       (setq x (il-xget ename))
@@ -519,19 +526,23 @@
   total
 )
 
-(defun il-jumper-span (ename first / second a b x spans breaks vertices group low)
+(defun il-jumper-span (ename first / second a b x spans breaks vertices group low target)
   (setq vertices (il-lw-vertices ename) x (il-xget ename) spans (il-run-spans x))
-  (setq group (il-span-group spans (il-nearest-segment vertices first)))
-  (if (and group (> (distance (il-xy first) (il-xy (nth (il-nearest-vertex ename first) vertices))) (* 0.1 (il-symbol-scale))))
+  (setq target (il-jumper-target vertices first *il-snap-tolerance*))
+  (setq group (if (= (car target) "split") (il-span-group spans (cadr target))))
+  (if group
     (progn
       (il-save-run-links ename (il-run-breaks x) (vl-remove-if '(lambda (s) (member s group)) spans))
       (princ (strcat "\n" (il-get "id" x) ": jumper span removed; that stretch counts as tape again."))
     )
-    (if (setq second (getpoint first "\nPick where the tape starts again after the gap: "))
+    (if (setq second (getpoint first "\nWhere the tape starts again after the gap (object snaps work): "))
       (progn
+        (il-snap-note ename first)
+        (il-snap-note ename second)
+        (setq first (il-segment-point-on ename first) second (il-segment-point-on ename second))
         (il-run-vertex-at ename first)
         (il-run-vertex-at ename second)
-        (setq a (il-nearest-vertex ename first) b (il-nearest-vertex ename second))
+        (setq a (il-vertex-index-at ename first) b (il-vertex-index-at ename second))
         (if (> a b) (setq low b b a a low))
         (if (= a b)
           (princ "\nPick two different points along the run.")
@@ -570,6 +581,55 @@
 
 (defun il-run-anchor (run)
   (if (il-get "closed" run) (il-centroid (il-get "vertices" run)) (il-path-point (il-get "vertices" run) 0.5))
+)
+
+(defun il-pick-tolerance (/ box size screen)
+  (setq box (getvar "PICKBOX") size (getvar "VIEWSIZE") screen (getvar "SCREENSIZE"))
+  (if (and (numberp box) (numberp size) (listp screen) (numberp (cadr screen)) (> (cadr screen) 0))
+    (max 1e-6 (* 1.5 box (/ size (cadr screen))))
+    0.5
+  )
+)
+
+(defun il-run-at (point / tolerance best best-d d near picked)
+  (setq tolerance (il-pick-tolerance))
+  (foreach ename (il-entities "RUN")
+    (setq d (il-distance-to-path (il-lw-vertices ename) (il-lw-closed ename) point))
+    (if (and d (<= d tolerance))
+      (progn
+        (if (and best-d (< (abs (- d best-d)) *il-snap-tolerance*)) (setq near T))
+        (if (or (null best-d) (< d (- best-d *il-snap-tolerance*))) (setq best ename best-d d near nil))
+      )
+    )
+  )
+  (if near
+    (progn
+      (setq picked (entsel "\nMore than one run meets at that point. Select the one you mean: "))
+      (if (and picked (= (il-kind (car picked)) "RUN")) (car picked))
+    )
+    best
+  )
+)
+
+(defun il-snap-note (ename point / d)
+  (setq d (il-distance-to-path (il-lw-vertices ename) (il-lw-closed ename) point))
+  (if (and d (> d *il-snap-tolerance*))
+    (princ (strcat "\nThat point is " (il-num->str d 2) " in off the run; using the nearest point on it. Snap to the run to be exact."))
+  )
+)
+
+(defun il-vertex-index-at (ename point / found index)
+  (setq index 0)
+  (foreach vertex (il-lw-vertices ename)
+    (if (and (null found) (<= (distance (il-xy vertex) (il-xy point)) *il-snap-tolerance*)) (setq found index))
+    (setq index (1+ index))
+  )
+  (if found found (il-nearest-vertex ename point))
+)
+
+(defun il-segment-point-on (ename point / target vertices)
+  (setq vertices (il-lw-vertices ename) target (il-jumper-target vertices point *il-snap-tolerance*))
+  (if (= (car target) "split") (append (il-xy (cadddr target)) '(0.0)) (append (il-xy (nth (cadr target) vertices)) '(0.0)))
 )
 
 ;; --- Tags ---------------------------------------------------------------------------------------
@@ -1631,8 +1691,8 @@
       "  ILCATALOG   load the CAD catalog downloaded from the portal"
       "  ILSTYLE     choose a run style (saved preset or template and options)"
       "  ILTAPE      draw runs from the feed end, one after another; ILCONVERT turns lines, arcs and polylines into runs"
-      "  ILJUMPER    add or remove a jumper at a point; Span marks a gap the jumper crosses"
-      "  ILFEED      pick the feed end, feed direction, lead length and feed method"
+      "  ILJUMPER    jumper at a snapped point on a run (again to remove); Span marks a gap between two snapped points"
+      "  ILFEED      snap to the feed end; feed direction, lead length and feed method"
       "  ILSCALE     calibrate an underlay; ILROOM rooms; ILCAB cabinets; ILPSU supplies"
       "  ILCONNECT   add or remove runs on a PSU; ILWIRE draw a wire path"
       "  ILCTRL      place a controller or decoder; ILZONE add, change or delete a zone; ILDMX patch"

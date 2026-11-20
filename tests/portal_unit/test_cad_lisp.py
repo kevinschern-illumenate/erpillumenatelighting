@@ -189,6 +189,16 @@ class Polylines(unittest.TestCase):
 		self.assertEqual(self.call("il-jumper-target", vertices, lst([47.0, 2.0, 0.0]), 4.8), ["vertex", 1])
 		self.assertEqual(self.call("il-jumper-target", vertices, lst([2.0, 0.5, 0.0]), 4.8), ["vertex", 0])
 
+	def test_snapped_points_land_exactly(self):
+		vertices = self.v((0, 0, 0), (48, 0, 0), (48, 30, 0))
+		kind, index, _u, point = self.call("il-jumper-target", vertices, lst([47.0, 0.0, 0.0]), 0.01)
+		self.assertEqual((kind, index), ("split", 0))
+		self.assertPoint(point, [47.0, 0.0])
+		self.assertEqual(self.call("il-jumper-target", vertices, lst([48.0, 0.004, 0.0]), 0.01), ["vertex", 1])
+		self.assertEqual(self.call("il-jumper-target", vertices, lst([47.995, -2.0, 0.0]), 0.01), ["vertex", 1])  # off the run, its nearest point is the corner
+		self.assertAlmostEqual(self.call("il-distance-to-path", vertices, None, lst([20.0, 3.0, 0.0])), 3.0)
+		self.assertAlmostEqual(self.call("il-distance-to-path", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), mini_lisp.T, lst([5.0, 5.5, 0.0])), 0.5 / math.sqrt(2), places=6)  # the closing side counts
+
 	def test_insert_vertex_keeps_the_path(self):
 		straight = self.call("il-insert-vertex", self.v((0, 0, 0), (48, 0, 0)), 0, 0.25)
 		self.assertEqual(plain(straight), [[0.0, 0.0, 0.0], [12.0, 0.0, 0.0], [48.0, 0.0, 0.0]])
@@ -446,48 +456,66 @@ class CopiedEntities(unittest.TestCase):
 	def pick(self, ename, x, y):
 		self.stub(entsel=lambda *args: lst([ename, lst([float(x), float(y), 0.0])]))
 
-	def test_iljumper_adds_a_vertex_and_toggles_off(self):
+	def points(self, *answers):
+		queue = iter(answers)
+		self.stub(getpoint=lambda *a: next(queue))
+
+	def command_stubs(self, **extra):
+		self.stub(command=lambda *a: None, setvar=lambda *a: None, initget=lambda *a: None, il_pick_tolerance=lambda: 0.5,
+		          il_tag_run=lambda e: None, getreal=lambda *a: None, **extra)
+
+	def test_iljumper_puts_the_jumper_exactly_on_the_snapped_point(self):
+		d = self.drawing
+		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0), (48.0, 30.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
+		self.command_stubs()
+		self.points(lst([47.0, 0.0, 0.0]))  # 1 in from the corner: a new vertex there, not the corner
+		self.lisp.call("c:ILJUMPER")
+		self.assertEqual(d.vertices(run), [(0.0, 0.0), (47.0, 0.0), (48.0, 0.0), (48.0, 30.0)])
+		self.assertEqual((d.xdata[run]["breaks"], d.xdata[run]["jumper_in"]), ("1", "12"))
+		self.points(lst([48.0, 0.0, 0.0]))  # Endpoint snap on the corner
+		self.lisp.call("c:ILJUMPER")
+		self.assertEqual(d.xdata[run]["breaks"], "1,2")
+		self.points(lst([47.0, 0.0, 0.0]))  # the same point again takes it off
+		self.lisp.call("c:ILJUMPER")
+		self.assertEqual(d.xdata[run]["breaks"], "2")
+		self.points(lst([0.0, 0.0, 0.0]))  # a run end is refused
+		self.lisp.call("c:ILJUMPER")
+		self.assertEqual(d.xdata[run]["breaks"], "2")
+		self.points(lst([200.0, 200.0, 0.0]))  # nowhere near a run
+		self.lisp.call("c:ILJUMPER")
+		self.assertEqual(len(d.vertices(run)), 4)
+
+	def test_iljumper_span_between_snapped_points_and_off_again(self):
 		d = self.drawing
 		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
-		tagged = []
-		self.stub(getreal=lambda *a: None, initget=lambda *a: None, command=lambda *a: None, setvar=lambda *a: None,
-		          il_symbol_scale=lambda: 48.0, il_tag_run=lambda ename: tagged.append(ename))
-		self.pick(run, 20, 1)
+		self.command_stubs()
+		self.points("Span", lst([10.25, 0.0, 0.0]), lst([30.5, 0.0, 0.0]))
 		self.lisp.call("c:ILJUMPER")
-		self.assertEqual(d.vertices(run), [(0.0, 0.0), (20.0, 0.0), (48.0, 0.0)])
-		self.assertEqual((d.xdata[run]["breaks"], d.xdata[run]["jumper_in"]), ("1", "12"))
-		self.pick(run, 20.5, 0.5)
+		self.assertEqual(d.vertices(run), [(0.0, 0.0), (10.25, 0.0), (30.5, 0.0), (48.0, 0.0)])
+		self.assertEqual(d.xdata[run]["spans"], "1")
+		self.points("Span", lst([20.0, 0.0, 0.0]))
 		self.lisp.call("c:ILJUMPER")
-		self.assertNotIn("breaks", d.xdata[run])
-		self.pick(run, 0.5, 0)
-		self.lisp.call("c:ILJUMPER")
-		self.assertNotIn("breaks", d.xdata[run])
-		self.assertEqual(len(tagged), 2)
+		self.assertNotIn("spans", d.xdata[run])
+
+	def test_runs_meeting_at_a_point_ask_which_one(self):
+		d = self.drawing
+		first = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
+		second = d.polyline("1B", [(48.0, 0.0), (48.0, 30.0)], {"kind": "RUN", "id": "L1-02"}, closed=False)
+		self.stub(il_pick_tolerance=lambda: 0.5, entsel=lambda *a: lst([second, lst([48.0, 1.0, 0.0])]))
+		self.assertIs(self.lisp.call("il-run-at", lst([48.0, 0.0, 0.0])), second)
+		self.assertIs(self.lisp.call("il-run-at", lst([20.0, 0.1, 0.0])), first)
+		self.assertIsNone(self.lisp.call("il-run-at", lst([20.0, 5.0, 0.0])))
 
 	def test_ilfeed_turns_the_run_round_to_start_at_the_feed(self):
 		d = self.drawing
-		run = d.polyline("1A", [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0), (20.0, 10.0)], {"kind": "RUN", "id": "L1-01", "breaks": "1", "feed": "end"}, closed=False)
-		self.stub(getreal=lambda *a: 18.0, initget=lambda *a: None, command=lambda *a: None, setvar=lambda *a: None,
-		          getkword=lambda *a: "Double", il_choose=lambda *a: "Back", il_tag_run=lambda ename: None)
-		self.pick(run, 19, 9)
+		run = d.polyline("1A", [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0), (20.0, 10.0)], {"kind": "RUN", "id": "L1-01", "breaks": "1", "spans": "2", "feed": "end"}, closed=False)
+		self.command_stubs(getkword=lambda *a: "Double", il_choose=lambda *a: "Back")
+		self.stub(getreal=lambda *a: 18.0)
+		self.points(lst([20.0, 10.0, 0.0]))
 		self.lisp.call("c:ILFEED")
 		self.assertEqual(d.vertices(run), [(20.0, 10.0), (20.0, 0.0), (10.0, 0.0), (0.0, 0.0)])
 		x = d.xdata[run]
-		self.assertEqual((x["breaks"], x["start_feed"], x["lead_in"], x["feed"]), ("2", "Back", "18", "double-end"))
-
-	def test_iljumper_span_marks_a_gap_and_takes_it_off(self):
-		d = self.drawing
-		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
-		self.stub(command=lambda *a: None, setvar=lambda *a: None, il_symbol_scale=lambda: 48.0, il_tag_run=lambda e: None,
-		          initget=lambda *a: None, getpoint=lambda *a: lst([30.0, 0.5, 0.0]))
-		picks = iter(["Span", lst([run, lst([10.0, 0.0, 0.0])])])
-		self.stub(entsel=lambda *a: next(picks))
-		self.lisp.call("c:ILJUMPER")
-		self.assertEqual(d.vertices(run), [(0.0, 0.0), (10.0, 0.0), (30.0, 0.0), (48.0, 0.0)])
-		self.assertEqual(d.xdata[run]["spans"], "1")
-		picks = iter(["Span", lst([run, lst([20.0, 0.2, 0.0])])])
-		self.lisp.call("c:ILJUMPER")
-		self.assertNotIn("spans", d.xdata[run])
+		self.assertEqual((x["breaks"], x["spans"], x["start_feed"], x["lead_in"], x["feed"]), ("2", "0", "Back", "18", "double-end"))
 
 	def test_ilconvert_joins_lines_and_arcs_into_one_run(self):
 		d = self.drawing
