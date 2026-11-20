@@ -200,6 +200,9 @@ def tape_issues(spec, voltages):
 		for field in ("pixels_per_m", "amps_per_pixel_max"):
 			if not _positive(spec.get(field)):
 				missing.append(field)
+	# Informational only (CAD toolkit, plan 1.1): the designer never needs it, so it never blocks.
+	if "min_bend_radius_mm" in spec and not _positive(spec.get("min_bend_radius_mm")):
+		notes.append(_("No minimum bend radius; the CAD toolkit cannot check curved runs"))
 	return result(missing, notes)
 
 
@@ -563,8 +566,17 @@ WIRE_FIELDS = (
 )
 
 
+# Added by the CAD toolkit (plan 1.1). Read only once the site has migrated (live-only field guard).
+OPTIONAL_TAPE_FIELDS = ("min_bend_radius_mm",)
+
+
+def _present(doctype, fields):
+	return [field for field in fields if frappe.db.has_column(doctype, field)]
+
+
 def load_tapes():
-	specs = frappe.get_all(TAPE, fields=list(TAPE_FIELDS), order_by="name asc")
+	fields = [*TAPE_FIELDS, *_present(TAPE, OPTIONAL_TAPE_FIELDS)]
+	specs = frappe.get_all(TAPE, fields=fields, order_by="name asc")
 	limits = _child_rows(
 		"ilL-Child-Tape-Channel", TAPE, [s["name"] for s in specs], ["channel_name", "max_w_per_ft"]
 	)

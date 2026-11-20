@@ -118,6 +118,17 @@ const mappingScript = `<script>
       setImg('feat-img', data.featured_image);
       setImg('spec-dims-img', data.dimensions_image_dark);
 
+      // --- B2. DIMENSIONS TITLE (LED Neon; owner, 2026-11-19) ---
+      // The first .dimension-item's #dimension-title takes the template's Dimensions Title, or is
+      // hidden without one. (#dimension-item is the pattern for the Spec Gallery drawings.)
+      const firstDimension = document.querySelector('.dimension-item:not(#dimension-item)');
+      const firstDimensionTitle = firstDimension ? firstDimension.querySelector('#dimension-title') : null;
+      if (firstDimensionTitle) {
+          firstDimensionTitle.removeAttribute('id');
+          if (data.dimensions_title) firstDimensionTitle.innerText = data.dimensions_title;
+          else firstDimensionTitle.style.display = 'none';
+      }
+
       // --- C. DYNAMIC SPECIFICATIONS GRID ---
       const specSection = document.getElementById('specifications');
       if (specSection && Array.isArray(data.specifications)) {
@@ -193,13 +204,20 @@ const mappingScript = `<script>
           setText('series-desc', "ilLumenate " + (data.product_name || ""));
           
           // Radio button colour for the PDF generator (owner, 2026-11-18): linear fixtures
-          // #ffac33; other products keep the generator's green.
-          if (data.product_type === 'Fixture Template') builderSection.setAttribute('data-radio-color', '#ffac33');
+          // #ffac33, LED Neon, LED Tape, COB Tape and LED Sheet #ff990a (owner, 2026-11-19); other
+          // products keep the generator's green.
+          const radioColor = {
+              'Fixture Template': '#ffac33',
+              'LED Neon': '#ff990a', 'LED Tape': '#ff990a', 'COB Tape': '#ff990a', 'LED Sheet': '#ff990a',
+          }[data.product_type];
+          if (radioColor) builderSection.setAttribute('data-radio-color', radioColor);
 
-          // TAG THE SERIES BUTTON FOR VERCEL
+          // TAG THE SERIES BUTTON FOR VERCEL. Step 0 unless a configurator step already uses 0
+          // (LED Neon's IP Rating; owner, 2026-11-19): then 'S', so the PDF fields do not clash.
+          const seriesStep = data.configurator_options.some(opt => String(opt.option_step) === '0' && opt.option_type !== 'Series') ? 'S' : '0';
           const seriesBtn = builderSection.querySelector('#series-btn');
           if (seriesBtn) {
-              seriesBtn.setAttribute('data-step', '0');
+              seriesBtn.setAttribute('data-step', seriesStep);
               seriesBtn.setAttribute('data-code', seriesSlug);
           }
           
@@ -261,6 +279,12 @@ const mappingScript = `<script>
                           const codeEl = optClone.querySelector('#part-no-code');
                           const descEl = optClone.querySelector('#part-no-desc');
                           if (codeEl) codeEl.innerText = valObj.code || '';
+                          // A blank code (a feed length's "Endcap") reads "blank" in italics, so
+                          // customers know it is left empty (owner, 2026-11-19).
+                          if (codeEl && valObj.code === '') {
+                              codeEl.innerText = 'blank';
+                              codeEl.style.fontStyle = 'italic';
+                          }
                           if (descEl) descEl.innerText = valObj.label || valObj.value || '';
                           optionsWrapper.appendChild(optClone);
                       });
@@ -268,6 +292,9 @@ const mappingScript = `<script>
 
                   const example = [seriesSlug];
                   let lastWasFeedDir = false;
+                  // A feed direction and its feed length share one box, so they always wrap to a
+                  // new row together (LED Neon preview; owner, 2026-11-19).
+                  let feedPair = null;
                   const sortedConfig = data.configurator_options
                       .filter(opt => Number(opt.option_step) < 90)
                       .sort((a, b) => a.option_step - b.option_step);
@@ -287,6 +314,12 @@ const mappingScript = `<script>
                               });
                           });
                           currentValues = Array.from(byCode.values()).sort((a, b) => (parseFloat(a.code) || 0) - (parseFloat(b.code) || 0));
+                      }
+                      // The Output step lists exactly the Output Options table's outputs (owner,
+                      // 2026-11-19): no per-square-foot levels (the stray 550) and nothing the table lacks.
+                      const tableOutputs = ((data.output_options || {}).columns || []).filter(Boolean);
+                      if (opt.option_type === 'Output Level' && tableOutputs.length) {
+                          currentValues = tableOutputs.map(code => ({ code: String(code), label: code + ' lm/ft' }));
                       }
                       const label = opt.option_label || opt.option_type || '';
 
@@ -310,9 +343,11 @@ const mappingScript = `<script>
 
                       const values = currentValues.filter(v => v && (v.code || v.label || v.value));
                       if (values.length === 0) return;
-                      const firstCode = String(values[0].code || values[0].value || '');
+                      // A blank code (a feed length's "Endcap"; owner, 2026-11-19) adds nothing.
+                      const firstCode = values[0].code === '' ? '' : String(values[0].code || values[0].value || '');
 
-                      const isFeed = opt.option_type === 'Feed Direction' && feedDirTemplate;
+                      // LED Neon stores the directions as Start/End Feed Direction (owner, 2026-11-19).
+                      const isFeed = ['Feed Direction', 'Start Feed Direction', 'End Feed Direction'].includes(opt.option_type) && feedDirTemplate;
                       const isFeedLength = isFeed && /length/i.test(label);
                       let sectionClone;
                       if (isFeed) {
@@ -338,7 +373,20 @@ const mappingScript = `<script>
                       }
                       sectionClone.style.display = '';
                       fillOptions(sectionClone, opt, values);
-                      wrapper.appendChild(sectionClone);
+                      if (isFeed && !isFeedLength) {
+                          feedPair = document.createElement('div');
+                          feedPair.className = 'ill-feed-pair';
+                          feedPair.style.display = 'flex';
+                          feedPair.style.flex = '0 0 auto';
+                          wrapper.appendChild(feedPair);
+                          feedPair.appendChild(sectionClone);
+                      } else if (isFeedLength && feedPair) {
+                          feedPair.appendChild(sectionClone);
+                          feedPair = null;
+                      } else {
+                          feedPair = null;
+                          wrapper.appendChild(sectionClone);
+                      }
                   });
 
                   const exampleEl = document.getElementById('part-no-ex');
@@ -569,6 +617,70 @@ const mappingScript = `<script>
           }
       }
 
+      // --- E3d. EMISSION ANGLE and BEND DIAMETER (LED Neon; owner, 2026-11-19) ---
+      // From the Spec Gallery rows of those Sections: the item (#emission-item / #benddia-item)
+      // is copied once per row, its title (hidden when empty) and image filled, then removed.
+      // No rows: the section is hidden.
+      const gallerySection = (sectionId, itemId, titleId, imgId, gallerySectionName) => {
+          const section = document.getElementById(sectionId);
+          if (!section) return;
+          const pattern = section.querySelector('#' + itemId);
+          const rows = (Array.isArray(data.spec_gallery) ? data.spec_gallery : [])
+              .filter(row => row.section === gallerySectionName && row.image);
+          if (!pattern || rows.length === 0) { section.style.display = 'none'; return; }
+          let anchor = pattern;
+          rows.forEach(row => {
+              const item = pattern.cloneNode(true);
+              item.removeAttribute('id');
+              const titleEl = item.querySelector('#' + titleId);
+              if (titleEl) {
+                  titleEl.removeAttribute('id');
+                  if (row.title) { titleEl.innerText = row.title; } else { titleEl.style.display = 'none'; }
+              }
+              const imgEl = item.querySelector('#' + imgId);
+              if (imgEl) {
+                  imgEl.removeAttribute('id');
+                  imgEl.src = row.image;
+                  imgEl.removeAttribute('srcset');
+                  imgEl.removeAttribute('loading');
+              }
+              anchor.parentNode.insertBefore(item, anchor.nextSibling);
+              anchor = item;
+          });
+          pattern.remove();
+      };
+      gallerySection('emission-angle', 'emission-item', 'emission-title', 'emission-img', 'Emission Angle');
+      gallerySection('bend-diameter', 'benddia-item', 'benddia-title', 'benddia-img', 'Bend Diameter(s)');
+
+      // --- E3e. MOUNTING ACCESSORIES (LED Neon; owner, 2026-11-19) ---
+      // #mounting-acc: the first .component-option is the row pattern, copied once per accessory
+      // (#acc-code: the item code; #acc-desc: its Item Name); the last row gets last-row.
+      // No accessories: the block is hidden.
+      const mountSection = document.getElementById('mounting-acc');
+      if (mountSection) {
+          const accessories = Array.isArray(data.mounting_accessories) ? data.mounting_accessories : [];
+          const wrap = mountSection.querySelector('.comp-partno-wrap');
+          const pattern = wrap ? wrap.querySelector('.component-option') : null;
+          if (!accessories.length || !pattern) {
+              mountSection.style.display = 'none';
+          } else {
+              Array.from(wrap.children).forEach(child => child.remove());
+              accessories.forEach((accessory, i) => {
+                  const line = pattern.cloneNode(true);
+                  line.removeAttribute('id');
+                  line.classList.toggle('last-row', i === accessories.length - 1);
+                  const codeEl = line.querySelector('#acc-code');
+                  const descEl = line.querySelector('#acc-desc');
+                  if (codeEl) { codeEl.innerText = accessory.code || ''; codeEl.removeAttribute('id'); }
+                  if (descEl) { descEl.innerText = accessory.label || ''; descEl.removeAttribute('id'); }
+                  wrap.appendChild(line);
+              });
+          }
+      }
+
+      // Accessories Dimensions on LED Neon: #acc-label under each image has no data yet; hidden.
+      document.querySelectorAll('[id="acc-label"]').forEach(el => { el.style.display = 'none'; });
+
       // --- GRADIENT LINES (owner, 2026-11-13) ---
       // The page has one header and one footer gradient line per family (#fs-, #sw-, #tw-,
       // #dw-gradient-line and #fsfooter-... to #dwfooter-gradient-line). The template's LED
@@ -576,17 +688,18 @@ const mappingScript = `<script>
       const GRADIENTS = {
           'ilLumenate Static White': 'sw',
           'ilLumenate Tunable White': 'tw',
-          'ilLumenate RGBW': 'fs',
+          // RGBW has its own cc line where the page has one (LED Neon; owner, 2026-11-19).
+          'ilLumenate RGBW': document.querySelector('[id="cc-gradient-line"]') ? 'cc' : 'fs',
           'ilLumenate RGB+TW': 'fs',
           'ilLumenate Color Changing Pixel': 'fs',
           'ilLumenate Dim to Warm': 'dw',
       };
       const shownGradients = new Set((data.led_packages || []).map(p => GRADIENTS[p]).filter(Boolean));
       if (shownGradients.size > 0) {
-          ['fs', 'sw', 'tw', 'dw'].forEach(key => {
-              [key + '-gradient-line', key + 'footer-gradient-line'].forEach(id => {
-                  const line = document.getElementById(id);
-                  if (line) line.style.display = shownGradients.has(key) ? '' : 'none';
+          ['fs', 'sw', 'tw', 'dw', 'cc'].forEach(key => {
+              // Ids may repeat (the neon page's footer cc line shares its id with the header one).
+              document.querySelectorAll('[id="' + key + '-gradient-line"], [id="' + key + 'footer-gradient-line"]').forEach(line => {
+                  line.style.display = shownGradients.has(key) ? '' : 'none';
               });
           });
       }
@@ -703,8 +816,10 @@ const mappingScript = `<script>
       let currentPage = document.querySelector('.page-wrapper');
       
       if (container && currentPage) {
+          // Measured by its content: with its 1056px minimum height a page always measured full
+          // once the safety margin was taken off (owner, 2026-11-18). Pages get 1056px at the end.
           currentPage.style.height = 'auto';
-          currentPage.style.minHeight = PAGE_HEIGHT + 'px';
+          currentPage.style.minHeight = '0px';
           
           let currentMain = currentPage.querySelector('.spec-main-wrapper');
           const sections = Array.from(currentMain.children);
@@ -762,6 +877,7 @@ const mappingScript = `<script>
           const allPages = document.querySelectorAll('.page-wrapper');
           allPages.forEach((page, idx) => {
               page.style.height = PAGE_HEIGHT + 'px';
+              page.style.minHeight = PAGE_HEIGHT + 'px';
               page.style.overflow = 'hidden';
               
               const curEl = page.querySelector('#current-page-no');

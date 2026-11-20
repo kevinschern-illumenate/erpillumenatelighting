@@ -188,6 +188,22 @@ def configuration_compare_enabled():
 	return conf_flag("ill_portal_configuration_compare", default=True)
 
 
+def cad_import_enabled():
+	"""Draw-to-quote: CAD catalog download and "Import drawing" on schedules. Off by default; staff
+	and pilot customers (``ill_cad_pilot_customers``) get it first (CAD toolkit plan 2.9)."""
+	return conf_flag("ill_cad_import", default=False)
+
+
+def cad_all_dealers_enabled():
+	"""Once true, every dealer who can view the catalog may use the CAD import (not only pilots)."""
+	return conf_flag("ill_cad_all_dealers", default=False)
+
+
+def cad_pilot_customers():
+	"""Customers in the CAD pilot (a JSON list of Customer names); ``[]`` when unset."""
+	return conf_list("ill_cad_pilot_customers") or []
+
+
 def conf_list(key):
 	"""A list of strings, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
 	value = frappe.conf.get(key)

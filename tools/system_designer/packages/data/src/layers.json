@@ -145,6 +145,16 @@
       "export": false
     }
   ],
+  "planLayers": [
+    {"name": "E-LITE-TAPE", "description": "Plan: LED tape and neon runs", "linetype": "Continuous", "lineweightMm": 0.5, "color": "#304E46", "aciColor": 3, "plot": true},
+    {"name": "E-LITE-EXTR", "description": "Plan: extrusion and linear fixture outlines", "linetype": "Continuous", "lineweightMm": 0.25, "color": "#344D55", "aciColor": 4, "plot": true},
+    {"name": "E-LITE-FEED", "description": "Plan: feed points and end markers", "linetype": "Continuous", "lineweightMm": 0.25, "color": "#263D48", "aciColor": 2, "plot": true},
+    {"name": "E-LITE-DATA", "description": "Plan: control and data wiring", "linetype": "DASHED", "lineweightMm": 0.25, "color": "#344D55", "aciColor": 150, "plot": true},
+    {"name": "E-POWR-CABN", "description": "Plan: power supply cabinets and locations", "linetype": "Continuous", "lineweightMm": 0.35, "color": "#263D48", "aciColor": 6, "plot": true},
+    {"name": "E-POWR-WIRE-LINE", "description": "Plan: line-voltage feeds", "linetype": "PHANTOM", "lineweightMm": 0.35, "color": "#263D48", "aciColor": 1, "plot": true},
+    {"name": "E-ANNO-ROOM", "description": "Plan: rooms and zones", "linetype": "DASHED2", "lineweightMm": 0.18, "color": "#202A30", "aciColor": 8, "plot": true},
+    {"name": "E-ANNO-ISSU", "description": "Plan: ILCHECK issue markers (no plot)", "linetype": "Continuous", "lineweightMm": 0.18, "color": "#B13526", "aciColor": 1, "plot": false}
+  ],
   "linetypes": [
     {
       "name": "Continuous",

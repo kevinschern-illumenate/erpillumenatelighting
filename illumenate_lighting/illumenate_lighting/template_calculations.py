@@ -123,8 +123,13 @@ ENVIRONMENT_ORDER = ("Dry", "Damp", "Wet")
 # Certifications & Ratings; the Webflow export still adds it for kit products).
 SKIPPED_LINKED_ROWS = {
 	"Extrusion Kit": ("Certifications & Ratings",),
-	# The calculation has "Color Rendering (CRI)" already (owner, 2026-11-13).
+	# The calculation has "Color Rendering (CRI)" already (owner, 2026-11-13; Tape/Neon
+	# 2026-11-19).
 	"Fixture Template": ("Color Rendering",),
+	"LED Tape": ("Color Rendering",),
+	"COB Tape": ("Color Rendering",),
+	# "Minimum Bending Diameter" has both bends already (owner, 2026-11-19).
+	"LED Neon": ("Color Rendering", "Minimum Side Bend Diameter", "Minimum Top Bend Diameter"),
 }
 
 # What the export's spec enrichment reads from a product record.
@@ -2601,7 +2606,156 @@ class TemplateCalculator:
 # ---------------------------------------------------------------- hand-set Tape/Neon steps
 
 
+# LED Neon step order (owner, 2026-11-19): Series is step 0 (the locked series step, not a row);
+# the other steps follow the template's Allowed Options. Feed Direction takes four steps.
+LOOKUP_STEP_FROM = 98
+NEON_FEED_LABELS = ("Start Feed Direction", "Start Feed Length", "End Feed Direction", "End Feed Length")
+
+
 def refresh_hand_set_tape_neon(template):
+	"""Refresh a hand-set Tape/Neon template's steps (``_refresh_hand_set_values``).
+
+	LED Neon templates also get their step numbers from the Allowed Options order
+	(``neon_step_order``). Returns True when it did that, so the steps are not renumbered by row
+	order afterwards.
+	"""
+	if template.doctype != TAPE or product_type_for(template) not in TAPE_NEON_TYPES:
+		return False
+	if product_type_for(template) in ("LED Tape", "COB Tape"):
+		tape_pcb_steps(template)
+	_refresh_hand_set_values(template)
+	if product_type_for(template) != "LED Neon":
+		return False
+	neon_step_order(template)
+	# Feed length values are read by step, so fill them again at the new numbers.
+	_refresh_hand_set_values(template)
+	return True
+
+
+# LED Tape and COB Tape (owner, 2026-11-19): PCB Mounting takes the Mounting Method step and PCB
+# Finish the Finish step of the hand-set Part No. Configurator.
+TAPE_PCB_STEPS = (("Mounting Method", "PCB Mounting"), ("Finish", "PCB Finish"))
+
+
+def tape_pcb_steps(template):
+	"""On an LED Tape or COB Tape template, the Mounting Method step becomes the PCB Mounting step
+	and the Finish step the PCB Finish step, when the template has active options of that PCB
+	type. The step keeps its number and label; any other PCB Mounting or PCB Finish step is removed. The
+	values are filled afterwards (``_refresh_hand_set_values``)."""
+	active = {
+		row.get("option_type")
+		for row in template.get("allowed_options") or []
+		if row.get("is_active") and row.get("option_type")
+	}
+	rows = list(template.get(CONFIGURATOR_FIELD) or [])
+	for old_type, pcb_type in TAPE_PCB_STEPS:
+		if pcb_type not in active:
+			continue
+		step = next((row for row in rows if row.get("option_type") == old_type), None)
+		if step is None:
+			continue
+		step.option_type = pcb_type
+		rows = [row for row in rows if row is step or row.get("option_type") != pcb_type]
+	if len(rows) != len(template.get(CONFIGURATOR_FIELD) or []):
+		template.set(CONFIGURATOR_FIELD, rows)
+		for idx, row in enumerate(template.get(CONFIGURATOR_FIELD) or [], 1):
+			row.idx = idx
+
+
+def neon_step_types(template):
+	"""Pure: the step order of an LED Neon template, as configurator keys.
+
+	The active Allowed Options' option types in table order, each once (owner, 2026-11-19).
+	Feed Direction is four steps (Start Feed Direction, Start Feed Length, End Feed Direction,
+	End Feed Length, keyed by label); Length, which is not an allowed option, comes just before
+	them, or last when there are none. Returns [("type", option type) | ("label", label)].
+	"""
+	types = []
+	for row in template.get("allowed_options") or []:
+		option_type = row.get("option_type")
+		if row.get("is_active") and option_type and option_type not in types:
+			types.append(option_type)
+	keys = []
+	for option_type in types:
+		if option_type == "Length":
+			continue
+		if option_type == "Feed Direction":
+			keys.append(("type", "Length"))
+			keys.extend(("label", label) for label in NEON_FEED_LABELS)
+		else:
+			keys.append(("type", option_type))
+	if ("type", "Length") not in keys:
+		keys.append(("type", "Length"))
+	return keys
+
+
+def neon_step_order(template):
+	"""Number an LED Neon template's steps 1, 2, ... in ``neon_step_types`` order, skipping types
+	with no step.
+
+	The four feed steps are added when the template has an active Feed Direction option and the
+	row is missing. Other steps follow them in row order; steps 98 and up keep their numbers.
+	"Depends on step" and the template's Feed Lengths follow a renumbered step.
+	"""
+	keys = neon_step_types(template)
+	if ("label", NEON_FEED_LABELS[0]) in keys:
+		labels = {row.get("option_label") for row in template.get(CONFIGURATOR_FIELD) or []}
+		for label in NEON_FEED_LABELS:
+			if label not in labels:
+				template.append(
+					CONFIGURATOR_FIELD,
+					{
+						"option_type": "Feed Direction",
+						"option_label": label,
+						"option_step": 99,
+						"allowed_values_json": "[]",
+					},
+				)
+	rows = list(template.get(CONFIGURATOR_FIELD) or [])
+
+	def key_of(row):
+		label = row.get("option_label")
+		return ("label", label) if label in NEON_FEED_LABELS else ("type", row.get("option_type"))
+
+	# Only option types with a step are numbered (Power Feed Type has none), so there are no gaps.
+	present = {key_of(row) for row in rows}
+	keys = [key for key in keys if key in present]
+	steps = {key: number for number, key in enumerate(keys, 1)}
+
+	def old_step(row):
+		value = row.get("option_step")
+		return None if value in (None, "") else int(value)
+
+	counts = {}
+	for row in rows:
+		counts[old_step(row)] = counts.get(old_step(row), 0) + 1
+	moved = {}
+	next_other = len(keys) + 1
+	for row in rows:
+		step = steps.get(key_of(row))
+		old = old_step(row)
+		if step is None:
+			if old is not None and old >= LOOKUP_STEP_FROM:
+				continue
+			step = next_other
+			next_other += 1
+		# A step number shared by several rows (the 99 of new rows) says nothing to follow.
+		if old is not None and old != step and counts[old] == 1:
+			moved[old] = step
+		row.option_step = step
+	for row in rows:
+		if row.get("depends_on_step") not in (None, ""):
+			row.depends_on_step = moved.get(int(row.depends_on_step), row.depends_on_step)
+	for row in template.get("feed_lengths") or []:
+		if row.get("step") not in (None, ""):
+			row.step = moved.get(int(row.step), row.step)
+	rows.sort(key=lambda row: old_step(row) if old_step(row) is not None else 999)
+	template.set(CONFIGURATOR_FIELD, rows)
+	for idx, row in enumerate(template.get(CONFIGURATOR_FIELD) or [], 1):
+		row.idx = idx
+
+
+def _refresh_hand_set_values(template):
 	"""A Tape/Neon template whose steps are set up by hand takes its current allowed options.
 
 	Moved from the Webflow Product's save ("PART 2" of ``sync_custom_template_data``; owner,
@@ -2611,8 +2765,6 @@ def refresh_hand_set_tape_neon(template):
 	template's Feed Lengths, Length as the standard length metadata); an option type with no
 	step gets a step 99, and a Length step is added when there is none.
 	"""
-	if template.doctype != TAPE or product_type_for(template) not in TAPE_NEON_TYPES:
-		return
 	template_doc = template
 
 	LENGTH_METADATA_JSON = json.dumps(

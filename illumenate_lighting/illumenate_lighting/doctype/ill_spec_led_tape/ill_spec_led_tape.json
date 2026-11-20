@@ -44,6 +44,7 @@
   "pixels_per_m",
   "amps_per_pixel_max",
   "tape_width_mm",
+  "min_bend_radius_mm",
   "leds_per_cut_segment",
   "max_case_temp_c",
   "channel_limits"
@@ -283,6 +284,13 @@
    "label": "Tape Width (mm)"
   },
   {
+   "fieldname": "min_bend_radius_mm",
+   "fieldtype": "Float",
+   "label": "Min Bend Radius (mm)",
+   "non_negative": 1,
+   "description": "Smallest inside radius the tape may be bent to. The CAD toolkit flags tighter arcs (ILCHECK); 0 means unknown, and the template's side-bend diameter is used instead."
+  },
+  {
    "fieldname": "leds_per_cut_segment",
    "fieldtype": "Int",
    "label": "LEDs Per Cut Segment"
@@ -302,7 +310,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-09 13:30:00.000000",
+ "modified": "2026-11-20 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Spec-LED Tape",

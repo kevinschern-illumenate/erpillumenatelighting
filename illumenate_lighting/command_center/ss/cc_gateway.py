@@ -175,7 +175,7 @@ def main():
         ["ill_logs", "Logs & system (read-only)", "System Manager", [
             "ilL-Portal-Event", "ilL-Portal-Message", "ilL-Portal-Delivery", "ilL-Portal-Upload",
             "ilL-Configurator-Session", "ilL-Configuration-Receipt", "ilL-Design-Catalog-Snapshot",
-            "ilL-Webflow-Configurator-Cache", "ilL-Export-Job", "ilL-QBO-Sync-Log"]],
+            "ilL-Webflow-Configurator-Cache", "ilL-Export-Job", "ilL-QBO-Sync-Log", "ilL-CAD-Import"]],
     ]
     # single (settings) doctypes: plain Desk links on the ilLumenate landing; the desk enforces permission
     SETTINGS = ["ilL-Purchasing-Settings", "ilL-Production-Settings", "ilL-Portal-Routing-Settings",
@@ -190,7 +190,7 @@ def main():
         "ilL-Configuration-Receipt", "ilL-Configurator-Session", "ilL-Design-Catalog-Snapshot", "ilL-Catalog-Import",
         "ilL-Portal-Event", "ilL-Portal-Message", "ilL-Portal-Delivery", "ilL-Portal-Upload", "ilL-Publish-Job",
         "ilL-Export-Job", "ilL-QBO-Sync-Log", "ilL-Image-Derivative", "ilL-Webflow-Configurator-Cache",
-        "ilL-Gallery-Publish-Job",
+        "ilL-Gallery-Publish-Job", "ilL-CAD-Import",
         # approvals are decided and auto pushes queued from the Webflow Product (plan 4.19)
         "ilL-Webflow-Approval", "ilL-Webflow-Auto-Push",
     ]

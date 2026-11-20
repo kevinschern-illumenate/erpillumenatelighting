@@ -1,0 +1,423 @@
+{
+ "_note": "Golden cases for the AutoLISP subset (plan 1.7). Expected values come from tools/cad_toolkit/reference/cad_subset.py; tests/portal_unit/test_cad_subset.py checks them against the server rules and accoreconsole runs them in AutoCAD (plan 3.10).",
+ "cut_snap": [
+  {
+   "length_in": 24,
+   "cut_mm": 25.4,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 24.0,
+    "increments": 24,
+    "diff_in": 0.0
+   }
+  },
+  {
+   "length_in": 24,
+   "cut_mm": 50,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 23.622,
+    "increments": 12,
+    "diff_in": 0.378
+   }
+  },
+  {
+   "length_in": 96,
+   "cut_mm": 50,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 94.4882,
+    "increments": 48,
+    "diff_in": 1.5118
+   }
+  },
+  {
+   "length_in": 132.5,
+   "cut_mm": 50,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 131.8898,
+    "increments": 67,
+    "diff_in": 0.6102
+   }
+  },
+  {
+   "length_in": 0.5,
+   "cut_mm": 50,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 1.9685,
+    "increments": 1,
+    "diff_in": -1.4685
+   }
+  },
+  {
+   "length_in": 48.25,
+   "cut_mm": 62.5,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 46.752,
+    "increments": 19,
+    "diff_in": 1.498
+   }
+  },
+  {
+   "length_in": 36,
+   "cut_mm": 0,
+   "free_cut": true,
+   "expected": {
+    "mfg_in": 36,
+    "increments": null,
+    "diff_in": 0.0
+   }
+  },
+  {
+   "length_in": 119.99,
+   "cut_mm": 25,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 119.0945,
+    "increments": 121,
+    "diff_in": 0.8955
+   }
+  },
+  {
+   "length_in": 78.75,
+   "cut_mm": 100,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 78.7402,
+    "increments": 20,
+    "diff_in": 0.0098
+   }
+  },
+  {
+   "length_in": 12,
+   "cut_mm": 8.33,
+   "free_cut": false,
+   "expected": {
+    "mfg_in": 11.8063,
+    "increments": 36,
+    "diff_in": 0.1937
+   }
+  }
+ ],
+ "run_split": [
+  {
+   "length_in": 96,
+   "w_per_ft": 4.4,
+   "cut_mm": 50,
+   "free_cut": false,
+   "max_run_vd_ft": 32.8,
+   "override_ft": null,
+   "expected": {
+    "max_run_ft": 19.32,
+    "pct_of_max": 41.4,
+    "runs_count": 1,
+    "runs_in": [
+     96.0
+    ]
+   }
+  },
+  {
+   "length_in": 240,
+   "w_per_ft": 4.4,
+   "cut_mm": 50,
+   "free_cut": false,
+   "max_run_vd_ft": 32.8,
+   "override_ft": null,
+   "expected": {
+    "max_run_ft": 19.32,
+    "pct_of_max": 103.5,
+    "runs_count": 2,
+    "runs_in": [
+     120.08,
+     120.08
+    ]
+   }
+  },
+  {
+   "length_in": 420,
+   "w_per_ft": 4.4,
+   "cut_mm": 50,
+   "free_cut": false,
+   "max_run_vd_ft": 32.8,
+   "override_ft": null,
+   "expected": {
+    "max_run_ft": 19.32,
+    "pct_of_max": 181.2,
+    "runs_count": 2,
+    "runs_in": [
+     210.63,
+     208.66
+    ]
+   }
+  },
+  {
+   "length_in": 420,
+   "w_per_ft": 6.2,
+   "cut_mm": 100,
+   "free_cut": false,
+   "max_run_vd_ft": null,
+   "override_ft": null,
+   "expected": {
+    "max_run_ft": 13.71,
+    "pct_of_max": 255.3,
+    "runs_count": 3,
+    "runs_in": [
+     141.73,
+     141.73,
+     137.8
+    ]
+   }
+  },
+  {
+   "length_in": 310,
+   "w_per_ft": 3.05,
+   "cut_mm": 0,
+   "free_cut": true,
+   "max_run_vd_ft": 16.4,
+   "override_ft": null,
+   "expected": {
+    "max_run_ft": 16.4,
+    "pct_of_max": 157.5,
+    "runs_count": 2,
+    "runs_in": [
+     155.0,
+     155.0
+    ]
+   }
+  },
+  {
+   "length_in": 600,
+   "w_per_ft": 4.4,
+   "cut_mm": 50,
+   "free_cut": false,
+   "max_run_vd_ft": 32.8,
+   "override_ft": 30,
+   "expected": {
+    "max_run_ft": 30.0,
+    "pct_of_max": 166.7,
+    "runs_count": 2,
+    "runs_in": [
+     301.18,
+     299.21
+    ]
+   }
+  },
+  {
+   "length_in": 48,
+   "w_per_ft": 0,
+   "cut_mm": null,
+   "free_cut": false,
+   "max_run_vd_ft": null,
+   "override_ft": null,
+   "expected": {
+    "max_run_ft": null,
+    "pct_of_max": null,
+    "runs_count": 1,
+    "runs_in": [
+     48.0
+    ]
+   }
+  },
+  {
+   "length_in": 1000,
+   "w_per_ft": 2.0,
+   "cut_mm": 25,
+   "free_cut": false,
+   "max_run_vd_ft": 16.4,
+   "override_ft": null,
+   "expected": {
+    "max_run_ft": 16.4,
+    "pct_of_max": 508.1,
+    "runs_count": 6,
+    "runs_in": [
+     167.32,
+     167.32,
+     166.34,
+     166.34,
+     166.34,
+     166.34
+    ]
+   }
+  }
+ ],
+ "psu_load": [
+  {
+   "loads_w": [
+    35.2,
+    48.6
+   ],
+   "rated_w": 96,
+   "usable_load_factor": 0.8,
+   "expected": {
+    "total_w": 83.8,
+    "usable_w": 76.8,
+    "pct_of_usable": 109.1,
+    "over": true
+   }
+  },
+  {
+   "loads_w": [
+    60,
+    25,
+    10
+   ],
+   "rated_w": 100,
+   "usable_load_factor": null,
+   "expected": {
+    "total_w": 95,
+    "usable_w": 100.0,
+    "pct_of_usable": 95.0,
+    "over": false
+   }
+  },
+  {
+   "loads_w": [],
+   "rated_w": 60,
+   "usable_load_factor": 0.8,
+   "expected": {
+    "total_w": 0,
+    "usable_w": 48.0,
+    "pct_of_usable": 0.0,
+    "over": false
+   }
+  },
+  {
+   "loads_w": [
+    90
+   ],
+   "rated_w": 96,
+   "usable_load_factor": 0.9,
+   "expected": {
+    "total_w": 90,
+    "usable_w": 86.4,
+    "pct_of_usable": 104.2,
+    "over": true
+   }
+  }
+ ],
+ "path_length": [
+  {
+   "vertices": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     120,
+     0,
+     0
+    ]
+   ],
+   "closed": false,
+   "expected": {
+    "length_in": 120.0,
+    "min_arc_radius_in": null
+   }
+  },
+  {
+   "vertices": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     48,
+     0,
+     0
+    ],
+    [
+     48,
+     36,
+     0
+    ]
+   ],
+   "closed": false,
+   "expected": {
+    "length_in": 84.0,
+    "min_arc_radius_in": null
+   }
+  },
+  {
+   "vertices": [
+    [
+     0,
+     0,
+     1
+    ],
+    [
+     24,
+     0,
+     0
+    ]
+   ],
+   "closed": false,
+   "expected": {
+    "length_in": 37.6991,
+    "min_arc_radius_in": 12.0
+   }
+  },
+  {
+   "vertices": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     60,
+     0,
+     0.4142135623730951
+    ],
+    [
+     80,
+     20,
+     0
+    ],
+    [
+     80,
+     60,
+     0
+    ]
+   ],
+   "closed": false,
+   "expected": {
+    "length_in": 131.4159,
+    "min_arc_radius_in": 20.0
+   }
+  },
+  {
+   "vertices": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     10,
+     0,
+     0
+    ],
+    [
+     10,
+     10,
+     0
+    ],
+    [
+     0,
+     10,
+     0
+    ]
+   ],
+   "closed": true,
+   "expected": {
+    "length_in": 40.0,
+    "min_arc_radius_in": null
+   }
+  }
+ ]
+}

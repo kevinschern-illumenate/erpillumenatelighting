@@ -15,6 +15,10 @@ Lenses with the same numbers at every level share a row group: a lens on its own
 Lens"; a group of several is "Other Lenses" (or their names, when there is more than one such
 group). A lens that does not reach a level shows a dash. One row per lens group and level,
 rebuilt on every save; the spec sheet lays it out with the levels as columns.
+
+Tape/Neon templates (owner, 2026-11-19, LED Neon): no lens, so one group with no name. The
+columns are the template's own Output Level options, and each takes the allowed tape spec whose
+Lumens per Foot is nearest that output (the highest wattage and shortest run when several are).
 """
 
 import math
@@ -30,6 +34,7 @@ from illumenate_lighting.illumenate_lighting.template_delivered_lumens import (
 
 FIELD = "output_options"
 DOCTYPE = "ilL-Fixture-Template"
+TAPE_NEON = "ilL-Tape-Neon-Template"
 
 
 def _watts(value):
@@ -171,9 +176,70 @@ def rows_for(template):
 	return table(lenses, tapes, levels)
 
 
+def neon_table(outputs, tapes):
+	"""Pure: the Tape/Neon rows. ``outputs``: [{name, value}] (the Output Level options).
+	``tapes``: [(lumens per foot, watts per foot, max run length ft)]. One row per output, in
+	output value order, with an empty lens group; dashes when no tape spec has lumens."""
+	rows = []
+	measured = [tape for tape in tapes if tape[0]]
+	for level in sorted((o for o in outputs if o.get("name")), key=lambda o: o.get("value") or 0):
+		watts = run = None
+		if measured and level.get("value"):
+			nearest = min(abs(float(lumens) - level["value"]) for lumens, _w, _r in measured)
+			matching = [(w, r) for lumens, w, r in measured if abs(float(lumens) - level["value"]) == nearest]
+			watts = max((w for w, _r in matching if w), default=None)
+			run = min((r for _w, r in matching if r), default=None)
+		rows.append(
+			{
+				"lens_group": "",
+				"output_level": level["name"],
+				"fixture_wattage": _watts(watts),
+				"max_run_length": _run(run),
+				"max_footage_100w": _per_100w(watts),
+			}
+		)
+	return rows
+
+
+def neon_rows_for(template):
+	"""The Tape/Neon template's rows, read from its Output Level options and allowed tape specs."""
+	names = []
+	for option in template.get("allowed_options") or []:
+		if option.get("option_type") != "Output Level" or not option.get("output_level"):
+			continue
+		if option.get("is_active") == 0 or option.output_level in names:
+			continue
+		names.append(option.output_level)
+	outputs = [
+		{"name": name, "value": frappe.db.get_value("ilL-Attribute-Output Level", name, "value")}
+		for name in names
+	]
+	tapes = []
+	for row in template.get("allowed_tape_specs") or []:
+		if not row.get("tape_spec"):
+			continue
+		spec = (
+			frappe.db.get_value(
+				"ilL-Spec-LED Tape",
+				row.tape_spec,
+				["lumens_per_foot", "watts_per_foot", "voltage_drop_max_run_length_ft"],
+				as_dict=True,
+			)
+			or {}
+		)
+		tapes.append(
+			(
+				spec.get("lumens_per_foot"),
+				spec.get("watts_per_foot"),
+				spec.get("voltage_drop_max_run_length_ft"),
+			)
+		)
+	return neon_table(outputs, tapes)
+
+
 def refresh(template):
 	"""Rebuild the table. Called from template_listing.refresh_template."""
 	meta = getattr(template, "meta", None)
-	if template.doctype != DOCTYPE or (meta is not None and not meta.has_field(FIELD)):
+	if template.doctype not in (DOCTYPE, TAPE_NEON) or (meta is not None and not meta.has_field(FIELD)):
 		return
-	template.set(FIELD, rows_for(template))
+	template.set(FIELD, rows_for(template) if template.doctype == DOCTYPE else neon_rows_for(template))

@@ -11,13 +11,14 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run schema:export",
+    "build": "vite build && npm run schema:export && npm run cad:export",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test:e2e": "playwright test",
-    "schema:export": "node scripts/export-schema.mjs"
+    "schema:export": "node scripts/export-schema.mjs",
+    "cad:export": "node scripts/export-cad-assets.mjs"
   },
   "dependencies": {
     "@cantoo/fontkit": "2.0.12",

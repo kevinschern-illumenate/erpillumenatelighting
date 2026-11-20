@@ -29,6 +29,34 @@ describe('opening a schedule', () => {
     expect(skipped.map((item) => item.key)).toContain('f1other');
   });
 
+  it('starts from the imported drawing: measured home runs, rooms and cabinets (draw-to-quote 2.3)', () => {
+    const plain = newDesign(openFixture()).design;
+    const first = plain.runs[0]!;
+    const room = plain.site.spaces.find((space) => space.id === first.spaceId)!.name;
+    const open = openFixture({
+      cad_site: {
+        schema: 'cad-site/1',
+        import: 'CADI-00001',
+        drawing: { file: 'job.dwg', rev: 1 },
+        rooms: [{ id: 'Z-1', name: room, level: 'L1', envChoice: 'damp' }],
+        cabinets: [{ id: 'CAB-1', room, locationRating: 'Damp', accessNote: '', feedLengthFt: 30 }],
+        lines: { [first.lineKey]: { runId: 'L1-01', room, cabinet: 'CAB-1', feedMethod: 'double-end', homeRunLengthFt: 22.5 } },
+        controls: {
+          'DEC-01': { lineKey: 'dec-line', catalogId: 'ctl:DEC', category: 'dmx-decoder', cabinet: 'CAB-1', dmx: { universe: 1, start_address: 1 } },
+        },
+        zones: [{ id: 'ZN-1', name: 'Cove', method: 'DMX512', control: { id: 'DEC-01', port: 'DMX512' }, lines: [first.lineKey] }],
+      },
+    });
+    const { design } = newDesign(OpenDesignSchema.parse(open));
+    expect(() => DesignSchema.parse(design)).not.toThrow();
+    const run = design.runs.find((item) => item.key === first.key)!;
+    expect([run.homeRunLengthFt, run.homeRunProvenance, run.feedMethod]).toEqual([22.5, 'measured', 'double-end']);
+    expect(design.site.cabinets.map((cabinet) => cabinet.id)).toEqual(['CAB-1']);
+    expect(design.project.equipment.find((item) => item.id === 'DEC-01')).toMatchObject({ scheduleLine: 'dec-line', dmx: { universe: 1, startAddress: 1 } });
+    expect(run.zoneId).toBe('ZN-1');
+    expect(OpenDesignSchema.parse({ ...openFixture(), cad_site: { schema: 'nope' } }).cad_site).toBeNull();
+  });
+
   it('keeps a saved design as it is', () => {
     const fresh = newDesign(openFixture()).design;
     const meta = {

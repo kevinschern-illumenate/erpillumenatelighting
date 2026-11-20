@@ -255,7 +255,7 @@ class Listing(unittest.TestCase):
 		self.module.compute = MagicMock(return_value=([spec("CRI", "90")], [{"option_step": 1}]))
 		# Hand-set Tape/Neon steps take the template's allowed options first (owner, 2026-11-05;
 		# test_template_calculations), then follow their row order.
-		self.module.refresh_hand_set_tape_neon = MagicMock()
+		self.module.refresh_hand_set_tape_neon = MagicMock(return_value=False)
 		hand = [Record(option_step=1, option_type="IP Rating")]
 		template = Doc(TAPE, "led-hd-sw", auto_populate_configurator=0, part_no_configurator=hand)
 		self.module.refresh_template(template)
@@ -405,14 +405,32 @@ class Listing(unittest.TestCase):
 			record["specifications"] += [
 				{"spec_label": "Dimensions", "spec_value": "1in"},
 				{"spec_label": "Certifications & Ratings", "spec_value": "DryRated"},
+				# Tape/Neon and fixtures calculate "Color Rendering (CRI)" (owner, 2026-11-19).
+				{"spec_label": "Color Rendering", "spec_value": "90"},
+				# LED Neon's "Minimum Bending Diameter" has both bends (owner, 2026-11-19).
+				{"spec_label": "Minimum Side Bend Diameter", "spec_value": "7.87in"},
+				{"spec_label": "Minimum Top Bend Diameter", "spec_value": "3.94in"},
 			]
 
 		export._enrich_specifications_from_linked_doctypes = enrich
 		sys.modules[export.__name__] = export
 		self.addCleanup(sys.modules.pop, export.__name__, None)
 		for product_type, labels in (
-			("Extrusion Kit", ["Dimensions"]),
-			("Driver", ["Dimensions", "Certifications & Ratings"]),
+			(
+				"Extrusion Kit",
+				["Dimensions", "Color Rendering", "Minimum Side Bend Diameter", "Minimum Top Bend Diameter"],
+			),
+			("LED Neon", ["Dimensions", "Certifications & Ratings"]),
+			(
+				"Driver",
+				[
+					"Dimensions",
+					"Certifications & Ratings",
+					"Color Rendering",
+					"Minimum Side Bend Diameter",
+					"Minimum Top Bend Diameter",
+				],
+			),
 		):
 			product = Doc("ilL-Webflow-Product", "x", product_type=product_type)
 			rows = self.module.linked_spec_rows(product, [])

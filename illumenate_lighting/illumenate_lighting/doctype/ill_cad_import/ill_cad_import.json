@@ -1,0 +1,230 @@
+{
+ "doctype": "DocType",
+ "name": "ilL-CAD-Import",
+ "module": "ilLumenate Lighting",
+ "autoname": "format:CADI-{#####}",
+ "engine": "InnoDB",
+ "description": "One drawing package imported into a schedule by the draw-to-quote CAD toolkit. Written by portal/drawing_import.py only.",
+ "field_order": [
+  "schedule",
+  "schedule_version",
+  "status",
+  "imported_by",
+  "imported_on",
+  "column_break_drawing",
+  "drawing_file",
+  "drawing_rev",
+  "drawing_hash",
+  "toolkit_version",
+  "catalog_snapshot",
+  "plan_pdf",
+  "plan_pdf_sha256",
+  "section_counts",
+  "runs_added",
+  "runs_updated",
+  "runs_unchanged",
+  "lines_removed",
+  "column_break_counts",
+  "other_lines",
+  "check_errors",
+  "check_warnings",
+  "section_data",
+  "package_sha256",
+  "package_json",
+  "receipt_json",
+  "site_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule",
+   "fieldtype": "Link",
+   "label": "Schedule",
+   "read_only": 1,
+   "options": "ilL-Project-Fixture-Schedule",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "schedule_version",
+   "fieldtype": "Int",
+   "label": "Schedule Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "read_only": 1,
+   "options": "Committed\nSuperseded",
+   "default": "Committed",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "imported_by",
+   "fieldtype": "Link",
+   "label": "Imported By",
+   "read_only": 1,
+   "options": "User"
+  },
+  {
+   "fieldname": "imported_on",
+   "fieldtype": "Datetime",
+   "label": "Imported On",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_drawing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "drawing_file",
+   "fieldtype": "Data",
+   "label": "Drawing File",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "drawing_rev",
+   "fieldtype": "Int",
+   "label": "Drawing Revision",
+   "read_only": 1
+  },
+  {
+   "fieldname": "drawing_hash",
+   "fieldtype": "Data",
+   "label": "Drawing Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "toolkit_version",
+   "fieldtype": "Data",
+   "label": "Toolkit Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "catalog_snapshot",
+   "fieldtype": "Data",
+   "label": "Catalog Snapshot",
+   "read_only": 1
+  },
+  {
+   "fieldname": "plan_pdf",
+   "fieldtype": "Attach",
+   "label": "Plotted Plan (PDF)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "plan_pdf_sha256",
+   "fieldtype": "Data",
+   "label": "Plan PDF SHA-256",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_counts",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "runs_added",
+   "fieldtype": "Int",
+   "label": "Runs Added",
+   "read_only": 1
+  },
+  {
+   "fieldname": "runs_updated",
+   "fieldtype": "Int",
+   "label": "Runs Updated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "runs_unchanged",
+   "fieldtype": "Int",
+   "label": "Runs Unchanged",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lines_removed",
+   "fieldtype": "Int",
+   "label": "Lines Removed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_counts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "other_lines",
+   "fieldtype": "Int",
+   "label": "Other Lines",
+   "read_only": 1
+  },
+  {
+   "fieldname": "check_errors",
+   "fieldtype": "Int",
+   "label": "Toolkit Check Errors",
+   "read_only": 1
+  },
+  {
+   "fieldname": "check_warnings",
+   "fieldtype": "Int",
+   "label": "Toolkit Check Warnings",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_data",
+   "fieldtype": "Section Break",
+   "label": "Package",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "package_sha256",
+   "fieldtype": "Data",
+   "label": "Package SHA-256",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "package_json",
+   "fieldtype": "Long Text",
+   "label": "Package (ilq/2)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "receipt_json",
+   "fieldtype": "Long Text",
+   "label": "Receipt",
+   "read_only": 1,
+   "description": "What the toolkit reads back (ILRECEIPT): line keys, part numbers and server lengths per run."
+  },
+  {
+   "fieldname": "site_json",
+   "fieldtype": "Long Text",
+   "label": "Design Site",
+   "read_only": 1,
+   "description": "Rooms, cabinets and measured home-run lengths the System Designer applies to a new design (cad-site/1)."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  },
+  {
+   "role": "ilL Applications Engineer",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "title_field": "drawing_file",
+ "track_changes": 0,
+ "modified": "2026-11-20 12:00:00.000000",
+ "modified_by": "Administrator",
+ "owner": "Administrator",
+ "creation": "2026-11-20 12:00:00.000000"
+}

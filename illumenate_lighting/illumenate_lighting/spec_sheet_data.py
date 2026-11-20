@@ -139,18 +139,41 @@ def template_section(template):
 
 
 def led_packages(template):
-	"""The LED packages of the template's allowed tape offerings (fixture templates)."""
+	"""The LED packages of the template's tapes: its allowed tape offerings (fixtures) or allowed
+	tape specs (Tape/Neon; owner, 2026-11-19), for the spec sheet's gradient lines."""
 	offerings = [
 		row.get("tape_offering")
 		for row in template.get("allowed_tape_offerings") or []
 		if row.get("tape_offering")
 	]
-	if not offerings:
-		return []
-	packages = frappe.get_all(
-		"ilL-Rel-Tape Offering", filters={"name": ["in", offerings]}, pluck="led_package"
-	)
+	specs = [row.get("tape_spec") for row in template.get("allowed_tape_specs") or [] if row.get("tape_spec")]
+	packages = []
+	if offerings:
+		packages += frappe.get_all(
+			"ilL-Rel-Tape Offering", filters={"name": ["in", offerings]}, pluck="led_package"
+		)
+	if specs:
+		packages += frappe.get_all("ilL-Spec-LED Tape", filters={"name": ["in", specs]}, pluck="led_package")
 	return sorted({package for package in packages if package})
+
+
+def mounting_accessories(template):
+	"""The template's mounting accessories for the spec sheet (owner, 2026-11-19): each active
+	ilL-Rel-Mounting-Accessory-Map row's Accessory Item (code) and that item's Item Name (label),
+	once per item, in the order the rows were made."""
+	if template.doctype not in ("ilL-Tape-Neon-Template", "ilL-Fixture-Template"):
+		return []
+	items = frappe.get_all(
+		"ilL-Rel-Mounting-Accessory-Map",
+		filters={"template_type": template.doctype, "fixture_template": template.name, "is_active": 1},
+		pluck="accessory_item",
+		order_by="creation asc",
+	)
+	result = []
+	for item in items:
+		if item and item not in [row["code"] for row in result]:
+			result.append({"code": item, "label": frappe.db.get_value("Item", item, "item_name") or item})
+	return result
 
 
 def product_section(product):
@@ -313,6 +336,8 @@ def build(template, product, brand, legacy=None):
 			"include_configurator": _include_configurator(brand),
 			# The fixture spec sheet shows the gradient line of these (owner, 2026-11-13).
 			"led_packages": led_packages(template),
+			# Mounting Accessories section (LED Neon; owner, 2026-11-19).
+			"mounting_accessories": mounting_accessories(template),
 			# The PDF's file name: <Brand>_<Display Name>_Spec Sheet.pdf (owner, 2026-11-03).
 			**spec_sheet_naming(template, brand),
 			# Images and files are stored as /files/...; prefix this to make them absolute.

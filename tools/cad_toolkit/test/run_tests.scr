@@ -1,0 +1,5 @@
+(setq il-root (getenv "IL_TOOLKIT"))
+(foreach name '("il-util" "il-json" "il-math" "il-sha256" "il-catalog" "il-model") (load (strcat il-root "/lisp/" name ".lsp")))
+(load (strcat il-root "/test/il-tests.lsp"))
+(il-run-golden (strcat il-root "/../system_designer/fixtures/cad/lisp-subset.json") (strcat il-root "/test/report.txt"))
+_.QUIT _Y

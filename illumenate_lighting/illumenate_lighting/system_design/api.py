@@ -93,6 +93,40 @@ def get_catalog_for_desktop():
 	return catalog.catalog_response(catalog.current_snapshot_hash())
 
 
+# --- CAD toolkit catalog (draw-to-quote plan 1.4) -----------------------------------------------
+
+
+@frappe.whitelist(methods=["GET"])
+@endpoint
+def get_cad_catalog():
+	"""The ``cad-catalog/1`` document: staff with an API token, or a signed-in pilot dealer."""
+	from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
+	from illumenate_lighting.illumenate_lighting.system_design import cad_access, cad_catalog
+
+	cad_access.require_cad()
+	if not (cad_access.is_cad_staff() or can_view_catalog()):
+		raise DesignError("FORBIDDEN", _("The catalog is available to dealers and ilLumenate staff"))
+	return cad_catalog.cad_catalog()
+
+
+@frappe.whitelist(methods=["GET"])
+def download_cad_catalog():
+	"""The CAD catalog as a file download for the portal's "Download CAD catalog" link."""
+	from illumenate_lighting.illumenate_lighting.portal.access import can_view_catalog
+	from illumenate_lighting.illumenate_lighting.system_design import cad_access, cad_catalog
+
+	try:
+		cad_access.require_cad()
+	except DesignError as error:
+		frappe.throw(error.message, frappe.PermissionError)
+	if not (cad_access.is_cad_staff() or can_view_catalog()):
+		frappe.throw(_("The catalog is available to dealers and ilLumenate staff"), frappe.PermissionError)
+	payload = cad_catalog.cad_catalog()
+	frappe.local.response.filename = cad_catalog.filename(payload)
+	frappe.local.response.filecontent = json.dumps(payload, indent=1, sort_keys=True, ensure_ascii=False)
+	frappe.local.response.type = "download"
+
+
 # --- Opening a schedule (WP-2.3, H6) -------------------------------------------------------------
 
 

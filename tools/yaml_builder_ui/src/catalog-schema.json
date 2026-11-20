@@ -4331,7 +4331,7 @@
           "label": "Output Options",
           "fieldtype": "Table",
           "options": "ilL-Child-Output-Option",
-          "description": "Rebuilt on save: for each output and lens, the Watts per Foot and Max Run Length of the tape that makes it (the same tape as Delivered Lumens). Lenses with the same numbers share a group.",
+          "description": "Rebuilt on save: for each output, the Watts per Foot, Max Run Length and Max Footage per 100W of the tape that makes it. On fixtures, per lens (the same tape as Delivered Lumens), and lenses with the same numbers share a group.",
           "read_only": 1
         },
         {
@@ -6539,6 +6539,12 @@
           "fieldtype": "Float"
         },
         {
+          "fieldname": "min_bend_radius_mm",
+          "label": "Min Bend Radius (mm)",
+          "fieldtype": "Float",
+          "description": "Smallest inside radius the tape may be bent to. The CAD toolkit flags tighter arcs (ILCHECK); 0 means unknown, and the template's side-bend diameter is used instead."
+        },
+        {
           "fieldname": "leds_per_cut_segment",
           "label": "LEDs Per Cut Segment",
           "fieldtype": "Int"
@@ -7023,6 +7029,13 @@
           "label": "Cross-Section Outlines",
           "fieldtype": "Long Text",
           "description": "Outlines in 1/1000 inch, origin at the channel bottom centre: {\"body\": [x, y, ...], \"lens\": [...], \"clip\": [...]}. Filled from the cross-section file."
+        },
+        {
+          "fieldname": "is_curve_capable",
+          "label": "Curve Capable",
+          "fieldtype": "Check",
+          "default": "0",
+          "description": "The profile can follow a curved run. The CAD toolkit flags a profile drawn on an arc when this is off."
         }
       ]
     },
@@ -7371,10 +7384,9 @@
           "fieldtype": "Small Text"
         },
         {
-          "fieldname": "spec_sheet_dimensions",
-          "label": "Dimensions (L×W×H)",
-          "fieldtype": "Data",
-          "description": "Display value for the CSV Dimensions (L×W×H) column."
+          "fieldname": "fixture_weight_per_foot_grams",
+          "label": "Fixture Weight per Foot (g)",
+          "fieldtype": "Float"
         },
         {
           "fieldname": "minimum_side_bend_diameter_mm",
@@ -7387,29 +7399,6 @@
           "label": "Minimum Top Bend Diameter (mm)",
           "fieldtype": "Float",
           "description": "Smallest safe top-bend diameter for bendable/flexible products, entered in millimeters and exported as inches (mm)."
-        },
-        {
-          "fieldname": "available_lenses",
-          "label": "Available Lenses",
-          "fieldtype": "Small Text",
-          "description": "Fallback display value for the CSV Lenses column when no Lens Appearance options are configured."
-        },
-        {
-          "fieldname": "available_finishes",
-          "label": "Available Finishes",
-          "fieldtype": "Small Text",
-          "description": "Fallback display value for the CSV Finish column when no Finish options are configured."
-        },
-        {
-          "fieldname": "available_mountings",
-          "label": "Available Mountings",
-          "fieldtype": "Small Text",
-          "description": "Fallback display value for the CSV Available Mountings column when no Mounting options are configured."
-        },
-        {
-          "fieldname": "fixture_weight_per_foot_grams",
-          "label": "Fixture Weight per Foot (g)",
-          "fieldtype": "Float"
         },
         {
           "fieldname": "driver_max_wattage_override",
@@ -7553,6 +7542,12 @@
           "description": "The category this template's Webflow Product is listed under."
         },
         {
+          "fieldname": "spec_sheet_dimensions",
+          "label": "Dimensions (L×W×H)",
+          "fieldtype": "Data",
+          "description": "The Dimensions specification on the spec sheet, exactly as typed."
+        },
+        {
           "fieldname": "hero_image",
           "label": "Hero Image",
           "fieldtype": "Attach Image"
@@ -7562,6 +7557,12 @@
           "label": "Hero Image Alt Text",
           "fieldtype": "Data",
           "description": "Describe the main product image for screen readers and search engines."
+        },
+        {
+          "fieldname": "dimensions_title",
+          "label": "Dimensions Title",
+          "fieldtype": "Data",
+          "description": "Optional. The title over the Dimensions Image on the spec sheet."
         },
         {
           "fieldname": "dimensions_image",
@@ -7639,6 +7640,14 @@
           "label": "Feed Lengths",
           "fieldtype": "Table",
           "options": "ilL-Child-Webflow-Feed-Length"
+        },
+        {
+          "fieldname": "output_options",
+          "label": "Output Options",
+          "fieldtype": "Table",
+          "options": "ilL-Child-Output-Option",
+          "description": "Rebuilt on save: for each output, the Watts per Foot, Max Run Length and Max Footage per 100W of the tape that makes it. On fixtures, per lens (the same tape as Delivered Lumens), and lenses with the same numbers share a group.",
+          "read_only": 1
         },
         {
           "fieldname": "photometry",

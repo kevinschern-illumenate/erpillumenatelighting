@@ -1,0 +1,417 @@
+{
+ "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+ "generated_at": "2026-11-20 09:00:00",
+ "settings": {
+  "vd_target_class2_pct": 3.0,
+  "vd_target_line_pct": 3.0,
+  "vd_target_landscape_pct": 5.0,
+  "wire_waste_pct": 10.0,
+  "plan_route_slack_pct": 15.0,
+  "max_watts_per_run_fallback": 85.0,
+  "terms_text": "not exported"
+ },
+ "voltages": {
+  "24VDC": 24,
+  "12VDC": 12
+ },
+ "tape_templates": [
+  {
+   "name": "led-hd-sw",
+   "template_code": "led-hd-sw",
+   "template_name": "High Density Static White",
+   "product_category": "LED Tape",
+   "product_status": "Active",
+   "is_free_cutting": 0,
+   "default_tape_spec": "TEST-HD-SW-24",
+   "leader_allowance_mm_per_fixture": 50,
+   "minimum_side_bend_diameter_mm": 0
+  },
+  {
+   "name": "non-pnc-sw",
+   "template_code": "non-pnc-sw",
+   "template_name": "Pinnacle Neon",
+   "product_category": "LED Neon",
+   "product_status": "Active",
+   "is_free_cutting": 0,
+   "default_tape_spec": "TEST-NEON-24",
+   "leader_allowance_mm_per_fixture": 0,
+   "minimum_side_bend_diameter_mm": 100
+  },
+  {
+   "name": "cob-fc-sw",
+   "template_code": "cob-fc-sw",
+   "template_name": "COB Free Cut",
+   "product_category": "COB Tape",
+   "product_status": "Internal Only",
+   "is_free_cutting": 1,
+   "default_tape_spec": "TEST-COB-FC",
+   "leader_allowance_mm_per_fixture": 0,
+   "minimum_side_bend_diameter_mm": 0
+  }
+ ],
+ "allowed_specs": {
+  "led-hd-sw": [
+   {
+    "tape_spec": "TEST-HD-SW-24",
+    "environment_rating": "Dry",
+    "is_default": 1
+   },
+   {
+    "tape_spec": "TEST-HD-SW-24-WET",
+    "environment_rating": "Wet",
+    "is_default": 0
+   }
+  ],
+  "non-pnc-sw": [
+   {
+    "tape_spec": "TEST-NEON-24",
+    "environment_rating": null,
+    "is_default": 1
+   }
+  ]
+ },
+ "allowed_options": {
+  "led-hd-sw": [
+   {
+    "option_type": "Environment Rating",
+    "environment_rating": "Dry",
+    "is_default": 1,
+    "is_active": 1,
+    "msrp_adder": 0
+   },
+   {
+    "option_type": "Environment Rating",
+    "environment_rating": "Wet",
+    "is_default": 0,
+    "is_active": 1,
+    "msrp_adder": 12
+   },
+   {
+    "option_type": "CCT",
+    "cct": "2700K",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "option_type": "CCT",
+    "cct": "3000K",
+    "is_default": 1,
+    "is_active": 1
+   },
+   {
+    "option_type": "CCT",
+    "cct": "5000K",
+    "is_default": 0,
+    "is_active": 0
+   },
+   {
+    "option_type": "Output Level",
+    "output_level": "300 lm/ft",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "option_type": "Output Level",
+    "output_level": "500 lm/ft",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "option_type": "Power Feed Type",
+    "power_feed_type": "Soldered-End",
+    "is_default": 0,
+    "is_active": 1
+   },
+   {
+    "option_type": "Feed Direction",
+    "feed_direction": "End",
+    "is_default": 0,
+    "is_active": 1
+   }
+  ],
+  "non-pnc-sw": [
+   {
+    "option_type": "CCT",
+    "cct": "2700K",
+    "is_default": 1,
+    "is_active": 1
+   },
+   {
+    "option_type": "Output Level",
+    "output_level": "200 lm/ft",
+    "is_default": 1,
+    "is_active": 1
+   },
+   {
+    "option_type": "Finish",
+    "finish": "White",
+    "is_default": 1,
+    "is_active": 1
+   }
+  ]
+ },
+ "tapes": [
+  {
+   "name": "TEST-HD-SW-24",
+   "item": "TEST-HD-SW-24",
+   "input_voltage": "24VDC",
+   "watts_per_foot": 4.4,
+   "max_run_single_feed_ft": 16.4,
+   "max_run_double_feed_ft": 32.8,
+   "is_free_cutting": 0,
+   "cut_increment_mm": 50,
+   "reel_length_m": 5,
+   "tape_width_mm": 10,
+   "min_bend_radius_mm": 0,
+   "pixel_protocol": "None"
+  },
+  {
+   "name": "TEST-HD-SW-24-WET",
+   "item": "TEST-HD-SW-24-WET",
+   "input_voltage": "24VDC",
+   "watts_per_foot": 4.4,
+   "max_run_single_feed_ft": 16.4,
+   "max_run_double_feed_ft": 32.8,
+   "is_free_cutting": 0,
+   "cut_increment_mm": 50,
+   "reel_length_m": 5,
+   "tape_width_mm": 12,
+   "min_bend_radius_mm": 25.4
+  },
+  {
+   "name": "TEST-NEON-24",
+   "item": "TEST-NEON-24",
+   "input_voltage": "24VDC",
+   "watts_per_foot": 3.0,
+   "voltage_drop_max_run_length_ft": 32.8,
+   "max_run_double_feed_ft": 65.6,
+   "is_free_cutting": 0,
+   "cut_increment_mm": 25,
+   "reel_length_m": 10,
+   "tape_width_mm": 16
+  },
+  {
+   "name": "TEST-COB-FC",
+   "item": "TEST-COB-FC",
+   "input_voltage": "24VDC",
+   "watts_per_foot": 3.05,
+   "max_run_single_feed_ft": 16.4,
+   "max_run_double_feed_ft": 32.8,
+   "is_free_cutting": 1,
+   "cut_increment_mm": 0,
+   "reel_length_m": 5,
+   "tape_width_mm": 8
+  }
+ ],
+ "offerings": {
+  "TEST-HD-SW-24": [
+   {
+    "name": "OFF-1",
+    "tape_spec": "TEST-HD-SW-24",
+    "cct": "2700K",
+    "output_level": "300 lm/ft",
+    "watts_per_ft_override": 0,
+    "cut_increment_mm_override": 0
+   },
+   {
+    "name": "OFF-2",
+    "tape_spec": "TEST-HD-SW-24",
+    "cct": "3000K",
+    "output_level": "500 lm/ft",
+    "watts_per_ft_override": 6.2,
+    "cut_increment_mm_override": 100
+   }
+  ],
+  "TEST-HD-SW-24-WET": [
+   {
+    "name": "OFF-3",
+    "tape_spec": "TEST-HD-SW-24-WET",
+    "cct": "2700K",
+    "output_level": "300 lm/ft",
+    "watts_per_ft_override": 0,
+    "cut_increment_mm_override": 0
+   }
+  ]
+ },
+ "fixture_templates": [
+  {
+   "name": "ILL-RA01-SW",
+   "template_name": "Rainier [SF] Static White",
+   "product_status": "Active",
+   "default_profile_spec": "CH-RA01-BK",
+   "default_profile_stock_len_mm": 2000,
+   "assembled_max_len_mm": 2500,
+   "minimum_side_bend_diameter_mm": 0
+  }
+ ],
+ "kit_templates": [
+  {
+   "name": "KIT-AZ01",
+   "template_name": "Azurite Extrusion Kit",
+   "product_status": "Active",
+   "default_profile_spec": "CH-AZ01-SV",
+   "profile_stock_length_mm": 2000
+  }
+ ],
+ "profiles": [
+  {
+   "name": "CH-AZ01-SV",
+   "item": "CH-AZ01-SV",
+   "family": "AZ01",
+   "width_mm": 17.4,
+   "height_mm": 7,
+   "stock_length_mm": 2000,
+   "max_assembled_length_mm": 2500,
+   "is_curve_capable": 0,
+   "cross_section_json": "{\"body\": [-342, 0, 342, 0, 342, 276, -342, 276], \"lens\": [-300, 276, 300, 276, 300, 300, -300, 300]}"
+  },
+  {
+   "name": "CH-RA01-BK",
+   "item": "CH-RA01-BK",
+   "family": "RA01",
+   "width_mm": 25,
+   "height_mm": 15,
+   "stock_length_mm": 2000,
+   "max_assembled_length_mm": 2500,
+   "is_curve_capable": 1,
+   "cross_section_json": null
+  }
+ ],
+ "snapshot": {
+  "items": [
+   {
+    "id": "drv:PS-96-24",
+    "erpItemCode": "PS-96-24",
+    "model": "96W 24V",
+    "category": "psu",
+    "rank": 1,
+    "specs": {
+     "kind": "psu",
+     "outputV": 24,
+     "ratedW": 96,
+     "outputs": [
+      {
+       "name": "OUT1",
+       "maxW": 96,
+       "class2": true
+      }
+     ],
+     "usableLoadFactor": 0.8,
+     "dimming": [
+      "0-10V"
+     ]
+    }
+   },
+   {
+    "id": "tape:TEST-HD-SW-24:4.4:50",
+    "erpItemCode": "TEST-HD-SW-24",
+    "category": "tape",
+    "specs": {
+     "kind": "tape"
+    }
+   },
+   {
+    "id": "ctl:DMXC-TW-BK-WALL",
+    "erpItemCode": "DMXC-TW-BK-WALL",
+    "model": "DMX wall controller",
+    "category": "dmx-controller",
+    "specs": {
+     "kind": "controller",
+     "protocolIn": [],
+     "protocolOut": [
+      "DMX512"
+     ],
+     "ports": [
+      {
+       "name": "DMX512",
+       "direction": "out",
+       "protocol": "DMX512"
+      }
+     ],
+     "maxUniverses": 1
+    }
+   },
+   {
+    "id": "ctl:DMXD-PWM-5C-SF",
+    "erpItemCode": "DMXD-PWM-5C-SF",
+    "model": "DMX decoder 5 ch",
+    "category": "dmx-decoder",
+    "specs": {
+     "kind": "decoder",
+     "protocolIn": [
+      "DMX512"
+     ],
+     "protocolOut": [
+      "PWM"
+     ],
+     "channels": 5,
+     "dmxFootprint": 5,
+     "maxWPerChannel": 120,
+     "maxWTotal": 1200
+    }
+   },
+   {
+    "id": "ctl:PIX-4",
+    "erpItemCode": "PIX-4",
+    "model": "Pixel controller 4 port",
+    "category": "pixel-controller",
+    "specs": {
+     "kind": "controller",
+     "protocolIn": [
+      "sACN",
+      "Art-Net"
+     ],
+     "protocolOut": [
+      "SPI"
+     ],
+     "ports": [
+      {
+       "name": "OUT1",
+       "direction": "out",
+       "protocol": "SPI",
+       "maxDevices": 1020
+      },
+      {
+       "name": "OUT2",
+       "direction": "out",
+       "protocol": "SPI",
+       "maxDevices": 1020
+      }
+     ],
+     "maxPixels": 4080,
+     "maxDataLengthFt": 15,
+     "maxUniverses": 24
+    }
+   }
+  ],
+  "wires": [
+   {
+    "id": "wire:W-18-2",
+    "erpItemCode": "W-18-2",
+    "name": "18/2 CL3",
+    "category": "lv-power",
+    "conductors": [
+     {
+      "count": 2,
+      "awg": "18"
+     }
+    ],
+    "verify": true
+   }
+  ]
+ },
+ "styles": [
+  {
+   "id": "preset:PRE-0001",
+   "label": "HD 27K Dry",
+   "family": "LED Tape",
+   "template": "led-hd-sw",
+   "selections": {
+    "environment_rating": "Dry",
+    "cct": "2700K",
+    "output_level": "300 lm/ft"
+   },
+   "shared": true
+  }
+ ]
+}

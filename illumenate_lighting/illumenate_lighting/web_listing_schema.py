@@ -118,6 +118,14 @@ _DIMENSIONS_IMAGE = {
 	"The website uses the Webflow Product's own Dimensions Image.",
 }
 
+# Optional title over the first dimensions drawing (#dimension-title; owner, 2026-11-19).
+_DIMENSIONS_TITLE = {
+	"fieldname": "dimensions_title",
+	"fieldtype": "Data",
+	"label": "Dimensions Title",
+	"description": "Optional. The title over the Dimensions Image on the spec sheet.",
+}
+
 _LENGTHS = [
 	# Float (owner, 2026-11-12): e.g. 304.8 for a 12" minimum.
 	{"fieldname": "min_length_mm", "fieldtype": "Float", "label": "Min Length (mm)"},
@@ -297,7 +305,8 @@ PLACED_FIELDS = {
 	),
 	"ilL-Tape-Neon-Template": (
 		(OTHER_DOCUMENTS_FIELD, "spec_submittal_template"),
-		(WEIGHT_FIELD, "available_mountings"),
+		# The available_* fields are gone (owner, 2026-11-19); the weight opens Spec Sheet Details.
+		(WEIGHT_FIELD, "spec_sheet_details_section"),
 	),
 	"ilL-Controller-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
 	"ilL-Driver-Template": ((OTHER_DOCUMENTS_FIELD, "spec_sheet"),),
@@ -380,9 +389,9 @@ _OUTPUT_OPTIONS = [
 		"options": "ilL-Child-Output-Option",
 		"read_only": 1,
 		"description": (
-			"Rebuilt on save: for each output and lens, the Watts per Foot and Max Run Length of "
-			"the tape that makes it (the same tape as Delivered Lumens). Lenses with the same "
-			"numbers share a group."
+			"Rebuilt on save: for each output, the Watts per Foot, Max Run Length and Max Footage "
+			"per 100W of the tape that makes it. On fixtures, per lens (the same tape as Delivered "
+			"Lumens), and lenses with the same numbers share a group."
 		),
 	},
 ]
@@ -407,6 +416,16 @@ _TAPE_WEBFLOW_CATEGORY = {
 	"description": "The category this template's Webflow Product is listed under.",
 }
 
+# The Dimensions specification on Tape/Neon templates, typed as it shows on the spec sheet. Moved
+# from Spec Sheet Details to Product Data, under the Webflow Category (owner, 2026-11-19; the old
+# CSV export no longer needs it). Same fieldname and type, so saved values stay.
+_TAPE_SPEC_SHEET_DIMENSIONS = {
+	"fieldname": "spec_sheet_dimensions",
+	"fieldtype": "Data",
+	"label": "Dimensions (L\u00d7W\u00d7H)",
+	"description": "The Dimensions specification on the spec sheet, exactly as typed.",
+}
+
 # Photometric fields a template may hold; exports read them from the template.
 PHOTOMETRIC_FIELDS = ("photometric_image", "tm30_chart_image", "polar_chart_image", "photometric_data")
 
@@ -423,7 +442,14 @@ _FIXTURE_TAPE = {
 TEMPLATE_PARTS = {
 	# The components table on fixtures too, labelled "Components" (owner, 2026-11-13).
 	"ilL-Fixture-Template": {**_FIXTURE_TAPE, "delivered_lumens": True, "kit": "Components"},
-	"ilL-Tape-Neon-Template": {**_FIXTURE_TAPE, "category": True},
+	# Output Options and a Dimensions Title for LED Neon spec sheets (owner, 2026-11-19).
+	"ilL-Tape-Neon-Template": {
+		**_FIXTURE_TAPE,
+		"category": True,
+		"output_options": True,
+		"dimensions_title": True,
+		"spec_sheet_dimensions": True,
+	},
 	"ilL-Controller-Template": {},
 	"ilL-Driver-Template": {},
 	"ilL-Extrusion-Kit-Template": {
@@ -455,10 +481,12 @@ def _tab_fields(doctype):
 		*(_LENGTHS if parts.get("lengths") else []),
 		*([WEIGHT_FIELD] if weight else []),
 		*([_TAPE_WEBFLOW_CATEGORY] if parts.get("category") else []),
+		*([_TAPE_SPEC_SHEET_DIMENSIONS] if parts.get("spec_sheet_dimensions") else []),
 	]
 	right = [
 		_HERO_IMAGE,
 		_HERO_IMAGE_ALT,
+		*([_DIMENSIONS_TITLE] if parts.get("dimensions_title") else []),
 		_DIMENSIONS_IMAGE,
 		_SPEC_SHEET_PUBLIC_URL,
 		*(_SPEC_SHEET_DATA if parts.get("spec") else []),
@@ -478,7 +506,7 @@ def _tab_fields(doctype):
 		_configurator_table(CONFIGURATOR_TABLE[doctype]),
 		# Owner, 2026-11-13: feed lengths belong with the configurator.
 		*(_FEED_LENGTHS if parts.get("feed") else []),
-		*(_OUTPUT_OPTIONS if parts.get("delivered_lumens") else []),
+		*(_OUTPUT_OPTIONS if parts.get("delivered_lumens") or parts.get("output_options") else []),
 		*(_DELIVERED_LUMENS if parts.get("delivered_lumens") else []),
 		*(
 			_kit_components(parts["kit"] if isinstance(parts["kit"], str) else "Kit Components")

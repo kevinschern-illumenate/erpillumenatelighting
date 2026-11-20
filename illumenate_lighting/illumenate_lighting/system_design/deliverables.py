@@ -37,6 +37,8 @@ KINDS = {
 	"Riser SVG": ".svg",
 	"Presentation PDF": ".pdf",
 	"Presentation SVG": ".svg",
+	# The AutoCAD plan plotted by the dealer, carried in by the drawing import (draw-to-quote 4.6).
+	"Plan PDF": ".pdf",
 }
 VARIANT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,39}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")

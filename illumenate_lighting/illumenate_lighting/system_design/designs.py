@@ -122,7 +122,21 @@ def open_design(schedule, design=None):
 		"user": frappe.session.user,
 		"title_block": title_block(doc),
 		"deliverables": deliverables.list_deliverables(record) if record else [],
+		# The drawing the schedule was imported from (draw-to-quote plan 2.3): rooms, cabinets and
+		# measured home runs a new design starts from.
+		"cad_site": cad_site(doc.name),
 	}
+
+
+def cad_site(schedule_name):
+	"""The current drawing import's ``cad-site/1``, or ``None`` (never fails the designer open)."""
+	try:
+		from illumenate_lighting.illumenate_lighting.portal.drawing_import import latest_site
+
+		return latest_site(schedule_name)
+	except Exception:
+		frappe.log_error(title="System Designer: CAD site")
+		return None
 
 
 def title_block(schedule_doc):
