@@ -13,11 +13,11 @@
 {% if not c.order.ship_date and not c.order.delivery_promise %}<p>We'll email you a ship date once your order is scheduled in production.</p>{% endif %}
 {% if not c.po_no %}<p><strong>Do you have a PO number for this order?</strong> Reply with it and we'll add it to your order and invoice.</p>{% endif %}
 {% if c.order.payment_due.amount %}<p><strong>{{ c.order.payment_due.label }} due:</strong> {{ c.order.payment_due.amount }}{% if c.order.payment_due.due_date %} by {{ c.order.payment_due.due_date }}{% endif %}. Production is scheduled once it's received.</p>{% endif %}
-{{ c.blocks.order_schedule }}
+{% if c.blocks.order_schedule %}<p><strong>Payment schedule</strong></p>{{ c.blocks.order_schedule }}{% endif %}
 {% if c.order.shipping_address %}<p><strong>Ships to:</strong></p>{{ c.blocks.shipping_address }}{% endif %}
 {% if c.order.receiving_instructions %}<p><strong>Receiving instructions on file:</strong><br>{{ c.order.receiving_instructions }}</p>{% endif %}
 {% if c.order.shipping_instructions %}<p><strong>Shipping instructions on file:</strong><br>{{ c.order.shipping_instructions }}</p>{% endif %}
-{{ c.blocks.lines }}
+{% if c.blocks.lines %}<p><strong>Items</strong></p>{{ c.blocks.lines }}{% endif %}
 <p>Please check the items, quantities and ship-to address{% if c.pdf.so %} on the <a href="{{ c.pdf.so }}">order acknowledgement (PDF)</a>{% endif %} and reply within one business day if anything is wrong. Made-to-order fixtures go into production from these details.</p>
 {% if c.portal_url %}<p><a href="{{ c.portal_url }}">Track this order in the dealer portal</a></p>{% endif %}
 {{ c.blocks.signature }}

@@ -93,6 +93,16 @@ Blocks, top to bottom (each is a macro in `ill_print.html`):
    checked line the table closes, a new page starts and the table
    reopens with its column headings. If the room continues, its header repeats as
    "KITCHEN (continued)".
+
+   **Repeated parts.** A configured fixture breaks into parts, so the same part can sit on a
+   Purchase Order or Material Request once per fixture. Those prints show one line per part,
+   with the quantities and amounts added up, when the rows match on item, unit, price,
+   required-by date, supplier part no. and description, warehouses, BOM, room, fixture type
+   and notes (`ill_print_sections(..., merge_same=True)`). The line lists every sales order
+   it covers. The rows themselves stay separate, so each one keeps its sales order and
+   material request link and their ordered / received quantities. A row with a Page Break
+   is never merged. The PO emails (`email_templates/formatting.py` `merge_same_lines`)
+   combine lines the same way.
 5. **Totals** on the right (subtotal, discount, each shipping / tax / fee row, total, then
    paid / balance due). The left side carries context: dealer savings, payment schedule,
    payments received, order progress.

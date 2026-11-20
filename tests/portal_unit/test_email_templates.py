@@ -105,6 +105,44 @@ class Formatting(unittest.TestCase):
 		no_prices, _ = formatting.summarize_lines([{"item_name": "A", "amount": 5}], with_amounts=False)
 		self.assertEqual(no_prices[0]["amount"], "")
 
+	def test_merge_same_lines_adds_up_repeated_parts(self):
+		def part(**values):
+			row = {
+				"item_code": "EC-CA01",
+				"item_name": "End cap",
+				"uom": "Ea",
+				"qty": 1,
+				"rate": 0.18,
+				"amount": 0.18,
+				"schedule_date": "2026-12-01",
+			}
+			row.update(values)
+			return row
+
+		rows = [
+			part(),
+			part(item_code="CH-CA01", rate=3.8, amount=3.8),
+			part(qty=2, amount=0.36),
+			part(rate=0.25, amount=0.25),
+			part(schedule_date="2026-12-15"),
+			part(ill_section_label="Bath"),
+			{"ill_section_label": "Kitchen", "qty": 0},
+			part(),
+		]
+		merged = formatting.merge_same_lines(rows)
+		self.assertEqual(len(merged), 6)
+		self.assertEqual((merged[0]["item_code"], merged[0]["qty"]), ("EC-CA01", 4))
+		self.assertAlmostEqual(merged[0]["amount"], 0.72)
+		# A different price, required-by date or room keeps its own line; headers are left alone.
+		self.assertEqual(
+			[(r.get("item_code"), r["qty"]) for r in merged[1:]],
+			[("CH-CA01", 1), ("EC-CA01", 1), ("EC-CA01", 1), ("EC-CA01", 1), (None, 0)],
+		)
+		self.assertEqual(rows[0]["qty"], 1)  # the document's own rows are not changed
+		lines, more = formatting.summarize_lines(rows, merge=True)
+		self.assertEqual((lines[0]["qty"], lines[0]["amount"], more), ("4", "$0.72", 0))
+		self.assertEqual(len(formatting.summarize_lines(rows)[0]), 8)
+
 	def test_text_to_html_escapes(self):
 		self.assertEqual(formatting.text_to_html("Dock <3>\nCall"), "Dock &lt;3&gt;<br>Call")
 		self.assertEqual(formatting.text_to_html(None), "")
@@ -148,6 +186,8 @@ class Library(unittest.TestCase):
 				self.assertTrue(template.name.startswith("ilL - "))
 				self.assertLessEqual(len(template.name), 140)
 				self.assertTrue(template.subject.strip())
+				# Email Template.subject is a Data field: 140 characters, Jinja included.
+				self.assertLessEqual(len(template.subject), 140)
 				self.assertIn("ill_email_context(doctype, name)", template.body())
 				self.assertIn("c.blocks.signature", template.body())
 
@@ -228,6 +268,34 @@ class Rendering(unittest.TestCase):
 		leak = LEAKS.search(visible_text(html)) or re.search(r"\{\{|\{%", html)
 		self.assertIsNone(leak, f"{label}: {leak and html[max(leak.start() - 80, 0) : leak.end() + 80]}")
 
+	def assert_editor_safe(self, html, label):
+		"""The rules in blocks.py: the Desk composer's rich-text editor (Quill) runs <th> cells
+		together, splits a cell at every line break and joins back-to-back tables."""
+		flat = re.sub(r"\s+", " ", html)
+		self.assertNotRegex(flat, r"<th[\s>]", f"{label}: header cells must be <td><strong>")
+		for cell in re.findall(r"<td[^>]*>(.*?)</td>", flat):
+			self.assertNotRegex(cell, r"<(br|div|p|table)[\s/>]", f"{label}: a cell holds one line: {cell[:120]}")
+		self.assertNotRegex(
+			flat, r"</table>\s*<table", f"{label}: a table straight after another becomes one table"
+		)
+
+	def test_every_template_survives_the_rich_text_editor(self):
+		for template in library.TEMPLATES:
+			doctype = template.doctype or "Sales Order"
+			for variant in self.VARIANTS:
+				with self.subTest(template=template.name, variant=variant):
+					c = samples.rich(doctype, **variant)
+					html = render(template.body(), lambda *_a, c=c: c, **samples.doc_dict(doctype, c["name"]))
+					self.assert_editor_safe(html, template.name)
+			with self.subTest(template=template.name, variant="missing document"):
+				html = render(
+					template.body(),
+					lambda d, n: samples.empty(d or "", n or ""),
+					**samples.doc_dict(doctype, "X"),
+				)
+				self.assert_editor_safe(html, template.name)
+				self.assertNotRegex(re.sub(r"\s+", "", html), r"<table[^>]*></table>", template.name)
+
 	def test_every_template_renders_with_full_and_empty_context(self):
 		for template in library.TEMPLATES:
 			doctype = template.doctype or "Sales Order"
@@ -248,7 +316,9 @@ class Rendering(unittest.TestCase):
 				self.assert_clean(html, template.name)
 				if "c.greeting_name" in template.body():
 					self.assertIn("there", html)
-				self.assertIn("sales@illumenate.lighting", html)
+				# With no document, supplier email signs off with the purchasing mailbox.
+				side = "purchasing" if doctype in samples.CONTEXT.PURCHASING_DOCTYPES else "sales"
+				self.assertIn(f"{side}@illumenate.lighting", html)
 
 	def test_subjects_render_from_document_fields(self):
 		for template in library.TEMPLATES:
@@ -408,6 +478,30 @@ class FakeDoc(Record):
 class ContextBuilders(unittest.TestCase):
 	def load(self):
 		return load_service(ROOT + ".email_templates.context")
+
+	def test_purchase_order_lines_add_up_repeated_parts_and_other_documents_do_not(self):
+		with self.load() as (module, _frappe):
+			rows = [
+				Record(item_code="EC-CA01", item_name="End cap", qty=1, uom="Ea", rate=0.18, amount=0.18),
+				Record(item_code="EC-CA01", item_name="End cap", qty=1, uom="Ea", rate=0.18, amount=0.18),
+				Record(item_code="EC-CA01", item_name="End cap", qty=1, uom="Ea", rate=0.18, amount=0.18),
+			]
+			counts = {}
+			with (
+				patch.object(module, "point_of_contact", return_value=module.skeleton()["poc"]),
+				patch.object(module, "_portal"),
+				patch.object(module, "_job"),
+				patch.object(module, "_greeting", return_value="there"),
+			):
+				for doctype in ("Purchase Order", "Sales Order"):
+					c = module.skeleton()
+					doc = FakeDoc(doctype, "DOC-1", fields=("items",), items=rows, currency="USD")
+					module._common(c, doc, samples.settings())
+					counts[doctype] = [line["qty"] for line in c["lines"]]
+			self.assertEqual(counts["Purchase Order"], ["3"])
+			self.assertEqual(counts["Sales Order"], ["1", "1", "1"])
+			blocks_html = blocks.supplier_lines_table(c["lines"])
+			self.assertTrue(blocks_html)
 
 	def test_unreadable_or_missing_document_gives_empty_context(self):
 		with self.load() as (module, frappe):

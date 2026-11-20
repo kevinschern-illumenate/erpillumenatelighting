@@ -156,12 +156,60 @@ def overdue_stage(days_overdue):
 	return "final"
 
 
-def summarize_lines(rows, limit=15, currency="USD", with_amounts=True):
+# Purchase order rows that match on all of these print as one line with the quantities
+# added up (a configured fixture breaks into parts, so one part repeats once per fixture).
+MERGE_KEY_FIELDS = (
+	"item_code",
+	"uom",
+	"rate",
+	"schedule_date",
+	"supplier_part_no",
+	"ill_supplier_description",
+	"ill_section_label",
+	"ill_fixture_type",
+)
+MERGE_SUM_FIELDS = ("qty", "stock_qty", "amount")
+_LINE_FIELDS = (*MERGE_KEY_FIELDS, *MERGE_SUM_FIELDS, "item_name", "stock_uom")
+
+
+def _merge_key_value(value):
+	if isinstance(value, (int, float)) and not isinstance(value, bool):
+		return round(float(value), 6)
+	return clean(value)
+
+
+def merge_same_lines(rows):
+	"""Rows that match on MERGE_KEY_FIELDS as one row each, quantities and amounts added up.
+
+	Lines keep the position of their first row. Rows without an item code (section
+	headers) are never merged. Returns plain dicts of the fields ``summarize_lines`` reads.
+	"""
+	merged, groups = [], {}
+	for row in rows or []:
+		values = {field: row.get(field) for field in _LINE_FIELDS}
+		if not clean(values["item_code"]):
+			merged.append(values)
+			continue
+		key = tuple(_merge_key_value(values[field]) for field in MERGE_KEY_FIELDS)
+		target = groups.get(key)
+		if target is None:
+			groups[key] = values
+			merged.append(values)
+			continue
+		for field in MERGE_SUM_FIELDS:
+			target[field] = round(to_number(target[field]) + to_number(values[field]), 9)
+	return merged
+
+
+def summarize_lines(rows, limit=15, currency="USD", with_amounts=True, merge=False):
 	"""Email-sized line summaries from transaction item rows.
 
 	The label is how customers know their lines: fixture type and section/room first,
-	the item name when the row was not configured. Returns (lines, how many more).
+	the item name when the row was not configured. ``merge`` combines repeated lines
+	(``merge_same_lines``). Returns (lines, how many more).
 	"""
+	if merge:
+		rows = merge_same_lines(rows)
 	lines = []
 	for row in rows or []:
 		fixture_type = clean(row.get("ill_fixture_type"))

@@ -328,7 +328,10 @@
   /* ---- Overview: decisions, arriving next 14 days, spend by supplier, open PO $ by month of ETA ---- */
   PU.overview = X => {
     const dec = (X.decisions || []).filter(rowOK);
-    const decs = dec.length ? `<div class="dec-grid">${dec.map(d => `<button type="button" class="dec pu-dec ${d.tone}" data-putab="${esc(d.tab)}" data-pulane="${esc(d.lane || '')}"><span class="n">${d.count}</span><span class="l">${esc(d.label)}</span></button>`).join('')}</div>` : '<div class="empty">Nothing late, stuck or expiring. 🎉</div>';
+    const decs = dec.length ? `<div class="dec-grid">${dec.map(d => d.href
+      // A decision with an href opens a Desk list (e.g. unlinked purchasing email) instead of a board tab.
+      ? `<a class="dec pu-dec ${d.tone}" href="${esc(d.href)}" target="_blank" rel="noopener"><span class="n">${d.count}</span><span class="l">${esc(d.label)}</span></a>`
+      : `<button type="button" class="dec pu-dec ${d.tone}" data-putab="${esc(d.tab)}" data-pulane="${esc(d.lane || '')}"><span class="n">${d.count}</span><span class="l">${esc(d.label)}</span></button>`).join('')}</div>` : '<div class="empty">Nothing late, stuck or expiring. 🎉</div>';
     const in14 = addDays(X.today, 14);
     const arr = [].concat(
       (X.pos || []).filter(p => p.docstatus === 1 && p.eta && p.eta <= in14 && !['done', 'to_bill'].includes(p.lane)).map(p => ({ k: 'PO', dt: 'purchase-order', name: p.name, who: p.supplier, eta: p.eta, late: p.overdue, amount: p.amount })),

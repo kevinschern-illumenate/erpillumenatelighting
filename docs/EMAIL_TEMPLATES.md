@@ -4,7 +4,7 @@ Code: `illumenate_lighting/illumenate_lighting/email_templates/`. Settings: **il
 
 ## What ships
 
-- **42 Email Templates** named `ilL - <DocType> - <purpose>` (three generic ones are `ilL - <purpose>`), each scoped to its DocType with `reference_doctype`, so the composer on a Sales Order only offers Sales Order templates plus the three generic ones. All use HTML (`use_html`), which switches the Desk composer to its HTML editor, so tables survive.
+- **43 Email Templates** named `ilL - <DocType> - <purpose>` (three generic ones are `ilL - <purpose>`), each scoped to its DocType with `reference_doctype`, so the composer on a Sales Order only offers Sales Order templates plus the three generic ones. All use HTML (`use_html`), which switches the Desk composer to its HTML editor, so tables survive. Switching **Use HTML editor** off moves the email into the rich-text editor (Quill), and what it shows is what gets sent. Quill runs `<th>` cells together into one cell, starts a new cell at every line break inside a cell, and joins two tables that touch, so every table here follows three rules (`blocks.py` docstring; `test_every_template_survives_the_rich_text_editor` checks every template): header rows are `<td><strong>`, a cell holds one line, and a table never directly follows another. Quill also drops padding and borders, so a table sent from the rich-text editor arrives unstyled: keep **Use HTML editor** on when sending these.
 - **6 Helpdesk saved replies** (`HD Saved Reply`, scope Global) that read the ticket's `ill_sales_order` / `ill_sales_invoice` / `ill_quotation` links.
 - **13 Notifications**, all **disabled**, each pointing at its Email Template (v16 Notifications render an Email Template's text directly, so the wording lives in one place).
 - **Order confirmation and shipment emails sent by the app** after submit (off until switched on in ilL-Email-Settings), so a contact who is also a dealer portal user doesn't get the same news twice.
@@ -140,24 +140,25 @@ Frappe renders with Jinja's `DebugUndefined`: a variable that isn't there prints
 | 22 | `ilL - Delivery Note - Delivery check-in` | Delivery Note | Notification: 5 days after shipping, not returns | contact_email | - |
 | 23 | `ilL - Delivery Note - Return received` | Delivery Note | Manual: pick it in the email composer on a return Delivery Note | contact_email | - |
 | 24 | `ilL - Sales Invoice - Invoice` | Sales Invoice | Notification: 1 day after the invoice date (after the QuickBooks pay link arrives); or manual | contact_email | ilL Sales Invoice |
-| 25 | `ilL - Sales Invoice - Payment reminder` | Sales Invoice | Notification: 3 days before the due date with a balance | contact_email | - |
-| 26 | `ilL - Sales Invoice - Past due` | Sales Invoice | Notifications: 1, 15 and 30 days after the due date with a balance | contact_email | ilL Sales Invoice |
-| 27 | `ilL - Sales Invoice - Paid in full receipt` | Sales Invoice | Manual: pick it in the email composer | contact_email | ilL Sales Invoice |
-| 28 | `ilL - Sales Invoice - Credit note` | Sales Invoice | Manual: pick it in the email composer on a return invoice | contact_email | ilL Sales Invoice |
-| 29 | `ilL - Payment Entry - Payment received` | Payment Entry | Notification: on submit of a customer receipt | contact_email | - |
-| 30 | `ilL - Payment Entry - Remittance advice` | Payment Entry | Manual: pick it in the email composer on a supplier payment | contact_email | - |
-| 31 | `ilL - Customer - Dealer welcome` | Customer | Manual: pick it in the email composer | purchasing contact | - |
-| 32 | `ilL - Purchase Order - Send to supplier` | Purchase Order | Manual: pick it in the email composer; sending marks the PO Sent | Supplier purchasing email, else contact_email | ilL Purchase Order |
-| 33 | `ilL - Purchase Order - Confirmation chase` | Purchase Order | Notification: 3 days after Sent On with no confirmation | contact_email | - |
-| 34 | `ilL - Purchase Order - Ship date and ETA check` | Purchase Order | Notification: 1 day after Promised Ship Date, not received; or manual | contact_email | - |
-| 35 | `ilL - Purchase Order - Change or cancellation` | Purchase Order | Manual: pick it in the email composer on the amended or cancelled PO | contact_email | ilL Purchase Order |
-| 36 | `ilL - Request for Quotation - Request` | Request for Quotation | Set as the RFQ's Email Template; ERPNext sends it per supplier | each supplier row's email | - |
-| 37 | `ilL - Request for Quotation - No response reminder` | Request for Quotation | Manual: pick it in the email composer to suppliers who have not quoted | supplier email | - |
-| 38 | `ilL - Supplier Quotation - Questions and expiry` | Supplier Quotation | Manual: pick it in the email composer; fill in the questions | contact_email | - |
-| 39 | `ilL - Purchase Receipt - Receiving discrepancy` | Purchase Receipt | Manual: pick it in the email composer; describe the issue and attach photos | contact_email | - |
-| 40 | `ilL - General follow-up` | (any) | Manual: pick it in the email composer on any document | anyone | - |
-| 41 | `ilL - We received your message` | (any) | Manual: pick it in the email composer on any document | anyone | - |
-| 42 | `ilL - Holiday hours` | (any) | Manual: pick it in the email composer; fill in the dates | anyone | - |
+| 25 | `ilL - Sales Invoice - Order confirmation and invoice` | Sales Invoice | Manual: pick it in the email composer on the invoice made from the order, to collect payment before production | contact_email | ilL Sales Invoice |
+| 26 | `ilL - Sales Invoice - Payment reminder` | Sales Invoice | Notification: 3 days before the due date with a balance | contact_email | - |
+| 27 | `ilL - Sales Invoice - Past due` | Sales Invoice | Notifications: 1, 15 and 30 days after the due date with a balance | contact_email | ilL Sales Invoice |
+| 28 | `ilL - Sales Invoice - Paid in full receipt` | Sales Invoice | Manual: pick it in the email composer | contact_email | ilL Sales Invoice |
+| 29 | `ilL - Sales Invoice - Credit note` | Sales Invoice | Manual: pick it in the email composer on a return invoice | contact_email | ilL Sales Invoice |
+| 30 | `ilL - Payment Entry - Payment received` | Payment Entry | Notification: on submit of a customer receipt | contact_email | - |
+| 31 | `ilL - Payment Entry - Remittance advice` | Payment Entry | Manual: pick it in the email composer on a supplier payment | contact_email | - |
+| 32 | `ilL - Customer - Dealer welcome` | Customer | Manual: pick it in the email composer | purchasing contact | - |
+| 33 | `ilL - Purchase Order - Send to supplier` | Purchase Order | Manual: pick it in the email composer; sending marks the PO Sent | Supplier purchasing email, else contact_email | ilL Purchase Order |
+| 34 | `ilL - Purchase Order - Confirmation chase` | Purchase Order | Notification: 3 days after Sent On with no confirmation | contact_email | - |
+| 35 | `ilL - Purchase Order - Ship date and ETA check` | Purchase Order | Notification: 1 day after Promised Ship Date, not received; or manual | contact_email | - |
+| 36 | `ilL - Purchase Order - Change or cancellation` | Purchase Order | Manual: pick it in the email composer on the amended or cancelled PO | contact_email | ilL Purchase Order |
+| 37 | `ilL - Request for Quotation - Request` | Request for Quotation | Set as the RFQ's Email Template; ERPNext sends it per supplier | each supplier row's email | - |
+| 38 | `ilL - Request for Quotation - No response reminder` | Request for Quotation | Manual: pick it in the email composer to suppliers who have not quoted | supplier email | - |
+| 39 | `ilL - Supplier Quotation - Questions and expiry` | Supplier Quotation | Manual: pick it in the email composer; fill in the questions | contact_email | - |
+| 40 | `ilL - Purchase Receipt - Receiving discrepancy` | Purchase Receipt | Manual: pick it in the email composer; describe the issue and attach photos | contact_email | - |
+| 41 | `ilL - General follow-up` | (any) | Manual: pick it in the email composer on any document | anyone | - |
+| 42 | `ilL - We received your message` | (any) | Manual: pick it in the email composer on any document | anyone | - |
+| 43 | `ilL - Holiday hours` | (any) | Manual: pick it in the email composer; fill in the dates | anyone | - |
 
 Every body is in `email_templates/bodies/<slug>.html`; each starts with a comment saying what it's for.
 
@@ -421,13 +422,28 @@ Configs, as created by the patch:
 
 Both ship off. *Also Email Dealer Portal Users* sends to portal users as well; *BCC* and *Send From Email Account* apply to both.
 
+### Purchasing mailbox (purchasing@)
+
+All supplier email goes in and out through one shared mailbox (`email_templates/purchasing_mail.py`). The mailbox is **ilL-Email-Settings → Purchasing Mailbox → Purchasing Email Account**. When that is blank, it is the Email Account whose address is the **Purchasing Contact Email** (now `purchasing@illumenate.lighting` by default). Until such an Email Account exists, none of this does anything.
+
+- **Outgoing** (*Send All Purchasing Email From This Account*, on by default). Email about a Purchase Order, RFQ, Supplier Quotation, Purchase Receipt, Purchase Invoice, Supplier, Subcontracting Order or Receipt, Inbound Shipment, or a Payment Entry that pays a supplier, leaves from the mailbox whoever sends it:
+  - `Communication` `before_insert` covers the composer, RFQ *Send Supplier Emails*, Notifications and `make()`. It changes `sender` and `email_account`, so Frappe uses the mailbox's SMTP login, signature and Reply-To.
+  - `PortalEmailQueue.before_insert` catches mail queued directly with another account's From (for example a Notification's own send). It moves the mail to the mailbox and rewrites the queued From and Reply-To headers. This runs before `rebrand_sender`.
+  - A person's name is kept ("Reigine Yray <purchasing@…>"). Automatic mail carries the mailbox's name, which `rebrand_sender` turns into "ilLumenate Lighting".
+  - The composer shows the mailbox as From on these documents when the buyer has the account in **User → User Emails** (`public/js/desk/purchasing_sender.js`, from `frappe.boot.ill_purchasing_mail`).
+- **Incoming** (*Link New Supplier Email to the Document It Mentions*, on by default). Replies to email ERPNext sent thread onto their document through In-Reply-To. A new email arriving in the mailbox that names a PO, RFQ, Supplier Quotation, Purchase Receipt, Purchase Invoice or Inbound Shipment number is linked to it. The subject is checked before the body, and a cancelled document only wins when nothing else is named. The email is also linked to the sender's **Supplier**: first by exact address (Supplier email, Purchasing Email), then by company domain across suppliers and their contacts. A domain match only counts when exactly one supplier matches, and never for free-mail domains or our own domain.
+- **Purchasing board**: *Purchasing emails not linked to a document* counts open, unlinked email received in the mailbox. Its tile opens that Communication list.
+- **Supplier Purchasing Email**: the `backfill_supplier_purchasing_email` patch fills blanks from each supplier's primary contact, or from the one address its contacts share. Saving a Supplier fills a blank from its primary contact.
+
+Setup: create the Email Account for purchasing@ (incoming and outgoing on; IMAP `INBOX` with *Append To* blank; Email Sync Option **ALL**; *Always use this account's email address as the sender* on; not the default account). Then add the account to each buyer's **User Emails**, set *Purchasing Email Account* here, and set **Buying Settings → Fixed Outgoing Email Account** to it.
+
 ### Recommendations
 
 - **Avoiding double emails with the dealer portal** (`portal/notifications.py` emails portal users on quote ready, order approved, action needed and Delivery Note submit). Chosen approach: **different recipients**. The portal keeps emailing its users (respecting their notification toggles), and the app's confirmation and shipment emails go only to contacts the portal does not cover. The Notifications above cover events the portal doesn't email (follow-ups, invoices, reminders, receipts, ship date updates, purchasing), so they don't overlap. Later, the portal's short messages could render these templates so dealers get the same detail; that's a portal change and isn't in this PR.
 - **Auto email on submit**: use Notifications with *Attach Print* (or the app sender above), not Print Settings' send-on-submit. Notifications have conditions, chosen recipients and templates; Print Settings would mail every submit.
 - **QuickBooks pay link**: the n8n workflow writes `custom_qbo_payment_link` with `frappe.db.set_value`, which doesn't fire Value Change Notifications. So the invoice Notification fires **one day after the invoice date**, giving n8n time to write the link. No live invoice has a link yet, and the Company's *Invoice Payment Instructions* (`custom_invoice_payment_instructions`) is **empty**, so today an invoice email would have no way-to-pay section. Fill the instructions before enabling any invoice Notification. Links are only shown when they are https on intuit.com, the same rule as the write-back.
 - **Collections**: the three past-due Notifications share one template whose tone steps up at 15 and 30 days. ERPNext **Dunning** (no Dunning Types exist yet) is the alternative when you want fees or interest, or one letter covering several invoices. **Process Statement Of Accounts** (none configured) can email monthly statements on a schedule; set it up for customers on terms rather than writing a template for it.
-- **Email accounts**: Info (`info@`) is the default outgoing account, so a Notification with no Sender goes from info@. Suggest Sender = **Sales** (`sales@`, which has incoming enabled so replies come back) for customer emails. Purchasing emails can use the same account until there's a purchasing@. Avoid **ilLumenate Lighting** (`hi@`): it adds an unsubscribe footer, which belongs on marketing, not transactional mail. Replies come back to the sending account; Frappe threads a reply into the document's timeline when that account receives mail (sales@ does). If Helpdesk receives the account instead, the reply becomes a ticket, and the subject link above attaches it to the quote, order or invoice.
+- **Email accounts**: Info (`info@`) is the default outgoing account, so a Notification with no Sender goes from info@. Suggest Sender = **Sales** (`sales@`, which has incoming enabled so replies come back) for customer emails. Purchasing email goes through the purchasing mailbox (above). Avoid **ilLumenate Lighting** (`hi@`): it adds an unsubscribe footer, which belongs on marketing, not transactional mail. Replies come back to the sending account; Frappe threads a reply into the document's timeline when that account receives mail (sales@ does). If Helpdesk receives the account instead, the reply becomes a ticket, and the subject link above attaches it to the quote, order or invoice.
 - **CRM**: use the two CRM Deal templates by hand from the deal's email tab. A Frappe Notification on CRM Deal (Value Change on `status`) can automate the lost check-in later if wanted. When a deal is Won, staff make the Quotation → Sales Order in ERPNext, and the Sales Order confirmation takes over.
 - **Auto Repeat** isn't needed: every email here is triggered by a document event or a date on the document, which Notifications already handle. Auto Repeat makes new documents on a schedule.
 - **Scheduler**: nothing here needs a custom daily job. The "N days after" cases are date-field Notifications; Frappe evaluates them once a day.

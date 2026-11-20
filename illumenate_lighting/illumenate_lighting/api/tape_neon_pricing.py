@@ -16,9 +16,15 @@ def stock_quantity(item, length, unit="in"):
 	return cable_stock_quantity(length, unit, stock_uom)
 
 
-def selling_amount(item, quantity):
-	"""No procurement-cost fallback or invented free component."""
+def stock_unit_rate(item):
+	"""The current Standard Selling rate for one stock unit of ``item``, or None.
+
+	Only a price whose UOM is blank or the item's stock UOM counts: a Foot, Reel or
+	Meter price is a different unit, not a rate per stock unit.
+	"""
 	stock_uom = frappe.db.get_value("Item", item, "stock_uom")
+	if not stock_uom:
+		return None
 	prices = frappe.get_all(
 		"Item Price",
 		filters={
@@ -40,9 +46,16 @@ def selling_amount(item, quantity):
 		and (not p.valid_from or getdate(p.valid_from) <= today)
 		and (not p.valid_upto or getdate(p.valid_upto) >= today)
 	]
-	if not stock_uom or not eligible or eligible[0].price_list_rate is None:
+	if not eligible or eligible[0].price_list_rate is None:
+		return None
+	return finite_number(eligible[0].price_list_rate, minimum=0, field="selling rate")
+
+
+def selling_amount(item, quantity):
+	"""No procurement-cost fallback or invented free component."""
+	rate = stock_unit_rate(item)
+	if rate is None:
 		raise ValueError(f"A current Standard Selling price in stock UOM is required for {item}")
-	rate = finite_number(eligible[0].price_list_rate, minimum=0, field="selling rate")
 	return rate * finite_number(quantity, minimum=0, field="component quantity")
 
 

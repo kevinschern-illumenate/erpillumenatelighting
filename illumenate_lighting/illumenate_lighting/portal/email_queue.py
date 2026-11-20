@@ -9,6 +9,18 @@ class PortalEmailQueue(EmailQueue):
 		parent = getattr(super(), "before_insert", None)
 		if parent:
 			parent()
+		# Supplier email leaves from the purchasing mailbox, whatever account queued it.
+		try:
+			from illumenate_lighting.illumenate_lighting.email_templates.purchasing_mail import (
+				use_purchasing_account,
+			)
+
+			use_purchasing_account(self)
+		except Exception:
+			# Never block an email over which account sends it.
+			frappe.log_error(
+				title="Could not send from the purchasing mailbox", message=frappe.get_traceback()
+			)
 		# Automatic email goes out as "ilLumenate Lighting"; a person's email keeps their name.
 		from illumenate_lighting.illumenate_lighting.email_templates.brand import rebrand_sender
 
