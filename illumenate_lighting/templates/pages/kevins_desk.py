@@ -54,6 +54,10 @@ def get_context(context):
 				"first_name": (frappe.db.get_value("User", user, "first_name") or "").strip(),
 				"schedule": schedule.payload(),
 				"command_center": "/command-center",
+				"api": {
+					"pipeline": "/api/method/illumenate_lighting.kevins_desk.api.pipeline",
+					"signals": "/api/method/illumenate_lighting.kevins_desk.api.signals",
+				},
 			},
 			"csrf_token": frappe.sessions.get_csrf_token(),
 		}

@@ -14,14 +14,21 @@
 		<header class="cc-top">
 			<div class="cc-brand"><span class="cc-mark"></span><div><div class="cc-title">Kevin's Desk</div><div class="cc-live"><span class="cc-pulse"></span><span id="kdclock">Pacific time</span></div></div></div>
 			<div class="cc-actions">
+				<span class="kd-stamp" id="kdstamp" aria-live="polite"></span>
+				<button type="button" class="cc-btn ghost" id="kdrefresh">Refresh</button>
 				<a class="cc-btn ghost" id="kdcc" href="/command-center" target="_blank" rel="noopener">Command Center ↗</a>
 			</div>
 		</header>
 		<main class="cc-main" id="kdmain">
 			<section class="kd-now card" id="kdnow" aria-live="polite"></section>
+			<section class="kd-signals" id="kdsignals" aria-label="Command Center decisions this week"></section>
 			<div class="grid kd-grid">
-				<section class="card s8" id="kdtoday"></section>
-				<section class="card s4" id="kdweek"></section>
+				<div class="s8 kd-col" id="kdpipe" aria-label="Pipeline by priority"></div>
+				<div class="s4 kd-col">
+					<section class="card flush" id="kdtodos"></section>
+					<section class="card" id="kdtoday"></section>
+					<section class="card" id="kdweek"></section>
+				</div>
 			</div>
 		</main>
 		<footer class="cc-foot"><span id="kdwho"></span><span>Private page · drafts only, nothing is sent or submitted from here</span></footer>
