@@ -1,0 +1,38 @@
+{# Sales Invoice: order confirmation and invoice in one, asking for payment now so production can start. Send it from the invoice made from the order; the order's details (ship-to, dates, acknowledgement PDF) come from the first linked Sales Order. #}
+{% set c = ill_email_context(doctype, name) %}
+{% set so = ill_email_context("Sales Order", c.sales_orders[0].name if c.sales_orders else "") %}
+{% set job = c.job_name or so.job_name %}
+{% set po = c.po_no or so.po_no %}
+{#- What is due now: the first open row of a split schedule (a deposit), else the whole balance. -#}
+{% set due = namespace(label="", amount=c.invoice.outstanding, date=c.invoice.due_date) %}
+{% for row in c.invoice.schedule %}{% if not due.label and row.outstanding_raw > 0 %}{% set due.label = row.label %}{% set due.amount = row.outstanding %}{% set due.date = row.due_date %}{% endif %}{% endfor %}
+<p>Hi {{ c.greeting_name }},</p>
+<p>Thank you for your order. Order <strong>{% for o in c.sales_orders %}{{ o.name }}{% if not loop.last %}, {% endif %}{% else %}{{ c.name }}{% endfor %}</strong>{% if job %} for {{ job }}{% endif %}{% if po %} (your PO {{ po }}){% endif %} is confirmed, and invoice <strong>{{ c.name }}</strong> is attached.</p>
+{% if c.invoice.is_paid %}
+<p><strong>We've received your payment in full. Thank you!</strong> Your order is in the production queue.</p>
+{% elif c.invoice.has_balance %}
+<p><strong>To start production, please pay {{ due.amount }}{% if due.label %} ({{ due.label | lower }}){% endif %}{% if due.date %} by {{ due.date }}{% endif %}.</strong> Made-to-order fixtures go into production as soon as payment is received.</p>
+{% endif %}
+<table style="border-collapse:collapse;margin:8px 0 16px;font-size:14px">
+{% if so.order.date %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Order date</td><td style="padding:4px 0">{{ so.order.date }}</td></tr>{% endif %}
+{% if po %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Your PO</td><td style="padding:4px 0">{{ po }}</td></tr>{% endif %}
+<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Invoice</td><td style="padding:4px 0">{{ c.name }}{% if c.invoice.date %} &middot; {{ c.invoice.date }}{% endif %}</td></tr>
+<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Invoice total</td><td style="padding:4px 0">{{ c.invoice.total }}</td></tr>
+{% if c.invoice.paid_to_date %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Paid so far</td><td style="padding:4px 0">{{ c.invoice.paid_to_date }}</td></tr>{% endif %}
+{% if c.invoice.has_balance %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">Due now</td><td style="padding:4px 0"><strong>{{ due.amount }}</strong>{% if due.date %} by {{ due.date }}{% endif %}</td></tr>{% endif %}
+{% if so.order.delivery_promise %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">{{ so.order.delivery_promise_label }}</td><td style="padding:4px 0">{{ so.order.delivery_promise }}</td></tr>{% endif %}
+{% if so.order.ship_date %}<tr><td style="padding:4px 16px 4px 0;color:#6b7280">{{ so.order.ship_date_label }}</td><td style="padding:4px 0">{{ so.order.ship_date }}{% if c.invoice.has_balance %} (once payment is received){% endif %}</td></tr>{% endif %}
+</table>
+{% if c.invoice.has_balance %}
+{{ c.blocks.pay_button }}
+{% if c.pay_instructions %}<p><strong>{% if c.pay_link %}Other ways to pay{% else %}How to pay{% endif %}</strong><br>{{ c.pay_instructions }}</p>{% elif not c.pay_link %}<p><strong>How to pay:</strong> reply to this email and we'll send you payment details right away.</p>{% endif %}
+<p>Please reference invoice {{ c.name }}{% if po %} or your PO {{ po }}{% endif %} with your payment.</p>
+{% endif %}
+{% if c.blocks.invoice_schedule %}<p><strong>Payment schedule</strong></p>{{ c.blocks.invoice_schedule }}{% endif %}
+{% if c.blocks.lines %}<p><strong>Items</strong></p>{{ c.blocks.lines }}{% endif %}
+{% if so.order.shipping_address %}<p><strong>Ships to:</strong></p>{{ so.blocks.shipping_address }}{% endif %}
+{% if not so.order.ship_date and not so.order.delivery_promise %}<p>We'll email you a ship date once your order is scheduled in production.</p>{% endif %}
+<p>Please check the items, quantities and ship-to address and reply within one business day if anything is wrong. Made-to-order fixtures are built from these details.</p>
+<p>{% if c.pdf.si %}<a href="{{ c.pdf.si }}">Invoice {{ c.name }} (PDF)</a>{% endif %}{% for o in c.sales_orders %}{% if o.pdf %}{% if c.pdf.si or not loop.first %} · {% endif %}<a href="{{ o.pdf }}">Order acknowledgement {{ o.name }} (PDF)</a>{% endif %}{% endfor %}</p>
+{% if so.portal_url %}<p><a href="{{ so.portal_url }}">Track this order in the dealer portal</a></p>{% endif %}
+{{ c.blocks.signature }}

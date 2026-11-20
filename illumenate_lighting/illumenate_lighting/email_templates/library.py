@@ -296,6 +296,16 @@ TEMPLATES = [
 		"ilL Sales Invoice",
 	),
 	Template(
+		"si_order_invoice",
+		"Sales Invoice",
+		"Order confirmation and invoice",
+		"Order confirmed{% if outstanding_amount %}, payment starts production{% endif %}: invoice {{name}}"
+		"{% if po_no %} (PO {{po_no}}){% endif %}",
+		MANUAL + " on the invoice made from the order, to collect payment before production",
+		"contact_email",
+		"ilL Sales Invoice",
+	),
+	Template(
 		"si_reminder",
 		"Sales Invoice",
 		"Payment reminder",

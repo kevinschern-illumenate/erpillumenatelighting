@@ -4,7 +4,7 @@ Code: `illumenate_lighting/illumenate_lighting/email_templates/`. Settings: **il
 
 ## What ships
 
-- **42 Email Templates** named `ilL - <DocType> - <purpose>` (three generic ones are `ilL - <purpose>`), each scoped to its DocType with `reference_doctype`, so the composer on a Sales Order only offers Sales Order templates plus the three generic ones. All use HTML (`use_html`), which switches the Desk composer to its HTML editor, so tables survive.
+- **43 Email Templates** named `ilL - <DocType> - <purpose>` (three generic ones are `ilL - <purpose>`), each scoped to its DocType with `reference_doctype`, so the composer on a Sales Order only offers Sales Order templates plus the three generic ones. All use HTML (`use_html`), which switches the Desk composer to its HTML editor, so tables survive. Switching **Use HTML editor** off moves the email into the rich-text editor (Quill), and what it shows is what gets sent. Quill runs `<th>` cells together into one cell, starts a new cell at every line break inside a cell, and joins two tables that touch, so every table here follows three rules (`blocks.py` docstring; `test_every_template_survives_the_rich_text_editor` checks every template): header rows are `<td><strong>`, a cell holds one line, and a table never directly follows another. Quill also drops padding and borders, so a table sent from the rich-text editor arrives unstyled: keep **Use HTML editor** on when sending these.
 - **6 Helpdesk saved replies** (`HD Saved Reply`, scope Global) that read the ticket's `ill_sales_order` / `ill_sales_invoice` / `ill_quotation` links.
 - **13 Notifications**, all **disabled**, each pointing at its Email Template (v16 Notifications render an Email Template's text directly, so the wording lives in one place).
 - **Order confirmation and shipment emails sent by the app** after submit (off until switched on in ilL-Email-Settings), so a contact who is also a dealer portal user doesn't get the same news twice.
@@ -140,24 +140,25 @@ Frappe renders with Jinja's `DebugUndefined`: a variable that isn't there prints
 | 22 | `ilL - Delivery Note - Delivery check-in` | Delivery Note | Notification: 5 days after shipping, not returns | contact_email | - |
 | 23 | `ilL - Delivery Note - Return received` | Delivery Note | Manual: pick it in the email composer on a return Delivery Note | contact_email | - |
 | 24 | `ilL - Sales Invoice - Invoice` | Sales Invoice | Notification: 1 day after the invoice date (after the QuickBooks pay link arrives); or manual | contact_email | ilL Sales Invoice |
-| 25 | `ilL - Sales Invoice - Payment reminder` | Sales Invoice | Notification: 3 days before the due date with a balance | contact_email | - |
-| 26 | `ilL - Sales Invoice - Past due` | Sales Invoice | Notifications: 1, 15 and 30 days after the due date with a balance | contact_email | ilL Sales Invoice |
-| 27 | `ilL - Sales Invoice - Paid in full receipt` | Sales Invoice | Manual: pick it in the email composer | contact_email | ilL Sales Invoice |
-| 28 | `ilL - Sales Invoice - Credit note` | Sales Invoice | Manual: pick it in the email composer on a return invoice | contact_email | ilL Sales Invoice |
-| 29 | `ilL - Payment Entry - Payment received` | Payment Entry | Notification: on submit of a customer receipt | contact_email | - |
-| 30 | `ilL - Payment Entry - Remittance advice` | Payment Entry | Manual: pick it in the email composer on a supplier payment | contact_email | - |
-| 31 | `ilL - Customer - Dealer welcome` | Customer | Manual: pick it in the email composer | purchasing contact | - |
-| 32 | `ilL - Purchase Order - Send to supplier` | Purchase Order | Manual: pick it in the email composer; sending marks the PO Sent | Supplier purchasing email, else contact_email | ilL Purchase Order |
-| 33 | `ilL - Purchase Order - Confirmation chase` | Purchase Order | Notification: 3 days after Sent On with no confirmation | contact_email | - |
-| 34 | `ilL - Purchase Order - Ship date and ETA check` | Purchase Order | Notification: 1 day after Promised Ship Date, not received; or manual | contact_email | - |
-| 35 | `ilL - Purchase Order - Change or cancellation` | Purchase Order | Manual: pick it in the email composer on the amended or cancelled PO | contact_email | ilL Purchase Order |
-| 36 | `ilL - Request for Quotation - Request` | Request for Quotation | Set as the RFQ's Email Template; ERPNext sends it per supplier | each supplier row's email | - |
-| 37 | `ilL - Request for Quotation - No response reminder` | Request for Quotation | Manual: pick it in the email composer to suppliers who have not quoted | supplier email | - |
-| 38 | `ilL - Supplier Quotation - Questions and expiry` | Supplier Quotation | Manual: pick it in the email composer; fill in the questions | contact_email | - |
-| 39 | `ilL - Purchase Receipt - Receiving discrepancy` | Purchase Receipt | Manual: pick it in the email composer; describe the issue and attach photos | contact_email | - |
-| 40 | `ilL - General follow-up` | (any) | Manual: pick it in the email composer on any document | anyone | - |
-| 41 | `ilL - We received your message` | (any) | Manual: pick it in the email composer on any document | anyone | - |
-| 42 | `ilL - Holiday hours` | (any) | Manual: pick it in the email composer; fill in the dates | anyone | - |
+| 25 | `ilL - Sales Invoice - Order confirmation and invoice` | Sales Invoice | Manual: pick it in the email composer on the invoice made from the order, to collect payment before production | contact_email | ilL Sales Invoice |
+| 26 | `ilL - Sales Invoice - Payment reminder` | Sales Invoice | Notification: 3 days before the due date with a balance | contact_email | - |
+| 27 | `ilL - Sales Invoice - Past due` | Sales Invoice | Notifications: 1, 15 and 30 days after the due date with a balance | contact_email | ilL Sales Invoice |
+| 28 | `ilL - Sales Invoice - Paid in full receipt` | Sales Invoice | Manual: pick it in the email composer | contact_email | ilL Sales Invoice |
+| 29 | `ilL - Sales Invoice - Credit note` | Sales Invoice | Manual: pick it in the email composer on a return invoice | contact_email | ilL Sales Invoice |
+| 30 | `ilL - Payment Entry - Payment received` | Payment Entry | Notification: on submit of a customer receipt | contact_email | - |
+| 31 | `ilL - Payment Entry - Remittance advice` | Payment Entry | Manual: pick it in the email composer on a supplier payment | contact_email | - |
+| 32 | `ilL - Customer - Dealer welcome` | Customer | Manual: pick it in the email composer | purchasing contact | - |
+| 33 | `ilL - Purchase Order - Send to supplier` | Purchase Order | Manual: pick it in the email composer; sending marks the PO Sent | Supplier purchasing email, else contact_email | ilL Purchase Order |
+| 34 | `ilL - Purchase Order - Confirmation chase` | Purchase Order | Notification: 3 days after Sent On with no confirmation | contact_email | - |
+| 35 | `ilL - Purchase Order - Ship date and ETA check` | Purchase Order | Notification: 1 day after Promised Ship Date, not received; or manual | contact_email | - |
+| 36 | `ilL - Purchase Order - Change or cancellation` | Purchase Order | Manual: pick it in the email composer on the amended or cancelled PO | contact_email | ilL Purchase Order |
+| 37 | `ilL - Request for Quotation - Request` | Request for Quotation | Set as the RFQ's Email Template; ERPNext sends it per supplier | each supplier row's email | - |
+| 38 | `ilL - Request for Quotation - No response reminder` | Request for Quotation | Manual: pick it in the email composer to suppliers who have not quoted | supplier email | - |
+| 39 | `ilL - Supplier Quotation - Questions and expiry` | Supplier Quotation | Manual: pick it in the email composer; fill in the questions | contact_email | - |
+| 40 | `ilL - Purchase Receipt - Receiving discrepancy` | Purchase Receipt | Manual: pick it in the email composer; describe the issue and attach photos | contact_email | - |
+| 41 | `ilL - General follow-up` | (any) | Manual: pick it in the email composer on any document | anyone | - |
+| 42 | `ilL - We received your message` | (any) | Manual: pick it in the email composer on any document | anyone | - |
+| 43 | `ilL - Holiday hours` | (any) | Manual: pick it in the email composer; fill in the dates | anyone | - |
 
 Every body is in `email_templates/bodies/<slug>.html`; each starts with a comment saying what it's for.
 

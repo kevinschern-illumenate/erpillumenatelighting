@@ -96,7 +96,7 @@ illumenate_lighting.patches.add_production_board_fields
 illumenate_lighting.patches.add_production_hold_fields
 illumenate_lighting.patches.add_purchasing_tracking_fields
 illumenate_lighting.patches.seed_purchasing_settings
-illumenate_lighting.patches.seed_email_templates
+illumenate_lighting.patches.seed_email_templates #2026-11-20 order confirmation and invoice template
 illumenate_lighting.patches.apply_email_branding
 illumenate_lighting.patches.add_build_points_adjustment_fields
 illumenate_lighting.patches.add_tape_neon_option_value_label
@@ -109,3 +109,4 @@ illumenate_lighting.patches.backfill_line_power #2026-11-19 rerun after None fix
 illumenate_lighting.patches.seed_gallery_lists
 illumenate_lighting.patches.backfill_gallery_publication_status #2026-11-19
 illumenate_lighting.patches.backfill_supplier_purchasing_email
+illumenate_lighting.patches.email_tables_editor_safe
