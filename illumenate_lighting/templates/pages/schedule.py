@@ -515,7 +515,9 @@ def get_context(context):
 		context.import_template_rows = [list(row) for row in TEMPLATE_ROWS]
 	# Draw-to-quote (CAD toolkit plan 2.7): staff and pilot dealers who can edit import a drawing
 	# package. A locked or quoted schedule imports into a new version, so the button stays.
-	from illumenate_lighting.illumenate_lighting.system_design.cad_access import enabled_for as cad_enabled_for
+	from illumenate_lighting.illumenate_lighting.system_design.cad_access import (
+		enabled_for as cad_enabled_for,
+	)
 
 	context.drawing_import_enabled = bool(can_edit and cad_enabled_for())
 	context.design_dimming_protocols = dimming_choices() if can_edit else []

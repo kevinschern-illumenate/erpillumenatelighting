@@ -17,6 +17,8 @@
   "drawing_hash",
   "toolkit_version",
   "catalog_snapshot",
+  "plan_pdf",
+  "plan_pdf_sha256",
   "section_counts",
   "runs_added",
   "runs_updated",
@@ -105,6 +107,18 @@
    "fieldname": "catalog_snapshot",
    "fieldtype": "Data",
    "label": "Catalog Snapshot",
+   "read_only": 1
+  },
+  {
+   "fieldname": "plan_pdf",
+   "fieldtype": "Attach",
+   "label": "Plotted Plan (PDF)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "plan_pdf_sha256",
+   "fieldtype": "Data",
+   "label": "Plan PDF SHA-256",
    "read_only": 1
   },
   {

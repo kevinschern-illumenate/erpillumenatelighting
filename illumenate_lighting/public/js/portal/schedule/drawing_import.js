@@ -18,6 +18,7 @@ var DrawingImport = (function () {
 		remove: function () { return scheduleText("Remove"); },
 	};
 	var state = { filename: null, content: null, preview: null };
+	var plan = null;
 
 	function format(text) {
 		var values = Array.prototype.slice.call(arguments, 1);
@@ -190,6 +191,23 @@ var DrawingImport = (function () {
 		reader.readAsDataURL(file);
 	}
 
+	// The optional plotted plan travels with the import (draw-to-quote 4.6).
+	function choosePlan(file) {
+		plan = null;
+		fail('');
+		if (!file) return;
+		if (!/\.pdf$/i.test(file.name || '') || file.size > 20 * 1024 * 1024) {
+			fail(scheduleText("Upload the plan as a PDF under 20 MB."));
+			return;
+		}
+		var reader = new FileReader();
+		reader.onload = function () {
+			var result = String(reader.result || '');
+			plan = result.slice(result.indexOf(',') + 1);
+		};
+		reader.readAsDataURL(file);
+	}
+
 	function saveReceipt(receipt) {
 		var name = 'illumenate_receipt_' + String(receipt.import || 'drawing') + '.json';
 		DrawingImport.save(new Blob([JSON.stringify(receipt, null, 1)], { type: 'application/json' }), name);
@@ -209,6 +227,7 @@ var DrawingImport = (function () {
 				choices: JSON.stringify(choices()),
 				confirm_removals: $('#importDrawingRemove').prop('checked') ? 1 : 0,
 				new_version: $('#importDrawingVersion').prop('checked') ? 1 : 0,
+				plan_pdf: plan || '',
 			},
 			callback: function (r) {
 				var message = r.message || {};
@@ -242,18 +261,21 @@ var DrawingImport = (function () {
 
 	if (scheduleContext.drawing_import) {
 		$(document).on('change', '#importDrawingFile', function () { choose(this.files && this.files[0]); });
+		$(document).on('change', '#importDrawingPlan', function () { choosePlan(this.files && this.files[0]); });
 		$(document).on('click', '#importDrawingRefresh', function () { if (state.content) preview(); });
 		$(document).on('change', '#importDrawingRemove, #importDrawingVersion', updateConfirm);
 		$(document).on('click', '#importDrawingConfirm', commit);
 		$(document).on('click', '#importDrawingReceipt', receipt);
 		$(document).on('show.bs.modal', '#importDrawingModal', function () {
-			$('#importDrawingFile').val('');
+			$('#importDrawingFile, #importDrawingPlan').val('');
+			plan = null;
 			reset();
 		});
 	}
 
 	return {
 		choose: choose,
+		choosePlan: choosePlan,
 		choices: choices,
 		done: function (message) {
 			var target = message.schedule && message.schedule !== schedule_name ? '/portal/schedules/' + encodeURIComponent(message.schedule) : null;

@@ -2041,6 +2041,11 @@ Also handles new schedule creation when is_new is True
 					<input type="file" class="form-control-file" id="importDrawingFile" accept=".json,.ilq,application/json">
 					<small class="form-text text-muted"><a href="/api/method/illumenate_lighting.illumenate_lighting.system_design.api.download_cad_catalog" id="importDrawingCatalog">{{ _("Download the CAD catalog") }}</a> · <a href="#" id="importDrawingReceipt">{{ _("Download the last receipt") }}</a></small>
 				</div>
+				<div class="form-group">
+					<label for="importDrawingPlan">{{ _("Plotted plan (PDF, optional)") }}</label>
+					<input type="file" class="form-control-file" id="importDrawingPlan" accept=".pdf,application/pdf">
+					<small class="form-text text-muted">{{ _("Kept with the import and added to the System Design's documentation.") }}</small>
+				</div>
 				<div id="importDrawingWarnings" class="alert alert-warning" role="status" hidden></div>
 				<p id="importDrawingCounts" role="status" class="mb-2"></p>
 				<div class="table-responsive ill-import-preview" id="importDrawingPreview" hidden>
@@ -2275,6 +2280,7 @@ Also handles new schedule creation when is_new is True
 		"Could not import the drawing.": _("Could not import the drawing."),
 		"Choose {0}": _("Choose {0}"),
 		"No drawing has been imported into this schedule yet.": _("No drawing has been imported into this schedule yet."),
+		"Upload the plan as a PDF under 20 MB.": _("Upload the plan as a PDF under 20 MB."),
 	},
 } | tojson }}</script>
 {% for part in ["context", "lines", "uploads", "actions", "packets", "exports", "drawing_import", "reorder", "compare", "versions", "copy", "bulk", "part_number", "line_import", "presets", "recent", "stale", "conflict", "undo", "activity", "keyboard"] %}

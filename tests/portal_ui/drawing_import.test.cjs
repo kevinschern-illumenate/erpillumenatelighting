@@ -30,7 +30,7 @@ function page(context = CONTEXT) {
   const json = JSON.stringify(context).replace(/</g, '\\u003c');
   const dom = new JSDOM(
     `<body><div id="importDrawingModal">
-      <input type="file" id="importDrawingFile"><a href="#" id="importDrawingReceipt"></a>
+      <input type="file" id="importDrawingFile"><input type="file" id="importDrawingPlan"><a href="#" id="importDrawingReceipt"></a>
       <div id="importDrawingWarnings" hidden></div><p id="importDrawingCounts"></p>
       <div id="importDrawingPreview" hidden><table><tbody id="importDrawingRows"></tbody></table></div>
       <div id="importDrawingRemoveWrap" hidden><input type="checkbox" id="importDrawingRemove"><label id="importDrawingRemoveLabel"></label></div>
@@ -139,4 +139,16 @@ test('the last receipt can be downloaded again', () => {
   assert.equal(call.method, 'illumenate_lighting.illumenate_lighting.portal.drawing_import.get_drawing_receipt');
   respond(call, { success: true, receipt: { import: 'CADI-00002' } });
   assert.equal(events.saved[0].name, 'illumenate_receipt_CADI-00002.json');
+});
+
+test('a plotted plan PDF travels with the import', async () => {
+  const { w, $, requests } = page();
+  w.DrawingImport.choosePlan(new w.File(['%PDF-1.7'], 'plan.pdf', { type: 'application/pdf' }));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  respond(await chosen(w, requests), { ...PREVIEW, rows: [PREVIEW.rows[0]], removals: [], new_version_required: false, counts: { ...PREVIEW.counts, needs_choice: 0 } });
+  $('#importDrawingConfirm').trigger('click');
+  const commit = requests.shift();
+  assert.equal(Buffer.from(commit.args.plan_pdf, 'base64').toString(), '%PDF-1.7');
+  w.DrawingImport.choosePlan(new w.File(['x'], 'plan.dwg'));
+  assert.match($('#importDrawingError').text(), /PDF/);
 });

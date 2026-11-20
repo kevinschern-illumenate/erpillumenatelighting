@@ -150,6 +150,7 @@ class DrawingImport(unittest.TestCase):
 			doc.name = f"CADI-{len(self.records) + 1:05d}"
 			doc.insert = MagicMock()
 			doc.save = MagicMock()
+			doc.db_set = MagicMock()
 			doc.__class__ = type("Doc", (Record,), {"__setattr__": dict.__setitem__})
 			self.records.append(doc)
 			return doc
@@ -429,6 +430,28 @@ class DrawingImport(unittest.TestCase):
 		self.assertTrue(result["success"], result)
 		self.assertEqual(result["schedule"], "S1-v2")
 		self.assertEqual(self.schedule.lines, [])  # v1 untouched
+
+	def test_plan_pdf_is_kept_and_added_to_the_current_design(self):
+		uploads = []
+		design = Record(name="SYSD-1")
+		self.extras[ROOT + ".portal.file_validation"] = types.SimpleNamespace(
+			validate_content=lambda name, data: {"mime_type": "application/pdf"} if data.startswith(b"%PDF") else (_ for _ in ()).throw(ValueError("not a PDF"))
+		)
+		self.extras[ROOT + ".system_design.designs"] = types.SimpleNamespace(current_design=lambda doc: design)
+		self.extras[ROOT + ".system_design.deliverables"] = types.SimpleNamespace(
+			upload_deliverable=lambda *args, **kwargs: uploads.append((args, kwargs)) or {"file_url": "/private/files/plan.pdf"}
+		)
+		self.extras[ROOT + ".system_design.errors"] = types.SimpleNamespace(DesignError=type("DesignError", (Exception,), {}))
+		pdf = base64.b64encode(b"%PDF-1.7 plan").decode()
+		result = self.commit(plan_pdf=pdf)
+		self.assertTrue(result["success"], result)
+		args, kwargs = uploads[0]
+		self.assertEqual(args[:3], ("SYSD-1", "Plan PDF", "rev1"))
+		self.assertEqual(kwargs["content"], b"%PDF-1.7 plan")
+		self.assertEqual(self.records[1]["attached_to_field"], "plan_pdf")
+		self.records[0].db_set.assert_called_once()
+		with self.assertRaisesRegex(ValueError, "not a PDF"):
+			self.commit(plan_pdf=base64.b64encode(b"GIF89a").decode())
 
 	def test_stale_expected_modified_is_refused(self):
 		with self.assertRaisesRegex(ValueError, "changed"):

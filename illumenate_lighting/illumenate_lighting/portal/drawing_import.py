@@ -809,11 +809,72 @@ def _remove_lines(doc, keys):
 		line.idx = index
 
 
+MAX_PDF_BYTES = 20 * 1024 * 1024
+
+
+def read_plan_pdf(plan_pdf):
+	"""The optional plotted plan: checked PDF bytes, or ``None``."""
+	from illumenate_lighting.illumenate_lighting.portal.file_validation import validate_content
+
+	if not plan_pdf:
+		return None
+	if not isinstance(plan_pdf, str) or len(plan_pdf) > (MAX_PDF_BYTES * 4) // 3 + 4:
+		frappe.throw(_("The plan PDF is larger than 20 MB"))
+	try:
+		data = base64.b64decode(plan_pdf, validate=True)
+	except (binascii.Error, ValueError):
+		frappe.throw(_("The plan PDF could not be read"))
+	try:
+		validate_content("plan.pdf", data)
+	except ValueError as error:
+		frappe.throw(str(error))
+	return data
+
+
+def store_plan_pdf(record, doc, data):
+	"""Keep the plan on the import and, when the schedule has a design, in its documentation (4.6)."""
+	from illumenate_lighting.illumenate_lighting.system_design import deliverables, designs
+	from illumenate_lighting.illumenate_lighting.system_design.errors import DesignError
+
+	digest = hashlib.sha256(data).hexdigest()
+	stem = (record.drawing_file or "plan").rsplit(".", 1)[0]
+	file = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": f"{stem}-rev{record.drawing_rev or 0}.pdf",
+			"content": data,
+			"is_private": 1,
+			"attached_to_doctype": DOCTYPE,
+			"attached_to_name": record.name,
+			"attached_to_field": "plan_pdf",
+		}
+	)
+	file.flags.ignore_permissions = True
+	file.insert()
+	record.db_set({"plan_pdf": file.file_url, "plan_pdf_sha256": digest}, update_modified=False)
+	design = designs.current_design(doc)
+	if design is None:
+		return None
+	try:
+		return deliverables.upload_deliverable(
+			design.name, "Plan PDF", f"rev{record.drawing_rev or 0}", digest, content=data, filename="plan.pdf"
+		)
+	except DesignError as error:
+		frappe.throw(error.message)
+
+
 @frappe.whitelist(methods=["POST"])
 @rate_limit(limit=10, seconds=60)
 @atomic_build
 def commit_drawing_import(
-	schedule, filename, content, expected_modified=None, choices=None, confirm_removals=None, new_version=None
+	schedule,
+	filename,
+	content,
+	expected_modified=None,
+	choices=None,
+	confirm_removals=None,
+	new_version=None,
+	plan_pdf=None,
 ):
 	"""Plan again and apply the drawing to ``schedule`` in one transaction, all or nothing.
 
@@ -826,6 +887,7 @@ def commit_drawing_import(
 	doc = _schedule(schedule, lock=True)
 	require_fresh(doc, expected_modified)
 	package, digest = read_package(filename, content)
+	plan = read_plan_pdf(plan_pdf)
 	blocking = _toolkit_check(package)
 	if blocking:
 		return {"success": False, "error": blocking[0], "blocking": blocking}
@@ -893,6 +955,8 @@ def commit_drawing_import(
 		_remove_lines(doc, removed_keys)
 	doc.save(ignore_permissions=True)
 	record = _store(doc, package, digest, rows, other_rows, removals, line_keys)
+	if plan is not None:
+		store_plan_pdf(record, doc, plan)
 	receipt = json.loads(record.receipt_json)
 	from illumenate_lighting.illumenate_lighting.system_design import telemetry
 
