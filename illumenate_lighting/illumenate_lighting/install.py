@@ -90,6 +90,9 @@ def after_install():
 	from illumenate_lighting.patches.add_supplier_part_line_fields import execute as supplier_part_fields
 
 	supplier_part_fields()
+	from illumenate_lighting.patches.add_order_stage_fields import execute as order_stage_fields
+
+	order_stage_fields()
 	frappe.db.commit()
 
 

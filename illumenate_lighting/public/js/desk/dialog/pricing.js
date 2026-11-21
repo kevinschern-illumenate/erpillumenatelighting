@@ -36,6 +36,34 @@
 	var statusBadge = D.statusBadge;
 	var DialogController = D.DialogController;
 
+	// Work Order: the build is the production Item. ERPNext's own production_item
+	// handler fetches the Item's defaults first; our BOM and qty are set after it.
+	DialogController.prototype.applyWorkOrderToForm = function (msg) {
+		var frm = this.frm;
+		var self = this;
+		var values = msg.header_values || {};
+		var rest = {};
+		Object.keys(values).forEach(function (k) {
+			if (k !== 'production_item' && frappe.meta.has_field(frm.doctype, k)) rest[k] = values[k];
+		});
+		var first = frm.doc.production_item === values.production_item
+			? Promise.resolve()
+			: Promise.resolve(frm.set_value('production_item', values.production_item));
+		return first
+			.then(function () { return new Promise(function (resolve) { frappe.after_ajax(resolve); }); })
+			.then(function () { return frm.set_value(rest); })
+			.then(function () {
+				frm.dirty();
+				self.addedCount += 1;
+				var notes = msg.notes || [];
+				frappe.show_alert({
+					message: __('Production Item set to {0}', [escapeHtml(msg.item_code)])
+						+ (notes.length ? '<br>' + notes.map(escapeHtml).join('<br>') : ''),
+					indicator: 'green'
+				}, 8);
+			});
+	};
+
 	DialogController.prototype.applyRowToForm = function (msg) {
 		var frm = this.frm;
 		var values = msg.row_values || {};
