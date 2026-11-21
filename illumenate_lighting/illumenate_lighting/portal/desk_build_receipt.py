@@ -8,6 +8,16 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json, fingerprint
 
+# Same set as desk_configurator.PARENT_DOCTYPES (kept here so this module stays light to import).
+DESK_PARENT_DOCTYPES = frozenset({
+	"Quotation",
+	"Sales Order",
+	"Purchase Order",
+	"Request for Quotation",
+	"Material Request",
+	"Work Order",
+})
+
 
 def idempotent(function):
 	signature = inspect.signature(function)
@@ -24,7 +34,7 @@ def idempotent(function):
 		values = bound.arguments
 		parent, name = values["parent_doctype"], values.get("parent_name")
 		user = frappe.session.user
-		if parent not in {"Quotation", "Sales Order"} or user == "Guest":
+		if parent not in DESK_PARENT_DOCTYPES or user == "Guest":
 			frappe.throw("Choose a supported ERP parent", frappe.PermissionError)
 		if frappe.db.get_value("User", user, "user_type") != "System User":
 			frappe.throw("Desk builds require an enabled staff user", frappe.PermissionError)
@@ -73,7 +83,7 @@ def idempotent(function):
 		if not result.get("success"):
 			return result
 		result["save_receipt"] = request_key
-		if "row_values" in result:
+		if result.get("row_values"):
 			result["row_values"]["ill_configuration_save_key"] = request_key
 		result["already_existed"] = False
 		record = frappe.get_doc(

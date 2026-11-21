@@ -1,5 +1,11 @@
 /**
- * Desk Configurator Dialog — "Configure & Add Fixture" for Quotation / Sales Order.
+ * Desk Configurator Dialog — "Configure & Add Fixture".
+ *
+ * Quotation / Sales Order: the full flow below, linked to a fixture schedule.
+ * Purchase Order / Request for Quotation / Material Request: document-only —
+ * no project step and no schedule line; the built Item (with its BOM or
+ * Product Bundle) is added as a row. Work Order: the build becomes the
+ * production Item, BOM and quantity ("Configure Production Item").
  *
  * Mounts the SAME scoped portal configurator classes (IllConfigurator.Fixture /
  * TapeNeon / LedSheet / Kit / Driver / DriverController) inside a Frappe modal and wires them to a project +
@@ -41,6 +47,20 @@
 	var BUTTON_LABEL = __('Configure & Add Fixture');
 	var RECONFIGURE_LABEL = __('Reconfigure Row');
 	var INTERNAL_ROLES = ['System Manager', 'Administrator', 'ilL Sales Review', 'ilL Order Approver'];
+	var WORK_ORDER_LABEL = __('Configure Production Item');
+	var WORK_ORDER_RECONFIGURE_LABEL = __('Reconfigure Production Item');
+
+	// Selling documents link lines to a project fixture schedule; the rest are document-only.
+	var SCHEDULE_PARENTS = ['Quotation', 'Sales Order'];
+	var DOCUMENT_PARENTS = ['Purchase Order', 'Request for Quotation', 'Material Request', 'Work Order'];
+	var VARIANT_ORIGINS = {
+		'Quotation': 'Quotation Tool',
+		'Sales Order': 'Sales Order Tool',
+		'Purchase Order': 'Purchasing Tool',
+		'Request for Quotation': 'Purchasing Tool',
+		'Material Request': 'Purchasing Tool',
+		'Work Order': 'Work Order Tool'
+	};
 
 	var PRODUCT_TYPES = [
 		{ value: 'Linear Fixture', label: __('Linear Fixture') },
@@ -75,6 +95,15 @@
 	// ──────────────────────────────────────────────────────────────────
 
 	IllDesk.addConfiguratorButton = function (frm) {
+		if (isWorkOrder(frm)) {
+			if (!canConfigure(frm)) return;
+			var label = (frm.doc.ill_configurator_request && frm.doc.production_item) ? WORK_ORDER_RECONFIGURE_LABEL : WORK_ORDER_LABEL;
+			var $wo = frm.add_custom_button(label, function () {
+				IllDesk.openConfiguratorDialog(frm, frm.doc.ill_configurator_request ? { rowName: frm.doc.name } : {});
+			});
+			if ($wo && $wo.addClass) $wo.addClass('btn-primary');
+			return;
+		}
 		var grid = frm && frm.fields_dict && frm.fields_dict.items && frm.fields_dict.items.grid;
 		if (!canConfigure(frm)) {
 			// Grid buttons survive form refreshes, so hide ours once the doc is no longer editable.
@@ -126,12 +155,12 @@
 
 	IllDesk.openConfiguratorDialog = function (frm, opts) {
 		if (!frm || !frm.doc) return null;
-		if (!isInternalUser()) {
+		if (!isAllowedUser(frm)) {
 			frappe.msgprint({ title: __('Not available'), indicator: 'orange',
 				message: __('The desk configurator is available to internal users only.') });
 			return null;
 		}
-		if (!customerOf(frm)) {
+		if (usesSchedule(frm) && !customerOf(frm)) {
 			frappe.msgprint({ title: __('Customer required'), indicator: 'orange',
 				message: __('Set the Customer on this {0} first, then configure fixtures.', [__(frm.doctype)]) });
 			var custField = frm.doctype === 'Quotation' ? 'party_name' : 'customer';
@@ -155,11 +184,33 @@
 		return INTERNAL_ROLES.some(function (r) { return frappe.user.has_role(r); });
 	}
 
+	// Selling documents need a sales role; purchasing and manufacturing documents
+	// are open to anyone who may edit them (the server checks the same).
+	function isAllowedUser(frm) {
+		if (isInternalUser()) return true;
+		if (!frm || usesSchedule(frm) || DOCUMENT_PARENTS.indexOf(frm.doctype) < 0) return false;
+		return !!(frappe.model && typeof frappe.model.can_write === 'function' && frappe.model.can_write(frm.doctype));
+	}
+
 	function canConfigure(frm) {
 		if (!frm || !frm.doc) return false;
 		if (frm.doc.docstatus !== 0) return false;
 		if (typeof frm.is_read_only === 'function' && frm.is_read_only()) return false;
-		return isInternalUser();
+		return isAllowedUser(frm);
+	}
+
+	function usesSchedule(frm) {
+		return !!frm && SCHEDULE_PARENTS.indexOf(frm.doctype) >= 0;
+	}
+
+	function isWorkOrder(frm) {
+		return !!frm && frm.doctype === 'Work Order';
+	}
+
+	// Product types a document offers: a Work Order makes one configured build, never a catalog part.
+	function productTypesFor(frm) {
+		if (!isWorkOrder(frm)) return PRODUCT_TYPES;
+		return PRODUCT_TYPES.filter(function (pt) { return !isCatalog(pt.value); });
 	}
 
 	function customerOf(frm) {
@@ -170,7 +221,7 @@
 	}
 
 	function variantOriginFor(frm) {
-		return (frm && frm.doctype === 'Sales Order') ? 'Sales Order Tool' : 'Quotation Tool';
+		return (frm && VARIANT_ORIGINS[frm.doctype]) || 'Quotation Tool';
 	}
 
 	function escapeHtml(value) {
@@ -207,7 +258,8 @@
 		var keys = ['customer', 'party_name', 'quotation_to', 'company', 'currency',
 			'price_list_currency', 'selling_price_list', 'conversion_rate',
 			'plc_conversion_rate', 'transaction_date', 'delivery_date',
-			'customer_group', 'territory', 'ignore_pricing_rule'];
+			'customer_group', 'territory', 'ignore_pricing_rule',
+			'supplier', 'buying_price_list', 'schedule_date', 'set_warehouse', 'material_request_type'];
 		var out = {};
 		keys.forEach(function (k) {
 			if (doc[k] !== undefined && doc[k] !== null && doc[k] !== '') out[k] = doc[k];
@@ -318,6 +370,20 @@
 		this.qty = 1;
 		this.notes = '';
 		this.rowName = opts.rowName || null;
+		this.usesSchedule = usesSchedule(frm);
+		this.isWorkOrder = isWorkOrder(frm);
+		this.steps = this.usesSchedule ? STEPS : STEPS.slice(1);
+		if (this.isWorkOrder) {
+			// The Work Order's header is its one "row".
+			this.rowName = null;
+			this.qty = frm.doc.qty || 1;
+			if (opts.rowName && frm.doc.ill_configurator_request) {
+				this.productType = frm.doc.ill_product_type || this.productType;
+				try { this.initialRequest = JSON.parse(frm.doc.ill_configurator_request); } catch (_) { this.initialRequest = null; }
+				this.productType = productTypeOf(this.productType, this.initialRequest);
+				this.reconfiguringHeader = true;
+			}
+		}
 		this.editingRow = this.rowName && (frm.doc.items || []).find(function (row) { return row.name === opts.rowName; });
 		if (this.editingRow) {
 			var row = this.editingRow;
@@ -334,7 +400,7 @@
 	DialogController.prototype.start = function () {
 		var self = this;
 		this.dialog = new frappe.ui.Dialog({
-			title: BUTTON_LABEL,
+			title: this.isWorkOrder ? WORK_ORDER_LABEL : BUTTON_LABEL,
 			size: 'extra-large',
 			fields: [
 				{ fieldtype: 'HTML', fieldname: 'step_indicator' },
@@ -352,9 +418,25 @@
 				if (self.closed) return;
 				self.initialRequest = result.request;
 				self.productType = productTypeOf(self.productType, self.initialRequest);
-				self.renderProjectStep();
-			}).catch(function () { self.body$().html('<div role="alert">' + __('This configuration could not be reopened. Close the dialog and review the document.') + '</div>'); });
-		} else this.renderProjectStep();
+				self.renderFirstStep();
+			}).catch(function () { self.body$().html('<div class="alert alert-danger" role="alert">' + __('This configuration could not be reopened. Close the dialog and review the document.') + '</div>'); });
+		} else this.renderFirstStep();
+	};
+
+	// Selling documents start at the project / schedule step; document-only parents go straight to the line.
+	DialogController.prototype.renderFirstStep = function () {
+		var self = this;
+		if (this.usesSchedule) return this.renderProjectStep();
+		if (this.context) return this.renderLineStep();
+		this.renderStepIndicator('line');
+		this.body$().html('<div class="ill-desk-loading py-3"><i class="fa fa-spinner fa-spin"></i> ' + __('Loading…') + '</div>');
+		this.call('get_desk_context', { parent_doctype: this.frm.doctype }).then(function (ctx) {
+			if (self.closed) return;
+			self.context = ctx && ctx.success ? ctx : { groups_enabled: false };
+			self.renderLineStep();
+		}).catch(function () {
+			self.body$().html('<div class="alert alert-danger">' + __('Could not load the configurator.') + '</div>');
+		});
 	};
 
 	DialogController.prototype.body$ = function () { return this.dialog.fields_dict.body.$wrapper; };
@@ -378,14 +460,15 @@
 		if ($btn) $btn.prop('disabled', this.busy);
 	};
 
-	DialogController.prototype.renderStepIndicator = function () {
-		var current = STEPS.map(function (s) { return s.key; }).indexOf(this.state);
+	DialogController.prototype.renderStepIndicator = function (state) {
+		var steps = this.steps || STEPS;
+		var current = steps.map(function (s) { return s.key; }).indexOf(state || this.state);
 		var html = '<div class="ill-desk-stepper">';
-		STEPS.forEach(function (s, i) {
+		steps.forEach(function (s, i) {
 			var cls = i === current ? 'active' : (i < current ? 'done' : '');
 			html += '<span class="ill-desk-step ' + cls + '"><span class="ill-desk-step-num">' + (i + 1)
 				+ '</span>' + escapeHtml(s.label) + '</span>';
-			if (i < STEPS.length - 1) html += '<span class="ill-desk-step-sep">›</span>';
+			if (i < steps.length - 1) html += '<span class="ill-desk-step-sep">›</span>';
 		});
 		html += '</div>';
 		this.dialog.fields_dict.step_indicator.$wrapper.html(html);
@@ -419,6 +502,7 @@
 		BUTTON_LABEL: BUTTON_LABEL,
 		RECONFIGURE_LABEL: RECONFIGURE_LABEL,
 		INTERNAL_ROLES: INTERNAL_ROLES,
+		WORK_ORDER_LABEL: WORK_ORDER_LABEL,
 		PRODUCT_TYPES: PRODUCT_TYPES,
 		CATALOG_CLASSES: CATALOG_CLASSES,
 		CATALOG_SCOPES: CATALOG_SCOPES,
@@ -426,6 +510,10 @@
 		STEPS: STEPS,
 		isInternalUser: isInternalUser,
 		canConfigure: canConfigure,
+		isAllowedUser: isAllowedUser,
+		usesSchedule: usesSchedule,
+		isWorkOrder: isWorkOrder,
+		productTypesFor: productTypesFor,
 		customerOf: customerOf,
 		variantOriginFor: variantOriginFor,
 		escapeHtml: escapeHtml,

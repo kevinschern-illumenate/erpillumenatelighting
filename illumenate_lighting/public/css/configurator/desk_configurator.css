@@ -1,23 +1,106 @@
 /*
  * Desk dialog configurator overrides.
  *
- * The desk Quotation / Sales Order "Configure & Add Fixture" dialog mounts the
- * shared portal configurator markup inside a Frappe modal. The base look comes
- * from the scoped `.ill-configurator` rules (shared_configurator.css,
- * fixture_steps.css, tape_neon_steps.css, all loaded in Desk via
- * app_include_css). These rules adjust that markup so it fits a modal body
- * instead of a full portal page.
+ * The desk "Configure & Add Fixture" dialog (Quotation, Sales Order, Purchase
+ * Order, Request for Quotation, Material Request, Work Order) mounts the shared
+ * portal configurator markup inside a Frappe modal. The base look comes from
+ * the scoped `.ill-configurator` rules (shared_configurator.css,
+ * fixture_steps.css, tape_neon_steps.css, driver_steps.css, all loaded in Desk
+ * via app_include_css). These rules make that markup fit a modal body and
+ * follow the Desk theme, light or dark.
  *
- * All rules are scoped under `.ill-desk-configurator`, which the dialog applies
- * alongside `.ill-configurator` on its mount root, so nothing here leaks into
- * the rest of Desk.
+ * Everything is scoped under `.ill-desk-configurator-dialog` (the dialog
+ * wrapper) or `.ill-desk-configurator` (the configurator mount), so nothing
+ * here leaks into the rest of Desk or into the portal.
  */
 
-/* Constrain the configurator to the modal body and allow it to scroll. */
+/* ------------------------------------------------------------------------
+ * 1. Theme bridge
+ *
+ * The configurator colours everything through --ill-* tokens. The portal
+ * values are fixed light-theme colours, so in Desk they are re-pointed at
+ * Frappe's theme variables: surfaces, text and borders then follow the user's
+ * theme, and the brand accents get a lighter dark-mode variant below.
+ * The second selector beats the `.ill-configurator` token block.
+ * ---------------------------------------------------------------------- */
+.ill-desk-configurator-dialog,
+.ill-desk-configurator-dialog .ill-configurator {
+	--ill-bg:          var(--subtle-fg, #f4f5f6);
+	--ill-paper:       var(--card-bg, var(--fg-color, #ffffff));
+	--ill-ink:         var(--text-color, #1f272e);
+	--ill-muted:       var(--text-muted, #525b63);
+	--ill-subtle:      var(--text-light, #7c858d);
+	--ill-border:      var(--border-color, #e2e6e9);
+	--ill-border-str:  var(--dark-border-color, #c0c6cc);
+
+	/* Neutral UI tokens used by the shared stylesheets (portal fallbacks are Bootstrap greys). */
+	--ill-surface:     var(--subtle-fg, #f4f5f6);
+	--ill-surface-2:   var(--subtle-accent, #ebeef0);
+	--ill-line:        var(--border-color, #e2e6e9);
+	--ill-line-str:    var(--dark-border-color, #c0c6cc);
+	--ill-text-2:      var(--text-color, #1f272e);
+	--ill-text-3:      var(--text-muted, #525b63);
+	--ill-control-bg:  var(--control-bg, #f4f5f6);
+
+	/* Brand accents (light theme). */
+	--ill-accent:      #00588c;
+	--ill-accent-soft: #b3d1e5;
+	--ill-accent-bg:   #e6f0f7;
+	--ill-on-accent:   #ffffff;
+	--ill-ui-accent:   var(--ill-accent);
+	--ill-ui-success:  var(--ill-success);
+	--ill-gold:        #fdc757;
+	--ill-gold-bg:     #fff6e0;
+	--ill-warning-text: #8a5a00;
+	--ill-danger:      #c0352a;
+	--ill-danger-bg:   #fae5e3;
+	--ill-success:     #006833;
+	--ill-success-bg:  #dcefe4;
+	--ill-overlay:       rgba(255, 255, 255, 0.85);
+	--ill-overlay-hover: #ffffff;
+
+	/* Aliases used by fixture_steps.css (defined on the portal's :root only). */
+	--ill-gray-200:        var(--ill-surface-2);
+	--ill-gray-300:        var(--ill-border);
+	--ill-gray-400:        var(--ill-subtle);
+	--ill-text-secondary:  var(--ill-muted);
+	--ill-blue-600:        var(--ill-accent);
+	--ill-blue-100:        var(--ill-accent-bg);
+	--ill-surface-soft:    var(--ill-surface);
+
+	color: var(--ill-ink);
+}
+
+/* Dark theme: lighter accents and translucent tints that read on dark surfaces. */
+[data-theme="dark"] .ill-desk-configurator-dialog,
+[data-theme="dark"] .ill-desk-configurator-dialog .ill-configurator {
+	--ill-accent:      #6cb8ee;
+	--ill-accent-soft: rgba(108, 184, 238, 0.45);
+	--ill-accent-bg:   rgba(108, 184, 238, 0.14);
+	--ill-on-accent:   #0b1b2b;
+	--ill-gold:        #fdc757;
+	--ill-gold-bg:     rgba(253, 199, 87, 0.14);
+	--ill-warning-text: #fcd27a;
+	--ill-danger:      #ff8f85;
+	--ill-danger-bg:   rgba(255, 143, 133, 0.14);
+	--ill-success:     #6fdba6;
+	--ill-success-bg:  rgba(111, 219, 166, 0.14);
+	--ill-overlay:       rgba(28, 28, 28, 0.85);
+	--ill-overlay-hover: #2a2a2a;
+	--ill-shadow:      0 1px 3px rgba(0, 0, 0, 0.45);
+	--ill-shadow-lg:   0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ------------------------------------------------------------------------
+ * 2. Configurator mount: fit the modal body.
+ * ---------------------------------------------------------------------- */
 .ill-desk-configurator {
 	max-height: 70vh;
 	overflow-y: auto;
 	padding: 0.25rem 0.25rem 0.5rem;
+	color: var(--ill-ink);
+	font-size: var(--text-base, 13px);
+	line-height: 1.5;
 }
 
 /* Portal page chrome that has no place inside the dialog. */
@@ -27,19 +110,41 @@
 	display: none !important;
 }
 
-/* Tighten card spacing inside the modal. */
+/* Cards: flat sections divided by a rule. */
 .ill-desk-configurator .card {
 	border: none;
 	box-shadow: none;
 	margin-bottom: 0.75rem;
+	background: transparent;
+	color: inherit;
 }
 .ill-desk-configurator .card > .card-header {
 	padding: 0.5rem 0.25rem;
 	background: transparent;
-	border-bottom: 1px solid var(--border-color, #e2e2e2);
+	color: var(--ill-ink);
+	font-weight: 600;
+	border-bottom: 1px solid var(--ill-border);
 }
 .ill-desk-configurator .card > .card-body {
 	padding: 0.5rem 0.25rem;
+}
+/* Cards that are real boxes (segments, mounting choices) keep their frame. */
+.ill-desk-configurator .segment-card,
+.ill-desk-configurator .tape-segment-card,
+.ill-desk-configurator .neon-segment-card,
+.ill-desk-configurator .mounting-card {
+	border: 1px solid var(--ill-border);
+	background: var(--ill-paper);
+}
+.ill-desk-configurator .segment-card > .card-header,
+.ill-desk-configurator .tape-segment-card > .card-header,
+.ill-desk-configurator .neon-segment-card > .card-header {
+	padding: 0.5rem 0.75rem;
+	background: var(--ill-surface);
+}
+.ill-desk-configurator .mounting-card.active {
+	border: 2px solid var(--ill-accent);
+	background: var(--ill-accent-bg);
 }
 
 /* Keep pill selectors compact and wrapping within the narrower modal width. */
@@ -48,6 +153,10 @@
 }
 .ill-desk-configurator .option-group {
 	margin-bottom: 0.75rem;
+}
+.ill-desk-configurator .option-group label.option-label,
+.ill-desk-configurator label {
+	color: var(--ill-ink);
 }
 
 /* Single-column layout: the portal uses a two-column split
@@ -73,64 +182,284 @@
 	grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
 	max-height: 300px;
 }
-/* Desk uses the portal palette for the accent pills / toggles so both surfaces match. */
 .ill-desk-configurator .end-type-toggle .btn.active {
-	background-color: var(--ill-accent, #00588c);
-	border-color: var(--ill-accent, #00588c);
-	color: #fff;
+	background-color: var(--ill-accent);
+	border-color: var(--ill-accent);
+	color: var(--ill-on-accent);
+}
+
+/* Product photos are shot on white; keep a white mat so they read in dark mode. */
+.ill-desk-configurator .product-gallery-wrapper {
+	border-color: var(--ill-border);
 }
 
 /* ------------------------------------------------------------------------
- * Dialog chrome (steps 1–2 + done screen). Scoped to the dialog wrapper the
- * controller adds (`.ill-desk-configurator-dialog`) so nothing leaks.
+ * 3. Bootstrap components in the portal markup.
+ *
+ * Desk's dark theme does not restyle these, so they render as light boxes
+ * (or light text on light boxes). Re-colour them through the tokens.
+ * ---------------------------------------------------------------------- */
+.ill-desk-configurator-dialog .bg-light,
+.ill-desk-configurator-dialog .bg-white {
+	background-color: var(--ill-surface) !important;
+	color: var(--ill-ink);
+}
+.ill-desk-configurator-dialog .text-dark,
+.ill-desk-configurator-dialog .text-body {
+	color: var(--ill-ink) !important;
+}
+.ill-desk-configurator-dialog .text-muted,
+.ill-desk-configurator-dialog .text-secondary {
+	color: var(--ill-muted) !important;
+}
+.ill-desk-configurator-dialog .text-danger { color: var(--ill-danger) !important; }
+.ill-desk-configurator-dialog .text-success { color: var(--ill-success) !important; }
+/* Bootstrap's #ffc107 is unreadable on white; use a dark amber (light amber in dark mode). */
+.ill-desk-configurator-dialog .text-warning { color: var(--ill-warning-text) !important; }
+.ill-desk-configurator-dialog .text-primary,
+.ill-desk-configurator-dialog .text-info { color: var(--ill-accent) !important; }
+
+.ill-desk-configurator-dialog hr {
+	border-top-color: var(--ill-border);
+}
+
+/* Tables (results, BOM previews, group summaries). */
+.ill-desk-configurator .table {
+	color: var(--ill-ink);
+	background: transparent;
+}
+.ill-desk-configurator .table th,
+.ill-desk-configurator .table td,
+.ill-desk-configurator .table thead th {
+	border-color: var(--ill-border);
+}
+.ill-desk-configurator .table thead th,
+.ill-desk-configurator .thead-light th,
+.ill-desk-configurator .table-light,
+.ill-desk-configurator .table-light > th,
+.ill-desk-configurator .table-light > td {
+	background-color: var(--ill-surface);
+	color: var(--ill-ink);
+	font-weight: 600;
+}
+.ill-desk-configurator .table-striped tbody tr:nth-of-type(odd) {
+	background-color: var(--ill-surface);
+}
+.ill-desk-configurator .table-hover tbody tr:hover {
+	background-color: var(--ill-accent-bg);
+	color: var(--ill-ink);
+}
+
+/* List groups (summary lists). */
+.ill-desk-configurator .list-group-item {
+	background-color: transparent;
+	color: var(--ill-ink);
+	border-color: var(--ill-border);
+}
+.ill-desk-configurator .list-group-item.active {
+	background-color: var(--ill-accent);
+	border-color: var(--ill-accent);
+	color: var(--ill-on-accent);
+}
+
+/* Form controls. */
+.ill-desk-configurator .form-control,
+.ill-desk-configurator .custom-select {
+	background-color: var(--ill-control-bg);
+	color: var(--ill-ink);
+	border: 1px solid var(--ill-border);
+}
+.ill-desk-configurator .form-control:focus,
+.ill-desk-configurator .custom-select:focus {
+	border-color: var(--ill-accent);
+	box-shadow: 0 0 0 2px var(--ill-accent-soft);
+}
+.ill-desk-configurator .form-control:disabled,
+.ill-desk-configurator .form-control[readonly] {
+	background-color: var(--ill-surface-2);
+	color: var(--ill-muted);
+	opacity: 1;
+}
+.ill-desk-configurator .form-control::placeholder {
+	color: var(--ill-subtle);
+}
+.ill-desk-configurator select.form-control option {
+	background-color: var(--ill-paper);
+	color: var(--ill-ink);
+}
+.ill-desk-configurator .input-group-text {
+	background-color: var(--ill-surface-2);
+	color: var(--ill-ink);
+	border-color: var(--ill-border);
+}
+.ill-desk-configurator .custom-control-label {
+	color: var(--ill-ink);
+}
+.ill-desk-configurator .custom-control-label::before {
+	background-color: var(--ill-control-bg);
+	border-color: var(--ill-border-str);
+}
+.ill-desk-configurator .custom-control-input:checked ~ .custom-control-label::before {
+	background-color: var(--ill-accent);
+	border-color: var(--ill-accent);
+}
+
+/* Buttons inside the configurator markup. */
+.ill-desk-configurator .btn-outline-secondary {
+	color: var(--ill-ink);
+	border-color: var(--ill-border-str);
+	background-color: transparent;
+}
+.ill-desk-configurator .btn-outline-secondary:hover,
+.ill-desk-configurator .btn-outline-secondary.active {
+	color: var(--ill-ink);
+	background-color: var(--ill-surface-2);
+	border-color: var(--ill-border-str);
+}
+.ill-desk-configurator .btn-outline-primary {
+	color: var(--ill-accent);
+	border-color: var(--ill-accent);
+	background-color: transparent;
+}
+.ill-desk-configurator .btn-outline-primary:hover,
+.ill-desk-configurator .btn-outline-primary.active {
+	color: var(--ill-on-accent);
+	background-color: var(--ill-accent);
+}
+.ill-desk-configurator .btn-outline-danger {
+	color: var(--ill-danger);
+	border-color: var(--ill-danger);
+	background-color: transparent;
+}
+.ill-desk-configurator .btn-outline-danger:hover {
+	color: var(--ill-paper);
+	background-color: var(--ill-danger);
+}
+.ill-desk-configurator .btn-primary,
+.ill-desk-configurator .btn-primary.active {
+	color: var(--ill-on-accent);
+	background-color: var(--ill-accent);
+	border-color: var(--ill-accent);
+}
+.ill-desk-configurator .btn-success {
+	color: #ffffff;
+	background-color: #1f7a45;
+	border-color: #1f7a45;
+}
+.ill-desk-configurator .btn-primary:disabled,
+.ill-desk-configurator .btn-success:disabled {
+	opacity: 0.55;
+}
+.ill-desk-configurator .nav-tabs {
+	border-bottom-color: var(--ill-border);
+}
+.ill-desk-configurator .nav-tabs .nav-link {
+	color: var(--ill-muted);
+}
+.ill-desk-configurator .nav-tabs .nav-link.active {
+	color: var(--ill-ink);
+	background-color: var(--ill-paper);
+	border-color: var(--ill-border) var(--ill-border) var(--ill-paper);
+}
+
+/* Badges and alerts. */
+.ill-desk-configurator-dialog .badge-secondary,
+.ill-desk-configurator-dialog .badge-light {
+	background-color: var(--ill-surface-2);
+	color: var(--ill-ink);
+}
+.ill-desk-configurator-dialog .badge-info,
+.ill-desk-configurator-dialog .badge-primary {
+	background-color: var(--ill-accent-bg);
+	color: var(--ill-accent);
+	border: 1px solid var(--ill-accent-soft);
+}
+.ill-desk-configurator-dialog .alert {
+	color: var(--ill-ink);
+	border: 1px solid var(--ill-border);
+	border-left-width: 4px;
+}
+.ill-desk-configurator-dialog .alert-info,
+.ill-desk-configurator-dialog .alert-primary {
+	background-color: var(--ill-accent-bg);
+	border-color: var(--ill-accent-soft);
+	border-left-color: var(--ill-accent);
+}
+.ill-desk-configurator-dialog .alert-warning {
+	background-color: var(--ill-gold-bg);
+	border-color: var(--ill-gold);
+}
+.ill-desk-configurator-dialog .alert-danger {
+	background-color: var(--ill-danger-bg);
+	border-color: var(--ill-danger);
+}
+.ill-desk-configurator-dialog .alert-success {
+	background-color: var(--ill-success-bg);
+	border-color: var(--ill-success);
+}
+
+/* ------------------------------------------------------------------------
+ * 4. Dialog chrome (stepper, line details, done screen).
  * ---------------------------------------------------------------------- */
 .ill-desk-configurator-dialog .ill-desk-stepper {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 0.25rem;
-	margin-bottom: 0.75rem;
+	gap: 0.35rem;
+	margin-bottom: 1rem;
 	font-size: var(--text-sm, 12px);
+	font-weight: 500;
 }
 .ill-desk-configurator-dialog .ill-desk-step {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.4rem;
-	padding: 0.2rem 0.6rem 0.2rem 0.3rem;
+	gap: 0.45rem;
+	padding: 0.25rem 0.75rem 0.25rem 0.3rem;
 	border-radius: 999px;
-	color: var(--text-muted, #74808b);
-	background: var(--bg-light-gray, #f3f3f3);
+	color: var(--ill-muted);
+	background: var(--ill-surface);
+	border: 1px solid var(--ill-border);
 }
 .ill-desk-configurator-dialog .ill-desk-step-num {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 1.35rem;
-	height: 1.35rem;
+	width: 1.4rem;
+	height: 1.4rem;
 	border-radius: 50%;
 	font-weight: 600;
-	background: var(--gray-300, #dee2e6);
-	color: var(--text-color, #1f272e);
+	background: var(--ill-surface-2);
+	color: var(--ill-ink);
 }
 .ill-desk-configurator-dialog .ill-desk-step.active {
-	color: #fff;
-	background: var(--primary, #2490ef);
+	color: var(--ill-on-accent);
+	background: var(--ill-accent);
+	border-color: var(--ill-accent);
 }
 .ill-desk-configurator-dialog .ill-desk-step.active .ill-desk-step-num {
-	background: rgba(255, 255, 255, 0.9);
-	color: var(--primary, #2490ef);
+	background: var(--ill-on-accent);
+	color: var(--ill-accent);
 }
 .ill-desk-configurator-dialog .ill-desk-step.done {
-	color: var(--green-600, #198754);
-	background: var(--green-100, #e4f5e9);
+	color: var(--ill-success);
+	background: var(--ill-success-bg);
+	border-color: transparent;
 }
 .ill-desk-configurator-dialog .ill-desk-step.done .ill-desk-step-num {
-	background: var(--green-600, #198754);
-	color: #fff;
+	background: var(--ill-success);
+	color: var(--ill-paper);
 }
 .ill-desk-configurator-dialog .ill-desk-step-sep {
-	color: var(--gray-400, #c0c6cc);
-	padding: 0 0.15rem;
+	color: var(--ill-subtle);
+	padding: 0 0.1rem;
+}
+
+/* Section headings in steps 1-2. */
+.ill-desk-configurator-dialog .ill-desk-section-title {
+	font-size: var(--text-md, 14px);
+	font-weight: 600;
+	color: var(--ill-ink);
+	margin: 0 0 0.5rem;
 }
 
 /* Product-type pills (step 2). */
@@ -141,12 +470,27 @@
 }
 .ill-desk-configurator-dialog .ill-desk-type-pill {
 	border-radius: 999px;
-	padding: 0.3rem 1rem;
+	padding: 0.35rem 1rem;
+	font-weight: 500;
+	color: var(--ill-ink);
+	background: var(--ill-paper);
+	border: 1.5px solid var(--ill-border-str);
+	box-shadow: none;
 }
-.ill-desk-configurator-dialog .ill-desk-type-pill.active {
-	background: var(--primary, #2490ef);
-	border-color: var(--primary, #2490ef);
-	color: #fff;
+.ill-desk-configurator-dialog .ill-desk-type-pill:hover {
+	border-color: var(--ill-accent);
+	color: var(--ill-ink);
+	background: var(--ill-accent-bg);
+}
+.ill-desk-configurator-dialog .ill-desk-type-pill:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--ill-accent-soft);
+}
+.ill-desk-configurator-dialog .ill-desk-type-pill.active,
+.ill-desk-configurator-dialog .ill-desk-type-pill.active:hover {
+	background: var(--ill-accent);
+	border-color: var(--ill-accent);
+	color: var(--ill-on-accent);
 }
 
 /* Line-details grid and inline controls mounted via make_control. */
@@ -161,13 +505,30 @@
 }
 .ill-desk-configurator-dialog .ill-desk-context,
 .ill-desk-configurator-dialog .ill-desk-line-summary {
-	padding: 0.4rem 0.6rem;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	padding: 0.5rem 0.75rem;
 	border-radius: var(--border-radius, 6px);
-	background: var(--bg-light-gray, #f3f3f3);
+	background: var(--ill-surface);
+	border: 1px solid var(--ill-border);
+	color: var(--ill-ink);
+	font-size: var(--text-sm, 12px);
+}
+.ill-desk-configurator-dialog .ill-desk-context.is-warning {
+	background: var(--ill-gold-bg);
+	border-color: var(--ill-gold);
+	color: var(--ill-ink);
+}
+.ill-desk-configurator-dialog .ill-desk-context.is-warning .fa {
+	color: var(--ill-warning-text);
 }
 .ill-desk-configurator-dialog .ill-desk-line-summary {
-	margin-bottom: 0.5rem;
-	font-size: var(--text-sm, 12px);
+	margin-bottom: 0.75rem;
+}
+.ill-desk-configurator-dialog .ill-desk-sep {
+	color: var(--ill-subtle);
 }
 .ill-desk-configurator-dialog .ill-desk-status {
 	margin-left: 0.25rem;
@@ -178,18 +539,57 @@
 	pointer-events: none;
 }
 .ill-desk-configurator-dialog .ill-desk-linked.card {
-	border: 1px solid var(--border-color, #e2e2e2);
+	border: 1px solid var(--ill-border);
+	background: var(--ill-surface);
+	color: var(--ill-ink);
 	margin-bottom: 0.5rem;
+}
+.ill-desk-configurator-dialog .ill-desk-loading {
+	color: var(--ill-muted);
 }
 
 /* Done screen + "Add another / Done" footer. */
+.ill-desk-configurator-dialog .ill-desk-done {
+	color: var(--ill-ink);
+}
 .ill-desk-configurator-dialog .ill-desk-done h5 {
 	font-weight: 600;
+	color: var(--ill-ink);
+}
+.ill-desk-configurator-dialog .ill-desk-done-icon {
+	color: var(--ill-success);
+}
+.ill-desk-configurator-dialog .ill-desk-built {
+	display: inline-grid;
+	grid-template-columns: auto auto;
+	gap: 0.2rem 0.75rem;
+	margin: 0.5rem auto 0.75rem;
+	padding: 0.5rem 0.75rem;
+	text-align: left;
+	font-size: var(--text-sm, 12px);
+	background: var(--ill-surface);
+	border: 1px solid var(--ill-border);
+	border-radius: var(--border-radius, 6px);
+}
+.ill-desk-configurator-dialog .ill-desk-built dt {
+	font-weight: 500;
+	color: var(--ill-muted);
+}
+.ill-desk-configurator-dialog .ill-desk-built dd {
+	margin: 0;
+	color: var(--ill-ink);
+	font-family: var(--ill-font-mono, monospace);
+}
+.ill-desk-configurator-dialog .ill-desk-built a,
+.ill-desk-configurator a:not(.btn) {
+	color: var(--ill-accent);
+	text-decoration: underline;
+	text-underline-offset: 2px;
 }
 .ill-desk-configurator-dialog .ill-desk-footer {
 	display: flex;
 	justify-content: flex-end;
-	gap: 0.25rem;
-	padding-top: 0.5rem;
-	border-top: 1px solid var(--border-color, #e2e2e2);
+	gap: 0.5rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--ill-border);
 }

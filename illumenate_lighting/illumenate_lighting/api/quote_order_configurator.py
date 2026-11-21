@@ -495,6 +495,34 @@ def _apply_artifact_to_row(
 	# final ``rate`` reflects the customer's tier discount.
 	_apply_pricing_to_row(parent_doc, row, item_code, qty, artifact)
 
+	tag_row_with_artifact(
+		row,
+		artifact,
+		configuration_json,
+		section_label=section_label,
+		fixture_type=fixture_type,
+		schedule_line_id=schedule_line_id,
+		additional_notes=additional_notes,
+	)
+	if parent_doc.doctype == "Sales Order" and artifact.get("bom"):
+		_set_child_value(row, "bom_no", artifact.get("bom"))
+
+
+def tag_row_with_artifact(
+	row,
+	artifact: dict[str, Any],
+	configuration_json,
+	section_label: str | None = None,
+	fixture_type: str | None = None,
+	schedule_line_id: str | None = None,
+	additional_notes: str | None = None,
+):
+	"""Write the configured-build links and grouping fields onto a child row.
+
+	Every field is optional on the child doctype (``_set_child_value`` skips
+	the ones it lacks), so the same tagging serves selling, buying and stock rows.
+	"""
+	item_code = artifact["item_code"]
 	_set_child_value(row, "ill_product_type", artifact["product_type"])
 	_set_child_value(row, "ill_configured_group", artifact.get("configured_group"))
 	_set_child_value(row, "ill_configured_fixture", artifact.get("configured_fixture"))
@@ -529,9 +557,6 @@ def _apply_artifact_to_row(
 		ps_meta.get("parent_configured_fixture")
 		or artifact.get("parent_configured_fixture"),
 	)
-
-	if parent_doc.doctype == "Sales Order" and artifact.get("bom"):
-		_set_child_value(row, "bom_no", artifact.get("bom"))
 
 	# Grouping / traceability — same mapping as
 	# ilLProjectFixtureSchedule._stamp_group_fields so print formats group the

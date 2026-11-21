@@ -34,6 +34,7 @@
 	var makeControl = D.makeControl;
 	var statusBadge = D.statusBadge;
 	var DialogController = D.DialogController;
+	var productTypesFor = D.productTypesFor;
 
 	// ── Step 1: Project & Schedule ───────────────────────────────────
 	DialogController.prototype.renderProjectStep = function () {
@@ -390,14 +391,17 @@
 		this.footer$().empty();
 		this.dialog.set_primary_action(__('Continue'), this.onPrimary.bind(this));
 		this.dialog.get_primary_btn().show();
-		this.dialog.set_secondary_action_label(__('Back'));
+		// Document-only parents have no project step: their first step closes the dialog.
+		var firstStep = this.linkedToForm || !this.usesSchedule;
+		this.dialog.set_secondary_action_label(firstStep ? __('Cancel') : __('Back'));
 		this.dialog.set_secondary_action(function () {
-			if (self.linkedToForm) { self.dialog.hide(); return; }
+			if (firstStep) { self.dialog.hide(); return; }
 			self.renderProjectStep();
 		});
 
 		var $body = this.body$();
-		$body.html('<div class="text-muted py-3"><i class="fa fa-spinner fa-spin"></i> ' + __('Loading schedule…') + '</div>');
+		$body.html('<div class="ill-desk-loading py-3"><i class="fa fa-spinner fa-spin"></i> '
+			+ (this.schedule ? __('Loading schedule…') : __('Loading…')) + '</div>');
 
 		var used = usedFixtureTypes(this.frm);
 		var rowLines = (this.frm.doc.items || []).map(function (r) { return r.ill_schedule_line_id; }).filter(Boolean);
@@ -406,7 +410,9 @@
 			? this.call('get_schedule_picker_data', {
 				schedule: this.schedule, used_json: JSON.stringify(used), row_lines_json: JSON.stringify(rowLines)
 			})
-			: this.call('get_next_fixture_type', { schedule: null, used_json: JSON.stringify(used) })
+			: this.isWorkOrder
+				? Promise.resolve({ success: true, lines: [], locations: [], next_fixture_type: '' })
+				: this.call('get_next_fixture_type', { schedule: null, used_json: JSON.stringify(used), parent_doctype: this.frm.doctype })
 				.then(function (next) {
 					return { success: true, lines: [], locations: [], next_fixture_type: (typeof next === 'string') ? next : '' };
 				});
@@ -467,36 +473,48 @@
 		var pendingLines = (data.lines || []).filter(function (l) { return l.is_pending || !!l.initial_request || l.idx === self.lineIdx; });
 		var showLineSelect = !!(this.schedule && pendingLines.length);
 
-		var header = this.schedule
-			? '<div class="ill-desk-context small text-muted mb-2">'
+		var header;
+		if (this.schedule) {
+			header = '<div class="ill-desk-context mb-3">'
 				+ '<i class="fa fa-folder-o"></i> ' + escapeHtml(this.projectName || this.project || '')
-				+ ' <span class="mx-1">›</span> <i class="fa fa-list"></i> ' + escapeHtml(this.scheduleName || this.schedule)
-				+ ' ' + statusBadge(data.status, data.is_locked) + '</div>'
-			: '<div class="ill-desk-context small text-warning mb-2"><i class="fa fa-exclamation-triangle"></i> '
+				+ ' <span class="ill-desk-sep">›</span> <i class="fa fa-list"></i> ' + escapeHtml(this.scheduleName || this.schedule)
+				+ ' ' + statusBadge(data.status, data.is_locked) + '</div>';
+		} else if (this.isWorkOrder) {
+			header = '<div class="ill-desk-context mb-3"><i class="fa fa-cogs"></i> '
+				+ __('The configured build becomes this Work Order\'s production Item, with its BOM and quantity.') + '</div>';
+		} else if (!this.usesSchedule) {
+			header = '<div class="ill-desk-context mb-3"><i class="fa fa-info-circle"></i> '
+				+ __('The configured build (Item plus its BOM or Product Bundle) is created and added as a row on this {0}.', [__(this.frm.doctype)]) + '</div>';
+		} else {
+			header = '<div class="ill-desk-context is-warning mb-3"><i class="fa fa-exclamation-triangle"></i> '
 				+ __('No fixture schedule — this line is added to the {0} only.', [__(this.frm.doctype)]) + '</div>';
+		}
 
 		var pills = '<div class="form-group"><label class="control-label">' + __('Product Type')
-			+ ' <span class="text-danger">*</span></label><div class="ill-desk-type-pills">';
-		PRODUCT_TYPES.forEach(function (pt) {
+			+ ' <span class="text-danger">*</span></label><div class="ill-desk-type-pills" role="group">';
+		var offered = productTypesFor(this.frm);
+		if (this.productType && !offered.some(function (pt) { return pt.value === self.productType; })) this.productType = null;
+		offered.forEach(function (pt) {
 			var active = (self.productType === pt.value) ? ' active' : '';
-			pills += '<button type="button" class="btn btn-default ill-desk-type-pill' + active
-				+ '" data-value="' + escapeHtml(pt.value) + '">' + escapeHtml(pt.label) + '</button>';
+			pills += '<button type="button" class="btn ill-desk-type-pill' + active
+				+ '" aria-pressed="' + (active ? 'true' : 'false') + '" data-value="' + escapeHtml(pt.value) + '">' + escapeHtml(pt.label) + '</button>';
 		});
 		pills += '</div></div>';
 
+		var wo = this.isWorkOrder;
 		var html = header + pills
 			+ '<div class="row ill-desk-line-grid">'
 			+   (showLineSelect ? '<div class="col-md-12"><div class="ill-desk-ctl" data-ctl="line_select"></div></div>' : '')
-			+   '<div class="col-md-3"><div class="ill-desk-ctl" data-ctl="fixture_type"></div></div>'
-			+   '<div class="col-md-6"><div class="ill-desk-ctl" data-ctl="location"></div></div>'
+			+   (wo ? '' : '<div class="col-md-3"><div class="ill-desk-ctl" data-ctl="fixture_type"></div></div>')
+			+   (wo ? '' : '<div class="col-md-6"><div class="ill-desk-ctl" data-ctl="location"></div></div>')
 			+   '<div class="col-md-3"><div class="ill-desk-ctl" data-ctl="qty"></div></div>'
-			+   '<div class="col-md-12"><div class="ill-desk-ctl" data-ctl="notes"></div></div>'
+			+   (wo ? '' : '<div class="col-md-12"><div class="ill-desk-ctl" data-ctl="notes"></div></div>')
 			+ '</div>';
 		$body.html(html);
 
 		$body.find('.ill-desk-type-pill').on('click', function () {
-			$body.find('.ill-desk-type-pill').removeClass('active');
-			$(this).addClass('active');
+			$body.find('.ill-desk-type-pill').removeClass('active').attr('aria-pressed', 'false');
+			$(this).addClass('active').attr('aria-pressed', 'true');
 			var family = $(this).data('value');
 			if (self.productType !== family) self.initialRequest = null;
 			self.productType = family;
@@ -507,20 +525,29 @@
 		var byIdx = {};
 		pendingLines.forEach(function (l) { byIdx[String(l.idx)] = l; });
 
+		// A Work Order has no Fixture Type, Section or notes: hidden stand-ins keep the shared code paths simple.
+		var $hidden = $('<div class="hidden"></div>').appendTo($body);
+		var slotOr = function (name) { var $s = slot(name); return $s.length ? $s : $('<div></div>').appendTo($hidden); };
+
 		c.fixture_type = makeControl({
 			fieldtype: 'Data', fieldname: 'fixture_type', label: __('Fixture Type'), reqd: 0,
-			description: __('Optional, e.g. L1. Clear it for rows that need no Fixture Type; a schedule line still gets the next L number.')
-		}, slot('fixture_type'));
+			description: this.usesSchedule
+				? __('Optional, e.g. L1. Clear it for rows that need no Fixture Type; a schedule line still gets the next L number.')
+				: __('Optional, e.g. L1, to match the project\'s fixture types.')
+		}, slotOr('fixture_type'));
 
 		c.location = makeControl({
 			fieldtype: 'Data', fieldname: 'location', label: __('Section / Room'), reqd: this.schedule ? 1 : 0,
 			description: this.schedule
 				? __('Location on the schedule line and the row\'s Section / Room')
 				: __('Optional grouping label for the print format')
-		}, slot('location'));
+		}, slotOr('location'));
 
-		c.qty = makeControl({ fieldtype: 'Int', fieldname: 'qty', label: __('Qty'), reqd: 1 }, slot('qty'));
-		c.notes = makeControl({ fieldtype: 'Small Text', fieldname: 'notes', label: __('Notes') }, slot('notes'));
+		c.qty = makeControl({ fieldtype: 'Int', fieldname: 'qty', label: wo ? __('Qty to Manufacture') : __('Qty'), reqd: 1 }, slot('qty'));
+		c.notes = makeControl({
+			fieldtype: 'Small Text', fieldname: 'notes', label: __('Notes'),
+			description: this.usesSchedule ? '' : __('Added to the row description, which the supplier sees.')
+		}, slotOr('notes'));
 
 		if (showLineSelect) {
 			var options = [{ value: '__new__', label: __('+ New schedule line') }].concat(
@@ -566,7 +593,7 @@
 
 		{
 			// Reopening a row keeps its Fixture Type, blank included; new lines start at the next L number.
-			c.fixture_type.set_value(this.editingRow ? (this.fixtureType || '') : (this.fixtureType || data.next_fixture_type || ''));
+			c.fixture_type.set_value(wo ? '' : (this.editingRow ? (this.fixtureType || '') : (this.fixtureType || data.next_fixture_type || '')));
 			c.location.set_value(this.location || '');
 			c.qty.set_value(this.qty || 1);
 			c.notes.set_value(this.notes || '');
@@ -647,7 +674,7 @@
 
 		var $body = this.body$();
 		$body.html(this.lineSummaryHtml()
-			+ '<div class="text-center text-muted py-4 ill-desk-loading">'
+			+ '<div class="text-center py-4 ill-desk-loading">'
 			+ '<i class="fa fa-spinner fa-spin fa-2x mb-2"></i>'
 			+ '<p>' + __('Loading configurator…') + '</p></div>');
 
@@ -673,16 +700,20 @@
 	};
 
 	DialogController.prototype.lineSummaryHtml = function () {
-		var parts = [
-			'<strong>' + escapeHtml(this.fixtureType) + '</strong>',
-			this.location ? escapeHtml(this.location) : '<span class="text-muted">' + __('no Section / Room') + '</span>',
-			__('Qty {0}', [this.qty]),
-			escapeHtml(productTypeLabel(this.productType))
-		];
-		var target = this.schedule
-			? __('→ schedule {0}', [escapeHtml(this.scheduleName || this.schedule)])
-			: '<span class="text-warning">' + __('→ document only') + '</span>';
-		return '<div class="ill-desk-line-summary">' + parts.join(' <span class="text-muted">·</span> ')
+		var parts = this.isWorkOrder
+			? [__('Qty to Manufacture {0}', [this.qty]), escapeHtml(productTypeLabel(this.productType))]
+			: [
+				this.fixtureType ? '<strong>' + escapeHtml(this.fixtureType) + '</strong>' : '<span class="text-muted">' + __('no Fixture Type') + '</span>',
+				this.location ? escapeHtml(this.location) : '<span class="text-muted">' + __('no Section / Room') + '</span>',
+				__('Qty {0}', [this.qty]),
+				escapeHtml(productTypeLabel(this.productType))
+			];
+		var target;
+		if (this.schedule) target = __('→ schedule {0}', [escapeHtml(this.scheduleName || this.schedule)]);
+		else if (this.isWorkOrder) target = __('→ production Item of this Work Order');
+		else if (!this.usesSchedule) target = __('→ row on this {0}', [__(this.frm.doctype)]);
+		else target = '<span class="text-warning">' + __('→ document only') + '</span>';
+		return '<div class="ill-desk-line-summary">' + parts.join(' <span class="ill-desk-sep">·</span> ')
 			+ ' <span class="text-muted ml-2">' + target + '</span></div>';
 	};
 

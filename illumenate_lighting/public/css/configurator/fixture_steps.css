@@ -34,11 +34,11 @@
 }
 .ill-configurator-fixture .progress-step.active .step-number {
 	background: var(--ill-blue-600, #00588C);
-	color: white;
+	color: var(--ill-on-accent, #fff);
 }
 .ill-configurator-fixture .progress-step.completed .step-number {
-	background: #198754;
-	color: white;
+	background: var(--ill-ui-success, #198754);
+	color: var(--ill-on-accent, #fff);
 }
 .ill-configurator-fixture .progress-step .step-label {
 	font-size: 0.7rem;
@@ -68,7 +68,7 @@
 	color: var(--ill-gray-400, #A2ABB6);
 }
 .ill-configurator-fixture .part-number-preview .segment.selected {
-	color: #212529;
+	color: var(--ill-ink, #212529);
 	font-weight: 600;
 }
 .ill-configurator-fixture .part-number-preview .segment.locked {
@@ -92,7 +92,7 @@
 }
 .ill-configurator-fixture .config-section .series-display {
 	background: var(--ill-blue-100, #E6EEF4);
-	border: 1px solid #b6d4fe;
+	border: 1px solid var(--ill-accent-soft, #b6d4fe);
 	padding: 0.75rem 1rem;
 	border-radius: 0.5rem;
 }
@@ -152,7 +152,7 @@
 
 /* ── Guided Wizard: step headers, segments, feeds ── */
 .ill-configurator-fixture .config-section h4 .ill-config-step-num { margin-right: 10px; vertical-align: middle; }
-.ill-configurator-fixture .progress-step.completed .step-label { color: #198754; }
+.ill-configurator-fixture .progress-step.completed .step-label { color: var(--ill-ui-success, #198754); }
 .ill-configurator-fixture .pill-selector .pill.pill-sm { padding: 5px 12px; font-size: 12px; }
 .ill-configurator-fixture .pill-selector-sm { gap: 6px; }
 
@@ -170,7 +170,7 @@
 .ill-configurator-fixture .end-type-toggle .btn.active:hover {
 	background-color: var(--ill-accent, #00588c);
 	border-color: var(--ill-accent, #00588c);
-	color: #fff;
+	color: var(--ill-on-accent, #fff);
 }
 .ill-configurator-fixture .jumper-fields,
 .ill-configurator-fixture .endcap-fields {
