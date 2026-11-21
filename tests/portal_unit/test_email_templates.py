@@ -230,7 +230,9 @@ class Library(unittest.TestCase):
 	def test_customer_wording_never_shows_internal_fields(self):
 		internal = (
 			"ill_floor_notes",
-			"ill_production_status_override",
+			"ill_stage_override",
+			"ill_waiting_on",
+			"ill_stage_note",
 			"ill_hold_reason",
 			"ill_build_points",
 			"ill_rate_notes",
