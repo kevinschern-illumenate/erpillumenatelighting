@@ -7,6 +7,7 @@
   "track_changes": 1,
   "field_order": [
     "schedule",
+    "cad_import",
     "project",
     "customer",
     "requested_by",
@@ -119,6 +120,14 @@
       "read_only": 1,
       "options": "Staff\nCustomer\nNone",
       "default": "Staff"
+    },
+    {
+      "fieldname": "cad_import",
+      "fieldtype": "Link",
+      "label": "Drawing Import",
+      "options": "ilL-CAD-Import",
+      "read_only": 1,
+      "description": "The newest committed drawing import of the schedule when the quote was requested."
     }
   ],
   "permissions": [

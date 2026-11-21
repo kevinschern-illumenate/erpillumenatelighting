@@ -1,0 +1,29 @@
+{
+ "add_total_row": 1,
+ "columns": [],
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "is_standard": "Yes",
+ "module": "ilLumenate Lighting",
+ "name": "CAD Import Funnel",
+ "prepared_report": 0,
+ "ref_doctype": "ilL-CAD-Import",
+ "report_name": "CAD Import Funnel",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "ilL Engineering"
+  },
+  {
+   "role": "ilL Applications Engineer"
+  },
+  {
+   "role": "ilL Sales Review"
+  }
+ ]
+}

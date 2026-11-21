@@ -56,8 +56,20 @@ def reference_problems(package):
 			seen.add(item.get("id"))
 		return seen
 
+	sheets = unique("sheets")
 	rooms, cabinets, runs, psus = unique("rooms"), unique("cabinets"), unique("runs"), unique("psus")
 	unique("wire_paths")
+	used_sheets = set()
+
+	def known_sheet(sheet, path):
+		if not sheet:
+			return
+		used_sheets.add(sheet)
+		if sheet not in sheets:
+			problems.append(f"{path}: Unknown sheet: {sheet}")
+
+	for index, room in enumerate(package.get("rooms") or []):
+		known_sheet(room.get("sheet"), f"rooms/{index}/sheet")
 	for index, cabinet in enumerate(package.get("cabinets") or []):
 		if cabinet.get("room") and cabinet["room"] not in rooms:
 			problems.append(f"cabinets/{index}/room: Unknown room: {cabinet['room']}")
@@ -65,6 +77,7 @@ def reference_problems(package):
 	for index, run in enumerate(package.get("runs") or []):
 		if run.get("room") and run["room"] not in rooms:
 			problems.append(f"runs/{index}/room: Unknown room: {run['room']}")
+		known_sheet(run.get("sheet"), f"runs/{index}/sheet")
 		if run.get("cabinet") and run["cabinet"] not in cabinets:
 			problems.append(f"runs/{index}/cabinet: Unknown cabinet: {run['cabinet']}")
 		handle = str(run.get("handle") or "").upper()
@@ -106,6 +119,18 @@ def reference_problems(package):
 			elif run in zoned:
 				problems.append(f"zones/{index}/runs/{position}: Run is in two zones: {run}")
 			zoned.add(run)
+	for index, count in enumerate(package.get("counts") or []):
+		known_sheet(count.get("sheet"), f"counts/{index}/sheet")
+		if count.get("room") and count["room"] not in rooms:
+			problems.append(f"counts/{index}/room: Unknown room: {count['room']}")
+	if (package.get("drawing") or {}).get("scale_verified"):
+		for index, sheet in enumerate(package.get("sheets") or []):
+			status = (sheet.get("scale") or {}).get("status")
+			if sheet.get("id") in used_sheets and status != "verified":
+				problems.append(
+					f"sheets/{index}/scale/status: Drawing says its scale is verified "
+					f"but sheet {sheet.get('id')} is {status}"
+				)
 	ends = runs | psus | cabinets | controls
 	for index, wire in enumerate(package.get("wire_paths") or []):
 		for end in ("from", "to"):
@@ -122,6 +147,19 @@ def validate_package(package):
 	return problems or reference_problems(package)
 
 
+def derived_source(package):
+	"""The ``source`` a package without one came from: DXF uploads say ``dxf-1``, the rest are AutoCAD."""
+	toolkit = package.get("toolkit") or {}
+	if toolkit.get("version") == "dxf-1":
+		return {"tool": "dxf", "version": "dxf-1", "platform": toolkit.get("platform"), "input": "dxf"}
+	return {
+		"tool": "autocad",
+		"version": toolkit.get("version") or "",
+		"platform": toolkit.get("platform"),
+		"input": "ilq",
+	}
+
+
 def with_defaults(package):
 	"""A copy with the Zod defaults filled in, so the import reads every key the same way."""
 	package = copy.deepcopy(package)
@@ -129,8 +167,21 @@ def with_defaults(package):
 	package["target"].setdefault("schedule", "")
 	package["target"].setdefault("schedule_version", 0)
 	package["target"].setdefault("project", "")
-	for section in ("rooms", "cabinets", "psus", "wire_paths", "other_lines", "controls", "zones"):
+	for section in (
+		"rooms",
+		"cabinets",
+		"psus",
+		"wire_paths",
+		"other_lines",
+		"controls",
+		"zones",
+		"sheets",
+		"counts",
+	):
 		package.setdefault(section, [])
+	package.setdefault("source", derived_source(package))
+	for sheet in package["sheets"]:
+		sheet.setdefault("label", "")
 	for control in package["controls"]:
 		control.setdefault("erp", {})
 		if control.get("dmx"):

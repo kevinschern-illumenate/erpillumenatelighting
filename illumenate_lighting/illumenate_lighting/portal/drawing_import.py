@@ -28,6 +28,7 @@ import binascii
 import hashlib
 import json
 import math
+import re
 import uuid
 
 import frappe
@@ -54,6 +55,9 @@ LENGTH_TOLERANCE_IN = 0.05
 RECEIPT_SCHEMA = "ilq-receipt/1"
 SITE_SCHEMA = "cad-site/1"
 EDITABLE = ("DRAFT", "READY")
+# Scale trust, best first (WP 1.3): a sheet's worst status is the drawing's.
+SCALE_ORDER = ("verified", "declared", "unverified")
+TAPE_TEMPLATE = "ilL-Tape-Neon-Template"
 # CAD feed direction → configurator segment keys per family (tape: inches, linear: millimetres).
 TAPE_SEGMENT_KEYS = (
 	"start_feed_direction",
@@ -69,7 +73,7 @@ LINEAR_END_KEYS = ("end_feed_direction", "end_power_feed_type", "end_jumper_cabl
 # --- Reading the package -----------------------------------------------------------------------
 
 
-def read_package(filename, content, options=None):
+def read_package(filename, content, options=None, report=None):
 	"""The checked package and its SHA-256 from an uploaded file (base64 ``content``).
 
 	A ``.ilq.json`` file is the CAD toolkit's package. A ``.dxf`` is a drawing made without the toolkit
@@ -97,7 +101,7 @@ def read_package(filename, content, options=None):
 		from illumenate_lighting.illumenate_lighting.portal.dxf_ingest import DxfError, package_from_dxf
 
 		try:
-			data_package = package_from_dxf(data, str(filename), _options(options))
+			data_package = package_from_dxf(data, str(filename), _options(options), report=report)
 		except DxfError as error:
 			frappe.throw(str(error))
 	else:
@@ -876,7 +880,234 @@ def _toolkit_check(package):
 				"The drawing has {0} ILCHECK errors; fix or override them in AutoCAD, then run ILQUOTE again"
 			).format(check["errors"])
 		)
-	return problems
+	blocking, _warning = version_check(package)
+	return problems + blocking
+
+
+def version_tuple(text):
+	"""``(0, 5, 0)`` for ``"0.5.0"``; None for anything that is not dotted integers."""
+	text = str(text or "").strip()
+	if not re.fullmatch(r"\d+(\.\d+)*", text):
+		return None
+	return tuple(int(part) for part in text.split("."))
+
+
+def version_check(package, minimums=None):
+	"""``(blocking, warnings)``: the tool that wrote the package against ``ill_cad_min_versions`` (WP 1.4)."""
+	if minimums is None:
+		from illumenate_lighting.illumenate_lighting.portal import site_flags
+
+		minimums = site_flags.cad_min_versions()
+	source = package.get("source") or {}
+	minimum = minimums.get(source.get("tool"))
+	if not minimum:
+		return [], []
+	have, need = version_tuple(source.get("version")), version_tuple(minimum)
+	if have is None or need is None:
+		return [], [
+			_("Could not compare drawing tool version {0} with the minimum {1}").format(
+				source.get("version") or "?", minimum
+			)
+		]
+	if have < need:
+		return [
+			_(
+				"This drawing was made with {0} {1}; version {2} or later is required. "
+				"Download the current version from the portal Resources page."
+			).format(source.get("tool"), source.get("version"), minimum)
+		], []
+	return [], []
+
+
+def sheet_status(sheet):
+	status = (sheet.get("scale") or {}).get("status")
+	return status if status in SCALE_ORDER else "unverified"
+
+
+def scale_summary(package):
+	"""The drawing's scale trust (WP 1.3): each sheet's status and the worst one among sheets with runs.
+
+	Packages without sheets (AutoCAD 0.4.x) are ``verified`` after ILSCALE, else ``declared``: an
+	AutoCAD drawing always has units, so it is never refused for scale, only warned about.
+	"""
+	sheets = package.get("sheets") or []
+	used = {run.get("sheet") for run in package.get("runs") or [] if run.get("sheet")}
+	rows = [
+		{
+			"id": sheet["id"],
+			"label": sheet.get("label") or "",
+			"page": sheet.get("page"),
+			"status": sheet_status(sheet),
+			"ratio": (sheet.get("scale") or {}).get("ratio"),
+			"unit": (sheet.get("scale") or {}).get("unit"),
+			"used": not used or sheet["id"] in used,
+		}
+		for sheet in sheets
+	]
+	considered = [row["status"] for row in rows if row["used"]]
+	if not considered:
+		considered = ["verified" if (package.get("drawing") or {}).get("scale_verified") else "declared"]
+	return {"status": max(considered, key=SCALE_ORDER.index), "sheets": rows}
+
+
+def scale_messages(package, rows, summary):
+	"""Warnings for sheets that are not verified; every run on an unverified sheet says so."""
+	warnings = []
+	unverified = {sheet["id"] for sheet in summary["sheets"] if sheet["status"] == "unverified"}
+	for sheet in summary["sheets"]:
+		if not sheet["used"] or sheet["status"] == "verified":
+			continue
+		name = sheet["label"] or sheet["id"]
+		if sheet["status"] == "declared":
+			warnings.append(_("Sheet {0}: units are set but the scale was not calibrated").format(name))
+		else:
+			warnings.append(
+				_("Sheet {0}: the scale is not verified; a quote cannot be requested until it is").format(
+					name
+				)
+			)
+	if not summary["sheets"] and summary["status"] == "declared":
+		warnings.append(_("The drawing's scale was not calibrated (ILSCALE); check a known dimension"))
+	if unverified:
+		by_run = {run["id"]: run.get("sheet") for run in package.get("runs") or []}
+		for row in rows:
+			sheet = by_run.get(row.get("id"))
+			if sheet in unverified or (sheet is None and summary["status"] == "unverified"):
+				row.setdefault("messages", []).append(_("Scale not verified"))
+	return warnings
+
+
+def quote_blockers(schedule_name):
+	"""Why a schedule's newest drawing import stops a quote request (PDR section 10 gates)."""
+	if not schedule_name or not frappe.db.exists("DocType", DOCTYPE):
+		return []
+	rows = frappe.get_all(
+		DOCTYPE,
+		filters={"schedule": schedule_name, "status": "Committed"},
+		fields=["name", "scale_status", "scale_confirmed_by", "ignored_count"],
+		order_by="creation desc",
+		limit=1,
+	)
+	if not rows:
+		return []
+	row = rows[0]
+	blockers = []
+	if row.get("scale_status") == "unverified" and not row.get("scale_confirmed_by"):
+		blockers.append(
+			_(
+				"The drawing imported in {0} has a sheet whose scale is not verified. "
+				"Ask ilLumenate applications engineering to confirm it, or calibrate and import again."
+			).format(row["name"])
+		)
+	return blockers
+
+
+def choice_groups(rows, option_values=None):
+	"""Runs waiting on the same choices, grouped so one answer can fill them all (WP 1.8)."""
+	groups = {}
+	for row in rows:
+		if row.get("status") != "needs_choice":
+			continue
+		missing = sorted({key for part in row.get("parts") or [] for key in part.get("missing") or []})
+		if not missing:
+			continue
+		key = (row.get("family") or "", row.get("template") or "", tuple(missing))
+		group = groups.setdefault(
+			key,
+			{
+				"family": key[0],
+				"template": key[1],
+				"style": row.get("style") or key[1],
+				"keys": [
+					{
+						"key": item,
+						"values": ((option_values or {}).get((key[0], key[1])) or {}).get(item) or [],
+					}
+					for item in missing
+				],
+				"runs": [],
+			},
+		)
+		group["runs"].append(row["id"])
+	return list(groups.values())
+
+
+def option_values(rows):
+	"""``{(family, template): {key: [values]}}`` for the tape and neon templates of rows needing a choice."""
+	from illumenate_lighting.illumenate_lighting.system_design import cad_catalog
+
+	wanted = {
+		(row.get("family"), row.get("template"))
+		for row in rows
+		if row.get("status") == "needs_choice" and row.get("family") in TAPE_FAMILIES
+	}
+	if not wanted:
+		return {}
+	codes = sorted({template for _family, template in wanted if template})
+	templates = frappe.get_all(
+		TAPE_TEMPLATE,
+		filters=[["template_code", "in", codes]],
+		fields=["name", "template_code"],
+		ignore_permissions=True,
+	) + frappe.get_all(
+		TAPE_TEMPLATE,
+		filters=[["name", "in", codes]],
+		fields=["name", "template_code"],
+		ignore_permissions=True,
+	)
+	by_name = {}
+	for template in templates:
+		by_name[template["name"]] = template
+	fields = sorted({spec[0] for spec in cad_catalog.TAPE_OPTIONS.values()})
+	children = {}
+	for row in frappe.get_all(
+		"ilL-Child-Tape-Neon-Allowed-Option",
+		filters={"parenttype": TAPE_TEMPLATE, "parent": ["in", sorted(by_name)]},
+		fields=["parent", "option_type", "is_default", "is_active", *fields],
+		order_by="idx asc",
+		ignore_permissions=True,
+	):
+		children.setdefault(row["parent"], []).append(row)
+	result = {}
+	for family, code in wanted:
+		match = next(
+			(name for name, row in by_name.items() if code in (name, row.get("template_code"))), None
+		)
+		if match:
+			result[(family, code)] = {
+				option["key"]: option["values"]
+				for option in cad_catalog.template_options(children.get(match) or [])
+			}
+	return result
+
+
+def previous_choices(schedule_name):
+	"""The choices answered in the schedule's newest import, to prefill the dialog (WP 1.8)."""
+	if not frappe.db.exists("DocType", DOCTYPE):
+		return {}
+	rows = frappe.get_all(
+		DOCTYPE,
+		filters={"schedule": schedule_name},
+		fields=["choices_json"],
+		order_by="creation desc",
+		limit=1,
+	)
+	try:
+		value = json.loads((rows[0].get("choices_json") if rows else None) or "{}")
+	except ValueError:
+		return {}
+	return value if isinstance(value, dict) else {}
+
+
+def on_behalf_of(doc, user=None):
+	"""The customer a staff user imported for, or None (WP 1.7)."""
+	from illumenate_lighting.illumenate_lighting.portal.access import get_actor
+
+	actor = get_actor(user)
+	customer = doc.get("customer")
+	if actor.is_internal and customer and customer != actor.customer:
+		return customer
+	return None
 
 
 def _counts(rows, other_rows, removals):
@@ -901,7 +1132,42 @@ def _plan(doc, package, choices):
 
 	# The configurators check access again; an editor of this schedule may configure for it.
 	frappe.flags[FLAG] = doc.name
-	return Planner(doc, package, _sales_staff(), choices).plan()
+	rows, other_rows, removals, saves, others = Planner(doc, package, _sales_staff(), choices).plan()
+	saves = apply_checks(package, rows, other_rows, server_issues(package), saves)
+	return rows, other_rows, removals, saves, others
+
+
+def server_issues(package):
+	"""The toolkit's gating checks, run on the server for every front end (WP 1.9)."""
+	from illumenate_lighting.illumenate_lighting.system_design import cad_catalog, drawing_checks
+
+	try:
+		catalog = cad_catalog.cad_catalog()
+	except Exception:
+		# The checks are a second opinion; a catalog that cannot be built must not stop the import.
+		frappe.log_error(title="Drawing import: server checks skipped")
+		return []
+	if not catalog:
+		return []
+	issues = drawing_checks.check_package(package, catalog)
+	issues = [issue for issue in issues if issue["code"] in drawing_checks.PORTED_CODES]
+	return drawing_checks.apply_overrides(issues, (package.get("check") or {}).get("overrides") or [])
+
+
+def apply_checks(package, rows, other_rows, issues, saves):
+	"""Errors turn their run or control row into an error (and drop its saves); warnings become messages."""
+	by_id = {row["id"]: row for row in rows + other_rows}
+	failed = set()
+	for issue in issues:
+		row = by_id.get(issue["ref"])
+		if row is None:
+			continue
+		row.setdefault("messages", []).append(issue["text"])
+		if issue["severity"] == "error":
+			row["status"] = "error"
+			row.pop("action", None)
+			failed.add(issue["ref"])
+	return [save for save in saves if save["run"]["id"] not in failed]
 
 
 def _choices(value):
@@ -929,23 +1195,57 @@ def _truthy(value):
 def preview_drawing_import(schedule, filename, content, choices=None, options=None):
 	"""Dry run: every run's planned build and status, the lines to remove and the design delta."""
 	from illumenate_lighting.illumenate_lighting.portal.configurator_access import strip_prices
+	from illumenate_lighting.illumenate_lighting.system_design import telemetry
 
 	doc = _schedule(schedule)
-	package, digest = read_package(filename, content, options)
+	report = {}
+	try:
+		package, digest = read_package(filename, content, options, report=report)
+	except Exception as error:
+		telemetry.record(
+			"cad_preview_failed",
+			doc.name,
+			details={"file_type": _extension(filename), "error": str(error)[:200]},
+		)
+		raise
 	rows, other_rows, removals, _saves, _others = _plan(doc, package, _choices(choices))
 	problem = _editable_problem(doc)
+	scale = scale_summary(package)
+	warnings = _catalog_check(package, doc.name) + scale_messages(package, rows, scale)
+	warnings += version_check(package)[1]
+	blocking = _toolkit_check(package)
+	counts = _counts(rows, other_rows, removals)
+	groups = choice_groups(rows, option_values(rows) if counts["needs_choice"] else {})
+	telemetry.record(
+		"cad_preview",
+		doc.name,
+		details={
+			"source_tool": package["source"]["tool"],
+			"source_version": package["source"]["version"],
+			"scale": scale["status"],
+			"runs": len(package["runs"]),
+			"counts": counts,
+			"blocking": len(blocking),
+		},
+	)
 	return strip_prices(
 		{
 			"success": True,
 			"schedule": doc.name,
 			"package_sha256": digest,
 			"drawing": package["drawing"],
+			"source": package["source"],
+			"sheets": scale["sheets"],
+			"scale": {"status": scale["status"]},
 			"rows": rows,
 			"other_lines": other_rows,
 			"removals": removals,
-			"counts": _counts(rows, other_rows, removals),
-			"warnings": _catalog_check(package, doc.name),
-			"blocking": _toolkit_check(package),
+			"counts": counts,
+			"choice_groups": groups,
+			"previous_choices": previous_choices(doc.name),
+			"layers": report.get("layers") or [],
+			"warnings": warnings,
+			"blocking": blocking,
 			"new_version_required": bool(problem),
 			"locked_reason": problem,
 			"site": {
@@ -957,6 +1257,11 @@ def preview_drawing_import(schedule, filename, content, choices=None, options=No
 			"modified": str(doc.modified),
 		}
 	)
+
+
+def _extension(filename):
+	name = str(filename or "").strip().lower()
+	return name.rsplit(".", 1)[-1][:10] if "." in name else ""
 
 
 def _new_version(doc):
@@ -1204,7 +1509,7 @@ def commit_drawing_import(
 	if removed_keys:
 		_remove_lines(doc, removed_keys)
 	doc.save(ignore_permissions=True)
-	record = _store(doc, package, digest, rows, other_rows, removals, line_keys, others)
+	record = _store(doc, package, digest, rows, other_rows, removals, line_keys, others, choices=choices)
 	if plan is not None:
 		store_plan_pdf(record, doc, plan)
 	receipt = json.loads(record.receipt_json)
@@ -1218,6 +1523,10 @@ def commit_drawing_import(
 			"runs": len(package["runs"]),
 			"added": record.runs_added,
 			"updated": record.runs_updated,
+			"source_tool": package["source"]["tool"],
+			"source_version": package["source"]["version"],
+			"scale": record.scale_status,
+			"on_behalf": bool(record.on_behalf),
 		},
 	)
 	return {
@@ -1310,7 +1619,7 @@ def receipt_for(doc, package, rows, removals, line_keys, import_name):
 	}
 
 
-def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=()):
+def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=(), choices=None):
 	from frappe.utils import now_datetime
 
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json
@@ -1320,6 +1629,8 @@ def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=(
 		frappe.db.set_value(DOCTYPE, name, "status", "Superseded", update_modified=False)
 	run_line_keys = {run["id"]: line_keys.get(run["id"]) for run in package["runs"]}
 	counts = _counts(rows, other_rows, removals)
+	source = package.get("source") or {}
+	customer = on_behalf_of(doc)
 	record = frappe.get_doc(
 		{
 			"doctype": DOCTYPE,
@@ -1333,6 +1644,14 @@ def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=(
 			"drawing_hash": package["drawing"]["hash"],
 			"toolkit_version": package["toolkit"]["version"],
 			"catalog_snapshot": package["catalog"]["snapshot_hash"],
+			"source_tool": source.get("tool"),
+			"source_version": (source.get("version") or "")[:140],
+			"source_platform": (source.get("platform") or "")[:140],
+			"source_input": source.get("input"),
+			"scale_status": scale_summary(package)["status"],
+			"on_behalf": 1 if customer else 0,
+			"on_behalf_customer": customer,
+			"choices_json": canonical_json(choices or {}),
 			"runs_added": counts["add"],
 			"runs_updated": counts["update"],
 			"runs_unchanged": counts["unchanged"],
@@ -1419,8 +1738,153 @@ def list_drawing_imports(schedule):
 				"runs_updated",
 				"runs_unchanged",
 				"lines_removed",
+				"source_tool",
+				"source_version",
+				"scale_status",
+				"scale_confirmed_by",
 			],
 			order_by="creation desc",
 			limit=20,
 		),
 	}
+
+
+# --- Scale confirmation, history and replay (WP 1.3, 1.10) -------------------------------------
+
+
+def latest_import(schedule_name):
+	"""The schedule's newest Committed drawing import, or None."""
+	if not schedule_name or not frappe.db.exists("DocType", DOCTYPE):
+		return None
+	rows = frappe.get_all(
+		DOCTYPE,
+		filters={"schedule": schedule_name, "status": "Committed"},
+		pluck="name",
+		order_by="creation desc",
+		limit=1,
+	)
+	return rows[0] if rows else None
+
+
+@frappe.whitelist(methods=["POST"])
+@rate_limit(limit=20, seconds=60)
+def confirm_drawing_scale(cad_import, note):
+	"""An Applications Engineer vouches for an import's scale, which lifts the quote-request gate."""
+	from illumenate_lighting.illumenate_lighting.portal import staff
+
+	staff.require("design_review")
+	note = str(note or "").strip()
+	if len(note) < 3:
+		frappe.throw(_("Say how the scale was checked (at least 3 characters)"))
+	if not frappe.db.exists(DOCTYPE, cad_import):
+		frappe.throw(_("Drawing import {0} was not found").format(cad_import), frappe.DoesNotExistError)
+	frappe.db.set_value(
+		DOCTYPE,
+		cad_import,
+		{"scale_confirmed_by": frappe.session.user, "scale_note": note[:1000]},
+		update_modified=False,
+	)
+	return {"success": True, "import": cad_import, "scale_confirmed_by": frappe.session.user}
+
+
+def diff_receipts(older, newer):
+	"""Runs added, removed and changed between two receipts, by run id; never prices (WP 1.10)."""
+	fields = ("fixture_type", "part_number", "server_length_in")
+	before = {run["id"]: run for run in (older or {}).get("runs") or []}
+	after = {run["id"]: run for run in (newer or {}).get("runs") or []}
+	changed = []
+	for run_id in sorted(set(before) & set(after)):
+		changes = {
+			field: {"from": before[run_id].get(field), "to": after[run_id].get(field)}
+			for field in fields
+			if before[run_id].get(field) != after[run_id].get(field)
+		}
+		if changes:
+			changed.append({"id": run_id, "changes": changes})
+	return {
+		"added": [
+			{"id": run_id, **{f: after[run_id].get(f) for f in fields}}
+			for run_id in sorted(set(after) - set(before))
+		],
+		"removed": [
+			{"id": run_id, **{f: before[run_id].get(f) for f in fields}}
+			for run_id in sorted(set(before) - set(after))
+		],
+		"changed": changed,
+	}
+
+
+def _import_receipt(schedule_name, name):
+	row = frappe.db.get_value(
+		DOCTYPE, {"name": name, "schedule": schedule_name}, ["name", "receipt_json"], as_dict=True
+	)
+	if not row:
+		frappe.throw(_("Drawing import {0} is not on this schedule").format(name), frappe.DoesNotExistError)
+	try:
+		return json.loads(row.receipt_json or "{}")
+	except ValueError:
+		return {}
+
+
+@frappe.whitelist(methods=["GET"])
+@rate_limit(limit=60, seconds=60)
+def diff_drawing_imports(schedule, older, newer):
+	from illumenate_lighting.illumenate_lighting.portal.configuration import schedule_context
+
+	_require_enabled()
+	doc = schedule_context(schedule)
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import strip_prices
+
+	return strip_prices(
+		{
+			"success": True,
+			"older": older,
+			"newer": newer,
+			**diff_receipts(_import_receipt(doc.name, older), _import_receipt(doc.name, newer)),
+		}
+	)
+
+
+@frappe.whitelist(methods=["GET"])
+@rate_limit(limit=10, seconds=60)
+def replay_drawing_import(cad_import):
+	"""Support: the preview of a stored package against the schedule as it is now. Saves nothing."""
+	from illumenate_lighting.illumenate_lighting.portal import staff
+	from illumenate_lighting.illumenate_lighting.portal.configurator_access import strip_prices
+	from illumenate_lighting.illumenate_lighting.system_design.ilq_schema import parse_package
+
+	staff.require("design_review")
+	record = frappe.db.get_value(
+		DOCTYPE, cad_import, ["name", "schedule", "package_json", "choices_json"], as_dict=True
+	)
+	if not record:
+		frappe.throw(_("Drawing import {0} was not found").format(cad_import), frappe.DoesNotExistError)
+	doc = _schedule(record.schedule)
+	package = parse_package(record.package_json or "{}")
+	try:
+		choices = json.loads(record.choices_json or "{}")
+	except ValueError:
+		choices = {}
+	rows, other_rows, removals, _saves, _others = _plan(doc, package, choices)
+	return strip_prices(
+		{
+			"success": True,
+			"import": record.name,
+			"schedule": doc.name,
+			"rows": rows,
+			"other_lines": other_rows,
+			"removals": removals,
+			"counts": _counts(rows, other_rows, removals),
+			"scale": scale_summary(package),
+		}
+	)
+
+
+@frappe.whitelist(methods=["GET"])
+@rate_limit(limit=60, seconds=60)
+def get_quote_blockers(schedule):
+	"""The reasons a quote request would be refused for this schedule's drawing (WP 1.11)."""
+	from illumenate_lighting.illumenate_lighting.portal.configuration import schedule_context
+
+	doc = schedule_context(schedule)
+	return {"success": True, "blockers": quote_blockers(doc.name)}

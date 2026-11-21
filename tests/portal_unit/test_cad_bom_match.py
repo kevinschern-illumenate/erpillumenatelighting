@@ -30,7 +30,7 @@ class BomMatch(unittest.TestCase):
 						Record(name="SO-2", customer="C1", transaction_date="2026-11-02", ill_fixture_schedule="S9", per_delivered=0),
 					]
 				if doctype == "ilL-CAD-Import":
-					return ["S1"]
+					return [Record(schedule="S1", source_tool="dxf")]
 				if doctype == "ilL-Project-Fixture-Schedule":
 					names = filters["name"][1]
 					parents = {"S1": None, "S1-v2": "S1", "S9": None}
@@ -46,7 +46,16 @@ class BomMatch(unittest.TestCase):
 		self.assertEqual([row["sales_order"] for row in rows], ["SO-1"])
 		self.assertEqual((rows[0]["matched_lines"], rows[0]["match_pct"]), (2, 100.0))
 		self.assertTrue(rows[0]["drawing_import"])
+		self.assertEqual(rows[0]["drawing_tool"], "dxf")
 		self.assertEqual(summary[1]["value"], "100.0%")
+		with load_service(MODULE) as (module, frappe):
+			frappe._dict = Record
+			frappe.get_meta.return_value.has_field.return_value = True
+			frappe.db.exists.return_value = True
+			frappe.utils.add_days = lambda value, days: value
+			frappe.get_all = MagicMock(side_effect=get_all)
+			self.assertEqual(module.execute({"source_tool": "bluebeam"})[1], [])
+			self.assertEqual(len(module.execute({"source_tool": "dxf"})[1]), 1)
 
 
 if __name__ == "__main__":

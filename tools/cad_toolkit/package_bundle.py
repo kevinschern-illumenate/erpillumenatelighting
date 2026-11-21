@@ -1,6 +1,7 @@
 """Package the AutoCAD toolkit as an Autodesk ``.bundle`` (draw-to-quote plan 3.11).
 
-``python -m tools.cad_toolkit.package_bundle [--out dist]`` writes ``ilLumenate.bundle`` (and a zip of it):
+``python -m tools.cad_toolkit.package_bundle [--out dist]`` writes ``ilLumenate.bundle`` (and a reproducible
+zip of it, committed as ``illumenate_lighting/public/cad_toolkit/ilLumenate-cad-toolkit-<version>.zip``):
 
 - ``PackageContents.xml``: loads ``Contents/ilLumenate.lsp`` at startup in every drawing;
 - ``Contents/ilLumenate.lsp``: the toolkit's LISP files joined in load order (one file, so load order
@@ -21,6 +22,8 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parent
 LISP = ROOT / "lisp"
+# The zip dealers download from the portal Resources page (served from /assets/illumenate_lighting/cad_toolkit/).
+PUBLIC = ROOT.parents[1] / "illumenate_lighting/public/cad_toolkit"
 ORDER = (
 	"il-util.lsp",
 	"il-json.lsp",
@@ -133,20 +136,43 @@ def build(out):
 
 	(contents / "ilLumenate-layers.scr").write_text(script(), encoding="ascii", newline="\r\n")
 	(contents / "README.txt").write_text(README.format(version=version()), encoding="ascii", newline="\r\n")
-	archive = out / f"ilLumenate-cad-toolkit-{version()}.zip"
+	archive = out / archive_name()
+	write_zip(bundle, archive)
+	return bundle, archive
+
+
+def archive_name():
+	return f"ilLumenate-cad-toolkit-{version()}.zip"
+
+
+def write_zip(bundle, archive):
+	"""Zip BUNDLE reproducibly: sorted entries, a fixed timestamp and fixed permissions, so a rebuild
+	with no source change gives the same bytes as the zip committed under ``public/cad_toolkit``."""
 	with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as handle:
 		for path in sorted(bundle.rglob("*")):
 			if path.is_file():
-				handle.write(path, path.relative_to(out).as_posix())
-	return bundle, archive
+				info = zipfile.ZipInfo(
+					path.relative_to(bundle.parent).as_posix(), date_time=(2020, 1, 1, 0, 0, 0)
+				)
+				info.compress_type = zipfile.ZIP_DEFLATED
+				info.external_attr = 0o644 << 16
+				handle.writestr(info, path.read_bytes(), compresslevel=9)
 
 
 def main(argv=None):
 	parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 	parser.add_argument("--out", default="dist")
+	parser.add_argument(
+		"--publish", action="store_true", help=f"also copy the zip to {PUBLIC} (replacing older ones)"
+	)
 	args = parser.parse_args(argv)
 	bundle, archive = build(args.out)
 	print(f"Wrote {bundle} and {archive}")
+	if args.publish:
+		for old in PUBLIC.glob("ilLumenate-cad-toolkit-*.zip"):
+			old.unlink()
+		shutil.copyfile(archive, PUBLIC / archive.name)
+		print(f"Published {PUBLIC / archive.name}")
 	return 0
 
 

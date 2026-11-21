@@ -1,0 +1,120 @@
+{
+ "schema": "ilq/2",
+ "toolkit": {
+  "version": "0.5.0",
+  "platform": "AutoCAD LT 2025"
+ },
+ "catalog": {
+  "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000001",
+  "generated_at": "2026-11-20 09:00:00"
+ },
+ "target": {},
+ "drawing": {
+  "file": "min.dwg",
+  "rev": 0,
+  "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "units": "in",
+  "scale_verified": false
+ },
+ "runs": [
+  {
+   "id": "T1-01",
+   "handle": "1A",
+   "fixture_type": "T1",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 24
+    }
+   ],
+   "room": "KIT",
+   "sheet": "L1",
+   "identity": "xdata"
+  },
+  {
+   "id": "T1-02",
+   "handle": "1B",
+   "fixture_type": "T1",
+   "style": {
+    "family": "LED Tape",
+    "template": "led-hd-sw",
+    "selections": {
+     "environment_rating": "Dry",
+     "cct": "2700K",
+     "output_level": "300 lm/ft",
+     "feed_type": "Soldered-End"
+    }
+   },
+   "segments": [
+    {
+     "path_length_in": 24
+    }
+   ],
+   "room": "BED",
+   "sheet": "L2",
+   "identity": "xdata"
+  }
+ ],
+ "check": {
+  "errors": 0,
+  "warnings": 0
+ },
+ "source": {
+  "tool": "revit",
+  "version": "0.5.0",
+  "platform": "AutoCAD LT 2025",
+  "input": "ilq"
+ },
+ "sheets": [
+  {
+   "id": "L1",
+   "label": "Level 1",
+   "scale": {
+    "status": "verified",
+    "ratio": 48,
+    "unit": "in"
+   }
+  },
+  {
+   "id": "L2",
+   "label": "Level 2",
+   "page": 2,
+   "scale": {
+    "status": "declared"
+   }
+  }
+ ],
+ "rooms": [
+  {
+   "id": "KIT",
+   "name": "Kitchen",
+   "level": "1",
+   "sheet": "L1"
+  },
+  {
+   "id": "BED",
+   "name": "Bedroom",
+   "level": "2",
+   "sheet": "L2"
+  }
+ ],
+ "counts": [
+  {
+   "item": "PS-100W",
+   "kind": "psu",
+   "qty": 2,
+   "sheet": "L1",
+   "room": "KIT",
+   "tag": "CAB-1"
+  }
+ ]
+}

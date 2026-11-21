@@ -275,6 +275,179 @@ class Presets(unittest.TestCase):
 				with self.assertRaises(LookupError):
 					module.get_preset(name)
 
+	# -- CAD drawing codes (CAD plan WP 1.2) ------------------------------------
+
+	def get_all(self, doctype, filters=None, fields=None, pluck=None, **kwargs):
+		"""``frappe.get_all`` over ``self.rows`` with equality filters."""
+		rows = [
+			row for row in self.rows.values() if all(row.get(key) == value for key, value in (filters or {}).items())
+		]
+		if pluck:
+			return [row.get(pluck) for row in rows]
+		return rows
+
+	def test_cad_codes_are_uppercased_and_validated(self):
+		with load_service(MODULE, self.extras) as (module, _frappe):
+			self.assertEqual(module.normalize_cad_code("  hd27-dry "), "HD27-DRY")
+			self.assertEqual(module.normalize_cad_code("A"), "A")
+			self.assertEqual(module.normalize_cad_code("9" + "Z" * 23), "9" + "Z" * 23)
+			self.assertIsNone(module.normalize_cad_code(""))
+			self.assertIsNone(module.normalize_cad_code(None))
+			for bad in ("-HD", "HD_27", "HD 27", "HD.27", "Ä1", "X" * 25, "HD/27"):
+				with self.assertRaisesRegex(ValueError, "Drawing codes", msg=bad):
+					module.normalize_cad_code(bad)
+			self.assertTrue(module.is_cad_enabled(None), "presets made before the field are offered")
+			self.assertTrue(module.is_cad_enabled(1))
+			self.assertFalse(module.is_cad_enabled(0))
+			self.assertFalse(module.is_cad_enabled("0"))
+
+	def test_set_preset_cad_sets_and_clears_the_code_of_own_presets(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			self.wire(frappe)
+			frappe.get_all.side_effect = self.get_all
+			self.store("P1")
+			doc = Record(name="P1", user="buyer@example.com", customer="CUST-A", label="P1", family="Linear Fixture",
+				shared_with_company=0, cad_code=None, cad_enabled=1)
+			doc.save = MagicMock()
+			frappe.get_doc.return_value = doc
+			result = module.set_preset_cad("P1", cad_code=" hd27 ", schedule_name="SCH-1")
+			frappe.get_doc.assert_called_once_with("ilL-Configuration-Preset", "P1")
+			doc.save.assert_called_once_with(ignore_permissions=True)
+			self.assertEqual(doc.cad_code, "HD27")
+			self.assertEqual(doc.cad_enabled, 1, "the switch is left alone when not given")
+			self.assertEqual(result["preset"]["cad_code"], "HD27")
+			self.assertTrue(result["preset"]["cad_enabled"])
+			self.assertEqual(self.configurator_calls, ["SCH-1"])
+			module.set_preset_cad("P1", cad_enabled="0")
+			self.assertEqual((doc.cad_code, doc.cad_enabled), ("HD27", 0), "the code is kept when not given")
+			module.set_preset_cad("P1", cad_code="")
+			self.assertIsNone(doc.cad_code)
+			self.assertEqual(module.set_preset_cad.whitelist_options, {"methods": ["POST"]})
+			with self.assertRaisesRegex(ValueError, "Drawing codes"):
+				module.set_preset_cad("P1", cad_code="no spaces")
+
+	def test_set_preset_cad_is_owner_only_and_flag_gated(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			self.wire(frappe)
+			frappe.get_all.side_effect = self.get_all
+			self.store("P9", user="colleague@example.com", shared=1)
+			with self.assertRaises(LookupError):
+				module.set_preset_cad("P9", cad_code="MINE")
+			with self.assertRaises(LookupError):
+				module.set_preset_cad("missing", cad_code="MINE")
+			frappe.get_doc.assert_not_called()
+			self.enabled = False
+			self.assertEqual(module.set_preset_cad("P9", cad_code="X"), {"success": False, "disabled": True})
+			frappe.session.user = "Guest"
+			self.enabled = True
+			with self.assertRaises(PermissionError):
+				module.set_preset_cad("P9", cad_code="X")
+
+	def test_cad_codes_are_unique_within_the_company_or_the_user(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			self.wire(frappe)
+			frappe.get_all.side_effect = self.get_all
+			self.store("P1")
+			self.store("P2", user="colleague@example.com", shared=0)["cad_code"] = "COVE"
+			self.store("P3", user="other@example.com", customer="CUST-B")["cad_code"] = "LOBBY"
+			doc = Record(name="P1", user="buyer@example.com", customer="CUST-A", cad_code=None)
+			doc.save = MagicMock()
+			frappe.get_doc.return_value = doc
+			with self.assertRaisesRegex(ValueError, "COVE is already used by another preset in your company"):
+				module.set_preset_cad("P1", cad_code="cove")
+			doc.save.assert_not_called()
+			module.set_preset_cad("P1", cad_code="lobby")  # another company's code is free
+			self.assertEqual(doc.cad_code, "LOBBY")
+			self.rows["P1"]["cad_code"] = "LOBBY"
+			module.set_preset_cad("P1", cad_code="LOBBY")  # re-setting its own code is fine
+			# Users without a company: unique among their own presets only.
+			self.actor = Record(user="solo@example.com", customer=None, is_dealer=False, is_internal=False)
+			self.store("S1", user="solo@example.com", customer=None)["cad_code"] = "COVE"
+			self.store("S2", user="solo@example.com", customer=None)
+			solo = Record(name="S2", user="solo@example.com", customer=None, cad_code=None)
+			solo.save = MagicMock()
+			frappe.get_doc.return_value = solo
+			with self.assertRaisesRegex(ValueError, "COVE is already used by another preset$"):
+				module.set_preset_cad("S2", cad_code="COVE")
+			module.set_preset_cad("S2", cad_code="LOBBY")
+			self.assertEqual(solo.cad_code, "LOBBY")
+
+	def test_save_validates_codes_and_keeps_cad_fields_when_not_given(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			self.wire(frappe)
+			frappe.get_all.side_effect = self.get_all
+			self.store("P2", user="colleague@example.com")["cad_code"] = "COVE"
+			frappe.get_doc.return_value.insert.return_value = Record(name="P1", label="Kitchen", cad_code="KIT")
+			module.save_preset("Kitchen", self.request(), cad_code="kit")
+			created = frappe.get_doc.call_args.args[0]
+			self.assertEqual((created["cad_code"], created["cad_enabled"]), ("KIT", 1))
+			with self.assertRaisesRegex(ValueError, "already used"):
+				module.save_preset("Other", self.request(), cad_code="cove")
+			module.save_preset("Plain", self.request())
+			created = frappe.get_doc.call_args.args[0]
+			self.assertNotIn("cad_code", created)
+			self.assertEqual(created["cad_enabled"], 1, "new presets are offered to CAD")
+			# Re-saving under the same label replaces the preset but keeps its code and switch.
+			self.store("P1", label="Kitchen")["cad_code"] = "KIT"
+			existing = MagicMock()
+			existing.get.side_effect = {"cad_code": "KIT", "customer": "CUST-A"}.get
+			frappe.get_doc.reset_mock()
+			frappe.get_doc.return_value = existing
+			module.save_preset("Kitchen", self.request())
+			values = existing.update.call_args.args[0]
+			self.assertNotIn("cad_code", values)
+			self.assertNotIn("cad_enabled", values)
+			module.save_preset("Kitchen", self.request(), cad_code="KIT", cad_enabled="0")
+			values = existing.update.call_args.args[0]
+			self.assertEqual((values["cad_code"], values["cad_enabled"]), ("KIT", 0), "its own code is not a clash")
+			# A kept code must still be free in the company the re-saved preset now belongs to.
+			self.store("P4", label="Moved", customer="CUST-OLD")["cad_code"] = "COVE"
+			with self.assertRaisesRegex(ValueError, "COVE is already used"):
+				module.save_preset("Moved", self.request())
+			self.assertEqual(module.prepare(self.actor, "Fresh", self.request())[0], None, "prepare writes nothing")
+
+	def test_list_and_get_carry_the_cad_fields(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			self.wire(frappe)
+			mine = self.store("P1", label="mine")
+			mine.update(cad_code="HD27", cad_enabled=0)
+			legacy = self.store("P2", label="legacy")
+			frappe.get_all.side_effect = [[mine, legacy], []]
+			presets = {row["name"]: row for row in module.list_presets()["presets"]}
+			self.assertIn("cad_code", frappe.get_all.call_args_list[0].kwargs["fields"])
+			self.assertIn("cad_enabled", frappe.get_all.call_args_list[0].kwargs["fields"])
+			self.assertEqual((presets["P1"]["cad_code"], presets["P1"]["cad_enabled"]), ("HD27", False))
+			self.assertEqual((presets["P2"]["cad_code"], presets["P2"]["cad_enabled"]), ("", True))
+			loaded = module.get_preset("P1")["preset"]
+			self.assertEqual((loaded["cad_code"], loaded["cad_enabled"]), ("HD27", False))
+
+	def test_find_by_cad_code_sees_own_then_company_shared_enabled_presets(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			self.wire(frappe)
+			frappe.get_all.side_effect = self.get_all
+			self.store("OWN", label="own")["cad_code"] = "HD27"
+			self.store("SHARED", user="colleague@example.com", shared=1)["cad_code"] = "COVE"
+			self.store("PRIVATE", user="colleague@example.com", shared=0)["cad_code"] = "SECRET"
+			self.store("OTHERCO", user="other@example.com", customer="CUST-B", shared=1)["cad_code"] = "LOBBY"
+			off = self.store("OFF", label="off")
+			off.update(cad_code="OFF", cad_enabled=0)
+			self.assertEqual(module.find_by_cad_code("hd27"), "OWN", "codes match case-insensitively")
+			self.assertEqual(module.find_by_cad_code(" COVE "), "SHARED")
+			self.assertIsNone(module.find_by_cad_code("SECRET"), "a colleague's private preset")
+			self.assertIsNone(module.find_by_cad_code("LOBBY"), "another company's preset")
+			self.assertIsNone(module.find_by_cad_code("OFF"), "switched off for CAD")
+			self.assertIsNone(module.find_by_cad_code("bad code"))
+			self.assertIsNone(module.find_by_cad_code(None))
+			# An own preset wins over a company preset with the same code.
+			self.store("SHARED-HD", user="colleague@example.com", shared=1)["cad_code"] = "HD27"
+			self.assertEqual(module.find_by_cad_code("HD27"), "OWN")
+			# Staff never see company-shared presets, as in the CAD catalog's styles.
+			self.actor = Record(user="buyer@example.com", customer="CUST-A", is_dealer=False, is_internal=True)
+			self.assertIsNone(module.find_by_cad_code("COVE"))
+			self.assertEqual(module.find_by_cad_code("HD27", user="buyer@example.com"), "OWN")
+			self.enabled = False
+			self.assertIsNone(module.find_by_cad_code("HD27"))
+
 
 if __name__ == "__main__":
 	unittest.main()

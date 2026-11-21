@@ -11,7 +11,10 @@ from illumenate_lighting.illumenate_lighting.portal.access import can_edit_sched
 
 REQUEST_DOCTYPE = "ilL-Quote-Request"
 LINE_FIELDS = (
-	"verification_status", "verification_reasons", "verification_request", "finder_session",
+	"verification_status",
+	"verification_reasons",
+	"verification_request",
+	"finder_session",
 	"name",
 	"line_key",
 	"line_id",
@@ -112,6 +115,13 @@ def request_quote(
 		frappe.throw(_("Use an editable DRAFT or READY schedule to request a quote."))
 	if not schedule.lines:
 		frappe.throw(_("Add at least one line before requesting a quote."))
+	from illumenate_lighting.illumenate_lighting.portal import drawing_import
+
+	# Drawing-imported schedules: an unverified scale cannot be quoted (draw-to-quote WP 1.3).
+	blockers = drawing_import.quote_blockers(schedule.name)
+	if blockers:
+		frappe.throw(blockers[0])
+	cad_import = drawing_import.latest_import(schedule.name)
 	from illumenate_lighting.illumenate_lighting.portal.offers import commercial_customer
 
 	request = frappe.get_doc(
@@ -126,6 +136,7 @@ def request_quote(
 			"request_hash": request_hash,
 			"idempotency_key": key,
 			"notes": snapshot["notes"],
+			"cad_import": cad_import,
 		}
 	).insert(ignore_permissions=True)
 	from illumenate_lighting.illumenate_lighting.portal.files import finalize_files

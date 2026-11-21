@@ -56,15 +56,52 @@ class Bundle(unittest.TestCase):
 			# The whole bundle parses and loads (defuns and data only at top level).
 			interp = mini_lisp.Interpreter()
 			interp.set("getvar", lambda name: None)
-			interp.run(lisp.replace('(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""))
+			interp.run(
+				lisp.replace(
+					'(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""
+				)
+			)
 			self.assertEqual(interp.get("*il-version*"), package_bundle.version())
 			self.assertTrue(interp.get("*il-asset-blocks*"))
 			with zipfile.ZipFile(archive) as handle:
 				self.assertIn("ilLumenate.bundle/Contents/ilLumenate.lsp", handle.namelist())
 
+	def test_rebuilding_gives_the_same_zip(self):
+		with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+			_bundle, a = package_bundle.build(first)
+			_bundle, b = package_bundle.build(second)
+			self.assertEqual(a.read_bytes(), b.read_bytes())
+
+	def test_committed_zip_is_the_current_version(self):
+		# Bumping *il-version* without `python -m tools.cad_toolkit.package_bundle --publish` fails here.
+		version = package_bundle.version()
+		zips = sorted(path.name for path in package_bundle.PUBLIC.glob("ilLumenate-cad-toolkit-*.zip"))
+		self.assertEqual(
+			zips, [package_bundle.archive_name()], f"rebuild and commit the {version} toolkit zip"
+		)
+		with zipfile.ZipFile(package_bundle.PUBLIC / package_bundle.archive_name()) as handle:
+			self.assertEqual(
+				sorted(handle.namelist()),
+				[
+					"ilLumenate.bundle/Contents/README.txt",
+					"ilLumenate.bundle/Contents/ilLumenate-layers.scr",
+					"ilLumenate.bundle/Contents/ilLumenate.lsp",
+					"ilLumenate.bundle/PackageContents.xml",
+				],
+			)
+			lisp = handle.read("ilLumenate.bundle/Contents/ilLumenate.lsp").decode("ascii")
+			manifest = ET.fromstring(handle.read("ilLumenate.bundle/PackageContents.xml"))
+		self.assertIn(f'(setq *il-version* "{version}")', lisp)
+		self.assertTrue(lisp.startswith(f";;; ilLumenate CAD toolkit {version} "))
+		self.assertEqual(manifest.get("AppVersion"), version)
+
 	def test_every_command_is_listed(self):
 		lisp = package_bundle.joined_lisp()
-		defined = {line.split("(defun c:", 1)[1].split(" ", 1)[0] for line in lisp.splitlines() if line.startswith("(defun c:")}
+		defined = {
+			line.split("(defun c:", 1)[1].split(" ", 1)[0]
+			for line in lisp.splitlines()
+			if line.startswith("(defun c:")
+		}
 		self.assertEqual(defined, set(package_bundle.COMMANDS))
 
 

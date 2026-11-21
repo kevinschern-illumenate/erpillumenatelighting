@@ -120,12 +120,12 @@ def presets_enabled():
 
 
 def recent_products_enabled():
-	""""Recently used" product cards in the schedule's Add Line picker (plan 3.7). On by default."""
+	""" "Recently used" product cards in the schedule's Add Line picker (plan 3.7). On by default."""
 	return conf_flag("ill_portal_recent_products", default=True)
 
 
 def stale_badge_enabled():
-	""""Catalog updated — review" badges on schedule lines (plan 3.9). On by default."""
+	""" "Catalog updated — review" badges on schedule lines (plan 3.9). On by default."""
 	return conf_flag("ill_portal_stale_badge", default=True)
 
 
@@ -152,9 +152,6 @@ def live_estimate_enabled():
 def hero_image_first_enabled():
 	"""D1 image order (template hero image first, plan 5.4). Off restores gallery-first."""
 	return conf_flag("ill_portal_hero_image_first", default=True)
-
-
-
 
 
 def media_derivatives_enabled():
@@ -202,6 +199,31 @@ def cad_all_dealers_enabled():
 def cad_pilot_customers():
 	"""Customers in the CAD pilot (a JSON list of Customer names); ``[]`` when unset."""
 	return conf_list("ill_cad_pilot_customers") or []
+
+
+def cad_min_versions():
+	"""Oldest drawing tool version the import accepts, per source tool (``{"autocad": "0.5.0"}``)."""
+	value = conf_json("ill_cad_min_versions") or {}
+	return {
+		str(tool): str(version) for tool, version in value.items() if isinstance(version, (str, int, float))
+	}
+
+
+def conf_json(key):
+	"""A JSON object, stored as JSON or a JSON-encoded string. Absent or invalid → None."""
+	value = frappe.conf.get(key)
+	if value is None:
+		return None
+	parsed = value
+	if isinstance(parsed, str):
+		try:
+			parsed = json.loads(parsed)
+		except ValueError:
+			parsed = None
+	if not isinstance(parsed, dict):
+		_report(key, value, "a JSON object")
+		return None
+	return parsed
 
 
 def conf_list(key):

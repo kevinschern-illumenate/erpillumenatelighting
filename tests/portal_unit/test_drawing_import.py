@@ -188,7 +188,17 @@ class DrawingImport(unittest.TestCase):
 			ROOT + ".system_design.readiness": types.SimpleNamespace(
 				controller_category=lambda kind, dimming=None: {"DMX Decoder": "dmx-decoder", "DMX Controller": "dmx-controller"}.get(kind)
 			),
+			ROOT + ".portal.access": types.SimpleNamespace(get_actor=lambda user=None: self.actor),
+			ROOT + ".portal.site_flags": types.SimpleNamespace(cad_min_versions=lambda: self.min_versions),
+			ROOT + ".system_design.cad_catalog": types.SimpleNamespace(
+				cad_catalog=lambda user=None: self.catalog,
+				TAPE_OPTIONS={"Finish": ("finish", "finish", "Finish")},
+				template_options=lambda rows: [{"key": "finish", "values": [row["finish"] for row in rows]}],
+			),
 		}
+		self.catalog = None
+		self.actor = types.SimpleNamespace(is_internal=False, customer="Dealer Co")
+		self.min_versions = {}
 		self.record_doc = record_doc
 
 	def _bump(self, *args, **kwargs):
@@ -341,8 +351,10 @@ class DrawingImport(unittest.TestCase):
 		class DxfError(ValueError):
 			pass
 
-		def package_from_dxf(data, filename, options):
+		def package_from_dxf(data, filename, options, report=None):
 			seen.update(data=data, filename=filename, options=options)
+			if report is not None:
+				report["layers"] = [{"layer": "ILM-TAPE-led-hd-sw", "runs": 1}]
 			return package("minimal.json")
 
 		self.extras[ROOT + ".portal.dxf_ingest"] = types.SimpleNamespace(DxfError=DxfError, package_from_dxf=package_from_dxf)
@@ -547,6 +559,136 @@ class DrawingImport(unittest.TestCase):
 			self.commit(expected_modified="m-99")
 
 
+	# --- Phase 1: source, scale, versions, choices, on-behalf (implementation plan WP 1.1-1.10) -------
+
+	def sheeted(self, statuses):
+		value = package("minimal.json")
+		value["source"] = {"tool": "autocad", "version": "0.5.0", "input": "ilq"}
+		value["sheets"] = [{"id": f"P{index}", "scale": {"status": status}} for index, status in enumerate(statuses, 1)]
+		run = value["runs"][0]
+		run["sheet"] = f"P{len(statuses)}"
+		return value
+
+	def test_preview_reports_source_sheets_and_scale(self):
+		result = self.preview(self.sheeted(["verified", "declared"]))
+		self.assertEqual(result["source"]["tool"], "autocad")
+		self.assertEqual(result["scale"], {"status": "declared"})
+		self.assertEqual([sheet["used"] for sheet in result["sheets"]], [False, True])
+		self.assertTrue(any("not calibrated" in text for text in result["warnings"]))
+		self.assertNotIn("Scale not verified", json.dumps(result["rows"]))
+		result = self.preview(self.sheeted(["unverified"]))
+		self.assertEqual(result["scale"], {"status": "unverified"})
+		self.assertIn("Scale not verified", result["rows"][0]["messages"])
+
+	def test_old_packages_get_a_derived_source_and_declared_scale(self):
+		result = self.preview(package("minimal.json"))
+		self.assertEqual(result["source"]["tool"], "autocad")
+		self.assertEqual(result["scale"]["status"], "declared")
+		self.assertEqual(self.preview()["scale"]["status"], "verified")  # job-20-runs ran ILSCALE
+
+	def test_preview_is_recorded_for_telemetry(self):
+		with self.module() as module:
+			module.preview_drawing_import("S1", "job.ilq.json", encode(package()))
+		record = self.extras[ROOT + ".system_design.telemetry"].record
+		event, schedule = record.call_args.args[:2]
+		self.assertEqual((event, schedule), ("cad_preview", "S1"))
+		self.assertEqual(record.call_args.kwargs["details"]["source_tool"], "autocad")
+
+	def test_unreadable_files_are_recorded_then_refused(self):
+		record = self.extras[ROOT + ".system_design.telemetry"].record
+		with self.module() as module, self.assertRaises(Exception):
+			module.preview_drawing_import("S1", "job.ilq.json", base64.b64encode(b"{").decode())
+		self.assertEqual(record.call_args.args[0], "cad_preview_failed")
+
+	def test_old_toolkit_versions_are_blocked_when_a_minimum_is_set(self):
+		self.min_versions = {"autocad": "0.5.0"}
+		result = self.preview()  # job-20-runs was written by 0.3.0
+		self.assertTrue(any("0.5.0 or later" in text for text in result["blocking"]))
+		self.assertFalse(self.commit()["success"])
+		self.assertEqual(self.preview(self.sheeted(["verified"]))["blocking"], [])
+
+	def test_choice_groups_collect_runs_waiting_on_the_same_keys(self):
+		self.missing["led-hd-sw"] = ["finish"]
+
+		def get_all(doctype, **kwargs):
+			if doctype == "ilL-Tape-Neon-Template":
+				return [Record(name="TPL-HD", template_code="led-hd-sw")]
+			if doctype == "ilL-Child-Tape-Neon-Allowed-Option":
+				return [Record(parent="TPL-HD", finish="White"), Record(parent="TPL-HD", finish="Black")]
+			return self._get_all(doctype, **kwargs)
+
+		with self.module() as module:
+			self.frappe.get_all.side_effect = get_all
+			result = module.preview_drawing_import("S1", "job.ilq.json", encode(package()))
+		group = next(item for item in result["choice_groups"] if item["template"] == "led-hd-sw")
+		self.assertEqual(group["keys"], [{"key": "finish", "values": ["White", "Black"]}])
+		waiting = [row["id"] for row in result["rows"] if row["status"] == "needs_choice" and row["template"] == "led-hd-sw"]
+		self.assertEqual(sorted(group["runs"]), sorted(waiting))
+		self.assertGreater(len(group["runs"]), 1)
+
+	def test_commit_records_source_scale_choices_and_on_behalf(self):
+		self.actor = types.SimpleNamespace(is_internal=True, customer=None)
+		self.schedule.customer = "Dealer Co"
+		self.missing["led-hd-sw"] = ["cct"]
+		choices = {row: {"cct": "2700K"} for row in ("L1-01",)}
+		result = self.commit(choices=json.dumps({run["id"]: {"cct": "2700K"} for run in package()["runs"]}))
+		self.assertTrue(result["success"], result)
+		record = self.records[-1]
+		self.assertEqual((record["source_tool"], record["source_input"]), ("autocad", "ilq"))
+		self.assertEqual(record["scale_status"], "verified")
+		self.assertEqual((record["on_behalf"], record["on_behalf_customer"]), (1, "Dealer Co"))
+		self.assertEqual(json.loads(record["choices_json"])["L1-01"], choices["L1-01"])
+		details = self.extras[ROOT + ".system_design.telemetry"].record.call_args.kwargs["details"]
+		self.assertTrue(details["on_behalf"])
+
+	def test_dealers_importing_their_own_schedule_are_not_on_behalf(self):
+		self.schedule.customer = "Dealer Co"
+		self.assertTrue(self.commit()["success"])
+		self.assertEqual(self.records[-1]["on_behalf"], 0)
+
+	def test_unverified_scale_blocks_a_quote_until_confirmed(self):
+		rows = [Record(name="CADI-00001", scale_status="unverified", scale_confirmed_by=None, ignored_count=0)]
+		with self.module() as module:
+			self.frappe.get_all.side_effect = lambda doctype, **kwargs: rows
+			self.assertIn("CADI-00001", module.quote_blockers("S1")[0])
+			rows[0]["scale_confirmed_by"] = "ae@illumenate.lighting"
+			self.assertEqual(module.quote_blockers("S1"), [])
+			rows[0].update(scale_status="declared", scale_confirmed_by=None)
+			self.assertEqual(module.quote_blockers("S1"), [])
+			rows.clear()
+			self.assertEqual(module.quote_blockers("S1"), [])
+
+	def test_scale_confirmation_needs_an_engineer_and_a_note(self):
+		staff = types.SimpleNamespace(require=MagicMock(side_effect=PermissionError("staff only")))
+		self.extras[ROOT + ".portal.staff"] = staff
+		with self.module() as module:
+			with self.assertRaises(PermissionError):
+				module.confirm_drawing_scale("CADI-00001", "measured the 12 ft wall")
+			staff.require.side_effect = None
+			with self.assertRaisesRegex(ValueError, "at least 3"):
+				module.confirm_drawing_scale("CADI-00001", "ok")
+			result = module.confirm_drawing_scale("CADI-00001", "measured the 12 ft wall")
+			self.assertTrue(result["success"])
+			name, values = self.frappe.db.set_value.call_args.args[1:3]
+			self.assertEqual(name, "CADI-00001")
+			self.assertEqual(values["scale_note"], "measured the 12 ft wall")
+		staff.require.assert_called_with("design_review")
+
+
+	def test_server_checks_turn_toolkit_errors_into_error_rows(self):
+		self.catalog = json.loads((PACKAGES.parent / "catalog.sample.json").read_text(encoding="utf-8"))
+		value = package("minimal.json")
+		value["runs"][0]["style"] = {"family": "LED Neon", "template": "non-pnc-sw", "selections": {"cct": "2700K", "output_level": "200 lm/ft"}}
+		value["runs"][0]["segments"][0]["min_arc_radius_in"] = 1.0
+		result = self.preview(value)
+		row = result["rows"][0]
+		self.assertEqual(row["status"], "error")
+		self.assertTrue(any("minimum" in text for text in row["messages"]), row["messages"])
+		self.assertFalse(self.commit(value)["success"])
+		value["check"]["overrides"] = [{"code": "BEND_RADIUS", "ref": value["runs"][0]["id"], "note": "engineer approved the cove"}]
+		self.assertEqual(self.preview(value)["rows"][0]["status"], "ok")
+
+
 class PureHelpers(unittest.TestCase):
 	def setUp(self):
 		self.context = load_service(ROOT + ".portal.drawing_import")
@@ -554,6 +696,36 @@ class PureHelpers(unittest.TestCase):
 
 	def tearDown(self):
 		self.context.__exit__(None, None, None)
+
+	def test_scale_summary_takes_the_worst_sheet_with_runs(self):
+		value = package("minimal.json")
+		self.assertEqual(self.module.scale_summary(value)["status"], "declared")
+		value["drawing"]["scale_verified"] = True
+		self.assertEqual(self.module.scale_summary(value)["status"], "verified")
+		value["sheets"] = [{"id": "A", "scale": {"status": "unverified"}}, {"id": "B", "scale": {"status": "verified"}}]
+		self.assertEqual(self.module.scale_summary(value)["status"], "unverified")
+		value["runs"][0]["sheet"] = "B"
+		self.assertEqual(self.module.scale_summary(value)["status"], "verified")
+
+	def test_version_check(self):
+		value = {"source": {"tool": "autocad", "version": "0.4.5"}}
+		self.assertEqual(self.module.version_check(value, {}), ([], []))
+		blocking, _warnings = self.module.version_check(value, {"autocad": "0.5.0"})
+		self.assertEqual(len(blocking), 1)
+		self.assertEqual(self.module.version_check(value, {"autocad": "0.4.5"}), ([], []))
+		self.assertEqual(self.module.version_check(value, {"bluebeam": "9"}), ([], []))
+		_blocking, warnings = self.module.version_check({"source": {"tool": "dxf", "version": "dxf-1"}}, {"dxf": "1"})
+		self.assertEqual(len(warnings), 1)
+		self.assertEqual(self.module.version_tuple("0.10.2"), (0, 10, 2))
+		self.assertGreater(self.module.version_tuple("0.10.0"), self.module.version_tuple("0.9.9"))
+
+	def test_diff_receipts(self):
+		older = {"runs": [{"id": "A", "part_number": "P1", "server_length_in": 10}, {"id": "B", "part_number": "P2"}]}
+		newer = {"runs": [{"id": "A", "part_number": "P1", "server_length_in": 12}, {"id": "C", "part_number": "P3"}]}
+		diff = self.module.diff_receipts(older, newer)
+		self.assertEqual([run["id"] for run in diff["added"]], ["C"])
+		self.assertEqual([run["id"] for run in diff["removed"]], ["B"])
+		self.assertEqual(diff["changed"], [{"id": "A", "changes": {"server_length_in": {"from": 10, "to": 12}}}])
 
 	def test_kit_quantity_covers_the_run_with_whole_sticks(self):
 		self.assertEqual(self.module.kit_quantity(78.74, 2000), 1)

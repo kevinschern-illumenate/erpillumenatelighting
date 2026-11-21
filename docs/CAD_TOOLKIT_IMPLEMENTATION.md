@@ -75,6 +75,14 @@ SHA-256, catalog, model, ILCHECK, `ilq/2` writer, receipt) through a small AutoL
 the golden cases and validates the written package with the portal's validator. `accoreconsole` runner,
 bundle packager and the Phase 0.2 spike (`spike/il-spike.lsp`, command ILSPIKE) are included.
 
+**0.5.0** (WP 1.1, 1.3, 1.4, 1.12): packages carry `source` (`autocad`, toolkit version, platform, `ilq`)
+and `sheets` (one per layout with runs, CadId slug of the layout name, scale `verified` after ILSCALE else
+`declared`); runs carry `sheet` and `identity: "xdata"`, rooms their `sheet`. The content hash ignores
+source, sheets and layouts, so it matches 0.4.x for an unchanged drawing. A catalog's optional
+`settings.min_toolkit_version` newer than the toolkit prints a download warning on load and adds the
+ILCHECK warning `TOOLKIT_OUTDATED`. The bundle zip is reproducible and committed as
+`public/cad_toolkit/ilLumenate-cad-toolkit-0.5.0.zip` (CI checks its name and version match `*il-version*`).
+
 ### Phase 4 — Round trip and outputs
 
 ILRISER attaches the designer's riser (saved from its DXF as DWG); ILOUT draws the run schedule and cut
@@ -133,6 +141,34 @@ nearest size, 24 AWG, is recorded and noted.
 ### Phase 7 — Later (not built)
 
 206 brand mode, metric (D11), optional online mode for full AutoCAD on Windows.
+
+## Runs-to-Quote implementation plan, Phase 1 (2026-11-21)
+
+From the PDR "Runs-to-Quote Drawing Tools (AutoCAD + Bluebeam)" and its implementation plan. Live check on
+2026-11-21: production does not have this code yet (no `ilL-CAD-Import`, no `cad_run_id`); `main` and
+`staging` do. Phase 0 (deploy, real installs, live data, dealer survey) is people work.
+
+| WP | Built | Where |
+| --- | --- | --- |
+| 1.1 | `ilq/2` gains optional `source`, `sheets` (scale status per sheet), `counts`, `runs[].sheet`/`identity`, `rooms[].sheet`; Python derives `source` for older packages. The import records source tool, version, platform and input. | `core-schemas/src/ilq.ts`, `ilq_schema.py`, `drawing_import._store`, `ilL-CAD-Import` |
+| 1.2 | Drawing styles: `cad_code`/`cad_enabled` on presets, `set_preset_cad`, `find_by_cad_code`, catalog style `code`, DXF layers `ILM-STYLE-<code>`, the "Drawing styles" panel, the starter-preset seed script; Desk saves validate codes too. | `portal/presets.py`, `cad_catalog.py`, `dxf_ingest.py`, `schedule/presets.js`, `tools/seed_imports/cad_starter_presets.py` |
+| 1.3 | Scale status (`verified`, `declared`, `unverified`) per sheet and per import; preview warnings; an unverified scale blocks `quotes.request_quote` until an Applications Engineer confirms it (`confirm_drawing_scale`, button on the import record). DXF uploads are `declared`, no longer `scale_verified`. | `drawing_import.scale_summary`, `quote_blockers`, `quotes.py`, `ill_cad_import.js` |
+| 1.4 | `ill_cad_min_versions` (site config, JSON object per tool) blocks older packages; the CAD catalog publishes `settings.min_toolkit_version`; toolkit 0.5.0 warns (`TOOLKIT_OUTDATED`). | `site_flags.cad_min_versions`, `drawing_import.version_check`, `cad_catalog.py`, `il-catalog.lsp` |
+| 1.5 | Telemetry `cad_preview`, `cad_preview_failed`, richer `cad_import`; report **CAD Import Funnel**; CAD BOM Match has a "Drawing tool" filter and column. | `drawing_import.py`, `report/cad_import_funnel`, `report/cad_bom_match` |
+| 1.6 | "New schedule from drawing" on the project page and the new-schedule form; the schedule opens Import Drawing (`?import=1`). | `project.html`, `schedule.html`, `schedule/new.js`, `schedule/drawing_import.js` |
+| 1.7 | Desk dialog accepts DXF, answers choices, sends layer styles and Types and the plan PDF; imports by staff into a dealer's schedule are recorded `on_behalf`. | `desk_drawing_import.js`, `drawing_import.on_behalf_of` |
+| 1.8 | Choice groups with allowed values (one answer fills every run), remembered answers (`choices_json`), DXF layer pickers (`options.presets`/`types`), layer report from DXF ingest. | `drawing_import.choice_groups`, `option_values`, `previous_choices`, `dxf_ingest.layer_report` |
+| 1.9 | Server-side checks with the toolkit's codes (`BEND_RADIUS`, `PROFILE_NOT_CURVE_CAPABLE`, `TAPE_WIDER_THAN_PROFILE`, `TEMPLATE_DISCONTINUED`, `PSU_OVERLOAD`, DMX and control rules) run for every front end; overrides honoured; parity with `il-check` tested through `mini_lisp`. | `system_design/drawing_checks.py`, `drawing_import.server_issues`, `fixtures/cad/check-cases.json` |
+| 1.10 | Previous imports listed in the dialog with tool and scale; `diff_drawing_imports`; staff `replay_drawing_import`; quote requests link the import (`ilL-Quote-Request.cad_import`). | `drawing_import.py`, `quotes.py`, `ill_cad_import.js` |
+| 1.11 | After an import the dialog offers "Request a quote", disabled with the reasons from `get_quote_blockers`. | `schedule/drawing_import.js` |
+| 1.12 | Toolkit 0.5.0 (`source`, `sheets`, version warning), reproducible bundle committed in `public/cad_toolkit/`, "Drawing tools" section on `/portal/resources`. | `tools/cad_toolkit`, `templates/pages/resources.*` |
+
+Turning Phase 1 on, after the steps below: `bench migrate` runs `patches.backfill_cad_import_source`;
+confirm `ill_portal_presets` is on (styles and `ILM-STYLE-` layers need it); set
+`ill_cad_min_versions` to `{"autocad": "0.5.0"}` once pilots have 0.5.0.
+
+Known cost: preview and commit build the user's CAD catalog once each for the server checks; watch the
+preview time on large catalogs and cache by snapshot hash if needed.
 
 ## Phase 0 live data (read-only, 2026-11-20)
 

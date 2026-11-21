@@ -8,10 +8,11 @@ mapping change with ``python3 -B tests/portal_unit/test_cad_catalog.py --write``
 import copy
 import json
 import sys
+import types
 import unittest
 from pathlib import Path
 
-from test_services import ROOT, load_service
+from test_services import ROOT, Record, load_service
 
 MODULE = ROOT + ".system_design.cad_catalog"
 FIXTURES = Path(__file__).resolve().parents[2] / "tools/system_designer/fixtures/cad"
@@ -120,11 +121,86 @@ class CadCatalog(unittest.TestCase):
 		self.assertNotIn("terms_text", self.payload["settings"])
 		self.assertEqual(self.payload["settings"]["plan_route_slack_pct"], 15.0)
 
+	def test_minimum_toolkit_version_is_published_when_set(self):
+		self.assertNotIn("min_toolkit_version", self.payload["settings"])
+		data = records()
+		data["min_toolkit_version"] = "0.5.0"
+		self.assertEqual(self.module.build_payload(data)["settings"]["min_toolkit_version"], "0.5.0")
+
 	def test_template_index(self):
 		index = self.module.template_index(self.payload)
 		self.assertIn(("LED Tape", "led-hd-sw"), index)
 		self.assertIn(("Extrusion Kit", "KIT-AZ01"), index)
 		self.assertIn(("Linear Fixture", "ILL-RA01-SW"), index)
+
+
+class Styles(unittest.TestCase):
+	"""Run styles from configuration presets, with their short drawing codes (CAD plan WP 1.2)."""
+
+	def setUp(self):
+		self.actor = Record(user="buyer@example.com", customer="CUST-A", is_internal=False)
+		self.revalidated = []
+
+		def revalidate(request):
+			self.revalidated.append(request["template"])
+			return (None, ["gone"]) if request["template"] == "gone" else (request, [])
+
+		def is_cad_enabled(value):
+			return value is None or bool(int(value))
+
+		self.extras = {
+			ROOT + ".portal.site_flags": types.SimpleNamespace(presets_enabled=lambda: True),
+			ROOT + ".portal.access": types.SimpleNamespace(get_actor=lambda user=None: self.actor),
+			ROOT + ".portal.presets": types.SimpleNamespace(revalidate=revalidate, is_cad_enabled=is_cad_enabled),
+		}
+
+	@staticmethod
+	def preset(name, template="led-hd-sw", **values):
+		request = {"family": "LED Tape", "template": template, "selections": {"cct": "2700K"}}
+		values = {"shared_with_company": 0, **values}
+		return Record(name=name, label=name, family="LED Tape", template=template, request_json=json.dumps(request),
+			**values)
+
+	def test_style_row_carries_the_code_only_when_set(self):
+		with load_service(MODULE) as (module, _frappe):
+			request = {"family": "LED Tape", "template": "led-hd-sw", "selections": {}}
+			row = module.style_row(Record(name="P1", label="Cove", cad_code="HD27"), request)
+			self.assertEqual(row["code"], "HD27")
+			self.assertEqual(row["id"], "preset:P1")
+			for empty in (None, ""):
+				self.assertNotIn("code", module.style_row(Record(name="P1", label="Cove", cad_code=empty), request))
+			self.assertNotIn("code", module.style_row(Record(name="P1", label="Cove"), request))
+
+	def test_load_styles_skips_presets_switched_off_for_cad(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			frappe.db.exists.return_value = True
+			frappe.db.has_column.return_value = True
+			own = [
+				self.preset("ON", cad_code="HD27", cad_enabled=1),
+				self.preset("OFF", cad_code="OFF", cad_enabled=0),
+				self.preset("LEGACY", cad_enabled=None),
+				self.preset("GONE", template="gone"),
+			]
+			shared = [self.preset("SHARED", shared_with_company=1, cad_enabled=1), self.preset("ON", cad_enabled=1)]
+			frappe.get_all.side_effect = [own, shared]
+			styles = {row["id"]: row for row in module.load_styles("buyer@example.com")}
+			self.assertEqual(set(styles), {"preset:ON", "preset:LEGACY", "preset:SHARED"})
+			self.assertEqual(styles["preset:ON"]["code"], "HD27")
+			self.assertNotIn("code", styles["preset:LEGACY"])
+			self.assertNotIn("OFF", self.revalidated, "switched-off presets are not even re-checked")
+			fields = frappe.get_all.call_args_list[0].kwargs["fields"]
+			self.assertIn("cad_code", fields)
+			self.assertIn("cad_enabled", fields)
+			self.assertEqual(module.forbidden_keys(list(styles.values())), set())
+
+	def test_load_styles_before_the_migration_reads_no_cad_fields(self):
+		with load_service(MODULE, self.extras) as (module, frappe):
+			frappe.db.exists.return_value = True
+			frappe.db.has_column.return_value = False
+			frappe.get_all.side_effect = [[self.preset("P1")], []]
+			styles = module.load_styles()
+			self.assertEqual([row["id"] for row in styles], ["preset:P1"])
+			self.assertNotIn("cad_code", frappe.get_all.call_args_list[0].kwargs["fields"])
 
 
 def write():

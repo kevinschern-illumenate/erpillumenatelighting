@@ -619,6 +619,13 @@ def _get_new_schedule_context(context, project_name):
 	context.is_new = True
 	context.project = project
 	context.title = "Create Schedule"
+	# "New schedule from drawing" (draw-to-quote WP 1.6): create, then open Import Drawing.
+	from illumenate_lighting.illumenate_lighting.system_design.cad_access import (
+		enabled_for as cad_enabled_for,
+	)
+
+	context.drawing_start_enabled = bool(cad_enabled_for())
+	context.drawing_start = bool(context.drawing_start_enabled and frappe.form_dict.get("from_drawing"))
 	context.no_cache = 1
 
 	return context
