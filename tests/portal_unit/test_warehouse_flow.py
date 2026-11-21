@@ -184,7 +184,7 @@ class Helpers(unittest.TestCase):
 			self.assertEqual(wf.order_step(order, [], lanes("completed")), "to_ship")
 			self.assertEqual(wf.order_step(order, [], []), "to_ship")
 			self.assertEqual(
-				wf.order_step(Record(ill_production_status_override="Paint"), [], lanes("to_pick")),
+				wf.order_step(Record(ill_stage_override="Paint"), [], lanes("to_pick")),
 				"building",
 			)
 

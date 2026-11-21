@@ -114,3 +114,4 @@ illumenate_lighting.patches.email_tables_editor_safe
 illumenate_lighting.patches.seed_desk_settings
 illumenate_lighting.patches.fix_desk_owner_domain
 illumenate_lighting.patches.seed_desk_mailboxes
+illumenate_lighting.patches.add_order_stage_fields

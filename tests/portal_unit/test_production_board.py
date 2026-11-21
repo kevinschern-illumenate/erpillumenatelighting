@@ -27,7 +27,7 @@ class Status(unittest.TestCase):
 			self.assertEqual(pb.order_status(order, [wo("Stopped")], False), pb.HELD)
 			self.assertEqual(pb.order_status(Record(status="On Hold"), [wo("In Process")], False), pb.HELD)
 			self.assertEqual(
-				pb.order_status(Record(status="To Deliver", ill_production_status_override="Paint"), [], False), pb.PAINT
+				pb.order_status(Record(status="To Deliver", ill_stage_override="Paint"), [], False), pb.PAINT
 			)
 
 

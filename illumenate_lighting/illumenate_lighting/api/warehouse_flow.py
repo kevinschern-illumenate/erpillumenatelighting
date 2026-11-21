@@ -253,9 +253,9 @@ def ship_pick_lines(lines, packed, item_meta):
 
 def order_step(order, missing, wo_rows):
 	"""The one step an open order is waiting on (see ``STEPS``)."""
-	override = order.get("ill_production_status_override") or ""
+	override = order.get("ill_stage_override") or ""
 	if (
-		override == "Held"
+		override in ("Held", "Pending Approval", "Hold for Release", "Hold for Confirmation", "Hold for Ship")
 		or order.get("ill_hold_reason")
 		or order.get("status") == "On Hold"
 		or any(w["lane"] == "stopped" for w in wo_rows)
@@ -456,7 +456,7 @@ def build_flow(data, today):
 				"per_delivered": round(_num(o.get("per_delivered")), 1),
 				"points": round(_num(o.get("ill_build_points")), 2),
 				"hold_reason": o.get("ill_hold_reason") or "",
-				"override": o.get("ill_production_status_override") or "",
+				"override": o.get("ill_stage_override") or "",
 				"notes": o.get("ill_floor_notes") or "",
 				"step": step,
 				"step_label": STEP_LABELS[step],
