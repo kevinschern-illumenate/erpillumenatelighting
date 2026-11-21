@@ -22,6 +22,12 @@ frappe.query_reports["CAD BOM Match"] = {
 			default: 1,
 		},
 		{
+			fieldname: "source_tool",
+			label: __("Drawing tool"),
+			fieldtype: "Select",
+			options: ["", "autocad", "dxf", "bluebeam", "web"].join("\n"),
+		},
+		{
 			fieldname: "customer",
 			label: __("Customer"),
 			fieldtype: "Link",

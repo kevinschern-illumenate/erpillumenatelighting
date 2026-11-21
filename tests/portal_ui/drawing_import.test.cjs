@@ -26,7 +26,7 @@ function respond(call, message) {
   if (call.always) call.always();
 }
 
-function page(context = CONTEXT) {
+function page(context = CONTEXT, opts = {}) {
   const json = JSON.stringify(context).replace(/</g, '\\u003c');
   const dom = new JSDOM(
     `<body><div id="importDrawingModal">
@@ -36,6 +36,13 @@ function page(context = CONTEXT) {
       <div id="importDrawingRemoveWrap" hidden><input type="checkbox" id="importDrawingRemove"><label id="importDrawingRemoveLabel"></label></div>
       <div id="importDrawingVersionWrap" hidden><input type="checkbox" id="importDrawingVersion"></div>
       <div id="importDrawingError" hidden></div>
+      <p id="importDrawingSource" hidden></p>
+      <div id="importDrawingSheets" hidden><table><tbody id="importDrawingSheetRows"></tbody></table></div>
+      <div id="importDrawingLayers" hidden><table><tbody id="importDrawingLayerRows"></tbody></table></div>
+      <div id="importDrawingGroups" hidden><div id="importDrawingGroupList"></div></div>
+      <details id="importDrawingHistory" hidden><table><tbody id="importDrawingHistoryRows"></tbody></table></details>
+      <div id="importDrawingDone" hidden><p id="importDrawingDoneText"></p><ul id="importDrawingBlockers" hidden></ul>
+        <button type="button" id="importDrawingQuote"></button><button type="button" id="importDrawingFinish"></button></div>
       <button type="button" id="importDrawingRefresh" hidden></button>
       <button type="button" id="importDrawingConfirm" disabled></button></div>
     <script type="application/json" id="schedule-context">${json}</script></body>`,
@@ -48,7 +55,7 @@ function page(context = CONTEXT) {
   w.frappe = { call: args => requests.push(args) };
   w.eval(read('context') + '\nvar schedule_name = scheduleContext.schedule_name;\n' + read('drawing_import'));
   const events = { done: [], saved: [] };
-  w.DrawingImport.done = message => events.done.push(message);
+  if (!opts.keepDone) w.DrawingImport.done = message => events.done.push(message);
   w.DrawingImport.save = (blob, name) => events.saved.push({ blob, name });
   return { w, $: w.$, requests, events };
 }
@@ -151,4 +158,99 @@ test('a plotted plan PDF travels with the import', async () => {
   assert.equal(Buffer.from(commit.args.plan_pdf, 'base64').toString(), '%PDF-1.7');
   w.DrawingImport.choosePlan(new w.File(['x'], 'plan.dwg'));
   assert.match($('#importDrawingError').text(), /PDF/);
+});
+
+// Implementation plan WP 1.3, 1.8, 1.10, 1.11.
+
+const GROUPED = {
+  ...PREVIEW,
+  rows: [
+    { id: 'L3-01', fixture_type: 'L3', style: 'non-pnc-sw', status: 'needs_choice', messages: [], parts: [{ part: 'build', missing: ['finish'] }] },
+    { id: 'L3-02', fixture_type: 'L3', style: 'non-pnc-sw', status: 'needs_choice', messages: [], parts: [{ part: 'build', missing: ['finish'] }] },
+  ],
+  removals: [],
+  new_version_required: false,
+  counts: { ok: 0, needs_choice: 2, error: 0, add: 0, update: 0, unchanged: 0, remove: 0 },
+  choice_groups: [{ family: 'LED Neon', template: 'non-pnc-sw', style: 'non-pnc-sw', keys: [{ key: 'finish', values: ['White', '<b>Black</b>'] }], runs: ['L3-01', 'L3-02'] }],
+  previous_choices: { 'L3-02': { finish: 'White' } },
+  source: { tool: 'autocad', version: '0.5.0' },
+  sheets: [{ id: 'L1', label: 'Level 1', status: 'verified', used: true }, { id: 'L2', label: '<i>Level 2</i>', status: 'unverified', used: true }],
+};
+
+test('one group answer fills every run waiting on it; a run answer wins; remembered answers prefill', async () => {
+  const { w, $, requests } = page();
+  respond(await chosen(w, requests), GROUPED);
+  assert.equal($('#importDrawingGroups').prop('hidden'), false);
+  const select = $('#importDrawingGroupList select[data-group-key="finish"]');
+  assert.equal(select.find('option').length, 3);
+  assert.equal($('#importDrawingGroupList b').length, 0);
+  assert.equal($('#importDrawingRows input[data-choice-run="L3-02"]').val(), 'White');
+  $('#importDrawingRows input[data-choice-run="L3-02"]').val('');
+  select.val('White');
+  assert.deepEqual(JSON.parse(JSON.stringify(w.DrawingImport.choices())), { 'L3-01': { finish: 'White' }, 'L3-02': { finish: 'White' } });
+  $('#importDrawingRows input[data-choice-run="L3-01"]').val('Black');
+  assert.equal(w.DrawingImport.choices()['L3-01'].finish, 'Black');
+});
+
+test('sheets show their scale as text and the source tool is named', async () => {
+  const { w, $, requests } = page();
+  respond(await chosen(w, requests), GROUPED);
+  assert.equal($('#importDrawingSheets').prop('hidden'), false);
+  assert.equal($('#importDrawingSheetRows tr').length, 2);
+  assert.equal($('#importDrawingSheetRows i').length, 0);
+  assert.equal($('#importDrawingSheetRows tr[data-scale-status="unverified"]').length, 1);
+  assert.match($('#importDrawingSource').text(), /autocad 0\.5\.0/);
+});
+
+test('DXF layers get a style and a Type that travel as options', async () => {
+  const { w, $, requests } = page();
+  const call = await chosen(w, requests, 'job.dxf', '0\nSECTION');
+  respond(call, { ...PREVIEW, rows: [PREVIEW.rows[0]], removals: [], new_version_required: false, counts: { ...PREVIEW.counts, needs_choice: 0 },
+    layers: [{ layer: 'ILM-LINEAR-RA01', runs: 3, family: 'Linear Fixture', template: 'RA01', needs_preset: true, fixture_type: 'D1' }] });
+  const presets = requests.shift();
+  assert.equal(presets.method, 'illumenate_lighting.illumenate_lighting.portal.presets.list_presets');
+  respond(presets, { success: true, presets: [{ name: 'PRE-1', label: 'RA01 Black', cad_code: 'RA01-BK', available: true }, { name: 'PRE-2', label: 'Gone', available: false }] });
+  assert.equal($('#importDrawingLayers').prop('hidden'), false);
+  const select = $('#importDrawingLayerRows select[data-layer-preset="ILM-LINEAR-RA01"]');
+  assert.equal(select.find('option').length, 2);
+  select.val('PRE-1');
+  $('#importDrawingLayerRows input[data-layer-type="ILM-LINEAR-RA01"]').val('L4');
+  $('#importDrawingRefresh').trigger('click');
+  const again = requests.shift();
+  assert.deepEqual(JSON.parse(again.args.options), { presets: { 'ILM-LINEAR-RA01': 'PRE-1' }, types: { 'ILM-LINEAR-RA01': 'L4' } });
+});
+
+test('after an import the quote request is offered unless a blocker says why not', async () => {
+  const { w, $, requests, events } = page(CONTEXT, { keepDone: true });
+  respond(await chosen(w, requests), { ...PREVIEW, rows: [PREVIEW.rows[0]], removals: [], new_version_required: false, counts: { ...PREVIEW.counts, needs_choice: 0 } });
+  $('#importDrawingConfirm').trigger('click');
+  respond(requests.shift(), { success: true, schedule: 'S-1', import: 'CADI-00003', modified: 'rev-2', receipt: { import: 'CADI-00003' } });
+  assert.equal(events.saved.length, 1);
+  assert.equal($('#importDrawingDone').prop('hidden'), false);
+  const blockers = requests.shift();
+  assert.equal(blockers.method, 'illumenate_lighting.illumenate_lighting.portal.drawing_import.get_quote_blockers');
+  respond(blockers, { success: true, blockers: ['<b>Scale</b> not verified'] });
+  assert.equal($('#importDrawingQuote').prop('disabled'), true);
+  assert.equal($('#importDrawingBlockers li').text(), '<b>Scale</b> not verified');
+  w.PortalCommercial = { quote: (schedule, modified) => events.done.push({ schedule, modified }) };
+  respond({ callback: requests.length ? requests.shift().callback : () => {} }, {});
+  const second = page(CONTEXT, { keepDone: true });
+  second.w.PortalCommercial = { quote: (schedule, modified) => second.events.done.push({ schedule, modified }) };
+  second.w.DrawingImport.done({ success: true, schedule: 'S-1', import: 'CADI-00004', modified: 'rev-3' });
+  respond(second.requests.shift(), { success: true, blockers: [] });
+  assert.equal(second.$('#importDrawingQuote').prop('disabled'), false);
+  second.$('#importDrawingQuote').trigger('click');
+  assert.deepEqual(JSON.parse(JSON.stringify(second.events.done)), [{ schedule: 'S-1', modified: 'rev-3' }]);
+});
+
+test('previous imports are listed with their tool and scale', () => {
+  const { w, $, requests } = page();
+  w.DrawingImport.history();
+  const call = requests.shift();
+  assert.equal(call.method, 'illumenate_lighting.illumenate_lighting.portal.drawing_import.list_drawing_imports');
+  respond(call, { success: true, imports: [{ name: 'CADI-00001', status: 'Committed', drawing_file: '<s>job</s>.dwg', drawing_rev: 2, source_tool: 'dxf', source_version: 'dxf-1', scale_status: 'unverified', scale_confirmed_by: 'ae@x', runs_added: 4 }] });
+  assert.equal($('#importDrawingHistory').prop('hidden'), false);
+  assert.equal($('#importDrawingHistoryRows s').length, 0);
+  assert.match($('#importDrawingHistoryRows').text(), /dxf dxf-1/);
+  assert.match($('#importDrawingHistoryRows').text(), /confirmed/);
 });

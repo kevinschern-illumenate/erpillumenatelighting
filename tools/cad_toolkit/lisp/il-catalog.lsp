@@ -135,3 +135,12 @@
     )
   )
 )
+
+;; A warning when the catalog asks for a newer toolkit (settings.min_toolkit_version), or nil.
+(defun il-toolkit-outdated (catalog / minimum)
+  (setq minimum (il-jp catalog '("settings" "min_toolkit_version")))
+  (if (and minimum (/= (il-str minimum) "") (il-version< *il-version* (il-str minimum)))
+    (strcat "This CAD toolkit is " *il-version* "; the catalog needs " (il-str minimum)
+            " or newer. Download the current toolkit from the portal Resources page")
+  )
+)

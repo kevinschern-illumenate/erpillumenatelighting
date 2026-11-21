@@ -6,7 +6,8 @@
 ;;; "wires", "controls", "zones", "others" and "overrides". A run is an association list ("id" "handle" "fixture_type"
 ;;; "room" "location" "style" "vertices" "closed" "breaks" "spans" "start_feed" "lead_in" "jumper_in"
 ;;; "feed_method" "feed_handles" "cabinet" "psu_hint" "notes" "line_key" "configured_name"
-;;; "config_hash" ...). Styles are catalog style objects (IL-OBJ) with an "id".
+;;; "config_hash" "layout" ...). Styles are catalog style objects (IL-OBJ) with an "id". Runs and rooms
+;;; carry the layout that owns them (DXF group 410; nil reads as model space).
 
 (setq *il-package-schema* "ilq/2")
 (setq *il-length-tolerance* 0.05)
@@ -118,6 +119,9 @@
   )
   (if (and catalog (setq stale (il-catalog-stale catalog today)))
     (il-add "CATALOG_STALE" "drawing" "warning" stale)
+  )
+  (if (and catalog (setq stale (il-toolkit-outdated catalog)))
+    (il-add "TOOLKIT_OUTDATED" "drawing" "warning" stale)
   )
   (if (not (il-true-p (il-bool (il-get "scale_verified" (il-get "drawing" model)))))
     (il-add "SCALE_UNVERIFIED" "drawing" "warning" "Calibrate the underlay scale with ILSCALE")
@@ -237,6 +241,75 @@
   (list errors warnings)
 )
 
+;; --- Sheets -------------------------------------------------------------------------------------
+
+;; A CadId for a layout name (^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$): other characters become one "-",
+;; leading and trailing punctuation goes, at most 40 characters. Model space (nil) is "Model".
+(defun il-sheet-slug (layout / text index char code out)
+  (setq text (if (and layout (/= (il-trim layout) "")) (il-trim layout) "Model") index 1 out "")
+  (while (<= index (strlen text))
+    (setq char (substr text index 1) code (ascii char) index (1+ index))
+    (cond
+      ((or (< 47 code 58) (< 64 code 91) (< 96 code 123) (member char '("." "_" "-"))) (setq out (strcat out char)))
+      ((and (/= out "") (/= (substr out (strlen out) 1) "-")) (setq out (strcat out "-")))
+    )
+  )
+  (while (and (/= out "") (member (substr out 1 1) '("." "_" "-"))) (setq out (substr out 2)))
+  (setq out (vl-string-right-trim "._-" (substr out 1 40)))
+  (if (= out "") "Sheet" out)
+)
+
+;; SLUG made unique among USED ids: "Level-1", then "Level-1-2", "Level-1-3" (kept within 40 characters).
+(defun il-unique-slug (slug used / number suffix candidate)
+  (setq candidate slug number 1)
+  (while (member candidate used)
+    (setq number (1+ number) suffix (strcat "-" (itoa number))
+          candidate (strcat (vl-string-right-trim "._-" (substr slug 1 (- 40 (strlen suffix)))) suffix))
+  )
+  candidate
+)
+
+;; The layout a run or room is on: its "layout", model space when it has none.
+(defun il-item-layout (item / layout)
+  (setq layout (il-get "layout" item))
+  (if (and layout (/= (il-trim layout) "")) layout "Model")
+)
+
+;; The model's sheets: one per layout that owns a run, in the order the runs first use them, as
+;; ((("layout" . name) ("id" . cad-id) ("label" . name)) ...).
+(defun il-model-sheets (model / sheets layout ids id)
+  (foreach run (il-get "runs" model)
+    (setq layout (il-item-layout run))
+    (if (null (il-sheet-for sheets layout))
+      (setq id (il-unique-slug (il-sheet-slug layout) ids) ids (cons id ids)
+            sheets (append sheets (list (list (cons "layout" layout) (cons "id" id) (cons "label" (substr layout 1 120))))))
+    )
+  )
+  sheets
+)
+
+;; The sheet id of LAYOUT among SHEETS (nil when no run is on it).
+(defun il-sheet-for (sheets layout / found)
+  (foreach sheet sheets
+    (if (and (null found) (= (il-get "layout" sheet) layout)) (setq found (il-get "id" sheet)))
+  )
+  found
+)
+
+;; How far the sheets' scale can be trusted: ILSCALE calibrated it ("verified"), or only the drawing's
+;; units say it ("declared"; an AutoCAD drawing always has units).
+(defun il-scale-status (drawing)
+  (if (il-true-p (il-bool (il-get "scale_verified" drawing))) "verified" "declared")
+)
+
+(defun il-package-sheets (sheets drawing / status)
+  (setq status (il-scale-status drawing))
+  (il-arr (mapcar '(lambda (sheet)
+                     (il-obj (list (cons "id" (il-get "id" sheet)) (cons "label" (il-get "label" sheet))
+                                   (cons "scale" (il-obj (list (cons "status" status) (cons "unit" "in")))))))
+                  sheets))
+)
+
 ;; --- ilq/2 package ----------------------------------------------------------------------------
 
 (defun il-opt (key value pairs)
@@ -281,8 +354,10 @@
   )
 )
 
-(defun il-package-run (model run / pairs erp)
-  (setq pairs (list (cons "id" (il-get "id" run)) (cons "handle" (il-get "handle" run))))
+;; SHEETS: il-model-sheets of MODEL.
+(defun il-package-run (model run sheets / pairs erp)
+  (setq pairs (list (cons "id" (il-get "id" run)) (cons "handle" (il-get "handle" run)) (cons "identity" "xdata")))
+  (setq pairs (il-opt "sheet" (il-sheet-for sheets (il-item-layout run)) pairs))
   (setq pairs (il-opt "room" (il-get "room" run) pairs))
   (setq pairs (append pairs (list (cons "fixture_type" (il-get "fixture_type" run)))))
   (setq pairs (il-opt "location" (il-get "location" run) pairs))
@@ -303,13 +378,17 @@
 )
 
 ;; The ilq/2 package for MODEL. ISSUES are il-check's result; PLATFORM names the AutoCAD product.
-(defun il-package (model catalog issues platform / drawing counts overrides)
-  (setq drawing (il-get "drawing" model) overrides (il-get "overrides" model))
+;; Each layout with runs is a sheet; runs and rooms name theirs (a room only when its layout has runs).
+(defun il-package (model catalog issues platform / drawing counts overrides sheets)
+  (setq drawing (il-get "drawing" model) overrides (il-get "overrides" model) sheets (il-model-sheets model))
   (setq counts (il-issue-counts issues overrides))
   (il-obj
     (list
       (cons "schema" *il-package-schema*)
       (cons "toolkit" (il-obj (list (cons "version" *il-version*) (cons "platform" platform))))
+      (cons "source" (il-obj (list (cons "tool" "autocad") (cons "version" *il-version*) (cons "platform" platform)
+                                   (cons "input" "ilq"))))
+      (cons "sheets" (il-package-sheets sheets drawing))
       (cons "catalog" (il-obj (list (cons "snapshot_hash" (il-j catalog "snapshot_hash"))
                                     (cons "hash" (il-j catalog "hash"))
                                     (cons "generated_at" (il-str (il-j catalog "generated_at"))))))
@@ -322,9 +401,10 @@
                                     (cons "units" "in")
                                     (cons "scale_verified" (il-bool (il-get "scale_verified" drawing))))))
       (cons "rooms" (il-arr (mapcar '(lambda (room)
-                                       (il-obj (list (cons "id" (il-get "id" room)) (cons "name" (il-get "name" room))
-                                                     (cons "level" (il-str (il-get "level" room)))
-                                                     (cons "env" (if (il-get "env" room) (il-get "env" room) "dry-concealed")))))
+                                       (il-obj (il-opt "sheet" (il-sheet-for sheets (il-item-layout room))
+                                                 (list (cons "id" (il-get "id" room)) (cons "name" (il-get "name" room))
+                                                       (cons "level" (il-str (il-get "level" room)))
+                                                       (cons "env" (if (il-get "env" room) (il-get "env" room) "dry-concealed"))))))
                                     (il-get "rooms" model))))
       (cons "cabinets" (il-arr (mapcar '(lambda (cabinet)
                                           (il-obj (il-opt "room" (il-get "room" cabinet)
@@ -332,7 +412,7 @@
                                                           (cons "location_rating" (if (il-get "location_rating" cabinet) (il-get "location_rating" cabinet) "Dry"))
                                                           (cons "access_note" (il-str (il-get "access_note" cabinet)))))))
                                        (il-get "cabinets" model))))
-      (cons "runs" (il-arr (mapcar '(lambda (run) (il-package-run model run)) (il-get "runs" model))))
+      (cons "runs" (il-arr (mapcar '(lambda (run) (il-package-run model run sheets)) (il-get "runs" model))))
       (cons "psus" (il-arr (mapcar '(lambda (psu)
                                       (il-obj (il-opt "item_code" (il-get "item_code" psu)
                                                 (il-opt "cabinet" (il-get "cabinet" psu)
@@ -354,6 +434,32 @@
       (cons "other_lines" (il-arr (il-get "others" model)))
     )
   )
+)
+
+;; What the drawing's content hash covers: the package without who wrote it, when, the drawing's
+;; file, scale and check state, the catalog, or the sheets (layout names and scale status are not what
+;; was drawn, and leaving them out keeps hashes from 0.4.x toolkits stable).
+(defun il-package-content (package / strip)
+  (setq strip '(("runs" "sheet" "identity") ("rooms" "sheet")))
+  (il-obj
+    (mapcar
+      '(lambda (pair)
+         (if (assoc (car pair) strip)
+           (cons (car pair)
+                 (il-arr (mapcar '(lambda (item)
+                                    (il-obj (vl-remove-if '(lambda (field) (member (car field) (cdr (assoc (car pair) strip)))) (cdr item))))
+                                 (il-items (cdr pair)))))
+           pair
+         )
+       )
+      (vl-remove-if '(lambda (pair) (member (car pair) '("toolkit" "source" "drawing" "check" "catalog" "sheets"))) (cdr package))
+    )
+  )
+)
+
+;; The drawing's content hash: what was drawn, not when or by whom.
+(defun il-model-hash (model catalog)
+  (il-sha256 (il-json-text (il-package-content (il-package model catalog nil "hash"))))
 )
 
 ;; --- Receipt (ilq-receipt/1) ------------------------------------------------------------------

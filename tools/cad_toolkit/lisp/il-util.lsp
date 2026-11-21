@@ -4,7 +4,7 @@
 ;;; plus a few vl- string and list functions that full AutoCAD, LT 2024+ and Mac all provide
 ;;; (no vlax-/vla- ActiveX, no reactors).
 
-(setq *il-version* "0.4.5")
+(setq *il-version* "0.5.0")
 
 ;; --- Association lists ------------------------------------------------------------------------
 
@@ -141,6 +141,25 @@
     ((and (= (type value) 'STR) (/= (il-trim value) "")) (atof value))
     (T nil)
   )
+)
+
+;; A dotted version as integers: "0.10.2" -> (0 10 2). Text after a part's digits is ignored.
+(defun il-version-parts (text)
+  (mapcar 'atoi (il-split (il-trim text) "."))
+)
+
+;; True when version A is older than version B, comparing each dotted part as a number ("0.9" < "0.10";
+;; missing parts count as 0, so "0.5" equals "0.5.0").
+(defun il-version< (a b / pa pb x y result done)
+  (setq pa (il-version-parts a) pb (il-version-parts b))
+  (while (and (not done) (or pa pb))
+    (setq x (if pa (car pa) 0) y (if pb (car pb) 0) pa (cdr pa) pb (cdr pb))
+    (cond
+      ((< x y) (setq result T done T))
+      ((> x y) (setq done T))
+    )
+  )
+  result
 )
 
 (defun il-sum (numbers / total)

@@ -16,10 +16,24 @@
   (if (null *il-catalog*)
     (progn
       (setq path (cond ((il-setting "catalog_path")) ((getenv "ILLUMENATE_CATALOG"))))
-      (if (and path (findfile path)) (setq *il-catalog* (il-catalog-read path) *il-catalog-path* path))
+      (if (and path (findfile path))
+        (progn
+          (setq *il-catalog* (il-catalog-read path) *il-catalog-path* path)
+          (il-catalog-warnings *il-catalog*)
+        )
+      )
     )
   )
   *il-catalog*
+)
+
+;; Print the catalog's staleness and minimum-toolkit warnings (on ILCATALOG and the first load).
+(defun il-catalog-warnings (catalog)
+  (if catalog
+    (foreach warning (list (il-catalog-stale catalog (il-today)) (il-toolkit-outdated catalog))
+      (if warning (princ (strcat "\nilLumenate: " warning ".")))
+    )
+  )
 )
 
 (defun il-require-catalog ()
@@ -47,7 +61,7 @@
 
 ;; --- ILCATALOG, ILSETUP --------------------------------------------------------------------------
 
-(defun c:ILCATALOG (/ path catalog stale)
+(defun c:ILCATALOG (/ path catalog)
   (il-begin)
   (setq path (getfiled "ilLumenate CAD catalog" (if *il-catalog-path* *il-catalog-path* "") "json" 0))
   (cond
@@ -63,7 +77,7 @@
       (princ (strcat "\nCatalog " (substr (il-str (il-j catalog "hash")) 1 8) " loaded: "
                      (itoa (length (il-items (il-j catalog "templates")))) " tape and neon templates, "
                      (itoa (length (il-items (il-j catalog "styles")))) " run styles."))
-      (if (setq stale (il-catalog-stale catalog (il-today))) (princ (strcat "\n" stale)))
+      (il-catalog-warnings catalog)
     )
   )
   (il-end)
@@ -219,6 +233,7 @@
     (cons "config_hash" (il-get "config_hash" x))
     (cons "part_number" (il-get "part_number" x))
     (cons "server_in" (il-number (il-get "server_in" x)))
+    (cons "layout" (cdr (assoc 410 (entget ename))))
   )
 )
 
@@ -1243,7 +1258,9 @@
 (defun il-model (/ runs rooms cabinets psus wires controls x drawing)
   (foreach ename (il-entities "ROOM")
     (setq x (il-xget ename))
-    (setq rooms (cons (list (cons "id" (il-get "id" x)) (cons "name" (il-get "name" x)) (cons "level" (il-get "level" x)) (cons "env" (il-get "env" x))) rooms))
+    (setq rooms (cons (list (cons "id" (il-get "id" x)) (cons "name" (il-get "name" x)) (cons "level" (il-get "level" x)) (cons "env" (il-get "env" x))
+                            (cons "layout" (cdr (assoc 410 (entget ename)))))
+                      rooms))
   )
   (foreach ename (il-entities "RUN") (setq runs (cons (il-run-from-entity ename) runs)))
   (foreach ename (il-entities "CABINET")
@@ -1293,12 +1310,6 @@
     (cons "others" (il-items (il-fetch-json "OTHERS")))
     (cons "overrides" (mapcar '(lambda (o) (list (cons "code" (il-j o "code")) (cons "ref" (il-j o "ref")) (cons "note" (il-j o "note")))) (il-overrides)))
   )
-)
-
-;; The drawing's content hash: what was drawn, not when or by whom.
-(defun il-model-hash (model catalog / package)
-  (setq package (il-package model catalog nil "hash"))
-  (il-sha256 (il-json-text (il-obj (vl-remove-if '(lambda (pair) (member (car pair) '("toolkit" "drawing" "check" "catalog"))) (cdr package)))))
 )
 
 (defun il-update-psu-tag (psu) (il-update-psu-tag-in psu (il-model)))
@@ -1681,6 +1692,7 @@
   (princ (strcat "\nilLumenate CAD toolkit " *il-version* " on " (il-platform)))
   (foreach pair (il-capabilities) (princ (strcat "\n  " (car pair) ": " (il-str (cdr pair)))))
   (if (il-catalog) (princ (strcat "\n  catalog: " (substr (il-str (il-j (il-catalog) "hash")) 1 8) " generated " (il-str (il-j (il-catalog) "generated_at")))))
+  (if (and (il-catalog) (il-toolkit-outdated (il-catalog))) (princ (strcat "\n  " (il-toolkit-outdated (il-catalog)) ".")))
   (princ)
 )
 

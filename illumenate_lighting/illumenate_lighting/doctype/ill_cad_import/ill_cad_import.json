@@ -19,6 +19,17 @@
   "catalog_snapshot",
   "plan_pdf",
   "plan_pdf_sha256",
+  "section_source",
+  "source_tool",
+  "source_version",
+  "source_platform",
+  "source_input",
+  "column_break_scale",
+  "scale_status",
+  "scale_confirmed_by",
+  "scale_note",
+  "on_behalf",
+  "on_behalf_customer",
   "section_counts",
   "runs_added",
   "runs_updated",
@@ -32,7 +43,10 @@
   "package_sha256",
   "package_json",
   "receipt_json",
-  "site_json"
+  "site_json",
+  "choices_json",
+  "ignored_count",
+  "ignored_json"
  ],
  "fields": [
   {
@@ -204,6 +218,96 @@
    "label": "Design Site",
    "read_only": 1,
    "description": "Rooms, cabinets and measured home-run lengths the System Designer applies to a new design (cad-site/1)."
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Source and scale"
+  },
+  {
+   "fieldname": "source_tool",
+   "fieldtype": "Select",
+   "label": "Source Tool",
+   "options": "\nautocad\ndxf\nbluebeam\nweb",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "source_version",
+   "fieldtype": "Data",
+   "label": "Source Version",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_platform",
+   "fieldtype": "Data",
+   "label": "Source Platform",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_input",
+   "fieldtype": "Select",
+   "label": "Source Input",
+   "options": "\nilq\ndxf\npdf\ncsv",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_scale",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scale_status",
+   "fieldtype": "Select",
+   "label": "Scale Status",
+   "options": "\nverified\ndeclared\nunverified",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "scale_confirmed_by",
+   "fieldtype": "Link",
+   "label": "Scale Confirmed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "scale_note",
+   "fieldtype": "Small Text",
+   "label": "Scale Note",
+   "read_only": 1
+  },
+  {
+   "fieldname": "on_behalf",
+   "fieldtype": "Check",
+   "label": "Imported On Behalf",
+   "read_only": 1
+  },
+  {
+   "fieldname": "on_behalf_customer",
+   "fieldtype": "Link",
+   "label": "On Behalf Of",
+   "options": "Customer",
+   "read_only": 1,
+   "depends_on": "on_behalf"
+  },
+  {
+   "fieldname": "choices_json",
+   "fieldtype": "Long Text",
+   "label": "Choices JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ignored_count",
+   "fieldtype": "Int",
+   "label": "Ignored Markups",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ignored_json",
+   "fieldtype": "Long Text",
+   "label": "Ignored JSON",
+   "read_only": 1
   }
  ],
  "permissions": [
@@ -217,13 +321,18 @@
    "role": "ilL Applications Engineer",
    "read": 1,
    "report": 1
+  },
+  {
+   "role": "ilL Sales Review",
+   "read": 1,
+   "report": 1
   }
  ],
  "sort_field": "creation",
  "sort_order": "DESC",
  "title_field": "drawing_file",
  "track_changes": 0,
- "modified": "2026-11-20 12:00:00.000000",
+ "modified": "2026-11-21 12:00:00.000000",
  "modified_by": "Administrator",
  "owner": "Administrator",
  "creation": "2026-11-20 12:00:00.000000"

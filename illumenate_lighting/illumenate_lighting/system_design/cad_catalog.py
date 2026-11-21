@@ -12,7 +12,9 @@ A projection of the same spec doctypes and the same Design Catalog snapshot the 
   default profile (drawn outline only; sticks, caps and clips come from the build on import);
 - ``profiles``: width, stock length, curve capability and the cross-section outline;
 - ``drivers``, ``controllers`` and ``wires``: the designer snapshot's items, for PSU location tags;
-- ``styles``: the user's own and company-shared configuration presets (run styles, plan 3.5).
+- ``styles``: the user's own and company-shared configuration presets (run styles, plan 3.5), each
+  with its short drawing ``code`` when it has one (``ILM-STYLE-<code>`` layers); presets switched off
+  for CAD (``cad_enabled`` 0) are left out.
 
 D6: no cost, price, MSRP, adder or supply rank. :func:`forbidden_keys` walks every payload.
 Dealers see Active templates; staff also see Internal Only ones (``portal_listing``).
@@ -348,6 +350,7 @@ def style_row(preset, request):
 	return _compact(
 		{
 			"id": f"preset:{preset['name']}",
+			"code": preset.get("cad_code"),
 			"label": preset.get("label"),
 			"family": request.get("family") or preset.get("family"),
 			"template": request.get("template") or preset.get("template"),
@@ -390,6 +393,12 @@ def build_payload(data):
 			**{key: data["settings"].get(key) for key in SETTINGS_KEYS},
 			"max_watts_per_run": CONFIGURATOR_MAX_WATTS_PER_RUN,
 			"stale_days": STALE_DAYS,
+			# Oldest toolkit the import accepts (WP 1.4); ILCATALOG warns when the toolkit is older.
+			**(
+				{"min_toolkit_version": data["min_toolkit_version"]}
+				if data.get("min_toolkit_version")
+				else {}
+			),
 		},
 		"templates": sorted(templates, key=lambda row: (row["family"], row["code"])),
 		"fixture_templates": sorted(
@@ -461,7 +470,8 @@ def _children(doctype, parenttype, parents, fields):
 
 
 def load_styles(user=None):
-	"""The user's usable presets as run styles; unusable presets are left out."""
+	"""The user's usable presets as run styles; unusable presets and presets switched off for CAD
+	(``cad_enabled`` 0; missing means on, for sites not migrated yet) are left out."""
 	from illumenate_lighting.illumenate_lighting.portal import presets, site_flags
 	from illumenate_lighting.illumenate_lighting.portal.access import get_actor
 
@@ -477,6 +487,7 @@ def load_styles(user=None):
 		"family",
 		"template",
 		"request_json",
+		*_present(PRESET, ["cad_code", "cad_enabled"]),
 	]
 	rows = {row.name: row for row in frappe.get_all(PRESET, filters={"user": actor.user}, fields=fields)}
 	if actor.customer and not actor.is_internal:
@@ -486,6 +497,8 @@ def load_styles(user=None):
 			rows.setdefault(row.name, row)
 	styles = []
 	for row in rows.values():
+		if not presets.is_cad_enabled(row.get("cad_enabled")):
+			continue
 		try:
 			stored = json.loads(row.request_json or "{}")
 		except ValueError:
@@ -499,6 +512,7 @@ def load_styles(user=None):
 
 
 def load_data(staff, user=None):
+	from illumenate_lighting.illumenate_lighting.portal import site_flags
 	from illumenate_lighting.illumenate_lighting.portal_listing import template_filters
 	from illumenate_lighting.illumenate_lighting.system_design import readiness
 	from illumenate_lighting.illumenate_lighting.system_design.settings import settings
@@ -607,6 +621,7 @@ def load_data(staff, user=None):
 		"snapshot": catalog.get_snapshot(snapshot_hash),
 		"generated_at": str(frappe.utils.now_datetime()),
 		"settings": settings(),
+		"min_toolkit_version": site_flags.cad_min_versions().get("autocad"),
 		"voltages": readiness.voltages(),
 		"tape_templates": tape_templates,
 		"allowed_specs": allowed_specs,

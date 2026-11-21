@@ -403,6 +403,7 @@
  "styles": [
   {
    "id": "preset:PRE-0001",
+   "code": "HD27-DRY",
    "label": "HD 27K Dry",
    "family": "LED Tape",
    "template": "led-hd-sw",

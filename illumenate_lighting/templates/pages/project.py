@@ -103,6 +103,11 @@ def get_context(context):
 
 	context.system_designs = project_designs(schedules)
 	context.can_edit = can_edit
+	from illumenate_lighting.illumenate_lighting.system_design.cad_access import (
+		enabled_for as cad_enabled_for,
+	)
+
+	context.drawing_start_enabled = bool(can_edit and cad_enabled_for())
 	context.gallery_enabled = _gallery_enabled()
 	context.schedule_status_class = schedule_status_class
 	context.schedule_status_label = schedule_status_label
