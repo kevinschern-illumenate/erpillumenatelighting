@@ -1,13 +1,23 @@
 # Copyright (c) 2026, ilLumenate Lighting and contributors
 # For license information, please see license.txt
 
-"""Desk "Configure & Add Fixture" backend for Quotation / Sales Order.
+"""Desk "Configure & Add Fixture" backend.
 
 Server builds, client inserts: every write that is independent of the
-transaction (configured record, Item, BOM, MSRP Item Price and the
-fixture-schedule line) happens here, and a fully priced ``row_values`` dict is
+transaction (configured record, Item, BOM or Product Bundle, MSRP Item Price
+and the fixture-schedule line) happens here, and a ``row_values`` dict is
 returned for the desk form to insert with ``frm.add_child('items', values)``.
 That keeps the tool usable on brand-new, unsaved documents.
+
+Parents:
+
+* Quotation / Sales Order: selling rows priced from MSRP, optionally linked
+  to a project fixture schedule.
+* Purchase Order / Request for Quotation / Material Request: document-only
+  rows for configured builds that are not made yet. No fixture schedule; the
+  rows carry ERPNext's own buying / stock defaults for the built Item.
+* Work Order: one build. ``header_values`` set the production Item, its BOM
+  and the quantity instead of adding rows.
 
 Internal users only — dealers never use the desk tool (see
 ``_require_internal_user``).
@@ -20,7 +30,7 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt
+from frappe.utils import cint, flt, getdate, nowdate
 
 from illumenate_lighting.illumenate_lighting.api import led_sheet_configurator, tape_neon_configurator
 from illumenate_lighting.illumenate_lighting.api.build_artifacts import atomic_build
@@ -69,7 +79,19 @@ from illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedul
 from illumenate_lighting.illumenate_lighting.portal.desk_build_receipt import idempotent
 from illumenate_lighting.illumenate_lighting.portal.site_flags import fixture_groups_enabled
 
-PARENT_DOCTYPES = {"Quotation", "Sales Order"}
+SCHEDULE_PARENT_DOCTYPES = {"Quotation", "Sales Order"}
+# Document-only parents: configured builds listed on a purchasing / stock document.
+LINE_PARENT_DOCTYPES = {"Purchase Order", "Request for Quotation", "Material Request"}
+WORK_ORDER = "Work Order"
+PARENT_DOCTYPES = SCHEDULE_PARENT_DOCTYPES | LINE_PARENT_DOCTYPES | {WORK_ORDER}
+VARIANT_ORIGINS = {
+	"Quotation": "Quotation Tool",
+	"Sales Order": "Sales Order Tool",
+	"Purchase Order": "Purchasing Tool",
+	"Request for Quotation": "Purchasing Tool",
+	"Material Request": "Purchasing Tool",
+	WORK_ORDER: "Work Order Tool",
+}
 SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
 PROJECT_DOCTYPE = "ilL-Project"
 EDITABLE_SCHEDULE_STATUSES = tuple(EDITABLE_STATUSES)
@@ -134,6 +156,12 @@ SAFE_HEADER_FIELDS = (
 	"customer_group",
 	"territory",
 	"ignore_pricing_rule",
+	# Purchasing / stock parents.
+	"supplier",
+	"buying_price_list",
+	"schedule_date",
+	"set_warehouse",
+	"material_request_type",
 )
 
 
@@ -142,19 +170,45 @@ SAFE_HEADER_FIELDS = (
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _require_internal_user() -> None:
-	"""The desk tool is for ilLumenate staff only; dealers use the portal."""
+def _require_internal_user(parent_doctype: str | None = None) -> None:
+	"""The desk tool is for ilLumenate staff only; dealers use the portal.
+
+	Selling documents need a sales role. Purchasing and manufacturing
+	documents are open to any enabled Desk (System User) account; the parent's
+	own write permission (``_require_parent_doctype``) decides who may edit them.
+	"""
 	from illumenate_lighting.illumenate_lighting.portal.staff import allowed
 
-	if not allowed("sales"):
-		frappe.throw(_("The desk configurator is available to internal users only."), frappe.PermissionError)
+	if allowed("sales"):
+		return
+	if parent_doctype and parent_doctype not in SCHEDULE_PARENT_DOCTYPES and parent_doctype in PARENT_DOCTYPES:
+		user = frappe.session.user
+		account = frappe.db.get_value("User", user, ["enabled", "user_type"], as_dict=True) if user != "Guest" else None
+		if account and cint(account.enabled) and account.user_type == "System User":
+			return
+	frappe.throw(_("The desk configurator is available to internal users only."), frappe.PermissionError)
 
 
 def _require_parent_doctype(parent_doctype: str) -> None:
 	if parent_doctype not in PARENT_DOCTYPES:
-		frappe.throw(_("Configured products can only be added to Quotations and Sales Orders."))
+		frappe.throw(
+			_("Configured products can be added to Quotations, Sales Orders, Purchase Orders, "
+			"Requests for Quotation, Material Requests and Work Orders only.")
+		)
 	if not frappe.has_permission(parent_doctype, "write"):
 		frappe.throw(_("You do not have write permission on {0}.").format(parent_doctype), frappe.PermissionError)
+
+
+def uses_schedule(parent_doctype: str) -> bool:
+	"""Only selling documents link configured lines to a project fixture schedule."""
+	return parent_doctype in SCHEDULE_PARENT_DOCTYPES
+
+
+def _product_types_for(parent_doctype: str) -> tuple[str, ...]:
+	"""Families the dialog offers: a Work Order makes one configured build, never a catalog part."""
+	if parent_doctype == WORK_ORDER:
+		return DESK_PRODUCT_TYPES
+	return (*DESK_PRODUCT_TYPES, *CATALOG_PRODUCT_TYPES)
 
 
 def _error(message: str, **extra) -> dict[str, Any]:
@@ -240,8 +294,21 @@ def get_desk_context(
 	linked_schedule: str | None = None,
 ) -> dict[str, Any]:
 	"""Bootstrap payload for the dialog's project/schedule step."""
-	_require_internal_user()
+	_require_internal_user(parent_doctype)
 	_require_parent_doctype(parent_doctype)
+	if not uses_schedule(parent_doctype):
+		# Document-only parents skip the project step and build no schedule line.
+		return {
+			"success": True,
+			"customer": customer,
+			"linked_schedule": None,
+			"linked_missing": None,
+			"projects": [],
+			"product_types": [{"value": pt, "label": _(pt)} for pt in _product_types_for(parent_doctype)],
+			"groups_enabled": fixture_groups_enabled() and parent_doctype != WORK_ORDER,
+			"can_create_project": False,
+			"can_create_schedule": False,
+		}
 
 	linked = None
 	linked_missing = None
@@ -381,9 +448,11 @@ def _line_summary(line) -> str:
 
 
 @frappe.whitelist()
-def get_next_fixture_type(schedule: str | None = None, used_json: str | list | None = None) -> str:
+def get_next_fixture_type(
+	schedule: str | None = None, used_json: str | list | None = None, parent_doctype: str | None = None
+) -> str:
 	"""Next free fixture type across the schedule and ids already used on the form."""
-	_require_internal_user()
+	_require_internal_user(parent_doctype)
 	doc = None
 	if schedule:
 		doc, err = _load_schedule(schedule, "read")
@@ -556,14 +625,23 @@ def build_configured_line(
 
 	See the module docstring: nothing is written to the Quotation / Sales
 	Order here; the client inserts ``row_values`` and sets
-	``header_values.ill_fixture_schedule``.
+	``header_values.ill_fixture_schedule``. A Work Order gets ``header_values``
+	for its production Item instead of rows.
 	"""
-	_require_internal_user()
+	_require_internal_user(parent_doctype)
 	_require_parent_doctype(parent_doctype)
 	if parent_name and not frappe.has_permission(parent_doctype, "write", parent_name):
 		frappe.throw(_("You do not have write permission on {0} {1}.").format(parent_doctype, parent_name), frappe.PermissionError)
+	if schedule and not uses_schedule(parent_doctype):
+		return _error(_("{0} lines are not linked to a fixture schedule.").format(_(parent_doctype)))
 
 	catalog_type = CATALOG_PRODUCT_TYPE_ALIASES.get((product_type or "").strip().lower())
+	if catalog_type and parent_doctype == WORK_ORDER:
+		return _error(
+			_("{0} is a catalog product with no configured build, so it cannot be made by a Work Order.").format(
+				_(catalog_type)
+			)
+		)
 	if catalog_type:
 		return _build_catalog_line(
 			parent_doctype,
@@ -601,7 +679,7 @@ def build_configured_line(
 		segments = segment_list(segments_json)
 	except ValueError as exc:
 		return _error(str(exc))
-	variant_origin = variant_origin or ("Sales Order Tool" if parent_doctype == "Sales Order" else "Quotation Tool")
+	variant_origin = VARIANT_ORIGINS[parent_doctype]
 
 	# ── 1. Schedule preflight (before any engine write) ─────────────
 	schedule_doc = None
@@ -709,6 +787,9 @@ def build_configured_line(
 		"template": tape_neon_template or selections.get("fixture_template_code") or selections.get("template") or (selections.get("group_request") or {}).get("template"),
 		"selections": selections, "segments": segments,
 	})
+	if parent_doctype == WORK_ORDER:
+		return _work_order_result(artifact, product_type, qty, engineering_request, drivers, validation)
+
 	line_name = None
 	line_position = None
 	power_lines: list = []
@@ -811,6 +892,7 @@ def build_configured_line(
 		"configured_led_sheet": artifact.get("configured_led_sheet"),
 		"item_code": artifact["item_code"],
 		"bom": artifact.get("bom"),
+		"built": _built_summary(artifact),
 		"next_fixture_type": _next_fixture_type(schedule_doc, used_ids),
 		"messages": (validation.get("messages") or []) + (artifact.get("messages") or []),
 	}
@@ -1386,6 +1468,17 @@ def _build_row_values(
 	additional_notes: str | None,
 ) -> dict[str, Any]:
 	"""Run the shared row writer against an in-memory parent and return child values."""
+	if not uses_schedule(parent_doctype):
+		return _build_document_row_values(
+			parent_doctype,
+			parent_name,
+			header,
+			artifact,
+			qty,
+			section_label=section_label,
+			fixture_type=fixture_type,
+			additional_notes=additional_notes,
+		)
 	tmp = frappe.new_doc(parent_doctype)
 	tmp.update(header)
 	if parent_name:
@@ -1406,6 +1499,11 @@ def _build_row_values(
 	_set_child_value(row, "stock_qty", flt(qty) * flt(row.get("conversion_factor") or 1))
 	_set_child_value(row, "amount", flt(row.get("rate")) * flt(qty))
 
+	return _child_values(parent_doctype, row)
+
+
+def _child_values(parent_doctype: str, row) -> dict[str, Any]:
+	"""The row's values that ``frm.add_child`` may take: real child fields only."""
 	child_meta = frappe.get_meta(f"{parent_doctype} Item")
 	values = {}
 	for key, value in row.as_dict().items():
@@ -1415,6 +1513,238 @@ def _build_row_values(
 			continue
 		values[key] = value
 	return values
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# DOCUMENT-ONLY PARENTS (Purchase Order / RFQ / Material Request / Work Order)
+# ═══════════════════════════════════════════════════════════════════════
+
+# ERPNext item details the row keeps (the rest stay ERPNext's to set on save).
+DOCUMENT_ITEM_DETAIL_FIELDS = (
+	"item_group",
+	"brand",
+	"warehouse",
+	"schedule_date",
+	"expense_account",
+	"cost_center",
+	"project",
+	"price_list_rate",
+	"base_price_list_rate",
+	"discount_percentage",
+	"discount_amount",
+	"pricing_rules",
+	"rate",
+	"base_rate",
+	"last_purchase_rate",
+	"valuation_rate",
+	"weight_per_unit",
+	"weight_uom",
+)
+
+
+def _build_document_row_values(
+	parent_doctype: str,
+	parent_name: str | None,
+	header: dict[str, Any],
+	artifact: dict[str, Any],
+	qty: float,
+	*,
+	section_label: str | None,
+	fixture_type: str | None,
+	additional_notes: str | None,
+) -> dict[str, Any]:
+	"""Child values for a Purchase Order / RFQ / Material Request row.
+
+	The built Item gets ERPNext's own buying / stock defaults (warehouse,
+	accounts, buying price). A configured build has no supplier price yet, so
+	a Purchase Order row falls back to the BOM's unit cost.
+	"""
+	item_code = artifact["item_code"]
+	item = frappe.db.get_value("Item", item_code, ["item_name", "stock_uom", "description"], as_dict=True) or {}
+	uom = item.get("stock_uom") or "Nos"
+	description = artifact.get("description") or item.get("description") or item.get("item_name") or item_code
+	notes = (additional_notes or "").strip()
+	if notes and notes not in description:
+		# Purchasing rows have no notes column; the supplier reads the description.
+		description = f"{description}<br>{frappe.utils.escape_html(notes)}"
+	schedule_date = header.get("schedule_date")
+	if not schedule_date or getdate(schedule_date) < getdate(nowdate()):
+		schedule_date = nowdate()
+
+	tmp = frappe.new_doc(parent_doctype)
+	tmp.update({k: v for k, v in header.items() if tmp.meta.has_field(k)})
+	if parent_name:
+		tmp.name = parent_name
+	row = tmp.append("items", {})
+	row.update({
+		"item_code": item_code,
+		"item_name": item.get("item_name") or item_code,
+		"description": description,
+		"qty": qty,
+		"uom": uom,
+		"stock_uom": uom,
+		"conversion_factor": 1,
+		"stock_qty": qty,
+	})
+	details = _document_item_details(parent_doctype, parent_name, header, item_code, qty, uom)
+	for key in DOCUMENT_ITEM_DETAIL_FIELDS:
+		if details.get(key) not in (None, ""):
+			_set_child_value(row, key, details[key])
+	_set_child_value(row, "schedule_date", schedule_date)
+	if header.get("set_warehouse"):
+		_set_child_value(row, "warehouse", header["set_warehouse"])
+	if parent_doctype == "Purchase Order":
+		rate = flt(row.get("rate")) or flt(details.get("price_list_rate")) or _bom_unit_cost(artifact.get("bom"))
+		_set_child_value(row, "rate", rate)
+		_set_child_value(row, "amount", rate * flt(qty))
+		if artifact.get("bom"):
+			_set_child_value(row, "bom", artifact.get("bom"))
+	from illumenate_lighting.illumenate_lighting.api.quote_order_configurator import tag_row_with_artifact
+
+	tag_row_with_artifact(
+		row,
+		artifact,
+		_serialize_json(artifact.get("configuration_snapshot")),
+		section_label=section_label,
+		fixture_type=fixture_type,
+	)
+	return _child_values(parent_doctype, row)
+
+
+def _document_item_details(
+	parent_doctype: str, parent_name: str | None, header: dict[str, Any], item_code: str, qty: float, uom: str
+) -> dict[str, Any]:
+	"""ERPNext's item defaults for a buying / stock row, or ``{}`` when they cannot be read."""
+	if parent_doctype == "Request for Quotation":
+		# An RFQ row has no price or accounts; its Item fields are fetched by the form.
+		return {}
+	company = header.get("company") or frappe.defaults.get_user_default("Company")
+	if not company:
+		return {}
+	try:
+		from erpnext.stock.get_item_details import get_item_details
+
+		args = frappe._dict({
+			"item_code": item_code,
+			"doctype": parent_doctype,
+			"name": parent_name,
+			"company": company,
+			"supplier": header.get("supplier"),
+			"buying_price_list": header.get("buying_price_list"),
+			"price_list": header.get("buying_price_list"),
+			"currency": header.get("currency") or frappe.get_cached_value("Company", company, "default_currency"),
+			"price_list_currency": header.get("price_list_currency") or header.get("currency"),
+			"conversion_rate": header.get("conversion_rate") or 1,
+			"plc_conversion_rate": header.get("plc_conversion_rate") or 1,
+			"transaction_date": header.get("transaction_date") or nowdate(),
+			"schedule_date": header.get("schedule_date"),
+			"material_request_type": header.get("material_request_type"),
+			"set_warehouse": header.get("set_warehouse"),
+			"qty": qty or 1,
+			"stock_qty": qty or 1,
+			"uom": uom,
+			"conversion_factor": 1,
+			"is_subcontracted": 0,
+		})
+		return dict(get_item_details(args) or {})
+	except Exception:  # Defaults are a convenience; ERPNext fills them on save.
+		frappe.log_error(
+			title=f"Desk configurator: item details failed for {item_code} on {parent_doctype}",
+			message=frappe.get_traceback(),
+		)
+		return {}
+
+
+def _bom_unit_cost(bom: str | None) -> float:
+	"""The BOM's cost for one unit of its Item (0 when there is no BOM or no costing)."""
+	if not bom:
+		return 0.0
+	cost = frappe.db.get_value("BOM", bom, ["total_cost", "quantity"], as_dict=True)
+	if not cost or not flt(cost.quantity):
+		return 0.0
+	return flt(cost.total_cost) / flt(cost.quantity)
+
+
+def _built_summary(artifact: dict[str, Any]) -> dict[str, Any]:
+	"""What the build left in ERPNext, for the dialog's done screen."""
+	item_code = artifact.get("item_code")
+	bundle = item_code if item_code and frappe.db.exists("Product Bundle", item_code) else None
+	return {
+		"item_code": item_code,
+		"bom": artifact.get("bom"),
+		"product_bundle": bundle,
+		"light_engines": artifact.get("light_engines") or [],
+	}
+
+
+def _work_order_result(
+	artifact: dict[str, Any],
+	product_type: str,
+	qty: float,
+	engineering_request: str,
+	drivers: list,
+	validation: dict[str, Any],
+) -> dict[str, Any]:
+	"""``header_values`` that make the Work Order build this configured Item."""
+	item_code = artifact["item_code"]
+	bom = artifact.get("bom")
+	if not bom:
+		# Nothing is kept: atomic_build rolls the build back on a failed result.
+		engines = artifact.get("light_engines") or []
+		if engines:
+			parts = ", ".join(
+				_("{0} ({1} per build)").format(e.get("item_code"), e.get("qty")) for e in engines
+			)
+			return _error(
+				_("This build ships in pieces as a Product Bundle, so it has no BOM of its own and one "
+				"Work Order cannot make it. Add it to a Material Request (Manufacture) or Sales Order "
+				"instead; that builds its light engines ({0}) with their BOMs, and each light engine "
+				"gets its own Work Order.").format(parts)
+			)
+		return _error(
+			_("This build has no BOM, so a Work Order cannot make it. Add it to a Material Request or "
+			"Sales Order instead.")
+		)
+	item = frappe.db.get_value("Item", item_code, ["item_name", "description", "stock_uom"], as_dict=True) or {}
+	values = {
+		"production_item": item_code,
+		"bom_no": bom,
+		"qty": qty,
+		"item_name": item.get("item_name") or item_code,
+		"description": artifact.get("description") or item.get("description"),
+		"stock_uom": item.get("stock_uom"),
+	}
+	meta = frappe.get_meta(WORK_ORDER)
+	links = {
+		"ill_configurator_request": engineering_request,
+		"ill_product_type": artifact.get("product_type") or product_type,
+		"ill_configured_fixture": artifact.get("configured_fixture"),
+		"ill_configured_tape_neon": artifact.get("configured_tape_neon"),
+		"ill_configured_led_sheet": artifact.get("configured_led_sheet"),
+		"ill_configured_product_doctype": artifact.get("source_doctype"),
+		"ill_configured_product": artifact.get("source_name"),
+	}
+	values.update({k: v for k, v in links.items() if meta.has_field(k)})
+	messages = list((validation.get("messages") or []) + (artifact.get("messages") or []))
+	notes = []
+	if drivers:
+		notes.append(_("Included power supplies are not part of this Work Order's BOM; order them separately."))
+	return {
+		"success": True,
+		"work_order": True,
+		"header_values": values,
+		"row_values": None,
+		"accessory_rows": [],
+		"product_type": product_type,
+		"item_code": item_code,
+		"bom": bom,
+		"built": _built_summary(artifact),
+		"configured_fixture": artifact.get("configured_fixture"),
+		"configured_tape_neon": artifact.get("configured_tape_neon"),
+		"configured_led_sheet": artifact.get("configured_led_sheet"),
+		"messages": messages,
+		"notes": notes,
+	}
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1517,13 +1847,17 @@ def on_quotation_cancel(doc, method=None):
 @frappe.whitelist(methods=["POST"])
 def reopen_row(parent_doctype, parent_name, row_name):
 	"""Read engineering input through the native ERP parent permission boundary."""
-	_require_internal_user()
+	_require_internal_user(parent_doctype)
 	_require_parent_doctype(parent_doctype)
 	parent = frappe.get_doc(parent_doctype, parent_name)
 	parent.check_permission("write")
 	if parent.docstatus != 0:
 		frappe.throw("Only draft transaction rows can be configured")
-	row = next((row for row in parent.items if row.name == row_name), None)
+	if parent_doctype == WORK_ORDER:
+		# A Work Order holds one build on its header; row_name is the Work Order itself.
+		row = parent
+	else:
+		row = next((row for row in parent.get("items") or [] if row.name == row_name), None)
 	if not row:
 		frappe.throw("Row does not belong to this document", frappe.PermissionError)
 	line =frappe._dict({"name": row.name, "product_type": row.get("ill_product_type"), "ill_configurator_request": row.get("ill_configurator_request")})

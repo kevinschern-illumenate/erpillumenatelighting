@@ -730,7 +730,7 @@
 		var $container = this.$('#mountingAccessoryCards');
 		$container.empty();
 
-		var skipHtml = '<div class="card mb-2 mounting-card active" data-item="" style="cursor:pointer; border: 2px solid #007bff;">'
+		var skipHtml = '<div class="card mb-2 mounting-card active" data-item="" style="cursor:pointer;">'
 			+ '<div class="card-body py-2 px-3"><strong>Skip</strong> — No mounting accessory</div></div>';
 		$container.append(skipHtml);
 
@@ -750,8 +750,8 @@
 		});
 
 		$container.find('.mounting-card').on('click' + '.' + self.instanceId, function () {
-			$container.find('.mounting-card').css('border', '1px solid #dee2e6').removeClass('active');
-			$(this).css('border', '2px solid #007bff').addClass('active');
+			$container.find('.mounting-card').removeClass('active');
+			$(this).addClass('active');
 
 			var itemCode = $(this).data('item');
 			if (itemCode) {
@@ -772,9 +772,9 @@
 			self.doCalculate();
 		});
 		if (this.selectedMountingAccessory) {
-			$container.find('.mounting-card').removeClass('active').css('border', '1px solid #dee2e6').filter(function () {
+			$container.find('.mounting-card').removeClass('active').filter(function () {
 				return $(this).data('item') === self.selectedMountingAccessory.accessory_item;
-			}).addClass('active').css('border', '2px solid #007bff');
+			}).addClass('active');
 			this.$('#mountingAccessoryQty').val(this.selectedMountingAccessory.qty);
 			this.$('#mountingAccessoryQtyRow').show();
 		}

@@ -5,12 +5,12 @@
 
 /* Segment card */
 .ill-configurator-tape-neon .segment-card {
-	border: 1px solid #dee2e6;
+	border: 1px solid var(--ill-line, #dee2e6);
 	border-radius: 0.25rem;
 	margin-bottom: 0.5rem;
 }
 .ill-configurator-tape-neon .segment-card .card-header {
-	background-color: #f8f9fa;
+	background-color: var(--ill-surface, #f8f9fa);
 	padding: 0.5rem 1rem;
 	display: flex;
 	justify-content: space-between;
@@ -26,15 +26,15 @@
 	font-size: 0.85rem;
 }
 .ill-configurator-tape-neon .length-unit-tabs .nav-link.active {
-	background-color: #0d6efd;
-	color: #fff;
-	border-color: #0d6efd;
+	background-color: var(--ill-ui-accent, #0d6efd);
+	color: var(--ill-on-accent, #fff);
+	border-color: var(--ill-ui-accent, #0d6efd);
 }
 
 /* Results panel rows */
 .ill-configurator-tape-neon .result-row {
 	padding: 0.35rem 0;
-	border-bottom: 1px dotted #dee2e6;
+	border-bottom: 1px dotted var(--ill-line, #dee2e6);
 }
 .ill-configurator-tape-neon .result-row:last-child {
 	border-bottom: none;
@@ -47,10 +47,11 @@
 }
 
 /* Mounting accessory cards */
-.ill-configurator-tape-neon .mounting-card {
+.ill-configurator .mounting-card {
 	cursor: pointer;
+	border: 1px solid var(--ill-line, #dee2e6);
 	transition: border-color 0.15s ease-in-out;
 }
-.ill-configurator-tape-neon .mounting-card.active {
-	border: 2px solid #007bff;
+.ill-configurator .mounting-card.active {
+	border: 2px solid var(--ill-ui-accent, #007bff);
 }

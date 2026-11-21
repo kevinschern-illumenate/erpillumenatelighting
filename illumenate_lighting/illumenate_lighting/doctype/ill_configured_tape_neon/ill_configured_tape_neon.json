@@ -136,7 +136,7 @@
             "fieldname": "variant_origin",
             "fieldtype": "Select",
             "label": "Origin",
-            "options": "Portal\nQuotation Tool\nSales Order Tool\nBuilder CLI\nAPI",
+            "options": "Portal\nQuotation Tool\nSales Order Tool\nPurchasing Tool\nWork Order Tool\nBuilder CLI\nAPI",
             "read_only": 1
         },
         {
@@ -624,7 +624,7 @@
     "grid_page_length": 50,
     "index_web_pages_for_search": 1,
     "links": [],
-    "modified": "2026-10-05 12:00:00.000000",
+    "modified": "2026-11-21 12:00:00.000000",
     "modified_by": "Administrator",
     "module": "ilLumenate Lighting",
     "name": "ilL-Configured-Tape-Neon",

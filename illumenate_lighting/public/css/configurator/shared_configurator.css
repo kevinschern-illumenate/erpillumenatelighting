@@ -54,9 +54,9 @@
 	font-size: 0.875rem;
 	font-weight: 400;
 	line-height: 1.5;
-	color: #495057;
-	background-color: #fff;
-	border: 1px solid #ced4da;
+	color: var(--ill-text-2, #495057);
+	background-color: var(--ill-paper, #fff);
+	border: 1px solid var(--ill-line-str, #ced4da);
 	border-radius: 2rem;
 	cursor: pointer;
 	transition: all 0.15s ease-in-out;
@@ -67,19 +67,19 @@
 }
 .ill-configurator .pill-selector .pill:hover,
 .ill-configurator .pill-selector .pill-option:hover {
-	background-color: #e9ecef;
-	border-color: #adb5bd;
+	background-color: var(--ill-surface-2, #e9ecef);
+	border-color: var(--ill-line-str, #adb5bd);
 }
 .ill-configurator .pill-selector .pill.active,
 .ill-configurator .pill-selector .pill-option.active {
-	background-color: #0d6efd;
-	border-color: #0d6efd;
-	color: #fff;
+	background-color: var(--ill-ui-accent, #0d6efd);
+	border-color: var(--ill-ui-accent, #0d6efd);
+	color: var(--ill-on-accent, #fff);
 }
 .ill-configurator .pill-selector .pill.active:hover,
 .ill-configurator .pill-selector .pill-option.active:hover {
-	background-color: #0b5ed7;
-	border-color: #0a58ca;
+	background-color: var(--ill-ui-accent, #0b5ed7);
+	border-color: var(--ill-ui-accent, #0a58ca);
 }
 .ill-configurator .pill-selector .pill.disabled {
 	opacity: 0.5;
@@ -158,13 +158,13 @@
 .ill-configurator .pill-selector .pill-option.active {
 	border-color: var(--ill-accent, #00588c);
 	background: var(--ill-accent, #00588c);
-	color: #fff;
+	color: var(--ill-on-accent, #fff);
 }
 .ill-configurator .pill-selector .pill.active:hover,
 .ill-configurator .pill-selector .pill-option.active:hover {
 	background: var(--ill-accent, #00588c);
 	border-color: var(--ill-accent, #00588c);
-	color: #fff;
+	color: var(--ill-on-accent, #fff);
 }
 .ill-option-pill:disabled,
 .ill-configurator .pill-selector .pill.disabled { opacity: 0.45; cursor: not-allowed; }
@@ -244,7 +244,7 @@
 	height: 22px;
 	border-radius: 50%;
 	background: var(--ill-accent, #00588c);
-	color: #fff;
+	color: var(--ill-on-accent, #fff);
 	display: none;
 	align-items: center;
 	justify-content: center;
@@ -388,7 +388,7 @@ select.ill-template-select-driven { display: none !important; }
 .ill-group-editor.is-group { border-color: var(--ill-accent-soft, #b3d1e5); }
 .ill-group-editor button:focus-visible,
 .ill-group-editor input:focus-visible,
-.ill-group-actions button:focus-visible { outline: 3px solid #2870b7; outline-offset: 2px; }
+.ill-group-actions button:focus-visible { outline: 3px solid var(--ill-ui-accent, #2870b7); outline-offset: 2px; }
 .ill-group-title { font-size: 15px; font-weight: 600; color: var(--ill-ink, #172e48); margin: 0 0 10px; }
 .ill-group-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .ill-group-mode {
@@ -464,7 +464,7 @@ select.ill-template-select-driven { display: none !important; }
 	font-weight: 700;
 	flex-shrink: 0;
 }
-.ill-run.is-active .ill-run-number { background: var(--ill-accent, #00588c); color: #fff; }
+.ill-run.is-active .ill-run-number { background: var(--ill-accent, #00588c); color: var(--ill-on-accent, #fff); }
 .ill-run-summary { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ill-run-badge {
 	font-size: 11px;
@@ -472,7 +472,7 @@ select.ill-template-select-driven { display: none !important; }
 	padding: 1px 8px;
 	border-radius: var(--ill-radius-pill, 9999px);
 	background: var(--ill-accent, #00588c);
-	color: #fff;
+	color: var(--ill-on-accent, #fff);
 	flex-shrink: 0;
 }
 .ill-run-actions { display: flex; gap: 2px; }
@@ -516,11 +516,11 @@ select.ill-template-select-driven { display: none !important; }
 /* Shared coordinator presentation (Portal and Desk). */
 
 .ill-configurator .segment-inherited {
-	background-color: #e9ecef;
+	background-color: var(--ill-surface-2, #e9ecef);
 	padding: 0.25rem 0.5rem;
 	border-radius: 0.25rem;
 	font-size: 0.85rem;
-	color: #6c757d;
+	color: var(--ill-text-3, #6c757d);
 }
 .ill-configurator .segment-inherited i {
 	margin-right: 0.25rem;
@@ -533,12 +533,12 @@ select.ill-template-select-driven { display: none !important; }
 	flex: 1;
 }
 .ill-configurator .end-type-toggle .btn.active {
-	background-color: #0d6efd;
-	color: white;
+	background-color: var(--ill-ui-accent, #0d6efd);
+	color: var(--ill-on-accent, #fff);
 }
 .ill-configurator .jumper-fields, .ill-configurator .endcap-fields {
 	padding: 0.5rem;
-	background: #f8f9fa;
+	background: var(--ill-surface, #f8f9fa);
 	border-radius: 0.25rem;
 	margin-top: 0.5rem;
 }
@@ -570,7 +570,7 @@ select.ill-template-select-driven { display: none !important; }
 	position: relative;
 	max-width: 100%;
 	border-radius: 6px;
-	border: 1px solid #dee2e6;
+	border: 1px solid var(--ill-line, #dee2e6);
 	overflow: hidden;
 	background: #fff;
 }
@@ -602,8 +602,8 @@ select.ill-template-select-driven { display: none !important; }
 	position: absolute;
 	top: 50%;
 	transform: translateY(-50%);
-	background: rgba(255,255,255,0.85);
-	border: 1px solid #ced4da;
+	background: var(--ill-overlay, rgba(255,255,255,0.85));
+	border: 1px solid var(--ill-line-str, #ced4da);
 	border-radius: 50%;
 	width: 36px;
 	height: 36px;
@@ -613,12 +613,12 @@ select.ill-template-select-driven { display: none !important; }
 	cursor: pointer;
 	z-index: 10;
 	font-size: 18px;
-	color: #495057;
+	color: var(--ill-text-2, #495057);
 	transition: background 0.15s;
 	box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 .ill-configurator .gallery-nav:hover {
-	background: rgba(255,255,255,1);
+	background: var(--ill-overlay-hover, #fff);
 }
 .ill-configurator .gallery-nav.prev { left: 8px; }
 .ill-configurator .gallery-nav.next { right: 8px; }
@@ -645,10 +645,10 @@ select.ill-template-select-driven { display: none !important; }
 	align-items: center;
 	gap: 8px;
 	padding: 6px 12px;
-	background: #f8f9fa;
-	border-top: 1px solid #dee2e6;
+	background: var(--ill-surface, #f8f9fa);
+	border-top: 1px solid var(--ill-line, #dee2e6);
 	font-size: 0.8rem;
-	color: #6c757d;
+	color: var(--ill-text-3, #6c757d);
 }
 .ill-configurator .gallery-zoom-bar label {
 	margin: 0;
@@ -665,15 +665,15 @@ select.ill-template-select-driven { display: none !important; }
 }
 .ill-configurator .gallery-zoom-bar .zoom-reset-btn {
 	background: none;
-	border: 1px solid #ced4da;
+	border: 1px solid var(--ill-line-str, #ced4da);
 	border-radius: 4px;
 	padding: 1px 8px;
 	cursor: pointer;
 	font-size: 0.75rem;
-	color: #495057;
+	color: var(--ill-text-2, #495057);
 }
 .ill-configurator .gallery-zoom-bar .zoom-reset-btn:hover {
-	background: #e9ecef;
+	background: var(--ill-surface-2, #e9ecef);
 }
 
 /* Category selector */
@@ -691,33 +691,34 @@ select.ill-template-select-driven { display: none !important; }
 	margin-bottom: 0.5rem;
 }
 .ill-configurator .neon-segment-card {
-	border: 1px solid #dee2e6;
+	border: 1px solid var(--ill-line, #dee2e6);
 	border-radius: 0.25rem;
 	margin-bottom: 0.5rem;
 }
 .ill-configurator .neon-segment-card .card-header {
-	background-color: #f8f9fa;
+	background-color: var(--ill-surface, #f8f9fa);
 	padding: 0.5rem 1rem;
 }
 .ill-configurator .neon-segment-card .card-body {
 	padding: 0.75rem 1rem;
 }
 .ill-configurator .tape-segment-card {
-	border: 1px solid #dee2e6;
+	border: 1px solid var(--ill-line, #dee2e6);
 	border-radius: 0.25rem;
 	margin-bottom: 0.5rem;
 }
 .ill-configurator .tape-segment-card .card-header {
-	background-color: #f8f9fa;
+	background-color: var(--ill-surface, #f8f9fa);
 	padding: 0.5rem 1rem;
 }
 .ill-configurator .tape-segment-card .card-body {
 	padding: 0.75rem 1rem;
 }
 /* Bulk reel mode */
+.ill-configurator #tapeModeToggleCard,
 .ill-configurator [data-ill-original-id="tapeModeToggleCard"] {
-	background: #f8f9fa;
-	border: 1px solid #dee2e6;
+	background: var(--ill-surface, #f8f9fa);
+	border: 1px solid var(--ill-line, #dee2e6);
 	border-radius: 0.375rem;
 }
 .ill-configurator .bulk-reel-pill {
@@ -728,7 +729,7 @@ select.ill-template-select-driven { display: none !important; }
 	cursor: pointer;
 }
 .ill-configurator .bulk-reel-pill:hover {
-	background-color: #e9ecef;
+	background-color: var(--ill-surface-2, #e9ecef);
 }
 
 /* ── Extrusion Kit configurator (IllConfigurator.Kit) ──

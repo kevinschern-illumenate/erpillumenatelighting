@@ -30,7 +30,8 @@ app_license = "mit"
 # (plain /assets paths are cached for a year with `immutable`).
 app_include_css = ["illumenate_desk.bundle.css"]
 # shared_configurator + fixture_steps + tape_neon_steps + desk/dialog/*
-# ("Configure & Add Fixture" dialog for Quotation / Sales Order).
+# ("Configure & Add Fixture" dialog for Quotation / Sales Order, and document-only
+# for Purchase Order / Request for Quotation / Material Request / Work Order).
 app_include_js = ["illumenate_desk.bundle.js"]
 
 # include js, css files in header of web template
@@ -96,6 +97,11 @@ for _name in (
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
     doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/template_webflow_link.js", "public/js/webflow_sync.js", "public/js/template_spec_sheet.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/template_sidebar.js", "public/js/publication_history.js"]
+# "Configure & Add Fixture" (document-only) on purchasing / manufacturing documents.
+for _name in ("Purchase Order", "Request for Quotation", "Material Request", "Work Order"):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/configured_build_docs.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
