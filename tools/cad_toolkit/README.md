@@ -36,6 +36,28 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   checked by `forbidden_keys`). The package never carries prices; the import strips price keys anyway.
 - **LT 2024+ and Mac safe core.** Only `entget`/`entmod`/`entmake`, dictionaries and command-line prompts.
   No `vlax-`/`vla-`/`vlr-` and no DCL; the CI source check refuses them.
+- **Copies are allowed.** COPY, ARRAY and paste duplicate XData, id included. `il-fix-copies` (run by
+  ILUPDATE, ILCHECK and ILQUOTE) keeps the id on the entity still on its own handle (`self`, else the
+  oldest), renumbers the rest, drops what a copy must not inherit (a run's portal line key and part
+  number, a PSU's fed runs, a fixed DMX address) and hands copied room and wire tags to the nearer owner.
+- **Feeds and jumpers.** A run's feed is its first vertex: ILFEED turns the polyline round when it is
+  picked near the other end (bulges and break indexes follow). ILJUMPER toggles a break at a vertex, or
+  adds a vertex where a line or arc is picked. Feed and jumper markers are owned by the run and redrawn
+  by ILUPDATE; the run tag sits halfway along the path.
+- **Snapped points.** ILJUMPER and ILFEED ask for points (`getpoint`), so object snaps work, and find the
+  run at the point within the pickbox (`il-run-at`; runs meeting there ask which). Placement is exact:
+  within `*il-snap-tolerance*` (0.01 in) of a vertex is that vertex, anywhere else adds a vertex at the
+  nearest point on the run, and a point off the run says how far off it was.
+- **Jumper spans.** A run's `spans` (segment indexes) are drawn across a gap but are jumper cable, not
+  tape: `il-run-pieces` splits the run into lit pieces and gives the jumper after each piece its length
+  (a span's drawn length, or `jumper_in` at a break). Spans at either end join nothing and are left out
+  (ILCHECK `JUMPER_SPAN_AT_END`). Closed runs are walked round to their first vertex, so a jumper on a
+  closed run keeps the closing side.
+- **Prompts.** `il-choose` asks again on a number outside the list; `il-ask-id` keeps typed ids unique.
+  Settings and styles are parsed once per command (`*il-json-cache*`); tags go on their owner's layout
+  (`*il-layout*`).
+- **Symbol scale.** Plan symbols are drawn in paper inches and inserted at the ILSETUP scale factor;
+  changing it in ILSETUP resizes every placed `IL-*` symbol (not title blocks) about its insertion point.
 - **AutoLISP shares one namespace** for variables and functions: no local may be named after a function
   (CI checks it), and every call must be AutoLISP or defined in the toolkit (CI checks that too).
 

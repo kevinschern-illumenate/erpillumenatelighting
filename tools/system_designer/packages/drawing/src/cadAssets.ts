@@ -23,7 +23,8 @@ type Item =
   | ['CIRCLE', number, number, number, string]
   | ['ARC', number, number, number, number, number, string]
   | ['TEXT', number, number, number, string, string, string]
-  | ['ATTDEF', string, number, number, number, string, boolean, string];
+  | ['ATTDEF', string, number, number, number, string, boolean, string]
+  | ['ATTDEF', string, number, number, number, string, boolean, string, 'center'];
 
 interface BlockData {
   name: string;
@@ -71,8 +72,9 @@ export function riserBlock(symbol: SymbolDef, name: string): BlockData {
   return { name, description: `${symbol.label} (riser symbol ${symbol.id})`, items };
 }
 
+/** A plan tag attribute, centred on X (plan tags read centred on their symbol). */
 const tag = (name: string, x: number, y: number, height: number, layer: string, visible = true): Item =>
-  ['ATTDEF', name, x, y, height, '', visible, layer];
+  ['ATTDEF', name, x, y, height, '', visible, layer, 'center'];
 
 /** Plan-only symbols, in paper inches at 1:1 (inserted at the drawing scale). */
 export function planBlocks(): BlockData[] {
@@ -84,9 +86,9 @@ export function planBlocks(): BlockData[] {
       items: [
         ['PLINE', [-0.5, -0.3, 0.5, -0.3, 0.5, 0.3, -0.5, 0.3], true, 'E-POWR-CABN'],
         ['LINE', -0.5, -0.3, 0.5, 0.3, 'E-POWR-CABN'],
-        tag('TAG', -0.45, 0.38, 0.125, 'E-ANNO-TAGS'),
-        tag('RATING', -0.45, -0.5, 0.09375, 'E-ANNO-TAGS'),
-        tag('ACCESS', -0.45, -0.65, 0.09375, 'E-ANNO-TAGS', false),
+        tag('TAG', 0, 0.38, 0.125, 'E-ANNO-TAGS'),
+        tag('RATING', 0, -0.5, 0.09375, 'E-ANNO-TAGS'),
+        tag('ACCESS', 0, -0.65, 0.09375, 'E-ANNO-TAGS', false),
       ],
     },
     {
@@ -115,10 +117,10 @@ export function planBlocks(): BlockData[] {
       description: 'Run tag: id, style and lengths',
       items: [
         ['PLINE', [-0.3, -0.1, 0.3, -0.1, 0.38, 0, 0.3, 0.1, -0.3, 0.1, -0.38, 0], true, 'E-ANNO-TAGS'],
-        tag('TAG', -0.26, -0.047, 0.09375, 'E-ANNO-TAGS'),
-        tag('STYLE', -0.38, -0.25, 0.09375, 'E-ANNO-TAGS'),
-        tag('LENGTH', -0.38, -0.4, 0.09375, 'E-ANNO-TAGS'),
-        tag('PART', -0.38, -0.55, 0.09375, 'E-ANNO-TAGS', false),
+        tag('TAG', 0, -0.047, 0.09375, 'E-ANNO-TAGS'),
+        tag('STYLE', 0, -0.25, 0.09375, 'E-ANNO-TAGS'),
+        tag('LENGTH', 0, -0.4, 0.09375, 'E-ANNO-TAGS'),
+        tag('PART', 0, -0.55, 0.09375, 'E-ANNO-TAGS', false),
       ],
     },
     {
@@ -126,9 +128,9 @@ export function planBlocks(): BlockData[] {
       description: 'PSU tag with provisional load',
       items: [
         ['PLINE', square(0.18), true, 'E-ANNO-TAGS'],
-        tag('TAG', -0.15, -0.047, 0.09375, 'E-ANNO-TAGS'),
-        tag('LOAD', -0.18, -0.33, 0.09375, 'E-ANNO-TAGS'),
-        tag('MODEL', -0.18, -0.48, 0.09375, 'E-ANNO-TAGS', false),
+        tag('TAG', 0, -0.047, 0.09375, 'E-ANNO-TAGS'),
+        tag('LOAD', 0, -0.33, 0.09375, 'E-ANNO-TAGS'),
+        tag('MODEL', 0, -0.48, 0.09375, 'E-ANNO-TAGS', false),
       ],
     },
     {
@@ -136,8 +138,8 @@ export function planBlocks(): BlockData[] {
       description: 'Wire tag',
       items: [
         ['CIRCLE', 0, 0, 0.12, 'E-ANNO-TAGS'],
-        tag('TAG', -0.09, -0.047, 0.09375, 'E-ANNO-TAGS'),
-        tag('LENGTH', 0.16, -0.047, 0.09375, 'E-ANNO-TAGS'),
+        tag('TAG', 0, -0.047, 0.09375, 'E-ANNO-TAGS'),
+        tag('LENGTH', 0, -0.28, 0.09375, 'E-ANNO-TAGS'),
       ],
     },
     {
@@ -156,7 +158,7 @@ export function planBlocks(): BlockData[] {
         ['CIRCLE', 0, 0, 0.15, 'E-ANNO-ISSU'],
         ['LINE', 0, -0.05, 0, 0.09, 'E-ANNO-ISSU'],
         ['CIRCLE', 0, -0.09, 0.012, 'E-ANNO-ISSU'],
-        tag('CODE', 0.2, -0.047, 0.09375, 'E-ANNO-ISSU'),
+        tag('CODE', 0, -0.3, 0.09375, 'E-ANNO-ISSU'),
       ],
     },
   ];
@@ -272,7 +274,7 @@ export function cadAssetsLisp(): string {
     ';;; Layers, linetypes and blocks of the ilLumenate CAD toolkit (draw-to-quote plan 1.6, 3.3, 3.4),',
     ';;; from the riser layer standard, symbols and title blocks. il-blocks.lsp builds them with entmake.',
     ';;; Layer row: (name aci linetype lineweight-mm plot description). Block item kinds: LINE, PLINE,',
-    ';;; CIRCLE, ARC, TEXT and ATTDEF, in paper inches at 1:1.',
+    ';;; CIRCLE, ARC, TEXT and ATTDEF ("center" last when centred), in paper inches at 1:1.',
     '',
     '(setq *il-asset-layers* (quote (',
     layerRows,
