@@ -125,6 +125,8 @@ page_renderer = ["illumenate_lighting.illumenate_lighting.spec_sheet_route.SpecS
 # -------------------
 website_route_rules = [
 	{"from_route": "/catalog-builder", "to_route": "catalog_builder"},
+	# Kevin's Desk: private; the page answers 404 unless the desk owner opens the right link.
+	{"from_route": "/kd/<slug>", "to_route": "kevins_desk"},
 	{"from_route": "/portal/product-verification/<request_name>", "to_route": "product_verification"},
 	{"from_route": "/portal/product-finder", "to_route": "product_finder"},
 	# Portal main pages
@@ -648,7 +650,7 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick", "illumenate_lighting.illumenate_lighting.api.gallery_publication.tick"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick", "illumenate_lighting.illumenate_lighting.api.gallery_publication.tick"], "*/10 6-17 * * 1-5": ["illumenate_lighting.kevins_desk.tasks.warm"]}}
 
 # Testing
 # -------

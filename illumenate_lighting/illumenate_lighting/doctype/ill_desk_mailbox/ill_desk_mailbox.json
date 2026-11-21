@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "creation": "2026-11-20 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "istable": 1,
+ "description": "A Gmail mailbox Kevin's Desk reads (ilL-Desk-Settings → Mailboxes).",
+ "field_order": [
+  "mailbox",
+  "label",
+  "scope",
+  "enabled"
+ ],
+ "fields": [
+  {
+   "fieldname": "mailbox",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Mailbox",
+   "options": "Email",
+   "reqd": 1
+  },
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "default": "Recent (21 days)",
+   "fieldname": "scope",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Scope",
+   "options": "Recent (21 days)\nUnread only\nAll inbox",
+   "description": "Which inbox threads the desk reads. Sent mail (30 days) and @Action/@Waiting threads are always read."
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-20 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Desk-Mailbox",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

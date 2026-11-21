@@ -23,6 +23,9 @@ EVENT_DOCTYPE = "ilL-Portal-Event"
 PREFERENCE = "system_design"
 CLIENT_EVENTS = frozenset({"riser_exported", "check_fixed", "feedback"})
 MAX_DETAIL_BYTES = 2000
+# Frappe commits a request with one of these methods; it rolls every other request back.
+COMMITTING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+INSERT_JOB = "illumenate_lighting.illumenate_lighting.system_design.telemetry.insert_event"
 # Details the browser may send, by event; anything else is dropped.
 CLIENT_DETAILS = {
 	"riser_exported": {"kind": str, "sheet": str, "stored": bool},
@@ -37,26 +40,52 @@ def event_key(event, name):
 	return f"system_design:{event}:{name}:{stamp}:{secrets.token_hex(3)}"[:140]
 
 
+def event_row(event, schedule, design=None, details=None):
+	"""The ``ilL-Portal-Event`` fields for one event, computed in the request (who, when, key)."""
+	return {
+		"doctype": EVENT_DOCTYPE,
+		"event_key": event_key(event, design or schedule),
+		"reference_type": "ilL-System-Design" if design else "ilL-Project-Fixture-Schedule",
+		"reference_name": design or schedule,
+		"preference": PREFERENCE,
+		"subject": frappe.session.user,
+		"message": json.dumps(
+			{"event": event, "schedule": schedule, "design": design, **(details or {})},
+			sort_keys=True,
+			separators=(",", ":"),
+		),
+	}
+
+
+def request_commits():
+	"""Whether Frappe will commit this request's transaction when it ends.
+
+	Frappe commits only POST/PUT/DELETE/PATCH requests (or one that sets ``flags.commit``) and
+	rolls every other request back. Outside a request (a background job, a console, a test) the
+	caller owns the transaction, so an inline insert is kept.
+	"""
+	request = getattr(frappe.local, "request", None)
+	if request is None:
+		return True
+	if getattr(request, "method", None) in COMMITTING_METHODS:
+		return True
+	return bool(getattr(getattr(frappe.local, "flags", None), "commit", False))
+
+
 def record(event, schedule, design=None, details=None):
-	"""Insert one event row; a failure is logged and never raised."""
+	"""Store one event row; a failure is logged and never raised.
+
+	In a request Frappe will commit, the row is inserted in the caller's transaction. A GET request
+	(``open_design``) is rolled back when it ends, so an inline insert there is lost, as every
+	``opened`` event was before 2026-11-20. In that case a short background job inserts and commits
+	the row, and the GET request still commits nothing.
+	"""
+	if not request_commits():
+		return _record_in_background(event, schedule, design, details)
 	savepoint = "system_design_telemetry"
 	try:
 		frappe.db.savepoint(savepoint)
-		doc = frappe.get_doc(
-			{
-				"doctype": EVENT_DOCTYPE,
-				"event_key": event_key(event, design or schedule),
-				"reference_type": "ilL-System-Design" if design else "ilL-Project-Fixture-Schedule",
-				"reference_name": design or schedule,
-				"preference": PREFERENCE,
-				"subject": frappe.session.user,
-				"message": json.dumps(
-					{"event": event, "schedule": schedule, "design": design, **(details or {})},
-					sort_keys=True,
-					separators=(",", ":"),
-				),
-			}
-		)
+		doc = frappe.get_doc(event_row(event, schedule, design, details))
 		doc.flags.notification_service_write = True
 		doc.insert(ignore_permissions=True)
 		return doc.event_key
@@ -68,6 +97,29 @@ def record(event, schedule, design=None, details=None):
 		except Exception:
 			pass
 		return None
+
+
+def _record_in_background(event, schedule, design, details):
+	try:
+		row = event_row(event, schedule, design, details)
+		# enqueue_after_commit would wait for a commit that a GET request never makes.
+		frappe.enqueue(INSERT_JOB, queue="short", enqueue_after_commit=False, row=row)
+		return row["event_key"]
+	except Exception:
+		try:
+			# The request will be rolled back, so the Error Log must be deferred to survive.
+			frappe.log_error(title=f"System Designer telemetry: {event}"[:140], defer_insert=True)
+		except Exception:
+			pass
+		return None
+
+
+def insert_event(row):
+	"""Background job: insert one row a read-only request recorded. The job runner commits it."""
+	doc = frappe.get_doc(dict(row, doctype=EVENT_DOCTYPE))
+	doc.flags.notification_service_write = True
+	doc.insert(ignore_permissions=True)
+	return doc.event_key
 
 
 def clean_details(event, details):

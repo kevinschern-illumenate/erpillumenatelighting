@@ -1,0 +1,103 @@
+{
+ "actions": [],
+ "creation": "2026-11-20 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "track_changes": 1,
+ "description": "Kevin's Desk: who owns the private /kd/<link> page, its random link, and the Gmail mailboxes it reads. Only the desk owner can change the owner, the mailboxes or the Google App, or turn the page off.",
+ "field_order": [
+  "section_access",
+  "enabled",
+  "desk_owner",
+  "column_break_access",
+  "slug",
+  "section_mail",
+  "google_app",
+  "column_break_mail",
+  "mailboxes_help",
+  "section_mailboxes",
+  "mailboxes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_access",
+   "fieldtype": "Section Break",
+   "label": "Access"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "description": "When off, the page and its endpoints answer 404 for everyone."
+  },
+  {
+   "fieldname": "desk_owner",
+   "fieldtype": "Link",
+   "label": "Desk Owner",
+   "options": "User",
+   "description": "The only user who can open the page. Must be an enabled System User."
+  },
+  {
+   "fieldname": "column_break_access",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "slug",
+   "fieldtype": "Data",
+   "label": "Link Slug",
+   "description": "The page lives at /kd/<slug>. Clear it and save to get a new random link (the old one stops working)."
+  },
+  {
+   "fieldname": "section_mail",
+   "fieldtype": "Section Break",
+   "label": "Gmail"
+  },
+  {
+   "fieldname": "google_app",
+   "fieldtype": "Link",
+   "label": "Google App",
+   "options": "Connected App",
+   "description": "The site's Google Connected App. Each mailbox gets its own copy (kevins-desk-<name>) with offline access; this one is not changed."
+  },
+  {
+   "fieldname": "column_break_mail",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "mailboxes_help",
+   "fieldtype": "HTML",
+   "label": "Connecting",
+   "options": "<p class=\"text-muted small\">Connect each mailbox from the desk page (Mailboxes card). Before the first connect, add each mailbox's redirect URI, shown on that card, to the Google OAuth client's Authorized redirect URIs.</p>"
+  },
+  {
+   "fieldname": "section_mailboxes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "mailboxes",
+   "fieldtype": "Table",
+   "label": "Mailboxes",
+   "options": "ilL-Desk-Mailbox"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-20 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Desk-Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

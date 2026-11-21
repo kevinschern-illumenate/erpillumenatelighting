@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="robots" content="noindex, nofollow, noarchive">
+	<meta name="referrer" content="no-referrer">
+	<title>Kevin's Desk · ilLumenate</title>
+	<style>{{ cc_css | safe }}</style>
+	<style>{{ kd_css | safe }}</style>
+</head>
+<body>
+	<div id="cc" class="kd">
+		<header class="cc-top">
+			<div class="cc-brand"><span class="cc-mark"></span><div><div class="cc-title">Kevin's Desk</div><div class="cc-live"><span class="cc-pulse"></span><span id="kdclock">Pacific time</span></div></div></div>
+			<div class="cc-actions">
+				<span class="kd-stamp" id="kdstamp" aria-live="polite"></span>
+				<button type="button" class="cc-btn ghost" id="kdrefresh">Refresh</button>
+				<a class="cc-btn ghost" id="kdcc" href="/command-center" target="_blank" rel="noopener">Command Center ↗</a>
+			</div>
+		</header>
+		<main class="cc-main" id="kdmain">
+			<section class="kd-now card" id="kdnow" aria-live="polite"></section>
+			<section class="kd-signals" id="kdsignals" aria-label="Command Center decisions this week"></section>
+			<div class="grid kd-grid">
+				<div class="s8 kd-col">
+					<div class="kd-tabs" role="tablist" aria-label="Main view">
+						<button type="button" class="kd-tab" role="tab" id="kdtab-list" data-view="list" aria-controls="kdlist">One list</button>
+						<button type="button" class="kd-tab" role="tab" id="kdtab-pipe" data-view="pipe" aria-controls="kdpipe">Pipeline</button>
+					</div>
+					<section class="card flush" id="kdlist" role="tabpanel" aria-labelledby="kdtab-list"></section>
+					<div class="kd-col" id="kdpipe" role="tabpanel" aria-labelledby="kdtab-pipe" hidden></div>
+				</div>
+				<div class="s4 kd-col">
+					<section class="card flush" id="kdmail" aria-label="Mailboxes"></section>
+					<section class="card flush" id="kdtodos"></section>
+					<section class="card" id="kdtoday"></section>
+					<section class="card" id="kdweek"></section>
+				</div>
+			</div>
+		</main>
+		<footer class="cc-foot"><span id="kdwho"></span><span>Private page · drafts only, nothing is sent or submitted from here</span></footer>
+	</div>
+	<script>window.KD_BOOT = {{ desk | tojson }}; window.KD_CSRF = {{ csrf_token | tojson }};</script>
+	<script>{{ kd_js | safe }}</script>
+</body>
+</html>

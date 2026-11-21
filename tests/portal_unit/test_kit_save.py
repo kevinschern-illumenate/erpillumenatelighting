@@ -26,6 +26,8 @@ SERVER_RESULT = {
 	"selections": {**SELECTIONS, "endcap_style": "Flat", "endcap_color": "Black"},
 	"kit_template": {"name": "KIT-1"},
 }
+# Every kit component's stock-unit Standard Selling rate is $10.
+TEN_DOLLAR_PRICES = {ROOT + ".api.tape_neon_pricing": types.SimpleNamespace(stock_unit_rate=lambda item: 10.0)}
 
 
 class KitSave(unittest.TestCase):
@@ -35,6 +37,7 @@ class KitSave(unittest.TestCase):
 			ROOT + ".doctype.ill_project_fixture_schedule.ill_project_fixture_schedule": types.SimpleNamespace(
 				has_permission=permission
 			),
+			**TEN_DOLLAR_PRICES,
 		}
 		schedule = schedule or Record(status="DRAFT", is_locked=0, lines=[])
 		schedule["save"] = MagicMock()
@@ -43,12 +46,7 @@ class KitSave(unittest.TestCase):
 		with load_service(ROOT + ".api.extrusion_kit_configurator", deps) as (service, frappe):
 			frappe.db.exists.return_value = True
 			frappe.get_doc.return_value = schedule
-			# Every component priced at $10 a stock unit (kits are priced by stock_unit_rate since
-			# 2026-11-19).
-			with (
-				patch(ROOT + ".api.tape_neon_pricing.stock_unit_rate", return_value=10.0),
-				patch.object(service, "validate_kit_configuration", return_value=validation) as validate,
-			):
+			with patch.object(service, "validate_kit_configuration", return_value=validation) as validate:
 				result = service.save_kit_to_schedule("SCH-1", **kwargs)
 		return result, validate, appended, schedule
 
@@ -120,7 +118,7 @@ class KitValidation(unittest.TestCase):
 				service._build_kit_part_number(SELECTIONS, Record(default_profile_family="SH01"))
 
 	def test_validation_and_schedule_writer_keep_components_and_pricing_with_the_new_code(self):
-		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
+		with load_service(ROOT + ".api.extrusion_kit_configurator", TEN_DOLLAR_PRICES) as (service, frappe):
 			template = Record(
 				name="KIT-1", template_code="KIT-1", template_name="Slim Kit", is_active=1,
 				default_profile_family="SH01", profile_stock_length_mm=2000, lens_stock_length_mm=2000,
@@ -131,8 +129,6 @@ class KitValidation(unittest.TestCase):
 			frappe.get_doc.return_value = template
 			codes = {"Anodized Silver": "SV", "White": "WH", "Mounting Clip": "MC"}
 			frappe.db.get_value.side_effect = lambda dt, name, field: codes.get(name)
-			# Every component priced at $10 a stock unit (stock_unit_rate, 2026-11-19).
-			self.enterContext(patch(ROOT + ".api.tape_neon_pricing.stock_unit_rate", return_value=10))
 			profile = Record(profile_item="PROFILE-SV", profile_spec="PROFILE-SPEC")
 			lens = Record(lens_item="LENS-WH", lens_spec="LENS-SPEC")
 			solid = Record(endcap_item="SOLID-SV", endcap_spec="SOLID-SPEC", endcap_style="Solid")
@@ -169,7 +165,7 @@ class KitValidation(unittest.TestCase):
 	def test_mounting_method_without_accessory_validates_without_a_mounting_map(self):
 		# Drywall is mudded in and Direct Surface Mount screws through: no
 		# accessory kit exists, so no Kit Mounting Map is needed or used.
-		with load_service(ROOT + ".api.extrusion_kit_configurator") as (service, frappe):
+		with load_service(ROOT + ".api.extrusion_kit_configurator", TEN_DOLLAR_PRICES) as (service, frappe):
 			template = Record(
 				name="KIT-1", template_code="KIT-1", template_name="Slim Kit", is_active=1,
 				default_profile_family="SH01", profile_stock_length_mm=2000, lens_stock_length_mm=2000,
@@ -180,8 +176,6 @@ class KitValidation(unittest.TestCase):
 			frappe.get_doc.return_value = template
 			codes = {"Anodized Silver": "SV", "White": "WH", "Drywall": "DW"}
 			frappe.db.get_value.side_effect = lambda dt, name, field: codes.get(name)
-			# Every component priced at $10 a stock unit (stock_unit_rate, 2026-11-19).
-			self.enterContext(patch(ROOT + ".api.tape_neon_pricing.stock_unit_rate", return_value=10))
 			resolve_mounting = MagicMock(return_value=None)
 			selections = dict(kit_template="KIT-1", finish="Anodized Silver", lens_appearance="White", mounting_method="Drywall")
 			with patch.multiple(
