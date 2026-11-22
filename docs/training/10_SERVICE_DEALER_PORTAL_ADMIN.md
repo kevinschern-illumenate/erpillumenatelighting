@@ -31,7 +31,8 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 | Quote requests, Offers expiring, Order review, Order changes, Product verification | sales (ilL Sales Review / Order Approver) |
 | Drawing responses, Drawing reapproval, Incomplete exports | engineering (ilL Engineering) |
 | Support responses | support (ilL Support) |
-| Account review, New customers to set up, Bills not in QuickBooks | accounts |
+| Account review (Dealer Accounts section) | accounts (ilL Sales Review / Order Approver / Support) |
+| New customers to set up, Bills not in QuickBooks (Accounting section) | bookkeeping (Accounts Manager / Accounts User) |
 | Publication failures, Email failures | integration |
 | Manufacturing drawing holds, Materials to order | operations (ilL Operations) |
 | Sales inbox | inbox |

@@ -110,7 +110,7 @@ The open decisions and my recommendation for each are in [DECISIONS.md](DECISION
 ## Known gaps to keep out of the manual (or flag)
 
 - The Finance tab and the finance figures on the Sales pipeline page show to every Command Center Viewer (older data feed). Don't publish those screenshots outside the company.
-- Plain desk Quotations don't mark the schedule QUOTED or create a portal offer; only quote-request quotations do. The manual must say this plainly (Module 03).
+- Plain desk Quotations don't mark the schedule QUOTED or create a portal offer; only quote-request quotations do. The manual must say this plainly (Module 03). Staff can raise the quote request themselves: Schedule → Actions → Request Quote for Dealer.
 - Tape / neon and LED sheet lines get no automatic work orders (Module 05).
 - `docs/DEMO_SCRIPT.md` and `docs/CONFIGURATOR_UI_IMPROVEMENTS_PLAN.md` are out of date. Don't use them as sources.
 - The Command Center README still says "production status override"; the field is now **Stage Override**.

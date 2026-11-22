@@ -24,12 +24,13 @@ Trainees can create a quote every way the business does it, choose the right too
 | Situation | Tool | Lesson |
 |---|---|---|
 | A dealer clicked "Request a quote" on their schedule | Quote request → **Prepare Quotation** | 3.2 |
-| You're building a quote from scratch for a dealer, by phone or email | Desk Quotation + **Configure & Add Fixture** | 3.3 |
+| A portal dealer asks by phone or email for a quote on their schedule | Schedule → **Actions → Request Quote for Dealer** → Prepare Quotation | 3.2 |
+| You're building lines from scratch in the desk (then raise a quote request if the dealer uses the portal) | Desk Quotation + **Configure & Add Fixture** | 3.3 |
 | A schedule already exists and you want its lines on a desk quote | Desk Quotation → **Get Items From → Fixture Schedule** | 3.4 |
 | The dealer wants to explore products themselves first | Portal configurators / Product Finder | 3.5 |
 | The dealer's client needs a retail-price copy | Print format **ilL Quotation - MSRP** | 3.6 |
 
-> **Important:** only a Quotation prepared from a **quote request** creates a portal offer and marks the schedule QUOTED when submitted. A desk Quotation made any other way does neither; email it to the dealer instead (Lesson 3.7, decision 11).
+> **Important:** only a Quotation prepared from a **quote request** creates a portal offer and marks the schedule QUOTED when submitted. A desk Quotation made any other way does neither. For a portal dealer who asks by phone or email, raise the quote request yourself (Lesson 3.2); email desk-only quotes to customers who don't use the portal (Lesson 3.7, decision 11).
 
 ---
 
@@ -78,6 +79,13 @@ Trainees can create a quote every way the business does it, choose the right too
 - On submit: **ilL-Quote-Offer** `OFFER-#####` is created (ISSUED), a PDF is rendered, any earlier issued offer is superseded, request → ISSUED, schedule → **QUOTED**, and the dealer is emailed "Quote ready".
 
 **Request states:** DRAFT · REQUESTED (Received) · UNDER_REVIEW · INFORMATION_NEEDED (Needs your reply) · ISSUED (Quote issued) · CLOSED.
+
+**Dealer asked by phone or email?** Open their schedule (DRAFT or READY) in the desk → **Actions → Request Quote for Dealer** → add what they asked for, contact instructions and a needed-by date → **Create Quote Request**. The request opens; continue from step 2. It runs the same checks as the dealer's own request, the dealer sees it in the portal, and its timeline notes who raised it. Needs ilL Sales Review or ilL Order Approver.
+
+**SS-03-32** · Schedule form Actions menu with "Request Quote for Dealer"
+**URL:** `/app/ill-project-fixture-schedule/<schedule>` · **Role:** ilL Sales Review · **State:** READY, unlocked
+
+**SS-03-33** · (pair) Request Quote for Dealer dialog filled in; the new quote request with the "Raised by … on the dealer's behalf" timeline note
 
 **SS-03-04** · Dealer: Request a quote dialog
 **URL:** `/portal/schedules/<schedule>` · **Role:** Dealer
@@ -253,7 +261,7 @@ Trainees can create a quote every way the business does it, choose the right too
 
 ## Slide deck beats
 
-1. Five ways a quote starts, and which tool to use (table)
+1. Six ways a quote starts, and which tool to use (table)
 2. The main path: request → prepare → review → submit → offer (diagram)
 3. What submitting checks, and what it creates
 4. Building from scratch: Configure & Add Fixture
@@ -271,3 +279,4 @@ Trainees can create a quote every way the business does it, choose the right too
 3. The dealer asked for a revision. What do you do in ERPNext?
 4. Which print format do you send to the dealer's end client?
 5. A dealer accepted a quote. Is anything being built yet? What happens next?
+6. A dealer phones asking for a quote on their portal schedule. What do you click?

@@ -117,7 +117,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 | Role | Unlocks |
 |---|---|
 | Dealer | Portal only, own company |
-| ilL Sales Review | Quotations (submit / amend / cancel), SO create / write, projects and schedules, order intake read; sales, accounts and inbox queues |
+| ilL Sales Review | Quotations (submit / amend / cancel), SO create / write, projects and schedules, order intake read; Request Quote for Dealer; sales, account review and inbox queues |
 | ilL Order Approver | Sales Review + SO submit / cancel / amend |
 | ilL Engineering | Drawing requests, tasks, export jobs; authoring specs, attributes, templates, submittal mappings |
 | ilL Applications Engineer | System Designer design review |
@@ -127,6 +127,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 | ilL Product Finder Manager | Finder content and verification |
 | ilL Integration | Service users only |
 | Command Center Viewer / Editor / Finance | Read / write / dollars in the Command Center |
+| Accounts Manager / Accounts User (standard ERPNext) | Also open the Accounting queues in Portal Operations (bills not in QuickBooks, customers to set up) |
 
 - ilL roles **add to** standard ERPNext roles (Purchase, Stock, Accounts, Manufacturing, HR…); they never replace them. No role is assigned automatically. Decision 8 proposes who holds which.
 - Audit with `portal.role_audit.report`, `.dealers`, `.hr`.

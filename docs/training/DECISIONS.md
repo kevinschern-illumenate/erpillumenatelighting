@@ -2,19 +2,21 @@
 
 Settle decisions 1, 2, 3 and 8 by 30 Nov 2026. The training sessions depend on them, and none needs any building. The EasyPost and QuickBooks dates (5, 6) set when Modules 06, 08 and 09 lose their "Rolling out" labels.
 
+**Decided 22 Nov:** 4, 8 and 11, plus the open questions. Three code changes they needed are built and tested: drawing request SLAs now skip weekends; the accounting queues follow the Accounts roles; and staff can raise a quote request for a dealer.
+
 | # | Decision | Recommendation | Decide by |
 |---|---|---|---|
 | 1 | Invoice timing | One invoice per delivery note; prepay and proforma orders invoiced in full from the sales order | 2026-11-30 |
 | 2 | Automatic emails | Turn on order confirmation, shipped and PO chase now; invoice emails after QuickBooks pay links work; keep quote and ship-date emails off | 2026-11-30 |
 | 3 | Helpdesk ticket types | The five types the Command Center expects, routed to three teams; 10 starter knowledge base articles | 2026-11-30 |
-| 4 | Drawing request types | Six types plus the existing System Design Review | 2026-12-04 |
+| 4 | Drawing request types | Decided: six types plus System Design Review; SLA counts weekday hours only (built) | 2026-12-04 |
 | 5 | EasyPost go-live | Staging test the week of 30 Nov, live parcel-only pilot 7-18 Dec, full go-live 4 Jan 2027 | 2026-12-04 |
 | 6 | QuickBooks rollout | Sandbox test in December, cut over on 1 Jan 2027, invoice emails once 5 live invoices carry pay links | 2026-12-11 |
 | 7 | Label printer | 4x6 direct thermal printer; ask for the label size to be set to 4x6 in the n8n workflow | 2026-12-04 |
-| 8 | Who holds which role | Mapping below, based on who owns what today | 2026-11-30 |
+| 8 | Who holds which role | Decided: mapping below. Kevin is Systems Administrator; Kevin and Jay produce drawings and review designs | 2026-11-30 |
 | 9 | Finance tab visibility | Restrict it to the Finance role before Module 01 is taught | 2026-11-30 |
 | 10 | Portal support vs Helpdesk | Short term: check the queue daily. Later: send portal support into Helpdesk | 2026-12-11 |
-| 11 | Desk quotes and the schedule | Keep today's behaviour; put every portal dealer quote through a quote request | 2026-11-30 |
+| 11 | Desk quotes and the schedule | Decided: staff raise quote requests for dealers from the schedule (built) | 2026-11-30 |
 
 ---
 
@@ -70,7 +72,7 @@ Only "System Design Review" exists today, so the portal's drawing request form s
 | Spec sheet, IES or CAD file | Resource | 24 / 8 / 4 | ilL Engineering role | No |
 | System Design Review (exists) | — | 16 / 8 / 4 | ilL Applications Engineer role | as set |
 
-**Open question:** whether SLA hours count weekends. Check one request in the UI before publishing these promises to dealers.
+**Decided:** SLA hours count weekdays only. **Built:** deadlines now skip Saturdays and Sundays (Friday 4 pm plus 24 hours is Monday 4 pm). Company holidays still count; say if they should be skipped too.
 
 ## 5. EasyPost go-live
 
@@ -105,16 +107,16 @@ This proposal is based on who owns what today (from Kevin's Desk) and the roles 
 
 | Person | Owns today | ilL and Command Center roles | Standard ERPNext roles |
 |---|---|---|---|
-| Kevin | Owner | System Manager; Command Center Viewer, Editor, Finance; ilL Order Approver; ilL Catalog Publisher; approves the HR lead's leave and expenses | All needed |
-| Jay | Sales calls, standard quotes, dealer relationships | ilL Sales Review; ilL Order Approver (backup to Kevin); ilL Support; Command Center Editor, Finance; Helpdesk agent | Sales User |
-| Charlotte | Invoicing, payments, AP/AR, QuickBooks; HR lead | Command Center Viewer, Finance, **plus Editor** (not seeded today; she needs it for Draft bill and Draft LCV); HR Manager; Leave and Expense Approver | Accounts Manager, Purchase User |
+| Kevin | Owner; Systems Administrator; drawings and system design review | System Manager; Command Center Viewer, Editor, Finance; ilL Order Approver; ilL Catalog Publisher; ilL Engineering; ilL Applications Engineer; approves the HR lead's leave and expenses | All needed |
+| Jay | Sales calls, standard quotes, dealer relationships; drawings when needed | ilL Sales Review; ilL Order Approver (backup to Kevin); ilL Support; ilL Engineering; ilL Applications Engineer; Command Center Editor, Finance; Helpdesk agent | Sales User |
+| Charlotte | Invoicing, payments, AP/AR, QuickBooks; HR lead | Command Center Viewer, Finance, **plus Editor** (not seeded today; she needs it for Draft bill and Draft LCV); HR Manager; Leave and Expense Approver | Accounts Manager (now also opens the Accounting queues in Portal Operations), Purchase User |
 | Ryan | Production, warehouse, shipping, purchasing, vendors | Command Center Editor; ilL Operations | Manufacturing Manager, Stock Manager, Purchase Manager |
 | Regina | Branding, sales docs, eblasts, spec sheet layout | ilL Catalog Publisher; Command Center Editor | Website Manager if she edits web pages |
 
-**Open questions:**
-- Who produces drawings and reviews system designs? Give that person ilL Engineering and ilL Applications Engineer (Kevin until someone is hired).
-- Portal Operations' accounts queues (account review, bills not in QuickBooks) are tied to the sales roles in code. Either give Charlotte ilL Sales Review, or ask for the accounts queues to be mapped to Accounts Manager. I recommend the second.
-- Who is the Systems Administrator (HR designation)?
+**Decided:**
+- **Drawings and system design review:** Kevin and Jay, as internal staff (ilL Engineering and ilL Applications Engineer). A dealer pilot of the System Designer and CAD import comes later; when it starts, add the pilot customers in ilL-System-Designer-Settings and the CAD pilot list.
+- **Accounting queues:** built. "Bills not in QuickBooks" and "New customers to set up" now follow the Accounts Manager and Accounts User roles, under a new Accounting section in Portal Operations. Dealer account requests stay with Sales and Support, so Charlotte isn't auto-assigned applications she can't approve.
+- **Systems Administrator:** Kevin Schern.
 
 ## 9. Finance tab visibility
 
@@ -126,8 +128,8 @@ This proposal is based on who owns what today (from Kevin's Desk) and the roles 
 
 ## 11. Desk quotes and the schedule
 
-**Recommendation:** keep today's behaviour and train the rule. Any quote for a portal dealer on a schedule goes through a quote request, so the dealer gets an offer they can accept online. Desk-only quotes are for customers who don't use the portal.
+**Decided and built:** staff can raise a quote request on a dealer's behalf. On a DRAFT or READY schedule, **Actions → Request Quote for Dealer** (sales roles) asks for what the dealer wants, contact instructions and a needed-by date, then opens the new request. From there it is the normal path: Prepare Quotation, submit, and the dealer gets an offer they can accept online. The request's timeline records who raised it. Desk-only quotes remain for customers who don't use the portal.
 
-**Why not switch on the existing "mark QUOTED on submit" hook:** it would mark the schedule QUOTED without creating an offer. The dealer couldn't accept online, and their schedule would version when they next edit it.
+**Why not switch on the existing "mark QUOTED on submit" hook:** it would mark the schedule QUOTED without creating an offer. The dealer couldn't accept online, and their schedule would version the next time they edit it.
 
-**Open question:** can staff raise a quote request on a dealer's behalf (for phone and email requests)? If not, that is worth a small change.
+Train it as the rule: every quote for a portal dealer's schedule starts as a quote request, whether the dealer asks in the portal or by phone or email (Module 03, Lesson 3.2).

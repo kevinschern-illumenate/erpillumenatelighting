@@ -125,7 +125,7 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 
 - Record: `ilL-Document-Request` (`ILL-REQ-YYYY-#####`). Priority Normal / High / Rush.
 - **Status:** Draft → Submitted → In Progress ↔ Waiting on Customer → Completed (also Closed, Cancelled).
-- **On submit:** SLA deadline set from the request type (default 72 / 48 / 24 hours by priority), auto-assigned (default user, or least-loaded person in the default role), optional Task created, assignee emailed "New Document Request".
+- **On submit:** SLA deadline set from the request type (default 72 / 48 / 24 weekday hours by priority; Saturdays and Sundays don't count), auto-assigned (default user, or least-loaded person in the default role), optional Task created, assignee emailed "New Document Request".
 - **Working it:** in the desk, use the **Portal conversation** panel: Reply, **Request info** (→ Waiting on Customer), **Resolve** (→ Completed), Reopen. Tick **Staff only** for internal notes.
   - Attachments: PDF, JPEG or PNG, up to 20 MiB, 10 per reply.
 - **Publishing a deliverable:** private file, unique revision. Published files can't be changed; publish a new revision. The requester gets "New File Available".
@@ -180,7 +180,7 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 **Objective:** know what the System Designer produces and how its review request reaches applications engineering.
 
 - Routes: `/portal/schedules/<schedule>/design`, `/portal/design`.
-- Available when enabled in ilL-System-Designer-Settings, for pilot customers, or for staff with engineering / design review capability.
+- Available when enabled in ilL-System-Designer-Settings, for pilot customers, or for staff with engineering / design review capability. Today it's internal staff only (Kevin and Jay); a dealer pilot comes later.
 - Guided steps: spaces, cabinets and distances → runs → power board → checks → riser outputs → **Finish**.
 - **Finish** writes power supply, control, wire and accessory lines back onto the schedule (price change shown only with "Can View Pricing") and files a **System Design Review** request, assigned round-robin to Applications Engineers (SLA 16 / 8 / 4 hours).
 - Finish is blocked while a power-supply overload, voltage mismatch or tape undervoltage check is open, unless overridden.

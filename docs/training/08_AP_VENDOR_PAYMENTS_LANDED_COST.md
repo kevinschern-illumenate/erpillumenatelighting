@@ -67,7 +67,7 @@ Trainees can enter vendor, forwarder and broker bills, check the 3-way match, ge
 - Cancelling the bill deletes the QuickBooks Bill, unless it has payments; then fix it in QuickBooks.
 - **Not sent:** debit notes / returns, bills dated before the settings' start date, multi-currency bills.
 - **Retries:** hourly for bills unacknowledged after 15 minutes. Failures: Error Log "QBO bill push failed".
-- **Watch:** the `bill_not_in_qbo` decision and Portal Operations → "Bills not in QuickBooks".
+- **Watch:** the `bill_not_in_qbo` decision and Portal Operations → "Bills not in QuickBooks" (Accounting section; Accounts Manager or Accounts User).
 - Amended bills start without a QuickBooks id (the field doesn't copy).
 
 **SS-08-06** · Submitted bill showing the QuickBooks id field filled
