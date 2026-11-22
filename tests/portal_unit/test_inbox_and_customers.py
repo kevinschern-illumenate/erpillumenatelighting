@@ -46,8 +46,8 @@ class SalesInbox(unittest.TestCase):
 
 
 class NewCustomers(unittest.TestCase):
-	def test_won_deal_customers_without_terms_wait_on_accounts(self):
-		with load_service(ROOT + ".portal.queues", dependencies("accounts")) as (module, frappe):
+	def test_won_deal_customers_without_terms_wait_on_bookkeeping(self):
+		with load_service(ROOT + ".portal.queues", dependencies("bookkeeping")) as (module, frappe):
 			frappe.get_meta = MagicMock()
 			frappe.get_meta.return_value.has_field.return_value = True
 			_label, doctype, filters, _fields = module.query("new_customers", search="Acme")
@@ -58,7 +58,7 @@ class NewCustomers(unittest.TestCase):
 			frappe.get_meta.assert_called_with("Customer")
 
 	def test_queue_hidden_until_crm_sync_adds_the_deal_link(self):
-		with load_service(ROOT + ".portal.queues", dependencies("accounts")) as (module, frappe):
+		with load_service(ROOT + ".portal.queues", dependencies("accounts", "bookkeeping")) as (module, frappe):
 			frappe.get_meta = MagicMock()
 			frappe.get_meta.return_value.has_field.return_value = False
 			frappe.get_list = MagicMock(return_value=[Record(total=0)])
@@ -73,7 +73,7 @@ class NewCustomers(unittest.TestCase):
 
 class UnsentBills(unittest.TestCase):
 	def test_submitted_bills_without_a_quickbooks_id_from_the_cutover_date(self):
-		with load_service(ROOT + ".portal.queues", dependencies("accounts")) as (module, frappe):
+		with load_service(ROOT + ".portal.queues", dependencies("bookkeeping")) as (module, frappe):
 			frappe.get_attr = MagicMock(return_value=lambda: {"posting_date": [">=", "2026-11-01"]})
 			_label, doctype, filters, _fields = module.query("bills")
 			self.assertEqual(doctype, "Purchase Invoice")
@@ -81,6 +81,23 @@ class UnsentBills(unittest.TestCase):
 			self.assertEqual(filters["is_return"], 0)
 			self.assertEqual(filters["posting_date"], [">=", "2026-11-01"])
 			self.assertNotIn("posting_date", module.QUEUES["bills"][3])
+
+
+class AccountingQueues(unittest.TestCase):
+	def test_accounts_roles_own_the_accounting_queues(self):
+		with load_service(ROOT + ".portal.staff") as (module, _frappe):
+			self.assertEqual(module.CAPABILITIES["bookkeeping"], {"Accounts Manager", "Accounts User"})
+			self.assertTrue(module.CAPABILITIES["bookkeeping"].isdisjoint(module.CAPABILITIES["accounts"]))
+		with load_service(ROOT + ".portal.queues") as (module, _frappe):
+			self.assertEqual(module.QUEUES["bills"][1], "bookkeeping")
+			self.assertEqual(module.QUEUES["new_customers"][1], "bookkeeping")
+			self.assertEqual(module.QUEUES["accounts"][1], "accounts")
+
+	def test_dealer_account_reviewers_do_not_see_bills(self):
+		with load_service(ROOT + ".portal.queues", dependencies("accounts")) as (module, frappe):
+			frappe.get_attr = MagicMock(return_value=lambda: {"posting_date": [">=", "2026-11-01"]})
+			with self.assertRaises(PermissionError):
+				module.query("bills")
 
 
 if __name__ == "__main__":

@@ -149,6 +149,31 @@ def request_quote(
 	return {"success": True, "request_name": request.name, "state": request.state, "already_existed": False}
 
 
+@frappe.whitelist(methods=["POST"])
+def request_quote_for_dealer(schedule_name, notes=None, contact=None, requested_date=None, idempotency_key=None):
+	"""Sales staff raise a quote request for a dealer who asked by phone or email.
+
+	Same checks, snapshot and staff routing as the dealer's own request, so the result is a normal
+	quote request: Prepare Quotation and the portal offer work as usual and the dealer sees it in the
+	portal. The request's timeline records who raised it.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal.staff import require
+
+	require("sales")
+	receipt = request_quote(
+		schedule_name,
+		idempotency_key=idempotency_key,
+		notes=notes,
+		contact=contact,
+		requested_date=requested_date,
+	)
+	if not receipt.get("already_existed"):
+		frappe.get_doc(REQUEST_DOCTYPE, receipt["request_name"]).add_comment(
+			"Info", _("Raised by {0} on the dealer's behalf.").format(frappe.session.user)
+		)
+	return receipt
+
+
 def detail(name):
 	from illumenate_lighting.illumenate_lighting.portal.files import list_files
 

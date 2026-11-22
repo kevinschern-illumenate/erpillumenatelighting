@@ -21,10 +21,13 @@ frappe.pages["ill-portal-operations"].on_page_load = function (wrapper) {
 		],
 		[
 			"accounts",
-			__("Accounts & Finance"),
-			__(
-				"New dealer accounts, customers to finish setting up, and bills to sync to QuickBooks.",
-			),
+			__("Dealer Accounts"),
+			__("New dealer accounts and account changes waiting on Sales or Support."),
+		],
+		[
+			"bookkeeping",
+			__("Accounting"),
+			__("Customers to finish setting up and bills to sync to QuickBooks."),
 		],
 		[
 			"engineering",

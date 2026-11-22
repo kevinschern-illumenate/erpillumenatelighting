@@ -48,6 +48,51 @@ class QuoteReceipts(unittest.TestCase):
 				module.request_quote("S1", idempotency_key="retry")
 
 
+class StaffRaisedQuoteRequests(unittest.TestCase):
+	def dependencies(self, capabilities):
+		access = types.ModuleType(ROOT + ".portal.access")
+		access.can_edit_schedule = MagicMock(return_value=True)
+		access.can_read_schedule = MagicMock(return_value=True)
+		staff = types.ModuleType(ROOT + ".portal.staff")
+
+		def require(capability):
+			if capability not in capabilities:
+				raise PermissionError("staff only")
+
+		staff.require = MagicMock(side_effect=require)
+		return {access.__name__: access, staff.__name__: staff}
+
+	def test_only_sales_staff_can_raise_a_request_for_a_dealer(self):
+		with load_service(ROOT + ".portal.quotes", self.dependencies(set())) as (module, _frappe):
+			module.request_quote = MagicMock()
+			with self.assertRaises(PermissionError):
+				module.request_quote_for_dealer("S1", notes="Phone call")
+			module.request_quote.assert_not_called()
+
+	def test_staff_request_uses_the_dealer_flow_and_records_who_raised_it(self):
+		with load_service(ROOT + ".portal.quotes", self.dependencies({"sales"})) as (module, frappe):
+			frappe.session.user = "jay@example.com"
+			request = MagicMock()
+			frappe.get_doc.return_value = request
+			module.request_quote = MagicMock(
+				return_value={"success": True, "request_name": "QR9", "state": "REQUESTED", "already_existed": False}
+			)
+			receipt = module.request_quote_for_dealer("S1", notes="Phone call", requested_date="2026-12-01")
+			module.request_quote.assert_called_once_with(
+				"S1", idempotency_key=None, notes="Phone call", contact=None, requested_date="2026-12-01"
+			)
+			self.assertEqual(receipt["request_name"], "QR9")
+			frappe.get_doc.assert_called_once_with("ilL-Quote-Request", "QR9")
+			request.add_comment.assert_called_once()
+			self.assertIn("jay@example.com", request.add_comment.call_args.args[1])
+
+	def test_a_repeated_staff_request_adds_no_second_note(self):
+		with load_service(ROOT + ".portal.quotes", self.dependencies({"sales"})) as (module, frappe):
+			module.request_quote = MagicMock(return_value={"request_name": "QR9", "already_existed": True})
+			module.request_quote_for_dealer("S1")
+			frappe.get_doc.assert_not_called()
+
+
 class ExportRevocation(unittest.TestCase):
 	def dependencies(self, pricing=True):
 		access = types.ModuleType(ROOT + ".portal.access")

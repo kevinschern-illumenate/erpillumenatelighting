@@ -4,10 +4,11 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import add_to_date, now_datetime
+from frappe.utils import now_datetime
 
 from illumenate_lighting.illumenate_lighting.portal.routes import portal_path
 from illumenate_lighting.illumenate_lighting.stored_values import same
+from illumenate_lighting.illumenate_lighting.weekday_hours import add_weekday_hours
 
 
 class ilLDocumentRequest(Document):
@@ -163,14 +164,14 @@ class ilLDocumentRequest(Document):
 		self._notify_submission()
 
 	def _calculate_sla_deadline(self):
-		"""Calculate SLA deadline based on request type and priority."""
+		"""Calculate SLA deadline based on request type and priority. Weekends don't count."""
 		if not self.request_type:
 			return
 
 		request_type = frappe.get_doc("ilL-Request-Type", self.request_type)
 		sla_hours = request_type.get_sla_hours(self.priority or "Normal")
 
-		self.sla_deadline = add_to_date(now_datetime(), hours=sla_hours)
+		self.sla_deadline = add_weekday_hours(now_datetime(), sla_hours)
 		self.db_set("sla_deadline", self.sla_deadline)
 
 	def _auto_assign(self):
