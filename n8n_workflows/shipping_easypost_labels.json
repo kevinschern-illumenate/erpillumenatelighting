@@ -1,0 +1,977 @@
+{
+  "name": "ilL Shipping: EasyPost labels",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ill-shipping-labels",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "shipping-label-webhook",
+      "name": "ERPNext Label Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "ill-shipping-labels",
+      "notes": "Put this node's PRODUCTION URL in ilL-Shipping-Settings → Label Webhook URL. ERPNext posts a signed rate, buy or void request and waits up to 60 seconds for the answer."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ERPNext signs the raw body: X-ilL-Signature = lowercase hex HMAC-SHA256 with the shared\n// secret (\"sha256=\" prefix accepted). A blank secret never verifies, so a missing variable\n// answers 401 instead of calling EasyPost unsigned.\nconst crypto = require('crypto');\nconst secret = $vars.SHIPPING_WEBHOOK_SECRET; // same value as ilL-Shipping-Settings webhook secret\n\nconst item = $input.first();\nlet rawBody;\nif (item.binary && item.binary.data) {\n  // rawBody: true puts the exact bytes in binary.data (inline base64, or a stored file id).\n  rawBody = item.binary.data.id\n    ? await this.helpers.getBinaryDataBuffer(0, 'data')\n    : Buffer.from(item.binary.data.data, 'base64');\n} else {\n  rawBody = Buffer.from(JSON.stringify(item.json.body || {}), 'utf8');\n}\nconst headers = item.json.headers || {};\nconst provided = String(headers['x-ill-signature'] || headers['X-ilL-Signature'] || '')\n  .trim().toLowerCase().replace(/^sha256=/, '');\n\nlet signatureOk = false;\nif (secret && provided) {\n  const expected = crypto.createHmac('sha256', String(secret)).update(rawBody).digest('hex');\n  const a = Buffer.from(provided);\n  const b = Buffer.from(expected);\n  signatureOk = a.length === b.length && crypto.timingSafeEqual(a, b);\n}\n\nlet request = null;\nif (signatureOk) {\n  try { request = JSON.parse(rawBody.toString('utf8')); } catch (e) { request = null; }\n}\nreturn [{ json: { signature_ok: signatureOk, request } }];"
+      },
+      "id": "verify-erpnext-signature",
+      "name": "Verify ERPNext Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "signature-valid",
+              "leftValue": "={{ $json.signature_ok === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "signature-valid",
+      "name": "Signature Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'bad_signature', message: 'Invalid X-ilL-Signature' }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "respond-401",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        750,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Route the signed request: rate | buy | void. Anything else answers bad_request.\n// Addresses are reduced to the EasyPost Address fields, dropping blanks.\nconst req = $input.first().json.request;\nconst badRequest = message => [{ json: { route: 'bad_request', response: { ok: false, error: 'bad_request', message } } }];\nif (!req || typeof req !== 'object' || Array.isArray(req)) return badRequest('Request body is not a JSON object');\n\nconst action = String(req.action || '').trim().toLowerCase();\nif (!['rate', 'buy', 'void'].includes(action)) return badRequest(`Unknown action \"${req.action || ''}\"; expected rate, buy or void`);\n\nconst FIELDS = ['name', 'company', 'street1', 'street2', 'city', 'state', 'zip', 'country', 'phone', 'email'];\nconst toEasyPostAddress = a => {\n  const out = {};\n  for (const f of FIELDS) {\n    const v = a && a[f];\n    if (v !== undefined && v !== null && String(v).trim() !== '') out[f] = String(v).trim();\n  }\n  return out;\n};\nconst request = { ...req, action };\n\nif (action === 'rate') {\n  if (!req.carrier || !req.service) return badRequest('rate needs carrier and service');\n  request.from_address = toEasyPostAddress(req.from_address);\n  request.to_address = toEasyPostAddress(req.to_address);\n  for (const [label, a] of [['from_address', request.from_address], ['to_address', request.to_address]]) {\n    if (!a.street1 || !a.city || !a.zip || !a.country) return badRequest(`${label} needs street1, city, zip and country`);\n  }\n  const parcels = Array.isArray(req.parcels) ? req.parcels : [];\n  if (!parcels.length) return badRequest('rate needs at least one parcel');\n  for (const p of parcels) {\n    const dims = ['length_in', 'width_in', 'height_in', 'weight_lb'].map(k => Number(p && p[k]));\n    if (!p || !p.row || dims.some(d => !(d > 0))) {\n      return badRequest(`Parcel ${(p && p.row) || '?'} needs a row and a positive length, width, height and weight`);\n    }\n  }\n} else {\n  if (!/^order_[A-Za-z0-9]+$/.test(String(req.easypost_id || ''))) {\n    return badRequest(`${action} needs easypost_id, the EasyPost order id from the rate step`);\n  }\n  if (action === 'buy' && !(req.carrier && (req.service_selected || req.service))) {\n    return badRequest('buy needs carrier and service_selected (or service)');\n  }\n}\nreturn [{ json: { route: action, request } }];"
+      },
+      "id": "validate-request",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "route-rate",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "rate",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rate"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "route-buy",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "buy",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "buy"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "route-void",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "void",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "void"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "bad_request"
+        }
+      },
+      "id": "route-action",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1000,
+        0
+      ],
+      "notes": "Validate Request sets route to rate, buy, void or bad_request (with the error response already built)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.easypost.com/v2/addresses",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ address: $json.request.to_address, verify: ['delivery'] }) }}"
+      },
+      "id": "verify-address",
+      "name": "Verify Address",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1250,
+        -350
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "easypost-api-basic-auth",
+          "name": "EasyPost API"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Credential: HTTP Basic Auth named EasyPost API, the EasyPost API key as user and a blank password (test key on staging)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// EasyPost HTTP nodes run with fullResponse + neverError, so an API error arrives here as\n// { statusCode, body: { error: { code, message, errors } } }. A transport failure (timeout,\n// DNS) arrives as { error } because the node continues on error.\nconst easypostBody = res => {\n  let body = res && res.body;\n  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\n  return body;\n};\nconst easypostFailure = res => {\n  const status = Number((res && res.statusCode) || 0);\n  if (status >= 200 && status < 300) return null;\n  const body = easypostBody(res);\n  const err = (body && typeof body === 'object' && body.error) || {};\n  const transport = res && res.error;\n  const message = err.message\n    || (transport && (typeof transport === 'string' ? transport : transport.message))\n    || (typeof body === 'string' && body.trim() ? body.trim().slice(0, 300) : '')\n    || `EasyPost returned HTTP ${status || 'no response'}`;\n  const messages = (Array.isArray(err.errors) ? err.errors : [])\n    .map(e => (typeof e === 'string' ? e : [e.field, e.message].filter(Boolean).join(': ')))\n    .filter(Boolean);\n  return { status, code: String(err.code || ''), message: String(message), messages };\n};\nconst easypostError = f => ({ response: { ok: false, error: 'easypost_error', message: f.message, messages: f.messages } });\n\n// Verified with verify: [\"delivery\"] (not verify_strict), so a failed verification is a\n// 200 with verifications.delivery.success === false.\nconst res = $input.first().json;\nconst request = $('Validate Request').first().json.request;\nconst failure = easypostFailure(res);\nif (failure) return [{ json: easypostError(failure) }];\n\nconst address = easypostBody(res) || {};\nconst delivery = (address.verifications && address.verifications.delivery) || {};\nconst messages = (delivery.errors || [])\n  .map(e => (typeof e === 'string' ? e : e.message || e.code))\n  .filter(Boolean);\nif (delivery.success === false) {\n  return [{ json: { response: {\n    ok: false,\n    error: 'address_invalid',\n    message: messages[0] || 'EasyPost could not verify the delivery address',\n    messages,\n  } } }];\n}\nif (!address.id) return [{ json: easypostError({ message: 'EasyPost returned no address id', messages: [] }) }];\nreturn [{ json: {\n  request,\n  address: { id: address.id, verified: delivery.success === true, residential: address.residential === true, messages },\n} }];"
+      },
+      "id": "check-address",
+      "name": "Check Address",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        -350
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "address-failed",
+              "leftValue": "={{ !!$json.response }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "address-failed",
+      "name": "Address Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        -350
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One EasyPost shipment per parcel; the parcel row is the shipment reference so tracking\n// numbers map back to boxes. This is the ONE place pounds become ounces (1 decimal).\nconst { request, address } = $input.first().json;\nconst round1 = n => Math.round(n * 10) / 10;\nconst order = {\n  reference: request.shipment || request.reference,\n  from_address: request.from_address, // created inline\n  to_address: { id: address.id }, // the verified address\n  shipments: request.parcels.map(p => ({\n    reference: String(p.row),\n    parcel: {\n      length: Number(p.length_in),\n      width: Number(p.width_in),\n      height: Number(p.height_in),\n      weight: Math.max(0.1, round1(Number(p.weight_lb) * 16)), // ounces\n    },\n    options: { label_format: 'PDF', additional_handling: Boolean(p.additional_handling) },\n  })),\n};\nconst carrierAccount = String(request.carrier_account_id || '').trim();\nif (carrierAccount) order.carrier_accounts = [{ id: carrierAccount }];\nreturn [{ json: { order, request, address } }];"
+      },
+      "id": "build-order",
+      "name": "Build Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        -250
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.easypost.com/v2/orders",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: $json.order }) }}"
+      },
+      "id": "create-order",
+      "name": "Create Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2250,
+        -250
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "easypost-api-basic-auth",
+          "name": "EasyPost API"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Rates only; nothing is bought here. The Order id goes back to ERPNext as easypost_id."
+    },
+    {
+      "parameters": {
+        "jsCode": "// EasyPost HTTP nodes run with fullResponse + neverError, so an API error arrives here as\n// { statusCode, body: { error: { code, message, errors } } }. A transport failure (timeout,\n// DNS) arrives as { error } because the node continues on error.\nconst easypostBody = res => {\n  let body = res && res.body;\n  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\n  return body;\n};\nconst easypostFailure = res => {\n  const status = Number((res && res.statusCode) || 0);\n  if (status >= 200 && status < 300) return null;\n  const body = easypostBody(res);\n  const err = (body && typeof body === 'object' && body.error) || {};\n  const transport = res && res.error;\n  const message = err.message\n    || (transport && (typeof transport === 'string' ? transport : transport.message))\n    || (typeof body === 'string' && body.trim() ? body.trim().slice(0, 300) : '')\n    || `EasyPost returned HTTP ${status || 'no response'}`;\n  const messages = (Array.isArray(err.errors) ? err.errors : [])\n    .map(e => (typeof e === 'string' ? e : [e.field, e.message].filter(Boolean).join(': ')))\n    .filter(Boolean);\n  return { status, code: String(err.code || ''), message: String(message), messages };\n};\nconst easypostError = f => ({ response: { ok: false, error: 'easypost_error', message: f.message, messages: f.messages } });\n\n// Order rates: we assume order.rates holds one Rate per carrier+service, already totalled\n// across every shipment in the order. In case EasyPost instead lists one Rate per shipment\n// (order.rates spans two or more distinct shipment_ids), the rates are summed per\n// carrier+service and a service not offered for every shipment is dropped. If order.rates\n// is empty, the totals are built the same way from shipments[].rates. delivery_days is the\n// slowest box.\nconst res = $input.first().json;\nconst { request, address } = $('Build Order').first().json;\nconst failure = easypostFailure(res);\nif (failure) return [{ json: easypostError(failure) }];\n\nconst order = easypostBody(res) || {};\nconst shipments = order.shipments || [];\nconst shipmentIds = shipments.map(s => s.id).filter(Boolean);\nconst norm = v => String(v || '').trim().toLowerCase();\nconst round2 = n => Math.round(n * 100) / 100;\n\nfunction totals(rateList, perShipment) {\n  const groups = new Map();\n  for (const r of rateList) {\n    const key = `${norm(r.carrier)}|${norm(r.service)}`;\n    if (!groups.has(key)) groups.set(key, []);\n    groups.get(key).push(r);\n  }\n  const out = [];\n  for (const list of groups.values()) {\n    const byShipment = new Map();\n    for (const r of list) byShipment.set(r.shipment_id || '', r);\n    let parts = [list[0]];\n    if (perShipment && shipmentIds.length) {\n      if (shipmentIds.some(id => !byShipment.has(id))) continue; // not offered for every box\n      parts = shipmentIds.map(id => byShipment.get(id));\n    }\n    const days = parts.map(r => Number(r.delivery_days)).filter(d => d > 0);\n    out.push({\n      carrier: list[0].carrier,\n      service: list[0].service,\n      amount: round2(parts.reduce((sum, r) => sum + Number(r.rate || 0), 0)),\n      currency: list[0].currency || 'USD',\n      delivery_days: days.length ? Math.max(...days) : null,\n    });\n  }\n  return out.sort((a, b) => a.amount - b.amount);\n}\n\nconst orderRates = order.rates || [];\nconst perShipmentRates = shipmentIds.length > 1\n  && new Set(orderRates.map(r => r.shipment_id).filter(Boolean)).size > 1;\nlet rates = totals(orderRates, perShipmentRates);\nif (!rates.length) {\n  rates = totals(shipments.flatMap(s => (s.rates || []).map(r => ({ ...r, shipment_id: r.shipment_id || s.id }))), true);\n}\n\nconst messages = (order.messages || [])\n  .map(m => (typeof m === 'string' ? m : [m.carrier, m.message].filter(Boolean).join(': ')))\n  .filter(Boolean);\nconst service = address.residential && request.residential_service ? request.residential_service : request.service;\nconst rate = rates.find(r => norm(r.carrier) === norm(request.carrier) && norm(r.service) === norm(service));\nif (!rate) {\n  const available = rates.map(r => `${r.carrier} ${r.service}`);\n  return [{ json: { response: {\n    ok: false,\n    error: 'no_rate',\n    easypost_id: order.id || null,\n    message: `No ${request.carrier} ${service} rate for this shipment. Available: ${available.join(', ') || 'none'}`,\n    messages,\n    available,\n    rates,\n  } } }];\n}\nreturn [{ json: { response: {\n  ok: true,\n  easypost_id: order.id,\n  rate,\n  rates,\n  address: { verified: address.verified, residential: address.residential, messages: address.messages },\n  messages,\n} } }];"
+      },
+      "id": "pick-rate",
+      "name": "Pick Rate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2500,
+        -250
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.easypost.com/v2/orders/{{ encodeURIComponent($json.request.easypost_id) }}/buy",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ carrier: $json.request.carrier, service: $json.request.service_selected || $json.request.service }) }}"
+      },
+      "id": "buy-order",
+      "name": "Buy Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1250,
+        0
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "easypost-api-basic-auth",
+          "name": "EasyPost API"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "ERPNext sends back the service the rate step chose as service_selected (falling back to service)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// EasyPost HTTP nodes run with fullResponse + neverError, so an API error arrives here as\n// { statusCode, body: { error: { code, message, errors } } }. A transport failure (timeout,\n// DNS) arrives as { error } because the node continues on error.\nconst easypostBody = res => {\n  let body = res && res.body;\n  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\n  return body;\n};\nconst easypostFailure = res => {\n  const status = Number((res && res.statusCode) || 0);\n  if (status >= 200 && status < 300) return null;\n  const body = easypostBody(res);\n  const err = (body && typeof body === 'object' && body.error) || {};\n  const transport = res && res.error;\n  const message = err.message\n    || (transport && (typeof transport === 'string' ? transport : transport.message))\n    || (typeof body === 'string' && body.trim() ? body.trim().slice(0, 300) : '')\n    || `EasyPost returned HTTP ${status || 'no response'}`;\n  const messages = (Array.isArray(err.errors) ? err.errors : [])\n    .map(e => (typeof e === 'string' ? e : [e.field, e.message].filter(Boolean).join(': ')))\n    .filter(Boolean);\n  return { status, code: String(err.code || ''), message: String(message), messages };\n};\nconst easypostError = f => ({ response: { ok: false, error: 'easypost_error', message: f.message, messages: f.messages } });\n\n// A retry after a timeout must never buy twice: if EasyPost says the order already has\n// postage, read the order back instead. EasyPost documents no single code for this on\n// Orders, so it is detected by error code (contains ALREADY or POSTAGE.EXISTS, as in\n// SHIPMENT.POSTAGE.EXISTS) or by message (\"already purchased/bought\", \"postage exists\").\nconst res = $input.first().json;\nconst failure = easypostFailure(res);\nif (!failure) return [{ json: { order: easypostBody(res) } }];\nconst text = `${failure.code} ${failure.message} ${failure.messages.join(' ')}`;\nconst alreadyBought = /ALREADY|POSTAGE\\.EXISTS/i.test(failure.code)\n  || /already\\s+(been\\s+)?(purchased|bought)|postage\\s+(already\\s+)?exists|already\\s+has\\s+postage/i.test(text);\nif (alreadyBought) return [{ json: { refetch: true } }];\nreturn [{ json: easypostError(failure) }];"
+      },
+      "id": "check-purchase",
+      "name": "Check Purchase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "already-purchased",
+              "leftValue": "={{ $json.refetch === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "already-purchased",
+      "name": "Already Purchased?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.easypost.com/v2/orders/{{ encodeURIComponent($('Validate Request').first().json.request.easypost_id) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "get-bought-order",
+      "name": "Get Bought Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        -100
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "easypost-api-basic-auth",
+          "name": "EasyPost API"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "A retried buy reads the order it already bought instead of buying twice."
+    },
+    {
+      "parameters": {
+        "jsCode": "// EasyPost HTTP nodes run with fullResponse + neverError, so an API error arrives here as\n// { statusCode, body: { error: { code, message, errors } } }. A transport failure (timeout,\n// DNS) arrives as { error } because the node continues on error.\nconst easypostBody = res => {\n  let body = res && res.body;\n  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\n  return body;\n};\nconst easypostFailure = res => {\n  const status = Number((res && res.statusCode) || 0);\n  if (status >= 200 && status < 300) return null;\n  const body = easypostBody(res);\n  const err = (body && typeof body === 'object' && body.error) || {};\n  const transport = res && res.error;\n  const message = err.message\n    || (transport && (typeof transport === 'string' ? transport : transport.message))\n    || (typeof body === 'string' && body.trim() ? body.trim().slice(0, 300) : '')\n    || `EasyPost returned HTTP ${status || 'no response'}`;\n  const messages = (Array.isArray(err.errors) ? err.errors : [])\n    .map(e => (typeof e === 'string' ? e : [e.field, e.message].filter(Boolean).join(': ')))\n    .filter(Boolean);\n  return { status, code: String(err.code || ''), message: String(message), messages };\n};\nconst easypostError = f => ({ response: { ok: false, error: 'easypost_error', message: f.message, messages: f.messages } });\n\n// Map each bought EasyPost shipment back to its Shipment Parcel row (shipment.reference),\n// in the order ERPNext listed the parcels. The first box carries the master number.\nconst request = $('Validate Request').first().json.request;\nconst input = $input.first().json;\nif (input.response) return [{ json: { response: input.response } }]; // buy failed\nlet order = input.order;\nif (!order) {\n  // Came from Get Bought Order (the already-purchased path).\n  const failure = easypostFailure(input);\n  if (failure) return [{ json: easypostError(failure) }];\n  order = easypostBody(input) || {};\n}\nconst rowOrder = (request.parcels || []).map(p => String(p.row));\nconst position = s => { const i = rowOrder.indexOf(String(s.reference)); return i < 0 ? rowOrder.length : i; };\nconst shipments = [...(order.shipments || [])].sort((a, b) => position(a) - position(b));\nconst unbought = shipments.filter(s => !s.tracking_code);\nif (!shipments.length || unbought.length) {\n  const which = unbought.length ? unbought.map(s => s.reference || s.id).join(', ') : 'any parcel';\n  return [{ json: easypostError({ message: `EasyPost order ${order.id || request.easypost_id} has no label for ${which}`, messages: [] }) }];\n}\n\nconst first = shipments[0];\nconst firstRate = first.selected_rate || {};\nconst round2 = n => Math.round(n * 100) / 100;\nreturn [{ json: { response: {\n  ok: true,\n  easypost_id: order.id || request.easypost_id,\n  carrier: firstRate.carrier || request.carrier,\n  service: firstRate.service || request.service_selected || request.service,\n  amount: round2(shipments.reduce((sum, s) => sum + Number((s.selected_rate || {}).rate || 0), 0)),\n  currency: firstRate.currency || 'USD',\n  master_tracking: first.tracking_code,\n  tracking_url: (first.tracker && first.tracker.public_url) || null,\n  parcels: shipments.map(s => ({\n    row: s.reference || null,\n    tracking_number: s.tracking_code,\n    label_url: (s.postage_label && (s.postage_label.label_pdf_url || s.postage_label.label_url)) || null,\n    easypost_shipment_id: s.id,\n  })),\n} } }];"
+      },
+      "id": "build-label-response",
+      "name": "Build Label Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.easypost.com/v2/orders/{{ encodeURIComponent($json.request.easypost_id) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "get-order-to-void",
+      "name": "Get Order to Void",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1250,
+        350
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "easypost-api-basic-auth",
+          "name": "EasyPost API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// EasyPost HTTP nodes run with fullResponse + neverError, so an API error arrives here as\n// { statusCode, body: { error: { code, message, errors } } }. A transport failure (timeout,\n// DNS) arrives as { error } because the node continues on error.\nconst easypostBody = res => {\n  let body = res && res.body;\n  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\n  return body;\n};\nconst easypostFailure = res => {\n  const status = Number((res && res.statusCode) || 0);\n  if (status >= 200 && status < 300) return null;\n  const body = easypostBody(res);\n  const err = (body && typeof body === 'object' && body.error) || {};\n  const transport = res && res.error;\n  const message = err.message\n    || (transport && (typeof transport === 'string' ? transport : transport.message))\n    || (typeof body === 'string' && body.trim() ? body.trim().slice(0, 300) : '')\n    || `EasyPost returned HTTP ${status || 'no response'}`;\n  const messages = (Array.isArray(err.errors) ? err.errors : [])\n    .map(e => (typeof e === 'string' ? e : [e.field, e.message].filter(Boolean).join(': ')))\n    .filter(Boolean);\n  return { status, code: String(err.code || ''), message: String(message), messages };\n};\nconst easypostError = f => ({ response: { ok: false, error: 'easypost_error', message: f.message, messages: f.messages } });\n\n// Refund every bought label (a shipment with a tracking_code). Labels already refunded or\n// with a refund submitted are reported as they stand, so a retried void is harmless.\nconst res = $input.first().json;\nconst failure = easypostFailure(res);\nif (failure) return [{ json: easypostError(failure) }];\nconst order = easypostBody(res) || {};\nconst bought = (order.shipments || []).filter(s => s.tracking_code);\nif (!bought.length) {\n  return [{ json: easypostError({ message: `EasyPost order ${order.id} has no bought labels to void`, messages: [] }) }];\n}\nconst done = s => ['submitted', 'refunded'].includes(String(s.refund_status || '').toLowerCase());\nconst previous = bought.filter(done).map(s => ({ easypost_shipment_id: s.id, status: s.refund_status }));\nconst pending = bought.filter(s => !done(s));\nif (!pending.length) {\n  return [{ json: { response: {\n    ok: false,\n    error: 'already_refunded',\n    message: 'Every label on this order is already refunded or has a refund submitted',\n    refunds: previous,\n  } } }];\n}\nreturn pending.map(s => ({ json: { easypost_shipment_id: s.id, tracking_code: s.tracking_code, previous } }));"
+      },
+      "id": "plan-refunds",
+      "name": "Plan Refunds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "nothing-to-refund",
+              "leftValue": "={{ !!$json.response }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "nothing-to-refund",
+      "name": "Nothing to Refund?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1750,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.easypost.com/v2/shipments/{{ encodeURIComponent($json.easypost_shipment_id) }}/refund",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "refund-shipment",
+      "name": "Refund Shipment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        450
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "easypost-api-basic-auth",
+          "name": "EasyPost API"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Runs once per bought box. Errors continue to the regular output so Build Void Response sees every result."
+    },
+    {
+      "parameters": {
+        "jsCode": "// EasyPost HTTP nodes run with fullResponse + neverError, so an API error arrives here as\n// { statusCode, body: { error: { code, message, errors } } }. A transport failure (timeout,\n// DNS) arrives as { error } because the node continues on error.\nconst easypostBody = res => {\n  let body = res && res.body;\n  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\n  return body;\n};\nconst easypostFailure = res => {\n  const status = Number((res && res.statusCode) || 0);\n  if (status >= 200 && status < 300) return null;\n  const body = easypostBody(res);\n  const err = (body && typeof body === 'object' && body.error) || {};\n  const transport = res && res.error;\n  const message = err.message\n    || (transport && (typeof transport === 'string' ? transport : transport.message))\n    || (typeof body === 'string' && body.trim() ? body.trim().slice(0, 300) : '')\n    || `EasyPost returned HTTP ${status || 'no response'}`;\n  const messages = (Array.isArray(err.errors) ? err.errors : [])\n    .map(e => (typeof e === 'string' ? e : [e.field, e.message].filter(Boolean).join(': ')))\n    .filter(Boolean);\n  return { status, code: String(err.code || ''), message: String(message), messages };\n};\nconst easypostError = f => ({ response: { ok: false, error: 'easypost_error', message: f.message, messages: f.messages } });\n\n// One Refund Shipment result per planned shipment, in the same order. A partial failure\n// answers easypost_error (ERPNext keeps the labels Bought); the retry skips the refunds\n// already submitted.\nconst planned = $('Plan Refunds').all().map(i => i.json);\nconst refunds = [...((planned[0] && planned[0].previous) || [])];\nconst failed = [];\n$input.all().forEach((item, i) => {\n  const id = (planned[i] || {}).easypost_shipment_id;\n  const failure = easypostFailure(item.json);\n  if (failure) { failed.push(`${id}: ${failure.message}`); return; }\n  const shipment = easypostBody(item.json) || {};\n  refunds.push({ easypost_shipment_id: shipment.id || id, status: shipment.refund_status || 'submitted' });\n});\nif (failed.length) {\n  return [{ json: { response: {\n    ok: false,\n    error: 'easypost_error',\n    message: `Refund failed for ${failed.join('; ')}`,\n    messages: failed,\n    refunds,\n  } } }];\n}\nreturn [{ json: { response: { ok: true, refunds } } }];"
+      },
+      "id": "build-void-response",
+      "name": "Build Void Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2250,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.response) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-to-erpnext",
+      "name": "Respond to ERPNext",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2800,
+        0
+      ],
+      "notes": "Every answer, success or error, is HTTP 200 with $json.response as the body (only a bad signature answers 401)."
+    }
+  ],
+  "connections": {
+    "ERPNext Label Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify ERPNext Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify ERPNext Signature": {
+      "main": [
+        [
+          {
+            "node": "Signature Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Signature Valid?": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Verify Address",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buy Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Order to Void",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Address": {
+      "main": [
+        [
+          {
+            "node": "Check Address",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Address": {
+      "main": [
+        [
+          {
+            "node": "Address Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Address Failed?": {
+      "main": [
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Order": {
+      "main": [
+        [
+          {
+            "node": "Create Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Order": {
+      "main": [
+        [
+          {
+            "node": "Pick Rate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Rate": {
+      "main": [
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buy Order": {
+      "main": [
+        [
+          {
+            "node": "Check Purchase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Purchase": {
+      "main": [
+        [
+          {
+            "node": "Already Purchased?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Purchased?": {
+      "main": [
+        [
+          {
+            "node": "Get Bought Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Label Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Bought Order": {
+      "main": [
+        [
+          {
+            "node": "Build Label Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Label Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Order to Void": {
+      "main": [
+        [
+          {
+            "node": "Plan Refunds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Refunds": {
+      "main": [
+        [
+          {
+            "node": "Nothing to Refund?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nothing to Refund?": {
+      "main": [
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refund Shipment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refund Shipment": {
+      "main": [
+        [
+          {
+            "node": "Build Void Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Void Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "shipping"
+    },
+    {
+      "name": "easypost"
+    },
+    {
+      "name": "erpnext"
+    }
+  ]
+}

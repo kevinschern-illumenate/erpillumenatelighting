@@ -9,8 +9,9 @@
 {%- set orders = ill_print_references(doc, "against_sales_order") -%}
 {%- set packed = ill_print_packed(doc) -%}
 {%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
-{%- set carrier = doc.get("ill_carrier") or doc.transporter_name -%}
-{%- set tracking = doc.get("ill_tracking_number") or doc.vehicle_no -%}
+{%- set track = ill_print_tracking(doc) -%}
+{%- set carrier = track.carrier -%}
+{%- set tracking = track.numbers -%}
 {%- set row = namespace(n=0) -%}
 {{ styles() }}
 <div class="ill-doc">
@@ -24,7 +25,7 @@
 		("Sales order", orders | join(", ")),
 		("Return against", (doc.return_against or "") if doc.is_return else ""),
 		("Carrier", (carrier or "")),
-		("Tracking number", (tracking or "")),
+		("Tracking number" if "," not in (tracking or "") else "Tracking numbers", (tracking or "")),
 		("Waybill", (doc.lr_no or "")),
 		("Project", project.project),
 		("Fixture schedule", project.schedule),

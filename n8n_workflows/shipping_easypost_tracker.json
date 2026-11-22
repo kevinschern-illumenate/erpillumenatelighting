@@ -1,0 +1,193 @@
+{
+  "name": "ilL Shipping: EasyPost tracker → ERPNext",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ill-shipping-tracker",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "easypost-tracker-webhook",
+      "name": "EasyPost Tracker Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "ill-shipping-tracker",
+      "notes": "Put this node's PRODUCTION URL on the EasyPost webhook (with a webhook secret). Answers 200 at once so EasyPost does not retry on our latency."
+    },
+    {
+      "parameters": {
+        "jsCode": "// EasyPost signs the raw body: X-Hmac-Signature = \"hmac-sha256-hex=\" + hex HMAC-SHA256,\n// keyed with the webhook secret normalized to NFKD (as EasyPost's client libraries do).\nconst crypto = require('crypto');\nconst secret = $vars.EASYPOST_WEBHOOK_SECRET; // the secret set on the EasyPost webhook\nif (!secret) throw new Error('EASYPOST_WEBHOOK_SECRET is not configured');\n\nconst item = $input.first();\nlet rawBody;\nif (item.binary && item.binary.data) {\n  // rawBody: true puts the exact bytes in binary.data (inline base64, or a stored file id).\n  rawBody = item.binary.data.id\n    ? await this.helpers.getBinaryDataBuffer(0, 'data')\n    : Buffer.from(item.binary.data.data, 'base64');\n} else {\n  rawBody = Buffer.from(JSON.stringify(item.json.body || {}), 'utf8');\n}\nconst headers = item.json.headers || {};\nconst provided = String(headers['x-hmac-signature'] || headers['X-Hmac-Signature'] || '').trim().toLowerCase();\nconst key = Buffer.from(String(secret).normalize('NFKD'), 'utf8');\nconst expected = 'hmac-sha256-hex=' + crypto.createHmac('sha256', key).update(rawBody).digest('hex');\n\nconst a = Buffer.from(provided);\nconst b = Buffer.from(expected);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  throw new Error('Invalid X-Hmac-Signature — dropping event');\n}\nreturn [{ json: JSON.parse(rawBody.toString('utf8')) }];"
+      },
+      "id": "verify-easypost-signature",
+      "name": "Verify EasyPost Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Only tracker events matter; anything else stops here (EasyPost already got its 200).\n// The latest checkpoint is the last entry of tracking_details.\nconst event = $input.first().json;\nif (!['tracker.updated', 'tracker.created'].includes(event.description)) return [];\nconst tracker = event.result || {};\nif (!tracker.tracking_code) return [];\nconst details = tracker.tracking_details || [];\nconst last = details.length ? details[details.length - 1] : {};\nreturn [{ json: {\n  tracking_code: tracker.tracking_code,\n  status: tracker.status || null,\n  status_detail: tracker.status_detail || null,\n  carrier: tracker.carrier || null,\n  est_delivery_date: tracker.est_delivery_date || null,\n  message: last.message || null,\n  occurred_at: last.datetime || null,\n  public_url: tracker.public_url || null,\n} }];"
+      },
+      "id": "build-tracking-event",
+      "name": "Build Tracking Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sign the exact JSON string sent to ERPNext. ERPNext recomputes\n// HMAC-SHA256(raw_body, shipping webhook secret) and compares hex digests.\nconst crypto = require('crypto');\nconst secret = $vars.SHIPPING_WEBHOOK_SECRET; // same value as ilL-Shipping-Settings webhook secret\nif (!secret) throw new Error('SHIPPING_WEBHOOK_SECRET is not configured');\nreturn $input.all().map(item => {\n  const body = JSON.stringify(item.json);\n  const signature = crypto.createHmac('sha256', secret).update(body, 'utf8').digest('hex');\n  return { json: { body, signature, tracking_code: item.json.tracking_code } };\n});"
+      },
+      "id": "sign-event",
+      "name": "Sign Event (HMAC)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ String($vars.ERPNEXT_BASE_URL || '').replace(/\\/+$/, '') }}/api/method/illumenate_lighting.illumenate_lighting.api.shipping.receive_tracking_event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-ilL-Signature",
+              "value": "={{ $json.signature }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ $json.body }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "send-event-to-erpnext",
+      "name": "Send Event to ERPNext",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "notes": "Guest + HMAC endpoint — no ERPNext API key needed. Body must be sent as the exact signed string (specifyBody=string), not re-serialized JSON. Set n8n variable ERPNEXT_BASE_URL (e.g. https://illumenatelighting.v.frappe.cloud)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// 404 = no Shipment holds this tracking number (e.g. a label bought outside ERPNext):\n// nothing to retry, so the run ends quietly. Any other non-2xx fails the execution so it\n// shows in n8n's execution list (and an error workflow can alert on it).\nconst res = $input.first().json;\nconst status = Number(res.statusCode || 0);\nconst tracking = $('Sign Event (HMAC)').first().json.tracking_code;\nlet body = res.body;\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { /* keep text */ } }\nif (status === 404) return [{ json: { tracking_code: tracking, skipped: 'not_found', response: body } }];\nif (status < 200 || status >= 300) {\n  const detail = typeof body === 'string' ? body : JSON.stringify(body);\n  throw new Error(`ERPNext receive_tracking_event returned HTTP ${status} for ${tracking}: ${String(detail).slice(0, 300)}`);\n}\nreturn [{ json: { tracking_code: tracking, response: body } }];"
+      },
+      "id": "check-erpnext-response",
+      "name": "Check ERPNext Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "EasyPost Tracker Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify EasyPost Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify EasyPost Signature": {
+      "main": [
+        [
+          {
+            "node": "Build Tracking Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tracking Event": {
+      "main": [
+        [
+          {
+            "node": "Sign Event (HMAC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sign Event (HMAC)": {
+      "main": [
+        [
+          {
+            "node": "Send Event to ERPNext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Event to ERPNext": {
+      "main": [
+        [
+          {
+            "node": "Check ERPNext Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "shipping"
+    },
+    {
+      "name": "easypost"
+    },
+    {
+      "name": "erpnext"
+    }
+  ]
+}

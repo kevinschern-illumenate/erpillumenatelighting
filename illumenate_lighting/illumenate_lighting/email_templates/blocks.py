@@ -184,16 +184,20 @@ def rejected_table(rows):
 
 
 def tracking(shipment):
-	"""Carrier and tracking number, the number linked when the carrier has a tracking page."""
-	carrier, number, url = shipment.get("carrier"), shipment.get("number"), shipment.get("url")
-	if not carrier and not number:
+	"""Carrier and every tracking number, each linked when the carrier has a tracking page."""
+	carrier = shipment.get("carrier")
+	packages = [p for p in shipment.get("packages") or [] if p.get("number")]
+	if not packages and shipment.get("number"):
+		packages = [{"number": shipment.get("number"), "url": shipment.get("url")}]
+	if not carrier and not packages:
 		return ""
 	parts = []
 	if carrier:
 		parts.append(f"<strong>Carrier:</strong> {e(carrier)}")
-	if number:
-		shown = link(url, number) if url else e(number)
-		parts.append(f"<strong>Tracking number:</strong> {shown}")
+	if packages:
+		shown = ", ".join(link(p["url"], p["number"]) if p.get("url") else e(p["number"]) for p in packages)
+		label = "Tracking numbers" if len(packages) > 1 else "Tracking number"
+		parts.append(f"<strong>{label}:</strong> {shown}")
 	return "<p>" + "<br>".join(parts) + "</p>"
 
 

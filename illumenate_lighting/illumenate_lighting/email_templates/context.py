@@ -153,6 +153,7 @@ _SKELETON = {
 		"carrier": "",
 		"number": "",
 		"url": "",
+		"packages": [],
 		"is_return": False,
 		"partial": False,
 		"shipping_address": "",
@@ -276,10 +277,10 @@ def ill_email_context(doctype=None, name=None):
 
 
 def ill_tracking(delivery_note):
-	"""Jinja: {"carrier", "number", "url"} for a Delivery Note name, doc or dict."""
+	"""Jinja: {"carrier", "number", "url", "packages"} for a Delivery Note name, doc or dict."""
 	from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import tracking
 
-	empty = {"carrier": None, "number": None, "url": None}
+	empty = {"carrier": None, "number": None, "url": None, "packages": []}
 	try:
 		delivery_note = _plain(delivery_note) if isinstance(delivery_note, str) else delivery_note
 		if isinstance(delivery_note, str):
@@ -745,7 +746,10 @@ def _payment_due(c, doc, schedule):
 
 
 def _order_shipments(sales_order):
-	from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import tracking
+	from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import (
+		packages_by_delivery_note,
+		tracking,
+	)
 
 	notes = fmt.unique(
 		frappe.get_all(
@@ -771,6 +775,7 @@ def _order_shipments(sales_order):
 		],
 	)
 	out = []
+	packages = packages_by_delivery_note(notes)
 	for row in frappe.get_all(
 		"Delivery Note",
 		filters={"name": ["in", notes], "docstatus": 1},
@@ -779,7 +784,7 @@ def _order_shipments(sales_order):
 	):
 		if row.get("is_return"):
 			continue
-		track = tracking(row)
+		track = tracking(row, packages.get(row.name, []))
 		out.append(
 			{
 				"name": row.name,
@@ -787,9 +792,19 @@ def _order_shipments(sales_order):
 				"carrier": track["carrier"] or "",
 				"number": track["number"] or "",
 				"url": track["url"] or "",
+				"packages": _packages(track),
 			}
 		)
 	return out
+
+
+def _packages(track):
+	"""Every tracking number as strings: [{"carrier", "number", "url"}]."""
+	return [
+		{"carrier": p.get("carrier") or "", "number": p.get("number") or "", "url": p.get("url") or ""}
+		for p in track.get("packages") or []
+		if p.get("number")
+	]
 
 
 def _order_invoices(c, sales_order):
@@ -878,6 +893,7 @@ def _delivery_note(c, doc, settings):
 	sh["date"] = fmt.fmt_date(doc.get("posting_date"))
 	track = tracking(doc)
 	sh["carrier"], sh["number"], sh["url"] = track["carrier"] or "", track["number"] or "", track["url"] or ""
+	sh["packages"] = _packages(track)
 	sh["is_return"] = bool(doc.get("is_return"))
 	sh["shipping_address"] = fmt.clean(doc.get("shipping_address"))
 	sh["instructions"] = fmt.text_to_html(doc.get("instructions"))
