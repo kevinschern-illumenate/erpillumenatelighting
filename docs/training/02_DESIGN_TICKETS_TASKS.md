@@ -48,29 +48,29 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 
 - **Versions:** leaving QUOTED automatically makes a new version. The quoted copy is locked and its issued offer is marked superseded. **Create New Version** does the same by hand. A locked version can't be edited or converted.
 
-📸 **SS-02-01** · Dealer portal: project list, then one project page
+**SS-02-01** · Dealer portal: project list, then one project page
 **URL:** `/portal/projects` and `/portal/projects/<project>` · **Role:** Dealer
 **Highlight:** schedules on the project; collaborators link
 
-📸 **SS-02-02** · Dealer portal schedule page with lines
+**SS-02-02** · Dealer portal schedule page with lines
 **URL:** `/portal/schedules/<schedule>` · **Role:** Dealer · **State:** READY schedule, 6+ lines across families
 **Highlight:** Change Status; Request a quote; Request drawings; Exports menu; Version History
 
-📸 **SS-02-03** · Desk fixture schedule form
+**SS-02-03** · Desk fixture schedule form
 **URL:** `/app/ill-project-fixture-schedule/<schedule>` · **Role:** ilL Sales Review
 **Highlight:** status, version, lock fields; Actions menu (Convert to Sales Order); Support → Link Helpdesk Tickets; CAD → Import Drawing
 
-📸 **SS-02-04** · "Cannot Set Status to Ready" dialog listing unconfigured lines
+**SS-02-04** · "Cannot Set Status to Ready" dialog listing unconfigured lines
 **URL:** desk schedule form · **State:** a DRAFT schedule with one unconfigured line
 
-📸 **SS-02-05** · (pair) Create New Version: before (v1 unlocked) and after (v1 locked, v2 DRAFT)
+**SS-02-05** · (pair) Create New Version: before (v1 unlocked) and after (v1 locked, v2 DRAFT)
 **URL:** desk schedule form
 
-🔌 **DATA-02-01** · A real schedule that has reached ORDERED, with its project, for the end-to-end example used across Modules 02-06
+**DATA-02-01** · A real schedule that has reached ORDERED, with its project, for the end-to-end example used across Modules 02-06
 **API:** `GET /api/resource/ilL-Project-Fixture-Schedule?filters=[["status","=","ORDERED"]]&fields=["name","ill_project","customer","version","sales_order","modified"]&order_by=modified desc&limit_page_length=5`
 **Use:** pick one with a submitted SO, a delivery note and a tracking number. This is "our job" for every later module. Redact the dealer name.
 
-🔌 **DATA-02-02** · Count of schedules by status (pipeline snapshot)
+**DATA-02-02** · Count of schedules by status (pipeline snapshot)
 **API:** `GET /api/resource/ilL-Project-Fixture-Schedule?fields=["status","count(name) as n"]&group_by=status`
 
 ---
@@ -86,16 +86,16 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - **Staff (desk):** the Configure & Add Fixture dialog on Quotation and Sales Order (Module 03, Lesson 3.3) writes the schedule line too.
 - A physical change to a line that already has approved drawings creates a **drawing reapproval** task automatically.
 
-📸 **SS-02-06** · Add Fixture Line: category chooser and template cards
+**SS-02-06** · Add Fixture Line: category chooser and template cards
 **URL:** `/portal/schedules/<schedule>` · **Role:** Dealer
 
-📸 **SS-02-07** · Linear configurator mid-configuration
+**SS-02-07** · Linear configurator mid-configuration
 **URL:** `/portal/configure?category=...` · **Role:** Dealer · **Highlight:** the "Estimate — confirmed on your quote" panel
 
-📸 **SS-02-08** · Tape configurator steps (Environment → CCT → Output → Feed → Lead → Length)
+**SS-02-08** · Tape configurator steps (Environment → CCT → Output → Feed → Lead → Length)
 **URL:** `/portal/configure-tape`
 
-📸 **SS-02-09** · Import Lines dialog (CSV/XLSX)
+**SS-02-09** · Import Lines dialog (CSV/XLSX)
 **URL:** portal schedule page
 
 ---
@@ -110,11 +110,11 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - Below: the drawing and document requests table (red age = over 2 business days) and Design-type help desk tickets.
 - `#design/<schedule>` drill-down: project card, "Where it is" (drawing requests, quote requests, offers, order requests, SO, tickets), drawing reviews, lines (read-only). Buttons: **+ To-do**, **Details**, **Open in ERPNext**, and "Now on Quotes →" once it has moved on.
 
-📸 **SS-02-10** · Design board, full page
+**SS-02-10** · Design board, full page
 **URL:** `/command-center#design` · **Role:** Editor
 **Highlight:** the five columns; drawings past SLA stat; the requests table
 
-📸 **SS-02-11** · Schedule drill-down
+**SS-02-11** · Schedule drill-down
 **URL:** `/command-center#design/<schedule>` · **Highlight:** "Where it is" chips; + To-do; Open in ERPNext
 
 ---
@@ -133,20 +133,20 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - Staff fields: assigned_to, technical_reviewer, **required_for_manufacturing**, sales order / schedule binding, hide_from_portal.
 - **Setup gotcha:** only the "System Design Review" type is seeded. Every other request type must be created at `/app/ill-request-type`, or the portal says "Drawing requests are not available right now."
 
-📸 **SS-02-12** · Dealer: new drawing request form
+**SS-02-12** · Dealer: new drawing request form
 **URL:** `/portal/drawings` → New · **Role:** Dealer · **Highlight:** type-driven fields; priority "High – Needed within 2 business days"
 
-📸 **SS-02-13** · Desk document request with the Portal conversation panel
+**SS-02-13** · Desk document request with the Portal conversation panel
 **URL:** `/app/ill-document-request/<name>` · **Role:** ilL Engineering
 **Highlight:** SLA deadline; assigned_to; required_for_manufacturing; Reply / Request info / Resolve; Staff only toggle
 
-📸 **SS-02-14** · Request type setup form
+**SS-02-14** · Request type setup form
 **URL:** `/app/ill-request-type/<name>` · **Role:** System Manager · **Highlight:** SLA hours per priority; default assignee / role; auto_create_task
 
-📸 **SS-02-15** · Dealer: drawing request detail with status timeline and Download Latest
+**SS-02-15** · Dealer: drawing request detail with status timeline and Download Latest
 **URL:** `/portal/drawings/<request>` · **Role:** Dealer
 
-🔌 **DATA-02-03** · Recent drawing requests with SLA outcome
+**DATA-02-03** · Recent drawing requests with SLA outcome
 **API:** `GET /api/resource/ilL-Document-Request?filters=[["status","=","Completed"]]&fields=["name","request_type","priority","creation","completed_on","assigned_to"]&order_by=completed_on desc&limit_page_length=20`
 **Use:** "average turnaround" slide
 
@@ -164,18 +164,18 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - Desk review records are read-only for everyone.
 - Queue: Portal Operations → "Drawing responses", "Drawing reapproval", "Manufacturing drawing holds" (ilL Operations sees the hold queue).
 
-📸 **SS-02-16** · Dealer reviewer view: Approve drawing / Request changes
+**SS-02-16** · Dealer reviewer view: Approve drawing / Request changes
 **URL:** `/portal/drawings/<request>` · **Role:** Dealer user who is the named reviewer
 
-📸 **SS-02-17** · Work Order submit refused because of a drawing hold (the error message)
+**SS-02-17** · Work Order submit refused because of a drawing hold (the error message)
 **URL:** `/app/work-order/<name>` · **Role:** Manufacturing Manager · **State:** WO linked to an SO with an unapproved required drawing
 
-📸 **SS-02-18** · Portal Operations with drawing queues
+**SS-02-18** · Portal Operations with drawing queues
 **URL:** `/app/ill-portal-operations` · **Highlight:** Drawing responses; Drawing reapproval; Manufacturing drawing holds
 
 ---
 
-### Lesson 2.6: System Designer ⚠️
+### Lesson 2.6: System Designer (Rolling out)
 
 **Objective:** know what the System Designer produces and how its review request reaches applications engineering.
 
@@ -186,18 +186,18 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - Finish is blocked while a power-supply overload, voltage mismatch or tape undervoltage check is open, unless overridden.
 - **Reviewer (ilL Applications Engineer):** pinned comments, override a check with a reason, then Approve (request Completed) or Request changes (Waiting on Customer). The riser PDF is published as a deliverable.
 - The schedule page shows a review chip: Review required / In review / Approved / Overridden.
-- 🚧 Not built yet: Spaces/Runs and Power reworks, auto-plan, review workspace, design share links.
+- (Planned) Not built yet: Spaces/Runs and Power reworks, auto-plan, review workspace, design share links.
 - The "review gate" that blocks ordering DMX or phase-cut designs is **off by default**.
 
-📸 **SS-02-19** · System Designer, runs step
+**SS-02-19** · System Designer, runs step
 **URL:** `/portal/schedules/<schedule>/design` · **Role:** Dealer (pilot) or ilL Engineering
 
-📸 **SS-02-20** · System Designer Finish step with checks and write-back preview
+**SS-02-20** · System Designer Finish step with checks and write-back preview
 
-📸 **SS-02-21** · Reviewer mode with a pinned comment and Approve / Request changes
+**SS-02-21** · Reviewer mode with a pinned comment and Approve / Request changes
 **Role:** ilL Applications Engineer
 
-📸 **SS-02-22** · Review chip on the schedule page
+**SS-02-22** · Review chip on the schedule page
 
 ---
 
@@ -211,25 +211,25 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - Spec sheet links are stable: `/spec-sheets/<brand>_<template>.pdf` always points to the current file.
 - Send with the manual email template "ilL - Quotation - Submittal package ready".
 
-📸 **SS-02-23** · Exports menu on the schedule page
+**SS-02-23** · Exports menu on the schedule page
 **URL:** `/portal/schedules/<schedule>` · **Highlight:** Spec Submittal; Spec Submittal (Full)
 
-📸 **SS-02-24** · Export job manifest showing a warning
+**SS-02-24** · Export job manifest showing a warning
 **URL:** `/app/ill-export-job/<name>` · **State:** a packet with at least one fallback line
 
-📸 **SS-02-25** · Submittal readiness page
+**SS-02-25** · Submittal readiness page
 **URL:** `/app/submittal-readiness`
 
 ---
 
-### Lesson 2.8: CAD drawing import ⚠️ (behind a site flag, off by default)
+### Lesson 2.8: CAD drawing import (Rolling out; behind a site flag, off by default)
 
 - AutoCAD toolkit commands (ILSETUP, ILCATALOG, ILSTYLE, ILTAPE...) export an `.ilq.json` package. DXF and plotted PDF are also accepted.
 - **Import Drawing** on the portal schedule page or desk form (CAD › Import Drawing): preview, then commit to configured lines. Re-importing updates lines in place. A locked or quoted schedule imports into a new version.
 - A drawing-imported schedule with an unverified scale **can't request a quote**.
 - Staff first; dealers only when piloted.
 
-📸 **SS-02-26** · Import Drawing preview screen (local instance with the flag on)
+**SS-02-26** · Import Drawing preview screen (local instance with the flag on)
 
 ---
 
@@ -247,13 +247,13 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - **Ticket types used by the Command Center:** Quotation, Design, Sales Order, Service, Issue. They are **not created automatically**; set them up at `/app/hd-ticket-type`.
 - **Gotcha:** the dealer portal's Support page creates ERPNext **Issue** records, not Helpdesk tickets. Those appear in Portal Operations → "Support responses" (Module 10).
 
-📸 **SS-02-27** · Helpdesk ticket with the ilL link fields in the sidebar
+**SS-02-27** · Helpdesk ticket with the ilL link fields in the sidebar
 **URL:** `/helpdesk/tickets/<id>` · **Highlight:** quotation / sales order / project links
 
-📸 **SS-02-28** · Sales order form, Connections showing linked tickets; Support → Link Helpdesk Tickets
+**SS-02-28** · Sales order form, Connections showing linked tickets; Support → Link Helpdesk Tickets
 **URL:** `/app/sales-order/<name>`
 
-📸 **SS-02-29** · Ticket type list
+**SS-02-29** · Ticket type list
 **URL:** `/app/hd-ticket-type`
 
 ---
@@ -271,15 +271,15 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 
 **Morning routine:** Routing view to zero → Needs a reply view → link anything unlinked → reply in Helpdesk.
 
-📸 **SS-02-30** · Inbox, Routing view
+**SS-02-30** · Inbox, Routing view
 **URL:** `/command-center#inbox` · **Role:** Editor · **Highlight:** one-click type and owner
 
-📸 **SS-02-31** · Inbox, Needs a reply view
+**SS-02-31** · Inbox, Needs a reply view
 
-📸 **SS-02-32** · Manage ticket sheet with the "Link quotation" control
+**SS-02-32** · Manage ticket sheet with the "Link quotation" control
 **Highlight:** link / unlink; status; priority; Reply in Helpdesk
 
-🔌 **DATA-02-04** · Ticket age distribution for the "why we triage daily" slide
+**DATA-02-04** · Ticket age distribution for the "why we triage daily" slide
 **API:** `GET /api/resource/HD Ticket?filters=[["status","=","Open"]]&fields=["name","ticket_type","opening_date","_assign"]&limit_page_length=100`
 
 ---
@@ -290,7 +290,7 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - Add your own from any record with **+ To-do** (Command Center) or **Assign To** (desk).
 - Track them on `#tasks` (Module 01, Lesson 1.7).
 
-📸 **SS-02-33** · Tasks list filtered to design-related items (source ERPNext, a drawing reapproval task visible)
+**SS-02-33** · Tasks list filtered to design-related items (source ERPNext, a drawing reapproval task visible)
 
 ---
 

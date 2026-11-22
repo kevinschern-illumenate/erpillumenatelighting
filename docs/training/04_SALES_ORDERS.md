@@ -35,14 +35,14 @@ Trainees can create a sales order every way it happens, review and approve a dea
 - The desk schedule form also has **Actions → Convert to Sales Order** (READY or QUOTED schedules).
 - For a dealer order request, staff get a desk bell and an assignee from ilL-Portal-Routing-Settings.
 
-📸 **SS-04-01** · Dealer: order request form from a schedule
+**SS-04-01** · Dealer: order request form from a schedule
 **URL:** `/portal/schedules/<schedule>` → Order · **Role:** Dealer
 **Highlight:** PO number, addresses, purchasing contact, requested date, instructions, files
 
-📸 **SS-04-02** · Desk: new sales order with Configure & Add Fixture
+**SS-04-02** · Desk: new sales order with Configure & Add Fixture
 **URL:** `/app/sales-order/new` · **Role:** ilL Sales Review
 
-📸 **SS-04-03** · Quotation → Create → Sales Order menu
+**SS-04-03** · Quotation → Create → Sales Order menu
 **URL:** `/app/quotation/<submitted>`
 
 ---
@@ -69,21 +69,21 @@ Trainees can create a sales order every way it happens, review and approve a dea
 - **On approval:** intake APPROVED, an **order acknowledgement PDF** is generated, a note is posted, the dealer is emailed.
 - Submitting needs **ilL Order Approver** (or native SO submit permission). Rejection marks the schedule ISSUE.
 
-📸 **SS-04-04** · Draft SO with the Portal request banner and button group
+**SS-04-04** · Draft SO with the Portal request banner and button group
 **URL:** `/app/sales-order/<draft>` · **Role:** ilL Order Approver · **State:** intake UNDER_REVIEW
 **Highlight:** banner; Confirm delivery date; Review order request
 
-📸 **SS-04-05** · Review order request dialog with the five choices
+**SS-04-05** · Review order request dialog with the five choices
 
-📸 **SS-04-06** · Submit blocked: "buyer must acknowledge current revision" message
+**SS-04-06** · Submit blocked: "buyer must acknowledge current revision" message
 
-📸 **SS-04-07** · Dealer: Acknowledge current revision on the order page
+**SS-04-07** · Dealer: Acknowledge current revision on the order page
 **URL:** `/portal/orders/<SO>` · **Role:** Dealer
 
-📸 **SS-04-08** · Order acknowledgement PDF
+**SS-04-08** · Order acknowledgement PDF
 **URL:** attachment on the SO / dealer download
 
-📸 **SS-04-09** · Portal Operations → Order review queue
+**SS-04-09** · Portal Operations → Order review queue
 
 ---
 
@@ -99,15 +99,15 @@ Trainees can create a sales order every way it happens, review and approve a dea
   - order tickets, draft SOs ("create no demand yet"), order change requests
 - **#so-<name>:** step bar; **Needs correcting** flags (zero value, On Hold, past due, retired part numbers, duplicate or stale work orders, "may have shipped without a Delivery Note", open change requests); to-dos (**+ Add to-do**); related quotation, tickets, projects, intakes, drawing requests; lines; purchasing needed (**Draft MR**, PO ETAs); work orders and lines that still need one.
 
-📸 **SS-04-10** · Sales orders stage, full page
+**SS-04-10** · Sales orders stage, full page
 **URL:** `/command-center#orders` · **Role:** Editor + Finance
 **Highlight:** order request lanes; mini steps on a row; Draft SOs table
 
-📸 **SS-04-11** · Per-order page with Needs correcting flags
+**SS-04-11** · Per-order page with Needs correcting flags
 **URL:** `/command-center#so-<name>` · **State:** an SO with at least one flag
 **Highlight:** step bar; flags; Draft MR button; + Add to-do
 
-🔌 **DATA-04-01** · Our job's sales order (from DATA-02-01) with its stage history
+**DATA-04-01** · Our job's sales order (from DATA-02-01) with its stage history
 **API:** `GET /api/resource/Sales Order/<name>` and `GET /api/resource/Version?filters=[["ref_doctype","=","Sales Order"],["docname","=","<name>"]]&fields=["creation","data"]&order_by=creation asc`
 **Use:** "life of an order" timeline slide
 
@@ -138,13 +138,13 @@ Trainees can create a sales order every way it happens, review and approve a dea
 - Stages refresh on SO, work order, stock entry, payment, invoice, delivery note, PO and receipt events, plus a sweep every 15 minutes. Expect up to 15 minutes' lag.
 - Shortages are shared across all open orders in ship-date order, so **one order's stage can change when another order changes**.
 
-📸 **SS-04-12** · Sales order list coloured by stage
+**SS-04-12** · Sales order list coloured by stage
 **URL:** `/app/sales-order` · **Highlight:** stage pills
 
-📸 **SS-04-13** · SO form header with stage pill, Waiting On and Stage Detail
+**SS-04-13** · SO form header with stage pill, Waiting On and Stage Detail
 **URL:** `/app/sales-order/<name>`
 
-🔌 **DATA-04-02** · Open orders by stage
+**DATA-04-02** · Open orders by stage
 **API:** `GET /api/resource/Sales Order?filters=[["docstatus","=",1],["status","not in",["Completed","Closed","Cancelled"]]]&fields=["ill_stage","count(name) as n"]&group_by=ill_stage`
 
 ---
@@ -166,10 +166,10 @@ Trainees can create a sales order every way it happens, review and approve a dea
 - All of these can be edited **after submit**, in the desk or the Command Center side sheet (Editor).
 - Changing a submitted delivery promise must go through the order change workflow (Lesson 4.7).
 
-📸 **SS-04-14** · SO form: production and hold section
+**SS-04-14** · SO form: production and hold section
 **URL:** `/app/sales-order/<name>` · **Highlight:** Estimated Ship Date; Hold Reason; Likely Ship Date; Proforma / Will Call; Floor Notes
 
-📸 **SS-04-15** · Editing Estimated Ship Date from the Command Center side sheet
+**SS-04-15** · Editing Estimated Ship Date from the Command Center side sheet
 **URL:** `/command-center#orders` → SO sheet · **Role:** Editor
 
 ---
@@ -187,16 +187,16 @@ Trainees can create a sales order every way it happens, review and approve a dea
 - **Manual templates** on Sales Order: Deposit request; On hold, action needed; Ship date changed; Ready for pickup; Proforma, pay before shipping; Partial shipment; Order change confirmed; Status update; Drawings ready.
 - The "Ship date update" Notification exists but is disabled.
 
-📸 **SS-04-16** · SO payment schedule with a deposit row
+**SS-04-16** · SO payment schedule with a deposit row
 **URL:** `/app/sales-order/<name>` · **Highlight:** payment schedule table
 
-📸 **SS-04-17** · Email composer with the SO template list open
+**SS-04-17** · Email composer with the SO template list open
 **Highlight:** the "ilL - Sales Order - …" templates
 
-📸 **SS-04-18** · ilL-Email-Settings: automatic email switches
+**SS-04-18** · ilL-Email-Settings: automatic email switches
 **URL:** `/app/ill-email-settings` · **Role:** System Manager
 
-📸 **SS-04-19** · Print preview: ilL Sales Order
+**SS-04-19** · Print preview: ilL Sales Order
 
 ---
 
@@ -215,13 +215,13 @@ Trainees can create a sales order every way it happens, review and approve a dea
 - Queue: Portal Operations → Order changes. The CC per-order page flags open change requests.
 - A **staff note** field is kept internal.
 
-📸 **SS-04-20** · Dealer: change / cancellation request on the order page
+**SS-04-20** · Dealer: change / cancellation request on the order page
 **URL:** `/portal/orders/<SO>` · **Role:** Dealer
 
-📸 **SS-04-21** · Desk order change record with decision buttons
+**SS-04-21** · Desk order change record with decision buttons
 **URL:** `/app/ill-order-change/<name>` · **Role:** ilL Sales Review
 
-📸 **SS-04-22** · Order change requests table on `#orders`
+**SS-04-22** · Order change requests table on `#orders`
 
 ---
 
@@ -230,10 +230,10 @@ Trainees can create a sales order every way it happens, review and approve a dea
 - `/portal/orders`: status (Order Request → Approved → In Production → Production Complete → Partially Shipped → Shipped → Completed; also On Hold, Cancelled, Issue) and a **"Needs your action"** filter.
 - `/portal/orders/<SO>`: next-step banner, timeline, complete intake, edit PO number, acknowledge current revision, withdraw, download acknowledgement, change / cancellation requests, shipments with tracking, invoices with balance, packing slips, conversation, Request Drawing.
 
-📸 **SS-04-23** · Dealer orders list with Needs your action filter
+**SS-04-23** · Dealer orders list with Needs your action filter
 **URL:** `/portal/orders` · **Role:** Dealer
 
-📸 **SS-04-24** · Dealer order detail page, full scroll (phone width 390×844 as well)
+**SS-04-24** · Dealer order detail page, full scroll (phone width 390×844 as well)
 **URL:** `/portal/orders/<SO>`
 
 ---

@@ -40,9 +40,9 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 - "Unavailable" means you lack permission, not zero items.
 - The workspace "Needs Attention" cards show the same signals.
 
-📸 **SS-10-01** · Portal Operations as ilL Sales Review
+**SS-10-01** · Portal Operations as ilL Sales Review
 **URL:** `/app/ill-portal-operations` · **Highlight:** queue counts; Mine / Unassigned / Overdue
-📸 **SS-10-02** · Same page as ilL Support (different queues; "Unavailable" on others)
+**SS-10-02** · Same page as ilL Support (different queues; "Unavailable" on others)
 
 ---
 
@@ -51,7 +51,7 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 - `#service` is the last pipeline stage: "Service after Shipping". Starts with the **Customer requests** lane (dealer applications and address, contact, profile and company changes).
 - Quick links: Help desk, Account requests, Knowledge base.
 
-📸 **SS-10-03** · Service stage
+**SS-10-03** · Service stage
 **URL:** `/command-center#service`
 
 ---
@@ -69,12 +69,12 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 5. Optional: tick **Can View Pricing** for buyers who should see prices and priced exports.
 6. Welcome the dealer; check their first login lands on `/portal`.
 
-📸 **SS-10-04** · Public dealer application form (local instance)
-📸 **SS-10-05** · Account request (Dealer application) with Approve / Reject / Request information
+**SS-10-04** · Public dealer application form (local instance)
+**SS-10-05** · Account request (Dealer application) with Approve / Reject / Request information
 **URL:** `/app/ill-account-request/<name>` · **Role:** ilL Sales Review
-📸 **SS-10-06** · Approve dialog: choose approved Customer + note
-📸 **SS-10-07** · Customer form: Customer Group, payment terms, linked contacts
-📸 **SS-10-08** · Invitation flow for a guest application
+**SS-10-06** · Approve dialog: choose approved Customer + note
+**SS-10-07** · Customer form: Customer Group, payment terms, linked contacts
+**SS-10-08** · Invitation flow for a guest application
 
 ---
 
@@ -89,7 +89,7 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 
 - States: Pending, Information needed, Approved, Rejected, Resolved. Every decision needs a note. Use **staff_note** for internal remarks.
 
-📸 **SS-10-09** · Account request list filtered by type and state
+**SS-10-09** · Account request list filtered by type and state
 
 ---
 
@@ -99,12 +99,12 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 - Email tickets to sales@ land in **Helpdesk** (Module 02, Lessons 2.9-2.10).
 - Mark a reply **Staff only** to keep it internal. Attachments: PDF, JPEG, PNG; 20 MiB; 10 per reply.
 - Service after shipping: check the order's shipments and tracking (Module 06, Lesson 6.7), send "Delivery check-in" / "Return received" templates, raise a return delivery note for returns.
-- 🚧 Knowledge base content and Helpdesk ticket types are configured in Helpdesk itself, not in the app; agree a list before rollout.
+- (Planned) Knowledge base content and Helpdesk ticket types are configured in Helpdesk itself, not in the app; agree a list before rollout.
 
-📸 **SS-10-10** · Dealer: portal support form
+**SS-10-10** · Dealer: portal support form
 **URL:** `/portal/support` · **Role:** Dealer
-📸 **SS-10-11** · The resulting Issue in Portal Operations → Support responses
-📸 **SS-10-12** · Helpdesk knowledge base
+**SS-10-11** · The resulting Issue in Portal Operations → Support responses
+**SS-10-12** · Helpdesk knowledge base
 **URL:** `/helpdesk/kb`
 
 ---
@@ -117,8 +117,8 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 - Dealers manage email preferences at `/portal/account/notifications` (quotes, shipping…).
 - **Role audits** (admin): `portal.role_audit.report` (capabilities only a System Manager covers), `.dealers` (unresolved company links, desk-access risk), `.hr`.
 
-📸 **SS-10-13** · (pair) A project as the dealer buyer vs as a VIEW collaborator (no prices, no quotes)
-📸 **SS-10-14** · Dealer notification settings page
+**SS-10-13** · (pair) A project as the dealer buyer vs as a VIEW collaborator (no prices, no quotes)
+**SS-10-14** · Dealer notification settings page
 
 ---
 
@@ -127,7 +127,7 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 - sales@ is a shared Email Account with an assignment rule; filed mail is relinked to its document from Portal Operations → Sales inbox.
 - Website forms create **Frappe CRM Leads** (per brand). A Deal marked **Won** creates the ERPNext Customer.
 
-📸 **SS-10-15** · CRM lead from a Webflow form
+**SS-10-15** · CRM lead from a Webflow form
 **URL:** `/crm/leads`
 
 ---

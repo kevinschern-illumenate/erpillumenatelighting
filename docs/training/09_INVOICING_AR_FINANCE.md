@@ -7,13 +7,13 @@
 
 Trainees can invoice an order (deposit, proforma or after shipping), get the invoice and its pay link to the dealer, follow receivables, record customer payments the right way (in QuickBooks), and read the Finance tab and commission reports.
 
-> **Status:** several pieces are not switched on yet: invoice email Notifications are disabled, the company "Invoice Payment Instructions" field is empty, and no live invoice has a QuickBooks pay link yet ⚠️. Train the flow; mark these slides "Rolling out".
+> **Status:** several pieces are not switched on yet: invoice email Notifications are disabled, the company "Invoice Payment Instructions" field is empty, and no live invoice has a QuickBooks pay link yet (Rolling out). Train the flow; mark these slides "Rolling out".
 
 ## Where to go
 
 | What | Where |
 |---|---|
-| Finance tab | `/command-center#finance` 🔒 |
+| Finance tab | `/command-center#finance` (Restricted) |
 | New sales invoice | `/app/sales-invoice/new` |
 | Sales invoices | `/app/sales-invoice` |
 | Accounts Receivable report | `/app/query-report/Accounts Receivable` |
@@ -35,8 +35,8 @@ Trainees can invoice an order (deposit, proforma or after shipping), get the inv
 - Invoicing moves the order stage to **Completed** once fully billed.
 - Credit notes: a return invoice prints as "Credit Note".
 
-📸 **SS-09-01** · Delivery note → Create → Sales Invoice menu
-📸 **SS-09-02** · Sales invoice form created from a delivery note
+**SS-09-01** · Delivery note → Create → Sales Invoice menu
+**SS-09-02** · Sales invoice form created from a delivery note
 **URL:** `/app/sales-invoice/<name>`
 
 ---
@@ -49,11 +49,11 @@ Trainees can invoice an order (deposit, proforma or after shipping), get the inv
 - Manual templates: Paid in full receipt, Credit note.
 - Dealers see invoices with outstanding balance on `/portal/orders/<SO>`.
 
-📸 **SS-09-03** · ilL Sales Invoice print preview with the How to pay box
-📸 **SS-09-04** · Invoice showing QuickBooks id and pay link fields
-📸 **SS-09-05** · Notification list filtered to Sales Invoice (showing disabled)
+**SS-09-03** · ilL Sales Invoice print preview with the How to pay box
+**SS-09-04** · Invoice showing QuickBooks id and pay link fields
+**SS-09-05** · Notification list filtered to Sales Invoice (showing disabled)
 **URL:** `/app/notification?document_type=Sales Invoice`
-📸 **SS-09-06** · Dealer order page Invoices section
+**SS-09-06** · Dealer order page Invoices section
 **Role:** Dealer
 
 ---
@@ -68,24 +68,24 @@ Trainees can invoice an order (deposit, proforma or after shipping), get the inv
 - Print **ilL Payment Receipt** shows the QuickBooks reference.
 - Deposits paid move proforma orders on; the stage refreshes on Payment Entry.
 
-📸 **SS-09-07** · Receive Payment Entry synced from QuickBooks
-📸 **SS-09-08** · ilL Payment Receipt print preview
+**SS-09-07** · Receive Payment Entry synced from QuickBooks
+**SS-09-08** · ilL Payment Receipt print preview
 
 ---
 
 ### Lesson 9.4: Receivables and the Finance tab
 
 - **Finance tab** (owner: Charlotte): invoiced this month vs break-even and on-pace target; receivables outstanding; invoiced by month; customer concentration; aging table. Quick links to invoices, AR report, payment entries, bills, QuickBooks sync log.
-- The "Cash · payables · margin" tile is not built yet ("Needs a QuickBooks export") 🚧.
+- The "Cash · payables · margin" tile is not built yet ("Needs a QuickBooks export") (Planned).
 - **Known gap:** the Finance tab's figures currently show to every Command Center Viewer. Don't screenshot it for anyone outside the company.
 - **Accounts Receivable report** for collections; Executive tab "overdue invoices" decision.
 
-📸 **SS-09-09** · Finance tab, full page
+**SS-09-09** · Finance tab, full page
 **URL:** `/command-center#finance` · **Role:** CC Finance
 **Highlight:** invoiced vs break-even; aging table
-📸 **SS-09-10** · Accounts Receivable report with ageing buckets
+**SS-09-10** · Accounts Receivable report with ageing buckets
 
-🔌 **DATA-09-01** · Invoiced per month, last 6 months (for the trend slide; keep totals only, no customer names)
+**DATA-09-01** · Invoiced per month, last 6 months (for the trend slide; keep totals only, no customer names)
 **API:** `GET /api/resource/Sales Invoice?filters=[["docstatus","=",1],["posting_date",">","<6 months ago>"]]&fields=["posting_date","grand_total"]&limit_page_length=0`
 
 ---
@@ -98,8 +98,8 @@ Trainees can invoice an order (deposit, proforma or after shipping), get the inv
 - Overview stage shows **SPIF candidates** ($3K+ orders since Oct 1, with the rep).
 - Reps never print on customer documents.
 
-📸 **SS-09-11** · Sales Team Commissions report, last month
-📸 **SS-09-12** · SPIF candidates panel on `#pipeline`
+**SS-09-11** · Sales Team Commissions report, last month
+**SS-09-12** · SPIF candidates panel on `#pipeline`
 
 ---
 

@@ -1,5 +1,7 @@
 # ilLumenate Staff Training: Outline Set
 
+A shared copy lives in Claude Docs: [ilLumenate Staff Training Outline](https://claude.ai/artifact/FaKD1XWDgfwxqFn9kouLEx). Keep this folder and the doc in step: change one, change the other.
+
 This folder holds the training **outlines** for every area of the Command Center ERP and the third-party apps around it. Each module is an outline with screenshot prompts and data-pull prompts. A second pass (the "capture bot") runs a local ERPNext instance, takes the screenshots, pulls real-world examples through the API, and turns each outline into a manual chapter and a slide deck.
 
 Every fact here was taken from the code and docs in this repo as of 2026-11-22 (branch `claude/brave-newton-yw7nr8`). Where a feature is built but has not run live yet, the outline says so. Teach it as "coming", or capture it on staging only.
@@ -47,7 +49,7 @@ Take Module 01 first. Then:
 
 Each prompt looks like this:
 
-> 📸 **SS-06-14** · Shipment form, submitted, "Create Labels" button visible
+> **SS-06-14** · Shipment form, submitted, "Create Labels" button visible
 > **URL:** `/app/shipment/<name>` · **Role:** Stock User · **State:** submitted Shipment with 2 parcels, Label Status "Not bought"
 > **Highlight:** the Create Labels button; the Label Status field
 > **Data:** use the DN from DATA-06-02
@@ -61,7 +63,7 @@ Each prompt looks like this:
 
 ### Data-pull prompts
 
-> 🔌 **DATA-06-02** · A real delivery note shipped last week with a tracking number
+> **DATA-06-02** · A real delivery note shipped last week with a tracking number
 > **API:** `GET /api/resource/Delivery Note?filters=[["docstatus","=",1],["ill_tracking_number","is","set"]]&fields=["name","customer","ill_carrier","ill_tracking_number","posting_date"]&order_by=posting_date desc&limit_page_length=5`
 > **Use:** the worked example in Lesson 06.4
 
@@ -71,14 +73,14 @@ Each prompt looks like this:
 - **Check field names first.** The custom field names in the API examples come from the code (`ill_*`, `custom_qbo_id`), but confirm each against the doctype before relying on it: `GET /api/method/frappe.desk.form.load.getdoctype?doctype=<DocType>`. Adjust the query if a field differs.
 - **One job, end to end.** DATA-02-01 picks one real fixture schedule that went all the way to a shipped, invoiced order. Reuse that job (its project, quote, sales order, work orders, delivery note, shipment, invoice) as the running example in Modules 02-09, so trainees follow the same job through every stage.
 
-### Status flags
+### Status labels
 
-| Flag | Meaning | How to train it |
+| Label | Meaning | How to train it |
 |---|---|---|
-| ✅ | Live and in use | Train normally |
-| ⚠️ | Built, not yet piloted on the live site | Capture on the local instance; label the slide "Rolling out". Re-check before publishing |
-| 🚧 | Planned only, not built | Mention as "coming"; no screenshots |
-| 🔒 | Restricted to certain roles | Say which roles in the slide |
+| Live | Live and in use | Train normally |
+| (Rolling out) | Built, not yet piloted on the live site | Capture on the local instance; label the slide "Rolling out". Re-check before publishing |
+| (Planned) | Planned only, not built | Mention as "coming"; no screenshots |
+| (Restricted) | Restricted to certain roles | Say which roles in the slide |
 
 ### Each module's shape
 
@@ -103,16 +105,7 @@ Before capturing, the local instance needs:
 
 ## Decisions to make before publishing the manual
 
-The code leaves these open. The training should state the answer, so settle them first:
-
-1. **Invoice timing:** one sales invoice per delivery note? (Module 09 assumes yes; finance hasn't confirmed.)
-2. **Automatic emails:** turn on order confirmation and shipped emails in ilL-Email-Settings, and which of the 13 disabled Notifications to enable (quote follow-up / expiry, invoice, past due, ship date change, PO confirmation chase).
-3. **Helpdesk ticket types and teams:** create Quotation, Design, Sales Order, Service and Issue at `/app/hd-ticket-type`; decide the knowledge base content.
-4. **Drawing request types:** only "System Design Review" exists. Decide the other types, SLAs and default assignees.
-5. **EasyPost go-live date:** until then, Module 06 teaches the manual label process as the main path.
-6. **QuickBooks rollout:** finish the Intuit webhook and sandbox test; fill the company Invoice Payment Instructions.
-7. **Label printer** for shipping labels.
-8. **Who holds which role:** the learning-path table assumes the roles listed; map each team member to them.
+The open decisions and my recommendation for each are in [DECISIONS.md](DECISIONS.md): invoice timing, automatic emails, Helpdesk ticket types, drawing request types, EasyPost go-live, QuickBooks rollout, label printer, role mapping, Finance tab visibility, portal support routing, and desk quotes.
 
 ## Known gaps to keep out of the manual (or flag)
 

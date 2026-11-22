@@ -7,7 +7,7 @@
 
 Trainees can enter vendor, forwarder and broker bills, check the 3-way match, get bills into QuickBooks, record vendor payments the right way (in QuickBooks), and land freight and duty into stock value.
 
-> **Status:** the QuickBooks bill sync, payment sync and landed cost buttons are built. The n8n and Intuit pieces need setup, and the purchasing writes haven't run a full live cycle ⚠️. Capture from the staging cycle described in Module 07.
+> **Status:** the QuickBooks bill sync, payment sync and landed cost buttons are built. The n8n and Intuit pieces need setup, and the purchasing writes haven't run a full live cycle (Rolling out). Capture from the staging cycle described in Module 07.
 
 ## Where to go
 
@@ -40,11 +40,11 @@ Trainees can enter vendor, forwarder and broker bills, check the 3-way match, ge
 
 - **Bills tab** lanes: Draft · Unpaid · Overdue · Partly paid · Paid (last 30 days), with the QuickBooks chip and the 3-way match chip.
 
-📸 **SS-08-01** · Bills tab lanes with QuickBooks and 3-way match chips
+**SS-08-01** · Bills tab lanes with QuickBooks and 3-way match chips
 **URL:** `/command-center#purch` → Bills · **Role:** Accounts User + CC Finance
 **Highlight:** a `price_off` chip; a bill missing the QuickBooks chip
-📸 **SS-08-02** · Draft bill created from a receipt (desk form)
-📸 **SS-08-03** · Receipts tab "Draft bill" button
+**SS-08-02** · Draft bill created from a receipt (desk form)
+**SS-08-03** · Receipts tab "Draft bill" button
 
 ---
 
@@ -55,8 +55,8 @@ Trainees can enter vendor, forwarder and broker bills, check the 3-way match, ge
 - The broker's entry summary (7501) is the actual duty; the HTS rates were only the estimate.
 - `cost_variance` flags a shipment whose actuals are 15% or more over estimate.
 
-📸 **SS-08-04** · Broker bill using DUTY and BROKERAGE service items
-📸 **SS-08-05** · Inbound shipment cost line linked to that bill, actual filled
+**SS-08-04** · Broker bill using DUTY and BROKERAGE service items
+**SS-08-05** · Inbound shipment cost line linked to that bill, actual filled
 **URL:** `/app/ill-inbound-shipment/<name>`
 
 ---
@@ -70,9 +70,9 @@ Trainees can enter vendor, forwarder and broker bills, check the 3-way match, ge
 - **Watch:** the `bill_not_in_qbo` decision and Portal Operations → "Bills not in QuickBooks".
 - Amended bills start without a QuickBooks id (the field doesn't copy).
 
-📸 **SS-08-06** · Submitted bill showing the QuickBooks id field filled
-📸 **SS-08-07** · Portal Operations → Bills not in QuickBooks
-📸 **SS-08-08** · ilL-QBO-Settings (bill webhook URL, start date, accounts)
+**SS-08-06** · Submitted bill showing the QuickBooks id field filled
+**SS-08-07** · Portal Operations → Bills not in QuickBooks
+**SS-08-08** · ilL-QBO-Settings (bill webhook URL, start date, accounts)
 **URL:** `/app/ill-qbo-settings` · **Role:** Accounts Manager
 
 ---
@@ -97,12 +97,12 @@ Trainees can enter vendor, forwarder and broker bills, check the 3-way match, ge
 
 - Supplier payments emailed from ERPNext go from purchasing@.
 
-📸 **SS-08-09** · Payment Entry created from QuickBooks (synced from = QuickBooks Online)
+**SS-08-09** · Payment Entry created from QuickBooks (synced from = QuickBooks Online)
 **URL:** `/app/payment-entry/<name>`
-📸 **SS-08-10** · QBO sync log list with a Failed row
-📸 **SS-08-11** · One sync log record: payload, Applied To, error message
+**SS-08-10** · QBO sync log list with a Failed row
+**SS-08-11** · One sync log record: payload, Applied To, error message
 
-🔌 **DATA-08-01** · Sync log status counts for the last 30 days
+**DATA-08-01** · Sync log status counts for the last 30 days
 **API:** `GET /api/resource/ilL-QBO-Sync-Log?filters=[["creation",">","<30 days ago>"]]&fields=["status","count(name) as n"]&group_by=status`
 
 ---
@@ -119,13 +119,13 @@ Trainees can enter vendor, forwarder and broker bills, check the 3-way match, ge
 
 **Landed cost tab:** what still needs a voucher (with missing bills, e.g. "Duty bill not in yet") and **Draft LCV**; recent vouchers; landed cost by item (purchase rate, landed rate, uplift %, 12-month average; Copy as text); **landed cost in stock** total.
 
-📸 **SS-08-12** · Landed cost tab: needs-voucher list with "Duty bill not in yet"
-📸 **SS-08-13** · Draft LCV from the board (desk form): charge rows and distribution
-📸 **SS-08-14** · LCV refused: mixed allocation bases message
-📸 **SS-08-15** · Landed cost by item table and the landed-cost-in-stock total
-📸 **SS-08-16** · ilL-Purchasing-Settings cost type rules
+**SS-08-12** · Landed cost tab: needs-voucher list with "Duty bill not in yet"
+**SS-08-13** · Draft LCV from the board (desk form): charge rows and distribution
+**SS-08-14** · LCV refused: mixed allocation bases message
+**SS-08-15** · Landed cost by item table and the landed-cost-in-stock total
+**SS-08-16** · ilL-Purchasing-Settings cost type rules
 
-🔌 **DATA-08-02** · A real delivered inbound shipment with estimates vs actuals (worked example)
+**DATA-08-02** · A real delivered inbound shipment with estimates vs actuals (worked example)
 **API:** `GET /api/resource/ilL-Inbound-Shipment?filters=[["status","in",["Delivered","Costs final"]]]&fields=["name","supplier","freight_mode","goods_value","landed_cost_pct"]&limit_page_length=5` then `GET /api/resource/ilL-Inbound-Shipment/<name>`
 
 ---

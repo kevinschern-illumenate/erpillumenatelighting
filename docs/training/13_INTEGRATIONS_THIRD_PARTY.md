@@ -11,19 +11,19 @@ Everyone understands which outside systems the ERP talks to and what they themse
 
 | System | What it does for us | Who touches it | Status |
 |---|---|---|---|
-| **ERPNext (Frappe v16)** | Core ERP: quotes, orders, stock, manufacturing, purchasing, accounting | Everyone | ✅ |
-| **Command Center** | The staff cockpit on top of ERPNext | Everyone | ✅ |
-| **Dealer portal** | Dealers' projects, quotes, orders, drawings | Dealers; staff for support | ✅ |
-| **Frappe Helpdesk** | Customer tickets (sales@) | Support, sales | ✅ |
-| **Frappe CRM** | Website leads → deals → customers | Sales, marketing | ✅ |
-| **Frappe HRMS** | Leave, expenses | Everyone | ✅ |
-| **n8n** | The integration hub: every outbound connection goes through it | Admin | ✅ |
-| **QuickBooks Online** | Payables and receivables system of record; payments | Accounting | ⚠️ setup steps pending |
-| **EasyPost (FedEx)** | Shipping labels and tracking | Shipping | ⚠️ not piloted |
-| **Webflow** (ilLumenate, 206 Lighting) | Public websites and product listings | Marketing & web, catalog publisher | ✅ (auto-push and galleries gated) |
-| **Gmail / Google** | Kevin's Desk email triage (metadata only) | Kevin | ✅ |
-| **Postmark campaigns** | Email campaigns | Marketing | 🚧 dormant (scheduler removed) |
-| **Bluebeam** | Drawing markup (spike only) | — | 🚧 |
+| **ERPNext (Frappe v16)** | Core ERP: quotes, orders, stock, manufacturing, purchasing, accounting | Everyone | Live |
+| **Command Center** | The staff cockpit on top of ERPNext | Everyone | Live |
+| **Dealer portal** | Dealers' projects, quotes, orders, drawings | Dealers; staff for support | Live |
+| **Frappe Helpdesk** | Customer tickets (sales@) | Support, sales | Live |
+| **Frappe CRM** | Website leads → deals → customers | Sales, marketing | Live |
+| **Frappe HRMS** | Leave, expenses | Everyone | Live |
+| **n8n** | The integration hub: every outbound connection goes through it | Admin | Live |
+| **QuickBooks Online** | Payables and receivables system of record; payments | Accounting | Rolling out: setup steps pending |
+| **EasyPost (FedEx)** | Shipping labels and tracking | Shipping | Rolling out: not piloted |
+| **Webflow** (ilLumenate, 206 Lighting) | Public websites and product listings | Marketing & web, catalog publisher | Live (auto-push and galleries gated) |
+| **Gmail / Google** | Kevin's Desk email triage (metadata only) | Kevin | Live |
+| **Postmark campaigns** | Email campaigns | Marketing | Dormant (scheduler removed) |
+| **Bluebeam** | Drawing markup (spike only) | — | Planned |
 
 ---
 
@@ -33,13 +33,13 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - Each outside system writes into ERPNext as its own **service user** (shipping-integration, qbo-integration, webflow-auto-push, publication-worker), so changes on the timeline are labelled by source.
 - If something "didn't sync", the answer is usually in a log: Error Log, ilL-QBO-Sync-Log, Publish Jobs, or the n8n execution list.
 
-📸 **SS-13-01** · n8n workflow list showing the ilL workflows
+**SS-13-01** · n8n workflow list showing the ilL workflows
 **URL:** n8n editor · **Role:** n8n admin
-📸 **SS-13-02** · A record timeline showing a change by a service user
+**SS-13-02** · A record timeline showing a change by a service user
 
 ---
 
-### Lesson 13.2: EasyPost (shipping lead, admin) ⚠️
+### Lesson 13.2: EasyPost (shipping lead, admin) (Rolling out)
 
 - Workflows: **ilL Shipping: EasyPost labels** (rate, buy, void) and **EasyPost tracker → ERPNext** (tracking events).
 - The EasyPost API key lives **only in n8n**. Use a test key on staging.
@@ -48,12 +48,12 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - **Health checks:** Label Status "Error" on Shipments; "Shipping exception" emails; n8n executions for failed runs.
 - **Phase 0 to finish before go-live:** staging spike, connect EasyPost and FedEx accounts, test keys, confirm FedEx surcharge thresholds, choose label printer.
 
-📸 **SS-13-03** · n8n EasyPost labels workflow canvas
-📸 **SS-13-04** · EasyPost dashboard: a test shipment (test mode)
+**SS-13-03** · n8n EasyPost labels workflow canvas
+**SS-13-04** · EasyPost dashboard: a test shipment (test mode)
 
 ---
 
-### Lesson 13.3: QuickBooks Online (accounting, admin) ⚠️
+### Lesson 13.3: QuickBooks Online (accounting, admin) (Rolling out)
 
 | Direction | What | How |
 |---|---|---|
@@ -67,9 +67,9 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - **Settings:** ilL-QBO-Settings (sync enabled, secret, paid-to / paid-from accounts, mode of payment, bill webhook URL, bills-from date).
 - **Rollout steps still open:** deploy confirmation, settings secret, Intuit webhook registration, sandbox end-to-end test, go-live; company invoice payment instructions; enable invoice Notifications.
 
-📸 **SS-13-05** · ilL-QBO-Settings form (secret masked)
-📸 **SS-13-06** · n8n QuickBooks payment sync workflow canvas
-📸 **SS-13-07** · QuickBooks bill showing the ERPNext bill number as DocNumber (sandbox)
+**SS-13-05** · ilL-QBO-Settings form (secret masked)
+**SS-13-06** · n8n QuickBooks payment sync workflow canvas
+**SS-13-07** · QuickBooks bill showing the ERPNext bill number as DocNumber (sandbox)
 
 ---
 
@@ -77,13 +77,13 @@ Everyone understands which outside systems the ERP talks to and what they themse
 
 - **Product sync** (per brand): claims publish jobs from ERPNext and stages, publishes or retires items.
 - **Attribute, category and product filter syncs**: every 6 hours plus manual runs.
-- **Gallery sync**: started from ERPNext ⚠️ staging run pending.
+- **Gallery sync**: started from ERPNext (Rolling out) staging run pending.
 - **Lead forms**: Webflow form → Frappe CRM Lead, one workflow per brand.
 - **Spec sheets**: ERPNext → n8n renderer → PDF attached.
 - **Health checks:** Publish Job list, Portal Operations → Publication failures, failure notifications. A read-only drift check tool exists (`tools/reconcile_webflow.cjs`) but hasn't been run against the live site.
 
-📸 **SS-13-08** · n8n Webflow product sync workflow canvas
-📸 **SS-13-09** · Webflow CMS item updated by the sync (staging site)
+**SS-13-08** · n8n Webflow product sync workflow canvas
+**SS-13-09** · Webflow CMS item updated by the sync (staging site)
 
 ---
 
@@ -93,8 +93,8 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - **CRM** (`/crm`): leads from Webflow; job titles from ilL-Job-Title-Master (System Manager edits); Won deal → ERPNext Customer.
 - **HRMS** (`/hrms`): Module 12.
 
-📸 **SS-13-10** · Helpdesk saved replies list
-📸 **SS-13-11** · CRM deal marked Won and the created Customer
+**SS-13-10** · Helpdesk saved replies list
+**SS-13-11** · CRM deal marked Won and the created Customer
 
 ---
 
@@ -106,9 +106,9 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - **Mailboxes:** sales@ (Helpdesk / shared inbox), purchasing@ (purchasing documents, auto-linking).
 - Portal emails go through an outbox sent every 5 minutes; failures show in Portal Operations → Email failures.
 
-📸 **SS-13-12** · Email Template list filtered "ilL -"
-📸 **SS-13-13** · Notification list showing disabled ilL notifications
-📸 **SS-13-14** · ilL-Email-Settings
+**SS-13-12** · Email Template list filtered "ilL -"
+**SS-13-13** · Notification list showing disabled ilL notifications
+**SS-13-14** · ilL-Email-Settings
 
 ---
 
@@ -131,7 +131,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - ilL roles **add to** standard ERPNext roles (Purchase, Stock, Accounts, Manufacturing, HR…); they never replace them. No role is assigned automatically.
 - Audit with `portal.role_audit.report`, `.dealers`, `.hr`.
 
-📸 **SS-13-15** · User form roles section for a typical sales user
+**SS-13-15** · User form roles section for a typical sales user
 
 ---
 
@@ -147,7 +147,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 | Daily | Offer expiry reminders, overdue staff digest, finder session expiry |
 | After every deploy | Workspace merge, Helpdesk fields, Command Center sync (overwrites desk edits to the Command Center page) |
 
-📸 **SS-13-16** · Scheduled Job Type list filtered to illumenate_lighting
+**SS-13-16** · Scheduled Job Type list filtered to illumenate_lighting
 
 ---
 

@@ -43,17 +43,17 @@ Trainees can create a quote every way the business does it, choose the right too
 - Quotation tickets board; "Quotes waiting on dealers" table with an "Include drafts" toggle.
 - Quote **stage** on each Quotation (refreshed every 15 minutes): Drafting, Waiting on Info, Waiting on Vendor, Sent, Revising, **Follow Up** (after 7 days, set in ilL-Production-Settings), Won, Lost, Expired, Cancelled.
 
-📸 **SS-03-01** · Quotes stage, full page
+**SS-03-01** · Quotes stage, full page
 **URL:** `/command-center#quotes` · **Role:** Editor + Finance
 **Highlight:** the four stats; the five lanes; Reassign on a card
 
-📸 **SS-03-02** · "Quotes waiting on dealers" table with Include drafts on
+**SS-03-02** · "Quotes waiting on dealers" table with Include drafts on
 **URL:** `/command-center#quotes`
 
-📸 **SS-03-03** · Quotation list showing the stage pill colours
+**SS-03-03** · Quotation list showing the stage pill colours
 **URL:** `/app/quotation` · **Highlight:** Follow Up and Expired stages
 
-🔌 **DATA-03-01** · Quote pipeline snapshot: count and value by stage
+**DATA-03-01** · Quote pipeline snapshot: count and value by stage
 **API:** `GET /api/resource/Quotation?filters=[["docstatus","=",1]]&fields=["ill_stage","count(name) as n","sum(grand_total) as total"]&group_by=ill_stage`
 **Use:** opening slide. Check the stage field name with the doctype meta first.
 
@@ -79,28 +79,28 @@ Trainees can create a quote every way the business does it, choose the right too
 
 **Request states:** DRAFT · REQUESTED (Received) · UNDER_REVIEW · INFORMATION_NEEDED (Needs your reply) · ISSUED (Quote issued) · CLOSED.
 
-📸 **SS-03-04** · Dealer: Request a quote dialog
+**SS-03-04** · Dealer: Request a quote dialog
 **URL:** `/portal/schedules/<schedule>` · **Role:** Dealer
 
-📸 **SS-03-05** · Desk quote request with Prepare Quotation button and conversation panel
+**SS-03-05** · Desk quote request with Prepare Quotation button and conversation panel
 **URL:** `/app/ill-quote-request/<QR>` · **Role:** ilL Sales Review · **State:** REQUESTED
 **Highlight:** Prepare Quotation; state; assigned to; due date
 
-📸 **SS-03-06** · The draft Quotation it creates
+**SS-03-06** · The draft Quotation it creates
 **URL:** `/app/quotation/<name>` · **Highlight:** linked fixture schedule and quote request fields; configured item rows; Valid Till
 
-📸 **SS-03-07** · Request info in the Portal conversation, and the dealer's "Needs your reply" view (pair)
+**SS-03-07** · Request info in the Portal conversation, and the dealer's "Needs your reply" view (pair)
 **Role:** -a ilL Sales Review, -b Dealer
 
-📸 **SS-03-08** · Submit blocked: example validation message (e.g. Valid Till in the past)
+**SS-03-08** · Submit blocked: example validation message (e.g. Valid Till in the past)
 
-📸 **SS-03-09** · Portal Operations → Quote requests queue, Mine / Unassigned / Overdue
+**SS-03-09** · Portal Operations → Quote requests queue, Mine / Unassigned / Overdue
 **URL:** `/app/ill-portal-operations`
 
-📸 **SS-03-10** · Routing settings: quotes queue (assignee, fallback role, SLA hours)
+**SS-03-10** · Routing settings: quotes queue (assignee, fallback role, SLA hours)
 **URL:** `/app/ill-portal-routing-settings` · **Role:** System Manager
 
-🔌 **DATA-03-02** · A real quote request that went REQUESTED → ISSUED → accepted
+**DATA-03-02** · A real quote request that went REQUESTED → ISSUED → accepted
 **API:** `GET /api/resource/ilL-Quote-Offer?filters=[["state","=","ACCEPTED"]]&fields=["name","quotation","valid_until","modified"]&order_by=modified desc&limit_page_length=5`
 **Use:** the worked example; pair with DATA-02-01 if possible
 
@@ -120,17 +120,17 @@ Trainees can create a quote every way the business does it, choose the right too
 - **Two-way sync:** while the Quotation is a draft and the schedule is DRAFT/READY and unlocked, lines, qty, Fixture Type, Section/Room and notes stay in step both ways. Rates, discounts and taxes are never synced. Deleting a row's last item removes the schedule line (an orange alert warns you).
 - Internal roles only (System Manager, ilL Sales Review, ilL Order Approver).
 
-📸 **SS-03-11** · Configure & Add Fixture: Project & Schedule step
+**SS-03-11** · Configure & Add Fixture: Project & Schedule step
 **URL:** `/app/quotation/new` · **Role:** ilL Sales Review
 
-📸 **SS-03-12** · Line Details step
+**SS-03-12** · Line Details step
 
-📸 **SS-03-13** · Configure step (linear) with price preview
+**SS-03-13** · Configure step (linear) with price preview
 
-📸 **SS-03-14** · Quotation items after adding three configured lines, grouped by Section/Room
+**SS-03-14** · Quotation items after adding three configured lines, grouped by Section/Room
 **Highlight:** Reconfigure Row; Tools → Set Section / Room
 
-📸 **SS-03-15** · Orange "schedule line removed" alert after deleting a row
+**SS-03-15** · Orange "schedule line removed" alert after deleting a row
 
 ---
 
@@ -143,10 +143,10 @@ Trainees can create a quote every way the business does it, choose the right too
 - One schedule per document (other versions of the same schedule are allowed). Running it again only adds missing lines.
 - Lines awaiting product verification are listed as a warning.
 
-📸 **SS-03-16** · Get Items From → Fixture Schedule dialog with preview counts and options
+**SS-03-16** · Get Items From → Fixture Schedule dialog with preview counts and options
 **URL:** `/app/quotation/<draft>`
 
-📸 **SS-03-17** · Verification warning listing unverified lines
+**SS-03-17** · Verification warning listing unverified lines
 
 ---
 
@@ -165,16 +165,16 @@ Trainees can create a quote every way the business does it, choose the right too
 - Each shows an estimate: "Estimate — confirmed on your quote". Presets save common builds.
 - **Product Finder "Verify with our team" lines** must be verified by staff before a quote is issued and an order placed (the default gate in Product Finder Settings; alternatives "Before order only" and "Warning only"). Queue: Portal Operations → Product verification (due in 2 business days).
 
-📸 **SS-03-18** · Configurator category chooser
+**SS-03-18** · Configurator category chooser
 **URL:** `/portal/configure` · **Role:** Dealer
 
-📸 **SS-03-19** · Neon multi-segment configurator
+**SS-03-19** · Neon multi-segment configurator
 **URL:** `/portal/configure-neon`
 
-📸 **SS-03-20** · Product Finder with a "Verify with our team" result
+**SS-03-20** · Product Finder with a "Verify with our team" result
 **URL:** `/portal/product-finder`
 
-📸 **SS-03-21** · Portal Operations → Product verification queue
+**SS-03-21** · Portal Operations → Product verification queue
 
 ---
 
@@ -192,13 +192,13 @@ Trainees can create a quote every way the business does it, choose the right too
 - Print format edits in the desk are overwritten on deploy; ask the admin to change them in the repo.
 - Terms text is a draft pending counsel review.
 
-📸 **SS-03-22** · Customer form showing Customer Group (tier)
+**SS-03-22** · Customer form showing Customer Group (tier)
 **URL:** `/app/customer/<name>`
 
-📸 **SS-03-23** · Pricing Rule for a customer group
+**SS-03-23** · Pricing Rule for a customer group
 **URL:** `/app/pricing-rule/<name>` · **Role:** Sales Manager / System Manager
 
-📸 **SS-03-24** · (pair) Print preview: ilL Quotation vs ilL Quotation - MSRP
+**SS-03-24** · (pair) Print preview: ilL Quotation vs ilL Quotation - MSRP
 **URL:** `/app/quotation/<name>` → Print · **Highlight:** List / Disc / Net columns in -a; none in -b
 
 ---
@@ -213,12 +213,12 @@ Trainees can create a quote every way the business does it, choose the right too
 - The shared **sales@** inbox: Portal Operations → Sales inbox. Reply, **Relink** to the Quotation, Assign To.
 - After 7 days with no answer, the quote's stage becomes **Follow Up**.
 
-📸 **SS-03-25** · Email composer with "ilL - Quotation - Quote sent" selected and PDF attached
+**SS-03-25** · Email composer with "ilL - Quotation - Quote sent" selected and PDF attached
 **URL:** `/app/quotation/<name>` → New Email
 
-📸 **SS-03-26** · Portal Operations → Offers expiring soon
+**SS-03-26** · Portal Operations → Offers expiring soon
 
-📸 **SS-03-27** · Sales inbox with Relink
+**SS-03-27** · Sales inbox with Relink
 **URL:** `/app/ill-portal-operations` → Sales inbox
 
 ---
@@ -238,15 +238,15 @@ Trainees can create a quote every way the business does it, choose the right too
 
 **Offer states:** ISSUED · ACCEPTED · DECLINED · REVISION_REQUESTED · SUPERSEDED · CANCELLED (dealer list also shows "Expired").
 
-📸 **SS-03-28** · Dealer offer page with the acknowledgement box and three buttons
+**SS-03-28** · Dealer offer page with the acknowledgement box and three buttons
 **URL:** `/portal/quotes/<offer>` · **Role:** Dealer
 
-📸 **SS-03-29** · Accept dialog (requested delivery date, PO number)
+**SS-03-29** · Accept dialog (requested delivery date, PO number)
 
-📸 **SS-03-30** · Quotes stage "Dealer responded" lane with an accepted card and its "Continues in Sales orders" chip
+**SS-03-30** · Quotes stage "Dealer responded" lane with an accepted card and its "Continues in Sales orders" chip
 **URL:** `/command-center#quotes`
 
-📸 **SS-03-31** · Dealer quotes list showing Issued, Accepted and Expired
+**SS-03-31** · Dealer quotes list showing Issued, Accepted and Expired
 **URL:** `/portal/quotes`
 
 ---

@@ -30,19 +30,19 @@ By the end, a new team member can open the Command Center, find their stage of t
 - **Helpdesk** (`/helpdesk/tickets`): write replies to customer tickets.
 - **Rule of thumb:** look and decide in the Command Center; commit in the desk.
 
-📸 **SS-01-01** · Command Center landing page, full width
+**SS-01-01** · Command Center landing page, full width
 **URL:** `/command-center` · **Role:** Command Center Editor + Finance · **State:** default landing (Sales pipeline › Overview)
 **Highlight:** the top tab bar; the pipeline stepper; the Refresh button
 
-📸 **SS-01-02** · ERPNext desk, ilLumenate Lighting workspace
+**SS-01-02** · ERPNext desk, ilLumenate Lighting workspace
 **URL:** `/app/illumenate-lighting` · **Role:** System Manager
 **Highlight:** "Needs Attention" number cards; "Start Here" shortcuts; "New Product Setup Guide" cards
 
-📸 **SS-01-03** · Dealer portal home as a dealer
+**SS-01-03** · Dealer portal home as a dealer
 **URL:** `/portal` · **Role:** Dealer (sample dealer user)
 **Highlight:** the main navigation (Projects, Quotes, Orders, Drawings, Support)
 
-📸 **SS-01-04** · Helpdesk ticket list, agent view
+**SS-01-04** · Helpdesk ticket list, agent view
 **URL:** `/helpdesk/tickets` · **Role:** support agent
 
 ---
@@ -61,17 +61,17 @@ By the end, a new team member can open the Command Center, find their stage of t
 | Review | `#review` | The Tuesday walk-through, one page per project |
 | Agenda | `#agenda` | The weekly meeting agenda (replaces the Google Doc) |
 | Workbench | `#wb` | Browse and edit any record type |
-| Catalog | `#catalog` | Catalog Builder, embedded (Catalog Publisher only, 🔒) |
+| Catalog | `#catalog` | Catalog Builder, embedded (Catalog Publisher only, (Restricted)) |
 | Recommendations | `#rec` | "This week" and "Recommendations" notes |
 
 - A coloured dot on a tab means it needs attention (red bad, amber warning). The number is the count of open items.
 - The page remembers the last tab you used, per browser.
 
-📸 **SS-01-05** · Close-up of the top tab bar with dots and counts
+**SS-01-05** · Close-up of the top tab bar with dots and counts
 **URL:** `/command-center` · **Role:** Editor + Finance · **State:** at least one overdue task and open tickets so counts show
 **Highlight:** an Inbox count, a coloured dot, the Catalog tab present
 
-📸 **SS-01-06** · (pair) Top tab bar as Viewer-only vs as Catalog Publisher
+**SS-01-06** · (pair) Top tab bar as Viewer-only vs as Catalog Publisher
 **Role:** -a Viewer, -b Catalog Publisher · **Highlight:** the Catalog tab appears only in -b
 
 ---
@@ -97,14 +97,14 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 - The stepper mirrors the dealer portal's own steps, so staff and dealers talk about the same stages.
 - Each stage has **quick links** to the ERPNext lists behind it.
 
-📸 **SS-01-07** · Pipeline stepper with counts on each stage
+**SS-01-07** · Pipeline stepper with counts on each stage
 **URL:** `/command-center#pipeline` · **Role:** Editor + Finance
 **Highlight:** the 8 stages; the count on each
 
-📸 **SS-01-08** · Overview stage body
+**SS-01-08** · Overview stage body
 **URL:** `/command-center#pipeline` · **Highlight:** SPIF candidates panel; stage lanes
 
-📸 **SS-01-09** · Quick links strip on any stage (use Purchasing; it has the most)
+**SS-01-09** · Quick links strip on any stage (use Purchasing; it has the most)
 **URL:** `/command-center#purch` · **Highlight:** the quick-link buttons
 
 ---
@@ -123,11 +123,11 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
   - Purchase Order: vendor status, sent / confirmed dates, ack #, lead time, ETA, promised ship date, freight mode, notes
 - Anything else on a submitted document: amend it in the desk.
 
-📸 **SS-01-10** · Side sheet open on a submitted Sales Order
+**SS-01-10** · Side sheet open on a submitted Sales Order
 **URL:** `/command-center#orders` then click an SO · **Role:** Editor
 **Highlight:** the editable fields (estimated ship date, hold reason); the read-only fields greyed; + To-do, + Add to agenda, Open in ERPNext
 
-📸 **SS-01-11** · The "Command Center:" comment on the record's desk timeline after a save
+**SS-01-11** · The "Command Center:" comment on the record's desk timeline after a save
 **URL:** `/app/sales-order/<name>` · **Highlight:** the timeline comment
 
 ---
@@ -147,7 +147,7 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 - **Known gap:** the older Finance tab and finance figures on the Sales pipeline page come from an older feed that shows them to every Viewer. Tell trainees not to share screenshots of those pages outside the company.
 - Roles are never assigned automatically. Ask the systems administrator.
 
-📸 **SS-01-12** · (pair) Executive tab as Viewer vs as Finance
+**SS-01-12** · (pair) Executive tab as Viewer vs as Finance
 **URL:** `/command-center#exec` · **Role:** -a Viewer, -b Editor + Finance
 **Highlight:** locked finance tiles in -a; dollar figures in -b
 
@@ -163,14 +163,14 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 - Ticket age, the "This week" note, recent changes (the activity feed). Print button.
 - Refreshes every 2 minutes.
 
-📸 **SS-01-13** · Executive tab, full page
+**SS-01-13** · Executive tab, full page
 **URL:** `/command-center#exec` · **Role:** Editor + Finance
 **Highlight:** KPI row; Decisions this week cards; activity feed
 
-📸 **SS-01-14** · (pair) Click a Decisions card → Workbench list filtered to that status
+**SS-01-14** · (pair) Click a Decisions card → Workbench list filtered to that status
 **Highlight:** the pre-selected status filter in -b
 
-🔌 **DATA-01-01** · Real counts for a worked example of "Decisions this week"
+**DATA-01-01** · Real counts for a worked example of "Decisions this week"
 **API:** `GET /api/resource/Sales Order?filters=[["docstatus","=",1],["status","in",["To Deliver","To Deliver and Bill"]],["delivery_date","<","<today>"]]&fields=["count(name) as n"]`
 **Use:** "This morning we had N late orders" talking point
 
@@ -187,14 +187,14 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 - **Saved views:** name and reuse a filter set. Stored in your browser only; they don't follow you to another computer.
 - Tags in to-do descriptions tell you where a to-do came from: `[ad-hoc]`, `[meeting]`, `[review]`, `[cleanup]`, `[email]`.
 
-📸 **SS-01-15** · Tasks list filtered to My items
+**SS-01-15** · Tasks list filtered to My items
 **URL:** `/command-center#tasks` · **Role:** Editor
 **Highlight:** source filter; My items; ✓ Done; Save view
 
-📸 **SS-01-16** · Saving a view (the name prompt) and the saved view chip
+**SS-01-16** · Saving a view (the name prompt) and the saved view chip
 **URL:** `/command-center#tasks`
 
-📸 **SS-01-17** · Projects list and one project board
+**SS-01-17** · Projects list and one project board
 **URL:** `/command-center#work` then a project
 
 ---
@@ -216,17 +216,17 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 - **+ New meeting** defaults to a week after the last and can carry open items over.
 - **Copy as text** for email/chat; **Print / PDF**.
 
-📸 **SS-01-18** · Review overview, then one project page
+**SS-01-18** · Review overview, then one project page
 **URL:** `/command-center#review` · **Highlight:** overdue / no owner / blocked sections
 
-📸 **SS-01-19** · Agenda during a meeting: items with Discussed ticks and outcomes
+**SS-01-19** · Agenda during a meeting: items with Discussed ticks and outcomes
 **URL:** `/command-center#agenda` · **State:** an agenda with 5+ items, 2 linked to records
 **Highlight:** live status on a linked item; Discussed; outcome; + To-do
 
-📸 **SS-01-20** · "+ Add from ERPNext" dialog, Suggested tab
+**SS-01-20** · "+ Add from ERPNext" dialog, Suggested tab
 **URL:** `/command-center#agenda`
 
-📸 **SS-01-21** · "+ New meeting" with carry-over option
+**SS-01-21** · "+ New meeting" with carry-over option
 
 ---
 
@@ -240,13 +240,13 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 - Generated and audit records (configured products, receipts, logs) are read-only.
 - Masters with an Active checkbox get one-click Activate / Deactivate.
 
-📸 **SS-01-22** · Workbench Pipeline area
+**SS-01-22** · Workbench Pipeline area
 **URL:** `/command-center#wb/~pipeline`
 
-📸 **SS-01-23** · Workbench ilLumenate area with the filter box in use
+**SS-01-23** · Workbench ilLumenate area with the filter box in use
 **URL:** `/command-center#wb/~ill` · **Highlight:** group cards; filter box; Settings card
 
-📸 **SS-01-24** · A Workbench list with status mix and a saved view
+**SS-01-24** · A Workbench list with status mix and a saved view
 **URL:** `/command-center#wb/...` (Tasks or Quotation)
 
 ---
@@ -254,9 +254,9 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 ## Lesson 1.10: Recommendations and Kevin's Desk
 
 - **Recommendations (`#rec`):** two editable notes, "Command Center – This week" and "Command Center – Recommendations". Leads write what the team must decide and what the data suggests, each with an owner and a reason.
-- **Kevin's Desk** (`/kd/<slug>`, 🔒 owner only; everyone else gets a 404): Kevin's personal cockpit. NOW bar (current time block and "hat"), Decisions, a priority pipeline (late SOs/POs, quotes open over 3 days, SOs to deliver by Sunday, tickets waiting on us), My ToDos, and one ranked list that mixes ERPNext items, ToDos and Gmail threads (metadata only). Mention it so the team knows why Kevin's to-dos carry `[email]` tags; don't train on it.
+- **Kevin's Desk** (`/kd/<slug>`, (Restricted) owner only; everyone else gets a 404): Kevin's personal cockpit. NOW bar (current time block and "hat"), Decisions, a priority pipeline (late SOs/POs, quotes open over 3 days, SOs to deliver by Sunday, tickets waiting on us), My ToDos, and one ranked list that mixes ERPNext items, ToDos and Gmail threads (metadata only). Mention it so the team knows why Kevin's to-dos carry `[email]` tags; don't train on it.
 
-📸 **SS-01-25** · Recommendations tab with both notes filled
+**SS-01-25** · Recommendations tab with both notes filled
 **URL:** `/command-center#rec`
 
 ---

@@ -38,16 +38,16 @@ The chain this module teaches:
   - **Request for Raw Materials** is refused if a line's pinned BOM isn't the item's default; use a Production Plan.
   - A Production Plan always uses the pinned BOM and can't create a second work order for a line that has one. Use plans for materials only.
 
-📸 **SS-05-01** · Submitted SO with its auto-created draft work orders in Connections
+**SS-05-01** · Submitted SO with its auto-created draft work orders in Connections
 **URL:** `/app/sales-order/<name>` · **Role:** Manufacturing Manager
 
-📸 **SS-05-02** · Draft work order: pinned BOM, sales order item, traveler in remarks
+**SS-05-02** · Draft work order: pinned BOM, sales order item, traveler in remarks
 **URL:** `/app/work-order/<draft>`
 
-📸 **SS-05-03** · Error Log entry "Manufacturing Generation Errors for …" (local instance)
+**SS-05-03** · Error Log entry "Manufacturing Generation Errors for …" (local instance)
 **URL:** `/app/error-log`
 
-📸 **SS-05-04** · Actions → Generate Item/BOM/WO menu on a submitted SO
+**SS-05-04** · Actions → Generate Item/BOM/WO menu on a submitted SO
 
 ---
 
@@ -72,14 +72,14 @@ The chain this module teaches:
 - **Clean-up card:** draft work orders, draft delivery notes and open pick lists on closed or delivered orders. Not counted as work.
 - Clicking any document opens the side sheet (Ctrl/⌘-click for the desk). Shows no money; every viewer sees the same.
 
-📸 **SS-05-05** · Flow tab, full page
+**SS-05-05** · Flow tab, full page
 **URL:** `/command-center#mfg` (Flow) · **Role:** Manufacturing User
 **Highlight:** flow strip; Your list; coverage bar
 
-📸 **SS-05-06** · Work order lanes with a flagged work order
+**SS-05-06** · Work order lanes with a flagged work order
 **Highlight:** Ready to pick lane; a short work order with its ETA
 
-📸 **SS-05-07** · Clean-up card expanded
+**SS-05-07** · Clean-up card expanded
 
 ---
 
@@ -96,18 +96,18 @@ The chain this module teaches:
 - Planned start and expected delivery can be edited after submit (desk or side sheet).
 - The Flow refreshes after any save from the Command Center.
 
-📸 **SS-05-08** · Work order traveler print preview
+**SS-05-08** · Work order traveler print preview
 **URL:** `/app/work-order/<name>` → Print → ilL Work Order Traveler
 **Highlight:** cut list; QC checklist; sign-off boxes
 
-📸 **SS-05-09** · Work order "Start" → Material Transfer for Manufacture stock entry
+**SS-05-09** · Work order "Start" → Material Transfer for Manufacture stock entry
 **URL:** `/app/stock-entry/new?...`
 
-📸 **SS-05-10** · Work order QC fields filled in
+**SS-05-10** · Work order QC fields filled in
 
-📸 **SS-05-11** · (pair) Work order "Finish" → Manufacture entry; WO status Completed
+**SS-05-11** · (pair) Work order "Finish" → Manufacture entry; WO status Completed
 
-🔌 **DATA-05-01** · Work orders for our job's SO with status and dates
+**DATA-05-01** · Work orders for our job's SO with status and dates
 **API:** `GET /api/resource/Work Order?filters=[["sales_order","=","<SO>"]]&fields=["name","production_item","qty","status","planned_start_date","actual_end_date"]`
 
 ---
@@ -119,7 +119,7 @@ The chain this module teaches:
 - ERPNext's own "Manufactured" status only means work orders **cover** the quantity, not that it's built.
 - The tab label shows the open count, red when one is past its needed date.
 
-📸 **SS-05-12** · Material requests tab with lanes
+**SS-05-12** · Material requests tab with lanes
 **URL:** `/command-center#mfg` → Material requests
 
 ---
@@ -136,19 +136,19 @@ The chain this module teaches:
 - **Status rules:** floor override first; On Hold or a stopped WO = Held; all WOs complete = Pend-Ship; any WO in process = In-Prod; material short = Waiting for parts; else Pend-Prod.
 - Dollar columns need Command Center Finance, Manufacturing Manager, Accounts Manager or System Manager; everyone else sees points.
 
-📸 **SS-05-13** · Schedule board tab, top half
+**SS-05-13** · Schedule board tab, top half
 **URL:** `/command-center#mfg` → Schedule board · **Role:** Manufacturing Manager
 **Highlight:** pipeline cards; gap to goal; capacity and burn-down
 
-📸 **SS-05-14** · Order queue with filter and sort
+**SS-05-14** · Order queue with filter and sort
 **Highlight:** points, hours, $ per point, floor notes
 
-📸 **SS-05-15** · (pair) Schedule board as Manufacturing User (points only) vs Manager (dollars)
+**SS-05-15** · (pair) Schedule board as Manufacturing User (points only) vs Manager (dollars)
 
-📸 **SS-05-16** · ilL-Production-Settings form
+**SS-05-16** · ilL-Production-Settings form
 **URL:** `/app/ill-production-settings` · **Highlight:** weights; capacity; monthly goals
 
-📸 **SS-05-17** · Correcting build counts from the queue
+**SS-05-17** · Correcting build counts from the queue
 
 ---
 
@@ -162,9 +162,9 @@ The chain this module teaches:
 | Proforma & will call | Open and completed-this-month |
 | Paint | Orders at the paint supplier: PO, sent, due back, items |
 
-📸 **SS-05-18** · Monthly report tab
-📸 **SS-05-19** · Releases & holds tab
-📸 **SS-05-20** · Paint tab
+**SS-05-18** · Monthly report tab
+**SS-05-19** · Releases & holds tab
+**SS-05-20** · Paint tab
 
 ---
 

@@ -7,7 +7,7 @@
 
 Trainees can find what needs ordering, run the full buying cycle (material request → RFQ → supplier quotation → purchase order), track the vendor and the inbound shipment, and receive goods correctly.
 
-> **Status:** the Command Center purchasing buttons (draft MR, RFQ, PO, shipment, receipt, LCV) are built ⚠️ but have **not been run through a full cycle on the live site**. Before rollout, do one full staging cycle with Charlotte: MR → RFQ → SQ → PO → email → shipment → PR → vendor bill + broker bill → LCV. Capture screenshots from that cycle.
+> **Status:** the Command Center purchasing buttons (draft MR, RFQ, PO, shipment, receipt, LCV) are built (Rolling out) but have **not been run through a full cycle on the live site**. Before rollout, do one full staging cycle with Charlotte: MR → RFQ → SQ → PO → email → shipment → PR → vendor bill + broker bill → LCV. Capture screenshots from that cycle.
 
 ## Where to go
 
@@ -62,12 +62,12 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 - Each decision opens its tab and lane.
 - Also on Overview: arriving in the next 14 days (late ones red), open PO value by supplier, open PO value by month of ETA.
 
-📸 **SS-07-01** · Purchasing desk Overview with the flow strip and decisions
+**SS-07-01** · Purchasing desk Overview with the flow strip and decisions
 **URL:** `/command-center#purch` · **Role:** Purchase Manager + CC Finance
 **Highlight:** flow strip dots; three decisions (one red); Arriving next 14 days
 
-📸 **SS-07-02** · (pair) Overview as Purchase User without Finance (no dollars) vs with
-📸 **SS-07-03** · Flow strip at phone width (2-column grid)
+**SS-07-02** · (pair) Overview as Purchase User without Finance (no dollars) vs with
+**SS-07-03** · Flow strip at phone width (2-column grid)
 
 ---
 
@@ -79,11 +79,11 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 - **Data gaps:** items missing a supplier, lead time, reorder level, HTS code or country of origin. Lead time can be set inline; the rest are fixed on the Item.
 - **Lead time comes from** (first found): PO line → PO header → latest live supplier quotation → supplier default → item lead time → item-group default in settings → none (listed as a data gap).
 
-📸 **SS-07-04** · To order tab: shortage table with rows selected and "Draft one MR for selected"
-📸 **SS-07-05** · Below reorder level with Apply
-📸 **SS-07-06** · Data gaps list with inline lead time edit
+**SS-07-04** · To order tab: shortage table with rows selected and "Draft one MR for selected"
+**SS-07-05** · Below reorder level with Apply
+**SS-07-06** · Data gaps list with inline lead time edit
 
-🔌 **DATA-07-01** · Items missing HTS code or supplier (for the "why data gaps matter" slide)
+**DATA-07-01** · Items missing HTS code or supplier (for the "why data gaps matter" slide)
 **API:** `GET /api/resource/Item?filters=[["is_stock_item","=",1],["disabled","=",0],["customs_tariff_number","is","not set"]]&fields=["name","item_group"]&limit_page_length=50`
 
 ---
@@ -98,10 +98,10 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 - **Accept → draft PO** turns a quote into a draft PO.
 - **Compare quotes** shows items with two or more live quotes; cheapest and fastest marked.
 
-📸 **SS-07-07** · Requests tab lanes with Request quotes / Order directly buttons
-📸 **SS-07-08** · Draft RFQ created from the board (desk form)
-📸 **SS-07-09** · Vendor quotes tab with Enter quote and Accept → draft PO
-📸 **SS-07-10** · Compare quotes view
+**SS-07-07** · Requests tab lanes with Request quotes / Order directly buttons
+**SS-07-08** · Draft RFQ created from the board (desk form)
+**SS-07-09** · Vendor quotes tab with Enter quote and Accept → draft PO
+**SS-07-10** · Compare quotes view
 
 ---
 
@@ -125,15 +125,15 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 - Sheet buttons: Email PO, **Create shipment**, **Draft receipt**, **Draft bill**, + Add to agenda.
 - The production board's "Waiting for parts" uses the same ETA, so both boards agree.
 
-📸 **SS-07-11** · Purchase orders lanes
+**SS-07-11** · Purchase orders lanes
 **Highlight:** an amber ETA; lead time source chip
-📸 **SS-07-12** · PO side sheet with tracking fields and buttons
-📸 **SS-07-13** · Desk PO form with the ilL tracking section
+**SS-07-12** · PO side sheet with tracking fields and buttons
+**SS-07-13** · Desk PO form with the ilL tracking section
 **URL:** `/app/purchase-order/<name>`
-📸 **SS-07-14** · Email composer on a PO sending from purchasing@
-📸 **SS-07-15** · PO table view sorted by ETA
+**SS-07-14** · Email composer on a PO sending from purchasing@
+**SS-07-15** · PO table view sorted by ETA
 
-🔌 **DATA-07-02** · Open POs with ETA and vendor status (for a worked example)
+**DATA-07-02** · Open POs with ETA and vendor status (for a worked example)
 **API:** `GET /api/resource/Purchase Order?filters=[["docstatus","=",1],["status","in",["To Receive and Bill","To Receive"]]]&fields=["name","supplier","ill_vendor_status","ill_eta","transaction_date"]&order_by=ill_eta asc&limit_page_length=10`
 
 ---
@@ -145,7 +145,7 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 - Unlinked mail shows as the `mail_unlinked` decision; link it by hand.
 - Setup (admin): Email Account, each buyer's User → User Emails, ilL-Email-Settings → Purchasing Email Account, Buying Settings → fixed outgoing account.
 
-📸 **SS-07-16** · PO timeline showing a linked vendor reply
+**SS-07-16** · PO timeline showing a linked vendor reply
 
 ---
 
@@ -161,10 +161,10 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 - Changing status or ETA moves the linked POs' vendor status and ETA **forward only**.
 - **Shipments tab** lanes: Planned · Moving · At customs · Arriving · Delivered, costs open · Costs final. Cards: mode, tracking, ETA / ATA, POs, goods value, estimated vs actual cost bar, landed %.
 
-📸 **SS-07-17** · Shipments tab lanes
-📸 **SS-07-18** · Inbound shipment desk form, header and routing
+**SS-07-17** · Shipments tab lanes
+**SS-07-18** · Inbound shipment desk form, header and routing
 **URL:** `/app/ill-inbound-shipment/<name>`
-📸 **SS-07-19** · Inbound shipment cost lines (estimate vs actual)
+**SS-07-19** · Inbound shipment cost lines (estimate vs actual)
 **Role:** with Finance (amounts) · note: without Finance they arrive blank
 
 ---
@@ -182,11 +182,11 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 
 - **Receipts tab:** received goods with billed %, shipment and an LCV chip (Landed / Needs LCV / No inbound costs), plus **Draft bill** (Module 08).
 
-📸 **SS-07-20** · Draft receipt created from the board
-📸 **SS-07-21** · ilL Receiving Report print preview
+**SS-07-20** · Draft receipt created from the board
+**SS-07-21** · ilL Receiving Report print preview
 **Highlight:** put-away column; Inspected by
-📸 **SS-07-22** · Receipt with a rejected quantity
-📸 **SS-07-23** · Receipts tab with LCV chips
+**SS-07-22** · Receipt with a rejected quantity
+**SS-07-23** · Receipts tab with LCV chips
 
 ---
 
@@ -200,10 +200,10 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 
 **ilL-Purchasing-Settings:** company, default warehouse, safety days, reorder lookback, default lead times by item group (extrusions 10, tape / neon / sheet 35, power and controls 28), warning windows, landed cost rules per cost type.
 
-📸 **SS-07-24** · Supplier form Purchasing Defaults section
-📸 **SS-07-25** · Suppliers scorecard tab
-📸 **SS-07-26** · Customs tariff number with duty and additional tariff %
-📸 **SS-07-27** · ilL-Purchasing-Settings form
+**SS-07-24** · Supplier form Purchasing Defaults section
+**SS-07-25** · Suppliers scorecard tab
+**SS-07-26** · Customs tariff number with duty and additional tariff %
+**SS-07-27** · ilL-Purchasing-Settings form
 
 ---
 

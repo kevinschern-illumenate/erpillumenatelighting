@@ -7,7 +7,7 @@
 
 Trainees can pick and pack an order, create the delivery note and shipment, buy and print labels, get tracking to the dealer, handle will call, freight and drop ship, record late shipments, and hand off to invoicing.
 
-> **Status:** The EasyPost label and tracking integration is built but has **not run live yet** ⚠️. Until the pilot, the live process is **manual**: buy the label outside ERPNext and type Carrier and Tracking Number on the delivery note (Lesson 6.5). Teach both; mark the EasyPost slides "Rolling out".
+> **Status:** The EasyPost label and tracking integration is built but has **not run live yet** (Rolling out). Until the pilot, the live process is **manual**: buy the label outside ERPNext and type Carrier and Tracking Number on the delivery note (Lesson 6.5). Teach both; mark the EasyPost slides "Rolling out".
 
 ## Where to go
 
@@ -48,13 +48,13 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 - **Delivery timeline** (red past due, orange at risk, green ready) and **"Can it go out?"** (Ready / At risk with reasons; flags "may have shipped without a Delivery Note").
 - Click any document for the side sheet. On a submitted delivery note you can edit carrier, tracking number, "late, not warehouse fault" and why late. Creating and submitting happen in the desk.
 
-📸 **SS-06-01** · Shipping stage, full page
+**SS-06-01** · Shipping stage, full page
 **URL:** `/command-center#ship` · **Role:** Stock User + CC Viewer
 **Highlight:** tiles; a ready-to-ship block with a Short badge; Draft delivery notes table
 
-📸 **SS-06-02** · "Can it go out?" table with an At risk row and its reason
+**SS-06-02** · "Can it go out?" table with an At risk row and its reason
 
-📸 **SS-06-03** · Side sheet on a submitted delivery note, editing tracking fields
+**SS-06-03** · Side sheet on a submitted delivery note, editing tracking fields
 **Role:** Editor
 
 ---
@@ -65,10 +65,10 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 - Product bundles (kits) are expanded to parts. Non-stock lines without parts and drop-ship lines are skipped.
 - Optional **Packing Slip** (print **ilL Packing List**: case number, carrier, tracking, net/gross weight).
 
-📸 **SS-06-04** · SO → Create → Pick List menu
-📸 **SS-06-05** · ilL Pick List print preview
+**SS-06-04** · SO → Create → Pick List menu
+**SS-06-05** · ilL Pick List print preview
 **Highlight:** picked column; signatures
-📸 **SS-06-06** · ilL Packing List print preview
+**SS-06-06** · ilL Packing List print preview
 
 ---
 
@@ -80,17 +80,17 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 - Lines carry designation, room, notes and configured links from the SO.
 - Print **ilL Delivery Note** is the packing slip that goes in the box (ship date, dealer PO, orders, carrier, every tracking number, kit contents, packed box, received-by signature, damage / shortage line; no prices). Dealers see it as "Packing Slip".
 
-📸 **SS-06-07** · Delivery note form (draft) with Carrier, Tracking Number and On-Time Review
+**SS-06-07** · Delivery note form (draft) with Carrier, Tracking Number and On-Time Review
 **URL:** `/app/delivery-note/<draft>` · **Highlight:** Create Shipment button; Carrier; Tracking Number
 
-📸 **SS-06-08** · ilL Delivery Note print preview (the in-box packing slip)
+**SS-06-08** · ilL Delivery Note print preview (the in-box packing slip)
 
-🔌 **DATA-06-01** · Delivery notes for our job (DATA-02-01) with carrier and tracking
+**DATA-06-01** · Delivery notes for our job (DATA-02-01) with carrier and tracking
 **API:** `GET /api/resource/Delivery Note?filters=[["docstatus","=",1],["ill_tracking_number","is","set"]]&fields=["name","customer","ill_carrier","ill_tracking_number","posting_date"]&order_by=posting_date desc&limit_page_length=5`
 
 ---
 
-### Lesson 6.4: Shipments and EasyPost labels ⚠️
+### Lesson 6.4: Shipments and EasyPost labels (Rolling out)
 
 **Objective:** buy, print and void labels from ERPNext.
 
@@ -119,20 +119,20 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 
 **Not supported:** insurance; LTL / freight labels (use Lesson 6.5); customer-billed or collect freight; return labels (return delivery notes have no Create Shipment button).
 
-📸 **SS-06-09** · Create Shipment button on a saved delivery note
-📸 **SS-06-10** · New Shipment, pre-filled, with the blue units intro
+**SS-06-09** · Create Shipment button on a saved delivery note
+**SS-06-10** · New Shipment, pre-filled, with the blue units intro
 **URL:** `/app/shipment/new` · **Highlight:** pickup / delivery addresses; value of goods; parcel row
-📸 **SS-06-11** · Add Template dialog with standard boxes
-📸 **SS-06-12** · (pair) Parcel row with Count 3 → three rows after save
-📸 **SS-06-13** · "Surcharges likely" alert on submit
-📸 **SS-06-14** · Submitted Shipment with Create Labels button
-📸 **SS-06-15** · Buy Labels confirm dialog (EasyPost test key)
+**SS-06-11** · Add Template dialog with standard boxes
+**SS-06-12** · (pair) Parcel row with Count 3 → three rows after save
+**SS-06-13** · "Surcharges likely" alert on submit
+**SS-06-14** · Submitted Shipment with Create Labels button
+**SS-06-15** · Buy Labels confirm dialog (EasyPost test key)
 **Highlight:** rate; transit days; address verified; Buy Labels button
-📸 **SS-06-16** · Shipment after buying: Booked, Bought, per-box tracking, attached PDF
-📸 **SS-06-17** · Merged label PDF
-📸 **SS-06-18** · Void Label confirm and the resulting timeline comment
-📸 **SS-06-19** · Label error banner (e.g. invalid address)
-📸 **SS-06-20** · Cancel blocked: "Void the label before cancelling this Shipment."
+**SS-06-16** · Shipment after buying: Booked, Bought, per-box tracking, attached PDF
+**SS-06-17** · Merged label PDF
+**SS-06-18** · Void Label confirm and the resulting timeline comment
+**SS-06-19** · Label error banner (e.g. invalid address)
+**SS-06-20** · Cancel blocked: "Void the label before cancelling this Shipment."
 
 ---
 
@@ -155,13 +155,13 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 **Drop ship**
 - SO lines delivered by the supplier are skipped on the pick list. The PO email tells the vendor "This is a drop shipment to our customer X".
 
-📸 **SS-06-21** · Delivery note with Carrier = Freight and a PRO number typed in
-📸 **SS-06-22** · SO with Will Call set and stage "Will Call - Ready"
-📸 **SS-06-23** · Ready for pickup email template preview
+**SS-06-21** · Delivery note with Carrier = Freight and a PRO number typed in
+**SS-06-22** · SO with Will Call set and stage "Will Call - Ready"
+**SS-06-23** · Ready for pickup email template preview
 
 ---
 
-### Lesson 6.6: Tracking updates and who gets told ⚠️
+### Lesson 6.6: Tracking updates and who gets told (Rolling out)
 
 - **Where tracking lives:** the Shipment (master number and per-box numbers and statuses). The delivery note mirrors the main number.
 - **Automatic updates:** EasyPost sends tracking events through n8n to ERPNext.
@@ -179,16 +179,16 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 
 | Email | When | Who | Status |
 |---|---|---|---|
-| "Your order has shipped" / "Part of your order…" | Delivery note submit | Dealer portal buyers (they can turn it off) | ✅ always on |
+| "Your order has shipped" / "Part of your order…" | Delivery note submit | Dealer portal buyers (they can turn it off) | Live, always on |
 | "ilL - Delivery Note - Shipped" with packing slip PDF | Delivery note submit | DN contact email | Off until ilL-Email-Settings switch |
 | "Delivered: SO" | Shipment Delivered | Dealer portal buyers | Off until ilL-Shipping-Settings switch |
-| "Shipping exception" | Box exception or return | Shipping lead | ⚠️ |
+| "Shipping exception" | Box exception or return | Shipping lead | (Rolling out) |
 | "Delivery check-in" | 5 days after DN date | Customer | Notification, check if enabled |
 
-📸 **SS-06-24** · Shipment with mixed box statuses (one Delivered, one In Transit)
-📸 **SS-06-25** · Dealer "Your order has shipped" email (from the email queue)
+**SS-06-24** · Shipment with mixed box statuses (one Delivered, one In Transit)
+**SS-06-25** · Dealer "Your order has shipped" email (from the email queue)
 **URL:** `/app/email-queue/<name>`
-📸 **SS-06-26** · Dealer notification settings with the Shipping notifications toggle
+**SS-06-26** · Dealer notification settings with the Shipping notifications toggle
 **URL:** `/portal/account/notifications` · **Role:** Dealer
 
 ---
@@ -200,9 +200,9 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 - **Order stage:** Pend-Ship → Partially Shipped (n%) → Shipped / In Transit → Completed (billed).
 - Helpdesk tickets link to the SO, not the delivery note or Shipment.
 
-📸 **SS-06-27** · Dealer order page Shipments panel with tracking links
+**SS-06-27** · Dealer order page Shipments panel with tracking links
 **URL:** `/portal/orders/<SO>` · **Role:** Dealer
-📸 **SS-06-28** · Same panel at phone width (390×844)
+**SS-06-28** · Same panel at phone width (390×844)
 
 ---
 
@@ -212,9 +212,9 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 - Manufacturing → Schedule board: "On-time this month" tile (flagged below 95%), **Shipped this month** table with On time / Late, not warehouse / Late and **Why late**, on-time by week.
 - **After every late shipment:** fill Why Was This Late; tick Not Warehouse Fault only when it wasn't (customer hold, vendor, carrier).
 
-📸 **SS-06-29** · Shipped this month table with Late badges and reasons
+**SS-06-29** · Shipped this month table with Late badges and reasons
 **URL:** `/command-center#mfg` → Schedule board
-📸 **SS-06-30** · Delivery note On-Time Review section filled in
+**SS-06-30** · Delivery note On-Time Review section filled in
 
 ---
 
@@ -225,9 +225,9 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 - Buying, voiding and printing labels need **Submit** permission on Shipment (Stock User / Manager by default).
 - The EasyPost key lives only in n8n (Module 13).
 
-📸 **SS-06-31** · ilL-Shipping-Settings form
+**SS-06-31** · ilL-Shipping-Settings form
 **URL:** `/app/ill-shipping-settings` · **Role:** System Manager
-📸 **SS-06-32** · Shipment Parcel Template list
+**SS-06-32** · Shipment Parcel Template list
 
 ---
 
