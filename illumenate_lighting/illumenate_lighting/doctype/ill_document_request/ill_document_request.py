@@ -164,14 +164,14 @@ class ilLDocumentRequest(Document):
 		self._notify_submission()
 
 	def _calculate_sla_deadline(self):
-		"""Calculate SLA deadline based on request type and priority. Weekends don't count."""
+		"""Calculate SLA deadline based on request type and priority. Weekends and holidays don't count."""
 		if not self.request_type:
 			return
 
 		request_type = frappe.get_doc("ilL-Request-Type", self.request_type)
 		sla_hours = request_type.get_sla_hours(self.priority or "Normal")
 
-		self.sla_deadline = add_weekday_hours(now_datetime(), sla_hours)
+		self.sla_deadline = add_weekday_hours(now_datetime(), sla_hours, _company_holidays())
 		self.db_set("sla_deadline", self.sla_deadline)
 
 	def _auto_assign(self):
@@ -442,3 +442,18 @@ def has_permission(doc, ptype="read", user=None):
 
 	# Check if user is assigned
 	return False
+
+
+def _company_holidays():
+	"""Dates on the default company's holiday list (none when no list is set)."""
+	company = frappe.db.get_single_value("Global Defaults", "default_company")
+	holiday_list = company and frappe.get_cached_value("Company", company, "default_holiday_list")
+	if not holiday_list:
+		return set()
+	return set(
+		frappe.get_all(
+			"Holiday",
+			filters={"parent": holiday_list, "parenttype": "Holiday List"},
+			pluck="holiday_date",
+		)
+	)

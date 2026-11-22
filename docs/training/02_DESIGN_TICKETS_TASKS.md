@@ -125,7 +125,7 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 
 - Record: `ilL-Document-Request` (`ILL-REQ-YYYY-#####`). Priority Normal / High / Rush.
 - **Status:** Draft → Submitted → In Progress ↔ Waiting on Customer → Completed (also Closed, Cancelled).
-- **On submit:** SLA deadline set from the request type (default 72 / 48 / 24 weekday hours by priority; Saturdays and Sundays don't count), auto-assigned (default user, or least-loaded person in the default role), optional Task created, assignee emailed "New Document Request".
+- **On submit:** SLA deadline set from the request type (default 72 / 48 / 24 working hours by priority; weekends and company holidays don't count), auto-assigned (default user, or least-loaded person in the default role), optional Task created, assignee emailed "New Document Request".
 - **Working it:** in the desk, use the **Portal conversation** panel: Reply, **Request info** (→ Waiting on Customer), **Resolve** (→ Completed), Reopen. Tick **Staff only** for internal notes.
   - Attachments: PDF, JPEG or PNG, up to 20 MiB, 10 per reply.
 - **Publishing a deliverable:** private file, unique revision. Published files can't be changed; publish a new revision. The requester gets "New File Available".
