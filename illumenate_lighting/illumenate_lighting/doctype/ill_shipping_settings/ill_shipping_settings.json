@@ -1,0 +1,268 @@
+{
+ "actions": [],
+ "creation": "2026-11-22 12:00:00.000000",
+ "modified": "2026-11-22 12:00:00.000000",
+ "modified_by": "Administrator",
+ "owner": "Administrator",
+ "description": "Outbound shipping: EasyPost labels through n8n, Shipment defaults and surcharge thresholds (docs/SHIPPING_EASYPOST_INTEGRATION.md).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "track_changes": 1,
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Shipping-Settings",
+ "field_order": [
+  "section_labels",
+  "enabled",
+  "label_webhook_url",
+  "webhook_secret",
+  "column_break_labels",
+  "carrier_account_id",
+  "carrier",
+  "service",
+  "residential_service",
+  "section_defaults",
+  "pickup_address",
+  "pickup_from",
+  "pickup_to",
+  "column_break_defaults",
+  "description_of_content",
+  "default_parcel_template",
+  "section_notifications",
+  "exception_email",
+  "column_break_notifications",
+  "send_delivered_email",
+  "section_thresholds",
+  "ah_length_in",
+  "ah_second_side_in",
+  "ah_weight_lb",
+  "ah_girth_in",
+  "column_break_thresholds_1",
+  "oversize_length_in",
+  "oversize_girth_in",
+  "column_break_thresholds_2",
+  "max_length_in",
+  "max_weight_lb",
+  "max_girth_in"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_labels",
+   "fieldtype": "Section Break",
+   "label": "EasyPost Labels"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "0",
+   "description": "Create Labels and Void Label refuse while this is off. Create Shipment and tracking updates work either way."
+  },
+  {
+   "fieldname": "label_webhook_url",
+   "fieldtype": "Data",
+   "label": "Label Webhook URL",
+   "options": "URL",
+   "description": "n8n webhook for rate, buy and void (n8n_workflows/shipping_easypost_labels.json)."
+  },
+  {
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Shared Secret (HMAC)",
+   "description": "Signs requests both ways (X-ilL-Signature = HMAC-SHA256 hex over the raw body). Store the same value in the n8n variable SHIPPING_WEBHOOK_SECRET. shipping_webhook_secret in site_config.json takes precedence."
+  },
+  {
+   "fieldname": "column_break_labels",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "carrier_account_id",
+   "fieldtype": "Data",
+   "label": "EasyPost Carrier Account ID",
+   "description": "Our FedEx account as connected in EasyPost (ca_...), so labels use our negotiated rates."
+  },
+  {
+   "fieldname": "carrier",
+   "fieldtype": "Data",
+   "label": "Carrier",
+   "default": "FedEx"
+  },
+  {
+   "fieldname": "service",
+   "fieldtype": "Data",
+   "label": "Service",
+   "default": "FEDEX_GROUND",
+   "description": "EasyPost service name for business addresses."
+  },
+  {
+   "fieldname": "residential_service",
+   "fieldtype": "Data",
+   "label": "Residential Service",
+   "default": "GROUND_HOME_DELIVERY",
+   "description": "EasyPost service name when the verified address is residential."
+  },
+  {
+   "fieldname": "section_defaults",
+   "fieldtype": "Section Break",
+   "label": "Shipment Defaults"
+  },
+  {
+   "fieldname": "pickup_address",
+   "fieldtype": "Link",
+   "label": "Pickup Address",
+   "options": "Address",
+   "description": "Warehouse address used as the pickup address on new Shipments. Falls back to the Delivery Note's company address."
+  },
+  {
+   "fieldname": "pickup_from",
+   "fieldtype": "Time",
+   "label": "Pickup From",
+   "default": "09:00:00"
+  },
+  {
+   "fieldname": "pickup_to",
+   "fieldtype": "Time",
+   "label": "Pickup To",
+   "default": "17:00:00"
+  },
+  {
+   "fieldname": "column_break_defaults",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "description_of_content",
+   "fieldtype": "Small Text",
+   "label": "Description of Content",
+   "default": "LED lighting fixtures and components"
+  },
+  {
+   "fieldname": "default_parcel_template",
+   "fieldtype": "Link",
+   "label": "Default Parcel Template",
+   "options": "Shipment Parcel Template",
+   "description": "Box size for the suggested parcel when a Shipment is created from a Delivery Note."
+  },
+  {
+   "fieldname": "section_notifications",
+   "fieldtype": "Section Break",
+   "label": "Notifications"
+  },
+  {
+   "fieldname": "exception_email",
+   "fieldtype": "Data",
+   "label": "Exception Alert Email",
+   "options": "Email",
+   "description": "Shipping lead. Gets tracking exceptions and returns."
+  },
+  {
+   "fieldname": "column_break_notifications",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "send_delivered_email",
+   "fieldtype": "Check",
+   "label": "Send Delivered Email",
+   "default": "0",
+   "description": "Email the dealer's order contacts when every box on a Shipment is delivered."
+  },
+  {
+   "fieldname": "section_thresholds",
+   "fieldtype": "Section Break",
+   "label": "Surcharge Thresholds (inches, pounds)",
+   "description": "FedEx published values. Check them against our FedEx agreement. Length + girth = longest side + 2 x (the other two sides)."
+  },
+  {
+   "fieldname": "ah_length_in",
+   "fieldtype": "Float",
+   "label": "Additional Handling: Longest Side",
+   "default": "48",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "ah_second_side_in",
+   "fieldtype": "Float",
+   "label": "Additional Handling: Second Longest Side",
+   "default": "30",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "ah_weight_lb",
+   "fieldtype": "Float",
+   "label": "Additional Handling: Weight",
+   "default": "50",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "ah_girth_in",
+   "fieldtype": "Float",
+   "label": "Additional Handling: Length + Girth",
+   "default": "105",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_thresholds_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "oversize_length_in",
+   "fieldtype": "Float",
+   "label": "Oversize: Longest Side",
+   "default": "96",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "oversize_girth_in",
+   "fieldtype": "Float",
+   "label": "Oversize: Length + Girth",
+   "default": "130",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "column_break_thresholds_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "max_length_in",
+   "fieldtype": "Float",
+   "label": "Maximum: Longest Side",
+   "default": "108",
+   "non_negative": 1,
+   "description": "Parcels over a maximum are refused."
+  },
+  {
+   "fieldname": "max_weight_lb",
+   "fieldtype": "Float",
+   "label": "Maximum: Weight",
+   "default": "150",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "max_girth_in",
+   "fieldtype": "Float",
+   "label": "Maximum: Length + Girth",
+   "default": "165",
+   "non_negative": 1
+  }
+ ],
+ "links": [],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "write": 1,
+   "role": "Stock Manager"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -170,6 +170,23 @@ class Blocks(unittest.TestCase):
 		self.assertIn("PRO-1", freight)
 		self.assertNotIn("href", freight)
 
+	def test_tracking_lists_every_box(self):
+		html = blocks.tracking(
+			{
+				"carrier": "FedEx",
+				"number": "M1",
+				"url": "https://t/M1",
+				"packages": [
+					{"carrier": "FedEx", "number": "M1", "url": "https://t/M1"},
+					{"carrier": "FedEx", "number": "B<2>", "url": ""},
+				],
+			}
+		)
+		self.assertIn("Tracking numbers:", html)
+		self.assertIn('href="https://t/M1"', html)
+		self.assertIn("B&lt;2&gt;", html)
+		self.assertIn("Tracking number:", blocks.tracking({"carrier": "UPS", "packages": [{"number": "1"}]}))
+
 	def test_signature_uses_point_of_contact(self):
 		html = blocks.signature({"name": "Sam", "email": "sam@x.example", "phone": "555", "title": "Sales"})
 		for part in ("Sam", "Sales", "mailto:sam@x.example", "555", "ilLumenate Lighting"):

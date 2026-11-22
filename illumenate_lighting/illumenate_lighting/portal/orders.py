@@ -15,7 +15,10 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from illumenate_lighting.illumenate_lighting.portal.access import get_actor
-from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import tracking
+from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import (
+	packages_by_delivery_note,
+	tracking,
+)
 from illumenate_lighting.illumenate_lighting.portal.status import (
 	derive_order_portal_status,
 	order_status_class,
@@ -110,9 +113,10 @@ def _shipments_for(order_name):
 		pluck="parent",
 	)
 	shipments = []
+	packages = packages_by_delivery_note(parents)
 	for name in parents:
 		dn = frappe.get_doc("Delivery Note", name)
-		shipment_tracking = tracking(dn)
+		shipment_tracking = tracking(dn, packages.get(name, []))
 		shipments.append(
 			{
 				"name": dn.name,
@@ -123,6 +127,8 @@ def _shipments_for(order_name):
 				"carrier": shipment_tracking["carrier"],
 				"tracking_number": shipment_tracking["number"],
 				"tracking_url": shipment_tracking["url"],
+				# Every box: [{"carrier", "number", "url"}], master number first.
+				"packages": shipment_tracking["packages"],
 				# Legacy keys kept for existing templates.
 				"transporter": shipment_tracking["carrier"],
 				"tracking_no": shipment_tracking["number"],

@@ -61,6 +61,8 @@ web_include_js = ["illumenate_web.bundle.js"]
 doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js", "public/js/line_power.js", "public/js/order_stage.js"],
     "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": ["public/js/quotation.js", "public/js/line_power.js", "public/js/order_stage.js"], "Purchase Order": "public/js/supplier_parts.js", "Request for Quotation": "public/js/supplier_parts.js",
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js", "ilL-Webflow-Gallery": "public/js/gallery_publication.js"}
+# Create Shipment on Delivery Note; Create Labels / Void Label on Shipment (api/shipping.py).
+doctype_js.update({"Delivery Note": "public/js/delivery_note_shipping.js", "Shipment": "public/js/shipment.js"})
 doctype_list_js = {"Item": "public/js/item_list.js"}
 # Stage column colours on the Sales Order and Quotation lists (api/order_stage.py).
 doctype_list_js.update({_name: "public/js/order_stage_list.js" for _name in ("Sales Order", "Quotation")})
@@ -241,6 +243,7 @@ jinja = {
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_phone",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_pricing",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_project",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_tracking",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_qty",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_qty_parts",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_references",
@@ -532,6 +535,13 @@ doc_events = {
 		],
 		# Partially Shipped / Shipped / In Transit on the Sales Order's Stage.
 		"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh",
+	},
+	# Outbound shipping: one row per box, surcharge flags, no submit without usable parcels,
+	# no cancel while EasyPost labels are bought (api/shipping.py).
+	"Shipment": {
+		"validate": "illumenate_lighting.illumenate_lighting.api.shipping.shipment_validate",
+		"before_submit": "illumenate_lighting.illumenate_lighting.api.shipping.shipment_before_submit",
+		"before_cancel": "illumenate_lighting.illumenate_lighting.api.shipping.shipment_before_cancel",
 	},
 	"Sales Invoice": {
 		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",

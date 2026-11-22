@@ -899,6 +899,45 @@ def ill_print_address(display=None, name=None) -> list:
 	return []
 
 
+def ill_print_tracking(delivery_note) -> dict:
+	"""{"carrier", "numbers"} for the Delivery Note and Packing List prints.
+
+	Every tracking number on the note's submitted, non-voided Shipments (shipping plan
+	phase 3), else the manual carrier and tracking fields as before.
+	"""
+	info = {"carrier": "", "numbers": ""}
+	try:
+		if isinstance(delivery_note, str):
+			name = delivery_note
+			dn = (
+				frappe.db.get_value(
+					"Delivery Note",
+					name,
+					["ill_carrier", "transporter_name", "ill_tracking_number", "vehicle_no"],
+					as_dict=True,
+				)
+				or {}
+			)
+		else:
+			dn = delivery_note or {}
+			name = dn.get("name")
+		info["carrier"] = dn.get("ill_carrier") or dn.get("transporter_name") or ""
+		info["numbers"] = dn.get("ill_tracking_number") or dn.get("vehicle_no") or ""
+	except Exception:
+		frappe.log_error(title="ilL print: tracking lookup failed")
+		return info
+	try:
+		from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import packages_by_delivery_note
+
+		packages = packages_by_delivery_note([name]).get(name) if name else None
+		if packages:
+			info["carrier"] = packages[0].get("carrier") or info["carrier"]
+			info["numbers"] = ", ".join(p["number"] for p in packages if p.get("number"))
+	except Exception:
+		frappe.log_error(title="ilL print: shipment tracking lookup failed")
+	return info
+
+
 def ill_print_project(doc) -> dict:
 	"""Project and fixture schedule names for the header.
 
