@@ -333,11 +333,11 @@ class Helpers(unittest.TestCase):
 
 SAMPLES = {
 	"ill_quotation": lambda: sales_doc(),
-	"ill_quotation_msrp": lambda: sales_doc(),
+	"ill_quotation___msrp": lambda: sales_doc(),
 	"ill_sales_order": lambda: sales_doc(
 		doctype="Sales Order", status="On Hold", po_no="PO-77", advance_paid=100.0
 	),
-	"ill_sales_order_msrp": lambda: sales_doc(doctype="Sales Order", status="To Deliver and Bill"),
+	"ill_sales_order___msrp": lambda: sales_doc(doctype="Sales Order", status="To Deliver and Bill"),
 	"ill_sales_invoice": lambda: sales_doc(doctype="Sales Invoice", outstanding_amount=0, status="Paid"),
 	"ill_delivery_note": lambda: sales_doc(
 		doctype="Delivery Note",
@@ -460,7 +460,9 @@ class Formats(unittest.TestCase):
 			record = json.loads((FORMATS / folder / f"{folder}.json").read_text(encoding="utf-8"))
 			self.assertEqual(record["module"], "ilLumenate Lighting", folder)
 			self.assertEqual(record["custom_format"], 1, folder)
-			self.assertEqual(record["name"].lower().replace(" - ", "_").replace(" ", "_"), folder, folder)
+			# Frappe reads a custom format's HTML from print_format/<scrub(name)>/: lowercase, spaces and
+			# hyphens to underscores. Any other folder prints "No template found" (417).
+			self.assertEqual(record["name"].replace(" ", "_").replace("-", "_").lower(), folder, folder)
 
 	def test_every_format_renders_completely_in_the_sandbox(self):
 		for folder, sample in SAMPLES.items():
@@ -486,7 +488,7 @@ class Formats(unittest.TestCase):
 		dealer = render("ill_quotation", sales_doc())
 		self.assertIn(">Disc<", dealer)
 		self.assertIn("$0.51", dealer)
-		retail = render("ill_quotation_msrp", sales_doc())
+		retail = render("ill_quotation___msrp", sales_doc())
 		self.assertNotIn(">Disc<", retail)
 		self.assertNotIn("$0.51", retail)
 		self.assertNotIn("FedEx", retail)
@@ -537,9 +539,9 @@ class LineLayout(unittest.TestCase):
 		doc = sales_doc(items=[line(additional_notes="Power supply for L1")])
 		for folder in (
 			"ill_quotation",
-			"ill_quotation_msrp",
+			"ill_quotation___msrp",
 			"ill_sales_order",
-			"ill_sales_order_msrp",
+			"ill_sales_order___msrp",
 			"ill_sales_invoice",
 		):
 			with self.subTest(folder=folder):
@@ -581,7 +583,7 @@ class LineLayout(unittest.TestCase):
 				line(name="row3", idx=3, ill_lp_summary="24VDC · 1 W/ft", ill_lp_watts=10.0),
 			]
 		)
-		for folder in ("ill_quotation", "ill_quotation_msrp", "ill_sales_order", "ill_sales_order_msrp"):
+		for folder in ("ill_quotation", "ill_quotation___msrp", "ill_sales_order", "ill_sales_order___msrp"):
 			with self.subTest(folder=folder):
 				html = render(folder, doc)
 				self.assertNotIn("{{", html)
@@ -612,9 +614,9 @@ class LineLayout(unittest.TestCase):
 		doc = sales_doc(sales_partner="Rep Co", referral_sales_partner="Rep Co")
 		for folder in (
 			"ill_quotation",
-			"ill_quotation_msrp",
+			"ill_quotation___msrp",
 			"ill_sales_order",
-			"ill_sales_order_msrp",
+			"ill_sales_order___msrp",
 			"ill_sales_invoice",
 		):
 			with self.subTest(folder=folder):
@@ -842,9 +844,9 @@ class LineLayout(unittest.TestCase):
 		# The item tables with ERPNext's per-line "Page Break" check.
 		for folder in (
 			"ill_quotation",
-			"ill_quotation_msrp",
+			"ill_quotation___msrp",
 			"ill_sales_order",
-			"ill_sales_order_msrp",
+			"ill_sales_order___msrp",
 			"ill_sales_invoice",
 			"ill_delivery_note",
 			"ill_packing_list",
