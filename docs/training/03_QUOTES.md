@@ -165,10 +165,10 @@ Trainees can create a quote every way the business does it, choose the right too
 | Tool | URL |
 |---|---|
 | Configurator (category chooser; `?category=`, `?pn=`, `?preset=`, `mode=wizard`) | `/portal/configure` |
-| Tape | `/portal/configure-tape` |
-| Neon (multi-segment) | `/portal/configure-neon` |
+| Tape | `/portal/configure?category=LED Tape` (the old `/portal/configure-tape` link redirects there) |
+| Neon (multi-segment) | `/portal/configure?category=LED Neon` (the old `/portal/configure-neon` link redirects there) |
 | LED sheet | `/portal/configure-sheet` |
-| Product Finder | `/portal/product-finder` |
+| Product Finder | `/portal/product-finder` (on staging this opened the Product Catalog at `/portal/products`; check the finder is switched on for the brand) |
 
 - Each shows an estimate: "Estimate — confirmed on your quote". Presets save common builds.
 - **Product Finder "Verify with our team" lines** must be verified by staff before a quote is issued and an order placed (the default gate in Product Finder Settings; alternatives "Before order only" and "Warning only"). Queue: Portal Operations → Product verification (due in 2 business days).

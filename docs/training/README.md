@@ -6,6 +6,10 @@ This folder holds the training **outlines** for every area of the Command Center
 
 Every fact here was taken from the code and docs in this repo as of 2026-11-22 (branch `claude/brave-newton-yw7nr8`). Where a feature is built but has not run live yet, the outline says so. Teach it as "coming", or capture it on staging only.
 
+## Capture status
+
+[CAPTURE_REPORT.md](CAPTURE_REPORT.md) lists every screenshot prompt with its status on staging (captured, or what it still needs). Screenshots are named by prompt ID.
+
 ## Modules
 
 | # | Module | Primary audience |
