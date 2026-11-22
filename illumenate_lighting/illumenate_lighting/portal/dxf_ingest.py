@@ -29,6 +29,8 @@ UNIT_INCHES = {1: 1.0, 2: 12.0, 4: 1 / 25.4, 5: 10 / 25.4, 6: 1000 / 25.4}
 UNIT_NAMES = {1: "in", 2: "ft", 4: "mm", 5: "cm", 6: "m"}
 TAPE_PREFIX = "ILM-TAPE-"
 LINEAR_PREFIX = "ILM-LINEAR-"
+STYLE_PREFIX = "ILM-STYLE-"
+SHEET_ID = "S1"
 ROOM_PREFIX = "ILM-ROOM-"
 CABINET_LAYER = "ILM-CAB"
 RUN_TYPES = ("LWPOLYLINE", "POLYLINE", "LINE", "ARC")
@@ -238,9 +240,9 @@ def read_drawing(text):
 					"point": [_float(codes.get(10, 0)), _float(codes.get(20, 0))],
 				}
 			)
-		elif (layer.startswith(TAPE_PREFIX) or layer.startswith(LINEAR_PREFIX)) and entity[
-			"type"
-		] in RUN_TYPES:
+		elif (
+			layer.startswith(TAPE_PREFIX) or layer.startswith(LINEAR_PREFIX) or layer.startswith(STYLE_PREFIX)
+		) and entity["type"] in RUN_TYPES:
 			vertices, closed = entity_vertices(entity)
 			if len(vertices) < 2:
 				continue
@@ -248,10 +250,13 @@ def read_drawing(text):
 			if length <= 0:
 				continue
 			linear = layer.startswith(LINEAR_PREFIX)
+			styled = layer.startswith(STYLE_PREFIX)
+			prefix = STYLE_PREFIX if styled else LINEAR_PREFIX if linear else TAPE_PREFIX
 			runs.append(
 				{
 					"layer": entity["layer"],
-					"template": entity["layer"][len(LINEAR_PREFIX if linear else TAPE_PREFIX) :],
+					"template": "" if styled else entity["layer"][len(prefix) :],
+					"style_code": entity["layer"][len(prefix) :].upper() if styled else None,
 					"linear": linear,
 					"handle": handle[-16:],
 					"length_in": round(length * scale, 4),
@@ -285,6 +290,8 @@ def package_from_drawing(drawing, styles, types, filename, digest, snapshot_hash
 		entry = {
 			"id": _id(f"{fixture_type}-{counters[fixture_type]:02d}"),
 			"handle": run["handle"],
+			"sheet": SHEET_ID,
+			"identity": "dxf_handle",
 			"fixture_type": fixture_type,
 			"style": styles[run["layer"]],
 			"segments": [segment],
@@ -297,15 +304,24 @@ def package_from_drawing(drawing, styles, types, filename, digest, snapshot_hash
 	return {
 		"schema": "ilq/2",
 		"toolkit": {"version": "dxf-1", "platform": "DXF upload"},
+		"source": {"tool": "dxf", "version": "dxf-1", "platform": "DXF upload", "input": "dxf"},
 		"catalog": {"snapshot_hash": snapshot_hash, "generated_at": ""},
 		"target": {},
+		# A DXF declares its units; nothing says an underlay was calibrated (WP 1.3).
 		"drawing": {
 			"file": filename[:260],
 			"rev": 0,
 			"hash": f"sha256:{digest}",
 			"units": "in",
-			"scale_verified": True,
+			"scale_verified": False,
 		},
+		"sheets": [
+			{
+				"id": SHEET_ID,
+				"label": "Model",
+				"scale": {"status": "declared", "unit": drawing.get("units") or "in"},
+			}
+		],
 		"rooms": [{"id": room["id"], "name": room["name"]} for room in drawing["rooms"]],
 		"cabinets": [
 			{
@@ -345,10 +361,18 @@ def layer_style(run, preset_name):
 		if request.get("segments"):
 			style["segments"] = request["segments"]
 		return style
+	if run.get("style_code"):
+		found = presets.find_by_cad_code(run["style_code"])
+		if not found:
+			raise DxfError(
+				_("Layer {0}: no drawing style with code {1} is available to you").format(
+					run["layer"], run["style_code"]
+				)
+			)
+		return layer_style({**run, "style_code": None}, found)
 	if run["linear"]:
-		raise DxfError(
-			_("Choose a preset for layer {0}: linear fixtures need their options").format(run["layer"])
-		)
+		# Previewed as needing a choice, so the dialog can offer a preset for the layer.
+		return {"family": "Linear Fixture", "template": run["template"], "selections": {}}
 	category = frappe.db.get_value(
 		"ilL-Tape-Neon-Template", {"template_code": run["template"]}, "product_category"
 	) or frappe.db.get_value("ilL-Tape-Neon-Template", run["template"], "product_category")
@@ -357,7 +381,7 @@ def layer_style(run, preset_name):
 	return {"family": category, "template": run["template"], "selections": {}}
 
 
-def package_from_dxf(data, filename, options=None):
+def package_from_dxf(data, filename, options=None, report=None):
 	"""Read DXF ``data`` (bytes) and return the ``ilq/2`` package for the drawing import."""
 	from illumenate_lighting.illumenate_lighting.system_design import catalog
 
@@ -376,7 +400,7 @@ def package_from_dxf(data, filename, options=None):
 	for run in drawing["runs"]:
 		if run["layer"] not in styles:
 			styles[run["layer"]] = layer_style(run, presets.get(run["layer"]))
-	return package_from_drawing(
+	package = package_from_drawing(
 		drawing,
 		styles,
 		options.get("types") or {},
@@ -384,3 +408,32 @@ def package_from_dxf(data, filename, options=None):
 		hashlib.sha256(data).hexdigest(),
 		catalog.current_snapshot_hash(),
 	)
+	if isinstance(report, dict):
+		report["layers"] = layer_report(drawing, styles, package)
+	return package
+
+
+def layer_report(drawing, styles, package):
+	"""Per layer: run count, the style it resolved to and its schedule Type, for the dialog's pickers."""
+	types = {}
+	for run in package["runs"]:
+		types.setdefault(run["fixture_type"], run["fixture_type"])
+	result = []
+	for layer in sorted({run["layer"] for run in drawing["runs"]}):
+		runs = [run for run in drawing["runs"] if run["layer"] == layer]
+		style = styles.get(layer) or {}
+		fixture_type = next(
+			(item["fixture_type"] for item in package["runs"] if item["handle"] == runs[0]["handle"]), None
+		)
+		result.append(
+			{
+				"layer": layer,
+				"runs": len(runs),
+				"family": style.get("family"),
+				"template": style.get("template"),
+				"preset": style.get("preset"),
+				"needs_preset": not style.get("preset") and not style.get("selections"),
+				"fixture_type": fixture_type,
+			}
+		)
+	return result

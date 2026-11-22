@@ -98,6 +98,10 @@
 					frappe.msgprint({ title: __('Save failed'), indicator: 'red', message: detail });
 					return;
 				}
+				if (msg.work_order) {
+					self.applyWorkOrderToForm(msg).then(function () { self.renderDone(msg); });
+					return;
+				}
 				self.applyRowToForm(msg);
 				self.renderDone(msg);
 			},
@@ -116,22 +120,33 @@
 		this.dialog.set_secondary_action_label(__('Done'));
 		this.dialog.set_secondary_action(function () { self.dialog.hide(); });
 
+		var title = this.isWorkOrder
+			? __('Production Item set to {0}', [escapeHtml(msg.item_code)])
+			: (msg.reconfigured ? __('Updated {0}', [addedLabel(msg)]) : __('Added {0}', [addedLabel(msg)]));
+		var where;
+		if (msg.schedule) {
+			where = '<p class="text-muted mb-1">' + __('Schedule line saved to {0}.', ['<strong>' + escapeHtml(this.scheduleName || msg.schedule) + '</strong>']) + '</p>';
+		} else if (this.usesSchedule) {
+			where = '<p class="text-warning mb-1">' + __('Not linked to a fixture schedule.') + '</p>';
+		} else {
+			where = '';
+		}
+		var keep = this.isWorkOrder
+			? __('The Work Order now makes this build; save it to keep the change.')
+			: __('The row is on the {0}; save the document to keep it.', [__(this.frm.doctype)]);
 		var html = '<div class="ill-desk-done text-center py-4">'
-			+ '<div class="ill-desk-done-icon text-success"><i class="fa fa-check-circle fa-3x"></i></div>'
-			+ '<h5 class="mt-3">' + (msg.reconfigured
-				? __('Updated {0}', [addedLabel(msg)])
-				: __('Added {0}', [addedLabel(msg)])) + '</h5>'
-			+ (msg.schedule
-				? '<p class="text-muted mb-1">' + __('Schedule line saved to {0}.', ['<strong>' + escapeHtml(this.scheduleName || msg.schedule) + '</strong>']) + '</p>'
-				: '<p class="text-warning mb-1">' + __('Not linked to a fixture schedule.') + '</p>')
-			+ '<p class="text-muted small">' + __('The row is on the {0}; save the document to keep it.', [__(this.frm.doctype)]) + '</p>'
+			+ '<div class="ill-desk-done-icon"><i class="fa fa-check-circle fa-3x"></i></div>'
+			+ '<h5 class="mt-3">' + title + '</h5>'
+			+ this.builtSummaryHtml(msg)
+			+ where
+			+ '<p class="text-muted small">' + keep + '</p>'
 			+ '</div>';
 		this.body$().html(html);
 
 		var footer = '<div class="ill-desk-footer">'
-			+ '<button type="button" class="btn btn-primary ill-desk-add-another">'
-			+ '<i class="fa fa-plus"></i> ' + __('Add another') + '</button>'
-			+ '<button type="button" class="btn btn-default ml-2 ill-desk-done-btn">' + __('Done') + '</button>'
+			+ (this.isWorkOrder ? '' : '<button type="button" class="btn btn-primary ill-desk-add-another">'
+				+ '<i class="fa fa-plus"></i> ' + __('Add another') + '</button>')
+			+ '<button type="button" class="btn btn-default ill-desk-done-btn">' + __('Done') + '</button>'
 			+ '</div>';
 		this.footer$().html(footer);
 		this.footer$().find('.ill-desk-add-another').on('click', function () {
@@ -143,6 +158,26 @@
 			self.renderLineStep();
 		});
 		this.footer$().find('.ill-desk-done-btn').on('click', function () { self.dialog.hide(); });
+	};
+
+	// What the build left in ERPNext: the Item and its BOM or Product Bundle.
+	DialogController.prototype.builtSummaryHtml = function (msg) {
+		var built = msg.built || {};
+		var rows = [];
+		var link = function (doctype, name) {
+			return '<a href="/app/' + frappe.router.slug(doctype) + '/' + encodeURIComponent(name) + '" target="_blank" rel="noopener">'
+				+ escapeHtml(name) + '</a>';
+		};
+		if (built.item_code) rows.push([__('Item'), link('Item', built.item_code)]);
+		if (built.bom) rows.push([__('BOM'), link('BOM', built.bom)]);
+		if (built.product_bundle) rows.push([__('Product Bundle'), link('Product Bundle', built.product_bundle)]);
+		(built.light_engines || []).forEach(function (engine) {
+			if (engine && engine.bom) rows.push([__('Light engine BOM'), link('BOM', engine.bom)]);
+		});
+		if (!rows.length) return '';
+		return '<dl class="ill-desk-built">' + rows.map(function (r) {
+			return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>';
+		}).join('') + '</dl>';
 	};
 
 }(window));

@@ -7,15 +7,24 @@ Portal Resources Page Controller
 Publicly available specification sheets from Webflow products.
 """
 
+import re
+from pathlib import Path
+
 import frappe
 from frappe import _
 
 no_cache = 1
 
 
+TOOLKIT_DIR = Path(__file__).resolve().parents[2] / "public" / "cad_toolkit"
+TOOLKIT_URL = "/assets/illumenate_lighting/cad_toolkit/"
+CATALOG_URL = "/api/method/illumenate_lighting.illumenate_lighting.system_design.api.download_cad_catalog"
+
+
 def get_context(context):
 	"""Get context for the resources portal page."""
 	context.spec_sheets = _get_webflow_spec_sheets()
+	context.drawing_tools = drawing_tools()
 	context.title = _("Specification Sheets")
 	context.no_cache = 1
 	return context
@@ -61,3 +70,30 @@ def _get_webflow_spec_sheets():
 			})
 
 	return spec_sheets
+
+
+def drawing_tools():
+	"""Draw-to-quote downloads for users the CAD rollout includes (implementation plan WP 1.12)."""
+	from illumenate_lighting.illumenate_lighting.system_design.cad_access import enabled_for
+
+	if not enabled_for():
+		return None
+	toolkit = toolkit_zip(TOOLKIT_DIR)
+	return {
+		"toolkit": {"url": TOOLKIT_URL + toolkit[0], "version": toolkit[1]} if toolkit else None,
+		"catalog_url": CATALOG_URL,
+		"checklist_url": TOOLKIT_URL + "ilLumenate-DXF-drafting-checklist.pdf",
+	}
+
+
+def toolkit_zip(folder):
+	"""``(file name, version)`` of the newest committed toolkit bundle in ``folder``, or None."""
+	found = []
+	for path in Path(folder).glob("ilLumenate-cad-toolkit-*.zip"):
+		match = re.fullmatch(r"ilLumenate-cad-toolkit-(\d+(?:\.\d+)*)\.zip", path.name)
+		if match:
+			found.append((tuple(int(part) for part in match.group(1).split(".")), path.name, match.group(1)))
+	if not found:
+		return None
+	_version, name, text = max(found)
+	return name, text

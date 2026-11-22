@@ -24,6 +24,137 @@
    ],
    "additionalProperties": false
   },
+  "source": {
+   "type": "object",
+   "properties": {
+    "tool": {
+     "type": "string",
+     "enum": [
+      "autocad",
+      "dxf",
+      "bluebeam",
+      "web"
+     ]
+    },
+    "version": {
+     "type": "string",
+     "maxLength": 40
+    },
+    "platform": {
+     "anyOf": [
+      {
+       "type": "string",
+       "maxLength": 80
+      },
+      {
+       "type": "null"
+      }
+     ]
+    },
+    "input": {
+     "type": "string",
+     "enum": [
+      "ilq",
+      "dxf",
+      "pdf",
+      "csv"
+     ]
+    }
+   },
+   "required": [
+    "tool",
+    "version",
+    "input"
+   ],
+   "additionalProperties": false
+  },
+  "sheets": {
+   "default": [],
+   "maxItems": 500,
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+     },
+     "label": {
+      "default": "",
+      "type": "string",
+      "maxLength": 120
+     },
+     "page": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 500
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "scale": {
+      "type": "object",
+      "properties": {
+       "status": {
+        "type": "string",
+        "enum": [
+         "verified",
+         "declared",
+         "unverified"
+        ]
+       },
+       "ratio": {
+        "anyOf": [
+         {
+          "type": "number",
+          "exclusiveMinimum": 0
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "unit": {
+        "anyOf": [
+         {
+          "type": "string",
+          "maxLength": 20
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "check_dimension_in": {
+        "anyOf": [
+         {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "required": [
+       "status"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "id",
+     "scale"
+    ],
+    "additionalProperties": false
+   }
+  },
   "catalog": {
    "type": "object",
    "properties": {
@@ -144,6 +275,17 @@
        "outdoor-exposed",
        "direct-burial"
       ]
+     },
+     "sheet": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
      }
     },
     "required": [
@@ -215,6 +357,34 @@
        {
         "type": "string",
         "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "sheet": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "identity": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "xdata",
+         "dxf_handle",
+         "markup_name",
+         "csv_row",
+         "proposed"
+        ]
        },
        {
         "type": "null"
@@ -740,6 +910,73 @@
      "id",
      "handle",
      "item_code"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "counts": {
+   "default": [],
+   "maxItems": 2000,
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "item": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "psu",
+       "control",
+       "other"
+      ]
+     },
+     "qty": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+     },
+     "sheet": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "room": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "tag": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "item",
+     "kind",
+     "qty"
     ],
     "additionalProperties": false
    }

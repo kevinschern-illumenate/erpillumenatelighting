@@ -1,0 +1,1805 @@
+{
+ "schema": "drawing-check-cases/1",
+ "_doc": [
+  "Server ports of the AutoCAD toolkit's ILCHECK rules (system_design/drawing_checks.py, WP 1.9).",
+  "Each case is the parts of an ilq/2 package that matter; tests/portal_unit/test_drawing_checks.py fills the",
+  "rest (schema, toolkit, catalog, drawing, check counts, run handles and types, control handles), applies",
+  "ilq_schema.with_defaults, validates it unless schema_valid is false, and checks it against catalog.sample.json",
+  "with catalog_patch merged in (objects merge by key; list items merge into the item with the same id, else",
+  "the same code, else are appended). expected lists every issue of the ported codes (text when given);",
+  "the same cases run through the LISP il-check for parity."
+ ],
+ "cases": [
+  {
+   "name": "clean-straight-tape",
+   "rules": [
+    "RUN_NO_TAPE",
+    "BEND_RADIUS",
+    "TEMPLATE_DISCONTINUED",
+    "CATALOG_MISSING"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ]
+     }
+    ]
+   },
+   "expected": []
+  },
+  {
+   "name": "run-no-tape",
+   "rules": [
+    "RUN_NO_TAPE"
+   ],
+   "schema_valid": false,
+   "note": "Not expressible in a valid ilq/2 package (segments needs one item); the LISP model is a run whose only span is jumper.",
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": []
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "RUN_NO_TAPE",
+     "ref": "T1-01",
+     "severity": "error",
+     "text": "The whole run is marked as jumper span; take a span off with ILJUMPER"
+    }
+   ]
+  },
+  {
+   "name": "bend-under-neon-minimum",
+   "rules": [
+    "BEND_RADIUS"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "N1-01",
+      "style": {
+       "family": "LED Neon",
+       "template": "non-pnc-sw",
+       "selections": {
+        "cct": "2700K",
+        "output_level": "200 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 60,
+        "min_arc_radius_in": 1.0
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "BEND_RADIUS",
+     "ref": "N1-01",
+     "severity": "error",
+     "text": "Arc radius 1 in is under the tape's 1.97 in minimum"
+    }
+   ]
+  },
+  {
+   "name": "bend-within-neon-minimum",
+   "rules": [
+    "BEND_RADIUS"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "N1-01",
+      "style": {
+       "family": "LED Neon",
+       "template": "non-pnc-sw",
+       "selections": {
+        "cct": "2700K",
+        "output_level": "200 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 60,
+        "min_arc_radius_in": 2.5
+       }
+      ]
+     }
+    ]
+   },
+   "expected": []
+  },
+  {
+   "name": "bend-on-a-later-segment",
+   "rules": [
+    "BEND_RADIUS"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "N1-01",
+      "style": {
+       "family": "LED Neon",
+       "template": "non-pnc-sw",
+       "selections": {
+        "cct": "2700K",
+        "output_level": "200 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 40,
+        "end_type": "JUMPER",
+        "jumper_length_in": 12
+       },
+       {
+        "path_length_in": 40,
+        "min_arc_radius_in": 1.5
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "BEND_RADIUS",
+     "ref": "N1-01",
+     "severity": "error",
+     "text": "Arc radius 1.5 in is under the tape's 1.97 in minimum"
+    }
+   ]
+  },
+  {
+   "name": "bend-variant-from-selections",
+   "rules": [
+    "BEND_RADIUS"
+   ],
+   "note": "The Wet variant has a 1 in minimum; the Dry one has none, so any arc passes.",
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Wet",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48,
+        "min_arc_radius_in": 0.75
+       }
+      ]
+     },
+     {
+      "id": "T2-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48,
+        "min_arc_radius_in": 0.5
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "BEND_RADIUS",
+     "ref": "T1-01",
+     "severity": "error",
+     "text": "Arc radius 0.75 in is under the tape's 1 in minimum"
+    }
+   ]
+  },
+  {
+   "name": "kit-arc-in-straight-profile",
+   "rules": [
+    "PROFILE_NOT_CURVE_CAPABLE"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "K1-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 78.75,
+        "min_arc_radius_in": 3.0
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "PROFILE_NOT_CURVE_CAPABLE",
+     "ref": "K1-01",
+     "severity": "error",
+     "text": "CH-AZ01-SV cannot follow a curve"
+    }
+   ]
+  },
+  {
+   "name": "kit-arc-under-tape-minimum",
+   "rules": [
+    "BEND_RADIUS",
+    "PROFILE_NOT_CURVE_CAPABLE"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "K1-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 78.75,
+        "min_arc_radius_in": 0.5
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "BEND_RADIUS",
+     "ref": "K1-01",
+     "severity": "error"
+    },
+    {
+     "code": "PROFILE_NOT_CURVE_CAPABLE",
+     "ref": "K1-01",
+     "severity": "error"
+    }
+   ]
+  },
+  {
+   "name": "kit-straight",
+   "rules": [
+    "PROFILE_NOT_CURVE_CAPABLE",
+    "TAPE_WIDER_THAN_PROFILE",
+    "TEMPLATE_DISCONTINUED"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "K1-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 78.75
+       }
+      ]
+     }
+    ]
+   },
+   "expected": []
+  },
+  {
+   "name": "linear-fixture-curve-capable",
+   "rules": [
+    "PROFILE_NOT_CURVE_CAPABLE"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "F1-01",
+      "style": {
+       "family": "Linear Fixture",
+       "template": "ILL-RA01-SW",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 72,
+        "min_arc_radius_in": 6.0
+       }
+      ]
+     },
+     {
+      "id": "F1-02",
+      "style": {
+       "family": "Linear Fixture",
+       "template": "ILL-RA01-SW",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 72
+       }
+      ]
+     }
+    ]
+   },
+   "expected": []
+  },
+  {
+   "name": "tape-wider-than-profile",
+   "rules": [
+    "TAPE_WIDER_THAN_PROFILE"
+   ],
+   "catalog_patch": {
+    "kit_templates": [
+     {
+      "code": "KIT-NARROW",
+      "family": "Extrusion Kit",
+      "name": "Narrow kit",
+      "profile": "CH-NARROW",
+      "status": "Active"
+     }
+    ],
+    "profiles": [
+     {
+      "code": "CH-NARROW",
+      "curve_capable": true,
+      "family": "NA01",
+      "item": "CH-NARROW",
+      "width_in": 0.4
+     },
+     {
+      "code": "CH-RA01-BK",
+      "width_in": 0.1
+     }
+    ]
+   },
+   "note": "0.4724 in Wet tape in a 0.4 in channel; 0.3937 in Dry tape fits; a linear fixture has no tape variant, so even a 0.1 in profile passes.",
+   "package": {
+    "runs": [
+     {
+      "id": "K1-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-NARROW",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48
+       }
+      ]
+     },
+     {
+      "id": "K1-02",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-NARROW",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Dry",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48
+       }
+      ]
+     },
+     {
+      "id": "F1-01",
+      "style": {
+       "family": "Linear Fixture",
+       "template": "ILL-RA01-SW",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 48
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "TAPE_WIDER_THAN_PROFILE",
+     "ref": "K1-01",
+     "severity": "error",
+     "text": "Tape is 0.472 in wide; CH-NARROW fits 0.4 in"
+    }
+   ]
+  },
+  {
+   "name": "template-discontinued",
+   "rules": [
+    "TEMPLATE_DISCONTINUED"
+   ],
+   "note": "X2-01: the code exists, but as LED Tape; X6-01 is Internal Only but in the catalog; X1-01's arc is not bend-checked.",
+   "package": {
+    "runs": [
+     {
+      "id": "X1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-xx-gone",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 24,
+        "min_arc_radius_in": 0.5
+       }
+      ]
+     },
+     {
+      "id": "X2-01",
+      "style": {
+       "family": "LED Neon",
+       "template": "led-hd-sw",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ]
+     },
+     {
+      "id": "X3-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-GONE",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ]
+     },
+     {
+      "id": "X4-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-gone",
+        "selections": {}
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ]
+     },
+     {
+      "id": "X5-01",
+      "style": {
+       "family": "Linear Fixture",
+       "template": "ILL-GONE",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ]
+     },
+     {
+      "id": "X6-01",
+      "style": {
+       "family": "COB Tape",
+       "template": "cob-fc-sw",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "TEMPLATE_DISCONTINUED",
+     "ref": "X1-01",
+     "severity": "error",
+     "text": "led-xx-gone is not in the current catalog"
+    },
+    {
+     "code": "TEMPLATE_DISCONTINUED",
+     "ref": "X2-01",
+     "severity": "error",
+     "text": "led-hd-sw is not in the current catalog"
+    },
+    {
+     "code": "TEMPLATE_DISCONTINUED",
+     "ref": "X3-01",
+     "severity": "error",
+     "text": "KIT-GONE is not in the current catalog"
+    },
+    {
+     "code": "TEMPLATE_DISCONTINUED",
+     "ref": "X4-01",
+     "severity": "error",
+     "text": "led-gone is not in the current catalog"
+    },
+    {
+     "code": "TEMPLATE_DISCONTINUED",
+     "ref": "X5-01",
+     "severity": "error",
+     "text": "ILL-GONE is not in the current catalog"
+    }
+   ]
+  },
+  {
+   "name": "psu-overload",
+   "rules": [
+    "PSU_OVERLOAD"
+   ],
+   "note": "120 in snaps to 118.1102 in (60 x 50 mm): 43.31 W; two on 96 W x 0.8.",
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     },
+     {
+      "id": "T1-03",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01",
+       "T1-02"
+      ]
+     },
+     {
+      "id": "PS-02",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-03"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-01",
+     "severity": "warning",
+     "text": "86.6 W on 76.8 W usable; the System Designer will reassign outputs"
+    }
+   ]
+  },
+  {
+   "name": "psu-load-uses-cut-snapped-lengths",
+   "rules": [
+    "PSU_OVERLOAD"
+   ],
+   "note": "210 in drawn is 77.0 W, but it builds 208.6614 in: 76.51 W; 212 in builds 210.6299 in: 77.23 W.",
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 210
+       }
+      ]
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 212
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01"
+      ]
+     },
+     {
+      "id": "PS-02",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-02"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-02",
+     "severity": "warning",
+     "text": "77.2 W on 76.8 W usable; the System Designer will reassign outputs"
+    }
+   ]
+  },
+  {
+   "name": "psu-load-snaps-each-segment",
+   "rules": [
+    "PSU_OVERLOAD"
+   ],
+   "note": "Each 106.2 in piece builds 104.3307 in (76.51 W in all); 212.4 in in one piece would build 210.6299 in (77.23 W).",
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 106.2,
+        "end_type": "JUMPER",
+        "jumper_length_in": 12
+       },
+       {
+        "path_length_in": 106.2
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01"
+      ]
+     }
+    ]
+   },
+   "expected": []
+  },
+  {
+   "name": "psu-free-cut-cob",
+   "rules": [
+    "PSU_OVERLOAD"
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "C1-01",
+      "style": {
+       "family": "COB Tape",
+       "template": "cob-fc-sw",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 310
+       }
+      ]
+     },
+     {
+      "id": "C1-02",
+      "style": {
+       "family": "COB Tape",
+       "template": "cob-fc-sw",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 300
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "C1-01"
+      ]
+     },
+     {
+      "id": "PS-02",
+      "item_code": "PS-96-24",
+      "runs": [
+       "C1-02"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-01",
+     "severity": "warning",
+     "text": "78.8 W on 76.8 W usable; the System Designer will reassign outputs"
+    }
+   ]
+  },
+  {
+   "name": "psu-loads-only-tape-variants",
+   "rules": [
+    "PSU_OVERLOAD",
+    "TEMPLATE_DISCONTINUED"
+   ],
+   "note": "Linear fixtures and discontinued templates add no load; a kit's tape does. Unknown or missing drivers are not checked.",
+   "package": {
+    "runs": [
+     {
+      "id": "F1-01",
+      "style": {
+       "family": "Linear Fixture",
+       "template": "ILL-RA01-SW",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 400
+       }
+      ]
+     },
+     {
+      "id": "X1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-xx-gone",
+       "selections": {}
+      },
+      "segments": [
+       {
+        "path_length_in": 400
+       }
+      ]
+     },
+     {
+      "id": "K1-01",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     },
+     {
+      "id": "K1-02",
+      "style": {
+       "family": "Extrusion Kit",
+       "template": "KIT-AZ01",
+       "selections": {
+        "finish": "Silver"
+       },
+       "tape": {
+        "family": "LED Tape",
+        "template": "led-hd-sw",
+        "selections": {
+         "environment_rating": "Wet",
+         "cct": "2700K",
+         "output_level": "300 lm/ft"
+        }
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     },
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 400
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "F1-01",
+       "X1-01",
+       "K1-01"
+      ]
+     },
+     {
+      "id": "PS-02",
+      "item_code": "PS-UNKNOWN",
+      "runs": [
+       "T1-01"
+      ]
+     },
+     {
+      "id": "PS-03",
+      "runs": [
+       "T1-01"
+      ]
+     },
+     {
+      "id": "PS-04",
+      "item_code": "PS-96-24",
+      "runs": [
+       "K1-01",
+       "K1-02"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "TEMPLATE_DISCONTINUED",
+     "ref": "X1-01",
+     "severity": "error"
+    },
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-04",
+     "severity": "warning",
+     "text": "86.6 W on 76.8 W usable; the System Designer will reassign outputs"
+    }
+   ]
+  },
+  {
+   "name": "psu-driver-without-load-factor",
+   "rules": [
+    "PSU_OVERLOAD"
+   ],
+   "catalog_patch": {
+    "drivers": [
+     {
+      "code": "PS-60-NF",
+      "id": "drv:PS-60-NF",
+      "kind": "psu",
+      "model": "60W 24V",
+      "rated_w": 60
+     }
+    ]
+   },
+   "package": {
+    "runs": [
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 170
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-60-NF",
+      "runs": [
+       "T1-01"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-01",
+     "severity": "warning",
+     "text": "62.1 W on 60 W usable; the System Designer will reassign outputs"
+    }
+   ]
+  },
+  {
+   "name": "control-unknown",
+   "rules": [
+    "CONTROL_UNKNOWN"
+   ],
+   "package": {
+    "runs": [],
+    "controls": [
+     {
+      "id": "CTL-01",
+      "item_code": "DMXC-TW-BK-WALL"
+     },
+     {
+      "id": "CTL-09",
+      "item_code": "NOPE"
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "CONTROL_UNKNOWN",
+     "ref": "CTL-09",
+     "severity": "error",
+     "text": "NOPE is not a control in the current catalog"
+    }
+   ]
+  },
+  {
+   "name": "dmx-overlap-and-full",
+   "rules": [
+    "DMX_ADDRESS_OVERLAP",
+    "DMX_UNIVERSE_FULL"
+   ],
+   "package": {
+    "runs": [],
+    "controls": [
+     {
+      "id": "DEC-01",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 2,
+       "start_address": 10
+      }
+     },
+     {
+      "id": "DEC-02",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 2,
+       "start_address": 12
+      }
+     },
+     {
+      "id": "DEC-03",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 2,
+       "start_address": 510
+      }
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "DMX_ADDRESS_OVERLAP",
+     "ref": "DEC-01",
+     "severity": "error",
+     "text": "DEC-01 and DEC-02 share channels in universe 2"
+    },
+    {
+     "code": "DMX_UNIVERSE_FULL",
+     "ref": "DEC-03",
+     "severity": "error",
+     "text": "Needs channels 510-514 in universe 2 (512 max)"
+    }
+   ]
+  },
+  {
+   "name": "dmx-auto-fills-free-blocks",
+   "rules": [
+    "DMX_ADDRESS_OVERLAP",
+    "DMX_UNIVERSE_FULL"
+   ],
+   "expected_patch": [
+    [
+     1,
+     "DEC-01",
+     1,
+     5,
+     false
+    ],
+    [
+     1,
+     "DEC-02",
+     6,
+     10,
+     true
+    ],
+    [
+     1,
+     "DEC-03",
+     11,
+     15,
+     false
+    ],
+    [
+     1,
+     "DEC-04",
+     16,
+     20,
+     true
+    ],
+    [
+     2,
+     "DEC-05",
+     1,
+     5,
+     false
+    ],
+    [
+     3,
+     "DEC-07",
+     1,
+     5,
+     false
+    ],
+    [
+     3,
+     "DEC-06",
+     6,
+     10,
+     false
+    ]
+   ],
+   "note": "The wall controller does not receive DMX, so its address is not patched; a decoder with no dmx block is universe 1, auto; adjacent blocks do not overlap.",
+   "package": {
+    "runs": [],
+    "controls": [
+     {
+      "id": "CTL-01",
+      "item_code": "DMXC-TW-BK-WALL",
+      "dmx": {
+       "universe": 1,
+       "start_address": 1
+      }
+     },
+     {
+      "id": "DEC-01",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 1,
+       "start_address": 1
+      }
+     },
+     {
+      "id": "DEC-02",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 1
+      }
+     },
+     {
+      "id": "DEC-03",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 1,
+       "start_address": 11
+      }
+     },
+     {
+      "id": "DEC-04",
+      "item_code": "DMXD-PWM-5C-SF"
+     },
+     {
+      "id": "DEC-05",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 2,
+       "start_address": 1
+      }
+     },
+     {
+      "id": "DEC-06",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 3,
+       "start_address": 6
+      }
+     },
+     {
+      "id": "DEC-07",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 3,
+       "start_address": 1
+      }
+     }
+    ]
+   },
+   "expected": []
+  },
+  {
+   "name": "dmx-auto-past-512",
+   "rules": [
+    "DMX_UNIVERSE_FULL"
+   ],
+   "catalog_patch": {
+    "controllers": [
+     {
+      "category": "dmx-decoder",
+      "code": "DMXD-BIG",
+      "dmx_footprint": 510,
+      "id": "ctl:DMXD-BIG",
+      "kind": "decoder",
+      "model": "510 ch",
+      "receives_dmx": true
+     }
+    ]
+   },
+   "package": {
+    "runs": [],
+    "controls": [
+     {
+      "id": "DEC-01",
+      "item_code": "DMXD-BIG",
+      "dmx": {
+       "universe": 1,
+       "start_address": 1
+      }
+     },
+     {
+      "id": "DEC-02",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 1
+      }
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "DMX_UNIVERSE_FULL",
+     "ref": "DEC-02",
+     "severity": "error",
+     "text": "Needs channels 511-515 in universe 1 (512 max)"
+    }
+   ]
+  },
+  {
+   "name": "protocol-mismatch",
+   "rules": [
+    "PROTOCOL_MISMATCH",
+    "CONTROL_UNKNOWN"
+   ],
+   "package": {
+    "runs": [],
+    "controls": [
+     {
+      "id": "CTL-01",
+      "item_code": "DMXC-TW-BK-WALL"
+     },
+     {
+      "id": "CTL-02",
+      "item_code": "PIX-4"
+     },
+     {
+      "id": "DEC-01",
+      "item_code": "DMXD-PWM-5C-SF",
+      "dmx": {
+       "universe": 1,
+       "start_address": 1
+      }
+     }
+    ],
+    "zones": [
+     {
+      "id": "ZN-1",
+      "name": "ZN-1",
+      "method": "DMX512",
+      "control": {
+       "id": "CTL-01",
+       "port": "DMX512"
+      }
+     },
+     {
+      "id": "ZN-2",
+      "name": "ZN-2",
+      "method": "DMX512",
+      "control": {
+       "id": "CTL-02",
+       "port": "OUT1"
+      }
+     },
+     {
+      "id": "ZN-3",
+      "name": "ZN-3",
+      "method": "DMX512",
+      "control": {
+       "id": "CTL-02",
+       "port": "OUT9"
+      }
+     },
+     {
+      "id": "ZN-4",
+      "name": "ZN-4",
+      "method": "none",
+      "control": {
+       "id": "CTL-02",
+       "port": "OUT2"
+      }
+     },
+     {
+      "id": "ZN-5",
+      "name": "ZN-5",
+      "method": "0-10V",
+      "control": {
+       "id": "DEC-01",
+       "port": "OUT1"
+      }
+     },
+     {
+      "id": "ZN-6",
+      "name": "ZN-6",
+      "method": "0-10V"
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "PROTOCOL_MISMATCH",
+     "ref": "ZN-2",
+     "severity": "error",
+     "text": "DMX512 zone on a SPI output of CTL-02"
+    },
+    {
+     "code": "PROTOCOL_MISMATCH",
+     "ref": "ZN-3",
+     "severity": "error",
+     "text": "CTL-02 has no output OUT9"
+    },
+    {
+     "code": "PROTOCOL_MISMATCH",
+     "ref": "ZN-5",
+     "severity": "error",
+     "text": "DEC-01 has no output OUT1"
+    }
+   ]
+  },
+  {
+   "name": "protocol-control-not-in-catalog",
+   "rules": [
+    "PROTOCOL_MISMATCH",
+    "CONTROL_UNKNOWN"
+   ],
+   "package": {
+    "runs": [],
+    "controls": [
+     {
+      "id": "CTL-09",
+      "item_code": "NOPE"
+     }
+    ],
+    "zones": [
+     {
+      "id": "ZN-1",
+      "name": "ZN-1",
+      "method": "DMX512",
+      "control": {
+       "id": "CTL-09",
+       "port": "DMX512"
+      }
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "CONTROL_UNKNOWN",
+     "ref": "CTL-09",
+     "severity": "error"
+    }
+   ]
+  },
+  {
+   "name": "overrides-drop-matching-code-and-ref",
+   "rules": [
+    "BEND_RADIUS",
+    "PSU_OVERLOAD"
+   ],
+   "expected_after_overrides": [
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-01",
+     "severity": "warning"
+    }
+   ],
+   "expected_counts": [
+    0,
+    1
+   ],
+   "package": {
+    "runs": [
+     {
+      "id": "N1-01",
+      "style": {
+       "family": "LED Neon",
+       "template": "non-pnc-sw",
+       "selections": {
+        "cct": "2700K",
+        "output_level": "200 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 60,
+        "min_arc_radius_in": 1.0
+       }
+      ]
+     },
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01",
+       "T1-02"
+      ]
+     }
+    ],
+    "check": {
+     "overrides": [
+      {
+       "code": "BEND_RADIUS",
+       "ref": "N1-01",
+       "note": "Field-bent by the installer"
+      },
+      {
+       "code": "PSU_OVERLOAD",
+       "ref": "PS-09",
+       "note": "Another supply"
+      },
+      {
+       "code": "TEMPLATE_DISCONTINUED",
+       "ref": "N1-01",
+       "note": "Another code"
+      }
+     ]
+    }
+   },
+   "expected": [
+    {
+     "code": "BEND_RADIUS",
+     "ref": "N1-01",
+     "severity": "error"
+    },
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-01",
+     "severity": "warning"
+    }
+   ]
+  },
+  {
+   "name": "overrides-cover-warnings-too",
+   "rules": [
+    "PSU_OVERLOAD"
+   ],
+   "expected_after_overrides": [
+    {
+     "code": "BEND_RADIUS",
+     "ref": "N1-01",
+     "severity": "error"
+    }
+   ],
+   "expected_counts": [
+    1,
+    0
+   ],
+   "note": "il-issue-counts leaves out any overridden issue, whatever its severity.",
+   "package": {
+    "runs": [
+     {
+      "id": "N1-01",
+      "style": {
+       "family": "LED Neon",
+       "template": "non-pnc-sw",
+       "selections": {
+        "cct": "2700K",
+        "output_level": "200 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 60,
+        "min_arc_radius_in": 1.0
+       }
+      ]
+     },
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01",
+       "T1-02"
+      ]
+     }
+    ],
+    "check": {
+     "overrides": [
+      {
+       "code": "PSU_OVERLOAD",
+       "ref": "PS-01",
+       "note": "Designer reassigns"
+      }
+     ]
+    }
+   },
+   "expected": [
+    {
+     "code": "BEND_RADIUS",
+     "ref": "N1-01",
+     "severity": "error"
+    },
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-01",
+     "severity": "warning"
+    }
+   ]
+  },
+  {
+   "name": "no-catalog",
+   "rules": [
+    "CATALOG_MISSING"
+   ],
+   "no_catalog": true,
+   "package": {
+    "runs": [
+     {
+      "id": "N1-01",
+      "style": {
+       "family": "LED Neon",
+       "template": "non-pnc-sw",
+       "selections": {
+        "cct": "2700K",
+        "output_level": "200 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 60,
+        "min_arc_radius_in": 1.0
+       }
+      ]
+     },
+     {
+      "id": "T1-01",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     },
+     {
+      "id": "T1-02",
+      "style": {
+       "family": "LED Tape",
+       "template": "led-hd-sw",
+       "selections": {
+        "environment_rating": "Dry",
+        "cct": "2700K",
+        "output_level": "300 lm/ft"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 120
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "T1-01",
+       "T1-02"
+      ]
+     }
+    ],
+    "controls": [
+     {
+      "id": "CTL-09",
+      "item_code": "NOPE"
+     }
+    ],
+    "zones": [
+     {
+      "id": "ZN-1",
+      "name": "ZN-1",
+      "method": "DMX512",
+      "control": {
+       "id": "CTL-09",
+       "port": "DMX512"
+      }
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "CATALOG_MISSING",
+     "ref": "drawing",
+     "severity": "error",
+     "text": "Load the CAD catalog (ILCATALOG) before checking"
+    }
+   ]
+  }
+ ]
+}

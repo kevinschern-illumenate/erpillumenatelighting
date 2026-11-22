@@ -207,9 +207,7 @@ def notify_shipment(delivery_note):
 	shipment = tracking(delivery_note)
 	escape = frappe.utils.escape_html
 	returned = bool(delivery_note.get("is_return"))
-	number = escape(shipment["number"]) if shipment["number"] else None
-	if number and shipment["url"]:
-		number = f'<a href="{escape(shipment["url"])}" style="color: {brand.COLORS["blue"]}">{number}</a>'
+	number = _tracking_links(shipment, brand) or None
 	posted = frappe.utils.format_date(delivery_note.get("posting_date")) if delivery_note.get("posting_date") else None
 
 	for order_name in order_names:
@@ -246,6 +244,55 @@ def notify_shipment(delivery_note):
 				body,
 				reference_doctype="Delivery Note", reference_name=delivery_note.name,
 				event_key=f"{delivery_note.name}:{order_name}")
+
+
+def _tracking_links(shipment, brand):
+	"""Every tracking number, linked where the carrier has a tracking page, one per line."""
+	escape = frappe.utils.escape_html
+	links = []
+	for package in shipment.get("packages") or []:
+		if not package.get("number"):
+			continue
+		number = escape(package["number"])
+		if package.get("url"):
+			number = f'<a href="{escape(package["url"])}" style="color: {brand.COLORS["blue"]}">{number}</a>'
+		links.append(number)
+	return "<br>".join(links)
+
+
+def notify_delivered(delivery_note, shipment_name=None):
+	"""Delivered email for every Sales Order the Delivery Note fulfils (EasyPost tracker event)."""
+	order_names = {i.against_sales_order for i in delivery_note.items if i.against_sales_order}
+	if not order_names or delivery_note.get("is_return"):
+		return
+	from illumenate_lighting.illumenate_lighting.email_templates import brand
+	from illumenate_lighting.illumenate_lighting.portal.shipment_tracking import tracking
+
+	shipment = tracking(delivery_note)
+	escape = frappe.utils.escape_html
+	for order_name in order_names:
+		order = frappe.get_doc("Sales Order", order_name)
+		order_url = frappe.utils.get_url(portal_path("order", order_name))
+		job = _schedule_label(order)
+		named = f"<strong>{escape(job)}</strong> ({escape(order_name)})" if job else f"<strong>{escape(order_name)}</strong>"
+		details = [
+			(_("Your PO"), escape(order.get("po_no")) if order.get("po_no") else None),
+			(_("Carrier"), escape(shipment["carrier"]) if shipment["carrier"] else None),
+			(_("Tracking"), _tracking_links(shipment, brand) or None),
+		]
+		body = brand.portal_email(
+			_("Your shipment was delivered"),
+			paragraphs=[_("The carrier reports a shipment for your order {0} as delivered.").format(named)],
+			details=details,
+			action=(_("View the order"), order_url),
+			preference_note=_("shipping updates"),
+		)
+		for recipient in order_recipients(order):
+			notify_user(recipient, "notify_shipping",
+				_("Delivered: {0}").format(order_name),
+				body,
+				reference_doctype="Delivery Note", reference_name=delivery_note.name,
+				event_key=f"{shipment_name or delivery_note.name}:{order_name}:delivered")
 
 
 def on_delivery_note_submit(doc, method=None):

@@ -22,7 +22,7 @@ ILRECEIPT <- receipt            keeps package + receipt (ilL-CAD-Import)      ho
 | `test/mini_lisp.py` | A small AutoLISP interpreter so CI can run the pure files (`tests/portal_unit/test_cad_lisp.py`). |
 | `test/il-tests.lsp`, `run_tests.scr`, `run_tests.bat` | The golden-case runner for real AutoCAD (`accoreconsole`), plan 3.10. |
 | `build/layers.py`, `build/ilLumenate-layers.scr` | DWT layer script from `packages/data/src/layers.json`. |
-| `package_bundle.py` | Builds `ilLumenate.bundle` (one joined `ilLumenate.lsp`, `PackageContents.xml`, layer script, README). |
+| `package_bundle.py` | Builds `ilLumenate.bundle` (one joined `ilLumenate.lsp`, `PackageContents.xml`, layer script, README) and a reproducible zip; `--publish` copies it to `illumenate_lighting/public/cad_toolkit/`. |
 
 Golden cases and fixtures live with the System Designer's so Python, TypeScript and LISP share them:
 `tools/system_designer/fixtures/cad/` (`lisp-subset.json`, `catalog-records.json` → `catalog.sample.json`,
@@ -58,6 +58,17 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   (`*il-layout*`).
 - **Symbol scale.** Plan symbols are drawn in paper inches and inserted at the ILSETUP scale factor;
   changing it in ILSETUP resizes every placed `IL-*` symbol (not title blocks) about its insertion point.
+- **Package source and sheets (0.5.0).** `ilq/2` packages say who wrote them
+  (`source: {tool: "autocad", version, platform, input: "ilq"}`) and list one sheet per layout that owns a
+  run (`sheets[]`: id is a CadId slug of the layout name, `Model` for model space; label is the layout
+  name). Runs carry `sheet` and `identity: "xdata"`; rooms carry `sheet` when their layout has runs. A
+  sheet's scale is `verified` after ILSCALE, else `declared` (AutoCAD drawings always have units), so it
+  always agrees with `drawing.scale_verified`. The content hash (`il-package-content`) leaves source,
+  sheets and layouts out, so hashes match 0.4.x for an unchanged drawing.
+- **Minimum toolkit version.** A catalog's optional `settings.min_toolkit_version` (dotted integers,
+  `il-version<`) newer than `*il-version*` prints a warning on ILCATALOG and the first catalog load (and in
+  ILVERSION) to download the current toolkit from the portal Resources page; ILCHECK adds the warning
+  `TOOLKIT_OUTDATED` (ref `drawing`).
 - **AutoLISP shares one namespace** for variables and functions: no local may be named after a function
   (CI checks it), and every call must be AutoLISP or defined in the toolkit (CI checks that too).
 
@@ -71,5 +82,8 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
 
 1. `python -B -m unittest discover -s tests/portal_unit -p "test_cad_*.py"` and `npm test --prefix tools/system_designer`.
 2. On a staff Windows machine: `tools\cad_toolkit\test\run_tests.bat "<path>\accoreconsole.exe"`; commit `test/report.txt`.
-3. `python -m tools.cad_toolkit.package_bundle --out dist` and publish the zip on the portal Resources page.
-4. Bump `*il-version*` in `lisp/il-util.lsp` with every release.
+3. Bump `*il-version*` in `lisp/il-util.lsp` with every release.
+4. `python -m tools.cad_toolkit.package_bundle --out dist --publish` and commit
+   `illumenate_lighting/public/cad_toolkit/ilLumenate-cad-toolkit-<version>.zip` (the build is byte-for-byte
+   reproducible; `test_cad_bundle.py` fails when the committed zip's name or version is not `*il-version*`).
+   Link it from the portal Resources page.

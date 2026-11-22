@@ -30,7 +30,15 @@ from tools.cad_toolkit.test.mini_lisp import (
 
 LISP = REPO / "tools/cad_toolkit/lisp"
 FIXTURES = REPO / "tools/system_designer/fixtures/cad"
-PURE = ("il-util.lsp", "il-json.lsp", "il-math.lsp", "il-sha256.lsp", "il-catalog.lsp", "il-model.lsp", "il-controls.lsp")
+PURE = (
+	"il-util.lsp",
+	"il-json.lsp",
+	"il-math.lsp",
+	"il-sha256.lsp",
+	"il-catalog.lsp",
+	"il-model.lsp",
+	"il-controls.lsp",
+)
 CASES = json.loads((FIXTURES / "lisp-subset.json").read_text(encoding="utf-8"))
 
 
@@ -43,7 +51,14 @@ def interpreter():
 
 def plain(value):
 	"""LISP results as Python: alists become dicts, T/nil booleans where the reference has them."""
-	if isinstance(value, list) and value and all(isinstance(item, mini_lisp.Pair) or (isinstance(item, list) and isinstance(item[0], str)) for item in value):
+	if (
+		isinstance(value, list)
+		and value
+		and all(
+			isinstance(item, mini_lisp.Pair) or (isinstance(item, list) and isinstance(item[0], str))
+			for item in value
+		)
+	):
 		return {key: plain(item) for key, item in alist(value).items()}
 	if isinstance(value, list):
 		return [plain(item) for item in value]
@@ -60,7 +75,14 @@ class GoldenMath(unittest.TestCase):
 	def test_cut_snap(self):
 		for case in CASES["cut_snap"]:
 			with self.subTest(case):
-				result = plain(self.lisp.call("il-cut-snap", float(case["length_in"]), case["cut_mm"], mini_lisp.T if case["free_cut"] else None))
+				result = plain(
+					self.lisp.call(
+						"il-cut-snap",
+						float(case["length_in"]),
+						case["cut_mm"],
+						mini_lisp.T if case["free_cut"] else None,
+					)
+				)
 				self.assertEqual(result, case["expected"])
 
 	def test_run_split(self):
@@ -86,7 +108,11 @@ class GoldenMath(unittest.TestCase):
 	def test_psu_load(self):
 		for case in CASES["psu_load"]:
 			with self.subTest(case):
-				result = plain(self.lisp.call("il-psu-load", lst(case["loads_w"]), case["rated_w"], case["usable_load_factor"]))
+				result = plain(
+					self.lisp.call(
+						"il-psu-load", lst(case["loads_w"]), case["rated_w"], case["usable_load_factor"]
+					)
+				)
 				expected = dict(case["expected"])
 				self.assertEqual(bool(result.get("over")), expected.pop("over"))
 				result.pop("over", None)
@@ -96,7 +122,9 @@ class GoldenMath(unittest.TestCase):
 		for case in CASES["path_length"]:
 			with self.subTest(case):
 				vertices = lst(lst(float(v) for v in vertex) for vertex in case["vertices"])
-				result = plain(self.lisp.call("il-path-length", vertices, mini_lisp.T if case["closed"] else None))
+				result = plain(
+					self.lisp.call("il-path-length", vertices, mini_lisp.T if case["closed"] else None)
+				)
 				self.assertEqual(result, case["expected"])
 
 	def test_split_vertices_at_jumpers(self):
@@ -126,7 +154,10 @@ class Copies(unittest.TestCase):
 		return [(pair.car, pair.cdr) for pair in result or []]
 
 	def test_copies_keep_the_oldest_and_renumber_the_rest(self):
-		self.assertEqual(self.copies(["a", "L1-01", None, "1A"], ["b", "L1-01", None, "2B"], ["c", "L1-02", None, "2C"]), [("b", "1A")])
+		self.assertEqual(
+			self.copies(["a", "L1-01", None, "1A"], ["b", "L1-01", None, "2B"], ["c", "L1-02", None, "2C"]),
+			[("b", "1A")],
+		)
 
 	def test_the_entity_on_its_own_handle_keeps_the_id(self):
 		# "a" was pasted from another drawing (new, smaller handle, stale self); "b" is the tagged original.
@@ -136,14 +167,19 @@ class Copies(unittest.TestCase):
 		self.assertEqual(self.copies(["a", "L1-01", None, "FF"], ["b", "L1-01", None, "100"]), [("b", "FF")])
 
 	def test_unique_and_missing_ids_are_not_copies(self):
-		self.assertEqual(self.copies(["a", "L1-01", None, "1A"], ["b", None, None, "1B"], ["c", "", None, "1C"]), [])
+		self.assertEqual(
+			self.copies(["a", "L1-01", None, "1A"], ["b", None, None, "1B"], ["c", "", None, "1C"]), []
+		)
 
 	def test_id_prefix(self):
 		for given, expected in (("L1-03", "L1-"), ("CAB-2", "CAB-"), ("kitchen", "kitchen-"), ("W-10", "W-")):
 			self.assertEqual(self.lisp.call("il-id-prefix", given), expected)
 
 	def test_scale_about(self):
-		self.assertEqual(self.lisp.call("il-scale-about", lst([10.0, 10.0, 0.0]), lst([20.0, 30.0, 0.0]), 0.5), [15.0, 20.0, 0.0])
+		self.assertEqual(
+			self.lisp.call("il-scale-about", lst([10.0, 10.0, 0.0]), lst([20.0, 30.0, 0.0]), 0.5),
+			[15.0, 20.0, 0.0],
+		)
 
 
 class Polylines(unittest.TestCase):
@@ -175,11 +211,15 @@ class Polylines(unittest.TestCase):
 		self.assertIsNone(self.call("il-bulge-arc", lst([0.0, 0.0]), lst([2.0, 0.0]), 0.0))
 
 	def test_path_point(self):
-		self.assertPoint(self.call("il-path-point", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), 0.5), [10.0, 0.0, 0.0])
+		self.assertPoint(
+			self.call("il-path-point", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), 0.5), [10.0, 0.0, 0.0]
+		)
 		self.assertPoint(self.call("il-path-point", self.v((0, 0, 1), (2, 0, 0)), 0.5), [1.0, -1.0, 0.0])
 
 	def test_jumper_target_splits_a_straight_run(self):
-		kind, index, u, point = self.call("il-jumper-target", self.v((0, 0, 0), (48, 0, 0)), lst([20.0, 1.0, 0.0]), 4.8)
+		kind, index, u, point = self.call(
+			"il-jumper-target", self.v((0, 0, 0), (48, 0, 0)), lst([20.0, 1.0, 0.0]), 4.8
+		)
 		self.assertEqual((kind, index), ("split", 0))
 		self.assertAlmostEqual(u, 20 / 48)
 		self.assertPoint(point, [20.0, 0.0])
@@ -194,10 +234,23 @@ class Polylines(unittest.TestCase):
 		kind, index, _u, point = self.call("il-jumper-target", vertices, lst([47.0, 0.0, 0.0]), 0.01)
 		self.assertEqual((kind, index), ("split", 0))
 		self.assertPoint(point, [47.0, 0.0])
-		self.assertEqual(self.call("il-jumper-target", vertices, lst([48.0, 0.004, 0.0]), 0.01), ["vertex", 1])
-		self.assertEqual(self.call("il-jumper-target", vertices, lst([47.995, -2.0, 0.0]), 0.01), ["vertex", 1])  # off the run, its nearest point is the corner
+		self.assertEqual(
+			self.call("il-jumper-target", vertices, lst([48.0, 0.004, 0.0]), 0.01), ["vertex", 1]
+		)
+		self.assertEqual(
+			self.call("il-jumper-target", vertices, lst([47.995, -2.0, 0.0]), 0.01), ["vertex", 1]
+		)  # off the run, its nearest point is the corner
 		self.assertAlmostEqual(self.call("il-distance-to-path", vertices, None, lst([20.0, 3.0, 0.0])), 3.0)
-		self.assertAlmostEqual(self.call("il-distance-to-path", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), mini_lisp.T, lst([5.0, 5.5, 0.0])), 0.5 / math.sqrt(2), places=6)  # the closing side counts
+		self.assertAlmostEqual(
+			self.call(
+				"il-distance-to-path",
+				self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)),
+				mini_lisp.T,
+				lst([5.0, 5.5, 0.0]),
+			),
+			0.5 / math.sqrt(2),
+			places=6,
+		)  # the closing side counts
 
 	def test_insert_vertex_keeps_the_path(self):
 		straight = self.call("il-insert-vertex", self.v((0, 0, 0), (48, 0, 0)), 0, 0.25)
@@ -209,13 +262,22 @@ class Polylines(unittest.TestCase):
 		self.assertAlmostEqual(self.length(split), self.length(arc), places=3)
 
 	def pieces(self, vertices, closed=False, breaks=(), spans=(), jumper=12.0):
-		result = self.call("il-run-pieces", self.v(*vertices), mini_lisp.T if closed else None, lst(breaks), lst(spans), jumper)
+		result = self.call(
+			"il-run-pieces",
+			self.v(*vertices),
+			mini_lisp.T if closed else None,
+			lst(breaks),
+			lst(spans),
+			jumper,
+		)
 		return [(self.length(piece[0]), piece[1] is mini_lisp.T, piece[2]) for piece in result or []]
 
 	def test_spans_are_jumper_cable_not_tape(self):
 		line = [(0, 0, 0), (60, 0, 0), (96, 0, 0), (156, 0, 0)]
 		self.assertEqual(self.pieces(line, spans=[1]), [(60.0, True, 36.0), (60.0, False, None)])
-		self.assertEqual(self.pieces(line, spans=[0]), [(96.0, False, None)])  # a span at an end joins nothing
+		self.assertEqual(
+			self.pieces(line, spans=[0]), [(96.0, False, None)]
+		)  # a span at an end joins nothing
 		self.assertEqual(self.pieces(line, breaks=[1], spans=[2]), [(60.0, True, 12.0), (36.0, False, None)])
 		self.assertEqual(self.pieces(line, spans=[0, 1, 2]), [])
 		self.assertEqual(self.pieces(line), [(156.0, False, None)])
@@ -223,14 +285,21 @@ class Polylines(unittest.TestCase):
 	def test_closed_runs_keep_their_closing_side(self):
 		square = [(0, 0, 0), (10, 0, 0), (10, 10, 0), (0, 10, 0)]
 		self.assertEqual(self.pieces(square, closed=True), [(40.0, False, None)])
-		self.assertEqual(self.pieces(square, closed=True, breaks=[2]), [(20.0, True, 12.0), (20.0, False, None)])
+		self.assertEqual(
+			self.pieces(square, closed=True, breaks=[2]), [(20.0, True, 12.0), (20.0, False, None)]
+		)
 
 	def test_span_bookkeeping(self):
 		self.assertEqual(self.call("il-split-spans", lst([1, 3]), 1), [1, 2, 4])
 		self.assertEqual(self.call("il-reverse-spans", lst([0, 1]), 5), [2, 3])
 		self.assertEqual(self.call("il-span-group", lst([1, 2, 5]), 2), [1, 2])
 		self.assertIsNone(self.call("il-span-group", lst([1, 2]), 3))
-		self.assertEqual(self.call("il-nearest-segment", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), lst([11.0, 6.0, 0.0])), 1)
+		self.assertEqual(
+			self.call(
+				"il-nearest-segment", self.v((0, 0, 0), (10, 0, 0), (10, 10, 0)), lst([11.0, 6.0, 0.0])
+			),
+			1,
+		)
 
 	def test_arc_piece(self):
 		piece = self.call("il-arc-piece", lst([0.0, 0.0, 0.0]), 10.0, 0.0, math.pi / 2)
@@ -240,11 +309,24 @@ class Polylines(unittest.TestCase):
 		self.assertAlmostEqual(wrapped[0][2], math.tan(math.pi / 4))  # 270 -> 90 degrees sweeps 180
 
 	def test_chain_joins_touching_pieces_in_any_order_and_direction(self):
-		pieces = lst([self.v((10, 0, 0), (10, 10, 0)), self.v((0, 0, 0), (10, 0, 0)), self.v((20, 10, 0), (10, 10, 0)), self.v((50, 50, 0), (60, 50, 0))])
+		pieces = lst(
+			[
+				self.v((10, 0, 0), (10, 10, 0)),
+				self.v((0, 0, 0), (10, 0, 0)),
+				self.v((20, 10, 0), (10, 10, 0)),
+				self.v((50, 50, 0), (60, 50, 0)),
+			]
+		)
 		chains = self.call("il-chain-pieces", pieces, 0.01)
 		self.assertEqual(len(chains), 2)
 		joined = [vertex[:2] for vertex in chains[0][0]]
-		self.assertIn(joined, ([[20.0, 10.0], [10.0, 10.0], [10.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [20.0, 10.0]]))
+		self.assertIn(
+			joined,
+			(
+				[[20.0, 10.0], [10.0, 10.0], [10.0, 0.0], [0.0, 0.0]],
+				[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [20.0, 10.0]],
+			),
+		)
 		self.assertEqual(sorted(chains[0][1:]), [0, 1, 2])
 		self.assertEqual(chains[1][1:], [3])
 
@@ -274,10 +356,20 @@ class FakeDrawing:
 	def __init__(self, interp):
 		self.order, self.groups, self.xdata = [], {}, {}
 		for name, function in {
-			"entget": self.entget, "entmod": self.entmod, "entupd": lambda ename: ename, "regapp": lambda name: name,
-			"ssget": self.ssget, "sslength": len, "ssname": lambda ss, index: ss[index], "handent": self.handent,
-			"entnext": self.entnext, "getvar": lambda name: None, "entmake": self.entmake, "entlast": self.entlast,
-			"tblsearch": lambda table, name: mini_lisp.T, "entdel": self.entdel,
+			"entget": self.entget,
+			"entmod": self.entmod,
+			"entupd": lambda ename: ename,
+			"regapp": lambda name: name,
+			"ssget": self.ssget,
+			"sslength": len,
+			"ssname": lambda ss, index: ss[index],
+			"handent": self.handent,
+			"entnext": self.entnext,
+			"getvar": lambda name: None,
+			"entmake": self.entmake,
+			"entlast": self.entlast,
+			"tblsearch": lambda table, name: mini_lisp.T,
+			"entdel": self.entdel,
 		}.items():
 			interp.set(name, function)
 
@@ -289,7 +381,9 @@ class FakeDrawing:
 		return ename
 
 	def polyline(self, handle, points, xdata, closed=True):
-		return self.add("LWPOLYLINE", handle, [(70, 1 if closed else 0), *((10, (x, y)) for x, y in points)], xdata)
+		return self.add(
+			"LWPOLYLINE", handle, [(70, 1 if closed else 0), *((10, (x, y)) for x, y in points)], xdata
+		)
 
 	def vertices(self, ename):
 		return [value for code, value in self.groups[ename] if code == 10]
@@ -299,7 +393,9 @@ class FakeDrawing:
 		return ename
 
 	def insert(self, handle, block, point, scale, xdata=None, attributes=()):
-		ename = self.add("INSERT", handle, [(2, block), (10, point), (41, scale), (42, scale), (43, scale)], xdata)
+		ename = self.add(
+			"INSERT", handle, [(2, block), (10, point), (41, scale), (42, scale), (43, scale)], xdata
+		)
 		for offset, (tag, value, position, height) in enumerate(attributes, 1):
 			self.add("ATTRIB", f"{handle}{offset}", [(2, tag), (1, value), (10, position), (40, height)])
 		return ename
@@ -368,7 +464,10 @@ class FakeDrawing:
 				if code == -3:
 					keep = keep and bool(self.xdata[ename])
 				elif code in (0, 2):
-					keep = keep and any(fnmatch.fnmatchcase(str(self.value(ename, code) or ""), pattern) for pattern in mini_lisp.cdr(item).split(","))
+					keep = keep and any(
+						fnmatch.fnmatchcase(str(self.value(ename, code) or ""), pattern)
+						for pattern in mini_lisp.cdr(item).split(",")
+					)
 			if keep:
 				found.append(ename)
 		return found or None
@@ -381,7 +480,11 @@ class CopiedEntities(unittest.TestCase):
 		self.lisp = mini_lisp.Interpreter()
 		self.drawing = FakeDrawing(self.lisp)
 		text = package_bundle.joined_lisp()
-		self.lisp.run(text.replace('(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""))
+		self.lisp.run(
+			text.replace(
+				'(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""
+			)
+		)
 
 	def test_copies_get_new_ids_and_lose_portal_links(self):
 		d = self.drawing
@@ -389,13 +492,33 @@ class CopiedEntities(unittest.TestCase):
 		original = d.polyline("1A", [(0, 0), (12, 0)], run)
 		old_copy = d.polyline("2B", [(0, 20), (12, 20)], run)
 		new_copy = d.polyline("2C", [(0, 40), (12, 40)], {**run, "self": "1A"})
-		room = d.polyline("30", [(0, 0), (10, 0), (10, 10), (0, 10)], {"kind": "ROOM", "id": "kitchen", "self": "30"})
-		d.insert("31", "IL-ROOMTAG", (5.0, 5.0, 0.0), 1.0, {"kind": "TAG", "owner": "30"}, [("ID", "kitchen", (5.0, 5.0, 0.0), 0.1)])
-		room_copy = d.polyline("40", [(100, 0), (110, 0), (110, 10), (100, 10)], {"kind": "ROOM", "id": "kitchen", "self": "30"})
-		tag_copy = d.insert("41", "IL-ROOMTAG", (105.0, 5.0, 0.0), 1.0, {"kind": "TAG", "owner": "30"}, [("ID", "kitchen", (105.0, 5.0, 0.0), 0.1)])
+		room = d.polyline(
+			"30", [(0, 0), (10, 0), (10, 10), (0, 10)], {"kind": "ROOM", "id": "kitchen", "self": "30"}
+		)
+		d.insert(
+			"31",
+			"IL-ROOMTAG",
+			(5.0, 5.0, 0.0),
+			1.0,
+			{"kind": "TAG", "owner": "30"},
+			[("ID", "kitchen", (5.0, 5.0, 0.0), 0.1)],
+		)
+		room_copy = d.polyline(
+			"40", [(100, 0), (110, 0), (110, 10), (100, 10)], {"kind": "ROOM", "id": "kitchen", "self": "30"}
+		)
+		tag_copy = d.insert(
+			"41",
+			"IL-ROOMTAG",
+			(105.0, 5.0, 0.0),
+			1.0,
+			{"kind": "TAG", "owner": "30"},
+			[("ID", "kitchen", (105.0, 5.0, 0.0), 0.1)],
+		)
 		psu = {"kind": "PSU", "id": "PS-01", "runs": "L1-01"}
 		d.insert("50", "IL-PSUTAG", (0.0, 0.0, 0.0), 1.0, psu, [("TAG", "PS-01", (0.0, 0.0, 0.0), 0.1)])
-		psu_copy = d.insert("60", "IL-PSUTAG", (50.0, 0.0, 0.0), 1.0, psu, [("TAG", "PS-01", (50.0, 0.0, 0.0), 0.1)])
+		psu_copy = d.insert(
+			"60", "IL-PSUTAG", (50.0, 0.0, 0.0), 1.0, psu, [("TAG", "PS-01", (50.0, 0.0, 0.0), 0.1)]
+		)
 
 		self.lisp.call("il-fix-copies", None)
 
@@ -421,6 +544,22 @@ class CopiedEntities(unittest.TestCase):
 		self.lisp.call("il-fix-copies", None)
 		self.assertEqual(before, {ename: dict(d.xdata[ename]) for ename in d.order})
 
+	def test_runs_know_their_layout(self):
+		d = self.drawing
+		paper = d.add(
+			"LWPOLYLINE",
+			"1A",
+			[(70, 0), (410, "Level 2"), (10, (0, 0)), (10, (12, 0))],
+			{"kind": "RUN", "id": "L1-01", "type": "L1"},
+		)
+		model = d.polyline(
+			"1B", [(0, 0), (12, 0)], {"kind": "RUN", "id": "L1-02", "type": "L1"}, closed=False
+		)
+		self.assertEqual(alist(self.lisp.call("il-run-from-entity", paper))["layout"], "Level 2")
+		self.assertEqual(
+			self.lisp.call("il-item-layout", self.lisp.call("il-run-from-entity", model)), "Model"
+		)
+
 	def test_tags_are_placed_centred(self):
 		insert = self.lisp.call("il-insert", "IL-RUNTAG", lst([10.0, 10.0, 0.0]), 48.0, "E-ANNO-TAGS", None)
 		d = self.drawing
@@ -438,9 +577,18 @@ class CopiedEntities(unittest.TestCase):
 
 	def test_old_left_tags_are_recentred_once(self):
 		d = self.drawing
-		old = d.insert("1A", "IL-ROOMTAG", (100.0, 50.0, 0.0), 48.0, {"kind": "TAG"}, [("NAME", "Kitchen", (100.0, 50.0, 0.0), 6.0), ("ID", "kitchen", (100.0, 41.36, 0.0), 4.5)])
+		old = d.insert(
+			"1A",
+			"IL-ROOMTAG",
+			(100.0, 50.0, 0.0),
+			48.0,
+			{"kind": "TAG"},
+			[("NAME", "Kitchen", (100.0, 50.0, 0.0), 6.0), ("ID", "kitchen", (100.0, 41.36, 0.0), 4.5)],
+		)
 		d.groups[old].append((50, 0.0))
-		title = d.insert("2A", "IL-TB-ARCH-D", (0.0, 0.0, 0.0), 1.0, None, [("PROJECT", "Job", (30.0, 20.0, 0.0), 0.125)])
+		title = d.insert(
+			"2A", "IL-TB-ARCH-D", (0.0, 0.0, 0.0), 1.0, None, [("PROJECT", "Job", (30.0, 20.0, 0.0), 0.125)]
+		)
 
 		self.assertEqual(self.lisp.call("il-recenter-tags"), 2)
 		name = d.attribute(old, "NAME")
@@ -461,12 +609,21 @@ class CopiedEntities(unittest.TestCase):
 		self.stub(getpoint=lambda *a: next(queue))
 
 	def command_stubs(self, **extra):
-		self.stub(command=lambda *a: None, setvar=lambda *a: None, initget=lambda *a: None, il_pick_tolerance=lambda: 0.5,
-		          il_tag_run=lambda e: None, getreal=lambda *a: None, **extra)
+		self.stub(
+			command=lambda *a: None,
+			setvar=lambda *a: None,
+			initget=lambda *a: None,
+			il_pick_tolerance=lambda: 0.5,
+			il_tag_run=lambda e: None,
+			getreal=lambda *a: None,
+			**extra,
+		)
 
 	def test_iljumper_puts_the_jumper_exactly_on_the_snapped_point(self):
 		d = self.drawing
-		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0), (48.0, 30.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
+		run = d.polyline(
+			"1A", [(0.0, 0.0), (48.0, 0.0), (48.0, 30.0)], {"kind": "RUN", "id": "L1-01"}, closed=False
+		)
 		self.command_stubs()
 		self.points(lst([47.0, 0.0, 0.0]))  # 1 in from the corner: a new vertex there, not the corner
 		self.lisp.call("c:ILJUMPER")
@@ -508,26 +665,46 @@ class CopiedEntities(unittest.TestCase):
 
 	def test_ilfeed_turns_the_run_round_to_start_at_the_feed(self):
 		d = self.drawing
-		run = d.polyline("1A", [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0), (20.0, 10.0)], {"kind": "RUN", "id": "L1-01", "breaks": "1", "spans": "2", "feed": "end"}, closed=False)
+		run = d.polyline(
+			"1A",
+			[(0.0, 0.0), (10.0, 0.0), (20.0, 0.0), (20.0, 10.0)],
+			{"kind": "RUN", "id": "L1-01", "breaks": "1", "spans": "2", "feed": "end"},
+			closed=False,
+		)
 		self.command_stubs(getkword=lambda *a: "Double", il_choose=lambda *a: "Back")
 		self.stub(getreal=lambda *a: 18.0)
 		self.points(lst([20.0, 10.0, 0.0]))
 		self.lisp.call("c:ILFEED")
 		self.assertEqual(d.vertices(run), [(20.0, 10.0), (20.0, 0.0), (10.0, 0.0), (0.0, 0.0)])
 		x = d.xdata[run]
-		self.assertEqual((x["breaks"], x["spans"], x["start_feed"], x["lead_in"], x["feed"]), ("2", "0", "Back", "18", "double-end"))
+		self.assertEqual(
+			(x["breaks"], x["spans"], x["start_feed"], x["lead_in"], x["feed"]),
+			("2", "0", "Back", "18", "double-end"),
+		)
 
 	def test_ilconvert_joins_lines_and_arcs_into_one_run(self):
 		d = self.drawing
 		first = d.add("LINE", "1A", [(8, "0"), (10, (0.0, 0.0, 0.0)), (11, (10.0, 0.0, 0.0))])
-		arc = d.add("ARC", "1B", [(8, "0"), (10, (10.0, 10.0, 0.0)), (40, 10.0), (50, 3 * math.pi / 2), (51, 0.0)])
+		arc = d.add(
+			"ARC", "1B", [(8, "0"), (10, (10.0, 10.0, 0.0)), (40, 10.0), (50, 3 * math.pi / 2), (51, 0.0)]
+		)
 		last = d.add("LINE", "1C", [(8, "0"), (10, (30.0, 10.0, 0.0)), (11, (20.0, 10.0, 0.0))])
 		made = []
-		self.stub(command=lambda *a: None, setvar=lambda *a: None, il_symbol_scale=lambda: 48.0, initget=lambda *a: None,
-		          ssget=lambda *args: [first, arc, last], getkword=lambda *a: None, il_ask_type=lambda: "L1",
-		          il_require_catalog=lambda: mini_lisp.T, il_require_style=lambda: mini_lisp.T, il_assets_ensure=lambda: mini_lisp.T,
-		          il_run_layer=lambda style: "E-LITE-TAPE", il_style_by_id=lambda i: None,
-		          il_make_run=lambda ename, fixture: made.append(ename))
+		self.stub(
+			command=lambda *a: None,
+			setvar=lambda *a: None,
+			il_symbol_scale=lambda: 48.0,
+			initget=lambda *a: None,
+			ssget=lambda *args: [first, arc, last],
+			getkword=lambda *a: None,
+			il_ask_type=lambda: "L1",
+			il_require_catalog=lambda: mini_lisp.T,
+			il_require_style=lambda: mini_lisp.T,
+			il_assets_ensure=lambda: mini_lisp.T,
+			il_run_layer=lambda style: "E-LITE-TAPE",
+			il_style_by_id=lambda i: None,
+			il_make_run=lambda ename, fixture: made.append(ename),
+		)
 		self.lisp.call("c:ILCONVERT")
 		self.assertEqual(len(made), 1)
 		self.assertTrue(all(e not in d.order for e in (first, arc, last)))
@@ -535,16 +712,38 @@ class CopiedEntities(unittest.TestCase):
 		self.assertEqual(vertices[0], (0.0, 0.0))
 		self.assertEqual(len(vertices), 4)
 		self.assertAlmostEqual(vertices[-1][0], 30.0)
-		self.assertAlmostEqual([value for code, value in d.groups[made[0]] if code == 42][1], math.tan(math.pi / 8))
+		self.assertAlmostEqual(
+			[value for code, value in d.groups[made[0]] if code == 42][1], math.tan(math.pi / 8)
+		)
 
 	def test_ilconnect_moves_a_run_from_its_old_psu(self):
 		d = self.drawing
 		run = d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
-		old = d.insert("2A", "IL-PSUTAG", (0.0, 0.0, 0.0), 1.0, {"kind": "PSU", "id": "PS-01", "runs": "L1-01,L1-02"}, [("LOAD", "", (0.0, 0.0, 0.0), 0.1)])
-		new = d.insert("3A", "IL-PSUTAG", (9.0, 0.0, 0.0), 1.0, {"kind": "PSU", "id": "PS-02"}, [("LOAD", "", (9.0, 0.0, 0.0), 0.1)])
-		self.stub(command=lambda *a: None, setvar=lambda *a: None, initget=lambda *a: None, getkword=lambda *a: None,
-		          entsel=lambda *a: lst([new, lst([9.0, 0.0, 0.0])]), il_update_psu_tag=lambda e: None,
-		          ssget=lambda mode=None, filters=None: d.ssget(mode, filters) if mode == "_X" else [run])
+		old = d.insert(
+			"2A",
+			"IL-PSUTAG",
+			(0.0, 0.0, 0.0),
+			1.0,
+			{"kind": "PSU", "id": "PS-01", "runs": "L1-01,L1-02"},
+			[("LOAD", "", (0.0, 0.0, 0.0), 0.1)],
+		)
+		new = d.insert(
+			"3A",
+			"IL-PSUTAG",
+			(9.0, 0.0, 0.0),
+			1.0,
+			{"kind": "PSU", "id": "PS-02"},
+			[("LOAD", "", (9.0, 0.0, 0.0), 0.1)],
+		)
+		self.stub(
+			command=lambda *a: None,
+			setvar=lambda *a: None,
+			initget=lambda *a: None,
+			getkword=lambda *a: None,
+			entsel=lambda *a: lst([new, lst([9.0, 0.0, 0.0])]),
+			il_update_psu_tag=lambda e: None,
+			ssget=lambda mode=None, filters=None: d.ssget(mode, filters) if mode == "_X" else [run],
+		)
 		self.lisp.call("c:ILCONNECT")
 		self.assertEqual(d.xdata[new]["runs"], "L1-01")
 		self.assertEqual(d.xdata[old]["runs"], "L1-02")
@@ -563,9 +762,23 @@ class CopiedEntities(unittest.TestCase):
 	def test_prune_links_drops_deleted_runs(self):
 		d = self.drawing
 		d.polyline("1A", [(0.0, 0.0), (48.0, 0.0)], {"kind": "RUN", "id": "L1-01"}, closed=False)
-		psu = d.insert("2A", "IL-PSUTAG", (0.0, 0.0, 0.0), 1.0, {"kind": "PSU", "id": "PS-01", "runs": "L1-01,L1-09"})
+		psu = d.insert(
+			"2A", "IL-PSUTAG", (0.0, 0.0, 0.0), 1.0, {"kind": "PSU", "id": "PS-01", "runs": "L1-01,L1-09"}
+		)
 		self.stub(namedobjdict=lambda: None, dictsearch=lambda *a: None)
-		self.lisp.set("*il-json-cache*", lst([mini_lisp.Pair("ZONES", self.lisp.run('(il-arr (list (il-obj (list (cons "id" "ZN-1") (cons "runs" (il-arr (list "L1-01" "L1-09")))))))'))]))
+		self.lisp.set(
+			"*il-json-cache*",
+			lst(
+				[
+					mini_lisp.Pair(
+						"ZONES",
+						self.lisp.run(
+							'(il-arr (list (il-obj (list (cons "id" "ZN-1") (cons "runs" (il-arr (list "L1-01" "L1-09")))))))'
+						),
+					)
+				]
+			),
+		)
 		stored = {}
 		self.stub(il_store=lambda key, text: stored.setdefault(key, text))
 		self.lisp.call("il-prune-links")
@@ -575,17 +788,38 @@ class CopiedEntities(unittest.TestCase):
 	def test_run_markers_are_owned_and_loose_ones_cleared(self):
 		self.stub(il_symbol_scale=lambda: 48.0)
 		loose = self.drawing.insert("9A", "IL-FEED", (0.0, 0.0, 0.0), 48.0)
-		run = self.lisp.run('(list (cons "vertices" \'((0.0 0.0 0.0) (10.0 0.0 0.0) (20.0 0.0 0.0))) (cons "breaks" \'(1)) (cons "feed_method" "double-end"))')
+		run = self.lisp.run(
+			'(list (cons "vertices" \'((0.0 0.0 0.0) (10.0 0.0 0.0) (20.0 0.0 0.0))) (cons "breaks" \'(1)) (cons "feed_method" "double-end"))'
+		)
 		self.lisp.call("il-run-markers", run, "1A")
 		self.lisp.call("il-clear-loose-markers")
-		markers = [(self.drawing.value(e, 2), self.drawing.value(e, 10), self.drawing.xdata[e].get("owner")) for e in self.drawing.order]
+		markers = [
+			(self.drawing.value(e, 2), self.drawing.value(e, 10), self.drawing.xdata[e].get("owner"))
+			for e in self.drawing.order
+		]
 		self.assertNotIn(loose, self.drawing.order)
-		self.assertEqual(sorted(markers), [("IL-FEED", (0.0, 0.0, 0.0), "1A"), ("IL-FEED", (20.0, 0.0, 0.0), "1A"), ("IL-JUMPER", (10.0, 0.0, 0.0), "1A")])
+		self.assertEqual(
+			sorted(markers),
+			[
+				("IL-FEED", (0.0, 0.0, 0.0), "1A"),
+				("IL-FEED", (20.0, 0.0, 0.0), "1A"),
+				("IL-JUMPER", (10.0, 0.0, 0.0), "1A"),
+			],
+		)
 
 	def test_rescale_resizes_symbols_but_not_title_blocks(self):
 		d = self.drawing
-		tag = d.insert("1A", "IL-RUNTAG", (10.0, 10.0, 0.0), 48.0, {"kind": "TAG"}, [("TAG", "L1-01", (-2.48, 7.744, 0.0), 4.5)])
-		title = d.insert("1C", "IL-TB-ARCH-D", (0.0, 0.0, 0.0), 1.0, None, [("PROJECT", "Job", (30.0, 20.0, 0.0), 0.125)])
+		tag = d.insert(
+			"1A",
+			"IL-RUNTAG",
+			(10.0, 10.0, 0.0),
+			48.0,
+			{"kind": "TAG"},
+			[("TAG", "L1-01", (-2.48, 7.744, 0.0), 4.5)],
+		)
+		title = d.insert(
+			"1C", "IL-TB-ARCH-D", (0.0, 0.0, 0.0), 1.0, None, [("PROJECT", "Job", (30.0, 20.0, 0.0), 0.125)]
+		)
 		other = d.insert("1E", "DOOR", (0.0, 0.0, 0.0), 1.0)
 
 		self.assertEqual(self.lisp.call("il-rescale-symbols", 0.5), 1)
@@ -610,7 +844,7 @@ class Json(unittest.TestCase):
 		self.assertEqual(to_python_json(catalog), expected)
 
 	def test_round_trip_through_text_and_file(self):
-		value = {"a": [1, 2.5, -3e-05, "x\"y\\z\n", True, False, None], "b": {"c": {}}, "d": []}
+		value = {"a": [1, 2.5, -3e-05, 'x"y\\z\n', True, False, None], "b": {"c": {}}, "d": []}
 		text = self.lisp.call("il-json-text", from_python_json(value))
 		self.assertEqual(json.loads(text), value)
 		parsed = self.lisp.call("il-json-parse", text)
@@ -653,35 +887,110 @@ class Model(unittest.TestCase):
 		self.lisp = interpreter()
 		self.catalog = self.lisp.call("il-catalog-read", str(FIXTURES / "catalog.sample.json"))
 		styles = [
-			{"id": "preset:PRE-0001", "label": "HD 27K Dry", "family": "LED Tape", "template": "led-hd-sw", "selections": {"environment_rating": "Dry", "cct": "2700K", "output_level": "300 lm/ft"}},
-			{"id": "custom:1", "family": "LED Neon", "template": "non-pnc-sw", "selections": {"cct": "2700K", "output_level": "200 lm/ft"}},
-			{"id": "custom:kit", "family": "Extrusion Kit", "template": "KIT-AZ01", "selections": {"finish": "Silver"}, "tape": {"family": "LED Tape", "template": "led-hd-sw", "selections": {"environment_rating": "Wet", "cct": "2700K", "output_level": "300 lm/ft"}}},
+			{
+				"id": "preset:PRE-0001",
+				"label": "HD 27K Dry",
+				"family": "LED Tape",
+				"template": "led-hd-sw",
+				"selections": {"environment_rating": "Dry", "cct": "2700K", "output_level": "300 lm/ft"},
+			},
+			{
+				"id": "custom:1",
+				"family": "LED Neon",
+				"template": "non-pnc-sw",
+				"selections": {"cct": "2700K", "output_level": "200 lm/ft"},
+			},
+			{
+				"id": "custom:kit",
+				"family": "Extrusion Kit",
+				"template": "KIT-AZ01",
+				"selections": {"finish": "Silver"},
+				"tape": {
+					"family": "LED Tape",
+					"template": "led-hd-sw",
+					"selections": {"environment_rating": "Wet", "cct": "2700K", "output_level": "300 lm/ft"},
+				},
+			},
 			{"id": "custom:gone", "family": "LED Tape", "template": "led-xx-gone", "selections": {}},
 		]
 		self.runs = [
 			run("L1-01", [[0, 0, 0], [96, 0, 0]], "preset:PRE-0001"),
-			run("L1-02", [[0, 0, 0], [48.25, 0, 0], [48.25, 30, 0]], "preset:PRE-0001", breaks=lst([1]), jumper_in=12.0),
+			run(
+				"L1-02",
+				[[0, 0, 0], [48.25, 0, 0], [48.25, 30, 0]],
+				"preset:PRE-0001",
+				breaks=lst([1]),
+				jumper_in=12.0,
+			),
 			run("L2-01", [[0, 0, 0], [499, 0, 0]], "preset:PRE-0001", fixture_type="L2"),
 			run("L3-01", [[0, 0, 0.4142135623730951], [1, 1, 0]], "custom:1", fixture_type="L3"),
 			run("L5-01", [[0, 0, 0.05], [78.75, 0, 0]], "custom:kit", fixture_type="L5"),
-			run("L6-01", [[0, 0, 0], [60, 0, 0], [96, 0, 0], [156, 0, 0]], "preset:PRE-0001", fixture_type="L6", spans=lst([1])),
+			run(
+				"L6-01",
+				[[0, 0, 0], [60, 0, 0], [96, 0, 0], [156, 0, 0]],
+				"preset:PRE-0001",
+				fixture_type="L6",
+				spans=lst([1]),
+			),
 		]
 		self.model = to_alist(
 			{
-				"drawing": to_alist({"file": "job.dwg", "rev": 2, "hash": "sha256:" + "c" * 64, "scale_verified": mini_lisp.T, "schedule": "SCH-1"}),
-				"rooms": lst([to_alist({"id": "Z-Kitchen", "name": "Kitchen", "level": "L1", "env": "dry-concealed"})]),
+				"drawing": to_alist(
+					{
+						"file": "job.dwg",
+						"rev": 2,
+						"hash": "sha256:" + "c" * 64,
+						"scale_verified": mini_lisp.T,
+						"schedule": "SCH-1",
+					}
+				),
+				"rooms": lst(
+					[to_alist({"id": "Z-Kitchen", "name": "Kitchen", "level": "L1", "env": "dry-concealed"})]
+				),
 				"cabinets": lst([to_alist({"id": "CAB-1", "room": "Z-Kitchen", "location_rating": "Dry"})]),
 				"runs": lst(self.runs),
 				"styles": lst(from_python_json(style) for style in styles),
-				"psus": lst([to_alist({"id": "PS-01", "cabinet": "CAB-1", "item_code": "PS-96-24", "runs": lst(["L1-01", "L1-02", "L2-01"])})]),
-				"wires": lst([to_alist({"id": "W-01", "from": "PS-01", "to": "L1-01", "kind": "lv", "length_in": 240.0})]),
-				"others": lst([from_python_json({"fixture_type": "X1", "qty": 4, "manufacturer_name": "Acme Lighting", "watts_each": 12})]),
-				"overrides": lst([to_alist({"code": "TAPE_RUN_TOO_LONG", "ref": "L2-01", "note": "Center feed on site"})]),
+				"psus": lst(
+					[
+						to_alist(
+							{
+								"id": "PS-01",
+								"cabinet": "CAB-1",
+								"item_code": "PS-96-24",
+								"runs": lst(["L1-01", "L1-02", "L2-01"]),
+							}
+						)
+					]
+				),
+				"wires": lst(
+					[
+						to_alist(
+							{"id": "W-01", "from": "PS-01", "to": "L1-01", "kind": "lv", "length_in": 240.0}
+						)
+					]
+				),
+				"others": lst(
+					[
+						from_python_json(
+							{
+								"fixture_type": "X1",
+								"qty": 4,
+								"manufacturer_name": "Acme Lighting",
+								"watts_each": 12,
+							}
+						)
+					]
+				),
+				"overrides": lst(
+					[to_alist({"code": "TAPE_RUN_TOO_LONG", "ref": "L2-01", "note": "Center feed on site"})]
+				),
 			}
 		)
 
 	def issues(self):
-		return [plain(issue) for issue in self.lisp.call("il-check", self.model, self.catalog, "2026-11-25") or []]
+		return [
+			plain(issue) for issue in self.lisp.call("il-check", self.model, self.catalog, "2026-11-25") or []
+		]
 
 	def test_hint_snaps_and_splits_like_the_configurator(self):
 		style = self.lisp.call("il-model-style", self.model, "preset:PRE-0001")
@@ -693,12 +1002,27 @@ class Model(unittest.TestCase):
 		self.assertEqual(hint["runs_count"], split["runs_count"])
 		self.assertEqual(hint["max_run_ft"], split["max_run_ft"])
 		self.assertEqual(hint["runs_in"], split["runs_in"])
-		text = self.lisp.call("il-hint-text", self.lisp.call("il-run-hint", self.runs[0], style, self.catalog))
+		text = self.lisp.call(
+			"il-hint-text", self.lisp.call("il-run-hint", self.runs[0], style, self.catalog)
+		)
 		self.assertEqual(text, "94.49 in  34.7 W  41% max")
 
 	def test_check_finds_geometry_issues_and_counts_overrides(self):
 		model = alist(self.model)
-		model["runs"] = lst([*self.runs, run("L9-01", [[0, 0, 0], [10, 0, 0]], "custom:gone", fixture_type="L9", room=None, cabinet=None), run("L1-01", [[0, 0, 0], [1, 0, 0]], "preset:PRE-0001")])
+		model["runs"] = lst(
+			[
+				*self.runs,
+				run(
+					"L9-01",
+					[[0, 0, 0], [10, 0, 0]],
+					"custom:gone",
+					fixture_type="L9",
+					room=None,
+					cabinet=None,
+				),
+				run("L1-01", [[0, 0, 0], [1, 0, 0]], "preset:PRE-0001"),
+			]
+		)
 		self.model = to_alist(model)
 		issues = self.issues()
 		codes = {(issue["code"], issue["ref"]) for issue in issues}
@@ -711,14 +1035,22 @@ class Model(unittest.TestCase):
 		self.assertIn(("CUT_SNAP", "L1-01"), codes)
 		self.assertIn(("PROFILE_NOT_CURVE_CAPABLE", "L5-01"), codes)
 		self.assertNotIn(("TAPE_WIDER_THAN_PROFILE", "L5-01"), codes)  # 0.47 in tape in a 0.685 in channel
-		errors, warnings = self.lisp.call("il-issue-counts", self.lisp.call("il-check", self.model, self.catalog, "2026-11-25"), alist(self.model)["overrides"])
+		errors, warnings = self.lisp.call(
+			"il-issue-counts",
+			self.lisp.call("il-check", self.model, self.catalog, "2026-11-25"),
+			alist(self.model)["overrides"],
+		)
 		self.assertGreaterEqual(errors, 3)
 		self.assertGreaterEqual(warnings, 1)
 
 	def test_package_passes_the_portal_validator(self):
 		issues = self.lisp.call("il-check", self.model, self.catalog, "2026-11-25")
-		package = to_python_json(self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025"))
-		text = self.lisp.call("il-json-text", self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025"))
+		package = to_python_json(
+			self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025")
+		)
+		text = self.lisp.call(
+			"il-json-text", self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025")
+		)
 		self.assertEqual(json.loads(text), package)
 		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
 			self.assertEqual(module.validate_package(package), [])
@@ -734,18 +1066,35 @@ class Model(unittest.TestCase):
 		arc = next(item for item in package["runs"] if item["id"] == "L3-01")
 		self.assertAlmostEqual(arc["segments"][0]["min_arc_radius_in"], 1.0, places=3)
 		spanned = next(item for item in package["runs"] if item["id"] == "L6-01")
-		self.assertEqual([(s["path_length_in"], s["end_type"], s.get("jumper_length_in")) for s in spanned["segments"]], [(60.0, "JUMPER", 36.0), (60.0, "ENDCAP", None)])
+		self.assertEqual(
+			[(s["path_length_in"], s["end_type"], s.get("jumper_length_in")) for s in spanned["segments"]],
+			[(60.0, "JUMPER", 36.0), (60.0, "ENDCAP", None)],
+		)
 		self.assertEqual(package["check"]["overrides"][0]["code"], "TAPE_RUN_TOO_LONG")
 		self.assertEqual(package["other_lines"][0]["manufacturer_name"], "Acme Lighting")
 		self.assertNotIn("price", text.lower())
 
 	def test_receipt_stamps_erp_keys(self):
 		receipt = from_python_json(
-			{"schema": "ilq-receipt/1", "runs": [{"id": "L1-01", "line_key": "LK1", "configured_name": "CTN-1", "config_hash": "abc", "part_number": "PN-1", "server_length_in": 94.49}]}
+			{
+				"schema": "ilq-receipt/1",
+				"runs": [
+					{
+						"id": "L1-01",
+						"line_key": "LK1",
+						"configured_name": "CTN-1",
+						"config_hash": "abc",
+						"part_number": "PN-1",
+						"server_length_in": 94.49,
+					}
+				],
+			}
 		)
 		index = self.lisp.call("il-receipt-index", receipt)
 		stamped = alist(self.lisp.call("il-run-with-receipt", self.runs[0], index))
-		self.assertEqual((stamped["line_key"], stamped["part_number"], stamped["server_in"]), ("LK1", "PN-1", 94.49))
+		self.assertEqual(
+			(stamped["line_key"], stamped["part_number"], stamped["server_in"]), ("LK1", "PN-1", 94.49)
+		)
 		untouched = alist(self.lisp.call("il-run-with-receipt", self.runs[1], index))
 		self.assertNotIn("line_key", untouched)
 
@@ -753,9 +1102,183 @@ class Model(unittest.TestCase):
 		self.assertIsNone(self.lisp.call("il-catalog-stale", self.catalog, "2026-12-01"))
 		self.assertIn("days old", self.lisp.call("il-catalog-stale", self.catalog, "2027-01-15"))
 
+	def with_layouts(self, layouts, room_layout=None, scale_verified=mini_lisp.T):
+		model = alist(self.model)
+		model["runs"] = lst(
+			to_alist({**alist(item), "layout": layouts.get(alist(item)["id"])}) for item in self.runs
+		)
+		model["rooms"] = lst(to_alist({**alist(room), "layout": room_layout}) for room in model["rooms"])
+		model["drawing"] = to_alist({**alist(model["drawing"]), "scale_verified": scale_verified})
+		return to_alist(model)
+
+	def package(self, model, platform="AutoCAD 2025"):
+		issues = self.lisp.call("il-check", model, self.catalog, "2026-11-25")
+		return to_python_json(self.lisp.call("il-package", model, self.catalog, issues, platform))
+
+	def test_package_names_its_source_and_one_sheet_per_layout_with_runs(self):
+		model = self.with_layouts(
+			{"L2-01": "Level 2 / East", "L3-01": "Level 2 / East", "L5-01": "Model"},
+			room_layout="Level 2 / East",
+		)
+		package = self.package(model)
+		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
+			self.assertEqual(module.validate_package(package), [])
+		self.assertEqual(
+			package["source"],
+			{
+				"tool": "autocad",
+				"version": self.lisp.get("*il-version*"),
+				"platform": "AutoCAD 2025",
+				"input": "ilq",
+			},
+		)
+		self.assertEqual(
+			package["sheets"],
+			[
+				{"id": "Model", "label": "Model", "scale": {"status": "verified", "unit": "in"}},
+				{
+					"id": "Level-2-East",
+					"label": "Level 2 / East",
+					"scale": {"status": "verified", "unit": "in"},
+				},
+			],
+		)
+		sheets = {item["id"]: item["sheet"] for item in package["runs"]}
+		self.assertEqual(
+			sheets,
+			{
+				"L1-01": "Model",
+				"L1-02": "Model",
+				"L2-01": "Level-2-East",
+				"L3-01": "Level-2-East",
+				"L5-01": "Model",
+				"L6-01": "Model",
+			},
+		)
+		self.assertEqual({item["identity"] for item in package["runs"]}, {"xdata"})
+		self.assertEqual(package["rooms"][0]["sheet"], "Level-2-East")
+		self.assertTrue(package["drawing"]["scale_verified"])
+
+	def test_unverified_scale_is_declared_and_rooms_off_the_sheets_name_none(self):
+		model = self.with_layouts({}, room_layout="Site plan", scale_verified=None)
+		package = self.package(model)
+		issues = [plain(issue) for issue in self.lisp.call("il-check", model, self.catalog, "2026-11-25")]
+		self.assertIn(("SCALE_UNVERIFIED", "drawing"), {(issue["code"], issue["ref"]) for issue in issues})
+		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
+			self.assertEqual(module.validate_package(package), [])
+			self.assertEqual(
+				module.validate_package(
+					{**package, "drawing": {**package["drawing"], "scale_verified": True}}
+				)[0].split(":")[0],
+				"sheets/0/scale/status",
+			)
+		self.assertEqual(
+			package["sheets"],
+			[{"id": "Model", "label": "Model", "scale": {"status": "declared", "unit": "in"}}],
+		)
+		self.assertFalse(package["drawing"]["scale_verified"])
+		self.assertNotIn("sheet", package["rooms"][0])
+
+	def test_content_hash_ignores_source_sheets_and_layouts(self):
+		plain_hash = self.lisp.call("il-model-hash", self.model, self.catalog)
+		moved = self.with_layouts({"L1-01": "Layout1", "L2-01": "Level 2"}, room_layout="Layout1")
+		self.assertEqual(self.lisp.call("il-model-hash", moved, self.catalog), plain_hash)
+		# The 0.4.x content (no source, sheets, run sheet or identity) hashes the same, so an upgrade does not
+		# report DRAWING_CHANGED_SINCE_IMPORT.
+		package = self.package(self.model, "hash")
+		old = {
+			key: value
+			for key, value in package.items()
+			if key not in ("toolkit", "source", "drawing", "check", "catalog", "sheets")
+		}
+		old["runs"] = [
+			{key: value for key, value in item.items() if key not in ("sheet", "identity")}
+			for item in old["runs"]
+		]
+		old["rooms"] = [
+			{key: value for key, value in item.items() if key != "sheet"} for item in old["rooms"]
+		]
+		self.assertEqual(
+			self.lisp.call("il-sha256", self.lisp.call("il-json-text", from_python_json(old))), plain_hash
+		)
+
+	def test_sheet_ids_are_cad_ids(self):
+		import re
+
+		cases = {
+			None: "Model",
+			"Model": "Model",
+			"Layout1": "Layout1",
+			"Level 2 / East": "Level-2-East",
+			"  -Plan (A)  ": "Plan-A",
+			"E1.01_Lighting": "E1.01_Lighting",
+			"***": "Sheet",
+			"x" * 60: "x" * 40,
+		}
+		for layout, expected in cases.items():
+			with self.subTest(layout):
+				slug = self.lisp.call("il-sheet-slug", layout)
+				self.assertEqual(slug, expected)
+				self.assertRegex(slug, re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$"))
+		self.assertEqual(self.lisp.call("il-unique-slug", "Level-2", lst(["Level-2"])), "Level-2-2")
+		self.assertEqual(
+			self.lisp.call("il-unique-slug", "a" * 40, lst(["a" * 40, "a" * 38 + "-2"])), "a" * 38 + "-3"
+		)
+		sheets = self.lisp.call(
+			"il-model-sheets", self.with_layouts({"L1-01": "Level 2", "L1-02": "Level-2", "L2-01": "Level 2"})
+		)
+		self.assertEqual(
+			[(alist(sheet)["layout"], alist(sheet)["id"]) for sheet in sheets],
+			[("Level 2", "Level-2"), ("Level-2", "Level-2-2"), ("Model", "Model")],
+		)
+
+	def test_version_comparison(self):
+		for a, b, expected in (
+			("0.4.5", "0.5.0", True),
+			("0.5.0", "0.5.0", False),
+			("0.5", "0.5.0", False),
+			("0.5.0", "0.5", False),
+			("0.9.0", "0.10.0", True),
+			("0.10.0", "0.9.9", False),
+			("1.0.0", "0.99", False),
+			("0.5.0", "0.5.1", True),
+		):
+			with self.subTest(a=a, b=b):
+				self.assertEqual(self.lisp.call("il-version<", a, b) is not None, expected)
+
+	def catalog_with(self, settings):
+		catalog = to_python_json(self.catalog)
+		catalog["settings"] = {**catalog.get("settings", {}), **settings}
+		return from_python_json(catalog)
+
+	def test_toolkit_outdated_warning(self):
+		version = self.lisp.get("*il-version*")
+		for minimum, outdated in (("99.0.0", True), (version, False), ("0.4.9", False), (None, False)):
+			with self.subTest(minimum):
+				catalog = self.catalog_with({"min_toolkit_version": minimum})
+				warning = self.lisp.call("il-toolkit-outdated", catalog)
+				issues = [
+					plain(issue) for issue in self.lisp.call("il-check", self.model, catalog, "2026-11-25")
+				]
+				flagged = [issue for issue in issues if issue["code"] == "TOOLKIT_OUTDATED"]
+				if outdated:
+					self.assertIn("Resources page", warning)
+					self.assertIn("99.0.0", warning)
+					self.assertEqual(
+						[(issue["ref"], issue["severity"]) for issue in flagged], [("drawing", "warning")]
+					)
+				else:
+					self.assertIsNone(warning)
+					self.assertEqual(flagged, [])
+
 
 def control(control_id, code, **extra):
-	values = {"id": control_id, "handle": format(0x3A00 + int(control_id[-2:]) + (0x80 if control_id.startswith("DEC") else 0), "X"), "item_code": code, "start": "auto"}
+	values = {
+		"id": control_id,
+		"handle": format(0x3A00 + int(control_id[-2:]) + (0x80 if control_id.startswith("DEC") else 0), "X"),
+		"item_code": code,
+		"start": "auto",
+	}
 	values.update(extra)
 	return to_alist(values)
 
@@ -771,7 +1294,9 @@ class Controls(unittest.TestCase):
 		model["controls"] = lst(
 			[
 				control("CTL-01", "DMXC-TW-BK-WALL", room="Z-Kitchen"),
-				control("DEC-01", "DMXD-PWM-5C-SF", cabinet="CAB-1", universe=1, start=1, control_from="CTL-01"),
+				control(
+					"DEC-01", "DMXD-PWM-5C-SF", cabinet="CAB-1", universe=1, start=1, control_from="CTL-01"
+				),
 				control("DEC-02", "DMXD-PWM-5C-SF", cabinet="CAB-1", universe=1),
 				control("DEC-03", "DMXD-PWM-5C-SF", cabinet="CAB-1", universe=1, start=11),
 				control("CTL-02", "PIX-4", cabinet="CAB-1"),
@@ -779,17 +1304,42 @@ class Controls(unittest.TestCase):
 		)
 		model["zones"] = lst(
 			[
-				to_alist({"id": "ZN-1", "name": "Kitchen", "method": "DMX512", "control": "CTL-01", "port": "DMX512", "runs": lst(["L1-01", "L1-02"])}),
-				to_alist({"id": "ZN-2", "name": "Wrong", "method": "DMX512", "control": "CTL-02", "port": "OUT1", "runs": lst(["L2-01"])}),
+				to_alist(
+					{
+						"id": "ZN-1",
+						"name": "Kitchen",
+						"method": "DMX512",
+						"control": "CTL-01",
+						"port": "DMX512",
+						"runs": lst(["L1-01", "L1-02"]),
+					}
+				),
+				to_alist(
+					{
+						"id": "ZN-2",
+						"name": "Wrong",
+						"method": "DMX512",
+						"control": "CTL-02",
+						"port": "OUT1",
+						"runs": lst(["L2-01"]),
+					}
+				),
 				to_alist({"id": "ZN-3", "name": "Twice", "method": "0-10V", "runs": lst(["L1-02"])}),
 			]
 		)
-		model["wires"] = lst([*model["wires"], to_alist({"id": "W-02", "from": "CTL-02", "to": "L3-01", "kind": "data", "length_in": 240.0})])
+		model["wires"] = lst(
+			[
+				*model["wires"],
+				to_alist({"id": "W-02", "from": "CTL-02", "to": "L3-01", "kind": "data", "length_in": 240.0}),
+			]
+		)
 		self.model = to_alist(model)
 
 	def test_dmx_patch_keeps_fixed_addresses_and_fills_auto_ones(self):
 		patch = [plain(row) for row in self.lisp.call("il-dmx-patch", self.model, self.catalog)]
-		self.assertEqual(patch, [[1, "DEC-01", 1, 5, None], [1, "DEC-02", 6, 10, True], [1, "DEC-03", 11, 15, None]])
+		self.assertEqual(
+			patch, [[1, "DEC-01", 1, 5, None], [1, "DEC-02", 6, 10, True], [1, "DEC-03", 11, 15, None]]
+		)
 
 	def test_control_checks(self):
 		codes = {(issue["code"], issue["ref"]) for issue in self.issues()}
@@ -802,7 +1352,13 @@ class Controls(unittest.TestCase):
 
 	def test_overlap_and_full_universe(self):
 		model = alist(self.model)
-		model["controls"] = lst([control("DEC-01", "DMXD-PWM-5C-SF", universe=2, start=10), control("DEC-02", "DMXD-PWM-5C-SF", universe=2, start=12), control("DEC-03", "DMXD-PWM-5C-SF", universe=2, start=510)])
+		model["controls"] = lst(
+			[
+				control("DEC-01", "DMXD-PWM-5C-SF", universe=2, start=10),
+				control("DEC-02", "DMXD-PWM-5C-SF", universe=2, start=12),
+				control("DEC-03", "DMXD-PWM-5C-SF", universe=2, start=510),
+			]
+		)
 		model["zones"] = None
 		self.model = to_alist(model)
 		codes = {(issue["code"], issue["ref"]) for issue in self.issues()}
@@ -814,21 +1370,37 @@ class Controls(unittest.TestCase):
 		model["controls"] = lst([control("CTL-09", "NOPE")])
 		model["zones"] = None
 		self.model = to_alist(model)
-		self.assertIn(("CONTROL_UNKNOWN", "CTL-09"), {(issue["code"], issue["ref"]) for issue in self.issues()})
+		self.assertIn(
+			("CONTROL_UNKNOWN", "CTL-09"), {(issue["code"], issue["ref"]) for issue in self.issues()}
+		)
 
 	def test_package_with_controls_and_zones_passes_the_portal_validator(self):
 		model = alist(self.model)
 		model["zones"] = lst(list(model["zones"])[:2])
 		self.model = to_alist(model)
 		issues = self.lisp.call("il-check", self.model, self.catalog, "2026-11-25")
-		package = to_python_json(self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025"))
+		package = to_python_json(
+			self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025")
+		)
 		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
 			self.assertEqual(module.validate_package(package), [])
 		decoder = next(item for item in package["controls"] if item["id"] == "DEC-01")
 		self.assertEqual(decoder["dmx"], {"universe": 1, "start_address": 1})
 		self.assertEqual(decoder["control_from"], "CTL-01")
-		self.assertEqual(next(item for item in package["controls"] if item["id"] == "DEC-02")["dmx"]["start_address"], "auto")
-		self.assertEqual(package["zones"][0], {"id": "ZN-1", "name": "Kitchen", "method": "DMX512", "control": {"id": "CTL-01", "port": "DMX512"}, "runs": ["L1-01", "L1-02"]})
+		self.assertEqual(
+			next(item for item in package["controls"] if item["id"] == "DEC-02")["dmx"]["start_address"],
+			"auto",
+		)
+		self.assertEqual(
+			package["zones"][0],
+			{
+				"id": "ZN-1",
+				"name": "Kitchen",
+				"method": "DMX512",
+				"control": {"id": "CTL-01", "port": "DMX512"},
+				"runs": ["L1-01", "L1-02"],
+			},
+		)
 
 	def test_receipt_controls(self):
 		receipt = from_python_json({"schema": "ilq-receipt/1", "runs": [], "controls": {"DEC-01": "LK9"}})
@@ -845,7 +1417,10 @@ class AccoreconsoleRunner(unittest.TestCase):
 			report = Path(folder) / "report.txt"
 			passed, failed = lisp.call("il-run-golden", str(FIXTURES / "lisp-subset.json"), str(report))
 			self.assertEqual(failed, 0, report.read_text())
-			self.assertEqual(passed, sum(len(CASES[group]) for group in ("cut_snap", "run_split", "psu_load", "path_length")))
+			self.assertEqual(
+				passed,
+				sum(len(CASES[group]) for group in ("cut_snap", "run_split", "psu_load", "path_length")),
+			)
 
 	def test_runner_reports_a_wrong_case(self):
 		lisp = interpreter()
@@ -885,7 +1460,21 @@ AUTOLISP = set(
 	write-line zerop function handent
 	""".split()
 )
-SPECIAL = {"quote", "function", "setq", "if", "cond", "while", "repeat", "foreach", "progn", "and", "or", "defun", "lambda"}
+SPECIAL = {
+	"quote",
+	"function",
+	"setq",
+	"if",
+	"cond",
+	"while",
+	"repeat",
+	"foreach",
+	"progn",
+	"and",
+	"or",
+	"defun",
+	"lambda",
+}
 
 
 def calls_and_locals(forms):
@@ -937,7 +1526,9 @@ class Sources(unittest.TestCase):
 			forms.extend(mini_lisp.read_all(path.read_text(encoding="utf-8")))
 		defined, calls, bindings = calls_and_locals(forms)
 		unknown = sorted(calls - defined - AUTOLISP - SPECIAL)
-		self.assertEqual(unknown, [], "calls to functions that are neither AutoLISP nor defined in the toolkit")
+		self.assertEqual(
+			unknown, [], "calls to functions that are neither AutoLISP nor defined in the toolkit"
+		)
 		shadowing = sorted(set(bindings) & (AUTOLISP | defined | {"angle", "set", "read", "load", "type"}))
 		self.assertEqual(shadowing, [], "AutoLISP variables share the function namespace")
 

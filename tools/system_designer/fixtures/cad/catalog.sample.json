@@ -168,6 +168,7 @@
  "snapshot_hash": "0000000000000000000000000000000000000000000000000000000000000001",
  "styles": [
   {
+   "code": "HD27-DRY",
    "family": "LED Tape",
    "id": "preset:PRE-0001",
    "label": "HD 27K Dry",

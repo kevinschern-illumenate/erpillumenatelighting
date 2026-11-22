@@ -5,6 +5,7 @@
 #}
 {%- from "illumenate_lighting/templates/print/ill_print.html" import styles, header, facts, parties, line, closing, date, line_group, section_total, line_type, line_notes, qty with context -%}
 {%- set dn = frappe.db.get_value("Delivery Note", doc.delivery_note, ["customer_name", "posting_date", "po_no", "shipping_address", "address_display", "shipping_address_name", "customer_address", "ill_carrier", "ill_tracking_number"], as_dict=True) if doc.delivery_note else none -%}
+{%- set track = ill_print_tracking(doc.delivery_note) if doc.delivery_note else none -%}
 {%- set cases = (doc.from_case_no ~ ((" to " ~ doc.to_case_no) if doc.to_case_no and doc.to_case_no != doc.from_case_no else "")) if doc.from_case_no else "" -%}
 {%- set weight_unit = doc.weight_uom or "" -%}
 {%- set sections = ill_print_sections(doc.items, follow_links=True) -%}
@@ -19,8 +20,8 @@
 		("Ship date", date(dn.posting_date) if dn else ""),
 		("Your PO", (dn.po_no or "") if dn else ""),
 		("Case no.", cases),
-		("Carrier", (dn.ill_carrier or "") if dn else ""),
-		("Tracking number", (dn.ill_tracking_number or "") if dn else ""),
+		("Carrier", (track.carrier or "") if track else ""),
+		("Tracking number" if not track or "," not in track.numbers else "Tracking numbers", (track.numbers or "") if track else ""),
 		("Net weight", ((doc.net_weight_pkg | string) ~ " " ~ weight_unit) if doc.net_weight_pkg else ""),
 		("Gross weight", ((doc.gross_weight_pkg | string) ~ " " ~ weight_unit) if doc.gross_weight_pkg else ""),
 	]) }}

@@ -1,0 +1,3 @@
+customer,user,label,family,template,selections_json,cad_code,shared_with_company
+EXAMPLE-DEALER-CUSTOMER,drafter@example-dealer.test,EXAMPLE Cove 2700K Dry,LED Tape,EXAMPLE-TAPE-TEMPLATE-CODE,"{""environment_rating"": ""Dry"", ""cct"": ""2700K"", ""output_level"": ""300 lm/ft""}",EX-COVE-27,1
+EXAMPLE-DEALER-CUSTOMER,drafter@example-dealer.test,EXAMPLE Linear Black Surface,Linear Fixture,EXAMPLE-FIXTURE-TEMPLATE,"{""finish_code"": ""Black"", ""mounting_method_code"": ""Surface""}",EX-LIN-BK,0

@@ -55,6 +55,29 @@ class IlqContract(unittest.TestCase):
 		package["runs"].append(run)
 		self.assertTrue(any("Duplicate handle" in problem for problem in self.module.validate_package(package)))
 
+	def test_sources_are_derived_for_old_packages(self):
+		package = self.module.parse_package(fixture("valid/minimal.json"))
+		self.assertEqual(package["source"]["tool"], "autocad")
+		self.assertEqual(package["source"]["input"], "ilq")
+		self.assertEqual(package["sheets"], [])
+		self.assertEqual(package["counts"], [])
+		dxf = fixture("valid/minimal.json")
+		dxf["toolkit"] = {"version": "dxf-1", "platform": "DXF upload"}
+		self.assertEqual(self.module.parse_package(dxf)["source"]["tool"], "dxf")
+
+	def test_sheets_counts_and_scale_claims(self):
+		package = self.module.parse_package(fixture("valid/sheets-two-levels.json"))
+		self.assertEqual([sheet["id"] for sheet in package["sheets"]], ["L1", "L2"])
+		self.assertEqual(package["source"]["tool"], "autocad")
+		for name, path in (
+			("unknown-sheet.json", "runs/1/sheet"),
+			("count-unknown-room.json", "counts/0/room"),
+			("scale-claim-mismatch.json", "sheets/1/scale/status"),
+		):
+			with self.subTest(name):
+				problems = self.module.validate_package(fixture(f"invalid/{name}"))
+				self.assertTrue(any(problem.startswith(path) for problem in problems), problems)
+
 	def test_twenty_run_job(self):
 		package = self.module.parse_package(fixture("valid/job-20-runs.json"))
 		self.assertEqual(len(package["runs"]), 20)

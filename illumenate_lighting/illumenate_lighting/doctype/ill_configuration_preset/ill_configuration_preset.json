@@ -15,6 +15,10 @@
   "family",
   "template",
   "contract_version",
+  "section_cad",
+  "cad_code",
+  "column_break_cad",
+  "cad_enabled",
   "section_request",
   "request_json"
  ],
@@ -75,6 +79,31 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_cad",
+   "fieldtype": "Section Break",
+   "label": "Drawing (CAD)"
+  },
+  {
+   "fieldname": "cad_code",
+   "fieldtype": "Data",
+   "label": "Drawing Code",
+   "length": 24,
+   "search_index": 1,
+   "in_list_view": 1,
+   "description": "Short code for AutoCAD layers named ILM-STYLE-<code>: A-Z, 0-9 and dashes, unique within the company (or the user when there is no company)."
+  },
+  {
+   "fieldname": "column_break_cad",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cad_enabled",
+   "fieldtype": "Check",
+   "label": "Offer in CAD Catalog",
+   "default": "1",
+   "description": "Unchecked presets are left out of the CAD catalog's run styles and drawing code lookups."
+  },
+  {
    "fieldname": "section_request",
    "fieldtype": "Section Break",
    "label": "Configuration"
@@ -89,7 +118,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-10 00:00:00.000000",
+ "modified": "2026-11-21 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Configuration-Preset",

@@ -30,7 +30,8 @@ app_license = "mit"
 # (plain /assets paths are cached for a year with `immutable`).
 app_include_css = ["illumenate_desk.bundle.css"]
 # shared_configurator + fixture_steps + tape_neon_steps + desk/dialog/*
-# ("Configure & Add Fixture" dialog for Quotation / Sales Order).
+# ("Configure & Add Fixture" dialog for Quotation / Sales Order, and document-only
+# for Purchase Order / Request for Quotation / Material Request / Work Order).
 app_include_js = ["illumenate_desk.bundle.js"]
 
 # include js, css files in header of web template
@@ -57,10 +58,14 @@ web_include_js = ["illumenate_web.bundle.js"]
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js", "public/js/line_power.js"],
-    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": ["public/js/quotation.js", "public/js/line_power.js"], "Purchase Order": "public/js/supplier_parts.js", "Request for Quotation": "public/js/supplier_parts.js",
+doctype_js = {"ilL-Product-Verification-Request": "public/js/desk_conversation.js", "ilL-Portal-Delivery": "public/js/portal_delivery.js", "Issue": "public/js/desk_conversation.js", "ilL-Document-Request": "public/js/desk_conversation.js", "ilL-Quote-Request": ["public/js/quote_request.js", "public/js/desk_conversation.js"], "Sales Order": ["public/js/sales_order.js", "public/js/desk_conversation.js", "public/js/line_power.js", "public/js/order_stage.js"],
+    "ilL-Order-Intake": "public/js/desk_conversation.js", "ilL-Order-Change": "public/js/desk_conversation.js", "Quotation": ["public/js/quotation.js", "public/js/line_power.js", "public/js/order_stage.js"], "Purchase Order": "public/js/supplier_parts.js", "Request for Quotation": "public/js/supplier_parts.js",
     "ilL-Webflow-Product": ["public/js/product_publication.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/webflow_sync.js", "public/js/webflow_approval.js", "public/js/webflow_auto_push.js", "public/js/publication_history.js"], "ilL-Publish-Job": "public/js/product_publication.js", "ilL-Webflow-Gallery": "public/js/gallery_publication.js"}
+# Create Shipment on Delivery Note; Create Labels / Void Label on Shipment (api/shipping.py).
+doctype_js.update({"Delivery Note": "public/js/delivery_note_shipping.js", "Shipment": "public/js/shipment.js"})
 doctype_list_js = {"Item": "public/js/item_list.js"}
+# Stage column colours on the Sales Order and Quotation lists (api/order_stage.py).
+doctype_list_js.update({_name: "public/js/order_stage_list.js" for _name in ("Sales Order", "Quotation")})
 # "Link Helpdesk Tickets" button; it hides itself when Helpdesk is not installed.
 for _name in ("Quotation", "Sales Order", "Sales Invoice", "ilL-Project", "ilL-Project-Fixture-Schedule"):
     _scripts = doctype_js.get(_name, [])
@@ -94,6 +99,11 @@ for _name in (
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
     doctype_js[_name] = [*_scripts, "public/js/template_documents.js", "public/js/template_webflow_link.js", "public/js/webflow_sync.js", "public/js/template_spec_sheet.js", "public/js/product_media.js", "public/js/product_clone.js", "public/js/template_sidebar.js", "public/js/publication_history.js"]
+# "Configure & Add Fixture" (document-only) on purchasing / manufacturing documents.
+for _name in ("Purchase Order", "Request for Quotation", "Material Request", "Work Order"):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, "public/js/configured_build_docs.js"]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -233,6 +243,7 @@ jinja = {
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_phone",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_pricing",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_project",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_tracking",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_qty",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_qty_parts",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_references",
@@ -421,6 +432,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.build_points.on_work_order_insert",
 		],
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
+		# Sales Order Stage (Needs Work Orders / Pend-Prod / In-Prod / Pend-Ship).
+		"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh",
 	},
 	# Count each new BOM's pinned build (conductors, wet runs, jumpers, assembly).
 	"BOM": {"on_submit": "illumenate_lighting.illumenate_lighting.api.build_points.on_bom_submit"},
@@ -434,7 +447,12 @@ doc_events = {
 		"on_cancel": "illumenate_lighting.illumenate_lighting.api.qbo_bills.on_cancel",
 	},
 	# Purchasing board: a full receipt marks the PO Delivered and joins its open inbound shipment.
-	"Purchase Receipt": {"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_receipt_submit"},
+	# Received parts can end Waiting for parts / Paint on a Sales Order's Stage.
+	"Purchase Receipt": {"on_submit": "illumenate_lighting.illumenate_lighting.api.purchasing.on_receipt_submit", "on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh"},
+	# Material transfers and manufacture entries move Sales Orders into In-Prod and Pend-Ship.
+	"Stock Entry": {"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh"},
+	# A paid Proforma order leaves Proforma - Awaiting Payment.
+	"Payment Entry": {"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh"},
 	"Communication": {
 		# Purchasing mailbox: supplier email leaves from purchasing@; new email in that inbox is
 		# linked to the document it names and to the sender's Supplier (email_templates/purchasing_mail.py).
@@ -451,14 +469,22 @@ doc_events = {
 		"validate": [
 			"illumenate_lighting.illumenate_lighting.api.build_links.follow_items",
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
+			# Stage: Drafting, or the override.
+			"illumenate_lighting.illumenate_lighting.api.order_stage.quotation_validate",
 			# Last: schedule sync can rescale row quantities. Spec and load under tape/neon/sheet rows.
 			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
 		],
 		# Only a submitted Quotation linked to an intake creates a portal offer.
-		"before_submit": "illumenate_lighting.illumenate_lighting.portal.offers.before_submit",
+		"before_submit": [
+			"illumenate_lighting.illumenate_lighting.portal.offers.before_submit",
+			# Stage: Sent; clears a drafting override (Waiting on Info / Vendor).
+			"illumenate_lighting.illumenate_lighting.api.order_stage.quotation_before_submit",
+		],
+		"before_update_after_submit": "illumenate_lighting.illumenate_lighting.api.order_stage.quotation_before_update_after_submit",
 		"on_submit": "illumenate_lighting.illumenate_lighting.portal.offers.on_submit",
 		"on_cancel": ["illumenate_lighting.illumenate_lighting.portal.offers.on_cancel",
-			"illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_cancel"],
+			"illumenate_lighting.illumenate_lighting.api.desk_configurator.on_quotation_cancel",
+			"illumenate_lighting.illumenate_lighting.api.order_stage.quotation_on_cancel"],
 	},
 	"Sales Order": {
 		"validate": [
@@ -467,6 +493,8 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.api.schedule_sync.on_transaction_validate",
 			# After follow_items, so each line is counted against the BOM it now pins.
 			"illumenate_lighting.illumenate_lighting.api.build_points.roll_up_sales_order",
+			# Stage: Pending Approval, or the override.
+			"illumenate_lighting.illumenate_lighting.api.order_stage.sales_order_validate",
 			# Last: schedule sync can rescale row quantities. Spec and load under tape/neon/sheet rows.
 			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
 		],
@@ -474,7 +502,11 @@ doc_events = {
 			"illumenate_lighting.illumenate_lighting.portal.order_review.validate_order",
 			# "Update Items" changes qty / UOM on a submitted order without running validate.
 			"illumenate_lighting.illumenate_lighting.api.line_power.stamp_line_power",
+			# Stage Override shows at once; worked-out stages come from the queued refresh.
+			"illumenate_lighting.illumenate_lighting.api.order_stage.sales_order_before_update_after_submit",
 		],
+		# Submit, cancel and after-submit edits queue one stage refresh of all open orders.
+		"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh",
 		"on_update": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
 		"on_update_after_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_impact.on_build_update",
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.order_review.before_submit",
@@ -485,7 +517,10 @@ doc_events = {
 			# Order confirmation email, queued after commit; off until ilL-Email-Settings enables it.
 			"illumenate_lighting.illumenate_lighting.email_templates.auto_send.on_sales_order_submit",
 		],
-		"on_cancel": "illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_cancel",
+		"on_cancel": [
+			"illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_cancel",
+			"illumenate_lighting.illumenate_lighting.api.order_stage.sales_order_on_cancel",
+		],
 		"on_trash": [
 			"illumenate_lighting.illumenate_lighting.portal.order_review.on_trash",
 			"illumenate_lighting.illumenate_lighting.doctype.ill_project_fixture_schedule.ill_project_fixture_schedule.on_sales_order_trash",
@@ -498,9 +533,20 @@ doc_events = {
 			# Shipment email to non-portal contacts, queued after commit; off until enabled.
 			"illumenate_lighting.illumenate_lighting.email_templates.auto_send.on_delivery_note_submit",
 		],
+		# Partially Shipped / Shipped / In Transit on the Sales Order's Stage.
+		"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh",
+	},
+	# Outbound shipping: one row per box, surcharge flags, no submit without usable parcels,
+	# no cancel while EasyPost labels are bought (api/shipping.py).
+	"Shipment": {
+		"validate": "illumenate_lighting.illumenate_lighting.api.shipping.shipment_validate",
+		"before_submit": "illumenate_lighting.illumenate_lighting.api.shipping.shipment_before_submit",
+		"before_cancel": "illumenate_lighting.illumenate_lighting.api.shipping.shipment_before_cancel",
 	},
 	"Sales Invoice": {
 		"validate": "illumenate_lighting.illumenate_lighting.portal.commercial_lineage.validate",
+		# Billing completes an order; payment ends Proforma - Awaiting Payment.
+		"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh",
 	},
 	"Purchase Order": {
 		"before_validate": "illumenate_lighting.illumenate_lighting.api.purchase_order.allow_blank_schedule_date",
@@ -515,6 +561,8 @@ doc_events = {
 		],
 		# Line supplier part details that differ from the Item are saved to the Item.
 		"on_update": "illumenate_lighting.illumenate_lighting.api.supplier_parts.save_line_supplier_parts",
+		# Paint POs and part ETAs feed the Sales Order's Stage.
+		"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh",
 	},
 	"Request for Quotation": {
 		"validate": [
@@ -650,7 +698,9 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick", "illumenate_lighting.illumenate_lighting.api.gallery_publication.tick"], "*/10 6-17 * * 1-5": ["illumenate_lighting.kevins_desk.tasks.warm"]}}
+scheduler_events = {"hourly": ["illumenate_lighting.illumenate_lighting.api.qbo_bills.send_pending"], "daily": ["illumenate_lighting.illumenate_lighting.portal.product_finder.sessions.expire_sessions", "illumenate_lighting.illumenate_lighting.portal.offers.remind_expiring", "illumenate_lighting.illumenate_lighting.portal.staff_notifications.overdue_digest"], "cron": {"*/5 * * * *": ["illumenate_lighting.illumenate_lighting.portal.outbox.dispatch", "illumenate_lighting.illumenate_lighting.portal.packet_jobs.recover"], "* * * * *": ["illumenate_lighting.illumenate_lighting.webflow_auto_push.tick", "illumenate_lighting.illumenate_lighting.api.gallery_publication.tick"], "*/10 6-17 * * 1-5": ["illumenate_lighting.kevins_desk.tasks.warm"],
+	# Sales Order and Quotation Stage: catches Close / On Hold / expiry / replies that run no hooks.
+	"*/15 * * * *": ["illumenate_lighting.illumenate_lighting.api.order_stage.refresh_all"]}}
 
 # Testing
 # -------

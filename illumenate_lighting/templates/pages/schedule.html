@@ -45,6 +45,12 @@ Also handles new schedule creation when is_new is True
 							<label for="newScheduleNotes">{{ _("Notes") }}</label>
 							<textarea id="newScheduleNotes" class="form-control" name="notes" rows="3" placeholder="{{ _('Optional notes about this schedule') }}"></textarea>
 						</div>
+						{% if drawing_start_enabled | default(false) %}
+						<div class="form-check mb-3">
+							<input type="checkbox" class="form-check-input" id="newScheduleFromDrawing" name="from_drawing"{% if drawing_start | default(false) %} checked{% endif %}>
+							<label class="form-check-label" for="newScheduleFromDrawing">{{ _("Import a drawing next (AutoCAD package or DXF)") }}</label>
+						</div>
+						{% endif %}
 						<hr>
 						<div class="d-flex justify-content-between">
 							<a href="/portal/projects/{{ project.name | urlencode }}" class="btn btn-secondary">
@@ -2035,7 +2041,16 @@ Also handles new schedule creation when is_new is True
 				<button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
 			</div>
 			<div class="modal-body">
-				<p class="text-muted">{{ _("Upload the .ilq.json package the ilLumenate CAD toolkit writes (ILQUOTE), or an ASCII DXF drawn on ILM-TAPE-<template> layers. Every run is built by the configurator from its style; lengths are snapped and split here, not in AutoCAD. Nothing changes until you import.") }}</p>
+				<p class="text-muted">{{ _("Upload the .ilq.json package the ilLumenate CAD toolkit writes (ILQUOTE), or an ASCII DXF drawn on ILM-TAPE-<template> or ILM-STYLE-<code> layers. Every run is built by the configurator from its style; lengths are snapped and split here, not in AutoCAD. Nothing changes until you import.") }}</p>
+				<details id="importDrawingHistory" class="mb-3" hidden>
+					<summary>{{ _("Previous imports") }}</summary>
+					<div class="table-responsive">
+						<table class="table table-sm mb-0">
+							<thead><tr><th>{{ _("Import") }}</th><th>{{ _("Drawing") }}</th><th>{{ _("Tool") }}</th><th>{{ _("Scale") }}</th><th>{{ _("Added") }}</th><th>{{ _("Updated") }}</th><th>{{ _("Removed") }}</th><th>{{ _("When") }}</th></tr></thead>
+							<tbody id="importDrawingHistoryRows"></tbody>
+						</table>
+					</div>
+				</details>
 				<div class="form-group">
 					<label for="importDrawingFile">{{ _("Drawing package") }}</label>
 					<input type="file" class="form-control-file" id="importDrawingFile" accept=".json,.ilq,.dxf,application/json">
@@ -2048,6 +2063,28 @@ Also handles new schedule creation when is_new is True
 				</div>
 				<div id="importDrawingWarnings" class="alert alert-warning" role="status" hidden></div>
 				<p id="importDrawingCounts" role="status" class="mb-2"></p>
+				<p id="importDrawingSource" class="small text-muted mb-2" hidden></p>
+				<div class="table-responsive" id="importDrawingSheets" hidden>
+					<table class="table table-sm">
+						<caption>{{ _("Sheets and scale") }}</caption>
+						<thead><tr><th>{{ _("Sheet") }}</th><th>{{ _("Scale") }}</th><th>{{ _("Runs on it") }}</th></tr></thead>
+						<tbody id="importDrawingSheetRows"></tbody>
+					</table>
+				</div>
+				<div id="importDrawingLayers" hidden>
+					<h6>{{ _("DXF layers") }}</h6>
+					<p class="small text-muted">{{ _("Choose a saved style for layers whose options are not set, and the schedule Type for each layer, then update the preview.") }}</p>
+					<div class="table-responsive">
+						<table class="table table-sm">
+							<thead><tr><th>{{ _("Layer") }}</th><th>{{ _("Runs") }}</th><th>{{ _("Style") }}</th><th>{{ _("Type") }}</th></tr></thead>
+							<tbody id="importDrawingLayerRows"></tbody>
+						</table>
+					</div>
+				</div>
+				<div id="importDrawingGroups" hidden>
+					<h6>{{ _("Choices for several runs") }}</h6>
+					<div id="importDrawingGroupList"></div>
+				</div>
 				<div class="table-responsive ill-import-preview" id="importDrawingPreview" hidden>
 					<table class="table table-sm">
 						<thead><tr><th>{{ _("Run") }}</th><th>{{ _("Type") }}</th><th>{{ _("Style") }}</th><th>{{ _("Drawn (in)") }}</th><th>{{ _("Built (in)") }}</th><th>{{ _("Change") }}</th><th>{{ _("Status") }}</th><th>{{ _("Details") }}</th></tr></thead>
@@ -2063,6 +2100,12 @@ Also handles new schedule creation when is_new is True
 					<label class="form-check-label" for="importDrawingVersion">{{ _("This schedule is locked or quoted: import into a new version") }}</label>
 				</div>
 				<div id="importDrawingError" class="alert alert-danger mt-2" role="alert" hidden></div>
+				<div id="importDrawingDone" class="alert alert-success mt-2" role="status" hidden>
+					<p id="importDrawingDoneText" class="mb-2"></p>
+					<ul id="importDrawingBlockers" class="mb-2" hidden></ul>
+					<button type="button" class="btn btn-primary btn-sm" id="importDrawingQuote">{{ _("Request a quote") }}</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm" id="importDrawingFinish">{{ _("Back to the schedule") }}</button>
+				</div>
 			</div>
 			<div class="modal-footer">
 				<button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _("Cancel") }}</button>
@@ -2279,6 +2322,21 @@ Also handles new schedule creation when is_new is True
 		"Could not read this drawing package.": _("Could not read this drawing package."),
 		"Could not import the drawing.": _("Could not import the drawing."),
 		"Choose {0}": _("Choose {0}"),
+		"Style for layer {0}": _("Style for layer {0}"),
+		"Units only, not calibrated": _("Units only, not calibrated"),
+		"No": _("No"),
+		"{0}: {1} runs": _("{0}: {1} runs"),
+		"Not verified": _("Not verified"),
+		"Choose a style for this layer": _("Choose a style for this layer"),
+		"Yes": _("Yes"),
+		"(confirmed)": _("(confirmed)"),
+		"Imported as {0}. The receipt was downloaded for ILRECEIPT.": _("Imported as {0}. The receipt was downloaded for ILRECEIPT."),
+		"Imported into the new schedule version {0}.": _("Imported into the new schedule version {0}."),
+		"(superseded)": _("(superseded)"),
+		"Made with {0} {1}": _("Made with {0} {1}"),
+		"Choose a style": _("Choose a style"),
+		"Calibrated": _("Calibrated"),
+		"Type for layer {0}": _("Type for layer {0}"),
 		"No drawing has been imported into this schedule yet.": _("No drawing has been imported into this schedule yet."),
 		"Upload the plan as a PDF under 20 MB.": _("Upload the plan as a PDF under 20 MB."),
 	},

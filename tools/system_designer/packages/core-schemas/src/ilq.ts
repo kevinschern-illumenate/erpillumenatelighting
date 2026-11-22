@@ -25,6 +25,62 @@ export const TAPE_FAMILIES = ['LED Tape', 'COB Tape', 'LED Neon'] as const;
 
 const SelectionsSchema = z.record(z.string().max(80), z.unknown());
 
+/** Which front end wrote the package (WP 1.1). Absent on 0.4.x AutoCAD packages; the server derives it. */
+export const ILQ_SOURCE_TOOLS = ['autocad', 'dxf', 'bluebeam', 'web'] as const;
+export const ILQ_SOURCE_INPUTS = ['ilq', 'dxf', 'pdf', 'csv'] as const;
+export const IlqSourceSchema = z
+  .object({
+    tool: z.enum(ILQ_SOURCE_TOOLS),
+    version: Text(40),
+    platform: Text(80).nullish(),
+    input: z.enum(ILQ_SOURCE_INPUTS),
+  })
+  .strict();
+export type IlqSource = z.infer<typeof IlqSourceSchema>;
+
+/**
+ * How far a sheet's scale can be trusted (WP 1.3): `verified` was calibrated in the tool (ILSCALE, a
+ * calibrated PDF viewport), `declared` only has units set, `unverified` has neither.
+ */
+export const SCALE_STATUSES = ['verified', 'declared', 'unverified'] as const;
+export const IlqScaleSchema = z
+  .object({
+    status: z.enum(SCALE_STATUSES),
+    /** Drawing inches per page unit, when the tool knows it. */
+    ratio: z.number().finite().positive().nullish(),
+    unit: Text(20).nullish(),
+    /** A known length the user confirmed against the drawing. */
+    check_dimension_in: Inches.nullish(),
+  })
+  .strict();
+
+/** A sheet: an AutoCAD layout or level, or a PDF page (A7). */
+export const IlqSheetSchema = z
+  .object({
+    id: CadIdSchema,
+    label: Text(120).default(''),
+    page: z.number().int().min(1).max(500).nullish(),
+    scale: IlqScaleSchema,
+  })
+  .strict();
+export type IlqSheet = z.infer<typeof IlqSheetSchema>;
+
+/** How a run's id was assigned, so a re-import can trust an `xdata` match more than a `proposed` one (G2). */
+export const RUN_IDENTITIES = ['xdata', 'dxf_handle', 'markup_name', 'csv_row', 'proposed'] as const;
+
+/** Counted items (supply locations, controls, third-party fixtures) from tools that only count (C4). */
+export const IlqCountSchema = z
+  .object({
+    item: z.string().trim().min(1).max(140),
+    kind: z.enum(['psu', 'control', 'other']),
+    qty: z.number().int().min(1).max(100_000),
+    sheet: CadIdSchema.nullish(),
+    room: CadIdSchema.nullish(),
+    tag: CadIdSchema.nullish(),
+  })
+  .strict();
+export type IlqCount = z.infer<typeof IlqCountSchema>;
+
 /** The style a run is drawn in: a configuration preset, or a template with its selections (D: Q4). */
 export const IlqStyleSchema = z
   .object({
@@ -74,6 +130,8 @@ export const IlqRunSchema = z
     id: CadIdSchema,
     handle: HandleSchema,
     room: CadIdSchema.nullish(),
+    sheet: CadIdSchema.nullish(),
+    identity: z.enum(RUN_IDENTITIES).nullish(),
     /** The schedule Type (`line_id`) the run belongs to, e.g. `L1`. */
     fixture_type: z.string().trim().min(1).max(140),
     location: Text(140).nullish(),
@@ -146,6 +204,8 @@ export const IlqPackageSchema = z
   .object({
     schema: z.literal(ILQ_SCHEMA),
     toolkit: z.object({ version: Text(40), platform: Text(80) }).strict(),
+    source: IlqSourceSchema.optional(),
+    sheets: z.array(IlqSheetSchema).max(500).default([]),
     catalog: z
       .object({ snapshot_hash: HashSchema, hash: HashSchema.nullish(), generated_at: Text(40) })
       .strict(),
@@ -173,6 +233,7 @@ export const IlqPackageSchema = z
             name: z.string().trim().min(1).max(120),
             level: Text(60).default(''),
             env: EnvChoiceSchema.default('dry-concealed'),
+            sheet: CadIdSchema.nullish(),
           })
           .strict(),
       )
@@ -220,6 +281,7 @@ export const IlqPackageSchema = z
       .max(2000)
       .default([]),
     controls: z.array(IlqControlSchema).max(500).default([]),
+    counts: z.array(IlqCountSchema).max(2000).default([]),
     zones: z.array(IlqZoneSchema).max(500).default([]),
     check: z
       .object({
@@ -261,7 +323,15 @@ export const IlqPackageSchema = z
       });
       return seen;
     };
+    const sheets = unique(pkg.sheets, 'sheets');
     const rooms = unique(pkg.rooms, 'rooms');
+    const usedSheets = new Set<string>();
+    const knownSheet = (sheet: string | null | undefined, path: (string | number)[]) => {
+      if (!sheet) return;
+      usedSheets.add(sheet);
+      if (!sheets.has(sheet)) ctx.addIssue({ code: 'custom', path, message: `Unknown sheet: ${sheet}` });
+    };
+    pkg.rooms.forEach((room, index) => knownSheet(room.sheet, ['rooms', index, 'sheet']));
     const cabinets = unique(pkg.cabinets, 'cabinets');
     const runs = unique(pkg.runs, 'runs');
     const psus = unique(pkg.psus, 'psus');
@@ -274,6 +344,7 @@ export const IlqPackageSchema = z
     pkg.runs.forEach((run, index) => {
       if (run.room && !rooms.has(run.room))
         ctx.addIssue({ code: 'custom', path: ['runs', index, 'room'], message: `Unknown room: ${run.room}` });
+      knownSheet(run.sheet, ['runs', index, 'sheet']);
       if (run.cabinet && !cabinets.has(run.cabinet))
         ctx.addIssue({ code: 'custom', path: ['runs', index, 'cabinet'], message: `Unknown cabinet: ${run.cabinet}` });
       const handle = run.handle.toUpperCase();
@@ -320,6 +391,20 @@ export const IlqPackageSchema = z
         zoned.add(run);
       });
     });
+    pkg.counts.forEach((count, index) => {
+      knownSheet(count.sheet, ['counts', index, 'sheet']);
+      if (count.room && !rooms.has(count.room))
+        ctx.addIssue({ code: 'custom', path: ['counts', index, 'room'], message: `Unknown room: ${count.room}` });
+    });
+    if (pkg.drawing.scale_verified)
+      pkg.sheets.forEach((sheet, index) => {
+        if (usedSheets.has(sheet.id) && sheet.scale.status !== 'verified')
+          ctx.addIssue({
+            code: 'custom',
+            path: ['sheets', index, 'scale', 'status'],
+            message: `Drawing says its scale is verified but sheet ${sheet.id} is ${sheet.scale.status}`,
+          });
+      });
     const ends = new Set([...runs, ...psus, ...cabinets, ...controls]);
     pkg.wire_paths.forEach((wire, index) => {
       for (const end of ['from', 'to'] as const)

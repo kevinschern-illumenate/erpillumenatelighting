@@ -6,7 +6,8 @@
 One row per submitted Sales Order made from a schedule: its item lines against the Delivery Note lines
 shipped against it, by item code and quantity. A line matches when the delivered quantity equals the
 ordered quantity. "Only drawing imports" keeps orders whose schedule (any version) had a drawing
-imported, so the toolkit's jobs can be compared with the rest. Measured from ERP data, no survey.
+imported, so the toolkit's jobs can be compared with the rest; "Drawing tool" narrows them to one front
+end (AutoCAD, DXF, Bluebeam; implementation plan WP 1.5). Measured from ERP data, no survey.
 """
 
 import frappe
@@ -45,16 +46,26 @@ def _sum(rows, key):
 
 
 def _cad_roots():
-	"""Root schedules (version chains) that had a drawing imported."""
+	"""Root schedules (version chains) that had a drawing imported → the tool of the newest import."""
 	if not frappe.db.exists("DocType", CAD_IMPORT):
-		return set()
-	schedules = set(frappe.get_all(CAD_IMPORT, pluck="schedule"))
+		return {}
+	fields = ["schedule"]
+	if frappe.get_meta(CAD_IMPORT).has_field("source_tool"):
+		fields.append("source_tool")
+	imports = frappe.get_all(CAD_IMPORT, fields=fields, order_by="creation asc")
+	schedules = {row.schedule for row in imports}
 	if not schedules:
-		return set()
+		return {}
 	rows = frappe.get_all(
 		SCHEDULE, filters={"name": ["in", list(schedules)]}, fields=["name", "version_parent"]
 	)
-	return {row.version_parent or row.name for row in rows}
+	root_of = {row.name: row.version_parent or row.name for row in rows}
+	roots = {}
+	for row in imports:
+		if row.schedule in root_of:
+			# Packages from before the source field were AutoCAD or DXF; DXF ones say so in toolkit_version.
+			roots[root_of[row.schedule]] = row.get("source_tool") or "autocad"
+	return roots
 
 
 def execute(filters=None):
@@ -89,7 +100,13 @@ def execute(filters=None):
 		}
 	cad = _cad_roots()
 	only_cad = str(filters.get("only_cad", 1)) in ("1", "True", "true")
-	orders = [row for row in orders if not only_cad or roots.get(row.ill_fixture_schedule) in cad]
+	tool = filters.get("source_tool")
+	orders = [
+		row
+		for row in orders
+		if (not only_cad or roots.get(row.ill_fixture_schedule) in cad)
+		and (not tool or cad.get(roots.get(row.ill_fixture_schedule)) == tool)
+	]
 	if not orders:
 		return get_columns(), []
 	names = [row.name for row in orders]
@@ -115,6 +132,7 @@ def execute(filters=None):
 			"transaction_date": order.transaction_date,
 			"schedule": order.ill_fixture_schedule,
 			"drawing_import": roots.get(order.ill_fixture_schedule) in cad,
+			"drawing_tool": cad.get(roots.get(order.ill_fixture_schedule)) or "",
 			"per_delivered": order.per_delivered,
 			**match(ordered.get(order.name, {}), delivered.get(order.name, {})),
 		}
@@ -162,6 +180,7 @@ def get_columns():
 			"width": 160,
 		},
 		{"label": _("Drawing"), "fieldname": "drawing_import", "fieldtype": "Check", "width": 80},
+		{"label": _("Drawing tool"), "fieldname": "drawing_tool", "fieldtype": "Data", "width": 100},
 		{"label": _("% Delivered"), "fieldname": "per_delivered", "fieldtype": "Percent", "width": 100},
 		{"label": _("Order lines"), "fieldname": "ordered_lines", "fieldtype": "Int", "width": 90},
 		{"label": _("Shipped lines"), "fieldname": "delivered_lines", "fieldtype": "Int", "width": 100},

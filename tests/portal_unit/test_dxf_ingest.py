@@ -143,15 +143,51 @@ class DxfReading(unittest.TestCase):
 		}
 		with load_service(MODULE, extras) as (module, frappe):
 			frappe.db.get_value.side_effect = get_value
-			with self.assertRaisesRegex(module.DxfError, "linear fixtures need"):
-				module.package_from_dxf(DRAWING.encode(), "job.dxf", {})
+			report = {}
+			unstyled = module.package_from_dxf(DRAWING.encode(), "job.dxf", {}, report=report)
 			package = module.package_from_dxf(DRAWING.encode(), "job.dxf", {"presets": {"ILM-LINEAR-ILL-RA01-SW": "PRE-1"}})
+		# A linear layer without a preset previews as needing a choice, so the dialog can offer one.
+		bare = next(run for run in unstyled["runs"] if run["handle"] == "C5")
+		self.assertEqual(bare["style"], {"family": "Linear Fixture", "template": "ILL-RA01-SW", "selections": {}})
+		layers = {layer["layer"]: layer for layer in report["layers"]}
+		self.assertTrue(layers["ILM-LINEAR-ILL-RA01-SW"]["needs_preset"])
+		self.assertEqual(layers["ILM-TAPE-non-pnc-sw"]["family"], "LED Neon")
+		self.assertEqual(sum(layer["runs"] for layer in report["layers"]), len(unstyled["runs"]))
+		# DXF declares units; it never claims a calibrated scale (WP 1.3).
+		self.assertFalse(package["drawing"]["scale_verified"])
+		self.assertEqual(package["source"]["tool"], "dxf")
+		self.assertEqual(package["sheets"][0]["scale"]["status"], "declared")
+		self.assertTrue(all(run["sheet"] == "S1" and run["identity"] == "dxf_handle" for run in package["runs"]))
 		linear = next(run for run in package["runs"] if run["handle"] == "C5")
 		self.assertEqual(linear["style"]["preset"], "RA01 27K")
 		self.assertEqual(linear["style"]["segments"], [{"end_type": "Endcap"}])
 		neon = next(run for run in package["runs"] if run["handle"] == "C3")
 		self.assertEqual(neon["style"], {"family": "LED Neon", "template": "non-pnc-sw", "selections": {}})
 		self.assertTrue(package["drawing"]["hash"].startswith("sha256:"))
+
+	def test_style_code_layers_resolve_through_drawing_styles(self):
+		text = dxf(1, [line("ILM-STYLE-hd27", "A1", (0, 0), (48, 0)), line("ILM-STYLE-NOPE", "A2", (0, 10), (48, 10))])
+		drawing = self.module.read_drawing(text)
+		self.assertEqual([run["style_code"] for run in drawing["runs"]], ["HD27", "NOPE"])
+		presets = types.SimpleNamespace(
+			find_by_cad_code=lambda code, user=None: "PRE-9" if code == "HD27" else None,
+			load=lambda name: {
+				"label": "HD 27K",
+				"request": {"family": "LED Tape", "template": "led-hd-sw", "selections": {"cct": "2700K"}},
+				"problems": [],
+			},
+		)
+		extras = {
+			ROOT + ".portal.presets": presets,
+			ROOT + ".system_design.catalog": types.SimpleNamespace(current_snapshot_hash=lambda: "0" * 64),
+		}
+		with load_service(MODULE, extras) as (module, _frappe):
+			with self.assertRaisesRegex(module.DxfError, "NOPE"):
+				module.package_from_dxf(text.encode(), "job.dxf", {})
+			only = dxf(1, [line("ILM-STYLE-hd27", "A1", (0, 0), (48, 0))])
+			package = module.package_from_dxf(only.encode(), "job.dxf", {})
+		self.assertEqual(package["runs"][0]["style"]["preset"], "HD 27K")
+		self.assertEqual(package["runs"][0]["style"]["selections"], {"cct": "2700K"})
 
 	def test_binary_dxf_and_no_runs_are_refused(self):
 		with self.assertRaisesRegex(self.module.DxfError, "ASCII"):

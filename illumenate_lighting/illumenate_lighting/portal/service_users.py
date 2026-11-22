@@ -32,6 +32,12 @@ SERVICE_USERS = {
 		"first_name": "QuickBooks Integration",
 		"roles": ("ilL Integration", "Accounts User"),
 	},
+	# Signed EasyPost tracker events update Shipment tracking status (api/shipping.py).
+	"shipping": {
+		"email": "shipping-integration@illumenate.lighting",
+		"first_name": "Shipping Integration",
+		"roles": ("ilL Integration",),
+	},
 }
 
 

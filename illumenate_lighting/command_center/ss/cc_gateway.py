@@ -183,7 +183,9 @@ def main():
                 "ilL-Email-Settings"]
     # never exposed: session tokens and singles holding credentials
     # (ilL-Desk-Settings: Kevin's private desk link, and from Phase 3 its mailbox tokens)
-    EXCLUDED = ["ilL-Webflow-Session", "ilL-Webflow-Settings", "ilL-QBO-Settings", "ilL-Desk-Settings"]
+    # (ilL-Shipping-Settings: the EasyPost / n8n webhook secret)
+    EXCLUDED = ["ilL-Webflow-Session", "ilL-Webflow-Settings", "ilL-QBO-Settings", "ilL-Desk-Settings",
+                "ilL-Shipping-Settings"]
     # generated or audit records: listed and opened, never saved or created here
     READ_ONLY = [
         "ilL-Configured-Fixture", "ilL-Configured-Group", "ilL-Configured-LED-Sheet", "ilL-Configured-Tape-Neon",
@@ -251,7 +253,7 @@ def main():
     # "allow on submit" (floor and shipping fields the warehouse keeps up to date). Everything else on a
     # submitted document stays read-only; amendments happen in the desk.
     AFTER_SUBMIT = {
-        "Sales Order": ["ill_estimated_ship_date", "ill_production_status_override", "ill_hold_reason",
+        "Sales Order": ["ill_estimated_ship_date", "ill_stage_override", "ill_hold_reason",
                         "ill_likely_ship_date", "ill_proforma_will_call", "ill_floor_notes"],
         "Work Order": ["planned_start_date", "expected_delivery_date"],
         "Delivery Note": ["ill_carrier", "ill_tracking_number", "ill_not_warehouse_fault", "ill_late_reason"],

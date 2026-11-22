@@ -170,6 +170,23 @@ class Blocks(unittest.TestCase):
 		self.assertIn("PRO-1", freight)
 		self.assertNotIn("href", freight)
 
+	def test_tracking_lists_every_box(self):
+		html = blocks.tracking(
+			{
+				"carrier": "FedEx",
+				"number": "M1",
+				"url": "https://t/M1",
+				"packages": [
+					{"carrier": "FedEx", "number": "M1", "url": "https://t/M1"},
+					{"carrier": "FedEx", "number": "B<2>", "url": ""},
+				],
+			}
+		)
+		self.assertIn("Tracking numbers:", html)
+		self.assertIn('href="https://t/M1"', html)
+		self.assertIn("B&lt;2&gt;", html)
+		self.assertIn("Tracking number:", blocks.tracking({"carrier": "UPS", "packages": [{"number": "1"}]}))
+
 	def test_signature_uses_point_of_contact(self):
 		html = blocks.signature({"name": "Sam", "email": "sam@x.example", "phone": "555", "title": "Sales"})
 		for part in ("Sam", "Sales", "mailto:sam@x.example", "555", "ilLumenate Lighting"):
@@ -230,7 +247,9 @@ class Library(unittest.TestCase):
 	def test_customer_wording_never_shows_internal_fields(self):
 		internal = (
 			"ill_floor_notes",
-			"ill_production_status_override",
+			"ill_stage_override",
+			"ill_waiting_on",
+			"ill_stage_note",
 			"ill_hold_reason",
 			"ill_build_points",
 			"ill_rate_notes",

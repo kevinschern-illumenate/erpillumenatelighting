@@ -37,7 +37,25 @@ LABELS = {
 	WFP: "Waiting for parts",
 }
 KEYS = {PEND_PROD: "pend_prod", IN_PROD: "in_prod", PEND_SHIP: "pend_ship", HELD: "held", PAINT: "paint", WFP: "wfp"}
-OVERRIDES = {"Paint": PAINT, "Held": HELD, "Waiting for parts": WFP}
+# Sales Order Stage Override (api/order_stage.py) -> board status. Overrides the board
+# has no column for (Shipped / In Transit, Delivered) leave the board's own status.
+OVERRIDE_FIELD = "ill_stage_override"
+OVERRIDES = {
+	"Paint": PAINT,
+	"Held": HELD,
+	"Waiting for parts": WFP,
+	"Pend-Prod": PEND_PROD,
+	"Needs Work Orders": PEND_PROD,
+	"In-Prod": IN_PROD,
+	"Pend-Ship": PEND_SHIP,
+	"Will Call - Ready": PEND_SHIP,
+	"Proforma - Awaiting Payment": PEND_SHIP,
+	"Partially Shipped": PEND_SHIP,
+	"Pending Approval": HELD,
+	"Hold for Release": HELD,
+	"Hold for Confirmation": HELD,
+	"Hold for Ship": HELD,
+}
 RELEASE_HOLDS = ("Hold for Release", "Hold for Confirmation")
 SHIP_HOLD = "Hold for Ship"
 # Fields blanked for people without a money role.
@@ -133,7 +151,7 @@ def order_status(order, work_orders, short, paint_open=False):
 	them still lacks material after stock is handed out; ``paint_open`` whether an
 	outside paint purchase order for it is still open.
 	"""
-	override = OVERRIDES.get(order.get("ill_production_status_override") or "")
+	override = OVERRIDES.get(order.get(OVERRIDE_FIELD) or "")
 	if override:
 		return override
 	if (
@@ -380,7 +398,7 @@ def open_orders():
 		"total_commission",
 		"per_delivered",
 		"ill_estimated_ship_date",
-		"ill_production_status_override",
+		OVERRIDE_FIELD,
 		"ill_floor_notes",
 		"ill_hold_reason",
 		"ill_likely_ship_date",

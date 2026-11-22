@@ -32,7 +32,8 @@ $('#createScheduleForm').on('submit', function(e) {
 					message: 'Schedule created successfully'
 				});
 				// Redirect to the new schedule
-				window.location.href = '/portal/schedules/' + encodeURIComponent(r.message.schedule_name);
+				var next = form.find('[name="from_drawing"]').prop('checked') ? '?import=1' : '';
+				window.location.href = '/portal/schedules/' + encodeURIComponent(r.message.schedule_name) + next;
 			} else {
 				frappe.msgprint({
 					title: 'Error',

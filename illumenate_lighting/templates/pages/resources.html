@@ -23,6 +23,41 @@ Publicly available specification sheets from Webflow products
 		<p class="text-muted">{{ _("Download product specification sheets for our full product line") }}</p>
 	</div>
 
+	{% if drawing_tools %}
+	<section class="mb-4" id="drawingTools" aria-labelledby="drawingToolsTitle">
+		<h2 id="drawingToolsTitle" class="h4">{{ _("Drawing tools") }}</h2>
+		<p class="text-muted">{{ _("Draw runs in AutoCAD (full, LT 2024+ or Mac) or export a DXF, then import the drawing on a schedule to build every run and request a quote.") }}</p>
+		<div class="resource-grid">
+			{% if drawing_tools.toolkit %}
+			<a href="{{ drawing_tools.toolkit.url | e }}" class="resource-card" download>
+				<div class="resource-icon"><i class="fa fa-file-archive-o" aria-hidden="true"></i></div>
+				<div class="resource-info">
+					<div class="resource-title">{{ _("ilLumenate CAD toolkit {0}").format(drawing_tools.toolkit.version) | e }}</div>
+					<div class="resource-desc">{{ _("Unzip ilLumenate.bundle into your AutoCAD ApplicationPlugins folder, then run ILHELP.") }}</div>
+					<div class="resource-meta">ZIP • {{ _("AutoCAD") }}</div>
+				</div>
+			</a>
+			{% endif %}
+			<a href="{{ drawing_tools.catalog_url | e }}" class="resource-card">
+				<div class="resource-icon"><i class="fa fa-book" aria-hidden="true"></i></div>
+				<div class="resource-info">
+					<div class="resource-title">{{ _("CAD catalog") }}</div>
+					<div class="resource-desc">{{ _("Your templates and saved styles, without prices. Load it with ILCATALOG; download it again every 30 days.") }}</div>
+					<div class="resource-meta">JSON • {{ _("AutoCAD") }}</div>
+				</div>
+			</a>
+			<a href="{{ drawing_tools.checklist_url | e }}" target="_blank" rel="noopener" class="resource-card">
+				<div class="resource-icon"><i class="fa fa-file-pdf-o" aria-hidden="true"></i></div>
+				<div class="resource-info">
+					<div class="resource-title">{{ _("DXF drafting checklist") }}</div>
+					<div class="resource-desc">{{ _("Drawing without the toolkit: layers, units and rooms for a DXF the portal can import.") }}</div>
+					<div class="resource-meta">PDF • {{ _("Any CAD") }}</div>
+				</div>
+			</a>
+		</div>
+	</section>
+	{% endif %}
+
 	{% if spec_sheets %}
 	<!-- Search Box -->
 	<div class="search-box">

@@ -50,7 +50,9 @@
   "monthly_goals",
   "paint_supplier_group",
   "section_fulfillment",
-  "fixture_fulfillment_split"
+  "fixture_fulfillment_split",
+  "section_stages",
+  "quote_follow_up_days"
  ],
  "fields": [
   {
@@ -395,12 +397,24 @@
    "fieldname": "fixture_fulfillment_split",
    "fieldtype": "Check",
    "label": "Split assembled and ship-in-pieces fixtures"
+  },
+  {
+   "fieldname": "section_stages",
+   "fieldtype": "Section Break",
+   "label": "Order & Quote Stages"
+  },
+  {
+   "default": "7",
+   "fieldname": "quote_follow_up_days",
+   "fieldtype": "Int",
+   "label": "Quote Follow Up After (Days)",
+   "description": "A sent quote with no reply moves to Follow Up after this many days."
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-18 12:00:00.000000",
+ "modified": "2026-11-21 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Production-Settings",
