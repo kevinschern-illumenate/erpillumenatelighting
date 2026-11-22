@@ -7,7 +7,7 @@
 
 Trainees can enter vendor, forwarder and broker bills, check the 3-way match, get bills into QuickBooks, record vendor payments the right way (in QuickBooks), and land freight and duty into stock value.
 
-> **Status:** the QuickBooks bill sync, payment sync and landed cost buttons are built. The n8n and Intuit pieces need setup, and the purchasing writes haven't run a full live cycle (Rolling out). Capture from the staging cycle described in Module 07.
+> **Status:** the QuickBooks bill sync, payment sync and landed cost buttons are built. The n8n and Intuit pieces need setup, and the purchasing writes haven't run a full live cycle (Rolling out). Capture from the staging cycle described in Module 07. See decision 6 for the rollout plan.
 
 ## Where to go
 
@@ -113,7 +113,7 @@ Trainees can enter vendor, forwarder and broker bills, check the 3-way match, ge
 2. **Receive.** Submit the receipt; stock is valued at the PO rate.
 3. **Bills.** Vendor bill against the PO or receipt. Forwarder and broker bills with service items, linked on the cost lines.
 4. **Land it.** When every included cost has its bill (or tick "allow estimates"), **Draft LCV** builds the voucher: one charge row per included cost type, allocation basis from settings. It refuses unsubmitted receipts, lines with no account, and mixed bases (one basis per voucher; use Manual). Check the distribution, submit in the desk. ERPNext revalues the items (a short delay while it reposts).
-5. **QuickBooks.** The LCV is not sent. True up QuickBooks inventory periodically with the **landed cost in stock** figure.
+5. **QuickBooks.** The LCV is not sent. True up QuickBooks inventory periodically with the **landed cost in stock** figure (decision 6: first true-up at the end of Q1 2027).
 
 **What's included by default:** freight (by qty, est. 8%), MPF / HMF (est. 0.4%), duty, additional tariff, brokerage, insurance (by value), drayage (by qty). **Not capitalised:** storage / demurrage, sales / use tax, other. Change per cost type in ilL-Purchasing-Settings.
 

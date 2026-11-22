@@ -95,11 +95,11 @@ Trainees can work the Portal Operations queues, onboard a new dealer, process ac
 
 ### Lesson 10.5: Portal support issues and after-sale service
 
-- The portal's **Support** page (`/portal/support`) creates ERPNext **Issue** records (linked to project and order), **not** Helpdesk tickets. Work them in Portal Operations → **Support responses**.
+- The portal's **Support** page (`/portal/support`) creates ERPNext **Issue** records (linked to project and order), **not** Helpdesk tickets. Work them in Portal Operations → **Support responses** (decision 10).
 - Email tickets to sales@ land in **Helpdesk** (Module 02, Lessons 2.9-2.10).
 - Mark a reply **Staff only** to keep it internal. Attachments: PDF, JPEG, PNG; 20 MiB; 10 per reply.
 - Service after shipping: check the order's shipments and tracking (Module 06, Lesson 6.7), send "Delivery check-in" / "Return received" templates, raise a return delivery note for returns.
-- (Planned) Knowledge base content and Helpdesk ticket types are configured in Helpdesk itself, not in the app; agree a list before rollout.
+- Knowledge base content and Helpdesk ticket types are configured in Helpdesk itself, not in the app; decision 3 proposes the list.
 
 **SS-10-10** · Dealer: portal support form
 **URL:** `/portal/support` · **Role:** Dealer

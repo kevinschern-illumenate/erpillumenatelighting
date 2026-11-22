@@ -180,9 +180,9 @@ Trainees can create a sales order every way it happens, review and approve a dea
 
 - Terms: prepay unless approved for Net 30. Credit control is native ERPNext (customer credit limit and payment terms).
 - **Deposits** come from the SO payment schedule: with several rows, the first open row is the deposit; a single row due within 3 days of the order date is "Payment in advance".
-- To collect before production, use the Sales Invoice template "Order confirmation and invoice" (Module 09).
+- To collect before production, invoice from the SO with the template "Order confirmation and invoice" (Module 09; decision 1).
 - **Print formats:** ilL Sales Order (hold reason, instructions, shipped / billed %, advance paid, balance); ilL Sales Order - MSRP (for the dealer's client).
-- **Automatic emails** (off until enabled in ilL-Email-Settings): order confirmation on submit with the ilL Sales Order PDF.
+- **Automatic emails** (off until enabled in ilL-Email-Settings; decision 2 recommends on): order confirmation on submit with the ilL Sales Order PDF.
 - **Portal emails** (always on): order approved, action needed, shipped.
 - **Manual templates** on Sales Order: Deposit request; On hold, action needed; Ship date changed; Ready for pickup; Proforma, pay before shipping; Partial shipment; Order change confirmed; Status update; Drawings ready.
 - The "Ship date update" Notification exists but is disabled.

@@ -7,7 +7,7 @@
 
 Trainees can invoice an order (deposit, proforma or after shipping), get the invoice and its pay link to the dealer, follow receivables, record customer payments the right way (in QuickBooks), and read the Finance tab and commission reports.
 
-> **Status:** several pieces are not switched on yet: invoice email Notifications are disabled, the company "Invoice Payment Instructions" field is empty, and no live invoice has a QuickBooks pay link yet (Rolling out). Train the flow; mark these slides "Rolling out".
+> **Status:** several pieces are not switched on yet: invoice email Notifications are disabled, the company "Invoice Payment Instructions" field is empty, and no live invoice has a QuickBooks pay link yet (Rolling out). Train the flow; mark these slides "Rolling out". See decisions 1, 2 and 6.
 
 ## Where to go
 
@@ -30,9 +30,10 @@ Trainees can invoice an order (deposit, proforma or after shipping), get the inv
 |---|---|---|
 | Deposit / prepay before production | From the SO, template "Order confirmation and invoice" | Deposit = first open row of the SO payment schedule |
 | Proforma (pay before shipping) | From the SO | Order stays "Proforma - Awaiting Payment" until paid |
-| Standard, after shipping | **Delivery Note → Create → Sales Invoice** | Working assumption: one invoice per delivery note (confirm with finance) |
+| Standard, after shipping | **Delivery Note → Create → Sales Invoice** | One invoice per delivery note (decision 1) |
 
 - Invoicing moves the order stage to **Completed** once fully billed.
+- Deposits must be invoiced: QuickBooks payments only sync when they match an invoice (decision 1).
 - Credit notes: a return invoice prints as "Credit Note".
 
 **SS-09-01** · Delivery note → Create → Sales Invoice menu
@@ -77,7 +78,7 @@ Trainees can invoice an order (deposit, proforma or after shipping), get the inv
 
 - **Finance tab** (owner: Charlotte): invoiced this month vs break-even and on-pace target; receivables outstanding; invoiced by month; customer concentration; aging table. Quick links to invoices, AR report, payment entries, bills, QuickBooks sync log.
 - The "Cash · payables · margin" tile is not built yet ("Needs a QuickBooks export") (Planned).
-- **Known gap:** the Finance tab's figures currently show to every Command Center Viewer. Don't screenshot it for anyone outside the company.
+- **Known gap:** the Finance tab's figures currently show to every Command Center Viewer (decision 9). Don't screenshot it for anyone outside the company.
 - **Accounts Receivable report** for collections; Executive tab "overdue invoices" decision.
 
 **SS-09-09** · Finance tab, full page

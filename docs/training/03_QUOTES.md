@@ -29,7 +29,7 @@ Trainees can create a quote every way the business does it, choose the right too
 | The dealer wants to explore products themselves first | Portal configurators / Product Finder | 3.5 |
 | The dealer's client needs a retail-price copy | Print format **ilL Quotation - MSRP** | 3.6 |
 
-> **Important:** only a Quotation prepared from a **quote request** creates a portal offer and marks the schedule QUOTED when submitted. A desk Quotation made any other way does neither; email it to the dealer instead (Lesson 3.7).
+> **Important:** only a Quotation prepared from a **quote request** creates a portal offer and marks the schedule QUOTED when submitted. A desk Quotation made any other way does neither; email it to the dealer instead (Lesson 3.7, decision 11).
 
 ---
 
@@ -209,7 +209,7 @@ Trainees can create a quote every way the business does it, choose the right too
 
 - **Portal-issued quotes:** the dealer is emailed automatically. Daily reminders go to buyers 3 days and 1 day before **Valid Till**. Portal Operations → "Offers expiring soon" lists those within 3 days.
 - **Desk-only quotes:** send from the email composer with the template **"ilL - Quotation - Quote sent"** (attaches the ilL Quotation PDF). Others: "Quote revised", "Quote lost check-in".
-- Follow-up, expiring and expired Notifications exist but are **disabled** until an admin enables them.
+- Follow-up, expiring and expired Notifications exist but are **disabled** (decision 2 recommends keeping them off).
 - The shared **sales@** inbox: Portal Operations → Sales inbox. Reply, **Relink** to the Quotation, Assign To.
 - After 7 days with no answer, the quote's stage becomes **Follow Up**.
 

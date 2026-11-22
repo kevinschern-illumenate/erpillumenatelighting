@@ -131,7 +131,7 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - **Publishing a deliverable:** private file, unique revision. Published files can't be changed; publish a new revision. The requester gets "New File Available".
 - **On complete:** requester emailed "Your Request … is Complete".
 - Staff fields: assigned_to, technical_reviewer, **required_for_manufacturing**, sales order / schedule binding, hide_from_portal.
-- **Setup gotcha:** only the "System Design Review" type is seeded. Every other request type must be created at `/app/ill-request-type`, or the portal says "Drawing requests are not available right now."
+- **Setup gotcha:** only the "System Design Review" type is seeded. Every other request type must be created at `/app/ill-request-type`, or the portal says "Drawing requests are not available right now." (See decision 4.)
 
 **SS-02-12** · Dealer: new drawing request form
 **URL:** `/portal/drawings` → New · **Role:** Dealer · **Highlight:** type-driven fields; priority "High – Needed within 2 business days"
@@ -244,7 +244,7 @@ Trainees learn where design work starts (a dealer's project and fixture schedule
 - **Automatic linking:** a new ticket whose subject contains a `SAL-QTN-`, `SAL-ORD-` or `ACC-SINV-` number links itself. Upstream links (invoice → order → quote → schedule → project) fill in automatically. Existing links are never overwritten.
 - Project, schedule, quotation, SO and invoice forms list their tickets under **Connections**, and have **Support → Link Helpdesk Tickets**.
 - Saved replies named "ilL - …" (six of them), e.g. "ilL - Quote copy".
-- **Ticket types used by the Command Center:** Quotation, Design, Sales Order, Service, Issue. They are **not created automatically**; set them up at `/app/hd-ticket-type`.
+- **Ticket types used by the Command Center:** Quotation, Design, Sales Order, Service, Issue. They are **not created automatically**; set them up at `/app/hd-ticket-type` (see decision 3).
 - **Gotcha:** the dealer portal's Support page creates ERPNext **Issue** records, not Helpdesk tickets. Those appear in Portal Operations → "Support responses" (Module 10).
 
 **SS-02-27** · Helpdesk ticket with the ilL link fields in the sidebar

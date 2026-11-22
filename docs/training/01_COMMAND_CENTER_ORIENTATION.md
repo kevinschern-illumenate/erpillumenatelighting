@@ -144,7 +144,7 @@ Overview → Design → Quotes → Sales orders → Purchasing → Manufacturing
 | ilL Catalog Publisher | Catalog tab |
 | Standard ERPNext roles (Purchase, Stock, Accounts, Manufacturing...) | Purchasing, Manufacturing and Shipping boards, and the desk documents behind them |
 
-- **Known gap:** the older Finance tab and finance figures on the Sales pipeline page come from an older feed that shows them to every Viewer. Tell trainees not to share screenshots of those pages outside the company.
+- **Known gap:** the older Finance tab and finance figures on the Sales pipeline page come from an older feed that shows them to every Viewer. Tell trainees not to share screenshots of those pages outside the company (see decision 9).
 - Roles are never assigned automatically. Ask the systems administrator.
 
 **SS-01-12** · (pair) Executive tab as Viewer vs as Finance

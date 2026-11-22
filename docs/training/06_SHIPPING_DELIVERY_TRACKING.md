@@ -7,7 +7,7 @@
 
 Trainees can pick and pack an order, create the delivery note and shipment, buy and print labels, get tracking to the dealer, handle will call, freight and drop ship, record late shipments, and hand off to invoicing.
 
-> **Status:** The EasyPost label and tracking integration is built but has **not run live yet** (Rolling out). Until the pilot, the live process is **manual**: buy the label outside ERPNext and type Carrier and Tracking Number on the delivery note (Lesson 6.5). Teach both; mark the EasyPost slides "Rolling out".
+> **Status:** The EasyPost label and tracking integration is built but has **not run live yet** (Rolling out). Until the pilot, the live process is **manual**: buy the label outside ERPNext and type Carrier and Tracking Number on the delivery note (Lesson 6.5). Teach both; mark the EasyPost slides "Rolling out". See decision 5 for the go-live plan.
 
 ## Where to go
 
@@ -180,10 +180,10 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 | Email | When | Who | Status |
 |---|---|---|---|
 | "Your order has shipped" / "Part of your order…" | Delivery note submit | Dealer portal buyers (they can turn it off) | Live, always on |
-| "ilL - Delivery Note - Shipped" with packing slip PDF | Delivery note submit | DN contact email | Off until ilL-Email-Settings switch |
-| "Delivered: SO" | Shipment Delivered | Dealer portal buyers | Off until ilL-Shipping-Settings switch |
+| "ilL - Delivery Note - Shipped" with packing slip PDF | Delivery note submit | DN contact email | Off until the ilL-Email-Settings switch (decision 2: on now) |
+| "Delivered: SO" | Shipment Delivered | Dealer portal buyers | Off until the ilL-Shipping-Settings switch (decision 2: on at EasyPost go-live) |
 | "Shipping exception" | Box exception or return | Shipping lead | (Rolling out) |
-| "Delivery check-in" | 5 days after DN date | Customer | Notification, check if enabled |
+| "Delivery check-in" | 5 days after DN date | Customer | Notification (decision 2: hold) |
 
 **SS-06-24** · Shipment with mixed box statuses (one Delivered, one In Transit)
 **SS-06-25** · Dealer "Your order has shipped" email (from the email queue)
@@ -223,7 +223,7 @@ Trainees can pick and pack an order, create the delivery note and shipment, buy 
 - **ilL-Shipping-Settings:** Enabled (master switch for labels), webhook URL and secret, EasyPost carrier account, service and residential service, pickup address and hours, description, default box template, exception alert email, Send Delivered Email, surcharge thresholds (FedEx published values; check against our agreement).
 - **Shipment Parcel Templates** for standard boxes; a warehouse Address with phone and email.
 - Buying, voiding and printing labels need **Submit** permission on Shipment (Stock User / Manager by default).
-- The EasyPost key lives only in n8n (Module 13).
+- The EasyPost key lives only in n8n (Module 13). Label printer: see decision 7.
 
 **SS-06-31** · ilL-Shipping-Settings form
 **URL:** `/app/ill-shipping-settings` · **Role:** System Manager

@@ -115,7 +115,7 @@ This strip sits at the top of the Purchasing desk. Each tile has a count, dollar
 
 **Sending**
 - **Email PO** from the side sheet (opens the desk PO) or the desk email composer. Mail goes from **purchasing@** with your name.
-- Emailing a submitted PO marks it **Sent**. A confirmation chase Notification (disabled by default) fires after 3 days.
+- Emailing a submitted PO marks it **Sent**. A confirmation chase Notification (disabled by default; decision 2 recommends on) fires after 3 days.
 - Drop ship POs tell the vendor it's a drop shipment to our customer.
 
 **Tracking (side sheet, editable after submit)**

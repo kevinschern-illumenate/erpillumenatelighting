@@ -46,7 +46,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - ERPNext side: ilL-Shipping-Settings (Module 06, Lesson 6.9).
 - **Setup order:** migrate → warehouse address and box templates → EasyPost account and FedEx connection → n8n workflows and variables → settings → permissions → test.
 - **Health checks:** Label Status "Error" on Shipments; "Shipping exception" emails; n8n executions for failed runs.
-- **Phase 0 to finish before go-live:** staging spike, connect EasyPost and FedEx accounts, test keys, confirm FedEx surcharge thresholds, choose label printer.
+- **Phase 0 to finish before go-live:** staging spike, connect EasyPost and FedEx accounts, test keys, confirm FedEx surcharge thresholds, choose label printer (decisions 5 and 7).
 
 **SS-13-03** · n8n EasyPost labels workflow canvas
 **SS-13-04** · EasyPost dashboard: a test shipment (test mode)
@@ -65,7 +65,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 - **Rules for staff:** record payments in QuickBooks; never type a payment in ERPNext unless the sync log says it's a manual case.
 - **Health checks:** ilL-QBO-Sync-Log (Failed rows), Error Log "QBO bill push failed", Portal Operations → Bills not in QuickBooks, `bill_not_in_qbo` decision.
 - **Settings:** ilL-QBO-Settings (sync enabled, secret, paid-to / paid-from accounts, mode of payment, bill webhook URL, bills-from date).
-- **Rollout steps still open:** deploy confirmation, settings secret, Intuit webhook registration, sandbox end-to-end test, go-live; company invoice payment instructions; enable invoice Notifications.
+- **Rollout steps still open** (decision 6): deploy confirmation, settings secret, Intuit webhook registration, sandbox end-to-end test, go-live; company invoice payment instructions; enable invoice Notifications.
 
 **SS-13-05** · ilL-QBO-Settings form (secret masked)
 **SS-13-06** · n8n QuickBooks payment sync workflow canvas
@@ -77,7 +77,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 
 - **Product sync** (per brand): claims publish jobs from ERPNext and stages, publishes or retires items.
 - **Attribute, category and product filter syncs**: every 6 hours plus manual runs.
-- **Gallery sync**: started from ERPNext (Rolling out) staging run pending.
+- **Gallery sync**: started from ERPNext (Rolling out; staging run pending).
 - **Lead forms**: Webflow form → Frappe CRM Lead, one workflow per brand.
 - **Spec sheets**: ERPNext → n8n renderer → PDF attached.
 - **Health checks:** Publish Job list, Portal Operations → Publication failures, failure notifications. A read-only drift check tool exists (`tools/reconcile_webflow.cjs`) but hasn't been run against the live site.
@@ -89,7 +89,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 
 ### Lesson 13.5: Frappe apps (Helpdesk, CRM, HRMS)
 
-- **Helpdesk** (`/helpdesk`): tickets with ilL link fields; six "ilL - …" saved replies. Ticket types (Quotation, Design, Sales Order, Service, Issue), teams and the knowledge base are configured in Helpdesk itself.
+- **Helpdesk** (`/helpdesk`): tickets with ilL link fields; six "ilL - …" saved replies. Ticket types (Quotation, Design, Sales Order, Service, Issue), teams and the knowledge base are configured in Helpdesk itself (decision 3).
 - **CRM** (`/crm`): leads from Webflow; job titles from ilL-Job-Title-Master (System Manager edits); Won deal → ERPNext Customer.
 - **HRMS** (`/hrms`): Module 12.
 
@@ -101,7 +101,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 ### Lesson 13.6: Email setup and templates (admin)
 
 - **43 Email Templates** named "ilL - <DocType> - <purpose>". Keep "Use HTML editor" on. Restore the shipped wording with `email_templates.seed.restore`.
-- **13 Notifications**, all shipped **disabled**. Enable each with a Sender when the team is ready.
+- **13 Notifications**, all shipped **disabled**. Enable each with a Sender when the team is ready (decision 2).
 - **ilL-Email-Settings:** automatic order confirmation and shipped emails (off by default), dealer-portal copy switch, will call pickup address and hours, purchasing mailbox.
 - **Mailboxes:** sales@ (Helpdesk / shared inbox), purchasing@ (purchasing documents, auto-linking).
 - Portal emails go through an outbox sent every 5 minutes; failures show in Portal Operations → Email failures.
@@ -128,7 +128,7 @@ Everyone understands which outside systems the ERP talks to and what they themse
 | ilL Integration | Service users only |
 | Command Center Viewer / Editor / Finance | Read / write / dollars in the Command Center |
 
-- ilL roles **add to** standard ERPNext roles (Purchase, Stock, Accounts, Manufacturing, HR…); they never replace them. No role is assigned automatically.
+- ilL roles **add to** standard ERPNext roles (Purchase, Stock, Accounts, Manufacturing, HR…); they never replace them. No role is assigned automatically. Decision 8 proposes who holds which.
 - Audit with `portal.role_audit.report`, `.dealers`, `.hr`.
 
 **SS-13-15** · User form roles section for a typical sales user
