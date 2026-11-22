@@ -2147,8 +2147,22 @@
     scope.querySelectorAll('[data-mrlow]').forEach(b => b.onclick = () => go(b, b.dataset.mrlow, +b.dataset.qty || 1, addDays(TODAY, 14)));
   }
   const addDays = (d, n) => { const t = new Date(d + 'T12:00'); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); };
+  // A session that opened /command-center before the desk has no CSRF token on this page (the Web Page
+  // renders "None"). The desk page always carries one, so read it from there once and reuse it.
+  let csrfFetch = null;
+  function ensureCsrf() {
+    if (CSRF()) return Promise.resolve(CSRF());
+    if (!csrfFetch) {
+      csrfFetch = fetch('/app', { credentials: 'same-origin' })
+        .then(r => (r.ok ? r.text() : ''))
+        .then(html => { const m = html.match(/csrf_token\s*=\s*["']([0-9a-f]{16,})["']/); if (m) { window.frappe = window.frappe || {}; frappe.csrf_token = m[1]; } return m ? m[1] : null; })
+        .catch(() => null)
+        .finally(() => { csrfFetch = null; });
+    }
+    return csrfFetch;
+  }
   async function call(method, args) {
-    const tok = CSRF(); if (!tok) throw new Error('please log in to ERPNext first');
+    const tok = CSRF() || await ensureCsrf(); if (!tok) throw new Error('please log in to ERPNext first');
     const r = await fetch('/api/method/' + method, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Frappe-CSRF-Token': tok }, body: JSON.stringify(args) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { let msg = r.status + ''; try { msg = JSON.parse(JSON.parse(j._server_messages)[0]).message; } catch (e) { msg = j.exception || msg; } throw new Error(String(msg).replace(/<[^>]+>/g, '')); }
