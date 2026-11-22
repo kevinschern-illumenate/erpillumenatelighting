@@ -47,12 +47,12 @@ Take Module 01 first. Then:
 
 Each prompt looks like this:
 
-> 📸 **SS-06-07** · Shipment form, submitted, "Create Labels" button visible
+> 📸 **SS-06-14** · Shipment form, submitted, "Create Labels" button visible
 > **URL:** `/app/shipment/<name>` · **Role:** Stock User · **State:** submitted Shipment with 2 parcels, Label Status "Not bought"
 > **Highlight:** the Create Labels button; the Label Status field
 > **Data:** use the DN from DATA-06-02
 
-- **IDs** are `SS-<module>-<sequence>`. Name the image file the same (`SS-06-07.png`) so the manual can reference it.
+- **IDs** are `SS-<module>-<sequence>`. Name the image file the same (`SS-06-14.png`) so the manual can reference it.
 - **URL** is relative to the site root. `<name>` means pick a real record that matches the **State**.
 - **Role** is the role to sign in as. It matters: buttons, tabs and dollar figures change by role. The Command Center hides dollars without the Finance role.
 - **Highlight** is what to box or arrow in the final image.
