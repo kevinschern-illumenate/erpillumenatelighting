@@ -186,10 +186,11 @@ def main():
                 "ilL-Product-Finder-Settings", "ilL-System-Designer-Settings", "Email Campaign Benchmark Settings",
                 "ilL-Email-Settings"]
     # never exposed: session tokens and singles holding credentials
-    # (ilL-Desk-Settings: Kevin's private desk link, and from Phase 3 its mailbox tokens)
+    # (ilL-Desk-Settings: Kevin's private desk link, and from Phase 3 its mailbox tokens;
+    #  ilL-Desk-Done: the Gmail threads he marked done on it)
     # (ilL-Shipping-Settings: the EasyPost / n8n webhook secret)
     EXCLUDED = ["ilL-Webflow-Session", "ilL-Webflow-Settings", "ilL-QBO-Settings", "ilL-Desk-Settings",
-                "ilL-Shipping-Settings"]
+                "ilL-Desk-Done", "ilL-Shipping-Settings"]
     # generated or audit records: listed and opened, never saved or created here
     READ_ONLY = [
         "ilL-Configured-Fixture", "ilL-Configured-Group", "ilL-Configured-LED-Sheet", "ilL-Configured-Tape-Neon",

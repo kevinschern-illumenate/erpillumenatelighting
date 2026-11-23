@@ -446,6 +446,48 @@ class Ingest(unittest.TestCase):
 			(got["late"]["who"], got["late"]["stack"], got["late"]["topic"]), ("lead", 1, "risk")
 		)
 
+	def test_a_thread_marked_done_stays_hidden_until_a_new_message(self):
+		threads = [
+			thread("seen", msg("buyer@acme.example", 2, subject="Lobby", labels=("INBOX", "L1"), mid="m1")),
+			thread(
+				"moved",
+				msg("kevins@illumenate.example", 5, to="buyer@acme.example", labels=("SENT", "L2"), mid="m2"),
+				msg("buyer@acme.example", 1, subject="Re: Lobby", labels=("INBOX",), mid="m3"),
+			),
+			thread("open", msg("buyer@acme.example", 2, subject="Coves", labels=("INBOX",), mid="m4")),
+		]
+		done = {
+			("sales@illumenate.example", "seen"): "m1",  # still the last message: hidden
+			("sales@illumenate.example", "moved"): "m2",  # they wrote since: back on the list
+			("kevins@illumenate.example", "open"): "m4",  # another mailbox's thread with the same id
+		}
+		s = FakeSession(threads=threads)
+		with mail_module() as (mail, _, _mb):
+			items, _changed = mail.ingest(
+				gmail.Gmail({}, session=s),
+				"sales@illumenate.example",
+				ME,
+				OURS,
+				TEAM,
+				DIRECTORY,
+				NOW,
+				done=done,
+			)
+		self.assertEqual(sorted(i["name"] for i in items), ["moved", "open"])
+		self.assertEqual(s.modifies()["seen"], {"addLabelIds": [], "removeLabelIds": ["L1"]})
+		self.assertEqual(s.modifies()["moved"], {"addLabelIds": ["L1"], "removeLabelIds": ["L2"]})
+
+	def test_build_passes_the_done_threads_to_every_mailbox(self):
+		rows = [{"mailbox": "sales@illumenate.example", "label": "sales@"}]
+		statuses = {"sales@illumenate.example": {"state": "connected", "auth_header": {"Authorization": "B"}}}
+		s = FakeSession(threads=[thread("t", msg("buyer@acme.example", 1, mid="m1"))])
+		with mail_module(rows, statuses) as (mail, _frappe, _mb):
+			mail.Gmail = lambda header: gmail.Gmail(header, session=s)
+			mail.load_directory = MagicMock(return_value=DIRECTORY)
+			out = mail.build(OWNER, TEAM, NOW, done={("sales@illumenate.example", "t"): "m1"})
+		self.assertEqual(out["threads"], [])
+		self.assertEqual(out["mailboxes"][0]["threads"], 0)
+
 
 class Scopes(unittest.TestCase):
 	def inbox_query(self, scope):
