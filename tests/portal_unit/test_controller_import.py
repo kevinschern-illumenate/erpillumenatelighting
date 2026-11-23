@@ -92,7 +92,11 @@ class ControllerImport(unittest.TestCase):
 		protocols = [doc for doc in self.inserted if doc["doctype"] == "ilL-Attribute-Dimming Protocol"]
 		self.assertEqual({doc["label"]: doc["engine_protocol"] for doc in protocols}, {"sACN": "sACN", "Art-Net": "Art-Net"})
 		specs = [doc for doc in self.inserted if doc["doctype"] == "ilL-Spec-Controller"]
-		self.assertEqual(len(specs), 5)
+		self.assertEqual(len(specs), len(controls_common.ROWS))
+		transmitter = next(doc for doc in specs if doc["item"] == "ADVATEK-T8-S-MK3")
+		self.assertEqual([row["port_name"] for row in transmitter["ports"]][-2:], ["AUX", "Ethernet"])
+		receiver = next(doc for doc in specs if doc["item"] == "ADVATEK-R4D-S")
+		self.assertEqual([row["max_devices"] for row in receiver["ports"] if row["direction"] == "Out"], [510] * 4)
 		lpc = next(doc for doc in specs if doc["item"] == "PHAROS-LPC-1")
 		self.assertEqual([row["protocol"] for row in lpc["output_protocols"]], ["DMX512"])
 		self.assertEqual(len(lpc["ports"]), 3)

@@ -65,6 +65,48 @@ ADVATEK_16 = (
 	"https://manuals.plus/advatek/pixlite-16-mk2-long-range-control-board-manual.pdf"
 )
 
+# Advatek's current range, read from its product pages on 2026-11-23 (advatek.netlify.app, the site's
+# mirror of advateklighting.com). The A-series and receivers carry pixel power; the E-series does not; the
+# T-series are long-range transmitters whose RJ45 outputs feed R-series receivers up to 300 m away.
+# "Auxiliary port for DMX512 In/Out" on the controllers is the AUX port below.
+ADVATEK_PAGE = "https://advatek.netlify.app/products/"
+ADVATEK_E4 = (
+	"Advatek PixLite E4-S Mk3: 24 universes of Art-Net or sACN, 4 non-powered pixel outputs (1,020 RGB each), "
+	"RS485 auxiliary port for DMX512 in/out, 1 Ethernet port, 5-24 V DC, 2.5 W maximum power consumption, "
+	"wall or DIN rail " + ADVATEK_PAGE + "e4-s-mk3"
+)
+ADVATEK_E16 = (
+	"Advatek PixLite E16-S Mk3: 96 universes of Art-Net or sACN, 16 non-powered pixel outputs (1,020 RGB "
+	"each), RS485 auxiliary port for DMX512 in/out, 1 Ethernet port, 5-24 V DC, 3.5 W maximum power "
+	"consumption, wall or DIN rail " + ADVATEK_PAGE + "e16-s-mk3"
+)
+ADVATEK_T8 = (
+	"Advatek PixLite T8-S Mk3 long range transmitter: 96 universes of Art-Net or sACN, 8 RJ45 data outputs to "
+	"R2/R4 receivers placed up to 300 m away, up to 16,320 RGB pixels, RS485 auxiliary port for DMX512 in/out, "
+	"2 Ethernet ports, 100-240 V AC, panel, wall or rack mount " + ADVATEK_PAGE + "t8-s-mk3"
+)
+ADVATEK_T16X = (
+	"Advatek PixLite T16X-S Mk3 long range transmitter: 96 universes of Art-Net or sACN, 16 RJ45 data outputs "
+	"to R1/R2 receivers, RS485 auxiliary port for DMX512 in/out, 2 Ethernet ports, 100-240 V AC, panel, wall "
+	"or rack mount; total pixels not stated " + ADVATEK_PAGE + "t16x-s-mk3"
+)
+ADVATEK_R1F = (
+	"Advatek PixLite R1F-S long range receiver (for the T16X-S): 1 pixel output (1,020 RGB), 1 data input from "
+	"the transmitter up to 300 m away, 5-48 V DC, 10 A per output, DIN rail or surface mount "
+	+ ADVATEK_PAGE
+	+ "r1f-s"
+)
+ADVATEK_R2F = (
+	"Advatek PixLite R2F-S long range receiver (for the T8-S or T16X-S): 2 fused pixel outputs (1,020 RGB "
+	"each), 1 data input from the transmitter up to 300 m away, 5-24 V DC, 6 A per output (7.5 A fuses), 12 A "
+	"total, wall or DIN rail " + ADVATEK_PAGE + "r2f-s"
+)
+ADVATEK_R4D = (
+	"Advatek PixLite R4D-S long range receiver (for the T8-S): 4 fused pixel outputs (510 RGB each), 1 data "
+	"input from the transmitter up to 300 m away, 5-24 V DC, 6 A per output (7.5 A fuses), 24 A total, wall or "
+	"DIN rail " + ADVATEK_PAGE + "r4d-s"
+)
+
 
 def ports(*items):
 	return "; ".join(items)
@@ -148,6 +190,128 @@ ROWS = [
 			"Ethernet:In:sACN",
 		),
 		"source_reference": ADVATEK_16,
+	},
+	{
+		"item_code": "ADVATEK-E4-S-MK3",
+		"item_name": "Advatek PixLite E4-S Mk3 pixel controller",
+		"controller_name": "PixLite E4-S Mk3 (4 outputs, 24 universes)",
+		"controller_type": "Pixel Controller",
+		"input_voltage_type": "VDC",
+		"input_voltage_min": 5,
+		"input_voltage_max": 24,
+		"standby_power_watts": 2.5,
+		"max_universes": 24,
+		"max_pixels": 4080,
+		"input_protocols": "sACN, Art-Net",
+		"output_protocols": "SPI, DMX512",
+		"ports": ports(
+			*(f"OUT{index}:Out:SPI:1020" for index in range(1, 5)), "AUX:Out:DMX512:32", "Ethernet:In:sACN"
+		),
+		"source_reference": ADVATEK_E4,
+	},
+	{
+		"item_code": "ADVATEK-E16-S-MK3",
+		"item_name": "Advatek PixLite E16-S Mk3 pixel controller",
+		"controller_name": "PixLite E16-S Mk3 (16 outputs, 96 universes)",
+		"controller_type": "Pixel Controller",
+		"input_voltage_type": "VDC",
+		"input_voltage_min": 5,
+		"input_voltage_max": 24,
+		"standby_power_watts": 3.5,
+		"max_universes": 96,
+		"max_pixels": 16320,
+		"input_protocols": "sACN, Art-Net",
+		"output_protocols": "SPI, DMX512",
+		"ports": ports(
+			*(f"OUT{index}:Out:SPI:1020" for index in range(1, 17)), "AUX:Out:DMX512:32", "Ethernet:In:sACN"
+		),
+		"source_reference": ADVATEK_E16,
+	},
+	{
+		"item_code": "ADVATEK-T8-S-MK3",
+		"item_name": "Advatek PixLite T8-S Mk3 long range pixel transmitter",
+		"controller_name": "PixLite T8-S Mk3 (8 long-range outputs, 96 universes)",
+		"controller_type": "Pixel Controller",
+		"input_voltage_type": "VAC",
+		"input_voltage_min": 100,
+		"input_voltage_max": 240,
+		"max_universes": 96,
+		"max_pixels": 16320,
+		"max_data_length_ft": 984,
+		"input_protocols": "sACN, Art-Net",
+		"output_protocols": "SPI, DMX512",
+		"ports": ports(
+			*(f"RX{index}:Out:SPI:1" for index in range(1, 9)), "AUX:Out:DMX512:32", "Ethernet:In:sACN"
+		),
+		"source_reference": ADVATEK_T8,
+	},
+	{
+		"item_code": "ADVATEK-T16X-S-MK3",
+		"item_name": "Advatek PixLite T16X-S Mk3 long range pixel transmitter",
+		"controller_name": "PixLite T16X-S Mk3 (16 long-range outputs, 96 universes)",
+		"controller_type": "Pixel Controller",
+		"input_voltage_type": "VAC",
+		"input_voltage_min": 100,
+		"input_voltage_max": 240,
+		"max_universes": 96,
+		"max_data_length_ft": 984,
+		"input_protocols": "sACN, Art-Net",
+		"output_protocols": "SPI, DMX512",
+		"ports": ports(
+			*(f"RX{index}:Out:SPI:1" for index in range(1, 17)), "AUX:Out:DMX512:32", "Ethernet:In:sACN"
+		),
+		"source_reference": ADVATEK_T16X,
+	},
+	{
+		"item_code": "ADVATEK-R1F-S",
+		"item_name": "Advatek PixLite R1F-S long range pixel receiver",
+		"controller_name": "PixLite R1F-S receiver (1 output)",
+		"controller_type": "Pixel Controller",
+		"input_voltage_type": "VDC",
+		"input_voltage_min": 5,
+		"input_voltage_max": 48,
+		"max_pixels": 1020,
+		"max_data_length_ft": 984,
+		"max_a_per_channel": 10,
+		"max_load_amps": 10,
+		"input_protocols": "SPI",
+		"output_protocols": "SPI",
+		"ports": ports("Data In:In:SPI", "OUT1:Out:SPI:1020"),
+		"source_reference": ADVATEK_R1F,
+	},
+	{
+		"item_code": "ADVATEK-R2F-S",
+		"item_name": "Advatek PixLite R2F-S long range pixel receiver",
+		"controller_name": "PixLite R2F-S receiver (2 outputs)",
+		"controller_type": "Pixel Controller",
+		"input_voltage_type": "VDC",
+		"input_voltage_min": 5,
+		"input_voltage_max": 24,
+		"max_pixels": 2040,
+		"max_data_length_ft": 984,
+		"max_a_per_channel": 6,
+		"max_load_amps": 12,
+		"input_protocols": "SPI",
+		"output_protocols": "SPI",
+		"ports": ports("Data In:In:SPI", "OUT1:Out:SPI:1020", "OUT2:Out:SPI:1020"),
+		"source_reference": ADVATEK_R2F,
+	},
+	{
+		"item_code": "ADVATEK-R4D-S",
+		"item_name": "Advatek PixLite R4D-S long range pixel receiver",
+		"controller_name": "PixLite R4D-S receiver (4 outputs)",
+		"controller_type": "Pixel Controller",
+		"input_voltage_type": "VDC",
+		"input_voltage_min": 5,
+		"input_voltage_max": 24,
+		"max_pixels": 2040,
+		"max_data_length_ft": 984,
+		"max_a_per_channel": 6,
+		"max_load_amps": 24,
+		"input_protocols": "SPI",
+		"output_protocols": "SPI",
+		"ports": ports("Data In:In:SPI", *(f"OUT{index}:Out:SPI:510" for index in range(1, 5))),
+		"source_reference": ADVATEK_R4D,
 	},
 ]
 
