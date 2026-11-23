@@ -18,7 +18,10 @@ Nothing here talks to Webflow. Syncing stays with the Webflow sync (Phase 5 deci
 import frappe
 from frappe import _
 
-from illumenate_lighting.illumenate_lighting.web_listing_schema import TEMPLATE_DOCTYPES
+from illumenate_lighting.illumenate_lighting.web_listing_schema import (
+	TEMPLATE_DOCTYPES,
+	template_doctypes_arg,
+)
 
 STATUS_KEY = "spec_sheet_job:{0}"
 STATUS_TTL = 6 * 60 * 60
@@ -286,11 +289,8 @@ def regenerate_spec_sheets(apply=False, statuses=None, templates=None, doctypes=
 	apply = frappe.parse_json(apply) if isinstance(apply, str) else bool(apply)
 	statuses = frappe.parse_json(statuses) if isinstance(statuses, str) else statuses
 	templates = frappe.parse_json(templates) if isinstance(templates, str) else templates
-	doctypes = (
-		frappe.parse_json(doctypes) if isinstance(doctypes, str) and doctypes.startswith("[") else doctypes
-	)
-	if isinstance(doctypes, str):
-		doctypes = [doctypes]
+	if doctypes:
+		doctypes = template_doctypes_arg(doctypes)
 	to_generate, skipped = plan_regeneration(statuses or DEFAULT_STATUSES, templates, doctypes)
 	pages = {}
 	for entry in to_generate:
