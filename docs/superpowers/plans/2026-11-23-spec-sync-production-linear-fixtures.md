@@ -23,7 +23,7 @@ The pattern to copy: `docs/WEBFLOW_GALLERY_SYNC.md` §9 and §11.
 
 | # | Decision |
 |---|---|
-| P1 | **New production n8n workflow** `[PROD] Spec Gen & Webflow Sync`, with new webhook paths. The old `Spec Gen & Webflow Sync` (`dvCvIpVLwzjgwccF`) is backed up and left unpublished. It has 0 executions retained, and its product path throws, because `API_TOKENS` is never defined in `Set Brand Config`. Cutover and rollback are a change of site config URLs. |
+| P1 | **New production n8n workflow** `[PROD] Spec Gen & Webflow Sync`, with new webhook paths. The old `Spec Gen & Webflow Sync` (`dvCvIpVLwzjgwccF`) is **disregarded** (owner, 2026-11-23): no backup and no migration from it. It has 0 executions retained, and its product path throws, because `API_TOKENS` is never defined. Cutover and rollback are a change of site config URLs. |
 | P2 | **`illumenate` brand only** in this phase. The 206 branch is built without staging guards, but its routes end in "brand not enabled" until 206 is promoted. |
 | P3 | **Code allowlist** in site config (`webflow_sync_scope`), checked by Generate Spec, bulk regeneration, Sync/Publish and the automatic push. |
 | P4 | **Builder plus test.** The staging workflow is exported into the repo. `tools/build_spec_sync_workflow.py` produces the production JSON, and CI proves no staging value survives. |
@@ -83,7 +83,7 @@ The pattern to copy: `docs/WEBFLOW_GALLERY_SYNC.md` §9 and §11.
   - `"{doctype} is not enabled for spec generation and Webflow sync on this site."`
   - `"Brand {brand} is not enabled for Webflow sync on this site."`
 - Production ERP origin: `https://app.illumenate.lighting`. Staging origin: `https://stagingillumenate.v.frappe.cloud`.
-- Production webhook paths: `ill-generate-spec-sheet` and `ill-product-sync`. They must not reuse `generate-spec-sheet-v2` or `product-sync-v2`, which belong to the old workflow kept as backup.
+- Production webhook paths: `ill-generate-spec-sheet` and `ill-product-sync`. New names, so they cannot collide with the old, disregarded workflow's `generate-spec-sheet-v2` and `product-sync-v2` while it still exists.
 - Production workflow name: `[PROD] Spec Gen & Webflow Sync`. Imported with `active: false`, `settings.saveDataSuccessExecution: "none"` and `settings.saveManualExecutions: false`. n8n stores webhook headers, including the secret, in execution data (§10.6).
 - Never copy staging Webflow item IDs to production. Never run `staging_webflow_reset` or `staging_webflow_remap` on production (§10.3).
 - Every production data tool runs dry first. `apply=True` only after the owner has read the dry-run output.
@@ -292,9 +292,9 @@ Fix any fixture-only gaps (for example, `HIGHLIGHT_RULES` covers Extrusion Kit o
 ### B2. Backups
 
 - Frappe Cloud: take a manual production backup.
-- n8n: export `dvCvIpVLwzjgwccF` (published version `c5a1e0e8` and the saved draft) and store both outside n8n. Do not publish its draft.
+- n8n: nothing to back up. The old `dvCvIpVLwzjgwccF` is disregarded (P1); unpublish or archive it whenever convenient.
 - Webflow: make a site backup, and export the Products collection as CSV (the CMS content is the rollback reference).
-- **Check:** the three files are stored, and each is named with the date.
+- **Check:** the two backups are stored, and each is named with the date.
 
 ### B3. Webflow production site (Designer)
 
@@ -373,7 +373,7 @@ Fix any fixture-only gaps (for example, `HIGHLIGHT_RULES` covers Extrusion Kit o
   2. Set `webflow_auto_push = 0`.
   3. Unpublish the PROD workflow.
   4. Restore any changed Webflow items from the B2 CSV if needed.
-- The old workflow stays unpublished; it was not working, so rolling back means "no sync", as today.
+- Rolling back means "no sync", which is how production is today (the old workflow is disregarded).
 
 ### B10. Next product types (later plans)
 
@@ -415,4 +415,4 @@ Read-only comparison, 2026-11-23. Staging2 (`6aeb4d313e25a078e9393924`) is a clo
 - Q23: the category, series and attribute workflows.
 - Removing `spec_submittal_template` (§8.2; after the configured spec sheet is verified on production).
 - Removing the unused Webflow fields `product-type` and `feed-lengths-json`.
-- The old `dvCvIpVLwzjgwccF`: archive it after 30 days of the PROD workflow running cleanly.
+- The old `dvCvIpVLwzjgwccF`: disregarded (owner); archive it when convenient.
