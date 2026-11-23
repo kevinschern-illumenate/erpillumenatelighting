@@ -52,7 +52,16 @@
   "section_fulfillment",
   "fixture_fulfillment_split",
   "section_stages",
-  "quote_follow_up_days"
+  "quote_follow_up_days",
+  "section_labels",
+  "labels_enabled",
+  "labels_auto_work_order",
+  "column_break_labels",
+  "labels_logo",
+  "section_reels",
+  "reels_enabled",
+  "column_break_reels",
+  "reels_default_warehouse"
  ],
  "fields": [
   {
@@ -409,12 +418,67 @@
    "fieldtype": "Int",
    "label": "Quote Follow Up After (Days)",
    "description": "A sent quote with no reply moves to Follow Up after this many days."
+  },
+  {
+   "fieldname": "section_labels",
+   "fieldtype": "Section Break",
+   "label": "Labels (Dymo 1.5 x 2.5 + Rollo 4 x 6)"
+  },
+  {
+   "fieldname": "labels_enabled",
+   "fieldtype": "Check",
+   "label": "Labels Enabled",
+   "default": "0",
+   "description": "On: new and changed work orders queue their labels, and the Labels tab shows in Command Center. Off: no label hooks run."
+  },
+  {
+   "fieldname": "labels_auto_work_order",
+   "fieldtype": "Check",
+   "label": "Queue on Work Order Creation",
+   "default": "1",
+   "depends_on": "labels_enabled",
+   "description": "Off: labels are only made by Generate on the Work Order."
+  },
+  {
+   "fieldname": "column_break_labels",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "labels_logo",
+   "fieldtype": "Attach Image",
+   "label": "Label Logo",
+   "depends_on": "labels_enabled",
+   "description": "Black on white. Blank uses /files/ilLumenate%20Logo_DW_Black_Main.png, as the print formats do."
+  },
+  {
+   "fieldname": "section_reels",
+   "fieldtype": "Section Break",
+   "label": "Reels (tape and neon)"
+  },
+  {
+   "fieldname": "reels_enabled",
+   "fieldtype": "Check",
+   "label": "Reels Enabled",
+   "default": "0",
+   "description": "On: the Reel count screen shows in Command Center and reel, tag and shelf labels can be printed."
+  },
+  {
+   "fieldname": "column_break_reels",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reels_default_warehouse",
+   "fieldtype": "Link",
+   "label": "Reel Warehouse",
+   "options": "Warehouse",
+   "depends_on": "reels_enabled",
+   "description": "Where counted reels are stocked unless a shelf names another warehouse."
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-21 12:00:00.000000",
+ "modified": "2026-11-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "ilLumenate Lighting",
  "name": "ilL-Production-Settings",

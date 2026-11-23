@@ -1,0 +1,298 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "description": "One physical label in the queue. Made by api/labels.py; desk is for history and fixes, printing happens in Command Center.",
+ "autoname": "ILL-LBL-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "in_create": 1,
+ "search_fields": "work_order,sales_order,reference_name",
+ "field_order": [
+  "status",
+  "label_template",
+  "layout",
+  "label_stock",
+  "is_stale",
+  "column_break_source",
+  "reference_doctype",
+  "reference_name",
+  "work_order",
+  "sales_order",
+  "sales_order_item",
+  "section_units",
+  "unit_no",
+  "unit_count",
+  "ship_by",
+  "column_break_piece",
+  "piece_key",
+  "piece_no",
+  "piece_count",
+  "section_printing",
+  "batch",
+  "print_count",
+  "column_break_printed",
+  "printed_at",
+  "printed_by",
+  "void_reason",
+  "section_data",
+  "dedupe_key",
+  "context_hash",
+  "context_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Queued\nSent\nPrinted\nVoid\nCancelled",
+   "default": "Queued",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "bold": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "label_template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "ilL-Label-Template",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "layout",
+   "fieldtype": "Data",
+   "label": "Layout",
+   "read_only": 1
+  },
+  {
+   "fieldname": "label_stock",
+   "fieldtype": "Link",
+   "label": "Roll",
+   "options": "ilL-Label-Stock",
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_stale",
+   "fieldtype": "Check",
+   "label": "Changed Since Printed",
+   "description": "The document changed after this label printed; offered as Reprint changed.",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Source Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Source",
+   "options": "reference_doctype",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "work_order",
+   "fieldtype": "Link",
+   "label": "Work Order",
+   "options": "Work Order",
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order",
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_order_item",
+   "fieldtype": "Data",
+   "label": "Sales Order Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_units",
+   "fieldtype": "Section Break",
+   "label": "Unit"
+  },
+  {
+   "fieldname": "unit_no",
+   "fieldtype": "Int",
+   "label": "Unit",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "unit_count",
+   "fieldtype": "Int",
+   "label": "Of Units",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ship_by",
+   "fieldtype": "Date",
+   "label": "Ship By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_piece",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "piece_key",
+   "fieldtype": "Data",
+   "label": "Piece Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "piece_no",
+   "fieldtype": "Int",
+   "label": "Piece",
+   "read_only": 1
+  },
+  {
+   "fieldname": "piece_count",
+   "fieldtype": "Int",
+   "label": "Of Pieces",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_printing",
+   "fieldtype": "Section Break",
+   "label": "Printing"
+  },
+  {
+   "fieldname": "batch",
+   "fieldtype": "Link",
+   "label": "Last Batch",
+   "options": "ilL-Label-Print-Batch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "print_count",
+   "fieldtype": "Int",
+   "label": "Times Printed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_printed",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "printed_at",
+   "fieldtype": "Datetime",
+   "label": "Printed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "printed_by",
+   "fieldtype": "Link",
+   "label": "Printed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "void_reason",
+   "fieldtype": "Small Text",
+   "label": "Void / Cancel Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_data",
+   "fieldtype": "Section Break",
+   "label": "Frozen Content",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "dedupe_key",
+   "fieldtype": "Data",
+   "label": "Dedupe Key",
+   "unique": 1,
+   "description": "<template>:<doctype>:<name>:<piece>:<unit>:<piece no>; one job per physical label.",
+   "read_only": 1
+  },
+  {
+   "fieldname": "context_hash",
+   "fieldtype": "Data",
+   "label": "Content Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "context_json",
+   "fieldtype": "Code",
+   "label": "Printed Values",
+   "options": "JSON",
+   "description": "Every value the layout prints, frozen at creation so reprints match.",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Label-Print-Job",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

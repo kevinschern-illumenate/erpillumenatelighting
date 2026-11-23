@@ -15,6 +15,8 @@ dependencies = [
     # x86_64 and aarch64, so Frappe Cloud (ubuntu 22.04, glibc 2.35) never builds from source.
     "pillow-heif>=1.8.1,<2",
     "jsonschema>=4.18.0",  # System Designer design_json validation against the exported schema
+    "segno>=1.6",  # Label QR codes as SVG (pure Python, no system libraries)
+    "python-barcode>=0.15",  # Code 128 on reel and shelf labels (pure Python; drawn as SVG by api/labels.py)
 ]
 
 [project.optional-dependencies]
@@ -28,8 +30,10 @@ test = [
     "pypdf",
     "pypdfium2",
     "PyYAML",
+    "python-barcode",
     "reportlab",
     "ruff",
+    "segno",
 ]
 
 [build-system]

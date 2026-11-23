@@ -1,0 +1,168 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "description": "One label type: which layout, roll and documents it prints for, and how many.",
+ "autoname": "field:template_name",
+ "naming_rule": "By fieldname",
+ "field_order": [
+  "template_name",
+  "enabled",
+  "auto_generate",
+  "layout",
+  "label_stock",
+  "column_break_rules",
+  "source_doctype",
+  "applies_to",
+  "quantity_rule",
+  "copies",
+  "packet_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "label": "Template Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "auto_generate",
+   "fieldtype": "Check",
+   "label": "Queue Automatically",
+   "default": "1",
+   "description": "Off: only made by Generate / the Labels button."
+  },
+  {
+   "fieldname": "layout",
+   "fieldtype": "Select",
+   "label": "Layout",
+   "reqd": 1,
+   "in_list_view": 1,
+   "options": "work_order\nproduct\nlight_engine\nkit_piece\npacket_4x6\nreel\nreel_tag\nlocation",
+   "description": "templates/labels/<layout>.html in the app."
+  },
+  {
+   "fieldname": "label_stock",
+   "fieldtype": "Link",
+   "label": "Roll",
+   "options": "ilL-Label-Stock",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_rules",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Select",
+   "label": "Source Document",
+   "options": "Work Order\nilL-Reel\nilL-Reel-Location",
+   "default": "Work Order",
+   "reqd": 1
+  },
+  {
+   "fieldname": "applies_to",
+   "fieldtype": "Select",
+   "label": "Applies To",
+   "options": "All\nNot light engine\nAssembled\nLight engine\nShip-in-pieces line\nGroup bundle run\nTape/neon\nLED sheet\nNot configured",
+   "default": "All",
+   "description": "Which work orders get it."
+  },
+  {
+   "fieldname": "quantity_rule",
+   "fieldtype": "Select",
+   "label": "Quantity Rule",
+   "options": "Per document\nPer unit\nPer kit piece",
+   "default": "Per document"
+  },
+  {
+   "fieldname": "copies",
+   "fieldtype": "Int",
+   "label": "Copies",
+   "default": "1",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "packet_order",
+   "fieldtype": "Int",
+   "label": "Packet Order",
+   "default": "50",
+   "description": "Order inside a work order's packet (lower first)."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Label-Template",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Stock Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

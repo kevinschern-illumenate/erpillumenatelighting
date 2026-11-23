@@ -162,6 +162,10 @@ def main():
             "ilL-Quote-Request", "ilL-Quote-Offer", "ilL-Order-Intake", "ilL-Order-Change", "ilL-Account-Request",
             "ilL-Portal-Invitation", "ilL-Portal-User-Settings"]],
         ["ill_purchasing", "Purchasing & inbound", "", ["ilL-Inbound-Shipment"]],
+        # label queue (Dymo 1.5 x 2.5 + Rollo 4 x 6) and reel tracking for tape and neon
+        ["ill_labels", "Labels & reels", "", [
+            "ilL-Label-Stock", "ilL-Label-Template", "ilL-Label-Print-Job", "ilL-Label-Print-Batch",
+            "ilL-Reel", "ilL-Reel-Location", "ilL-Reel-Movement"]],
         ["ill_publishing", "Catalog & Webflow publishing", "", [
             "ilL-Catalog-Import", "ilL-Product-Publication", "ilL-Publish-Job", "ilL-Item-Literature",
             "ilL-Image-Derivative", "ilL-Webflow-Product", "ilL-Webflow-Category", "ilL-Webflow-Brand",
@@ -195,6 +199,8 @@ def main():
         "ilL-Gallery-Publish-Job", "ilL-CAD-Import",
         # approvals are decided and auto pushes queued from the Webflow Product (plan 4.19)
         "ilL-Webflow-Approval", "ilL-Webflow-Auto-Push",
+        # made by api/labels.py and api/reels.py; reel lengths change only through movements
+        "ilL-Label-Print-Job", "ilL-Label-Print-Batch", "ilL-Reel-Movement",
     ]
     # structural catalog records: created (and restructured) in the Catalog Builder, so every change gets a
     # Check, a single-transaction Import and an ilL-Catalog-Import receipt. "+ New" opens the Catalog tab.
