@@ -560,3 +560,9 @@ Still open: nothing.
 - 2026-11-20: Gallery form order: Custom Items now sits directly under Products Used, and the Webflow publication
   section (Target Brands and Sync Targets) moved to the bottom, under the collapsed "What the status means"
   section. Field names are unchanged. The doctype file's `modified` date was moved forward so migrate applies it.
+- 2026-11-20: **Correction to the entry above.** The "Webflow publication" section the owner meant is the panel with
+  the brand picker, the status line, the warnings and the staged and live revisions, not the Target Brands and Sync
+  Targets fields. That panel now sits in its own collapsible section at the bottom of the form, under "What the status
+  means" (a Section Break `publication_panel_section` and an HTML field `publication_panel` that the form script
+  fills). The Publishing fields (Target Brands, Sync Targets) are back where they were, above the status guide. A
+  site that has not migrated the new field yet keeps the panel in the dashboard at the top.

@@ -23,7 +23,7 @@ const receipt = (extra = {}) => ({
   ...extra,
 });
 
-function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dirty = false, requestError = null, inspectError = null, noBrands = false, gate = null, siteUrl = 'https://stage.example.com/' } = {}) {
+function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dirty = false, requestError = null, inspectError = null, noBrands = false, gate = null, siteUrl = 'https://stage.example.com/', legacy = false } = {}) {
   const dom = new JSDOM('<html><body></body></html>');
   t.after(() => dom.window.close());
   const $ = jquery(dom.window);
@@ -32,10 +32,13 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
   dom.window.open = (...args) => { opened.push(args); };
   const buttons = {};
   const events = {};
-  const sections = [];
+  const dashboardSections = [];
   const shows = [];
-  // Frappe's form dashboard: add_section appends a ".form-dashboard-section custom <css>" block.
+  // Frappe's form dashboard: add_section appends a ".form-dashboard-section custom <css>" block. (Only used by a form
+  // without the publication_panel field: the fallback for a site that has not migrated it yet.)
   const $wrapper = $('<div class="form-dashboard"></div>');
+  // The "Webflow publication" section at the bottom of the form: an HTML field whose wrapper holds the panel.
+  const $panelHost = $('<div class="frappe-control"></div>');
   const alerts = [];
   const messages = [];
   const reloads = [];
@@ -93,23 +96,30 @@ function setup(t, { inspect = receipt(), jobs = [], doc = {}, isNew = false, dir
       add_section(html, label, css) {
         const $s = $(`<div class="form-dashboard-section custom ${css || ''}"></div>`).append(html);
         $wrapper.append($s);
-        sections.push($s);
+        dashboardSections.push($s);
         return $s;
       },
       show() { shows.push(1); },
     },
-    fields_dict: { gallery_images: { set_description(text) { frm.description = text; }, $wrapper: $tableHost } },
+    fields_dict: {
+      gallery_images: { set_description(text) { frm.description = text; }, $wrapper: $tableHost },
+      ...(legacy ? {} : { publication_panel: { $wrapper: $panelHost } }),
+    },
   };
   const context = { frappe, __: s => s, document: dom.window.document, window: dom.window, console };
   const factory = new Function('window', 'frappe', '__', 'document', 'module', 'exports',
     fs.readFileSync(modulePath, 'utf8') + '\nreturn typeof module !== "undefined" ? module.exports : null;');
   const mod = { exports: {} };
   factory(context.window, frappe, context.__, context.document, mod, mod.exports);
-  return { opened, $imagesSection, api: mod.exports, frm, buttons, calls, sections, shows, $wrapper, $page, alerts, messages, reloads, frappe, events, $ };
+  return {
+    opened, $imagesSection, api: mod.exports, frm, buttons, calls, shows, $wrapper, $panelHost, $page, alerts, messages, reloads, frappe, events, $, legacy,
+    // the element(s) holding the panel: the field's wrapper, or the dashboard sections on a form without the field
+    get sections() { return legacy ? dashboardSections : [$panelHost]; },
+  };
 }
 
-// What is on screen: the sections still attached to the dashboard.
-const text = s => s.$wrapper.text();
+// What is on screen in the panel: the publication_panel field (or, on a form without it, the dashboard).
+const text = s => (s.legacy ? s.$wrapper : s.$panelHost).text();
 const pill = s => s.$page.find('.ill-gallery-status .indicator-pill');
 
 test('no buttons or panel for an unsaved gallery', async t => {
@@ -320,25 +330,40 @@ test('the form reloads after a successful request and after a retry', async t =>
   assert.equal(s.reloads.length, 2);
 });
 
-test('the panel is rebuilt on every refresh: one section, never cached on frm, dashboard shown', async t => {
+test('the panel is rebuilt on every refresh in the Webflow publication field: one panel, never cached on frm', async t => {
   const s = setup(t, { inspect: receipt({ state: 'STAGED' }) });
+  await s.api.refresh(s.frm);
+  await s.api.refresh(s.frm);
+  assert.equal(s.$panelHost.find('.ill-gallery-publication').length, 1);
+  assert.equal(s.$wrapper.children().length, 0, 'nothing is added to the dashboard at the top of the form');
+  assert.equal(s.shows.length, 0);
+  assert.equal(s.frm.__ill_gallery_panel, undefined);
+  assert.match(text(s), /STAGED/);
+});
+
+test('a form without the publication_panel field falls back to a dashboard section, rebuilt on every refresh', async t => {
+  const s = setup(t, { legacy: true, inspect: receipt({ state: 'STAGED' }) });
   await s.api.refresh(s.frm);
   await s.api.refresh(s.frm);
   assert.equal(s.sections.length, 2);
   assert.equal(s.$wrapper.find('.ill-gallery-publication-section').length, 1);
   assert.equal(s.sections[0].parent().length, 0, 'the previous section is removed');
   assert.equal(s.shows.length, 2);
-  assert.equal(s.frm.__ill_gallery_panel, undefined);
   assert.match(text(s), /STAGED/);
-});
-
-test('the panel survives Frappe clearing custom dashboard sections between refreshes', async t => {
-  const s = setup(t, { inspect: receipt({ state: 'STAGED' }) });
-  await s.api.refresh(s.frm);
+  // Frappe clears custom dashboard sections between refreshes; the next refresh puts the panel back.
   s.$wrapper.find('.form-dashboard-section.custom').remove();
   assert.equal(text(s), '');
   await s.api.refresh(s.frm);
   assert.match(text(s), /STAGED/);
+});
+
+test('an unsaved gallery empties the panel field and says to save first', async t => {
+  const s = setup(t, { isNew: true });
+  s.$panelHost.html('<div class="ill-gallery-publication">LIVE from the previous gallery</div>');
+  await s.api.refresh(s.frm);
+  assert.doesNotMatch(text(s), /previous gallery/);
+  assert.match(text(s), /Save the gallery to see its Webflow publication status/);
+  assert.equal(s.calls.length, 0);
 });
 
 test('a form reused for another gallery shows that gallery, not the previous one', async t => {
@@ -352,17 +377,22 @@ test('a form reused for another gallery shows that gallery, not the previous one
   await s.api.refresh(s.frm);
   assert.match(text(s), /LIVE/);
   assert.doesNotMatch(text(s), /first-galler/);
-  assert.equal(s.$wrapper.find('.ill-gallery-publication-section').length, 1);
+  assert.equal(s.$panelHost.find('.ill-gallery-publication').length, 1);
 });
 
 test('choosing another brand in the panel inspects that brand', async t => {
   const s = setup(t);
   await s.api.refresh(s.frm);
   s.calls.length = 0;
-  s.$wrapper.find('select.ill-gallery-brand').val('illumenate').trigger('change');
+  s.$panelHost.find('select.ill-gallery-brand').val('illumenate').trigger('change');
   await flush();
   assert.equal(s.calls.find(c => c.method === API + 'inspect').args.brand, 'illumenate');
-  assert.equal(s.$wrapper.find('.ill-gallery-publication-section').length, 1);
+  assert.equal(s.$panelHost.find('.ill-gallery-publication').length, 1, 'one panel, rebuilt');
+  // Rebuilding the panel must not stack change handlers: a second change inspects once, not twice.
+  s.calls.length = 0;
+  s.$panelHost.find('select.ill-gallery-brand').val('lighting_206').trigger('change');
+  await flush();
+  assert.equal(s.calls.filter(c => c.method === API + 'inspect').length, 1);
 });
 
 test('no enabled brand shows a notice and no buttons', async t => {
