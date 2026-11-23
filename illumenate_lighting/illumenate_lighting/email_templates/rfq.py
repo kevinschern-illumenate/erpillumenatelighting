@@ -23,7 +23,9 @@ Subject, message, item table, attachments and the print PDF still come from ERPN
 import re
 
 import frappe
-from erpnext.buying.doctype.request_for_quotation.request_for_quotation import RequestForQuotation
+
+# ERPNext names the controller after the DocType with spaces removed: "RequestforQuotation" (lowercase f).
+from erpnext.buying.doctype.request_for_quotation.request_for_quotation import RequestforQuotation
 
 PORTAL_VARIABLES = re.compile(r"\b(?:portal_link|update_password_link)\b")
 JINJA_TAGS = re.compile(r"\{\{.*?\}\}|\{%.*?%\}", re.DOTALL)
@@ -75,7 +77,7 @@ def supplier_contact(rfq_supplier):
 		return None
 
 
-class ILLRequestForQuotation(RequestForQuotation):
+class ILLRequestForQuotation(RequestforQuotation):
 	def get_link(self):
 		# Suppliers reply by email; nothing links to the portal.
 		return ""

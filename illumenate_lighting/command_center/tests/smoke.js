@@ -202,7 +202,10 @@ const FLOW = { today: TODAY, step_labels: {},
   shipped: [{ name: 'ilL-MAT-DN-Done Co-00004', customer: 'Done Co', posting_date: '2026-11-17' }] };
 let flowCalls = 0, flowFail = false;
 let boardMoney = true, boardCalls = 0;
+let appCalls = 0, lastTok = null;
 w.fetch = async (url, opt) => { const ok = (m) => ({ ok:true, status:200, json: async () => ({ message: m }) });
+  if (opt && opt.headers && opt.headers['X-Frappe-CSRF-Token']) lastTok = opt.headers['X-Frappe-CSRF-Token'];
+  if (url === '/app') { appCalls++; return { ok:true, status:200, text: async () => '<script>frappe.csrf_token = "a1b2c3d4e5f60718";</script>' }; }
   if (url.includes('purchasing_board.')) { const m = url.split('purchasing_board.')[1];
     if (m === 'get_board') { puCalls++; if (puFail) return { ok:false, status:500, json: async () => ({ exception: 'board down' }) }; const x = JSON.parse(JSON.stringify(PUB)); return ok(puMoney ? x : Object.assign(scrubPU(x), { money:false })); }
     puPosts.push({ m, body: JSON.parse(opt.body) }); return ok(m === 'update_po_tracking' || m === 'update_po_line_tracking' ? { name: 'PO-x', changed: 1 } : { name: 'NEW-' + m }); }
@@ -598,6 +601,10 @@ const closeAll = () => { const x = w.document.querySelector('#ccsheet2 [data-clo
   const sgt = sheet().querySelector('[data-agtab="suggested"]'); if (sgt) { sgt.click(); await sleep(150); }
   check('agenda suggestions include overdue POs and shipments waiting for landed cost', pk && /Purchase orders overdue/.test(sheet().textContent) && /PO-partly_received/.test(sheet().textContent));
   closeAll();
+  // A session that opened the page before the desk has no CSRF token here: read it from the desk once.
+  w.frappe.csrf_token = 'None'; lastTok = null;
+  w.document.querySelector('#ccrefresh').click(); await sleep(400);
+  check('csrf: missing token is read from the desk page once and used', appCalls === 1 && lastTok === 'a1b2c3d4e5f60718' && w.frappe.csrf_token === 'a1b2c3d4e5f60718');
   console.log('gateway actions seen:', [...new Set(calls)].join(','));
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS'); process.exit(errs.length ? 1 : 0);
 })();

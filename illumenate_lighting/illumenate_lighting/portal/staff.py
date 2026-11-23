@@ -5,7 +5,10 @@ from frappe import _
 
 CAPABILITIES = {
 	"finder": {"ilL Product Finder Manager"},
+	# Account requests (dealer applications, company and contact changes): decided by Sales or Support.
 	"accounts": {"ilL Support", "ilL Sales Review", "ilL Order Approver"},
+	# Accounting queues (customer payment terms, bills not in QuickBooks): the ERPNext accounts roles.
+	"bookkeeping": {"Accounts Manager", "Accounts User"},
 	"catalog": {"ilL Catalog Publisher"},
 	"integration": {"ilL Integration"},
 	"sales": {"ilL Sales Review", "ilL Order Approver"},

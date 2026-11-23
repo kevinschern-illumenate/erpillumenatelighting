@@ -108,21 +108,21 @@
                    },
                    {
                        "default":  "72",
-                       "description":  "SLA hours for Normal priority requests",
+                       "description":  "SLA hours for Normal priority requests. Working hours only: Saturdays, Sundays and dates on the company holiday list are not counted.",
                        "fieldname":  "sla_hours_normal",
                        "fieldtype":  "Int",
                        "label":  "SLA Hours (Normal)"
                    },
                    {
                        "default":  "48",
-                       "description":  "SLA hours for High priority requests",
+                       "description":  "SLA hours for High priority requests. Working hours only: Saturdays, Sundays and dates on the company holiday list are not counted.",
                        "fieldname":  "sla_hours_high",
                        "fieldtype":  "Int",
                        "label":  "SLA Hours (High)"
                    },
                    {
                        "default":  "24",
-                       "description":  "SLA hours for Rush priority requests",
+                       "description":  "SLA hours for Rush priority requests. Working hours only: Saturdays, Sundays and dates on the company holiday list are not counted.",
                        "fieldname":  "sla_hours_rush",
                        "fieldtype":  "Int",
                        "label":  "SLA Hours (Rush)"
@@ -220,7 +220,7 @@
     "links":  [
 
               ],
-    "modified":  "2026-01-09 10:00:00.000000",
+    "modified":  "2026-11-22 13:00:00.000000",
     "modified_by":  "Administrator",
     "module":  "ilLumenate Lighting",
     "name":  "ilL-Request-Type",

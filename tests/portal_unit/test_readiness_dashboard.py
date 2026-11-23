@@ -122,6 +122,10 @@ class Dashboard(unittest.TestCase):
 		self.assertEqual(len(calls), 6)
 		self.assertEqual(result["rows"][0]["cells"]["specs"]["message"], "3 rows")
 		self.assertEqual(module.dashboard.whitelist_options, {"methods": ["GET"]})
+		# Frappe v16 refuses SQL functions written as strings ("count(name) as rows").
+		counts = next(options for doctype, options in calls if doctype == "ilL-Child-Webflow-Spec-Custom")
+		self.assertIn({"COUNT": "name", "as": "rows"}, counts["fields"])
+		self.assertFalse(any(isinstance(field, str) and "(" in field for field in counts["fields"]))
 
 	def test_brand_filter_and_cursor_and_incomplete_only(self):
 		result, calls, _module = self.run_page([product(name="b"), product(name="c")], brand="illumenate", after="a", only_incomplete="1")
