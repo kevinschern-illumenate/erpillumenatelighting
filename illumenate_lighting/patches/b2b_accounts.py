@@ -27,6 +27,7 @@ def execute():
 					"fieldtype": "Link",
 					"options": "Contact",
 					"label": "Portal Purchasing Contact",
+					"insert_after": "territory",
 				}
 			],
 		},
