@@ -111,6 +111,20 @@
   (setq issues (cons (il-issue code ref severity text) issues))
 )
 
+;; The length hints of run ID (cut snap, over the max run with an end feed), added like il-add.
+(defun il-add-hint-issues (run id hint)
+  (if (> (abs (- (il-get "length_in" hint) (il-get "snapped_in" hint))) *il-length-tolerance*)
+    (il-add "CUT_SNAP" id "info"
+      (strcat "Builds " (il-num->str (il-get "snapped_in" hint) 2) " in for "
+              (il-num->str (il-get "length_in" hint) 2) " in drawn (cut increment)"))
+  )
+  (if (and (> (il-get "runs_count" hint) 1) (= (il-get "feed_method" run) "end"))
+    (il-add "TAPE_RUN_TOO_LONG" id "warning"
+      (strcat "Over the " (il-num->str (il-get "max_run_ft" hint) 1) " ft max run; the build splits into "
+              (itoa (il-get "runs_count" hint)) " runs. Choose double-end or center feed, or accept the split"))
+  )
+)
+
 ;; Every issue in the drawing: ((code ref severity text) ...). TODAY is "YYYY-MM-DD".
 (defun il-check (model catalog today / issues ids id run style template profile hint variant
                                        stale ends tape-width loads driver over)
@@ -147,6 +161,12 @@
     (setq style (il-model-style model (il-get "style" run)))
     (cond
       ((null style) (il-add "RUN_NO_STYLE" id "error" "Run has no style (ILSTYLE)"))
+      ;; A custom style has no template, bend radius, profile or tape width to check: only its own
+      ;; numbers' length hints, and a note that the import maps or prices it.
+      ((il-custom-p style)
+        (il-add "CUSTOM_STYLE" id "info" (il-custom-issue-text style))
+        (il-add-hint-issues run id (il-run-hint run style catalog))
+      )
       ((and catalog (null (setq template (il-cat-template catalog (il-j style "family") (il-j style "template")))))
         (il-add "TEMPLATE_DISCONTINUED" id "error" (strcat (il-j style "template") " is not in the current catalog"))
       )
@@ -156,16 +176,7 @@
       )
       (catalog
         (setq hint (il-run-hint run style catalog) variant (il-get "variant" hint))
-        (if (> (abs (- (il-get "length_in" hint) (il-get "snapped_in" hint))) *il-length-tolerance*)
-          (il-add "CUT_SNAP" id "info"
-            (strcat "Builds " (il-num->str (il-get "snapped_in" hint) 2) " in for "
-                    (il-num->str (il-get "length_in" hint) 2) " in drawn (cut increment)"))
-        )
-        (if (and (> (il-get "runs_count" hint) 1) (= (il-get "feed_method" run) "end"))
-          (il-add "TAPE_RUN_TOO_LONG" id "warning"
-            (strcat "Over the " (il-num->str (il-get "max_run_ft" hint) 1) " ft max run; the build splits into "
-                    (itoa (il-get "runs_count" hint)) " runs. Choose double-end or center feed, or accept the split"))
-        )
+        (il-add-hint-issues run id hint)
         (if (and variant (il-j variant "min_bend_radius_in") (il-get "min_arc_radius_in" hint)
                  (< (il-get "min_arc_radius_in" hint) (il-j variant "min_bend_radius_in")))
           (il-add "BEND_RADIUS" id "error"
@@ -260,14 +271,7 @@
 )
 
 ;; SLUG made unique among USED ids: "Level-1", then "Level-1-2", "Level-1-3" (kept within 40 characters).
-(defun il-unique-slug (slug used / number suffix candidate)
-  (setq candidate slug number 1)
-  (while (member candidate used)
-    (setq number (1+ number) suffix (strcat "-" (itoa number))
-          candidate (strcat (vl-string-right-trim "._-" (substr slug 1 (- 40 (strlen suffix)))) suffix))
-  )
-  candidate
-)
+(defun il-unique-slug (slug used) (il-unique-id slug used 40))
 
 ;; The layout a run or room is on: its "layout", model space when it has none.
 (defun il-item-layout (item / layout)
@@ -316,8 +320,18 @@
   (if (and value (/= value "")) (append pairs (list (cons key value))) pairs)
 )
 
+;; A custom style's definition as the package carries it: il-custom-style's, so a hand-edited or old
+;; stored definition is cleaned the same way (the code is the style's template).
+(defun il-package-custom (style)
+  (il-j (il-custom-style (il-str (il-j style "template")) (cdr (il-j style "custom"))) "custom")
+)
+
 (defun il-package-style (style / pairs tape)
   (setq pairs nil)
+  (if (il-custom-p style)
+    (setq style (il-obj (list (cons "family" "Custom") (cons "template" (il-j style "template"))
+                              (cons "custom" (il-package-custom style)))))
+  )
   (if (il-starts-with (il-str (il-j style "id")) "preset:")
     (setq pairs (list (cons "preset" (il-style-label style))))
   )
@@ -328,6 +342,7 @@
     (setq pairs (append pairs (list (cons "tape" (il-obj (list (cons "family" (il-j tape "family"))
                                                                (cons "template" (il-j tape "template"))
                                                                (cons "selections" (if (il-j tape "selections") (il-j tape "selections") (il-obj nil))))))))))
+  (if (il-j style "custom") (setq pairs (append pairs (list (cons "custom" (il-j style "custom"))))))
   (il-obj pairs)
 )
 

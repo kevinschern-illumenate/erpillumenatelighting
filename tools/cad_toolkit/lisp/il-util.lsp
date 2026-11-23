@@ -4,7 +4,7 @@
 ;;; plus a few vl- string and list functions that full AutoCAD, LT 2024+ and Mac all provide
 ;;; (no vlax-/vla- ActiveX, no reactors).
 
-(setq *il-version* "0.5.0")
+(setq *il-version* "0.6.0")
 
 ;; --- Association lists ------------------------------------------------------------------------
 
@@ -72,6 +72,17 @@
   (and (>= (strlen text) (strlen prefix)) (= (substr text 1 (strlen prefix)) prefix))
 )
 
+;; SLUG made unique among USED ids of at most SIZE characters: "COVE", then "COVE-2", "COVE-3" (the slug
+;; is cut so the suffix fits).
+(defun il-unique-id (slug used size / number suffix candidate)
+  (setq candidate slug number 1)
+  (while (member candidate used)
+    (setq number (1+ number) suffix (strcat "-" (itoa number))
+          candidate (strcat (vl-string-right-trim "._-" (substr slug 1 (- size (strlen suffix)))) suffix))
+  )
+  candidate
+)
+
 (defun il-pad2 (number)
   (if (< number 10) (strcat "0" (itoa number)) (itoa number))
 )
@@ -133,6 +144,20 @@
       (if (= text "-0") "0" text)
     )
   )
+)
+
+;; TEXT as a number when it is a plain decimal ("24", "4.4", ".5", "1.97"), else nil.
+(defun il-parse-number (text / index char digits dots)
+  (setq text (il-trim text) index 1 digits 0 dots 0)
+  (while (<= index (strlen text))
+    (setq char (substr text index 1) index (1+ index))
+    (cond
+      ((< 47 (ascii char) 58) (setq digits (1+ digits)))
+      ((= char ".") (setq dots (1+ dots)))
+      (T (setq dots 2))
+    )
+  )
+  (if (and (> digits 0) (< dots 2)) (atof text))
 )
 
 (defun il-number (value)

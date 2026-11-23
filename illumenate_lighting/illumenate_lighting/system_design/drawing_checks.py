@@ -22,6 +22,11 @@ Rules ported (code, severity):
   so the condition is not derivable from a valid package: the LISP's own writer would emit
   ``segments: []`` and the validator rejects it. The closest equivalent is reported: a run with no
   segments, which only an unvalidated package (an ingester's draft) can have.
+- ``CUSTOM_STYLE`` (info): the run's style is ``Custom`` (a style the user defined in CAD, ``style.custom``);
+  the import maps it to a preset or adds a custom line for Sales to price. Reported with or without a
+  catalog. A custom run has no template, bend radius, profile or tape width, so the four rules below
+  are skipped for it; its variant for the PSU load is made from its own numbers (``custom_variant``:
+  ``w_per_ft``, ``cut_mm = cut_in * 25.4``, free cut without ``cut_in``), as ``il-custom-variant`` does.
 - ``TEMPLATE_DISCONTINUED`` (error): the style's template, or a kit style's tape template, is not in
   the catalog (``il-cat-template``: tape families look in ``templates`` and match the family too,
   ``Linear Fixture`` in ``fixture_templates``, ``Extrusion Kit`` in ``kit_templates``; any other
@@ -37,7 +42,7 @@ Rules ported (code, severity):
   (the last driver with that code, as the LISP's ``foreach`` keeps it), the runs it lists load
   ``round((snapped_in / 12) * w_per_ft, 2)`` W each, where ``snapped_in`` sums each segment's cut-snapped
   length (``il-cut-snap``: whole ``cut_mm`` increments, at least one, unless the variant is
-  ``free_cut``); runs without a tape variant or ``w_per_ft`` add nothing. Over when the total (summed
+  ``free_cut``); runs without a tape or custom variant or ``w_per_ft`` add nothing. Over when the total (summed
   in the LISP's order) is over ``rated_w * usable_load_factor`` (factor 1.0 when absent).
 - ``CONTROL_UNKNOWN`` (error): a control's ``item_code`` is not in the catalog's ``controllers``.
 - ``DMX_UNIVERSE_FULL`` / ``DMX_ADDRESS_OVERLAP`` (errors): the DMX patch preview (``il-dmx-patch``):
@@ -75,6 +80,7 @@ PORTED_CODES = frozenset(
 	{
 		"CATALOG_MISSING",
 		"RUN_NO_TAPE",
+		"CUSTOM_STYLE",
 		"TEMPLATE_DISCONTINUED",
 		"BEND_RADIUS",
 		"PROFILE_NOT_CURVE_CAPABLE",
@@ -88,6 +94,15 @@ PORTED_CODES = frozenset(
 )
 
 TAPE_FAMILIES = ("LED Tape", "COB Tape", "LED Neon")
+CUSTOM_FAMILY = "Custom"
+# The numbers a custom style may carry: key -> (low, high, low allowed), as the ilq/2 schema bounds them
+# (*il-custom-numbers*).
+CUSTOM_NUMBERS = {
+	"w_per_ft": (0, 1000, True),
+	"voltage_v": (0, 1000, False),
+	"cut_in": (0, 1000, False),
+	"max_run_ft": (0, 10000, False),
+}
 MM_PER_IN = 25.4
 DMX_CHANNELS = 512
 
@@ -240,8 +255,57 @@ def style_tape(style):
 	return _j(style, "tape") if _j(style, "family") == "Extrusion Kit" else style
 
 
+def is_custom(style):
+	"""``il-custom-p``: a style the user defined in CAD (no catalog template)."""
+	return _j(style, "family") == CUSTOM_FAMILY
+
+
+def _custom_number(custom, key):
+	"""``il-custom-number-ok``: the value when it is a number in the schema's range, else None."""
+	value = _j(custom, key)
+	low, high, low_ok = CUSTOM_NUMBERS[key]
+	if _number(value) and value <= high and (value >= low if low_ok else value > low):
+		return value
+	return None
+
+
+def custom_variant(style):
+	"""``il-custom-variant``: a custom style's variant from its own W/ft, cut increment and max run."""
+	custom = _j(style, "custom")
+	cut = _custom_number(custom, "cut_in")
+	return {
+		"id": f"custom:{_il_str(_j(style, 'template'))}",
+		"w_per_ft": _custom_number(custom, "w_per_ft"),
+		"cut_mm": cut * MM_PER_IN if cut is not None else None,
+		"free_cut": cut is None,
+		"max_run_vd_ft": _custom_number(custom, "max_run_ft"),
+		"voltage_v": _custom_number(custom, "voltage_v"),
+	}
+
+
+def custom_label(style):
+	"""``il-custom-label``."""
+	label = _j(_j(style, "custom"), "label")
+	if isinstance(label, str) and label.strip(" \t\r\n") != "":
+		return label
+	if _j(style, "label"):
+		return _j(style, "label")
+	return _il_str(_j(style, "template"))
+
+
+def custom_issue_text(style):
+	"""``il-custom-issue-text``."""
+	return (
+		f"Uses custom style {custom_label(style)} ({_il_str(_j(style, 'template'))}); "
+		"the import maps it to a preset, or adds a custom line for Sales to price"
+	)
+
+
 def style_variant(catalog, style):
-	"""``il-style-variant``: the tape variant a style draws with (None for linear fixtures)."""
+	"""``il-style-variant``: the tape variant a style draws with (None for linear fixtures); a custom
+	style's own (``custom_variant``)."""
+	if is_custom(style):
+		return custom_variant(style)
 	tape = style_tape(style)
 	if tape is not None and _j(tape, "family") in TAPE_FAMILIES:
 		template = cat_template(catalog, _j(tape, "family"), _j(tape, "template"))
@@ -283,7 +347,7 @@ def min_arc_radius_in(run):
 
 
 def run_load_w(run, catalog):
-	"""The run's watts as ``il-run-hint`` shows them, or None (no tape variant, no W/ft)."""
+	"""The run's watts as ``il-run-hint`` shows them, or None (no tape or custom variant, no W/ft)."""
 	style = run.get("style")
 	variant = style_variant(catalog, style) if isinstance(style, dict) else None
 	if variant is None:
@@ -313,6 +377,8 @@ def _run_issues(run, catalog):
 			)
 		)
 	style = run.get("style")
+	if isinstance(style, dict) and is_custom(style):
+		return [*issues, _issue("CUSTOM_STYLE", run_id, "info", custom_issue_text(style))]
 	if not isinstance(style, dict) or catalog is None:
 		return issues
 	if cat_template(catalog, _j(style, "family"), _j(style, "template")) is None:

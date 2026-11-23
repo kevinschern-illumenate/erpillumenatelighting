@@ -1416,7 +1416,12 @@ def server_issues(package):
 	if not catalog:
 		return []
 	issues = drawing_checks.check_package(package, catalog)
-	issues = [issue for issue in issues if issue["code"] in drawing_checks.PORTED_CODES]
+	# Info notes (CUSTOM_STYLE) repeat what the preview row already says; keep errors and warnings.
+	issues = [
+		issue
+		for issue in issues
+		if issue["code"] in drawing_checks.PORTED_CODES and issue["severity"] in ("error", "warning")
+	]
 	return drawing_checks.apply_overrides(issues, (package.get("check") or {}).get("overrides") or [])
 
 

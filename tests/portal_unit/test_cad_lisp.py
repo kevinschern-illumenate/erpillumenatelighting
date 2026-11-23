@@ -1272,6 +1272,402 @@ class Model(unittest.TestCase):
 					self.assertEqual(flagged, [])
 
 
+COVE = {
+	"label": "Cove 24V",
+	"family": "LED Tape",
+	"color": 30,
+	"w_per_ft": 4.4,
+	"voltage_v": 24,
+	"cut_in": 12,
+	"max_run_ft": 10,
+	"part_number": "SAMPLE-1",
+	"notes": "2700K, 90 CRI",
+}
+
+
+class CustomStyles(unittest.TestCase):
+	"""Styles the user builds in CAD without a template (ILSTYLE "Custom style"): code, definition,
+	hints from their own numbers, ILCHECK, the ilq/2 writer and run colours."""
+
+	setUp = Model.setUp
+	issues = Model.issues
+
+	def custom(self, code="COVE-24V", **fields):
+		answers = to_alist({**COVE, **fields})
+		return self.lisp.call("il-custom-style", code, answers)
+
+	def with_custom(self, *runs, style=None, psu_runs=None):
+		model = alist(self.model)
+		model["styles"] = lst([*model["styles"], style or self.custom()])
+		model["runs"] = lst([*self.runs, *runs])
+		if psu_runs is not None:
+			model["psus"] = lst(
+				[
+					to_alist(
+						{"id": "PS-09", "cabinet": "CAB-1", "item_code": "PS-96-24", "runs": lst(psu_runs)}
+					)
+				]
+			)
+		self.model = to_alist(model)
+
+	def test_code_is_an_upper_case_slug_unique_in_the_drawing(self):
+		slug = lambda label: self.lisp.call("il-custom-slug", label)  # noqa: E731
+		self.assertEqual(slug("Cove 24V 4.4 W/ft"), "COVE-24V-4-4-W-FT")
+		self.assertEqual(slug("  --kitchen   toe kick!"), "KITCHEN-TOE-KICK")
+		self.assertEqual(slug("A very long custom style name indeed"), "A-VERY-LONG-CUSTOM-STYLE")
+		self.assertEqual(slug("!!!"), "CUSTOM")
+		styles = lst(
+			[
+				from_python_json({"id": "custom:COVE", "family": "Custom", "template": "COVE"}),
+				# A tape style named "COVE-2" holds the id "custom:COVE-2" a new custom style would take.
+				from_python_json({"id": "custom:COVE-2", "family": "LED Tape", "template": "led-hd-sw"}),
+			]
+		)
+		self.assertEqual(self.lisp.call("il-custom-new-code", "cove", styles), "COVE-3")
+		self.assertEqual(self.lisp.call("il-custom-new-code", "Slot", styles), "SLOT")
+		long = lst([from_python_json({"id": "custom:" + "A" * 24, "family": "Custom", "template": "A" * 24})])
+		self.assertEqual(self.lisp.call("il-custom-new-code", "a" * 30, long), "A" * 22 + "-2")
+		for code in ("COVE-3", "A" * 22 + "-2", slug("  --kitchen   toe kick!")):
+			self.assertRegex(code, r"^[A-Z0-9][A-Z0-9-]{0,23}$")
+
+	def test_numbers_typed_at_the_prompts(self):
+		parse = lambda text: self.lisp.call("il-parse-number", text)  # noqa: E731
+		self.assertEqual([parse(x) for x in ("4.4", " 24 ", ".5", "1.97")], [4.4, 24.0, 0.5, 1.97])
+		self.assertEqual([parse(x) for x in ("", ".", "1.2.3", "12in", "-3", "abc")], [None] * 6)
+
+	def test_style_object_from_the_answers(self):
+		style = to_python_json(self.custom())
+		self.assertEqual(
+			style,
+			{
+				"id": "custom:COVE-24V",
+				"label": "Cove 24V",
+				"family": "Custom",
+				"template": "COVE-24V",
+				"selections": {},
+				"custom": {"code": "COVE-24V", **COVE},
+			},
+		)
+		self.assertEqual(self.lisp.call("il-style-label", self.custom()), "Cove 24V (custom)")
+		# Blank label: the code. No colour: the family's. Out-of-range numbers and blank texts are left out.
+		bare = to_python_json(
+			self.custom(
+				"NEON-1",
+				label=" ",
+				family="LED Neon",
+				color=None,
+				w_per_ft=-1.0,
+				voltage_v=0,
+				cut_in=None,
+				max_run_ft=20000,
+				part_number="",
+				notes=None,
+			)
+		)
+		self.assertEqual(
+			bare["custom"], {"code": "NEON-1", "label": "NEON-1", "family": "LED Neon", "color": 6}
+		)
+		self.assertEqual(
+			to_python_json(self.custom(family="Pendant", color=300))["custom"]["family"], "Other"
+		)
+		self.assertEqual(to_python_json(self.custom(family="Pendant", color=300))["custom"]["color"], 7)
+		self.assertEqual(
+			[
+				self.lisp.call("il-custom-default-color", family)
+				for family in self.lisp.get("*il-custom-families*")
+			],
+			[30, 40, 6, 4, 5, 7],
+		)
+
+	def test_hints_use_the_custom_numbers(self):
+		style = self.custom()
+		variant = to_python_json(self.lisp.call("il-style-variant", self.catalog, style))
+		self.assertEqual(variant["cut_mm"], 12 * 25.4)
+		self.assertEqual(
+			(variant["w_per_ft"], variant["max_run_vd_ft"], variant["free_cut"]), (4.4, 10, False)
+		)
+		# 23.9 in at a 12 in cut builds 12 in.
+		hint = plain(
+			self.lisp.call(
+				"il-run-hint", run("C1-01", [[0, 0, 0], [23.9, 0, 0]], "custom:COVE-24V"), style, None
+			)
+		)
+		self.assertEqual((hint["snapped_in"], hint["watts"]), (12.0, 4.4))
+		# 300 in is over the 10 ft max run: the split is in whole 12 in cuts.
+		hint = plain(
+			self.lisp.call(
+				"il-run-hint", run("C1-01", [[0, 0, 0], [300, 0, 0]], "custom:COVE-24V"), style, None
+			)
+		)
+		split = cad_subset.run_split(300.0, 4.4, 12 * 25.4, False, 10)
+		self.assertEqual(
+			(hint["runs_count"], hint["runs_in"], hint["max_run_ft"]), (3, [108.0, 96.0, 96.0], 10.0)
+		)
+		self.assertEqual((hint["runs_count"], hint["runs_in"]), (split["runs_count"], split["runs_in"]))
+		# No cut increment: it cuts anywhere.
+		free = self.custom(cut_in=None, max_run_ft=None)
+		self.assertTrue(to_python_json(self.lisp.call("il-style-variant", None, free))["free_cut"])
+		hint = plain(
+			self.lisp.call(
+				"il-run-hint", run("C1-01", [[0, 0, 0], [23.9, 0, 0]], "custom:COVE-24V"), free, None
+			)
+		)
+		self.assertEqual(hint["snapped_in"], 23.9)
+		self.assertEqual(hint["max_run_ft"], round(85 / 4.4, 2))  # only the 85 W rule is left
+		self.assertEqual(
+			self.lisp.call(
+				"il-hint-text",
+				self.lisp.call("il-run-hint", run("C1-01", [[0, 0, 0], [24, 0, 0]], "x"), style, None),
+			),
+			"24 in  8.8 W  20% max",
+		)
+
+	def test_check_skips_template_rules_and_notes_the_custom_style(self):
+		self.with_custom(
+			run(
+				"C1-01",
+				[[0, 0, 0.4142135623730951], [0.25, 0.25, 0], [24.5, 0.25, 0]],
+				"custom:COVE-24V",
+				fixture_type="C1",
+			),
+			style=self.custom(family="LED Neon"),
+		)
+		# A 0.25 in arc on a neon-like custom style: no bend radius, template or profile issue; the
+		# 24.64 in drawn builds 24 in at its 12 in cut.
+		issues = [issue for issue in self.issues() if issue["ref"] == "C1-01"]
+		self.assertEqual(
+			[(issue["code"], issue["severity"]) for issue in issues],
+			[("CUSTOM_STYLE", "info"), ("CUT_SNAP", "info")],
+		)
+		self.assertEqual(
+			issues[0]["text"],
+			"Uses custom style Cove 24V (COVE-24V); the import maps it to a preset, or adds a custom line for Sales to price",
+		)
+
+	def test_psu_load_from_custom_watts(self):
+		# Two 120 in runs at 40 W/ft cut anywhere: 400 W on a 96 W x 0.8 supply.
+		self.with_custom(
+			run("C1-01", [[0, 0, 0], [120, 0, 0]], "custom:COVE-24V", fixture_type="C1"),
+			run("C1-02", [[0, 0, 0], [120, 0, 0]], "custom:COVE-24V", fixture_type="C1"),
+			style=self.custom(w_per_ft=40, cut_in=None, max_run_ft=None),
+			psu_runs=["C1-01", "C1-02"],
+		)
+		overload = [issue for issue in self.issues() if issue["code"] == "PSU_OVERLOAD"]
+		self.assertEqual(
+			[(issue["ref"], issue["text"]) for issue in overload],
+			[("PS-09", "800 W on 76.8 W usable; the System Designer will reassign outputs")],
+		)
+
+	def test_package_writes_the_custom_definition_and_validates(self):
+		self.with_custom(
+			run("C1-01", [[0, 0, 0], [96, 0, 0]], "custom:COVE-24V", fixture_type="C1"),
+			style=self.custom(part_number=None, notes='2700K, 90 CRI, "warm"'),
+		)
+		issues = self.lisp.call("il-check", self.model, self.catalog, "2026-11-25")
+		text = self.lisp.call(
+			"il-json-text", self.lisp.call("il-package", self.model, self.catalog, issues, "AutoCAD 2025")
+		)
+		package = json.loads(text)
+		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
+			self.assertEqual(module.validate_package(package), [])
+		written = next(item for item in package["runs"] if item["id"] == "C1-01")["style"]
+		expected = {**COVE, "notes": '2700K, 90 CRI, "warm"'}
+		del expected["part_number"]
+		self.assertEqual(
+			written,
+			{
+				"family": "Custom",
+				"template": "COVE-24V",
+				"selections": {},
+				"custom": {"code": "COVE-24V", **expected},
+			},
+		)
+		self.assertIsInstance(written["custom"]["voltage_v"], int)
+		self.assertIsInstance(written["custom"]["w_per_ft"], float)
+		self.assertEqual(
+			package["check"]["errors"],
+			self.lisp.call("il-issue-counts", issues, alist(self.model)["overrides"])[0],
+		)
+
+	def test_package_cleans_a_stored_definition(self):
+		stored = from_python_json(
+			{
+				"id": "custom:SLOT",
+				"label": "Slot",
+				"family": "Custom",
+				"template": "SLOT",
+				"selections": {"cct": "2700K"},
+				"custom": {
+					"code": "OLD",
+					"label": "Slot",
+					"family": "Linear Fixture",
+					"color": 4.0,
+					"w_per_ft": "9",
+					"cut_in": 0,
+				},
+			}
+		)
+		self.assertEqual(
+			to_python_json(self.lisp.call("il-package-style", stored)),
+			{
+				"family": "Custom",
+				"template": "SLOT",
+				"selections": {},
+				"custom": {"code": "SLOT", "label": "Slot", "family": "Linear Fixture", "color": 4},
+			},
+		)
+
+	def test_run_colours(self):
+		style = self.custom()
+		tape = alist(self.model)["styles"][0]
+		colour = lambda state, s: self.lisp.call("il-run-color", state, s)  # noqa: E731
+		self.assertEqual(
+			[colour(state, style) for state in ("error", "warning", "ok", "imported")], [1, 2, 30, 30]
+		)
+		self.assertEqual(
+			[colour(state, tape) for state in ("error", "warning", "ok", "imported")], [1, 2, 3, 256]
+		)
+		self.assertEqual(colour("ok", None), 3)
+
+
+class CustomStyleCommands(unittest.TestCase):
+	"""ILSTYLE's custom style prompts and il-color-run, through the toolkit's AutoCAD-side code."""
+
+	def setUp(self):
+		self.lisp = mini_lisp.Interpreter()
+		self.drawing = FakeDrawing(self.lisp)
+		self.lisp.run(
+			package_bundle.joined_lisp().replace(
+				'(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""
+			)
+		)
+		self.styles, self.settings = [], {}
+
+		def save(style):
+			self.styles = [s for s in self.styles if to_python_json(s)["id"] != to_python_json(style)["id"]]
+			self.styles.insert(0, style)
+			return style
+
+		self.stub(
+			il_begin=lambda: mini_lisp.T,
+			il_end=lambda: None,
+			il_require_catalog=lambda: mini_lisp.T,
+			il_styles=lambda: lst(self.styles),
+			il_save_style=save,
+			il_set_setting=lambda key, value: self.settings.__setitem__(key, value),
+			il_tag_run=lambda ename: None,
+		)
+
+	def stub(self, **functions):
+		for name, function in functions.items():
+			self.lisp.set(name.replace("_", "-"), function)
+
+	def answer(self, choices, typed):
+		"""il-choose answers by title (else its default) and getstring answers in order."""
+		typed = iter(typed)
+
+		def choose(title, items, default):
+			pick = choices.get(title)
+			if callable(pick):
+				return pick(items)
+			return pick if pick is not None else items[default - 1]
+
+		self.stub(il_choose=choose, getstring=lambda *args: next(typed))
+
+	def saved(self):
+		return to_python_json(self.styles[0])
+
+	def test_new_custom_style(self):
+		self.styles = [
+			from_python_json(
+				{
+					"id": "custom:COVE-24V",
+					"family": "Custom",
+					"template": "COVE-24V",
+					"custom": {"code": "COVE-24V", "label": "Cove 24V", "family": "LED Tape"},
+				}
+			)
+		]
+		self.answer(
+			{"Run style": "Custom style (no template)", "What it is": "LED Neon"},
+			["Cove 24V", "", "4.4", "24", "abc", "1.97", "", "SAMPLE-1", "2700K, 90 CRI"],
+		)
+		self.lisp.call("c:ILSTYLE")
+		self.assertEqual(
+			self.saved(),
+			{
+				"id": "custom:COVE-24V-2",
+				"label": "Cove 24V",
+				"family": "Custom",
+				"template": "COVE-24V-2",
+				"selections": {},
+				"custom": {
+					"code": "COVE-24V-2",
+					"label": "Cove 24V",
+					"family": "LED Neon",
+					"color": 6,
+					"w_per_ft": 4.4,
+					"voltage_v": 24.0,
+					"cut_in": 1.97,
+					"part_number": "SAMPLE-1",
+					"notes": "2700K, 90 CRI",
+				},
+			},
+		)
+		self.assertEqual(self.settings["current_style"], "custom:COVE-24V-2")
+
+	def test_edit_keeps_the_code_and_repaints_its_runs(self):
+		d = self.drawing
+		self.styles = [self.lisp.call("il-custom-style", "COVE", to_alist(COVE))]
+		painted = d.polyline(
+			"1A", [(0, 0), (12, 0)], {"kind": "RUN", "id": "C1-01", "style": "custom:COVE"}, closed=False
+		)
+		d.groups[painted].append((62, 30))
+		flagged = d.polyline(
+			"1B", [(0, 9), (12, 9)], {"kind": "RUN", "id": "C1-02", "style": "custom:COVE"}, closed=False
+		)
+		d.groups[flagged].append((62, 1))
+		self.answer(
+			{"Run style": "Recent style in this drawing", "Cove 24V (custom)": "Edit"},
+			["Kitchen cove", "5", "5", "-", "", "", "", "-"],
+		)
+		self.lisp.call("c:ILSTYLE")
+		custom = self.saved()["custom"]
+		self.assertEqual(self.saved()["id"], "custom:COVE")
+		self.assertEqual(len(self.styles), 1)
+		self.assertEqual(
+			custom,
+			{
+				"code": "COVE",
+				"label": "Kitchen cove",
+				"family": "LED Tape",
+				"color": 5,
+				"w_per_ft": 5.0,
+				"cut_in": 12,
+				"max_run_ft": 10,
+				"part_number": "SAMPLE-1",
+			},
+		)
+		self.assertEqual(d.value(painted, 62), 5)  # showed the old colour: repainted
+		self.assertEqual(d.value(flagged, 62), 1)  # red for an open error: left for ILCHECK
+
+	def test_use_without_editing_and_colour_by_state(self):
+		d = self.drawing
+		self.styles = [self.lisp.call("il-custom-style", "COVE", to_alist(COVE))]
+		self.answer({"Run style": "Recent style in this drawing", "Cove 24V (custom)": "Use"}, [])
+		self.lisp.call("c:ILSTYLE")
+		self.assertEqual(self.settings["current_style"], "custom:COVE")
+		ename = d.polyline(
+			"1A", [(0, 0), (12, 0)], {"kind": "RUN", "id": "C1-01", "style": "custom:COVE"}, closed=False
+		)
+		for state, expected in (("ok", 30), ("warning", 2), ("imported", 30), ("error", 1)):
+			self.lisp.call("il-color-run", ename, state)
+			self.assertEqual(d.value(ename, 62), expected)
+		self.assertEqual(self.lisp.call("il-run-layer", self.styles[0]), "E-LITE-TAPE")
+		slot = self.lisp.call("il-custom-style", "SLOT", to_alist({**COVE, "family": "Linear Fixture"}))
+		self.assertEqual(self.lisp.call("il-run-layer", slot), "E-LITE-EXTR")
+
+
 def control(control_id, code, **extra):
 	values = {
 		"id": control_id,

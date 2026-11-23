@@ -83,6 +83,15 @@ source, sheets and layouts, so it matches 0.4.x for an unchanged drawing. A cata
 ILCHECK warning `TOOLKIT_OUTDATED`. The bundle zip is reproducible and committed as
 `public/cad_toolkit/ilLumenate-cad-toolkit-0.5.0.zip` (CI checks its name and version match `*il-version*`).
 
+**0.6.0** (custom styles): ILSTYLE "Custom style (no template)" builds a style with no catalog template
+(name, family, colour, W/ft, voltage, cut increment, max run, part number, option notes; code = unique
+upper-case slug of the name), and "Recent style in this drawing" can edit one (code kept). Its numbers
+drive the hints, cut snap, run split and PSU load (`il-custom-variant`); its runs draw in its colour when
+ok or imported; ILCHECK skips template, bend, profile and tape-width rules for it and adds the info
+`CUSTOM_STYLE` (ported to `drawing_checks.py`, parity cases in `check-cases.json`). The package writes
+`family: "Custom"` with the `custom` definition; the import maps it to a preset or adds a custom line for
+Sales to price. The bundle is now `ilLumenate-cad-toolkit-0.6.0.zip`; older servers reject custom styles.
+
 ### Phase 4 — Round trip and outputs
 
 ILRISER attaches the designer's riser (saved from its DXF as DWG); ILOUT draws the run schedule and cut

@@ -69,6 +69,26 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   `il-version<`) newer than `*il-version*` prints a warning on ILCATALOG and the first catalog load (and in
   ILVERSION) to download the current toolkit from the portal Resources page; ILCHECK adds the warning
   `TOOLKIT_OUTDATED` (ref `drawing`).
+- **Custom styles (0.6.0).** For a product with no catalog template, ILSTYLE offers "Custom style (no
+  template)" (no presets needed; the catalog is still loaded). It asks, Enter skipping the optional ones:
+  name (required), what it is (LED Tape, COB Tape, LED Neon, Linear Fixture, Extrusion Kit, Other), colour
+  (AutoCAD colour 1-255; defaults by family keep off the red, yellow and green ILCHECK uses: tape 30, COB 40,
+  neon 6, linear 4, kit 5, other 7), watts per foot, voltage, cut increment in inches (none: cuts anywhere),
+  max run from one feed in feet, part number and option notes. The style's code is the name as an upper-case
+  slug (letters, digits and dashes, at most 24 characters), made unique in the drawing (`-2`, `-3`, ...);
+  the style is stored as `custom:<CODE>`, family `Custom`, template `<CODE>`, with a `custom` object
+  (`il-custom-style`). Picking a custom style under "Recent style in this drawing" offers Use or Edit; Edit
+  asks again with the current answers as defaults (`-` clears one), keeps the code, retags the style's runs
+  and repaints the ones showing its old colour. Its runs draw in the style's colour when they are fine or
+  imported (red and yellow still mark errors and warnings). Hints, cut snap, the run split and the PSU load
+  use a variant made from its own numbers (`il-custom-variant`: W/ft, `cut_in` x 25.4 mm or free cut, max
+  run as the voltage-drop max run, so the 85 W per run rule still applies). ILCHECK skips the template,
+  bend radius, profile and tape width rules for it and adds the info `CUSTOM_STYLE`. In the package the run's
+  style is `{family: "Custom", template: <CODE>, selections: {}, custom: {code, label, family, color,
+  w_per_ft?, voltage_v?, cut_in?, max_run_ft?, part_number?, notes?}}`. On import the preview lists each
+  custom style with a preset picker: mapped to a saved preset, its runs are built from that preset;
+  otherwise each run becomes a custom schedule line for Sales to price. Servers older than this release
+  reject packages with custom styles.
 - **AutoLISP shares one namespace** for variables and functions: no local may be named after a function
   (CI checks it), and every call must be AutoLISP or defined in the toolkit (CI checks that too).
 

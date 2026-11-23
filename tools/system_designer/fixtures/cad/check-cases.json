@@ -16,7 +16,8 @@
     "RUN_NO_TAPE",
     "BEND_RADIUS",
     "TEMPLATE_DISCONTINUED",
-    "CATALOG_MISSING"
+    "CATALOG_MISSING",
+    "CUSTOM_STYLE"
    ],
    "package": {
     "runs": [
@@ -1701,6 +1702,248 @@
      "code": "PSU_OVERLOAD",
      "ref": "PS-01",
      "severity": "warning"
+    }
+   ]
+  },
+  {
+   "name": "custom-style-psu-load-from-its-own-numbers",
+   "rules": [
+    "CUSTOM_STYLE",
+    "PSU_OVERLOAD"
+   ],
+   "note": "Custom runs load from their own W/ft and cut increment: 23.9 in at a 12 in cut builds 12 in, 38 W each, 76 W on 76.8 W usable (unsnapped it would be over); with no cut_in it cuts anywhere, 30 in at 38 W/ft is 95 W.",
+   "package": {
+    "runs": [
+     {
+      "id": "C1-01",
+      "style": {
+       "family": "Custom",
+       "template": "COVE-24V",
+       "selections": {},
+       "custom": {
+        "code": "COVE-24V",
+        "label": "Cove 24V",
+        "family": "LED Tape",
+        "color": 30,
+        "w_per_ft": 38,
+        "voltage_v": 24,
+        "cut_in": 12,
+        "max_run_ft": 16.4,
+        "part_number": "SAMPLE-1",
+        "notes": "2700K"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 23.9
+       }
+      ]
+     },
+     {
+      "id": "C1-02",
+      "style": {
+       "family": "Custom",
+       "template": "COVE-24V",
+       "selections": {},
+       "custom": {
+        "code": "COVE-24V",
+        "label": "Cove 24V",
+        "family": "LED Tape",
+        "color": 30,
+        "w_per_ft": 38,
+        "voltage_v": 24,
+        "cut_in": 12,
+        "max_run_ft": 16.4,
+        "part_number": "SAMPLE-1",
+        "notes": "2700K"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 23.9
+       }
+      ]
+     },
+     {
+      "id": "C2-01",
+      "style": {
+       "family": "Custom",
+       "template": "SLOT-38W",
+       "selections": {},
+       "custom": {
+        "code": "SLOT-38W",
+        "label": "Slot 38 W/ft",
+        "family": "Linear Fixture",
+        "color": 4,
+        "w_per_ft": 38
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 30
+       }
+      ]
+     }
+    ],
+    "psus": [
+     {
+      "id": "PS-01",
+      "item_code": "PS-96-24",
+      "runs": [
+       "C1-01",
+       "C1-02"
+      ]
+     },
+     {
+      "id": "PS-02",
+      "item_code": "PS-96-24",
+      "runs": [
+       "C2-01"
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "CUSTOM_STYLE",
+     "ref": "C1-01",
+     "severity": "info",
+     "text": "Uses custom style Cove 24V (COVE-24V); the import maps it to a preset, or adds a custom line for Sales to price"
+    },
+    {
+     "code": "CUSTOM_STYLE",
+     "ref": "C1-02",
+     "severity": "info"
+    },
+    {
+     "code": "CUSTOM_STYLE",
+     "ref": "C2-01",
+     "severity": "info",
+     "text": "Uses custom style Slot 38 W/ft (SLOT-38W); the import maps it to a preset, or adds a custom line for Sales to price"
+    },
+    {
+     "code": "PSU_OVERLOAD",
+     "ref": "PS-02",
+     "severity": "warning",
+     "text": "95 W on 76.8 W usable; the System Designer will reassign outputs"
+    }
+   ]
+  },
+  {
+   "name": "custom-style-skips-template-checks",
+   "rules": [
+    "CUSTOM_STYLE",
+    "BEND_RADIUS",
+    "TEMPLATE_DISCONTINUED",
+    "PROFILE_NOT_CURVE_CAPABLE",
+    "TAPE_WIDER_THAN_PROFILE"
+   ],
+   "note": "A custom style has no catalog template, bend radius, profile or tape width: a 0.25 in arc raises nothing but the info note.",
+   "package": {
+    "runs": [
+     {
+      "id": "N1-01",
+      "style": {
+       "family": "Custom",
+       "template": "NEON-FLEX",
+       "selections": {},
+       "custom": {
+        "code": "NEON-FLEX",
+        "label": "Neon flex",
+        "family": "LED Neon",
+        "color": 6,
+        "w_per_ft": 4.4
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 60,
+        "min_arc_radius_in": 0.25
+       }
+      ]
+     },
+     {
+      "id": "K1-01",
+      "style": {
+       "family": "Custom",
+       "template": "KIT-X",
+       "selections": {},
+       "custom": {
+        "code": "KIT-X",
+        "label": "Kit X",
+        "family": "Extrusion Kit"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 48,
+        "min_arc_radius_in": 2
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "CUSTOM_STYLE",
+     "ref": "N1-01",
+     "severity": "info"
+    },
+    {
+     "code": "CUSTOM_STYLE",
+     "ref": "K1-01",
+     "severity": "info",
+     "text": "Uses custom style Kit X (KIT-X); the import maps it to a preset, or adds a custom line for Sales to price"
+    }
+   ]
+  },
+  {
+   "name": "custom-style-without-catalog",
+   "rules": [
+    "CUSTOM_STYLE",
+    "CATALOG_MISSING"
+   ],
+   "no_catalog": true,
+   "note": "The custom note needs no catalog.",
+   "package": {
+    "runs": [
+     {
+      "id": "C1-01",
+      "style": {
+       "family": "Custom",
+       "template": "COVE-24V",
+       "selections": {},
+       "custom": {
+        "code": "COVE-24V",
+        "label": "Cove 24V",
+        "family": "LED Tape",
+        "color": 30,
+        "w_per_ft": 38,
+        "voltage_v": 24,
+        "cut_in": 12,
+        "max_run_ft": 16.4,
+        "part_number": "SAMPLE-1",
+        "notes": "2700K"
+       }
+      },
+      "segments": [
+       {
+        "path_length_in": 24
+       }
+      ]
+     }
+    ]
+   },
+   "expected": [
+    {
+     "code": "CATALOG_MISSING",
+     "ref": "drawing",
+     "severity": "error"
+    },
+    {
+     "code": "CUSTOM_STYLE",
+     "ref": "C1-01",
+     "severity": "info"
     }
    ]
   },

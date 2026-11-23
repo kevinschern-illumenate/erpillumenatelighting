@@ -143,23 +143,115 @@
     (if value (setq selections (append selections (list (cons (il-j option "key") value)))))
   )
   (setq label (il-trim (il-ask "Style name" (strcat (il-j template "code") " " (il-join (mapcar 'cdr selections) " ")))))
-  (il-obj (list (cons "id" (strcat "custom:" label)) (cons "label" label) (cons "family" family)
+  ;; Custom styles (no template) own their "custom:<CODE>" ids; this one must not replace one.
+  (il-obj (list (cons "id" (strcat (if (il-custom-p (il-style-by-id (strcat "custom:" label))) "tape:" "custom:") label))
+                (cons "label" label) (cons "family" family)
                 (cons "template" (il-j template "code")) (cons "selections" (il-obj selections))))
 )
 
 (defun il-pick-style (styles title / names choice)
-  (setq names (mapcar '(lambda (style) (strcat (il-style-label style) "  [" (il-j style "family") "]")) styles))
+  (setq names (mapcar '(lambda (style)
+                         (strcat (il-style-label style) "  [" (il-style-family style)
+                                 (if (il-custom-p style) (strcat " " (il-str (il-j style "template"))) "") "]"))
+                      styles))
   (if (setq choice (il-choose title names 1)) (nth (vl-position choice names) styles))
 )
 
-(defun c:ILSTYLE (/ catalog source family style tape presets kits)
+;; --- Custom styles (no catalog template) ---
+
+;; A number for KEY (one of *il-custom-numbers*): Enter keeps DEFAULT, "-" clears it; asks again until
+;; the answer is a number in the schema's range.
+(defun il-ask-custom-number (key message default / answer value done)
+  (while (not done)
+    (setq answer (il-trim (getstring (strcat "\n" message
+                                             (if default (strcat " <" (il-num->str default 4) ">, - clears") " (Enter skips)")
+                                             ": "))))
+    (cond
+      ((= answer "") (setq value default done T))
+      ((= answer "-") (setq value nil done T))
+      ((il-custom-number-ok key (setq value (il-parse-number answer))) (setq done T))
+      (T (princ (strcat "\nType a number up to " (itoa (caddr (assoc key *il-custom-numbers*)))
+                        (if (cadddr (assoc key *il-custom-numbers*)) "" " (more than 0)")
+                        ", Enter to keep, or - to clear.")))
+    )
+  )
+  value
+)
+
+;; Free text: Enter keeps DEFAULT, "-" clears it.
+(defun il-ask-custom-text (message default / answer)
+  (setq answer (il-trim (getstring T (strcat "\n" message
+                                             (if (and default (/= default "")) (strcat " <" default ">, - clears") " (Enter skips)")
+                                             ": "))))
+  (cond ((= answer "") default) ((= answer "-") nil) (T answer))
+)
+
+(defun il-ask-custom-color (default / answer value done)
+  (while (not done)
+    (setq answer (il-trim (getstring (strcat "\nColour (AutoCAD colour number 1-255) <" (itoa default) ">: "))))
+    (setq value (if (= answer "") default (il-parse-number answer)))
+    (if (il-custom-color-ok value) (setq done T) (princ "\nType a colour number from 1 to 255."))
+  )
+  (fix value)
+)
+
+;; Ask for a custom style: name, what it is, colour, W/ft, voltage, cut increment, max run, part number
+;; and notes (Enter skips the optional ones). OLD (a custom style) gives the answers' defaults and keeps
+;; its code; a new style's code comes from its name, unique among STYLES.
+(defun il-ask-custom-style (old styles / custom label family at color answers)
+  (setq custom (if old (il-j old "custom")) label "")
+  (while (= label "")
+    (setq label (il-trim (il-ask "Style name (for example Cove 24V 4.4 W/ft)" (if old (il-custom-label old) ""))))
+  )
+  (setq at (vl-position (il-j custom "family") *il-custom-families*))
+  (setq family (il-choose "What it is" *il-custom-families* (if at (1+ at) 1)))
+  (if (null family) (setq family (if at (nth at *il-custom-families*) "LED Tape")))
+  ;; The old colour stays unless it was the old family's default and the family changed.
+  (setq color (il-j custom "color"))
+  (if (or (not (il-custom-color-ok color))
+          (and (/= family (il-j custom "family")) (= color (il-custom-default-color (il-j custom "family")))))
+    (setq color (il-custom-default-color family))
+  )
+  (setq answers (list (cons "label" label) (cons "family" family) (cons "color" (il-ask-custom-color (fix color)))))
+  (foreach row '(("w_per_ft" "Watts per foot") ("voltage_v" "Voltage (V)")
+                 ("cut_in" "Cut increment in inches (none: cut anywhere)") ("max_run_ft" "Max run from one feed, in feet"))
+    (setq answers (append answers (list (cons (car row) (il-ask-custom-number (car row) (cadr row) (il-j custom (car row)))))))
+  )
+  (setq answers (append answers (list (cons "part_number" (il-ask-custom-text "Part number" (il-j custom "part_number")))
+                                      (cons "notes" (il-ask-custom-text "Option notes (CCT, CRI, finish...)" (il-j custom "notes"))))))
+  (il-custom-style (if old (il-str (il-j old "template")) (il-custom-new-code label styles)) answers)
+)
+
+;; After a custom style ID changed: retag its runs and repaint the ones showing its old colour.
+(defun il-refresh-style-runs (id old-color new-color / count)
+  (setq count 0)
+  (foreach ename (il-entities "RUN")
+    (if (= (il-get "style" (il-xget ename)) id)
+      (progn
+        (if (and (/= old-color new-color) (equal (cdr (assoc 62 (entget ename))) old-color)) (il-color-run ename "ok"))
+        (il-tag-run ename)
+        (setq count (1+ count))
+      )
+    )
+  )
+  count
+)
+
+(defun c:ILSTYLE (/ catalog source family style tape presets kits old)
   (il-begin)
   (setq catalog (il-require-catalog))
   (setq source (il-choose "Run style"
-                 (append (if (il-styles) '("Recent style in this drawing")) '("Saved preset" "New tape or neon style"))
+                 (append (if (il-styles) '("Recent style in this drawing"))
+                         '("Saved preset" "New tape or neon style" "Custom style (no template)"))
                  1))
   (cond
-    ((= source "Recent style in this drawing") (setq style (il-pick-style (il-styles) "Styles in this drawing")))
+    ((= source "Recent style in this drawing")
+      (setq style (il-pick-style (il-styles) "Styles in this drawing"))
+      (if (and (il-custom-p style) (= (il-choose (il-style-label style) '("Use" "Edit") 1) "Edit"))
+        (setq old style style (il-ask-custom-style style (il-styles)))
+      )
+    )
+    ((= source "Custom style (no template)") (setq style (il-ask-custom-style nil (il-styles))))
     ((= source "Saved preset")
       (setq presets (il-items (il-j catalog "styles")))
       (if (null presets)
@@ -193,7 +285,14 @@
       (il-save-style style)
       (setq *il-style* (il-j style "id"))
       (il-set-setting "current_style" *il-style*)
-      (princ (strcat "\nCurrent style: " (il-style-label style)))
+      (if old
+        (princ (strcat "\n" (itoa (il-refresh-style-runs *il-style* (il-run-color "ok" old) (il-run-color "ok" style)))
+                       " runs of this style updated."))
+      )
+      (princ (strcat "\nCurrent style: " (il-style-label style)
+                     (if (il-custom-p style)
+                       (strcat " [" (il-str (il-j style "template")) "]. On import it is mapped to a saved preset, or priced by Sales.")
+                       "")))
     )
   )
   (il-end)
@@ -202,7 +301,7 @@
 ;; --- Runs: ILTAPE, ILCONVERT, ILJUMPER -------------------------------------------------------------
 
 (defun il-run-layer (style)
-  (if (member (il-j style "family") '("Linear Fixture" "Extrusion Kit")) "E-LITE-EXTR" "E-LITE-TAPE")
+  (if (member (il-style-family style) '("Linear Fixture" "Extrusion Kit")) "E-LITE-EXTR" "E-LITE-TAPE")
 )
 
 ;; The run as the model sees it, from its polyline and XData.
@@ -237,9 +336,10 @@
   )
 )
 
-;; Colour by state: green ok, yellow a hint to look at, red an error (ByLayer once imported).
+;; Colour by state: green ok, yellow a hint to look at, red an error (ByLayer once imported); a custom
+;; style's run shows the style's colour when ok or imported (il-run-color).
 (defun il-color-run (ename severity / data color)
-  (setq color (cond ((= severity "error") 1) ((= severity "warning") 2) ((= severity "imported") 256) (T 3)))
+  (setq color (il-run-color severity (il-style-by-id (il-get "style" (il-xget ename)))))
   (setq data (entget ename))
   (entmod (if (assoc 62 data) (subst (cons 62 color) (assoc 62 data) data) (append data (list (cons 62 color)))))
 )
@@ -1434,7 +1534,7 @@
           (progn
             (il-xupdate ename (mapcar '(lambda (key) (cons key (il-str (il-get key run))))
                                       '("line_key" "configured_name" "config_hash" "part_number" "server_in")))
-            (entmod (subst '(62 . 256) (assoc 62 (entget ename)) (entget ename)))
+            (il-color-run ename "imported")
             (il-tag-run ename)
             (setq count (1+ count))
           )
@@ -1701,7 +1801,7 @@
     '("ilLumenate CAD toolkit: draw, check, upload. The portal builds the products and the quote."
       "  ILSETUP     layers, blocks, schedule name, symbol scale, title block"
       "  ILCATALOG   load the CAD catalog downloaded from the portal"
-      "  ILSTYLE     choose a run style (saved preset or template and options)"
+      "  ILSTYLE     choose a run style (saved preset, template and options, or your own custom style)"
       "  ILTAPE      draw runs from the feed end, one after another; ILCONVERT turns lines, arcs and polylines into runs"
       "  ILJUMPER    jumper at a snapped point on a run (again to remove); Span marks a gap between two snapped points"
       "  ILFEED      snap to the feed end; feed direction, lead length and feed method"
