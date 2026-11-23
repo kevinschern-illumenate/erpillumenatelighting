@@ -1,0 +1,1198 @@
+# Catalog Builder starter: Static white tape: Dry / Damp / Wet x 4 CCTs.
+# Copied from an active product by tools/catalog_expansion/starters.py and renamed to code DEMO and
+# series 'Example Series'. Review engineering values before importing a product made from it.
+schema_version: 2
+product_type: tape
+series_name: Example Series
+builder:
+  starter:
+    id: tape-static-white
+    label: 'Static white tape: Dry / Damp / Wet x 4 CCTs'
+    description: 'A static white tape family (from High CRI COB tape): one spec, offering and leader-cable map per environment rating and CCT,
+      the template with environment adders, driver eligibility and submittal fields.'
+    code: DEMO
+    series: Example Series
+    name: Example Series High CRI Static White COB Tape
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: COB-DEMO-SW-20-27K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-20-27K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-20-30K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-20-30K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-20-35K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-20-35K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-20-40K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-20-40K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-54-27K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-54-27K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-54-30K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-54-30K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-54-35K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-54-35K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-54-40K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-54-40K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-67-27K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-67-27K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-67-30K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-67-30K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-67-35K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-67-35K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: COB-DEMO-SW-67-40K-300-3M-WH-8MM
+    item_name: DEMO Static White COB Tape-67-40K-300-3M-WH-8MM
+    item_group: COB Tape
+    stock_uom: Inch
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Neon-Submittal-Mapping:
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: endlength
+    source_doctype: ilL-Child-Tape-Neon-Segment
+    source_field: end_jumper_len_mm
+    transformation: MM_TO_FEET
+    logic: '0.00_TO_BLANK'
+    webflow_field: end_feed_length_ft
+    webflow_skip_transformation: 1
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: beamspread
+    source_doctype: ilL-Webflow-Product
+    source_field: beam_angle
+    suffix: °
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: cct
+    source_doctype: ilL-Rel-Tape Offering
+    source_field: cct
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: cctcode
+    source_doctype: ilL-Configured-Tape-Neon
+    source_field: sku_cct_code
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: cri
+    source_doctype: ilL-Rel-Tape Offering
+    source_field: cri
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: dimming
+    source_doctype: ilL-Spec-LED Tape
+    source_field: input_protocol
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: dims
+    source_doctype: ilL-Tape-Neon-Template
+    source_field: spec_sheet_dimensions
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: drywetcode
+    source_doctype: ilL-Configured-Tape-Neon
+    source_field: sku_environment_code
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: endtype
+    source_doctype: ilL-Child-Tape-Neon-Segment
+    source_field: end_type
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: finish
+    source_doctype: ilL-Configured-Tape-Neon
+    source_field: finish
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: fixture_type
+    source_doctype: ilL-Child-Fixture-Schedule-Line
+    source_field: line_id
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: inputvoltage
+    source_doctype: ilL-Spec-LED Tape
+    source_field: input_voltage
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: length
+    source_doctype: ilL-Configured-Tape-Neon
+    source_field: requested_length_mm
+    transformation: MM_TO_INCHES
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: maxfootage
+    source_doctype: ilL-Spec-LED Tape
+    source_field: watts_per_foot
+    suffix: ft
+    transformation: MAX_FOOTAGE_100W
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: maxrunlength
+    source_doctype: ilL-Spec-LED Tape
+    source_field: voltage_drop_max_run_length_ft
+    suffix: ft
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: mounting
+    source_doctype: ilL-Tape-Neon-Template
+    source_field: available_mountings
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: operatingtemp
+    source_doctype: ilL-Spec-LED Tape
+    source_field: operating_temp
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: output
+    source_doctype: ilL-Configured-Tape-Neon
+    source_field: output_level
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: outputcode
+    source_doctype: ilL-Configured-Tape-Neon
+    source_field: sku_output_code
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: productioninterval
+    source_doctype: ilL-Spec-LED Tape
+    source_field: cut_increment_mm
+    suffix: '"'
+    transformation: MM_TO_INCHES
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: project_location
+    source_doctype: ilL-Project
+    source_field: location
+    webflow_field: project_location
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: project_name
+    source_doctype: ilL-Project
+    source_field: project_name
+    webflow_field: project_name
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: startlength
+    source_doctype: ilL-Child-Tape-Neon-Segment
+    source_field: start_leader_len_mm
+    transformation: MM_TO_FEET
+    webflow_field: start_feed_length_ft
+    webflow_skip_transformation: 1
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: warranty
+    source_doctype: ilL-Tape-Neon-Template
+    source_field: warranty_years
+    suffix: Years
+    webflow_skip_transformation: 0
+    required_value: 0
+  - tape_neon_template: cob-demo-sw
+    pdf_field_name: wattage
+    source_doctype: ilL-Configured-Tape-Neon
+    source_field: watts_per_foot
+    suffix: W/ft
+    webflow_skip_transformation: 0
+    required_value: 0
+  ilL-Rel-Driver-Eligibility:
+  - template_type: ilL-Tape-Neon-Template
+    fixture_template: cob-demo-sw
+    driver_spec: PS-UNIV-24V-100W-IP66
+    is_allowed: 1
+    priority: 0
+    is_active: 1
+  - template_type: ilL-Tape-Neon-Template
+    fixture_template: cob-demo-sw
+    driver_spec: PS-UNIV-24V-100W/2-IP66
+    is_allowed: 1
+    priority: 0
+    is_active: 1
+  - template_type: ilL-Tape-Neon-Template
+    fixture_template: cob-demo-sw
+    driver_spec: PS-UNIV-24V-100W/3-IP66
+    is_allowed: 1
+    priority: 0
+    is_active: 1
+  - template_type: ilL-Tape-Neon-Template
+    fixture_template: cob-demo-sw
+    driver_spec: PS-UNIV-24V-30W-IP66
+    is_allowed: 1
+    priority: 0
+    is_active: 1
+  - template_type: ilL-Tape-Neon-Template
+    fixture_template: cob-demo-sw
+    driver_spec: PS-UNIV-24V-60W-IP66
+    is_allowed: 1
+    priority: 0
+    is_active: 1
+  ilL-Rel-Leader-Cable-Map:
+  - tape_spec: COB-DEMO-SW-20-27K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-20-30K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-20-35K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-20-40K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-54-27K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-54-30K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-54-35K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-54-40K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-67-27K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-67-30K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-67-35K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  - tape_spec: COB-DEMO-SW-67-40K-300-3M-WH-8MM
+    power_feed_type: Soldered-End
+    leader_item: FML-2C-BK
+    default_length_mm: 0
+    is_active: 1
+  ilL-Rel-Tape Offering:
+  - tape_spec: COB-DEMO-SW-20-27K-300-3M-WH-8MM
+    cct: '2700K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-54-27K-300-3M-WH-8MM
+    cct: '2700K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-67-27K-300-3M-WH-8MM
+    cct: '2700K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-20-30K-300-3M-WH-8MM
+    cct: '3000K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-54-30K-300-3M-WH-8MM
+    cct: '3000K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-67-30K-300-3M-WH-8MM
+    cct: '3000K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-20-35K-300-3M-WH-8MM
+    cct: '3500K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-54-35K-300-3M-WH-8MM
+    cct: '3500K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-67-35K-300-3M-WH-8MM
+    cct: '3500K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-20-40K-300-3M-WH-8MM
+    cct: '4000K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-54-40K-300-3M-WH-8MM
+    cct: '4000K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  - tape_spec: COB-DEMO-SW-67-40K-300-3M-WH-8MM
+    cct: '4000K'
+    cri: '95+'
+    sdcm: '1'
+    led_package: ilLumenate Static White
+    output_level: '300 lm/ft'
+    is_active: 1
+    watts_per_ft_override: 0.0
+    cut_increment_mm_override: 0
+  ilL-Spec-LED Tape:
+  - item: COB-DEMO-SW-20-27K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-20-30K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-20-35K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-20-40K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-54-27K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-54-30K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-54-35K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-54-40K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-67-27K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-67-30K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-67-35K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  - item: COB-DEMO-SW-67-40K-300-3M-WH-8MM
+    led_package: ilLumenate Static White
+    product_category: COB Tape
+    leader_cable_item: FML-2C-BK
+    input_voltage: '24VDC'
+    watts_per_foot: 2.44
+    voltage_drop_max_run_length_ft: 16.4
+    operating_temp: -4°F (-20°C) to 140°F (60°C)
+    input_protocol: PWM
+    lumens_per_foot: 300.0
+    cri_typical: 95
+    led_pitch_mm: 0.0
+    pcb_mounting: '3M Adhesive Backing'
+    pcb_finish: White PCB
+    cut_increment_mm: 50.0
+    is_free_cutting: 0
+    drive_type: CV
+    channels: 1
+    power_basis: All Channel Max
+    max_simultaneous_pct: 100.0
+    max_run_single_feed_ft: 16.4
+    max_run_double_feed_ft: 32.8
+    min_operating_voltage_v: 23.5
+    reel_length_m: 5.0
+    pixel_protocol: None
+    pixels_per_m: 0.0
+    amps_per_pixel_max: 0.0
+    tape_width_mm: 0.0
+    min_bend_radius_mm: 0.0
+    leds_per_cut_segment: 0
+    max_case_temp_c: 0.0
+    supported_dimming_protocols:
+    - protocol: PWM
+  ilL-Tape-Neon-Template:
+  - template_code: cob-demo-sw
+    template_name: Example Series High CRI Static White COB Tape
+    product_category: COB Tape
+    is_active: 1
+    product_status: Draft
+    series: Example Series
+    production_interval_mm: 50.0
+    is_free_cutting: 0
+    minimum_side_bend_diameter_mm: 0.0
+    minimum_top_bend_diameter_mm: 0.0
+    driver_max_wattage_override: 0.0
+    beam_angle: 150.0
+    l70_life_hours: 0
+    operating_temp_min_c: 0
+    operating_temp_max_c: 0
+    warranty_years: 5
+    auto_populate_configurator: 1
+    fixture_weight_per_foot_grams: 0.0
+    default_tape_spec: COB-DEMO-SW-20-27K-300-3M-WH-8MM
+    leader_allowance_mm_per_fixture: 15
+    base_price_msrp: 0.0
+    price_per_ft_msrp: 21.0
+    pricing_length_basis: L_tape_cut
+    min_length_mm: 0.0
+    max_length_mm: 0
+    length_increment_mm: 0
+    allowed_tape_specs:
+    - tape_spec: COB-DEMO-SW-20-27K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Dry
+    - tape_spec: COB-DEMO-SW-20-30K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Dry
+    - tape_spec: COB-DEMO-SW-20-35K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Dry
+    - tape_spec: COB-DEMO-SW-20-40K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Dry
+    - tape_spec: COB-DEMO-SW-54-27K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Damp
+    - tape_spec: COB-DEMO-SW-54-30K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Damp
+    - tape_spec: COB-DEMO-SW-54-35K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Damp
+    - tape_spec: COB-DEMO-SW-54-40K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Damp
+    - tape_spec: COB-DEMO-SW-67-27K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Wet
+    - tape_spec: COB-DEMO-SW-67-30K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Wet
+    - tape_spec: COB-DEMO-SW-67-35K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Wet
+    - tape_spec: COB-DEMO-SW-67-40K-300-3M-WH-8MM
+      is_default: 0
+      environment_rating: Wet
+    allowed_options:
+    - option_type: Environment Rating
+      environment_rating: Dry
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: Environment Rating
+      environment_rating: Damp
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.5
+    - option_type: Environment Rating
+      environment_rating: Wet
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 1.0
+    - option_type: CCT
+      cct: '2700K'
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: CCT
+      cct: '3000K'
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: CCT
+      cct: '3500K'
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: CCT
+      cct: '4000K'
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: Output Level
+      output_level: '300 lm/ft'
+      feed_position: Both
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: PCB Mounting
+      feed_position: Both
+      pcb_mounting: '3M Adhesive Backing'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: PCB Finish
+      feed_position: Both
+      pcb_finish: White
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    specifications:
+    - spec_label: Output Options
+      spec_value: '300 lm/ft'
+      display_order: 10
+      attribute_doctype: ilL-Attribute-Output Level
+      attribute_options_json: "[\n {\n  \"attribute_type\": \"Output Level\",\n  \"attribute_doctype\": \"ilL-Attribute-Output Level\",\n  \"\
+        code\": \"300\",\n  \"display_label\": \"300 lm/ft\"\n }\n]"
+      is_calculated: 1
+    - spec_label: Watts per Foot
+      spec_value: '2.44'
+      display_order: 20
+      is_calculated: 1
+    - spec_label: Max Run Length
+      spec_value: '16.4 ft'
+      display_order: 30
+      is_calculated: 1
+    - spec_label: Max Footage per 100W Supply
+      spec_value: '33 ft'
+      display_order: 40
+      is_calculated: 1
+    - spec_label: Light Color (CCT)
+      spec_value: '2700K, 3000K, 3500K, 4000K'
+      display_order: 50
+      attribute_doctype: ilL-Attribute-CCT
+      attribute_options_json: "[\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\": \"27K\",\n\
+        \  \"display_label\": \"2700K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n  \"code\"\
+        : \"30K\",\n  \"display_label\": \"3000K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\",\n\
+        \  \"code\": \"35K\",\n  \"display_label\": \"3500K\"\n },\n {\n  \"attribute_type\": \"CCT\",\n  \"attribute_doctype\": \"ilL-Attribute-CCT\"\
+        ,\n  \"code\": \"40K\",\n  \"display_label\": \"4000K\"\n }\n]"
+      is_calculated: 1
+    - spec_label: Color Rendering (CRI)
+      spec_value: '95'
+      display_order: 60
+      is_calculated: 1
+    - spec_label: Beam Spread
+      spec_value: '150°'
+      display_order: 70
+      is_calculated: 1
+    - spec_label: Input Voltage
+      spec_value: '24VDC'
+      display_order: 100
+      attribute_doctype: ilL-Attribute-Output Voltage
+      is_calculated: 1
+    - spec_label: Dimming
+      spec_value: PWM
+      display_order: 110
+      attribute_doctype: ilL-Attribute-Dimming Protocol
+      is_calculated: 1
+    - spec_label: Production Interval
+      spec_value: '1.97" (50.0mm)'
+      display_order: 130
+      is_calculated: 1
+    - spec_label: Operating Temperature
+      spec_value: -4°F (-20°C) to 140°F (60°C)
+      display_order: 140
+      is_calculated: 1
+    - spec_label: Warranty
+      spec_value: '5 years'
+      display_order: 150
+      is_calculated: 1
+    - spec_label: Certifications & Ratings
+      spec_value: UL, DryRated, DampRated, WetRated
+      display_order: 120
+      attribute_doctype: ilL-Attribute-Certification
+      is_calculated: 1
+    certifications:
+    - certification: UL-Certified
+    - certification: Dry Rated
+    - certification: Damp Rated
+    - certification: Wet Rated
+    part_no_configurator:
+    - option_step: 1
+      option_type: Environment Rating
+      option_label: Environment
+      is_required: 1
+      depends_on_step: 0
+      allowed_values_json: "[\n {\n  \"code\": \"20\",\n  \"is_default\": 0,\n  \"label\": \"Dry\",\n  \"value\": \"Dry\"\n },\n {\n  \"code\"\
+        : \"54\",\n  \"is_default\": 0,\n  \"label\": \"Damp\",\n  \"value\": \"Damp\"\n },\n {\n  \"code\": \"67\",\n  \"is_default\": 0,\n \
+        \ \"label\": \"Wet\",\n  \"value\": \"Wet\"\n }\n]"
+    - option_step: 2
+      option_type: CCT
+      option_label: CCT
+      is_required: 1
+      depends_on_step: 1
+      allowed_values_json: "[\n {\n  \"code\": \"27K\",\n  \"is_default\": 0,\n  \"label\": \"2700K\",\n  \"value\": \"2700K\"\n },\n {\n  \"\
+        code\": \"30K\",\n  \"is_default\": 0,\n  \"label\": \"3000K\",\n  \"value\": \"3000K\"\n },\n {\n  \"code\": \"35K\",\n  \"is_default\"\
+        : 0,\n  \"label\": \"3500K\",\n  \"value\": \"3500K\"\n },\n {\n  \"code\": \"40K\",\n  \"is_default\": 0,\n  \"label\": \"4000K\",\n\
+        \  \"value\": \"4000K\"\n }\n]"
+    - option_step: 3
+      option_type: Output Level
+      option_label: Output
+      is_required: 1
+      depends_on_step: 2
+      allowed_values_json: "[\n {\n  \"code\": \"300\",\n  \"is_default\": 0,\n  \"label\": \"300 lm/ft\",\n  \"value\": \"300 lm/ft\"\n }\n]"
+    - option_step: 5
+      option_type: Length
+      option_label: Length
+      is_required: 1
+      depends_on_step: 0
+      allowed_values_json: "[\n {\n  \"code\": \"\",\n  \"default_inches\": 48,\n  \"increment_inches\": 0.5,\n  \"label\": \"Length\",\n  \"\
+        max_inches\": 120,\n  \"min_inches\": 12,\n  \"value\": \"__length_metadata__\"\n }\n]"
+    feed_lengths:
+    - step: 8
+      label: '2ft'
+      code: '2'
+      display_order: 0
+    - step: 8
+      label: '5ft'
+      code: '5'
+      display_order: 0
+    - step: 8
+      label: '10ft'
+      code: '10'
+      display_order: 0
+    - step: 8
+      label: '15ft'
+      code: '15'
+      display_order: 0
+    - step: 8
+      label: '20ft'
+      code: '20'
+      display_order: 0
+    - step: 8
+      label: '25ft'
+      code: '25'
+      display_order: 0
+    - step: 8
+      label: '30ft'
+      code: '30'
+      display_order: 0
+    - step: 10
+      label: '2ft'
+      code: '2'
+      display_order: 0
+    - step: 10
+      label: '5ft'
+      code: '5'
+      display_order: 0
+    - step: 10
+      label: '10ft'
+      code: '10'
+      display_order: 0
+    - step: 10
+      label: '15ft'
+      code: '15'
+      display_order: 0
+    - step: 10
+      label: '20ft'
+      code: '20'
+      display_order: 0
+    - step: 10
+      label: '25ft'
+      code: '25'
+      display_order: 0
+    - step: 10
+      label: '30ft'
+      code: '30'
+      display_order: 0
+external_links:
+  Item:
+  - FML-2C-BK
+  Item Group:
+  - COB Tape
+  UOM:
+  - Inch
+  ilL-Attribute-CCT:
+  - '2700K'
+  - '3000K'
+  - '3500K'
+  - '4000K'
+  ilL-Attribute-CRI:
+  - '95+'
+  ilL-Attribute-Certification:
+  - Damp Rated
+  - Dry Rated
+  - UL-Certified
+  - Wet Rated
+  ilL-Attribute-Dimming Protocol:
+  - PWM
+  ilL-Attribute-Environment Rating:
+  - Damp
+  - Dry
+  - Wet
+  ilL-Attribute-LED Package:
+  - ilLumenate Static White
+  ilL-Attribute-Output Level:
+  - '300 lm/ft'
+  ilL-Attribute-Output Voltage:
+  - '24VDC'
+  ilL-Attribute-PCB Finish:
+  - White
+  ilL-Attribute-PCB Mounting:
+  - '3M Adhesive Backing'
+  ilL-Attribute-Power Feed Type:
+  - Soldered-End
+  ilL-Attribute-SDCM:
+  - '1'
+  ilL-Spec-Driver:
+  - PS-UNIV-24V-100W-IP66
+  - PS-UNIV-24V-100W/2-IP66
+  - PS-UNIV-24V-100W/3-IP66
+  - PS-UNIV-24V-30W-IP66
+  - PS-UNIV-24V-60W-IP66

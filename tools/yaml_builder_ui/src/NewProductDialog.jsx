@@ -23,7 +23,7 @@ export default function NewProductDialog({ product, productType, starters, refer
   const [series, setSeries] = useState('');
   const [name, setName] = useState('');
   const [picks, setPicks] = useState(() => new Map());
-  const needed = useMemo(() => (starter ? placeholders(starter.catalog, reference) : []), [starter, reference]);
+  const needed = useMemo(() => (starter ? placeholders(starter.catalog, reference, starter.code) : []), [starter, reference]);
   const values = { code, series, name };
   const ready = Boolean(starter && code.trim() && series.trim());
   const result = useMemo(() => ready ? applyStarter(starter, values, { schema, reference, picks }) : null,
@@ -43,7 +43,7 @@ export default function NewProductDialog({ product, productType, starters, refer
         <div className="catalog-new-starters" role="radiogroup" aria-label="Starter">
           {choices.map(item => <label key={item.id}><input type="radio" name="starter" checked={item.id === starter.id}
             onChange={() => { setStarterId(item.id); setPicks(new Map()); }} />
-            <span><strong>{item.label}</strong><small>{item.builtin ? 'Built-in starter with typical values to review'
+            <span><strong>{item.label}</strong><small>{item.builtin ? (item.description || 'Built-in starter with typical values to review')
               : `Saved ${item.saved_on || ''} · names from ${item.code}`} · {plural(Object.values(item.catalog.records).reduce((sum, rows) => sum + rows.length, 0), 'record')}</small></span>
             {!item.builtin && <button type="button" className="catalog-danger" onClick={() => onDelete(item.id)}>Delete</button>}
           </label>)}

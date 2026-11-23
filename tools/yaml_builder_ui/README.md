@@ -97,6 +97,34 @@ Neither editor uploads attachments, publishes products, or creates orders.
 Live ERPNext readiness remains authoritative for site records, compatibility
 coverage, electrical selection, PDFs, and channel publication.
 
+### Start a new product from a starter
+
+**New product** creates every record a product needs in one pass, named from the product
+code, series and name you type. Built-in starters come in two kinds:
+
+- **The starter library** (`src/catalog-starters.json`) holds complete families copied
+  from active products, with their real option sets, quantity rules, driver eligibility and
+  submittal field mappings:
+
+  | Product type | Starters |
+  | --- | --- |
+  | Linear fixture | A new profile family (profile, lens, endcap and clip Items and specs, plus SW/DW/TW/FS templates and every map), or LED packages for an existing profile family |
+  | Extrusion kit | A kit with components, quantities, the four kit maps and the part number configurator |
+  | LED tape | Static white (Dry/Damp/Wet × 4 CCTs) and two-channel tunable white |
+  | LED neon | Static white IP67 neon, 4 CCTs × 2 outputs |
+  | Driver | A dimming power supply family with several wattages |
+  | Controller | An in-wall DMX512 / BLE Mesh controller and a 5-channel DMX decoder |
+
+  Templates made from them start as **Draft**. The "existing profile family" starter
+  links the family's CH-/LNS-/EC-/ACC- records under the code you type (e.g. `CA02`)
+  instead of creating them.
+- **Minimal examples** (`src/catalog-examples.json`) have one of each record with
+  illustrative values.
+
+Starters are named with code `DEMO` and series `Example Series`. To refresh the library
+from the live site, see [`tools/catalog_expansion`](../catalog_expansion/README.md#starter-library).
+**Save as starter** keeps any finished draft in this browser as another starter.
+
 ## Work in the record table
 
 Each DocType opens as a table: one row per record, one column per field. The record

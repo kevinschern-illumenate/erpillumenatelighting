@@ -108,6 +108,17 @@ template (with spec sheet fields and kit components), all four kit maps, Kit
 Submittal Mappings, and a Webflow Product of type Extrusion Kit linked through
 `kit_template`. Attach the image, spec submittal PDF and spec sheet in ERPNext.
 
+## Starter library
+
+`templates/starters/*.yaml` are complete version 2 catalogs copied from active products and
+renamed to code `DEMO` and series `Example Series` (`tools/catalog_expansion/starters.py`).
+Each carries a `builder.starter` block (id, label, description, and the code/series/name its
+records use), which is never imported. `python -m tools.fixture_builder.catalog_starters`
+validates every starter with the same rules as the CLI and writes the builder's
+`tools/yaml_builder_ui/src/catalog-starters.json`; `--check` fails when the JSON is stale.
+`tests/test_catalog_starters.py` and the UI's `starter.test.js` apply every starter under a
+new code and require a complete, consistently named draft.
+
 ## YAML structure
 
 ```yaml
