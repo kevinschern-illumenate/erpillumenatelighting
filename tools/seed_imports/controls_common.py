@@ -316,6 +316,305 @@ ROWS = [
 ]
 
 
+# --- Pharos: the full current range, read from pharoscontrols.com on 2026-11-23 --------------------
+#
+# Designer hardware (https://www.pharoscontrols.com/designer/hardware/) and Express products
+# (https://www.pharoscontrols.com/express/products/). One row per orderable code on those pages (capacity and
+# finish variants included). Interfaces the controller schema has no protocol for (contact closure and
+# analog inputs, relays, RS232/RS485, MIDI, audio, timecode, KiNET, Pathport) are described in the source
+# text instead of as ports. Ethernet links to Pharos controllers are recorded as sACN, the eDMX protocol the
+# rest of the catalog uses. Typical power is entered where the page gives watts; AC units give only amps.
+PHAROS = "https://www.pharoscontrols.com/"
+
+
+def pharos_row(code, name, controller_name, controller_type, page, facts, **spec):
+	"""One Pharos row: item ``PHAROS-<code>``, the page it came from and what the page says."""
+	return {
+		"item_code": "PHAROS-" + code.replace("+", "-PLUS").replace(" ", "-"),
+		"item_name": name,
+		"controller_name": controller_name,
+		"controller_type": controller_type,
+		"source_reference": f"Pharos {code}: {facts} {PHAROS}{page}",
+		**spec,
+	}
+
+
+def pharos_rows():
+	rows = []
+	poe2 = {"input_voltage_type": "VDC"}  # PoE powered: no input range on the page
+	rows.append(
+		pharos_row(
+			"LPC 4",
+			"Pharos Designer LPC 4 lighting playback controller",
+			"Pharos LPC 4 (4 universes)",
+			"DMX Controller",
+			"designer/hardware/lpc/",
+			"2,048 channels eDMX, 2 isolated RDM-compatible DMX512 ports, Ethernet (sACN, Art-Net, KiNET, Pathport), "
+			"8 contact closure/digital/analog inputs, RS232/RS485/DMX in serial port, MIDI, DALI via RIO D4, "
+			"9-48 V DC or PoE (802.3af Class 2) 4 W typical 7 W maximum, 8-module DIN rail",
+			input_voltage_type="VDC",
+			input_voltage_min=9,
+			input_voltage_max=48,
+			standby_power_watts=4,
+			channels=2048,
+			max_universes=4,
+			input_protocols="sACN, Art-Net",
+			output_protocols="DMX512",
+			ports=ports("DMX 1:Out:DMX512:32", "DMX 2:Out:DMX512:32", "Ethernet:In:sACN"),
+		)
+	)
+	for universes in range(20, 101, 10):
+		rows.append(
+			pharos_row(
+				f"LPC X S3 {universes}",
+				f"Pharos Designer LPC X S3 {universes} lighting playback controller",
+				f"Pharos LPC X S3 {universes} ({universes} universes eDMX)",
+				"DMX Controller",
+				"designer/hardware/lpc-x/",
+				f"{universes * 512:,} channels eDMX; DMX512 and DALI via Pharos gateways; 10/100/1000 Ethernet "
+				"(etherCON); RS232; 100-240 V AC 50-60 Hz 0.4-0.2 A; 19 in 1U rack",
+				input_voltage_type="VAC",
+				input_voltage_min=100,
+				input_voltage_max=240,
+				channels=universes * 512,
+				max_universes=universes,
+				output_protocols="sACN, Art-Net",
+				ports=ports("Data:Out:sACN", "Management:In:sACN"),
+			)
+		)
+	for family, codes, page, depth in (
+		("VLC S2", (50, 100, 250, 500, 1000, 1500), "designer/hardware/vlc/", "19 in 1U rack"),
+		("VLC+ M", (50, 100, 250, 500), "designer/hardware/vlc-plus/", "19 in 1U rack"),
+		("VLC+", (1000, 1500, 3000), "designer/hardware/vlc-plus/", "19 in 2U rack"),
+	):
+		for universes in codes:
+			rows.append(
+				pharos_row(
+					f"{family} {universes}",
+					f"Pharos Designer {family} {universes} video lighting controller",
+					f"Pharos {family} {universes} ({universes} universes eDMX)",
+					"DMX Controller",
+					page,
+					f"video lighting controller, {universes * 512:,} channels eDMX; DMX512 and DALI via Pharos gateways; "
+					f"10/100/1000 Ethernet (etherCON); 100-240 V AC 50-60 Hz 0.4-0.2 A; {depth}",
+					input_voltage_type="VAC",
+					input_voltage_min=100,
+					input_voltage_max=240,
+					channels=universes * 512,
+					max_universes=universes,
+					output_protocols="sACN, Art-Net",
+					ports=ports("Data:Out:sACN", "Management:In:sACN"),
+				)
+			)
+	for size, watts in ((5, 7), (8, 10)):
+		rows.append(
+			pharos_row(
+				f"TPS {size} B",
+				f'Pharos Designer TPS {size} touch panel station, {size}" black',
+				f'Pharos TPS {size} B ({size}" touchscreen)',
+				"Scene Controller",
+				"designer/hardware/tps/",
+				f'{size}" capacitive wall touchscreen for any Designer controller, 10/100 Ethernet, PoE (802.3af '
+				f"Class 0) {watts} W typical",
+				standby_power_watts=watts,
+				input_protocols="sACN",
+				ports=ports("Ethernet:Bidirectional:sACN"),
+				**poe2,
+			)
+		)
+	for region in ("UK", "US"):
+		for finish, label in (("BB", "black on black"), ("CC", "cream on cream"), ("WW", "white on white")):
+			rows.append(
+				pharos_row(
+					f"BPS {region} {finish}",
+					f"Pharos Designer BPS button panel station, {region} backbox, {label}",
+					f"Pharos BPS {region} {finish} (8 buttons)",
+					"Scene Controller",
+					"designer/hardware/bps/",
+					f"8 programmable buttons with LEDs, magnetic overlay, flush {region} single-gang backbox, 10/100 "
+					"Ethernet, PoE (802.3af Class 1) 1.5 W typical",
+					standby_power_watts=1.5,
+					input_protocols="sACN",
+					ports=ports("Ethernet:Bidirectional:sACN"),
+					**poe2,
+				)
+			)
+	rows += [
+		pharos_row(
+			"RIO 84",
+			"Pharos RIO 84 remote input output device",
+			"Pharos RIO 84 (8 in, 4 out, serial/DMX)",
+			"Gateway",
+			"designer/hardware/rio/",
+			"8 contact closure/digital/analog inputs (24 V max), 4 outputs, RS232/RS485/DMX serial port for output "
+			"or triggering, 10/100 Ethernet, PoE (802.3af Class 1) 1.5 W typical, 6-module DIN rail",
+			standby_power_watts=1.5,
+			input_protocols="sACN",
+			output_protocols="DMX512",
+			ports=ports("Serial:Out:DMX512:32", "Ethernet:In:sACN"),
+			**poe2,
+		),
+		pharos_row(
+			"RIO A",
+			"Pharos Designer RIO A remote audio input device",
+			"Pharos RIO A (audio, LTC, MIDI)",
+			"Gateway",
+			"designer/hardware/rio-a/",
+			"stereo audio in (or linear timecode), MIDI in and out, MIDI Show Control and MTC, 10/100 Ethernet, "
+			"PoE (802.3af Class 1) 1.5 W typical, 4-module DIN rail",
+			standby_power_watts=1.5,
+			input_protocols="sACN",
+			ports=ports("Ethernet:Bidirectional:sACN"),
+			**poe2,
+		),
+		pharos_row(
+			"RIO D4",
+			"Pharos RIO D4 remote DALI 4-port device",
+			"Pharos RIO D4 (4 DALI ports)",
+			"Gateway",
+			"designer/hardware/rio-d4/",
+			"4 DALI ports that transmit and receive DALI commands, for Designer and Express controllers (up to four "
+			"per Express Control), 10/100 Ethernet, PoE (802.3af Class 2) 7 W maximum, 6-module DIN rail",
+			standby_power_watts=7,
+			input_protocols="sACN",
+			output_protocols="DALI",
+			ports=ports(*(f"DALI {index}:Out:DALI:64" for index in range(1, 5)), "Ethernet:In:sACN"),
+			**poe2,
+		),
+		pharos_row(
+			"RIO G4",
+			"Pharos RIO G4 remote gateway 4-port device",
+			"Pharos RIO G4 (4 DMX/SDI ports)",
+			"Gateway",
+			"designer/hardware/rio-g4/",
+			"4 isolated RDM-capable DMX512 ports (or SDI serial output) for Designer and Express controllers (up to "
+			"four per Express Control), 100 Ethernet, PoE (802.3af Class 2) 7 W maximum, 6-module DIN rail",
+			standby_power_watts=7,
+			input_protocols="sACN",
+			output_protocols="DMX512",
+			ports=ports(*(f"DMX {index}:Out:DMX512:32" for index in range(1, 5)), "Ethernet:In:sACN"),
+			**poe2,
+		),
+	]
+	for count in (10, 20):
+		rows.append(
+			pharos_row(
+				f"EDN {count}",
+				f"Pharos Designer EDN {count} Ethernet data node",
+				f"Pharos EDN {count} ({count} DMX/RDM ports)",
+				"Gateway",
+				"designer/hardware/edn/",
+				f"{count} isolated RDM-compatible DMX512 ports (or SDI serial output), 1+1 etherCON Ethernet, 100-240 V "
+				"AC 50-60 Hz 0.25-0.12 A, 19 in 1U rack",
+				input_voltage_type="VAC",
+				input_voltage_min=100,
+				input_voltage_max=240,
+				max_universes=count,
+				input_protocols="sACN",
+				output_protocols="DMX512",
+				ports=ports(
+					*(f"DMX {index}:Out:DMX512:32" for index in range(1, count + 1)), "Ethernet:In:sACN"
+				),
+			)
+		)
+	rows += [
+		pharos_row(
+			"SDI",
+			"Pharos Designer SDI serial data interface",
+			"Pharos SDI (DMX to serial pixel data, 3 universes)",
+			"Pixel Controller",
+			"designer/hardware/sdi/",
+			"converts DMX from an EDN or RIO G4 port to synchronous (SPI, e.g. WS2812, APA102) or asynchronous serial "
+			"LED data, up to 3 universes (1,536 channels) per unit, 5-28 V DC 0.3 W typical 0.6 W maximum, "
+			"2-module DIN rail",
+			input_voltage_type="VDC",
+			input_voltage_min=5,
+			input_voltage_max=28,
+			standby_power_watts=0.3,
+			channels=1536,
+			max_universes=3,
+			input_protocols="DMX512",
+			output_protocols="SPI",
+			ports=ports("Serial In:In:DMX512", "Serial Out:Out:SPI"),
+		),
+		pharos_row(
+			"PAC R",
+			"Pharos Repeat DMX splitter, 1 in 4 out",
+			"Pharos Repeat (DMX splitter 1 in, 4 out)",
+			"Repeater",
+			"designer/hardware/repeat/",
+			"DMX/RDM input repeated onto 4 RDM-compatible outputs, 9-48 V DC 4 W typical, 6-module DIN rail",
+			input_voltage_type="VDC",
+			input_voltage_min=9,
+			input_voltage_max=48,
+			standby_power_watts=4,
+			input_protocols="DMX512",
+			output_protocols="DMX512",
+			ports=ports("DMX In:In:DMX512", *(f"DMX {index}:Out:DMX512:32" for index in range(1, 5))),
+		),
+		pharos_row(
+			"PAC S",
+			"Pharos Switch unmanaged 4-port PoE Ethernet switch",
+			"Pharos Switch (4-port PoE)",
+			"Gateway",
+			"designer/hardware/switch/",
+			"unmanaged Ethernet switch with 4 Class 2 PoE ports for LPC 1/2/4, TPS, BPS, Express Touch and RIO "
+			"devices, 24 V DC, 45 W maximum depending on load, 6-module DIN rail",
+			input_voltage_type="VDC",
+			input_voltage_min=24,
+			input_voltage_max=24,
+			input_protocols="sACN",
+			output_protocols="sACN",
+			ports=ports("Uplink:In:sACN", *(f"PoE {index}:Out:sACN:1" for index in range(1, 5))),
+		),
+	]
+	for universes in (1, 2, 4, 6):
+		rows.append(
+			pharos_row(
+				f"XPC {universes}",
+				f"Pharos Express Control {universes} lighting controller",
+				f"Pharos Express Control {universes} ({universes * 512:,} channels)",
+				"DMX Controller",
+				"express/products/",
+				f"{universes * 512:,} channels, 2 isolated self-healing RDM DMX512 ports, eDMX (sACN, Art-Net, KiNET), "
+				"DALI port (up to 64 devices, separate bus supply), 2 contact closure/digital/analog inputs, 2 relay "
+				"outputs, 10/100 Ethernet, 9-48 V DC or PoE (802.3af Class 2) 4 W typical, DIN rail",
+				input_voltage_type="VDC",
+				input_voltage_min=9,
+				input_voltage_max=48,
+				standby_power_watts=4,
+				channels=universes * 512,
+				max_universes=universes,
+				input_protocols="sACN, Art-Net",
+				output_protocols="DMX512, DALI",
+				ports=ports(
+					"DMX 1:Out:DMX512:32", "DMX 2:Out:DMX512:32", "DALI:Out:DALI:64", "Ethernet:In:sACN"
+				),
+			)
+		)
+	for size, watts in ((5, 7), (8, 10)):
+		for finish, label in (("B", "black"), ("W", "white")):
+			rows.append(
+				pharos_row(
+					f"XPT {size} {finish}",
+					f"Pharos Express Touch {size} wall touchscreen, {label}",
+					f'Pharos Express Touch {size} {finish} ({size}" touchscreen)',
+					"Scene Controller",
+					"express/products/",
+					f'{size}" capacitive wall touchscreen for Express Control (up to 32 per controller), PoE (802.3af '
+					f"Class 0) {watts} W typical",
+					standby_power_watts=watts,
+					input_protocols="sACN",
+					ports=ports("Ethernet:Bidirectional:sACN"),
+					**poe2,
+				)
+			)
+	return rows
+
+
+ROWS = ROWS + pharos_rows()
+
+
 def cell(value):
 	return "" if value is None else str(value)
 

@@ -24,7 +24,7 @@ class ControllerImport(unittest.TestCase):
 	def setUp(self):
 		self.context = load_service(ROOT + ".system_design.controller_import", EXTRAS)
 		self.module, self.frappe = self.context.__enter__()
-		self.existing = {"ilL-Attribute-Dimming Protocol": {"DMX512", "SPI", "PWM"}, "Item Group": {"All Item Groups"}}
+		self.existing = {"ilL-Attribute-Dimming Protocol": {"DMX512", "SPI", "PWM", "DALI"}, "Item Group": {"All Item Groups"}}
 		self.frappe.db.exists.side_effect = lambda doctype, name=None: (
 			name in self.existing.get(doctype, set()) if isinstance(name, str) else False
 		)
@@ -59,14 +59,17 @@ class ControllerImport(unittest.TestCase):
 
 	def test_readiness_flags_only_what_the_sheets_do_not_give(self):
 		rows = self.module.parse_csv(controls_common.TARGET.read_text(encoding="utf-8"))
-		engine = {"DMX512": "DMX512", "SPI": "SPI", "sACN": "sACN", "Art-Net": "Art-Net"}
+		engine = {"DMX512": "DMX512", "SPI": "SPI", "sACN": "sACN", "Art-Net": "Art-Net", "DALI": "DALI-2"}
 		with load_service(ROOT + ".system_design.readiness") as (readiness, _frappe):
 			for row in rows:
 				with self.subTest(row["item_code"]):
 					result = readiness.controller_issues(
 						row["spec"], engine, row["protocols"]["input_protocols"], row["protocols"]["output_protocols"], row["ports"]
 					)
-					expected = {"terminal_max_awg"} | ({"input_voltage_min", "input_voltage_max"} if row["item_code"] == "ADVATEK-PIXLITE-16-MK2" else set())
+					seed = next(item for item in controls_common.ROWS if item["item_code"] == row["item_code"])
+					# PoE-only devices (and the 16 Mk2) have no input range on their pages; readiness lists it.
+					blank = {"input_voltage_min", "input_voltage_max"} if seed.get("input_voltage_min") is None else set()
+					expected = {"terminal_max_awg"} | blank
 					self.assertEqual(set(result["missing"]), expected)
 
 	def test_bad_rows_are_reported(self):
