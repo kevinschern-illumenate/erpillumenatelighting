@@ -14,6 +14,7 @@ def execute():
 					"fieldtype": "Float",
 					"label": "Fixed Cable Assembly Length (mm)",
 					"description": "Approved physical length for count-based cable Items. Bulk cable uses its length stock UOM instead.",
+					"insert_after": "stock_uom",
 				}
 			],
 			"Quotation": [
