@@ -1,7 +1,7 @@
 ;;; il-commands.lsp -- ilLumenate CAD toolkit commands (draw-to-quote plan 3.3-3.9, 4.1-4.5).
 ;;;
 ;;; AutoCAD draws the geometry; the portal builds the products. Runs are LWPOLYLINEs with XData; rooms
-;;; are closed polylines; cabinets, PSUs and tags are blocks. Hints (snap, % of max run, PSU load) come
+;;; and cabinets are closed polylines (cabinets placed before 0.6.2 are blocks); PSUs and tags are blocks. Hints (snap, % of max run, PSU load) come
 ;;; from il-math and are only hints: the import's server numbers win. No PSU sizing, voltage drop,
 ;;; stick packing or BOM math happens here. Command line only, so LT 2024+ and Mac work too.
 
@@ -825,10 +825,15 @@
     ("PSU" ("runs"))
     ("CONTROL" ("start" . "auto"))))
 
-;; Where an entity sits: a block's insertion point, a polyline's centroid.
+;; Where an entity sits: a block's insertion point, a cabinet outline's centre (the middle of its
+;; bounding box, so a stretched outline still has one), another polyline's centroid.
 (defun il-ref-point (ename / data)
   (setq data (entget ename))
-  (if (= (cdr (assoc 0 data)) "INSERT") (cdr (assoc 10 data)) (il-centroid (il-lw-vertices ename)))
+  (cond
+    ((= (cdr (assoc 0 data)) "INSERT") (cdr (assoc 10 data)))
+    ((= (il-kind ename) "CABINET") (il-bbox-center (il-lw-vertices ename)))
+    (T (il-centroid (il-lw-vertices ename)))
+  )
 )
 
 (defun il-owned-tags (owner-handle / ss index ename result)
@@ -1017,31 +1022,238 @@
   found
 )
 
-(defun c:ILCAB (/ point id rating note insert)
-  (il-begin)
-  (il-assets-ensure)
-  (if (setq point (getpoint "\nCabinet or PSU location: "))
-    (progn
-      (setq id (il-ask-id "CABINET" "Cabinet tag" "CAB-"))
-      (initget "Dry Damp Wet")
-      (setq rating (getkword "\nLocation rating [Dry/Damp/Wet] <Dry>: "))
-      (setq note (il-ask "Access note" ""))
-      (setq insert (il-insert "IL-CABINET" point (il-symbol-scale) "E-POWR-CABN"
-                     (list (cons "TAG" id) (cons "RATING" (if rating rating "Dry")) (cons "ACCESS" note))))
-      (il-xset insert (list (cons "kind" "CABINET") (cons "id" id) (cons "room" (il-room-at point))
-                            (cons "rating" (if rating rating "Dry")) (cons "access" note) (cons "self" (il-handle insert))))
-      (princ (strcat "\nCabinet " id "."))
-    )
-  )
-  (il-end)
+;; --- Cabinets (0.6.2): a real-size outline with a label above its top edge ---
+;;
+;; A cabinet is a closed LWPOLYLINE on E-POWR-CABN, drawn at true size in drawing inches (not at the
+;; symbol scale) so PSUs and controls can be placed inside it. Its label (IL-CABTAG: tag, rating,
+;; access note) is owned by the outline and redrawn by ILUPDATE. Everything reads the outline's own
+;; geometry, so grips and STRETCH just work. Cabinets placed before 0.6.2 are IL-CABINET blocks; they
+;; keep working, and ILCAB Edit turns one into an outline.
+
+;; The last cabinet size drawn, (width depth) in inches; 24 x 18 at first.
+(defun il-cabinet-size (/ w d)
+  (setq w (il-number (il-setting "cabinet_w_in")) d (il-number (il-setting "cabinet_d_in")))
+  (list (if (and w (> w 0)) (float w) 24.0) (if (and d (> d 0)) (float d) 18.0))
 )
 
-(defun il-nearest (kind point / best best-distance d)
-  (foreach ename (il-entities kind)
-    (setq d (distance (cdr (assoc 10 (entget ename))) point))
+(defun il-remember-cabinet-size (size)
+  (il-set-setting "cabinet_w_in" (car size))
+  (il-set-setting "cabinet_d_in" (cadr size))
+)
+
+(defun il-size-text (size) (strcat (il-num->str (car size) 2) " x " (il-num->str (cadr size) 2) " in"))
+
+;; True for a cabinet drawn as an outline; one placed before 0.6.2 is an IL-CABINET block.
+(defun il-cabinet-outline-p (ename) (= (cdr (assoc 0 (entget ename))) "LWPOLYLINE"))
+
+;; Width and depth of a cabinet: an outline's bounding box, else the last size drawn.
+(defun il-cabinet-dims (ename)
+  (if (il-cabinet-outline-p ename) (il-bbox-size (il-lw-vertices ename)) (il-cabinet-size))
+)
+
+;; Width and depth typed (inches, or feet with ') or measured with two points; Enter keeps SIZE's.
+(defun il-ask-cabinet-size (size / w d)
+  (initget 6)
+  (setq w (getdist (strcat "\nCabinet width, left to right on the plan (inches, or feet with ') <" (il-num->str (car size) 2) ">: ")))
+  (initget 6)
+  (setq d (getdist (strcat "\nCabinet depth, bottom to top on the plan <" (il-num->str (cadr size) 2) ">: ")))
+  (list (if w (float w) (car size)) (if d (float d) (cadr size)))
+)
+
+;; A closed outline through VERTICES on the cabinet layer (on *il-layout* when set, else the current space).
+(defun il-make-outline (vertices)
+  (entmake (append (list '(0 . "LWPOLYLINE") '(100 . "AcDbEntity") '(8 . "E-POWR-CABN"))
+                   (if *il-layout* (list (cons 410 *il-layout*)))
+                   (list '(100 . "AcDbPolyline") (cons 90 (length vertices)) '(70 . 1))
+                   (mapcar '(lambda (v) (list 10 (car v) (cadr v))) vertices)))
+  (entlast)
+)
+
+;; (Re)place an outline cabinet's label, centred on the middle of its top edge at the symbol scale and
+;; owned by the outline, so ILUPDATE follows a stretched outline. An old cabinet block has its own
+;; attributes and gets none.
+(defun il-tag-cabinet (ename / x box tag)
+  (if (il-cabinet-outline-p ename)
+    (progn
+      (setq x (il-xget ename) box (il-bbox (il-lw-vertices ename)))
+      (setq *il-layout* (cdr (assoc 410 (entget ename))))
+      (il-delete-tags (il-handle ename))
+      (setq tag (il-insert "IL-CABTAG" (list (/ (+ (car box) (caddr box)) 2.0) (cadddr box) 0.0) (il-symbol-scale) "E-ANNO-TAGS"
+                  (list (cons "TAG" (il-get "id" x)) (cons "RATING" (il-get "rating" x)) (cons "ACCESS" (il-get "access" x)))))
+      (il-xset tag (list (cons "kind" "TAG") (cons "owner" (il-handle ename))))
+      (setq *il-layout* nil)
+      tag
+    )
+  )
+)
+
+;; The entity HANDLE names, or nil when there is none or it was erased.
+(defun il-live (handle / ename)
+  (if (and handle (setq ename (handent handle)) (entget ename)) ename)
+)
+
+;; A tag's owner (run, room, wire or cabinet) when it still exists; anything else is itself.
+(defun il-tag-owner (ename / owner)
+  (if (and (= (il-kind ename) "TAG") (setq owner (il-live (il-get "owner" (il-xget ename))))) owner ename)
+)
+
+;; The cabinet ENAME is or labels, else nil.
+(defun il-cabinet-of (ename)
+  (if ename (setq ename (il-tag-owner ename)))
+  (if (and ename (= (il-kind ename) "CABINET")) ename)
+)
+
+;; The toolkit entity picked at POINT (within the pickbox; a tag stands for its owner), or nil.
+(defun il-hit (point / ss)
+  (if (setq ss (ssget point (list (list -3 (list *il-app*))))) (il-tag-owner (ssname ss 0)))
+)
+
+;; The cabinet outline POINT is inside or on (the smallest one when outlines nest).
+(defun il-cabinet-containing (point / tolerance best best-area vertices d size)
+  (setq tolerance (il-pick-tolerance))
+  (foreach ename (il-entities "CABINET")
+    (if (il-cabinet-outline-p ename)
+      (progn
+        (setq vertices (il-lw-vertices ename) d (il-distance-to-path vertices T point) size (il-bbox-size vertices))
+        (if (and (or (il-point-in-polygon point vertices) (and d (<= d tolerance)))
+                 (or (null best-area) (< (* (car size) (cadr size)) best-area)))
+          (setq best ename best-area (* (car size) (cadr size)))
+        )
+      )
+    )
+  )
+  best
+)
+
+;; The entity of ENAMES whose reference point (il-ref-point) is nearest POINT.
+(defun il-nearest (enames point / best best-distance d)
+  (foreach ename enames
+    (setq d (distance (il-xy (il-ref-point ename)) (il-xy point)))
     (if (or (null best-distance) (< d best-distance)) (setq best ename best-distance d))
   )
   best
+)
+
+;; The cabinet at POINT: the outline it is inside or on, else an old cabinet block within 1.5 symbol sizes.
+(defun il-cabinet-near (point / near)
+  (cond
+    ((il-cabinet-containing point))
+    ((and (setq near (il-nearest (vl-remove-if 'il-cabinet-outline-p (il-entities "CABINET")) point))
+          (<= (distance (il-xy (il-ref-point near)) (il-xy point)) (* 1.5 (il-symbol-scale))))
+      near)
+  )
+)
+
+;; Labels and markers ILUPDATE redraws for their owner (run tags, feed and jumper markers, wire tags,
+;; cabinet labels): erase the ones whose owner was erased. Returns how many.
+(defun il-clear-orphan-tags (/ ss index ename owner count)
+  (setq count 0)
+  (if (setq ss (ssget "_X" '((0 . "INSERT") (2 . "IL-RUNTAG,IL-FEED,IL-JUMPER,IL-WIRETAG,IL-CABTAG"))))
+    (progn
+      (setq index 0)
+      (repeat (sslength ss)
+        (setq ename (ssname ss index) index (1+ index) owner (il-get "owner" (il-xget ename)))
+        (if (and owner (not (il-live owner))) (progn (entdel ename) (setq count (1+ count))))
+      )
+    )
+  )
+  count
+)
+
+;; Draw the cabinet outline VERTICES, then ask its tag, rating and access note; returns the outline.
+(defun il-place-cabinet (vertices / id rating note outline room)
+  (setq id (il-ask-id "CABINET" "Cabinet tag" "CAB-"))
+  (initget "Dry Damp Wet")
+  (setq rating (getkword "\nLocation rating [Dry/Damp/Wet] <Dry>: "))
+  (if (null rating) (setq rating "Dry"))
+  (setq note (il-ask "Access note" ""))
+  (setq outline (il-make-outline vertices) room (il-room-at (il-bbox-center vertices)))
+  (il-xset outline (list (cons "kind" "CABINET") (cons "id" id) (cons "room" room) (cons "rating" rating)
+                         (cons "access" note) (cons "self" (il-handle outline))))
+  (il-remember-cabinet-size (il-bbox-size vertices))
+  (il-tag-cabinet outline)
+  (princ (strcat "\nCabinet " id ", " (il-size-text (il-bbox-size vertices)) (if room (strcat " in " room) "")
+                 ". PSUs and controls placed inside it go in it (ILPSU, ILCTRL)."))
+  outline
+)
+
+;; ILCAB Edit: pick a cabinet (inside it, its outline or its label), then its rating, access note and
+;; size about its centre; Enter keeps each, and the id stays. An old cabinet block becomes an outline
+;; centred on its insertion point (the last size drawn unless another is typed), keeping its id, room,
+;; rating and access note.
+(defun il-edit-cabinet (/ point cabinet x block-p size new rating note center outline)
+  (setq point (getpoint "\nPick the cabinet to edit (inside it, its outline or its label): "))
+  (if point
+    (setq cabinet (cond ((il-cabinet-of (il-hit point))) ((il-cabinet-near point))))
+  )
+  (if (null cabinet)
+    (if point (princ "\nNo ilLumenate cabinet there."))
+    (progn
+      (setq x (il-xget cabinet) block-p (not (il-cabinet-outline-p cabinet)))
+      (setq center (il-ref-point cabinet) size (il-cabinet-dims cabinet))
+      (princ (strcat "\nCabinet " (il-str (il-get "id" x)) ": " (il-size-text size)
+                     (if block-p ". It is an old cabinet symbol and becomes an outline of this size." ".")))
+      (initget "Dry Damp Wet")
+      (setq rating (getkword (strcat "\nLocation rating [Dry/Damp/Wet] <" (if (il-get "rating" x) (il-get "rating" x) "Dry") ">: ")))
+      (setq note (il-ask-custom-text "Access note" (il-get "access" x)))
+      (setq new (il-ask-cabinet-size size))
+      (setq x (il-put "access" note (il-put "rating" (cond (rating) ((il-get "rating" x)) (T "Dry")) x)))
+      (cond
+        (block-p
+          (setq *il-layout* (cdr (assoc 410 (entget cabinet))))
+          (setq outline (il-make-outline (il-rect-around center new)))
+          (setq *il-layout* nil)
+          (il-xset outline (il-put "self" (il-handle outline) x))
+          (il-delete-tags (il-handle cabinet))
+          (entdel cabinet)
+          (setq cabinet outline)
+        )
+        (T
+          (if (not (equal new size 1e-6)) (il-lw-set-vertices cabinet (il-rect-around center new)))
+          (il-xset cabinet x)
+        )
+      )
+      (if (or block-p (not (equal new size 1e-6))) (il-remember-cabinet-size new))
+      (il-tag-cabinet cabinet)
+      (princ (strcat "\nCabinet " (il-str (il-get "id" x)) ": " (il-size-text new) ", " (il-get "rating" x)
+                     (if block-p "; the old symbol was replaced by its outline." ".")))
+    )
+  )
+)
+
+;; ILCAB: a cabinet outline at real size from two corners, from a typed size and its centre (Size), or
+;; at the last size from its centre (Point, or Enter); then its tag, rating and access note. Edit
+;; changes a placed cabinet.
+(defun c:ILCAB (/ first corner size center vertices)
+  (il-begin)
+  (il-assets-ensure)
+  (setq size (il-cabinet-size))
+  (initget "Size Point Edit")
+  (setq first (getpoint "\nFirst corner of the cabinet, or [Size/Point/Edit] <Point>: "))
+  (cond
+    ((= first "Edit") (il-edit-cabinet))
+    ((= first "Size")
+      (setq size (il-ask-cabinet-size size))
+      (if (setq center (getpoint (strcat "\nCentre of the " (il-size-text size) " cabinet: ")))
+        (setq vertices (il-rect-around center size))
+      )
+    )
+    ((and first (listp first))
+      (if (setq corner (getcorner first "\nOpposite corner: ")) (setq vertices (il-rect-corners first corner)))
+    )
+    (T
+      (if (setq center (getpoint (strcat "\nCentre of the cabinet (" (il-size-text size) "): ")))
+        (setq vertices (il-rect-around center size))
+      )
+    )
+  )
+  (cond
+    ((null vertices))
+    ((< (apply 'min (il-bbox-size vertices)) 1.0)
+      (princ "\nA cabinet needs both sides at least 1 in. Pick opposite corners, or use Size."))
+    (T (il-place-cabinet vertices))
+  )
+  (il-end)
 )
 
 (defun c:ILPSU (/ point id cabinet drivers names model insert)
@@ -1114,15 +1326,26 @@
   (il-end)
 )
 
+;; The id of ENAME when a wire can end there (a tag stands for its owner: a cabinet label is the cabinet).
 (defun il-end-id (ename / kind)
-  (setq kind (il-kind ename))
+  (setq ename (il-tag-owner ename) kind (il-kind ename))
   (if (member kind '("RUN" "PSU" "CABINET" "CONTROL")) (il-get "id" (il-xget ename)))
+)
+
+;; The wire end at POINT: the PSU, cabinet, control or run (or its tag) picked there, else a run within
+;; the pickbox, else the cabinet the point is inside.
+(defun il-end-at (point / hit id)
+  (cond
+    ((and (setq hit (il-hit point)) (setq id (il-end-id hit))) id)
+    ((setq hit (il-run-at point)) (il-get "id" (il-xget hit)))
+    ((setq hit (il-cabinet-near point)) (il-get "id" (il-xget hit)))
+  )
 )
 
 (defun c:ILWIRE (/ from to kind before ename id layer wire-length)
   (il-begin)
   (il-assets-ensure)
-  (if (setq from (il-pick-end "\nPick where the wire starts (PSU, cabinet, control or run): "))
+  (if (setq from (il-pick-end "\nWhere the wire starts: a PSU, control or run, or in a cabinet (object snaps work): "))
     (progn
       (initget "Lv Line Data")
       (setq kind (getkword "\nWire [Lv class 2/Line voltage/Data] <Lv>: "))
@@ -1136,7 +1359,7 @@
       (setq ename (entlast))
       (cond
         ((or (equal before ename) (/= (cdr (assoc 0 (entget ename))) "LWPOLYLINE")) (princ "\nNo wire drawn."))
-        ((null (setq to (il-pick-end "\nPick where the wire ends (PSU, cabinet, control or run): ")))
+        ((null (setq to (il-pick-end "\nWhere the wire ends: a PSU, control or run, or in a cabinet (object snaps work): ")))
           (princ "\nThe path is drawn but not recorded as a wire. Erase it, or run ILWIRE again and draw over it."))
         (T
           (setq id (il-next-id "WIRE" "W-"))
@@ -1152,23 +1375,26 @@
   (il-end)
 )
 
-(defun il-cabinet-for (point / near picked)
-  (setq near (il-nearest "CABINET" point))
+;; The cabinet a PSU or control at POINT goes in: the cabinet outline it is inside (or on), else an old
+;; cabinet block within 1.5 symbol sizes, else the one picked (outline or label; Enter for none).
+(defun il-cabinet-for (point / picked)
   (cond
-    ((and near (<= (distance (il-xy (cdr (assoc 10 (entget near)))) (il-xy point)) (* 1.5 (il-symbol-scale)))) near)
+    ((il-cabinet-near point))
     ((il-entities "CABINET")
-      (setq picked (entsel "\nNot at a cabinet. Pick the cabinet it goes in, or press Enter for none: "))
-      (if (and picked (= (il-kind (car picked)) "CABINET")) (car picked)))
+      (setq picked (entsel "\nNot in a cabinet. Pick the cabinet it goes in (outline or label), or press Enter for none: "))
+      (if picked (il-cabinet-of (car picked))))
   )
 )
 
-(defun il-pick-end (message / picked id done)
+;; A point where a wire ends (object snaps work; inside a cabinet outline is that cabinet); Enter stops.
+;; Returns the id there.
+(defun il-pick-end (message / point id done)
   (while (not done)
-    (setq picked (entsel message))
+    (setq point (getpoint message))
     (cond
-      ((null picked) (setq done T))
-      ((setq id (il-end-id (car picked))) (setq done T))
-      (T (princ "\nThat is not a PSU, cabinet, control or run; pick again, or press Enter to stop."))
+      ((null point) (setq done T))
+      ((setq id (il-end-at point)) (setq done T))
+      (T (princ "\nNo PSU, cabinet, control or run there; pick again, or press Enter to stop."))
     )
   )
   id
@@ -1420,6 +1646,7 @@
 (defun il-update-all (verbose / x id room count moved model rooms)
   (il-fix-copies verbose)
   (il-clear-loose-markers)
+  (il-clear-orphan-tags)
   (setq moved (il-recenter-tags))
   (if (and verbose (> moved 0)) (princ (strcat "\n" (itoa moved) " tag labels centred.")))
   (setq *il-tag-index* (il-tag-index) rooms (il-rooms-index) count 0)
@@ -1437,10 +1664,11 @@
   )
   (foreach kind '("CABINET" "CONTROL")
     (foreach ename (il-entities kind)
-      (setq room (il-room-in rooms (cdr (assoc 10 (entget ename)))))
+      (setq room (il-room-in rooms (il-ref-point ename)))
       (if (/= (car room) (il-get "room" (il-xget ename))) (il-xupdate ename (list (cons "room" (car room)))))
     )
   )
+  (foreach ename (il-entities "CABINET") (il-tag-cabinet ename))
   (il-prune-links)
   (foreach ename (il-entities "WIRE") (il-tag-wire ename))
   (setq model (il-model))
@@ -1805,8 +2033,11 @@
       "  ILTAPE      draw runs from the feed end, one after another; ILCONVERT turns lines, arcs and polylines into runs"
       "  ILJUMPER    jumper at a snapped point on a run (again to remove); Span marks a gap between two snapped points"
       "  ILFEED      snap to the feed end; feed direction, lead length and feed method"
-      "  ILSCALE     calibrate an underlay; ILROOM rooms; ILCAB cabinets; ILPSU supplies"
-      "  ILCONNECT   add or remove runs on a PSU; ILWIRE draw a wire path"
+      "  ILSCALE     calibrate an underlay; ILROOM rooms"
+      "  ILCAB       cabinet outline at real size: two corners, Size (width, depth, centre) or Point (last size);"
+      "              Edit changes rating, access note and size, and turns an old cabinet symbol into an outline"
+      "  ILPSU       place a PSU; inside a cabinet outline it goes in that cabinet"
+      "  ILCONNECT   add or remove runs on a PSU; ILWIRE draw a wire path (ends: PSU, control, run, or in a cabinet)"
       "  ILCTRL      place a controller or decoder; ILZONE add, change or delete a zone; ILDMX patch"
       "  ILOTHER     add, replace or delete another manufacturer's fixture"
       "  ILOVERRIDE  accept a check with a reason, or remove an override"

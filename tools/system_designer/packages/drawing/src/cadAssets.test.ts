@@ -35,6 +35,18 @@ describe('CAD toolkit assets (draw-to-quote 1.6, 3.4)', () => {
     expect(tags).toContain('SHEET_NUMBER');
   });
 
+  it('draws the old cabinet symbol without a cross line and labels cabinet outlines with IL-CABTAG', () => {
+    const { plan } = cadAssets();
+    const cabinet = plan.find((block) => block.name === 'IL-CABINET')!;
+    expect(cabinet.items.map((item) => item[0])).not.toContain('LINE');
+    const label = plan.find((block) => block.name === 'IL-CABTAG')!;
+    expect(label.items.map((item) => [item[0], item[1]])).toEqual([
+      ['ATTDEF', 'TAG'],
+      ['ATTDEF', 'RATING'],
+      ['ATTDEF', 'ACCESS'],
+    ]);
+  });
+
   it('only writes ASCII', () => {
     const text = cadAssetsLisp();
     expect([...text].every((char) => char === '\n' || (char >= ' ' && char <= '~'))).toBe(true);

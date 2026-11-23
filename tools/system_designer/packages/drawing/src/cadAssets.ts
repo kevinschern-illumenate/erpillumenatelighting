@@ -81,14 +81,24 @@ export function planBlocks(): BlockData[] {
   const square = (size: number): number[] => [-size, -size, size, -size, size, size, -size, size];
   return [
     {
+      // Drawings from toolkit 0.6.1 and earlier: ILCAB now draws a real-size outline labelled by IL-CABTAG.
       name: 'IL-CABINET',
-      description: 'Power supply cabinet or location',
+      description: 'Power supply cabinet or location (toolkit 0.6.1 and earlier)',
       items: [
         ['PLINE', [-0.5, -0.3, 0.5, -0.3, 0.5, 0.3, -0.5, 0.3], true, 'E-POWR-CABN'],
-        ['LINE', -0.5, -0.3, 0.5, 0.3, 'E-POWR-CABN'],
         tag('TAG', 0, 0.38, 0.125, 'E-ANNO-TAGS'),
         tag('RATING', 0, -0.5, 0.09375, 'E-ANNO-TAGS'),
         tag('ACCESS', 0, -0.65, 0.09375, 'E-ANNO-TAGS', false),
+      ],
+    },
+    {
+      // Label of a real-size cabinet outline, inserted at the middle of its top edge (no outline of its own).
+      name: 'IL-CABTAG',
+      description: 'Cabinet label: tag and rating above the outline',
+      items: [
+        tag('TAG', 0, 0.22, 0.125, 'E-ANNO-TAGS'),
+        tag('RATING', 0, 0.06, 0.09375, 'E-ANNO-TAGS'),
+        tag('ACCESS', 0, 0.4, 0.09375, 'E-ANNO-TAGS', false),
       ],
     },
     {

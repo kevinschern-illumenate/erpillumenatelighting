@@ -90,6 +90,22 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   custom style with a preset picker: mapped to a saved preset, its runs are built from that preset;
   otherwise each run becomes a custom schedule line for Sales to price. Servers older than this release
   reject packages with custom styles.
+- **Cabinets (0.6.2).** A cabinet is a closed outline on `E-POWR-CABN` at true size in drawing inches (not
+  the symbol scale), so PSUs and controls go inside it. ILCAB asks `First corner of the cabinet, or
+  [Size/Point/Edit] <Point>:` -- a corner then `Opposite corner:` (rubber band); Size: width and depth
+  (`getdist`: inches, feet with `'`, or two points; Enter keeps the last) then the centre; Point or Enter: the
+  centre of a cabinet of the last size (settings `cabinet_w_in`/`cabinet_d_in`, 24 x 18 in at first) -- then
+  tag, rating and access note. Its label `IL-CABTAG` (tag, rating, access note hidden) is owned by the outline
+  and sits on the middle of its top edge at the symbol scale; ILUPDATE redraws it, so grips and STRETCH just
+  work (the centre is the middle of the outline's bounding box), and erases labels, run tags, markers and wire
+  tags whose owner was erased. ILSETUP resizes labels, never outlines. Edit (pick inside a cabinet, on its
+  outline or its label) changes rating, access note (`-` clears) and size about the centre; Enter keeps each
+  and the id stays. A PSU or control placed inside an outline (or on it) is in that cabinet (`il-cabinet-for`;
+  the smallest when outlines nest), and ILWIRE ends picked inside one, on it or on its label are that cabinet.
+  Cabinets placed before 0.6.2 are `IL-CABINET` blocks and keep working (within 1.5 symbol sizes counts as
+  at one); Edit turns one into an outline centred on its insertion point at the last size. Blocks already
+  defined in a drawing are not redefined, so an old drawing's `IL-CABINET` keeps its cross line until Edit
+  converts it.
 - **AutoLISP shares one namespace** for variables and functions: no local may be named after a function
   (CI checks it), and every call must be AutoLISP or defined in the toolkit (CI checks that too).
 

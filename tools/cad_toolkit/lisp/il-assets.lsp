@@ -102,12 +102,15 @@
    ("ATTDEF" "LOAD_PCT" 1.5 0.19 0.0938 "" T "E-POWR-EQPM")
    ("ATTDEF" "DMX_ADDR" 0.14 0.56 0.0938 "" T "E-POWR-EQPM")
    ("ATTDEF" "LOCATION" 0.14 0.56 0.0938 "" nil "E-POWR-EQPM"))
-  ("IL-CABINET" "Power supply cabinet or location"
+  ("IL-CABINET" "Power supply cabinet or location (toolkit 0.6.1 and earlier)"
    ("PLINE" (-0.5 -0.3 0.5 -0.3 0.5 0.3 -0.5 0.3) T "E-POWR-CABN")
-   ("LINE" -0.5 -0.3 0.5 0.3 "E-POWR-CABN")
    ("ATTDEF" "TAG" 0.0 0.38 0.125 "" T "E-ANNO-TAGS" "center")
    ("ATTDEF" "RATING" 0.0 -0.5 0.0938 "" T "E-ANNO-TAGS" "center")
    ("ATTDEF" "ACCESS" 0.0 -0.65 0.0938 "" nil "E-ANNO-TAGS" "center"))
+  ("IL-CABTAG" "Cabinet label: tag and rating above the outline"
+   ("ATTDEF" "TAG" 0.0 0.22 0.125 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "RATING" 0.0 0.06 0.0938 "" T "E-ANNO-TAGS" "center")
+   ("ATTDEF" "ACCESS" 0.0 0.4 0.0938 "" nil "E-ANNO-TAGS" "center"))
   ("IL-FEED" "Feed point on a run"
    ("CIRCLE" 0.0 0.0 0.08 "E-LITE-FEED")
    ("PLINE" (-0.08 0.12 0.08 0.12 0.0 0.26) T "E-LITE-FEED"))

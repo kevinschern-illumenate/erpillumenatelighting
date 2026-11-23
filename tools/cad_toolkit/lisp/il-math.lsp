@@ -418,3 +418,36 @@
   )
   (reverse chains)
 )
+
+;; --- Cabinet outlines (real size, in drawing inches) ---
+
+;; The bounding box of VERTICES as (xmin ymin xmax ymax).
+(defun il-bbox (vertices / xs ys)
+  (setq xs (mapcar 'car vertices) ys (mapcar 'cadr vertices))
+  (list (float (apply 'min xs)) (float (apply 'min ys)) (float (apply 'max xs)) (float (apply 'max ys)))
+)
+
+;; The middle of the bounding box of VERTICES: a cabinet outline's centre, however it was stretched.
+(defun il-bbox-center (vertices / box)
+  (setq box (il-bbox vertices))
+  (list (/ (+ (car box) (caddr box)) 2.0) (/ (+ (cadr box) (cadddr box)) 2.0) 0.0)
+)
+
+;; (width depth) of the bounding box of VERTICES.
+(defun il-bbox-size (vertices / box)
+  (setq box (il-bbox vertices))
+  (list (- (caddr box) (car box)) (- (cadddr box) (cadr box)))
+)
+
+;; The rectangle with opposite corners A and B, counterclockwise from its lower-left corner.
+(defun il-rect-corners (a b / x0 y0 x1 y1)
+  (setq x0 (float (min (car a) (car b))) x1 (float (max (car a) (car b)))
+        y0 (float (min (cadr a) (cadr b))) y1 (float (max (cadr a) (cadr b))))
+  (list (list x0 y0 0.0) (list x1 y0 0.0) (list x1 y1 0.0) (list x0 y1 0.0))
+)
+
+;; The rectangle of SIZE (width depth) centred on CENTER.
+(defun il-rect-around (center size / dx dy)
+  (setq dx (/ (car size) 2.0) dy (/ (cadr size) 2.0))
+  (il-rect-corners (list (- (car center) dx) (- (cadr center) dy)) (list (+ (car center) dx) (+ (cadr center) dy)))
+)

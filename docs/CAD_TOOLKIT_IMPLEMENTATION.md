@@ -92,6 +92,15 @@ ok or imported; ILCHECK skips template, bend, profile and tape-width rules for i
 `family: "Custom"` with the `custom` definition; the import maps it to a preset or adds a custom line for
 Sales to price. The bundle is now `ilLumenate-cad-toolkit-0.6.0.zip`; older servers reject custom styles.
 
+**0.6.2** (cabinets at real size): ILCAB draws a cabinet as a closed outline on `E-POWR-CABN` at true size
+(two corners, Size = width and depth then a centre, or Point = the last size, kept in the drawing settings
+as `cabinet_w_in`/`cabinet_d_in`, 24 x 18 in at first), so PSUs and controls are placed inside it; its
+label is the owned block `IL-CABTAG` above the top edge, redrawn by ILUPDATE (stretched outlines are read
+from their geometry). ILCAB Edit changes rating, access note and size and turns an old `IL-CABINET`
+block into an outline (id, room, rating and note kept). A PSU or control inside an outline, and a wire end
+picked in one, belongs to that cabinet. `IL-CABINET` lost its cross line for new drawings. The `ilq/2`
+cabinet fields are unchanged. Bundle `ilLumenate-cad-toolkit-0.6.2.zip`.
+
 ### Phase 4 — Round trip and outputs
 
 ILRISER attaches the designer's riser (saved from its DXF as DWG); ILOUT draws the run schedule and cut

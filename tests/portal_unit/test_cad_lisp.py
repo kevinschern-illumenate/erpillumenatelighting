@@ -350,11 +350,12 @@ class Ename:
 
 
 class FakeDrawing:
-	"""Just enough of AutoCAD's entity API (entget, entmod, ssget _X, handent, entnext) to run the
-	toolkit's ILUPDATE copy pass and ILSETUP rescale against entities built in Python."""
+	"""Just enough of AutoCAD's entity API (entget, entmod, ssget _X and at a point, handent, entnext) to
+	run the toolkit's ILUPDATE copy pass, ILSETUP rescale and commands against entities built in Python.
+	An erased entity's entget is nil, like AutoCAD's; ``picks`` maps (x, y) to what a pick there finds."""
 
 	def __init__(self, interp):
-		self.order, self.groups, self.xdata = [], {}, {}
+		self.order, self.groups, self.xdata, self.picks, self.made = [], {}, {}, {}, 0
 		for name, function in {
 			"entget": self.entget,
 			"entmod": self.entmod,
@@ -404,7 +405,8 @@ class FakeDrawing:
 		groups = [(mini_lisp.car(g), tuple(g[1:]) if isinstance(g, list) else g.cdr) for g in data]
 		kind = dict(groups)[0]
 		if kind != "SEQEND":
-			self.add(kind, f"F{len(self.order):03X}", [g for g in groups if g[0] != 0])
+			self.made += 1
+			self.add(kind, f"F{self.made:03X}", [g for g in groups if g[0] != 0])
 		return data
 
 	def entlast(self):
@@ -418,6 +420,8 @@ class FakeDrawing:
 		return self.order[index] if index < len(self.order) else None
 
 	def entget(self, ename, apps=None):
+		if ename not in self.order:
+			return None
 		data = [mini_lisp.Pair(-1, ename), mini_lisp.Pair(5, ename.handle)]
 		for code, value in self.groups[ename]:
 			data.append([code, *value] if isinstance(value, tuple) else mini_lisp.Pair(code, value))
@@ -453,9 +457,12 @@ class FakeDrawing:
 			ename = self.entnext(ename)
 		return None
 
-	def ssget(self, mode, filters=None):
+	def ssget(self, mode=None, filters=None):
 		import fnmatch
 
+		if isinstance(mode, list):  # a pick at a point
+			ename = self.picks.get((float(mode[0]), float(mode[1])))
+			return [ename] if ename in self.order else None
 		found = []
 		for ename in self.order:
 			keep = True
@@ -831,6 +838,338 @@ class CopiedEntities(unittest.TestCase):
 		self.assertEqual(d.value(title, 41), 1.0)
 		self.assertEqual(d.value(d.attribute(title, "PROJECT"), 40), 0.125)
 		self.assertEqual(d.value(other, 41), 1.0)
+
+
+class Cabinets(unittest.TestCase):
+	"""ILCAB (0.6.2): real-size cabinet outlines with an owned label, and old cabinet blocks next to them."""
+
+	def setUp(self):
+		self.lisp = mini_lisp.Interpreter()
+		self.drawing = FakeDrawing(self.lisp)
+		text = package_bundle.joined_lisp()
+		self.lisp.run(
+			text.replace(
+				'(princ (strcat "\\nilLumenate CAD toolkit " *il-version* " loaded. Type ILHELP."))', ""
+			)
+		)
+		self.store = {"SETTINGS": json.dumps({"symbol_scale": 48})}
+		self.stub(
+			il_fetch=lambda key: self.store.get(key),
+			il_store=lambda key, text: self.store.__setitem__(key, text) or text,
+			command=lambda *a: None,
+			setvar=lambda *a: None,
+			initget=lambda *a: None,
+			getenv=lambda *a: None,
+		)
+		self.answer()
+
+	def stub(self, **functions):
+		for name, function in functions.items():
+			self.lisp.set(name.replace("_", "-"), function)
+
+	def answer(self, points=(), corners=(), dists=(), words=(), strings=(), picks=()):
+		"""Queue the answers to each kind of prompt; a missing answer is Enter (nil)."""
+		queues = {
+			"getpoint": iter(points),
+			"getcorner": iter(corners),
+			"getdist": iter(dists),
+			"getkword": iter(words),
+			"getstring": iter(strings),
+			"entsel": iter(picks),
+		}
+
+		def asker(name, convert):
+			return lambda *a: convert(next(queues[name], None))
+
+		def point(value):
+			return lst([float(value[0]), float(value[1]), 0.0]) if isinstance(value, tuple) else value
+
+		self.stub(
+			getpoint=asker("getpoint", point),
+			getcorner=asker("getcorner", point),
+			getdist=asker("getdist", lambda value: value),
+			getkword=asker("getkword", lambda value: value),
+			getstring=asker("getstring", lambda value: "" if value is None else value),
+			entsel=asker("entsel", lambda value: lst([value, lst([0.0, 0.0, 0.0])]) if value else None),
+		)
+
+	def settings(self):
+		return json.loads(self.store["SETTINGS"])
+
+	def cabinets(self):
+		return [e for e in self.drawing.order if self.drawing.xdata[e].get("kind") == "CABINET"]
+
+	def labels(self, owner):
+		d = self.drawing
+		return [
+			e for e in d.order if d.value(e, 2) == "IL-CABTAG" and d.xdata[e].get("owner") == owner.handle
+		]
+
+	def label(self, owner):
+		labels = self.labels(owner)
+		self.assertEqual(len(labels), 1)
+		return labels[0]
+
+	def text(self, insert, tag):
+		return self.drawing.value(self.drawing.attribute(insert, tag), 1)
+
+	def room(self):
+		return self.drawing.polyline(
+			"30",
+			[(0, 0), (400, 0), (400, 400), (0, 400)],
+			{"kind": "ROOM", "id": "Z-Kitchen", "name": "Kitchen", "self": "30"},
+		)
+
+	def legacy(self, handle="7A", point=(50.0, 50.0), **xdata):
+		return self.drawing.insert(
+			handle,
+			"IL-CABINET",
+			(*point, 0.0),
+			48.0,
+			{
+				"kind": "CABINET",
+				"id": "CAB-07",
+				"room": "Z-Kitchen",
+				"rating": "Damp",
+				"access": "Panel",
+				"self": handle,
+				**xdata,
+			},
+			[("TAG", "CAB-07", (point[0], point[1] + 18.24, 0.0), 6.0)],
+		)
+
+	def ilcab(self, **answers):
+		self.answer(**answers)
+		self.lisp.call("c:ILCAB")
+		return self.cabinets()[-1]
+
+	def test_blocks_have_no_cross_line_and_a_label(self):
+		cabinet = self.lisp.call("il-block-data", "IL-CABINET")
+		self.assertNotIn("LINE", [item[0] for item in cabinet[2:]])
+		label = self.lisp.call("il-block-data", "IL-CABTAG")
+		self.assertEqual([item[0] for item in label[2:]], ["ATTDEF"] * 3)
+		self.assertEqual([item[1] for item in label[2:]], ["TAG", "RATING", "ACCESS"])
+
+	def test_two_corners_draw_a_real_size_outline_with_its_label(self):
+		d = self.drawing
+		self.room()
+		outline = self.ilcab(
+			points=[(10, 20)], corners=[(34, 38)], words=["Wet"], strings=["", "Under stair"]
+		)
+		self.assertEqual(d.value(outline, 0), "LWPOLYLINE")
+		self.assertEqual((d.value(outline, 8), d.value(outline, 70)), ("E-POWR-CABN", 1))
+		self.assertEqual(d.vertices(outline), [(10.0, 20.0), (34.0, 20.0), (34.0, 38.0), (10.0, 38.0)])
+		x = d.xdata[outline]
+		self.assertEqual(
+			(x["id"], x["room"], x["rating"], x["access"], x["self"]),
+			("CAB-01", "Z-Kitchen", "Wet", "Under stair", outline.handle),
+		)
+		label = self.label(outline)
+		self.assertEqual((d.value(label, 10), d.value(label, 41)), ((22.0, 38.0, 0.0), 48))
+		self.assertEqual((self.text(label, "TAG"), self.text(label, "RATING")), ("CAB-01", "Wet"))
+		self.assertEqual(self.text(label, "ACCESS"), "Under stair")
+		self.assertEqual(d.value(d.attribute(label, "TAG"), 11), (22.0, 48.56, 0.0))  # above the top edge
+		self.assertEqual((self.settings()["cabinet_w_in"], self.settings()["cabinet_d_in"]), (24, 18))
+
+	def test_size_then_point_and_enter_reuse_the_last_size(self):
+		d = self.drawing
+		first = self.ilcab(points=["Size", (100, 100)], dists=[36.0, 12.0])
+		self.assertEqual(d.vertices(first), [(82.0, 94.0), (118.0, 94.0), (118.0, 106.0), (82.0, 106.0)])
+		self.assertEqual((d.xdata[first]["id"], d.xdata[first]["rating"]), ("CAB-01", "Dry"))
+		self.assertEqual((self.settings()["cabinet_w_in"], self.settings()["cabinet_d_in"]), (36, 12))
+		second = self.ilcab(points=["Point", (200, 0)])
+		self.assertEqual(d.vertices(second), [(182.0, -6.0), (218.0, -6.0), (218.0, 6.0), (182.0, 6.0)])
+		third = self.ilcab(points=[None, (0, 0)])  # Enter at the first prompt is Point
+		self.assertEqual(d.vertices(third), [(-18.0, -6.0), (18.0, -6.0), (18.0, 6.0), (-18.0, 6.0)])
+		self.assertEqual([d.xdata[e]["id"] for e in self.cabinets()], ["CAB-01", "CAB-02", "CAB-03"])
+		# Size keeps a typed side and takes Enter as the last one; a first size is 24 x 18.
+		self.store = {"SETTINGS": json.dumps({"symbol_scale": 48})}
+		fourth = self.ilcab(points=["Size", (0, 100)], dists=[None, 30.0])
+		self.assertEqual(d.vertices(fourth)[0], (-12.0, 85.0))
+		self.answer(points=[(0, 0)], corners=[(0.5, 30)])  # too thin to be a cabinet
+		self.lisp.call("c:ILCAB")
+		self.assertEqual(len(self.cabinets()), 4)
+
+	def test_edit_changes_rating_note_and_size_about_the_centre_and_keeps_the_id(self):
+		d = self.drawing
+		outline = self.ilcab(
+			points=[(10, 20)], corners=[(34, 38)], words=["Wet"], strings=["", "Under stair"]
+		)
+		self.ilcab(points=["Edit", (22, 29)], words=["Damp"], dists=[48.0])
+		self.assertEqual(self.cabinets(), [outline])
+		x = d.xdata[outline]
+		self.assertEqual(
+			(x["id"], x["rating"], x["access"], x["self"]), ("CAB-01", "Damp", "Under stair", outline.handle)
+		)
+		self.assertEqual(d.vertices(outline), [(-2.0, 20.0), (46.0, 20.0), (46.0, 38.0), (-2.0, 38.0)])
+		label = self.label(outline)
+		self.assertEqual((self.text(label, "TAG"), self.text(label, "RATING")), ("CAB-01", "Damp"))
+		self.assertEqual(self.settings()["cabinet_w_in"], 48)
+		# Picking its label works too; "-" clears the note and Enter keeps the rest.
+		d.picks[(22.0, 45.0)] = label
+		self.ilcab(points=["Edit", (22, 45)], strings=["-"])
+		self.assertNotIn("access", d.xdata[outline])
+		self.assertEqual(d.xdata[outline]["rating"], "Damp")
+		self.assertEqual(d.vertices(outline)[0], (-2.0, 20.0))
+		self.assertEqual(self.text(self.label(outline), "ACCESS"), "")
+
+	def test_edit_turns_an_old_cabinet_block_into_an_outline(self):
+		d = self.drawing
+		block = self.legacy()
+		d.picks[(50.0, 50.0)] = block
+		self.ilcab(points=["Edit", (50, 50)])
+		self.assertNotIn(block, d.order)
+		[outline] = self.cabinets()
+		self.assertEqual(d.vertices(outline), [(38.0, 41.0), (62.0, 41.0), (62.0, 59.0), (38.0, 59.0)])
+		x = d.xdata[outline]
+		self.assertEqual(
+			(x["id"], x["room"], x["rating"], x["access"], x["self"]),
+			("CAB-07", "Z-Kitchen", "Damp", "Panel", outline.handle),
+		)
+		self.assertEqual(self.text(self.label(outline), "TAG"), "CAB-07")
+		# Near an old block (within 1.5 symbol sizes) without hitting it finds it as well.
+		other = self.legacy("8A", (300.0, 50.0), id="CAB-08")
+		self.ilcab(points=["Edit", (330, 50)], dists=[30.0, 20.0])
+		self.assertNotIn(other, d.order)
+		self.assertEqual(d.vertices(self.cabinets()[-1])[0], (285.0, 40.0))
+
+	def test_cabinet_for_prefers_the_outline_a_point_is_in(self):
+		outer = self.ilcab(points=[(0, 0)], corners=[(24, 18)])
+		inner = self.ilcab(points=[(2, 2)], corners=[(10, 10)])
+		block = self.legacy("9A", (30.0, 9.0), id="CAB-09")
+		self.assertIs(self.lisp.call("il-cabinet-for", lst([20.0, 9.0, 0.0])), outer)
+		self.assertIs(self.lisp.call("il-cabinet-for", lst([5.0, 5.0, 0.0])), inner)
+		self.assertIs(self.lisp.call("il-cabinet-for", lst([24.2, 9.0, 0.0])), outer)  # on the edge
+		self.assertIs(self.lisp.call("il-cabinet-for", lst([40.0, 9.0, 0.0])), block)
+		self.answer(picks=[self.label(outer)])
+		self.assertIs(self.lisp.call("il-cabinet-for", lst([500.0, 500.0, 0.0])), outer)
+		self.answer(picks=[None])
+		self.assertIsNone(self.lisp.call("il-cabinet-for", lst([500.0, 500.0, 0.0])))
+
+	def test_ilpsu_inside_an_outline_goes_in_that_cabinet(self):
+		d = self.drawing
+		self.ilcab(points=[(0, 0)], corners=[(24, 18)])
+		self.stub(il_choose=lambda *a: "Choose in the System Designer")
+		self.answer(points=[(6, 9)])
+		self.lisp.call("c:ILPSU")
+		psu = next(e for e in d.order if d.xdata[e].get("kind") == "PSU")
+		self.assertEqual((d.xdata[psu]["id"], d.xdata[psu]["cabinet"]), ("PS-01", "CAB-01"))
+
+	def test_wire_ends_inside_or_on_a_cabinet_or_its_label(self):
+		d = self.drawing
+		outline = self.ilcab(points=[(0, 0)], corners=[(24, 18)])
+		psu = d.insert("5A", "IL-PSUTAG", (6.0, 9.0, 0.0), 48.0, {"kind": "PSU", "id": "PS-01"})
+		d.picks[(6.0, 9.0)] = psu
+		d.picks[(12.0, 20.0)] = self.label(outline)
+		self.stub(il_pick_tolerance=lambda: 0.5)
+
+		def end(x, y):
+			return self.lisp.call("il-end-at", lst([float(x), float(y), 0.0]))
+
+		self.assertEqual(end(6, 9), "PS-01")
+		self.assertEqual(end(18, 3), "CAB-01")
+		self.assertEqual(end(24, 3), "CAB-01")
+		self.assertEqual(end(12, 20), "CAB-01")
+		self.assertIsNone(end(100, 100))
+		self.answer(points=[(100, 100), (18, 3)])
+		self.assertEqual(self.lisp.call("il-pick-end", "Where"), "CAB-01")
+		self.answer(points=[None])
+		self.assertIsNone(self.lisp.call("il-pick-end", "Where"))
+
+	def test_ilupdate_follows_a_stretched_outline_and_erases_orphan_labels(self):
+		d = self.drawing
+		outline = self.ilcab(points=[(10, 20)], corners=[(34, 38)])
+		self.legacy()
+		room = d.polyline(
+			"40",
+			[(0, 0), (100, 0), (100, 30), (0, 30)],
+			{"kind": "ROOM", "id": "Z-Hall", "name": "Hall", "self": "40"},
+		)
+		# Grip-stretch the top edge up to y=60: the label follows and the centre (22, 40) leaves the hall.
+		d.groups[outline] = [
+			(c, (v[0], 60.0) if c == 10 and v[1] == 38.0 else v) for c, v in d.groups[outline]
+		]
+		self.lisp.call("il-update-all", None)
+		self.assertEqual(d.value(self.label(outline), 10), (22.0, 60.0, 0.0))
+		self.assertNotIn("room", d.xdata[outline])
+		d.groups[room] = [(c, (v[0], 100.0) if c == 10 and v[1] == 30.0 else v) for c, v in d.groups[room]]
+		self.lisp.call("il-update-all", None)
+		self.assertEqual(d.xdata[outline]["room"], "Z-Hall")
+		self.label(outline)  # still one label after two passes
+		orphan = d.insert("6A", "IL-RUNTAG", (0.0, 0.0, 0.0), 48.0, {"kind": "TAG", "owner": "DEAD"})
+		loose = d.insert("6B", "IL-ROOMTAG", (0.0, 0.0, 0.0), 48.0, {"kind": "TAG", "owner": "DEAD"})
+		label = self.label(outline)
+		d.entdel(outline)
+		self.lisp.call("il-update-all", None)
+		self.assertNotIn(label, d.order)
+		self.assertNotIn(orphan, d.order)
+		self.assertIn(loose, d.order)  # room tags are not redrawn by ILUPDATE, so they stay
+
+	def test_model_keeps_its_shape_and_the_package_validates(self):
+		self.room()
+		self.ilcab(points=[(10, 20)], corners=[(34, 38)], words=["Wet"], strings=["", "Under stair"])
+		self.legacy()
+		self.stub(il_choose=lambda *a: "Choose in the System Designer")
+		self.answer(points=[(12, 22)])
+		self.lisp.call("c:ILPSU")
+		self.stub(getvar=lambda name: "job.dwg" if name == "DWGNAME" else None)
+		model = self.lisp.call("il-model")
+		cabinets = [plain(cabinet) for cabinet in alist(model)["cabinets"]]
+		self.assertEqual(
+			cabinets,
+			[
+				{"id": "CAB-01", "room": "Z-Kitchen", "location_rating": "Wet", "access_note": "Under stair"},
+				{"id": "CAB-07", "room": "Z-Kitchen", "location_rating": "Damp", "access_note": "Panel"},
+			],
+		)
+		self.assertEqual(plain(alist(model)["psus"])[0]["cabinet"], "CAB-01")
+		catalog = self.lisp.call("il-catalog-read", str(FIXTURES / "catalog.sample.json"))
+		model = alist(model)
+		model["drawing"] = to_alist({**alist(model["drawing"]), "hash": "sha256:" + "c" * 64, "rev": 1})
+		model = to_alist(model)
+		issues = self.lisp.call("il-check", model, catalog, "2026-11-25")
+		package = to_python_json(self.lisp.call("il-package", model, catalog, issues, "AutoCAD 2025"))
+		with load_service(ROOT + ".system_design.ilq_schema") as (module, _frappe):
+			self.assertEqual(module.validate_package(package), [])
+		self.assertEqual(
+			package["cabinets"],
+			[
+				{"id": "CAB-01", "room": "Z-Kitchen", "location_rating": "Wet", "access_note": "Under stair"},
+				{"id": "CAB-07", "room": "Z-Kitchen", "location_rating": "Damp", "access_note": "Panel"},
+			],
+		)
+
+	def test_rescale_keeps_the_outline_and_resizes_the_label(self):
+		d = self.drawing
+		outline = self.ilcab(points=[(10, 20)], corners=[(34, 38)])
+		label = self.label(outline)
+		height = d.value(d.attribute(label, "TAG"), 40)
+		self.assertEqual(self.lisp.call("il-rescale-symbols", 0.5), 1)
+		self.assertEqual(d.vertices(outline), [(10.0, 20.0), (34.0, 20.0), (34.0, 38.0), (10.0, 38.0)])
+		self.assertEqual(d.value(label, 41), 24.0)
+		self.assertEqual(d.value(d.attribute(label, "TAG"), 40), height / 2)
+
+	def test_copies_get_new_ids_and_the_copied_label(self):
+		d = self.drawing
+		outline = self.ilcab(points=[(10, 20)], corners=[(34, 38)])
+		label = self.label(outline)
+		copy = d.polyline("C1", [(110, 20), (134, 20), (134, 38), (110, 38)], dict(d.xdata[outline]))
+		label_copy = d.insert(
+			"C2",
+			"IL-CABTAG",
+			(122.0, 38.0, 0.0),
+			48.0,
+			dict(d.xdata[label]),
+			[("TAG", "CAB-01", (122.0, 48.56, 0.0), 6.0)],
+		)
+		self.lisp.call("il-fix-copies", None)
+		self.assertEqual((d.xdata[outline]["id"], d.xdata[copy]["id"]), ("CAB-01", "CAB-02"))
+		self.assertEqual(d.xdata[copy]["self"], "C1")
+		self.assertEqual((d.xdata[label]["owner"], d.xdata[label_copy]["owner"]), (outline.handle, "C1"))
+		self.assertEqual(self.text(label_copy, "TAG"), "CAB-02")
+		self.lisp.call("il-update-all", None)
+		self.assertEqual(self.text(self.label(copy), "TAG"), "CAB-02")
+		self.assertEqual(d.value(self.label(copy), 10), (122.0, 38.0, 0.0))
 
 
 class Json(unittest.TestCase):
@@ -1858,7 +2197,7 @@ AUTOLISP = set(
 	"""
 	+ - * / = /= < > <= >= 1+ 1- ~ abs and append apply ascii assoc atan atof atoi boole boundp car cdr caar cadr cdar cddr
 	caddr cadddr cddddr chr close command cond cons cos defun dictadd dictremove dictsearch distance entdel entget entlast
-	entmake entmakex entmod entnext entsel entupd equal eq exit expt findfile fix float foreach getdist getenv getfiled
+	entmake entmakex entmod entnext entsel entupd equal eq exit expt findfile fix float foreach getcorner getdist getenv getfiled
 	getint getkword getpoint getreal getstring getvar if initget itoa lambda last length list listp logand logior lsh
 	mapcar max member min minusp namedobjdict not nth null numberp open or princ progn quote read-line regapp rem repeat
 	reverse rtos setenv setq setvar sin sqrt ssget sslength ssname strcase strcat strlen subst substr tblsearch type
