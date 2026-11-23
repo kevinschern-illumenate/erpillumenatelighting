@@ -1,0 +1,11 @@
+{
+  "name": "@ill/cad-lisp",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    "./*.json": "./src/*.json",
+    "./*.ts": "./src/*.ts",
+    "./*": "./src/*.ts"
+  }
+}

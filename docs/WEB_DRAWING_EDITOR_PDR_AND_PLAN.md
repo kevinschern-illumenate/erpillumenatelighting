@@ -1053,14 +1053,18 @@ Small, behaviour-preserving LISP changes so both hosts share orchestration:
 
 Port `mini_lisp.py` function for function; keep its comments that explain AutoLISP semantics.
 
-- **Values.** `Sym` (interned, upper-cased name); `nil` = `null`; proper lists = JS arrays (as the Python
-  uses lists); `Pair` for dotted pairs whose cdr is not a list; strings = JS strings; `T` = the interned
-  `Sym('T')`; functions = `LispFunction { params, locals, body }` or native closures.
+- **Values.** `Sym` (interned per interpreter, upper-cased name, carrying its value slot, special form and
+  builtin); `nil` = `null`; **lists are cons cells** (`Cons { car, cdr }`, a dotted pair is a `Cons` whose
+  cdr is an atom), not arrays: the spike showed arrays make every `(setq acc (cons x acc))` loop quadratic
+  (W10.1); strings = JS strings; `T` = the interned `Sym('T')`; functions = `LispFunction { params,
+  locals, body }` or native closures taking their arguments as one array (a spread of `(apply 'strcat …)`
+  over hundreds of thousands of pieces can exceed the engine's argument limit).
 - **Integers versus reals.** AutoLISP distinguishes `2` and `2.0` (`(/ 7 2)` is `3`, `itoa`, `type`,
-  `rtos`). JS numbers cannot, so **reals are JS numbers and integers are a small class `LInt { v }`**
-  (32-bit wrap via `| 0` on every operation, integer division truncating toward zero). The reader makes
-  `LInt` for integer tokens; arithmetic returns `LInt` only when every argument is `LInt`. Spike 0.1
-  measures this choice; if boxing integers is too slow, try the reverse (box reals) before anything else.
+  `rtos`). JS numbers cannot, so **reals are JS numbers and integers are a small boxed class** (cached for
+  −1024…7167; 32-bit wrap via `| 0` and `Math.imul`, integer division truncating toward zero). The reader
+  boxes integer tokens; arithmetic returns an integer only when every argument is one. The spike measured
+  both representations and found no difference (W10.1), so boxing integers stays: it keeps geometry
+  (reals) unboxed.
 - **Scope.** Dynamic scope with shallow binding exactly as `Interpreter.apply`: save each parameter and local
   symbol's global value, bind, run, restore in `finally`.
 - **Special forms.** `quote setq if cond while repeat foreach progn and or defun lambda function` (the
@@ -1072,7 +1076,10 @@ Port `mini_lisp.py` function for function; keep its comments that explain AutoLI
 - **Virtual files** (`vfs.ts`): `setCatalog` writes `catalog.json`; `il-catalog-read` opens it with
   `open`/`read-line` unchanged. Writes go to an in-memory map (nothing in the pure files writes today).
 - **Native overrides**, each with a parity test against the LISP original on fixtures: `il-sha256` (sync
-  SHA-256 in TS) and, only if spike 0.1 needs it, `il-json-parse` / `il-json-text`.
+  SHA-256 in TS; **required**, the LISP version takes about 0.5 s for a 20-run package) and `il-json-text`
+  (**recommended**, about 3× headroom at 1,000 runs; numbers still go through the LISP's `il-num->str`,
+  and the test compares the text character for character). `il-json-parse` stays LISP unless W-4.1 finds
+  catalog loading slow.
 - **Load.** `sources.ts` evaluates the seven files in order once per worker; the worker then answers W4.4
   calls. Startup budget: under 150 ms.
 
@@ -1195,6 +1202,7 @@ After every committed command, in one pass:
   both integer representations. Write the results into a "Spike results" section of this document.
 - Done when: results equal `mini_lisp.py` on every case, and N2 is met, or a named fallback is proposed and
   Kevin confirms it (Q1).
+- **Status: done 2026-11-23. Go.** Results in W10.1; code in `tools/system_designer/packages/cad-lisp`.
 
 **W-0.2 — Renderer spike (M, R1)**
 - Depends: —
@@ -1517,6 +1525,81 @@ are not affected. Toolkit 0.6.0 is behaviour-compatible with 0.5.0 drawings and 
 - [ ] LISP changed? Toolkit version bumped, bundle zip rebuilt, `accoreconsole` run noted.
 - [ ] No price or cost key added anywhere; no `dangerouslySetInnerHTML`.
 - [ ] This document updated if a contract (W4) or decision (§12) changed.
+
+## W10. Spike results
+
+### W10.1 W-0.1 LISP VM spike (2026-11-23): **Go for option B**
+
+**What was built** (`tools/system_designer/packages/cad-lisp`): a TypeScript port of `mini_lisp.py`
+(reader, evaluator, the 13 special forms, the full builtin table, a virtual file system, Python-compatible
+number formatting), a native SHA-256 and a native JSON writer, a trace replayer and a benchmark that runs
+in Node and in a Chromium Web Worker. The seven pure toolkit files load unchanged.
+
+**Correctness: exact match.** `tools/cad_toolkit/test/trace_mini_lisp.py` runs `test_cad_lisp.py` and
+`test_drawing_checks.py` with `mini_lisp.Interpreter` patched to record every `load`, `run`, `set`, `get`
+and `call` with its arguments and result (41 interpreter sessions, 893 operations, every file the LISP
+read). `trace.test.ts` replays them on the TypeScript interpreter:
+
+| | Sessions replayed | Results compared | Exact | Within 1e-12 | Different |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Integers boxed | 26 of 41 | 556 | 556 | 0 | **0** |
+| Reals boxed | 26 of 41 | 556 | 556 | 0 | **0** |
+
+Those 556 include 96 `il-check` calls (every `check-cases.json` case through the LISP), 33 `il-package`,
+27 `il-dmx-patch`, the cut-snap, max-run, path-length and JSON golden cases, and the SHA-256 cases. The
+15 sessions not replayed stub AutoCAD functions (`entget`, `ssget`, `command`…) with Python callables to
+test the host file `il-commands.lsp`, which the web does not run; W-1.7's collector harness covers that
+ground. The native `il-sha256` and `il-json-text` give the same digests and byte-identical text as the
+LISP on the catalog and on every benchmark package.
+
+**Speed.** `tools/cad_toolkit/test/bench_models.py` scales the largest model the tests use (8 runs, the
+sample catalog, 33 issues) to 20, 200 and 1,000 runs (every other run given an arc). Timed: the ILQUOTE
+steps `il-check` + `il-model-hash` + `il-package` + `il-json-text`, best of 3, in headless Chromium 157
+(Web Worker) and Node 22, on a 4-core 2.3 GHz Xeon cloud container. Native SHA-256 in every row.
+
+| Runs | Chromium, LISP JSON | Chromium, native JSON | Node, native JSON | N2 budget |
+| ---: | ---: | ---: | ---: | ---: |
+| 20 | 19 ms | 7 ms | 13 ms | — |
+| 200 | 131 ms | **44 ms** | 123 ms | 300 ms |
+| 1,000 | 668 ms | **200 ms** | 639 ms | 2 s |
+
+Breakdown at 1,000 runs in Chromium with native JSON: check 95 ms, hash 57 ms, package 35 ms, JSON 14 ms.
+Interpreter start (loading the seven files) 6–9 ms (budget 150 ms). Worker bundle 19 KB minified. Boxing
+integers or reals made no material difference (within 2% with native JSON, within 7% without). For scale,
+the Python interpreter CI uses takes 3.5 s for the 20-run case, nearly all of it the LISP SHA-256.
+
+**Findings that change the design** (W5.1 is updated):
+
+1. **Lists must be cons cells.** The first port copied the Python reference's array lists, which makes
+   `cons` and `cdr` O(n). The toolkit's JSON writer builds its text with `(setq acc (cons piece acc))`, so it
+   went quadratic: 1.7 s at 200 runs, and a benchmark run that reached the 1,000-run case had not finished
+   after 10 minutes. With cons cells everything is linear. The trace replay passed with both
+   representations.
+2. **Builtins take one argument array.** `(apply 'strcat (reverse pieces))` passes every JSON piece as an
+   argument, and a JS spread of hundreds of thousands of arguments can exceed the engine's limit. This was
+   changed as a precaution, not after a measured failure.
+3. **A native `il-sha256` is required** (the LISP one takes about 0.5 s in Node for an 11 KB package).
+   **A native `il-json-text` is recommended**: the budget is met without it in Chromium (668 ms at 1,000
+   runs) but not in Node, so it buys headroom for slower dealer laptops.
+4. **Integers stay boxed** (no speed difference; reals, which geometry uses, stay plain numbers).
+
+**Not covered by this spike:** the AutoCAD host behaviour (W-1.7), real dealer machines (W-7.2 measures on
+pilot laptops), and memory use beyond "1,000 runs fits easily" (not measured).
+
+**Reproduce:**
+
+```
+python -B -m tools.cad_toolkit.test.trace_mini_lisp --out tools/system_designer/fixtures/cad/web/lisp-trace.json
+python -B -m tools.cad_toolkit.test.bench_models --trace tools/system_designer/fixtures/cad/web/lisp-trace.json \
+    --out tools/system_designer/fixtures/cad/web/bench-models.json
+cd tools/system_designer
+npx vitest run packages/cad-lisp                        # replay, native parity
+BENCH=1 npx vitest run packages/cad-lisp/src/bench.test.ts   # Node timings
+node packages/cad-lisp/bench/browser.mjs                # Chromium Web Worker timings
+```
+
+The two JSON files are generated, not committed (`fixtures/cad/web/.gitignore`; the trace is 5.6 MB).
+W-1.1 makes the replay a CI gate by generating the trace in the Python step before `npm test`.
 
 ---
 
