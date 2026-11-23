@@ -247,6 +247,8 @@ class SyncScope(unittest.TestCase):
 
 	def setUp(self):
 		self.module, self.frappe, _users = self.load()
+		# n8n_config may keep this frappe stub after the test: never leave a scope behind.
+		self.addCleanup(self.frappe.conf.pop, "webflow_sync_scope", None)
 		self.frappe.conf["webflow_sync_scope"] = {"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}
 		self.module.inspect.return_value = {"readiness": {"ready": True}, "current_hash": "h1"}
 		self.module.request.side_effect = lambda product, brand, operation, digest: {"job": f"JOB-{brand}"}

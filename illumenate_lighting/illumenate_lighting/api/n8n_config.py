@@ -128,8 +128,8 @@ def sync_scope():
 			value = json.loads(value)
 		except ValueError:
 			return closed
-	if not isinstance(value, dict):
-		return closed
+	if not isinstance(value, dict) or set(value) - set(SCOPE_MEMBERS):
+		return closed  # a misspelt key must not silently mean "no limit"
 	scope = {}
 	for member in SCOPE_MEMBERS:
 		names = value.get(member)
@@ -158,6 +158,32 @@ def doctype_refusal(doctype):
 
 def brand_refusal(brand):
 	return _("Brand {0} is not enabled for Webflow sync on this site.").format(brand)
+
+
+def product_template_doctype(product):
+	"""The template doctype a Webflow Product (doc or dict) links to, or None (Component, Accessory)."""
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+
+	return next((doctype for doctype, field in WEBFLOW_PRODUCT_LINKS.items() if product.get(field)), None)
+
+
+def product_scope_refusal(product, brand=None):
+	"""Why ``product`` (a Webflow Product doc or dict) may not sync to ``brand`` on this site, or None.
+
+	The one rule every path to n8n uses: the buttons, the automatic push and the job queue.
+	"""
+	scope = sync_scope()
+	if scope["doctypes"] is not None:
+		doctype = product_template_doctype(product)
+		if doctype is None:
+			return _("{0} has no product template, so it is not enabled for Webflow sync on this site.").format(
+				product.get("name")
+			)
+		if doctype not in scope["doctypes"]:
+			return doctype_refusal(doctype)
+	if brand is not None and scope["brands"] is not None and brand not in scope["brands"]:
+		return brand_refusal(brand)
+	return None
 
 
 def require_doctype_in_scope(doctype):

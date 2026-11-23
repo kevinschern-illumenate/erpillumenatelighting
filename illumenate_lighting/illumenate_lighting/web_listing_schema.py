@@ -27,8 +27,13 @@ def template_doctypes_arg(doctypes=None):
 	"""
 	import json
 
+	import frappe
+
 	if isinstance(doctypes, str):
-		doctypes = json.loads(doctypes) if doctypes.strip().startswith("[") else [doctypes]
+		try:
+			doctypes = json.loads(doctypes) if doctypes.strip().startswith("[") else [doctypes]
+		except ValueError:
+			frappe.throw(f"doctypes must be a template doctype or a JSON list of them, not {doctypes!r}")
 	if not doctypes:
 		from illumenate_lighting.illumenate_lighting.api import n8n_config
 
@@ -37,7 +42,7 @@ def template_doctypes_arg(doctypes=None):
 			return list(TEMPLATE_DOCTYPES)
 	unknown = sorted(set(doctypes) - set(TEMPLATE_DOCTYPES))
 	if unknown:
-		raise ValueError(f"Not product template doctypes: {', '.join(unknown)}")
+		frappe.throw(f"Not product template doctypes: {', '.join(unknown)}")
 	return [doctype for doctype in TEMPLATE_DOCTYPES if doctype in doctypes]
 
 

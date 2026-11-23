@@ -88,7 +88,14 @@ class SyncScope(unittest.TestCase):
 			frappe.conf["webflow_sync_scope"] = '{"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}'
 			self.assertTrue(module.doctype_in_scope(self.FIXTURE))
 			self.assertFalse(module.doctype_in_scope(self.TAPE))
-			for broken in ("{not json", '["ilL-Fixture-Template"]', {"doctypes": "ilL-Fixture-Template"}):
+			for broken in (
+				"{not json",
+				'["ilL-Fixture-Template"]',
+				{"doctypes": "ilL-Fixture-Template"},
+				# A misspelt key must not silently mean "no limit" (final review).
+				{"doctype": ["ilL-Fixture-Template"], "brands": ["illumenate"]},
+				{"Doctypes": ["ilL-Fixture-Template"]},
+			):
 				with self.subTest(broken=broken):
 					frappe.conf["webflow_sync_scope"] = broken
 					self.assertFalse(module.doctype_in_scope(self.FIXTURE))

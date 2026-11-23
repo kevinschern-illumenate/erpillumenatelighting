@@ -2753,24 +2753,11 @@ def _show_not_ready(brand, issues):
     )
 
 
-def product_template_doctype(doc):
-    """The template doctype a Webflow Product is linked to, or None (Component, Accessory)."""
-    from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
-
-    for doctype, field in WEBFLOW_PRODUCT_LINKS.items():
-        if doc.get(field):
-            return doctype
-    return None
-
-
 def _require_product_in_scope(doc):
     """webflow_sync_scope (site config): refuse a product whose template type is not enabled."""
-    if n8n_config.sync_scope()["doctypes"] is None:
-        return
-    doctype = product_template_doctype(doc)
-    if doctype is None:
-        frappe.throw(_("{0} has no product template, so it is not enabled for Webflow sync on this site.").format(doc.name))
-    n8n_config.require_doctype_in_scope(doctype)
+    refusal = n8n_config.product_scope_refusal(doc)
+    if refusal:
+        frappe.throw(refusal)
 
 
 def _brand_scope_issue(docname, brand):

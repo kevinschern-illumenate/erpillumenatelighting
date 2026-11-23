@@ -332,7 +332,8 @@ Fix any fixture-only gaps (for example, `HIGHLIGHT_RULES` covers Extrusion Kit o
   - set `erpnext_base_url = https://app.illumenate.lighting` (P5)
   - confirm `webflow_site_id = 695c1f9a18a639365b6a31a7`
   - confirm the Products collection row is `696fc3c5c42c86528e97f413`, and the other collection rows hold main-site IDs
-- **Check (Claude may):** `get_brand_config` returns those values. Generate Spec on a **kit** is refused with the scope message.
+- **Before the webhook URLs go in (Claude may list):** check `ilL-Publish-Job` rows on production in state QUEUED, RUNNING or FAILED (with `next_attempt_on`). Since the final review, the queue's `claim` skips out-of-scope jobs and leaves them queued, so they cannot reach n8n. Still, the owner should decide whether to cancel stale ones, so that they don't go out the day their type is enabled.
+- **Check (Claude may):** `get_brand_config` returns those values. Generate Spec on a **kit** is refused with the scope message, and so is "Approve and Stage" in a kit's Publication dialog.
 
 ### B6. Data dry runs, scoped to fixtures (Claude may run every dry run and summarise)
 

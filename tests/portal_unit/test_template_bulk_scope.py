@@ -22,6 +22,8 @@ class Base(unittest.TestCase):
 		patcher = patch.object(n8n_config, "frappe", self.frappe)
 		patcher.start()
 		self.addCleanup(patcher.stop)
+		# n8n_config may keep this frappe stub after the test: never leave a scope behind.
+		self.addCleanup(self.frappe.conf.pop, "webflow_sync_scope", None)
 		self.frappe.only_for = MagicMock()
 		self.frappe.parse_json = lambda value: __import__("json").loads(value)
 		self.frappe.db.commit = MagicMock()
@@ -46,6 +48,7 @@ class Arg(unittest.TestCase):
 		patcher = patch.object(n8n_config, "frappe", self.frappe)
 		patcher.start()
 		self.addCleanup(patcher.stop)
+		self.addCleanup(self.frappe.conf.pop, "webflow_sync_scope", None)
 
 	def test_explicit_list_string_and_json(self):
 		arg = self.module.template_doctypes_arg
@@ -61,8 +64,12 @@ class Arg(unittest.TestCase):
 		self.assertEqual(arg([TAPE]), [TAPE])  # an explicit list wins over the scope
 
 	def test_unknown_doctype_raises(self):
-		with self.assertRaises(ValueError):
-			self.module.template_doctypes_arg(["ilL-Nothing"])
+		# frappe.throw, so the System Console shows a message rather than a traceback (final review).
+		self.frappe.throw = MagicMock(side_effect=ValueError)
+		for bad in (["ilL-Nothing"], "[not json"):
+			with self.subTest(bad=bad), self.assertRaises(ValueError):
+				self.module.template_doctypes_arg(bad)
+		self.assertEqual(self.frappe.throw.call_count, 2)
 
 
 class Refresh(Base):

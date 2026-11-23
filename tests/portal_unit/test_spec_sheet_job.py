@@ -240,6 +240,8 @@ class Scope(unittest.TestCase):
 		patcher = patch.object(n8n_config, "frappe", self.frappe)
 		patcher.start()
 		self.addCleanup(patcher.stop)
+		# n8n_config may keep this frappe stub after the test: never leave a scope behind.
+		self.addCleanup(self.frappe.conf.pop, "webflow_sync_scope", None)
 		self.frappe.conf["webflow_sync_scope"] = {"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate-lighting"]}
 		self.frappe.enqueue = MagicMock()
 
