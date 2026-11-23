@@ -453,7 +453,7 @@ SAMPLES = {
 }
 
 
-SAMPLES["ill_fixture_schedule_msrp"] = lambda: Doc(
+SAMPLES["ill_fixture_schedule___msrp"] = lambda: Doc(
 	name="SCHED-1",
 	schedule_name="Main Schedule",
 	version=2,
@@ -923,7 +923,7 @@ class LineLayout(unittest.TestCase):
 			for folder, sample in SAMPLES.items():
 				with self.subTest(folder=folder):
 					html = render(folder, sample())
-					if folder in ("ill_fixture_schedule", "ill_fixture_schedule_msrp"):
+					if folder in ("ill_fixture_schedule", "ill_fixture_schedule___msrp"):
 						self.assertIn("@font-face", html)
 						self.assertIn('class="ill-doc ill-brand"', html)
 					else:
@@ -940,7 +940,7 @@ class LineLayout(unittest.TestCase):
 			"allowed": True,
 		}
 		with patch.object(PRINTING, "ill_print_schedule_prices", lambda doc: prices):
-			html = render("ill_fixture_schedule_msrp", SAMPLES["ill_fixture_schedule_msrp"]())
+			html = render("ill_fixture_schedule___msrp", SAMPLES["ill_fixture_schedule___msrp"]())
 		self.assertIn("Fixture Schedule (MSRP)", html)
 		self.assertIn(">MSRP Unit<", html)
 		self.assertIn(">MSRP Amount<", html)
@@ -954,7 +954,7 @@ class LineLayout(unittest.TestCase):
 	def test_msrp_schedule_shows_no_prices_without_pricing_permission(self):
 		prices = {"lines": {}, "total": 0.0, "unpriced": 0, "allowed": False}
 		with patch.object(PRINTING, "ill_print_schedule_prices", lambda doc: prices):
-			html = render("ill_fixture_schedule_msrp", SAMPLES["ill_fixture_schedule_msrp"]())
+			html = render("ill_fixture_schedule___msrp", SAMPLES["ill_fixture_schedule___msrp"]())
 		self.assertNotIn("$125", html)
 		self.assertIn("shown only to users who can view pricing", html)
 
