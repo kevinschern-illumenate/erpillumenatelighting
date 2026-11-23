@@ -1,0 +1,30 @@
+{#- One PDF: every label is a page exactly the roll's size (labels.render_html). Black on white only. -#}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+{%- for family, weight, url in fonts %}
+@font-face { font-family: "{{ family }}"; font-weight: {{ weight }}; src: url("{{ url }}") format("truetype"); }
+{%- endfor %}
+html, body { margin: 0; padding: 0; background: #fff; }
+body { font-family: "ilL Poppins", Helvetica, Arial, sans-serif; color: #000; -webkit-print-color-adjust: exact; }
+.lbl { position: relative; width: {{ width_mm }}mm; height: {{ height_mm }}mm; overflow: hidden; box-sizing: border-box; }
+.lbl.break { page-break-after: always; }
+.abs { position: absolute; overflow: hidden; white-space: nowrap; }
+.b { font-family: "ilL Poppins SemiBold", "ilL Poppins", Helvetica, Arial, sans-serif; font-weight: 600; }
+.band { position: absolute; background: #000; color: #fff; text-align: center; white-space: nowrap; overflow: hidden;
+	font-family: "ilL Poppins SemiBold", "ilL Poppins", Helvetica, Arial, sans-serif; font-weight: 600; letter-spacing: 0.3pt; }
+.logo { position: absolute; }
+.qr, .bars { position: absolute; display: block; }
+.box { display: inline-block; width: 3.2mm; height: 3.2mm; border: 0.3mm solid #000; vertical-align: -0.6mm; margin-right: 1.6mm; }
+.rule { position: absolute; border-top: 0.25mm solid #000; }
+table { border-collapse: collapse; }
+</style>
+</head>
+<body>
+{%- for page in pages %}
+<div class="lbl{% if not loop.last %} break{% endif %}">{{ page }}</div>
+{%- endfor %}
+</body>
+</html>

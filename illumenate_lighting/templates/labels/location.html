@@ -1,0 +1,7 @@
+{#- Shelf label (1.5 x 2.5): the shelf code very large with its LOC- barcode. -#}
+{% from "templates/labels/_label.html" import top_strip with context %}
+{{ top_strip(c, 18) }}
+<div class="abs b" style="left:1.5mm; top:7.4mm; width:60.5mm; text-align:center; font-size:{{ fit(c.location_code, 4, 34, 14) }}pt; line-height:1;">{{ truncate(c.location_code, 14) }}</div>
+{%- if c.barcode_src %}<img class="bars" src="{{ c.barcode_src }}" style="left:6.75mm; top:21.2mm; width:50mm; height:9mm;">{% endif %}
+{%- set under = [c.warehouse, c.description] | select | join(" · ") %}
+{%- if under %}<div class="abs" style="left:1.5mm; top:32.2mm; width:60.5mm; text-align:center; font-size:6.5pt;">{{ truncate(under, 48) }}</div>{% endif %}

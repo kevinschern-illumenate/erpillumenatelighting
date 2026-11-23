@@ -1,0 +1,153 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "description": "One print run of one roll on its printer. Jobs stay Sent until a person confirms the batch.",
+ "autoname": "ILL-LBB-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "in_create": 1,
+ "field_order": [
+  "status",
+  "label_stock",
+  "printer_name",
+  "label_count",
+  "column_break_times",
+  "sent_by",
+  "sent_at",
+  "confirmed_by",
+  "confirmed_at",
+  "section_jobs",
+  "jobs"
+ ],
+ "fields": [
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Sent\nConfirmed\nPartly reprinted",
+   "default": "Sent",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "bold": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "label_stock",
+   "fieldtype": "Link",
+   "label": "Roll",
+   "options": "ilL-Label-Stock",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "printer_name",
+   "fieldtype": "Data",
+   "label": "Printer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "label_count",
+   "fieldtype": "Int",
+   "label": "Labels",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_times",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sent_by",
+   "fieldtype": "Link",
+   "label": "Sent By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_at",
+   "fieldtype": "Datetime",
+   "label": "Sent At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "confirmed_by",
+   "fieldtype": "Link",
+   "label": "Confirmed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "confirmed_at",
+   "fieldtype": "Datetime",
+   "label": "Confirmed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_jobs",
+   "fieldtype": "Section Break",
+   "label": "Labels"
+  },
+  {
+   "fieldname": "jobs",
+   "fieldtype": "Table",
+   "label": "Labels",
+   "options": "ilL-Label-Print-Batch-Job",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Label-Print-Batch",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

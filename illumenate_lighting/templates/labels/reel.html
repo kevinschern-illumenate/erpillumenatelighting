@@ -1,0 +1,12 @@
+{#- Reel label (1.5 x 2.5): ID and Code 128, item, starting length, lot, shelf. The scanner shows the length now. -#}
+{% from "templates/labels/_label.html" import top_strip, line with context %}
+{{ top_strip(c, 18) }}
+<div class="abs b" style="left:1.5mm; top:7.6mm; width:60mm; font-size:15pt; line-height:1;">{{ c.reel_id }}</div>
+{%- if c.barcode_src %}<img class="bars" src="{{ c.barcode_src }}" style="left:1.5mm; top:13.4mm; width:52mm; height:6.6mm;">{% endif %}
+{{ line(c.item_code, 1.5, 20.8, 60, fit(c.item_code, 36, 7, 6), True, 46) }}
+{{ line(c.item_name, 1.5, 23.9, 60, 6, False, 50) }}
+{%- set start = [c.starting_length and ("Start " ~ c.starting_length) or "", c.received and ("Rec'd " ~ c.received) or ""] | select | join(" · ") %}
+{{ line(start, 1.5, 27.0, 60, 6.5, False, 46) }}
+{%- set where = [c.lot and ("Lot " ~ c.lot) or "", c.shelf and ("Shelf " ~ c.shelf) or ""] | select | join(" · ") %}
+{{ line(where, 1.5, 30.1, 60, 6.5, False, 46) }}
+<div class="abs b" style="left:1.5mm; top:33.3mm; width:60mm; font-size:7pt;">Left: ______________</div>

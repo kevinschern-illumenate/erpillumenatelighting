@@ -1,0 +1,208 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "description": "Append-only reel ledger: every change to a reel's length or shelf. Never edited; a mistake gets a reversing row.",
+ "autoname": "RMV-.YYYY.-.#####",
+ "naming_rule": "Expression (old style)",
+ "in_create": 1,
+ "field_order": [
+  "reel",
+  "movement_type",
+  "item_code",
+  "warehouse",
+  "location",
+  "column_break_len",
+  "length_mm",
+  "before_mm",
+  "after_mm",
+  "posting_status",
+  "stock_entry",
+  "section_context",
+  "work_order",
+  "cut_key",
+  "reason",
+  "column_break_who",
+  "at",
+  "user"
+ ],
+ "fields": [
+  {
+   "fieldname": "reel",
+   "fieldtype": "Link",
+   "label": "Reel",
+   "options": "ilL-Reel",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "movement_type",
+   "fieldtype": "Select",
+   "label": "Movement",
+   "options": "Receive\nCount\nCut\nOver-cut\nScrap\nAdjust\nMake remnant\nLocation\nReversal",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Warehouse",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "label": "Shelf",
+   "options": "ilL-Reel-Location",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_len",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "length_mm",
+   "fieldtype": "Float",
+   "label": "Change (mm)",
+   "in_list_view": 1,
+   "description": "Signed: minus for cuts and scrap.",
+   "read_only": 1
+  },
+  {
+   "fieldname": "before_mm",
+   "fieldtype": "Float",
+   "label": "Before (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "after_mm",
+   "fieldtype": "Float",
+   "label": "After (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "posting_status",
+   "fieldtype": "Select",
+   "label": "Stock Posting",
+   "options": "Not needed\nPending\nPosted",
+   "default": "Not needed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_context",
+   "fieldtype": "Section Break",
+   "label": "Context"
+  },
+  {
+   "fieldname": "work_order",
+   "fieldtype": "Link",
+   "label": "Work Order",
+   "options": "Work Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cut_key",
+   "fieldtype": "Data",
+   "label": "Cut Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_who",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "at",
+   "fieldtype": "Datetime",
+   "label": "At",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "By",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Reel-Movement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

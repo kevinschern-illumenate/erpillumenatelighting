@@ -1,0 +1,6 @@
+{#- Reel ID tag (1.5 x 2.5): printed in a block before the count; stuck on, then scanned. -#}
+{% from "templates/labels/_label.html" import top_strip with context %}
+{{ top_strip(c, 18) }}
+<div class="abs b" style="left:1.5mm; top:8.2mm; width:60.5mm; text-align:center; font-size:20pt; line-height:1;">{{ c.reel_id }}</div>
+{%- if c.barcode_src %}<img class="bars" src="{{ c.barcode_src }}" style="left:4.75mm; top:17mm; width:54mm; height:12mm;">{% endif %}
+<div class="abs" style="left:1.5mm; top:31.6mm; width:60.5mm; text-align:center; font-size:6.5pt;">Scan to count this reel</div>
