@@ -82,6 +82,23 @@ function _ill_schedule_collaborator_buttons(frm) {
 }
 
 function _ill_schedule_conversion_buttons(frm) {
+	// Sales staff raise a quote request for a dealer who asked by phone or email. It becomes a normal
+	// quote request (Prepare Quotation, portal offer), so the dealer can accept the quote online.
+	if (
+		!frm.is_new() &&
+		!frm.doc.is_locked &&
+		["DRAFT", "READY"].includes(frm.doc.status) &&
+		frappe.user.has_role(["ilL Sales Review", "ilL Order Approver", "System Manager"])
+	) {
+		frm.add_custom_button(
+			__("Request Quote for Dealer"),
+			function () {
+				_ill_schedule_request_quote_dialog(frm);
+			},
+			__("Actions")
+		);
+	}
+
 	// Add "Convert to Sales Order" button for schedules in READY / QUOTED status
 	// Per workflow: user sets status to READY then clicks to convert
 	if (!frm.is_new() && ["READY", "QUOTED"].includes(frm.doc.status)) {
@@ -117,6 +134,57 @@ function _ill_schedule_conversion_buttons(frm) {
 			__("Actions")
 		);
 	}
+}
+
+function _ill_schedule_request_quote_dialog(frm) {
+	const dialog = new frappe.ui.Dialog({
+		title: __("Request Quote for Dealer"),
+		fields: [
+			{
+				fieldtype: "HTML",
+				options: `<p class="text-muted">${__(
+					"Creates a quote request for this schedule, as if the dealer had asked in the portal. Then use Prepare Quotation on the request."
+				)}</p>`,
+			},
+			{
+				fieldname: "notes",
+				fieldtype: "Small Text",
+				label: __("What the dealer asked for"),
+				description: __("Up to 4,000 characters. The dealer can read this."),
+			},
+			{
+				fieldname: "contact",
+				fieldtype: "Data",
+				label: __("Contact instructions"),
+			},
+			{
+				fieldname: "requested_date",
+				fieldtype: "Date",
+				label: __("Quote needed by"),
+			},
+		],
+		primary_action_label: __("Create Quote Request"),
+		primary_action(values) {
+			frappe.call({
+				method: "illumenate_lighting.illumenate_lighting.portal.quotes.request_quote_for_dealer",
+				args: {
+					schedule_name: frm.doc.name,
+					notes: values.notes || "",
+					contact: values.contact || "",
+					requested_date: values.requested_date || null,
+				},
+				freeze: true,
+				freeze_message: __("Creating quote request..."),
+				callback(r) {
+					if (r.message && r.message.request_name) {
+						dialog.hide();
+						frappe.set_route("Form", "ilL-Quote-Request", r.message.request_name);
+					}
+				},
+			});
+		},
+	});
+	dialog.show();
 }
 
 // Product types configured without an ilL-Configured-Fixture, and the field that proves it.

@@ -109,7 +109,7 @@ def _counts(doctype, names):
 	rows = frappe.get_all(
 		doctype,
 		filters={"parenttype": PRODUCT, "parent": ["in", names]},
-		fields=["parent", "count(name) as rows"],
+		fields=["parent", {"COUNT": "name", "as": "rows"}],
 		group_by="parent",
 	)
 	return {row["parent"]: row["rows"] for row in rows}

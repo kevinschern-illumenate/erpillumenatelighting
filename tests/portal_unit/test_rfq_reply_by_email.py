@@ -48,7 +48,8 @@ class CoreRequestForQuotation(Record):
 
 def load_rfq():
 	core = types.ModuleType(CORE)
-	core.RequestForQuotation = CoreRequestForQuotation
+	# The real ERPNext class name: the DocType name with spaces removed.
+	core.RequestforQuotation = CoreRequestForQuotation
 	return load_service(ROOT + ".email_templates.rfq", {CORE: core})
 
 

@@ -195,7 +195,7 @@ QUEUES = {
 	),
 	"new_customers": (
 		"New customers to set up",
-		"accounts",
+		"bookkeeping",
 		"Customer",
 		{"disabled": 0, "crm_deal": ["is", "set"], "payment_terms": ["is", "not set"]},
 		["name", "customer_name", "crm_deal", "customer_group", "creation", "modified"],
@@ -204,7 +204,7 @@ QUEUES = {
 	),
 	"bills": (
 		"Bills not in QuickBooks",
-		"accounts",
+		"bookkeeping",
 		"Purchase Invoice",
 		{"docstatus": 1, "is_return": 0, "custom_qbo_id": ["is", "not set"]},
 		["name", "supplier", "bill_no", "posting_date", "grand_total", "modified"],
