@@ -47,6 +47,54 @@ class N8nConfig(unittest.TestCase):
 				module.webflow_environment()
 
 
+class SyncScope(unittest.TestCase):
+	FIXTURE = "ilL-Fixture-Template"
+	TAPE = "ilL-Tape-Neon-Template"
+
+	def test_scope_unset_allows_everything(self):
+		with load_service(ROOT + ".api.n8n_config") as (module, _frappe):
+			self.assertEqual(module.sync_scope(), {"doctypes": None, "brands": None})
+			self.assertTrue(module.doctype_in_scope(self.TAPE))
+			self.assertTrue(module.brand_in_scope("lighting_206"))
+			module.require_doctype_in_scope(self.TAPE)
+			module.require_brand_in_scope("lighting_206")
+
+	def test_scope_limits_doctypes_and_brands(self):
+		with load_service(ROOT + ".api.n8n_config") as (module, frappe):
+			frappe.conf["webflow_sync_scope"] = {"doctypes": [self.FIXTURE], "brands": ["illumenate"]}
+			self.assertTrue(module.doctype_in_scope(self.FIXTURE))
+			self.assertFalse(module.doctype_in_scope(self.TAPE))
+			self.assertTrue(module.brand_in_scope("illumenate"))
+			self.assertFalse(module.brand_in_scope("lighting_206"))
+			with self.assertRaises(ValueError) as caught:
+				module.require_doctype_in_scope(self.TAPE)
+			self.assertIn(
+				"ilL-Tape-Neon-Template is not enabled for spec generation and Webflow sync on this site.",
+				str(caught.exception),
+			)
+			with self.assertRaises(ValueError) as caught:
+				module.require_brand_in_scope("lighting_206")
+			self.assertIn("Brand lighting_206 is not enabled for Webflow sync on this site.", str(caught.exception))
+
+	def test_scope_member_missing_means_unlimited(self):
+		with load_service(ROOT + ".api.n8n_config") as (module, frappe):
+			frappe.conf["webflow_sync_scope"] = {"doctypes": [self.FIXTURE]}
+			self.assertTrue(module.brand_in_scope("lighting_206"))
+			self.assertFalse(module.doctype_in_scope(self.TAPE))
+
+	def test_scope_parses_string_and_fails_closed(self):
+		with load_service(ROOT + ".api.n8n_config") as (module, frappe):
+			# The Frappe Cloud config editor stores objects as JSON strings.
+			frappe.conf["webflow_sync_scope"] = '{"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}'
+			self.assertTrue(module.doctype_in_scope(self.FIXTURE))
+			self.assertFalse(module.doctype_in_scope(self.TAPE))
+			for broken in ("{not json", '["ilL-Fixture-Template"]', {"doctypes": "ilL-Fixture-Template"}):
+				with self.subTest(broken=broken):
+					frappe.conf["webflow_sync_scope"] = broken
+					self.assertFalse(module.doctype_in_scope(self.FIXTURE))
+					self.assertFalse(module.brand_in_scope("illumenate"))
+
+
 class StagingWebflowReset(unittest.TestCase):
 	def run_reset(self, staging=True, dry_run=True):
 		config = types.ModuleType(ROOT + ".api.n8n_config")

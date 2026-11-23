@@ -315,6 +315,23 @@ def _lock(name):
 	return frappe.db.get_value(DOCTYPE, name, FIELDS, as_dict=True)
 
 
+def in_sync_scope(product, brand):
+	"""Site config ``webflow_sync_scope``: may this product (its template type) sync to ``brand``?
+
+	A row out of scope is dropped quietly: production turns product types on one at a time.
+	"""
+	from illumenate_lighting.illumenate_lighting.api import n8n_config
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+
+	scope = n8n_config.sync_scope()
+	if scope["brands"] is not None and brand not in scope["brands"]:
+		return False
+	if scope["doctypes"] is None:
+		return True
+	doctype = next((dt for dt, field in WEBFLOW_PRODUCT_LINKS.items() if product.get(field)), None)
+	return doctype in scope["doctypes"]
+
+
 def process(name, now=None):
 	"""Decide and act on one waiting row. Returns the decision (or "failed")."""
 	from illumenate_lighting.illumenate_lighting import webflow_approvals
@@ -323,13 +340,21 @@ def process(name, now=None):
 	row = _lock(name)
 	if not row:
 		return DROP
-	product = frappe.db.get_value(PRODUCT, row.product, ["webflow_status", "webflow_item_id"], as_dict=True)
+	from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+
+	product = frappe.db.get_value(
+		PRODUCT,
+		row.product,
+		["webflow_status", "webflow_item_id", *WEBFLOW_PRODUCT_LINKS.values()],
+		as_dict=True,
+	)
 	exists = bool(product)
 	product = product or {}
 	action = decide(
 		exists=exists,
 		status=product.get("webflow_status"),
-		targeted=exists and row.brand in _targets(row.product),
+		# Out of webflow_sync_scope counts as not targeted: dropped without a push or notice.
+		targeted=exists and row.brand in _targets(row.product) and in_sync_scope(product, row.brand),
 		synced=exists and row.brand in synced_brands(row.product, product.get("webflow_item_id")),
 		replaces_job=row.get("replaces_job"),
 		due=frappe.utils.get_datetime(row.due_at) <= frappe.utils.get_datetime(now),

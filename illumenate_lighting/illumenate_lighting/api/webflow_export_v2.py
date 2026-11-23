@@ -2753,6 +2753,33 @@ def _show_not_ready(brand, issues):
     )
 
 
+def product_template_doctype(doc):
+    """The template doctype a Webflow Product is linked to, or None (Component, Accessory)."""
+    from illumenate_lighting.illumenate_lighting.web_listing_schema import WEBFLOW_PRODUCT_LINKS
+
+    for doctype, field in WEBFLOW_PRODUCT_LINKS.items():
+        if doc.get(field):
+            return doctype
+    return None
+
+
+def _require_product_in_scope(doc):
+    """webflow_sync_scope (site config): refuse a product whose template type is not enabled."""
+    if n8n_config.sync_scope()["doctypes"] is None:
+        return
+    doctype = product_template_doctype(doc)
+    if doctype is None:
+        frappe.throw(_("{0} has no product template, so it is not enabled for Webflow sync on this site.").format(doc.name))
+    n8n_config.require_doctype_in_scope(doctype)
+
+
+def _brand_scope_issue(docname, brand):
+    """A readiness-style issue for a target brand this site does not sync, or None."""
+    if n8n_config.brand_in_scope(brand):
+        return None
+    return {"message": n8n_config.brand_refusal(brand), "field": "target_brands", "record": docname}
+
+
 def stage_brands(docname, brands=None):
     """What the Sync to Webflow button does, for all enabled target brands or ``brands``.
 
@@ -2765,6 +2792,7 @@ def stage_brands(docname, brands=None):
     from illumenate_lighting.illumenate_lighting import webflow_auto_push
 
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    _require_product_in_scope(doc)
     # This save is the push itself; it must not queue an automatic push of its own.
     doc.flags[webflow_auto_push.SKIP_FLAG] = True
     # Forces before_save() -> sync_custom_template_data() to pull latest template files
@@ -2780,6 +2808,10 @@ def stage_brands(docname, brands=None):
 
     results = []
     for brand in active_brands:
+        scope_issue = _brand_scope_issue(docname, brand)
+        if scope_issue:
+            results.append({"brand": brand, "issues": [scope_issue]})
+            continue
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)
         if not inspection.get("readiness", {}).get("ready"):
@@ -2820,6 +2852,7 @@ def trigger_publish_v2(docname):
 
     # 1. Fetch the document and determine active target brands
     doc = frappe.get_doc("ilL-Webflow-Product", docname)
+    _require_product_in_scope(doc)
     doc.flags[webflow_auto_push.SKIP_FLAG] = True  # a push itself; queue no automatic push
     doc.save(ignore_permissions=True)
     active_brands = _sync_target_brands(doc)
@@ -2832,6 +2865,10 @@ def trigger_publish_v2(docname):
     dispatched_jobs = []
     
     for brand in active_brands:
+        scope_issue = _brand_scope_issue(docname, brand)
+        if scope_issue:
+            _show_not_ready(brand, [scope_issue])
+            continue
 
         # 2. Inspect the product to get its readiness and current state hash
         inspection = inspect(docname, brand)

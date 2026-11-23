@@ -224,3 +224,76 @@ class Route(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
+
+
+
+class Scope(unittest.TestCase):
+	"""Site config ``webflow_sync_scope`` (plan 2026-11-23 Task 1)."""
+
+	def setUp(self):
+		Job.setUp(self)
+		# n8n_config may already be imported against an earlier test's frappe stub.
+		import importlib
+		from unittest.mock import patch
+
+		n8n_config = importlib.import_module(ROOT + ".api.n8n_config")
+		patcher = patch.object(n8n_config, "frappe", self.frappe)
+		patcher.start()
+		self.addCleanup(patcher.stop)
+		self.frappe.conf["webflow_sync_scope"] = {"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate-lighting"]}
+		self.frappe.enqueue = MagicMock()
+
+	def stub(self, name, **attrs):
+		import sys
+		import types
+
+		module = types.ModuleType(f"{ROOT}.{name}")
+		module.__dict__.update(attrs)
+		sys.modules[module.__name__] = module
+		self.addCleanup(sys.modules.pop, module.__name__, None)
+		package = sys.modules.get(ROOT)
+		if package is not None:
+			old = getattr(package, name, None)
+			setattr(package, name, module)
+			self.addCleanup(setattr, package, name, old)
+		return module
+
+	def test_generate_refuses_out_of_scope_doctype(self):
+		self.stub("template_link", require_template_access=MagicMock())
+		self.frappe.get_doc = MagicMock()
+		with self.assertRaises(ValueError) as caught:
+			self.module.generate_spec_sheet("ilL-Tape-Neon-Template", "TAPE-1")
+		self.assertIn("ilL-Tape-Neon-Template is not enabled for spec generation", str(caught.exception))
+		self.frappe.get_doc.assert_not_called()
+		self.frappe.enqueue.assert_not_called()
+
+	def test_generate_refuses_out_of_scope_brand(self):
+		self.stub("template_link", require_template_access=MagicMock())
+		check = MagicMock(return_value={"missing": [], "warnings": []})
+		self.stub("spec_sheet_check", check=check)
+		self.module._brand = lambda template, brand=None: "lighting_206"
+		self.frappe.get_doc = MagicMock(return_value=Record(name="FX-1"))
+		with self.assertRaises(ValueError) as caught:
+			self.module.generate_spec_sheet("ilL-Fixture-Template", "FX-1")
+		self.assertIn("Brand lighting_206 is not enabled for Webflow sync", str(caught.exception))
+		check.assert_not_called()
+		self.frappe.enqueue.assert_not_called()
+
+	def test_plan_regeneration_skips_out_of_scope(self):
+		self.stub(
+			"spec_sheet_check",
+			check=lambda template: {"missing": [], "warnings": []},
+			page_slug=lambda template: "linear-fixtures",
+		)
+		rows = {
+			"ilL-Fixture-Template": [Record(name="FX-1", webflow_product="fx-1", spec_sheet=None)],
+			"ilL-Tape-Neon-Template": [Record(name="TAPE-1", webflow_product="tape-1", spec_sheet=None)],
+		}
+		self.frappe.get_all = MagicMock(side_effect=lambda doctype, **kw: rows.get(doctype, []))
+		self.frappe.get_doc = MagicMock(side_effect=lambda doctype, name: Record(name=name))
+		to_generate, skipped = self.module.plan_regeneration()
+		self.assertEqual([entry["template"] for entry in to_generate], [("ilL-Fixture-Template", "FX-1")])
+		self.assertEqual(
+			[(entry["template"], entry["reason"]) for entry in skipped],
+			[(("ilL-Tape-Neon-Template", "TAPE-1"), "not enabled on this site")],
+		)
