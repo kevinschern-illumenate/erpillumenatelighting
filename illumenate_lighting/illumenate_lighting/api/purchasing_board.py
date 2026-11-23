@@ -2261,6 +2261,53 @@ def make_receipt(po, shipment=None):
 	return result
 
 
+SCHEDULE_AMOUNTS = (
+	"invoice_portion",
+	"payment_amount",
+	"base_payment_amount",
+	"outstanding",
+	"base_outstanding",
+	"paid_amount",
+	"base_paid_amount",
+)
+
+
+def refresh_due_dates(doc):
+	"""Move lapsed payment-schedule due dates up to the bill's date so the draft validates.
+
+	With Accounts Settings "Automatically Fetch Payment Terms from Order" on, ERPNext copies
+	the purchase order's payment schedule into the bill. A row from a PO without a payment
+	terms template has no ``due_date_based_on``, so it keeps the PO's own due date (the PO
+	date), and on insert ``validate_due_date`` refuses it: "Due Date cannot be before
+	Supplier Invoice Date" (it compares against ``bill_date or posting_date``). Rows
+	recalculated from a template are already on or after that date and are left alone.
+
+	A lapsed row is due now, as on a bill drafted without terms. Rows that land on the same
+	day are merged, because ERPNext also refuses duplicate due dates. Returns the new date
+	when it moved anything, else None.
+	"""
+	base = as_date(doc.get("bill_date") or doc.get("posting_date"))
+	rows = list(doc.get("payment_schedule") or [])
+	if not base or not any(r.due_date and as_date(r.due_date) < base for r in rows):
+		return None
+	kept = {}
+	for row in rows:
+		due = as_date(row.due_date) if row.due_date else None
+		if due and due < base:
+			row.due_date = base
+		key = as_date(row.due_date) if row.due_date else None
+		if key is not None and key in kept:
+			into = kept[key]
+			for field in SCHEDULE_AMOUNTS:
+				if row.get(field) or into.get(field):
+					into.set(field, (into.get(field) or 0) + (row.get(field) or 0))
+			doc.remove(row)
+		elif key is not None:
+			kept[key] = row
+	doc.due_date = max(kept) if kept else base
+	return base
+
+
 @frappe.whitelist(methods=["POST"])
 def make_invoice(po=None, purchase_receipt=None):
 	_need_edit()
@@ -2279,7 +2326,12 @@ def make_invoice(po=None, purchase_receipt=None):
 		doc = make_purchase_invoice(po)
 	else:
 		frappe.throw(_("Start from a purchase order or a receipt."))
-	return _insert(doc, f"purchase invoice from {purchase_receipt or po}")
+	label = f"purchase invoice from {purchase_receipt or po}"
+	moved = refresh_due_dates(doc)
+	if moved:
+		label += f" (lapsed order payment terms now due {moved.isoformat()})"
+	# A draft: the accountant sets the supplier invoice number and date before submitting.
+	return _insert(doc, label)
 
 
 def _hts_lines(po_names):
