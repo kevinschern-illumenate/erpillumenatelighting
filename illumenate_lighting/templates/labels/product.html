@@ -1,0 +1,22 @@
+{#- Product label (1.5 x 2.5): goes on the finished unit. Fixture type very large; QR to the work order. -#}
+{% from "templates/labels/_label.html" import top_strip, qr, line with context %}
+{{ top_strip(c) }}
+{%- if c.fixture_type %}
+<div class="abs b" style="left:1.5mm; top:7.1mm; width:21mm; font-size:{{ fit(c.fixture_type, 3, 24, 11) }}pt; line-height:1;">{{ truncate(c.fixture_type, 8) }}</div>
+{{ line(c.section, 23, 8.6, 39, fit(c.section, 22, 9, 6.5), True, 30) }}
+{%- else %}
+{{ line(c.section, 1.5, 8.6, 60, fit(c.section, 30, 10, 6.5), True, 40) }}
+{%- endif %}
+{{ line(c.part_number, 1.5, 16.2, 60, fit(c.part_number, 36, 7.5, 6), True, 48) }}
+{%- set detail_top = 19.6 %}
+{%- if c.subcomponent %}
+{{ line(c.subcomponent, 1.5, 19.6, 60, fit(c.subcomponent, 40, 6.5, 6), False, 50) }}
+{%- set detail_top = 22.6 %}
+{%- endif %}
+{{ line(c.length and ("Length " ~ c.length) or "", 1.5, detail_top, 46, 6.5, False, 34) }}
+{%- set order = c.so and ("SO " ~ c.so ~ (c.po and (" · PO " ~ c.po) or "")) or "" %}
+{{ line(order, 1.5, 27.6, 46, fit(order, 34, 6.5, 6), True, 40) }}
+{{ line(c.customer, 1.5, 30.7, 46, 6.5, False, 34) }}
+{{ line(c.wo and ("WO " ~ c.wo) or "", 1.5, 33.8, 46, 6, False, 36) }}
+{{ qr(c) }}
+{%- if c.unit_text %}<div class="abs" style="right:1.5mm; bottom:1.4mm; width:16mm; text-align:right; font-size:6pt;">{{ c.unit_text }}</div>{% endif %}

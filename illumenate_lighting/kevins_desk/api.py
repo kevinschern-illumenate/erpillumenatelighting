@@ -6,6 +6,7 @@ runs before the owner check (tests/portal_unit/test_kevins_desk_pipeline.py enfo
 endpoint in the app, each is rate-limited (tests/portal_unit/test_guest_endpoints.py).
 
 Reads are cached per user (pipeline 5 min, mail 10 min, decisions 5 min); ``refresh=1`` rebuilds.
+``mark_done`` takes the item out of the cached lists as well, so the next load doesn't bring it back.
 tasks.warm rebuilds them every 10 minutes on weekdays, so a page load normally hits the cache.
 """
 
@@ -13,7 +14,7 @@ import frappe
 from frappe.rate_limiter import rate_limit
 from frappe.utils import cint, now_datetime
 
-from illumenate_lighting.kevins_desk import access, mail, mailboxes, ranking, schedule, team
+from illumenate_lighting.kevins_desk import access, done, mail, mailboxes, ranking, schedule, team
 from illumenate_lighting.kevins_desk import pipeline as pipe
 
 TTL = {"pipeline": 300, "mail": 600, "signals": 300}
@@ -34,7 +35,7 @@ def cached(key, build, refresh=False):
 def build_today(owner, refresh=False):
 	members = team.resolve()
 	pipeline_data = cached("pipeline", lambda: pipe.build(owner), refresh)
-	mail_data = cached("mail", lambda: mail.build(owner, members), refresh)
+	mail_data = cached("mail", lambda: mail.build(owner, members, done=done.marks()), refresh)
 	return {
 		"pipeline": pipeline_data,
 		"mailboxes": mail_data.get("mailboxes") or [],
@@ -68,3 +69,28 @@ def connect_mailbox(mailbox=None):
 	url = mailboxes.connect(mailbox, conf["desk_owner"], f"/kd/{conf['slug']}?mailbox=connected")
 	frappe.cache().delete_value(f"kevins_desk:{frappe.session.user}:mail")
 	return {"authorize_url": url}
+
+
+def forget(key, field, item_id):
+	"""Drop one item from a cached list (the rest of the cache stays as built)."""
+	cache_key = f"kevins_desk:{frappe.session.user}:{key}"
+	hit = frappe.cache().get_value(cache_key)
+	if hit:
+		kept = [x for x in hit.get(field) or [] if x.get("id") != item_id]
+		frappe.cache().set_value(cache_key, dict(hit, **{field: kept}), expires_in_sec=TTL[key])
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST"])
+@rate_limit(limit=60, seconds=60)
+def mark_done(item=None, message_id=None, title=None):
+	"""The Done button: close a ToDo, or hide a Gmail thread until it gets a new message (done.py)."""
+	conf = access.require_owner()
+	what = done.parse(item)
+	if what[0] == "todo":
+		done.close_todo(what[1], conf["desk_owner"])
+		forget("pipeline", "todos", item)
+	else:
+		own = {r["mailbox"] for r in mailboxes.rows()}
+		done.hide_thread(what[1], what[2], message_id, title, own)
+		forget("mail", "threads", item)
+	return {"done": item}

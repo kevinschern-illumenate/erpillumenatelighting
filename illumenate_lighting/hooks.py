@@ -104,6 +104,12 @@ for _name in ("Purchase Order", "Request for Quotation", "Material Request", "Wo
     _scripts = doctype_js.get(_name, [])
     _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
     doctype_js[_name] = [*_scripts, "public/js/configured_build_docs.js"]
+# Label queue buttons (labels plan Phase 1): Print / Regenerate / Preview on the Work Order,
+# Labels and Generate labels on the Sales Order. Hidden while labels are off.
+for _name, _script in (("Work Order", "public/js/work_order_labels.js"), ("Sales Order", "public/js/sales_order_labels.js")):
+    _scripts = doctype_js.get(_name, [])
+    _scripts = [_scripts] if isinstance(_scripts, str) else _scripts
+    doctype_js[_name] = [*_scripts, _script]
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -435,6 +441,12 @@ doc_events = {
 		"before_submit": "illumenate_lighting.illumenate_lighting.portal.drawing_review.before_work_order_submit",
 		# Sales Order Stage (Needs Work Orders / Pend-Prod / In-Prod / Pend-Ship).
 		"on_change": "illumenate_lighting.illumenate_lighting.api.order_stage.queue_refresh",
+		# Label queue (labels plan Phase 1): queue on create, re-plan when qty/item/order/date
+		# change, cancel or void on cancel and delete. Flag-gated, never raises.
+		"after_insert": "illumenate_lighting.illumenate_lighting.api.labels.on_work_order_insert",
+		"on_update": "illumenate_lighting.illumenate_lighting.api.labels.on_work_order_update",
+		"on_cancel": "illumenate_lighting.illumenate_lighting.api.labels.on_work_order_cancel",
+		"on_trash": "illumenate_lighting.illumenate_lighting.api.labels.on_work_order_trash",
 	},
 	# Count each new BOM's pinned build (conductors, wet runs, jumpers, assembly).
 	"BOM": {"on_submit": "illumenate_lighting.illumenate_lighting.api.build_points.on_bom_submit"},
@@ -742,7 +754,9 @@ override_doctype_dashboards = {
 # rejected or withdrawn draft Sales Order could never be deleted once its
 # decision email was queued.
 # A waiting automatic Webflow push never blocks deleting its product; the tick drops it.
-ignore_links_on_delete = ["ilL-Portal-Event", "ilL-Webflow-Auto-Push"]
+# Label print jobs keep their history (voided on delete), so they never block deleting a
+# draft Work Order or Sales Order.
+ignore_links_on_delete = ["ilL-Portal-Event", "ilL-Webflow-Auto-Push", "ilL-Label-Print-Job"]
 
 # Request Events
 # ----------------

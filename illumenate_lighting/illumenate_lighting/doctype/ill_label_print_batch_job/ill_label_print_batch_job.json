@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "allow_rename": 0,
+ "description": "A label in a print batch, in page order.",
+ "istable": 1,
+ "editable_grid": 0,
+ "field_order": [
+  "job",
+  "position",
+  "work_order",
+  "summary"
+ ],
+ "fields": [
+  {
+   "fieldname": "job",
+   "fieldtype": "Link",
+   "label": "Label",
+   "options": "ilL-Label-Print-Job",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "position",
+   "fieldtype": "Int",
+   "label": "Page",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "work_order",
+   "fieldtype": "Data",
+   "label": "Work Order",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Data",
+   "label": "Label",
+   "in_list_view": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Label-Print-Batch-Job",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

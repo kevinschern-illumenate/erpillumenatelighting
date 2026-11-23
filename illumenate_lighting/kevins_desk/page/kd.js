@@ -1,6 +1,7 @@
 /* Kevin's Desk. Phase 1: NOW bar, today's schedule, week themes. Phase 2: pipeline widgets (through the
    Command Center gateway), the Command Center's decisions, my ToDos. Phase 3: Gmail mailboxes and the one
-   list (ERPNext + ToDos + Gmail, ranked by the priority stack, grouped by hat).
+   list (ERPNext + ToDos + Gmail, ranked by the priority stack, grouped by hat). Done on a ToDo or Gmail row
+   closes the ToDo / hides the thread (kevins_desk/done.py) after a short Undo window.
    Inlined into /kd/<slug> by templates/pages/kevins_desk.py (never served from /assets).
    Boot data: window.KD_BOOT = { user, first_name, schedule: kevins_desk.schedule.payload(), command_center, api }.
    The clock is always Pacific (schedule.tz), whatever the laptop's time zone.
@@ -198,13 +199,26 @@
       <span class="badge ${tone}">${esc(w.total)}</span></div>${body}${more}</section>`;
   }
 
+  /* Done: ToDos and Gmail threads. The row strikes through with Undo for UNDO_MS, then the server is told. */
+  const UNDO_MS = 5000;
+  const pending = new Map(); // item id -> { item, timer, sending }
+  let LAST = null; // the last /today payload, so Done can re-render without a reload
+  const doneBtn = id => {
+    const p = pending.get(id);
+    if (!p) return `<button type="button" class="kd-done" data-done="${esc(id)}" title="Mark done" aria-label="Mark done">✓ Done</button>`;
+    return p.sending ? '<button type="button" class="kd-done" disabled>Saving…</button>'
+      : `<button type="button" class="kd-done undo" data-undo="${esc(id)}">Undo</button>`;
+  };
+  const todoId = t => t.id || `ToDo:${t.name}`;
+
   function todoRow(t) {
     const meta = [t.date ? `${esc(fmtd(t.date))}${flag(t.flag)}` : '<span class="calc">No date</span>'];
     if (t.priority === 'High') meta.push('<span class="badge warn">High</span>');
     if (t.ref) meta.push(out(t.ref.url, `${t.ref.dt} ${t.ref.name}`));
     if (t.gmail) meta.push(out(t.gmail, 'Open in Gmail'));
     (t.tags || []).forEach(tag => meta.push(`<span class="badge mute">${esc(tag)}</span>`));
-    return `<li class="kd-todo">${out(t.url, t.title)}<div class="kd-todo-m">${meta.join('')}</div></li>`;
+    const id = todoId(t);
+    return `<li class="kd-todo${pending.has(id) ? ' kd-pending' : ''}" data-id="${esc(id)}"><div class="kd-todo-b">${out(t.url, t.title)}<div class="kd-todo-m">${meta.join('')}</div></div>${doneBtn(id)}</li>`;
   }
 
   function todosCard(todos, error) {
@@ -236,10 +250,11 @@
     const meta = [`<span class="kd-src" data-src="${esc(it.source)}">${esc(SOURCE(it))}</span>`, party, when,
       it.amount != null ? esc(money(it.amount)) : ''].filter(Boolean).join('<span class="kd-sep">·</span>');
     const open = it.source === 'gmail' ? out(it.url, 'Open in Gmail') : '';
-    return `<li class="kd-item" data-id="${esc(it.id)}"><span class="kd-stack" data-stack="${esc(it.stack)}" title="${esc(it.stack)} · ${esc(STACK[it.stack] || '')}">${esc(it.stack)}</span>
+    const can = it.source === 'todo' || it.source === 'gmail';
+    return `<li class="kd-item${pending.has(it.id) ? ' kd-pending' : ''}" data-id="${esc(it.id)}"><span class="kd-stack" data-stack="${esc(it.stack)}" title="${esc(it.stack)} · ${esc(STACK[it.stack] || '')}">${esc(it.stack)}</span>
       <div class="kd-item-b"><div class="kd-item-t">${out(it.url, it.title)}${flag(it.flag)}</div>
       <div class="kd-item-m">${meta}${open ? `<span class="kd-sep">·</span>${open}` : ''}</div>
-      ${it.snippet ? `<div class="kd-snip">${esc(it.snippet)}</div>` : ''}</div></li>`;
+      ${it.snippet ? `<div class="kd-snip">${esc(it.snippet)}</div>` : ''}</div>${can ? doneBtn(it.id) : ''}</li>`;
   }
 
   function listCard(list, mailboxes) {
@@ -295,6 +310,77 @@
     store.set('kd.view', v);
   }
 
+  function renderLists() {
+    $('kdlist').innerHTML = listCard(LAST.list, LAST.mailboxes);
+    $('kdtodos').innerHTML = todosCard(LAST.pipeline.todos, LAST.pipeline.todos_error);
+  }
+
+  function findItem(id) {
+    if (!LAST) return null;
+    for (const g of (LAST.list && LAST.list.groups) || []) {
+      const it = g.items.find(x => x.id === id);
+      if (it) return it;
+    }
+    const t = (LAST.pipeline.todos || []).find(x => todoId(x) === id);
+    return t ? Object.assign({ source: 'todo' }, t, { id }) : null;
+  }
+
+  // take a finished item out of the payload: its group (dropped when empty), the counts and My ToDos
+  function drop(id, stack) {
+    const list = LAST.list || {};
+    let gone = 0;
+    list.groups = (list.groups || []).map(g => {
+      const items = g.items.filter(x => x.id !== id);
+      gone += g.items.length - items.length;
+      return Object.assign({}, g, { items });
+    }).filter(g => g.items.length);
+    if (gone) {
+      list.total = Math.max(0, (list.total || 0) - gone);
+      if (list.counts && list.counts[stack]) list.counts[stack] = Math.max(0, list.counts[stack] - gone);
+      if (list.counts && !list.counts[stack]) delete list.counts[stack];
+    }
+    LAST.pipeline.todos = (LAST.pipeline.todos || []).filter(t => todoId(t) !== id);
+  }
+
+  function markDone(id) {
+    const item = findItem(id);
+    if (!item || pending.has(id) || !API.done) return;
+    pending.set(id, { item, timer: root.setTimeout(() => sendDone(id), UNDO_MS), sending: false });
+    renderLists();
+  }
+
+  function undoDone(id) {
+    const p = pending.get(id);
+    if (!p || p.sending) return;
+    root.clearTimeout(p.timer);
+    pending.delete(id);
+    renderLists();
+  }
+
+  async function sendDone(id) {
+    const p = pending.get(id);
+    if (!p) return;
+    p.sending = true;
+    renderLists();
+    try {
+      await postJSON(API.done, { item: id, message_id: p.item.message_id || null, title: p.item.title || null });
+      pending.delete(id);
+      drop(id, p.item.stack);
+    } catch (e) {
+      pending.delete(id);
+      $('kdstamp').textContent = `Couldn't mark “${p.item.title}” done (${e.message})`;
+    }
+    renderLists();
+  }
+
+  function onDoneClick(e) {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    const d = t.closest('[data-done]'), u = d ? null : t.closest('[data-undo]');
+    if (d) markDone(d.getAttribute('data-done'));
+    else if (u) undoDone(u.getAttribute('data-undo'));
+  }
+
   let loading = false;
   async function load(refresh) {
     if (loading || !API.today) return;
@@ -306,9 +392,9 @@
     const [today, sig] = await Promise.allSettled([getJSON(API.today, refresh), getJSON(API.signals, refresh)]);
     if (today.status === 'fulfilled') {
       const t = today.value, p = t.pipeline;
-      $('kdlist').innerHTML = listCard(t.list, t.mailboxes);
+      LAST = t;
+      renderLists();
       $('kdpipe').innerHTML = p.widgets.map(widgetCard).join('');
-      $('kdtodos').innerHTML = todosCard(p.todos, p.todos_error);
       $('kdmail').innerHTML = mailCard(t.mailboxes);
       $('kdstamp').textContent = `Updated ${clock12(t.built_at)}${t.cached ? ' (cached)' : ''}`;
     } else {
@@ -327,6 +413,8 @@
   if (BOOT.command_center) $('kdcc').href = BOOT.command_center;
   $('kdrefresh').addEventListener('click', () => load(true));
   ['list', 'pipe'].forEach(k => $('kdtab-' + k).addEventListener('click', () => setView(k)));
+  $('kdlist').addEventListener('click', onDoneClick);
+  $('kdtodos').addEventListener('click', onDoneClick);
   $('kdmail').addEventListener('click', e => {
     const b = e.target && e.target.closest && e.target.closest('[data-connect]');
     if (b) connect(b.getAttribute('data-connect'), b);

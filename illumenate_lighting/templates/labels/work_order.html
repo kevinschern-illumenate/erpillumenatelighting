@@ -1,0 +1,12 @@
+{#- Work order label (1.5 x 2.5): internal tracking on the folder, tote or build. -#}
+{% from "templates/labels/_label.html" import top_strip, qr, line with context %}
+{{ top_strip(c) }}
+<div class="abs b" style="left:1.5mm; top:7.3mm; width:60mm; font-size:{{ fit(c.wo, 13, 15, 9) }}pt; line-height:1;">{{ truncate(c.wo, 30) }}</div>
+{%- set head = [c.so and ("SO " ~ c.so) or "", c.fixture_type, c.section] | select | join(" · ") %}
+{{ line(head, 1.5, 14.0, 60, fit(head, 34, 7.5, 6), True, 46) }}
+{{ line(c.part_number, 1.5, 17.6, 60, fit(c.part_number, 40, 7, 6), False, 50) }}
+{{ line(c.length and ("Length " ~ c.length) or "", 1.5, 22.0, 46, 6.5, False, 34) }}
+{{ line(c.ship_by and ("Ship by " ~ c.ship_by) or "", 1.5, 25.2, 46, 6.5, True, 34) }}
+{{ line(c.customer, 1.5, 28.4, 46, 6.5, False, 34) }}
+{{ line(c.build_qty and ("Build qty " ~ c.build_qty) or "", 1.5, 31.6, 46, 6.5, True, 34) }}
+{{ qr(c) }}

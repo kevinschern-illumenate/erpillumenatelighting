@@ -90,7 +90,7 @@ function node(id, listeners) {
 function page({ when = '2026-11-17T18:42:00Z', api, fetch, search = '', saved = null } = {}) {
   const listeners = {}, nodes = {};
   IDS.forEach(id => { nodes[id] = node(id, listeners); });
-  const timers = [], requests = [], assigned = [], replaced = [], stored = {};
+  const timers = [], requests = [], assigned = [], replaced = [], stored = {}, later = [];
   const RealDate = Date;
   class FixedDate extends RealDate { constructor(...a) { super(...(a.length ? a : [when])); } }
   const ctx = load({
@@ -99,13 +99,15 @@ function page({ when = '2026-11-17T18:42:00Z', api, fetch, search = '', saved = 
     KD_CSRF: 'csrf-1',
     document: { hidden: false, title: '', getElementById: id => nodes[id] || null, addEventListener() {} },
     setInterval: (fn, ms) => timers.push(ms),
+    setTimeout: (fn, ms) => later.push({ fn, ms, cleared: false }),
+    clearTimeout: id => { later[id - 1].cleared = true; },
     fetch: fetch && ((url, opts) => { requests.push({ url, opts }); return fetch(url, opts); }),
     location: { search, pathname: '/kd/slug', assign: url => assigned.push(url) },
     history: { replaceState: (a, b, url) => replaced.push(url) },
     localStorage: { getItem: k => (k === 'kd.view' ? saved : stored[k] || null), setItem: (k, v) => { stored[k] = v; } },
     Promise,
   });
-  return { ctx, nodes, timers, requests, listeners, assigned, replaced, stored };
+  return { ctx, nodes, timers, requests, listeners, assigned, replaced, stored, later };
 }
 
 test('the page renders the NOW bar, today and the week into the Command Center shell', () => {
@@ -124,7 +126,7 @@ test('the page renders the NOW bar, today and the week into the Command Center s
   assert.deepEqual(timers, [15000, 300000]);
 });
 
-const API = { today: '/api/method/x.today', signals: '/api/method/x.signals', connect: '/api/method/x.connect_mailbox' };
+const API = { today: '/api/method/x.today', signals: '/api/method/x.signals', connect: '/api/method/x.connect_mailbox', done: '/api/method/x.mark_done' };
 const PIPELINE = {
   built_at: '2026-11-17T10:42:05', cached: true, todos_error: null,
   widgets: [
@@ -144,7 +146,8 @@ const PIPELINE = {
 };
 const GMAIL_ITEM = { id: 'gmail:sales@x.com:t1', source: 'gmail', dt: 'Gmail', mailbox: 'sales@x.com', title: 'RFQ <lobby>', party: 'Acme',
   party_link: { dt: 'Customer', name: 'Acme', url: '/desk/customer/Acme' }, status: 'Needs reply', flag: 'late', stack: 2, hat: 'sales',
-  url: 'https://mail.google.com/mail/?authuser=sales@x.com#all/t1', snippet: 'Can you price 40 coves?', date: '2026-11-15', rank: 2 };
+  url: 'https://mail.google.com/mail/?authuser=sales@x.com#all/t1', snippet: 'Can you price 40 coves?', date: '2026-11-15', rank: 2,
+  message_id: 'm9' };
 const TODAY = {
   built_at: '2026-11-17T10:42:05', cached: true, pipeline: PIPELINE,
   mailboxes: [
@@ -266,4 +269,86 @@ test('a failed load says so instead of showing an empty desk', async () => {
 test('a hidden panel stays hidden even though columns are flex containers', () => {
   const css = fs.readFileSync(path.join(REPO, 'illumenate_lighting/kevins_desk/page/kd.css'), 'utf8');
   assert.match(css, /#cc\.kd \[hidden\] \{ display: none !important; \}/);
+});
+
+const clickOn = (listeners, panel, attr, id) =>
+  listeners[panel + ':click']({ target: { closest: sel => (sel === `[${attr}]` ? { getAttribute: () => id } : null) } });
+const tick = () => new Promise(r => setTimeout(r, 0));
+const serveDone = fail => (url, opts) => {
+  if (opts && opts.method === 'POST') {
+    return fail ? Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) }) : ok({ done: JSON.parse(opts.body).item });
+  }
+  return ok(url.includes('signals') ? SIGNALS : JSON.parse(JSON.stringify(TODAY)));
+};
+
+test('Done shows on ToDo and Gmail rows only, and in My ToDos', async () => {
+  const { ctx, nodes } = page({ api: API, fetch: serveDone() });
+  await ctx.KDPage.ready;
+  const done = [...nodes.kdlist.innerHTML.matchAll(/data-done="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(done, ['gmail:sales@x.com:t1', 'ToDo:T-x']);
+  const todos = [...nodes.kdtodos.innerHTML.matchAll(/data-done="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(todos, ['ToDo:T-late', 'ToDo:T-today', 'ToDo:T-up']);
+});
+
+test('Done strikes the row with Undo, then tells the server and drops it from the list', async () => {
+  const { ctx, nodes, listeners, requests, later } = page({ api: API, fetch: serveDone() });
+  await ctx.KDPage.ready;
+  clickOn(listeners, 'kdlist', 'data-done', 'gmail:sales@x.com:t1');
+  assert.match(nodes.kdlist.innerHTML, /class="kd-item kd-pending" data-id="gmail:sales@x.com:t1"/);
+  assert.match(nodes.kdlist.innerHTML, /data-undo="gmail:sales@x.com:t1">Undo</);
+  assert.equal(requests.filter(r => r.opts && r.opts.method === 'POST').length, 0);
+  assert.equal(later.length, 1);
+  assert.equal(later[0].ms, 5000);
+  later[0].fn();
+  assert.match(nodes.kdlist.innerHTML, /disabled>Saving…</);
+  await tick();
+  const post = requests.find(r => r.opts && r.opts.method === 'POST');
+  assert.equal(post.url, API.done);
+  assert.equal(post.opts.headers['X-Frappe-CSRF-Token'], 'csrf-1');
+  assert.deepEqual(JSON.parse(post.opts.body), { item: 'gmail:sales@x.com:t1', message_id: 'm9', title: 'RFQ <lobby>' });
+  const html = nodes.kdlist.innerHTML;
+  assert.doesNotMatch(html, /RFQ &lt;lobby&gt;/);
+  assert.match(html, /SO-1/);
+  assert.doesNotMatch(html, /kd-count" title="[^"]*"><span class="kd-stack" data-stack="2"/);
+});
+
+test('Undo keeps the item and nothing is sent', async () => {
+  const { ctx, nodes, listeners, requests, later } = page({ api: API, fetch: serveDone() });
+  await ctx.KDPage.ready;
+  clickOn(listeners, 'kdtodos', 'data-done', 'ToDo:T-late');
+  assert.match(nodes.kdtodos.innerHTML, /class="kd-todo kd-pending" data-id="ToDo:T-late"/);
+  clickOn(listeners, 'kdtodos', 'data-undo', 'ToDo:T-late');
+  assert.equal(later[0].cleared, true);
+  assert.match(nodes.kdtodos.innerHTML, /class="kd-todo" data-id="ToDo:T-late"/);
+  assert.match(nodes.kdtodos.innerHTML, /data-done="ToDo:T-late"/);
+  await tick();
+  assert.equal(requests.filter(r => r.opts && r.opts.method === 'POST').length, 0);
+});
+
+test('an emptied hat group goes, and a ToDo done in My ToDos updates its counts', async () => {
+  const { ctx, nodes, listeners, requests, later } = page({ api: API, fetch: serveDone() });
+  await ctx.KDPage.ready;
+  clickOn(listeners, 'kdlist', 'data-done', 'ToDo:T-x');
+  later[0].fn();
+  await tick();
+  assert.deepEqual(JSON.parse(requests.find(r => r.opts && r.opts.method === 'POST').opts.body),
+    { item: 'ToDo:T-x', message_id: null, title: 'Renew domain' });
+  assert.doesNotMatch(nodes.kdlist.innerHTML, /No hat · admin/);
+  assert.doesNotMatch(nodes.kdlist.innerHTML, /Renew domain/);
+  clickOn(listeners, 'kdtodos', 'data-done', 'ToDo:T-up');
+  later[1].fn();
+  await tick();
+  assert.doesNotMatch(nodes.kdtodos.innerHTML, /Plan Q1/);
+  assert.match(nodes.kdtodos.innerHTML, /1 overdue · 1 due today · 2 open/);
+});
+
+test('a refused Done puts the item back and says so', async () => {
+  const { ctx, nodes, listeners, later } = page({ api: API, fetch: serveDone(true) });
+  await ctx.KDPage.ready;
+  clickOn(listeners, 'kdlist', 'data-done', 'gmail:sales@x.com:t1');
+  later[0].fn();
+  await tick();
+  assert.match(nodes.kdlist.innerHTML, /class="kd-item" data-id="gmail:sales@x.com:t1"/);
+  assert.match(nodes.kdlist.innerHTML, /data-done="gmail:sales@x.com:t1"/);
+  assert.match(nodes.kdstamp.textContent, /Couldn't mark “RFQ <lobby>” done \(HTTP 404\)/);
 });

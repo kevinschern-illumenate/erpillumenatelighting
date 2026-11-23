@@ -1,0 +1,243 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "track_changes": 1,
+ "allow_rename": 0,
+ "description": "One physical reel of LED tape or neon. Its ID is printed as a Code 128 barcode and never changes. Lengths change only through ilL-Reel-Movement rows.",
+ "autoname": "R-.#####",
+ "naming_rule": "Expression (old style)",
+ "title_field": "item_code",
+ "show_title_field_in_link": 0,
+ "search_fields": "item_code,location,supplier_lot",
+ "field_order": [
+  "status",
+  "item_code",
+  "item_name",
+  "warehouse",
+  "location",
+  "column_break_length",
+  "length_display",
+  "current_length_mm",
+  "starting_length_mm",
+  "section_source",
+  "supplier",
+  "purchase_receipt",
+  "supplier_lot",
+  "column_break_source",
+  "received_on",
+  "source_reel",
+  "section_count",
+  "counted_on",
+  "counted_by",
+  "column_break_count",
+  "count_method",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Tag only\nSealed\nOpen\nRemnant\nIn use\nEmpty\nScrapped\nMissing",
+   "default": "Tag only",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "bold": 1,
+   "read_only": 1,
+   "description": "Tag only: a printed ID tag not yet counted onto a reel."
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "link_filters": "[[\"Item\", \"ill_reel_tracked\", \"=\", 1]]"
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "fetch_from": "item_code.item_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Warehouse",
+   "options": "Warehouse",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "label": "Shelf",
+   "options": "ilL-Reel-Location",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_length",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "length_display",
+   "fieldtype": "Data",
+   "label": "Length Now",
+   "read_only": 1,
+   "in_list_view": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "current_length_mm",
+   "fieldtype": "Float",
+   "label": "Length Now (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "starting_length_mm",
+   "fieldtype": "Float",
+   "label": "Starting Length (mm)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Source"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "purchase_receipt",
+   "fieldtype": "Link",
+   "label": "Purchase Receipt",
+   "options": "Purchase Receipt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "supplier_lot",
+   "fieldtype": "Data",
+   "label": "Supplier Lot / Bin",
+   "description": "LED bin or lot from the box. The planner prefers one lot per sales order line."
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "received_on",
+   "fieldtype": "Date",
+   "label": "Received On"
+  },
+  {
+   "fieldname": "source_reel",
+   "fieldtype": "Link",
+   "label": "Cut From Reel",
+   "options": "ilL-Reel",
+   "read_only": 1,
+   "description": "Set on a remnant made from a cut piece."
+  },
+  {
+   "fieldname": "section_count",
+   "fieldtype": "Section Break",
+   "label": "Count"
+  },
+  {
+   "fieldname": "counted_on",
+   "fieldtype": "Date",
+   "label": "Counted On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "counted_by",
+   "fieldtype": "Link",
+   "label": "Counted By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_count",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "count_method",
+   "fieldtype": "Select",
+   "label": "Count Method",
+   "options": "\nFull\nMeasured\nWeighed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ilLumenate Lighting",
+ "name": "ilL-Reel",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

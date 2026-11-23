@@ -1,0 +1,45 @@
+{#- Work order packet checklist (4 x 6, Rollo): goes on the folder. Every label in the packet with a box, then what to pull.
+    About 11 checklist + pull rows fit; the checklist keeps up to 8 and the pull list gets the rest. -#}
+{%- if c.logo_src %}<img class="logo" src="{{ c.logo_src }}" style="left:4mm; top:4mm; height:9mm; max-width:44mm;">{% endif %}
+<div class="band" style="right:4mm; top:4mm; width:52mm; height:8mm; line-height:8.2mm; font-size:10pt;">{{ c.doc_label }}</div>
+<div class="abs b" style="left:4mm; top:16mm; width:63mm; font-size:{{ fit(c.wo, 13, 20, 11) }}pt; line-height:1.1;">{{ truncate(c.wo, 30) }}</div>
+{%- if c.so %}<div class="abs b" style="left:4mm; top:25mm; width:63mm; font-size:{{ fit("SO " ~ c.so, 17, 15, 10) }}pt; line-height:1.1;">SO {{ truncate(c.so, 30) }}</div>{% endif %}
+{%- if c.qr_src %}<img class="qr" src="{{ c.qr_src }}" style="right:4mm; top:15mm; width:26mm; height:26mm;">{% endif %}
+{%- macro pair(label, value) -%}
+{%- if value %}<td class="b" style="width:19mm; padding:0.5mm 0; vertical-align:top;">{{ label }}</td><td style="padding:0.5mm 2mm 0.5mm 0; vertical-align:top;">{{ truncate(value, 30) }}</td>{% else %}<td></td><td></td>{% endif -%}
+{%- endmacro %}
+{%- macro wide(label, value) -%}
+{%- if value %}<tr><td class="b" style="padding:0.5mm 0; vertical-align:top;">{{ label }}</td><td colspan="3" style="padding:0.5mm 0;">{{ truncate(value, 64) }}</td></tr>{% endif -%}
+{%- endmacro %}
+<div class="abs" style="left:4mm; top:44mm; right:4mm; bottom:9mm; white-space:normal; font-size:7.5pt; line-height:1.25;">
+	<table style="width:100%; margin-bottom:2mm;">
+		{%- if c.customer or c.po %}<tr>{{ pair("Customer", c.customer) }}{{ pair("PO", c.po) }}</tr>{% endif %}
+		{%- if c.project or c.ship_by %}<tr>{{ pair("Project", c.project) }}{{ pair("Ship by", c.ship_by) }}</tr>{% endif %}
+		{%- if c.fixture_type or c.section %}<tr>{{ pair("Type", c.fixture_type) }}{{ pair("Section", c.section) }}</tr>{% endif %}
+		{%- if c.length or c.build_qty %}<tr>{{ pair("Length", c.length) }}{{ pair("Build qty", c.build_qty) }}</tr>{% endif %}
+		{{ wide("Part no.", c.part_number) }}
+		{{ wide("Item", c.item_name) }}
+	</table>
+	{%- set checks = (c.checklist or [])[:8] %}
+	{%- set pulls = (c.pull or [])[:11 - checks | length] %}
+	{%- if checks %}
+	<div class="b" style="font-size:8.5pt; border-bottom:0.3mm solid #000; margin-bottom:0.8mm;">Labels in this packet</div>
+	<table style="width:100%;">
+	{%- for item in checks %}
+		<tr><td style="width:5mm; padding:0.45mm 0;"><span class="box"></span></td><td style="padding:0.45mm 0;">{{ truncate(item, 60) }}</td></tr>
+	{%- endfor %}
+	</table>
+	{%- if (c.checklist | length) > (checks | length) %}<div style="font-size:7pt;">+ {{ (c.checklist | length) - (checks | length) }} more on the work order</div>{% endif %}
+	{%- endif %}
+	{%- if pulls %}
+	<div class="b" style="font-size:8.5pt; border-bottom:0.3mm solid #000; margin:2mm 0 0.8mm;">Pull</div>
+	<table style="width:100%;">
+	{%- for row in pulls %}
+		<tr><td style="width:5mm; padding:0.45mm 0;"><span class="box"></span></td><td style="padding:0.45mm 0;">{{ truncate(row.item, 44) }}</td><td class="b" style="text-align:right; padding:0.45mm 0; white-space:nowrap;">{{ row.qty }}</td></tr>
+	{%- endfor %}
+	</table>
+	{%- set more = (c.pull | length) - (pulls | length) + (c.pull_more or 0) %}
+	{%- if more > 0 %}<div style="font-size:7pt;">+ {{ more }} more rows on the work order</div>{% endif %}
+	{%- endif %}
+</div>
+<div class="abs" style="left:4mm; right:4mm; bottom:3.5mm; font-size:7pt;">{% if c.printed_on %}Printed {{ c.printed_on }} · {% endif %}Page 1 of 1</div>

@@ -150,7 +150,7 @@ def mail_module(rows=(), statuses=None):
 class ThreadState(unittest.TestCase):
 	def read(self, t):
 		with mail_module() as (mail, _, _mb):
-			return mail.read_thread(t, ME, OURS, NOW)
+			return mail.read_thread(t, ME, OURS, NOW, TEAM)
 
 	def test_customer_wrote_last_in_the_inbox_needs_a_reply(self):
 		info = self.read(
@@ -218,6 +218,155 @@ class ThreadState(unittest.TestCase):
 			with self.subTest(label):
 				self.assertTrue(self.read(thread("t", m))["automated"])
 		self.assertFalse(self.read(thread("t", msg("Auto Parts <sales@autoparts.example>", 1)))["automated"])
+
+
+def said(message, snippet):
+	message["snippet"] = snippet
+	return message
+
+
+class NoiseRules(unittest.TestCase):
+	"""Real shapes from the first live run (Nov 23): what is owed, and what is noise."""
+
+	def read(self, t, team=TEAM):
+		with mail_module() as (mail, _, _mb):
+			return mail.read_thread(t, ME, OURS, NOW, team)
+
+	def test_jay_writing_to_a_customer_from_sales_is_waiting_on_the_customer(self):
+		info = self.read(
+			thread(
+				"t", msg("Jay <jay@illumenate.example>", 1, to="kelly@life.example, sales@illumenate.example")
+			)
+		)
+		self.assertEqual(
+			(info["state"], info["counterpart"], info["automated"]), ("recent", "kelly@life.example", False)
+		)
+		info = self.read(thread("t", msg("jay@illumenate.example", 5, to="kelly@life.example")))
+		self.assertEqual(info["state"], "waiting")
+
+	def test_company_system_senders_owe_nothing(self):
+		for sender in (
+			"info@illumenate.example",
+			"Jared Payne <info@illumenate.example>",
+			"notifications@illumenate.example",
+		):
+			with self.subTest(sender=sender):
+				info = self.read(thread("t", msg(sender, 0.5, subject="Ticket 0185 reopened")))
+				self.assertTrue(info["automated"])
+
+	def test_accounting_alias_is_charlotte_not_a_system(self):
+		team = dict(TEAM, **{"accounting@illumenate.example": {"key": "charlotte", "name": "Charlotte"}})
+		info = self.read(
+			thread(
+				"t", said(msg("accounting@illumenate.example", 1), "What is the project name for invoice 24?")
+			),
+			team,
+		)
+		self.assertEqual((info["state"], info["automated"]), ("reply", False))
+
+	def test_a_thank_you_owes_nothing_but_a_thanks_with_a_request_does(self):
+		acks = {
+			"esther": (
+				"Esther <esther@gl.example>",
+				"Thank you so much, Kevin! ------------- Thanks&amp;Best regards! Esther Guo International Sales",
+			),
+			"lenny": (
+				"Lenny Halvorsen <lenny@desco.example>",
+				"Thank you, Kevin. -Lenny Sent from my iPhone On Nov 18, 2026, at 5:26 PM",
+			),
+			"shine": (
+				"shine@blueview.example",
+				"Hi Kevin, Thank you so much! Best regards. Shine Quick Holiday Reminder No orders",
+			),
+			"britian": (
+				"Britian Whitley <b@backcountry.example>",
+				"Awesome, thank you all for making this happen? Britian Whitley | Backcountry Electric",
+			),
+		}
+		for key, (sender, snippet) in acks.items():
+			with self.subTest(key):
+				self.assertEqual(self.read(thread("t", said(msg(sender, 1), snippet)))["state"], "none")
+		owed = {
+			"benj": (
+				"Benjamin Dunn <benj@sound.example>",
+				"Thanks Kevin! Here is what I am up against. See attached. Half moon cabinet toe kick light has to be Lutron",
+			),
+			"kelly": (
+				"Kelly <kelly@life.example>",
+				"Thanks for that Jay. What does shipping time look like from time of order? Reach out anytime",
+			),
+			"ron": (
+				"Ron <ron@tda.example>",
+				"This is fine for short term Kevin and thank you for the help getting us something",
+			),
+		}
+		for key, (sender, snippet) in owed.items():
+			with self.subTest(key):
+				self.assertEqual(self.read(thread("t", said(msg(sender, 1), snippet)))["state"], "reply")
+
+	def test_vendor_system_subdomains_are_automated(self):
+		for sender in ("feedback@service.alibaba.com", "credit@notice.alibaba.com"):
+			with self.subTest(sender=sender):
+				self.assertTrue(self.read(thread("t", msg(sender, 1)))["automated"])
+
+	def test_waiting_more_than_30_days_is_stale(self):
+		info = self.read(
+			thread("t", msg("kevins@illumenate.example", 31, to="buyer@acme.example", labels=("SENT", "L2")))
+		)
+		self.assertEqual(info["state"], "stale")
+
+	def test_cold_pitches_from_unknown_senders_are_dropped_and_unlabelled(self):
+		s_ = FakeSession(
+			threads=[
+				thread(
+					"kent",
+					said(
+						msg(
+							"kent@woojong.example",
+							1,
+							subject="Special Promotion - Great Price",
+							labels=("INBOX", "L1"),
+						),
+						"Hope you are doing well! We are running a special promotion",
+					),
+				),
+				thread(
+					"fair",
+					said(
+						msg("us01@lumiland.example", 1, subject="ilLumenate x Lumiland"),
+						"We would like to invite you to the Hong Kong International Lighting Fair",
+					),
+				),
+				thread(
+					"acme",
+					said(
+						msg("buyer@acme.example", 1, subject="New products for the lobby?"),
+						"Can you quote your new products for the lobby?",
+					),
+				),
+			]
+		)
+		with mail_module() as (mail, _, _mb):
+			items, _changed = mail.ingest(
+				gmail.Gmail({}, session=s_), "sales@illumenate.example", ME, OURS, TEAM, DIRECTORY, NOW
+			)
+		self.assertEqual(
+			[i["name"] for i in items], ["acme"]
+		)  # a known customer saying "new products" is still owed
+		self.assertEqual(s_.modifies()["kent"], {"addLabelIds": [], "removeLabelIds": ["L1"]})
+
+
+class TeamAliases(unittest.TestCase):
+	def test_accounting_resolves_to_charlotte(self):
+		with load_service(PKG + ".team") as (team, frappe):
+			frappe.db.get_value.side_effect = lambda dt, filters, field: {
+				"jay@%": "jay@illumenate.example",
+				"charlotte@%": "charlotte@illumenate.example",
+			}.get(filters["name"][1])
+			out = team.resolve()
+		self.assertEqual(out["accounting@illumenate.example"]["name"], "Charlotte")
+		self.assertIs(out["accounting@illumenate.example"], out["charlotte@illumenate.example"])
+		self.assertNotIn("ryanb@illumenate.example", out)
 
 
 class Ingest(unittest.TestCase):
@@ -296,6 +445,48 @@ class Ingest(unittest.TestCase):
 		self.assertEqual(
 			(got["late"]["who"], got["late"]["stack"], got["late"]["topic"]), ("lead", 1, "risk")
 		)
+
+	def test_a_thread_marked_done_stays_hidden_until_a_new_message(self):
+		threads = [
+			thread("seen", msg("buyer@acme.example", 2, subject="Lobby", labels=("INBOX", "L1"), mid="m1")),
+			thread(
+				"moved",
+				msg("kevins@illumenate.example", 5, to="buyer@acme.example", labels=("SENT", "L2"), mid="m2"),
+				msg("buyer@acme.example", 1, subject="Re: Lobby", labels=("INBOX",), mid="m3"),
+			),
+			thread("open", msg("buyer@acme.example", 2, subject="Coves", labels=("INBOX",), mid="m4")),
+		]
+		done = {
+			("sales@illumenate.example", "seen"): "m1",  # still the last message: hidden
+			("sales@illumenate.example", "moved"): "m2",  # they wrote since: back on the list
+			("kevins@illumenate.example", "open"): "m4",  # another mailbox's thread with the same id
+		}
+		s = FakeSession(threads=threads)
+		with mail_module() as (mail, _, _mb):
+			items, _changed = mail.ingest(
+				gmail.Gmail({}, session=s),
+				"sales@illumenate.example",
+				ME,
+				OURS,
+				TEAM,
+				DIRECTORY,
+				NOW,
+				done=done,
+			)
+		self.assertEqual(sorted(i["name"] for i in items), ["moved", "open"])
+		self.assertEqual(s.modifies()["seen"], {"addLabelIds": [], "removeLabelIds": ["L1"]})
+		self.assertEqual(s.modifies()["moved"], {"addLabelIds": ["L1"], "removeLabelIds": ["L2"]})
+
+	def test_build_passes_the_done_threads_to_every_mailbox(self):
+		rows = [{"mailbox": "sales@illumenate.example", "label": "sales@"}]
+		statuses = {"sales@illumenate.example": {"state": "connected", "auth_header": {"Authorization": "B"}}}
+		s = FakeSession(threads=[thread("t", msg("buyer@acme.example", 1, mid="m1"))])
+		with mail_module(rows, statuses) as (mail, _frappe, _mb):
+			mail.Gmail = lambda header: gmail.Gmail(header, session=s)
+			mail.load_directory = MagicMock(return_value=DIRECTORY)
+			out = mail.build(OWNER, TEAM, NOW, done={("sales@illumenate.example", "t"): "m1"})
+		self.assertEqual(out["threads"], [])
+		self.assertEqual(out["mailboxes"][0]["threads"], 0)
 
 
 class Scopes(unittest.TestCase):
@@ -492,6 +683,12 @@ class Ranking(unittest.TestCase):
 			ranking.todo_stack({"title": "Customer says coves arrived damaged"}, team), (1, "sales")
 		)
 		self.assertEqual(ranking.todo_stack({"title": "Renew domain"}, team), (7, None))
+		self.assertEqual(
+			ranking.todo_stack({"title": "Frappe Cloud reported Bench Deploy Failed"}, team), (6, "systems")
+		)
+		self.assertEqual(
+			ranking.todo_stack({"title": "Re-run failed QBO bill-payment syncs"}, team), (6, "systems")
+		)
 
 	def test_merge_ranks_by_stack_owed_before_waiting_then_late_then_oldest(self):
 		def it(i, stack, hat, date, flag=None):
