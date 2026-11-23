@@ -74,7 +74,7 @@ class DoctypeJsonTest(unittest.TestCase):
 			"about", "case_study", "gallery_type", "applications", "services_provided",
 			"products_used", "quote", "quote_attribution", "location", "completion_date", "credits",
 			"videos", "custom_items", "target_brands", "sync_targets", "status_guide",
-			"publication_status",
+			"publication_status", "publication_panel",
 		}
 		self.assertEqual(expected, {n for n, f in fields.items() if f["fieldtype"] not in (
 			"Section Break", "Column Break", "Tab Break")})
@@ -90,12 +90,23 @@ class DoctypeJsonTest(unittest.TestCase):
 		self.assertEqual(order[order.index("products_used") + 1], "custom_items")
 		self.assertLess(order.index("custom_items"), order.index("credits_section"))
 
-	def test_the_publishing_section_follows_the_status_guide_at_the_bottom(self):
+	def test_the_webflow_publication_panel_sits_under_the_status_guide_at_the_bottom(self):
+		doc = load_doctype("ill_webflow_gallery")
+		fields = {f["fieldname"]: f for f in doc["fields"]}
+		self.assertEqual(
+			doc["field_order"][-4:],
+			["status_guide_section", "status_guide", "publication_panel_section", "publication_panel"],
+		)
+		self.assertEqual(fields["publication_panel_section"]["fieldtype"], "Section Break")
+		self.assertEqual(fields["publication_panel_section"]["label"], "Webflow publication")
+		self.assertEqual(fields["publication_panel"]["fieldtype"], "HTML")
+
+	def test_the_publishing_fields_stay_above_the_status_guide(self):
 		order = load_doctype("ill_webflow_gallery")["field_order"]
 		self.assertEqual(
-			order[-5:],
-			["status_guide_section", "status_guide", "publishing_section", "target_brands", "sync_targets"],
+			order[order.index("publishing_section") :][:3], ["publishing_section", "target_brands", "sync_targets"]
 		)
+		self.assertLess(order.index("sync_targets"), order.index("status_guide_section"))
 
 	def test_status_guide_is_a_collapsed_section(self):
 		doc = load_doctype("ill_webflow_gallery")
