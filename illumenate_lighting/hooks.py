@@ -248,6 +248,7 @@ jinja = {
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_qty_parts",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_references",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_schedule",
+		"illumenate_lighting.illumenate_lighting.printing.ill_print_schedule_prices",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_sections",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_specs",
 		"illumenate_lighting.illumenate_lighting.printing.ill_print_supplier_parts",

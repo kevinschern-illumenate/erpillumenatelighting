@@ -458,3 +458,174 @@ class FullLiterature(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
+
+
+class GeneratedGather(unittest.TestCase):
+	"""generated_spec_submittals: each line gets its template's generated spec sheet, filled."""
+
+	def gather(self, *rows, resolved=None, inspect=None, fill=None, generated=True):
+		saved = []
+		stubs = {
+			ROOT + ".api.spec_submittal": types.ModuleType("spec_submittal"),
+			ROOT + ".api.spec_sheet_steps": types.ModuleType("spec_sheet_steps"),
+			ROOT + ".api.spec_sheet_fill": types.ModuleType("spec_sheet_fill"),
+			ROOT + ".api.exports": types.ModuleType("exports"),
+			ROOT + ".portal.build_documents": types.ModuleType("build_documents"),
+			ROOT + ".portal.line_documents": types.ModuleType("line_documents"),
+		}
+		submittal = stubs[ROOT + ".api.spec_submittal"]
+		submittal.generate_filled_submittal = MagicMock(
+			return_value={"success": True, "file_url": "/private/files/old.pdf"}
+		)
+		submittal.generate_filled_neon_submittal = MagicMock()
+		submittal.generate_filled_sheet_submittal = MagicMock()
+		submittal.generate_filled_kit_submittal = MagicMock()
+		submittal._get_file_doc_by_url = lambda url: types.SimpleNamespace(get_content=lambda: b"%PDF-sheet")
+		stubs[ROOT + ".api.spec_sheet_steps"].resolve = MagicMock(
+			return_value=resolved
+			if resolved is not None
+			else {
+				"template_doctype": "ilL-Fixture-Template",
+				"template": "ILL-SH03-SW",
+				"build": {"doctype": "ilL-Configured-Fixture", "name": "CF1"},
+				"sheet_url": "/files/sh03.pdf",
+				"part_number": "ILL-SH03-SW-20-30K",
+				"steps": {"1": "20", "2": "30K"},
+				"text": {"project_name": "P", "fixture_type": "L1", "project_location": "Lobby"},
+				"warnings": ["CCT: the part number says 30K, the build says 27K"],
+			}
+		)
+		stubs[ROOT + ".api.spec_sheet_fill"].inspect = MagicMock(
+			return_value=inspect or {"has_form": True, "steps": {"1": ["20"], "2": ["30K"]}}
+		)
+		stubs[ROOT + ".api.spec_sheet_fill"].fill = MagicMock(
+			return_value=fill
+			or {
+				"pdf": b"%PDF-filled",
+				"selected": {"1": "20", "2": "30K"},
+				"unmatched": {},
+				"missing_steps": [],
+				"highlights": 2,
+				"highlight_style": "steps",
+			}
+		)
+
+		def save(name, content, doctype, docname):
+			saved.append((name, content, doctype, docname))
+			return types.SimpleNamespace(file_url=f"/private/files/{name}")
+
+		stubs[ROOT + ".api.exports"]._save_file_ignore_permissions = save
+		stubs[ROOT + ".portal.build_documents"].generate_group = MagicMock()
+		stubs[ROOT + ".portal.line_documents"].active = lambda schedule, line: []
+		self.stubs = stubs
+		with load_service(ROOT + ".portal.packets", stubs) as (module, frappe):
+			frappe.db.get_value.side_effect = lambda doctype, name, field, **kw: (
+				"T1" if field == "fixture_template" else "/files/t1.pdf"
+			)
+			warnings = []
+			lines = module.gather(
+				Record(name="S1", lines=list(rows)), warnings, job_name="JOB-1", generated=generated
+			)
+			return lines, warnings, saved
+
+	@staticmethod
+	def fixture_row(**values):
+		return Record(
+			dict(idx=1, line_id="L1", qty=2, location="Lobby", notes=None, manufacturer_type="ILLUMENATE"),
+			name="R1",
+			line_key="K1",
+			configured_fixture="CF1",
+			**values,
+		)
+
+	def test_a_fixture_line_gets_its_filled_generated_sheet(self):
+		lines, warnings, saved = self.gather(self.fixture_row())
+		entry = lines[0]
+		self.assertEqual(entry["source_kind"], "generated_sheet")
+		self.assertTrue(entry["has_submittal"])
+		self.assertEqual(entry["spec_document_url"], "/private/files/L1 ILL-SH03-SW-20-30K.pdf")
+		self.assertEqual(saved[0][1:], (b"%PDF-filled", "ilL-Export-Job", "JOB-1"))
+		self.assertEqual(entry["provenance"]["template"], "ILL-SH03-SW")
+		self.assertEqual(entry["provenance"]["steps"], {"1": "20", "2": "30K"})
+		self.assertIn("Line L1: CCT: the part number says 30K", entry["warnings"][0])
+		self.assertIn(entry["warnings"][0], warnings)
+		fill = self.stubs[ROOT + ".api.spec_sheet_fill"].fill
+		self.assertEqual(fill.call_args.kwargs["text"]["fixture_type"], "L1")
+		self.assertEqual(fill.call_args.kwargs["title"], "L1 · ILL-SH03-SW-20-30K")
+		self.stubs[ROOT + ".api.spec_submittal"].generate_filled_submittal.assert_not_called()
+		manifest, _parts, errors = assemble_manifest(lines, lambda _: (pdf_bytes(), "sheet.pdf"))
+		self.assertEqual(errors, [])
+		self.assertEqual(manifest[0]["status"], "included")
+
+	def test_a_sheet_without_form_fields_falls_back_to_the_old_submittal_with_a_note(self):
+		lines, warnings, saved = self.gather(self.fixture_row(), inspect={"has_form": False, "steps": {}})
+		self.assertEqual(saved, [])
+		self.assertEqual(lines[0]["source_kind"], "filled_submittal")
+		self.assertEqual(lines[0]["spec_document_url"], "/private/files/old.pdf")
+		self.assertIn("used the older submittal", lines[0]["warnings"][0])
+		self.assertIn("has no form fields", lines[0]["warnings"][0])
+		self.assertIn(lines[0]["warnings"][0], warnings)
+
+	def test_codes_missing_from_the_sheet_are_noted_for_staff(self):
+		fill = {
+			"pdf": b"%PDF",
+			"selected": {"1": "20"},
+			"unmatched": {"2": "35K"},
+			"missing_steps": ["9"],
+			"highlights": 0,
+			"highlight_style": "rows",
+		}
+		lines, _warnings, _saved = self.gather(self.fixture_row(), fill=fill)
+		notes = " ".join(lines[0]["warnings"])
+		self.assertIn("codes not on the spec sheet: step 2 35K", notes)
+		self.assertIn("steps not on the spec sheet: 9", notes)
+		self.assertIn("predates highlight tags", notes)
+
+	def test_lines_without_a_generated_sheet_keep_todays_path(self):
+		other = Record(
+			dict(idx=2, line_id="X1", qty=1, location=None, notes=None, manufacturer_type="OTHER"),
+			name="R2",
+			line_key="K2",
+			spec_sheet="/files/other.pdf",
+		)
+		lines, _warnings, _saved = self.gather(other)
+		self.assertEqual(lines[0]["source_kind"], "uploaded_literature")
+		self.stubs[ROOT + ".api.spec_sheet_steps"].resolve.assert_not_called()
+
+	def test_the_flag_off_never_resolves_a_generated_sheet(self):
+		lines, _warnings, saved = self.gather(self.fixture_row(), generated=False)
+		self.assertEqual(lines[0]["source_kind"], "filled_submittal")
+		self.assertEqual(saved, [])
+		self.stubs[ROOT + ".api.spec_sheet_steps"].resolve.assert_not_called()
+
+	def test_the_flag_reads_site_config(self):
+		with load_service(ROOT + ".portal.packets", {}) as (module, frappe):
+			self.assertFalse(module.generated_enabled())
+			frappe.conf["generated_spec_submittals"] = 1
+			self.assertTrue(module.generated_enabled())
+
+
+class PrintContents(unittest.TestCase):
+	def test_contents_page_uses_the_print_design_and_names_spec_sheets(self):
+		from illumenate_lighting.illumenate_lighting.portal.packet_pages import print_contents_html
+
+		html = print_contents_html(
+			[
+				{
+					"designation": "L1",
+					"part_number": "ILL-SH03-SW-20",
+					"status": "included",
+					"page_start": 3,
+					"source_kind": "generated_sheet",
+				},
+				{"designation": "L2", "part_number": "X", "status": "failed"},
+			],
+			schedule_title="Main",
+			project_title="Seattle Library",
+		)
+		self.assertIn("Submittal Contents", html)
+		self.assertIn("#172e48", html)
+		self.assertIn("<td>Spec sheet</td>", html)
+		self.assertIn('<td class="num">3</td>', html)
+		self.assertIn("&mdash;", html)
+		self.assertIn("Seattle Library &middot; Main", html)

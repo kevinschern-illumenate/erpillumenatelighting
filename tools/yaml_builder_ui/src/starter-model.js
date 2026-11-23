@@ -10,14 +10,22 @@ const isRecord = value => Boolean(value) && typeof value === 'object' && !Array.
 const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Built-in starters are the examples. Their names use code DEMO, series "Example Series",
- * product name "Example <label>", and an "Example" prefix on other names.
+ * Built-in starters: the starter library (complete product families copied from real
+ * products, catalog-starters.json) first, then the minimal examples. Every built-in starter
+ * names its records with code DEMO and series "Example Series"; the examples also use an
+ * "Example" prefix on other names.
  */
-export function builtinStarters(examples, schema) {
-  return Object.keys(schema.products).filter(type => examples[type]).map(type => ({
-    id: `example:${type}`, label: `${schema.products[type].label} starter`, productType: type, builtin: true,
-    catalog: examples[type], code: 'DEMO', series: examples[type].series_name, name: `Example ${schema.products[type].label}`, prefix: 'Example',
+export function builtinStarters(examples, schema, library = []) {
+  const types = Object.keys(schema.products);
+  const fromLibrary = library.filter(item => types.includes(item.product_type) && isRecord(item.catalog?.records)).map(item => ({
+    id: `library:${item.id}`, label: item.label, description: item.description || '', productType: item.product_type, builtin: true,
+    catalog: item.catalog, code: item.code || 'DEMO', series: item.series || item.catalog.series_name, name: item.name || '',
   }));
+  const fromExamples = types.filter(type => examples[type]).map(type => ({
+    id: `example:${type}`, label: `Minimal ${schema.products[type].label.toLowerCase()} example`, description: 'The smallest complete product: one of each record, with illustrative values.',
+    productType: type, builtin: true, catalog: examples[type], code: 'DEMO', series: examples[type].series_name, name: `Example ${schema.products[type].label}`, prefix: 'Example',
+  }));
+  return [...fromLibrary, ...fromExamples];
 }
 
 export function readStarters() {
@@ -103,11 +111,14 @@ function relink(doctype, row, schema, target, from, to) {
  * Existing records a starter links to that a complete ERPNext list does not have, such as the
  * example's EXISTING-96W-DRIVER. Each comes with the existing names to choose instead.
  */
-export function placeholders(catalog, reference) {
+export function placeholders(catalog, reference, code = '') {
+  // Names carrying the starter's code are renamed with the product (an existing family's
+  // records under its own code), so they are not placeholders to pick.
+  const renamed = code ? new RegExp(`(?<![A-Za-z0-9])(${escape(code)}|${escape(code.toLowerCase())})(?![0-9])`) : null;
   return Object.entries(catalog.external_links || {}).flatMap(([doctype, names]) => {
     const entry = reference?.doctypes?.[doctype];
     if (!isComplete(entry)) return [];
-    return names.filter(name => !inReference(reference, doctype, name))
+    return names.filter(name => !inReference(reference, doctype, name) && !(renamed && renamed.test(name)))
       .map(name => ({ doctype, name, choices: Object.keys(entry.records).sort() }));
   });
 }

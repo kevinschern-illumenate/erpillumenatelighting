@@ -1,0 +1,108 @@
+# Catalog Builder starter: In-wall controller (DMX512 / BLE Mesh).
+# Copied from an active product by tools/catalog_expansion/starters.py and renamed to code DEMO and
+# series 'Example Series'. Review engineering values before importing a product made from it.
+schema_version: 2
+product_type: controller
+series_name: Example Series
+builder:
+  starter:
+    id: controller-wall
+    label: In-wall controller (DMX512 / BLE Mesh)
+    description: 'An in-wall controller (from the DMX512 / BLE Mesh tunable white controller): spec with ports, zones and protocols, and its template
+      variant.'
+    code: DEMO
+    series: Example Series
+    name: Example Series DMX512 / BLE Mesh In-Wall Tunable White Controller
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: DMXC-DEMO-BK-WALL
+    item_name: DMX512 / BLE Mesh In-Wall Controller-Tunable White-Black
+    item_group: Controls
+    stock_uom: Ea
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Controller-Template:
+  - template_code: DMXC-DEMO-BK-WALL
+    template_name: Example Series DMX512 / BLE Mesh In-Wall Tunable White Controller
+    product_status: Draft
+    is_active: 1
+    series: Example Series
+    base_price_msrp: 0.0
+    warranty_years: 0
+    auto_populate_configurator: 1
+    variants:
+    - controller_spec: DMXC-DEMO-BK-WALL
+      is_default: 1
+      is_active: 1
+      msrp: 0.0
+      channels: 0
+      zones: 4
+      item: DMXC-DEMO-BK-WALL
+      max_load_watts: 0.0
+      input_voltage_min: 12
+      input_voltage_max: 24
+      input_voltage_type: VDC
+  ilL-Spec-Controller:
+  - item: DMXC-DEMO-BK-WALL
+    controller_name: DMX512 / BLE Mesh In-Wall Tunable White Controller
+    controller_type: DMX Controller
+    is_active: 1
+    input_voltage_min: 12
+    input_voltage_max: 24
+    input_voltage_type: VDC
+    max_load_watts: 0.0
+    max_load_amps: 0.0
+    standby_power_watts: 0.0
+    channels: 512
+    zones: 4
+    width_mm: 120.0
+    height_mm: 75.0
+    depth_mm: 30.0
+    weight_grams: 225.0
+    mounting_type: In-Wall
+    max_a_per_channel: 0.0
+    max_w_per_channel: 0.0
+    output_dimming: None
+    min_load_w: 0.0
+    led_max_w: 0.0
+    max_supplies: 0
+    neutral_required: 0
+    dmx_footprint: 0
+    unit_load: 1.0
+    dmx_thru: 1
+    max_universes: 0
+    max_pixels: 0
+    max_bus_devices: 0
+    max_data_length_ft: 0.0
+    terminal_min_awg: '24'
+    terminal_max_awg: '12'
+    output_protocols:
+    - protocol: DMX512
+    wireless_protocols:
+    - protocol: Bluetooth
+    ports:
+    - port_name: DMX512
+      direction: Out
+      protocol: DMX512
+      max_devices: 0
+    - port_name: BLE Mesh
+      direction: Bidirectional
+      protocol: Bluetooth Mesh
+      max_devices: 0
+    input_protocols:
+    - protocol: Touch
+    - protocol: Bluetooth Mesh
+external_links:
+  Item Group:
+  - Controls
+  UOM:
+  - Ea
+  ilL-Attribute-Dimming Protocol:
+  - Bluetooth Mesh
+  - DMX512
+  - Touch
