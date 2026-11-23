@@ -58,6 +58,7 @@ def get_context(context):
 					"today": "/api/method/illumenate_lighting.kevins_desk.api.today",
 					"signals": "/api/method/illumenate_lighting.kevins_desk.api.signals",
 					"connect": "/api/method/illumenate_lighting.kevins_desk.api.connect_mailbox",
+					"done": "/api/method/illumenate_lighting.kevins_desk.api.mark_done",
 				},
 			},
 			"csrf_token": frappe.sessions.get_csrf_token(),

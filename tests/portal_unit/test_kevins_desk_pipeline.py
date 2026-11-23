@@ -124,12 +124,28 @@ def endpoints(user=OWNER, owner=True):
 	)
 	mailboxes = types.ModuleType(PKG + ".mailboxes")
 	mailboxes.connect = MagicMock(return_value="https://accounts.google.com/o/oauth2/v2/auth?x=1")
+	mailboxes.rows = MagicMock(return_value=[{"mailbox": "sales@example.com"}])
+	done = types.ModuleType(PKG + ".done")
+
+	def parse(item):
+		kind, _, rest = (item or "").partition(":")
+		if kind == "ToDo":
+			return ("todo", rest)
+		if kind == "gmail":
+			box, _, thread_id = rest.rpartition(":")
+			return ("gmail", box, thread_id)
+		raise LookupError("404")
+
+	done.parse = MagicMock(side_effect=parse)
+	done.close_todo = MagicMock()
+	done.hide_thread = MagicMock()
+	done.marks = MagicMock(return_value={("sales@example.com", "t0"): "m0"})
 	ranking = types.ModuleType(PKG + ".ranking")
 	ranking.merge = MagicMock(return_value={"groups": [], "top": [], "counts": {}, "total": 0})
 	team = types.ModuleType(PKG + ".team")
 	team.resolve = MagicMock(return_value={"jay@example.com": {"name": "Jay"}})
 	stubs = types.SimpleNamespace(
-		access=access, pipeline=pipe, mail=mail, mailboxes=mailboxes, ranking=ranking, team=team
+		access=access, pipeline=pipe, mail=mail, mailboxes=mailboxes, ranking=ranking, team=team, done=done
 	)
 	extras = {PKG + "." + k: v for k, v in vars(stubs).items()}
 	extras["frappe.utils"] = utils_module()
@@ -157,7 +173,7 @@ class DeskEndpoints(unittest.TestCase):
 			)
 			self.assertIn("access.require_owner()", ast.unparse(first), fn.name)
 			self.assertIn("allow_guest=True", ast.unparse(fn.decorator_list[0]), fn.name)
-		self.assertEqual(sorted(endpoints_found), ["connect_mailbox", "signals", "today"])
+		self.assertEqual(sorted(endpoints_found), ["connect_mailbox", "mark_done", "signals", "today"])
 
 	def test_guest_and_other_users_get_404_and_nothing_is_read(self):
 		for user in ("Guest", "jay@example.com"):
@@ -166,6 +182,8 @@ class DeskEndpoints(unittest.TestCase):
 					api.today,
 					api.signals,
 					lambda refresh=0: api.connect_mailbox("sales@example.com"),
+					lambda refresh=0: api.mark_done("ToDo:T-1"),
+					lambda refresh=0: api.mark_done("gmail:sales@example.com:t1", "m1", "Hi"),
 				):
 					with self.assertRaises(LookupError):
 						call()
@@ -177,6 +195,10 @@ class DeskEndpoints(unittest.TestCase):
 					stubs.mail.build,
 					stubs.mailboxes.connect,
 					stubs.team.resolve,
+					stubs.done.parse,
+					stubs.done.close_todo,
+					stubs.done.hide_thread,
+					stubs.done.marks,
 				):
 					fn.assert_not_called()
 				cache.get_value.assert_not_called()
@@ -190,7 +212,9 @@ class DeskEndpoints(unittest.TestCase):
 		self.assertEqual(stubs.pipeline.build.call_count, 2)
 		self.assertEqual(stubs.mail.build.call_count, 2)
 		stubs.pipeline.build.assert_called_with(OWNER)
-		stubs.mail.build.assert_called_with(OWNER, {"jay@example.com": {"name": "Jay"}})
+		stubs.mail.build.assert_called_with(
+			OWNER, {"jay@example.com": {"name": "Jay"}}, done={("sales@example.com", "t0"): "m0"}
+		)
 		self.assertEqual(first["built_at"], "2026-11-20T10:42:05")
 		self.assertEqual(first["mailboxes"], [{"mailbox": "sales@example.com", "state": "connected"}])
 		self.assertEqual(sorted(store), [f"kevins_desk:{OWNER}:mail", f"kevins_desk:{OWNER}:pipeline"])
@@ -215,6 +239,55 @@ class DeskEndpoints(unittest.TestCase):
 		fn = next(f for f in tree.body if isinstance(f, ast.FunctionDef) and f.name == "connect_mailbox")
 		self.assertIn("methods=['POST']", ast.unparse(fn.decorator_list[0]))
 		self.assertEqual(ast.unparse(fn.decorator_list[1]), "rate_limit(limit=10, seconds=60)")
+
+	def test_done_closes_a_todo_and_drops_it_from_the_cached_pipeline_only(self):
+		with endpoints() as (api, stubs, _, store):
+			stubs.pipeline.build.return_value = {
+				"widgets": [],
+				"todos": [{"id": "ToDo:T-1"}, {"id": "ToDo:T-2"}],
+			}
+			stubs.mail.build.return_value = {
+				"mailboxes": [],
+				"threads": [{"id": "gmail:sales@example.com:t1"}],
+			}
+			api.today()
+			out = api.mark_done("ToDo:T-1")
+		self.assertEqual(out, {"done": "ToDo:T-1"})
+		stubs.done.close_todo.assert_called_once_with("T-1", OWNER)
+		stubs.done.hide_thread.assert_not_called()
+		self.assertEqual(store[f"kevins_desk:{OWNER}:pipeline"]["todos"], [{"id": "ToDo:T-2"}])
+		self.assertEqual(len(store[f"kevins_desk:{OWNER}:mail"]["threads"]), 1)
+
+	def test_done_hides_a_thread_of_the_desks_own_mailboxes_and_drops_it_from_the_mail_cache(self):
+		with endpoints() as (api, stubs, _, store):
+			stubs.mail.build.return_value = {
+				"mailboxes": [],
+				"threads": [{"id": "gmail:sales@example.com:t1"}, {"id": "gmail:sales@example.com:t2"}],
+			}
+			api.today()
+			api.mark_done("gmail:sales@example.com:t1", "m9", "RFQ")
+		stubs.done.hide_thread.assert_called_once_with(
+			"sales@example.com", "t1", "m9", "RFQ", {"sales@example.com"}
+		)
+		stubs.done.close_todo.assert_not_called()
+		self.assertEqual(
+			store[f"kevins_desk:{OWNER}:mail"]["threads"], [{"id": "gmail:sales@example.com:t2"}]
+		)
+
+	def test_done_on_anything_else_is_not_found_and_without_a_cache_is_still_done(self):
+		with endpoints() as (api, stubs, _, store):
+			for bad in (None, "Sales Order:SO-1", "nonsense"):
+				with self.assertRaises(LookupError):
+					api.mark_done(bad)
+			api.mark_done("ToDo:T-1")
+		stubs.done.close_todo.assert_called_once_with("T-1", OWNER)
+		self.assertEqual(store, {})
+
+	def test_done_is_post_only_and_rate_limited(self):
+		tree = ast.parse((REPO / "illumenate_lighting/kevins_desk/api.py").read_text(encoding="utf-8"))
+		fn = next(f for f in tree.body if isinstance(f, ast.FunctionDef) and f.name == "mark_done")
+		self.assertIn("methods=['POST']", ast.unparse(fn.decorator_list[0]))
+		self.assertEqual(ast.unparse(fn.decorator_list[1]), "rate_limit(limit=60, seconds=60)")
 
 
 class GatewayAdapter(unittest.TestCase):

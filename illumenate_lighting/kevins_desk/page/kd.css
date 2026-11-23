@@ -65,7 +65,8 @@
 #cc.kd .kd-more { padding: 10px 16px; font-size: 12.5px; color: var(--ink2); border-top: 1px solid var(--line2); }
 #cc.kd #kdtodos .card-h { padding: 20px 24px 12px; margin-bottom: 0; }
 #cc.kd .kd-todos { list-style: none; margin: 0; padding: 0 12px 8px; }
-#cc.kd .kd-todo { padding: 10px 12px; border-top: 1px solid var(--line2); overflow-wrap: anywhere; }
+#cc.kd .kd-todo { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line2); overflow-wrap: anywhere; }
+#cc.kd .kd-todo-b { flex: 1; min-width: 0; }
 #cc.kd .kd-todo-m { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 4px; font-size: 12px; color: var(--ink2); }
 #cc.kd details.kd-fold { border-top: 1px solid var(--line); }
 #cc.kd details.kd-fold summary { padding: 12px 24px; font-size: 13px; cursor: pointer; }
@@ -97,7 +98,7 @@
 #cc.kd .kd-group-h .kd-hat { font-size: 12.5px; color: var(--ink); text-transform: uppercase; letter-spacing: .4px; }
 #cc.kd .kd-group-n { font-size: 12px; color: var(--mute); font-weight: 600; }
 #cc.kd .kd-items { list-style: none; margin: 0; padding: 0 12px 8px; }
-#cc.kd .kd-item { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-radius: 10px; }
+#cc.kd .kd-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; padding: 10px 12px; border-radius: 10px; }
 #cc.kd .kd-item + .kd-item { border-top: 1px solid var(--line2); }
 #cc.kd .kd-stack { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; font-size: 11.5px; font-weight: 700; background: var(--line2); color: var(--ink2); flex: none; }
 #cc.kd .kd-stack[data-stack="1"] { background: var(--badb); color: var(--badt); }
@@ -106,6 +107,11 @@
 #cc.kd .kd-item-t { font-weight: 500; overflow-wrap: anywhere; }
 #cc.kd .kd-item-m { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin-top: 2px; font-size: 12.5px; color: var(--ink2); }
 #cc.kd .kd-sep { color: var(--mute); }
+#cc.kd .kd-done { align-self: start; border: 1px solid var(--line); background: var(--card); color: var(--ink2); border-radius: 8px; padding: 3px 9px; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+#cc.kd .kd-done:hover { border-color: var(--good); background: var(--goodb); color: var(--goodt); }
+#cc.kd .kd-done.undo { border-color: var(--good); color: var(--goodt); }
+#cc.kd .kd-done:disabled { opacity: .6; cursor: default; }
+#cc.kd .kd-pending .kd-item-b, #cc.kd .kd-pending .kd-todo-b { opacity: .5; text-decoration: line-through; }
 #cc.kd .kd-src { font-weight: 600; }
 #cc.kd .kd-src[data-src="gmail"] { color: var(--brand); }
 #cc.kd .kd-snip { margin-top: 3px; font-size: 12.5px; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

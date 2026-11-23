@@ -15,8 +15,9 @@ Thread state, from the last message:
     stale    we wrote last more than 30 days ago                                    -> no label
 Automated mail (List-Unsubscribe / List-Id / bulk precedence / Auto-Submitted / no-reply style senders /
 vendor-system subdomains / the skipped domains), company system senders (info@, notifications@) and cold
-pitches from unknown senders never become items and lose @Action/@Waiting. @Quote is added to quote threads
-and never removed. Nothing is archived, marked read, trashed or sent.
+pitches from unknown senders never become items and lose @Action/@Waiting. So does a thread Kevin marked done
+on the desk (done.py) while its last message is still the one he saw. @Quote is added to quote threads and
+never removed. Nothing is archived, marked read, trashed or sent.
 """
 
 import html
@@ -317,7 +318,7 @@ def to_item(info, mailbox, team, directory, ours):
 
 
 def wanted_labels(info, topic):
-	if info["automated"] or info["state"] not in ("reply", "waiting"):
+	if info["automated"] or info.get("done") or info["state"] not in ("reply", "waiting"):
 		return set()
 	want = {"@Action"} if info["state"] == "reply" else {"@Waiting"}
 	if topic == "quote":
@@ -325,8 +326,12 @@ def wanted_labels(info, topic):
 	return want
 
 
-def ingest(gm, mailbox, me, ours, team, directory, now, scope=DEFAULT_SCOPE):
-	"""Items for one mailbox, and how many threads had labels changed."""
+def ingest(gm, mailbox, me, ours, team, directory, now, scope=DEFAULT_SCOPE, done=None):
+	"""Items for one mailbox, and how many threads had labels changed.
+
+	done: {(mailbox, thread_id): message_id} of threads marked done (done.marks()).
+	"""
+	done = done or {}
 	label_ids = gm.ensure_labels()
 	names = {v: k for k, v in label_ids.items()}
 	inbox_q, inbox_limit = SCOPES.get(scope) or SCOPES[DEFAULT_SCOPE]
@@ -338,9 +343,11 @@ def ingest(gm, mailbox, me, ours, team, directory, now, scope=DEFAULT_SCOPE):
 		info = read_thread(thread, me, ours, now, team)
 		if not info:
 			continue
+		mark = done.get((mailbox, info["id"]))
+		info["done"] = bool(mark) and mark == info["message_id"]
 		item = (
 			None
-			if info["automated"] or info["state"] not in ("reply", "waiting")
+			if info["automated"] or info["done"] or info["state"] not in ("reply", "waiting")
 			else to_item(info, mailbox, team, directory, ours)
 		)
 		if item and item["who"] == "unknown" and is_cold(item["title"], info["snippet"]):
@@ -360,8 +367,11 @@ def ingest(gm, mailbox, me, ours, team, directory, now, scope=DEFAULT_SCOPE):
 	return items, changed
 
 
-def build(owner, team, now=None):
-	"""Threads from every connected mailbox, and each mailbox's state (no tokens in the output)."""
+def build(owner, team, now=None, done=None):
+	"""Threads from every connected mailbox, and each mailbox's state (no tokens in the output).
+
+	done: {(mailbox, thread_id): message_id} of threads marked done (done.marks()); they are left out.
+	"""
 	now = now or datetime.now(UTC)
 	rows = mailboxes.rows()
 	ours = {domain(owner)} | {domain(r["mailbox"]) for r in rows}
@@ -382,7 +392,15 @@ def build(owner, team, now=None):
 					directory = directory or load_directory()
 					me = {row["mailbox"], owner.lower()}
 					threads, changed = ingest(
-						gm, row["mailbox"], me, ours, team, directory, now, row.get("scope") or DEFAULT_SCOPE
+						gm,
+						row["mailbox"],
+						me,
+						ours,
+						team,
+						directory,
+						now,
+						row.get("scope") or DEFAULT_SCOPE,
+						done,
 					)
 					out["threads"] += threads
 					entry.update(threads=len(threads), labels_changed=changed)

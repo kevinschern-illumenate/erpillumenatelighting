@@ -20,7 +20,8 @@ A private daily operating page for Kevin at `/kd/<slug>`, built on the Command C
 | `kevins_desk/schedule.py` | Daily blocks, day themes, hats (Pacific). The one place to change a block |
 | `kevins_desk/cc.py` | Calls the Command Center gateway (`ill_cc_gateway`) in process, as the current user |
 | `kevins_desk/pipeline.py` | Phase 2 widgets (via the gateway) and the owner's ToDos (direct) |
-| `kevins_desk/api.py` | `today` (pipeline + ToDos + mailboxes + the ranked list), `signals`, `connect_mailbox` (POST). Cached per user (pipeline 5 min, mail 10 min); `refresh=1` rebuilds |
+| `kevins_desk/api.py` | `today` (pipeline + ToDos + mailboxes + the ranked list), `signals`, `connect_mailbox` (POST), `mark_done` (POST). Cached per user (pipeline 5 min, mail 10 min); `refresh=1` rebuilds |
+| `kevins_desk/done.py` | The Done button: closes a ToDo, or records a Gmail thread as done (`ilL-Desk-Done`) |
 | `kevins_desk/gmail.py` | Minimal Gmail client: read thread metadata, list/create labels, add/remove only @Action/@Waiting/@Quote. No send, trash, delete or archive |
 | `kevins_desk/mail.py` | Reads each connected mailbox, works out thread state, keeps the labels, turns threads into items |
 | `kevins_desk/mailboxes.py` | Mailbox list, connection state, and the Google connect flow (one Connected App per mailbox) |
@@ -28,6 +29,7 @@ A private daily operating page for Kevin at `/kd/<slug>`, built on the Command C
 | `kevins_desk/team.py` | Jay, Charlotte, Ryan, Regina: who they are and what they own |
 | `kevins_desk/tasks.py` | `warm`: rebuilds the caches as the owner every 10 min, 6:00-17:59 weekdays |
 | `doctype/ill_desk_settings` | Enabled, Desk Owner, Link Slug, Google App, Mailboxes (System Manager only; owner-locked) |
+| `doctype/ill_desk_done` | Gmail threads marked done: mailbox, thread, and its last message at the time (System Manager read/delete; not in the Command Center) |
 
 ## What the page shows
 
@@ -45,6 +47,11 @@ A private daily operating page for Kevin at `/kd/<slug>`, built on the Command C
 Every item uses one shape (`id, dt, name, title, party, date, amount, status, flag, url, hat, stack`).
 
 - **One list** (default view): every ERPNext item, ToDo and Gmail thread in a single list. Items are ranked by the priority stack: within a level, things Kevin owes come before threads he's waiting on, then late items, then items due today, then the oldest. They're grouped by hat, and the hat with the most urgent item comes first. Each item links to its record or thread. The Pipeline tab keeps the Phase 2 widgets.
+- **Done** (on every ToDo and Gmail row, in the One list and My ToDos): the row strikes through with Undo for 5 seconds, then:
+  - a **ToDo** is closed (status Closed), the same as closing it in ERPNext;
+  - a **Gmail thread** is hidden while its last message is still the one Kevin saw, and loses @Action/@Waiting. A new message from either side brings it back if it's owed again. Gmail itself isn't archived or marked read. To bring a thread back sooner, delete its `ilL-Desk-Done` record. Records are pruned after 60 days.
+
+  ERPNext rows (orders, quotes, tickets) have no Done: they leave the list when the record itself changes.
 
 ## Gmail (Phase 3)
 
