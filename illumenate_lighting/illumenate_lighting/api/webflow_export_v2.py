@@ -2905,48 +2905,6 @@ def upload_spec_pdf():
     finally:
         File.check_content = original_check_content
 
-@frappe.whitelist(methods=["POST"])
-def request_spec_sheet(docname, brand=None):
-    """Called by the desk button. Checks permissions, then forwards to n8n with the shared secret."""
-    _require_sync_access(docname)
-
-    import requests as req
-
-    webhook_url = n8n_config.spec_webhook_url()
-    auth_headers = n8n_config.auth_headers()
-
-    doc = frappe.get_doc("ilL-Webflow-Product", docname)
-    product_slug = doc.get("product_slug") or docname
-    targets = [code for code in _sync_target_brands(doc) if code]
-    if not brand:
-        brand = targets[0] if targets else (get_default_brand() or "illumenate")
-    elif brand not in targets:
-        frappe.throw(_("{0} is not an enabled target brand for this product.").format(brand))
-
-    payload = {
-        "product": docname,
-        "product_slug": product_slug,
-        "brand": brand
-    }
-    headers = {"Content-Type": "application/json", **auth_headers}
-
-    try:
-        resp = req.post(
-            webhook_url,
-            json=payload,
-            headers=headers,
-            timeout=180
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except req.exceptions.Timeout:
-        frappe.throw(_("The spec generation request timed out. It may still be running."))
-    except req.exceptions.HTTPError as e:
-        frappe.throw(_("Pipeline failed with status {0}.").format(resp.status_code))
-    except Exception as e:
-        frappe.throw(_("Could not reach n8n: {0}").format(str(e)))
-
-
 @frappe.whitelist()
 def get_sync_progress(docname, since=None):
     """Per-brand sync state, and whether each brand finished after ``since``.

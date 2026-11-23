@@ -98,20 +98,11 @@ class WebflowSyncBrands(unittest.TestCase):
 		_configure_n8n(self, module, frappe)
 		return module, frappe
 
-	def test_spec_sheet_defaults_to_the_first_enabled_target_brand(self):
-		module, frappe = self.load()
-		frappe.get_doc.return_value = _product(("lighting_206", 0), ("illumenate", 1))
-		requests = __import__("sys").modules["requests"]
-		requests.post.return_value = MagicMock(json=lambda: {"ok": True})
-		self.assertEqual(module.request_spec_sheet("demo"), {"ok": True})
-		self.assertEqual(requests.post.call_args.kwargs["json"]["brand"], "illumenate")
-		self.assertEqual(requests.post.call_args.kwargs["json"]["product_slug"], "demo-slug")
-
-	def test_spec_sheet_rejects_a_brand_the_product_does_not_target(self):
-		module, frappe = self.load()
-		frappe.get_doc.return_value = _product(("illumenate", 1))
-		with self.assertRaisesRegex(ValueError, "not an enabled target brand"):
-			module.request_spec_sheet("demo", "lighting_206")
+	def test_the_old_product_spec_endpoint_is_gone(self):
+		# request_spec_sheet posted {product, product_slug, brand} to the spec webhook, which since
+		# Phase 3 takes a template; it had no callers and no webflow_sync_scope check (final review).
+		module, _frappe = self.load()
+		self.assertFalse(hasattr(module, "request_spec_sheet"))
 
 	def test_products_without_target_rows_use_the_default_brand(self):
 		module, _frappe = self.load()

@@ -44,7 +44,7 @@ ENVIRONMENT_KEY = "webflow_environment"
 SCOPE_KEY = "webflow_sync_scope"
 SCOPE_MEMBERS = ("doctypes", "brands")
 
-# The key and header name request_spec_sheet used before Z1. Read only as a
+# The key and header name the old spec request (removed 2026-11-23) used before Z1. Read only as a
 # fallback so production keeps working until its site config is updated.
 LEGACY_SECRET_KEY = "ERP-Sync-Secret-2026"
 DEFAULT_SECRET_HEADER = "ERP-Sync-Secret-2026"

@@ -25,7 +25,7 @@ class SyncAccess(unittest.TestCase):
 
 	def test_the_buttons_need_the_publisher_role_before_anything_happens(self):
 		module, frappe = self.load(catalog=False)
-		for button in (module.trigger_sync_v2, module.trigger_publish_v2, module.request_spec_sheet):
+		for button in (module.trigger_sync_v2, module.trigger_publish_v2):
 			with (
 				self.subTest(button=button.__name__),
 				self.assertRaisesRegex(PermissionError, "Catalog Publisher"),

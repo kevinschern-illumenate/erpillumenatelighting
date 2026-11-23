@@ -17,8 +17,10 @@ What changes, and nothing else:
      "Brand not enabled" answer (409). Expressions that read one of its nodes, always as the
      fallback of an "(ilL) X or (206) X" choice, read the "(ilL) X" twin instead (n8n's $if
      evaluates both branches, so a missing node would fail every run).
-  6. Inactive, the environment's name, and no saved data for successful or manual runs (n8n
-     stores webhook headers, the shared secret included, in execution data).
+  6. Inactive, the environment's name, and no saved data for any run: successful, failed or
+     manual. n8n stores webhook headers, the shared secret included, in execution data. ERPNext
+     keeps each run's outcome (the publish job's state and error); to debug inside n8n, see
+     n8n_workflows/SPEC_SYNC.md.
 """
 
 import argparse
@@ -162,6 +164,7 @@ def build(source, env_name, env, staging):
 	flow["settings"] = {
 		**flow.get("settings", {}),
 		"saveDataSuccessExecution": "none",
+		"saveDataErrorExecution": "none",
 		"saveManualExecutions": False,
 	}
 	return flow

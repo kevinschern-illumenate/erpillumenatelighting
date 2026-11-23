@@ -89,6 +89,8 @@ function test_production_webhooks_and_settings() {
     assert.equal(flow.name, '[PROD] Spec Gen & Webflow Sync');
     assert.equal(flow.settings.saveDataSuccessExecution, 'none');
     assert.equal(flow.settings.saveManualExecutions, false);
+    // n8n stores webhook headers, the shared secret included, with a run's data: failed runs too.
+    assert.equal(flow.settings.saveDataErrorExecution, 'none');
     // The webhook secret credential is bound by hand after import (rotated, plan B4).
     for (const name of Object.keys(hooks)) assert.ok(!node(flow, name).credentials, `${name} stays unbound`);
     const erp = flow.nodes.filter(item => item.credentials && item.credentials.erpNextApi).map(item => item.credentials.erpNextApi.id);

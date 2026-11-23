@@ -40,6 +40,26 @@ Plan and runbook: `docs/superpowers/plans/2026-11-23-spec-sync-production-linear
 - **Webhook paths:** `staging-product-sync-v2` → `ill-product-sync`, and `staging-generate-spec-sheet` → `ill-generate-spec-sheet`.
 - **Staging guards:** the nodes are removed, and the publish path is reconnected.
 - **206 Lighting:** not synced in production yet. Its nodes are removed, and the brand switches answer 409 "brand not enabled in this environment". The ERP side also refuses it through `webflow_sync_scope`.
-- **Execution data:** nothing is saved for successful or manual runs. n8n stores webhook headers, including the secret, in execution data.
+- **Execution data:** nothing is saved for any run, whether successful, failed or manual. n8n stores webhook headers, including the shared secret, in execution data, so a saved failed run would expose the secret to anyone who can open executions.
 
 To enable 206 later, add `lighting_206` to `brands` in `spec_sync_environments.json` once 206's staging question (Q22) is settled. The builder must then also remove the 206 `[staging]` name and slug prefixes from `(206) Transform to Webflow Format`.
+
+## Debugging a production failure
+
+ERPNext keeps what you need first:
+- the publish job (`ilL-Publish-Job`): its state, `last_error` and attempts
+- the product's Publication History
+- the error notification
+
+The spec sheet dialog shows n8n's error answer.
+
+If you need n8n's own run data:
+1. In the PROD workflow, go to Settings → "Save failed production executions" → **Save**.
+2. Reproduce the failure once.
+3. Read the execution.
+4. Set the setting back to **Do not save** and delete that execution.
+5. **Rotate the secret**: create a new value in the `PROD Spec Sync Secret` credential and the same value in site config `n8n_sync_secret`.
+
+The next rebuild and import also resets the setting to Do not save.
+
+Staging keeps saving failed runs, because it is where you debug. Its secret (`STAGING Sync Secret`) only reaches staging ERPNext.

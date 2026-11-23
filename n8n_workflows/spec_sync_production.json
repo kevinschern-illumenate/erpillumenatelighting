@@ -1559,6 +1559,7 @@
     "executionOrder": "v1",
     "binaryMode": "separate",
     "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
     "saveManualExecutions": false
   },
   "active": false
