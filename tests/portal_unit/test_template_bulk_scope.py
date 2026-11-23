@@ -96,7 +96,10 @@ class Report(Base):
 		self.frappe.conf["webflow_sync_scope"] = {"doctypes": [FIXTURE]}
 		self.get_all(
 			{
-				"ilL-Webflow-Product": [Record(name="fx-1", webflow_status="Published"), Record(name="tape-1", webflow_status="Published")],
+				"ilL-Webflow-Product": [
+					Record(name="fx-1", webflow_status="Published"),
+					Record(name="tape-1", webflow_status="Published"),
+				],
 				FIXTURE: [Record(name="FX-1", webflow_product="fx-1", product_status="Active")],
 				TAPE: [Record(name="TAPE-1", webflow_product="tape-1", product_status="Active")],
 			}
@@ -108,7 +111,9 @@ class Report(Base):
 
 	def test_link_report_limits_doctypes(self):
 		self.module._brands = MagicMock(return_value={})
-		self.module.build_report = MagicMock(return_value={"set_template_link": [], "set_product_link": [], "clear_product_link": []})
+		self.module.build_report = MagicMock(
+			return_value={"set_template_link": [], "set_product_link": [], "clear_product_link": []}
+		)
 		self.get_all({FIXTURE: [], TAPE: []})
 		brand = importlib.import_module(ROOT + ".api.webflow_brand")
 		with patch.object(brand, "get_default_brand", return_value="illumenate"):

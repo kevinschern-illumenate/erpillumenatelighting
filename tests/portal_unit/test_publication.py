@@ -215,15 +215,27 @@ class PublicationScope(unittest.TestCase):
 			self.addCleanup(patcher.stop)
 		# n8n_config may keep this frappe stub after the test: never leave a scope behind.
 		self.addCleanup(self.frappe.conf.pop, "webflow_sync_scope", None)
-		self.frappe.conf["webflow_sync_scope"] = {"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}
+		self.frappe.conf["webflow_sync_scope"] = {
+			"doctypes": ["ilL-Fixture-Template"],
+			"brands": ["illumenate"],
+		}
 		self.state = Record(name="STATE", current_hash="v1", approved_hash="v1", remote_item_id=None)
 		self.docs = {
 			"KIT-JOB": Product(name="kit-ra01", kit_template="KIT-RA01"),
 			"FX-JOB": Product(name="ill-ra01-sw", fixture_template="ILL-RA01-SW"),
 		}
 		self.jobs = {
-			name: Record(name=name, product=doc.name, brand="illumenate", state="QUEUED", operation="STAGE",
-				revision_hash="v1", payload_hash="p1", attempts=0, payload_json="{}")
+			name: Record(
+				name=name,
+				product=doc.name,
+				brand="illumenate",
+				state="QUEUED",
+				operation="STAGE",
+				revision_hash="v1",
+				payload_hash="p1",
+				attempts=0,
+				payload_json="{}",
+			)
 			for name, doc in self.docs.items()
 		}
 

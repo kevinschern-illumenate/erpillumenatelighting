@@ -226,7 +226,6 @@ if __name__ == "__main__":
 	unittest.main()
 
 
-
 class Scope(unittest.TestCase):
 	"""Site config ``webflow_sync_scope`` (plan 2026-11-23 Task 1)."""
 
@@ -242,7 +241,10 @@ class Scope(unittest.TestCase):
 		self.addCleanup(patcher.stop)
 		# n8n_config may keep this frappe stub after the test: never leave a scope behind.
 		self.addCleanup(self.frappe.conf.pop, "webflow_sync_scope", None)
-		self.frappe.conf["webflow_sync_scope"] = {"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate-lighting"]}
+		self.frappe.conf["webflow_sync_scope"] = {
+			"doctypes": ["ilL-Fixture-Template"],
+			"brands": ["illumenate-lighting"],
+		}
 		self.frappe.enqueue = MagicMock()
 
 	def stub(self, name, **attrs):

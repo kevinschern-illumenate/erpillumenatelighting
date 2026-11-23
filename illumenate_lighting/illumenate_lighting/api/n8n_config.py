@@ -176,9 +176,9 @@ def product_scope_refusal(product, brand=None):
 	if scope["doctypes"] is not None:
 		doctype = product_template_doctype(product)
 		if doctype is None:
-			return _("{0} has no product template, so it is not enabled for Webflow sync on this site.").format(
-				product.get("name")
-			)
+			return _(
+				"{0} has no product template, so it is not enabled for Webflow sync on this site."
+			).format(product.get("name"))
 		if doctype not in scope["doctypes"]:
 			return doctype_refusal(doctype)
 	if brand is not None and scope["brands"] is not None and brand not in scope["brands"]:

@@ -74,7 +74,9 @@ class SyncScope(unittest.TestCase):
 			)
 			with self.assertRaises(ValueError) as caught:
 				module.require_brand_in_scope("lighting_206")
-			self.assertIn("Brand lighting_206 is not enabled for Webflow sync on this site.", str(caught.exception))
+			self.assertIn(
+				"Brand lighting_206 is not enabled for Webflow sync on this site.", str(caught.exception)
+			)
 
 	def test_scope_member_missing_means_unlimited(self):
 		with load_service(ROOT + ".api.n8n_config") as (module, frappe):
@@ -85,7 +87,9 @@ class SyncScope(unittest.TestCase):
 	def test_scope_parses_string_and_fails_closed(self):
 		with load_service(ROOT + ".api.n8n_config") as (module, frappe):
 			# The Frappe Cloud config editor stores objects as JSON strings.
-			frappe.conf["webflow_sync_scope"] = '{"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}'
+			frappe.conf["webflow_sync_scope"] = (
+				'{"doctypes": ["ilL-Fixture-Template"], "brands": ["illumenate"]}'
+			)
 			self.assertTrue(module.doctype_in_scope(self.FIXTURE))
 			self.assertFalse(module.doctype_in_scope(self.TAPE))
 			for broken in (
