@@ -8,6 +8,8 @@
        tabs); Workbench ilLumenate area (every app doctype, grouped), child tables, builder hand-off.
    v9: Manufacturing "Flow" tab (sales orders → work orders → picks → shipping, with the warehouse's to-do list) and the
        Shipping pick list, from the app endpoint warehouse_flow.get_flow. The workbook views stay as reports.
+   v10: Manufacturing "Labels" (the print station: batches per roll, confirm before Printed) and "Reel count" tabs, from
+       the app endpoints labels.* and reels.*; hidden unless their flag is on in ilL-Production-Settings.
    Workbench/Executive/Review feed: /api/method/ill_cc_gateway (Server Script "ilL Command Center Gateway").
    Original header: ilLumenate Command Center v2 — live page on ERPNext. Built by Claude, Nov 17 2026.
    Data: /api/method/ill_command_center (Server Script "ilL Command Center API", read-only).
@@ -682,17 +684,23 @@
       }, 'Save counts');
   }
   // Flow (v9) leads; the rest are the Schedule Wizard workbook's views, kept for reporting.
-  const PB_TABS = [['flow', 'Flow'], ['board', 'Schedule board'], ['mrs', 'Material requests'], ['inbound', 'Run rate & daily $'], ['report', 'Monthly report'], ['releases', 'Releases & holds'], ['prowc', 'Proforma & will call'], ['paint', 'Paint']];
+  const PB_TABS = [['flow', 'Flow'], ['labels', 'Labels'], ['reels', 'Reel count'], ['board', 'Schedule board'], ['mrs', 'Material requests'], ['inbound', 'Run rate & daily $'], ['report', 'Monthly report'], ['releases', 'Releases & holds'], ['prowc', 'Proforma & will call'], ['paint', 'Paint']];
   const PB_MR_LANES = [['draft', 'Draft', 'mute'], ['needs_wo', 'Needs work order', 'warn'], ['building', 'Building', 'info'], ['done', 'Done (30 days)', 'good']];
   const pbMrOpen = X => (X.material_requests || []).filter(r => r.lane !== 'done');
   const pbMonth = m => new Date(m + 'T12:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const pbSo = r => `${link('sales-order', r.so, short(r.so))}<div class="m">${esc(r.customer || '')}</div>`;
   try { const t = localStorage.getItem('cc.mfg.tab.' + USER); if (t && PB_TABS.some(x => x[0] === t)) PB.tab = t; } catch (e) { }
+  // Labels and Reel count only show when their flag is on and the user may use them (pbTabOn, labels section below)
+  const pbTabs = () => { const X = PB.data, mrN = X ? pbMrOpen(X).length : 0, mrLate = X ? pbMrOpen(X).some(r => r.late) : false, lbN = LB.total;
+    return `<div class="seg pb-tabs no-print">${PB_TABS.filter(([k]) => pbTabOn(k) || PB.tab === k).map(([k, n]) => `${k === 'board' ? '<span class="pb-tabsep" title="The Schedule Wizard workbook\'s views, kept for reporting">Reports</span>' : ''}<button data-pbt="${k}" class="${PB.tab === k ? 'on' : ''}">${n}${k === 'mrs' && mrN ? ` <span class="badge ${mrLate ? 'bad' : 'info'}">${mrN}</span>` : ''}${k === 'labels' && lbN ? ` <span class="badge info">${lbN}</span>` : ''}</button>`).join('')}</div>`; };
+  const pbTabBind = () => root.querySelectorAll('[data-pbt]').forEach(b => b.onclick = () => { PB.tab = b.dataset.pbt; try { localStorage.setItem('cc.mfg.tab.' + USER, PB.tab); } catch (e) { } $('#pbroot').innerHTML = PB.body(); PB.bind(); });
+  const pbTabsRedraw = () => { const t = $('#pbroot .pb-tabs'); if (t) { t.outerHTML = pbTabs(); pbTabBind(); } };
   PB.body = () => {
     const X = PB.data; PB.after = null;
-    const mrN = X ? pbMrOpen(X).length : 0, mrLate = X ? pbMrOpen(X).some(r => r.late) : false;
-    const tabs = `<div class="seg pb-tabs no-print">${PB_TABS.map(([k, n], i) => `${i === 1 ? '<span class="pb-tabsep" title="The Schedule Wizard workbook\'s views, kept for reporting">Reports</span>' : ''}<button data-pbt="${k}" class="${PB.tab === k ? 'on' : ''}">${n}${k === 'mrs' && mrN ? ` <span class="badge ${mrLate ? 'bad' : 'info'}">${mrN}</span>` : ''}</button>`).join('')}</div>`;
+    const tabs = pbTabs();
     if (PB.tab === 'flow') return tabs + `<div id="flroot">${FL.body()}</div>`;
+    if (PB.tab === 'labels') return tabs + `<div id="lbroot">${LB.body()}</div>`;
+    if (PB.tab === 'reels') return tabs + `<div id="rlroot">${RL.body()}</div>`;
     if (!X) return tabs + (PB.err ? `<div class="err">Couldn't load the production board: ${esc(PB.err)}</div>` : '<div class="empty">Loading the production board…</div>');
     const money0 = X.money || PB.tab === 'mrs' ? '' : '<p class="small">Dollar figures need the Command Center Finance or Manufacturing Manager role.</p>';
     return tabs + money0 + (({ mrs: PB.mrs, inbound: PB.inbound, report: PB.report, releases: PB.releases, prowc: PB.prowc, paint: PB.paint })[PB.tab] || PB.board)(X);
@@ -845,14 +853,16 @@
   }
   PB.bind = () => {
     root.querySelectorAll('[data-pbf]').forEach(b => b.onclick = () => { PB.filter = b.dataset.pbf; $('#pbroot').innerHTML = PB.body(); PB.bind(); });
-    root.querySelectorAll('[data-pbt]').forEach(b => b.onclick = () => { PB.tab = b.dataset.pbt; try { localStorage.setItem('cc.mfg.tab.' + USER, PB.tab); } catch (e) { } $('#pbroot').innerHTML = PB.body(); PB.bind(); });
+    pbTabBind();
     root.querySelectorAll('[data-pbadj]').forEach(b => b.onclick = () => pbAdjust(b.dataset.pbadj));
     const s = $('#pbsort'); if (s) s.onchange = () => { PB.sort = s.value; $('#pbroot').innerHTML = PB.body(); PB.bind(); };
     if (PB.data && PB.after) { PB.after(); }
     if (PB.tab === 'flow') FL.mount(); else flCfg();
+    if (PB.tab === 'labels') LB.bind(); if (PB.tab === 'reels') RL.mount();
+    lbPeek();   // cheap: learns the Labels / Reel count flags and the queued count for the badge
   };
   PB.mount = () => {
-    const r = $('#pbrefresh'); if (r) r.onclick = () => { if (PB.tab === 'flow') { FL.at = 0; flFetch(true); pbFetch(); } else pbFetch(true); };
+    const r = $('#pbrefresh'); if (r) r.onclick = () => { if (PB.tab === 'flow') { FL.at = 0; flFetch(true); pbFetch(); } else if (PB.tab === 'labels') lbFetch(true); else if (PB.tab === 'reels') rlFetch(true); else pbFetch(true); };
     PB.bind();
     if (!PB.busy && (!PB.data || Date.now() - PB.at > 120000)) pbFetch();
   };
@@ -1051,6 +1061,362 @@
   });
   const flCfg = () => { if (!WB.cfg && !FL.cfgBusy) { FL.cfgBusy = true; gw('config').then(c => { WB.cfg = c; }).catch(() => { }).finally(() => { FL.cfgBusy = false; }); } };
   FL.mount = () => { flCfg(); FL.bind(); if (!FL.busy && (!FL.data || Date.now() - FL.at > 120000)) flFetch(); };
+  /* ---------------- labels & reel count (v10) ----------------
+     Labels: the warehouse PC's print station. Two printers and no roll swaps: the Dymo keeps 1.5 x 2.5 loaded, the Rollo
+     4 x 6. One card per roll, in print order. Print makes a batch (its labels go to Sent), prints the batch PDF through a
+     hidden iframe, and only the person's "All printed" / "Some need reprinting" click marks labels Printed.
+     Reel count: the inventory count screen for a scanner that types like a keyboard; every scan goes through reels.lookup.
+     Data: the app endpoints labels.* and reels.*. Both tabs stay hidden unless their flag is on in ilL-Production-Settings
+     and the user may use them. The Sales Order form opens #mfg?labels_so=<name> (Labels tab, filtered to that order). */
+  const LB_API = 'illumenate_lighting.illumenate_lighting.api.labels.';
+  const RL_API = 'illumenate_lighting.illumenate_lighting.api.reels.';
+  const LB = { data: null, err: null, busy: false, at: 0, total: null, so: '', wo: '', printed: false, sel: new Set(), open: {}, mine: [], printing: false };
+  const LB_ST = { Queued: 'info', Sent: 'warn', Printed: 'good', Void: 'mute', Cancelled: 'mute' };
+  const lbStore = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ''; localStorage.setItem(k, v); } catch (e) { } return ''; };
+  const lbOn = () => !!(LB.data && (LB.data.labels_enabled || LB.data.reels_enabled) && LB.data.can_print);
+  const rlOn = () => RL.setup ? !!(RL.setup.enabled && RL.setup.can_count) : !!(LB.data && LB.data.reels_enabled);
+  const pbTabOn = k => k === 'labels' ? lbOn() : k === 'reels' ? rlOn() : true;
+  const lbHash = () => { const m = /^#mfg\?labels_so=([^&]*)/.exec(location.hash || ''); if (!m) return; let so = m[1]; try { so = decodeURIComponent(so.replace(/\+/g, ' ')); } catch (e) { }
+    LB.so = so.trim(); LB.wo = ''; LB.sel.clear(); LB.at = 0; PB.tab = 'labels'; S.view = 'mfg'; history.replaceState(null, '', '#mfg'); };
+  lbHash(); window.addEventListener('hashchange', lbHash);   // runs before the page's own hashchange handler, which then reads #mfg
+  async function lbFetch(manual) {
+    if (LB.busy) return; LB.busy = true; LB.err = null;
+    const args = { include_printed: LB.printed ? 1 : 0 }; if (LB.so) args.sales_order = LB.so; if (LB.wo) args.work_orders = LB.wo;
+    try { LB.data = await call(LB_API + 'get_queue', args); LB.at = Date.now(); if (!LB.so && !LB.wo) LB.total = lbCount(LB.data); if (manual) toast('Label queue refreshed'); }
+    catch (e) { LB.err = e.message; }
+    LB.busy = false; lbRedraw();
+  }
+  const lbPeek = () => { if (!LB.busy && (!LB.data || Date.now() - LB.at > 120000)) lbFetch(); };
+  const lbRefresh = () => { LB.at = 0; lbFetch(); };
+  function lbRedraw() {
+    const pr = $('#pbroot'); if (!pr || S.view !== 'mfg') return;
+    // a remembered Labels / Reel count tab whose flag is off falls back to Flow
+    if (['labels', 'reels'].includes(PB.tab) && LB.data && !pbTabOn(PB.tab) && !(PB.tab === 'reels' && RL.setup)) { PB.tab = 'flow'; pr.innerHTML = PB.body(); PB.bind(); return; }
+    pbTabsRedraw();
+    const r = $('#lbroot'); if (r) { r.innerHTML = LB.body(); LB.bind(); }
+  }
+  const lbCount = X => ((X && X.groups) || []).reduce((n, g) => n + (g.count || 0), 0);
+  // age_minutes comes from the server, so a PC in another time zone still counts 2 hours right
+  const lbOld = b => b.age_minutes != null ? b.age_minutes > 120 : (() => { const t = new Date(String(b.sent_at || '').replace(' ', 'T')); return !isNaN(t) && Date.now() - t > 2 * 3600000; })();
+  const lbMeta = j => [j.label_template, j.unit_count > 1 ? `Unit ${j.unit_no} of ${j.unit_count}` : '', j.piece_count > 1 ? `Piece ${j.piece_no} of ${j.piece_count}` : '', j.print_count ? `Printed ${j.print_count}×` : '', j.void_reason].filter(Boolean).map(esc).join(' · ');
+  const lbPrev = j => j.work_order && j.label_template ? `<a target="_blank" rel="noopener" href="/api/method/${LB_API}preview?template=${encodeURIComponent(j.label_template)}&amp;name=${encodeURIComponent(j.work_order)}">Preview</a>` : '';
+  const lbPick = g => g.jobs.filter(j => j.status === 'Queued' && LB.sel.has(j.name)).map(j => j.name);
+  const lbBtn = g => { const n = lbPick(g).length; return n ? `Print ${n} selected` : `Print ${g.count || ''}`.trim(); };
+  const lbBtns = () => ((LB.data && LB.data.groups) || []).forEach((g, i) => { const b = $(`[data-lbprint="${i}"]`); if (b) b.textContent = lbBtn(g); });
+  const lbRow = j => `<tr><td class="no-print lb-ck">${j.status === 'Queued' ? `<input type="checkbox" data-lbsel="${esc(j.name)}" ${LB.sel.has(j.name) ? 'checked' : ''} aria-label="Select this label">` : ''}</td>
+    <td>${esc(j.summary || j.name)}<div class="m">${lbMeta(j)}</div></td>
+    <td>${badge(j.status, LB_ST[j.status] || 'mute')}${j.is_stale ? ' <span class="badge warn" title="Its work order changed after this label was made">Stale</span>' : ''}</td>
+    <td class="no-print lb-act">${['Printed', 'Sent'].includes(j.status) ? `<button type="button" class="cc-btn soft" data-lbre="${esc(j.name)}">Reprint</button> ` : ''}${lbPrev(j)}</td></tr>`;
+  // rows by work order (reel and shelf labels have none: "Reels & shelves"), each a collapsible section
+  function lbSecs(g, gi) {
+    const by = new Map(); g.jobs.forEach(j => { const k = j.work_order || ''; if (!by.has(k)) by.set(k, []); by.get(k).push(j); });
+    const many = by.size > 6;
+    return [...by].map(([k, jobs]) => { const id = g.stock + '|' + k, open = LB.open[id] != null ? LB.open[id] : !many, j0 = jobs[0], q = jobs.filter(j => j.status === 'Queued').length;
+      const title = k ? `${flWO(k)}${j0.sales_order ? ' · ' + link('sales-order', j0.sales_order, short(j0.sales_order)) : ''}${j0.fixture_type ? ` · <span class="small">${esc(j0.fixture_type)}</span>` : ''}` : 'Reels &amp; shelves';
+      return `<details class="lb-sec" data-lbsec="${esc(id)}" ${open ? 'open' : ''}><summary><span>${title}</span><span class="small">${pbN(jobs.length, 'label')}${q !== jobs.length ? ` · ${q} queued` : ''}${k && j0.ship_by ? ' · ship by ' + fmtd(j0.ship_by) : ''}</span></summary>
+        <div class="tw"><table class="lb-tbl"><thead><tr><th class="no-print lb-ck">${q ? `<input type="checkbox" data-lbselall="${gi}|${esc(k)}" aria-label="Select every queued label here">` : ''}</th><th>Label</th><th>Status</th><th class="no-print"></th></tr></thead><tbody>${jobs.map(lbRow).join('')}</tbody></table></div></details>`; }).join('');
+  }
+  const lbGroup = (g, gi) => `<div class="card flush s12 lb-grp"><div class="card-h"><div><h2>${esc(g.printer_name || 'No printer set')} · ${esc(g.stock)}</h2>
+      <div class="sub">${g.count ? `<b>${g.count} queued</b>` : 'Nothing queued'} · ${pbN(g.work_orders || 0, 'work order')}${g.earliest_ship_by ? ' · earliest ship-by ' + fmtd(g.earliest_ship_by) : ''}${g.label_part_no ? ' · roll ' + esc(g.label_part_no) : ''}</div></div>
+      <div class="toolbar no-print"><a class="small" target="_blank" rel="noopener" href="/api/method/${LB_API}test_print?label_stock=${encodeURIComponent(g.stock)}">Test print</a><button type="button" class="cc-btn primary" data-lbprint="${gi}" ${g.count && !LB.printing ? '' : 'disabled'}>${esc(lbBtn(g))}</button></div></div>
+    ${lbSecs(g, gi)}</div>`;
+  // batches nobody confirmed: older than 2 hours, or closed without an answer in this browser
+  const lbUnc = X => (X.unconfirmed || []).filter(b => lbOld(b) || LB.mine.includes(b.name)).map(b => `<div class="callout"><div><b>Batch ${esc(b.name)} was never confirmed.</b> ${pbN(b.label_count || 0, 'label')} on ${esc(b.printer_name || b.label_stock)}, sent ${esc(String(b.sent_at || '').slice(0, 16))}${b.sent_by ? ' by ' + esc(b.sent_by) : ''}. Did they print?
+      <div class="toolbar no-print" style="margin-top:8px"><button type="button" class="cc-btn soft" data-lbok="${esc(b.name)}">All printed</button><button type="button" class="cc-btn soft" data-lbsome="${esc(b.name)}">Some need reprinting</button></div></div></div>`).join('');
+  LB.body = () => {
+    const X = LB.data;
+    if (!X) return LB.err ? `<div class="err">Couldn't load the label queue: ${esc(LB.err)}</div>` : '<div class="empty">Loading the label queue…</div>';
+    if (!lbOn()) return `<div class="card"><div class="empty">${X.labels_enabled || X.reels_enabled ? 'Printing labels needs a label printing role.' : 'Labels are off. Turn on Labels in ilL-Production-Settings.'}</div></div>`;
+    const n = lbCount(X), groups = X.groups || [];
+    const bar = `<div class="toolbar no-print lb-bar"><button type="button" class="cc-btn primary" id="lbAll" ${n && !LB.printing ? '' : 'disabled'}>Print all${n ? ' ' + n : ''}</button>
+      <input type="text" id="lbSo" placeholder="Sales order" value="${esc(LB.so)}" aria-label="Filter by sales order"><input type="text" id="lbWo" placeholder="Work order(s)" value="${esc(LB.wo)}" aria-label="Filter by work order">
+      <label class="small"><input type="checkbox" id="lbPrinted" ${LB.printed ? 'checked' : ''}> Show printed</label><button type="button" class="cc-btn soft" id="lbRefresh">Refresh</button></div>`;
+    const stale = LB.err ? `<div class="callout"><div>Couldn't refresh the label queue (${esc(LB.err)}). Showing what loaded at ${new Date(LB.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.</div></div>` : '';
+    return bar + stale + lbUnc(X) + (groups.some(g => g.jobs.length) ? `<div class="grid">${groups.map((g, i) => g.jobs.length ? lbGroup(g, i) : '').join('')}</div>`
+      : `<div class="card"><div class="empty">${LB.so || LB.wo ? 'No labels match these filters.' : 'Nothing queued. Labels are queued when work orders are created.'}</div></div>`);
+  };
+  LB.bind = () => {
+    const X = LB.data; if (!X || !$('#lbroot')) return;
+    const go = () => { LB.sel.clear(); lbFetch(); };
+    const so = $('#lbSo'), wo = $('#lbWo'), pr = $('#lbPrinted'), rf = $('#lbRefresh'), all = $('#lbAll');
+    if (so) so.onchange = () => { LB.so = so.value.trim(); go(); };
+    if (wo) wo.onchange = () => { LB.wo = wo.value.split(/[\s,]+/).filter(Boolean).join(', '); go(); };
+    if (pr) pr.onchange = () => { LB.printed = pr.checked; go(); };
+    if (rf) rf.onclick = () => lbFetch(true);
+    if (all) all.onclick = () => lbPrintAll();
+    root.querySelectorAll('[data-lbprint]').forEach(b => b.onclick = () => lbPrintOne(X.groups[+b.dataset.lbprint]));
+    root.querySelectorAll('[data-lbsel]').forEach(c => c.onchange = () => { c.checked ? LB.sel.add(c.dataset.lbsel) : LB.sel.delete(c.dataset.lbsel); lbBtns(); });
+    root.querySelectorAll('[data-lbselall]').forEach(c => c.onchange = () => { const [gi, k] = c.dataset.lbselall.split('|');
+      X.groups[+gi].jobs.filter(j => (j.work_order || '') === k && j.status === 'Queued').forEach(j => c.checked ? LB.sel.add(j.name) : LB.sel.delete(j.name));
+      c.closest('table').querySelectorAll('[data-lbsel]').forEach(x => { x.checked = c.checked; }); lbBtns(); });
+    root.querySelectorAll('[data-lbsec]').forEach(d => d.ontoggle = () => { LB.open[d.dataset.lbsec] = d.open; });
+    root.querySelectorAll('[data-lbre]').forEach(b => b.onclick = async () => { b.disabled = true;
+      try { const r = await call(LB_API + 'reprint', { job_names: JSON.stringify([b.dataset.lbre]) }); toast(r.requeued ? 'Back in the queue for reprinting' : 'That label can no longer be reprinted'); } catch (e) { toast('Not requeued: ' + esc(e.message)); }
+      lbFetch(); });
+    root.querySelectorAll('[data-lbok]').forEach(b => b.onclick = async () => { b.disabled = true; try { await lbConfirm(b.dataset.lbok, []); } catch (e) { toast('Not saved: ' + esc(e.message)); } lbFetch(); });
+    root.querySelectorAll('[data-lbsome]').forEach(b => b.onclick = () => lbSomeLater(b.dataset.lbsome));
+  };
+  async function lbConfirm(batch, again) {
+    const r = await call(LB_API + 'confirm_batch', again.length ? { batch, reprint_jobs: JSON.stringify(again) } : { batch });
+    LB.mine = LB.mine.filter(x => x !== batch);
+    toast(`${pbN(r.printed, 'label')} marked printed${r.requeued ? ` · ${r.requeued} back in the queue` : ''}`);
+    return r;
+  }
+  const lbPickList = jobs => `<div class="lb-relist">${jobs.map(j => `<label><input type="checkbox" name="lbre" value="${esc(j.name)}"><span>${esc(j.summary || j.name)}<span class="m">${lbMeta(j)}</span></span></label>`).join('')}</div>`;
+  const lbPicked = el => [...el.querySelectorAll('input[name=lbre]:checked')].map(i => i.value);
+  // a batch confirmed later (from the banner): its jobs still in Sent come from the queue with printed ones included
+  async function lbSomeLater(batch) {
+    let jobs;
+    try { const X = await call(LB_API + 'get_queue', { include_printed: 1 }); jobs = (X.groups || []).flatMap(g => g.jobs).filter(j => j.batch === batch && j.status === 'Sent'); }
+    catch (e) { toast('Couldn\'t load the batch: ' + esc(e.message)); return; }
+    const el = sheet(`Batch ${esc(batch)}`, 'Tick the labels that did not print correctly. They go back in the queue; the rest are marked printed.',
+      (jobs.length ? lbPickList(jobs) : '<p class="small">None of this batch\'s labels are still waiting. Confirm to close it.</p>') + '<div class="toolbar"><button type="button" class="cc-btn primary" id="lbSomeGo">Confirm</button></div>', null);
+    const b = el.querySelector('#lbSomeGo'), msg = el.querySelector('#sMsg');
+    b.onclick = async () => { const again = lbPicked(el); if (jobs.length && !again.length) { msg.textContent = 'Tick at least one label, or use All printed.'; return; }
+      b.disabled = true; try { await lbConfirm(batch, again); closeSheet(); lbFetch(); } catch (e) { msg.textContent = 'Not saved: ' + e.message; b.disabled = false; } };
+  }
+  const lbPrintOne = g => { if (!LB.printing && g) { const names = lbPick(g); lbRun([[g, names.length ? names : null]]); } };
+  const lbPrintAll = () => { if (!LB.printing && LB.data) lbRun(LB.data.groups.filter(g => g.count).map(g => [g, null])); };
+  // one roll after another; the next starts only once the person has answered for the last one
+  async function lbRun(list) {
+    LB.printing = true; root.querySelectorAll('[data-lbprint], #lbAll').forEach(b => { b.disabled = true; });
+    for (let i = 0; i < list.length; i++) {
+      const [g, names] = list[i], jobs = g.jobs.filter(j => j.status === 'Queued' && (!names || names.includes(j.name)));
+      if (!jobs.length) continue;
+      let res; try { res = await call(LB_API + 'create_batch', { label_stock: g.stock, job_names: JSON.stringify(jobs.map(j => j.name)) }); }
+      catch (e) { toast(`Couldn't start the ${esc(g.stock)} batch: ${esc(e.message)}`); break; }
+      jobs.forEach(j => LB.sel.delete(j.name));
+      const out = await lbPanel(res, jobs, list.length > 1 ? `Roll ${i + 1} of ${list.length}` : '');
+      if (out !== 'done') { toast(`Batch ${esc(res.batch)} is waiting for confirmation at the top of the Labels tab.${i < list.length - 1 ? ' Print all stopped.' : ''}`); break; }
+    }
+    LB.printing = false; lbFetch();
+  }
+  // the print panel: settings in large type, the PDF printed from a hidden iframe, then "Did every label print correctly?"
+  function lbPanel(res, jobs, step) {
+    const last = lbStore('cc.labels.lastPrinter'), sw = !!res.printer_name && last !== res.printer_name, pdf = esc(res.pdf_url);
+    if (res.printer_name) lbStore('cc.labels.lastPrinter', res.printer_name);
+    const el = sheet(`Print ${pbN(res.count, 'label')}`, `Batch ${esc(res.batch)}${step ? ' · ' + esc(step) : ''}`, `<div class="lb-panel">
+      ${sw ? `<p class="lb-switch">Switch the printer to ${esc(res.printer_name)} in the print dialog</p>` : ''}
+      <p class="lb-big">Printer: <b>${esc(res.printer_name || 'the label printer')}</b>. Paper: <b>${esc(res.driver_paper_name || 'the roll size')}</b>. Margins: <b>none</b>. Scale: <b>100%</b>.</p>
+      <p id="lbState">Opening the print dialog…</p>
+      <p class="small">Nothing came up? <a href="${pdf}" target="_blank" rel="noopener">Open the PDF</a> and press Ctrl+P.</p>
+      <div id="lbAsk" hidden><p class="lb-big"><b>Did every label print correctly?</b></p><div class="toolbar"><button type="button" class="cc-btn primary" id="lbOk">All printed</button><button type="button" class="cc-btn soft" id="lbSome">Some need reprinting</button><button type="button" class="cc-btn soft" id="lbAgain">Print again</button></div></div>
+      <div id="lbRe" hidden><p>Tick the labels that need reprinting. They go back in the queue; the rest are marked printed.</p>${lbPickList(jobs)}<div class="toolbar"><button type="button" class="cc-btn primary" id="lbReGo">Confirm</button></div></div></div>`, null);
+    el.querySelector('.cc-sheet').classList.add('lb-wide');
+    const q = s => el.querySelector(s), msg = q('#sMsg'), st = h => { q('#lbState').innerHTML = h; }, ask = () => { if (q('#lbRe').hidden) q('#lbAsk').hidden = false; };
+    const fr = document.createElement('iframe'); fr.className = 'lb-frame'; fr.title = 'Label PDF'; fr.setAttribute('aria-hidden', 'true');
+    const printIt = () => {
+      try { fr.contentWindow.focus(); fr.contentWindow.print(); st('The print dialog opened. Check the settings above, then print.'); }
+      catch (e) { const w = window.open(res.pdf_url, '_blank'); st(w ? 'The PDF opened in a new tab. <b>Press Ctrl+P</b> there.' : `The browser blocked the print dialog. <a href="${pdf}" target="_blank" rel="noopener">Open the PDF</a> and <b>press Ctrl+P</b>.`); }
+      ask(); };
+    let loaded = false, done = false;
+    return new Promise(resolve => {
+      const obs = new MutationObserver(() => { if (!el.classList.contains('on') && !done) { LB.mine.push(res.batch); end('closed'); } });
+      const end = v => { done = true; obs.disconnect(); fr.remove(); resolve(v); };
+      obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+      fr.onload = () => { loaded = true; if (!done) printIt(); };
+      setTimeout(() => { if (!loaded && !done) { st(`The PDF is slow to load. <a href="${pdf}" target="_blank" rel="noopener">Open the PDF</a> and <b>press Ctrl+P</b>.`); ask(); } }, 10000);
+      fr.src = res.pdf_url; document.body.appendChild(fr);
+      const confirm = async (again, b) => { b.disabled = true; msg.textContent = '';
+        try { await lbConfirm(res.batch, again); end('done'); closeSheet(); } catch (e) { msg.textContent = 'Not saved: ' + e.message; b.disabled = false; } };
+      q('#lbOk').onclick = e => confirm([], e.currentTarget);
+      q('#lbSome').onclick = () => { q('#lbAsk').hidden = true; q('#lbRe').hidden = false; };
+      q('#lbAgain').onclick = () => printIt();
+      q('#lbReGo').onclick = e => { const again = lbPicked(el); if (!again.length) { msg.textContent = 'Tick at least one label, or use All printed.'; return; } confirm(again, e.currentTarget); };
+    });
+  }
+
+  /* Reel count: scan box → lookup → routed by kind, whatever step the screen is on.
+     Steps for one reel: tag → item (defaults to the last one used) → length (Full / feet + inches / weigh) → scrap? → shelf. */
+  const RL = { setup: null, err: null, busy: false, at: 0, cur: null, msg: null, done: [], ft: '', inch: '', grams: '', lot: '', q: '', saving: false, chain: Promise.resolve() };
+  try { RL.done = JSON.parse(sessionStorage.getItem('cc.reels.done') || '[]').slice(0, 20); } catch (e) { }
+  const rlKeep = () => { try { sessionStorage.setItem('cc.reels.done', JSON.stringify(RL.done)); } catch (e) { } };
+  const rlItem = code => ((RL.setup && RL.setup.items) || []).find(i => i.item_code === code);
+  const rlFt = mm => { mm = +mm || 0; let f = Math.floor(mm / 304.8), i = Math.round((mm - f * 304.8) / 25.4); if (i === 12) { f++; i = 0; } return i ? `${f}' ${i}"` : `${f}'`; };
+  const rlLast = v => lbStore('cc.reels.lastItem.' + USER, v);
+  const rlStep = c => !c ? 'tag' : c.confirm ? 'confirm' : (!c.item_code || c.pickItem) ? 'item' : !c.method ? 'length' : c.scrapAsk ? 'scrap' : 'shelf';
+  const RL_STEPS = [['tag', 'Scan tag'], ['item', 'Item'], ['length', 'Length'], ['shelf', 'Shelf']];
+  const rlLen = c => c.method === 'Full' ? `Full (${(rlItem(c.item_code) || {}).standard || rlFt(c.length_mm)})` : c.method === 'Weighed' ? `${c.weight_g} g, weighed` : c.method ? rlFt(c.length_mm) : '';
+  const rlReady = c => !!(c && !c.confirm && c.item_code && !c.pickItem && c.method && !c.scrapAsk);
+  const rlCheck = c => { const it = rlItem(c.item_code);
+    if (c.method === 'Full') { if (it && it.standard_mm > 0) c.length_mm = it.standard_mm; else c.method = ''; }
+    if (c.method === 'Weighed' && !(it && it.can_weigh)) c.method = '';
+    c.scrapAsk = !c.scrapOk && c.method === 'Measured' && !!it && it.scrap_mm > 0 && c.length_mm < it.scrap_mm; };
+  async function rlFetch(manual) {
+    if (RL.busy) return; RL.busy = true; RL.err = null;
+    try { RL.setup = await call(RL_API + 'get_count_setup', {}); RL.at = Date.now(); if (manual) toast('Reel count refreshed'); } catch (e) { RL.err = e.message; }
+    RL.busy = false; pbTabsRedraw(); rlRedraw();
+  }
+  function rlRedraw() { const r = $('#rlroot'); if (!r || S.view !== 'mfg') return; r.innerHTML = RL.body(); RL.bind(); }
+  RL.mount = () => { RL.bind(); if (!RL.busy && (!RL.setup || Date.now() - RL.at > 600000)) rlFetch(); };
+  const rlItems = () => { const q = RL.q.toLowerCase(), last = rlLast(), list = ((RL.setup && RL.setup.items) || []).filter(i => !q || (i.item_code + ' ' + (i.item_name || '')).toLowerCase().includes(q)).sort((a, b) => (b.item_code === last) - (a.item_code === last));
+    return list.slice(0, 40).map(i => `<button type="button" class="rl-item ${RL.cur && RL.cur.item_code === i.item_code ? 'on' : ''}" data-rlitem="${esc(i.item_code)}"><b>${esc(i.item_name || i.item_code)}</b><span class="mono">${esc(i.item_code)}${i.standard ? ' · ' + esc(i.standard) : ''}</span></button>`).join('')
+      + (list.length > 40 ? `<p class="small">${list.length - 40} more: type to narrow the list</p>` : '') || '<p class="small">No reel-tracked item matches. Tick Reel Tracked on the Item.</p>'; };
+  RL.body = () => {
+    const X = RL.setup;
+    if (!X) return RL.err ? `<div class="err">Couldn't load the reel count: ${esc(RL.err)}</div>` : '<div class="empty">Loading the reel count…</div>';
+    if (!X.enabled) return '<div class="card"><div class="empty">Reels are off. Turn on Reels in ilL-Production-Settings.</div></div>';
+    if (!X.can_count) return '<div class="card"><div class="empty">Counting reels needs the Stock User, Stock Manager, Manufacturing User or Manufacturing Manager role.</div></div>';
+    const c = RL.cur, step = rlStep(c), it = c && rlItem(c.item_code), m = RL.msg;
+    const si = RL_STEPS.findIndex(s => s[0] === (step === 'confirm' ? 'tag' : step === 'scrap' ? 'length' : step));
+    const steps = `<div class="rl-steps">${RL_STEPS.map(([k, n], i) => `<span class="${i < si ? 'done' : i === si ? 'on' : ''}">${i + 1}. ${n}</span>`).join('')}</div>`;
+    const head = c ? `<div class="rl-cur"><b class="mono">${esc(c.reel)}</b>${c.prior && c.prior.status ? ' ' + badge(c.prior.status, 'mute') : ''}${c.item_code ? ' · ' + esc(it ? it.item_name || it.item_code : c.item_code) : ''}${c.method ? ' · ' + esc(rlLen(c)) : ''}${c.location ? ' · shelf ' + esc(c.location) : ''}</div>` : '';
+    let body;
+    if (step === 'tag') body = '<p class="rl-big">Scan a reel tag</p><p class="small">Then the item, the length and the shelf. Any scan works at any step.</p>';
+    else if (step === 'confirm') body = `<p class="rl-big">Counted on ${fmtd(c.prior.counted_on)}: ${esc(c.prior.length || rlFt(c.prior.length_mm))}${c.prior.location ? ' on ' + esc(c.prior.location) : ''}. Recount?</p>
+      <div class="toolbar"><button type="button" class="cc-btn primary rl-tap" data-rl="recount">Recount</button><button type="button" class="cc-btn soft rl-tap" data-rl="cancel">Cancel</button></div><p class="small">Or scan a shelf to move it there without recounting.</p>`;
+    else if (step === 'item') body = `<p class="rl-big">Scan the item barcode or pick the item</p><input type="text" class="rl-q" id="rlq" placeholder="Search items" value="${esc(RL.q)}" autocomplete="off" aria-label="Search items">
+      <div id="rlitems" class="rl-items">${rlItems()}</div>${c.pickItem && c.item_code ? `<div class="toolbar"><button type="button" class="cc-btn soft" data-rl="keepitem">Keep ${esc(c.item_code)}</button></div>` : ''}`;
+    else if (step === 'length') body = `<p class="rl-big">How much is on it?</p><div class="rl-len">
+      ${it && it.standard_mm > 0 ? `<button type="button" class="cc-btn primary rl-tap" data-rl="full">Full (${esc(it.standard)})</button>` : ''}
+      <div class="rl-ftin"><label><input type="text" inputmode="decimal" id="rlft" value="${esc(RL.ft)}" autocomplete="off" aria-label="Feet"><span>ft</span></label><label><input type="text" inputmode="decimal" id="rlin" value="${esc(RL.inch)}" autocomplete="off" aria-label="Inches"><span>in</span></label><button type="button" class="cc-btn soft rl-tap" data-rl="measured">Use length</button></div>
+      ${it && it.can_weigh ? `<div class="rl-ftin"><label><input type="text" inputmode="decimal" id="rlg" value="${esc(RL.grams)}" autocomplete="off" aria-label="Grams"><span>g</span></label><button type="button" class="cc-btn soft rl-tap" data-rl="weigh">Weigh</button></div>` : ''}</div>
+      <div class="toolbar" style="margin-top:12px"><button type="button" class="cc-btn soft" data-rl="item">Change item</button></div>`;
+    else if (step === 'scrap') body = `<p class="rl-big rl-warn">Under ${esc(rlFt(it.scrap_mm))}: scrap it?</p><div class="toolbar"><button type="button" class="cc-btn primary rl-tap" data-rl="scrap">Yes, scrap it</button><button type="button" class="cc-btn soft rl-tap" data-rl="keep">No, keep it</button></div>`;
+    else body = `<p class="rl-big">Scan the shelf</p><div class="toolbar"><button type="button" class="cc-btn soft rl-tap" data-rl="noshelf">No shelf${X.warehouse ? ' (' + esc(X.warehouse) + ')' : ''}</button>
+      ${(X.locations || []).length ? `<select id="rlloc" aria-label="Pick a shelf"><option value="">Or pick a shelf…</option>${X.locations.map(l => `<option value="${esc(l.name)}">${esc(l.name)}${l.description ? ' · ' + esc(l.description) : ''}</option>`).join('')}</select>` : ''}
+      <button type="button" class="cc-btn soft" data-rl="length">Change length</button></div>`;
+    const extra = c && step !== 'confirm' ? `<div class="rl-extra"><label class="small">Supplier lot <input type="text" id="rllot" value="${esc(RL.lot)}" autocomplete="off" placeholder="optional"></label><button type="button" class="cc-btn soft" data-rl="cancel">Cancel this reel</button></div>` : '';
+    const msg = m ? `<div class="rl-msg ${m[0]}">${m[1]}${m[2] != null ? ` <button type="button" class="cc-btn soft" data-rlscrapit="${m[2]}">Scrap it</button>` : ''}</div>` : '';
+    const side = `<div class="card s4 no-print"><div class="card-h"><div><h2>Tools</h2><div class="sub">${pbN(X.tags_left || 0, 'blank tag')} printed and not yet counted</div></div></div><div class="rl-tools">
+      <button type="button" class="cc-btn soft" data-rlt="tags">Print reel tags</button><button type="button" class="cc-btn soft" data-rlt="shelves">Add shelves</button><button type="button" class="cc-btn soft" data-rlt="summary">Count summary</button>
+      <button type="button" class="cc-btn soft" data-rlt="labels" ${RL.done.some(d => !d.scrap) ? '' : 'disabled'}>Print reel labels for this session's reels</button></div></div>`;
+    const list = tableCard('Counted this session', RL.done.length ? `The last ${RL.done.length} in this browser tab` : '', ['Reel', 'Item', 'Length', 'Shelf', 'Time'],
+      RL.done.map(d => `<tr><td class="mono">${esc(d.reel)}</td><td>${esc(d.item_name || d.item_code)}</td><td>${d.scrap ? badge('Scrapped', 'bad') : esc(d.length)}</td><td>${esc(d.location || (d.warehouse ? d.warehouse + ' (no shelf)' : ''))}</td><td>${esc(d.at)}</td></tr>`));
+    return `<div class="grid"><div class="card s8 rl-main"><div class="rl-scanrow no-print"><input type="text" id="rlscan" class="rl-scan" placeholder="Scan here" autocomplete="off" spellcheck="false" aria-label="Scan box"><button type="button" class="cc-btn primary" id="rlgo">Enter</button></div>
+      ${msg}${steps}${head}${body}${extra}</div>${side}${list}</div>`;
+  };
+  const rlScan = v => { RL.chain = RL.chain.then(() => rlRoute(v)).catch(() => { }); };   // scans in order, one lookup at a time
+  RL.bind = () => {
+    const sc = $('#rlscan'); if (!sc) return;
+    sc.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); const v = sc.value; sc.value = ''; rlScan(v); } };
+    $('#rlgo').onclick = () => { const v = sc.value; sc.value = ''; rlScan(v); };
+    // numeric fields: Enter uses the value; a scan that lands in one (it has letters) is routed like any other scan
+    const num = (id, key, act) => { const el = $(id); if (!el) return; el.oninput = () => { RL[key] = el.value; };
+      el.onkeydown = e => { if (e.key !== 'Enter') return; e.preventDefault(); if (/[a-z]/i.test(el.value)) { const v = el.value; el.value = RL[key] = ''; rlScan(v); } else rlAct(act); }; };
+    num('#rlft', 'ft', 'measured'); num('#rlin', 'inch', 'measured'); num('#rlg', 'grams', 'weigh');
+    const lot = $('#rllot'); if (lot) { lot.oninput = () => { RL.lot = lot.value; }; lot.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); sc.focus(); } }; }
+    const q = $('#rlq'); if (q) q.oninput = () => { RL.q = q.value; $('#rlitems').innerHTML = rlItems(); rlItemBind(); };
+    rlItemBind();
+    const loc = $('#rlloc'); if (loc) loc.onchange = () => { const l = (RL.setup.locations || []).find(x => x.name === loc.value); if (l && RL.cur) { RL.cur.location = l.name; RL.cur.warehouse = l.warehouse || ''; rlSave(false); } };
+    root.querySelectorAll('[data-rl]').forEach(b => b.onclick = () => rlAct(b.dataset.rl));
+    root.querySelectorAll('[data-rlt]').forEach(b => b.onclick = () => rlTool(b.dataset.rlt));
+    root.querySelectorAll('[data-rlscrapit]').forEach(b => b.onclick = () => rlScrapIt(+b.dataset.rlscrapit));
+    const a = document.activeElement; if (!$('#ccsheet2').classList.contains('on') && (!a || a === document.body || !root.contains(a))) sc.focus({ preventScroll: true });
+  };
+  const rlItemBind = () => root.querySelectorAll('[data-rlitem]').forEach(b => b.onclick = () => rlSetItem(b.dataset.rlitem));
+  // the scan box keeps focus: a character typed with nothing focused (or a button) goes to it
+  document.addEventListener('keydown', e => {
+    if (S.view !== 'mfg' || PB.tab !== 'reels' || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.key === ' ' || $('#ccsheet2').classList.contains('on')) return;
+    const a = document.activeElement; if (a && a !== document.body && a.tagName !== 'BUTTON') return;
+    const s = $('#rlscan'); if (s) s.focus({ preventScroll: true });
+  });
+  function rlSetItem(code) {
+    const c = RL.cur; rlLast(code); RL.q = '';
+    if (c) { if (c.item_code !== code) c.scrapOk = false; c.item_code = code; c.pickItem = false; rlCheck(c); RL.msg = ['info', `Item ${esc(code)}`]; if (rlReady(c) && c.location) return rlSave(false); }
+    else RL.msg = ['info', `${esc(code)} will be the item for the next reel`];
+    rlRedraw();
+  }
+  async function rlRoute(code) {
+    code = String(code || '').trim(); if (!code) return;
+    let r; try { r = await call(RL_API + 'lookup', { code }); } catch (e) { RL.msg = ['bad', `Couldn't look up ${esc(code)}: ${esc(e.message)}`]; return rlRedraw(); }
+    const c = RL.cur, v = esc(r.value || code);
+    if (r.kind === 'empty') return;
+    if (r.kind === 'reel') {
+      if (c && c.reel === r.value) RL.msg = ['info', `Still on ${v}`];
+      else { const p = r.reel || {}, lost = c && c.method ? ` ${esc(c.reel)} was not saved.` : '';
+        RL.cur = { reel: r.value, prior: p, item_code: p.item_code || rlLast() || '', method: '', location: '', warehouse: '', confirm: p.status !== 'Tag only' && !!p.counted_on };
+        RL.ft = RL.inch = RL.grams = RL.lot = '';
+        RL.msg = p.status === 'In use' ? ['warn', `${v} is out for a work order. Return it before recounting.${lost}`] : ['info', `${v}${p.status === 'Tag only' ? ': new tag' : ''}.${lost}`]; }
+    } else if (r.kind === 'item') return rlSetItem(r.value);
+    else if (r.kind === 'location') {
+      if (!c) RL.msg = ['bad', `Shelf ${v}: scan a reel tag first`];
+      else if (c.confirm) {   // a counted reel, not recounted: the shelf scan is a put-away
+        try { const s = await call(RL_API + 'set_location', { reel: c.reel, location: r.value }); RL.msg = ['good', `✓ ${esc(s.reel)} moved to ${esc(s.location)}`]; RL.cur = null; } catch (e) { RL.msg = ['bad', `Not moved: ${esc(e.message)}`]; }
+      } else { c.location = r.value; c.warehouse = r.warehouse || ''; if (rlReady(c)) return rlSave(false); RL.msg = ['info', `Shelf ${v} set: the reel saves once its length is in`]; }
+    } else if (r.kind === 'work_order') RL.msg = ['warn', `${v} is a work order. Scan a reel tag, an item or a shelf.`];
+    else RL.msg = ['bad', esc(r.message || `${code} is not a reel, item or shelf`)];
+    rlRedraw();
+  }
+  function rlAct(a) {
+    const c = RL.cur, it = c && rlItem(c.item_code);
+    if (a === 'cancel') { RL.cur = null; RL.msg = c ? ['info', `${esc(c.reel)} not saved`] : null; RL.ft = RL.inch = RL.grams = RL.lot = ''; }
+    else if (!c) { }
+    else if (a === 'recount') c.confirm = false;
+    else if (a === 'item') c.pickItem = true;
+    else if (a === 'keepitem') c.pickItem = false;
+    else if (a === 'length') { c.method = ''; c.scrapAsk = c.scrapOk = false; }
+    else if (a === 'full' || a === 'measured' || a === 'weigh') {
+      if (a === 'full') { if (!it || !(it.standard_mm > 0)) return; c.method = 'Full'; c.length_mm = it.standard_mm; }
+      else if (a === 'measured') { const ft = parseFloat(RL.ft) || 0, inch = parseFloat(RL.inch) || 0, mm = Math.round((ft * 304.8 + inch * 25.4) * 10) / 10;
+        if (ft < 0 || inch < 0 || mm <= 0) { RL.msg = ['bad', 'Enter the feet and inches on the reel']; return rlRedraw(); } c.method = 'Measured'; c.length_mm = mm; }
+      else { const g = parseFloat(RL.grams) || 0; if (g <= 0) { RL.msg = ['bad', 'Enter the weight in grams']; return rlRedraw(); } c.method = 'Weighed'; c.weight_g = g; c.length_mm = null; }
+      c.scrapOk = false; rlCheck(c); RL.msg = null;
+      if (rlReady(c) && c.location) return rlSave(false);
+    }
+    else if (a === 'scrap') return rlSave(true);
+    else if (a === 'keep') { c.scrapOk = true; c.scrapAsk = false; if (c.location) return rlSave(false); }
+    else if (a === 'noshelf') { c.location = c.warehouse = ''; return rlSave(false); }
+    rlRedraw();
+  }
+  async function rlSave(scrap) {
+    const c = RL.cur; if (!c || RL.saving) return; RL.saving = true;
+    const args = { reel: c.reel, item_code: c.item_code, method: c.method, scrap: scrap ? 1 : 0 };
+    if (c.method === 'Measured') args.length_mm = c.length_mm; if (c.method === 'Weighed') args.weight_g = c.weight_g;
+    if (c.location) { args.location = c.location; if (c.warehouse) args.warehouse = c.warehouse; } else if (RL.setup.warehouse) args.warehouse = RL.setup.warehouse;
+    if (RL.lot.trim()) args.supplier_lot = RL.lot.trim();
+    RL.msg = ['info', `Saving ${esc(c.reel)}…`]; rlRedraw();
+    try { rlDone(await call(RL_API + 'count_reel', args), args, scrap); } catch (e) { RL.msg = ['bad', `${esc(c.reel)} not saved: ${esc(e.message)}`]; }
+    RL.saving = false; rlRedraw();
+  }
+  function rlDone(r, args, scrap) {
+    const it = rlItem(r.item_code) || {}, d = { reel: r.reel, item_code: r.item_code, item_name: r.item_name || it.item_name || '', length: r.length || rlFt(r.length_mm), location: r.location || '', warehouse: r.warehouse || '', scrap: !!scrap,
+      at: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }), args };
+    RL.done = [d].concat(RL.done.filter(x => x.reel !== d.reel)).slice(0, 20); rlKeep(); rlLast(r.item_code);
+    if (RL.cur && RL.cur.prior && RL.cur.prior.status === 'Tag only' && RL.setup.tags_left) RL.setup.tags_left--;
+    const line = `✓ ${esc(d.reel)} · ${esc(d.item_name || d.item_code)} · ${scrap ? 'scrapped' : esc(d.length)} · ${esc(d.location || (d.warehouse ? d.warehouse + ' (no shelf)' : 'no shelf'))}`;
+    RL.msg = r.under_scrap_line && !scrap ? ['warn', line + ' · under the scrap line', 0] : ['good', line];
+    if (RL.cur && RL.cur.reel === r.reel) RL.cur = null; RL.ft = RL.inch = RL.grams = RL.lot = '';
+  }
+  // a weighed reel can only be checked against the scrap line once saved: "Scrap it" recounts it with scrap=1
+  async function rlScrapIt(i) {
+    const d = RL.done[i]; if (!d || !d.args) return;
+    try { rlDone(await call(RL_API + 'count_reel', Object.assign({}, d.args, { scrap: 1 })), d.args, true); } catch (e) { RL.msg = ['bad', `${esc(d.reel)} not scrapped: ${esc(e.message)}`]; }
+    rlRedraw();
+  }
+  function rlSheet(title, sub, inner, label, fn) {
+    const el = sheet(title, sub, inner + `<div class="toolbar"><button type="submit" class="cc-btn primary" id="rlGo">${label}</button></div>`, null), b = el.querySelector('#rlGo'), msg = el.querySelector('#sMsg');
+    el.querySelector('#sform').onsubmit = async e => { e.preventDefault(); b.disabled = true; msg.textContent = '';
+      try { await fn(el); closeSheet(); const s = $('#rlscan'); if (s) s.focus({ preventScroll: true }); } catch (err) { msg.textContent = 'Not done: ' + err.message; } finally { b.disabled = false; } };
+    return el;
+  }
+  async function rlTool(k) {
+    const X = RL.setup;
+    if (k === 'tags') rlSheet('Print reel tags', `Blank ID tags (R-00001…) on the 1.5 x 2.5 roll. ${pbN(X.tags_left || 0, 'tag')} printed and not yet counted.`, fld('How many', '<input type="number" name="n" min="1" max="500" value="50" required>'), 'Queue tags', async el => {
+      const r = await call(RL_API + 'print_tags', { count: +val(el, 'n') }); X.tags_left = (X.tags_left || 0) + (+val(el, 'n'));
+      toast(`Queued ${esc(r.first)} to ${esc(r.last)}; print them from the Labels tab`); lbRefresh(); rlRedraw(); });
+    else if (k === 'shelves') rlSheet('Add shelves', 'Shelf codes separated by spaces, commas or new lines. Each gets a LOC- barcode label in the queue.',
+      fld('Shelf codes', '<textarea name="codes" rows="4" placeholder="A1 A2 A3 B1" required></textarea>') + fld('Warehouse', `<input type="text" name="wh" value="${esc(X.warehouse || '')}">`), 'Add shelves', async el => {
+      const r = await call(RL_API + 'create_locations', { codes: val(el, 'codes'), warehouse: val(el, 'wh') || undefined }), n = r.created.length;
+      toast(n ? `Added ${n} shel${n === 1 ? 'f' : 'ves'} (${esc(r.created.join(', '))}); print the labels from the Labels tab` : 'Those shelves already exist');
+      RL.at = 0; rlFetch(); lbRefresh(); });
+    else if (k === 'labels') { const reels = [...new Set(RL.done.filter(d => !d.scrap).map(d => d.reel))]; if (!reels.length) return;
+      try { const r = await call(RL_API + 'print_reel_labels', { reels: JSON.stringify(reels) }); toast(`Queued ${pbN(r.queued || 0, 'reel label')}; print them from the Labels tab`); lbRefresh(); } catch (e) { toast('Not queued: ' + esc(e.message)); } }
+    else if (k === 'summary') {
+      let r; try { r = await call(RL_API + 'count_summary', {}); } catch (e) { toast('Couldn\'t load the count summary: ' + esc(e.message)); return; }
+      const n = v => v == null ? '<span class="calc">—</span>' : pbNum(v, 3), whs = [...new Set(r.rows.filter(x => x.counted_qty != null).map(x => x.warehouse).filter(Boolean))];
+      const rows = r.rows.map(x => `<tr><td>${esc(x.item_name || x.item_code)}<div class="m mono">${esc(x.item_code)}</div></td><td>${esc(x.warehouse || '')}</td><td class="num">${x.reels}</td><td>${esc(x.length)}</td><td class="num">${n(x.counted_qty)} ${esc(x.stock_uom || '')}</td><td class="num">${n(x.erpnext_qty)}</td>
+        <td class="num">${x.difference == null ? '<span class="calc">—</span>' : x.difference ? `<b class="pb-hi">${x.difference > 0 ? '+' : ''}${pbNum(x.difference, 3)}</b>` : '0'}</td></tr>`);
+      const el = sheet('Count summary', `${pbN(r.tags_left || 0, 'blank tag')} not yet counted${r.missing ? ` · ${pbN(r.missing, 'reel')} marked missing` : ''}. Quantities are in each item's stock unit.`,
+        flTable(['Item', 'Warehouse', '#Reels', 'Counted length', '#Counted qty', '#ERPNext qty', '#Difference'], rows, 'No reels counted yet')
+        + (r.not_counted.length ? `<p class="small"><b>Not counted yet (${r.not_counted.length}):</b> ${r.not_counted.map(esc).join(', ')}</p>` : '')
+        + (r.can_reconcile && whs.length ? `<div class="toolbar" style="margin-top:12px">${whs.map(w => `<button type="button" class="cc-btn soft" data-rlrec="${esc(w)}">Draft stock reconciliation · ${esc(w)}</button>`).join('')}</div><p class="small">A draft only: review and submit it in ERPNext to close the count. Items with no counted reels are left out.</p>` : ''), null);
+      el.querySelector('.cc-sheet').classList.add('lb-wide');
+      el.querySelectorAll('[data-rlrec]').forEach(b => b.onclick = async () => { b.disabled = true;
+        try { const d = await call(RL_API + 'make_stock_reconciliation', { warehouse: b.dataset.rlrec }); b.outerHTML = `<a class="cc-btn soft" style="text-decoration:none" target="_blank" rel="noopener" href="${docUrl('stock-reconciliation', d.name)}">Open draft ${esc(d.name)} (${pbN(d.items, 'item')})</a>`; }
+        catch (e) { b.disabled = false; el.querySelector('#sMsg').textContent = 'Not drafted: ' + e.message; } });
+    }
+  }
   V.mfg = m => {
     const row = w => `<tr><td>${link('work-order', w.wo)}</td><td>${link('item', w.item, w.name)}<div class="m mono">${esc(w.item)}</div></td><td class="num">${w.qty}</td><td>${link('sales-order', w.so, short(w.so))}</td><td>${fmtd(w.created)}</td><td>${w.flag === 'Active' ? badge(w.status, w.draft ? 'warn' : 'info') : badge(w.flag.split(':')[0].split(' (')[0], 'bad')}</td></tr>`;
     return header('Manufacturing', 'Flow: every open order and work order at the step it is waiting on, with what to do next in ERPNext. Reports: the schedule workbook\'s views (points, capacity, dollars).',

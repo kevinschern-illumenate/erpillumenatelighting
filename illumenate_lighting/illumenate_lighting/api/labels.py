@@ -726,6 +726,14 @@ def _as_list(value):
 	return list(value)
 
 
+def _age_minutes(now, then):
+	"""Minutes since ``then`` on the server's clock, or None."""
+	try:
+		return int((now - frappe.utils.get_datetime(then)).total_seconds() // 60)
+	except Exception:
+		return None
+
+
 @frappe.whitelist()
 def get_queue(sales_order=None, work_orders=None, include_printed=0):
 	"""The print station: one group per roll (so per printer), in print order."""
@@ -770,8 +778,9 @@ def get_queue(sales_order=None, work_orders=None, include_printed=0):
 		dates = [j["ship_by"] for j in queued if j["ship_by"]]
 		group["earliest_ship_by"] = min(dates) if dates else None
 	result["groups"] = order_groups(list(groups.values()))
+	now = frappe.utils.now_datetime()
 	result["unconfirmed"] = [
-		dict(row)
+		{**row, "age_minutes": _age_minutes(now, row.get("sent_at"))}
 		for row in frappe.get_all(
 			BATCH,
 			filters={"status": "Sent"},
