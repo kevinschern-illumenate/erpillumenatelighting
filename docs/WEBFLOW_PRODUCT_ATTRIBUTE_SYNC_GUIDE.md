@@ -54,8 +54,15 @@ Syncs all attribute doctypes to their respective Webflow collections. Each attri
 
 Syncs product data including both display fields (`-5`) and filter fields (`-filter`). Both field types are populated during the main product sync.
 
-### Optional: Dedicated Filter Sync
+### Optional: Dedicated Filter Sync (RETIRED 2026-11-23)
 **Workflow:** `webflow_product_attribute_filter_sync.json`
+
+> **Retired.** n8n workflow `mpLuNTtjTvRc5uPtD_h9n` was unpublished on 2026-11-23 and is no longer scheduled.
+> The production Products collection (`696fc3c5c42c86528e97f413`) has none of the `-filter` fields, so every run
+> failed with Webflow 400 `Field not described in schema: environment-ratings-filter`. The main product sync
+> already ships with `INCLUDE_ATTRIBUTE_FILTER_FIELDS = false`. To bring filtering back: create the Plain Text
+> fields listed under "Webflow Setup Requirements", then turn that flag on in `webflow_product_sync.json`
+> (preferred), or republish this workflow.
 
 A lightweight workflow that only updates the filter fields (and display fields are untouched). Useful for re-syncing filters without a full product sync.
 
