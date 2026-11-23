@@ -21,6 +21,7 @@ from jinja2.sandbox import SandboxedEnvironment
 REPO = Path(__file__).resolve().parents[2]
 APP = REPO / "illumenate_lighting"
 MODULE = APP / "illumenate_lighting"
+ROOT_PACKAGE = "illumenate_lighting.illumenate_lighting"
 FORMATS = MODULE / "print_format"
 
 
@@ -452,6 +453,35 @@ SAMPLES = {
 }
 
 
+SAMPLES["ill_fixture_schedule_msrp"] = lambda: Doc(
+	name="SCHED-1",
+	schedule_name="Main Schedule",
+	version=2,
+	status="DRAFT",
+	lines=[
+		Doc(
+			name="ROW-1",
+			line_id="A1",
+			qty=4,
+			location="Kitchen",
+			manufacturer_type="OTHER",
+			manufacturer_name="Acme",
+			fixture_model_number="DL-4",
+			notes="Trim to match",
+		),
+		Doc(
+			name="ROW-2",
+			line_id="B1",
+			qty=2,
+			location="Kitchen",
+			manufacturer_type="OTHER",
+			manufacturer_name="Acme",
+			fixture_model_number="DL-6",
+		),
+	],
+)
+
+
 class Formats(unittest.TestCase):
 	def test_every_format_folder_has_a_matching_record_and_sample(self):
 		folders = sorted(p.name for p in FORMATS.iterdir() if p.is_dir() and not p.name.startswith("__"))
@@ -577,7 +607,9 @@ class LineLayout(unittest.TestCase):
 		doc = sales_doc(
 			items=[
 				line(additional_notes="Power supply for L1", ill_lp_summary=summary, ill_lp_watts=197.3),
-				line(name="row2", idx=2, ill_lp_summary="24VDC · 10 W/ft", ill_lp_watts=50.0, is_alternative=1),
+				line(
+					name="row2", idx=2, ill_lp_summary="24VDC · 10 W/ft", ill_lp_watts=50.0, is_alternative=1
+				),
 				line(name="row3", idx=3, ill_lp_summary="24VDC · 1 W/ft", ill_lp_watts=10.0),
 			]
 		)
@@ -585,8 +617,14 @@ class LineLayout(unittest.TestCase):
 			with self.subTest(folder=folder):
 				html = render(folder, doc)
 				self.assertNotIn("{{", html)
-				row = html[html.index('<tr class="ill-line-row') : html.index("</tr>", html.index('<tr class="ill-line-row'))]
-				self.assert_order(row, "LED Tape - 2700K", 'class="ill-specs ill-power"', summary, "Power supply for L1")
+				row = html[
+					html.index('<tr class="ill-line-row') : html.index(
+						"</tr>", html.index('<tr class="ill-line-row')
+					)
+				]
+				self.assert_order(
+					row, "LED Tape - 2700K", 'class="ill-specs ill-power"', summary, "Power supply for L1"
+				)
 				self.assertIn("Connected load (tape / neon / sheet)", html)
 				self.assertIn("207.3 W", html)  # the alternative line is left out
 
@@ -883,7 +921,7 @@ class LineLayout(unittest.TestCase):
 			for folder, sample in SAMPLES.items():
 				with self.subTest(folder=folder):
 					html = render(folder, sample())
-					if folder == "ill_fixture_schedule":
+					if folder in ("ill_fixture_schedule", "ill_fixture_schedule_msrp"):
 						self.assertIn("@font-face", html)
 						self.assertIn('class="ill-doc ill-brand"', html)
 					else:
@@ -891,6 +929,66 @@ class LineLayout(unittest.TestCase):
 						self.assertNotIn("ilL Poppins", html)
 						self.assertNotIn("ilL Manrope", html)
 						self.assertIn('"Helvetica Neue", Helvetica, Arial, sans-serif', html)
+
+	def test_msrp_schedule_prices_each_line_and_says_it_is_msrp(self):
+		prices = {
+			"lines": {"ROW-1": {"unit": 125.5, "amount": 502.0}},
+			"total": 502.0,
+			"unpriced": 1,
+			"allowed": True,
+		}
+		with patch.object(PRINTING, "ill_print_schedule_prices", lambda doc: prices):
+			html = render("ill_fixture_schedule_msrp", SAMPLES["ill_fixture_schedule_msrp"]())
+		self.assertIn("Fixture Schedule (MSRP)", html)
+		self.assertIn(">MSRP Unit<", html)
+		self.assertIn(">MSRP Amount<", html)
+		self.assertIn("$125.50", html)
+		self.assertIn("$502.00", html)
+		self.assertIn("MSRP total", html)
+		self.assertIn("All prices are MSRP", html)
+		self.assertIn("1 line is not priced", html)
+		self.assert_order(html, "DL-4", "$502.00", "DL-6", "&mdash;")
+
+	def test_msrp_schedule_shows_no_prices_without_pricing_permission(self):
+		prices = {"lines": {}, "total": 0.0, "unpriced": 0, "allowed": False}
+		with patch.object(PRINTING, "ill_print_schedule_prices", lambda doc: prices):
+			html = render("ill_fixture_schedule_msrp", SAMPLES["ill_fixture_schedule_msrp"]())
+		self.assertNotIn("$125", html)
+		self.assertIn("shown only to users who can view pricing", html)
+
+	def test_schedule_prices_need_pricing_permission(self):
+		exports = types.ModuleType("exports")
+		exports._check_pricing_permission = lambda: False
+		exports._get_schedule_data = MagicMock()
+		with patch.dict(sys.modules, {ROOT_PACKAGE + ".api.exports": exports}):
+			info = PRINTING.ill_print_schedule_prices(Doc(name="SCHED-1"))
+		self.assertFalse(info["allowed"])
+		self.assertEqual(info["lines"], {})
+		exports._get_schedule_data.assert_not_called()
+
+	def test_schedule_prices_add_power_supply_sub_lines_to_the_total(self):
+		exports = types.ModuleType("exports")
+		exports._check_pricing_permission = lambda: True
+		exports._get_schedule_data = MagicMock(
+			return_value={
+				"lines": [
+					{
+						"line_name": "R1",
+						"qty": 2,
+						"unit_price": 100.0,
+						"line_total": 200.0,
+						"driver_unit_price": 40.0,
+						"driver_line_total": 80.0,
+					},
+					{"line_name": "R2", "qty": 1},
+				]
+			}
+		)
+		with patch.dict(sys.modules, {ROOT_PACKAGE + ".api.exports": exports}):
+			info = PRINTING.ill_print_schedule_prices(Doc(name="SCHED-1"))
+		self.assertEqual(info["total"], 280.0)
+		self.assertEqual(info["unpriced"], 1)
+		self.assertEqual(info["lines"]["R1"]["driver_amount"], 80.0)
 
 	def test_fixture_schedule_uses_the_same_rows(self):
 		html = render("ill_fixture_schedule", SAMPLES["ill_fixture_schedule"]())

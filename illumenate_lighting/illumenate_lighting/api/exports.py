@@ -13,6 +13,10 @@ Export Types:
 - PDF_PRICED: PDF schedule with pricing (requires pricing permission)
 - CSV_NO_PRICE: CSV schedule without pricing
 - CSV_PRICED: CSV schedule with pricing (requires pricing permission)
+
+The PDF exports print the schedule with its print formats (``ilL Fixture Schedule``, and
+``ilL Fixture Schedule - MSRP`` for the priced one, owner 2026-11-23); the older HTML layout
+below is the fallback when a print format fails.
 """
 
 import csv
@@ -90,6 +94,26 @@ def _check_schedule_access(schedule_name: str, user: str = None) -> tuple[bool, 
 		return False, _("You don't have permission to access this schedule")
 
 	return True, None
+
+
+SCHEDULE_DOCTYPE = "ilL-Project-Fixture-Schedule"
+SCHEDULE_PRINT_FORMAT = "ilL Fixture Schedule"
+SCHEDULE_MSRP_PRINT_FORMAT = "ilL Fixture Schedule - MSRP"
+
+
+def print_schedule_pdf(schedule, priced: bool = False) -> bytes:
+	"""The schedule printed with its print format, as PDF bytes. Raises when printing fails.
+
+	Callers check access first: portal roles carry no Desk print permission on schedules.
+	"""
+	doc = frappe.get_doc(SCHEDULE_DOCTYPE, schedule) if isinstance(schedule, str) else schedule
+	print_format = SCHEDULE_MSRP_PRINT_FORMAT if priced else SCHEDULE_PRINT_FORMAT
+	previous = frappe.flags.ignore_print_permissions
+	frappe.flags.ignore_print_permissions = True
+	try:
+		return frappe.get_print(SCHEDULE_DOCTYPE, doc.name, print_format=print_format, as_pdf=True, doc=doc)
+	finally:
+		frappe.flags.ignore_print_permissions = previous
 
 
 def _check_pricing_permission(user: str = None) -> bool:
@@ -419,6 +443,7 @@ def _get_schedule_data(schedule_name: str, include_pricing: bool = False) -> dic
 
 	for line in schedule.lines or []:
 		line_data = {
+			"line_name": line.name,
 			"line_id": line.line_id or str(line.idx),
 			"qty": line.qty or 1,
 			"location": line.location or "",
@@ -1275,19 +1300,18 @@ def generate_schedule_pdf(schedule_id: str, priced: bool = False) -> dict:
 		# Update status to RUNNING
 		_update_export_job_status(job_name, "RUNNING")
 
-		# Gather schedule data
-		schedule_data = _get_schedule_data(schedule_id, include_pricing=priced)
+		schedule = frappe.get_doc(SCHEDULE_DOCTYPE, schedule_id)
+		try:
+			pdf_content = print_schedule_pdf(schedule, priced=priced)
+		except Exception:
+			# The older layout still gives the dealer a schedule when a print format fails.
+			frappe.log_error(frappe.get_traceback(), f"Schedule print format failed for {schedule_id}")
+			from frappe.utils.pdf import get_pdf
 
-		# Generate PDF content
-		html_content = _generate_pdf_content(schedule_data, include_pricing=priced)
-
-		# Generate PDF using frappe's PDF generator
-		from frappe.utils.pdf import get_pdf
-
-		pdf_content = get_pdf(html_content)
+			schedule_data = _get_schedule_data(schedule_id, include_pricing=priced)
+			pdf_content = get_pdf(_generate_pdf_content(schedule_data, include_pricing=priced))
 
 		# Generate filename
-		schedule = schedule_data["schedule"]
 		timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 		price_suffix = "_priced" if priced else "_no_price"
 		filename = f"{schedule.schedule_name}{price_suffix}_{timestamp}.pdf"

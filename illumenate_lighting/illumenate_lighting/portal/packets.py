@@ -9,7 +9,10 @@ import frappe
 
 from illumenate_lighting.illumenate_lighting.api.configuration_contract import parse_bool
 from illumenate_lighting.illumenate_lighting.portal.packet_manifest import assemble_manifest
-from illumenate_lighting.illumenate_lighting.portal.packet_pages import contents_html
+from illumenate_lighting.illumenate_lighting.portal.packet_pages import (
+	contents_html,
+	print_contents_html,
+)
 
 
 def _part_number(line):
@@ -144,7 +147,89 @@ def _template_spec_sheet(build):
 	return template_doctype, template, frappe.db.get_value(template_doctype, template, "spec_sheet")
 
 
-def gather(schedule, warnings, pinned=None):
+def generated_enabled():
+	"""Packets fill each template's generated spec sheet (site config ``generated_spec_submittals``)."""
+	return parse_bool(frappe.conf.get("generated_spec_submittals"), default=False)
+
+
+def _generated_sheet(schedule, line, entry, warnings, job_name):
+	"""Fill the line's generated spec sheet into ``entry``. False leaves the line to the old path.
+
+	Every reason the generated sheet could not be used is noted for staff (the Issue Log).
+	"""
+	from illumenate_lighting.illumenate_lighting.api import exports, spec_sheet_fill, spec_sheet_steps
+	from illumenate_lighting.illumenate_lighting.api import spec_submittal as pdf
+
+	label = line.line_id or f"Row {line.idx}"
+	try:
+		resolved = spec_sheet_steps.resolve(schedule, line)
+		if not resolved:
+			return False
+		file = pdf._get_file_doc_by_url(resolved["sheet_url"])
+		if not file:
+			raise ValueError(f"{resolved['template']}'s spec sheet file is missing")
+		source = file.get_content()
+		sheet = spec_sheet_fill.inspect(source)
+		if not sheet["has_form"] or not sheet["steps"]:
+			raise ValueError(
+				f"{resolved['template']}'s spec sheet has no form fields; run Generate Spec on the template"
+			)
+		filled = spec_sheet_fill.fill(
+			source,
+			text=resolved["text"],
+			steps=resolved["steps"],
+			title=" \u00b7 ".join(
+				value for value in (resolved["text"].get("fixture_type"), resolved["part_number"]) if value
+			),
+		)
+	except Exception as error:
+		note = f"Line {label}: used the older submittal because the generated spec sheet could not be filled ({error})"
+		warnings.append(note)
+		entry["fallback_warning"] = note
+		return False
+	notes = list(resolved["warnings"])
+	if filled["unmatched"]:
+		notes.append(
+			"codes not on the spec sheet: "
+			+ ", ".join(f"step {step} {code}" for step, code in sorted(filled["unmatched"].items()))
+			+ "; regenerate the template's spec sheet"
+		)
+	if filled["missing_steps"]:
+		notes.append(
+			"steps not on the spec sheet: "
+			+ ", ".join(sorted(filled["missing_steps"], key=lambda step: int(step) if step.isdigit() else 0))
+		)
+	if filled["highlight_style"] == "rows":
+		notes.append(
+			f"{resolved['template']}'s spec sheet predates highlight tags; regenerate it to highlight"
+		)
+	name = " ".join(value for value in (line.line_id, resolved["part_number"]) if value) or f"Line {line.idx}"
+	saved = exports._save_file_ignore_permissions(
+		f"{name.replace('/', '-')}.pdf", filled["pdf"], "ilL-Export-Job", job_name
+	)
+	line_warnings = [f"Line {label}: {note}" for note in dict.fromkeys(notes)]
+	warnings.extend(line_warnings)
+	entry.update(
+		spec_document_url=saved.file_url,
+		has_submittal=True,
+		source_kind="generated_sheet",
+		build=resolved["build"] or {"doctype": resolved["template_doctype"], "name": resolved["template"]},
+		provenance={
+			"template_type": resolved["template_doctype"],
+			"template": resolved["template"],
+			"source_url": resolved["sheet_url"],
+			"source_sha256": hashlib.sha256(source).hexdigest(),
+			"steps": filled["selected"],
+			"unmatched": filled["unmatched"],
+			"highlights": filled["highlights"],
+		},
+		warnings=line_warnings,
+	)
+	entry.pop("render_error", None)
+	return True
+
+
+def gather(schedule, warnings, pinned=None, *, job_name=None, generated=False):
 	from illumenate_lighting.illumenate_lighting.api import spec_submittal as pdf
 	from illumenate_lighting.illumenate_lighting.portal.build_documents import generate_group
 
@@ -180,9 +265,17 @@ def gather(schedule, warnings, pinned=None):
 				build=prior.get("build"),
 				provenance=prior.get("provenance"),
 				expected_sha256=prior.get("sha256"),
-				has_submittal=prior.get("source_kind") in ("filled_submittal", "template_spec_sheet"),
+				has_submittal=prior.get("source_kind")
+				in ("filled_submittal", "template_spec_sheet", "generated_sheet"),
 				warnings=prior.get("warnings"),
 			)
+		elif (
+			generated
+			and line.manufacturer_type in ("ILLUMENATE", "ACCESSORY")
+			and _generated_sheet(schedule, line, entry, warnings, job_name)
+		):
+			# The template's generated spec sheet, filled with this line (generated_spec_submittals).
+			pass
 		elif line.manufacturer_type == "ILLUMENATE":
 			entry["render_error"] = "The line has no configured build; configure it before exporting"
 			for field, doctype, renderer in families:
@@ -270,6 +363,9 @@ def gather(schedule, warnings, pinned=None):
 					source_kind="selected_line_document",
 					required=True,
 				)
+		fallback = entry.pop("fallback_warning", None)
+		if fallback:
+			entry["warnings"] = [fallback, *(entry.get("warnings") or [])]
 		lines.append(entry)
 		for document in attachments:
 			url = frappe.db.get_value("File", document.file, "file_url")
@@ -399,13 +495,18 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 	previous = frappe.flags.get("ill_packet_job")
 	warnings = []
 	notes = []
+	# Generated spec sheets (owner, 2026-11-23): the schedule's print layout first, then each line's
+	# filled spec sheet. No cover page, and the full packet is the same as the standard one.
+	generated = generated_enabled()
+	if generated:
+		include_cover = False
 	try:
 		frappe.flags.ill_packet_job = job_name
 		lock_running(job_name)
 		frappe.db.commit()
-		lines = gather(schedule, warnings, pinned)
+		lines = gather(schedule, warnings, pinned, job_name=job_name, generated=generated)
 		checkpoint(job_name, 60, "Validating and pinning source documents")
-		if export_type == "SPEC_SUBMITTAL_FULL":
+		if export_type == "SPEC_SUBMITTAL_FULL" and not generated:
 			lines = full_literature(schedule, lines, pinned, warnings)
 		cover = (
 			pdf._generate_cover_page(schedule_name, schedule.ill_project, lines) if include_cover else None
@@ -456,9 +557,17 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 
 		schedule_data = exports._get_schedule_data(schedule_name, include_pricing=False)
 		project_title = getattr(schedule_data.get("project"), "project_name", None)
-		schedule_pdf = get_pdf(
-			exports._generate_pdf_content(schedule_data, include_pricing=False, submittal=True)
-		)
+		schedule_pdf = None
+		if generated:
+			try:
+				schedule_pdf = exports.print_schedule_pdf(schedule, priced=False)
+			except Exception as error:
+				frappe.log_error(frappe.get_traceback(), "Packet schedule print failed")
+				notes.append(f"The fixture schedule print layout failed ({error}); the older layout was used")
+		if schedule_pdf is None:
+			schedule_pdf = get_pdf(
+				exports._generate_pdf_content(schedule_data, include_pricing=False, submittal=True)
+			)
 		schedule_pages = len(PdfReader(io.BytesIO(schedule_pdf)).pages)
 		index_pages = 0
 		for _attempt in range(4):
@@ -468,7 +577,7 @@ def generate(schedule_name, export_type="SPEC_SUBMITTAL", include_cover=True, *,
 					entry.update(page_start=page, page_end=page + entry["page_count"] - 1)
 					page += entry["page_count"]
 			index_pdf = get_pdf(
-				contents_html(
+				(print_contents_html if generated else contents_html)(
 					manifest,
 					schedule_title=schedule.get("schedule_name"),
 					project_title=project_title,

@@ -107,3 +107,55 @@ class SchedulePartNumbers(unittest.TestCase):
 			html = module._generate_pdf_content(data)
 			self.assertIn("<strong>ILL-SL-SW-I-30-HO-FR-SM-WH-48</strong>", html)
 			self.assertNotIn("ILL-CF-", html)
+
+
+class SchedulePdfExports(unittest.TestCase):
+	"""The portal PDF exports print with the schedule print formats (owner, 2026-11-23)."""
+
+	def export(self, priced, print_error=None):
+		file_manager = types.ModuleType("frappe.utils.file_manager")
+		file_manager.save_file = MagicMock()
+		pdf_module = types.SimpleNamespace(get_pdf=MagicMock(return_value=b"%PDF-old"))
+		with load_service(
+			ROOT + ".api.exports", {file_manager.__name__: file_manager, "frappe.utils.pdf": pdf_module}
+		) as (module, frappe):
+			schedule = Record(name="S1", schedule_name="Main")
+			frappe.get_doc.return_value = schedule
+			frappe.get_roles.return_value = ["Dealer"]
+			frappe.log_error = MagicMock()
+			frappe.get_traceback = MagicMock(return_value="traceback")
+			frappe.get_print = MagicMock(side_effect=print_error, return_value=b"%PDF-print")
+			module._check_schedule_access = lambda name: (True, None)
+			module._create_export_job = MagicMock(return_value="JOB")
+			module._update_export_job_status = MagicMock()
+			module._get_schedule_data = MagicMock(return_value={})
+			module._generate_pdf_content = MagicMock(return_value="<html>old</html>")
+			saved = []
+			module._save_file_ignore_permissions = lambda name, content, *a, **kw: (
+				saved.append((name, content)) or Record(file_url=f"/private/files/{name}")
+			)
+			result = module.generate_schedule_pdf("S1", priced=priced)
+			return result, frappe, saved
+
+	def test_unpriced_pdf_uses_the_fixture_schedule_format(self):
+		result, frappe, saved = self.export(False)
+		self.assertTrue(result["success"], result)
+		kwargs = frappe.get_print.call_args.kwargs
+		self.assertEqual(kwargs["print_format"], "ilL Fixture Schedule")
+		self.assertTrue(kwargs["as_pdf"])
+		self.assertEqual(saved[0][1], b"%PDF-print")
+		self.assertIn("_no_price_", saved[0][0])
+		# Print permission is bypassed only for the call; access was checked before it.
+		self.assertFalse(frappe.flags.ignore_print_permissions)
+
+	def test_priced_pdf_uses_the_msrp_format(self):
+		result, frappe, saved = self.export(True)
+		self.assertTrue(result["success"], result)
+		self.assertEqual(frappe.get_print.call_args.kwargs["print_format"], "ilL Fixture Schedule - MSRP")
+		self.assertIn("_priced_", saved[0][0])
+
+	def test_a_failing_print_format_falls_back_to_the_older_layout(self):
+		result, frappe, saved = self.export(False, print_error=RuntimeError("bad template"))
+		self.assertTrue(result["success"], result)
+		self.assertEqual(saved[0][1], b"%PDF-old")
+		frappe.log_error.assert_called_once()

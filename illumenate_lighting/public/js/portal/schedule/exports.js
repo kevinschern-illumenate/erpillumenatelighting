@@ -115,7 +115,7 @@ function renderExportHistory(exports) {
 		var exportStatus = exportStatuses[exp.status] || {label: exp.status, css: 'secondary'};
 
 		var typeLabelMap = {
-			'PDF_PRICED': 'PDF (With Pricing)',
+			'PDF_PRICED': 'PDF (MSRP)',
 			'PDF_NO_PRICE': 'PDF (No Pricing)',
 			'CSV_PRICED': 'CSV (With Pricing)',
 			'CSV_NO_PRICE': 'CSV (No Pricing)',
