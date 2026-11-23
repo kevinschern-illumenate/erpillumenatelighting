@@ -1,0 +1,105 @@
+# Catalog Builder starter: DMX decoder (5 channel PWM).
+# Copied from an active product by tools/catalog_expansion/starters.py and renamed to code DEMO and
+# series 'Example Series'. Review engineering values before importing a product made from it.
+schema_version: 2
+product_type: controller
+series_name: Example Series
+builder:
+  starter:
+    id: controller-decoder
+    label: DMX decoder (5 channel PWM)
+    description: 'A DMX decoder (from the 5-channel DMX512 decoder): spec with channel loads, DMX footprint and ports, and its template variant.'
+    code: DEMO
+    series: Example Series
+    name: Example Series DMX512 Decoder - 5 Channels - 8Bit / 16Bit
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: DMXD-PWM-DEMO-SF
+    item_name: DMX512 Decoder-5 Channels-8Bit / 16Bit
+    item_group: Controls
+    stock_uom: Ea
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Controller-Template:
+  - template_code: DMXD-PWM-DEMO-SF
+    template_name: Example Series DMX512 Decoder - 5 Channels - 8Bit / 16Bit
+    product_status: Draft
+    is_active: 1
+    series: Example Series
+    base_price_msrp: 0.0
+    warranty_years: 0
+    auto_populate_configurator: 1
+    variants:
+    - controller_spec: DMXD-PWM-DEMO-SF
+      is_default: 1
+      is_active: 1
+      msrp: 0.0
+      channels: 5
+      zones: 0
+      item: DMXS-SPLIT-2-DIN
+      max_load_watts: 1200.0
+      input_voltage_min: 12
+      input_voltage_max: 48
+      input_voltage_type: VDC
+  ilL-Spec-Controller:
+  - item: DMXD-PWM-DEMO-SF
+    controller_name: DMX512 Decoder-5 Channels-8Bit / 16Bit
+    controller_type: DMX Decoder
+    is_active: 1
+    input_voltage_min: 12
+    input_voltage_max: 48
+    input_voltage_type: VDC
+    max_load_watts: 1200.0
+    max_load_amps: 25.0
+    standby_power_watts: 0.0
+    channels: 5
+    zones: 1
+    width_mm: 55.0
+    height_mm: 30.0
+    depth_mm: 175.0
+    weight_grams: 370.0
+    mounting_type: Surface
+    max_a_per_channel: 5.0
+    max_w_per_channel: 120.0
+    output_dimming: None
+    min_load_w: 0.0
+    led_max_w: 0.0
+    max_supplies: 0
+    neutral_required: 0
+    dmx_footprint: 5
+    unit_load: 1.0
+    dmx_thru: 1
+    max_universes: 0
+    max_pixels: 0
+    max_bus_devices: 0
+    max_data_length_ft: 0.0
+    terminal_min_awg: '24'
+    terminal_max_awg: '12'
+    input_protocols:
+    - protocol: DMX512
+    output_protocols:
+    - protocol: PWM
+    ports:
+    - port_name: DMX512
+      direction: Bidirectional
+      protocol: DMX512
+      max_devices: 0
+    - port_name: PWM
+      direction: Out
+      protocol: PWM
+      max_devices: 0
+external_links:
+  Item:
+  - DMXS-SPLIT-2-DIN
+  Item Group:
+  - Controls
+  UOM:
+  - Ea
+  ilL-Attribute-Dimming Protocol:
+  - DMX512
+  - PWM

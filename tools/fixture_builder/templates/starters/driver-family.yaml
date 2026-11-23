@@ -1,0 +1,601 @@
+# Catalog Builder starter: Dimming power supply family: several wattages.
+# Copied from an active product by tools/catalog_expansion/starters.py and renamed to code DEMO and
+# series 'Example Series'. Review engineering values before importing a product made from it.
+schema_version: 2
+product_type: driver
+series_name: Example Series
+builder:
+  starter:
+    id: driver-family
+    label: 'Dimming power supply family: several wattages'
+    description: 'A constant voltage power supply family (from Universal Dimming): one spec per wattage with electrical ratings, and the template
+      with wattage variants, option adders and certifications.'
+    code: DEMO
+    series: Example Series
+    name: Example Series Universal Dimming Power Supply
+records:
+  ilL-Attribute-Series:
+  - series_name: Example Series
+    code: DEMO
+    is_active: 1
+  Item:
+  - item_code: PS-DEMO-24V-100W-IP66
+    item_name: Universal Dimming Constant Voltage Power Supply-24V-100W-IP66
+    item_group: Power Supplies
+    stock_uom: Ea
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: PS-DEMO-24V-100W/2-IP66
+    item_name: Universal Dimming Constant Voltage Power Supply-24V-100W/2-IP66
+    item_group: Power Supplies
+    stock_uom: Ea
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: PS-DEMO-24V-100W/3-IP66
+    item_name: Universal Dimming Constant Voltage Power Supply-24V-100W/3-IP66
+    item_group: Power Supplies
+    stock_uom: Ea
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: PS-DEMO-24V-30W-IP66
+    item_name: Universal Dimming Constant Voltage Power Supply-24V-30W-IP66
+    item_group: Power Supplies
+    stock_uom: Ea
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  - item_code: PS-DEMO-24V-60W-IP66
+    item_name: Universal Dimming Constant Voltage Power Supply-24V-60W-IP66
+    item_group: Power Supplies
+    stock_uom: Ea
+    is_stock_item: 1
+    is_sales_item: 1
+    is_purchase_item: 1
+  ilL-Driver-Template:
+  - template_code: PS-DEMO
+    template_name: Example Series Universal Dimming Power Supply
+    product_status: Draft
+    is_active: 1
+    series: Example Series
+    sku_series_code: PS-DEMO
+    base_price_msrp: 115.0
+    warranty_years: 5
+    auto_populate_configurator: 1
+    variants:
+    - driver_spec: PS-DEMO-24V-30W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '30W'
+      msrp: 115.0
+      wattage: 30.0
+      voltage_output: '24VDC'
+      input_protocol: TRIAC
+      output_protocol: PWM
+      item: PS-DEMO-24V-30W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-60W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '60W'
+      msrp: 120.0
+      wattage: 60.0
+      voltage_output: '24VDC'
+      input_protocol: TRIAC
+      output_protocol: PWM
+      item: PS-DEMO-24V-60W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '100W'
+      msrp: 220.0
+      wattage: 100.0
+      voltage_output: '24VDC'
+      input_protocol: TRIAC
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W/2-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '200W'
+      msrp: 270.0
+      wattage: 200.0
+      voltage_output: '24VDC'
+      input_protocol: TRIAC
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W/2-IP66
+      outputs_count: 2
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W/3-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '300W'
+      msrp: 320.0
+      wattage: 300.0
+      voltage_output: '24VDC'
+      input_protocol: TRIAC
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W/3-IP66
+      outputs_count: 3
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-30W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '30W'
+      msrp: 115.0
+      wattage: 30.0
+      voltage_output: '24VDC'
+      input_protocol: ELV
+      output_protocol: PWM
+      item: PS-DEMO-24V-30W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-60W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '60W'
+      msrp: 120.0
+      wattage: 60.0
+      voltage_output: '24VDC'
+      input_protocol: ELV
+      output_protocol: PWM
+      item: PS-DEMO-24V-60W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '100W'
+      msrp: 220.0
+      wattage: 100.0
+      voltage_output: '24VDC'
+      input_protocol: ELV
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W/2-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '200W'
+      msrp: 270.0
+      wattage: 200.0
+      voltage_output: '24VDC'
+      input_protocol: ELV
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W/2-IP66
+      outputs_count: 2
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W/3-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '300W'
+      msrp: 320.0
+      wattage: 300.0
+      voltage_output: '24VDC'
+      input_protocol: ELV
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W/3-IP66
+      outputs_count: 3
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-30W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '30W'
+      msrp: 115.0
+      wattage: 30.0
+      voltage_output: '24VDC'
+      input_protocol: '0-10V'
+      output_protocol: PWM
+      item: PS-DEMO-24V-30W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-60W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '60W'
+      msrp: 120.0
+      wattage: 60.0
+      voltage_output: '24VDC'
+      input_protocol: '0-10V'
+      output_protocol: PWM
+      item: PS-DEMO-24V-60W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '100W'
+      msrp: 220.0
+      wattage: 100.0
+      voltage_output: '24VDC'
+      input_protocol: '0-10V'
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W-IP66
+      outputs_count: 1
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W/2-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '200W'
+      msrp: 270.0
+      wattage: 200.0
+      voltage_output: '24VDC'
+      input_protocol: '0-10V'
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W/2-IP66
+      outputs_count: 2
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    - driver_spec: PS-DEMO-24V-100W/3-IP66
+      is_default: 0
+      is_active: 1
+      variant_code: '300W'
+      msrp: 320.0
+      wattage: 300.0
+      voltage_output: '24VDC'
+      input_protocol: '0-10V'
+      output_protocol: PWM
+      item: PS-DEMO-24V-100W/3-IP66
+      outputs_count: 3
+      input_voltage_min: 120
+      input_voltage_max: 277
+      input_voltage_type: VAC
+    allowed_options:
+    - option_type: Wattage
+      option_value: '30'
+      option_label: '30W'
+      option_code: '30W'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: Wattage
+      option_value: '60'
+      option_label: '60W'
+      option_code: '60W'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 5.0
+    - option_type: Wattage
+      option_value: '100'
+      option_label: '100W'
+      option_code: '100W'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 105.0
+    - option_type: Wattage
+      option_value: '200'
+      option_label: '200W'
+      option_code: '200W'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 155.0
+    - option_type: Wattage
+      option_value: '300'
+      option_label: '300W'
+      option_code: '300W'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 205.0
+    - option_type: Voltage Output
+      attribute_doctype: ilL-Attribute-Output Voltage
+      attribute_link: '24VDC'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: Input Protocol
+      attribute_doctype: ilL-Attribute-Dimming Protocol
+      attribute_link: '0-10V'
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: Input Protocol
+      attribute_doctype: ilL-Attribute-Dimming Protocol
+      attribute_link: ELV
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: Input Protocol
+      attribute_doctype: ilL-Attribute-Dimming Protocol
+      attribute_link: TRIAC
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    - option_type: Output Protocol
+      attribute_doctype: ilL-Attribute-Dimming Protocol
+      attribute_link: PWM
+      is_default: 0
+      is_active: 1
+      msrp_adder: 0.0
+    certifications:
+    - certification: UL-Certified
+    - certification: Class 2
+    - certification: FCC
+    - certification: RoHS
+  ilL-Spec-Driver:
+  - item: PS-DEMO-24V-30W-IP66
+    input_voltage_min: 120
+    input_voltage_max: 277
+    input_voltage_type: VAC
+    voltage_output: '24VDC'
+    outputs_count: 1
+    independent_outputs_count: 1
+    input_phase: '1PH'
+    class2_outputs: 1
+    efficiency: 0.79
+    power_factor: 0.99
+    output_current_ma: 1250.0
+    compliance_v_min: 0.0
+    compliance_v_max: 0.0
+    max_input_a: 0.5
+    max_input_a_at_v: 100.0
+    inrush_a: 7.0
+    max_units_per_20a_breaker: 0
+    terminal_min_awg: '24'
+    terminal_max_awg: '4'
+    mounting: Screw
+    location_rating: Wet
+    output_type: Constant Voltage
+    output_protocol: PWM
+    max_wattage: 30.0
+    max_wattage_per_output: 30.0
+    usable_load_factor: 0.8
+    cost: 115.0
+    sku_control_code: DEMO
+    sku_wattage_output_code: '30W'
+    sku_form_code: IP66
+    width_mm: 165.1
+    height_mm: 40.8
+    depth_mm: 94.7
+    weight_grams: 0.0
+    input_protocols:
+    - protocol: '0-10V'
+      is_default: 0
+    - protocol: TRIAC
+      is_default: 0
+    - protocol: ELV
+      is_default: 0
+    certifications:
+    - certification: UL-Certified
+    - certification: FCC
+    - certification: RoHS
+    - certification: Class 2
+  - item: PS-DEMO-24V-60W-IP66
+    input_voltage_min: 120
+    input_voltage_max: 277
+    input_voltage_type: VAC
+    voltage_output: '24VDC'
+    outputs_count: 1
+    independent_outputs_count: 1
+    input_phase: '1PH'
+    class2_outputs: 1
+    efficiency: 0.84
+    power_factor: 0.98
+    output_current_ma: 2500.0
+    compliance_v_min: 0.0
+    compliance_v_max: 0.0
+    max_input_a: 0.9
+    max_input_a_at_v: 120.0
+    inrush_a: 22.4
+    max_units_per_20a_breaker: 0
+    terminal_min_awg: '24'
+    terminal_max_awg: '4'
+    mounting: Screw
+    location_rating: Wet
+    output_type: Constant Voltage
+    output_protocol: PWM
+    max_wattage: 60.0
+    max_wattage_per_output: 60.0
+    usable_load_factor: 0.8
+    cost: 120.0
+    sku_control_code: DEMO
+    sku_wattage_output_code: '60W'
+    sku_form_code: IP66
+    width_mm: 188.0
+    height_mm: 40.8
+    depth_mm: 94.7
+    weight_grams: 0.0
+    input_protocols:
+    - protocol: '0-10V'
+      is_default: 0
+    - protocol: TRIAC
+      is_default: 0
+    - protocol: ELV
+      is_default: 0
+    certifications:
+    - certification: UL-Certified
+    - certification: FCC
+    - certification: RoHS
+    - certification: Class 2
+  - item: PS-DEMO-24V-100W-IP66
+    input_voltage_min: 120
+    input_voltage_max: 277
+    input_voltage_type: VAC
+    voltage_output: '24VDC'
+    outputs_count: 1
+    independent_outputs_count: 1
+    input_phase: '1PH'
+    class2_outputs: 1
+    efficiency: 0.83
+    power_factor: 0.98
+    output_current_ma: 4160.0
+    compliance_v_min: 0.0
+    compliance_v_max: 0.0
+    max_input_a: 1.3
+    max_input_a_at_v: 120.0
+    inrush_a: 20.0
+    max_units_per_20a_breaker: 0
+    terminal_min_awg: '24'
+    terminal_max_awg: '4'
+    mounting: Screw
+    location_rating: Wet
+    output_type: Constant Voltage
+    output_protocol: PWM
+    max_wattage: 96.0
+    max_wattage_per_output: 96.0
+    usable_load_factor: 0.8
+    cost: 220.0
+    sku_control_code: DEMO
+    sku_wattage_output_code: '100W'
+    sku_form_code: IP66
+    width_mm: 188.0
+    height_mm: 40.8
+    depth_mm: 94.7
+    weight_grams: 0.0
+    input_protocols:
+    - protocol: '0-10V'
+      is_default: 0
+    - protocol: TRIAC
+      is_default: 0
+    - protocol: ELV
+      is_default: 0
+    certifications:
+    - certification: UL-Certified
+    - certification: FCC
+    - certification: RoHS
+    - certification: Class 2
+  - item: PS-DEMO-24V-100W/2-IP66
+    input_voltage_min: 120
+    input_voltage_max: 277
+    input_voltage_type: VAC
+    voltage_output: '24VDC'
+    outputs_count: 2
+    independent_outputs_count: 2
+    input_phase: '1PH'
+    class2_outputs: 1
+    efficiency: 0.9
+    power_factor: 0.95
+    output_current_ma: 8000.0
+    compliance_v_min: 0.0
+    compliance_v_max: 0.0
+    max_input_a: 2.13
+    max_input_a_at_v: 120.0
+    inrush_a: 23.0
+    max_units_per_20a_breaker: 0
+    terminal_min_awg: '24'
+    terminal_max_awg: '4'
+    mounting: Screw
+    location_rating: Wet
+    output_type: Constant Voltage
+    output_protocol: PWM
+    max_wattage: 192.0
+    max_wattage_per_output: 96.0
+    usable_load_factor: 0.8
+    cost: 270.0
+    sku_control_code: DEMO
+    sku_wattage_output_code: '200W'
+    sku_form_code: IP66
+    width_mm: 229.0
+    height_mm: 40.8
+    depth_mm: 94.7
+    weight_grams: 0.0
+    input_protocols:
+    - protocol: '0-10V'
+      is_default: 0
+    - protocol: TRIAC
+      is_default: 0
+    - protocol: ELV
+      is_default: 0
+    certifications:
+    - certification: UL-Certified
+    - certification: FCC
+    - certification: RoHS
+    - certification: Class 2
+  - item: PS-DEMO-24V-100W/3-IP66
+    input_voltage_min: 120
+    input_voltage_max: 277
+    input_voltage_type: VAC
+    voltage_output: '24VDC'
+    outputs_count: 3
+    independent_outputs_count: 3
+    input_phase: '1PH'
+    class2_outputs: 1
+    efficiency: 0.9
+    power_factor: 0.95
+    output_current_ma: 12000.0
+    compliance_v_min: 0.0
+    compliance_v_max: 0.0
+    max_input_a: 2.9
+    max_input_a_at_v: 120.0
+    inrush_a: 38.0
+    max_units_per_20a_breaker: 0
+    terminal_min_awg: '24'
+    terminal_max_awg: '4'
+    mounting: Screw
+    location_rating: Wet
+    output_type: Constant Voltage
+    output_protocol: PWM
+    max_wattage: 288.0
+    max_wattage_per_output: 96.0
+    usable_load_factor: 0.8
+    cost: 320.0
+    sku_control_code: DEMO
+    sku_wattage_output_code: '300W'
+    sku_form_code: IP66
+    width_mm: 293.0
+    height_mm: 40.8
+    depth_mm: 94.7
+    weight_grams: 0.0
+    input_protocols:
+    - protocol: '0-10V'
+      is_default: 0
+    - protocol: TRIAC
+      is_default: 0
+    - protocol: ELV
+      is_default: 0
+    certifications:
+    - certification: UL-Certified
+    - certification: FCC
+    - certification: RoHS
+    - certification: Class 2
+external_links:
+  Item Group:
+  - Power Supplies
+  UOM:
+  - Ea
+  ilL-Attribute-Certification:
+  - Class 2
+  - FCC
+  - RoHS
+  - UL-Certified
+  ilL-Attribute-Dimming Protocol:
+  - '0-10V'
+  - ELV
+  - PWM
+  - TRIAC
+  ilL-Attribute-Output Voltage:
+  - '24VDC'

@@ -30,9 +30,14 @@ try {
   assert.ok(shell.includes('New product') && shell.includes('Save as starter') && shell.includes('This product'));
   const { default: NewProductDialog, SaveStarterDialog } = await server.ssrLoadModule('/src/NewProductDialog.jsx');
   const { builtinStarters } = await server.ssrLoadModule('/src/starter-model.js');
+  const library = JSON.parse(readFileSync(new URL('../src/catalog-starters.json', import.meta.url), 'utf8'));
+  const allStarters = builtinStarters(examples, schema, library);
   for (const [type, product] of Object.entries(schema.products)) {
-    const dialog = renderToStaticMarkup(React.createElement(NewProductDialog, { product, productType: type, starters: builtinStarters(examples, schema), reference: null, onApply() {}, onDelete() {}, onClose() {} }));
-    assert.ok(dialog.includes(`${product.label} starter`) && dialog.includes('Product code'), `${type} new product dialog must render`);
+    const dialog = renderToStaticMarkup(React.createElement(NewProductDialog, { product, productType: type, starters: allStarters, reference: null, onApply() {}, onDelete() {}, onClose() {} }));
+    assert.ok(dialog.includes(`Minimal ${product.label.toLowerCase()} example`) && dialog.includes('Product code'), `${type} new product dialog must render`);
+    for (const item of library.filter(row => row.product_type === type)) {
+      assert.ok(dialog.includes(item.label.replace(/&/g, '&amp;')), `${type} dialog lists the ${item.id} starter`);
+    }
   }
   const saver = renderToStaticMarkup(React.createElement(SaveStarterDialog, { catalog: examples.fixture, product: schema.products.fixture, onSave() {}, onClose() {} }));
   assert.ok(saver.includes('Save as starter') && saver.includes('Example Linear fixtures'));

@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { parse, stringify } from 'yaml';
 import schema from './catalog-schema.json';
 import examples from './catalog-examples.json';
+import starterLibrary from './catalog-starters.json';
 import ImportResults, { ApiError } from './ImportResults.jsx';
 import ImportHistory from './ImportHistory.jsx';
 import ConfirmDialog from './ConfirmDialog.jsx';
@@ -287,7 +288,7 @@ export default function CatalogApp({ onLegacy, loadReference, api, mode = 'verce
   const otherTypes = [...new Set([...Object.keys(catalog.records), ...parentTypes])].filter(name => !productTypes.includes(name)).filter(typeFilter);
   const shownProductTypes = productTypes.filter(typeFilter);
   const productDone = productTypes.filter(productStarted).length;
-  const starters = useMemo(() => [...builtinStarters(examples, schema), ...savedStarters], [savedStarters]);
+  const starters = useMemo(() => [...builtinStarters(examples, schema, starterLibrary), ...savedStarters], [savedStarters]);
   const creatable = missing.filter(link => canCreate(link.doctype, schema)).length;
   const createMissing = () => {
     const result = makeMissingRecords(catalog, schema, reference);
