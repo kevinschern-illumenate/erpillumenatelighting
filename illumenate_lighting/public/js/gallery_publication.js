@@ -204,19 +204,35 @@
 		if (job && job.state === 'FAILED') {
 			html += '<p class="text-danger">' + esc(__('Last job failed')) + ' (' + esc(job.operation) + '): ' + esc(job.last_error) + '</p>';
 		}
-		// Rebuilt on every render, never cached on frm: Frappe reuses frm across documents and
-		// clears custom dashboard sections on refresh (same pattern as desk_conversation.js).
-		var dashboard = frm.dashboard;
-		if (dashboard.wrapper && dashboard.wrapper.find) dashboard.wrapper.find('.' + SECTION).remove();
-		var section = dashboard.add_section('<div class="ill-gallery-publication"></div>', __('Webflow publication'), SECTION);
-		if (dashboard.show) dashboard.show();
-		var panel = section.find('.ill-gallery-publication');
-		if (!panel.length) panel = section;
+		// Rebuilt on every render, never cached on frm: Frappe reuses frm across documents. The panel lives in the
+		// "Webflow publication" section at the bottom of the form (the publication_panel HTML field); a site that
+		// has not migrated that field yet falls back to a dashboard section at the top (cleared on refresh by
+		// Frappe, same pattern as desk_conversation.js).
+		var host = panelHost(frm), panel, listener;
+		if (host) {
+			host.html('<div class="ill-gallery-publication"></div>');
+			panel = host.find('.ill-gallery-publication');
+			listener = host.off('change.illgallery');
+		} else {
+			var dashboard = frm.dashboard;
+			if (dashboard.wrapper && dashboard.wrapper.find) dashboard.wrapper.find('.' + SECTION).remove();
+			var section = dashboard.add_section('<div class="ill-gallery-publication"></div>', __('Webflow publication'), SECTION);
+			if (dashboard.show) dashboard.show();
+			panel = section.find('.ill-gallery-publication');
+			if (!panel.length) panel = section;
+			listener = panel;
+		}
 		panel.html(html);
-		panel.on('change.illgallery', 'select.ill-gallery-brand', function () {
+		listener.on('change.illgallery', 'select.ill-gallery-brand', function () {
 			frm.__ill_gallery_brand = this.value;
 			render(frm);
 		});
+	}
+
+	// The jQuery wrapper of the form's publication_panel field, or null when the form has none.
+	function panelHost(frm) {
+		var field = frm.fields_dict && frm.fields_dict.publication_panel;
+		return field && field.$wrapper && field.$wrapper.length ? field.$wrapper : null;
 	}
 
 	// One action at a time, only on a saved form; failures are shown, never thrown.
@@ -299,7 +315,12 @@
 		if (frm.fields_dict && frm.fields_dict.gallery_images && frm.fields_dict.gallery_images.set_description) {
 			frm.fields_dict.gallery_images.set_description(__('The first row is always the hero image.'));
 		}
-		if (frm.is_new()) { setStatusPill(frm, null); return; }
+		if (frm.is_new()) {
+			setStatusPill(frm, null);
+			var host = panelHost(frm);
+			if (host) host.html('<p class="text-muted">' + esc(__('Save the gallery to see its Webflow publication status.')) + '</p>');
+			return;
+		}
 		await render(frm);
 	}
 
