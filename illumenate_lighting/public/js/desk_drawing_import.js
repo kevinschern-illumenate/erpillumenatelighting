@@ -49,6 +49,20 @@
 			[__('Layer'), __('Runs'), __('Resolved style'), __('Preset'), __('Type')].map(esc).join('</th><th>') + '</th></tr></thead><tbody>' + rows + '</tbody></table>';
 	}
 
+	// Custom styles (made in CAD without a template): a preset name builds them; blank prices them as
+	// custom lines for Sales.
+	function customStyles(message) {
+		var remembered = message.previous_style_map || {};
+		var rows = (message.custom_styles || []).map(function (style) {
+			return '<tr><td>' + esc(style.label) + ' (' + esc(style.code) + ')</td><td>' + esc(style.runs) +
+				'</td><td><input type="text" class="form-control input-xs" data-custom-code="' + esc(style.code) + '" value="' +
+				esc(style.mapped_to || remembered[style.code] || '') + '" placeholder="' + esc(__('Preset name, or blank for a custom line')) + '"></td></tr>';
+		}).join('');
+		if (!rows) return '';
+		return '<h6>' + esc(__('Custom styles')) + '</h6><table class="table table-sm table-bordered"><thead><tr><th>' +
+			[__('Custom style'), __('Runs'), __('Build as preset')].map(esc).join('</th><th>') + '</th></tr></thead><tbody>' + rows + '</tbody></table>';
+	}
+
 	function sheets(message) {
 		var source = message.source || {};
 		var line = source.tool ? '<p class="text-muted">' + esc(__('Made with {0} {1}; scale: {2}', [source.tool, source.version || '', (message.scale || {}).status || ''])) + '</p>' : '';
@@ -70,7 +84,7 @@
 			return '<div class="alert alert-warning">' + esc(text) + '</div>';
 		}).join('');
 		var counts = message.counts || {};
-		return warnings + sheets(message) + layers(message) + groups(message) + '<p>' + esc(__('{0} ready, {1} need a choice, {2} with errors; {3} to add, {4} to update, {5} unchanged, {6} to remove.',
+		return warnings + sheets(message) + layers(message) + customStyles(message) + groups(message) + '<p>' + esc(__('{0} ready, {1} need a choice, {2} with errors; {3} to add, {4} to update, {5} unchanged, {6} to remove.',
 			[counts.ok || 0, counts.needs_choice || 0, counts.error || 0, counts.add || 0, counts.update || 0, counts.unchanged || 0, counts.remove || 0])) +
 			'</p><div class="table-responsive"><table class="table table-sm table-bordered"><thead><tr><th>' +
 			[__('Run'), __('Type'), __('Style'), __('Drawn (in)'), __('Built (in)'), __('Change'), __('Status'), __('Details')].map(esc).join('</th><th>') +
@@ -95,7 +109,8 @@
 			chosen[run] = chosen[run] || {};
 			chosen[run][this.getAttribute('data-choice-key')] = value;
 		});
-		var options = { presets: {}, types: {} };
+		var options = { presets: {}, types: {}, style_map: {} };
+		$wrapper.find('[data-custom-code]').each(function () { if (this.value.trim()) options.style_map[this.getAttribute('data-custom-code')] = this.value.trim(); });
 		$wrapper.find('[data-layer-preset]').each(function () { if (this.value.trim()) options.presets[this.getAttribute('data-layer-preset')] = this.value.trim(); });
 		$wrapper.find('[data-layer-type]').each(function () { if (this.value.trim()) options.types[this.getAttribute('data-layer-type')] = this.value.trim(); });
 		return { choices: chosen, options: options };

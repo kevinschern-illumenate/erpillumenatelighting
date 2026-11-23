@@ -46,8 +46,8 @@ var DrawingImport = (function () {
 
 	function reset() {
 		state = { filename: null, content: null, preview: null };
-		$('#importDrawingPreview, #importDrawingRemoveWrap, #importDrawingVersionWrap, #importDrawingWarnings, #importDrawingRefresh, #importDrawingSource, #importDrawingSheets, #importDrawingLayers, #importDrawingGroups, #importDrawingDone').prop('hidden', true);
-		$('#importDrawingRows, #importDrawingWarnings, #importDrawingSheetRows, #importDrawingLayerRows, #importDrawingGroupList, #importDrawingBlockers').empty();
+		$('#importDrawingPreview, #importDrawingRemoveWrap, #importDrawingVersionWrap, #importDrawingWarnings, #importDrawingRefresh, #importDrawingSource, #importDrawingSheets, #importDrawingLayers, #importDrawingCustom, #importDrawingGroups, #importDrawingDone').prop('hidden', true);
+		$('#importDrawingRows, #importDrawingWarnings, #importDrawingSheetRows, #importDrawingLayerRows, #importDrawingCustomRows, #importDrawingGroupList, #importDrawingBlockers').empty();
 		$('#importDrawingCounts, #importDrawingSource').text('');
 		$('#importDrawingRemove, #importDrawingVersion').prop('checked', false);
 		fail('');
@@ -77,10 +77,14 @@ var DrawingImport = (function () {
 		return chosen;
 	}
 
-	// DXF uploads: the style (saved preset) and schedule Type chosen per layer.
+	// DXF uploads: the style (saved preset) and schedule Type chosen per layer. Custom styles (made in
+	// CAD without a template): the saved preset each one is built as, if any.
 	function layerOptions() {
-		var options = { presets: {}, types: {} };
+		var options = { presets: {}, types: {}, style_map: {} };
 		var any = false;
+		$('#importDrawingCustomRows [data-custom-code]').each(function () {
+			if (this.value) { options.style_map[this.getAttribute('data-custom-code')] = this.value; any = true; }
+		});
 		$('#importDrawingLayerRows [data-layer-preset]').each(function () {
 			if (this.value) { options.presets[this.getAttribute('data-layer-preset')] = this.value; any = true; }
 		});
@@ -88,6 +92,7 @@ var DrawingImport = (function () {
 			var value = String(this.value || '').trim();
 			if (value) { options.types[this.getAttribute('data-layer-type')] = value; any = true; }
 		});
+		if (!Object.keys(options.style_map).length) delete options.style_map;
 		return any ? options : null;
 	}
 
@@ -240,8 +245,50 @@ var DrawingImport = (function () {
 			callback: function (r) {
 				presets = ((r.message || {}).presets) || [];
 				renderLayers(message, previous);
+				renderCustom(message, previous);
 			},
 		});
+	}
+
+	function renderCustom(message, previous) {
+		var body = document.getElementById('importDrawingCustomRows');
+		if (!body) return;
+		body.textContent = '';
+		var styles = message.custom_styles || [];
+		var remembered = message.previous_style_map || {};
+		styles.forEach(function (style, index) {
+			var tr = document.createElement('tr');
+			cell(tr, style.label + ' (' + style.code + ')');
+			cell(tr, style.runs);
+			var pick = cell(tr, '');
+			var select = document.createElement('select');
+			select.className = 'form-control form-control-sm';
+			select.id = 'importDrawingCustom-' + index;
+			select.setAttribute('data-custom-code', style.code);
+			select.setAttribute('aria-label', format(scheduleText("Build custom style {0} as"), style.label));
+			var blank = document.createElement('option');
+			blank.value = '';
+			blank.textContent = scheduleText("Price as a custom line");
+			select.appendChild(blank);
+			(presets || []).filter(function (preset) { return preset.available !== false; }).forEach(function (preset) {
+				var option = document.createElement('option');
+				option.value = preset.name;
+				option.textContent = preset.label + (preset.cad_code ? ' (' + preset.cad_code + ')' : '');
+				select.appendChild(option);
+			});
+			var wanted = (previous.style_map || {})[style.code] || style.mapped_to || remembered[style.code] || '';
+			if (wanted && !select.querySelector('option[value="' + String(wanted).replace(/"/g, '') + '"]')) {
+				var kept = document.createElement('option');
+				kept.value = wanted;
+				kept.textContent = wanted;
+				select.appendChild(kept);
+			}
+			select.value = wanted;
+			pick.appendChild(select);
+			body.appendChild(tr);
+		});
+		$('#importDrawingCustom').prop('hidden', !styles.length);
+		if (styles.length && presets === null) loadPresets(message, previous);
 	}
 
 	function renderSheets(message) {
@@ -307,7 +354,8 @@ var DrawingImport = (function () {
 		renderSheets(message);
 		renderGroups(message, previousGroups);
 		renderLayers(message, previousLayers);
-		$('#importDrawingRefresh').prop('hidden', !counts.needs_choice && !(message.layers || []).length);
+		renderCustom(message, previousLayers);
+		$('#importDrawingRefresh').prop('hidden', !counts.needs_choice && !(message.layers || []).length && !(message.custom_styles || []).length);
 		$('#importDrawingPreview').prop('hidden', false);
 		updateConfirm();
 	}

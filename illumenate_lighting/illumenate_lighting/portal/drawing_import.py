@@ -25,6 +25,7 @@ lengths, splits, watts and part numbers are returned.
 
 import base64
 import binascii
+import copy
 import hashlib
 import json
 import math
@@ -58,6 +59,10 @@ EDITABLE = ("DRAFT", "READY")
 # Scale trust, best first (WP 1.3): a sheet's worst status is the drawing's.
 SCALE_ORDER = ("verified", "declared", "unverified")
 TAPE_TEMPLATE = "ilL-Tape-Neon-Template"
+CUSTOM = "Custom"
+# Custom-style lines carry this at the start of their notes, so a re-import can tell them apart.
+CUSTOM_NOTE_PREFIX = "Custom drawing style"
+CONFIGURED_LINKS = ("configured_fixture", "configured_tape_neon", "configured_group", "ill_item_code")
 # CAD feed direction → configurator segment keys per family (tape: inches, linear: millimetres).
 TAPE_SEGMENT_KEYS = (
 	"start_feed_direction",
@@ -329,6 +334,7 @@ class Planner:
 		self.package = package
 		self.is_sales_staff = is_sales_staff
 		self.choices = choices or {}
+		self.replaced = []
 		self.templates = {}
 		self.kit_stock = {}
 		self.controls = {}
@@ -423,6 +429,10 @@ class Planner:
 			request = self.apply_choices(run, request) if part != "kit" else request
 			problem = self.template_problem(request["family"], request["template"])
 			line = self.match(run, part)
+			if line is not None and is_custom_line(line):
+				# Now built from a preset: the custom line goes and a configured build takes its place.
+				self.replaced.append(line)
+				line = None
 			entry = {
 				"part": part,
 				"family": request["family"],
@@ -668,6 +678,12 @@ class Planner:
 	def plan(self):
 		rows, saves, others = [], [], []
 		for run in self.package["runs"]:
+			if run["style"]["family"] == CUSTOM:
+				row, data = self.plan_custom(run)
+				rows.append(row)
+				if data:
+					others.append(data)
+				continue
 			row, run_saves = self.plan_run(run)
 			rows.append(row)
 			saves.extend(run_saves)
@@ -692,10 +708,68 @@ class Planner:
 					"messages": [text],
 				}
 			)
-		kept = {cad_id(run["id"], part) for run in self.package["runs"] for part, _r in requests_for(run)}
+		kept = {
+			cad_id(run["id"], part)
+			for run in self.package["runs"]
+			if run["style"]["family"] != CUSTOM
+			for part, _r in requests_for(run)
+		}
 		kept |= {data["cad_run_id"] for data in others}
 		kept |= {control["id"] for control in self.package.get("controls") or []}
-		return rows, other_rows, self.removals(kept), saves, others
+		return rows, other_rows, self.removals(kept) + self.replacements(), saves, others
+
+	def replacements(self):
+		"""Lines whose run changed between a configured build and a custom line: removed, then re-added."""
+		return [
+			{
+				"id": line.get("cad_run_id"),
+				"line_key": line.get("line_key"),
+				"fixture_type": line.get("line_id"),
+				"action": "remove",
+				"status": "ok",
+				"messages": [_("Replaced: the run's style changed between a custom style and a built one")],
+			}
+			for line in self.replaced
+		]
+
+	def plan_custom(self, run):
+		"""A run in a custom style nobody mapped to a preset: a schedule line for ilLumenate to price."""
+		custom = run["style"]["custom"]
+		line = self.by_cad_id.get(run["id"])
+		if line is not None and is_configured_line(line):
+			self.replaced.append(line)
+			line = None
+		data = custom_line_data(run)
+		row = {
+			"id": run["id"],
+			"handle": run["handle"],
+			"fixture_type": run["fixture_type"],
+			"room": run.get("room"),
+			"family": "CUSTOM",
+			"template": custom["code"],
+			"style": _("{0} (custom)").format(custom["label"]),
+			"drawn_length_in": drawn_length_in(run),
+			"status": "ok",
+			"action": "update" if line is not None else "add",
+			"messages": [
+				_(
+					"Custom style: imported as a line for ilLumenate to price. Map it to a preset to build it now."
+				)
+			],
+			"parts": [
+				{
+					"part": "custom",
+					"cad_run_id": run["id"],
+					"line_key": line.get("line_key") if line else None,
+				}
+			],
+		}
+		if run.get("_map_error"):
+			row["status"] = "error"
+			row.pop("action")
+			row["messages"] = [run["_map_error"]]
+			return row, None
+		return row, {"kind": "custom", "cad_run_id": run["id"], "line": line, "line_data": data}
 
 
 def _same_request(stored, request):
@@ -721,6 +795,164 @@ def _same_meta(line, run):
 
 def _location(run):
 	return run.get("location") or None
+
+
+# --- Custom styles: mapped to presets, or schedule lines for ilLumenate to price ----------------
+
+
+def is_custom_line(line):
+	return str(line.get("notes") or "").startswith(CUSTOM_NOTE_PREFIX)
+
+
+def is_configured_line(line):
+	return any(line.get(field) for field in CONFIGURED_LINKS)
+
+
+def _number(value, digits=2):
+	return f"{round(float(value), digits):g}"
+
+
+def custom_note(run):
+	"""What Sales needs to price a custom run, as the schedule line's notes."""
+	custom = run["style"]["custom"]
+	length_in = drawn_length_in(run)
+	parts = [
+		_("{0} {1} ({2}): {3} in drawn ({4} ft) in {5} segment(s)").format(
+			CUSTOM_NOTE_PREFIX,
+			custom["label"],
+			custom["code"],
+			_number(length_in),
+			_number(length_in / 12),
+			len(run["segments"]),
+		)
+	]
+	if custom.get("w_per_ft") is not None:
+		parts.append(_("{0} W/ft").format(_number(custom["w_per_ft"])))
+	if custom.get("voltage_v") is not None:
+		parts.append(_("{0} V").format(_number(custom["voltage_v"])))
+	parts.append(
+		_("cut every {0} in").format(_number(custom["cut_in"])) if custom.get("cut_in") else _("free cut")
+	)
+	if custom.get("max_run_ft") is not None:
+		parts.append(_("max run {0} ft").format(_number(custom["max_run_ft"])))
+	if custom.get("part_number"):
+		parts.append(_("part {0}").format(custom["part_number"]))
+	text = "; ".join(parts) + "."
+	if custom.get("notes"):
+		text += " " + custom["notes"]
+	if run.get("notes"):
+		text += " " + run["notes"]
+	return text
+
+
+def custom_line_data(run):
+	"""The schedule line a custom run becomes: pending ilLumenate product, or another make for Other."""
+	custom = run["style"]["custom"]
+	feet = drawn_length_in(run) / 12
+	watts = round(float(custom["w_per_ft"]) * feet, 2) if custom.get("w_per_ft") is not None else None
+	voltage = custom.get("voltage_v")
+	data = {
+		"line_id": run["fixture_type"],
+		"qty": 1,
+		"location": _location(run),
+		"notes": custom_note(run),
+		"watts_each": watts,
+		"input_voltage_v": voltage,
+		"voltage_class": ("Low Voltage" if voltage <= 60 else "Line Voltage") if voltage else None,
+	}
+	if custom["family"] == "Other":
+		data.update(
+			manufacturer_type="OTHER",
+			manufacturer_name=custom["label"],
+			fixture_model_number=custom.get("part_number"),
+		)
+	else:
+		data.update(
+			manufacturer_type="ILLUMENATE", product_type=custom["family"], configuration_status="Pending"
+		)
+	return data
+
+
+CUSTOM_FIELDS = (
+	"line_id",
+	"qty",
+	"location",
+	"notes",
+	"manufacturer_type",
+	"manufacturer_name",
+	"fixture_model_number",
+	"product_type",
+	"configuration_status",
+	"watts_each",
+	"input_voltage_v",
+	"voltage_class",
+)
+
+
+def write_custom_line(line, line_data):
+	"""Set a custom line's fields (new or re-imported); it keeps its line_key."""
+	for field in CUSTOM_FIELDS:
+		line.set(field, line_data.get(field))
+
+
+def map_custom_styles(package, style_map):
+	"""``(package, mapped)``: runs in a custom style the user mapped get that preset's style.
+
+	``style_map`` is ``{custom code: preset name}``. A preset that cannot be used leaves the run custom
+	with ``_map_error`` set, so its row is an error rather than a silent custom line.
+	"""
+	from illumenate_lighting.illumenate_lighting.portal import presets
+
+	style_map = {str(code): str(name) for code, name in (style_map or {}).items() if name}
+	if not style_map or not any(run["style"]["family"] == CUSTOM for run in package["runs"]):
+		return package, {}
+	package = copy.deepcopy(package)
+	loaded, mapped = {}, {}
+	for run in package["runs"]:
+		style = run["style"]
+		name = style_map.get(style["template"]) if style["family"] == CUSTOM else None
+		if not name:
+			continue
+		if name not in loaded:
+			loaded[name] = presets.load(name)
+		preset = loaded[name]
+		request = preset.get("request")
+		if not request:
+			run["_map_error"] = _("Custom style {0}: preset {1} cannot be used: {2}").format(
+				style["custom"]["label"], name, "; ".join(preset.get("problems") or [_("not found")])
+			)
+			continue
+		mapped[run["id"]] = style["custom"]["label"]
+		run["style"] = {
+			"preset": preset.get("label") or name,
+			"family": request["family"],
+			"template": request["template"],
+			"selections": request.get("selections") or {},
+		}
+		if request.get("segments"):
+			run["style"]["segments"] = request["segments"]
+	return package, mapped
+
+
+def custom_styles(package, style_map=None):
+	"""The custom styles a package uses, with run counts, for the dialog's preset pickers."""
+	found = {}
+	for run in package["runs"]:
+		custom = run["style"].get("custom")
+		if run["style"]["family"] != CUSTOM or not custom:
+			continue
+		entry = found.setdefault(
+			custom["code"],
+			{
+				"code": custom["code"],
+				"label": custom["label"],
+				"family": custom["family"],
+				"runs": 0,
+				"mapped_to": (style_map or {}).get(custom["code"]) or None,
+			},
+		)
+		entry["runs"] += 1
+	return sorted(found.values(), key=lambda item: item["code"])
 
 
 # --- Site (rooms, cabinets, measured home runs) ---------------------------------------------
@@ -1081,6 +1313,40 @@ def option_values(rows):
 	return result
 
 
+def _style_map(options):
+	"""``{custom style code: preset name}`` from the dialog's options (custom styles, mapped)."""
+	value = _options(options).get("style_map") or {}
+	if not isinstance(value, dict):
+		frappe.throw(_("Invalid style map"))
+	return {str(code)[:40]: str(name)[:140] for code, name in value.items() if name}
+
+
+def note_mapped(rows, mapped):
+	for row in rows:
+		if row["id"] in mapped:
+			row.setdefault("messages", []).insert(
+				0, _("Mapped from custom style {0}").format(mapped[row["id"]])
+			)
+
+
+def previous_style_map(schedule_name):
+	"""The custom-style mapping of the schedule's newest import, to prefill the dialog."""
+	if not frappe.db.exists("DocType", DOCTYPE):
+		return {}
+	rows = frappe.get_all(
+		DOCTYPE,
+		filters={"schedule": schedule_name},
+		fields=["style_map_json"],
+		order_by="creation desc",
+		limit=1,
+	)
+	try:
+		value = json.loads((rows[0].get("style_map_json") if rows else None) or "{}")
+	except ValueError:
+		return {}
+	return value if isinstance(value, dict) else {}
+
+
 def previous_choices(schedule_name):
 	"""The choices answered in the schedule's newest import, to prefill the dialog (WP 1.8)."""
 	if not frappe.db.exists("DocType", DOCTYPE):
@@ -1208,7 +1474,11 @@ def preview_drawing_import(schedule, filename, content, choices=None, options=No
 			details={"file_type": _extension(filename), "error": str(error)[:200]},
 		)
 		raise
+	style_map = _style_map(options)
+	listed = custom_styles(package, style_map)
+	package, mapped = map_custom_styles(package, style_map)
 	rows, other_rows, removals, _saves, _others = _plan(doc, package, _choices(choices))
+	note_mapped(rows, mapped)
 	problem = _editable_problem(doc)
 	scale = scale_summary(package)
 	warnings = _catalog_check(package, doc.name) + scale_messages(package, rows, scale)
@@ -1226,6 +1496,8 @@ def preview_drawing_import(schedule, filename, content, choices=None, options=No
 			"runs": len(package["runs"]),
 			"counts": counts,
 			"blocking": len(blocking),
+			"custom_styles": len(listed),
+			"mapped_runs": len(mapped),
 		},
 	)
 	return strip_prices(
@@ -1243,6 +1515,8 @@ def preview_drawing_import(schedule, filename, content, choices=None, options=No
 			"counts": counts,
 			"choice_groups": groups,
 			"previous_choices": previous_choices(doc.name),
+			"custom_styles": listed,
+			"previous_style_map": previous_style_map(doc.name),
 			"layers": report.get("layers") or [],
 			"warnings": warnings,
 			"blocking": blocking,
@@ -1445,7 +1719,10 @@ def commit_drawing_import(
 			return {"success": False, "error": problem, "new_version_required": True}
 		doc = _new_version(doc)
 	choices = _choices(choices)
+	style_map = _style_map(options)
+	package, mapped = map_custom_styles(package, style_map)
 	rows, other_rows, removals, saves, others = _plan(doc, package, choices)
+	note_mapped(rows, mapped)
 	counts = _counts(rows, other_rows, removals)
 	if counts["error"] or counts["needs_choice"]:
 		return {
@@ -1488,9 +1765,23 @@ def commit_drawing_import(
 		line = by_key.get(line_key)
 		if line is not None:
 			line.cad_run_id = cad_key
+	replaced_keys = {row["line_key"] for row in removals if row.get("line_key")}
 	for data in others:
-		line = next((item for item in doc.lines if item.get("cad_run_id") == data["cad_run_id"]), None)
-		if line is not None:
+		line = next(
+			(
+				item
+				for item in doc.lines
+				if item.get("cad_run_id") == data["cad_run_id"] and item.get("line_key") not in replaced_keys
+			),
+			None,
+		)
+		if data.get("kind") == "custom":
+			if line is None:
+				line = doc.append("lines", {})
+				line.line_key = uuid.uuid4().hex
+				line.cad_run_id = data["cad_run_id"]
+			write_custom_line(line, data["line_data"])
+		elif line is not None:
 			# Update in place: the line keeps its line_key, so quotes and orders stay linked.
 			if data.get("kind") == "control":
 				update_control_line(line, data["line_data"])
@@ -1509,7 +1800,18 @@ def commit_drawing_import(
 	if removed_keys:
 		_remove_lines(doc, removed_keys)
 	doc.save(ignore_permissions=True)
-	record = _store(doc, package, digest, rows, other_rows, removals, line_keys, others, choices=choices)
+	record = _store(
+		doc,
+		package,
+		digest,
+		rows,
+		other_rows,
+		removals,
+		line_keys,
+		others,
+		choices=choices,
+		style_map=style_map,
+	)
 	if plan is not None:
 		store_plan_pdf(record, doc, plan)
 	receipt = json.loads(record.receipt_json)
@@ -1619,7 +1921,9 @@ def receipt_for(doc, package, rows, removals, line_keys, import_name):
 	}
 
 
-def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=(), choices=None):
+def _store(
+	doc, package, digest, rows, other_rows, removals, line_keys, others=(), choices=None, style_map=None
+):
 	from frappe.utils import now_datetime
 
 	from illumenate_lighting.illumenate_lighting.api.configuration_contract import canonical_json
@@ -1652,6 +1956,7 @@ def _store(doc, package, digest, rows, other_rows, removals, line_keys, others=(
 			"on_behalf": 1 if customer else 0,
 			"on_behalf_customer": customer,
 			"choices_json": canonical_json(choices or {}),
+			"style_map_json": canonical_json(style_map or {}),
 			"runs_added": counts["add"],
 			"runs_updated": counts["update"],
 			"runs_unchanged": counts["unchanged"],

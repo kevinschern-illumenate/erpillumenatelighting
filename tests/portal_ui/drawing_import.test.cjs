@@ -39,6 +39,7 @@ function page(context = CONTEXT, opts = {}) {
       <p id="importDrawingSource" hidden></p>
       <div id="importDrawingSheets" hidden><table><tbody id="importDrawingSheetRows"></tbody></table></div>
       <div id="importDrawingLayers" hidden><table><tbody id="importDrawingLayerRows"></tbody></table></div>
+      <div id="importDrawingCustom" hidden><table><tbody id="importDrawingCustomRows"></tbody></table></div>
       <div id="importDrawingGroups" hidden><div id="importDrawingGroupList"></div></div>
       <details id="importDrawingHistory" hidden><table><tbody id="importDrawingHistoryRows"></tbody></table></details>
       <div id="importDrawingDone" hidden><p id="importDrawingDoneText"></p><ul id="importDrawingBlockers" hidden></ul>
@@ -253,4 +254,25 @@ test('previous imports are listed with their tool and scale', () => {
   assert.equal($('#importDrawingHistoryRows s').length, 0);
   assert.match($('#importDrawingHistoryRows').text(), /dxf dxf-1/);
   assert.match($('#importDrawingHistoryRows').text(), /confirmed/);
+});
+
+test('custom styles can be built from a saved style, or priced as custom lines', async () => {
+  const { w, $, requests } = page();
+  respond(await chosen(w, requests), { ...PREVIEW, rows: [PREVIEW.rows[0]], removals: [], new_version_required: false, counts: { ...PREVIEW.counts, needs_choice: 0 },
+    custom_styles: [{ code: 'COVE-2216', label: '<b>Cove</b>', family: 'LED Tape', runs: 4, mapped_to: null }],
+    previous_style_map: { 'COVE-2216': 'PRE-OLD' } });
+  const presets = requests.shift();
+  assert.equal(presets.method, 'illumenate_lighting.illumenate_lighting.portal.presets.list_presets');
+  respond(presets, { success: true, presets: [{ name: 'PRE-1', label: 'HD 27K', available: true }] });
+  assert.equal($('#importDrawingCustom').prop('hidden'), false);
+  assert.equal($('#importDrawingCustomRows b').length, 0);
+  const select = $('#importDrawingCustomRows select[data-custom-code="COVE-2216"]');
+  assert.equal(select.val(), 'PRE-OLD');
+  assert.equal($('#importDrawingRefresh').prop('hidden'), false);
+  select.val('PRE-1');
+  $('#importDrawingRefresh').trigger('click');
+  assert.deepEqual(JSON.parse(requests.shift().args.options), { presets: {}, types: {}, style_map: { 'COVE-2216': 'PRE-1' } });
+  select.val('');
+  $('#importDrawingRefresh').trigger('click');
+  assert.equal(requests.shift().args.options, undefined);
 });

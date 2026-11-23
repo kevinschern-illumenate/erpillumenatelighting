@@ -421,7 +421,8 @@
          "COB Tape",
          "LED Neon",
          "Linear Fixture",
-         "Extrusion Kit"
+         "Extrusion Kit",
+         "Custom"
         ]
        },
        "template": {
@@ -478,6 +479,119 @@
         "required": [
          "family",
          "template"
+        ],
+        "additionalProperties": false
+       },
+       "custom": {
+        "type": "object",
+        "properties": {
+         "code": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9-]{0,23}$"
+         },
+         "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+         },
+         "family": {
+          "type": "string",
+          "enum": [
+           "LED Tape",
+           "COB Tape",
+           "LED Neon",
+           "Linear Fixture",
+           "Extrusion Kit",
+           "Other"
+          ]
+         },
+         "color": {
+          "anyOf": [
+           {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 255
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "w_per_ft": {
+          "anyOf": [
+           {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "voltage_v": {
+          "anyOf": [
+           {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "cut_in": {
+          "anyOf": [
+           {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "max_run_ft": {
+          "anyOf": [
+           {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 10000
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "part_number": {
+          "anyOf": [
+           {
+            "type": "string",
+            "maxLength": 140
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "notes": {
+          "anyOf": [
+           {
+            "type": "string",
+            "maxLength": 1000
+           },
+           {
+            "type": "null"
+           }
+          ]
+         }
+        },
+        "required": [
+         "code",
+         "label",
+         "family"
         ],
         "additionalProperties": false
        }

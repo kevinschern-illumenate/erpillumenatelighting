@@ -87,6 +87,13 @@ def reference_problems(package):
 		style = run.get("style") or {}
 		if style.get("family") == "Extrusion Kit" and not style.get("tape"):
 			problems.append(f"runs/{index}/style/tape: A kit style needs its tape")
+		custom = style.get("custom")
+		if style.get("family") == "Custom" and not custom:
+			problems.append(f"runs/{index}/style/custom: A custom style needs its definition")
+		if style.get("family") != "Custom" and custom:
+			problems.append(f"runs/{index}/style/custom: Only a Custom style has a definition")
+		if custom and custom.get("code") != style.get("template"):
+			problems.append(f"runs/{index}/style/template: A custom style is named by its code")
 	for index, psu in enumerate(package.get("psus") or []):
 		if psu.get("cabinet") and psu["cabinet"] not in cabinets:
 			problems.append(f"psus/{index}/cabinet: Unknown cabinet: {psu['cabinet']}")

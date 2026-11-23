@@ -171,6 +171,7 @@ class DrawingImport(unittest.TestCase):
 			ROOT + ".portal.presets": types.SimpleNamespace(
 				FAMILY_DOCTYPES={"LED Tape": 1, "COB Tape": 1, "LED Neon": 1, "Linear Fixture": 1, "Extrusion Kit": 1},
 				template_problem=template_problem,
+				load=lambda name: self.presets.get(name) or {"request": None, "problems": ["not found"]},
 			),
 			ROOT + ".system_design.cad_access": types.SimpleNamespace(enabled_for=lambda user=None: self.enabled),
 			ROOT + ".portal.staff": types.SimpleNamespace(allowed=lambda role: False),
@@ -197,6 +198,13 @@ class DrawingImport(unittest.TestCase):
 			),
 		}
 		self.catalog = None
+		self.presets = {
+			"PRE-1": {
+				"label": "HD 27K Dry",
+				"request": {"family": "LED Tape", "template": "led-hd-sw", "selections": {"cct": "2700K"}},
+				"problems": [],
+			}
+		}
 		self.actor = types.SimpleNamespace(is_internal=False, customer="Dealer Co")
 		self.min_versions = {}
 		self.record_doc = record_doc
@@ -687,6 +695,85 @@ class DrawingImport(unittest.TestCase):
 		self.assertFalse(self.commit(value)["success"])
 		value["check"]["overrides"] = [{"code": "BEND_RADIUS", "ref": value["runs"][0]["id"], "note": "engineer approved the cove"}]
 		self.assertEqual(self.preview(value)["rows"][0]["status"], "ok")
+
+
+	# --- Custom styles (no template): mapped to a preset, else a line for ilLumenate to price ---------
+
+	def custom_run(self, value):
+		return next(run for run in value["runs"] if run["style"]["family"] == "Custom")
+
+	def test_custom_runs_preview_as_lines_to_price_and_are_listed_for_mapping(self):
+		result = self.preview(package("custom-style.json"))
+		row = next(item for item in result["rows"] if item["id"] == "C1-01")
+		self.assertEqual((row["status"], row["family"], row["action"]), ("ok", "CUSTOM", "add"))
+		self.assertIn("(custom)", row["style"])
+		self.assertEqual(result["custom_styles"], [{"code": "COVE-2216", "label": "Cove 24V 4.4 W/ft", "family": "LED Tape", "runs": 1, "mapped_to": None}])
+		self.assertFalse(any(call["template"] == "COVE-2216" for call in self.calls))
+
+	def test_unmapped_custom_runs_import_as_pending_lines_with_their_numbers(self):
+		value = package("custom-style.json")
+		result = self.commit(value)
+		self.assertTrue(result["success"], result)
+		line = next(item for item in self.schedule.lines if item.get("cad_run_id") == "C1-01")
+		self.assertEqual((line["manufacturer_type"], line["product_type"], line["configuration_status"]), ("ILLUMENATE", "LED Tape", "Pending"))
+		self.assertTrue(line["notes"].startswith("Custom drawing style Cove 24V 4.4 W/ft (COVE-2216)"))
+		self.assertIn("part SAMPLE-2216", line["notes"])
+		length_ft = sum(segment["path_length_in"] for segment in self.custom_run(value)["segments"]) / 12
+		self.assertAlmostEqual(line["watts_each"], round(4.4 * length_ft, 2))
+		self.assertEqual((line["input_voltage_v"], line["voltage_class"]), (24, "Low Voltage"))
+		run = next(item for item in result["receipt"]["runs"] if item["id"] == "C1-01")
+		self.assertEqual(run["line_key"], line["line_key"])
+		self.assertEqual(json.loads(self.records[-1]["style_map_json"]), {})
+
+	def test_other_family_custom_runs_are_other_manufacturer_lines(self):
+		value = package("custom-style.json")
+		self.custom_run(value)["style"]["custom"]["family"] = "Other"
+		self.assertTrue(self.commit(value)["success"])
+		line = next(item for item in self.schedule.lines if item.get("cad_run_id") == "C1-01")
+		self.assertEqual((line["manufacturer_type"], line["manufacturer_name"], line["fixture_model_number"]), ("OTHER", "Cove 24V 4.4 W/ft", "SAMPLE-2216"))
+
+	def test_mapped_custom_styles_are_built_from_the_preset(self):
+		options = json.dumps({"style_map": {"COVE-2216": "PRE-1"}})
+		result = self.preview(package("custom-style.json"), options=options)
+		row = next(item for item in result["rows"] if item["id"] == "C1-01")
+		self.assertEqual((row["family"], row["template"], row["status"]), ("LED Tape", "led-hd-sw", "ok"))
+		self.assertIn("Mapped from custom style Cove 24V 4.4 W/ft", row["messages"])
+		self.assertEqual(result["custom_styles"][0]["mapped_to"], "PRE-1")
+		self.assertTrue(self.commit(package("custom-style.json"), options=options)["success"])
+		self.assertEqual(json.loads(self.records[-1]["style_map_json"]), {"COVE-2216": "PRE-1"})
+
+	def test_a_preset_that_cannot_be_used_is_an_error_not_a_silent_custom_line(self):
+		options = json.dumps({"style_map": {"COVE-2216": "GONE"}})
+		row = next(item for item in self.preview(package("custom-style.json"), options=options)["rows"] if item["id"] == "C1-01")
+		self.assertEqual(row["status"], "error")
+		self.assertIn("GONE", row["messages"][0])
+		self.assertFalse(self.commit(package("custom-style.json"), options=options)["success"])
+
+	def test_a_custom_run_later_mapped_replaces_its_custom_line(self):
+		self.assertTrue(self.commit(package("custom-style.json"))["success"])
+		custom_key = next(item for item in self.schedule.lines if item.get("cad_run_id") == "C1-01")["line_key"]
+		options = json.dumps({"style_map": {"COVE-2216": "PRE-1"}})
+		result = self.commit(package("custom-style.json"), options=options)
+		self.assertFalse(result["success"])
+		self.assertTrue(result.get("confirm_removals_required"))
+		self.assertTrue(self.commit(package("custom-style.json"), options=options, confirm_removals=1)["success"])
+		lines = [item for item in self.schedule.lines if item.get("cad_run_id") == "C1-01"]
+		self.assertEqual(len(lines), 1)
+		self.assertNotEqual(lines[0]["line_key"], custom_key)
+		self.assertFalse(lines[0].get("notes", "").startswith("Custom drawing style"))
+
+	def test_a_built_run_restyled_as_custom_replaces_its_build(self):
+		options = json.dumps({"style_map": {"COVE-2216": "PRE-1"}})
+		self.assertTrue(self.commit(package("custom-style.json"), options=options)["success"])
+		built = next(item for item in self.schedule.lines if item.get("cad_run_id") == "C1-01")
+		built["configured_tape_neon"] = "CTN-1"
+		result = self.preview(package("custom-style.json"))
+		self.assertTrue(any(row["line_key"] == built["line_key"] for row in result["removals"]))
+		self.assertTrue(self.commit(package("custom-style.json"), confirm_removals=1)["success"])
+		lines = [item for item in self.schedule.lines if item.get("cad_run_id") == "C1-01"]
+		self.assertEqual(len(lines), 1)
+		self.assertTrue(lines[0]["notes"].startswith("Custom drawing style"))
+		self.assertEqual(self.preview(package("custom-style.json"))["counts"]["remove"], 0)
 
 
 class PureHelpers(unittest.TestCase):

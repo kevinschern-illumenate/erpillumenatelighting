@@ -20,8 +20,32 @@ const HashSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const Text = (max: number) => z.string().max(max);
 const Inches = z.number().finite().positive().max(1_000_000);
 
-export const ILQ_FAMILIES = ['LED Tape', 'COB Tape', 'LED Neon', 'Linear Fixture', 'Extrusion Kit'] as const;
+export const ILQ_FAMILIES = ['LED Tape', 'COB Tape', 'LED Neon', 'Linear Fixture', 'Extrusion Kit', 'Custom'] as const;
 export const TAPE_FAMILIES = ['LED Tape', 'COB Tape', 'LED Neon'] as const;
+/** What a custom style is, for the schedule line it becomes when it is not mapped to a preset. */
+export const CUSTOM_BASE_FAMILIES = ['LED Tape', 'COB Tape', 'LED Neon', 'Linear Fixture', 'Extrusion Kit', 'Other'] as const;
+export const CUSTOM_CODE = /^[A-Z0-9][A-Z0-9-]{0,23}$/;
+
+/**
+ * A style the user built in CAD without a catalog template (`family: 'Custom'`, `template` = its code).
+ * Its numbers only drive drawing hints; on import it is mapped to a preset, or becomes a custom line
+ * for Sales to price. Never prices.
+ */
+export const IlqCustomStyleSchema = z
+  .object({
+    code: z.string().regex(CUSTOM_CODE),
+    label: z.string().trim().min(1).max(140),
+    family: z.enum(CUSTOM_BASE_FAMILIES),
+    color: z.number().int().min(1).max(255).nullish(),
+    w_per_ft: z.number().finite().nonnegative().max(1000).nullish(),
+    voltage_v: z.number().finite().positive().max(1000).nullish(),
+    cut_in: z.number().finite().positive().max(1000).nullish(),
+    max_run_ft: z.number().finite().positive().max(10_000).nullish(),
+    part_number: Text(140).nullish(),
+    notes: Text(1000).nullish(),
+  })
+  .strict();
+export type IlqCustomStyle = z.infer<typeof IlqCustomStyleSchema>;
 
 const SelectionsSchema = z.record(z.string().max(80), z.unknown());
 
@@ -99,6 +123,8 @@ export const IlqStyleSchema = z
       })
       .strict()
       .optional(),
+    /** `Custom` styles only: what the user defined in CAD. */
+    custom: IlqCustomStyleSchema.optional(),
   })
   .strict();
 export type IlqStyle = z.infer<typeof IlqStyleSchema>;
@@ -353,6 +379,12 @@ export const IlqPackageSchema = z
       handles.add(handle);
       if (run.style.family === 'Extrusion Kit' && !run.style.tape)
         ctx.addIssue({ code: 'custom', path: ['runs', index, 'style', 'tape'], message: 'A kit style needs its tape' });
+      if (run.style.family === 'Custom' && !run.style.custom)
+        ctx.addIssue({ code: 'custom', path: ['runs', index, 'style', 'custom'], message: 'A custom style needs its definition' });
+      if (run.style.family !== 'Custom' && run.style.custom)
+        ctx.addIssue({ code: 'custom', path: ['runs', index, 'style', 'custom'], message: 'Only a Custom style has a definition' });
+      if (run.style.custom && run.style.custom.code !== run.style.template)
+        ctx.addIssue({ code: 'custom', path: ['runs', index, 'style', 'template'], message: 'A custom style is named by its code' });
     });
     pkg.psus.forEach((psu, index) => {
       if (psu.cabinet && !cabinets.has(psu.cabinet))

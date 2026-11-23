@@ -2081,6 +2081,16 @@ Also handles new schedule creation when is_new is True
 						</table>
 					</div>
 				</div>
+				<div id="importDrawingCustom" hidden>
+					<h6>{{ _("Custom styles") }}</h6>
+					<p class="small text-muted">{{ _("Runs drawn in a custom style become lines for ilLumenate to price. Choose a saved style to build them now instead, then update the preview.") }}</p>
+					<div class="table-responsive">
+						<table class="table table-sm">
+							<thead><tr><th>{{ _("Custom style") }}</th><th>{{ _("Runs") }}</th><th>{{ _("Build as") }}</th></tr></thead>
+							<tbody id="importDrawingCustomRows"></tbody>
+						</table>
+					</div>
+				</div>
 				<div id="importDrawingGroups" hidden>
 					<h6>{{ _("Choices for several runs") }}</h6>
 					<div id="importDrawingGroupList"></div>
@@ -2337,6 +2347,8 @@ Also handles new schedule creation when is_new is True
 		"Choose a style": _("Choose a style"),
 		"Calibrated": _("Calibrated"),
 		"Type for layer {0}": _("Type for layer {0}"),
+		"Price as a custom line": _("Price as a custom line"),
+		"Build custom style {0} as": _("Build custom style {0} as"),
 		"No drawing has been imported into this schedule yet.": _("No drawing has been imported into this schedule yet."),
 		"Upload the plan as a PDF under 20 MB.": _("Upload the plan as a PDF under 20 MB."),
 	},
