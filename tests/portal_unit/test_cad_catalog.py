@@ -109,6 +109,36 @@ class CadCatalog(unittest.TestCase):
 		self.assertNotIn("receives_dmx", controls["PIX-4"])
 		self.assertEqual(self.payload["wires"][0]["awg"], "18")
 
+	def test_incomplete_controls_are_placeable_and_flagged(self):
+		snapshot = {
+			"items": [
+				{
+					"id": "ctl:PHAROS-TPS-5-B",
+					"erpItemCode": "PHAROS-TPS-5-B",
+					"model": "Pharos TPS 5",
+					"category": "keypad",
+					"specs": {
+						"kind": "incomplete",
+						"intendedKind": "controller",
+						"missingFields": ["input_voltage_min", "terminal_max_awg"],
+						"available": {
+							"protocolIn": ["sACN"],
+							"ports": [{"name": "Ethernet", "direction": "bidirectional", "protocol": "sACN"}],
+						},
+					},
+				},
+				{"id": "drv:X", "specs": {"kind": "incomplete", "intendedKind": "driver", "available": {}}},
+			]
+		}
+		_drivers, controllers = self.module.design_items(snapshot)[:2]
+		self.assertEqual(len(controllers), 1)
+		row = controllers[0]
+		self.assertEqual((row["code"], row["kind"], row["incomplete"]), ("PHAROS-TPS-5-B", "controller", True))
+		self.assertEqual(row["missing"], ["input_voltage_min", "terminal_max_awg"])
+		self.assertEqual(row["ports"][0]["protocol"], "sACN")
+		complete = {item["code"]: item for item in self.payload["controllers"]}["DMXD-PWM-5C-SF"]
+		self.assertNotIn("incomplete", complete)
+
 	def test_hash_ignores_who_and_when(self):
 		data = records()
 		data["generated_at"] = "2027-01-01 00:00:00"

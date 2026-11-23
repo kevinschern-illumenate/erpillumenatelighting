@@ -293,7 +293,16 @@ def design_items(snapshot):
 					}
 				)
 			)
-		elif kind in ("controller", "decoder"):
+		elif kind in ("controller", "decoder") or (
+			kind == "incomplete" and specs.get("intendedKind") in ("controller", "decoder")
+		):
+			# Controls the designer marks incomplete (no terminal sizes on the datasheet, a PoE unit with no input
+			# range) can still be placed in CAD: the drawing needs ports and protocols, not terminals. They are
+			# flagged with what is missing; the System Designer still refuses them until the data is entered.
+			missing = None
+			if kind == "incomplete":
+				kind, missing = specs["intendedKind"], specs.get("missingFields") or []
+				specs = specs.get("available") or {}
 			controllers.append(
 				_compact(
 					{
@@ -302,6 +311,8 @@ def design_items(snapshot):
 						"model": item.get("model"),
 						"category": item.get("category"),
 						"kind": kind,
+						"incomplete": True if missing is not None else None,
+						"missing": missing or None,
 						"protocol_in": specs.get("protocolIn"),
 						"protocol_out": specs.get("protocolOut"),
 						# Controls in v1 (PRD question 7): what ILCTRL, ILZONE and ILCHECK need.
