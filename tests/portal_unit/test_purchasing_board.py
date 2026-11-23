@@ -755,5 +755,138 @@ class Writes(unittest.TestCase):
 				pb.make_po(supplier_quotation="SQ-1")
 
 
+class Row(dict):
+	"""A child row / document stand-in: attribute access and ``set`` like Frappe's."""
+
+	def __getattr__(self, key):
+		return self.get(key)
+
+	def __setattr__(self, key, value):
+		self[key] = value
+
+	def set(self, key, value):
+		self[key] = value
+
+
+class Bill(Row):
+	"""A mapped draft Purchase Invoice, as ERPNext's make_purchase_invoice returns it."""
+
+	def __init__(self, schedule, **fields):
+		super().__init__(doctype="Purchase Invoice", name="ACC-PINV-NEW", payment_schedule=schedule, **fields)
+		self.inserted = False
+		self.submitted = False
+
+	def remove(self, row):
+		self["payment_schedule"].remove(row)
+		for idx, other in enumerate(self["payment_schedule"], 1):
+			other.idx = idx
+
+	def insert(self):
+		# ERPNext's validate_due_date (accounts_controller + party.validate_due_date):
+		# set_due_date takes the latest row, then it may not be before bill_date or posting_date.
+		dates = [r.due_date for r in self.payment_schedule if r.due_date]
+		if len(set(map(str, dates))) != len(dates):
+			raise ValueError("Rows with duplicate due dates in other rows were found")
+		if dates:
+			self.due_date = max(dates, key=str)
+		if str(self.due_date) < str(self.bill_date or self.posting_date):
+			raise ValueError("Due Date cannot be before Supplier Invoice Date")
+		self.inserted = True
+
+	def submit(self):
+		self.submitted = True
+
+
+def po_terms(due="2026-10-08", portion=100, amount=500.0):
+	"""A schedule row copied from a PO with no payment terms template (due = the PO date)."""
+	return Row(
+		idx=1,
+		due_date=due,
+		invoice_portion=portion,
+		payment_amount=amount,
+		base_payment_amount=amount,
+		outstanding=amount,
+		base_outstanding=amount,
+	)
+
+
+class InvoiceDueDates(unittest.TestCase):
+	"""Draft bills from old receipts / orders: ERPNext copies the PO's lapsed due date."""
+
+	def draft(self, bill, **kw):
+		mapper = MagicMock(return_value=bill)
+		extras = {
+			"erpnext.stock.doctype.purchase_receipt.purchase_receipt": MagicMock(
+				make_purchase_invoice=mapper
+			),
+			"erpnext.buying.doctype.purchase_order.purchase_order": MagicMock(make_purchase_invoice=mapper),
+		}
+		with load_service(MODULE, extras) as (pb, frappe):
+			frappe.get_roles.return_value = ["Purchase User"]
+			frappe.get_doc.return_value = MagicMock(docstatus=1)
+			with patch.object(pb, "purchasing") as purchasing:
+				result = pb.make_invoice(**kw)
+		return result, mapper, purchasing.comment.call_args.args[2]
+
+	def test_receipt_bill_with_lapsed_po_terms_validates_as_a_draft(self):
+		# MAT-PRE-2026-00049: received 2026-10-28 against a PO from 2026-10-08, billed today.
+		bill = Bill(
+			[po_terms("2026-10-08")], posting_date="2026-11-23", bill_date=None, due_date="2026-10-08"
+		)
+		with self.assertRaisesRegex(ValueError, "Supplier Invoice Date"):
+			Bill([po_terms()], posting_date="2026-11-23", bill_date=None).insert()  # the bug, unfixed
+		result, mapper, comment = self.draft(bill, purchase_receipt="MAT-PRE-2026-00049")
+		mapper.assert_called_once_with("MAT-PRE-2026-00049")
+		self.assertEqual(result, {"name": "ACC-PINV-NEW", "doctype": "Purchase Invoice"})
+		self.assertTrue(bill.inserted)
+		self.assertFalse(bill.submitted)
+		self.assertEqual(str(bill.payment_schedule[0].due_date), "2026-11-23")
+		self.assertEqual(str(bill.due_date), "2026-11-23")
+		self.assertEqual(bill.payment_schedule[0].payment_amount, 500.0)
+		self.assertIsNone(bill.bill_date)  # the accountant still sets the supplier invoice date
+		self.assertIn("now due 2026-11-23", comment)
+
+	def test_po_bill_has_the_same_fix(self):
+		bill = Bill([po_terms("2026-09-30")], posting_date="2026-11-23", bill_date=None)
+		_, mapper, comment = self.draft(bill, po="PUR-ORD-2026-00031")
+		mapper.assert_called_once_with("PUR-ORD-2026-00031")
+		self.assertTrue(bill.inserted)
+		self.assertFalse(bill.submitted)
+		self.assertEqual(str(bill.due_date), "2026-11-23")
+		self.assertIn("from PUR-ORD-2026-00031", comment)
+
+	def test_current_terms_are_left_alone(self):
+		# Net 30 recalculated by ERPNext from today's posting date: nothing to move.
+		bill = Bill([po_terms("2026-12-23")], posting_date="2026-11-23", due_date="2026-12-23")
+		_, _, comment = self.draft(bill, purchase_receipt="MAT-PRE-2026-00048")
+		self.assertTrue(bill.inserted)
+		self.assertEqual(bill.payment_schedule[0].due_date, "2026-12-23")
+		self.assertEqual(bill.due_date, "2026-12-23")
+		self.assertNotIn("due", comment)
+		with load_service(MODULE) as (pb, _):
+			self.assertIsNone(pb.refresh_due_dates(Bill([], posting_date="2026-11-23")))
+			self.assertIsNone(pb.refresh_due_dates(Bill([po_terms()], posting_date=None)))
+
+	def test_lapsed_rows_merge_and_bill_date_is_the_base(self):
+		with load_service(MODULE) as (pb, _):
+			deposit = po_terms("2026-09-01", portion=30, amount=150.0)
+			on_ship = po_terms("2026-10-01", portion=40, amount=200.0)
+			on_ship.idx = 2
+			net = po_terms("2026-12-01", portion=30, amount=150.0)
+			net.idx = 3
+			bill = Bill([deposit, on_ship, net], posting_date="2026-11-23", bill_date="2026-11-01")
+			moved = pb.refresh_due_dates(bill)
+			self.assertEqual(moved.isoformat(), "2026-11-01")
+			self.assertEqual(len(bill.payment_schedule), 2)
+			first, last = bill.payment_schedule
+			self.assertEqual((first.idx, str(first.due_date)), (1, "2026-11-01"))
+			self.assertEqual(first.invoice_portion, 70)
+			self.assertEqual((first.payment_amount, first.outstanding, first.base_outstanding), (350.0,) * 3)
+			self.assertEqual((last.idx, last.due_date, last.invoice_portion), (2, "2026-12-01", 30))
+			self.assertEqual(str(bill.due_date), "2026-12-01")
+			bill.insert()  # validates
+			self.assertTrue(bill.inserted)
+
+
 if __name__ == "__main__":
 	unittest.main()
