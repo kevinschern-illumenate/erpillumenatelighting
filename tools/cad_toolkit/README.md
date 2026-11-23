@@ -81,8 +81,9 @@ Golden cases and fixtures live with the System Designer's so Python, TypeScript 
   asks again with the current answers as defaults (`-` clears one), keeps the code, retags the style's runs
   and repaints the ones showing its old colour. Its runs draw in the style's colour when they are fine or
   imported (red and yellow still mark errors and warnings). Hints, cut snap, the run split and the PSU load
-  use a variant made from its own numbers (`il-custom-variant`: W/ft, `cut_in` x 25.4 mm or free cut, max
-  run as the voltage-drop max run, so the 85 W per run rule still applies). ILCHECK skips the template,
+  use a variant made from its own numbers (`il-custom-variant`: W/ft, `cut_in` x 25.4 mm or free cut, and
+  its max run as an override that always wins, over the 85 W per run rule too; with no max run the 85 W
+  rule decides). ILCHECK skips the template,
   bend radius, profile and tape width rules for it and adds the info `CUSTOM_STYLE`. In the package the run's
   style is `{family: "Custom", template: <CODE>, selections: {}, custom: {code, label, family, color,
   w_per_ft?, voltage_v?, cut_in?, max_run_ft?, part_number?, notes?}}`. On import the preview lists each

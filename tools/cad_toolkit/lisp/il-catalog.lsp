@@ -236,6 +236,8 @@
       (cons "cut_mm" (if cut (* cut *il-mm-per-in*)))
       (cons "free_cut" (il-bool (null cut)))
       (cons "max_run_vd_ft" (if (il-custom-number-ok "max_run_ft" (il-j custom "max_run_ft")) (il-j custom "max_run_ft")))
+      ;; The user's own max run always wins, over the 85 W per run rule too.
+      (cons "max_run_override_ft" (if (il-custom-number-ok "max_run_ft" (il-j custom "max_run_ft")) (il-j custom "max_run_ft")))
       (cons "voltage_v" (if (il-custom-number-ok "voltage_v" (il-j custom "voltage_v")) (il-j custom "voltage_v")))
     )
   )

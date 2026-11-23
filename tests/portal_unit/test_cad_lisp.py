@@ -1414,6 +1414,17 @@ class CustomStyles(unittest.TestCase):
 		)
 		self.assertEqual(hint["snapped_in"], 23.9)
 		self.assertEqual(hint["max_run_ft"], round(85 / 4.4, 2))  # only the 85 W rule is left
+		# A max run longer than 85 W allows still wins: 30 ft at 4.4 W/ft (132 W) stays one run.
+		long = self.custom(max_run_ft=40)
+		hint = plain(
+			self.lisp.call(
+				"il-run-hint", run("C1-01", [[0, 0, 0], [360, 0, 0]], "custom:COVE-24V"), long, None
+			)
+		)
+		self.assertEqual((hint["runs_count"], hint["max_run_ft"]), (1, 40.0))
+		self.assertEqual(
+			to_python_json(self.lisp.call("il-style-variant", None, long))["max_run_override_ft"], 40
+		)
 		self.assertEqual(
 			self.lisp.call(
 				"il-hint-text",

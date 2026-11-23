@@ -279,6 +279,8 @@ def custom_variant(style):
 		"cut_mm": cut * MM_PER_IN if cut is not None else None,
 		"free_cut": cut is None,
 		"max_run_vd_ft": _custom_number(custom, "max_run_ft"),
+		# The user's own max run always wins, over the 85 W per run rule too.
+		"max_run_override_ft": _custom_number(custom, "max_run_ft"),
 		"voltage_v": _custom_number(custom, "voltage_v"),
 	}
 
